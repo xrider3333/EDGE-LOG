@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>EDGE LOG</title>
+<!-- Firebase compat -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<!-- React + Recharts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.5.0/Recharts.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%}
+body{background:#05050a;color:#dde0ec;font-family:'JetBrains Mono',monospace;font-size:13px}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:#0b0b12}
+::-webkit-scrollbar-thumb{background:#252538}
+.inp{background:#0d0d16;border:1px solid #1e1e2e;color:#dde0ec;font-family:'JetBrains Mono',monospace;font-size:12px;padding:9px 11px;width:100%;outline:none;transition:border-color .15s}
+.inp:focus{border-color:#00e5a066}
+.sel{-webkit-appearance:none;background:#0d0d16;border:1px solid #1e1e2e;color:#dde0ec;font-family:'JetBrains Mono',monospace;font-size:12px;padding:9px 11px;width:100%;outline:none;cursor:pointer}
+.sel:focus{border-color:#00e5a066}
+.nbtn{background:none;border:none;color:#404058;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;padding:12px 18px;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.nbtn:hover{color:#8080a0}
+.nbtn.on{color:#00e5a0;border-bottom-color:#00e5a0}
+.cbtn{border:none;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;padding:8px 18px;transition:all .15s;white-space:nowrap}
+.cbtn-g{background:#00e5a014;border:1px solid #00e5a030;color:#00e5a0}
+.cbtn-g:hover{background:#00e5a024}
+.cbtn-r{background:#ff3d5a14;border:1px solid #ff3d5a30;color:#ff3d5a}
+.cbtn-r:hover{background:#ff3d5a22}
+.cbtn-d{background:#0d0d16;border:1px solid #1e1e2e;color:#505068}
+.cbtn-d:hover{border-color:#252538;color:#8080a0}
+.cbtn-y{background:#f5c84214;border:1px solid #f5c84230;color:#f5c842}
+.cbtn-y:hover{background:#f5c84224}
+.tr:hover{background:#0d0d16}
+.del{background:none;border:none;color:#252538;cursor:pointer;padding:3px 8px;font-size:13px;transition:color .15s}
+.del:hover{color:#ff3d5a}
+.lbl{display:block;font-size:9px;letter-spacing:2px;color:#383850;margin-bottom:5px}
+.sec{border:1px solid #141422}
+.sec-hd{background:#0b0b12;padding:10px 16px;border-bottom:1px solid #141422;font-size:10px;letter-spacing:2px;color:#505068;display:flex;justify-content:space-between;align-items:center}
+.tag{font-size:9px;letter-spacing:1px;padding:2px 7px;background:#1a1a2a;color:#6060a0;white-space:nowrap}
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.auth-box{width:100%;max-width:420px}
+.err{color:#ff3d5a;font-size:11px;margin-top:8px;letter-spacing:.5px}
+.ok{color:#00e5a0;font-size:11px;margin-top:8px}
+.hint{color:#383850;font-size:10px;line-height:1.8;margin-top:8px}
+.chart-link{color:#4a9eff;font-size:10px;text-decoration:none;letter-spacing:.5px;display:inline-flex;align-items:center;gap:4px}
+.chart-link:hover{color:#7ab8ff}
+.drop-zone{border:1px dashed #252538;padding:20px;text-align:center;cursor:pointer;transition:all .15s;background:#09090f}
+.drop-zone:hover{border-color:#00e5a044;background:#00e5a008}
+.pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:#00e5a0;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.fade{animation:fadeIn .25s ease}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #1e1e2e;border-top-color:#00e5a0;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const {useState,useMemo,useEffect,useCallback,useRef} = React;
+const {LineChart,Line,BarChart,Bar,AreaChart,Area,XAxis,YAxis,
+       CartesianGrid,Tooltip,ResponsiveContainer,ReferenceLine,Cell} = Recharts;
+
+// ─── Tick specs ───────────────────────────────────────────────────────────
+const PRESETS = {
+  ES:{tv:12.50,ts:0.25},NQ:{tv:5.00,ts:0.25},MES:{tv:1.25,ts:0.25},
+  MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},
+  SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},
+  YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},
+  ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001},
+};
+const SETUPS = ["—","Breakout","Pullback","Reversal","Trend","Gap Fill","VWAP","S/D Zone","Momentum","ICT","Order Block","FVG","Other"];
+const EMPTY = {date:"",symbol:"ES",type:"LONG",entry:"",exit:"",size:"1",fees:"0",setup:"—",notes:"",chartUrl:""};
+const FK = "el_firebase_config";
+
+function calcPnl(t){
+  const p=PRESETS[t.symbol];if(!p)return 0;
+  const dir=t.type==="LONG"?1:-1;
+  const gross=((parseFloat(t.exit)-parseFloat(t.entry))*dir/p.ts)*p.tv*parseInt(t.size||1);
+  return +(gross-(parseFloat(t.fees)||0)).toFixed(2);
+}
+function stdDev(arr){
+  if(arr.length<2)return 0;
+  const m=arr.reduce((a,b)=>a+b,0)/arr.length;
+  return Math.sqrt(arr.reduce((s,v)=>s+(v-m)**2,0)/(arr.length-1));
+}
+const gc=n=>n>=0?"#00e5a0":"#ff3d5a";
+const fmt=n=>(n>=0?"+":"")+n.toFixed(2);
+
+// ─── Firebase singleton ───────────────────────────────────────────────────
+let fbApp=null,fbAuth=null,fbDb=null;
+function initFirebase(cfg){
+  try{
+    if(fbApp)return true;
+    fbApp=firebase.initializeApp(cfg);
+    fbAuth=firebase.auth();
+    fbDb=firebase.firestore();
+    fbDb.settings({experimentalForceLongPolling:true});
+    return true;
+  }catch(e){console.error(e);return false;}
+}
+
+// ─── SETUP SCREEN ─────────────────────────────────────────────────────────
+function SetupScreen({onDone}){
+  const [raw,setRaw]=useState("");
+  const [err,setErr]=useState("");
+  const save=()=>{
+    try{
+      const txt=raw.trim();
+      // Accept either raw JSON or the full firebaseConfig = {...} snippet
+      const jsonStr=txt.includes("firebaseConfig")
+        ? txt.replace(/.*firebaseConfig\s*=\s*/s,"").replace(/;?\s*$/,"")
+        : txt;
+      const cfg=JSON.parse(jsonStr);
+      if(!cfg.apiKey||!cfg.projectId)throw new Error("Missing apiKey or projectId");
+      localStorage.setItem(FK,JSON.stringify(cfg));
+      if(!initFirebase(cfg)){throw new Error("Firebase init failed");}
+      onDone();
+    }catch(e){setErr("Invalid config: "+e.message);}
+  };
+  return(
+    <div className="auth-wrap">
+      <div className="auth-box fade">
+        <div style={{marginBottom:32,textAlign:"center"}}>
+          <div style={{fontFamily:"'Bebas Neue',monospace",fontSize:42,letterSpacing:4,color:"#00e5a0",lineHeight:1}}>EDGE LOG</div>
+          <div style={{fontSize:10,color:"#252538",letterSpacing:3,marginTop:6}}>FUTURES TRADE TRACKER</div>
+        </div>
+        <div className="sec" style={{marginBottom:24}}>
+          <div className="sec-hd"><span>ONE-TIME SETUP — FIREBASE CONFIG</span></div>
+          <div style={{padding:20}}>
+            <div style={{fontSize:11,color:"#606080",lineHeight:2,marginBottom:16}}>
+              This connects your tracker to Google's free database so your trades sync across every device. Takes 3 minutes:
+            </div>
+            <div style={{background:"#09090f",border:"1px solid #111120",padding:"14px 16px",marginBottom:16,lineHeight:2}}>
+              <div style={{fontSize:10,color:"#00e5a0",letterSpacing:1,marginBottom:8}}>STEP BY STEP</div>
+              <div style={{fontSize:11,color:"#505070"}}>
+                1. Go to <a href="https://console.firebase.google.com" target="_blank" style={{color:"#4a9eff"}}>console.firebase.google.com</a><br/>
+                2. Click <b style={{color:"#dde0ec"}}>Add project</b> → name it "edgelog" → Continue<br/>
+                3. Click the <b style={{color:"#dde0ec"}}>Web icon &lt;/&gt;</b> → Register app → Copy config<br/>
+                4. In left menu: <b style={{color:"#dde0ec"}}>Build → Authentication → Get started → Email/Password → Enable</b><br/>
+                5. In left menu: <b style={{color:"#dde0ec"}}>Build → Firestore Database → Create database → Start in test mode</b><br/>
+                6. Paste your firebaseConfig below
+              </div>
+            </div>
+            <span className="lbl">PASTE YOUR FIREBASE CONFIG</span>
+            <textarea className="inp" rows={7} placeholder={`const firebaseConfig = {\n  apiKey: "AIza...",\n  authDomain: "edgelog-xxxx.firebaseapp.com",\n  projectId: "edgelog-xxxx",\n  storageBucket: "...",\n  messagingSenderId: "...",\n  appId: "..."\n};`}
+              value={raw} onChange={e=>setRaw(e.target.value)}
+              style={{resize:"vertical",fontFamily:"'JetBrains Mono',monospace",fontSize:11}}/>
+            {err&&<div className="err">{err}</div>}
+            <div className="hint">You can paste the entire snippet — the code will extract the JSON automatically.</div>
+          </div>
+        </div>
+        <button className="cbtn cbtn-g" style={{width:"100%",padding:"12px"}} onClick={save}>CONNECT &amp; CONTINUE →</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── AUTH SCREEN ──────────────────────────────────────────────────────────
+function AuthScreen({onUser}){
+  const [mode,setMode]=useState("login");
+  const [email,setEmail]=useState("");
+  const [pass,setPass]=useState("");
+  const [err,setErr]=useState("");
+  const [loading,setLoading]=useState(false);
+
+  const submit=async()=>{
+    setErr("");setLoading(true);
+    try{
+      if(mode==="login"){
+        const r=await fbAuth.signInWithEmailAndPassword(email,pass);
+        onUser(r.user);
+      } else {
+        const r=await fbAuth.createUserWithEmailAndPassword(email,pass);
+        onUser(r.user);
+      }
+    }catch(e){setErr(e.message);}
+    setLoading(false);
+  };
+  const forgot=async()=>{
+    if(!email){setErr("Enter your email first.");return;}
+    try{await fbAuth.sendPasswordResetEmail(email);setErr("");alert("Reset email sent!");}
+    catch(e){setErr(e.message);}
+  };
+
+  return(
+    <div className="auth-wrap">
+      <div className="auth-box fade">
+        <div style={{textAlign:"center",marginBottom:32}}>
+          <div style={{fontFamily:"'Bebas Neue',monospace",fontSize:42,letterSpacing:4,color:"#00e5a0",lineHeight:1}}>EDGE LOG</div>
+          <div style={{fontSize:10,color:"#252538",letterSpacing:3,marginTop:6}}>FUTURES TRADE TRACKER</div>
+        </div>
+        <div className="sec">
+          <div className="sec-hd">
+            <button className={`nbtn ${mode==="login"?"on":""}`} style={{padding:"10px 0",marginRight:16}} onClick={()=>setMode("login")}>SIGN IN</button>
+            <button className={`nbtn ${mode==="signup"?"on":""}`} style={{padding:"10px 0"}} onClick={()=>setMode("signup")}>CREATE ACCOUNT</button>
+          </div>
+          <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
+            <div>
+              <span className="lbl">EMAIL</span>
+              <input className="inp" type="email" placeholder="trader@email.com" value={email}
+                onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()}/>
+            </div>
+            <div>
+              <span className="lbl">PASSWORD</span>
+              <input className="inp" type="password" placeholder="••••••••" value={pass}
+                onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()}/>
+            </div>
+            {err&&<div className="err">{err}</div>}
+            <button className="cbtn cbtn-g" style={{padding:"11px"}} onClick={submit} disabled={loading}>
+              {loading?<span className="spin"/>:mode==="login"?"SIGN IN →":"CREATE ACCOUNT →"}
+            </button>
+            {mode==="login"&&(
+              <button onClick={forgot} style={{background:"none",border:"none",color:"#383850",cursor:"pointer",fontSize:10,letterSpacing:1,padding:0,textAlign:"left"}}>
+                Forgot password?
+              </button>
+            )}
+          </div>
+        </div>
+        <div style={{textAlign:"center",marginTop:16}}>
+          <button onClick={()=>{localStorage.removeItem(FK);location.reload();}}
+            style={{background:"none",border:"none",color:"#252538",cursor:"pointer",fontSize:10,letterSpacing:1}}>
+            ← Use different Firebase project
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── TOOLTIP ──────────────────────────────────────────────────────────────
+function Tip({active,payload}){
+  if(!active||!payload?.length)return null;
+  const d=payload[0]?.payload;
+  return(
+    <div style={{background:"#0b0b12",border:"1px solid #1e1e2e",padding:"8px 12px",fontFamily:"'JetBrains Mono',monospace",fontSize:11}}>
+      {payload.map((p,i)=>(
+        <div key={i} style={{color:typeof p.value==="number"&&p.value<0?"#ff3d5a":"#00e5a0"}}>
+          {p.name||p.dataKey}: ${typeof p.value==="number"?p.value.toFixed(2):p.value}
+        </div>
+      ))}
+      {d?.sym&&<div style={{color:"#383850",marginTop:3}}>{d.date} · {d.sym}</div>}
+    </div>
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────
+function App({user}){
+  const [trades,setTrades]=useState([]);
+  const [tab,setTab]=useState("overview");
+  const [form,setForm]=useState(EMPTY);
+  const [filt,setFilt]=useState({sym:"ALL",dir:"ALL",setup:"ALL"});
+  const [err,setErr]=useState("");
+  const [formOpen,setFormOpen]=useState(true);
+  const [cTab,setCTab]=useState("equity");
+  const [loading,setLoading]=useState(true);
+  const [saving,setSaving]=useState(false);
+  const [ntDrag,setNtDrag]=useState(false);
+  const colRef=useRef(null);
+
+  // ── Firestore ─────────────────────────────────────────────────────────
+  useEffect(()=>{
+    colRef.current=fbDb.collection("users").doc(user.uid).collection("trades");
+    const unsub=colRef.current.orderBy("date","asc").onSnapshot(snap=>{
+      setTrades(snap.docs.map(d=>({id:d.id,...d.data()})));
+      setLoading(false);
+    },e=>{console.error(e);setLoading(false);});
+    return unsub;
+  },[user.uid]);
+
+  const sf=(k,v)=>setForm(f=>({...f,[k]:v}));
+
+  const addTrade=async()=>{
+    const {date,symbol,entry,exit,size}=form;
+    if(!date||!entry||!exit||!size){setErr("Date, Entry, Exit, Size required.");return;}
+    if(isNaN(entry)||isNaN(exit)||isNaN(size)){setErr("Entry/Exit/Size must be numbers.");return;}
+    if(!PRESETS[symbol]){setErr("Symbol not supported.");return;}
+    setErr("");setSaving(true);
+    const t={...form,pnl:calcPnl(form),
+      entry:parseFloat(entry),exit:parseFloat(exit),
+      size:parseInt(size),fees:parseFloat(form.fees)||0,
+      createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+    await colRef.current.add(t);
+    setSaving(false);
+    setForm(f=>({...EMPTY,date:f.date,symbol:f.symbol,setup:f.setup}));
+  };
+
+  const del=async(id)=>{
+    if(!window.confirm("Delete this trade?"))return;
+    await colRef.current.doc(id).delete();
+  };
+
+  // ── NinjaTrader CSV import ────────────────────────────────────────────
+  const parseNT8=useCallback((text)=>{
+    const lines=text.split("\n").map(l=>l.trim()).filter(Boolean);
+    const hdr=lines[0].split(",").map(h=>h.replace(/"/g,"").trim().toLowerCase());
+    const get=(row,key)=>{
+      const i=hdr.findIndex(h=>h.includes(key));
+      return i>=0?row[i].replace(/"/g,"").trim():"";
+    };
+    let imported=0;
+    lines.slice(1).forEach(async(line)=>{
+      const row=line.split(",");
+      const sym=(get(row,"instrument")||get(row,"symbol")||"ES").split(" ")[0];
+      const dir=(get(row,"action")||get(row,"side")||"BUY").includes("BUY")?"LONG":"SHORT";
+      const qty=parseInt(get(row,"qty")||get(row,"quantity")||"1")||1;
+      const ep=parseFloat(get(row,"entry price")||get(row,"avg entry")||get(row,"price")||"0");
+      const xp=parseFloat(get(row,"exit price")||get(row,"avg exit")||"0");
+      const fee=parseFloat(get(row,"commission")||get(row,"fees")||"0")||0;
+      const dt=get(row,"entry time")||get(row,"date")||get(row,"time")||"";
+      const dateStr=dt?dt.slice(0,10):"";
+      if(!ep||!xp||!dateStr)return;
+      const t={date:dateStr,symbol:PRESETS[sym]?sym:"ES",type:dir,
+        entry:ep,exit:xp,size:qty,fees:fee,setup:"—",notes:"NT8 Import",chartUrl:"",
+        pnl:calcPnl({symbol:PRESETS[sym]?sym:"ES",type:dir,entry:ep,exit:xp,size:qty,fees:fee}),
+        createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+      await colRef.current.add(t);
+      imported++;
+    });
+    setTimeout(()=>alert(`Imported trades from NinjaTrader CSV!`),500);
+  },[]);
+
+  const handleNTFile=useCallback((e)=>{
+    const f=e.target.files[0]||e.dataTransfer?.files[0];
+    if(!f)return;
+    const r=new FileReader();
+    r.onload=ev=>parseNT8(ev.target.result);
+    r.readAsText(f);
+    if(e.target.value!==undefined)e.target.value="";
+  },[parseNT8]);
+
+  // ── Filtered trades ───────────────────────────────────────────────────
+  const filtered=useMemo(()=>trades.filter(t=>{
+    if(filt.sym!=="ALL"&&t.symbol!==filt.sym)return false;
+    if(filt.dir!=="ALL"&&t.type!==filt.dir)return false;
+    if(filt.setup!=="ALL"&&t.setup!==filt.setup)return false;
+    return true;
+  }),[trades,filt]);
+
+  // ── Stats ─────────────────────────────────────────────────────────────
+  const S=useMemo(()=>{
+    if(!trades.length)return null;
+    const wins=trades.filter(t=>t.pnl>0),losses=trades.filter(t=>t.pnl<0);
+    const wr=wins.length/trades.length;
+    const avgW=wins.length?wins.reduce((s,t)=>s+t.pnl,0)/wins.length:0;
+    const avgL=losses.length?Math.abs(losses.reduce((s,t)=>s+t.pnl,0)/losses.length):0;
+    const grossW=wins.reduce((s,t)=>s+t.pnl,0);
+    const grossL=Math.abs(losses.reduce((s,t)=>s+t.pnl,0));
+    const pf=grossL>0?grossW/grossL:grossW>0?Infinity:0;
+    const ev=wr*avgW-(1-wr)*(avgL||0);
+    const net=trades.reduce((s,t)=>s+t.pnl,0);
+    let peak=0,maxDD=0,cur=0;
+    trades.forEach(t=>{cur+=t.pnl;if(cur>peak)peak=cur;maxDD=Math.max(maxDD,peak-cur);});
+    const byDay={};
+    trades.forEach(t=>{byDay[t.date]=(byDay[t.date]||0)+t.pnl;});
+    const dv=Object.values(byDay);
+    const meanD=dv.length?dv.reduce((a,b)=>a+b,0)/dv.length:0;
+    const sharpe=dv.length>1?(meanD/(stdDev(dv)||1))*Math.sqrt(252):0;
+    let streak=0,sdir=0;
+    for(let i=trades.length-1;i>=0;i--){
+      const d=trades[i].pnl>0?1:-1;
+      if(!streak){streak=d;sdir=d;}else if(d===sdir)streak+=d;else break;
+    }
+    const syms={},setups={};
+    trades.forEach(t=>{
+      if(!syms[t.symbol])syms[t.symbol]={count:0,pnl:0,wins:0};
+      syms[t.symbol].count++;syms[t.symbol].pnl+=t.pnl;if(t.pnl>0)syms[t.symbol].wins++;
+      const k=t.setup||"—";
+      if(!setups[k])setups[k]={count:0,pnl:0,wins:0};
+      setups[k].count++;setups[k].pnl+=t.pnl;if(t.pnl>0)setups[k].wins++;
+    });
+    const totalFees=trades.reduce((s,t)=>s+(t.fees||0),0);
+    const rr=avgL>0?avgW/avgL:0;
+    return{wr,avgW,avgL,pf,ev,net,maxDD,sharpe,streak,sdir,wins:wins.length,losses:losses.length,
+           total:trades.length,syms,setups,totalFees,rr,byDay};
+  },[trades]);
+
+  const eqData=useMemo(()=>{let cum=0,pk=0;return trades.map((t,i)=>{cum=+(cum+t.pnl).toFixed(2);if(cum>pk)pk=cum;return{n:i+1,eq:cum,dd:+(pk-cum).toFixed(2),pnl:t.pnl,sym:t.symbol,date:t.date};});},[trades]);
+  const dailyBar=useMemo(()=>S?Object.entries(S.byDay).sort(([a],[b])=>a>b?1:-1).map(([d,v])=>({d:d.slice(5),v:+v.toFixed(2)})):[]  ,[S]);
+  const wrEv=useMemo(()=>S?Array.from({length:21},(_,i)=>{const w=i/20;return{wr:+(w*100).toFixed(0),ev:+(w*S.avgW-(1-w)*(S.avgL||0)).toFixed(2)};}):[],[S]);
+  const pfEv=useMemo(()=>S?Array.from({length:20},(_,i)=>{const pf=0.25+i*0.2;return{pf:+pf.toFixed(2),ev:+(S.wr*(pf*(S.avgL||1))-(1-S.wr)*(S.avgL||1)).toFixed(2)};}):[],[S]);
+
+  // ── Export ────────────────────────────────────────────────────────────
+  const exportCSV=()=>{
+    const h="Date,Symbol,Direction,Entry,Exit,Contracts,Fees,Net P&L,Setup,Notes,Chart URL\n";
+    const rows=trades.map(t=>`${t.date},${t.symbol},${t.type},${t.entry},${t.exit},${t.size},${t.fees||0},${t.pnl},"${t.setup||"—"}","${(t.notes||"").replace(/"/g,"'")}","${t.chartUrl||""}"`).join("\n");
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([h+rows],{type:"text/csv"}));
+    a.download=`edgelog_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+  };
+
+  const syms=[...new Set(trades.map(t=>t.symbol))];
+  const usedSetups=[...new Set(trades.map(t=>t.setup||"—"))].filter(s=>s!=="—");
+
+  const StatCard=({l,v,c,big})=>(
+    <div style={{background:"#0b0b12",border:"1px solid #141422",padding:"15px 18px"}}>
+      <div style={{fontSize:9,letterSpacing:2,color:"#383850",marginBottom:8}}>{l}</div>
+      <div style={{fontFamily:"'Bebas Neue',monospace",fontSize:big?30:22,letterSpacing:1,color:c||"#8080a0"}}>{v}</div>
+    </div>
+  );
+  const MiniCard=({l,v,c})=>(
+    <div style={{background:"#09090f",border:"1px solid #111120",padding:"11px 14px"}}>
+      <div style={{fontSize:9,letterSpacing:2,color:"#2a2a40",marginBottom:5}}>{l}</div>
+      <div style={{fontFamily:"'Bebas Neue',monospace",fontSize:18,letterSpacing:1,color:c||"#8080a0"}}>{v}</div>
+    </div>
+  );
+
+  if(loading)return(
+    <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
+      <div className="spin" style={{width:24,height:24}}/>
+      <div style={{fontSize:10,letterSpacing:3,color:"#252538"}}>LOADING TRADES...</div>
+    </div>
+  );
+
+  return(
+    <div style={{background:"#05050a",minHeight:"100vh"}}>
+      {/* TOP BAR */}
+      <div style={{background:"#080810",borderBottom:"1px solid #141422",display:"flex",alignItems:"stretch",padding:"0 20px",gap:2,position:"sticky",top:0,zIndex:10,flexWrap:"wrap"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginRight:20,borderRight:"1px solid #141422",paddingRight:20,paddingTop:6,paddingBottom:6}}>
+          <div>
+            <div style={{fontFamily:"'Bebas Neue',monospace",fontSize:22,letterSpacing:3,color:"#00e5a0",lineHeight:1}}>EDGE LOG</div>
+            <div style={{fontSize:9,color:"#252538",letterSpacing:1,marginTop:2}}>
+              {trades.length} TRADES &nbsp;|&nbsp;
+              <span style={{color:S?gc(S.net):"#252538"}}>{S?fmt(S.net):"$0.00"}</span>
+            </div>
+          </div>
+        </div>
+        {["overview","journal","analytics","import","export"].map(t=>(
+          <button key={t} className={`nbtn ${tab===t?"on":""}`} onClick={()=>setTab(t)}>{t.toUpperCase()}</button>
+        ))}
+        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:12}}>
+          {saving&&<div className="spin"/>}
+          <div style={{fontSize:9,color:"#252538",letterSpacing:1,display:"flex",alignItems:"center",gap:5}}>
+            <span className="pulse"/>&nbsp;SYNCED
+          </div>
+          <button className="cbtn cbtn-d" style={{fontSize:9,padding:"5px 10px"}} onClick={()=>fbAuth.signOut()}>SIGN OUT</button>
+        </div>
+      </div>
+
+      <div style={{padding:"20px 24px",maxWidth:1120,margin:"0 auto"}}>
+
+        {/* ══ OVERVIEW ══ */}
+        {tab==="overview"&&(
+          <div className="fade">
+            {!S?(
+              <div style={{border:"1px dashed #1a1a2a",padding:"80px",textAlign:"center",color:"#252538",fontSize:11,letterSpacing:3}}>
+                NO TRADES YET — ADD YOUR FIRST IN JOURNAL
+              </div>
+            ):(
+              <>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:8}}>
+                  <StatCard l="NET P&L"       v={fmt(S.net)}                                     c={gc(S.net)} big/>
+                  <StatCard l="WIN RATE"      v={(S.wr*100).toFixed(1)+"%"}                       c={S.wr>=.5?"#00e5a0":"#ff3d5a"}/>
+                  <StatCard l="PROFIT FACTOR" v={isFinite(S.pf)?S.pf.toFixed(2)+"×":"∞"}         c={S.pf>=1.5?"#00e5a0":S.pf>=1?"#f5c842":"#ff3d5a"}/>
+                  <StatCard l="EXP. VALUE"    v={"$"+S.ev.toFixed(2)+"/tr"}                       c={S.ev>0?"#00e5a0":"#ff3d5a"}/>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:8}}>
+                  <MiniCard l="TOTAL TRADES"  v={S.total}/>
+                  <MiniCard l="SHARPE (ANN.)" v={S.sharpe.toFixed(2)} c={S.sharpe>1?"#00e5a0":S.sharpe>0?"#f5c842":"#ff3d5a"}/>
+                  <MiniCard l="MAX DRAWDOWN"  v={"-$"+S.maxDD.toFixed(2)} c="#ff3d5a"/>
+                  <MiniCard l="STREAK"        v={(S.sdir>0?"+":"")+S.streak+(S.sdir>0?" W":" L")} c={S.sdir>0?"#00e5a0":"#ff3d5a"}/>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:20}}>
+                  <MiniCard l="AVG WIN"    v={"+$"+S.avgW.toFixed(2)}  c="#00e5a0"/>
+                  <MiniCard l="AVG LOSS"   v={"-$"+S.avgL.toFixed(2)}  c="#ff3d5a"/>
+                  <MiniCard l="RISK:REWARD" v={S.rr.toFixed(2)+"R"}   c={S.rr>=1?"#00e5a0":S.rr>=.75?"#f5c842":"#ff3d5a"}/>
+                  <MiniCard l="TOTAL FEES" v={"-$"+S.totalFees.toFixed(2)} c="#f5c842"/>
+                </div>
+                <div className="sec" style={{marginBottom:12}}>
+                  <div className="sec-hd"><span>EQUITY CURVE</span><span style={{color:"#ff3d5a",fontSize:10}}>MAX DD −${S.maxDD.toFixed(2)}</span></div>
+                  <div style={{padding:"14px 4px 0"}}>
+                    <ResponsiveContainer width="100%" height={160}><LineChart data={eqData}><CartesianGrid strokeDasharray="2 6" stroke="#0d0d18"/><XAxis dataKey="n" tick={{fill:"#383850",fontSize:10}}/><YAxis tick={{fill:"#383850",fontSize:10}} tickFormatter={v=>"$"+v}/><Tooltip content={<Tip/>}/><ReferenceLine y={0} stroke="#1a1a2a" strokeDasharray="4 4"/><Line type="monotone" dataKey="eq" stroke="#00e5a0" strokeWidth={2} dot={p=><circle key={p.index} cx={p.cx} cy={p.cy} r={3} fill={p.payload.pnl>=0?"#00e5a0":"#ff3d5a"} stroke="none"/>}/></LineChart></ResponsiveContainer>
+                    <div style={{padding:"6px 14px 4px",fontSize:9,letterSpacing:2,color:"#252538",borderTop:"1px solid #0d0d18",marginTop:6}}>DRAWDOWN</div>
+                    <ResponsiveContainer width="100%" height={70}><AreaChart data={eqData}><XAxis dataKey="n" hide/><YAxis tick={{fill:"#383850",fontSize:9}} tickFormatter={v=>"$"+v} width={46}/><Tooltip content={<Tip/>}/><Area type="monotone" dataKey="dd" name="Drawdown" stroke="#ff3d5a80" fill="#ff3d5a0c" strokeWidth={1.5}/></AreaChart></ResponsiveContainer>
+                  </div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                  {[["BY SYMBOL",S.syms],["BY SETUP",S.setups]].map(([title,data])=>(
+                    <div className="sec" key={title}>
+                      <div className="sec-hd"><span>{title}</span></div>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                        <thead><tr style={{background:"#09090f"}}>{["NAME","TRADES","WR","P&L"].map(h=><th key={h} style={{padding:"7px 12px",textAlign:"left",color:"#2a2a40",fontWeight:"normal",fontSize:9,letterSpacing:2,borderBottom:"1px solid #111120"}}>{h}</th>)}</tr></thead>
+                        <tbody>{Object.entries(data).sort(([,a],[,b])=>b.pnl-a.pnl).map(([k,s])=>(
+                          <tr key={k} className="tr" style={{borderBottom:"1px solid #0d0d16"}}>
+                            <td style={{padding:"8px 12px",color:"#dde0ec",fontWeight:"bold"}}>{k}</td>
+                            <td style={{padding:"8px 12px",color:"#606080"}}>{s.count}</td>
+                            <td style={{padding:"8px 12px",color:s.wins/s.count>=.5?"#00e5a0":"#ff3d5a"}}>{(s.wins/s.count*100).toFixed(0)}%</td>
+                            <td style={{padding:"8px 12px",color:gc(s.pnl),fontFamily:"'Bebas Neue',monospace",fontSize:14}}>{fmt(s.pnl)}</td>
+                          </tr>
+                        ))}</tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ══ JOURNAL ══ */}
+        {tab==="journal"&&(
+          <div className="fade">
+            <div className="sec" style={{marginBottom:16}}>
+              <div className="sec-hd" style={{cursor:"pointer"}} onClick={()=>setFormOpen(o=>!o)}>
+                <span style={{color:"#00e5a0"}}>＋ NEW TRADE</span>
+                <span style={{color:"#252538"}}>{formOpen?"▲":"▼"}</span>
+              </div>
+              {formOpen&&(
+                <div style={{padding:16}}>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:8}}>
+                    {[["DATE","date","date",""],["SYMBOL","symbol","sel",Object.keys(PRESETS)],["DIRECTION","type","sel",["LONG","SHORT"]],
+                      ["ENTRY PRICE","entry","text","5210.25"],["EXIT PRICE","exit","text","5228.50"],["CONTRACTS","size","text","1"],
+                      ["FEES ($)","fees","text","4.50"],["SETUP","setup","sel",SETUPS]].map(([l,k,t,opts])=>(
+                      <div key={k}>
+                        <span className="lbl">{l}</span>
+                        {t==="sel"?(
+                          <select className="sel" value={form[k]} onChange={e=>sf(k,e.target.value)}>
+                            {opts.map(o=><option key={o}>{o}</option>)}
+                          </select>
+                        ):(
+                          <input className="inp" type={t} placeholder={opts} value={form[k]}
+                            onChange={e=>sf(k,e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTrade()}/>
+                        )}
+                      </div>
+                    ))}
+                    <div style={{display:"flex",alignItems:"flex-end"}}>
+                      <button className="cbtn cbtn-g" style={{width:"100%",padding:10}} onClick={addTrade} disabled={saving}>
+                        {saving?<span className="spin"/>:"ADD TRADE"}
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    <div>
+                      <span className="lbl">TRADINGVIEW CHART URL</span>
+                      <input className="inp" placeholder="https://www.tradingview.com/chart/xxxx/?symbol=CME_MINI%3AES1%21" value={form.chartUrl}
+                        onChange={e=>sf("chartUrl",e.target.value)}/>
+                    </div>
+                    <div>
+                      <span className="lbl">NOTES</span>
+                      <input className="inp" placeholder="Setup reasoning, observations..." value={form.notes}
+                        onChange={e=>sf("notes",e.target.value)}/>
+                    </div>
+                  </div>
+                  {err&&<div className="err">{err}</div>}
+                  {form.entry&&form.exit&&form.size&&PRESETS[form.symbol]&&(()=>{
+                    const p=calcPnl(form);
+                    return <div style={{marginTop:8,fontSize:12,color:gc(p),letterSpacing:1}}>PREVIEW: {fmt(p)}</div>;
+                  })()}
+                  <div style={{fontSize:10,color:"#1e1e2e",marginTop:8}}>
+                    Press Enter on price fields to submit · Net P&L calculated from tick value automatically
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {trades.length>0&&(
+              <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
+                <span style={{fontSize:9,letterSpacing:2,color:"#383850"}}>FILTER</span>
+                {[["sym","ALL SYMBOLS",[...["ALL"],...syms]],["dir","ALL DIR",["ALL","LONG","SHORT"]],["setup","ALL SETUPS",[...["ALL"],...usedSetups]]].map(([k,def,opts])=>(
+                  <select key={k} className="sel" style={{width:"auto",fontSize:11}} value={filt[k]} onChange={e=>setFilt(f=>({...f,[k]:e.target.value}))}>
+                    {opts.map(o=><option key={o} value={o==="ALL SYMBOLS"||o==="ALL DIR"||o==="ALL SETUPS"?"ALL":o}>{o}</option>)}
+                  </select>
+                ))}
+                {(filt.sym!=="ALL"||filt.dir!=="ALL"||filt.setup!=="ALL")&&(
+                  <button className="cbtn cbtn-d" style={{fontSize:10}} onClick={()=>setFilt({sym:"ALL",dir:"ALL",setup:"ALL"})}>✕ CLEAR</button>
+                )}
+                <span style={{marginLeft:"auto",fontSize:10,color:"#383850"}}>{filtered.length}/{trades.length}</span>
+              </div>
+            )}
+
+            {filtered.length===0?(
+              <div style={{border:"1px dashed #141422",padding:"48px",textAlign:"center",color:"#252538",fontSize:11,letterSpacing:2}}>
+                {trades.length===0?"ADD YOUR FIRST TRADE ABOVE":"NO TRADES MATCH FILTER"}
+              </div>
+            ):(
+              <div className="sec" style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,minWidth:900}}>
+                  <thead>
+                    <tr style={{background:"#09090f"}}>
+                      {["#","DATE","SYM","DIR","ENTRY","EXIT","CTRS","FEES","NET P&L","SETUP","CHART","NOTES",""].map(h=>(
+                        <th key={h} style={{padding:"8px 10px",textAlign:"left",color:"#2a2a40",fontWeight:"normal",fontSize:9,letterSpacing:2,borderBottom:"1px solid #111120",whiteSpace:"nowrap"}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...filtered].reverse().map((t,i)=>(
+                      <tr key={t.id} className="tr" style={{borderBottom:"1px solid #0d0d16"}}>
+                        <td style={{padding:"8px 10px",color:"#252538"}}>{String(filtered.length-i).padStart(2,"0")}</td>
+                        <td style={{padding:"8px 10px",color:"#404060",whiteSpace:"nowrap"}}>{t.date}</td>
+                        <td style={{padding:"8px 10px",color:"#dde0ec",fontWeight:"bold"}}>{t.symbol}</td>
+                        <td style={{padding:"8px 10px",color:t.type==="LONG"?"#00e5a0":"#ff3d5a"}}>{t.type}</td>
+                        <td style={{padding:"8px 10px",color:"#6060a0"}}>{t.entry}</td>
+                        <td style={{padding:"8px 10px",color:"#6060a0"}}>{t.exit}</td>
+                        <td style={{padding:"8px 10px",color:"#404060"}}>{t.size}</td>
+                        <td style={{padding:"8px 10px",color:"#383850"}}>{t.fees>0?"-$"+t.fees.toFixed(2):"—"}</td>
+                        <td style={{padding:"8px 10px",color:gc(t.pnl),fontFamily:"'Bebas Neue',monospace",fontSize:14,whiteSpace:"nowrap"}}>{fmt(t.pnl)}</td>
+                        <td style={{padding:"8px 10px"}}>{t.setup&&t.setup!=="—"&&<span className="tag">{t.setup}</span>}</td>
+                        <td style={{padding:"8px 10px"}}>
+                          {t.chartUrl?(
+                            <a href={t.chartUrl} target="_blank" className="chart-link" rel="noreferrer">
+                              📈 VIEW
+                            </a>
+                          ):"—"}
+                        </td>
+                        <td style={{padding:"8px 10px",color:"#383850",maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={t.notes}>{t.notes||""}</td>
+                        <td style={{padding:"4px"}}><button className="del" onClick={()=>del(t.id)}>✕</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ ANALYTICS ══ */}
+        {tab==="analytics"&&(
+          <div className="fade">
+            {!S?(
+              <div style={{border:"1px dashed #141422",padding:"80px",textAlign:"center",color:"#252538",fontSize:11,letterSpacing:2}}>ADD TRADES TO SEE ANALYTICS</div>
+            ):(
+              <>
+                <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+                  {[["equity","EQUITY + DD"],["daily","DAILY P&L"],["wr_ev","WR → EV"],["pf_ev","PF → EV"]].map(([id,l])=>(
+                    <button key={id} className={`cbtn ${cTab===id?"cbtn-g":"cbtn-d"}`} onClick={()=>setCTab(id)}>{l}</button>
+                  ))}
+                </div>
+                {cTab==="equity"&&<div className="sec"><div className="sec-hd"><span>EQUITY CURVE</span><span style={{color:"#ff3d5a"}}>MAX DD −${S.maxDD.toFixed(2)}</span></div><div style={{padding:"14px 4px 4px"}}><ResponsiveContainer width="100%" height={200}><LineChart data={eqData}><CartesianGrid strokeDasharray="2 6" stroke="#0d0d18"/><XAxis dataKey="n" tick={{fill:"#383850",fontSize:10}}/><YAxis tick={{fill:"#383850",fontSize:10}} tickFormatter={v=>"$"+v}/><Tooltip content={<Tip/>}/><ReferenceLine y={0} stroke="#1a1a2a" strokeDasharray="4 4"/><Line type="monotone" dataKey="eq" name="Equity" stroke="#00e5a0" strokeWidth={2} dot={p=><circle key={p.index} cx={p.cx} cy={p.cy} r={3} fill={p.payload.pnl>=0?"#00e5a0":"#ff3d5a"} stroke="none"/>}/></LineChart></ResponsiveContainer><div style={{padding:"6px 14px 4px",fontSize:9,letterSpacing:2,color:"#252538"}}>DRAWDOWN</div><ResponsiveContainer width="100%" height={90}><AreaChart data={eqData}><XAxis dataKey="n" hide/><YAxis tick={{fill:"#383850",fontSize:9}} tickFormatter={v=>"$"+v} width={46}/><Tooltip content={<Tip/>}/><Area type="monotone" dataKey="dd" name="Drawdown" stroke="#ff3d5a80" fill="#ff3d5a0c" strokeWidth={1.5}/></AreaChart></ResponsiveContainer></div></div>}
+                {cTab==="daily"&&<div className="sec"><div className="sec-hd"><span>DAILY P&L</span><span>{dailyBar.length} DAYS</span></div><div style={{padding:"14px 4px 8px"}}><ResponsiveContainer width="100%" height={280}><BarChart data={dailyBar}><CartesianGrid strokeDasharray="2 6" stroke="#0d0d18" vertical={false}/><XAxis dataKey="d" tick={{fill:"#383850",fontSize:10}}/><YAxis tick={{fill:"#383850",fontSize:10}} tickFormatter={v=>"$"+v}/><Tooltip content={<Tip/>}/><ReferenceLine y={0} stroke="#1e1e2e"/><Bar dataKey="v" name="P&L" radius={[2,2,0,0]}>{dailyBar.map((d,i)=><Cell key={i} fill={d.v>=0?"#00e5a0":"#ff3d5a"}/>)}</Bar></BarChart></ResponsiveContainer></div></div>}
+                {cTab==="wr_ev"&&<div className="sec"><div className="sec-hd">WIN RATE → EXPECTED VALUE</div><div style={{padding:"14px 4px 8px"}}><ResponsiveContainer width="100%" height={260}><LineChart data={wrEv}><CartesianGrid strokeDasharray="2 6" stroke="#0d0d18"/><XAxis dataKey="wr" tick={{fill:"#383850",fontSize:10}} tickFormatter={v=>v+"%"}/><YAxis tick={{fill:"#383850",fontSize:10}} tickFormatter={v=>"$"+v}/><Tooltip content={<Tip/>}/><ReferenceLine y={0} stroke="#252538" strokeDasharray="4 4" label={{value:"BREAK-EVEN",fill:"#404058",fontSize:9,position:"right"}}/><ReferenceLine x={+(S.wr*100).toFixed(0)} stroke="#00e5a044" strokeDasharray="3 3" label={{value:"YOU",fill:"#00e5a0",fontSize:9,position:"top"}}/><Line type="monotone" dataKey="ev" stroke="#f5c842" strokeWidth={2.5} dot={false}/></LineChart></ResponsiveContainer></div></div>}
+                {cTab==="pf_ev"&&<div className="sec"><div className="sec-hd">PROFIT FACTOR → EXPECTED VALUE</div><div style={{padding:"14px 4px 8px"}}><ResponsiveContainer width="100%" height={260}><LineChart data={pfEv}><CartesianGrid strokeDasharray="2 6" stroke="#0d0d18"/><XAxis dataKey="pf" tick={{fill:"#383850",fontSize:10}} tickFormatter={v=>v+"×"}/><YAxis tick={{fill:"#383850",fontSize:10}} tickFormatter={v=>"$"+v}/><Tooltip content={<Tip/>}/><ReferenceLine y={0} stroke="#252538" strokeDasharray="4 4" label={{value:"BREAK-EVEN",fill:"#404058",fontSize:9,position:"right"}}/>{isFinite(S.pf)&&<ReferenceLine x={+S.pf.toFixed(2)} stroke="#00e5a044" strokeDasharray="3 3" label={{value:"YOU",fill:"#00e5a0",fontSize:9,position:"top"}}/>}<Line type="monotone" dataKey="ev" stroke="#2196f3" strokeWidth={2.5} dot={false}/></LineChart></ResponsiveContainer></div></div>}
+                <div style={{marginTop:14,background:"#09090f",border:"1px solid #111120",padding:"12px 16px",fontSize:11,color:"#404060"}}>
+                  EV = (WR × AvgWin) − ((1−WR) × AvgLoss) = ({(S.wr*100).toFixed(0)}% × ${S.avgW.toFixed(0)}) − ({((1-S.wr)*100).toFixed(0)}% × ${S.avgL.toFixed(0)})
+                  <span style={{color:gc(S.ev),marginLeft:8}}> = ${S.ev.toFixed(2)}/trade</span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ══ IMPORT (NinjaTrader) ══ */}
+        {tab==="import"&&(
+          <div className="fade" style={{maxWidth:680}}>
+            <div style={{marginBottom:20,background:"#09090f",border:"1px solid #111120",padding:"16px 20px"}}>
+              <div style={{fontSize:10,color:"#f5c842",letterSpacing:2,marginBottom:8}}>NINJATRADE CSV IMPORT</div>
+              <div style={{fontSize:11,color:"#505070",lineHeight:2}}>
+                Export your trade history from NinjaTrader 8, then drop the CSV file below.
+                Your P&L, direction, symbol, entry/exit, and fees will be auto-detected.
+              </div>
+            </div>
+
+            <div className="sec" style={{marginBottom:16}}>
+              <div className="sec-hd">HOW TO EXPORT FROM NINJATRADE 8</div>
+              <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
+                {[
+                  ["1","Open NinjaTrader 8"],
+                  ["2","Go to  Account Performance  (top menu → Account → Performance)"],
+                  ["3","Set your date range, click  Generate Report"],
+                  ["4","Click  Export → CSV  in the top right"],
+                  ["5","Drop the exported file below"],
+                ].map(([n,s])=>(
+                  <div key={n} style={{display:"flex",gap:14,alignItems:"flex-start"}}>
+                    <div style={{fontFamily:"'Bebas Neue',monospace",fontSize:20,color:"#00e5a0",lineHeight:1,minWidth:20}}>{n}</div>
+                    <div style={{fontSize:11,color:"#606080",paddingTop:3}}>{s}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div
+              className={`drop-zone ${ntDrag?"drag":""}`}
+              onDragOver={e=>{e.preventDefault();setNtDrag(true);}}
+              onDragLeave={()=>setNtDrag(false)}
+              onDrop={e=>{e.preventDefault();setNtDrag(false);handleNTFile(e);}}
+              onClick={()=>document.getElementById("ntfile").click()}
+              style={{marginBottom:12,padding:"40px 20px"}}>
+              <div style={{fontSize:28,marginBottom:12}}>📂</div>
+              <div style={{fontSize:11,color:"#505070",letterSpacing:1}}>
+                DROP NT8 CSV HERE or CLICK TO BROWSE
+              </div>
+              <div style={{fontSize:10,color:"#252538",marginTop:8}}>Accepts .csv files exported from NinjaTrader 8</div>
+              <input type="file" id="ntfile" accept=".csv" style={{display:"none"}} onChange={handleNTFile}/>
+            </div>
+
+            <div className="sec">
+              <div className="sec-hd">ALTERNATIVE: MANUAL CSV (ANY BROKER)</div>
+              <div style={{padding:16}}>
+                <div style={{fontSize:11,color:"#505070",marginBottom:12,lineHeight:2}}>
+                  Any CSV with columns containing: date, symbol, entry price, exit price, quantity, commission. Column names are detected automatically — works with most broker exports.
+                </div>
+                <label style={{cursor:"pointer"}}>
+                  <input type="file" accept=".csv" style={{display:"none"}} onChange={handleNTFile}/>
+                  <span className="cbtn cbtn-d">CHOOSE CSV FILE</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ EXPORT ══ */}
+        {tab==="export"&&(
+          <div className="fade" style={{maxWidth:580}}>
+            <div style={{background:"#09090f",border:"1px solid #111120",padding:"12px 16px",marginBottom:16,fontSize:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{color:"#383850",letterSpacing:1}}>CLOUD SYNC STATUS</span>
+              <span style={{color:"#00e5a0",display:"flex",alignItems:"center",gap:8}}><span className="pulse"/> LIVE — {trades.length} TRADES SYNCED</span>
+            </div>
+            <div className="sec" style={{marginBottom:12}}>
+              <div className="sec-hd">EXPORT</div>
+              <div style={{padding:12,display:"flex",flexDirection:"column",gap:8}}>
+                {[
+                  ["CSV Export","Import into Excel, Google Sheets, or TradingView...","DOWNLOAD CSV",exportCSV,"cbtn-g"],
+                ].map(([t,d,l,fn,cls])=>(
+                  <div key={t} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#09090f",padding:"12px 14px"}}>
+                    <div><div style={{fontSize:12,color:"#dde0ec",marginBottom:2}}>{t}</div><div style={{fontSize:10,color:"#404060"}}>{d}</div></div>
+                    <button className={`cbtn ${cls}`} onClick={fn} disabled={!trades.length} style={{opacity:trades.length?1:.4}}>{l}</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {trades.length>0&&(
+              <div style={{border:"1px solid #ff3d5a18"}}>
+                <div style={{background:"#0d0008",padding:"10px 16px",borderBottom:"1px solid #ff3d5a18",fontSize:10,letterSpacing:2,color:"#ff3d5a"}}>DANGER ZONE</div>
+                <div style={{padding:"14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{fontSize:11,color:"#404060"}}>Permanently delete all {trades.length} trades from cloud.</div>
+                  <button className="cbtn cbtn-r" onClick={async()=>{
+                    if(!window.confirm(`Delete all ${trades.length} trades? CANNOT BE UNDONE.`))return;
+                    const snap=await colRef.current.get();
+                    const batch=fbDb.batch();
+                    snap.docs.forEach(d=>batch.delete(d.ref));
+                    await batch.commit();
+                  }}>CLEAR ALL</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+// ─── ROOT ─────────────────────────────────────────────────────────────────
+function Root(){
+  const [phase,setPhase]=useState("loading");
+  const [user,setUser]=useState(null);
+
+  useEffect(()=>{
+    const saved=localStorage.getItem(FK);
+    if(!saved){setPhase("setup");return;}
+    try{
+      const cfg=JSON.parse(saved);
+      if(!initFirebase(cfg)){localStorage.removeItem(FK);setPhase("setup");return;}
+      const unsub=fbAuth.onAuthStateChanged(u=>{
+        if(u){setUser(u);setPhase("app");}
+        else{setPhase("auth");}
+      });
+      return unsub;
+    }catch{localStorage.removeItem(FK);setPhase("setup");}
+  },[]);
+
+  if(phase==="loading")return(
+    <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div className="spin" style={{width:24,height:24}}/>
+    </div>
+  );
+  if(phase==="setup")return<SetupScreen onDone={()=>{
+    const unsub=fbAuth.onAuthStateChanged(u=>{
+      if(u){setUser(u);setPhase("app");}else{setPhase("auth");}
+      unsub();
+    });
+    setPhase("auth");
+  }}/>;
+  if(phase==="auth")return<AuthScreen onUser={u=>{setUser(u);setPhase("app");}}/>;
+  return<App user={user}/>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Root/>);
+</script>
+</body>
+</html>
