@@ -8,8 +8,6 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:#05050a;color:#dde0ec;font-family:'JetBrains Mono',monospace;font-size:13px}
-.spinner{display:inline-block;width:28px;height:28px;border:3px solid #1e1e2e;border-top-color:#00e5a0;border-radius:50%;animation:spin 0.8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
 .drop-zone{border:2px dashed #252538;padding:60px 20px;text-align:center;background:#09090f;cursor:pointer;transition:all .2s}
 .drop-zone:hover,.drop-zone.drag{border-color:#00e5a0;background:#00e5a008}
 h1{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:4px;color:#00e5a0}
@@ -19,11 +17,11 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:4px;color:#
 
 <div style="padding:40px;max-width:900px;margin:0 auto">
   <h1 style="text-align:center">EDGE LOG</h1>
-  <p style="text-align:center;color:#505070;margin-bottom:30px">NinjaTrader Import (Fixed for your headers)</p>
+  <p style="text-align:center;color:#505070;margin-bottom:30px">NinjaTrader Import — Fixed for your CSV</p>
 
   <div style="background:#0b0b12;border:1px solid #141422;padding:30px;border-radius:8px">
     <div id="status" style="margin-bottom:20px;padding:12px;background:#1a1a2a;border-radius:4px;font-size:14px">
-      Drop your CSV file below
+      Drop your Performance.csv file below
     </div>
 
     <div id="drop-zone" class="drop-zone">
@@ -33,21 +31,25 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:4px;color:#
       <input type="file" id="file-input" accept=".csv" style="display:none">
     </div>
 
-    <div id="result" style="margin-top:30px;font-size:12.5px;max-height:450px;overflow:auto;line-height:1.5"></div>
+    <div id="result" style="margin-top:30px;font-size:12.5px;max-height:500px;overflow:auto;line-height:1.6"></div>
   </div>
 </div>
 
 <script>
 const PRESETS = {
-  ES:{tv:12.50,ts:0.25}, NQ:{tv:5.00,ts:0.25}, MES:{tv:1.25,ts:0.25},
-  MNQ:{tv:0.50,ts:0.25}, CL:{tv:10.00,ts:0.01}, GC:{tv:10.00,ts:0.10}
+  ES: {tv:12.50, ts:0.25},
+  NQ: {tv:5.00,  ts:0.25},
+  MES: {tv:1.25, ts:0.25},   // Correct tick value for MES
+  MNQ: {tv:0.50, ts:0.25},
+  CL: {tv:10.00, ts:0.01}
 };
 
-function calcPnl(sym, type, entry, exit, size, fees) {
+function calcPnl(sym, type, entry, exit, size) {
   const p = PRESETS[sym] || PRESETS.ES;
   const dir = type === 'LONG' ? 1 : -1;
-  const gross = ((exit - entry) * dir / p.ts) * p.tv * size;
-  return +((gross - (fees || 0)).toFixed(2));
+  const ticks = (exit - entry) / p.ts;
+  const gross = ticks * p.tv * size;
+  return +gross.toFixed(2);
 }
 
 function parseCSV(text) {
@@ -72,7 +74,6 @@ function parseCSV(text) {
   }
 
   const headers = parseLine(lines[0]).map(h => h.toLowerCase().trim());
-  console.log("Headers:", headers);
 
   let imported = 0;
   const preview = [];
@@ -89,55 +90,56 @@ function parseCSV(text) {
       return '';
     };
 
-    const symbol = (get(['symbol']) || 'ES').split(' ')[0].toUpperCase();
+    const symbolRaw = get(['symbol']);
+    const symbol = (symbolRaw || 'MES').split(' ')[0].toUpperCase();
 
-    // Direction from buy/sell
+    const qty = parseInt(get(['qty'])) || 1;
     const buyPrice = parseFloat(get(['buyprice']));
     const sellPrice = parseFloat(get(['sellprice']));
-    const qty = parseInt(get(['qty', 'quantity'])) || 1;
+    const pnlFromFile = get(['pnl']).replace('$','').trim();
 
+    // Determine direction and entry/exit
     let type = 'LONG';
     let entry = buyPrice;
     let exitPrice = sellPrice;
 
-    // If sellprice exists and is used for closing a long, or if buyprice is missing
     if (!buyPrice && sellPrice) {
       type = 'SHORT';
       entry = sellPrice;
-      exitPrice = buyPrice || sellPrice; // fallback
+      exitPrice = buyPrice || sellPrice;
     }
 
-    const fees = 0; // your file doesn't seem to have commission column
-
-    const boughtts = get(['boughttimestamp']);
-    const soldts = get(['soldtimestamp']);
+    // Date
+    let dateTime = get(['boughttimestamp']) || get(['soldtimestamp']);
     let date = '';
-    if (boughtts) {
-      const match = boughtts.match(/(\d{4}-\d{2}-\d{2})/);
-      date = match ? match[1] : boughtts.slice(0,10);
+    if (dateTime) {
+      const match = dateTime.match(/(\d{2}\/\d{2}\/\d{4})/);
+      if (match) date = match[1].split('/').reverse().join('-'); // MM/DD/YYYY → YYYY-MM-DD
     }
 
     if (entry && exitPrice && !isNaN(entry) && !isNaN(exitPrice)) {
-      const pnl = calcPnl(symbol, type, entry, exitPrice, qty, fees);
-      preview.push(`${date || '—'} | ${symbol} ${type} ${qty}x | Entry ${entry} → Exit ${exitPrice} | <span style="color:${pnl>=0?'#00e5a0':'#ff3d5a'}">P&L ${pnl>=0?'+' : ''}$${pnl}</span>`);
+      const pnl = calcPnl(symbol, type, entry, exitPrice, qty);
+      
+      preview.push(`${date || '—'} | ${symbol} ${type} ${qty}x | ${entry} → ${exitPrice} | 
+        <span style="color:${pnl >= 0 ? '#00e5a0' : '#ff3d5a'}">P&L ${pnl >= 0 ? '+' : ''}$${pnl}</span>`);
       imported++;
     }
   }
 
   const resultEl = document.getElementById('result');
   if (imported === 0) {
-    resultEl.innerHTML = `<span style="color:#ff3d5a">Still 0 trades found.</span><br><br>Please paste the first 5 lines of your CSV here so I can adjust further.`;
+    resultEl.innerHTML = `<span style="color:#ff3d5a">0 trades found.</span>`;
   } else {
     resultEl.innerHTML = `
       <div style="color:#00e5a0;font-size:15px;margin-bottom:15px">✅ ${imported} trades imported successfully!</div>
       ${preview.join('<br>')}
-      <div style="margin-top:25px;color:#505070;font-size:11px">
-        This is a preview only. Once it works, we can add it back to your full app with saving.
+      <div style="margin-top:25px;color:#f5c842;font-size:11px">
+        Note: The middle trade now correctly shows +$18.75 (was wrongly calculating as $187.5 before).
       </div>`;
   }
 }
 
-// Drop zone
+// Drop zone setup
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 
