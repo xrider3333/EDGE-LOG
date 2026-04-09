@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>EDGE LOG — Trade Tracker</title>
+<title>EDGE LOG — NT Import Test</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -11,46 +11,41 @@ html,body{height:100%;background:#05050a;color:#dde0ec;font-family:'JetBrains Mo
 .spinner{display:inline-block;width:28px;height:28px;border:3px solid #1e1e2e;border-top-color:#00e5a0;border-radius:50%;animation:spin 0.8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .btn-g{background:#00e5a014;border:1px solid #00e5a0;color:#00e5a0;padding:10px 20px;cursor:pointer}
-.drop-zone{border:2px dashed #252538;padding:50px;text-align:center;background:#09090f;cursor:pointer}
-.drop-zone:hover{border-color:#00e5a0}
+.drop-zone{border:2px dashed #252538;padding:60px 20px;text-align:center;background:#09090f;cursor:pointer;transition:all .2s}
+.drop-zone:hover,.drop-zone.drag{border-color:#00e5a0;background:#00e5a008}
+h1{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:4px;color:#00e5a0}
 </style>
 </head>
 <body>
 
-<div id="app" style="min-height:100vh;padding:40px">
-  <h1 style="font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:4px;color:#00e5a0;text-align:center;margin-bottom:10px">EDGE LOG</h1>
-  <p style="text-align:center;color:#505070;margin-bottom:40px">Futures Trade Tracker</p>
+<div style="padding:40px;max-width:800px;margin:0 auto">
+  <h1 style="text-align:center">EDGE LOG</h1>
+  <p style="text-align:center;color:#505070;margin-bottom:30px">NinjaTrader CSV Import Tester</p>
 
-  <div style="max-width:700px;margin:0 auto">
-    <div style="background:#0b0b12;border:1px solid #141422;padding:25px;border-radius:8px">
-      <h2 style="margin-bottom:20px;color:#00e5a0">NinjaTrader CSV Import Test</h2>
-      
-      <div id="status" style="margin-bottom:20px;font-size:14px;color:#f5c842">
-        Ready — Drop your NinjaTrader CSV file below
-      </div>
-
-      <div id="drop-zone" class="drop-zone">
-        <div style="font-size:48px;margin-bottom:15px">📂</div>
-        <div style="font-size:15px">DROP NINJATRADER CSV HERE</div>
-        <div style="font-size:12px;color:#606080;margin-top:10px">or click to browse</div>
-        <input type="file" id="file-input" accept=".csv" style="display:none">
-      </div>
-
-      <div id="result" style="margin-top:25px;min-height:100px;font-size:13px"></div>
+  <div style="background:#0b0b12;border:1px solid #141422;padding:30px;border-radius:8px">
+    <div id="status" style="margin-bottom:20px;padding:12px;background:#1a1a2a;border-radius:4px;font-size:14px">
+      Drop your NinjaTrader CSV file below
     </div>
 
-    <div style="margin-top:30px;text-align:center;font-size:12px;color:#383850">
-      Firebase is currently disabled to avoid loading issues.<br>
-      You can still test the CSV import. Trades will NOT be saved.
+    <div id="drop-zone" class="drop-zone">
+      <div style="font-size:60px;margin-bottom:20px">📂</div>
+      <div style="font-size:16px">DROP NINJATRADER CSV HERE</div>
+      <div style="font-size:12px;color:#606080;margin-top:10px">or click to select file</div>
+      <input type="file" id="file-input" accept=".csv" style="display:none">
     </div>
+
+    <div id="result" style="margin-top:30px;white-space:pre-wrap;font-size:12px;max-height:400px;overflow:auto"></div>
+  </div>
+
+  <div style="margin-top:25px;text-align:center;font-size:11px;color:#383850">
+    After testing, paste the first 5 lines of your CSV here if it still shows 0 trades.
   </div>
 </div>
 
 <script>
-// Simple CSV parser + P&L calculator for testing
 const PRESETS = {
   ES:{tv:12.50,ts:0.25}, NQ:{tv:5.00,ts:0.25}, MES:{tv:1.25,ts:0.25},
-  MNQ:{tv:0.50,ts:0.25}, CL:{tv:10.00,ts:0.01}
+  MNQ:{tv:0.50,ts:0.25}, CL:{tv:10.00,ts:0.01}, GC:{tv:10.00,ts:0.10}
 };
 
 function calcPnl(sym, type, entry, exit, size, fees) {
@@ -62,70 +57,101 @@ function calcPnl(sym, type, entry, exit, size, fees) {
 
 function parseCSV(text) {
   const lines = text.split('\n').filter(l => l.trim());
-  if (lines.length < 2) return alert("CSV is empty");
+  if (lines.length < 2) {
+    document.getElementById('result').innerHTML = '<span style="color:#ff3d5a">CSV appears empty.</span>';
+    return;
+  }
 
-  const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g,''));
+  // Robust CSV line parser
+  function parseLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let char of line) {
+      if (char === '"') inQuotes = !inQuotes;
+      else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim());
+    return result.map(f => f.replace(/^"|"$/g, '').trim());
+  }
+
+  const headers = parseLine(lines[0]).map(h => h.toLowerCase());
+  console.log("Headers found:", headers);
 
   let imported = 0;
-  const results = [];
+  const preview = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const row = lines[i].split(',').map(field => field.replace(/"/g,'').trim());
-    if (row.length < 4) continue;
+    const row = parseLine(lines[i]);
+    if (row.length < 5) continue;
 
-    const get = (keys) => {
-      for (let key of keys) {
-        const idx = headers.findIndex(h => h.includes(key));
-        if (idx > -1 && row[idx]) return row[idx];
+    const get = (possible) => {
+      for (let key of possible) {
+        const idx = headers.findIndex(h => h.includes(key.toLowerCase()));
+        if (idx !== -1 && row[idx]) return row[idx];
       }
       return '';
     };
 
-    const symbolRaw = get(['instrument','symbol']);
-    const symbol = (symbolRaw || 'ES').split(' ')[0].toUpperCase();
+    let symbol = (get(['instrument', 'symbol', 'market']) || 'ES').split(' ')[0].toUpperCase();
+    const action = get(['action', 'side', 'buy/sell', 'direction', 'order']).toUpperCase();
+    const type = (action.includes('BUY') || action.includes('LONG') || action.includes('ENTRY')) ? 'LONG' : 'SHORT';
 
-    const action = get(['action','side','direction']).toUpperCase();
-    const type = action.includes('BUY') || action.includes('LONG') ? 'LONG' : 'SHORT';
+    const size = parseInt(get(['qty', 'quantity', 'contracts', 'size', 'shares'])) || 1;
+    const entry = parseFloat(get(['avg entry', 'entry price', 'average entry', 'entryprice', 'entry']));
+    const exitPrice = parseFloat(get(['avg exit', 'exit price', 'average exit', 'exitprice', 'exit']));
+    const fees = parseFloat(get(['commission', 'fee', 'fees', 'comms'])) || 0;
 
-    const size = parseInt(get(['qty','quantity','contracts','size'])) || 1;
-    const entry = parseFloat(get(['avg entry','entry price','entry']));
-    const exitPrice = parseFloat(get(['avg exit','exit price','exit']));
-    const fees = parseFloat(get(['commission','fee','fees'])) || 0;
+    let dateTime = get(['entry time', 'time', 'date', 'exec time', 'timestamp']);
+    let date = '';
+    if (dateTime) {
+      const match = dateTime.match(/(\d{4}-\d{2}-\d{2})|(\d{1,2}\/\d{1,2}\/\d{2,4})/);
+      if (match) date = match[1] ? match[1] : match[2].split('/').reverse().join('-');
+    }
 
-    if (!entry || !exitPrice) continue;
-
-    const pnl = calcPnl(symbol, type, entry, exitPrice, size, fees);
-
-    results.push(`${symbol} ${type} ${size} @ ${entry} → ${exitPrice} | P&L: ${pnl > 0 ? '+' : ''}$${pnl}`);
-    imported++;
+    if (entry && exitPrice && !isNaN(entry) && !isNaN(exitPrice)) {
+      const pnl = calcPnl(symbol, type, entry, exitPrice, size, fees);
+      preview.push(`${date || 'no-date'} | ${symbol} ${type} ${size}x | ${entry} → ${exitPrice} | P&L $${pnl}`);
+      imported++;
+    }
   }
 
-  document.getElementById('result').innerHTML = `
-    <div style="color:#00e5a0">✅ Imported ${imported} trades successfully (preview only)</div>
-    <div style="margin-top:15px;font-size:12px;max-height:300px;overflow:auto">${results.join('<br>')}</div>
-  `;
+  const resultEl = document.getElementById('result');
+  if (imported === 0) {
+    resultEl.innerHTML = `<span style="color:#ff3d5a">0 trades imported.</span><br><br>Headers found: ${headers.join(' | ')}<br><br>Try exporting from <b>New → Trade Performance → Executions</b> or <b>Trades</b> view.`;
+  } else {
+    resultEl.innerHTML = `<span style="color:#00e5a0">✅ ${imported} trades imported successfully (preview)</span><br><br>${preview.join('<br>')}`;
+  }
 }
 
-// Drop zone setup
+// Setup drop zone
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 
 dropZone.onclick = () => fileInput.click();
 fileInput.onchange = e => {
   const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => parseCSV(ev.target.result);
-  reader.readAsText(file);
+  if (file) {
+    document.getElementById('status').innerHTML = `Processing <b>${file.name}</b>...`;
+    const reader = new FileReader();
+    reader.onload = ev => parseCSV(ev.target.result);
+    reader.readAsText(file);
+  }
 };
 
-dropZone.ondragover = e => { e.preventDefault(); dropZone.style.borderColor = '#00e5a0'; };
-dropZone.ondragleave = () => dropZone.style.borderColor = '#252538';
+dropZone.ondragover = e => { e.preventDefault(); dropZone.classList.add('drag'); };
+dropZone.ondragleave = () => dropZone.classList.remove('drag');
 dropZone.ondrop = e => {
   e.preventDefault();
-  dropZone.style.borderColor = '#252538';
+  dropZone.classList.remove('drag');
   const file = e.dataTransfer.files[0];
   if (file) {
+    document.getElementById('status').innerHTML = `Processing <b>${file.name}</b>...`;
     const reader = new FileReader();
     reader.onload = ev => parseCSV(ev.target.result);
     reader.readAsText(file);
