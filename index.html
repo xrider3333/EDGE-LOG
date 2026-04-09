@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>EDGE LOG — Trade Tracker</title>
+<title>EDGE LOG v4 — Trade Tracker</title>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -11,32 +11,29 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:#05050a;color:#dde0ec;font-family:'JetBrains Mono',monospace;font-size:13px}
-::-webkit-scrollbar{width:3px;height:3px}
-::-webkit-scrollbar-track{background:#0b0b12}
-::-webkit-scrollbar-thumb{background:#252538}
-input,select,textarea{background:#0d0d16;border:1px solid #1e1e2e;color:#dde0ec;font-family:'JetBrains Mono',monospace;font-size:12px;padding:9px 11px;width:100%;outline:none}
-input:focus,select:focus,textarea:focus{border-color:#00e5a066}
-button{cursor:pointer;font-family:'JetBrains Mono',monospace;border:none;transition:all .15s}
-.btn-g{background:#00e5a014;border:1px solid #00e5a030;color:#00e5a0;padding:8px 18px;font-size:10px;letter-spacing:1px}
-.btn-g:hover{background:#00e5a024}
-.btn-r{background:#ff3d5a14;border:1px solid #ff3d5a30;color:#ff3d5a;padding:8px 18px;font-size:10px;letter-spacing:1px}
-.btn-d{background:#0d0d16;border:1px solid #1e1e2e;color:#505068;padding:8px 18px;font-size:10px;letter-spacing:1px}
-.btn-ghost{background:none;border:none;color:#404058;font-size:10px;letter-spacing:2px;padding:12px 18px;border-bottom:2px solid transparent}
-.btn-ghost:hover{color:#8080a0}
+.topbar{background:#080810;border-bottom:1px solid #141422;display:flex;align-items:stretch;padding:0 20px;position:sticky;top:0;z-index:100}
+.btn-ghost{background:none;border:none;color:#404058;font-size:11px;letter-spacing:2px;padding:16px 24px;border-bottom:2px solid transparent}
+.btn-ghost:hover{color:#a0a0c0}
 .btn-ghost.active{color:#00e5a0;border-bottom-color:#00e5a0}
-.drop-zone{border:1px dashed #252538;padding:50px 20px;text-align:center;cursor:pointer;background:#09090f;transition:all .15s}
+.btn-r{background:#ff3d5a14;border:1px solid #ff3d5a30;color:#ff3d5a;padding:8px 16px;font-size:10px}
+.content{padding:25px;max-width:1200px;margin:0 auto}
+.section{border:1px solid #141422;background:#0b0b12}
+.sec-hd{background:#0b0b12;padding:12px 20px;border-bottom:1px solid #141422;font-size:10px;letter-spacing:2px;color:#505068}
+.drop-zone{border:2px dashed #252538;padding:70px 20px;text-align:center;background:#09090f;cursor:pointer;transition:all .2s}
 .drop-zone:hover,.drop-zone.drag{border-color:#00e5a0;background:#00e5a008}
-.topbar{background:#080810;border-bottom:1px solid #141422;display:flex;align-items:stretch;padding:0 20px;gap:2px;position:sticky;top:0;z-index:100}
-.content{padding:20px 24px;max-width:1120px;margin:0 auto}
-.section{border:1px solid #141422}
-.sec-hd{background:#0b0b12;padding:10px 16px;border-bottom:1px solid #141422;font-size:10px;letter-spacing:2px;color:#505068}
+.trade-row{padding:10px 15px;border-bottom:1px solid #1e1e2e;display:flex;justify-content:space-between;align-items:center}
+.green{color:#00e5a0}
+.red{color:#ff3d5a}
 </style>
 </head>
 <body>
 <div id="app"></div>
 
 <script>
-// PRESETS + Helpers
+// ── Version
+const VERSION = "v4";
+
+// Config & Helpers
 const PRESETS = {
   ES:{tv:12.50,ts:0.25}, MES:{tv:1.25,ts:0.25}, NQ:{tv:5.00,ts:0.25},
   MNQ:{tv:0.50,ts:0.25}, CL:{tv:10.00,ts:0.01}
@@ -46,21 +43,21 @@ function getBaseSymbol(sym) {
   return sym.replace(/[^A-Za-z]/g, '').slice(0,3).toUpperCase();
 }
 
-function calcPnl(sym, type, entry, exit, size, fees=0) {
+function calcPnl(sym, type, entry, exit, size) {
   const base = getBaseSymbol(sym);
   const p = PRESETS[base] || PRESETS.ES;
   const dir = type === 'LONG' ? 1 : -1;
   const ticks = (exit - entry) / p.ts;
-  return +((ticks * p.tv * size) - fees).toFixed(2);
+  return +(ticks * p.tv * size).toFixed(2);
 }
 
-let db=null, auth=null, colRef=null, unsubTrades=null;
-let trades=[], currentUser=null, activeTab='import';
+let trades = [];
+let activeTab = 'import';
 
-// ── Fixed NinjaTrader Parser ─────────────────────────────────────
+// ── Parser
 function parseCSV(text) {
   const lines = text.split('\n').filter(l => l.trim());
-  if (lines.length < 2) return alert('CSV is empty');
+  if (lines.length < 2) return alert("CSV is empty");
 
   function parseLine(line) {
     const result = [];
@@ -77,11 +74,11 @@ function parseCSV(text) {
   }
 
   const headers = parseLine(lines[0]).map(h => h.toLowerCase().trim());
-  let imported = 0;
+  let newTrades = 0;
 
   for (let i = 1; i < lines.length; i++) {
     const row = parseLine(lines[i]);
-    if (row.length < 5) continue;
+    if (row.length < 6) continue;
 
     const get = (keys) => {
       for (let k of keys) {
@@ -96,15 +93,9 @@ function parseCSV(text) {
     const buyPrice = parseFloat(get(['buyprice']));
     const sellPrice = parseFloat(get(['sellprice']));
 
-    let type = 'LONG';
-    let entry = buyPrice;
-    let exitPrice = sellPrice;
-
-    if (!buyPrice && sellPrice) {
-      type = 'SHORT';
-      entry = sellPrice;
-      exitPrice = buyPrice || sellPrice;
-    }
+    let type = buyPrice ? 'LONG' : 'SHORT';
+    let entry = buyPrice || sellPrice;
+    let exitPrice = sellPrice || buyPrice;
 
     let date = '';
     let dt = get(['boughttimestamp']) || get(['soldtimestamp']);
@@ -113,14 +104,21 @@ function parseCSV(text) {
       if (m) date = `${m[3]}-${m[1]}-${m[2]}`;
     }
 
-    if (entry && exitPrice && !isNaN(entry) && !isNaN(exitPrice)) {
-      const pnl = calcPnl(symbol, type, entry, exitPrice, qty);
-      addTrade({
+    if (!entry || !exitPrice || isNaN(entry) || isNaN(exitPrice)) continue;
+
+    const pnl = calcPnl(symbol, type, entry, exitPrice, qty);
+
+    const isDuplicate = trades.some(t => 
+      t.date === date && t.symbol === getBaseSymbol(symbol) && Math.abs(t.entry - entry) < 0.01
+    );
+
+    if (!isDuplicate) {
+      trades.push({
         date: date,
         symbol: getBaseSymbol(symbol),
         type: type,
-        entry: entry,
-        exit: exitPrice,
+        entry: +entry.toFixed(2),
+        exit: +exitPrice.toFixed(2),
         size: qty,
         fees: 0,
         setup: '—',
@@ -128,66 +126,87 @@ function parseCSV(text) {
         chartUrl: '',
         pnl: pnl
       });
-      imported++;
+      newTrades++;
     }
   }
 
-  setTimeout(() => {
-    alert(`✅ Successfully imported ${imported} trades!`);
-    activeTab = 'journal';
-    renderApp();
-  }, 500);
+  alert(`✅ Imported ${newTrades} new trades!\nTotal trades now: ${trades.length}`);
+  activeTab = 'journal';
+  renderApp();
 }
 
-async function addTrade(t) {
-  if (colRef) await colRef.add({...t, createdAt: firebase.firestore.FieldValue.serverTimestamp()});
+function clearAllTrades() {
+  if (!confirm(`Delete ALL ${trades.length} trades permanently?`)) return;
+  trades = [];
+  alert("All trades cleared.");
+  renderApp();
 }
 
-// Simple render for now (you can expand later)
 function renderApp() {
   let html = `
   <div class="topbar">
-    <div class="topbar-brand">
-      <div style="font-family:'Bebas Neue';font-size:24px;color:#00e5a0">EDGE LOG</div>
+    <div style="padding:16px 24px;font-family:'Bebas Neue';font-size:24px;color:#00e5a0">
+      EDGE LOG <span style="font-size:14px;color:#505070">v4</span>
     </div>
     <button class="btn-ghost ${activeTab==='overview'?'active':''}" onclick="activeTab='overview';renderApp()">OVERVIEW</button>
-    <button class="btn-ghost ${activeTab==='journal'?'active':''}" onclick="activeTab='journal';renderApp()">JOURNAL</button>
+    <button class="btn-ghost ${activeTab==='journal'?'active':''}" onclick="activeTab='journal';renderApp()">JOURNAL (${trades.length})</button>
     <button class="btn-ghost ${activeTab==='import'?'active':''}" onclick="activeTab='import';renderApp()">IMPORT</button>
   </div>
   <div class="content">`;
 
   if (activeTab === 'import') {
     html += `
-    <div style="max-width:700px">
-      <div class="section">
-        <div class="sec-hd">NINJATRADER IMPORT (Fixed)</div>
-        <div style="padding:25px">
-          <div id="drop-zone" class="drop-zone">
-            <div style="font-size:48px;margin-bottom:15px">📂</div>
-            <div>Drop your NinjaTrader CSV here</div>
-            <div style="font-size:11px;color:#606080;margin-top:8px">Supports your Performance.csv format</div>
-            <input type="file" id="csv-input" accept=".csv" style="display:none">
-          </div>
-        </div>
-      </div>
-      <div style="margin-top:20px;text-align:center;font-size:11px;color:#505070">
-        ${trades.length} trades currently loaded
+    <div class="section">
+      <div class="sec-hd">NINJATRADER CSV IMPORT</div>
+      <div id="drop-zone" class="drop-zone" style="margin:30px">
+        <div style="font-size:60px;margin-bottom:20px">📂</div>
+        <div style="font-size:16px">Drop your NinjaTrader Performance.csv here</div>
+        <div style="font-size:12px;color:#606080;margin-top:12px">v4 parser • Correct MES tick value • Duplicate protection</div>
+        <input type="file" id="csv-input" accept=".csv" style="display:none">
       </div>
     </div>`;
-  } else if (activeTab === 'journal') {
-    html += `<div style="color:#00e5a0">Journal tab - ${trades.length} trades loaded</div>`;
-  } else {
-    html += `<div style="color:#00e5a0">Overview - Total P&L: ${trades.reduce((a,t)=>a+t.pnl,0).toFixed(2)}</div>`;
+  } 
+  else if (activeTab === 'journal') {
+    html += `<div class="section"><div class="sec-hd">ALL TRADES (${trades.length})</div>`;
+    if (trades.length === 0) {
+      html += `<div style="padding:80px;text-align:center;color:#505070">No trades yet — Import from the Import tab</div>`;
+    } else {
+      html += `<div style="max-height:650px;overflow:auto">`;
+      trades.slice().reverse().forEach(t => {
+        html += `
+        <div class="trade-row">
+          <div>${t.date || '—'} &nbsp; ${t.symbol} <span style="color:${t.type==='LONG'?'#00e5a0':'#ff3d5a'}">${t.type}</span> ${t.size}x</div>
+          <div>${t.entry} → ${t.exit}</div>
+          <div style="color:${t.pnl >= 0 ? '#00e5a0' : '#ff3d5a'}">${t.pnl >= 0 ? '+' : ''}$${t.pnl}</div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+    html += `</div>`;
+  } 
+  else { // overview
+    const total = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+    html += `
+    <div class="section">
+      <div class="sec-hd">OVERVIEW</div>
+      <div style="padding:40px;text-align:center">
+        <div style="font-size:48px;color:${total >= 0 ? '#00e5a0' : '#ff3d5a'}">${total >= 0 ? '+' : ''}$${total.toFixed(2)}</div>
+        <div style="margin-top:8px;color:#8080a0">TOTAL P&L</div>
+        <div style="margin-top:40px">
+          <button onclick="clearAllTrades()" class="btn-r">CLEAR ALL TRADES</button>
+        </div>
+      </div>
+    </div>`;
   }
 
   html += `</div>`;
   document.getElementById('app').innerHTML = html;
 
-  // Setup drop zone
+  // Drop zone events
   setTimeout(() => {
     const dz = document.getElementById('drop-zone');
     const input = document.getElementById('csv-input');
-    if (dz) {
+    if (dz && input) {
       dz.onclick = () => input.click();
       input.onchange = e => {
         const file = e.target.files[0];
@@ -197,7 +216,7 @@ function renderApp() {
           reader.readAsText(file);
         }
       };
-      dz.ondragover = e => {e.preventDefault(); dz.classList.add('drag');};
+      dz.ondragover = e => { e.preventDefault(); dz.classList.add('drag'); };
       dz.ondragleave = () => dz.classList.remove('drag');
       dz.ondrop = e => {
         e.preventDefault();
@@ -213,44 +232,8 @@ function renderApp() {
   }, 100);
 }
 
-// Boot
-(function boot() {
-  document.getElementById('app').innerHTML = `
-    <div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">
-      <div class="spinner" style="width:32px;height:32px"></div>
-      <div style="letter-spacing:2px;color:#505070">LOADING EDGE LOG...</div>
-    </div>`;
-
-  const cfg = { /* your firebase config */ 
-    apiKey: "AIzaSyD0Q3ms5xZJ5SFl7aHh3oYIkGJJAUiRRBI",
-    authDomain: "edge-tracker-b55af.firebaseapp.com",
-    projectId: "edge-tracker-b55af",
-    storageBucket: "edge-tracker-b55af.firebasestorage.app",
-    messagingSenderId: "351905859153",
-    appId: "1:351905859153:web:9657ca100cf3463ca89a70"
-  };
-
-  try {
-    firebase.initializeApp(cfg);
-    auth = firebase.auth();
-    db = firebase.firestore();
-
-    auth.onAuthStateChanged(user => {
-      if (user) {
-        colRef = db.collection('users').doc(user.uid).collection('trades');
-        colRef.orderBy('date','asc').onSnapshot(snap => {
-          trades = snap.docs.map(d => ({id:d.id, ...d.data()}));
-          renderApp();
-        });
-      } else {
-        renderApp();   // Skip login for now
-      }
-    });
-  } catch(e) {
-    console.error(e);
-    alert("Firebase error - check console");
-  }
-})();
+// Start
+renderApp();
 </script>
 </body>
 </html>
