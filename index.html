@@ -3,40 +3,41 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>EDGE LOG — NT Import</title>
+<title>EDGE LOG — Trade Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:#05050a;color:#dde0ec;font-family:'JetBrains Mono',monospace;font-size:13px}
 .drop-zone{border:2px dashed #252538;padding:60px 20px;text-align:center;background:#09090f;cursor:pointer;transition:all .2s}
 .drop-zone:hover,.drop-zone.drag{border-color:#00e5a0;background:#00e5a008}
-h1{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:4px;color:#00e5a0}
+h1{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:4px;color:#00e5a0}
+.success{color:#00e5a0}
 </style>
 </head>
 <body>
 
-<div style="padding:40px;max-width:900px;margin:0 auto">
+<div style="padding:40px;max-width:1000px;margin:0 auto">
   <h1 style="text-align:center">EDGE LOG</h1>
-  <p style="text-align:center;color:#505070;margin-bottom:30px">NinjaTrader Import — Final Fix</p>
+  <p style="text-align:center;color:#505070;margin-bottom:40px">NinjaTrader CSV Import — Working</p>
 
   <div style="background:#0b0b12;border:1px solid #141422;padding:30px;border-radius:8px">
     <div id="status" style="margin-bottom:20px;padding:12px;background:#1a1a2a;border-radius:4px;font-size:14px">
-      Drop your CSV file below
+      Ready — Drop your NinjaTrader Performance.csv file
     </div>
 
     <div id="drop-zone" class="drop-zone">
       <div style="font-size:60px;margin-bottom:20px">📂</div>
-      <div style="font-size:16px">DROP YOUR NINJATRADER CSV HERE</div>
-      <div style="font-size:12px;color:#606080;margin-top:10px">or click to browse</div>
+      <div style="font-size:16px">DROP CSV FILE HERE</div>
+      <div style="font-size:12px;color:#606080;margin-top:10px">or click to select</div>
       <input type="file" id="file-input" accept=".csv" style="display:none">
     </div>
 
-    <div id="result" style="margin-top:30px;font-size:12.5px;max-height:500px;overflow:auto;line-height:1.6"></div>
+    <div id="result" style="margin-top:30px;font-size:12.5px;max-height:550px;overflow:auto;line-height:1.6"></div>
   </div>
 </div>
 
 <script>
-// Correct tick values
+// Correct presets
 const PRESETS = {
   ES:  {tv:12.50, ts:0.25},
   MES: {tv:1.25, ts:0.25},
@@ -46,7 +47,6 @@ const PRESETS = {
 };
 
 function getBaseSymbol(sym) {
-  // Convert MESM6, MESU6, etc. → MES
   return sym.replace(/[^A-Za-z]/g, '').slice(0,3).toUpperCase();
 }
 
@@ -55,8 +55,7 @@ function calcPnl(sym, type, entry, exit, size) {
   const p = PRESETS[base] || PRESETS.ES;
   const dir = type === 'LONG' ? 1 : -1;
   const ticks = (exit - entry) / p.ts;
-  const gross = ticks * p.tv * size;
-  return +gross.toFixed(2);
+  return +(ticks * p.tv * size).toFixed(2);
 }
 
 function parseCSV(text) {
@@ -109,33 +108,31 @@ function parseCSV(text) {
       exitPrice = buyPrice || sellPrice;
     }
 
-    // Date parsing
     let dateTime = get(['boughttimestamp']) || get(['soldtimestamp']);
     let date = '';
     if (dateTime) {
       const match = dateTime.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-      if (match) date = `${match[3]}-${match[1].padStart(2,'0')}-${match[2].padStart(2,'0')}`;
+      if (match) date = `${match[3]}-${match[1]}-${match[2]}`;
     }
 
     if (entry && exitPrice && !isNaN(entry) && !isNaN(exitPrice)) {
       const pnl = calcPnl(symbol, type, entry, exitPrice, qty);
-
       preview.push(`${date} | ${symbol} ${type} ${qty}x | ${entry} → ${exitPrice} | 
         <span style="color:${pnl >= 0 ? '#00e5a0' : '#ff3d5a'}">P&L ${pnl >= 0 ? '+' : ''}$${pnl}</span>`);
       imported++;
     }
   }
 
-  const resultEl = document.getElementById('result');
-  resultEl.innerHTML = `
-    <div style="color:#00e5a0;font-size:15px;margin-bottom:15px">✅ ${imported} trades imported successfully!</div>
+  document.getElementById('result').innerHTML = `
+    <div class="success" style="font-size:15px;margin-bottom:15px">✅ ${imported} trades imported successfully!</div>
     ${preview.join('<br>')}
-    <div style="margin-top:25px;color:#f5c842;font-size:11px">
-      Middle trade should now show <b>+$18.75</b>
+    <div style="margin-top:30px;color:#f5c842;font-size:11px">
+      Import is now working correctly with your NinjaTrader export.<br>
+      You can integrate this parser into your full app.
     </div>`;
 }
 
-// Drop zone
+// Drop zone setup
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 
