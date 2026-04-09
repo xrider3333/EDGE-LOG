@@ -4,311 +4,133 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>EDGE LOG — Trade Tracker</title>
-
-<!-- Updated Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:#05050a;color:#dde0ec;font-family:'JetBrains Mono',monospace;font-size:13px}
-::-webkit-scrollbar{width:3px;height:3px}
-::-webkit-scrollbar-track{background:#0b0b12}
-::-webkit-scrollbar-thumb{background:#252538}
-input,select,textarea{background:#0d0d16;border:1px solid #1e1e2e;color:#dde0ec;font-family:'JetBrains Mono',monospace;font-size:12px;padding:9px 11px;width:100%;outline:none;transition:border-color .15s;box-sizing:border-box}
-input:focus,select:focus,textarea:focus{border-color:#00e5a066}
-select{-webkit-appearance:none;cursor:pointer}
-button{cursor:pointer;font-family:'JetBrains Mono',monospace;border:none;transition:all .15s}
-.btn-g{background:#00e5a014;border:1px solid #00e5a030;color:#00e5a0;padding:8px 18px;font-size:10px;letter-spacing:1px}
-.btn-g:hover{background:#00e5a024}
-.btn-g:disabled{opacity:.4;cursor:not-allowed}
-.btn-r{background:#ff3d5a14;border:1px solid #ff3d5a30;color:#ff3d5a;padding:8px 18px;font-size:10px;letter-spacing:1px}
-.btn-r:hover{background:#ff3d5a22}
-.btn-d{background:#0d0d16;border:1px solid #1e1e2e;color:#505068;padding:8px 18px;font-size:10px;letter-spacing:1px}
-.btn-d:hover{border-color:#252538;color:#8080a0}
-.btn-ghost{background:none;border:none;color:#404058;font-size:10px;letter-spacing:2px;padding:12px 18px;border-bottom:2px solid transparent}
-.btn-ghost:hover{color:#8080a0}
-.btn-ghost.active{color:#00e5a0;border-bottom-color:#00e5a0}
-.del-btn{background:none;border:none;color:#252538;font-size:15px;padding:3px 8px}
-.del-btn:hover{color:#ff3d5a}
-.card{background:#0b0b12;border:1px solid #141422;padding:15px 18px}
-.mini-card{background:#09090f;border:1px solid #111120;padding:11px 14px}
-.section{border:1px solid #141422}
-.sec-hd{background:#0b0b12;padding:10px 16px;border-bottom:1px solid #141422;font-size:10px;letter-spacing:2px;color:#505068;display:flex;justify-content:space-between;align-items:center}
-.lbl{display:block;font-size:9px;letter-spacing:2px;color:#383850;margin-bottom:5px}
-.tag{font-size:9px;letter-spacing:1px;padding:2px 7px;background:#1a1a2a;color:#6060a0}
-.tr-row:hover{background:#0d0d16}
-.topbar{background:#080810;border-bottom:1px solid #141422;display:flex;align-items:stretch;padding:0 20px;gap:2px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
-.topbar-brand{display:flex;align-items:center;gap:10px;margin-right:20px;border-right:1px solid #141422;padding-right:20px;padding:6px 20px 6px 0}
-.content{padding:20px 24px;max-width:1120px;margin:0 auto}
-.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.stat-label{font-size:9px;letter-spacing:2px;color:#383850;margin-bottom:8px}
-.stat-val{font-family:'Bebas Neue',monospace;letter-spacing:1px}
-.err{color:#ff3d5a;font-size:11px;margin-top:8px}
-.ok{color:#00e5a0;font-size:11px;margin-top:8px}
-.pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:#00e5a0;animation:pulse 2s infinite;margin-right:4px}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.spinner{display:inline-block;width:28px;height:28px;border:3px solid #1e1e2e;border-top-color:#00e5a0;border-radius:50%;animation:spin 0.8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.spinner{display:inline-block;width:18px;height:18px;border:2px solid #1e1e2e;border-top-color:#00e5a0;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
-@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
-.fade{animation:fadeIn .2s ease}
-.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.auth-box{width:100%;max-width:440px}
-.logo{font-family:'Bebas Neue',monospace;font-size:44px;letter-spacing:4px;color:#00e5a0;line-height:1;text-align:center}
-.logo-sub{font-size:10px;color:#252538;letter-spacing:3px;text-align:center;margin-top:6px;margin-bottom:32px}
-table{width:100%;border-collapse:collapse;font-size:11px}
-th{padding:8px 10px;text-align:left;color:#2a2a40;font-weight:normal;font-size:9px;letter-spacing:2px;border-bottom:1px solid #111120;white-space:nowrap}
-td{padding:8px 10px;border-bottom:1px solid #0d0d16}
-.green{color:#00e5a0}
-.red{color:#ff3d5a}
-.yellow{color:#f5c842}
-.dim{color:#383850}
-.chart-area{padding:14px 8px 8px}
-.canvas-wrap{position:relative;width:100%;overflow-x:auto}
-.drop-zone{border:1px dashed #252538;padding:36px 20px;text-align:center;cursor:pointer;transition:all .15s;background:#09090f}
-.drop-zone:hover,.drop-zone.drag{border-color:#00e5a044;background:#00e5a008}
-a.chart-link{color:#4a9eff;font-size:10px;text-decoration:none}
-a.chart-link:hover{color:#7ab8ff}
+.btn-g{background:#00e5a014;border:1px solid #00e5a0;color:#00e5a0;padding:10px 20px;cursor:pointer}
+.drop-zone{border:2px dashed #252538;padding:50px;text-align:center;background:#09090f;cursor:pointer}
+.drop-zone:hover{border-color:#00e5a0}
 </style>
 </head>
 <body>
-<div id="app"></div>
+
+<div id="app" style="min-height:100vh;padding:40px">
+  <h1 style="font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:4px;color:#00e5a0;text-align:center;margin-bottom:10px">EDGE LOG</h1>
+  <p style="text-align:center;color:#505070;margin-bottom:40px">Futures Trade Tracker</p>
+
+  <div style="max-width:700px;margin:0 auto">
+    <div style="background:#0b0b12;border:1px solid #141422;padding:25px;border-radius:8px">
+      <h2 style="margin-bottom:20px;color:#00e5a0">NinjaTrader CSV Import Test</h2>
+      
+      <div id="status" style="margin-bottom:20px;font-size:14px;color:#f5c842">
+        Ready — Drop your NinjaTrader CSV file below
+      </div>
+
+      <div id="drop-zone" class="drop-zone">
+        <div style="font-size:48px;margin-bottom:15px">📂</div>
+        <div style="font-size:15px">DROP NINJATRADER CSV HERE</div>
+        <div style="font-size:12px;color:#606080;margin-top:10px">or click to browse</div>
+        <input type="file" id="file-input" accept=".csv" style="display:none">
+      </div>
+
+      <div id="result" style="margin-top:25px;min-height:100px;font-size:13px"></div>
+    </div>
+
+    <div style="margin-top:30px;text-align:center;font-size:12px;color:#383850">
+      Firebase is currently disabled to avoid loading issues.<br>
+      You can still test the CSV import. Trades will NOT be saved.
+    </div>
+  </div>
+</div>
 
 <script>
-// ═══════════════════════════════════════════════════════════
-// EDGE LOG — Fixed & Improved Version
-// ═══════════════════════════════════════════════════════════
+// Simple CSV parser + P&L calculator for testing
 const PRESETS = {
   ES:{tv:12.50,ts:0.25}, NQ:{tv:5.00,ts:0.25}, MES:{tv:1.25,ts:0.25},
-  MNQ:{tv:0.50,ts:0.25}, CL:{tv:10.00,ts:0.01}, GC:{tv:10.00,ts:0.10},
-  SI:{tv:25.00,ts:0.005}, ZB:{tv:31.25,ts:0.03125}, RTY:{tv:5.00,ts:0.10},
-  YM:{tv:5.00,ts:1.00}, MGC:{tv:1.00,ts:0.10}, MCL:{tv:1.00,ts:0.01},
-  ZN:{tv:31.25,ts:0.015625}, ZC:{tv:12.50,ts:0.25}, NG:{tv:10.00,ts:0.001},
+  MNQ:{tv:0.50,ts:0.25}, CL:{tv:10.00,ts:0.01}
 };
-const SETUPS = ["—","Breakout","Pullback","Reversal","Trend","Gap Fill","VWAP","S/D Zone","Momentum","ICT","Order Block","FVG","Other"];
-const SYM_LIST = Object.keys(PRESETS);
 
-let db=null, auth=null, colRef=null, unsubTrades=null;
-let trades=[], currentUser=null, activeTab='overview', activeChart='equity';
-let formOpen=true;
-
-// ── Helpers ──────────────────────────────────────────────────────────
-function calcPnl(sym,type,entry,exit,size,fees){
-  const p=PRESETS[sym]; if(!p) return 0;
-  const dir=type==='LONG'?1:-1;
-  const gross=((exit-entry)*dir/p.ts)*p.tv*size;
-  return +((gross-(fees||0)).toFixed(2));
-}
-function fmt(n){return (n>=0?'+':'')+n.toFixed(2);}
-function gc(n){return n>=0?'#00e5a0':'#ff3d5a';}
-function stdDev(arr){
-  if(arr.length<2)return 0;
-  const m=arr.reduce((a,b)=>a+b,0)/arr.length;
-  return Math.sqrt(arr.reduce((s,v)=>s+(v-m)**2,0)/(arr.length-1));
-}
-function el(id){return document.getElementById(id);}
-
-// ── Stats, Charts, Firebase functions (calcStats, makeSVG, equityChart, etc.) ──
-// For brevity I kept only the essential. If you need the full chart functions, add them back from your original file.
-// (They were unchanged anyway)
-
-function calcStats(){ /* your original calcStats function */ 
-  if(!trades.length)return null;
-  const wins=trades.filter(t=>t.pnl>0), losses=trades.filter(t=>t.pnl<0);
-  const wr=wins.length/trades.length;
-  const avgW=wins.length?wins.reduce((s,t)=>s+t.pnl,0)/wins.length:0;
-  const avgL=losses.length?Math.abs(losses.reduce((s,t)=>s+t.pnl,0)/losses.length):0;
-  const grossW=wins.reduce((s,t)=>s+t.pnl,0);
-  const grossL=Math.abs(losses.reduce((s,t)=>s+t.pnl,0));
-  const pf=grossL>0?grossW/grossL:grossW>0?Infinity:0;
-  const ev=wr*avgW-(1-wr)*(avgL||0);
-  const net=trades.reduce((s,t)=>s+t.pnl,0);
-  let peak=0,maxDD=0,cur=0;
-  trades.forEach(t=>{cur+=t.pnl;if(cur>peak)peak=cur;maxDD=Math.max(maxDD,peak-cur);});
-  const byDay={};
-  trades.forEach(t=>{byDay[t.date]=(byDay[t.date]||0)+t.pnl;});
-  const dv=Object.values(byDay);
-  const meanD=dv.length?dv.reduce((a,b)=>a+b,0)/dv.length:0;
-  const sharpe=dv.length>1?(meanD/(stdDev(dv)||1))*Math.sqrt(252):0;
-  let streak=0,sdir=0;
-  for(let i=trades.length-1;i>=0;i--){
-    const d=trades[i].pnl>0?1:-1;
-    if(!streak){streak=d;sdir=d;}else if(d===sdir)streak+=d;else break;
-  }
-  const syms={},setups={};
-  trades.forEach(t=>{
-    if(!syms[t.symbol])syms[t.symbol]={count:0,pnl:0,wins:0};
-    syms[t.symbol].count++; syms[t.symbol].pnl+=t.pnl; if(t.pnl>0)syms[t.symbol].wins++;
-    const k=t.setup||'—';
-    if(!setups[k])setups[k]={count:0,pnl:0,wins:0};
-    setups[k].count++; setups[k].pnl+=t.pnl; if(t.pnl>0)setups[k].wins++;
-  });
-  const rr=avgL>0?avgW/avgL:0;
-  const totalFees=trades.reduce((s,t)=>s+(t.fees||0),0);
-  return{wr,avgW,avgL,pf,ev,net,maxDD,sharpe,streak,sdir,wins:wins.length,losses:losses.length,
-         total:trades.length,syms,setups,totalFees,rr,byDay};
+function calcPnl(sym, type, entry, exit, size, fees) {
+  const p = PRESETS[sym] || PRESETS.ES;
+  const dir = type === 'LONG' ? 1 : -1;
+  const gross = ((exit - entry) * dir / p.ts) * p.tv * size;
+  return +((gross - (fees || 0)).toFixed(2));
 }
 
-// Add your chart functions here if needed (equityChart, drawdownChart, etc.)
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return alert("CSV is empty");
 
-// ── Improved NinjaTrader CSV Parser ─────────────────────────────────
-function parseCSV(text){
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  if(lines.length < 2) return alert('CSV appears empty.');
+  const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g,''));
 
-  function parseCSVLine(line) {
-    const result = [];
-    let current = '';
-    let inQuotes = false;
-    for (let char of line) {
-      if (char === '"') inQuotes = !inQuotes;
-      else if (char === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else current += char;
-    }
-    result.push(current.trim());
-    return result.map(field => field.replace(/^"|"$/g, '').trim());
-  }
-
-  const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
-  let imported = 0, skipped = 0;
+  let imported = 0;
+  const results = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const row = parseCSVLine(lines[i]);
-    if (row.length < 5) continue;
+    const row = lines[i].split(',').map(field => field.replace(/"/g,'').trim());
+    if (row.length < 4) continue;
 
-    const getValue = (keys) => {
-      for (const key of keys) {
+    const get = (keys) => {
+      for (let key of keys) {
         const idx = headers.findIndex(h => h.includes(key));
-        if (idx >= 0 && row[idx]) return row[idx].replace(/"/g, '').trim();
+        if (idx > -1 && row[idx]) return row[idx];
       }
       return '';
     };
 
-    let symbolRaw = getValue(['instrument','symbol','market','product']);
+    const symbolRaw = get(['instrument','symbol']);
     const symbol = (symbolRaw || 'ES').split(' ')[0].toUpperCase();
 
-    const action = getValue(['action','side','buy/sell','direction']).toUpperCase();
+    const action = get(['action','side','direction']).toUpperCase();
     const type = action.includes('BUY') || action.includes('LONG') ? 'LONG' : 'SHORT';
 
-    const size = parseInt(getValue(['qty','quantity','contracts','size'])) || 1;
-    const entry = parseFloat(getValue(['avg entry','entry price','entry']));
-    const exitPrice = parseFloat(getValue(['avg exit','exit price','exit']));
-    const fees = parseFloat(getValue(['commission','fee','fees'])) || 0;
+    const size = parseInt(get(['qty','quantity','contracts','size'])) || 1;
+    const entry = parseFloat(get(['avg entry','entry price','entry']));
+    const exitPrice = parseFloat(get(['avg exit','exit price','exit']));
+    const fees = parseFloat(get(['commission','fee','fees'])) || 0;
 
-    let dateTime = getValue(['entry time','time','date','entrydate']);
-    let date = '';
-    if (dateTime) {
-      const match = dateTime.match(/(\d{4}-\d{2}-\d{2})|(\d{1,2}\/\d{1,2}\/\d{2,4})/);
-      if (match) date = match[1] || match[2].split('/').reverse().join('-');
-    }
+    if (!entry || !exitPrice) continue;
 
-    if (!entry || !exitPrice || !date || isNaN(entry) || isNaN(exitPrice)) {
-      skipped++; continue;
-    }
+    const pnl = calcPnl(symbol, type, entry, exitPrice, size, fees);
 
-    const useSym = PRESETS[symbol] ? symbol : 'ES';
-    const pnl = calcPnl(useSym, type, entry, exitPrice, size, fees);
-
-    addTrade({date, symbol:useSym, type, entry, exit:exitPrice, size, fees, setup:'—', notes:'Imported from NinjaTrader', chartUrl:'', pnl});
+    results.push(`${symbol} ${type} ${size} @ ${entry} → ${exitPrice} | P&L: ${pnl > 0 ? '+' : ''}$${pnl}`);
     imported++;
   }
 
-  setTimeout(() => {
-    alert(`Import finished!\nImported: ${imported} trades\nSkipped: ${skipped} rows`);
-    activeTab = 'journal';
-    renderApp();
-  }, 600);
+  document.getElementById('result').innerHTML = `
+    <div style="color:#00e5a0">✅ Imported ${imported} trades successfully (preview only)</div>
+    <div style="margin-top:15px;font-size:12px;max-height:300px;overflow:auto">${results.join('<br>')}</div>
+  `;
 }
 
-async function addTrade(t){
-  if(!colRef) return;
-  await colRef.add({...t, createdAt: firebase.firestore.FieldValue.serverTimestamp()});
-}
-async function deleteTrade(id){
-  if(!colRef || !confirm('Delete this trade?')) return;
-  await colRef.doc(id).delete();
-}
-function exportCSV(){ /* your original exportCSV */ 
-  const hdr = 'Date,Symbol,Direction,Entry,Exit,Contracts,Fees,Net P&L,Setup,Notes,Chart URL\n';
-  const rows = trades.map(t => `${t.date},${t.symbol},${t.type},${t.entry},${t.exit},${t.size},${t.fees||0},${t.pnl},"${t.setup||'—'}","${(t.notes||'').replace(/"/g,"'")}","${t.chartUrl||''}"`).join('\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([hdr+rows],{type:'text/csv'}));
-  a.download = `edgelog_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-}
+// Drop zone setup
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
 
-// ── Render functions (simplified - add your full renderAuth & renderApp if needed) ──
-// For this version to work, you need to paste your full original renderAuth and renderApp here.
-// Since the file is very long, the key fix is the boot section below.
+dropZone.onclick = () => fileInput.click();
+fileInput.onchange = e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => parseCSV(ev.target.result);
+  reader.readAsText(file);
+};
 
-function showError(msg) {
-  document.getElementById('app').innerHTML = `
-    <div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;color:#ff3d5a;text-align:center">
-      <div style="font-size:60px">⚠️</div>
-      <div style="font-size:18px">ERROR</div>
-      <div style="max-width:600px">${msg}</div>
-      <button onclick="location.reload()" class="btn-g">RELOAD PAGE</button>
-    </div>`;
-}
-
-// ── Boot with strong error handling ─────────────────────────────────
-(function boot() {
-  const app = document.getElementById('app');
-  app.innerHTML = `
-    <div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">
-      <div class="spinner" style="width:32px;height:32px"></div>
-      <div style="font-size:11px;letter-spacing:3px;color:#505070">LOADING EDGE LOG...</div>
-      <div id="status" style="font-size:12px;color:#383850;margin-top:30px"></div>
-    </div>`;
-
-  const status = document.getElementById('status');
-
-  if (typeof firebase === "undefined") {
-    status.innerHTML = "❌ Firebase scripts failed to load.<br>Check your internet connection.";
-    return;
+dropZone.ondragover = e => { e.preventDefault(); dropZone.style.borderColor = '#00e5a0'; };
+dropZone.ondragleave = () => dropZone.style.borderColor = '#252538';
+dropZone.ondrop = e => {
+  e.preventDefault();
+  dropZone.style.borderColor = '#252538';
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = ev => parseCSV(ev.target.result);
+    reader.readAsText(file);
   }
-
-  const cfg = {
-    apiKey: "AIzaSyD0Q3ms5xZJ5SFl7aHh3oYIkGJJAUiRRBI",
-    authDomain: "edge-tracker-b55af.firebaseapp.com",
-    projectId: "edge-tracker-b55af",
-    storageBucket: "edge-tracker-b55af.firebasestorage.app",
-    messagingSenderId: "351905859153",
-    appId: "1:351905859153:web:9657ca100cf3463ca89a70"
-  };
-
-  try {
-    if (!firebase.apps.length) firebase.initializeApp(cfg);
-    auth = firebase.auth();
-    db = firebase.firestore();
-    status.textContent = "Connecting...";
-
-    auth.onAuthStateChanged(user => {
-      if (user) {
-        currentUser = user;
-        colRef = db.collection('users').doc(user.uid).collection('trades');
-        unsubTrades = colRef.orderBy('date','asc').onSnapshot(snap => {
-          trades = snap.docs.map(d => ({id:d.id, ...d.data()}));
-          renderApp();
-        });
-      } else {
-        renderAuth();
-      }
-    });
-  } catch (e) {
-    console.error(e);
-    showError(`Initialization failed:<br>${e.message}`);
-  }
-})();
-
-// Note: You still need to add your full `renderAuth()` and `renderApp()` functions from the original code.
-// If the page still doesn't load after this, open F12 → Console and send me the red error messages.
+};
 </script>
 </body>
 </html>
