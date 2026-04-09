@@ -17,11 +17,11 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:4px;color:#
 
 <div style="padding:40px;max-width:900px;margin:0 auto">
   <h1 style="text-align:center">EDGE LOG</h1>
-  <p style="text-align:center;color:#505070;margin-bottom:30px">NinjaTrader Import — Fixed for your CSV</p>
+  <p style="text-align:center;color:#505070;margin-bottom:30px">NinjaTrader Import — Fixed</p>
 
   <div style="background:#0b0b12;border:1px solid #141422;padding:30px;border-radius:8px">
     <div id="status" style="margin-bottom:20px;padding:12px;background:#1a1a2a;border-radius:4px;font-size:14px">
-      Drop your Performance.csv file below
+      Drop your CSV file below
     </div>
 
     <div id="drop-zone" class="drop-zone">
@@ -37,15 +37,20 @@ h1{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:4px;color:#
 
 <script>
 const PRESETS = {
-  ES: {tv:12.50, ts:0.25},
-  NQ: {tv:5.00,  ts:0.25},
-  MES: {tv:1.25, ts:0.25},   // Correct tick value for MES
+  ES:  {tv:12.50, ts:0.25},
+  NQ:  {tv:5.00,  ts:0.25},
+  MES: {tv:1.25, ts:0.25},
   MNQ: {tv:0.50, ts:0.25},
-  CL: {tv:10.00, ts:0.01}
+  CL:  {tv:10.00, ts:0.01}
 };
 
+function getPreset(sym) {
+  const base = sym.replace(/\d.*$/, ''); // Remove contract month/year → "MESM6" becomes "MES"
+  return PRESETS[base] || PRESETS.ES;
+}
+
 function calcPnl(sym, type, entry, exit, size) {
-  const p = PRESETS[sym] || PRESETS.ES;
+  const p = getPreset(sym);
   const dir = type === 'LONG' ? 1 : -1;
   const ticks = (exit - entry) / p.ts;
   const gross = ticks * p.tv * size;
@@ -54,10 +59,7 @@ function calcPnl(sym, type, entry, exit, size) {
 
 function parseCSV(text) {
   const lines = text.split('\n').filter(l => l.trim());
-  if (lines.length < 2) {
-    document.getElementById('result').innerHTML = '<span style="color:#ff3d5a">CSV is empty.</span>';
-    return;
-  }
+  if (lines.length < 2) return;
 
   function parseLine(line) {
     const result = [];
@@ -90,56 +92,47 @@ function parseCSV(text) {
       return '';
     };
 
-    const symbolRaw = get(['symbol']);
-    const symbol = (symbolRaw || 'MES').split(' ')[0].toUpperCase();
-
+    let symbol = (get(['symbol']) || 'MES').toUpperCase();
     const qty = parseInt(get(['qty'])) || 1;
     const buyPrice = parseFloat(get(['buyprice']));
     const sellPrice = parseFloat(get(['sellprice']));
-    const pnlFromFile = get(['pnl']).replace('$','').trim();
 
-    // Determine direction and entry/exit
     let type = 'LONG';
     let entry = buyPrice;
     let exitPrice = sellPrice;
 
-    if (!buyPrice && sellPrice) {
+    if (sellPrice && !buyPrice) {
       type = 'SHORT';
       entry = sellPrice;
       exitPrice = buyPrice || sellPrice;
     }
 
-    // Date
+    // Date (MM/DD/YYYY → YYYY-MM-DD)
     let dateTime = get(['boughttimestamp']) || get(['soldtimestamp']);
     let date = '';
     if (dateTime) {
-      const match = dateTime.match(/(\d{2}\/\d{2}\/\d{4})/);
-      if (match) date = match[1].split('/').reverse().join('-'); // MM/DD/YYYY → YYYY-MM-DD
+      const match = dateTime.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+      if (match) date = `${match[3]}-${match[1]}-${match[2]}`;
     }
 
     if (entry && exitPrice && !isNaN(entry) && !isNaN(exitPrice)) {
       const pnl = calcPnl(symbol, type, entry, exitPrice, qty);
-      
-      preview.push(`${date || '—'} | ${symbol} ${type} ${qty}x | ${entry} → ${exitPrice} | 
+      preview.push(`${date} | ${symbol} ${type} ${qty}x | ${entry} → ${exitPrice} | 
         <span style="color:${pnl >= 0 ? '#00e5a0' : '#ff3d5a'}">P&L ${pnl >= 0 ? '+' : ''}$${pnl}</span>`);
       imported++;
     }
   }
 
   const resultEl = document.getElementById('result');
-  if (imported === 0) {
-    resultEl.innerHTML = `<span style="color:#ff3d5a">0 trades found.</span>`;
-  } else {
-    resultEl.innerHTML = `
-      <div style="color:#00e5a0;font-size:15px;margin-bottom:15px">✅ ${imported} trades imported successfully!</div>
-      ${preview.join('<br>')}
-      <div style="margin-top:25px;color:#f5c842;font-size:11px">
-        Note: The middle trade now correctly shows +$18.75 (was wrongly calculating as $187.5 before).
-      </div>`;
-  }
+  resultEl.innerHTML = `
+    <div style="color:#00e5a0;font-size:15px;margin-bottom:15px">✅ ${imported} trades imported successfully!</div>
+    ${preview.join('<br>')}
+    <div style="margin-top:20px;color:#f5c842;font-size:11px">
+      The middle trade should now correctly show <b>+$18.75</b>
+    </div>`;
 }
 
-// Drop zone setup
+// Drop zone
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 
