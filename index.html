@@ -19,9 +19,9 @@ html,body{height:100%;background:#05050a;color:#dde0ec;font-family:'JetBrains Mo
 .content{padding:25px;max-width:1200px;margin:0 auto}
 .section{border:1px solid #141422;background:#0b0b12}
 .sec-hd{background:#0b0b12;padding:12px 20px;border-bottom:1px solid #141422;font-size:10px;letter-spacing:2px;color:#505068}
-.drop-zone{border:2px dashed #252538;padding:70px 20px;text-align:center;background:#09090f;cursor:pointer;transition:all .2s}
+.drop-zone{border:2px dashed #252538;padding:80px 20px;text-align:center;background:#09090f;cursor:pointer;transition:all .2s}
 .drop-zone:hover,.drop-zone.drag{border-color:#00e5a0;background:#00e5a008}
-.trade-row{padding:10px 15px;border-bottom:1px solid #1e1e2e;display:flex;justify-content:space-between;align-items:center}
+.trade-row{padding:12px 16px;border-bottom:1px solid #1e1e2e;display:flex;justify-content:space-between;align-items:center}
 .green{color:#00e5a0}
 .red{color:#ff3d5a}
 </style>
@@ -30,10 +30,9 @@ html,body{height:100%;background:#05050a;color:#dde0ec;font-family:'JetBrains Mo
 <div id="app"></div>
 
 <script>
-// ── Version
+// EDGE LOG v4
 const VERSION = "v4";
 
-// Config & Helpers
 const PRESETS = {
   ES:{tv:12.50,ts:0.25}, MES:{tv:1.25,ts:0.25}, NQ:{tv:5.00,ts:0.25},
   MNQ:{tv:0.50,ts:0.25}, CL:{tv:10.00,ts:0.01}
@@ -54,7 +53,7 @@ function calcPnl(sym, type, entry, exit, size) {
 let trades = [];
 let activeTab = 'import';
 
-// ── Parser
+// Parser
 function parseCSV(text) {
   const lines = text.split('\n').filter(l => l.trim());
   if (lines.length < 2) return alert("CSV is empty");
@@ -130,15 +129,15 @@ function parseCSV(text) {
     }
   }
 
-  alert(`✅ Imported ${newTrades} new trades!\nTotal trades now: ${trades.length}`);
+  alert(`✅ EDGE LOG v4\n\nImported ${newTrades} new trades!\nTotal: ${trades.length} trades`);
   activeTab = 'journal';
   renderApp();
 }
 
 function clearAllTrades() {
-  if (!confirm(`Delete ALL ${trades.length} trades permanently?`)) return;
+  if (!confirm(`Delete ALL ${trades.length} trades? This cannot be undone.`)) return;
   trades = [];
-  alert("All trades cleared.");
+  alert("All trades have been cleared.");
   renderApp();
 }
 
@@ -146,7 +145,7 @@ function renderApp() {
   let html = `
   <div class="topbar">
     <div style="padding:16px 24px;font-family:'Bebas Neue';font-size:24px;color:#00e5a0">
-      EDGE LOG <span style="font-size:14px;color:#505070">v4</span>
+      EDGE LOG <span style="font-size:14px;color:#505070">${VERSION}</span>
     </div>
     <button class="btn-ghost ${activeTab==='overview'?'active':''}" onclick="activeTab='overview';renderApp()">OVERVIEW</button>
     <button class="btn-ghost ${activeTab==='journal'?'active':''}" onclick="activeTab='journal';renderApp()">JOURNAL (${trades.length})</button>
@@ -157,42 +156,42 @@ function renderApp() {
   if (activeTab === 'import') {
     html += `
     <div class="section">
-      <div class="sec-hd">NINJATRADER CSV IMPORT</div>
-      <div id="drop-zone" class="drop-zone" style="margin:30px">
-        <div style="font-size:60px;margin-bottom:20px">📂</div>
-        <div style="font-size:16px">Drop your NinjaTrader Performance.csv here</div>
-        <div style="font-size:12px;color:#606080;margin-top:12px">v4 parser • Correct MES tick value • Duplicate protection</div>
+      <div class="sec-hd">NINJATRADER IMPORT — v4</div>
+      <div id="drop-zone" class="drop-zone" style="margin:40px">
+        <div style="font-size:65px;margin-bottom:20px">📂</div>
+        <div style="font-size:17px">Drop your NinjaTrader CSV here</div>
+        <div style="font-size:12px;color:#606080;margin-top:12px">Performance.csv • Duplicate protection • Correct MES calculation</div>
         <input type="file" id="csv-input" accept=".csv" style="display:none">
       </div>
     </div>`;
   } 
   else if (activeTab === 'journal') {
-    html += `<div class="section"><div class="sec-hd">ALL TRADES (${trades.length})</div>`;
+    html += `<div class="section"><div class="sec-hd">TRADES (${trades.length})</div>`;
     if (trades.length === 0) {
-      html += `<div style="padding:80px;text-align:center;color:#505070">No trades yet — Import from the Import tab</div>`;
+      html += `<div style="padding:100px;text-align:center;color:#505070">No trades yet — Go to Import tab</div>`;
     } else {
-      html += `<div style="max-height:650px;overflow:auto">`;
+      html += `<div style="max-height:680px;overflow:auto">`;
       trades.slice().reverse().forEach(t => {
         html += `
         <div class="trade-row">
-          <div>${t.date || '—'} &nbsp; ${t.symbol} <span style="color:${t.type==='LONG'?'#00e5a0':'#ff3d5a'}">${t.type}</span> ${t.size}x</div>
+          <div>${t.date || '—'} ${t.symbol} <span style="color:${t.type==='LONG'?'#00e5a0':'#ff3d5a'}">${t.type}</span> ${t.size}x</div>
           <div>${t.entry} → ${t.exit}</div>
-          <div style="color:${t.pnl >= 0 ? '#00e5a0' : '#ff3d5a'}">${t.pnl >= 0 ? '+' : ''}$${t.pnl}</div>
+          <div style="color:${t.pnl >= 0 ? '#00e5a0' : '#ff3d5a'};font-weight:bold">${t.pnl >= 0 ? '+' : ''}$${t.pnl}</div>
         </div>`;
       });
       html += `</div>`;
     }
     html += `</div>`;
   } 
-  else { // overview
+  else {
     const total = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
     html += `
     <div class="section">
-      <div class="sec-hd">OVERVIEW</div>
-      <div style="padding:40px;text-align:center">
-        <div style="font-size:48px;color:${total >= 0 ? '#00e5a0' : '#ff3d5a'}">${total >= 0 ? '+' : ''}$${total.toFixed(2)}</div>
-        <div style="margin-top:8px;color:#8080a0">TOTAL P&L</div>
-        <div style="margin-top:40px">
+      <div class="sec-hd">OVERVIEW — EDGE LOG v4</div>
+      <div style="padding:50px;text-align:center">
+        <div style="font-size:52px;color:${total >= 0 ? '#00e5a0' : '#ff3d5a'}">${total >= 0 ? '+' : ''}$${total.toFixed(2)}</div>
+        <div style="margin-top:10px;color:#8080a0">TOTAL P&L</div>
+        <div style="margin-top:50px">
           <button onclick="clearAllTrades()" class="btn-r">CLEAR ALL TRADES</button>
         </div>
       </div>
@@ -202,7 +201,7 @@ function renderApp() {
   html += `</div>`;
   document.getElementById('app').innerHTML = html;
 
-  // Drop zone events
+  // Drop zone
   setTimeout(() => {
     const dz = document.getElementById('drop-zone');
     const input = document.getElementById('csv-input');
@@ -216,7 +215,7 @@ function renderApp() {
           reader.readAsText(file);
         }
       };
-      dz.ondragover = e => { e.preventDefault(); dz.classList.add('drag'); };
+      dz.ondragover = e => {e.preventDefault(); dz.classList.add('drag');};
       dz.ondragleave = () => dz.classList.remove('drag');
       dz.ondrop = e => {
         e.preventDefault();
@@ -232,7 +231,6 @@ function renderApp() {
   }, 100);
 }
 
-// Start
 renderApp();
 </script>
 </body>
