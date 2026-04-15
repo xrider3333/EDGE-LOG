@@ -3,51 +3,51 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>EDGE LOG — Trade Tracker</title>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<title>EDGE LOG v5</title>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:#05050a;color:#dde0ec;font-family:'JetBrains Mono',monospace;font-size:13px}
-::-webkit-scrollbar{width:3px;height:3px}
-::-webkit-scrollbar-track{background:#0b0b12}
-::-webkit-scrollbar-thumb{background:#252538}
-input,select,textarea{background:#0d0d16;border:1px solid #1e1e2e;color:#dde0ec;font-family:'JetBrains Mono',monospace;font-size:12px;padding:9px 11px;width:100%;outline:none;transition:border-color .15s;box-sizing:border-box}
+html,body{height:100%;background:#05050a;color:#c8ccd8;font-family:'JetBrains Mono',monospace;font-size:13px}
+::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-track{background:#0b0b12}::-webkit-scrollbar-thumb{background:#303048}
+input,select,textarea{background:#0d0d1a;border:1px solid #2a2a3e;color:#c8ccd8;font-family:'JetBrains Mono',monospace;font-size:12px;padding:9px 11px;width:100%;outline:none;transition:border-color .15s}
 input:focus,select:focus,textarea:focus{border-color:#00e5a066}
 select{-webkit-appearance:none;cursor:pointer}
 button{cursor:pointer;font-family:'JetBrains Mono',monospace;border:none;transition:all .15s}
-.btn-g{background:#00e5a014;border:1px solid #00e5a030;color:#00e5a0;padding:8px 18px;font-size:10px;letter-spacing:1px}
-.btn-g:hover{background:#00e5a024}
-.btn-g:disabled{opacity:.4;cursor:not-allowed}
-.btn-r{background:#ff3d5a14;border:1px solid #ff3d5a30;color:#ff3d5a;padding:8px 18px;font-size:10px;letter-spacing:1px}
-.btn-r:hover{background:#ff3d5a22}
-.btn-d{background:#0d0d16;border:1px solid #1e1e2e;color:#505068;padding:8px 18px;font-size:10px;letter-spacing:1px}
-.btn-d:hover{border-color:#252538;color:#8080a0}
-.btn-ghost{background:none;border:none;color:#404058;font-size:10px;letter-spacing:2px;padding:12px 18px;border-bottom:2px solid transparent}
-.btn-ghost:hover{color:#8080a0}
+.btn-g{background:#00e5a018;border:1px solid #00e5a040;color:#00e5a0;padding:8px 18px;font-size:10px;letter-spacing:1px}
+.btn-g:hover{background:#00e5a030}.btn-g:disabled{opacity:.4;cursor:not-allowed}
+.btn-r{background:#ff3d5a18;border:1px solid #ff3d5a40;color:#ff3d5a;padding:8px 18px;font-size:10px;letter-spacing:1px}
+.btn-r:hover{background:#ff3d5a28}
+.btn-y{background:#f5c84218;border:1px solid #f5c84240;color:#f5c842;padding:8px 18px;font-size:10px;letter-spacing:1px}
+.btn-y:hover{background:#f5c84228}
+.btn-d{background:#0d0d1a;border:1px solid #2a2a3e;color:#8080a0;padding:8px 18px;font-size:10px;letter-spacing:1px}
+.btn-d:hover{border-color:#404060;color:#a0a0c0}
+.btn-ghost{background:none;border:none;color:#6060a0;font-size:11px;letter-spacing:2px;padding:14px 20px;border-bottom:2px solid transparent}
+.btn-ghost:hover{color:#a0a0c0}
 .btn-ghost.active{color:#00e5a0;border-bottom-color:#00e5a0}
-.del-btn{background:none;border:none;color:#252538;font-size:15px;padding:3px 8px}
+.del-btn{background:none;border:none;color:#404060;font-size:15px;padding:3px 8px}
 .del-btn:hover{color:#ff3d5a}
-.card{background:#0b0b12;border:1px solid #141422;padding:15px 18px}
-.mini-card{background:#09090f;border:1px solid #111120;padding:11px 14px}
-.section{border:1px solid #141422}
-.sec-hd{background:#0b0b12;padding:10px 16px;border-bottom:1px solid #141422;font-size:10px;letter-spacing:2px;color:#505068;display:flex;justify-content:space-between;align-items:center}
-.lbl{display:block;font-size:9px;letter-spacing:2px;color:#383850;margin-bottom:5px}
-.tag{font-size:9px;letter-spacing:1px;padding:2px 7px;background:#1a1a2a;color:#6060a0}
-.tr-row:hover{background:#0d0d16}
-.topbar{background:#080810;border-bottom:1px solid #141422;display:flex;align-items:stretch;padding:0 20px;gap:2px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
-.topbar-brand{display:flex;align-items:center;gap:10px;margin-right:20px;border-right:1px solid #141422;padding-right:20px;padding:6px 20px 6px 0}
-.content{padding:20px 24px;max-width:1120px;margin:0 auto}
+.edit-btn{background:none;border:none;color:#404060;font-size:12px;padding:3px 8px;letter-spacing:1px}
+.edit-btn:hover{color:#f5c842}
+.card{background:#0e0e1c;border:1px solid #1e1e32;padding:16px 18px}
+.mini-card{background:#0a0a16;border:1px solid #181828;padding:12px 15px}
+.section{border:1px solid #1e1e32}
+.sec-hd{background:#0e0e1c;padding:11px 18px;border-bottom:1px solid #1e1e32;font-size:10px;letter-spacing:2px;color:#7070a0;display:flex;justify-content:space-between;align-items:center}
+.lbl{display:block;font-size:9px;letter-spacing:2px;color:#6060a0;margin-bottom:5px}
+.tag{font-size:9px;letter-spacing:1px;padding:2px 8px;background:#1a1a2e;color:#8080c0}
+.tr-row:hover{background:#0d0d1a}
+.topbar{background:#080814;border-bottom:1px solid #1e1e32;display:flex;align-items:stretch;padding:0 20px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.content{padding:22px 26px;max-width:1200px;margin:0 auto}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.stat-label{font-size:9px;letter-spacing:2px;color:#383850;margin-bottom:8px}
+.stat-label{font-size:9px;letter-spacing:2px;color:#6060a0;margin-bottom:8px}
 .stat-val{font-family:'Bebas Neue',monospace;letter-spacing:1px}
 .err{color:#ff3d5a;font-size:11px;margin-top:8px}
-.ok{color:#00e5a0;font-size:11px;margin-top:8px}
-.pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:#00e5a0;animation:pulse 2s infinite;margin-right:4px}
+.pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:#00e5a0;animation:pulse 2s infinite;margin-right:5px}
+.pulse-y{display:inline-block;width:6px;height:6px;border-radius:50%;background:#f5c842;animation:pulse 2s infinite;margin-right:5px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spinner{display:inline-block;width:18px;height:18px;border:2px solid #1e1e2e;border-top-color:#00e5a0;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
@@ -56,266 +56,228 @@ button{cursor:pointer;font-family:'JetBrains Mono',monospace;border:none;transit
 .auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
 .auth-box{width:100%;max-width:440px}
 .logo{font-family:'Bebas Neue',monospace;font-size:44px;letter-spacing:4px;color:#00e5a0;line-height:1;text-align:center}
-.logo-sub{font-size:10px;color:#252538;letter-spacing:3px;text-align:center;margin-top:6px;margin-bottom:32px}
+.logo-sub{font-size:10px;color:#404060;letter-spacing:3px;text-align:center;margin-top:6px;margin-bottom:32px}
 table{width:100%;border-collapse:collapse;font-size:11px}
-th{padding:8px 10px;text-align:left;color:#2a2a40;font-weight:normal;font-size:9px;letter-spacing:2px;border-bottom:1px solid #111120;white-space:nowrap}
-td{padding:8px 10px;border-bottom:1px solid #0d0d16}
-.green{color:#00e5a0}
-.red{color:#ff3d5a}
-.yellow{color:#f5c842}
-.dim{color:#383850}
-.chart-area{padding:14px 8px 8px}
-.canvas-wrap{position:relative;width:100%;overflow-x:auto}
-.drop-zone{border:1px dashed #252538;padding:36px 20px;text-align:center;cursor:pointer;transition:all .15s;background:#09090f}
-.drop-zone:hover,.drop-zone.drag{border-color:#00e5a044;background:#00e5a008}
+th{padding:8px 10px;text-align:left;color:#6060a0;font-weight:normal;font-size:9px;letter-spacing:2px;border-bottom:1px solid #1a1a2e;white-space:nowrap;background:#0a0a16}
+td{padding:8px 10px;border-bottom:1px solid #111120;color:#a0a4b8}
+.green{color:#00e5a0}.red{color:#ff3d5a}.yellow{color:#f5c842}.dim{color:#6060a0}
+.drop-zone{border:1px dashed #303048;padding:36px 20px;text-align:center;cursor:pointer;transition:all .15s;background:#09090f}
+.drop-zone:hover,.drop-zone.drag{border-color:#00e5a066;background:#00e5a008}
 a.chart-link{color:#4a9eff;font-size:10px;text-decoration:none}
 a.chart-link:hover{color:#7ab8ff}
+.modal-bg{position:fixed;inset:0;background:#000000cc;z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:#0e0e1c;border:1px solid #2a2a3e;width:100%;max-width:560px;max-height:90vh;overflow-y:auto}
+.modal-hd{background:#080814;padding:14px 20px;border-bottom:1px solid #1e1e32;display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:2px;color:#7070a0}
+.auto-badge{font-size:9px;padding:2px 8px;letter-spacing:1px;border-radius:0}
+.version-badge{font-size:9px;color:#404060;letter-spacing:1px;font-family:'JetBrains Mono',monospace}
+.month-row:hover{background:#0d0d1a}
+.dow-bar{height:8px;background:#00e5a040;transition:width .3s}
+.dow-bar.neg{background:#ff3d5a40}
 </style>
 </head>
 <body>
-<div id="app">
-  <div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">
-    <div class="spinner" style="width:28px;height:28px"></div>
-    <div style="font-size:10px;letter-spacing:3px;color:#252538">LOADING...</div>
-  </div>
-</div>
+<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px"><div class="spinner" style="width:28px;height:28px"></div><div style="font-size:10px;letter-spacing:3px;color:#404060">LOADING EDGE LOG v5...</div></div></div>
 
 <script>
-// ═══════════════════════════════════════════════════════════
-//  EDGE LOG — Vanilla JS Trade Tracker
-// ═══════════════════════════════════════════════════════════
-
+// ═══════════════════════════════════════════════════════════════
+//  EDGE LOG v5.0 — Advanced Futures Trade Tracker
+//  Firebase: edge-tracker-b55af
+// ═══════════════════════════════════════════════════════════════
+const VERSION = '5.0';
 
 const PRESETS = {
-  ES:{tv:12.50,ts:0.25}, NQ:{tv:5.00,ts:0.25}, MES:{tv:1.25,ts:0.25},
+  ES:{tv:12.50,ts:0.25}, MES:{tv:1.25,ts:0.25}, NQ:{tv:5.00,ts:0.25},
   MNQ:{tv:0.50,ts:0.25}, CL:{tv:10.00,ts:0.01}, GC:{tv:10.00,ts:0.10},
   SI:{tv:25.00,ts:0.005}, ZB:{tv:31.25,ts:0.03125}, RTY:{tv:5.00,ts:0.10},
   YM:{tv:5.00,ts:1.00}, MGC:{tv:1.00,ts:0.10}, MCL:{tv:1.00,ts:0.01},
   ZN:{tv:31.25,ts:0.015625}, ZC:{tv:12.50,ts:0.25}, NG:{tv:10.00,ts:0.001},
 };
-let defaultFee = 4.50;
-
-const SETUPS = ["—","Breakout","Pullback","Reversal","Trend","Gap Fill","VWAP","S/D Zone","Momentum","ICT","Order Block","FVG","Other"];
+const SETUPS = ['—','Breakout','Pullback','Reversal','Trend','Gap Fill','VWAP','S/D Zone','Momentum','ICT','Order Block','FVG','Other'];
 const SYM_LIST = Object.keys(PRESETS);
+const TABS = ['overview','journal','analytics','import','export'];
 
-let db=null, auth=null, colRef=null, unsubTrades=null;
+let db=null, auth=null, colRef=null, unsub=null;
 let trades=[], currentUser=null, activeTab='overview', activeChart='equity';
-let formOpen=true, ntDrag=false;
+let formOpen=true, editTrade=null, showModal=false;
+let defaultFee=4.50, autoHandle=null, autoTimer=null, autoInterval=60;
 
-// ── Helpers ──────────────────────────────────────────────────────────
-function calcPnl(sym,type,entry,exit,size,fees){
-  const p=PRESETS[sym]; if(!p) return 0;
-  const dir=type==='LONG'?1:-1;
-  const gross=((exit-entry)*dir/p.ts)*p.tv*size;
-  return +((gross-(fees||0)).toFixed(2));
-}
-function fmt(n){return (n>=0?'+':'')+n.toFixed(2);}
+// ── Helpers ──────────────────────────────────────────────────────
+function el(id){return document.getElementById(id);}
 function gc(n){return n>=0?'#00e5a0':'#ff3d5a';}
+function fmt(n){return (n>=0?'+':'')+n.toFixed(2);}
+function pct(n){return (n*100).toFixed(1)+'%';}
+function getBaseSym(s){return (s||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase()||'ES';}
+
+function calcPnl(sym,type,entry,exit,size,fees){
+  const p=PRESETS[sym]||PRESETS.MES;
+  const dir=type==='LONG'?1:-1;
+  return +((((exit-entry)*dir)/p.ts)*p.tv*size-(fees||0)).toFixed(2);
+}
+
 function stdDev(arr){
   if(arr.length<2)return 0;
   const m=arr.reduce((a,b)=>a+b,0)/arr.length;
   return Math.sqrt(arr.reduce((s,v)=>s+(v-m)**2,0)/(arr.length-1));
 }
-function el(id){return document.getElementById(id);}
-function h(tag,attrs,children){
-  const e=document.createElement(tag);
-  if(attrs) Object.entries(attrs).forEach(([k,v])=>{
-    if(k==='style'&&typeof v==='object')Object.assign(e.style,v);
-    else if(k.startsWith('on'))e.addEventListener(k.slice(2).toLowerCase(),v);
-    else if(k==='className')e.className=v;
-    else e.setAttribute(k,v);
-  });
-  if(children){
-    (Array.isArray(children)?children:[children]).forEach(c=>{
-      if(c==null||c===false)return;
-      e.appendChild(typeof c==='string'?document.createTextNode(c):c);
-    });
-  }
-  return e;
-}
-function render(node){el('app').innerHTML='';el('app').appendChild(node);}
 
-// ── Stats calculation ─────────────────────────────────────────────────
-function calcStats(){
-  if(!trades.length)return null;
-  const wins=trades.filter(t=>t.pnl>0), losses=trades.filter(t=>t.pnl<0);
-  const wr=wins.length/trades.length;
+// ── Stats ─────────────────────────────────────────────────────────
+function calcStats(tds){
+  if(!tds||!tds.length)return null;
+  const wins=tds.filter(t=>t.pnl>0), losses=tds.filter(t=>t.pnl<0);
+  const wr=wins.length/tds.length;
   const avgW=wins.length?wins.reduce((s,t)=>s+t.pnl,0)/wins.length:0;
   const avgL=losses.length?Math.abs(losses.reduce((s,t)=>s+t.pnl,0)/losses.length):0;
   const grossW=wins.reduce((s,t)=>s+t.pnl,0);
   const grossL=Math.abs(losses.reduce((s,t)=>s+t.pnl,0));
-  const pf=grossL>0?grossW/grossL:grossW>0?Infinity:0;
+  const gross=tds.reduce((s,t)=>s+(t.pnl+(t.fees||0)),0);
+  const pf=grossL>0?grossW/grossL:grossW>0?99:0;
   const ev=wr*avgW-(1-wr)*(avgL||0);
-  const net=trades.reduce((s,t)=>s+t.pnl,0);
-  let peak=0,maxDD=0,cur=0;
-  trades.forEach(t=>{cur+=t.pnl;if(cur>peak)peak=cur;maxDD=Math.max(maxDD,peak-cur);});
+  const net=tds.reduce((s,t)=>s+t.pnl,0);
+  const totalFees=tds.reduce((s,t)=>s+(t.fees||0),0);
+  const feeImpact=gross>0?(totalFees/gross)*100:0;
+
+  // Drawdown
+  let peak=0,maxDD=0,cur=0,ddStart='',ddEnd='';
+  let tempPeak=0,tempStart='';
+  tds.forEach(t=>{
+    cur+=t.pnl;
+    if(cur>peak){peak=cur;}
+    const dd=peak-cur;
+    if(dd>maxDD){maxDD=dd;}
+  });
+
+  // Streaks
+  let maxWS=0,maxLS=0,curWS=0,curLS=0,curStreak=0,curDir=0;
+  tds.forEach(t=>{
+    const d=t.pnl>0?1:-1;
+    if(!curDir){curDir=d;}
+    if(d===curDir)curStreak++;
+    else{curStreak=1;curDir=d;}
+    if(d>0){maxWS=Math.max(maxWS,curStreak);curWS=curStreak;curLS=0;}
+    else{maxLS=Math.max(maxLS,curStreak);curLS=curStreak;curWS=0;}
+  });
+
+  // Daily / sharpe
   const byDay={};
-  trades.forEach(t=>{byDay[t.date]=(byDay[t.date]||0)+t.pnl;});
+  tds.forEach(t=>{byDay[t.date]=(byDay[t.date]||0)+t.pnl;});
   const dv=Object.values(byDay);
   const meanD=dv.length?dv.reduce((a,b)=>a+b,0)/dv.length:0;
   const sharpe=dv.length>1?(meanD/(stdDev(dv)||1))*Math.sqrt(252):0;
-  let streak=0,sdir=0;
-  for(let i=trades.length-1;i>=0;i--){
-    const d=trades[i].pnl>0?1:-1;
-    if(!streak){streak=d;sdir=d;}else if(d===sdir)streak+=d;else break;
-  }
-  const syms={},setups={};
-  trades.forEach(t=>{
-    if(!syms[t.symbol])syms[t.symbol]={count:0,pnl:0,wins:0};
-    syms[t.symbol].count++;syms[t.symbol].pnl+=t.pnl;if(t.pnl>0)syms[t.symbol].wins++;
+
+  // Recovery factor
+  const recovery=maxDD>0?net/maxDD:0;
+
+  // Calmar
+  const calmar=maxDD>0?net/maxDD:0;
+
+  // Long vs Short
+  const longs=tds.filter(t=>t.type==='LONG'), shorts=tds.filter(t=>t.type==='SHORT');
+  const longPnl=longs.reduce((s,t)=>s+t.pnl,0);
+  const shortPnl=shorts.reduce((s,t)=>s+t.pnl,0);
+  const longWR=longs.length?longs.filter(t=>t.pnl>0).length/longs.length:0;
+  const shortWR=shorts.length?shorts.filter(t=>t.pnl>0).length/shorts.length:0;
+
+  // Best/Worst trade
+  const best=tds.reduce((a,b)=>b.pnl>a.pnl?b:a);
+  const worst=tds.reduce((a,b)=>b.pnl<a.pnl?b:a);
+
+  // Best/Worst day
+  const dayEntries=Object.entries(byDay);
+  const bestDay=dayEntries.reduce((a,b)=>b[1]>a[1]?b:a,['',0]);
+  const worstDay=dayEntries.reduce((a,b)=>b[1]<a[1]?b:a,['',0]);
+
+  // By symbol / setup
+  const syms={}, setups={};
+  tds.forEach(t=>{
+    if(!syms[t.symbol])syms[t.symbol]={count:0,pnl:0,wins:0,fees:0};
+    syms[t.symbol].count++;syms[t.symbol].pnl+=t.pnl;syms[t.symbol].fees+=(t.fees||0);
+    if(t.pnl>0)syms[t.symbol].wins++;
     const k=t.setup||'—';
     if(!setups[k])setups[k]={count:0,pnl:0,wins:0};
     setups[k].count++;setups[k].pnl+=t.pnl;if(t.pnl>0)setups[k].wins++;
   });
-  const rr=avgL>0?avgW/avgL:0;
-  const totalFees=trades.reduce((s,t)=>s+(t.fees||0),0);
-  return{wr,avgW,avgL,pf,ev,net,maxDD,sharpe,streak,sdir,wins:wins.length,losses:losses.length,
-         total:trades.length,syms,setups,totalFees,rr,byDay};
-}
 
-// ── SVG Charts ────────────────────────────────────────────────────────
-function makeSVG(w,h,content){
-  return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" style="display:block">${content}</svg>`;
-}
-
-function equityChart(){
-  if(trades.length<2)return '<p style="color:#252538;font-size:11px;padding:20px">Add at least 2 trades to see chart</p>';
-  const W=900,H=180,PAD={t:10,r:20,b:30,l:55};
-  const cw=W-PAD.l-PAD.r, ch=H-PAD.t-PAD.b;
-  let cum=0,pk=0; const pts=trades.map((t,i)=>{cum=+(cum+t.pnl).toFixed(2);if(cum>pk)pk=cum;return{x:i,y:cum,pnl:t.pnl};});
-  const minY=Math.min(0,...pts.map(p=>p.y));
-  const maxY=Math.max(0,...pts.map(p=>p.y));
-  const rangeY=maxY-minY||1;
-  const sx=i=>PAD.l+(i/(pts.length-1))*cw;
-  const sy=v=>PAD.t+ch-(((v-minY)/rangeY)*ch);
-  const y0=sy(0);
-  let path='M'+pts.map((p,i)=>`${sx(i)},${sy(p.y)}`).join('L');
-  let dots=pts.map((p,i)=>`<circle cx="${sx(i)}" cy="${sy(p.y)}" r="3" fill="${p.pnl>=0?'#00e5a0':'#ff3d5a'}"/>`).join('');
-  // Y axis ticks
-  const yticks=5;
-  let yaxis='',ygrid='';
-  for(let i=0;i<=yticks;i++){
-    const v=minY+(rangeY*i/yticks);
-    const y=sy(v);
-    yaxis+=`<text x="${PAD.l-8}" y="${y+4}" text-anchor="end" fill="#383850" font-size="10" font-family="JetBrains Mono,monospace">$${v.toFixed(0)}</text>`;
-    ygrid+=`<line x1="${PAD.l}" y1="${y}" x2="${W-PAD.r}" y2="${y}" stroke="#0d0d18" stroke-dasharray="2,6"/>`;
-  }
-  // X axis
-  const xstep=Math.max(1,Math.floor(pts.length/8));
-  let xaxis='';
-  for(let i=0;i<pts.length;i+=xstep){
-    xaxis+=`<text x="${sx(i)}" y="${H-6}" text-anchor="middle" fill="#383850" font-size="10" font-family="JetBrains Mono,monospace">${i+1}</text>`;
-  }
-  const zeroLine=minY<=0&&maxY>=0?`<line x1="${PAD.l}" y1="${y0}" x2="${W-PAD.r}" y2="${y0}" stroke="#1a1a2a" stroke-dasharray="4,4"/>`:'';
-  return makeSVG(W,H,`${ygrid}${zeroLine}<path d="${path}" stroke="#00e5a0" stroke-width="2" fill="none"/>${dots}${yaxis}${xaxis}`);
-}
-
-function drawdownChart(){
-  if(trades.length<2)return '';
-  const W=900,H=90,PAD={t:5,r:20,b:25,l:55};
-  const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
-  let cum=0,pk=0;
-  const pts=trades.map((t,i)=>{cum=+(cum+t.pnl).toFixed(2);if(cum>pk)pk=cum;return{x:i,y:+(pk-cum).toFixed(2)};});
-  const maxDD=Math.max(...pts.map(p=>p.y),1);
-  const sx=i=>PAD.l+(i/(pts.length-1||1))*cw;
-  const sy=v=>PAD.t+(v/maxDD)*ch;
-  let path=`M${sx(0)},${PAD.t+ch} L${pts.map((p,i)=>`${sx(i)},${sy(p.y)}`).join('L')} L${sx(pts.length-1)},${PAD.t+ch} Z`;
-  let line='M'+pts.map((p,i)=>`${sx(i)},${sy(p.y)}`).join('L');
-  const ytick=`<text x="${PAD.l-8}" y="${PAD.t+10}" text-anchor="end" fill="#383850" font-size="9" font-family="JetBrains Mono,monospace">$${maxDD.toFixed(0)}</text>`;
-  return makeSVG(W,H,`<path d="${path}" fill="#ff3d5a0c"/><path d="${line}" stroke="#ff3d5a80" stroke-width="1.5" fill="none"/>${ytick}`);
-}
-
-function dailyChart(){
-  const S=calcStats();if(!S)return '';
-  const days=Object.entries(S.byDay).sort(([a],[b])=>a>b?1:-1);
-  if(!days.length)return '';
-  const W=900,H=220,PAD={t:10,r:20,b:30,l:65};
-  const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
-  const vals=days.map(([,v])=>v);
-  const minY=Math.min(0,...vals),maxY=Math.max(0,...vals);
-  const rangeY=maxY-minY||1;
-  const bw=Math.max(4,(cw/days.length)-3);
-  const sy=v=>PAD.t+ch-(((v-minY)/rangeY)*ch);
-  const y0=sy(0);
-  let bars='',xlabels='';
-  days.forEach(([d,v],i)=>{
-    const x=PAD.l+(i/(days.length))*cw+(cw/days.length-bw)/2;
-    const yv=sy(v),barH=Math.abs(yv-y0);
-    const by=v>=0?yv:y0;
-    bars+=`<rect x="${x}" y="${by}" width="${bw}" height="${Math.max(1,barH)}" fill="${v>=0?'#00e5a0':'#ff3d5a'}" rx="1"/>`;
-    if(i%(Math.ceil(days.length/10))===0){
-      xlabels+=`<text x="${x+bw/2}" y="${H-6}" text-anchor="middle" fill="#383850" font-size="9" font-family="JetBrains Mono,monospace">${d.slice(5)}</text>`;
-    }
+  // Monthly P&L
+  const monthly={};
+  tds.forEach(t=>{
+    const m=t.date?t.date.slice(0,7):'unknown';
+    if(!monthly[m])monthly[m]={pnl:0,trades:0,wins:0};
+    monthly[m].pnl+=t.pnl;monthly[m].trades++;if(t.pnl>0)monthly[m].wins++;
   });
-  const yticks=4;let yaxis='',ygrid='';
-  for(let i=0;i<=yticks;i++){
-    const v=minY+(rangeY*i/yticks);const y=sy(v);
-    yaxis+=`<text x="${PAD.l-8}" y="${y+4}" text-anchor="end" fill="#383850" font-size="10" font-family="JetBrains Mono,monospace">$${v.toFixed(0)}</text>`;
-    ygrid+=`<line x1="${PAD.l}" y1="${y}" x2="${W-PAD.r}" y2="${y}" stroke="#0d0d18" stroke-dasharray="2,6"/>`;
+
+  // Day of week
+  const dow={Mon:{pnl:0,t:0},Tue:{pnl:0,t:0},Wed:{pnl:0,t:0},Thu:{pnl:0,t:0},Fri:{pnl:0,t:0}};
+  const dowKeys=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  tds.forEach(t=>{
+    if(!t.date)return;
+    const d=new Date(t.date+'T12:00:00');
+    const k=dowKeys[d.getDay()];
+    if(dow[k]){dow[k].pnl+=t.pnl;dow[k].t++;}
+  });
+
+  // Consecutive (current)
+  let curSDir=0,curSLen=0;
+  for(let i=tds.length-1;i>=0;i--){
+    const d=tds[i].pnl>0?1:-1;
+    if(!curSLen){curSLen=1;curSDir=d;}
+    else if(d===curSDir)curSLen++;
+    else break;
   }
-  return makeSVG(W,H,`${ygrid}<line x1="${PAD.l}" y1="${y0}" x2="${W-PAD.r}" y2="${y0}" stroke="#1e1e2e"/>${bars}${yaxis}${xlabels}`);
+
+  const rr=avgL>0?avgW/avgL:0;
+
+  return{wr,avgW,avgL,pf,ev,net,gross,grossW,grossL,totalFees,feeImpact,
+         maxDD,sharpe,recovery,calmar,rr,
+         wins:wins.length,losses:losses.length,total:tds.length,
+         maxWS,maxLS,curStreak:curSLen,curDir:curSDir,
+         longs:longs.length,shorts:shorts.length,longPnl,shortPnl,longWR,shortWR,
+         best,worst,bestDay,worstDay,
+         byDay,syms,setups,monthly,dow};
 }
 
-function lineChart(data,xKey,yKey,color,xFmt,yFmt,refX,W=900,H=220){
-  if(!data.length)return '';
-  const PAD={t:10,r:60,b:30,l:65};
-  const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
-  const xs=data.map(d=>d[xKey]),ys=data.map(d=>d[yKey]);
-  const minX=Math.min(...xs),maxX=Math.max(...xs);
-  const minY=Math.min(0,...ys),maxY=Math.max(0,...ys);
-  const rX=maxX-minX||1,rY=maxY-minY||1;
-  const sx=v=>PAD.l+((v-minX)/rX)*cw;
-  const sy=v=>PAD.t+ch-(((v-minY)/rY)*ch);
-  const y0=sy(0);
-  const path='M'+data.map(d=>`${sx(d[xKey])},${sy(d[yKey])}`).join('L');
-  const yticks=4;let yaxis='',ygrid='';
-  for(let i=0;i<=yticks;i++){
-    const v=minY+(rY*i/yticks);const y=sy(v);
-    yaxis+=`<text x="${PAD.l-8}" y="${y+4}" text-anchor="end" fill="#383850" font-size="10" font-family="JetBrains Mono,monospace">${yFmt?yFmt(v):'$'+v.toFixed(0)}</text>`;
-    ygrid+=`<line x1="${PAD.l}" y1="${y}" x2="${W-PAD.r}" y2="${y}" stroke="#0d0d18" stroke-dasharray="2,6"/>`;
-  }
-  const xticks=Math.min(6,data.length);let xaxis='';
-  for(let i=0;i<data.length;i+=Math.ceil(data.length/xticks)){
-    const d=data[i];
-    xaxis+=`<text x="${sx(d[xKey])}" y="${H-6}" text-anchor="middle" fill="#383850" font-size="10" font-family="JetBrains Mono,monospace">${xFmt?xFmt(d[xKey]):d[xKey]}</text>`;
-  }
-  const zeroLine=`<line x1="${PAD.l}" y1="${y0}" x2="${W-PAD.r}" y2="${y0}" stroke="#252538" stroke-dasharray="4,4"/>
-    <text x="${W-PAD.r+4}" y="${y0+4}" fill="#404058" font-size="9" font-family="JetBrains Mono,monospace">0</text>`;
-  const youLine=refX!=null?`<line x1="${sx(refX)}" y1="${PAD.t}" x2="${sx(refX)}" y2="${PAD.t+ch}" stroke="#00e5a044" stroke-dasharray="3,3"/>
-    <text x="${sx(refX)}" y="${PAD.t-2}" text-anchor="middle" fill="#00e5a0" font-size="9" font-family="JetBrains Mono,monospace">YOU</text>`:'';
-  return makeSVG(W,H,`${ygrid}${zeroLine}${youLine}<path d="${path}" stroke="${color}" stroke-width="2.5" fill="none"/>${yaxis}${xaxis}`);
-}
-
-// ── Firebase ──────────────────────────────────────────────────────────
-function initFB(cfg){
+// ── Firebase ──────────────────────────────────────────────────────
+function initFB(){
+  if(firebase.apps.length)return true;
   try{
-    if(firebase.apps.length)return true;
-    firebase.initializeApp(cfg);
+    firebase.initializeApp({
+      apiKey:"AIzaSyD0Q3ms5xZJ5SFl7aHh3oYIkGJJAUiRRBI",
+      authDomain:"edge-tracker-b55af.firebaseapp.com",
+      projectId:"edge-tracker-b55af",
+      storageBucket:"edge-tracker-b55af.firebasestorage.app",
+      messagingSenderId:"351905859153",
+      appId:"1:351905859153:web:9657ca100cf3463ca89a70"
+    });
     auth=firebase.auth();
     db=firebase.firestore();
     return true;
   }catch(e){console.error(e);return false;}
 }
 
-function subscribeToTrades(uid){
+function subscribeTrades(uid){
   colRef=db.collection('users').doc(uid).collection('trades');
-  if(unsubTrades)unsubTrades();
-  unsubTrades=colRef.orderBy('date','asc').onSnapshot(snap=>{
+  if(unsub)unsub();
+  unsub=colRef.orderBy('date','asc').onSnapshot(snap=>{
     trades=snap.docs.map(d=>({id:d.id,...d.data()}));
     renderApp();
-  },e=>console.error('Firestore error',e));
+  });
 }
 
 async function addTrade(t){
   if(!colRef)return;
   await colRef.add({...t,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
 }
+
+async function updateTrade(id,data){
+  if(!colRef)return;
+  await colRef.doc(id).update(data);
+}
+
 async function deleteTrade(id){
   if(!colRef||!confirm('Delete this trade?'))return;
   await colRef.doc(id).delete();
 }
 
-// ── CSV Import ────────────────────────────────────────────────────────
+// ── CSV Parsing ───────────────────────────────────────────────────
 function parseLine(line){
   const r=[];let cur='',inQ=false;
   for(const c of line){
@@ -326,148 +288,377 @@ function parseLine(line){
   r.push(cur.trim());
   return r.map(f=>f.replace(/^"|"$/g,'').trim());
 }
-function getBaseSym(sym){
-  return (sym||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase()||'ES';
+
+function parseDate(str){
+  if(!str)return '';
+  // MM/DD/YYYY HH:MM:SS
+  let m=str.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m)return m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0');
+  // YYYY-MM-DD
+  m=str.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(m)return m[0];
+  return str.slice(0,10);
 }
-function parseCSV(text){
+
+// Detect CSV type from headers
+function detectCSVType(hdr){
+  const h=hdr.join(' ');
+  if(h.includes('buyprice')||h.includes('sellprice')||h.includes('boughttimestamp'))return 'performance';
+  if(h.includes('fill')&&h.includes('price'))return 'fills';
+  if(h.includes('order')&&(h.includes('status')||h.includes('type')))return 'orders';
+  if(h.includes('position')&&h.includes('quantity'))return 'positions';
+  return 'generic';
+}
+
+function importFile(text, label){
   const lines=text.split('\n').filter(l=>l.trim());
-  if(lines.length<2)return alert('CSV appears empty — make sure you exported from NinjaTrader correctly.');
-  const hdr=parseLine(lines[0]).map(h=>h.toLowerCase().trim());
+  if(lines.length<2)return{imported:0,skipped:0,type:'empty'};
+  const hdr=parseLine(lines[0]).map(h=>h.toLowerCase().replace(/\s+/g,''));
+  const type=detectCSVType(hdr);
   const getCol=(row,keys)=>{
     for(const k of keys){
-      const i=hdr.findIndex(h=>h.includes(k));
-      if(i!==-1&&row[i])return row[i];
+      const i=hdr.findIndex(h=>h.includes(k.replace(/\s/g,'')));
+      if(i!==-1&&row[i]!=null)return row[i];
     }
     return '';
   };
-  let imported=0,skipped=0;
+
   const batch=[];
-  for(let i=1;i<lines.length;i++){
-    const row=parseLine(lines[i]);
-    if(row.length<4)continue;
-    const rawSym=getCol(row,['symbol','instrument'])||'MES';
-    const sym=getBaseSym(rawSym);
-    const useSym=PRESETS[sym]?sym:'MES';
-    const qty=parseInt(getCol(row,['qty','quantity','contracts','size']))||1;
-    const buyPrice=parseFloat(getCol(row,['buyprice','buy price']));
-    const sellPrice=parseFloat(getCol(row,['sellprice','sell price']));
-    const entryCol=parseFloat(getCol(row,['entry price','avg entry','entryprice','entry']));
-    const exitCol=parseFloat(getCol(row,['exit price','avg exit','exitprice','exit']));
-    let entry,exit,dir;
-    if(!isNaN(buyPrice)&&!isNaN(sellPrice)&&buyPrice>0&&sellPrice>0){
-      entry=buyPrice;exit=sellPrice;
-      dir=buyPrice<=sellPrice?'LONG':'SHORT';
-    } else if(!isNaN(entryCol)&&!isNaN(exitCol)&&entryCol>0&&exitCol>0){
-      entry=entryCol;exit=exitCol;
-      const ds=getCol(row,['action','side','direction']).toLowerCase();
-      dir=ds.includes('buy')||ds.includes('long')?'LONG':'SHORT';
-    } else continue;
-    let date='';
-    const dtRaw=getCol(row,['boughttimestamp','soldtimestamp','entry time','entrydate','date','time']);
-    if(dtRaw){
-      const m=dtRaw.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if(m)date=m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0');
-      else date=dtRaw.slice(0,10);
+  let skipped=0;
+
+  if(type==='performance'||type==='generic'){
+    // NinjaTrader performance / trade CSV
+    for(let i=1;i<lines.length;i++){
+      const row=parseLine(lines[i]);
+      if(row.length<4)continue;
+      const rawSym=getCol(row,['symbol','instrument'])||'MES';
+      const sym=getBaseSym(rawSym);
+      const useSym=PRESETS[sym]?sym:'MES';
+      const qty=parseInt(getCol(row,['qty','quantity','contracts','size']))||1;
+
+      // NT8 performance format
+      const buyRaw=parseFloat(getCol(row,['buyprice','buy price','buypric']));
+      const sellRaw=parseFloat(getCol(row,['sellprice','sell price','sellpric']));
+      // generic entry/exit
+      const entryRaw=parseFloat(getCol(row,['entry price','avg entry','entryprice','entry','open']));
+      const exitRaw=parseFloat(getCol(row,['exit price','avg exit','exitprice','exit','close']));
+
+      let entry,exit,dir;
+      if(!isNaN(buyRaw)&&!isNaN(sellRaw)&&buyRaw>0&&sellRaw>0){
+        entry=buyRaw;exit=sellRaw;
+        dir=buyRaw<=sellRaw?'LONG':'SHORT';
+      } else if(!isNaN(entryRaw)&&!isNaN(exitRaw)&&entryRaw>0&&exitRaw>0){
+        entry=entryRaw;exit=exitRaw;
+        const ds=(getCol(row,['action','side','direction','type'])||'').toLowerCase();
+        dir=ds.includes('buy')||ds.includes('long')?'LONG':'SHORT';
+      } else continue;
+
+      const dtRaw=getCol(row,['boughttimestamp','soldtimestamp','entry time','entrydate','date','time','entrytime']);
+      const date=parseDate(dtRaw);
+      if(!date)continue;
+
+      const feeRaw=parseFloat(getCol(row,['commission','fee','fees','comm']));
+      const fee=isNaN(feeRaw)?defaultFee:feeRaw;
+
+      const isDupe=trades.some(t=>t.date===date&&t.symbol===useSym&&Math.abs(t.entry-entry)<0.01&&t.size===qty);
+      if(isDupe){skipped++;continue;}
+
+      const pnl=calcPnl(useSym,dir,entry,exit,qty,fee);
+      batch.push({date,symbol:useSym,type:dir,entry:+entry.toFixed(4),exit:+exit.toFixed(4),
+        size:qty,fees:fee,setup:'—',notes:'',chartUrl:'',pnl,source:label||'Import'});
     }
-    if(!date)continue;
-    const feeRaw=parseFloat(getCol(row,['commission','fee','fees']));
-    const fee=isNaN(feeRaw)?defaultFee:feeRaw;
-    const isDupe=trades.some(t=>t.date===date&&t.symbol===useSym&&Math.abs(t.entry-entry)<0.01&&t.size===qty);
-    if(isDupe){skipped++;continue;}
-    const pnl=calcPnl(useSym,dir,entry,exit,qty,fee);
-    batch.push({date,symbol:useSym,type:dir,entry:+entry.toFixed(4),exit:+exit.toFixed(4),
-      size:qty,fees:fee,setup:'—',notes:'NT8 Import',chartUrl:'',pnl});
-    imported++;
+  } else if(type==='fills'){
+    // Fills — match buys to sells by symbol to construct round-turns
+    const fillsBySymbol={};
+    for(let i=1;i<lines.length;i++){
+      const row=parseLine(lines[i]);
+      const rawSym=getCol(row,['symbol','instrument'])||'MES';
+      const sym=getBaseSym(rawSym);
+      const useSym=PRESETS[sym]?sym:'MES';
+      const side=(getCol(row,['side','action','direction'])||'').toLowerCase();
+      const price=parseFloat(getCol(row,['fill price','price','fillprice']));
+      const qty=parseInt(getCol(row,['qty','quantity','filled'])||'1');
+      const dtRaw=getCol(row,['time','date','timestamp','filltime']);
+      const date=parseDate(dtRaw);
+      if(!price||!date)continue;
+      if(!fillsBySymbol[useSym])fillsBySymbol[useSym]={buys:[],sells:[]};
+      if(side.includes('buy')||side.includes('long'))
+        fillsBySymbol[useSym].buys.push({price,qty,date});
+      else
+        fillsBySymbol[useSym].sells.push({price,qty,date});
+    }
+    Object.entries(fillsBySymbol).forEach(([sym,{buys,sells}])=>{
+      const pairs=Math.min(buys.length,sells.length);
+      for(let i=0;i<pairs;i++){
+        const b=buys[i],s=sells[i];
+        const dir=b.date<=s.date?'LONG':'SHORT';
+        const entry=dir==='LONG'?b.price:s.price;
+        const exit=dir==='LONG'?s.price:b.price;
+        const qty=Math.min(b.qty,s.qty);
+        const date=b.date<s.date?b.date:s.date;
+        const isDupe=trades.some(t=>t.date===date&&t.symbol===sym&&Math.abs(t.entry-entry)<0.01);
+        if(isDupe){skipped++;continue;}
+        const pnl=calcPnl(sym,dir,entry,exit,qty,defaultFee);
+        batch.push({date,symbol:sym,type:dir,entry:+entry.toFixed(4),exit:+exit.toFixed(4),
+          size:qty,fees:defaultFee,setup:'—',notes:'',chartUrl:'',pnl,source:'Fills'});
+      }
+    });
   }
-  (async()=>{
-    for(const t of batch)await addTrade(t);
-    alert('Import complete!\n\nImported: '+imported+' trades\nSkipped (duplicates): '+skipped+'\nFee used: $'+defaultFee+'/trade');
-    activeTab='journal';
-    renderApp();
-  })();
+
+  return {imported:batch.length,skipped,type,batch};
 }
 
+async function commitBatch(batch){
+  for(const t of batch)await addTrade(t);
+}
 
-// ── Export ────────────────────────────────────────────────────────────
+// ── Auto-import (File System Access API) ──────────────────────────
+async function startAutoImport(){
+  if(!window.showOpenFilePicker){
+    alert('Auto-import requires Chrome or Edge browser. Please use one of those.');return;
+  }
+  try{
+    const [handle]=await window.showOpenFilePicker({types:[{description:'CSV',accept:{'text/csv':['.csv']}}]});
+    autoHandle=handle;
+    runAutoImport();
+    el('auto-status').style.display='flex';
+    el('auto-start-btn').style.display='none';
+    el('auto-stop-btn').style.display='inline-block';
+  }catch(e){if(e.name!=='AbortError')alert('Could not open file: '+e.message);}
+}
+
+async function runAutoImport(){
+  if(!autoHandle)return;
+  try{
+    const file=await autoHandle.getFile();
+    const text=await file.text();
+    const result=importFile(text,'Auto-Import');
+    if(result.batch&&result.batch.length>0){
+      await commitBatch(result.batch);
+      el('auto-last').textContent='Last sync: '+new Date().toLocaleTimeString()+' ('+result.imported+' new)';
+    } else {
+      el('auto-last').textContent='Last sync: '+new Date().toLocaleTimeString()+' (no new trades)';
+    }
+  }catch(e){console.error('Auto-import error:',e);}
+  const secs=parseInt(el('auto-interval')?el('auto-interval').value:60)||60;
+  autoTimer=setTimeout(runAutoImport,secs*1000);
+}
+
+function stopAutoImport(){
+  autoHandle=null;
+  if(autoTimer){clearTimeout(autoTimer);autoTimer=null;}
+  if(el('auto-status'))el('auto-status').style.display='none';
+  if(el('auto-start-btn'))el('auto-start-btn').style.display='inline-block';
+  if(el('auto-stop-btn'))el('auto-stop-btn').style.display='none';
+}
+
+// ── SVG Charts ────────────────────────────────────────────────────
+function svgLineChart(pts,color,W,H){
+  if(pts.length<2)return '<p style="color:#404060;font-size:11px;padding:20px;text-align:center">Add at least 2 trades to see chart</p>';
+  const PAD={t:12,r:20,b:32,l:60};
+  const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
+  const ys=pts.map(p=>p.y);
+  const minY=Math.min(0,...ys),maxY=Math.max(0,...ys),rangeY=maxY-minY||1;
+  const sx=i=>PAD.l+(i/(pts.length-1))*cw;
+  const sy=v=>PAD.t+ch-(((v-minY)/rangeY)*ch);
+  const y0=sy(0);
+  let path='M'+pts.map((p,i)=>sx(i)+','+sy(p.y)).join('L');
+  // Fill under curve
+  let fill='M'+sx(0)+','+sy(pts[0].y)+' L'+pts.map((p,i)=>sx(i)+','+sy(p.y)).join(' L')+' L'+sx(pts.length-1)+','+y0+' L'+sx(0)+','+y0+' Z';
+  let dots=pts.map((p,i)=>'<circle cx="'+sx(i)+'" cy="'+sy(p.y)+'" r="3.5" fill="'+(p.pnl>=0?'#00e5a0':'#ff3d5a')+'" stroke="#05050a" stroke-width="1.5"/>').join('');
+  let yticks='',ygrid='';
+  for(let i=0;i<=4;i++){
+    const v=minY+(rangeY*i/4),y=sy(v);
+    yticks+='<text x="'+(PAD.l-8)+'" y="'+(y+4)+'" text-anchor="end" fill="#6060a0" font-size="10" font-family="JetBrains Mono,monospace">$'+v.toFixed(0)+'</text>';
+    ygrid+='<line x1="'+PAD.l+'" y1="'+y+'" x2="'+(W-PAD.r)+'" y2="'+y+'" stroke="#111128" stroke-dasharray="2,6"/>';
+  }
+  const step=Math.max(1,Math.floor(pts.length/8));
+  let xticks='';
+  for(let i=0;i<pts.length;i+=step){
+    xticks+='<text x="'+sx(i)+'" y="'+(H-6)+'" text-anchor="middle" fill="#6060a0" font-size="10" font-family="JetBrains Mono,monospace">'+(i+1)+'</text>';
+  }
+  const zero=minY<=0&&maxY>=0?'<line x1="'+PAD.l+'" y1="'+y0+'" x2="'+(W-PAD.r)+'" y2="'+y0+'" stroke="#252538" stroke-dasharray="4,4"/>':'';
+  return '<svg width="100%" height="'+H+'" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" style="display:block">'+ygrid+zero+'<path d="'+fill+'" fill="'+color+'18"/>'+
+    '<path d="'+path+'" stroke="'+color+'" stroke-width="2" fill="none"/>'+dots+yticks+xticks+'</svg>';
+}
+
+function svgBarChart(bars,W,H){
+  if(!bars.length)return '';
+  const PAD={t:10,r:20,b:30,l:65};
+  const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
+  const vals=bars.map(b=>b.v);
+  const minY=Math.min(0,...vals),maxY=Math.max(0,...vals),rangeY=maxY-minY||1;
+  const bw=Math.max(4,(cw/bars.length)-3);
+  const sy=v=>PAD.t+ch-(((v-minY)/rangeY)*ch);
+  const y0=sy(0);
+  let rects='',xlabels='';
+  bars.forEach((b,i)=>{
+    const x=PAD.l+(i/bars.length)*cw+(cw/bars.length-bw)/2;
+    const yv=sy(b.v),bh=Math.abs(yv-y0);
+    rects+='<rect x="'+x+'" y="'+(b.v>=0?yv:y0)+'" width="'+bw+'" height="'+Math.max(1,bh)+'" fill="'+(b.v>=0?'#00e5a040':'#ff3d5a40')+'" stroke="'+(b.v>=0?'#00e5a0':'#ff3d5a')+'" stroke-width="1" rx="1"/>';
+    if(i%(Math.ceil(bars.length/8))===0)xlabels+='<text x="'+(x+bw/2)+'" y="'+(H-6)+'" text-anchor="middle" fill="#6060a0" font-size="9" font-family="JetBrains Mono,monospace">'+b.d+'</text>';
+  });
+  let yticks='',ygrid='';
+  for(let i=0;i<=4;i++){
+    const v=minY+(rangeY*i/4),y=sy(v);
+    yticks+='<text x="'+(PAD.l-8)+'" y="'+(y+4)+'" text-anchor="end" fill="#6060a0" font-size="10" font-family="JetBrains Mono,monospace">$'+v.toFixed(0)+'</text>';
+    ygrid+='<line x1="'+PAD.l+'" y1="'+y+'" x2="'+(W-PAD.r)+'" y2="'+y+'" stroke="#111128" stroke-dasharray="2,6" />';
+  }
+  return '<svg width="100%" height="'+H+'" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" style="display:block">'+ygrid+'<line x1="'+PAD.l+'" y1="'+y0+'" x2="'+(W-PAD.r)+'" y2="'+y0+'" stroke="#2a2a3e"/>'+rects+yticks+xlabels+'</svg>';
+}
+
+function svgLineXY(data,color,xFmt,W,H,refX){
+  if(!data.length)return '';
+  const PAD={t:16,r:65,b:32,l:65};
+  const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
+  const xs=data.map(d=>d.x),ys=data.map(d=>d.y);
+  const minX=Math.min(...xs),maxX=Math.max(...xs);
+  const minY=Math.min(0,...ys),maxY=Math.max(0,...ys);
+  const rX=maxX-minX||1,rY=maxY-minY||1;
+  const sx=v=>PAD.l+((v-minX)/rX)*cw;
+  const sy=v=>PAD.t+ch-(((v-minY)/rY)*ch);
+  const y0=sy(0);
+  const path='M'+data.map(d=>sx(d.x)+','+sy(d.y)).join('L');
+  let yticks='',ygrid='';
+  for(let i=0;i<=4;i++){
+    const v=minY+(rY*i/4),y=sy(v);
+    yticks+='<text x="'+(PAD.l-8)+'" y="'+(y+4)+'" text-anchor="end" fill="#6060a0" font-size="10" font-family="JetBrains Mono,monospace">$'+v.toFixed(0)+'</text>';
+    ygrid+='<line x1="'+PAD.l+'" y1="'+y+'" x2="'+(W-PAD.r)+'" y2="'+y+'" stroke="#111128" stroke-dasharray="2,6"/>';
+  }
+  const xtickStep=Math.ceil(data.length/6);
+  let xticks='';
+  data.forEach((d,i)=>{
+    if(i%xtickStep===0)xticks+='<text x="'+sx(d.x)+'" y="'+(H-6)+'" text-anchor="middle" fill="#6060a0" font-size="10" font-family="JetBrains Mono,monospace">'+(xFmt?xFmt(d.x):d.x)+'</text>';
+  });
+  const zero='<line x1="'+PAD.l+'" y1="'+y0+'" x2="'+(W-PAD.r)+'" y2="'+y0+'" stroke="#303048" stroke-dasharray="4,4"/><text x="'+(W-PAD.r+4)+'" y="'+(y0+4)+'" fill="#505070" font-size="9">0</text>';
+  const you=refX!=null?'<line x1="'+sx(refX)+'" y1="'+PAD.t+'" x2="'+sx(refX)+'" y2="'+(PAD.t+ch)+'" stroke="#00e5a033" stroke-dasharray="3,3"/><text x="'+sx(refX)+'" y="'+(PAD.t-4)+'" text-anchor="middle" fill="#00e5a0" font-size="9">YOU</text>':'';
+  return '<svg width="100%" height="'+H+'" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" style="display:block">'+ygrid+zero+you+'<path d="'+path+'" stroke="'+color+'" stroke-width="2.5" fill="none"/>'+yticks+xticks+'</svg>';
+}
+
+// ── Export ─────────────────────────────────────────────────────────
 function exportCSV(){
-  const hdr='Date,Symbol,Direction,Entry,Exit,Contracts,Fees,Net P&L,Setup,Notes,Chart URL\n';
-  const rows=trades.map(t=>`${t.date},${t.symbol},${t.type},${t.entry},${t.exit},${t.size},${t.fees||0},${t.pnl},"${t.setup||'—'}","${(t.notes||'').replace(/"/g,"'")}","${t.chartUrl||''}"`).join('\n');
+  const h='Date,Symbol,Direction,Entry,Exit,Contracts,Fees,Net P&L,Gross P&L,Setup,Notes,Chart URL,Source\n';
+  const rows=trades.map(t=>`${t.date},${t.symbol},${t.type},${t.entry},${t.exit},${t.size},${t.fees||0},${t.pnl},${(t.pnl+(t.fees||0)).toFixed(2)},"${t.setup||'—'}","${(t.notes||'').replace(/"/g,"'")}","${t.chartUrl||''}","${t.source||''}"`).join('\n');
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([hdr+rows],{type:'text/csv'}));
-  a.download=`edgelog_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+  a.href=URL.createObjectURL(new Blob([h+rows],{type:'text/csv'}));
+  a.download='edgelog_v'+VERSION+'_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
 }
 
-// ══════════════════════════════════════════════════════════════════════
-//  RENDER FUNCTIONS
-// ══════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════════════
 
 function renderAuth(){
   let mode='login';
-  const wrap=document.createElement('div');
-  wrap.className='auth-wrap fade';
-  wrap.innerHTML=`
-  <div class="auth-box">
+  const d=document.createElement('div');
+  d.className='auth-wrap fade';
+  d.innerHTML=`<div class="auth-box">
     <div class="logo">EDGE LOG</div>
-    <div class="logo-sub">FUTURES TRADE TRACKER</div>
+    <div class="logo-sub">FUTURES TRADE TRACKER &nbsp;·&nbsp; <span class="version-badge">v${VERSION}</span></div>
     <div class="section">
-      <div style="display:flex;border-bottom:1px solid #141422;background:#0b0b12">
-        <button id="tab-login" class="btn-ghost active" style="flex:1">SIGN IN</button>
-        <button id="tab-signup" class="btn-ghost" style="flex:1">CREATE ACCOUNT</button>
+      <div style="display:flex;border-bottom:1px solid #1e1e32;background:#0a0a16">
+        <button id="tab-li" class="btn-ghost active" style="flex:1">SIGN IN</button>
+        <button id="tab-su" class="btn-ghost" style="flex:1">CREATE ACCOUNT</button>
       </div>
-      <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
-        <div><label class="lbl">EMAIL</label><input id="auth-email" type="email" placeholder="trader@email.com"/></div>
-        <div><label class="lbl">PASSWORD</label><input id="auth-pass" type="password" placeholder="••••••••"/></div>
-        <div id="auth-err" class="err" style="display:none"></div>
-        <button id="auth-submit" class="btn-g" style="padding:11px;font-size:11px;width:100%">SIGN IN →</button>
-        <button id="auth-forgot" style="background:none;border:none;color:#383850;font-size:10px;letter-spacing:1px;text-align:left;padding:0">Forgot password?</button>
+      <div style="padding:22px;display:flex;flex-direction:column;gap:12px">
+        <div><label class="lbl">EMAIL</label><input id="a-email" type="email" placeholder="trader@email.com"/></div>
+        <div><label class="lbl">PASSWORD</label><input id="a-pass" type="password" placeholder="••••••••"/></div>
+        <div id="a-err" class="err" style="display:none"></div>
+        <button id="a-sub" class="btn-g" style="padding:11px;font-size:11px;width:100%">SIGN IN →</button>
+        <button id="a-fgt" style="background:none;border:none;color:#6060a0;font-size:10px;letter-spacing:1px;text-align:left;padding:0">Forgot password?</button>
       </div>
-    </div>
+    </div></div>`;
+  document.getElementById('app').innerHTML='';document.getElementById('app').appendChild(d);
 
-  </div>`;
-  render(wrap);
-
-  const setMode=m=>{
-    mode=m;
-    el('tab-login').classList.toggle('active',m==='login');
-    el('tab-signup').classList.toggle('active',m==='signup');
-    el('auth-submit').textContent=m==='login'?'SIGN IN →':'CREATE ACCOUNT →';
-    el('auth-forgot').style.display=m==='login'?'':'none';
-  };
-  el('tab-login').onclick=()=>setMode('login');
-  el('tab-signup').onclick=()=>setMode('signup');
-
-  const doAuth=async()=>{
-    const email=el('auth-email').value.trim();
-    const pass=el('auth-pass').value;
-    const errEl=el('auth-err');
-    errEl.style.display='none';
-    el('auth-submit').innerHTML='<span class="spinner"></span>';
+  const setMode=m=>{mode=m;el('tab-li').classList.toggle('active',m==='login');el('tab-su').classList.toggle('active',m==='signup');el('a-sub').textContent=m==='login'?'SIGN IN →':'CREATE ACCOUNT →';el('a-fgt').style.display=m==='login'?'':'none';};
+  el('tab-li').onclick=()=>setMode('login');el('tab-su').onclick=()=>setMode('signup');
+  const go=async()=>{
+    const email=el('a-email').value.trim(),pass=el('a-pass').value;
+    el('a-err').style.display='none';el('a-sub').innerHTML='<span class="spinner"></span>';
     try{
-      let r;
-      if(mode==='login') r=await auth.signInWithEmailAndPassword(email,pass);
-      else r=await auth.createUserWithEmailAndPassword(email,pass);
-      currentUser=r.user;
-      subscribeToTrades(currentUser.uid);
-    }catch(e){
-      errEl.style.display='block';errEl.textContent=e.message;
-      el('auth-submit').textContent=mode==='login'?'SIGN IN →':'CREATE ACCOUNT →';
+      const r=mode==='login'?await auth.signInWithEmailAndPassword(email,pass):await auth.createUserWithEmailAndPassword(email,pass);
+      currentUser=r.user;subscribeTrades(currentUser.uid);
+    }catch(e){el('a-err').style.display='block';el('a-err').textContent=e.message;el('a-sub').textContent=mode==='login'?'SIGN IN →':'CREATE ACCOUNT →';}
+  };
+  el('a-sub').onclick=go;[el('a-email'),el('a-pass')].forEach(i=>{i.onkeydown=e=>{if(e.key==='Enter')go();};});
+  el('a-fgt').onclick=async()=>{const em=el('a-email').value.trim();if(!em){el('a-err').style.display='block';el('a-err').textContent='Enter email first.';return;}await auth.sendPasswordResetEmail(em);alert('Reset email sent!');};
+}
+
+function renderEditModal(){
+  if(!editTrade)return;
+  const t=editTrade;
+  const m=document.createElement('div');
+  m.className='modal-bg';
+  m.id='modal-bg';
+  m.innerHTML=`<div class="modal fade">
+    <div class="modal-hd"><span>EDIT TRADE · ${t.date} ${t.symbol}</span><button onclick="closeModal()" style="background:none;border:none;color:#6060a0;font-size:18px;cursor:pointer">✕</button></div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div class="grid2">
+        <div><label class="lbl">SETUP</label>
+          <select id="e-setup">${SETUPS.map(s=>'<option'+(s===t.setup?' selected':'')+'>'+s+'</option>').join('')}</select></div>
+        <div><label class="lbl">DIRECTION</label>
+          <select id="e-type"><option${t.type==='LONG'?' selected':''}>LONG</option><option${t.type==='SHORT'?' selected':''}>SHORT</option></select></div>
+      </div>
+      <div><label class="lbl">TRADINGVIEW CHART URL</label><input id="e-chart" type="text" value="${t.chartUrl||''}" placeholder="https://www.tradingview.com/chart/..."/></div>
+      <div><label class="lbl">NOTES</label><textarea id="e-notes" rows="3" style="resize:vertical">${t.notes||''}</textarea></div>
+      <div class="grid2">
+        <div><label class="lbl">ENTRY PRICE (override)</label><input id="e-entry" type="text" value="${t.entry}"/></div>
+        <div><label class="lbl">EXIT PRICE (override)</label><input id="e-exit" type="text" value="${t.exit}"/></div>
+      </div>
+      <div class="grid2">
+        <div><label class="lbl">FEES ($)</label><input id="e-fees" type="text" value="${t.fees||0}"/></div>
+        <div><label class="lbl">CONTRACTS</label><input id="e-size" type="text" value="${t.size||1}"/></div>
+      </div>
+      <div id="e-preview" style="font-size:12px;color:#6060a0"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn-d" onclick="closeModal()">CANCEL</button>
+        <button class="btn-g" id="e-save-btn">SAVE CHANGES</button>
+      </div>
+    </div></div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{if(e.target===m)closeModal();};
+
+  const updatePrev=()=>{
+    const entry=parseFloat(el('e-entry').value),exit=parseFloat(el('e-exit').value);
+    const size=parseInt(el('e-size').value)||1,fees=parseFloat(el('e-fees').value)||0;
+    const type=el('e-type').value;
+    if(entry&&exit){
+      const p=calcPnl(t.symbol,type,entry,exit,size,fees);
+      el('e-preview').textContent='Preview P&L: '+fmt(p);
+      el('e-preview').style.color=gc(p);
     }
   };
-  el('auth-submit').onclick=doAuth;
-  el('auth-email').onkeydown=el('auth-pass').onkeydown=e=>{if(e.key==='Enter')doAuth();};
-  el('auth-forgot').onclick=async()=>{
-    const email=el('auth-email').value.trim();
-    if(!email){el('auth-err').style.display='block';el('auth-err').textContent='Enter your email first.';return;}
-    await auth.sendPasswordResetEmail(email);alert('Password reset email sent!');
+  ['e-entry','e-exit','e-size','e-fees'].forEach(id=>{if(el(id))el(id).oninput=updatePrev;});
+  el('e-type').onchange=updatePrev;
+
+  el('e-save-btn').onclick=async()=>{
+    const entry=parseFloat(el('e-entry').value);
+    const exit=parseFloat(el('e-exit').value);
+    const size=parseInt(el('e-size').value)||t.size;
+    const fees=parseFloat(el('e-fees').value)||0;
+    const type=el('e-type').value;
+    const pnl=calcPnl(t.symbol,type,entry||t.entry,exit||t.exit,size,fees);
+    await updateTrade(t.id,{
+      setup:el('e-setup').value,
+      type,
+      chartUrl:el('e-chart').value,
+      notes:el('e-notes').value,
+      entry:entry||t.entry,
+      exit:exit||t.exit,
+      size,fees,pnl
+    });
+    closeModal();
   };
-  el('reset-cfg').onclick=()=>{localStorage.removeItem(FK);location.reload();};
+}
+
+function closeModal(){
+  editTrade=null;
+  const m=el('modal-bg');if(m)m.remove();
 }
 
 function renderApp(){
-  const S=calcStats();
-  const syms=[...new Set(trades.map(t=>t.symbol))];
-  const usedSetups=[...new Set(trades.map(t=>t.setup||'—'))].filter(s=>s!=='—');
-
+  const S=calcStats(trades);
+  const app=document.getElementById('app');
   const wrap=document.createElement('div');
   wrap.style.minHeight='100vh';
   wrap.className='fade';
@@ -476,386 +667,432 @@ function renderApp(){
   const topbar=document.createElement('div');
   topbar.className='topbar';
   topbar.innerHTML=`
-    <div class="topbar-brand">
+    <div style="display:flex;align-items:center;gap:10px;margin-right:20px;border-right:1px solid #1e1e32;padding:0 20px 0 0">
       <div>
         <div style="font-family:'Bebas Neue',monospace;font-size:22px;letter-spacing:3px;color:#00e5a0;line-height:1">EDGE LOG</div>
-        <div style="font-size:9px;color:#252538;letter-spacing:1px;margin-top:2px">
-          ${trades.length} TRADES &nbsp;|&nbsp; <span style="color:${S?gc(S.net):'#252538'}">${S?fmt(S.net):'$0.00'}</span>
+        <div style="font-size:9px;color:#505070;letter-spacing:1px;margin-top:2px;display:flex;align-items:center;gap:8px">
+          <span class="version-badge">v${VERSION}</span>
+          <span style="color:#303048">|</span>
+          <span>${trades.length} TRADES</span>
+          <span style="color:#303048">|</span>
+          <span style="color:${S?gc(S.net):'#505070'}">${S?fmt(S.net):'$0.00'}</span>
+          ${autoHandle?'<span style="color:#303048">|</span><span style="color:#f5c842;font-size:9px"><span class="pulse-y"></span>AUTO-SYNC ON</span>':''}
         </div>
       </div>
     </div>
-    ${['overview','journal','analytics','import','export'].map(t=>`<button class="btn-ghost${activeTab===t?' active':''}" data-tab="${t}">${t.toUpperCase()}</button>`).join('')}
-    <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
-      <div style="font-size:9px;color:#252538;letter-spacing:1px;display:flex;align-items:center"><span class="pulse"></span>SYNCED</div>
-      <button class="btn-d" style="font-size:9px;padding:5px 10px" id="signout-btn">SIGN OUT</button>
+    ${TABS.map(t=>'<button class="btn-ghost'+(activeTab===t?' active':'')+'" data-tab="'+t+'">'+t.toUpperCase()+'</button>').join('')}
+    <div style="margin-left:auto;display:flex;align-items:center;gap:10px;padding-right:4px">
+      <div style="font-size:9px;color:#303048;display:flex;align-items:center"><span class="pulse"></span>SYNCED</div>
+      <button class="btn-d" style="font-size:9px;padding:5px 10px" id="so-btn">SIGN OUT</button>
     </div>`;
   wrap.appendChild(topbar);
 
   const content=document.createElement('div');
   content.className='content';
   wrap.appendChild(content);
+  app.innerHTML='';app.appendChild(wrap);
 
-  render(wrap);
+  wrap.querySelectorAll('[data-tab]').forEach(b=>{b.onclick=()=>{activeTab=b.dataset.tab;renderApp();};});
+  el('so-btn').onclick=()=>{if(unsub)unsub();stopAutoImport();auth.signOut();renderAuth();};
 
-  // Tab nav
-  wrap.querySelectorAll('[data-tab]').forEach(btn=>{
-    btn.onclick=()=>{activeTab=btn.dataset.tab;renderApp();};
-  });
-  el('signout-btn').onclick=()=>{if(unsubTrades)unsubTrades();auth.signOut();renderAuth();};
-
-  // ── OVERVIEW ────────────────────────────────────────────────────────
+  // ══ OVERVIEW ══
   if(activeTab==='overview'){
     if(!S){
-      content.innerHTML=`<div style="border:1px dashed #1a1a2a;padding:80px;text-align:center;color:#252538;font-size:11px;letter-spacing:3px">NO TRADES YET — HEAD TO JOURNAL TO ADD YOUR FIRST TRADE</div>`;
+      content.innerHTML='<div style="border:1px dashed #1e1e32;padding:80px;text-align:center;color:#404060;font-size:11px;letter-spacing:3px">NO TRADES YET — USE THE IMPORT TAB OR ADD MANUALLY IN JOURNAL</div>';
       return;
     }
     content.innerHTML=`
     <div class="grid4">
-      ${[
-        ['NET P&L',fmt(S.net),gc(S.net),28],
-        ['WIN RATE',(S.wr*100).toFixed(1)+'%',S.wr>=.5?'#00e5a0':'#ff3d5a',22],
-        ['PROFIT FACTOR',isFinite(S.pf)?S.pf.toFixed(2)+'×':'∞',S.pf>=1.5?'#00e5a0':S.pf>=1?'#f5c842':'#ff3d5a',22],
-        ['EXP. VALUE','$'+S.ev.toFixed(2)+'/tr',S.ev>0?'#00e5a0':'#ff3d5a',22],
-      ].map(([l,v,c,fs])=>`<div class="card"><div class="stat-label">${l}</div><div class="stat-val" style="font-size:${fs}px;color:${c}">${v}</div></div>`).join('')}
+      <div class="card"><div class="stat-label">NET P&L</div><div class="stat-val" style="font-size:28px;color:${gc(S.net)}">${fmt(S.net)}</div><div style="font-size:10px;color:#505070;margin-top:4px">Gross: ${fmt(S.gross)}</div></div>
+      <div class="card"><div class="stat-label">WIN RATE</div><div class="stat-val" style="font-size:22px;color:${S.wr>=.5?'#00e5a0':'#ff3d5a'}">${pct(S.wr)}</div><div style="font-size:10px;color:#505070;margin-top:4px">${S.wins}W / ${S.losses}L</div></div>
+      <div class="card"><div class="stat-label">PROFIT FACTOR</div><div class="stat-val" style="font-size:22px;color:${S.pf>=1.5?'#00e5a0':S.pf>=1?'#f5c842':'#ff3d5a'}">${S.pf>=99?'∞':S.pf.toFixed(2)}×</div><div style="font-size:10px;color:#505070;margin-top:4px">Gross W/L ratio</div></div>
+      <div class="card"><div class="stat-label">EXP. VALUE</div><div class="stat-val" style="font-size:22px;color:${gc(S.ev)}">$${S.ev.toFixed(2)}</div><div style="font-size:10px;color:#505070;margin-top:4px">Per trade</div></div>
     </div>
     <div class="grid4">
-      ${[
-        ['TOTAL TRADES',S.total,'#8080a0'],
-        ['SHARPE (ANN.)',S.sharpe.toFixed(2),S.sharpe>1?'#00e5a0':S.sharpe>0?'#f5c842':'#ff3d5a'],
-        ['MAX DRAWDOWN','-$'+S.maxDD.toFixed(2),'#ff3d5a'],
-        ['STREAK',(S.sdir>0?'+':'')+S.streak+(S.sdir>0?' W':' L'),S.sdir>0?'#00e5a0':'#ff3d5a'],
-      ].map(([l,v,c])=>`<div class="mini-card"><div class="stat-label" style="color:#2a2a40">${l}</div><div class="stat-val" style="font-size:18px;color:${c}">${v}</div></div>`).join('')}
+      <div class="mini-card"><div class="stat-label">SHARPE (ANN.)</div><div class="stat-val" style="font-size:18px;color:${S.sharpe>1?'#00e5a0':S.sharpe>0?'#f5c842':'#ff3d5a'}">${S.sharpe.toFixed(2)}</div></div>
+      <div class="mini-card"><div class="stat-label">MAX DRAWDOWN</div><div class="stat-val" style="font-size:18px;color:#ff3d5a">-$${S.maxDD.toFixed(2)}</div></div>
+      <div class="mini-card"><div class="stat-label">RECOVERY FACTOR</div><div class="stat-val" style="font-size:18px;color:${S.recovery>2?'#00e5a0':S.recovery>1?'#f5c842':'#ff3d5a'}">${S.recovery.toFixed(2)}×</div></div>
+      <div class="mini-card"><div class="stat-label">STREAK</div><div class="stat-val" style="font-size:18px;color:${S.curDir>0?'#00e5a0':'#ff3d5a'}">${S.curDir>0?'+':'-'}${S.curSLen||S.curStreak} ${S.curDir>0?'W':'L'}</div></div>
+    </div>
+    <div class="grid4" style="margin-bottom:8px">
+      <div class="mini-card"><div class="stat-label">AVG WIN</div><div class="stat-val" style="font-size:18px;color:#00e5a0">+$${S.avgW.toFixed(2)}</div></div>
+      <div class="mini-card"><div class="stat-label">AVG LOSS</div><div class="stat-val" style="font-size:18px;color:#ff3d5a">-$${S.avgL.toFixed(2)}</div></div>
+      <div class="mini-card"><div class="stat-label">RISK : REWARD</div><div class="stat-val" style="font-size:18px;color:${S.rr>=1?'#00e5a0':S.rr>=.75?'#f5c842':'#ff3d5a'}">${S.rr.toFixed(2)}R</div></div>
+      <div class="mini-card"><div class="stat-label">TOTAL FEES</div><div class="stat-val" style="font-size:18px;color:#f5c842">-$${S.totalFees.toFixed(2)}</div></div>
     </div>
     <div class="grid4" style="margin-bottom:20px">
-      ${[
-        ['AVG WIN','+$'+S.avgW.toFixed(2),'#00e5a0'],
-        ['AVG LOSS','-$'+S.avgL.toFixed(2),'#ff3d5a'],
-        ['RISK:REWARD',S.rr.toFixed(2)+'R',S.rr>=1?'#00e5a0':S.rr>=.75?'#f5c842':'#ff3d5a'],
-        ['TOTAL FEES','-$'+S.totalFees.toFixed(2),'#f5c842'],
-      ].map(([l,v,c])=>`<div class="mini-card"><div class="stat-label" style="color:#2a2a40">${l}</div><div class="stat-val" style="font-size:18px;color:${c}">${v}</div></div>`).join('')}
+      <div class="mini-card"><div class="stat-label">MAX WIN STREAK</div><div class="stat-val" style="font-size:18px;color:#00e5a0">${S.maxWS} WINS</div></div>
+      <div class="mini-card"><div class="stat-label">MAX LOSS STREAK</div><div class="stat-val" style="font-size:18px;color:#ff3d5a">${S.maxLS} LOSSES</div></div>
+      <div class="mini-card"><div class="stat-label">BEST TRADE</div><div class="stat-val" style="font-size:18px;color:#00e5a0">+$${S.best.pnl.toFixed(2)}</div></div>
+      <div class="mini-card"><div class="stat-label">WORST TRADE</div><div class="stat-val" style="font-size:18px;color:#ff3d5a">-$${Math.abs(S.worst.pnl).toFixed(2)}</div></div>
     </div>
+
     <div class="section" style="margin-bottom:12px">
-      <div class="sec-hd"><span>EQUITY CURVE</span><span class="red">MAX DD −$${S.maxDD.toFixed(2)}</span></div>
-      <div class="chart-area">
-        <div class="canvas-wrap">${equityChart()}</div>
-        <div style="padding:6px 0 2px;font-size:9px;letter-spacing:2px;color:#252538;border-top:1px solid #0d0d18;margin-top:6px">DRAWDOWN</div>
-        <div class="canvas-wrap">${drawdownChart()}</div>
+      <div class="sec-hd"><span>EQUITY CURVE</span><span style="color:#ff3d5a;font-size:10px">MAX DD -$${S.maxDD.toFixed(2)}</span></div>
+      <div style="padding:14px 4px 8px">
+        ${(()=>{let c=0,pk=0;const pts=trades.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl};});return svgLineChart(pts,'#00e5a0',920,170);})()}
       </div>
     </div>
+
+    <div class="grid2" style="margin-bottom:12px">
+      <div class="section">
+        <div class="sec-hd">LONG vs SHORT</div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
+          ${[['LONG',S.longs,S.longPnl,S.longWR,'#00e5a0'],['SHORT',S.shorts,S.shortPnl,S.shortWR,'#4a9eff']].map(([d,n,p,w,c])=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#09090f;border:1px solid #181828">
+            <div style="font-family:'Bebas Neue',monospace;font-size:16px;color:${c}">${d}</div>
+            <div style="font-size:11px;color:#8080a0">${n} trades · ${pct(w)} WR</div>
+            <div style="font-family:'Bebas Neue',monospace;font-size:16px;color:${gc(p)}">${fmt(p)}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+      <div class="section">
+        <div class="sec-hd">BEST / WORST</div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
+          ${[['BEST DAY',S.bestDay[0],S.bestDay[1],'#00e5a0'],['WORST DAY',S.worstDay[0],S.worstDay[1],'#ff3d5a'],
+             ['BEST TRADE',S.best.date+' '+S.best.symbol,S.best.pnl,'#00e5a0'],
+             ['WORST TRADE',S.worst.date+' '+S.worst.symbol,S.worst.pnl,'#ff3d5a']].map(([l,d,v,c])=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:#09090f;border:1px solid #181828">
+            <div style="font-size:10px;color:#6060a0;letter-spacing:1px">${l}</div>
+            <div style="font-size:10px;color:#8080a0">${d}</div>
+            <div style="font-family:'Bebas Neue',monospace;font-size:16px;color:${c}">${fmt(v)}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
     <div class="grid2">
-      ${[['BY SYMBOL',S.syms],['BY SETUP',S.setups]].map(([title,data])=>`
-        <div class="section">
-          <div class="sec-hd"><span>${title}</span></div>
-          <table>
-            <thead><tr><th>NAME</th><th>TRADES</th><th>WIN RATE</th><th>P&L</th></tr></thead>
-            <tbody>
-              ${Object.entries(data).sort(([,a],[,b])=>b.pnl-a.pnl).map(([k,s])=>`
-                <tr class="tr-row">
-                  <td style="color:#dde0ec;font-weight:bold">${k}</td>
-                  <td style="color:#606080">${s.count}</td>
-                  <td style="color:${s.wins/s.count>=.5?'#00e5a0':'#ff3d5a'}">${(s.wins/s.count*100).toFixed(0)}%</td>
-                  <td style="color:${gc(s.pnl)};font-family:'Bebas Neue',monospace;font-size:14px">${fmt(s.pnl)}</td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>`).join('')}
+      <div class="section">
+        <div class="sec-hd">BY SYMBOL</div>
+        <table><thead><tr><th>SYM</th><th>TRADES</th><th>WIN RATE</th><th>FEES</th><th>NET P&L</th></tr></thead><tbody>
+        ${Object.entries(S.syms).sort(([,a],[,b])=>b.pnl-a.pnl).map(([sym,s])=>`
+          <tr class="tr-row"><td style="color:#c8ccd8;font-weight:bold">${sym}</td><td>${s.count}</td>
+          <td style="color:${s.wins/s.count>=.5?'#00e5a0':'#ff3d5a'}">${(s.wins/s.count*100).toFixed(0)}%</td>
+          <td style="color:#f5c842">-$${s.fees.toFixed(2)}</td>
+          <td style="color:${gc(s.pnl)};font-family:'Bebas Neue',monospace;font-size:14px">${fmt(s.pnl)}</td></tr>`).join('')}
+        </tbody></table>
+      </div>
+      <div class="section">
+        <div class="sec-hd">BY SETUP</div>
+        <table><thead><tr><th>SETUP</th><th>TRADES</th><th>WIN RATE</th><th>NET P&L</th></tr></thead><tbody>
+        ${Object.entries(S.setups).sort(([,a],[,b])=>b.pnl-a.pnl).map(([setup,s])=>`
+          <tr class="tr-row"><td style="color:#a0a4b8">${setup}</td><td>${s.count}</td>
+          <td style="color:${s.wins/s.count>=.5?'#00e5a0':'#ff3d5a'}">${(s.wins/s.count*100).toFixed(0)}%</td>
+          <td style="color:${gc(s.pnl)};font-family:'Bebas Neue',monospace;font-size:14px">${fmt(s.pnl)}</td></tr>`).join('')}
+        </tbody></table>
+      </div>
     </div>`;
+    // Wire up current streak display
+    const slen = S.curStreak || S.curSLen || 0;
   }
 
-  // ── JOURNAL ──────────────────────────────────────────────────────────
+  // ══ JOURNAL ══
   if(activeTab==='journal'){
-    const formSection=document.createElement('div');
-    formSection.className='section';
-    formSection.style.marginBottom='16px';
-
-    const formHd=document.createElement('div');
-    formHd.className='sec-hd';
-    formHd.style.cursor='pointer';
-    formHd.innerHTML=`<span style="color:#00e5a0">＋ NEW TRADE</span><span style="color:#252538">${formOpen?'▲':'▼'}</span>`;
-    formHd.onclick=()=>{formOpen=!formOpen;renderApp();};
-    formSection.appendChild(formHd);
-
+    const formDiv=document.createElement('div');
+    formDiv.className='section';formDiv.style.marginBottom='16px';
+    const fhd=document.createElement('div');fhd.className='sec-hd';fhd.style.cursor='pointer';
+    fhd.innerHTML='<span style="color:#00e5a0">＋ NEW TRADE</span><span style="color:#505070">'+(formOpen?'▲':'▼')+'</span>';
+    fhd.onclick=()=>{formOpen=!formOpen;renderApp();};
+    formDiv.appendChild(fhd);
     if(formOpen){
-      const formBody=document.createElement('div');
-      formBody.style.padding='16px';
-      formBody.innerHTML=`
-        <div class="grid3" style="margin-bottom:8px">
+      const fb=document.createElement('div');fb.style.padding='18px';
+      fb.innerHTML=`
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
           <div><label class="lbl">DATE</label><input id="f-date" type="date"/></div>
-          <div><label class="lbl">SYMBOL</label>
-            <select id="f-sym">${SYM_LIST.map(s=>`<option>${s}</option>`).join('')}</select></div>
-          <div><label class="lbl">DIRECTION</label>
-            <select id="f-dir"><option>LONG</option><option>SHORT</option></select></div>
-          <div><label class="lbl">ENTRY PRICE</label><input id="f-entry" type="text" placeholder="5210.25"/></div>
-          <div><label class="lbl">EXIT PRICE</label><input id="f-exit" type="text" placeholder="5228.50"/></div>
+          <div><label class="lbl">SYMBOL</label><select id="f-sym">${SYM_LIST.map(s=>'<option>'+s+'</option>').join('')}</select></div>
+          <div><label class="lbl">DIRECTION</label><select id="f-dir"><option>LONG</option><option>SHORT</option></select></div>
+          <div><label class="lbl">ENTRY</label><input id="f-entry" type="text" placeholder="5210.25"/></div>
+          <div><label class="lbl">EXIT</label><input id="f-exit" type="text" placeholder="5228.50"/></div>
           <div><label class="lbl">CONTRACTS</label><input id="f-size" type="text" placeholder="1" value="1"/></div>
-          <div><label class="lbl">FEES ($)</label><input id="f-fees" type="text" placeholder="4.50" value="0"/></div>
-          <div><label class="lbl">SETUP</label>
-            <select id="f-setup">${SETUPS.map(s=>`<option>${s}</option>`).join('')}</select></div>
-          <div style="display:flex;align-items:flex-end">
-            <button class="btn-g" style="width:100%;padding:10px;font-size:11px" id="add-trade-btn">ADD TRADE</button>
-          </div>
+          <div><label class="lbl">FEES ($)</label><input id="f-fees" type="text" placeholder="4.50" value="${defaultFee}"/></div>
+          <div><label class="lbl">SETUP</label><select id="f-setup">${SETUPS.map(s=>'<option>'+s+'</option>').join('')}</select></div>
+          <div style="display:flex;align-items:flex-end"><button class="btn-g" style="width:100%;padding:10px;font-size:11px" id="add-btn">ADD TRADE</button></div>
         </div>
-        <div class="grid2">
-          <div><label class="lbl">TRADINGVIEW CHART URL</label>
-            <input id="f-chart" type="text" placeholder="https://www.tradingview.com/chart/..."/></div>
-          <div><label class="lbl">NOTES</label>
-            <input id="f-notes" type="text" placeholder="Setup reasoning, observations..."/></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><label class="lbl">TRADINGVIEW CHART URL</label><input id="f-chart" type="text" placeholder="https://www.tradingview.com/chart/..."/></div>
+          <div><label class="lbl">NOTES</label><input id="f-notes" type="text" placeholder="Setup reasoning, observations..."/></div>
         </div>
-        <div id="form-err" class="err" style="display:none"></div>
-        <div id="form-preview" style="margin-top:8px;font-size:12px;letter-spacing:1px"></div>
-        <div style="font-size:10px;color:#1e1e2e;margin-top:6px">Press Enter on price fields to submit</div>`;
-      formSection.appendChild(formBody);
-
-      const updatePreview=()=>{
-        const sym=el('f-sym').value,type=el('f-dir').value;
-        const entry=parseFloat(el('f-entry').value),exit=parseFloat(el('f-exit').value);
-        const size=parseInt(el('f-size').value)||1,fees=parseFloat(el('f-fees').value)||0;
-        if(entry&&exit&&PRESETS[sym]){
-          const p=calcPnl(sym,type,entry,exit,size,fees);
-          el('form-preview').textContent='PREVIEW: '+fmt(p);
-          el('form-preview').style.color=gc(p);
-        }else el('form-preview').textContent='';
-      };
-
+        <div id="f-err" class="err" style="display:none"></div>
+        <div id="f-prev" style="margin-top:8px;font-size:12px;letter-spacing:1px"></div>`;
+      formDiv.appendChild(fb);
       setTimeout(()=>{
-        ['f-entry','f-exit','f-size','f-fees'].forEach(id=>{
-          const inp=el(id);if(!inp)return;
-          inp.oninput=updatePreview;
-          inp.onkeydown=e=>{if(e.key==='Enter')el('add-trade-btn').click();};
-        });
-        el('f-sym').onchange=updatePreview;el('f-dir').onchange=updatePreview;
-
-        el('add-trade-btn').onclick=async()=>{
+        const upd=()=>{
+          const e=parseFloat(el('f-entry').value),x=parseFloat(el('f-exit').value),s=parseInt(el('f-size').value)||1,f=parseFloat(el('f-fees').value)||0;
+          if(e&&x&&PRESETS[el('f-sym').value]){const p=calcPnl(el('f-sym').value,el('f-dir').value,e,x,s,f);el('f-prev').textContent='PREVIEW: '+fmt(p);el('f-prev').style.color=gc(p);}
+        };
+        ['f-entry','f-exit','f-size','f-fees'].forEach(id=>{if(el(id)){el(id).oninput=upd;el(id).onkeydown=e=>{if(e.key==='Enter')el('add-btn').click();};}});
+        if(el('f-sym'))el('f-sym').onchange=upd;if(el('f-dir'))el('f-dir').onchange=upd;
+        if(el('add-btn'))el('add-btn').onclick=async()=>{
           const date=el('f-date').value,sym=el('f-sym').value,dir=el('f-dir').value;
           const entry=parseFloat(el('f-entry').value),exit=parseFloat(el('f-exit').value);
           const size=parseInt(el('f-size').value)||1,fees=parseFloat(el('f-fees').value)||0;
-          const setup=el('f-setup').value,notes=el('f-notes').value,chartUrl=el('f-chart').value;
-          const errEl=el('form-err');
-          if(!date||isNaN(entry)||isNaN(exit)){errEl.style.display='block';errEl.textContent='Date, Entry, and Exit are required.';return;}
-          errEl.style.display='none';
-          el('add-trade-btn').innerHTML='<span class="spinner"></span>';
-          await addTrade({date,symbol:sym,type:dir,entry,exit,size,fees,setup,notes,chartUrl,pnl:calcPnl(sym,dir,entry,exit,size,fees)});
-          el('add-trade-btn').textContent='ADD TRADE';
-          el('f-entry').value='';el('f-exit').value='';el('f-notes').value='';el('f-chart').value='';
-          el('form-preview').textContent='';
+          if(!date||isNaN(entry)||isNaN(exit)){el('f-err').style.display='block';el('f-err').textContent='Date, Entry, and Exit required.';return;}
+          el('f-err').style.display='none';el('add-btn').innerHTML='<span class="spinner"></span>';
+          await addTrade({date,symbol:sym,type:dir,entry,exit,size,fees,setup:el('f-setup').value,notes:el('f-notes').value,chartUrl:el('f-chart').value,pnl:calcPnl(sym,dir,entry,exit,size,fees),source:'Manual'});
+          el('add-btn').textContent='ADD TRADE';
+          ['f-entry','f-exit','f-notes','f-chart'].forEach(id=>{if(el(id))el(id).value='';});
+          el('f-prev').textContent='';
         };
       },50);
     }
-    content.appendChild(formSection);
+    content.appendChild(formDiv);
 
-    // Filters
-    if(trades.length){
-      const filterRow=document.createElement('div');
-      filterRow.style.cssText='display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center';
-      filterRow.innerHTML=`
-        <span style="font-size:9px;letter-spacing:2px;color:#383850">FILTER</span>
-        <select id="f-sym-filter" style="width:auto;font-size:11px"><option value="ALL">ALL SYMBOLS</option>${syms.map(s=>`<option>${s}</option>`).join('')}</select>
-        <select id="f-dir-filter" style="width:auto;font-size:11px"><option value="ALL">ALL DIR</option><option>LONG</option><option>SHORT</option></select>
-        <select id="f-setup-filter" style="width:auto;font-size:11px"><option value="ALL">ALL SETUPS</option>${usedSetups.map(s=>`<option>${s}</option>`).join('')}</select>
-        <span style="margin-left:auto;font-size:10px;color:#383850">${trades.length} trades</span>`;
-      content.appendChild(filterRow);
-    }
-
-    // Table
     if(!trades.length){
-      const empty=document.createElement('div');
-      empty.style.cssText='border:1px dashed #141422;padding:48px;text-align:center;color:#252538;font-size:11px;letter-spacing:2px';
-      empty.textContent='NO TRADES YET — ADD YOUR FIRST ABOVE';
-      content.appendChild(empty);
+      const emp=document.createElement('div');
+      emp.style.cssText='border:1px dashed #1e1e32;padding:48px;text-align:center;color:#404060;font-size:11px;letter-spacing:2px';
+      emp.textContent='NO TRADES — ADD MANUALLY OR USE THE IMPORT TAB';
+      content.appendChild(emp);
     } else {
-      const tableWrap=document.createElement('div');
-      tableWrap.className='section';
-      tableWrap.style.overflowX='auto';
+      const tw=document.createElement('div');tw.className='section';tw.style.overflowX='auto';
       const tbody=[...trades].reverse().map((t,i)=>`
-        <tr class="tr-row">
-          <td style="color:#252538">${String(trades.length-i).padStart(2,'0')}</td>
-          <td style="color:#404060;white-space:nowrap">${t.date}</td>
-          <td style="color:#dde0ec;font-weight:bold">${t.symbol}</td>
-          <td style="color:${t.type==='LONG'?'#00e5a0':'#ff3d5a'}">${t.type}</td>
-          <td style="color:#6060a0">${t.entry}</td>
-          <td style="color:#6060a0">${t.exit}</td>
-          <td style="color:#404060">${t.size}</td>
-          <td style="color:#383850">${t.fees>0?'-$'+t.fees.toFixed(2):'—'}</td>
+        <tr class="tr-row" style="border-bottom:1px solid #111120">
+          <td style="color:#404060">${String(trades.length-i).padStart(2,'0')}</td>
+          <td style="color:#7070a0;white-space:nowrap">${t.date}</td>
+          <td style="color:#c8ccd8;font-weight:bold">${t.symbol}</td>
+          <td style="color:${t.type==='LONG'?'#00e5a0':'#4a9eff'}">${t.type}</td>
+          <td>${t.entry}</td><td>${t.exit}</td><td>${t.size}</td>
+          <td style="color:#f5c842">${t.fees>0?'-$'+t.fees.toFixed(2):'—'}</td>
           <td style="color:${gc(t.pnl)};font-family:'Bebas Neue',monospace;font-size:14px;white-space:nowrap">${fmt(t.pnl)}</td>
-          <td>${t.setup&&t.setup!=='—'?`<span class="tag">${t.setup}</span>`:''}</td>
-          <td>${t.chartUrl?`<a href="${t.chartUrl}" target="_blank" class="chart-link">📈 VIEW</a>`:'—'}</td>
-          <td style="color:#383850;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.notes||''}">${t.notes||''}</td>
+          <td>${t.setup&&t.setup!=='—'?'<span class="tag">'+t.setup+'</span>':''}</td>
+          <td>${t.chartUrl?'<a href="'+t.chartUrl+'" target="_blank" class="chart-link">📈 VIEW</a>':'—'}</td>
+          <td style="color:#8080a0;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(t.notes||'').replace(/"/g,"'")}">${t.notes||''}</td>
+          <td style="color:#404060;font-size:10px">${t.source||''}</td>
+          <td><button class="edit-btn" data-id="${t.id}">✎ EDIT</button></td>
           <td><button class="del-btn" data-id="${t.id}">✕</button></td>
         </tr>`).join('');
-      tableWrap.innerHTML=`
-        <table style="min-width:900px">
-          <thead><tr><th>#</th><th>DATE</th><th>SYM</th><th>DIR</th><th>ENTRY</th><th>EXIT</th><th>CTRS</th><th>FEES</th><th>NET P&L</th><th>SETUP</th><th>CHART</th><th>NOTES</th><th></th></tr></thead>
-          <tbody>${tbody}</tbody>
-        </table>`;
-      content.appendChild(tableWrap);
-      tableWrap.querySelectorAll('.del-btn').forEach(btn=>{
-        btn.onclick=()=>deleteTrade(btn.dataset.id);
-      });
+      tw.innerHTML='<table style="min-width:1050px"><thead><tr><th>#</th><th>DATE</th><th>SYM</th><th>DIR</th><th>ENTRY</th><th>EXIT</th><th>CTRS</th><th>FEES</th><th>NET P&L</th><th>SETUP</th><th>CHART</th><th>NOTES</th><th>SOURCE</th><th></th><th></th></tr></thead><tbody>'+tbody+'</tbody></table>';
+      content.appendChild(tw);
+      tw.querySelectorAll('.edit-btn').forEach(b=>{b.onclick=()=>{editTrade=trades.find(t=>t.id===b.dataset.id);renderEditModal();};});
+      tw.querySelectorAll('.del-btn').forEach(b=>{b.onclick=()=>deleteTrade(b.dataset.id);});
     }
   }
 
-  // ── ANALYTICS ────────────────────────────────────────────────────────
+  // ══ ANALYTICS ══
   if(activeTab==='analytics'){
-    if(!S){
-      content.innerHTML=`<div style="border:1px dashed #141422;padding:80px;text-align:center;color:#252538;font-size:11px;letter-spacing:2px">ADD TRADES TO SEE ANALYTICS</div>`;
-      return;
-    }
-    const tabs=['equity','daily','wr_ev','pf_ev'];
-    const tabLabels={'equity':'EQUITY + DD','daily':'DAILY P&L','wr_ev':'WR → EV','pf_ev':'PF → EV'};
-    const tabRow=document.createElement('div');
-    tabRow.style.cssText='display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap';
-    tabs.forEach(t=>{
-      const btn=document.createElement('button');
-      btn.className='btn-'+(activeChart===t?'g':'d');
-      btn.textContent=tabLabels[t];
-      btn.onclick=()=>{activeChart=t;renderApp();};
-      tabRow.appendChild(btn);
-    });
-    content.appendChild(tabRow);
+    if(!S){content.innerHTML='<div style="border:1px dashed #1e1e32;padding:80px;text-align:center;color:#404060;font-size:11px;letter-spacing:2px">ADD TRADES TO SEE ANALYTICS</div>';return;}
+    const charts=['equity','daily','monthly','dow','wr_ev','pf_ev'];
+    const chartLabels={equity:'EQUITY + DD',daily:'DAILY P&L',monthly:'MONTHLY TABLE',dow:'DAY OF WEEK',wr_ev:'WR → EV',pf_ev:'PF → EV'};
+    const btnRow=document.createElement('div');
+    btnRow.style.cssText='display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap';
+    charts.forEach(c=>{const b=document.createElement('button');b.className='btn-'+(activeChart===c?'g':'d');b.textContent=chartLabels[c];b.onclick=()=>{activeChart=c;renderApp();};btnRow.appendChild(b);});
+    content.appendChild(btnRow);
 
-    const chartSection=document.createElement('div');
-    chartSection.className='section';
+    const cs=document.createElement('div');cs.className='section';
 
     if(activeChart==='equity'){
-      chartSection.innerHTML=`<div class="sec-hd"><span>EQUITY CURVE</span><span class="red">MAX DD −$${S.maxDD.toFixed(2)}</span></div>
-        <div class="chart-area">
-          <div class="canvas-wrap">${equityChart()}</div>
-          <div style="padding:6px 0 2px;font-size:9px;letter-spacing:2px;color:#252538;margin-top:6px">DRAWDOWN</div>
-          <div class="canvas-wrap">${drawdownChart()}</div>
-        </div>`;
+      let cum=0,pk=0;
+      const eqPts=trades.map(t=>{cum=+(cum+t.pnl).toFixed(2);if(cum>pk)pk=cum;return{y:cum,pnl:t.pnl};});
+      const ddPts=trades.map(t=>{cum=0;return t;}).reduce((acc,t)=>{if(!acc.c)acc.c=0;if(!acc.pk)acc.pk=0;acc.c+=t.pnl;if(acc.c>acc.pk)acc.pk=acc.c;acc.pts.push({y:+(acc.pk-acc.c).toFixed(2),pnl:t.pnl});return acc;},{pts:[],c:0,pk:0}).pts;
+      cs.innerHTML='<div class="sec-hd"><span>EQUITY CURVE</span><span style="color:#ff3d5a">MAX DD -$'+S.maxDD.toFixed(2)+'</span></div>'+
+        '<div style="padding:14px 4px 4px"><div style="overflow-x:auto">'+svgLineChart(eqPts,'#00e5a0',940,180)+'</div>'+
+        '<div style="padding:8px 14px 4px;font-size:9px;letter-spacing:2px;color:#505070;border-top:1px solid #111128;margin-top:6px">DRAWDOWN FROM PEAK</div>'+
+        '<div style="overflow-x:auto">'+svgLineChart(ddPts,'#ff3d5a',940,90)+'</div></div>';
     }
     if(activeChart==='daily'){
-      chartSection.innerHTML=`<div class="sec-hd"><span>DAILY P&L</span><span>${Object.keys(S.byDay).length} DAYS</span></div>
-        <div class="chart-area"><div class="canvas-wrap">${dailyChart()}</div></div>`;
+      const bars=Object.entries(S.byDay).sort(([a],[b])=>a>b?1:-1).map(([d,v])=>({d:d.slice(5),v:+v.toFixed(2)}));
+      cs.innerHTML='<div class="sec-hd"><span>DAILY P&L</span><span>'+bars.length+' TRADING DAYS</span></div><div style="padding:14px 4px 8px;overflow-x:auto">'+svgBarChart(bars,940,240)+'</div>';
+    }
+    if(activeChart==='monthly'){
+      const months=Object.entries(S.monthly).sort(([a],[b])=>a>b?1:-1);
+      cs.innerHTML='<div class="sec-hd"><span>MONTHLY P&L BREAKDOWN</span></div>'+
+        '<table><thead><tr><th>MONTH</th><th>TRADES</th><th>WIN RATE</th><th>NET P&L</th><th>STATUS</th></tr></thead><tbody>'+
+        months.map(([m,d])=>`<tr class="month-row" style="border-bottom:1px solid #111120">
+          <td style="color:#c8ccd8;font-family:'Bebas Neue',monospace;font-size:15px;letter-spacing:1px">${m}</td>
+          <td>${d.trades}</td>
+          <td style="color:${d.wins/d.trades>=.5?'#00e5a0':'#ff3d5a'}">${(d.wins/d.trades*100).toFixed(0)}%</td>
+          <td style="color:${gc(d.pnl)};font-family:'Bebas Neue',monospace;font-size:16px">${fmt(d.pnl)}</td>
+          <td><span style="font-size:9px;padding:2px 8px;background:${d.pnl>=0?'#00e5a018':'#ff3d5a18'};color:${d.pnl>=0?'#00e5a0':'#ff3d5a'}">${d.pnl>=0?'PROFITABLE':'LOSING'}</span></td>
+        </tr>`).join('')+'</tbody></table>';
+    }
+    if(activeChart==='dow'){
+      const dowOrder=['Mon','Tue','Wed','Thu','Fri'];
+      const maxAbs=Math.max(...dowOrder.map(d=>Math.abs(S.dow[d].pnl)),1);
+      cs.innerHTML='<div class="sec-hd"><span>DAY OF WEEK PERFORMANCE</span></div><div style="padding:20px;display:flex;flex-direction:column;gap:12px">'+
+        dowOrder.map(d=>{
+          const {pnl,t}=S.dow[d];const wr=t>0?trades.filter(tr=>tr.pnl>0&&new Date(tr.date+'T12:00:00').toLocaleString('en',{weekday:'short'})===d).length/t:0;
+          const barW=Math.round((Math.abs(pnl)/maxAbs)*100);
+          return `<div style="display:grid;grid-template-columns:50px 1fr 80px 80px;gap:12px;align-items:center">
+            <div style="font-family:'Bebas Neue',monospace;font-size:18px;color:#a0a4b8">${d}</div>
+            <div style="background:#111120;height:10px;border-radius:0"><div style="width:${barW}%;height:100%;background:${pnl>=0?'#00e5a040':'#ff3d5a40'};border-right:2px solid ${pnl>=0?'#00e5a0':'#ff3d5a'}"></div></div>
+            <div style="font-size:10px;color:#6060a0">${t} trades</div>
+            <div style="font-family:'Bebas Neue',monospace;font-size:16px;color:${gc(pnl)};text-align:right">${fmt(pnl)}</div>
+          </div>`;
+        }).join('')+'</div>';
     }
     if(activeChart==='wr_ev'){
-      const data=Array.from({length:21},(_,i)=>{const w=i/20;return{wr:+(w*100).toFixed(0),ev:+(w*S.avgW-(1-w)*(S.avgL||0)).toFixed(2)};});
-      const svg=lineChart(data,'wr','ev','#f5c842',v=>v+'%',null,+(S.wr*100).toFixed(0));
-      chartSection.innerHTML=`<div class="sec-hd">WIN RATE → EXPECTED VALUE <span style="color:#252538;font-size:10px">AvgWin $${S.avgW.toFixed(0)} / AvgLoss $${S.avgL.toFixed(0)} held constant</span></div>
-        <div class="chart-area"><div class="canvas-wrap">${svg}</div></div>`;
+      const data=Array.from({length:21},(_,i)=>{const w=i/20;return{x:+(w*100).toFixed(0),y:+(w*S.avgW-(1-w)*(S.avgL||0)).toFixed(2)};});
+      cs.innerHTML='<div class="sec-hd">WIN RATE → EXPECTED VALUE <span style="color:#303048;font-size:10px;margin-left:12px">AvgWin $'+S.avgW.toFixed(0)+' / AvgLoss $'+S.avgL.toFixed(0)+' held constant</span></div>'+
+        '<div style="padding:14px 4px 8px;overflow-x:auto">'+svgLineXY(data,'#f5c842',v=>v+'%',940,240,+(S.wr*100).toFixed(0))+'</div>';
     }
     if(activeChart==='pf_ev'){
-      const data=Array.from({length:20},(_,i)=>{const pf=0.25+i*0.2;return{pf:+pf.toFixed(2),ev:+(S.wr*(pf*(S.avgL||1))-(1-S.wr)*(S.avgL||1)).toFixed(2)};});
-      const refX=isFinite(S.pf)?+S.pf.toFixed(2):null;
-      const svg=lineChart(data,'pf','ev','#2196f3',v=>v+'×',null,refX);
-      chartSection.innerHTML=`<div class="sec-hd">PROFIT FACTOR → EXPECTED VALUE <span style="color:#252538;font-size:10px">WR ${(S.wr*100).toFixed(0)}% held constant</span></div>
-        <div class="chart-area"><div class="canvas-wrap">${svg}</div></div>`;
+      const data=Array.from({length:20},(_,i)=>{const pf=0.25+i*0.2;return{x:+pf.toFixed(2),y:+(S.wr*(pf*(S.avgL||1))-(1-S.wr)*(S.avgL||1)).toFixed(2)};});
+      const refX=S.pf<99?+S.pf.toFixed(2):null;
+      cs.innerHTML='<div class="sec-hd">PROFIT FACTOR → EXPECTED VALUE <span style="color:#303048;font-size:10px;margin-left:12px">WR '+pct(S.wr)+' held constant</span></div>'+
+        '<div style="padding:14px 4px 8px;overflow-x:auto">'+svgLineXY(data,'#2196f3',v=>v+'×',940,240,refX)+'</div>';
     }
-    content.appendChild(chartSection);
+    content.appendChild(cs);
 
     const formula=document.createElement('div');
-    formula.style.cssText='margin-top:14px;background:#09090f;border:1px solid #111120;padding:12px 16px;font-size:11px;color:#404060';
-    formula.innerHTML=`EV = (WR × AvgWin) − ((1−WR) × AvgLoss) = (${(S.wr*100).toFixed(0)}% × $${S.avgW.toFixed(0)}) − (${((1-S.wr)*100).toFixed(0)}% × $${S.avgL.toFixed(0)}) <span style="color:${gc(S.ev)};margin-left:8px">= $${S.ev.toFixed(2)}/trade</span>`;
+    formula.style.cssText='margin-top:14px;background:#09090f;border:1px solid #181828;padding:12px 16px;font-size:11px;color:#6060a0';
+    formula.innerHTML='EV = (WR × AvgWin) − ((1−WR) × AvgLoss) &nbsp;=&nbsp; ('+pct(S.wr)+' × $'+S.avgW.toFixed(0)+') − ('+pct(1-S.wr)+' × $'+S.avgL.toFixed(0)+') <span style="color:'+gc(S.ev)+';margin-left:8px"> = $'+S.ev.toFixed(2)+'/trade</span>';
     content.appendChild(formula);
+
+    // Extra KPIs section
+    const kpi=document.createElement('div');
+    kpi.style.cssText='margin-top:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px';
+    [['GROSS PROFIT','$'+S.grossW.toFixed(2),'#00e5a0'],['GROSS LOSS','-$'+S.grossL.toFixed(2),'#ff3d5a'],
+     ['FEE DRAG',S.feeImpact.toFixed(1)+'% of gross','#f5c842'],['CALMAR',S.calmar.toFixed(2)+'×',S.calmar>1?'#00e5a0':'#f5c842']
+    ].forEach(([l,v,c])=>{
+      const d=document.createElement('div');d.className='mini-card';
+      d.innerHTML='<div class="stat-label">'+l+'</div><div class="stat-val" style="font-size:16px;color:'+c+'">'+v+'</div>';
+      kpi.appendChild(d);
+    });
+    content.appendChild(kpi);
   }
 
-  // ── IMPORT ───────────────────────────────────────────────────────────
+  // ══ IMPORT ══
   if(activeTab==='import'){
-    content.innerHTML=`
-    <div style="max-width:660px">
-      <div style="background:#09090f;border:1px solid #111120;padding:16px 20px;margin-bottom:20px">
-        <div style="font-size:10px;color:#f5c842;letter-spacing:2px;margin-bottom:8px">NINJATRADE 8 CSV IMPORT</div>
-        <div style="font-size:11px;color:#505070;line-height:2">Export your trade history from NinjaTrader 8, then drop the CSV file below. Entry/exit, P&L, direction, symbol, and fees auto-detected.</div>
-      </div>
-      <div class="section" style="margin-bottom:16px">
-        <div class="sec-hd">HOW TO EXPORT FROM NINJATRADE 8</div>
-        <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
-          ${[['1','Open NinjaTrader 8'],['2','Go to Account Performance (top menu → Account → Performance)'],
-             ['3','Set your date range → click Generate Report'],['4','Click Export → CSV (top right of report)'],
-             ['5','Drop the file in the zone below']].map(([n,s])=>`
-            <div style="display:flex;gap:14px;align-items:flex-start">
-              <div style="font-family:'Bebas Neue',monospace;font-size:20px;color:#00e5a0;line-height:1;min-width:20px">${n}</div>
-              <div style="font-size:11px;color:#606080;padding-top:3px">${s}</div>
-            </div>`).join('')}
+    content.innerHTML=`<div style="max-width:720px">
+
+    <div style="background:#0e0e1c;border:1px solid #1e1e32;padding:14px 20px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:10px;color:#7070a0;letter-spacing:2px">EDGE LOG v${VERSION} — IMPORT CENTER</div>
+      <div style="font-size:9px;color:#6060a0">Supports: Performance · Orders · Fills · Positions · Generic</div>
+    </div>
+
+    <!-- AUTO-IMPORT -->
+    <div class="section" style="margin-bottom:12px">
+      <div class="sec-hd"><span>AUTO-IMPORT <span style="color:#f5c842;font-size:9px;margin-left:8px">(Chrome/Edge only)</span></span></div>
+      <div style="padding:16px">
+        <div style="font-size:11px;color:#7070a0;margin-bottom:14px;line-height:1.8">
+          Grant access to your NT8 export file once — Edge Log will re-read it automatically at your chosen interval and import any new trades.
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+          <button class="btn-y" id="auto-start-btn" ${autoHandle?'style="display:none"':''}>📂 SELECT FILE FOR AUTO-SYNC</button>
+          <button class="btn-r" id="auto-stop-btn" style="display:${autoHandle?'inline-block':'none'}">■ STOP AUTO-SYNC</button>
+          <div style="display:flex;align-items:center;gap:8px">
+            <label class="lbl" style="margin:0;white-space:nowrap">SYNC EVERY</label>
+            <input id="auto-interval" type="number" value="${autoInterval}" min="10" max="3600" style="width:70px"/>
+            <span style="font-size:11px;color:#6060a0">seconds</span>
+          </div>
+        </div>
+        <div id="auto-status" style="display:${autoHandle?'flex':'none'};align-items:center;gap:8px;font-size:11px;color:#6060a0;background:#09090f;padding:10px 14px;border:1px solid #181828">
+          <span class="pulse-y"></span><span id="auto-last">Waiting for sync...</span>
         </div>
       </div>
-      <div style="background:#09090f;border:1px solid #141422;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-        <div>
-          <div style="font-size:9px;letter-spacing:2px;color:#383850;margin-bottom:5px">DEFAULT FEE PER TRADE (round-turn $)</div>
-          <input type="number" id="fee-input" value="4.50" step="0.01" min="0" style="width:120px;background:#0d0d16;border:1px solid #1e1e2e;color:#f5c842;font-family:'JetBrains Mono',monospace;font-size:13px;padding:8px 10px"/>
+    </div>
+
+    <!-- MANUAL IMPORT -->
+    <div class="section" style="margin-bottom:12px">
+      <div class="sec-hd">MANUAL IMPORT — MULTIPLE FILE TYPES</div>
+      <div style="padding:16px">
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
+          <div><label class="lbl">DEFAULT FEE / TRADE ($)</label>
+          <input type="number" id="fee-input" value="${defaultFee}" step="0.01" min="0" style="width:110px;color:#f5c842"/></div>
+          <div style="font-size:10px;color:#505070;max-width:400px;padding-top:18px;line-height:1.8">
+            Used when CSV has no commission column. Detects duplicates automatically across all imports.
+          </div>
         </div>
-        <div style="font-size:10px;color:#404060;max-width:420px">
-          Used when the CSV has no commission column. NinjaTrader typically charges per contract — enter your broker's round-turn rate.
+        <div class="drop-zone" id="drop-zone" style="margin-bottom:10px">
+          <div style="font-size:36px;margin-bottom:12px">📂</div>
+          <div style="font-size:13px;color:#8080a0;letter-spacing:1px">DROP CSV FILE(S) HERE or CLICK TO BROWSE</div>
+          <div style="font-size:10px;color:#404060;margin-top:10px;line-height:1.8">
+            ✓ NT8 Performance CSV &nbsp;&nbsp; ✓ NT8 Orders CSV &nbsp;&nbsp; ✓ Fills CSV &nbsp;&nbsp; ✓ Any generic trade CSV<br>
+            Consolidates data from multiple file types — just drop them all in.
+          </div>
+          <input type="file" id="csv-input" accept=".csv" multiple style="display:none"/>
         </div>
+        <div id="import-result" style="display:none;padding:12px 16px;background:#09090f;border:1px solid #181828;font-size:11px;color:#8080a0"></div>
       </div>
-      <div class="drop-zone" id="drop-zone" style="margin-bottom:12px;padding:40px 20px">
-        <div style="font-size:28px;margin-bottom:12px">📂</div>
-        <div style="font-size:11px;color:#505070;letter-spacing:1px">DROP NT8 CSV HERE or CLICK TO BROWSE</div>
-        <div style="font-size:10px;color:#252538;margin-top:8px">Supports NinjaTrader 8 exports · Strips contract month codes (ESZ24 → ES) · Detects duplicates</div>
-        <input type="file" id="csv-input" accept=".csv" style="display:none"/>
+    </div>
+
+    <!-- NINJATRADE GUIDE -->
+    <div class="section">
+      <div class="sec-hd">HOW TO EXPORT FROM NINJATRADE 8</div>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:10px">
+        ${[['1','Open NinjaTrader 8'],
+           ['2','Ctrl+P → Account Performance (or: Control Center → Account → Performance)'],
+           ['3','Set date range → click Generate'],
+           ['4','Click Export → CSV (top right)'],
+           ['5','Also export: Orders, Fills, Position History for fuller data'],
+           ['6','Drop any or all of those files into the zone above']].map(([n,s])=>`
+          <div style="display:flex;gap:14px;align-items:flex-start">
+            <div style="font-family:'Bebas Neue',monospace;font-size:20px;color:#00e5a0;line-height:1;min-width:22px">${n}</div>
+            <div style="font-size:11px;color:#7070a0;padding-top:3px">${s}</div>
+          </div>`).join('')}
       </div>
+    </div>
     </div>`;
+
     setTimeout(()=>{
-      const dz=el('drop-zone'),ci=el('csv-input'),fi=el('fee-input');
-      if(!dz)return;
-      if(fi){fi.value=defaultFee;fi.onchange=()=>{defaultFee=parseFloat(fi.value)||4.50;};}
+      const fi=el('fee-input');if(fi){fi.value=defaultFee;fi.onchange=()=>{defaultFee=parseFloat(fi.value)||4.50;};}
+      const ai=el('auto-interval');if(ai){ai.value=autoInterval;ai.onchange=()=>{autoInterval=parseInt(ai.value)||60;};}
+      el('auto-start-btn').onclick=startAutoImport;
+      el('auto-stop-btn').onclick=stopAutoImport;
+
+      const dz=el('drop-zone'),ci=el('csv-input');
+      if(!dz||!ci)return;
+      const handleFiles=async(files)=>{
+        let totalImported=0,totalSkipped=0;
+        const results=[];
+        for(const file of files){
+          const text=await file.text();
+          const r=importFile(text,file.name);
+          results.push({name:file.name,type:r.type,imported:r.imported,skipped:r.skipped});
+          if(r.batch&&r.batch.length)await commitBatch(r.batch);
+          totalImported+=r.imported;totalSkipped+=r.skipped;
+        }
+        const resDiv=el('import-result');
+        if(resDiv){
+          resDiv.style.display='block';
+          resDiv.innerHTML='<div style="color:#00e5a0;margin-bottom:8px;font-size:12px">✅ IMPORT COMPLETE — '+totalImported+' trades added</div>'+
+            results.map(r=>'<div style="display:flex;gap:16px;border-top:1px solid #181828;padding:6px 0"><span style="color:#8080a0">'+r.name+'</span><span class="tag">'+r.type+'</span><span style="color:#00e5a0">+'+r.imported+'</span><span style="color:#505070">'+r.skipped+' dupes skipped</span></div>').join('');
+        }
+        if(totalImported>0){activeTab='journal';setTimeout(()=>renderApp(),1500);}
+      };
       dz.onclick=()=>ci.click();
       dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag');};
       dz.ondragleave=()=>dz.classList.remove('drag');
-      dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');const f=e.dataTransfer.files[0];if(f){const r=new FileReader();r.onload=ev=>parseCSV(ev.target.result);r.readAsText(f);}};
-      ci.onchange=e=>{const f=e.target.files[0];if(f){const r=new FileReader();r.onload=ev=>parseCSV(ev.target.result);r.readAsText(f);}};
+      dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');handleFiles([...e.dataTransfer.files]);};
+      ci.onchange=e=>{if(e.target.files.length)handleFiles([...e.target.files]);};
     },50);
   }
 
-  // ── EXPORT ───────────────────────────────────────────────────────────
+  // ══ EXPORT ══
   if(activeTab==='export'){
-    content.innerHTML=`
-    <div style="max-width:560px">
-      <div style="background:#09090f;border:1px solid #111120;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:10px;color:#383850;letter-spacing:1px">CLOUD SYNC</span>
-        <span style="color:#00e5a0;display:flex;align-items:center;font-size:10px"><span class="pulse"></span>LIVE — ${trades.length} TRADES SYNCED TO FIREBASE</span>
+    content.innerHTML=`<div style="max-width:560px">
+      <div style="background:#09090f;border:1px solid #181828;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:10px;color:#6060a0;letter-spacing:1px">CLOUD SYNC · EDGE LOG v${VERSION}</span>
+        <span style="color:#00e5a0;display:flex;align-items:center;font-size:10px"><span class="pulse"></span>LIVE · ${trades.length} TRADES SYNCED</span>
       </div>
       <div class="section" style="margin-bottom:12px">
         <div class="sec-hd">EXPORT DATA</div>
         <div style="padding:12px">
-          <div style="display:flex;justify-content:space-between;align-items:center;background:#09090f;padding:12px 14px">
-            <div>
-              <div style="font-size:12px;color:#dde0ec;margin-bottom:2px">CSV Export</div>
-              <div style="font-size:10px;color:#404060">Import into Excel, Google Sheets, TradingView...</div>
-            </div>
-            <button class="btn-g" id="export-csv-btn" ${!trades.length?'disabled':''}>DOWNLOAD CSV</button>
+          <div style="display:flex;justify-content:space-between;align-items:center;background:#09090f;padding:12px 14px;margin-bottom:8px">
+            <div><div style="font-size:12px;color:#c8ccd8;margin-bottom:3px">CSV Export</div><div style="font-size:10px;color:#606080">Import into Excel, Google Sheets, TradingView...</div></div>
+            <button class="btn-g" id="exp-csv" ${!trades.length?'disabled':''}>DOWNLOAD CSV</button>
           </div>
         </div>
       </div>
-      ${trades.length?`
-      <div style="border:1px solid #ff3d5a18">
-        <div style="background:#0d0008;padding:10px 16px;border-bottom:1px solid #ff3d5a18;font-size:10px;letter-spacing:2px;color:#ff3d5a">DANGER ZONE</div>
+      ${trades.length?`<div style="border:1px solid #ff3d5a22">
+        <div style="background:#0d0008;padding:10px 16px;border-bottom:1px solid #ff3d5a22;font-size:10px;letter-spacing:2px;color:#ff3d5a">DANGER ZONE</div>
         <div style="padding:14px;display:flex;justify-content:space-between;align-items:center">
-          <div style="font-size:11px;color:#404060">Permanently delete all ${trades.length} trades from cloud.</div>
-          <button class="btn-r" id="clear-all-btn">CLEAR ALL</button>
-        </div>
-      </div>`:''}
+          <div style="font-size:11px;color:#6060a0">Permanently delete all ${trades.length} trades from cloud.</div>
+          <button class="btn-r" id="clr-all">CLEAR ALL</button>
+        </div></div>`:''}
     </div>`;
     setTimeout(()=>{
-      const eb=el('export-csv-btn');if(eb)eb.onclick=exportCSV;
-      const cb=el('clear-all-btn');
-      if(cb)cb.onclick=async()=>{
-        if(!confirm(`Delete ALL ${trades.length} trades? This CANNOT be undone.`))return;
-        const snap=await colRef.get();
-        const batch=db.batch();
-        snap.docs.forEach(d=>batch.delete(d.ref));
-        await batch.commit();
+      if(el('exp-csv'))el('exp-csv').onclick=exportCSV;
+      if(el('clr-all'))el('clr-all').onclick=async()=>{
+        if(!confirm('Delete ALL '+trades.length+' trades? CANNOT be undone.'))return;
+        const snap=await colRef.get();const batch=db.batch();snap.docs.forEach(d=>batch.delete(d.ref));await batch.commit();
       };
     },50);
   }
 }
 
-// ── Boot ──────────────────────────────────────────────────────────────
-(function boot(){
-  const cfg={
-    apiKey:"AIzaSyD0Q3ms5xZJ5SFl7aHh3oYIkGJJAUiRRBI",
-    authDomain:"edge-tracker-b55af.firebaseapp.com",
-    projectId:"edge-tracker-b55af",
-    storageBucket:"edge-tracker-b55af.firebasestorage.app",
-    messagingSenderId:"351905859153",
-    appId:"1:351905859153:web:9657ca100cf3463ca89a70"
-  };
-  if(!initFB(cfg)){alert('Firebase failed to load. Check your internet connection.');return;}
-  auth.onAuthStateChanged(user=>{
-    if(user){currentUser=user;subscribeToTrades(user.uid);}
-    else renderAuth();
-  });
-})();
+// ── Boot ──────────────────────────────────────────────────────────
+if(!initFB()){document.getElementById('app').innerHTML='<div style="color:#ff3d5a;padding:40px;text-align:center">Firebase failed to initialize. Check your internet connection.</div>';}
+else{auth.onAuthStateChanged(user=>{if(user){currentUser=user;subscribeTrades(user.uid);}else renderAuth();});}
 </script>
 </body>
 </html>
