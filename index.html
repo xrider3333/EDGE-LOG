@@ -1,630 +1,3 @@
-
-Create short trade log. Show WR, PF, EV.  Create graph showing relationship between them
-
-6 Apr
-
-Architected trading dashboard with metrics and visualization
-Architected trading dashboard with metrics and visualization
-Here's your trade log with sample futures trades across ES, NQ, CL, and GC.
-
-What's included:
-
-Trade table — entry/exit, size, P&L per trade
-4 stat cards — WR, PF, EV, Net P&L
-3 relationship charts (toggle via tabs):
-Equity Curve — cumulative P&L over time, dots colored by win/loss
-WR → EV — how EV changes as win rate varies (holding avg win/loss constant) with your current WR marked
-PF → EV — how EV scales with profit factor (holding WR constant) with your current PF marked
-The EV formula is shown at the bottom with your actual values plugged in so you can see exactly how it's calculated.
-
-
-Trade log
-Code · JSX 
-How i enter data?
-
-6 Apr
-
-Identified need to enable custom trade data entry
-Identified need to enable custom trade data entry
-The current version has hardcoded sample data — let me add an Add Trade form so you can input your own trades directly.
-
-
-Created 2 files, ran a command, read a file
-Created 2 files, ran a command, read a file
-Now starts empty — here's how to use it:
-
-Adding a trade:
-
-Pick your date, symbol, direction (Long/Short)
-Enter entry price, exit price, contracts
-Hit ADD or press Enter
-P&L is auto-calculated from tick values (ES = $12.50/tick, NQ = $5.00/tick, etc.). Stats and charts update live as you add trades. Hit ✕ on any row to delete it.
-
-Supported symbols: ES, NQ, CL, GC, MES, MNQ — want me to add more?
-
-
-Trade log
-Code · JSX 
-Why no permanent? Want save for later. Maybe Google Drive. Make best tracker possible ever. Better than tradingvue.com
-
-6 Apr
-
-Architected comprehensive futures trading terminal with persistent storage and analytics
-Architected comprehensive futures trading terminal with persistent storage and analytics
-Going all in. This will have: persistent storage (survives refresh), full stats, drawdown, Sharpe, streaks, daily P&L, per-symbol breakdown, setup tags, fees, CSV/JSON export + import, and all relationship charts. Full Bloomberg terminal aesthetic.
-
-
-Ran a command, created a file, read a file
-Ran a command, created a file, read a file
-Here's what's in it now:
-
-Persistence — auto-saves to browser storage on every change. Survives refresh, tab close, browser restart. The ● AUTO-SAVE indicator is always on.
-
-Overview tab — 12 stat cards including WR, PF, EV, Sharpe (annualized), max drawdown, streak, R:R ratio, total fees, best/worst trade. Equity curve + drawdown chart. Symbol breakdown + setup breakdown tables side by side.
-
-Journal tab — Live P&L preview as you type. Full table with filters by symbol, direction, setup. Notes and setup tags per trade. Delete individual rows.
-
-Analytics tab — 4 charts: Equity + Drawdown overlaid, Daily P&L bars, WR→EV curve, PF→EV curve. Your current position marked on each relationship chart.
-
-Export tab — CSV (works in Google Sheets/Excel), JSON backup, JSON restore, and a Google Drive how-to. Plus a danger zone to wipe data.
-
-Supported symbols: ES, NQ, MES, MNQ, CL, GC, SI, ZB, RTY, YM, MGC, MCL — want more added?
-
-
-Trade log
-Code · JSX 
-how do i download it so i can use it daily on my PC or access it when i travel? can you make it where i can inport data automatically from my tradeninja account perhaps through API? give me a link where i can find and paste this API
-
-7 Apr
-
-Clarified platform confusion and architected standalone HTML solution with CSV import capability
-Clarified platform confusion and architected standalone HTML solution with CSV import capability
-Good news and real talk on all three:
-
-Download → I'll make a standalone HTML file you open in any browser — no internet needed, works on any PC, stores data permanently in that browser.
-
-"TradeNinja" → You likely mean NinjaTrader (NT8). There's no platform called TradeNinja. NT8 has no native REST API for reading your trade history — but it does have a CSV export built in, and I can make the tracker auto-parse that exact format. Here's the NT8 export docs: https://developer.ninjatrader.com/products/api
-
-Let me now build the full offline HTML version with NT8 CSV import:
-
-
-Ran a command, created a file
-Ran a command, created a file
-Claude's response was interrupted
-can  ou make it to where i can access it on a different computer?
-
-7 Apr
-
-Weighed cross-device access options and identified existing solution
-Weighed cross-device access options and identified existing solution
-Good news — you already have it. Here's why, and your options ranked by simplicity:
-
-OPTION 1 — Just use this Claude chat (easiest, free, already works)
-
-The tracker's data is saved to your Claude account, not your browser. So:
-
-Log into claude.ai on any PC, phone, or laptop
-Open this conversation
-Your trades are there
-That's it. No setup needed.
-
-OPTION 2 — Export JSON → Google Drive (best backup)
-
-Use the Export tab in the tracker → Download JSON → save it to Google Drive. On a new machine: open Claude, come back here, Import JSON. Takes 30 seconds.
-
-OPTION 3 — Host it yourself at a permanent URL (most powerful)
-
-Deploy to Netlify (free forever) so you have your own URL like mytrades.netlify.app:
-
-Go to netlify.com → sign up free
-Download the HTML file I was building
-Drag it onto Netlify's deploy page
-You get a permanent URL — works on any device, any browser
-The catch: data would still be browser-local unless we add a cloud database. I can build that in using Firebase (free tier, Google's database) — your trades would then sync across every device in real time, just like a real app.
-
-Which do you want?
-
-Q: How do you want to access it across devices?
-A: A: Netlify URL + Firebase sync (real app, free) ... also, make it to where users can login.also, need a place wehre i can paste saved chart links from tradingview
-
-7 Apr
-
-Architected full-stack Firebase app with authentication and TradingView integration
-Architected full-stack Firebase app with authentication and TradingView integration
-Building the full production app. This will take a moment — writing Firebase auth, Firestore sync, login screen, TradingView chart links, and all analytics in one deployable HTML file.
-
-
-Ran 2 commands, created a file, read a file
-Ran 2 commands, created a file, read a file
-Download that file. Here's exactly what to do next — takes about 5 minutes total:
-
-STEP 1 — Set up Firebase (free Google database)
-
-Go to console.firebase.google.com
-Create project → name it edgelog
-Click the </> web icon → register app → copy the config snippet
-Left menu: Build → Authentication → Get started → Email/Password → Enable
-Left menu: Build → Firestore Database → Create database → Start in test mode
-STEP 2 — Deploy to Netlify (free permanent URL)
-
-Go to netlify.com → sign up free
-Drag the EdgeLog.html file onto the deploy box
-You get a URL like https://amazing-name-123.netlify.app
-Bookmark it — open on any device, any browser, anywhere
-STEP 3 — First launch
-
-Paste your Firebase config → create your account → done. Every trade syncs to Google's cloud instantly. Log in from your home PC, travel laptop, phone — all the same data.
-
-NinjaTrader import: Use the Import tab → export CSV from NT8 via Account → Performance → Export CSV → drop the file in. Trades auto-parse.
-
-TradingView charts: Each trade has a Chart URL field — paste your saved TV chart link, it shows as a clickable 📈 VIEW button in your journal.
-
-
-Edgelog
-Code · HTML 
-when i try to drag the JSX file it doesnt go into the deploy box. maybe i ran out of credits?
-
-8 Apr
-
-Identified file format mismatch and ruled out credit depletion
-Identified file format mismatch and ruled out credit depletion
-Two things happening here:
-
-1. Wrong file — Netlify can't run a .jsx file directly. You need the EdgeLog.html file I just made (the download above this message, not the earlier JSX artifact). That's the one that works as a standalone app.
-
-2. Credits — You're on Claude's free tier which has message limits, but that's separate from Netlify. Netlify is completely free and has no credits system for this use case.
-
-For Netlify with an HTML file, the deploy is even simpler:
-
-Go to netlify.com → sign up
-On the dashboard you'll see a box that says "drag and drop your site folder here"
-You can't drag a single file — you need to put EdgeLog.html inside a folder first, then drag that whole folder onto Netlify
-Rename EdgeLog.html → index.html inside that folder (Netlify looks for index.html)
-So the steps are:
-
-Create a folder on your desktop, call it EdgeLog
-Put the HTML file inside it, rename it to index.html
-Drag the entire EdgeLog folder onto Netlify's deploy box
-That's it — you'll have a live URL in about 10 seconds.
-
-it tells me Production deploys have been paused due to exceeded credit limits. Learn how to resume paused projects.
-
-8 Apr
-
-Diagnosed deployment issue and weighed alternative hosting solutions
-Diagnosed deployment issue and weighed alternative hosting solutions
-Netlify's free tier has bandwidth limits that can get hit. Here are better free alternatives:
-
-OPTION 1 — GitHub Pages (completely free, no limits)
-
-Go to github.com → sign up free
-Click New repository → name it edgelog → set to Public → Create
-Click Add file → Upload files → drag your index.html in → click Commit changes
-Go to Settings → Pages → Branch: main → Save
-Your URL: https://yourusername.github.io/edgelog
-Done. Free forever, no credit limits.
-
-OPTION 2 — Just run it locally (no hosting needed)
-
-Since all the data lives in Firebase (the cloud), the HTML file is just a shell. You can:
-
-Save EdgeLog.html to your desktop
-Double-click it — opens in your browser
-Your Firebase data loads automatically
-On a travel laptop, download the same file, open it — same data
-This actually works perfectly fine. The file doesn't need to be "hosted" anywhere because Firebase handles everything.
-
-OPTION 3 — Cloudflare Pages (free, faster than Netlify)
-
-Go to pages.cloudflare.com → sign up free
-Click Upload assets (no Git required)
-Drop your folder with index.html
-Get a permanent URL instantly
-I'd recommend Option 2 first since you already have the file, then GitHub Pages if you want a URL to share or access without the file. Which works best for your situation?
-
-well since i want it to be able to access it online perhaps  Gitub?
-
-8 Apr
-
-Devised systematic GitHub Pages setup instructions
-Devised systematic GitHub Pages setup instructions
-Yes, GitHub Pages is perfect for this. Here's the exact steps:
-
-STEP 1 — Create account
-
-Go to github.com → click Sign up → use your email
-STEP 2 — Create a repository
-
-Click the ＋ icon (top right) → New repository
-Name it: edgelog
-Set to Public
-Check "Add a README file"
-Click Create repository
-STEP 3 — Upload the file
-
-Inside your new repo, click Add file → Upload files
-Drag your EdgeLog.html file in
-Rename it to index.html before uploading — just rename it on your desktop first
-Click Commit changes (green button)
-STEP 4 — Enable GitHub Pages
-
-Click Settings (top of the repo)
-Left sidebar → Pages
-Under "Branch" → select main → click Save
-Wait 60 seconds
-STEP 5 — Your URL
-
-https://YOURUSERNAME.github.io/edgelog
-
-Bookmark that. Open it on any PC, phone, or laptop — log in with your Firebase account and all your trades are there.
-
-Hit a snag on any step and I'll walk you through it.
-
-when i click on the github https link (https://github.com/xrider3333/EDGE-LOG.git) it just opens up the github website, not the trade tracker
-
-8 Apr
-
-Diagnosed URL confusion and identified GitHub Pages setup requirement
-Diagnosed URL confusion and identified GitHub Pages setup requirement
-That's the repository page — not the live app. You need to do two things:
-
-STEP 1 — Enable GitHub Pages (you may have skipped this)
-
-Go to your repo: github.com/xrider3333/EDGE-LOG
-Click Settings tab (top of the page)
-Left sidebar → scroll down to Pages
-Under "Branch" → change None to main → click Save
-Wait about 60 seconds
-STEP 2 — Make sure the file is named index.html
-
-GitHub Pages only auto-loads a file called index.html. Check your repo — if your file is still called EdgeLog.html it won't load.
-
-In your repo, click the file → click the pencil icon to edit → click the filename at the top and change it to index.html → click Commit changes
-STEP 3 — Use the correct URL
-
-Your repo URL: github.com/xrider3333/EDGE-LOG ← this is just the code viewer
-
-Your live app URL: https://xrider3333.github.io/EDGE-LOG ← this is the actual app
-
-Bookmark that second link. Once Pages is enabled and the file is named index.html, it'll load your tracker.
-
-Screenshot 2026-04-08 123110.png
-this is all i get
-
-8 Apr
-
-Diagnosed missing index.html file causing README display
-Diagnosed missing index.html file causing README display
-That's your README.md file being displayed, not the app. The index.html was never uploaded. Here's exactly how to fix it:
-
-Go to your repo: github.com/xrider3333/EDGE-LOG
-
-Click Add file → Upload files
-Make sure your HTML file is renamed to index.html on your desktop first
-Drag it into the upload box
-Click Commit changes
-Wait 60 seconds, then refresh xrider3333.github.io/EDGE-LOG
-Double-check the file is there:
-
-After uploading, your repo should show two files:
-
-README.md
-index.html ← this is what loads the app
-If you still see just the text page, it means the file is still named EdgeLog.html instead of index.html. GitHub Pages only auto-serves a file named exactly index.html.
-
-Once index.html is in the repo, your live URL https://xrider3333.github.io/EDGE-LOG will load the full tracker. Go ahead and upload it and let me know what you see.
-
-its saved as index.html.html. so what do i click the name on it to save as? should i delte the one in the gitub and start over? if so how
-
-8 Apr
-
-Diagnosed double extension issue and weighed resolution options
-Diagnosed double extension issue and weighed resolution options
-Classic Windows problem — Windows hid the .html extension so when you typed index.html it became index.html.html.
-
-Easiest fix — rename it directly in GitHub (no deleting needed):
-
-Go to github.com/xrider3333/EDGE-LOG
-Click on the file index.html.html
-Click the pencil icon ✏️ (top right of the file)
-At the very top you'll see the filename in a box — click it and delete .html from the end
-So it reads just index.html
-Scroll down → click Commit changes → Commit changes again
-Wait 60 seconds → refresh xrider3333.github.io/EDGE-LOG
-To prevent this on Windows in the future:
-
-Open File Explorer → click View at the top → check File name extensions
-Now you can see real extensions and avoid the double .html.html problem
-Give that a try and let me know what happens.
-
-where do i see the link on github for the website
-
-8 Apr
-
-Thought for 1s
-Thought for 1s
-Go to your repo github.com/xrider3333/EDGE-LOG then:
-
-Click Settings tab (top of the repo)
-Left sidebar → click Pages
-You'll see a box that says "Your site is live at" with the link
-Your link is already: https://xrider3333.github.io/EDGE-LOG
-
-Just click that directly — bookmark it and that's your permanent URL on any device.
-
-when i visit the site its just black
-
-8 Apr
-
-Diagnosed black screen issue and planned error handling improvements
-Diagnosed black screen issue and planned error handling improvements
-Black screen means the app is loading but hitting a JavaScript error. Let me fix the file and give you a working version right now.
-
-
-Ran 2 commands
-Ran 2 commands
-The problem is Babel running in the browser is unreliable on GitHub Pages. I'm rebuilding it as pure vanilla JS — no Babel, no JSX compilation needed, loads instantly, works everywhere.
-
-
-Created a file, ran a command, read a file
-Created a file, ran a command, read a file
-Download that index.html file. The black screen is fixed — I rebuilt the entire app in plain JavaScript with no Babel compiler, so it loads instantly on any browser.
-
-Now upload it to GitHub:
-
-Go to github.com/xrider3333/EDGE-LOG
-Click Add file → Upload files
-Drag the new index.html in
-Click Commit changes
-Wait 60 seconds → visit https://xrider3333.github.io/EDGE-LOG
-It will show the Firebase setup screen first — paste your config, create your account, and you're live. Same data on every device from that point forward.
-
-
-Index
-Code · HTML 
-ok so the page works but i dont want to have to create a firbase account for new users
-
-9 Apr
-
-Deliberated hardcoding Firebase credentials to streamline user signup process
-Deliberated hardcoding Firebase credentials to streamline user signup process
-Got it. Right now every new user has to set up their own Firebase project — that's the setup wizard. The fix is simple: you set up Firebase once, I bake your config directly into the HTML, so new users just see a clean login screen and sign up instantly. No setup wizard, no Firebase knowledge needed.
-
-Here's what you need to do first:
-
-Go to console.firebase.google.com
-Create a project → click the </> Web icon → copy the config snippet
-Enable Authentication → Email/Password
-Enable Firestore Database → Start in test mode
-Paste your config here and I'll bake it into the HTML permanently
-It'll look like this:
-
-const firebaseConfig = {
-  apiKey: "AIza...",
-  authDomain: "edgelog-xxx.firebaseapp.com",
-  projectId: "edgelog-xxx",
-  storageBucket: "...",
-  messagingSenderId: "...",
-  appId: "..."
-};
-Once you paste that, I'll build the final version where anyone who visits your GitHub URL just sees a Sign In / Create Account screen — no setup, no Firebase knowledge needed. Paste it and I'll have the file ready in seconds.
-
-where do i find the config snipt? i
-
-9 Apr
-
-Devised step-by-step Firebase config instructions with visual guidance
-Devised step-by-step Firebase config instructions with visual guidance
-Here's exactly where to find it — step by step:
-
-1. Go to console.firebase.google.com and sign in with your Google account
-
-2. Click "Add project" → type a name like edgelog → click Continue → Continue → Create project
-
-3. Once inside your project, look for this icon at the top of the left sidebar — it looks like </> (the web icon). Click it.
-
-4. In the "App nickname" box type anything like edgelog-web → click "Register app"
-
-5. You'll see a box with code that looks like this — that's your config:
-
-const firebaseConfig = {
-  apiKey: "AIza...",
-  authDomain: "...",
-  projectId: "...",
-  storageBucket: "...",
-  messagingSenderId: "...",
-  appId: "..."
-};
-Select all of it and copy it.
-
-6. Click "Continue to console"
-
-Then do these two things before pasting:
-
-Left sidebar → Build → Authentication → Get started → Email/Password → Enable → Save
-Left sidebar → Build → Firestore Database → Create database → Start in test mode → Next → Enable
-Once those are done, paste the config snippet here and I'll bake it into the HTML so your users never see a setup screen.
-
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyD0Q3ms5xZJ5SFl7aHh3oYIkGJJAUiRRBI",
-  authDomain: "edge-tracker-b55af.firebaseapp.com",
-  projectId: "edge-tracker-b55af",
-  storageBucket: "edge-tracker-b55af.firebasestorage.app",
-  messagingSenderId: "351905859153",
-  appId: "1:351905859153:web:9657ca100cf3463ca89a70",
-  measurementId: "G-1RXG1891D2"
-};
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-
-Show more
-9 Apr
-
-Decided to embed configuration directly into HTML file
-Decided to embed configuration directly into HTML file
-Got it. Building the final version now with your config baked in — no setup screen ever again.
-
-
-Ran 7 commands, read a file
-Ran 7 commands, read a file
-Download that index.html and upload it to your GitHub repo replacing the old one. Here's how:
-
-Go to github.com/xrider3333/EDGE-LOG
-Click your existing index.html file
-Click the pencil icon ✏️ to edit → then click the three dots ··· → Delete file → commit
-Then Add file → Upload files → drag the new index.html → commit
-Wait 60 seconds → visit https://xrider3333.github.io/EDGE-LOG
-Anyone who visits that URL now sees a clean Sign In / Create Account screen — no Firebase setup, no config, nothing technical. They just make an account and their trades are saved to your Firebase project automatically.
-
-
-Index
-Code · HTML 
-
-<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"/> <meta name="viewport" content="width=device-width,initial-scale=1.0"/> <title>EDGE LOG v4 — Trade Tracker</title> <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script> <script src="https://www.
-
-pasted
-
-This is where im out with other code base. now make it work like origonally intented:
-
-14 Apr
-
-Synthesized dual codebases to merge superior features seamlessly
-Synthesized dual codebases to merge superior features seamlessly
-Got it — v4 has a better NT8 CSV parser (uses the real column names: buyprice, sellprice, boughttimestamp) but none of the Firebase sync or analytics. I'm merging both into one complete app now.
-
-
-Ran 6 commands
-Ran 6 commands
-Now update the Import tab UI to include the fee input field:
-
-
-Ran 2 commands, read a file
-Ran 2 commands, read a file
-Download that and replace the file in your GitHub repo. Here's what changed:
-
-What's merged in from v4:
-
-Real NT8 column names — reads BuyPrice, SellPrice, BoughtTimestamp exactly as NT8 exports them
-Smart symbol stripping — ESZ24 → ES, MESM25 → MES automatically
-Proper quoted CSV parsing — handles commas inside fields correctly
-Duplicate detection — won't re-import the same trade twice
-Fee input field in the Import tab — set your round-turn fee before importing (defaults to $4.50)
-MM/DD/YYYY date format — parses NT8's date format correctly
-Everything from the original is still there:
-
-Firebase login / account system
-Cloud sync across all devices
-Full analytics (equity curve, drawdown, Sharpe, WR→EV, PF→EV)
-Manual trade entry with TradingView chart links
-Symbol & setup breakdown tables
-CSV export
-Upload to GitHub the same way as before — replace index.html and you're done.
-
-
-Index
-Code · HTML 
-make it to where there is an otion to autoupload to pull data automatically.
-mabye the abilty inport different data sets, IE performance metrics , orders, position history, fills are all different documents i can upload, so the tracker would just consolidate any new information and add info to the trade as it sees relevent.,
-the the abilty to edit trades that are logged so things like notes or trade type.
-a version number on the on the code / homepage / relevent places so i know what version we are working on / looking at
-any more relvent metrics / kpi's to look at that would be importat to the trader. things that are found on premium plans from places like TRADEMETRIA.com or TRADERVUE.com
-some of the darker font stuff i cant see super well
-Show more
-15 Apr
-
-Architected comprehensive trading tracker overhaul with auto-import, multi-dataset consolidation, and advanced metrics
-Architected comprehensive trading tracker overhaul with auto-import, multi-dataset consolidation, and advanced metrics
-Big update. Building v5.0 fresh with all of this properly integrated.
-
-
-Ran 2 commands, read a file
-Ran 2 commands, read a file
-All 18 checks passed. Here's everything in v5.0:
-
-New features:
-
-Auto-import — Click "Select File for Auto-Sync" → grant Chrome/Edge access to your NT8 export file once → it re-reads and imports new trades automatically every N seconds (you set the interval). No more manual uploads.
-Multi-file import — Drop multiple CSVs at once. Automatically detects file type (Performance, Orders, Fills, Positions, Generic) and consolidates. Fills are matched buy→sell to reconstruct round-turns. Duplicate detection across all imports.
-Edit trades — Every row has a ✎ EDIT button. Opens a modal to change setup, direction, chart URL, notes, entry/exit price override, fees, contracts. P&L recalculates live as you type.
-Version number — v5.0 in top bar, login screen, export tab, and filename.
-New KPIs (Trademetria/Tradervue level):
-Recovery Factor, Calmar Ratio, Fee Drag %, Gross Profit/Loss
-Max Win Streak / Max Loss Streak
-Best Day / Worst Day / Best Trade / Worst Trade
-Long vs Short breakdown (count, WR, P&L)
-Monthly P&L table with profitable/losing status
-Day of week performance bars
-Source column tracking where each trade came from
-Better contrast — All dim text is significantly lighter and more readable.
-Upload to GitHub the same way — replace index.html and you're done.
-
-
-Index
-Code · HTML 
-need pnl with and without fees
-- add a note or journal section for lessons learned.
-- if a different file is uploaded that may be a duplicate but more data is obtained, let the user know what data is added. 
-- have an option to show more data in the trade journal (ie time held)
-- more info on trade duration
-- will this use for stocks?
-- add a score system for the user to input (ie A, B, C)
-- on the overview KPI's maybe show a historgram bar chart underneath the kpi showing the history of said KPI (ie under profit factor, it shows the histoy in a line or bar chart that has changed after ea. trade)
-- abilty to filter the list of trades by the headers like a pivot table
- - need place to put a logo
-
-Show more
-12:40
-
-Architected comprehensive v6 trading platform with ten major features
-Architected comprehensive v6 trading platform with ten major features
-Big v6 build. Writing everything fresh — this is a substantial upgrade.
-
-
-Ran 2 commands, created a file, read a file
-Ran 2 commands, created a file, read a file
-All 18 checks passed. Here's everything in v6.0:
-
-P&L with/without fees — Every trade now shows gross P&L and net P&L. The Overview has a dedicated "P&L WITH vs WITHOUT FEES" card showing gross, net, total fees paid, and fee drag as a % of gross.
-
-Lessons Journal — New LESSONS tab. Write titled entries with date and tags. Stored in Firebase, synced across devices. Separate from trade notes — this is your private trading journal.
-
-Smart duplicate merge — When a second file adds new data to an existing trade (timestamps, duration, etc.), it merges it in and tells you exactly what was updated: "Merged new data into 3 trades: durationMins, entryTime, exitTime"
-
-Show more columns — Toggle button in journal shows extra columns: Gross P&L, Duration, Entry Time, Exit Time, Source.
-
-Duration — Auto-calculated from NT8 timestamps. Shows in journal, dedicated analytics (avg duration, avg winning duration, avg losing duration).
-
-Stocks & ETFs — Type any ticker (AAPL, SPY, TSLA). If it's not a futures symbol, P&L uses shares × price difference automatically. Labeled "S" in journal.
-
-Grade system — A+, A, B, C, D, F per trade. Set when adding or editing. Full breakdown by grade in Overview and Analytics.
-
-Sparklines under KPIs — Every KPI card on Overview has a tiny rolling trend chart showing how that metric has evolved after each trade.
-
-Column filters — Full filter bar above journal: symbol, direction, grade, setup, date range, min/max P&L. Works like a pivot table.
-
-Logo — Click the 🖼 icon in the top bar or use the Export tab. Uploads any image, persists locally.
-
-
-Index
-Code · HTML 
-
-You are out of free messages until 5:00 PM
-Upgrade
-
-
-
-Claude is AI and can make mistakes. Please double-check responses.
-Index · HTML
-Copy
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -727,7 +100,7 @@ const SETUPS=['—','Breakout','Pullback','Reversal','Trend','Gap Fill','VWAP','
 const GRADES=['—','A+','A','B','C','D','F'];
 const TABS=['overview','journal','lessons','analytics','import','export'];
 const GRADE_COLORS={'A+':'#00e5a0','A':'#00e5a0','B':'#4a9eff','C':'#f5c842','D':'#ff8c42','F':'#ff3d5a','—':'#505070'};
- 
+
 let db=null,auth=null,colRef=null,lessonRef=null,settingsRef=null,unsub=null,unsubL=null;
 let trades=[],lessons=[],currentUser=null;
 let activeTab='overview',activeChart='equity';
@@ -735,7 +108,7 @@ let formOpen=true,editTrade=null,expandedRows=new Set(),showAllCols=false;
 let defaultFee=4.50,autoHandle=null,autoTimer=null,autoInterval=60;
 let userLogo=localStorage.getItem('el_logo')||null;
 let filters={sym:'',dir:'',grade:'',setup:'',dateFrom:'',dateTo:'',minPnl:'',maxPnl:''};
- 
+
 // ── Helpers ──────────────────────────────────────────────────────
 const el=id=>document.getElementById(id);
 const gc=n=>n>=0?'#00e5a0':'#ff3d5a';
@@ -744,14 +117,14 @@ const pct=n=>(n*100).toFixed(1)+'%';
 const getBaseSym=s=>(s||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase()||'';
 const isFutures=sym=>!!PRESETS[sym];
 const gradeClass=g=>({'+':'grade-A','A':'grade-A','B':'grade-B','C':'grade-C','D':'grade-D','F':'grade-F'}[g?.slice(-1)]||'grade-x');
- 
+
 function fmtDuration(mins){
   if(!mins||mins<0)return '—';
   if(mins<60)return mins+'m';
   const h=Math.floor(mins/60),m=mins%60;
   return h+'h'+(m>0?' '+m+'m':'');
 }
- 
+
 function calcPnl(sym,type,entry,exit,size,fees){
   const dir=type==='LONG'?1:-1;
   let gross;
@@ -764,13 +137,13 @@ function calcPnl(sym,type,entry,exit,size,fees){
   }
   return{gross:+gross.toFixed(2),net:+(gross-(fees||0)).toFixed(2)};
 }
- 
+
 function stdDev(arr){
   if(arr.length<2)return 0;
   const m=arr.reduce((a,b)=>a+b,0)/arr.length;
   return Math.sqrt(arr.reduce((s,v)=>s+(v-m)**2,0)/(arr.length-1));
 }
- 
+
 // ── Stats ─────────────────────────────────────────────────────────
 function calcStats(tds){
   if(!tds||!tds.length)return null;
@@ -786,10 +159,10 @@ function calcStats(tds){
   const pf=grossL>0?grossW/grossL:grossW>0?99:0;
   const ev=wr*avgW-(1-wr)*(avgL||0);
   const feeImpact=grossNet>0?(totalFees/grossNet)*100:0;
- 
+
   let peak=0,maxDD=0,cur=0;
   tds.forEach(t=>{cur+=t.pnl;if(cur>peak)peak=cur;maxDD=Math.max(maxDD,peak-cur);});
- 
+
   let maxWS=0,maxLS=0,curWS=0,curLS=0,streak=0,sdir=0;
   for(let i=tds.length-1;i>=0;i--){
     const d=tds[i].pnl>0?1:-1;
@@ -799,20 +172,20 @@ function calcStats(tds){
     if(t.pnl>0){curWS++;curLS=0;maxWS=Math.max(maxWS,curWS);}
     else{curLS++;curWS=0;maxLS=Math.max(maxLS,curLS);}
   });
- 
+
   const byDay={};
   tds.forEach(t=>{byDay[t.date]=(byDay[t.date]||0)+t.pnl;});
   const dv=Object.values(byDay);
   const meanD=dv.length?dv.reduce((a,b)=>a+b,0)/dv.length:0;
   const sharpe=dv.length>1?(meanD/(stdDev(dv)||1))*Math.sqrt(252):0;
   const recovery=maxDD>0?net/maxDD:0;
- 
+
   const longs=tds.filter(t=>t.type==='LONG'),shorts=tds.filter(t=>t.type==='SHORT');
- 
+
   const syms={},setups={},monthly={},byGrade={};
   const dowKeys=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const dow={Mon:{pnl:0,t:0},Tue:{pnl:0,t:0},Wed:{pnl:0,t:0},Thu:{pnl:0,t:0},Fri:{pnl:0,t:0}};
- 
+
   tds.forEach(t=>{
     if(!syms[t.symbol])syms[t.symbol]={count:0,pnl:0,grossPnl:0,wins:0,fees:0};
     syms[t.symbol].count++;syms[t.symbol].pnl+=t.pnl;syms[t.symbol].grossPnl+=(t.grossPnl||t.pnl);
@@ -828,7 +201,7 @@ function calcStats(tds){
     byGrade[g].count++;byGrade[g].pnl+=t.pnl;if(t.pnl>0)byGrade[g].wins++;
     if(t.date){const dk=dowKeys[new Date(t.date+'T12:00:00').getDay()];if(dow[dk]){dow[dk].pnl+=t.pnl;dow[dk].t++;}}
   });
- 
+
   // Duration stats
   const withDur=tds.filter(t=>t.durationMins>0);
   const avgDur=withDur.length?withDur.reduce((s,t)=>s+t.durationMins,0)/withDur.length:0;
@@ -836,14 +209,14 @@ function calcStats(tds){
   const lossDur=withDur.filter(t=>t.pnl<0);
   const avgWinDur=winDur.length?winDur.reduce((s,t)=>s+t.durationMins,0)/winDur.length:0;
   const avgLossDur=lossDur.length?lossDur.reduce((s,t)=>s+t.durationMins,0)/lossDur.length:0;
- 
+
   const best=tds.reduce((a,b)=>b.pnl>a.pnl?b:a);
   const worst=tds.reduce((a,b)=>b.pnl<a.pnl?b:a);
   const dayEntries=Object.entries(byDay);
   const bestDay=dayEntries.reduce((a,b)=>b[1]>a[1]?b:a,['—',0]);
   const worstDay=dayEntries.reduce((a,b)=>b[1]<a[1]?b:a,['—',0]);
   const rr=avgL>0?avgW/avgL:0;
- 
+
   // Rolling series for sparklines
   const rolling={wr:[],pf:[],ev:[],net:[]};
   let rW=0,rL=0,rGW=0,rGL=0,rNet=0;
@@ -859,7 +232,7 @@ function calcStats(tds){
     const rawL=rL>0?rGL/rL:0;
     rolling.ev.push(+(rwr*rawW-(1-rwr)*rawL).toFixed(2));
   });
- 
+
   return{wr,avgW,avgL,pf,ev,net,grossNet,grossW,grossL,totalFees,feeImpact,
          maxDD,sharpe,recovery,rr,streak,sdir,maxWS,maxLS,
          wins:wins.length,losses:losses.length,total:tds.length,
@@ -870,7 +243,7 @@ function calcStats(tds){
          best,worst,bestDay,worstDay,avgDur,avgWinDur,avgLossDur,
          syms,setups,monthly,byGrade,dow,byDay,rolling};
 }
- 
+
 // ── Firebase ──────────────────────────────────────────────────────
 function initFB(){
   if(firebase.apps.length)return true;
@@ -886,7 +259,7 @@ function initFB(){
     auth=firebase.auth();db=firebase.firestore();return true;
   }catch(e){console.error(e);return false;}
 }
- 
+
 function subscribeAll(uid){
   colRef=db.collection('users').doc(uid).collection('trades');
   lessonRef=db.collection('users').doc(uid).collection('lessons');
@@ -900,19 +273,19 @@ function subscribeAll(uid){
     if(activeTab==='lessons')renderApp();
   });
 }
- 
+
 async function addTrade(t){if(colRef)await colRef.add({...t,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}
 async function updateTrade(id,data){if(colRef)await colRef.doc(id).update(data);}
 async function deleteTrade(id){if(colRef&&confirm('Delete this trade?'))await colRef.doc(id).delete();}
 async function addLesson(entry){if(lessonRef)await lessonRef.add({...entry,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}
 async function deleteLesson(id){if(lessonRef&&confirm('Delete this entry?'))await lessonRef.doc(id).delete();}
- 
+
 // ── P&L Calc ──────────────────────────────────────────────────────
 function tradeCalc(sym,type,entry,exit,size,fees){
   const r=calcPnl(sym,type,entry,exit,size,fees);
   return{grossPnl:r.gross,pnl:r.net,fees:fees||0};
 }
- 
+
 // ── CSV Parsing ───────────────────────────────────────────────────
 function parseLine(line){
   const r=[];let cur='',inQ=false;
@@ -932,7 +305,7 @@ function parseDateTime(s){
   if(m)return new Date(+m[3],+m[1]-1,+m[2],+m[4],+m[5],+(m[6]||0));
   return null;
 }
- 
+
 function detectType(hdr){
   const h=hdr.join(' ');
   if(h.includes('buyprice')||h.includes('boughttimestamp'))return'performance';
@@ -941,7 +314,7 @@ function detectType(hdr){
   if(h.includes('openqty')||h.includes('open qty'))return'positions';
   return'generic';
 }
- 
+
 function importCSV(text,label){
   const lines=text.split('\n').filter(l=>l.trim());
   if(lines.length<2)return{imported:0,skipped:0,merged:0,type:'empty',batch:[],merges:[]};
@@ -949,7 +322,7 @@ function importCSV(text,label){
   const type=detectType(hdr);
   const gc2=(row,keys)=>{for(const k of keys){const i=hdr.findIndex(h=>h.includes(k.replace(/\s/g,'')));if(i!==-1&&row[i]!=null&&row[i]!=='')return row[i];}return'';};
   const batch=[],merges=[];let skipped=0;
- 
+
   for(let i=1;i<lines.length;i++){
     const row=parseLine(lines[i]);if(row.length<4)continue;
     const rawSym=gc2(row,['symbol','instrument'])||'MES';
@@ -979,7 +352,7 @@ function importCSV(text,label){
     const feeRaw=parseFloat(gc2(row,['commission','fee','fees','comm']));
     const fees=isNaN(feeRaw)?defaultFee:feeRaw;
     const calc=tradeCalc(sym,dir,entry,exit,qty,fees);
- 
+
     // Dupe check + merge logic
     const existing=trades.find(t=>t.date===date&&t.symbol===sym&&Math.abs(t.entry-entry)<0.01&&t.size===qty);
     if(existing){
@@ -998,12 +371,12 @@ function importCSV(text,label){
   }
   return{imported:batch.length,skipped,merged:merges.length,type,batch,merges};
 }
- 
+
 async function commitImport(batch,merges){
   for(const t of batch)await addTrade(t);
   for(const m of merges)await updateTrade(m.id,m.updates);
 }
- 
+
 // ── Auto Import ───────────────────────────────────────────────────
 async function startAutoImport(){
   if(!window.showOpenFilePicker){alert('Auto-import requires Chrome or Edge.');return;}
@@ -1034,7 +407,7 @@ function stopAutoImport(){
   if(el('auto-start-btn'))el('auto-start-btn').style.display='inline-block';
   if(el('auto-stop-btn'))el('auto-stop-btn').style.display='none';
 }
- 
+
 // ── SVG Helpers ───────────────────────────────────────────────────
 function sparkline(data,color,w,h){
   if(!data||data.length<2)return'';
@@ -1045,7 +418,7 @@ function sparkline(data,color,w,h){
   const fill='M'+sx(0)+','+h+' L'+data.map((v,i)=>sx(i)+','+sy(v)).join(' L')+' L'+sx(data.length-1)+','+h+' Z';
   return'<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="display:block;opacity:.6"><path d="'+fill+'" fill="'+color+'" opacity=".15"/><path d="'+path+'" stroke="'+color+'" stroke-width="1.5" fill="none"/></svg>';
 }
- 
+
 function svgLine(pts,color,W,H){
   if(!pts||pts.length<2)return'<p style="color:#404060;font-size:11px;padding:20px;text-align:center">Add at least 2 trades</p>';
   const PAD={t:12,r:20,b:32,l:62};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
@@ -1061,7 +434,7 @@ function svgLine(pts,color,W,H){
   const zero=minY<=0&&maxY>=0?'<line x1="'+PAD.l+'" y1="'+y0+'" x2="'+(W-PAD.r)+'" y2="'+y0+'" stroke="#252540" stroke-dasharray="4,4"/>':'';
   return'<svg width="100%" height="'+H+'" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" style="display:block">'+yg+zero+'<path d="'+fill+'" fill="'+color+'14"/><path d="'+path+'" stroke="'+color+'" stroke-width="2" fill="none"/>'+dots+yt+xt+'</svg>';
 }
- 
+
 function svgBar(bars,W,H){
   if(!bars.length)return'';
   const PAD={t:10,r:20,b:30,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
@@ -1073,7 +446,7 @@ function svgBar(bars,W,H){
   for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+='<line x1="'+PAD.l+'" y1="'+y+'" x2="'+(W-PAD.r)+'" y2="'+y+'" stroke="#111128" stroke-dasharray="2,6"/>';yt+='<text x="'+(PAD.l-6)+'" y="'+(y+4)+'" text-anchor="end" fill="#6868a0" font-size="10" font-family="JetBrains Mono,monospace">$'+v.toFixed(0)+'</text>';}
   return'<svg width="100%" height="'+H+'" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" style="display:block">'+yg+'<line x1="'+PAD.l+'" y1="'+y0+'" x2="'+(W-PAD.r)+'" y2="'+y0+'" stroke="#2a2a40"/>'+rects+yt+xl+'</svg>';
 }
- 
+
 function svgXY(data,color,xFmt,W,H,refX){
   if(!data.length)return'';
   const PAD={t:16,r:65,b:32,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
@@ -1090,7 +463,7 @@ function svgXY(data,color,xFmt,W,H,refX){
   const you=refX!=null?'<line x1="'+sx(refX)+'" y1="'+PAD.t+'" x2="'+sx(refX)+'" y2="'+(PAD.t+ch)+'" stroke="#00e5a033" stroke-dasharray="3,3"/><text x="'+sx(refX)+'" y="'+(PAD.t-3)+'" text-anchor="middle" fill="#00e5a0" font-size="9">YOU</text>':'';
   return'<svg width="100%" height="'+H+'" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" style="display:block">'+yg+zero+you+'<path d="'+path+'" stroke="'+color+'" stroke-width="2.5" fill="none"/>'+yt+xt+'</svg>';
 }
- 
+
 // ── KPI Card with sparkline ───────────────────────────────────────
 function kpiCard(label,val,sub,color,sparkData,sparkColor,big){
   const spark=sparkData&&sparkData.length>1?'<div style="position:absolute;bottom:0;left:0;right:0;height:36px">'+sparkline(sparkData,sparkColor||color,300,36)+'</div>':'';
@@ -1100,7 +473,7 @@ function kpiCard(label,val,sub,color,sparkData,sparkColor,big){
     (sub?'<div style="font-size:10px;color:#505070;margin-top:3px">'+sub+'</div>':'')+
     spark+'</div>';
 }
- 
+
 // ── Export CSV ────────────────────────────────────────────────────
 function exportCSV(){
   const h='Date,Symbol,AssetType,Direction,Entry,Exit,Contracts,Fees,Gross P&L,Net P&L,Duration,Grade,Setup,Notes,Chart URL,Source\n';
@@ -1109,7 +482,7 @@ function exportCSV(){
   a.href=URL.createObjectURL(new Blob([h+rows],{type:'text/csv'}));
   a.download='edgelog_v'+VERSION+'_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
 }
- 
+
 // ── Filtered trades ───────────────────────────────────────────────
 function applyFilters(tds){
   return tds.filter(t=>{
@@ -1124,7 +497,7 @@ function applyFilters(tds){
     return true;
   });
 }
- 
+
 // ══════════════════════════════════════════════════════════════════
 //  RENDER
 // ══════════════════════════════════════════════════════════════════
@@ -1162,7 +535,7 @@ function renderAuth(){
   el('asub').onclick=go;[el('ae'),el('ap')].forEach(i=>{i.onkeydown=e=>{if(e.key==='Enter')go();};});
   el('afgt').onclick=async()=>{const em=el('ae').value.trim();if(!em){el('aerr').style.display='block';el('aerr').textContent='Enter email first.';return;}await auth.sendPasswordResetEmail(em);alert('Reset email sent!');};
 }
- 
+
 function renderEditModal(t){
   const m=document.createElement('div');m.className='modal-bg';m.id='edit-modal';
   m.innerHTML=`<div class="modal fade">
@@ -1211,13 +584,13 @@ function renderEditModal(t){
   };
 }
 function closeEditModal(){const m=el('edit-modal');if(m)m.remove();}
- 
+
 function renderApp(){
   const S=calcStats(trades);
   const filtered=applyFilters(trades);
   const app=document.getElementById('app');
   const wrap=document.createElement('div');wrap.className='fade';
- 
+
   // TOP BAR
   const tb=document.createElement('div');tb.className='topbar';
   tb.innerHTML=`
@@ -1235,10 +608,10 @@ function renderApp(){
       <button class="btn-d" style="font-size:9px;padding:5px 10px" id="so-btn">SIGN OUT</button>
     </div>`;
   wrap.appendChild(tb);
- 
+
   const content=document.createElement('div');content.className='content';wrap.appendChild(content);
   app.innerHTML='';app.appendChild(wrap);
- 
+
   // Wire topbar
   wrap.querySelectorAll('[data-tab]').forEach(b=>{b.onclick=()=>{activeTab=b.dataset.tab;renderApp();};});
   el('so-btn').onclick=()=>{if(unsub)unsub();if(unsubL)unsubL();stopAutoImport();auth.signOut();renderAuth();};
@@ -1250,7 +623,7 @@ function renderApp(){
   };
   const lp=el('logo-placeholder');if(lp)lp.onclick=()=>el('logo-upload').click();
   const li=el('logo-img');if(li)li.onclick=()=>{if(confirm('Remove logo?')){userLogo=null;localStorage.removeItem('el_logo');renderApp();}};
- 
+
   // ══ OVERVIEW ══
   if(activeTab==='overview'){
     if(!S){content.innerHTML='<div style="border:1px dashed #1e1e36;padding:80px;text-align:center;color:#404060;font-size:11px;letter-spacing:3px">NO TRADES — USE IMPORT TAB OR ADD MANUALLY IN JOURNAL</div>';return;}
@@ -1278,14 +651,14 @@ function renderApp(){
       ${kpiCard('AVG WIN DURATION',fmtDuration(Math.round(S.avgWinDur)),'','#00e5a0')}
       ${kpiCard('AVG LOSS DURATION',fmtDuration(Math.round(S.avgLossDur)),'','#ff3d5a')}
     </div>`:''}
- 
+
     <div class="section" style="margin-bottom:10px">
       <div class="sec-hd"><span>EQUITY CURVE</span><span style="color:#ff3d5a;font-size:10px">MAX DD -$${S.maxDD.toFixed(2)}</span></div>
       <div style="padding:12px 4px 6px;overflow-x:auto">
         ${(()=>{let c=0,pk=0;const pts=trades.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl};});return svgLine(pts,'#00e5a0',940,160);})()}
       </div>
     </div>
- 
+
     <div class="g2" style="margin-bottom:10px">
       <div class="section">
         <div class="sec-hd">P&L WITH vs WITHOUT FEES</div>
@@ -1309,7 +682,7 @@ function renderApp(){
         </div>
       </div>
     </div>
- 
+
     <div class="g2">
       <div class="section">
         <div class="sec-hd">BY SYMBOL</div>
@@ -1333,7 +706,7 @@ function renderApp(){
       </div>
     </div>`;
   }
- 
+
   // ══ JOURNAL ══
   if(activeTab==='journal'){
     // Form
@@ -1392,7 +765,7 @@ function renderApp(){
       },50);
     }
     content.appendChild(fd);
- 
+
     // Filter bar
     const fbar=document.createElement('div');
     fbar.style.cssText='display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-bottom:10px;background:#09090f;padding:10px;border:1px solid #1e1e36';
@@ -1410,14 +783,14 @@ function renderApp(){
       const fmap={sym:'fi-sym',dir:'fi-dir',grade:'fi-grade',setup:'fi-setup',dateFrom:'fi-df',dateTo:'fi-dt',minPnl:'fi-mn',maxPnl:'fi-mx'};
       Object.entries(fmap).forEach(([k,id])=>{const inp=el(id);if(!inp)return;const ev=inp.tagName==='SELECT'?'change':'input';inp.addEventListener(ev,()=>{filters[k]=inp.value;renderApp();});});
     },50);
- 
+
     // Toggle cols + result count
     const tcrow=document.createElement('div');
     tcrow.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:10px;color:#6868a0';
     tcrow.innerHTML='<span>'+filtered.length+' of '+trades.length+' trades</span><button class="btn-d" style="font-size:9px;padding:4px 12px" id="tog-cols">'+(showAllCols?'HIDE EXTRA COLS':'SHOW MORE COLUMNS')+'</button>';
     content.appendChild(tcrow);
     setTimeout(()=>{if(el('tog-cols'))el('tog-cols').onclick=()=>{showAllCols=!showAllCols;renderApp();};},50);
- 
+
     if(!filtered.length){
       const emp=document.createElement('div');emp.style.cssText='border:1px dashed #1e1e36;padding:48px;text-align:center;color:#404060;font-size:11px;letter-spacing:2px';emp.textContent=trades.length?'NO TRADES MATCH FILTER':'NO TRADES — ADD ABOVE OR USE IMPORT TAB';content.appendChild(emp);
     } else {
@@ -1450,7 +823,7 @@ function renderApp(){
       tw.querySelectorAll('.del-btn').forEach(b=>{b.onclick=()=>deleteTrade(b.dataset.id);});
     }
   }
- 
+
   // ══ LESSONS ══
   if(activeTab==='lessons'){
     const head=document.createElement('div');
@@ -1481,7 +854,7 @@ function renderApp(){
         ['lt','lb','ld','ltags'].forEach(id=>{if(el(id))el(id).value='';});
       };
     },50);
- 
+
     if(!lessons.length){
       const emp=document.createElement('div');emp.style.cssText='border:1px dashed #1e1e36;padding:48px;text-align:center;color:#404060;font-size:11px;letter-spacing:2px';emp.textContent='NO ENTRIES YET — START DOCUMENTING YOUR LESSONS ABOVE';content.appendChild(emp);
     } else {
@@ -1503,7 +876,7 @@ function renderApp(){
       list.querySelectorAll('.del-btn[data-lid]').forEach(b=>{b.onclick=()=>deleteLesson(b.dataset.lid);});
     }
   }
- 
+
   // ══ ANALYTICS ══
   if(activeTab==='analytics'){
     if(!S){content.innerHTML='<div style="border:1px dashed #1e1e36;padding:80px;text-align:center;color:#404060;font-size:11px;letter-spacing:2px">ADD TRADES TO SEE ANALYTICS</div>';return;}
@@ -1513,7 +886,7 @@ function renderApp(){
     charts.forEach(c=>{const b=document.createElement('button');b.className='btn-'+(activeChart===c?'g':'d');b.textContent=cLabels[c];b.onclick=()=>{activeChart=c;renderApp();};brow.appendChild(b);});
     content.appendChild(brow);
     const cs=document.createElement('div');cs.className='section';
- 
+
     if(activeChart==='equity'){
       let c=0,pk=0;
       const eqPts=trades.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl};});
@@ -1570,7 +943,7 @@ function renderApp(){
     }
     content.appendChild(cs);
   }
- 
+
   // ══ IMPORT ══
   if(activeTab==='import'){
     content.innerHTML=`<div style="max-width:740px">
@@ -1626,7 +999,7 @@ function renderApp(){
       </div>
     </div>
     </div>`;
- 
+
     setTimeout(()=>{
       const fi=el('fee-input');if(fi){fi.onchange=()=>{defaultFee=parseFloat(fi.value)||4.50;};}
       const ai=el('auto-interval');if(ai){ai.onchange=()=>{autoInterval=parseInt(ai.value)||60;};}
@@ -1659,7 +1032,7 @@ function renderApp(){
       ci.onchange=e=>{if(e.target.files.length)handle([...e.target.files]);};
     },50);
   }
- 
+
   // ══ EXPORT ══
   if(activeTab==='export'){
     content.innerHTML=`<div style="max-width:560px">
@@ -1699,15 +1072,12 @@ function renderApp(){
     },50);
   }
 }
- 
+
 function clearFilters(){filters={sym:'',dir:'',grade:'',setup:'',dateFrom:'',dateTo:'',minPnl:'',maxPnl:''};renderApp();}
- 
+
 // ── Boot ──────────────────────────────────────────────────────────
 if(!initFB()){document.getElementById('app').innerHTML='<div style="color:#ff3d5a;padding:40px;text-align:center">Firebase failed to initialize.</div>';}
 else{auth.onAuthStateChanged(user=>{if(user){currentUser=user;subscribeAll(currentUser.uid);}else renderAuth();});}
 </script>
 </body>
 </html>
- 
-
-
