@@ -627,8 +627,7 @@ async function runClaudeAPI(tds,period,out){
     const data=await res.json();
     if(data.error)throw new Error(data.error.message);
     const text=data.content?.find(b=>b.type==='text')?.text||'';
-    const formatted=text.replace(/\*\*(.*?)\*\*/g,'<b style="color:var(--text)">$1</b>').replace(/
-/g,'<br/>');
+    const formatted=text.replace(/\*\*(.*?)\*\*/g,'<b style="color:var(--text)">$1</b>').replace(/\n/g,'<br/>')
     note.style.cssText='margin-top:10px;padding:12px;background:color-mix(in srgb,var(--blue) 8%,transparent);border:1px solid color-mix(in srgb,var(--blue) 25%,transparent)';
     note.innerHTML=`<div style="font-size:var(--fsxs);color:var(--blue);letter-spacing:2px;margin-bottom:6px">🤖 CLAUDE AI ANALYSIS</div><div style="font-size:var(--fsm);color:var(--text2);line-height:1.9">${formatted}</div>`;
   }catch(e){
