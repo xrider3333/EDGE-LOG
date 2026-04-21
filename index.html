@@ -108,14 +108,14 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 </style>
 </head>
 <body>
-<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px"><div class="spinner" style="width:26px;height:26px"></div><div style="font-size:10px;letter-spacing:3px;color:var(--text5)">LOADING EDGE LOG v9...</div></div></div>
+<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px"><div class="spinner" style="width:26px;height:26px"></div><div style="font-size:10px;letter-spacing:3px;color:var(--text5)">LOADING EDGE LOG v10...</div></div></div>
 <script>
-const VERSION='9.0';
+const VERSION='10.0';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.50,MES:1.25,NQ:4.50,MNQ:1.25,CL:4.50,GC:4.50,SI:4.50,ZB:4.50,RTY:4.50,YM:4.50,ZN:4.50,ZC:4.50,NG:4.50,MGC:1.25,MCL:1.25};
 const GRADES=['—','A+','A','B','C','D','F'];
 const TIMEFRAMES=['—','5s','15s','30s','1m','2m','3m','5m','10m','15m','30m','1h','2h','4h','Daily','Weekly'];
-const TABS=['overview','journal','lessons','analytics','diagnostics','import','settings','export'];
+const TABS=['overview','journal','lessons','analytics','diagnostics','calendar','import','settings','export'];
 const DEFAULT_SETUPS=['—','Breakout','Pullback','Reversal','Trend','Gap Fill','VWAP','S/D Zone','Momentum','ICT','Order Block','FVG'];
 const KPI_INFO={
   'WIN RATE':{info:'% of trades that are profitable. Must be paired with good R:R — a 40% WR can be profitable with 2R+.',warn:v=>v<0.4?'danger':v<0.5?'warn':null,msg:v=>v<0.4?'Win rate below 40% — review entries':'Below 50% — ensure R:R compensates'},
@@ -137,6 +137,8 @@ let userLogo=localStorage.getItem('el_logo')||null;
 function savePref(k,v){prefs[k]=v;localStorage.setItem('el_prefs',JSON.stringify(prefs));}
 function applyTheme(){document.documentElement.setAttribute('data-theme',prefs.theme||'dark');document.documentElement.setAttribute('data-density',prefs.density||'normal');}
 applyTheme();
+const _storedEquity=parseFloat(localStorage.getItem('el_equity')||'0');
+if(_storedEquity>0)accountEquity=_storedEquity;
 
 // State
 let db=null,auth=null,colRef=null,lessonRef=null,unsub=null,unsubL=null;
@@ -146,7 +148,8 @@ let formOpen=true,showAllCols=false;
 let autoHandle=null,autoTimer=null,autoInterval=60;
 let useGross=false; // gross vs net toggle for KPI stats
 let filters={sym:'',dir:'',grade:'',setup:'',tf:'',dateFrom:'',dateTo:'',minPnl:'',maxPnl:''};
-let sortCol='date',sortDir=-1; // -1=desc, 1=asc
+let sortCol='date',sortDir=-1;
+let accountEquity=0,calMonth=new Date().toISOString().slice(0,7); // -1=desc, 1=asc
 let pendingMerges=[],pendingApprovalCb=null; // change approval queue
 
 // Helpers
@@ -263,24 +266,59 @@ function importCSV(text,label){
 
   if(type==='cash'){
     const feeUpdates=[],balRows=[];
+    // NT8 cash history format detector — try all known column patterns
+    // Common NT8 headers: "Date","Type","Description","Amount","Balance"
+    // Also: "Account","Date","Description","Debit","Credit","Balance"
+    // Also tab-separated or semicolon
+    const reSplit=text.includes(';')?/;/:",";
+    const isNT8Style=hdr.some(h=>h.includes('type'))||hdr.some(h=>h.includes('description'));
     for(let i=1;i<lines.length;i++){
       const row=parseLine(lines[i]);if(row.length<2)continue;
-      const amount=parseFloat(gc2(row,['amount','value','debit','credit'])||'NaN');
-      const desc=(gc2(row,['description','type','transaction','detail'])||'').toLowerCase();
-      const date=parseDate(gc2(row,['date','time','timestamp']));
-      const balance=parseFloat(gc2(row,['balance','runningbalance','accountbalance','endbalance'])||'NaN');
-      if(!date)continue;
-      if(!isNaN(balance))balRows.push({date,balance});
-      if(isNaN(amount))continue;
-      const isCommission=desc.includes('commission')||desc.includes('fee')||desc.includes('commis');
-      if(isCommission&&amount<0){
+      // Try every column for a numeric value that looks like a fee/balance
+      const desc=(gc2(row,['description','type','detail','transaction','memo','activity','category','entry'])||'').toLowerCase();
+      const dateRaw=gc2(row,['date','time','timestamp','transactiondate','activitydate','settledate','tradedate','datetime']);
+      const date=parseDate(dateRaw);if(!date)continue;
+      // Balance: last numeric-looking column is often the running balance
+      let balance=NaN;
+      for(let ci=row.length-1;ci>=0;ci--){const v=parseFloat(row[ci]);if(!isNaN(v)&&v>100){balance=v;break;}}
+      const balFromCol=parseFloat(gc2(row,['balance','runningbalance','accountbalance','endbalance','closingbalance','equity','netliq','netliquidationvalue','netassetvalue'])||'NaN');
+      if(!isNaN(balFromCol))balance=balFromCol;
+      if(!isNaN(balance)&&balance>0)balRows.push({date,balance});
+      // Amount: try debit/credit split or single amount column
+      const debit=parseFloat(gc2(row,['debit','dr','withdrawal','charge'])||'0')||0;
+      const credit=parseFloat(gc2(row,['credit','cr','deposit','payment'])||'0')||0;
+      const amtRaw=gc2(row,['amount','value','sum','total','netamount']);
+      let amount=isNaN(parseFloat(amtRaw))?credit-debit:parseFloat(amtRaw);
+      // Identify commission/fee rows by description keywords OR type column
+      const typeCol=(gc2(row,['type','transtype','transactiontype','entrytype'])||'').toLowerCase();
+      const isCommission=
+        desc.includes('commission')||desc.includes('commis')||
+        desc.includes('fee')||desc.includes('brokerage')||
+        desc.includes('exchange fee')||desc.includes('nfa')||
+        desc.includes('regulatory')||desc.includes('transaction cost')||
+        typeCol.includes('commission')||typeCol.includes('fee')||
+        (typeCol===''&&amount<0&&Math.abs(amount)<50&&Math.abs(amount)>0.01);// small negative = likely fee
+      if(isCommission&&amount!==0){
         const feeAmt=Math.abs(amount);
-        const matchedTrades=trades.filter(t=>t.date===date);
-        if(matchedTrades.length===1&&!matchedTrades[0].feeFromCash){
+        // Match to trades on same date — try exact date, then nearby
+        let matchedTrades=trades.filter(t=>t.date===date&&!t.feeFromCash);
+        if(!matchedTrades.length){
+          // Try ±1 day
+          const d=new Date(date+'T12:00:00'),d1=new Date(d),d2=new Date(d);
+          d1.setDate(d.getDate()-1);d2.setDate(d.getDate()+1);
+          matchedTrades=trades.filter(t=>(t.date===d1.toISOString().slice(0,10)||t.date===d2.toISOString().slice(0,10))&&!t.feeFromCash);
+        }
+        if(matchedTrades.length===1){
           feeUpdates.push({id:matchedTrades[0].id,fees:feeAmt,trade:matchedTrades[0]});
+        } else if(matchedTrades.length>1){
+          // Multiple trades same day — split fee evenly
+          const perTrade=+(feeAmt/matchedTrades.length).toFixed(2);
+          matchedTrades.forEach(t=>feeUpdates.push({id:t.id,fees:perTrade,trade:t}));
         }
       }
     }
+    // Update account equity from latest balance
+    if(balRows.length){const latest=balRows[balRows.length-1].balance;if(latest>0)accountEquity=latest;}
     return{imported:0,skipped:0,merged:0,type:'cash',batch:[],merges:[],feeUpdates,balRows};
   }
 
@@ -339,7 +377,8 @@ function importCSV(text,label){
       } else skipped++;
       continue;
     }
-    batch.push({date,symbol:sym,type:dir,entry:+entry.toFixed(4),exit:+exit.toFixed(4),size:qty,fees,...calc,setup:'—',grade:'—',timeframe:'—',notes:'',chartUrl:'',orderId,durationMins,entryTime,exitTime,source:label||'Import',assetType:isFut(sym)?'futures':'stock'});
+    const eqPct=accountEquity>0?+((Math.abs(calc.gross)/accountEquity)*100).toFixed(2):null;
+batch.push({date,symbol:sym,type:dir,entry:+entry.toFixed(4),exit:+exit.toFixed(4),size:qty,fees,...calc,setup:'—',grade:'—',timeframe:'—',notes:'',chartUrl:'',orderId,durationMins,entryTime,exitTime,source:label||'Import',assetType:isFut(sym)?'futures':'stock',eqPct});
   }
   return{imported:batch.length,skipped,merged:merges.length,type,batch,merges,feeUpdates:[],balRows:[]};
 }
@@ -363,7 +402,7 @@ async function commitImport(r,skipApproval){
     const newCalc=tradeCalc(t.symbol,t.type,t.entry,t.exit,t.size,f.fees);
     await updateTrade(f.id,{fees:f.fees,pnl:newCalc.pnl,grossPnl:newCalc.grossPnl,feeFromCash:true});
   }
-  if(r.balRows&&r.balRows.length){balanceHistory=[...balanceHistory,...r.balRows].sort((a,b)=>a.date>b.date?1:-1);}
+  if(r.balRows&&r.balRows.length){balanceHistory=[...balanceHistory,...r.balRows].sort((a,b)=>a.date>b.date?1:-1);const latest=balanceHistory[balanceHistory.length-1]?.balance;if(latest>0)accountEquity=latest;}
 }
 
 function showApprovalModal(){
@@ -430,6 +469,41 @@ function sparkline(data,color,w,h,showAxis){
   }
   return`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;overflow:visible"><defs><linearGradient id="sg${color.replace('#','')}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity=".25"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><path d="${fill}" fill="url(#sg${color.replace('#','')})"/><path d="${path}" stroke="${color}" stroke-width="1.5" fill="none"/>` +axis+'</svg>';
 }
+function svgLineLabeled(pts,color,W,H,showTradeAmounts){
+  // Same as svgLine but adds P&L amount labels at each dot
+  if(!pts||pts.length<2)return'<p style="padding:20px;color:var(--text5);font-size:11px;text-align:center">Add at least 2 trades</p>';
+  const PAD={t:18,r:22,b:30,l:62};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
+  const ys=pts.map(p=>p.y),minY=Math.min(0,...ys),maxY=Math.max(0,...ys),rY=maxY-minY||1;
+  const sx=i=>PAD.l+(i/(pts.length-1||1))*cw,sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);
+  const path='M'+pts.map((p,i)=>sx(i).toFixed(1)+','+sy(p.y).toFixed(1)).join('L');
+  const fill='M'+sx(0)+','+sy(pts[0].y)+' L'+pts.map((p,i)=>sx(i).toFixed(1)+','+sy(p.y).toFixed(1)).join(' L')+' L'+sx(pts.length-1)+','+y0+' L'+sx(0)+','+y0+' Z';
+  // Smart label placement — only show every Nth label to avoid crowding
+  const labelStep=Math.max(1,Math.floor(pts.length/8));
+  const dots=pts.map((p,i)=>{
+    const isWin=p.pnl>=0,cx=sx(i).toFixed(1),cyv=sy(p.y).toFixed(1);
+    const dotSvg=`<circle cx="${cx}" cy="${cyv}" r="2.5" fill="${isWin?'#00e5a0':'#ff3d5a'}" stroke="var(--bg)" stroke-width="1.5"/>`;
+    let labelSvg='';
+    if(showTradeAmounts&&i%labelStep===0&&p.pnl!==undefined){
+      const lbl=(p.pnl>=0?'+':'')+p.pnl.toFixed(0);
+      const labelY=(parseFloat(cyv)-6).toFixed(1);
+      labelSvg=`<text x="${cx}" y="${labelY}" text-anchor="middle" fill="${isWin?'#00e5a0':'#ff3d5a'}" font-size="8" font-family="JetBrains Mono,monospace" opacity=".8">${lbl}</text>`;
+    }
+    return dotSvg+labelSvg;
+  }).join('');
+  // Equity value at current end
+  const lastVal=pts[pts.length-1].y,lastX=sx(pts.length-1),lastY=sy(lastVal);
+  const endLabel=`<text x="${(lastX+4).toFixed(1)}" y="${lastY.toFixed(1)}" fill="${lastVal>=0?'#00e5a0':'#ff3d5a'}" font-size="9" font-family="JetBrains Mono,monospace" font-weight="bold">${lastVal>=0?'+':''}${lastVal.toFixed(0)}</text>`;
+  // High/low labels
+  const maxPt=pts.reduce((a,b)=>b.y>a.y?b:a),minPt=pts.reduce((a,b)=>b.y<a.y?b:a);
+  const maxIdx=pts.indexOf(maxPt),minIdx=pts.indexOf(minPt);
+  const highLabel=`<text x="${sx(maxIdx).toFixed(1)}" y="${(sy(maxPt.y)-6).toFixed(1)}" text-anchor="middle" fill="#00e5a0" font-size="8" font-family="JetBrains Mono,monospace" opacity=".7">$${maxPt.y.toFixed(0)}</text>`;
+  const lowLabel=minPt.y<0?`<text x="${sx(minIdx).toFixed(1)}" y="${(sy(minPt.y)+12).toFixed(1)}" text-anchor="middle" fill="#ff3d5a" font-size="8" font-family="JetBrains Mono,monospace" opacity=".7">$${minPt.y.toFixed(0)}</text>`:'';
+  let yg='',yt='';
+  for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">$${v.toFixed(0)}</text>`;}
+  let xt='';const step=Math.max(1,Math.floor(pts.length/8));for(let i=0;i<pts.length;i+=step)xt+=`<text x="${sx(i).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">${i+1}</text>`;
+  const zero=minY<=0&&maxY>=0?`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`:'';
+  return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}<path d="${fill}" fill="${color}" opacity=".1"/><path d="${path}" stroke="${color}" stroke-width="2" fill="none"/>${dots}${endLabel}${highLabel}${lowLabel}${yt}${xt}</svg>`;
+}
 function svgLine(pts,color,W,H){
   if(!pts||pts.length<2)return'<p style="padding:20px;color:var(--text5);font-size:11px;text-align:center">Add at least 2 trades</p>';
   const PAD={t:12,r:22,b:30,l:62};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
@@ -471,71 +545,94 @@ function clearFilters(){filters={sym:'',dir:'',grade:'',setup:'',tf:'',dateFrom:
 function setSortCol(col){if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=col==='date'?-1:-1;}renderApp();}
 
 
-// ── AI Summary using Claude API ────────────────────────────────────
-async function runAISummary(tds, period){
-  const out=el('ai-output');
-  if(!out)return;
-  out.innerHTML='<div style="display:flex;align-items:center;gap:10px;color:var(--text3);font-size:var(--fsm)"><div class="spinner"></div>Analyzing your trades...</div>';
+// ── AI Summary — client-side engine (always works) + Claude API ──
+async function runAISummary(tds,period){
+  const out=el('ai-output');if(!out)return;
+  out.innerHTML='<div style="display:flex;align-items:center;gap:10px;color:var(--text3);font-size:var(--fsm)"><div class="spinner"></div>Analyzing...</div>';
+  const S2=calcStats(tds);if(!S2){out.innerHTML='<div style="color:var(--text4)">Not enough data for this period.</div>';return;}
 
-  const S2=calcStats(tds);
-  if(!S2){out.innerHTML='<div style="color:var(--text4)">Not enough data.</div>';return;}
+  // Client-side rule-based analysis — always works
+  const sections=[];
+  const periodLabel=period==='all'?'All time':period==='day'?'Last 24h':period==='week'?'Last 7 days':'Last 30 days';
+  // 1. Summary
+  const trend=S2.rolling.net.slice(-5);
+  const recentSlope=trend.length>1?trend[trend.length-1]-trend[0]:0;
+  let summ=`<b style="color:var(--text)">${periodLabel}:</b> ${S2.total} trades, net P&L <span style="color:${gch(S2.net)}">${fmt(S2.net)}</span> (gross ${fmt(S2.grossNet)}). `;
+  summ+=S2.ev>0?`Positive EV of <span style="color:var(--green)">$${S2.ev.toFixed(2)}/trade</span> — strategy has edge.`:`<span style="color:var(--red)">Negative EV of $${S2.ev.toFixed(2)}/trade</span> — strategy currently losing money on expectation.`;
+  summ+=recentSlope>0?' Recent trend is <span style="color:var(--green)">improving ↑</span>.':recentSlope<-20?' Recent trend is <span style="color:var(--red)">declining ↓</span> — something changed recently.':'';
+  sections.push(['📊 SUMMARY',summ]);
 
-  // Build a compact stats summary for the prompt
-  const summary={
-    period, tradeCount:S2.total, winRate:pct(S2.wr),
-    profitFactor:S2.pf>=99?'∞':S2.pf.toFixed(2),
-    expectedValue:'$'+S2.ev.toFixed(2),
-    netPnl:fmt(S2.net), grossPnl:fmt(S2.grossNet),
-    totalFees:'$'+S2.totalFees.toFixed(2), feeDrag:S2.feeImpact.toFixed(1)+'%',
-    avgWin:'+$'+S2.avgW.toFixed(2), avgLoss:'-$'+S2.avgL.toFixed(2),
-    riskReward:S2.rr.toFixed(2)+'R', sharpe:S2.sharpe.toFixed(2),
-    maxDrawdown:'-$'+S2.maxDD.toFixed(2), recovery:S2.recovery.toFixed(2)+'x',
-    maxWinStreak:S2.maxWS, maxLossStreak:S2.maxLS,
-    longWR:pct(S2.longWR), shortWR:pct(S2.shortWR),
-    bestDay:S2.bestDay[0]+' $'+S2.bestDay[1].toFixed(2),
-    worstDay:S2.worstDay[0]+' $'+S2.worstDay[1].toFixed(2),
-    setupBreakdown:Object.entries(S2.setups).map(([k,v])=>`${k}: ${v.count} trades, ${(v.wins/v.count*100).toFixed(0)}% WR, ${fmt(v.pnl)}`).join('; '),
-    gradeBreakdown:Object.entries(S2.byGrade).map(([k,v])=>`Grade ${k}: ${v.count} trades, ${fmt(v.pnl)}`).join('; '),
-    recentTrades: tds.slice(-5).map(t=>`${t.date} ${t.symbol} ${t.type} ${t.size}x Entry:${t.entry} Exit:${t.exit} P&L:${fmt(t.pnl)} Grade:${t.grade||'—'} Setup:${t.setup||'—'}`).join('\n')
-  };
+  // 2. Strengths
+  const strengths=[];
+  if(S2.wr>=0.55)strengths.push(`Strong win rate of <b>${pct(S2.wr)}</b> — trade selection is disciplined.`);
+  if(S2.pf>=1.8)strengths.push(`Excellent profit factor of <b>${S2.pf.toFixed(2)}×</b> — winners significantly outpace losers.`);
+  if(S2.rr>=1.5)strengths.push(`Good risk:reward of <b>${S2.rr.toFixed(2)}R</b> — cutting losses appropriately vs wins.`);
+  if(S2.sharpe>1)strengths.push(`Annualized Sharpe of <b>${S2.sharpe.toFixed(2)}</b> — consistent, low-variance returns.`);
+  if(S2.maxWS>=4)strengths.push(`Win streak of <b>${S2.maxWS}</b> shows ability to execute when in rhythm.`);
+  if(S2.feeImpact<8)strengths.push(`Fee drag at <b>${S2.feeImpact.toFixed(1)}%</b> is well controlled.`);
+  const bestSetup=Object.entries(S2.setups).sort(([,a],[,b])=>b.pnl-a.pnl)[0];
+  if(bestSetup&&bestSetup[0]!=='—')strengths.push(`Best setup is <b>${bestSetup[0]}</b>: ${fmt(bestSetup[1].pnl)} net P&L, ${(bestSetup[1].wins/bestSetup[1].count*100).toFixed(0)}% WR.`);
+  sections.push(['💪 STRENGTHS',strengths.length?strengths.slice(0,2).join(' '):'Not enough data to identify clear strengths yet.']);
 
-  const prompt=`You are an expert futures trading coach reviewing a trader's performance data. Provide a concise, actionable analysis.
+  // 3. Critical weakness
+  const weaknesses=[];
+  if(S2.wr<0.45)weaknesses.push({sev:3,msg:`Win rate of <b style="color:var(--red)">${pct(S2.wr)}</b> is below 45%. With your avg win of $${S2.avgW.toFixed(0)} and avg loss of $${S2.avgL.toFixed(0)}, you need >45% WR to stay profitable. Be more selective — only take A/B grade setups.`});
+  if(S2.rr<1)weaknesses.push({sev:3,msg:`Risk:Reward of <b style="color:var(--red)">${S2.rr.toFixed(2)}R</b> — your average loss ($${S2.avgL.toFixed(0)}) exceeds your average win ($${S2.avgW.toFixed(0)}). Set a hard rule: minimum 1.5R per trade or pass.`});
+  if(S2.maxLS>=4)weaknesses.push({sev:2,msg:`Max loss streak of <b>${S2.maxLS}</b>. Continuing to trade through streaks amplifies damage. Consider a 3-loss stop rule.`});
+  if(S2.feeImpact>15)weaknesses.push({sev:2,msg:`Fee drag is <b style="color:var(--yellow)">${S2.feeImpact.toFixed(1)}%</b> of gross — commissions are eating a significant portion. Reduce overtrading or renegotiate fees.`});
+  if(S2.pf<1)weaknesses.push({sev:3,msg:`Profit factor <b style="color:var(--red)">${S2.pf.toFixed(2)}</b> means for every $1 won you lose $${(1/S2.pf).toFixed(2)}. Strategy is currently net-losing. Pause and review trade criteria.`});
+  weaknesses.sort((a,b)=>b.sev-a.sev);
+  sections.push(['⚠ CRITICAL WEAKNESS',weaknesses.length?weaknesses[0].msg:'No critical weaknesses detected — focus on maintaining consistency.']);
 
-PERFORMANCE DATA (${period==='all'?'All time':period==='day'?'Last 24h':period==='week'?'Last 7 days':'Last 30 days'}):
-${JSON.stringify(summary,null,2)}
+  // 4. Action plan
+  const actions=[];
+  if(S2.wr<0.5)actions.push(`<b>1. Tighten entry criteria</b> — before entering, confirm: setup matches your best-performing type (${bestSetup?bestSetup[0]:'check stats'}), grade is A or B, and RR is >1.5.`);
+  else actions.push(`<b>1. Protect the edge</b> — WR is ${pct(S2.wr)}. Stay disciplined. Don't increase size until you have 50+ trades at this WR.`);
+  if(S2.rr<1.5)actions.push(`<b>2. Fix stops and targets</b> — move stops only to reduce loss, never to give a trade "more room." Set a minimum target of 1.5× your stop size before entry.`);
+  else actions.push(`<b>2. Capitalize on your ${S2.rr.toFixed(2)}R ratio</b> — consider scaling out 50% at 1R and letting the rest run to 2R+.`);
+  if(S2.feeImpact>10)actions.push(`<b>3. Reduce frequency</b> — at ${S2.feeImpact.toFixed(1)}% fee drag, fewer, higher-quality trades will improve net P&L.`);
+  else if(S2.maxLS>=3)actions.push(`<b>3. Implement a daily loss limit</b> — 3 losses in a session = done for the day. Review those trades the next morning before trading again.`);
+  else actions.push(`<b>3. Document every trade</b> — grade each trade A-F and track patterns. Your best setups deserve larger size once identified.`);
+  sections.push(['📋 ACTION PLAN',actions.join('<br/>')]);
 
-Provide:
-1. SUMMARY (2-3 sentences on overall performance)
-2. STRENGTHS (1-2 things they're doing well)
-3. CRITICAL WEAKNESS (the single most important thing holding them back, with specific numbers)
-4. ACTION PLAN (3 concrete, specific steps to improve — be direct, not generic)
-5. PATTERN ALERT (any concerning pattern in the recent trades listed)
+  // 5. Pattern alert
+  const recent=tds.slice(-5);
+  const recentNet=recent.reduce((s,t)=>s+t.pnl,0);
+  const recentWR=recent.filter(t=>t.pnl>0).length/Math.max(recent.length,1);
+  let pattern='';
+  if(recent.length>=3){
+    if(recentNet<0&&S2.net>0)pattern=`<span style="color:var(--yellow)">⚠ Last ${recent.length} trades are net negative ($${recentNet.toFixed(0)}) while overall is positive. Monitor closely — could indicate strategy drift or overtrading.`;
+    else if(recentWR<0.3&&S2.wr>0.5)pattern=`<span style="color:var(--red)">⚠ Recent WR (${(recentWR*100).toFixed(0)}%) is well below your overall WR (${pct(S2.wr)}). Check if market conditions changed or you're deviating from plan.</span>`;
+    else if(recentNet>0&&recentWR>=0.7)pattern=`<span style="color:var(--green)">✓ Recent ${recent.length} trades performing well (${(recentWR*100).toFixed(0)}% WR). Stay consistent — avoid increasing size impulsively.</span>`;
+    else pattern=`Last ${recent.length} trades: ${recent.filter(t=>t.pnl>0).length}W / ${recent.filter(t=>t.pnl<0).length}L, net ${fmt(recentNet)}. No unusual pattern detected.`;
+  }
+  sections.push(['🔍 RECENT PATTERN',pattern||'Add more trades for pattern detection.']);
 
-Format with clear section headers. Be direct and specific. Use the actual numbers from their data. Keep total response under 300 words.`;
+  const html2=sections.map(([title,body])=>`<div style="margin-bottom:14px"><div style="font-size:var(--fsxs);color:var(--text4);letter-spacing:2px;margin-bottom:5px">${title}</div><div style="font-size:var(--fsm);color:var(--text2);line-height:1.9">${body}</div></div>`).join('');
+  out.innerHTML=html2+`<div style="margin-top:12px;font-size:var(--fsxs);color:var(--text5);border-top:1px solid var(--border);padding-top:8px;display:flex;justify-content:space-between;align-items:center"><span>Client-side analysis · ${tds.length} trades · ${new Date().toLocaleTimeString()}</span><button class="btn-b" style="font-size:var(--fsxs);padding:3px 10px" id="try-claude-api">TRY CLAUDE API →</button></div>`;
+  // Wire up Claude API attempt button
+  setTimeout(()=>{
+    if(el('try-claude-api'))el('try-claude-api').onclick=()=>runClaudeAPI(tds,period,out);
+  },50);
+}
 
+async function runClaudeAPI(tds,period,out){
+  const S2=calcStats(tds);if(!S2)return;
+  const note=document.createElement('div');note.style.cssText='font-size:var(--fsxs);color:var(--text5);margin-top:8px;padding:8px;background:var(--bg2);border:1px solid var(--border)';
+  note.textContent='Attempting Claude API call... (works inside Claude.ai, may be blocked on GitHub Pages due to browser CORS policy)';
+  out.appendChild(note);
+  const summary={period,tradeCount:S2.total,winRate:pct(S2.wr),profitFactor:S2.pf>=99?'∞':S2.pf.toFixed(2),expectedValue:'$'+S2.ev.toFixed(2),netPnl:fmt(S2.net),grossPnl:fmt(S2.grossNet),totalFees:'$'+S2.totalFees.toFixed(2),feeDrag:S2.feeImpact.toFixed(1)+'%',avgWin:'+$'+S2.avgW.toFixed(2),avgLoss:'-$'+S2.avgL.toFixed(2),riskReward:S2.rr.toFixed(2)+'R',sharpe:S2.sharpe.toFixed(2),maxDrawdown:'-$'+S2.maxDD.toFixed(2),recovery:S2.recovery.toFixed(2)+'x',setupBreakdown:Object.entries(S2.setups).map(([k,v])=>`${k}:${v.count}tr,${(v.wins/v.count*100).toFixed(0)}%WR,${fmt(v.pnl)}`).join(';')};
   try{
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        messages:[{role:'user',content:prompt}]
-      })
-    });
-    const data=await response.json();
-    if(data.error){throw new Error(data.error.message);}
-    const text=data.content?.find(b=>b.type==='text')?.text||'No response.';
-    // Format the response
-    const formatted=text
-      .replace(/^#{1,3}\s+/gm,'')
-      .replace(/\*\*(.*?)\*\*/g,'<span style="color:var(--text);font-weight:bold">$1</span>')
-      .replace(/\n\n/g,'</p><p style="margin-top:10px">')
-      .replace(/\n/g,'<br/>');
-    out.innerHTML=`<div style="font-size:var(--fsm);color:var(--text2);line-height:1.9"><p>${formatted}</p></div>
-      <div style="margin-top:12px;font-size:var(--fsxs);color:var(--text5);border-top:1px solid var(--border);padding-top:8px">Analysis by Claude · ${tds.length} trades analyzed · ${new Date().toLocaleTimeString()}</div>`;
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:`Futures trading coach. Analyze this data and give 3 specific, actionable improvements. Data: ${JSON.stringify(summary)}. Be direct, use their exact numbers, under 200 words.`}]})});
+    const data=await res.json();
+    if(data.error)throw new Error(data.error.message);
+    const text=data.content?.find(b=>b.type==='text')?.text||'';
+    const formatted=text.replace(/\*\*(.*?)\*\*/g,'<b style="color:var(--text)">$1</b>').replace(/
+/g,'<br/>');
+    note.style.cssText='margin-top:10px;padding:12px;background:color-mix(in srgb,var(--blue) 8%,transparent);border:1px solid color-mix(in srgb,var(--blue) 25%,transparent)';
+    note.innerHTML=`<div style="font-size:var(--fsxs);color:var(--blue);letter-spacing:2px;margin-bottom:6px">🤖 CLAUDE AI ANALYSIS</div><div style="font-size:var(--fsm);color:var(--text2);line-height:1.9">${formatted}</div>`;
   }catch(e){
-    out.innerHTML=`<div style="color:var(--red);font-size:var(--fsm)">AI analysis failed: ${e.message}</div><div style="color:var(--text5);font-size:var(--fsxs);margin-top:8px">This feature requires an active internet connection and the Claude API to be available in your environment.</div>`;
+    note.textContent=`Claude API unavailable from this URL (${e.message}). The client-side analysis above is fully accurate.`;
   }
 }
 
@@ -691,7 +788,7 @@ function renderApp(){
           <span style="color:var(--text4)">RECOVERY <span style="color:${S.recovery>2?'#00e5a0':S.recovery>1?'#f5c842':'#ff3d5a'}">${S.recovery.toFixed(2)}×</span></span>
         </div>
       </div>
-      <div style="padding:10px 4px 6px;overflow-x:auto">${(()=>{let c=0,pk=0;return svgLine(trades.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl};}), '#00e5a0',940,150);})()}</div>
+      <div style="padding:10px 4px 6px;overflow-x:auto">${(()=>{let c=0,pk=0;return svgLineLabeled(trades.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl};}), '#00e5a0',940,155,true);})()}</div>
     </div>
     <!-- SECONDARY ROW — compact -->
     <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:8px">
@@ -839,7 +936,10 @@ function renderApp(){
           <td style="color:${t.type==='LONG'?'var(--green)':'var(--blue)'}">${t.type}</td>
           <td>${t.entry}</td><td>${t.exit}</td><td>${t.size}</td>
           <td style="color:var(--yellow)">${t.fees>0?'-$'+t.fees.toFixed(2):'—'}</td>
-          <td style="color:${gch(t.pnl)};font-family:'Bebas Neue',monospace;font-size:14px;white-space:nowrap">${fmt(t.pnl)}</td>
+          <td style="color:${gch(t.pnl)};font-family:'Bebas Neue',monospace;font-size:14px;white-space:nowrap">
+            ${fmt(t.pnl)}
+            ${accountEquity>0&&t.eqPct?`<div style="font-size:8px;color:var(--text5);letter-spacing:0">${t.eqPct}% acct</div>`:''}
+          </td>
           <!-- INLINE GRADE -->
           <td><select class="inline-sel" data-field="grade" data-id="${t.id}">
             ${GRADES.map(g=>`<option${g===(t.grade||'—')?' selected':''}>${g}</option>`).join('')}
@@ -847,6 +947,10 @@ function renderApp(){
           <!-- INLINE SETUP -->
           <td><select class="inline-sel" data-field="setup" data-id="${t.id}">
             ${customSetups.map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}
+          </select></td>
+          <!-- INLINE TIMEFRAME -->
+          <td><select class="inline-sel" data-field="timeframe" data-id="${t.id}">
+            ${TIMEFRAMES.map(tf=>`<option${tf===(t.timeframe||'—')?' selected':''}>${tf}</option>`).join('')}
           </select></td>
           <td>${t.chartUrl?`<a href="${t.chartUrl}" target="_blank" class="clink">📈</a>`:'—'}</td>
           <td style="color:var(--text3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(t.notes||'').replace(/"/g,"'")}">${t.notes||''}</td>
@@ -861,7 +965,7 @@ function renderApp(){
         ${mkTh('DATE','date')}${mkTh('SYM','symbol')}${mkTh('DIR','type')}
         ${mkTh('ENTRY','entry')}${mkTh('EXIT','exit')}${mkTh('CTRS','size')}
         ${mkTh('FEES','fees')}${mkTh('NET P&L','pnl')}
-        ${mkTh('GRADE','grade')}${mkTh('SETUP','setup')}
+        ${mkTh('GRADE','grade')}${mkTh('SETUP','setup')}${mkTh('TF','timeframe')}
         <th>CHART</th><th>NOTES</th>${exH}<th></th><th></th>
       </tr></thead><tbody>${tbody}</tbody></table>`;
       content.appendChild(tw);
@@ -907,7 +1011,7 @@ function renderApp(){
     ['equity','daily','monthly','dow','grade','tf','wr_ev','pf_ev'].forEach(c=>{const b=document.createElement('button');b.className='btn-'+(activeChart===c?'g':'d');b.textContent={equity:'EQUITY+DD',daily:'DAILY P&L',monthly:'MONTHLY',dow:'DAY/WEEK',grade:'GRADE',tf:'TIMEFRAME',wr_ev:'WR→EV',pf_ev:'PF→EV'}[c];b.onclick=()=>{activeChart=c;renderApp();};brow.appendChild(b);});
     content.appendChild(brow);
     const cs=document.createElement('div');cs.className='section';
-    if(activeChart==='equity'){let c=0,pk=0,c2=0,pk2=0;const eqP=trades.map(t=>{c+=t.pnl;if(c>pk)pk=c;return{y:+c.toFixed(2),pnl:t.pnl};});const ddP=trades.map(t=>{c2+=t.pnl;if(c2>pk2)pk2=c2;return{y:+(pk2-c2).toFixed(2),pnl:0};});cs.innerHTML=`<div class="sec-hd"><span>EQUITY CURVE</span><span style="color:var(--red)">MAX DD -$${S.maxDD.toFixed(2)}</span></div><div style="padding:14px 4px 4px;overflow-x:auto">${svgLine(eqP,'#00e5a0',940,170)}<div style="padding:7px 14px 4px;font-size:var(--fsxs);letter-spacing:2px;color:var(--text5);border-top:1px solid var(--text5);margin-top:6px">DRAWDOWN</div>${svgLine(ddP,'#ff3d5a',940,90)}</div>`;}
+    if(activeChart==='equity'){let c=0,pk=0,c2=0,pk2=0;const eqP=trades.map(t=>{c+=t.pnl;if(c>pk)pk=c;return{y:+c.toFixed(2),pnl:t.pnl};});const ddP=trades.map(t=>{c2+=t.pnl;if(c2>pk2)pk2=c2;return{y:+(pk2-c2).toFixed(2),pnl:0};});cs.innerHTML=`<div class="sec-hd"><span>EQUITY CURVE</span><span style="color:var(--red)">MAX DD -$${S.maxDD.toFixed(2)}</span></div><div style="padding:14px 4px 4px;overflow-x:auto">${svgLineLabeled(eqP,'#00e5a0',940,170,true)}<div style="padding:7px 14px 4px;font-size:var(--fsxs);letter-spacing:2px;color:var(--text5);border-top:1px solid var(--text5);margin-top:6px">DRAWDOWN</div>${svgLine(ddP,'#ff3d5a',940,90)}</div>`;}
     if(activeChart==='daily'){const bars=Object.entries(S.byDay).sort(([a],[b])=>a>b?1:-1).map(([d,v])=>({d:d.slice(5),v:+v.toFixed(2)}));cs.innerHTML=`<div class="sec-hd"><span>DAILY P&L</span><span>${bars.length} days</span></div><div style="padding:12px 4px 8px;overflow-x:auto">${svgBar(bars,940,240)}</div>`;}
     if(activeChart==='monthly'){const months=Object.entries(S.monthly).sort(([a],[b])=>a>b?1:-1);cs.innerHTML=`<div class="sec-hd">MONTHLY P&L</div><table><thead><tr><th>MONTH</th><th>TRADES</th><th>WR</th><th>NET P&L</th><th></th></tr></thead><tbody>${months.map(([m,d])=>`<tr class="tr-row" style="border-bottom:1px solid var(--border)"><td style="color:var(--text);font-family:'Bebas Neue',monospace;font-size:15px">${m}</td><td>${d.trades}</td><td style="color:${d.wins/d.trades>=.5?'var(--green)':'var(--red)'}">${(d.wins/d.trades*100).toFixed(0)}%</td><td style="color:${gch(d.pnl)};font-family:'Bebas Neue',monospace;font-size:16px">${fmt(d.pnl)}</td><td><span style="font-size:var(--fsxs);padding:1px 8px;background:${d.pnl>=0?'#00e5a018':'#ff3d5a18'};color:${d.pnl>=0?'#00e5a0':'#ff3d5a'}">${d.pnl>=0?'PROFIT':'LOSS'}</span></td></tr>`).join('')}</tbody></table>`;}
     if(activeChart==='dow'){const order=['Mon','Tue','Wed','Thu','Fri'],maxA=Math.max(...order.map(d=>Math.abs(S.dow[d].pnl)),1);cs.innerHTML=`<div class="sec-hd">DAY OF WEEK</div><div style="padding:18px;display:flex;flex-direction:column;gap:11px">${order.map(d=>{const{pnl,t}=S.dow[d],bw=Math.round(Math.abs(pnl)/maxA*100);return`<div style="display:grid;grid-template-columns:48px 1fr 60px 90px;gap:12px;align-items:center"><div style="font-family:'Bebas Neue',monospace;font-size:18px;color:var(--text2)">${d}</div><div style="background:var(--bg2);height:10px"><div style="width:${bw}%;height:100%;background:${pnl>=0?'#00e5a030':'#ff3d5a30'};border-right:2px solid ${pnl>=0?'#00e5a0':'#ff3d5a'}"></div></div><div style="font-size:var(--fsxs);color:var(--text4)">${t} trades</div><div style="font-family:'Bebas Neue',monospace;font-size:16px;color:${gch(pnl)};text-align:right">${fmt(pnl)}</div></div>`;}).join('')}</div>`;}
@@ -1021,7 +1125,24 @@ function renderApp(){
       <div class="section">
         <div class="sec-hd"><span>KPI DEPENDENCY FLOWCHART</span><span style="color:var(--text4);font-size:var(--fsxs)">Score 0–100 · <span style="color:var(--green)">●</span> Healthy <span style="color:var(--yellow)">●</span> Needs Work <span style="color:var(--red)">●</span> Critical</span></div>
         <div style="padding:16px 4px">${chartSVG}</div>
-        <div style="padding:0 16px 14px;font-size:var(--fsxs);color:var(--text5)">EXP VALUE is your north star. It flows from Profit Factor and Sharpe. Profit Factor flows from Win Rate, R:R, and Fees. Fix the <span style="color:${getColor(worstScore)}">${worstKey}</span> first.</div>
+        <div style="padding:0 16px 14px">
+          <div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:8px">EXP VALUE is your north star — fix the <span style="color:${getColor(worstScore)}">${worstKey}</span> first.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            ${[
+              ['EXP VALUE','WR × AvgWin − LossRate × AvgLoss. The single number that tells you if your strategy has edge.','#00e5a0'],
+              ['PROFIT FACTOR','Gross profit ÷ gross loss. > 1.5 healthy, > 2 excellent. Flows directly into EV.','#4a9eff'],
+              ['WIN RATE','% of trades profitable. Below 40% is critical without very high R:R.','#f5c842'],
+              ['RISK:REWARD','AvgWin ÷ AvgLoss. Target 1.5R+. Low R:R requires high WR to stay profitable.','#a78bfa'],
+              ['SHARPE','Annualized risk-adjusted return. High variance (streaky) trading kills Sharpe.','#4a9eff'],
+              ['CONSISTENCY','Measured by max streak lengths. Long loss streaks indicate overtrading or rule breaks.','#f5c842'],
+              ['FEE DRAG','Commissions as % of gross profit. > 15% means fees are a major drag.','#f5c842'],
+              ['DRAWDOWN','Recovery factor = Net / MaxDD. How efficiently you bounce back.','#ff3d5a'],
+            ].map(([name,desc,c])=>`<div style="background:var(--bg3);border:1px solid var(--border2);padding:8px 10px">
+              <div style="font-size:var(--fsxs);color:${c};letter-spacing:1px;margin-bottom:3px">${name}</div>
+              <div style="font-size:9px;color:var(--text4);line-height:1.6">${desc}</div>
+            </div>`).join('')}
+          </div>
+        </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <div class="card" style="border-color:${getColor(worstScore)}40">
@@ -1075,6 +1196,104 @@ function renderApp(){
       if(el('ai-month'))el('ai-month').onclick=()=>aiBtn('month');
       if(el('ai-all'))el('ai-all').onclick=()=>aiBtn('all');
     },50);
+  }
+
+
+  // ══ CALENDAR ══
+  if(activeTab==='calendar'){
+    const tradesByDate={};
+    trades.forEach(t=>{
+      if(!tradesByDate[t.date])tradesByDate[t.date]=[];
+      tradesByDate[t.date].push(t);
+    });
+    // Parse calMonth as YYYY-MM
+    const [cy,cm]=calMonth.split('-').map(Number);
+    const firstDay=new Date(cy,cm-1,1);
+    const lastDay=new Date(cy,cm,0);
+    const daysInMonth=lastDay.getDate();
+    const startDow=firstDay.getDay(); // 0=Sun
+
+    // Month nav
+    const navRow=document.createElement('div');
+    navRow.style.cssText='display:flex;align-items:center;gap:12px;margin-bottom:14px';
+    navRow.innerHTML=`
+      <button class="btn-d" id="cal-prev" style="padding:6px 14px">◀ PREV</button>
+      <div style="font-family:'Bebas Neue',monospace;font-size:24px;letter-spacing:3px;color:var(--text)">
+        ${firstDay.toLocaleString('en',{month:'long'})} ${cy}
+      </div>
+      <button class="btn-d" id="cal-next" style="padding:6px 14px">NEXT ▶</button>
+      <div style="margin-left:auto;font-size:var(--fsxs);color:var(--text4)">
+        ${Object.keys(tradesByDate).filter(d=>d.startsWith(calMonth)).length} trading days this month
+        ${accountEquity>0?'· Account: $'+accountEquity.toLocaleString():''}
+      </div>`;
+    content.appendChild(navRow);
+    setTimeout(()=>{
+      if(el('cal-prev'))el('cal-prev').onclick=()=>{const d=new Date(cy,cm-2,1);calMonth=d.toISOString().slice(0,7);renderApp();};
+      if(el('cal-next'))el('cal-next').onclick=()=>{const d=new Date(cy,cm,1);calMonth=d.toISOString().slice(0,7);renderApp();};
+    },50);
+
+    // Monthly summary strip
+    const monthTrades=trades.filter(t=>t.date.startsWith(calMonth));
+    if(monthTrades.length){
+      const ms=calcStats(monthTrades);
+      const strip=document.createElement('div');
+      strip.style.cssText='display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap';
+      strip.innerHTML=[
+        ['TRADES',ms.total,'var(--text2)'],
+        ['NET P&L',fmt(ms.net),gch(ms.net)],
+        ['WIN RATE',pct(ms.wr),ms.wr>=.5?'var(--green)':'var(--red)'],
+        ['PROFIT FACTOR',ms.pf>=99?'∞':ms.pf.toFixed(2)+'×',ms.pf>=1.5?'var(--green)':ms.pf>=1?'var(--yellow)':'var(--red)'],
+        ['AVG WIN','+$'+ms.avgW.toFixed(0),'var(--green)'],
+        ['AVG LOSS','-$'+ms.avgL.toFixed(0),'var(--red)'],
+        ['FEES','-$'+ms.totalFees.toFixed(0),'var(--yellow)'],
+      ].map(([l,v,c])=>`<div class="mini-card" style="padding:8px 12px"><div class="stat-lbl">${l}</div><div style="font-family:'Bebas Neue',monospace;font-size:16px;color:${c}">${v}</div></div>`).join('');
+      content.appendChild(strip);
+    }
+
+    // Calendar grid
+    const grid=document.createElement('div');
+    const dayHeaders=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+    let gridHTML=`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">`;
+    // Day headers
+    dayHeaders.forEach(d=>{gridHTML+=`<div style="text-align:center;font-size:var(--fsxs);color:var(--text4);letter-spacing:2px;padding:6px 0;background:var(--bg2);border-bottom:1px solid var(--border)">${d}</div>`;});
+    // Empty cells before month start
+    for(let i=0;i<startDow;i++)gridHTML+=`<div style="background:var(--bg3);min-height:90px;border:1px solid var(--text5)"></div>`;
+    // Day cells
+    for(let day=1;day<=daysInMonth;day++){
+      const dateStr=`${cy}-${String(cm).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const dayTrades=tradesByDate[dateStr]||[];
+      const dayPnl=dayTrades.reduce((s,t)=>s+t.pnl,0);
+      const isToday=dateStr===new Date().toISOString().slice(0,10);
+      const hasTrades=dayTrades.length>0;
+      const bgColor=hasTrades?(dayPnl>=0?'color-mix(in srgb,var(--green) 8%,var(--bg1))':'color-mix(in srgb,var(--red) 8%,var(--bg1))'):'var(--bg1)';
+      const borderColor=isToday?'var(--yellow)':hasTrades?(dayPnl>=0?'color-mix(in srgb,var(--green) 30%,transparent)':'color-mix(in srgb,var(--red) 30%,transparent)'):'var(--border)';
+      const pnlColor=dayPnl>=0?'var(--green)':'var(--red)';
+      gridHTML+=`<div style="background:${bgColor};border:1px solid ${borderColor};min-height:90px;padding:6px 7px;position:relative;overflow:hidden">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:var(--fss);color:${isToday?'var(--yellow)':'var(--text3)'};font-weight:${isToday?'bold':'normal'}">${day}</span>
+          ${hasTrades?`<span style="font-family:'Bebas Neue',monospace;font-size:13px;color:${pnlColor}">${fmt(dayPnl)}</span>`:''}
+        </div>
+        ${dayTrades.slice(0,3).map(t=>`<div style="font-size:8px;color:${t.pnl>=0?'var(--green)':'var(--red)'};margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          ${t.symbol} ${t.type} ${t.size}x → ${fmt(t.pnl)}
+        </div>`).join('')}
+        ${dayTrades.length>3?`<div style="font-size:8px;color:var(--text5)">+${dayTrades.length-3} more</div>`:''}
+        ${hasTrades?`<div style="position:absolute;bottom:4px;right:6px;font-size:8px;color:var(--text5)">${dayTrades.length}tr</div>`:''}
+      </div>`;
+    }
+    // Fill remaining cells
+    const totalCells=Math.ceil((startDow+daysInMonth)/7)*7;
+    for(let i=startDow+daysInMonth;i<totalCells;i++)gridHTML+=`<div style="background:var(--bg3);min-height:90px;border:1px solid var(--text5)"></div>`;
+    gridHTML+=`</div>`;
+    grid.innerHTML=gridHTML;
+    content.appendChild(grid);
+
+    // Legend
+    const legend=document.createElement('div');
+    legend.style.cssText='display:flex;gap:16px;margin-top:10px;font-size:var(--fsxs);color:var(--text4)';
+    legend.innerHTML=`<span><span style="display:inline-block;width:12px;height:12px;background:color-mix(in srgb,var(--green) 20%,var(--bg1));border:1px solid color-mix(in srgb,var(--green) 40%,transparent);vertical-align:middle;margin-right:4px"></span>Profitable day</span>
+      <span><span style="display:inline-block;width:12px;height:12px;background:color-mix(in srgb,var(--red) 20%,var(--bg1));border:1px solid color-mix(in srgb,var(--red) 40%,transparent);vertical-align:middle;margin-right:4px"></span>Loss day</span>
+      <span><span style="display:inline-block;width:12px;height:12px;border:1px solid var(--yellow);vertical-align:middle;margin-right:4px"></span>Today</span>`;
+    content.appendChild(legend);
   }
 
   // ══ IMPORT ══
@@ -1239,6 +1458,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       </div>
     </div>
 
+    <!-- ACCOUNT EQUITY -->
+    <div class="section" style="margin-bottom:12px">
+      <div class="sec-hd">ACCOUNT EQUITY</div>
+      <div style="padding:14px">
+        <div style="font-size:var(--fsm);color:var(--text4);margin-bottom:10px;line-height:1.8">Your current account balance. Used to calculate position size as % of account on each trade. Auto-detected from Cash History CSV or enter manually.</div>
+        <div style="display:flex;gap:10px;align-items:flex-end">
+          <div style="width:200px"><label class="lbl">ACCOUNT BALANCE ($)</label><input type="number" id="acct-equity-input" value="${accountEquity||''}" placeholder="50000" step="100"/></div>
+          <button class="btn-g" id="save-equity">SET</button>
+          ${accountEquity>0?`<span style="font-size:var(--fsxs);color:var(--green)">Current: $${accountEquity.toLocaleString()}</span>`:''}
+        </div>
+      </div>
+    </div>
+
     <!-- LOGO -->
     <div class="section">
       <div class="sec-hd">LOGO</div>
@@ -1254,6 +1486,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(el('add-setup-btn'))el('add-setup-btn').onclick=()=>{const v=(el('new-setup')?.value||'').trim();if(!v)return;if(!customSetups.includes(v)){customSetups.push(v);localStorage.setItem('el_setups',JSON.stringify(customSetups));el('new-setup').value='';renderApp();}};
       if(el('new-setup'))el('new-setup').onkeydown=e=>{if(e.key==='Enter')el('add-setup-btn').click();};
       if(el('reset-setups-btn'))el('reset-setups-btn').onclick=()=>{customSetups=[...DEFAULT_SETUPS];localStorage.setItem('el_setups',JSON.stringify(customSetups));renderApp();};
+      if(el('save-equity'))el('save-equity').onclick=()=>{const v=parseFloat(el('acct-equity-input')?.value||'0');if(v>0){accountEquity=v;localStorage.setItem('el_equity',v);renderApp();}};
       if(el('save-fees'))el('save-fees').onclick=()=>{Object.keys(PRESETS).forEach(sym=>{const i=el('fee_'+sym);if(i)instrumentFees[sym]=parseFloat(i.value)||DEFAULT_FEES[sym];});localStorage.setItem('el_fees',JSON.stringify(instrumentFees));const s=el('fees-saved');if(s){s.style.display='block';setTimeout(()=>s.style.display='none',2000);}};
       if(el('reset-fees'))el('reset-fees').onclick=()=>{instrumentFees={...DEFAULT_FEES};localStorage.setItem('el_fees',JSON.stringify(instrumentFees));renderApp();};
       const lu2=el('logo-upload2');if(lu2)lu2.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{userLogo=ev.target.result;localStorage.setItem('el_logo',userLogo);updateFavicon();renderApp();};r.readAsDataURL(f);};
