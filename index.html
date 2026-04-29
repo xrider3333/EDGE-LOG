@@ -108,9 +108,9 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 </style>
 </head>
 <body>
-<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px"><div class="spinner" style="width:26px;height:26px"></div><div style="font-size:10px;letter-spacing:3px;color:var(--text5)">LOADING EDGE LOG v11.1...</div></div></div>
+<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px"><div class="spinner" style="width:26px;height:26px"></div><div style="font-size:10px;letter-spacing:3px;color:var(--text5)">LOADING EDGE LOG v11.2...</div></div></div>
 <script>
-const VERSION='11.1';
+const VERSION='11.2';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.50,MES:1.25,NQ:4.50,MNQ:1.25,CL:4.50,GC:4.50,SI:4.50,ZB:4.50,RTY:4.50,YM:4.50,ZN:4.50,ZC:4.50,NG:4.50,MGC:1.25,MCL:1.25};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -151,7 +151,7 @@ let filters={sym:'',dir:'',grade:'',setup:'',tf:'',dateFrom:'',dateTo:'',minPnl:
 let sortCol='date',sortDir=-1;
 let accountEquity=0,calMonth=new Date().toISOString().slice(0,7);
 let uploadHistory=JSON.parse(localStorage.getItem('el_uploads')||'[]');
-let analyticsSubTab='both'; // both | charts | diagnostics | aiagnostics | ai // -1=desc, 1=asc
+let analyticsSubTab='summary'; // summary | charts | deepagnostics | ai // -1=desc, 1=asc
 let pendingMerges=[],pendingApprovalCb=null; // change approval queue
 
 // Helpers
@@ -268,6 +268,10 @@ function detectType(hdr){
   const h=hdr.join(' ');
   // Exact NT8 Position History: has 'buyprice' AND 'sellprice' AND 'pairedqty'
   if(h.includes('buyprice')&&h.includes('sellprice')&&h.includes('pairedqty'))return'position_history';
+  // NT8 Performance CSV: has buyfillid/sellfillid and pnl column
+  if(h.includes('buyfillid')&&h.includes('sellfillid')&&h.includes('pnl'))return'performance_v2';
+  // Account Balance History
+  if(h.includes('totalrealizedpnl')||h.includes('total realized'))return'balance_history';
   // Legacy NT8 performance with boughttimestamp
   if(h.includes('boughttimestamp'))return'performance';
   // Cash history: has 'cashchangetype' OR ('delta' AND 'amount' columns together)
@@ -335,6 +339,74 @@ function importCSV(text,label){
     // Update account equity from last balance entry
     if(balRows.length){const last=balRows[balRows.length-1].balance;if(last>0)accountEquity=last;}
     return{imported:0,skipped:0,merged:0,type:'cash',batch:[],merges:[],feeUpdates,balRows};
+  }
+
+  // ── NT8 Performance CSV (new format with pnl column) ────────────
+  // Cols: symbol,_priceFormat,_priceFormatType,_tickSize,buyFillId,sellFillId,
+  //       qty,buyPrice,sellPrice,pnl,boughtTimestamp,soldTimestamp,duration
+  if(type==='performance_v2'){
+    const batch=[],merges=[];let skipped=0;
+    for(let i=1;i<lines.length;i++){
+      const row=parseLine(lines[i]);if(row.length<10)continue;
+      const sym=getBase(gc2(row,['symbol','product'])||'MES')||'MES';
+      const useSym=PRESETS[sym]?sym:'MES';
+      const qty=parseInt(gc2(row,['qty','quantity'])||'1')||1;
+      const buyR=parseFloat(gc2(row,['buyprice','buy price'])||'NaN');
+      const sellR=parseFloat(gc2(row,['sellprice','sell price'])||'NaN');
+      // pnl column may have $ prefix: "$1.25"
+      const plRaw=gc2(row,['pnl','p/l','pl']);
+      const plR=parseFloat(plRaw.replace(/[$,]/g,''));
+      if(isNaN(buyR)||isNaN(sellR))continue;
+      // Direction: use P/L sign against price diff
+      let dir='LONG';
+      const priceDiff=sellR-buyR;
+      if(!isNaN(plR)&&plR!==0&&priceDiff!==0){
+        dir=priceDiff*plR>0?'LONG':'SHORT';
+      }
+      const entry=dir==='LONG'?buyR:sellR;
+      const exit=dir==='LONG'?sellR:buyR;
+      const btRaw=gc2(row,['boughttimestamp','bought timestamp']);
+      const stRaw=gc2(row,['soldtimestamp','sold timestamp']);
+      const btDT=parseDT(btRaw),stDT=parseDT(stRaw);
+      const date=parseDate(btRaw);if(!date)continue;
+      const entryTime=btDT?btDT.toTimeString().slice(0,5):null;
+      const exitTime=stDT?stDT.toTimeString().slice(0,5):null;
+      const durationMins=btDT&&stDT?Math.round(Math.abs(stDT-btDT)/60000):null;
+      // Use CSV pnl if available (it's gross), else calculate
+      const grossPnl=!isNaN(plR)?+plR.toFixed(2):calcPnl(useSym,dir,entry,exit,qty,0).gross;
+      const fees=getFee(useSym);
+      const netPnl=+(grossPnl-fees).toFixed(2);
+      const existing=trades.find(t=>t.date===date&&t.symbol===useSym&&Math.abs(t.entry-entry)<0.01&&t.size===qty);
+      if(existing){
+        const upd={};
+        if(durationMins&&!existing.durationMins)upd.durationMins=durationMins;
+        if(entryTime&&!existing.entryTime)upd.entryTime=entryTime;
+        if(exitTime&&!existing.exitTime)upd.exitTime=exitTime;
+        if(existing.type!==dir)upd.type=dir;
+        if(Object.keys(upd).length>0)merges.push({id:existing.id,updates:upd,desc:Object.keys(upd).join(', ')});
+        else skipped++;
+        continue;
+      }
+      batch.push({date,symbol:useSym,type:dir,entry:+entry.toFixed(4),exit:+exit.toFixed(4),
+        size:qty,fees,grossPnl,pnl:netPnl,setup:'—',grade:'—',timeframe:'—',
+        notes:'',chartUrl:'',durationMins,entryTime,exitTime,
+        source:'Performance CSV',assetType:'futures'});
+    }
+    return{imported:batch.length,skipped,merged:merges.length,type:'performance_v2',batch,merges,feeUpdates:[],balRows:[]};
+  }
+
+  // ── Account Balance History CSV ───────────────────────────────
+  if(type==='balance_history'){
+    const balRows=[];
+    for(let i=1;i<lines.length;i++){
+      const row=parseLine(lines[i]);if(row.length<3)continue;
+      const date=parseDate(gc2(row,['trade date','tradedate','date']));
+      const bal=parseFloat(gc2(row,['total amount','totalamount','balance','amount'])||'NaN');
+      if(!date||isNaN(bal)||bal<=0)continue;
+      balRows.push({date,balance:bal});
+    }
+    if(balRows.length){const last=balRows[balRows.length-1].balance;if(last>0)accountEquity=last;}
+    return{imported:0,skipped:0,merged:0,type:'balance_history',batch:[],merges:[],feeUpdates:[],balRows};
   }
 
   // ── NT8 Position History parser ────────────────────────────────
@@ -966,115 +1038,122 @@ function renderApp(){
   // ══ OVERVIEW ══
   if(activeTab==='overview'){
     if(!S){content.innerHTML='<div style="border:1px dashed var(--border);padding:80px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO TRADES — USE DATA TAB TO IMPORT OR ADD IN JOURNAL</div>';return;}
-    const modeLabel=useGross?'<span style="color:var(--yellow);font-size:var(--fsxs);margin-left:8px">[GROSS]</span>':'';
+    const modeLabel=useGross?'<span style="color:var(--yellow);font-size:var(--fsxs);margin-left:6px">[GROSS]</span>':'';
 
-    // ── TOP ROW: BIG 3 + NET P&L in one line ──────────────────────
     content.innerHTML=`
-    <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+    <!-- ROW 1: Big 3 + Net P&L -->
+    <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:8px;margin-bottom:6px">
       ${kpiCard('NET P&L',S.net,'Gross '+fmt(S.grossNet),gch(S.net),S.rolling.net,gch(S.net),true,true)}
-      ${kpiCard('WIN RATE',pct(S.wr),S.wins+'W/'+S.losses+'L',S.wr>=.5?'#00e5a0':'#ff3d5a',S.rolling.wr,S.wr>=.5?'#00e5a0':'#ff3d5a',true)}
-      ${kpiCard('PROFIT FACTOR',(S.pf>=99?'∞':S.pf.toFixed(2))+'×','Gross W÷L',S.pf>=1.5?'#00e5a0':S.pf>=1?'#f5c842':'#ff3d5a',S.rolling.pf,S.pf>=1?'#f5c842':'#ff3d5a',true)}
+      ${kpiCard('WIN RATE',pct(S.wr),S.wins+'W / '+S.losses+'L',S.wr>=.5?'#00e5a0':'#ff3d5a',S.rolling.wr,S.wr>=.5?'#00e5a0':'#ff3d5a',true)}
+      ${kpiCard('PROFIT FACTOR',(S.pf>=99?'∞':S.pf.toFixed(2))+'×','',S.pf>=1.5?'#00e5a0':S.pf>=1?'#f5c842':'#ff3d5a',S.rolling.pf,S.pf>=1?'#f5c842':'#ff3d5a',true)}
       ${kpiCard('EXP VALUE','$'+S.ev.toFixed(2),'Per trade',S.ev>0?'#00e5a0':'#ff3d5a',S.rolling.ev,S.ev>0?'#00e5a0':'#ff3d5a',true)}
     </div>
 
-    <!-- COMPACT SECONDARY — single row, no sparklines -->
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:8px">
-      ${[
-        ['SHARPE',S.sharpe.toFixed(2),S.sharpe>1?'#00e5a0':S.sharpe>0?'#f5c842':'#ff3d5a'],
-        ['MAX DD','-$'+S.maxDD.toFixed(2),'#ff3d5a'],
-        ['RECOVERY',S.recovery.toFixed(2)+'×',S.recovery>2?'#00e5a0':S.recovery>1?'#f5c842':'#ff3d5a'],
-        ['RISK:REWARD',S.rr.toFixed(2)+'R',S.rr>=1.5?'#00e5a0':S.rr>=1?'#f5c842':'#ff3d5a'],
-        ['STREAK',(S.sdir>0?'+':'-')+S.streak+(S.sdir>0?'W':'L'),S.sdir>0?'#00e5a0':'#ff3d5a'],
-        ['AVG WIN','+$'+S.avgW.toFixed(0),'#00e5a0'],
-        ['AVG LOSS','-$'+S.avgL.toFixed(0),'#ff3d5a'],
-      ].map(([l,v,c])=>`<div class="mini-card" style="padding:9px 12px;padding-bottom:9px">
-        <div class="stat-lbl" style="margin-bottom:4px">${l}</div>
-        <div style="font-family:'Bebas Neue',monospace;font-size:18px;color:${c}">${v}</div>
-      </div>`).join('')}
-    </div>
-
-    <!-- EQUITY CURVE: prominent, with account balance overlay if available -->
-    <div class="section" style="margin-bottom:8px">
-      <div class="sec-hd" style="flex-wrap:wrap;gap:8px">
-        <span>EQUITY CURVE${modeLabel}</span>
-        <div style="display:flex;gap:14px;font-size:var(--fsxs);flex-wrap:wrap">
-          <span style="color:var(--text4)">MAX DD <span style="color:var(--red)">-$${S.maxDD.toFixed(2)}</span></span>
-          <span style="color:var(--text4)">FEES <span style="color:var(--yellow)">-$${S.totalFees.toFixed(2)} (${S.feeImpact.toFixed(1)}%)</span></span>
-          ${accountEquity>0?`<span style="color:var(--text4)">ACCOUNT <span style="color:var(--blue)">$${accountEquity.toLocaleString()}</span></span>`:''}
+    <!-- ROW 2: Equity curve + compact calendar side by side -->
+    <div style="display:grid;grid-template-columns:1fr 280px;gap:8px;margin-bottom:6px">
+      <div class="section">
+        <div class="sec-hd" style="flex-wrap:wrap;gap:6px">
+          <span>EQUITY CURVE${modeLabel}</span>
+          <div style="display:flex;gap:10px;font-size:var(--fsxs)">
+            <span style="color:var(--text4)">DD <span style="color:var(--red)">-$${S.maxDD.toFixed(0)}</span></span>
+            <span style="color:var(--text4)">FEES <span style="color:var(--yellow)">-$${S.totalFees.toFixed(0)}</span></span>
+            ${accountEquity>0?`<span style="color:var(--text4)">ACCT <span style="color:var(--blue)">$${accountEquity.toLocaleString()}</span></span>`:''}
+          </div>
         </div>
+        <div style="padding:8px 4px 4px;overflow-x:auto">
+          ${(()=>{let c=accountEquity>0?accountEquity:0,pk=c;return svgLineLabeled([{y:c,pnl:0},...trades.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl};})], '#00e5a0',620,140,true);})()}
+        </div>
+        ${balanceHistory.length>1?`<div style="border-top:1px solid var(--text5);padding:4px 4px 2px"><div style="font-size:var(--fsxs);color:var(--blue);padding:3px 8px">ACCOUNT BALANCE</div>${svgLine(balanceHistory.map((b,i)=>({y:b.balance,pnl:i>0?b.balance-balanceHistory[i-1].balance:0})),'#4a9eff',620,80)}</div>`:''}
       </div>
-      <div style="padding:10px 4px 6px;overflow-x:auto">
-        ${(()=>{let c=accountEquity>0?accountEquity:0,pk=c;return svgLineLabeled([{y:c,pnl:0},...trades.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl};})], '#00e5a0',940,155,true);})()}
+
+      <!-- Compact calendar -->
+      <div class="section">
+        ${(()=>{
+          const now=new Date(),yr=now.getFullYear(),mo=now.getMonth()+1;
+          const moStr=yr+'-'+String(mo).padStart(2,'0');
+          const firstDay=new Date(yr,mo-1,1),daysInMonth=new Date(yr,mo,0).getDate(),startDow=firstDay.getDay();
+          const tbd={};trades.forEach(t=>{if(!tbd[t.date])tbd[t.date]=[];tbd[t.date].push(t);});
+          const moT=trades.filter(t=>t.date.startsWith(moStr));
+          const moPnl=moT.reduce((s,t)=>s+t.pnl,0),moWR=moT.length?moT.filter(t=>t.pnl>0).length/moT.length:0;
+          const dow=['S','M','T','W','T','F','S'];
+          let cells=dow.map(d=>`<div style="text-align:center;font-size:8px;color:var(--text5);padding:2px 0">${d}</div>`).join('');
+          for(let i=0;i<startDow;i++)cells+=`<div></div>`;
+          for(let day=1;day<=daysInMonth;day++){
+            const ds=yr+'-'+String(mo).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+            const dt=tbd[ds]||[];const dp=dt.reduce((s,t)=>s+t.pnl,0);
+            const isToday=ds===new Date().toISOString().slice(0,10);
+            const bg=dt.length?(dp>=0?'#00e5a020':'#ff3d5a20'):'transparent';
+            const border=isToday?'1px solid var(--yellow)':dt.length?`1px solid ${dp>=0?'#00e5a040':'#ff3d5a40'}`:'1px solid transparent';
+            cells+=`<div style="text-align:center;font-size:9px;padding:3px 1px;background:${bg};border:${border}" title="${ds}${dt.length?' · '+fmt(dp):''}">
+              <div style="color:${isToday?'var(--yellow)':dt.length?(dp>=0?'#00e5a0':'#ff3d5a'):'var(--text5)'}">${day}</div>
+              ${dt.length?`<div style="font-size:7px;color:${dp>=0?'#00e5a0':'#ff3d5a'}">${dp>=0?'+':''}${dp.toFixed(0)}</div>`:''}
+            </div>`;
+          }
+          return `<div class="sec-hd" style="padding:8px 12px">
+            <span style="font-size:var(--fsxs)">${firstDay.toLocaleString('en',{month:'short'})} ${yr}</span>
+            <span style="font-size:var(--fsxs);color:${gch(moPnl)}">${fmt(moPnl)} · ${(moWR*100).toFixed(0)}%WR</span>
+          </div>
+          <div style="padding:6px 8px;display:grid;grid-template-columns:repeat(7,1fr);gap:2px">${cells}</div>`;
+        })()}
       </div>
-      ${balanceHistory.length>1?`<div style="border-top:1px solid var(--text5);padding:0 4px 6px">
-        <div style="font-size:var(--fsxs);color:var(--blue);letter-spacing:1px;padding:6px 8px">ACCOUNT BALANCE</div>
-        ${svgLine(balanceHistory.map((b,i)=>({y:b.balance,pnl:i>0?b.balance-balanceHistory[i-1].balance:0})),'#4a9eff',940,100)}
-      </div>`:''}
     </div>
 
-    <!-- BOTTOM 3-COL: symbol, setup, L/S + fees breakdown -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-      <div class="section"><div class="sec-hd">BY SYMBOL</div><table><thead><tr><th>SYM</th><th>WR</th><th>GROSS</th><th>NET</th></tr></thead><tbody>
-        ${Object.entries(S.syms).sort(([,a],[,b])=>b.pnl-a.pnl).map(([sym,s])=>`<tr class="tr-row"><td style="color:var(--text);font-weight:bold">${sym}<sup style="font-size:8px;color:var(--text5)">${isFut(sym)?'F':'S'}</sup></td><td style="color:${s.wins/s.count>=.5?'var(--green)':'var(--red)'}">${(s.wins/s.count*100).toFixed(0)}%</td><td style="color:var(--text3);font-size:var(--fsxs)">${fmt(s.grossPnl)}</td><td style="color:${gch(s.pnl)};font-family:'Bebas Neue',monospace;font-size:14px">${fmt(s.pnl)}</td></tr>`).join('')}
-      </tbody></table></div>
-      <div class="section"><div class="sec-hd">BY SETUP</div><table><thead><tr><th>SETUP</th><th>TRADES</th><th>WR</th><th>NET</th></tr></thead><tbody>
-        ${Object.entries(S.setups).sort(([,a],[,b])=>b.pnl-a.pnl).map(([setup,s])=>`<tr class="tr-row"><td style="color:var(--text2)">${setup}</td><td style="color:var(--text4)">${s.count}</td><td style="color:${s.wins/s.count>=.5?'var(--green)':'var(--red)'}">${(s.wins/s.count*100).toFixed(0)}%</td><td style="color:${gch(s.pnl)};font-family:'Bebas Neue',monospace;font-size:14px">${fmt(s.pnl)}</td></tr>`).join('')}
-      </tbody></table></div>
-      <div class="section"><div class="sec-hd">P&L BREAKDOWN</div>
-        <div style="padding:10px;display:flex;flex-direction:column;gap:5px">
+    <!-- ROW 3: 7 compact secondary KPIs -->
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:6px">
+      ${[['SHARPE',S.sharpe.toFixed(2),S.sharpe>1?'#00e5a0':S.sharpe>0?'#f5c842':'#ff3d5a'],
+         ['MAX DD','-$'+S.maxDD.toFixed(0),'#ff3d5a'],
+         ['RECOVERY',S.recovery.toFixed(2)+'×',S.recovery>2?'#00e5a0':S.recovery>1?'#f5c842':'#ff3d5a'],
+         ['R:R',S.rr.toFixed(2)+'R',S.rr>=1.5?'#00e5a0':S.rr>=1?'#f5c842':'#ff3d5a'],
+         ['STREAK',(S.sdir>0?'+':'-')+S.streak+(S.sdir>0?'W':'L'),S.sdir>0?'#00e5a0':'#ff3d5a'],
+         ['AVG WIN','+$'+S.avgW.toFixed(0),'#00e5a0'],
+         ['AVG LOSS','-$'+S.avgL.toFixed(0),'#ff3d5a'],
+        ].map(([l,v,c])=>`<div class="mini-card" style="padding:8px 10px;padding-bottom:8px">
+          <div class="stat-lbl" style="margin-bottom:3px">${l}</div>
+          <div style="font-family:'Bebas Neue',monospace;font-size:17px;color:${c}">${v}</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- ROW 4: Monthly P&L table + Symbol + Long/Short breakdown -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 200px;gap:8px">
+      <div class="section">
+        <div class="sec-hd">MONTHLY P&L</div>
+        <table><thead><tr><th>MONTH</th><th>TRADES</th><th>WR</th><th>NET</th></tr></thead><tbody>
+          ${Object.entries(S.monthly).sort(([a],[b])=>b>a?1:-1).slice(0,6).map(([m,d])=>`<tr class="tr-row">
+            <td style="color:var(--text);font-family:'Bebas Neue',monospace">${m}</td>
+            <td style="color:var(--text4)">${d.trades}</td>
+            <td style="color:${d.wins/d.trades>=.5?'var(--green)':'var(--red)'}">${(d.wins/d.trades*100).toFixed(0)}%</td>
+            <td style="color:${gch(d.pnl)};font-family:'Bebas Neue',monospace;font-size:14px">${fmt(d.pnl)}</td>
+          </tr>`).join('')}
+        </tbody></table>
+      </div>
+      <div class="section">
+        <div class="sec-hd">BY SYMBOL</div>
+        <table><thead><tr><th>SYM</th><th>WR</th><th>GROSS</th><th>NET</th></tr></thead><tbody>
+          ${Object.entries(S.syms).sort(([,a],[,b])=>b.pnl-a.pnl).map(([sym,s])=>`<tr class="tr-row">
+            <td style="color:var(--text);font-weight:bold">${sym}<sup style="font-size:8px;color:var(--text5)">${isFut(sym)?'F':'S'}</sup></td>
+            <td style="color:${s.wins/s.count>=.5?'var(--green)':'var(--red)'}">${(s.wins/s.count*100).toFixed(0)}%</td>
+            <td style="color:var(--text3);font-size:var(--fsxs)">${fmt(s.grossPnl)}</td>
+            <td style="color:${gch(s.pnl)};font-family:'Bebas Neue',monospace;font-size:14px">${fmt(s.pnl)}</td>
+          </tr>`).join('')}
+        </tbody></table>
+      </div>
+      <div class="section">
+        <div class="sec-hd">L / S</div>
+        <div style="padding:8px">
           ${[['LONG',S.longs,S.longPnl,S.longWR,'var(--green)'],['SHORT',S.shorts,S.shortPnl,S.shortWR,'var(--blue)']].map(([d,n,p,w,c])=>`
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg3);border:1px solid var(--border2)">
-            <span style="font-family:'Bebas Neue',monospace;font-size:14px;color:${c}">${d}</span>
-            <span style="font-size:var(--fsxs);color:var(--text4)">${n} · ${pct(w)}</span>
-            <span style="font-family:'Bebas Neue',monospace;font-size:14px;color:${gch(p)}">${fmt(p)}</span>
+          <div style="padding:8px 10px;background:var(--bg3);border:1px solid var(--border2);margin-bottom:5px">
+            <div style="display:flex;justify-content:space-between">
+              <span style="font-family:'Bebas Neue',monospace;font-size:15px;color:${c}">${d}</span>
+              <span style="font-family:'Bebas Neue',monospace;font-size:15px;color:${gch(p)}">${fmt(p)}</span>
+            </div>
+            <div style="font-size:var(--fsxs);color:var(--text4)">${n} trades · ${pct(w)} WR</div>
           </div>`).join('')}
-          <div style="margin-top:4px">
-            ${[['GROSS P&L',S.grossNet,'var(--text2)'],['FEES PAID',-S.totalFees,'var(--yellow)'],['NET P&L',S.net,gch(S.net)]].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;padding:4px 10px"><span style="font-size:var(--fsxs);color:var(--text5)">${l}</span><span style="font-family:'Bebas Neue',monospace;font-size:13px;color:${c}">${fmt(v)}</span></div>`).join('')}
+          <div style="font-size:var(--fsxs);padding:4px 2px;display:flex;flex-direction:column;gap:3px">
+            ${[['Gross',S.grossNet,'var(--text2)'],['Fees',-S.totalFees,'var(--yellow)'],['Net',S.net,gch(S.net)]].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between"><span style="color:var(--text5)">${l}</span><span style="color:${c};font-family:'Bebas Neue',monospace;font-size:13px">${fmt(v)}</span></div>`).join('')}
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- COMPACT CALENDAR STRIP -->
-    ${(()=>{
-      const now=new Date();
-      const yr=now.getFullYear(),mo=now.getMonth()+1;
-      const moStr=yr+'-'+String(mo).padStart(2,'0');
-      const firstDay=new Date(yr,mo-1,1);
-      const daysInMonth=new Date(yr,mo,0).getDate();
-      const startDow=firstDay.getDay();
-      const tradesByDate={};
-      trades.forEach(t=>{if(!tradesByDate[t.date])tradesByDate[t.date]=[];tradesByDate[t.date].push(t);});
-      const moTrades=trades.filter(t=>t.date.startsWith(moStr));
-      const moPnl=moTrades.reduce((s,t)=>s+t.pnl,0);
-      const moWR=moTrades.length?moTrades.filter(t=>t.pnl>0).length/moTrades.length:0;
-      const dow=['S','M','T','W','T','F','S'];
-      let cells=dow.map(d=>`<div style="text-align:center;font-size:8px;color:var(--text5);padding:3px 0">${d}</div>`).join('');
-      for(let i=0;i<startDow;i++)cells+=`<div></div>`;
-      for(let day=1;day<=daysInMonth;day++){
-        const ds=yr+'-'+String(mo).padStart(2,'0')+'-'+String(day).padStart(2,'0');
-        const dt=tradesByDate[ds]||[];
-        const dp=dt.reduce((s,t)=>s+t.pnl,0);
-        const isToday=ds===new Date().toISOString().slice(0,10);
-        const bg=dt.length?(dp>=0?'#00e5a025':'#ff3d5a25'):'transparent';
-        const border=isToday?'1px solid var(--yellow)':dt.length?`1px solid ${dp>=0?'#00e5a040':'#ff3d5a40'}`:'1px solid transparent';
-        cells+=`<div style="text-align:center;font-size:9px;padding:3px 1px;background:${bg};border:${border};cursor:default" title="${ds}${dt.length?' · '+dt.length+' trades · '+fmt(dp):''}">
-          <div style="color:${isToday?'var(--yellow)':dt.length?(dp>=0?'#00e5a0':'#ff3d5a'):'var(--text5)'}">${day}</div>
-          ${dt.length?`<div style="font-size:7px;color:${dp>=0?'#00e5a0':'#ff3d5a'}">${dp>=0?'+':''}${dp.toFixed(0)}</div>`:''}
-        </div>`;
-      }
-      return `<div class="section" style="margin-top:8px">
-        <div class="sec-hd">
-          <span>${firstDay.toLocaleString('en',{month:'long'})} ${yr}</span>
-          <div style="display:flex;gap:12px;font-size:var(--fsxs);color:var(--text4)">
-            <span>${moTrades.length} trades</span>
-            <span style="color:${gch(moPnl)}">${fmt(moPnl)}</span>
-            <span style="color:${moWR>=.5?'var(--green)':'var(--red)'}">${(moWR*100).toFixed(0)}% WR</span>
-          </div>
-        </div>
-        <div style="padding:8px;display:grid;grid-template-columns:repeat(7,1fr);gap:2px">${cells}</div>
-      </div>`;
-    })()}`;
+    </div>`;
   }
 
   // ══ JOURNAL ══
@@ -1193,9 +1272,6 @@ function renderApp(){
             ${fmt(t.pnl)}
             ${accountEquity>0&&t.eqPct?`<div style="font-size:8px;color:var(--text5);">${t.eqPct}%</div>`:''}
           </td>
-          <td style="font-size:var(--fsxs);color:${(_runBals[t.id]||0)>=(_runBals[t.id]||0)-t.pnl?'var(--text3)':'var(--red)'}">
-            ${_runBals[t.id]?'$'+_runBals[t.id].toFixed(0):'—'}
-          </td>
           <td style="font-size:var(--fsxs);color:var(--text3);white-space:nowrap">${_runBals[t.id]?'$'+_runBals[t.id].toLocaleString(undefined,{maximumFractionDigits:0}):'—'}</td>
           <!-- INLINE GRADE -->
           <td><select class="inline-sel" data-field="grade" data-id="${t.id}">
@@ -1266,88 +1342,99 @@ function renderApp(){
     else{const list=document.createElement('div');lessons.forEach(l=>{const c=document.createElement('div');c.className='lesson-card';c.innerHTML=`<div style="display:flex;justify-content:space-between;margin-bottom:8px"><div><div style="font-size:var(--fs);color:var(--text);margin-bottom:3px">${l.title||'Untitled'}</div><div style="font-size:var(--fsxs);color:var(--text4)">${l.date||''} ${l.tags?.length?'· '+l.tags.map(t=>`<span class="tag" style="margin-right:3px">${t}</span>`).join(''):''}</div></div><button class="del-btn" data-lid="${l.id}">✕</button></div><div style="font-size:var(--fsm);color:var(--text3);line-height:1.8;white-space:pre-wrap">${l.body}</div>`;list.appendChild(c);});content.appendChild(list);list.querySelectorAll('[data-lid]').forEach(b=>{b.onclick=()=>deleteLesson(b.dataset.lid);});}
   }
 
-  // ══ ANALYTICS (combined: charts + diagnostics + AI) ══
+  // ══ ANALYTICS ══
   if(activeTab==='analytics'){
     if(!S){content.innerHTML='<div style="border:1px dashed var(--border);padding:80px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">ADD TRADES TO SEE ANALYTICS</div>';return;}
 
-    // Sub-tab bar
+    // Sub-tabs: summary (default) | charts | deep
     const subBar=document.createElement('div');
     subBar.style.cssText='display:flex;gap:5px;margin-bottom:12px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border);padding-bottom:10px';
-    subBar.innerHTML=`
-      <div style="display:flex;gap:4px">
-        ${['both','charts','diagnostics','ai'].map(st=>`<button class="btn-${analyticsSubTab===st?'g':'d'}" style="font-size:var(--fsxs);padding:5px 14px" onclick="analyticsSubTab='${st}';renderApp()">${{both:'OVERVIEW',charts:'CHARTS',diagnostics:'DIAGNOSTICS',ai:'AI'}[st]}</button>`).join('')}
-      </div>
-      ${analyticsSubTab==='charts'?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-left:8px">
-        ${['equity','daily','monthly','dow','grade','tf','wr_ev','pf_ev','dist'].map(c=>`<button class="btn-${activeChart===c?'y':'d'}" style="font-size:var(--fsxs);padding:4px 10px" onclick="activeChart='${c}';renderApp()">${{equity:'EQUITY+DD',daily:'DAILY',monthly:'MONTHLY',dow:'DAY/WEEK',grade:'GRADE',tf:'TIMEFRAME',wr_ev:'WR→EV',pf_ev:'PF→EV',dist:'DISTRIBUTION'}[c]}</button>`).join('')}
-      </div>`:''}`;
+    subBar.innerHTML=`<div style="display:flex;gap:4px">
+      ${[['summary','SUMMARY'],['charts','CHARTS'],['deep','DEEP DIVE']].map(([st,lbl])=>`<button class="btn-${analyticsSubTab===st||(!['summary','charts','deep'].includes(analyticsSubTab)&&st==='summary')?'g':'d'}" style="font-size:var(--fsxs);padding:5px 16px" onclick="analyticsSubTab='${st}';renderApp()">${lbl}</button>`).join('')}
+    </div>
+    ${analyticsSubTab==='charts'?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-left:8px">
+      ${['equity','daily','monthly','dow','grade','tf','wr_ev','pf_ev','dist'].map(c=>`<button class="btn-${activeChart===c?'y':'d'}" style="font-size:var(--fsxs);padding:3px 9px" onclick="activeChart='${c}';renderApp()">${{equity:'EQ+DD',daily:'DAILY',monthly:'MONTHLY',dow:'DOW',grade:'GRADE',tf:'TF',wr_ev:'WR→EV',pf_ev:'PF→EV',dist:'DIST'}[c]}</button>`).join('')}
+    </div>`:''}`;
     content.appendChild(subBar);
 
-    // ─── BOTH: diag summary + AI side by side ───────────────────────
-    if(analyticsSubTab==='both'){
-      // Compact diagnostics score strip
+    // ── SUMMARY (default) ─────────────────────────────────────────
+    const curSub = ['summary','charts','deep'].includes(analyticsSubTab) ? analyticsSubTab : 'summary';
+
+    if(curSub==='summary'){
+      // KPI scores
       const scores={'WIN RATE':Math.min(100,Math.max(0,(S.wr-0.3)/0.4*100)),'PROFIT FACTOR':Math.min(100,Math.max(0,(S.pf-0.5)/2.5*100)),'EXP VALUE':Math.min(100,Math.max(0,S.ev>0?Math.min(100,S.ev/50*100):0)),'RISK:REWARD':Math.min(100,Math.max(0,(S.rr-0.5)/2*100)),'SHARPE':Math.min(100,Math.max(0,(S.sharpe+0.5)/3.5*100)),'FEE DRAG':Math.min(100,Math.max(0,100-S.feeImpact*2)),'DRAWDOWN':Math.min(100,Math.max(0,S.net>0?(S.recovery/3)*100:0))};
       const scored=Object.entries(scores).sort(([,a],[,b])=>a-b);
-      const getColor=s=>s>=70?'#00e5a0':s>=40?'#f5c842':'#ff3d5a';
-      const worst=scored[0],best=scored[scored.length-1];
-      const kelly=S.kelly||0,halfKelly=S.halfKelly||0;
-      const expectancyRatio=S.expectancyRatio||0;
-
-      const bothDiv=document.createElement('div');
-      bothDiv.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px';
-      bothDiv.innerHTML=`
-        <!-- LEFT: Diagnostics summary -->
-        <div class="section">
-          <div class="sec-hd"><span>KPI SCORES</span><button onclick="analyticsSubTab='diagnostics';renderApp()" class="btn-d" style="font-size:var(--fsxs);padding:2px 8px">FULL →</button></div>
-          <div style="padding:12px">
-            ${scored.map(([k,v])=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-              <span style="font-size:var(--fsxs);color:var(--text3);width:110px">${k}</span>
-              <div style="flex:1;margin:0 8px;background:var(--bg2);height:6px"><div style="width:${v.toFixed(0)}%;height:100%;background:${getColor(v)}"></div></div>
-              <span style="font-size:var(--fsxs);color:${getColor(v)};width:24px;text-align:right">${v.toFixed(0)}</span>
-            </div>`).join('')}
-            <div style="margin-top:10px;padding:10px;background:var(--bg3);border:1px solid ${getColor(worst[1])}40">
-              <div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:4px">⚠ WEAKEST LINK</div>
-              <div style="font-family:'Bebas Neue',monospace;font-size:18px;color:${getColor(worst[1])}">${worst[0]}</div>
-              <div style="font-size:var(--fsxs);color:${getColor(worst[1])}">${worst[1].toFixed(0)}/100</div>
+      const worst=scored[0]; const getColor=s=>s>=70?'#00e5a0':s>=40?'#f5c842':'#ff3d5a';
+      const kelly=S.kelly||0,halfKelly=S.halfKelly||0,er=S.expectancyRatio||0;
+      const advice={'WIN RATE':'Too many trades are losing. Be more selective — only take A/B grade setups that match your best-performing type.','PROFIT FACTOR':'Gross profit does not exceed gross loss enough. Cut losses faster (tighter stops) or let winners run longer.','EXP VALUE':'EV is the composite of WR and R:R. Fix whichever of those two is worse first.','RISK:REWARD':'Average loss exceeds average win. Set a minimum 1.5R target before entering any trade.','SHARPE':'Returns are inconsistent relative to their size. Reduce overtrading and take only high-grade setups.','FEE DRAG':'Commissions are eating too much gross profit. Reduce frequency or negotiate lower fees.','DRAWDOWN':'Drawdown is high relative to profits. Implement a daily loss limit and reduce size during losing streaks.'};
+      const summDiv=document.createElement('div');
+      summDiv.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px';
+      summDiv.innerHTML=`
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <!-- KPI scores strip -->
+          <div class="section">
+            <div class="sec-hd"><span>KPI SCORES</span><span style="font-size:var(--fsxs);color:${getColor(worst[1])}">${worst[0]} NEEDS ATTENTION</span></div>
+            <div style="padding:12px">
+              ${scored.map(([k,v])=>`<div style="display:flex;align-items:center;margin-bottom:6px;gap:8px">
+                <span style="font-size:var(--fsxs);color:var(--text3);width:108px;flex-shrink:0">${k}</span>
+                <div style="flex:1;background:var(--bg2);height:6px"><div style="width:${v.toFixed(0)}%;height:100%;background:${getColor(v)}"></div></div>
+                <span style="font-size:var(--fsxs);color:${getColor(v)};width:22px;text-align:right">${v.toFixed(0)}</span>
+              </div>`).join('')}
             </div>
           </div>
-          <!-- Kelly + prop metrics -->
-          <div class="sec-hd" style="margin-top:0">PROP TRADER METRICS</div>
-          <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            ${[
-              ['KELLY %',(kelly*100).toFixed(1)+'%','Optimal bet size. Full Kelly = max growth but volatile.',kelly>0?'var(--green)':'var(--red)'],
-              ['HALF KELLY',(halfKelly*100).toFixed(1)+'%','Safer sizing — half of full Kelly. Industry standard.',halfKelly>0?'var(--green)':'var(--red)'],
-              ['EXPECTANCY RATIO',expectancyRatio.toFixed(3),'P&L per $1 risked. >0.25 is considered edge.',expectancyRatio>0.25?'var(--green)':expectancyRatio>0?'var(--yellow)':'var(--red)'],
-              ['PROFIT FACTOR',(S.pf>=99?'∞':S.pf.toFixed(2))+'×','Most prop firms require PF > 1.5.',S.pf>=1.5?'var(--green)':S.pf>=1?'var(--yellow)':'var(--red)'],
-              ['WIN RATE',pct(S.wr),'Most funded accounts require >45% WR.',S.wr>=0.45?'var(--green)':'var(--red)'],
-              ['MAX DRAWDOWN','-$'+S.maxDD.toFixed(0),'Prop firms typically allow 5-10% max DD.',S.maxDD<1000?'var(--green)':S.maxDD<3000?'var(--yellow)':'var(--red)'],
-            ].map(([l,v,desc,c])=>`<div style="background:var(--bg3);border:1px solid var(--border2);padding:9px 10px">
-              <div class="stat-lbl" style="margin-bottom:3px">${l}</div>
-              <div style="font-family:'Bebas Neue',monospace;font-size:17px;color:${c};margin-bottom:2px">${v}</div>
-              <div style="font-size:8px;color:var(--text5);line-height:1.5">${desc}</div>
-            </div>`).join('')}
+          <!-- Weakest link -->
+          <div class="card" style="border-color:${getColor(worst[1])}40">
+            <div class="stat-lbl">⚠ WEAKEST LINK — FIX THIS FIRST</div>
+            <div style="font-family:'Bebas Neue',monospace;font-size:22px;color:${getColor(worst[1])};margin-bottom:4px">${worst[0]}</div>
+            <div style="font-size:var(--fsxs);color:${getColor(worst[1])};margin-bottom:8px">${worst[1].toFixed(0)} / 100</div>
+            <div style="font-size:var(--fsm);color:var(--text3);line-height:1.8">${advice[worst[0]]||''}</div>
+          </div>
+          <!-- Prop metrics -->
+          <div class="section">
+            <div class="sec-hd">PROP TRADER METRICS</div>
+            <div style="padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              ${[['KELLY %',(kelly*100).toFixed(1)+'%','Optimal bet size',kelly>0?'var(--green)':'var(--red)'],
+                 ['HALF KELLY',(halfKelly*100).toFixed(1)+'%','Safer (industry std)',halfKelly>0?'var(--green)':'var(--red)'],
+                 ['EXPECTANCY',er.toFixed(3),'$/$ risked',er>0.25?'var(--green)':er>0?'var(--yellow)':'var(--red)'],
+                 ['PF TARGET',S.pf>=99?'∞':S.pf.toFixed(2)+'×','Need >1.5 for funded',S.pf>=1.5?'var(--green)':S.pf>=1?'var(--yellow)':'var(--red)'],
+                 ['WR TARGET',pct(S.wr),'Need >45% for funded',S.wr>=0.45?'var(--green)':'var(--red)'],
+                 ['MAX DD','-$'+S.maxDD.toFixed(0),'Keep <5-10% of acct',S.maxDD<1000?'var(--green)':S.maxDD<3000?'var(--yellow)':'var(--red)'],
+              ].map(([l,v,d,c])=>`<div style="background:var(--bg3);border:1px solid var(--border2);padding:8px 10px">
+                <div class="stat-lbl" style="margin-bottom:2px">${l}</div>
+                <div style="font-family:'Bebas Neue',monospace;font-size:16px;color:${c}">${v}</div>
+                <div style="font-size:8px;color:var(--text5)">${d}</div>
+              </div>`).join('')}
+            </div>
           </div>
         </div>
         <!-- RIGHT: AI analysis -->
         <div class="section">
-          <div class="sec-hd"><span>AI ANALYSIS</span>
+          <div class="sec-hd"><span>AI PERFORMANCE ANALYSIS</span>
             <div style="display:flex;gap:4px">
-              <button onclick="aiBtn('week')" class="btn-d" style="font-size:var(--fsxs);padding:2px 8px">WEEK</button>
-              <button onclick="aiBtn('month')" class="btn-d" style="font-size:var(--fsxs);padding:2px 8px">MONTH</button>
-              <button onclick="aiBtn('all')" class="btn-g" style="font-size:var(--fsxs);padding:2px 8px">ALL</button>
+              <button onclick="window.aiBtn('week')" class="btn-d" style="font-size:var(--fsxs);padding:2px 8px">WEEK</button>
+              <button onclick="window.aiBtn('month')" class="btn-d" style="font-size:var(--fsxs);padding:2px 8px">MONTH</button>
+              <button onclick="window.aiBtn('all')" class="btn-g" style="font-size:var(--fsxs);padding:2px 8px">ALL TIME</button>
             </div>
           </div>
-          <div id="ai-output" style="padding:14px;min-height:200px">
-            <div style="color:var(--text5);font-size:var(--fsm);line-height:1.8">Click ALL above for instant analysis.<br><br>Covers: Strengths, weakest metric, 3-step action plan, and recent trade patterns.</div>
+          <div id="ai-output" style="padding:14px;min-height:220px">
+            <div style="color:var(--text5);font-size:var(--fsm);line-height:1.9">Click a period above for instant AI-powered analysis.<br><br>Covers: performance summary, strengths, critical weakness with your exact numbers, 3-step action plan, and recent pattern alerts.</div>
           </div>
         </div>`;
-      content.appendChild(bothDiv);
-
-      // Auto-run AI for all trades in 'both' mode
+      content.appendChild(summDiv);
+      // Bell curve below
+      if(trades.length>=3){
+        const pnls=trades.map(t=>t.pnl);
+        const mean=pnls.reduce((a,b)=>a+b,0)/pnls.length;
+        const std=Math.sqrt(pnls.reduce((s,v)=>s+(v-mean)**2,0)/pnls.length)||1;
+        const skew=pnls.reduce((s,v)=>s+Math.pow((v-mean)/std,3),0)/pnls.length;
+        const distDiv=document.createElement('div');distDiv.className='section';
+        distDiv.innerHTML=`<div class="sec-hd"><span>P&L DISTRIBUTION</span><span style="font-size:var(--fsxs);color:var(--text4)">μ=$${mean.toFixed(0)} · σ=$${std.toFixed(0)} · Skew ${skew>=0?'+':''}${skew.toFixed(2)}</span></div><div style="padding:10px 4px 6px;overflow-x:auto">${svgBellCurve(pnls,940,200)}</div>`;
+        content.appendChild(distDiv);
+      }
       setTimeout(()=>{
         window.aiBtn=(period)=>{
           const now=new Date(),cutoff=new Date();
-          if(period==='day')cutoff.setDate(now.getDate()-1);
-          else if(period==='week')cutoff.setDate(now.getDate()-7);
+          if(period==='week')cutoff.setDate(now.getDate()-7);
           else if(period==='month')cutoff.setMonth(now.getMonth()-1);
           else cutoff.setFullYear(2000);
           const rel=period==='all'?trades:trades.filter(t=>t.date>=cutoff.toISOString().slice(0,10));
@@ -1355,30 +1442,19 @@ function renderApp(){
           runAISummary(rel,period);
         };
       },50);
-
-      // Distribution chart below
-      if(trades.length>=3){
-        const distDiv=document.createElement('div');distDiv.className='section';distDiv.style.marginBottom='8px';
-        const pnls=trades.map(t=>t.pnl);
-        const mean=pnls.reduce((a,b)=>a+b,0)/pnls.length;
-        const std=Math.sqrt(pnls.reduce((s,v)=>s+(v-mean)**2,0)/pnls.length)||1;
-        const skew=pnls.reduce((s,v)=>s+Math.pow((v-mean)/std,3),0)/pnls.length;
-        distDiv.innerHTML=`<div class="sec-hd"><span>P&L DISTRIBUTION BELL CURVE</span><span style="font-size:var(--fsxs);color:var(--text4)">μ=$${mean.toFixed(0)} · σ=$${std.toFixed(0)} · Skew ${skew>=0?'+':''}${skew.toFixed(2)}</span></div><div style="padding:12px 4px 8px;overflow-x:auto">${svgBellCurve(pnls,940,220)}</div>`;
-        content.appendChild(distDiv);
-      }
     }
 
-    // ─── CHARTS sub-tab ───────────────────────────────────────────
-    if(analyticsSubTab==='charts'){
+    // ── CHARTS ───────────────────────────────────────────────────
+    if(curSub==='charts'){
       const cs=document.createElement('div');cs.className='section';
-      if(activeChart==='equity'){let c=0,pk=0,c2=0,pk2=0;c=accountEquity>0?accountEquity:0;pk=c;const eqPinit={y:c,pnl:0};const eqP=[eqPinit,...trades.map(t=>{c+=t.pnl;if(c>pk)pk=c;return{y:+c.toFixed(2),pnl:t.pnl};})];const ddP=trades.map(t=>{c2+=t.pnl;if(c2>pk2)pk2=c2;return{y:+(pk2-c2).toFixed(2),pnl:0};});cs.innerHTML=`<div class="sec-hd"><span>EQUITY CURVE</span><span style="color:var(--red)">MAX DD -$${S.maxDD.toFixed(2)}</span></div><div style="padding:14px 4px 4px;overflow-x:auto">${svgLineLabeled(eqP,'#00e5a0',940,170,true)}<div style="padding:7px 14px 4px;font-size:var(--fsxs);letter-spacing:2px;color:var(--text5);border-top:1px solid var(--text5);margin-top:6px">DRAWDOWN</div>${svgLine(ddP,'#ff3d5a',940,90)}</div>`;}
+      if(activeChart==='equity'){let c=accountEquity>0?accountEquity:0,pk=c,c2=c,pk2=c;const eqP=[{y:c,pnl:0},...trades.map(t=>{c+=t.pnl;if(c>pk)pk=c;return{y:+c.toFixed(2),pnl:t.pnl};})];const ddP=[{y:0,pnl:0},...trades.map(t=>{c2+=t.pnl;if(c2>pk2)pk2=c2;return{y:+(pk2-c2).toFixed(2),pnl:0};})];cs.innerHTML=`<div class="sec-hd"><span>EQUITY CURVE</span><span style="color:var(--red)">MAX DD -$${S.maxDD.toFixed(2)}</span></div><div style="padding:12px 4px 4px;overflow-x:auto">${svgLineLabeled(eqP,'#00e5a0',940,170,true)}<div style="padding:5px 14px 3px;font-size:var(--fsxs);color:var(--text5);border-top:1px solid var(--text5);margin-top:6px">DRAWDOWN</div>${svgLine(ddP,'#ff3d5a',940,90)}</div>`;}
       if(activeChart==='daily'){const bars=Object.entries(S.byDay).sort(([a],[b])=>a>b?1:-1).map(([d,v])=>({d:d.slice(5),v:+v.toFixed(2)}));cs.innerHTML=`<div class="sec-hd"><span>DAILY P&L</span><span>${bars.length} days</span></div><div style="padding:12px 4px 8px;overflow-x:auto">${svgBar(bars,940,240)}</div>`;}
-      if(activeChart==='monthly'){const months=Object.entries(S.monthly).sort(([a],[b])=>a>b?1:-1);cs.innerHTML=`<div class="sec-hd">MONTHLY P&L</div><table><thead><tr><th>MONTH</th><th>TRADES</th><th>WR</th><th>NET P&L</th><th></th></tr></thead><tbody>${months.map(([m,d])=>`<tr class="tr-row" style="border-bottom:1px solid var(--border)"><td style="color:var(--text);font-family:'Bebas Neue',monospace;font-size:15px">${m}</td><td>${d.trades}</td><td style="color:${d.wins/d.trades>=.5?'var(--green)':'var(--red)'}">${(d.wins/d.trades*100).toFixed(0)}%</td><td style="color:${gch(d.pnl)};font-family:'Bebas Neue',monospace;font-size:16px">${fmt(d.pnl)}</td><td><span style="font-size:var(--fsxs);padding:1px 8px;background:${d.pnl>=0?'#00e5a018':'#ff3d5a18'};color:${d.pnl>=0?'#00e5a0':'#ff3d5a'}">${d.pnl>=0?'PROFIT':'LOSS'}</span></td></tr>`).join('')}</tbody></table>`;}
+      if(activeChart==='monthly'){const months=Object.entries(S.monthly).sort(([a],[b])=>a>b?1:-1);cs.innerHTML=`<div class="sec-hd">MONTHLY P&L</div><table><thead><tr><th>MONTH</th><th>TRADES</th><th>WR</th><th>NET P&L</th><th></th></tr></thead><tbody>${months.map(([m,d])=>`<tr class="tr-row"><td style="color:var(--text);font-family:'Bebas Neue',monospace;font-size:15px">${m}</td><td>${d.trades}</td><td style="color:${d.wins/d.trades>=.5?'var(--green)':'var(--red)'}">${(d.wins/d.trades*100).toFixed(0)}%</td><td style="color:${gch(d.pnl)};font-family:'Bebas Neue',monospace;font-size:16px">${fmt(d.pnl)}</td><td><span style="font-size:var(--fsxs);padding:1px 8px;background:${d.pnl>=0?'#00e5a018':'#ff3d5a18'};color:${d.pnl>=0?'#00e5a0':'#ff3d5a'}">${d.pnl>=0?'PROFIT':'LOSS'}</span></td></tr>`).join('')}</tbody></table>`;}
       if(activeChart==='dow'){const order=['Mon','Tue','Wed','Thu','Fri'],maxA=Math.max(...order.map(d=>Math.abs(S.dow[d].pnl)),1);cs.innerHTML=`<div class="sec-hd">DAY OF WEEK</div><div style="padding:18px;display:flex;flex-direction:column;gap:11px">${order.map(d=>{const{pnl,t}=S.dow[d],bw=Math.round(Math.abs(pnl)/maxA*100);return`<div style="display:grid;grid-template-columns:48px 1fr 60px 90px;gap:12px;align-items:center"><div style="font-family:'Bebas Neue',monospace;font-size:18px;color:var(--text2)">${d}</div><div style="background:var(--bg2);height:10px"><div style="width:${bw}%;height:100%;background:${pnl>=0?'#00e5a030':'#ff3d5a30'};border-right:2px solid ${pnl>=0?'#00e5a0':'#ff3d5a'}"></div></div><div style="font-size:var(--fsxs);color:var(--text4)">${t} trades</div><div style="font-family:'Bebas Neue',monospace;font-size:16px;color:${gch(pnl)};text-align:right">${fmt(pnl)}</div></div>`;}).join('')}</div>`;}
-      if(activeChart==='grade'){const entries=Object.entries(S.byGrade).sort(([a],[b])=>GRADES.indexOf(a)-GRADES.indexOf(b));cs.innerHTML=`<div class="sec-hd">BY GRADE</div><div style="padding:14px;display:flex;flex-direction:column;gap:6px">${entries.map(([g,s])=>`<div style="display:grid;grid-template-columns:80px 70px 70px 1fr 100px;gap:10px;align-items:center;padding:9px 14px;background:var(--bg3);border:1px solid var(--border2)"><span class="${gradeClass(g)}">${g}</span><span style="font-size:var(--fsxs);color:var(--text3)">${s.count} trades</span><span style="color:${s.wins/s.count>=.5?'var(--green)':'var(--red)'}">${(s.wins/s.count*100).toFixed(0)}% WR</span><div style="background:var(--bg2);height:8px"><div style="width:${Math.min(100,Math.round(Math.abs(s.pnl)/Math.max(...entries.map(([,x])=>Math.abs(x.pnl)),1)*100))}%;height:100%;background:${gch(s.pnl)}"></div></div><div style="font-family:'Bebas Neue',monospace;font-size:16px;color:${gch(s.pnl)};text-align:right">${fmt(s.pnl)}</div></div>`).join('')}</div>`;}
+      if(activeChart==='grade'){const entries=Object.entries(S.byGrade).sort(([a],[b])=>GRADES.indexOf(a)-GRADES.indexOf(b));cs.innerHTML=`<div class="sec-hd">BY GRADE</div><div style="padding:14px;display:flex;flex-direction:column;gap:6px">${entries.map(([g,s])=>`<div style="display:grid;grid-template-columns:70px 70px 70px 1fr 100px;gap:10px;align-items:center;padding:9px 14px;background:var(--bg3);border:1px solid var(--border2)"><span class="${gradeClass(g)}">${g}</span><span style="font-size:var(--fsxs);color:var(--text3)">${s.count} trades</span><span style="color:${s.wins/s.count>=.5?'var(--green)':'var(--red)'}">${(s.wins/s.count*100).toFixed(0)}% WR</span><div style="background:var(--bg2);height:8px"><div style="width:${Math.min(100,Math.round(Math.abs(s.pnl)/Math.max(...entries.map(([,x])=>Math.abs(x.pnl)),1)*100))}%;height:100%;background:${gch(s.pnl)}"></div></div><div style="font-family:'Bebas Neue',monospace;font-size:16px;color:${gch(s.pnl)};text-align:right">${fmt(s.pnl)}</div></div>`).join('')}</div>`;}
       if(activeChart==='tf'){const entries=Object.entries(S.byTF).sort(([,a],[,b])=>b.pnl-a.pnl);cs.innerHTML=`<div class="sec-hd">BY TIMEFRAME</div><div style="padding:14px;display:flex;flex-direction:column;gap:6px">${entries.map(([tf,s])=>`<div style="display:grid;grid-template-columns:70px 70px 70px 1fr 100px;gap:10px;align-items:center;padding:9px 14px;background:var(--bg3);border:1px solid var(--border2)"><span class="tag">${tf}</span><span style="font-size:var(--fsxs);color:var(--text3)">${s.count} trades</span><span style="color:${s.wins/s.count>=.5?'var(--green)':'var(--red)'}">${(s.wins/s.count*100).toFixed(0)}% WR</span><div style="background:var(--bg2);height:8px"><div style="width:${Math.min(100,Math.round(Math.abs(s.pnl)/Math.max(...entries.map(([,x])=>Math.abs(x.pnl)),1)*100))}%;height:100%;background:${gch(s.pnl)}"></div></div><div style="font-family:'Bebas Neue',monospace;font-size:16px;color:${gch(s.pnl)};text-align:right">${fmt(s.pnl)}</div></div>`).join('')}</div>`;}
-      if(activeChart==='wr_ev'){const data=Array.from({length:21},(_,i)=>{const w=i/20;return{x:+(w*100).toFixed(0),y:+(w*S.avgW-(1-w)*(S.avgL||0)).toFixed(2)};});cs.innerHTML=`<div class="sec-hd">WIN RATE → EV</div><div style="padding:14px 4px 8px;overflow-x:auto">${svgXY(data,'#f5c842',v=>v+'%',940,240,+(S.wr*100).toFixed(0))}</div>`;}
-      if(activeChart==='pf_ev'){const data=Array.from({length:20},(_,i)=>{const pf=0.25+i*0.2;return{x:+pf.toFixed(2),y:+(S.wr*(pf*(S.avgL||1))-(1-S.wr)*(S.avgL||1)).toFixed(2)};});cs.innerHTML=`<div class="sec-hd">PROFIT FACTOR → EV</div><div style="padding:14px 4px 8px;overflow-x:auto">${svgXY(data,'#2196f3',v=>v+'×',940,240,S.pf<99?+S.pf.toFixed(2):null)}</div>`;}
+      if(activeChart==='wr_ev'){const data=Array.from({length:21},(_,i)=>{const w=i/20;return{x:+(w*100).toFixed(0),y:+(w*S.avgW-(1-w)*(S.avgL||0)).toFixed(2)};});cs.innerHTML=`<div class="sec-hd">WIN RATE → EV</div><div style="padding:12px 4px 8px;overflow-x:auto">${svgXY(data,'#f5c842',v=>v+'%',940,240,+(S.wr*100).toFixed(0))}</div>`;}
+      if(activeChart==='pf_ev'){const data=Array.from({length:20},(_,i)=>{const pf=0.25+i*0.2;return{x:+pf.toFixed(2),y:+(S.wr*(pf*(S.avgL||1))-(1-S.wr)*(S.avgL||1)).toFixed(2)};});cs.innerHTML=`<div class="sec-hd">PROFIT FACTOR → EV</div><div style="padding:12px 4px 8px;overflow-x:auto">${svgXY(data,'#2196f3',v=>v+'×',940,240,S.pf<99?+S.pf.toFixed(2):null)}</div>`;}
       if(activeChart==='dist'){
         const pnls=trades.map(t=>t.pnl);
         const mean=pnls.reduce((a,b)=>a+b,0)/pnls.length;
@@ -1386,82 +1462,53 @@ function renderApp(){
         const skew=pnls.reduce((s,v)=>s+Math.pow((v-mean)/std,3),0)/pnls.length;
         const kurt=pnls.reduce((s,v)=>s+Math.pow((v-mean)/std,4),0)/pnls.length-3;
         cs.innerHTML=`<div class="sec-hd"><span>P&L DISTRIBUTION</span><span style="font-size:var(--fsxs);color:var(--text4)">μ=$${mean.toFixed(2)} · σ=$${std.toFixed(2)} · Skew ${skew.toFixed(2)} · Kurt ${kurt.toFixed(2)}</span></div>
-          <div style="padding:14px 4px 8px;overflow-x:auto">${svgBellCurve(pnls,940,260)}</div>
-          <div style="padding:0 16px 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:var(--fsxs)">
-            ${[['MEAN P&L','$'+mean.toFixed(2),mean>=0?'var(--green)':'var(--red)'],['STD DEV','$'+std.toFixed(2),'var(--text2)'],['SKEWNESS',skew.toFixed(3),skew>0?'var(--green)':'var(--red)'],['EXCESS KURTOSIS',kurt.toFixed(3),kurt>0?'var(--yellow)':'var(--text2)']].map(([l,v,c])=>`<div style="background:var(--bg3);padding:8px 10px;border:1px solid var(--border2)"><div style="color:var(--text4);margin-bottom:4px">${l}</div><div style="font-family:'Bebas Neue',monospace;font-size:18px;color:${c}">${v}</div></div>`).join('')}
+          <div style="padding:12px 4px 8px;overflow-x:auto">${svgBellCurve(pnls,940,260)}</div>
+          <div style="padding:0 14px 12px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+            ${[['MEAN P&L','$'+mean.toFixed(2),mean>=0?'var(--green)':'var(--red)'],['STD DEV','$'+std.toFixed(2),'var(--text2)'],['SKEWNESS',skew.toFixed(3),skew>0?'var(--green)':'var(--red)'],['KURTOSIS',kurt.toFixed(3),kurt>0?'var(--yellow)':'var(--text2)']].map(([l,v,c])=>`<div style="background:var(--bg3);padding:8px 10px;border:1px solid var(--border2)"><div class="stat-lbl">${l}</div><div style="font-family:'Bebas Neue',monospace;font-size:18px;color:${c}">${v}</div></div>`).join('')}
           </div>
-          <div style="padding:0 16px 12px;font-size:var(--fsxs);color:var(--text5);line-height:1.8">
-            <b style="color:var(--text3)">Skew</b>: Positive = more small losses, occasional large wins (good). Negative = more small wins, occasional large losses (bad). &nbsp;
-            <b style="color:var(--text3)">Yellow curve</b>: Normal distribution overlay — deviation shows your edge.
+          <div style="padding:0 14px 12px;font-size:var(--fsxs);color:var(--text5);line-height:1.8">
+            <b style="color:var(--text3)">Positive skew</b> = occasional large wins + small losses (ideal). <b style="color:var(--text3)">Yellow curve</b> = normal distribution overlay.
           </div>`;
       }
       content.appendChild(cs);
     }
 
-    // ─── DIAGNOSTICS sub-tab ──────────────────────────────────────
-    if(analyticsSubTab==='diagnostics'){
+    // ── DEEP DIVE ────────────────────────────────────────────────
+    if(curSub==='deep'){
       const scores={'WIN RATE':Math.min(100,Math.max(0,(S.wr-0.3)/0.4*100)),'PROFIT FACTOR':Math.min(100,Math.max(0,(S.pf-0.5)/2.5*100)),'EXP VALUE':Math.min(100,Math.max(0,S.ev>0?Math.min(100,S.ev/50*100):0)),'RISK:REWARD':Math.min(100,Math.max(0,(S.rr-0.5)/2*100)),'SHARPE':Math.min(100,Math.max(0,(S.sharpe+0.5)/3.5*100)),'CONSISTENCY':Math.min(100,Math.max(0,100-(S.maxWS+S.maxLS)*3)),'FEE DRAG':Math.min(100,Math.max(0,100-S.feeImpact*2)),'DRAWDOWN':Math.min(100,Math.max(0,S.net>0?(S.recovery/3)*100:0))};
       const scored=Object.entries(scores).sort(([,a],[,b])=>a-b);
-      const worstKey=scored[0][0],worstScore=scored[0][1];
       const getColor=s=>s>=70?'#00e5a0':s>=40?'#f5c842':'#ff3d5a';
-      const advice={'WIN RATE':'You are losing too many trades. Be more selective — wait for higher-probability setups and review your entry criteria.','PROFIT FACTOR':'Gross profit does not exceed gross loss enough. Cut losses faster (tighter stops) or let winners run longer.','EXP VALUE':'EV is the composite of WR and R:R. Fix whichever of those two is worse first.','RISK:REWARD':'Average loss is too large vs average win. Set a minimum 1.5R target before entering any trade.','SHARPE':'Returns are volatile relative to their size. Focus on consistency — avoid overtrading and take only A/B grade setups.','CONSISTENCY':'Streak lengths indicate inconsistency. After a win streak, reduce size. After a loss streak, stop and review.','FEE DRAG':'Commissions are eating too much of gross profit. Reduce trade frequency or negotiate lower fees.','DRAWDOWN':'Drawdown is high relative to profits. Implement a daily loss limit and reduce size during losing streaks.'};
+      const worst=scored[0];
       const nodes=[{id:'ev',label:'EXP VALUE',score:scores['EXP VALUE'],x:380,y:30,w:160,h:48},{id:'pf',label:'PROFIT FACTOR',score:scores['PROFIT FACTOR'],x:160,y:130,w:160,h:48},{id:'wr',label:'WIN RATE',score:scores['WIN RATE'],x:50,y:230,w:140,h:48},{id:'rr',label:'RISK:REWARD',score:scores['RISK:REWARD'],x:280,y:230,w:140,h:48},{id:'sh',label:'SHARPE',score:scores['SHARPE'],x:620,y:130,w:140,h:48},{id:'dd',label:'DRAWDOWN',score:scores['DRAWDOWN'],x:520,y:230,w:140,h:48},{id:'co',label:'CONSISTENCY',score:scores['CONSISTENCY'],x:720,y:230,w:140,h:48},{id:'fe',label:'FEE DRAG',score:scores['FEE DRAG'],x:160,y:330,w:140,h:48}];
       const edges=[['ev','pf'],['ev','sh'],['pf','wr'],['pf','rr'],['pf','fe'],['sh','dd'],['sh','co']];
       const nodeMap=Object.fromEntries(nodes.map(n=>[n.id,n]));
       const cx=n=>n.x+n.w/2,cy=n=>n.y+n.h/2;
       const edgeSvg=edges.map(([a,b])=>{const na=nodeMap[a],nb=nodeMap[b];return`<line x1="${cx(na)}" y1="${na.y+na.h}" x2="${cx(nb)}" y2="${nb.y}" stroke="var(--text5)" stroke-width="1.5" stroke-dasharray="4,3"/>`;}).join('');
-      const nodeSvg=nodes.map(n=>{const c=getColor(n.score),isWorst=n.label===worstKey;return`<g><rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="2" fill="${c}" fill-opacity="${0.08+(n.score/100)*0.1}" stroke="${c}" stroke-width="${isWorst?2.5:1}" stroke-opacity="${isWorst?1:0.4}"/>${isWorst?`<text x="${cx(n)}" y="${n.y-5}" text-anchor="middle" fill="${c}" font-size="8" font-family="JetBrains Mono,monospace">▲ WEAKEST</text>`:''}<text x="${cx(n)}" y="${n.y+17}" text-anchor="middle" fill="${c}" font-size="9" font-family="JetBrains Mono,monospace" letter-spacing="1">${n.label}</text><text x="${cx(n)}" y="${n.y+33}" text-anchor="middle" fill="${c}" font-size="15" font-family="Bebas Neue,monospace">${n.score.toFixed(0)}</text></g>`;}).join('');
-      const diagDiv=document.createElement('div');
-      diagDiv.innerHTML=`<div style="display:grid;grid-template-columns:1fr 320px;gap:12px;margin-bottom:12px">
-        <div class="section">
+      const nodeSvg=nodes.map(n=>{const c=getColor(n.score),isWorst=n.label===worst[0];return`<g><rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="2" fill="${c}" fill-opacity="${0.08+(n.score/100)*0.1}" stroke="${c}" stroke-width="${isWorst?2.5:1}" stroke-opacity="${isWorst?1:0.4}"/>${isWorst?`<text x="${cx(n)}" y="${n.y-5}" text-anchor="middle" fill="${c}" font-size="8" font-family="JetBrains Mono,monospace">▲ WEAKEST</text>`:''}<text x="${cx(n)}" y="${n.y+17}" text-anchor="middle" fill="${c}" font-size="9" font-family="JetBrains Mono,monospace" letter-spacing="1">${n.label}</text><text x="${cx(n)}" y="${n.y+33}" text-anchor="middle" fill="${c}" font-size="15" font-family="Bebas Neue,monospace">${n.score.toFixed(0)}</text></g>`;}).join('');
+      const deepDiv=document.createElement('div');
+      deepDiv.innerHTML=`
+        <div class="section" style="margin-bottom:10px">
           <div class="sec-hd"><span>KPI DEPENDENCY FLOWCHART</span><span style="font-size:var(--fsxs);color:var(--text4)"><span style="color:var(--green)">●</span> ≥70 healthy &nbsp;<span style="color:var(--yellow)">●</span> ≥40 needs work &nbsp;<span style="color:var(--red)">●</span> critical</span></div>
-          <div style="padding:14px 4px"><svg width="100%" viewBox="0 0 920 400" xmlns="http://www.w3.org/2000/svg">${edgeSvg}${nodeSvg}</svg></div>
-          <div style="padding:0 16px 14px;display:grid;grid-template-columns:1fr 1fr;gap:5px">
-            ${[['EXP VALUE','WR×AvgWin − LossRate×AvgLoss. North star metric — positive = you have edge.','#00e5a0'],['PROFIT FACTOR','Gross profit÷gross loss. >1.5 healthy, >2 excellent.','#4a9eff'],['WIN RATE','% of trades profitable. Below 40% is critical without very high R:R.','#f5c842'],['RISK:REWARD','AvgWin÷AvgLoss. Target 1.5R+ minimum.','#a78bfa'],['SHARPE','Risk-adjusted return annualized. >1 acceptable, >2 good.','#4a9eff'],['CONSISTENCY','Measured by streak lengths. Long loss streaks = overtrading or rule breaks.','#f5c842'],['FEE DRAG','Commissions as % of gross. >15% = fees are a major drag on strategy.','#f5c842'],['DRAWDOWN','Recovery factor = Net÷MaxDD. How efficiently you bounce back.','#ff3d5a']].map(([n,d,c])=>`<div style="background:var(--bg3);border:1px solid var(--border2);padding:7px 10px"><div style="font-size:var(--fsxs);color:${c};margin-bottom:2px">${n}</div><div style="font-size:9px;color:var(--text4);line-height:1.6">${d}</div></div>`).join('')}
+          <div style="padding:12px 4px"><svg width="100%" viewBox="0 0 920 400" xmlns="http://www.w3.org/2000/svg">${edgeSvg}${nodeSvg}</svg></div>
+          <div style="padding:0 14px 12px;display:grid;grid-template-columns:1fr 1fr;gap:5px">
+            ${[['EXP VALUE','WR×AvgWin − LossRate×AvgLoss. North star. Fix this last — fix its components first.','#00e5a0'],['PROFIT FACTOR','Gross profit ÷ gross loss. >1.5 healthy, >2 excellent.','#4a9eff'],['WIN RATE','% of trades profitable. Below 40% critical without very high R:R.','#f5c842'],['RISK:REWARD','AvgWin ÷ AvgLoss. Target 1.5R+ minimum per trade.','#a78bfa'],['SHARPE','Risk-adjusted return annualized. >1 acceptable, >2 good.','#4a9eff'],['CONSISTENCY','Long streaks = overtrading or rule breaks.','#f5c842'],['FEE DRAG','Commissions as % gross. >15% = significant drag.','#f5c842'],['DRAWDOWN','Recovery factor = Net ÷ MaxDD. >2 is healthy.','#ff3d5a']].map(([n,d,c])=>`<div style="background:var(--bg3);border:1px solid var(--border2);padding:7px 10px"><div style="font-size:var(--fsxs);color:${c};margin-bottom:2px">${n}</div><div style="font-size:9px;color:var(--text4);line-height:1.6">${d}</div></div>`).join('')}
           </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <div class="card" style="border-color:${getColor(worstScore)}40">
-            <div class="stat-lbl">⚠ WEAKEST LINK</div>
-            <div style="font-family:'Bebas Neue',monospace;font-size:20px;color:${getColor(worstScore)};margin-bottom:5px">${worstKey}</div>
-            <div style="font-size:var(--fsxs);padding:2px 8px;background:${getColor(worstScore)}18;color:${getColor(worstScore)};display:inline-block;margin-bottom:8px">${worstScore.toFixed(0)}/100</div>
-            <div style="font-size:var(--fsm);color:var(--text3);line-height:1.8">${advice[worstKey]}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="section">
+            <div class="sec-hd">BY SYMBOL (detailed)</div>
+            <table><thead><tr><th>SYM</th><th>TRADES</th><th>WR</th><th>GROSS</th><th>FEES</th><th>NET</th></tr></thead><tbody>
+              ${Object.entries(S.syms).sort(([,a],[,b])=>b.pnl-a.pnl).map(([sym,s])=>`<tr class="tr-row"><td style="color:var(--text);font-weight:bold">${sym}</td><td>${s.count}</td><td style="color:${s.wins/s.count>=.5?'var(--green)':'var(--red)'}">${(s.wins/s.count*100).toFixed(0)}%</td><td style="color:var(--text3)">${fmt(s.grossPnl)}</td><td style="color:var(--yellow)">-$${s.fees.toFixed(0)}</td><td style="color:${gch(s.pnl)};font-family:'Bebas Neue',monospace;font-size:14px">${fmt(s.pnl)}</td></tr>`).join('')}
+            </tbody></table>
           </div>
-          <div class="section"><div class="sec-hd">ALL SCORES</div>
-            <div style="padding:10px">${scored.map(([k,v])=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:var(--fsxs);color:var(--text3);width:110px">${k}</span><div style="flex:1;margin:0 8px;background:var(--bg2);height:5px"><div style="width:${v.toFixed(0)}%;height:100%;background:${getColor(v)}"></div></div><span style="font-size:var(--fsxs);color:${getColor(v)};width:24px;text-align:right">${v.toFixed(0)}</span></div>`).join('')}</div>
+          <div class="section">
+            <div class="sec-hd">BY SETUP (detailed)</div>
+            <table><thead><tr><th>SETUP</th><th>TRADES</th><th>WR</th><th>NET P&L</th></tr></thead><tbody>
+              ${Object.entries(S.setups).sort(([,a],[,b])=>b.pnl-a.pnl).map(([setup,s])=>`<tr class="tr-row"><td style="color:var(--text2)">${setup}</td><td>${s.count}</td><td style="color:${s.wins/s.count>=.5?'var(--green)':'var(--red)'}">${(s.wins/s.count*100).toFixed(0)}%</td><td style="color:${gch(s.pnl)};font-family:'Bebas Neue',monospace;font-size:14px">${fmt(s.pnl)}</td></tr>`).join('')}
+            </tbody></table>
           </div>
-        </div>
-      </div>`;
-      content.appendChild(diagDiv);
-    }
-
-    // ─── AI ANALYSIS sub-tab ──────────────────────────────────────
-    if(analyticsSubTab==='ai'){
-      const aiDiv=document.createElement('div');
-      aiDiv.innerHTML=`<div class="section">
-        <div class="sec-hd"><span>AI TRADE ANALYSIS</span>
-          <div style="display:flex;gap:5px">
-            <button class="btn-d" onclick="aiBtn('day')" style="font-size:var(--fsxs);padding:4px 10px">TODAY</button>
-            <button class="btn-d" onclick="aiBtn('week')" style="font-size:var(--fsxs);padding:4px 10px">WEEK</button>
-            <button class="btn-d" onclick="aiBtn('month')" style="font-size:var(--fsxs);padding:4px 10px">MONTH</button>
-            <button class="btn-g" onclick="aiBtn('all')" style="font-size:var(--fsxs);padding:4px 10px">ALL TIME</button>
-          </div>
-        </div>
-        <div id="ai-output" style="padding:16px;min-height:80px"><div style="color:var(--text5);font-size:var(--fsm)">Select a time period above to generate a performance analysis with actionable recommendations.</div></div>
-      </div>`;
-      content.appendChild(aiDiv);
-      setTimeout(()=>{
-        window.aiBtn=(period)=>{
-          const now=new Date(),cutoff=new Date();
-          if(period==='day')cutoff.setDate(now.getDate()-1);
-          else if(period==='week')cutoff.setDate(now.getDate()-7);
-          else if(period==='month')cutoff.setMonth(now.getMonth()-1);
-          else cutoff.setFullYear(2000);
-          const relevant=period==='all'?trades:trades.filter(t=>t.date>=cutoff.toISOString().slice(0,10));
-          if(!relevant.length){if(el('ai-output'))el('ai-output').innerHTML='<div style="color:var(--text4)">No trades in this period.</div>';return;}
-          runAISummary(relevant,period);
-        };
-      },50);
+        </div>`;
+      content.appendChild(deepDiv);
     }
   }
 
