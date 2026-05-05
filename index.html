@@ -108,9 +108,9 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 </style>
 </head>
 <body>
-<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px"><div class="spinner" style="width:26px;height:26px"></div><div style="font-size:10px;letter-spacing:3px;color:var(--text5)">LOADING EDGE LOG v11.2...</div></div></div>
+<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px"><div class="spinner" style="width:26px;height:26px"></div><div style="font-size:10px;letter-spacing:3px;color:var(--text5)">LOADING EDGE LOG v11.3...</div></div></div>
 <script>
-const VERSION='11.2';
+const VERSION='11.3';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.50,MES:1.25,NQ:4.50,MNQ:1.25,CL:4.50,GC:4.50,SI:4.50,ZB:4.50,RTY:4.50,YM:4.50,ZN:4.50,ZC:4.50,NG:4.50,MGC:1.25,MCL:1.25};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -151,6 +151,8 @@ let filters={sym:'',dir:'',grade:'',setup:'',tf:'',dateFrom:'',dateTo:'',minPnl:
 let sortCol='date',sortDir=-1;
 let accountEquity=0,calMonth=new Date().toISOString().slice(0,7);
 let uploadHistory=JSON.parse(localStorage.getItem('el_uploads')||'[]');
+let customTags=JSON.parse(localStorage.getItem('el_tags')||'[]');
+let distMetric='pnl'; // pnl | pts | pct | dur
 let analyticsSubTab='summary'; // summary | charts | deepagnostics | ai // -1=desc, 1=asc
 let pendingMerges=[],pendingApprovalCb=null; // change approval queue
 
@@ -229,14 +231,27 @@ function calcStats(tds){
   tds.forEach(t=>{rNet+=t.pnl;const pv=pnlVal(t);if(pv>0){rW++;rGW+=pv;}else if(pv<0){rL++;rGL+=Math.abs(pv);}
     const rt=rW+rL;rolling.net.push(+rNet.toFixed(2));rolling.wr.push(rt>0?+(rW/rt).toFixed(3):0);rolling.pf.push(rGL>0?+(rGW/rGL).toFixed(3):rGW>0?5:0);
     const rwr=rt>0?rW/rt:0,rawW=rW>0?rGW/rW:0,rawL=rL>0?rGL/rL:0;rolling.ev.push(+(rwr*rawW-(1-rwr)*rawL).toFixed(2));});
+  // Avg % gain/loss per trade (requires accountEquity)
+  const pctGains=[];const pctLosses=[];
+  let runBal2=accountEquity>0?accountEquity:0;
+  tds.forEach(t=>{
+    const base=runBal2>0?runBal2:1;
+    const p=(t.pnl/base)*100;
+    if(t.pnl>0)pctGains.push(p);
+    else if(t.pnl<0)pctLosses.push(p);
+    runBal2+=t.pnl;
+  });
+  const avgPctWin=pctGains.length?pctGains.reduce((a,b)=>a+b,0)/pctGains.length:0;
+  const avgPctLoss=pctLosses.length?pctLosses.reduce((a,b)=>a+b,0)/pctLosses.length:0;
   // Kelly Criterion: optimal bet size as % of account
   // Full Kelly: K = WR - (1-WR)/(avgWin/avgLoss)
   // Half Kelly used in practice (safer)
+
   const kelly = avgL > 0 ? Math.max(0, wr - (1-wr)/(avgW/avgL)) : 0;
   const halfKelly = kelly / 2;
   // Expectancy ratio (normalized per $1 risked)
   const expectancyRatio = avgL > 0 ? (wr * avgW - (1-wr)*avgL)/avgL : 0;
-  return{wr,avgW,avgL,pf,ev,net,grossNet,grossW,grossL,totalFees,feeImpact,maxDD,sharpe,recovery,rr,streak,sdir,maxWS,maxLS,kelly,halfKelly,expectancyRatio,
+  return{wr,avgW,avgL,pf,ev,net,grossNet,grossW,grossL,totalFees,feeImpact,maxDD,sharpe,recovery,rr,streak,sdir,maxWS,maxLS,kelly,halfKelly,expectancyRatio,avgPctWin,avgPctLoss,avgPctGain,avgPctLoss,
     wins:wins.length,losses:losses.length,total:tds.length,longs:longs.length,shorts:shorts.length,
     longPnl:longs.reduce((s,t)=>s+t.pnl,0),shortPnl:shorts.reduce((s,t)=>s+t.pnl,0),
     longWR:longs.length?longs.filter(t=>pnlVal(t)>0).length/longs.length:0,
@@ -268,10 +283,14 @@ function detectType(hdr){
   const h=hdr.join(' ');
   // Exact NT8 Position History: has 'buyprice' AND 'sellprice' AND 'pairedqty'
   if(h.includes('buyprice')&&h.includes('sellprice')&&h.includes('pairedqty'))return'position_history';
+  // NT8 Orders CSV: has b/s column and status column
+  if((h.includes(' b/s')||h.includes(',b/s')||h.startsWith('b/s'))&&h.includes('status'))return'orders_csv';
   // NT8 Performance CSV: has buyfillid/sellfillid and pnl column
   if(h.includes('buyfillid')&&h.includes('sellfillid')&&h.includes('pnl'))return'performance_v2';
   // Account Balance History
   if(h.includes('totalrealizedpnl')||h.includes('total realized'))return'balance_history';
+  // NT8 Orders CSV: has 'b/s' or 'ordside' column and 'status' and 'filled'
+  if((h.includes('b/s')||h.includes('ordside')||h.includes('buysell'))&&h.includes('status'))return'orders_filled';
   // Legacy NT8 performance with boughttimestamp
   if(h.includes('boughttimestamp'))return'performance';
   // Cash history: has 'cashchangetype' OR ('delta' AND 'amount' columns together)
@@ -297,7 +316,7 @@ function importCSV(text,label){
     // Trade Paired rows: Delta = gross P/L — DO NOT count as fee
     const feeUpdates=[],balRows=[];
     const FEE_TYPES=['exchange fee','clearing fee','nfa fee','commission','regulatory','exchange','clearing','nfa'];
-    const SKIP_TYPES=['fund transaction','trade paired','deposit','withdrawal','interest','dividend'];
+    const SKIP_TYPES=['trade paired','interest','dividend']; // Note: fund transaction handled separately for starting balance
     // Group fees by date
     const feesByDate={};
     for(let i=1;i<lines.length;i++){
@@ -311,6 +330,14 @@ function importCSV(text,label){
       const runBal=parseFloat(row[5]||'NaN'); // Amount col = running balance
       // Track running balance from any row that has it
       if(!isNaN(runBal)&&runBal>50)balRows.push({date,balance:runBal});
+      // Fund Transaction = starting deposit → use as account equity baseline
+      if(ctype.includes('fund transaction')||ctype.includes('deposit')){
+        if(!isNaN(amount)&&amount>0&&!foundStartingBalance){
+          accountEquity=amount;
+          foundStartingBalance=true;
+        }
+        continue;
+      }
       // Skip non-fee rows
       if(SKIP_TYPES.some(t=>ctype.includes(t)))continue;
       // Only count actual fee rows
@@ -339,6 +366,79 @@ function importCSV(text,label){
     // Update account equity from last balance entry
     if(balRows.length){const last=balRows[balRows.length-1].balance;if(last>0)accountEquity=last;}
     return{imported:0,skipped:0,merged:0,type:'cash',batch:[],merges:[],feeUpdates,balRows};
+  }
+
+  // ── NT8 Orders CSV ───────────────────────────────────────────────
+  // Columns: Account,Order ID,Instrument,B/S,Qty,Type,Status,Filled,Time,Name,...
+  // B/S: " Buy" or " Sell" (note leading space from NT8)
+  // Use Filled orders to determine trade direction
+  if(type==='orders_csv'){
+    // Build a lookup: symbol → direction from filled orders by date
+    // We don't create trades from orders alone — we update existing trades' direction
+    const dirUpdates=[];
+    for(let i=1;i<lines.length;i++){
+      const row=parseLine(lines[i]);if(row.length<7)continue;
+      const status=(gc2(row,['status'])||'').toLowerCase();
+      if(!status.includes('filled'))continue;
+      const bs=(gc2(row,['b/s','bs','side','action'])||'').trim().toLowerCase();
+      const dir=bs.startsWith('b')?'LONG':'SHORT';
+      const rawSym=gc2(row,['instrument','symbol','contract'])||'';
+      const sym=getBase(rawSym)||'';
+      const useSym=PRESETS[sym]?sym:null;
+      if(!useSym)continue;
+      const timeRaw=gc2(row,['time','timestamp','date','filledtime'])||'';
+      const date=parseDate(timeRaw);
+      if(!date)continue;
+      dirUpdates.push({sym:useSym,dir,date});
+    }
+    // Match to existing trades and fix direction if different
+    const merges=[];
+    dirUpdates.forEach(({sym,dir,date})=>{
+      const match=trades.find(t=>t.symbol===sym&&t.date===date&&t.type!==dir);
+      if(match){
+        // Recalculate P&L with corrected direction
+        const newCalc=tradeCalc(sym,dir,match.entry,match.exit,match.size,match.fees);
+        merges.push({id:match.id,updates:{type:dir,grossPnl:newCalc.grossPnl,pnl:newCalc.pnl},desc:'direction from Orders CSV'});
+      }
+    });
+    return{imported:0,skipped:dirUpdates.length-merges.length,merged:merges.length,type:'orders_csv',batch:[],merges,feeUpdates:[],balRows:[]};
+  }
+
+  // ── NT8 Orders CSV — use B/S + Filled status to determine direction ─
+  // Columns: Order ID, B/S, Qty, Symbol, Status, Filled, Fill Price, Avg Price,
+  //          Commission, Stop Price, Limit Price, Time, Account
+  if(type==='orders_filled'){
+    // Build a map: symbol+date -> direction from filled orders
+    // We'll use this to patch existing trades' direction
+    const directionMap={};
+    for(let i=1;i<lines.length;i++){
+      const row=parseLine(lines[i]);if(row.length<6)continue;
+      const status=(gc2(row,['status'])||'').toLowerCase();
+      if(!status.includes('filled'))continue;
+      const bs=(gc2(row,['b/s','ordside','buysell','side','action'])||'').trim().toLowerCase();
+      const dir=bs.includes('buy')||bs==='b'?'LONG':'SHORT';
+      const sym=getBase(gc2(row,['symbol','instrument'])||'');if(!sym)continue;
+      const useSym=PRESETS[sym]?sym:sym;
+      const dtRaw=gc2(row,['time','timestamp','date','ordertime','filledtime']);
+      const date=parseDate(dtRaw);if(!date)continue;
+      const key=useSym+'|'+date;
+      // Only set if not already set (first filled order = entry direction)
+      if(!directionMap[key])directionMap[key]=dir;
+    }
+    // Now patch existing trades that have wrong direction
+    const merges=[];
+    trades.forEach(t=>{
+      const key=t.symbol+'|'+t.date;
+      const correctDir=directionMap[key];
+      if(correctDir&&t.type!==correctDir){
+        // Swap entry/exit too
+        const newEntry=correctDir==='LONG'?Math.min(t.entry,t.exit):Math.max(t.entry,t.exit);
+        const newExit=correctDir==='LONG'?Math.max(t.entry,t.exit):Math.min(t.entry,t.exit);
+        const newCalc=tradeCalc(t.symbol,correctDir,newEntry,newExit,t.size,t.fees);
+        merges.push({id:t.id,updates:{type:correctDir,entry:newEntry,exit:newExit,grossPnl:newCalc.grossPnl,pnl:newCalc.pnl},desc:'direction+entry/exit from Orders'});
+      }
+    });
+    return{imported:0,skipped:0,merged:merges.length,type:'orders_filled',batch:[],merges,feeUpdates:[],balRows:[]};
   }
 
   // ── NT8 Performance CSV (new format with pnl column) ────────────
@@ -812,6 +912,7 @@ async function saveInlineField(inp){
   try{await updateTrade(id,{[field]:val});}catch(e){console.error(e);}
   inp.style.opacity='1';
 }
+function removeCustomTag(idx){customTags.splice(idx,1);localStorage.setItem('el_tags',JSON.stringify(customTags));renderApp();}
 function setSortCol(col){if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=col==='date'?-1:-1;}renderApp();}
 
 
@@ -1102,11 +1203,10 @@ function renderApp(){
     <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:6px">
       ${[['SHARPE',S.sharpe.toFixed(2),S.sharpe>1?'#00e5a0':S.sharpe>0?'#f5c842':'#ff3d5a'],
          ['MAX DD','-$'+S.maxDD.toFixed(0),'#ff3d5a'],
-         ['RECOVERY',S.recovery.toFixed(2)+'×',S.recovery>2?'#00e5a0':S.recovery>1?'#f5c842':'#ff3d5a'],
          ['R:R',S.rr.toFixed(2)+'R',S.rr>=1.5?'#00e5a0':S.rr>=1?'#f5c842':'#ff3d5a'],
-         ['STREAK',(S.sdir>0?'+':'-')+S.streak+(S.sdir>0?'W':'L'),S.sdir>0?'#00e5a0':'#ff3d5a'],
          ['AVG WIN','+$'+S.avgW.toFixed(0),'#00e5a0'],
          ['AVG LOSS','-$'+S.avgL.toFixed(0),'#ff3d5a'],
+         ...(accountEquity>0&&S.avgPctGain?[['AVG W%','+'+S.avgPctGain.toFixed(2)+'%','#00e5a0'],['AVG L%',S.avgPctLoss.toFixed(2)+'%','#ff3d5a']]:[['STREAK',(S.sdir>0?'+':'-')+S.streak+(S.sdir>0?'W':'L'),S.sdir>0?'#00e5a0':'#ff3d5a'],['RECOVERY',S.recovery.toFixed(2)+'×',S.recovery>2?'#00e5a0':S.recovery>1?'#f5c842':'#ff3d5a']]),
         ].map(([l,v,c])=>`<div class="mini-card" style="padding:8px 10px;padding-bottom:8px">
           <div class="stat-lbl" style="margin-bottom:3px">${l}</div>
           <div style="font-family:'Bebas Neue',monospace;font-size:17px;color:${c}">${v}</div>
@@ -1180,10 +1280,14 @@ function renderApp(){
           <div><label class="lbl">GRADE</label><select id="nfgr">${GRADES.map(g=>`<option>${g}</option>`).join('')}</select></div>
           <div><label class="lbl">SETUP</label><select id="nfst">${customSetups.map(s=>`<option>${s}</option>`).join('')}</select></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:7px;margin-bottom:8px">
           <div><label class="lbl">ORDER ID</label><input id="nfoid" placeholder="optional"/></div>
           <div><label class="lbl">CHART URL</label><input id="nfcu" placeholder="https://www.tradingview.com/chart/..."/></div>
           <div><label class="lbl">NOTES</label><input id="nfno" placeholder="execution notes..."/></div>
+          <div><label class="lbl">TAGS</label><input id="nftags" placeholder="click or type tags..." list="tags-list"/><datalist id="tags-list">${customTags.map(t=>`<option>${t}</option>`).join('')}</datalist></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px" id="tag-chips">
+          ${customTags.slice(0,8).map(tag=>`<button type="button" class="btn-d" style="font-size:8px;padding:2px 8px;cursor:pointer" onclick="const inp=el('nftags');inp.value=inp.value?inp.value+','+this.dataset.tag:this.dataset.tag" data-tag="${tag}">${tag}</button>`).join('')}
         </div>
         <div style="display:flex;gap:10px;align-items:center">
           <button class="btn-g" style="padding:9px 22px;letter-spacing:2px" id="nfadd">ADD TRADE</button>
@@ -1197,6 +1301,28 @@ function renderApp(){
         const upd=()=>{const sym=(el('nfsym')?.value||'MES').toUpperCase(),dir=el('nfdir')?.value||'LONG';const en=parseFloat(el('nfen')?.value),ex=parseFloat(el('nfex')?.value),sz=parseInt(el('nfsz')?.value)||1,fe=parseFloat(el('nffe')?.value)||0;if(en&&ex){const r=tradeCalc(sym,dir,en,ex,sz,fe);if(el('nfprev'))el('nfprev').innerHTML=`<span style="color:var(--text3)">Gross ${fmt(r.grossPnl)}</span> &nbsp; <span style="color:${r.pnl>=0?'var(--green)':'var(--red)'}">Net ${fmt(r.pnl)}</span> &nbsp; <span style="color:var(--text5);font-size:var(--fsxs)">${isFut(sym)?'FUTURES':'STOCK'}</span>`;}};
         ['nfen','nfex','nfsz','nffe'].forEach(id=>{const i=el(id);if(i){i.oninput=upd;i.onkeydown=e=>{if(e.key==='Enter'&&el('nfadd'))el('nfadd').click();};}});
         if(el('nfdir'))el('nfdir').onchange=upd;
+        // Tag input wiring
+        const _nfTagSet=new Set();
+        const _renderTagsForm=()=>{
+          const wrap=el('nf-tags-wrap');if(!wrap)return;
+          // Remove old tag spans
+          wrap.querySelectorAll('.tag-pill').forEach(x=>x.remove());
+          _nfTagSet.forEach(tag=>{
+            const pill=document.createElement('span');
+            pill.className='tag-pill';
+            pill.style.cssText='background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:var(--fsxs);padding:1px 7px;display:flex;align-items:center;gap:4px';
+            pill.innerHTML=`${tag}<span style="cursor:pointer;color:var(--text4)" onclick="event.stopPropagation();_nfTagSet.delete('${tag}');_renderTagsForm()">✕</span>`;
+            wrap.insertBefore(pill,el('nf-tag-inp'));
+          });
+        };
+        const tagInp=el('nf-tag-inp');
+        if(tagInp)tagInp.onkeydown=e=>{
+          if((e.key==='Enter'||e.key===','||e.key===' ')&&tagInp.value.trim()){
+            e.preventDefault();
+            _nfTagSet.add(tagInp.value.trim().replace(/,/g,''));
+            tagInp.value='';_renderTagsForm();
+          }
+        };
         if(el('nfadd'))el('nfadd').onclick=async()=>{
           const date=el('nfd')?.value,sym=(el('nfsym')?.value||'MES').toUpperCase(),dir=el('nfdir')?.value||'LONG';
           const en=parseFloat(el('nfen')?.value),ex=parseFloat(el('nfex')?.value),sz=parseInt(el('nfsz')?.value)||1,fe=parseFloat(el('nffe')?.value)||0;
@@ -1206,9 +1332,10 @@ function renderApp(){
           const et=el('nfet')?.value,xt=el('nfxt')?.value;
           let dur=null;if(et&&xt){const[eh,em]=et.split(':').map(Number),[xh,xm]=xt.split(':').map(Number);dur=Math.abs((xh*60+xm)-(eh*60+em));}
           const calc=tradeCalc(sym,dir,en,ex,sz,fe);
-          await addTrade({date,symbol:sym,type:dir,entry:en,exit:ex,size:sz,fees:fe,...calc,setup:el('nfst')?.value||'—',grade:el('nfgr')?.value||'—',timeframe:el('nftf')?.value||'—',orderId:el('nfoid')?.value||'',notes:el('nfno')?.value||'',chartUrl:el('nfcu')?.value||'',durationMins:dur,entryTime:et||null,exitTime:xt||null,source:'Manual',assetType:isFut(sym)?'futures':'stock'});
+          const tagsVal=(el('nftags')?.value||'').split(',').map(t=>t.trim()).filter(Boolean);
+          await addTrade({date,symbol:sym,type:dir,entry:en,exit:ex,size:sz,fees:fe,...calc,setup:el('nfst')?.value||'—',grade:el('nfgr')?.value||'—',timeframe:el('nftf')?.value||'—',orderId:el('nfoid')?.value||'',notes:el('nfno')?.value||'',chartUrl:el('nfcu')?.value||'',tags:tagsVal,durationMins:dur,entryTime:et||null,exitTime:xt||null,source:'Manual',assetType:isFut(sym)?'futures':'stock'});
           el('nfadd').textContent='ADD TRADE';
-          ['nfen','nfex','nfno','nfcu','nfet','nfxt','nfoid'].forEach(id=>{const i=el(id);if(i)i.value='';});
+          ['nfen','nfex','nfno','nfcu','nfet','nfxt','nfoid','nftags'].forEach(id=>{const i=el(id);if(i)i.value='';});
           if(el('nfprev'))el('nfprev').innerHTML='';
         };
       },50);
@@ -1255,10 +1382,15 @@ function renderApp(){
         if(sortCol==='pnl'||sortCol==='entry'||sortCol==='exit'||sortCol==='size'||sortCol==='fees'){av=parseFloat(av)||0;bv=parseFloat(bv)||0;}
         if(av<bv)return -sortDir;if(av>bv)return sortDir;return 0;
       });
-      // Compute running balance per trade for display
+      // Compute running balance + % gain per trade
       let _runBal=accountEquity>0?accountEquity:0;
-      const _runBals={};
-      [...trades].forEach(t=>{_runBal=+(_runBal+t.pnl).toFixed(2);_runBals[t.id]=_runBal;});
+      const _runBals={},_eqPcts={};
+      [...trades].forEach(t=>{
+        const prev=_runBal;
+        _runBal=+(_runBal+t.pnl).toFixed(2);
+        _runBals[t.id]=_runBal;
+        _eqPcts[t.id]=prev>0?+((t.pnl/prev)*100).toFixed(2):null;
+      });
       const tbody=sortedFiltered.map((t,i)=>{
         const ex=showAllCols?`<td style="color:var(--text3)">${fmt(t.grossPnl||t.pnl)}</td><td style="color:var(--text4)">${fmtDur(t.durationMins)}</td><td><span class="tag" style="font-size:8px">${t.timeframe||'—'}</span></td><td style="color:var(--text5);font-size:var(--fsxs)">${t.orderId||'—'}</td><td style="color:var(--text4)">${t.entryTime||'—'}</td><td style="color:var(--text4)">${t.exitTime||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
         return`<tr class="tr-row" data-id="${t.id}">
@@ -1270,9 +1402,12 @@ function renderApp(){
           <td style="color:var(--yellow)">${t.fees>0?'-$'+t.fees.toFixed(2):'—'}</td>
           <td style="color:${gch(t.pnl)};font-family:'Bebas Neue',monospace;font-size:14px;white-space:nowrap">
             ${fmt(t.pnl)}
-            ${accountEquity>0&&t.eqPct?`<div style="font-size:8px;color:var(--text5);">${t.eqPct}%</div>`:''}
+            ${_eqPcts[t.id]!=null?`<div style="font-size:8px;color:${Math.abs(_eqPcts[t.id])>2?gch(t.pnl):'var(--text5)'}">${_eqPcts[t.id]>0?'+':''}${_eqPcts[t.id]}%</div>`:''}
           </td>
-          <td style="font-size:var(--fsxs);color:var(--text3);white-space:nowrap">${_runBals[t.id]?'$'+_runBals[t.id].toLocaleString(undefined,{maximumFractionDigits:0}):'—'}</td>
+          <td style="font-size:var(--fsxs);white-space:nowrap">
+            <div style="color:var(--text3)">${_runBals[t.id]?'$'+_runBals[t.id].toLocaleString(undefined,{maximumFractionDigits:0}):'—'}</div>
+            ${(()=>{const bal=_runBals[t.id];if(!bal||!t.pnl)return'';const base=bal-t.pnl;const pct=base>0?((t.pnl/base)*100):0;return pct!==0?`<div style="font-size:8px;color:${pct>=0?'var(--green)':'var(--red)'}">${pct>=0?'+':''}${pct.toFixed(2)}%</div>`:''})()}
+          </td>
           <!-- INLINE GRADE -->
           <td><select class="inline-sel" data-field="grade" data-id="${t.id}">
             ${GRADES.map(g=>`<option${g===(t.grade||'—')?' selected':''}>${g}</option>`).join('')}
@@ -1289,6 +1424,12 @@ function renderApp(){
             ${t.chartUrl?`<a href="${t.chartUrl}" target="_blank" class="clink" style="margin-right:4px">📈</a>`:''}
             <input class="inline-txt" data-field="chartUrl" data-id="${t.id}" value="${t.chartUrl||''}" placeholder="chart url" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--blue);font-family:inherit;font-size:8px;width:${t.chartUrl?'40px':'70px'};padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='160px'" onblur="this.style.borderBottomColor='transparent';this.style.width=this.value?'40px':'70px';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()" title="${t.chartUrl||'Paste chart URL'}"/>
           </td>
+          <td style="padding:3px 6px;max-width:120px">
+            ${(t.tags||[]).map(tag=>`<span class="tag" style="margin-right:2px;margin-bottom:2px;display:inline-block;cursor:pointer" title="Click to filter">${tag}</span>`).join('')}
+          </td>
+          <td style="padding:4px 9px;max-width:120px">
+            ${(t.tags||[]).map(tag=>`<span style="font-size:8px;padding:1px 6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text3);margin-right:2px;display:inline-block">${tag}</span>`).join('')}
+          </td>
           <td style="max-width:140px;padding:4px 9px">
             <input class="inline-txt" data-field="notes" data-id="${t.id}" value="${(t.notes||'').replace(/"/g,'&quot;')}" placeholder="notes..." style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:var(--fsxs);width:100%;padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--green)'" onblur="this.style.borderBottomColor='transparent';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()"/>
           </td>
@@ -1304,7 +1445,7 @@ function renderApp(){
         ${mkTh('ENTRY','entry')}${mkTh('EXIT','exit')}${mkTh('CTRS','size')}
         ${mkTh('FEES','fees')}${mkTh('NET P&L','pnl')}${mkTh('ACCT','_runbal')}
         ${mkTh('GRADE','grade')}${mkTh('SETUP','setup')}${mkTh('TF','timeframe')}
-        <th>CHART</th><th>NOTES</th>${exH}<th></th><th></th>
+        <th>CHART</th><th>TAGS</th><th>NOTES</th>${exH}<th></th><th></th>
       </tr></thead><tbody>${tbody}</tbody></table>`;
       content.appendChild(tw);
       // Inline grade/setup changes — save immediately
@@ -1421,14 +1562,16 @@ function renderApp(){
           </div>
         </div>`;
       content.appendChild(summDiv);
-      // Bell curve below
+      // Bell curve below — compact, uses same distMetric
       if(trades.length>=3){
-        const pnls=trades.map(t=>t.pnl);
-        const mean=pnls.reduce((a,b)=>a+b,0)/pnls.length;
-        const std=Math.sqrt(pnls.reduce((s,v)=>s+(v-mean)**2,0)/pnls.length)||1;
-        const skew=pnls.reduce((s,v)=>s+Math.pow((v-mean)/std,3),0)/pnls.length;
+        const _dm2={'pnl':trades.map(t=>t.pnl),'gross':trades.map(t=>t.grossPnl||t.pnl),'pts':trades.map(t=>{const p=PRESETS[t.symbol];if(!p)return null;const d=t.type==='LONG'?1:-1;return+((t.exit-t.entry)*d/p.ts).toFixed(1);}).filter(v=>v!==null),'pct':(()=>{let b=accountEquity>0?accountEquity:50000;return trades.map(t=>{const p=(t.pnl/b)*100;b+=t.pnl;return+p.toFixed(3);});})(),'dur':trades.filter(t=>t.durationMins>0).map(t=>t.durationMins),'rr':trades.map(t=>{const al=trades.filter(x=>x.pnl<0).reduce((s,x)=>s+Math.abs(x.pnl),0)/Math.max(1,trades.filter(x=>x.pnl<0).length)||1;return+(t.pnl/al).toFixed(2);})};
+        const _vals2=(_dm2[distMetric]||_dm2.pnl).filter(v=>!isNaN(v)&&isFinite(v));
+        const _m2=_vals2.reduce((a,b)=>a+b,0)/Math.max(_vals2.length,1);
+        const _s2=Math.sqrt(_vals2.reduce((s,v)=>s+(v-_m2)**2,0)/Math.max(_vals2.length,1))||1;
+        const _sk2=_vals2.reduce((s,v)=>s+Math.pow((v-_m2)/_s2,3),0)/Math.max(_vals2.length,1);
         const distDiv=document.createElement('div');distDiv.className='section';
-        distDiv.innerHTML=`<div class="sec-hd"><span>P&L DISTRIBUTION</span><span style="font-size:var(--fsxs);color:var(--text4)">μ=$${mean.toFixed(0)} · σ=$${std.toFixed(0)} · Skew ${skew>=0?'+':''}${skew.toFixed(2)}</span></div><div style="padding:10px 4px 6px;overflow-x:auto">${svgBellCurve(pnls,940,200)}</div>`;
+        const distLabel={'pnl':'NET P&L','gross':'GROSS P&L','pts':'POINTS','pct':'% ACCOUNT','dur':'DURATION','rr':'R-MULTIPLE'}[distMetric]||'NET P&L';
+        distDiv.innerHTML=`<div class="sec-hd"><span>DISTRIBUTION — ${distLabel}</span><span style="font-size:var(--fsxs);color:var(--text4)">Skew ${_sk2>=0?'+':''}${_sk2.toFixed(2)} · <a href="#" onclick="analyticsSubTab='charts';activeChart='dist';renderApp();return false" style="color:var(--blue);font-size:var(--fsxs)">customize →</a></span></div><div style="padding:10px 4px 6px;overflow-x:auto">${svgBellCurve(_vals2,940,190)}</div>`;
         content.appendChild(distDiv);
       }
       setTimeout(()=>{
@@ -1456,18 +1599,43 @@ function renderApp(){
       if(activeChart==='wr_ev'){const data=Array.from({length:21},(_,i)=>{const w=i/20;return{x:+(w*100).toFixed(0),y:+(w*S.avgW-(1-w)*(S.avgL||0)).toFixed(2)};});cs.innerHTML=`<div class="sec-hd">WIN RATE → EV</div><div style="padding:12px 4px 8px;overflow-x:auto">${svgXY(data,'#f5c842',v=>v+'%',940,240,+(S.wr*100).toFixed(0))}</div>`;}
       if(activeChart==='pf_ev'){const data=Array.from({length:20},(_,i)=>{const pf=0.25+i*0.2;return{x:+pf.toFixed(2),y:+(S.wr*(pf*(S.avgL||1))-(1-S.wr)*(S.avgL||1)).toFixed(2)};});cs.innerHTML=`<div class="sec-hd">PROFIT FACTOR → EV</div><div style="padding:12px 4px 8px;overflow-x:auto">${svgXY(data,'#2196f3',v=>v+'×',940,240,S.pf<99?+S.pf.toFixed(2):null)}</div>`;}
       if(activeChart==='dist'){
-        const pnls=trades.map(t=>t.pnl);
-        const mean=pnls.reduce((a,b)=>a+b,0)/pnls.length;
-        const std=Math.sqrt(pnls.reduce((s,v)=>s+(v-mean)**2,0)/pnls.length)||1;
-        const skew=pnls.reduce((s,v)=>s+Math.pow((v-mean)/std,3),0)/pnls.length;
-        const kurt=pnls.reduce((s,v)=>s+Math.pow((v-mean)/std,4),0)/pnls.length-3;
-        cs.innerHTML=`<div class="sec-hd"><span>P&L DISTRIBUTION</span><span style="font-size:var(--fsxs);color:var(--text4)">μ=$${mean.toFixed(2)} · σ=$${std.toFixed(2)} · Skew ${skew.toFixed(2)} · Kurt ${kurt.toFixed(2)}</span></div>
-          <div style="padding:12px 4px 8px;overflow-x:auto">${svgBellCurve(pnls,940,260)}</div>
-          <div style="padding:0 14px 12px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-            ${[['MEAN P&L','$'+mean.toFixed(2),mean>=0?'var(--green)':'var(--red)'],['STD DEV','$'+std.toFixed(2),'var(--text2)'],['SKEWNESS',skew.toFixed(3),skew>0?'var(--green)':'var(--red)'],['KURTOSIS',kurt.toFixed(3),kurt>0?'var(--yellow)':'var(--text2)']].map(([l,v,c])=>`<div style="background:var(--bg3);padding:8px 10px;border:1px solid var(--border2)"><div class="stat-lbl">${l}</div><div style="font-family:'Bebas Neue',monospace;font-size:18px;color:${c}">${v}</div></div>`).join('')}
+        // Build dataset based on selected metric
+        const DIST_METRICS={
+          pnl:{label:'Net P&L per Trade',unit:'$',vals:()=>trades.map(t=>t.pnl),fmt:v=>'$'+v.toFixed(0),desc:'Distribution of net profit/loss per trade. Positive skew (tail right) is ideal — means occasional large wins relative to losses.'},
+          gross:{label:'Gross P&L per Trade',unit:'$',vals:()=>trades.map(t=>t.grossPnl||t.pnl),fmt:v=>'$'+v.toFixed(0),desc:'Distribution of gross P&L before fees. Reveals your raw edge before commissions.'},
+          pts:{label:'Points / Ticks per Trade',unit:'pts',vals:()=>trades.map(t=>{const p=PRESETS[t.symbol];if(!p)return 0;const dir=t.type==='LONG'?1:-1;return+((t.exit-t.entry)*dir/p.ts).toFixed(1);}),fmt:v=>v.toFixed(1)+'pts',desc:'Raw tick/point movement captured per trade. Separates P&L from position sizing and fees.'},
+          pct:{label:'% Account Gain/Loss',unit:'%',vals:()=>{let bal=accountEquity>0?accountEquity:50000;return trades.map(t=>{const p=(t.pnl/bal)*100;bal+=t.pnl;return+p.toFixed(3);});},fmt:v=>v.toFixed(2)+'%',desc:'P&L as % of account equity at time of trade. Shows risk exposure and position sizing consistency.'},
+          dur:{label:'Trade Duration (minutes)',unit:'min',vals:()=>trades.filter(t=>t.durationMins>0).map(t=>t.durationMins),fmt:v=>v.toFixed(0)+'m',desc:'Time held per trade in minutes. Clusters reveal your typical holding period and whether longer holds correlate with better outcomes.'},
+          rr:{label:'Realized R:R per Trade',unit:'R',vals:()=>trades.map(t=>{const avgL=trades.filter(x=>x.pnl<0).reduce((s,x)=>s+Math.abs(x.pnl),0)/Math.max(1,trades.filter(x=>x.pnl<0).length)||1;return+(t.pnl/avgL).toFixed(2);}),fmt:v=>v.toFixed(2)+'R',desc:"P&L as a multiple of avg loss. How often you achieve 1R, 2R, etc."},
+        };
+        const dm=DIST_METRICS[distMetric]||DIST_METRICS.pnl;
+        const vals=dm.vals().filter(v=>!isNaN(v)&&isFinite(v));
+        const mean=vals.reduce((a,b)=>a+b,0)/Math.max(vals.length,1);
+        const std=Math.sqrt(vals.reduce((s,v)=>s+(v-mean)**2,0)/Math.max(vals.length,1))||1;
+        const skew=vals.reduce((s,v)=>s+Math.pow((v-mean)/std,3),0)/Math.max(vals.length,1);
+        const kurt=vals.reduce((s,v)=>s+Math.pow((v-mean)/std,4),0)/Math.max(vals.length,1)-3;
+        const metricBtns=['pnl','gross','pts','pct','dur','rr'].map(m=>`<button class="btn-${distMetric===m?'y':'d'}" style="font-size:var(--fsxs);padding:3px 10px" onclick="distMetric='${m}';renderApp()">${{pnl:'NET P&L',gross:'GROSS P&L',pts:'POINTS',pct:'% ACCOUNT',dur:'DURATION',rr:'R-MULTIPLE'}[m]}</button>`).join('');
+        // Definitions panel
+        const DEFS=[
+          ['BELL CURVE','A histogram of your trades overlaid with a theoretical normal distribution (yellow curve). The shape reveals whether your edge is consistent or driven by outliers.'],
+          ['MEAN (μ)','Average value across all trades. Your expected outcome per trade for this metric.'],
+          ['STD DEV (σ)','Standard deviation — how spread out your results are. Lower = more consistent. Higher = more volatile/streaky.'],
+          ['SKEWNESS','Measures asymmetry. Positive skew = occasional large wins (good for traders). Negative skew = occasional large losses (dangerous).'],
+          ['EXCESS KURTOSIS','Fat tails vs normal distribution. Positive = more extreme outliers than expected. Negative = fewer extremes.'],
+        ];
+        cs.innerHTML=`<div class="sec-hd">
+            <span>DISTRIBUTION — ${dm.label}</span>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">${metricBtns}</div>
           </div>
-          <div style="padding:0 14px 12px;font-size:var(--fsxs);color:var(--text5);line-height:1.8">
-            <b style="color:var(--text3)">Positive skew</b> = occasional large wins + small losses (ideal). <b style="color:var(--text3)">Yellow curve</b> = normal distribution overlay.
+          <div style="padding:12px 4px 6px;overflow-x:auto">${svgBellCurve(vals,940,240)}</div>
+          <div style="padding:0 14px 12px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+            ${[['MEAN',dm.fmt(mean),mean>=0?'var(--green)':'var(--red)'],['STD DEV',dm.fmt(std),'var(--text2)'],['SKEWNESS',skew.toFixed(3),skew>0?'var(--green)':'var(--red)'],['KURTOSIS',kurt.toFixed(3),Math.abs(kurt)<1?'var(--green)':kurt>0?'var(--yellow)':'var(--text2)']].map(([l,v,c])=>`<div style="background:var(--bg3);padding:8px 10px;border:1px solid var(--border2)"><div class="stat-lbl">${l}</div><div style="font-family:'Bebas Neue',monospace;font-size:18px;color:${c}">${v}</div></div>`).join('')}
+          </div>
+          <div style="padding:0 14px 12px;background:var(--bg3);margin:0 14px 14px;border:1px solid var(--border2)">
+            <div style="font-size:var(--fsxs);color:var(--text3);padding:8px 0 6px;letter-spacing:1px">${dm.desc}</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px">
+              ${DEFS.map(([t,d])=>`<div><div style="font-size:var(--fsxs);color:var(--yellow);margin-bottom:3px">${t}</div><div style="font-size:9px;color:var(--text4);line-height:1.6">${d}</div></div>`).join('')}
+            </div>
           </div>`;
       }
       content.appendChild(cs);
@@ -1760,6 +1928,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
       </div>
     </div>
 
+    <!-- CUSTOM TAGS -->
+    <div class="section" style="margin-bottom:12px">
+      <div class="sec-hd">CUSTOM TAGS</div>
+      <div style="padding:14px">
+        <div style="font-size:var(--fsm);color:var(--text4);margin-bottom:10px;line-height:1.8">Create reusable tags to label trades (e.g. "revenge trade", "news play", "trend day"). Tags appear in the journal and can be filtered.</div>
+        <div id="tags-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+          ${customTags.map((tag,i)=>`<div style="display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border);padding:4px 10px;gap:6px"><span style="font-size:var(--fsm);color:var(--text2)">${tag}</span><button onclick="removeCustomTag(${i})" style="background:none;border:none;color:var(--text5);cursor:pointer;font-size:12px;padding:0">✕</button></div>`).join('')}
+          ${!customTags.length?'<span style="color:var(--text5);font-size:var(--fsm)">No tags yet</span>':''}
+        </div>
+        <div style="display:flex;gap:8px">
+          <input id="new-tag-inp" placeholder="e.g. revenge trade, news play, trend day" style="max-width:300px"/>
+          <button class="btn-g" id="add-tag-btn">ADD TAG</button>
+        </div>
+      </div>
+    </div>
+
     <!-- LOGO -->
     <div class="section">
       <div class="sec-hd">LOGO</div>
@@ -1775,6 +1959,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(el('add-setup-btn'))el('add-setup-btn').onclick=()=>{const v=(el('new-setup')?.value||'').trim();if(!v)return;if(!customSetups.includes(v)){customSetups.push(v);localStorage.setItem('el_setups',JSON.stringify(customSetups));el('new-setup').value='';renderApp();}};
       if(el('new-setup'))el('new-setup').onkeydown=e=>{if(e.key==='Enter')el('add-setup-btn').click();};
       if(el('reset-setups-btn'))el('reset-setups-btn').onclick=()=>{customSetups=[...DEFAULT_SETUPS];localStorage.setItem('el_setups',JSON.stringify(customSetups));renderApp();};
+      if(el('add-tag-btn'))el('add-tag-btn').onclick=()=>{const v=(el('new-tag-inp')?.value||'').trim();if(v&&!customTags.includes(v)){customTags.push(v);localStorage.setItem('el_tags',JSON.stringify(customTags));renderApp();}};
+      if(el('new-tag-inp'))el('new-tag-inp').onkeydown=e=>{if(e.key==='Enter')el('add-tag-btn').click();};
       if(el('save-equity'))el('save-equity').onclick=()=>{const v=parseFloat(el('acct-equity-input')?.value||'0');if(v>0){accountEquity=v;localStorage.setItem('el_equity',v);renderApp();}};
       if(el('save-fees'))el('save-fees').onclick=()=>{Object.keys(PRESETS).forEach(sym=>{const i=el('fee_'+sym);if(i)instrumentFees[sym]=parseFloat(i.value)||DEFAULT_FEES[sym];});localStorage.setItem('el_fees',JSON.stringify(instrumentFees));const s=el('fees-saved');if(s){s.style.display='block';setTimeout(()=>s.style.display='none',2000);}};
       if(el('reset-fees'))el('reset-fees').onclick=()=>{instrumentFees={...DEFAULT_FEES};localStorage.setItem('el_fees',JSON.stringify(instrumentFees));renderApp();};
