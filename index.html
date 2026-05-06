@@ -251,7 +251,7 @@ function calcStats(tds){
   const halfKelly = kelly / 2;
   // Expectancy ratio (normalized per $1 risked)
   const expectancyRatio = avgL > 0 ? (wr * avgW - (1-wr)*avgL)/avgL : 0;
-  return{wr,avgW,avgL,pf,ev,net,grossNet,grossW,grossL,totalFees,feeImpact,maxDD,sharpe,recovery,rr,streak,sdir,maxWS,maxLS,kelly,halfKelly,expectancyRatio,avgPctWin,avgPctLoss,avgPctGain,avgPctLoss,
+  return{wr,avgW,avgL,pf,ev,net,grossNet,grossW,grossL,totalFees,feeImpact,maxDD,sharpe,recovery,rr,streak,sdir,maxWS,maxLS,kelly,halfKelly,expectancyRatio,avgPctWin,avgPctLoss,
     wins:wins.length,losses:losses.length,total:tds.length,longs:longs.length,shorts:shorts.length,
     longPnl:longs.reduce((s,t)=>s+t.pnl,0),shortPnl:shorts.reduce((s,t)=>s+t.pnl,0),
     longWR:longs.length?longs.filter(t=>pnlVal(t)>0).length/longs.length:0,
