@@ -110,7 +110,7 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 <body>
 <div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px"><div class="spinner" style="width:26px;height:26px"></div><div style="font-size:10px;letter-spacing:3px;color:var(--text5)">LOADING EDGE LOG v11.4...</div></div></div>
 <script>
-const VERSION='11.4';
+const VERSION='11.5';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.50,MES:1.25,NQ:4.50,MNQ:1.25,CL:4.50,GC:4.50,SI:4.50,ZB:4.50,RTY:4.50,YM:4.50,ZN:4.50,ZC:4.50,NG:4.50,MGC:1.25,MCL:1.25};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -491,10 +491,9 @@ function importCSV(text,label){
         dir=btDT<=stDT?'LONG':'SHORT';
         // Cross-check with P/L — if they disagree, trust timestamps over P/L
         // (P/L can be 0 on breakeven trades, timestamps are always reliable)
-      } else if(!isNaN(plR)&&plR!==0){
-        // No timestamps: use P/L sign × price diff
-        const priceDiff=sellR-buyR;
-        if(priceDiff!==0) dir=priceDiff*plR>0?'LONG':'SHORT';
+      } else {
+        // No timestamps available — default LONG, correct via Orders CSV import
+        dir='LONG';
       }
       // Entry = price paid to open, Exit = price received to close
       const entry=dir==='LONG'?buyR:sellR;
@@ -559,18 +558,13 @@ function importCSV(text,label){
       // If (sellPrice - buyPrice) * P/L > 0 → LONG (prices confirm P/L direction)
       // If (sellPrice - buyPrice) * P/L < 0 → SHORT (prices inverse of P/L)
       // When P/L = 0 or prices equal → use timestamps: earlier = entry
+      // Direction: timestamps ONLY (NT8 P/L = sell-buy always, can't determine direction)
+      const _bt2=parseDT(gc2(row,['boughttimestamp','bought timestamp']));
+      const _st2=parseDT(gc2(row,['soldtimestamp','sold timestamp']));
       let dir='LONG';
-      const priceDiff=sellR-buyR;
-      if(isNaN(plR)||plR===0||priceDiff===0){
-        // Use timestamps to determine direction
-        const btRaw=gc2(row,['boughttimestamp','bought timestamp']);
-        const stRaw=gc2(row,['soldtimestamp','sold timestamp']);
-        const bt=parseDT(btRaw),st=parseDT(stRaw);
-        if(bt&&st)dir=bt<=st?'LONG':'SHORT';
-      } else {
-        dir=priceDiff*plR>0?'LONG':'SHORT';
+      if(_bt2&&_st2){
+        dir=_bt2<=_st2?'LONG':'SHORT';
       }
-      // Entry/exit for display
       const entry=dir==='LONG'?buyR:sellR;
       const exit=dir==='LONG'?sellR:buyR;
       // Date
@@ -619,7 +613,24 @@ function importCSV(text,label){
     const buyR=parseFloat(gc2(row,['buyprice','buy price'])),sellR=parseFloat(gc2(row,['sellprice','sell price']));
     const entR=parseFloat(gc2(row,['entryprice','entry price','avg entry','entry','open'])),extR=parseFloat(gc2(row,['exitprice','exit price','avg exit','exit','close']));
     let entry,exit,dir;
-    if(!isNaN(buyR)&&!isNaN(sellR)&&buyR>0&&sellR>0){entry=buyR;exit=sellR;dir=buyR<=sellR?'LONG':'SHORT';}
+    if(!isNaN(buyR)&&!isNaN(sellR)&&buyR>0&&sellR>0){
+      // NT8 BuyPrice/SellPrice DON'T indicate direction.
+      // They just show what price the buy/sell sides filled at.
+      // Must use timestamps to determine which came first (= entry direction)
+      const _btRaw=gc2(row,['boughttimestamp','bought timestamp','entrytime','entry time']);
+      const _stRaw=gc2(row,['soldtimestamp','sold timestamp','exittime','exit time']);
+      const _btDT=parseDT(_btRaw),_stDT=parseDT(_stRaw);
+      if(_btDT&&_stDT){
+        // Bought before sold = LONG, sold before bought = SHORT
+        dir=_btDT<=_stDT?'LONG':'SHORT';
+      } else {
+        // No timestamps: cannot reliably determine from prices alone
+        // Default LONG, will be corrected by Orders CSV if imported
+        dir='LONG';
+      }
+      entry=dir==='LONG'?buyR:sellR;
+      exit=dir==='LONG'?sellR:buyR;
+    }
     else if(!isNaN(entR)&&!isNaN(extR)&&entR>0&&extR>0){entry=entR;exit=extR;const ds=(gc2(row,['action','side','direction','type'])||'').toLowerCase();dir=ds.includes('buy')||ds.includes('long')?'LONG':'SHORT';}
     else continue;
     const dtR=gc2(row,['boughttimestamp','soldtimestamp','entrytime','entry time','entrydate','date','time']);
