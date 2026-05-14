@@ -110,7 +110,7 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 <body>
 <div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px"><div class="spinner" style="width:26px;height:26px"></div><div style="font-size:10px;letter-spacing:3px;color:var(--text5)">LOADING EDGE LOG v11.4...</div></div></div>
 <script>
-const VERSION='11.5';
+const VERSION='11.6';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.50,MES:1.25,NQ:4.50,MNQ:1.25,CL:4.50,GC:4.50,SI:4.50,ZB:4.50,RTY:4.50,YM:4.50,ZN:4.50,ZC:4.50,NG:4.50,MGC:1.25,MCL:1.25};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -427,7 +427,7 @@ function importCSV(text,label){
       const dtObj=parseDT(dtRaw);
       const key=useSym+'|'+date;
       if(!ordersByKey[key])ordersByKey[key]=[];
-      ordersByKey[key].push({time:dtObj?dtObj.getTime():0,dir,sym:useSym});
+      const _oid=gc2(row,['orderid','order id','id'])||'';ordersByKey[key].push({time:dtObj?dtObj.getTime():0,dir,sym:useSym,orderId:_oid});
     }
     // Sort each bucket by time, take earliest = entry direction
     const directionMap={};
@@ -435,28 +435,17 @@ function importCSV(text,label){
       orders.sort((a,b)=>a.time-b.time);
       directionMap[key]=orders[0].dir;
     });
-    // Patch existing trades
+    // Orders CSV provides order sequence data but Position History timestamps
+    // are the authoritative source for direction. Do NOT override direction here.
+    // Only use Orders data to add supplementary info (order IDs, fill times).
     const merges=[];
     trades.forEach(t=>{
       const key=t.symbol+'|'+t.date;
-      const correctDir=directionMap[key];
-      if(!correctDir)return;
-      if(t.type!==correctDir){
-        // Re-assign entry/exit: entry=open price, exit=close price
-        // For LONG: entry=lower price (buy), exit=higher or lower (sell)
-        // Use the actual buy/sell prices from position history if available
-        // Otherwise just swap
-        const buyP=Math.min(t.entry,t.exit);
-        const sellP=Math.max(t.entry,t.exit);
-        const newEntry=correctDir==='LONG'?buyP:sellP;
-        const newExit=correctDir==='LONG'?sellP:buyP;
-        const newCalc=tradeCalc(t.symbol,correctDir,newEntry,newExit,t.size,t.fees);
-        // Recalc using ACTUAL entry/exit prices, not min/max swap
-        // The real P/L doesn't change — just type + display entry/exit
-        const actualEntry=correctDir==='LONG'?Math.min(t.entry,t.exit):Math.max(t.entry,t.exit);
-        const actualExit=correctDir==='LONG'?Math.max(t.entry,t.exit):Math.min(t.entry,t.exit);
-        const calc2=tradeCalc(t.symbol,correctDir,actualEntry,actualExit,t.size,t.fees);
-        merges.push({id:t.id,updates:{type:correctDir,entry:actualEntry,exit:actualExit,grossPnl:calc2.grossPnl,pnl:calc2.pnl},desc:'direction from Orders CSV'});
+      const orders=ordersByKey[key];
+      if(!orders||!orders.length)return;
+      // Add order ID if missing
+      if(!t.orderId&&orders[0]){
+        merges.push({id:t.id,updates:{orderId:String(orders[0].orderId||'')},desc:'orderId from Orders CSV'});
       }
     });
     return{imported:0,skipped:0,merged:merges.length,type:'orders_filled',batch:[],merges,feeUpdates:[],balRows:[]};
