@@ -110,7 +110,7 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 <body>
 <div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px"><div class="spinner" style="width:26px;height:26px"></div><div style="font-size:10px;letter-spacing:3px;color:var(--text5)">LOADING EDGE LOG v11.4...</div></div></div>
 <script>
-const VERSION='11.6';
+const VERSION='11.7';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.50,MES:1.25,NQ:4.50,MNQ:1.25,CL:4.50,GC:4.50,SI:4.50,ZB:4.50,RTY:4.50,YM:4.50,ZN:4.50,ZC:4.50,NG:4.50,MGC:1.25,MCL:1.25};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -280,25 +280,15 @@ function parseLine(l){const r=[];let c='',q=false;for(const ch of l){if(ch==='"'
 function parseDate(s){if(!s)return'';let m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)return m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0');m=s.match(/(\d{4})-(\d{2})-(\d{2})/);if(m)return m[0];return s.slice(0,10);}
 function parseDT(s){if(!s)return null;const m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);if(m)return new Date(+m[3],+m[1]-1,+m[2],+m[4],+m[5],+(m[6]||0));return null;}
 function detectType(hdr){
-  const h=hdr.join(' ');
-  // Exact NT8 Position History: has 'buyprice' AND 'sellprice' AND 'pairedqty'
+  const h=hdr.join(' ').toLowerCase();
   if(h.includes('buyprice')&&h.includes('sellprice')&&h.includes('pairedqty'))return'position_history';
-  // NT8 Orders CSV: has b/s column and status column
-  if((h.includes(' b/s')||h.includes(',b/s')||h.startsWith('b/s'))&&h.includes('status'))return'orders_csv';
-  // NT8 Performance CSV: has buyfillid/sellfillid and pnl column
-  if(h.includes('buyfillid')&&h.includes('sellfillid')&&h.includes('pnl'))return'performance_v2';
-  // Account Balance History
-  if(h.includes('totalrealizedpnl')||h.includes('total realized'))return'balance_history';
-  // NT8 Orders CSV: has 'b/s' or 'ordside' column and 'status' and 'filled'
-  if((h.includes('b/s')||h.includes('ordside')||h.includes('buysell'))&&h.includes('status'))return'orders_filled';
-  // Legacy NT8 performance with boughttimestamp
+  if(h.includes('buyfillid')&&h.includes('sellfillid'))return'performance_v2';
+  if(h.includes('cashchangetype'))return'cash';
+  if(h.includes('delta')&&h.includes('amount')&&!h.includes('buyprice'))return'cash';
+  if(h.includes('totalrealizedpnl'))return'balance_history';
+  if(h.includes('b/s')&&h.includes('status'))return'orders';
   if(h.includes('boughttimestamp'))return'performance';
-  // Cash history: has 'cashchangetype' OR ('delta' AND 'amount' columns together)
-  if(h.includes('cashchangetype')||h.includes('deltacolumn'))return'cash';
-  if(h.includes('delta')&&h.includes('amount')&&h.includes('transaction'))return'cash';
-  if(h.includes('amount')&&(h.includes('balance')||h.includes('description')))return'cash';
   if(h.includes('fillprice'))return'fills';
-  if(h.includes('orderstatus'))return'orders';
   return'generic';
 }
 
@@ -372,84 +362,32 @@ function importCSV(text,label){
   // Columns: Account,Order ID,Instrument,B/S,Qty,Type,Status,Filled,Time,Name,...
   // B/S: " Buy" or " Sell" (note leading space from NT8)
   // Use Filled orders to determine trade direction
-  if(type==='orders_csv'){
-    // Build a lookup: symbol → direction from filled orders by date
-    // We don't create trades from orders alone — we update existing trades' direction
-    const dirUpdates=[];
-    for(let i=1;i<lines.length;i++){
-      const row=parseLine(lines[i]);if(row.length<7)continue;
-      const status=(gc2(row,['status'])||'').toLowerCase();
-      if(!status.includes('filled'))continue;
-      const bs=(gc2(row,['b/s','bs','side','action'])||'').trim().toLowerCase();
-      const dir=bs.startsWith('b')?'LONG':'SHORT';
-      const rawSym=gc2(row,['instrument','symbol','contract'])||'';
-      const sym=getBase(rawSym)||'';
-      const useSym=PRESETS[sym]?sym:null;
-      if(!useSym)continue;
-      const timeRaw=gc2(row,['time','timestamp','date','filledtime'])||'';
-      const date=parseDate(timeRaw);
-      if(!date)continue;
-      dirUpdates.push({sym:useSym,dir,date});
-    }
-    // Match to existing trades and fix direction if different
-    const merges=[];
-    dirUpdates.forEach(({sym,dir,date})=>{
-      const match=trades.find(t=>t.symbol===sym&&t.date===date&&t.type!==dir);
-      if(match){
-        // Recalculate P&L with corrected direction
-        const newCalc=tradeCalc(sym,dir,match.entry,match.exit,match.size,match.fees);
-        merges.push({id:match.id,updates:{type:dir,grossPnl:newCalc.grossPnl,pnl:newCalc.pnl},desc:'direction from Orders CSV'});
-      }
-    });
-    return{imported:0,skipped:dirUpdates.length-merges.length,merged:merges.length,type:'orders_csv',batch:[],merges,feeUpdates:[],balRows:[]};
-  }
-
+  
   // ── NT8 Orders CSV — use B/S + Filled status to determine direction ─
   // Columns: Order ID, B/S, Qty, Symbol, Status, Filled, Fill Price, Avg Price,
   //          Commission, Stop Price, Limit Price, Time, Account
-  if(type==='orders_filled'){
-    // NT8 Orders CSV: B/S column = " Buy" or " Sell" (note leading space)
-    // Strategy: collect ALL filled orders per symbol+date with timestamps,
-    // sort by time, take the FIRST one = entry direction
-    const ordersByKey={}; // key: sym|date -> [{time, dir}]
+  if(type==='orders'){
+    // Orders CSV: ONLY extract order IDs. NEVER modify direction/P&L.
+    const orderData={};
     for(let i=1;i<lines.length;i++){
       const row=parseLine(lines[i]);if(row.length<6)continue;
       const status=(gc2(row,['status'])||'').toLowerCase();
-      if(!status.includes('filled')&&!status.includes('fill'))continue;
-      // B/S column in NT8 has leading space: " Buy" or " Sell"
-      const bs=(gc2(row,['b/s','ordside','buysell','side','action','type'])||'').trim().toLowerCase();
-      if(!bs)continue;
-      const dir=bs.startsWith('b')||bs==='long'?'LONG':'SHORT';
+      if(!status.includes('filled'))continue;
       const sym=getBase(gc2(row,['symbol','instrument'])||'');if(!sym)continue;
-      const useSym=PRESETS[sym]?sym:sym;
-      const dtRaw=gc2(row,['time','timestamp','date','ordertime','filledtime','filled time']);
+      const dtRaw=gc2(row,['time','timestamp','date']);
       const date=parseDate(dtRaw);if(!date)continue;
-      const dtObj=parseDT(dtRaw);
-      const key=useSym+'|'+date;
-      if(!ordersByKey[key])ordersByKey[key]=[];
-      const _oid=gc2(row,['orderid','order id','id'])||'';ordersByKey[key].push({time:dtObj?dtObj.getTime():0,dir,sym:useSym,orderId:_oid});
+      const oid=gc2(row,['orderid','order id','id'])||'';
+      const key=sym+'|'+date;
+      if(!orderData[key])orderData[key]=oid;
     }
-    // Sort each bucket by time, take earliest = entry direction
-    const directionMap={};
-    Object.entries(ordersByKey).forEach(([key,orders])=>{
-      orders.sort((a,b)=>a.time-b.time);
-      directionMap[key]=orders[0].dir;
-    });
-    // Orders CSV provides order sequence data but Position History timestamps
-    // are the authoritative source for direction. Do NOT override direction here.
-    // Only use Orders data to add supplementary info (order IDs, fill times).
     const merges=[];
     trades.forEach(t=>{
       const key=t.symbol+'|'+t.date;
-      const orders=ordersByKey[key];
-      if(!orders||!orders.length)return;
-      // Add order ID if missing
-      if(!t.orderId&&orders[0]){
-        merges.push({id:t.id,updates:{orderId:String(orders[0].orderId||'')},desc:'orderId from Orders CSV'});
-      }
+      if(orderData[key]&&!t.orderId)merges.push({id:t.id,updates:{orderId:orderData[key]},desc:'orderId'});
     });
-    return{imported:0,skipped:0,merged:merges.length,type:'orders_filled',batch:[],merges,feeUpdates:[],balRows:[]};
+    return{imported:0,skipped:0,merged:merges.length,type:'orders',batch:[],merges,feeUpdates:[],balRows:[]};
   }
+
 
   // ── NT8 Performance CSV (new format with pnl column) ────────────
   // Cols: symbol,_priceFormat,_priceFormatType,_tickSize,buyFillId,sellFillId,
@@ -672,7 +610,8 @@ batch.push({date,symbol:sym,type:dir,entry:+entry.toFixed(4),exit:+exit.toFixed(
 }
 
 async function commitImport(r,skipApproval){
-  for(const t of r.batch)await addTrade(t);
+  const addedIds=[];
+  for(const t of r.batch){const ref=await colRef.add({...t,createdAt:firebase.firestore.FieldValue.serverTimestamp()});addedIds.push(ref.id);}
   // Separate merges that need approval from safe ones
   const safeMerges=r.merges.filter(m=>!m.needsApproval||Object.keys(m.needsApproval).length===0);
   const approvalMerges=r.merges.filter(m=>m.needsApproval&&Object.keys(m.needsApproval).length>0);
@@ -693,7 +632,7 @@ async function commitImport(r,skipApproval){
   if(r.balRows&&r.balRows.length){balanceHistory=[...balanceHistory,...r.balRows].sort((a,b)=>a.date>b.date?1:-1);const latest=balanceHistory[balanceHistory.length-1]?.balance;if(latest>0)accountEquity=latest;}
   // Track upload history
   if(r.batch.length||r.merges.length||r.feeUpdates.length){
-    const entry={ts:new Date().toISOString(),label:r.label||'Import',type:r.type,added:r.batch.length,merged:r.merges.length,feeUpdates:r.feeUpdates.length,tradeIds:r.batch.map(t=>t._tmpId).filter(Boolean)};
+    const entry={ts:new Date().toISOString(),label:r.label||'Import',type:r.type,added:r.batch.length,merged:r.merges.length,feeUpdates:r.feeUpdates.length,tradeIds:addedIds||[]};
     uploadHistory.unshift(entry);if(uploadHistory.length>50)uploadHistory=uploadHistory.slice(0,50);
     localStorage.setItem('el_uploads',JSON.stringify(uploadHistory));
   }
@@ -942,6 +881,15 @@ async function saveInlineField(inp){
   inp.style.opacity='.5';
   try{await updateTrade(id,{[field]:val});}catch(e){console.error(e);}
   inp.style.opacity='1';
+}
+async function revertImport(histIdx){
+  const entry=uploadHistory[histIdx];
+  if(!entry||!entry.tradeIds||!entry.tradeIds.length){alert('No tracked trade IDs for this import. Clear all and re-import to fix.');return;}
+  if(!confirm('Delete '+entry.tradeIds.length+' trades from "'+entry.label+'"?'))return;
+  for(const id of entry.tradeIds){try{await colRef.doc(id).delete();}catch(e){}}
+  uploadHistory.splice(histIdx,1);
+  localStorage.setItem('el_uploads',JSON.stringify(uploadHistory));
+  renderApp();
 }
 function removeCustomTag(idx){customTags.splice(idx,1);localStorage.setItem('el_tags',JSON.stringify(customTags));renderApp();}
 function setSortCol(col){if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=col==='date'?-1:-1;}renderApp();}
