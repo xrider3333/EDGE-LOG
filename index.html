@@ -113,14 +113,14 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 </style>
 </head>
 <body>
-<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px"><div style="font-family:'Bebas Neue',monospace;font-size:36px;letter-spacing:5px;color:#00e5a0">EDGE LOG</div><div style="width:240px;height:3px;background:#1e1e36;overflow:hidden;position:relative"><div id="loadbar" style="height:100%;background:#00e5a0;width:0%;transition:width .3s ease"></div></div><div id="loadtxt" style="font-size:10px;letter-spacing:3px;color:#404060">INITIALIZING v12.1...</div></div></div>
+<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px"><div style="font-family:'Bebas Neue',monospace;font-size:36px;letter-spacing:5px;color:#00e5a0">EDGE LOG</div><div style="width:240px;height:3px;background:#1e1e36;overflow:hidden;position:relative"><div id="loadbar" style="height:100%;background:#00e5a0;width:0%;transition:width .3s ease"></div></div><div id="loadtxt" style="font-size:10px;letter-spacing:3px;color:#404060">INITIALIZING v12.2...</div></div></div>
 <script>
 // Animate loading bar
 let _lp=0;const _li=setInterval(()=>{_lp=Math.min(95,_lp+Math.random()*15);const b=document.getElementById('loadbar');if(b)b.style.width=_lp+'%';const t=document.getElementById('loadtxt');if(t){if(_lp<30)t.textContent='CONNECTING TO FIREBASE...';else if(_lp<60)t.textContent='LOADING TRADES...';else if(_lp<90)t.textContent='BUILDING UI...';else t.textContent='ALMOST READY...';}},150);
 window._finishLoad=()=>{clearInterval(_li);const b=document.getElementById('loadbar');if(b)b.style.width='100%';};
 </script>
 <script>
-const VERSION='12.1';
+const VERSION='12.2';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -802,8 +802,8 @@ async function commitImport(r,skipApproval){
   }
   if(r.balRows&&r.balRows.length){balanceHistory=[...balanceHistory,...r.balRows].sort((a,b)=>a.date>b.date?1:-1);const latest=balanceHistory[balanceHistory.length-1]?.balance;if(latest>0)accountEquity=latest;}
   // Track upload history
-  if(r.batch.length||r.merges.length||r.feeUpdates.length){
-    const entry={ts:new Date().toISOString(),label:r.label||'Import',type:r.type,added:r.batch.length,merged:r.merges.length,feeUpdates:r.feeUpdates.length,tradeIds:addedIds||[]};
+  if((r.batch&&r.batch.length)||(r.merges&&r.merges.length)||(r.feeUpdates&&r.feeUpdates.length)||(r.balRows&&r.balRows.length)){
+    const entry={ts:new Date().toISOString(),label:r.label||'Import',type:r.type,added:r.batch.length,merged:r.merges.length,feeUpdates:(r.feeUpdates||[]).length,tradeIds:addedIds||[]};
     uploadHistory.unshift(entry);if(uploadHistory.length>50)uploadHistory=uploadHistory.slice(0,50);
     localStorage.setItem('el_uploads',JSON.stringify(uploadHistory));
   }
@@ -1920,11 +1920,31 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const handle=async files=>{
           let tot=0,totS=0,totM=0,totF=0;const results=[];
           for(const f of files){
-            const text=await f.text(),r=importCSV(text,f.name);
-            r.label=f.name;
+            let r;
+            const isPDF=f.name.toLowerCase().endsWith('.pdf')||f.type==='application/pdf';
+            if(isPDF){
+              if(!window.pdfjsLib){
+                alert('PDF library not loaded. Refresh the page and try again.');
+                results.push({name:f.name,type:'error',imported:0,skipped:0,merged:0,merges:[],feeUpdates:[],balRows:[],error:'PDF library not loaded'});
+                continue;
+              }
+              try{
+                r=await importPDF(f);
+                r.label=f.name;
+              }catch(e){
+                console.error('PDF parse error',e);
+                alert('PDF parse failed for '+f.name+': '+(e.message||e));
+                results.push({name:f.name,type:'error',imported:0,skipped:0,merged:0,merges:[],feeUpdates:[],balRows:[],error:e.message||'parse failed'});
+                continue;
+              }
+            } else {
+              const text=await f.text();
+              r=importCSV(text,f.name);
+              r.label=f.name;
+            }
             await commitImport(r);
-            results.push({name:f.name,type:r.type,imported:r.imported,skipped:r.skipped,merged:r.merged,merges:r.merges,feeUpdates:r.feeUpdates,balRows:r.balRows});
-            tot+=r.imported;totS+=r.skipped;totM+=r.merged;totF+=(r.feeUpdates||[]).length;
+            results.push({name:f.name,type:r.type,imported:r.imported||0,skipped:r.skipped||0,merged:r.merged||0,merges:r.merges||[],feeUpdates:r.feeUpdates||[],balRows:r.balRows||[]});
+            tot+=(r.imported||0);totS+=(r.skipped||0);totM+=(r.merged||0);totF+=(r.feeUpdates||[]).length;
           }
           const rd=el('import-result');
           if(rd){rd.style.display='block';
