@@ -8,6 +8,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
 <style>
 /* ── THEMES ── */
@@ -22,7 +24,10 @@
 [data-theme="ocean"]{--bg:#020810;--bg1:#060e1e;--bg2:#040a18;--bg3:#030810;--border:#0e2040;--border2:#0a1830;--text:#b8d0e8;--text2:#8090a8;--text3:#506080;--text4:#304050;--text5:#202838;--green:#00d4ff;--red:#ff4060;--yellow:#ffd060;}
 [data-theme="carbon"]{--bg:#080808;--bg1:#111111;--bg2:#0d0d0d;--bg3:#0a0a0a;--border:#222;--border2:#1a1a1a;--text:#d0d0d0;--text2:#a0a0a0;--text3:#686868;--text4:#484848;--text5:#282828;--green:#00e060;--red:#ff3040;--yellow:#ffc840;}
 [data-theme="terminal"]{--bg:#000a00;--bg1:#001000;--bg2:#000c00;--bg3:#000800;--border:#003000;--border2:#002000;--text:#00e060;--text2:#00a040;--text3:#007030;--text4:#005020;--text5:#003010;--green:#00ff80;--red:#ff4000;--yellow:#c0e000;}
-[data-density="compact"]{--pad:10px;--card-pad:9px 12px;--mini-pad:7px 10px;--fs:12px;--fsm:10px;--fss:9px;--fsxs:8px;}
+[data-density="compact"]{--pad:8px;--card-pad:7px 10px;--mini-pad:6px 9px;--fs:11px;--fsm:10px;--fss:9px;--fsxs:8px;}
+[data-density="compact"] .content{padding:14px 18px}
+[data-density="compact"] th,[data-density="compact"] td{padding:5px 8px}
+[data-density="compact"] .sec-hd{padding:8px 14px}
 [data-density="large"]{--pad:22px;--card-pad:18px 22px;--mini-pad:14px 18px;--fs:14px;--fsm:12px;--fss:11px;--fsxs:10px;}
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -108,11 +113,16 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 </style>
 </head>
 <body>
-<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px"><div class="spinner" style="width:26px;height:26px"></div><div style="font-size:10px;letter-spacing:3px;color:var(--text5)">LOADING EDGE LOG v11.4...</div></div></div>
+<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px"><div style="font-family:'Bebas Neue',monospace;font-size:36px;letter-spacing:5px;color:#00e5a0">EDGE LOG</div><div style="width:240px;height:3px;background:#1e1e36;overflow:hidden;position:relative"><div id="loadbar" style="height:100%;background:#00e5a0;width:0%;transition:width .3s ease"></div></div><div id="loadtxt" style="font-size:10px;letter-spacing:3px;color:#404060">INITIALIZING v12.1...</div></div></div>
 <script>
-const VERSION='11.7';
+// Animate loading bar
+let _lp=0;const _li=setInterval(()=>{_lp=Math.min(95,_lp+Math.random()*15);const b=document.getElementById('loadbar');if(b)b.style.width=_lp+'%';const t=document.getElementById('loadtxt');if(t){if(_lp<30)t.textContent='CONNECTING TO FIREBASE...';else if(_lp<60)t.textContent='LOADING TRADES...';else if(_lp<90)t.textContent='BUILDING UI...';else t.textContent='ALMOST READY...';}},150);
+window._finishLoad=()=>{clearInterval(_li);const b=document.getElementById('loadbar');if(b)b.style.width='100%';};
+</script>
+<script>
+const VERSION='12.1';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
-const DEFAULT_FEES={ES:4.50,MES:1.25,NQ:4.50,MNQ:1.25,CL:4.50,GC:4.50,SI:4.50,ZB:4.50,RTY:4.50,YM:4.50,ZN:4.50,ZC:4.50,NG:4.50,MGC:1.25,MCL:1.25};
+const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
 const TIMEFRAMES=['—','5s','15s','30s','1m','2m','3m','5m','10m','15m','30m','1h','2h','4h','Daily','Weekly'];
 const TABS=['overview','journal','lessons','analytics','data','settings'];
@@ -274,6 +284,167 @@ async function updateTrade(id,data){if(colRef)return colRef.doc(id).update(data)
 async function deleteTrade(id){if(colRef&&confirm('Delete this trade?'))await colRef.doc(id).delete();}
 async function addLesson(e){if(lessonRef)await lessonRef.add({...e,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}
 async function deleteLesson(id){if(lessonRef&&confirm('Delete?'))await lessonRef.doc(id).delete();}
+
+
+// ── NinjaTrader PDF Statement Parser ─────────────────────────────
+async function importPDF(file){
+  if(!window.pdfjsLib){throw new Error('PDF library not loaded. Refresh and try again.');}
+  const arrayBuf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:arrayBuf}).promise;
+  let fullText='';
+  for(let i=1;i<=pdf.numPages;i++){
+    const page=await pdf.getPage(i);
+    const content=await page.getTextContent();
+    // Sort items by Y then X for proper reading order
+    const items=content.items.sort((a,b)=>{
+      const yDiff=Math.abs(a.transform[5]-b.transform[5]);
+      if(yDiff>2)return b.transform[5]-a.transform[5];
+      return a.transform[4]-b.transform[4];
+    });
+    let lastY=null,line='';
+    const lines=[];
+    items.forEach(it=>{
+      const y=it.transform[5];
+      if(lastY!==null&&Math.abs(y-lastY)>2){
+        if(line.trim())lines.push(line.trim());
+        line='';
+      }
+      line+=' '+it.str;
+      lastY=y;
+    });
+    if(line.trim())lines.push(line.trim());
+    fullText+=lines.join('\n')+'\n';
+  }
+  // Parse the NinjaTrader statement
+  const result={batch:[],merges:[],feeUpdates:[],balRows:[],imported:0,skipped:0,merged:0,type:'pdf_statement',label:file.name};
+  // Get beginning balance
+  const begMatch=fullText.match(/Beginning balance\s+([\d,.]+)/i);
+  if(begMatch){
+    const begBal=parseFloat(begMatch[1].replace(/,/g,''));
+    if(begBal>0&&(!accountEquity||accountEquity===0))accountEquity=begBal;
+  }
+  // Get ending balance
+  const endMatch=fullText.match(/Ending Balance\s+US\$?\s+([\d,.]+)/i);
+  let endingBal=null;
+  if(endMatch)endingBal=parseFloat(endMatch[1].replace(/,/g,''));
+  // Get statement date
+  const dateMatch=fullText.match(/(?:Daily|Monthly) Statement\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  const stmtDate=dateMatch?parseDate(dateMatch[1]):null;
+  if(stmtDate&&endingBal)result.balRows.push({date:stmtDate,balance:endingBal});
+  // Parse Daily Activity Summary rows: "MM/DD/YYYY SYMBOL Contracts Exch Comm NFA PNL ..."
+  const dailyLines=fullText.split('\n');
+  let i=0;
+  while(i<dailyLines.length){
+    const line=dailyLines[i].trim();
+    const dateMatchLine=line.match(/^(\d{2}\/\d{2}\/\d{4})\s+([A-Z]{2,6})/);
+    if(dateMatchLine){
+      // Next line usually has the numbers
+      const nextLine=(dailyLines[i+1]||'').trim();
+      const numbers=nextLine.match(/-?[\d,]+\.?\d*/g);
+      if(numbers&&numbers.length>=5){
+        const tradeDate=parseDate(dateMatchLine[1]);
+        const symRaw=dateMatchLine[2];
+        const baseSym=getBase(symRaw);
+        const sym=PRESETS[baseSym]?baseSym:baseSym;
+        const contracts=parseInt(numbers[0])||0;
+        const exch=Math.abs(parseFloat(numbers[1].replace(/,/g,''))||0);
+        const comm=Math.abs(parseFloat(numbers[2].replace(/,/g,''))||0);
+        const nfa=Math.abs(parseFloat(numbers[3].replace(/,/g,''))||0);
+        const pnl=parseFloat(numbers[4].replace(/,/g,''))||0;
+        // Skip if no contracts (means non-trade row like ACH Deposit)
+        if(contracts>0&&!isNaN(pnl)){
+          // Match to existing trades for this date+symbol
+          const dayTrades=trades.filter(t=>t.date===tradeDate&&t.symbol===sym);
+          if(dayTrades.length){
+            // Total fees from PDF (excluding clearing — that's a separate line)
+            const dayTotalFees=exch+comm+nfa;
+            // Distribute fees by number of contracts
+            const totalContracts=dayTrades.reduce((s,t)=>s+(t.size||1),0);
+            const feePerContract=totalContracts>0?dayTotalFees/totalContracts:0;
+            dayTrades.forEach(t=>{
+              const tradeFee=+(feePerContract*(t.size||1)).toFixed(2);
+              if(Math.abs((t.fees||0)-tradeFee)>0.005){
+                result.feeUpdates.push({id:t.id,fees:tradeFee,trade:t});
+              }
+            });
+          }
+        }
+        i+=2;continue;
+      }
+    }
+    // Also look for Clearing_Fee lines that follow
+    if(line.match(/Clearing_Fee/i)){
+      const nextLine=(dailyLines[i+1]||'').trim();
+      const clearMatch=nextLine.match(/-?[\d,.]+/g);
+      // Extract clearing fee and add to previous day's fees
+      // Get date from previous lines
+      let dateBack=null;
+      for(let j=i-1;j>=Math.max(0,i-5);j--){
+        const m=dailyLines[j].match(/^(\d{2}\/\d{2}\/\d{4})/);
+        if(m){dateBack=parseDate(m[1]);break;}
+      }
+      if(dateBack&&clearMatch&&clearMatch.length){
+        const clearAmt=Math.abs(parseFloat(clearMatch[clearMatch.length-2]||clearMatch[clearMatch.length-1]||'0'));
+        if(clearAmt>0){
+          const dayTrades=trades.filter(t=>t.date===dateBack);
+          if(dayTrades.length){
+            const perTrade=clearAmt/dayTrades.length;
+            dayTrades.forEach(t=>{
+              // Add to existing pending fee update if any
+              const existing=result.feeUpdates.find(f=>f.id===t.id);
+              if(existing){existing.fees=+(existing.fees+perTrade).toFixed(2);}
+              else result.feeUpdates.push({id:t.id,fees:+((t.fees||0)+perTrade).toFixed(2),trade:t});
+            });
+          }
+        }
+      }
+    }
+    i++;
+  }
+  // Parse Fills section for direction confirmation
+  // "MM/DD/YYYY HH:MM:SS PM(GMT) FILL [Buy Qty] [Sell Qty] [Price] [OrderId]"
+  const fillsMap={}; // sym|date -> [{time, side, price}]
+  for(let j=0;j<dailyLines.length;j++){
+    const fillMatch=dailyLines[j].match(/^(\d{2}\/\d{2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(?:AM|PM)?\(?GMT?\)?\s+FILL/i);
+    if(!fillMatch)continue;
+    const restOfLine=dailyLines[j].substring(fillMatch[0].length).trim();
+    const parts=restOfLine.split(/\s+/);
+    // Find which is buy qty, sell qty: pattern is "1 - price orderId" or "- 1 price orderId"
+    let side=null,qty=1,price=null,orderId='';
+    if(parts[0]&&parts[0]!=='-'){side='BUY';qty=parseInt(parts[0])||1;price=parseFloat(parts[2]);orderId=parts[3]||'';}
+    else if(parts[1]&&parts[1]!=='-'){side='SELL';qty=parseInt(parts[1])||1;price=parseFloat(parts[2]);orderId=parts[3]||'';}
+    if(!side||!price)continue;
+    // Find symbol from preceding "Trading details for" section
+    let sym=null;
+    for(let k=j-1;k>=Math.max(0,j-30);k--){
+      const symMatch=dailyLines[k].match(/Trading details for.*\(([A-Z]{2,6})M?\d?\)/i);
+      if(symMatch){sym=getBase(symMatch[1]);break;}
+    }
+    if(!sym)continue;
+    const date=parseDate(fillMatch[1]);
+    const key=sym+'|'+date;
+    if(!fillsMap[key])fillsMap[key]=[];
+    fillsMap[key].push({time:fillMatch[2],side,price,orderId});
+  }
+  // Use fills to verify direction
+  Object.entries(fillsMap).forEach(([key,fills])=>{
+    fills.sort((a,b)=>a.time.localeCompare(b.time));
+    if(fills.length<2)return;
+    const correctDir=fills[0].side==='BUY'?'LONG':'SHORT';
+    const [sym,date]=key.split('|');
+    const dayTrades=trades.filter(t=>t.date===date&&t.symbol===sym);
+    dayTrades.forEach(t=>{
+      if(t.type!==correctDir){
+        const actualEntry=correctDir==='LONG'?Math.min(t.entry,t.exit):Math.max(t.entry,t.exit);
+        const actualExit=correctDir==='LONG'?Math.max(t.entry,t.exit):Math.min(t.entry,t.exit);
+        const newCalc=tradeCalc(t.symbol,correctDir,actualEntry,actualExit,t.size,t.fees||0);
+        result.merges.push({id:t.id,updates:{type:correctDir,entry:actualEntry,exit:actualExit,grossPnl:newCalc.grossPnl,pnl:newCalc.pnl},desc:'direction from PDF fills'});
+      }
+    });
+  });
+  result.merged=result.merges.length;
+  return result;
+}
 
 // CSV Parsing
 function parseLine(l){const r=[];let c='',q=false;for(const ch of l){if(ch==='"')q=!q;else if(ch===','&&!q){r.push(c.trim());c='';}else c+=ch;}r.push(c.trim());return r.map(f=>f.replace(/^"|"$/g,'').trim());}
@@ -1073,6 +1244,8 @@ function openEditModal(tradeId){
 //  MAIN RENDER
 // ══════════════════════════════════════════════════════════════════
 function renderApp(){
+  if(window._finishLoad){window._finishLoad();delete window._finishLoad;}
+
   const S=calcStats(trades);
   const filtered=applyFilters(trades);
   const app=document.getElementById('app');
@@ -1354,7 +1527,7 @@ function renderApp(){
     if(!filtered.length){const e=document.createElement('div');e.style.cssText='border:1px dashed var(--border);padding:48px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px';e.textContent=trades.length?'NO TRADES MATCH FILTER':'NO TRADES YET';content.appendChild(e);}
     else{
       const tw=document.createElement('div');tw.className='section';tw.style.overflowX='auto';
-      const exH=showAllCols?'<th>GROSS</th><th>DUR</th><th>TF</th><th>ORDER ID</th><th>IN</th><th>OUT</th><th>SRC</th>':'';
+      const exH=showAllCols?'<th>GROSS</th><th>DUR</th><th>ORDER ID</th><th>IN</th><th>OUT</th><th>SRC</th>':'';
       // Apply sort
       const sortedFiltered=[...filtered].sort((a,b)=>{
         let av=a[sortCol],bv=b[sortCol];
@@ -1371,7 +1544,7 @@ function renderApp(){
         _eqPcts[t.id]=prev>0?+((t.pnl/prev)*100).toFixed(2):null;
       });
       const tbody=sortedFiltered.map((t,i)=>{
-        const ex=showAllCols?`<td style="color:var(--text3)">${fmt(t.grossPnl||t.pnl)}</td><td style="color:var(--text4)">${fmtDur(t.durationMins)}</td><td><span class="tag" style="font-size:8px">${t.timeframe||'—'}</span></td><td style="color:var(--text5);font-size:var(--fsxs)">${t.orderId||'—'}</td><td style="color:var(--text4)">${t.entryTime||'—'}</td><td style="color:var(--text4)">${t.exitTime||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
+        const ex=showAllCols?`<td style="color:var(--text3);font-size:var(--fsxs)">${fmt(t.grossPnl||t.pnl)}</td><td style="color:var(--text4);font-size:var(--fsxs)">${fmtDur(t.durationMins)}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.orderId||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.entryTime||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.exitTime||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
         return`<tr class="tr-row" data-id="${t.id}">
           <td style="color:var(--text5)">${String(sortedFiltered.length-i).padStart(2,'0')}</td>
           <td style="color:var(--text4);white-space:nowrap">${t.date}</td>
@@ -1732,7 +1905,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             <div style="font-size:28px;margin-bottom:8px">📂</div>
             <div style="font-size:var(--fsm);color:var(--text3)">DROP CSV(S) HERE or CLICK TO BROWSE</div>
             <div style="font-size:var(--fsxs);color:var(--text5);margin-top:8px;line-height:2">NT8 Position History · NT8 Cash History · Performance CSV · Fills · Stocks · Multiple files OK</div>
-            <input type="file" id="csv-input" accept=".csv" multiple style="display:none"/>
+            <input type="file" id="csv-input" accept=".csv,.pdf" multiple style="display:none"/>
           </div>
           <div id="import-result" style="display:none;margin-top:9px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border2);font-size:var(--fsm);color:var(--text3)"></div>
         </div>
