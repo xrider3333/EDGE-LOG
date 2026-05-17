@@ -113,14 +113,14 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 </style>
 </head>
 <body>
-<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px"><div style="font-family:'Bebas Neue',monospace;font-size:36px;letter-spacing:5px;color:#00e5a0">EDGE LOG</div><div style="width:240px;height:3px;background:#1e1e36;overflow:hidden;position:relative"><div id="loadbar" style="height:100%;background:#00e5a0;width:0%;transition:width .3s ease"></div></div><div id="loadtxt" style="font-size:10px;letter-spacing:3px;color:#404060">INITIALIZING v12.6...</div></div></div>
+<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px"><div style="font-family:'Bebas Neue',monospace;font-size:36px;letter-spacing:5px;color:#00e5a0">EDGE LOG</div><div style="width:240px;height:3px;background:#1e1e36;overflow:hidden;position:relative"><div id="loadbar" style="height:100%;background:#00e5a0;width:0%;transition:width .3s ease"></div></div><div id="loadtxt" style="font-size:10px;letter-spacing:3px;color:#404060">INITIALIZING v12.7...</div></div></div>
 <script>
 // Animate loading bar
 let _lp=0;const _li=setInterval(()=>{_lp=Math.min(95,_lp+Math.random()*15);const b=document.getElementById('loadbar');if(b)b.style.width=_lp+'%';const t=document.getElementById('loadtxt');if(t){if(_lp<30)t.textContent='CONNECTING TO FIREBASE...';else if(_lp<60)t.textContent='LOADING TRADES...';else if(_lp<90)t.textContent='BUILDING UI...';else t.textContent='ALMOST READY...';}},150);
 window._finishLoad=()=>{clearInterval(_li);const b=document.getElementById('loadbar');if(b)b.style.width='100%';};
 </script>
 <script>
-const VERSION='12.6';
+const VERSION='12.7';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1388,7 +1388,7 @@ function renderApp(){
 
   // ══ OVERVIEW ══
   if(activeTab==='overview'){
-    if(!S){content.innerHTML='<div style="border:1px dashed var(--border);padding:80px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO TRADES — USE DATA TAB TO IMPORT OR ADD IN JOURNAL</div>';return;}
+    if(!S){content.innerHTML='<div style="border:1px dashed var(--border);padding:80px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO TRADES — USE DATA TAB TO IMPORT OR ADD IN TRADES</div>';return;}
     const modeLabel=useGross?'<span style="color:var(--yellow);font-size:var(--fsxs);margin-left:6px">[GROSS]</span>':'';
 
     content.innerHTML=`
@@ -1720,7 +1720,7 @@ function renderApp(){
   // ══ LESSONS ══
   if(activeTab==='lessons'){
     const hd=document.createElement('div');hd.className='section';hd.style.marginBottom='14px';
-    hd.innerHTML=`<div class="sec-hd"><span style="color:var(--green)">＋ NEW JOURNAL ENTRY</span></div>
+    hd.innerHTML=`<div class="sec-hd"><span style="color:var(--green)">＋ NEW TRADE ENTRY</span></div>
       <div style="padding:14px;display:flex;flex-direction:column;gap:9px">
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px">
           <div><label class="lbl">TITLE</label><input id="lt" placeholder="e.g. Chased a breakout — overtraded the open"/></div>
@@ -2160,7 +2160,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     <div class="section" style="margin-bottom:12px">
       <div class="sec-hd">CUSTOM SETUP TYPES</div>
       <div style="padding:14px">
-        <div style="font-size:var(--fsm);color:var(--text4);margin-bottom:10px;line-height:1.8">Add your own trade setup labels (EBU, CBU, ENGU, HOD, etc.). These replace the default list in the journal and analytics.</div>
+        <div style="font-size:var(--fsm);color:var(--text4);margin-bottom:10px;line-height:1.8">Add your own trade setup labels (EBU, CBU, ENGU, HOD, etc.). These replace the default list in the trades view and analytics.</div>
         <div id="setups-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
           ${customSetups.map((s,i)=>`<div style="display:flex;align-items:center;gap:0;background:var(--bg2);border:1px solid var(--border)"><span style="padding:4px 10px;font-size:var(--fsm);color:var(--text2)">${s}</span>${s!=='—'?`<button onclick="removeSetup(${i})" style="background:none;border:none;color:var(--text5);padding:4px 7px;cursor:pointer;font-size:12px">✕</button>`:''}</div>`).join('')}
         </div>
@@ -2205,7 +2205,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     <div class="section" style="margin-bottom:12px">
       <div class="sec-hd">CUSTOM TAGS</div>
       <div style="padding:14px">
-        <div style="font-size:var(--fsm);color:var(--text4);margin-bottom:10px;line-height:1.8">Create reusable tags to label trades (e.g. "revenge trade", "news play", "trend day"). Tags appear in the journal and can be filtered.</div>
+        <div style="font-size:var(--fsm);color:var(--text4);margin-bottom:10px;line-height:1.8">Create reusable tags to label trades (e.g. "revenge trade", "news play", "trend day"). Tags appear in the trades view and can be filtered.</div>
         <div id="tags-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
           ${customTags.map((tag,i)=>`<div style="display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border);padding:4px 10px;gap:6px"><span style="font-size:var(--fsm);color:var(--text2)">${tag}</span><button onclick="removeCustomTag(${i})" style="background:none;border:none;color:var(--text5);cursor:pointer;font-size:12px;padding:0">✕</button></div>`).join('')}
           ${!customTags.length?'<span style="color:var(--text5);font-size:var(--fsm)">No tags yet</span>':''}
