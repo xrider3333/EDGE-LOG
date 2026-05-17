@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='12.95';
+const VERSION='12.97';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -196,6 +196,124 @@ if(_storedEquity>0)accountEquity=_storedEquity;
 let uploadHistory=JSON.parse(localStorage.getItem('el_uploads')||'[]');
 let ledgerEvents=JSON.parse(localStorage.getItem('el_ledger')||'[]');
 let customTags=JSON.parse(localStorage.getItem('el_tags')||'[]');
+
+// ── Duplicate trade scanner ──────────────────────────────────────
+window.findDuplicateTrades=function(){
+  const groups={};
+  trades.forEach(t=>{
+    const key=t.date+'|'+t.symbol;
+    if(!groups[key])groups[key]=[];
+    groups[key].push(t);
+  });
+  const dupes=[];
+  Object.values(groups).forEach(group=>{
+    if(group.length<2)return;
+    for(let i=0;i<group.length;i++){
+      for(let j=i+1;j<group.length;j++){
+        const a=group[i],b=group[j];
+        const entryClose=Math.abs(a.entry-b.entry)<0.5;
+        const exitClose=Math.abs(a.exit-b.exit)<0.5;
+        const sameDir=a.type===b.type;
+        if(entryClose&&exitClose&&sameDir){
+          if(!dupes.some(d=>d.includes(a)||d.includes(b)))dupes.push([a,b]);
+        }
+      }
+    }
+  });
+  return dupes;
+};
+
+window.scanForDuplicates=async function(){
+  const dupes=window.findDuplicateTrades();
+  if(!dupes.length){alert('No duplicate trades found. ✓');return;}
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:30px;overflow-y:auto';
+  const box=document.createElement('div');
+  box.style.cssText='background:var(--bg1);border:1px solid var(--border);max-width:900px;width:100%;max-height:85vh;overflow-y:auto;padding:24px';
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+    <div>
+      <div style="font-family:'Bebas Neue',monospace;font-size:24px;letter-spacing:3px;color:var(--yellow)">⚠ DUPLICATE TRADES FOUND</div>
+      <div style="color:var(--text4);font-size:var(--fsm);margin-top:4px">${dupes.length} potential duplicate pair${dupes.length>1?'s':''} detected</div>
+    </div>
+    <button id="dupe-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:6px 14px;cursor:pointer;font-family:inherit">CLOSE</button>
+  </div>
+  <div style="color:var(--text4);font-size:var(--fsxs);margin-bottom:14px;line-height:1.8">
+    Each pair below has matching date + symbol + direction + entry/exit prices (within $0.50). Choose which trade to keep — the other will be deleted.
+  </div>
+  ${dupes.map((pair,i)=>{
+    const [a,b]=pair;
+    return `<div style="border:1px solid var(--border2);background:var(--bg2);margin-bottom:12px" data-dupe-idx="${i}">
+      <div style="background:var(--bg3);padding:8px 14px;font-size:var(--fsxs);color:var(--text3);letter-spacing:1px">PAIR ${i+1}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border)">
+        ${[a,b].map((t,idx)=>`<div style="background:var(--bg1);padding:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-family:'Bebas Neue',monospace;font-size:14px;color:var(--text2)">TRADE ${idx===0?'A':'B'}</span>
+            <span style="font-size:8px;color:var(--text5)">${t.source||'?'}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:var(--fsxs)">
+            <div><span style="color:var(--text5)">Date:</span> <span style="color:var(--text2)">${t.date}</span></div>
+            <div><span style="color:var(--text5)">Symbol:</span> <span style="color:var(--text2)">${t.symbol}</span></div>
+            <div><span style="color:var(--text5)">Dir:</span> <span style="color:${t.type==='LONG'?'var(--green)':'var(--blue)'}">${t.type}</span></div>
+            <div><span style="color:var(--text5)">Size:</span> <span style="color:var(--text2)">${t.size}</span></div>
+            <div><span style="color:var(--text5)">Entry:</span> <span style="color:var(--text2)">${t.entry}</span></div>
+            <div><span style="color:var(--text5)">Exit:</span> <span style="color:var(--text2)">${t.exit}</span></div>
+            <div><span style="color:var(--text5)">Fees:</span> <span style="color:var(--yellow)">-$${(t.fees||0).toFixed(2)}</span></div>
+            <div><span style="color:var(--text5)">P&L:</span> <span style="color:${t.pnl>=0?'var(--green)':'var(--red)'};font-weight:bold">${t.pnl>=0?'+':''}$${t.pnl.toFixed(2)}</span></div>
+          </div>
+          <button class="btn-g dupe-keep-btn" data-keep="${idx===0?'a':'b'}" data-pair="${i}" style="margin-top:10px;width:100%;font-size:var(--fsxs);padding:6px 0">KEEP THIS, DELETE OTHER</button>
+        </div>`).join('')}
+      </div>
+      <div style="background:var(--bg2);padding:8px 14px;display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn-r dupe-delboth-btn" data-pair="${i}" style="font-size:var(--fsxs);padding:5px 12px">DELETE BOTH</button>
+        <button class="btn-d dupe-keepboth-btn" data-pair="${i}" style="font-size:var(--fsxs);padding:5px 12px">KEEP BOTH</button>
+      </div>
+    </div>`;
+  }).join('')}
+  <div style="margin-top:14px;text-align:right">
+    <button id="dupe-done" class="btn-y" style="padding:8px 18px">DONE</button>
+  </div>`;
+  modal.appendChild(box);
+  document.body.appendChild(modal);
+  modal.querySelectorAll('.dupe-keep-btn').forEach(btn=>{
+    btn.onclick=async()=>{
+      const idx=parseInt(btn.dataset.pair);
+      const keep=btn.dataset.keep;
+      const pair=dupes[idx];
+      const toDelete=keep==='a'?pair[1]:pair[0];
+      try{await colRef.doc(toDelete.id).delete();
+        const card=modal.querySelector(`[data-dupe-idx="${idx}"]`);
+        if(card){card.style.opacity='.3';card.style.pointerEvents='none';
+          card.insertAdjacentHTML('afterbegin','<div style="background:var(--green);color:var(--bg);padding:6px 14px;font-size:var(--fsxs);text-align:center">✓ KEPT TRADE '+keep.toUpperCase()+'</div>');}
+      }catch(e){alert('Delete failed: '+e.message);}
+    };
+  });
+  modal.querySelectorAll('.dupe-delboth-btn').forEach(btn=>{
+    btn.onclick=async()=>{
+      const idx=parseInt(btn.dataset.pair);
+      const pair=dupes[idx];
+      if(!confirm('Delete BOTH trades in pair '+(idx+1)+'?'))return;
+      try{
+        await colRef.doc(pair[0].id).delete();
+        await colRef.doc(pair[1].id).delete();
+        const card=modal.querySelector(`[data-dupe-idx="${idx}"]`);
+        if(card){card.style.opacity='.3';card.style.pointerEvents='none';
+          card.insertAdjacentHTML('afterbegin','<div style="background:var(--red);color:var(--bg);padding:6px 14px;font-size:var(--fsxs);text-align:center">✓ DELETED BOTH</div>');}
+      }catch(e){alert('Delete failed: '+e.message);}
+    };
+  });
+  modal.querySelectorAll('.dupe-keepboth-btn').forEach(btn=>{
+    btn.onclick=()=>{
+      const idx=parseInt(btn.dataset.pair);
+      const card=modal.querySelector(`[data-dupe-idx="${idx}"]`);
+      if(card){card.style.opacity='.5';card.style.pointerEvents='none';
+        card.insertAdjacentHTML('afterbegin','<div style="background:var(--bg3);color:var(--text3);padding:6px 14px;font-size:var(--fsxs);text-align:center">✓ KEPT BOTH</div>');}
+    };
+  });
+  const closeFn=()=>{modal.remove();renderApp();};
+  document.getElementById('dupe-close').onclick=closeFn;
+  document.getElementById('dupe-done').onclick=closeFn;
+};
+
 let distMetric='pnl'; // pnl | pts | pct | dur
 let analyticsSubTab='summary'; // summary | charts | deepagnostics | ai // -1=desc, 1=asc
 let pendingMerges=[],pendingApprovalCb=null; // change approval queue
