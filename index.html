@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='12.93';
+const VERSION='12.94';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -608,7 +608,8 @@ function importCSV(text,label){
     // Fee rows: Exchange Fee, Clearing Fee, Nfa Fee, Commission (each as separate line item)
     // Balance rows: Amount column = running balance AFTER each transaction
     // Trade Paired rows: Delta = gross P/L — DO NOT count as fee
-    const feeUpdates=[],balRows=[];
+    const feeUpdates=[],balRows=[],ledgerFromCSV=[];
+    const pdfLedgerSeen={};
     const FEE_TYPES=['exchange fee','clearing fee','nfa fee','commission','regulatory','exchange','clearing','nfa'];
     const SKIP_TYPES=['trade paired','interest','dividend']; // Note: fund transaction handled separately for starting balance
     // Group fees by date
@@ -624,11 +625,25 @@ function importCSV(text,label){
       const runBal=parseFloat(row[5]||'NaN'); // Amount col = running balance
       // Track running balance from any row that has it
       if(!isNaN(runBal)&&runBal>50)balRows.push({date,balance:runBal});
-      // Fund Transaction = starting deposit → use as account equity baseline
-      if(ctype.includes('fund transaction')||ctype.includes('deposit')){
-        if(!isNaN(amount)&&amount>0&&!foundStartingBalance){
-          accountEquity=amount;
-          foundStartingBalance=true;
+      // Fund Transaction / Deposit / Withdrawal / ACH — track every event
+      if(ctype.includes('fund transaction')||ctype.includes('deposit')||ctype.includes('withdrawal')||ctype.includes('ach')||ctype.includes('wire')){
+        if(!isNaN(amount)&&amount!==0){
+          // Build unique key to dedupe across re-imports
+          const evKey=date+'|'+amount.toFixed(2)+'|'+ctype;
+          if(!pdfLedgerSeen[evKey]){
+            pdfLedgerSeen[evKey]=true;
+            ledgerFromCSV.push({
+              date,
+              amount,
+              type:amount>0?'DEPOSIT':'WITHDRAWAL',
+              desc:ctypeRaw||'Fund Transaction'
+            });
+          }
+          // First positive event = starting equity baseline
+          if(amount>0&&!foundStartingBalance){
+            accountEquity=amount;
+            foundStartingBalance=true;
+          }
         }
         continue;
       }
