@@ -161,6 +161,7 @@ let filters={sym:'',dir:'',grade:'',setup:'',tf:'',dateFrom:'',dateTo:'',minPnl:
 let sortCol='date',sortDir=-1;
 let accountEquity=0,calMonth=new Date().toISOString().slice(0,7);
 let uploadHistory=JSON.parse(localStorage.getItem('el_uploads')||'[]');
+let ledgerEvents=JSON.parse(localStorage.getItem('el_ledger')||'[]');
 let customTags=JSON.parse(localStorage.getItem('el_tags')||'[]');
 let distMetric='pnl'; // pnl | pts | pct | dur
 let analyticsSubTab='summary'; // summary | charts | deepagnostics | ai // -1=desc, 1=asc
