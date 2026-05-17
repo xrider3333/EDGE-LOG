@@ -113,14 +113,14 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 </style>
 </head>
 <body>
-<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px"><div style="font-family:'Bebas Neue',monospace;font-size:36px;letter-spacing:5px;color:#00e5a0">EDGE LOG</div><div style="width:240px;height:3px;background:#1e1e36;overflow:hidden;position:relative"><div id="loadbar" style="height:100%;background:#00e5a0;width:0%;transition:width .3s ease"></div></div><div id="loadtxt" style="font-size:10px;letter-spacing:3px;color:#404060">INITIALIZING v12.4...</div></div></div>
+<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px"><div style="font-family:'Bebas Neue',monospace;font-size:36px;letter-spacing:5px;color:#00e5a0">EDGE LOG</div><div style="width:240px;height:3px;background:#1e1e36;overflow:hidden;position:relative"><div id="loadbar" style="height:100%;background:#00e5a0;width:0%;transition:width .3s ease"></div></div><div id="loadtxt" style="font-size:10px;letter-spacing:3px;color:#404060">INITIALIZING v12.5...</div></div></div>
 <script>
 // Animate loading bar
 let _lp=0;const _li=setInterval(()=>{_lp=Math.min(95,_lp+Math.random()*15);const b=document.getElementById('loadbar');if(b)b.style.width=_lp+'%';const t=document.getElementById('loadtxt');if(t){if(_lp<30)t.textContent='CONNECTING TO FIREBASE...';else if(_lp<60)t.textContent='LOADING TRADES...';else if(_lp<90)t.textContent='BUILDING UI...';else t.textContent='ALMOST READY...';}},150);
 window._finishLoad=()=>{clearInterval(_li);const b=document.getElementById('loadbar');if(b)b.style.width='100%';};
 </script>
 <script>
-const VERSION='12.4';
+const VERSION='12.5';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -427,31 +427,49 @@ async function importPDF(file){
     const [sym,date]=key.split('|');
     const useSym=PRESETS[sym]?sym:sym;
     const dayInfo=dailyData[key];
-    // Build trade pairs by net position tracking
-    // Track running position: when it goes from 0 to non-zero = entry
-    // When it returns to 0 = exit (close trade)
+    // Build trades from fills using proper position tracking
+    // Supports scale-in (adding) and scale-out (partial exits)
+    // A trade opens when position leaves zero and closes when it returns to zero
     const trades_=[];
-    let pos=0,entryPrice=null,entryTime=null,entrySide=null,entryOid='',entryQty=0;
+    let pos=0;
+    let entryQty=0,entryNotional=0,entryTime=null,entrySide=null,entryOid='';
+    let exitQty=0,exitNotional=0,exitTime=null;
     fills.forEach(f=>{
       const delta=f.side==='BUY'?f.qty:-f.qty;
       const newPos=pos+delta;
-      if(pos===0&&newPos!==0){
-        // Opening
-        entryPrice=f.price;entryTime=f.time;entrySide=f.side;entryOid=f.orderId;entryQty=Math.abs(delta);
-      } else if(pos!==0&&newPos===0){
-        // Closing
+      const isAddToPosition=pos===0||Math.sign(delta)===Math.sign(pos);
+      const isReducePosition=pos!==0&&Math.sign(delta)!==Math.sign(pos);
+      if(isAddToPosition){
+        if(pos===0){
+          // First fill of a new trade - initialize entry tracking
+          entrySide=f.side;entryOid=f.orderId;entryTime=f.time;
+          entryQty=Math.abs(delta);entryNotional=f.price*Math.abs(delta);
+          exitQty=0;exitNotional=0;exitTime=null;
+        } else {
+          // Scale-in: accumulate entry size & weighted price
+          entryQty+=Math.abs(delta);entryNotional+=f.price*Math.abs(delta);
+        }
+      } else if(isReducePosition){
+        // Scale-out: accumulate exit size & weighted price
+        const closingQty=Math.min(Math.abs(delta),Math.abs(pos));
+        exitQty+=closingQty;exitNotional+=f.price*closingQty;
+        exitTime=f.time;
+      }
+      // Check if trade is fully closed
+      if(pos!==0&&newPos===0){
+        // Trade complete
+        const avgEntry=entryQty>0?entryNotional/entryQty:0;
+        const avgExit=exitQty>0?exitNotional/exitQty:0;
         trades_.push({
           dir:entrySide==='BUY'?'LONG':'SHORT',
-          entry:entryPrice,exit:f.price,
-          entryTime,exitTime:f.time,
+          entry:avgEntry,exit:avgExit,
+          entryTime,exitTime,
           size:entryQty,
           orderId:entryOid
         });
-        entryPrice=null;entryTime=null;entrySide=null;entryQty=0;
-      } else if(pos!==0&&newPos!==0&&Math.sign(pos)===Math.sign(newPos)){
-        // Scaling — for simplicity treat each pair as separate trade
-        // Keep entry as weighted avg
-        entryQty+=Math.abs(delta);
+        // Reset
+        entryQty=0;entryNotional=0;entryTime=null;entrySide=null;entryOid='';
+        exitQty=0;exitNotional=0;exitTime=null;
       }
       pos=newPos;
     });
@@ -1664,7 +1682,7 @@ function renderApp(){
         <th>#</th>
         ${mkTh('DATE','date')}${mkTh('SYM','symbol')}${mkTh('DIR','type')}
         ${mkTh('ENTRY','entry')}${mkTh('EXIT','exit')}${mkTh('CTRS','size')}
-        ${mkTh('FEES','fees')}${mkTh('NET P&L','pnl')}${mkTh('ACCT','_runbal')}
+        ${mkTh('FEES','fees')}${mkTh('NET P&L','pnl')}${mkTh('PTS','_pts')}${mkTh('ACCT','_runbal')}
         ${mkTh('GRADE','grade')}${mkTh('SETUP','setup')}${mkTh('TF','timeframe')}
         <th>CHART</th><th>TAGS</th><th>NOTES</th>${exH}<th></th><th></th>
       </tr></thead><tbody>${tbody}</tbody></table>`;
