@@ -113,14 +113,14 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 </style>
 </head>
 <body>
-<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px"><div style="font-family:'Bebas Neue',monospace;font-size:36px;letter-spacing:5px;color:#00e5a0">EDGE LOG</div><div style="width:240px;height:3px;background:#1e1e36;overflow:hidden;position:relative"><div id="loadbar" style="height:100%;background:#00e5a0;width:0%;transition:width .3s ease"></div></div><div id="loadtxt" style="font-size:10px;letter-spacing:3px;color:#404060">INITIALIZING v12.8...</div></div></div>
+<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px"><div style="font-family:'Bebas Neue',monospace;font-size:36px;letter-spacing:5px;color:#00e5a0">EDGE LOG</div><div style="width:240px;height:3px;background:#1e1e36;overflow:hidden;position:relative"><div id="loadbar" style="height:100%;background:#00e5a0;width:0%;transition:width .3s ease"></div></div><div id="loadtxt" style="font-size:10px;letter-spacing:3px;color:#404060">INITIALIZING v12.9...</div></div></div>
 <script>
 // Animate loading bar
 let _lp=0;const _li=setInterval(()=>{_lp=Math.min(95,_lp+Math.random()*15);const b=document.getElementById('loadbar');if(b)b.style.width=_lp+'%';const t=document.getElementById('loadtxt');if(t){if(_lp<30)t.textContent='CONNECTING TO FIREBASE...';else if(_lp<60)t.textContent='LOADING TRADES...';else if(_lp<90)t.textContent='BUILDING UI...';else t.textContent='ALMOST READY...';}},150);
 window._finishLoad=()=>{clearInterval(_li);const b=document.getElementById('loadbar');if(b)b.style.width='100%';};
 </script>
 <script>
-const VERSION='12.8';
+const VERSION='12.9';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1160,6 +1160,30 @@ async function revertImport(histIdx){
   localStorage.setItem('el_uploads',JSON.stringify(uploadHistory));
   renderApp();
 }
+function addLedgerEvent(){
+  const dateStr=prompt('Date of deposit/withdrawal (YYYY-MM-DD):',new Date().toISOString().slice(0,10));
+  if(!dateStr)return;
+  const amtStr=prompt('Amount (negative for withdrawal):','1000');
+  if(!amtStr)return;
+  const amount=parseFloat(amtStr);
+  if(isNaN(amount)||amount===0){alert('Invalid amount');return;}
+  const desc=prompt('Description (optional):','Manual deposit')||'Manual';
+  ledgerEvents.push({date:dateStr,amount,type:amount>0?'DEPOSIT':'WITHDRAWAL',desc});
+  ledgerEvents.sort((a,b)=>a.date>b.date?1:-1);
+  localStorage.setItem('el_ledger',JSON.stringify(ledgerEvents));
+  // Also adjust accountEquity if deposit (cumulative)
+  if(amount>0&&accountEquity>0){accountEquity+=amount;localStorage.setItem('el_equity',accountEquity);}
+  renderApp();
+}
+function removeLedgerEvent(idx){
+  if(!confirm('Remove this ledger entry?'))return;
+  const ev=ledgerEvents[idx];
+  if(ev&&ev.amount>0&&accountEquity>0)accountEquity-=ev.amount;
+  ledgerEvents.splice(idx,1);
+  localStorage.setItem('el_ledger',JSON.stringify(ledgerEvents));
+  localStorage.setItem('el_equity',accountEquity);
+  renderApp();
+}
 function removeCustomTag(idx){customTags.splice(idx,1);localStorage.setItem('el_tags',JSON.stringify(customTags));renderApp();}
 function setSortCol(col){if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=col==='date'?-1:-1;}renderApp();}
 
@@ -1508,6 +1532,38 @@ function renderApp(){
 
   // ══ JOURNAL ══
   if(activeTab==='trades'){
+    // Ledger banner — show deposits/withdrawals
+    if(ledgerEvents&&ledgerEvents.length){
+      const totalDeposits=ledgerEvents.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
+      const totalWithdrawals=ledgerEvents.filter(e=>e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
+      const lb=document.createElement('div');
+      lb.className='section';lb.style.marginBottom='10px';
+      lb.innerHTML=`<div class="sec-hd">
+        <span>ACCOUNT LEDGER · DEPOSITS / WITHDRAWALS</span>
+        <span style="display:flex;gap:14px;font-size:var(--fsxs)">
+          <span style="color:var(--text4)">DEPOSITS <span style="color:var(--green)">+$${totalDeposits.toLocaleString()}</span></span>
+          ${totalWithdrawals>0?`<span style="color:var(--text4)">WITHDRAWALS <span style="color:var(--red)">-$${totalWithdrawals.toLocaleString()}</span></span>`:''}
+          <span style="color:var(--text4)">NET DEPOSITED <span style="color:var(--blue)">$${(totalDeposits-totalWithdrawals).toLocaleString()}</span></span>
+        </span>
+      </div>
+      <div style="padding:8px 14px;display:flex;flex-wrap:wrap;gap:6px">
+        ${ledgerEvents.map((ev,i)=>`<div style="background:var(--bg3);border:1px solid ${ev.amount>0?'color-mix(in srgb,var(--green) 25%,transparent)':'color-mix(in srgb,var(--red) 25%,transparent)'};padding:5px 10px;display:flex;align-items:center;gap:8px">
+          <span style="font-size:var(--fsxs);color:var(--text4)">${ev.date}</span>
+          <span style="font-family:'Bebas Neue',monospace;font-size:14px;color:${ev.amount>0?'var(--green)':'var(--red)'}">${ev.amount>0?'+':''}$${Math.abs(ev.amount).toFixed(2)}</span>
+          <span style="font-size:8px;color:var(--text5);text-transform:uppercase">${ev.type||'DEPOSIT'}</span>
+          <button onclick="removeLedgerEvent(${i})" style="background:none;border:none;color:var(--text5);cursor:pointer;font-size:11px;padding:0 2px">✕</button>
+        </div>`).join('')}
+        <button class="btn-d" style="font-size:var(--fsxs);padding:4px 10px" onclick="addLedgerEvent()">＋ ADD DEPOSIT</button>
+      </div>`;
+      content.appendChild(lb);
+    } else {
+      // No ledger yet — show a simple "add deposit" prompt
+      const lb=document.createElement('div');
+      lb.style.cssText='margin-bottom:10px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center';
+      lb.innerHTML=`<div style="font-size:var(--fsxs);color:var(--text4)">📊 No deposits tracked yet. Add your initial deposit to track account growth properly.</div>
+        <button class="btn-d" style="font-size:var(--fsxs);padding:4px 10px" onclick="addLedgerEvent()">＋ ADD DEPOSIT</button>`;
+      content.appendChild(lb);
+    }
     // Add form
     const fd=document.createElement('div');fd.className='section';fd.style.marginBottom='12px';
     const fhd=document.createElement('div');fhd.className='sec-hd';fhd.style.cursor='pointer';
