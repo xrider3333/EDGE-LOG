@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='12.97';
+const VERSION='12.98';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1858,13 +1858,48 @@ function renderApp(){
         if(av<bv)return -sortDir;if(av>bv)return sortDir;return 0;
       });
       // Compute running balance + % gain per trade
-      let _runBal=accountEquity>0?accountEquity:0;
+      // Build chronological timeline merging trades + ledger events (deposits/withdrawals)
+      const _tradesByDate=[...trades].sort((a,b)=>{
+        if(a.date!==b.date)return a.date>b.date?1:-1;
+        return (a.entryTime||'')>(b.entryTime||'')?1:-1;
+      });
+      // Sum deposits up to each trade's date
+      const _ledgerByDate={};
+      (ledgerEvents||[]).forEach(ev=>{
+        if(!_ledgerByDate[ev.date])_ledgerByDate[ev.date]=0;
+        _ledgerByDate[ev.date]+=ev.amount;
+      });
+      // Find earliest deposit date to use as starting point (or accountEquity)
+      const _firstDeposit=Object.keys(_ledgerByDate).sort()[0];
+      let _runBal=0;
+      // Apply any deposits with date earlier than first trade
+      const _firstTradeDate=_tradesByDate[0]?.date;
+      const _appliedDates=new Set();
+      Object.keys(_ledgerByDate).sort().forEach(d=>{
+        if(!_firstTradeDate||d<=_firstTradeDate){
+          _runBal+=_ledgerByDate[d];
+          _appliedDates.add(d);
+        }
+      });
+      // Fallback: if no deposits, use accountEquity
+      if(_runBal===0&&accountEquity>0)_runBal=accountEquity;
       const _runBals={},_eqPcts={};
-      [...trades].forEach(t=>{
+      _tradesByDate.forEach(t=>{
+        // Apply any deposits/withdrawals that happen on or before this trade's date
+        Object.keys(_ledgerByDate).forEach(d=>{
+          if(!_appliedDates.has(d)&&d<=t.date){
+            _runBal+=_ledgerByDate[d];
+            _appliedDates.add(d);
+          }
+        });
         const prev=_runBal;
         _runBal=+(_runBal+t.pnl).toFixed(2);
         _runBals[t.id]=_runBal;
         _eqPcts[t.id]=Math.abs(prev)>0?+((t.pnl/Math.abs(prev))*100).toFixed(2):null;
+      });
+      // Apply any remaining deposits after all trades
+      Object.keys(_ledgerByDate).forEach(d=>{
+        if(!_appliedDates.has(d))_runBal+=_ledgerByDate[d];
       });
       const tbody=sortedFiltered.map((t,i)=>{
         const ex=showAllCols?`<td style="color:var(--text3);font-size:var(--fsxs)">${fmt(t.grossPnl||t.pnl)}</td><td style="color:var(--text4);font-size:var(--fsxs)">${fmtDur(t.durationMins)}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.orderId||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.entryTime||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.exitTime||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
@@ -1875,6 +1910,7 @@ function renderApp(){
           <td style="color:${t.type==='LONG'?'var(--green)':'var(--blue)'}">${t.type}</td>
           <td>${t.entry}</td><td>${t.exit}</td><td>${t.size}</td>
           <td style="color:var(--yellow)">${t.fees>0?'-$'+t.fees.toFixed(2):'—'}</td>
+          <td style="color:${gch(t.grossPnl||t.pnl)};white-space:nowrap;font-family:'Bebas Neue',monospace;font-size:13px;opacity:.85">${fmt(t.grossPnl||t.pnl)}</td>
           <td style="color:${gch(t.pnl)};font-family:'Bebas Neue',monospace;font-size:14px;white-space:nowrap">
             ${fmt(t.pnl)}
             ${_eqPcts[t.id]!=null?`<div style="font-size:8px;color:${Math.abs(_eqPcts[t.id])>2?gch(t.pnl):'var(--text5)'}">${_eqPcts[t.id]>0?'+':''}${_eqPcts[t.id]}%</div>`:''}
@@ -1883,7 +1919,7 @@ function renderApp(){
             ${(()=>{const p=PRESETS[t.symbol];if(!p||!t.entry||!t.exit)return'<span style="color:var(--text5)">—</span>';const dir=t.type==='LONG'?1:-1;const pts=((t.exit-t.entry)*dir/p.ts);const perC=t.size>1?(pts/t.size):pts;return `<div style="color:${pts>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px">${pts>=0?'+':''}${pts.toFixed(1)}</div>${t.size>1?`<div style="font-size:8px;color:var(--text5)">${perC>=0?'+':''}${perC.toFixed(1)}/c</div>`:''}`})()}
           </td>
           <td style="font-size:var(--fsxs);white-space:nowrap">
-            <div style="color:var(--text3)">${_runBals[t.id]?'$'+_runBals[t.id].toLocaleString(undefined,{maximumFractionDigits:0}):'—'}</div>
+            <div style="color:var(--text3)">${_runBals[t.id]!=null?'$'+_runBals[t.id].toLocaleString(undefined,{maximumFractionDigits:0}):'—'}</div>
             ${(()=>{const bal=_runBals[t.id];if(!bal||!t.pnl)return'';const base=bal-t.pnl;const pct=base>0?((t.pnl/base)*100):0;return pct!==0?`<div style="font-size:8px;color:${pct>=0?'var(--green)':'var(--red)'}">${pct>=0?'+':''}${pct.toFixed(2)}%</div>`:''})()}
           </td>
           <!-- INLINE GRADE -->
