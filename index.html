@@ -113,14 +113,14 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 </style>
 </head>
 <body>
-<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px"><div style="font-family:'Bebas Neue',monospace;font-size:36px;letter-spacing:5px;color:#00e5a0">EDGE LOG</div><div style="width:240px;height:3px;background:#1e1e36;overflow:hidden;position:relative"><div id="loadbar" style="height:100%;background:#00e5a0;width:0%;transition:width .3s ease"></div></div><div id="loadtxt" style="font-size:10px;letter-spacing:3px;color:#404060">INITIALIZING v12.3...</div></div></div>
+<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px"><div style="font-family:'Bebas Neue',monospace;font-size:36px;letter-spacing:5px;color:#00e5a0">EDGE LOG</div><div style="width:240px;height:3px;background:#1e1e36;overflow:hidden;position:relative"><div id="loadbar" style="height:100%;background:#00e5a0;width:0%;transition:width .3s ease"></div></div><div id="loadtxt" style="font-size:10px;letter-spacing:3px;color:#404060">INITIALIZING v12.4...</div></div></div>
 <script>
 // Animate loading bar
 let _lp=0;const _li=setInterval(()=>{_lp=Math.min(95,_lp+Math.random()*15);const b=document.getElementById('loadbar');if(b)b.style.width=_lp+'%';const t=document.getElementById('loadtxt');if(t){if(_lp<30)t.textContent='CONNECTING TO FIREBASE...';else if(_lp<60)t.textContent='LOADING TRADES...';else if(_lp<90)t.textContent='BUILDING UI...';else t.textContent='ALMOST READY...';}},150);
 window._finishLoad=()=>{clearInterval(_li);const b=document.getElementById('loadbar');if(b)b.style.width='100%';};
 </script>
 <script>
-const VERSION='12.3';
+const VERSION='12.4';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -291,238 +291,222 @@ async function importPDF(file){
   if(!window.pdfjsLib){throw new Error('PDF library not loaded. Refresh and try again.');}
   const arrayBuf=await file.arrayBuffer();
   const pdf=await pdfjsLib.getDocument({data:arrayBuf}).promise;
-  let fullText='';
-  for(let i=1;i<=pdf.numPages;i++){
-    const page=await pdf.getPage(i);
+  // Build line-by-line text
+  let allLines=[];
+  for(let pi=1;pi<=pdf.numPages;pi++){
+    const page=await pdf.getPage(pi);
     const content=await page.getTextContent();
-    // Sort items by Y then X for proper reading order
     const items=content.items.sort((a,b)=>{
       const yDiff=Math.abs(a.transform[5]-b.transform[5]);
       if(yDiff>2)return b.transform[5]-a.transform[5];
       return a.transform[4]-b.transform[4];
     });
     let lastY=null,line='';
-    const lines=[];
     items.forEach(it=>{
       const y=it.transform[5];
       if(lastY!==null&&Math.abs(y-lastY)>2){
-        if(line.trim())lines.push(line.trim());
+        if(line.trim())allLines.push(line.trim());
         line='';
       }
       line+=' '+it.str;
       lastY=y;
     });
-    if(line.trim())lines.push(line.trim());
-    fullText+=lines.join('\n')+'\n';
+    if(line.trim())allLines.push(line.trim());
   }
-  // Parse the NinjaTrader statement
   const result={batch:[],merges:[],feeUpdates:[],balRows:[],imported:0,skipped:0,merged:0,type:'pdf_statement',label:file.name};
-  // Get beginning balance
-  const begMatch=fullText.match(/Beginning balance\s+([\d,.]+)/i);
-  if(begMatch){
-    const begBal=parseFloat(begMatch[1].replace(/,/g,''));
-    if(begBal>0&&(!accountEquity||accountEquity===0))accountEquity=begBal;
+  // Balances
+  for(const line of allLines){
+    const begM=line.match(/Beginning balance\s+([\d,.]+)/i);
+    if(begM){const b=parseFloat(begM[1].replace(/,/g,''));if(b>0&&(!accountEquity||accountEquity===0))accountEquity=b;}
+    const endM=line.match(/Ending Balance\s+(?:US\$?\s+)?([\d,.]+)/i);
+    if(endM){const e=parseFloat(endM[1].replace(/,/g,''));if(e>0){const dM=allLines.join(' ').match(/(?:Daily|Monthly) Statement\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);if(dM)result.balRows.push({date:parseDate(dM[1]),balance:e});}}
   }
-  // Get ending balance
-  const endMatch=fullText.match(/Ending Balance\s+US\$?\s+([\d,.]+)/i);
-  let endingBal=null;
-  if(endMatch)endingBal=parseFloat(endMatch[1].replace(/,/g,''));
-  // Get statement date
-  const dateMatch=fullText.match(/(?:Daily|Monthly) Statement\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
-  const stmtDate=dateMatch?parseDate(dateMatch[1]):null;
-  if(stmtDate&&endingBal)result.balRows.push({date:stmtDate,balance:endingBal});
-  // Parse Daily Activity Summary rows: "MM/DD/YYYY SYMBOL Contracts Exch Comm NFA PNL ..."
-  const dailyLines=fullText.split('\n');
-  let i=0;
-  while(i<dailyLines.length){
-    const line=dailyLines[i].trim();
-    const dateMatchLine=line.match(/^(\d{2}\/\d{2}\/\d{4})\s+([A-Z]{2,6})/);
-    if(dateMatchLine){
-      // Next line usually has the numbers
-      const nextLine=(dailyLines[i+1]||'').trim();
-      const numbers=nextLine.match(/-?[\d,]+\.?\d*/g);
-      if(numbers&&numbers.length>=5){
-        const tradeDate=parseDate(dateMatchLine[1]);
-        const symRaw=dateMatchLine[2];
-        const baseSym=getBase(symRaw);
-        const sym=PRESETS[baseSym]?baseSym:baseSym;
-        const contracts=parseInt(numbers[0])||0;
-        const exch=Math.abs(parseFloat(numbers[1].replace(/,/g,''))||0);
-        const comm=Math.abs(parseFloat(numbers[2].replace(/,/g,''))||0);
-        const nfa=Math.abs(parseFloat(numbers[3].replace(/,/g,''))||0);
-        const pnl=parseFloat(numbers[4].replace(/,/g,''))||0;
-        // Skip if no contracts (means non-trade row like ACH Deposit)
-        if(contracts>0&&!isNaN(pnl)){
-          // Match to existing trades for this date+symbol
-          const dayTrades=trades.filter(t=>t.date===tradeDate&&t.symbol===sym);
-          if(dayTrades.length){
-            // Total fees from PDF (excluding clearing — that's a separate line)
-            const dayTotalFees=exch+comm+nfa;
-            // Distribute fees by number of contracts
-            const totalContracts=dayTrades.reduce((s,t)=>s+(t.size||1),0);
-            const feePerContract=totalContracts>0?dayTotalFees/totalContracts:0;
-            dayTrades.forEach(t=>{
-              const tradeFee=+(feePerContract*(t.size||1)).toFixed(2);
-              if(Math.abs((t.fees||0)-tradeFee)>0.005){
-                result.feeUpdates.push({id:t.id,fees:tradeFee,trade:t});
-              }
-            });
-          }
-        }
-        i+=2;continue;
-      }
-    }
-    // Also look for Clearing_Fee lines that follow
-    if(line.match(/Clearing_Fee/i)){
-      const nextLine=(dailyLines[i+1]||'').trim();
-      const clearMatch=nextLine.match(/-?[\d,.]+/g);
-      // Extract clearing fee and add to previous day's fees
-      // Get date from previous lines
-      let dateBack=null;
-      for(let j=i-1;j>=Math.max(0,i-5);j--){
-        const m=dailyLines[j].match(/^(\d{2}\/\d{2}\/\d{4})/);
-        if(m){dateBack=parseDate(m[1]);break;}
-      }
-      if(dateBack&&clearMatch&&clearMatch.length){
-        const clearAmt=Math.abs(parseFloat(clearMatch[clearMatch.length-2]||clearMatch[clearMatch.length-1]||'0'));
-        if(clearAmt>0){
-          const dayTrades=trades.filter(t=>t.date===dateBack);
-          if(dayTrades.length){
-            const perTrade=clearAmt/dayTrades.length;
-            dayTrades.forEach(t=>{
-              // Add to existing pending fee update if any
-              const existing=result.feeUpdates.find(f=>f.id===t.id);
-              if(existing){existing.fees=+(existing.fees+perTrade).toFixed(2);}
-              else result.feeUpdates.push({id:t.id,fees:+((t.fees||0)+perTrade).toFixed(2),trade:t});
-            });
+  // ── Parse Daily Activity Summary ──────────────────────────────
+  // Format:
+  //   "MM/DD/YYYY SYMBOLM6"
+  //   "<contracts> <exch> <comm> <nfa> <pnl> <segregated> - -"
+  //   "MM/DD/YYYY Clearing_Fee"
+  //   "- - - - <clearingPnl> <segregated> - -"
+  // The Clearing_Fee row has its fee amount as the 5th number (PNL column position)
+  // dailyData[sym|date] = {contracts, fees: {exch,comm,nfa,clearing}, pnl, totalFees}
+  const dailyData={};
+  for(let i=0;i<allLines.length;i++){
+    const line=allLines[i].trim();
+    // Match "MM/DD/YYYY SYMBOL" header line
+    const symHdr=line.match(/^(\d{2}\/\d{2}\/\d{4})\s+([A-Z]{2,6})M?\d?\s*$/);
+    if(symHdr){
+      const date=parseDate(symHdr[1]);
+      const baseSym=getBase(symHdr[2]);
+      const sym=PRESETS[baseSym]?baseSym:baseSym;
+      // Next line has the numbers
+      const dataLine=(allLines[i+1]||'').trim();
+      const nums=dataLine.match(/-?[\d,]+\.?\d*/g)||[];
+      if(nums.length>=5){
+        const contracts=parseInt(nums[0])||0;
+        if(contracts>0){
+          const exch=Math.abs(parseFloat(nums[1].replace(/,/g,''))||0);
+          const comm=Math.abs(parseFloat(nums[2].replace(/,/g,''))||0);
+          const nfa=Math.abs(parseFloat(nums[3].replace(/,/g,''))||0);
+          const pnl=parseFloat(nums[4].replace(/,/g,''))||0;
+          const key=sym+'|'+date;
+          if(!dailyData[key]){
+            dailyData[key]={contracts,exch,comm,nfa,clearing:0,pnl,sym,date};
+          } else {
+            dailyData[key].contracts+=contracts;
+            dailyData[key].exch+=exch;
+            dailyData[key].comm+=comm;
+            dailyData[key].nfa+=nfa;
+            dailyData[key].pnl+=pnl;
           }
         }
       }
     }
-    i++;
+    // Match Clearing_Fee row
+    const clearHdr=line.match(/^(\d{2}\/\d{2}\/\d{4})\s+Clearing_Fee\s*$/i);
+    if(clearHdr){
+      const date=parseDate(clearHdr[1]);
+      const dataLine=(allLines[i+1]||'').trim();
+      // The clearing fee row format: "- - - - <fee> <segregated> - -"
+      // Find the first negative number which is the clearing fee
+      const nums=dataLine.match(/-?[\d,]+\.?\d*/g)||[];
+      // First non-dash number is the clearing fee
+      const fee=Math.abs(parseFloat(nums[0]?nums[0].replace(/,/g,''):'0')||0);
+      // Add clearing to whichever symbol traded on this date
+      Object.values(dailyData).forEach(d=>{
+        if(d.date===date)d.clearing+=fee;
+      });
+    }
   }
-  // Parse Fills section for direction confirmation
-  // "MM/DD/YYYY HH:MM:SS PM(GMT) FILL [Buy Qty] [Sell Qty] [Price] [OrderId]"
-  const fillsMap={}; // sym|date -> [{time, side, price}]
-  for(let j=0;j<dailyLines.length;j++){
-    const fillMatch=dailyLines[j].match(/^(\d{2}\/\d{2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(?:AM|PM)?\(?GMT?\)?\s+FILL/i);
+  // ── Parse Fills section ──────────────────────────────────────
+  // Format per line:
+  //   "MM/DD/YYYY HH:MM:SS PM(GMT) FILL <buyQty> <sellQty> <price> <orderId>"
+  // After "Trading details for SYMBOL Name - Date (TICKER)"
+  const fillsBySymDate={};
+  let currentSym=null;
+  for(let j=0;j<allLines.length;j++){
+    const line=allLines[j];
+    const symMatch=line.match(/Trading details for.*\(([A-Z]{2,6})M?\d?\)/i);
+    if(symMatch){currentSym=getBase(symMatch[1]);continue;}
+    if(!currentSym)continue;
+    // Match fill line - flexible to handle both AM/PM and GMT variations
+    const fillMatch=line.match(/^\s*(\d{2}\/\d{2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(AM|PM)?\s*\(?GMT?\)?\s+FILL/i);
     if(!fillMatch)continue;
-    const restOfLine=dailyLines[j].substring(fillMatch[0].length).trim();
-    const parts=restOfLine.split(/\s+/);
-    // Find which is buy qty, sell qty: pattern is "1 - price orderId" or "- 1 price orderId"
-    let side=null,qty=1,price=null,orderId='';
-    if(parts[0]&&parts[0]!=='-'){side='BUY';qty=parseInt(parts[0])||1;price=parseFloat(parts[2]);orderId=parts[3]||'';}
-    else if(parts[1]&&parts[1]!=='-'){side='SELL';qty=parseInt(parts[1])||1;price=parseFloat(parts[2]);orderId=parts[3]||'';}
-    if(!side||!price)continue;
-    // Find symbol from preceding "Trading details for" section
-    let sym=null;
-    for(let k=j-1;k>=Math.max(0,j-30);k--){
-      const symMatch=dailyLines[k].match(/Trading details for.*\(([A-Z]{2,6})M?\d?\)/i);
-      if(symMatch){sym=getBase(symMatch[1]);break;}
-    }
-    if(!sym)continue;
     const date=parseDate(fillMatch[1]);
-    const key=sym+'|'+date;
-    if(!fillsMap[key])fillsMap[key]=[];
-    fillsMap[key].push({time:fillMatch[2],side,price,orderId});
+    let time=fillMatch[2];
+    // Convert to 24h if PM
+    if(fillMatch[3]&&fillMatch[3].toUpperCase()==='PM'){
+      const parts=time.split(':');
+      let h=parseInt(parts[0]);
+      if(h<12)h+=12;
+      time=String(h).padStart(2,'0')+':'+parts[1]+':'+parts[2];
+    } else if(fillMatch[3]&&fillMatch[3].toUpperCase()==='AM'){
+      const parts=time.split(':');
+      let h=parseInt(parts[0]);
+      if(h===12)h=0;
+      time=String(h).padStart(2,'0')+':'+parts[1]+':'+parts[2];
+    }
+    // Extract rest of line after FILL keyword
+    const afterFill=line.substring(fillMatch[0].length).trim();
+    // Split into tokens, replace '-' with null
+    const tokens=afterFill.split(/\s+/);
+    let buyQty=null,sellQty=null,price=null,orderId='';
+    if(tokens[0]&&tokens[0]!=='-')buyQty=parseInt(tokens[0])||null;
+    if(tokens[1]&&tokens[1]!=='-')sellQty=parseInt(tokens[1])||null;
+    if(tokens[2])price=parseFloat(tokens[2].replace(/,/g,''))||null;
+    if(tokens[3])orderId=tokens[3].replace(/,/g,'');
+    if(!price)continue;
+    const side=buyQty?'BUY':'SELL';
+    const qty=buyQty||sellQty||1;
+    const key=currentSym+'|'+date;
+    if(!fillsBySymDate[key])fillsBySymDate[key]=[];
+    fillsBySymDate[key].push({time,side,price,qty,orderId});
   }
-  // Build trade pairs from fills (Buy+Sell pairs become trades)
-  // Also use fills to verify direction on existing trades
-  // Build per-day P/L map from Daily Activity Summary for accurate gross P/L on new trades
-  const dailyPnlMap={}; // key: sym|date -> {pnl, fees, contracts}
-  for(let k=0;k<dailyLines.length;k++){
-    const line=dailyLines[k].trim();
-    const m=line.match(/^(\d{2}\/\d{2}\/\d{4})\s+([A-Z]{2,6})/);
-    if(!m)continue;
-    const nextLine=(dailyLines[k+1]||'').trim();
-    const numbers=nextLine.match(/-?[\d,]+\.?\d*/g);
-    if(!numbers||numbers.length<5)continue;
-    const date=parseDate(m[1]);
-    const baseSym=getBase(m[2]);
-    const sym=PRESETS[baseSym]?baseSym:baseSym;
-    const contracts=parseInt(numbers[0])||0;
-    if(contracts<=0)continue;
-    const exch=Math.abs(parseFloat(numbers[1].replace(/,/g,''))||0);
-    const comm=Math.abs(parseFloat(numbers[2].replace(/,/g,''))||0);
-    const nfa=Math.abs(parseFloat(numbers[3].replace(/,/g,''))||0);
-    const pnl=parseFloat(numbers[4].replace(/,/g,''))||0;
-    const key2=sym+'|'+date;
-    dailyPnlMap[key2]={pnl,fees:exch+comm+nfa,contracts};
-  }
-  // Use fills to create or update trades
-  Object.entries(fillsMap).forEach(([key,fills])=>{
+  // ── Pair fills into round-trip trades ─────────────────────────
+  Object.entries(fillsBySymDate).forEach(([key,fills])=>{
     fills.sort((a,b)=>a.time.localeCompare(b.time));
-    if(fills.length<2)return;
     const [sym,date]=key.split('|');
-    const correctDir=fills[0].side==='BUY'?'LONG':'SHORT';
-    // Pair up fills into round-trip trades
-    // Group by chronological sequence: each Buy+Sell or Sell+Buy pair is one trade
-    const tradePairs=[];
-    let openSide=null,openFill=null;
+    const useSym=PRESETS[sym]?sym:sym;
+    const dayInfo=dailyData[key];
+    // Build trade pairs by net position tracking
+    // Track running position: when it goes from 0 to non-zero = entry
+    // When it returns to 0 = exit (close trade)
+    const trades_=[];
+    let pos=0,entryPrice=null,entryTime=null,entrySide=null,entryOid='',entryQty=0;
     fills.forEach(f=>{
-      if(!openSide){
-        openSide=f.side;openFill=f;
-      } else if(f.side!==openSide){
-        // Closing fill
-        tradePairs.push({
-          entry:openFill,
-          exit:f,
-          dir:openSide==='BUY'?'LONG':'SHORT'
+      const delta=f.side==='BUY'?f.qty:-f.qty;
+      const newPos=pos+delta;
+      if(pos===0&&newPos!==0){
+        // Opening
+        entryPrice=f.price;entryTime=f.time;entrySide=f.side;entryOid=f.orderId;entryQty=Math.abs(delta);
+      } else if(pos!==0&&newPos===0){
+        // Closing
+        trades_.push({
+          dir:entrySide==='BUY'?'LONG':'SHORT',
+          entry:entryPrice,exit:f.price,
+          entryTime,exitTime:f.time,
+          size:entryQty,
+          orderId:entryOid
         });
-        openSide=null;openFill=null;
-      } else {
-        // Same side - might be scaling in, just keep first as entry
-        openFill=f;
+        entryPrice=null;entryTime=null;entrySide=null;entryQty=0;
+      } else if(pos!==0&&newPos!==0&&Math.sign(pos)===Math.sign(newPos)){
+        // Scaling — for simplicity treat each pair as separate trade
+        // Keep entry as weighted avg
+        entryQty+=Math.abs(delta);
       }
+      pos=newPos;
     });
-    // Get day-level data
-    const dayInfo=dailyPnlMap[key];
-    const totalDayPnl=dayInfo?dayInfo.pnl:0;
-    const totalDayFees=dayInfo?dayInfo.fees:0;
-    // Check existing trades for this day+symbol
-    const existingTrades=trades.filter(t=>t.date===date&&t.symbol===sym);
-    if(existingTrades.length){
-      // Trades exist — only verify direction
-      existingTrades.forEach(t=>{
-        if(t.type!==correctDir){
-          const actualEntry=correctDir==='LONG'?Math.min(t.entry,t.exit):Math.max(t.entry,t.exit);
-          const actualExit=correctDir==='LONG'?Math.max(t.entry,t.exit):Math.min(t.entry,t.exit);
-          const newCalc=tradeCalc(t.symbol,correctDir,actualEntry,actualExit,t.size,t.fees||0);
-          result.merges.push({id:t.id,updates:{type:correctDir,entry:actualEntry,exit:actualExit,grossPnl:newCalc.grossPnl,pnl:newCalc.pnl},desc:'direction from PDF'});
+    // Check existing trades
+    const existing=trades.filter(t=>t.date===date&&t.symbol===useSym);
+    if(existing.length){
+      // Verify direction only
+      existing.forEach(t=>{
+        const matchingPair=trades_.find(p=>Math.abs(p.entry-t.entry)<0.5||Math.abs(p.exit-t.exit)<0.5);
+        if(matchingPair&&t.type!==matchingPair.dir){
+          const actualEntry=matchingPair.dir==='LONG'?Math.min(t.entry,t.exit):Math.max(t.entry,t.exit);
+          const actualExit=matchingPair.dir==='LONG'?Math.max(t.entry,t.exit):Math.min(t.entry,t.exit);
+          const calc2=tradeCalc(t.symbol,matchingPair.dir,actualEntry,actualExit,t.size,t.fees||0);
+          result.merges.push({id:t.id,updates:{type:matchingPair.dir,entry:actualEntry,exit:actualExit,grossPnl:calc2.grossPnl,pnl:calc2.pnl},desc:'direction from PDF'});
         }
       });
-    } else if(tradePairs.length){
-      // No existing trades — create them from the PDF fills
-      // Distribute day-level fees across trades
-      const feePerTrade=tradePairs.length>0?totalDayFees/tradePairs.length:0;
-      const pnlPerTrade=tradePairs.length>0?totalDayPnl/tradePairs.length:0;
-      tradePairs.forEach((pair,i)=>{
-        const entryPrice=pair.entry.price;
-        const exitPrice=pair.exit.price;
-        const fees=+feePerTrade.toFixed(2);
-        const useSym=PRESETS[sym]?sym:sym;
-        // Calculate gross P/L from prices (will be accurate per-trade)
-        const calc=tradeCalc(useSym,pair.dir,entryPrice,exitPrice,1,fees);
-        const grossPnl=calc.grossPnl;
-        const netPnl=+(grossPnl-fees).toFixed(2);
-        // Convert PM/AM time to 24h
-        let [h,m,s]=pair.entry.time.split(':').map(x=>parseInt(x));
-        const entryTime=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
-        let [h2,m2,s2]=pair.exit.time.split(':').map(x=>parseInt(x));
-        const exitTime=String(h2).padStart(2,'0')+':'+String(m2).padStart(2,'0');
-        // Duration in minutes
-        const startMin=h*60+m,endMin=h2*60+m2;
-        const durationMins=endMin>=startMin?endMin-startMin:(endMin+1440)-startMin;
+    } else if(trades_.length){
+      // Create trades — distribute fees properly
+      const totalFees=dayInfo?(dayInfo.exch+dayInfo.comm+dayInfo.nfa+dayInfo.clearing):0;
+      const totalContracts=trades_.reduce((s,t)=>s+t.size,0)||1;
+      const feePerContract=totalFees/totalContracts;
+      trades_.forEach(p=>{
+        const fees=+(feePerContract*p.size).toFixed(2);
+        const calc=tradeCalc(useSym,p.dir,p.entry,p.exit,p.size,fees);
+        const eT=p.entryTime?p.entryTime.slice(0,5):null;
+        const xT=p.exitTime?p.exitTime.slice(0,5):null;
+        let durMin=null;
+        if(eT&&xT){
+          const [eh,em]=eT.split(':').map(Number);
+          const [xh,xm]=xT.split(':').map(Number);
+          const s=eh*60+em,e=xh*60+xm;
+          durMin=e>=s?e-s:(e+1440)-s;
+        }
         result.batch.push({
-          date,symbol:useSym,type:pair.dir,
-          entry:+entryPrice.toFixed(4),exit:+exitPrice.toFixed(4),
-          size:1,fees,grossPnl,pnl:netPnl,
+          date,symbol:useSym,type:p.dir,
+          entry:+p.entry.toFixed(4),exit:+p.exit.toFixed(4),
+          size:p.size,fees,grossPnl:calc.grossPnl,pnl:calc.pnl,
           setup:'—',grade:'—',timeframe:'—',
           notes:'',chartUrl:'',
-          durationMins,entryTime,exitTime,
-          orderId:pair.entry.orderId||'',
+          durationMins:durMin,entryTime:eT,exitTime:xT,
+          orderId:p.orderId||'',
           source:'PDF Statement',assetType:'futures'
         });
+      });
+    }
+    // Apply fee updates to existing trades from Daily Activity
+    if(existing.length&&dayInfo){
+      const totalFees=dayInfo.exch+dayInfo.comm+dayInfo.nfa+dayInfo.clearing;
+      const totalContracts=existing.reduce((s,t)=>s+(t.size||1),0)||1;
+      const feePerContract=totalFees/totalContracts;
+      existing.forEach(t=>{
+        const newFee=+(feePerContract*(t.size||1)).toFixed(2);
+        if(Math.abs((t.fees||0)-newFee)>0.005){
+          result.feeUpdates.push({id:t.id,fees:newFee,trade:t});
+        }
       });
     }
   });
