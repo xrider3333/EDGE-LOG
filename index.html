@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='12.92';
+const VERSION='12.93';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -180,8 +180,6 @@ let userLogo=localStorage.getItem('el_logo')||null;
 function savePref(k,v){prefs[k]=v;localStorage.setItem('el_prefs',JSON.stringify(prefs));}
 function applyTheme(){document.documentElement.setAttribute('data-theme',prefs.theme||'dark');document.documentElement.setAttribute('data-density',prefs.density||'normal');}
 applyTheme();
-const _storedEquity=parseFloat(localStorage.getItem('el_equity')||'0');
-if(_storedEquity>0)accountEquity=_storedEquity;
 
 // State
 let db=null,auth=null,colRef=null,lessonRef=null,unsub=null,unsubL=null;
@@ -193,6 +191,8 @@ let useGross=false; // gross vs net toggle for KPI stats
 let filters={sym:'',dir:'',grade:'',setup:'',tf:'',dateFrom:'',dateTo:'',minPnl:'',maxPnl:''};
 let sortCol='date',sortDir=-1;
 let accountEquity=0,calMonth=new Date().toISOString().slice(0,7);
+const _storedEquity=parseFloat(localStorage.getItem('el_equity')||'0');
+if(_storedEquity>0)accountEquity=_storedEquity;
 let uploadHistory=JSON.parse(localStorage.getItem('el_uploads')||'[]');
 let ledgerEvents=JSON.parse(localStorage.getItem('el_ledger')||'[]');
 let customTags=JSON.parse(localStorage.getItem('el_tags')||'[]');
