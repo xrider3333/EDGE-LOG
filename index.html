@@ -115,16 +115,49 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 <body>
 <div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px"><div style="font-family:'Bebas Neue',monospace;font-size:36px;letter-spacing:5px;color:#00e5a0">EDGE LOG</div><div style="width:240px;height:3px;background:#1e1e36;overflow:hidden;position:relative"><div id="loadbar" style="height:100%;background:#00e5a0;width:0%;transition:width .3s ease"></div></div><div id="loadtxt" style="font-size:10px;letter-spacing:3px;color:#404060">INITIALIZING v12.9...</div></div></div>
 <script>
-// Animate loading bar
-let _lp=0;const _li=setInterval(()=>{_lp=Math.min(95,_lp+Math.random()*15);const b=document.getElementById('loadbar');if(b)b.style.width=_lp+'%';const t=document.getElementById('loadtxt');if(t){if(_lp<30)t.textContent='CONNECTING TO FIREBASE...';else if(_lp<60)t.textContent='LOADING TRADES...';else if(_lp<90)t.textContent='BUILDING UI...';else t.textContent='ALMOST READY...';}},150);
-window._finishLoad=()=>{clearInterval(_li);const b=document.getElementById('loadbar');if(b)b.style.width='100%';};
+// Manual loading stages — shows EXACTLY what's running
+window._stages=[];
+window._setStage=function(name){
+  window._stages.push({name,t:Date.now()});
+  const b=document.getElementById('loadbar');
+  const t=document.getElementById('loadtxt');
+  const pct=Math.min(95,window._stages.length*10);
+  if(b)b.style.width=pct+'%';
+  if(t)t.textContent=name;
+  console.log('[LOAD]',name);
+};
+window._finishLoad=function(){
+  const b=document.getElementById('loadbar');
+  if(b)b.style.width='100%';
+  const t=document.getElementById('loadtxt');
+  if(t)t.textContent='READY ✓';
+  console.log('[LOAD] All stages:',window._stages);
+};
+window._loadError=function(err,stage){
+  const t=document.getElementById('loadtxt');
+  if(t){
+    t.textContent='❌ FAILED AT: '+(stage||window._stages[window._stages.length-1]?.name||'unknown');
+    t.style.color='#ff3d5a';
+  }
+  console.error('[LOAD ERROR]',err);
+  // Show error details
+  const errBox=document.createElement('div');
+  errBox.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,calc(-50%+80px));background:#1e0e16;border:1px solid #ff3d5a;color:#ff8a99;padding:18px 22px;font-family:JetBrains Mono,monospace;font-size:11px;max-width:600px;line-height:1.7;z-index:999';
+  errBox.innerHTML='<div style="color:#ff3d5a;font-size:14px;margin-bottom:8px">LOAD ERROR</div><div style="margin-bottom:10px"><b>Stage:</b> '+(stage||'unknown')+'</div><div style="margin-bottom:10px"><b>Error:</b> '+(err.message||err)+'</div><div style="font-size:10px;color:#a55">Open browser console (F12) for full stack trace</div><button onclick="this.parentElement.remove()" style="margin-top:8px;background:#ff3d5a;color:#000;border:none;padding:4px 12px;cursor:pointer;font-family:inherit">DISMISS</button>';
+  document.body.appendChild(errBox);
+};
+// Catch all uncaught errors
+window.addEventListener('error',function(e){
+  window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
+});
+window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='12.9';
+const VERSION='12.92';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
-const TIMEFRAMES=['—','5s','15s','30s','1m','2m','3m','5m','10m','15m','30m','1h','2h','4h','Daily','Weekly'];
+const TIMEFRAMES=['—','5s','10s','15s','30s','1m','2m','3m','5m','10m','15m','30m','1h','2h','4h','Daily','Weekly'];
 const TABS=['overview','trades','lessons','analytics','data','settings'];
 const DEFAULT_SETUPS=['—','Breakout','Pullback','Reversal','Trend','Gap Fill','VWAP','S/D Zone','Momentum','ICT','Order Block','FVG'];
 const KPI_INFO={
@@ -154,7 +187,7 @@ if(_storedEquity>0)accountEquity=_storedEquity;
 let db=null,auth=null,colRef=null,lessonRef=null,unsub=null,unsubL=null;
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
 let activeTab='overview',activeChart='equity';
-let formOpen=false,showAllCols=false;
+let formOpen=false,showAllCols=true;
 let autoHandle=null,autoTimer=null,autoInterval=60;
 let useGross=false; // gross vs net toggle for KPI stats
 let filters={sym:'',dir:'',grade:'',setup:'',tf:'',dateFrom:'',dateTo:'',minPnl:'',maxPnl:''};
@@ -277,7 +310,8 @@ function subscribeAll(uid){
   colRef=db.collection('users').doc(uid).collection('trades');
   lessonRef=db.collection('users').doc(uid).collection('lessons');
   if(unsub)unsub();if(unsubL)unsubL();
-  unsub=colRef.orderBy('date','asc').onSnapshot(snap=>{trades=snap.docs.map(d=>({id:d.id,...d.data()}));renderApp();});
+  unsub=colRef.orderBy('date','asc').onSnapshot(snap=>{
+      window._setStage('TRADES LOADED ('+snap.docs.length+')');trades=snap.docs.map(d=>({id:d.id,...d.data()}));renderApp();});
   unsubL=lessonRef.orderBy('createdAt','desc').onSnapshot(snap=>{lessons=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='lessons')renderApp();});
 }
 async function addTrade(t){if(colRef)await colRef.add({...t,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}
@@ -703,7 +737,7 @@ function importCSV(text,label){
       const grossPnl=!isNaN(plR)?+plR.toFixed(2):calcPnl(useSym,dir,entry,exit,qty,0).gross;
       const fees=getFee(useSym);
       const netPnl=+(grossPnl-fees).toFixed(2);
-      const existing=trades.find(t=>t.date===date&&t.symbol===useSym&&Math.abs(t.entry-entry)<0.01&&t.size===qty);
+      const existing=trades.find(t=>t.date===date&&t.symbol===useSym&&(Math.abs(t.entry-entry)<0.5||Math.abs(t.exit-exit)<0.5));
       if(existing){
         const upd={};
         if(durationMins&&!existing.durationMins)upd.durationMins=durationMins;
@@ -781,7 +815,7 @@ function importCSV(text,label){
       const netPnl=+(grossPnl-fees).toFixed(2);
       const eqPct=accountEquity>0?+((Math.abs(grossPnl)/accountEquity)*100).toFixed(2):null;
       // Dupe check
-      const existing=trades.find(t=>t.date===date&&t.symbol===useSym&&Math.abs(t.entry-entry)<0.01&&t.size===qty);
+      const existing=trades.find(t=>t.date===date&&t.symbol===useSym&&(Math.abs(t.entry-entry)<0.5||Math.abs(t.exit-exit)<0.5));
       if(existing){
         const upd={};
         if(durationMins&&!existing.durationMins)upd.durationMins=durationMins;
@@ -1368,6 +1402,7 @@ function openEditModal(tradeId){
 // ══════════════════════════════════════════════════════════════════
 function renderApp(){
   if(window._finishLoad){window._finishLoad();delete window._finishLoad;}
+  try{window._setStage('RENDER: '+activeTab);}catch(e){}
 
   const S=calcStats(trades);
   const filtered=applyFilters(trades);
@@ -2337,8 +2372,10 @@ function removeSetup(idx){
 }
 
 // Boot
+window._setStage('INIT FIREBASE');
 if(!initFB())document.getElementById('app').innerHTML='<div style="color:var(--red);padding:40px;text-align:center">Firebase failed to initialize.</div>';
-else auth.onAuthStateChanged(user=>{if(user){currentUser=user;subscribeAll(currentUser.uid);}else renderAuth();});
+else window._setStage('AUTH LISTENER ATTACHED');
+auth.onAuthStateChanged(user=>{if(user){currentUser=user;subscribeAll(currentUser.uid);}else renderAuth();});
 </script>
 </body>
 </html>
