@@ -113,14 +113,14 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 </style>
 </head>
 <body>
-<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px"><div style="font-family:'Bebas Neue',monospace;font-size:36px;letter-spacing:5px;color:#00e5a0">EDGE LOG</div><div style="width:240px;height:3px;background:#1e1e36;overflow:hidden;position:relative"><div id="loadbar" style="height:100%;background:#00e5a0;width:0%;transition:width .3s ease"></div></div><div id="loadtxt" style="font-size:10px;letter-spacing:3px;color:#404060">INITIALIZING v12.2...</div></div></div>
+<div id="app"><div style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px"><div style="font-family:'Bebas Neue',monospace;font-size:36px;letter-spacing:5px;color:#00e5a0">EDGE LOG</div><div style="width:240px;height:3px;background:#1e1e36;overflow:hidden;position:relative"><div id="loadbar" style="height:100%;background:#00e5a0;width:0%;transition:width .3s ease"></div></div><div id="loadtxt" style="font-size:10px;letter-spacing:3px;color:#404060">INITIALIZING v12.3...</div></div></div>
 <script>
 // Animate loading bar
 let _lp=0;const _li=setInterval(()=>{_lp=Math.min(95,_lp+Math.random()*15);const b=document.getElementById('loadbar');if(b)b.style.width=_lp+'%';const t=document.getElementById('loadtxt');if(t){if(_lp<30)t.textContent='CONNECTING TO FIREBASE...';else if(_lp<60)t.textContent='LOADING TRADES...';else if(_lp<90)t.textContent='BUILDING UI...';else t.textContent='ALMOST READY...';}},150);
 window._finishLoad=()=>{clearInterval(_li);const b=document.getElementById('loadbar');if(b)b.style.width='100%';};
 </script>
 <script>
-const VERSION='12.2';
+const VERSION='12.3';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -426,22 +426,107 @@ async function importPDF(file){
     if(!fillsMap[key])fillsMap[key]=[];
     fillsMap[key].push({time:fillMatch[2],side,price,orderId});
   }
-  // Use fills to verify direction
+  // Build trade pairs from fills (Buy+Sell pairs become trades)
+  // Also use fills to verify direction on existing trades
+  // Build per-day P/L map from Daily Activity Summary for accurate gross P/L on new trades
+  const dailyPnlMap={}; // key: sym|date -> {pnl, fees, contracts}
+  for(let k=0;k<dailyLines.length;k++){
+    const line=dailyLines[k].trim();
+    const m=line.match(/^(\d{2}\/\d{2}\/\d{4})\s+([A-Z]{2,6})/);
+    if(!m)continue;
+    const nextLine=(dailyLines[k+1]||'').trim();
+    const numbers=nextLine.match(/-?[\d,]+\.?\d*/g);
+    if(!numbers||numbers.length<5)continue;
+    const date=parseDate(m[1]);
+    const baseSym=getBase(m[2]);
+    const sym=PRESETS[baseSym]?baseSym:baseSym;
+    const contracts=parseInt(numbers[0])||0;
+    if(contracts<=0)continue;
+    const exch=Math.abs(parseFloat(numbers[1].replace(/,/g,''))||0);
+    const comm=Math.abs(parseFloat(numbers[2].replace(/,/g,''))||0);
+    const nfa=Math.abs(parseFloat(numbers[3].replace(/,/g,''))||0);
+    const pnl=parseFloat(numbers[4].replace(/,/g,''))||0;
+    const key2=sym+'|'+date;
+    dailyPnlMap[key2]={pnl,fees:exch+comm+nfa,contracts};
+  }
+  // Use fills to create or update trades
   Object.entries(fillsMap).forEach(([key,fills])=>{
     fills.sort((a,b)=>a.time.localeCompare(b.time));
     if(fills.length<2)return;
-    const correctDir=fills[0].side==='BUY'?'LONG':'SHORT';
     const [sym,date]=key.split('|');
-    const dayTrades=trades.filter(t=>t.date===date&&t.symbol===sym);
-    dayTrades.forEach(t=>{
-      if(t.type!==correctDir){
-        const actualEntry=correctDir==='LONG'?Math.min(t.entry,t.exit):Math.max(t.entry,t.exit);
-        const actualExit=correctDir==='LONG'?Math.max(t.entry,t.exit):Math.min(t.entry,t.exit);
-        const newCalc=tradeCalc(t.symbol,correctDir,actualEntry,actualExit,t.size,t.fees||0);
-        result.merges.push({id:t.id,updates:{type:correctDir,entry:actualEntry,exit:actualExit,grossPnl:newCalc.grossPnl,pnl:newCalc.pnl},desc:'direction from PDF fills'});
+    const correctDir=fills[0].side==='BUY'?'LONG':'SHORT';
+    // Pair up fills into round-trip trades
+    // Group by chronological sequence: each Buy+Sell or Sell+Buy pair is one trade
+    const tradePairs=[];
+    let openSide=null,openFill=null;
+    fills.forEach(f=>{
+      if(!openSide){
+        openSide=f.side;openFill=f;
+      } else if(f.side!==openSide){
+        // Closing fill
+        tradePairs.push({
+          entry:openFill,
+          exit:f,
+          dir:openSide==='BUY'?'LONG':'SHORT'
+        });
+        openSide=null;openFill=null;
+      } else {
+        // Same side - might be scaling in, just keep first as entry
+        openFill=f;
       }
     });
+    // Get day-level data
+    const dayInfo=dailyPnlMap[key];
+    const totalDayPnl=dayInfo?dayInfo.pnl:0;
+    const totalDayFees=dayInfo?dayInfo.fees:0;
+    // Check existing trades for this day+symbol
+    const existingTrades=trades.filter(t=>t.date===date&&t.symbol===sym);
+    if(existingTrades.length){
+      // Trades exist — only verify direction
+      existingTrades.forEach(t=>{
+        if(t.type!==correctDir){
+          const actualEntry=correctDir==='LONG'?Math.min(t.entry,t.exit):Math.max(t.entry,t.exit);
+          const actualExit=correctDir==='LONG'?Math.max(t.entry,t.exit):Math.min(t.entry,t.exit);
+          const newCalc=tradeCalc(t.symbol,correctDir,actualEntry,actualExit,t.size,t.fees||0);
+          result.merges.push({id:t.id,updates:{type:correctDir,entry:actualEntry,exit:actualExit,grossPnl:newCalc.grossPnl,pnl:newCalc.pnl},desc:'direction from PDF'});
+        }
+      });
+    } else if(tradePairs.length){
+      // No existing trades — create them from the PDF fills
+      // Distribute day-level fees across trades
+      const feePerTrade=tradePairs.length>0?totalDayFees/tradePairs.length:0;
+      const pnlPerTrade=tradePairs.length>0?totalDayPnl/tradePairs.length:0;
+      tradePairs.forEach((pair,i)=>{
+        const entryPrice=pair.entry.price;
+        const exitPrice=pair.exit.price;
+        const fees=+feePerTrade.toFixed(2);
+        const useSym=PRESETS[sym]?sym:sym;
+        // Calculate gross P/L from prices (will be accurate per-trade)
+        const calc=tradeCalc(useSym,pair.dir,entryPrice,exitPrice,1,fees);
+        const grossPnl=calc.grossPnl;
+        const netPnl=+(grossPnl-fees).toFixed(2);
+        // Convert PM/AM time to 24h
+        let [h,m,s]=pair.entry.time.split(':').map(x=>parseInt(x));
+        const entryTime=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+        let [h2,m2,s2]=pair.exit.time.split(':').map(x=>parseInt(x));
+        const exitTime=String(h2).padStart(2,'0')+':'+String(m2).padStart(2,'0');
+        // Duration in minutes
+        const startMin=h*60+m,endMin=h2*60+m2;
+        const durationMins=endMin>=startMin?endMin-startMin:(endMin+1440)-startMin;
+        result.batch.push({
+          date,symbol:useSym,type:pair.dir,
+          entry:+entryPrice.toFixed(4),exit:+exitPrice.toFixed(4),
+          size:1,fees,grossPnl,pnl:netPnl,
+          setup:'—',grade:'—',timeframe:'—',
+          notes:'',chartUrl:'',
+          durationMins,entryTime,exitTime,
+          orderId:pair.entry.orderId||'',
+          source:'PDF Statement',assetType:'futures'
+        });
+      });
+    }
   });
+  result.imported=result.batch.length;
   result.merged=result.merges.length;
   return result;
 }
