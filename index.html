@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='13.1';
+const VERSION='13.2';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -804,23 +804,46 @@ function importCSV(text,label){
   // Columns: Order ID, B/S, Qty, Symbol, Status, Filled, Fill Price, Avg Price,
   //          Commission, Stop Price, Limit Price, Time, Account
   if(type==='orders'){
-    // Orders CSV: ONLY extract order IDs. NEVER modify direction/P&L.
-    const orderData={};
+    // Orders CSV: track all filled orders by buy/sell + price + symbol + date
+    // We can match these to existing trades by symbol+date+entry price proximity
+    // and populate buyFillId / sellFillId fields
+    const ordersByKey={}; // sym|date -> [{side, price, orderId, time, fillId}]
     for(let i=1;i<lines.length;i++){
       const row=parseLine(lines[i]);if(row.length<6)continue;
       const status=(gc2(row,['status'])||'').toLowerCase();
       if(!status.includes('filled'))continue;
+      const bs=(gc2(row,['b/s','ordside','buysell','side','action','type'])||'').trim().toLowerCase();
+      const side=bs.startsWith('b')||bs==='long'?'BUY':'SELL';
       const sym=getBase(gc2(row,['symbol','instrument'])||'');if(!sym)continue;
-      const dtRaw=gc2(row,['time','timestamp','date']);
+      const dtRaw=gc2(row,['time','timestamp','date','filledtime','filled time']);
       const date=parseDate(dtRaw);if(!date)continue;
       const oid=gc2(row,['orderid','order id','id'])||'';
+      const fillId=gc2(row,['fillid','fill id','filled id'])||oid;
+      const price=parseFloat(gc2(row,['fillprice','filled price','filledprice','price','avgprice','avg price'])||'NaN');
       const key=sym+'|'+date;
-      if(!orderData[key])orderData[key]=oid;
+      if(!ordersByKey[key])ordersByKey[key]=[];
+      ordersByKey[key].push({side,price,orderId:oid,fillId,time:dtRaw});
     }
+    // Match orders to existing trades
     const merges=[];
     trades.forEach(t=>{
       const key=t.symbol+'|'+t.date;
-      if(orderData[key]&&!t.orderId)merges.push({id:t.id,updates:{orderId:orderData[key]},desc:'orderId'});
+      const orders=ordersByKey[key];
+      if(!orders||!orders.length)return;
+      const updates={};
+      // Find buy and sell orders matching entry/exit prices
+      const buyOrder=orders.find(o=>o.side==='BUY'&&Math.abs(o.price-(t.type==='LONG'?t.entry:t.exit))<0.5);
+      const sellOrder=orders.find(o=>o.side==='SELL'&&Math.abs(o.price-(t.type==='LONG'?t.exit:t.entry))<0.5);
+      if(buyOrder&&!t.buyFillId)updates.buyFillId=buyOrder.fillId||buyOrder.orderId;
+      if(sellOrder&&!t.sellFillId)updates.sellFillId=sellOrder.fillId||sellOrder.orderId;
+      // Set orderId if missing (use first matching order)
+      if(!t.orderId){
+        const firstOrder=t.type==='LONG'?buyOrder:sellOrder;
+        if(firstOrder)updates.orderId=firstOrder.orderId;
+      }
+      if(Object.keys(updates).length){
+        merges.push({id:t.id,updates,desc:Object.keys(updates).join(', ')});
+      }
     });
     return{imported:0,skipped:0,merged:merges.length,type:'orders',batch:[],merges,feeUpdates:[],balRows:[]};
   }
@@ -893,15 +916,20 @@ function importCSV(text,label){
 
   // ── Account Balance History CSV ───────────────────────────────
   if(type==='balance_history'){
+    // Account Balance History CSV — end-of-day balance snapshots
+    // ONLY adds to balanceHistory chart data
+    // DOES NOT touch accountEquity (which is computed from deposits + trades)
     const balRows=[];
     for(let i=1;i<lines.length;i++){
       const row=parseLine(lines[i]);if(row.length<3)continue;
       const date=parseDate(gc2(row,['trade date','tradedate','date']));
-      const bal=parseFloat(gc2(row,['total amount','totalamount','balance','amount'])||'NaN');
-      if(!date||isNaN(bal)||bal<=0)continue;
+      // Try multiple column names for the balance
+      const bal=parseFloat(
+        gc2(row,['total amount','totalamount','endbalance','ending balance','balance','amount','totalrealizedpnl'])||'NaN'
+      );
+      if(!date||isNaN(bal))continue;
       balRows.push({date,balance:bal});
     }
-    if(balRows.length){const last=balRows[balRows.length-1].balance;if(last>0)accountEquity=last;}
     return{imported:0,skipped:0,merged:0,type:'balance_history',batch:[],merges:[],feeUpdates:[],balRows};
   }
 
@@ -1073,7 +1101,14 @@ async function commitImport(r,skipApproval){
   if(r.balRows&&r.balRows.length){balanceHistory=[...balanceHistory,...r.balRows].sort((a,b)=>a.date>b.date?1:-1);const latest=balanceHistory[balanceHistory.length-1]?.balance;if(latest>0)accountEquity=latest;}
   // Track upload history
   if((r.batch&&r.batch.length)||(r.merges&&r.merges.length)||(r.feeUpdates&&r.feeUpdates.length)||(r.balRows&&r.balRows.length)){
-    const entry={ts:new Date().toISOString(),label:r.label||'Import',type:r.type,added:r.batch.length,merged:r.merges.length,feeUpdates:(r.feeUpdates||[]).length,tradeIds:addedIds||[]};
+    // Capture detailed info about what changed
+    const mergeDetails=(r.merges||[]).map(m=>{
+      const t=trades.find(x=>x.id===m.id)||{};
+      return {id:m.id,desc:m.desc||'',symbol:t.symbol||'?',date:t.date||'?',updates:Object.keys(m.updates||{}).join(', ')};
+    });
+    const feeDetails=(r.feeUpdates||[]).map(f=>({id:f.id,oldFee:f.trade?.fees||0,newFee:f.fees,symbol:f.trade?.symbol||'?',date:f.trade?.date||'?'}));
+    const addedDetails=(r.batch||[]).map((t,idx)=>({id:addedIds[idx],symbol:t.symbol,date:t.date,type:t.type,entry:t.entry,exit:t.exit,size:t.size,pnl:t.pnl}));
+    const entry={ts:new Date().toISOString(),label:r.label||'Import',type:r.type,added:(r.batch||[]).length,merged:(r.merges||[]).length,feeUpdates:(r.feeUpdates||[]).length,ledgerEvents:(r.ledgerEvents||[]).length,tradeIds:addedIds||[],mergeDetails,feeDetails,addedDetails};
     uploadHistory.unshift(entry);if(uploadHistory.length>50)uploadHistory=uploadHistory.slice(0,50);
     localStorage.setItem('el_uploads',JSON.stringify(uploadHistory));
   }
@@ -1854,7 +1889,7 @@ function renderApp(){
     if(!filtered.length){const e=document.createElement('div');e.style.cssText='border:1px dashed var(--border);padding:48px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px';e.textContent=trades.length?'NO TRADES MATCH FILTER':'NO TRADES YET';content.appendChild(e);}
     else{
       const tw=document.createElement('div');tw.className='section';tw.style.overflowX='auto';
-      const exH=showAllCols?'<th>GROSS</th><th>DUR</th><th>ORDER ID</th><th>IN</th><th>OUT</th><th>SRC</th>':'';
+      const exH=showAllCols?'<th>DUR</th><th>ORDER ID</th><th>BUY ID</th><th>SELL ID</th><th>IN</th><th>OUT</th><th>SRC</th>':'';
       // Apply sort
       const sortedFiltered=[...filtered].sort((a,b)=>{
         let av=a[sortCol],bv=b[sortCol];
@@ -1932,7 +1967,7 @@ function renderApp(){
           </tr>`;
         }
         return ((t,i)=>{
-        const ex=showAllCols?`<td style="color:var(--text3);font-size:var(--fsxs)">${fmt(t.grossPnl||t.pnl)}</td><td style="color:var(--text4);font-size:var(--fsxs)">${fmtDur(t.durationMins)}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.orderId||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.entryTime||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.exitTime||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
+        const ex=showAllCols?`<td style="color:var(--text4);font-size:var(--fsxs)">${fmtDur(t.durationMins)}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.orderId||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs);max-width:90px;overflow:hidden;text-overflow:ellipsis" title="${t.buyFillId||''}">${t.buyFillId||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs);max-width:90px;overflow:hidden;text-overflow:ellipsis" title="${t.sellFillId||''}">${t.sellFillId||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.entryTime||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.exitTime||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
         return`<tr class="tr-row" data-id="${t.id}">
           <td style="color:var(--text5)">${String(sortedFiltered.length-i).padStart(2,'0')}</td>
           <td style="color:var(--text4);white-space:nowrap">${t.date}</td>
@@ -2339,12 +2374,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           }
           const rd=el('import-result');
           if(rd){rd.style.display='block';
-            rd.innerHTML=`<div style="color:var(--green);margin-bottom:9px">✅ DONE · ${tot} added · ${totM} merged${totF>0?' · '+totF+' fee updates':''}${totS>0?' · '+totS+' dupes':''}</div>`+
+            rd.innerHTML=`<div style="color:var(--green);margin-bottom:9px">✅ IMPORT COMPLETE · ${tot} added · ${totM} merged${totF>0?' · '+totF+' fee updates':''}${totS>0?' · '+totS+' dupes':''}</div>`+
               results.map(r=>{
-                const md=r.merges?.length?`<div style="margin-top:4px;padding:5px 10px;background:var(--bg2);font-size:var(--fsxs);color:var(--text4)">Merged: ${[...new Set(r.merges.flatMap(m=>m.desc.split(', ')))].join(', ')}</div>`:'';
-                const fd2=r.feeUpdates?.length?`<div style="margin-top:4px;padding:5px 10px;background:var(--bg2);font-size:var(--fsxs);color:var(--yellow)">Updated fees on ${r.feeUpdates.length} trade(s)</div>`:'';
-                const bd=r.balRows?.length?`<div style="margin-top:4px;padding:5px 10px;background:var(--bg2);font-size:var(--fsxs);color:var(--blue)">${r.balRows.length} balance entries → account: $${accountEquity.toLocaleString()}</div>`:'';
-                return`<div style="border-top:1px solid var(--border);padding:5px 0"><div style="display:flex;gap:12px;flex-wrap:wrap"><span style="color:var(--text3)">${r.name}</span><span class="tag">${r.type}</span>${r.imported?`<span style="color:var(--green)">+${r.imported}</span>`:''} ${r.merged?`<span style="color:var(--yellow)">~${r.merged}</span>`:''} ${r.skipped?`<span style="color:var(--text5)">${r.skipped} dupe</span>`:''}</div>${md}${fd2}${bd}</div>`;
+                const noChanges=!r.imported&&!r.merged&&!(r.feeUpdates||[]).length&&!(r.balRows||[]).length;
+                const md=(r.merges||[]).length?`<div style="margin-top:4px;padding:5px 10px;background:var(--bg2);font-size:var(--fsxs);color:var(--text4)">📝 Updated: ${[...new Set(r.merges.flatMap(m=>(m.desc||'').split(', ')))].filter(Boolean).join(', ')||'(misc)'}</div>`:'';
+                const fd2=(r.feeUpdates||[]).length?`<div style="margin-top:4px;padding:5px 10px;background:var(--bg2);font-size:var(--fsxs);color:var(--yellow)">💰 Updated fees on ${r.feeUpdates.length} trade(s)</div>`:'';
+                const bd=(r.balRows||[]).length?`<div style="margin-top:4px;padding:5px 10px;background:var(--bg2);font-size:var(--fsxs);color:var(--blue)">📈 ${r.balRows.length} balance entries added to chart</div>`:'';
+                const nc=noChanges?`<div style="margin-top:4px;padding:5px 10px;background:color-mix(in srgb,var(--yellow) 10%,transparent);font-size:var(--fsxs);color:var(--yellow)">⚠ No changes — file recognized as <b>${r.type}</b> but ${r.type==='cash'?'no fees or deposits matched existing trades':r.type==='orders'?'no orders matched existing trades by symbol+date':r.type==='balance_history'?'balance rows added to chart only (no trade changes expected)':'all data was duplicates or did not match'}.<br>Try importing Position History first, then this file.</div>`:'';
+                return`<div style="border-top:1px solid var(--border);padding:6px 0"><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><span style="color:var(--text3)">${r.name}</span><span class="tag">${r.type}</span>${r.imported?`<span style="color:var(--green)">+${r.imported} new</span>`:''}${r.merged?`<span style="color:var(--yellow)">~${r.merged} merged</span>`:''}${r.skipped?`<span style="color:var(--text5)">${r.skipped} dupe</span>`:''}${noChanges?`<span style="color:var(--yellow)">⚠ no changes</span>`:''}</div>${md}${fd2}${bd}${nc}</div>`;
               }).join('');
           }
           if(tot>0)setTimeout(()=>{window._dataSubTab='history';renderApp();},1800);
@@ -2413,26 +2450,34 @@ namespace NinjaTrader.NinjaScript.Strategies {
               </tr>
               ${window._expHist===i?`<tr style="background:var(--bg3)">
                 <td colspan="7" style="padding:14px 18px;border-bottom:1px solid var(--border)">
-                  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;font-size:var(--fsxs)">
-                    <div>
-                      <div style="color:var(--green);letter-spacing:1px;margin-bottom:4px">TRADES ADDED</div>
-                      <div style="font-family:'Bebas Neue',monospace;font-size:20px;color:var(--green)">${u.added||0}</div>
-                      <div style="color:var(--text5);margin-top:4px">${(u.tradeIds||[]).length} doc IDs tracked</div>
-                    </div>
-                    <div>
-                      <div style="color:var(--yellow);letter-spacing:1px;margin-bottom:4px">TRADES MERGED</div>
-                      <div style="font-family:'Bebas Neue',monospace;font-size:20px;color:var(--yellow)">${u.merged||0}</div>
-                      <div style="color:var(--text5);margin-top:4px">Direction/size/fees updated on existing trades</div>
-                    </div>
-                    <div>
-                      <div style="color:var(--blue);letter-spacing:1px;margin-bottom:4px">FEE UPDATES</div>
-                      <div style="font-family:'Bebas Neue',monospace;font-size:20px;color:var(--blue)">${u.feeUpdates||0}</div>
-                      <div style="color:var(--text5);margin-top:4px">Fee amounts changed on existing trades</div>
-                    </div>
-                  </div>
-                  <div style="display:flex;gap:8px;margin-top:14px">
+                  ${u.addedDetails&&u.addedDetails.length?`<div style="margin-bottom:14px">
+                    <div style="color:var(--green);letter-spacing:1px;margin-bottom:6px;font-size:var(--fsxs)">＋ TRADES ADDED (${u.addedDetails.length})</div>
+                    <table style="width:100%;font-size:var(--fsxs)"><thead><tr style="color:var(--text5)"><th style="text-align:left;padding:3px 6px">DATE</th><th style="text-align:left">SYM</th><th>DIR</th><th>SIZE</th><th>ENTRY</th><th>EXIT</th><th style="text-align:right">P&L</th></tr></thead><tbody>
+                    ${u.addedDetails.slice(0,20).map(a=>`<tr style="border-top:1px solid var(--border)"><td style="padding:3px 6px;color:var(--text3)">${a.date}</td><td style="color:var(--text);font-weight:bold">${a.symbol}</td><td style="text-align:center;color:${a.type==='LONG'?'var(--green)':'var(--blue)'}">${a.type}</td><td style="text-align:center">${a.size}</td><td style="text-align:center;color:var(--text3)">${a.entry}</td><td style="text-align:center;color:var(--text3)">${a.exit}</td><td style="text-align:right;color:${a.pnl>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace">${a.pnl>=0?'+':''}$${a.pnl.toFixed(2)}</td></tr>`).join('')}
+                    ${u.addedDetails.length>20?`<tr><td colspan="7" style="text-align:center;color:var(--text5);padding:4px">… and ${u.addedDetails.length-20} more</td></tr>`:''}
+                    </tbody></table>
+                  </div>`:''}
+                  
+                  ${u.mergeDetails&&u.mergeDetails.length?`<div style="margin-bottom:14px">
+                    <div style="color:var(--yellow);letter-spacing:1px;margin-bottom:6px;font-size:var(--fsxs)">~ TRADES MERGED / UPDATED (${u.mergeDetails.length})</div>
+                    <table style="width:100%;font-size:var(--fsxs)"><thead><tr style="color:var(--text5)"><th style="text-align:left;padding:3px 6px">DATE</th><th style="text-align:left">SYM</th><th style="text-align:left">FIELDS CHANGED</th></tr></thead><tbody>
+                    ${u.mergeDetails.slice(0,20).map(m=>`<tr style="border-top:1px solid var(--border)"><td style="padding:3px 6px;color:var(--text3)">${m.date}</td><td style="color:var(--text);font-weight:bold">${m.symbol}</td><td style="color:var(--text3)">${m.updates||m.desc||'(none)'}</td></tr>`).join('')}
+                    ${u.mergeDetails.length>20?`<tr><td colspan="3" style="text-align:center;color:var(--text5);padding:4px">… and ${u.mergeDetails.length-20} more</td></tr>`:''}
+                    </tbody></table>
+                  </div>`:''}
+                  
+                  ${u.feeDetails&&u.feeDetails.length?`<div style="margin-bottom:14px">
+                    <div style="color:var(--blue);letter-spacing:1px;margin-bottom:6px;font-size:var(--fsxs)">$ FEE UPDATES (${u.feeDetails.length})</div>
+                    <table style="width:100%;font-size:var(--fsxs)"><thead><tr style="color:var(--text5)"><th style="text-align:left;padding:3px 6px">DATE</th><th style="text-align:left">SYM</th><th>OLD FEE</th><th>NEW FEE</th><th>DIFF</th></tr></thead><tbody>
+                    ${u.feeDetails.slice(0,20).map(f=>{const diff=f.newFee-f.oldFee;return `<tr style="border-top:1px solid var(--border)"><td style="padding:3px 6px;color:var(--text3)">${f.date}</td><td style="color:var(--text);font-weight:bold">${f.symbol}</td><td style="text-align:center;color:var(--text4)">$${(f.oldFee||0).toFixed(2)}</td><td style="text-align:center;color:var(--yellow)">$${(f.newFee||0).toFixed(2)}</td><td style="text-align:center;color:${diff>0?'var(--red)':'var(--green)'}">${diff>=0?'+':''}$${diff.toFixed(2)}</td></tr>`}).join('')}
+                    </tbody></table>
+                  </div>`:''}
+                  
+                  ${u.added===0&&u.merged===0&&u.feeUpdates===0?`<div style="color:var(--text5);font-style:italic;text-align:center;padding:20px">No changes were made by this import (no new data found or all data was duplicates).</div>`:''}
+                  
+                  <div style="display:flex;gap:8px;margin-top:14px;padding-top:10px;border-top:1px solid var(--border)">
                     ${u.added>0?`<button class="btn-r" style="font-size:var(--fsxs);padding:6px 14px" onclick="event.stopPropagation();revertImport(${i})">REVERT — DELETE ${u.added} ADDED TRADES</button>`:''}
-                    <span style="font-size:var(--fsxs);color:var(--text5);align-self:center">Note: Merged/fee changes cannot be auto-undone. Re-import Position History to fix direction issues.</span>
+                    <span style="font-size:var(--fsxs);color:var(--text5);align-self:center">Merged/fee changes cannot be auto-undone. Re-import Position History to fix direction issues.</span>
                   </div>
                 </td>
               </tr>`:''}`;
