@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='12.98';
+const VERSION='12.99';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1901,7 +1901,33 @@ function renderApp(){
       Object.keys(_ledgerByDate).forEach(d=>{
         if(!_appliedDates.has(d))_runBal+=_ledgerByDate[d];
       });
-      const tbody=sortedFiltered.map((t,i)=>{
+      // Merge trades + ledger events into a single chronological list for display
+      const _depRows=(ledgerEvents||[]).map(ev=>({_type:'ledger',date:ev.date,amount:ev.amount,desc:ev.desc,type:ev.type}));
+      // Only inject ledger rows if we're sorted by date
+      const _allRows=sortCol==='date'?
+        [...sortedFiltered.map(t=>({_type:'trade',...t})),..._depRows].sort((a,b)=>{
+          const cmp=a.date>b.date?1:-1;
+          return sortDir>0?cmp:-cmp;
+        }):
+        sortedFiltered.map(t=>({_type:'trade',...t}));
+      // Count column for blank cells (must match header column count)
+      const _colCount=18;
+      const tbody=_allRows.map((t,i)=>{
+        // Render deposit row inline
+        if(t._type==='ledger'){
+          const c=t.amount>=0?'#00e5a0':'#ff3d5a';
+          return `<tr style="background:color-mix(in srgb,${c} 8%,var(--bg1));border-bottom:1px solid var(--border)">
+            <td colspan="${_colCount}" style="padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:var(--fsxs)">
+              <div style="display:flex;align-items:center;gap:14px">
+                <span style="color:var(--text5)">${t.date}</span>
+                <span style="font-family:'Bebas Neue',monospace;font-size:14px;color:${c};letter-spacing:2px">${t.amount>=0?'＋ DEPOSIT':'－ WITHDRAWAL'}</span>
+                <span style="font-family:'Bebas Neue',monospace;font-size:16px;color:${c}">${t.amount>=0?'+':''}$${Math.abs(t.amount).toLocaleString(undefined,{maximumFractionDigits:2})}</span>
+                <span style="color:var(--text5);font-size:8px;flex:1">${t.desc||''}</span>
+              </div>
+            </td>
+          </tr>`;
+        }
+        return ((t,i)=>{
         const ex=showAllCols?`<td style="color:var(--text3);font-size:var(--fsxs)">${fmt(t.grossPnl||t.pnl)}</td><td style="color:var(--text4);font-size:var(--fsxs)">${fmtDur(t.durationMins)}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.orderId||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.entryTime||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.exitTime||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
         return`<tr class="tr-row" data-id="${t.id}">
           <td style="color:var(--text5)">${String(sortedFiltered.length-i).padStart(2,'0')}</td>
@@ -1916,7 +1942,7 @@ function renderApp(){
             ${_eqPcts[t.id]!=null?`<div style="font-size:8px;color:${Math.abs(_eqPcts[t.id])>2?gch(t.pnl):'var(--text5)'}">${_eqPcts[t.id]>0?'+':''}${_eqPcts[t.id]}%</div>`:''}
           </td>
           <td style="font-size:var(--fsxs);white-space:nowrap;text-align:right">
-            ${(()=>{const p=PRESETS[t.symbol];if(!p||!t.entry||!t.exit)return'<span style="color:var(--text5)">—</span>';const dir=t.type==='LONG'?1:-1;const pts=((t.exit-t.entry)*dir/p.ts);const perC=t.size>1?(pts/t.size):pts;return `<div style="color:${pts>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px">${pts>=0?'+':''}${pts.toFixed(1)}</div>${t.size>1?`<div style="font-size:8px;color:var(--text5)">${perC>=0?'+':''}${perC.toFixed(1)}/c</div>`:''}`})()}
+            ${(()=>{const p=PRESETS[t.symbol];if(!p||!t.entry||!t.exit)return'<span style="color:var(--text5)">—</span>';const dir=t.type==='LONG'?1:-1;const pts=((t.exit-t.entry)*dir);const perC=t.size>1?(pts/t.size):pts;return `<div style="color:${pts>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px">${pts>=0?'+':''}${pts.toFixed(2)}</div>${t.size>1?`<div style="font-size:8px;color:var(--text5)">${perC>=0?'+':''}${perC.toFixed(2)}/c</div>`:''}`})()}
           </td>
           <td style="font-size:var(--fsxs);white-space:nowrap">
             <div style="color:var(--text3)">${_runBals[t.id]!=null?'$'+_runBals[t.id].toLocaleString(undefined,{maximumFractionDigits:0}):'—'}</div>
@@ -1938,9 +1964,7 @@ function renderApp(){
             ${t.chartUrl?`<a href="${t.chartUrl}" target="_blank" class="clink" style="margin-right:4px">📈</a>`:''}
             <input class="inline-txt" data-field="chartUrl" data-id="${t.id}" value="${t.chartUrl||''}" placeholder="chart url" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--blue);font-family:inherit;font-size:8px;width:${t.chartUrl?'40px':'70px'};padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='160px'" onblur="this.style.borderBottomColor='transparent';this.style.width=this.value?'40px':'70px';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()" title="${t.chartUrl||'Paste chart URL'}"/>
           </td>
-          <td style="padding:3px 6px;max-width:120px">
-            ${(t.tags||[]).map(tag=>`<span class="tag" style="margin-right:2px;margin-bottom:2px;display:inline-block;cursor:pointer" title="Click to filter">${tag}</span>`).join('')}
-          </td>
+          
           <td style="padding:4px 9px;max-width:120px">
             ${(t.tags||[]).map(tag=>`<span style="font-size:8px;padding:1px 6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text3);margin-right:2px;display:inline-block">${tag}</span>`).join('')}
           </td>
@@ -1951,6 +1975,7 @@ function renderApp(){
           <td><button class="edit-btn" data-id="${t.id}">✎</button></td>
           <td><button class="del-btn" data-id="${t.id}">✕</button></td>
         </tr>`;
+      })(t,i);
       }).join('');
       const mkTh=(label,col)=>`<th onclick="setSortCol('${col}')" title="Click to sort" style="cursor:pointer;user-select:none">${label}${sortCol===col?(sortDir>0?' ▲':' ▼'):''}</th>`;
       tw.innerHTML=`<table style="min-width:900px"><thead><tr>
