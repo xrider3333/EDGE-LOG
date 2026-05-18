@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='12.99';
+const VERSION='13.0';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1942,7 +1942,7 @@ function renderApp(){
             ${_eqPcts[t.id]!=null?`<div style="font-size:8px;color:${Math.abs(_eqPcts[t.id])>2?gch(t.pnl):'var(--text5)'}">${_eqPcts[t.id]>0?'+':''}${_eqPcts[t.id]}%</div>`:''}
           </td>
           <td style="font-size:var(--fsxs);white-space:nowrap;text-align:right">
-            ${(()=>{const p=PRESETS[t.symbol];if(!p||!t.entry||!t.exit)return'<span style="color:var(--text5)">—</span>';const dir=t.type==='LONG'?1:-1;const pts=((t.exit-t.entry)*dir);const perC=t.size>1?(pts/t.size):pts;return `<div style="color:${pts>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px">${pts>=0?'+':''}${pts.toFixed(2)}</div>${t.size>1?`<div style="font-size:8px;color:var(--text5)">${perC>=0?'+':''}${perC.toFixed(2)}/c</div>`:''}`})()}
+            ${(()=>{const p=PRESETS[t.symbol];if(!p||!t.entry||!t.exit)return'<span style="color:var(--text5)">—</span>';const dir=t.type==='LONG'?1:-1;const ptsPerC=((t.exit-t.entry)*dir);const pts=ptsPerC*t.size;const perC=ptsPerC;return `<div style="color:${pts>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px">${pts>=0?'+':''}${pts.toFixed(2)}</div>${t.size>1?`<div style="font-size:8px;color:var(--text5)">${perC>=0?'+':''}${perC.toFixed(2)}/c</div>`:''}`})()}
           </td>
           <td style="font-size:var(--fsxs);white-space:nowrap">
             <div style="color:var(--text3)">${_runBals[t.id]!=null?'$'+_runBals[t.id].toLocaleString(undefined,{maximumFractionDigits:0}):'—'}</div>
