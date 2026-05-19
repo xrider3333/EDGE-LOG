@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='13.2';
+const VERSION='13.3';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -916,21 +916,52 @@ function importCSV(text,label){
 
   // ── Account Balance History CSV ───────────────────────────────
   if(type==='balance_history'){
-    // Account Balance History CSV — end-of-day balance snapshots
-    // ONLY adds to balanceHistory chart data
-    // DOES NOT touch accountEquity (which is computed from deposits + trades)
+    // Account Balance History CSV: Account ID, Account Name, Trade Date, Total Amount, Total Realized PNL
+    // Each row = end-of-day balance. We can detect deposits by checking:
+    //   today_balance - (yesterday_balance + today_pnl) = deposit/withdrawal
     const balRows=[];
+    const detectedLedger=[];
+    const sortedRows=[];
     for(let i=1;i<lines.length;i++){
       const row=parseLine(lines[i]);if(row.length<3)continue;
       const date=parseDate(gc2(row,['trade date','tradedate','date']));
-      // Try multiple column names for the balance
-      const bal=parseFloat(
-        gc2(row,['total amount','totalamount','endbalance','ending balance','balance','amount','totalrealizedpnl'])||'NaN'
-      );
+      // Handle comma-thousands in NT8 format like "1,458.35"
+      const balRaw=(gc2(row,['total amount','totalamount','endbalance','ending balance','balance','amount'])||'').replace(/[",$]/g,'');
+      const pnlRaw=(gc2(row,['total realized pnl','totalrealizedpnl','realized pnl'])||'').replace(/[",$]/g,'');
+      const bal=parseFloat(balRaw);
+      const pnl=parseFloat(pnlRaw)||0;
       if(!date||isNaN(bal))continue;
-      balRows.push({date,balance:bal});
+      sortedRows.push({date,balance:bal,pnl});
     }
-    return{imported:0,skipped:0,merged:0,type:'balance_history',batch:[],merges:[],feeUpdates:[],balRows};
+    // Sort by date so we can detect deposits chronologically
+    sortedRows.sort((a,b)=>a.date>b.date?1:-1);
+    let prevBal=null;
+    sortedRows.forEach((r,idx)=>{
+      balRows.push({date:r.date,balance:r.balance});
+      // Detect deposit/withdrawal: today_bal - (yesterday_bal + today_pnl)
+      if(prevBal!==null){
+        const expected=prevBal+r.pnl;
+        const diff=+(r.balance-expected).toFixed(2);
+        if(Math.abs(diff)>=1){ // threshold to avoid rounding noise
+          detectedLedger.push({
+            date:r.date,
+            amount:diff,
+            type:diff>0?'DEPOSIT':'WITHDRAWAL',
+            desc:'Detected from balance history'
+          });
+        }
+      } else if(r.balance>0&&idx===0){
+        // First row — if there's a balance with no preceding day, it's the initial deposit
+        detectedLedger.push({
+          date:r.date,
+          amount:r.balance,
+          type:'DEPOSIT',
+          desc:'Initial deposit (detected from balance history)'
+        });
+      }
+      prevBal=r.balance;
+    });
+    return{imported:0,skipped:0,merged:0,type:'balance_history',batch:[],merges:[],feeUpdates:[],balRows,ledgerEvents:detectedLedger};
   }
 
   // ── NT8 Position History parser ────────────────────────────────
@@ -986,6 +1017,8 @@ function importCSV(text,label){
         if(durationMins&&!existing.durationMins)upd.durationMins=durationMins;
         if(entryTime&&!existing.entryTime)upd.entryTime=entryTime;
         if(exitTime&&!existing.exitTime)upd.exitTime=exitTime;
+        if(buyFillId&&!existing.buyFillId)upd.buyFillId=buyFillId;
+        if(sellFillId&&!existing.sellFillId)upd.sellFillId=sellFillId;
         // Update direction if existing was wrong
         if(existing.type!==dir){upd.type=dir;upd.entry=entry;upd.exit=exit;}
         if(Object.keys(upd).length>0)merges.push({id:existing.id,updates:upd,desc:Object.keys(upd).join(', ')});
