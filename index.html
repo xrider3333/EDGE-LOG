@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='14.3';
+const VERSION='14.4';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -185,7 +185,7 @@ applyTheme();
 let db=null,auth=null,colRef=null,lessonRef=null,unsub=null,unsubL=null;
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
 let activeTab='overview',activeChart='equity';
-let formOpen=false,showAllCols=true;
+let formOpen=false,showAllCols=false;
 let autoHandle=null,autoTimer=null,autoInterval=60;
 let useGross=false; // gross vs net toggle for KPI stats
 let filters={sym:'',dir:'',grade:'',setup:'',tf:'',dateFrom:'',dateTo:'',minPnl:'',maxPnl:''};
@@ -985,6 +985,8 @@ function importCSV(text,label){
       const qty=parseInt(gc2(row,['pairedqty','paired qty','qty','quantity'])||'1')||1;
       const buyFillId=gc2(row,['buyfillid','buy fill id'])||'';
       const sellFillId=gc2(row,['sellfillid','sell fill id'])||'';
+      const positionId=gc2(row,['position id','positionid'])||'';
+      const pairId=gc2(row,['pair id','pairid'])||'';
       const buyR=parseFloat(gc2(row,['buyprice','buy price'])||'NaN');
       const sellR=parseFloat(gc2(row,['sellprice','sell price'])||'NaN');
       const plR=parseFloat(gc2(row,['p/l','pl','pnl','profit'])||'NaN');
@@ -1038,7 +1040,7 @@ function importCSV(text,label){
       batch.push({date,symbol:useSym,type:dir,entry:+entry.toFixed(4),exit:+exit.toFixed(4),
         size:qty,fees,grossPnl,pnl:netPnl,setup:'—',grade:'—',timeframe:'—',
         notes:'',chartUrl:'',durationMins,entryTime,exitTime,eqPct,
-        source:label||'Position History',assetType:'futures',buyFillId,sellFillId,orderId:buyFillId||sellFillId||''});
+        source:label||'Position History',assetType:'futures',buyFillId,sellFillId,positionId,pairId,orderId:buyFillId||sellFillId||''});
     }
     return{imported:batch.length,skipped,merged:merges.length,type:'position_history',batch,merges,feeUpdates:[],balRows:[]};
   }
@@ -2048,7 +2050,7 @@ function renderApp(){
 
     const cr=document.createElement('div');
     cr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;font-size:var(--fsxs);color:var(--text4)';
-    cr.innerHTML=`<span>${filtered.length} / ${trades.length} trades ${useGross?'<span style="color:var(--yellow)">[GROSS MODE]</span>':''} <span style="color:var(--text5);font-size:var(--fsxs)">sorted by ${sortCol} ${sortDir>0?'▲':'▼'}</span></span><button class="btn-y" style="margin-left:auto;font-size:var(--fsxs);padding:4px 12px" onclick="scanForDuplicates()">🔍 SCAN DUPLICATES</button>`;
+    cr.innerHTML=`<span>${filtered.length} / ${trades.length} trades ${useGross?'<span style="color:var(--yellow)">[GROSS MODE]</span>':''} <span style="color:var(--text5);font-size:var(--fsxs)">sorted by ${sortCol} ${sortDir>0?'▲':'▼'}</span></span><button class="btn-d" style="font-size:var(--fsxs);padding:4px 12px;margin-right:6px" onclick="showAllCols=!showAllCols;renderApp()">${showAllCols?'HIDE EXTRAS':'SHOW MORE'}</button><button class="btn-y" style="margin-left:auto;font-size:var(--fsxs);padding:4px 12px" onclick="scanForDuplicates()">🔍 SCAN DUPLICATES</button>`;
     content.appendChild(cr);
     setTimeout(()=>{},50);
 
@@ -2435,6 +2437,34 @@ function renderApp(){
     // ─── IMPORT ──────────────────────────────────────────────────
     if(dSubTab==='import'){
       content.innerHTML+=`<div style="max-width:740px">
+      <div class="section">
+        <div class="sec-hd">MANUAL IMPORT — DROP MULTIPLE FILES</div>
+        <div style="padding:14px">
+          <div class="drop-zone" id="drop-zone">
+            <div style="font-size:28px;margin-bottom:8px">📂</div>
+            <div style="font-size:var(--fsm);color:var(--text3)">DROP CSV(S) HERE or CLICK TO BROWSE</div>
+            <div style="font-size:var(--fsxs);color:var(--text5);margin-top:8px;line-height:2">NT8 Position History · NT8 Cash History · Performance CSV · Fills · Stocks · Multiple files OK</div>
+            <input type="file" id="csv-input" accept=".csv,.pdf" multiple style="display:none"/>
+          </div>
+          <div id="import-result" style="display:none;margin-top:9px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border2);font-size:var(--fsm);color:var(--text3)"></div>
+        </div>
+      </div>
+      <div class="section" style="margin-bottom:10px">
+        <div class="sec-hd">AUTO-IMPORT <span style="color:var(--yellow);font-size:var(--fsxs);margin-left:8px">Chrome/Edge only</span></div>
+        <div style="padding:14px">
+          <div style="font-size:var(--fsm);color:var(--text4);margin-bottom:10px;line-height:1.8">Select a file once — Edge Log re-reads it automatically and imports new trades, merging in new fields (fees, timestamps, order IDs).</div>
+          <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:9px">
+            <button class="btn-y" id="auto-start-btn" style="display:${autoHandle?'none':'inline-block'}">📂 SELECT FILE FOR AUTO-SYNC</button>
+            <button class="btn-r" id="auto-stop-btn" style="display:${autoHandle?'inline-block':'none'}">■ STOP</button>
+            <label class="lbl" style="margin:0">EVERY</label>
+            <input id="auto-interval" type="number" value="${autoInterval}" min="10" style="width:65px"/>
+            <span style="font-size:var(--fsm);color:var(--text4)">sec</span>
+          </div>
+          <div id="auto-status" style="display:${autoHandle?'flex':'none'};align-items:center;gap:8px;font-size:var(--fsm);color:var(--text3);background:var(--bg3);padding:9px 13px;border:1px solid var(--border2)">
+            <span class="pulse-y"></span><span id="auto-last">Waiting...</span>
+          </div>
+        </div>
+      </div>
       <div style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--yellow) 20%,transparent);padding:12px 16px;margin-bottom:12px">
         <div style="font-size:var(--fsxs);color:var(--yellow);letter-spacing:2px;margin-bottom:7px">⚡ SUPPORTED FILE TYPES</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:var(--fsm);color:var(--text3);line-height:1.9">
@@ -2472,34 +2502,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
     }
   }
 }</pre>
-      </div>
-      <div class="section" style="margin-bottom:10px">
-        <div class="sec-hd">AUTO-IMPORT <span style="color:var(--yellow);font-size:var(--fsxs);margin-left:8px">Chrome/Edge only</span></div>
-        <div style="padding:14px">
-          <div style="font-size:var(--fsm);color:var(--text4);margin-bottom:10px;line-height:1.8">Select a file once — Edge Log re-reads it automatically and imports new trades, merging in new fields (fees, timestamps, order IDs).</div>
-          <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:9px">
-            <button class="btn-y" id="auto-start-btn" style="display:${autoHandle?'none':'inline-block'}">📂 SELECT FILE FOR AUTO-SYNC</button>
-            <button class="btn-r" id="auto-stop-btn" style="display:${autoHandle?'inline-block':'none'}">■ STOP</button>
-            <label class="lbl" style="margin:0">EVERY</label>
-            <input id="auto-interval" type="number" value="${autoInterval}" min="10" style="width:65px"/>
-            <span style="font-size:var(--fsm);color:var(--text4)">sec</span>
-          </div>
-          <div id="auto-status" style="display:${autoHandle?'flex':'none'};align-items:center;gap:8px;font-size:var(--fsm);color:var(--text3);background:var(--bg3);padding:9px 13px;border:1px solid var(--border2)">
-            <span class="pulse-y"></span><span id="auto-last">Waiting...</span>
-          </div>
-        </div>
-      </div>
-      <div class="section">
-        <div class="sec-hd">MANUAL IMPORT — DROP MULTIPLE FILES</div>
-        <div style="padding:14px">
-          <div class="drop-zone" id="drop-zone">
-            <div style="font-size:28px;margin-bottom:8px">📂</div>
-            <div style="font-size:var(--fsm);color:var(--text3)">DROP CSV(S) HERE or CLICK TO BROWSE</div>
-            <div style="font-size:var(--fsxs);color:var(--text5);margin-top:8px;line-height:2">NT8 Position History · NT8 Cash History · Performance CSV · Fills · Stocks · Multiple files OK</div>
-            <input type="file" id="csv-input" accept=".csv,.pdf" multiple style="display:none"/>
-          </div>
-          <div id="import-result" style="display:none;margin-top:9px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border2);font-size:var(--fsm);color:var(--text3)"></div>
-        </div>
       </div>
       </div>`;
       setTimeout(()=>{
