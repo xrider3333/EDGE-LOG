@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='13.3';
+const VERSION='13.4';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -791,7 +791,7 @@ function importCSV(text,label){
       dayTrades.forEach(t=>feeUpdates.push({id:t.id,fees:perTrade,trade:t}));
     });
     // Update account equity from last balance entry
-    if(balRows.length){const last=balRows[balRows.length-1].balance;if(last>0)accountEquity=last;}
+    // (removed) — balance history no longer overwrites accountEquity
     return{imported:0,skipped:0,merged:0,type:'cash',batch:[],merges:[],feeUpdates,balRows};
   }
 
@@ -909,6 +909,7 @@ function importCSV(text,label){
       batch.push({date,symbol:useSym,type:dir,entry:+entry.toFixed(4),exit:+exit.toFixed(4),
         size:qty,fees,grossPnl,pnl:netPnl,setup:'—',grade:'—',timeframe:'—',
         notes:'',chartUrl:'',durationMins,entryTime,exitTime,buyFillId,sellFillId,
+        orderId:buyFillId||sellFillId||'',
         source:'Performance CSV',assetType:'futures'});
     }
     return{imported:batch.length,skipped,merged:merges.length,type:'performance_v2',batch,merges,feeUpdates:[],balRows:[]};
@@ -1028,7 +1029,7 @@ function importCSV(text,label){
       batch.push({date,symbol:useSym,type:dir,entry:+entry.toFixed(4),exit:+exit.toFixed(4),
         size:qty,fees,grossPnl,pnl:netPnl,setup:'—',grade:'—',timeframe:'—',
         notes:'',chartUrl:'',durationMins,entryTime,exitTime,eqPct,
-        source:label||'Position History',assetType:'futures',buyFillId,sellFillId});
+        source:label||'Position History',assetType:'futures',buyFillId,sellFillId,orderId:buyFillId||sellFillId||''});
     }
     return{imported:batch.length,skipped,merged:merges.length,type:'position_history',batch,merges,feeUpdates:[],balRows:[]};
   }
@@ -1131,7 +1132,7 @@ async function commitImport(r,skipApproval){
     const newCalc=tradeCalc(t.symbol,t.type,t.entry,t.exit,t.size,f.fees);
     await updateTrade(f.id,{fees:f.fees,pnl:newCalc.pnl,grossPnl:newCalc.grossPnl,feeFromCash:true});
   }
-  if(r.balRows&&r.balRows.length){balanceHistory=[...balanceHistory,...r.balRows].sort((a,b)=>a.date>b.date?1:-1);const latest=balanceHistory[balanceHistory.length-1]?.balance;if(latest>0)accountEquity=latest;}
+  if(r.balRows&&r.balRows.length){balanceHistory=[...balanceHistory,...r.balRows].sort((a,b)=>a.date>b.date?1:-1);const latest=balanceHistory[balanceHistory.length-1]?.balance;}
   // Track upload history
   if((r.batch&&r.batch.length)||(r.merges&&r.merges.length)||(r.feeUpdates&&r.feeUpdates.length)||(r.balRows&&r.balRows.length)){
     // Capture detailed info about what changed
