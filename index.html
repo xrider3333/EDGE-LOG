@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='14.2';
+const VERSION='14.3';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -2055,7 +2055,7 @@ function renderApp(){
     if(!filtered.length){const e=document.createElement('div');e.style.cssText='border:1px dashed var(--border);padding:48px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px';e.textContent=trades.length?'NO TRADES MATCH FILTER':'NO TRADES YET';content.appendChild(e);}
     else{
       const tw=document.createElement('div');tw.className='section';tw.style.overflowX='auto';
-      const exH=showAllCols?('<th>DUR</th>'+(showAllIds?'<th>BUY ORD</th><th>SELL ORD</th><th>BUY FILL</th><th>SELL FILL</th><th>POS ID</th><th>PAIR ID</th>':'')+'<th>IN</th><th>OUT</th><th>SRC</th>'):'';
+      const exH=showAllCols?'<th>FEES</th><th>DUR</th><th>BUY ORD</th><th>SELL ORD</th><th>BUY FILL</th><th>SELL FILL</th><th>POS ID</th><th>PAIR ID</th><th>IN</th><th>OUT</th><th>SRC</th>':'';
       // Apply sort
       const sortedFiltered=[...filtered].sort((a,b)=>{
         let av=a[sortCol],bv=b[sortCol];
@@ -2134,15 +2134,14 @@ function renderApp(){
         }
         return ((t,i)=>{
         const _idCell=(v)=>`<td style="color:var(--text5);font-size:var(--fsxs);max-width:90px;overflow:hidden;text-overflow:ellipsis" title="${v||''}">${v||'—'}</td>`;
-        const ex=showAllCols?`<td style="color:var(--text4);font-size:var(--fsxs)">${fmtDur(t.durationMins)}</td>${showAllIds?_idCell(t.buyOrderId)+_idCell(t.sellOrderId)+_idCell(t.buyFillId)+_idCell(t.sellFillId)+_idCell(t.positionId)+_idCell(t.pairId):''}<td style="color:var(--text4);font-size:var(--fsxs)">${t.entryTime||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.exitTime||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
+        const ex=showAllCols?`<td style="color:var(--yellow);font-size:var(--fsxs)">${t.fees>0?'-$'+t.fees.toFixed(2):'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${fmtDur(t.durationMins)}</td>${_idCell(t.buyOrderId)}${_idCell(t.sellOrderId)}${_idCell(t.buyFillId)}${_idCell(t.sellFillId)}${_idCell(t.positionId)}${_idCell(t.pairId)}<td style="color:var(--text4);font-size:var(--fsxs)">${t.entryTime||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.exitTime||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
         return`<tr class="tr-row" data-id="${t.id}">
           <td style="color:var(--text5)">${String(sortedFiltered.length-i).padStart(2,'0')}</td>
           <td style="color:var(--text4);white-space:nowrap">${t.date}</td>
           <td style="color:var(--text);font-weight:bold">${t.symbol}<span style="font-size:8px;color:var(--text5);margin-left:2px">${isFut(t.symbol)?'':'S'}</span></td>
           <td style="color:${t.type==='LONG'?'var(--green)':'var(--blue)'}">${t.type}</td>
           <td>${t.entry}</td><td>${t.exit}</td><td>${t.size}</td>
-          <td style="color:var(--yellow)">${t.fees>0?'-$'+t.fees.toFixed(2):'—'}</td>
-          <td style="color:${gch(t.grossPnl||t.pnl)};white-space:nowrap;font-family:'Bebas Neue',monospace;font-size:13px;opacity:.85">${fmt(t.grossPnl||t.pnl)}</td>
+                    <td style="color:${gch(t.grossPnl||t.pnl)};white-space:nowrap;font-family:'Bebas Neue',monospace;font-size:13px;opacity:.85">${fmt(t.grossPnl||t.pnl)}</td>
           <td style="color:${gch(t.pnl)};font-family:'Bebas Neue',monospace;font-size:14px;white-space:nowrap">
             ${fmt(t.pnl)}
             ${_eqPcts[t.id]!=null?`<div style="font-size:8px;color:${Math.abs(_eqPcts[t.id])>2?gch(t.pnl):'var(--text5)'}">${_eqPcts[t.id]>0?'+':''}${_eqPcts[t.id]}%</div>`:''}
@@ -2165,15 +2164,14 @@ function renderApp(){
           <!-- INLINE TIMEFRAME -->
           <td><select class="inline-sel" data-field="timeframe" data-id="${t.id}">
             ${TIMEFRAMES.map(tf=>`<option${tf===(t.timeframe||'—')?' selected':''}>${tf}</option>`).join('')}
+            ${t.timeframe&&!TIMEFRAMES.includes(t.timeframe)?`<option selected>${t.timeframe}</option>`:''}
           </select></td>
           <td style="padding:4px 9px">
             ${t.chartUrl?`<a href="${t.chartUrl}" target="_blank" class="clink" style="margin-right:4px">📈</a>`:''}
             <input class="inline-txt" data-field="chartUrl" data-id="${t.id}" value="${t.chartUrl||''}" placeholder="chart url" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--blue);font-family:inherit;font-size:8px;width:${t.chartUrl?'40px':'70px'};padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='160px'" onblur="this.style.borderBottomColor='transparent';this.style.width=this.value?'40px':'70px';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()" title="${t.chartUrl||'Paste chart URL'}"/>
           </td>
           
-          <td style="padding:4px 9px;max-width:120px">
-            ${(t.tags||[]).map(tag=>`<span style="font-size:8px;padding:1px 6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text3);margin-right:2px;display:inline-block">${tag}</span>`).join('')}
-          </td>
+          
           <td style="max-width:140px;padding:4px 9px">
             <input class="inline-txt" data-field="notes" data-id="${t.id}" value="${(t.notes||'').replace(/"/g,'&quot;')}" placeholder="notes..." style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:var(--fsxs);width:100%;padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--green)'" onblur="this.style.borderBottomColor='transparent';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()"/>
           </td>
@@ -2188,9 +2186,9 @@ function renderApp(){
         <th>#</th>
         ${mkTh('DATE','date')}${mkTh('SYM','symbol')}${mkTh('DIR','type')}
         ${mkTh('ENTRY','entry')}${mkTh('EXIT','exit')}${mkTh('CTRS','size')}
-        ${mkTh('FEES','fees')}${mkTh('GROSS','grossPnl')}${mkTh('NET P&L','pnl')}${mkTh('PTS','_pts')}${mkTh('ACCT','_runbal')}
+        ${mkTh('GROSS','grossPnl')}${mkTh('NET P&L','pnl')}${mkTh('PTS','_pts')}${mkTh('ACCT','_runbal')}
         ${mkTh('GRADE','grade')}${mkTh('SETUP','setup')}${mkTh('TF','timeframe')}
-        <th>CHART</th><th>TAGS</th><th>NOTES</th>${exH}<th></th><th></th>
+        <th>CHART</th><th>NOTES</th>${exH}<th></th><th></th>
       </tr></thead><tbody>${tbody}</tbody></table>`;
       content.appendChild(tw);
       // Inline grade/setup changes — save immediately
