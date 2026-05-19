@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='13.6';
+const VERSION='13.8';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1154,7 +1154,34 @@ async function commitImport(r,skipApproval){
     // Capture detailed info about what changed
     const mergeDetails=(r.merges||[]).map(m=>{
       const t=trades.find(x=>x.id===m.id)||{};
-      return {id:m.id,desc:m.desc||'',symbol:t.symbol||'?',date:t.date||'?',updates:Object.keys(m.updates||{}).join(', ')};
+      // Build before/after summary for each changed field
+      const changes=[];
+      const updates=m.updates||{};
+      Object.keys(updates).forEach(k=>{
+        const oldV=t[k];
+        const newV=updates[k];
+        // Format display values based on field type
+        let oldS=oldV,newS=newV;
+        if(k==='entry'||k==='exit'){oldS=oldV?oldV.toFixed(4):'—';newS=newV.toFixed(4);}
+        else if(k==='pnl'||k==='grossPnl'||k==='fees'){oldS=oldV!=null?'$'+oldV.toFixed(2):'—';newS='$'+newV.toFixed(2);}
+        else if(k==='size'){oldS=oldV||1;newS=newV;}
+        else if(k==='type'){oldS=oldV||'?';newS=newV;}
+        else{oldS=String(oldV||'—').slice(0,12);newS=String(newV).slice(0,12);}
+        if(String(oldV)!==String(newV))changes.push({field:k,old:oldS,new:newS});
+      });
+      return {
+        id:m.id,
+        desc:m.desc||'',
+        symbol:t.symbol||'?',
+        date:t.date||'?',
+        type:t.type||'?',
+        entry:t.entry,
+        exit:t.exit,
+        pnl:t.pnl,
+        size:t.size||1,
+        updates:Object.keys(updates).join(', '),
+        changes
+      };
     });
     const feeDetails=(r.feeUpdates||[]).map(f=>({id:f.id,oldFee:f.trade?.fees||0,newFee:f.fees,symbol:f.trade?.symbol||'?',date:f.trade?.date||'?'}));
     const addedDetails=(r.batch||[]).map((t,idx)=>({id:addedIds[idx],symbol:t.symbol,date:t.date,type:t.type,entry:t.entry,exit:t.exit,size:t.size,pnl:t.pnl}));
@@ -1696,6 +1723,23 @@ function renderApp(){
       ${kpiCard('EXP VALUE','$'+S.ev.toFixed(2),'Per trade',S.ev>0?'#00e5a0':'#ff3d5a',S.rolling.ev,S.ev>0?'#00e5a0':'#ff3d5a',true)}
     </div>
 
+        <!-- 8 SECONDARY KPIs (horizontal row, right below hero) -->
+    <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-bottom:8px">
+      ${[['MAX DD','-$'+S.maxDD.toFixed(0),'#ff3d5a','Largest drawdown'],
+         ['R:R',S.rr.toFixed(2)+'R',S.rr>=1.5?'#00e5a0':S.rr>=1?'#f5c842':'#ff3d5a','Avg win ÷ avg loss'],
+         ['AVG WIN','+$'+S.avgW.toFixed(0),'#00e5a0','Per winning trade'],
+         ['AVG LOSS','-$'+S.avgL.toFixed(0),'#ff3d5a','Per losing trade'],
+         ['STREAK',(S.sdir>0?'+':'-')+S.streak+(S.sdir>0?'W':'L'),S.sdir>0?'#00e5a0':'#ff3d5a','Current'],
+         ['RECOVERY',S.recovery.toFixed(2)+'×',S.recovery>2?'#00e5a0':S.recovery>1?'#f5c842':'#ff3d5a','Net ÷ max DD'],
+         ['SHARPE',S.sharpe.toFixed(2),S.sharpe>1?'#00e5a0':S.sharpe>0?'#f5c842':'#ff3d5a','Risk-adj return'],
+         ['TRADES',String(trades.length),'#4a9eff','Total taken'],
+        ].map(([l,v,c,sub])=>`<div class="mini-card" style="padding:8px 10px">
+          <div class="stat-lbl" style="margin-bottom:3px">${l}</div>
+          <div style="font-family:'Bebas Neue',monospace;font-size:17px;color:${c}">${v}</div>
+          <div style="font-size:8px;color:var(--text5);margin-top:2px">${sub}</div>
+        </div>`).join('')}
+    </div>
+
     <!-- MAIN CHART: Full width, taller, better resolution -->
     <div class="section" style="margin-bottom:8px">
       <div class="sec-hd" style="flex-wrap:wrap;gap:6px">
@@ -1715,9 +1759,8 @@ function renderApp(){
       </div>`:''}
     </div>
 
-    <!-- DISTRIBUTION + 7 KPI tiles in two columns -->
-    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px;margin-bottom:8px">
-      <!-- P&L Distribution (Std Dev histogram) -->
+    <!-- P&L DISTRIBUTION (full width) -->
+    <!-- P&L Distribution (Std Dev histogram) -->
       <div class="section">
         <div class="sec-hd" style="flex-wrap:wrap;gap:6px">
           <span>P&L DISTRIBUTION</span>
@@ -1774,25 +1817,7 @@ function renderApp(){
               <div style="font-family:'Bebas Neue',monospace;font-size:14px;color:var(--green)">+$${(_mean+2*_std).toFixed(0)}</div>
             </div>
           </div>
-        </div>
       </div>
-
-      <!-- KPI tile grid: 2x4 -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;align-content:start">
-        ${[['MAX DD','-$'+S.maxDD.toFixed(0),'#ff3d5a','Largest equity drawdown'],
-           ['R:R',S.rr.toFixed(2)+'R',S.rr>=1.5?'#00e5a0':S.rr>=1?'#f5c842':'#ff3d5a','Avg win ÷ avg loss'],
-           ['AVG WIN','+$'+S.avgW.toFixed(0),'#00e5a0','Per winning trade'],
-           ['AVG LOSS','-$'+S.avgL.toFixed(0),'#ff3d5a','Per losing trade'],
-           ['STREAK',(S.sdir>0?'+':'-')+S.streak+(S.sdir>0?'W':'L'),S.sdir>0?'#00e5a0':'#ff3d5a','Current streak'],
-           ['RECOVERY',S.recovery.toFixed(2)+'×',S.recovery>2?'#00e5a0':S.recovery>1?'#f5c842':'#ff3d5a','Net ÷ max DD'],
-           ...(accountEquity>0&&S.avgPctGain?[['AVG W%','+'+S.avgPctGain.toFixed(2)+'%','#00e5a0','Per win vs equity'],['AVG L%',S.avgPctLoss.toFixed(2)+'%','#ff3d5a','Per loss vs equity']]:[['SHARPE',S.sharpe.toFixed(2),S.sharpe>1?'#00e5a0':'#f5c842','Risk-adjusted return'],['TRADES',String(trades.length),'#4a9eff','Total taken']]),
-          ].map(([l,v,c,sub])=>`<div class="mini-card" style="padding:10px 12px">
-            <div class="stat-lbl" style="margin-bottom:4px">${l}</div>
-            <div style="font-family:'Bebas Neue',monospace;font-size:19px;color:${c}">${v}</div>
-            <div style="font-size:8px;color:var(--text5);margin-top:3px">${sub}</div>
-          </div>`).join('')}
-      </div>
-    </div>
 
     <!-- BREAKDOWNS: monthly + by symbol + long/short -->
     <div style="display:grid;grid-template-columns:1fr 1fr 200px;gap:8px;margin-bottom:8px">
@@ -2590,9 +2615,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
                   
                   ${u.mergeDetails&&u.mergeDetails.length?`<div style="margin-bottom:14px">
                     <div style="color:var(--yellow);letter-spacing:1px;margin-bottom:6px;font-size:var(--fsxs)">~ TRADES MERGED / UPDATED (${u.mergeDetails.length})</div>
-                    <table style="width:100%;font-size:var(--fsxs)"><thead><tr style="color:var(--text5)"><th style="text-align:left;padding:3px 6px">DATE</th><th style="text-align:left">SYM</th><th style="text-align:left">FIELDS CHANGED</th></tr></thead><tbody>
-                    ${u.mergeDetails.slice(0,20).map(m=>`<tr style="border-top:1px solid var(--border)"><td style="padding:3px 6px;color:var(--text3)">${m.date}</td><td style="color:var(--text);font-weight:bold">${m.symbol}</td><td style="color:var(--text3)">${m.updates||m.desc||'(none)'}</td></tr>`).join('')}
-                    ${u.mergeDetails.length>20?`<tr><td colspan="3" style="text-align:center;color:var(--text5);padding:4px">… and ${u.mergeDetails.length-20} more</td></tr>`:''}
+                    <table style="width:100%;font-size:var(--fsxs)"><thead><tr style="color:var(--text5)"><th style="text-align:left;padding:3px 6px">DATE</th><th style="text-align:left">SYM</th><th style="text-align:left">DIR</th><th style="text-align:right">SIZE</th><th style="text-align:right">ENTRY → EXIT</th><th style="text-align:right">NET P&L</th><th style="text-align:left;padding-left:14px">CHANGES</th></tr></thead><tbody>
+                    ${u.mergeDetails.slice(0,30).map(m=>{
+                      const changeStr=(m.changes||[]).map(c=>`<span style="color:var(--text5)">${c.field}:</span> <span style="color:var(--red);text-decoration:line-through;opacity:.7">${c.old}</span> → <span style="color:var(--green)">${c.new}</span>`).join('<br>');
+                      return `<tr style="border-top:1px solid var(--border)">
+                        <td style="padding:5px 6px;color:var(--text3)">${m.date}</td>
+                        <td style="color:var(--text);font-weight:bold">${m.symbol}</td>
+                        <td style="color:${m.type==='LONG'?'var(--green)':m.type==='SHORT'?'var(--blue)':'var(--text5)'}">${m.type||'—'}</td>
+                        <td style="text-align:right;color:var(--text3)">${m.size||1}</td>
+                        <td style="text-align:right;color:var(--text3);font-family:'JetBrains Mono',monospace;white-space:nowrap">${m.entry||'—'} → ${m.exit||'—'}</td>
+                        <td style="text-align:right;color:${m.pnl>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace">${m.pnl!=null?(m.pnl>=0?'+':'')+'$'+m.pnl.toFixed(2):'—'}</td>
+                        <td style="padding-left:14px;color:var(--text3);line-height:1.6">${changeStr||m.updates||'(merged)'}</td>
+                      </tr>`;
+                    }).join('')}
+                    ${u.mergeDetails.length>30?`<tr><td colspan="7" style="text-align:center;color:var(--text5);padding:4px">… and ${u.mergeDetails.length-30} more</td></tr>`:''}
                     </tbody></table>
                   </div>`:''}
                   
