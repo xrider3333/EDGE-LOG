@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='13.9';
+const VERSION='14.1';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -817,7 +817,11 @@ function importCSV(text,label){
       const sym=getBase(gc2(row,['symbol','instrument'])||'');if(!sym)continue;
       const dtRaw=gc2(row,['time','timestamp','date','filledtime','filled time']);
       const date=parseDate(dtRaw);if(!date)continue;
-      const oid=gc2(row,['orderid','order id','id'])||'';
+      // Two distinct IDs in Orders CSV: 'orderId' (internal) and 'Order ID' (visible)
+      const internalOrderId=gc2(row,['orderid'])||'';
+      const visibleOrderId=gc2(row,['order id'])||'';
+      // 'Order ID' (visible, col 3) is what NT displays - prefer that, fallback to internal
+      const oid=visibleOrderId||internalOrderId||'';
       const fillId=gc2(row,['fillid','fill id','filled id'])||oid;
       const price=parseFloat(gc2(row,['fillprice','filled price','filledprice','price','avgprice','avg price'])||'NaN');
       const key=sym+'|'+date;
@@ -836,7 +840,10 @@ function importCSV(text,label){
       const sellOrder=orders.find(o=>o.side==='SELL'&&Math.abs(o.price-(t.type==='LONG'?t.exit:t.entry))<0.5);
       if(buyOrder&&!t.buyFillId)updates.buyFillId=buyOrder.fillId||buyOrder.orderId;
       if(sellOrder&&!t.sellFillId)updates.sellFillId=sellOrder.fillId||sellOrder.orderId;
-      // Set orderId if missing (use first matching order)
+      // Capture Buy/Sell Order IDs separately (the visible NT Order ID, not the internal one)
+      if(buyOrder&&!t.buyOrderId)updates.buyOrderId=buyOrder.orderId;
+      if(sellOrder&&!t.sellOrderId)updates.sellOrderId=sellOrder.orderId;
+      // Set top-level orderId if missing (use first matching order)
       if(!t.orderId){
         const firstOrder=t.type==='LONG'?buyOrder:sellOrder;
         if(firstOrder)updates.orderId=firstOrder.orderId;
@@ -1740,8 +1747,10 @@ function renderApp(){
         </div>`).join('')}
     </div>
 
-    <!-- MAIN CHART: Full width, taller, better resolution -->
-    <div class="section" style="margin-bottom:8px">
+    <!-- MAIN CHARTS: Cumulative P&L + Distribution side by side -->
+    <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:8px;margin-bottom:8px">
+      <!-- LEFT: Full width, taller, better resolution -->
+    <div class="section" style="">
       <div class="sec-hd" style="flex-wrap:wrap;gap:6px">
         <span>CUMULATIVE P&L${modeLabel}</span>
         <div style="display:flex;gap:14px;font-size:var(--fsxs)">
@@ -1758,8 +1767,7 @@ function renderApp(){
         ${svgLine(balanceHistory.map((b,i)=>({y:b.balance,pnl:i>0?b.balance-balanceHistory[i-1].balance:0})),'#4a9eff',1200,100)}
       </div>`:''}
     </div>
-
-    <!-- P&L DISTRIBUTION (full width) -->
+      <!-- RIGHT: P&L DISTRIBUTION (full width) -->
     <!-- P&L Distribution (Std Dev histogram) -->
       <div class="section">
         <div class="sec-hd" style="flex-wrap:wrap;gap:6px">
@@ -1818,6 +1826,7 @@ function renderApp(){
             </div>
           </div>
       </div>
+    </div>
 
     <!-- BREAKDOWNS: monthly + by symbol + long/short -->
     <div style="display:grid;grid-template-columns:1fr 1fr 200px;gap:8px;margin-bottom:8px">
@@ -2044,7 +2053,7 @@ function renderApp(){
     if(!filtered.length){const e=document.createElement('div');e.style.cssText='border:1px dashed var(--border);padding:48px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px';e.textContent=trades.length?'NO TRADES MATCH FILTER':'NO TRADES YET';content.appendChild(e);}
     else{
       const tw=document.createElement('div');tw.className='section';tw.style.overflowX='auto';
-      const exH=showAllCols?'<th>DUR</th><th>ORDER ID</th><th>BUY ID</th><th>SELL ID</th><th>IN</th><th>OUT</th><th>SRC</th>':'';
+      const exH=showAllCols?'<th>DUR</th><th>BUY ORD</th><th>SELL ORD</th><th>BUY FILL</th><th>SELL FILL</th><th>POS ID</th><th>PAIR ID</th><th>IN</th><th>OUT</th><th>SRC</th>':'';
       // Apply sort
       const sortedFiltered=[...filtered].sort((a,b)=>{
         let av=a[sortCol],bv=b[sortCol];
@@ -2122,7 +2131,8 @@ function renderApp(){
           </tr>`;
         }
         return ((t,i)=>{
-        const ex=showAllCols?`<td style="color:var(--text4);font-size:var(--fsxs)">${fmtDur(t.durationMins)}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.orderId||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs);max-width:90px;overflow:hidden;text-overflow:ellipsis" title="${t.buyFillId||''}">${t.buyFillId||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs);max-width:90px;overflow:hidden;text-overflow:ellipsis" title="${t.sellFillId||''}">${t.sellFillId||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.entryTime||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.exitTime||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
+        const _idCell=(v)=>`<td style="color:var(--text5);font-size:var(--fsxs);max-width:90px;overflow:hidden;text-overflow:ellipsis" title="${v||''}">${v||'—'}</td>`;
+        const ex=showAllCols?`<td style="color:var(--text4);font-size:var(--fsxs)">${fmtDur(t.durationMins)}</td>${_idCell(t.buyOrderId)}${_idCell(t.sellOrderId)}${_idCell(t.buyFillId)}${_idCell(t.sellFillId)}${_idCell(t.positionId)}${_idCell(t.pairId)}<td style="color:var(--text4);font-size:var(--fsxs)">${t.entryTime||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.exitTime||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
         return`<tr class="tr-row" data-id="${t.id}">
           <td style="color:var(--text5)">${String(sortedFiltered.length-i).padStart(2,'0')}</td>
           <td style="color:var(--text4);white-space:nowrap">${t.date}</td>
