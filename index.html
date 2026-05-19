@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='13.5';
+const VERSION='13.6';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1673,80 +1673,129 @@ function renderApp(){
     if(!S){content.innerHTML='<div style="border:1px dashed var(--border);padding:80px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO TRADES — USE DATA TAB TO IMPORT OR ADD IN TRADES</div>';return;}
     const modeLabel=useGross?'<span style="color:var(--yellow);font-size:var(--fsxs);margin-left:6px">[GROSS]</span>':'';
 
+    // Compute distribution stats for the histogram chart
+    const _pnls=trades.map(t=>useGross?(t.grossPnl||t.pnl):t.pnl).filter(p=>p!=null);
+    const _mean=_pnls.length?_pnls.reduce((a,b)=>a+b,0)/_pnls.length:0;
+    const _std=_pnls.length>1?Math.sqrt(_pnls.reduce((a,b)=>a+(b-_mean)**2,0)/(_pnls.length-1)):0;
+    const _min=Math.min(..._pnls,0),_max=Math.max(..._pnls,0);
+    const _binCount=Math.min(20,Math.max(8,Math.ceil(Math.sqrt(_pnls.length))));
+    const _binSize=(_max-_min)/_binCount||1;
+    const _bins=Array(_binCount).fill(0);
+    _pnls.forEach(p=>{
+      const i=Math.min(_binCount-1,Math.floor((p-_min)/_binSize));
+      _bins[i]++;
+    });
+    const _maxBin=Math.max(..._bins,1);
+
     content.innerHTML=`
-    <!-- ROW 1: Big 3 + Net P&L -->
-    <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:8px;margin-bottom:6px">
+    <!-- HERO: Big P&L summary + key ratios -->
+    <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
       ${kpiCard('NET P&L',S.net,'Gross '+fmt(S.grossNet),gch(S.net),S.rolling.net,gch(S.net),true,true)}
       ${kpiCard('WIN RATE',pct(S.wr),S.wins+'W / '+S.losses+'L',S.wr>=.5?'#00e5a0':'#ff3d5a',S.rolling.wr,S.wr>=.5?'#00e5a0':'#ff3d5a',true)}
       ${kpiCard('PROFIT FACTOR',(S.pf>=99?'∞':S.pf.toFixed(2))+'×','',S.pf>=1.5?'#00e5a0':S.pf>=1?'#f5c842':'#ff3d5a',S.rolling.pf,S.pf>=1?'#f5c842':'#ff3d5a',true)}
       ${kpiCard('EXP VALUE','$'+S.ev.toFixed(2),'Per trade',S.ev>0?'#00e5a0':'#ff3d5a',S.rolling.ev,S.ev>0?'#00e5a0':'#ff3d5a',true)}
     </div>
 
-    <!-- ROW 2: Equity curve + compact calendar side by side -->
-    <div style="display:grid;grid-template-columns:1fr 280px;gap:8px;margin-bottom:6px">
+    <!-- MAIN CHART: Full width, taller, better resolution -->
+    <div class="section" style="margin-bottom:8px">
+      <div class="sec-hd" style="flex-wrap:wrap;gap:6px">
+        <span>CUMULATIVE P&L${modeLabel}</span>
+        <div style="display:flex;gap:14px;font-size:var(--fsxs)">
+          <span style="color:var(--text4)">MAX DD <span style="color:var(--red)">-$${S.maxDD.toFixed(0)}</span></span>
+          <span style="color:var(--text4)">TOTAL FEES <span style="color:var(--yellow)">-$${S.totalFees.toFixed(0)}</span></span>
+          ${accountEquity>0?`<span style="color:var(--text4)">START EQUITY <span style="color:var(--blue)">$${accountEquity.toLocaleString()}</span></span>`:''}
+        </div>
+      </div>
+      <div style="padding:10px 6px 6px;overflow-x:auto">
+        ${(()=>{let c=accountEquity>0?accountEquity:0,pk=c;return svgLineLabeled([{y:c,pnl:0},...trades.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl};})], '#00e5a0',1200,260,true);})()}
+      </div>
+      ${balanceHistory.length>1?`<div style="border-top:1px solid var(--border);padding:6px 6px 4px;margin-top:6px">
+        <div style="font-size:var(--fsxs);color:var(--blue);padding:3px 8px;letter-spacing:2px">DAILY ACCOUNT BALANCE (from NT8)</div>
+        ${svgLine(balanceHistory.map((b,i)=>({y:b.balance,pnl:i>0?b.balance-balanceHistory[i-1].balance:0})),'#4a9eff',1200,100)}
+      </div>`:''}
+    </div>
+
+    <!-- DISTRIBUTION + 7 KPI tiles in two columns -->
+    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px;margin-bottom:8px">
+      <!-- P&L Distribution (Std Dev histogram) -->
       <div class="section">
         <div class="sec-hd" style="flex-wrap:wrap;gap:6px">
-          <span>EQUITY CURVE${modeLabel}</span>
-          <div style="display:flex;gap:10px;font-size:var(--fsxs)">
-            <span style="color:var(--text4)">DD <span style="color:var(--red)">-$${S.maxDD.toFixed(0)}</span></span>
-            <span style="color:var(--text4)">FEES <span style="color:var(--yellow)">-$${S.totalFees.toFixed(0)}</span></span>
-            ${accountEquity>0?`<span style="color:var(--text4)">ACCT <span style="color:var(--blue)">$${accountEquity.toLocaleString()}</span></span>`:''}
+          <span>P&L DISTRIBUTION</span>
+          <div style="display:flex;gap:14px;font-size:var(--fsxs)">
+            <span style="color:var(--text4)">MEAN <span style="color:${_mean>=0?'var(--green)':'var(--red)'}">${_mean>=0?'+':''}$${_mean.toFixed(2)}</span></span>
+            <span style="color:var(--text4)">STD DEV <span style="color:var(--yellow)">$${_std.toFixed(2)}</span></span>
+            <span style="color:var(--text4)">SHARPE <span style="color:${S.sharpe>1?'var(--green)':S.sharpe>0?'var(--yellow)':'var(--red)'}">${S.sharpe.toFixed(2)}</span></span>
           </div>
         </div>
-        <div style="padding:8px 4px 4px;overflow-x:auto">
-          ${(()=>{let c=accountEquity>0?accountEquity:0,pk=c;return svgLineLabeled([{y:c,pnl:0},...trades.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl};})], '#00e5a0',620,140,true);})()}
+        <div style="padding:14px 12px">
+          <svg viewBox="0 0 700 200" width="100%" style="display:block">
+            <!-- baseline -->
+            <line x1="0" y1="180" x2="700" y2="180" stroke="var(--border)" stroke-width="1"/>
+            <!-- zero line -->
+            ${_min<0&&_max>0?(()=>{const zx=((0-_min)/(_max-_min))*700;return `<line x1="${zx}" y1="0" x2="${zx}" y2="180" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2,3"/><text x="${zx+3}" y="13" fill="var(--text5)" font-size="9">$0</text>`})():''}
+            <!-- mean line -->
+            ${(()=>{const mx=((_mean-_min)/(_max-_min))*700;return `<line x1="${mx}" y1="0" x2="${mx}" y2="180" stroke="#f5c842" stroke-width="1" stroke-dasharray="3,2" opacity=".6"/><text x="${mx+3}" y="26" fill="#f5c842" font-size="9">μ</text>`})()}
+            <!-- ±1 std dev band -->
+            ${_std>0?(()=>{const lx=((_mean-_std-_min)/(_max-_min))*700,rx=((_mean+_std-_min)/(_max-_min))*700;return `<rect x="${lx}" y="0" width="${rx-lx}" height="180" fill="#f5c842" opacity=".06"/><text x="${lx+3}" y="40" fill="#f5c842" font-size="9" opacity=".7">−1σ</text><text x="${rx-22}" y="40" fill="#f5c842" font-size="9" opacity=".7">+1σ</text>`})():''}
+            <!-- bars -->
+            ${_bins.map((cnt,i)=>{
+              const bx=(i/_binCount)*700;
+              const bw=700/_binCount-2;
+              const bh=(cnt/_maxBin)*170;
+              const by=180-bh;
+              const binMid=_min+(i+0.5)*_binSize;
+              const color=binMid>=0?'#00e5a0':'#ff3d5a';
+              return `<rect x="${bx+1}" y="${by}" width="${bw}" height="${bh}" fill="${color}" opacity=".75"><title>$${(_min+i*_binSize).toFixed(0)} to $${(_min+(i+1)*_binSize).toFixed(0)}: ${cnt} trade${cnt!==1?'s':''}</title></rect>${cnt>0?`<text x="${bx+bw/2+1}" y="${by-3}" fill="var(--text4)" font-size="9" text-anchor="middle">${cnt}</text>`:''}`;
+            }).join('')}
+            <!-- x-axis labels -->
+            <text x="2" y="196" fill="var(--text5)" font-size="9">$${_min.toFixed(0)}</text>
+            <text x="350" y="196" fill="var(--text5)" font-size="9" text-anchor="middle">$${((_min+_max)/2).toFixed(0)}</text>
+            <text x="698" y="196" fill="var(--text5)" font-size="9" text-anchor="end">$${_max.toFixed(0)}</text>
+          </svg>
+          <div style="display:flex;justify-content:space-around;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:var(--fsxs)">
+            <div style="text-align:center">
+              <div style="color:var(--text5);letter-spacing:1px;margin-bottom:3px">−2σ</div>
+              <div style="font-family:'Bebas Neue',monospace;font-size:14px;color:var(--red)">$${(_mean-2*_std).toFixed(0)}</div>
+            </div>
+            <div style="text-align:center">
+              <div style="color:var(--text5);letter-spacing:1px;margin-bottom:3px">−1σ</div>
+              <div style="font-family:'Bebas Neue',monospace;font-size:14px;color:var(--yellow)">$${(_mean-_std).toFixed(0)}</div>
+            </div>
+            <div style="text-align:center">
+              <div style="color:var(--text5);letter-spacing:1px;margin-bottom:3px">MEAN</div>
+              <div style="font-family:'Bebas Neue',monospace;font-size:14px;color:${_mean>=0?'var(--green)':'var(--red)'}">${_mean>=0?'+':''}$${_mean.toFixed(0)}</div>
+            </div>
+            <div style="text-align:center">
+              <div style="color:var(--text5);letter-spacing:1px;margin-bottom:3px">+1σ</div>
+              <div style="font-family:'Bebas Neue',monospace;font-size:14px;color:var(--yellow)">+$${(_mean+_std).toFixed(0)}</div>
+            </div>
+            <div style="text-align:center">
+              <div style="color:var(--text5);letter-spacing:1px;margin-bottom:3px">+2σ</div>
+              <div style="font-family:'Bebas Neue',monospace;font-size:14px;color:var(--green)">+$${(_mean+2*_std).toFixed(0)}</div>
+            </div>
+          </div>
         </div>
-        ${balanceHistory.length>1?`<div style="border-top:1px solid var(--text5);padding:4px 4px 2px"><div style="font-size:var(--fsxs);color:var(--blue);padding:3px 8px">ACCOUNT BALANCE</div>${svgLine(balanceHistory.map((b,i)=>({y:b.balance,pnl:i>0?b.balance-balanceHistory[i-1].balance:0})),'#4a9eff',620,80)}</div>`:''}
       </div>
 
-      <!-- Compact calendar -->
-      <div class="section">
-        ${(()=>{
-          const now=new Date(),yr=now.getFullYear(),mo=now.getMonth()+1;
-          const moStr=yr+'-'+String(mo).padStart(2,'0');
-          const firstDay=new Date(yr,mo-1,1),daysInMonth=new Date(yr,mo,0).getDate(),startDow=firstDay.getDay();
-          const tbd={};trades.forEach(t=>{if(!tbd[t.date])tbd[t.date]=[];tbd[t.date].push(t);});
-          const moT=trades.filter(t=>t.date.startsWith(moStr));
-          const moPnl=moT.reduce((s,t)=>s+t.pnl,0),moWR=moT.length?moT.filter(t=>t.pnl>0).length/moT.length:0;
-          const dow=['S','M','T','W','T','F','S'];
-          let cells=dow.map(d=>`<div style="text-align:center;font-size:8px;color:var(--text5);padding:2px 0">${d}</div>`).join('');
-          for(let i=0;i<startDow;i++)cells+=`<div></div>`;
-          for(let day=1;day<=daysInMonth;day++){
-            const ds=yr+'-'+String(mo).padStart(2,'0')+'-'+String(day).padStart(2,'0');
-            const dt=tbd[ds]||[];const dp=dt.reduce((s,t)=>s+t.pnl,0);
-            const isToday=ds===new Date().toISOString().slice(0,10);
-            const bg=dt.length?(dp>=0?'#00e5a020':'#ff3d5a20'):'transparent';
-            const border=isToday?'1px solid var(--yellow)':dt.length?`1px solid ${dp>=0?'#00e5a040':'#ff3d5a40'}`:'1px solid transparent';
-            cells+=`<div style="text-align:center;font-size:9px;padding:3px 1px;background:${bg};border:${border}" title="${ds}${dt.length?' · '+fmt(dp):''}">
-              <div style="color:${isToday?'var(--yellow)':dt.length?(dp>=0?'#00e5a0':'#ff3d5a'):'var(--text5)'}">${day}</div>
-              ${dt.length?`<div style="font-size:7px;color:${dp>=0?'#00e5a0':'#ff3d5a'}">${dp>=0?'+':''}${dp.toFixed(0)}</div>`:''}
-            </div>`;
-          }
-          return `<div class="sec-hd" style="padding:8px 12px">
-            <span style="font-size:var(--fsxs)">${firstDay.toLocaleString('en',{month:'short'})} ${yr}</span>
-            <span style="font-size:var(--fsxs);color:${gch(moPnl)}">${fmt(moPnl)} · ${(moWR*100).toFixed(0)}%WR</span>
-          </div>
-          <div style="padding:6px 8px;display:grid;grid-template-columns:repeat(7,1fr);gap:2px">${cells}</div>`;
-        })()}
+      <!-- KPI tile grid: 2x4 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;align-content:start">
+        ${[['MAX DD','-$'+S.maxDD.toFixed(0),'#ff3d5a','Largest equity drawdown'],
+           ['R:R',S.rr.toFixed(2)+'R',S.rr>=1.5?'#00e5a0':S.rr>=1?'#f5c842':'#ff3d5a','Avg win ÷ avg loss'],
+           ['AVG WIN','+$'+S.avgW.toFixed(0),'#00e5a0','Per winning trade'],
+           ['AVG LOSS','-$'+S.avgL.toFixed(0),'#ff3d5a','Per losing trade'],
+           ['STREAK',(S.sdir>0?'+':'-')+S.streak+(S.sdir>0?'W':'L'),S.sdir>0?'#00e5a0':'#ff3d5a','Current streak'],
+           ['RECOVERY',S.recovery.toFixed(2)+'×',S.recovery>2?'#00e5a0':S.recovery>1?'#f5c842':'#ff3d5a','Net ÷ max DD'],
+           ...(accountEquity>0&&S.avgPctGain?[['AVG W%','+'+S.avgPctGain.toFixed(2)+'%','#00e5a0','Per win vs equity'],['AVG L%',S.avgPctLoss.toFixed(2)+'%','#ff3d5a','Per loss vs equity']]:[['SHARPE',S.sharpe.toFixed(2),S.sharpe>1?'#00e5a0':'#f5c842','Risk-adjusted return'],['TRADES',String(trades.length),'#4a9eff','Total taken']]),
+          ].map(([l,v,c,sub])=>`<div class="mini-card" style="padding:10px 12px">
+            <div class="stat-lbl" style="margin-bottom:4px">${l}</div>
+            <div style="font-family:'Bebas Neue',monospace;font-size:19px;color:${c}">${v}</div>
+            <div style="font-size:8px;color:var(--text5);margin-top:3px">${sub}</div>
+          </div>`).join('')}
       </div>
     </div>
 
-    <!-- ROW 3: 7 compact secondary KPIs -->
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:6px">
-      ${[['SHARPE',S.sharpe.toFixed(2),S.sharpe>1?'#00e5a0':S.sharpe>0?'#f5c842':'#ff3d5a'],
-         ['MAX DD','-$'+S.maxDD.toFixed(0),'#ff3d5a'],
-         ['R:R',S.rr.toFixed(2)+'R',S.rr>=1.5?'#00e5a0':S.rr>=1?'#f5c842':'#ff3d5a'],
-         ['AVG WIN','+$'+S.avgW.toFixed(0),'#00e5a0'],
-         ['AVG LOSS','-$'+S.avgL.toFixed(0),'#ff3d5a'],
-         ...(accountEquity>0&&S.avgPctGain?[['AVG W%','+'+S.avgPctGain.toFixed(2)+'%','#00e5a0'],['AVG L%',S.avgPctLoss.toFixed(2)+'%','#ff3d5a']]:[['STREAK',(S.sdir>0?'+':'-')+S.streak+(S.sdir>0?'W':'L'),S.sdir>0?'#00e5a0':'#ff3d5a'],['RECOVERY',S.recovery.toFixed(2)+'×',S.recovery>2?'#00e5a0':S.recovery>1?'#f5c842':'#ff3d5a']]),
-        ].map(([l,v,c])=>`<div class="mini-card" style="padding:8px 10px;padding-bottom:8px">
-          <div class="stat-lbl" style="margin-bottom:3px">${l}</div>
-          <div style="font-family:'Bebas Neue',monospace;font-size:17px;color:${c}">${v}</div>
-        </div>`).join('')}
-    </div>
-
-    <!-- ROW 4: Monthly P&L table + Symbol + Long/Short breakdown -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 200px;gap:8px">
+    <!-- BREAKDOWNS: monthly + by symbol + long/short -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 200px;gap:8px;margin-bottom:8px">
       <div class="section">
         <div class="sec-hd">MONTHLY P&L</div>
         <table><thead><tr><th>MONTH</th><th>TRADES</th><th>WR</th><th>NET</th></tr></thead><tbody>
@@ -1770,7 +1819,7 @@ function renderApp(){
         </tbody></table>
       </div>
       <div class="section">
-        <div class="sec-hd">L / S</div>
+        <div class="sec-hd">L / S SPLIT</div>
         <div style="padding:8px">
           ${[['LONG',S.longs,S.longPnl,S.longWR,'var(--green)'],['SHORT',S.shorts,S.shortPnl,S.shortWR,'var(--blue)']].map(([d,n,p,w,c])=>`
           <div style="padding:8px 10px;background:var(--bg3);border:1px solid var(--border2);margin-bottom:5px">
@@ -1780,11 +1829,42 @@ function renderApp(){
             </div>
             <div style="font-size:var(--fsxs);color:var(--text4)">${n} trades · ${pct(w)} WR</div>
           </div>`).join('')}
-          <div style="font-size:var(--fsxs);padding:4px 2px;display:flex;flex-direction:column;gap:3px">
+          <div style="font-size:var(--fsxs);padding:6px 2px 2px;display:flex;flex-direction:column;gap:3px;border-top:1px solid var(--border)">
             ${[['Gross',S.grossNet,'var(--text2)'],['Fees',-S.totalFees,'var(--yellow)'],['Net',S.net,gch(S.net)]].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between"><span style="color:var(--text5)">${l}</span><span style="color:${c};font-family:'Bebas Neue',monospace;font-size:13px">${fmt(v)}</span></div>`).join('')}
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- CALENDAR at bottom (exploratory) -->
+    <div class="section">
+      ${(()=>{
+        const now=new Date(),yr=now.getFullYear(),mo=now.getMonth()+1;
+        const moStr=yr+'-'+String(mo).padStart(2,'0');
+        const firstDay=new Date(yr,mo-1,1),daysInMonth=new Date(yr,mo,0).getDate(),startDow=firstDay.getDay();
+        const tbd={};trades.forEach(t=>{if(!tbd[t.date])tbd[t.date]=[];tbd[t.date].push(t);});
+        const moT=trades.filter(t=>t.date.startsWith(moStr));
+        const moPnl=moT.reduce((s,t)=>s+t.pnl,0),moWR=moT.length?moT.filter(t=>t.pnl>0).length/moT.length:0;
+        const dow=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+        let cells=dow.map(d=>`<div style="text-align:center;font-size:9px;color:var(--text5);padding:4px 0;letter-spacing:1px">${d}</div>`).join('');
+        for(let i=0;i<startDow;i++)cells+=`<div></div>`;
+        for(let day=1;day<=daysInMonth;day++){
+          const ds=yr+'-'+String(mo).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+          const dt=tbd[ds]||[];const dp=dt.reduce((s,t)=>s+t.pnl,0);
+          const isToday=ds===new Date().toISOString().slice(0,10);
+          const bg=dt.length?(dp>=0?'#00e5a020':'#ff3d5a20'):'transparent';
+          const border=isToday?'1px solid var(--yellow)':dt.length?`1px solid ${dp>=0?'#00e5a040':'#ff3d5a40'}`:'1px solid transparent';
+          cells+=`<div style="text-align:center;font-size:10px;padding:8px 2px;background:${bg};border:${border};min-height:50px" title="${ds}${dt.length?' · '+fmt(dp)+' · '+dt.length+' trade'+(dt.length!==1?'s':''):''}">
+            <div style="color:${isToday?'var(--yellow)':dt.length?(dp>=0?'#00e5a0':'#ff3d5a'):'var(--text5)'};font-family:'Bebas Neue',monospace;font-size:13px">${day}</div>
+            ${dt.length?`<div style="font-size:9px;color:${dp>=0?'#00e5a0':'#ff3d5a'};font-family:'Bebas Neue',monospace;margin-top:2px">${dp>=0?'+':''}${dp.toFixed(0)}</div><div style="font-size:7px;color:var(--text5)">${dt.length}t</div>`:''}
+          </div>`;
+        }
+        return `<div class="sec-hd">
+          <span>${firstDay.toLocaleString('en',{month:'long'})} ${yr} CALENDAR</span>
+          <span style="font-size:var(--fsxs);color:${gch(moPnl)}">${fmt(moPnl)} · ${(moWR*100).toFixed(0)}% WR · ${moT.length} trades</span>
+        </div>
+        <div style="padding:10px;display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells}</div>`;
+      })()}
     </div>`;
   }
 
@@ -2218,7 +2298,7 @@ function renderApp(){
     // ── CHARTS ───────────────────────────────────────────────────
     if(curSub==='charts'){
       const cs=document.createElement('div');cs.className='section';
-      if(activeChart==='equity'){let c=accountEquity>0?accountEquity:0,pk=c,c2=c,pk2=c;const eqP=[{y:c,pnl:0},...trades.map(t=>{c+=t.pnl;if(c>pk)pk=c;return{y:+c.toFixed(2),pnl:t.pnl};})];const ddP=[{y:0,pnl:0},...trades.map(t=>{c2+=t.pnl;if(c2>pk2)pk2=c2;return{y:+(pk2-c2).toFixed(2),pnl:0};})];cs.innerHTML=`<div class="sec-hd"><span>EQUITY CURVE</span><span style="color:var(--red)">MAX DD -$${S.maxDD.toFixed(2)}</span></div><div style="padding:12px 4px 4px;overflow-x:auto">${svgLineLabeled(eqP,'#00e5a0',940,170,true)}<div style="padding:5px 14px 3px;font-size:var(--fsxs);color:var(--text5);border-top:1px solid var(--text5);margin-top:6px">DRAWDOWN</div>${svgLine(ddP,'#ff3d5a',940,90)}</div>`;}
+      if(activeChart==='equity'){let c=accountEquity>0?accountEquity:0,pk=c,c2=c,pk2=c;const eqP=[{y:c,pnl:0},...trades.map(t=>{c+=t.pnl;if(c>pk)pk=c;return{y:+c.toFixed(2),pnl:t.pnl};})];const ddP=[{y:0,pnl:0},...trades.map(t=>{c2+=t.pnl;if(c2>pk2)pk2=c2;return{y:+(pk2-c2).toFixed(2),pnl:0};})];cs.innerHTML=`<div class="sec-hd"><span>CUMULATIVE P&L</span><span style="color:var(--red)">MAX DD -$${S.maxDD.toFixed(2)}</span></div><div style="padding:12px 4px 4px;overflow-x:auto">${svgLineLabeled(eqP,'#00e5a0',940,170,true)}<div style="padding:5px 14px 3px;font-size:var(--fsxs);color:var(--text5);border-top:1px solid var(--text5);margin-top:6px">DRAWDOWN</div>${svgLine(ddP,'#ff3d5a',940,90)}</div>`;}
       if(activeChart==='daily'){const bars=Object.entries(S.byDay).sort(([a],[b])=>a>b?1:-1).map(([d,v])=>({d:d.slice(5),v:+v.toFixed(2)}));cs.innerHTML=`<div class="sec-hd"><span>DAILY P&L</span><span>${bars.length} days</span></div><div style="padding:12px 4px 8px;overflow-x:auto">${svgBar(bars,940,240)}</div>`;}
       if(activeChart==='monthly'){const months=Object.entries(S.monthly).sort(([a],[b])=>a>b?1:-1);cs.innerHTML=`<div class="sec-hd">MONTHLY P&L</div><table><thead><tr><th>MONTH</th><th>TRADES</th><th>WR</th><th>NET P&L</th><th></th></tr></thead><tbody>${months.map(([m,d])=>`<tr class="tr-row"><td style="color:var(--text);font-family:'Bebas Neue',monospace;font-size:15px">${m}</td><td>${d.trades}</td><td style="color:${d.wins/d.trades>=.5?'var(--green)':'var(--red)'}">${(d.wins/d.trades*100).toFixed(0)}%</td><td style="color:${gch(d.pnl)};font-family:'Bebas Neue',monospace;font-size:16px">${fmt(d.pnl)}</td><td><span style="font-size:var(--fsxs);padding:1px 8px;background:${d.pnl>=0?'#00e5a018':'#ff3d5a18'};color:${d.pnl>=0?'#00e5a0':'#ff3d5a'}">${d.pnl>=0?'PROFIT':'LOSS'}</span></td></tr>`).join('')}</tbody></table>`;}
       if(activeChart==='dow'){const order=['Mon','Tue','Wed','Thu','Fri'],maxA=Math.max(...order.map(d=>Math.abs(S.dow[d].pnl)),1);cs.innerHTML=`<div class="sec-hd">DAY OF WEEK</div><div style="padding:18px;display:flex;flex-direction:column;gap:11px">${order.map(d=>{const{pnl,t}=S.dow[d],bw=Math.round(Math.abs(pnl)/maxA*100);return`<div style="display:grid;grid-template-columns:48px 1fr 60px 90px;gap:12px;align-items:center"><div style="font-family:'Bebas Neue',monospace;font-size:18px;color:var(--text2)">${d}</div><div style="background:var(--bg2);height:10px"><div style="width:${bw}%;height:100%;background:${pnl>=0?'#00e5a030':'#ff3d5a30'};border-right:2px solid ${pnl>=0?'#00e5a0':'#ff3d5a'}"></div></div><div style="font-size:var(--fsxs);color:var(--text4)">${t} trades</div><div style="font-family:'Bebas Neue',monospace;font-size:16px;color:${gch(pnl)};text-align:right">${fmt(pnl)}</div></div>`;}).join('')}</div>`;}
