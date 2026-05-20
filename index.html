@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='14.5';
+const VERSION='14.6';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1490,7 +1490,106 @@ function setSortCol(col){if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=c
 
 
 // ── AI Summary — client-side engine (always works) + Claude API ──
-async function runAISummary(tds,period){
+async 
+
+
+// Chart expand modal
+window.expandChart=function(title,svgHTML){
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;align-items:center;justify-content:center;padding:30px;cursor:pointer';
+  modal.onclick=(e)=>{if(e.target===modal||e.target.id==='chart-close')modal.remove();};
+  modal.innerHTML=`<div style="background:var(--bg1);border:1px solid var(--border);max-width:95vw;max-height:95vh;padding:24px;cursor:default;overflow:auto" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+      <div style="font-family:'Bebas Neue',monospace;font-size:22px;letter-spacing:3px;color:var(--text)">${title}</div>
+      <button id="chart-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:6px 16px;cursor:pointer;font-family:inherit;letter-spacing:2px">CLOSE ✕</button>
+    </div>
+    <div style="min-width:1000px">${svgHTML}</div>
+  </div>`;
+  document.body.appendChild(modal);
+};
+
+window.changeCalMonth=function(delta){
+  const cm=calMonth||new Date().toISOString().slice(0,7);
+  const [y,m]=cm.split('-').map(Number);
+  const d=new Date(y,m-1+delta,1);
+  calMonth=d.toISOString().slice(0,7);
+  renderApp();
+};
+window.resetCalMonth=function(){
+  calMonth=new Date().toISOString().slice(0,7);
+  renderApp();
+};
+// Compact AI assessment for overview tab
+window.runOverviewAI=function(){
+  const out=document.getElementById('overview-ai-output');
+  if(!out)return;
+  out.innerHTML='<div style="display:flex;align-items:center;gap:10px;color:var(--text3);font-size:var(--fsm)"><div class="spinner"></div>Analyzing recent trades...</div>';
+  // Get last 20 trades or last 7 days, whichever is more
+  const sorted=[...trades].sort((a,b)=>a.date>b.date?-1:1);
+  const recent=sorted.slice(0,20);
+  const S=calcStats(recent);
+  if(!S){out.innerHTML='<div style="color:var(--text4)">Not enough trades to analyze.</div>';return;}
+  const all=calcStats(trades);
+  const insights=[];
+  // 1) Performance vs overall
+  const wrDiff=(S.wr-all.wr)*100;
+  const pfDiff=S.pf-all.pf;
+  if(Math.abs(wrDiff)>3||Math.abs(pfDiff)>0.2){
+    insights.push({
+      type:wrDiff>=0&&pfDiff>=0?'positive':'warning',
+      label:'TREND',
+      text:`Recent ${recent.length} trades show <b>${wrDiff>=0?'+':''}${wrDiff.toFixed(0)}% WR</b> and <b>${pfDiff>=0?'+':''}${pfDiff.toFixed(2)} PF</b> vs overall (${(all.wr*100).toFixed(0)}% WR, ${all.pf.toFixed(2)} PF).`
+    });
+  } else {
+    insights.push({type:'neutral',label:'TREND',text:`Recent performance is consistent with your overall stats (${(S.wr*100).toFixed(0)}% WR, ${S.pf.toFixed(2)} PF).`});
+  }
+  // 2) Win/loss size analysis
+  if(S.avgW>0&&S.avgL>0){
+    const rr=S.avgW/S.avgL;
+    if(rr<1){
+      insights.push({type:'warning',label:'RISK / REWARD',text:`Your average win ($${S.avgW.toFixed(0)}) is <b>smaller</b> than your average loss ($${S.avgL.toFixed(0)}) — R:R of ${rr.toFixed(2)}. You need >50% win rate to be profitable. Consider letting winners run or cutting losses faster.`});
+    } else if(rr>2){
+      insights.push({type:'positive',label:'RISK / REWARD',text:`Strong R:R of ${rr.toFixed(2)} — winners are ${rr.toFixed(1)}× larger than losers. Even a 40% win rate would be profitable here.`});
+    } else {
+      insights.push({type:'neutral',label:'RISK / REWARD',text:`R:R of ${rr.toFixed(2)} — balanced. Win rate of ${(S.wr*100).toFixed(0)}% keeps you profitable.`});
+    }
+  }
+  // 3) Streak analysis
+  if(S.streak>=3){
+    insights.push({type:S.sdir>0?'positive':'warning',label:'STREAK',text:`Currently on a <b>${S.streak} ${S.sdir>0?'WIN':'LOSS'} streak</b>.${S.sdir<0?' Consider taking a break or reviewing recent setups before continuing.':' Be aware of overconfidence — stick to your plan.'}`});
+  }
+  // 4) Symbol concentration
+  const symCounts={};
+  recent.forEach(t=>symCounts[t.symbol]=(symCounts[t.symbol]||0)+1);
+  const topSym=Object.entries(symCounts).sort((a,b)=>b[1]-a[1])[0];
+  if(topSym&&topSym[1]/recent.length>0.7){
+    insights.push({type:'neutral',label:'CONCENTRATION',text:`<b>${(topSym[1]/recent.length*100).toFixed(0)}%</b> of recent trades are <b>${topSym[0]}</b>. Concentration helps you learn one instrument deeply, but diversification can reduce single-instrument risk.`});
+  }
+  // 5) Fees impact
+  const feeDrag=all.totalFees/Math.abs(all.grossNet||1)*100;
+  if(feeDrag>15){
+    insights.push({type:'warning',label:'FEES',text:`Fees are eating <b>${feeDrag.toFixed(0)}%</b> of gross P&L ($${all.totalFees.toFixed(0)} on $${Math.abs(all.grossNet).toFixed(0)} gross). High-frequency trading on micros amplifies this. Consider fewer, larger setups.`});
+  }
+  // 6) Day of week / time pattern
+  const byDow={0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
+  recent.forEach(t=>{if(t.date)byDow[new Date(t.date).getDay()].push(t.pnl);});
+  const dowNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let worstDow=null,worstPnl=0;
+  Object.entries(byDow).forEach(([d,ps])=>{if(ps.length>=3){const sum=ps.reduce((a,b)=>a+b,0);if(sum<worstPnl){worstPnl=sum;worstDow=d;}}});
+  if(worstDow!==null&&worstPnl<-10){
+    insights.push({type:'warning',label:'PATTERN',text:`<b>${dowNames[worstDow]}</b> is your worst day in recent trades (${byDow[worstDow].length} trades, ${worstPnl.toFixed(0)} total). Worth reviewing what's different.`});
+  }
+  // Render
+  out.innerHTML=insights.map(i=>{
+    const colors={positive:'var(--green)',warning:'var(--yellow)',neutral:'var(--blue)'};
+    const c=colors[i.type]||'var(--text3)';
+    return `<div style="border-left:3px solid ${c};padding:8px 14px;margin-bottom:6px;background:color-mix(in srgb,${c} 5%,transparent)">
+      <div style="font-size:var(--fsxs);letter-spacing:2px;color:${c};margin-bottom:3px">${i.label}</div>
+      <div style="color:var(--text2)">${i.text}</div>
+    </div>`;
+  }).join('')+`<div style="text-align:right;font-size:var(--fsxs);color:var(--text5);margin-top:6px">Analyzed ${recent.length} most recent trades</div>`;
+};
+function runAISummary(tds,period){
   const out=el('ai-output');if(!out)return;
   out.innerHTML='<div style="display:flex;align-items:center;gap:10px;color:var(--text3);font-size:var(--fsm)"><div class="spinner"></div>Analyzing...</div>';
   const S2=calcStats(tds);if(!S2){out.innerHTML='<div style="color:var(--text4)">Not enough data for this period.</div>';return;}
@@ -1763,13 +1862,14 @@ function renderApp(){
     <div class="section" style="">
       <div class="sec-hd" style="flex-wrap:wrap;gap:6px">
         <span>CUMULATIVE P&L${modeLabel}</span>
-        <div style="display:flex;gap:14px;font-size:var(--fsxs)">
+        <div style="display:flex;gap:14px;font-size:var(--fsxs);align-items:center">
+          <button class="btn-d" style="font-size:var(--fsxs);padding:3px 10px" onclick="expandChart('CUMULATIVE P&L', document.querySelector('.cum-pl-chart').innerHTML)">⛶ EXPAND</button>
           <span style="color:var(--text4)">MAX DD <span style="color:var(--red)">-$${S.maxDD.toFixed(0)}</span></span>
           <span style="color:var(--text4)">TOTAL FEES <span style="color:var(--yellow)">-$${S.totalFees.toFixed(0)}</span></span>
           ${accountEquity>0?`<span style="color:var(--text4)">START EQUITY <span style="color:var(--blue)">$${accountEquity.toLocaleString()}</span></span>`:''}
         </div>
       </div>
-      <div style="padding:10px 6px 6px;overflow-x:auto">
+      <div class="cum-pl-chart" style="padding:10px 6px 6px;overflow-x:auto">
         ${(()=>{let c=0,pk=0;return svgLineLabeled([{y:0,pnl:0},...trades.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl};})], '#00e5a0',1200,260,true);})()}
       </div>
       ${balanceHistory.length>1?`<div style="border-top:1px solid var(--border);padding:6px 6px 4px;margin-top:6px">
@@ -1782,13 +1882,14 @@ function renderApp(){
       <div class="section">
         <div class="sec-hd" style="flex-wrap:wrap;gap:6px">
           <span>P&L DISTRIBUTION</span>
-          <div style="display:flex;gap:14px;font-size:var(--fsxs)">
+          <div style="display:flex;gap:14px;font-size:var(--fsxs);align-items:center">
+            <button class="btn-d" style="font-size:var(--fsxs);padding:3px 10px" onclick="expandChart('P&L DISTRIBUTION', document.querySelector('.dist-chart').innerHTML)">⛶ EXPAND</button>
             <span style="color:var(--text4)">MEAN <span style="color:${_mean>=0?'var(--green)':'var(--red)'}">${_mean>=0?'+':''}$${_mean.toFixed(2)}</span></span>
             <span style="color:var(--text4)">STD DEV <span style="color:var(--yellow)">$${_std.toFixed(2)}</span></span>
             <span style="color:var(--text4)">SHARPE <span style="color:${S.sharpe>1?'var(--green)':S.sharpe>0?'var(--yellow)':'var(--red)'}">${S.sharpe.toFixed(2)}</span></span>
           </div>
         </div>
-        <div style="padding:14px 12px">
+        <div class="dist-chart" style="padding:14px 12px">
           <svg viewBox="0 0 700 200" width="100%" style="display:block">
             <!-- baseline -->
             <line x1="0" y1="180" x2="700" y2="180" stroke="var(--border)" stroke-width="1"/>
@@ -1880,10 +1981,24 @@ function renderApp(){
       </div>
     </div>
 
+        <!-- AI INSIGHTS (compact, on overview) -->
+    <div class="section" style="margin-bottom:8px">
+      <div class="sec-hd">
+        <span>🤖 AI ASSESSMENT — RECENT TRADES</span>
+        <button class="btn-d" style="font-size:var(--fsxs);padding:4px 12px" onclick="runOverviewAI()">REFRESH</button>
+      </div>
+      <div id="overview-ai-output" style="padding:14px;font-size:var(--fsm);color:var(--text3);line-height:1.7;min-height:80px">
+        <div style="color:var(--text5);text-align:center;padding:20px">Click REFRESH to analyze your recent trades</div>
+      </div>
+    </div>
+
     <!-- CALENDAR at bottom (exploratory) -->
     <div class="section">
       ${(()=>{
-        const now=new Date(),yr=now.getFullYear(),mo=now.getMonth()+1;
+        // Use the calMonth state (format 'YYYY-MM') so user can navigate
+        const cm=calMonth||new Date().toISOString().slice(0,7);
+        const [cyr,cmo]=cm.split('-').map(Number);
+        const yr=cyr,mo=cmo;
         const moStr=yr+'-'+String(mo).padStart(2,'0');
         const firstDay=new Date(yr,mo-1,1),daysInMonth=new Date(yr,mo,0).getDate(),startDow=firstDay.getDay();
         const tbd={};trades.forEach(t=>{if(!tbd[t.date])tbd[t.date]=[];tbd[t.date].push(t);});
@@ -1898,18 +2013,24 @@ function renderApp(){
           const isToday=ds===new Date().toISOString().slice(0,10);
           const bg=dt.length?(dp>=0?'#00e5a020':'#ff3d5a20'):'transparent';
           const border=isToday?'1px solid var(--yellow)':dt.length?`1px solid ${dp>=0?'#00e5a040':'#ff3d5a40'}`:'1px solid transparent';
-          cells+=`<div style="text-align:center;font-size:10px;padding:8px 2px;background:${bg};border:${border};min-height:50px" title="${ds}${dt.length?' · '+fmt(dp)+' · '+dt.length+' trade'+(dt.length!==1?'s':''):''}">
+          cells+=`<div style="text-align:center;font-size:11px;padding:10px 4px;background:${bg};border:${border};min-height:75px;display:flex;flex-direction:column;justify-content:center" title="${ds}${dt.length?' · '+fmt(dp)+' · '+dt.length+' trade'+(dt.length!==1?'s':''):''}">
             <div style="color:${isToday?'var(--yellow)':dt.length?(dp>=0?'#00e5a0':'#ff3d5a'):'var(--text5)'};font-family:'Bebas Neue',monospace;font-size:13px">${day}</div>
-            ${dt.length?`<div style="font-size:9px;color:${dp>=0?'#00e5a0':'#ff3d5a'};font-family:'Bebas Neue',monospace;margin-top:2px">${dp>=0?'+':''}${dp.toFixed(0)}</div><div style="font-size:7px;color:var(--text5)">${dt.length}t</div>`:''}
+            ${dt.length?`<div style="font-size:13px;color:${dp>=0?'#00e5a0':'#ff3d5a'};font-family:'Bebas Neue',monospace;margin-top:4px">${dp>=0?'+$':'-$'}${Math.abs(dp).toFixed(0)}</div><div style="font-size:9px;color:var(--text5);margin-top:2px">${dt.length} trade${dt.length>1?'s':''}</div>`:''}
           </div>`;
         }
-        return `<div class="sec-hd">
-          <span>${firstDay.toLocaleString('en',{month:'long'})} ${yr} CALENDAR</span>
-          <span style="font-size:var(--fsxs);color:${gch(moPnl)}">${fmt(moPnl)} · ${(moWR*100).toFixed(0)}% WR · ${moT.length} trades</span>
+        return `<div class="sec-hd" style="justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:12px">
+            <button class="btn-d" style="padding:4px 12px;font-size:var(--fsxs)" onclick="changeCalMonth(-1)">◀ PREV</button>
+            <span style="font-family:'Bebas Neue',monospace;font-size:16px;letter-spacing:2px">${firstDay.toLocaleString('en',{month:'long'})} ${yr}</span>
+            <button class="btn-d" style="padding:4px 12px;font-size:var(--fsxs)" onclick="changeCalMonth(1)">NEXT ▶</button>
+            <button class="btn-d" style="padding:4px 12px;font-size:var(--fsxs)" onclick="resetCalMonth()">TODAY</button>
+          </div>
+          <span style="font-size:var(--fsm);color:${gch(moPnl)};font-family:'Bebas Neue',monospace">${fmt(moPnl)} · ${(moWR*100).toFixed(0)}% WR · ${moT.length} trades</span>
         </div>
-        <div style="padding:10px;display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells}</div>`;
+        <div style="padding:14px;display:grid;grid-template-columns:repeat(7,1fr);gap:5px">${cells}</div>`;
       })()}
     </div>`;
+    setTimeout(()=>{if(document.getElementById('overview-ai-output'))runOverviewAI();},100);
   }
 
   // ══ JOURNAL ══
