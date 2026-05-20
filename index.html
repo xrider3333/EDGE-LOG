@@ -153,12 +153,12 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='14.6';
+const VERSION='14.7';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
 const TIMEFRAMES=['—','5s','10s','15s','30s','1m','2m','3m','5m','10m','15m','30m','1h','2h','4h','Daily','Weekly'];
-const TABS=['overview','trades','lessons','analytics','import_export','settings'];
+const TABS=['overview','trades','analytics','import_export','journal','settings'];
 const DEFAULT_SETUPS=['—','Breakout','Pullback','Reversal','Trend','Gap Fill','VWAP','S/D Zone','Momentum','ICT','Order Block','FVG'];
 const KPI_INFO={
   'WIN RATE':{info:'% of trades that are profitable. Must be paired with good R:R — a 40% WR can be profitable with 2R+.',warn:v=>v<0.4?'danger':v<0.5?'warn':null,msg:v=>v<0.4?'Win rate below 40% — review entries':'Below 50% — ensure R:R compensates'},
@@ -223,7 +223,7 @@ window.findDuplicateTrades=function(){
   return dupes;
 };
 
-window.scanForDuplicates=async function(){
+async function _scanForDuplicates(){
   const dupes=window.findDuplicateTrades();
   if(!dupes.length){alert('No duplicate trades found. ✓');return;}
   const modal=document.createElement('div');
@@ -313,6 +313,7 @@ window.scanForDuplicates=async function(){
   document.getElementById('dupe-close').onclick=closeFn;
   document.getElementById('dupe-done').onclick=closeFn;
 };
+window.scanForDuplicates=_scanForDuplicates;
 
 let distMetric='pnl'; // pnl | pts | pct | dur
 let analyticsSubTab='summary'; // summary | charts | deepagnostics | ai // -1=desc, 1=asc
@@ -430,7 +431,7 @@ function subscribeAll(uid){
   if(unsub)unsub();if(unsubL)unsubL();
   unsub=colRef.orderBy('date','asc').onSnapshot(snap=>{
       window._setStage('TRADES LOADED ('+snap.docs.length+')');trades=snap.docs.map(d=>({id:d.id,...d.data()}));renderApp();});
-  unsubL=lessonRef.orderBy('createdAt','desc').onSnapshot(snap=>{lessons=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='lessons')renderApp();});
+  unsubL=lessonRef.orderBy('createdAt','desc').onSnapshot(snap=>{lessons=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='journal')renderApp();});
 }
 async function addTrade(t){if(colRef)await colRef.add({...t,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}
 async function updateTrade(id,data){if(colRef)return colRef.doc(id).update(data);}
@@ -1789,7 +1790,7 @@ function renderApp(){
         </div>
       </div>
     </div>
-    ${TABS.map(t=>{const lbl=t==='import_export'?'IMPORT / EXPORT':t.toUpperCase();return `<button class="btn-ghost${activeTab===t?' active':''}" data-tab="${t}">${lbl}</button>`}).join('')}
+    ${TABS.map(t=>{const lbl=t==='import_export'?'IMPORT / EXPORT':t==='journal'?'JOURNAL':t.toUpperCase();return `<button class="btn-ghost${activeTab===t?' active':''}" data-tab="${t}">${lbl}</button>`}).join('')}
     <div style="margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 4px">
       <!-- Gross/Net toggle -->
       <div class="toggle-pill" title="Switch KPIs between Gross (before fees) and Net (after fees) P&L">
@@ -2338,7 +2339,7 @@ function renderApp(){
   }
 
   // ══ LESSONS ══
-  if(activeTab==='lessons'){
+  if(activeTab==='journal'){
     const hd=document.createElement('div');hd.className='section';hd.style.marginBottom='14px';
     hd.innerHTML=`<div class="sec-hd"><span style="color:var(--green)">＋ NEW TRADE ENTRY</span></div>
       <div style="padding:14px;display:flex;flex-direction:column;gap:9px">
