@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='15.0';
+const VERSION='15.1';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -184,7 +184,7 @@ applyTheme();
 // State
 let db=null,auth=null,colRef=null,lessonRef=null,unsub=null,unsubL=null;
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
-let activeTab='overview',activeChart='equity';
+let activeTab='overview',activeChart='equity',chartTF='all';
 let formOpen=false,showAllCols=false;
 let autoHandle=null,autoTimer=null,autoInterval=60;
 let useGross=false; // gross vs net toggle for KPI stats
@@ -1953,14 +1953,31 @@ function renderApp(){
       <div class="section">
         <div class="sec-hd" style="flex-wrap:wrap;gap:6px">
           <span>CUMULATIVE P&L${modeLabel}</span>
-          <div style="display:flex;gap:14px;font-size:var(--fsxs);align-items:center">
-            <button class="btn-d" style="font-size:var(--fsxs);padding:3px 10px" onclick="expandChart('CUMULATIVE P&L', document.querySelector('.cum-pl-chart').innerHTML)">⛶ EXPAND</button>
-            <span style="color:var(--text4)">MAX DD <span style="color:var(--red)">-$${S.maxDD.toFixed(0)}</span></span>
-            <span style="color:var(--text4)">FEES <span style="color:var(--yellow)">-$${S.totalFees.toFixed(0)}</span></span>
+          <div style="display:flex;gap:6px;align-items:center">
+            ${['7D','30D','90D','YTD','ALL'].map(tf=>`<button onclick="chartTF='${tf.toLowerCase()}';renderApp()" style="background:${chartTF===tf.toLowerCase()?'var(--green)':'var(--bg3)'};color:${chartTF===tf.toLowerCase()?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:3px 9px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px;cursor:pointer">${tf}</button>`).join('')}
+            <button class="btn-d" style="font-size:var(--fsxs);padding:3px 10px;margin-left:6px" onclick="expandChart('CUMULATIVE P&L', document.querySelector('.cum-pl-chart').innerHTML)">⛶</button>
           </div>
         </div>
         <div class="cum-pl-chart" style="padding:10px 6px 6px;overflow-x:auto">
-          ${(()=>{let c=0,pk=0;return svgLineLabeled([{y:0,pnl:0},...trades.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl};})], '#00e5a0',1200,200,true);})()}
+          ${(()=>{
+            // Filter trades by chartTF
+            const now=new Date();
+            let cutoff=null;
+            if(chartTF==='7d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-7);}
+            else if(chartTF==='30d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-30);}
+            else if(chartTF==='90d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-90);}
+            else if(chartTF==='ytd'){cutoff=new Date(now.getFullYear(),0,1);}
+            const cutStr=cutoff?cutoff.toISOString().slice(0,10):null;
+            const filtTr=cutStr?trades.filter(t=>t.date>=cutStr):trades;
+            if(!filtTr.length){return '<div style="padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px">NO TRADES IN '+chartTF.toUpperCase()+'</div>';}
+            let c=0,pk=0;
+            return svgLineLabeled([{y:0,pnl:0},...filtTr.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl};})], '#00e5a0',1200,300,true);
+          })()}
+        </div>
+        <div style="padding:6px 14px 8px;display:flex;gap:14px;font-size:var(--fsxs);border-top:1px solid var(--border);justify-content:space-between">
+          <span style="color:var(--text4)">MAX DD <span style="color:var(--red)">-$${S.maxDD.toFixed(0)}</span></span>
+          <span style="color:var(--text4)">TOTAL FEES <span style="color:var(--yellow)">-$${S.totalFees.toFixed(0)}</span></span>
+          <span style="color:var(--text4)">TOTAL TRADES <span style="color:var(--text2)">${trades.length}</span></span>
         </div>
       </div>
     </div>
@@ -1995,24 +2012,24 @@ function renderApp(){
           <span style="color:var(--text4)">STD DEV <span style="color:var(--yellow)">$${_std.toFixed(2)}</span></span>
         </div>
       </div>
-      <div class="dist-chart" style="padding:14px 12px">
-        <svg viewBox="0 0 700 200" width="100%" style="display:block">
-          <line x1="0" y1="180" x2="700" y2="180" stroke="var(--border)" stroke-width="1"/>
-          ${_min<0&&_max>0?(()=>{const zx=((0-_min)/(_max-_min))*700;return `<line x1="${zx}" y1="0" x2="${zx}" y2="180" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2,3"/><text x="${zx+3}" y="13" fill="var(--text5)" font-size="9">$0</text>`})():''}
-          ${(()=>{const mx=((_mean-_min)/(_max-_min))*700;return `<line x1="${mx}" y1="0" x2="${mx}" y2="180" stroke="#f5c842" stroke-width="1" stroke-dasharray="3,2" opacity=".6"/><text x="${mx+3}" y="26" fill="#f5c842" font-size="9">μ</text>`})()}
+      <div class="dist-chart" style="padding:8px 10px">
+        <svg viewBox="0 0 700 140" width="100%" style="display:block;max-height:120px">
+          <line x1="0" y1="120" x2="700" y2="120" stroke="var(--border)" stroke-width="1"/>
+          ${_min<0&&_max>0?(()=>{const zx=((0-_min)/(_max-_min))*700;return `<line x1="${zx}" y1="0" x2="${zx}" y2="120" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2,3"/><text x="${zx+3}" y="13" fill="var(--text5)" font-size="9">$0</text>`})():''}
+          ${(()=>{const mx=((_mean-_min)/(_max-_min))*700;return `<line x1="${mx}" y1="0" x2="${mx}" y2="120" stroke="#f5c842" stroke-width="1" stroke-dasharray="3,2" opacity=".6"/><text x="${mx+3}" y="26" fill="#f5c842" font-size="9">μ</text>`})()}
           ${_std>0?(()=>{const lx=((_mean-_std-_min)/(_max-_min))*700,rx=((_mean+_std-_min)/(_max-_min))*700;return `<rect x="${lx}" y="0" width="${rx-lx}" height="180" fill="#f5c842" opacity=".06"/><text x="${lx+3}" y="40" fill="#f5c842" font-size="9" opacity=".7">−1σ</text><text x="${rx-22}" y="40" fill="#f5c842" font-size="9" opacity=".7">+1σ</text>`})():''}
           ${_bins.map((cnt,i)=>{
             const bx=(i/_binCount)*700;
             const bw=700/_binCount-2;
-            const bh=(cnt/_maxBin)*170;
-            const by=180-bh;
+            const bh=(cnt/_maxBin)*110;
+            const by=120-bh;
             const binMid=_min+(i+0.5)*_binSize;
             const color=binMid>=0?'#00e5a0':'#ff3d5a';
             return `<rect x="${bx+1}" y="${by}" width="${bw}" height="${bh}" fill="${color}" opacity=".75"><title>$${(_min+i*_binSize).toFixed(0)} to $${(_min+(i+1)*_binSize).toFixed(0)}: ${cnt} trade${cnt!==1?'s':''}</title></rect>${cnt>0?`<text x="${bx+bw/2+1}" y="${by-3}" fill="var(--text4)" font-size="9" text-anchor="middle">${cnt}</text>`:''}`;
           }).join('')}
-          <text x="2" y="196" fill="var(--text5)" font-size="9">$${_min.toFixed(0)}</text>
-          <text x="350" y="196" fill="var(--text5)" font-size="9" text-anchor="middle">$${((_min+_max)/2).toFixed(0)}</text>
-          <text x="698" y="196" fill="var(--text5)" font-size="9" text-anchor="end">$${_max.toFixed(0)}</text>
+          <text x="2" y="136" fill="var(--text5)" font-size="9">$${_min.toFixed(0)}</text>
+          <text x="350" y="136" fill="var(--text5)" font-size="9" text-anchor="middle">$${((_min+_max)/2).toFixed(0)}</text>
+          <text x="698" y="136" fill="var(--text5)" font-size="9" text-anchor="end">$${_max.toFixed(0)}</text>
         </svg>
       </div>
     </div>
@@ -2028,8 +2045,8 @@ function renderApp(){
       </div>
     </div>
 
-    <!-- BREAKDOWNS: monthly + by symbol + long/short -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 200px;gap:8px">
+    <!-- BREAKDOWNS: monthly + by symbol + L/S + by Setup + by TF -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
       <div class="section">
         <div class="sec-hd">MONTHLY P&L</div>
         <table><thead><tr><th>MONTH</th><th>TRADES</th><th>WR</th><th>NET</th></tr></thead><tbody>
@@ -2056,14 +2073,29 @@ function renderApp(){
         <div class="sec-hd">L / S SPLIT</div>
         <div style="padding:8px">
           ${[['LONG',S.longs,S.longPnl,S.longWR,'var(--green)'],['SHORT',S.shorts,S.shortPnl,S.shortWR,'var(--blue)']].map(([d,n,p,w,c])=>`
-          <div style="padding:8px 10px;background:var(--bg3);border:1px solid var(--border2);margin-bottom:5px">
-            <div style="display:flex;justify-content:space-between">
-              <span style="font-family:'Bebas Neue',monospace;font-size:15px;color:${c}">${d}</span>
-              <span style="font-family:'Bebas Neue',monospace;font-size:15px;color:${gch(p)}">${fmt(p)}</span>
+          <div style="padding:6px 9px;background:var(--bg3);border:1px solid var(--border2);margin-bottom:4px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-family:'Bebas Neue',monospace;font-size:14px;color:${c}">${d}</span>
+              <span style="font-family:'Bebas Neue',monospace;font-size:13px;color:${gch(p)}">${fmt(p)}</span>
             </div>
             <div style="font-size:var(--fsxs);color:var(--text4)">${n} trades · ${(w*100).toFixed(0)}% WR</div>
           </div>`).join('')}
         </div>
+      </div>
+      <div class="section">
+        <div class="sec-hd">BY TIMEFRAME</div>
+        <table><thead><tr><th>TF</th><th>TRADES</th><th>WR</th><th>NET</th></tr></thead><tbody>
+          ${(()=>{
+            const byTF={};
+            trades.forEach(t=>{const k=t.timeframe||'—';if(!byTF[k])byTF[k]={count:0,wins:0,pnl:0};byTF[k].count++;if(t.pnl>0)byTF[k].wins++;byTF[k].pnl+=t.pnl;});
+            return Object.entries(byTF).sort(([,a],[,b])=>b.pnl-a.pnl).slice(0,6).map(([tf,d])=>`<tr class="tr-row">
+              <td style="color:var(--text);font-family:'Bebas Neue',monospace">${tf}</td>
+              <td style="color:var(--text4)">${d.count}</td>
+              <td style="color:${d.wins/d.count>=.5?'var(--green)':'var(--red)'}">${(d.wins/d.count*100).toFixed(0)}%</td>
+              <td style="color:${gch(d.pnl)};font-family:'Bebas Neue',monospace;font-size:13px">${fmt(d.pnl)}</td>
+            </tr>`).join('');
+          })()}
+        </tbody></table>
       </div>
     </div>`;
     setTimeout(()=>{if(document.getElementById('overview-ai-output'))runOverviewAI();},100);
