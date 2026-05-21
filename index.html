@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='16.9';
+const VERSION='17.0';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -2007,48 +2007,70 @@ function renderApp(){
     };
 
     // Mini radial gauge for hero KPIs (small semicircle showing % to target)
-    const heroGauge=(t,color)=>{
-      // t = 0 to 1 — bigger gauge with tick marks, arrow, and % label
-      const cx=70,cy=58,r=44;
+    const heroGauge=(t,color,thresholdFrac,thresholdLabel)=>{
+      // t = current value 0-1; thresholdFrac = profitability threshold 0-1
+      const cx=80,cy=78,r=58;
       const tClamped=Math.max(0,Math.min(1,t));
       const endAngle=-90+tClamped*180;
       const rad=(endAngle-90)*Math.PI/180;
       const px=cx+r*Math.cos(rad),py=cy+r*Math.sin(rad);
       const large=tClamped>0.5?1:0;
-      // Tick marks at 25%, 50%, 75%
-      const tickAt=(frac)=>{
+      // Color zones based on threshold
+      const thresh=thresholdFrac!==undefined?thresholdFrac:0.5;
+      // Build red zone (0 to threshold) and green zone (threshold to 1) as background arcs
+      const threshAngle=-90+thresh*180;
+      const threshRad=(threshAngle-90)*Math.PI/180;
+      const tx=cx+r*Math.cos(threshRad),ty=cy+r*Math.sin(threshRad);
+      // Tick marks
+      const tickAt=(frac,major)=>{
         const a=(-90+frac*180-90)*Math.PI/180;
-        const x1=cx+(r-7)*Math.cos(a),y1=cy+(r-7)*Math.sin(a);
+        const tlen=major?10:5;
+        const x1=cx+(r-tlen-2)*Math.cos(a),y1=cy+(r-tlen-2)*Math.sin(a);
         const x2=cx+(r+3)*Math.cos(a),y2=cy+(r+3)*Math.sin(a);
-        const lx=cx+(r+12)*Math.cos(a),ly=cy+(r+12)*Math.sin(a);
-        return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--text5)" stroke-width="1"/>`;
+        return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--text4)" stroke-width="${major?1.5:1}"/>`;
       };
-      // Arrow pointing at current position
-      const arrowR=r-15;
-      const arrowX=cx+arrowR*Math.cos(rad),arrowY=cy+arrowR*Math.sin(rad);
+      // Threshold line (the breakeven line)
+      const thLineX1=cx+(r-14)*Math.cos(threshRad),thLineY1=cy+(r-14)*Math.sin(threshRad);
+      const thLineX2=cx+(r+10)*Math.cos(threshRad),thLineY2=cy+(r+10)*Math.sin(threshRad);
+      const thLabelX=cx+(r+18)*Math.cos(threshRad),thLabelY=cy+(r+18)*Math.sin(threshRad);
+      // Needle arrow
+      const needleR=r-6;
+      const arrowX=cx+needleR*Math.cos(rad),arrowY=cy+needleR*Math.sin(rad);
+      // Triangle tip on the needle
+      const baseR=12;
+      const perpRad1=rad-Math.PI/2;
+      const perpRad2=rad+Math.PI/2;
+      const b1x=cx+baseR*Math.cos(perpRad1)*0.4,b1y=cy+baseR*Math.sin(perpRad1)*0.4;
+      const b2x=cx+baseR*Math.cos(perpRad2)*0.4,b2y=cy+baseR*Math.sin(perpRad2)*0.4;
       const pctText=(tClamped*100).toFixed(0)+'%';
-      return `<svg viewBox="0 0 140 72" width="100%" height="64" style="display:block">
-        <!-- background track -->
-        <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" stroke="var(--bg3)" stroke-width="7" fill="none" stroke-linecap="round"/>
-        <!-- value arc -->
-        ${tClamped>0.01?`<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${large} 1 ${px.toFixed(1)} ${py.toFixed(1)}" stroke="${color}" stroke-width="7" fill="none" stroke-linecap="round"/>`:''}
+      return `<svg viewBox="0 0 160 100" width="100%" height="90" style="display:block">
+        <!-- background track (gray) -->
+        <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" stroke="var(--bg3)" stroke-width="9" fill="none" stroke-linecap="round"/>
+        <!-- red zone (below threshold) -->
+        ${thresh>0.01?`<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${thresh>0.5?1:0} 1 ${tx.toFixed(1)} ${ty.toFixed(1)}" stroke="#ff3d5a" stroke-width="9" fill="none" stroke-linecap="round" opacity=".35"/>`:''}
+        <!-- green zone (above threshold) -->
+        ${thresh<0.99?`<path d="M ${tx.toFixed(1)} ${ty.toFixed(1)} A ${r} ${r} 0 ${(1-thresh)>0.5?1:0} 1 ${cx+r} ${cy}" stroke="#00e5a0" stroke-width="9" fill="none" stroke-linecap="round" opacity=".35"/>`:''}
+        <!-- value arc on top -->
+        ${tClamped>0.01?`<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${large} 1 ${px.toFixed(1)} ${py.toFixed(1)}" stroke="${color}" stroke-width="9" fill="none" stroke-linecap="round"/>`:''}
         <!-- tick marks -->
-        ${tickAt(0.25)}${tickAt(0.5)}${tickAt(0.75)}
-        <!-- needle arrow pointing to current value -->
-        <line x1="${cx}" y1="${cy}" x2="${arrowX.toFixed(1)}" y2="${arrowY.toFixed(1)}" stroke="${color}" stroke-width="2"/>
-        <circle cx="${arrowX.toFixed(1)}" cy="${arrowY.toFixed(1)}" r="3" fill="${color}"/>
+        ${tickAt(0,false)}${tickAt(0.25,false)}${tickAt(0.5,true)}${tickAt(0.75,false)}${tickAt(1,false)}
+        <!-- THRESHOLD LINE (profitability breakeven) -->
+        <line x1="${thLineX1.toFixed(1)}" y1="${thLineY1.toFixed(1)}" x2="${thLineX2.toFixed(1)}" y2="${thLineY2.toFixed(1)}" stroke="var(--yellow)" stroke-width="2.5"/>
+        ${thresholdLabel?`<text x="${thLabelX.toFixed(1)}" y="${thLabelY.toFixed(1)}" text-anchor="middle" fill="var(--yellow)" font-size="9" font-family="JetBrains Mono,monospace" font-weight="bold">${thresholdLabel}</text>`:''}
+        <!-- needle -->
+        <polygon points="${b1x.toFixed(1)},${b1y.toFixed(1)} ${b2x.toFixed(1)},${b2y.toFixed(1)} ${arrowX.toFixed(1)},${arrowY.toFixed(1)}" fill="${color}"/>
         <!-- center hub -->
-        <circle cx="${cx}" cy="${cy}" r="4" fill="var(--bg)" stroke="${color}" stroke-width="1.5"/>
+        <circle cx="${cx}" cy="${cy}" r="5" fill="var(--bg)" stroke="${color}" stroke-width="2"/>
         <!-- percentage label below hub -->
-        <text x="${cx}" y="${cy+18}" text-anchor="middle" fill="${color}" font-size="12" font-family="Bebas Neue,monospace" font-weight="bold">${pctText}</text>
+        <text x="${cx}" y="${cy+17}" text-anchor="middle" fill="${color}" font-size="13" font-family="Bebas Neue,monospace" font-weight="bold">${pctText}</text>
       </svg>`;
     };
-    const heroKPI=(label,valueText,subText,color,sparkData,infoKey,gaugeVal)=>{
+    const heroKPI=(label,valueText,subText,color,sparkData,infoKey,gaugeVal,thresholdFrac,thresholdLabel)=>{
       const info=infoKey&&KPI_INFO[infoKey];
       const spark=sparkData&&sparkData.length>1?sparkline(sparkData,color,200,40):'';
       const hasGauge=gaugeVal!==undefined;
-      const gaugeHTML=hasGauge?`<div style="position:absolute;top:4px;right:6px;width:120px;z-index:2;pointer-events:none">${heroGauge(gaugeVal,color)}</div>`:'';
-      return `<div class="mini-card" style="padding:14px 18px;position:relative;overflow:hidden;min-height:110px">
+      const gaugeHTML=hasGauge?`<div style="position:absolute;top:2px;right:4px;width:140px;z-index:2;pointer-events:none">${heroGauge(gaugeVal,color,thresholdFrac,thresholdLabel)}</div>`:'';
+      return `<div class="mini-card" style="padding:14px 18px;position:relative;overflow:hidden;min-height:128px">
         ${spark}
         ${gaugeHTML}
         <div style="position:relative;z-index:1;display:flex;justify-content:flex-start;align-items:center;gap:6px">
@@ -2131,10 +2153,10 @@ function renderApp(){
     content.innerHTML=`
     <!-- ROW 1: HERO KPIs (4 across, large) -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px">
-      ${heroKPI('NET P&L', fmt(S.net), accountEquity>0?((S.net/accountEquity)*100).toFixed(1)+'% of acct · '+trades.length+' trades':trades.length+' trades cumulative', S.net>=0?'#00e5a0':'#ff3d5a', _running.net, 'NET P&L', S.net>=0?Math.min(1,S.net/Math.max(100,Math.abs(S.net)*1.5)):0)}
-      ${heroKPI('WIN RATE', (S.wr*100).toFixed(0)+'%', S.wins+' wins · '+S.losses+' losses', S.wr>=0.5?'#00e5a0':S.wr>=0.4?'#f5c842':'#ff3d5a', _running.wr.map(w=>w*100), 'WIN RATE', S.wr)}
-      ${heroKPI('PROFIT FACTOR', S.pf>=99?'∞':S.pf.toFixed(2), S.pf>=1.5?'Healthy':S.pf>=1?'Marginal':'Losing edge', S.pf>=1.5?'#00e5a0':S.pf>=1?'#f5c842':'#ff3d5a', _running.pf, 'PROFIT FACTOR', Math.min(1,S.pf/3))}
-      ${heroKPI('EXP VALUE', '$'+S.ev.toFixed(2), 'Per trade · '+(S.ev*trades.length).toFixed(0)+' projected', S.ev>0?'#00e5a0':'#ff3d5a', _running.ev, 'EXP VALUE', S.ev>0?Math.min(1,S.ev/50):0)}
+      ${heroKPI('NET P&L', fmt(S.net), accountEquity>0?((S.net/accountEquity)*100).toFixed(1)+'% of acct · '+trades.length+' trades':trades.length+' trades cumulative', S.net>=0?'#00e5a0':'#ff3d5a', _running.net, 'NET P&L', S.net>=0?Math.min(1,S.net/Math.max(100,Math.abs(S.net)*1.5)):0, 0.5, '$0')}
+      ${heroKPI('WIN RATE', (S.wr*100).toFixed(0)+'%', S.wins+' wins · '+S.losses+' losses', S.wr>=0.5?'#00e5a0':S.wr>=0.4?'#f5c842':'#ff3d5a', _running.wr.map(w=>w*100), 'WIN RATE', S.wr, 0.5, '50%')}
+      ${heroKPI('PROFIT FACTOR', S.pf>=99?'∞':S.pf.toFixed(2), S.pf>=1.5?'Healthy':S.pf>=1?'Marginal':'Losing edge', S.pf>=1.5?'#00e5a0':S.pf>=1?'#f5c842':'#ff3d5a', _running.pf, 'PROFIT FACTOR', Math.min(1,S.pf/3), 0.333, '1.0')}
+      ${heroKPI('EXP VALUE', '$'+S.ev.toFixed(2), 'Per trade · '+(S.ev*trades.length).toFixed(0)+' projected', S.ev>0?'#00e5a0':'#ff3d5a', _running.ev, 'EXP VALUE', S.ev>0?Math.min(1,S.ev/50):0, 0, '$0')}
     </div>
 
     <!-- ROW 2: CUMULATIVE P&L (full width, 380px tall) -->
@@ -2189,8 +2211,8 @@ function renderApp(){
       <div>
         <!-- Calendar (full left column width) -->
         <div class="section" style="margin-bottom:8px">${calHTML}</div>
-        <!-- Breakdowns: 3 tables in a row -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+        <!-- Breakdowns: 4 tables in a row -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
           <div class="section">
             <div class="sec-hd">MONTHLY</div>
             <table style="font-size:var(--fsxs)"><thead><tr><th>MONTH</th><th>TR</th><th>WR</th><th>NET</th></tr></thead><tbody>
@@ -2221,6 +2243,21 @@ function renderApp(){
                 trades.forEach(t=>{const k=t.timeframe||'—';if(!byTF[k])byTF[k]={count:0,wins:0,pnl:0};byTF[k].count++;if(t.pnl>0)byTF[k].wins++;byTF[k].pnl+=t.pnl;});
                 return Object.entries(byTF).sort(([,a],[,b])=>b.pnl-a.pnl).slice(0,8).map(([tf,d])=>`<tr class="tr-row">
                   <td style="color:var(--text);font-family:'Bebas Neue',monospace">${tf}</td>
+                  <td style="color:var(--text4)">${d.count}</td>
+                  <td style="color:${d.wins/d.count>=.5?'var(--green)':'var(--red)'}">${(d.wins/d.count*100).toFixed(0)}%</td>
+                  <td style="color:${gch(d.pnl)};font-family:'Bebas Neue',monospace;font-size:13px">${fmt(d.pnl)}</td>
+                </tr>`).join('');
+              })()}
+            </tbody></table>
+          </div>
+          <div class="section">
+            <div class="sec-hd">BY SETUP</div>
+            <table style="font-size:var(--fsxs)"><thead><tr><th>SETUP</th><th>TR</th><th>WR</th><th>NET</th></tr></thead><tbody>
+              ${(()=>{
+                const bySetup={};
+                trades.forEach(t=>{const k=t.setup||'—';if(!bySetup[k])bySetup[k]={count:0,wins:0,pnl:0};bySetup[k].count++;if(t.pnl>0)bySetup[k].wins++;bySetup[k].pnl+=t.pnl;});
+                return Object.entries(bySetup).sort(([,a],[,b])=>b.pnl-a.pnl).slice(0,8).map(([s,d])=>`<tr class="tr-row">
+                  <td style="color:var(--text);font-family:'Bebas Neue',monospace">${s}</td>
                   <td style="color:var(--text4)">${d.count}</td>
                   <td style="color:${d.wins/d.count>=.5?'var(--green)':'var(--red)'}">${(d.wins/d.count*100).toFixed(0)}%</td>
                   <td style="color:${gch(d.pnl)};font-family:'Bebas Neue',monospace;font-size:13px">${fmt(d.pnl)}</td>
@@ -3156,7 +3193,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       <div class="sec-hd">CUSTOM TAGS</div>
       <div style="padding:14px">
         <div style="font-size:var(--fsm);color:var(--text4);margin-bottom:10px;line-height:1.8">Create reusable tags to label trades (e.g. "revenge trade", "news play", "trend day"). Tags appear in the trades view and can be filtered.</div>
-        <div id="tags-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+        <div id="tags-list-settings" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
           ${customTags.map((tag,i)=>`<div style="display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border);padding:4px 10px;gap:6px"><span style="font-size:var(--fsm);color:var(--text2)">${tag}</span><button onclick="removeCustomTag(${i})" style="background:none;border:none;color:var(--text5);cursor:pointer;font-size:12px;padding:0">✕</button></div>`).join('')}
           ${!customTags.length?'<span style="color:var(--text5);font-size:var(--fsm)">No tags yet</span>':''}
         </div>
