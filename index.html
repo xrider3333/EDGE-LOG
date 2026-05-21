@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='15.2';
+const VERSION='16.0';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1833,7 +1833,65 @@ function renderApp(){
     if(!S){content.innerHTML='<div style="border:1px dashed var(--border);padding:80px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO TRADES — USE DATA TAB TO IMPORT OR ADD IN TRADES</div>';return;}
     const modeLabel=useGross?'<span style="color:var(--yellow);font-size:var(--fsxs);margin-left:6px">[GROSS]</span>':'';
 
-    // Compute distribution stats
+    // === Helpers ===
+    const sparkline=(values,color,w=110,h=24)=>{
+      if(!values||values.length<2)return '';
+      const mn=Math.min(...values),mx=Math.max(...values),range=mx-mn||1;
+      const pts=values.map((v,i)=>{const x=(i/(values.length-1))*w;const y=h-((v-mn)/range)*h;return x+','+y;}).join(' ');
+      const areaPath=`M 0,${h} L ${pts.split(' ').join(' L ')} L ${w},${h} Z`;
+      return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" style="position:absolute;bottom:0;left:0;right:0;opacity:.22;pointer-events:none"><path d="${areaPath}" fill="${color}"/><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" opacity=".8"/></svg>`;
+    };
+
+    const miniKPI=(label,valueText,subText,color,sparkData,infoKey)=>{
+      const info=infoKey&&KPI_INFO[infoKey];
+      const spark=sparkData&&sparkData.length>1?sparkline(sparkData,color):'';
+      return `<div class="mini-card" style="padding:8px 11px;position:relative;overflow:hidden;min-height:62px">
+        ${spark}
+        <div style="position:relative;z-index:1;display:flex;justify-content:space-between;align-items:flex-start">
+          <div class="stat-lbl" style="margin-bottom:3px;font-size:8px">${label}</div>
+          ${info?`<span style="font-size:8px;color:var(--text5);cursor:help;background:var(--bg3);width:13px;height:13px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);font-family:serif" title="${info.info.replace(/"/g,'&quot;')}">i</span>`:''}
+        </div>
+        <div style="position:relative;z-index:1;font-family:'Bebas Neue',monospace;font-size:18px;color:${color}">${valueText}</div>
+        <div style="position:relative;z-index:1;font-size:8px;color:var(--text5);margin-top:2px">${subText}</div>
+      </div>`;
+    };
+
+    const heroKPI=(label,valueText,subText,color,sparkData,infoKey)=>{
+      const info=infoKey&&KPI_INFO[infoKey];
+      const spark=sparkData&&sparkData.length>1?sparkline(sparkData,color,200,40):'';
+      return `<div class="mini-card" style="padding:14px 18px;position:relative;overflow:hidden;min-height:92px">
+        ${spark}
+        <div style="position:relative;z-index:1;display:flex;justify-content:space-between;align-items:flex-start">
+          <div class="stat-lbl" style="margin-bottom:6px">${label}</div>
+          ${info?`<span style="font-size:9px;color:var(--text5);cursor:help;background:var(--bg3);width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);font-family:serif" title="${info.info.replace(/"/g,'&quot;')}">i</span>`:''}
+        </div>
+        <div style="position:relative;z-index:1;font-family:'Bebas Neue',monospace;font-size:28px;color:${color};line-height:1">${valueText}</div>
+        <div style="position:relative;z-index:1;font-size:var(--fsxs);color:var(--text4);margin-top:4px">${subText}</div>
+      </div>`;
+    };
+
+    // === Running stats for sparklines ===
+    const _running={net:[],wr:[],pf:[],ev:[],avgW:[],avgL:[],rr:[],maxDD:[]};
+    {
+      let cum=0,wins=0,losses=0,gw=0,gl=0,peak=0,maxDD=0;
+      [...trades].forEach(t=>{
+        cum+=t.pnl;
+        if(t.pnl>=0){wins++;gw+=t.pnl;}else{losses++;gl+=Math.abs(t.pnl);}
+        if(cum>peak)peak=cum;
+        const dd=peak-cum;if(dd>maxDD)maxDD=dd;
+        _running.net.push(cum);
+        const total=wins+losses;
+        _running.wr.push(total?wins/total:0);
+        _running.pf.push(gl?gw/gl:gw>0?2:0);
+        _running.ev.push(total?cum/total:0);
+        _running.avgW.push(wins?gw/wins:0);
+        _running.avgL.push(losses?gl/losses:0);
+        _running.rr.push(losses?(gw/wins||0)/(gl/losses):0);
+        _running.maxDD.push(maxDD);
+      });
+    }
+
+    // === Distribution stats ===
     const _pnls=trades.map(t=>useGross?(t.grossPnl||t.pnl):t.pnl).filter(p=>p!=null);
     const _mean=_pnls.length?_pnls.reduce((a,b)=>a+b,0)/_pnls.length:0;
     const _std=_pnls.length>1?Math.sqrt(_pnls.reduce((a,b)=>a+(b-_mean)**2,0)/(_pnls.length-1)):0;
@@ -1844,91 +1902,7 @@ function renderApp(){
     _pnls.forEach(p=>{const i=Math.min(_binCount-1,Math.floor((p-_min)/_binSize));_bins[i]++;});
     const _maxBin=Math.max(..._bins,1);
 
-// Helper: format value safely
-    const _safe=(n,d=0)=>isNaN(n)||!isFinite(n)?'—':n.toFixed(d);
-    // Sparkline: takes array of numbers, renders as inline SVG line
-    const sparkline=(values,color,w=110,h=24)=>{
-      if(!values||values.length<2)return '';
-      const mn=Math.min(...values),mx=Math.max(...values);
-      const range=mx-mn||1;
-      const pts=values.map((v,i)=>{
-        const x=(i/(values.length-1))*w;
-        const y=h-((v-mn)/range)*h;
-        return x+','+y;
-      }).join(' ');
-      // Build area path
-      const areaPath=`M 0,${h} L ${pts.split(' ').join(' L ')} L ${w},${h} Z`;
-      return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" style="position:absolute;bottom:0;left:0;right:0;opacity:.22;pointer-events:none">
-        <path d="${areaPath}" fill="${color}"/>
-        <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" opacity=".8"/>
-      </svg>`;
-    };
-    // Compact KPI tile with sparkline background + info icon
-    const miniKPI=(label,valueText,subText,color,sparkData,infoKey)=>{
-      const info=KPI_INFO[infoKey];
-      const spark=sparkData&&sparkData.length>1?sparkline(sparkData,color):'';
-      return `<div class="mini-card" style="padding:7px 9px;position:relative;overflow:hidden;min-height:60px">
-        ${spark}
-        <div style="position:relative;z-index:1;display:flex;justify-content:space-between;align-items:flex-start">
-          <div class="stat-lbl" style="margin-bottom:2px;font-size:8px">${label}</div>
-          ${info?`<span class="info-icon" style="font-size:8px;color:var(--text5);cursor:help;background:var(--bg3);width:12px;height:12px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border)" title="${info.info.replace(/"/g,'&quot;')}">i</span>`:''}
-        </div>
-        <div style="position:relative;z-index:1;font-family:'Bebas Neue',monospace;font-size:16px;color:${color}">${valueText}</div>
-        <div style="position:relative;z-index:1;font-size:8px;color:var(--text5);margin-top:1px">${subText}</div>
-      </div>`;
-    };
-    // Build running stats arrays for sparklines
-    const _running={net:[],wr:[],pf:[],ev:[],avgW:[],avgL:[],rr:[],sharpe:[],maxDD:[]};
-    {
-      let cum=0,wins=0,losses=0,gw=0,gl=0,peak=0,maxDD=0;
-      const winAmounts=[],lossAmounts=[];
-      [...trades].forEach(t=>{
-        cum+=t.pnl;
-        if(t.pnl>=0){wins++;gw+=t.pnl;winAmounts.push(t.pnl);}
-        else{losses++;gl+=Math.abs(t.pnl);lossAmounts.push(Math.abs(t.pnl));}
-        if(cum>peak)peak=cum;
-        const dd=peak-cum;if(dd>maxDD)maxDD=dd;
-        _running.net.push(cum);
-        const total=wins+losses;
-        _running.wr.push(total?wins/total:0);
-        _running.pf.push(gl?gw/gl:gw>0?2:0);
-        _running.ev.push(total?cum/total:0);
-        const avW=wins?gw/wins:0;
-        const avL=losses?gl/losses:0;
-        _running.avgW.push(avW);
-        _running.avgL.push(avL);
-        _running.rr.push(avL?avW/avL:0);
-        _running.sharpe.push(0); // placeholder
-        _running.maxDD.push(maxDD);
-      });
-    }
-        // Gauge SVG helper: g = current value, lo = bottom of scale, hi = top of scale, label, color
-    const gauge=(label,valueText,subText,val,lo,hi,goodAt,color)=>{
-      // normalize 0-1
-      const t=Math.max(0,Math.min(1,(val-lo)/(hi-lo)));
-      // arc: 180° (-90 to 90 degrees on a semicircle)
-      const cx=70,cy=70,r=50;
-      const angle=-90+t*180;
-      const rad=(angle-90)*Math.PI/180;
-      const px=cx+r*Math.cos(rad),py=cy+r*Math.sin(rad);
-      // Background arc path
-      const goodT=Math.max(0,Math.min(1,(goodAt-lo)/(hi-lo)));
-      // Two color zones based on goodAt
-      return `<div class="mini-card" style="padding:10px 8px 8px;text-align:center">
-        <div class="stat-lbl" style="margin-bottom:4px">${label}</div>
-        <svg viewBox="0 0 140 80" width="100%" height="62" style="display:block">
-          <!-- bg track -->
-          <path d="M 20 70 A 50 50 0 0 1 120 70" stroke="var(--bg3)" stroke-width="8" fill="none" stroke-linecap="round"/>
-          <!-- value arc -->
-          <path d="M 20 70 A 50 50 0 ${t>0.5?1:0} 1 ${px} ${py}" stroke="${color}" stroke-width="8" fill="none" stroke-linecap="round" opacity="${t>0.01?1:0}"/>
-          <!-- center value -->
-          <text x="70" y="60" text-anchor="middle" font-family="Bebas Neue,monospace" font-size="20" fill="${color}">${valueText}</text>
-        </svg>
-        <div style="font-size:8px;color:var(--text5);margin-top:2px">${subText}</div>
-      </div>`;
-    };
-
-    // Build calendar HTML
+    // === Calendar HTML ===
     const calHTML=(()=>{
       const cm=calMonth||new Date().toISOString().slice(0,7);
       const [cyr,cmo]=cm.split('-').map(Number);
@@ -1939,175 +1913,161 @@ function renderApp(){
       const moT=trades.filter(t=>t.date.startsWith(moStr));
       const moPnl=moT.reduce((s,t)=>s+t.pnl,0),moWR=moT.length?moT.filter(t=>t.pnl>0).length/moT.length:0;
       const dow=['SUN','MON','TUE','WED','THU','FRI','SAT'];
-      let cells=dow.map(d=>`<div style="text-align:center;font-size:9px;color:var(--text5);padding:4px 0;letter-spacing:1px">${d}</div>`).join('');
+      let cells=dow.map(d=>`<div style="text-align:center;font-size:9px;color:var(--text5);padding:3px 0;letter-spacing:1px">${d}</div>`).join('');
       for(let i=0;i<startDow;i++)cells+=`<div></div>`;
       for(let day=1;day<=daysInMonth;day++){
         const ds=yr+'-'+String(mo).padStart(2,'0')+'-'+String(day).padStart(2,'0');
         const dt=tbd[ds]||[];const dp=dt.reduce((s,t)=>s+t.pnl,0);
         const isToday=ds===new Date().toISOString().slice(0,10);
         const bg=dt.length?(dp>=0?'#00e5a020':'#ff3d5a20'):'transparent';
-        const border=isToday?'1px solid var(--yellow)':dt.length?`1px solid ${dp>=0?'#00e5a040':'#ff3d5a40'}`:'1px solid transparent';
-        cells+=`<div style="text-align:center;font-size:11px;padding:5px 3px;background:${bg};border:${border};min-height:48px;display:flex;flex-direction:column;justify-content:center" title="${ds}${dt.length?' · '+fmt(dp)+' · '+dt.length+' trade'+(dt.length!==1?'s':''):''}">
-          <div style="color:${isToday?'var(--yellow)':dt.length?(dp>=0?'#00e5a0':'#ff3d5a'):'var(--text5)'};font-family:'Bebas Neue',monospace;font-size:12px">${day}</div>
-          ${dt.length?`<div style="font-size:11px;color:${dp>=0?'#00e5a0':'#ff3d5a'};font-family:'Bebas Neue',monospace;margin-top:2px">${dp>=0?'+$':'-$'}${Math.abs(dp).toFixed(0)}</div><div style="font-size:8px;color:var(--text5)">${dt.length} trade${dt.length>1?'s':''}</div>`:''}
+        const border=isToday?'1px solid var(--yellow)':dt.length?`1px solid ${dp>=0?'#00e5a050':'#ff3d5a50'}`:'1px solid transparent';
+        cells+=`<div style="text-align:center;font-size:11px;padding:5px 3px;background:${bg};border:${border};min-height:52px;display:flex;flex-direction:column;justify-content:center" title="${ds}${dt.length?' · '+fmt(dp)+' · '+dt.length+' trade'+(dt.length!==1?'s':''):''}">
+          <div style="color:${isToday?'var(--yellow)':dt.length?(dp>=0?'#00e5a0':'#ff3d5a'):'var(--text5)'};font-family:'Bebas Neue',monospace;font-size:13px">${day}</div>
+          ${dt.length?`<div style="font-size:11px;color:${dp>=0?'#00e5a0':'#ff3d5a'};font-family:'Bebas Neue',monospace;margin-top:2px">${dp>=0?'+$':'-$'}${Math.abs(dp).toFixed(0)}</div>`:''}
         </div>`;
       }
       return `<div class="sec-hd" style="justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:10px">
-          <button class="btn-d" style="padding:4px 10px;font-size:var(--fsxs)" onclick="changeCalMonth(-1)">◀</button>
-          <span style="font-family:'Bebas Neue',monospace;font-size:16px;letter-spacing:2px">${firstDay.toLocaleString('en',{month:'long'})} ${yr}</span>
-          <button class="btn-d" style="padding:4px 10px;font-size:var(--fsxs)" onclick="changeCalMonth(1)">▶</button>
-          <button class="btn-d" style="padding:4px 10px;font-size:var(--fsxs)" onclick="resetCalMonth()">TODAY</button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="btn-d" style="padding:3px 8px;font-size:var(--fsxs)" onclick="changeCalMonth(-1)">◀</button>
+          <span style="font-family:'Bebas Neue',monospace;font-size:14px;letter-spacing:2px">${firstDay.toLocaleString('en',{month:'long'})} ${yr}</span>
+          <button class="btn-d" style="padding:3px 8px;font-size:var(--fsxs)" onclick="changeCalMonth(1)">▶</button>
+          <button class="btn-d" style="padding:3px 8px;font-size:var(--fsxs)" onclick="resetCalMonth()">TODAY</button>
         </div>
-        <span style="font-size:var(--fsm);color:${gch(moPnl)};font-family:'Bebas Neue',monospace">${fmt(moPnl)} · ${(moWR*100).toFixed(0)}% WR · ${moT.length} trades</span>
+        <span style="font-size:var(--fsxs);color:${gch(moPnl)};font-family:'Bebas Neue',monospace">${fmt(moPnl)} · ${(moWR*100).toFixed(0)}% WR · ${moT.length} trades</span>
       </div>
       <div style="padding:8px;display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells}</div>`;
     })();
 
     content.innerHTML=`
-    <!-- TOP: Calendar (left) + Cumulative P&L (right) -->
-    <div style="display:grid;grid-template-columns:1.05fr 1fr;gap:8px;margin-bottom:8px">
+    <!-- ROW 1: HERO KPIs (4 across, large) -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px">
+      ${heroKPI('NET P&L', fmt(S.net), accountEquity>0?((S.net/accountEquity)*100).toFixed(1)+'% of acct · '+trades.length+' trades':trades.length+' trades cumulative', S.net>=0?'#00e5a0':'#ff3d5a', _running.net, 'NET P&L')}
+      ${heroKPI('WIN RATE', (S.wr*100).toFixed(0)+'%', S.wins+' wins · '+S.losses+' losses', S.wr>=0.5?'#00e5a0':S.wr>=0.4?'#f5c842':'#ff3d5a', _running.wr.map(w=>w*100), 'WIN RATE')}
+      ${heroKPI('PROFIT FACTOR', S.pf>=99?'∞':S.pf.toFixed(2), S.pf>=1.5?'Healthy':S.pf>=1?'Marginal':'Losing edge', S.pf>=1.5?'#00e5a0':S.pf>=1?'#f5c842':'#ff3d5a', _running.pf, 'PROFIT FACTOR')}
+      ${heroKPI('EXP VALUE', '$'+S.ev.toFixed(2), 'Per trade · '+(S.ev*trades.length).toFixed(0)+' projected', S.ev>0?'#00e5a0':'#ff3d5a', _running.ev, 'EXP VALUE')}
+    </div>
+
+    <!-- ROW 2: CUMULATIVE P&L (full width, 380px tall) -->
+    <div class="section" style="margin-bottom:8px">
+      <div class="sec-hd" style="flex-wrap:wrap;gap:6px">
+        <span>CUMULATIVE P&L${modeLabel}</span>
+        <div style="display:flex;gap:5px;align-items:center">
+          ${['7D','30D','90D','YTD','ALL'].map(tf=>`<button onclick="chartTF='${tf.toLowerCase()}';renderApp()" style="background:${chartTF===tf.toLowerCase()?'var(--green)':'var(--bg3)'};color:${chartTF===tf.toLowerCase()?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">${tf}</button>`).join('')}
+          <button class="btn-d" style="font-size:var(--fsxs);padding:4px 10px;margin-left:8px" onclick="expandChart('CUMULATIVE P&L', document.querySelector('.cum-pl-chart').innerHTML)">⛶ EXPAND</button>
+        </div>
+      </div>
+      <div class="cum-pl-chart" style="padding:14px 10px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%)">
+        ${(()=>{
+          const now=new Date();
+          let cutoff=null;
+          if(chartTF==='7d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-7);}
+          else if(chartTF==='30d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-30);}
+          else if(chartTF==='90d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-90);}
+          else if(chartTF==='ytd'){cutoff=new Date(now.getFullYear(),0,1);}
+          const cutStr=cutoff?cutoff.toISOString().slice(0,10):null;
+          const filtTr=cutStr?trades.filter(t=>t.date>=cutStr):trades;
+          if(!filtTr.length){return '<div style="padding:120px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px">NO TRADES IN '+chartTF.toUpperCase()+'</div>';}
+          let c=0,pk=0;
+          return svgLineLabeled([{y:0,pnl:0},...filtTr.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl};})], '#00e5a0',1400,380,true);
+        })()}
+      </div>
+      <div style="padding:8px 16px 10px;display:flex;gap:18px;font-size:var(--fsxs);border-top:1px solid var(--border);justify-content:space-around;flex-wrap:wrap">
+        <span style="color:var(--text4)">MAX DD <span style="color:var(--red);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">-$${S.maxDD.toFixed(0)}</span></span>
+        <span style="color:var(--text4)">TOTAL FEES <span style="color:var(--yellow);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">-$${S.totalFees.toFixed(0)}</span></span>
+        <span style="color:var(--text4)">R:R <span style="color:${S.rr>=1.5?'var(--green)':S.rr>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.rr.toFixed(2)}R</span></span>
+        <span style="color:var(--text4)">RECOVERY <span style="color:${S.recovery>=2?'var(--green)':S.recovery>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.recovery.toFixed(2)}×</span></span>
+        <span style="color:var(--text4)">SHARPE <span style="color:${S.sharpe>=1?'var(--green)':S.sharpe>=0?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.sharpe.toFixed(2)}</span></span>
+        ${accountEquity>0?`<span style="color:var(--text4)">ACCT EQUITY <span style="color:var(--blue);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">$${accountEquity.toLocaleString()}</span></span>`:''}
+      </div>
+    </div>
+
+    <!-- ROW 3: 8 MINI KPIs (compact strip) -->
+    <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-bottom:8px">
+      ${miniKPI('AVG WIN', '+$'+S.avgW.toFixed(0), 'Per winning trade', '#00e5a0', _running.avgW, 'AVG WIN')}
+      ${miniKPI('AVG LOSS', '-$'+S.avgL.toFixed(0), 'Per losing trade', '#ff3d5a', _running.avgL, 'AVG LOSS')}
+      ${miniKPI('MAX DD', '-$'+S.maxDD.toFixed(0), 'Worst drawdown', '#ff3d5a', _running.maxDD, 'MAX DD')}
+      ${miniKPI('STREAK', (S.sdir>0?'+':'-')+S.streak+(S.sdir>0?'W':'L'), S.sdir>0?'Winning streak':'Losing streak', S.sdir>0?'#00e5a0':'#ff3d5a', null, null)}
+      ${miniKPI('TOTAL FEES', '-$'+S.totalFees.toFixed(0), Math.abs(S.totalFees/(S.grossNet||1)*100).toFixed(1)+'% of gross', '#f5c842', null, 'FEES')}
+      ${miniKPI('LONGS', '$'+S.longPnl.toFixed(0), S.longs+' trades · '+(S.longWR*100).toFixed(0)+'% WR', S.longPnl>=0?'#00e5a0':'#ff3d5a', null, null)}
+      ${miniKPI('SHORTS', '$'+S.shortPnl.toFixed(0), S.shorts+' trades · '+(S.shortWR*100).toFixed(0)+'% WR', S.shortPnl>=0?'#00e5a0':'#ff3d5a', null, null)}
+      ${miniKPI('GROSS', '$'+S.grossNet.toFixed(0), 'Before fees', S.grossNet>=0?'#00e5a0':'#ff3d5a', null, null)}
+    </div>
+
+    <!-- ROW 4: CALENDAR (60%) + DISTRIBUTION (40%) side by side -->
+    <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:8px;margin-bottom:8px">
       <div class="section">${calHTML}</div>
       <div class="section">
         <div class="sec-hd" style="flex-wrap:wrap;gap:6px">
-          <span>CUMULATIVE P&L${modeLabel}</span>
-          <div style="display:flex;gap:6px;align-items:center">
-            ${['7D','30D','90D','YTD','ALL'].map(tf=>`<button onclick="chartTF='${tf.toLowerCase()}';renderApp()" style="background:${chartTF===tf.toLowerCase()?'var(--green)':'var(--bg3)'};color:${chartTF===tf.toLowerCase()?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:3px 9px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px;cursor:pointer">${tf}</button>`).join('')}
-            <button class="btn-d" style="font-size:var(--fsxs);padding:3px 10px;margin-left:6px" onclick="expandChart('CUMULATIVE P&L', document.querySelector('.cum-pl-chart').innerHTML)">⛶</button>
+          <span>P&L DISTRIBUTION</span>
+          <div style="display:flex;gap:10px;font-size:var(--fsxs);align-items:center">
+            <span style="color:var(--text4)">μ <span style="color:${_mean>=0?'var(--green)':'var(--red)'}">${_mean>=0?'+':''}$${_mean.toFixed(2)}</span></span>
+            <span style="color:var(--text4)">σ <span style="color:var(--yellow)">$${_std.toFixed(2)}</span></span>
+            <button class="btn-d" style="font-size:var(--fsxs);padding:3px 8px" onclick="expandChart('P&L DISTRIBUTION', document.querySelector('.dist-chart').innerHTML)">⛶</button>
           </div>
         </div>
-        <div class="cum-pl-chart" style="padding:10px 6px 6px;overflow-x:auto">
-          ${(()=>{
-            // Filter trades by chartTF
-            const now=new Date();
-            let cutoff=null;
-            if(chartTF==='7d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-7);}
-            else if(chartTF==='30d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-30);}
-            else if(chartTF==='90d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-90);}
-            else if(chartTF==='ytd'){cutoff=new Date(now.getFullYear(),0,1);}
-            const cutStr=cutoff?cutoff.toISOString().slice(0,10):null;
-            const filtTr=cutStr?trades.filter(t=>t.date>=cutStr):trades;
-            if(!filtTr.length){return '<div style="padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px">NO TRADES IN '+chartTF.toUpperCase()+'</div>';}
-            let c=0,pk=0;
-            return svgLineLabeled([{y:0,pnl:0},...filtTr.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl};})], '#00e5a0',1200,300,true);
-          })()}
-        </div>
-        <div style="padding:6px 14px 8px;display:flex;gap:14px;font-size:var(--fsxs);border-top:1px solid var(--border);justify-content:space-between">
-          <span style="color:var(--text4)">MAX DD <span style="color:var(--red)">-$${S.maxDD.toFixed(0)}</span></span>
-          <span style="color:var(--text4)">TOTAL FEES <span style="color:var(--yellow)">-$${S.totalFees.toFixed(0)}</span></span>
-          <span style="color:var(--text4)">TOTAL TRADES <span style="color:var(--text2)">${trades.length}</span></span>
-        </div>
-      </div>
-    </div>
-
-    <!-- KPI GAUGES (8 across, replacing flat tiles) -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px">
-      ${gauge('NET P&L', fmt(S.net), accountEquity>0?((S.net/accountEquity)*100).toFixed(1)+'% of acct':'Cumulative', S.net, Math.min(0,S.net), Math.max(100,Math.abs(S.net)*1.5), 0, S.net>=0?'#00e5a0':'#ff3d5a')}
-      ${gauge('WIN RATE', (S.wr*100).toFixed(0)+'%', S.wins+'W / '+S.losses+'L', S.wr*100, 0, 100, 50, S.wr>=0.5?'#00e5a0':S.wr>=0.4?'#f5c842':'#ff3d5a')}
-      ${gauge('PROFIT FACTOR', S.pf>=99?'∞':S.pf.toFixed(2), S.pf>=1.5?'Healthy':S.pf>=1?'Marginal':'Losing', Math.min(3,S.pf), 0, 3, 1.5, S.pf>=1.5?'#00e5a0':S.pf>=1?'#f5c842':'#ff3d5a')}
-      ${gauge('EXP VALUE', '$'+S.ev.toFixed(2), 'Per trade', S.ev, Math.min(-10,S.ev), Math.max(50,Math.abs(S.ev)*3), 0, S.ev>0?'#00e5a0':'#ff3d5a')}
-    </div>
-
-    <!-- Secondary KPIs — compact with sparklines -->
-    <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-bottom:8px">
-      ${miniKPI('AVG WIN', '+$'+S.avgW.toFixed(0), 'Per winning trade', '#00e5a0', _running.avgW, 'RISK:REWARD')}
-      ${miniKPI('AVG LOSS', '-$'+S.avgL.toFixed(0), 'Per losing trade', '#ff3d5a', _running.avgL, 'RISK:REWARD')}
-      ${miniKPI('R:R', S.rr.toFixed(2)+'R', S.rr>=1.5?'Healthy':S.rr>=1?'Marginal':'Underwater', S.rr>=1.5?'#00e5a0':S.rr>=1?'#f5c842':'#ff3d5a', _running.rr, 'RISK:REWARD')}
-      ${miniKPI('RECOVERY', S.recovery.toFixed(2)+'×', 'Net ÷ max DD', S.recovery>=2?'#00e5a0':S.recovery>=1?'#f5c842':'#ff3d5a', null, 'RECOVERY')}
-      ${miniKPI('SHARPE', S.sharpe.toFixed(2), 'Risk-adjusted', S.sharpe>=1?'#00e5a0':S.sharpe>=0?'#f5c842':'#ff3d5a', null, 'SHARPE')}
-      ${miniKPI('MAX DD', '-$'+S.maxDD.toFixed(0), 'Largest drawdown', '#ff3d5a', _running.maxDD, 'MAX DD')}
-      ${miniKPI('STREAK', (S.sdir>0?'+':'-')+S.streak+(S.sdir>0?'W':'L'), S.sdir>0?'Winning':'Losing', S.sdir>0?'#00e5a0':'#ff3d5a', null, null)}
-      ${miniKPI('TRADES', String(trades.length), 'Total taken', '#4a9eff', null, null)}
-    </div>
-
-    <!-- DISTRIBUTION + AI INSIGHTS side by side -->
-    <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:8px;margin-bottom:8px">
-          <div class="section" style="">
-      <div class="sec-hd" style="flex-wrap:wrap;gap:6px">
-        <span>P&L DISTRIBUTION</span>
-        <div style="display:flex;gap:14px;font-size:var(--fsxs);align-items:center">
-          <button class="btn-d" style="font-size:var(--fsxs);padding:3px 10px" onclick="expandChart('P&L DISTRIBUTION', document.querySelector('.dist-chart').innerHTML)">⛶ EXPAND</button>
-          <span style="color:var(--text4)">MEAN <span style="color:${_mean>=0?'var(--green)':'var(--red)'}">${_mean>=0?'+':''}$${_mean.toFixed(2)}</span></span>
-          <span style="color:var(--text4)">STD DEV <span style="color:var(--yellow)">$${_std.toFixed(2)}</span></span>
+        <div class="dist-chart" style="padding:10px">
+          <svg viewBox="0 0 700 200" width="100%" style="display:block">
+            <line x1="0" y1="180" x2="700" y2="180" stroke="var(--border)" stroke-width="1"/>
+            ${_min<0&&_max>0?(()=>{const zx=((0-_min)/(_max-_min))*700;return `<line x1="${zx}" y1="0" x2="${zx}" y2="180" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2,3"/><text x="${zx+3}" y="13" fill="var(--text5)" font-size="11">$0</text>`})():''}
+            ${(()=>{const mx=((_mean-_min)/(_max-_min))*700;return `<line x1="${mx}" y1="0" x2="${mx}" y2="180" stroke="#f5c842" stroke-width="1" stroke-dasharray="3,2" opacity=".6"/><text x="${mx+3}" y="28" fill="#f5c842" font-size="11">μ</text>`})()}
+            ${_std>0?(()=>{const lx=((_mean-_std-_min)/(_max-_min))*700,rx=((_mean+_std-_min)/(_max-_min))*700;return `<rect x="${lx}" y="0" width="${rx-lx}" height="180" fill="#f5c842" opacity=".06"/>`})():''}
+            ${_bins.map((cnt,i)=>{
+              const bx=(i/_binCount)*700;
+              const bw=700/_binCount-2;
+              const bh=(cnt/_maxBin)*160;
+              const by=180-bh;
+              const binMid=_min+(i+0.5)*_binSize;
+              const color=binMid>=0?'#00e5a0':'#ff3d5a';
+              return `<rect x="${bx+1}" y="${by}" width="${bw}" height="${bh}" fill="${color}" opacity=".75"><title>$${(_min+i*_binSize).toFixed(0)} to $${(_min+(i+1)*_binSize).toFixed(0)}: ${cnt} trade${cnt!==1?'s':''}</title></rect>${cnt>0?`<text x="${bx+bw/2+1}" y="${by-3}" fill="var(--text4)" font-size="10" text-anchor="middle">${cnt}</text>`:''}`;
+            }).join('')}
+            <text x="2" y="196" fill="var(--text5)" font-size="10">$${_min.toFixed(0)}</text>
+            <text x="350" y="196" fill="var(--text5)" font-size="10" text-anchor="middle">$${((_min+_max)/2).toFixed(0)}</text>
+            <text x="698" y="196" fill="var(--text5)" font-size="10" text-anchor="end">$${_max.toFixed(0)}</text>
+          </svg>
         </div>
       </div>
-      <div class="dist-chart" style="padding:8px 10px">
-        <svg viewBox="0 0 700 140" width="100%" style="display:block;max-height:120px">
-          <line x1="0" y1="120" x2="700" y2="120" stroke="var(--border)" stroke-width="1"/>
-          ${_min<0&&_max>0?(()=>{const zx=((0-_min)/(_max-_min))*700;return `<line x1="${zx}" y1="0" x2="${zx}" y2="120" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2,3"/><text x="${zx+3}" y="13" fill="var(--text5)" font-size="9">$0</text>`})():''}
-          ${(()=>{const mx=((_mean-_min)/(_max-_min))*700;return `<line x1="${mx}" y1="0" x2="${mx}" y2="120" stroke="#f5c842" stroke-width="1" stroke-dasharray="3,2" opacity=".6"/><text x="${mx+3}" y="26" fill="#f5c842" font-size="9">μ</text>`})()}
-          ${_std>0?(()=>{const lx=((_mean-_std-_min)/(_max-_min))*700,rx=((_mean+_std-_min)/(_max-_min))*700;return `<rect x="${lx}" y="0" width="${rx-lx}" height="180" fill="#f5c842" opacity=".06"/><text x="${lx+3}" y="40" fill="#f5c842" font-size="9" opacity=".7">−1σ</text><text x="${rx-22}" y="40" fill="#f5c842" font-size="9" opacity=".7">+1σ</text>`})():''}
-          ${_bins.map((cnt,i)=>{
-            const bx=(i/_binCount)*700;
-            const bw=700/_binCount-2;
-            const bh=(cnt/_maxBin)*110;
-            const by=120-bh;
-            const binMid=_min+(i+0.5)*_binSize;
-            const color=binMid>=0?'#00e5a0':'#ff3d5a';
-            return `<rect x="${bx+1}" y="${by}" width="${bw}" height="${bh}" fill="${color}" opacity=".75"><title>$${(_min+i*_binSize).toFixed(0)} to $${(_min+(i+1)*_binSize).toFixed(0)}: ${cnt} trade${cnt!==1?'s':''}</title></rect>${cnt>0?`<text x="${bx+bw/2+1}" y="${by-3}" fill="var(--text4)" font-size="9" text-anchor="middle">${cnt}</text>`:''}`;
-          }).join('')}
-          <text x="2" y="136" fill="var(--text5)" font-size="9">$${_min.toFixed(0)}</text>
-          <text x="350" y="136" fill="var(--text5)" font-size="9" text-anchor="middle">$${((_min+_max)/2).toFixed(0)}</text>
-          <text x="698" y="136" fill="var(--text5)" font-size="9" text-anchor="end">$${_max.toFixed(0)}</text>
-        </svg>
-      </div>
-    </div>
-          <div class="section" style="">
-      <div class="sec-hd">
-        <span>🤖 AI ASSESSMENT — RECENT TRADES</span>
-        <button class="btn-d" style="font-size:var(--fsxs);padding:4px 12px" onclick="runOverviewAI()">REFRESH</button>
-      </div>
-      <div id="overview-ai-output" style="padding:14px;font-size:var(--fsm);color:var(--text3);line-height:1.7;min-height:80px;max-height:280px;overflow-y:auto">
-        <div style="color:var(--text5);text-align:center;padding:20px">Loading insights...</div>
-      </div>
-    </div>
     </div>
 
-
-    <!-- BREAKDOWNS: monthly + by symbol + L/S + by Setup + by TF -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+    <!-- ROW 5: AI INSIGHTS (1.5fr) + BREAKDOWNS (1fr each, stacked) -->
+    <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
       <div class="section">
-        <div class="sec-hd">MONTHLY P&L</div>
-        <table><thead><tr><th>MONTH</th><th>TRADES</th><th>WR</th><th>NET</th></tr></thead><tbody>
-          ${Object.entries(S.monthly).sort(([a],[b])=>b>a?1:-1).slice(0,6).map(([m,d])=>`<tr class="tr-row">
+        <div class="sec-hd">
+          <span>🤖 AI ASSESSMENT — RECENT TRADES</span>
+          <button class="btn-d" style="font-size:var(--fsxs);padding:3px 10px" onclick="runOverviewAI()">REFRESH</button>
+        </div>
+        <div id="overview-ai-output" style="padding:12px;font-size:var(--fsxs);color:var(--text3);line-height:1.7;max-height:340px;overflow-y:auto">
+          <div style="color:var(--text5);text-align:center;padding:20px">Loading insights...</div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="sec-hd">MONTHLY</div>
+        <table style="font-size:var(--fsxs)"><thead><tr><th>MONTH</th><th>TR</th><th>WR</th><th>NET</th></tr></thead><tbody>
+          ${Object.entries(S.monthly).sort(([a],[b])=>b>a?1:-1).slice(0,8).map(([m,d])=>`<tr class="tr-row">
             <td style="color:var(--text);font-family:'Bebas Neue',monospace">${m}</td>
             <td style="color:var(--text4)">${d.trades}</td>
             <td style="color:${d.wins/d.trades>=.5?'var(--green)':'var(--red)'}">${(d.wins/d.trades*100).toFixed(0)}%</td>
-            <td style="color:${gch(d.pnl)};font-family:'Bebas Neue',monospace;font-size:14px">${fmt(d.pnl)}</td>
+            <td style="color:${gch(d.pnl)};font-family:'Bebas Neue',monospace;font-size:13px">${fmt(d.pnl)}</td>
           </tr>`).join('')}
         </tbody></table>
       </div>
       <div class="section">
         <div class="sec-hd">BY SYMBOL</div>
-        <table><thead><tr><th>SYM</th><th>WR</th><th>GROSS</th><th>NET</th></tr></thead><tbody>
+        <table style="font-size:var(--fsxs)"><thead><tr><th>SYM</th><th>TR</th><th>WR</th><th>NET</th></tr></thead><tbody>
           ${Object.entries(S.syms).sort(([,a],[,b])=>b.pnl-a.pnl).map(([sym,s])=>`<tr class="tr-row">
             <td style="color:var(--text);font-weight:bold">${sym}</td>
+            <td style="color:var(--text4)">${s.count}</td>
             <td style="color:${s.wins/s.count>=.5?'var(--green)':'var(--red)'}">${(s.wins/s.count*100).toFixed(0)}%</td>
-            <td style="color:var(--text3);font-size:var(--fsxs)">${fmt(s.grossPnl)}</td>
-            <td style="color:${gch(s.pnl)};font-family:'Bebas Neue',monospace;font-size:14px">${fmt(s.pnl)}</td>
+            <td style="color:${gch(s.pnl)};font-family:'Bebas Neue',monospace;font-size:13px">${fmt(s.pnl)}</td>
           </tr>`).join('')}
         </tbody></table>
       </div>
       <div class="section">
-        <div class="sec-hd">L / S SPLIT</div>
-        <div style="padding:8px">
-          ${[['LONG',S.longs,S.longPnl,S.longWR,'var(--green)'],['SHORT',S.shorts,S.shortPnl,S.shortWR,'var(--blue)']].map(([d,n,p,w,c])=>`
-          <div style="padding:6px 9px;background:var(--bg3);border:1px solid var(--border2);margin-bottom:4px">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <span style="font-family:'Bebas Neue',monospace;font-size:14px;color:${c}">${d}</span>
-              <span style="font-family:'Bebas Neue',monospace;font-size:13px;color:${gch(p)}">${fmt(p)}</span>
-            </div>
-            <div style="font-size:var(--fsxs);color:var(--text4)">${n} trades · ${(w*100).toFixed(0)}% WR</div>
-          </div>`).join('')}
-        </div>
-      </div>
-      <div class="section">
         <div class="sec-hd">BY TIMEFRAME</div>
-        <table><thead><tr><th>TF</th><th>TRADES</th><th>WR</th><th>NET</th></tr></thead><tbody>
+        <table style="font-size:var(--fsxs)"><thead><tr><th>TF</th><th>TR</th><th>WR</th><th>NET</th></tr></thead><tbody>
           ${(()=>{
             const byTF={};
             trades.forEach(t=>{const k=t.timeframe||'—';if(!byTF[k])byTF[k]={count:0,wins:0,pnl:0};byTF[k].count++;if(t.pnl>0)byTF[k].wins++;byTF[k].pnl+=t.pnl;});
-            return Object.entries(byTF).sort(([,a],[,b])=>b.pnl-a.pnl).slice(0,6).map(([tf,d])=>`<tr class="tr-row">
+            return Object.entries(byTF).sort(([,a],[,b])=>b.pnl-a.pnl).slice(0,8).map(([tf,d])=>`<tr class="tr-row">
               <td style="color:var(--text);font-family:'Bebas Neue',monospace">${tf}</td>
               <td style="color:var(--text4)">${d.count}</td>
               <td style="color:${d.wins/d.count>=.5?'var(--green)':'var(--red)'}">${(d.wins/d.count*100).toFixed(0)}%</td>
@@ -2120,7 +2080,7 @@ function renderApp(){
     setTimeout(()=>{if(document.getElementById('overview-ai-output'))runOverviewAI();},100);
   }
 
-  // ══ JOURNAL ══
+    // ══ JOURNAL ══
   if(activeTab==='trades'){
     // Ledger banner — show deposits/withdrawals
     if(ledgerEvents&&ledgerEvents.length){
@@ -3077,3 +3037,4 @@ auth.onAuthStateChanged(user=>{if(user){currentUser=user;subscribeAll(currentUse
 </script>
 </body>
 </html>
+
