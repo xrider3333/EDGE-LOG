@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='16.7';
+const VERSION='16.9';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1640,6 +1640,47 @@ window.resetCalMonth=function(){
   calMonth=new Date().toISOString().slice(0,7);
   renderApp();
 };
+
+window.showFeeBreakdown=function(tid){
+  const t=trades.find(x=>x.id===tid);
+  if(!t||!t.fees||t.fees<=0)return;
+  // Calculate breakdown using NT8-typical ratios if not stored
+  const total=t.fees;
+  const perContract=total/(t.size||1);
+  // Standard CME futures fee structure (approximate)
+  const commission=t.commission!=null?t.commission:total*0.65;
+  const exchange=t.exchangeFee!=null?t.exchangeFee:total*0.20;
+  const clearing=t.clearingFee!=null?t.clearingFee:total*0.10;
+  const nfa=t.nfaFee!=null?t.nfaFee:total*0.05;
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:30px;cursor:pointer';
+  modal.onclick=(e)=>{if(e.target===modal)modal.remove();};
+  const breakdownKnown=t.commission!=null||t.exchangeFee!=null;
+  modal.innerHTML=`<div style="background:var(--bg1);border:1px solid var(--yellow);max-width:500px;width:100%;padding:24px;cursor:default" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-family:'Bebas Neue',monospace;font-size:18px;letter-spacing:2px;color:var(--text)">FEE BREAKDOWN</div>
+        <div style="font-size:var(--fsxs);color:var(--text4);margin-top:3px">${t.symbol} · ${t.date} · ${t.size} contract${t.size!==1?'s':''}</div>
+      </div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:1px solid var(--border);color:var(--text3);padding:6px 14px;cursor:pointer">CLOSE ✕</button>
+    </div>
+    ${!breakdownKnown?'<div style="background:color-mix(in srgb,var(--yellow) 10%,transparent);border-left:3px solid var(--yellow);padding:8px 12px;margin-bottom:14px;font-size:var(--fsxs);color:var(--text3)">⚠ No detailed fee data stored. Showing estimated breakdown using standard CME futures ratios.</div>':''}
+    <table style="width:100%;font-family:'JetBrains Mono',monospace;font-size:var(--fsm)">
+      <tr style="color:var(--text5);font-size:var(--fsxs)"><th style="text-align:left;padding:6px 0">COMPONENT</th><th style="text-align:right">AMOUNT</th><th style="text-align:right">PER CTR</th><th style="text-align:right">%</th></tr>
+      <tr style="border-top:1px solid var(--border)"><td style="padding:6px 0;color:var(--text3)">Broker Commission</td><td style="text-align:right;color:var(--yellow)">$${commission.toFixed(2)}</td><td style="text-align:right;color:var(--text4)">$${(commission/(t.size||1)).toFixed(2)}</td><td style="text-align:right;color:var(--text5)">${(commission/total*100).toFixed(0)}%</td></tr>
+      <tr style="border-top:1px solid var(--border)"><td style="padding:6px 0;color:var(--text3)">Exchange Fee</td><td style="text-align:right;color:var(--yellow)">$${exchange.toFixed(2)}</td><td style="text-align:right;color:var(--text4)">$${(exchange/(t.size||1)).toFixed(2)}</td><td style="text-align:right;color:var(--text5)">${(exchange/total*100).toFixed(0)}%</td></tr>
+      <tr style="border-top:1px solid var(--border)"><td style="padding:6px 0;color:var(--text3)">Clearing Fee</td><td style="text-align:right;color:var(--yellow)">$${clearing.toFixed(2)}</td><td style="text-align:right;color:var(--text4)">$${(clearing/(t.size||1)).toFixed(2)}</td><td style="text-align:right;color:var(--text5)">${(clearing/total*100).toFixed(0)}%</td></tr>
+      <tr style="border-top:1px solid var(--border)"><td style="padding:6px 0;color:var(--text3)">NFA / Regulatory</td><td style="text-align:right;color:var(--yellow)">$${nfa.toFixed(2)}</td><td style="text-align:right;color:var(--text4)">$${(nfa/(t.size||1)).toFixed(2)}</td><td style="text-align:right;color:var(--text5)">${(nfa/total*100).toFixed(0)}%</td></tr>
+      <tr style="border-top:2px solid var(--yellow)"><td style="padding:8px 0;color:var(--text);font-weight:bold">TOTAL FEES</td><td style="text-align:right;color:var(--yellow);font-size:16px;font-family:'Bebas Neue',monospace">$${total.toFixed(2)}</td><td style="text-align:right;color:var(--text3);font-family:'Bebas Neue',monospace">$${perContract.toFixed(2)}</td><td></td></tr>
+    </table>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:var(--fsxs);color:var(--text4);line-height:1.7">
+      <div>Gross P&L: <span style="color:${(t.grossPnl||t.pnl)>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace">${(t.grossPnl||t.pnl)>=0?'+':''}$${(t.grossPnl||t.pnl).toFixed(2)}</span></div>
+      <div>Less fees: <span style="color:var(--yellow);font-family:'Bebas Neue',monospace">-$${total.toFixed(2)}</span></div>
+      <div>Net P&L: <span style="color:${t.pnl>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:14px">${t.pnl>=0?'+':''}$${t.pnl.toFixed(2)}</span></div>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+};
 // Compact AI assessment for overview tab
 window.runOverviewAI=function(){
   const out=document.getElementById('overview-ai-output');
@@ -1967,30 +2008,54 @@ function renderApp(){
 
     // Mini radial gauge for hero KPIs (small semicircle showing % to target)
     const heroGauge=(t,color)=>{
-      // t = 0 to 1
-      const cx=50,cy=42,r=30;
+      // t = 0 to 1 — bigger gauge with tick marks, arrow, and % label
+      const cx=70,cy=58,r=44;
       const tClamped=Math.max(0,Math.min(1,t));
       const endAngle=-90+tClamped*180;
       const rad=(endAngle-90)*Math.PI/180;
       const px=cx+r*Math.cos(rad),py=cy+r*Math.sin(rad);
       const large=tClamped>0.5?1:0;
-      return `<svg viewBox="0 0 100 54" width="64" height="40" style="display:block">
-        <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" stroke="var(--bg3)" stroke-width="6" fill="none" stroke-linecap="round"/>
-        ${tClamped>0.01?`<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${large} 1 ${px.toFixed(1)} ${py.toFixed(1)}" stroke="${color}" stroke-width="6" fill="none" stroke-linecap="round"/>`:''}
+      // Tick marks at 25%, 50%, 75%
+      const tickAt=(frac)=>{
+        const a=(-90+frac*180-90)*Math.PI/180;
+        const x1=cx+(r-7)*Math.cos(a),y1=cy+(r-7)*Math.sin(a);
+        const x2=cx+(r+3)*Math.cos(a),y2=cy+(r+3)*Math.sin(a);
+        const lx=cx+(r+12)*Math.cos(a),ly=cy+(r+12)*Math.sin(a);
+        return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--text5)" stroke-width="1"/>`;
+      };
+      // Arrow pointing at current position
+      const arrowR=r-15;
+      const arrowX=cx+arrowR*Math.cos(rad),arrowY=cy+arrowR*Math.sin(rad);
+      const pctText=(tClamped*100).toFixed(0)+'%';
+      return `<svg viewBox="0 0 140 72" width="100%" height="64" style="display:block">
+        <!-- background track -->
+        <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" stroke="var(--bg3)" stroke-width="7" fill="none" stroke-linecap="round"/>
+        <!-- value arc -->
+        ${tClamped>0.01?`<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${large} 1 ${px.toFixed(1)} ${py.toFixed(1)}" stroke="${color}" stroke-width="7" fill="none" stroke-linecap="round"/>`:''}
+        <!-- tick marks -->
+        ${tickAt(0.25)}${tickAt(0.5)}${tickAt(0.75)}
+        <!-- needle arrow pointing to current value -->
+        <line x1="${cx}" y1="${cy}" x2="${arrowX.toFixed(1)}" y2="${arrowY.toFixed(1)}" stroke="${color}" stroke-width="2"/>
+        <circle cx="${arrowX.toFixed(1)}" cy="${arrowY.toFixed(1)}" r="3" fill="${color}"/>
+        <!-- center hub -->
+        <circle cx="${cx}" cy="${cy}" r="4" fill="var(--bg)" stroke="${color}" stroke-width="1.5"/>
+        <!-- percentage label below hub -->
+        <text x="${cx}" y="${cy+18}" text-anchor="middle" fill="${color}" font-size="12" font-family="Bebas Neue,monospace" font-weight="bold">${pctText}</text>
       </svg>`;
     };
     const heroKPI=(label,valueText,subText,color,sparkData,infoKey,gaugeVal)=>{
       const info=infoKey&&KPI_INFO[infoKey];
       const spark=sparkData&&sparkData.length>1?sparkline(sparkData,color,200,40):'';
-      const gaugeHTML=gaugeVal!==undefined?`<div style="position:absolute;top:8px;right:8px;z-index:2">${heroGauge(gaugeVal,color)}</div>`:'';
-      return `<div class="mini-card" style="padding:14px 18px;position:relative;overflow:hidden;min-height:92px">
+      const hasGauge=gaugeVal!==undefined;
+      const gaugeHTML=hasGauge?`<div style="position:absolute;top:4px;right:6px;width:120px;z-index:2;pointer-events:none">${heroGauge(gaugeVal,color)}</div>`:'';
+      return `<div class="mini-card" style="padding:14px 18px;position:relative;overflow:hidden;min-height:110px">
         ${spark}
         ${gaugeHTML}
-        <div style="position:relative;z-index:1;display:flex;justify-content:space-between;align-items:flex-start">
-          <div class="stat-lbl" style="margin-bottom:6px">${label}</div>
-          ${info?`<span style="font-size:9px;color:var(--text5);cursor:help;background:var(--bg3);width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);font-family:serif;${gaugeVal!==undefined?'margin-right:72px':''}" title="${info.info.replace(/"/g,'&quot;')}">i</span>`:''}
+        <div style="position:relative;z-index:1;display:flex;justify-content:flex-start;align-items:center;gap:6px">
+          <div class="stat-lbl">${label}</div>
+          ${info?`<span style="font-size:9px;color:var(--text5);cursor:help;background:var(--bg3);width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);font-family:serif" title="${info.info.replace(/"/g,'&quot;')}">i</span>`:''}
         </div>
-        <div style="position:relative;z-index:1;font-family:'Bebas Neue',monospace;font-size:28px;color:${color};line-height:1">${valueText}</div>
+        <div style="position:relative;z-index:1;font-family:'Bebas Neue',monospace;font-size:28px;color:${color};line-height:1;margin-top:8px">${valueText}</div>
         <div style="position:relative;z-index:1;font-size:var(--fsxs);color:var(--text4);margin-top:4px">${subText}</div>
       </div>`;
     };
@@ -2450,7 +2515,7 @@ function renderApp(){
           <td style="color:${t.type==='LONG'?'var(--green)':'var(--blue)'}">${t.type}</td>
           <td>${t.entry}</td><td>${t.exit}</td><td>${t.size}</td>
                     <td style="color:${gch(t.grossPnl||t.pnl)};white-space:nowrap;font-family:'Bebas Neue',monospace;font-size:13px;opacity:.85">${fmt(t.grossPnl||t.pnl)}</td>
-          <td style="color:var(--yellow)">${t.fees>0?'-$'+t.fees.toFixed(2):'—'}</td>
+          <td style="color:var(--yellow);cursor:pointer" onclick="showFeeBreakdown('${t.id}')" title="Click for fee breakdown">${t.fees>0?'-$'+t.fees.toFixed(2):'—'}</td>
           <td style="color:${gch(t.pnl)};font-family:'Bebas Neue',monospace;font-size:14px;white-space:nowrap">
             ${fmt(t.pnl)}
             ${_eqPcts[t.id]!=null?`<div style="font-size:8px;color:${Math.abs(_eqPcts[t.id])>2?gch(t.pnl):'var(--text5)'}">${_eqPcts[t.id]>0?'+':''}${_eqPcts[t.id]}%</div>`:''}
@@ -2481,6 +2546,9 @@ function renderApp(){
           </td>
           
           
+          <td style="padding:4px 9px;max-width:120px">
+            ${(t.tags||[]).map(tag=>`<span style="font-size:8px;padding:1px 6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text3);margin-right:2px;display:inline-block">${tag}</span>`).join('')}
+          </td>
           <td style="max-width:140px;padding:4px 9px">
             <input class="inline-txt" data-field="notes" data-id="${t.id}" value="${(t.notes||'').replace(/"/g,'&quot;')}" placeholder="notes..." style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:var(--fsxs);width:100%;padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--green)'" onblur="this.style.borderBottomColor='transparent';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()"/>
           </td>
@@ -2497,7 +2565,7 @@ function renderApp(){
         ${mkTh('ENTRY','entry')}${mkTh('EXIT','exit')}${mkTh('CTRS','size')}
         ${mkTh('GROSS','grossPnl')}${mkTh('FEES','fees')}${mkTh('NET P&L','pnl')}${mkTh('PTS','_pts')}${mkTh('ACCT','_runbal')}
         ${mkTh('GRADE','grade')}${mkTh('SETUP','setup')}${mkTh('TF','timeframe')}
-        <th>CHART</th><th>NOTES</th>${exH}<th></th><th></th>
+        <th>CHART</th><th>TAGS</th><th>NOTES</th>${exH}<th></th><th></th>
       </tr></thead><tbody>${tbody}</tbody></table>`;
       content.appendChild(tw);
       // Inline grade/setup changes — save immediately
@@ -3044,7 +3112,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       <div style="padding:14px">
         <div style="font-size:var(--fsm);color:var(--text4);margin-bottom:10px;line-height:1.8">Add your own trade setup labels (EBU, CBU, ENGU, HOD, etc.). These replace the default list in the trades view and analytics.</div>
         <div id="setups-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
-          ${customSetups.map((s,i)=>`<div style="display:flex;align-items:center;gap:0;background:var(--bg2);border:1px solid var(--border)"><span style="padding:4px 10px;font-size:var(--fsm);color:var(--text2)">${s}</span>${s!=='—'?`<button onclick="removeSetup(${i})" style="background:none;border:none;color:var(--text5);padding:4px 7px;cursor:pointer;font-size:12px">✕</button>`:''}</div>`).join('')}
+          ${customSetups.map((s,i)=>`<div style="display:flex;align-items:center;gap:0;background:var(--bg2);border:1px solid var(--border)">${s==='—'?`<span style="padding:4px 10px;font-size:var(--fsm);color:var(--text2)">${s}</span>`:`<input type="text" value="${s}" data-setup-idx="${i}" onchange="renameSetup(${i}, this.value)" style="padding:4px 10px;font-size:var(--fsm);color:var(--text2);background:transparent;border:none;outline:none;width:${Math.max(60,s.length*9)}px;cursor:text"/><button onclick="removeSetup(${i})" style="background:none;border:none;color:var(--text5);padding:4px 7px;cursor:pointer;font-size:12px">✕</button>`}</div>`).join('')}
         </div>
         <div style="display:flex;gap:8px">
           <input id="new-setup" placeholder="Add setup type (e.g. EBU, CBU, HOD...)" style="max-width:260px"/>
@@ -3153,6 +3221,35 @@ namespace NinjaTrader.NinjaScript.Strategies {
     },50);
   }
 }
+
+
+window.renameSetup=function(idx,newName){
+  newName=(newName||'').trim();
+  if(!newName||newName==='—')return;
+  if(customSetups.includes(newName)&&customSetups.indexOf(newName)!==idx){
+    alert('Setup "'+newName+'" already exists');
+    renderApp();
+    return;
+  }
+  const oldName=customSetups[idx];
+  if(oldName===newName)return;
+  customSetups[idx]=newName;
+  localStorage.setItem('el_setups',JSON.stringify(customSetups));
+  // Update existing trades that used the old setup name
+  let updated=0;
+  trades.forEach(t=>{
+    if(t.setup===oldName){
+      t.setup=newName;
+      updated++;
+      // Persist to Firestore
+      if(currentUser){
+        firebase.firestore().collection('users').doc(currentUser.uid).collection('trades').doc(t.id).update({setup:newName}).catch(e=>console.error('Update failed:',e));
+      }
+    }
+  });
+  if(updated>0)console.log('[RENAME] Updated '+updated+' trades from "'+oldName+'" to "'+newName+'"');
+  renderApp();
+};
 
 function removeSetup(idx){
   if(customSetups[idx]==='—')return;
