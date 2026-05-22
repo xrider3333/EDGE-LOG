@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='17.7';
+const VERSION='17.8';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -2136,9 +2136,9 @@ function renderApp(){
     const heroKPI=(label,valueText,subText,color,sparkData,infoKey,gaugeVal,thresholdFrac,thresholdLabel)=>{
       const info=infoKey&&KPI_INFO[infoKey];
       const hasGauge=gaugeVal!==undefined;
-      const gaugeHTML=hasGauge?`<div style="flex:0 0 130px;align-self:center;pointer-events:none">${heroGauge(gaugeVal,color,thresholdFrac,thresholdLabel)}</div>`:'';
+      const gaugeHTML=hasGauge?`<div style="flex:0 0 130px;display:flex;align-items:center;justify-content:center;pointer-events:none">${heroGauge(gaugeVal,color,thresholdFrac,thresholdLabel)}</div>`:'';
       return `<div class="hero-card" style="padding:14px 18px;background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 60%,transparent);min-height:108px;cursor:pointer;transition:border-color 0.15s;display:flex;align-items:stretch;gap:10px" onclick="expandKPI('${label}', '${infoKey||''}')" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='color-mix(in srgb,var(--border) 60%,transparent)'" title="Click for detailed breakdown">
-        <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between">
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
           <div style="display:flex;align-items:center;gap:6px">
             <div class="stat-lbl">${label}</div>
             ${info?`<span style="font-size:9px;color:var(--text5);cursor:help;background:var(--bg3);width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);font-family:serif" title="${info.info.replace(/"/g,'&quot;')}">i</span>`:''}
@@ -2227,7 +2227,19 @@ function renderApp(){
       ${heroKPI('EXP VALUE', '$'+S.ev.toFixed(2), 'Per trade · '+(S.ev*trades.length).toFixed(0)+' projected', S.ev>0?'#00e5a0':'#ff3d5a', _running.ev, 'EXP VALUE', S.ev>0?Math.min(1,S.ev/50):0, 0, '$0')}
     </div>
 
-    <!-- ROW 2: CUMULATIVE P&L (full width, 380px tall) -->
+    <!-- ROW 2: 8 MINI KPIs (compact strip) -->
+    <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-bottom:12px">
+      ${miniKPI('AVG WIN', '+$'+S.avgW.toFixed(0), 'Per winning trade', '#00e5a0', _running.avgW, 'AVG WIN')}
+      ${miniKPI('AVG LOSS', '-$'+S.avgL.toFixed(0), 'Per losing trade', '#ff3d5a', _running.avgL, 'AVG LOSS')}
+      ${miniKPI('MAX DD', '-$'+S.maxDD.toFixed(0), 'Worst drawdown', '#ff3d5a', _running.maxDD, 'MAX DD')}
+      ${miniKPI('STREAK', (S.sdir>0?'+':'-')+S.streak+(S.sdir>0?'W':'L'), S.sdir>0?'Winning streak':'Losing streak', S.sdir>0?'#00e5a0':'#ff3d5a', null, null)}
+      ${miniKPI('TOTAL FEES', '-$'+S.totalFees.toFixed(0), Math.abs(S.totalFees/(S.grossNet||1)*100).toFixed(1)+'% of gross', '#f5c842', null, 'FEES')}
+      ${miniKPI('LONGS', '$'+S.longPnl.toFixed(0), S.longs+' trades · '+(S.longWR*100).toFixed(0)+'% WR', S.longPnl>=0?'#00e5a0':'#ff3d5a', null, null)}
+      ${miniKPI('SHORTS', '$'+S.shortPnl.toFixed(0), S.shorts+' trades · '+(S.shortWR*100).toFixed(0)+'% WR', S.shortPnl>=0?'#00e5a0':'#ff3d5a', null, null)}
+      ${miniKPI('GROSS', '$'+S.grossNet.toFixed(0), 'Before fees', S.grossNet>=0?'#00e5a0':'#ff3d5a', null, null)}
+    </div>
+
+    <!-- ROW 3: CUMULATIVE P&L (full width, 380px tall) -->
     <div class="section" style="margin-bottom:12px">
       <div class="sec-hd" style="flex-wrap:wrap;gap:8px">
         <span>${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}${modeLabel}</span>
@@ -2279,18 +2291,6 @@ function renderApp(){
         <span style="color:var(--text4)">SHARPE <span style="color:${S.sharpe>=1?'var(--green)':S.sharpe>=0?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.sharpe.toFixed(2)}</span></span>
         ${accountEquity>0?`<span style="color:var(--text4)">ACCT EQUITY <span style="color:var(--blue);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">$${accountEquity.toLocaleString()}</span></span>`:''}
       </div>
-    </div>
-
-    <!-- ROW 3: 8 MINI KPIs (compact strip) -->
-    <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-bottom:12px">
-      ${miniKPI('AVG WIN', '+$'+S.avgW.toFixed(0), 'Per winning trade', '#00e5a0', _running.avgW, 'AVG WIN')}
-      ${miniKPI('AVG LOSS', '-$'+S.avgL.toFixed(0), 'Per losing trade', '#ff3d5a', _running.avgL, 'AVG LOSS')}
-      ${miniKPI('MAX DD', '-$'+S.maxDD.toFixed(0), 'Worst drawdown', '#ff3d5a', _running.maxDD, 'MAX DD')}
-      ${miniKPI('STREAK', (S.sdir>0?'+':'-')+S.streak+(S.sdir>0?'W':'L'), S.sdir>0?'Winning streak':'Losing streak', S.sdir>0?'#00e5a0':'#ff3d5a', null, null)}
-      ${miniKPI('TOTAL FEES', '-$'+S.totalFees.toFixed(0), Math.abs(S.totalFees/(S.grossNet||1)*100).toFixed(1)+'% of gross', '#f5c842', null, 'FEES')}
-      ${miniKPI('LONGS', '$'+S.longPnl.toFixed(0), S.longs+' trades · '+(S.longWR*100).toFixed(0)+'% WR', S.longPnl>=0?'#00e5a0':'#ff3d5a', null, null)}
-      ${miniKPI('SHORTS', '$'+S.shortPnl.toFixed(0), S.shorts+' trades · '+(S.shortWR*100).toFixed(0)+'% WR', S.shortPnl>=0?'#00e5a0':'#ff3d5a', null, null)}
-      ${miniKPI('GROSS', '$'+S.grossNet.toFixed(0), 'Before fees', S.grossNet>=0?'#00e5a0':'#ff3d5a', null, null)}
     </div>
 
     <!-- ROW 4-5: LEFT (Calendar+Dist+Breakdowns) + RIGHT (AI sticky) -->
@@ -2674,7 +2674,7 @@ function renderApp(){
             ${_eqPcts[t.id]!=null?`<div style="font-size:8px;color:${Math.abs(_eqPcts[t.id])>2?gch(t.pnl):'var(--text5)'}">${_eqPcts[t.id]>0?'+':''}${_eqPcts[t.id]}%</div>`:''}
           </td>
           <td style="font-size:var(--fsxs);white-space:nowrap;text-align:right">
-            ${(()=>{const p=PRESETS[t.symbol];if(!p||!t.entry||!t.exit)return'<span style="color:var(--text5)">—</span>';const dir=t.type==='LONG'?1:-1;const ptsPerC=((t.exit-t.entry)*dir);const pts=ptsPerC*t.size;const perC=ptsPerC;return `<div style="color:${pts>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px">${pts>=0?'+':''}${pts.toFixed(2)}</div>${t.size>1?`<div style="font-size:8px;color:var(--text5)">${perC>=0?'+':''}${perC.toFixed(2)}/c</div>`:''}`})()}
+            ${(()=>{const p=PRESETS[t.symbol];if(!p||!t.entry||!t.exit)return'<span style="color:var(--text5)">—</span>';const dir=t.type==='LONG'?1:-1;const ptsPerC=((t.exit-t.entry)*dir);const pts=ptsPerC*t.size;const perC=ptsPerC;return `<div style="color:${pts>=0?'#7dd3fc':'#fbbf24'};font-family:'Bebas Neue',monospace;font-size:13px">${pts>=0?'+':''}${pts.toFixed(2)}</div>${t.size>1?`<div style="font-size:8px;color:var(--text5)">${perC>=0?'+':''}${perC.toFixed(2)}/c</div>`:''}`})()}
           </td>
           <td style="font-size:var(--fsxs);white-space:nowrap">
             <div style="color:var(--text3)">${_runBals[t.id]!=null?'$'+_runBals[t.id].toLocaleString(undefined,{maximumFractionDigits:0}):'—'}</div>
