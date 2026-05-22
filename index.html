@@ -51,8 +51,8 @@ button{cursor:pointer;font-family:'JetBrains Mono',monospace;border:none;transit
 .edit-btn{background:none;border:none;color:var(--text4);font-size:var(--fss);padding:2px 7px}.edit-btn:hover{color:var(--yellow)}
 .card{background:var(--bg1);border:1px solid var(--border);padding:var(--card-pad);position:relative;overflow:visible}
 .mini-card{background:var(--bg2);border:1px solid var(--border2);padding:var(--mini-pad);position:relative;overflow:visible}
-.section{border:1px solid var(--border)}
-.sec-hd{background:var(--bg1);padding:10px 16px;border-bottom:1px solid var(--border);font-size:var(--fsxs);letter-spacing:2px;color:var(--text3);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.section{border:1px solid var(--border);background:var(--bg2)}
+.sec-hd{background:transparent;padding:10px 16px 6px;border-bottom:none;font-size:var(--fsxs);letter-spacing:2px;color:var(--text4);display:flex;justify-content:space-between;align-items:center;gap:8px}
 .lbl{display:block;font-size:var(--fsxs);letter-spacing:2px;color:var(--text3);margin-bottom:4px}
 .tag{font-size:var(--fsxs);letter-spacing:1px;padding:1px 7px;background:var(--bg2);color:var(--text3);border:1px solid var(--border2)}
 .tr-row:hover{background:var(--bg2)}
@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='17.2';
+const VERSION='17.5';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -184,7 +184,7 @@ applyTheme();
 // State
 let db=null,auth=null,colRef=null,lessonRef=null,unsub=null,unsubL=null;
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
-let activeTab='overview',activeChart='equity',chartTF='all';
+let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl';
 let formOpen=false,showAllCols=false;
 let autoHandle=null,autoTimer=null,autoInterval=60;
 let useGross=false; // gross vs net toggle for KPI stats
@@ -701,7 +701,19 @@ async function importPDF(file){
 // CSV Parsing
 function parseLine(l){const r=[];let c='',q=false;for(const ch of l){if(ch==='"')q=!q;else if(ch===','&&!q){r.push(c.trim());c='';}else c+=ch;}r.push(c.trim());return r.map(f=>f.replace(/^"|"$/g,'').trim());}
 function parseDate(s){if(!s)return'';let m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)return m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0');m=s.match(/(\d{4})-(\d{2})-(\d{2})/);if(m)return m[0];return s.slice(0,10);}
-function parseDT(s){if(!s)return null;const m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);if(m)return new Date(+m[3],+m[1]-1,+m[2],+m[4],+m[5],+(m[6]||0));return null;}
+function parseDT(s){
+  if(!s)return null;
+  s=String(s).trim();
+  // Try MM/DD/YYYY HH:MM:SS (US format)
+  let m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([APap])\.?[Mm]\.?)?$/);
+  if(m){let h=+m[4];if(m[7]){const isPM=/p/i.test(m[7]);if(isPM&&h<12)h+=12;else if(!isPM&&h===12)h=0;}return new Date(+m[3],+m[1]-1,+m[2],h,+m[5],+(m[6]||0));}
+  // YYYY-MM-DD HH:MM:SS (ISO-like)
+  m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[\sT](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if(m)return new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0));
+  // Fallback: native Date parse
+  const d=new Date(s);
+  return isNaN(d.getTime())?null:d;
+}
 function detectType(hdr){
   const h=hdr.join(' ').toLowerCase();
   if(h.includes('buyprice')&&h.includes('sellprice')&&h.includes('pairedqty'))return'position_history';
@@ -2095,70 +2107,37 @@ function renderApp(){
 
     // Mini radial gauge for hero KPIs (small semicircle showing % to target)
     const heroGauge=(t,color,thresholdFrac,thresholdLabel)=>{
-      // t = current value 0-1; thresholdFrac = profitability threshold 0-1
-      const cx=70,cy=58,r=44;
+      // Minimal gauge — single arc + value arc + threshold notch
+      const cx=70,cy=58,r=42;
       const tClamped=Math.max(0,Math.min(1,t));
       const endAngle=-90+tClamped*180;
       const rad=(endAngle-90)*Math.PI/180;
       const px=cx+r*Math.cos(rad),py=cy+r*Math.sin(rad);
       const large=tClamped>0.5?1:0;
-      // Color zones based on threshold
+      // Threshold notch on the arc
       const thresh=thresholdFrac!==undefined?thresholdFrac:0.5;
-      // Build red zone (0 to threshold) and green zone (threshold to 1) as background arcs
-      const threshAngle=-90+thresh*180;
-      const threshRad=(threshAngle-90)*Math.PI/180;
-      const tx=cx+r*Math.cos(threshRad),ty=cy+r*Math.sin(threshRad);
-      // Tick marks
-      const tickAt=(frac,major)=>{
-        const a=(-90+frac*180-90)*Math.PI/180;
-        const tlen=major?10:5;
-        const x1=cx+(r-tlen-2)*Math.cos(a),y1=cy+(r-tlen-2)*Math.sin(a);
-        const x2=cx+(r+3)*Math.cos(a),y2=cy+(r+3)*Math.sin(a);
-        return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--text4)" stroke-width="${major?1.5:1}"/>`;
-      };
-      // Threshold line (the breakeven line)
-      const thLineX1=cx+(r-14)*Math.cos(threshRad),thLineY1=cy+(r-14)*Math.sin(threshRad);
-      const thLineX2=cx+(r+10)*Math.cos(threshRad),thLineY2=cy+(r+10)*Math.sin(threshRad);
-      const thLabelX=cx+(r+18)*Math.cos(threshRad),thLabelY=cy+(r+18)*Math.sin(threshRad);
-      // Needle arrow
-      const needleR=r-6;
-      const arrowX=cx+needleR*Math.cos(rad),arrowY=cy+needleR*Math.sin(rad);
-      // Triangle tip on the needle
-      const baseR=12;
-      const perpRad1=rad-Math.PI/2;
-      const perpRad2=rad+Math.PI/2;
-      const b1x=cx+baseR*Math.cos(perpRad1)*0.4,b1y=cy+baseR*Math.sin(perpRad1)*0.4;
-      const b2x=cx+baseR*Math.cos(perpRad2)*0.4,b2y=cy+baseR*Math.sin(perpRad2)*0.4;
+      const threshRad=(-90+thresh*180-90)*Math.PI/180;
+      const tx1=cx+(r-9)*Math.cos(threshRad),ty1=cy+(r-9)*Math.sin(threshRad);
+      const tx2=cx+(r+8)*Math.cos(threshRad),ty2=cy+(r+8)*Math.sin(threshRad);
+      const tlx=cx+(r+14)*Math.cos(threshRad),tly=cy+(r+14)*Math.sin(threshRad);
       const pctText=(tClamped*100).toFixed(0)+'%';
-      return `<svg viewBox="0 0 140 78" width="100%" height="72" style="display:block">
-        <!-- background track (gray) -->
-        <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" stroke="var(--bg3)" stroke-width="9" fill="none" stroke-linecap="round"/>
-        <!-- red zone (below threshold) -->
-        ${thresh>0.01?`<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${thresh>0.5?1:0} 1 ${tx.toFixed(1)} ${ty.toFixed(1)}" stroke="#ff3d5a" stroke-width="9" fill="none" stroke-linecap="round" opacity=".35"/>`:''}
-        <!-- green zone (above threshold) -->
-        ${thresh<0.99?`<path d="M ${tx.toFixed(1)} ${ty.toFixed(1)} A ${r} ${r} 0 ${(1-thresh)>0.5?1:0} 1 ${cx+r} ${cy}" stroke="#00e5a0" stroke-width="9" fill="none" stroke-linecap="round" opacity=".35"/>`:''}
-        <!-- value arc on top -->
-        ${tClamped>0.01?`<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${large} 1 ${px.toFixed(1)} ${py.toFixed(1)}" stroke="${color}" stroke-width="9" fill="none" stroke-linecap="round"/>`:''}
-        <!-- tick marks -->
-        ${tickAt(0,false)}${tickAt(0.25,false)}${tickAt(0.5,true)}${tickAt(0.75,false)}${tickAt(1,false)}
-        <!-- THRESHOLD LINE (profitability breakeven) -->
-        <line x1="${thLineX1.toFixed(1)}" y1="${thLineY1.toFixed(1)}" x2="${thLineX2.toFixed(1)}" y2="${thLineY2.toFixed(1)}" stroke="var(--yellow)" stroke-width="2.5"/>
-        ${thresholdLabel?`<text x="${thLabelX.toFixed(1)}" y="${thLabelY.toFixed(1)}" text-anchor="middle" fill="var(--yellow)" font-size="9" font-family="JetBrains Mono,monospace" font-weight="bold">${thresholdLabel}</text>`:''}
-        <!-- needle -->
-        <polygon points="${b1x.toFixed(1)},${b1y.toFixed(1)} ${b2x.toFixed(1)},${b2y.toFixed(1)} ${arrowX.toFixed(1)},${arrowY.toFixed(1)}" fill="${color}"/>
-        <!-- center hub -->
-        <circle cx="${cx}" cy="${cy}" r="5" fill="var(--bg)" stroke="${color}" stroke-width="2"/>
-        <!-- percentage label below hub -->
-        <text x="${cx}" y="${cy+15}" text-anchor="middle" fill="${color}" font-size="13" font-family="Bebas Neue,monospace" font-weight="bold">${pctText}</text>
+      return `<svg viewBox="0 0 140 76" width="100%" height="70" style="display:block">
+        <!-- single thin gray track -->
+        <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" stroke="var(--bg3)" stroke-width="6" fill="none" stroke-linecap="round"/>
+        <!-- value arc in primary color -->
+        ${tClamped>0.01?`<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${large} 1 ${px.toFixed(1)} ${py.toFixed(1)}" stroke="${color}" stroke-width="6" fill="none" stroke-linecap="round"/>`:''}
+        <!-- threshold marker (just a small line) -->
+        <line x1="${tx1.toFixed(1)}" y1="${ty1.toFixed(1)}" x2="${tx2.toFixed(1)}" y2="${ty2.toFixed(1)}" stroke="var(--text4)" stroke-width="1.5"/>
+        ${thresholdLabel?`<text x="${tlx.toFixed(1)}" y="${tly.toFixed(1)}" text-anchor="middle" fill="var(--text5)" font-size="8" font-family="JetBrains Mono,monospace">${thresholdLabel}</text>`:''}
+        <!-- value % below center -->
+        <text x="${cx}" y="${cy+12}" text-anchor="middle" fill="${color}" font-size="15" font-family="Bebas Neue,monospace" font-weight="bold">${pctText}</text>
       </svg>`;
     };
     const heroKPI=(label,valueText,subText,color,sparkData,infoKey,gaugeVal,thresholdFrac,thresholdLabel)=>{
       const info=infoKey&&KPI_INFO[infoKey];
-      const spark=sparkData&&sparkData.length>1?sparkline(sparkData,color,200,40):'';
       const hasGauge=gaugeVal!==undefined;
-      const gaugeHTML=hasGauge?`<div style="position:absolute;top:8px;right:10px;width:115px;z-index:2;pointer-events:none">${heroGauge(gaugeVal,color,thresholdFrac,thresholdLabel)}</div>`:'';
-      return `<div class="mini-card hero-card" style="padding:14px 18px;position:relative;overflow:hidden;min-height:118px;cursor:pointer" onclick="expandKPI('${label}', '${infoKey||''}')" title="Click for detailed breakdown">
-        ${spark}
+      const gaugeHTML=hasGauge?`<div style="position:absolute;top:10px;right:12px;width:120px;z-index:2;pointer-events:none">${heroGauge(gaugeVal,color,thresholdFrac,thresholdLabel)}</div>`:'';
+      return `<div class="hero-card" style="padding:16px 20px;position:relative;background:var(--bg2);border:1px solid var(--border);min-height:108px;cursor:pointer;transition:border-color 0.15s" onclick="expandKPI('${label}', '${infoKey||''}')" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='var(--border)'" title="Click for detailed breakdown">
         ${gaugeHTML}
         <div style="position:relative;z-index:1;display:flex;justify-content:flex-start;align-items:center;gap:6px">
           <div class="stat-lbl">${label}</div>
@@ -2239,7 +2218,7 @@ function renderApp(){
 
     content.innerHTML=`
     <!-- ROW 1: HERO KPIs (4 across, large) -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px">
       ${heroKPI('NET P&L', fmt(S.net), accountEquity>0?((S.net/accountEquity)*100).toFixed(1)+'% of acct · '+trades.length+' trades':trades.length+' trades cumulative', S.net>=0?'#00e5a0':'#ff3d5a', _running.net, 'NET P&L', S.net>=0?Math.min(1,S.net/Math.max(100,Math.abs(S.net)*1.5)):0, 0.5, '$0')}
       ${heroKPI('WIN RATE', (S.wr*100).toFixed(0)+'%', S.wins+' wins · '+S.losses+' losses', S.wr>=0.5?'#00e5a0':S.wr>=0.4?'#f5c842':'#ff3d5a', _running.wr.map(w=>w*100), 'WIN RATE', S.wr, 0.5, '50%')}
       ${heroKPI('PROFIT FACTOR', S.pf>=99?'∞':S.pf.toFixed(2), S.pf>=1.5?'Healthy':S.pf>=1?'Marginal':'Losing edge', S.pf>=1.5?'#00e5a0':S.pf>=1?'#f5c842':'#ff3d5a', _running.pf, 'PROFIT FACTOR', Math.min(1,S.pf/3), 0.333, '1.0')}
@@ -2247,7 +2226,7 @@ function renderApp(){
     </div>
 
     <!-- ROW 2: CUMULATIVE P&L (full width, 380px tall) -->
-    <div class="section" style="margin-bottom:8px">
+    <div class="section" style="margin-bottom:6px">
       <div class="sec-hd" style="flex-wrap:wrap;gap:6px">
         <span>${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}${modeLabel}</span>
         <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
@@ -2289,7 +2268,7 @@ function renderApp(){
     </div>
 
     <!-- ROW 3: 8 MINI KPIs (compact strip) -->
-    <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-bottom:8px">
+    <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-bottom:6px">
       ${miniKPI('AVG WIN', '+$'+S.avgW.toFixed(0), 'Per winning trade', '#00e5a0', _running.avgW, 'AVG WIN')}
       ${miniKPI('AVG LOSS', '-$'+S.avgL.toFixed(0), 'Per losing trade', '#ff3d5a', _running.avgL, 'AVG LOSS')}
       ${miniKPI('MAX DD', '-$'+S.maxDD.toFixed(0), 'Worst drawdown', '#ff3d5a', _running.maxDD, 'MAX DD')}
@@ -2305,9 +2284,9 @@ function renderApp(){
       <!-- LEFT COLUMN -->
       <div>
         <!-- Calendar (full left column width) -->
-        <div class="section" style="margin-bottom:8px">${calHTML}</div>
+        <div class="section" style="margin-bottom:6px">${calHTML}</div>
         <!-- Breakdowns: 5 tables in a row -->
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px">
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:6px">
           <div class="section">
             <div class="sec-hd">MONTHLY</div>
             <table style="font-size:var(--fsxs)"><thead><tr><th>MONTH</th><th>TR</th><th>WR</th><th>NET</th></tr></thead><tbody>
@@ -2402,7 +2381,7 @@ function renderApp(){
       </div>
     </div>
     <!-- ROW 6: P&L DISTRIBUTION (full width, full row) -->
-    <div class="section" style="margin-bottom:8px">
+    <div class="section" style="margin-bottom:6px">
       <div class="sec-hd" style="flex-wrap:wrap;gap:6px">
         <span>P&L DISTRIBUTION</span>
         <div style="display:flex;gap:14px;font-size:var(--fsxs);align-items:center">
@@ -2709,7 +2688,7 @@ function renderApp(){
           <td style="padding:4px 9px;max-width:120px">
             ${(t.tags||[]).map(tag=>`<span style="font-size:8px;padding:1px 6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text3);margin-right:2px;display:inline-block">${tag}</span>`).join('')}
           </td>
-          <td style="max-width:140px;padding:4px 9px">
+          <td style="max-width:260px;padding:4px 9px">
             <input class="inline-txt" data-field="notes" data-id="${t.id}" value="${(t.notes||'').replace(/"/g,'&quot;')}" placeholder="notes..." style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:var(--fsxs);width:100%;padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--green)'" onblur="this.style.borderBottomColor='transparent';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()"/>
           </td>
           ${ex}
