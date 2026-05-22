@@ -50,9 +50,9 @@ button{cursor:pointer;font-family:'JetBrains Mono',monospace;border:none;transit
 .del-btn{background:none;border:none;color:var(--text5);font-size:14px;padding:2px 7px}.del-btn:hover{color:var(--red)}
 .edit-btn{background:none;border:none;color:var(--text4);font-size:var(--fss);padding:2px 7px}.edit-btn:hover{color:var(--yellow)}
 .card{background:var(--bg1);border:1px solid var(--border);padding:var(--card-pad);position:relative;overflow:visible}
-.mini-card{background:var(--bg2);border:1px solid var(--border2);padding:var(--mini-pad);position:relative;overflow:visible}
+.mini-card{background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 30%,transparent);padding:var(--mini-pad);position:relative;overflow:visible}
 .section{border:1px solid var(--border);background:var(--bg2)}
-.sec-hd{background:transparent;padding:8px 10px 4px;border-bottom:none;font-size:var(--fsxs);letter-spacing:2px;color:var(--text4);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sec-hd{background:transparent;padding:6px 9px 3px;border-bottom:none;font-size:var(--fsxs);letter-spacing:2px;color:var(--text4);display:flex;justify-content:space-between;align-items:center;gap:8px}
 .lbl{display:block;font-size:var(--fsxs);letter-spacing:2px;color:var(--text3);margin-bottom:4px}
 .tag{font-size:var(--fsxs);letter-spacing:1px;padding:1px 7px;background:var(--bg2);color:var(--text3);border:1px solid var(--border2)}
 .tr-row:hover{background:var(--bg2)}
@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='17.8';
+const VERSION='17.9';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -2121,7 +2121,7 @@ function renderApp(){
       const tx2=cx+(r+8)*Math.cos(threshRad),ty2=cy+(r+8)*Math.sin(threshRad);
       const tlx=cx+(r+14)*Math.cos(threshRad),tly=cy+(r+14)*Math.sin(threshRad);
       const pctText=(tClamped*100).toFixed(0)+'%';
-      return `<svg viewBox="0 0 140 76" width="100%" height="70" style="display:block">
+      return `<svg viewBox="20 5 100 55" width="100%" height="65" style="display:block" preserveAspectRatio="xMidYMid meet">
         <!-- single thin gray track -->
         <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" stroke="#3a3a55" stroke-width="5" fill="none" stroke-linecap="round"/>
         <!-- value arc in primary color -->
@@ -2137,7 +2137,7 @@ function renderApp(){
       const info=infoKey&&KPI_INFO[infoKey];
       const hasGauge=gaugeVal!==undefined;
       const gaugeHTML=hasGauge?`<div style="flex:0 0 130px;display:flex;align-items:center;justify-content:center;pointer-events:none">${heroGauge(gaugeVal,color,thresholdFrac,thresholdLabel)}</div>`:'';
-      return `<div class="hero-card" style="padding:14px 18px;background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 60%,transparent);min-height:108px;cursor:pointer;transition:border-color 0.15s;display:flex;align-items:stretch;gap:10px" onclick="expandKPI('${label}', '${infoKey||''}')" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='color-mix(in srgb,var(--border) 60%,transparent)'" title="Click for detailed breakdown">
+      return `<div class="hero-card" style="padding:14px 18px;background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 40%,transparent);min-height:108px;cursor:pointer;transition:border-color 0.15s;display:flex;align-items:stretch;gap:10px" onclick="expandKPI('${label}', '${infoKey||''}')" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='color-mix(in srgb,var(--border) 60%,transparent)'" title="Click for detailed breakdown">
         <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
           <div style="display:flex;align-items:center;gap:6px">
             <div class="stat-lbl">${label}</div>
@@ -2264,17 +2264,17 @@ function renderApp(){
           const cutStr=cutoff?cutoff.toISOString().slice(0,10):null;
           const filtTr=cutStr?trades.filter(t=>t.date>=cutStr):trades;
           if(!filtTr.length){return '<div style="padding:120px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px">NO TRADES IN '+chartTF.toUpperCase()+'</div>';}
-          // EQUITY MODE: determine starting balance from accountEquity or first deposit
+          // EQUITY MODE: auto-compute starting balance from deposits if not manually set
           let startBalance=0;
           if(chartMode==='equity'){
             startBalance=accountEquity;
             if(!startBalance&&typeof ledgerEvents!=='undefined'&&ledgerEvents&&ledgerEvents.length){
-              const firstDep=ledgerEvents.filter(e=>e.amount>0).sort((a,b)=>a.date<b.date?-1:1)[0];
-              if(firstDep)startBalance=firstDep.amount;
+              // Sum all deposits before the filter range starts
+              const totalDeposits=ledgerEvents.filter(e=>e.amount>0&&(!cutStr||e.date<=cutStr)).reduce((s,e)=>s+e.amount,0);
+              startBalance=totalDeposits;
             }
-            if(!startBalance){
-              return '<div style="padding:60px;text-align:center;color:var(--yellow);font-size:11px;letter-spacing:2px;line-height:1.8">⚠ NO ACCOUNT EQUITY SET<br><span style="color:var(--text5);font-size:10px">Set starting balance in Settings → ACCOUNT EQUITY,<br>or import a CSV with deposit history.</span></div>';
-            }
+            // If still no starting balance and we have trades, default to 0 (just show running balance)
+            if(!startBalance)startBalance=0;
           }
           let c=startBalance;
           let pk=c;
@@ -2300,7 +2300,7 @@ function renderApp(){
         <!-- Calendar (full left column width) -->
         <div class="section" style="margin-bottom:12px">${calHTML}</div>
         <!-- Breakdowns: 5 tables in a row -->
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px">
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin-bottom:8px">
           <div class="section">
             <div class="sec-hd">MONTHLY</div>
             <table style="font-size:var(--fsxs)"><thead><tr><th>MONTH</th><th>TR</th><th>WR</th><th>NET</th></tr></thead><tbody>
@@ -2699,8 +2699,8 @@ function renderApp(){
           </td>
           
           
-          <td style="padding:4px 9px;max-width:120px">
-            ${(t.tags||[]).map(tag=>`<span style="font-size:8px;padding:1px 6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text3);margin-right:2px;display:inline-block">${tag}</span>`).join('')}
+          <td style="padding:4px 9px;max-width:140px">
+            <input class="inline-tags" data-field="tags" data-id="${t.id}" value="${(t.tags||[]).join(', ')}" list="tags-list" placeholder="+ tag" style="background:transparent;border:1px dashed transparent;color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:9px;padding:3px 5px;outline:none;width:100%;min-width:80px;cursor:text" onfocus="this.style.borderColor='var(--border)'" onblur="this.style.borderColor='transparent'" title="Comma-separated tags. Press Enter or click outside to save."/>
           </td>
           <td style="max-width:260px;padding:4px 9px">
             <input class="inline-txt" data-field="notes" data-id="${t.id}" value="${(t.notes||'').replace(/"/g,'&quot;')}" placeholder="notes..." style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:var(--fsxs);width:100%;padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--green)'" onblur="this.style.borderBottomColor='transparent';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()"/>
@@ -2729,8 +2729,32 @@ function renderApp(){
           await updateTrade(id,{[field]:val});
           sel.style.opacity='1';
         };
-        // Prevent row click from triggering
         sel.onclick=e=>e.stopPropagation();
+      });
+      // Inline tags input — save on blur or Enter
+      tw.querySelectorAll('.inline-tags').forEach(inp=>{
+        const save=async()=>{
+          const id=inp.dataset.id;
+          const tags=(inp.value||'').split(',').map(t=>t.trim()).filter(Boolean);
+          inp.style.opacity='.5';
+          await updateTrade(id,{tags});
+          inp.style.opacity='1';
+        };
+        inp.onblur=save;
+        inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}};
+        inp.onclick=e=>e.stopPropagation();
+      });
+      // Inline notes input — save on blur or Enter
+      tw.querySelectorAll('.inline-txt[data-field="notes"]').forEach(inp=>{
+        const save=async()=>{
+          const id=inp.dataset.id;
+          inp.style.opacity='.5';
+          await updateTrade(id,{notes:inp.value});
+          inp.style.opacity='1';
+        };
+        inp.onblur=save;
+        inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}};
+        inp.onclick=e=>e.stopPropagation();
       });
       tw.querySelectorAll('.edit-btn').forEach(b=>{b.onclick=()=>openEditModal(b.dataset.id);});
       tw.querySelectorAll('.del-btn').forEach(b=>{b.onclick=()=>deleteTrade(b.dataset.id);});
