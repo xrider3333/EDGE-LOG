@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='17.9';
+const VERSION='18.0';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -2107,30 +2107,26 @@ function renderApp(){
 
     // Mini radial gauge for hero KPIs (small semicircle showing % to target)
     const heroGauge=(t,color,thresholdFrac,thresholdLabel)=>{
-      // Minimal gauge — single arc + value arc + threshold notch
-      const cx=70,cy=58,r=42;
+      // Arc geometry — fits cleanly in viewBox 100x70
+      const cx=50,cy=50,r=38;
       const tClamped=Math.max(0,Math.min(1,t));
       const endAngle=-90+tClamped*180;
       const rad=(endAngle-90)*Math.PI/180;
       const px=cx+r*Math.cos(rad),py=cy+r*Math.sin(rad);
       const large=tClamped>0.5?1:0;
-      // Threshold notch on the arc
       const thresh=thresholdFrac!==undefined?thresholdFrac:0.5;
       const threshRad=(-90+thresh*180-90)*Math.PI/180;
-      const tx1=cx+(r-9)*Math.cos(threshRad),ty1=cy+(r-9)*Math.sin(threshRad);
-      const tx2=cx+(r+8)*Math.cos(threshRad),ty2=cy+(r+8)*Math.sin(threshRad);
-      const tlx=cx+(r+14)*Math.cos(threshRad),tly=cy+(r+14)*Math.sin(threshRad);
+      const tx1=cx+(r-7)*Math.cos(threshRad),ty1=cy+(r-7)*Math.sin(threshRad);
+      const tx2=cx+(r+5)*Math.cos(threshRad),ty2=cy+(r+5)*Math.sin(threshRad);
+      const tlx=cx+(r+11)*Math.cos(threshRad),tly=cy+(r+11)*Math.sin(threshRad);
       const pctText=(tClamped*100).toFixed(0)+'%';
-      return `<svg viewBox="20 5 100 55" width="100%" height="65" style="display:block" preserveAspectRatio="xMidYMid meet">
-        <!-- single thin gray track -->
+      // viewBox 0 0 100 70 - arc spans y=12 to y=50 (38 tall), text at y=65
+      return `<svg viewBox="0 0 100 70" width="100%" height="68" style="display:block" preserveAspectRatio="xMidYMid meet">
         <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" stroke="#3a3a55" stroke-width="5" fill="none" stroke-linecap="round"/>
-        <!-- value arc in primary color -->
-        ${tClamped>0.01?`<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${large} 1 ${px.toFixed(1)} ${py.toFixed(1)}" stroke="${color}" stroke-width="6" fill="none" stroke-linecap="round"/>`:''}
-        <!-- threshold marker (just a small line) -->
-        <line x1="${tx1.toFixed(1)}" y1="${ty1.toFixed(1)}" x2="${tx2.toFixed(1)}" y2="${ty2.toFixed(1)}" stroke="#a0a0c0" stroke-width="1.5"/>
-        ${thresholdLabel?`<text x="${tlx.toFixed(1)}" y="${tly.toFixed(1)}" text-anchor="middle" fill="#b0b0c8" font-size="9" font-family="JetBrains Mono,monospace" font-weight="bold">${thresholdLabel}</text>`:''}
-        <!-- value % below center -->
-        <text x="${cx}" y="${cy+15}" text-anchor="middle" fill="${color}" font-size="18" font-family="Bebas Neue,monospace" font-weight="bold">${pctText}</text>
+        ${tClamped>0.01?`<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${large} 1 ${px.toFixed(1)} ${py.toFixed(1)}" stroke="${color}" stroke-width="5" fill="none" stroke-linecap="round"/>`:''}
+        <line x1="${tx1.toFixed(1)}" y1="${ty1.toFixed(1)}" x2="${tx2.toFixed(1)}" y2="${ty2.toFixed(1)}" stroke="#a0a0c0" stroke-width="1.3"/>
+        ${thresholdLabel?`<text x="${tlx.toFixed(1)}" y="${tly.toFixed(1)}" text-anchor="middle" fill="#b0b0c8" font-size="7" font-family="JetBrains Mono,monospace" font-weight="bold">${thresholdLabel}</text>`:''}
+        <text x="50" y="65" text-anchor="middle" fill="${color}" font-size="17" font-family="Bebas Neue,monospace" font-weight="bold">${pctText}</text>
       </svg>`;
     };
     const heroKPI=(label,valueText,subText,color,sparkData,infoKey,gaugeVal,thresholdFrac,thresholdLabel)=>{
@@ -2264,22 +2260,40 @@ function renderApp(){
           const cutStr=cutoff?cutoff.toISOString().slice(0,10):null;
           const filtTr=cutStr?trades.filter(t=>t.date>=cutStr):trades;
           if(!filtTr.length){return '<div style="padding:120px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px">NO TRADES IN '+chartTF.toUpperCase()+'</div>';}
-          // EQUITY MODE: auto-compute starting balance from deposits if not manually set
-          let startBalance=0;
-          if(chartMode==='equity'){
-            startBalance=accountEquity;
-            if(!startBalance&&typeof ledgerEvents!=='undefined'&&ledgerEvents&&ledgerEvents.length){
-              // Sum all deposits before the filter range starts
-              const totalDeposits=ledgerEvents.filter(e=>e.amount>0&&(!cutStr||e.date<=cutStr)).reduce((s,e)=>s+e.amount,0);
-              startBalance=totalDeposits;
-            }
-            // If still no starting balance and we have trades, default to 0 (just show running balance)
-            if(!startBalance)startBalance=0;
-          }
-          let c=startBalance;
-          let pk=c;
+          // EQUITY MODE: track actual account value over time, applying deposits as they happen
           const chartColor=chartMode==='equity'?'#4a9eff':'#00e5a0';
-          const startPoint={y:startBalance,pnl:0,id:null,date:null,symbol:null};
+          if(chartMode==='equity'){
+            // Build ledger map by date
+            const _ledgerByDate={};
+            (ledgerEvents||[]).forEach(e=>{_ledgerByDate[e.date]=(_ledgerByDate[e.date]||0)+e.amount;});
+            // Sort filtered trades by date (already sorted but ensure)
+            const sortedTr=[...filtTr].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+            // Find any deposits that happen BEFORE first filtered trade — use as starting balance
+            let bal=accountEquity||0;
+            const _appliedDates=new Set();
+            const firstTradeDate=sortedTr[0]?.date;
+            if(firstTradeDate){
+              // Add any deposits dated on or before the first trade as starting balance
+              Object.keys(_ledgerByDate).filter(d=>d<firstTradeDate).forEach(d=>{
+                bal+=_ledgerByDate[d];
+                _appliedDates.add(d);
+              });
+            }
+            const startPt={y:+bal.toFixed(2),pnl:0,id:null,date:null,symbol:null};
+            const points=sortedTr.map(t=>{
+              // Apply any deposits on this trade's date BEFORE the trade pnl
+              if(_ledgerByDate[t.date]&&!_appliedDates.has(t.date)){
+                bal+=_ledgerByDate[t.date];
+                _appliedDates.add(t.date);
+              }
+              bal=+(bal+t.pnl).toFixed(2);
+              return {y:bal,pnl:t.pnl,id:t.id,date:t.date,symbol:t.symbol,type:t.type};
+            });
+            return svgLineLabeled([startPt,...points], chartColor,1400,380,true);
+          }
+          // PNL MODE: pure cumulative trade P&L
+          let c=0,pk=0;
+          const startPoint={y:0,pnl:0,id:null,date:null,symbol:null};
           return svgLineLabeled([startPoint,...filtTr.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl,id:t.id,date:t.date,symbol:t.symbol,type:t.type};})], chartColor,1400,380,true);
         })()}
       </div>
