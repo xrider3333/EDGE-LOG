@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='18.3';
+const VERSION='18.5';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1728,12 +1728,41 @@ window.expandKPI=function(label,infoKey){
   modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:center;justify-content:center;padding:30px;cursor:pointer';
   modal.onclick=(e)=>{if(e.target===modal)modal.remove();};
   modal.innerHTML=`<div style="background:var(--bg1);border:1px solid var(--border);max-width:700px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;cursor:default" onclick="event.stopPropagation()">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-      <div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);gap:20px">
+      <div style="flex:1">
         <div style="font-family:'Bebas Neue',monospace;font-size:22px;letter-spacing:3px;color:var(--text)">${label}</div>
-        ${info.info?`<div style="font-size:var(--fsxs);color:var(--text4);margin-top:5px">${info.info}</div>`:''}
+        ${info.info?`<div style="font-size:var(--fsxs);color:var(--text4);margin-top:5px;max-width:400px">${info.info}</div>`:''}
       </div>
-      <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:1px solid var(--border);color:var(--text3);padding:6px 14px;cursor:pointer">CLOSE ✕</button>
+      <div style="flex:0 0 240px;display:flex;align-items:center;justify-content:center">
+        ${(()=>{
+          let gaugeVal,thrFrac,thrLabel,color;
+          if(label==='NET P&L'){gaugeVal=S.net>=0?Math.min(1,S.net/Math.max(100,Math.abs(S.net)*1.5)):0;thrFrac=0.5;thrLabel='$0';color=S.net>=0?'#00e5a0':'#ff3d5a';}
+          else if(label==='WIN RATE'){gaugeVal=S.wr;thrFrac=0.5;thrLabel='50%';color=S.wr>=0.5?'#00e5a0':S.wr>=0.4?'#f5c842':'#ff3d5a';}
+          else if(label==='PROFIT FACTOR'){gaugeVal=Math.min(1,S.pf/3);thrFrac=0.333;thrLabel='1.0';color=S.pf>=1.5?'#00e5a0':S.pf>=1?'#f5c842':'#ff3d5a';}
+          else if(label==='EXP VALUE'){gaugeVal=S.ev>0?Math.min(1,S.ev/50):0;thrFrac=0;thrLabel='$0';color=S.ev>0?'#00e5a0':'#ff3d5a';}
+          if(gaugeVal===undefined)return '';
+          // Render a BIGGER gauge for the modal (240×150)
+          const cx=120,cy=110,r=88;
+          const tClamped=Math.max(0,Math.min(1,gaugeVal));
+          const endAngle=-90+tClamped*180;
+          const rad=(endAngle-90)*Math.PI/180;
+          const px=cx+r*Math.cos(rad),py=cy+r*Math.sin(rad);
+          const threshRad=(-90+thrFrac*180-90)*Math.PI/180;
+          const tx1=cx+(r-16)*Math.cos(threshRad),ty1=cy+(r-16)*Math.sin(threshRad);
+          const tx2=cx+(r+12)*Math.cos(threshRad),ty2=cy+(r+12)*Math.sin(threshRad);
+          const tlx=cx+(r+24)*Math.cos(threshRad),tly=cy+(r+24)*Math.sin(threshRad);
+          const pctText=(tClamped*100).toFixed(0)+'%';
+          return `<svg viewBox="-10 -20 260 180" width="240" height="160" style="display:block">
+            <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" stroke="#3a3a55" stroke-width="11" fill="none" stroke-linecap="round"/>
+            ${tClamped>0.01?`<path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${px.toFixed(1)} ${py.toFixed(1)}" stroke="${color}" stroke-width="11" fill="none" stroke-linecap="round"/>`:''}
+            <line x1="${tx1.toFixed(1)}" y1="${ty1.toFixed(1)}" x2="${tx2.toFixed(1)}" y2="${ty2.toFixed(1)}" stroke="#a0a0c0" stroke-width="2.5"/>
+            <text x="${tlx.toFixed(1)}" y="${(tly+3).toFixed(1)}" text-anchor="middle" fill="#b0b0c8" font-size="11" font-family="JetBrains Mono,monospace" font-weight="bold">${thrLabel}</text>
+            <text x="${cx}" y="${cy-8}" text-anchor="middle" fill="${color}" font-size="36" font-family="Bebas Neue,monospace" font-weight="bold">${pctText}</text>
+            <text x="${cx}" y="${cy+12}" text-anchor="middle" fill="var(--text5)" font-size="10" font-family="JetBrains Mono,monospace" letter-spacing="2">SCORE</text>
+          </svg>`;
+        })()}
+      </div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:1px solid var(--border);color:var(--text3);padding:6px 14px;cursor:pointer;align-self:flex-start">CLOSE ✕</button>
     </div>
     ${detailHTML}
   </div>`;
@@ -2113,7 +2142,7 @@ function renderApp(){
       const endAngle=-90+tClamped*180;
       const rad=(endAngle-90)*Math.PI/180;
       const px=cx+r*Math.cos(rad),py=cy+r*Math.sin(rad);
-      const large=tClamped>0.5?1:0;
+      const large=0; // partial arc of semicircle never exceeds 180°
       const thresh=thresholdFrac!==undefined?thresholdFrac:0.5;
       const threshRad=(-90+thresh*180-90)*Math.PI/180;
       const tx1=cx+(r-7)*Math.cos(threshRad),ty1=cy+(r-7)*Math.sin(threshRad);
@@ -2121,7 +2150,7 @@ function renderApp(){
       const tlx=cx+(r+11)*Math.cos(threshRad),tly=cy+(r+11)*Math.sin(threshRad);
       const pctText=(tClamped*100).toFixed(0)+'%';
       // viewBox 0 0 100 70 - arc spans y=12 to y=50 (38 tall), text at y=65
-      return `<svg viewBox="0 0 100 70" width="128" height="80" style="display:block">
+      return `<svg viewBox="-2 -8 104 80" width="128" height="80" style="display:block">
         <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" stroke="#3a3a55" stroke-width="5" fill="none" stroke-linecap="round"/>
         ${tClamped>0.01?`<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${large} 1 ${px.toFixed(1)} ${py.toFixed(1)}" stroke="${color}" stroke-width="5" fill="none" stroke-linecap="round"/>`:''}
         <line x1="${tx1.toFixed(1)}" y1="${ty1.toFixed(1)}" x2="${tx2.toFixed(1)}" y2="${ty2.toFixed(1)}" stroke="#a0a0c0" stroke-width="1.3"/>
