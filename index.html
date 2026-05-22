@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='17.0';
+const VERSION='17.2';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -414,7 +414,7 @@ function calcStats(tds){
   const halfKelly = kelly / 2;
   // Expectancy ratio (normalized per $1 risked)
   const expectancyRatio = avgL > 0 ? (wr * avgW - (1-wr)*avgL)/avgL : 0;
-  return{wr,avgW,avgL,pf,ev,net,grossNet,grossW,grossL,totalFees,feeImpact,maxDD,sharpe,recovery,rr,streak,sdir,maxWS,maxLS,kelly,halfKelly,expectancyRatio,avgPctWin,avgPctLoss,
+  return{wr,avgW,avgL,pf,ev,net,grossNet,grossW,grossL,grossWins:grossW,grossLosses:grossL,maxWin:best?pnlVal(best):0,maxLoss:worst?Math.abs(pnlVal(worst)):0,totalFees,feeImpact,maxDD,sharpe,recovery,rr,streak,sdir,maxWS,maxLS,kelly,halfKelly,expectancyRatio,avgPctWin,avgPctLoss,
     wins:wins.length,losses:losses.length,total:tds.length,longs:longs.length,shorts:shorts.length,
     longPnl:longs.reduce((s,t)=>s+t.pnl,0),shortPnl:shorts.reduce((s,t)=>s+t.pnl,0),
     longWR:longs.length?longs.filter(t=>pnlVal(t)>0).length/longs.length:0,
@@ -1641,6 +1641,93 @@ window.resetCalMonth=function(){
   renderApp();
 };
 
+
+// Hero KPI expansion modal
+window.expandKPI=function(label,infoKey){
+  const S=calcStats(trades);
+  if(!S)return;
+  const info=KPI_INFO[infoKey]||{info:'',formula:''};
+  // Build detailed breakdown based on label
+  let detailHTML='';
+  if(label==='NET P&L'){
+    const monthlyEntries=Object.entries(S.monthly).sort(([a],[b])=>b>a?1:-1);
+    const bestMonth=monthlyEntries.reduce((b,[m,d])=>!b||d.pnl>b[1].pnl?[m,d]:b,null);
+    const worstMonth=monthlyEntries.reduce((w,[m,d])=>!w||d.pnl<w[1].pnl?[m,d]:w,null);
+    detailHTML=`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
+        <div><div class="stat-lbl">GROSS P&L</div><div style="font-family:'Bebas Neue',monospace;font-size:24px;color:${S.grossNet>=0?'var(--green)':'var(--red)'}">${fmt(S.grossNet)}</div></div>
+        <div><div class="stat-lbl">TOTAL FEES</div><div style="font-family:'Bebas Neue',monospace;font-size:24px;color:var(--yellow)">-$${S.totalFees.toFixed(0)}</div></div>
+        <div><div class="stat-lbl">AVG WIN</div><div style="font-family:'Bebas Neue',monospace;font-size:24px;color:var(--green)">+$${S.avgW.toFixed(0)}</div></div>
+        <div><div class="stat-lbl">AVG LOSS</div><div style="font-family:'Bebas Neue',monospace;font-size:24px;color:var(--red)">-$${S.avgL.toFixed(0)}</div></div>
+        <div><div class="stat-lbl">BIGGEST WIN</div><div style="font-family:'Bebas Neue',monospace;font-size:24px;color:var(--green)">+$${S.maxWin.toFixed(0)}</div></div>
+        <div><div class="stat-lbl">BIGGEST LOSS</div><div style="font-family:'Bebas Neue',monospace;font-size:24px;color:var(--red)">-$${S.maxLoss.toFixed(0)}</div></div>
+      </div>
+      <h3 style="font-family:'Bebas Neue',monospace;letter-spacing:2px;color:var(--text3);margin:18px 0 8px;font-size:13px">MONTHLY PERFORMANCE</h3>
+      <div style="max-height:200px;overflow-y:auto">
+      <table style="width:100%;font-size:var(--fsxs)"><thead><tr><th>MONTH</th><th>TRADES</th><th>WR</th><th>NET</th></tr></thead><tbody>
+      ${monthlyEntries.slice(0,12).map(([m,d])=>`<tr class="tr-row"><td style="color:var(--text);font-family:'Bebas Neue',monospace">${m}</td><td style="color:var(--text4)">${d.trades}</td><td style="color:${d.wins/d.trades>=.5?'var(--green)':'var(--red)'}">${(d.wins/d.trades*100).toFixed(0)}%</td><td style="color:${gch(d.pnl)};font-family:'Bebas Neue',monospace;font-size:14px">${fmt(d.pnl)}</td></tr>`).join('')}
+      </tbody></table></div>`;
+  } else if(label==='WIN RATE'){
+    const symStats=Object.entries(S.syms).sort(([,a],[,b])=>(b.wins/b.count)-(a.wins/a.count));
+    detailHTML=`
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px">
+        <div><div class="stat-lbl">WINS</div><div style="font-family:'Bebas Neue',monospace;font-size:24px;color:var(--green)">${S.wins}</div></div>
+        <div><div class="stat-lbl">LOSSES</div><div style="font-family:'Bebas Neue',monospace;font-size:24px;color:var(--red)">${S.losses}</div></div>
+        <div><div class="stat-lbl">BREAKEVEN</div><div style="font-family:'Bebas Neue',monospace;font-size:24px;color:var(--text3)">${trades.length-S.wins-S.losses}</div></div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border2);padding:12px;margin-bottom:14px">
+        <div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:4px">REQUIRED WR TO BE PROFITABLE</div>
+        <div style="font-family:'Bebas Neue',monospace;font-size:22px;color:var(--yellow)">${S.avgW>0&&S.avgL>0?(S.avgL/(S.avgW+S.avgL)*100).toFixed(1):'—'}%</div>
+        <div style="font-size:var(--fsxs);color:var(--text5);margin-top:4px">Based on your avg win ($${S.avgW.toFixed(0)}) and avg loss ($${S.avgL.toFixed(0)})</div>
+      </div>
+      <h3 style="font-family:'Bebas Neue',monospace;letter-spacing:2px;color:var(--text3);margin:18px 0 8px;font-size:13px">WIN RATE BY SYMBOL</h3>
+      <table style="width:100%;font-size:var(--fsxs)"><thead><tr><th>SYM</th><th>TRADES</th><th>WINS</th><th>WR</th></tr></thead><tbody>
+      ${symStats.map(([sym,s])=>`<tr class="tr-row"><td style="color:var(--text);font-weight:bold">${sym}</td><td style="color:var(--text4)">${s.count}</td><td style="color:var(--text3)">${s.wins}</td><td style="color:${s.wins/s.count>=.5?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:14px">${(s.wins/s.count*100).toFixed(0)}%</td></tr>`).join('')}
+      </tbody></table>`;
+  } else if(label==='PROFIT FACTOR'){
+    detailHTML=`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
+        <div><div class="stat-lbl">GROSS WINS</div><div style="font-family:'Bebas Neue',monospace;font-size:24px;color:var(--green)">+$${S.grossWins.toFixed(0)}</div></div>
+        <div><div class="stat-lbl">GROSS LOSSES</div><div style="font-family:'Bebas Neue',monospace;font-size:24px;color:var(--red)">-$${S.grossLosses.toFixed(0)}</div></div>
+      </div>
+      <div style="background:var(--bg3);padding:14px;border:1px solid var(--border2);margin-bottom:14px">
+        <div style="font-size:var(--fsm);color:var(--text3);line-height:1.7">
+          <b>What it means:</b> For every $1 lost, you make $${S.pf.toFixed(2)} back.<br>
+          <b>Target:</b> ≥ 1.5 is healthy. < 1.0 means you're losing edge.<br>
+          <b>Calculation:</b> Gross Wins ÷ Gross Losses = ${S.grossWins.toFixed(0)} ÷ ${S.grossLosses.toFixed(0)} = <span style="color:${S.pf>=1.5?'var(--green)':S.pf>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:18px">${S.pf.toFixed(2)}</span>
+        </div>
+      </div>`;
+  } else if(label==='EXP VALUE'){
+    detailHTML=`
+      <div style="background:var(--bg3);padding:14px;border:1px solid var(--border2);margin-bottom:14px">
+        <div style="font-size:var(--fsm);color:var(--text3);line-height:1.7">
+          <b>Expected value</b> tells you what you can expect to make (or lose) on every trade, on average.<br><br>
+          <b>EV = (WR × avg win) − (LR × avg loss)</b><br>
+          EV = (${(S.wr*100).toFixed(0)}% × $${S.avgW.toFixed(0)}) − (${((1-S.wr)*100).toFixed(0)}% × $${S.avgL.toFixed(0)})<br>
+          EV = $${(S.wr*S.avgW).toFixed(2)} − $${((1-S.wr)*S.avgL).toFixed(2)} = <span style="color:${S.ev>0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:20px">$${S.ev.toFixed(2)}</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
+        <div><div class="stat-lbl">PROJECTED (next 100 trades)</div><div style="font-family:'Bebas Neue',monospace;font-size:24px;color:${S.ev>0?'var(--green)':'var(--red)'}">${S.ev>0?'+':''}$${(S.ev*100).toFixed(0)}</div></div>
+        <div><div class="stat-lbl">PROJECTED (annually @ 20/wk)</div><div style="font-family:'Bebas Neue',monospace;font-size:24px;color:${S.ev>0?'var(--green)':'var(--red)'}">${S.ev>0?'+':''}$${(S.ev*1040).toFixed(0)}</div></div>
+      </div>`;
+  }
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:center;justify-content:center;padding:30px;cursor:pointer';
+  modal.onclick=(e)=>{if(e.target===modal)modal.remove();};
+  modal.innerHTML=`<div style="background:var(--bg1);border:1px solid var(--border);max-width:700px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;cursor:default" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-family:'Bebas Neue',monospace;font-size:22px;letter-spacing:3px;color:var(--text)">${label}</div>
+        ${info.info?`<div style="font-size:var(--fsxs);color:var(--text4);margin-top:5px">${info.info}</div>`:''}
+      </div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:1px solid var(--border);color:var(--text3);padding:6px 14px;cursor:pointer">CLOSE ✕</button>
+    </div>
+    ${detailHTML}
+  </div>`;
+  document.body.appendChild(modal);
+};
+
 window.showFeeBreakdown=function(tid){
   const t=trades.find(x=>x.id===tid);
   if(!t||!t.fees||t.fees<=0)return;
@@ -1918,7 +2005,7 @@ function openEditModal(tradeId){
       const calc=tradeCalc(t.symbol,tp,en,ex,sz,fe);
       const et=el(`${mid}_et`).value,xt=el(`${mid}_xt`).value;
       let dur=t.durationMins||null;if(et&&xt){const[eh,em]=et.split(':').map(Number),[xh,xm]=xt.split(':').map(Number);dur=Math.abs((xh*60+xm)-(eh*60+em));}
-      await updateTrade(t.id,{type:tp,setup:el(`${mid}_s`).value,grade:el(`${mid}_g`).value,timeframe:el(`${mid}_tf`).value,orderId:el(`${mid}_oid`).value,fees:fe,entry:en,exit:ex,size:sz,grossPnl:calc.grossPnl,pnl:calc.pnl,durationMins:dur,entryTime:et||t.entryTime||null,exitTime:xt||t.exitTime||null,chartUrl:el(`${mid}_cu`).value,notes:el(`${mid}_no`).value});
+      await updateTrade(t.id,{type:tp,setup:el(`${mid}_s`).value,grade:el(`${mid}_g`).value,timeframe:el(`${mid}_tf`).value,orderId:el(`${mid}_oid`).value,fees:fe,entry:en,exit:ex,size:sz,grossPnl:calc.grossPnl,pnl:calc.pnl,durationMins:dur,entryTime:et||t.entryTime||null,exitTime:xt||t.exitTime||null,chartUrl:el(`${mid}_cu`).value,notes:el(`${mid}_no`).value,tags:(el(`${mid}_tags`)?.value||'').split(',').map(t=>t.trim()).filter(Boolean)});
       div.remove();
     }catch(e){alert('Save failed: '+e.message);btn.textContent='SAVE CHANGES';btn.disabled=false;}
   };
@@ -2009,7 +2096,7 @@ function renderApp(){
     // Mini radial gauge for hero KPIs (small semicircle showing % to target)
     const heroGauge=(t,color,thresholdFrac,thresholdLabel)=>{
       // t = current value 0-1; thresholdFrac = profitability threshold 0-1
-      const cx=80,cy=78,r=58;
+      const cx=70,cy=58,r=44;
       const tClamped=Math.max(0,Math.min(1,t));
       const endAngle=-90+tClamped*180;
       const rad=(endAngle-90)*Math.PI/180;
@@ -2043,7 +2130,7 @@ function renderApp(){
       const b1x=cx+baseR*Math.cos(perpRad1)*0.4,b1y=cy+baseR*Math.sin(perpRad1)*0.4;
       const b2x=cx+baseR*Math.cos(perpRad2)*0.4,b2y=cy+baseR*Math.sin(perpRad2)*0.4;
       const pctText=(tClamped*100).toFixed(0)+'%';
-      return `<svg viewBox="0 0 160 100" width="100%" height="90" style="display:block">
+      return `<svg viewBox="0 0 140 78" width="100%" height="72" style="display:block">
         <!-- background track (gray) -->
         <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" stroke="var(--bg3)" stroke-width="9" fill="none" stroke-linecap="round"/>
         <!-- red zone (below threshold) -->
@@ -2062,15 +2149,15 @@ function renderApp(){
         <!-- center hub -->
         <circle cx="${cx}" cy="${cy}" r="5" fill="var(--bg)" stroke="${color}" stroke-width="2"/>
         <!-- percentage label below hub -->
-        <text x="${cx}" y="${cy+17}" text-anchor="middle" fill="${color}" font-size="13" font-family="Bebas Neue,monospace" font-weight="bold">${pctText}</text>
+        <text x="${cx}" y="${cy+15}" text-anchor="middle" fill="${color}" font-size="13" font-family="Bebas Neue,monospace" font-weight="bold">${pctText}</text>
       </svg>`;
     };
     const heroKPI=(label,valueText,subText,color,sparkData,infoKey,gaugeVal,thresholdFrac,thresholdLabel)=>{
       const info=infoKey&&KPI_INFO[infoKey];
       const spark=sparkData&&sparkData.length>1?sparkline(sparkData,color,200,40):'';
       const hasGauge=gaugeVal!==undefined;
-      const gaugeHTML=hasGauge?`<div style="position:absolute;top:2px;right:4px;width:140px;z-index:2;pointer-events:none">${heroGauge(gaugeVal,color,thresholdFrac,thresholdLabel)}</div>`:'';
-      return `<div class="mini-card" style="padding:14px 18px;position:relative;overflow:hidden;min-height:128px">
+      const gaugeHTML=hasGauge?`<div style="position:absolute;top:8px;right:10px;width:115px;z-index:2;pointer-events:none">${heroGauge(gaugeVal,color,thresholdFrac,thresholdLabel)}</div>`:'';
+      return `<div class="mini-card hero-card" style="padding:14px 18px;position:relative;overflow:hidden;min-height:118px;cursor:pointer" onclick="expandKPI('${label}', '${infoKey||''}')" title="Click for detailed breakdown">
         ${spark}
         ${gaugeHTML}
         <div style="position:relative;z-index:1;display:flex;justify-content:flex-start;align-items:center;gap:6px">
@@ -2162,10 +2249,15 @@ function renderApp(){
     <!-- ROW 2: CUMULATIVE P&L (full width, 380px tall) -->
     <div class="section" style="margin-bottom:8px">
       <div class="sec-hd" style="flex-wrap:wrap;gap:6px">
-        <span>CUMULATIVE P&L${modeLabel}</span>
-        <div style="display:flex;gap:5px;align-items:center">
+        <span>${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}${modeLabel}</span>
+        <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+          <!-- PNL/EQUITY toggle -->
+          <div style="display:flex;border:1px solid var(--border);margin-right:8px">
+            <button onclick="chartMode='pnl';renderApp()" style="background:${chartMode==='pnl'?'var(--green)':'var(--bg3)'};color:${chartMode==='pnl'?'var(--bg)':'var(--text3)'};border:none;padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">P&L</button>
+            <button onclick="chartMode='equity';renderApp()" style="background:${chartMode==='equity'?'var(--blue)':'var(--bg3)'};color:${chartMode==='equity'?'var(--bg)':'var(--text3)'};border:none;border-left:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">EQUITY</button>
+          </div>
           ${['7D','30D','90D','YTD','ALL'].map(tf=>`<button onclick="chartTF='${tf.toLowerCase()}';renderApp()" style="background:${chartTF===tf.toLowerCase()?'var(--green)':'var(--bg3)'};color:${chartTF===tf.toLowerCase()?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">${tf}</button>`).join('')}
-          <button class="btn-d" style="font-size:var(--fsxs);padding:4px 10px;margin-left:8px" onclick="expandChart('CUMULATIVE P&L', document.querySelector('.cum-pl-chart').innerHTML)">⛶ EXPAND</button>
+          <button class="btn-d" style="font-size:var(--fsxs);padding:4px 10px;margin-left:8px" onclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', document.querySelector('.cum-pl-chart').innerHTML)">⛶ EXPAND</button>
         </div>
       </div>
       <div class="cum-pl-chart" style="padding:14px 10px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%)">
@@ -2179,8 +2271,11 @@ function renderApp(){
           const cutStr=cutoff?cutoff.toISOString().slice(0,10):null;
           const filtTr=cutStr?trades.filter(t=>t.date>=cutStr):trades;
           if(!filtTr.length){return '<div style="padding:120px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px">NO TRADES IN '+chartTF.toUpperCase()+'</div>';}
-          let c=0,pk=0;
-          return svgLineLabeled([{y:0,pnl:0,id:null,date:null,symbol:null},...filtTr.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl,id:t.id,date:t.date,symbol:t.symbol,type:t.type};})], '#00e5a0',1400,380,true);
+          let c=chartMode==='equity'?accountEquity:0;
+          let pk=c;
+          const chartColor=chartMode==='equity'?'#4a9eff':'#00e5a0';
+          const startPoint=chartMode==='equity'?{y:accountEquity,pnl:0,id:null,date:null,symbol:null}:{y:0,pnl:0,id:null,date:null,symbol:null};
+          return svgLineLabeled([startPoint,...filtTr.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl,id:t.id,date:t.date,symbol:t.symbol,type:t.type};})], chartColor,1400,380,true);
         })()}
       </div>
       <div style="padding:8px 16px 10px;display:flex;gap:18px;font-size:var(--fsxs);border-top:1px solid var(--border);justify-content:space-around;flex-wrap:wrap">
@@ -2211,8 +2306,8 @@ function renderApp(){
       <div>
         <!-- Calendar (full left column width) -->
         <div class="section" style="margin-bottom:8px">${calHTML}</div>
-        <!-- Breakdowns: 4 tables in a row -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+        <!-- Breakdowns: 5 tables in a row -->
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px">
           <div class="section">
             <div class="sec-hd">MONTHLY</div>
             <table style="font-size:var(--fsxs)"><thead><tr><th>MONTH</th><th>TR</th><th>WR</th><th>NET</th></tr></thead><tbody>
@@ -2262,6 +2357,34 @@ function renderApp(){
                   <td style="color:${d.wins/d.count>=.5?'var(--green)':'var(--red)'}">${(d.wins/d.count*100).toFixed(0)}%</td>
                   <td style="color:${gch(d.pnl)};font-family:'Bebas Neue',monospace;font-size:13px">${fmt(d.pnl)}</td>
                 </tr>`).join('');
+              })()}
+            </tbody></table>
+          </div>
+          <div class="section">
+            <div class="sec-hd">BY DURATION</div>
+            <table style="font-size:var(--fsxs)"><thead><tr><th>RANGE</th><th>TR</th><th>WR</th><th>NET</th></tr></thead><tbody>
+              ${(()=>{
+                const buckets={'<1m':[],'1-5m':[],'5-15m':[],'15-30m':[],'30-60m':[],'1h+':[],'unknown':[]};
+                trades.forEach(t=>{
+                  const d=t.durationMins;
+                  if(d==null||d===0)buckets['unknown'].push(t);
+                  else if(d<1)buckets['<1m'].push(t);
+                  else if(d<5)buckets['1-5m'].push(t);
+                  else if(d<15)buckets['5-15m'].push(t);
+                  else if(d<30)buckets['15-30m'].push(t);
+                  else if(d<60)buckets['30-60m'].push(t);
+                  else buckets['1h+'].push(t);
+                });
+                return Object.entries(buckets).filter(([,arr])=>arr.length>0).map(([range,arr])=>{
+                  const wins=arr.filter(t=>t.pnl>0).length;
+                  const net=arr.reduce((s,t)=>s+t.pnl,0);
+                  return `<tr class="tr-row">
+                    <td style="color:var(--text);font-family:'Bebas Neue',monospace">${range}</td>
+                    <td style="color:var(--text4)">${arr.length}</td>
+                    <td style="color:${wins/arr.length>=.5?'var(--green)':'var(--red)'}">${(wins/arr.length*100).toFixed(0)}%</td>
+                    <td style="color:${gch(net)};font-family:'Bebas Neue',monospace;font-size:13px">${fmt(net)}</td>
+                  </tr>`;
+                }).join('');
               })()}
             </tbody></table>
           </div>
