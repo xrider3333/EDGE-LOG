@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='18.0';
+const VERSION='18.1';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -2121,7 +2121,7 @@ function renderApp(){
       const tlx=cx+(r+11)*Math.cos(threshRad),tly=cy+(r+11)*Math.sin(threshRad);
       const pctText=(tClamped*100).toFixed(0)+'%';
       // viewBox 0 0 100 70 - arc spans y=12 to y=50 (38 tall), text at y=65
-      return `<svg viewBox="0 0 100 70" width="100%" height="68" style="display:block" preserveAspectRatio="xMidYMid meet">
+      return `<svg viewBox="0 0 100 70" width="128" height="90" style="display:block">
         <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" stroke="#3a3a55" stroke-width="5" fill="none" stroke-linecap="round"/>
         ${tClamped>0.01?`<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${large} 1 ${px.toFixed(1)} ${py.toFixed(1)}" stroke="${color}" stroke-width="5" fill="none" stroke-linecap="round"/>`:''}
         <line x1="${tx1.toFixed(1)}" y1="${ty1.toFixed(1)}" x2="${tx2.toFixed(1)}" y2="${ty2.toFixed(1)}" stroke="#a0a0c0" stroke-width="1.3"/>
@@ -2132,7 +2132,7 @@ function renderApp(){
     const heroKPI=(label,valueText,subText,color,sparkData,infoKey,gaugeVal,thresholdFrac,thresholdLabel)=>{
       const info=infoKey&&KPI_INFO[infoKey];
       const hasGauge=gaugeVal!==undefined;
-      const gaugeHTML=hasGauge?`<div style="flex:0 0 130px;display:flex;align-items:center;justify-content:center;pointer-events:none">${heroGauge(gaugeVal,color,thresholdFrac,thresholdLabel)}</div>`:'';
+      const gaugeHTML=hasGauge?`<div style="flex:0 0 128px;display:flex;align-items:center;justify-content:center;pointer-events:none">${heroGauge(gaugeVal,color,thresholdFrac,thresholdLabel)}</div>`:'';
       return `<div class="hero-card" style="padding:14px 18px;background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 40%,transparent);min-height:108px;cursor:pointer;transition:border-color 0.15s;display:flex;align-items:stretch;gap:10px" onclick="expandKPI('${label}', '${infoKey||''}')" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='color-mix(in srgb,var(--border) 60%,transparent)'" title="Click for detailed breakdown">
         <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
           <div style="display:flex;align-items:center;gap:6px">
@@ -2595,7 +2595,7 @@ function renderApp(){
     if(!filtered.length){const e=document.createElement('div');e.style.cssText='border:1px dashed var(--border);padding:48px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px';e.textContent=trades.length?'NO TRADES MATCH FILTER':'NO TRADES YET';content.appendChild(e);}
     else{
       const tw=document.createElement('div');tw.className='section';tw.style.overflowX='auto';
-      const exH=showAllCols?'<th>DUR</th><th>BUY ORD</th><th>SELL ORD</th><th>BUY FILL</th><th>SELL FILL</th><th>POS ID</th><th>PAIR ID</th><th>IN</th><th>OUT</th><th>SRC</th>':'';
+      const exH=showAllCols?'<th>BUY ORD</th><th>SELL ORD</th><th>BUY FILL</th><th>SELL FILL</th><th>POS ID</th><th>PAIR ID</th><th>IN</th><th>OUT</th><th>SRC</th>':'';
       // Apply sort
       const sortedFiltered=[...filtered].sort((a,b)=>{
         let av=a[sortCol],bv=b[sortCol];
@@ -2674,7 +2674,7 @@ function renderApp(){
         }
         return ((t,i)=>{
         const _idCell=(v)=>`<td style="color:var(--text5);font-size:var(--fsxs);max-width:90px;overflow:hidden;text-overflow:ellipsis" title="${v||''}">${v||'—'}</td>`;
-        const ex=showAllCols?`<td style="color:var(--text4);font-size:var(--fsxs)">${fmtDur(t.durationMins)}</td>${_idCell(t.buyOrderId)}${_idCell(t.sellOrderId)}${_idCell(t.buyFillId)}${_idCell(t.sellFillId)}${_idCell(t.positionId)}${_idCell(t.pairId)}<td style="color:var(--text4);font-size:var(--fsxs)">${t.entryTime||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.exitTime||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
+        const ex=showAllCols?`${_idCell(t.buyOrderId)}${_idCell(t.sellOrderId)}${_idCell(t.buyFillId)}${_idCell(t.sellFillId)}${_idCell(t.positionId)}${_idCell(t.pairId)}<td style="color:var(--text4);font-size:var(--fsxs)">${t.entryTime||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.exitTime||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
         return`<tr class="tr-row" data-id="${t.id}">
           <td style="color:var(--text5)">${String(sortedFiltered.length-i).padStart(2,'0')}</td>
           <td style="color:var(--text4);white-space:nowrap">${t.date}</td>
@@ -2707,14 +2707,18 @@ function renderApp(){
             ${TIMEFRAMES.map(tf=>`<option${tf===(t.timeframe||'—')?' selected':''}>${tf}</option>`).join('')}
             ${t.timeframe&&!TIMEFRAMES.includes(t.timeframe)?`<option selected>${t.timeframe}</option>`:''}
           </select></td>
+          <td style="color:var(--text4);font-size:var(--fsxs);white-space:nowrap">${fmtDur(t.durationMins)}</td>
           <td style="padding:4px 9px">
             ${t.chartUrl?`<a href="${t.chartUrl}" target="_blank" class="clink" style="margin-right:4px">📈</a>`:''}
             <input class="inline-txt" data-field="chartUrl" data-id="${t.id}" value="${t.chartUrl||''}" placeholder="chart url" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--blue);font-family:inherit;font-size:8px;width:${t.chartUrl?'40px':'70px'};padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='160px'" onblur="this.style.borderBottomColor='transparent';this.style.width=this.value?'40px':'70px';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()" title="${t.chartUrl||'Paste chart URL'}"/>
           </td>
           
           
-          <td style="padding:4px 9px;max-width:140px">
-            <input class="inline-tags" data-field="tags" data-id="${t.id}" value="${(t.tags||[]).join(', ')}" list="tags-list" placeholder="+ tag" style="background:transparent;border:1px dashed transparent;color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:9px;padding:3px 5px;outline:none;width:100%;min-width:80px;cursor:text" onfocus="this.style.borderColor='var(--border)'" onblur="this.style.borderColor='transparent'" title="Comma-separated tags. Press Enter or click outside to save."/>
+          <td style="padding:4px 9px;max-width:160px;position:relative">
+            <input class="inline-tags" data-field="tags" data-id="${t.id}" value="${(t.tags||[]).join(', ')}" placeholder="+ tag" style="background:transparent;border:1px dashed transparent;color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:9px;padding:3px 5px;outline:none;width:100%;min-width:80px;cursor:text" onfocus="this.style.borderColor='var(--border)';document.getElementById('tagdrop-${t.id}').style.display='flex'" onblur="setTimeout(()=>{this.style.borderColor='transparent';const d=document.getElementById('tagdrop-${t.id}');if(d)d.style.display='none';},200)" title="Click suggestions below or type comma-separated"/>
+            <div id="tagdrop-${t.id}" style="display:none;position:absolute;left:0;top:100%;background:var(--bg1);border:1px solid var(--border);padding:4px;z-index:50;min-width:160px;flex-wrap:wrap;gap:3px">
+              ${customTags.slice(0,10).map(tg=>`<button type="button" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text3);font-size:9px;padding:2px 7px;cursor:pointer;font-family:'JetBrains Mono',monospace" onmousedown="event.preventDefault();const i=document.querySelector('.inline-tags[data-id=&quot;${t.id}&quot;]');const cur=i.value.split(',').map(x=>x.trim()).filter(Boolean);if(!cur.includes('${tg}')){cur.push('${tg}');i.value=cur.join(', ');i.dispatchEvent(new Event('blur'));}">${tg}</button>`).join('')}
+            </div>
           </td>
           <td style="max-width:260px;padding:4px 9px">
             <input class="inline-txt" data-field="notes" data-id="${t.id}" value="${(t.notes||'').replace(/"/g,'&quot;')}" placeholder="notes..." style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:var(--fsxs);width:100%;padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--green)'" onblur="this.style.borderBottomColor='transparent';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()"/>
@@ -2731,7 +2735,7 @@ function renderApp(){
         ${mkTh('DATE','date')}${mkTh('SYM','symbol')}${mkTh('DIR','type')}
         ${mkTh('ENTRY','entry')}${mkTh('EXIT','exit')}${mkTh('CTRS','size')}
         ${mkTh('GROSS','grossPnl')}${mkTh('FEES','fees')}${mkTh('NET P&L','pnl')}${mkTh('PTS','_pts')}${mkTh('ACCT','_runbal')}
-        ${mkTh('GRADE','grade')}${mkTh('SETUP','setup')}${mkTh('TF','timeframe')}
+        ${mkTh('GRADE','grade')}${mkTh('SETUP','setup')}${mkTh('TF','timeframe')}<th>DUR</th>
         <th>CHART</th><th>TAGS</th><th>NOTES</th>${exH}<th></th><th></th>
       </tr></thead><tbody>${tbody}</tbody></table>`;
       content.appendChild(tw);
