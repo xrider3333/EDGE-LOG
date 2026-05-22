@@ -50,7 +50,7 @@ button{cursor:pointer;font-family:'JetBrains Mono',monospace;border:none;transit
 .del-btn{background:none;border:none;color:var(--text5);font-size:14px;padding:2px 7px}.del-btn:hover{color:var(--red)}
 .edit-btn{background:none;border:none;color:var(--text4);font-size:var(--fss);padding:2px 7px}.edit-btn:hover{color:var(--yellow)}
 .card{background:var(--bg1);border:1px solid var(--border);padding:var(--card-pad);position:relative;overflow:visible}
-.mini-card{background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 30%,transparent);padding:var(--mini-pad);position:relative;overflow:visible}
+.mini-card{background:var(--bg2);border:none;padding:var(--mini-pad);position:relative;overflow:visible}
 .section{border:1px solid var(--border);background:var(--bg2)}
 .sec-hd{background:transparent;padding:6px 9px 3px;border-bottom:none;font-size:var(--fsxs);letter-spacing:2px;color:var(--text4);display:flex;justify-content:space-between;align-items:center;gap:8px}
 .lbl{display:block;font-size:var(--fsxs);letter-spacing:2px;color:var(--text3);margin-bottom:4px}
@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='18.1';
+const VERSION='18.3';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -2121,7 +2121,7 @@ function renderApp(){
       const tlx=cx+(r+11)*Math.cos(threshRad),tly=cy+(r+11)*Math.sin(threshRad);
       const pctText=(tClamped*100).toFixed(0)+'%';
       // viewBox 0 0 100 70 - arc spans y=12 to y=50 (38 tall), text at y=65
-      return `<svg viewBox="0 0 100 70" width="128" height="90" style="display:block">
+      return `<svg viewBox="0 0 100 70" width="128" height="80" style="display:block">
         <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" stroke="#3a3a55" stroke-width="5" fill="none" stroke-linecap="round"/>
         ${tClamped>0.01?`<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${large} 1 ${px.toFixed(1)} ${py.toFixed(1)}" stroke="${color}" stroke-width="5" fill="none" stroke-linecap="round"/>`:''}
         <line x1="${tx1.toFixed(1)}" y1="${ty1.toFixed(1)}" x2="${tx2.toFixed(1)}" y2="${ty2.toFixed(1)}" stroke="#a0a0c0" stroke-width="1.3"/>
@@ -2132,16 +2132,15 @@ function renderApp(){
     const heroKPI=(label,valueText,subText,color,sparkData,infoKey,gaugeVal,thresholdFrac,thresholdLabel)=>{
       const info=infoKey&&KPI_INFO[infoKey];
       const hasGauge=gaugeVal!==undefined;
-      const gaugeHTML=hasGauge?`<div style="flex:0 0 128px;display:flex;align-items:center;justify-content:center;pointer-events:none">${heroGauge(gaugeVal,color,thresholdFrac,thresholdLabel)}</div>`:'';
-      return `<div class="hero-card" style="padding:14px 18px;background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 40%,transparent);min-height:108px;cursor:pointer;transition:border-color 0.15s;display:flex;align-items:stretch;gap:10px" onclick="expandKPI('${label}', '${infoKey||''}')" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='color-mix(in srgb,var(--border) 60%,transparent)'" title="Click for detailed breakdown">
-        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
-          <div style="display:flex;align-items:center;gap:6px">
-            <div class="stat-lbl">${label}</div>
-            ${info?`<span style="font-size:9px;color:var(--text5);cursor:help;background:var(--bg3);width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);font-family:serif" title="${info.info.replace(/"/g,'&quot;')}">i</span>`:''}
-          </div>
-          <div style="font-family:'Bebas Neue',monospace;font-size:28px;color:${color};line-height:1">${valueText}</div>
-          <div style="font-size:var(--fsxs);color:var(--text4)">${subText}</div>
+      // Use position:absolute for the gauge so it's at the EXACT SAME spot in every card
+      const gaugeHTML=hasGauge?`<div style="position:absolute;top:50%;right:14px;transform:translateY(-50%);width:128px;height:80px;pointer-events:none;display:flex;align-items:center;justify-content:center">${heroGauge(gaugeVal,color,thresholdFrac,thresholdLabel)}</div>`:'';
+      return `<div class="hero-card" style="padding:14px 18px;background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 40%,transparent);min-height:115px;cursor:pointer;transition:border-color 0.15s;position:relative;${hasGauge?'padding-right:150px':''}" onclick="expandKPI('${label}', '${infoKey||''}')" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='color-mix(in srgb,var(--border) 40%,transparent)'" title="Click for detailed breakdown">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <div class="stat-lbl">${label}</div>
+          ${info?`<span style="font-size:9px;color:var(--text5);cursor:help;background:var(--bg3);width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);font-family:serif" title="${info.info.replace(/"/g,'&quot;')}">i</span>`:''}
         </div>
+        <div style="font-family:'Bebas Neue',monospace;font-size:28px;color:${color};line-height:1;margin-bottom:4px">${valueText}</div>
+        <div style="font-size:var(--fsxs);color:var(--text4)">${subText}</div>
         ${gaugeHTML}
       </div>`;
     };
@@ -2216,7 +2215,7 @@ function renderApp(){
 
     content.innerHTML=`
     <!-- ROW 1: HERO KPIs (4 across, large) -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:4px">
       ${heroKPI('NET P&L', fmt(S.net), accountEquity>0?((S.net/accountEquity)*100).toFixed(1)+'% of acct · '+trades.length+' trades':trades.length+' trades cumulative', S.net>=0?'#00e5a0':'#ff3d5a', _running.net, 'NET P&L', S.net>=0?Math.min(1,S.net/Math.max(100,Math.abs(S.net)*1.5)):0, 0.5, '$0')}
       ${heroKPI('WIN RATE', (S.wr*100).toFixed(0)+'%', S.wins+' wins · '+S.losses+' losses', S.wr>=0.5?'#00e5a0':S.wr>=0.4?'#f5c842':'#ff3d5a', _running.wr.map(w=>w*100), 'WIN RATE', S.wr, 0.5, '50%')}
       ${heroKPI('PROFIT FACTOR', S.pf>=99?'∞':S.pf.toFixed(2), S.pf>=1.5?'Healthy':S.pf>=1?'Marginal':'Losing edge', S.pf>=1.5?'#00e5a0':S.pf>=1?'#f5c842':'#ff3d5a', _running.pf, 'PROFIT FACTOR', Math.min(1,S.pf/3), 0.333, '1.0')}
@@ -2224,7 +2223,7 @@ function renderApp(){
     </div>
 
     <!-- ROW 2: 8 MINI KPIs (compact strip) -->
-    <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:0;background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 25%,transparent);margin-bottom:4px" class="kpi-strip">
       ${miniKPI('AVG WIN', '+$'+S.avgW.toFixed(0), 'Per winning trade', '#00e5a0', _running.avgW, 'AVG WIN')}
       ${miniKPI('AVG LOSS', '-$'+S.avgL.toFixed(0), 'Per losing trade', '#ff3d5a', _running.avgL, 'AVG LOSS')}
       ${miniKPI('MAX DD', '-$'+S.maxDD.toFixed(0), 'Worst drawdown', '#ff3d5a', _running.maxDD, 'MAX DD')}
@@ -2314,7 +2313,7 @@ function renderApp(){
         <!-- Calendar (full left column width) -->
         <div class="section" style="margin-bottom:12px">${calHTML}</div>
         <!-- Breakdowns: 5 tables in a row -->
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin-bottom:8px">
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 25%,transparent);margin-bottom:8px" class="breakdown-strip">
           <div class="section">
             <div class="sec-hd">MONTHLY</div>
             <table style="font-size:var(--fsxs)"><thead><tr><th>MONTH</th><th>TR</th><th>WR</th><th>NET</th></tr></thead><tbody>
@@ -2714,10 +2713,16 @@ function renderApp(){
           </td>
           
           
-          <td style="padding:4px 9px;max-width:160px;position:relative">
-            <input class="inline-tags" data-field="tags" data-id="${t.id}" value="${(t.tags||[]).join(', ')}" placeholder="+ tag" style="background:transparent;border:1px dashed transparent;color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:9px;padding:3px 5px;outline:none;width:100%;min-width:80px;cursor:text" onfocus="this.style.borderColor='var(--border)';document.getElementById('tagdrop-${t.id}').style.display='flex'" onblur="setTimeout(()=>{this.style.borderColor='transparent';const d=document.getElementById('tagdrop-${t.id}');if(d)d.style.display='none';},200)" title="Click suggestions below or type comma-separated"/>
-            <div id="tagdrop-${t.id}" style="display:none;position:absolute;left:0;top:100%;background:var(--bg1);border:1px solid var(--border);padding:4px;z-index:50;min-width:160px;flex-wrap:wrap;gap:3px">
-              ${customTags.slice(0,10).map(tg=>`<button type="button" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text3);font-size:9px;padding:2px 7px;cursor:pointer;font-family:'JetBrains Mono',monospace" onmousedown="event.preventDefault();const i=document.querySelector('.inline-tags[data-id=&quot;${t.id}&quot;]');const cur=i.value.split(',').map(x=>x.trim()).filter(Boolean);if(!cur.includes('${tg}')){cur.push('${tg}');i.value=cur.join(', ');i.dispatchEvent(new Event('blur'));}">${tg}</button>`).join('')}
+          <td style="padding:4px 9px;max-width:160px;position:relative" class="tag-cell" data-id="${t.id}">
+            <div style="display:flex;flex-wrap:wrap;gap:2px;align-items:center;min-height:18px;cursor:pointer" onclick="event.stopPropagation();const d=document.getElementById('tagpick-${t.id}');d.style.display=d.style.display==='flex'?'none':'flex'">
+              ${(t.tags||[]).map(tag=>`<span style="font-size:8px;padding:2px 6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text3);display:inline-flex;align-items:center;gap:3px"><span>${tag}</span><span onclick="event.stopPropagation();window.removeTagFromTrade('${t.id}','${tag.replace(/'/g,'\\\'')}');return false" style="cursor:pointer;color:var(--text5);font-weight:bold">×</span></span>`).join('')}
+              ${(t.tags||[]).length===0?`<span style="color:var(--text5);font-size:9px">+ tag</span>`:`<span style="color:var(--text5);font-size:10px;margin-left:4px">+</span>`}
+            </div>
+            <div id="tagpick-${t.id}" style="display:none;position:absolute;left:0;top:100%;background:var(--bg1);border:1px solid var(--border);padding:4px;z-index:50;min-width:160px;flex-wrap:wrap;gap:3px;max-width:240px">
+              ${customTags.length===0?`<span style="font-size:9px;color:var(--text5);padding:4px 8px">No tags defined. Add some in Settings → CUSTOM TAGS.</span>`:customTags.map(tg=>{
+                const isApplied=(t.tags||[]).includes(tg);
+                return `<button type="button" style="background:${isApplied?'var(--green)':'var(--bg3)'};border:1px solid var(--border2);color:${isApplied?'var(--bg)':'var(--text3)'};font-size:9px;padding:3px 7px;cursor:pointer;font-family:'JetBrains Mono',monospace" onclick="event.stopPropagation();window.toggleTagOnTrade('${t.id}','${tg.replace(/'/g,"\\\'")}')">${tg}</button>`;
+              }).join('')}
             </div>
           </td>
           <td style="max-width:260px;padding:4px 9px">
