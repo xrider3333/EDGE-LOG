@@ -21,9 +21,33 @@
   --pad:16px;--fs:13px;--fsm:11px;--fss:10px;--fsxs:9px;
   --card-pad:14px 16px;--mini-pad:11px 14px;
 }
-[data-theme="ocean"]{--bg:#020810;--bg1:#060e1e;--bg2:#040a18;--bg3:#030810;--border:#0e2040;--border2:#0a1830;--text:#b8d0e8;--text2:#8090a8;--text3:#506080;--text4:#5a7088;--text5:#4a5a72;--green:#00d4ff;--red:#ff4060;--yellow:#ffd060;}
-[data-theme="carbon"]{--bg:#080808;--bg1:#111111;--bg2:#0d0d0d;--bg3:#0a0a0a;--border:#222;--border2:#1a1a1a;--text:#d0d0d0;--text2:#a0a0a0;--text3:#686868;--text4:#787878;--text5:#585858;--green:#00e060;--red:#ff3040;--yellow:#ffc840;}
-[data-theme="terminal"]{--bg:#000a00;--bg1:#001000;--bg2:#000c00;--bg3:#000800;--border:#003000;--border2:#002000;--text:#00e060;--text2:#00a040;--text3:#007030;--text4:#008838;--text5:#006028;--green:#00ff80;--red:#ff4000;--yellow:#c0e000;}
+
+[data-theme="frost"]{--bg:#0c0c14;--bg1:#1a1a24;--bg2:#14141e;--bg3:#10101a;--border:#2e2e3d;--border2:#1f1f2c;--text:#f5f5fa;--text2:#d0d0d8;--text3:#9c9cac;--text4:#a8a8b8;--text5:#7a7a8a;--green:#4ade80;--red:#fb7185;--yellow:#fcd34d;--blue:#7dd3fc;--purple:#c4b5fd;}
+[data-theme="frost"] body,[data-theme="frost"] html{background:radial-gradient(ellipse at top left, #1a1a2e 0%, #0c0c14 50%, #08080f 100%);background-attachment:fixed}
+[data-theme="frost"] .section{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.08);border-radius:18px;backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);box-shadow:0 1px 0 rgba(255,255,255,0.05) inset, 0 8px 32px rgba(0,0,0,0.2)}
+[data-theme="frost"] .hero-card{background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.1);border-radius:16px;backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);box-shadow:0 1px 0 rgba(255,255,255,0.06) inset, 0 8px 24px rgba(0,0,0,0.15);transition:all 0.25s cubic-bezier(0.4, 0, 0.2, 1)}
+[data-theme="frost"] .hero-card:hover{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.15);transform:translateY(-2px);box-shadow:0 1px 0 rgba(255,255,255,0.1) inset, 0 12px 32px rgba(0,0,0,0.25)}
+[data-theme="frost"] .mini-card{background:transparent}
+[data-theme="frost"] .kpi-strip,[data-theme="frost"] .breakdown-strip{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.08);border-radius:16px;backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);box-shadow:0 1px 0 rgba(255,255,255,0.05) inset, 0 8px 32px rgba(0,0,0,0.2);overflow:hidden}
+[data-theme="frost"] .sec-hd{color:rgba(255,255,255,0.55);font-size:10px;letter-spacing:2.5px;padding:16px 20px 8px;text-transform:uppercase;font-weight:500}
+[data-theme="frost"] .stat-lbl{color:rgba(255,255,255,0.55);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;font-weight:500}
+[data-theme="frost"] .kpi-strip > .mini-card{border-right:1px solid rgba(255,255,255,0.05)}
+[data-theme="frost"] .kpi-strip > .mini-card:last-child{border-right:none}
+[data-theme="frost"] .breakdown-strip > .section{border:none;border-right:1px solid rgba(255,255,255,0.05);border-radius:0;background:transparent;backdrop-filter:none;box-shadow:none}
+[data-theme="frost"] .breakdown-strip > .section:last-child{border-right:none}
+[data-theme="frost"] table{font-size:11px}
+[data-theme="frost"] th{background:transparent;color:rgba(255,255,255,0.4);border-bottom:1px solid rgba(255,255,255,0.05);font-weight:500;letter-spacing:1.2px;padding:9px 11px;text-transform:uppercase;font-size:9px}
+[data-theme="frost"] td{border-bottom:1px solid rgba(255,255,255,0.03);color:rgba(255,255,255,0.88);padding:8px 11px}
+[data-theme="frost"] .tr-row:hover{background:rgba(255,255,255,0.04)}
+[data-theme="frost"] .nav-bar{background:rgba(20,20,30,0.4);backdrop-filter:blur(60px) saturate(180%);-webkit-backdrop-filter:blur(60px) saturate(180%);border-bottom:1px solid rgba(255,255,255,0.05);position:sticky;top:0;z-index:100}
+[data-theme="frost"] .btn-d{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.9);border-radius:10px;backdrop-filter:blur(20px);transition:all 0.15s}
+[data-theme="frost"] .btn-d:hover{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.18)}
+[data-theme="frost"] .btn-y{background:rgba(252,211,77,0.15);border:1px solid rgba(252,211,77,0.3);color:#fcd34d;border-radius:10px}
+[data-theme="frost"] .inline-sel,[data-theme="frost"] .inline-txt,[data-theme="frost"] .inline-tags{background:rgba(255,255,255,0.04);border-radius:8px;color:rgba(255,255,255,0.9)}
+[data-theme="frost"] input,[data-theme="frost"] select,[data-theme="frost"] textarea{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.95);border-radius:10px;backdrop-filter:blur(10px)}
+[data-theme="frost"] .btn-ghost{color:rgba(255,255,255,0.55);transition:all 0.2s}
+[data-theme="frost"] .btn-ghost:hover{color:rgba(255,255,255,0.95);background:rgba(255,255,255,0.04)}
+[data-theme="frost"] .btn-ghost.active{color:rgba(255,255,255,1);background:rgba(125,211,252,0.1);border-bottom:2px solid #7dd3fc}
 [data-theme="glass"]{--bg:#08080c;--bg1:#15151a;--bg2:#101015;--bg3:#0c0c12;--border:#2a2a35;--border2:#1f1f28;--text:#f0f0f5;--text2:#c8c8d0;--text3:#9090a0;--text4:#a0a0b0;--text5:#707080;--green:#34d399;--red:#f87171;--yellow:#fbbf24;--blue:#60a5fa;--purple:#a78bfa;}
 [data-theme="glass"] .section{background:linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%);border:1px solid rgba(255,255,255,0.06);border-radius:16px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
 [data-theme="glass"] .hero-card{background:linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);border:1px solid rgba(255,255,255,0.06);border-radius:14px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);transition:all 0.2s}
@@ -272,7 +296,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='19.1';
+const VERSION='19.2';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -557,7 +581,6 @@ async function updateTrade(id,data){if(colRef)return colRef.doc(id).update(data)
 async function deleteTrade(id){if(colRef&&confirm('Delete this trade?'))await colRef.doc(id).delete();}
 async function addLesson(e){if(lessonRef)await lessonRef.add({...e,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}
 async function deleteLesson(id){if(lessonRef&&confirm('Delete?'))await lessonRef.doc(id).delete();}
-
 
 // ── NinjaTrader PDF Statement Parser ─────────────────────────────
 async function importPDF(file){
@@ -992,7 +1015,6 @@ function importCSV(text,label){
     });
     return{imported:0,skipped:0,merged:merges.length,type:'orders',batch:[],merges,feeUpdates:[],balRows:[]};
   }
-
 
   // ── NT8 Performance CSV (new format with pnl column) ────────────
   // Cols: symbol,_priceFormat,_priceFormatType,_tickSize,buyFillId,sellFillId,
@@ -1550,7 +1572,7 @@ function svgLineLabeled(pts,color,W,H,showTradeAmounts){
     });
   },50);
 
-  return`<svg id="${uniqueId}" width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}<path d="${fill}" fill="${color}" opacity=".1"/><path d="${path}" stroke="${color}" stroke-width="2" fill="none"/>${dots}${endLabel}${highLabel}${lowLabel}${yt}${xt}${hoverZones}${tooltipHTML}</svg>`;
+  return`<svg id="${uniqueId}" width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}<defs><linearGradient id="${uniqueId}_grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity="0.35"/><stop offset="50%" stop-color="${color}" stop-opacity="0.12"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><path d="${fill}" fill="url(#${uniqueId}_grad)"/><path d="${path}" stroke="${color}" stroke-width="2" fill="none"/>${dots}${endLabel}${highLabel}${lowLabel}${yt}${xt}${hoverZones}${tooltipHTML}</svg>`;
 }
 function svgLine(pts,color,W,H){
   if(!pts||pts.length<2)return'<p style="padding:20px;color:var(--text5);font-size:11px;text-align:center">Add at least 2 trades</p>';
@@ -1572,7 +1594,7 @@ function svgLine(pts,color,W,H){
   let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">$${v.toFixed(0)}</text>`;}
   let xt='';const step=Math.max(1,Math.floor(pts.length/8));for(let i=0;i<pts.length;i+=step)xt+=`<text x="${sx(i).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">${i+1}</text>`;
   const zero=minY<=0&&maxY>=0?`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`:'' ;
-  return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}<path d="${fill}" fill="${color}" opacity=".1"/><path d="${path}" stroke="${color}" stroke-width="2" fill="none"/>${dots}${yt}${xt}</svg>`;
+  return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}<defs><linearGradient id="${uniqueId}_grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity="0.35"/><stop offset="50%" stop-color="${color}" stop-opacity="0.12"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><path d="${fill}" fill="url(#${uniqueId}_grad)"/><path d="${path}" stroke="${color}" stroke-width="2" fill="none"/>${dots}${yt}${xt}</svg>`;
 }
 function svgBar(bars,W,H){if(!bars.length)return'';const PAD={t:10,r:20,b:28,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const vals=bars.map(b=>b.v),minY=Math.min(0,...vals),maxY=Math.max(0,...vals),rY=maxY-minY||1;const bw=Math.max(3,(cw/bars.length)-2),sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);let rects='',xl='';bars.forEach((b,i)=>{const x=PAD.l+(i/bars.length)*cw+(cw/bars.length-bw)/2,yv=sy(b.v);rects+=`<rect x="${x.toFixed(1)}" y="${(b.v>=0?yv:y0).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(yv-y0)).toFixed(1)}" fill="${b.v>=0?'#00e5a040':'#ff3d5a40'}" stroke="${b.v>=0?'#00e5a0':'#ff3d5a'}" stroke-width="1" rx="1"/>`;if(i%(Math.ceil(bars.length/8))===0)xl+=`<text x="${(x+bw/2).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="9" font-family="JetBrains Mono,monospace">${b.d}</text>`;});let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">$${v.toFixed(0)}</text>`;}return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)"/>${rects}${yt}${xl}</svg>`;}
 function svgXY(data,color,xFmt,W,H,refX){if(!data.length)return'';const PAD={t:16,r:65,b:30,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const xs=data.map(d=>d.x),ys=data.map(d=>d.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(0,...ys),maxY=Math.max(0,...ys);const rX=maxX-minX||1,rY=maxY-minY||1,sx=v=>PAD.l+((v-minX)/rX)*cw,sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);const path='M'+data.map(d=>sx(d.x).toFixed(1)+','+sy(d.y).toFixed(1)).join('L');let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">$${v.toFixed(0)}</text>`;}const xtS=Math.ceil(data.length/6);let xt='';data.forEach((d,i)=>{if(i%xtS===0)xt+=`<text x="${sx(d.x).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">${xFmt?xFmt(d.x):d.x}</text>`;});const zero=`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`;const you=refX!=null?`<line x1="${sx(refX).toFixed(1)}" y1="${PAD.t}" x2="${sx(refX).toFixed(1)}" y2="${PAD.t+ch}" stroke="${color}" stroke-dasharray="3,3" opacity=".4"/><text x="${sx(refX).toFixed(1)}" y="${PAD.t-3}" text-anchor="middle" fill="${color}" font-size="9">YOU</text>`:'';return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}${you}<path d="${path}" stroke="${color}" stroke-width="2.5" fill="none"/>` +yt+xt+'</svg>';}
@@ -1591,7 +1613,6 @@ function kpiCard(label,val,sub,color,sparkData,sparkColor,big,showAxisOnSpark){
   const valStr=typeof val==='number'?fmt(val):val;
   return`<div class="${big?'card':'mini-card'}" style="padding-bottom:${big?46:36}px;${warnBorder}">${warnStripe}${tip}<div class="stat-lbl">${label}</div><div class="stat-val" style="font-size:${big?'clamp(20px,2.5vw,28px)':'clamp(16px,1.8vw,20px)'};color:${color}">${valStr}</div>${sub?`<div style="font-size:var(--fsxs);color:var(--text4);margin-top:3px">${sub}</div>`:''}${warnTxt}${spark}</div>`;
 }
-
 
 // ── Bell curve / P&L distribution histogram ──────────────────────
 function svgBellCurve(pnls, W, H){
@@ -1742,7 +1763,6 @@ function removeLedgerEvent(idx){
 function removeCustomTag(idx){customTags.splice(idx,1);localStorage.setItem('el_tags',JSON.stringify(customTags));renderApp();}
 function setSortCol(col){if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=col==='date'?-1:-1;}renderApp();}
 
-
 // ── AI Summary — client-side engine (always works) + Claude API ──
 
 // Chart expand modal
@@ -1771,7 +1791,6 @@ window.resetCalMonth=function(){
   calMonth=new Date().toISOString().slice(0,7);
   renderApp();
 };
-
 
 // Hero KPI expansion modal
 window.expandKPI=function(label,infoKey){
@@ -1887,7 +1906,6 @@ window.expandKPI=function(label,infoKey){
   </div>`;
   document.body.appendChild(modal);
 };
-
 
 // Toggle a tag on a trade (add if not present, remove if present)
 window.toggleTagOnTrade=async function(tid,tag){
@@ -3501,16 +3519,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
   if(activeTab==='settings'){
     const themes=[
       {id:'dark',color:'#00e5a0',label:'Dark'},
+      {id:'frost',color:'#7dd3fc',label:'Frost'},
       {id:'glass',color:'#60a5fa',label:'Glass'},
       {id:'aurora',color:'#c090ff',label:'Aurora'},
       {id:'stealth',color:'#34d399',label:'Stealth'},
       {id:'slate',color:'#58a6ff',label:'Slate'},
       {id:'mono',color:'#e0e0e0',label:'Mono'},
       {id:'neon',color:'#00ff9e',label:'Neon'},
-      {id:'paper',color:'#2563eb',label:'Paper'},
-      {id:'ocean',color:'#00d4ff',label:'Ocean'},
-      {id:'carbon',color:'#00e060',label:'Carbon'},
-      {id:'terminal',color:'#00ff80',label:'Terminal'}
+      {id:'paper',color:'#2563eb',label:'Paper'}
     ];
     content.innerHTML=`<div style="max-width:760px">
     <div style="font-size:var(--fsxs);color:var(--text4);letter-spacing:2px;margin-bottom:14px">SETTINGS · v${VERSION}</div>
@@ -3654,7 +3670,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
     },50);
   }
 }
-
 
 window.renameSetup=function(idx,newName){
   newName=(newName||'').trim();
