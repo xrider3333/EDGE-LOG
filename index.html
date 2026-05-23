@@ -24,6 +24,35 @@
 [data-theme="ocean"]{--bg:#020810;--bg1:#060e1e;--bg2:#040a18;--bg3:#030810;--border:#0e2040;--border2:#0a1830;--text:#b8d0e8;--text2:#8090a8;--text3:#506080;--text4:#5a7088;--text5:#4a5a72;--green:#00d4ff;--red:#ff4060;--yellow:#ffd060;}
 [data-theme="carbon"]{--bg:#080808;--bg1:#111111;--bg2:#0d0d0d;--bg3:#0a0a0a;--border:#222;--border2:#1a1a1a;--text:#d0d0d0;--text2:#a0a0a0;--text3:#686868;--text4:#787878;--text5:#585858;--green:#00e060;--red:#ff3040;--yellow:#ffc840;}
 [data-theme="terminal"]{--bg:#000a00;--bg1:#001000;--bg2:#000c00;--bg3:#000800;--border:#003000;--border2:#002000;--text:#00e060;--text2:#00a040;--text3:#007030;--text4:#008838;--text5:#006028;--green:#00ff80;--red:#ff4000;--yellow:#c0e000;}
+[data-theme="glass"]{--bg:#08080c;--bg1:#15151a;--bg2:#101015;--bg3:#0c0c12;--border:#2a2a35;--border2:#1f1f28;--text:#f0f0f5;--text2:#c8c8d0;--text3:#9090a0;--text4:#a0a0b0;--text5:#707080;--green:#34d399;--red:#f87171;--yellow:#fbbf24;--blue:#60a5fa;--purple:#a78bfa;}
+[data-theme="glass"] .section{background:linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%);border:1px solid rgba(255,255,255,0.06);border-radius:16px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+[data-theme="glass"] .hero-card{background:linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);border:1px solid rgba(255,255,255,0.06);border-radius:14px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);transition:all 0.2s}
+[data-theme="glass"] .hero-card:hover{background:linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);transform:translateY(-1px)}
+[data-theme="glass"] .mini-card{background:rgba(255,255,255,0.025);border-radius:12px}
+[data-theme="glass"] .kpi-strip{background:linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%);border:1px solid rgba(255,255,255,0.06);border-radius:14px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+[data-theme="glass"] .breakdown-strip{background:linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%);border:1px solid rgba(255,255,255,0.06);border-radius:14px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+[data-theme="glass"] .sec-hd{padding:14px 18px 8px;font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.45);text-transform:uppercase}
+[data-theme="glass"] .stat-lbl{color:rgba(255,255,255,0.5);font-size:9px;letter-spacing:1.5px;text-transform:uppercase}
+[data-theme="glass"] .kpi-strip > .mini-card{border-right:1px solid rgba(255,255,255,0.05)}
+[data-theme="glass"] .kpi-strip > .mini-card:last-child{border-right:none}
+[data-theme="glass"] .breakdown-strip > .section{border:none;border-right:1px solid rgba(255,255,255,0.05);border-radius:0;background:transparent;backdrop-filter:none}
+[data-theme="glass"] .breakdown-strip > .section:last-child{border-right:none}
+[data-theme="glass"] .breakdown-strip > .section:first-child{border-top-left-radius:14px;border-bottom-left-radius:14px}
+[data-theme="glass"] .breakdown-strip > .section:last-child{border-top-right-radius:14px;border-bottom-right-radius:14px}
+[data-theme="glass"] table{font-size:11px}
+[data-theme="glass"] th{background:transparent;color:rgba(255,255,255,0.35);border-bottom:1px solid rgba(255,255,255,0.05);font-weight:500;letter-spacing:1px;padding:8px 10px}
+[data-theme="glass"] td{border-bottom:1px solid rgba(255,255,255,0.03);color:rgba(255,255,255,0.85);padding:7px 10px}
+[data-theme="glass"] .tr-row:hover{background:rgba(255,255,255,0.03)}
+[data-theme="glass"] body, [data-theme="glass"] html{background:#08080c}
+[data-theme="glass"] .nav-bar{background:rgba(15,15,20,0.6);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);border-bottom:1px solid rgba(255,255,255,0.06)}
+[data-theme="glass"] .btn-d{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);border-radius:8px;transition:all 0.15s}
+[data-theme="glass"] .btn-d:hover{background:rgba(255,255,255,0.1)}
+[data-theme="glass"] .btn-y{background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.3);color:#fbbf24;border-radius:8px}
+[data-theme="glass"] .inline-sel, [data-theme="glass"] .inline-txt, [data-theme="glass"] .inline-tags{background:rgba(255,255,255,0.04);border-radius:6px;color:rgba(255,255,255,0.85)}
+[data-theme="glass"] input, [data-theme="glass"] select, [data-theme="glass"] textarea{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.9);border-radius:8px}
+[data-theme="glass"] .btn-ghost{color:rgba(255,255,255,0.55);transition:all 0.15s}
+[data-theme="glass"] .btn-ghost:hover{color:rgba(255,255,255,0.9);background:rgba(255,255,255,0.03)}
+[data-theme="glass"] .btn-ghost.active{color:rgba(255,255,255,0.95);background:rgba(255,255,255,0.06);border-bottom:2px solid #60a5fa}
 [data-density="compact"]{--pad:8px;--card-pad:7px 10px;--mini-pad:6px 9px;--fs:11px;--fsm:10px;--fss:9px;--fsxs:8px;}
 [data-density="compact"] .content{padding:14px 18px}
 [data-density="compact"] th,[data-density="compact"] td{padding:5px 8px}
@@ -153,7 +182,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='18.7';
+const VERSION='19.0';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -3380,7 +3409,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
 
   // ══ SETTINGS ══
   if(activeTab==='settings'){
-    const themes=[{id:'dark',color:'#00e5a0',label:'Dark'},{id:'ocean',color:'#00d4ff',label:'Ocean'},{id:'carbon',color:'#00e060',label:'Carbon'},{id:'terminal',color:'#00ff80',label:'Terminal'}];
+    const themes=[{id:'dark',color:'#00e5a0',label:'Dark'},{id:'glass',color:'#60a5fa',label:'Glass'},{id:'ocean',color:'#00d4ff',label:'Ocean'},{id:'carbon',color:'#00e060',label:'Carbon'},{id:'terminal',color:'#00ff80',label:'Terminal'}];
     content.innerHTML=`<div style="max-width:760px">
     <div style="font-size:var(--fsxs);color:var(--text4);letter-spacing:2px;margin-bottom:14px">SETTINGS · v${VERSION}</div>
 
