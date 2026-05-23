@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='18.6';
+const VERSION='18.7';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1769,6 +1769,34 @@ window.expandKPI=function(label,infoKey){
   document.body.appendChild(modal);
 };
 
+
+// Toggle a tag on a trade (add if not present, remove if present)
+window.toggleTagOnTrade=async function(tid,tag){
+  const t=trades.find(x=>x.id===tid);
+  if(!t)return;
+  const tags=[...(t.tags||[])];
+  const idx=tags.indexOf(tag);
+  if(idx>=0)tags.splice(idx,1);
+  else tags.push(tag);
+  t.tags=tags;
+  try{await updateTrade(tid,{tags});}catch(e){console.error('Tag save failed',e);}
+  renderApp();
+};
+window.removeTagFromTrade=async function(tid,tag){
+  const t=trades.find(x=>x.id===tid);
+  if(!t)return;
+  const tags=(t.tags||[]).filter(x=>x!==tag);
+  t.tags=tags;
+  try{await updateTrade(tid,{tags});}catch(e){console.error('Tag save failed',e);}
+  renderApp();
+};
+// Close tag picker when clicking elsewhere
+document.addEventListener('click',(e)=>{
+  if(!e.target.closest('.tag-cell')){
+    document.querySelectorAll('[id^="tagpick-"]').forEach(d=>{d.style.display='none';});
+  }
+});
+
 window.showFeeBreakdown=function(tid){
   const t=trades.find(x=>x.id===tid);
   if(!t||!t.fees||t.fees<=0)return;
@@ -2259,8 +2287,19 @@ function renderApp(){
     })();
 
     content.innerHTML=`
+    <!-- ROW 0: TIMEFRAME SELECTOR -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:6px 4px">
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:var(--fsxs);color:var(--text4);letter-spacing:2px;margin-right:4px">TIMEFRAME</span>
+        ${['7D','30D','90D','YTD','ALL'].map(tf=>`<button onclick="chartTF='${tf.toLowerCase()}';renderApp()" style="background:${chartTF===tf.toLowerCase()?'var(--green)':'var(--bg3)'};color:${chartTF===tf.toLowerCase()?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:5px 13px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1px;cursor:pointer;transition:all 0.1s">${tf}</button>`).join('')}
+      </div>
+      <div style="font-size:var(--fsxs);color:var(--text4);letter-spacing:1px">
+        ${tfTrades.length} trade${tfTrades.length!==1?'s':''} · ${chartTF==='all'?'all time':chartTF.toUpperCase()}
+      </div>
+    </div>
+
     <!-- ROW 1: HERO KPIs (4 across, large) -->
-    <div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:4px;letter-spacing:2px">METRICS · <span style="color:var(--text2)">${tfLabel}</span> · ${tfTrades.length} trade${tfTrades.length!==1?'s':''}</div>
+
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:4px">
       ${heroKPI('NET P&L', fmt(tfS.net), accountEquity>0?((tfS.net/accountEquity)*100).toFixed(1)+'% of acct · '+tfTrades.length+' trades':tfTrades.length+' trades cumulative', tfS.net>=0?'#00e5a0':'#ff3d5a', _running.net, 'NET P&L', tfS.net>=0?Math.min(1,tfS.net/Math.max(100,Math.abs(tfS.net)*1.5)):0, 0.5, '$0')}
       ${heroKPI('WIN RATE', (tfS.wr*100).toFixed(0)+'%', tfS.wins+' wins · '+tfS.losses+' losses', tfS.wr>=0.5?'#00e5a0':tfS.wr>=0.4?'#f5c842':'#ff3d5a', _running.wr.map(w=>w*100), 'WIN RATE', tfS.wr, 0.5, '50%')}
@@ -2290,7 +2329,7 @@ function renderApp(){
             <button onclick="chartMode='pnl';renderApp()" style="background:${chartMode==='pnl'?'var(--green)':'var(--bg3)'};color:${chartMode==='pnl'?'var(--bg)':'var(--text3)'};border:none;padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">P&L</button>
             <button onclick="chartMode='equity';renderApp()" style="background:${chartMode==='equity'?'var(--blue)':'var(--bg3)'};color:${chartMode==='equity'?'var(--bg)':'var(--text3)'};border:none;border-left:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">EQUITY</button>
           </div>
-          ${['7D','30D','90D','YTD','ALL'].map(tf=>`<button onclick="chartTF='${tf.toLowerCase()}';renderApp()" style="background:${chartTF===tf.toLowerCase()?'var(--green)':'var(--bg3)'};color:${chartTF===tf.toLowerCase()?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">${tf}</button>`).join('')}
+          
           <button class="btn-d" style="font-size:var(--fsxs);padding:4px 10px;margin-left:8px" onclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', document.querySelector('.cum-pl-chart').innerHTML)">⛶ EXPAND</button>
         </div>
       </div>
