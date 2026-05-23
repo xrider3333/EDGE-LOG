@@ -153,7 +153,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='18.5';
+const VERSION='18.6';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -2109,7 +2109,23 @@ function renderApp(){
   // ══ OVERVIEW ══
   if(activeTab==='overview'){
     if(!S){content.innerHTML='<div style="border:1px dashed var(--border);padding:80px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO TRADES — USE DATA TAB TO IMPORT OR ADD IN TRADES</div>';return;}
+    // Filter trades by chartTF for hero KPIs and breakdowns
+    const _filterByTF=(tds)=>{
+      const now=new Date();
+      let cutoff=null;
+      if(chartTF==='7d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-7);}
+      else if(chartTF==='30d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-30);}
+      else if(chartTF==='90d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-90);}
+      else if(chartTF==='ytd'){cutoff=new Date(now.getFullYear(),0,1);}
+      if(!cutoff)return tds;
+      const cs=cutoff.toISOString().slice(0,10);
+      return tds.filter(t=>t.date>=cs);
+    };
+    const tfTrades=_filterByTF(trades);
+    const tfS=calcStats(tfTrades)||S;
+    // Use tfS for hero KPI display; original S is still available for chart-independent stats
     const modeLabel=useGross?'<span style="color:var(--yellow);font-size:var(--fsxs);margin-left:6px">[GROSS]</span>':'';
+    const tfLabel=chartTF==='all'?'all time':chartTF.toUpperCase();
 
     // === Helpers ===
     const sparkline=(values,color,w=110,h=24)=>{
@@ -2178,7 +2194,7 @@ function renderApp(){
     const _running={net:[],wr:[],pf:[],ev:[],avgW:[],avgL:[],rr:[],maxDD:[]};
     {
       let cum=0,wins=0,losses=0,gw=0,gl=0,peak=0,maxDD=0;
-      [...trades].forEach(t=>{
+      [...tfTrades].forEach(t=>{
         cum+=t.pnl;
         if(t.pnl>=0){wins++;gw+=t.pnl;}else{losses++;gl+=Math.abs(t.pnl);}
         if(cum>peak)peak=cum;
@@ -2244,23 +2260,24 @@ function renderApp(){
 
     content.innerHTML=`
     <!-- ROW 1: HERO KPIs (4 across, large) -->
+    <div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:4px;letter-spacing:2px">METRICS · <span style="color:var(--text2)">${tfLabel}</span> · ${tfTrades.length} trade${tfTrades.length!==1?'s':''}</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:4px">
-      ${heroKPI('NET P&L', fmt(S.net), accountEquity>0?((S.net/accountEquity)*100).toFixed(1)+'% of acct · '+trades.length+' trades':trades.length+' trades cumulative', S.net>=0?'#00e5a0':'#ff3d5a', _running.net, 'NET P&L', S.net>=0?Math.min(1,S.net/Math.max(100,Math.abs(S.net)*1.5)):0, 0.5, '$0')}
-      ${heroKPI('WIN RATE', (S.wr*100).toFixed(0)+'%', S.wins+' wins · '+S.losses+' losses', S.wr>=0.5?'#00e5a0':S.wr>=0.4?'#f5c842':'#ff3d5a', _running.wr.map(w=>w*100), 'WIN RATE', S.wr, 0.5, '50%')}
-      ${heroKPI('PROFIT FACTOR', S.pf>=99?'∞':S.pf.toFixed(2), S.pf>=1.5?'Healthy':S.pf>=1?'Marginal':'Losing edge', S.pf>=1.5?'#00e5a0':S.pf>=1?'#f5c842':'#ff3d5a', _running.pf, 'PROFIT FACTOR', Math.min(1,S.pf/3), 0.333, '1.0')}
-      ${heroKPI('EXP VALUE', '$'+S.ev.toFixed(2), 'Per trade · '+(S.ev*trades.length).toFixed(0)+' projected', S.ev>0?'#00e5a0':'#ff3d5a', _running.ev, 'EXP VALUE', S.ev>0?Math.min(1,S.ev/50):0, 0, '$0')}
+      ${heroKPI('NET P&L', fmt(tfS.net), accountEquity>0?((tfS.net/accountEquity)*100).toFixed(1)+'% of acct · '+tfTrades.length+' trades':tfTrades.length+' trades cumulative', tfS.net>=0?'#00e5a0':'#ff3d5a', _running.net, 'NET P&L', tfS.net>=0?Math.min(1,tfS.net/Math.max(100,Math.abs(tfS.net)*1.5)):0, 0.5, '$0')}
+      ${heroKPI('WIN RATE', (tfS.wr*100).toFixed(0)+'%', tfS.wins+' wins · '+tfS.losses+' losses', tfS.wr>=0.5?'#00e5a0':tfS.wr>=0.4?'#f5c842':'#ff3d5a', _running.wr.map(w=>w*100), 'WIN RATE', tfS.wr, 0.5, '50%')}
+      ${heroKPI('PROFIT FACTOR', tfS.pf>=99?'∞':tfS.pf.toFixed(2), tfS.pf>=1.5?'Healthy':tfS.pf>=1?'Marginal':'Losing edge', tfS.pf>=1.5?'#00e5a0':tfS.pf>=1?'#f5c842':'#ff3d5a', _running.pf, 'PROFIT FACTOR', Math.min(1,tfS.pf/3), 0.333, '1.0')}
+      ${heroKPI('EXP VALUE', '$'+tfS.ev.toFixed(2), 'Per trade · '+(tfS.ev*tfTrades.length).toFixed(0)+' projected', tfS.ev>0?'#00e5a0':'#ff3d5a', _running.ev, 'EXP VALUE', tfS.ev>0?Math.min(1,tfS.ev/50):0, 0, '$0')}
     </div>
 
     <!-- ROW 2: 8 MINI KPIs (compact strip) -->
     <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:0;background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 25%,transparent);margin-bottom:4px" class="kpi-strip">
-      ${miniKPI('AVG WIN', '+$'+S.avgW.toFixed(0), 'Per winning trade', '#00e5a0', _running.avgW, 'AVG WIN')}
-      ${miniKPI('AVG LOSS', '-$'+S.avgL.toFixed(0), 'Per losing trade', '#ff3d5a', _running.avgL, 'AVG LOSS')}
-      ${miniKPI('MAX DD', '-$'+S.maxDD.toFixed(0), 'Worst drawdown', '#ff3d5a', _running.maxDD, 'MAX DD')}
-      ${miniKPI('STREAK', (S.sdir>0?'+':'-')+S.streak+(S.sdir>0?'W':'L'), S.sdir>0?'Winning streak':'Losing streak', S.sdir>0?'#00e5a0':'#ff3d5a', null, null)}
-      ${miniKPI('TOTAL FEES', '-$'+S.totalFees.toFixed(0), Math.abs(S.totalFees/(S.grossNet||1)*100).toFixed(1)+'% of gross', '#f5c842', null, 'FEES')}
-      ${miniKPI('LONGS', '$'+S.longPnl.toFixed(0), S.longs+' trades · '+(S.longWR*100).toFixed(0)+'% WR', S.longPnl>=0?'#00e5a0':'#ff3d5a', null, null)}
-      ${miniKPI('SHORTS', '$'+S.shortPnl.toFixed(0), S.shorts+' trades · '+(S.shortWR*100).toFixed(0)+'% WR', S.shortPnl>=0?'#00e5a0':'#ff3d5a', null, null)}
-      ${miniKPI('GROSS', '$'+S.grossNet.toFixed(0), 'Before fees', S.grossNet>=0?'#00e5a0':'#ff3d5a', null, null)}
+      ${miniKPI('AVG WIN', '+$'+tfS.avgW.toFixed(0), 'Per winning trade', '#00e5a0', _running.avgW, 'AVG WIN')}
+      ${miniKPI('AVG LOSS', '-$'+tfS.avgL.toFixed(0), 'Per losing trade', '#ff3d5a', _running.avgL, 'AVG LOSS')}
+      ${miniKPI('MAX DD', '-$'+tfS.maxDD.toFixed(0), 'Worst drawdown', '#ff3d5a', _running.maxDD, 'MAX DD')}
+      ${miniKPI('STREAK', (tfS.sdir>0?'+':'-')+tfS.streak+(tfS.sdir>0?'W':'L'), tfS.sdir>0?'Winning streak':'Losing streak', tfS.sdir>0?'#00e5a0':'#ff3d5a', null, null)}
+      ${miniKPI('TOTAL FEES', '-$'+tfS.totalFees.toFixed(0), Math.abs(tfS.totalFees/(tfS.grossNet||1)*100).toFixed(1)+'% of gross', '#f5c842', null, 'FEES')}
+      ${miniKPI('LONGS', '$'+tfS.longPnl.toFixed(0), tfS.longs+' trades · '+(tfS.longWR*100).toFixed(0)+'% WR', tfS.longPnl>=0?'#00e5a0':'#ff3d5a', null, null)}
+      ${miniKPI('SHORTS', '$'+tfS.shortPnl.toFixed(0), tfS.shorts+' trades · '+(tfS.shortWR*100).toFixed(0)+'% WR', tfS.shortPnl>=0?'#00e5a0':'#ff3d5a', null, null)}
+      ${miniKPI('GROSS', '$'+tfS.grossNet.toFixed(0), 'Before fees', tfS.grossNet>=0?'#00e5a0':'#ff3d5a', null, null)}
     </div>
 
     <!-- ROW 3: CUMULATIVE P&L (full width, 380px tall) -->
@@ -2342,7 +2359,7 @@ function renderApp(){
         <!-- Calendar (full left column width) -->
         <div class="section" style="margin-bottom:12px">${calHTML}</div>
         <!-- Breakdowns: 5 tables in a row -->
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 25%,transparent);margin-bottom:8px" class="breakdown-strip">
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:0;background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 25%,transparent);margin-bottom:8px" class="breakdown-strip">
           <div class="section">
             <div class="sec-hd">MONTHLY</div>
             <table style="font-size:var(--fsxs)"><thead><tr><th>MONTH</th><th>TR</th><th>WR</th><th>NET</th></tr></thead><tbody>
@@ -2420,6 +2437,23 @@ function renderApp(){
                     <td style="color:${gch(net)};font-family:'Bebas Neue',monospace;font-size:13px">${fmt(net)}</td>
                   </tr>`;
                 }).join('');
+              })()}
+            </tbody></table>
+          </div>
+          <div class="section">
+            <div class="sec-hd">BY GRADE</div>
+            <table style="font-size:var(--fsxs)"><thead><tr><th>GRADE</th><th>TR</th><th>WR</th><th>NET</th></tr></thead><tbody>
+              ${(()=>{
+                const byGr={};
+                trades.forEach(t=>{const k=t.grade||'—';if(!byGr[k])byGr[k]={count:0,wins:0,pnl:0};byGr[k].count++;if(t.pnl>0)byGr[k].wins++;byGr[k].pnl+=t.pnl;});
+                // Custom sort: A > B > C > D > F > —
+                const order={A:1,B:2,C:3,D:4,F:5,'—':6};
+                return Object.entries(byGr).sort(([a],[b])=>(order[a]||9)-(order[b]||9)).map(([gr,d])=>`<tr class="tr-row">
+                  <td style="color:var(--text);font-family:'Bebas Neue',monospace;font-weight:bold">${gr}</td>
+                  <td style="color:var(--text4)">${d.count}</td>
+                  <td style="color:${d.wins/d.count>=.5?'var(--green)':'var(--red)'}">${(d.wins/d.count*100).toFixed(0)}%</td>
+                  <td style="color:${gch(d.pnl)};font-family:'Bebas Neue',monospace;font-size:13px">${fmt(d.pnl)}</td>
+                </tr>`).join('');
               })()}
             </tbody></table>
           </div>
