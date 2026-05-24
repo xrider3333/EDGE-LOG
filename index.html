@@ -230,6 +230,40 @@
   box-shadow: 0 1px 0 rgba(255,255,255,1) inset, 0 8px 20px rgba(0,0,0,0.1) !important;
 }
 
+
+/* ──── HYPERDRIVE — Animated holographic neon, cyber/futuristic ──── */
+[data-theme="hyperdrive"]{--bg:#05010f;--bg1:#0d0420;--bg2:#080216;--bg3:#04010c;--border:#3a1060;--border2:#251040;--text:#f0f8ff;--text2:#c0d8f0;--text3:#90b0d8;--text4:#a0c0e0;--text5:#6080a8;--green:#00ffea;--red:#ff0066;--yellow:#ffea00;--blue:#00b0ff;--purple:#d040ff;}
+@keyframes hyperdrive-bg{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+[data-theme="hyperdrive"] body,[data-theme="hyperdrive"] html{background:linear-gradient(135deg, #05010f 0%, #0a0220 25%, #14042c 50%, #0a0220 75%, #05010f 100%);background-size:400% 400%;background-attachment:fixed;animation:hyperdrive-bg 30s ease infinite}
+[data-theme="hyperdrive"] .section,[data-theme="hyperdrive"] .kpi-strip,[data-theme="hyperdrive"] .breakdown-strip{background:linear-gradient(135deg,rgba(208,64,255,0.05) 0%,rgba(0,176,255,0.04) 50%,rgba(0,255,234,0.03) 100%) !important;border:1px solid rgba(208,64,255,0.2) !important;backdrop-filter:blur(40px) saturate(200%) !important;-webkit-backdrop-filter:blur(40px) saturate(200%) !important;box-shadow:0 0 30px rgba(208,64,255,0.08) inset, 0 8px 32px rgba(0,0,0,0.4), 0 0 20px rgba(0,176,255,0.04) !important;border-radius:16px !important}
+[data-theme="hyperdrive"] .hero-card{background:linear-gradient(135deg,rgba(208,64,255,0.07) 0%,rgba(0,176,255,0.05) 100%) !important;border:1px solid rgba(208,64,255,0.25) !important;backdrop-filter:blur(40px) saturate(200%) !important;-webkit-backdrop-filter:blur(40px) saturate(200%) !important;box-shadow:0 0 24px rgba(208,64,255,0.1) inset, 0 8px 24px rgba(0,0,0,0.3) !important;border-radius:14px !important;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;position:relative;overflow:hidden}
+[data-theme="hyperdrive"] .hero-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,255,234,0.6),transparent);pointer-events:none}
+[data-theme="hyperdrive"] .hero-card:hover{transform:translateY(-2px) !important;border-color:rgba(0,255,234,0.5) !important;box-shadow:0 0 32px rgba(0,255,234,0.18) inset, 0 12px 36px rgba(208,64,255,0.15), 0 0 24px rgba(0,255,234,0.1) !important}
+[data-theme="hyperdrive"] .sec-hd{color:#d040ff !important;text-shadow:0 0 12px rgba(208,64,255,0.5);letter-spacing:3px;font-weight:600}
+[data-theme="hyperdrive"] .stat-lbl{color:rgba(192,216,240,0.6);letter-spacing:2px}
+[data-theme="hyperdrive"] th{color:#00b0ff;border-bottom:1px solid rgba(208,64,255,0.25);background:transparent}
+[data-theme="hyperdrive"] td{border-bottom:1px solid rgba(208,64,255,0.08)}
+[data-theme="hyperdrive"] .tr-row:hover{background:rgba(208,64,255,0.06)}
+[data-theme="hyperdrive"] .kpi-strip > .mini-card,[data-theme="hyperdrive"] .breakdown-strip > .section{border-right:1px solid rgba(208,64,255,0.15)}
+[data-theme="hyperdrive"] .btn-ghost.active{border-bottom:2px solid #00ffea;color:#00ffea;text-shadow:0 0 8px rgba(0,255,234,0.6)}
+[data-theme="hyperdrive"] .nav-bar{background:rgba(5,1,15,0.4);backdrop-filter:blur(40px) saturate(200%);border-bottom:1px solid rgba(208,64,255,0.2)}
+
+/* ──── MERCURY — Liquid chrome / metallic monochrome ──── */
+[data-theme="mercury"]{--bg:#0e0e12;--bg1:#1a1a22;--bg2:#13131a;--bg3:#0a0a10;--border:#3d3d4f;--border2:#252533;--text:#f8f8fa;--text2:#d0d0d8;--text3:#9898a8;--text4:#a8a8b8;--text5:#787888;--green:#a8b5c0;--red:#c8a0a0;--yellow:#d8c890;--blue:#a8c0d0;--purple:#b0a8c8;}
+[data-theme="mercury"] body,[data-theme="mercury"] html{background:radial-gradient(ellipse at 30% 20%,#1c1c28 0%,#0e0e14 40%,#08080c 100%);background-attachment:fixed}
+[data-theme="mercury"] .section,[data-theme="mercury"] .kpi-strip,[data-theme="mercury"] .breakdown-strip{background:linear-gradient(160deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 40%, rgba(255,255,255,0.04) 100%) !important;border:1px solid rgba(255,255,255,0.1) !important;backdrop-filter:blur(40px) saturate(120%) !important;-webkit-backdrop-filter:blur(40px) saturate(120%) !important;box-shadow:0 1px 0 rgba(255,255,255,0.12) inset, 0 -1px 0 rgba(0,0,0,0.3) inset, 0 8px 32px rgba(0,0,0,0.35) !important;border-radius:18px !important}
+[data-theme="mercury"] .hero-card{background:linear-gradient(165deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.025) 50%, rgba(255,255,255,0.05) 100%) !important;border:1px solid rgba(255,255,255,0.12) !important;backdrop-filter:blur(40px) saturate(120%) !important;-webkit-backdrop-filter:blur(40px) saturate(120%) !important;box-shadow:0 1px 0 rgba(255,255,255,0.18) inset, 0 -1px 0 rgba(0,0,0,0.25) inset, 0 8px 24px rgba(0,0,0,0.3) !important;border-radius:16px !important;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;position:relative;overflow:hidden}
+[data-theme="mercury"] .hero-card::before{content:'';position:absolute;top:0;left:5%;right:5%;height:1px;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.4) 50%,transparent 100%);pointer-events:none}
+[data-theme="mercury"] .hero-card:hover{transform:translateY(-2px) !important;background:linear-gradient(165deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 50%, rgba(255,255,255,0.07) 100%) !important;box-shadow:0 1px 0 rgba(255,255,255,0.25) inset, 0 -1px 0 rgba(0,0,0,0.25) inset, 0 12px 32px rgba(0,0,0,0.4) !important}
+[data-theme="mercury"] .sec-hd{color:rgba(255,255,255,0.55);letter-spacing:3px;font-weight:300}
+[data-theme="mercury"] .stat-lbl{color:rgba(255,255,255,0.5);letter-spacing:2px;font-weight:300}
+[data-theme="mercury"] th{color:rgba(255,255,255,0.45);border-bottom:1px solid rgba(255,255,255,0.08);background:transparent;font-weight:400;letter-spacing:1.5px}
+[data-theme="mercury"] td{border-bottom:1px solid rgba(255,255,255,0.04);color:rgba(255,255,255,0.88)}
+[data-theme="mercury"] .tr-row:hover{background:rgba(255,255,255,0.04)}
+[data-theme="mercury"] .kpi-strip > .mini-card,[data-theme="mercury"] .breakdown-strip > .section{border-right:1px solid rgba(255,255,255,0.06)}
+[data-theme="mercury"] .btn-ghost.active{border-bottom:2px solid rgba(255,255,255,0.85);color:rgba(255,255,255,1);background:rgba(255,255,255,0.05)}
+[data-theme="mercury"] .nav-bar{background:rgba(20,20,28,0.5);backdrop-filter:blur(60px) saturate(120%);border-bottom:1px solid rgba(255,255,255,0.06)}
+
 [data-density="compact"]{--pad:8px;--card-pad:7px 10px;--mini-pad:6px 9px;--fs:11px;--fsm:10px;--fss:9px;--fsxs:8px;}
 [data-density="compact"] .content{padding:14px 18px}
 [data-density="compact"] th,[data-density="compact"] td{padding:5px 8px}
@@ -359,7 +393,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='20.2';
+const VERSION='20.3';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1489,7 +1523,7 @@ function sparkline(data,color,w,h,showAxis){
   }
   return`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;overflow:visible"><defs><linearGradient id="sg${color.replace('#','')}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity=".25"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><path d="${fill}" fill="url(#sg${color.replace('#','')})"/><path d="${path}" stroke="${color}" stroke-width="1.5" fill="none"/>` +axis+'</svg>';
 }
-function svgLineLabeled(pts,color,W,H,showTradeAmounts,spyPts){
+function svgLineLabeled(pts,color,W,H,showTradeAmounts,spyPts,yUnit){
   // Same as svgLine but adds P&L amount labels at each dot
   if(!pts||pts.length<2)return'<p style="padding:20px;color:var(--text5);font-size:11px;text-align:center">Add at least 2 trades</p>';
   const PAD={t:18,r:22,b:30,l:62};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
@@ -1505,7 +1539,9 @@ function svgLineLabeled(pts,color,W,H,showTradeAmounts,spyPts){
   const path='M'+pts.map((p,i)=>sx(i).toFixed(1)+','+sy(p.y).toFixed(1)).join('L');
   // Use the visual floor (bottom of chart) as the fill base, not necessarily y=0
   const floor=PAD.t+ch;
-  const fill='M'+sx(0)+','+sy(pts[0].y)+' L'+pts.map((p,i)=>sx(i).toFixed(1)+','+sy(p.y).toFixed(1)).join(' L')+' L'+sx(pts.length-1)+','+floor+' L'+sx(0)+','+floor+' Z';
+  // Baseline: if zero is visible, use it; otherwise use floor
+  const baseline=(minY<=0&&maxY>=0)?y0:floor;
+  const fill='M'+sx(0)+','+baseline.toFixed(1)+' L'+pts.map((p,i)=>sx(i).toFixed(1)+','+sy(p.y).toFixed(1)).join(' L')+' L'+sx(pts.length-1)+','+baseline.toFixed(1)+' Z';
   // Smart label placement — only show every Nth label to avoid crowding
   const labelStep=Math.max(1,Math.floor(pts.length/8));
   const dots=pts.map((p,i)=>{
@@ -1528,8 +1564,8 @@ function svgLineLabeled(pts,color,W,H,showTradeAmounts,spyPts){
   const highLabel=`<text x="${sx(maxIdx).toFixed(1)}" y="${(sy(maxPt.y)-6).toFixed(1)}" text-anchor="middle" fill="#00e5a0" font-size="8" font-family="JetBrains Mono,monospace" opacity=".7">$${maxPt.y.toFixed(0)}</text>`;
   const lowLabel=minPt.y<0?`<text x="${sx(minIdx).toFixed(1)}" y="${(sy(minPt.y)+12).toFixed(1)}" text-anchor="middle" fill="#ff3d5a" font-size="8" font-family="JetBrains Mono,monospace" opacity=".7">$${minPt.y.toFixed(0)}</text>`:'';
   let yg='',yt='';
-  for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">$${v.toFixed(0)}</text>`;}
-  let xt='';const step=Math.max(1,Math.floor(pts.length/8));for(let i=0;i<pts.length;i+=step)xt+=`<text x="${sx(i).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">${i+1}</text>`;
+  for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="11" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}
+  let xt='';const step=Math.max(1,Math.floor(pts.length/8));for(let i=0;i<pts.length;i+=step)xt+=`<text x="${sx(i).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text2)" font-size="11" font-family="JetBrains Mono,monospace" font-weight="500">${i+1}</text>`;
   const zero=minY<=0&&maxY>=0?`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`:'';
 
   // === INTERACTIVE OVERLAY: invisible hit-zones + crosshair + tooltip ===
@@ -1655,6 +1691,7 @@ function svgLineLabeled(pts,color,W,H,showTradeAmounts,spyPts){
 }
 function svgLine(pts,color,W,H){
   if(!pts||pts.length<2)return'<p style="padding:20px;color:var(--text5);font-size:11px;text-align:center">Add at least 2 trades</p>';
+  const uniqueId='chart_'+Math.random().toString(36).slice(2,9);
   const PAD={t:12,r:22,b:30,l:62};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
   const ys=pts.map(p=>p.y);
   // Adaptive Y range — don't anchor to 0 if all points are positive/negative
@@ -1668,10 +1705,12 @@ function svgLine(pts,color,W,H){
   const path='M'+pts.map((p,i)=>sx(i).toFixed(1)+','+sy(p.y).toFixed(1)).join('L');
   // Use the visual floor (bottom of chart) as the fill base, not necessarily y=0
   const floor=PAD.t+ch;
-  const fill='M'+sx(0)+','+sy(pts[0].y)+' L'+pts.map((p,i)=>sx(i).toFixed(1)+','+sy(p.y).toFixed(1)).join(' L')+' L'+sx(pts.length-1)+','+floor+' L'+sx(0)+','+floor+' Z';
+  // Baseline: if zero is visible, use it; otherwise use floor
+  const baseline=(minY<=0&&maxY>=0)?y0:floor;
+  const fill='M'+sx(0)+','+baseline.toFixed(1)+' L'+pts.map((p,i)=>sx(i).toFixed(1)+','+sy(p.y).toFixed(1)).join(' L')+' L'+sx(pts.length-1)+','+baseline.toFixed(1)+' Z';
   const dots=pts.map((p,i)=>`<circle cx="${sx(i).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="2.5" fill="${p.pnl>=0?'#00e5a0':'#ff3d5a'}" stroke="var(--bg)" stroke-width="1.5"/>`).join('');
-  let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">$${v.toFixed(0)}</text>`;}
-  let xt='';const step=Math.max(1,Math.floor(pts.length/8));for(let i=0;i<pts.length;i+=step)xt+=`<text x="${sx(i).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">${i+1}</text>`;
+  let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="11" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}
+  let xt='';const step=Math.max(1,Math.floor(pts.length/8));for(let i=0;i<pts.length;i+=step)xt+=`<text x="${sx(i).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text2)" font-size="11" font-family="JetBrains Mono,monospace" font-weight="500">${i+1}</text>`;
   const zero=minY<=0&&maxY>=0?`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`:'' ;
   return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}<defs>
     <linearGradient id="${uniqueId}_gradPos" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#34d399" stop-opacity="0.4"/><stop offset="50%" stop-color="#34d399" stop-opacity="0.15"/><stop offset="100%" stop-color="#34d399" stop-opacity="0"/></linearGradient>
@@ -1684,8 +1723,8 @@ function svgLine(pts,color,W,H){
   <!-- Negative area (below zero) clipped to lower portion -->
   ${minY<0?`<path d="${fill}" fill="url(#${uniqueId}_gradNeg)" clip-path="url(#${uniqueId}_clipNeg)"/>`:''}<path d="${path}" stroke="${color}" stroke-width="2" fill="none"/>${spyPath||''}${dots}${yt}${xt}</svg>`;
 }
-function svgBar(bars,W,H){if(!bars.length)return'';const PAD={t:10,r:20,b:28,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const vals=bars.map(b=>b.v),minY=Math.min(0,...vals),maxY=Math.max(0,...vals),rY=maxY-minY||1;const bw=Math.max(3,(cw/bars.length)-2),sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);let rects='',xl='';bars.forEach((b,i)=>{const x=PAD.l+(i/bars.length)*cw+(cw/bars.length-bw)/2,yv=sy(b.v);rects+=`<rect x="${x.toFixed(1)}" y="${(b.v>=0?yv:y0).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(yv-y0)).toFixed(1)}" fill="${b.v>=0?'#00e5a040':'#ff3d5a40'}" stroke="${b.v>=0?'#00e5a0':'#ff3d5a'}" stroke-width="1" rx="1"/>`;if(i%(Math.ceil(bars.length/8))===0)xl+=`<text x="${(x+bw/2).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="9" font-family="JetBrains Mono,monospace">${b.d}</text>`;});let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">$${v.toFixed(0)}</text>`;}return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)"/>${rects}${yt}${xl}</svg>`;}
-function svgXY(data,color,xFmt,W,H,refX){if(!data.length)return'';const PAD={t:16,r:65,b:30,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const xs=data.map(d=>d.x),ys=data.map(d=>d.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(0,...ys),maxY=Math.max(0,...ys);const rX=maxX-minX||1,rY=maxY-minY||1,sx=v=>PAD.l+((v-minX)/rX)*cw,sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);const path='M'+data.map(d=>sx(d.x).toFixed(1)+','+sy(d.y).toFixed(1)).join('L');let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">$${v.toFixed(0)}</text>`;}const xtS=Math.ceil(data.length/6);let xt='';data.forEach((d,i)=>{if(i%xtS===0)xt+=`<text x="${sx(d.x).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">${xFmt?xFmt(d.x):d.x}</text>`;});const zero=`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`;const you=refX!=null?`<line x1="${sx(refX).toFixed(1)}" y1="${PAD.t}" x2="${sx(refX).toFixed(1)}" y2="${PAD.t+ch}" stroke="${color}" stroke-dasharray="3,3" opacity=".4"/><text x="${sx(refX).toFixed(1)}" y="${PAD.t-3}" text-anchor="middle" fill="${color}" font-size="9">YOU</text>`:'';return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}${you}<path d="${path}" stroke="${color}" stroke-width="2.5" fill="none"/>` +yt+xt+'</svg>';}
+function svgBar(bars,W,H){if(!bars.length)return'';const PAD={t:10,r:20,b:28,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const vals=bars.map(b=>b.v),minY=Math.min(0,...vals),maxY=Math.max(0,...vals),rY=maxY-minY||1;const bw=Math.max(3,(cw/bars.length)-2),sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);let rects='',xl='';bars.forEach((b,i)=>{const x=PAD.l+(i/bars.length)*cw+(cw/bars.length-bw)/2,yv=sy(b.v);rects+=`<rect x="${x.toFixed(1)}" y="${(b.v>=0?yv:y0).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(yv-y0)).toFixed(1)}" fill="${b.v>=0?'#00e5a040':'#ff3d5a40'}" stroke="${b.v>=0?'#00e5a0':'#ff3d5a'}" stroke-width="1" rx="1"/>`;if(i%(Math.ceil(bars.length/8))===0)xl+=`<text x="${(x+bw/2).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="9" font-family="JetBrains Mono,monospace">${b.d}</text>`;});let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="11" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)"/>${rects}${yt}${xl}</svg>`;}
+function svgXY(data,color,xFmt,W,H,refX){if(!data.length)return'';const PAD={t:16,r:65,b:30,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const xs=data.map(d=>d.x),ys=data.map(d=>d.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(0,...ys),maxY=Math.max(0,...ys);const rX=maxX-minX||1,rY=maxY-minY||1,sx=v=>PAD.l+((v-minX)/rX)*cw,sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);const path='M'+data.map(d=>sx(d.x).toFixed(1)+','+sy(d.y).toFixed(1)).join('L');let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="11" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}const xtS=Math.ceil(data.length/6);let xt='';data.forEach((d,i)=>{if(i%xtS===0)xt+=`<text x="${sx(d.x).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">${xFmt?xFmt(d.x):d.x}</text>`;});const zero=`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`;const you=refX!=null?`<line x1="${sx(refX).toFixed(1)}" y1="${PAD.t}" x2="${sx(refX).toFixed(1)}" y2="${PAD.t+ch}" stroke="${color}" stroke-dasharray="3,3" opacity=".4"/><text x="${sx(refX).toFixed(1)}" y="${PAD.t-3}" text-anchor="middle" fill="${color}" font-size="9">YOU</text>`:'';return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}${you}<path d="${path}" stroke="${color}" stroke-width="2.5" fill="none"/>` +yt+xt+'</svg>';}
 
 // KPI card with tooltip + warning + sparkline
 function kpiCard(label,val,sub,color,sparkData,sparkColor,big,showAxisOnSpark){
@@ -2011,13 +2050,13 @@ window.expandKPI=function(label,infoKey){
     const isTradingView=/tradingview\.com\/x\//.test(url);
     let content='';
     if(isImage){
-      content=`<img src="${url}" style="max-width:480px;max-height:320px;display:block;border-radius:6px" onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;color:var(--text5);font-size:11px\\'>Preview unavailable</div>'"/>`;
+      content=`<img src="${url}" style="max-width:720px;max-height:480px;display:block;border-radius:6px" onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;color:var(--text5);font-size:11px\\'>Preview unavailable</div>'"/>`;
     } else if(isTradingView){
       // TradingView /x/ URLs are snapshot URLs; convert to .png snapshot
       const snapId=url.match(/\/x\/([\w]+)/);
       if(snapId){
         const imgUrl=`https://s3.tradingview.com/snapshots/${snapId[1].toLowerCase().substring(0,1)}/${snapId[1]}.png`;
-        content=`<img src="${imgUrl}" style="max-width:480px;max-height:320px;display:block;border-radius:6px" onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;color:var(--text5);font-size:11px\\'>TradingView snapshot — click to view</div>'"/>`;
+        content=`<img src="${imgUrl}" style="max-width:720px;max-height:480px;display:block;border-radius:6px" onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;color:var(--text5);font-size:11px\\'>TradingView snapshot — click to view</div>'"/>`;
       } else {
         content='<div style="padding:20px;color:var(--text5);font-size:11px;max-width:300px">Chart link — click to open</div>';
       }
@@ -2526,21 +2565,19 @@ function renderApp(){
     const heroKPI=(label,valueText,subText,color,sparkData,infoKey,gaugeVal,thresholdFrac,thresholdLabel)=>{
       const info=infoKey&&KPI_INFO[infoKey];
       const hasGauge=gaugeVal!==undefined;
-      // Use position:absolute for the gauge so it's at the EXACT SAME spot in every card
-      const gaugeHTML=hasGauge?`<div style="position:absolute;top:50%;right:14px;transform:translateY(-50%);width:140px;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div>${heroGauge(gaugeVal,color,thresholdFrac,thresholdLabel)}</div><div style="font-size:9px;color:var(--text4);text-align:center;line-height:1.2;letter-spacing:0.5px">${subText}</div></div>`:'';
-      return `<div class="hero-card" style="padding:14px 18px;background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 40%,transparent);min-height:115px;cursor:pointer;transition:border-color 0.15s;position:relative;${hasGauge?'padding-right:162px':''}" onclick="expandKPI('${label}', '${infoKey||''}')" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='color-mix(in srgb,var(--border) 40%,transparent)'" title="Click for detailed breakdown">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;justify-content:space-between">
-          <div style="display:flex;align-items:center;gap:6px">
-            <div class="stat-lbl">${label}</div>
-            ${info?`<span style="font-size:9px;color:var(--text5);cursor:help;background:var(--bg3);width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);font-family:serif" title="${info.info.replace(/"/g,'&quot;')}">i</span>`:''}
-          </div>
-          <span style="color:var(--text4);font-size:14px;letter-spacing:1px;line-height:1" title="Click card for more details">⋯</span>
+      // Gauge slot: arc + value below
+      const gaugeHTML=hasGauge?`<div style="position:absolute;top:8px;right:10px;width:140px;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:0">${heroGauge(gaugeVal,color,thresholdFrac,thresholdLabel)}<div style="font-family:'Bebas Neue',monospace;font-size:22px;color:${color};line-height:1;margin-top:-4px">${valueText}</div></div>`:'';
+      return `<div class="hero-card" style="padding:10px 14px;background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 40%,transparent);min-height:96px;cursor:pointer;transition:border-color 0.15s;position:relative;${hasGauge?'padding-right:160px':''}" onclick="expandKPI('${label}', '${infoKey||''}')" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='color-mix(in srgb,var(--border) 40%,transparent)'" title="Click for detailed breakdown">
+        <span style="position:absolute;top:8px;right:12px;color:var(--text4);font-size:16px;line-height:1;z-index:3" title="Click for details">⋯</span>
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
+          <div class="stat-lbl" style="font-size:9px;letter-spacing:1.5px">${label}</div>
+          ${info?`<span style="font-size:8px;color:var(--text5);cursor:help;background:var(--bg3);width:12px;height:12px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);font-family:serif" title="${info.info.replace(/"/g,'&quot;')}">i</span>`:''}
         </div>
-        <div style="font-family:'Bebas Neue',monospace;font-size:28px;color:${color};line-height:1;margin-bottom:4px">${valueText}</div>
-        ${hasGauge?'':`<div style="font-size:var(--fsxs);color:var(--text4);opacity:0.85">${subText}</div>`}
+        ${hasGauge?'':`<div style="font-family:'Bebas Neue',monospace;font-size:26px;color:${color};line-height:1;margin-bottom:3px">${valueText}</div>`}
+        <div style="font-size:10px;color:var(--text4);opacity:0.8;line-height:1.3;margin-top:${hasGauge?'6px':'0'}">${subText}</div>
         ${gaugeHTML}
       </div>`;
-    };
+    };;
 
     // === Running stats for sparklines ===
     const _running={net:[],wr:[],pf:[],ev:[],avgW:[],avgL:[],rr:[],maxDD:[]};
@@ -3263,7 +3300,7 @@ function renderApp(){
     const subBar=document.createElement('div');
     subBar.style.cssText='display:flex;gap:5px;margin-bottom:12px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border);padding-bottom:10px';
     subBar.innerHTML=`<div style="display:flex;gap:4px">
-      ${[['summary','SUMMARY'],['charts','CHARTS'],['deep','DEEP DIVE']].map(([st,lbl])=>`<button class="btn-${analyticsSubTab===st||(!['summary','charts','deep'].includes(analyticsSubTab)&&st==='summary')?'g':'d'}" style="font-size:var(--fsxs);padding:5px 16px" onclick="analyticsSubTab='${st}';renderApp()">${lbl}</button>`).join('')}
+      ${[['summary','SUMMARY'],['charts','CHARTS']].map(([st,lbl])=>`<button class="btn-${analyticsSubTab===st||(!['summary','charts','deep'].includes(analyticsSubTab)&&st==='summary')?'g':'d'}" style="font-size:var(--fsxs);padding:5px 16px" onclick="analyticsSubTab='${st}';renderApp()">${lbl}</button>`).join('')}
     </div>
     ${analyticsSubTab==='charts'?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-left:8px">
       ${['equity','daily','monthly','dow','grade','tf','wr_ev','pf_ev','dist'].map(c=>`<button class="btn-${activeChart===c?'y':'d'}" style="font-size:var(--fsxs);padding:3px 9px" onclick="activeChart='${c}';renderApp()">${{equity:'EQ+DD',daily:'DAILY',monthly:'MONTHLY',dow:'DOW',grade:'GRADE',tf:'TF',wr_ev:'WR→EV',pf_ev:'PF→EV',dist:'DIST'}[c]}</button>`).join('')}
@@ -3423,6 +3460,46 @@ function renderApp(){
           runAISummary(rel,period);
         };
       },50);
+    
+      // ── DEEP DIVE merged here ─
+{
+
+      const scores={'WIN RATE':Math.min(100,Math.max(0,(S.wr-0.3)/0.4*100)),'PROFIT FACTOR':Math.min(100,Math.max(0,(S.pf-0.5)/2.5*100)),'EXP VALUE':Math.min(100,Math.max(0,S.ev>0?Math.min(100,S.ev/50*100):0)),'RISK:REWARD':Math.min(100,Math.max(0,(S.rr-0.5)/2*100)),'SHARPE':Math.min(100,Math.max(0,(S.sharpe+0.5)/3.5*100)),'CONSISTENCY':Math.min(100,Math.max(0,100-(S.maxWS+S.maxLS)*3)),'FEE DRAG':Math.min(100,Math.max(0,100-S.feeImpact*2)),'DRAWDOWN':Math.min(100,Math.max(0,S.net>0?(S.recovery/3)*100:0))};
+      const scored=Object.entries(scores).sort(([,a],[,b])=>a-b);
+      const getColor=s=>s>=70?'#00e5a0':s>=40?'#f5c842':'#ff3d5a';
+      const worst=scored[0];
+      const nodes=[{id:'ev',label:'EXP VALUE',score:scores['EXP VALUE'],x:380,y:30,w:160,h:48},{id:'pf',label:'PROFIT FACTOR',score:scores['PROFIT FACTOR'],x:160,y:130,w:160,h:48},{id:'wr',label:'WIN RATE',score:scores['WIN RATE'],x:50,y:230,w:140,h:48},{id:'rr',label:'RISK:REWARD',score:scores['RISK:REWARD'],x:280,y:230,w:140,h:48},{id:'sh',label:'SHARPE',score:scores['SHARPE'],x:620,y:130,w:140,h:48},{id:'dd',label:'DRAWDOWN',score:scores['DRAWDOWN'],x:520,y:230,w:140,h:48},{id:'co',label:'CONSISTENCY',score:scores['CONSISTENCY'],x:720,y:230,w:140,h:48},{id:'fe',label:'FEE DRAG',score:scores['FEE DRAG'],x:160,y:330,w:140,h:48}];
+      const edges=[['ev','pf'],['ev','sh'],['pf','wr'],['pf','rr'],['pf','fe'],['sh','dd'],['sh','co']];
+      const nodeMap=Object.fromEntries(nodes.map(n=>[n.id,n]));
+      const cx=n=>n.x+n.w/2,cy=n=>n.y+n.h/2;
+      const edgeSvg=edges.map(([a,b])=>{const na=nodeMap[a],nb=nodeMap[b];return`<line x1="${cx(na)}" y1="${na.y+na.h}" x2="${cx(nb)}" y2="${nb.y}" stroke="var(--text5)" stroke-width="1.5" stroke-dasharray="4,3"/>`;}).join('');
+      const nodeSvg=nodes.map(n=>{const c=getColor(n.score),isWorst=n.label===worst[0];return`<g><rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="2" fill="${c}" fill-opacity="${0.08+(n.score/100)*0.1}" stroke="${c}" stroke-width="${isWorst?2.5:1}" stroke-opacity="${isWorst?1:0.4}"/>${isWorst?`<text x="${cx(n)}" y="${n.y-5}" text-anchor="middle" fill="${c}" font-size="8" font-family="JetBrains Mono,monospace">▲ WEAKEST</text>`:''}<text x="${cx(n)}" y="${n.y+17}" text-anchor="middle" fill="${c}" font-size="9" font-family="JetBrains Mono,monospace" letter-spacing="1">${n.label}</text><text x="${cx(n)}" y="${n.y+33}" text-anchor="middle" fill="${c}" font-size="15" font-family="Bebas Neue,monospace">${n.score.toFixed(0)}</text></g>`;}).join('');
+      const deepDiv=document.createElement('div');
+      deepDiv.innerHTML=`
+        <div class="section" style="margin-bottom:10px">
+          <div class="sec-hd"><span>KPI DEPENDENCY FLOWCHART</span><span style="font-size:var(--fsxs);color:var(--text4)"><span style="color:var(--green)">●</span> ≥70 healthy &nbsp;<span style="color:var(--yellow)">●</span> ≥40 needs work &nbsp;<span style="color:var(--red)">●</span> critical</span></div>
+          <div style="padding:12px 4px"><svg width="100%" viewBox="0 0 920 400" xmlns="http://www.w3.org/2000/svg">${edgeSvg}${nodeSvg}</svg></div>
+          <div style="padding:0 14px 12px;display:grid;grid-template-columns:1fr 1fr;gap:5px">
+            ${[['EXP VALUE','WR×AvgWin − LossRate×AvgLoss. North star. Fix this last — fix its components first.','#00e5a0'],['PROFIT FACTOR','Gross profit ÷ gross loss. >1.5 healthy, >2 excellent.','#4a9eff'],['WIN RATE','% of trades profitable. Below 40% critical without very high R:R.','#f5c842'],['RISK:REWARD','AvgWin ÷ AvgLoss. Target 1.5R+ minimum per trade.','#a78bfa'],['SHARPE','Risk-adjusted return annualized. >1 acceptable, >2 good.','#4a9eff'],['CONSISTENCY','Long streaks = overtrading or rule breaks.','#f5c842'],['FEE DRAG','Commissions as % gross. >15% = significant drag.','#f5c842'],['DRAWDOWN','Recovery factor = Net ÷ MaxDD. >2 is healthy.','#ff3d5a']].map(([n,d,c])=>`<div style="background:var(--bg3);border:1px solid var(--border2);padding:7px 10px"><div style="font-size:var(--fsxs);color:${c};margin-bottom:2px">${n}</div><div style="font-size:9px;color:var(--text4);line-height:1.6">${d}</div></div>`).join('')}
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="section">
+            <div class="sec-hd">BY SYMBOL (detailed)</div>
+            <table><thead><tr><th>SYM</th><th>TRADES</th><th>WR</th><th>GROSS</th><th>FEES</th><th>NET</th></tr></thead><tbody>
+              ${Object.entries(S.syms).sort(([,a],[,b])=>b.pnl-a.pnl).map(([sym,s])=>`<tr class="tr-row"><td style="color:var(--text);font-weight:bold">${sym}</td><td>${s.count}</td><td style="color:${s.wins/s.count>=.5?'var(--green)':'var(--red)'}">${(s.wins/s.count*100).toFixed(0)}%</td><td style="color:var(--text3)">${fmt(s.grossPnl)}</td><td style="color:var(--yellow)">-$${s.fees.toFixed(0)}</td><td style="color:${gch(s.pnl)};font-family:'Bebas Neue',monospace;font-size:14px">${fmt(s.pnl)}</td></tr>`).join('')}
+            </tbody></table>
+          </div>
+          <div class="section">
+            <div class="sec-hd">BY SETUP (detailed)</div>
+            <table><thead><tr><th>SETUP</th><th>TRADES</th><th>WR</th><th>NET P&L</th></tr></thead><tbody>
+              ${Object.entries(S.setups).sort(([,a],[,b])=>b.pnl-a.pnl).map(([setup,s])=>`<tr class="tr-row"><td style="color:var(--text2)">${setup}</td><td>${s.count}</td><td style="color:${s.wins/s.count>=.5?'var(--green)':'var(--red)'}">${(s.wins/s.count*100).toFixed(0)}%</td><td style="color:${gch(s.pnl)};font-family:'Bebas Neue',monospace;font-size:14px">${fmt(s.pnl)}</td></tr>`).join('')}
+            </tbody></table>
+          </div>
+        </div>`;
+      content.appendChild(deepDiv);
+    
+      }
     }
 
     // ── CHARTS ───────────────────────────────────────────────────
@@ -3801,6 +3878,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       {id:'frost',color:'#7dd3fc',label:'Frost'},
       {id:'glass',color:'#60a5fa',label:'Glass'},
       {id:'aurora',color:'#c090ff',label:'Aurora'},
+      {id:'hyperdrive',color:'#d040ff',label:'Hyperdrive'},
+      {id:'mercury',color:'#d0d0d8',label:'Mercury'},
       {id:'stealth',color:'#34d399',label:'Stealth'},
       {id:'slate',color:'#58a6ff',label:'Slate'},
       {id:'mono',color:'#e0e0e0',label:'Mono'},
