@@ -311,7 +311,7 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 .auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
 /* theme switcher */
 .theme-dot{width:16px;height:16px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s}
-.theme-dot.active{border-color:var(--text2)}
+.theme-dot.active{border-color:var(--text);transform:scale(1.4);box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--text2)}
 /* toggle */
 .toggle-pill{display:inline-flex;background:var(--bg2);border:1px solid var(--border);border-radius:0;overflow:hidden}
 .toggle-pill button{background:none;border:none;color:var(--text4);padding:4px 12px;font-size:var(--fsxs);letter-spacing:1px;transition:all .15s}
@@ -359,7 +359,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='19.4';
+const VERSION='20.0';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1635,6 +1635,13 @@ function svgLineLabeled(pts,color,W,H,showTradeAmounts){
     });
   },50);
 
+  // SPY overlay line (if provided)
+  let spyPath='';
+  if(spyPts&&spyPts.length>=2){
+    // Use same sx/sy scaling as main chart
+    const spyLine='M'+spyPts.map((p,i)=>sx(i).toFixed(1)+','+sy(p.y).toFixed(1)).join(' L');
+    spyPath=`<path d="${spyLine}" stroke="#fbbf24" stroke-width="2" fill="none" stroke-dasharray="5,4" opacity="0.85"/>`;
+  }
   return`<svg id="${uniqueId}" width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}<defs>
     <linearGradient id="${uniqueId}_gradPos" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#34d399" stop-opacity="0.4"/><stop offset="50%" stop-color="#34d399" stop-opacity="0.15"/><stop offset="100%" stop-color="#34d399" stop-opacity="0"/></linearGradient>
     <linearGradient id="${uniqueId}_gradNeg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f87171" stop-opacity="0.4"/><stop offset="50%" stop-color="#f87171" stop-opacity="0.15"/><stop offset="100%" stop-color="#f87171" stop-opacity="0"/></linearGradient>
@@ -1644,7 +1651,7 @@ function svgLineLabeled(pts,color,W,H,showTradeAmounts){
   <!-- Positive area (above zero) clipped to upper portion -->
   <path d="${fill}" fill="url(#${uniqueId}_gradPos)" clip-path="url(#${uniqueId}_clipPos)"/>
   <!-- Negative area (below zero) clipped to lower portion -->
-  ${minY<0?`<path d="${fill}" fill="url(#${uniqueId}_gradNeg)" clip-path="url(#${uniqueId}_clipNeg)"/>`:''}<path d="${path}" stroke="${color}" stroke-width="2" fill="none"/>${dots}${endLabel}${highLabel}${lowLabel}${yt}${xt}${hoverZones}${tooltipHTML}</svg>`;
+  ${minY<0?`<path d="${fill}" fill="url(#${uniqueId}_gradNeg)" clip-path="url(#${uniqueId}_clipNeg)"/>`:''}<path d="${path}" stroke="${color}" stroke-width="2" fill="none"/>${spyPath||''}${dots}${endLabel}${highLabel}${lowLabel}${yt}${xt}${hoverZones}${tooltipHTML}</svg>`;
 }
 function svgLine(pts,color,W,H){
   if(!pts||pts.length<2)return'<p style="padding:20px;color:var(--text5);font-size:11px;text-align:center">Add at least 2 trades</p>';
@@ -1675,7 +1682,7 @@ function svgLine(pts,color,W,H){
   <!-- Positive area (above zero) clipped to upper portion -->
   <path d="${fill}" fill="url(#${uniqueId}_gradPos)" clip-path="url(#${uniqueId}_clipPos)"/>
   <!-- Negative area (below zero) clipped to lower portion -->
-  ${minY<0?`<path d="${fill}" fill="url(#${uniqueId}_gradNeg)" clip-path="url(#${uniqueId}_clipNeg)"/>`:''}<path d="${path}" stroke="${color}" stroke-width="2" fill="none"/>${dots}${yt}${xt}</svg>`;
+  ${minY<0?`<path d="${fill}" fill="url(#${uniqueId}_gradNeg)" clip-path="url(#${uniqueId}_clipNeg)"/>`:''}<path d="${path}" stroke="${color}" stroke-width="2" fill="none"/>${spyPath||''}${dots}${yt}${xt}</svg>`;
 }
 function svgBar(bars,W,H){if(!bars.length)return'';const PAD={t:10,r:20,b:28,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const vals=bars.map(b=>b.v),minY=Math.min(0,...vals),maxY=Math.max(0,...vals),rY=maxY-minY||1;const bw=Math.max(3,(cw/bars.length)-2),sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);let rects='',xl='';bars.forEach((b,i)=>{const x=PAD.l+(i/bars.length)*cw+(cw/bars.length-bw)/2,yv=sy(b.v);rects+=`<rect x="${x.toFixed(1)}" y="${(b.v>=0?yv:y0).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(yv-y0)).toFixed(1)}" fill="${b.v>=0?'#00e5a040':'#ff3d5a40'}" stroke="${b.v>=0?'#00e5a0':'#ff3d5a'}" stroke-width="1" rx="1"/>`;if(i%(Math.ceil(bars.length/8))===0)xl+=`<text x="${(x+bw/2).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="9" font-family="JetBrains Mono,monospace">${b.d}</text>`;});let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">$${v.toFixed(0)}</text>`;}return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)"/>${rects}${yt}${xl}</svg>`;}
 function svgXY(data,color,xFmt,W,H,refX){if(!data.length)return'';const PAD={t:16,r:65,b:30,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const xs=data.map(d=>d.x),ys=data.map(d=>d.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(0,...ys),maxY=Math.max(0,...ys);const rX=maxX-minX||1,rY=maxY-minY||1,sx=v=>PAD.l+((v-minX)/rX)*cw,sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);const path='M'+data.map(d=>sx(d.x).toFixed(1)+','+sy(d.y).toFixed(1)).join('L');let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">$${v.toFixed(0)}</text>`;}const xtS=Math.ceil(data.length/6);let xt='';data.forEach((d,i)=>{if(i%xtS===0)xt+=`<text x="${sx(d.x).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">${xFmt?xFmt(d.x):d.x}</text>`;});const zero=`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`;const you=refX!=null?`<line x1="${sx(refX).toFixed(1)}" y1="${PAD.t}" x2="${sx(refX).toFixed(1)}" y2="${PAD.t+ch}" stroke="${color}" stroke-dasharray="3,3" opacity=".4"/><text x="${sx(refX).toFixed(1)}" y="${PAD.t-3}" text-anchor="middle" fill="${color}" font-size="9">YOU</text>`:'';return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}${you}<path d="${path}" stroke="${color}" stroke-width="2.5" fill="none"/>` +yt+xt+'</svg>';}
@@ -1987,6 +1994,102 @@ window.expandKPI=function(label,infoKey){
   </div>`;
   document.body.appendChild(modal);
 };
+
+
+
+// Chart URL preview tooltip
+(function(){
+  let previewEl=null;
+  function showPreview(url,x,y){
+    if(!previewEl){
+      previewEl=document.createElement('div');
+      previewEl.style.cssText='position:fixed;z-index:9999;background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);pointer-events:none;transition:opacity 0.15s;opacity:0';
+      document.body.appendChild(previewEl);
+    }
+    // Detect if URL is an image or a webpage we can iframe/embed
+    const isImage=/\.(png|jpg|jpeg|gif|webp|bmp)(\?|$)/i.test(url);
+    const isTradingView=/tradingview\.com\/x\//.test(url);
+    let content='';
+    if(isImage){
+      content=`<img src="${url}" style="max-width:480px;max-height:320px;display:block;border-radius:6px" onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;color:var(--text5);font-size:11px\\'>Preview unavailable</div>'"/>`;
+    } else if(isTradingView){
+      // TradingView /x/ URLs are snapshot URLs; convert to .png snapshot
+      const snapId=url.match(/\/x\/([\w]+)/);
+      if(snapId){
+        const imgUrl=`https://s3.tradingview.com/snapshots/${snapId[1].toLowerCase().substring(0,1)}/${snapId[1]}.png`;
+        content=`<img src="${imgUrl}" style="max-width:480px;max-height:320px;display:block;border-radius:6px" onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;color:var(--text5);font-size:11px\\'>TradingView snapshot — click to view</div>'"/>`;
+      } else {
+        content='<div style="padding:20px;color:var(--text5);font-size:11px;max-width:300px">Chart link — click to open</div>';
+      }
+    } else {
+      content='<div style="padding:14px;color:var(--text4);font-size:11px;max-width:300px">'+url.substring(0,80)+(url.length>80?'...':'')+'</div>';
+    }
+    previewEl.innerHTML=content;
+    // Position
+    let left=x+12,top=y-50;
+    if(left+500>window.innerWidth)left=x-500;
+    if(top<10)top=y+20;
+    previewEl.style.left=left+'px';
+    previewEl.style.top=top+'px';
+    previewEl.style.opacity='1';
+  }
+  function hidePreview(){
+    if(previewEl)previewEl.style.opacity='0';
+  }
+  // Delegate hover events
+  document.addEventListener('mouseover',(e)=>{
+    const link=e.target.closest('.chart-link');
+    if(link&&link.dataset.url){
+      showPreview(link.dataset.url,e.clientX,e.clientY);
+    }
+  });
+  document.addEventListener('mouseout',(e)=>{
+    if(e.target.closest('.chart-link'))hidePreview();
+  });
+  document.addEventListener('mousemove',(e)=>{
+    if(previewEl&&previewEl.style.opacity==='1'){
+      let left=e.clientX+12,top=e.clientY-50;
+      if(left+500>window.innerWidth)left=e.clientX-500;
+      if(top<10)top=e.clientY+20;
+      previewEl.style.left=left+'px';
+      previewEl.style.top=top+'px';
+    }
+  });
+})();
+
+// SPY % return calculator — uses approximate annual returns as baseline
+// For accurate per-trade comparison, we'd need a real API; this provides reasonable approximation
+const SPY_ANNUAL_RETURNS={2020:0.184,2021:0.287,2022:-0.181,2023:0.262,2024:0.245,2025:0.13,2026:0.08};
+function spyReturnBetweenDates(startDate,endDate){
+  if(!startDate||!endDate)return 0;
+  const s=new Date(startDate),e=new Date(endDate);
+  if(s>=e)return 0;
+  const daysBetween=(e-s)/(1000*60*60*24);
+  let cumReturn=1;
+  let cur=new Date(s);
+  while(cur<e){
+    const yr=cur.getFullYear();
+    const annualR=SPY_ANNUAL_RETURNS[yr]||0.10;
+    const yearEnd=new Date(yr+1,0,1);
+    const periodEnd=yearEnd<e?yearEnd:e;
+    const daysInPeriod=(periodEnd-cur)/(1000*60*60*24);
+    const dailyR=Math.pow(1+annualR,1/365)-1;
+    cumReturn*=Math.pow(1+dailyR,daysInPeriod);
+    cur=periodEnd;
+  }
+  return cumReturn-1;
+}
+// Build SPY return curve at each trade's date (% from start)
+function buildSPYCurve(trades,startDate){
+  if(!trades.length||!startDate)return [];
+  return trades.map(t=>spyReturnBetweenDates(startDate,t.date)*100);
+}
+// Account % return at each trade
+function buildAcctPctCurve(trades,startBalance){
+  if(!trades.length||!startBalance)return [];
+  let bal=startBalance;
+  return trades.map(t=>{bal+=t.pnl;return((bal-startBalance)/startBalance)*100;});
+}
 
 // Toggle a tag on a trade (add if not present, remove if present)
 window.toggleTagOnTrade=async function(tid,tag){
@@ -2551,7 +2654,9 @@ function renderApp(){
             <button onclick="chartMode='equity';renderApp()" style="background:${chartMode==='equity'?'var(--blue)':'var(--bg3)'};color:${chartMode==='equity'?'var(--bg)':'var(--text3)'};border:none;border-left:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">EQUITY</button>
           </div>
           
-          <button class="btn-d" style="font-size:var(--fsxs);padding:4px 10px;margin-left:8px" onclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', document.querySelector('.cum-pl-chart').innerHTML)">⛶ EXPAND</button>
+          <button onclick="chartPctMode=!chartPctMode;renderApp()" style="background:${chartPctMode?'var(--blue)':'var(--bg3)'};color:${chartPctMode?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer;margin-left:8px">${chartPctMode?'%':'\$'}</button>
+            <button onclick="spyOverlay=!spyOverlay;renderApp()" style="background:${spyOverlay?'var(--yellow)':'var(--bg3)'};color:${spyOverlay?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">vs SPY</button>
+            <button class="btn-d" style="font-size:var(--fsxs);padding:4px 10px;margin-left:8px" onclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', document.querySelector('.cum-pl-chart').innerHTML)">⛶ EXPAND</button>
         </div>
       </div>
       <div class="cum-pl-chart" style="padding:14px 10px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%)">
@@ -2598,12 +2703,36 @@ function renderApp(){
           }
           // PNL MODE: pure cumulative trade P&L
           let c=0,pk=0;
+          if(chartPctMode){
+            // % MODE: show account % return based on starting balance
+            const startB=accountEquity||(ledgerEvents||[]).filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0)||1000;
+            const startPoint={y:0,pnl:0,id:null,date:null,symbol:null};
+            let bal=startB;
+            const points=filtTr.map(t=>{bal=bal+t.pnl;const pct=((bal-startB)/startB)*100;return{y:pct,pnl:t.pnl,id:t.id,date:t.date,symbol:t.symbol,type:t.type};});
+            // Add SPY overlay points if enabled
+            if(spyOverlay&&filtTr.length){
+              const startDate=filtTr[0].date;
+              const spyPts=filtTr.map(t=>({y:spyReturnBetweenDates(startDate,t.date)*100}));
+              return svgLineLabeled([startPoint,...points], chartColor,1400,380,true, [{y:0},...spyPts]);
+            }
+            return svgLineLabeled([startPoint,...points], chartColor,1400,380,true);
+          }
           const startPoint={y:0,pnl:0,id:null,date:null,symbol:null};
           return svgLineLabeled([startPoint,...filtTr.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl,id:t.id,date:t.date,symbol:t.symbol,type:t.type};})], chartColor,1400,380,true);
         })()}
       </div>
       <div style="padding:8px 16px 10px;display:flex;gap:18px;font-size:var(--fsxs);border-top:1px solid var(--border);justify-content:space-around;flex-wrap:wrap">
         <span style="color:var(--text4)">MAX DD <span style="color:var(--red);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">-$${S.maxDD.toFixed(0)}</span></span>
+        ${(()=>{
+          if(!tfTrades.length)return '';
+          const startB=accountEquity||(ledgerEvents||[]).filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0)||1000;
+          const acctPct=startB>0?(tfS.net/startB)*100:0;
+          const startD=tfTrades[0].date;
+          const endD=tfTrades[tfTrades.length-1].date;
+          const spyPct=spyReturnBetweenDates(startD,endD)*100;
+          const alpha=acctPct-spyPct;
+          return `<span style="color:var(--text4)">vs SPY <span style="color:${alpha>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Alpha = your return - SPY return for same period">${alpha>=0?'+':''}${alpha.toFixed(1)}% α</span></span>`;
+        })()}
         <span style="color:var(--text4)">TOTAL FEES <span style="color:var(--yellow);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">-$${S.totalFees.toFixed(0)}</span></span>
         <span style="color:var(--text4)">R:R <span style="color:${S.rr>=1.5?'var(--green)':S.rr>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.rr.toFixed(2)}R</span></span>
         <span style="color:var(--text4)">RECOVERY <span style="color:${S.recovery>=2?'var(--green)':S.recovery>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.recovery.toFixed(2)}×</span></span>
@@ -3031,7 +3160,7 @@ function renderApp(){
           </select></td>
           <td style="color:var(--text4);font-size:var(--fsxs);white-space:nowrap">${fmtDur(t.durationMins)}</td>
           <td style="padding:4px 9px">
-            ${t.chartUrl?`<a href="${t.chartUrl}" target="_blank" class="clink" style="margin-right:4px">📈</a>`:''}
+            ${t.chartUrl?`<a href="${t.chartUrl}" target="_blank" class="clink chart-link" data-url="${t.chartUrl}" style="margin-right:4px">📈</a>`:''}
             <input class="inline-txt" data-field="chartUrl" data-id="${t.id}" value="${t.chartUrl||''}" placeholder="chart url" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--blue);font-family:inherit;font-size:8px;width:${t.chartUrl?'40px':'70px'};padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='160px'" onblur="this.style.borderBottomColor='transparent';this.style.width=this.value?'40px':'70px';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()" title="${t.chartUrl||'Paste chart URL'}"/>
           </td>
           
@@ -3145,6 +3274,72 @@ function renderApp(){
     const curSub = ['summary','charts','deep'].includes(analyticsSubTab) ? analyticsSubTab : 'summary';
 
     if(curSub==='summary'){
+      // ═══ APPLE FITNESS RINGS — WR / PF / R:R ═══
+      const ringWR=S.wr*100; // 0-100
+      const ringPF=Math.min(1,S.pf/3)*100; // PF target 3 = 100%
+      const ringRR=Math.min(1,S.rr/3)*100; // R:R target 3 = 100%
+      const ringHTML=document.createElement('div');
+      ringHTML.style.cssText='background:transparent;padding:24px 16px 14px;margin-bottom:14px;display:flex;justify-content:center;align-items:center;gap:32px;flex-wrap:wrap';
+      // Render each ring
+      const ringSvg=(pct,color,size,strokeW)=>{
+        const r=size/2-strokeW;
+        const cx=size/2,cy=size/2;
+        const circ=2*Math.PI*r;
+        const dashOffset=circ*(1-Math.min(1,pct/100));
+        // Glow effect from filter
+        return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+          <defs><filter id="glow_${color.replace('#','')}_${size}"><feGaussianBlur stdDeviation="3"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${strokeW}" stroke-opacity="0.15"/>
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${strokeW}" stroke-dasharray="${circ}" stroke-dashoffset="${dashOffset}" stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})" filter="url(#glow_${color.replace('#','')}_${size})"/>
+        </svg>`;
+      };
+      // Triple-nested concentric rings
+      const tripleRing=()=>{
+        const size=220;
+        const cx=size/2,cy=size/2;
+        const ring=(r,strokeW,color,pct)=>{
+          const circ=2*Math.PI*r;
+          const dashOffset=circ*(1-Math.min(1,pct/100));
+          return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${strokeW}" stroke-opacity="0.15"/>
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${strokeW}" stroke-dasharray="${circ}" stroke-dashoffset="${dashOffset}" stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})"/>`;
+        };
+        // Outer ring: Win Rate (cyan/green), middle: Profit Factor (yellow), inner: R:R (pink)
+        return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="filter:drop-shadow(0 0 20px rgba(125,211,252,0.15))">
+          ${ring(95,16,'#34d399',ringWR)}
+          ${ring(72,16,'#fbbf24',ringPF)}
+          ${ring(49,16,'#f87171',ringRR)}
+        </svg>`;
+      };
+      ringHTML.innerHTML=`
+        <div style="position:relative;display:flex;flex-direction:column;align-items:center">
+          ${tripleRing()}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:200px">
+          <div style="padding:10px 14px;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.2);border-radius:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <span style="font-size:10px;letter-spacing:2px;color:#34d399;font-weight:bold">● WIN RATE</span>
+              <span style="font-family:'Bebas Neue',monospace;font-size:24px;color:#34d399">${(S.wr*100).toFixed(0)}%</span>
+            </div>
+            <div style="font-size:var(--fsxs);color:var(--text4)">${S.wins}W / ${S.losses}L · target 50%+</div>
+          </div>
+          <div style="padding:10px 14px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <span style="font-size:10px;letter-spacing:2px;color:#fbbf24;font-weight:bold">● PROFIT FACTOR</span>
+              <span style="font-family:'Bebas Neue',monospace;font-size:24px;color:#fbbf24">${S.pf>=99?'∞':S.pf.toFixed(2)}</span>
+            </div>
+            <div style="font-size:var(--fsxs);color:var(--text4)">$${S.grossW.toFixed(0)} won ÷ $${S.grossL.toFixed(0)} lost · target 1.5+</div>
+          </div>
+          <div style="padding:10px 14px;background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.2);border-radius:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <span style="font-size:10px;letter-spacing:2px;color:#f87171;font-weight:bold">● RISK : REWARD</span>
+              <span style="font-family:'Bebas Neue',monospace;font-size:24px;color:#f87171">${S.rr.toFixed(2)}R</span>
+            </div>
+            <div style="font-size:var(--fsxs);color:var(--text4)">$${S.avgW.toFixed(0)} avg win ÷ $${S.avgL.toFixed(0)} avg loss · target 2.0+</div>
+          </div>
+        </div>
+      `;
+      content.appendChild(ringHTML);
+      
       // KPI scores
       const scores={'WIN RATE':Math.min(100,Math.max(0,(S.wr-0.3)/0.4*100)),'PROFIT FACTOR':Math.min(100,Math.max(0,(S.pf-0.5)/2.5*100)),'EXP VALUE':Math.min(100,Math.max(0,S.ev>0?Math.min(100,S.ev/50*100):0)),'RISK:REWARD':Math.min(100,Math.max(0,(S.rr-0.5)/2*100)),'SHARPE':Math.min(100,Math.max(0,(S.sharpe+0.5)/3.5*100)),'FEE DRAG':Math.min(100,Math.max(0,100-S.feeImpact*2)),'DRAWDOWN':Math.min(100,Math.max(0,S.net>0?(S.recovery/3)*100:0))};
       const scored=Object.entries(scores).sort(([,a],[,b])=>a-b);
@@ -3624,7 +3819,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           <div style="display:flex;gap:12px;align-items:center">
             ${themes.map(t=>`<div style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer" onclick="savePref('theme','${t.id}');applyTheme();renderApp()">
               <div class="theme-dot ${prefs.theme===t.id||(!prefs.theme&&t.id==='dark')?'active':''}" style="background:${t.color}"></div>
-              <span style="font-size:var(--fsxs);color:var(--text4)">${t.label}</span>
+              <span style="font-size:var(--fsxs);color:${prefs.theme===t.id||(!prefs.theme&&t.id==='dark')?'var(--text)':'var(--text4)'};font-weight:${prefs.theme===t.id||(!prefs.theme&&t.id==='dark')?'bold':'normal'}">${t.label}${(prefs.theme===t.id||(!prefs.theme&&t.id==='dark'))?' ✓':''}</span>
             </div>`).join('')}
           </div>
         </div>
