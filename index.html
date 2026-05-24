@@ -379,7 +379,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='20.5';
+const VERSION='20.6';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -2695,10 +2695,7 @@ function renderApp(){
       return `<div class="hero-card" style="padding:10px 14px;background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 40%,transparent);min-height:96px;cursor:pointer;transition:border-color 0.15s;position:relative;${hasGauge?'padding-right:160px':''}" onclick="expandKPI('${label}', '${infoKey||''}')" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='color-mix(in srgb,var(--border) 40%,transparent)'" title="Click for detailed breakdown">
         <span style="position:absolute;top:8px;right:12px;color:var(--text4);font-size:16px;line-height:1;z-index:3" title="Click for details">⋯</span>
         <div style="display:flex;flex-direction:column;justify-content:space-between;height:100%;min-height:76px">
-          <div style="display:flex;align-items:center;gap:5px">
-            <div class="stat-lbl" style="font-size:9px;letter-spacing:1.5px">${label}</div>
-            ${info?`<span style="font-size:8px;color:var(--text5);cursor:help;background:var(--bg3);width:12px;height:12px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);font-family:serif" title="${info.info.replace(/"/g,'&quot;')}">i</span>`:''}
-          </div>
+          <div class="stat-lbl" style="font-size:9px;letter-spacing:1.5px">${label}</div>
           <div style="font-family:'Bebas Neue',monospace;font-size:${hasGauge?'24px':'26px'};color:${color};line-height:1;margin-top:auto">${valueText}</div>
           <div style="font-size:10px;color:var(--text4);opacity:0.85;line-height:1.3;margin-top:2px">${subText}</div>
         </div>
@@ -2823,7 +2820,7 @@ function renderApp(){
             <button class="btn-d" style="font-size:var(--fsxs);padding:4px 10px;margin-left:8px" onclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', document.querySelector('.cum-pl-chart').innerHTML)">⛶ EXPAND</button>
         </div>
       </div>
-      <div class="cum-pl-chart" style="padding:14px 10px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%)">
+      <div class="cum-pl-chart" style="padding:8px 10px 4px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%)">
         ${(()=>{
           const now=new Date();
           let cutoff=null;
@@ -3509,22 +3506,54 @@ function renderApp(){
       `;
       content.appendChild(ringHTML);
 
-      // Rich P&L distribution under rings (same as overview ROW 6)
-      const distCardA=document.createElement('div');
-      distCardA.className='section';
-      distCardA.style.cssText='margin-bottom:14px';
-      const _pnlsA=trades.map(t=>t.pnl);
-      const _minA=Math.min(..._pnlsA,0),_maxA=Math.max(..._pnlsA,0);
-      const _meanA=_pnlsA.reduce((s,p)=>s+p,0)/_pnlsA.length;
-      const _varA=_pnlsA.reduce((s,p)=>s+(p-_meanA)**2,0)/_pnlsA.length;
-      const _stdA=Math.sqrt(_varA);
-      const _binCountA=Math.min(20,Math.max(8,Math.floor(Math.sqrt(_pnlsA.length))));
-      const _binSizeA=(_maxA-_minA)/_binCountA||1;
-      const _binsA=Array(_binCountA).fill(0);
-      _pnlsA.forEach(p=>{const i=Math.min(_binCountA-1,Math.floor((p-_minA)/_binSizeA));_binsA[i]++;});
-      const _maxBinA=Math.max(..._binsA,1);
-      distCardA.innerHTML=`<div class="sec-hd" style="flex-wrap:wrap;gap:8px;padding:10px 14px 6px"><span>P&L DISTRIBUTION</span><div style="display:flex;gap:14px;font-size:var(--fsxs);align-items:center"><span style="color:var(--text4)">MEAN <span style="color:${_meanA>=0?'var(--green)':'var(--red)'}">${_meanA>=0?'+':''}$${_meanA.toFixed(2)}</span></span><span style="color:var(--text4)">STD DEV <span style="color:var(--yellow)">$${_stdA.toFixed(2)}</span></span><span style="color:var(--text4)">−1σ <span style="color:var(--yellow)">$${(_meanA-_stdA).toFixed(0)}</span></span><span style="color:var(--text4)">+1σ <span style="color:var(--yellow)">+$${(_meanA+_stdA).toFixed(0)}</span></span></div></div><div style="padding:14px 12px"><svg viewBox="0 0 1400 240" width="100%" style="display:block"><line x1="0" y1="210" x2="1400" y2="210" stroke="var(--border)" stroke-width="1"/>${_minA<0&&_maxA>0?(()=>{const zx=((0-_minA)/(_maxA-_minA))*1400;return `<line x1="${zx}" y1="0" x2="${zx}" y2="210" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2,3"/><text x="${zx+4}" y="14" fill="var(--text5)" font-size="12">$0</text>`;})():''}${(()=>{const mx=((_meanA-_minA)/(_maxA-_minA))*1400;return `<line x1="${mx}" y1="0" x2="${mx}" y2="210" stroke="#f5c842" stroke-width="1.5" stroke-dasharray="3,3" opacity=".7"/><text x="${mx+4}" y="32" fill="#f5c842" font-size="13">μ mean</text>`;})()}${_stdA>0?(()=>{const lx=((_meanA-_stdA-_minA)/(_maxA-_minA))*1400,rx=((_meanA+_stdA-_minA)/(_maxA-_minA))*1400;return `<rect x="${lx}" y="0" width="${rx-lx}" height="210" fill="#f5c842" opacity=".07"/><text x="${lx+4}" y="48" fill="#f5c842" font-size="11" opacity=".8">−1σ</text><text x="${rx-30}" y="48" fill="#f5c842" font-size="11" opacity=".8">+1σ</text>`;})():''}${_binsA.map((cnt,i)=>{const bx=(i/_binCountA)*1400;const bw=1400/_binCountA-3;const bh=(cnt/_maxBinA)*185;const by=210-bh;const binMid=_minA+(i+0.5)*_binSizeA;const color=binMid>=0?'#00e5a0':'#ff3d5a';return `<rect x="${bx+1.5}" y="${by}" width="${bw}" height="${bh}" fill="${color}" opacity=".75"><title>$${(_minA+i*_binSizeA).toFixed(0)} to $${(_minA+(i+1)*_binSizeA).toFixed(0)}: ${cnt} trade${cnt!==1?'s':''}</title></rect>${cnt>0?`<text x="${bx+bw/2+1.5}" y="${by-4}" fill="var(--text3)" font-size="11" text-anchor="middle">${cnt}</text>`:''}`;}).join('')}<text x="4" y="230" fill="var(--text4)" font-size="11">$${_minA.toFixed(0)}</text><text x="700" y="230" fill="var(--text4)" font-size="11" text-anchor="middle">$${((_minA+_maxA)/2).toFixed(0)}</text><text x="1396" y="230" fill="var(--text4)" font-size="11" text-anchor="end">$${_maxA.toFixed(0)}</text></svg></div>`;
-      content.appendChild(distCardA);
+
+      // Customizable distribution under rings (with metric toggle buttons)
+      if(trades.length>=3){
+        const distSection=document.createElement('div');
+        distSection.className='section';
+        distSection.style.cssText='margin-bottom:14px';
+        const cs={innerHTML:''};
+// Build dataset based on selected metric
+        const DIST_METRICS={
+          pnl:{label:'Net P&L per Trade',unit:'$',vals:()=>trades.map(t=>t.pnl),fmt:v=>'$'+v.toFixed(0),desc:'Distribution of net profit/loss per trade. Positive skew (tail right) is ideal — means occasional large wins relative to losses.'},
+          gross:{label:'Gross P&L per Trade',unit:'$',vals:()=>trades.map(t=>t.grossPnl||t.pnl),fmt:v=>'$'+v.toFixed(0),desc:'Distribution of gross P&L before fees. Reveals your raw edge before commissions.'},
+          pts:{label:'Points / Ticks per Trade',unit:'pts',vals:()=>trades.map(t=>{const p=PRESETS[t.symbol];if(!p)return 0;const dir=t.type==='LONG'?1:-1;return+((t.exit-t.entry)*dir/p.ts).toFixed(1);}),fmt:v=>v.toFixed(1)+'pts',desc:'Raw tick/point movement captured per trade. Separates P&L from position sizing and fees.'},
+          pct:{label:'% Account Gain/Loss',unit:'%',vals:()=>{let bal=accountEquity>0?accountEquity:50000;return trades.map(t=>{const p=(t.pnl/bal)*100;bal+=t.pnl;return+p.toFixed(3);});},fmt:v=>v.toFixed(2)+'%',desc:'P&L as % of account equity at time of trade. Shows risk exposure and position sizing consistency.'},
+          dur:{label:'Trade Duration (minutes)',unit:'min',vals:()=>trades.filter(t=>t.durationMins>0).map(t=>t.durationMins),fmt:v=>v.toFixed(0)+'m',desc:'Time held per trade in minutes. Clusters reveal your typical holding period and whether longer holds correlate with better outcomes.'},
+          rr:{label:'Realized R:R per Trade',unit:'R',vals:()=>trades.map(t=>{const avgL=trades.filter(x=>x.pnl<0).reduce((s,x)=>s+Math.abs(x.pnl),0)/Math.max(1,trades.filter(x=>x.pnl<0).length)||1;return+(t.pnl/avgL).toFixed(2);}),fmt:v=>v.toFixed(2)+'R',desc:"P&L as a multiple of avg loss. How often you achieve 1R, 2R, etc."},
+        };
+        const dm=DIST_METRICS[distMetric]||DIST_METRICS.pnl;
+        const vals=dm.vals().filter(v=>!isNaN(v)&&isFinite(v));
+        const mean=vals.reduce((a,b)=>a+b,0)/Math.max(vals.length,1);
+        const std=Math.sqrt(vals.reduce((s,v)=>s+(v-mean)**2,0)/Math.max(vals.length,1))||1;
+        const skew=vals.reduce((s,v)=>s+Math.pow((v-mean)/std,3),0)/Math.max(vals.length,1);
+        const kurt=vals.reduce((s,v)=>s+Math.pow((v-mean)/std,4),0)/Math.max(vals.length,1)-3;
+        const metricBtns=['pnl','gross','pts','pct','dur','rr'].map(m=>`<button class="btn-${distMetric===m?'y':'d'}" style="font-size:var(--fsxs);padding:3px 10px" onclick="distMetric='${m}';renderApp()">${{pnl:'NET P&L',gross:'GROSS P&L',pts:'POINTS',pct:'% ACCOUNT',dur:'DURATION',rr:'R-MULTIPLE'}[m]}</button>`).join('');
+        // Definitions panel
+        const DEFS=[
+          ['BELL CURVE','A histogram of your trades overlaid with a theoretical normal distribution (yellow curve). The shape reveals whether your edge is consistent or driven by outliers.'],
+          ['MEAN (μ)','Average value across all trades. Your expected outcome per trade for this metric.'],
+          ['STD DEV (σ)','Standard deviation — how spread out your results are. Lower = more consistent. Higher = more volatile/streaky.'],
+          ['SKEWNESS','Measures asymmetry. Positive skew = occasional large wins (good for traders). Negative skew = occasional large losses (dangerous).'],
+          ['EXCESS KURTOSIS','Fat tails vs normal distribution. Positive = more extreme outliers than expected. Negative = fewer extremes.'],
+        ];
+        cs.innerHTML=`<div class="sec-hd">
+            <span>DISTRIBUTION — ${dm.label}</span>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">${metricBtns}</div>
+          </div>
+          <div style="padding:12px 4px 6px;overflow-x:auto">${svgBellCurve(vals,940,240)}</div>
+          <div style="padding:0 14px 12px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+            ${[['MEAN',dm.fmt(mean),mean>=0?'var(--green)':'var(--red)'],['STD DEV',dm.fmt(std),'var(--text2)'],['SKEWNESS',skew.toFixed(3),skew>0?'var(--green)':'var(--red)'],['KURTOSIS',kurt.toFixed(3),Math.abs(kurt)<1?'var(--green)':kurt>0?'var(--yellow)':'var(--text2)']].map(([l,v,c])=>`<div style="background:var(--bg3);padding:8px 10px;border:1px solid var(--border2)"><div class="stat-lbl">${l}</div><div style="font-family:'Bebas Neue',monospace;font-size:18px;color:${c}">${v}</div></div>`).join('')}
+          </div>
+          <div style="padding:0 14px 12px;background:var(--bg3);margin:0 14px 14px;border:1px solid var(--border2)">
+            <div style="font-size:var(--fsxs);color:var(--text3);padding:8px 0 6px;letter-spacing:1px">${dm.desc}</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px">
+              ${DEFS.map(([t,d])=>`<div><div style="font-size:var(--fsxs);color:var(--yellow);margin-bottom:3px">${t}</div><div style="font-size:9px;color:var(--text4);line-height:1.6">${d}</div></div>`).join('')}
+            </div>
+          </div>`;
+        distSection.innerHTML=cs.innerHTML;
+        content.appendChild(distSection);
+      }
 
       
       // KPI scores
