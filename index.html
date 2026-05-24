@@ -379,7 +379,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='20.4';
+const VERSION='20.5';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1503,7 +1503,7 @@ function sparkline(data,color,w,h,showAxis){
   let axis='';
   if(showAxis){
     const lastVal=data[data.length-1],curY=sy(lastVal);
-    axis+=`<text x="${w-1}" y="${Math.max(8,curY-2)}" text-anchor="end" fill="${lastVal>=0?'#00e5a0':'#ff3d5a'}" font-size="8" font-family="JetBrains Mono,monospace">$${lastVal>=0?'+':''}${lastVal.toFixed(0)}</text>`;
+    axis+=`<text x="${w-1}" y="${Math.max(8,curY-2)}" text-anchor="end" fill="${lastVal>=0?'#00e5a0':'#ff3d5a'}" font-size="10" font-family="JetBrains Mono,monospace">$${lastVal>=0?'+':''}${lastVal.toFixed(0)}</text>`;
     axis+=`<text x="1" y="9" text-anchor="start" fill="#505070" font-size="7" font-family="JetBrains Mono,monospace">$${max.toFixed(0)}</text>`;
     if(min<0)axis+=`<text x="1" y="${h-2}" text-anchor="start" fill="#505070" font-size="7" font-family="JetBrains Mono,monospace">$${min.toFixed(0)}</text>`;
   }
@@ -1547,11 +1547,11 @@ function svgLineLabeled(pts,color,W,H,showTradeAmounts,spyPts,yUnit){
   // High/low labels
   const maxPt=pts.reduce((a,b)=>b.y>a.y?b:a),minPt=pts.reduce((a,b)=>b.y<a.y?b:a);
   const maxIdx=pts.indexOf(maxPt),minIdx=pts.indexOf(minPt);
-  const highLabel=`<text x="${sx(maxIdx).toFixed(1)}" y="${(sy(maxPt.y)-6).toFixed(1)}" text-anchor="middle" fill="#00e5a0" font-size="8" font-family="JetBrains Mono,monospace" opacity=".7">$${maxPt.y.toFixed(0)}</text>`;
-  const lowLabel=minPt.y<0?`<text x="${sx(minIdx).toFixed(1)}" y="${(sy(minPt.y)+12).toFixed(1)}" text-anchor="middle" fill="#ff3d5a" font-size="8" font-family="JetBrains Mono,monospace" opacity=".7">$${minPt.y.toFixed(0)}</text>`:'';
+  const highLabel=`<text x="${sx(maxIdx).toFixed(1)}" y="${(sy(maxPt.y)-6).toFixed(1)}" text-anchor="middle" fill="#00e5a0" font-size="8" font-family="JetBrains Mono,monospace" opacity=".85" font-size="13" font-weight="600">$${maxPt.y.toFixed(0)}</text>`;
+  const lowLabel=minPt.y<0?`<text x="${sx(minIdx).toFixed(1)}" y="${(sy(minPt.y)+12).toFixed(1)}" text-anchor="middle" fill="#ff3d5a" font-size="8" font-family="JetBrains Mono,monospace" opacity=".85" font-size="13" font-weight="600">$${minPt.y.toFixed(0)}</text>`:'';
   let yg='',yt='';
-  for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="11" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}
-  let xt='';const step=Math.max(1,Math.floor(pts.length/8));for(let i=0;i<pts.length;i+=step)xt+=`<text x="${sx(i).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text2)" font-size="11" font-family="JetBrains Mono,monospace" font-weight="500">${i+1}</text>`;
+  for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="13" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}
+  let xt='';const step=Math.max(1,Math.floor(pts.length/8));for(let i=0;i<pts.length;i+=step)xt+=`<text x="${sx(i).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text2)" font-size="13" font-family="JetBrains Mono,monospace" font-weight="500">${i+1}</text>`;
   const zero=minY<=0&&maxY>=0?`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`:'';
 
   // === INTERACTIVE OVERLAY: invisible hit-zones + crosshair + tooltip ===
@@ -1698,8 +1698,8 @@ function svgLine(pts,color,W,H){
   const baseline=(minY<=0&&maxY>=0)?y0:floor;
   const fill='M'+sx(0)+','+baseline.toFixed(1)+' L'+pts.map((p,i)=>sx(i).toFixed(1)+','+sy(p.y).toFixed(1)).join(' L')+' L'+sx(pts.length-1)+','+baseline.toFixed(1)+' Z';
   const dots=pts.map((p,i)=>`<circle cx="${sx(i).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="2.5" fill="${p.pnl>=0?'#00e5a0':'#ff3d5a'}" stroke="var(--bg)" stroke-width="1.5"/>`).join('');
-  let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="11" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}
-  let xt='';const step=Math.max(1,Math.floor(pts.length/8));for(let i=0;i<pts.length;i+=step)xt+=`<text x="${sx(i).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text2)" font-size="11" font-family="JetBrains Mono,monospace" font-weight="500">${i+1}</text>`;
+  let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="13" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}
+  let xt='';const step=Math.max(1,Math.floor(pts.length/8));for(let i=0;i<pts.length;i+=step)xt+=`<text x="${sx(i).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text2)" font-size="13" font-family="JetBrains Mono,monospace" font-weight="500">${i+1}</text>`;
   const zero=minY<=0&&maxY>=0?`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`:'' ;
   return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}<defs>
     <linearGradient id="${uniqueId}_gradPos" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#34d399" stop-opacity="0.4"/><stop offset="50%" stop-color="#34d399" stop-opacity="0.15"/><stop offset="100%" stop-color="#34d399" stop-opacity="0"/></linearGradient>
@@ -1715,8 +1715,8 @@ function svgLine(pts,color,W,H){
   ${minY<0?`<path d="${path}" stroke="#f87171" stroke-width="2" fill="none" clip-path="url(#${uniqueId}_clipNeg)"/>`:''}
   ${spyPath||''}${dots}${yt}${xt}</svg>`;
 }
-function svgBar(bars,W,H){if(!bars.length)return'';const PAD={t:10,r:20,b:28,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const vals=bars.map(b=>b.v),minY=Math.min(0,...vals),maxY=Math.max(0,...vals),rY=maxY-minY||1;const bw=Math.max(3,(cw/bars.length)-2),sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);let rects='',xl='';bars.forEach((b,i)=>{const x=PAD.l+(i/bars.length)*cw+(cw/bars.length-bw)/2,yv=sy(b.v);rects+=`<rect x="${x.toFixed(1)}" y="${(b.v>=0?yv:y0).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(yv-y0)).toFixed(1)}" fill="${b.v>=0?'#00e5a040':'#ff3d5a40'}" stroke="${b.v>=0?'#00e5a0':'#ff3d5a'}" stroke-width="1" rx="1"/>`;if(i%(Math.ceil(bars.length/8))===0)xl+=`<text x="${(x+bw/2).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="9" font-family="JetBrains Mono,monospace">${b.d}</text>`;});let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="11" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)"/>${rects}${yt}${xl}</svg>`;}
-function svgXY(data,color,xFmt,W,H,refX){if(!data.length)return'';const PAD={t:16,r:65,b:30,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const xs=data.map(d=>d.x),ys=data.map(d=>d.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(0,...ys),maxY=Math.max(0,...ys);const rX=maxX-minX||1,rY=maxY-minY||1,sx=v=>PAD.l+((v-minX)/rX)*cw,sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);const path='M'+data.map(d=>sx(d.x).toFixed(1)+','+sy(d.y).toFixed(1)).join('L');let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="11" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}const xtS=Math.ceil(data.length/6);let xt='';data.forEach((d,i)=>{if(i%xtS===0)xt+=`<text x="${sx(d.x).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">${xFmt?xFmt(d.x):d.x}</text>`;});const zero=`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`;const you=refX!=null?`<line x1="${sx(refX).toFixed(1)}" y1="${PAD.t}" x2="${sx(refX).toFixed(1)}" y2="${PAD.t+ch}" stroke="${color}" stroke-dasharray="3,3" opacity=".4"/><text x="${sx(refX).toFixed(1)}" y="${PAD.t-3}" text-anchor="middle" fill="${color}" font-size="9">YOU</text>`:'';return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}${you}<path d="${path}" stroke="${color}" stroke-width="2.5" fill="none"/>` +yt+xt+'</svg>';}
+function svgBar(bars,W,H){if(!bars.length)return'';const PAD={t:10,r:20,b:28,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const vals=bars.map(b=>b.v),minY=Math.min(0,...vals),maxY=Math.max(0,...vals),rY=maxY-minY||1;const bw=Math.max(3,(cw/bars.length)-2),sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);let rects='',xl='';bars.forEach((b,i)=>{const x=PAD.l+(i/bars.length)*cw+(cw/bars.length-bw)/2,yv=sy(b.v);rects+=`<rect x="${x.toFixed(1)}" y="${(b.v>=0?yv:y0).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(yv-y0)).toFixed(1)}" fill="${b.v>=0?'#00e5a040':'#ff3d5a40'}" stroke="${b.v>=0?'#00e5a0':'#ff3d5a'}" stroke-width="1" rx="1"/>`;if(i%(Math.ceil(bars.length/8))===0)xl+=`<text x="${(x+bw/2).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="9" font-family="JetBrains Mono,monospace">${b.d}</text>`;});let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="13" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)"/>${rects}${yt}${xl}</svg>`;}
+function svgXY(data,color,xFmt,W,H,refX){if(!data.length)return'';const PAD={t:16,r:65,b:30,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const xs=data.map(d=>d.x),ys=data.map(d=>d.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(0,...ys),maxY=Math.max(0,...ys);const rX=maxX-minX||1,rY=maxY-minY||1,sx=v=>PAD.l+((v-minX)/rX)*cw,sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);const path='M'+data.map(d=>sx(d.x).toFixed(1)+','+sy(d.y).toFixed(1)).join('L');let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="13" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}const xtS=Math.ceil(data.length/6);let xt='';data.forEach((d,i)=>{if(i%xtS===0)xt+=`<text x="${sx(d.x).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">${xFmt?xFmt(d.x):d.x}</text>`;});const zero=`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`;const you=refX!=null?`<line x1="${sx(refX).toFixed(1)}" y1="${PAD.t}" x2="${sx(refX).toFixed(1)}" y2="${PAD.t+ch}" stroke="${color}" stroke-dasharray="3,3" opacity=".4"/><text x="${sx(refX).toFixed(1)}" y="${PAD.t-3}" text-anchor="middle" fill="${color}" font-size="9">YOU</text>`:'';return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}${you}<path d="${path}" stroke="${color}" stroke-width="2.5" fill="none"/>` +yt+xt+'</svg>';}
 
 // KPI card with tooltip + warning + sparkline
 function kpiCard(label,val,sub,color,sparkData,sparkColor,big,showAxisOnSpark){
@@ -2087,6 +2087,61 @@ window.expandKPI=function(label,infoKey){
     }
   });
 })();
+
+
+// SPY data cache + real fetcher
+let _spyCache={};
+async function fetchSPYData(startDate,endDate){
+  const key=startDate+'_'+endDate;
+  if(_spyCache[key])return _spyCache[key];
+  try{
+    const p1=Math.floor(new Date(startDate).getTime()/1000);
+    const p2=Math.floor(new Date(endDate).getTime()/1000)+86400;
+    const url=`https://query1.finance.yahoo.com/v8/finance/chart/SPY?period1=${p1}&period2=${p2}&interval=1d`;
+    const res=await fetch(url);
+    if(!res.ok)throw new Error('SPY fetch failed: '+res.status);
+    const j=await res.json();
+    const r=j?.chart?.result?.[0];
+    if(!r)throw new Error('No result');
+    const ts=r.timestamp||[];
+    const closes=r.indicators?.quote?.[0]?.close||[];
+    const data={};
+    ts.forEach((t,i)=>{
+      const dt=new Date(t*1000).toISOString().slice(0,10);
+      if(closes[i]!=null)data[dt]=closes[i];
+    });
+    _spyCache[key]=data;
+    return data;
+  }catch(e){
+    console.warn('SPY fetch failed, using approximation:',e.message);
+    return null;
+  }
+}
+// Calculate SPY return % between two dates using real data (if cached) or approx
+function spyReturnReal(startDate,endDate,spyData){
+  if(!spyData)return spyReturnBetweenDates(startDate,endDate);
+  // Find closest available SPY prices
+  const dates=Object.keys(spyData).sort();
+  if(!dates.length)return spyReturnBetweenDates(startDate,endDate);
+  const sIdx=dates.findIndex(d=>d>=startDate);
+  const eIdx=dates.findIndex(d=>d>=endDate);
+  const sPx=spyData[dates[sIdx<0?0:sIdx]];
+  const ePx=spyData[dates[eIdx<0?dates.length-1:eIdx]];
+  if(!sPx||!ePx)return 0;
+  return (ePx-sPx)/sPx;
+}
+// Trigger SPY fetch when overlay enabled and we have trades
+function ensureSPYData(){
+  if(!spyOverlay||!trades.length)return;
+  const startD=trades[0].date,endD=trades[trades.length-1].date;
+  const key=startD+'_'+endD;
+  if(_spyCache[key]||_spyCache._loading===key)return;
+  _spyCache._loading=key;
+  fetchSPYData(startD,endD).then(d=>{
+    _spyCache._loading=null;
+    if(d)renderApp(); // re-render with real data
+  });
+}
 
 // SPY % return calculator — uses approximate annual returns as baseline
 // For accurate per-trade comparison, we'd need a real API; this provides reasonable approximation
@@ -2779,6 +2834,7 @@ function renderApp(){
           const cutStr=cutoff?cutoff.toISOString().slice(0,10):null;
           const filtTr=cutStr?trades.filter(t=>t.date>=cutStr):trades;
           if(!filtTr.length){return '<div style="padding:120px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px">NO TRADES IN '+chartTF.toUpperCase()+'</div>';}
+          ensureSPYData();
           // EQUITY MODE: track actual account value over time, applying deposits as they happen
           const chartColor=chartMode==='equity'?'#4a9eff':'#00e5a0';
           if(chartMode==='equity'){
@@ -2821,7 +2877,9 @@ function renderApp(){
             // Add SPY overlay points if enabled
             if(spyOverlay&&filtTr.length){
               const startDate=filtTr[0].date;
-              const spyPts=filtTr.map(t=>({y:spyReturnBetweenDates(startDate,t.date)*100}));
+              const spyDataKey=trades[0]?.date+'_'+trades[trades.length-1]?.date;
+              const spyData=_spyCache[spyDataKey];
+              const spyPts=filtTr.map(t=>({y:spyReturnReal(startDate,t.date,spyData)*100}));
               return svgLineLabeled([startPoint,...points], chartColor,1400,380,true, [{y:0},...spyPts]);
             }
             return svgLineLabeled([startPoint,...points], chartColor,1400,380,true);
@@ -2838,7 +2896,9 @@ function renderApp(){
           const acctPct=startB>0?(tfS.net/startB)*100:0;
           const startD=tfTrades[0].date;
           const endD=tfTrades[tfTrades.length-1].date;
-          const spyPct=spyReturnBetweenDates(startD,endD)*100;
+          const spyDataKey=trades[0]?.date+'_'+trades[trades.length-1]?.date;
+          const spyData=_spyCache[spyDataKey];
+          const spyPct=(spyData?spyReturnReal(startD,endD,spyData):spyReturnBetweenDates(startD,endD))*100;
           const alpha=acctPct-spyPct;
           return `<span style="color:var(--text4)">vs SPY <span style="color:${alpha>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Alpha = your return - SPY return for same period">${alpha>=0?'+':''}${alpha.toFixed(1)}% α</span></span>`;
         })()}
@@ -3448,43 +3508,24 @@ function renderApp(){
         </div>
       `;
       content.appendChild(ringHTML);
-      // Add distribution chart right after rings
-      const distCard=document.createElement('div');
-      distCard.className='section';
-      distCard.style.cssText='margin-bottom:14px;padding:14px';
-      distCard.innerHTML=`<div class="sec-hd" style="padding:0 0 8px 0">P&L DISTRIBUTION</div>
-        ${(()=>{
-          if(!trades.length)return '<div style="padding:20px;color:var(--text5);font-size:11px;text-align:center">Need trades</div>';
-          // Build histogram bins
-          const pnls=trades.map(t=>t.pnl);
-          const minP=Math.min(...pnls),maxP=Math.max(...pnls);
-          const range=Math.max(maxP-minP,1);
-          const nBins=12;
-          const binSize=range/nBins;
-          const bins=Array(nBins).fill(0);
-          pnls.forEach(p=>{
-            let idx=Math.floor((p-minP)/binSize);
-            if(idx>=nBins)idx=nBins-1;
-            if(idx<0)idx=0;
-            bins[idx]++;
-          });
-          const maxCount=Math.max(...bins,1);
-          const W=1400,H=180,PAD=20;
-          const bw=(W-2*PAD)/nBins;
-          const zeroIdx=Math.max(0,Math.min(nBins-1,Math.floor((0-minP)/binSize)));
-          return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">
-            ${bins.map((c,i)=>{
-              const h=(c/maxCount)*(H-50);
-              const x=PAD+i*bw;
-              const y=H-30-h;
-              const binMid=minP+(i+0.5)*binSize;
-              const fill=binMid>=0?'#34d399':'#f87171';
-              return `<rect x="${(x+2).toFixed(1)}" y="${y.toFixed(1)}" width="${(bw-4).toFixed(1)}" height="${h.toFixed(1)}" fill="${fill}" opacity="0.6"/><text x="${(x+bw/2).toFixed(1)}" y="${(y-4).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--text3)" font-family="JetBrains Mono,monospace">${c||''}</text>`;
-            }).join('')}
-            ${[0,0.25,0.5,0.75,1].map(p=>{const v=minP+p*range;return `<text x="${(PAD+p*(W-2*PAD)).toFixed(1)}" y="${H-10}" text-anchor="middle" font-size="9" fill="var(--text4)" font-family="JetBrains Mono,monospace">${v>=0?'+$':'-$'}${Math.abs(v).toFixed(0)}</text>`;}).join('')}
-          </svg>`;
-        })()}`;
-      content.appendChild(distCard);
+
+      // Rich P&L distribution under rings (same as overview ROW 6)
+      const distCardA=document.createElement('div');
+      distCardA.className='section';
+      distCardA.style.cssText='margin-bottom:14px';
+      const _pnlsA=trades.map(t=>t.pnl);
+      const _minA=Math.min(..._pnlsA,0),_maxA=Math.max(..._pnlsA,0);
+      const _meanA=_pnlsA.reduce((s,p)=>s+p,0)/_pnlsA.length;
+      const _varA=_pnlsA.reduce((s,p)=>s+(p-_meanA)**2,0)/_pnlsA.length;
+      const _stdA=Math.sqrt(_varA);
+      const _binCountA=Math.min(20,Math.max(8,Math.floor(Math.sqrt(_pnlsA.length))));
+      const _binSizeA=(_maxA-_minA)/_binCountA||1;
+      const _binsA=Array(_binCountA).fill(0);
+      _pnlsA.forEach(p=>{const i=Math.min(_binCountA-1,Math.floor((p-_minA)/_binSizeA));_binsA[i]++;});
+      const _maxBinA=Math.max(..._binsA,1);
+      distCardA.innerHTML=`<div class="sec-hd" style="flex-wrap:wrap;gap:8px;padding:10px 14px 6px"><span>P&L DISTRIBUTION</span><div style="display:flex;gap:14px;font-size:var(--fsxs);align-items:center"><span style="color:var(--text4)">MEAN <span style="color:${_meanA>=0?'var(--green)':'var(--red)'}">${_meanA>=0?'+':''}$${_meanA.toFixed(2)}</span></span><span style="color:var(--text4)">STD DEV <span style="color:var(--yellow)">$${_stdA.toFixed(2)}</span></span><span style="color:var(--text4)">−1σ <span style="color:var(--yellow)">$${(_meanA-_stdA).toFixed(0)}</span></span><span style="color:var(--text4)">+1σ <span style="color:var(--yellow)">+$${(_meanA+_stdA).toFixed(0)}</span></span></div></div><div style="padding:14px 12px"><svg viewBox="0 0 1400 240" width="100%" style="display:block"><line x1="0" y1="210" x2="1400" y2="210" stroke="var(--border)" stroke-width="1"/>${_minA<0&&_maxA>0?(()=>{const zx=((0-_minA)/(_maxA-_minA))*1400;return `<line x1="${zx}" y1="0" x2="${zx}" y2="210" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2,3"/><text x="${zx+4}" y="14" fill="var(--text5)" font-size="12">$0</text>`;})():''}${(()=>{const mx=((_meanA-_minA)/(_maxA-_minA))*1400;return `<line x1="${mx}" y1="0" x2="${mx}" y2="210" stroke="#f5c842" stroke-width="1.5" stroke-dasharray="3,3" opacity=".7"/><text x="${mx+4}" y="32" fill="#f5c842" font-size="13">μ mean</text>`;})()}${_stdA>0?(()=>{const lx=((_meanA-_stdA-_minA)/(_maxA-_minA))*1400,rx=((_meanA+_stdA-_minA)/(_maxA-_minA))*1400;return `<rect x="${lx}" y="0" width="${rx-lx}" height="210" fill="#f5c842" opacity=".07"/><text x="${lx+4}" y="48" fill="#f5c842" font-size="11" opacity=".8">−1σ</text><text x="${rx-30}" y="48" fill="#f5c842" font-size="11" opacity=".8">+1σ</text>`;})():''}${_binsA.map((cnt,i)=>{const bx=(i/_binCountA)*1400;const bw=1400/_binCountA-3;const bh=(cnt/_maxBinA)*185;const by=210-bh;const binMid=_minA+(i+0.5)*_binSizeA;const color=binMid>=0?'#00e5a0':'#ff3d5a';return `<rect x="${bx+1.5}" y="${by}" width="${bw}" height="${bh}" fill="${color}" opacity=".75"><title>$${(_minA+i*_binSizeA).toFixed(0)} to $${(_minA+(i+1)*_binSizeA).toFixed(0)}: ${cnt} trade${cnt!==1?'s':''}</title></rect>${cnt>0?`<text x="${bx+bw/2+1.5}" y="${by-4}" fill="var(--text3)" font-size="11" text-anchor="middle">${cnt}</text>`:''}`;}).join('')}<text x="4" y="230" fill="var(--text4)" font-size="11">$${_minA.toFixed(0)}</text><text x="700" y="230" fill="var(--text4)" font-size="11" text-anchor="middle">$${((_minA+_maxA)/2).toFixed(0)}</text><text x="1396" y="230" fill="var(--text4)" font-size="11" text-anchor="end">$${_maxA.toFixed(0)}</text></svg></div>`;
+      content.appendChild(distCardA);
+
       
       // KPI scores
       const scores={'WIN RATE':Math.min(100,Math.max(0,(S.wr-0.3)/0.4*100)),'PROFIT FACTOR':Math.min(100,Math.max(0,(S.pf-0.5)/2.5*100)),'EXP VALUE':Math.min(100,Math.max(0,S.ev>0?Math.min(100,S.ev/50*100):0)),'RISK:REWARD':Math.min(100,Math.max(0,(S.rr-0.5)/2*100)),'SHARPE':Math.min(100,Math.max(0,(S.sharpe+0.5)/3.5*100)),'FEE DRAG':Math.min(100,Math.max(0,100-S.feeImpact*2)),'DRAWDOWN':Math.min(100,Math.max(0,S.net>0?(S.recovery/3)*100:0))};
