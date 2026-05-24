@@ -133,20 +133,6 @@
 [data-theme="slate"] .kpi-strip > .mini-card,[data-theme="slate"] .breakdown-strip > .section{border-right:1px solid rgba(125,133,144,0.1)}
 [data-theme="slate"] .btn-ghost.active{border-bottom:2px solid #58a6ff;color:#e6edf3}
 
-/* ──── NEON — vibrant retro-futurism, high saturation ──── */
-[data-theme="neon"]{--bg:#0a0014;--bg1:#15041e;--bg2:#0f0218;--bg3:#0a000f;--border:#3a0a60;--border2:#250640;--text:#f8f0ff;--text2:#d8b8f0;--text3:#a880c8;--text4:#b890d0;--text5:#806098;--green:#00ff9e;--red:#ff2080;--yellow:#ffe040;--blue:#00d8ff;--purple:#d860ff;}
-[data-theme="neon"] .section{background:rgba(58,10,96,0.2);border:1px solid rgba(216,96,255,0.25);border-radius:14px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 0 24px rgba(216,96,255,0.05) inset}
-[data-theme="neon"] .hero-card{background:linear-gradient(135deg, rgba(216,96,255,0.08) 0%, rgba(0,216,255,0.05) 100%);border:1px solid rgba(216,96,255,0.3);border-radius:12px;backdrop-filter:blur(20px);transition:all 0.25s;box-shadow:0 0 24px rgba(216,96,255,0.06) inset}
-[data-theme="neon"] .hero-card:hover{border-color:rgba(0,255,158,0.5);box-shadow:0 0 32px rgba(0,255,158,0.15) inset, 0 0 18px rgba(0,255,158,0.08)}
-[data-theme="neon"] .mini-card{background:rgba(216,96,255,0.04)}
-[data-theme="neon"] .kpi-strip,[data-theme="neon"] .breakdown-strip{background:rgba(58,10,96,0.2);border:1px solid rgba(216,96,255,0.25);border-radius:12px;backdrop-filter:blur(20px)}
-[data-theme="neon"] .sec-hd{color:#d860ff;letter-spacing:3px;padding:14px 18px 6px;text-shadow:0 0 8px rgba(216,96,255,0.4)}
-[data-theme="neon"] .stat-lbl{color:rgba(216,184,240,0.6)}
-[data-theme="neon"] th{background:transparent;color:#a880c8;border-bottom:1px solid rgba(216,96,255,0.2)}
-[data-theme="neon"] td{border-bottom:1px solid rgba(216,96,255,0.08)}
-[data-theme="neon"] .kpi-strip > .mini-card,[data-theme="neon"] .breakdown-strip > .section{border-right:1px solid rgba(216,96,255,0.12)}
-[data-theme="neon"] .btn-ghost.active{border-bottom:2px solid #00ff9e;color:#00ff9e;text-shadow:0 0 8px rgba(0,255,158,0.4)}
-
 /* ──── PAPER — light theme for daytime ──── */
 [data-theme="paper"]{--bg:#f5f5f2;--bg1:#ffffff;--bg2:#fafaf7;--bg3:#f0f0ec;--border:#d8d8d4;--border2:#e8e8e4;--text:#1a1a1a;--text2:#3a3a3a;--text3:#6a6a6a;--text4:#888888;--text5:#a8a8a8;--green:#10b981;--red:#dc2626;--yellow:#d97706;--blue:#2563eb;--purple:#7c3aed;}
 [data-theme="paper"] body,[data-theme="paper"] html{background:#f5f5f2}
@@ -231,23 +217,6 @@
 }
 
 
-/* ──── HYPERDRIVE — Animated holographic neon, cyber/futuristic ──── */
-[data-theme="hyperdrive"]{--bg:#05010f;--bg1:#0d0420;--bg2:#080216;--bg3:#04010c;--border:#3a1060;--border2:#251040;--text:#f0f8ff;--text2:#c0d8f0;--text3:#90b0d8;--text4:#a0c0e0;--text5:#6080a8;--green:#00ffea;--red:#ff0066;--yellow:#ffea00;--blue:#00b0ff;--purple:#d040ff;}
-@keyframes hyperdrive-bg{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-[data-theme="hyperdrive"] body,[data-theme="hyperdrive"] html{background:linear-gradient(135deg, #05010f 0%, #0a0220 25%, #14042c 50%, #0a0220 75%, #05010f 100%);background-size:400% 400%;background-attachment:fixed;animation:hyperdrive-bg 30s ease infinite}
-[data-theme="hyperdrive"] .section,[data-theme="hyperdrive"] .kpi-strip,[data-theme="hyperdrive"] .breakdown-strip{background:linear-gradient(135deg,rgba(208,64,255,0.05) 0%,rgba(0,176,255,0.04) 50%,rgba(0,255,234,0.03) 100%) !important;border:1px solid rgba(208,64,255,0.2) !important;backdrop-filter:blur(40px) saturate(200%) !important;-webkit-backdrop-filter:blur(40px) saturate(200%) !important;box-shadow:0 0 30px rgba(208,64,255,0.08) inset, 0 8px 32px rgba(0,0,0,0.4), 0 0 20px rgba(0,176,255,0.04) !important;border-radius:16px !important}
-[data-theme="hyperdrive"] .hero-card{background:linear-gradient(135deg,rgba(208,64,255,0.07) 0%,rgba(0,176,255,0.05) 100%) !important;border:1px solid rgba(208,64,255,0.25) !important;backdrop-filter:blur(40px) saturate(200%) !important;-webkit-backdrop-filter:blur(40px) saturate(200%) !important;box-shadow:0 0 24px rgba(208,64,255,0.1) inset, 0 8px 24px rgba(0,0,0,0.3) !important;border-radius:14px !important;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;position:relative;overflow:hidden}
-[data-theme="hyperdrive"] .hero-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,255,234,0.6),transparent);pointer-events:none}
-[data-theme="hyperdrive"] .hero-card:hover{transform:translateY(-2px) !important;border-color:rgba(0,255,234,0.5) !important;box-shadow:0 0 32px rgba(0,255,234,0.18) inset, 0 12px 36px rgba(208,64,255,0.15), 0 0 24px rgba(0,255,234,0.1) !important}
-[data-theme="hyperdrive"] .sec-hd{color:#d040ff !important;text-shadow:0 0 12px rgba(208,64,255,0.5);letter-spacing:3px;font-weight:600}
-[data-theme="hyperdrive"] .stat-lbl{color:rgba(192,216,240,0.6);letter-spacing:2px}
-[data-theme="hyperdrive"] th{color:#00b0ff;border-bottom:1px solid rgba(208,64,255,0.25);background:transparent}
-[data-theme="hyperdrive"] td{border-bottom:1px solid rgba(208,64,255,0.08)}
-[data-theme="hyperdrive"] .tr-row:hover{background:rgba(208,64,255,0.06)}
-[data-theme="hyperdrive"] .kpi-strip > .mini-card,[data-theme="hyperdrive"] .breakdown-strip > .section{border-right:1px solid rgba(208,64,255,0.15)}
-[data-theme="hyperdrive"] .btn-ghost.active{border-bottom:2px solid #00ffea;color:#00ffea;text-shadow:0 0 8px rgba(0,255,234,0.6)}
-[data-theme="hyperdrive"] .nav-bar{background:rgba(5,1,15,0.4);backdrop-filter:blur(40px) saturate(200%);border-bottom:1px solid rgba(208,64,255,0.2)}
-
 /* ──── MERCURY — Liquid chrome / metallic monochrome ──── */
 [data-theme="mercury"]{--bg:#0e0e12;--bg1:#1a1a22;--bg2:#13131a;--bg3:#0a0a10;--border:#3d3d4f;--border2:#252533;--text:#f8f8fa;--text2:#d0d0d8;--text3:#9898a8;--text4:#a8a8b8;--text5:#787888;--green:#a8b5c0;--red:#c8a0a0;--yellow:#d8c890;--blue:#a8c0d0;--purple:#b0a8c8;}
 [data-theme="mercury"] body,[data-theme="mercury"] html{background:radial-gradient(ellipse at 30% 20%,#1c1c28 0%,#0e0e14 40%,#08080c 100%);background-attachment:fixed}
@@ -263,6 +232,23 @@
 [data-theme="mercury"] .kpi-strip > .mini-card,[data-theme="mercury"] .breakdown-strip > .section{border-right:1px solid rgba(255,255,255,0.06)}
 [data-theme="mercury"] .btn-ghost.active{border-bottom:2px solid rgba(255,255,255,0.85);color:rgba(255,255,255,1);background:rgba(255,255,255,0.05)}
 [data-theme="mercury"] .nav-bar{background:rgba(20,20,28,0.5);backdrop-filter:blur(60px) saturate(120%);border-bottom:1px solid rgba(255,255,255,0.06)}
+
+
+/* ──── OBSIDIAN — like Mercury but darker, with deep emerald accents ──── */
+[data-theme="obsidian"]{--bg:#06080a;--bg1:#0d1014;--bg2:#0a0e12;--bg3:#06080a;--border:#283038;--border2:#1a1f25;--text:#f0f5f2;--text2:#c8d0d0;--text3:#7d8a8a;--text4:#90a0a0;--text5:#5d6868;--green:#1a8870;--red:#a85060;--yellow:#d8b870;--blue:#5a8fa8;--purple:#7a708a;}
+[data-theme="obsidian"] body,[data-theme="obsidian"] html{background:radial-gradient(ellipse at 30% 0%, #0e1418 0%, #06080a 50%, #04050a 100%);background-attachment:fixed}
+[data-theme="obsidian"] .section,[data-theme="obsidian"] .kpi-strip,[data-theme="obsidian"] .breakdown-strip{background:linear-gradient(160deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 50%, rgba(26,136,112,0.02) 100%) !important;border:1px solid rgba(255,255,255,0.06) !important;backdrop-filter:blur(40px) saturate(140%) !important;-webkit-backdrop-filter:blur(40px) saturate(140%) !important;box-shadow:0 1px 0 rgba(255,255,255,0.06) inset, 0 -1px 0 rgba(0,0,0,0.4) inset, 0 8px 32px rgba(0,0,0,0.5), 0 0 24px rgba(26,136,112,0.04) !important;border-radius:18px !important}
+[data-theme="obsidian"] .hero-card{background:linear-gradient(165deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.015) 50%, rgba(26,136,112,0.03) 100%) !important;border:1px solid rgba(255,255,255,0.08) !important;backdrop-filter:blur(40px) saturate(140%) !important;-webkit-backdrop-filter:blur(40px) saturate(140%) !important;box-shadow:0 1px 0 rgba(255,255,255,0.1) inset, 0 -1px 0 rgba(0,0,0,0.3) inset, 0 8px 24px rgba(0,0,0,0.4) !important;border-radius:16px !important;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;position:relative;overflow:hidden}
+[data-theme="obsidian"] .hero-card::before{content:'';position:absolute;top:0;left:10%;right:10%;height:1px;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.25) 50%,transparent 100%);pointer-events:none}
+[data-theme="obsidian"] .hero-card:hover{transform:translateY(-2px) !important;background:linear-gradient(165deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.025) 50%, rgba(26,136,112,0.06) 100%) !important;border-color:rgba(26,136,112,0.3) !important;box-shadow:0 1px 0 rgba(255,255,255,0.15) inset, 0 -1px 0 rgba(0,0,0,0.3) inset, 0 12px 32px rgba(0,0,0,0.5), 0 0 20px rgba(26,136,112,0.1) !important}
+[data-theme="obsidian"] .sec-hd{color:rgba(200,208,208,0.6);letter-spacing:3px;font-weight:300}
+[data-theme="obsidian"] .stat-lbl{color:rgba(200,208,208,0.55);letter-spacing:2px;font-weight:400}
+[data-theme="obsidian"] th{color:rgba(200,208,208,0.5);border-bottom:1px solid rgba(255,255,255,0.05);background:transparent;font-weight:400;letter-spacing:1.5px}
+[data-theme="obsidian"] td{border-bottom:1px solid rgba(255,255,255,0.03);color:rgba(240,245,242,0.88)}
+[data-theme="obsidian"] .tr-row:hover{background:rgba(26,136,112,0.05)}
+[data-theme="obsidian"] .kpi-strip > .mini-card,[data-theme="obsidian"] .breakdown-strip > .section{border-right:1px solid rgba(255,255,255,0.05)}
+[data-theme="obsidian"] .btn-ghost.active{border-bottom:2px solid #1a8870;color:rgba(255,255,255,1);background:rgba(26,136,112,0.08)}
+[data-theme="obsidian"] .nav-bar{background:rgba(6,8,10,0.5);backdrop-filter:blur(60px) saturate(140%);border-bottom:1px solid rgba(255,255,255,0.05)}
 
 [data-density="compact"]{--pad:8px;--card-pad:7px 10px;--mini-pad:6px 9px;--fs:11px;--fsm:10px;--fss:9px;--fsxs:8px;}
 [data-density="compact"] .content{padding:14px 18px}
@@ -393,7 +379,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='20.3';
+const VERSION='20.4';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -424,7 +410,7 @@ applyTheme();
 // State
 let db=null,auth=null,colRef=null,lessonRef=null,unsub=null,unsubL=null;
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
-let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyOverlay=false,chartPctMode=false;
+let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyOverlay=false,chartPctMode=false;window.chartPctMode=false;
 let formOpen=false,showAllCols=false;
 let autoHandle=null,autoTimer=null,autoInterval=60;
 let useGross=false; // gross vs net toggle for KPI stats
@@ -1546,7 +1532,7 @@ function svgLineLabeled(pts,color,W,H,showTradeAmounts,spyPts,yUnit){
   const labelStep=Math.max(1,Math.floor(pts.length/8));
   const dots=pts.map((p,i)=>{
     const isWin=p.pnl>=0,cx=sx(i).toFixed(1),cyv=sy(p.y).toFixed(1);
-    const dotSvg=`<circle cx="${cx}" cy="${cyv}" r="2.5" fill="${isWin?'#00e5a0':'#ff3d5a'}" stroke="var(--bg)" stroke-width="1.5"/>`;
+    const dotSvg=`<circle class="chart-trade-dot" data-date="${p.date||''}" cx="${cx}" cy="${cyv}" r="2.5" fill="${isWin?'#00e5a0':'#ff3d5a'}" stroke="var(--bg)" stroke-width="1.5"/>`;
     let labelSvg='';
     if(showTradeAmounts&&i%labelStep===0&&p.pnl!==undefined){
       const lbl=(p.pnl>=0?'+':'')+p.pnl.toFixed(0);
@@ -1687,7 +1673,10 @@ function svgLineLabeled(pts,color,W,H,showTradeAmounts,spyPts,yUnit){
   <!-- Positive area (above zero) clipped to upper portion -->
   <path d="${fill}" fill="url(#${uniqueId}_gradPos)" clip-path="url(#${uniqueId}_clipPos)"/>
   <!-- Negative area (below zero) clipped to lower portion -->
-  ${minY<0?`<path d="${fill}" fill="url(#${uniqueId}_gradNeg)" clip-path="url(#${uniqueId}_clipNeg)"/>`:''}<path d="${path}" stroke="${color}" stroke-width="2" fill="none"/>${spyPath||''}${dots}${endLabel}${highLabel}${lowLabel}${yt}${xt}${hoverZones}${tooltipHTML}</svg>`;
+  ${minY<0?`<path d="${fill}" fill="url(#${uniqueId}_gradNeg)" clip-path="url(#${uniqueId}_clipNeg)"/>`:''}<!-- Bi-color line: green above zero, red below -->
+  <path d="${path}" stroke="#34d399" stroke-width="2" fill="none" clip-path="url(#${uniqueId}_clipPos)"/>
+  ${minY<0?`<path d="${path}" stroke="#f87171" stroke-width="2" fill="none" clip-path="url(#${uniqueId}_clipNeg)"/>`:''}
+  ${spyPath||''}${dots}${endLabel}${highLabel}${lowLabel}${yt}${xt}${hoverZones}${tooltipHTML}</svg>`;
 }
 function svgLine(pts,color,W,H){
   if(!pts||pts.length<2)return'<p style="padding:20px;color:var(--text5);font-size:11px;text-align:center">Add at least 2 trades</p>';
@@ -1721,7 +1710,10 @@ function svgLine(pts,color,W,H){
   <!-- Positive area (above zero) clipped to upper portion -->
   <path d="${fill}" fill="url(#${uniqueId}_gradPos)" clip-path="url(#${uniqueId}_clipPos)"/>
   <!-- Negative area (below zero) clipped to lower portion -->
-  ${minY<0?`<path d="${fill}" fill="url(#${uniqueId}_gradNeg)" clip-path="url(#${uniqueId}_clipNeg)"/>`:''}<path d="${path}" stroke="${color}" stroke-width="2" fill="none"/>${spyPath||''}${dots}${yt}${xt}</svg>`;
+  ${minY<0?`<path d="${fill}" fill="url(#${uniqueId}_gradNeg)" clip-path="url(#${uniqueId}_clipNeg)"/>`:''}<!-- Bi-color line: green above zero, red below -->
+  <path d="${path}" stroke="#34d399" stroke-width="2" fill="none" clip-path="url(#${uniqueId}_clipPos)"/>
+  ${minY<0?`<path d="${path}" stroke="#f87171" stroke-width="2" fill="none" clip-path="url(#${uniqueId}_clipNeg)"/>`:''}
+  ${spyPath||''}${dots}${yt}${xt}</svg>`;
 }
 function svgBar(bars,W,H){if(!bars.length)return'';const PAD={t:10,r:20,b:28,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const vals=bars.map(b=>b.v),minY=Math.min(0,...vals),maxY=Math.max(0,...vals),rY=maxY-minY||1;const bw=Math.max(3,(cw/bars.length)-2),sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);let rects='',xl='';bars.forEach((b,i)=>{const x=PAD.l+(i/bars.length)*cw+(cw/bars.length-bw)/2,yv=sy(b.v);rects+=`<rect x="${x.toFixed(1)}" y="${(b.v>=0?yv:y0).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(yv-y0)).toFixed(1)}" fill="${b.v>=0?'#00e5a040':'#ff3d5a40'}" stroke="${b.v>=0?'#00e5a0':'#ff3d5a'}" stroke-width="1" rx="1"/>`;if(i%(Math.ceil(bars.length/8))===0)xl+=`<text x="${(x+bw/2).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="9" font-family="JetBrains Mono,monospace">${b.d}</text>`;});let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="11" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)"/>${rects}${yt}${xl}</svg>`;}
 function svgXY(data,color,xFmt,W,H,refX){if(!data.length)return'';const PAD={t:16,r:65,b:30,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const xs=data.map(d=>d.x),ys=data.map(d=>d.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(0,...ys),maxY=Math.max(0,...ys);const rX=maxX-minX||1,rY=maxY-minY||1,sx=v=>PAD.l+((v-minX)/rX)*cw,sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);const path='M'+data.map(d=>sx(d.x).toFixed(1)+','+sy(d.y).toFixed(1)).join('L');let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="11" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}const xtS=Math.ceil(data.length/6);let xt='';data.forEach((d,i)=>{if(i%xtS===0)xt+=`<text x="${sx(d.x).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">${xFmt?xFmt(d.x):d.x}</text>`;});const zero=`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`;const you=refX!=null?`<line x1="${sx(refX).toFixed(1)}" y1="${PAD.t}" x2="${sx(refX).toFixed(1)}" y2="${PAD.t+ch}" stroke="${color}" stroke-dasharray="3,3" opacity=".4"/><text x="${sx(refX).toFixed(1)}" y="${PAD.t-3}" text-anchor="middle" fill="${color}" font-size="9">YOU</text>`:'';return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}${you}<path d="${path}" stroke="${color}" stroke-width="2.5" fill="none"/>` +yt+xt+'</svg>';}
@@ -2131,6 +2123,84 @@ function buildAcctPctCurve(trades,startBalance){
 }
 
 // Toggle a tag on a trade (add if not present, remove if present)
+
+// Calendar hover: show mini trade details popup
+let _calHoverEl=null,_calHoverLine=null;
+window.showCalHover=function(dateStr){
+  const dayTrades=trades.filter(t=>t.date===dateStr);
+  if(!dayTrades.length){window.hideCalHover();return;}
+  if(!_calHoverEl){
+    _calHoverEl=document.createElement('div');
+    _calHoverEl.style.cssText='position:fixed;z-index:9999;background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 8px 32px rgba(0,0,0,0.5);max-width:340px;font-size:11px;font-family:JetBrains Mono,monospace';
+    document.body.appendChild(_calHoverEl);
+  }
+  _calHoverEl.style.display='block';
+  const totalPnl=dayTrades.reduce((s,t)=>s+t.pnl,0);
+  const wins=dayTrades.filter(t=>t.pnl>0).length;
+  _calHoverEl.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:6px"><div style="font-family:Bebas Neue,monospace;font-size:14px;letter-spacing:2px;color:var(--text)">${dateStr}</div><div style="color:${totalPnl>=0?'var(--green)':'var(--red)'};font-family:Bebas Neue,monospace;font-size:15px">${totalPnl>=0?'+':''}$${totalPnl.toFixed(2)}</div></div><div style="font-size:9px;color:var(--text4);margin-bottom:6px">${dayTrades.length} trade${dayTrades.length!==1?'s':''} · ${wins}W / ${dayTrades.length-wins}L</div>${dayTrades.slice(0,6).map(t=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-top:1px solid color-mix(in srgb,var(--border) 30%,transparent)"><span style="color:var(--text3);min-width:50px">${t.symbol}</span><span style="color:${t.type==='LONG'?'var(--green)':'var(--red)'};opacity:0.7;font-size:9px">${t.type}</span><span style="color:${t.pnl>=0?'var(--green)':'var(--red)'};font-family:Bebas Neue,monospace">${t.pnl>=0?'+':''}$${t.pnl.toFixed(0)}</span></div>`).join('')}${dayTrades.length>6?`<div style="text-align:center;color:var(--text5);font-size:9px;padding-top:4px">+${dayTrades.length-6} more</div>`:''}<div style="text-align:center;color:var(--blue);font-size:9px;padding-top:8px;border-top:1px solid var(--border);margin-top:6px;letter-spacing:1px">CLICK TO VIEW IN TRADES TAB →</div>`;
+  const cell=document.querySelector('.cal-day-cell[data-date="'+dateStr+'"]');
+  if(cell){
+    const r=cell.getBoundingClientRect();
+    let left=r.right+10,top=r.top;
+    if(left+340>window.innerWidth)left=r.left-350;
+    if(top+260>window.innerHeight)top=window.innerHeight-280;
+    _calHoverEl.style.left=Math.max(10,left)+'px';
+    _calHoverEl.style.top=Math.max(10,top)+'px';
+  }
+  // Crosshair on PNL chart
+  const chart=document.querySelector('.cum-pl-chart svg');
+  if(chart){
+    if(_calHoverLine&&_calHoverLine.parentNode)_calHoverLine.parentNode.removeChild(_calHoverLine);
+    const dots=chart.querySelectorAll('.chart-trade-dot');
+    let xIdx=-1;
+    for(let i=0;i<dots.length;i++){
+      if(dots[i].dataset.date===dateStr){xIdx=i;break;}
+    }
+    if(xIdx<0){
+      // Find first trade after this date
+      for(let i=0;i<dots.length;i++){
+        if(dots[i].dataset.date>dateStr){xIdx=i;break;}
+      }
+    }
+    if(xIdx>=0&&dots[xIdx]){
+      _calHoverLine=document.createElementNS('http://www.w3.org/2000/svg','line');
+      _calHoverLine.setAttribute('stroke','#fbbf24');
+      _calHoverLine.setAttribute('stroke-width','1.5');
+      _calHoverLine.setAttribute('stroke-dasharray','3,3');
+      _calHoverLine.setAttribute('opacity','0.8');
+      _calHoverLine.setAttribute('pointer-events','none');
+      _calHoverLine.setAttribute('x1',dots[xIdx].getAttribute('cx'));
+      _calHoverLine.setAttribute('x2',dots[xIdx].getAttribute('cx'));
+      _calHoverLine.setAttribute('y1','12');
+      const vb=chart.getAttribute('viewBox');
+      _calHoverLine.setAttribute('y2',vb?(parseFloat(vb.split(' ')[3])-30):'350');
+      chart.appendChild(_calHoverLine);
+    }
+  }
+};
+window.hideCalHover=function(){
+  if(_calHoverEl)_calHoverEl.style.display='none';
+  if(_calHoverLine&&_calHoverLine.parentNode){_calHoverLine.parentNode.removeChild(_calHoverLine);_calHoverLine=null;}
+};
+window.gotoTradesByDate=function(dateStr){
+  activeTab='trades';
+  renderApp();
+  setTimeout(()=>{
+    const trs=document.querySelectorAll('tr.tr-row');
+    for(const tr of trs){
+      const id=tr.dataset.id;
+      const t=trades.find(x=>x.id===id);
+      if(t&&t.date===dateStr){
+        tr.scrollIntoView({behavior:'smooth',block:'center'});
+        tr.style.transition='background 0.3s';
+        tr.style.background='color-mix(in srgb, var(--yellow) 20%, transparent)';
+        setTimeout(()=>{tr.style.background='';},2000);
+        break;
+      }
+    }
+  },300);
+};
+
 window.toggleTagOnTrade=async function(tid,tag){
   const t=trades.find(x=>x.id===tid);
   if(!t)return;
@@ -2565,19 +2635,21 @@ function renderApp(){
     const heroKPI=(label,valueText,subText,color,sparkData,infoKey,gaugeVal,thresholdFrac,thresholdLabel)=>{
       const info=infoKey&&KPI_INFO[infoKey];
       const hasGauge=gaugeVal!==undefined;
-      // Gauge slot: arc + value below
-      const gaugeHTML=hasGauge?`<div style="position:absolute;top:8px;right:10px;width:140px;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:0">${heroGauge(gaugeVal,color,thresholdFrac,thresholdLabel)}<div style="font-family:'Bebas Neue',monospace;font-size:22px;color:${color};line-height:1;margin-top:-4px">${valueText}</div></div>`:'';
+      // Gauge slot: ARC ONLY (no value below)
+      const gaugeHTML=hasGauge?`<div style="position:absolute;top:6px;right:10px;width:140px;pointer-events:none;display:flex;align-items:center;justify-content:center">${heroGauge(gaugeVal,color,thresholdFrac,thresholdLabel)}</div>`:'';
       return `<div class="hero-card" style="padding:10px 14px;background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 40%,transparent);min-height:96px;cursor:pointer;transition:border-color 0.15s;position:relative;${hasGauge?'padding-right:160px':''}" onclick="expandKPI('${label}', '${infoKey||''}')" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='color-mix(in srgb,var(--border) 40%,transparent)'" title="Click for detailed breakdown">
         <span style="position:absolute;top:8px;right:12px;color:var(--text4);font-size:16px;line-height:1;z-index:3" title="Click for details">⋯</span>
-        <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
-          <div class="stat-lbl" style="font-size:9px;letter-spacing:1.5px">${label}</div>
-          ${info?`<span style="font-size:8px;color:var(--text5);cursor:help;background:var(--bg3);width:12px;height:12px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);font-family:serif" title="${info.info.replace(/"/g,'&quot;')}">i</span>`:''}
+        <div style="display:flex;flex-direction:column;justify-content:space-between;height:100%;min-height:76px">
+          <div style="display:flex;align-items:center;gap:5px">
+            <div class="stat-lbl" style="font-size:9px;letter-spacing:1.5px">${label}</div>
+            ${info?`<span style="font-size:8px;color:var(--text5);cursor:help;background:var(--bg3);width:12px;height:12px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);font-family:serif" title="${info.info.replace(/"/g,'&quot;')}">i</span>`:''}
+          </div>
+          <div style="font-family:'Bebas Neue',monospace;font-size:${hasGauge?'24px':'26px'};color:${color};line-height:1;margin-top:auto">${valueText}</div>
+          <div style="font-size:10px;color:var(--text4);opacity:0.85;line-height:1.3;margin-top:2px">${subText}</div>
         </div>
-        ${hasGauge?'':`<div style="font-family:'Bebas Neue',monospace;font-size:26px;color:${color};line-height:1;margin-bottom:3px">${valueText}</div>`}
-        <div style="font-size:10px;color:var(--text4);opacity:0.8;line-height:1.3;margin-top:${hasGauge?'6px':'0'}">${subText}</div>
         ${gaugeHTML}
       </div>`;
-    };;
+    };;;
 
     // === Running stats for sparklines ===
     const _running={net:[],wr:[],pf:[],ev:[],avgW:[],avgL:[],rr:[],maxDD:[]};
@@ -2630,7 +2702,7 @@ function renderApp(){
         const isToday=ds===new Date().toISOString().slice(0,10);
         const bg=dt.length?(dp>=0?'#00e5a020':'#ff3d5a20'):'transparent';
         const border=isToday?'1px solid var(--yellow)':dt.length?`1px solid ${dp>=0?'#00e5a050':'#ff3d5a50'}`:'1px solid transparent';
-        cells+=`<div style="text-align:center;font-size:11px;padding:5px 3px;background:${bg};border:${border};min-height:52px;display:flex;flex-direction:column;justify-content:center" title="${ds}${dt.length?' · '+fmt(dp)+' · '+dt.length+' trade'+(dt.length!==1?'s':''):''}">
+        cells+=`<div class="cal-day-cell" data-date="${ds}" style="text-align:center;font-size:11px;padding:5px 3px;background:${bg};border:${border};min-height:52px;display:flex;flex-direction:column;justify-content:center;position:relative;cursor:${dt.length?'pointer':'default'}" onmouseenter="window.showCalHover('${ds}')" onmouseleave="window.hideCalHover()" onclick="${dt.length?`window.gotoTradesByDate('${ds}')`:''}">
           <div style="color:${isToday?'var(--yellow)':dt.length?(dp>=0?'#00e5a0':'#ff3d5a'):'var(--text5)'};font-family:'Bebas Neue',monospace;font-size:13px">${day}</div>
           ${dt.length?`<div style="font-size:11px;color:${dp>=0?'#00e5a0':'#ff3d5a'};font-family:'Bebas Neue',monospace;margin-top:2px">${dp>=0?'+$':'-$'}${Math.abs(dp).toFixed(0)}</div>`:''}
         </div>`;
@@ -2691,7 +2763,7 @@ function renderApp(){
             <button onclick="chartMode='equity';renderApp()" style="background:${chartMode==='equity'?'var(--blue)':'var(--bg3)'};color:${chartMode==='equity'?'var(--bg)':'var(--text3)'};border:none;border-left:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">EQUITY</button>
           </div>
           
-          <button onclick="chartPctMode=!chartPctMode;renderApp()" style="background:${chartPctMode?'var(--blue)':'var(--bg3)'};color:${chartPctMode?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer;margin-left:8px">${chartPctMode?'%':'\$'}</button>
+          <button onclick="chartPctMode=!chartPctMode;window.chartPctMode=chartPctMode;renderApp()" style="background:${chartPctMode?'var(--blue)':'var(--bg3)'};color:${chartPctMode?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer;margin-left:8px">${chartPctMode?'%':'\$'}</button>
             <button onclick="spyOverlay=!spyOverlay;renderApp()" style="background:${spyOverlay?'var(--yellow)':'var(--bg3)'};color:${spyOverlay?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">vs SPY</button>
             <button class="btn-d" style="font-size:var(--fsxs);padding:4px 10px;margin-left:8px" onclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', document.querySelector('.cum-pl-chart').innerHTML)">⛶ EXPAND</button>
         </div>
@@ -3376,6 +3448,43 @@ function renderApp(){
         </div>
       `;
       content.appendChild(ringHTML);
+      // Add distribution chart right after rings
+      const distCard=document.createElement('div');
+      distCard.className='section';
+      distCard.style.cssText='margin-bottom:14px;padding:14px';
+      distCard.innerHTML=`<div class="sec-hd" style="padding:0 0 8px 0">P&L DISTRIBUTION</div>
+        ${(()=>{
+          if(!trades.length)return '<div style="padding:20px;color:var(--text5);font-size:11px;text-align:center">Need trades</div>';
+          // Build histogram bins
+          const pnls=trades.map(t=>t.pnl);
+          const minP=Math.min(...pnls),maxP=Math.max(...pnls);
+          const range=Math.max(maxP-minP,1);
+          const nBins=12;
+          const binSize=range/nBins;
+          const bins=Array(nBins).fill(0);
+          pnls.forEach(p=>{
+            let idx=Math.floor((p-minP)/binSize);
+            if(idx>=nBins)idx=nBins-1;
+            if(idx<0)idx=0;
+            bins[idx]++;
+          });
+          const maxCount=Math.max(...bins,1);
+          const W=1400,H=180,PAD=20;
+          const bw=(W-2*PAD)/nBins;
+          const zeroIdx=Math.max(0,Math.min(nBins-1,Math.floor((0-minP)/binSize)));
+          return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">
+            ${bins.map((c,i)=>{
+              const h=(c/maxCount)*(H-50);
+              const x=PAD+i*bw;
+              const y=H-30-h;
+              const binMid=minP+(i+0.5)*binSize;
+              const fill=binMid>=0?'#34d399':'#f87171';
+              return `<rect x="${(x+2).toFixed(1)}" y="${y.toFixed(1)}" width="${(bw-4).toFixed(1)}" height="${h.toFixed(1)}" fill="${fill}" opacity="0.6"/><text x="${(x+bw/2).toFixed(1)}" y="${(y-4).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--text3)" font-family="JetBrains Mono,monospace">${c||''}</text>`;
+            }).join('')}
+            ${[0,0.25,0.5,0.75,1].map(p=>{const v=minP+p*range;return `<text x="${(PAD+p*(W-2*PAD)).toFixed(1)}" y="${H-10}" text-anchor="middle" font-size="9" fill="var(--text4)" font-family="JetBrains Mono,monospace">${v>=0?'+$':'-$'}${Math.abs(v).toFixed(0)}</text>`;}).join('')}
+          </svg>`;
+        })()}`;
+      content.appendChild(distCard);
       
       // KPI scores
       const scores={'WIN RATE':Math.min(100,Math.max(0,(S.wr-0.3)/0.4*100)),'PROFIT FACTOR':Math.min(100,Math.max(0,(S.pf-0.5)/2.5*100)),'EXP VALUE':Math.min(100,Math.max(0,S.ev>0?Math.min(100,S.ev/50*100):0)),'RISK:REWARD':Math.min(100,Math.max(0,(S.rr-0.5)/2*100)),'SHARPE':Math.min(100,Math.max(0,(S.sharpe+0.5)/3.5*100)),'FEE DRAG':Math.min(100,Math.max(0,100-S.feeImpact*2)),'DRAWDOWN':Math.min(100,Math.max(0,S.net>0?(S.recovery/3)*100:0))};
@@ -3878,12 +3987,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       {id:'frost',color:'#7dd3fc',label:'Frost'},
       {id:'glass',color:'#60a5fa',label:'Glass'},
       {id:'aurora',color:'#c090ff',label:'Aurora'},
-      {id:'hyperdrive',color:'#d040ff',label:'Hyperdrive'},
       {id:'mercury',color:'#d0d0d8',label:'Mercury'},
+      {id:'obsidian',color:'#1a8870',label:'Obsidian'},
       {id:'stealth',color:'#34d399',label:'Stealth'},
       {id:'slate',color:'#58a6ff',label:'Slate'},
       {id:'mono',color:'#e0e0e0',label:'Mono'},
-      {id:'neon',color:'#00ff9e',label:'Neon'},
       {id:'paper',color:'#2563eb',label:'Paper'}
     ];
     content.innerHTML=`<div style="max-width:760px">
