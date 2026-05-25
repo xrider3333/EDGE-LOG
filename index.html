@@ -379,7 +379,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='20.6';
+const VERSION='20.7';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -2521,7 +2521,9 @@ function openEditModal(tradeId){
     <div style="padding:18px;display:flex;flex-direction:column;gap:11px">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
         <div><label class="lbl">DIRECTION</label><select id="${mid}_t"><option${t.type==='LONG'?' selected':''}>LONG</option><option${t.type==='SHORT'?' selected':''}>SHORT</option></select></div>
-        <div><label class="lbl">SETUP</label><select id="${mid}_s">${customSetups.map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}</select></div>
+        <div><label class="lbl">ACCOUNT</label><input id="${mid}_acct" value="${t.account||''}" placeholder="e.g. NT8-DEMO, IB-Main" list="accts-list"/><datalist id="accts-list">${[...new Set(trades.map(x=>x.account).filter(Boolean))].map(a=>`<option>${a}</option>`).join('')}</datalist></div>
+      <div><label class="lbl">BROKER</label><input id="${mid}_brk" value="${t.broker||''}" placeholder="e.g. NinjaTrader, IBKR, TopstepX" list="brks-list"/><datalist id="brks-list">${[...new Set(trades.map(x=>x.broker).filter(Boolean))].map(b=>`<option>${b}</option>`).join('')}</datalist></div>
+      <div><label class="lbl">SETUP</label><select id="${mid}_s">${customSetups.map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}</select></div>
         <div><label class="lbl">GRADE</label><select id="${mid}_g">${GRADES.map(g=>`<option${g===(t.grade||'—')?' selected':''}>${g}</option>`).join('')}</select></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
@@ -2559,7 +2561,7 @@ function openEditModal(tradeId){
       const calc=tradeCalc(t.symbol,tp,en,ex,sz,fe);
       const et=el(`${mid}_et`).value,xt=el(`${mid}_xt`).value;
       let dur=t.durationMins||null;if(et&&xt){const[eh,em]=et.split(':').map(Number),[xh,xm]=xt.split(':').map(Number);dur=Math.abs((xh*60+xm)-(eh*60+em));}
-      await updateTrade(t.id,{type:tp,setup:el(`${mid}_s`).value,grade:el(`${mid}_g`).value,timeframe:el(`${mid}_tf`).value,orderId:el(`${mid}_oid`).value,fees:fe,entry:en,exit:ex,size:sz,grossPnl:calc.grossPnl,pnl:calc.pnl,durationMins:dur,entryTime:et||t.entryTime||null,exitTime:xt||t.exitTime||null,chartUrl:el(`${mid}_cu`).value,notes:el(`${mid}_no`).value,tags:(el(`${mid}_tags`)?.value||'').split(',').map(t=>t.trim()).filter(Boolean)});
+      await updateTrade(t.id,{type:tp,setup:el(`${mid}_s`).value,grade:el(`${mid}_g`).value,timeframe:el(`${mid}_tf`).value,orderId:el(`${mid}_oid`).value,fees:fe,entry:en,exit:ex,size:sz,grossPnl:calc.grossPnl,pnl:calc.pnl,durationMins:dur,entryTime:et||t.entryTime||null,exitTime:xt||t.exitTime||null,chartUrl:el(`${mid}_cu`).value,notes:el(`${mid}_no`).value,tags:(el(`${mid}_tags`)?.value||'').split(',').map(t=>t.trim()).filter(Boolean),account:el(`${mid}_acct`)?.value||'',broker:el(`${mid}_brk`)?.value||''});
       div.remove();
     }catch(e){alert('Save failed: '+e.message);btn.textContent='SAVE CHANGES';btn.disabled=false;}
   };
@@ -3212,7 +3214,7 @@ function renderApp(){
     if(!filtered.length){const e=document.createElement('div');e.style.cssText='border:1px dashed var(--border);padding:48px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px';e.textContent=trades.length?'NO TRADES MATCH FILTER':'NO TRADES YET';content.appendChild(e);}
     else{
       const tw=document.createElement('div');tw.className='section';tw.style.overflowX='auto';
-      const exH=showAllCols?'<th>BUY ORD</th><th>SELL ORD</th><th>BUY FILL</th><th>SELL FILL</th><th>POS ID</th><th>PAIR ID</th><th>IN</th><th>OUT</th><th>SRC</th>':'';
+      const exH=showAllCols?'<th>ACCT</th><th>BROKER</th><th>BUY ORD</th><th>SELL ORD</th><th>BUY FILL</th><th>SELL FILL</th><th>POS ID</th><th>PAIR ID</th><th>IN</th><th>OUT</th><th>SRC</th>':'';
       // Apply sort
       const sortedFiltered=[...filtered].sort((a,b)=>{
         let av=a[sortCol],bv=b[sortCol];
@@ -3291,7 +3293,7 @@ function renderApp(){
         }
         return ((t,i)=>{
         const _idCell=(v)=>`<td style="color:var(--text5);font-size:var(--fsxs);max-width:90px;overflow:hidden;text-overflow:ellipsis" title="${v||''}">${v||'—'}</td>`;
-        const ex=showAllCols?`${_idCell(t.buyOrderId)}${_idCell(t.sellOrderId)}${_idCell(t.buyFillId)}${_idCell(t.sellFillId)}${_idCell(t.positionId)}${_idCell(t.pairId)}<td style="color:var(--text4);font-size:var(--fsxs)">${t.entryTime||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.exitTime||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
+        const ex=showAllCols?`<td style="font-size:9px;color:var(--text3)">${t.account||'—'}</td><td style="font-size:9px;color:var(--text3)">${t.broker||'—'}</td>${_idCell(t.buyOrderId)}${_idCell(t.sellOrderId)}${_idCell(t.buyFillId)}${_idCell(t.sellFillId)}${_idCell(t.positionId)}${_idCell(t.pairId)}<td style="color:var(--text4);font-size:var(--fsxs)">${t.entryTime||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.exitTime||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
         return`<tr class="tr-row" data-id="${t.id}">
           <td style="color:var(--text5)">${String(sortedFiltered.length-i).padStart(2,'0')}</td>
           <td style="color:var(--text4);white-space:nowrap">${t.date}</td>
