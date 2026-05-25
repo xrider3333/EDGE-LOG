@@ -379,7 +379,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='20.7';
+const VERSION='20.8';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -2177,6 +2177,23 @@ function buildAcctPctCurve(trades,startBalance){
   return trades.map(t=>{bal+=t.pnl;return((bal-startBalance)/startBalance)*100;});
 }
 
+
+window.openAllChartsForFiltered=async function(){
+  const visibleRows=document.querySelectorAll('tr.tr-row[data-id]');
+  const urls=[];
+  visibleRows.forEach(tr=>{
+    const id=tr.dataset.id;
+    const t=trades.find(x=>x.id===id);
+    if(t&&t.chartUrl){urls.push(t.chartUrl);}
+  });
+  if(!urls.length){alert('No chart links in the current view.');return;}
+  if(urls.length>15&&!confirm(`Open ${urls.length} chart links? Browsers may block popups beyond ~10. Continue?`))return;
+  for(let i=0;i<urls.length;i++){
+    window.open(urls[i],'_blank','noopener');
+    if(i<urls.length-1)await new Promise(r=>setTimeout(r,250));
+  }
+};
+
 // Toggle a tag on a trade (add if not present, remove if present)
 
 // Calendar hover: show mini trade details popup
@@ -3205,9 +3222,36 @@ function renderApp(){
     content.appendChild(fb);
     setTimeout(()=>{const fmap={sym:'fi-sym',dir:'fi-dir',grade:'fi-grade',setup:'fi-setup',dateFrom:'fi-df',dateTo:'fi-dt',minPnl:'fi-mn',maxPnl:'fi-mx'};Object.entries(fmap).forEach(([k,id])=>{const inp=el(id);if(!inp)return;inp.addEventListener(inp.tagName==='SELECT'?'change':'input',()=>{filters[k]=inp.value;renderApp();});});},50);
 
+
+    // ─── FILTER BAR ───
+    const fltb=document.createElement('div');
+    fltb.className='section';
+    fltb.style.cssText='margin-bottom:8px;padding:10px 12px';
+    fltb.innerHTML=`
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:10px;letter-spacing:2px;color:var(--text4);font-weight:bold">FILTERS</span>
+        <button class="btn-d" style="font-size:9px;padding:3px 10px;margin-left:auto" onclick="clearFilters()">✕ CLEAR ALL</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px;align-items:end">
+        <div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">SYM</label><input id="fi-sym" value="${filters.sym}" placeholder="ES..." style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 6px;outline:none"/></div>
+        <div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">DIR</label><select id="fi-dir" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 6px"><option value="">ALL</option><option${filters.dir==='LONG'?' selected':''}>LONG</option><option${filters.dir==='SHORT'?' selected':''}>SHORT</option></select></div>
+        <div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">TF</label><select id="fi-tf" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 6px"><option value="">ALL</option>${TIMEFRAMES.map(t=>`<option${t===filters.tf?' selected':''}>${t}</option>`).join('')}</select></div>
+        <div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">SETUP</label><select id="fi-setup" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 6px"><option value="">ALL</option>${customSetups.map(s=>`<option${s===filters.setup?' selected':''}>${s}</option>`).join('')}</select></div>
+        <div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">GRADE</label><select id="fi-grade" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 6px"><option value="">ALL</option>${GRADES.map(g=>`<option${g===filters.grade?' selected':''}>${g}</option>`).join('')}</select></div>
+        <div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">DATE FROM</label><input id="fi-df" type="date" value="${filters.dateFrom}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 6px"/></div>
+        <div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">DATE TO</label><input id="fi-dt" type="date" value="${filters.dateTo}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 6px"/></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px"><div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">MIN $</label><input id="fi-mn" placeholder="-500" value="${filters.minPnl}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 4px"/></div><div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">MAX $</label><input id="fi-mx" placeholder="500" value="${filters.maxPnl}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 4px"/></div></div>
+      </div>
+    `;
+    content.appendChild(fltb);
+    setTimeout(()=>{
+      const fmap={sym:'fi-sym',dir:'fi-dir',tf:'fi-tf',grade:'fi-grade',setup:'fi-setup',dateFrom:'fi-df',dateTo:'fi-dt',minPnl:'fi-mn',maxPnl:'fi-mx'};
+      Object.entries(fmap).forEach(([k,id])=>{const inp=el(id);if(!inp)return;inp.addEventListener(inp.tagName==='SELECT'?'change':'input',()=>{filters[k]=inp.value;renderApp();});});
+    },50);
+    
     const cr=document.createElement('div');
     cr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;font-size:var(--fsxs);color:var(--text4)';
-    cr.innerHTML=`<span>${filtered.length} / ${trades.length} trades ${useGross?'<span style="color:var(--yellow)">[GROSS MODE]</span>':''} <span style="color:var(--text5);font-size:var(--fsxs)">sorted by ${sortCol} ${sortDir>0?'▲':'▼'}</span></span><button class="btn-d" style="font-size:var(--fsxs);padding:4px 12px;margin-right:6px" onclick="showAllCols=!showAllCols;renderApp()">${showAllCols?'HIDE EXTRAS':'SHOW MORE'}</button><button class="btn-y" style="margin-left:auto;font-size:var(--fsxs);padding:4px 12px" onclick="scanForDuplicates()">🔍 SCAN DUPLICATES</button>`;
+    cr.innerHTML=`<span>${filtered.length} / ${trades.length} trades ${useGross?'<span style="color:var(--yellow)">[GROSS MODE]</span>':''} <span style="color:var(--text5);font-size:var(--fsxs)">sorted by ${sortCol} ${sortDir>0?'▲':'▼'}</span></span><button class="btn-d" style="font-size:var(--fsxs);padding:4px 12px;margin-right:6px" onclick="window.openAllChartsForFiltered()" title="Open chart links for currently filtered trades">📈 OPEN ALL</button><button class="btn-d" style="font-size:var(--fsxs);padding:4px 12px;margin-right:6px" onclick="showAllCols=!showAllCols;renderApp()">${showAllCols?'HIDE EXTRAS':'SHOW MORE'}</button><button class="btn-y" style="margin-left:auto;font-size:var(--fsxs);padding:4px 12px" onclick="scanForDuplicates()">🔍 SCAN DUPLICATES</button>`;
     content.appendChild(cr);
     setTimeout(()=>{},50);
 
