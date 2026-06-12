@@ -506,7 +506,7 @@ async function _scanForDuplicates(){
       const keep=btn.dataset.keep;
       const pair=dupes[idx];
       const toDelete=keep==='a'?pair[1]:pair[0];
-      try{await colRef.doc(toDelete.id).delete();
+      try{if(!colRef)throw new Error('Not connected to database');await colRef.doc(toDelete.id).delete();
         const card=modal.querySelector(`[data-dupe-idx="${idx}"]`);
         if(card){card.style.opacity='.3';card.style.pointerEvents='none';
           card.insertAdjacentHTML('afterbegin','<div style="background:var(--green);color:var(--bg);padding:6px 14px;font-size:var(--fsxs);text-align:center">✓ KEPT TRADE '+keep.toUpperCase()+'</div>');}
@@ -966,6 +966,7 @@ function importCSV(text,label){
     // Trade Paired rows: Delta = gross P/L — DO NOT count as fee
     const feeUpdates=[],balRows=[],ledgerFromCSV=[];
     const pdfLedgerSeen={};
+    let foundStartingBalance=false;
     const FEE_TYPES=['exchange fee','clearing fee','nfa fee','commission','regulatory','exchange','clearing','nfa'];
     const SKIP_TYPES=['trade paired','interest','dividend']; // Note: fund transaction handled separately for starting balance
     // Group fees by date
@@ -983,21 +984,21 @@ function importCSV(text,label){
       if(!isNaN(runBal)&&runBal>50)balRows.push({date,balance:runBal});
       // Fund Transaction / Deposit / Withdrawal / ACH — track every event
       if(ctype.includes('fund transaction')||ctype.includes('deposit')||ctype.includes('withdrawal')||ctype.includes('ach')||ctype.includes('wire')){
-        if(!isNaN(amount)&&amount!==0){
+        if(!isNaN(delta)&&delta!==0){
           // Build unique key to dedupe across re-imports
-          const evKey=date+'|'+amount.toFixed(2)+'|'+ctype;
+          const evKey=date+'|'+delta.toFixed(2)+'|'+ctype;
           if(!pdfLedgerSeen[evKey]){
             pdfLedgerSeen[evKey]=true;
             ledgerFromCSV.push({
               date,
-              amount,
-              type:amount>0?'DEPOSIT':'WITHDRAWAL',
+              amount:delta,
+              type:delta>0?'DEPOSIT':'WITHDRAWAL',
               desc:ctypeRaw||'Fund Transaction'
             });
           }
           // First positive event = starting equity baseline
-          if(amount>0&&!foundStartingBalance){
-            accountEquity=amount;
+          if(delta>0&&!foundStartingBalance){
+            accountEquity=delta;
             foundStartingBalance=true;
           }
         }
@@ -1386,7 +1387,7 @@ async function commitImport(r,skipApproval){
     const newCalc=tradeCalc(t.symbol,t.type,t.entry,t.exit,t.size,f.fees);
     await updateTrade(f.id,{fees:f.fees,pnl:newCalc.pnl,grossPnl:newCalc.grossPnl,feeFromCash:true});
   }
-  if(r.balRows&&r.balRows.length){balanceHistory=[...balanceHistory,...r.balRows].sort((a,b)=>a.date>b.date?1:-1);const latest=balanceHistory[balanceHistory.length-1]?.balance;}
+  if(r.balRows&&r.balRows.length){balanceHistory=[...balanceHistory,...r.balRows].sort((a,b)=>a.date>b.date?1:-1);accountEquity=balanceHistory[balanceHistory.length-1]?.balance||accountEquity;}
   // Merge ledger events (deposits/withdrawals) — dedupe by date+amount
   if(r.ledgerEvents&&r.ledgerEvents.length){
     let addedCount=0;
@@ -1485,7 +1486,7 @@ async function approveChange(idx){
   else showApprovalModal();
 }
 async function rejectChange(idx){pendingMerges.splice(idx,1);if(!pendingMerges.length){const el2=document.getElementById('approval-modal');if(el2)el2.remove();}else showApprovalModal();}
-async function approveAllChanges(){const ms=[...pendingMerges];pendingMerges=[];document.getElementById('approval-modal')?.remove();for(const m of ms)await approveChange.call(null,-1)||updateTrade(m.id,{...m.updates,...(m.needsApproval.fees?{fees:m.needsApproval.fees.new,pnl:m.needsApproval.fees.pnlNew,grossPnl:m.needsApproval.fees.calc.grossPnl,feeFromCsv:true}:{})});}
+async function approveAllChanges(){const ms=[...pendingMerges];pendingMerges=[];document.getElementById('approval-modal')?.remove();for(const m of ms)await updateTrade(m.id,{...m.updates,...(m.needsApproval?.fees?{fees:m.needsApproval.fees.new,pnl:m.needsApproval.fees.pnlNew,grossPnl:m.needsApproval.fees.calc.grossPnl,feeFromCsv:true}:{})});}
 function rejectAllChanges(){pendingMerges=[];document.getElementById('approval-modal')?.remove();}
 
 // Auto import
@@ -1547,8 +1548,8 @@ function svgLineLabeled(pts,color,W,H,showTradeAmounts,spyPts,yUnit){
   // High/low labels
   const maxPt=pts.reduce((a,b)=>b.y>a.y?b:a),minPt=pts.reduce((a,b)=>b.y<a.y?b:a);
   const maxIdx=pts.indexOf(maxPt),minIdx=pts.indexOf(minPt);
-  const highLabel=`<text x="${sx(maxIdx).toFixed(1)}" y="${(sy(maxPt.y)-6).toFixed(1)}" text-anchor="middle" fill="#00e5a0" font-size="8" font-family="JetBrains Mono,monospace" opacity=".85" font-size="13" font-weight="600">$${maxPt.y.toFixed(0)}</text>`;
-  const lowLabel=minPt.y<0?`<text x="${sx(minIdx).toFixed(1)}" y="${(sy(minPt.y)+12).toFixed(1)}" text-anchor="middle" fill="#ff3d5a" font-size="8" font-family="JetBrains Mono,monospace" opacity=".85" font-size="13" font-weight="600">$${minPt.y.toFixed(0)}</text>`:'';
+  const highLabel=`<text x="${sx(maxIdx).toFixed(1)}" y="${(sy(maxPt.y)-6).toFixed(1)}" text-anchor="middle" fill="#00e5a0" font-size="13" font-family="JetBrains Mono,monospace" opacity=".85" font-weight="600">$${maxPt.y.toFixed(0)}</text>`;
+  const lowLabel=minPt.y<0?`<text x="${sx(minIdx).toFixed(1)}" y="${(sy(minPt.y)+12).toFixed(1)}" text-anchor="middle" fill="#ff3d5a" font-size="13" font-family="JetBrains Mono,monospace" opacity=".85" font-weight="600">$${minPt.y.toFixed(0)}</text>`:'';
   let yg='',yt='';
   for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="13" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}
   let xt='';const step=Math.max(1,Math.floor(pts.length/8));for(let i=0;i<pts.length;i+=step)xt+=`<text x="${sx(i).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text2)" font-size="13" font-family="JetBrains Mono,monospace" font-weight="500">${i+1}</text>`;
@@ -1715,8 +1716,8 @@ function svgLine(pts,color,W,H){
   ${minY<0?`<path d="${path}" stroke="#f87171" stroke-width="2" fill="none" clip-path="url(#${uniqueId}_clipNeg)"/>`:''}
   ${spyPath||''}${dots}${yt}${xt}</svg>`;
 }
-function svgBar(bars,W,H){if(!bars.length)return'';const PAD={t:10,r:20,b:28,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const vals=bars.map(b=>b.v),minY=Math.min(0,...vals),maxY=Math.max(0,...vals),rY=maxY-minY||1;const bw=Math.max(3,(cw/bars.length)-2),sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);let rects='',xl='';bars.forEach((b,i)=>{const x=PAD.l+(i/bars.length)*cw+(cw/bars.length-bw)/2,yv=sy(b.v);rects+=`<rect x="${x.toFixed(1)}" y="${(b.v>=0?yv:y0).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(yv-y0)).toFixed(1)}" fill="${b.v>=0?'#00e5a040':'#ff3d5a40'}" stroke="${b.v>=0?'#00e5a0':'#ff3d5a'}" stroke-width="1" rx="1"/>`;if(i%(Math.ceil(bars.length/8))===0)xl+=`<text x="${(x+bw/2).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="9" font-family="JetBrains Mono,monospace">${b.d}</text>`;});let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="13" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)"/>${rects}${yt}${xl}</svg>`;}
-function svgXY(data,color,xFmt,W,H,refX){if(!data.length)return'';const PAD={t:16,r:65,b:30,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const xs=data.map(d=>d.x),ys=data.map(d=>d.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(0,...ys),maxY=Math.max(0,...ys);const rX=maxX-minX||1,rY=maxY-minY||1,sx=v=>PAD.l+((v-minX)/rX)*cw,sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);const path='M'+data.map(d=>sx(d.x).toFixed(1)+','+sy(d.y).toFixed(1)).join('L');let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="13" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}const xtS=Math.ceil(data.length/6);let xt='';data.forEach((d,i)=>{if(i%xtS===0)xt+=`<text x="${sx(d.x).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">${xFmt?xFmt(d.x):d.x}</text>`;});const zero=`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`;const you=refX!=null?`<line x1="${sx(refX).toFixed(1)}" y1="${PAD.t}" x2="${sx(refX).toFixed(1)}" y2="${PAD.t+ch}" stroke="${color}" stroke-dasharray="3,3" opacity=".4"/><text x="${sx(refX).toFixed(1)}" y="${PAD.t-3}" text-anchor="middle" fill="${color}" font-size="9">YOU</text>`:'';return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}${you}<path d="${path}" stroke="${color}" stroke-width="2.5" fill="none"/>` +yt+xt+'</svg>';}
+function svgBar(bars,W,H){if(!bars.length)return'';const PAD={t:10,r:20,b:28,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const vals=bars.map(b=>b.v),minY=Math.min(0,...vals),maxY=Math.max(0,...vals),rY=maxY-minY||1;const bw=Math.max(3,(cw/bars.length)-2),sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);let rects='',xl='';bars.forEach((b,i)=>{const x=PAD.l+(i/bars.length)*cw+(cw/bars.length-bw)/2,yv=sy(b.v);rects+=`<rect x="${x.toFixed(1)}" y="${(b.v>=0?yv:y0).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(yv-y0)).toFixed(1)}" fill="${b.v>=0?'#00e5a040':'#ff3d5a40'}" stroke="${b.v>=0?'#00e5a0':'#ff3d5a'}" stroke-width="1" rx="1"/>`;if(i%(Math.ceil(bars.length/8))===0)xl+=`<text x="${(x+bw/2).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="9" font-family="JetBrains Mono,monospace">${b.d}</text>`;});let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="13" font-family="JetBrains Mono,monospace" font-weight="500">${window.chartPctMode?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)"/>${rects}${yt}${xl}</svg>`;}
+function svgXY(data,color,xFmt,W,H,refX){if(!data.length)return'';const PAD={t:16,r:65,b:30,l:65};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;const xs=data.map(d=>d.x),ys=data.map(d=>d.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(0,...ys),maxY=Math.max(0,...ys);const rX=maxX-minX||1,rY=maxY-minY||1,sx=v=>PAD.l+((v-minX)/rX)*cw,sy=v=>PAD.t+ch-((v-minY)/rY)*ch,y0=sy(0);const path='M'+data.map(d=>sx(d.x).toFixed(1)+','+sy(d.y).toFixed(1)).join('L');let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="13" font-family="JetBrains Mono,monospace" font-weight="500">${window.chartPctMode?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}const xtS=Math.ceil(data.length/6);let xt='';data.forEach((d,i)=>{if(i%xtS===0)xt+=`<text x="${sx(d.x).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace">${xFmt?xFmt(d.x):d.x}</text>`;});const zero=`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`;const you=refX!=null?`<line x1="${sx(refX).toFixed(1)}" y1="${PAD.t}" x2="${sx(refX).toFixed(1)}" y2="${PAD.t+ch}" stroke="${color}" stroke-dasharray="3,3" opacity=".4"/><text x="${sx(refX).toFixed(1)}" y="${PAD.t-3}" text-anchor="middle" fill="${color}" font-size="9">YOU</text>`:'';return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}${you}<path d="${path}" stroke="${color}" stroke-width="2.5" fill="none"/>` +yt+xt+'</svg>';}
 
 // KPI card with tooltip + warning + sparkline
 function kpiCard(label,val,sub,color,sparkData,sparkColor,big,showAxisOnSpark){
@@ -2486,7 +2487,9 @@ async function runClaudeAPI(tds,period,out){
   out.appendChild(note);
   const summary={period,tradeCount:S2.total,winRate:pct(S2.wr),profitFactor:S2.pf>=99?'∞':S2.pf.toFixed(2),expectedValue:'$'+S2.ev.toFixed(2),netPnl:fmt(S2.net),grossPnl:fmt(S2.grossNet),totalFees:'$'+S2.totalFees.toFixed(2),feeDrag:S2.feeImpact.toFixed(1)+'%',avgWin:'+$'+S2.avgW.toFixed(2),avgLoss:'-$'+S2.avgL.toFixed(2),riskReward:S2.rr.toFixed(2)+'R',sharpe:S2.sharpe.toFixed(2),maxDrawdown:'-$'+S2.maxDD.toFixed(2),recovery:S2.recovery.toFixed(2)+'x',setupBreakdown:Object.entries(S2.setups).map(([k,v])=>`${k}:${v.count}tr,${(v.wins/v.count*100).toFixed(0)}%WR,${fmt(v.pnl)}`).join(';')};
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:`Futures trading coach. Analyze this data and give 3 specific, actionable improvements. Data: ${JSON.stringify(summary)}. Be direct, use their exact numbers, under 200 words.`}]})});
+    let claudeKey=localStorage.getItem('el_claude_key')||'';
+    if(!claudeKey){claudeKey=prompt('Enter your Anthropic API key (stored locally, never sent anywhere except Anthropic):');if(!claudeKey)return;localStorage.setItem('el_claude_key',claudeKey);}
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','x-api-key':claudeKey},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:`Futures trading coach. Analyze this data and give 3 specific, actionable improvements. Data: ${JSON.stringify(summary)}. Be direct, use their exact numbers, under 200 words.`}]})});
     const data=await res.json();
     if(data.error)throw new Error(data.error.message);
     const text=data.content?.find(b=>b.type==='text')?.text||'';
@@ -3198,31 +3201,6 @@ function renderApp(){
     }
     content.appendChild(fd);
 
-    // Filters
-    const fb=document.createElement('div');
-    fb.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:7px;background:var(--bg3);padding:8px 10px;border:1px solid var(--border)';
-    fb.innerHTML=`
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
-        <div><label class="lbl">SYM</label><input class="filter-inp" id="fi-sym" value="${filters.sym}" placeholder="ES..."/></div>
-        <div><label class="lbl">DIR</label><select class="filter-inp" id="fi-dir"><option value="">ALL</option><option${filters.dir==='LONG'?' selected':''}>LONG</option><option${filters.dir==='SHORT'?' selected':''}>SHORT</option></select></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
-        <div><label class="lbl">GRADE</label><select class="filter-inp" id="fi-grade"><option value="">ALL</option>${GRADES.map(g=>`<option${g===filters.grade?' selected':''}>${g}</option>`).join('')}</select></div>
-        <div><label class="lbl">SETUP</label><select class="filter-inp" id="fi-setup"><option value="">ALL</option>${customSetups.map(s=>`<option${s===filters.setup?' selected':''}>${s}</option>`).join('')}</select></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
-        <div><label class="lbl">DATE FROM</label><input class="filter-inp" id="fi-df" type="date" value="${filters.dateFrom}"/></div>
-        <div><label class="lbl">DATE TO</label><input class="filter-inp" id="fi-dt" type="date" value="${filters.dateTo}"/></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 40px;gap:5px;align-items:end">
-        <div><label class="lbl">MIN P&L</label><input class="filter-inp" id="fi-mn" placeholder="-500" value="${filters.minPnl}"/></div>
-        <div><label class="lbl">MAX P&L</label><input class="filter-inp" id="fi-mx" placeholder="500" value="${filters.maxPnl}"/></div>
-        <button onclick="clearFilters()" class="btn-d" style="font-size:9px;padding:3px 6px;height:26px;align-self:flex-end">✕</button>
-      </div>`;
-    content.appendChild(fb);
-    setTimeout(()=>{const fmap={sym:'fi-sym',dir:'fi-dir',grade:'fi-grade',setup:'fi-setup',dateFrom:'fi-df',dateTo:'fi-dt',minPnl:'fi-mn',maxPnl:'fi-mx'};Object.entries(fmap).forEach(([k,id])=>{const inp=el(id);if(!inp)return;inp.addEventListener(inp.tagName==='SELECT'?'change':'input',()=>{filters[k]=inp.value;renderApp();});});},50);
-
-
     // ─── FILTER BAR ───
     const fltb=document.createElement('div');
     fltb.className='section';
@@ -3320,6 +3298,7 @@ function renderApp(){
         sortedFiltered.map(t=>({_type:'trade',...t}));
       // Count column for blank cells (must match header column count)
       const _colCount=18;
+      const _tradeIdxMap=new Map(sortedFiltered.map((t,idx)=>[t.id,idx]));
       const tbody=_allRows.map((t,i)=>{
         // Render deposit row inline
         if(t._type==='ledger'){
@@ -3339,7 +3318,7 @@ function renderApp(){
         const _idCell=(v)=>`<td style="color:var(--text5);font-size:var(--fsxs);max-width:90px;overflow:hidden;text-overflow:ellipsis" title="${v||''}">${v||'—'}</td>`;
         const ex=showAllCols?`<td style="font-size:9px;color:var(--text3)">${t.account||'—'}</td><td style="font-size:9px;color:var(--text3)">${t.broker||'—'}</td>${_idCell(t.buyOrderId)}${_idCell(t.sellOrderId)}${_idCell(t.buyFillId)}${_idCell(t.sellFillId)}${_idCell(t.positionId)}${_idCell(t.pairId)}<td style="color:var(--text4);font-size:var(--fsxs)">${t.entryTime||'—'}</td><td style="color:var(--text4);font-size:var(--fsxs)">${t.exitTime||'—'}</td><td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
         return`<tr class="tr-row" data-id="${t.id}">
-          <td style="color:var(--text5)">${String(sortedFiltered.length-i).padStart(2,'0')}</td>
+          <td style="color:var(--text5)">${String(sortedFiltered.length-(_tradeIdxMap.get(t.id)??0)).padStart(2,'0')}</td>
           <td style="color:var(--text4);white-space:nowrap">${t.date}</td>
           <td style="color:var(--text);font-weight:bold">${t.symbol}<span style="font-size:8px;color:var(--text5);margin-left:2px">${isFut(t.symbol)?'':'S'}</span></td>
           <td style="color:${t.type==='LONG'?'var(--green)':'var(--blue)'}">${t.type}</td>
