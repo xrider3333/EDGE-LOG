@@ -379,7 +379,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='21.1';
+const VERSION='21.2';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1144,7 +1144,11 @@ function importCSV(text,label){
       const durationMins=btDT&&stDT?Math.round(Math.abs(stDT-btDT)/60000):null;
       // Use CSV pnl if available (it's gross), else calculate
       const grossPnl=!isNaN(plR)?+plR.toFixed(2):calcPnl(useSym,dir,entry,exit,qty,0).gross;
-      const fees=getFee(useSym);
+      // Honor an explicit fees column if the CSV carries one (comprehensive/merged export),
+      // else fall back to the per-instrument default. Fee column = real fee from Cash History.
+      const feeRaw=parseFloat((gc2(row,['fees','fee','commission','totalfees'])||'').replace(/[$,]/g,''));
+      const csvHasFee=!isNaN(feeRaw);
+      const fees=csvHasFee?+feeRaw.toFixed(2):getFee(useSym);
       const netPnl=+(grossPnl-fees).toFixed(2);
       const existing=trades.find(t=>t.date===date&&t.symbol===useSym&&(Math.abs(t.entry-entry)<0.5||Math.abs(t.exit-exit)<0.5));
       if(existing){
@@ -1160,8 +1164,8 @@ function importCSV(text,label){
       batch.push({date,symbol:useSym,type:dir,entry:+entry.toFixed(4),exit:+exit.toFixed(4),
         size:qty,fees,grossPnl,pnl:netPnl,setup:'—',grade:'—',timeframe:'—',
         notes:'',chartUrl:'',durationMins,entryTime,exitTime,buyFillId,sellFillId,
-        orderId:buyFillId||sellFillId||'',
-        source:'Performance CSV',assetType:'futures'});
+        orderId:buyFillId||sellFillId||'',feeFromCash:csvHasFee,
+        source:csvHasFee?'Comprehensive CSV':'Performance CSV',assetType:'futures'});
     }
     return{imported:batch.length,skipped,merged:merges.length,type:'performance_v2',batch,merges,feeUpdates:[],balRows:[]};
   }
