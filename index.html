@@ -379,7 +379,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='21.0';
+const VERSION='21.1';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -1031,7 +1031,7 @@ function importCSV(text,label){
     });
     // Update account equity from last balance entry
     // (removed) — balance history no longer overwrites accountEquity
-    return{imported:0,skipped:0,merged:0,type:'cash',batch:[],merges:[],feeUpdates,balRows};
+    return{imported:0,skipped:0,merged:0,type:'cash',batch:[],merges:[],feeUpdates,balRows,feesByDate};
   }
 
   // ── NT8 Orders CSV ───────────────────────────────────────────────
@@ -1367,6 +1367,23 @@ batch.push({date,symbol:sym,type:dir,entry:+entry.toFixed(4),exit:+exit.toFixed(
   return{imported:batch.length,skipped,merged:merges.length,type,batch,merges,feeUpdates:[],balRows:[]};
 }
 
+// ── Order-independent fee buffer ──────────────────────────────────
+// Cash History fees are matched to trades BY DATE. If a Cash CSV is imported
+// before the trades for that date exist, the fees used to be dropped. We now
+// persist per-date fee totals and back-fill them onto trades whenever those
+// trades appear — so upload order no longer matters and re-imports stay correct.
+function loadPendingFees(){try{return JSON.parse(localStorage.getItem('el_pending_fees')||'{}');}catch(e){return{};}}
+function mergePendingFees(feesByDate){if(!feesByDate)return;const buf=loadPendingFees();for(const[d,v]of Object.entries(feesByDate))buf[d]=v;localStorage.setItem('el_pending_fees',JSON.stringify(buf));}
+async function applyPendingFees(extraTrades){
+  const buf=loadPendingFees();const all=[...trades,...(extraTrades||[])];let applied=0;
+  for(const[date,totalFee]of Object.entries(buf)){
+    const dayTrades=all.filter(t=>t.date===date);if(!dayTrades.length)continue;
+    const need=dayTrades.filter(t=>!t.feeFromCash);if(!need.length)continue;
+    const perT=+(totalFee/dayTrades.length).toFixed(4);
+    for(const t of need){const c=tradeCalc(t.symbol,t.type,t.entry,t.exit,t.size,perT);await updateTrade(t.id,{fees:perT,pnl:c.pnl,grossPnl:c.grossPnl,feeFromCash:true});applied++;}
+  }
+  return applied;
+}
 async function commitImport(r,skipApproval){
   const addedIds=[];
   for(const t of r.batch){const ref=await colRef.add({...t,createdAt:firebase.firestore.FieldValue.serverTimestamp()});addedIds.push(ref.id);}
@@ -1387,6 +1404,12 @@ async function commitImport(r,skipApproval){
     const newCalc=tradeCalc(t.symbol,t.type,t.entry,t.exit,t.size,f.fees);
     await updateTrade(f.id,{fees:f.fees,pnl:newCalc.pnl,grossPnl:newCalc.grossPnl,feeFromCash:true});
   }
+  // Order-independent fee back-fill: remember any cash-fee totals and apply them
+  // to trades created in THIS import (newTrades) or any prior trades still missing fees.
+  if(r.feesByDate)mergePendingFees(r.feesByDate);
+  const _newTrades=r.batch.map((t,i)=>({...t,id:addedIds[i]})).filter(t=>t.id);
+  const _filled=await applyPendingFees(_newTrades);
+  if(_filled)console.log('[FEES] back-filled real fees on',_filled,'trade(s) from buffer');
   if(r.balRows&&r.balRows.length){balanceHistory=[...balanceHistory,...r.balRows].sort((a,b)=>a.date>b.date?1:-1);accountEquity=balanceHistory[balanceHistory.length-1]?.balance||accountEquity;}
   // Merge ledger events (deposits/withdrawals) — dedupe by date+amount
   if(r.ledgerEvents&&r.ledgerEvents.length){
