@@ -379,7 +379,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='21.4';
+const VERSION='21.5';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -3280,7 +3280,10 @@ function renderApp(){
       const sortedFiltered=[...filtered].sort((a,b)=>{
         let av=a[sortCol],bv=b[sortCol];
         if(sortCol==='pnl'||sortCol==='entry'||sortCol==='exit'||sortCol==='size'||sortCol==='fees'){av=parseFloat(av)||0;bv=parseFloat(bv)||0;}
-        if(av<bv)return -sortDir;if(av>bv)return sortDir;return 0;
+        if(av<bv)return -sortDir;if(av>bv)return sortDir;
+        // tiebreak by entry time when sorting by date
+        if(sortCol==='date'){const at=a.entryTime||'';const bt=b.entryTime||'';if(at<bt)return -sortDir;if(at>bt)return sortDir;}
+        return 0;
       });
       // Compute running balance + % gain per trade
       // Build chronological timeline merging trades + ledger events (deposits/withdrawals)
@@ -3336,7 +3339,7 @@ function renderApp(){
         }):
         sortedFiltered.map(t=>({_type:'trade',...t}));
       // Count column for blank cells (must match header column count)
-      const _colCount=18;
+      const _colCount=24;
       const _tradeIdxMap=new Map(sortedFiltered.map((t,idx)=>[t.id,idx]));
       const tbody=_allRows.map((t,i)=>{
         // Render deposit row inline
@@ -3359,22 +3362,23 @@ function renderApp(){
         return`<tr class="tr-row" data-id="${t.id}">
           <td style="color:var(--text5)">${String(sortedFiltered.length-(_tradeIdxMap.get(t.id)??0)).padStart(2,'0')}</td>
           <td style="color:var(--text4);white-space:nowrap">${t.date}</td>
+          <td style="color:var(--text4);font-size:var(--fsxs);white-space:nowrap">${t.entryTime||'—'}</td>
+          <td style="color:var(--text4);font-size:var(--fsxs);white-space:nowrap">${t.exitTime||'—'}</td>
+          <td style="color:var(--text4);font-size:var(--fsxs);white-space:nowrap">${fmtDur(t.durationMins)}</td>
           <td style="color:var(--text);font-weight:bold">${t.symbol}<span style="font-size:8px;color:var(--text5);margin-left:2px">${isFut(t.symbol)?'':'S'}</span></td>
           <td style="color:${t.type==='LONG'?'var(--green)':'var(--blue)'}">${t.type}</td>
-          <td>${t.entry}</td><td>${t.exit}</td><td>${t.size}</td>
-                    <td style="color:${gch(t.grossPnl||t.pnl)};white-space:nowrap;font-family:'Bebas Neue',monospace;font-size:13px;opacity:.85">${fmt(t.grossPnl||t.pnl)}</td>
-          <td style="color:var(--yellow);cursor:pointer" onclick="showFeeBreakdown('${t.id}')" title="Click for fee breakdown">${t.fees>0?'-$'+t.fees.toFixed(2):'—'}</td>
-          <td style="color:${gch(t.pnl)};font-family:'Bebas Neue',monospace;font-size:14px;white-space:nowrap">
-            ${fmt(t.pnl)}
-            ${_eqPcts[t.id]!=null?`<div style="font-size:8px;color:${Math.abs(_eqPcts[t.id])>2?gch(t.pnl):'var(--text5)'}">${_eqPcts[t.id]>0?'+':''}${_eqPcts[t.id]}%</div>`:''}
-          </td>
+          <td>${t.entry}</td><td>${t.exit}</td>
           <td style="font-size:var(--fsxs);white-space:nowrap;text-align:right">
             ${(()=>{const p=PRESETS[t.symbol];if(!p||!t.entry||!t.exit)return'<span style="color:var(--text5)">—</span>';const dir=t.type==='LONG'?1:-1;const ptsPerC=((t.exit-t.entry)*dir);const pts=ptsPerC*t.size;const perC=ptsPerC;return `<div style="color:${pts>=0?'#7dd3fc':'#fbbf24'};font-family:'Bebas Neue',monospace;font-size:13px">${pts>=0?'+':''}${pts.toFixed(2)}</div>${t.size>1?`<div style="font-size:8px;color:var(--text5)">${perC>=0?'+':''}${perC.toFixed(2)}/c</div>`:''}`})()}
           </td>
+          <td>${t.size}</td>
+          <td style="color:${gch(t.grossPnl||t.pnl)};white-space:nowrap;font-family:'Bebas Neue',monospace;font-size:13px;opacity:.85">${fmt(t.grossPnl||t.pnl)}</td>
+          <td style="color:var(--yellow);cursor:pointer" onclick="showFeeBreakdown('${t.id}')" title="Click for fee breakdown">${t.fees>0?'-$'+t.fees.toFixed(2):'—'}</td>
+          <td style="color:${gch(t.pnl)};font-family:'Bebas Neue',monospace;font-size:14px;white-space:nowrap">${fmt(t.pnl)}</td>
           <td style="font-size:var(--fsxs);white-space:nowrap">
             <div style="color:var(--text3)">${_runBals[t.id]!=null?'$'+_runBals[t.id].toLocaleString(undefined,{maximumFractionDigits:0}):'—'}</div>
-            ${(()=>{const bal=_runBals[t.id];if(!bal||!t.pnl)return'';const base=bal-t.pnl;const pct=base>0?((t.pnl/base)*100):0;return pct!==0?`<div style="font-size:8px;color:${pct>=0?'var(--green)':'var(--red)'}">${pct>=0?'+':''}${pct.toFixed(2)}%</div>`:''})()}
           </td>
+          <td style="font-size:var(--fsxs);white-space:nowrap;text-align:right">${(()=>{const bal=_runBals[t.id];if(!bal||!t.pnl)return'<span style="color:var(--text5)">—</span>';const base=bal-t.pnl;const pct=base>0?((t.pnl/base)*100):0;return pct!==0?`<span style="color:${pct>=0?'var(--green)':'var(--red)'}">${pct>=0?'+':''}${pct.toFixed(2)}%</span>`:'<span style="color:var(--text5)">—</span>';})()}</td>
           <!-- INLINE GRADE -->
           <td><select class="inline-sel" data-field="grade" data-id="${t.id}">
             ${GRADES.map(g=>`<option${g===(t.grade||'—')?' selected':''}>${g}</option>`).join('')}
@@ -3388,9 +3392,6 @@ function renderApp(){
             ${TIMEFRAMES.map(tf=>`<option${tf===(t.timeframe||'—')?' selected':''}>${tf}</option>`).join('')}
             ${t.timeframe&&!TIMEFRAMES.includes(t.timeframe)?`<option selected>${t.timeframe}</option>`:''}
           </select></td>
-          <td style="color:var(--text4);font-size:var(--fsxs);white-space:nowrap">${fmtDur(t.durationMins)}</td>
-          <td style="color:var(--text4);font-size:var(--fsxs);white-space:nowrap">${t.entryTime||'—'}</td>
-          <td style="color:var(--text4);font-size:var(--fsxs);white-space:nowrap">${t.exitTime||'—'}</td>
           <td style="padding:4px 9px">
             ${t.chartUrl?`<a href="${t.chartUrl}" target="_blank" class="clink chart-link" data-url="${t.chartUrl}" style="margin-right:4px">📈</a>`:''}
             <input class="inline-txt" data-field="chartUrl" data-id="${t.id}" value="${t.chartUrl||''}" placeholder="chart url" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--blue);font-family:inherit;font-size:8px;width:${t.chartUrl?'40px':'70px'};padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='160px'" onblur="this.style.borderBottomColor='transparent';this.style.width=this.value?'40px':'70px';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()" title="${t.chartUrl||'Paste chart URL'}"/>
@@ -3421,10 +3422,10 @@ function renderApp(){
       const mkTh=(label,col)=>`<th onclick="setSortCol('${col}')" title="Click to sort" style="cursor:pointer;user-select:none">${label}${sortCol===col?(sortDir>0?' ▲':' ▼'):''}</th>`;
       tw.innerHTML=`<table style="min-width:900px"><thead><tr>
         <th>#</th>
-        ${mkTh('DATE','date')}${mkTh('SYM','symbol')}${mkTh('DIR','type')}
-        ${mkTh('ENTRY','entry')}${mkTh('EXIT','exit')}${mkTh('CTRS','size')}
-        ${mkTh('GROSS','grossPnl')}${mkTh('FEES','fees')}${mkTh('NET P&L','pnl')}${mkTh('PTS','_pts')}${mkTh('ACCT','_runbal')}
-        ${mkTh('GRADE','grade')}${mkTh('SETUP','setup')}${mkTh('TF','timeframe')}<th>DUR</th><th>IN</th><th>OUT</th>
+        ${mkTh('DATE','date')}<th>IN</th><th>OUT</th><th>DUR</th>${mkTh('SYM','symbol')}${mkTh('DIR','type')}
+        ${mkTh('ENTRY','entry')}${mkTh('EXIT','exit')}${mkTh('PTS','_pts')}${mkTh('CTRS','size')}
+        ${mkTh('GROSS','grossPnl')}${mkTh('FEES','fees')}${mkTh('NET P&L','pnl')}${mkTh('ACCT','_runbal')}<th>ACCT%</th>
+        ${mkTh('GRADE','grade')}${mkTh('SETUP','setup')}${mkTh('TF','timeframe')}
         <th>CHART</th><th>TAGS</th><th>NOTES</th>${exH}<th></th><th></th>
       </tr></thead><tbody>${tbody}</tbody></table>`;
       content.appendChild(tw);
