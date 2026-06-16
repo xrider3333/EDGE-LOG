@@ -379,7 +379,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='21.8';
+const VERSION='21.9';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -408,7 +408,7 @@ function applyTheme(){document.documentElement.setAttribute('data-theme',prefs.t
 applyTheme();
 
 // State
-let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,backtests=[],runHistory=[],augurSub='launch',augurRunSel=null;
+let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,backtests=[],runHistory=[],metaStrats=[],augurSub='launch',augurRunSel=null,augurExecStrat='';
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
 let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyOverlay=false,chartPctMode=false;window.chartPctMode=false;
 let formOpen=false,showAllCols=false;
@@ -664,6 +664,9 @@ function subscribeAll(uid){
   runsRef=db.collection('users').doc(uid).collection('runs');
   if(unsubRuns)unsubRuns();
   unsubRuns=runsRef.onSnapshot(snap=>{runHistory=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='augur'&&augurSub==='runs')renderApp();});
+  metaRef=db.collection('users').doc(uid).collection('meta');
+  if(unsubMeta)unsubMeta();
+  unsubMeta=metaRef.doc('strategies').onSnapshot(d=>{const x=d.data();metaStrats=(x&&x.list)||[];if(activeTab==='augur'&&augurSub==='exec')renderApp();});
 }
 async function addTrade(t){
   const aid=localStorage.getItem('el_account_id')||'';
@@ -2680,7 +2683,7 @@ function renderApp(){
   app.innerHTML='';app.appendChild(wrap);
 
   wrap.querySelectorAll('[data-tab]').forEach(b=>{b.onclick=()=>{activeTab=b.dataset.tab;renderApp();};});
-  el('so-btn').onclick=()=>{if(unsub)unsub();if(unsubL)unsubL();if(unsubBT)unsubBT();if(unsubRuns)unsubRuns();stopAutoImport();auth.signOut();renderAuth();};
+  el('so-btn').onclick=()=>{if(unsub)unsub();if(unsubL)unsubL();if(unsubBT)unsubBT();if(unsubRuns)unsubRuns();if(unsubMeta)unsubMeta();stopAutoImport();auth.signOut();renderAuth();};
   const lu=el('logo-upload');if(lu)lu.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{userLogo=ev.target.result;localStorage.setItem('el_logo',userLogo);updateFavicon();document.title='EDGE LOG — Trade Tracker';renderApp();};r.readAsDataURL(f);};
   const la=el('logo-area');if(la)la.onclick=()=>{if(userLogo){if(confirm('Remove logo?')){userLogo=null;localStorage.removeItem('el_logo');updateFavicon();renderApp();}}else el('logo-upload').click();};
   if(el('tog-net'))el('tog-net').onclick=()=>{useGross=false;renderApp();};
@@ -4129,7 +4132,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const badge=s=>{const c={done:'var(--green)',error:'var(--red)',running:'var(--yellow)',queued:'var(--text4)'}[s]||'var(--text4)';return '<span style="color:'+c+';font-size:var(--fsxs);letter-spacing:1px">'+((s||'?').toUpperCase())+'</span>';};
     const rows=backtests.map(b=>{const r=b.result||{};const done=b.status==='done';const net=done?Math.round((r.total_pnl||0)*(b.mult||20)):0;const last='<td style="text-align:right;color:'+(done?(net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(done?'$'+net.toLocaleString():(b.status==='error'?'err':'—'))+'</td>';return '<tr><td>'+badge(b.status)+'</td><td style="font-size:var(--fsxs)">'+(b.strategy||'')+'</td><td>'+(b.instrument||'')+' '+(b.timeframe||'')+'</td><td style="text-align:right">'+(done?Math.min(r.profit_factor,99).toFixed(2):'—')+'</td><td style="text-align:right">'+(done?r.num_trades:'—')+'</td>'+last+'</tr>';}).join('');
     const fmtUsd=v=>((v||0)<0?'-$':'$')+Math.abs(Math.round(v||0)).toLocaleString();
-    const asubs=[['launch','LAUNCH'],['runs','RUNS · '+runHistory.length]];
+    const asubs=[['launch','LAUNCH'],['exec','EXECUTIONS'],['runs','RUNS · '+runHistory.length]];
     let nav='<div style="display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--border)">';
     asubs.forEach(s=>{nav+='<button class="btn-ghost" data-asub="'+s[0]+'" style="border-radius:0;border-bottom:2px solid '+(augurSub===s[0]?'var(--text)':'transparent')+';color:'+(augurSub===s[0]?'var(--text)':'var(--text4)')+'">'+s[1]+'</button>';});
     nav+='</div>';
@@ -4147,6 +4150,31 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div><div class="lbl" style="margin-bottom:8px">RECENT</div>'
         +(backtests.length?'<table class="table"><thead><tr><th>STATUS</th><th>STRATEGY</th><th>MARKET</th><th style="text-align:right">PF</th><th style="text-align:right">TRADES</th><th style="text-align:right">NET P&L</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO BACKTESTS YET — LAUNCH ONE</div>')
         +'</div></div>';
+    }else if(augurSub==='exec'){
+      const slist=(metaStrats&&metaStrats.length)?metaStrats:stratOpts.map(f=>({file:f,presets:[]}));
+      const curStrat=augurExecStrat||slist[0].file;
+      const cur=slist.filter(s=>s.file===curStrat)[0]||slist[0];
+      const presets=(cur&&cur.presets&&cur.presets.length)?cur.presets:['(start runner to load scopes)'];
+      const grids=backtests.filter(b=>b.type==='grid').slice(0,12);
+      const gbadge=b=>{const c={done:'var(--green)',error:'var(--red)',running:'var(--yellow)',queued:'var(--text4)'}[b.status]||'var(--text4)';const lbl=b.status==='running'?('RUNNING '+(b.progress||0)+'%'):(b.status||'?').toUpperCase();return '<span style="color:'+c+';font-size:var(--fsxs);letter-spacing:1px">'+lbl+'</span>';};
+      const grows=grids.map(b=>{const r=b.result||{};const done=b.status==='done';const net=done&&r.best?Math.round((r.best.total_pnl||0)*(b.mult||20)):0;return '<tr><td>'+gbadge(b)+'</td><td style="font-size:var(--fsxs)">'+(b.strategy||'').replace('.py','')+'</td><td style="font-size:var(--fsxs)">'+(b.preset||'').slice(0,16)+'</td><td style="text-align:right">'+(done?r.n_valid+'/'+r.n_combos:'—')+'</td><td style="text-align:right">'+(done&&r.best?Math.min(r.best.profit_factor,99).toFixed(2):'—')+'</td><td style="text-align:right;color:'+(done?(net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(done?fmtUsd(net):'—')+'</td></tr>';}).join('');
+      const lastDone=grids.filter(b=>b.status==='done'&&b.result&&b.result.top)[0];
+      let topHtml='';
+      if(lastDone){const t=lastDone.result.top;const pk=t.length?Object.keys(t[0]).filter(k=>['total_pnl','num_trades','win_rate','profit_factor','max_drawdown','avg_pnl'].indexOf(k)<0):[];topHtml='<div class="lbl" style="margin:16px 0 6px">TOP CONFIGS · '+(lastDone.strategy||'').replace('.py','')+'</div><div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th>'+pk.map(k=>'<th>'+k+'</th>').join('')+'<th style="text-align:right">PnL pts</th><th style="text-align:right">TRD</th><th style="text-align:right">WR</th><th style="text-align:right">PF</th></tr></thead><tbody>'+t.map((r,i)=>'<tr><td>'+(i+1)+'</td>'+pk.map(k=>'<td style="font-size:var(--fsxs)">'+r[k]+'</td>').join('')+'<td style="text-align:right">'+Math.round(r.total_pnl||0).toLocaleString()+'</td><td style="text-align:right">'+(r.num_trades||0)+'</td><td style="text-align:right">'+Math.round(r.win_rate||0)+'%</td><td style="text-align:right">'+Math.min(r.profit_factor||0,99).toFixed(2)+'</td></tr>').join('')+'</tbody></table></div>';}
+      body='<div style="display:grid;grid-template-columns:280px 1fr;gap:16px">'
+        +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;align-self:start">'
+        +'<div class="lbl" style="margin-bottom:10px">RUN OPTIMIZATION</div>'
+        +'<div style="margin-bottom:8px"><label class="lbl">STRATEGY</label><select id="ex-strat">'+slist.map(s=>'<option'+(s.file===curStrat?' selected':'')+'>'+s.file+'</option>').join('')+'</select></div>'
+        +'<div style="margin-bottom:8px"><label class="lbl">SCOPE</label><select id="ex-preset">'+presets.map(p=>'<option>'+p+'</option>').join('')+'</select></div>'
+        +'<div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1"><label class="lbl">INSTRUMENT</label><select id="ex-inst"><option>NQ</option><option>ES</option></select></div><div style="flex:1"><label class="lbl">SESSION</label><select id="ex-sess"><option value="rth">RTH</option><option value="eth">ETH</option></select></div></div>'
+        +'<div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1"><label class="lbl">TIMEFRAME</label><select id="ex-tf"><option>5m</option><option>1m</option></select></div><div style="flex:1"><label class="lbl">MIN TRADES</label><input id="ex-mint" type="number" value="30"/></div></div>'
+        +'<div style="margin-bottom:10px"><label class="lbl">WORKERS (cpu cores)</label><input id="ex-work" type="number" value="4"/></div>'
+        +'<button class="btn-ghost active" id="ex-run" style="width:100%">▶ RUN SWEEP ON MY PC</button>'
+        +'<div style="color:var(--text5);font-size:var(--fsxs);margin-top:8px;line-height:1.5">Grid sweep runs on your PC; progress + ranked results stream in.</div>'
+        +'</div>'
+        +'<div><div class="lbl" style="margin-bottom:8px">SWEEPS</div>'
+        +(grids.length?'<table class="table"><thead><tr><th>STATUS</th><th>STRATEGY</th><th>SCOPE</th><th style="text-align:right">VALID</th><th style="text-align:right">PF</th><th style="text-align:right">BEST $</th></tr></thead><tbody>'+grows+'</tbody></table>':'<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO SWEEPS YET — RUN ONE</div>')
+        +topHtml+'</div></div>';
     }else if(augurRunSel){
       let d=null;for(let i=0;i<runHistory.length;i++){if(String(runHistory[i].id)===String(augurRunSel))d=runHistory[i];}
       if(!d){body='<div style="color:var(--text5)">run not found</div>';}
@@ -4172,6 +4200,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     content.innerHTML=nav+body;
     content.querySelectorAll('[data-asub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.asub;augurRunSel=null;renderApp();};});
     if(augurSub==='launch'){const rb=el('au-run');if(rb)rb.onclick=async()=>{const inst=el('au-inst').value,sess=el('au-sess').value;const job={strategy:el('au-strat').value,instrument:inst,timeframe:el('au-tf').value,session:sess,source:sess==='rth'?'tv':null,params:{vol_filter:parseFloat(el('au-vol').value)||0},cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};rb.textContent='QUEUED…';rb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
+    else if(augurSub==='exec'){const ss=el('ex-strat');if(ss)ss.onchange=()=>{augurExecStrat=ss.value;renderApp();};const xb=el('ex-run');if(xb)xb.onclick=async()=>{const inst=el('ex-inst').value,sess=el('ex-sess').value;const job={type:'grid',strategy:el('ex-strat').value,instrument:inst,timeframe:el('ex-tf').value,session:sess,source:sess==='rth'?'tv':null,preset:el('ex-preset').value,min_trades:parseInt(el('ex-mint').value)||30,workers:parseInt(el('ex-work').value)||1,top_n:10,cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurRunSel){const bk=el('au-back');if(bk)bk.onclick=()=>{augurRunSel=null;renderApp();};}
     else{content.querySelectorAll('[data-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.run;renderApp();};});}
     return;
