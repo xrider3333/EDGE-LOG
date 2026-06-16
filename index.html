@@ -379,7 +379,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='22.0';
+const VERSION='22.1';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -408,7 +408,7 @@ function applyTheme(){document.documentElement.setAttribute('data-theme',prefs.t
 applyTheme();
 
 // State
-let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,backtests=[],runHistory=[],metaStrats=[],augurSub='launch',augurRunSel=null,augurExecStrat='';
+let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],augurSub='launch',augurRunSel=null,augurExecStrat='';
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
 let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyOverlay=false,chartPctMode=false;window.chartPctMode=false;
 let formOpen=false,showAllCols=false;
@@ -666,7 +666,9 @@ function subscribeAll(uid){
   unsubRuns=runsRef.onSnapshot(snap=>{runHistory=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='augur'&&augurSub==='runs')renderApp();});
   metaRef=db.collection('users').doc(uid).collection('meta');
   if(unsubMeta)unsubMeta();
-  unsubMeta=metaRef.doc('strategies').onSnapshot(d=>{const x=d.data();metaStrats=(x&&x.list)||[];if(activeTab==='augur'&&augurSub==='exec')renderApp();});
+  unsubMeta=metaRef.doc('strategies').onSnapshot(d=>{const x=d.data();metaStrats=(x&&x.list)||[];if(activeTab==='augur'&&(augurSub==='exec'||augurSub==='lib'))renderApp();});
+  if(unsubMM)unsubMM();
+  unsubMM=metaRef.doc('masters').onSnapshot(d=>{const x=d.data();metaMasters=(x&&x.list)||[];if(activeTab==='augur'&&augurSub==='lib')renderApp();});
 }
 async function addTrade(t){
   const aid=localStorage.getItem('el_account_id')||'';
@@ -2683,7 +2685,7 @@ function renderApp(){
   app.innerHTML='';app.appendChild(wrap);
 
   wrap.querySelectorAll('[data-tab]').forEach(b=>{b.onclick=()=>{activeTab=b.dataset.tab;renderApp();};});
-  el('so-btn').onclick=()=>{if(unsub)unsub();if(unsubL)unsubL();if(unsubBT)unsubBT();if(unsubRuns)unsubRuns();if(unsubMeta)unsubMeta();stopAutoImport();auth.signOut();renderAuth();};
+  el('so-btn').onclick=()=>{if(unsub)unsub();if(unsubL)unsubL();if(unsubBT)unsubBT();if(unsubRuns)unsubRuns();if(unsubMeta)unsubMeta();if(unsubMM)unsubMM();stopAutoImport();auth.signOut();renderAuth();};
   const lu=el('logo-upload');if(lu)lu.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{userLogo=ev.target.result;localStorage.setItem('el_logo',userLogo);updateFavicon();document.title='EDGE LOG — Trade Tracker';renderApp();};r.readAsDataURL(f);};
   const la=el('logo-area');if(la)la.onclick=()=>{if(userLogo){if(confirm('Remove logo?')){userLogo=null;localStorage.removeItem('el_logo');updateFavicon();renderApp();}}else el('logo-upload').click();};
   if(el('tog-net'))el('tog-net').onclick=()=>{useGross=false;renderApp();};
@@ -4132,7 +4134,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const badge=s=>{const c={done:'var(--green)',error:'var(--red)',running:'var(--yellow)',queued:'var(--text4)'}[s]||'var(--text4)';return '<span style="color:'+c+';font-size:var(--fsxs);letter-spacing:1px">'+((s||'?').toUpperCase())+'</span>';};
     const rows=backtests.map(b=>{const r=b.result||{};const done=b.status==='done';const net=done?Math.round((r.total_pnl||0)*(b.mult||20)):0;const last='<td style="text-align:right;color:'+(done?(net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(done?'$'+net.toLocaleString():(b.status==='error'?'err':'—'))+'</td>';return '<tr><td>'+badge(b.status)+'</td><td style="font-size:var(--fsxs)">'+(b.strategy||'')+'</td><td>'+(b.instrument||'')+' '+(b.timeframe||'')+'</td><td style="text-align:right">'+(done?Math.min(r.profit_factor,99).toFixed(2):'—')+'</td><td style="text-align:right">'+(done?r.num_trades:'—')+'</td>'+last+'</tr>';}).join('');
     const fmtUsd=v=>((v||0)<0?'-$':'$')+Math.abs(Math.round(v||0)).toLocaleString();
-    const asubs=[['launch','LAUNCH'],['exec','EXECUTIONS'],['runs','RUNS · '+runHistory.length]];
+    const asubs=[['launch','LAUNCH'],['exec','EXECUTIONS'],['lib','LIBRARY'],['runs','RUNS · '+runHistory.length]];
     let nav='<div style="display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--border)">';
     asubs.forEach(s=>{nav+='<button class="btn-ghost" data-asub="'+s[0]+'" style="border-radius:0;border-bottom:2px solid '+(augurSub===s[0]?'var(--text)':'transparent')+';color:'+(augurSub===s[0]?'var(--text)':'var(--text4)')+'">'+s[1]+'</button>';});
     nav+='</div>';
@@ -4175,6 +4177,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div><div class="lbl" style="margin-bottom:8px">SWEEPS</div>'
         +(grids.length?'<table class="table"><thead><tr><th>STATUS</th><th>STRATEGY</th><th>SCOPE</th><th style="text-align:right">VALID</th><th style="text-align:right">PF</th><th style="text-align:right">BEST $</th></tr></thead><tbody>'+grows+'</tbody></table>':'<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO SWEEPS YET — RUN ONE</div>')
         +topHtml+'</div></div>';
+    }else if(augurSub==='lib'){
+      const srows=(metaStrats||[]).map(s=>'<tr><td>'+(s.num||'')+'</td><td style="font-size:var(--fsxs)">'+(s.name||s.file)+'</td><td style="font-size:var(--fsxs);color:var(--text4)">'+(s.file||'')+'</td><td style="text-align:right">'+((s.presets||[]).length)+'</td></tr>').join('');
+      const mrows=(metaMasters||[]).map(m=>'<tr><td style="font-size:var(--fsxs)">'+(m.name||'')+'</td><td>'+(m.instrument||'')+'</td><td>'+(m.timeframe||'')+'</td><td>'+((m.session||'')+'').toUpperCase()+'</td><td style="font-size:var(--fsxs)">'+(m.source||'')+'</td><td style="text-align:right">'+(m.rows||0).toLocaleString()+'</td><td style="font-size:var(--fsxs)">'+(m.date_from||'')+'→'+(m.date_to||'')+'</td></tr>').join('');
+      body='<div class="lbl" style="margin-bottom:6px">STRATEGIES · '+(metaStrats||[]).length+'</div>'
+        +((metaStrats||[]).length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th><th>NAME</th><th>FILE</th><th style="text-align:right">SCOPES</th></tr></thead><tbody>'+srows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no library synced — start the runner</div>')
+        +'<div class="lbl" style="margin:18px 0 6px">MASTERS · '+(metaMasters||[]).length+'</div>'
+        +((metaMasters||[]).length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th>NAME</th><th>INST</th><th>TF</th><th>SESS</th><th>SOURCE</th><th style="text-align:right">ROWS</th><th>RANGE</th></tr></thead><tbody>'+mrows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no masters synced</div>');
     }else if(augurRunSel){
       let d=null;for(let i=0;i<runHistory.length;i++){if(String(runHistory[i].id)===String(augurRunSel))d=runHistory[i];}
       if(!d){body='<div style="color:var(--text5)">run not found</div>';}
