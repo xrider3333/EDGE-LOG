@@ -379,7 +379,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='21.9';
+const VERSION='22.0';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -4185,10 +4185,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const pkeys=t10.length?Object.keys(t10[0]).filter(k=>['total_pnl','num_trades','win_rate','profit_factor','wins','losses','avg_pnl','max_drawdown'].indexOf(k)<0):[];
         const thead='<tr><th>#</th>'+pkeys.map(k=>'<th>'+k+'</th>').join('')+'<th style="text-align:right">PnL pts</th><th style="text-align:right">TRD</th><th style="text-align:right">WR</th><th style="text-align:right">PF</th></tr>';
         const trows=t10.map((r,i)=>'<tr><td>'+(i+1)+'</td>'+pkeys.map(k=>'<td style="font-size:var(--fsxs)">'+r[k]+'</td>').join('')+'<td style="text-align:right">'+Math.round(r.total_pnl||0).toLocaleString()+'</td><td style="text-align:right">'+(r.num_trades||0)+'</td><td style="text-align:right">'+Math.round(r.win_rate||0)+'%</td><td style="text-align:right">'+Math.min(r.profit_factor||0,99).toFixed(2)+'</td></tr>').join('');
+        let eqHtml='';
+        if(d.equity&&d.equity.cum&&d.equity.cum.length>1){const cum=d.equity.cum,n=cum.length;let mn=Math.min.apply(null,cum),mx=Math.max.apply(null,cum);if(mx<=mn)mx=mn+1;const W=640,Hh=140;const pts=cum.map((v,i)=>(Math.round(i/(n-1)*W*100)/100)+','+(Math.round((Hh-((v-mn)/(mx-mn))*Hh)*100)/100)).join(' ');const col=(d.equity.final||0)>=0?'#1D9E75':'#E24B4A';const zero=(mn<0&&mx>0)?(Hh-((0-mn)/(mx-mn))*Hh):null;eqHtml='<div class="lbl" style="margin:4px 0 6px">EQUITY CURVE · best config, 1 contract</div><div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:16px"><svg viewBox="0 0 '+W+' '+Hh+'" width="100%" height="120" preserveAspectRatio="none">'+(zero!=null?'<line x1="0" y1="'+zero.toFixed(1)+'" x2="'+W+'" y2="'+zero.toFixed(1)+'" stroke="var(--border)" stroke-width="1"/>':'')+'<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="2"/></svg></div>';}
         body='<button class="btn-ghost" id="au-back" style="margin-bottom:12px">← back to runs</button>'
           +'<div style="font-size:15px;margin-bottom:2px">'+(d.strategy||'')+'</div>'
           +'<div style="color:var(--text4);font-size:var(--fsxs);margin-bottom:12px">run #'+d.id+' · '+(d.instrument||'')+' '+(d.timeframe||'')+' · '+(d.scope||'')+' · '+(d.date_from||'')+' → '+(d.date_to||'')+' · '+(d.n_valid||0)+'/'+(d.n_combos||0)+' configs</div>'
           +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-bottom:16px">'+cardHtml+'</div>'
+          +eqHtml
           +'<div class="lbl" style="margin-bottom:6px">TOP CONFIGS</div>'
           +(t10.length?'<div style="overflow-x:auto"><table class="table">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>');
       }
