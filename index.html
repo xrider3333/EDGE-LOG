@@ -349,7 +349,7 @@ window._setStage=function(name){
   const t=document.getElementById('loadtxt');
   const pct=Math.min(95,window._stages.length*10);
   if(b)b.style.width=pct+'%';
-  if(t)t.textContent=name;
+  if(t)t.textContent=name+' · v'+VERSION;
   console.log('[LOAD]',name);
 };
 window._finishLoad=function(){
