@@ -1,0 +1,161 @@
+//@version=5
+// =============================================================================
+//  AUGUR · ENGU 3.5 — Range-Consolidation Breakout + Daily Directional Bias
+//  Pine port of the AUGUR Python strategy (1.3.x / tuned_0602) for TradingView,
+//  with the two new ideas baked in:
+//    • Daily directional bias  — only LONG above a daily anchor, only SHORT below
+//      (prior-day close, or gap-immune session open). "Stay out of the way."
+//    • Flat by session close   — no overnight holds (kills the held-into-close risk).
+//  Research / brainstorming tool. Validate before trading. Entries fill at the
+//  signal bar's close (process_orders_on_close=true) to match the AUGUR engine.
+// =============================================================================
+strategy("AUGUR ENGU 3.5 — Breakout + Daily Bias", overlay=true,
+     default_qty_type=strategy.fixed, default_qty_value=1, pyramiding=0,
+     commission_type=strategy.commission.cash_per_order, commission_value=2.83,
+     slippage=1, calc_on_every_tick=false, process_orders_on_close=true)
+
+// ── Breakout ─────────────────────────────────────────────────────────────────
+gB = "Breakout"
+lookback    = input.int(15,  "Lookback bars (prior range)", minval=2, group=gB)
+bodyMult    = input.float(0.4,"Body must exceed (x range)",  step=0.05, group=gB)
+breakoutBuf = input.float(0.4,"Breakout buffer (x range)",   step=0.05, group=gB)
+tradeMode   = input.string("Both","Direction", options=["Both","Long Only","Short Only"], group=gB)
+invert      = input.bool(false,"Invert signals", group=gB)
+
+// ── Filters ──────────────────────────────────────────────────────────────────
+gF = "Filters"
+useOpp  = input.bool(false,"Opposite-momentum filter", group=gF)
+oppLb   = input.int(15,   "  Opp lookback", group=gF)
+oppThr  = input.float(0.6,"  Opp threshold (x body)", step=0.1, group=gF)
+useAtr  = input.bool(true, "ATR (breakout-strength) filter", group=gF)
+atrLen  = input.int(20,   "  ATR length", group=gF)
+atrMult = input.float(1.0,"  Body > ATR x", step=0.1, group=gF)
+useVol  = input.bool(true, "Volume filter", group=gF)
+volLen  = input.int(20,   "  Vol SMA length", group=gF)
+volMult = input.float(1.0,"  Volume > avg x", step=0.1, group=gF)
+useTrend= input.bool(false,"Trend filter (EMA)", group=gF)
+emaLen  = input.int(150,  "  EMA length", group=gF)
+
+// ── Daily directional bias (the new idea) ────────────────────────────────────
+gD = "Daily bias"
+biasMode = input.string("prior_close", "Bias anchor",
+     options=["off","prior_close","session_open"], group=gD,
+     tooltip="Only LONG above the anchor, only SHORT below. prior_close = yesterday's daily close; session_open = today's daily open (gap-immune); off = no bias.")
+
+// ── Exits ────────────────────────────────────────────────────────────────────
+gE = "Exits"
+stopMult = input.float(1.3,"Stop (x range)",  step=0.1, group=gE)
+tpMult   = input.float(1.3,"Target (x range)",step=0.1, group=gE)
+exitMode = input.string("Stop / Target","Exit method",
+     options=["Stop / Target","Stop Only","Next Opposite Signal"], group=gE)
+useTrail = input.bool(true,"Trailing stop (range-distance)", group=gE)
+cooldown = input.int(0,    "Post-loss cooldown (bars)", minval=0, group=gE)
+flatEod  = input.bool(false,"Flat by session close", group=gE)
+eodSess  = input.session("1555-1600","  Close window (exchange tz)", group=gE)
+
+// ── Indicators ───────────────────────────────────────────────────────────────
+hh    = ta.highest(high[1], lookback)      // prior range (excludes current bar)
+ll    = ta.lowest(low[1],  lookback)
+rng   = hh - ll
+bodyV = math.abs(close - open)
+atrV  = ta.atr(atrLen)
+emaV  = ta.ema(close, emaLen)
+volAv = ta.sma(volume, volLen)
+
+// Daily anchors — NATIVE in Pine (this is the "it's simple" part your instinct nailed)
+priorClose = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
+sessOpen   = request.security(syminfo.tickerid, "D", open,     lookahead=barmerge.lookahead_off)
+biasRef    = biasMode == "session_open" ? sessOpen : priorClose
+biasLong   = biasMode == "off" or na(biasRef) ? true : close > biasRef
+biasShort  = biasMode == "off" or na(biasRef) ? true : close < biasRef
+
+// ── Signal ───────────────────────────────────────────────────────────────────
+bodyOk  = rng > 0 and bodyV > rng * bodyMult
+rawBull = close > open and close > hh + rng * breakoutBuf
+rawBear = close < open and close < ll  - rng * breakoutBuf
+
+oppPassBull = true
+oppPassBear = true
+if useOpp
+    for k = 1 to oppLb
+        pb = math.abs(close[k] - open[k])
+        oppPassBull := oppPassBull and not (close[k] < open[k] and pb > bodyV * oppThr)
+        oppPassBear := oppPassBear and not (close[k] > open[k] and pb > bodyV * oppThr)
+
+atrPass   = not useAtr  or bodyV > atrV * atrMult
+volPass   = not useVol  or volume > volAv * volMult
+trendBull = not useTrend or close > emaV
+trendBear = not useTrend or close < emaV
+
+bullSig = bodyOk and rawBull and oppPassBull and atrPass and volPass and trendBull and biasLong
+bearSig = bodyOk and rawBear and oppPassBear and atrPass and volPass and trendBear and biasShort
+goLong  = invert ? bearSig : bullSig
+goShort = invert ? bullSig : bearSig
+okLong  = tradeMode != "Short Only"
+okShort = tradeMode != "Long Only"
+
+// ── Cooldown after a losing trade ────────────────────────────────────────────
+var int lastLossBar = na
+canEnter = cooldown == 0 or na(lastLossBar) or (bar_index - lastLossBar) >= cooldown
+
+// ── Entries (1 contract, no pyramiding; range captured at entry) ─────────────
+var float entryRange = na
+var float trailLvl    = na
+flat = strategy.position_size == 0
+if flat and canEnter
+    if goLong and okLong
+        entryRange := rng
+        trailLvl := na
+        strategy.entry("L", strategy.long)
+    else if goShort and okShort
+        entryRange := rng
+        trailLvl := na
+        strategy.entry("S", strategy.short)
+
+// ── Exits: range-multiple stop / target, optional range-distance trailing ────
+if strategy.position_size > 0
+    ep = strategy.position_avg_price
+    baseSl = ep - entryRange * stopMult
+    tp     = ep + entryRange * tpMult
+    if useTrail
+        trailLvl := na(trailLvl) ? baseSl : math.max(trailLvl, high - entryRange * stopMult)
+    else
+        trailLvl := baseSl
+    if exitMode == "Stop Only"
+        strategy.exit("Lx", "L", stop=trailLvl)
+    else if exitMode == "Stop / Target"
+        strategy.exit("Lx", "L", stop=trailLvl, limit=tp)
+if strategy.position_size < 0
+    ep = strategy.position_avg_price
+    baseSl = ep + entryRange * stopMult
+    tp     = ep - entryRange * tpMult
+    if useTrail
+        trailLvl := na(trailLvl) ? baseSl : math.min(trailLvl, low + entryRange * stopMult)
+    else
+        trailLvl := baseSl
+    if exitMode == "Stop Only"
+        strategy.exit("Sx", "S", stop=trailLvl)
+    else if exitMode == "Stop / Target"
+        strategy.exit("Sx", "S", stop=trailLvl, limit=tp)
+
+// Next-opposite-signal exit
+if exitMode == "Next Opposite Signal"
+    if strategy.position_size > 0 and goShort
+        strategy.close("L", comment="opp")
+    if strategy.position_size < 0 and goLong
+        strategy.close("S", comment="opp")
+
+// ── Flat by session close (no overnight holds) ───────────────────────────────
+inEod = not na(time(timeframe.period, eodSess, syminfo.timezone))
+if flatEod and inEod and strategy.position_size != 0
+    strategy.close_all(comment="EOD flat")
+
+// Record losing exits for the cooldown
+if strategy.position_size == 0 and strategy.position_size[1] != 0 and strategy.closedtrades > 0
+    if strategy.closedtrades.profit(strategy.closedtrades - 1) < 0
+        lastLossBar := bar_index
+
+// ── Visuals ──────────────────────────────────────────────────────────────────
+plot(biasMode != "off" ? biasRef : na, "Daily bias anchor", color=color.orange, style=plot.style_stepline, linewidth=2)
+plot(hh, "Prior range high", color=color.new(color.teal, 60))
+plot(ll, "Prior range low",  color=color.new(color.red,  60))

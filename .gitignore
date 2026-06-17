@@ -1,0 +1,62 @@
+# === Secrets (NEVER commit these) ===
+serviceAccount.json
+*.key
+.env
+credentials*.json
+
+# === Compiled Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+MANIFEST
+
+# === Backups (duplicates of augur_strategies) ===
+backups/
+
+# === User data / uploads (too large/personal) ===
+augur_uploads/
+augur_watch/_ingested/
+*.csv
+*.sqlite
+*.db
+augur_config.json
+optimizer_history.db
+
+# === Claude settings (local only) ===
+.claude/settings.local.json
+
+# === Streamlit cache ===
+.streamlit/cache/
+.streamlit/*.lock
+
+# === IDE / editor ===
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# === OS files ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Logs / temp ===
+*.log
+tmp/
+temp/

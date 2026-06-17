@@ -1,0 +1,23 @@
+rules_version = '2';
+// AUGUR ⇄ EDGELOG Firestore security rules.
+//
+// Each signed-in user owns EVERYTHING under their own users/{uid} subtree — this
+// already covers trades, lessons, AND the new backtests jobs/results in one rule.
+//
+// IMPORTANT: if your EXISTING EDGELOG rules already use this users/{uid}/{document=**}
+// ownership wildcard, you do NOT need to change anything — the backtests subcollection
+// is automatically allowed. Only if your rules restrict per-collection (e.g. an explicit
+// match on /trades) do you need to add the /backtests match shown at the bottom.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── Per-collection alternative (use ONLY if you don't use the wildcard above) ──
+    // match /users/{uid}/backtests/{jobId} {
+    //   allow read, write: if request.auth != null && request.auth.uid == uid;
+    // }
+  }
+}

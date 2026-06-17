@@ -1,0 +1,132 @@
+//@version=5
+// =============================================================================
+//  AUGUR · VWAP FADE 1.0 — session-VWAP reversion
+//  Pine port of augur_strategies/VWAP_FADE_1.py for a TradingView cross-check.
+//
+//  Logic (faithful to the AUGUR engine):
+//    • anchor  = session VWAP = Σ(hlc3·vol)/Σ(vol), RESET every session.
+//    • bands   = VWAP ± bandMult · vwσ,  vwσ = volume-weighted stdev of hlc3 vs VWAP
+//                (population form: var = Σ(p²w)/Σw − VWAP²).
+//    • LONG  when close < VWAP − bandMult·vwσ  → target = the LIVE VWAP.
+//    • SHORT when close > VWAP + bandMult·vwσ  → target = the LIVE VWAP.
+//    • stop  = entry ∓ stopMult·vwσ (the vwσ AT the entry bar, fixed thereafter).
+//    • warmup: don't trade until `warmup` bars into the session.
+//    • optional max-hold time-stop, post-loss cooldown, flat-by-session-close.
+//
+//  Fidelity notes (why this matches the Python backtest):
+//    • process_orders_on_close=true → entries/market-exits fill at the signal
+//      bar's CLOSE, exactly like the engine (ep = closes[i]).
+//    • When stop AND target are both inside one bar, Pine assumes the STOP filled
+//      first = pessimistic — matches the engine's stop-checked-before-target.
+//    • Last bar of the session is detected EXACTLY from the session-end time
+//      (no future reference), so flat-by-close fills at the same bar as Python.
+//
+//  Known sub-tick gaps (same class the GROK port had, ~$ rounding):
+//    • The moving-VWAP target fills at `vw` or better via a limit order; the
+//      engine books exactly `vw`. Tiny favorable slippage possible.
+//    • Run on the RTH session that produced the masters (ES/NQ 09:30–16:00 ET).
+//
+//  RESEARCH / cross-check tool. Validate before trading.
+// =============================================================================
+strategy("AUGUR VWAP FADE 1.0 — session-VWAP reversion", overlay=true,
+     default_qty_type=strategy.fixed, default_qty_value=1, pyramiding=0,
+     commission_type=strategy.commission.cash_per_order, commission_value=0,
+     slippage=0, calc_on_every_tick=false, process_orders_on_close=true)
+
+// ── Inputs (match Augur DEFAULT_PARAMS) ──────────────────────────────────────
+gP = "VWAP fade"
+bandMult = input.float(2.0, "Stretch trigger (x VWAP σ)", minval=1.0, maxval=4.0, step=0.25, group=gP)
+stopMult = input.float(2.5, "Stop (x VWAP σ)",            minval=1.0, maxval=5.0, step=0.5,  group=gP)
+warmup   = input.int(6,     "Warmup (bars into session)", minval=0,   maxval=30,  group=gP)
+maxHold  = input.int(0,     "Max hold (bars, 0=off)",     minval=0,   maxval=60,  group=gP)
+tradeMode= input.string("Both", "Direction", options=["Long Only","Short Only","Both"], group=gP)
+cooldown = input.int(0,     "Post-loss cooldown (bars)",  minval=0,   maxval=20,  group=gP)
+flatEod  = input.bool(true, "Flat by session close", group=gP)
+
+gS = "Session"
+tz      = input.string("America/New_York", "Session timezone", group=gS)
+endTime = input.session("1600-1601", "RTH close (flat-by-close cutoff)", group=gS,
+     tooltip="Set the START of this to your chart's RTH close time. Bull/bulk ES days close 16:00; some periods run to 16:15. Flat-by-close and the last-bar entry-skip fire on the first bar whose CLOSE is at/after this time.")
+
+// New session = calendar-date change (robust to any session end, matches the
+// engine's per-date day_id — works on any TradingView RTH chart).
+isFirstBar = ta.change(time("D")) != 0
+// EOD cutoff (tunable clock; >= so an extended last bar still triggers).
+endStr   = str.substring(endTime, 0, 4)
+endMin   = math.round(str.tonumber(str.substring(endStr, 0, 2)) * 60 + str.tonumber(str.substring(endStr, 2, 4)))
+closeMinOf = hour(time_close, tz) * 60 + minute(time_close, tz)
+isLastBar  = closeMinOf >= endMin     // at/after the RTH close = flatten window
+
+// ── Session VWAP + volume-weighted dispersion (reset each session) ────────────
+var float cumPV  = 0.0
+var float cumV   = 0.0
+var float cumPV2 = 0.0
+var int   bis    = 0          // bar index within session (0-based, like Python)
+if isFirstBar
+    cumPV  := 0.0
+    cumV   := 0.0
+    cumPV2 := 0.0
+    bis    := 0
+tp = hlc3
+w  = volume
+cumPV  := cumPV  + tp * w
+cumV   := cumV   + w
+cumPV2 := cumPV2 + tp * tp * w
+vw   = cumV > 0 ? cumPV / cumV : tp
+varr = cumV > 0 ? cumPV2 / cumV - vw * vw : 0.0
+vwsd = varr > 1e-12 ? math.sqrt(varr) : 0.0
+barInSession = bis            // read BEFORE increment (Python: k assigned, then k+=1)
+bis := bis + 1
+
+plot(vw, "Session VWAP", color.new(color.orange, 0))
+plot(vw + bandMult * vwsd, "Upper band", color.new(color.gray, 40))
+plot(vw - bandMult * vwsd, "Lower band", color.new(color.gray, 40))
+
+// ── Post-loss cooldown bookkeeping ───────────────────────────────────────────
+var int lastLossBar = -1000000
+var int prevClosed  = 0
+if strategy.closedtrades > prevClosed
+    if strategy.closedtrades.profit(strategy.closedtrades - 1) < 0
+        lastLossBar := bar_index
+prevClosed := strategy.closedtrades
+
+allowLong  = tradeMode == "Long Only"  or tradeMode == "Both"
+allowShort = tradeMode == "Short Only" or tradeMode == "Both"
+cooldownOK = cooldown <= 0 or (bar_index - lastLossBar) >= cooldown
+
+// ── Stored per-position state ────────────────────────────────────────────────
+var float longStop  = na
+var float shortStop = na
+var int   entryBar  = na
+
+// ── Manage an open position (exits) ──────────────────────────────────────────
+// Re-issue every bar so the target tracks the LIVE VWAP. Stop is fixed at entry.
+if strategy.position_size > 0
+    strategy.exit("Lx", from_entry="L", stop=longStop, limit=vw)
+if strategy.position_size < 0
+    strategy.exit("Sx", from_entry="S", stop=shortStop, limit=vw)
+
+// Max-hold time stop (market exit at close — matches Python).
+if maxHold > 0 and strategy.position_size != 0 and not na(entryBar) and (bar_index - entryBar) >= maxHold
+    strategy.close_all(comment="maxhold")
+
+// Flat by session close (exits at the last bar's close — matches Python).
+if flatEod and isLastBar and strategy.position_size != 0
+    strategy.close_all(comment="eod")
+
+// ── Entries ──────────────────────────────────────────────────────────────────
+canEnter = vwsd > 0 and barInSession >= warmup and cooldownOK and strategy.position_size == 0
+if flatEod and isLastBar
+    canEnter := false            // Python skips entries on the session's last bar
+dist        = close - vw
+stretchedDn = dist < -bandMult * vwsd   // below VWAP → buy the dip
+stretchedUp = dist >  bandMult * vwsd   // above VWAP → sell the rip
+
+if canEnter and stretchedDn and allowLong
+    strategy.entry("L", strategy.long)
+    longStop := close - stopMult * vwsd
+    entryBar := bar_index
+else if canEnter and stretchedUp and allowShort
+    strategy.entry("S", strategy.short)
+    shortStop := close + stopMult * vwsd
+    entryBar := bar_index

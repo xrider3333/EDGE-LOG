@@ -1,0 +1,17 @@
+# AUGUR Streamlit config.
+#
+# fileWatcherType = "none" is LOAD-BEARING — do not remove.
+#
+# Streamlit's default file watcher monitors the app folder for changes. The
+# background auto-refresh rewrites multi-hundred-MB master CSVs in
+# augur_uploads/ (and OneDrive then re-syncs them), which flooded the watcher
+# with change events on huge files. Processing them starved the websocket event
+# loop until sessions DISCONNECTED — in-flight widget clicks were silently
+# lost (the "stuck Custom scope" / deaf-UI / Settings-grey-out bugs; verified
+# via --logger.level=debug: "Ignoring changed path ...master_*.csv" storms
+# followed by "Disconnecting files for session ...").
+#
+# Hot-reload-on-edit is lost, which costs nothing here: the workflow is a full
+# Ctrl+C restart after every edit anyway (see CLAUDE.md).
+[server]
+fileWatcherType = "none"

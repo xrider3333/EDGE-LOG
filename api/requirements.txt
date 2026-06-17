@@ -1,0 +1,6 @@
+# AUGUR engine API + runner deps. Install:  pip install -r api/requirements.txt
+fastapi
+uvicorn
+firebase-admin
+numpy
+pandas

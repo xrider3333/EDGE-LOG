@@ -1,0 +1,153 @@
+//@version=5
+// =============================================================================
+//  AUGUR · ORB SIMPLE — Opening Range Breakout (low-DOF deployable cut)
+//  Pine port of augur_strategies/OPENING_RANGE_BREAKOUT_SIMPLE.py  (#20)
+//  v1.1 — 2026-06-14: thin-vol behaviour documented (see Fidelity notes)
+//  v1.2 — 2026-06-15: defaults set to the DEPLOYABLE config (volFilter 1.0->1.5,
+//          the validated edge). All inputs now match the paper-trading config:
+//          OR=3, Both, stop 0.75, vol 1.5, buf 0, target 0, flat-EOD. For an exact
+//          engine cross-check set volFilter=0 + TV Back-adjustment OFF on both sides.
+//
+//  Logic (faithful to the AUGUR engine):
+//    • Opening range = high/low of the first `orBars` bars of each RTH session.
+//    • First breakout of range±buffer enters IN THE BREAK DIRECTION
+//      (tradeMode gates long/short/first-candle-direction).
+//    • Entry via STOP order at the range edge (fills at the level, or at the
+//      bar's open if price gaps through — identical to the engine's
+//      max(level, open) fill).
+//    • Stop-loss = stopFrac × range width from entry. Optional take-profit at
+//      targetR × initial risk. Flat at session close. ONE entry per session.
+//
+//  Fidelity notes:
+//    • process_orders_on_close=true + stop entry orders reproduce the engine's
+//      touch-fill prices exactly (incl. gap-through opens).
+//    • VOLUME FILTER: the engine checks volume BEFORE entering (skips thin bars,
+//      retries later in the session at zero cost). Pine can't do this with
+//      resting stop orders — it enters first, then ejects at bar close if thin.
+//      This means Pine shows scratch trades for each thin-vol bar; the engine
+//      shows none. For a clean cross-check, set volFilter=0 on both sides.
+//      In live trading, apply the vol filter manually before placing your order.
+//    • Stop-before-target within one bar follows TV's broker emulator (engine
+//      assumes stop first = pessimistic; TV may differ on rare both-touched bars).
+//    • Prices will differ slightly from AUGUR engine: TV uses its own NQ1!
+//      continuous roll; engine uses Databento back-adjusted master. Entry TIMES
+//      should match; entry PRICES are close but not tick-perfect.
+//
+//  Deployable defaults = the WF-validated simple family (NQ/ES 5m RTH).
+//  RESEARCH / paper-trading tool. Validate before risking money.
+// =============================================================================
+strategy("AUGUR ORB SIMPLE v1.1 — opening range breakout", overlay=true,
+     default_qty_type=strategy.fixed, default_qty_value=1, pyramiding=0,
+     commission_type=strategy.commission.cash_per_order, commission_value=2.83,
+     slippage=0, calc_on_every_tick=false, process_orders_on_close=true)
+
+// ── Inputs (match DEFAULT_PARAMS) ────────────────────────────────────────────
+gP = "ORB"
+orBars    = input.int(3,    "Opening range (bars)",      minval=1, maxval=12,  group=gP,
+     tooltip="On a 5-min chart: 3 = 15min, 6 = 30min, 12 = 60min.")
+tradeMode = input.string("Both", "Direction", group=gP,
+     options=["Both","First-candle dir","Long Only","Short Only"])
+stopFrac  = input.float(0.75, "Stop (x range width)",     minval=0.5, maxval=2.0, step=0.25, group=gP)
+volFilter = input.float(1.5,  "Volume filter (x session avg, 0=off)", minval=0.0, maxval=3.0, step=0.25, group=gP,
+     tooltip="DEPLOYABLE default 1.5 — this IS the edge (fragility test: lifts PF ~1.1->1.5 "
+             "and makes the aggregate nearly feed-noise-immune). Engine checks the breakout "
+             "bar's OWN volume before entering; this port enters then ejects thin bars as tiny "
+             "scratch trades (see header). For an EXACT trade-for-trade match vs the engine "
+             "cross-check, set this to 0 on BOTH sides; for real trading, keep 1.5.")
+brkBuf    = input.float(0.0,  "Breakout buffer (x range)", minval=0.0, maxval=0.5, step=0.05, group=gP)
+targetR   = input.float(0.0,  "Target (x risk, 0=EOD only)", minval=0.0, maxval=6.0, step=0.5, group=gP)
+flatEod   = input.bool(true,  "Flat by session close", group=gP)
+
+gS = "Session"
+tz      = input.string("America/New_York", "Session timezone", group=gS)
+endTime = input.session("1600-1601", "RTH close (flat-by-close cutoff)", group=gS)
+
+// ── Session bookkeeping (date change = new session, like the engine's day_id) ─
+isFirstBar = ta.change(time("D")) != 0
+endStr     = str.substring(endTime, 0, 4)
+endMin     = math.round(str.tonumber(str.substring(endStr, 0, 2)) * 60 + str.tonumber(str.substring(endStr, 2, 4)))
+closeMinOf = hour(time_close, tz) * 60 + minute(time_close, tz)
+isLastBar  = closeMinOf >= endMin
+
+var int   bis      = 0          // bar index within session (0-based)
+var float orHi     = na
+var float orLo     = na
+var float sessOpen = na
+var float orClose  = na         // close of the LAST opening-range bar
+var bool  entered  = false      // one entry per session
+var float cumVol   = 0.0        // session volume for the filter mean
+var float entryPx  = na
+var bool  thinFill = false      // entry bar failed the volume filter → eject
+
+if isFirstBar
+    bis      := 0
+    orHi     := na
+    orLo     := na
+    sessOpen := open
+    orClose  := na
+    entered  := false
+    cumVol   := 0.0
+    thinFill := false
+
+// Build the opening range over the first orBars bars
+if bis < orBars
+    orHi := na(orHi) ? high : math.max(orHi, high)
+    orLo := na(orLo) ? low  : math.min(orLo, low)
+if bis == orBars - 1
+    orClose := close
+
+float rng   = orHi - orLo
+float upLvl = orHi + brkBuf * rng
+float dnLvl = orLo - brkBuf * rng
+int   orDir = (not na(orClose) and not na(sessOpen)) ? (orClose >= sessOpen ? 1 : -1) : 0
+
+bool longOk  = (tradeMode == "Both" or tradeMode == "Long Only"  or (tradeMode == "First-candle dir" and orDir > 0))
+bool shortOk = (tradeMode == "Both" or tradeMode == "Short Only" or (tradeMode == "First-candle dir" and orDir < 0))
+
+// Mean bar volume of the session SO FAR (excl. current bar — engine: sv[:k].mean())
+float volMeanPrior = bis > 0 ? cumVol / bis : na
+
+// ── Entries: resting stop orders after the range completes ──────────────────
+bool canArm = bis >= orBars and not entered and strategy.position_size == 0 and rng > 0 and not (flatEod and isLastBar)
+if canArm
+    if longOk
+        strategy.entry("L", strategy.long, stop=upLvl)
+    if shortOk
+        strategy.entry("S", strategy.short, stop=dnLvl)
+else
+    strategy.cancel("L")
+    strategy.cancel("S")
+
+// ── Position management ──────────────────────────────────────────────────────
+if strategy.position_size != 0 and na(entryPx)
+    entryPx  := strategy.position_avg_price
+    entered  := true
+    // Volume-filter emulation: engine would have SKIPPED this bar's breakout.
+    thinFill := volFilter > 0 and not na(volMeanPrior) and volume < volFilter * volMeanPrior
+    float risk = stopFrac * rng
+    if strategy.position_size > 0
+        strategy.exit("Lx", from_entry="L", stop=entryPx - risk,
+                      limit=(targetR > 0 ? entryPx + targetR * risk : na))
+    else
+        strategy.exit("Sx", from_entry="S", stop=entryPx + risk,
+                      limit=(targetR > 0 ? entryPx - targetR * risk : na))
+
+// Eject thin-volume fills at the entry bar's close (≈ engine's "no trade")
+if thinFill and strategy.position_size != 0
+    strategy.close_all(comment="thin-vol")
+    thinFill := false
+
+// Flat by session close
+if flatEod and isLastBar and strategy.position_size != 0
+    strategy.close_all(comment="eod")
+
+if strategy.position_size == 0 and not na(entryPx) and strategy.closedtrades > 0
+    entryPx := na
+
+// ── End-of-bar bookkeeping ───────────────────────────────────────────────────
+cumVol := cumVol + volume
+bis    := bis + 1
+
+// ── Plots ─────────────────────────────────────────────────────────────────────
+plot(bis >= orBars and rng > 0 ? upLvl : na, "OR high", color.new(color.aqua, 30), style=plot.style_linebr)
+plot(bis >= orBars and rng > 0 ? dnLvl : na, "OR low",  color.new(color.orange, 30), style=plot.style_linebr)

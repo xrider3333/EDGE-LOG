@@ -1,0 +1,92 @@
+//@version=5
+// =============================================================================
+//  AUGUR · ENGU 1 (GROK) — Engulfing Breakout after a Downtrend + Daily Bias
+//  Pine port of GROK_ENGU__I__V20.py (1.1.20) with the daily directional bias added.
+//  LONG-ONLY by design: a bearish run, then a large green breakout candle whose
+//  body dwarfs the prior small-bodied candles. Stop = the breakout body; target =
+//  body x R:R; optional breakeven; + the new daily bias + flat-by-close.
+//  Research / brainstorming. Entries fill at the signal bar's close to match AUGUR.
+// =============================================================================
+strategy("AUGUR ENGU 1 (GROK) — Engulfing Breakout + Daily Bias", overlay=true,
+     default_qty_type=strategy.fixed, default_qty_value=1, pyramiding=0,
+     commission_type=strategy.commission.cash_per_order, commission_value=2.83,
+     slippage=1, calc_on_every_tick=false, process_orders_on_close=true)
+
+// ── Signal ───────────────────────────────────────────────────────────────────
+gS = "Signal"
+lookbackLen  = input.int(13,   "Trend lookback (candles)", minval=3, group=gS)
+minRedDom    = input.float(0.60,"Min red % in lookback", step=0.05, group=gS)
+usePercent   = input.bool(false,"Size breakout by % (else points)", group=gS)
+minBoPts     = input.float(9.0, "Min breakout size (points)", step=0.5, group=gS)
+minBoPct     = input.float(0.25,"Min breakout size (%)", step=0.05, group=gS)
+prevBodyLb   = input.int(4,    "Prev candles for body comparison", minval=1, group=gS)
+maxBodyRatio = input.float(0.50,"Max prev body / breakout body", step=0.05, group=gS)
+
+// ── Daily bias (the new idea — long-only, so only ABOVE the anchor) ───────────
+gD = "Daily bias"
+biasMode = input.string("prior_close", "Bias anchor",
+     options=["off","prior_close","session_open"], group=gD,
+     tooltip="Only enter when price is ABOVE the anchor (don't buy a down-day). prior_close = yesterday's close; session_open = today's open (gap-immune); off = no bias.")
+
+// ── Exits ────────────────────────────────────────────────────────────────────
+gE = "Exits"
+rrInput = input.float(2.0,"Risk / Reward ratio", step=0.1, group=gE)
+beBars  = input.int(2,   "Bars before breakeven", minval=0, group=gE)
+flatEod = input.bool(false,"Flat by session close", group=gE)
+eodSess = input.session("1555-1600","  Close window (exchange tz)", group=gE)
+
+// ── Components ───────────────────────────────────────────────────────────────
+redCount = 0
+for k = 1 to lookbackLen
+    if close[k] < open[k]
+        redCount += 1
+redDomOk = redCount / lookbackLen >= minRedDom
+
+body    = close - open                 // > 0 when green
+green   = close > open
+bodyBig = usePercent ? (body / open * 100.0 >= minBoPct) : (body >= minBoPts)
+
+priorSmall = true
+for k = 1 to prevBodyLb
+    if math.abs(close[k] - open[k]) > maxBodyRatio * body
+        priorSmall := false
+
+// Daily anchor — native in Pine
+priorClose = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_off)
+sessOpen   = request.security(syminfo.tickerid, "D", open,     lookahead=barmerge.lookahead_off)
+biasRef = biasMode == "session_open" ? sessOpen : priorClose
+biasOk  = biasMode == "off" or na(biasRef) ? true : close > biasRef
+
+longSig = redDomOk and green and bodyBig and priorSmall and biasOk
+
+// ── Entry ────────────────────────────────────────────────────────────────────
+var float entryBody = na
+var float slLevel   = na
+var float tpLevel   = na
+inEod = not na(time(timeframe.period, eodSess, syminfo.timezone))
+if strategy.position_size == 0 and longSig and not (flatEod and inEod)
+    entryBody := body
+    slLevel := na
+    tpLevel := na
+    strategy.entry("L", strategy.long)
+
+// ── Exits: stop = breakout body, target = body x R:R, optional breakeven ─────
+if strategy.position_size > 0
+    ep = strategy.position_avg_price
+    if na(slLevel)
+        slLevel := ep - entryBody
+        tpLevel := ep + entryBody * rrInput
+    barsIn = bar_index - strategy.opentrades.entry_bar_index(0)
+    if beBars > 0 and barsIn >= beBars
+        if close > ep and slLevel < ep
+            slLevel := ep              // in profit -> stop to breakeven
+        else if close < ep
+            tpLevel := ep              // underwater -> scratch target to breakeven
+    strategy.exit("Lx", "L", stop=slLevel, limit=tpLevel)
+
+// ── Flat by session close (no overnight holds) ───────────────────────────────
+if flatEod and inEod and strategy.position_size != 0
+    strategy.close_all(comment="EOD flat")
+
+// ── Visuals ──────────────────────────────────────────────────────────────────
+plot(biasMode != "off" ? biasRef : na, "Daily bias anchor", color=color.orange, style=plot.style_stepline, linewidth=2)

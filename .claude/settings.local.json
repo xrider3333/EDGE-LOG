@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(findstr \"__version__\" optimizer.py)",
+      "Bash(python -m py_compile optimizer.py)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(git push:*)",
+      "Bash(git merge:*)",
+      "Bash(git checkout:*)",
+      "Bash(git commit:*)",
+      "Bash(git add:*)",
+      "Bash(git pull:*)",
+      "Bash(git branch:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git remote:*)"
+    ]
+  }
+}
