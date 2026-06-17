@@ -379,7 +379,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='23.2';
+const VERSION='23.3';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -4293,7 +4293,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div class="lbl" style="margin-bottom:6px">AI PROVIDERS</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7;margin-bottom:14px"><b>Ollama · qwen3.6</b> — free, local. <b>Claude CLI</b> — your Claude subscription, fastest/sharpest. <b>Anthropic API</b> — pay-per-token (key read from local augur_config.json, never the browser).</div>'
         +'<div class="lbl" style="margin-bottom:6px">AUTO-PULL / DATA SYNC</div>'
-        +'<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7;margin-bottom:14px">Auto-refresh <b style="color:'+(metaPull.autorefresh?'var(--green)':'var(--text4)')+'">'+(metaPull.autorefresh?'ON':'OFF')+'</b> — on app open the runner pulls fresh Yahoo bars and ingests the TradingView watch-folder into the masters. <b>'+(metaPull.n_auto||0)+'</b> of <b>'+(metaPull.n_masters||(metaMasters||[]).length)+'</b> masters are set to auto-refresh.'+(metaPull.synced_at?' Last synced <b>'+new Date(metaPull.synced_at*1000).toLocaleString()+'</b>.':' (start the runner to sync.)')+' Per-CSV status is in the Library tab.</div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7;margin-bottom:14px">Auto-refresh <b style="color:'+(metaPull.autorefresh?'var(--green)':'var(--text4)')+'">'+(metaPull.autorefresh?'ON':'OFF')+'</b> — the runner automatically pulls fresh Yahoo bars and ingests the TradingView watch-folder into the masters on start and every 30 min (hands-free), then re-syncs. <b>'+(metaPull.n_auto||0)+'</b> of <b>'+(metaPull.n_masters||(metaMasters||[]).length)+'</b> masters are set to auto-refresh.'+(metaPull.synced_at?' Last synced <b>'+new Date(metaPull.synced_at*1000).toLocaleString()+'</b>.':' (start the runner to sync.)')+' Per-CSV status is in the Library tab.</div>'
         +'<div class="lbl" style="margin-bottom:6px">SYNCED FROM YOUR PC</div>'
         +'<div style="display:flex;gap:10px"><div style="background:var(--bg2);border-radius:8px;padding:10px 16px"><div style="font-size:var(--fsxs);color:var(--text5)">STRATEGIES</div><div style="font-size:18px">'+(metaStrats||[]).length+'</div></div><div style="background:var(--bg2);border-radius:8px;padding:10px 16px"><div style="font-size:var(--fsxs);color:var(--text5)">MASTERS</div><div style="font-size:18px">'+(metaMasters||[]).length+'</div></div><div style="background:var(--bg2);border-radius:8px;padding:10px 16px"><div style="font-size:var(--fsxs);color:var(--text5)">RUNS</div><div style="font-size:18px">'+(runHistory||[]).length+'</div></div></div>'
         +'</div>';
