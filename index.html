@@ -379,7 +379,7 @@ window.addEventListener('error',function(e){
 window._setStage('SCRIPT START');
 </script>
 <script>
-const VERSION='22.5';
+const VERSION='22.6';
 const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
@@ -408,7 +408,7 @@ function applyTheme(){document.documentElement.setAttribute('data-theme',prefs.t
 applyTheme();
 
 // State
-let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],augurSub='exec',augurRunSel=null,augurExecStrat='';
+let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],augurSub='runs',augurRunSel=null,augurExecStrat='',augurCmpA=null,augurCmpB=null;
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
 let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyOverlay=false,chartPctMode=false;window.chartPctMode=false;
 let formOpen=false,showAllCols=false;
@@ -4134,8 +4134,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const badge=s=>{const c={done:'var(--green)',error:'var(--red)',running:'var(--yellow)',queued:'var(--text4)'}[s]||'var(--text4)';return '<span style="color:'+c+';font-size:var(--fsxs);letter-spacing:1px">'+((s||'?').toUpperCase())+'</span>';};
     const rows=backtests.map(b=>{const r=b.result||{};const done=b.status==='done';const net=done?Math.round((r.total_pnl||0)*(b.mult||20)):0;const last='<td style="text-align:right;color:'+(done?(net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(done?'$'+net.toLocaleString():(b.status==='error'?'err':'—'))+'</td>';return '<tr><td>'+badge(b.status)+'</td><td style="font-size:var(--fsxs)">'+(b.strategy||'')+'</td><td>'+(b.instrument||'')+' '+(b.timeframe||'')+'</td><td style="text-align:right">'+(done?Math.min(r.profit_factor,99).toFixed(2):'—')+'</td><td style="text-align:right">'+(done?r.num_trades:'—')+'</td>'+last+'<td style="text-align:right;color:var(--text4)">'+(done&&r.mc?'$'+Math.round((r.mc.p95||0)*(b.mult||20)).toLocaleString():'—')+'</td></tr>';}).join('');
     const fmtUsd=v=>((v||0)<0?'-$':'$')+Math.abs(Math.round(v||0)).toLocaleString();
-    const asubs=[['exec','EXECUTIONS'],['runs','RESULTS · '+runHistory.length],['lib','LIBRARY'],['set','SETTINGS']];
-    let nav='<div style="display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--border)">';
+    const asubs=[['runs','RESULTS · '+runHistory.length],['exec','EXECUTIONS'],['lib','LIBRARY'],['cmp','COMPARE'],['ref','REFERENCE'],['research','RESEARCH'],['set','AUGUR SETTINGS']];
+    let nav='<div style="display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--border);flex-wrap:wrap">';
     asubs.forEach(s=>{nav+='<button class="btn-ghost" data-asub="'+s[0]+'" style="border-radius:0;border-bottom:2px solid '+(augurSub===s[0]?'var(--text)':'transparent')+';color:'+(augurSub===s[0]?'var(--text)':'var(--text4)')+'">'+s[1]+'</button>';});
     nav+='</div>';
     let body='';
@@ -4187,6 +4187,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +((metaStrats||[]).length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th><th>NAME</th><th>FILE</th><th style="text-align:right">SCOPES</th></tr></thead><tbody>'+srows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no library synced — start the runner</div>')
         +'<div class="lbl" style="margin:18px 0 6px">MASTERS · '+(metaMasters||[]).length+'</div>'
         +((metaMasters||[]).length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th>NAME</th><th>INST</th><th>TF</th><th>SESS</th><th>SOURCE</th><th style="text-align:right">ROWS</th><th>RANGE</th></tr></thead><tbody>'+mrows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no masters synced</div>');
+    }else if(augurSub==='cmp'){
+      const rs=runHistory.slice().sort((a,b)=>b.id-a.id);
+      if(!rs.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUNS TO COMPARE YET</div>';}
+      else{
+        const find=id=>{for(let i=0;i<rs.length;i++)if(String(rs[i].id)===String(id))return rs[i];return rs[0];};
+        const A=find(augurCmpA||rs[0].id),B=find(augurCmpB||(rs[1]?rs[1].id:rs[0].id));
+        const opt=sel=>rs.map(r=>'<option value="'+r.id+'"'+(String(r.id)===String(sel)?' selected':'')+'>#'+r.id+' · '+(r.strategy||'').slice(0,18)+' · '+(r.scope||'').slice(0,12)+'</option>').join('');
+        const M=[['Strategy',x=>x.strategy||''],['Scope',x=>x.scope||''],['Market',x=>(x.instrument||'')+' '+(x.timeframe||'')],['Net P&L',x=>fmtUsd(x.best_pnl_usd)],['PF',x=>(x.best_pf||0).toFixed(2)],['Win %',x=>Math.round(x.best_win_rate||0)+'%'],['Trades',x=>(x.best_trades||0)],['Max DD',x=>fmtUsd(x.best_dd_usd||0)],['$/day',x=>fmtUsd(x.best_pnl_per_day||0)]];
+        const crows=M.map(m=>'<tr><td style="color:var(--text4);font-size:var(--fsxs)">'+m[0]+'</td><td>'+m[1](A)+'</td><td>'+m[1](B)+'</td></tr>').join('');
+        body='<div style="display:flex;gap:16px;margin-bottom:14px"><div style="flex:1"><label class="lbl">RUN A</label><select id="cmp-a">'+opt(A.id)+'</select></div><div style="flex:1"><label class="lbl">RUN B</label><select id="cmp-b">'+opt(B.id)+'</select></div></div>'
+          +'<table class="table"><thead><tr><th></th><th>A · #'+A.id+'</th><th>B · #'+B.id+'</th></tr></thead><tbody>'+crows+'</tbody></table>';
+      }
+    }else if(augurSub==='ref'){
+      const inst=[['NQ','E-mini Nasdaq-100','$20 / pt'],['MNQ','Micro Nasdaq-100','$2 / pt'],['ES','E-mini S&P 500','$50 / pt'],['MES','Micro S&P 500','$5 / pt']];
+      const irows=inst.map(i=>'<tr><td><b>'+i[0]+'</b></td><td style="color:var(--text3)">'+i[1]+'</td><td style="text-align:right">'+i[2]+'</td></tr>').join('');
+      body='<div class="lbl" style="margin-bottom:6px">INSTRUMENTS</div><table class="table"><thead><tr><th>SYMBOL</th><th>NAME</th><th style="text-align:right">MULTIPLIER</th></tr></thead><tbody>'+irows+'</tbody></table>'
+        +'<div class="lbl" style="margin:18px 0 6px">COST MODEL</div><div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">Round-turn commission $2.83/order x 2 = $5.66 (about 0.28 NQ pts / 0.11 ES pts), applied per trade. PNL = shares x (exit - entry) x multiplier, net of cost.</div>'
+        +'<div class="lbl" style="margin:18px 0 6px">SESSIONS</div><div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">RTH = 09:30-16:00 ET cash session (last 5m bar 15:55). ETH = full 24h. Masters are keyed per instrument + timeframe + session + source.</div>';
+    }else if(augurSub==='research'){
+      const items=[['Out-of-sample (75/25)','Optimize on the first 75% of history, validate the winner on the unseen last 25%. A config that wins in-sample but collapses out-of-sample is overfit.'],['Deflated Sharpe','Haircuts the Sharpe by the best Sharpe expected from pure luck across N searched configs (Bailey / Lopez de Prado). DSR at or above 95% beats the luck bar.'],['Monte-Carlo drawdown','Block-shuffles the trade order to map the drawdown distribution. Size the account to the p95.'],['Walk-forward','Anchored: re-optimize on each train window, test on the next unseen window, roll forward.']];
+      body='<div class="lbl" style="margin-bottom:6px">VALIDATION METHODOLOGY</div>'+items.map(i=>'<div style="background:var(--bg2);border-radius:8px;padding:12px 14px;margin-bottom:10px"><div style="font-size:14px;margin-bottom:3px">'+i[0]+'</div><div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6">'+i[1]+'</div></div>').join('');
     }else if(augurSub==='set'){
       body='<div style="max-width:680px">'
         +'<div class="lbl" style="margin-bottom:6px">RUNNER</div>'
@@ -4225,6 +4246,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     content.querySelectorAll('[data-asub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.asub;augurRunSel=null;renderApp();};});
     if(augurSub==='launch'){const rb=el('au-run');if(rb)rb.onclick=async()=>{const inst=el('au-inst').value,sess=el('au-sess').value;const job={strategy:el('au-strat').value,instrument:inst,timeframe:el('au-tf').value,session:sess,source:sess==='rth'?'tv':null,params:{vol_filter:parseFloat(el('au-vol').value)||0},cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,mc_sims:1000,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};rb.textContent='QUEUED…';rb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='exec'){const ss=el('ex-strat');if(ss)ss.onchange=()=>{augurExecStrat=ss.value;renderApp();};const xb=el('ex-run');if(xb)xb.onclick=async()=>{const inst=el('ex-inst').value,sess=el('ex-sess').value,mode=el('ex-mode').value;const base={strategy:el('ex-strat').value,instrument:inst,timeframe:el('ex-tf').value,session:sess,source:sess==='rth'?'tv':null,preset:el('ex-preset').value,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};const job=(mode==='single')?Object.assign({},base,{params:{vol_filter:parseFloat(el('ex-vol').value)||0},mc_sims:1000}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
+    else if(augurSub==='cmp'){const sa=el('cmp-a'),sb=el('cmp-b');if(sa)sa.onchange=()=>{augurCmpA=sa.value;renderApp();};if(sb)sb.onchange=()=>{augurCmpB=sb.value;renderApp();};}
     else if(augurRunSel){const bk=el('au-back');if(bk)bk.onclick=()=>{augurRunSel=null;renderApp();};}
     else{content.querySelectorAll('[data-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.run;renderApp();};});}
     return;
