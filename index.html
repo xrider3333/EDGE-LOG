@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='23.5';
+const VERSION='23.6';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -408,7 +408,7 @@ function applyTheme(){document.documentElement.setAttribute('data-theme',prefs.t
 applyTheme();
 
 // State
-let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],metaPull={},augurSub='runs',augurRunSel=null,augurExecStrat='',augurCmpA=null,augurCmpB=null;
+let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],metaPull={},augurSub='runs',augurRunSel=null,augurExecStrat='',augurCmpA=null,augurCmpB=null,augurLibSel=null,augurLibDel=false;
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
 let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyOverlay=false,chartPctMode=false;window.chartPctMode=false;
 let formOpen=false,showAllCols=false;
@@ -4165,14 +4165,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
     asubs.forEach(s=>{navBtns+='<button class="btn-ghost" data-asub="'+s[0]+'" style="border-radius:0;border-bottom:2px solid '+(augurSub===s[0]?'var(--text)':'transparent')+';color:'+(augurSub===s[0]?'var(--text)':'var(--text4)')+'"><span style="font-variant-emoji:text;opacity:.65;margin-right:6px">'+AICON[s[0]]+'</span>'+s[1]+'</button>';});
     // Contextual controls pinned to the FAR RIGHT of the sub-tab row, in a tile.
     let navRight='';
+    const vb=(id,gl,on,t)=>'<button class="btn-ghost" id="'+id+'" title="'+t+'" style="padding:3px 8px;font-size:12px;border-radius:6px;'+(on?'background:var(--bg1);color:var(--text)':'color:var(--text4)')+'">'+gl+'</button>';
     if(augurSub==='runs'&&runHistory.length){
       const rv=APREF.resView==='stack'?'stack':'side';
-      const vb=(id,gl,on,t)=>'<button class="btn-ghost" id="'+id+'" title="'+t+'" style="padding:3px 8px;font-size:12px;border-radius:6px;'+(on?'background:var(--bg1);color:var(--text)':'color:var(--text4)')+'">'+gl+'</button>';
       const sb=(id,lbl,on)=>'<button class="btn-ghost" id="'+id+'" style="padding:3px 7px;font-size:10px;border-radius:6px;letter-spacing:1px;'+(on?'color:var(--text)':'color:var(--text5);opacity:.55')+'">'+lbl+'</button>';
       navRight='<div style="display:flex;gap:5px;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:3px 6px;margin-bottom:4px">'
         +vb('res-side','◧',rv==='side','Side-by-side split')+vb('res-stack','▤',rv==='stack','Stacked split (list over report)')
         +'<span style="width:1px;height:15px;background:var(--border);margin:0 1px"></span>'
         +sb('sec-val','MC·DSR',APREF.secVal!==false)+sb('sec-regime','REGIME',APREF.secRegime!==false)+sb('sec-nbhd','NBHD',APREF.secNbhd!==false)
+        +'</div>';
+    }
+    if(augurSub==='lib'&&(metaStrats||[]).length){
+      const lv=APREF.libView==='stack'?'stack':'side';
+      navRight='<div style="display:flex;gap:5px;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:3px 6px;margin-bottom:4px">'
+        +vb('lib-side','◧',lv==='side','Side-by-side split')+vb('lib-stack','▤',lv==='stack','Stacked layout')
         +'</div>';
     }
     let nav='<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-bottom:14px;border-bottom:1px solid var(--border);flex-wrap:wrap"><div style="display:flex;gap:2px;flex-wrap:wrap">'+navBtns+'</div>'+navRight+'</div>';
@@ -4246,13 +4252,62 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +(grids.length?tile('<table class="table"><thead><tr><th>STATUS</th><th>STRATEGY</th><th>SCOPE</th><th style="text-align:right">SIZE</th><th style="text-align:right">PF</th><th style="text-align:right">BEST $</th></tr></thead><tbody>'+grows+'</tbody></table>'):'<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO SWEEPS YET — RUN ONE</div>')
         +(topHtml?tile(topHtml):'')+'</div></div>';
     }else if(augurSub==='lib'){
-      const srows=(metaStrats||[]).map(s=>{const si=stratInfo(s.file);return '<tr><td><span style="color:'+si.color+'">#'+(s.num!=null?s.num:'')+'</span></td><td style="font-size:var(--fsxs)">'+stratTag(s.file)+'</td><td style="font-size:var(--fsxs)"><b style="color:var(--text3)">'+(si.full||'')+'</b><span style="color:var(--text5)"> — '+(si.desc||'')+'</span></td><td style="font-size:var(--fsxs);color:var(--text5)">'+(s.file||'')+'</td><td style="text-align:right">'+((s.presets||[]).length)+'</td></tr>';}).join('');
+      const sl=metaStrats||[];
+      const selS=augurLibSel?sl.find(s=>s.file===augurLibSel):null;
+      const srows=sl.map(s=>{const si=stratInfo(s.file);const on=s.file===augurLibSel;return '<div class="arow" data-strat="'+s.file+'" style="padding:5px 8px;border-radius:6px;cursor:pointer;border:1px solid '+(on?'var(--text4)':'transparent')+';background:'+(on?'var(--bg1)':'transparent')+';margin-bottom:2px">'
+        +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:'+si.color+';font-size:10px;margin-right:6px;font-variant-numeric:tabular-nums">#'+(s.num!=null?s.num:'')+'</span>'+stratTag(s.file)+'</span><span style="font-size:10px;color:var(--text5);white-space:nowrap">'+((s.presets||[]).length)+' scopes</span></div>'
+        +'<div style="font-size:9px;color:var(--text5);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(si.full||'')+' — '+(si.desc||'')+'</div></div>';}).join('');
       const mrows=(metaMasters||[]).map(m=>'<tr><td style="font-size:var(--fsxs);border-left:3px solid '+instColor(m.instrument)+';padding-left:7px">'+(m.name||'')+'</td><td>'+instTag(m.instrument)+'</td><td>'+(m.timeframe||'')+'</td><td>'+((m.session||'')+'').toUpperCase()+'</td><td style="font-size:var(--fsxs)">'+(m.source||'')+'</td><td style="text-align:center">'+(m.auto?'<span style="color:var(--green);font-size:10px;letter-spacing:1px" title="auto-pull on">● AUTO</span>':'<span style="color:var(--text5);font-size:10px">○ off</span>')+'</td><td style="text-align:right">'+(m.rows||0).toLocaleString()+'</td><td style="font-size:var(--fsxs)">'+(m.date_from||'')+'→'+(m.date_to||'')+'</td></tr>').join('');
       const pullBanner='<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3);margin-bottom:6px"><span>Auto-pull <b style="color:'+(metaPull.autorefresh?'var(--green)':'var(--text4)')+'">'+(metaPull.autorefresh?'ON':'OFF')+'</b></span><span>'+(metaPull.n_auto||0)+'/'+(metaPull.n_masters||(metaMasters||[]).length)+' masters auto-refreshing</span>'+(metaPull.synced_at?'<span>last sync '+new Date(metaPull.synced_at*1000).toLocaleString()+'</span>':'')+'</div>';
-      body='<div class="lbl" style="margin-bottom:6px">STRATEGIES · '+(metaStrats||[]).length+'</div>'
-        +((metaStrats||[]).length?tile('<table class="table"><thead><tr><th>#</th><th>NAME</th><th>DESCRIPTION</th><th>FILE</th><th style="text-align:right">SCOPES</th></tr></thead><tbody>'+srows+'</tbody></table>'):tile('<div style="color:var(--text5);font-size:var(--fsxs)">no library synced — start the runner</div>'))
-        +'<div class="lbl" style="margin:18px 0 6px">MASTERS / CSVs · '+(metaMasters||[]).length+'</div>'
+      const libDetail=(s)=>{
+        if(!s)return '<div style="color:var(--text5);font-size:var(--fsxs);padding:48px 20px;text-align:center;border:1px dashed var(--border);border-radius:10px">select a strategy on the left to see details</div>';
+        const si=stratInfo(s.file);
+        const presetList=(s.presets||[]).length?'<div style="margin-top:12px"><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:4px">SCOPES / PRESETS</div>'+s.presets.map(p=>'<div style="font-size:var(--fsxs);color:var(--text3);padding:2px 0">'+p+'</div>').join('')+'</div>':'<div style="margin-top:12px;font-size:var(--fsxs);color:var(--text5)">no presets synced</div>';
+        let actionBar='<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'
+          +'<button class="btn-ghost" id="lib-del" style="padding:4px 12px;font-size:var(--fsxs);color:var(--red);border:1px solid var(--red);border-radius:6px;opacity:.7">DELETE</button>'
+          +'</div>';
+        if(augurLibDel){
+          actionBar='<div style="background:rgba(255,61,90,0.08);border:1px solid var(--red);border-radius:8px;padding:10px 14px;margin-top:14px">'
+            +'<div style="font-size:var(--fsxs);color:var(--red);margin-bottom:8px">Delete <b>'+s.file+'</b>? This removes it from the synced library.</div>'
+            +'<div style="display:flex;gap:8px"><button class="btn-ghost" id="lib-del-yes" style="padding:4px 12px;font-size:var(--fsxs);color:#fff;background:var(--red);border-radius:6px">DELETE</button>'
+            +'<button class="btn-ghost" id="lib-del-no" style="padding:4px 12px;font-size:var(--fsxs);border-radius:6px">CANCEL</button></div></div>';
+        }
+        return '<div style="font-size:15px;margin-bottom:2px">'+stratTag(s.file,'15px')+'</div>'
+          +'<div style="color:var(--text4);font-size:var(--fsxs);margin-bottom:12px">'+(si.full||'')+' — '+(si.desc||'')+'</div>'
+          +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:12px">'
+          +'<div style="background:var(--bg2);border-radius:8px;padding:10px 12px"><div style="font-size:var(--fsxs);color:var(--text5)">FILE</div><div style="font-size:12px;color:var(--text3);word-break:break-all">'+s.file+'</div></div>'
+          +'<div style="background:var(--bg2);border-radius:8px;padding:10px 12px"><div style="font-size:var(--fsxs);color:var(--text5)">LIBRARY #</div><div style="font-size:18px;color:'+si.color+'">'+(s.num!=null?s.num:'—')+'</div></div>'
+          +'<div style="background:var(--bg2);border-radius:8px;padding:10px 12px"><div style="font-size:var(--fsxs);color:var(--text5)">SCOPES</div><div style="font-size:18px">'+((s.presets||[]).length)+'</div></div>'
+          +'</div>'
+          +presetList
+          +actionBar;
+      };
+      const mastersSection='<div class="lbl" style="margin:18px 0 6px">MASTERS / CSVs · '+(metaMasters||[]).length+'</div>'
         +((metaMasters||[]).length?tile(pullBanner+'<table class="table"><thead><tr><th>NAME</th><th>INST</th><th>TF</th><th>SESS</th><th>SOURCE</th><th style="text-align:center">AUTO-PULL</th><th style="text-align:right">ROWS</th><th>RANGE</th></tr></thead><tbody>'+mrows+'</tbody></table>'):tile('<div style="color:var(--text5);font-size:var(--fsxs)">no masters synced</div>'));
+      if(!sl.length){
+        body=tile('<div style="color:var(--text5);font-size:var(--fsxs)">no library synced — start the runner</div>')+mastersSection;
+      }else{
+        const lv=APREF.libView==='stack'?'stack':'side';
+        const lH=Math.min(.6,Math.max(.15,APREF.libSplitH||0.35));
+        const lVH=Math.min(520,Math.max(120,APREF.libSplitV||240));
+        const maxH=lv==='stack'?(lVH+'px'):'72vh';
+        const listInner='<div class="lbl" style="margin:0 0 6px">STRATEGIES · '+sl.length+'</div>'
+          +'<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}</style>'
+          +'<div id="lib-listscroll" style="max-height:'+maxH+';overflow-y:auto;margin:-2px -4px 0;padding:2px 4px 0">'+srows+'</div>';
+        const leftTile=tile(listInner,0);
+        if(lv==='stack'){
+          body='<div id="lib-wrap">'+'<div id="lib-top">'+leftTile+'</div>'
+            +'<div id="lib-gutter" style="height:12px;cursor:row-resize;display:flex;align-items:center;justify-content:center;margin:2px 0"><div style="height:3px;width:54px;background:var(--border);border-radius:2px"></div></div>'
+            +'<div id="lib-bottom">'+libDetail(selS)+'</div></div>'
+            +mastersSection;
+        }else{
+          body='<div id="lib-wrap" style="display:flex;align-items:stretch">'
+            +'<div id="lib-left" style="flex:0 0 '+(lH*100)+'%;min-width:200px;overflow:hidden">'+leftTile+'</div>'
+            +'<div id="lib-gutter" style="flex:0 0 12px;cursor:col-resize;display:flex;align-items:center;justify-content:center"><div style="width:3px;height:46px;background:var(--border);border-radius:2px"></div></div>'
+            +'<div id="lib-right" style="flex:1 1 0;min-width:0;overflow:hidden">'+libDetail(selS)+'</div></div>'
+            +mastersSection;
+        }
+      }
     }else if(augurSub==='cmp'){
       const rs=runHistory.slice().sort((a,b)=>b.id-a.id);
       if(!rs.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUNS TO COMPARE YET</div>';}
@@ -4328,10 +4383,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
       }
     }
     content.innerHTML=nav+body;
-    content.querySelectorAll('[data-asub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.asub;augurRunSel=null;renderApp();};});
+    content.querySelectorAll('[data-asub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.asub;augurRunSel=null;augurLibSel=null;augurLibDel=false;renderApp();};});
     if(augurSub==='launch'){const rb=el('au-run');if(rb)rb.onclick=async()=>{const inst=el('au-inst').value,sess=el('au-sess').value;const job={strategy:el('au-strat').value,instrument:inst,timeframe:el('au-tf').value,session:sess,source:sess==='rth'?'tv':null,params:{vol_filter:parseFloat(el('au-vol').value)||0},cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,mc_sims:1000,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};rb.textContent='QUEUED…';rb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='exec'){const ss=el('ex-strat');if(ss)ss.onchange=()=>{augurExecStrat=ss.value;renderApp();};const xb=el('ex-run');if(xb)xb.onclick=async()=>{const inst=el('ex-inst').value,sess=el('ex-sess').value,mode=el('ex-mode').value;savePref('instrument',inst);savePref('session',sess);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);const base={strategy:el('ex-strat').value,instrument:inst,timeframe:el('ex-tf').value,session:sess,source:sess==='rth'?'tv':null,preset:el('ex-preset').value,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};const job=(mode==='single')?Object.assign({},base,{params:{vol_filter:parseFloat(el('ex-vol').value)||0},mc_sims:1000}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,top_n:10,dsr:true,mc_sims:500}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='cmp'){const sa=el('cmp-a'),sb=el('cmp-b');if(sa)sa.onchange=()=>{augurCmpA=sa.value;renderApp();};if(sb)sb.onchange=()=>{augurCmpB=sb.value;renderApp();};}
+    else if(augurSub==='lib'){
+      const lvs=el('lib-side'),lvk=el('lib-stack');
+      if(lvs)lvs.onclick=()=>{savePref('libView','side');renderApp();};
+      if(lvk)lvk.onclick=()=>{savePref('libView','stack');renderApp();};
+      content.querySelectorAll('[data-strat]').forEach(r=>{r.onclick=()=>{augurLibSel=r.dataset.strat;augurLibDel=false;renderApp();};});
+      const delBtn=el('lib-del');if(delBtn)delBtn.onclick=()=>{augurLibDel=true;renderApp();};
+      const delNo=el('lib-del-no');if(delNo)delNo.onclick=()=>{augurLibDel=false;renderApp();};
+      const delYes=el('lib-del-yes');if(delYes)delYes.onclick=async()=>{
+        if(augurLibSel&&metaRef){
+          const updated=(metaStrats||[]).filter(s=>s.file!==augurLibSel);
+          try{await metaRef.doc('strategies').set({list:updated});metaStrats=updated;}catch(e){alert('Delete failed: '+e.message);}
+        }
+        augurLibSel=null;augurLibDel=false;renderApp();
+      };
+      const libGut=el('lib-gutter');if(libGut){const lv=APREF.libView==='stack'?'stack':'side';libGut.style.touchAction='none';libGut.onpointerdown=(e)=>{e.preventDefault();try{libGut.setPointerCapture(e.pointerId);}catch(_){}
+        const mv=(ev)=>{if(lv==='side'){const w=el('lib-wrap'),L=el('lib-left');if(!w||!L)return;const rect=w.getBoundingClientRect();let r=(ev.clientX-rect.left)/rect.width;r=Math.min(.6,Math.max(.15,r));L.style.flexBasis=(r*100)+'%';APREF.libSplitH=r;}else{const top=el('lib-top'),sc=el('lib-listscroll');if(!top||!sc)return;const rect=top.getBoundingClientRect();let h=ev.clientY-rect.top-30;h=Math.min(520,Math.max(120,h));sc.style.maxHeight=h+'px';APREF.libSplitV=h;}};
+        const up2=()=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up2);savePref(lv==='side'?'libSplitH':'libSplitV',lv==='side'?APREF.libSplitH:APREF.libSplitV);};
+        document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up2);};}
+    }
     else if(augurSub==='set'){const sv=el('set-save');if(sv)sv.onclick=()=>{savePref('instrument',el('set-inst').value);savePref('session',el('set-sess').value);savePref('timeframe',el('set-tf').value);savePref('workers',parseInt(el('set-work').value)||4);savePref('rounds',parseInt(el('set-rounds').value)||4);savePref('trials',parseInt(el('set-trials').value)||200);savePref('min_trades',parseInt(el('set-mint').value)||30);savePref('provider',el('set-prov').value);const s=el('set-saved');if(s){s.textContent='✓ saved — Builder will use these';setTimeout(()=>{if(el('set-saved'))el('set-saved').textContent='';},2000);}};}
     else{const vs=el('res-side'),vk=el('res-stack');if(vs)vs.onclick=()=>{savePref('resView','side');renderApp();};if(vk)vk.onclick=()=>{savePref('resView','stack');renderApp();};
       const tog=(id,key)=>{const b=el(id);if(b)b.onclick=()=>{savePref(key,APREF[key]===false);renderApp();};};tog('sec-val','secVal');tog('sec-regime','secRegime');tog('sec-nbhd','secNbhd');
