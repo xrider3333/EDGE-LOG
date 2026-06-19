@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='23.6';
+const VERSION='23.7';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -408,7 +408,7 @@ function applyTheme(){document.documentElement.setAttribute('data-theme',prefs.t
 applyTheme();
 
 // State
-let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],metaPull={},augurSub='runs',augurRunSel=null,augurExecStrat='',augurCmpA=null,augurCmpB=null,augurLibSel=null,augurLibDel=false;
+let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],metaPull={},augurSub='runs',augurRunSel=null,augurExecStrat='',augurCmpA=null,augurCmpB=null,augurLibSel=null,augurLibDel=false,augurLibMsg='';
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
 let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyOverlay=false,chartPctMode=false;window.chartPctMode=false;
 let formOpen=false,showAllCols=false;
@@ -4254,45 +4254,62 @@ namespace NinjaTrader.NinjaScript.Strategies {
     }else if(augurSub==='lib'){
       const sl=metaStrats||[];
       const selS=augurLibSel?sl.find(s=>s.file===augurLibSel):null;
-      const srows=sl.map(s=>{const si=stratInfo(s.file);const on=s.file===augurLibSel;return '<div class="arow" data-strat="'+s.file+'" style="padding:5px 8px;border-radius:6px;cursor:pointer;border:1px solid '+(on?'var(--text4)':'transparent')+';background:'+(on?'var(--bg1)':'transparent')+';margin-bottom:2px">'
-        +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:'+si.color+';font-size:10px;margin-right:6px;font-variant-numeric:tabular-nums">#'+(s.num!=null?s.num:'')+'</span>'+stratTag(s.file)+'</span><span style="font-size:10px;color:var(--text5);white-space:nowrap">'+((s.presets||[]).length)+' scopes</span></div>'
-        +'<div style="font-size:9px;color:var(--text5);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(si.full||'')+' — '+(si.desc||'')+'</div></div>';}).join('');
+      // last-ran per strategy, derived client-side from run history (no runner change)
+      const lastRan={};(runHistory||[]).forEach(r=>{const m=_stratMatch(r.strategy);if(m){const t=(r.timestamp||'');if(!lastRan[m.file]||t>lastRan[m.file])lastRan[m.file]=t;}});
+      const fmtD=ts=>{if(!ts)return '—';const d=new Date(ts*1000);return isNaN(d.getTime())?'—':((d.getMonth()+1)+'/'+d.getDate()+'/'+String(d.getFullYear()).slice(2));};
+      const chip=(ok,lbl)=>'<span title="'+lbl+(ok?' file present':' file missing')+'" style="font-size:9px;padding:1px 5px;border-radius:4px;font-weight:600;font-variant-emoji:text;'+(ok?'color:var(--green);background:rgba(39,192,138,.12)':'color:var(--text5);background:var(--bg1);opacity:.8')+'">'+lbl+(ok?'':' ✕')+'</span>';
+      // view-by sort (covers "last ran" + surfaces missing pine)
+      const sort=APREF.libSort||'num';
+      const cmp={num:(a,b)=>((a.num==null)-(b.num==null))||((a.num||0)-(b.num||0))||a.file.localeCompare(b.file),
+        name:(a,b)=>a.file.localeCompare(b.file),
+        added:(a,b)=>(b.added||0)-(a.added||0),
+        ran:(a,b)=>String(lastRan[b.file]||'').localeCompare(String(lastRan[a.file]||'')),
+        pine:(a,b)=>((a.has_pine?1:0)-(b.has_pine?1:0))||a.file.localeCompare(b.file)};
+      const rowsSorted=sl.slice().sort(cmp[sort]||cmp.num);
+      const srows=rowsSorted.map(s=>{const si=stratInfo(s.file);const on=s.file===augurLibSel;const lr=lastRan[s.file];return '<tr class="arow" data-strat="'+s.file+'" style="cursor:pointer;'+(on?'background:var(--bg1)':'')+'">'
+        +'<td style="font-size:var(--fsxs);white-space:nowrap">'+stratTag(s.file)+'</td>'
+        +'<td style="font-size:var(--fsxs);color:var(--text5);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(si.full||'')+(si.desc?' — '+si.desc:'')+'</td>'
+        +'<td style="text-align:center">'+chip(s.has_py!==false,'PY')+'</td>'
+        +'<td style="text-align:center">'+chip(!!s.has_pine,'PINE')+'</td>'
+        +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+fmtD(s.added)+'</td>'
+        +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+(lr?(''+lr).slice(0,10):'—')+'</td>'
+        +'<td style="text-align:right;font-size:var(--fsxs);color:var(--text5)">'+((s.presets||[]).length)+'</td></tr>';}).join('');
       const mrows=(metaMasters||[]).map(m=>'<tr><td style="font-size:var(--fsxs);border-left:3px solid '+instColor(m.instrument)+';padding-left:7px">'+(m.name||'')+'</td><td>'+instTag(m.instrument)+'</td><td>'+(m.timeframe||'')+'</td><td>'+((m.session||'')+'').toUpperCase()+'</td><td style="font-size:var(--fsxs)">'+(m.source||'')+'</td><td style="text-align:center">'+(m.auto?'<span style="color:var(--green);font-size:10px;letter-spacing:1px" title="auto-pull on">● AUTO</span>':'<span style="color:var(--text5);font-size:10px">○ off</span>')+'</td><td style="text-align:right">'+(m.rows||0).toLocaleString()+'</td><td style="font-size:var(--fsxs)">'+(m.date_from||'')+'→'+(m.date_to||'')+'</td></tr>').join('');
       const pullBanner='<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3);margin-bottom:6px"><span>Auto-pull <b style="color:'+(metaPull.autorefresh?'var(--green)':'var(--text4)')+'">'+(metaPull.autorefresh?'ON':'OFF')+'</b></span><span>'+(metaPull.n_auto||0)+'/'+(metaPull.n_masters||(metaMasters||[]).length)+' masters auto-refreshing</span>'+(metaPull.synced_at?'<span>last sync '+new Date(metaPull.synced_at*1000).toLocaleString()+'</span>':'')+'</div>';
-      // singular action bar above the strategy rows (delete-with-confirm on the selected row)
-      const libActionBar=(()=>{
-        if(augurLibDel&&selS){
-          return '<div style="background:rgba(255,61,90,0.08);border:1px solid var(--red);border-radius:8px;padding:8px 12px;margin-bottom:8px">'
-            +'<div style="font-size:var(--fsxs);color:var(--red);margin-bottom:8px">Delete <b>'+selS.file+'</b>? This removes it from the synced library.</div>'
-            +'<div style="display:flex;gap:8px"><button class="btn-ghost" id="lib-del-yes" style="padding:4px 12px;font-size:var(--fsxs);color:#fff;background:var(--red);border-radius:6px">DELETE</button>'
-            +'<button class="btn-ghost" id="lib-del-no" style="padding:4px 12px;font-size:var(--fsxs);border-radius:6px">CANCEL</button></div></div>';
-        }
-        const label=selS?('<span style="font-size:var(--fsxs);color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">'+stratTag(selS.file)+'</span>'):'<span style="font-size:var(--fsxs);color:var(--text5)">select a strategy to act on it</span>';
-        const delBtn=selS?'<button class="btn-ghost" id="lib-del" style="padding:4px 12px;font-size:var(--fsxs);color:var(--red);border:1px solid var(--red);border-radius:6px;opacity:.8;white-space:nowrap">DELETE</button>':'';
-        return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg2);border-radius:8px;padding:7px 12px;margin-bottom:8px">'+label+delBtn+'</div>';
-      })();
+      // ── ACTION BAR — its own tile, above both panes (ADD · PY · PINE · DELETE) ──
+      const aBtn=(id,lbl,en,danger)=>'<button class="btn-ghost'+(en&&!danger?'':'')+'" id="'+id+'" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px;'+(danger?'color:var(--red);border:1px solid var(--red);':'border:1px solid var(--border);')+(en?'':'opacity:.35;pointer-events:none;')+'">'+lbl+'</button>';
+      const selLabel=selS?('<span style="font-size:var(--fsxs);color:var(--text3);white-space:nowrap">'+stratTag(selS.file)+'</span>'+(selS.has_pine?'':'<span style="font-size:9px;color:var(--text5);margin-left:6px">· no .pine</span>')):'<span style="font-size:var(--fsxs);color:var(--text5)">no strategy selected</span>';
+      const msgLine=augurLibMsg?'<div style="font-size:var(--fsxs);color:var(--text4);margin-top:7px;border-top:1px solid var(--border);padding-top:7px">'+augurLibMsg+'</div>':'';
+      const actionTile=tile('<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+        +'<button class="btn-ghost active" id="lib-add" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px">+ ADD STRATEGY</button>'
+        +'<span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>'
+        +'<span style="font-size:9px;color:var(--text5);letter-spacing:1px">SELECTED</span>'+selLabel
+        +'<span style="flex:1"></span>'
+        +aBtn('lib-py','▼ PY',!!selS&&selS.has_py!==false)
+        +aBtn('lib-pine',(selS&&!selS.has_pine)?'⚙ MAKE PINE':'▼ PINE',!!selS)
+        +aBtn('lib-del','DELETE',!!selS,true)
+        +'</div>'+msgLine,8);
       const mastersInner=pullBanner+((metaMasters||[]).length?'<table class="table"><thead><tr><th>NAME</th><th>INST</th><th>TF</th><th>SESS</th><th>SOURCE</th><th style="text-align:center">AUTO-PULL</th><th style="text-align:right">ROWS</th><th>RANGE</th></tr></thead><tbody>'+mrows+'</tbody></table>':'<div style="color:var(--text5);font-size:var(--fsxs)">no masters synced</div>');
       const mastersTitled=(lbl)=>'<div class="lbl" style="margin:0 0 6px">MASTERS / CSVs · '+(metaMasters||[]).length+'</div>'+tile(mastersInner,lbl?0:undefined);
       if(!sl.length){
-        body=tile('<div style="color:var(--text5);font-size:var(--fsxs)">no library synced — start the runner</div>')+'<div style="margin-top:18px">'+mastersTitled()+'</div>';
+        body=actionTile+tile('<div style="color:var(--text5);font-size:var(--fsxs)">no library synced — start the runner</div>')+'<div style="margin-top:18px">'+mastersTitled()+'</div>';
       }else{
         const lv=APREF.libView==='stack'?'stack':'side';
         const lH=Math.min(.6,Math.max(.15,APREF.libSplitH||0.35));
         const lVH=Math.min(520,Math.max(120,APREF.libSplitV||240));
         const maxH=lv==='stack'?(lVH+'px'):'72vh';
-        const listInner='<div class="lbl" style="margin:0 0 6px">STRATEGIES · '+sl.length+'</div>'
-          +libActionBar
+        const sortSel='<select id="lib-sort" style="font-size:var(--fsxs);padding:2px 7px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;color:var(--text3)">'+[['num','# order'],['name','Name'],['added','Date added'],['ran','Last ran'],['pine','Missing Pine']].map(o=>'<option value="'+o[0]+'"'+(sort===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
+        const stratTable='<table class="table"><thead><tr><th>STRATEGY</th><th>DESCRIPTION</th><th style="text-align:center">PY</th><th style="text-align:center">PINE</th><th>ADDED</th><th>LAST RAN</th><th style="text-align:right">SCOPES</th></tr></thead><tbody>'+srows+'</tbody></table>';
+        const listInner='<div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 6px;gap:8px"><span class="lbl">STRATEGIES · '+sl.length+'</span><span style="display:flex;align-items:center;gap:5px"><span style="font-size:9px;color:var(--text5);letter-spacing:1px">VIEW BY</span>'+sortSel+'</span></div>'
           +'<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}</style>'
-          +'<div id="lib-listscroll" style="max-height:'+maxH+';overflow-y:auto;margin:-2px -4px 0;padding:2px 4px 0">'+srows+'</div>';
+          +'<div id="lib-listscroll" style="max-height:'+maxH+';overflow:auto;margin:-2px -4px 0;padding:2px 4px 0">'+stratTable+'</div>';
         const leftTile=tile(listInner,0);
         if(lv==='stack'){
-          // stacked: strategies on top, masters/csvs below
-          body='<div id="lib-wrap">'+'<div id="lib-top">'+leftTile+'</div>'
+          body=actionTile+'<div id="lib-wrap">'+'<div id="lib-top">'+leftTile+'</div>'
             +'<div id="lib-gutter" style="height:12px;cursor:row-resize;display:flex;align-items:center;justify-content:center;margin:2px 0"><div style="height:3px;width:54px;background:var(--border);border-radius:2px"></div></div>'
             +'<div id="lib-bottom">'+mastersTitled()+'</div></div>';
         }else{
-          // side-by-side: strategies left, masters/csvs right
-          body='<div id="lib-wrap" style="display:flex;align-items:stretch">'
+          body=actionTile+'<div id="lib-wrap" style="display:flex;align-items:stretch">'
             +'<div id="lib-left" style="flex:0 0 '+(lH*100)+'%;min-width:200px;overflow:hidden">'+leftTile+'</div>'
             +'<div id="lib-gutter" style="flex:0 0 12px;cursor:col-resize;display:flex;align-items:center;justify-content:center"><div style="width:3px;height:46px;background:var(--border);border-radius:2px"></div></div>'
             +'<div id="lib-right" style="flex:1 1 0;min-width:0;overflow:auto">'+mastersTitled()+'</div></div>';
@@ -4373,7 +4390,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       }
     }
     content.innerHTML=nav+body;
-    content.querySelectorAll('[data-asub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.asub;augurRunSel=null;augurLibSel=null;augurLibDel=false;renderApp();};});
+    content.querySelectorAll('[data-asub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.asub;augurRunSel=null;augurLibSel=null;augurLibDel=false;augurLibMsg='';renderApp();};});
     if(augurSub==='launch'){const rb=el('au-run');if(rb)rb.onclick=async()=>{const inst=el('au-inst').value,sess=el('au-sess').value;const job={strategy:el('au-strat').value,instrument:inst,timeframe:el('au-tf').value,session:sess,source:sess==='rth'?'tv':null,params:{vol_filter:parseFloat(el('au-vol').value)||0},cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,mc_sims:1000,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};rb.textContent='QUEUED…';rb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='exec'){const ss=el('ex-strat');if(ss)ss.onchange=()=>{augurExecStrat=ss.value;renderApp();};const xb=el('ex-run');if(xb)xb.onclick=async()=>{const inst=el('ex-inst').value,sess=el('ex-sess').value,mode=el('ex-mode').value;savePref('instrument',inst);savePref('session',sess);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);const base={strategy:el('ex-strat').value,instrument:inst,timeframe:el('ex-tf').value,session:sess,source:sess==='rth'?'tv':null,preset:el('ex-preset').value,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};const job=(mode==='single')?Object.assign({},base,{params:{vol_filter:parseFloat(el('ex-vol').value)||0},mc_sims:1000}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,top_n:10,dsr:true,mc_sims:500}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='cmp'){const sa=el('cmp-a'),sb=el('cmp-b');if(sa)sa.onchange=()=>{augurCmpA=sa.value;renderApp();};if(sb)sb.onchange=()=>{augurCmpB=sb.value;renderApp();};}
@@ -4381,16 +4398,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const lvs=el('lib-side'),lvk=el('lib-stack');
       if(lvs)lvs.onclick=()=>{savePref('libView','side');renderApp();};
       if(lvk)lvk.onclick=()=>{savePref('libView','stack');renderApp();};
-      content.querySelectorAll('[data-strat]').forEach(r=>{r.onclick=()=>{augurLibSel=r.dataset.strat;augurLibDel=false;renderApp();};});
-      const delBtn=el('lib-del');if(delBtn)delBtn.onclick=()=>{augurLibDel=true;renderApp();};
-      const delNo=el('lib-del-no');if(delNo)delNo.onclick=()=>{augurLibDel=false;renderApp();};
-      const delYes=el('lib-del-yes');if(delYes)delYes.onclick=async()=>{
-        if(augurLibSel&&metaRef){
-          const updated=(metaStrats||[]).filter(s=>s.file!==augurLibSel);
-          try{await metaRef.doc('strategies').set({list:updated});metaStrats=updated;}catch(e){alert('Delete failed: '+e.message);}
-        }
-        augurLibSel=null;augurLibDel=false;renderApp();
-      };
+      const ls=el('lib-sort');if(ls)ls.onchange=()=>{savePref('libSort',ls.value);renderApp();};
+      content.querySelectorAll('[data-strat]').forEach(r=>{r.onclick=()=>{augurLibSel=r.dataset.strat;augurLibMsg='';renderApp();};});
+      // File ops (download / add / delete / make-pine) require the runner command
+      // channel — landing in Commit B. For now surface an honest pending notice so the
+      // buttons are present and discoverable without faking a broken action.
+      const pend=(verb)=>{augurLibMsg='⏳ '+verb+' runs on your PC via the runner command channel — shipping in the next update (Commit B). The button is in place; the file op is not wired yet.';renderApp();};
+      const add=el('lib-add');if(add)add.onclick=()=>pend('Add Strategy');
+      const py=el('lib-py');if(py)py.onclick=()=>pend('Download .py for '+(augurLibSel||''));
+      const _sel=(metaStrats||[]).find(s=>s.file===augurLibSel);
+      const pine=el('lib-pine');if(pine)pine.onclick=()=>pend((augurLibSel&&!(_sel&&_sel.has_pine)?'Generate .pine (local AI) for ':'Download .pine for ')+(augurLibSel||''));
+      const delBtn=el('lib-del');if(delBtn)delBtn.onclick=()=>pend('Delete '+(augurLibSel||''));
       const libGut=el('lib-gutter');if(libGut){const lv=APREF.libView==='stack'?'stack':'side';libGut.style.touchAction='none';libGut.onpointerdown=(e)=>{e.preventDefault();try{libGut.setPointerCapture(e.pointerId);}catch(_){}
         const mv=(ev)=>{if(lv==='side'){const w=el('lib-wrap'),L=el('lib-left');if(!w||!L)return;const rect=w.getBoundingClientRect();let r=(ev.clientX-rect.left)/rect.width;r=Math.min(.6,Math.max(.15,r));L.style.flexBasis=(r*100)+'%';APREF.libSplitH=r;}else{const top=el('lib-top'),sc=el('lib-listscroll');if(!top||!sc)return;const rect=top.getBoundingClientRect();let h=ev.clientY-rect.top-30;h=Math.min(520,Math.max(120,h));sc.style.maxHeight=h+'px';APREF.libSplitV=h;}};
         const up2=()=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up2);savePref(lv==='side'?'libSplitH':'libSplitV',lv==='side'?APREF.libSplitH:APREF.libSplitV);};
