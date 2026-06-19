@@ -4259,53 +4259,43 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="font-size:9px;color:var(--text5);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(si.full||'')+' — '+(si.desc||'')+'</div></div>';}).join('');
       const mrows=(metaMasters||[]).map(m=>'<tr><td style="font-size:var(--fsxs);border-left:3px solid '+instColor(m.instrument)+';padding-left:7px">'+(m.name||'')+'</td><td>'+instTag(m.instrument)+'</td><td>'+(m.timeframe||'')+'</td><td>'+((m.session||'')+'').toUpperCase()+'</td><td style="font-size:var(--fsxs)">'+(m.source||'')+'</td><td style="text-align:center">'+(m.auto?'<span style="color:var(--green);font-size:10px;letter-spacing:1px" title="auto-pull on">● AUTO</span>':'<span style="color:var(--text5);font-size:10px">○ off</span>')+'</td><td style="text-align:right">'+(m.rows||0).toLocaleString()+'</td><td style="font-size:var(--fsxs)">'+(m.date_from||'')+'→'+(m.date_to||'')+'</td></tr>').join('');
       const pullBanner='<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3);margin-bottom:6px"><span>Auto-pull <b style="color:'+(metaPull.autorefresh?'var(--green)':'var(--text4)')+'">'+(metaPull.autorefresh?'ON':'OFF')+'</b></span><span>'+(metaPull.n_auto||0)+'/'+(metaPull.n_masters||(metaMasters||[]).length)+' masters auto-refreshing</span>'+(metaPull.synced_at?'<span>last sync '+new Date(metaPull.synced_at*1000).toLocaleString()+'</span>':'')+'</div>';
-      const libDetail=(s)=>{
-        if(!s)return '<div style="color:var(--text5);font-size:var(--fsxs);padding:48px 20px;text-align:center;border:1px dashed var(--border);border-radius:10px">select a strategy on the left to see details</div>';
-        const si=stratInfo(s.file);
-        const presetList=(s.presets||[]).length?'<div style="margin-top:12px"><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:4px">SCOPES / PRESETS</div>'+s.presets.map(p=>'<div style="font-size:var(--fsxs);color:var(--text3);padding:2px 0">'+p+'</div>').join('')+'</div>':'<div style="margin-top:12px;font-size:var(--fsxs);color:var(--text5)">no presets synced</div>';
-        let actionBar='<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'
-          +'<button class="btn-ghost" id="lib-del" style="padding:4px 12px;font-size:var(--fsxs);color:var(--red);border:1px solid var(--red);border-radius:6px;opacity:.7">DELETE</button>'
-          +'</div>';
-        if(augurLibDel){
-          actionBar='<div style="background:rgba(255,61,90,0.08);border:1px solid var(--red);border-radius:8px;padding:10px 14px;margin-top:14px">'
-            +'<div style="font-size:var(--fsxs);color:var(--red);margin-bottom:8px">Delete <b>'+s.file+'</b>? This removes it from the synced library.</div>'
+      // singular action bar above the strategy rows (delete-with-confirm on the selected row)
+      const libActionBar=(()=>{
+        if(augurLibDel&&selS){
+          return '<div style="background:rgba(255,61,90,0.08);border:1px solid var(--red);border-radius:8px;padding:8px 12px;margin-bottom:8px">'
+            +'<div style="font-size:var(--fsxs);color:var(--red);margin-bottom:8px">Delete <b>'+selS.file+'</b>? This removes it from the synced library.</div>'
             +'<div style="display:flex;gap:8px"><button class="btn-ghost" id="lib-del-yes" style="padding:4px 12px;font-size:var(--fsxs);color:#fff;background:var(--red);border-radius:6px">DELETE</button>'
             +'<button class="btn-ghost" id="lib-del-no" style="padding:4px 12px;font-size:var(--fsxs);border-radius:6px">CANCEL</button></div></div>';
         }
-        return '<div style="font-size:15px;margin-bottom:2px">'+stratTag(s.file,'15px')+'</div>'
-          +'<div style="color:var(--text4);font-size:var(--fsxs);margin-bottom:12px">'+(si.full||'')+' — '+(si.desc||'')+'</div>'
-          +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:12px">'
-          +'<div style="background:var(--bg2);border-radius:8px;padding:10px 12px"><div style="font-size:var(--fsxs);color:var(--text5)">FILE</div><div style="font-size:12px;color:var(--text3);word-break:break-all">'+s.file+'</div></div>'
-          +'<div style="background:var(--bg2);border-radius:8px;padding:10px 12px"><div style="font-size:var(--fsxs);color:var(--text5)">LIBRARY #</div><div style="font-size:18px;color:'+si.color+'">'+(s.num!=null?s.num:'—')+'</div></div>'
-          +'<div style="background:var(--bg2);border-radius:8px;padding:10px 12px"><div style="font-size:var(--fsxs);color:var(--text5)">SCOPES</div><div style="font-size:18px">'+((s.presets||[]).length)+'</div></div>'
-          +'</div>'
-          +presetList
-          +actionBar;
-      };
-      const mastersSection='<div class="lbl" style="margin:18px 0 6px">MASTERS / CSVs · '+(metaMasters||[]).length+'</div>'
-        +((metaMasters||[]).length?tile(pullBanner+'<table class="table"><thead><tr><th>NAME</th><th>INST</th><th>TF</th><th>SESS</th><th>SOURCE</th><th style="text-align:center">AUTO-PULL</th><th style="text-align:right">ROWS</th><th>RANGE</th></tr></thead><tbody>'+mrows+'</tbody></table>'):tile('<div style="color:var(--text5);font-size:var(--fsxs)">no masters synced</div>'));
+        const label=selS?('<span style="font-size:var(--fsxs);color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">'+stratTag(selS.file)+'</span>'):'<span style="font-size:var(--fsxs);color:var(--text5)">select a strategy to act on it</span>';
+        const delBtn=selS?'<button class="btn-ghost" id="lib-del" style="padding:4px 12px;font-size:var(--fsxs);color:var(--red);border:1px solid var(--red);border-radius:6px;opacity:.8;white-space:nowrap">DELETE</button>':'';
+        return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg2);border-radius:8px;padding:7px 12px;margin-bottom:8px">'+label+delBtn+'</div>';
+      })();
+      const mastersInner=pullBanner+((metaMasters||[]).length?'<table class="table"><thead><tr><th>NAME</th><th>INST</th><th>TF</th><th>SESS</th><th>SOURCE</th><th style="text-align:center">AUTO-PULL</th><th style="text-align:right">ROWS</th><th>RANGE</th></tr></thead><tbody>'+mrows+'</tbody></table>':'<div style="color:var(--text5);font-size:var(--fsxs)">no masters synced</div>');
+      const mastersTitled=(lbl)=>'<div class="lbl" style="margin:0 0 6px">MASTERS / CSVs · '+(metaMasters||[]).length+'</div>'+tile(mastersInner,lbl?0:undefined);
       if(!sl.length){
-        body=tile('<div style="color:var(--text5);font-size:var(--fsxs)">no library synced — start the runner</div>')+mastersSection;
+        body=tile('<div style="color:var(--text5);font-size:var(--fsxs)">no library synced — start the runner</div>')+'<div style="margin-top:18px">'+mastersTitled()+'</div>';
       }else{
         const lv=APREF.libView==='stack'?'stack':'side';
         const lH=Math.min(.6,Math.max(.15,APREF.libSplitH||0.35));
         const lVH=Math.min(520,Math.max(120,APREF.libSplitV||240));
         const maxH=lv==='stack'?(lVH+'px'):'72vh';
         const listInner='<div class="lbl" style="margin:0 0 6px">STRATEGIES · '+sl.length+'</div>'
+          +libActionBar
           +'<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}</style>'
           +'<div id="lib-listscroll" style="max-height:'+maxH+';overflow-y:auto;margin:-2px -4px 0;padding:2px 4px 0">'+srows+'</div>';
         const leftTile=tile(listInner,0);
         if(lv==='stack'){
+          // stacked: strategies on top, masters/csvs below
           body='<div id="lib-wrap">'+'<div id="lib-top">'+leftTile+'</div>'
             +'<div id="lib-gutter" style="height:12px;cursor:row-resize;display:flex;align-items:center;justify-content:center;margin:2px 0"><div style="height:3px;width:54px;background:var(--border);border-radius:2px"></div></div>'
-            +'<div id="lib-bottom">'+libDetail(selS)+'</div></div>'
-            +mastersSection;
+            +'<div id="lib-bottom">'+mastersTitled()+'</div></div>';
         }else{
+          // side-by-side: strategies left, masters/csvs right
           body='<div id="lib-wrap" style="display:flex;align-items:stretch">'
             +'<div id="lib-left" style="flex:0 0 '+(lH*100)+'%;min-width:200px;overflow:hidden">'+leftTile+'</div>'
             +'<div id="lib-gutter" style="flex:0 0 12px;cursor:col-resize;display:flex;align-items:center;justify-content:center"><div style="width:3px;height:46px;background:var(--border);border-radius:2px"></div></div>'
-            +'<div id="lib-right" style="flex:1 1 0;min-width:0;overflow:hidden">'+libDetail(selS)+'</div></div>'
-            +mastersSection;
+            +'<div id="lib-right" style="flex:1 1 0;min-width:0;overflow:auto">'+mastersTitled()+'</div></div>';
         }
       }
     }else if(augurSub==='cmp'){
