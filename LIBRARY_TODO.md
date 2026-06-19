@@ -2,7 +2,17 @@
 
 Tracked here so it survives across sessions. Newest ideas on top.
 
-## Open
+## Open — backend wave (needs new runner command handlers)
+- [ ] **Multi-instrument master pull** — "start a pull" for GC (gold), YM (Dow), CL, RTY,
+      etc. Instruments already exist in optimizer.INSTRUMENTS (GC=F, YM=F…); need a
+      `pull_master {instrument, timeframe, session}` command that does the initial Yahoo
+      pull via the augur_refresh shim + save_master_csv, then a "+ PULL MASTER" picker in
+      the Library masters pane. (Yahoo only gives ~recent intraday history — see data note.)
+- [ ] **Per-master actions** — select a master → toggle its auto-pull (writes
+      augur_config autorefresh.masters[key]) + delete master. Masters pane still read-only.
+- [ ] **Order-flow / Time-&-Sales enrichment** (Databento, paid) — AUGUR TODO #23.
+
+## Open — frontend / other
 - [ ] **Package the runner as a desktop app (.exe / tray app).** PyInstaller-wrap
       `api/runner.py` into `AugurRunner.exe`: system-tray icon, auto-start with
       Windows, connected/disconnected status dot, pause/convert menu — kills the
@@ -20,6 +30,8 @@ Tracked here so it survives across sessions. Newest ideas on top.
       count).
 
 ## Done (recent)
+- [x] v24.4 download/AI dropdown menus; SET ACTIVE + USE IN BUILDER quick-launch;
+      inline per-strategy stats; ROADMAP checklist tab.
 - [x] v24.3 Pine provenance badge (qwen/claude/claude-review/bundled/scaffold/hand);
       download buttons grouped by DELETE; masters title moved inside its tile.
 - [x] v24.2 per-click AI provider toggle; Claude REVIEW → APPLY flow.
