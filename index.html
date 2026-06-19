@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='24.0';
+const VERSION='24.1';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4312,7 +4312,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<span style="font-size:9px;color:var(--text5);letter-spacing:1px">SELECTED</span>'+selLabel
         +'<span style="flex:1"></span>'
         +aBtn('lib-py','▼ PY',!!selS&&selS.has_py!==false)
-        +aBtn('lib-pine',(selS&&!selS.has_pine)?'⚙ MAKE PINE':'▼ PINE',!!selS)
+        +aBtn('lib-pine',(selS&&!selS.has_pine)?('⚙ MAKE PINE ('+((APREF.provider||'ollama')==='ollama'?'qwen·free':(APREF.provider||'ollama')==='claude-cli'?'claude·credits':APREF.provider)+')'):'▼ PINE',!!selS)
         +aBtn('lib-del','DELETE',!!selS,true)
         +'</div>'+msgLine,8);
       const mastersInner=pullBanner+((metaMasters||[]).length?'<table class="table"><thead><tr><th>NAME</th><th>INST</th><th>TF</th><th>SESS</th><th>SOURCE</th><th style="text-align:center">AUTO-PULL</th><th style="text-align:right">ROWS</th><th>RANGE</th></tr></thead><tbody>'+mrows+'</tbody></table>':'<div style="color:var(--text5);font-size:var(--fsxs)">no masters synced</div>');
@@ -4439,7 +4439,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _sel=(metaStrats||[]).find(s=>s.file===augurLibSel);
       const add=el('lib-add');if(add)add.onclick=()=>{const inp=document.createElement('input');inp.type='file';inp.accept='.py';inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>libCmd('add',{name:f.name,content:String(rd.result||'')},'Add '+f.name);rd.readAsText(f);};inp.click();};
       const py=el('lib-py');if(py)py.onclick=()=>{if(augurLibSel)libCmd('get_src',{file:augurLibSel,kind:'py'},'Download .py for '+augurLibSel);};
-      const pine=el('lib-pine');if(pine)pine.onclick=()=>{if(!augurLibSel)return;if(_sel&&_sel.has_pine)libCmd('get_src',{file:augurLibSel,kind:'pine'},'Download .pine for '+augurLibSel);else libCmd('make_pine',{file:augurLibSel},'Make .pine for '+augurLibSel);};
+      const pine=el('lib-pine');if(pine)pine.onclick=()=>{if(!augurLibSel)return;if(_sel&&_sel.has_pine)libCmd('get_src',{file:augurLibSel,kind:'pine'},'Download .pine for '+augurLibSel);else{const prov=APREF.provider||'ollama';libCmd('make_pine',{file:augurLibSel,provider:prov},'Make .pine for '+augurLibSel+' ['+prov+(prov==='ollama'?', free':prov==='claude-cli'?', uses Claude credits':'')+']');}};
       const delBtn=el('lib-del');if(delBtn)delBtn.onclick=()=>{if(!augurLibSel)return;if(augurLibDel){augurLibDel=false;libCmd('delete',{file:augurLibSel},'Delete '+augurLibSel);}else{augurLibDel=true;augurLibMsg='⚠ Click DELETE again to permanently remove '+augurLibSel+' (.py + .pine) from your PC.';renderApp();}};
       const libGut=el('lib-gutter');if(libGut){const lv=APREF.libView==='stack'?'stack':'side';libGut.style.touchAction='none';libGut.onpointerdown=(e)=>{e.preventDefault();try{libGut.setPointerCapture(e.pointerId);}catch(_){}
         const mv=(ev)=>{if(lv==='side'){const w=el('lib-wrap'),L=el('lib-left');if(!w||!L)return;const rect=w.getBoundingClientRect();let r=(ev.clientX-rect.left)/rect.width;r=Math.min(.6,Math.max(.15,r));L.style.flexBasis=(r*100)+'%';APREF.libSplitH=r;}else{const top=el('lib-top'),sc=el('lib-listscroll');if(!top||!sc)return;const rect=top.getBoundingClientRect();let h=ev.clientY-rect.top-30;h=Math.min(520,Math.max(120,h));sc.style.maxHeight=h+'px';APREF.libSplitV=h;}};
