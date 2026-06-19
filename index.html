@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='23.8';
+const VERSION='23.9';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -2667,7 +2667,10 @@ function renderApp(){
   const S=calcStats(trades);
   const filtered=applyFilters(trades);
   const app=document.getElementById('app');
-  const wrap=document.createElement('div');wrap.className='fade';
+  // Fade only when the tab actually changes — re-rendering the same tab (e.g. a
+  // Library row select, sort, or filter) shouldn't flash the whole screen blank.
+  const _fadeOn=(window._lastRenderTab!==activeTab);window._lastRenderTab=activeTab;
+  const wrap=document.createElement('div');wrap.className=_fadeOn?'fade':'';
 
   // TOPBAR
   const tb=document.createElement('div');tb.className='topbar';
@@ -4325,8 +4328,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const arr=k=>sortk===k?(dir<0?' ▾':' ▴'):'';
         const sh=(k,lbl,align)=>'<th data-sortk="'+k+'" title="Sort by '+lbl+'" style="cursor:pointer;user-select:none;white-space:nowrap;'+(align?'text-align:'+align+';':'')+(sortk===k?'color:var(--text)':'')+'">'+lbl+arr(k)+'</th>';
         const fh=(k,lbl)=>'<th data-onlyk="'+k+'" title="Show only missing '+lbl+'" style="cursor:pointer;user-select:none;text-align:center;'+(only===k?'color:var(--red)':'')+'">'+lbl+(only===k?' ◉':'')+'</th>';
-        const stratTable='<table class="table"><thead><tr>'+sh('name','STRATEGY')+'<th>DESCRIPTION</th>'+fh('nopy','PY')+fh('nopine','PINE')+sh('added','ADDED')+sh('ran','LAST RAN')+sh('scopes','SCOPES','right')+'</tr></thead><tbody>'+srows+'</tbody></table>';
-        const onlyNote=only?'<span style="font-size:9px;color:var(--red);letter-spacing:1px">SHOWING ONLY MISSING '+(only==='nopy'?'PY':'PINE')+' · '+rowsSorted.length+' <span id="lib-clearonly" style="cursor:pointer;text-decoration:underline">clear</span></span>':'<span style="font-size:9px;color:var(--text5)">click a header to sort · PY/PINE to filter</span>';
+        const stratTable='<table class="table"><thead><tr>'+sh('num','STRATEGY')+'<th>DESCRIPTION</th>'+fh('nopy','PY')+fh('nopine','PINE')+sh('added','ADDED')+sh('ran','LAST RAN')+sh('scopes','SCOPES','right')+'</tr></thead><tbody>'+srows+'</tbody></table>';
+        const onlyNote=only?'<span style="font-size:9px;color:var(--red);letter-spacing:1px">SHOWING ONLY MISSING '+(only==='nopy'?'PY':'PINE')+' · '+rowsSorted.length+' <span id="lib-clearonly" style="cursor:pointer;text-decoration:underline">clear</span></span>':'';
         const listInner='<div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 6px;gap:8px"><span class="lbl">STRATEGIES · '+sl.length+'</span>'+onlyNote+'</div>'
           +'<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}.table thead th[data-sortk]:hover,.table thead th[data-onlyk]:hover{color:var(--text)}</style>'
           +'<div id="lib-listscroll" style="max-height:'+maxH+';overflow:auto;margin:-2px -4px 0;padding:2px 4px 0">'+stratTable+'</div>';
