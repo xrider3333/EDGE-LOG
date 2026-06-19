@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='23.7';
+const VERSION='23.8';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -408,7 +408,7 @@ function applyTheme(){document.documentElement.setAttribute('data-theme',prefs.t
 applyTheme();
 
 // State
-let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],metaPull={},augurSub='runs',augurRunSel=null,augurExecStrat='',augurCmpA=null,augurCmpB=null,augurLibSel=null,augurLibDel=false,augurLibMsg='';
+let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,cmdRef=null,augurCmdId=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],metaPull={},augurSub='runs',augurRunSel=null,augurExecStrat='',augurCmpA=null,augurCmpB=null,augurLibSel=null,augurLibDel=false,augurLibMsg='';
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
 let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyOverlay=false,chartPctMode=false;window.chartPctMode=false;
 let formOpen=false,showAllCols=false;
@@ -664,11 +664,31 @@ function subscribeAll(uid){
   runsRef=db.collection('users').doc(uid).collection('runs');
   if(unsubRuns)unsubRuns();
   unsubRuns=runsRef.onSnapshot(snap=>{runHistory=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='augur'&&augurSub==='runs')renderApp();});
+  cmdRef=db.collection('users').doc(uid).collection('commands');
   metaRef=db.collection('users').doc(uid).collection('meta');
   if(unsubMeta)unsubMeta();
   unsubMeta=metaRef.doc('strategies').onSnapshot(d=>{const x=d.data();metaStrats=(x&&x.list)||[];if(activeTab==='augur'&&(augurSub==='exec'||augurSub==='lib'))renderApp();});
   if(unsubMM)unsubMM();
   unsubMM=metaRef.doc('masters').onSnapshot(d=>{const x=d.data();metaMasters=(x&&x.list)||[];metaPull=(x&&x.status)||{};if(activeTab==='augur'&&(augurSub==='lib'||augurSub==='set'))renderApp();});
+}
+function _libDownload(name,content){try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'}));a.download=name||'strategy.txt';document.body.appendChild(a);a.click();a.remove();}catch(e){}}
+async function libCmd(action,payload,verb){
+  if(!cmdRef){augurLibMsg='⚠ sign in first';renderApp();return;}
+  augurLibMsg='⏳ '+verb+' — sent to your runner (needs the runner running on your PC)…';renderApp();
+  try{
+    const ref=await cmdRef.add({action:action,payload:payload,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    augurCmdId=ref.id;
+    const t0=Date.now();
+    const unsub=ref.onSnapshot(d=>{
+      const x=d.data()||{};if(x.status!=='done'&&x.status!=='error')return;unsub();
+      const r=x.result||{};
+      if(x.status==='error'||!r.ok){augurLibMsg='✖ '+verb+' failed: '+(r.error||x.error||'unknown');renderApp();return;}
+      if(r.content&&(action==='get_src'||action==='make_pine'))_libDownload(r.filename||r.made,r.content);
+      augurLibMsg='✓ '+verb+(r.via?' ('+r.via+')':'')+(r.made?' · '+r.made:'')+(r.added?' · added '+r.added:'')+(r.removed?' · removed '+r.removed.join(', '):'')+(r.warning?' — ⚠ '+r.warning:'');
+      renderApp();
+    });
+    setTimeout(()=>{try{unsub();}catch(_){}if(augurLibMsg.indexOf('⏳')===0&&(Date.now()-t0)>0){augurLibMsg='⌛ '+verb+': no response in 90s — is the runner running (run_augur_runner.bat)?';renderApp();}},90000);
+  }catch(e){augurLibMsg='✖ '+verb+' failed: '+e.message;renderApp();}
 }
 async function addTrade(t){
   const aid=localStorage.getItem('el_account_id')||'';
@@ -4258,14 +4278,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const lastRan={};(runHistory||[]).forEach(r=>{const m=_stratMatch(r.strategy);if(m){const t=(r.timestamp||'');if(!lastRan[m.file]||t>lastRan[m.file])lastRan[m.file]=t;}});
       const fmtD=ts=>{if(!ts)return '—';const d=new Date(ts*1000);return isNaN(d.getTime())?'—':((d.getMonth()+1)+'/'+d.getDate()+'/'+String(d.getFullYear()).slice(2));};
       const chip=(ok,lbl)=>'<span title="'+lbl+(ok?' file present':' file missing')+'" style="font-size:9px;padding:1px 5px;border-radius:4px;font-weight:600;font-variant-emoji:text;'+(ok?'color:var(--green);background:rgba(39,192,138,.12)':'color:var(--text5);background:var(--bg1);opacity:.8')+'">'+lbl+(ok?'':' ✕')+'</span>';
-      // view-by sort (covers "last ran" + surfaces missing pine)
-      const sort=APREF.libSort||'num';
+      // clickable column headers: sort ("view by") + PY/PINE "show only missing" filter
+      const sortk=APREF.libSort||'num', dir=APREF.libSortDir===-1?-1:1, only=APREF.libOnly||'';
       const cmp={num:(a,b)=>((a.num==null)-(b.num==null))||((a.num||0)-(b.num||0))||a.file.localeCompare(b.file),
         name:(a,b)=>a.file.localeCompare(b.file),
-        added:(a,b)=>(b.added||0)-(a.added||0),
-        ran:(a,b)=>String(lastRan[b.file]||'').localeCompare(String(lastRan[a.file]||'')),
-        pine:(a,b)=>((a.has_pine?1:0)-(b.has_pine?1:0))||a.file.localeCompare(b.file)};
-      const rowsSorted=sl.slice().sort(cmp[sort]||cmp.num);
+        added:(a,b)=>(a.added||0)-(b.added||0),
+        ran:(a,b)=>String(lastRan[a.file]||'').localeCompare(String(lastRan[b.file]||'')),
+        scopes:(a,b)=>((a.presets||[]).length)-((b.presets||[]).length)};
+      let rows=sl.slice();
+      if(only==='nopy')rows=rows.filter(s=>s.has_py===false);
+      else if(only==='nopine')rows=rows.filter(s=>!s.has_pine);
+      const rowsSorted=rows.sort((a,b)=>(cmp[sortk]||cmp.num)(a,b)*dir);
       const srows=rowsSorted.map(s=>{const si=stratInfo(s.file);const on=s.file===augurLibSel;const lr=lastRan[s.file];return '<tr class="arow" data-strat="'+s.file+'" style="cursor:pointer;'+(on?'background:var(--bg1)':'')+'">'
         +'<td style="font-size:var(--fsxs);white-space:nowrap">'+stratTag(s.file)+'</td>'
         +'<td style="font-size:var(--fsxs);color:var(--text5);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(si.full||'')+(si.desc?' — '+si.desc:'')+'</td>'
@@ -4298,10 +4321,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const lH=Math.min(.6,Math.max(.15,APREF.libSplitH||0.35));
         const lVH=Math.min(520,Math.max(120,APREF.libSplitV||240));
         const maxH=lv==='stack'?(lVH+'px'):'72vh';
-        const sortSel='<select id="lib-sort" style="font-size:var(--fsxs);padding:2px 7px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;color:var(--text3)">'+[['num','# order'],['name','Name'],['added','Date added'],['ran','Last ran'],['pine','Missing Pine']].map(o=>'<option value="'+o[0]+'"'+(sort===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
-        const stratTable='<table class="table"><thead><tr><th>STRATEGY</th><th>DESCRIPTION</th><th style="text-align:center">PY</th><th style="text-align:center">PINE</th><th>ADDED</th><th>LAST RAN</th><th style="text-align:right">SCOPES</th></tr></thead><tbody>'+srows+'</tbody></table>';
-        const listInner='<div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 6px;gap:8px"><span class="lbl">STRATEGIES · '+sl.length+'</span><span style="display:flex;align-items:center;gap:5px"><span style="font-size:9px;color:var(--text5);letter-spacing:1px">VIEW BY</span>'+sortSel+'</span></div>'
-          +'<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}</style>'
+        // sortable header (click to view-by; arrow shows active dir) + show-only header
+        const arr=k=>sortk===k?(dir<0?' ▾':' ▴'):'';
+        const sh=(k,lbl,align)=>'<th data-sortk="'+k+'" title="Sort by '+lbl+'" style="cursor:pointer;user-select:none;white-space:nowrap;'+(align?'text-align:'+align+';':'')+(sortk===k?'color:var(--text)':'')+'">'+lbl+arr(k)+'</th>';
+        const fh=(k,lbl)=>'<th data-onlyk="'+k+'" title="Show only missing '+lbl+'" style="cursor:pointer;user-select:none;text-align:center;'+(only===k?'color:var(--red)':'')+'">'+lbl+(only===k?' ◉':'')+'</th>';
+        const stratTable='<table class="table"><thead><tr>'+sh('name','STRATEGY')+'<th>DESCRIPTION</th>'+fh('nopy','PY')+fh('nopine','PINE')+sh('added','ADDED')+sh('ran','LAST RAN')+sh('scopes','SCOPES','right')+'</tr></thead><tbody>'+srows+'</tbody></table>';
+        const onlyNote=only?'<span style="font-size:9px;color:var(--red);letter-spacing:1px">SHOWING ONLY MISSING '+(only==='nopy'?'PY':'PINE')+' · '+rowsSorted.length+' <span id="lib-clearonly" style="cursor:pointer;text-decoration:underline">clear</span></span>':'<span style="font-size:9px;color:var(--text5)">click a header to sort · PY/PINE to filter</span>';
+        const listInner='<div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 6px;gap:8px"><span class="lbl">STRATEGIES · '+sl.length+'</span>'+onlyNote+'</div>'
+          +'<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}.table thead th[data-sortk]:hover,.table thead th[data-onlyk]:hover{color:var(--text)}</style>'
           +'<div id="lib-listscroll" style="max-height:'+maxH+';overflow:auto;margin:-2px -4px 0;padding:2px 4px 0">'+stratTable+'</div>';
         const leftTile=tile(listInner,0);
         if(lv==='stack'){
@@ -4398,17 +4425,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const lvs=el('lib-side'),lvk=el('lib-stack');
       if(lvs)lvs.onclick=()=>{savePref('libView','side');renderApp();};
       if(lvk)lvk.onclick=()=>{savePref('libView','stack');renderApp();};
-      const ls=el('lib-sort');if(ls)ls.onchange=()=>{savePref('libSort',ls.value);renderApp();};
-      content.querySelectorAll('[data-strat]').forEach(r=>{r.onclick=()=>{augurLibSel=r.dataset.strat;augurLibMsg='';renderApp();};});
-      // File ops (download / add / delete / make-pine) require the runner command
-      // channel — landing in Commit B. For now surface an honest pending notice so the
-      // buttons are present and discoverable without faking a broken action.
-      const pend=(verb)=>{augurLibMsg='⏳ '+verb+' runs on your PC via the runner command channel — shipping in the next update (Commit B). The button is in place; the file op is not wired yet.';renderApp();};
-      const add=el('lib-add');if(add)add.onclick=()=>pend('Add Strategy');
-      const py=el('lib-py');if(py)py.onclick=()=>pend('Download .py for '+(augurLibSel||''));
+      content.querySelectorAll('th[data-sortk]').forEach(h=>{h.onclick=()=>{const k=h.dataset.sortk;if((APREF.libSort||'num')===k){savePref('libSortDir',APREF.libSortDir===-1?1:-1);}else{savePref('libSort',k);savePref('libSortDir',1);}renderApp();};});
+      content.querySelectorAll('th[data-onlyk]').forEach(h=>{h.onclick=()=>{const k=h.dataset.onlyk;savePref('libOnly',(APREF.libOnly===k)?'':k);renderApp();};});
+      const co=el('lib-clearonly');if(co)co.onclick=(e)=>{e.stopPropagation();savePref('libOnly','');renderApp();};
+      content.querySelectorAll('[data-strat]').forEach(r=>{r.onclick=()=>{augurLibSel=r.dataset.strat;augurLibMsg='';augurLibDel=false;renderApp();};});
+      // Library file ops — executed on the user's PC by the runner command channel.
       const _sel=(metaStrats||[]).find(s=>s.file===augurLibSel);
-      const pine=el('lib-pine');if(pine)pine.onclick=()=>pend((augurLibSel&&!(_sel&&_sel.has_pine)?'Generate .pine (local AI) for ':'Download .pine for ')+(augurLibSel||''));
-      const delBtn=el('lib-del');if(delBtn)delBtn.onclick=()=>pend('Delete '+(augurLibSel||''));
+      const add=el('lib-add');if(add)add.onclick=()=>{const inp=document.createElement('input');inp.type='file';inp.accept='.py';inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>libCmd('add',{name:f.name,content:String(rd.result||'')},'Add '+f.name);rd.readAsText(f);};inp.click();};
+      const py=el('lib-py');if(py)py.onclick=()=>{if(augurLibSel)libCmd('get_src',{file:augurLibSel,kind:'py'},'Download .py for '+augurLibSel);};
+      const pine=el('lib-pine');if(pine)pine.onclick=()=>{if(!augurLibSel)return;if(_sel&&_sel.has_pine)libCmd('get_src',{file:augurLibSel,kind:'pine'},'Download .pine for '+augurLibSel);else libCmd('make_pine',{file:augurLibSel},'Make .pine for '+augurLibSel);};
+      const delBtn=el('lib-del');if(delBtn)delBtn.onclick=()=>{if(!augurLibSel)return;if(augurLibDel){augurLibDel=false;libCmd('delete',{file:augurLibSel},'Delete '+augurLibSel);}else{augurLibDel=true;augurLibMsg='⚠ Click DELETE again to permanently remove '+augurLibSel+' (.py + .pine) from your PC.';renderApp();}};
       const libGut=el('lib-gutter');if(libGut){const lv=APREF.libView==='stack'?'stack':'side';libGut.style.touchAction='none';libGut.onpointerdown=(e)=>{e.preventDefault();try{libGut.setPointerCapture(e.pointerId);}catch(_){}
         const mv=(ev)=>{if(lv==='side'){const w=el('lib-wrap'),L=el('lib-left');if(!w||!L)return;const rect=w.getBoundingClientRect();let r=(ev.clientX-rect.left)/rect.width;r=Math.min(.6,Math.max(.15,r));L.style.flexBasis=(r*100)+'%';APREF.libSplitH=r;}else{const top=el('lib-top'),sc=el('lib-listscroll');if(!top||!sc)return;const rect=top.getBoundingClientRect();let h=ev.clientY-rect.top-30;h=Math.min(520,Math.max(120,h));sc.style.maxHeight=h+'px';APREF.libSplitV=h;}};
         const up2=()=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up2);savePref(lv==='side'?'libSplitH':'libSplitV',lv==='side'?APREF.libSplitH:APREF.libSplitV);};
