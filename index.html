@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='23.9';
+const VERSION='24.0';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4326,12 +4326,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const maxH=lv==='stack'?(lVH+'px'):'72vh';
         // sortable header (click to view-by; arrow shows active dir) + show-only header
         const arr=k=>sortk===k?(dir<0?' ▾':' ▴'):'';
-        const sh=(k,lbl,align)=>'<th data-sortk="'+k+'" title="Sort by '+lbl+'" style="cursor:pointer;user-select:none;white-space:nowrap;'+(align?'text-align:'+align+';':'')+(sortk===k?'color:var(--text)':'')+'">'+lbl+arr(k)+'</th>';
+        const ss=(k,lbl)=>'<span data-sortk="'+k+'" title="Sort by '+lbl+'" style="cursor:pointer;user-select:none;'+(sortk===k?'color:var(--text)':'')+'">'+lbl+arr(k)+'</span>';
+        const sh=(k,lbl,align)=>'<th style="white-space:nowrap;'+(align?'text-align:'+align+';':'')+'">'+ss(k,lbl)+'</th>';
         const fh=(k,lbl)=>'<th data-onlyk="'+k+'" title="Show only missing '+lbl+'" style="cursor:pointer;user-select:none;text-align:center;'+(only===k?'color:var(--red)':'')+'">'+lbl+(only===k?' ◉':'')+'</th>';
-        const stratTable='<table class="table"><thead><tr>'+sh('num','STRATEGY')+'<th>DESCRIPTION</th>'+fh('nopy','PY')+fh('nopine','PINE')+sh('added','ADDED')+sh('ran','LAST RAN')+sh('scopes','SCOPES','right')+'</tr></thead><tbody>'+srows+'</tbody></table>';
+        // STRATEGY header offers BOTH # and NAME as independent sort targets
+        const stratHdr='<th style="white-space:nowrap">'+ss('num','#')+' · '+ss('name','STRATEGY')+'</th>';
+        const stratTable='<table class="table"><thead><tr>'+stratHdr+'<th>DESCRIPTION</th>'+fh('nopy','PY')+fh('nopine','PINE')+sh('added','ADDED')+sh('ran','LAST RAN')+sh('scopes','SCOPES','right')+'</tr></thead><tbody>'+srows+'</tbody></table>';
         const onlyNote=only?'<span style="font-size:9px;color:var(--red);letter-spacing:1px">SHOWING ONLY MISSING '+(only==='nopy'?'PY':'PINE')+' · '+rowsSorted.length+' <span id="lib-clearonly" style="cursor:pointer;text-decoration:underline">clear</span></span>':'';
         const listInner='<div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 6px;gap:8px"><span class="lbl">STRATEGIES · '+sl.length+'</span>'+onlyNote+'</div>'
-          +'<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}.table thead th[data-sortk]:hover,.table thead th[data-onlyk]:hover{color:var(--text)}</style>'
+          +'<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}.table thead [data-sortk]:hover,.table thead th[data-onlyk]:hover{color:var(--text)}</style>'
           +'<div id="lib-listscroll" style="max-height:'+maxH+';overflow:auto;margin:-2px -4px 0;padding:2px 4px 0">'+stratTable+'</div>';
         const leftTile=tile(listInner,0);
         if(lv==='stack'){
@@ -4428,7 +4431,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const lvs=el('lib-side'),lvk=el('lib-stack');
       if(lvs)lvs.onclick=()=>{savePref('libView','side');renderApp();};
       if(lvk)lvk.onclick=()=>{savePref('libView','stack');renderApp();};
-      content.querySelectorAll('th[data-sortk]').forEach(h=>{h.onclick=()=>{const k=h.dataset.sortk;if((APREF.libSort||'num')===k){savePref('libSortDir',APREF.libSortDir===-1?1:-1);}else{savePref('libSort',k);savePref('libSortDir',1);}renderApp();};});
+      content.querySelectorAll('[data-sortk]').forEach(h=>{h.onclick=()=>{const k=h.dataset.sortk;if((APREF.libSort||'num')===k){savePref('libSortDir',APREF.libSortDir===-1?1:-1);}else{savePref('libSort',k);savePref('libSortDir',1);}renderApp();};});
       content.querySelectorAll('th[data-onlyk]').forEach(h=>{h.onclick=()=>{const k=h.dataset.onlyk;savePref('libOnly',(APREF.libOnly===k)?'':k);renderApp();};});
       const co=el('lib-clearonly');if(co)co.onclick=(e)=>{e.stopPropagation();savePref('libOnly','');renderApp();};
       content.querySelectorAll('[data-strat]').forEach(r=>{r.onclick=()=>{augurLibSel=r.dataset.strat;augurLibMsg='';augurLibDel=false;renderApp();};});
