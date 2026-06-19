@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='24.3';
+const VERSION='24.4';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -408,7 +408,7 @@ function applyTheme(){document.documentElement.setAttribute('data-theme',prefs.t
 applyTheme();
 
 // State
-let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,cmdRef=null,augurCmdId=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],metaPull={},augurSub='runs',augurRunSel=null,augurExecStrat='',augurCmpA=null,augurCmpB=null,augurLibSel=null,augurLibDel=false,augurLibMsg='',augurReviewPine='',augurReviewFor='';
+let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,cmdRef=null,augurCmdId=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],metaPull={},augurSub='runs',augurRunSel=null,augurExecStrat='',augurCmpA=null,augurCmpB=null,augurLibSel=null,augurLibDel=false,augurLibMsg='',augurReviewPine='',augurReviewFor='',augurMenu='';
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
 let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyOverlay=false,chartPctMode=false;window.chartPctMode=false;
 let formOpen=false,showAllCols=false;
@@ -4184,8 +4184,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const INSTC={NQ:'#5b8def',MNQ:'#93b3f2',ES:'#27c08a',MES:'#79d6b1',YM:'#e0a341',MYM:'#ecc684',RTY:'#c77dd6',M2K:'#dba9e6',CL:'#d6694b',GC:'#d4b95e'};
     const instColor=i=>INSTC[String(i||'').toUpperCase().trim()]||'hsl('+_hashHue(String(i||''))+',45%,62%)';
     const instTag=i=>'<span style="color:'+instColor(i)+';font-weight:600">'+(i||'')+'</span>';
-    const AICON={runs:'▦',exec:'▸',lib:'◫',cmp:'◧',ref:'◈',research:'◎',set:'◆'};
-    const asubs=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['ref','REFERENCE'],['research','RESEARCH'],['set','SETTINGS']];
+    const AICON={runs:'▦',exec:'▸',lib:'◫',cmp:'◧',roadmap:'☑',ref:'◈',research:'◎',set:'◆'};
+    const asubs=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['roadmap','ROADMAP'],['ref','REFERENCE'],['research','RESEARCH'],['set','SETTINGS']];
     let navBtns='';
     asubs.forEach(s=>{navBtns+='<button class="btn-ghost" data-asub="'+s[0]+'" style="border-radius:0;border-bottom:2px solid '+(augurSub===s[0]?'var(--text)':'transparent')+';color:'+(augurSub===s[0]?'var(--text)':'var(--text4)')+'"><span style="font-variant-emoji:text;opacity:.65;margin-right:6px">'+AICON[s[0]]+'</span>'+s[1]+'</button>';});
     // Contextual controls pinned to the FAR RIGHT of the sub-tab row, in a tile.
@@ -4307,24 +4307,31 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<td style="text-align:right;font-size:var(--fsxs);color:var(--text5)">'+((s.presets||[]).length)+'</td></tr>';}).join('');
       const mrows=(metaMasters||[]).map(m=>'<tr><td style="font-size:var(--fsxs);border-left:3px solid '+instColor(m.instrument)+';padding-left:7px">'+(m.name||'')+'</td><td>'+instTag(m.instrument)+'</td><td>'+(m.timeframe||'')+'</td><td>'+((m.session||'')+'').toUpperCase()+'</td><td style="font-size:var(--fsxs)">'+(m.source||'')+'</td><td style="text-align:center">'+(m.auto?'<span style="color:var(--green);font-size:10px;letter-spacing:1px" title="auto-pull on">● AUTO</span>':'<span style="color:var(--text5);font-size:10px">○ off</span>')+'</td><td style="text-align:right">'+(m.rows||0).toLocaleString()+'</td><td style="font-size:var(--fsxs)">'+(m.date_from||'')+'→'+(m.date_to||'')+'</td></tr>').join('');
       const pullBanner='<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3);margin-bottom:6px"><span>Auto-pull <b style="color:'+(metaPull.autorefresh?'var(--green)':'var(--text4)')+'">'+(metaPull.autorefresh?'ON':'OFF')+'</b></span><span>'+(metaPull.n_auto||0)+'/'+(metaPull.n_masters||(metaMasters||[]).length)+' masters auto-refreshing</span>'+(metaPull.synced_at?'<span>last sync '+new Date(metaPull.synced_at*1000).toLocaleString()+'</span>':'')+'</div>';
-      // ── ACTION BAR — its own tile, above both panes (ADD · PY · PINE · DELETE) ──
-      const aBtn=(id,lbl,en,danger)=>'<button class="btn-ghost'+(en&&!danger?'':'')+'" id="'+id+'" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px;'+(danger?'color:var(--red);border:1px solid var(--red);':'border:1px solid var(--border);')+(en?'':'opacity:.35;pointer-events:none;')+'">'+lbl+'</button>';
-      const selLabel=selS?('<span style="font-size:var(--fsxs);color:var(--text3);white-space:nowrap">'+stratTag(selS.file)+'</span>'+(selS.has_pine?'':'<span style="font-size:9px;color:var(--text5);margin-left:6px">· no .pine</span>')):'<span style="font-size:var(--fsxs);color:var(--text5)">no strategy selected</span>';
+      // ── per-strategy stats + active marker (derived client-side from run history) ──
+      const statOf={};(runHistory||[]).forEach(r=>{const m=_stratMatch(r.strategy);if(!m)return;const f=m.file;const st=statOf[f]||(statOf[f]={runs:0,bestPnl:-Infinity,bestPf:0,last:''});st.runs++;const pnl=r.best_pnl_usd||0;if(pnl>st.bestPnl)st.bestPnl=pnl;if((r.best_pf||0)>st.bestPf)st.bestPf=r.best_pf||0;if((r.timestamp||'')>st.last)st.last=r.timestamp||'';});
+      const active=APREF.activeStrategy||'';
+      // ── ACTION BAR — its own tile, above both panes ──
+      const aBtn=(id,lbl,en,danger)=>'<button class="btn-ghost" id="'+id+'" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px;'+(danger?'color:var(--red);border:1px solid var(--red);':'border:1px solid var(--border);')+(en?'':'opacity:.35;pointer-events:none;')+'">'+lbl+'</button>';
+      const mItem=(id,lbl,sub)=>'<button class="btn-ghost menu-item" id="'+id+'" style="display:block;width:100%;text-align:left;padding:6px 10px;font-size:var(--fsxs);border-radius:6px;border:0">'+lbl+(sub?'<span style="color:var(--text5);font-size:8px"> · '+sub+'</span>':'')+'</button>';
+      const menu=(id,lbl,open,items)=>'<span class="lib-menu-wrap" style="position:relative;display:inline-block">'
+        +'<button class="btn-ghost" id="'+id+'" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px;border:1px solid var(--border)'+(open?';background:var(--bg1);color:var(--text)':'')+'">'+lbl+' ▾</button>'
+        +(open?'<div style="position:absolute;z-index:60;top:100%;right:0;margin-top:4px;background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:4px;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.45)">'+(items||'<div style="padding:6px 10px;font-size:var(--fsxs);color:var(--text5)">nothing available</div>')+'</div>':'')+'</span>';
+      const selStat=(()=>{if(!selS)return '';const s=statOf[selS.file];return s?'<span style="font-size:9px;color:var(--text5);margin-left:8px">'+s.runs+' run'+(s.runs!=1?'s':'')+' · best PF '+(s.bestPf||0).toFixed(2)+' · best '+fmtUsd(s.bestPnl)+(s.last?' · last '+s.last.slice(0,10):'')+'</span>':'<span style="font-size:9px;color:var(--text5);margin-left:8px">no runs yet</span>';})();
+      const selLabel=selS?('<span style="font-size:var(--fsxs);color:var(--text3);white-space:nowrap">'+(active===selS.file?'<span title="active strategy" style="color:var(--yellow)">★ </span>':'')+stratTag(selS.file)+'</span>'+selStat):'<span style="font-size:var(--fsxs);color:var(--text5)">no strategy selected</span>';
       const msgLine=augurLibMsg?'<div style="font-size:var(--fsxs);color:var(--text4);margin-top:7px;border-top:1px solid var(--border);padding-top:7px;white-space:pre-wrap;max-height:220px;overflow:auto">'+augurLibMsg+'</div>':'';
-      const _prov=APREF.provider||'ollama';const _provTag=_prov==='ollama'?'qwen·free':_prov==='claude-cli'?'claude·credits':_prov;
-      const actionTile=tile('<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+      const dlItems=mItem('dl-py','▼ Download .py')+(selS&&selS.has_pine?mItem('dl-pine','▼ Download .pine'):'');
+      const aiItems=(selS&&!selS.has_pine?mItem('ai-mk-q','⚙ Create .pine','qwen, free')+mItem('ai-mk-c','⚙ Create .pine','Claude, credits'):'')
+        +(selS&&selS.has_pine?mItem('ai-rev','✓ Review with Claude','credits')+mItem('ai-rgn-q','↻ Regenerate','qwen, free')+mItem('ai-rgn-c','↻ Regenerate','Claude, credits'):'')
+        +((augurReviewPine&&augurReviewFor===augurLibSel)?mItem('ai-apply','✔ Apply reviewed .pine','save'):'');
+      const actionTile=tile('<style>.menu-item:hover{background:var(--bg2)!important}</style><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
         +'<button class="btn-ghost active" id="lib-add" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px">+ ADD STRATEGY</button>'
         +'<span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>'
         +'<span style="font-size:9px;color:var(--text5);letter-spacing:1px">SELECTED</span>'+selLabel
         +'<span style="flex:1"></span>'
-        +(selS?'<button class="btn-ghost" id="lib-prov" title="AI engine used for MAKE PINE — click to switch" style="padding:5px 10px;font-size:var(--fsxs);border-radius:6px;border:1px solid var(--border)">AI: '+_provTag+'</button>':'')
-        +((selS&&!selS.has_pine)?aBtn('lib-makepine','⚙ MAKE PINE ('+_provTag+')',true):'')
-        +aBtn('lib-review','✓ REVIEW (claude·credits)',!!selS&&!!selS.has_pine)
-        +((augurReviewPine&&augurReviewFor===augurLibSel)?'<button class="btn-ghost active" id="lib-apply" title="Save the reviewed Pine" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px">APPLY REVIEW</button>':'')
-        +'<span style="width:1px;height:18px;background:var(--border);margin:0 4px"></span>'
-        +'<span style="font-size:9px;color:var(--text5);letter-spacing:1px">DOWNLOAD</span>'
-        +aBtn('lib-py','▼ PY',!!selS&&selS.has_py!==false)
-        +((selS&&selS.has_pine)?aBtn('lib-dlpine','▼ PINE',true):'')
+        +(selS?aBtn('lib-active',(active===selS.file?'★ ACTIVE':'☆ SET ACTIVE'),true):'')
+        +(selS?aBtn('lib-use','▸ USE IN BUILDER',true):'')
+        +(selS?menu('lib-aimenu','⚙ AI',augurMenu==='ai',aiItems):'')
+        +(selS?menu('lib-dlmenu','▼ DOWNLOAD',augurMenu==='dl',dlItems):'')
         +aBtn('lib-del','DELETE',!!selS,true)
         +'</div>'+msgLine,8);
       const mastersInner=pullBanner+((metaMasters||[]).length?'<table class="table"><thead><tr><th>NAME</th><th>INST</th><th>TF</th><th>SESS</th><th>SOURCE</th><th style="text-align:center">AUTO-PULL</th><th style="text-align:right">ROWS</th><th>RANGE</th></tr></thead><tbody>'+mrows+'</tbody></table>':'<div style="color:var(--text5);font-size:var(--fsxs)">no masters synced</div>');
@@ -4378,6 +4385,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
       body='<div class="lbl" style="margin-bottom:6px">INSTRUMENTS</div>'+tile('<table class="table"><thead><tr><th>SYMBOL</th><th>NAME</th><th style="text-align:right">MULTIPLIER</th></tr></thead><tbody>'+irows+'</tbody></table>')
         +'<div class="lbl" style="margin:18px 0 6px">COST MODEL</div><div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">Round-turn commission $2.83/order x 2 = $5.66 (about 0.28 NQ pts / 0.11 ES pts), applied per trade. PNL = shares x (exit - entry) x multiplier, net of cost.</div>'
         +'<div class="lbl" style="margin:18px 0 6px">SESSIONS</div><div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">RTH = 09:30-16:00 ET cash session (last 5m bar 15:55). ETH = full 24h. Masters are keyed per instrument + timeframe + session + source.</div>';
+    }else if(augurSub==='roadmap'){
+      // Per-strategy validation checklist. Some milestones auto-derive (backtested from
+      // run history, pine/reviewed from the synced flags); the rest are manual toggles
+      // persisted in APREF.checklist[file][key].
+      const sl=metaStrats||[];
+      const ran={};(runHistory||[]).forEach(r=>{const m=_stratMatch(r.strategy);if(m)ran[m.file]=true;});
+      const CK=APREF.checklist||{};
+      const cols=[['bt','Backtested',true],['wf','Walk-fwd',false],['oos','OOS',false],['pine','Pine',true],['rev','Reviewed',true],['paper','Paper',false],['live','Live',false]];
+      const autoVal=(s,k)=>k==='bt'?!!ran[s.file]:k==='pine'?!!s.has_pine:k==='rev'?(s.pine_via==='claude-review'):false;
+      const cellOf=(s,c)=>{const k=c[0],auto=c[2];const on=auto?autoVal(s,k):!!((CK[s.file]||{})[k]);
+        const mark=on?'<span style="color:var(--green)">✓</span>':'<span style="color:var(--text5);opacity:.5">○</span>';
+        return auto?'<td style="text-align:center" title="auto-derived">'+mark+'</td>'
+          :'<td style="text-align:center"><span data-chk="'+s.file+'|'+k+'" style="cursor:pointer">'+mark+'</span></td>';};
+      const prog=s=>{let n=0;cols.forEach(c=>{if(c[2]?autoVal(s,c[0]):((CK[s.file]||{})[c[0]]))n++;});return n;};
+      const rrows=sl.slice().sort((a,b)=>((a.num==null)-(b.num==null))||((a.num||0)-(b.num||0))).map(s=>{const p=prog(s);const pct=Math.round(100*p/cols.length);return '<tr><td style="font-size:var(--fsxs);white-space:nowrap">'+stratTag(s.file)+'</td>'+cols.map(c=>cellOf(s,c)).join('')
+        +'<td style="text-align:right;font-size:var(--fsxs);color:'+(pct>=72?'var(--green)':pct>=43?'var(--yellow)':'var(--text5)')+'">'+p+'/'+cols.length+'</td></tr>';}).join('');
+      const hdr='<tr><th>STRATEGY</th>'+cols.map(c=>'<th style="text-align:center" title="'+(c[2]?'auto-derived':'click to toggle')+'">'+c[1]+(c[2]?'':' ✎')+'</th>').join('')+'<th style="text-align:right">DONE</th></tr>';
+      body='<div class="lbl" style="margin-bottom:6px">STRATEGY ROADMAP · '+sl.length+'</div>'
+        +(sl.length?tile('<table class="table"><thead>'+hdr+'</thead><tbody>'+rrows+'</tbody></table>'
+          +'<div style="font-size:9px;color:var(--text5);margin-top:8px">✓ green = done · ○ open · columns with ✎ are manual (click to toggle); Backtested/Pine/Reviewed auto-derive from your runs &amp; files. Path: Backtest → Walk-forward → OOS → Pine → Claude-reviewed → Paper trade → Live.</div>')
+          :tile('<div style="color:var(--text5);font-size:var(--fsxs)">no strategies synced — start the runner</div>'));
     }else if(augurSub==='research'){
       const items=[['Out-of-sample (75/25)','Optimize on the first 75% of history, validate the winner on the unseen last 25%. A config that wins in-sample but collapses out-of-sample is overfit.'],['Deflated Sharpe','Haircuts the Sharpe by the best Sharpe expected from pure luck across N searched configs (Bailey / Lopez de Prado). DSR at or above 95% beats the luck bar.'],['Monte-Carlo drawdown','Block-shuffles the trade order to map the drawdown distribution. Size the account to the p95.'],['Walk-forward','Anchored: re-optimize on each train window, test on the next unseen window, roll forward.']];
       body='<div class="lbl" style="margin-bottom:6px">VALIDATION METHODOLOGY</div>'+items.map(i=>'<div style="background:var(--bg2);border-radius:8px;padding:12px 14px;margin-bottom:10px"><div style="font-size:14px;margin-bottom:3px">'+i[0]+'</div><div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6">'+i[1]+'</div></div>').join('');
@@ -4446,22 +4474,34 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-sortk]').forEach(h=>{h.onclick=()=>{const k=h.dataset.sortk;if((APREF.libSort||'num')===k){savePref('libSortDir',APREF.libSortDir===-1?1:-1);}else{savePref('libSort',k);savePref('libSortDir',1);}renderApp();};});
       content.querySelectorAll('th[data-onlyk]').forEach(h=>{h.onclick=()=>{const k=h.dataset.onlyk;savePref('libOnly',(APREF.libOnly===k)?'':k);renderApp();};});
       const co=el('lib-clearonly');if(co)co.onclick=(e)=>{e.stopPropagation();savePref('libOnly','');renderApp();};
-      content.querySelectorAll('[data-strat]').forEach(r=>{r.onclick=()=>{augurLibSel=r.dataset.strat;augurLibMsg='';augurLibDel=false;renderApp();};});
+      content.querySelectorAll('[data-strat]').forEach(r=>{r.onclick=()=>{augurLibSel=r.dataset.strat;augurLibMsg='';augurLibDel=false;augurMenu='';renderApp();};});
       // Library file ops — executed on the user's PC by the runner command channel.
-      const _sel=(metaStrats||[]).find(s=>s.file===augurLibSel);
+      const closeMenu=()=>{augurMenu='';};
       const add=el('lib-add');if(add)add.onclick=()=>{const inp=document.createElement('input');inp.type='file';inp.accept='.py';inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>libCmd('add',{name:f.name,content:String(rd.result||'')},'Add '+f.name);rd.readAsText(f);};inp.click();};
-      const py=el('lib-py');if(py)py.onclick=()=>{if(augurLibSel)libCmd('get_src',{file:augurLibSel,kind:'py'},'Download .py for '+augurLibSel);};
-      const dlpine=el('lib-dlpine');if(dlpine)dlpine.onclick=()=>{if(augurLibSel)libCmd('get_src',{file:augurLibSel,kind:'pine'},'Download .pine for '+augurLibSel);};
-      const mkpine=el('lib-makepine');if(mkpine)mkpine.onclick=()=>{if(!augurLibSel)return;const prov=APREF.provider||'ollama';libCmd('make_pine',{file:augurLibSel,provider:prov},'Make .pine for '+augurLibSel+' ['+prov+(prov==='ollama'?', free':prov==='claude-cli'?', uses Claude credits':'')+']');};
-      const prov=el('lib-prov');if(prov)prov.onclick=()=>{savePref('provider',(APREF.provider||'ollama')==='ollama'?'claude-cli':'ollama');renderApp();};
-      const rev=el('lib-review');if(rev)rev.onclick=()=>{if(augurLibSel)libCmd('review_pine',{file:augurLibSel,provider:'claude-cli'},'Review .pine for '+augurLibSel);};
-      const ap=el('lib-apply');if(ap)ap.onclick=()=>{if(augurReviewPine&&augurReviewFor)libCmd('write_pine',{file:augurReviewFor,content:augurReviewPine},'Apply reviewed .pine for '+augurReviewFor);};
-      const delBtn=el('lib-del');if(delBtn)delBtn.onclick=()=>{if(!augurLibSel)return;if(augurLibDel){augurLibDel=false;libCmd('delete',{file:augurLibSel},'Delete '+augurLibSel);}else{augurLibDel=true;augurLibMsg='⚠ Click DELETE again to permanently remove '+augurLibSel+' (.py + .pine) from your PC.';renderApp();}};
+      // active strategy + quick-launch into Builder
+      const actBtn=el('lib-active');if(actBtn)actBtn.onclick=()=>{savePref('activeStrategy',(APREF.activeStrategy===augurLibSel)?'':augurLibSel);renderApp();};
+      const useBtn=el('lib-use');if(useBtn)useBtn.onclick=()=>{if(augurLibSel){augurExecStrat=augurLibSel;augurSub='exec';augurMenu='';renderApp();}};
+      // dropdown toggles
+      const dlm=el('lib-dlmenu');if(dlm)dlm.onclick=(e)=>{e.stopPropagation();augurMenu=augurMenu==='dl'?'':'dl';renderApp();};
+      const aim=el('lib-aimenu');if(aim)aim.onclick=(e)=>{e.stopPropagation();augurMenu=augurMenu==='ai'?'':'ai';renderApp();};
+      // download menu items
+      const dpy=el('dl-py');if(dpy)dpy.onclick=()=>{closeMenu();if(augurLibSel)libCmd('get_src',{file:augurLibSel,kind:'py'},'Download .py for '+augurLibSel);};
+      const dpn=el('dl-pine');if(dpn)dpn.onclick=()=>{closeMenu();if(augurLibSel)libCmd('get_src',{file:augurLibSel,kind:'pine'},'Download .pine for '+augurLibSel);};
+      // AI menu items (create / regenerate / review / apply)
+      const mkq=el('ai-mk-q');if(mkq)mkq.onclick=()=>{closeMenu();libCmd('make_pine',{file:augurLibSel,provider:'ollama'},'Create .pine for '+augurLibSel+' [qwen, free]');};
+      const mkc=el('ai-mk-c');if(mkc)mkc.onclick=()=>{closeMenu();libCmd('make_pine',{file:augurLibSel,provider:'claude-cli'},'Create .pine for '+augurLibSel+' [Claude, credits]');};
+      const rgq=el('ai-rgn-q');if(rgq)rgq.onclick=()=>{closeMenu();libCmd('make_pine',{file:augurLibSel,provider:'ollama',overwrite:true},'Regenerate .pine for '+augurLibSel+' [qwen, free]');};
+      const rgc=el('ai-rgn-c');if(rgc)rgc.onclick=()=>{closeMenu();libCmd('make_pine',{file:augurLibSel,provider:'claude-cli',overwrite:true},'Regenerate .pine for '+augurLibSel+' [Claude, credits]');};
+      const rev=el('ai-rev');if(rev)rev.onclick=()=>{closeMenu();libCmd('review_pine',{file:augurLibSel,provider:'claude-cli'},'Review .pine for '+augurLibSel);};
+      const apl=el('ai-apply');if(apl)apl.onclick=()=>{closeMenu();if(augurReviewPine&&augurReviewFor)libCmd('write_pine',{file:augurReviewFor,content:augurReviewPine},'Apply reviewed .pine for '+augurReviewFor);};
+      const delBtn=el('lib-del');if(delBtn)delBtn.onclick=()=>{if(!augurLibSel)return;augurMenu='';if(augurLibDel){augurLibDel=false;libCmd('delete',{file:augurLibSel},'Delete '+augurLibSel);}else{augurLibDel=true;augurLibMsg='⚠ Click DELETE again to permanently remove '+augurLibSel+' (.py + .pine) from your PC.';renderApp();}};
+      if(augurMenu){setTimeout(()=>{const h=(e)=>{if(!e.target.closest('.lib-menu-wrap')){augurMenu='';document.removeEventListener('click',h);renderApp();}};document.addEventListener('click',h);},0);}
       const libGut=el('lib-gutter');if(libGut){const lv=APREF.libView==='stack'?'stack':'side';libGut.style.touchAction='none';libGut.onpointerdown=(e)=>{e.preventDefault();try{libGut.setPointerCapture(e.pointerId);}catch(_){}
         const mv=(ev)=>{if(lv==='side'){const w=el('lib-wrap'),L=el('lib-left');if(!w||!L)return;const rect=w.getBoundingClientRect();let r=(ev.clientX-rect.left)/rect.width;r=Math.min(.6,Math.max(.15,r));L.style.flexBasis=(r*100)+'%';APREF.libSplitH=r;}else{const top=el('lib-top'),sc=el('lib-listscroll');if(!top||!sc)return;const rect=top.getBoundingClientRect();let h=ev.clientY-rect.top-30;h=Math.min(520,Math.max(120,h));sc.style.maxHeight=h+'px';APREF.libSplitV=h;}};
         const up2=()=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up2);savePref(lv==='side'?'libSplitH':'libSplitV',lv==='side'?APREF.libSplitH:APREF.libSplitV);};
         document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up2);};}
     }
+    else if(augurSub==='roadmap'){content.querySelectorAll('[data-chk]').forEach(c=>{c.onclick=()=>{const parts=c.dataset.chk.split('|'),f=parts[0],k=parts[1];const ck=APREF.checklist||{};const row=ck[f]||(ck[f]={});row[k]=!row[k];savePref('checklist',ck);renderApp();};});}
     else if(augurSub==='set'){const sv=el('set-save');if(sv)sv.onclick=()=>{savePref('instrument',el('set-inst').value);savePref('session',el('set-sess').value);savePref('timeframe',el('set-tf').value);savePref('workers',parseInt(el('set-work').value)||4);savePref('rounds',parseInt(el('set-rounds').value)||4);savePref('trials',parseInt(el('set-trials').value)||200);savePref('min_trades',parseInt(el('set-mint').value)||30);savePref('provider',el('set-prov').value);const s=el('set-saved');if(s){s.textContent='✓ saved — Builder will use these';setTimeout(()=>{if(el('set-saved'))el('set-saved').textContent='';},2000);}};}
     else{const vs=el('res-side'),vk=el('res-stack');if(vs)vs.onclick=()=>{savePref('resView','side');renderApp();};if(vk)vk.onclick=()=>{savePref('resView','stack');renderApp();};
       const tog=(id,key)=>{const b=el(id);if(b)b.onclick=()=>{savePref(key,APREF[key]===false);renderApp();};};tog('sec-val','secVal');tog('sec-regime','secRegime');tog('sec-nbhd','secNbhd');
