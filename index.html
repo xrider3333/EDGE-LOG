@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='24.4';
+const VERSION='24.5';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4323,7 +4323,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const aiItems=(selS&&!selS.has_pine?mItem('ai-mk-q','⚙ Create .pine','qwen, free')+mItem('ai-mk-c','⚙ Create .pine','Claude, credits'):'')
         +(selS&&selS.has_pine?mItem('ai-rev','✓ Review with Claude','credits')+mItem('ai-rgn-q','↻ Regenerate','qwen, free')+mItem('ai-rgn-c','↻ Regenerate','Claude, credits'):'')
         +((augurReviewPine&&augurReviewFor===augurLibSel)?mItem('ai-apply','✔ Apply reviewed .pine','save'):'');
-      const actionTile=tile('<style>.menu-item:hover{background:var(--bg2)!important}</style><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+      // NOTE: not tile() — that clips overflow, which would hide the dropdown menus.
+      const actionTile='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;overflow:visible">'
+        +'<style>.menu-item:hover{background:var(--bg2)!important}</style><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
         +'<button class="btn-ghost active" id="lib-add" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px">+ ADD STRATEGY</button>'
         +'<span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>'
         +'<span style="font-size:9px;color:var(--text5);letter-spacing:1px">SELECTED</span>'+selLabel
@@ -4333,7 +4335,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +(selS?menu('lib-aimenu','⚙ AI',augurMenu==='ai',aiItems):'')
         +(selS?menu('lib-dlmenu','▼ DOWNLOAD',augurMenu==='dl',dlItems):'')
         +aBtn('lib-del','DELETE',!!selS,true)
-        +'</div>'+msgLine,8);
+        +'</div>'+msgLine+'</div>';
       const mastersInner=pullBanner+((metaMasters||[]).length?'<table class="table"><thead><tr><th>NAME</th><th>INST</th><th>TF</th><th>SESS</th><th>SOURCE</th><th style="text-align:center">AUTO-PULL</th><th style="text-align:right">ROWS</th><th>RANGE</th></tr></thead><tbody>'+mrows+'</tbody></table>':'<div style="color:var(--text5);font-size:var(--fsxs)">no masters synced</div>');
       const mastersTitled=(lbl)=>tile('<div class="lbl" style="margin:0 0 6px">MASTERS / CSVs · '+(metaMasters||[]).length+'</div>'+mastersInner,lbl?0:undefined);
       if(!sl.length){
