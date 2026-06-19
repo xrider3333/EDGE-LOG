@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='24.2';
+const VERSION='24.3';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4283,6 +4283,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const lastRan={};(runHistory||[]).forEach(r=>{const m=_stratMatch(r.strategy);if(m){const t=(r.timestamp||'');if(!lastRan[m.file]||t>lastRan[m.file])lastRan[m.file]=t;}});
       const fmtD=ts=>{if(!ts)return '—';const d=new Date(ts*1000);return isNaN(d.getTime())?'—':((d.getMonth()+1)+'/'+d.getDate()+'/'+String(d.getFullYear()).slice(2));};
       const chip=(ok,lbl)=>'<span title="'+lbl+(ok?' file present':' file missing')+'" style="font-size:9px;padding:1px 5px;border-radius:4px;font-weight:600;font-variant-emoji:text;'+(ok?'color:var(--green);background:rgba(39,192,138,.12)':'color:var(--text5);background:var(--bg1);opacity:.8')+'">'+lbl+(ok?'':' ✕')+'</span>';
+      // minimalist Pine provenance badge (who made/reviewed the .pine)
+      const VIA={qwen:['q','#5b8def','qwen (local, free)'],claude:['c','#c090ff','Claude (generated)'],'claude-review':['c✓','#c090ff','Claude-reviewed'],bundled:['•','var(--text4)','bundled with strategy'],scaffold:['!','#e0a341','scaffold — logic is a TODO'],hand:['✎','var(--text5)','hand-written']};
+      const pineCell=s=>{if(!s.has_pine)return chip(false,'PINE');const v=VIA[s.pine_via]||['?','var(--text5)','unknown source'];return chip(true,'PINE')+'<sup title="Pine source: '+v[2]+'" style="font-size:8px;margin-left:2px;color:'+v[1]+';cursor:help">'+v[0]+'</sup>';};
       // clickable column headers: sort ("view by") + PY/PINE "show only missing" filter
       const sortk=APREF.libSort||'num', dir=APREF.libSortDir===-1?-1:1, only=APREF.libOnly||'';
       const cmp={num:(a,b)=>((a.num==null)-(b.num==null))||((a.num||0)-(b.num||0))||a.file.localeCompare(b.file),
@@ -4298,7 +4301,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<td style="font-size:var(--fsxs);white-space:nowrap">'+stratTag(s.file)+'</td>'
         +'<td style="font-size:var(--fsxs);color:var(--text5);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(si.full||'')+(si.desc?' — '+si.desc:'')+'</td>'
         +'<td style="text-align:center">'+chip(s.has_py!==false,'PY')+'</td>'
-        +'<td style="text-align:center">'+chip(!!s.has_pine,'PINE')+'</td>'
+        +'<td style="text-align:center">'+pineCell(s)+'</td>'
         +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+fmtD(s.added)+'</td>'
         +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+(lr?(''+lr).slice(0,10):'—')+'</td>'
         +'<td style="text-align:right;font-size:var(--fsxs);color:var(--text5)">'+((s.presets||[]).length)+'</td></tr>';}).join('');
@@ -4314,15 +4317,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>'
         +'<span style="font-size:9px;color:var(--text5);letter-spacing:1px">SELECTED</span>'+selLabel
         +'<span style="flex:1"></span>'
-        +aBtn('lib-py','▼ PY',!!selS&&selS.has_py!==false)
         +(selS?'<button class="btn-ghost" id="lib-prov" title="AI engine used for MAKE PINE — click to switch" style="padding:5px 10px;font-size:var(--fsxs);border-radius:6px;border:1px solid var(--border)">AI: '+_provTag+'</button>':'')
-        +aBtn('lib-pine',(selS&&!selS.has_pine)?('⚙ MAKE PINE ('+_provTag+')'):'▼ PINE',!!selS)
+        +((selS&&!selS.has_pine)?aBtn('lib-makepine','⚙ MAKE PINE ('+_provTag+')',true):'')
         +aBtn('lib-review','✓ REVIEW (claude·credits)',!!selS&&!!selS.has_pine)
         +((augurReviewPine&&augurReviewFor===augurLibSel)?'<button class="btn-ghost active" id="lib-apply" title="Save the reviewed Pine" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px">APPLY REVIEW</button>':'')
+        +'<span style="width:1px;height:18px;background:var(--border);margin:0 4px"></span>'
+        +'<span style="font-size:9px;color:var(--text5);letter-spacing:1px">DOWNLOAD</span>'
+        +aBtn('lib-py','▼ PY',!!selS&&selS.has_py!==false)
+        +((selS&&selS.has_pine)?aBtn('lib-dlpine','▼ PINE',true):'')
         +aBtn('lib-del','DELETE',!!selS,true)
         +'</div>'+msgLine,8);
       const mastersInner=pullBanner+((metaMasters||[]).length?'<table class="table"><thead><tr><th>NAME</th><th>INST</th><th>TF</th><th>SESS</th><th>SOURCE</th><th style="text-align:center">AUTO-PULL</th><th style="text-align:right">ROWS</th><th>RANGE</th></tr></thead><tbody>'+mrows+'</tbody></table>':'<div style="color:var(--text5);font-size:var(--fsxs)">no masters synced</div>');
-      const mastersTitled=(lbl)=>'<div class="lbl" style="margin:0 0 6px">MASTERS / CSVs · '+(metaMasters||[]).length+'</div>'+tile(mastersInner,lbl?0:undefined);
+      const mastersTitled=(lbl)=>tile('<div class="lbl" style="margin:0 0 6px">MASTERS / CSVs · '+(metaMasters||[]).length+'</div>'+mastersInner,lbl?0:undefined);
       if(!sl.length){
         body=actionTile+tile('<div style="color:var(--text5);font-size:var(--fsxs)">no library synced — start the runner</div>')+'<div style="margin-top:18px">'+mastersTitled()+'</div>';
       }else{
@@ -4445,7 +4451,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _sel=(metaStrats||[]).find(s=>s.file===augurLibSel);
       const add=el('lib-add');if(add)add.onclick=()=>{const inp=document.createElement('input');inp.type='file';inp.accept='.py';inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>libCmd('add',{name:f.name,content:String(rd.result||'')},'Add '+f.name);rd.readAsText(f);};inp.click();};
       const py=el('lib-py');if(py)py.onclick=()=>{if(augurLibSel)libCmd('get_src',{file:augurLibSel,kind:'py'},'Download .py for '+augurLibSel);};
-      const pine=el('lib-pine');if(pine)pine.onclick=()=>{if(!augurLibSel)return;if(_sel&&_sel.has_pine)libCmd('get_src',{file:augurLibSel,kind:'pine'},'Download .pine for '+augurLibSel);else{const prov=APREF.provider||'ollama';libCmd('make_pine',{file:augurLibSel,provider:prov},'Make .pine for '+augurLibSel+' ['+prov+(prov==='ollama'?', free':prov==='claude-cli'?', uses Claude credits':'')+']');}};
+      const dlpine=el('lib-dlpine');if(dlpine)dlpine.onclick=()=>{if(augurLibSel)libCmd('get_src',{file:augurLibSel,kind:'pine'},'Download .pine for '+augurLibSel);};
+      const mkpine=el('lib-makepine');if(mkpine)mkpine.onclick=()=>{if(!augurLibSel)return;const prov=APREF.provider||'ollama';libCmd('make_pine',{file:augurLibSel,provider:prov},'Make .pine for '+augurLibSel+' ['+prov+(prov==='ollama'?', free':prov==='claude-cli'?', uses Claude credits':'')+']');};
       const prov=el('lib-prov');if(prov)prov.onclick=()=>{savePref('provider',(APREF.provider||'ollama')==='ollama'?'claude-cli':'ollama');renderApp();};
       const rev=el('lib-review');if(rev)rev.onclick=()=>{if(augurLibSel)libCmd('review_pine',{file:augurLibSel,provider:'claude-cli'},'Review .pine for '+augurLibSel);};
       const ap=el('lib-apply');if(ap)ap.onclick=()=>{if(augurReviewPine&&augurReviewFor)libCmd('write_pine',{file:augurReviewFor,content:augurReviewPine},'Apply reviewed .pine for '+augurReviewFor);};
