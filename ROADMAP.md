@@ -74,7 +74,9 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 - [ ] **#16 Vol-targeted position sizing** (size by ATR so $ risk/trade is constant).
 - [ ] **#17 Half-day / holiday calendar** (13:00 ET closes break ORB EOD-flat & session stats).
 - [ ] **#18 Event-day tagging** (FOMC/CPI/NFP CSV; PnL with/without; skip-event toggle).
-- [ ] **#19 Lockbox holdout** (reserve most recent ~1yr, never optimized, final pre-deploy gate).
+- [x] **#19 Lockbox holdout** — web Builder LOCKBOX group: "reserve since" date caps every
+      optimization mode's window the day before it (never seen during search), + a one-shot
+      "test last winner on lockbox" action (single backtest over the reserved slice). *(v26.6)*
 - [ ] **#20 Live-vs-backtest drift monitor** (track realized fills/PnL vs engine once paper trading).
 - [ ] **#21 Slippage scaled by volatility/gap** (flat pts/RT understates fast-market stops).
 - [ ] **#22 Capacity check** (max contracts vs typical entry-bar volume per instrument).
@@ -100,6 +102,10 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v26.6** Lockbox holdout (#19): Builder LOCKBOX group — a "reserve since" date that caps
+  every optimization mode's window the day before it (the holdout is never seen during the
+  search), plus a one-shot "🔒 test last winner on lockbox" button that runs the most recent
+  winning config as a single backtest over only the reserved slice. The final overfit gate.
 - **v26.5** Rolling walk-forward: engine `run_auto(wf_mode=...)` adds a fixed-length IS
   window that slides forward (regime-honest) alongside the existing anchored/expanding
   mode; Builder has a WF TYPE selector (Anchored / Rolling) for Walk-Forward runs. Realism
