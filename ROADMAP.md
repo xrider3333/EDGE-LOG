@@ -100,6 +100,10 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v26.4** Sample-adequacy (degrees-of-freedom) surfacing: pre-run IS-window readout
+  (bars + span in years for the selected CSV/date range, flags <2yr) and a post-run
+  trades-per-optimized-parameter gauge in VALIDATION (<10 red, 30+ green) — the
+  overfitting governor that answers "is my in-sample big enough for this search".
 - **v26.3** Walk-Forward validation readout: Builder now shows **Walk-forward efficiency**
   (OOS return-per-bar ÷ IS return-per-bar) + **fold consistency** (held X/N folds OOS) +
   OOS net, color-graded. Engine records each fold's train-window length (train_bars) so

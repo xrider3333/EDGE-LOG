@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='26.3';
+const VERSION='26.4';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4291,6 +4291,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const hc=held/t.length>=0.75?'var(--green)':held/t.length>=0.5?'var(--yellow)':'var(--red)';
           let wfPre='';if(sTrain>0&&sTest>0&&sIs/sTrain>0){const wfe=(sOos/sTest)/(sIs/sTrain),wp=Math.round(wfe*100),wc=wfe>=0.6?'var(--green)':wfe>=0.4?'var(--yellow)':'var(--red)';wfPre='<span title="OOS return-per-bar / IS return-per-bar. >60% strong, <40% likely curve-fit.">Walk-forward efficiency <b style="color:'+wc+'">'+wp+'%</b></span>';}
           val=wfPre+'<span title="Folds that stayed profitable (PF>1) on data they were never optimized on.">Held OOS <b style="color:'+hc+'">'+held+'/'+t.length+' folds</b></span><span>OOS net <b style="color:'+(sOos>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(sOos*mlt))+'</b></span>'+val;}
+        // ── Degrees of freedom: trades per optimized parameter (the overfitting governor) ──
+        {const _bestM=R.best||(t[0]||{});const _nt=+(_bestM.num_trades||0),_np=pk.length;
+          if(_np>0&&_nt>0){const _dof=_nt/_np,_dc=_dof>=30?'var(--green)':_dof>=10?'var(--yellow)':'var(--red)';val+='<span title="Trades per optimized parameter — the overfitting governor. Under 10 = high risk; aim for 30+. Here '+_nt+' trades across '+_np+' optimized params.">Sample <b>'+_nt+' trd</b> · <b style="color:'+_dc+'">'+Math.round(_dof)+'/param</b></span>';}}
         const valHtml=val?'<div class="lbl" style="margin:16px 0 6px">VALIDATION</div><div style="display:flex;gap:16px;flex-wrap:wrap;font-size:var(--fsxs);margin-bottom:6px;color:var(--text3)">'+val+'</div>':'';topHtml=valHtml+'<div class="lbl" style="margin:16px 0 6px">'+(isWf?'WALK-FORWARD FOLDS · ':'TOP CONFIGS · ')+stratTag(lastDone.strategy)+(hasOos&&!isWf?' · IS vs OOS':'')+'</div><div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th>'+(isWf?'<th>FOLD</th>':'')+pk.map(k=>'<th>'+k+'</th>').join('')+'<th style="text-align:right">PnL pts</th><th style="text-align:right">TRD</th><th style="text-align:right">WR</th><th style="text-align:right">PF</th>'+(hasOos?'<th style="text-align:right">OOS $</th><th style="text-align:right">OOS PF</th>':'')+'</tr></thead><tbody>'+t.map((r,i)=>'<tr><td>'+(i+1)+'</td>'+(isWf?'<td>'+(r.fold||'')+'</td>':'')+pk.map(k=>'<td style="font-size:var(--fsxs)">'+r[k]+'</td>').join('')+'<td style="text-align:right">'+Math.round(r.total_pnl||0).toLocaleString()+'</td><td style="text-align:right">'+(r.num_trades||0)+'</td><td style="text-align:right">'+Math.round(r.win_rate||0)+'%</td><td style="text-align:right">'+Math.min(r.profit_factor||0,99).toFixed(2)+'</td>'+(hasOos?'<td style="text-align:right;color:'+((r.oos_pnl||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round((r.oos_pnl||0)*mlt))+'</td><td style="text-align:right">'+Math.min(r.oos_pf||0,99).toFixed(2)+'</td>':'')+'</tr>').join('')+'</tbody></table></div>';}
       // ── Horizontal, left-to-right build flow (like legacy AUGUR "Executions") ──
       // Each field is a flex cell that packs across the row and wraps as the window
@@ -4350,6 +4353,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       body=exStyle+'<div class="section ex-build">'
         +'<div class="lbl" style="margin-bottom:10px">DATA &amp; STRATEGY</div>'
         +exrow(fld('STRATEGY',c_strat,190)+fld('INSTRUMENT',c_inst,110)+fld('TIMEFRAME',c_tf,100)+fld('SESSION',c_sess,100)+fld('CSV FILE',c_master,200)+fld('DATE RANGE',c_dates,230))
+        +'<div id="ex-dataspan" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 8px">—</div>'
         +grpH('RUN MODE · SEARCH PARAMS')
         +exrow(fld('MODE',c_mode,190)+fld('SCOPE',c_preset,190)+fld('MIN TRADES','<input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/>',100)+fld('WORKERS','<input id="ex-work" type="number" value="'+(APREF.workers||4)+'"/>',90)+fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||200)+'"/>',90)+fld('WF FOLDS','<input id="ex-folds" type="number" value="0"/>',90)+fld('AI ROUNDS','<input id="ex-rounds" type="number" value="'+(APREF.rounds||4)+'"/>',90)+fld('AI PROVIDER',c_prov,170))
         +customTile
@@ -4596,10 +4600,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
     content.querySelectorAll('[data-asub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.asub;augurRunSel=null;augurLibSel=null;augurLibDel=false;augurLibMsg='';renderApp();};});
     if(augurSub==='launch'){const rb=el('au-run');if(rb)rb.onclick=async()=>{const inst=el('au-inst').value,sess=el('au-sess').value;const job={strategy:el('au-strat').value,instrument:inst,timeframe:el('au-tf').value,session:sess,source:sess==='rth'?'tv':null,params:{vol_filter:parseFloat(el('au-vol').value)||0},cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,mc_sims:1000,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};rb.textContent='QUEUED…';rb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='exec'){const ss=el('ex-strat');if(ss)ss.onchange=()=>{augurExecStrat=ss.value;renderApp();};
+      // ── Pre-run sample-sizing readout: how big the in-sample window actually is ──
+      // (bars + span in years for the selected CSV/date range — so IS sizing is a
+      // decision, not a guess; pair with the post-run trades/param gauge.)
+      const exUpdateDataSpan=()=>{const cap=el('ex-dataspan');if(!cap)return;const mi=el('ex-master').value;let mm=(mi!==''&&metaMasters)?metaMasters[+mi]:null;if(!mm)mm=(metaMasters||[]).find(m=>String(m.instrument)===el('ex-inst').value&&String(m.timeframe)===el('ex-tf').value);
+        if(!mm){cap.innerHTML='<span style="color:var(--text5)">No matching data — start the runner / pick a CSV to size the in-sample window.</span>';return;}
+        const df0=String(mm.date_from||'').slice(0,10),dt0=String(mm.date_to||'').slice(0,10),rows=+mm.rows||0;
+        const a=el('ex-from').value||df0,b=el('ex-to').value||dt0,days=(x,y)=>{const d=(new Date(y)-new Date(x))/86400000;return isNaN(d)?0:Math.max(0,d);};
+        const full=days(df0,dt0),sel=days(a,b),estBars=(rows&&full>0)?Math.round(rows*Math.min(1,sel/full)):rows,yrs=sel/365.25,sliced=(a!==df0||b!==dt0);
+        cap.innerHTML='IS window: <b style="color:var(--text3)">~'+estBars.toLocaleString()+'</b> bars · '+a+' → '+b+' · <b style="color:'+(yrs>=2?'var(--text3)':'var(--yellow)')+'">≈'+yrs.toFixed(1)+' yr</b>'+(sliced?' <span style="color:var(--text5)">(sliced from '+df0+'→'+dt0+')</span>':'')+' <span style="color:var(--text5)">· aim ≥2 yr / multiple regimes; confirm trades-per-param after the run</span>';};
       // Legacy flow: Strategy → Instrument → TF → Session drive the CSV picker, which
       // only lists masters matching those selections. Repopulate it on any upstream change.
-      const repopMaster=()=>{const mm=el('ex-master');if(!mm)return;const prev=mm.value;mm.innerHTML=masterOptsHtml(el('ex-inst').value,el('ex-tf').value,el('ex-sess').value);if(![].some.call(mm.options,o=>o.value===prev))mm.value='';};
+      const repopMaster=()=>{const mm=el('ex-master');if(!mm)return;const prev=mm.value;mm.innerHTML=masterOptsHtml(el('ex-inst').value,el('ex-tf').value,el('ex-sess').value);if(![].some.call(mm.options,o=>o.value===prev))mm.value='';exUpdateDataSpan();};
       ['ex-inst','ex-tf','ex-sess'].forEach(id=>{const e=el(id);if(e)e.addEventListener('change',repopMaster);});
+      const mmEl=el('ex-master');if(mmEl)mmEl.addEventListener('change',exUpdateDataSpan);
+      exUpdateDataSpan();
       // ── Bounded single-calendar date-range picker (legacy AUGUR feel) ──
       (function(){const btn=el('ex-dr-btn'),pop=el('ex-dr-pop');if(!btn||!pop)return;
         // keep interactions inside the popover from bubbling to the outside-close handler
@@ -4608,7 +4623,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         let a=APREF.date_from||'',b=APREF.date_to||'',anchor=null,lo='',hi='',view=new Date();
         const ymd=(y,m,d)=>y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
         const label=()=>(a||b)?((a?_exFmtD(a):'start')+' → '+(b?_exFmtD(b):'end')):'All dates';
-        const setRange=(na,nb)=>{a=na;b=nb;savePref('date_from',na||'');savePref('date_to',nb||'');el('ex-from').value=na||'';el('ex-to').value=nb||'';btn.textContent=label();};
+        const setRange=(na,nb)=>{a=na;b=nb;savePref('date_from',na||'');savePref('date_to',nb||'');el('ex-from').value=na||'';el('ex-to').value=nb||'';btn.textContent=label();exUpdateDataSpan();};
         const onDay=ds=>{if(anchor===null){anchor=ds;setRange(ds,ds);}else{let x=anchor,z=ds;if(x>z){const t=x;x=z;z=t;}anchor=null;setRange(x,z);}draw();};
         const MON=['January','February','March','April','May','June','July','August','September','October','November','December'];
         function draw(){const y=view.getFullYear(),m=view.getMonth(),sd=new Date(y,m,1).getDay(),nd=new Date(y,m+1,0).getDate();
