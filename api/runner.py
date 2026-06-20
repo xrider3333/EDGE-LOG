@@ -78,6 +78,17 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 compute_dsr=bool(job.get("dsr", False)), mc_sims=int(job.get("mc_sims", 0)),
                 compute_regime=bool(job.get("regime", True)),
                 compute_neighbors=bool(job.get("neighbors", True)))
+        elif jtype == "validate":
+            r = ae.run_validate(
+                job["strategy"], instrument=job.get("instrument"),
+                timeframe=job.get("timeframe", "5m"), session=job.get("session", "rth"),
+                source=job.get("source"), date_from=df_from, date_to=df_to,
+                cost_pts=float(job.get("cost_pts", 0) or 0),
+                min_trades=int(job.get("min_trades", 30)),
+                n_trials=int(job.get("n_trials", 200)),
+                wf_folds=int(job.get("wf_folds", 0) or 0),
+                lockbox_months=int(job.get("lockbox_months", 12)),
+                thresholds=job.get("thresholds"), progress_cb=progress_cb)
         elif jtype == "ai_optimize":
             prov = job.get("provider", "ollama")
             # Anthropic key comes from LOCAL config, never the job doc (which is in
@@ -282,8 +293,11 @@ class FirestoreQueue:
             "instrument": job.get("instrument", ""),
             "timeframe": job.get("timeframe", ""),
             "scope": ({"ai_optimize": "AI optimize", "ai_evolve": "AI evolve",
-                       "auto": "Auto-Optimize", "walkforward": "Walk-Forward"}
+                       "auto": "Auto-Optimize", "walkforward": "Walk-Forward",
+                       "validate": "🧭 Auto-Validate"}
                       .get(job.get("type"), job.get("preset", "web sweep"))),
+            # carry the validate report card into run history so Results/Library can show it
+            "validate": result.get("validate"),
             "data_source": job.get("source", ""),
             "rounds": result.get("rounds"), "best_oos_pnl": result.get("best_oos_pnl"),
             "evolved_file": result.get("evolved_file"),
@@ -369,7 +383,7 @@ class FirestoreQueue:
                     ref.update(patch)
                     # A completed grid sweep also lands in the Runs history, so web
                     # sweeps appear alongside the app's runs in users/{uid}/runs.
-                    if job.get("type") in ("grid", "auto", "walkforward", "ai_optimize", "ai_evolve") and patch.get("status") == "done":
+                    if job.get("type") in ("grid", "auto", "walkforward", "ai_optimize", "ai_evolve", "validate") and patch.get("status") == "done":
                         try:
                             self._persist_run(uid, job, patch.get("result") or {}, log)
                         except Exception as _e:
