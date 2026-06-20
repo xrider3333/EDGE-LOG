@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='25.0';
+const VERSION='25.1';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4183,8 +4183,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // ── Instrument color (CSV / masters), consistent everywhere ──────────────
     const INSTC={NQ:'#5b8def',MNQ:'#93b3f2',ES:'#27c08a',MES:'#79d6b1',YM:'#e0a341',MYM:'#ecc684',RTY:'#c77dd6',M2K:'#dba9e6',CL:'#d6694b',GC:'#d4b95e'};
     // $ point-value per instrument — used to convert commission $/RT into cost POINTS.
-    const INSTM={NQ:20,MNQ:2,ES:50,MES:5,YM:5,MYM:0.5,RTY:50,M2K:5,CL:1000,GC:100};
+    // Mirrors optimizer.py INSTRUMENTS (multiplier).
+    const INSTM={ES:50,MES:5,NQ:20,MNQ:2,RTY:50,M2K:5,YM:5,MYM:0.5,CL:1000,MCL:100,GC:100,MGC:10};
     const instMult=i=>INSTM[String(i||'').toUpperCase().trim()]||20;
+    // legacy AUGUR pick-order for the Builder dropdowns
+    const INSTORD=['ES','MES','NQ','MNQ','RTY','M2K','YM','MYM','CL','MCL','GC','MGC'];
+    const TFORD=['1m','5m','15m','30m','1h','1d'];
     const instColor=i=>INSTC[String(i||'').toUpperCase().trim()]||'hsl('+_hashHue(String(i||''))+',45%,62%)';
     const instTag=i=>'<span style="color:'+instColor(i)+';font-weight:600">'+(i||'')+'</span>';
     const AICON={runs:'▦',exec:'▸',lib:'◫',cmp:'◧',ref:'◈',research:'◎',set:'◆'};
@@ -4274,8 +4278,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // below), or leave "Auto" to resolve by the instrument/TF/session selects.
         +'<div style="margin-bottom:8px"><label class="lbl">DATA (MASTER)</label><select id="ex-master"><option value="">Auto — by instrument / TF below</option>'+(metaMasters||[]).map((m,i)=>'<option value="'+i+'">'+((m.name||(m.instrument+' '+m.timeframe))+' · '+((m.session||'')+'').toUpperCase()+(m.source?' · '+m.source:'')+' · '+(m.rows||0).toLocaleString()+'r')+'</option>').join('')+'</select>'
         +((metaMasters||[]).length?'':'<div style="font-size:8px;color:var(--text5);margin-top:3px">start the runner to load masters</div>')+'</div>'
-        +'<div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1"><label class="lbl">INSTRUMENT</label><select id="ex-inst"><option'+(APREF.instrument==='ES'?'':' selected')+'>NQ</option><option'+(APREF.instrument==='ES'?' selected':'')+'>ES</option></select></div><div style="flex:1"><label class="lbl">SESSION</label><select id="ex-sess"><option value="rth"'+(APREF.session==='eth'?'':' selected')+'>RTH</option><option value="eth"'+(APREF.session==='eth'?' selected':'')+'>ETH</option></select></div></div>'
-        +'<div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1"><label class="lbl">TIMEFRAME</label><select id="ex-tf"><option'+(APREF.timeframe==='1m'?'':' selected')+'>5m</option><option'+(APREF.timeframe==='1m'?' selected':'')+'>1m</option></select></div><div style="flex:1"><label class="lbl">MIN TRADES</label><input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/></div></div>'
+        +'<div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1"><label class="lbl">INSTRUMENT</label><select id="ex-inst">'+INSTORD.map(k=>'<option'+(k===(APREF.instrument||'NQ')?' selected':'')+'>'+k+'</option>').join('')+'</select></div><div style="flex:1"><label class="lbl">SESSION</label><select id="ex-sess"><option value="rth"'+(APREF.session==='eth'?'':' selected')+'>RTH</option><option value="eth"'+(APREF.session==='eth'?' selected':'')+'>ETH</option></select></div></div>'
+        +'<div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1"><label class="lbl">TIMEFRAME</label><select id="ex-tf">'+TFORD.map(k=>'<option'+(k===(APREF.timeframe||'5m')?' selected':'')+'>'+k+'</option>').join('')+'</select></div><div style="flex:1"><label class="lbl">MIN TRADES</label><input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/></div></div>'
         // optional date-range window over the master (blank => full history)
         +'<div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1"><label class="lbl">DATE FROM</label><input id="ex-from" type="date" value="'+(APREF.date_from||'')+'"/></div><div style="flex:1"><label class="lbl">DATE TO</label><input id="ex-to" type="date" value="'+(APREF.date_to||'')+'"/></div></div>'
         // per-run cost realism: commission $/round-trip + slippage points/round-trip -> cost_pts

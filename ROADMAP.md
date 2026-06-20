@@ -100,6 +100,9 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v25.1** Builder selectors aligned with legacy AUGUR: INSTRUMENT now lists all 12
+  (ES/MES/NQ/MNQ/RTY/M2K/YM/MYM/CL/MCL/GC/MGC) in optimizer.py order; TIMEFRAME is the
+  standard 1m/5m/15m/30m/1h/1d set. Added MCL/MGC to the point-value map.
 - **v25.0** Builder §2 parity: DATA master picker, DATE FROM/TO window, COMMISSION+SLIPPAGE
   cost inputs, live progress bar. Engine date-range slicing in load_master_arrays threaded
   through all run modes + runner; cost/date persisted to run history.
