@@ -93,77 +93,12 @@ Module-level globals:
 file (split at the marker comment `#  AUGUR v4.0  —  UI Layer`). "↪ hit st.rerun()" = the
 backend imported and ran without error. In Claude Code you can instead just RUN the app.
 
-## Current state (v5.8.5) and OPEN ITEMS
-Recently fixed: the "identical PNL/trades across different strategies" bug — root cause was
-the Scope dropdown AND Trials slider silently resetting on strategy-switch reruns (so all
-runs used a stale fallback grid). Both now use the committed-state pattern above. Confirmed
-fixed: three different strategy files now produce three different code hashes and run their
-own code.
-
-**Known open bugs / TODO (numbered):**
-1. **Results shows only the most-recent completed run** — when several runs are queued and
-   complete, the live Results panel hydrates only the latest; earlier ones are in Past Runs
-   but not shown live. (Look at the "Hydrate freshly-completed results" loop near the
-   `# Status / Run dock` section and the per-exec results hydration keyed by exec_uuid.)
-2. Replace all `use_container_width=` with `width=` (Streamlit deprecation in logs).
-3. Auto-Optimize has NO out-of-sample validation — it can report unrealistically high
-   (overfit) PNLs with no warning. The AI scopes have a 75/25 OOS toggle (default on);
-   port the same in-sample-vs-out-of-sample readout/guardrail to Auto-Optimize. (User is
-   seeing ~162k PNL on 1 ES contract over ~3 weeks of 1-min data — almost certainly overfit.)
-4. Page/layout/speed/navigation audit (user wants all of: faster reruns, fewer clicks to
-   launch, less scrolling). Sub-ideas: cache stable per-rerun queries; scope the AI round
-   driver's rerun tighter; lazy-build Results charts; a re-run-last / Quick Run button;
-   remember last instrument/timeframe/strategy/scope.
-5. Cost estimate (tokens/$ per round) in the AI panel.
-6. Compare evolved-vs-original strategy in Results (PNL delta + code diff).
-7. Walk-forward / rolling out-of-sample validation (beyond the single 75/25 split).
-8. Optimistic-vs-pessimistic intrabar fill toggle for engu/v25 (stop-vs-target fill order).
-9. Relabel a SUBSET of runs in Past Runs (backend `set_runs_strategy` exists; only
-   "Apply to ALL" is surfaced).
-10. Auto-detect instrument from CSV filename/symbol on upload.
-
-**Expert-level backtesting additions (research-grade TODO — drawn from Pardo
-"Evaluation & Optimization of Trading Strategies", Bandy, Aronson "Evidence-Based
-TA", López de Prado "Advances in Financial ML", Chan, Tomasini/Jaekle):**
-11. **Deflated performance / multiple-testing haircut** — a grid winner's PF/Sharpe
-    is inflated by having searched N configs. Report a deflated Sharpe
-    (Bailey/López de Prado) or a "best-of-N expected by pure luck" benchmark next
-    to every grid winner. Directly quantifies the best-of-2,304 selection bias.
-12. **Neighborhood robustness table** — the winner's ±1-step parameter neighbors'
-    PF/PNL in a mini-grid; a real optimum has good neighbors (gives the existing
-    PLATEAU verdict concrete numbers).
-13. **Regime-sliced report card** — per-config performance by volatility tercile
-    (rolling ATR), trend-vs-chop, day-of-week, monthly PnL heatmap. ORB's losses
-    cluster in chop regimes — make that visible per run.
-14. **MAE/MFE distributions** (max adverse/favorable excursion per trade) — the
-    empirical basis for stop/target placement instead of guessed R-multiples.
-15. **Risk-of-ruin + bootstrap MC** — extend Monte-Carlo with resample-with-
-    replacement, ruin probability for a given account + per-trade risk, and a
-    time-to-recovery distribution.
-16. **Vol-targeted position sizing layer** — size by ATR so $ risk per trade is
-    constant (the 1-contract assumption hides large risk swings across regimes).
-17. **Half-day / holiday calendar handling** — Thanksgiving/Xmas-eve sessions
-    close 13:00 ET; ORB EOD-flat exits and session stats are subtly wrong those
-    days. Tag and exclude (or handle).
-18. **Event-day tagging** — FOMC/CPI/NFP dates as a CSV; report PnL with/without
-    event days, optional skip-event-days toggle.
-19. **Lockbox holdout** — reserve the most recent ~1 year, never optimized or even
-    browsed, as the one-shot final pre-deploy gate.
-20. **Live-vs-backtest drift monitor** — once paper trading starts, track realized
-    fills/PnL vs the engine's prediction for the same signals; alert when tracking
-    error leaves a band (catches engine optimism early).
-21. **Slippage scaled by volatility/gap** — flat pts/RT understates fast-market
-    stop slippage; scale stop-fill slippage with bar range or gap-through size.
-22. **Capacity check** — max contracts vs typical volume in the entry bars per
-    instrument (ORB trades the open — thick, but get the number).
-23. **Order-flow data enrichment (Databento)** — pull CME Globex MDP3 *Trades*
-    schema ($28/GB — the practical one; skip MBO/MBP depth for now) and compute
-    per-5-min-bar aggressor DELTA (buy vol − sell vol) into enriched masters
-    (extra column). Strategies then filter on real buying/selling pressure at
-    the breakout — a sharper version of the volume filter (which was ORB's best
-    single lever, suggesting flow carries real signal). Also enables stop
-    placement beyond liquidity-cluster levels. Deeper history across more
-    instruments from the same source helps validate new strategies sooner.
+## Roadmap / TODO
+All backlog and migration planning lives in **`ROADMAP.md`** (repo root) — the single
+source of truth for what's done and what's next: infra consolidation, the EDGELOG web
+port (tab-by-tab gaps), engine research items (#11–23), and remaining `optimizer.py`
+Streamlit bugs (#1–9). `docs/` holds reference (architecture, go-live, port plan).
+Update `ROADMAP.md` as work ships; keep this file for durable context/conventions only.
 
 ## Working style the user likes
 Iterative, version-bumped releases (`__version__`), each targeting specific bugs/features.

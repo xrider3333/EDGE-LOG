@@ -1,0 +1,106 @@
+# AUGUR / EDGELOG — Roadmap & Backlog
+
+Single source of truth for what's done and what's next. `CLAUDE.md` holds durable
+context/conventions and points here; `docs/` holds reference (architecture, go-live).
+Newest/priority items near the top of each section. Status as of **index.html v24.9**.
+
+The big picture (see `docs/EDGELOG_PORT_PLAN.md` for the phased detail): port the entire
+AUGUR optimizer (`optimizer.py`, Streamlit) into the EDGELOG website, with compute on the
+PC via the runner (`api/runner.py` + `augur_engine`). Streamlit keeps working until the web
+app reaches parity, then is retired. Ship tab-by-tab, version-bumped 0.1 each change.
+
+---
+
+## 0. Infra / data consolidation (loose ends)
+- [ ] **Retire the duplicate AUGUR desktop folder.** EDGE-LOG is now the complete copy
+      (serviceAccount.json + optimizer_history.db [112 runs] + augur_uploads [25 CSVs] +
+      augur_config.json with model numbers + migrated ORB roadmap). The AUGUR folder has an
+      *older* runner.py — stop running it to avoid confusion. Confirm a clean runner start,
+      then archive/ignore AUGUR.
+- [ ] **Audit `pine/` parity** in EDGE-LOG (DB + uploads were copied; `.pine` files for the
+      Download/Pine flow not yet verified).
+- [ ] **Package the runner as a desktop app** (PyInstaller → `AugurRunner.exe`): tray icon,
+      auto-start with Windows, connected/disconnected dot, pause/quit menu — kills the
+      `.bat` + console friction. Optional later: PWA "install" of the site.
+
+## 1. Library tab — open
+- [ ] **Per-master actions** — masters pane is read-only; add select → toggle auto-pull
+      (writes augur_config `autorefresh.masters[key]`) + delete master.
+- [ ] **Multi-instrument master pull** — "+ PULL MASTER" picker for GC/YM/CL/RTY/etc.
+      (instruments already in optimizer.INSTRUMENTS); needs a `pull_master
+      {instrument,timeframe,session}` runner command (initial Yahoo pull → save_master_csv).
+- [ ] **Expand a strategy** to view its params / preset tiers (today: just a SCOPES count).
+- [ ] **Auto-detect instrument from CSV filename/symbol** on upload (was AUGUR TODO #10).
+
+## 2. Other AUGUR sub-tabs — migration gaps (not started)
+- [ ] **Reference** — only 4 instruments (add YM/MYM/RTY/M2K/CL/GC); add signal-logic block,
+      Yahoo data-limit table, and the backtesting-maturity roadmap. Also move the
+      validation-methodology text here from Research. *Cheap, mostly static — recommended next.*
+- [ ] **Research** — currently shows the methodology text (belongs in Reference). Real tab
+      should render study JSON (walk-forward studies) — needs runner sync of `augur_research/`.
+- [ ] **Results** — add filters (strategy/instrument/TF/scope), sort, star/favorite, and the
+      **Rankings** 0–100 robustness leaderboard.
+- [ ] **Builder** — add CSV/master **picker**, date-range, per-run costs (commission/slippage),
+      and a live progress bar (read the job doc's progress field). *High value now that data
+      is synced — lets you launch runs end-to-end from the web.*
+- [ ] **Compare** — N-way (currently 2-way), grouped bar chart (SVG), parameter rows.
+- [ ] **Settings** — auto-refresh toggles (write-back to Firestore), table density.
+
+## 3. Engine research items (future — largely independent of the web port)
+New backtesting capabilities for `optimizer.py` / `augur_engine`, drawn from Pardo, Bandy,
+Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render in Results
+(DSR, Monte-Carlo, regime, neighborhood) — those are noted.
+- [~] **#11 Deflated Sharpe / multiple-testing haircut** — DSR computed (analytics.py) &
+      shown; extend to a "best-of-N luck bar" next to every grid winner.
+- [~] **#12 Neighborhood robustness table** — computed & shown; tie to the PLATEAU verdict.
+- [~] **#13 Regime-sliced report card** — computed & shown; expand slices (DoW, monthly heatmap).
+- [ ] **#14 MAE/MFE distributions** per trade (basis for stop/target placement).
+- [ ] **#15 Risk-of-ruin + bootstrap MC** (resample-with-replacement, ruin prob, time-to-recovery).
+- [ ] **#16 Vol-targeted position sizing** (size by ATR so $ risk/trade is constant).
+- [ ] **#17 Half-day / holiday calendar** (13:00 ET closes break ORB EOD-flat & session stats).
+- [ ] **#18 Event-day tagging** (FOMC/CPI/NFP CSV; PnL with/without; skip-event toggle).
+- [ ] **#19 Lockbox holdout** (reserve most recent ~1yr, never optimized, final pre-deploy gate).
+- [ ] **#20 Live-vs-backtest drift monitor** (track realized fills/PnL vs engine once paper trading).
+- [ ] **#21 Slippage scaled by volatility/gap** (flat pts/RT understates fast-market stops).
+- [ ] **#22 Capacity check** (max contracts vs typical entry-bar volume per instrument).
+- [ ] **#23 Order-flow enrichment (Databento, paid)** — CME MDP3 *Trades* ($28/GB); per-bar
+      aggressor DELTA (buy−sell vol) into enriched masters; strategies filter on real pressure.
+
+## 4. optimizer.py (Streamlit) — open bugs (only while Streamlit is still in use)
+- [ ] **#1 Results shows only the most-recent completed run** — live panel hydrates only the
+      latest of several queued/completed; earlier ones are in Past Runs but not shown live.
+- [ ] **#2** Replace remaining `use_container_width=` with `width=` (deprecation in logs).
+- [ ] **#3 Auto-Optimize has no out-of-sample guardrail** — can report overfit PNLs with no
+      warning; port the AI scopes' 75/25 OOS readout to Auto-Optimize.
+- [ ] **#4 Page/layout/speed/navigation audit** — faster reruns, fewer clicks, less scrolling;
+      cache stable queries, tighten AI-round rerun scope, lazy charts, re-run-last button,
+      remember last inst/tf/strategy/scope.
+- [ ] **#5** Cost estimate (tokens/$ per round) in the AI panel.
+- [ ] **#6** Compare evolved-vs-original strategy in Results (PNL delta + code diff).
+- [ ] **#7** Walk-forward / rolling OOS beyond the single 75/25 split.
+- [ ] **#8** Optimistic-vs-pessimistic intrabar fill toggle for engu/v25 (stop-vs-target order).
+- [ ] **#9** Relabel a SUBSET of runs in Past Runs (backend `set_runs_strategy` exists; only
+      "Apply to ALL" is surfaced).
+
+---
+
+## Done (recent — website)
+- **v24.9** Library: keep scroll on select; document-level arrow-key nav; Sharpe reads
+  dsr.winner_sharpe + shows DSR%; walk-forward shows folds-held-OOS.
+- **v24.8** ADD next to DELETE; roadmap moved to its own tile below the split; panes
+  vertically resizable; arrow-key nav; launcher checks for serviceAccount.json.
+  Runner: list_runs() tolerates a missing `runs` table.
+- **v24.7** Library roadmap mirrors optimizer.py's 10-step validation; runner syncs each
+  strategy's saved roadmap state (augur_config roadmaps[file]).
+- **v24.6** Roadmap folded into the strategies tile; Pine `?` fixed (provider aliases
+  ollama→qwen, claude-cli/anthropic→claude); dropped SET ACTIVE (USE IN BUILDER only).
+- **v24.5** Fixed dropdown menus clipped by action-tile overflow.
+- **v24.4** Download/AI dropdown menus; SET ACTIVE + USE IN BUILDER quick-launch; inline
+  per-strategy stats; ROADMAP checklist tab.
+- **v24.3** Pine provenance badge; downloads grouped by DELETE; masters title inside its tile.
+- **v24.2** Per-click AI provider toggle; Claude REVIEW → APPLY flow.
+- **v24.1** MAKE PINE defaults to free local qwen; cost shown on button.
+- **v24.0** STRATEGY header sorts by # or name; no fade-flash on select.
+- **v23.8** Command channel (download/delete/add/make-pine); clickable headers.
+- **v23.7** Action bar + compact table + py/pine chips + date-added + last-ran.
+- **v23.5–23.6** Library split layout, clickable rows, delete-with-confirm, side/stack toggle.
