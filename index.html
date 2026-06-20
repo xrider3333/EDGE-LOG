@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='24.8';
+const VERSION='24.9';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4326,11 +4326,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const bestRun=hs.slice().sort((a,b)=>(b.best_pnl_usd||0)-(a.best_pnl_usd||0))[0];
         const costRun=hs.find(r=>(+r.commission_usd>0)||(+r.slippage_pts>0)||(+r.cost_pts>0));
         const auto={insample:hs.length>0,oos:wfRuns.length>0,transfer:insts.length>=2,costs:!!costRun};
-        const _shp=r=>{const d=r&&r.dsr;const s=d&&(d.sharpe||d.observed_sharpe||d.sr);return (s!=null&&!isNaN(+s))?(' · Sharpe '+(+s).toFixed(2)):'';};
+        // Sharpe + deflated-Sharpe live on the run's dsr object {winner_sharpe, dsr, luck_bar, verdict}
+        const _shp=r=>{const d=r&&r.dsr;if(!d)return '';let out='';if(d.winner_sharpe!=null&&!isNaN(+d.winner_sharpe))out+=' · Sharpe '+(+d.winner_sharpe).toFixed(2);if(d.dsr!=null&&!isNaN(+d.dsr))out+=' · DSR '+Math.round(+d.dsr*100)+'%';return out;};
+        // walk-forward fold detail: how many folds held up out-of-sample (oos_pf>1)
+        const _folds=r=>{const t=r&&r.top10_results;if(!Array.isArray(t))return '';const fr=t.filter(x=>x&&x.fold!=null);if(!fr.length)return '';const folds=[...new Set(fr.map(x=>x.fold))];const held=folds.filter(fd=>fr.filter(x=>x.fold===fd).some(x=>(+x.oos_pf||0)>1)).length;return folds.length?(' · '+held+'/'+folds.length+' folds held OOS'):'';};
         // evidence string per auto step (only shown when passed)
         const why={
           insample:bestRun?('best run #'+bestRun.id+' · PF '+(bestRun.best_pf||0).toFixed(2)+' · '+fmtUsd(bestRun.best_pnl_usd||0)+' · '+(bestRun.best_trades||0)+' trades'+_shp(bestRun)):'',
-          oos:wfRuns[0]?('walk-forward run #'+wfRuns[0].id+(wfRuns[0].best_oos_pnl!=null?' · OOS '+fmtUsd((wfRuns[0].best_oos_pnl||0)*(wfRuns[0].multiplier||1)):'')+(wfRuns[0].n_valid!=null?' · '+wfRuns[0].n_valid+' valid configs':'')+_shp(wfRuns[0])):'',
+          oos:wfRuns[0]?('walk-forward run #'+wfRuns[0].id+_folds(wfRuns[0])+(wfRuns[0].best_oos_pnl!=null?' · OOS '+fmtUsd((wfRuns[0].best_oos_pnl||0)*(wfRuns[0].multiplier||1)):'')+(wfRuns[0].n_valid!=null?' · '+wfRuns[0].n_valid+' valid configs':'')+_shp(wfRuns[0])):'',
           transfer:insts.length>=2?('runs on '+insts.join(', ')):'',
           costs:costRun?('modeled commission/slippage in run #'+costRun.id):''
         };
@@ -4511,9 +4514,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
     else if(augurSub==='exec'){const ss=el('ex-strat');if(ss)ss.onchange=()=>{augurExecStrat=ss.value;renderApp();};const xb=el('ex-run');if(xb)xb.onclick=async()=>{const inst=el('ex-inst').value,sess=el('ex-sess').value,mode=el('ex-mode').value;savePref('instrument',inst);savePref('session',sess);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);const base={strategy:el('ex-strat').value,instrument:inst,timeframe:el('ex-tf').value,session:sess,source:sess==='rth'?'tv':null,preset:el('ex-preset').value,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};const job=(mode==='single')?Object.assign({},base,{params:{vol_filter:parseFloat(el('ex-vol').value)||0},mc_sims:1000}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,top_n:10,dsr:true,mc_sims:500}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='cmp'){const sa=el('cmp-a'),sb=el('cmp-b');if(sa)sa.onchange=()=>{augurCmpA=sa.value;renderApp();};if(sb)sb.onchange=()=>{augurCmpB=sb.value;renderApp();};}
     else if(augurSub==='lib'){
-      // keep keyboard focus on the strategy list across arrow-key re-renders, and scroll
-      // the selected row into view
-      if(window._libFocusList){const ls0=el('lib-listscroll');if(ls0){ls0.focus();ls0.querySelectorAll('[data-strat]').forEach(r=>{if(r.dataset.strat===augurLibSel)r.scrollIntoView({block:'nearest'});});}window._libFocusList=false;}
+      const ls0=el('lib-listscroll');
+      if(ls0){
+        // restore the list scroll position so selecting a row doesn't jump to the top
+        if(window._libScrollTop!=null)ls0.scrollTop=window._libScrollTop;
+        ls0.addEventListener('scroll',()=>{window._libScrollTop=ls0.scrollTop;},{passive:true});
+        // after arrow-key nav, keep focus on the list and bring the selected row into view
+        if(window._libFocusList){ls0.focus();ls0.querySelectorAll('[data-strat]').forEach(r=>{if(r.dataset.strat===augurLibSel)r.scrollIntoView({block:'nearest'});});window._libFocusList=false;}
+      }
       const lvs=el('lib-side'),lvk=el('lib-stack');
       if(lvs)lvs.onclick=()=>{savePref('libView','side');renderApp();};
       if(lvk)lvk.onclick=()=>{savePref('libView','stack');renderApp();};
@@ -4552,12 +4560,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const mv=(ev)=>{let h=startH+(ev.clientY-startY);h=Math.min(800,Math.max(160,h));if(L)L.style.maxHeight=h+'px';if(R)R.style.maxHeight=h+'px';APREF.libSideH=h;};
         const up=()=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);savePref('libSideH',APREF.libSideH||440);};
         document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);};}
-      // arrow-key navigation down/up the strategy rows (list is focusable via tabindex)
-      const lks=el('lib-listscroll');if(lks)lks.onkeydown=(e)=>{if(e.key!=='ArrowDown'&&e.key!=='ArrowUp')return;e.preventDefault();
+      // arrow-key navigation down/up the strategy rows — document-level so it works right
+      // after clicking a row (no need to click into the list first). Ignores typing fields.
+      if(window._libKeyH)document.removeEventListener('keydown',window._libKeyH);
+      window._libKeyH=(e)=>{
+        if(activeTab!=='augur'||augurSub!=='lib')return;
+        if(e.key!=='ArrowDown'&&e.key!=='ArrowUp')return;
+        const t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName||''))return;
+        e.preventDefault();
         const files=[...content.querySelectorAll('[data-strat]')].map(r=>r.dataset.strat);if(!files.length)return;
         let i=files.indexOf(augurLibSel);if(i<0)i=e.key==='ArrowDown'?-1:0;
         i=e.key==='ArrowDown'?Math.min(files.length-1,i+1):Math.max(0,i-1);
-        augurLibSel=files[i];augurLibMsg='';augurLibDel=false;augurMenu='';window._libFocusList=true;renderApp();};
+        augurLibSel=files[i];augurLibMsg='';augurLibDel=false;augurMenu='';window._libFocusList=true;renderApp();
+      };
+      document.addEventListener('keydown',window._libKeyH);
     }
     else if(augurSub==='set'){const sv=el('set-save');if(sv)sv.onclick=()=>{savePref('instrument',el('set-inst').value);savePref('session',el('set-sess').value);savePref('timeframe',el('set-tf').value);savePref('workers',parseInt(el('set-work').value)||4);savePref('rounds',parseInt(el('set-rounds').value)||4);savePref('trials',parseInt(el('set-trials').value)||200);savePref('min_trades',parseInt(el('set-mint').value)||30);savePref('provider',el('set-prov').value);const s=el('set-saved');if(s){s.textContent='✓ saved — Builder will use these';setTimeout(()=>{if(el('set-saved'))el('set-saved').textContent='';},2000);}};}
     else{const vs=el('res-side'),vk=el('res-stack');if(vs)vs.onclick=()=>{savePref('resView','side');renderApp();};if(vk)vk.onclick=()=>{savePref('resView','stack');renderApp();};
