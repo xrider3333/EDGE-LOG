@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='25.9';
+const VERSION='26.0';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4613,7 +4613,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // ── CUSTOM scope editor: show per-param range rows + live combo count ──
       const cuCount=()=>{const ct=el('ex-custom');if(!ct)return 0;let prod=1;ct.querySelectorAll('input[data-k="min"]').forEach(mnEl=>{const p=mnEl.dataset.p,q=k=>ct.querySelector('input[data-p="'+CSS.escape(p)+'"][data-k="'+k+'"]');const mn=parseFloat(mnEl.value),mx=parseFloat(q('max').value),st=parseFloat(q('step').value);let n=1;if(!isNaN(mn)&&!isNaN(mx)&&!isNaN(st)&&st>0&&mx>=mn)n=Math.floor((mx-mn)/st+1e-9)+1;prod*=Math.max(1,n);});return prod;};
       const buildCustomGrid=()=>{const ct=el('ex-custom'),g={};if(!ct)return g;ct.querySelectorAll('input[data-k="min"]').forEach(mnEl=>{const p=mnEl.dataset.p,isInt=mnEl.dataset.type==='int',q=k=>ct.querySelector('input[data-p="'+CSS.escape(p)+'"][data-k="'+k+'"]');const mn=parseFloat(mnEl.value),mx=parseFloat(q('max').value),st=parseFloat(q('step').value);if(isNaN(mn))return;let arr=[];if(isNaN(mx)||isNaN(st)||st<=0||mx<mn)arr=[isInt?Math.round(mn):mn];else for(let v=mn;v<=mx+1e-9;v+=st)arr.push(isInt?Math.round(v):+v.toFixed(6));if(arr.length)g[p]=arr;});return g;};
-      const exApplyCustom=()=>{const ct=el('ex-custom');if(!ct)return;const usesScope=['grid','ai','evolve'].indexOf(el('ex-mode').value)>=0;const show=usesScope&&el('ex-preset').value==='CUSTOM';ct.style.display=show?'':'none';if(show){const c=el('ex-cu-count');if(c)c.textContent=cuCount().toLocaleString();}};
+      // CUSTOM is a Grid-sweep concept only — AI optimize/evolve explore params themselves
+      // (the preset just seeds round 1). If CUSTOM is left selected when switching to a
+      // non-grid mode, fall back to the first real preset so nothing invalid is queued.
+      const exApplyCustom=()=>{const ct=el('ex-custom'),ep=el('ex-preset');if(!ct||!ep)return;const isGrid=el('ex-mode').value==='grid';const co=[].find.call(ep.options,o=>o.value==='CUSTOM');if(co)co.disabled=!isGrid;if(!isGrid&&ep.value==='CUSTOM'){ep.selectedIndex=0;}const show=isGrid&&ep.value==='CUSTOM';ct.style.display=show?'':'none';if(show){const c=el('ex-cu-count');if(c)c.textContent=cuCount().toLocaleString();}};
       content.querySelectorAll('.ex-cu').forEach(i=>i.oninput=()=>{const c=el('ex-cu-count');if(c)c.textContent=cuCount().toLocaleString();});
       const ep=el('ex-preset');if(ep)ep.addEventListener('change',exApplyCustom);
       // MODE drives which fields apply — hide the rest (and remember the choice).
@@ -4630,7 +4633,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const costPts=commU/mult+slipP;
       const dFrom=el('ex-from').value||'',dTo=el('ex-to').value||'';
       // CUSTOM scope → send an explicit grid dict (the engine prefers grid over preset).
-      const scopeVal=el('ex-preset').value,useCustom=(scopeVal==='CUSTOM'&&['grid','ai','evolve'].indexOf(mode)>=0);
+      const scopeVal=el('ex-preset').value,useCustom=(scopeVal==='CUSTOM'&&mode==='grid');
       const customGrid=useCustom?buildCustomGrid():null;
       if(useCustom&&Object.keys(customGrid).length===0){alert('CUSTOM scope: set a valid min/max/step on at least one parameter.');xb.disabled=false;xb.textContent='▶ RUN ON MY PC';return;}
       savePref('mode',mode);savePref('instrument',el('ex-inst').value);savePref('session',el('ex-sess').value);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);savePref('comm_usd',commU);savePref('slip_pts',slipP);savePref('date_from',dFrom);savePref('date_to',dTo);

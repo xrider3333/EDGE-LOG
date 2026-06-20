@@ -100,6 +100,9 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v26.0** CUSTOM scope restricted to Grid sweep (it's an exhaustive-grid concept). AI
+  optimize/evolve explore params themselves — the preset only seeds round 1 — so the CUSTOM
+  option is disabled in non-grid modes and falls back to a real preset if left selected.
 - **v25.9** CUSTOM scope in the Builder: runner now syncs each strategy's numeric
   DEFAULT_PARAMS spec (name/type/min/max/step) to meta; SCOPE has a ◆ CUSTOM option that
   reveals per-param min/max/step rows with a live combo count, sending an explicit grid
