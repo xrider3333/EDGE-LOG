@@ -230,7 +230,18 @@ class FirestoreQueue:
                     presets = ae.list_presets(s["file"])
                 except Exception:
                     presets = []
-                strats.append({**s, "presets": presets,
+                # numeric param spec (for the web Builder's CUSTOM scope / range editor)
+                try:
+                    _dp = ae.strategy_params(ae.load_strategy(s["file"])) or {}
+                    pspec = [{"name": pn, "type": pm.get("type", "float"),
+                              "min": pm.get("min"), "max": pm.get("max"),
+                              "step": pm.get("step"), "default": pm.get("default"),
+                              "label": pm.get("label", pn)}
+                             for pn, pm in _dp.items()
+                             if isinstance(pm, dict) and pm.get("type", "float") in ("int", "float")]
+                except Exception:
+                    pspec = []
+                strats.append({**s, "presets": presets, "params": pspec,
                                "roadmap": _roadmaps.get(s["file"], {})})
             meta.document("strategies").set(json_safe({"list": strats}))
             keep = ("name", "instrument", "timeframe", "session", "source",

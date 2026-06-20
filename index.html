@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='25.8';
+const VERSION='25.9';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4293,7 +4293,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const c_inst='<select id="ex-inst">'+INSTORD.map(k=>'<option'+(k===(APREF.instrument||'NQ')?' selected':'')+'>'+k+'</option>').join('')+'</select>';
       const c_tf='<select id="ex-tf">'+TFORD.map(k=>'<option'+(k===(APREF.timeframe||'5m')?' selected':'')+'>'+k+'</option>').join('')+'</select>';
       const c_sess='<select id="ex-sess"><option value="rth"'+(APREF.session==='eth'?'':' selected')+'>RTH</option><option value="eth"'+(APREF.session==='eth'?' selected':'')+'>ETH</option></select>';
-      const c_preset='<select id="ex-preset">'+presets.map(p=>'<option>'+p+'</option>').join('')+'</select>';
+      const c_preset='<select id="ex-preset">'+presets.map(p=>'<option>'+p+'</option>').join('')+'<option value="CUSTOM">◆ CUSTOM — set ranges</option></select>';
       const c_prov='<select id="ex-prov"><option value="ollama"'+(APREF.provider&&APREF.provider!=='ollama'?'':' selected')+'>Ollama · qwen3.6 (free)</option><option value="claude-cli"'+(APREF.provider==='claude-cli'?' selected':'')+'>Claude CLI</option><option value="anthropic"'+(APREF.provider==='anthropic'?' selected':'')+'>Anthropic API</option></select>';
       // iOS-glass treatment: section class picks up the active theme's glass bg/blur;
       // scoped style rounds the controls (pill inputs/selects) for the iOS minimalist look.
@@ -4318,6 +4318,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'.ex-cal-ft{display:flex;justify-content:space-between;margin-top:9px}'
         +'.ex-cal-ft button{width:auto;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text3);cursor:pointer;padding:5px 13px;font-size:var(--fsxs)}'
         +'.ex-cal-ft button:hover{color:var(--text);border-color:var(--text5)}</style>';
+      // CUSTOM scope editor: per-parameter min/max/step rows from the synced spec.
+      const cparams=(cur&&cur.params)||[];
+      const cuRows=cparams.length?cparams.map(p=>'<div style="display:flex;gap:8px;align-items:flex-end;flex:1 1 330px;min-width:300px;background:var(--bg1);border-radius:10px;padding:8px 10px">'
+        +'<div style="flex:1.6;min-width:0"><div style="font-size:var(--fsxs);color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(p.label||p.name)+'</div><div style="font-size:8px;color:var(--text5)">'+p.name+' · '+p.type+'</div></div>'
+        +'<div style="flex:1"><label class="lbl">min</label><input class="ex-cu" data-p="'+p.name+'" data-k="min" data-type="'+p.type+'" type="number" step="any" value="'+(p.min!=null?p.min:'')+'"/></div>'
+        +'<div style="flex:1"><label class="lbl">max</label><input class="ex-cu" data-p="'+p.name+'" data-k="max" type="number" step="any" value="'+(p.max!=null?p.max:'')+'"/></div>'
+        +'<div style="flex:1"><label class="lbl">step</label><input class="ex-cu" data-p="'+p.name+'" data-k="step" type="number" step="any" value="'+(p.step!=null?p.step:'')+'"/></div>'
+        +'</div>').join(''):'<div style="font-size:var(--fsxs);color:var(--text5);padding:6px 2px">No param spec synced for this strategy — restart the runner to push DEFAULT_PARAMS.</div>';
+      const customTile='<div id="ex-custom" style="display:none">'
+        +'<div class="lbl" style="opacity:.55;letter-spacing:2px;margin:2px 0 7px;border-top:1px solid var(--border);padding-top:9px">CUSTOM GRID · <span id="ex-cu-count" style="color:var(--text3)">0</span> combos</div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+cuRows+'</div></div>';
       const _drLbl=(APREF.date_from||APREF.date_to)?((APREF.date_from?_exFmtD(APREF.date_from):'start')+' → '+(APREF.date_to?_exFmtD(APREF.date_to):'end')):'All dates';
       const c_dates='<div style="position:relative"><button type="button" id="ex-dr-btn" class="ex-pill">'+_drLbl+'</button><div id="ex-dr-pop" class="ex-pop" style="display:none"></div>'
         +'<input id="ex-from" type="hidden" value="'+(APREF.date_from||'')+'"/><input id="ex-to" type="hidden" value="'+(APREF.date_to||'')+'"/></div>';
@@ -4326,6 +4337,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +exrow(fld('STRATEGY',c_strat,190)+fld('INSTRUMENT',c_inst,110)+fld('TIMEFRAME',c_tf,100)+fld('SESSION',c_sess,100)+fld('CSV FILE',c_master,200)+fld('DATE RANGE',c_dates,230))
         +grpH('RUN MODE · SEARCH PARAMS')
         +exrow(fld('MODE',c_mode,190)+fld('SCOPE',c_preset,190)+fld('MIN TRADES','<input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/>',100)+fld('WORKERS','<input id="ex-work" type="number" value="'+(APREF.workers||4)+'"/>',90)+fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||200)+'"/>',90)+fld('WF FOLDS','<input id="ex-folds" type="number" value="0"/>',90)+fld('AI ROUNDS','<input id="ex-rounds" type="number" value="'+(APREF.rounds||4)+'"/>',90)+fld('AI PROVIDER',c_prov,170))
+        +customTile
         +grpH('COSTS')
         +exrow(fld('COMMISSION $/RT','<input id="ex-comm" type="number" step="0.01" value="'+(APREF.comm_usd!=null?APREF.comm_usd:5.66)+'"/>',140)+fld('SLIPPAGE pts/RT','<input id="ex-slip" type="number" step="0.25" value="'+(APREF.slip_pts!=null?APREF.slip_pts:0)+'"/>',140))
         +'<div style="display:flex;align-items:center;gap:14px;margin-top:6px;border-top:1px solid var(--border);padding-top:12px"><button class="btn-ghost active" id="ex-run" style="flex:0 0 auto;padding:9px 30px">▶ RUN ON MY PC</button><span style="color:var(--text5);font-size:var(--fsxs)">Runs on your PC; progress + results stream into Results history.</span></div>'
@@ -4598,8 +4610,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         btn.onclick=()=>{const opening=pop.style.display==='none';if(opening){const mi=el('ex-master').value,mm=(mi!==''&&metaMasters)?metaMasters[+mi]:null;lo=mm&&mm.date_from?String(mm.date_from).slice(0,10):'';hi=mm&&mm.date_to?String(mm.date_to).slice(0,10):'';view=new Date((a||hi||new Date().toISOString().slice(0,10))+'T00:00');draw();pop.style.display='block';}else pop.style.display='none';};
         if(!window._exDocClose){window._exDocClose=true;document.addEventListener('click',e=>{const p=document.getElementById('ex-dr-pop'),bb=document.getElementById('ex-dr-btn');if(p&&bb&&!p.contains(e.target)&&!bb.contains(e.target))p.style.display='none';});}
       })();
-      // MODE drives which fields apply — grey out the rest (and remember the choice).
-      const em=el('ex-mode');if(em){applyExMode(em.value);em.onchange=()=>{savePref('mode',em.value);applyExMode(em.value);};}
+      // ── CUSTOM scope editor: show per-param range rows + live combo count ──
+      const cuCount=()=>{const ct=el('ex-custom');if(!ct)return 0;let prod=1;ct.querySelectorAll('input[data-k="min"]').forEach(mnEl=>{const p=mnEl.dataset.p,q=k=>ct.querySelector('input[data-p="'+CSS.escape(p)+'"][data-k="'+k+'"]');const mn=parseFloat(mnEl.value),mx=parseFloat(q('max').value),st=parseFloat(q('step').value);let n=1;if(!isNaN(mn)&&!isNaN(mx)&&!isNaN(st)&&st>0&&mx>=mn)n=Math.floor((mx-mn)/st+1e-9)+1;prod*=Math.max(1,n);});return prod;};
+      const buildCustomGrid=()=>{const ct=el('ex-custom'),g={};if(!ct)return g;ct.querySelectorAll('input[data-k="min"]').forEach(mnEl=>{const p=mnEl.dataset.p,isInt=mnEl.dataset.type==='int',q=k=>ct.querySelector('input[data-p="'+CSS.escape(p)+'"][data-k="'+k+'"]');const mn=parseFloat(mnEl.value),mx=parseFloat(q('max').value),st=parseFloat(q('step').value);if(isNaN(mn))return;let arr=[];if(isNaN(mx)||isNaN(st)||st<=0||mx<mn)arr=[isInt?Math.round(mn):mn];else for(let v=mn;v<=mx+1e-9;v+=st)arr.push(isInt?Math.round(v):+v.toFixed(6));if(arr.length)g[p]=arr;});return g;};
+      const exApplyCustom=()=>{const ct=el('ex-custom');if(!ct)return;const usesScope=['grid','ai','evolve'].indexOf(el('ex-mode').value)>=0;const show=usesScope&&el('ex-preset').value==='CUSTOM';ct.style.display=show?'':'none';if(show){const c=el('ex-cu-count');if(c)c.textContent=cuCount().toLocaleString();}};
+      content.querySelectorAll('.ex-cu').forEach(i=>i.oninput=()=>{const c=el('ex-cu-count');if(c)c.textContent=cuCount().toLocaleString();});
+      const ep=el('ex-preset');if(ep)ep.addEventListener('change',exApplyCustom);
+      // MODE drives which fields apply — hide the rest (and remember the choice).
+      const em=el('ex-mode');if(em){applyExMode(em.value);exApplyCustom();em.onchange=()=>{savePref('mode',em.value);applyExMode(em.value);exApplyCustom();};}
       const xb=el('ex-run');if(xb)xb.onclick=async()=>{const mode=el('ex-mode').value;
       // Instrument/TF/session drive the run; the CSV pick only refines which master (source).
       const inst=el('ex-inst').value,tf=el('ex-tf').value,sess=el('ex-sess').value;
@@ -4611,8 +4629,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const commU=isNaN(comm)?5.66:comm,slipP=isNaN(slip)?0:slip;
       const costPts=commU/mult+slipP;
       const dFrom=el('ex-from').value||'',dTo=el('ex-to').value||'';
+      // CUSTOM scope → send an explicit grid dict (the engine prefers grid over preset).
+      const scopeVal=el('ex-preset').value,useCustom=(scopeVal==='CUSTOM'&&['grid','ai','evolve'].indexOf(mode)>=0);
+      const customGrid=useCustom?buildCustomGrid():null;
+      if(useCustom&&Object.keys(customGrid).length===0){alert('CUSTOM scope: set a valid min/max/step on at least one parameter.');xb.disabled=false;xb.textContent='▶ RUN ON MY PC';return;}
       savePref('mode',mode);savePref('instrument',el('ex-inst').value);savePref('session',el('ex-sess').value);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);savePref('comm_usd',commU);savePref('slip_pts',slipP);savePref('date_from',dFrom);savePref('date_to',dTo);
-      const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:dTo,preset:el('ex-preset').value,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};const job=(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,top_n:10,dsr:true,mc_sims:500}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
+      const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:dTo,preset:scopeVal,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};if(useCustom)base.grid=customGrid;const job=(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,top_n:10,dsr:true,mc_sims:500}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='cmp'){const sa=el('cmp-a'),sb=el('cmp-b');if(sa)sa.onchange=()=>{augurCmpA=sa.value;renderApp();};if(sb)sb.onchange=()=>{augurCmpB=sb.value;renderApp();};}
     else if(augurSub==='lib'){
       const ls0=el('lib-listscroll');

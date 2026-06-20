@@ -100,6 +100,11 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v25.9** CUSTOM scope in the Builder: runner now syncs each strategy's numeric
+  DEFAULT_PARAMS spec (name/type/min/max/step) to meta; SCOPE has a ◆ CUSTOM option that
+  reveals per-param min/max/step rows with a live combo count, sending an explicit grid
+  dict (engine prefers grid over preset). Works for grid/AI/evolve modes. Closes the
+  param-spec gap that also blocked a single-mode param editor.
 - **v25.8** Date-range calendar no longer closes when picking a day or changing month
   (popover clicks no longer bubble to the outside-close handler); added «/» quick
   year jump alongside ‹/› month nav.
