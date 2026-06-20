@@ -10,7 +10,7 @@ import re
 import json
 import importlib.util
 
-from .paths import STRAT_DIR, CONFIG
+from .paths import STRAT_DIR, PINE_DIR, CONFIG
 
 _CACHE = {}   # path -> (mtime, module)
 
@@ -57,8 +57,28 @@ def _name_of(path) -> str:
         return os.path.basename(path)
 
 
+def _pine_path(py_file: str) -> str:
+    """The conventional .pine sidecar path for a strategy .py filename."""
+    base = os.path.splitext(os.path.basename(py_file))[0]
+    return os.path.join(PINE_DIR, base + ".pine")
+
+
+def _pine_via(pine_path: str):
+    """Provenance of a .pine: reads the '// AUGUR-PINE: <src>' marker AUGUR writes when
+    it generates/reviews one. Returns one of qwen|claude|claude-review|bundled|scaffold,
+    or 'hand' if the .pine exists without a marker (hand-ported or pre-marker)."""
+    try:
+        txt = open(pine_path, encoding="utf-8").read()
+    except OSError:
+        return None
+    m = re.search(r'(?mi)^//\s*AUGUR-PINE:\s*([a-z\-]+)', txt)
+    return m.group(1).lower() if m else "hand"
+
+
 def list_strategies():
-    """List available strategy plugins: [{file, name, num}], sorted by Library #."""
+    """List available strategy plugins, sorted by Library #. Each entry:
+    {file, name, num, has_py, has_pine, added} where `added` is the .py mtime
+    (epoch seconds) so the web Library can show 'date added' and sort by it."""
     nums = {}
     try:
         nums = json.load(open(CONFIG, encoding="utf-8")).get("strat_nums", {})
@@ -68,7 +88,16 @@ def list_strategies():
     for f in os.listdir(STRAT_DIR):
         if not f.endswith(".py") or f.startswith("_"):
             continue
-        out.append({"file": f, "name": _name_of(os.path.join(STRAT_DIR, f)),
-                    "num": nums.get(f)})
+        py = os.path.join(STRAT_DIR, f)
+        try:
+            added = os.path.getmtime(py)
+        except OSError:
+            added = None
+        pp = _pine_path(f)
+        has_pine = os.path.exists(pp)
+        out.append({"file": f, "name": _name_of(py), "num": nums.get(f),
+                    "has_py": True, "has_pine": has_pine,
+                    "pine_via": _pine_via(pp) if has_pine else None,
+                    "added": added})
     out.sort(key=lambda d: (d["num"] is None, d["num"] or 0, d["file"]))
     return out

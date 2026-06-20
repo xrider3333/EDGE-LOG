@@ -287,6 +287,33 @@ class FirestoreQueue:
         self.db.collection("users").document(uid).collection("runs").document(str(rid)).set(doc)
         log(f"    -> saved to Runs history (#{rid})")
 
+    def run_commands(self, log=print) -> int:
+        """Poll users/{uid}/commands for queued Library file-op commands (download /
+        delete / add / make_pine), execute them on THIS PC behind the uid allowlist,
+        write the result back, and re-sync meta after any mutation so the web Library
+        reflects the change immediately."""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        from api.lib_commands import process_command
+        qf = FieldFilter("status", "==", "queued")
+        n = 0
+        for uid in (self.allow or []):
+            col = self.db.collection("users").document(uid).collection("commands")
+            for snap in col.where(filter=qf).stream():
+                ref = snap.reference
+                ref.update({"status": "running"})
+                doc = snap.to_dict() or {}
+                action = doc.get("action")
+                res = process_command(action, doc.get("payload") or doc, log)
+                ref.update({"status": "done" if res.get("ok") else "error",
+                            "result": json_safe(res), "finishedAt": time.time()})
+                if res.get("ok") and action in ("delete", "add", "make_pine", "write_pine"):
+                    try:
+                        self.sync_meta(log)
+                    except Exception as _e:
+                        log(f"  (post-command sync_meta failed: {_e})")
+                n += 1
+        return n
+
     def run_once(self, log=print) -> int:
         from google.cloud.firestore_v1.base_query import FieldFilter
         qf = FieldFilter("status", "==", "queued")
@@ -334,6 +361,31 @@ class FirestoreQueue:
         return n
 
 
+def auto_pine(log=print, limit=25, provider=None):
+    """Generate a .pine for every strategy that lacks one, via the keyless/local AI
+    (module _PINE first, then claude-cli/ollama). Skips the scaffold fallback so a
+    missing .pine is retried next startup if the AI was unreachable. Runs once on
+    --watch start (and after auto-refresh). Once a .pine exists the strategy drops out
+    of the list, so this is self-limiting."""
+    from api.lib_commands import process_command
+    missing = [s for s in ae.list_strategies() if not s.get("has_pine")]
+    if not missing:
+        log("[auto-pine] all strategies already have a .pine."); return 0
+    log(f"[auto-pine] {len(missing)} strategy(ies) missing .pine — converting (keyless AI)…")
+    made = 0
+    for s in missing[:limit]:
+        payload = {"file": s["file"], "no_scaffold": True}
+        if provider:
+            payload["provider"] = provider
+        r = process_command("make_pine", payload, log=lambda *_: None)
+        if r.get("ok"):
+            made += 1; log(f"   ✓ {s['file']} -> {r.get('made')} (via {r.get('via')})")
+        else:
+            log(f"   – {s['file']}: {r.get('error')}")
+    log(f"[auto-pine] {made}/{len(missing)} converted.")
+    return made
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="AUGUR local job runner")
     ap.add_argument("--firestore", action="store_true", help="use Firestore queue")
@@ -346,6 +398,12 @@ def main(argv=None):
     ap.add_argument("--refresh-min", type=float, default=30.0,
                     help="auto-refresh masters (Yahoo + watch-folder ingest) every N minutes "
                          "while --watch (0 disables); also runs once on start")
+    ap.add_argument("--auto-pine", dest="auto_pine", action="store_true", default=False,
+                    help="on --watch start, auto-generate a .pine for every strategy missing one "
+                         "(default OFF — costs AI calls; the web MAKE PINE button is the per-click path)")
+    ap.add_argument("--pine-provider", default=None,
+                    help="AI provider for auto-pine: ollama (free local qwen, default) | claude-cli "
+                         "(uses Claude credits) | anthropic")
     a = ap.parse_args(argv)
 
     def _refresh(tag="auto-refresh"):
@@ -382,9 +440,20 @@ def main(argv=None):
         next_refresh = 0.0
         if a.refresh_min > 0:
             _refresh("startup"); next_refresh = time.time() + a.refresh_min * 60
+        if a.auto_pine:
+            try:
+                if auto_pine(provider=a.pine_provider) and a.firestore:
+                    q.sync_meta()
+            except Exception as e:
+                print(f"[auto-pine] skipped: {type(e).__name__}: {e}")
         print("watching… (Ctrl+C to stop)")
         while True:
             done = q.run_once()
+            if a.firestore:
+                try:
+                    done += q.run_commands()
+                except Exception as _e:
+                    print(f"[commands] skipped: {type(_e).__name__}: {_e}")
             if a.refresh_min > 0 and time.time() >= next_refresh:
                 _refresh(); next_refresh = time.time() + a.refresh_min * 60
             if not done:
