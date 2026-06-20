@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='25.6';
+const VERSION='25.7';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4191,6 +4191,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const TFORD=['1m','5m','15m','30m','1h','1d'];
     // CSV/master <option>s filtered to the chosen instrument+TF+session (legacy flow:
     // the data picker only shows what the upstream selections make applicable).
+    const _exFmtD=s=>{if(!s)return '';const d=new Date(s+'T00:00');return isNaN(d.getTime())?'':d.toLocaleDateString(undefined,{month:'short',day:'2-digit',year:'2-digit'});};
     const masterOptsHtml=(inst,tf,sess)=>{const ms=(metaMasters||[]).map((m,i)=>({m:m,i:i})).filter(o=>String(o.m.instrument)===String(inst)&&String(o.m.timeframe)===String(tf)&&(!o.m.session||!sess||String(o.m.session).toLowerCase()===String(sess).toLowerCase()));return '<option value="">'+(ms.length?('Auto — best match ('+ms.length+')'):'— no matching CSV —')+'</option>'+ms.map(o=>'<option value="'+o.i+'">'+((o.m.name||(o.m.instrument+' '+o.m.timeframe))+' · '+(o.m.source||'')+' · '+(o.m.rows||0).toLocaleString()+'r')+'</option>').join('');};
     // which MODE each Builder field actually feeds (matches the engine): used to grey
     // out fields the current mode ignores, so no inert control is ever left active.
@@ -4198,7 +4199,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       'ex-work':['grid','ai','evolve'],'ex-rounds':['ai','evolve'],'ex-prov':['ai','evolve'],
       'ex-trials':['auto','walkforward'],'ex-folds':['walkforward'],
       'ex-mint':['grid','auto','walkforward','ai','evolve']};
-    const applyExMode=m=>{Object.keys(EXFIELDS).forEach(id=>{const e=el(id);if(!e)return;const on=EXFIELDS[id].indexOf(m)>=0;e.disabled=!on;const w=e.closest('div');if(w)w.style.opacity=on?'':'0.4';});};
+    // hide (not just dim) the fields the current mode ignores — no confusing inert controls.
+    const applyExMode=m=>{Object.keys(EXFIELDS).forEach(id=>{const e=el(id);if(!e)return;const on=EXFIELDS[id].indexOf(m)>=0;e.disabled=!on;const w=e.closest('div');if(w)w.style.display=on?'':'none';});};
     const instColor=i=>INSTC[String(i||'').toUpperCase().trim()]||'hsl('+_hashHue(String(i||''))+',45%,62%)';
     const instTag=i=>'<span style="color:'+instColor(i)+';font-weight:600">'+(i||'')+'</span>';
     const AICON={runs:'▦',exec:'▸',lib:'◫',cmp:'◧',ref:'◈',research:'◎',set:'◆'};
@@ -4299,8 +4301,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'.ex-build select,.ex-build input{border-radius:10px;padding:9px 11px}'
         +'.ex-build select:hover,.ex-build input:hover{border-color:color-mix(in srgb,var(--text5) 60%,transparent)}'
         +'.ex-build .lbl{margin-bottom:5px;display:block}'
-        +'.ex-daterange{display:flex;gap:6px;align-items:center}.ex-daterange input{flex:1;min-width:0}</style>';
-      const c_dates='<div class="ex-daterange"><input id="ex-from" type="date" value="'+(APREF.date_from||'')+'"/><span style="color:var(--text5);flex:0 0 auto">→</span><input id="ex-to" type="date" value="'+(APREF.date_to||'')+'"/></div>';
+        // single-pill bounded date-range picker (legacy AUGUR: click start then end on one month)
+        +'.ex-pill{width:100%;text-align:left;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:9px 11px;color:var(--text);cursor:pointer;font-family:inherit;font-size:var(--fsm);transition:border-color .15s}'
+        +'.ex-pill:hover{border-color:color-mix(in srgb,var(--text5) 60%,transparent)}'
+        +'.ex-pop{position:absolute;z-index:90;top:calc(100% + 5px);left:0;width:252px;background:var(--bg1);border:1px solid var(--border);border-radius:13px;padding:11px;box-shadow:0 12px 34px rgba(0,0,0,.55);backdrop-filter:blur(20px)}'
+        +'.ex-cal-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:var(--fsxs);font-weight:600;color:var(--text2)}'
+        +'.ex-cal-hd button{width:auto;background:transparent;border:0;color:var(--text3);cursor:pointer;padding:2px 9px;font-size:15px;border-radius:6px}'
+        +'.ex-cal-hd button:hover{background:var(--bg2);color:var(--text)}'
+        +'.ex-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}'
+        +'.ex-cal-dow{text-align:center;font-size:8px;color:var(--text5);padding:2px 0;letter-spacing:0}'
+        +'.ex-cal-day{background:transparent;border:0;color:var(--text2);border-radius:7px;padding:6px 0;font-size:var(--fsxs);cursor:pointer;width:100%}'
+        +'.ex-cal-day:hover:not(:disabled){background:var(--bg2)}'
+        +'.ex-cal-day.rng{background:color-mix(in srgb,var(--green) 16%,transparent)}'
+        +'.ex-cal-day.sel{background:var(--green);color:#04130c;font-weight:700}'
+        +'.ex-cal-day:disabled{opacity:.22;cursor:default}'
+        +'.ex-cal-ft{display:flex;justify-content:space-between;margin-top:9px}'
+        +'.ex-cal-ft button{width:auto;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text3);cursor:pointer;padding:5px 13px;font-size:var(--fsxs)}'
+        +'.ex-cal-ft button:hover{color:var(--text);border-color:var(--text5)}</style>';
+      const _drLbl=(APREF.date_from||APREF.date_to)?((APREF.date_from?_exFmtD(APREF.date_from):'start')+' → '+(APREF.date_to?_exFmtD(APREF.date_to):'end')):'All dates';
+      const c_dates='<div style="position:relative"><button type="button" id="ex-dr-btn" class="ex-pill">'+_drLbl+'</button><div id="ex-dr-pop" class="ex-pop" style="display:none"></div>'
+        +'<input id="ex-from" type="hidden" value="'+(APREF.date_from||'')+'"/><input id="ex-to" type="hidden" value="'+(APREF.date_to||'')+'"/></div>';
       body=exStyle+'<div class="section ex-build">'
         +'<div class="lbl" style="margin-bottom:10px">DATA &amp; STRATEGY</div>'
         +exrow(fld('STRATEGY',c_strat,190)+fld('INSTRUMENT',c_inst,110)+fld('TIMEFRAME',c_tf,100)+fld('SESSION',c_sess,100)+fld('CSV FILE',c_master,200)+fld('DATE RANGE',c_dates,230))
@@ -4553,6 +4573,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // only lists masters matching those selections. Repopulate it on any upstream change.
       const repopMaster=()=>{const mm=el('ex-master');if(!mm)return;const prev=mm.value;mm.innerHTML=masterOptsHtml(el('ex-inst').value,el('ex-tf').value,el('ex-sess').value);if(![].some.call(mm.options,o=>o.value===prev))mm.value='';};
       ['ex-inst','ex-tf','ex-sess'].forEach(id=>{const e=el(id);if(e)e.addEventListener('change',repopMaster);});
+      // ── Bounded single-calendar date-range picker (legacy AUGUR feel) ──
+      (function(){const btn=el('ex-dr-btn'),pop=el('ex-dr-pop');if(!btn||!pop)return;
+        let a=APREF.date_from||'',b=APREF.date_to||'',anchor=null,lo='',hi='',view=new Date();
+        const ymd=(y,m,d)=>y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+        const label=()=>(a||b)?((a?_exFmtD(a):'start')+' → '+(b?_exFmtD(b):'end')):'All dates';
+        const setRange=(na,nb)=>{a=na;b=nb;savePref('date_from',na||'');savePref('date_to',nb||'');el('ex-from').value=na||'';el('ex-to').value=nb||'';btn.textContent=label();};
+        const onDay=ds=>{if(anchor===null){anchor=ds;setRange(ds,ds);}else{let x=anchor,z=ds;if(x>z){const t=x;x=z;z=t;}anchor=null;setRange(x,z);}draw();};
+        const MON=['January','February','March','April','May','June','July','August','September','October','November','December'];
+        function draw(){const y=view.getFullYear(),m=view.getMonth(),sd=new Date(y,m,1).getDay(),nd=new Date(y,m+1,0).getDate();
+          let h='<div class="ex-cal-hd"><button type="button" data-nav="-1">‹</button><span>'+MON[m]+' '+y+'</span><button type="button" data-nav="1">›</button></div><div class="ex-cal-grid">';
+          ['S','M','T','W','T','F','S'].forEach(d=>h+='<span class="ex-cal-dow">'+d+'</span>');
+          for(let i=0;i<sd;i++)h+='<span></span>';
+          for(let d=1;d<=nd;d++){const ds=ymd(y,m,d),inR=a&&b&&ds>=a&&ds<=b,end=(ds===a||ds===b),dis=(lo&&ds<lo)||(hi&&ds>hi);h+='<button type="button" class="ex-cal-day'+(end?' sel':'')+(inR&&!end?' rng':'')+'" data-day="'+ds+'"'+(dis?' disabled':'')+'>'+d+'</button>';}
+          h+='</div><div class="ex-cal-ft"><button type="button" id="ex-dr-clear">Clear</button><button type="button" id="ex-dr-done">Done</button></div>';
+          pop.innerHTML=h;
+          pop.querySelectorAll('[data-day]').forEach(x=>x.onclick=()=>onDay(x.dataset.day));
+          pop.querySelectorAll('[data-nav]').forEach(x=>x.onclick=()=>{view=new Date(y,m+ +x.dataset.nav,1);draw();});
+          el('ex-dr-clear').onclick=()=>{anchor=null;setRange('','');draw();};
+          el('ex-dr-done').onclick=()=>{pop.style.display='none';};}
+        btn.onclick=()=>{const opening=pop.style.display==='none';if(opening){const mi=el('ex-master').value,mm=(mi!==''&&metaMasters)?metaMasters[+mi]:null;lo=mm&&mm.date_from?String(mm.date_from).slice(0,10):'';hi=mm&&mm.date_to?String(mm.date_to).slice(0,10):'';view=new Date((a||hi||new Date().toISOString().slice(0,10))+'T00:00');draw();pop.style.display='block';}else pop.style.display='none';};
+        if(!window._exDocClose){window._exDocClose=true;document.addEventListener('click',e=>{const p=document.getElementById('ex-dr-pop'),bb=document.getElementById('ex-dr-btn');if(p&&bb&&!p.contains(e.target)&&!bb.contains(e.target))p.style.display='none';});}
+      })();
       // MODE drives which fields apply — grey out the rest (and remember the choice).
       const em=el('ex-mode');if(em){applyExMode(em.value);em.onchange=()=>{savePref('mode',em.value);applyExMode(em.value);};}
       const xb=el('ex-run');if(xb)xb.onclick=async()=>{const mode=el('ex-mode').value;
