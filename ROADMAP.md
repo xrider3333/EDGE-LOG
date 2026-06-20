@@ -100,6 +100,10 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v25.4** Builder data flow inverted to legacy order: MODE · STRATEGY · INSTRUMENT ·
+  TIMEFRAME · SESSION · CSV FILE, where the CSV picker only lists masters matching the
+  chosen instrument/TF/session (repopulates live on change). Selections drive the run;
+  the CSV pick only refines which master (source). Replaces the old master-overrides-selects.
 - **v25.3** Builder relaid out horizontally (like legacy AUGUR "Executions"): a full-width
   BUILD A BACKTEST tile where fields flow left-to-right and wrap, grouped in build order
   (Setup → Data window · Costs → Search params → Run), with the RUNS table full-width below.
