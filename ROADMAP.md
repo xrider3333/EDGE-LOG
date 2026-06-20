@@ -100,6 +100,10 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v25.3** Builder relaid out horizontally (like legacy AUGUR "Executions"): a full-width
+  BUILD A BACKTEST tile where fields flow left-to-right and wrap, grouped in build order
+  (Setup → Data window · Costs → Search params → Run), with the RUNS table full-width below.
+  Replaces the narrow 280px vertical config column.
 - **v25.2** Builder is mode-aware: each MODE greys out the fields it doesn't feed (SCOPE for
   single/auto/WF, VOL for non-single, TRIALS for grid/AI, AI ROUNDS+PROVIDER for non-AI,
   WF FOLDS off walk-forward), matching the engine. MODE choice now persists across reruns.
