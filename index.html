@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='24.7';
+const VERSION='24.8';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -2709,7 +2709,7 @@ function renderApp(){
   const content=document.createElement('div');content.className='content';wrap.appendChild(content);
   app.innerHTML='';app.appendChild(wrap);
 
-  wrap.querySelectorAll('[data-tab]').forEach(b=>{b.onclick=()=>{activeTab=b.dataset.tab;renderApp();};});
+  wrap.querySelectorAll('[data-tab]').forEach(b=>{b.onclick=()=>{activeTab=b.dataset.tab;if(b.dataset.tab==='augur')augurSub='lib';renderApp();};});
   el('so-btn').onclick=()=>{if(unsub)unsub();if(unsubL)unsubL();if(unsubBT)unsubBT();if(unsubRuns)unsubRuns();if(unsubMeta)unsubMeta();if(unsubMM)unsubMM();stopAutoImport();auth.signOut();renderAuth();};
   const lu=el('logo-upload');if(lu)lu.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{userLogo=ev.target.result;localStorage.setItem('el_logo',userLogo);updateFavicon();document.title='EDGE LOG — Trade Tracker';renderApp();};r.readAsDataURL(f);};
   const la=el('logo-area');if(la)la.onclick=()=>{if(userLogo){if(confirm('Remove logo?')){userLogo=null;localStorage.removeItem('el_logo');updateFavicon();renderApp();}}else el('logo-upload').click();};
@@ -4310,39 +4310,62 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // ── per-strategy stats + active marker (derived client-side from run history) ──
       const statOf={};(runHistory||[]).forEach(r=>{const m=_stratMatch(r.strategy);if(!m)return;const f=m.file;const st=statOf[f]||(statOf[f]={runs:0,bestPnl:-Infinity,bestPf:0,last:''});st.runs++;const pnl=r.best_pnl_usd||0;if(pnl>st.bestPnl)st.bestPnl=pnl;if((r.best_pf||0)>st.bestPf)st.bestPf=r.best_pf||0;if((r.timestamp||'')>st.last)st.last=r.timestamp||'';});
       const active=APREF.activeStrategy||'';
-      // ── Deploy-readiness roadmap for the SELECTED strategy. Mirrors optimizer.py's
+      // ── Deploy-readiness roadmap TILE for the SELECTED strategy. Mirrors optimizer.py's
       //    10-step VALIDATION_STEPS. Four steps auto-derive from run history (in-sample,
-      //    OOS/walk-forward, cross-instrument, cost realism); the rest are manual. The
-      //    manual ticks come from optimizer.py (synced via the runner as s.roadmap) AND/OR
-      //    local toggles in APREF.checklist[file][key]. ⚙ = auto · ✓ = manual done. ──
-      const rmStrip=(()=>{
-        if(!selS)return '';
+      //    OOS/walk-forward, cross-instrument, cost realism) and show the EVIDENCE that
+      //    passed them (run #, PF, $PNL, folds, instruments…); the rest are manual ticks
+      //    (✓ from optimizer.py via s.roadmap, or click to toggle here, stored in
+      //    APREF.checklist[file][key]). Passed steps get a filled green ✓ badge. ──
+      const rmTile=(()=>{
+        if(!selS)return tile('<div style="color:var(--text5);font-size:var(--fsxs);padding:6px 2px">Select a strategy above to see its deploy-readiness roadmap.</div>');
         const CK=APREF.checklist||{};
         const synced=selS.roadmap||{}, local=CK[selS.file]||{};
         const hs=(runHistory||[]).filter(r=>{const m=_stratMatch(r.strategy);return m&&m.file===selS.file;});
-        const insts=new Set(hs.map(r=>String(r.instrument||'').trim()).filter(Boolean));
-        const auto={insample:hs.length>0,oos:hs.some(r=>/walk|🔁/i.test(String(r.scope||''))),
-          transfer:insts.size>=2,costs:hs.some(r=>(+r.commission_usd>0)||(+r.slippage_pts>0)||(+r.cost_pts>0))};
-        // [key,label,autoCapable]
-        const cols=[['feasibility','Feasibility',false],['insample','In-sample',true],['plateau','Plateau',false],
-          ['stress','Stress',false],['oos','OOS/WF',true],['transfer','X-instr',true],['costs','Costs',true],
-          ['drawdown','Drawdown',false],['paper','Paper',false],['deploy','Deploy',false]];
+        const insts=[...new Set(hs.map(r=>String(r.instrument||'').trim()).filter(Boolean))];
+        const wfRuns=hs.filter(r=>/walk|🔁/i.test(String(r.scope||'')));
+        const bestRun=hs.slice().sort((a,b)=>(b.best_pnl_usd||0)-(a.best_pnl_usd||0))[0];
+        const costRun=hs.find(r=>(+r.commission_usd>0)||(+r.slippage_pts>0)||(+r.cost_pts>0));
+        const auto={insample:hs.length>0,oos:wfRuns.length>0,transfer:insts.length>=2,costs:!!costRun};
+        const _shp=r=>{const d=r&&r.dsr;const s=d&&(d.sharpe||d.observed_sharpe||d.sr);return (s!=null&&!isNaN(+s))?(' · Sharpe '+(+s).toFixed(2)):'';};
+        // evidence string per auto step (only shown when passed)
+        const why={
+          insample:bestRun?('best run #'+bestRun.id+' · PF '+(bestRun.best_pf||0).toFixed(2)+' · '+fmtUsd(bestRun.best_pnl_usd||0)+' · '+(bestRun.best_trades||0)+' trades'+_shp(bestRun)):'',
+          oos:wfRuns[0]?('walk-forward run #'+wfRuns[0].id+(wfRuns[0].best_oos_pnl!=null?' · OOS '+fmtUsd((wfRuns[0].best_oos_pnl||0)*(wfRuns[0].multiplier||1)):'')+(wfRuns[0].n_valid!=null?' · '+wfRuns[0].n_valid+' valid configs':'')+_shp(wfRuns[0])):'',
+          transfer:insts.length>=2?('runs on '+insts.join(', ')):'',
+          costs:costRun?('modeled commission/slippage in run #'+costRun.id):''
+        };
+        // [key,label,autoCapable,manualDesc]
+        const steps=[['feasibility','Feasibility / hypothesis',false,'Does the edge plausibly exist at all?'],
+          ['insample','In-sample optimization',true,'A grid/Auto search found a candidate config.'],
+          ['plateau','Plateau check (robust params)',false,'Winner sits in a cluster of good configs, not a lonely spike.'],
+          ['stress','Stress-test across time',false,'Profit is spread across windows, not one lucky stretch.'],
+          ['oos','Out-of-sample / Walk-forward',true,'Survives data it was never optimized on.'],
+          ['transfer','Cross-instrument transfer',true,'Edge appears on ≥2 instruments → structural, not an artifact.'],
+          ['costs','Cost & slippage realism',true,'Edge survives realistic commission + slippage.'],
+          ['drawdown','Drawdown / Monte-Carlo sizing',false,'Sized for the worst-case equity path.'],
+          ['paper','Paper / forward test',false,'Ran live on fresh data with no money on the line.'],
+          ['deploy','Deploy (small size)',false,'Trading it for real at minimum size.']];
         const eff=k=>!!(auto[k]||synced[k]||local[k]);
-        const done=cols.filter(c=>eff(c[0])).length,pct=Math.round(100*done/cols.length);
-        const col=pct>=70?'var(--green)':pct>=40?'var(--yellow)':'var(--text5)';
-        const cells=cols.map(c=>{const k=c[0],isAuto=!!auto[k],is=eff(k);
-          const mark=isAuto?'<span style="color:var(--green)" title="auto-derived from your runs">⚙</span>'
-            :is?'<span style="color:var(--green)">✓</span>':'<span style="color:var(--text5);opacity:.55">○</span>';
-          const clickable=!isAuto; // auto steps satisfied by data aren't toggled by hand
-          const inner='<span style="font-size:8px;color:var(--text5);letter-spacing:.3px">'+c[1].toUpperCase()+(c[2]?'':' ✎')+'</span><br>'+mark;
-          return clickable?'<div data-rmchk="'+k+'" style="text-align:center;min-width:44px;cursor:pointer" title="click to toggle" class="arow">'+inner+'</div>'
-            :'<div style="text-align:center;min-width:44px" title="auto-derived from run history">'+inner+'</div>';}).join('');
-        return '<div style="border-top:1px solid var(--border);margin-top:9px;padding-top:8px">'
-          +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-          +'<span style="font-size:9px;color:var(--text5);letter-spacing:1px">DEPLOY READINESS</span>'
-          +'<span style="font-size:var(--fsxs);font-weight:800;color:'+col+'">'+done+'/'+cols.length+' · '+pct+'%</span>'
-          +'<span style="flex:1"></span>'+cells+'</div>'
-          +'<div style="font-size:8px;color:var(--text5);margin-top:5px">⚙ auto-derives from your runs (in-sample, OOS/walk-fwd, cross-instrument, costs); ✎ steps are manual (✓ from optimizer.py or click to toggle here). Path: Feasibility → In-sample → Plateau → Stress → OOS → Cross-instrument → Costs → Drawdown → Paper → Deploy.</div></div>';
+        const done=steps.filter(s=>eff(s[0])).length,pct=Math.round(100*done/steps.length);
+        const hdrCol=pct>=70?'var(--green)':pct>=40?'var(--yellow)':'var(--text5)';
+        // filled green badge for passed; hollow for open
+        const badge=(passed,auto)=>passed
+          ?'<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--green);color:#04130c;font-size:11px;font-weight:900;box-shadow:0 0 0 2px rgba(39,192,138,.25)">'+(auto?'⚙':'✓')+'</span>'
+          :'<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:1.5px solid var(--text5);color:var(--text5);font-size:10px">○</span>';
+        const rows=steps.map(s=>{const k=s[0],isAuto=!!auto[k],passed=eff(k),clickable=!isAuto;
+          const src=isAuto?'auto':(synced[k]?'optimizer.py':(local[k]?'marked here':''));
+          const detail=passed&&isAuto&&why[k]?why[k]:(passed&&src&&src!=='auto'?('✓ '+src):s[3]);
+          const dcol=passed?'var(--text3)':'var(--text5)';
+          return '<div '+(clickable?'data-rmchk="'+k+'" class="arow" style="cursor:pointer;':'style="')+'display:flex;align-items:flex-start;gap:10px;padding:6px 6px;border-radius:7px;border-bottom:1px solid var(--border)" title="'+(clickable?'click to toggle':'auto-derived from run history')+'">'
+            +'<span style="flex:0 0 auto;margin-top:1px">'+badge(passed,isAuto)+'</span>'
+            +'<span style="flex:1;min-width:0"><span style="font-size:var(--fsxs);font-weight:600;color:'+(passed?'var(--text2)':'var(--text4)')+'">'+s[1]+'</span>'
+            +(clickable?'<span style="font-size:8px;color:var(--text5);margin-left:6px">✎ manual</span>':'<span style="font-size:8px;color:var(--green);margin-left:6px">auto</span>')
+            +'<br><span style="font-size:9px;color:'+dcol+'">'+detail+'</span></span></div>';}).join('');
+        return tile('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span class="lbl">DEPLOY READINESS · '+stratTag(selS.file)+'</span>'
+          +'<span style="font-size:var(--fsxs);font-weight:800;color:'+hdrCol+'">'+done+'/'+steps.length+' · '+pct+'%</span></div>'
+          +'<div style="height:5px;background:var(--bg1);border-radius:3px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:'+pct+'%;background:'+hdrCol+'"></div></div>'
+          +rows
+          +'<div style="font-size:8px;color:var(--text5);margin-top:8px">⚙ auto-derives from your runs (shows the run #, PF, $PNL, folds &amp; instruments that passed it); ✎ steps are manual — ✓ carried from optimizer.py or click to toggle here. Path: Feasibility → In-sample → Plateau → Stress → OOS → Cross-instrument → Costs → Drawdown → Paper → Deploy.</div>');
       })();
       // ── ACTION BAR — its own tile, above both panes ──
       const aBtn=(id,lbl,en,danger)=>'<button class="btn-ghost" id="'+id+'" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px;'+(danger?'color:var(--red);border:1px solid var(--red);':'border:1px solid var(--border);')+(en?'':'opacity:.35;pointer-events:none;')+'">'+lbl+'</button>';
@@ -4360,24 +4383,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // NOTE: not tile() — that clips overflow, which would hide the dropdown menus.
       const actionTile='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;overflow:visible">'
         +'<style>.menu-item:hover{background:var(--bg2)!important}</style><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-        +'<button class="btn-ghost active" id="lib-add" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px">+ ADD STRATEGY</button>'
-        +'<span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>'
         +'<span style="font-size:9px;color:var(--text5);letter-spacing:1px">SELECTED</span>'+selLabel
         +'<span style="flex:1"></span>'
         +(selS?aBtn('lib-use','▸ USE IN BUILDER',true):'')
         +(selS?menu('lib-aimenu','⚙ AI',augurMenu==='ai',aiItems):'')
         +(selS?menu('lib-dlmenu','▼ DOWNLOAD',augurMenu==='dl',dlItems):'')
+        +'<button class="btn-ghost active" id="lib-add" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px">+ ADD STRATEGY</button>'
         +aBtn('lib-del','DELETE',!!selS,true)
-        +'</div>'+rmStrip+msgLine+'</div>';
+        +'</div>'+msgLine+'</div>';
       const mastersInner=pullBanner+((metaMasters||[]).length?'<table class="table"><thead><tr><th>NAME</th><th>INST</th><th>TF</th><th>SESS</th><th>SOURCE</th><th style="text-align:center">AUTO-PULL</th><th style="text-align:right">ROWS</th><th>RANGE</th></tr></thead><tbody>'+mrows+'</tbody></table>':'<div style="color:var(--text5);font-size:var(--fsxs)">no masters synced</div>');
-      const mastersTitled=(lbl)=>tile('<div class="lbl" style="margin:0 0 6px">MASTERS / CSVs · '+(metaMasters||[]).length+'</div>'+mastersInner,lbl?0:undefined);
+      // masters with optional shared scroll height (side mode) so it resizes with strategies
+      const mastersTitled=(scrollH)=>tile('<div class="lbl" style="margin:0 0 6px">MASTERS / CSVs · '+(metaMasters||[]).length+'</div>'
+        +'<div id="lib-rightscroll" style="'+(scrollH?'max-height:'+scrollH+';overflow:auto;':'')+'margin:-2px -4px 0;padding:2px 4px 0">'+mastersInner+'</div>',0);
       if(!sl.length){
-        body=actionTile+tile('<div style="color:var(--text5);font-size:var(--fsxs)">no library synced — start the runner</div>')+'<div style="margin-top:18px">'+mastersTitled()+'</div>';
+        body=actionTile+tile('<div style="color:var(--text5);font-size:var(--fsxs)">no library synced — start the runner</div>')+'<div style="margin-top:18px">'+mastersTitled()+'</div>'+'<div style="margin-top:18px">'+rmTile+'</div>';
       }else{
         const lv=APREF.libView==='stack'?'stack':'side';
         const lH=Math.min(.6,Math.max(.15,APREF.libSplitH||0.35));
         const lVH=Math.min(520,Math.max(120,APREF.libSplitV||240));
-        const maxH=lv==='stack'?(lVH+'px'):'72vh';
+        const lSideH=Math.min(800,Math.max(160,APREF.libSideH||440));   // shared pane height in side mode
+        const maxH=lv==='stack'?(lVH+'px'):(lSideH+'px');
         // sortable header (click to view-by; arrow shows active dir) + show-only header
         const arr=k=>sortk===k?(dir<0?' ▾':' ▴'):'';
         const ss=(k,lbl)=>'<span data-sortk="'+k+'" title="Sort by '+lbl+'" style="cursor:pointer;user-select:none;'+(sortk===k?'color:var(--text)':'')+'">'+lbl+arr(k)+'</span>';
@@ -4387,19 +4412,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const stratHdr='<th style="white-space:nowrap">'+ss('num','#')+' · '+ss('name','STRATEGY')+'</th>';
         const stratTable='<table class="table"><thead><tr>'+stratHdr+'<th>DESCRIPTION</th>'+fh('nopy','PY')+fh('nopine','PINE')+sh('added','ADDED')+sh('ran','LAST RAN')+sh('scopes','SCOPES','right')+'</tr></thead><tbody>'+srows+'</tbody></table>';
         const onlyNote=only?'<span style="font-size:9px;color:var(--red);letter-spacing:1px">SHOWING ONLY MISSING '+(only==='nopy'?'PY':'PINE')+' · '+rowsSorted.length+' <span id="lib-clearonly" style="cursor:pointer;text-decoration:underline">clear</span></span>':'';
+        // tabindex makes the list focusable so arrow keys can walk the rows
         const listInner='<div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 6px;gap:8px"><span class="lbl">STRATEGIES · '+sl.length+'</span>'+onlyNote+'</div>'
-          +'<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}.table thead [data-sortk]:hover,.table thead th[data-onlyk]:hover{color:var(--text)}</style>'
-          +'<div id="lib-listscroll" style="max-height:'+maxH+';overflow:auto;margin:-2px -4px 0;padding:2px 4px 0">'+stratTable+'</div>';
+          +'<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}.table thead [data-sortk]:hover,.table thead th[data-onlyk]:hover{color:var(--text)}#lib-listscroll:focus{outline:1px solid var(--border)}</style>'
+          +'<div id="lib-listscroll" tabindex="0" style="max-height:'+maxH+';overflow:auto;margin:-2px -4px 0;padding:2px 4px 0">'+stratTable+'</div>';
         const leftTile=tile(listInner,0);
         if(lv==='stack'){
           body=actionTile+'<div id="lib-wrap">'+'<div id="lib-top">'+leftTile+'</div>'
             +'<div id="lib-gutter" style="height:12px;cursor:row-resize;display:flex;align-items:center;justify-content:center;margin:2px 0"><div style="height:3px;width:54px;background:var(--border);border-radius:2px"></div></div>'
-            +'<div id="lib-bottom">'+mastersTitled()+'</div></div>';
+            +'<div id="lib-bottom">'+mastersTitled()+'</div></div>'
+            +'<div style="margin-top:10px">'+rmTile+'</div>';
         }else{
           body=actionTile+'<div id="lib-wrap" style="display:flex;align-items:stretch">'
             +'<div id="lib-left" style="flex:0 0 '+(lH*100)+'%;min-width:200px;overflow:hidden">'+leftTile+'</div>'
             +'<div id="lib-gutter" style="flex:0 0 12px;cursor:col-resize;display:flex;align-items:center;justify-content:center"><div style="width:3px;height:46px;background:var(--border);border-radius:2px"></div></div>'
-            +'<div id="lib-right" style="flex:1 1 0;min-width:0;overflow:auto">'+mastersTitled()+'</div></div>';
+            +'<div id="lib-right" style="flex:1 1 0;min-width:0;overflow:hidden">'+mastersTitled(maxH)+'</div></div>'
+            +'<div id="lib-vgutter" style="height:14px;cursor:row-resize;display:flex;align-items:center;justify-content:center;margin:1px 0" title="drag to resize both panes"><div style="height:3px;width:80px;background:var(--border);border-radius:2px"></div></div>'
+            +'<div style="margin-top:6px">'+rmTile+'</div>';
         }
       }
     }else if(augurSub==='cmp'){
@@ -4482,6 +4511,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
     else if(augurSub==='exec'){const ss=el('ex-strat');if(ss)ss.onchange=()=>{augurExecStrat=ss.value;renderApp();};const xb=el('ex-run');if(xb)xb.onclick=async()=>{const inst=el('ex-inst').value,sess=el('ex-sess').value,mode=el('ex-mode').value;savePref('instrument',inst);savePref('session',sess);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);const base={strategy:el('ex-strat').value,instrument:inst,timeframe:el('ex-tf').value,session:sess,source:sess==='rth'?'tv':null,preset:el('ex-preset').value,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};const job=(mode==='single')?Object.assign({},base,{params:{vol_filter:parseFloat(el('ex-vol').value)||0},mc_sims:1000}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,top_n:10,dsr:true,mc_sims:500}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='cmp'){const sa=el('cmp-a'),sb=el('cmp-b');if(sa)sa.onchange=()=>{augurCmpA=sa.value;renderApp();};if(sb)sb.onchange=()=>{augurCmpB=sb.value;renderApp();};}
     else if(augurSub==='lib'){
+      // keep keyboard focus on the strategy list across arrow-key re-renders, and scroll
+      // the selected row into view
+      if(window._libFocusList){const ls0=el('lib-listscroll');if(ls0){ls0.focus();ls0.querySelectorAll('[data-strat]').forEach(r=>{if(r.dataset.strat===augurLibSel)r.scrollIntoView({block:'nearest'});});}window._libFocusList=false;}
       const lvs=el('lib-side'),lvk=el('lib-stack');
       if(lvs)lvs.onclick=()=>{savePref('libView','side');renderApp();};
       if(lvk)lvk.onclick=()=>{savePref('libView','stack');renderApp();};
@@ -4514,6 +4546,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const mv=(ev)=>{if(lv==='side'){const w=el('lib-wrap'),L=el('lib-left');if(!w||!L)return;const rect=w.getBoundingClientRect();let r=(ev.clientX-rect.left)/rect.width;r=Math.min(.6,Math.max(.15,r));L.style.flexBasis=(r*100)+'%';APREF.libSplitH=r;}else{const top=el('lib-top'),sc=el('lib-listscroll');if(!top||!sc)return;const rect=top.getBoundingClientRect();let h=ev.clientY-rect.top-30;h=Math.min(520,Math.max(120,h));sc.style.maxHeight=h+'px';APREF.libSplitV=h;}};
         const up2=()=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up2);savePref(lv==='side'?'libSplitH':'libSplitV',lv==='side'?APREF.libSplitH:APREF.libSplitV);};
         document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up2);};}
+      // vertical gutter (side mode): drag to resize the height of BOTH panes together
+      const vg=el('lib-vgutter');if(vg){vg.style.touchAction='none';vg.onpointerdown=(e)=>{e.preventDefault();try{vg.setPointerCapture(e.pointerId);}catch(_){}
+        const L=el('lib-listscroll'),R=el('lib-rightscroll');const startY=e.clientY,startH=L?L.getBoundingClientRect().height:440;
+        const mv=(ev)=>{let h=startH+(ev.clientY-startY);h=Math.min(800,Math.max(160,h));if(L)L.style.maxHeight=h+'px';if(R)R.style.maxHeight=h+'px';APREF.libSideH=h;};
+        const up=()=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);savePref('libSideH',APREF.libSideH||440);};
+        document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);};}
+      // arrow-key navigation down/up the strategy rows (list is focusable via tabindex)
+      const lks=el('lib-listscroll');if(lks)lks.onkeydown=(e)=>{if(e.key!=='ArrowDown'&&e.key!=='ArrowUp')return;e.preventDefault();
+        const files=[...content.querySelectorAll('[data-strat]')].map(r=>r.dataset.strat);if(!files.length)return;
+        let i=files.indexOf(augurLibSel);if(i<0)i=e.key==='ArrowDown'?-1:0;
+        i=e.key==='ArrowDown'?Math.min(files.length-1,i+1):Math.max(0,i-1);
+        augurLibSel=files[i];augurLibMsg='';augurLibDel=false;augurMenu='';window._libFocusList=true;renderApp();};
     }
     else if(augurSub==='set'){const sv=el('set-save');if(sv)sv.onclick=()=>{savePref('instrument',el('set-inst').value);savePref('session',el('set-sess').value);savePref('timeframe',el('set-tf').value);savePref('workers',parseInt(el('set-work').value)||4);savePref('rounds',parseInt(el('set-rounds').value)||4);savePref('trials',parseInt(el('set-trials').value)||200);savePref('min_trades',parseInt(el('set-mint').value)||30);savePref('provider',el('set-prov').value);const s=el('set-saved');if(s){s.textContent='✓ saved — Builder will use these';setTimeout(()=>{if(el('set-saved'))el('set-saved').textContent='';},2000);}};}
     else{const vs=el('res-side'),vk=el('res-stack');if(vs)vs.onclick=()=>{savePref('resView','side');renderApp();};if(vk)vk.onclick=()=>{savePref('resView','stack');renderApp();};
