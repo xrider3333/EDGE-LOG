@@ -115,7 +115,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
              top_n=10, method="single", oos=True, wf_folds=0, seed=42,
              compute_dsr=False, mc_sims=0, progress_cb=None, years=None,
              compute_regime=False, compute_neighbors=False,
-             date_from=None, date_to=None):
+             date_from=None, date_to=None, wf_mode="anchored"):
     """Smart search. Returns the same shape as run_grid plus OOS columns.
 
     method="single" or "walkforward". Returns {mode,n_combos,n_valid,top[...],
@@ -168,7 +168,9 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
     records = []   # each: {**params, **metrics, oos_*...}
 
     if method == "walkforward" and oos_on and n >= 4000:
-        # ── Anchored walk-forward ──────────────────────────────────────────
+        # ── Walk-forward: anchored (expanding IS from 0) or rolling (fixed-length
+        #    IS window of `init` bars that slides forward — more regime-honest). ──
+        rolling = str(wf_mode).lower() == "rolling"
         req = int(wf_folds or 0)
         n_folds = (max(2, min(8, req)) if req >= 2 else min(8, max(2, n // 3000)))
         init = int(n * 0.40)
@@ -177,13 +179,14 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
         done = 0
         for f in range(n_folds):
             tr_end = init + f * tsize
+            tr_start = max(0, tr_end - init) if rolling else 0
             te_s = tr_end
             te_e = n if f == n_folds - 1 else te_s + tsize
             samp = _RandomSampler(space, seed=seed)
             recs = []
             for _ in range(n_trials):
                 pe = _collapse(samp.ask(), dp)
-                m = _ev(0, tr_end, pe)
+                m = _ev(tr_start, tr_end, pe)
                 if m and m.get("num_trades", 0) >= min_trades:
                     recs.append({**pe, **m})
                 done += 1
@@ -191,7 +194,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                     progress_cb(done, n_total)
             if not recs:
                 continue
-            gated = [r for r in recs if _is_real(r, tr_end)]
+            gated = [r for r in recs if _is_real(r, tr_end - tr_start)]
             champ = max(gated or recs, key=lambda r: float(r.get("total_pnl", 0) or 0))
             pp = {k: champ[k] for k in pkeys if k in champ}
             om = _ev(te_s, te_e, pp)
@@ -199,7 +202,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
             row.update({k: champ.get(k) for k in _METRIC_KEYS})
             row["fold"] = f + 1
             row["test_bars"] = te_e - te_s
-            row["train_bars"] = tr_end   # IS window length (for walk-forward efficiency)
+            row["train_bars"] = tr_end - tr_start   # IS window length (for WFE)
             row["oos_pnl"] = float(om["total_pnl"]) if om else 0.0
             row["oos_trades"] = int(om["num_trades"]) if om else 0
             row["oos_pf"] = float(om.get("profit_factor", 0)) if om else 0.0
@@ -254,7 +257,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
     for r in ranked[:top_n]:
         row = {k: r.get(k) for k in pkeys if k in r}
         row.update({k: r.get(k) for k in _METRIC_KEYS if k in r})
-        for k in ("oos_pnl", "oos_trades", "oos_pf", "fold", "test_bars"):
+        for k in ("oos_pnl", "oos_trades", "oos_pf", "fold", "test_bars", "train_bars"):
             if k in r:
                 row[k] = r[k]
         top.append(row)

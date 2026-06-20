@@ -69,7 +69,7 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 timeframe=job.get("timeframe", "5m"), session=job.get("session", "rth"),
                 source=job.get("source"),
                 method=("walkforward" if jtype == "walkforward" else "single"),
-                date_from=df_from, date_to=df_to,
+                date_from=df_from, date_to=df_to, wf_mode=job.get("wf_mode", "anchored"),
                 oos=bool(job.get("oos", True)), wf_folds=int(job.get("wf_folds", 0) or 0),
                 n_trials=int(job.get("n_trials", 200)),
                 cost_pts=float(job.get("cost_pts", 0) or 0),

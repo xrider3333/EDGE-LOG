@@ -100,6 +100,10 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v26.5** Rolling walk-forward: engine `run_auto(wf_mode=...)` adds a fixed-length IS
+  window that slides forward (regime-honest) alongside the existing anchored/expanding
+  mode; Builder has a WF TYPE selector (Anchored / Rolling) for Walk-Forward runs. Realism
+  gate + train_bars (→WFE) use the true rolling window length.
 - **v26.4** Sample-adequacy (degrees-of-freedom) surfacing: pre-run IS-window readout
   (bars + span in years for the selected CSV/date range, flags <2yr) and a post-run
   trades-per-optimized-parameter gauge in VALIDATION (<10 red, 30+ green) — the
