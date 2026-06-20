@@ -119,7 +119,8 @@ def _digest(top):
 def ai_optimize(strategy, *, instrument=None, timeframe="5m", session="rth", source=None,
                 master=None, arrays=None, preset=None, grid=None, n_rounds=5,
                 provider="ollama", model=None, api_key=None, cost_pts=0.0,
-                min_trades=30, workers=1, oos_split=0.75, progress_cb=None):
+                min_trades=30, workers=1, oos_split=0.75, progress_cb=None,
+                date_from=None, date_to=None):
     """Run the AI optimize loop. Returns {provider, model, n_rounds, best_params,
     best_is_pnl, best_oos_pnl, best, rounds[...], oos_split, bars}."""
     mod = load_strategy(strategy) if isinstance(strategy, str) else strategy
@@ -128,7 +129,7 @@ def ai_optimize(strategy, *, instrument=None, timeframe="5m", session="rth", sou
             master = find_master(instrument, timeframe, session, source)
             if master is None:
                 raise ValueError(f"no master for {instrument} {timeframe} {session} {source}")
-        arrays = load_master_arrays(master)
+        arrays = load_master_arrays(master, date_from=date_from, date_to=date_to)
 
     is_arr, oos_arr = _split_arrays(arrays, oos_split)
     cur_grid = dict(grid) if grid else dict(grid_from_preset(mod, preset))
@@ -257,7 +258,8 @@ def _default_grid(mod):
 def ai_evolve(strategy, *, instrument=None, timeframe="5m", session="rth", source=None,
               master=None, arrays=None, preset=None, grid=None, n_rounds=4,
               provider="ollama", model=None, api_key=None, cost_pts=0.0,
-              min_trades=30, workers=1, oos_split=0.75, save_dir=None, progress_cb=None):
+              min_trades=30, workers=1, oos_split=0.75, save_dir=None, progress_cb=None,
+              date_from=None, date_to=None):
     """Like ai_optimize, but the LLM may also REWRITE the strategy code each round. Every
     code edit is validated (compile+contract+smoke) before use and saved as a NEW file in
     save_dir (default augur_strategies/), so existing strategies are never modified."""
@@ -280,7 +282,7 @@ def ai_evolve(strategy, *, instrument=None, timeframe="5m", session="rth", sourc
             master = find_master(instrument, timeframe, session, source)
             if master is None:
                 raise ValueError(f"no master for {instrument} {timeframe} {session} {source}")
-        arrays = load_master_arrays(master)
+        arrays = load_master_arrays(master, date_from=date_from, date_to=date_to)
     is_arr, oos_arr = _split_arrays(arrays, oos_split)
     try:
         cur_grid = dict(grid) if grid else dict(grid_from_preset(mod, preset))

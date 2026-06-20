@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='24.9';
+const VERSION='25.0';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4182,6 +4182,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const stratTag=(str,sz)=>{const i=stratInfo(str);return '<span style="color:'+i.color+';font-weight:600'+(sz?';font-size:'+sz:'')+'">'+i.label+'</span>';};
     // ── Instrument color (CSV / masters), consistent everywhere ──────────────
     const INSTC={NQ:'#5b8def',MNQ:'#93b3f2',ES:'#27c08a',MES:'#79d6b1',YM:'#e0a341',MYM:'#ecc684',RTY:'#c77dd6',M2K:'#dba9e6',CL:'#d6694b',GC:'#d4b95e'};
+    // $ point-value per instrument — used to convert commission $/RT into cost POINTS.
+    const INSTM={NQ:20,MNQ:2,ES:50,MES:5,YM:5,MYM:0.5,RTY:50,M2K:5,CL:1000,GC:100};
+    const instMult=i=>INSTM[String(i||'').toUpperCase().trim()]||20;
     const instColor=i=>INSTC[String(i||'').toUpperCase().trim()]||'hsl('+_hashHue(String(i||''))+',45%,62%)';
     const instTag=i=>'<span style="color:'+instColor(i)+';font-weight:600">'+(i||'')+'</span>';
     const AICON={runs:'▦',exec:'▸',lib:'◫',cmp:'◧',ref:'◈',research:'◎',set:'◆'};
@@ -4252,7 +4255,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const cur=slist.filter(s=>s.file===curStrat)[0]||slist[0];
       const presets=(cur&&cur.presets&&cur.presets.length)?cur.presets:['(start runner to load scopes)'];
       const grids=backtests.slice(0,12);
-      const gbadge=b=>{const c={done:'var(--green)',error:'var(--red)',running:'var(--yellow)',queued:'var(--text4)'}[b.status]||'var(--text4)';const lbl=b.status==='running'?('RUNNING '+(b.progress||0)+'%'):(b.status||'?').toUpperCase();return '<span style="color:'+c+';font-size:var(--fsxs);letter-spacing:1px">'+lbl+'</span>';};
+      const gbadge=b=>{const c={done:'var(--green)',error:'var(--red)',running:'var(--yellow)',queued:'var(--text4)'}[b.status]||'var(--text4)';const pct=Math.max(0,Math.min(100,b.progress||0));const lbl=b.status==='running'?('RUNNING '+pct+'%'):(b.status||'?').toUpperCase();
+        // live progress bar for the active job (runner writes job.progress 0-100)
+        const bar=b.status==='running'?'<div style="height:3px;background:var(--bg1);border-radius:2px;overflow:hidden;margin-top:3px;width:84px"><div style="height:100%;width:'+pct+'%;background:var(--yellow);transition:width .3s"></div></div>':'';
+        return '<span style="color:'+c+';font-size:var(--fsxs);letter-spacing:1px">'+lbl+'</span>'+bar;};
       const scopeLbl={auto:'Auto-Optimize',walkforward:'Walk-Forward',ai_optimize:'AI optimize',ai_evolve:'AI evolve'};
       const grows=grids.map(b=>{const r=b.result||{};const done=b.status==='done';const ai=b.type==='ai_optimize'||b.type==='ai_evolve';const smart=b.type==='auto'||b.type==='walkforward';const single=!ai&&!smart&&b.type!=='grid';const m=single?r:(r.best||{});const net=done?Math.round((m.total_pnl||0)*(b.mult||20)):0;const sizecell=done?(single?((r.num_trades||0)+'T'):ai?((r.n_rounds||'?')+' rnds'):(r.n_valid+'/'+r.n_combos)):'—';const scope=single?'single':(scopeLbl[b.type]||(b.preset||'').slice(0,16));return '<tr><td>'+gbadge(b)+'</td><td style="font-size:var(--fsxs)">'+(ai?'AI ':'')+stratTag(b.strategy)+'</td><td style="font-size:var(--fsxs)">'+scope+'</td><td style="text-align:right">'+sizecell+'</td><td style="text-align:right">'+(done?Math.min(m.profit_factor||0,99).toFixed(2):'—')+'</td><td style="text-align:right;color:'+(done?(net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(done?fmtUsd(net):'—')+'</td></tr>';}).join('');
       const lastDone=grids.filter(b=>b.status==='done'&&b.result&&b.result.top)[0];
@@ -4264,8 +4270,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="margin-bottom:8px"><label class="lbl">MODE</label><select id="ex-mode"><option value="single">Single backtest</option><option value="grid">Grid sweep</option><option value="auto">Auto-Optimize (smart search)</option><option value="walkforward">Walk-Forward (anchored)</option><option value="ai">AI optimize (free, local)</option><option value="evolve">AI evolve (rewrites code)</option></select></div>'
         +'<div style="margin-bottom:8px"><label class="lbl">STRATEGY</label><select id="ex-strat">'+slist.map(s=>'<option value="'+s.file+'"'+(s.file===curStrat?' selected':'')+'>'+stratInfo(s.file).label+'</option>').join('')+'</select></div>'
         +'<div style="margin-bottom:8px"><label class="lbl">SCOPE</label><select id="ex-preset">'+presets.map(p=>'<option>'+p+'</option>').join('')+'</select></div>'
+        // DATA picker: choose a synced master directly (overrides instrument/TF/session/source
+        // below), or leave "Auto" to resolve by the instrument/TF/session selects.
+        +'<div style="margin-bottom:8px"><label class="lbl">DATA (MASTER)</label><select id="ex-master"><option value="">Auto — by instrument / TF below</option>'+(metaMasters||[]).map((m,i)=>'<option value="'+i+'">'+((m.name||(m.instrument+' '+m.timeframe))+' · '+((m.session||'')+'').toUpperCase()+(m.source?' · '+m.source:'')+' · '+(m.rows||0).toLocaleString()+'r')+'</option>').join('')+'</select>'
+        +((metaMasters||[]).length?'':'<div style="font-size:8px;color:var(--text5);margin-top:3px">start the runner to load masters</div>')+'</div>'
         +'<div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1"><label class="lbl">INSTRUMENT</label><select id="ex-inst"><option'+(APREF.instrument==='ES'?'':' selected')+'>NQ</option><option'+(APREF.instrument==='ES'?' selected':'')+'>ES</option></select></div><div style="flex:1"><label class="lbl">SESSION</label><select id="ex-sess"><option value="rth"'+(APREF.session==='eth'?'':' selected')+'>RTH</option><option value="eth"'+(APREF.session==='eth'?' selected':'')+'>ETH</option></select></div></div>'
         +'<div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1"><label class="lbl">TIMEFRAME</label><select id="ex-tf"><option'+(APREF.timeframe==='1m'?'':' selected')+'>5m</option><option'+(APREF.timeframe==='1m'?' selected':'')+'>1m</option></select></div><div style="flex:1"><label class="lbl">MIN TRADES</label><input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/></div></div>'
+        // optional date-range window over the master (blank => full history)
+        +'<div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1"><label class="lbl">DATE FROM</label><input id="ex-from" type="date" value="'+(APREF.date_from||'')+'"/></div><div style="flex:1"><label class="lbl">DATE TO</label><input id="ex-to" type="date" value="'+(APREF.date_to||'')+'"/></div></div>'
+        // per-run cost realism: commission $/round-trip + slippage points/round-trip -> cost_pts
+        +'<div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1"><label class="lbl">COMMISSION $/RT</label><input id="ex-comm" type="number" step="0.01" value="'+(APREF.comm_usd!=null?APREF.comm_usd:5.66)+'"/></div><div style="flex:1"><label class="lbl">SLIPPAGE pts/RT</label><input id="ex-slip" type="number" step="0.25" value="'+(APREF.slip_pts!=null?APREF.slip_pts:0)+'"/></div></div>'
         +'<div style="margin-bottom:8px"><label class="lbl">VOL FILTER (single mode)</label><input id="ex-vol" type="number" step="0.25" value="1.5"/></div>'
         +'<div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1"><label class="lbl">WORKERS</label><input id="ex-work" type="number" value="'+(APREF.workers||4)+'"/></div><div style="flex:1"><label class="lbl">AI ROUNDS</label><input id="ex-rounds" type="number" value="'+(APREF.rounds||4)+'"/></div></div>'
         +'<div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1"><label class="lbl">TRIALS (auto/WF)</label><input id="ex-trials" type="number" value="'+(APREF.trials||200)+'"/></div><div style="flex:1"><label class="lbl">WF FOLDS (0=auto)</label><input id="ex-folds" type="number" value="0"/></div></div>'
@@ -4511,7 +4525,24 @@ namespace NinjaTrader.NinjaScript.Strategies {
     content.innerHTML=nav+body;
     content.querySelectorAll('[data-asub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.asub;augurRunSel=null;augurLibSel=null;augurLibDel=false;augurLibMsg='';renderApp();};});
     if(augurSub==='launch'){const rb=el('au-run');if(rb)rb.onclick=async()=>{const inst=el('au-inst').value,sess=el('au-sess').value;const job={strategy:el('au-strat').value,instrument:inst,timeframe:el('au-tf').value,session:sess,source:sess==='rth'?'tv':null,params:{vol_filter:parseFloat(el('au-vol').value)||0},cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,mc_sims:1000,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};rb.textContent='QUEUED…';rb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
-    else if(augurSub==='exec'){const ss=el('ex-strat');if(ss)ss.onchange=()=>{augurExecStrat=ss.value;renderApp();};const xb=el('ex-run');if(xb)xb.onclick=async()=>{const inst=el('ex-inst').value,sess=el('ex-sess').value,mode=el('ex-mode').value;savePref('instrument',inst);savePref('session',sess);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);const base={strategy:el('ex-strat').value,instrument:inst,timeframe:el('ex-tf').value,session:sess,source:sess==='rth'?'tv':null,preset:el('ex-preset').value,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};const job=(mode==='single')?Object.assign({},base,{params:{vol_filter:parseFloat(el('ex-vol').value)||0},mc_sims:1000}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,top_n:10,dsr:true,mc_sims:500}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
+    else if(augurSub==='exec'){const ss=el('ex-strat');if(ss)ss.onchange=()=>{augurExecStrat=ss.value;renderApp();};
+      // DATA picker active => instrument/session/TF come from the master; grey out the manual selects.
+      const mm=el('ex-master');if(mm)mm.onchange=()=>{const on=mm.value!=='';['ex-inst','ex-sess','ex-tf'].forEach(id=>{const e=el(id);if(e){e.disabled=on;e.style.opacity=on?'.4':'';}});};
+      const xb=el('ex-run');if(xb)xb.onclick=async()=>{const mode=el('ex-mode').value;
+      // DATA picker overrides instrument/TF/session/source when a master is chosen.
+      const mIdx=el('ex-master').value,mSel=(mIdx!==''&&metaMasters)?metaMasters[+mIdx]:null;
+      const inst=mSel?(mSel.instrument||el('ex-inst').value):el('ex-inst').value;
+      const tf=mSel?(mSel.timeframe||el('ex-tf').value):el('ex-tf').value;
+      const sess=mSel?((mSel.session||'rth')+'').toLowerCase():el('ex-sess').value;
+      const source=mSel?(mSel.source||null):(sess==='rth'?'tv':null);
+      const mult=instMult(inst);
+      // cost_pts = commission $/RT ÷ point-value + slippage pts/RT
+      const comm=parseFloat(el('ex-comm').value);const slip=parseFloat(el('ex-slip').value);
+      const commU=isNaN(comm)?5.66:comm,slipP=isNaN(slip)?0:slip;
+      const costPts=commU/mult+slipP;
+      const dFrom=el('ex-from').value||'',dTo=el('ex-to').value||'';
+      savePref('instrument',el('ex-inst').value);savePref('session',el('ex-sess').value);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);savePref('comm_usd',commU);savePref('slip_pts',slipP);savePref('date_from',dFrom);savePref('date_to',dTo);
+      const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:dTo,preset:el('ex-preset').value,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};const job=(mode==='single')?Object.assign({},base,{params:{vol_filter:parseFloat(el('ex-vol').value)||0},mc_sims:1000}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,top_n:10,dsr:true,mc_sims:500}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='cmp'){const sa=el('cmp-a'),sb=el('cmp-b');if(sa)sa.onchange=()=>{augurCmpA=sa.value;renderApp();};if(sb)sb.onchange=()=>{augurCmpB=sb.value;renderApp();};}
     else if(augurSub==='lib'){
       const ls0=el('lib-listscroll');

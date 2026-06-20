@@ -47,12 +47,16 @@ def process_job(job: dict, progress_cb=None) -> dict:
     """Run one job through the engine; return a result patch to merge back.
     job['type']: 'backtest' (default, single config) or 'grid' (param sweep)."""
     jtype = job.get("type", "backtest")
+    # optional date-range window (YYYY-MM-DD); blank/missing => full master.
+    df_from = job.get("date_from") or None
+    df_to = job.get("date_to") or None
     try:
         if jtype == "grid":
             r = ae.run_grid(
                 job["strategy"], instrument=job.get("instrument"),
                 timeframe=job.get("timeframe", "5m"), session=job.get("session", "rth"),
                 source=job.get("source"), preset=job.get("preset"), grid=job.get("grid"),
+                date_from=df_from, date_to=df_to,
                 cost_pts=float(job.get("cost_pts", 0) or 0),
                 min_trades=int(job.get("min_trades", 30)), top_n=int(job.get("top_n", 10)),
                 workers=int(job.get("workers", 1)), progress_cb=progress_cb,
@@ -65,6 +69,7 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 timeframe=job.get("timeframe", "5m"), session=job.get("session", "rth"),
                 source=job.get("source"),
                 method=("walkforward" if jtype == "walkforward" else "single"),
+                date_from=df_from, date_to=df_to,
                 oos=bool(job.get("oos", True)), wf_folds=int(job.get("wf_folds", 0) or 0),
                 n_trials=int(job.get("n_trials", 200)),
                 cost_pts=float(job.get("cost_pts", 0) or 0),
@@ -84,6 +89,7 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 source=job.get("source"), preset=job.get("preset"), grid=job.get("grid"),
                 n_rounds=int(job.get("n_rounds", 5)), provider=prov, model=job.get("model"),
                 api_key=key, cost_pts=float(job.get("cost_pts", 0) or 0),
+                date_from=df_from, date_to=df_to,
                 min_trades=int(job.get("min_trades", 30)), workers=int(job.get("workers", 1)),
                 progress_cb=progress_cb)
         elif jtype == "ai_evolve":
@@ -95,6 +101,7 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 source=job.get("source"), preset=job.get("preset"), grid=job.get("grid"),
                 n_rounds=int(job.get("n_rounds", 4)), provider=prov, model=job.get("model"),
                 api_key=key, cost_pts=float(job.get("cost_pts", 0) or 0),
+                date_from=df_from, date_to=df_to,
                 min_trades=int(job.get("min_trades", 30)), progress_cb=progress_cb)
         else:
             r = ae.run_backtest(
@@ -102,6 +109,7 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 timeframe=job.get("timeframe", "5m"), session=job.get("session", "rth"),
                 source=job.get("source"), params=job.get("params") or {},
                 cost_pts=float(job.get("cost_pts", 0) or 0),
+                date_from=df_from, date_to=df_to,
                 return_trades=bool(job.get("return_trades")),
                 mc_sims=int(job.get("mc_sims", 0)))
     except Exception as e:
@@ -280,6 +288,12 @@ class FirestoreQueue:
             "top10_results": result.get("top"),
             "equity": result.get("equity"),
             "multiplier": mult,
+            # cost realism + date window so Results/roadmap can show & auto-derive them
+            "commission_usd": job.get("commission_usd"),
+            "slippage_pts": job.get("slippage_pts"),
+            "cost_pts": job.get("cost_pts"),
+            "date_from": job.get("date_from") or result.get("date_from"),
+            "date_to": job.get("date_to") or result.get("date_to"),
             "dsr": result.get("dsr"), "mc": result.get("mc"),
             "regime": result.get("regime"), "neighborhood": result.get("neighborhood"),
             "source_web": True,

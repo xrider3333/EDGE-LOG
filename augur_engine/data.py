@@ -38,13 +38,21 @@ def find_master(instrument, timeframe, session=None, source=None):
     return cand[0] if cand else None
 
 
-def load_master_arrays(master):
+def load_master_arrays(master, date_from=None, date_to=None):
     """Load a master row's CSV -> dict(open,high,low,close,volume,day_id,index,meta).
-    day_id is the ET calendar-day factorization the day_id-aware strategies need."""
+    day_id is the ET calendar-day factorization the day_id-aware strategies need.
+
+    date_from / date_to (YYYY-MM-DD strings or None) slice the master to that ET-date
+    window *before* day_id is factorized, so day_id stays 0-based and contiguous."""
     path = os.path.join(UPLOADS, master["filename"])
     df = pd.read_csv(path)
     dt = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
     df.index = dt
+    if date_from:
+        df = df[df.index >= pd.Timestamp(date_from, tz="US/Eastern")]
+    if date_to:
+        # inclusive of the whole `date_to` calendar day
+        df = df[df.index < pd.Timestamp(date_to, tz="US/Eastern") + pd.Timedelta(days=1)]
     day_id = pd.factorize(pd.Series(df.index).dt.date)[0].astype("int64")
     return {
         "open":  df["open"].values.astype(float),

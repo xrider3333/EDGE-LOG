@@ -44,7 +44,8 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
              preset=None, grid=None, master=None, arrays=None, cost_pts=0.0,
              min_trades=30, top_n=10, workers=1, rank_by="total_pnl", progress_cb=None,
              compute_dsr=False, mc_sims=0, years=None,
-             compute_regime=False, compute_neighbors=False):
+             compute_regime=False, compute_neighbors=False,
+             date_from=None, date_to=None):
     """Exhaustive grid sweep. Returns {n_combos,n_valid,top[...],best_params,best,bars,master}.
 
     Supply either `preset` (a PARAM_GRID_PRESETS label) or `grid` ({param:[values]}).
@@ -60,7 +61,7 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
             master = find_master(instrument, timeframe, session, source)
             if master is None:
                 raise ValueError(f"no master for {instrument} {timeframe} {session} {source}")
-        arrays = load_master_arrays(master)
+        arrays = load_master_arrays(master, date_from=date_from, date_to=date_to)
     O, H, L, C = arrays["open"], arrays["high"], arrays["low"], arrays["close"]
     V = arrays.get("volume")
     did = arrays.get("day_id")

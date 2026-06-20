@@ -2,7 +2,7 @@
 
 Single source of truth for what's done and what's next. `CLAUDE.md` holds durable
 context/conventions and points here; `docs/` holds reference (architecture, go-live).
-Newest/priority items near the top of each section. Status as of **index.html v24.9**.
+Newest/priority items near the top of each section. Status as of **index.html v25.0**.
 
 The big picture (see `docs/EDGELOG_PORT_PLAN.md` for the phased detail): port the entire
 AUGUR optimizer (`optimizer.py`, Streamlit) into the EDGELOG website, with compute on the
@@ -53,9 +53,11 @@ app reaches parity, then is retired. Ship tab-by-tab, version-bumped 0.1 each ch
       should render study JSON (walk-forward studies) — needs runner sync of `augur_research/`.
 - [ ] **Results** — add filters (strategy/instrument/TF/scope), sort, star/favorite, and the
       **Rankings** 0–100 robustness leaderboard.
-- [ ] **Builder** — add CSV/master **picker**, date-range, per-run costs (commission/slippage),
-      and a live progress bar (read the job doc's progress field). *High value now that data
-      is synced — lets you launch runs end-to-end from the web.*
+- [x] **Builder** — DATA (master) picker (overrides instrument/TF/session/source), DATE
+      FROM/TO window, per-run COMMISSION $/RT + SLIPPAGE pts/RT (→ cost_pts), and a live
+      progress bar in the RUNS table. Engine: `load_master_arrays(date_from,date_to)` slices
+      before day_id factorization; threaded through run_backtest/grid/auto/ai_optimize/evolve
+      + runner; cost/date fields persisted to run history. *(v25.0)*
 - [ ] **Compare** — N-way (currently 2-way), grouped bar chart (SVG), parameter rows.
 - [ ] **Settings** — auto-refresh toggles (write-back to Firestore), table density.
 
@@ -98,6 +100,9 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v25.0** Builder §2 parity: DATA master picker, DATE FROM/TO window, COMMISSION+SLIPPAGE
+  cost inputs, live progress bar. Engine date-range slicing in load_master_arrays threaded
+  through all run modes + runner; cost/date persisted to run history.
 - **v24.9** Library: keep scroll on select; document-level arrow-key nav; Sharpe reads
   dsr.winner_sharpe + shows DSR%; walk-forward shows folds-held-OOS.
 - **v24.8** ADD next to DELETE; roadmap moved to its own tile below the split; panes

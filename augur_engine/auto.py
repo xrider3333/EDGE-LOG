@@ -114,7 +114,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
              master=None, arrays=None, cost_pts=0.0, min_trades=30, n_trials=200,
              top_n=10, method="single", oos=True, wf_folds=0, seed=42,
              compute_dsr=False, mc_sims=0, progress_cb=None, years=None,
-             compute_regime=False, compute_neighbors=False):
+             compute_regime=False, compute_neighbors=False,
+             date_from=None, date_to=None):
     """Smart search. Returns the same shape as run_grid plus OOS columns.
 
     method="single" or "walkforward". Returns {mode,n_combos,n_valid,top[...],
@@ -134,7 +135,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
             master = find_master(instrument, timeframe, session, source)
             if master is None:
                 raise ValueError(f"no master for {instrument} {timeframe} {session} {source}")
-        arrays = load_master_arrays(master)
+        arrays = load_master_arrays(master, date_from=date_from, date_to=date_to)
     O, H, L, C = arrays["open"], arrays["high"], arrays["low"], arrays["close"]
     V, did = arrays.get("volume"), arrays.get("day_id")
 

@@ -50,7 +50,8 @@ def _apply_costs(m, cost_pts):
 
 def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
                  source=None, params=None, master=None, arrays=None,
-                 cost_pts=0.0, return_trades=False, mc_sims=0, mc_block=1):
+                 cost_pts=0.0, return_trades=False, mc_sims=0, mc_block=1,
+                 date_from=None, date_to=None):
     """Run one backtest and return the metrics dict (with a "_meta" block).
 
     strategy   : plugin filename ('ORB_SIMPLE_1_0.py'), path, or a loaded module.
@@ -68,7 +69,7 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
                 raise ValueError(
                     f"no master for instrument={instrument} timeframe={timeframe} "
                     f"session={session} source={source}")
-        arrays = load_master_arrays(master)
+        arrays = load_master_arrays(master, date_from=date_from, date_to=date_to)
 
     O, H, L, C = arrays["open"], arrays["high"], arrays["low"], arrays["close"]
     V = arrays.get("volume")
