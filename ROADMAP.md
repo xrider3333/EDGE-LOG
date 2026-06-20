@@ -100,6 +100,11 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v26.3** Walk-Forward validation readout: Builder now shows **Walk-forward efficiency**
+  (OOS return-per-bar ÷ IS return-per-bar) + **fold consistency** (held X/N folds OOS) +
+  OOS net, color-graded. Engine records each fold's train-window length (train_bars) so
+  WFE is computed correctly. First of the validation series (next: rolling WF, lockbox #19).
+- **v26.2** Builder fields size to their width and wrap instead of stretching to fill the row.
 - **v26.1** SCOPE selection survives a strategy switch: the chosen tier (SHORT/MEDIUM/
   LONG/XL/XXL/CUSTOM) is persisted and re-matched against the new strategy's presets
   instead of silently resetting to the first option ("Short").

@@ -199,6 +199,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
             row.update({k: champ.get(k) for k in _METRIC_KEYS})
             row["fold"] = f + 1
             row["test_bars"] = te_e - te_s
+            row["train_bars"] = tr_end   # IS window length (for walk-forward efficiency)
             row["oos_pnl"] = float(om["total_pnl"]) if om else 0.0
             row["oos_trades"] = int(om["num_trades"]) if om else 0
             row["oos_pf"] = float(om.get("profit_factor", 0)) if om else 0.0
