@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='26.7';
+const VERSION='26.8';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4373,9 +4373,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +customTile
         +grpH('COSTS')
         +exrow(fld('COMMISSION $/RT','<input id="ex-comm" type="number" step="0.01" value="'+(APREF.comm_usd!=null?APREF.comm_usd:5.66)+'"/>',140)+fld('SLIPPAGE pts/RT','<input id="ex-slip" type="number" step="0.25" value="'+(APREF.slip_pts!=null?APREF.slip_pts:0)+'"/>',140))
-        +grpH('LOCKBOX · FINAL PRE-DEPLOY GATE')
+        +'<div id="ex-lockbox-group">'+grpH('LOCKBOX · FINAL PRE-DEPLOY GATE')
         +exrow(fld('RESERVE SINCE','<input id="ex-lockbox" type="date" value="'+(APREF.lockbox||'')+'"/>',150)+'<div style="flex:0 1 auto;display:flex;align-items:flex-end"><button class="btn-ghost" id="ex-lockbox-test" style="padding:9px 16px;border:1px solid var(--border);border-radius:10px;font-size:var(--fsxs)">🔒 TEST LAST WINNER ON LOCKBOX</button></div>')
-        +'<div style="font-size:8px;color:var(--text5);margin:-4px 0 8px;max-width:640px">Data on/after this date is reserved — every optimization mode caps its window before it, so it\'s never seen during the search. Once you\'ve settled on a config, test it <b>once</b> here on the untouched slice. A pass it didn\'t earn means it was overfit. You only get to look once.</div>'
+        +'<div style="font-size:8px;color:var(--text5);margin:-4px 0 8px;max-width:640px">Data on/after this date is reserved — every optimization mode caps its window before it, so it\'s never seen during the search. Once you\'ve settled on a config, test it <b>once</b> here on the untouched slice. A pass it didn\'t earn means it was overfit. You only get to look once.</div></div>'
         +'<div style="display:flex;align-items:center;gap:14px;margin-top:6px;border-top:1px solid var(--border);padding-top:12px"><button class="btn-ghost active" id="ex-run" style="flex:0 0 auto;padding:9px 30px">▶ RUN ON MY PC</button><span style="color:var(--text5);font-size:var(--fsxs)">Runs on your PC; progress + results stream into Results history.</span></div>'
         +'</div>'
         +'<div class="lbl" style="margin-bottom:8px">RUNS</div>'
@@ -4670,7 +4670,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('.ex-cu').forEach(i=>i.oninput=()=>{const c=el('ex-cu-count');if(c)c.textContent=cuCount().toLocaleString();});
       const ep=el('ex-preset');if(ep)ep.addEventListener('change',()=>{savePref('scope_tier',scopeTier(ep.value));exApplyCustom();});
       // MODE drives which fields apply — hide the rest (and remember the choice).
-      const em=el('ex-mode');if(em){applyExMode(em.value);exApplyCustom();em.onchange=()=>{savePref('mode',em.value);applyExMode(em.value);exApplyCustom();};}
+      const em=el('ex-mode');if(em){const exSyncMode=()=>{applyExMode(em.value);exApplyCustom();const lg=el('ex-lockbox-group');if(lg)lg.style.display=(em.value==='validate')?'none':'';};exSyncMode();em.onchange=()=>{savePref('mode',em.value);exSyncMode();};}
       // LOCKBOX test: run the most recent winning config as ONE backtest over only the
       // reserved slice (date_from = reserve-since). One look — the final overfit check.
       const lbBtn=el('ex-lockbox-test');if(lbBtn)lbBtn.onclick=async()=>{
