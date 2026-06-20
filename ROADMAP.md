@@ -100,6 +100,10 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v25.2** Builder is mode-aware: each MODE greys out the fields it doesn't feed (SCOPE for
+  single/auto/WF, VOL for non-single, TRIALS for grid/AI, AI ROUNDS+PROVIDER for non-AI,
+  WF FOLDS off walk-forward), matching the engine. MODE choice now persists across reruns.
+  Keeps the split MODE/SCOPE design but removes its only downside (inert active controls).
 - **v25.1** Builder selectors aligned with legacy AUGUR: INSTRUMENT now lists all 12
   (ES/MES/NQ/MNQ/RTY/M2K/YM/MYM/CL/MCL/GC/MGC) in optimizer.py order; TIMEFRAME is the
   standard 1m/5m/15m/30m/1h/1d set. Added MCL/MGC to the point-value map.

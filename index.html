@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='25.1';
+const VERSION='25.2';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4189,6 +4189,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // legacy AUGUR pick-order for the Builder dropdowns
     const INSTORD=['ES','MES','NQ','MNQ','RTY','M2K','YM','MYM','CL','MCL','GC','MGC'];
     const TFORD=['1m','5m','15m','30m','1h','1d'];
+    // which MODE each Builder field actually feeds (matches the engine): used to grey
+    // out fields the current mode ignores, so no inert control is ever left active.
+    const EXFIELDS={'ex-preset':['grid','ai','evolve'],'ex-vol':['single'],
+      'ex-work':['grid','ai','evolve'],'ex-rounds':['ai','evolve'],'ex-prov':['ai','evolve'],
+      'ex-trials':['auto','walkforward'],'ex-folds':['walkforward'],
+      'ex-mint':['grid','auto','walkforward','ai','evolve']};
+    const applyExMode=m=>{Object.keys(EXFIELDS).forEach(id=>{const e=el(id);if(!e)return;const on=EXFIELDS[id].indexOf(m)>=0;e.disabled=!on;const w=e.closest('div');if(w)w.style.opacity=on?'':'0.4';});};
     const instColor=i=>INSTC[String(i||'').toUpperCase().trim()]||'hsl('+_hashHue(String(i||''))+',45%,62%)';
     const instTag=i=>'<span style="color:'+instColor(i)+';font-weight:600">'+(i||'')+'</span>';
     const AICON={runs:'▦',exec:'▸',lib:'◫',cmp:'◧',ref:'◈',research:'◎',set:'◆'};
@@ -4271,7 +4278,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       body='<div style="display:grid;grid-template-columns:280px 1fr;gap:16px">'
         +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;align-self:start">'
         +'<div class="lbl" style="margin-bottom:10px">RUN OPTIMIZATION</div>'
-        +'<div style="margin-bottom:8px"><label class="lbl">MODE</label><select id="ex-mode"><option value="single">Single backtest</option><option value="grid">Grid sweep</option><option value="auto">Auto-Optimize (smart search)</option><option value="walkforward">Walk-Forward (anchored)</option><option value="ai">AI optimize (free, local)</option><option value="evolve">AI evolve (rewrites code)</option></select></div>'
+        +'<div style="margin-bottom:8px"><label class="lbl">MODE</label><select id="ex-mode">'+[['single','Single backtest'],['grid','Grid sweep'],['auto','Auto-Optimize (smart search)'],['walkforward','Walk-Forward (anchored)'],['ai','AI optimize (free, local)'],['evolve','AI evolve (rewrites code)']].map(o=>'<option value="'+o[0]+'"'+(o[0]===(APREF.mode||'single')?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></div>'
         +'<div style="margin-bottom:8px"><label class="lbl">STRATEGY</label><select id="ex-strat">'+slist.map(s=>'<option value="'+s.file+'"'+(s.file===curStrat?' selected':'')+'>'+stratInfo(s.file).label+'</option>').join('')+'</select></div>'
         +'<div style="margin-bottom:8px"><label class="lbl">SCOPE</label><select id="ex-preset">'+presets.map(p=>'<option>'+p+'</option>').join('')+'</select></div>'
         // DATA picker: choose a synced master directly (overrides instrument/TF/session/source
@@ -4532,6 +4539,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
     else if(augurSub==='exec'){const ss=el('ex-strat');if(ss)ss.onchange=()=>{augurExecStrat=ss.value;renderApp();};
       // DATA picker active => instrument/session/TF come from the master; grey out the manual selects.
       const mm=el('ex-master');if(mm)mm.onchange=()=>{const on=mm.value!=='';['ex-inst','ex-sess','ex-tf'].forEach(id=>{const e=el(id);if(e){e.disabled=on;e.style.opacity=on?'.4':'';}});};
+      // MODE drives which fields apply — grey out the rest (and remember the choice).
+      const em=el('ex-mode');if(em){applyExMode(em.value);em.onchange=()=>{savePref('mode',em.value);applyExMode(em.value);};}
       const xb=el('ex-run');if(xb)xb.onclick=async()=>{const mode=el('ex-mode').value;
       // DATA picker overrides instrument/TF/session/source when a master is chosen.
       const mIdx=el('ex-master').value,mSel=(mIdx!==''&&metaMasters)?metaMasters[+mIdx]:null;
@@ -4545,7 +4554,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const commU=isNaN(comm)?5.66:comm,slipP=isNaN(slip)?0:slip;
       const costPts=commU/mult+slipP;
       const dFrom=el('ex-from').value||'',dTo=el('ex-to').value||'';
-      savePref('instrument',el('ex-inst').value);savePref('session',el('ex-sess').value);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);savePref('comm_usd',commU);savePref('slip_pts',slipP);savePref('date_from',dFrom);savePref('date_to',dTo);
+      savePref('mode',mode);savePref('instrument',el('ex-inst').value);savePref('session',el('ex-sess').value);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);savePref('comm_usd',commU);savePref('slip_pts',slipP);savePref('date_from',dFrom);savePref('date_to',dTo);
       const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:dTo,preset:el('ex-preset').value,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};const job=(mode==='single')?Object.assign({},base,{params:{vol_filter:parseFloat(el('ex-vol').value)||0},mc_sims:1000}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,top_n:10,dsr:true,mc_sims:500}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='cmp'){const sa=el('cmp-a'),sb=el('cmp-b');if(sa)sa.onchange=()=>{augurCmpA=sa.value;renderApp();};if(sb)sb.onchange=()=>{augurCmpB=sb.value;renderApp();};}
     else if(augurSub==='lib'){
