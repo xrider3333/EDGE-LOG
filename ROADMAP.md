@@ -100,6 +100,10 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v25.5** Builder top row is DATA & STRATEGY (Strategy · Instrument · TF · Session ·
+  CSV · Date From · Date To, dates via native calendar dropdown); MODE moved to the
+  second row (Run mode · search params); COSTS on a third row. Removed the hardcoded
+  single-mode VOL FILTER — single backtests now run the strategy's own DEFAULT_PARAMS.
 - **v25.4** Builder data flow inverted to legacy order: MODE · STRATEGY · INSTRUMENT ·
   TIMEFRAME · SESSION · CSV FILE, where the CSV picker only lists masters matching the
   chosen instrument/TF/session (repopulates live on change). Selections drive the run;

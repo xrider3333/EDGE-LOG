@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='25.4';
+const VERSION='25.5';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4194,7 +4194,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const masterOptsHtml=(inst,tf,sess)=>{const ms=(metaMasters||[]).map((m,i)=>({m:m,i:i})).filter(o=>String(o.m.instrument)===String(inst)&&String(o.m.timeframe)===String(tf)&&(!o.m.session||!sess||String(o.m.session).toLowerCase()===String(sess).toLowerCase()));return '<option value="">'+(ms.length?('Auto — best match ('+ms.length+')'):'— no matching CSV —')+'</option>'+ms.map(o=>'<option value="'+o.i+'">'+((o.m.name||(o.m.instrument+' '+o.m.timeframe))+' · '+(o.m.source||'')+' · '+(o.m.rows||0).toLocaleString()+'r')+'</option>').join('');};
     // which MODE each Builder field actually feeds (matches the engine): used to grey
     // out fields the current mode ignores, so no inert control is ever left active.
-    const EXFIELDS={'ex-preset':['grid','ai','evolve'],'ex-vol':['single'],
+    const EXFIELDS={'ex-preset':['grid','ai','evolve'],
       'ex-work':['grid','ai','evolve'],'ex-rounds':['ai','evolve'],'ex-prov':['ai','evolve'],
       'ex-trials':['auto','walkforward'],'ex-folds':['walkforward'],
       'ex-mint':['grid','auto','walkforward','ai','evolve']};
@@ -4294,12 +4294,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const c_preset='<select id="ex-preset">'+presets.map(p=>'<option>'+p+'</option>').join('')+'</select>';
       const c_prov='<select id="ex-prov"><option value="ollama"'+(APREF.provider&&APREF.provider!=='ollama'?'':' selected')+'>Ollama · qwen3.6 (free)</option><option value="claude-cli"'+(APREF.provider==='claude-cli'?' selected':'')+'>Claude CLI</option><option value="anthropic"'+(APREF.provider==='anthropic'?' selected':'')+'>Anthropic API</option></select>';
       body='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px">'
-        +'<div class="lbl" style="margin-bottom:10px">BUILD A BACKTEST</div>'
-        +exrow(fld('MODE',c_mode,180)+fld('STRATEGY',c_strat,190)+fld('INSTRUMENT',c_inst,110)+fld('TIMEFRAME',c_tf,100)+fld('SESSION',c_sess,100)+fld('CSV FILE',c_master,210))
-        +grpH('DATA WINDOW · COSTS')
-        +exrow(fld('DATE FROM','<input id="ex-from" type="date" value="'+(APREF.date_from||'')+'"/>',150)+fld('DATE TO','<input id="ex-to" type="date" value="'+(APREF.date_to||'')+'"/>',150)+fld('COMMISSION $/RT','<input id="ex-comm" type="number" step="0.01" value="'+(APREF.comm_usd!=null?APREF.comm_usd:5.66)+'"/>',130)+fld('SLIPPAGE pts/RT','<input id="ex-slip" type="number" step="0.25" value="'+(APREF.slip_pts!=null?APREF.slip_pts:0)+'"/>',130)+fld('MIN TRADES','<input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/>',110))
-        +grpH('SEARCH PARAMS')
-        +exrow(fld('SCOPE',c_preset,200)+fld('VOL FILTER','<input id="ex-vol" type="number" step="0.25" value="1.5"/>',110)+fld('WORKERS','<input id="ex-work" type="number" value="'+(APREF.workers||4)+'"/>',90)+fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||200)+'"/>',90)+fld('WF FOLDS','<input id="ex-folds" type="number" value="0"/>',90)+fld('AI ROUNDS','<input id="ex-rounds" type="number" value="'+(APREF.rounds||4)+'"/>',90)+fld('AI PROVIDER',c_prov,170))
+        +'<div class="lbl" style="margin-bottom:10px">DATA &amp; STRATEGY</div>'
+        +exrow(fld('STRATEGY',c_strat,190)+fld('INSTRUMENT',c_inst,110)+fld('TIMEFRAME',c_tf,100)+fld('SESSION',c_sess,100)+fld('CSV FILE',c_master,200)+fld('DATE FROM','<input id="ex-from" type="date" value="'+(APREF.date_from||'')+'"/>',140)+fld('DATE TO','<input id="ex-to" type="date" value="'+(APREF.date_to||'')+'"/>',140))
+        +grpH('RUN MODE · SEARCH PARAMS')
+        +exrow(fld('MODE',c_mode,190)+fld('SCOPE',c_preset,190)+fld('MIN TRADES','<input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/>',100)+fld('WORKERS','<input id="ex-work" type="number" value="'+(APREF.workers||4)+'"/>',90)+fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||200)+'"/>',90)+fld('WF FOLDS','<input id="ex-folds" type="number" value="0"/>',90)+fld('AI ROUNDS','<input id="ex-rounds" type="number" value="'+(APREF.rounds||4)+'"/>',90)+fld('AI PROVIDER',c_prov,170))
+        +grpH('COSTS')
+        +exrow(fld('COMMISSION $/RT','<input id="ex-comm" type="number" step="0.01" value="'+(APREF.comm_usd!=null?APREF.comm_usd:5.66)+'"/>',140)+fld('SLIPPAGE pts/RT','<input id="ex-slip" type="number" step="0.25" value="'+(APREF.slip_pts!=null?APREF.slip_pts:0)+'"/>',140))
         +'<div style="display:flex;align-items:center;gap:14px;margin-top:6px;border-top:1px solid var(--border);padding-top:12px"><button class="btn-ghost active" id="ex-run" style="flex:0 0 auto;padding:9px 30px">▶ RUN ON MY PC</button><span style="color:var(--text5);font-size:var(--fsxs)">Runs on your PC; progress + results stream into Results history.</span></div>'
         +'</div>'
         +'<div class="lbl" style="margin-bottom:8px">RUNS</div>'
@@ -4559,7 +4559,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const costPts=commU/mult+slipP;
       const dFrom=el('ex-from').value||'',dTo=el('ex-to').value||'';
       savePref('mode',mode);savePref('instrument',el('ex-inst').value);savePref('session',el('ex-sess').value);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);savePref('comm_usd',commU);savePref('slip_pts',slipP);savePref('date_from',dFrom);savePref('date_to',dTo);
-      const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:dTo,preset:el('ex-preset').value,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};const job=(mode==='single')?Object.assign({},base,{params:{vol_filter:parseFloat(el('ex-vol').value)||0},mc_sims:1000}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,top_n:10,dsr:true,mc_sims:500}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
+      const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:dTo,preset:el('ex-preset').value,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};const job=(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,top_n:10,dsr:true,mc_sims:500}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='cmp'){const sa=el('cmp-a'),sb=el('cmp-b');if(sa)sa.onchange=()=>{augurCmpA=sa.value;renderApp();};if(sb)sb.onchange=()=>{augurCmpB=sb.value;renderApp();};}
     else if(augurSub==='lib'){
       const ls0=el('lib-listscroll');
