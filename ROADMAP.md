@@ -100,6 +100,9 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v26.1** SCOPE selection survives a strategy switch: the chosen tier (SHORT/MEDIUM/
+  LONG/XL/XXL/CUSTOM) is persisted and re-matched against the new strategy's presets
+  instead of silently resetting to the first option ("Short").
 - **v26.0** CUSTOM scope restricted to Grid sweep (it's an exhaustive-grid concept). AI
   optimize/evolve explore params themselves — the preset only seeds round 1 — so the CUSTOM
   option is disabled in non-grid modes and falls back to a real preset if left selected.

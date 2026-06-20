@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='26.0';
+const VERSION='26.1';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4189,6 +4189,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // legacy AUGUR pick-order for the Builder dropdowns
     const INSTORD=['ES','MES','NQ','MNQ','RTY','M2K','YM','MYM','CL','MCL','GC','MGC'];
     const TFORD=['1m','5m','15m','30m','1h','1d'];
+    // SCOPE tier = first word of the preset label (SHORT/MEDIUM/LONG/XL/XXL) or CUSTOM.
+    // Persisting the tier (not the full label) lets the pick survive a strategy switch
+    // even when strategies word their preset suffixes differently (legacy AUGUR lesson).
+    const scopeTier=lbl=>(lbl==='CUSTOM')?'CUSTOM':String(lbl||'').trim().split(/\s+/)[0].toUpperCase();
     // CSV/master <option>s filtered to the chosen instrument+TF+session (legacy flow:
     // the data picker only shows what the upstream selections make applicable).
     const _exFmtD=s=>{if(!s)return '';const d=new Date(s+'T00:00');return isNaN(d.getTime())?'':d.toLocaleDateString(undefined,{month:'short',day:'2-digit',year:'2-digit'});};
@@ -4293,7 +4297,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const c_inst='<select id="ex-inst">'+INSTORD.map(k=>'<option'+(k===(APREF.instrument||'NQ')?' selected':'')+'>'+k+'</option>').join('')+'</select>';
       const c_tf='<select id="ex-tf">'+TFORD.map(k=>'<option'+(k===(APREF.timeframe||'5m')?' selected':'')+'>'+k+'</option>').join('')+'</select>';
       const c_sess='<select id="ex-sess"><option value="rth"'+(APREF.session==='eth'?'':' selected')+'>RTH</option><option value="eth"'+(APREF.session==='eth'?' selected':'')+'>ETH</option></select>';
-      const c_preset='<select id="ex-preset">'+presets.map(p=>'<option>'+p+'</option>').join('')+'<option value="CUSTOM">◆ CUSTOM — set ranges</option></select>';
+      const _wantTier=APREF.scope_tier||'';
+      const _selPreset=presets.find(p=>scopeTier(p)===_wantTier);
+      const c_preset='<select id="ex-preset">'+presets.map(p=>'<option'+(p===_selPreset?' selected':'')+'>'+p+'</option>').join('')+'<option value="CUSTOM"'+(_wantTier==='CUSTOM'?' selected':'')+'>◆ CUSTOM — set ranges</option></select>';
       const c_prov='<select id="ex-prov"><option value="ollama"'+(APREF.provider&&APREF.provider!=='ollama'?'':' selected')+'>Ollama · qwen3.6 (free)</option><option value="claude-cli"'+(APREF.provider==='claude-cli'?' selected':'')+'>Claude CLI</option><option value="anthropic"'+(APREF.provider==='anthropic'?' selected':'')+'>Anthropic API</option></select>';
       // iOS-glass treatment: section class picks up the active theme's glass bg/blur;
       // scoped style rounds the controls (pill inputs/selects) for the iOS minimalist look.
@@ -4618,7 +4624,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // non-grid mode, fall back to the first real preset so nothing invalid is queued.
       const exApplyCustom=()=>{const ct=el('ex-custom'),ep=el('ex-preset');if(!ct||!ep)return;const isGrid=el('ex-mode').value==='grid';const co=[].find.call(ep.options,o=>o.value==='CUSTOM');if(co)co.disabled=!isGrid;if(!isGrid&&ep.value==='CUSTOM'){ep.selectedIndex=0;}const show=isGrid&&ep.value==='CUSTOM';ct.style.display=show?'':'none';if(show){const c=el('ex-cu-count');if(c)c.textContent=cuCount().toLocaleString();}};
       content.querySelectorAll('.ex-cu').forEach(i=>i.oninput=()=>{const c=el('ex-cu-count');if(c)c.textContent=cuCount().toLocaleString();});
-      const ep=el('ex-preset');if(ep)ep.addEventListener('change',exApplyCustom);
+      const ep=el('ex-preset');if(ep)ep.addEventListener('change',()=>{savePref('scope_tier',scopeTier(ep.value));exApplyCustom();});
       // MODE drives which fields apply — hide the rest (and remember the choice).
       const em=el('ex-mode');if(em){applyExMode(em.value);exApplyCustom();em.onchange=()=>{savePref('mode',em.value);applyExMode(em.value);exApplyCustom();};}
       const xb=el('ex-run');if(xb)xb.onclick=async()=>{const mode=el('ex-mode').value;
