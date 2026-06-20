@@ -29,7 +29,8 @@ _LIST_COLS = ("id,timestamp,strategy,instrument,timeframe,scope,data_source,sour
 
 
 def list_runs(limit=None):
-    """All runs as trimmed dicts, newest first (no large blobs)."""
+    """All runs as trimmed dicts, newest first (no large blobs). Returns [] if the
+    history DB hasn't been initialized yet (no `runs` table — e.g. a fresh copy)."""
     q = f"SELECT {_LIST_COLS} FROM runs ORDER BY id DESC"
     if limit:
         q += f" LIMIT {int(limit)}"
@@ -38,6 +39,10 @@ def list_runs(limit=None):
         cur = conn.execute(q)
         cols = [d[0] for d in cur.description]
         return [dict(zip(cols, row)) for row in cur.fetchall()]
+    except sqlite3.OperationalError as e:
+        if "no such table" in str(e).lower():
+            return []
+        raise
     finally:
         conn.close()
 
