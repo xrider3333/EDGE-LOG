@@ -100,6 +100,9 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v25.6** Builder tile now uses the themed `section` class (picks up the active iOS-glass
+  theme's bg/blur) + scoped pill-rounded controls; DATE FROM/TO combined into one DATE
+  RANGE cell (from → to).
 - **v25.5** Builder top row is DATA & STRATEGY (Strategy · Instrument · TF · Session ·
   CSV · Date From · Date To, dates via native calendar dropdown); MODE moved to the
   second row (Run mode · search params); COSTS on a third row. Removed the hardcoded

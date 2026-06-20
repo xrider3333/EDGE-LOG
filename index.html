@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='25.5';
+const VERSION='25.6';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4293,9 +4293,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const c_sess='<select id="ex-sess"><option value="rth"'+(APREF.session==='eth'?'':' selected')+'>RTH</option><option value="eth"'+(APREF.session==='eth'?' selected':'')+'>ETH</option></select>';
       const c_preset='<select id="ex-preset">'+presets.map(p=>'<option>'+p+'</option>').join('')+'</select>';
       const c_prov='<select id="ex-prov"><option value="ollama"'+(APREF.provider&&APREF.provider!=='ollama'?'':' selected')+'>Ollama · qwen3.6 (free)</option><option value="claude-cli"'+(APREF.provider==='claude-cli'?' selected':'')+'>Claude CLI</option><option value="anthropic"'+(APREF.provider==='anthropic'?' selected':'')+'>Anthropic API</option></select>';
-      body='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px">'
+      // iOS-glass treatment: section class picks up the active theme's glass bg/blur;
+      // scoped style rounds the controls (pill inputs/selects) for the iOS minimalist look.
+      const exStyle='<style>.ex-build{border-radius:16px;padding:15px 17px;margin-bottom:14px}'
+        +'.ex-build select,.ex-build input{border-radius:10px;padding:9px 11px}'
+        +'.ex-build select:hover,.ex-build input:hover{border-color:color-mix(in srgb,var(--text5) 60%,transparent)}'
+        +'.ex-build .lbl{margin-bottom:5px;display:block}'
+        +'.ex-daterange{display:flex;gap:6px;align-items:center}.ex-daterange input{flex:1;min-width:0}</style>';
+      const c_dates='<div class="ex-daterange"><input id="ex-from" type="date" value="'+(APREF.date_from||'')+'"/><span style="color:var(--text5);flex:0 0 auto">→</span><input id="ex-to" type="date" value="'+(APREF.date_to||'')+'"/></div>';
+      body=exStyle+'<div class="section ex-build">'
         +'<div class="lbl" style="margin-bottom:10px">DATA &amp; STRATEGY</div>'
-        +exrow(fld('STRATEGY',c_strat,190)+fld('INSTRUMENT',c_inst,110)+fld('TIMEFRAME',c_tf,100)+fld('SESSION',c_sess,100)+fld('CSV FILE',c_master,200)+fld('DATE FROM','<input id="ex-from" type="date" value="'+(APREF.date_from||'')+'"/>',140)+fld('DATE TO','<input id="ex-to" type="date" value="'+(APREF.date_to||'')+'"/>',140))
+        +exrow(fld('STRATEGY',c_strat,190)+fld('INSTRUMENT',c_inst,110)+fld('TIMEFRAME',c_tf,100)+fld('SESSION',c_sess,100)+fld('CSV FILE',c_master,200)+fld('DATE RANGE',c_dates,230))
         +grpH('RUN MODE · SEARCH PARAMS')
         +exrow(fld('MODE',c_mode,190)+fld('SCOPE',c_preset,190)+fld('MIN TRADES','<input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/>',100)+fld('WORKERS','<input id="ex-work" type="number" value="'+(APREF.workers||4)+'"/>',90)+fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||200)+'"/>',90)+fld('WF FOLDS','<input id="ex-folds" type="number" value="0"/>',90)+fld('AI ROUNDS','<input id="ex-rounds" type="number" value="'+(APREF.rounds||4)+'"/>',90)+fld('AI PROVIDER',c_prov,170))
         +grpH('COSTS')
