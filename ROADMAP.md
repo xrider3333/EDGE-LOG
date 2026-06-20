@@ -100,6 +100,9 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v25.8** Date-range calendar no longer closes when picking a day or changing month
+  (popover clicks no longer bubble to the outside-close handler); added «/» quick
+  year jump alongside ‹/› month nav.
 - **v25.7** Builder DATE RANGE is now a single pill opening one bounded month-view calendar
   (click start then end, like legacy AUGUR); bounds to the selected CSV's span. Mode-aware
   fields are now HIDDEN (not just dimmed) when the current mode ignores them — no AI ROUNDS

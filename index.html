@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='25.7';
+const VERSION='25.8';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4575,6 +4575,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       ['ex-inst','ex-tf','ex-sess'].forEach(id=>{const e=el(id);if(e)e.addEventListener('change',repopMaster);});
       // ── Bounded single-calendar date-range picker (legacy AUGUR feel) ──
       (function(){const btn=el('ex-dr-btn'),pop=el('ex-dr-pop');if(!btn||!pop)return;
+        // keep interactions inside the popover from bubbling to the outside-close handler
+        // (draw() rebuilds innerHTML, detaching the clicked node — contains() would misfire).
+        pop.addEventListener('click',e=>e.stopPropagation());
         let a=APREF.date_from||'',b=APREF.date_to||'',anchor=null,lo='',hi='',view=new Date();
         const ymd=(y,m,d)=>y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
         const label=()=>(a||b)?((a?_exFmtD(a):'start')+' → '+(b?_exFmtD(b):'end')):'All dates';
@@ -4582,7 +4585,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const onDay=ds=>{if(anchor===null){anchor=ds;setRange(ds,ds);}else{let x=anchor,z=ds;if(x>z){const t=x;x=z;z=t;}anchor=null;setRange(x,z);}draw();};
         const MON=['January','February','March','April','May','June','July','August','September','October','November','December'];
         function draw(){const y=view.getFullYear(),m=view.getMonth(),sd=new Date(y,m,1).getDay(),nd=new Date(y,m+1,0).getDate();
-          let h='<div class="ex-cal-hd"><button type="button" data-nav="-1">‹</button><span>'+MON[m]+' '+y+'</span><button type="button" data-nav="1">›</button></div><div class="ex-cal-grid">';
+          let h='<div class="ex-cal-hd"><span style="display:flex;gap:1px"><button type="button" data-nav="-12" title="prev year">«</button><button type="button" data-nav="-1" title="prev month">‹</button></span><span>'+MON[m]+' '+y+'</span><span style="display:flex;gap:1px"><button type="button" data-nav="1" title="next month">›</button><button type="button" data-nav="12" title="next year">»</button></span></div><div class="ex-cal-grid">';
           ['S','M','T','W','T','F','S'].forEach(d=>h+='<span class="ex-cal-dow">'+d+'</span>');
           for(let i=0;i<sd;i++)h+='<span></span>';
           for(let d=1;d<=nd;d++){const ds=ymd(y,m,d),inR=a&&b&&ds>=a&&ds<=b,end=(ds===a||ds===b),dis=(lo&&ds<lo)||(hi&&ds>hi);h+='<button type="button" class="ex-cal-day'+(end?' sel':'')+(inR&&!end?' rng':'')+'" data-day="'+ds+'"'+(dis?' disabled':'')+'>'+d+'</button>';}
