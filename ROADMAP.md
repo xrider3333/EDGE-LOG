@@ -14,21 +14,34 @@ app reaches parity, then is retired. Ship tab-by-tab, version-bumped 0.1 each ch
 ## 0. Infra / data consolidation (loose ends)
 - [ ] **Retire the duplicate AUGUR desktop folder.** EDGE-LOG is now the complete copy
       (serviceAccount.json + optimizer_history.db [112 runs] + augur_uploads [25 CSVs] +
-      augur_config.json with model numbers + migrated ORB roadmap). The AUGUR folder has an
-      *older* runner.py — stop running it to avoid confusion. Confirm a clean runner start,
-      then archive/ignore AUGUR.
-- [ ] **Audit `pine/` parity** in EDGE-LOG (DB + uploads were copied; `.pine` files for the
-      Download/Pine flow not yet verified).
+      augur_config.json with model numbers + migrated ORB roadmap + pine/ [22 files]). The
+      AUGUR folder has an *older* runner.py and a stale `run_augur_runner.bat` whose cred
+      points at `C:\Users\xride\Downloads\edge-tracker-…json` — kill that .bat so EDGE-LOG's
+      launcher (cred = local `serviceAccount.json`) is the only one. Confirm a clean runner
+      start, then archive/ignore AUGUR.
+- [x] **`pine/` parity** — copied the 12 AI-generated (qwen) `.pine` files that existed only
+      in AUGUR (ENGU_1_2_1, ENGU_1_3_4, ORB_1_0/2_0, OVERNIGHT_HOLD_1_0, REVERT_1_0/1_1/1_2,
+      RF_ML_1_0, SUPERTREND_1_0/2_0, VWAP_FADE_2_0) into EDGE-LOG/pine. They are unreviewed —
+      use the site's Review-with-Claude flow before trusting any for live.
 - [ ] **Package the runner as a desktop app** (PyInstaller → `AugurRunner.exe`): tray icon,
       auto-start with Windows, connected/disconnected dot, pause/quit menu — kills the
       `.bat` + console friction. Optional later: PWA "install" of the site.
 
 ## 1. Library tab — open
+- [ ] **Keyless-AI decision for Pine (open)** — `make_pine`/`review_pine` currently call the
+      AI provider directly (qwen/claude-cli/anthropic), which contradicts AUGUR's keyless-AI
+      doctrine (file-handoff through the Claude Code session, no direct paid-CLI spend).
+      Decide: keep direct-CLI, or convert Pine generation/review to true file-handoff.
+      Provider cost model as shipped: **qwen = free/local**, **claude-cli (Review/Regenerate)
+      = spends Claude credits**, **anthropic = API key from local augur_config.json only**
+      (the credit-spend surprise that drove v24.1's qwen default).
 - [ ] **Per-master actions** — masters pane is read-only; add select → toggle auto-pull
       (writes augur_config `autorefresh.masters[key]`) + delete master.
 - [ ] **Multi-instrument master pull** — "+ PULL MASTER" picker for GC/YM/CL/RTY/etc.
       (instruments already in optimizer.INSTRUMENTS); needs a `pull_master
       {instrument,timeframe,session}` runner command (initial Yahoo pull → save_master_csv).
+      **Data ceiling:** Yahoo is OHLCV-only — no Time & Sales / tick / order-flow, and only
+      ~recent intraday history. Intraday T&S is a Databento-only (paid) path (see #23).
 - [ ] **Expand a strategy** to view its params / preset tiers (today: just a SCOPES count).
 - [ ] **Auto-detect instrument from CSV filename/symbol** on upload (was AUGUR TODO #10).
 

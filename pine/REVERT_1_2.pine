@@ -1,0 +1,23 @@
+//@version=5
+strategy("REVERT 1.2 · mean-reversion + time-of-day window (scaffold)", overlay=true, default_qty_type=strategy.fixed, default_qty_value=1)
+
+mean_len = input.int(20, "Mean EMA length")
+atr_len = input.int(14, "ATR length")
+ext_mult = input.float(1.5, "Stretch trigger (x ATR)")
+trade_mode = input.string("Both", "Direction")
+bias_mode = input.string("prior_close", "Daily bias (core)")
+use_tod = input.bool(true, "Time-of-day window")
+tod_lo = input.float(0.2, "Skip first … of session")
+tod_hi = input.float(0.85, "Stop entries after …")
+exit_to_mean = input.bool(true, "Target = the mean")
+tp_mult = input.float(1.5, "Target (x ATR)")
+stop_mult = input.float(1.5, "Stop (x ATR)")
+trail_stop = input.bool(false, "Trailing stop")
+cooldown_bars = input.int(0, "Post-loss cooldown (bars)")
+flat_eod = input.bool(true, "Flat by session close")
+
+// TODO: port entry/exit logic from the Python run_backtest().
+// This scaffold only exposes the parameters as inputs.
+// longCond = ...
+// if longCond
+//     strategy.entry("L", strategy.long)

@@ -1,0 +1,18 @@
+//@version=5
+strategy("VWAP FADE 2.0 · regime-aware VWAP fade (scaffold)", overlay=true, default_qty_type=strategy.fixed, default_qty_value=1)
+
+band_mult = input.float(2.0, "Stretch trigger (x VWAP σ)")
+stop_mult = input.float(2.5, "Stop (x VWAP σ)")
+regime_mode = input.string("with_trend", "Regime gate")
+regime_len = input.int(120, "Trend MA length (bars)")
+warmup_bars = input.int(6, "Warmup (bars into session)")
+max_hold = input.int(0, "Max hold (bars, 0=off)")
+trade_mode = input.string("Both", "Direction cap")
+cooldown_bars = input.int(0, "Post-loss cooldown (bars)")
+flat_eod = input.bool(true, "Flat by session close")
+
+// TODO: port entry/exit logic from the Python run_backtest().
+// This scaffold only exposes the parameters as inputs.
+// longCond = ...
+// if longCond
+//     strategy.entry("L", strategy.long)

@@ -1,0 +1,13 @@
+//@version=5
+strategy("SUPERTREND 1.0 · trend-following (lighter) (scaffold)", overlay=true, default_qty_type=strategy.fixed, default_qty_value=1)
+
+atr_period = input.int(10, "ATR Period")
+multiplier = input.float(3.5, "SuperTrend Multiplier")
+ema_len = input.int(200, "EMA Length (Optional Filter)")
+use_ema_filter = input.bool(true, "Use EMA Trend Filter")
+
+// TODO: port entry/exit logic from the Python run_backtest().
+// This scaffold only exposes the parameters as inputs.
+// longCond = ...
+// if longCond
+//     strategy.entry("L", strategy.long)

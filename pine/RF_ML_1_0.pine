@@ -1,0 +1,24 @@
+//@version=5
+strategy("RF ML 1.0 · random-forest direction (scaffold)", overlay=true, default_qty_type=strategy.fixed, default_qty_value=1)
+
+probThreshold = input.float(0.6, "Signal probability threshold")
+atrMultTP = input.float(2.0, "Take-profit (x ATR)")
+atrMultSL = input.float(2.0, "Stop-loss (x ATR)")
+maxHold = input.int(20, "Max hold / expiry (bars)")
+lookback = input.int(60, "Training window (bars)")
+numTrees = input.int(30, "Number of trees (stumps)")
+signalCooldown = input.int(10, "Cooldown between signals (bars)")
+anchorType = input.string("RSI", "Anchor oscillator")
+anchorLen = input.int(14, "Anchor length")
+trendLen = input.int(20, "Trend-correlation length")
+momLen = input.int(10, "Momentum / ATR length")
+tpSlLen = input.int(14, "ATR length for TP/SL")
+trade_mode = input.string("Both", "Direction")
+retrain_every = input.int(3, "Retrain cadence (bars)")
+seed = input.int(42, "RNG seed")
+
+// TODO: port entry/exit logic from the Python run_backtest().
+// This scaffold only exposes the parameters as inputs.
+// longCond = ...
+// if longCond
+//     strategy.entry("L", strategy.long)

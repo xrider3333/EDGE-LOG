@@ -1,0 +1,23 @@
+//@version=5
+strategy("REVERT 1.1 · mean-reversion + regime filter (scaffold)", overlay=true, default_qty_type=strategy.fixed, default_qty_value=1)
+
+mean_len = input.int(20, "Mean EMA length")
+atr_len = input.int(14, "ATR length")
+ext_mult = input.float(1.5, "Stretch trigger (x ATR)")
+trade_mode = input.string("Both", "Direction")
+bias_mode = input.string("prior_close", "Daily bias (core)")
+exit_to_mean = input.bool(true, "Target = the mean")
+tp_mult = input.float(1.5, "Target (x ATR)")
+stop_mult = input.float(1.5, "Stop (x ATR)")
+trail_stop = input.bool(false, "Trailing stop")
+cooldown_bars = input.int(0, "Post-loss cooldown (bars)")
+flat_eod = input.bool(true, "Flat by session close")
+use_regime = input.bool(false, "Regime filter (don't fade trends)")
+regime_lb = input.int(30, "Regime lookback")
+regime_max_er = input.float(0.4, "Max efficiency ratio to fade")
+
+// TODO: port entry/exit logic from the Python run_backtest().
+// This scaffold only exposes the parameters as inputs.
+// longCond = ...
+// if longCond
+//     strategy.entry("L", strategy.long)

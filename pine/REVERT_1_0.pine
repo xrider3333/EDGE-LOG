@@ -1,0 +1,106 @@
+script
+//@version=5
+// REVERT 1.0 â€” intraday mean-reversion, faded WITH the daily bias (anti-ENGU).
+// Port of the AUGUR Python plugin. Entries fill on bar close (process_orders_on_close),
+// stop/target fill intrabar at their levels on subsequent bars â€” mirroring the engine.
+strategy("REVERT 1.0 Â· mean-reversion (fade with daily bias)",
+     overlay=true, process_orders_on_close=true, pyramiding=0,
+     default_qty_type=strategy.fixed, default_qty_value=1,
+     initial_capital=100000, calc_on_every_tick=false,
+     commission_type=strategy.commission.cash_per_order, commission_value=0)
+
+// -- Parameters ---------------------------------------------------------------
+mean_len      = input.int(20,   "Mean EMA length",       minval=5,  maxval=100, step=5,
+     tooltip="The short-term mean price reverts toward. Smaller = twitchier.")
+atr_len       = input.int(14,   "ATR length",            minval=5,  maxval=40,  step=1,
+     tooltip="Volatility unit for the stretch + stops.")
+ext_mult      = input.float(1.5,"Stretch trigger (x ATR)",minval=0.5,maxval=4.0, step=0.25,
+     tooltip="Enter once price is this many ATRs away from the mean. Higher = rarer, deeper fades.")
+trade_mode    = input.string("Both", "Direction", options=["Long Only","Short Only","Both"])
+bias_mode     = input.string("prior_close", "Daily bias (core)",
+     options=["off","prior_close","session_open"],
+     tooltip="Only buy dips when ABOVE a daily anchor, only sell rips when BELOW it. " +
+             "prior_close = yesterday's close; session_open = today's open (gap-immune); off = pure MR.")
+exit_to_mean  = input.bool(true, "Target = the mean",
+     tooltip="Exit when price reverts back to the EMA. Off = use an ATR target.")
+tp_mult       = input.float(1.5,"Target (x ATR)",        minval=0.5,maxval=4.0, step=0.25,
+     tooltip="Profit target distance when not exiting to the mean.")
+stop_mult     = input.float(1.5,"Stop (x ATR)",          minval=0.5,maxval=4.0, step=0.25,
+     tooltip="Stop distance beyond the entry (further from the mean).")
+trail_stop    = input.bool(false,"Trailing stop",
+     tooltip="Trail the stop by the ATR stop distance as price moves your way.")
+cooldown_bars = input.int(0,    "Post-loss cooldown (bars)", minval=0, maxval=20, step=1,
+     tooltip="After a losing trade, wait this many bars before re-entering.")
+flat_eod      = input.bool(true,"Flat by session close",
+     tooltip="Close at each session's last bar (no overnight holds).")
+
+allow_long  = trade_mode == "Long Only"  or trade_mode == "Both"
+allow_short = trade_mode == "Short Only" or trade_mode == "Both"
+
+// -- Indicators ---------------------------------------------------------------
+mean = ta.ema(close, mean_len)
+atr  = ta.atr(atr_len)
+
+// -- Session anchors ----------------------------------------------------------
+var float sessOpen   = na
+var float priorClose = na
+newSession = session.isfirstbar
+if newSession
+    sessOpen   := open
+    priorClose := close[1]   // last bar of the prior session
+eodBar = flat_eod and session.islastbar
+
+// -- Daily bias ---------------------------------------------------------------
+useBias   = bias_mode != "off"
+biasRef   = bias_mode == "prior_close" ? priorClose : sessOpen
+bias_long  = (not useBias) or na(biasRef) ? true : close > biasRef
+bias_short = (not useBias) or na(biasRef) ? true : close < biasRef
+
+// -- Stretch signal -----------------------------------------------------------
+dev          = close - mean
+stretched_dn = dev < -ext_mult * atr   // below mean â†’ buy candidate
+stretched_up = dev >  ext_mult * atr   // above mean â†’ sell candidate
+go_long  = stretched_dn and bias_long
+go_short = stretched_up and bias_short
+
+// -- Cooldown bookkeeping -----------------------------------------------------
+var int lastLossBar = -1000000
+var int prevClosed  = 0
+if strategy.closedtrades > prevClosed
+    if strategy.closedtrades.profit(strategy.closedtrades - 1) < 0
+        lastLossBar := bar_index
+    prevClosed := strategy.closedtrades
+cooldownBlock = cooldown_bars > 0 and (bar_index - lastLossBar) < cooldown_bars
+
+// -- Position state for exit levels -------------------------------------------
+var float curStop = na
+var float curTP   = na
+
+barReady = bar_index >= math.max(mean_len, atr_len) + 2
+canEnter = strategy.position_size == 0 and barReady and not cooldownBlock and not eodBar and not na(atr) and atr > 0
+
+// -- Entries (fade with the bias) ---------------------------------------------
+if canEnter and go_long and allow_long
+    strategy.entry("L", strategy.long)
+    curStop := close - atr * stop_mult
+    curTP   := exit_to_mean ? mean : close + atr * tp_mult
+else if canEnter and go_short and allow_short
+    strategy.entry("S", strategy.short)
+    curStop := close + atr * stop_mult
+    curTP   := exit_to_mean ? mean : close - atr * tp_mult
+
+// -- Exit management (stop / target, optional trail) --------------------------
+if strategy.position_size > 0
+    if trail_stop
+        curStop := math.max(curStop, high - atr * stop_mult)
+    strategy.exit("Lx", from_entry="L", stop=curStop, limit=curTP)
+else if strategy.position_size < 0
+    if trail_stop
+        curStop := math.min(curStop, low + atr * stop_mult)
+    strategy.exit("Sx", from_entry="S", stop=curStop, limit=curTP)
+
+// -- Flat by session close ----------------------------------------------------
+if eodBar and strategy.position_size != 0
+    strategy.close_all(comment="EOD")
+
+plot(mean, "Mean EMA", color=color.new(color.orange, 0))

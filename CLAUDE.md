@@ -100,6 +100,20 @@ port (tab-by-tab gaps), engine research items (#11–23), and remaining `optimiz
 Streamlit bugs (#1–9). `docs/` holds reference (architecture, go-live, port plan).
 Update `ROADMAP.md` as work ships; keep this file for durable context/conventions only.
 
+## Guardrails / security (hard lines — keep across sessions)
+- **Secrets stay local.** `serviceAccount.json` (Firebase admin key) is backend-only and
+  gitignored — NEVER commit it. The Anthropic API key is read from local
+  `augur_config.json` only — never from a Firestore job doc, never from the browser.
+- **Never handle the user's Firebase login/password.**
+- **Runner command channel** only processes commands behind a uid allowlist
+  (`--allow-uid`); jobs from other uids are ignored.
+- **Git:** don't delete branches without an explicit request; pushing to `main` requires
+  explicit authorization from the user. Confirm before any destructive action.
+- **Keyless-AI doctrine** (the documented AUGUR convention): prefer a file-handoff through
+  the Claude Code session over direct paid-CLI spend. NOTE: `make_pine`/`review_pine`
+  currently call the provider directly (qwen/claude-cli/anthropic) — this is the open
+  exception tracked in `ROADMAP.md` §1.
+
 ## Working style the user likes
 Iterative, version-bumped releases (`__version__`), each targeting specific bugs/features.
 Validate before shipping. Explain what changed and any honest caveats. Confirm before

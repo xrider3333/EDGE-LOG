@@ -1,0 +1,13 @@
+//@version=5
+strategy("OVERNIGHT HOLD 1.0 · close→open risk-premium (scaffold)", overlay=true, default_qty_type=strategy.fixed, default_qty_value=1)
+
+trade_mode = input.string("Long Only", "Direction")
+trend_filter = input.bool(true, "Trend gate (only hold in uptrends)")
+trend_len = input.int(50, "Trend SMA (sessions)")
+stop_pts = input.float(0.0, "Overnight stop (points, 0=off)")
+
+// TODO: port entry/exit logic from the Python run_backtest().
+// This scaffold only exposes the parameters as inputs.
+// longCond = ...
+// if longCond
+//     strategy.entry("L", strategy.long)

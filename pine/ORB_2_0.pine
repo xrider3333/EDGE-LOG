@@ -1,0 +1,21 @@
+//@version=5
+strategy("ORB 2.0 · trail + ATR stop + vol filter (scaffold)", overlay=true, default_qty_type=strategy.fixed, default_qty_value=1)
+
+or_bars = input.int(6, "Opening range (bars)")
+trade_mode = input.string("First-candle dir", "Direction")
+breakout_buf = input.float(0.0, "Breakout buffer (× range)")
+stop_frac = input.float(1.0, "Stop (× range width)")
+use_atr_stop = input.bool(false, "ATR stop (replaces range-frac stop)")
+stop_atr_mult = input.float(1.5, "ATR stop multiplier")
+atr_period = input.int(5, "ATR lookback (sessions)")
+target_R = input.float(0.0, "Full target (× risk, 0=EOD only)")
+partial_exit_R = input.float(0.0, "Partial exit (× risk, 0=off)")
+trail_bars = input.int(0, "Trailing stop (bars, 0=off)")
+vol_filter = input.float(0.0, "Volume filter (× session avg, 0=off)")
+flat_eod = input.bool(true, "Flat by session close")
+
+// TODO: port entry/exit logic from the Python run_backtest().
+// This scaffold only exposes the parameters as inputs.
+// longCond = ...
+// if longCond
+//     strategy.entry("L", strategy.long)

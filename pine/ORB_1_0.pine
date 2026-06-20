@@ -1,0 +1,15 @@
+//@version=5
+strategy("ORB 1.0 · open-momentum (scaffold)", overlay=true, default_qty_type=strategy.fixed, default_qty_value=1)
+
+or_bars = input.int(6, "Opening range (bars)")
+trade_mode = input.string("First-candle dir", "Direction")
+stop_frac = input.float(1.0, "Stop (× range width)")
+target_R = input.float(0.0, "Target (× risk, 0=EOD only)")
+breakout_buf = input.float(0.0, "Breakout buffer (× range)")
+flat_eod = input.bool(true, "Flat by session close")
+
+// TODO: port entry/exit logic from the Python run_backtest().
+// This scaffold only exposes the parameters as inputs.
+// longCond = ...
+// if longCond
+//     strategy.entry("L", strategy.long)
