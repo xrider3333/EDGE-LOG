@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='26.1';
+const VERSION='26.2';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4287,7 +4287,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // ── Horizontal, left-to-right build flow (like legacy AUGUR "Executions") ──
       // Each field is a flex cell that packs across the row and wraps as the window
       // narrows. Groups read in build order: SETUP → DATA WINDOW · COSTS → SEARCH → RUN.
-      const fld=(lbl,inner,min)=>'<div style="flex:1 1 '+(min||150)+'px;min-width:'+(min||130)+'px"><label class="lbl">'+lbl+'</label>'+inner+'</div>';
+      // cells size to their set width and DON'T grow to fill the row — they just wrap.
+      const fld=(lbl,inner,w)=>'<div style="flex:0 1 '+(w||150)+'px;width:'+(w||150)+'px"><label class="lbl">'+lbl+'</label>'+inner+'</div>';
       const exrow=(inner,gap)=>'<div style="display:flex;flex-wrap:wrap;gap:'+(gap||10)+'px;align-items:flex-end;margin-bottom:12px">'+inner+'</div>';
       const grpH=t=>'<div class="lbl" style="opacity:.55;letter-spacing:2px;margin:2px 0 7px;border-top:1px solid var(--border);padding-top:9px">'+t+'</div>';
       const c_mode='<select id="ex-mode">'+[['single','Single backtest'],['grid','Grid sweep'],['auto','Auto-Optimize (smart search)'],['walkforward','Walk-Forward (anchored)'],['ai','AI optimize (free, local)'],['evolve','AI evolve (rewrites code)']].map(o=>'<option value="'+o[0]+'"'+(o[0]===(APREF.mode||'single')?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
@@ -4326,7 +4327,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'.ex-cal-ft button:hover{color:var(--text);border-color:var(--text5)}</style>';
       // CUSTOM scope editor: per-parameter min/max/step rows from the synced spec.
       const cparams=(cur&&cur.params)||[];
-      const cuRows=cparams.length?cparams.map(p=>'<div style="display:flex;gap:8px;align-items:flex-end;flex:1 1 330px;min-width:300px;background:var(--bg1);border-radius:10px;padding:8px 10px">'
+      const cuRows=cparams.length?cparams.map(p=>'<div style="display:flex;gap:8px;align-items:flex-end;flex:0 1 330px;width:330px;background:var(--bg1);border-radius:10px;padding:8px 10px">'
         +'<div style="flex:1.6;min-width:0"><div style="font-size:var(--fsxs);color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(p.label||p.name)+'</div><div style="font-size:8px;color:var(--text5)">'+p.name+' · '+p.type+'</div></div>'
         +'<div style="flex:1"><label class="lbl">min</label><input class="ex-cu" data-p="'+p.name+'" data-k="min" data-type="'+p.type+'" type="number" step="any" value="'+(p.min!=null?p.min:'')+'"/></div>'
         +'<div style="flex:1"><label class="lbl">max</label><input class="ex-cu" data-p="'+p.name+'" data-k="max" type="number" step="any" value="'+(p.max!=null?p.max:'')+'"/></div>'
