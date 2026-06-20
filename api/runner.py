@@ -209,12 +209,21 @@ class FirestoreQueue:
         for uid in (self.allow or []):
             meta = self.db.collection("users").document(uid).collection("meta")
             strats = []
+            # Per-strategy validation-roadmap state the user ticked in the Streamlit app
+            # (augur_config.json -> roadmaps[file] = {step: bool}). Synced so the web
+            # Library roadmap shows the same completed steps.
+            try:
+                _cfg0 = json.load(open(os.path.join(ROOT, "augur_config.json"), encoding="utf-8"))
+                _roadmaps = _cfg0.get("roadmaps", {}) or {}
+            except Exception:
+                _roadmaps = {}
             for s in ae.list_strategies():
                 try:
                     presets = ae.list_presets(s["file"])
                 except Exception:
                     presets = []
-                strats.append({**s, "presets": presets})
+                strats.append({**s, "presets": presets,
+                               "roadmap": _roadmaps.get(s["file"], {})})
             meta.document("strategies").set(json_safe({"list": strats}))
             keep = ("name", "instrument", "timeframe", "session", "source",
                     "rows", "date_from", "date_to")

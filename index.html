@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='24.6';
+const VERSION='24.7';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4310,27 +4310,39 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // ── per-strategy stats + active marker (derived client-side from run history) ──
       const statOf={};(runHistory||[]).forEach(r=>{const m=_stratMatch(r.strategy);if(!m)return;const f=m.file;const st=statOf[f]||(statOf[f]={runs:0,bestPnl:-Infinity,bestPf:0,last:''});st.runs++;const pnl=r.best_pnl_usd||0;if(pnl>st.bestPnl)st.bestPnl=pnl;if((r.best_pf||0)>st.bestPf)st.bestPf=r.best_pf||0;if((r.timestamp||'')>st.last)st.last=r.timestamp||'';});
       const active=APREF.activeStrategy||'';
-      // ── Deploy-readiness roadmap for the SELECTED strategy (migrated from the old
-      //    standalone ROADMAP tab). Backtested/Pine/Reviewed auto-derive; the rest are
-      //    manual toggles persisted in APREF.checklist[file][key]. ──
+      // ── Deploy-readiness roadmap for the SELECTED strategy. Mirrors optimizer.py's
+      //    10-step VALIDATION_STEPS. Four steps auto-derive from run history (in-sample,
+      //    OOS/walk-forward, cross-instrument, cost realism); the rest are manual. The
+      //    manual ticks come from optimizer.py (synced via the runner as s.roadmap) AND/OR
+      //    local toggles in APREF.checklist[file][key]. ⚙ = auto · ✓ = manual done. ──
       const rmStrip=(()=>{
         if(!selS)return '';
         const CK=APREF.checklist||{};
-        const cols=[['bt','Backtested',true],['wf','Walk-fwd',false],['oos','OOS',false],['pine','Pine',true],['rev','Reviewed',true],['paper','Paper',false],['live','Live',false]];
-        const autoVal=(k)=>k==='bt'?!!(statOf[selS.file]&&statOf[selS.file].runs):k==='pine'?!!selS.has_pine:k==='rev'?(selS.pine_via==='claude-review'):false;
-        const on=(c)=>c[2]?autoVal(c[0]):!!((CK[selS.file]||{})[c[0]]);
-        const done=cols.filter(on).length,pct=Math.round(100*done/cols.length);
-        const col=pct>=72?'var(--green)':pct>=43?'var(--yellow)':'var(--text5)';
-        const cells=cols.map(c=>{const k=c[0],is=on(c),mark=is?'<span style="color:var(--green)">✓</span>':'<span style="color:var(--text5);opacity:.55">○</span>';
-          const inner='<span style="font-size:8px;color:var(--text5);letter-spacing:.5px">'+c[1].toUpperCase()+(c[2]?'':' ✎')+'</span><br>'+mark;
-          return c[2]?'<div style="text-align:center;min-width:46px" title="auto-derived">'+inner+'</div>'
-            :'<div data-rmchk="'+k+'" style="text-align:center;min-width:46px;cursor:pointer" title="click to toggle" class="arow">'+inner+'</div>';}).join('');
+        const synced=selS.roadmap||{}, local=CK[selS.file]||{};
+        const hs=(runHistory||[]).filter(r=>{const m=_stratMatch(r.strategy);return m&&m.file===selS.file;});
+        const insts=new Set(hs.map(r=>String(r.instrument||'').trim()).filter(Boolean));
+        const auto={insample:hs.length>0,oos:hs.some(r=>/walk|🔁/i.test(String(r.scope||''))),
+          transfer:insts.size>=2,costs:hs.some(r=>(+r.commission_usd>0)||(+r.slippage_pts>0)||(+r.cost_pts>0))};
+        // [key,label,autoCapable]
+        const cols=[['feasibility','Feasibility',false],['insample','In-sample',true],['plateau','Plateau',false],
+          ['stress','Stress',false],['oos','OOS/WF',true],['transfer','X-instr',true],['costs','Costs',true],
+          ['drawdown','Drawdown',false],['paper','Paper',false],['deploy','Deploy',false]];
+        const eff=k=>!!(auto[k]||synced[k]||local[k]);
+        const done=cols.filter(c=>eff(c[0])).length,pct=Math.round(100*done/cols.length);
+        const col=pct>=70?'var(--green)':pct>=40?'var(--yellow)':'var(--text5)';
+        const cells=cols.map(c=>{const k=c[0],isAuto=!!auto[k],is=eff(k);
+          const mark=isAuto?'<span style="color:var(--green)" title="auto-derived from your runs">⚙</span>'
+            :is?'<span style="color:var(--green)">✓</span>':'<span style="color:var(--text5);opacity:.55">○</span>';
+          const clickable=!isAuto; // auto steps satisfied by data aren't toggled by hand
+          const inner='<span style="font-size:8px;color:var(--text5);letter-spacing:.3px">'+c[1].toUpperCase()+(c[2]?'':' ✎')+'</span><br>'+mark;
+          return clickable?'<div data-rmchk="'+k+'" style="text-align:center;min-width:44px;cursor:pointer" title="click to toggle" class="arow">'+inner+'</div>'
+            :'<div style="text-align:center;min-width:44px" title="auto-derived from run history">'+inner+'</div>';}).join('');
         return '<div style="border-top:1px solid var(--border);margin-top:9px;padding-top:8px">'
           +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
           +'<span style="font-size:9px;color:var(--text5);letter-spacing:1px">DEPLOY READINESS</span>'
           +'<span style="font-size:var(--fsxs);font-weight:800;color:'+col+'">'+done+'/'+cols.length+' · '+pct+'%</span>'
           +'<span style="flex:1"></span>'+cells+'</div>'
-          +'<div style="font-size:8px;color:var(--text5);margin-top:5px">Backtested/Pine/Reviewed auto-derive from your runs &amp; files; ✎ steps are manual. Path: Backtest → Walk-fwd → OOS → Pine → Claude-reviewed → Paper → Live.</div></div>';
+          +'<div style="font-size:8px;color:var(--text5);margin-top:5px">⚙ auto-derives from your runs (in-sample, OOS/walk-fwd, cross-instrument, costs); ✎ steps are manual (✓ from optimizer.py or click to toggle here). Path: Feasibility → In-sample → Plateau → Stress → OOS → Cross-instrument → Costs → Drawdown → Paper → Deploy.</div></div>';
       })();
       // ── ACTION BAR — its own tile, above both panes ──
       const aBtn=(id,lbl,en,danger)=>'<button class="btn-ghost" id="'+id+'" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px;'+(danger?'color:var(--red);border:1px solid var(--red);':'border:1px solid var(--border);')+(en?'':'opacity:.35;pointer-events:none;')+'">'+lbl+'</button>';
