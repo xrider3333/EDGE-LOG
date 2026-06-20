@@ -102,6 +102,10 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v26.7** Auto-Validate mode (UI): one-click full validation pipeline — Builder MODE
+  "🧭 Auto-Validate" (TRIALS/stage, WF FOLDS, LOCKBOX MO) queues a `validate` job that runs
+  in-sample Auto-Optimize → rolling walk-forward → lockbox one-shot on the PC, and renders a
+  PASS/WEAK/FAIL report card (4 gates + lockbox HELD/FAILED). Backend in d7ac309.
 - **v26.6** Lockbox holdout (#19): Builder LOCKBOX group — a "reserve since" date that caps
   every optimization mode's window the day before it (the holdout is never seen during the
   search), plus a one-shot "🔒 test last winner on lockbox" button that runs the most recent
