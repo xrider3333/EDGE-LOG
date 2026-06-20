@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='24.5';
+const VERSION='24.6';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4184,8 +4184,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const INSTC={NQ:'#5b8def',MNQ:'#93b3f2',ES:'#27c08a',MES:'#79d6b1',YM:'#e0a341',MYM:'#ecc684',RTY:'#c77dd6',M2K:'#dba9e6',CL:'#d6694b',GC:'#d4b95e'};
     const instColor=i=>INSTC[String(i||'').toUpperCase().trim()]||'hsl('+_hashHue(String(i||''))+',45%,62%)';
     const instTag=i=>'<span style="color:'+instColor(i)+';font-weight:600">'+(i||'')+'</span>';
-    const AICON={runs:'▦',exec:'▸',lib:'◫',cmp:'◧',roadmap:'☑',ref:'◈',research:'◎',set:'◆'};
-    const asubs=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['roadmap','ROADMAP'],['ref','REFERENCE'],['research','RESEARCH'],['set','SETTINGS']];
+    const AICON={runs:'▦',exec:'▸',lib:'◫',cmp:'◧',ref:'◈',research:'◎',set:'◆'};
+    const asubs=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['ref','REFERENCE'],['research','RESEARCH'],['set','SETTINGS']];
     let navBtns='';
     asubs.forEach(s=>{navBtns+='<button class="btn-ghost" data-asub="'+s[0]+'" style="border-radius:0;border-bottom:2px solid '+(augurSub===s[0]?'var(--text)':'transparent')+';color:'+(augurSub===s[0]?'var(--text)':'var(--text4)')+'"><span style="font-variant-emoji:text;opacity:.65;margin-right:6px">'+AICON[s[0]]+'</span>'+s[1]+'</button>';});
     // Contextual controls pinned to the FAR RIGHT of the sub-tab row, in a tile.
@@ -4284,7 +4284,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const fmtD=ts=>{if(!ts)return '—';const d=new Date(ts*1000);return isNaN(d.getTime())?'—':((d.getMonth()+1)+'/'+d.getDate()+'/'+String(d.getFullYear()).slice(2));};
       const chip=(ok,lbl)=>'<span title="'+lbl+(ok?' file present':' file missing')+'" style="font-size:9px;padding:1px 5px;border-radius:4px;font-weight:600;font-variant-emoji:text;'+(ok?'color:var(--green);background:rgba(39,192,138,.12)':'color:var(--text5);background:var(--bg1);opacity:.8')+'">'+lbl+(ok?'':' ✕')+'</span>';
       // minimalist Pine provenance badge (who made/reviewed the .pine)
-      const VIA={qwen:['q','#5b8def','qwen (local, free)'],claude:['c','#c090ff','Claude (generated)'],'claude-review':['c✓','#c090ff','Claude-reviewed'],bundled:['•','var(--text4)','bundled with strategy'],scaffold:['!','#e0a341','scaffold — logic is a TODO'],hand:['✎','var(--text5)','hand-written']};
+      const VIA={qwen:['q','#5b8def','qwen (local, free)'],ollama:['q','#5b8def','qwen (local, free)'],claude:['c','#c090ff','Claude (generated)'],'claude-cli':['c','#c090ff','Claude (generated)'],anthropic:['c','#c090ff','Claude (generated)'],'claude-review':['c✓','#c090ff','Claude-reviewed'],bundled:['•','var(--text4)','bundled with strategy'],scaffold:['!','#e0a341','scaffold — logic is a TODO'],hand:['✎','var(--text5)','hand-written']};
       const pineCell=s=>{if(!s.has_pine)return chip(false,'PINE');const v=VIA[s.pine_via]||['?','var(--text5)','unknown source'];return chip(true,'PINE')+'<sup title="Pine source: '+v[2]+'" style="font-size:8px;margin-left:2px;color:'+v[1]+';cursor:help">'+v[0]+'</sup>';};
       // clickable column headers: sort ("view by") + PY/PINE "show only missing" filter
       const sortk=APREF.libSort||'num', dir=APREF.libSortDir===-1?-1:1, only=APREF.libOnly||'';
@@ -4310,6 +4310,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // ── per-strategy stats + active marker (derived client-side from run history) ──
       const statOf={};(runHistory||[]).forEach(r=>{const m=_stratMatch(r.strategy);if(!m)return;const f=m.file;const st=statOf[f]||(statOf[f]={runs:0,bestPnl:-Infinity,bestPf:0,last:''});st.runs++;const pnl=r.best_pnl_usd||0;if(pnl>st.bestPnl)st.bestPnl=pnl;if((r.best_pf||0)>st.bestPf)st.bestPf=r.best_pf||0;if((r.timestamp||'')>st.last)st.last=r.timestamp||'';});
       const active=APREF.activeStrategy||'';
+      // ── Deploy-readiness roadmap for the SELECTED strategy (migrated from the old
+      //    standalone ROADMAP tab). Backtested/Pine/Reviewed auto-derive; the rest are
+      //    manual toggles persisted in APREF.checklist[file][key]. ──
+      const rmStrip=(()=>{
+        if(!selS)return '';
+        const CK=APREF.checklist||{};
+        const cols=[['bt','Backtested',true],['wf','Walk-fwd',false],['oos','OOS',false],['pine','Pine',true],['rev','Reviewed',true],['paper','Paper',false],['live','Live',false]];
+        const autoVal=(k)=>k==='bt'?!!(statOf[selS.file]&&statOf[selS.file].runs):k==='pine'?!!selS.has_pine:k==='rev'?(selS.pine_via==='claude-review'):false;
+        const on=(c)=>c[2]?autoVal(c[0]):!!((CK[selS.file]||{})[c[0]]);
+        const done=cols.filter(on).length,pct=Math.round(100*done/cols.length);
+        const col=pct>=72?'var(--green)':pct>=43?'var(--yellow)':'var(--text5)';
+        const cells=cols.map(c=>{const k=c[0],is=on(c),mark=is?'<span style="color:var(--green)">✓</span>':'<span style="color:var(--text5);opacity:.55">○</span>';
+          const inner='<span style="font-size:8px;color:var(--text5);letter-spacing:.5px">'+c[1].toUpperCase()+(c[2]?'':' ✎')+'</span><br>'+mark;
+          return c[2]?'<div style="text-align:center;min-width:46px" title="auto-derived">'+inner+'</div>'
+            :'<div data-rmchk="'+k+'" style="text-align:center;min-width:46px;cursor:pointer" title="click to toggle" class="arow">'+inner+'</div>';}).join('');
+        return '<div style="border-top:1px solid var(--border);margin-top:9px;padding-top:8px">'
+          +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+          +'<span style="font-size:9px;color:var(--text5);letter-spacing:1px">DEPLOY READINESS</span>'
+          +'<span style="font-size:var(--fsxs);font-weight:800;color:'+col+'">'+done+'/'+cols.length+' · '+pct+'%</span>'
+          +'<span style="flex:1"></span>'+cells+'</div>'
+          +'<div style="font-size:8px;color:var(--text5);margin-top:5px">Backtested/Pine/Reviewed auto-derive from your runs &amp; files; ✎ steps are manual. Path: Backtest → Walk-fwd → OOS → Pine → Claude-reviewed → Paper → Live.</div></div>';
+      })();
       // ── ACTION BAR — its own tile, above both panes ──
       const aBtn=(id,lbl,en,danger)=>'<button class="btn-ghost" id="'+id+'" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px;'+(danger?'color:var(--red);border:1px solid var(--red);':'border:1px solid var(--border);')+(en?'':'opacity:.35;pointer-events:none;')+'">'+lbl+'</button>';
       const mItem=(id,lbl,sub)=>'<button class="btn-ghost menu-item" id="'+id+'" style="display:block;width:100%;text-align:left;padding:6px 10px;font-size:var(--fsxs);border-radius:6px;border:0">'+lbl+(sub?'<span style="color:var(--text5);font-size:8px"> · '+sub+'</span>':'')+'</button>';
@@ -4317,7 +4339,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<button class="btn-ghost" id="'+id+'" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px;border:1px solid var(--border)'+(open?';background:var(--bg1);color:var(--text)':'')+'">'+lbl+' ▾</button>'
         +(open?'<div style="position:absolute;z-index:60;top:100%;right:0;margin-top:4px;background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:4px;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.45)">'+(items||'<div style="padding:6px 10px;font-size:var(--fsxs);color:var(--text5)">nothing available</div>')+'</div>':'')+'</span>';
       const selStat=(()=>{if(!selS)return '';const s=statOf[selS.file];return s?'<span style="font-size:9px;color:var(--text5);margin-left:8px">'+s.runs+' run'+(s.runs!=1?'s':'')+' · best PF '+(s.bestPf||0).toFixed(2)+' · best '+fmtUsd(s.bestPnl)+(s.last?' · last '+s.last.slice(0,10):'')+'</span>':'<span style="font-size:9px;color:var(--text5);margin-left:8px">no runs yet</span>';})();
-      const selLabel=selS?('<span style="font-size:var(--fsxs);color:var(--text3);white-space:nowrap">'+(active===selS.file?'<span title="active strategy" style="color:var(--yellow)">★ </span>':'')+stratTag(selS.file)+'</span>'+selStat):'<span style="font-size:var(--fsxs);color:var(--text5)">no strategy selected</span>';
+      const selLabel=selS?('<span style="font-size:var(--fsxs);color:var(--text3);white-space:nowrap">'+stratTag(selS.file)+'</span>'+selStat):'<span style="font-size:var(--fsxs);color:var(--text5)">no strategy selected</span>';
       const msgLine=augurLibMsg?'<div style="font-size:var(--fsxs);color:var(--text4);margin-top:7px;border-top:1px solid var(--border);padding-top:7px;white-space:pre-wrap;max-height:220px;overflow:auto">'+augurLibMsg+'</div>':'';
       const dlItems=mItem('dl-py','▼ Download .py')+(selS&&selS.has_pine?mItem('dl-pine','▼ Download .pine'):'');
       const aiItems=(selS&&!selS.has_pine?mItem('ai-mk-q','⚙ Create .pine','qwen, free')+mItem('ai-mk-c','⚙ Create .pine','Claude, credits'):'')
@@ -4330,12 +4352,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<span style="width:1px;height:18px;background:var(--border);margin:0 2px"></span>'
         +'<span style="font-size:9px;color:var(--text5);letter-spacing:1px">SELECTED</span>'+selLabel
         +'<span style="flex:1"></span>'
-        +(selS?aBtn('lib-active',(active===selS.file?'★ ACTIVE':'☆ SET ACTIVE'),true):'')
         +(selS?aBtn('lib-use','▸ USE IN BUILDER',true):'')
         +(selS?menu('lib-aimenu','⚙ AI',augurMenu==='ai',aiItems):'')
         +(selS?menu('lib-dlmenu','▼ DOWNLOAD',augurMenu==='dl',dlItems):'')
         +aBtn('lib-del','DELETE',!!selS,true)
-        +'</div>'+msgLine+'</div>';
+        +'</div>'+rmStrip+msgLine+'</div>';
       const mastersInner=pullBanner+((metaMasters||[]).length?'<table class="table"><thead><tr><th>NAME</th><th>INST</th><th>TF</th><th>SESS</th><th>SOURCE</th><th style="text-align:center">AUTO-PULL</th><th style="text-align:right">ROWS</th><th>RANGE</th></tr></thead><tbody>'+mrows+'</tbody></table>':'<div style="color:var(--text5);font-size:var(--fsxs)">no masters synced</div>');
       const mastersTitled=(lbl)=>tile('<div class="lbl" style="margin:0 0 6px">MASTERS / CSVs · '+(metaMasters||[]).length+'</div>'+mastersInner,lbl?0:undefined);
       if(!sl.length){
@@ -4387,27 +4408,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
       body='<div class="lbl" style="margin-bottom:6px">INSTRUMENTS</div>'+tile('<table class="table"><thead><tr><th>SYMBOL</th><th>NAME</th><th style="text-align:right">MULTIPLIER</th></tr></thead><tbody>'+irows+'</tbody></table>')
         +'<div class="lbl" style="margin:18px 0 6px">COST MODEL</div><div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">Round-turn commission $2.83/order x 2 = $5.66 (about 0.28 NQ pts / 0.11 ES pts), applied per trade. PNL = shares x (exit - entry) x multiplier, net of cost.</div>'
         +'<div class="lbl" style="margin:18px 0 6px">SESSIONS</div><div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">RTH = 09:30-16:00 ET cash session (last 5m bar 15:55). ETH = full 24h. Masters are keyed per instrument + timeframe + session + source.</div>';
-    }else if(augurSub==='roadmap'){
-      // Per-strategy validation checklist. Some milestones auto-derive (backtested from
-      // run history, pine/reviewed from the synced flags); the rest are manual toggles
-      // persisted in APREF.checklist[file][key].
-      const sl=metaStrats||[];
-      const ran={};(runHistory||[]).forEach(r=>{const m=_stratMatch(r.strategy);if(m)ran[m.file]=true;});
-      const CK=APREF.checklist||{};
-      const cols=[['bt','Backtested',true],['wf','Walk-fwd',false],['oos','OOS',false],['pine','Pine',true],['rev','Reviewed',true],['paper','Paper',false],['live','Live',false]];
-      const autoVal=(s,k)=>k==='bt'?!!ran[s.file]:k==='pine'?!!s.has_pine:k==='rev'?(s.pine_via==='claude-review'):false;
-      const cellOf=(s,c)=>{const k=c[0],auto=c[2];const on=auto?autoVal(s,k):!!((CK[s.file]||{})[k]);
-        const mark=on?'<span style="color:var(--green)">✓</span>':'<span style="color:var(--text5);opacity:.5">○</span>';
-        return auto?'<td style="text-align:center" title="auto-derived">'+mark+'</td>'
-          :'<td style="text-align:center"><span data-chk="'+s.file+'|'+k+'" style="cursor:pointer">'+mark+'</span></td>';};
-      const prog=s=>{let n=0;cols.forEach(c=>{if(c[2]?autoVal(s,c[0]):((CK[s.file]||{})[c[0]]))n++;});return n;};
-      const rrows=sl.slice().sort((a,b)=>((a.num==null)-(b.num==null))||((a.num||0)-(b.num||0))).map(s=>{const p=prog(s);const pct=Math.round(100*p/cols.length);return '<tr><td style="font-size:var(--fsxs);white-space:nowrap">'+stratTag(s.file)+'</td>'+cols.map(c=>cellOf(s,c)).join('')
-        +'<td style="text-align:right;font-size:var(--fsxs);color:'+(pct>=72?'var(--green)':pct>=43?'var(--yellow)':'var(--text5)')+'">'+p+'/'+cols.length+'</td></tr>';}).join('');
-      const hdr='<tr><th>STRATEGY</th>'+cols.map(c=>'<th style="text-align:center" title="'+(c[2]?'auto-derived':'click to toggle')+'">'+c[1]+(c[2]?'':' ✎')+'</th>').join('')+'<th style="text-align:right">DONE</th></tr>';
-      body='<div class="lbl" style="margin-bottom:6px">STRATEGY ROADMAP · '+sl.length+'</div>'
-        +(sl.length?tile('<table class="table"><thead>'+hdr+'</thead><tbody>'+rrows+'</tbody></table>'
-          +'<div style="font-size:9px;color:var(--text5);margin-top:8px">✓ green = done · ○ open · columns with ✎ are manual (click to toggle); Backtested/Pine/Reviewed auto-derive from your runs &amp; files. Path: Backtest → Walk-forward → OOS → Pine → Claude-reviewed → Paper trade → Live.</div>')
-          :tile('<div style="color:var(--text5);font-size:var(--fsxs)">no strategies synced — start the runner</div>'));
     }else if(augurSub==='research'){
       const items=[['Out-of-sample (75/25)','Optimize on the first 75% of history, validate the winner on the unseen last 25%. A config that wins in-sample but collapses out-of-sample is overfit.'],['Deflated Sharpe','Haircuts the Sharpe by the best Sharpe expected from pure luck across N searched configs (Bailey / Lopez de Prado). DSR at or above 95% beats the luck bar.'],['Monte-Carlo drawdown','Block-shuffles the trade order to map the drawdown distribution. Size the account to the p95.'],['Walk-forward','Anchored: re-optimize on each train window, test on the next unseen window, roll forward.']];
       body='<div class="lbl" style="margin-bottom:6px">VALIDATION METHODOLOGY</div>'+items.map(i=>'<div style="background:var(--bg2);border-radius:8px;padding:12px 14px;margin-bottom:10px"><div style="font-size:14px;margin-bottom:3px">'+i[0]+'</div><div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6">'+i[1]+'</div></div>').join('');
@@ -4481,8 +4481,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const closeMenu=()=>{augurMenu='';};
       const add=el('lib-add');if(add)add.onclick=()=>{const inp=document.createElement('input');inp.type='file';inp.accept='.py';inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>libCmd('add',{name:f.name,content:String(rd.result||'')},'Add '+f.name);rd.readAsText(f);};inp.click();};
       // active strategy + quick-launch into Builder
-      const actBtn=el('lib-active');if(actBtn)actBtn.onclick=()=>{savePref('activeStrategy',(APREF.activeStrategy===augurLibSel)?'':augurLibSel);renderApp();};
       const useBtn=el('lib-use');if(useBtn)useBtn.onclick=()=>{if(augurLibSel){augurExecStrat=augurLibSel;augurSub='exec';augurMenu='';renderApp();}};
+      content.querySelectorAll('[data-rmchk]').forEach(c=>{c.onclick=()=>{if(!augurLibSel)return;const ck=APREF.checklist||{};const row=ck[augurLibSel]||(ck[augurLibSel]={});const k=c.dataset.rmchk;row[k]=!row[k];savePref('checklist',ck);renderApp();};});
       // dropdown toggles
       const dlm=el('lib-dlmenu');if(dlm)dlm.onclick=(e)=>{e.stopPropagation();augurMenu=augurMenu==='dl'?'':'dl';renderApp();};
       const aim=el('lib-aimenu');if(aim)aim.onclick=(e)=>{e.stopPropagation();augurMenu=augurMenu==='ai'?'':'ai';renderApp();};
@@ -4503,7 +4503,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const up2=()=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up2);savePref(lv==='side'?'libSplitH':'libSplitV',lv==='side'?APREF.libSplitH:APREF.libSplitV);};
         document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up2);};}
     }
-    else if(augurSub==='roadmap'){content.querySelectorAll('[data-chk]').forEach(c=>{c.onclick=()=>{const parts=c.dataset.chk.split('|'),f=parts[0],k=parts[1];const ck=APREF.checklist||{};const row=ck[f]||(ck[f]={});row[k]=!row[k];savePref('checklist',ck);renderApp();};});}
     else if(augurSub==='set'){const sv=el('set-save');if(sv)sv.onclick=()=>{savePref('instrument',el('set-inst').value);savePref('session',el('set-sess').value);savePref('timeframe',el('set-tf').value);savePref('workers',parseInt(el('set-work').value)||4);savePref('rounds',parseInt(el('set-rounds').value)||4);savePref('trials',parseInt(el('set-trials').value)||200);savePref('min_trades',parseInt(el('set-mint').value)||30);savePref('provider',el('set-prov').value);const s=el('set-saved');if(s){s.textContent='✓ saved — Builder will use these';setTimeout(()=>{if(el('set-saved'))el('set-saved').textContent='';},2000);}};}
     else{const vs=el('res-side'),vk=el('res-stack');if(vs)vs.onclick=()=>{savePref('resView','side');renderApp();};if(vk)vk.onclick=()=>{savePref('resView','stack');renderApp();};
       const tog=(id,key)=>{const b=el(id);if(b)b.onclick=()=>{savePref(key,APREF[key]===false);renderApp();};};tog('sec-val','secVal');tog('sec-regime','secRegime');tog('sec-nbhd','secNbhd');
