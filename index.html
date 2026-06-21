@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='29.1';
+const VERSION='29.2';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4393,13 +4393,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // Contextual controls pinned to the FAR RIGHT of the sub-tab row, in a tile.
     let navRight='';
     const vb=(id,gl,on,t)=>'<button class="btn-ghost" id="'+id+'" title="'+t+'" style="padding:3px 8px;font-size:12px;border-radius:6px;'+(on?'background:var(--bg1);color:var(--text)':'color:var(--text4)')+'">'+gl+'</button>';
-    if(augurSub==='runs'&&runHistory.length){
-      const rv=APREF.resView==='stack'?'stack':'side';
-      const sb=(id,lbl,on)=>'<button class="btn-ghost" id="'+id+'" style="padding:3px 7px;font-size:10px;border-radius:6px;letter-spacing:1px;'+(on?'color:var(--text)':'color:var(--text5);opacity:.55')+'">'+lbl+'</button>';
-      navRight='<div style="display:flex;gap:5px;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:3px 6px;margin-bottom:4px">'
-        +vb('res-side','◧',rv==='side','Side-by-side split')+vb('res-stack','▤',rv==='stack','Stacked split (list over report)')
-        +'</div>';
-    }
     if(augurSub==='lib'&&(metaStrats||[]).length){
       const lv=APREF.libView==='stack'?'stack':'side';
       navRight='<div style="display:flex;gap:5px;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:3px 6px;margin-bottom:4px">'
@@ -4812,8 +4805,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const allRuns=runHistory.slice();
       if(!allRuns.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUN HISTORY YET — run the runner with --sync-runs</div>';}
       else{
-        const view=APREF.resView==='stack'?'stack':'side';
-        // ── filters + sort over Past Runs ──
+        // ── filters + sort over Past Runs (full-width table, legacy-AUGUR style) ──
         const fStrat=APREF.rfStrat||'',fInst=APREF.rfInst||'',fTf=APREF.rfTf||'',fScope=APREF.rfScope||'',fStar=!!APREF.rfStar,fSort=APREF.rfSort||'id';
         const _fileOf=r=>{const m=_stratMatch(r.strategy);return m?m.file:r.strategy;};
         const _strats=[...new Set(allRuns.map(_fileOf).filter(Boolean))].sort();
@@ -4821,7 +4813,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _tfs=[...new Set(allRuns.map(r=>String(r.timeframe||'').trim()).filter(Boolean))].sort();
         const _scopes=[...new Set(allRuns.map(r=>String(r.scope||'').trim()).filter(Boolean))].sort();
         let sorted=allRuns.filter(r=>{if(fStar&&!r.starred)return false;if(fInst&&String(r.instrument||'').trim()!==fInst)return false;if(fStrat&&_fileOf(r)!==fStrat)return false;if(fTf&&String(r.timeframe||'').trim()!==fTf)return false;if(fScope&&String(r.scope||'').trim()!==fScope)return false;return true;});
-        const SC={id:(a,b)=>b.id-a.id,score:(a,b)=>scoreRun(b)-scoreRun(a),pnl:(a,b)=>(b.best_pnl_usd||0)-(a.best_pnl_usd||0),pf:(a,b)=>(b.best_pf||0)-(a.best_pf||0)};
+        const _num=r=>{const n=stratInfo(r.strategy).num;return n==null?9999:n;};
+        const SC={id:(a,b)=>b.id-a.id,date:(a,b)=>String(b.timestamp||'').localeCompare(String(a.timestamp||'')),num:(a,b)=>_num(a)-_num(b),score:(a,b)=>scoreRun(b)-scoreRun(a),pnl:(a,b)=>(b.best_pnl_usd||0)-(a.best_pnl_usd||0),pf:(a,b)=>(b.best_pf||0)-(a.best_pf||0),wr:(a,b)=>(b.best_win_rate||0)-(a.best_win_rate||0),trd:(a,b)=>(b.best_trades||0)-(a.best_trades||0),strat:(a,b)=>String(stratInfo(a.strategy).label).localeCompare(String(stratInfo(b.strategy).label))};
         sorted.sort(SC[fSort]||SC.id);
         const pickFrom=sorted.length?sorted:allRuns.slice().sort(SC.id);
         const selId=augurRunSel||pickFrom[0].id;
@@ -4829,35 +4822,41 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(!d)d=pickFrom[0];
         const sel=(k,v,opts)=>'<select data-rf="'+k+'" style="width:auto;padding:3px 6px;font-size:9px;border-radius:6px">'+opts.map(o=>'<option value="'+o[0]+'"'+(String(o[0])===String(v)?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
         const _anyF=fStrat||fInst||fTf||fScope||fStar;
-        const fbar='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:7px">'
+        const fbar='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin:6px 0 8px">'
           +sel('rfStrat',fStrat,[['','all strategies']].concat(_strats.map(f=>[f,stratInfo(f).label])))
           +sel('rfInst',fInst,[['','all markets']].concat(_insts.map(i=>[i,i])))
           +(_tfs.length>1?sel('rfTf',fTf,[['','all TF']].concat(_tfs.map(t=>[t,t]))):'')
           +(_scopes.length>1?sel('rfScope',fScope,[['','all scopes']].concat(_scopes.map(s=>[s,s.slice(0,16)]))):'')
-          +sel('rfSort',fSort,[['id','newest'],['score','score'],['pnl','$ pnl'],['pf','PF']])
           +'<span data-rfstar style="cursor:pointer;font-size:10px;user-select:none;color:'+(fStar?'var(--yellow)':'var(--text5)')+'">'+(fStar?'★':'☆')+' starred</span>'
           +(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">clear</span>':'')+'</div>';
-        const listRows=sorted.length?sorted.map(r=>{const on=String(r.id)===String(d.id);const pnl=r.best_pnl_usd||0;return '<div class="arow" data-run="'+r.id+'" style="padding:5px 8px;border-radius:6px;cursor:pointer;border:1px solid '+(on?'var(--text4)':'transparent')+';background:'+(on?'var(--bg1)':'transparent')+';margin-bottom:2px">'
-          +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="display:flex;align-items:baseline;gap:6px;min-width:0;overflow:hidden"><span style="flex:0 0 auto;color:var(--text3);font-size:11px;font-variant-numeric:tabular-nums;min-width:32px" title="run number">'+r.id+'</span><span data-star="'+r.id+'" title="star" style="flex:0 0 auto;cursor:pointer;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span><span style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+stratTag(r.strategy)+'</span></span><span style="font-size:11px;color:'+(pnl>=0?'var(--green)':'var(--red)')+';white-space:nowrap">'+fmtUsd(pnl)+'</span></div>'
-          +'<div style="font-size:9px;color:var(--text5);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+instTag(r.instrument)+' '+(r.timeframe||'')+' · '+(r.scope||'')+' · PF '+(r.best_pf||0).toFixed(2)+(r.best_trades?' · '+r.best_trades+'T':'')+'</div>'
-          +'<div style="font-size:9px;color:var(--text5);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_dtnice(r.timestamp)+(r.date_from?' · '+_dnice(r.date_from)+'→'+_dnice(r.date_to):'')+'</div></div>';}).join(''):'<div style="color:var(--text5);font-size:9px;padding:14px;text-align:center">no runs match the filter</div>';
-        const rH=Math.min(.6,Math.max(.15,APREF.splitH||0.30));
-        const vH=Math.min(520,Math.max(120,APREF.splitV||200));
-        const maxH=view==='stack'?(vH+'px'):'72vh';
-        const listInner='<div class="lbl" style="margin:0 0 6px">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</div>'+fbar
-          +'<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}</style>'
-          +'<div id="res-listscroll" style="max-height:'+maxH+';overflow-y:auto;margin:-2px -4px 0;padding:2px 4px 0">'+listRows+'</div>';
-        const leftTile=tile(listInner,0);
-        if(view==='stack'){
-          body='<div id="res-wrap">'+'<div id="res-top">'+leftTile+'</div>'
-            +'<div id="res-gutter" style="height:12px;cursor:row-resize;display:flex;align-items:center;justify-content:center;margin:2px 0"><div style="height:3px;width:54px;background:var(--border);border-radius:2px"></div></div>'
-            +'<div id="res-bottom" class="hero-card" style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:13px;padding:14px 16px">'+runDetail(d)+'</div></div>';
-        }else{
-          body='<div id="res-wrap" style="display:flex;align-items:stretch">'
-            +'<div id="res-left" style="flex:0 0 '+(rH*100)+'%;min-width:200px;overflow:hidden">'+leftTile+'</div>'
-            +'<div id="res-gutter" style="flex:0 0 12px;cursor:col-resize;display:flex;align-items:center;justify-content:center"><div style="width:3px;height:46px;background:var(--border);border-radius:2px"></div></div>'
-            +'<div id="res-right" class="hero-card" style="flex:1 1 0;min-width:0;overflow:auto;background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:13px;padding:14px 16px">'+runDetail(d)+'</div></div>';
-        }
+        // sortable header (click a column to sort by it)
+        const sh=(k,lbl,al)=>'<th data-rsort="'+k+'" title="sort by '+lbl+'" style="cursor:pointer;white-space:nowrap;user-select:none;'+(al?'text-align:'+al+';':'')+(fSort===k?'color:var(--text)':'')+'">'+lbl+(fSort===k?' ▾':'')+'</th>';
+        const trows=sorted.length?sorted.map(r=>{const on=String(r.id)===String(d.id);const si=stratInfo(r.strategy);const pnl=r.best_pnl_usd||0;const sc=scoreRun(r);const vd=r.validate?r.validate.verdict:'';
+          return '<tr class="arow" data-run="'+r.id+'" style="cursor:pointer;'+(on?'background:var(--bg1)':'')+'">'
+            +'<td style="text-align:center"><span data-star="'+r.id+'" title="star" style="cursor:pointer;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span></td>'
+            +'<td style="text-align:right;color:var(--text4);font-weight:600">'+(si.num!=null?si.num:'—')+'</td>'
+            +'<td style="text-align:right;color:var(--text3);font-variant-numeric:tabular-nums">'+r.id+'</td>'
+            +'<td style="white-space:nowrap">'+stratTag(r.strategy)+(vd?' <span style="font-size:8px;color:'+(vd==='PASS'?'var(--green)':vd==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vd+'</span>':'')+'</td>'
+            +'<td style="color:var(--text4);font-size:var(--fsxs)">'+(si.ver||'—')+'</td>'
+            +'<td style="white-space:nowrap">'+instTag(r.instrument)+'</td>'
+            +'<td style="font-size:var(--fsxs);color:var(--text4)">'+(r.timeframe||'')+'</td>'
+            +'<td style="font-size:var(--fsxs);color:var(--text4);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(r.scope||'')+'</td>'
+            +'<td style="text-align:right;color:'+(pnl>=0?'var(--green)':'var(--red)')+';white-space:nowrap">'+fmtUsd(pnl)+'</td>'
+            +'<td style="text-align:right">'+(r.best_pf||0).toFixed(2)+'</td>'
+            +'<td style="text-align:right">'+Math.round(r.best_win_rate||0)+'%</td>'
+            +'<td style="text-align:right">'+(r.best_trades||0)+'</td>'
+            +'<td style="text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)')+'">'+sc+'</td>'
+            +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+_dtnice(r.timestamp)+'</td>'
+            +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+(r.date_from?_dnice(r.date_from)+' → '+_dnice(r.date_to):'—')+'</td>'
+            +'</tr>';}).join(''):'<tr><td colspan="15" style="color:var(--text5);font-size:var(--fsxs);padding:18px;text-align:center">no runs match the filter</td></tr>';
+        const tbl='<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}</style>'
+          +'<div id="res-listscroll" style="overflow:auto;max-height:46vh">'
+          +'<table class="table" style="font-size:var(--fsxs)"><thead><tr><th style="text-align:center">★</th>'
+          +sh('num','#','right')+sh('id','RUN','right')+sh('strat','STRATEGY')+'<th>MODEL</th><th>MARKET</th><th>TF</th><th>SCOPE</th>'
+          +sh('pnl','NET $','right')+sh('pf','PF','right')+sh('wr','WR','right')+sh('trd','TRD','right')+sh('score','SCORE','right')+sh('date','DATE','left')+'<th>DATA RANGE</th>'
+          +'</tr></thead><tbody>'+trows+'</tbody></table></div>';
+        body=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span></div>'+fbar+tbl)
+          +'<div id="res-detail" class="hero-card" style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:13px;padding:14px 16px">'+runDetail(d)+'</div>';
       }
     }
     content.innerHTML=nav+body;
@@ -5033,6 +5032,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.run;renderApp();};});
       // filters / sort (persist + re-render)
       content.querySelectorAll('[data-rf]').forEach(s=>{s.onchange=()=>{savePref(s.dataset.rf,s.value);renderApp();};});
+      content.querySelectorAll('[data-rsort]').forEach(h=>{h.onclick=()=>{savePref('rfSort',h.dataset.rsort);renderApp();};});
       const _star=content.querySelector('[data-rfstar]');if(_star)_star.onclick=()=>{savePref('rfStar',!APREF.rfStar);renderApp();};
       const _rfc=content.querySelector('[data-rfclear]');if(_rfc)_rfc.onclick=()=>{['rfStrat','rfInst','rfTf','rfScope'].forEach(k=>savePref(k,''));savePref('rfStar',false);renderApp();};
       // star a run (write-back to Firestore; snapshot re-renders). stopPropagation so the row doesn't also select.
