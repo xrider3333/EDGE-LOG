@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='28.0';
+const VERSION='28.2';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4396,7 +4396,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<button class="btn-ghost" id="det-del" data-del-id="'+d.id+'" style="padding:4px 10px;font-size:var(--fsxs);border:1px solid var(--red);border-radius:6px;color:var(--red)">delete</button></div>'
         +valdCard
         +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-bottom:16px">'+cardHtml+'</div>'
-        +((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d.equity_top,mlt):eqHtml)+valHtml+isOosFoldsHtml(d,mlt)+stressPanelHtml(d.stress,mlt)+distPanelHtml(d.dist,mlt)
+        +((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d.equity_top,mlt):eqHtml)
+        +((d.date_from&&d.date_to)?'<div id="det-spy" data-spy-from="'+d.date_from+'" data-spy-to="'+d.date_to+'" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 14px"></div>':'')
+        +valHtml+isOosFoldsHtml(d,mlt)+stressPanelHtml(d.stress,mlt)+distPanelHtml(d.dist,mlt)
         +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+scatterPanelHtml(d.points,mlt)+heatmapPanelHtml(d.points,mlt)+'</div>'
         +corrPanelHtml(d.points)
         +'<div class="lbl" style="margin-bottom:6px">TOP CONFIGS</div>'
@@ -4991,6 +4993,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _del=el('det-del');if(_del)_del.onclick=async()=>{const id=_del.dataset.delId;if(!confirm('Delete run #'+id+'? Removes it from the web and your local AUGUR history.'))return;try{await runsRef.doc(String(id)).delete();if(cmdRef)await cmdRef.add({action:'delete_run',payload:{id:+id},status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()});if(String(augurRunSel)===String(id))augurRunSel=null;}catch(e){alert('delete failed: '+e.message);}renderApp();};
       // relabel: update the web doc strategy + queue a runner command to update the DB.
       const _rl=el('det-relabel');if(_rl)_rl.onchange=async()=>{const f=_rl.value,id=_rl.dataset.relabelId;if(!f)return;try{await runsRef.doc(String(id)).update({strategy:f});if(cmdRef)await cmdRef.add({action:'relabel_run',payload:{id:+id,strategy:f},status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){alert('relabel failed: '+e.message);}renderApp();};
+      // SPY buy-&-hold benchmark over the run's window (async; cached) — context for the equity.
+      const _spy=el('det-spy');if(_spy){const a=_spy.dataset.spyFrom,b=_spy.dataset.spyTo;_spy.textContent='benchmark · loading SPY…';fetchSPYData(a,b).then(data=>{const sp=el('det-spy');if(!sp)return;const ret=spyReturnReal(a,b,data)*100;if(!isFinite(ret)){sp.textContent='';return;}sp.innerHTML='Benchmark · SPY buy-&-hold '+a+' → '+b+': <b style="color:'+(ret>=0?'var(--green)':'var(--red)')+'">'+(ret>=0?'+':'')+ret.toFixed(1)+'%</b> <span style="opacity:.7">(context for the equity curve above)</span>';}).catch(()=>{const sp=el('det-spy');if(sp)sp.textContent='';});}
       // scatter / heatmap param pickers — persist the chosen axes and re-render the detail
       const _sx=content.querySelector('[data-scx]');if(_sx)_sx.onchange=()=>{savePref('scX',_sx.value);renderApp();};
       const _hx=content.querySelector('[data-hmx]');if(_hx)_hx.onchange=()=>{savePref('hmX',_hx.value);renderApp();};

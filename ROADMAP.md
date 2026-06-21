@@ -104,6 +104,11 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v28.2** Closed the Results audit: TF/scope filter facets + clear; PARAM CORRELATION panel
+  (Pearson r per param vs PnL); WALK-FORWARD IS-vs-OOS per-fold bars; delete + relabel runs
+  from the web (runner delete_run/relabel_run commands); SPY buy-&-hold benchmark over each
+  run's window. Deferred: MAE/MFE (needs per-trade direction in the strategy contract — legacy
+  never finished it either).
 - **v27.9** Past Runs: filter by strategy / market, sort (newest / score / $ / PF), per-run
   ★ star toggle + editable notes (write back to Firestore users/{uid}/runs). Closes the
   Results filters/sort/favorite backlog.
