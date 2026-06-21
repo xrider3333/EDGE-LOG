@@ -25,7 +25,7 @@ def _parse(d):
 def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", source=None,
                  cost_pts=0.0, min_trades=30, n_trials=200, wf_folds=0, seed=42,
                  lockbox_months=12, date_from=None, date_to=None, progress_cb=None,
-                 thresholds=None):
+                 thresholds=None, transfer_to=None):
     th = {"trades_per_param": 30, "wfe": 0.5, "fold_frac": 0.66, "dsr": 0.8}
     th.update(thresholds or {})
 
@@ -94,9 +94,6 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "consistency": wf_ran and fold_frac >= th["fold_frac"],
         "luck": (not dsr) or float(dsr.get("dsr", 1) or 1) >= th["dsr"],
     }
-    n_pass = sum(1 for v in checks.values() if v)
-    n_gates = len(checks)
-
     # ── Stage C — lockbox one-shot (champion on the reserved slice) ───────────
     lb = None
     if champ:
@@ -125,6 +122,33 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     lb_pf = float((lb or {}).get("profit_factor", 0) or 0)
     lb_trades = int((lb or {}).get("num_trades", 0) or 0)
     lb_pass = lb is not None and lb_pnl > 0 and lb_pf >= 1.0
+
+    # ── Cross-instrument transfer — re-test the CHAMPION (no re-optimization) on
+    #    other instruments. Edge that only works where it was fit is a single-symbol
+    #    artifact; surviving on a sibling (NQ↔ES) is structural evidence. ──────────
+    tlist = (transfer_to if isinstance(transfer_to, (list, tuple))
+             else ([transfer_to] if transfer_to else []))
+    transfer = []
+    for ti in tlist:
+        if not ti or str(ti) == str(instrument):
+            continue
+        try:
+            tb = run_backtest(strategy, instrument=ti, timeframe=timeframe, session=session,
+                              source=source, params=champ, cost_pts=cost_pts,
+                              date_from=opt_from, date_to=None)
+        except Exception:
+            tb = None
+        if tb:
+            tpnl = float(tb.get("total_pnl", 0) or 0)
+            tpf = float(tb.get("profit_factor", 0) or 0)
+            transfer.append({"inst": ti, "pnl": tpnl, "pf": tpf,
+                             "trades": int(tb.get("num_trades", 0) or 0),
+                             "pass": tpnl > 0 and tpf >= 1.0})
+    if champ and tlist:
+        checks["transfer"] = any(t["pass"] for t in transfer)
+
+    n_pass = sum(1 for v in checks.values() if v)
+    n_gates = len(checks)
     if progress_cb:
         progress_cb(100, 100)
 
@@ -142,6 +166,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "plateau": ({"verdict": nb.get("verdict"), "good": nb.get("good"),
                      "tot": nb.get("tot")} if plateau_ran else None),
         "wfe": round(wfe, 3), "folds_held": int(held), "n_folds": n_folds, "wf_ran": wf_ran,
+        "transfer": transfer,
         "dsr": (dsr.get("dsr") if dsr else None),
         "is_pf": float(bestA.get("profit_factor", 0) or 0),
         "is_sharpe": (dsr.get("winner_sharpe") if dsr else None),

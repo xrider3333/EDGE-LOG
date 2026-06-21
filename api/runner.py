@@ -88,6 +88,7 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 n_trials=int(job.get("n_trials", 200)),
                 wf_folds=int(job.get("wf_folds", 0) or 0),
                 lockbox_months=int(job.get("lockbox_months", 12)),
+                transfer_to=job.get("transfer_to"),
                 thresholds=job.get("thresholds"), progress_cb=progress_cb)
         elif jtype == "ai_optimize":
             prov = job.get("provider", "ollama")
