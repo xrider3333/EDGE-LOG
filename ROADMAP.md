@@ -102,6 +102,10 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v27.1** Cross-instrument transfer gate (the last auto-gatable validation-roadmap step):
+  Builder TRANSFER TO picker (defaults to the sibling, NQ↔ES) re-tests the champion on
+  another instrument with NO re-optimization; 6th gate passes if it stays profitable there.
+  Card shows the transfer gate + per-instrument holds/fails · PF · $ · trades.
 - **v27.0** Auto-Validate card now renders in the Results/Past-Runs tab too (not just the
   Builder): factored into a shared `validateCardHtml` helper — verdict, 5 gates, equity
   curve (lockbox shaded), lockbox HELD/FAILED + MC drawdown — so saved validate runs show
