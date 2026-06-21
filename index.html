@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='27.3';
+const VERSION='27.4';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -663,7 +663,7 @@ function subscribeAll(uid){
   unsubBT=btRef.orderBy('createdAt','desc').limit(50).onSnapshot(snap=>{backtests=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='augur')renderApp();});
   runsRef=db.collection('users').doc(uid).collection('runs');
   if(unsubRuns)unsubRuns();
-  unsubRuns=runsRef.onSnapshot(snap=>{runHistory=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='augur'&&augurSub==='runs')renderApp();});
+  unsubRuns=runsRef.onSnapshot(snap=>{runHistory=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='augur'&&(augurSub==='runs'||augurSub==='rank'))renderApp();});
   cmdRef=db.collection('users').doc(uid).collection('commands');
   metaRef=db.collection('users').doc(uid).collection('meta');
   if(unsubMeta)unsubMeta();
@@ -4291,8 +4291,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const applyExMode=m=>{Object.keys(EXFIELDS).forEach(id=>{const e=el(id);if(!e)return;const on=EXFIELDS[id].indexOf(m)>=0;e.disabled=!on;const w=e.closest('div');if(w)w.style.display=on?'':'none';});};
     const instColor=i=>INSTC[String(i||'').toUpperCase().trim()]||'hsl('+_hashHue(String(i||''))+',45%,62%)';
     const instTag=i=>'<span style="color:'+instColor(i)+';font-weight:600">'+(i||'')+'</span>';
-    const AICON={runs:'▦',exec:'▸',lib:'◫',cmp:'◧',ref:'◈',research:'◎',set:'◆'};
-    const asubs=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['ref','REFERENCE'],['research','RESEARCH'],['set','SETTINGS']];
+    const AICON={runs:'▦',exec:'▸',lib:'◫',cmp:'◧',rank:'▤',ref:'◈',research:'◎',set:'◆'};
+    const asubs=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['rank','RANKINGS'],['cmp','COMPARE'],['ref','REFERENCE'],['research','RESEARCH'],['set','SETTINGS']];
+    // 0–100 robustness score: blends OOS strength (DSR, walk-forward, lockbox), PF, sample.
+    const scoreRun=(r)=>{
+      if(r.validate){const V=r.validate;let s=(V.n_pass/(V.n_gates||5))*60;if(V.lockbox&&V.lockbox.pass)s+=20;s+=Math.max(0,Math.min(1,V.wfe||0))*10;if(V.dsr!=null)s+=Math.max(0,Math.min(1,V.dsr))*10;return Math.round(Math.max(0,Math.min(100,s)));}
+      let s=0;if(r.dsr&&r.dsr.dsr!=null)s+=Math.max(0,Math.min(1,r.dsr.dsr))*35;
+      s+=Math.max(0,Math.min(25,((r.best_pf||0)-1)*25));
+      s+=Math.max(0,Math.min(15,(r.best_trades||0)/300*15));
+      const t10=r.top10_results,folds=Array.isArray(t10)?t10.filter(x=>x&&x.fold!=null):[];
+      if(folds.length){const fs=[...new Set(folds.map(x=>x.fold))],held=fs.filter(fd=>folds.filter(x=>x.fold===fd).some(x=>(+x.oos_pf||0)>1)).length;s+=(held/fs.length)*25;}
+      else if((r.best_oos_pnl||0)>0)s+=15;
+      return Math.round(Math.max(0,Math.min(100,s)));};
     let navBtns='';
     asubs.forEach(s=>{navBtns+='<button class="btn-ghost" data-asub="'+s[0]+'" style="border-radius:0;border-bottom:2px solid '+(augurSub===s[0]?'var(--text)':'transparent')+';color:'+(augurSub===s[0]?'var(--text)':'var(--text4)')+'"><span style="font-variant-emoji:text;opacity:.65;margin-right:6px">'+AICON[s[0]]+'</span>'+s[1]+'</button>';});
     // Contextual controls pinned to the FAR RIGHT of the sub-tab row, in a tile.
@@ -4627,6 +4637,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
         body='<div style="display:flex;gap:16px;margin-bottom:14px"><div style="flex:1"><label class="lbl">RUN A</label><select id="cmp-a">'+opt(A.id)+'</select></div><div style="flex:1"><label class="lbl">RUN B</label><select id="cmp-b">'+opt(B.id)+'</select></div></div>'
           +tile('<table class="table"><thead><tr><th></th><th>A · #'+A.id+'</th><th>B · #'+B.id+'</th></tr></thead><tbody>'+crows+'</tbody></table>');
       }
+    }else if(augurSub==='rank'){
+      const scored=(runHistory||[]).map(r=>({r:r,s:scoreRun(r)})).sort((a,b)=>b.s-a.s);
+      if(!scored.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUNS YET — RUN SOME BACKTESTS</div>';}
+      else{const rows=scored.map((o,i)=>{const r=o.r,sc=o.s,col=sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)';const vv=r.validate?r.validate.verdict:'';return '<tr class="arow" data-rank-run="'+r.id+'" style="cursor:pointer">'
+          +'<td style="color:var(--text5)">'+(i+1)+'</td>'
+          +'<td><div style="display:flex;align-items:center;gap:8px"><span style="width:26px;text-align:right;font-weight:800;color:'+col+'">'+sc+'</span><span style="flex:1;height:5px;background:var(--bg1);border-radius:3px;overflow:hidden;min-width:54px;display:inline-block"><span style="display:block;height:100%;width:'+sc+'%;background:'+col+'"></span></span></div></td>'
+          +'<td style="font-size:var(--fsxs)">'+stratTag(r.strategy)+(vv?' <span style="font-size:8px;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vv+'</span>':'')+'</td>'
+          +'<td style="font-size:var(--fsxs)">'+instTag(r.instrument)+' '+(r.timeframe||'')+'</td><td style="font-size:var(--fsxs);color:var(--text5)">'+(r.scope||'')+'</td>'
+          +'<td style="text-align:right">'+(r.best_pf||0).toFixed(2)+'</td>'
+          +'<td style="text-align:right;font-size:var(--fsxs)">'+(r.dsr&&r.dsr.dsr!=null?Math.round(r.dsr.dsr*100)+'%':'—')+'</td>'
+          +'<td style="text-align:right">'+(r.best_trades||0)+'</td>'
+          +'<td style="text-align:right;color:'+((r.best_pnl_usd||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(r.best_pnl_usd||0)+'</td>'
+          +'<td style="font-size:var(--fsxs);color:var(--text5)">'+((r.timestamp||'').slice(0,10))+'</td></tr>';}).join('');
+        body=tile('<div class="lbl" style="margin-bottom:4px">▤ RANKINGS · '+scored.length+' runs by robustness score</div>'
+          +'<div style="font-size:8px;color:var(--text5);margin-bottom:9px;max-width:680px">0–100 blends out-of-sample strength (Deflated Sharpe, walk-forward folds held, lockbox), profit factor and sample size. Auto-Validate runs use their gate results. Click a row to open the run in Results.</div>'
+          +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th><th style="min-width:90px">SCORE</th><th>STRATEGY</th><th>MARKET</th><th>SCOPE</th><th style="text-align:right">PF</th><th style="text-align:right">DSR</th><th style="text-align:right">TRD</th><th style="text-align:right">$PNL</th><th>DATE</th></tr></thead><tbody>'+rows+'</tbody></table></div>');}
     }else if(augurSub==='ref'){
       const inst=[['NQ','E-mini Nasdaq-100','$20 / pt'],['MNQ','Micro Nasdaq-100','$2 / pt'],['ES','E-mini S&P 500','$50 / pt'],['MES','Micro S&P 500','$5 / pt']];
       const irows=inst.map(i=>'<tr><td><b>'+i[0]+'</b></td><td style="color:var(--text3)">'+i[1]+'</td><td style="text-align:right">'+i[2]+'</td></tr>').join('');
@@ -4785,6 +4811,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       savePref('mode',mode);savePref('instrument',el('ex-inst').value);savePref('session',el('ex-sess').value);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);if(el('ex-wfmode'))savePref('wf_mode',el('ex-wfmode').value);savePref('comm_usd',commU);savePref('slip_pts',slipP);savePref('date_from',dFrom);savePref('date_to',dTo);savePref('lockbox',lockbox);if(el('ex-lockmo'))savePref('lockbox_months',parseInt(el('ex-lockmo').value)||12);
       const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:effTo,preset:scopeVal,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};if(useCustom)base.grid=customGrid;const job=(mode==='validate')?Object.assign({},base,{type:'validate',date_from:vFrom,date_to:'',n_trials:vTrials,wf_folds:0,lockbox_months:vLockMo,transfer_to:(el('ex-xfer')&&el('ex-xfer').value)||null,dsr:true}):(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,wf_mode:(el('ex-wfmode')?el('ex-wfmode').value:'anchored'),top_n:10,dsr:true,mc_sims:500}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='cmp'){const sa=el('cmp-a'),sb=el('cmp-b');if(sa)sa.onchange=()=>{augurCmpA=sa.value;renderApp();};if(sb)sb.onchange=()=>{augurCmpB=sb.value;renderApp();};}
+    else if(augurSub==='rank'){content.querySelectorAll('[data-rank-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.rankRun;augurSub='runs';renderApp();};});}
     else if(augurSub==='lib'){
       const ls0=el('lib-listscroll');
       if(ls0){

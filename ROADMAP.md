@@ -102,6 +102,9 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v27.4** RANKINGS sub-tab: 0–100 robustness leaderboard across all saved runs
+  (frontend-only score blends DSR, walk-forward folds held, lockbox, PF, sample; Auto-Validate
+  runs use their gate results + verdict badge). Click a row → opens the run in Results.
 - **v27.3** Results-tab parity (part 2): SCATTER (param vs PnL) + HEATMAP (param X×Y → avg
   PnL, 8×8) panels with param pickers. Engine syncs a compact per-config `points` array
   (params + PnL) from grid/auto/validate. Remaining vs legacy: top-N equity overlay,
