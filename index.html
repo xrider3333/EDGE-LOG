@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='27.7';
+const VERSION='27.8';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4229,7 +4229,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // climb alike the edge is robust; if only the winner climbs it's a fragile outlier.
     const topEqOverlayHtml=(etop,mult)=>{
       if(!etop||etop.length<2)return '';
-      const series=etop.map(a=>a.map(x=>x*mult));let mn=0,mx=0;series.forEach(s=>s.forEach(v=>{if(v<mn)mn=v;if(v>mx)mx=v;}));const rg=(mx-mn)||1;
+      const series=etop.map(o=>((o&&o.cum)?o.cum:o).map(x=>x*mult));let mn=0,mx=0;series.forEach(s=>s.forEach(v=>{if(v<mn)mn=v;if(v>mx)mx=v;}));const rg=(mx-mn)||1;
       const W=560,H=140,pd=6,path=(s,col,wd,op)=>{const n=s.length;if(n<2)return '';return '<path d="'+s.map((v,i)=>((i?'L':'M')+(pd+(W-2*pd)*i/(n-1)).toFixed(1)+' '+(H-pd-(H-2*pd)*(v-mn)/rg).toFixed(1))).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'"/>';};
       const others=series.slice(1).map(s=>path(s,'var(--text4)',1,0.4)).join(''),best=path(series[0],'var(--green)',2,1),zeroY=H-pd-(H-2*pd)*(0-mn)/rg;
       return '<div class="lbl" style="margin:8px 0 6px">TOP CONFIGS EQUITY · '+series.length+' overlaid · best = green</div>'

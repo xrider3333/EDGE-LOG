@@ -124,7 +124,7 @@ def get_run(run_id):
             if len(cm) > 80:
                 step = len(cm) / 80
                 cm = [cm[int(i * step)] for i in range(80)]
-            etop.append([round(x / mult, 1) for x in cm])
+            etop.append({"cum": [round(x / mult, 1) for x in cm]})   # map, not nested array
         if etop:
             d["equity_top"] = etop
     d.pop("code_snapshot", None)

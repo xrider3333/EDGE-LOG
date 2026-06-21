@@ -373,7 +373,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                     if len(cc) > 80:
                         st2 = len(cc) / 80
                         cc = [cc[int(i * st2)] for i in range(80)]
-                    etop.append([round(float(x), 1) for x in cc])
+                    etop.append({"cum": [round(float(x), 1) for x in cc]})   # map, not nested array
                 out["equity_top"] = etop
                 if len(win_pnls) >= 16:   # PnL across 8 chronological windows
                     N = 8; sz = len(win_pnls) // N
