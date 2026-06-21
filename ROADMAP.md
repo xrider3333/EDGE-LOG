@@ -102,6 +102,11 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v26.9** Auto-Validate UX + visuals: VALIDATE SCOPE (Short/Medium/Long/XL) sets the data
+  window + trials + lockbox months in one pick (no more 15-yr-by-default); WF folds dropped
+  from the mode (auto-fit). Report card now shows 5 gates incl. **Plateau** (param robustness)
+  + a **Monte-Carlo P95 drawdown** readout, plus an **equity curve** (champion PnL, lockbox
+  slice shaded) annotated with IS PF/Sharpe.
 - **v26.7** Auto-Validate mode (UI): one-click full validation pipeline — Builder MODE
   "🧭 Auto-Validate" (TRIALS/stage, WF FOLDS, LOCKBOX MO) queues a `validate` job that runs
   in-sample Auto-Optimize → rolling walk-forward → lockbox one-shot on the PC, and renders a
