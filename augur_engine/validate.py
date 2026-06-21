@@ -184,5 +184,5 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "best_params": champ, "best": bestA, "top": folds,
         "dsr": (dsr or None), "n_combos": n_trials * 2, "n_valid": A.get("n_valid"),
         "bars": A.get("bars"), "wf": True, "best_oos_pnl": sOos, "evolved_file": None,
-        "dist": A.get("dist"),
+        "dist": A.get("dist"), "points": A.get("points"),
     }

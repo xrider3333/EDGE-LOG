@@ -102,6 +102,10 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v27.3** Results-tab parity (part 2): SCATTER (param vs PnL) + HEATMAP (param X×Y → avg
+  PnL, 8×8) panels with param pickers. Engine syncs a compact per-config `points` array
+  (params + PnL) from grid/auto/validate. Remaining vs legacy: top-N equity overlay,
+  Rankings leaderboard, stress-test.
 - **v27.2** Results-tab parity (part 1): PNL DISTRIBUTION panel with PLATEAU / ISOLATED-SPIKE
   verdict — histogram of every tested config's net PnL (engine syncs a compact `dist` from
   grid/auto/validate). Still missing vs legacy: scatter, heatmap, top-N equity overlay,

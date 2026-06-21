@@ -26,7 +26,7 @@ from .strategies import load_strategy, _resolve, strategy_params
 from .data import find_master, load_master_arrays
 from .engine import _apply_costs
 from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
-                        regime_report, neighborhood, downsample_pnls)
+                        regime_report, neighborhood, downsample_pnls, downsample_points)
 
 # Realism gates — identical to optimizer.py (WF_MIN_SIDE / MAX_TRADE_RATE / MAX_PF).
 # A champion/headline config must take at least this many WINNING and LOSING trades
@@ -268,8 +268,11 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
            "best": {k: best.get(k) for k in _METRIC_KEYS if k in best},
            "bars": int(n), "master": (arrays.get("meta") or {}).get("name"),
            "wf": is_wf}
-    if not is_wf:   # config-PnL spread for the distribution / plateau panel
+    if not is_wf:   # config-PnL spread + param points for distribution / scatter / heatmap
         out["dist"] = downsample_pnls([r.get("total_pnl", 0) for r in records])
+        out["points"] = downsample_points(
+            [dict({k: r.get(k) for k in pkeys}, pnl=round(float(r.get("total_pnl", 0) or 0), 1))
+             for r in records])
 
     # ── Regime report card + neighborhood robustness on the winner (opt-in) ──
     if (compute_regime or compute_neighbors) and best:

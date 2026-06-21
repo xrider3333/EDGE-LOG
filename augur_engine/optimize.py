@@ -14,7 +14,7 @@ from .strategies import load_strategy, _resolve
 from .data import find_master, load_master_arrays
 from .engine import _apply_costs
 from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
-                        regime_report, neighborhood, downsample_pnls)
+                        regime_report, neighborhood, downsample_pnls, downsample_points)
 
 _METRIC_KEYS = ("total_pnl", "num_trades", "win_rate", "profit_factor",
                 "max_drawdown", "avg_pnl")
@@ -126,6 +126,8 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
         "bars": int(len(C)),
         "master": (arrays.get("meta") or {}).get("name"),
         "dist": downsample_pnls([m.get("total_pnl", 0) for _, m in valid]),
+        "points": downsample_points([dict(p, pnl=round(float(m.get("total_pnl", 0) or 0), 1))
+                                     for p, m in valid]),
     }
 
     # Regime report card + neighborhood robustness on the winner (opt-in).

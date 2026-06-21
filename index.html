@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='27.2';
+const VERSION='27.3';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4212,6 +4212,42 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100" preserveAspectRatio="none">'+bars+'<line x1="'+bestX.toFixed(1)+'" y1="0" x2="'+bestX.toFixed(1)+'" y2="'+H+'" stroke="var(--text)" stroke-width="1.5" stroke-dasharray="3,2"/></svg>'
         +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5)"><span>'+fmtUsd(Math.round(mn))+'</span><span>↑ best '+fmtUsd(Math.round(mx))+'</span></div></div>';
     };
+    // SCATTER — each tested config as a dot: chosen param (X) vs net PnL (Y). Shows
+    // whether the edge is a smooth slope (robust) or random noise.
+    const scatterPanelHtml=(points,mult)=>{
+      if(!points||points.length<6)return '';
+      const keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&typeof points[0][k]==='number');
+      if(!keys.length)return '';
+      const xk=keys.indexOf(APREF.scX)>=0?APREF.scX:keys[0];
+      const xs=points.map(p=>p[xk]),ys=points.map(p=>p.pnl*mult);
+      const xmn=Math.min.apply(null,xs),xmx=Math.max.apply(null,xs),ymn=Math.min.apply(null,[0].concat(ys)),ymx=Math.max.apply(null,[0].concat(ys));
+      const W=560,H=150,pd=8,X=v=>pd+(W-2*pd)*((v-xmn)/((xmx-xmn)||1)),Y=v=>H-pd-(H-2*pd)*((v-ymn)/((ymx-ymn)||1));
+      const dots=points.map(p=>'<circle cx="'+X(p[xk]).toFixed(1)+'" cy="'+Y(p.pnl*mult).toFixed(1)+'" r="2.6" fill="'+(p.pnl>=0?'var(--green)':'var(--red)')+'" opacity="0.6"/>').join('');
+      const sel='<select data-scx style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin:0 0 0 6px">'+keys.map(k=>'<option'+(k===xk?' selected':'')+'>'+k+'</option>').join('')+'</select>';
+      return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center">SCATTER · PnL vs'+sel+'</div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="140" preserveAspectRatio="none"><line x1="0" y1="'+Y(0).toFixed(1)+'" x2="'+W+'" y2="'+Y(0).toFixed(1)+'" stroke="var(--border)"/>'+dots+'</svg>'
+        +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5)"><span>'+xk+' = '+xmn+'</span><span>'+xmx+'</span></div></div>';
+    };
+    // HEATMAP — bin two params into an 8×8 grid, colour each cell by avg PnL. Shows where
+    // in parameter space the edge lives (a green region = robust; a lone green cell = fragile).
+    const heatmapPanelHtml=(points,mult)=>{
+      if(!points||points.length<8)return '';
+      const keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&typeof points[0][k]==='number');
+      if(keys.length<2)return '';
+      const xk=keys.indexOf(APREF.hmX)>=0?APREF.hmX:keys[0];
+      let yk=keys.indexOf(APREF.hmY)>=0?APREF.hmY:keys[1];if(yk===xk)yk=keys.find(k=>k!==xk)||keys[1];
+      const xs=points.map(p=>p[xk]),ys=points.map(p=>p[yk]);
+      const xmn=Math.min.apply(null,xs),xmx=Math.max.apply(null,xs),ymn=Math.min.apply(null,ys),ymx=Math.max.apply(null,ys);
+      const NB=8,cell=(v,mn,mx)=>Math.min(NB-1,Math.max(0,Math.floor((v-mn)/((mx-mn)||1)*NB))),grid={};
+      points.forEach(p=>{const k=cell(p[xk],xmn,xmx)+','+cell(p[yk],ymn,ymx);(grid[k]=grid[k]||[]).push(p.pnl*mult);});
+      let maxAbs=1;Object.keys(grid).forEach(k=>{const a=grid[k],av=a.reduce((s,x)=>s+x,0)/a.length;maxAbs=Math.max(maxAbs,Math.abs(av));});
+      const S=280,cw=S/NB;let cells='';
+      for(let cy=0;cy<NB;cy++)for(let cx=0;cx<NB;cx++){const a=grid[cx+','+cy];if(!a)continue;const av=a.reduce((s,x)=>s+x,0)/a.length,t=av/maxAbs,col=(t>=0?'rgba(39,192,138,':'rgba(226,75,74,'),op=Math.min(0.85,Math.abs(t)*0.8+0.12);cells+='<rect x="'+(cx*cw).toFixed(1)+'" y="'+(S-(cy+1)*cw).toFixed(1)+'" width="'+cw.toFixed(1)+'" height="'+cw.toFixed(1)+'" fill="'+col+op+')"/>';}
+      const mk=(a,dk)=>'<select data-'+dk+' style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs)">'+keys.map(k=>'<option'+(k===a?' selected':'')+'>'+k+'</option>').join('')+'</select>';
+      return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">HEATMAP · '+mk(xk,'hmx')+' × '+mk(yk,'hmy')+' → avg PnL</div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px;display:inline-block"><svg viewBox="0 0 '+S+' '+S+'" width="'+S+'" height="'+S+'" style="max-width:100%">'+cells+'</svg>'
+        +'<div style="font-size:8px;color:var(--text5);margin-top:4px">'+xk+' → · '+yk+' ↑ · green=profit, red=loss</div></div>';
+    };
     // Shared Auto-Validate report card (verdict + 5 gates + equity curve + lockbox) —
     // used by both the Builder run panel and the Results/Past-Runs detail so they match.
     const validateCardHtml=(V,mlt,stratLabel)=>{
@@ -4301,6 +4337,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +valdCard
         +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-bottom:16px">'+cardHtml+'</div>'
         +eqHtml+valHtml+distPanelHtml(d.dist,mlt)
+        +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+scatterPanelHtml(d.points,mlt)+heatmapPanelHtml(d.points,mlt)+'</div>'
         +'<div class="lbl" style="margin-bottom:6px">TOP CONFIGS</div>'
         +(t10.length?'<div style="overflow-x:auto"><table class="table">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>')
         +regHtml+nbHtml;
@@ -4817,7 +4854,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const move=(ev)=>{if(view==='side'){const w=el('res-wrap'),L=el('res-left');if(!w||!L)return;const rect=w.getBoundingClientRect();let r=(ev.clientX-rect.left)/rect.width;r=Math.min(.6,Math.max(.15,r));L.style.flexBasis=(r*100)+'%';APREF.splitH=r;}else{const top=el('res-top'),sc=el('res-listscroll');if(!top||!sc)return;const rect=top.getBoundingClientRect();let h=ev.clientY-rect.top-30;h=Math.min(520,Math.max(120,h));sc.style.maxHeight=h+'px';APREF.splitV=h;}};
         const up=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);savePref(view==='side'?'splitH':'splitV',view==='side'?APREF.splitH:APREF.splitV);};
         document.addEventListener('pointermove',move);document.addEventListener('pointerup',up);};}
-      content.querySelectorAll('[data-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.run;renderApp();};});}
+      content.querySelectorAll('[data-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.run;renderApp();};});
+      // scatter / heatmap param pickers — persist the chosen axes and re-render the detail
+      const _sx=content.querySelector('[data-scx]');if(_sx)_sx.onchange=()=>{savePref('scX',_sx.value);renderApp();};
+      const _hx=content.querySelector('[data-hmx]');if(_hx)_hx.onchange=()=>{savePref('hmX',_hx.value);renderApp();};
+      const _hy=content.querySelector('[data-hmy]');if(_hy)_hy.onchange=()=>{savePref('hmY',_hy.value);renderApp();};}
     return;
   }
   if(activeTab==='settings'){

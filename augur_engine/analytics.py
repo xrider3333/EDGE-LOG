@@ -25,6 +25,15 @@ def downsample_pnls(pnls, cap=400):
     return [round(x, 1) for x in out]
 
 
+def downsample_points(points, cap=400):
+    """Stride-sample a list of per-config {param:..., pnl} dicts to <=cap — feeds the
+    web's scatter (param vs PnL) and heatmap (param X×Y → PnL) panels."""
+    if len(points) > cap:
+        step = len(points) / cap
+        return [points[int(i * step)] for i in range(cap)]
+    return list(points)
+
+
 def annualized_sr(pnls, years):
     """{sr, n, tpy, skew, kurt} annualized Sharpe of a per-trade PnL series (None if
     too few trades / zero variance). Same formula as optimizer._ann_sr."""
