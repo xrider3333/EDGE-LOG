@@ -237,26 +237,26 @@ def run_backtest(
                                 # inflator behind the tight-stop fake-PF artifact.
                                 ex_px = so[k] if so[k] < stop else stop
                                 pnl_list.append(ex_px - entry)
-                                if return_trades: trade_log.append((i + ek, i + k, ex_px - entry))
+                                if return_trades: trade_log.append((i + ek, i + k, ex_px - entry, 1, entry))
                                 pos = 0; break
                             if target_R > 0 and sh[k] >= tgt:
                                 pnl_list.append(tgt - entry)
-                                if return_trades: trade_log.append((i + ek, i + k, tgt - entry))
+                                if return_trades: trade_log.append((i + ek, i + k, tgt - entry, 1, entry))
                                 pos = 0; break
                         else:
                             if sh[k] >= stop:
                                 ex_px = so[k] if so[k] > stop else stop   # gap-through
                                 pnl_list.append(entry - ex_px)
-                                if return_trades: trade_log.append((i + ek, i + k, entry - ex_px))
+                                if return_trades: trade_log.append((i + ek, i + k, entry - ex_px, -1, entry))
                                 pos = 0; break
                             if target_R > 0 and sl[k] <= tgt:
                                 pnl_list.append(entry - tgt)
-                                if return_trades: trade_log.append((i + ek, i + k, entry - tgt))
+                                if return_trades: trade_log.append((i + ek, i + k, entry - tgt, -1, entry))
                                 pos = 0; break
                 if pos != 0:                                        # EOD flat
                     pnl = (sc[-1] - entry) if pos > 0 else (entry - sc[-1])
                     pnl_list.append(pnl)
-                    if return_trades: trade_log.append((i + ek, j - 1, pnl))
+                    if return_trades: trade_log.append((i + ek, j - 1, pnl, 1 if pos > 0 else -1, entry))
         i = j
 
     if not pnl_list:

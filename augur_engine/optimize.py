@@ -14,7 +14,8 @@ from .strategies import load_strategy, _resolve
 from .data import find_master, load_master_arrays
 from .engine import _apply_costs
 from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
-                        regime_report, neighborhood, downsample_pnls, downsample_points)
+                        regime_report, neighborhood, downsample_pnls, downsample_points,
+                        mae_mfe)
 
 _METRIC_KEYS = ("total_pnl", "num_trades", "win_rate", "profit_factor",
                 "max_drawdown", "avg_pnl")
@@ -192,6 +193,14 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 cum = [cum[int(i * _st)] for i in range(160)]
             out["equity"] = {"cum": [round(float(x), 1) for x in cum],
                              "final": round(float(_s), 1), "n": len(win_pnls)}
+            try:    # MAE/MFE (needs rich 5-tuple trades; None for legacy strategies)
+                _wm = fn(O, H, L, C, return_trades=True, **extras, **best[0])
+                if _wm and _wm.get("trades"):
+                    _mm = mae_mfe(_wm["trades"], H, L)
+                    if _mm:
+                        out["mae_mfe"] = _mm
+            except Exception:
+                pass
             # top-N equity overlay (robustness: do the best configs all climb alike?)
             etop = []
             for (pp_, _m) in valid[:6]:

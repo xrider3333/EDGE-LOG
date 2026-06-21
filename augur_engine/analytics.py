@@ -25,6 +25,35 @@ def downsample_pnls(pnls, cap=400):
     return [round(x, 1) for x in out]
 
 
+def mae_mfe(trades, highs, lows, cap=600):
+    """Per-trade Maximum Adverse / Favorable Excursion (in points) from rich trades
+    (entry_idx, exit_idx, pnl, side, entry_px); side = +1 long / -1 short. MAE = worst
+    move against the trade, MFE = best move in favour, while open. Returns
+    {mae:[...], mfe:[...], won:[...]} or None if trades lack side/entry_px (legacy 3-tuples)."""
+    n = len(highs)
+    mae, mfe, won = [], [], []
+    for t in trades:
+        if not isinstance(t, (list, tuple)) or len(t) < 5:
+            return None
+        ei, xi, pnl, side, epx = t[0], t[1], t[2], t[3], t[4]
+        a = max(0, int(min(ei, xi))); b = min(n - 1, int(max(ei, xi)))
+        if b < a:
+            continue
+        hi = float(np.max(highs[a:b + 1])); lo = float(np.min(lows[a:b + 1]))
+        if side >= 0:                       # long: adverse = down, favourable = up
+            mae.append(round(lo - epx, 2)); mfe.append(round(hi - epx, 2))
+        else:                               # short: adverse = up, favourable = down
+            mae.append(round(epx - hi, 2)); mfe.append(round(epx - lo, 2))
+        won.append(1 if pnl > 0 else 0)
+    if not mae:
+        return None
+    if len(mae) > cap:
+        step = len(mae) / cap
+        idx = [int(i * step) for i in range(cap)]
+        mae = [mae[i] for i in idx]; mfe = [mfe[i] for i in idx]; won = [won[i] for i in idx]
+    return {"mae": mae, "mfe": mfe, "won": won}
+
+
 def downsample_points(points, cap=400):
     """Stride-sample a list of per-config {param:..., pnl} dicts to <=cap — feeds the
     web's scatter (param vs PnL) and heatmap (param X×Y → PnL) panels."""

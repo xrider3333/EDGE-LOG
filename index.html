@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='28.2';
+const VERSION='28.3';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4271,6 +4271,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px;display:inline-block"><svg viewBox="0 0 '+S+' '+S+'" width="'+S+'" height="'+S+'" style="max-width:100%">'+cells+'</svg>'
         +'<div style="font-size:8px;color:var(--text5);margin-top:4px">'+xk+' → · '+yk+' ↑ · green=profit, red=loss</div></div>';
     };
+    // MAE / MFE — per-trade heat (max adverse) vs reach (max favorable), turned into
+    // data-driven stop & target guidance from your own winning trades.
+    const maeMfePanelHtml=(mm,mult)=>{
+      if(!mm||!mm.mae||mm.mae.length<10)return '';
+      const won=mm.won||[],winHeat=mm.mae.map(v=>Math.abs(v)).filter((_,i)=>won[i]),allMfe=mm.mfe.map(Math.abs);
+      if(winHeat.length<5)return '';
+      const pct=(arr,p)=>{const s=arr.slice().sort((a,b)=>a-b);return s[Math.min(s.length-1,Math.floor(p*s.length))];};
+      const s50=pct(winHeat,0.5),s90=pct(winHeat,0.9),f50=pct(allMfe,0.5),f75=pct(allMfe,0.75);
+      const histo=(arr,col)=>{const mx=Math.max.apply(null,arr)||1,nb=20,bins=new Array(nb).fill(0);arr.forEach(x=>{let b=Math.floor(x/mx*nb);if(b<0)b=0;if(b>=nb)b=nb-1;bins[b]++;});const bm=Math.max.apply(null,bins)||1,W=270,H=70,bw=W/nb;return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="64" preserveAspectRatio="none">'+bins.map((c,i)=>{const h=(c/bm)*(H-2);return '<rect x="'+(i*bw+0.5).toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+(bw-1).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+col+'" opacity="0.55"/>';}).join('')+'</svg>';};
+      const usd=v=>fmtUsd(Math.round(v*mult));
+      return '<div class="lbl" style="margin:8px 0 6px">MAE / MFE · STOP &amp; TARGET GUIDANCE</div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:11px 12px;margin-bottom:14px">'
+        +'<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3);margin-bottom:10px">'
+        +'<div style="flex:1 1 260px"><span style="color:var(--red)">◀ STOP (heat winners took)</span><br>median <b>'+s50+' pts</b> · 90% within <b>'+s90+' pts</b> ('+usd(s90)+')<br><span style="color:var(--text5);font-size:8px">a stop tighter than ~'+s50+' pts cuts half your winners; ~'+s90+' keeps ~90%</span></div>'
+        +'<div style="flex:1 1 260px"><span style="color:var(--green)">TARGET (reach in favour) ▶</span><br>median <b>'+f50+' pts</b> · 75% reach <b>'+f75+' pts</b> ('+usd(f75)+')<br><span style="color:var(--text5);font-size:8px">if your target is below ~'+f50+' pts you\'re likely exiting early</span></div></div>'
+        +'<div style="display:flex;gap:12px;flex-wrap:wrap"><div style="flex:1 1 220px"><div style="font-size:8px;color:var(--text5)">MAE · adverse excursion (heat)</div>'+histo(mm.mae.map(Math.abs),'var(--red)')+'</div><div style="flex:1 1 220px"><div style="font-size:8px;color:var(--text5)">MFE · favourable excursion (reach)</div>'+histo(allMfe,'var(--green)')+'</div></div></div>';
+    };
     // PARAM CORRELATION — Pearson r of each parameter vs net PnL across all configs.
     const corrPanelHtml=(points)=>{
       if(!points||points.length<8)return '';
@@ -4400,7 +4417,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +((d.date_from&&d.date_to)?'<div id="det-spy" data-spy-from="'+d.date_from+'" data-spy-to="'+d.date_to+'" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 14px"></div>':'')
         +valHtml+isOosFoldsHtml(d,mlt)+stressPanelHtml(d.stress,mlt)+distPanelHtml(d.dist,mlt)
         +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+scatterPanelHtml(d.points,mlt)+heatmapPanelHtml(d.points,mlt)+'</div>'
-        +corrPanelHtml(d.points)
+        +maeMfePanelHtml(d.mae_mfe,mlt)+corrPanelHtml(d.points)
         +'<div class="lbl" style="margin-bottom:6px">TOP CONFIGS</div>'
         +(t10.length?'<div style="overflow-x:auto"><table class="table">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>')
         +regHtml+nbHtml;

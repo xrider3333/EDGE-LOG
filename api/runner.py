@@ -316,6 +316,7 @@ class FirestoreQueue:
             "points": result.get("points"),   # per-config param points for scatter / heatmap
             "equity_top": result.get("equity_top"),   # top-N equity curves (overlay)
             "stress": result.get("stress"),   # PnL across chronological windows
+            "mae_mfe": result.get("mae_mfe"),   # per-trade adverse/favorable excursion
             "equity": result.get("equity"),
             "multiplier": mult,
             # cost realism + date window so Results/roadmap can show & auto-derive them

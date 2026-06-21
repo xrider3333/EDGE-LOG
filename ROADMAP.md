@@ -71,7 +71,11 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       shown; extend to a "best-of-N luck bar" next to every grid winner.
 - [~] **#12 Neighborhood robustness table** — computed & shown; tie to the PLATEAU verdict.
 - [~] **#13 Regime-sliced report card** — computed & shown; expand slices (DoW, monthly heatmap).
-- [ ] **#14 MAE/MFE distributions** per trade (basis for stop/target placement).
+- [~] **#14 MAE/MFE distributions** per trade — engine computes max adverse/favorable
+      excursion from rich trades and the Results panel turns it into stop/target guidance
+      (median/90th heat winners took → stop; median/75th reach → target) + histograms.
+      Needs each strategy to emit 5-tuple trades `(entry_i, exit_i, pnl, side, entry_px)`;
+      ORB_SIMPLE_1_0 done, others fall back to no-panel until upgraded. *(v28.3)*
 - [ ] **#15 Risk-of-ruin + bootstrap MC** (resample-with-replacement, ruin prob, time-to-recovery).
 - [ ] **#16 Vol-targeted position sizing** (size by ATR so $ risk/trade is constant).
 - [ ] **#17 Half-day / holiday calendar** (13:00 ET closes break ORB EOD-flat & session stats).

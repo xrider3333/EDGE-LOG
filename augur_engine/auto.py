@@ -26,7 +26,8 @@ from .strategies import load_strategy, _resolve, strategy_params
 from .data import find_master, load_master_arrays
 from .engine import _apply_costs
 from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
-                        regime_report, neighborhood, downsample_pnls, downsample_points)
+                        regime_report, neighborhood, downsample_pnls, downsample_points,
+                        mae_mfe)
 
 # Realism gates — identical to optimizer.py (WF_MIN_SIDE / MAX_TRADE_RATE / MAX_PF).
 # A champion/headline config must take at least this many WINNING and LOSING trades
@@ -360,6 +361,19 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 cum = [cum[int(i * st)] for i in range(160)]
             out["equity"] = {"cum": [round(float(x), 1) for x in cum],
                              "final": round(float(s), 1), "n": len(win_pnls)}
+            try:    # MAE/MFE (rich 5-tuple trades only; None for legacy strategies)
+                _exf = {}
+                if pass_vol:
+                    _exf["volumes"] = V
+                if pass_day:
+                    _exf["day_id"] = did
+                _wm = fn(O, H, L, C, return_trades=True, **_exf, **bp)
+                if _wm and _wm.get("trades"):
+                    _mm = mae_mfe(_wm["trades"], H, L)
+                    if _mm:
+                        out["mae_mfe"] = _mm
+            except Exception:
+                pass
             if not is_wf:   # top-N equity overlay (robustness of the best configs)
                 etop = []
                 for r_ in ranked[:6]:
