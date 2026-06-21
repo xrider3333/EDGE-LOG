@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='29.0';
+const VERSION='29.1';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4213,6 +4213,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // CSV/master <option>s filtered to the chosen instrument+TF+session (legacy flow:
     // the data picker only shows what the upstream selections make applicable).
     const _exFmtD=s=>{if(!s)return '';const d=new Date(s+'T00:00');return isNaN(d.getTime())?'':d.toLocaleDateString(undefined,{month:'short',day:'2-digit',year:'2-digit'});};
+    // run-history date formatting: "17 Jun '26" (date) and "17 Jun '26 14:32" (date+time)
+    const _MON3=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const _dnice=s=>{if(!s)return '—';const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/);if(!m)return String(s).slice(0,10);return parseInt(m[3])+' '+_MON3[+m[2]-1]+" '"+m[1].slice(2);};
+    const _dtnice=s=>{if(!s)return '—';const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})[ T]?(\d{2}:\d{2})?/);if(!m)return String(s).slice(0,16);return parseInt(m[3])+' '+_MON3[+m[2]-1]+" '"+m[1].slice(2)+(m[4]?' · '+m[4]:'');};
     // PNL distribution + plateau/isolated-spike verdict (legacy AUGUR panel): histogram of
     // every tested config's net PnL. A cluster near the best = robust PLATEAU; the best
     // standing alone = ISOLATED SPIKE (likely overfit/lucky).
@@ -4428,7 +4432,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(d.neighborhood){const nb=d.neighborhood;const vc=nb.verdict==='HIGH GROUND'?'var(--green)':'var(--yellow)';const cell=(c,acc)=>{if(!c)return '<td style="text-align:center;opacity:.3">—</td>';return '<td style="text-align:center">'+c.val+'<br><span style="color:'+(acc?'var(--accent)':(c.pf>1?'var(--green)':'var(--red)'))+'">'+(c.pf||0).toFixed(2)+'</span></td>';};const nrows=(nb.rows||[]).map(r=>'<tr><td style="color:var(--text3)">'+r.param.replace(/_/g,' ')+'</td>'+cell(r.minus,false)+cell(r.winner,true)+cell(r.plus,false)+'</tr>').join('');nbHtml='<div class="lbl" style="margin:8px 0 6px">NEIGHBORHOOD ROBUSTNESS · <span style="color:'+vc+'">'+nb.verdict+' · '+nb.good+'/'+nb.tot+' neighbors profitable</span></div><div style="overflow-x:auto;margin-bottom:16px"><table class="table" style="font-size:var(--fsxs)"><thead><tr><th></th><th style="text-align:center">step −</th><th style="text-align:center">winner</th><th style="text-align:center">step +</th></tr></thead><tbody>'+nrows+'</tbody></table></div>';}
       const valdCard=d.validate?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'+validateCardHtml(d.validate,(d.multiplier||20),stratTag(d.strategy))+'</div>':'';
       return '<div style="font-size:15px;margin-bottom:2px">'+stratTag(d.strategy,'15px')+'</div>'
-        +'<div style="color:var(--text4);font-size:var(--fsxs);margin-bottom:12px">run #'+d.id+' · '+instTag(d.instrument)+' '+(d.timeframe||'')+' · '+(d.scope||'')+' · '+(d.date_from||'')+' → '+(d.date_to||'')+' · '+(d.n_valid||0)+'/'+(d.n_combos||0)+' configs</div>'
+        +'<div style="color:var(--text4);font-size:var(--fsxs);margin-bottom:12px;line-height:1.7">run #'+d.id+' · ran '+_dtnice(d.timestamp)+' · '+instTag(d.instrument)+' '+(d.timeframe||'')+' · '+(d.scope||'')
+          +' · range '+_dnice(d.date_from)+' → '+_dnice(d.date_to)
+          +(d.days_in_test?' · '+(+d.days_in_test).toLocaleString()+' days':'')
+          +(d.bars?' · '+(+d.bars).toLocaleString()+' bars':'')
+          +(d.elapsed_s?' · took '+(d.elapsed_s>=60?(d.elapsed_s/60).toFixed(1)+'m':Math.round(d.elapsed_s)+'s'):'')
+          +' · '+(d.n_valid||0)+'/'+(d.n_combos||0)+' configs'
+          +(d.source_name?' · '+d.source_name:(d.data_source?' · '+d.data_source:''))
+          +((d.commission_usd!=null||d.slippage_pts!=null)?' · cost $'+(d.commission_usd||0)+'/RT + '+(d.slippage_pts||0)+'pt':'')
+          +(d.app_version?' · AUGUR v'+d.app_version:'')+'</div>'
         +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px">'+(d.starred?'★':'☆')+'</span><input id="det-note" value="'+String(d.note||'').replace(/"/g,'&quot;')+'" placeholder="add a note…" style="flex:1;padding:4px 8px;font-size:var(--fsxs);border-radius:6px"/><button class="btn-ghost" id="det-note-save" data-note-id="'+d.id+'" style="padding:4px 12px;font-size:var(--fsxs);border:1px solid var(--border);border-radius:6px">save</button>'
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="width:auto;padding:4px 6px;font-size:9px;border-radius:6px"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
         +'<button class="btn-ghost" id="det-del" data-del-id="'+d.id+'" style="padding:4px 10px;font-size:var(--fsxs);border:1px solid var(--red);border-radius:6px;color:var(--red)">delete</button></div>'
@@ -4827,7 +4839,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">clear</span>':'')+'</div>';
         const listRows=sorted.length?sorted.map(r=>{const on=String(r.id)===String(d.id);const pnl=r.best_pnl_usd||0;return '<div class="arow" data-run="'+r.id+'" style="padding:5px 8px;border-radius:6px;cursor:pointer;border:1px solid '+(on?'var(--text4)':'transparent')+';background:'+(on?'var(--bg1)':'transparent')+';margin-bottom:2px">'
           +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="display:flex;align-items:baseline;gap:6px;min-width:0;overflow:hidden"><span style="flex:0 0 auto;color:var(--text3);font-size:11px;font-variant-numeric:tabular-nums;min-width:32px" title="run number">'+r.id+'</span><span data-star="'+r.id+'" title="star" style="flex:0 0 auto;cursor:pointer;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span><span style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+stratTag(r.strategy)+'</span></span><span style="font-size:11px;color:'+(pnl>=0?'var(--green)':'var(--red)')+';white-space:nowrap">'+fmtUsd(pnl)+'</span></div>'
-          +'<div style="font-size:9px;color:var(--text5);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+instTag(r.instrument)+' '+(r.timeframe||'')+' · '+(r.scope||'')+' · PF '+(r.best_pf||0).toFixed(2)+' · '+((r.timestamp||'').slice(0,10))+'</div></div>';}).join(''):'<div style="color:var(--text5);font-size:9px;padding:14px;text-align:center">no runs match the filter</div>';
+          +'<div style="font-size:9px;color:var(--text5);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+instTag(r.instrument)+' '+(r.timeframe||'')+' · '+(r.scope||'')+' · PF '+(r.best_pf||0).toFixed(2)+(r.best_trades?' · '+r.best_trades+'T':'')+'</div>'
+          +'<div style="font-size:9px;color:var(--text5);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_dtnice(r.timestamp)+(r.date_from?' · '+_dnice(r.date_from)+'→'+_dnice(r.date_to):'')+'</div></div>';}).join(''):'<div style="color:var(--text5);font-size:9px;padding:14px;text-align:center">no runs match the filter</div>';
         const rH=Math.min(.6,Math.max(.15,APREF.splitH||0.30));
         const vH=Math.min(520,Math.max(120,APREF.splitV||200));
         const maxH=view==='stack'?(vH+'px'):'72vh';
