@@ -234,4 +234,14 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                         srs.append(r["sr"])
                 out["dsr"] = deflated_sharpe(annualized_sr(win_pnls, years), srs,
                                              len(combos), years)
+    # MAE/MFE always (cheap: one winner backtest) so the AI loop's diagnostics get it too.
+    if best and "mae_mfe" not in out:
+        try:
+            _wm = fn(O, H, L, C, return_trades=True, **extras, **best[0])
+            if _wm and _wm.get("trades"):
+                _mm = mae_mfe(_wm["trades"], H, L)
+                if _mm:
+                    out["mae_mfe"] = _mm
+        except Exception:
+            pass
     return out

@@ -116,6 +116,48 @@ def _digest(top):
     return "\n".join(out)
 
 
+def _diagnostics(gr):
+    """Turn a sweep result into INFORMED guidance for the LLM: which params move PnL
+    (Pearson r) and what MAE/MFE says about stop/target sizing."""
+    out = []
+    pts = gr.get("points") or []
+    if len(pts) >= 8:
+        ys = [float(p.get("pnl", 0) or 0) for p in pts]
+        ym = sum(ys) / len(ys)
+        keys = [k for k in pts[0] if k != "pnl" and isinstance(pts[0][k], (int, float))]
+        cors = []
+        for k in keys:
+            xs = [float(p.get(k, 0) or 0) for p in pts]
+            xm = sum(xs) / len(xs)
+            sxy = sum((xs[i] - xm) * (ys[i] - ym) for i in range(len(xs)))
+            sxx = sum((x - xm) ** 2 for x in xs)
+            syy = sum((y - ym) ** 2 for y in ys)
+            den = (sxx * syy) ** 0.5
+            if den:
+                cors.append((k, sxy / den))
+        cors.sort(key=lambda c: -abs(c[1]))
+        if cors:
+            out.append("PARAM->PNL CORRELATION (strongest first): "
+                       + ", ".join(f"{k} {r:+.2f}" for k, r in cors[:6])
+                       + ". Move strong +corr params higher, strong -corr lower; "
+                         "near-zero params barely matter so don't waste range on them.")
+    mm = gr.get("mae_mfe")
+    if mm and mm.get("mae"):
+        won = mm.get("won") or []
+        heat = [abs(mm["mae"][i]) for i in range(len(mm["mae"])) if (not won or won[i])]
+        mfe = [abs(x) for x in mm["mfe"]]
+        if heat and mfe:
+            def _p(a, q):
+                s = sorted(a)
+                return s[min(len(s) - 1, int(q * len(s)))]
+            out.append(f"MAE/MFE (points): winners' adverse heat median {_p(heat,0.5):.0f} / "
+                       f"90th {_p(heat,0.9):.0f}; favourable reach median {_p(mfe,0.5):.0f} / "
+                       f"75th {_p(mfe,0.75):.0f}. A STOP param tighter than ~{_p(heat,0.9):.0f} "
+                       f"pts cuts winners; a TARGET param capping below ~{_p(mfe,0.5):.0f} pts "
+                       f"exits early — adjust those params accordingly.")
+    return "\n".join(out) if out else "(no diagnostics this round)"
+
+
 def ai_optimize(strategy, *, instrument=None, timeframe="5m", session="rth", source=None,
                 master=None, arrays=None, preset=None, grid=None, n_rounds=5,
                 provider="ollama", model=None, api_key=None, cost_pts=0.0,
@@ -158,7 +200,8 @@ def ai_optimize(strategy, *, instrument=None, timeframe="5m", session="rth", sou
                     f"({'HOLDS' if oos_pnl > 0 else 'COLLAPSES'} out-of-sample).")
         user = (f"Round {rnd} of {n_rounds}.\n\nPARAMETERS:\n{json.dumps(param_spec)}\n\n"
                 f"BEST CONFIG SO FAR:\n{json.dumps(best, default=str)}\n\n{oos_note}\n\n"
-                f"LATEST RESULTS (in-sample top configs):\n{_digest(gr.get('top') or [])}\n")
+                f"LATEST RESULTS (in-sample top configs):\n{_digest(gr.get('top') or [])}\n\n"
+                f"DIAGNOSTICS (use these to make INFORMED moves):\n{_diagnostics(gr)}\n")
         text, err = call_llm(provider, _AI_OPT_SYSTEM, user, model=model, api_key=api_key)
         rec = {"round": rnd, "is_pnl": is_pnl, "oos_pnl": oos_pnl,
                "best_params": bp, "n_combos": gr.get("n_combos")}
@@ -315,6 +358,7 @@ def ai_evolve(strategy, *, instrument=None, timeframe="5m", session="rth", sourc
         user = (f"Round {rnd} of {n_rounds}.\n\nPARAMETERS:\n{json.dumps(param_spec)}\n\n"
                 f"BEST CONFIG SO FAR:\n{json.dumps(best, default=str)}\n\n{oos_note}\n\n"
                 f"LATEST RESULTS:\n{_digest(gr.get('top') or [])}\n\n"
+                f"DIAGNOSTICS (use these to make INFORMED moves):\n{_diagnostics(gr)}\n\n"
                 f"CURRENT STRATEGY SOURCE:\n```python\n{cur_src}\n```")
         text, err = call_llm(provider, _AI_EVOLVE_SYSTEM, user, model=model,
                              api_key=api_key, max_tokens=8000)

@@ -405,4 +405,20 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                         srs.append(sr["sr"])
                 out["dsr"] = deflated_sharpe(annualized_sr(win_pnls, years), srs,
                                              len(records), years)
+    # MAE/MFE always (cheap winner backtest) so AI-loop diagnostics get it too.
+    if best and "mae_mfe" not in out:
+        try:
+            _bp = {k: best.get(k) for k in pkeys if k in best}
+            _exf = {}
+            if pass_vol:
+                _exf["volumes"] = V
+            if pass_day:
+                _exf["day_id"] = did
+            _wm = fn(O, H, L, C, return_trades=True, **_exf, **_bp)
+            if _wm and _wm.get("trades"):
+                _mm = mae_mfe(_wm["trades"], H, L)
+                if _mm:
+                    out["mae_mfe"] = _mm
+        except Exception:
+            pass
     return out

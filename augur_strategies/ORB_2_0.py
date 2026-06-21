@@ -345,7 +345,7 @@ def run_backtest(
                     pnl     = (partial_pnl * 0.5 + raw * 0.5) if partial_done else raw
                     pnl_list.append(pnl)
                     if return_trades:
-                        trade_log.append((si + ek, si + k, pnl))
+                        trade_log.append((si + ek, si + k, pnl, 1, entry))
                     pos = 0; break
 
                 # Partial exit
@@ -360,7 +360,7 @@ def run_backtest(
                     pnl = (partial_pnl * 0.5 + raw * 0.5) if partial_done else raw
                     pnl_list.append(pnl)
                     if return_trades:
-                        trade_log.append((si + ek, si + k, pnl))
+                        trade_log.append((si + ek, si + k, pnl, 1, entry))
                     pos = 0; break
 
             # ── Short position ────────────────────────────────────────────────
@@ -372,7 +372,7 @@ def run_backtest(
                     pnl     = (partial_pnl * 0.5 + raw * 0.5) if partial_done else raw
                     pnl_list.append(pnl)
                     if return_trades:
-                        trade_log.append((si + ek, si + k, pnl))
+                        trade_log.append((si + ek, si + k, pnl, -1, entry))
                     pos = 0; break
 
                 if not partial_done and partial_exit_R > 0 and sl[k] <= partial_tgt:
@@ -385,7 +385,7 @@ def run_backtest(
                     pnl = (partial_pnl * 0.5 + raw * 0.5) if partial_done else raw
                     pnl_list.append(pnl)
                     if return_trades:
-                        trade_log.append((si + ek, si + k, pnl))
+                        trade_log.append((si + ek, si + k, pnl, -1, entry))
                     pos = 0; break
 
         # ── EOD flat ──────────────────────────────────────────────────────────
@@ -394,7 +394,7 @@ def run_backtest(
             pnl = (partial_pnl * 0.5 + raw * 0.5) if partial_done else raw
             pnl_list.append(pnl)
             if return_trades:
-                trade_log.append((si + ek, ei - 1, pnl))
+                trade_log.append((si + ek, ei - 1, pnl, 1 if pos > 0 else -1, entry))
 
     # ── Aggregate ─────────────────────────────────────────────────────────────
     if not pnl_list:
