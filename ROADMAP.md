@@ -102,6 +102,10 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v27.7** Compare goes N-way: add/remove any number of runs as columns; per-row best-value
+  highlight; rows incl. robustness score, DSR, verdict; grouped Net P&L bar chart. Plus
+  legacy-run migration (history.get_run derives dist/points/equity_top/stress) so all 112
+  historical runs light up the new Results panels after a runner re-sync.
 - **v27.6** Stress-test across time in Results — winner PnL across 8 chronological windows
   with a SPREAD vs CONCENTRATED verdict (one lucky stretch = red flag). Completes Results-tab
   parity with legacy AUGUR (distribution, scatter, heatmap, top-N equity, rankings, stress).

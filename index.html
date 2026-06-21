@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='27.6';
+const VERSION='27.7';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4652,13 +4652,33 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const rs=runHistory.slice().sort((a,b)=>b.id-a.id);
       if(!rs.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUNS TO COMPARE YET</div>';}
       else{
-        const find=id=>{for(let i=0;i<rs.length;i++)if(String(rs[i].id)===String(id))return rs[i];return rs[0];};
-        const A=find(augurCmpA||rs[0].id),B=find(augurCmpB||(rs[1]?rs[1].id:rs[0].id));
-        const opt=sel=>rs.map(r=>'<option value="'+r.id+'"'+(String(r.id)===String(sel)?' selected':'')+'>#'+r.id+' · '+stratInfo(r.strategy).label+' · '+(r.scope||'').slice(0,12)+'</option>').join('');
-        const M=[['Strategy',x=>stratTag(x.strategy)],['Scope',x=>x.scope||''],['Market',x=>instTag(x.instrument)+' '+(x.timeframe||'')],['Net P&L',x=>fmtUsd(x.best_pnl_usd)],['PF',x=>(x.best_pf||0).toFixed(2)],['Win %',x=>Math.round(x.best_win_rate||0)+'%'],['Trades',x=>(x.best_trades||0)],['Max DD',x=>fmtUsd(x.best_dd_usd||0)],['$/day',x=>fmtUsd(x.best_pnl_per_day||0)]];
-        const crows=M.map(m=>'<tr><td style="color:var(--text4);font-size:var(--fsxs)">'+m[0]+'</td><td>'+m[1](A)+'</td><td>'+m[1](B)+'</td></tr>').join('');
-        body='<div style="display:flex;gap:16px;margin-bottom:14px"><div style="flex:1"><label class="lbl">RUN A</label><select id="cmp-a">'+opt(A.id)+'</select></div><div style="flex:1"><label class="lbl">RUN B</label><select id="cmp-b">'+opt(B.id)+'</select></div></div>'
-          +tile('<table class="table"><thead><tr><th></th><th>A · #'+A.id+'</th><th>B · #'+B.id+'</th></tr></thead><tbody>'+crows+'</tbody></table>');
+        const find=id=>{for(let i=0;i<rs.length;i++)if(String(rs[i].id)===String(id))return rs[i];return null;};
+        // N-way: persisted set of run ids (default to the most recent 3)
+        let ids=(APREF.cmpIds||[]).map(String).filter(id=>find(id));
+        if(ids.length<2)ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));
+        const runs=ids.map(find).filter(Boolean);
+        const M=[{l:'Strategy',f:x=>stratTag(x.strategy)},
+          {l:'Market',f:x=>instTag(x.instrument)+' '+(x.timeframe||'')},
+          {l:'Scope',f:x=>'<span style="font-size:var(--fsxs)">'+(x.scope||'')+'</span>'},
+          {l:'Robustness',v:x=>scoreRun(x),f:x=>scoreRun(x),b:'max'},
+          {l:'Net P&L',v:x=>x.best_pnl_usd||0,f:x=>fmtUsd(x.best_pnl_usd),b:'max'},
+          {l:'PF',v:x=>x.best_pf||0,f:x=>(x.best_pf||0).toFixed(2),b:'max'},
+          {l:'Win %',v:x=>x.best_win_rate||0,f:x=>Math.round(x.best_win_rate||0)+'%',b:'max'},
+          {l:'Trades',f:x=>(x.best_trades||0)},
+          {l:'Max DD',v:x=>x.best_dd_usd||0,f:x=>fmtUsd(x.best_dd_usd||0),b:'max'},
+          {l:'$/day',v:x=>x.best_pnl_per_day||0,f:x=>fmtUsd(x.best_pnl_per_day||0),b:'max'},
+          {l:'DSR',f:x=>(x.dsr&&x.dsr.dsr!=null?Math.round(x.dsr.dsr*100)+'%':'—')},
+          {l:'Verdict',f:x=>x.validate?'<b style="color:'+(x.validate.verdict==='PASS'?'var(--green)':x.validate.verdict==='WEAK'?'var(--yellow)':'var(--red)')+'">'+x.validate.verdict+'</b>':'—'}];
+        const hdr='<tr><th></th>'+runs.map(r=>'<th style="white-space:nowrap">#'+r.id+' '+stratTag(r.strategy)+' <span data-cmp-rm="'+r.id+'" title="remove" style="cursor:pointer;color:var(--text5)">✕</span></th>').join('')+'</tr>';
+        const mrows=M.map(m=>{let bi=-1;if(m.v&&m.b){let bv=null;runs.forEach((r,i)=>{const val=m.v(r);if(bv===null||(m.b==='max'?val>bv:val<bv)){bv=val;bi=i;}});}
+          return '<tr><td style="color:var(--text4);font-size:var(--fsxs)">'+m.l+'</td>'+runs.map((r,i)=>'<td'+(i===bi?' style="font-weight:700;color:var(--green)"':'')+'>'+m.f(r)+'</td>').join('')+'</tr>';}).join('');
+        // grouped Net P&L bar chart across the runs
+        const pnls=runs.map(r=>r.best_pnl_usd||0),amx=Math.max.apply(null,pnls.map(Math.abs))||1,CW=Math.max(360,runs.length*90),CH=120,bw=CW/runs.length,mid=CH/2;
+        const cbars=pnls.map((p,i)=>{const h=(Math.abs(p)/amx)*(mid-8),y=p>=0?mid-h:mid;return '<rect x="'+(i*bw+bw*0.2).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+(bw*0.6).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+(p>=0?'var(--green)':'var(--red)')+'" opacity="0.6"/><text x="'+(i*bw+bw/2).toFixed(1)+'" y="'+(p>=0?y-3:y+h+9).toFixed(1)+'" text-anchor="middle" font-size="8" fill="var(--text4)">'+fmtUsd(Math.round(p))+'</text>';}).join('');
+        const addOpts='<option value="">+ add run…</option>'+rs.filter(r=>ids.indexOf(String(r.id))<0).map(r=>'<option value="'+r.id+'">#'+r.id+' · '+stratInfo(r.strategy).label+' · '+(r.scope||'').slice(0,14)+'</option>').join('');
+        body='<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span class="lbl">COMPARE · '+runs.length+' runs</span><select id="cmp-add" style="width:auto;padding:5px 8px;font-size:var(--fsxs)">'+addOpts+'</select></div>'
+          +tile('<div style="overflow-x:auto"><table class="table"><thead>'+hdr+'</thead><tbody>'+mrows+'</tbody></table></div>')
+          +tile('<div class="lbl" style="margin-bottom:6px">NET P&L</div><svg viewBox="0 0 '+CW+' '+CH+'" width="100%" height="120" preserveAspectRatio="none"><line x1="0" y1="'+mid+'" x2="'+CW+'" y2="'+mid+'" stroke="var(--border)"/>'+cbars+'</svg>');
       }
     }else if(augurSub==='rank'){
       const scored=(runHistory||[]).map(r=>({r:r,s:scoreRun(r)})).sort((a,b)=>b.s-a.s);
@@ -4833,7 +4853,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(mm2&&mm2.date_to){const e=new Date(String(mm2.date_to).slice(0,10)+'T00:00');e.setFullYear(e.getFullYear()-mp[0]);vFrom=e.toISOString().slice(0,10);const ms=mm2.date_from?String(mm2.date_from).slice(0,10):'';if(ms&&vFrom<ms)vFrom=ms;}}
       savePref('mode',mode);savePref('instrument',el('ex-inst').value);savePref('session',el('ex-sess').value);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);if(el('ex-wfmode'))savePref('wf_mode',el('ex-wfmode').value);savePref('comm_usd',commU);savePref('slip_pts',slipP);savePref('date_from',dFrom);savePref('date_to',dTo);savePref('lockbox',lockbox);if(el('ex-lockmo'))savePref('lockbox_months',parseInt(el('ex-lockmo').value)||12);
       const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:effTo,preset:scopeVal,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};if(useCustom)base.grid=customGrid;const job=(mode==='validate')?Object.assign({},base,{type:'validate',date_from:vFrom,date_to:'',n_trials:vTrials,wf_folds:0,lockbox_months:vLockMo,transfer_to:(el('ex-xfer')&&el('ex-xfer').value)||null,dsr:true}):(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,wf_mode:(el('ex-wfmode')?el('ex-wfmode').value:'anchored'),top_n:10,dsr:true,mc_sims:500}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
-    else if(augurSub==='cmp'){const sa=el('cmp-a'),sb=el('cmp-b');if(sa)sa.onchange=()=>{augurCmpA=sa.value;renderApp();};if(sb)sb.onchange=()=>{augurCmpB=sb.value;renderApp();};}
+    else if(augurSub==='cmp'){
+      const _cur=()=>{const rs=runHistory.slice().sort((a,b)=>b.id-a.id);let ids=(APREF.cmpIds||[]).map(String).filter(id=>rs.some(r=>String(r.id)===id));if(ids.length<2)ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));return ids;};
+      const add=el('cmp-add');if(add)add.onchange=()=>{if(!add.value)return;const ids=_cur();if(ids.indexOf(add.value)<0)ids.push(add.value);savePref('cmpIds',ids);renderApp();};
+      content.querySelectorAll('[data-cmp-rm]').forEach(x=>{x.onclick=()=>{const ids=_cur().filter(id=>id!==String(x.dataset.cmpRm));if(ids.length>=1){savePref('cmpIds',ids);renderApp();}};});}
     else if(augurSub==='rank'){content.querySelectorAll('[data-rank-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.rankRun;augurSub='runs';renderApp();};});}
     else if(augurSub==='lib'){
       const ls0=el('lib-listscroll');
