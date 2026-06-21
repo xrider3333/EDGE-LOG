@@ -10,6 +10,26 @@ import gzip
 import sqlite3
 
 from .paths import DB_PATH
+from .analytics import downsample_pnls, downsample_points
+
+# metric keys (not parameters) — excluded when extracting param values for scatter/heatmap
+_METRIC_KEYS = {"total_pnl", "num_trades", "win_rate", "profit_factor", "max_drawdown",
+                "avg_pnl", "wins", "losses", "oos_pnl", "oos_trades", "oos_pf", "fold",
+                "test_bars", "train_bars", "pnl"}
+
+
+def _maybe_gzip_json(v):
+    """Parse a value that may be plain JSON or base64+gzip JSON (legacy blobs)."""
+    if not isinstance(v, str) or not v:
+        return None
+    try:
+        return json.loads(v)
+    except Exception:
+        pass
+    try:
+        return json.loads(gzip.decompress(base64.b64decode(v)))
+    except Exception:
+        return None
 
 
 def _downsample_equity(cum, final, n=160):
@@ -60,24 +80,52 @@ def get_run(run_id):
     if not row:
         return None
     d = dict(zip(cols, row))
-    for k in ("best_params", "top10_results", "full_results"):
+    for k in ("best_params", "top10_results"):
         v = d.get(k)
         if isinstance(v, str) and v:
             try:
                 d[k] = json.loads(v)
             except Exception:
                 pass
-    # equity_curves_json is base64+gzip JSON (list of curves). Decode the best
-    # (rank-1) curve's cumulative PnL, downsample, and drop the raw blob.
-    raw = d.pop("equity_curves_json", None)
-    if isinstance(raw, str) and len(raw) > 50:
-        try:
-            curves = json.loads(gzip.decompress(base64.b64decode(raw)))
-            if curves:
-                cum = curves[0].get("cum_pnl_usd") or []
-                if cum:
-                    d["equity"] = _downsample_equity(cum, curves[0].get("final_pnl"))
-        except Exception:
-            pass
+    mult = float(d.get("multiplier") or 1) or 1
+
+    # full_results (base64+gzip list of every config) -> dist + points panels.
+    fr = _maybe_gzip_json(d.pop("full_results", None))
+    if isinstance(fr, list) and fr:
+        d["dist"] = downsample_pnls([c.get("total_pnl", 0) for c in fr if isinstance(c, dict)])
+        pts = []
+        for c in fr:
+            if not isinstance(c, dict):
+                continue
+            row_ = {k: v for k, v in c.items()
+                    if k not in _METRIC_KEYS and isinstance(v, (int, float))}
+            row_["pnl"] = round(float(c.get("total_pnl", 0) or 0), 1)
+            pts.append(row_)
+        d["points"] = downsample_points(pts)
+
+    # equity_curves_json (base64+gzip list of curves, cum in $) -> equity, equity_top, stress.
+    curves = _maybe_gzip_json(d.pop("equity_curves_json", None))
+    if isinstance(curves, list) and curves:
+        cum0 = curves[0].get("cum_pnl_usd") or []
+        if cum0:
+            d["equity"] = _downsample_equity([x / mult for x in cum0],
+                                             round((curves[0].get("final_pnl") or 0) / mult, 1))
+            # stress: net PnL across 8 chronological windows (deltas of the cumulative curve)
+            if len(cum0) >= 16:
+                pts_pnl = [cum0[0]] + [cum0[i] - cum0[i - 1] for i in range(1, len(cum0))]
+                N, sz = 8, len(pts_pnl) // 8
+                d["stress"] = [round(sum(pts_pnl[i*sz:(len(pts_pnl) if i == N-1 else (i+1)*sz)]) / mult, 1)
+                               for i in range(N)]
+        etop = []
+        for cv in curves[:6]:
+            cm = cv.get("cum_pnl_usd") or []
+            if not cm:
+                continue
+            if len(cm) > 80:
+                step = len(cm) / 80
+                cm = [cm[int(i * step)] for i in range(80)]
+            etop.append([round(x / mult, 1) for x in cm])
+        if etop:
+            d["equity_top"] = etop
     d.pop("code_snapshot", None)
     return d
