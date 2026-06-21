@@ -55,7 +55,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     A = run_auto(strategy, instrument=instrument, timeframe=timeframe, session=session,
                  source=source, method="single", oos=True, n_trials=n_trials,
                  cost_pts=cost_pts, min_trades=min_trades, top_n=10, seed=seed,
-                 compute_dsr=True, compute_neighbors=True, mc_sims=500,
+                 compute_dsr=True, compute_neighbors=True, compute_regime=True, mc_sims=500,
                  date_from=opt_from, date_to=opt_to, progress_cb=_stage(0, 40)) or {}
     champ = A.get("best_params") or {}
     bestA = A.get("best") or {}
@@ -187,4 +187,5 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "dist": A.get("dist"), "points": A.get("points"),
         "equity_top": A.get("equity_top"), "stress": A.get("stress"),
         "mae_mfe": A.get("mae_mfe"),
+        "mc": A.get("mc"), "regime": A.get("regime"), "neighborhood": A.get("neighborhood"),
     }

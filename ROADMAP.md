@@ -108,6 +108,10 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v28.6** Builder MODE numbered in workflow order (1 Single … 7 Auto-Validate = judge);
+  Auto-Validate now surfaces the full Regime card + Neighborhood table + MC (not just the
+  card summary) so the DSR/Regime/NBHD panels render for validate runs too; Library
+  "DEPLOY READINESS" renamed to "VALIDATION CHECKLIST".
 - **v28.2** Closed the Results audit: TF/scope filter facets + clear; PARAM CORRELATION panel
   (Pearson r per param vs PnL); WALK-FORWARD IS-vs-OOS per-fold bars; delete + relabel runs
   from the web (runner delete_run/relabel_run commands); SPY buy-&-hold benchmark over each

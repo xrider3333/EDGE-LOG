@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='28.5';
+const VERSION='28.6';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4476,7 +4476,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const fld=(lbl,inner,w)=>'<div style="flex:0 1 '+(w||150)+'px;width:'+(w||150)+'px"><label class="lbl">'+lbl+'</label>'+inner+'</div>';
       const exrow=(inner,gap)=>'<div style="display:flex;flex-wrap:wrap;gap:'+(gap||10)+'px;align-items:flex-end;margin-bottom:12px">'+inner+'</div>';
       const grpH=t=>'<div class="lbl" style="opacity:.55;letter-spacing:2px;margin:2px 0 7px;border-top:1px solid var(--border);padding-top:9px">'+t+'</div>';
-      const c_mode='<select id="ex-mode">'+[['validate','🧭 Auto-Validate (full pipeline)'],['single','Single backtest'],['grid','Grid sweep'],['auto','Auto-Optimize (smart search)'],['walkforward','Walk-Forward (anchored)'],['ai','AI optimize (free, local)'],['evolve','AI evolve (rewrites code)']].map(o=>'<option value="'+o[0]+'"'+(o[0]===(APREF.mode||'single')?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
+      const c_mode='<select id="ex-mode">'+[['single','1 · Single backtest'],['grid','2 · Grid sweep'],['auto','3 · Auto-Optimize (smart search)'],['walkforward','4 · Walk-Forward (anchored)'],['ai','5 · AI optimize (free, local)'],['evolve','6 · AI evolve (rewrites code)'],['validate','7 · 🧭 Auto-Validate (judge it)']].map(o=>'<option value="'+o[0]+'"'+(o[0]===(APREF.mode||'single')?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
       const c_strat='<select id="ex-strat">'+slist.map(s=>'<option value="'+s.file+'"'+(s.file===curStrat?' selected':'')+'>'+stratInfo(s.file).label+'</option>').join('')+'</select>';
       const _curSess=(APREF.session==='eth'?'eth':'rth');
       const c_master='<select id="ex-master">'+masterOptsHtml(APREF.instrument||'NQ',APREF.timeframe||'5m',_curSess)+'</select>';
@@ -4582,7 +4582,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    (✓ from optimizer.py via s.roadmap, or click to toggle here, stored in
       //    APREF.checklist[file][key]). Passed steps get a filled green ✓ badge. ──
       const rmTile=(()=>{
-        if(!selS)return tile('<div style="color:var(--text5);font-size:var(--fsxs);padding:6px 2px">Select a strategy above to see its deploy-readiness roadmap.</div>');
+        if(!selS)return tile('<div style="color:var(--text5);font-size:var(--fsxs);padding:6px 2px">Select a strategy above to see its validation checklist.</div>');
         const CK=APREF.checklist||{};
         const synced=selS.roadmap||{}, local=CK[selS.file]||{};
         const hs=(runHistory||[]).filter(r=>{const m=_stratMatch(r.strategy);return m&&m.file===selS.file;});
@@ -4629,7 +4629,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<span style="flex:1;min-width:0"><span style="font-size:var(--fsxs);font-weight:600;color:'+(passed?'var(--text2)':'var(--text4)')+'">'+s[1]+'</span>'
             +(clickable?'<span style="font-size:8px;color:var(--text5);margin-left:6px">✎ manual</span>':'<span style="font-size:8px;color:var(--green);margin-left:6px">auto</span>')
             +'<br><span style="font-size:9px;color:'+dcol+'">'+detail+'</span></span></div>';}).join('');
-        return tile('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span class="lbl">DEPLOY READINESS · '+stratTag(selS.file)+'</span>'
+        return tile('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span class="lbl">VALIDATION CHECKLIST · '+stratTag(selS.file)+'</span>'
           +'<span style="font-size:var(--fsxs);font-weight:800;color:'+hdrCol+'">'+done+'/'+steps.length+' · '+pct+'%</span></div>'
           +'<div style="height:5px;background:var(--bg1);border-radius:3px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:'+pct+'%;background:'+hdrCol+'"></div></div>'
           +rows
