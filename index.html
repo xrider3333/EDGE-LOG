@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='27.9';
+const VERSION='28.0';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4271,6 +4271,30 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px;display:inline-block"><svg viewBox="0 0 '+S+' '+S+'" width="'+S+'" height="'+S+'" style="max-width:100%">'+cells+'</svg>'
         +'<div style="font-size:8px;color:var(--text5);margin-top:4px">'+xk+' → · '+yk+' ↑ · green=profit, red=loss</div></div>';
     };
+    // PARAM CORRELATION — Pearson r of each parameter vs net PnL across all configs.
+    const corrPanelHtml=(points)=>{
+      if(!points||points.length<8)return '';
+      const keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&typeof points[0][k]==='number');
+      if(!keys.length)return '';
+      const ys=points.map(p=>p.pnl),ym=ys.reduce((s,x)=>s+x,0)/ys.length;
+      const corr=k=>{const xs=points.map(p=>p[k]),xm=xs.reduce((s,x)=>s+x,0)/xs.length;let sxy=0,sxx=0,syy=0;for(let i=0;i<xs.length;i++){const dx=xs[i]-xm,dy=ys[i]-ym;sxy+=dx*dy;sxx+=dx*dx;syy+=dy*dy;}const den=Math.sqrt(sxx*syy);return den?sxy/den:0;};
+      const rows=keys.map(k=>({k:k,r:corr(k)})).sort((a,b)=>Math.abs(b.r)-Math.abs(a.r));
+      const bar=o=>'<div style="display:flex;align-items:center;gap:8px;margin:3px 0;font-size:var(--fsxs)"><span style="flex:0 0 130px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+o.k+'</span><span style="flex:1;position:relative;height:10px;background:var(--bg1);border-radius:2px"><span style="position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--border)"></span><span style="position:absolute;'+(o.r>=0?'left:50%':'right:50%')+';top:1px;height:8px;width:'+(Math.abs(o.r)*50).toFixed(1)+'%;background:'+(o.r>=0?'var(--green)':'var(--red)')+';opacity:.6;border-radius:2px"></span></span><span style="flex:0 0 38px;text-align:right;color:'+(o.r>=0?'var(--green)':'var(--red)')+'">'+o.r.toFixed(2)+'</span></div>';
+      return '<div class="lbl" style="margin:8px 0 6px">PARAM CORRELATION · each parameter vs PnL (−1…+1)</div><div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px">'+rows.map(bar).join('')+'</div>';
+    };
+    // WALK-FORWARD IS vs OOS — grouped bars per fold: in-sample champion PnL vs out-of-sample.
+    const isOosFoldsHtml=(d,mult)=>{
+      const t=d.top10_results;if(!Array.isArray(t))return '';
+      const fs=t.filter(x=>x&&x.fold!=null).map(f=>({fold:f.fold,is:(f.total_pnl||0)*mult,oos:(f.oos_pnl||0)*mult}));
+      if(fs.length<2)return '';
+      const mxabs=Math.max.apply(null,fs.map(f=>Math.max(Math.abs(f.is),Math.abs(f.oos))))||1;
+      const W=560,H=130,gw=W/fs.length,mid=H/2,bw=gw*0.3;
+      const bars=fs.map((f,i)=>{const x=i*gw,isH=(Math.abs(f.is)/mxabs)*(mid-12),oH=(Math.abs(f.oos)/mxabs)*(mid-12);
+        return '<rect x="'+(x+gw*0.14).toFixed(1)+'" y="'+(f.is>=0?mid-isH:mid).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+isH.toFixed(1)+'" fill="var(--text4)" opacity="0.5"/>'
+          +'<rect x="'+(x+gw*0.14+bw+3).toFixed(1)+'" y="'+(f.oos>=0?mid-oH:mid).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+oH.toFixed(1)+'" fill="'+(f.oos>=0?'var(--green)':'var(--red)')+'" opacity="0.7"/>'
+          +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-2)+'" text-anchor="middle" font-size="8" fill="var(--text5)">f'+f.fold+'</text>';}).join('');
+      return '<div class="lbl" style="margin:8px 0 6px">WALK-FORWARD · IS (grey) vs OOS (green/red) PnL per fold</div><div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="120" preserveAspectRatio="none"><line x1="0" y1="'+mid+'" x2="'+W+'" y2="'+mid+'" stroke="var(--border)"/>'+bars+'</svg></div>';
+    };
     // Shared Auto-Validate report card (verdict + 5 gates + equity curve + lockbox) —
     // used by both the Builder run panel and the Results/Past-Runs detail so they match.
     const validateCardHtml=(V,mlt,stratLabel)=>{
@@ -4370,8 +4394,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px">'+(d.starred?'★':'☆')+'</span><input id="det-note" value="'+String(d.note||'').replace(/"/g,'&quot;')+'" placeholder="add a note…" style="flex:1;padding:4px 8px;font-size:var(--fsxs);border-radius:6px"/><button class="btn-ghost" id="det-note-save" data-note-id="'+d.id+'" style="padding:4px 12px;font-size:var(--fsxs);border:1px solid var(--border);border-radius:6px">save</button></div>'
         +valdCard
         +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-bottom:16px">'+cardHtml+'</div>'
-        +((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d.equity_top,mlt):eqHtml)+valHtml+stressPanelHtml(d.stress,mlt)+distPanelHtml(d.dist,mlt)
+        +((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d.equity_top,mlt):eqHtml)+valHtml+isOosFoldsHtml(d,mlt)+stressPanelHtml(d.stress,mlt)+distPanelHtml(d.dist,mlt)
         +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+scatterPanelHtml(d.points,mlt)+heatmapPanelHtml(d.points,mlt)+'</div>'
+        +corrPanelHtml(d.points)
         +'<div class="lbl" style="margin-bottom:6px">TOP CONFIGS</div>'
         +(t10.length?'<div style="overflow-x:auto"><table class="table">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>')
         +regHtml+nbHtml;
@@ -4735,11 +4760,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       else{
         const view=APREF.resView==='stack'?'stack':'side';
         // ── filters + sort over Past Runs ──
-        const fStrat=APREF.rfStrat||'',fInst=APREF.rfInst||'',fStar=!!APREF.rfStar,fSort=APREF.rfSort||'id';
+        const fStrat=APREF.rfStrat||'',fInst=APREF.rfInst||'',fTf=APREF.rfTf||'',fScope=APREF.rfScope||'',fStar=!!APREF.rfStar,fSort=APREF.rfSort||'id';
         const _fileOf=r=>{const m=_stratMatch(r.strategy);return m?m.file:r.strategy;};
         const _strats=[...new Set(allRuns.map(_fileOf).filter(Boolean))].sort();
         const _insts=[...new Set(allRuns.map(r=>String(r.instrument||'').trim()).filter(Boolean))].sort();
-        let sorted=allRuns.filter(r=>{if(fStar&&!r.starred)return false;if(fInst&&String(r.instrument||'').trim()!==fInst)return false;if(fStrat&&_fileOf(r)!==fStrat)return false;return true;});
+        const _tfs=[...new Set(allRuns.map(r=>String(r.timeframe||'').trim()).filter(Boolean))].sort();
+        const _scopes=[...new Set(allRuns.map(r=>String(r.scope||'').trim()).filter(Boolean))].sort();
+        let sorted=allRuns.filter(r=>{if(fStar&&!r.starred)return false;if(fInst&&String(r.instrument||'').trim()!==fInst)return false;if(fStrat&&_fileOf(r)!==fStrat)return false;if(fTf&&String(r.timeframe||'').trim()!==fTf)return false;if(fScope&&String(r.scope||'').trim()!==fScope)return false;return true;});
         const SC={id:(a,b)=>b.id-a.id,score:(a,b)=>scoreRun(b)-scoreRun(a),pnl:(a,b)=>(b.best_pnl_usd||0)-(a.best_pnl_usd||0),pf:(a,b)=>(b.best_pf||0)-(a.best_pf||0)};
         sorted.sort(SC[fSort]||SC.id);
         const pickFrom=sorted.length?sorted:allRuns.slice().sort(SC.id);
@@ -4747,11 +4774,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         let d=null;for(let i=0;i<allRuns.length;i++){if(String(allRuns[i].id)===String(selId))d=allRuns[i];}
         if(!d)d=pickFrom[0];
         const sel=(k,v,opts)=>'<select data-rf="'+k+'" style="width:auto;padding:3px 6px;font-size:9px;border-radius:6px">'+opts.map(o=>'<option value="'+o[0]+'"'+(String(o[0])===String(v)?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
+        const _anyF=fStrat||fInst||fTf||fScope||fStar;
         const fbar='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:7px">'
           +sel('rfStrat',fStrat,[['','all strategies']].concat(_strats.map(f=>[f,stratInfo(f).label])))
           +sel('rfInst',fInst,[['','all markets']].concat(_insts.map(i=>[i,i])))
+          +(_tfs.length>1?sel('rfTf',fTf,[['','all TF']].concat(_tfs.map(t=>[t,t]))):'')
+          +(_scopes.length>1?sel('rfScope',fScope,[['','all scopes']].concat(_scopes.map(s=>[s,s.slice(0,16)]))):'')
           +sel('rfSort',fSort,[['id','newest'],['score','score'],['pnl','$ pnl'],['pf','PF']])
-          +'<span data-rfstar style="cursor:pointer;font-size:10px;user-select:none;color:'+(fStar?'var(--yellow)':'var(--text5)')+'">'+(fStar?'★':'☆')+' starred</span></div>';
+          +'<span data-rfstar style="cursor:pointer;font-size:10px;user-select:none;color:'+(fStar?'var(--yellow)':'var(--text5)')+'">'+(fStar?'★':'☆')+' starred</span>'
+          +(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">clear</span>':'')+'</div>';
         const listRows=sorted.length?sorted.map(r=>{const on=String(r.id)===String(d.id);const pnl=r.best_pnl_usd||0;return '<div class="arow" data-run="'+r.id+'" style="padding:5px 8px;border-radius:6px;cursor:pointer;border:1px solid '+(on?'var(--text4)':'transparent')+';background:'+(on?'var(--bg1)':'transparent')+';margin-bottom:2px">'
           +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span data-star="'+r.id+'" title="star" style="cursor:pointer;margin-right:4px;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span><span style="color:var(--text5);font-size:10px;margin-right:6px;font-variant-numeric:tabular-nums" title="run number">'+r.id+'</span>'+stratTag(r.strategy)+'</span><span style="font-size:11px;color:'+(pnl>=0?'var(--green)':'var(--red)')+';white-space:nowrap">'+fmtUsd(pnl)+'</span></div>'
           +'<div style="font-size:9px;color:var(--text5);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+instTag(r.instrument)+' '+(r.timeframe||'')+' · '+(r.scope||'')+' · PF '+(r.best_pf||0).toFixed(2)+' · '+((r.timestamp||'').slice(0,10))+'</div></div>';}).join(''):'<div style="color:var(--text5);font-size:9px;padding:14px;text-align:center">no runs match the filter</div>';
@@ -4947,6 +4978,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // filters / sort (persist + re-render)
       content.querySelectorAll('[data-rf]').forEach(s=>{s.onchange=()=>{savePref(s.dataset.rf,s.value);renderApp();};});
       const _star=content.querySelector('[data-rfstar]');if(_star)_star.onclick=()=>{savePref('rfStar',!APREF.rfStar);renderApp();};
+      const _rfc=content.querySelector('[data-rfclear]');if(_rfc)_rfc.onclick=()=>{['rfStrat','rfInst','rfTf','rfScope'].forEach(k=>savePref(k,''));savePref('rfStar',false);renderApp();};
       // star a run (write-back to Firestore; snapshot re-renders). stopPropagation so the row doesn't also select.
       const _toggleStar=(id)=>{const r=runHistory.find(x=>String(x.id)===String(id));if(!r||!runsRef)return;runsRef.doc(String(id)).update({starred:r.starred?0:1}).catch(e=>alert('star failed: '+e.message));};
       content.querySelectorAll('[data-star]').forEach(s=>{s.onclick=(e)=>{e.stopPropagation();_toggleStar(s.dataset.star);};});
