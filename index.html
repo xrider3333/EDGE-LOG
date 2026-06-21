@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='29.2';
+const VERSION='29.3';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4194,7 +4194,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
       {re:/^rf/i,abbr:'RFML',full:'Random-Forest ML',desc:'Random-forest indicator-based signals'}];
     const stratFam=base=>{const b=String(base||'').replace(/\.py$/,'');for(const f of STRAT_FAM)if(f.re.test(b))return f;return null;};
     const _abbrVer=base=>{const toks=String(base||'').replace(/\.py$/,'').split(/[_\s]+/).filter(Boolean);const isNum=t=>/^\d+(\.\d+)*$/.test(t);let k=toks.length;while(k>0&&isNum(toks[k-1]))k--;const nameT=toks.slice(0,k).filter(t=>!isNum(t));const verT=toks.slice(k);let abbr=(nameT[0]||base||'').toUpperCase();if(abbr.length<3&&nameT[1])abbr=(nameT[0]+nameT[1]).toUpperCase();return {abbr:abbr.slice(0,5),ver:verT.join('.')};};
-    const _stratMatch=str=>{const nk=_norm(str);for(const s of (metaStrats||[])){if(_norm(s.file)===nk||_norm(s.name)===nk)return s;}return null;};
+    // Family keyword, searched ANYWHERE in the string (legacy run names often led with
+    // the version, e.g. "1.3.1 ENGU 3 (CLAUDE)"); underscores/punctuation → spaces.
+    const _FAMRE=[[/opening|orb/,'ORB'],[/overnight/,'OVN'],[/engu/,'ENGU'],[/supertrend/,'ST'],[/revert/,'RVT'],[/vwap/,'VWAP'],[/randomforest|rfml|\brf\b/,'RFML']];
+    const _famKey=s=>{const x=String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ');for(const fr of _FAMRE)if(fr[0].test(x))return fr[1];return '';};
+    // Link a run's stored strategy string to a Library entry so it shows the same
+    // "#num ABBR ver" identity everywhere. Tier 1 = exact normalized file/name (how
+    // VWAP/REVERT runs match today — their stored names still equal the current ones).
+    // Tier 2 reconciles OLDER runs whose files were since renamed/re-titled, by their
+    // durable identity (family + version signature) instead of the stale display name.
+    const _stratMatch=str=>{const nk=_norm(str);if(!nk)return null;const lib=metaStrats||[];
+      for(const s of lib){if(_norm(s.file)===nk||_norm(s.name)===nk)return s;}
+      const fam=_famKey(str),vOf=s=>_abbrVer(s.file).ver,maj=v=>v?v.split('.')[0]:'',lst=v=>v?v.split('.').slice(-1)[0]:'';
+      const dot=String(str).match(/\d+\.\d+(?:\.\d+)?/);        // dotted version e.g. 1.3.1 / 2.0
+      if(dot){const cand=lib.filter(s=>vOf(s)===dot[0]);
+        if(cand.length===1)return cand[0];                      // 3-part versions are unique library-wide
+        if(fam){const fc=cand.filter(s=>_famKey(s.file)===fam);if(fc.length===1)return fc[0];}}
+      const vn=String(str).match(/\bv?(\d+)\b/);                // single "v2" / "2" form
+      if(fam&&vn){const fmaj=lib.filter(s=>_famKey(s.file)===fam&&maj(vOf(s))===vn[1]);if(fmaj.length===1)return fmaj[0];
+        const fl=lib.filter(s=>_famKey(s.file)===fam&&lst(vOf(s))===vn[1]);if(fl.length===1)return fl[0];}
+      if(fam==='ORB'&&/simple/i.test(str)){const s=lib.find(x=>/simple/i.test(x.file));if(s)return s;}
+      if(fam){const fc=lib.filter(s=>_famKey(s.file)===fam);if(fc.length===1)return fc[0];}  // lone-member family
+      return null;};
     const stratInfo=str=>{const m=_stratMatch(str);const src=m?m.file:str;const av=_abbrVer(src);const fam=stratFam(src);const abbr=fam?fam.abbr:av.abbr;const num=m&&m.num!=null?m.num:null;const color=stratColor(m?m.file:str);return {num:num,abbr:abbr,ver:av.ver,full:(fam?fam.full:av.abbr),desc:(fam?fam.desc:''),color:color,label:(num!=null?'#'+num+' ':'')+abbr+(av.ver?' '+av.ver:'')};};
     const stratTag=(str,sz)=>{const i=stratInfo(str);return '<span style="color:'+i.color+';font-weight:600'+(sz?';font-size:'+sz:'')+'">'+i.label+'</span>';};
     // ── Instrument color (CSV / masters), consistent everywhere ──────────────
