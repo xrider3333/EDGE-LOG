@@ -312,6 +312,7 @@ class FirestoreQueue:
             "best_dd_usd": (best.get("max_drawdown") or 0) * mult,
             "best_params": result.get("best_params"),
             "top10_results": result.get("top"),
+            "dist": result.get("dist"),   # config-PnL spread for the distribution panel
             "equity": result.get("equity"),
             "multiplier": mult,
             # cost realism + date window so Results/roadmap can show & auto-derive them

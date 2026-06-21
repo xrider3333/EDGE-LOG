@@ -15,6 +15,16 @@ from scipy import stats as _sst
 _GAMMA = 0.5772156649   # Euler-Mascheroni
 
 
+def downsample_pnls(pnls, cap=400):
+    """Sorted (desc) list of config PnLs, downsampled to <=cap — feeds the web's
+    PnL-distribution / plateau-vs-isolated-spike panel."""
+    out = sorted((float(x or 0) for x in pnls), reverse=True)
+    if len(out) > cap:
+        step = len(out) / cap
+        out = [out[int(i * step)] for i in range(cap)]
+    return [round(x, 1) for x in out]
+
+
 def annualized_sr(pnls, years):
     """{sr, n, tpy, skew, kurt} annualized Sharpe of a per-trade PnL series (None if
     too few trades / zero variance). Same formula as optimizer._ann_sr."""

@@ -102,6 +102,10 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v27.2** Results-tab parity (part 1): PNL DISTRIBUTION panel with PLATEAU / ISOLATED-SPIKE
+  verdict — histogram of every tested config's net PnL (engine syncs a compact `dist` from
+  grid/auto/validate). Still missing vs legacy: scatter, heatmap, top-N equity overlay,
+  Rankings leaderboard, stress-test (need fuller param-point sync — next).
 - **v27.1** Cross-instrument transfer gate (the last auto-gatable validation-roadmap step):
   Builder TRANSFER TO picker (defaults to the sibling, NQ↔ES) re-tests the champion on
   another instrument with NO re-optimization; 6th gate passes if it stays profitable there.
