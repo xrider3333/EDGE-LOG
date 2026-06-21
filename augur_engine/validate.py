@@ -55,14 +55,17 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     A = run_auto(strategy, instrument=instrument, timeframe=timeframe, session=session,
                  source=source, method="single", oos=True, n_trials=n_trials,
                  cost_pts=cost_pts, min_trades=min_trades, top_n=10, seed=seed,
-                 compute_dsr=True, date_from=opt_from, date_to=opt_to,
-                 progress_cb=_stage(0, 40)) or {}
+                 compute_dsr=True, compute_neighbors=True, mc_sims=500,
+                 date_from=opt_from, date_to=opt_to, progress_cb=_stage(0, 40)) or {}
     champ = A.get("best_params") or {}
     bestA = A.get("best") or {}
     nparam = len(champ)
     is_trades = int(bestA.get("num_trades", 0) or 0)
     tpp = (is_trades / nparam) if nparam else 0.0
     dsr = A.get("dsr") or {}
+    nb = A.get("neighborhood") or {}          # plateau check (param robustness)
+    mc = A.get("mc") or {}                     # Monte-Carlo drawdown (sizing)
+    eq_opt = list((A.get("equity") or {}).get("cum") or [])   # champion equity, optimize window (pts)
 
     # ── Stage B — rolling walk-forward ────────────────────────────────────────
     B = run_auto(strategy, instrument=instrument, timeframe=timeframe, session=session,
@@ -83,13 +86,16 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     fold_frac = (held / n_folds) if n_folds else 0.0
 
     # ── Gate ──────────────────────────────────────────────────────────────────
+    plateau_ran = bool(nb)
     checks = {
         "sample": tpp >= th["trades_per_param"],
+        "plateau": (not plateau_ran) or nb.get("verdict") == "HIGH GROUND",
         "wfe": wf_ran and wfe >= th["wfe"],
         "consistency": wf_ran and fold_frac >= th["fold_frac"],
         "luck": (not dsr) or float(dsr.get("dsr", 1) or 1) >= th["dsr"],
     }
     n_pass = sum(1 for v in checks.values() if v)
+    n_gates = len(checks)
 
     # ── Stage C — lockbox one-shot (champion on the reserved slice) ───────────
     lb = None
@@ -99,9 +105,22 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         try:
             lb = run_backtest(strategy, instrument=instrument, timeframe=timeframe,
                               session=session, source=source, params=champ,
-                              cost_pts=cost_pts, date_from=lb_from, date_to=None)
+                              cost_pts=cost_pts, date_from=lb_from, date_to=None,
+                              return_trades=True)
         except Exception:
             lb = None
+    # extend the equity curve through the (never-optimized) lockbox slice
+    lb_idx = len(eq_opt)
+    equity = list(eq_opt)
+    if lb and lb.get("trades"):
+        s = eq_opt[-1] if eq_opt else 0.0
+        for t in lb["trades"]:
+            s += (float(t[2]) - cost_pts)
+            equity.append(s)
+    if len(equity) > 240:   # downsample for transport/plot
+        step = len(equity) / 240.0
+        lb_idx = int(lb_idx / step)
+        equity = [equity[int(i * step)] for i in range(240)]
     lb_pnl = float((lb or {}).get("total_pnl", 0) or 0)
     lb_pf = float((lb or {}).get("profit_factor", 0) or 0)
     lb_trades = int((lb or {}).get("num_trades", 0) or 0)
@@ -110,18 +129,24 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         progress_cb(100, 100)
 
     # ── Verdict ───────────────────────────────────────────────────────────────
-    if n_pass == 4 and lb_pass:
+    if n_pass == n_gates and lb_pass:
         verdict = "PASS"
-    elif n_pass >= 3 and lb_pass:
+    elif n_pass >= n_gates - 1 and lb_pass:
         verdict = "WEAK"
     else:
         verdict = "FAIL"
 
     report = {
-        "verdict": verdict, "checks": checks, "n_pass": n_pass,
+        "verdict": verdict, "checks": checks, "n_pass": n_pass, "n_gates": n_gates,
         "trades_per_param": round(tpp, 1), "n_params": nparam, "is_trades": is_trades,
+        "plateau": ({"verdict": nb.get("verdict"), "good": nb.get("good"),
+                     "tot": nb.get("tot")} if plateau_ran else None),
         "wfe": round(wfe, 3), "folds_held": int(held), "n_folds": n_folds, "wf_ran": wf_ran,
         "dsr": (dsr.get("dsr") if dsr else None),
+        "is_pf": float(bestA.get("profit_factor", 0) or 0),
+        "is_sharpe": (dsr.get("winner_sharpe") if dsr else None),
+        "mc_p95": (mc.get("p95") if mc else None),
+        "equity": equity, "lb_idx": lb_idx,   # PnL curve (points); lb_idx = lockbox boundary
         "lockbox": {"pnl": lb_pnl, "pf": lb_pf, "trades": lb_trades, "pass": lb_pass,
                     "from": lb_from, "to": full_hi.isoformat()},
         "windows": {"optimize": [opt_from, opt_to], "lockbox": [lb_from, full_hi.isoformat()],
