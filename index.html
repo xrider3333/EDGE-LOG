@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='28.3';
+const VERSION='28.5';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4394,8 +4394,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const cardHtml=cards.map(c=>'<div style="background:var(--bg2);border-radius:8px;padding:10px 12px"><div style="font-size:var(--fsxs);color:var(--text5)">'+c[0]+'</div><div style="font-size:18px;color:'+c[2]+'">'+c[1]+'</div></div>').join('');
       const t10=Array.isArray(d.top10_results)?d.top10_results:[];
       const pkeys=t10.length?Object.keys(t10[0]).filter(k=>['total_pnl','num_trades','win_rate','profit_factor','wins','losses','avg_pnl','max_drawdown'].indexOf(k)<0):[];
-      const thead='<tr><th>#</th>'+pkeys.map(k=>'<th>'+k+'</th>').join('')+'<th style="text-align:right">PnL pts</th><th style="text-align:right">TRD</th><th style="text-align:right">WR</th><th style="text-align:right">PF</th></tr>';
-      const trows=t10.map((r,i)=>'<tr><td>'+(i+1)+'</td>'+pkeys.map(k=>'<td style="font-size:var(--fsxs)">'+r[k]+'</td>').join('')+'<td style="text-align:right">'+Math.round(r.total_pnl||0).toLocaleString()+'</td><td style="text-align:right">'+(r.num_trades||0)+'</td><td style="text-align:right">'+Math.round(r.win_rate||0)+'%</td><td style="text-align:right">'+Math.min(r.profit_factor||0,99).toFixed(2)+'</td></tr>').join('');
+      // plain-English headers from the strategy's param labels + rounded values
+      const _sm=_stratMatch(d.strategy),_spec=(_sm&&_sm.params)||[],_lbl={};_spec.forEach(p=>{_lbl[p.name]=p.label||p.name;});
+      const labOf=k=>(_lbl[k]||k.replace(/_/g,' ')).replace(/\b\w/g,c=>c.toUpperCase());
+      const rnd=v=>(typeof v==='number')?(Number.isInteger(v)?v:(Math.abs(v)>=100?Math.round(v):+v.toFixed(2))):(v===true?'yes':v===false?'no':v);
+      const thead='<tr><th>#</th>'+pkeys.map(k=>'<th title="'+k+'">'+labOf(k)+'</th>').join('')+'<th style="text-align:right">PnL pts</th><th style="text-align:right">TRD</th><th style="text-align:right">WR</th><th style="text-align:right">PF</th></tr>';
+      const trows=t10.map((r,i)=>'<tr><td>'+(i+1)+'</td>'+pkeys.map(k=>'<td style="font-size:var(--fsxs)">'+rnd(r[k])+'</td>').join('')+'<td style="text-align:right">'+Math.round(r.total_pnl||0).toLocaleString()+'</td><td style="text-align:right">'+(r.num_trades||0)+'</td><td style="text-align:right">'+Math.round(r.win_rate||0)+'%</td><td style="text-align:right">'+Math.min(r.profit_factor||0,99).toFixed(2)+'</td></tr>').join('');
       let eqHtml='';
       if(d.equity&&d.equity.cum&&d.equity.cum.length>1){const cum=d.equity.cum,n=cum.length;let mn=Math.min.apply(null,cum),mx=Math.max.apply(null,cum);if(mx<=mn)mx=mn+1;const W=640,Hh=140;const pts=cum.map((v,i)=>(Math.round(i/(n-1)*W*100)/100)+','+(Math.round((Hh-((v-mn)/(mx-mn))*Hh)*100)/100)).join(' ');const col=(d.equity.final||0)>=0?'#1D9E75':'#E24B4A';const zero=(mn<0&&mx>0)?(Hh-((0-mn)/(mx-mn))*Hh):null;eqHtml='<div class="lbl" style="margin:4px 0 6px">EQUITY CURVE · best config, 1 contract</div><div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:16px"><svg viewBox="0 0 '+W+' '+Hh+'" width="100%" height="120" preserveAspectRatio="none">'+(zero!=null?'<line x1="0" y1="'+zero.toFixed(1)+'" x2="'+W+'" y2="'+zero.toFixed(1)+'" stroke="var(--border)" stroke-width="1"/>':'')+'<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="2"/></svg></div>';}
       const mlt=d.multiplier||20;
@@ -4805,7 +4809,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<span data-rfstar style="cursor:pointer;font-size:10px;user-select:none;color:'+(fStar?'var(--yellow)':'var(--text5)')+'">'+(fStar?'★':'☆')+' starred</span>'
           +(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">clear</span>':'')+'</div>';
         const listRows=sorted.length?sorted.map(r=>{const on=String(r.id)===String(d.id);const pnl=r.best_pnl_usd||0;return '<div class="arow" data-run="'+r.id+'" style="padding:5px 8px;border-radius:6px;cursor:pointer;border:1px solid '+(on?'var(--text4)':'transparent')+';background:'+(on?'var(--bg1)':'transparent')+';margin-bottom:2px">'
-          +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span data-star="'+r.id+'" title="star" style="cursor:pointer;margin-right:4px;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span><span style="color:var(--text5);font-size:10px;margin-right:6px;font-variant-numeric:tabular-nums" title="run number">'+r.id+'</span>'+stratTag(r.strategy)+'</span><span style="font-size:11px;color:'+(pnl>=0?'var(--green)':'var(--red)')+';white-space:nowrap">'+fmtUsd(pnl)+'</span></div>'
+          +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="display:flex;align-items:baseline;gap:6px;min-width:0;overflow:hidden"><span style="flex:0 0 auto;color:var(--text3);font-size:11px;font-variant-numeric:tabular-nums;min-width:32px" title="run number">'+r.id+'</span><span data-star="'+r.id+'" title="star" style="flex:0 0 auto;cursor:pointer;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span><span style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+stratTag(r.strategy)+'</span></span><span style="font-size:11px;color:'+(pnl>=0?'var(--green)':'var(--red)')+';white-space:nowrap">'+fmtUsd(pnl)+'</span></div>'
           +'<div style="font-size:9px;color:var(--text5);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+instTag(r.instrument)+' '+(r.timeframe||'')+' · '+(r.scope||'')+' · PF '+(r.best_pf||0).toFixed(2)+' · '+((r.timestamp||'').slice(0,10))+'</div></div>';}).join(''):'<div style="color:var(--text5);font-size:9px;padding:14px;text-align:center">no runs match the filter</div>';
         const rH=Math.min(.6,Math.max(.15,APREF.splitH||0.30));
         const vH=Math.min(520,Math.max(120,APREF.splitV||200));
@@ -4995,6 +4999,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const move=(ev)=>{if(view==='side'){const w=el('res-wrap'),L=el('res-left');if(!w||!L)return;const rect=w.getBoundingClientRect();let r=(ev.clientX-rect.left)/rect.width;r=Math.min(.6,Math.max(.15,r));L.style.flexBasis=(r*100)+'%';APREF.splitH=r;}else{const top=el('res-top'),sc=el('res-listscroll');if(!top||!sc)return;const rect=top.getBoundingClientRect();let h=ev.clientY-rect.top-30;h=Math.min(520,Math.max(120,h));sc.style.maxHeight=h+'px';APREF.splitV=h;}};
         const up=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);savePref(view==='side'?'splitH':'splitV',view==='side'?APREF.splitH:APREF.splitV);};
         document.addEventListener('pointermove',move);document.addEventListener('pointerup',up);};}
+      // keep the list scroll position when selecting a run (don't jump to top)
+      const _rls=el('res-listscroll');if(_rls){if(window._resScrollTop!=null)_rls.scrollTop=window._resScrollTop;_rls.addEventListener('scroll',()=>{window._resScrollTop=_rls.scrollTop;},{passive:true});}
       content.querySelectorAll('[data-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.run;renderApp();};});
       // filters / sort (persist + re-render)
       content.querySelectorAll('[data-rf]').forEach(s=>{s.onchange=()=>{savePref(s.dataset.rf,s.value);renderApp();};});
