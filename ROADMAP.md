@@ -102,6 +102,10 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v27.0** Auto-Validate card now renders in the Results/Past-Runs tab too (not just the
+  Builder): factored into a shared `validateCardHtml` helper — verdict, 5 gates, equity
+  curve (lockbox shaded), lockbox HELD/FAILED + MC drawdown — so saved validate runs show
+  the full report card. (Results already had equity/regime/neighborhood for grid/auto runs.)
 - **v26.9** Auto-Validate UX + visuals: VALIDATE SCOPE (Short/Medium/Long/XL) sets the data
   window + trials + lockbox months in one pick (no more 15-yr-by-default); WF folds dropped
   from the mode (auto-fit). Report card now shows 5 gates incl. **Plateau** (param robustness)
