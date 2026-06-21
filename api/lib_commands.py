@@ -21,7 +21,8 @@ import time
 import subprocess
 
 import augur_engine as ae  # noqa: F401  (ensures package import side-effects/paths)
-from augur_engine.paths import STRAT_DIR, PINE_DIR, CONFIG
+import sqlite3
+from augur_engine.paths import STRAT_DIR, PINE_DIR, CONFIG, DB_PATH
 from augur_engine.strategies import _pine_path, load_strategy
 from augur_engine.ai import validate_strategy_code, OLLAMA_URL, DEFAULT_OLLAMA_MODEL
 
@@ -266,9 +267,43 @@ def cmd_make_pine(p):
             "content": scaf}
 
 
+def cmd_delete_run(p):
+    """Delete a run from optimizer_history.db so it doesn't re-sync back (the web also
+    deletes its Firestore doc). payload: {id} or {ids:[...]}."""
+    ids = p.get("ids") or ([p.get("id")] if p.get("id") is not None else [])
+    ids = [int(x) for x in ids if x is not None]
+    if not ids:
+        return {"ok": False, "error": "no run id(s)"}
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        cur = conn.executemany("DELETE FROM runs WHERE id=?", [(i,) for i in ids])
+        conn.commit()
+        return {"ok": True, "deleted": cur.rowcount, "ids": ids}
+    finally:
+        conn.close()
+
+
+def cmd_relabel_run(p):
+    """Re-label a run's strategy in optimizer_history.db. payload: {id|ids, strategy}."""
+    ids = p.get("ids") or ([p.get("id")] if p.get("id") is not None else [])
+    ids = [int(x) for x in ids if x is not None]
+    label = p.get("strategy") or p.get("label")
+    if not ids or not label:
+        return {"ok": False, "error": "need id(s) + strategy"}
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        cur = conn.executemany("UPDATE runs SET strategy=? WHERE id=?",
+                               [(str(label), i) for i in ids])
+        conn.commit()
+        return {"ok": True, "updated": cur.rowcount, "ids": ids, "strategy": label}
+    finally:
+        conn.close()
+
+
 HANDLERS = {"get_src": cmd_get_src, "delete": cmd_delete,
             "add": cmd_add, "make_pine": cmd_make_pine,
-            "review_pine": cmd_review_pine, "write_pine": cmd_write_pine}
+            "review_pine": cmd_review_pine, "write_pine": cmd_write_pine,
+            "delete_run": cmd_delete_run, "relabel_run": cmd_relabel_run}
 
 
 def process_command(action, payload, log=print):
