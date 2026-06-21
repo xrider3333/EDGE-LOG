@@ -102,6 +102,10 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v27.5** Top-N equity overlay in Results: engine computes the top-6 configs' equity
+  curves (grid/auto/validate); Results overlays them (best highlighted) so you can see if
+  the winners climb alike (robust) or only the best does (fragile). Only stress-test-across-
+  time remains for full legacy Results parity.
 - **v27.4** RANKINGS sub-tab: 0–100 robustness leaderboard across all saved runs
   (frontend-only score blends DSR, walk-forward folds held, lockbox, PF, sample; Auto-Validate
   runs use their gate results + verdict badge). Click a row → opens the run in Results.

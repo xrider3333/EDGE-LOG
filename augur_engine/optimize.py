@@ -192,6 +192,20 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 cum = [cum[int(i * _st)] for i in range(160)]
             out["equity"] = {"cum": [round(float(x), 1) for x in cum],
                              "final": round(float(_s), 1), "n": len(win_pnls)}
+            # top-N equity overlay (robustness: do the best configs all climb alike?)
+            etop = []
+            for (pp_, _m) in valid[:6]:
+                pn = _net_pnls(pp_)
+                if not pn:
+                    continue
+                cc, ss = [], 0.0
+                for x in pn:
+                    ss += x; cc.append(ss)
+                if len(cc) > 80:
+                    st2 = len(cc) / 80
+                    cc = [cc[int(i * st2)] for i in range(80)]
+                etop.append([round(float(x), 1) for x in cc])
+            out["equity_top"] = etop
             if mc_sims:
                 out["mc"] = monte_carlo_drawdown(win_pnls, n_sims=int(mc_sims))
             if compute_dsr:
