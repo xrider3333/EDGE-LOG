@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='27.5';
+const VERSION='27.6';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4212,6 +4212,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100" preserveAspectRatio="none">'+bars+'<line x1="'+bestX.toFixed(1)+'" y1="0" x2="'+bestX.toFixed(1)+'" y2="'+H+'" stroke="var(--text)" stroke-width="1.5" stroke-dasharray="3,2"/></svg>'
         +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5)"><span>'+fmtUsd(Math.round(mn))+'</span><span>↑ best '+fmtUsd(Math.round(mx))+'</span></div></div>';
     };
+    // STRESS — winner PnL across 8 chronological windows. Profit SPREAD across windows is
+    // robust; CONCENTRATED in one stretch is a red flag (one lucky regime carried it).
+    const stressPanelHtml=(stress,mult)=>{
+      if(!stress||stress.length<4)return '';
+      const v=stress.map(x=>x*mult),pos=v.filter(x=>x>0).length,tot=v.reduce((s,x)=>s+x,0);
+      const mxabs=Math.max.apply(null,v.map(Math.abs))||1;
+      const top=v.reduce((m,x)=>Math.max(m,x),0),concentrated=(tot>0&&top>0.5*tot)||pos<v.length*0.5;
+      const W=560,H=110,bw=W/v.length,mid=H/2;
+      const bars=v.map((x,i)=>{const h=(Math.abs(x)/mxabs)*(mid-6),y=x>=0?mid-h:mid;return '<rect x="'+(i*bw+2).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+(bw-4).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+(x>=0?'var(--green)':'var(--red)')+'" opacity="0.6"/>';}).join('');
+      const vc=concentrated?'var(--yellow)':'var(--green)';
+      return '<div class="lbl" style="margin:8px 0 6px">STRESS ACROSS TIME · <span style="color:'+vc+'">'+(concentrated?'CONCENTRATED':'SPREAD')+'</span> · '+pos+'/'+v.length+' windows green</div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100" preserveAspectRatio="none"><line x1="0" y1="'+mid+'" x2="'+W+'" y2="'+mid+'" stroke="var(--border)"/>'+bars+'</svg><div style="font-size:8px;color:var(--text5)">oldest → newest · each bar = 1/'+v.length+' of the trade history</div></div>';
+    };
     // TOP-N EQUITY OVERLAY — the best configs' equity curves on one axis. If they all
     // climb alike the edge is robust; if only the winner climbs it's a fragile outlier.
     const topEqOverlayHtml=(etop,mult)=>{
@@ -4356,7 +4369,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="color:var(--text4);font-size:var(--fsxs);margin-bottom:12px">run #'+d.id+' · '+instTag(d.instrument)+' '+(d.timeframe||'')+' · '+(d.scope||'')+' · '+(d.date_from||'')+' → '+(d.date_to||'')+' · '+(d.n_valid||0)+'/'+(d.n_combos||0)+' configs</div>'
         +valdCard
         +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-bottom:16px">'+cardHtml+'</div>'
-        +((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d.equity_top,mlt):eqHtml)+valHtml+distPanelHtml(d.dist,mlt)
+        +((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d.equity_top,mlt):eqHtml)+valHtml+stressPanelHtml(d.stress,mlt)+distPanelHtml(d.dist,mlt)
         +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+scatterPanelHtml(d.points,mlt)+heatmapPanelHtml(d.points,mlt)+'</div>'
         +'<div class="lbl" style="margin-bottom:6px">TOP CONFIGS</div>'
         +(t10.length?'<div style="overflow-x:auto"><table class="table">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>')

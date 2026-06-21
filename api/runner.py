@@ -315,6 +315,7 @@ class FirestoreQueue:
             "dist": result.get("dist"),   # config-PnL spread for the distribution panel
             "points": result.get("points"),   # per-config param points for scatter / heatmap
             "equity_top": result.get("equity_top"),   # top-N equity curves (overlay)
+            "stress": result.get("stress"),   # PnL across chronological windows
             "equity": result.get("equity"),
             "multiplier": mult,
             # cost realism + date window so Results/roadmap can show & auto-derive them

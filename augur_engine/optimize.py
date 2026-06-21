@@ -206,6 +206,10 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                     cc = [cc[int(i * st2)] for i in range(80)]
                 etop.append([round(float(x), 1) for x in cc])
             out["equity_top"] = etop
+            if len(win_pnls) >= 16:   # PnL across 8 chronological windows (concentration check)
+                N = 8; sz = len(win_pnls) // N
+                out["stress"] = [round(float(sum(win_pnls[i*sz:(len(win_pnls) if i == N-1 else (i+1)*sz)])), 1)
+                                 for i in range(N)]
             if mc_sims:
                 out["mc"] = monte_carlo_drawdown(win_pnls, n_sims=int(mc_sims))
             if compute_dsr:

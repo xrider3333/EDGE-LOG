@@ -102,6 +102,9 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v27.6** Stress-test across time in Results — winner PnL across 8 chronological windows
+  with a SPREAD vs CONCENTRATED verdict (one lucky stretch = red flag). Completes Results-tab
+  parity with legacy AUGUR (distribution, scatter, heatmap, top-N equity, rankings, stress).
 - **v27.5** Top-N equity overlay in Results: engine computes the top-6 configs' equity
   curves (grid/auto/validate); Results overlays them (best highlighted) so you can see if
   the winners climb alike (robust) or only the best does (fragile). Only stress-test-across-
