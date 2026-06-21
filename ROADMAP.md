@@ -108,6 +108,11 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v28.8** Auto-Validate gains a DISCOVER WITH selector: Statistical (default, fast/free) or
+  AI-evolve (rewrites the strategy code on the pre-lockbox window via ai_evolve, then judges
+  the evolved strategy through the full pipeline — lockbox stays untouched). Provider/rounds
+  reuse the existing AI fields; card shows the evolved file. Also fixed a 5-tuple-trade bug
+  that crashed regime_report on the upgraded ORB strategies.
 - **v28.6** Builder MODE numbered in workflow order (1 Single … 7 Auto-Validate = judge);
   Auto-Validate now surfaces the full Regime card + Neighborhood table + MC (not just the
   card summary) so the DSR/Regime/NBHD panels render for validate runs too; Library

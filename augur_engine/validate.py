@@ -25,7 +25,8 @@ def _parse(d):
 def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", source=None,
                  cost_pts=0.0, min_trades=30, n_trials=200, wf_folds=0, seed=42,
                  lockbox_months=12, date_from=None, date_to=None, progress_cb=None,
-                 thresholds=None, transfer_to=None):
+                 thresholds=None, transfer_to=None,
+                 discover="auto", provider="ollama", api_key=None, ai_rounds=4, save_dir=None):
     th = {"trades_per_param": 30, "wfe": 0.5, "fold_frac": 0.66, "dsr": 0.8}
     th.update(thresholds or {})
 
@@ -51,12 +52,31 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                 progress_cb(int(lo + (hi - lo) * done / total), 100)
         return cb
 
+    # ── Stage 0 (optional) — AI-evolve the strategy CODE on the pre-lockbox window,
+    #    then validate the evolved strategy. The lockbox is never seen by the rewrite. ──
+    evolved_file = None
+    discover_err = None
+    if str(discover) == "evolve":
+        try:
+            from .ai import ai_evolve
+            ev = ai_evolve(strategy, instrument=instrument, timeframe=timeframe,
+                           session=session, source=source, n_rounds=ai_rounds,
+                           provider=provider, api_key=api_key, cost_pts=cost_pts,
+                           min_trades=min_trades, date_from=opt_from, date_to=opt_to,
+                           save_dir=save_dir, progress_cb=_stage(0, 30)) or {}
+            evolved_file = ev.get("evolved_file")
+            if evolved_file:
+                strategy = evolved_file   # judge the evolved strategy from here on
+        except Exception as e:
+            discover_err = f"{type(e).__name__}: {e}"   # fall back to the original strategy
+    aS, aE, bS, bE = (30, 55, 55, 90) if evolved_file else (0, 40, 40, 90)
+
     # ── Stage A — in-sample Auto-Optimize (single 75/25 split) ────────────────
     A = run_auto(strategy, instrument=instrument, timeframe=timeframe, session=session,
                  source=source, method="single", oos=True, n_trials=n_trials,
                  cost_pts=cost_pts, min_trades=min_trades, top_n=10, seed=seed,
                  compute_dsr=True, compute_neighbors=True, compute_regime=True, mc_sims=500,
-                 date_from=opt_from, date_to=opt_to, progress_cb=_stage(0, 40)) or {}
+                 date_from=opt_from, date_to=opt_to, progress_cb=_stage(aS, aE)) or {}
     champ = A.get("best_params") or {}
     bestA = A.get("best") or {}
     nparam = len(champ)
@@ -72,7 +92,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                  source=source, method="walkforward", wf_mode="rolling", oos=True,
                  wf_folds=wf_folds, n_trials=n_trials, cost_pts=cost_pts,
                  min_trades=min_trades, top_n=20, seed=seed,
-                 date_from=opt_from, date_to=opt_to, progress_cb=_stage(40, 90)) or {}
+                 date_from=opt_from, date_to=opt_to, progress_cb=_stage(bS, bE)) or {}
     wf_ran = bool(B.get("wf"))
     folds = B.get("top") or []
     sOos = sTest = sIs = sTrain = held = 0.0
@@ -162,6 +182,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
 
     report = {
         "verdict": verdict, "checks": checks, "n_pass": n_pass, "n_gates": n_gates,
+        "discover": discover, "evolved_file": evolved_file, "discover_err": discover_err,
         "trades_per_param": round(tpp, 1), "n_params": nparam, "is_trades": is_trades,
         "plateau": ({"verdict": nb.get("verdict"), "good": nb.get("good"),
                      "tot": nb.get("tot")} if plateau_ran else None),
@@ -183,7 +204,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "mode": "validate", "validate": report,
         "best_params": champ, "best": bestA, "top": folds,
         "dsr": (dsr or None), "n_combos": n_trials * 2, "n_valid": A.get("n_valid"),
-        "bars": A.get("bars"), "wf": True, "best_oos_pnl": sOos, "evolved_file": None,
+        "bars": A.get("bars"), "wf": True, "best_oos_pnl": sOos, "evolved_file": evolved_file,
         "dist": A.get("dist"), "points": A.get("points"),
         "equity_top": A.get("equity_top"), "stress": A.get("stress"),
         "mae_mfe": A.get("mae_mfe"),

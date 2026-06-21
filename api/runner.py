@@ -79,6 +79,9 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 compute_regime=bool(job.get("regime", True)),
                 compute_neighbors=bool(job.get("neighbors", True)))
         elif jtype == "validate":
+            _disc = job.get("discover", "auto")
+            _prov = job.get("provider", "ollama")
+            _key = _anthropic_key() if (_disc == "evolve" and _prov == "anthropic") else None
             r = ae.run_validate(
                 job["strategy"], instrument=job.get("instrument"),
                 timeframe=job.get("timeframe", "5m"), session=job.get("session", "rth"),
@@ -89,6 +92,8 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 wf_folds=int(job.get("wf_folds", 0) or 0),
                 lockbox_months=int(job.get("lockbox_months", 12)),
                 transfer_to=job.get("transfer_to"),
+                discover=_disc, provider=_prov, api_key=_key,
+                ai_rounds=int(job.get("n_rounds", 4)),
                 thresholds=job.get("thresholds"), progress_cb=progress_cb)
         elif jtype == "ai_optimize":
             prov = job.get("provider", "ollama")

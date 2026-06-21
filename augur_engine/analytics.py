@@ -174,7 +174,8 @@ def regime_report(trades, index, highs, lows, closes, cost_pts=0.0):
     vol_g, trend_g, dow_g = {}, {}, {}
     monthly = {}   # (year, month) -> sum pnl
     n_used = 0
-    for (eb, xb, pnl) in trades:
+    for t in trades:   # trades may be 3- or 5-tuples (entry_i, exit_i, pnl[, side, entry_px])
+        eb, xb, pnl = t[0], t[1], t[2]
         if eb < 0 or eb >= len(dts):
             continue
         d = dts[eb]
