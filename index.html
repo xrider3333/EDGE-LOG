@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='29.5';
+const VERSION='29.6';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -413,7 +413,7 @@ function applyTheme(){document.documentElement.setAttribute('data-theme',prefs.t
 applyTheme();
 
 // State
-let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,cmdRef=null,augurCmdId=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],metaPull={},augurSub='runs',augurRunSel=null,augurExecStrat='',augurCmpA=null,augurCmpB=null,augurLibSel=null,augurLibDel=false,augurLibMsg='',augurReviewPine='',augurReviewFor='',augurMenu='';
+let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,cmdRef=null,augurCmdId=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],metaPull={},augurSub='runs',augurRunSel=null,augurExecStrat='',augurCmpA=null,augurCmpB=null,augurLibSel=null,augurLibDel=false,augurLibMsg='',augurReviewPine='',augurReviewFor='',augurMenu='',metaEta=null,metaWorkers=null;
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
 let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyOverlay=false,chartPctMode=false;window.chartPctMode=false;
 let formOpen=false,showAllCols=false;
@@ -672,7 +672,7 @@ function subscribeAll(uid){
   cmdRef=db.collection('users').doc(uid).collection('commands');
   metaRef=db.collection('users').doc(uid).collection('meta');
   if(unsubMeta)unsubMeta();
-  unsubMeta=metaRef.doc('strategies').onSnapshot(d=>{const x=d.data();metaStrats=(x&&x.list)||[];if(activeTab==='augur'&&(augurSub==='exec'||augurSub==='lib'))renderApp();});
+  unsubMeta=metaRef.doc('strategies').onSnapshot(d=>{const x=d.data();metaStrats=(x&&x.list)||[];metaEta=(x&&x.eta_calib)||null;metaWorkers=(x&&x.workers)||null;if(activeTab==='augur'&&(augurSub==='exec'||augurSub==='lib'))renderApp();});
   if(unsubMM)unsubMM();
   unsubMM=metaRef.doc('masters').onSnapshot(d=>{const x=d.data();metaMasters=(x&&x.list)||[];metaPull=(x&&x.status)||{};if(activeTab==='augur'&&(augurSub==='lib'||augurSub==='set'))renderApp();});
 }
@@ -4174,6 +4174,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const badge=s=>{const c={done:'var(--green)',error:'var(--red)',running:'var(--yellow)',queued:'var(--text4)'}[s]||'var(--text4)';return '<span style="color:'+c+';font-size:var(--fsxs);letter-spacing:1px">'+((s||'?').toUpperCase())+'</span>';};
     const rows=backtests.map(b=>{const r=b.result||{};const done=b.status==='done';const net=done?Math.round((r.total_pnl||0)*(b.mult||20)):0;const last='<td style="text-align:right;color:'+(done?(net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(done?'$'+net.toLocaleString():(b.status==='error'?'err':'—'))+'</td>';return '<tr><td>'+badge(b.status)+'</td><td style="font-size:var(--fsxs)">'+(b.strategy||'')+'</td><td>'+(b.instrument||'')+' '+(b.timeframe||'')+'</td><td style="text-align:right">'+(done?Math.min(r.profit_factor,99).toFixed(2):'—')+'</td><td style="text-align:right">'+(done?r.num_trades:'—')+'</td>'+last+'<td style="text-align:right;color:var(--text4)">'+(done&&r.mc?'$'+Math.round((r.mc.p95||0)*(b.mult||20)).toLocaleString():'—')+'</td></tr>';}).join('');
     const fmtUsd=v=>((v||0)<0?'-$':'$')+Math.abs(Math.round(v||0)).toLocaleString();
+    const _fmtSecs=s=>{s=Math.round(+s||0);if(s<1)return '<1s';if(s<60)return s+'s';if(s<3600)return Math.floor(s/60)+'m '+(s%60)+'s';return (s/3600).toFixed(1)+'h';};
     // iOS-glass tile matching the overview hero/KPI cards: hero-card class (theme glass
     // adds blur/gradient) + rounded + subtle 40%-border like the hero tiles.
     const tile=(inner,mb)=>'<div class="hero-card" style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:13px;padding:13px 15px;margin-bottom:'+(mb===undefined?14:mb)+'px;overflow-x:auto">'+inner+'</div>';
@@ -4500,7 +4501,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const bar=b.status==='running'?'<div style="height:3px;background:var(--bg1);border-radius:2px;overflow:hidden;margin-top:3px;width:84px"><div style="height:100%;width:'+pct+'%;background:var(--yellow);transition:width .3s"></div></div>':'';
         return '<span style="color:'+c+';font-size:var(--fsxs);letter-spacing:1px">'+lbl+'</span>'+bar;};
       const scopeLbl={auto:'Auto-Optimize',walkforward:'Walk-Forward',ai_optimize:'AI optimize',ai_evolve:'AI evolve',validate:'Auto-Validate'};
-      const grows=grids.map(b=>{const r=b.result||{};const done=b.status==='done';const ai=b.type==='ai_optimize'||b.type==='ai_evolve';const vald=b.type==='validate';const smart=b.type==='auto'||b.type==='walkforward'||vald;const single=!ai&&!smart&&b.type!=='grid';const m=single?r:(r.best||{});const net=done?Math.round((m.total_pnl||0)*(b.mult||20)):0;const sizecell=done?(vald?((r.validate&&r.validate.n_pass!=null?r.validate.n_pass+'/'+(r.validate.n_gates||5):'—')):single?((r.num_trades||0)+'T'):ai?((r.n_rounds||'?')+' rnds'):(r.n_valid+'/'+r.n_combos)):'—';const scope=b.lockbox?'🔒 lockbox':vald?('🧭 '+((r.validate&&r.validate.verdict)||'…')):single?'single':(scopeLbl[b.type]||(b.preset||'').slice(0,16));return '<tr><td>'+gbadge(b)+'</td><td style="font-size:var(--fsxs)">'+(ai?'AI ':'')+stratTag(b.strategy)+'</td><td style="font-size:var(--fsxs)">'+scope+'</td><td style="text-align:right">'+sizecell+'</td><td style="text-align:right">'+(done?Math.min(m.profit_factor||0,99).toFixed(2):'—')+'</td><td style="text-align:right;color:'+(done?(net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(done?fmtUsd(net):'—')+'</td></tr>';}).join('');
+      // STOP / PAUSE / RESUME — write a `control` flag on the job doc; the PC runner
+      // honours it at its next progress checkpoint (~1.5s). Finished jobs get no control.
+      const jobCtl=b=>{const s=b.status;if(s==='done'||s==='error'||s==='cancelled')return '<span style="color:var(--text5)">—</span>';
+        const btn=(v,gl,t,col)=>'<span data-jobctl="'+v+'" data-jobid="'+b.id+'" title="'+t+'" style="cursor:pointer;font-size:12px;margin-left:8px;color:'+col+'">'+gl+'</span>';
+        return (s==='paused'?btn('run','▶','Resume','var(--green)'):btn('pause','⏸','Pause','var(--text4)'))+btn('stop','■','Stop','var(--red)');};
+      const grows=grids.map(b=>{const r=b.result||{};const done=b.status==='done';const ai=b.type==='ai_optimize'||b.type==='ai_evolve';const vald=b.type==='validate';const smart=b.type==='auto'||b.type==='walkforward'||vald;const single=!ai&&!smart&&b.type!=='grid';const m=single?r:(r.best||{});const net=done?Math.round((m.total_pnl||0)*(b.mult||20)):0;const sizecell=done?(vald?((r.validate&&r.validate.n_pass!=null?r.validate.n_pass+'/'+(r.validate.n_gates||5):'—')):single?((r.num_trades||0)+'T'):ai?((r.n_rounds||'?')+' rnds'):(r.n_valid+'/'+r.n_combos)):'—';const scope=b.lockbox?'🔒 lockbox':vald?('🧭 '+((r.validate&&r.validate.verdict)||'…')):single?'single':(scopeLbl[b.type]||(b.preset||'').slice(0,16));return '<tr><td>'+gbadge(b)+'</td><td style="font-size:var(--fsxs)">'+(ai?'AI ':'')+stratTag(b.strategy)+'</td><td style="font-size:var(--fsxs)">'+scope+'</td><td style="text-align:right">'+sizecell+'</td><td style="text-align:right">'+(done?Math.min(m.profit_factor||0,99).toFixed(2):'—')+'</td><td style="text-align:right;color:'+(done?(net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(done?fmtUsd(net):'—')+'</td><td style="text-align:right;white-space:nowrap">'+jobCtl(b)+'</td></tr>';}).join('');
       const lastDone=grids.filter(b=>b.status==='done'&&b.result&&b.result.top)[0];
       let topHtml='';
       if(lastDone){const t=lastDone.result.top;const pk=t.length?Object.keys(t[0]).filter(k=>['total_pnl','num_trades','win_rate','profit_factor','max_drawdown','avg_pnl','wins','losses','oos_pnl','oos_trades','oos_pf','fold','test_bars','train_bars'].indexOf(k)<0):[];const hasOos=t.length&&t[0].oos_pnl!==undefined,isWf=t.length&&t[0].fold!==undefined;const R=lastDone.result,mlt=lastDone.mult||20;let val='';if(R.dsr){const dc=R.dsr.dsr>=0.95?'var(--green)':R.dsr.dsr>=0.8?'var(--yellow)':'var(--red)';val+='<span>Winner Sharpe <b>'+R.dsr.winner_sharpe.toFixed(2)+'</b></span><span>Luck bar / '+R.dsr.n_cfg+' <b>'+R.dsr.luck_bar.toFixed(2)+'</b></span><span>Deflated Sharpe <b style="color:'+dc+'">'+Math.round(R.dsr.dsr*100)+'%</b> · '+R.dsr.verdict+'</span>';}if(R.mc){val+='<span>P95 drawdown <b style="color:var(--red)">$'+Math.round((R.mc.p95||0)*mlt).toLocaleString()+'</b> (size to this)</span>';}
@@ -4588,7 +4594,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="display:flex;align-items:center;gap:14px;margin-top:6px;border-top:1px solid var(--border);padding-top:12px"><button class="btn-ghost active" id="ex-run" style="flex:0 0 auto;padding:9px 30px">▶ RUN ON MY PC</button><span style="color:var(--text5);font-size:var(--fsxs)">Runs on your PC; progress + results stream into Results history.</span></div>'
         +'</div>'
         +'<div class="lbl" style="margin-bottom:8px">RUNS</div>'
-        +(grids.length?tile('<table class="table"><thead><tr><th>STATUS</th><th>STRATEGY</th><th>SCOPE</th><th style="text-align:right">SIZE</th><th style="text-align:right">PF</th><th style="text-align:right">BEST $</th></tr></thead><tbody>'+grows+'</tbody></table>'):'<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO SWEEPS YET — RUN ONE</div>')
+        +(grids.length?tile('<table class="table"><thead><tr><th>STATUS</th><th>STRATEGY</th><th>SCOPE</th><th style="text-align:right">SIZE</th><th style="text-align:right">PF</th><th style="text-align:right">BEST $</th><th style="text-align:right">CONTROL</th></tr></thead><tbody>'+grows+'</tbody></table>'):'<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO SWEEPS YET — RUN ONE</div>')
         +(topHtml?tile(topHtml):'');
     }else if(augurSub==='lib'){
       const sl=metaStrats||[];
@@ -4915,6 +4921,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
     content.querySelectorAll('[data-asub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.asub;augurRunSel=null;augurLibSel=null;augurLibDel=false;augurLibMsg='';renderApp();};});
     if(augurSub==='launch'){const rb=el('au-run');if(rb)rb.onclick=async()=>{const inst=el('au-inst').value,sess=el('au-sess').value;const job={strategy:el('au-strat').value,instrument:inst,timeframe:el('au-tf').value,session:sess,source:sess==='rth'?'tv':null,params:{vol_filter:parseFloat(el('au-vol').value)||0},cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,mc_sims:1000,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};rb.textContent='QUEUED…';rb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='exec'){const ss=el('ex-strat');if(ss)ss.onchange=()=>{augurExecStrat=ss.value;renderApp();};
+      // STOP / PAUSE / RESUME a queued or running job — sets `control` on the job doc;
+      // the PC runner acts on it at its next progress checkpoint.
+      content.querySelectorAll('[data-jobctl]').forEach(x=>x.onclick=async(e)=>{e.stopPropagation();const id=x.dataset.jobid,v=x.dataset.jobctl;if(v==='stop'&&!confirm('Stop this run? It will be marked cancelled.'))return;try{await btRef.doc(id).update({control:v});}catch(err){alert('control failed: '+err.message);}});
       // ── Pre-run sample-sizing readout: how big the in-sample window actually is ──
       // (bars + span in years for the selected CSV/date range — so IS sizing is a
       // decision, not a guess; pair with the post-run trades/param gauge.)
@@ -4925,7 +4934,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const full=days(df0,dt0),sel=days(a,b),estBars=(rows&&full>0)?Math.round(rows*Math.min(1,sel/full)):rows,yrs=sel/365.25,sliced=(a!==df0||b!==dt0);
         const lb=el('ex-lockbox')?el('ex-lockbox').value:'';
         const lbNote=lb?' <span style="color:var(--purple,#a78bfa)">· 🔒 lockbox reserves '+lb+'→'+b+' (optimization stops the day before)</span>':'';
-        cap.innerHTML='IS window: <b style="color:var(--text3)">~'+estBars.toLocaleString()+'</b> bars · '+a+' → '+b+' · <b style="color:'+(yrs>=2?'var(--text3)':'var(--yellow)')+'">≈'+yrs.toFixed(1)+' yr</b>'+(sliced?' <span style="color:var(--text5)">(sliced from '+df0+'→'+dt0+')</span>':'')+lbNote+' <span style="color:var(--text5)">· aim ≥2 yr / multiple regimes; confirm trades-per-param after the run</span>';};
+        // adaptive ETA: combos(scope) × calibrated sec/backtest × bars-scaling ÷ workers.
+        // Calibration {sec_per_bt,bars} + per-preset combo counts are synced from the PC.
+        let _etaTxt='';
+        try{
+          const _mode=el('ex-mode')?el('ex-mode').value:'grid';let _cb=null,_unit='combos';
+          if(_mode==='grid'){const _ps=el('ex-preset')?el('ex-preset').value:'';
+            if(_ps==='CUSTOM')_cb=cuCount();
+            else{const _ms=(metaStrats||[]).find(s=>s.file===(el('ex-strat')?el('ex-strat').value:''));_cb=(_ms&&_ms.preset_combos)?_ms.preset_combos[_ps]:null;}}
+          else if(_mode==='single'){_cb=1;_unit='run';}
+          else if(_mode==='auto'||_mode==='walkforward'||_mode==='validate'){_cb=parseInt(el('ex-trials')?el('ex-trials').value:0)||null;_unit='trials';}
+          if(_cb&&metaEta&&metaEta.sec_per_bt&&metaEta.bars&&estBars>0){
+            const _w=(_mode==='grid')?Math.max(1,parseInt(el('ex-work')?el('ex-work').value:1)||1):1;
+            const _secs=_cb*metaEta.sec_per_bt*(estBars/metaEta.bars)/_w;
+            _etaTxt=' · est <b style="color:var(--text3)">'+_fmtSecs(_secs)+'</b> <span style="color:var(--text5)">('+_cb.toLocaleString()+' '+_unit+(_mode==='grid'&&_w>1?' · '+_w+'w':'')+')</span>';
+          }
+        }catch(_e){}
+        cap.innerHTML='IS window: <b style="color:var(--text3)">~'+estBars.toLocaleString()+'</b> bars · '+a+' → '+b+' · <b style="color:'+(yrs>=2?'var(--text3)':'var(--yellow)')+'">≈'+yrs.toFixed(1)+' yr</b>'+(sliced?' <span style="color:var(--text5)">(sliced from '+df0+'→'+dt0+')</span>':'')+lbNote+_etaTxt+' <span style="color:var(--text5)">· aim ≥2 yr / multiple regimes; confirm trades-per-param after the run</span>';};
       // Legacy flow: Strategy → Instrument → TF → Session drive the CSV picker, which
       // only lists masters matching those selections. Repopulate it on any upstream change.
       const repopMaster=()=>{const mm=el('ex-master');if(!mm)return;const prev=mm.value;mm.innerHTML=masterOptsHtml(el('ex-inst').value,el('ex-tf').value,el('ex-sess').value);if(![].some.call(mm.options,o=>o.value===prev))mm.value='';exUpdateDataSpan();};
@@ -4966,9 +4991,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // non-grid mode, fall back to the first real preset so nothing invalid is queued.
       const exApplyCustom=()=>{const ct=el('ex-custom'),ep=el('ex-preset');if(!ct||!ep)return;const isGrid=el('ex-mode').value==='grid';const co=[].find.call(ep.options,o=>o.value==='CUSTOM');if(co)co.disabled=!isGrid;if(!isGrid&&ep.value==='CUSTOM'){ep.selectedIndex=0;}const show=isGrid&&ep.value==='CUSTOM';ct.style.display=show?'':'none';if(show){const c=el('ex-cu-count');if(c)c.textContent=cuCount().toLocaleString();}};
       content.querySelectorAll('.ex-cu').forEach(i=>i.oninput=()=>{const c=el('ex-cu-count');if(c)c.textContent=cuCount().toLocaleString();});
-      const ep=el('ex-preset');if(ep)ep.addEventListener('change',()=>{savePref('scope_tier',scopeTier(ep.value));exApplyCustom();});
+      const ep=el('ex-preset');if(ep)ep.addEventListener('change',()=>{savePref('scope_tier',scopeTier(ep.value));exApplyCustom();exUpdateDataSpan();});
+      // keep the ETA estimate live as scope-sizing inputs change
+      ['ex-trials','ex-work'].forEach(id=>{const e=el(id);if(e)e.addEventListener('input',exUpdateDataSpan);});
       // MODE drives which fields apply — hide the rest (and remember the choice).
-      const em=el('ex-mode');if(em){const exSyncMode=()=>{applyExMode(em.value);exApplyCustom();const lg=el('ex-lockbox-group');if(lg)lg.style.display=(em.value==='validate')?'none':'';};exSyncMode();em.onchange=()=>{savePref('mode',em.value);exSyncMode();};}
+      const em=el('ex-mode');if(em){const exSyncMode=()=>{applyExMode(em.value);exApplyCustom();const lg=el('ex-lockbox-group');if(lg)lg.style.display=(em.value==='validate')?'none':'';exUpdateDataSpan();};exSyncMode();em.onchange=()=>{savePref('mode',em.value);exSyncMode();};}
       // LOCKBOX test: run the most recent winning config as ONE backtest over only the
       // reserved slice (date_from = reserve-since). One look — the final overfit check.
       const lbBtn=el('ex-lockbox-test');if(lbBtn)lbBtn.onclick=async()=>{

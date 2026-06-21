@@ -43,6 +43,12 @@ def _anthropic_key():
         return None
 
 
+class _JobStopped(BaseException):
+    """Raised from the progress callback to abort a running job when the web sets
+    control='stop'. Subclasses BaseException so process_job's `except Exception`
+    (and the engine's per-combo `except Exception`) won't swallow it."""
+
+
 def process_job(job: dict, progress_cb=None) -> dict:
     """Run one job through the engine; return a result patch to merge back.
     job['type']: 'backtest' (default, single config) or 'grid' (param sweep)."""
@@ -258,9 +264,29 @@ class FirestoreQueue:
                              if isinstance(pm, dict) and pm.get("type", "float") in ("int", "float")]
                 except Exception:
                     pspec = []
-                strats.append({**s, "presets": presets, "params": pspec,
-                               "roadmap": _roadmaps.get(s["file"], {})})
-            meta.document("strategies").set(json_safe({"list": strats}))
+                # Combo count per preset (product of grid value-counts) so the web
+                # Builder can show an adaptive ETA without shipping the full grids.
+                pcombos = {}
+                try:
+                    from augur_engine import optimize as _opt
+                    _m = ae.load_strategy(s["file"])
+                    for _lbl in presets:
+                        try:
+                            _g = _opt.grid_from_preset(_m, _lbl) or {}
+                            _n = 1
+                            for _vv in _g.values():
+                                _n *= len(_vv) if isinstance(_vv, (list, tuple)) else 1
+                            pcombos[_lbl] = _n
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                strats.append({**s, "presets": presets, "preset_combos": pcombos,
+                               "params": pspec, "roadmap": _roadmaps.get(s["file"], {})})
+            # eta_calib {sec_per_bt, bars} + worker count let the web estimate run time.
+            meta.document("strategies").set(json_safe(
+                {"list": strats, "eta_calib": _cfg0.get("eta_calib"),
+                 "workers": _cfg0.get("workers")}))
             keep = ("name", "instrument", "timeframe", "session", "source",
                     "rows", "date_from", "date_to")
             masters = [{k: m.get(k) for k in keep} for m in ae.list_masters()]
@@ -286,12 +312,76 @@ class FirestoreQueue:
                 f"(auto-pull {'ON' if ar_global else 'OFF'}, {status['n_auto']}/{len(masters)} masters)")
         return 1
 
-    def _persist_run(self, uid, job, result, log=print):
+    def _next_run_id(self, uid) -> int:
+        """Sequential run id = (max existing id in users/{uid}/runs) + 1, so web sweeps get
+        a clean number instead of a 10-digit epoch. Falls back to an epoch id (still unique)
+        only if the lookup fails."""
+        try:
+            from google.cloud.firestore_v1 import Query
+            col = self.db.collection("users").document(uid).collection("runs")
+            snap = list(col.order_by("id", direction=Query.DESCENDING).limit(1).stream())
+            if snap:
+                top = (snap[0].to_dict() or {}).get("id")
+                if isinstance(top, (int, float)):
+                    return int(top) + 1
+        except Exception:
+            pass
+        return int(time.time())
+
+    def _master_of(self, job):
+        try:
+            return ae.find_master(job.get("instrument"), job.get("timeframe", "5m"),
+                                  job.get("session", "rth"), job.get("source"))
+        except Exception:
+            return None
+
+    def _run_window(self, job, result, mm):
+        """(date_from, date_to, days_in_test) — the explicit job window if set, else the
+        source master's full span. days = calendar days between the two."""
+        df = job.get("date_from") or result.get("date_from") or ""
+        dt = job.get("date_to") or result.get("date_to") or ""
+        if mm:
+            df = df or str(mm.get("date_from") or "")[:10]
+            dt = dt or str(mm.get("date_to") or "")[:10]
+        days = 0
+        try:
+            from datetime import date
+            days = max(0, (date.fromisoformat(str(dt)[:10]) - date.fromisoformat(str(df)[:10])).days)
+        except Exception:
+            pass
+        return df, dt, days
+
+    def _winner_equity(self, job, best_params):
+        """Re-run the winning config once (return_trades) and build a downsampled equity
+        curve so Results shows the sparkline + curve. Fail-safe -> None on any error."""
+        try:
+            from augur_engine import history as _H
+            cost = float(job.get("cost_pts", 0) or 0)
+            bt = ae.run_backtest(
+                job["strategy"], instrument=job.get("instrument"),
+                timeframe=job.get("timeframe", "5m"), session=job.get("session", "rth"),
+                source=job.get("source"), params=best_params or {}, cost_pts=cost,
+                date_from=job.get("date_from") or None, date_to=job.get("date_to") or None,
+                return_trades=True)
+            trades = (bt or {}).get("trades") or []
+            cum, c = [], 0.0
+            for t in trades:
+                c += (t[2] if isinstance(t, (list, tuple)) and len(t) > 2 else 0) - cost
+                cum.append(c)
+            return _H._downsample_equity(cum, c) if cum else None
+        except Exception:
+            return None
+
+    def _persist_run(self, uid, job, result, log=print, elapsed_s=0.0):
         """Save a completed web grid sweep into users/{uid}/runs (Runs history),
         shaped like the app's synced runs so the Runs tab renders it identically."""
         mult = float(job.get("mult", 20) or 20)
         best = result.get("best") or {}
-        rid = int(time.time())
+        rid = self._next_run_id(uid)
+        mm = self._master_of(job)
+        df, dt, days = self._run_window(job, result, mm)
+        equity = result.get("equity") or self._winner_equity(job, result.get("best_params"))
+        pnl_usd = (best.get("total_pnl") or 0) * mult
         doc = json_safe({
             "id": rid,
             "timestamp": time.strftime("%Y-%m-%d %H:%M"),
@@ -305,12 +395,16 @@ class FirestoreQueue:
             # carry the validate report card into run history so Results/Library can show it
             "validate": result.get("validate"),
             "data_source": job.get("source", ""),
+            "source_name": (mm.get("name") if mm else "") or job.get("source", "") or "",
             "rounds": result.get("rounds"), "best_oos_pnl": result.get("best_oos_pnl"),
             "evolved_file": result.get("evolved_file"),
             "n_combos": result.get("n_combos"), "n_valid": result.get("n_valid"),
             "bars": result.get("bars"),
+            "days_in_test": days,
+            "elapsed_s": float(elapsed_s or 0),
             "best_pnl_pts": best.get("total_pnl"),
-            "best_pnl_usd": (best.get("total_pnl") or 0) * mult,
+            "best_pnl_usd": pnl_usd,
+            "best_pnl_per_day": (pnl_usd / days) if days else 0,
             "best_pf": best.get("profit_factor"),
             "best_win_rate": best.get("win_rate"),
             "best_trades": best.get("num_trades"),
@@ -322,14 +416,13 @@ class FirestoreQueue:
             "equity_top": result.get("equity_top"),   # top-N equity curves (overlay)
             "stress": result.get("stress"),   # PnL across chronological windows
             "mae_mfe": result.get("mae_mfe"),   # per-trade adverse/favorable excursion
-            "equity": result.get("equity"),
+            "equity": equity,
             "multiplier": mult,
             # cost realism + date window so Results/roadmap can show & auto-derive them
             "commission_usd": job.get("commission_usd"),
             "slippage_pts": job.get("slippage_pts"),
             "cost_pts": job.get("cost_pts"),
-            "date_from": job.get("date_from") or result.get("date_from"),
-            "date_to": job.get("date_to") or result.get("date_to"),
+            "date_from": df, "date_to": dt,
             "dsr": result.get("dsr"), "mc": result.get("mc"),
             "regime": result.get("regime"), "neighborhood": result.get("neighborhood"),
             "source_web": True,
@@ -377,26 +470,60 @@ class FirestoreQueue:
                 col = self.db.collection("users").document(uid).collection(self.col)
                 for snap in col.where(filter=qf).stream():
                     ref = snap.reference
-                    ref.update({"status": "running", "progress": 0})
                     job = snap.to_dict() or {}
+                    # web STOP before the job even started -> cancel without running.
+                    if job.get("control") == "stop":
+                        ref.update({"status": "cancelled", "finishedAt": time.time()})
+                        log(f"  cancelled {snap.id} (stopped before start)")
+                        continue
+                    ref.update({"status": "running", "progress": 0})
                     log(f"  running {snap.id}: {job.get('type','backtest')} "
                         f"{job.get('strategy')} {job.get('instrument')}…")
                     last = [0.0]
 
+                    # The progress callback doubles as the STOP/PAUSE check: at the same
+                    # ~1.5s cadence it reads the job's `control` flag. All control I/O is
+                    # fail-safe -> any error falls through to normal running, so a flaky
+                    # read can never break a backtest, only miss one stop/pause check.
                     def cb(done, total, _ref=ref, _last=last):
-                        if total and time.time() - _last[0] > 1.5:
-                            _last[0] = time.time()
+                        if not total or time.time() - _last[0] <= 1.5:
+                            return
+                        _last[0] = time.time()
+                        try:
+                            ctrl = (_ref.get().to_dict() or {}).get("control")
+                        except Exception:
+                            ctrl = None
+                        while ctrl == "pause":
                             try:
-                                _ref.update({"progress": round(100 * done / total)})
+                                _ref.update({"status": "paused"})
                             except Exception:
                                 pass
-                    patch = process_job(job, cb)
+                            time.sleep(1.0)
+                            try:
+                                ctrl = (_ref.get().to_dict() or {}).get("control")
+                            except Exception:
+                                ctrl = None
+                        if ctrl == "stop":
+                            raise _JobStopped()
+                        try:
+                            _ref.update({"status": "running", "progress": round(100 * done / total)})
+                        except Exception:
+                            pass
+                    _t0 = time.time()
+                    try:
+                        patch = process_job(job, cb)
+                    except _JobStopped:
+                        patch = {"status": "cancelled", "finishedAt": time.time()}
+                        log(f"  cancelled {snap.id} (stopped mid-run)")
+                    _elapsed = time.time() - _t0
+                    if patch.get("status") == "done":
+                        patch["elapsed_s"] = round(_elapsed, 2)
                     ref.update(patch)
                     # A completed grid sweep also lands in the Runs history, so web
                     # sweeps appear alongside the app's runs in users/{uid}/runs.
                     if job.get("type") in ("grid", "auto", "walkforward", "ai_optimize", "ai_evolve", "validate") and patch.get("status") == "done":
                         try:
-                            self._persist_run(uid, job, patch.get("result") or {}, log)
+                            self._persist_run(uid, job, patch.get("result") or {}, log, elapsed_s=_elapsed)
                         except Exception as _e:
                             log(f"  (persist-run failed: {_e})")
                     n += 1

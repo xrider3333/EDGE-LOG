@@ -88,13 +88,20 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
         done = 0
         with ProcessPoolExecutor(max_workers=workers, initializer=W.init_worker,
                                  initargs=(path, O, H, L, C, V, did, cost_pts)) as ex:
-            for out in ex.map(W.eval_chunk, chunks):
-                for idx, m, _err in out:
-                    if m:
-                        results.append((combos[idx], m))
-                done += 1
-                if progress_cb:
-                    progress_cb(min(done * size, len(combos)), len(combos))
+            try:
+                for out in ex.map(W.eval_chunk, chunks):
+                    for idx, m, _err in out:
+                        if m:
+                            results.append((combos[idx], m))
+                    done += 1
+                    if progress_cb:
+                        progress_cb(min(done * size, len(combos)), len(combos))
+            except BaseException:
+                # A web STOP makes progress_cb raise. Cancel the still-queued chunks
+                # instead of letting the context-manager exit drain the whole sweep
+                # (shutdown(wait=True)); in-flight chunks (<= workers) finish promptly.
+                ex.shutdown(wait=False, cancel_futures=True)
+                raise
     else:
         for i, params in enumerate(combos):
             try:
