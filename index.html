@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='27.8';
+const VERSION='27.9';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4367,6 +4367,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const valdCard=d.validate?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'+validateCardHtml(d.validate,(d.multiplier||20),stratTag(d.strategy))+'</div>':'';
       return '<div style="font-size:15px;margin-bottom:2px">'+stratTag(d.strategy,'15px')+'</div>'
         +'<div style="color:var(--text4);font-size:var(--fsxs);margin-bottom:12px">run #'+d.id+' · '+instTag(d.instrument)+' '+(d.timeframe||'')+' · '+(d.scope||'')+' · '+(d.date_from||'')+' → '+(d.date_to||'')+' · '+(d.n_valid||0)+'/'+(d.n_combos||0)+' configs</div>'
+        +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px">'+(d.starred?'★':'☆')+'</span><input id="det-note" value="'+String(d.note||'').replace(/"/g,'&quot;')+'" placeholder="add a note…" style="flex:1;padding:4px 8px;font-size:var(--fsxs);border-radius:6px"/><button class="btn-ghost" id="det-note-save" data-note-id="'+d.id+'" style="padding:4px 12px;font-size:var(--fsxs);border:1px solid var(--border);border-radius:6px">save</button></div>'
         +valdCard
         +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-bottom:16px">'+cardHtml+'</div>'
         +((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d.equity_top,mlt):eqHtml)+valHtml+stressPanelHtml(d.stress,mlt)+distPanelHtml(d.dist,mlt)
@@ -4729,20 +4730,35 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="display:flex;gap:10px"><div style="background:var(--bg2);border-radius:8px;padding:10px 16px"><div style="font-size:var(--fsxs);color:var(--text5)">STRATEGIES</div><div style="font-size:18px">'+(metaStrats||[]).length+'</div></div><div style="background:var(--bg2);border-radius:8px;padding:10px 16px"><div style="font-size:var(--fsxs);color:var(--text5)">MASTERS</div><div style="font-size:18px">'+(metaMasters||[]).length+'</div></div><div style="background:var(--bg2);border-radius:8px;padding:10px 16px"><div style="font-size:var(--fsxs);color:var(--text5)">RUNS</div><div style="font-size:18px">'+(runHistory||[]).length+'</div></div></div>'
         +'</div>';
     }else{
-      const sorted=runHistory.slice().sort((a,b)=>(b.id-a.id));
-      if(!sorted.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUN HISTORY YET — run the runner with --sync-runs</div>';}
+      const allRuns=runHistory.slice();
+      if(!allRuns.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUN HISTORY YET — run the runner with --sync-runs</div>';}
       else{
         const view=APREF.resView==='stack'?'stack':'side';
-        const selId=augurRunSel||sorted[0].id;
-        let d=null;for(let i=0;i<sorted.length;i++){if(String(sorted[i].id)===String(selId))d=sorted[i];}
-        if(!d)d=sorted[0];
-        const listRows=sorted.map(r=>{const on=String(r.id)===String(d.id);const pnl=r.best_pnl_usd||0;return '<div class="arow" data-run="'+r.id+'" style="padding:5px 8px;border-radius:6px;cursor:pointer;border:1px solid '+(on?'var(--text4)':'transparent')+';background:'+(on?'var(--bg1)':'transparent')+';margin-bottom:2px">'
-          +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:var(--text5);font-size:10px;margin-right:6px;font-variant-numeric:tabular-nums" title="run number">'+r.id+'</span>'+stratTag(r.strategy)+'</span><span style="font-size:11px;color:'+(pnl>=0?'var(--green)':'var(--red)')+';white-space:nowrap">'+fmtUsd(pnl)+'</span></div>'
-          +'<div style="font-size:9px;color:var(--text5);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+instTag(r.instrument)+' '+(r.timeframe||'')+' · '+(r.scope||'')+' · PF '+(r.best_pf||0).toFixed(2)+' · '+((r.timestamp||'').slice(0,10))+'</div></div>';}).join('');
+        // ── filters + sort over Past Runs ──
+        const fStrat=APREF.rfStrat||'',fInst=APREF.rfInst||'',fStar=!!APREF.rfStar,fSort=APREF.rfSort||'id';
+        const _fileOf=r=>{const m=_stratMatch(r.strategy);return m?m.file:r.strategy;};
+        const _strats=[...new Set(allRuns.map(_fileOf).filter(Boolean))].sort();
+        const _insts=[...new Set(allRuns.map(r=>String(r.instrument||'').trim()).filter(Boolean))].sort();
+        let sorted=allRuns.filter(r=>{if(fStar&&!r.starred)return false;if(fInst&&String(r.instrument||'').trim()!==fInst)return false;if(fStrat&&_fileOf(r)!==fStrat)return false;return true;});
+        const SC={id:(a,b)=>b.id-a.id,score:(a,b)=>scoreRun(b)-scoreRun(a),pnl:(a,b)=>(b.best_pnl_usd||0)-(a.best_pnl_usd||0),pf:(a,b)=>(b.best_pf||0)-(a.best_pf||0)};
+        sorted.sort(SC[fSort]||SC.id);
+        const pickFrom=sorted.length?sorted:allRuns.slice().sort(SC.id);
+        const selId=augurRunSel||pickFrom[0].id;
+        let d=null;for(let i=0;i<allRuns.length;i++){if(String(allRuns[i].id)===String(selId))d=allRuns[i];}
+        if(!d)d=pickFrom[0];
+        const sel=(k,v,opts)=>'<select data-rf="'+k+'" style="width:auto;padding:3px 6px;font-size:9px;border-radius:6px">'+opts.map(o=>'<option value="'+o[0]+'"'+(String(o[0])===String(v)?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
+        const fbar='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:7px">'
+          +sel('rfStrat',fStrat,[['','all strategies']].concat(_strats.map(f=>[f,stratInfo(f).label])))
+          +sel('rfInst',fInst,[['','all markets']].concat(_insts.map(i=>[i,i])))
+          +sel('rfSort',fSort,[['id','newest'],['score','score'],['pnl','$ pnl'],['pf','PF']])
+          +'<span data-rfstar style="cursor:pointer;font-size:10px;user-select:none;color:'+(fStar?'var(--yellow)':'var(--text5)')+'">'+(fStar?'★':'☆')+' starred</span></div>';
+        const listRows=sorted.length?sorted.map(r=>{const on=String(r.id)===String(d.id);const pnl=r.best_pnl_usd||0;return '<div class="arow" data-run="'+r.id+'" style="padding:5px 8px;border-radius:6px;cursor:pointer;border:1px solid '+(on?'var(--text4)':'transparent')+';background:'+(on?'var(--bg1)':'transparent')+';margin-bottom:2px">'
+          +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span data-star="'+r.id+'" title="star" style="cursor:pointer;margin-right:4px;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span><span style="color:var(--text5);font-size:10px;margin-right:6px;font-variant-numeric:tabular-nums" title="run number">'+r.id+'</span>'+stratTag(r.strategy)+'</span><span style="font-size:11px;color:'+(pnl>=0?'var(--green)':'var(--red)')+';white-space:nowrap">'+fmtUsd(pnl)+'</span></div>'
+          +'<div style="font-size:9px;color:var(--text5);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+instTag(r.instrument)+' '+(r.timeframe||'')+' · '+(r.scope||'')+' · PF '+(r.best_pf||0).toFixed(2)+' · '+((r.timestamp||'').slice(0,10))+'</div></div>';}).join(''):'<div style="color:var(--text5);font-size:9px;padding:14px;text-align:center">no runs match the filter</div>';
         const rH=Math.min(.6,Math.max(.15,APREF.splitH||0.30));
         const vH=Math.min(520,Math.max(120,APREF.splitV||200));
         const maxH=view==='stack'?(vH+'px'):'72vh';
-        const listInner='<div class="lbl" style="margin:0 0 6px">PAST RUNS · '+sorted.length+'</div>'
+        const listInner='<div class="lbl" style="margin:0 0 6px">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</div>'+fbar
           +'<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}</style>'
           +'<div id="res-listscroll" style="max-height:'+maxH+';overflow-y:auto;margin:-2px -4px 0;padding:2px 4px 0">'+listRows+'</div>';
         const leftTile=tile(listInner,0);
@@ -4928,6 +4944,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const up=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);savePref(view==='side'?'splitH':'splitV',view==='side'?APREF.splitH:APREF.splitV);};
         document.addEventListener('pointermove',move);document.addEventListener('pointerup',up);};}
       content.querySelectorAll('[data-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.run;renderApp();};});
+      // filters / sort (persist + re-render)
+      content.querySelectorAll('[data-rf]').forEach(s=>{s.onchange=()=>{savePref(s.dataset.rf,s.value);renderApp();};});
+      const _star=content.querySelector('[data-rfstar]');if(_star)_star.onclick=()=>{savePref('rfStar',!APREF.rfStar);renderApp();};
+      // star a run (write-back to Firestore; snapshot re-renders). stopPropagation so the row doesn't also select.
+      const _toggleStar=(id)=>{const r=runHistory.find(x=>String(x.id)===String(id));if(!r||!runsRef)return;runsRef.doc(String(id)).update({starred:r.starred?0:1}).catch(e=>alert('star failed: '+e.message));};
+      content.querySelectorAll('[data-star]').forEach(s=>{s.onclick=(e)=>{e.stopPropagation();_toggleStar(s.dataset.star);};});
+      const _ds=content.querySelector('[data-detstar]');if(_ds)_ds.onclick=()=>_toggleStar(_ds.dataset.detstar);
+      const _ns=el('det-note-save');if(_ns)_ns.onclick=()=>{const nv=el('det-note');if(nv&&runsRef)runsRef.doc(String(_ns.dataset.noteId)).update({note:nv.value}).then(()=>{_ns.textContent='saved ✓';setTimeout(()=>{if(el('det-note-save'))el('det-note-save').textContent='save';},1500);}).catch(e=>alert('note failed: '+e.message));};
       // scatter / heatmap param pickers — persist the chosen axes and re-render the detail
       const _sx=content.querySelector('[data-scx]');if(_sx)_sx.onchange=()=>{savePref('scX',_sx.value);renderApp();};
       const _hx=content.querySelector('[data-hmx]');if(_hx)_hx.onchange=()=>{savePref('hmX',_hx.value);renderApp();};

@@ -51,8 +51,10 @@ app reaches parity, then is retired. Ship tab-by-tab, version-bumped 0.1 each ch
       validation-methodology text here from Research. *Cheap, mostly static — recommended next.*
 - [ ] **Research** — currently shows the methodology text (belongs in Reference). Real tab
       should render study JSON (walk-forward studies) — needs runner sync of `augur_research/`.
-- [ ] **Results** — add filters (strategy/instrument/TF/scope), sort, star/favorite, and the
-      **Rankings** 0–100 robustness leaderboard.
+- [x] **Results** — filters (strategy/market) + sort (newest/score/$/PF), per-run star/favorite
+      + notes (write-back to Firestore), Rankings 0–100 leaderboard, and full legacy chart parity
+      (distribution+plateau, scatter, heatmap, top-N equity, stress). *(v27.x)* Open: TF/scope
+      filter facets, relabel/delete from web.
 - [x] **Builder** — DATA (master) picker (overrides instrument/TF/session/source), DATE
       FROM/TO window, per-run COMMISSION $/RT + SLIPPAGE pts/RT (→ cost_pts), and a live
       progress bar in the RUNS table. Engine: `load_master_arrays(date_from,date_to)` slices
@@ -102,6 +104,11 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v27.9** Past Runs: filter by strategy / market, sort (newest / score / $ / PF), per-run
+  ★ star toggle + editable notes (write back to Firestore users/{uid}/runs). Closes the
+  Results filters/sort/favorite backlog.
+- **v27.8** Fix: equity_top was a nested array → Firestore "Nested arrays not allowed" crashed
+  the runner sync; wrapped each curve as {cum:[...]}.
 - **v27.7** Compare goes N-way: add/remove any number of runs as columns; per-row best-value
   highlight; rows incl. robustness score, DSR, verdict; grouped Net P&L bar chart. Plus
   legacy-run migration (history.get_run derives dist/points/equity_top/stress) so all 112
