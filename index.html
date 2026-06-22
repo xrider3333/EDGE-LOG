@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='30.3';
+const VERSION='30.4';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4278,13 +4278,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
     };
     // TOP-N EQUITY OVERLAY — the best configs' equity curves on one axis. If they all
     // climb alike the edge is robust; if only the winner climbs it's a fragile outlier.
-    const topEqOverlayHtml=(etop,mult)=>{
-      if(!etop||etop.length<2)return '';
+    const topEqOverlayHtml=(d,mult)=>{
+      const etop=d&&d.equity_top;if(!etop||etop.length<2)return '';
       const series=etop.map(o=>((o&&o.cum)?o.cum:o).map(x=>x*mult));let mn=0,mx=0;series.forEach(s=>s.forEach(v=>{if(v<mn)mn=v;if(v>mx)mx=v;}));const rg=(mx-mn)||1;
+      // colour the curves: by RANK (winner brightest) or by a chosen PARAM value (mapped to
+      // each curve by index — equity_top is rank-ordered like top10_results).
+      const tops=Array.isArray(d.top10_results)?d.top10_results:[];
+      const pkeys=tops.length?Object.keys(tops[0]).filter(k=>['total_pnl','num_trades','win_rate','profit_factor','wins','losses','avg_pnl','max_drawdown','oos_pnl','oos_trades','oos_pf','fold','test_bars','train_bars'].indexOf(k)<0&&typeof tops[0][k]==='number'):[];
+      const mode=(APREF.tpColor&&(APREF.tpColor==='rank'||pkeys.indexOf(APREF.tpColor)>=0))?APREF.tpColor:'rank';
+      let colOf;
+      if(mode==='rank'){colOf=i=>{const t=i/Math.max(1,series.length-1);return 'rgb('+Math.round(40+40*t)+','+Math.round(190-120*t)+','+Math.round(120+60*t)+')';};}
+      else{const vals=series.map((s,i)=>tops[i]?+tops[i][mode]:NaN),fin=vals.filter(v=>!isNaN(v)),vmn=Math.min.apply(null,fin),vmx=Math.max.apply(null,fin);colOf=i=>{const v=vals[i];if(isNaN(v))return 'var(--text4)';const t=(v-vmn)/((vmx-vmn)||1);return 'rgb('+Math.round(70-30*t)+','+Math.round(110+110*t)+','+Math.round(200-90*t)+')';};}
       const W=560,H=140,pd=6,path=(s,col,wd,op)=>{const n=s.length;if(n<2)return '';return '<path d="'+s.map((v,i)=>((i?'L':'M')+(pd+(W-2*pd)*i/(n-1)).toFixed(1)+' '+(H-pd-(H-2*pd)*(v-mn)/rg).toFixed(1))).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'"/>';};
-      const others=series.slice(1).map(s=>path(s,'var(--text4)',1,0.4)).join(''),best=path(series[0],'var(--green)',2,1),zeroY=H-pd-(H-2*pd)*(0-mn)/rg;
-      return '<div class="lbl" style="margin:8px 0 6px">TOP PARAM PNL · '+series.length+' best configs overlaid · winner = green</div>'
-        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="130" preserveAspectRatio="none"><line x1="0" y1="'+zeroY.toFixed(1)+'" x2="'+W+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--border)"/>'+others+best+'</svg></div>';
+      // draw worst→best so the winner sits on top
+      const order=series.map((s,i)=>i).sort((a,b)=>b-a);
+      const lines=order.map(i=>path(series[i],colOf(i),i===0?2.2:1.2,i===0?1:0.72)).join(''),zeroY=H-pd-(H-2*pd)*(0-mn)/rg;
+      const sel='<select data-tpc style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin-left:6px"><option value="rank"'+(mode==='rank'?' selected':'')+'>by rank</option>'+pkeys.map(k=>'<option value="'+k+'"'+(mode===k?' selected':'')+'>by '+k.replace(/_/g,' ')+'</option>').join('')+'</select>';
+      return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP PARAM PNL · '+series.length+' best configs · colour'+sel+'</div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="130" preserveAspectRatio="none"><line x1="0" y1="'+zeroY.toFixed(1)+'" x2="'+W+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--border)"/>'+lines+'</svg>'
+        +'<div style="font-size:8px;color:var(--text5)">'+(mode==='rank'?'brighter green = higher-ranked config · winner on top':'colour = '+mode.replace(/_/g,' ')+' value (blue→teal, low→high)')+' · each line = one top config’s equity</div></div>';
     };
     // SCATTER — each tested config as a dot: chosen param (X) vs net PnL (Y). Shows
     // whether the edge is a smooth slope (robust) or random noise.
@@ -4353,15 +4365,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // WALK-FORWARD IS vs OOS — grouped bars per fold: in-sample champion PnL vs out-of-sample.
     const isOosFoldsHtml=(d,mult)=>{
       const t=d.top10_results;if(!Array.isArray(t))return '';
-      const fs=t.filter(x=>x&&x.fold!=null).map(f=>({fold:f.fold,is:(f.total_pnl||0)*mult,oos:(f.oos_pnl||0)*mult}));
+      const fs=t.filter(x=>x&&x.fold!=null).map(f=>({fold:f.fold,is:(f.total_pnl||0)*mult,oos:(f.oos_pnl||0)*mult,pf:+f.oos_pf||0,tr:+f.train_bars||0,te:+f.test_bars||0})).sort((a,b)=>a.fold-b.fold);
       if(fs.length<2)return '';
+      // Rolling vs anchored, inferred from the in-sample (train) window size per fold:
+      // anchored = expanding IS window (train_bars grows); rolling = fixed-length window.
+      const trs=fs.map(f=>f.tr).filter(x=>x>0);let mode='';
+      if(trs.length>=2){const grow=trs[trs.length-1]-trs[0],span=Math.max.apply(null,trs)||1;mode=(grow>0.25*span)?'ANCHORED':'ROLLING';}
+      const held=fs.filter(f=>f.pf>1).length;let sOos=0,sTe=0,sIs=0,sTr=0;fs.forEach(f=>{sOos+=f.oos;sTe+=f.te;sIs+=f.is;sTr+=f.tr;});
+      const wfe=(sTr>0&&sTe>0&&sIs/sTr!==0)?((sOos/sTe)/(sIs/sTr)):null;
       const mxabs=Math.max.apply(null,fs.map(f=>Math.max(Math.abs(f.is),Math.abs(f.oos))))||1;
-      const W=560,H=130,gw=W/fs.length,mid=H/2,bw=gw*0.3;
+      const W=560,H=144,gw=W/fs.length,mid=H/2-8,bw=gw*0.3;
       const bars=fs.map((f,i)=>{const x=i*gw,isH=(Math.abs(f.is)/mxabs)*(mid-12),oH=(Math.abs(f.oos)/mxabs)*(mid-12);
         return '<rect x="'+(x+gw*0.14).toFixed(1)+'" y="'+(f.is>=0?mid-isH:mid).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+isH.toFixed(1)+'" fill="var(--text4)" opacity="0.5"/>'
-          +'<rect x="'+(x+gw*0.14+bw+3).toFixed(1)+'" y="'+(f.oos>=0?mid-oH:mid).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+oH.toFixed(1)+'" fill="'+(f.oos>=0?'var(--green)':'var(--red)')+'" opacity="0.7"/>'
-          +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-2)+'" text-anchor="middle" font-size="8" fill="var(--text5)">f'+f.fold+'</text>';}).join('');
-      return '<div class="lbl" style="margin:8px 0 6px">WALK-FORWARD · IS (grey) vs OOS (green/red) PnL per fold</div><div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="120" preserveAspectRatio="none"><line x1="0" y1="'+mid+'" x2="'+W+'" y2="'+mid+'" stroke="var(--border)"/>'+bars+'</svg></div>';
+          +'<rect x="'+(x+gw*0.14+bw+3).toFixed(1)+'" y="'+(f.oos>=0?mid-oH:mid).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+oH.toFixed(1)+'" fill="'+(f.oos>=0?'var(--green)':'var(--red)')+'" opacity="0.75"/>'
+          +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-13)+'" text-anchor="middle" font-size="8" fill="'+(f.pf>1?'var(--green)':'var(--red)')+'">PF '+f.pf.toFixed(2)+'</text>'
+          +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-3)+'" text-anchor="middle" font-size="8" fill="var(--text5)">f'+f.fold+'</text>';}).join('');
+      const modeBadge=mode?'<span title="'+(mode==='ANCHORED'?'expanding in-sample window — each fold re-optimizes on ALL history up to it':'fixed-length in-sample window — each fold re-optimizes on a constant-size recent slice')+'" style="font-size:8px;padding:1px 6px;border-radius:6px;background:var(--bg1);border:1px solid var(--border);color:var(--text3)">'+mode+'</span>':'';
+      return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">WALK-FORWARD '+modeBadge+'<span style="color:'+(held/fs.length>=0.6?'var(--green)':'var(--yellow)')+'">'+held+'/'+fs.length+' folds held OOS</span>'+(wfe!=null?'<span style="color:var(--text4);font-weight:400" title="OOS return-per-bar ÷ IS return-per-bar. >60% strong, <40% likely curve-fit.">· efficiency '+Math.round(wfe*100)+'%</span>':'')+'</div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:5px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="132" preserveAspectRatio="none"><line x1="0" y1="'+mid+'" x2="'+W+'" y2="'+mid+'" stroke="var(--border)"/>'+bars+'</svg></div>'
+        +'<div style="font-size:8px;color:var(--text5);margin-bottom:14px">grey = in-sample (optimize window) · green/red = out-of-sample PnL · PF under each fold is its OOS · total OOS '+fmtUsd(Math.round(sOos))+(mode?' · '+(mode==='ANCHORED'?'anchored: IS window expands each fold':'rolling: IS window stays fixed-length'):'')+'</div>';
     };
     // Shared Auto-Validate report card (verdict + 5 gates + equity curve + lockbox) —
     // used by both the Builder run panel and the Results/Past-Runs detail so they match.
@@ -4488,16 +4510,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Steps 2/3/4/5/8 have report sections (res-step-N anchors); their pills are
       // clickable and scroll the report to that section. Each pill carries a short stat.
       const _hasSec={2:1,3:1,4:1,5:1,8:1};
-      const segs=VSTEPS.map((s,i)=>{const n=i+1;const stt=vstat[s[1]];const sv=_stat[s[1]];const bg=stt==='pass'?'var(--green)':stt==='fail'?'var(--red)':'var(--bg1)';const fg=stt==='pass'?'#04130c':stt==='fail'?'#fff':'var(--text4)';const br=(stt==='pass'||stt==='fail')?'0':'1px solid var(--border)';const go=_hasSec[n]?(' data-vstep-go="'+n+'"'):'';const cur=_hasSec[n]?'cursor:pointer;':'';return '<span'+go+' title="'+n+'. '+s[0]+' — '+(stt==='pass'?'passed':stt==='fail'?'not met':'n/a / not tested')+(_hasSec[n]?' · click to jump':'')+'" style="'+cur+'display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:'+bg+';color:'+fg+';border:'+br+';font-size:9px;font-weight:700;white-space:nowrap"><b style="font-weight:900">'+n+'</b>'+s[0]+(sv?'<span style="opacity:.8;font-weight:800">'+sv+'</span>':'')+'</span>';}).join('');
+      const segs=VSTEPS.map((s,i)=>{const n=i+1;const stt=vstat[s[1]];const sv=_stat[s[1]];const bg=stt==='pass'?'var(--green)':stt==='fail'?'var(--red)':'transparent';const fg=stt==='pass'?'#04130c':stt==='fail'?'#fff':'var(--text4)';const br=(stt==='pass'||stt==='fail')?'0':'1px solid var(--border)';const go=_hasSec[n]?(' data-vstep-go="'+n+'"'):'';const cur=_hasSec[n]?'cursor:pointer;':'';return '<span'+go+' title="'+n+'. '+s[0]+' — '+(stt==='pass'?'passed':stt==='fail'?'not met':'n/a / not tested')+(_hasSec[n]?' · click to jump':'')+'" style="'+cur+'display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:'+bg+';color:'+fg+';border:'+br+';font-size:9px;font-weight:700;white-space:nowrap"><b style="font-weight:900">'+n+'</b>'+s[0]+(sv?'<span style="opacity:.8;font-weight:800">'+sv+'</span>':'')+'</span>';}).join('');
       const hdrHtml='<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:7px"><span style="font-size:19px;font-weight:800;letter-spacing:.3px">Run #'+d.id+'</span><span style="font-size:14px">'+stratTag(d.strategy,'14px')+'</span><span style="margin-left:auto;font-size:var(--fsxs);font-weight:800;color:'+_scol+'">'+nPass+'/'+nAddr+' checks ✓</span></div>'
         +'<div id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:13px;scroll-margin-top:8px">'+segs+'</div>';
       // ── Numbered checklist sections: group each Results panel under its deploy step
       //    (2 In-sample · 3 Plateau · 4 Stress · 5 Out-of-sample · 8 Drawdown) so the
       //    report cross-references the validation checklist. Empty steps are omitted. ──
-      const _step=(n,label,sub)=>'<div id="res-step-'+n+'" data-vstep-back="1" class="lbl" title="click to jump back to the checklist pills" style="margin:18px 0 8px;display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px;cursor:pointer"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;border-radius:50%;background:var(--bg1);border:1px solid var(--border);font-size:10px;font-weight:800;color:var(--text2)">'+n+'</span><span style="font-weight:700">'+label+'</span>'+(sub?'<span style="font-weight:400;color:var(--text5);font-size:8px">'+sub+'</span>':'')+'<span style="margin-left:auto;font-size:8px;color:var(--text5);font-weight:600">↑ checklist</span></div>';
+      const _step=(n,label,sub)=>{const _k=(VSTEPS[(+n)-1]||[])[1];const _st=_k?vstat[_k]:'na';const _bb=_st==='pass'?'var(--green)':_st==='fail'?'var(--red)':'var(--bg1)';const _bf=_st==='pass'?'#04130c':_st==='fail'?'#fff':'var(--text2)';const _bd=(_st==='pass'||_st==='fail')?'0':'1px solid var(--border)';return '<div id="res-step-'+n+'" data-vstep-back="1" class="lbl" title="click to jump back to the checklist pills" style="margin:18px 0 8px;display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px;cursor:pointer"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;border-radius:50%;background:'+_bb+';border:'+_bd+';font-size:10px;font-weight:800;color:'+_bf+'">'+n+'</span><span style="font-weight:700">'+label+'</span>'+(sub?'<span style="font-weight:400;color:var(--text5);font-size:8px">'+sub+'</span>':'')+'<span style="margin-left:auto;font-size:8px;color:var(--text5);font-weight:600">↑ checklist</span></div>';};
       const _sec=(n,label,sub,content)=>(content&&content.replace(/\s/g,''))?(_step(n,label,sub)+content):'';
       const _sec2=('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-bottom:14px">'+cardHtml+'</div>'
-        +((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d.equity_top,mlt):eqHtml)
+        +((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt):eqHtml)
         +((d.date_from&&d.date_to)?'<div id="det-spy" data-spy-from="'+d.date_from+'" data-spy-to="'+d.date_to+'" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 14px"></div>':'')
         +dsrHtml
         +'<div class="lbl" style="margin:8px 0 6px;font-size:9px;color:var(--text5)">TOP CONFIGS</div>'
@@ -5189,7 +5211,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // at the top of it — a reliable frozen-header that survives window-level layout.
       const _pane=el('res-right'),_rpEl=el('res-pills');
       if(_pane){_pane.style.overflowY='auto';_pane.style.maxHeight=Math.max(380,(window.innerHeight-_pane.getBoundingClientRect().top-16))+'px';}
-      if(_rpEl&&_pane){_rpEl.style.position='sticky';_rpEl.style.top='0';_rpEl.style.zIndex='5';_rpEl.style.background='var(--bg2)';_rpEl.style.paddingTop='10px';_rpEl.style.paddingBottom='8px';_rpEl.style.margin='0 0 6px';}
+      if(_rpEl&&_pane){_rpEl.style.position='sticky';_rpEl.style.top='0';_rpEl.style.zIndex='5';_rpEl.style.background='transparent';_rpEl.style.backdropFilter='blur(6px)';_rpEl.style.webkitBackdropFilter='blur(6px)';_rpEl.style.paddingTop='8px';_rpEl.style.paddingBottom='6px';_rpEl.style.margin='0 0 6px';}
       // jump within the pane (side) or the window (stack), landing below the frozen pills.
       const _scrollToId=(id)=>{const t=el(id);if(!t)return;const sc=el('res-right'),rp=el('res-pills');const pad=(rp&&id!=='res-pills')?rp.offsetHeight+8:6;
         if(sc&&getComputedStyle(sc).overflowY==='auto'){const y=t.getBoundingClientRect().top-sc.getBoundingClientRect().top+sc.scrollTop-pad;sc.scrollTo({top:Math.max(0,y),behavior:'smooth'});}
@@ -5205,6 +5227,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // SPY buy-&-hold benchmark over the run's window (async; cached) — context for the equity.
       const _spy=el('det-spy');if(_spy){const a=_spy.dataset.spyFrom,b=_spy.dataset.spyTo;_spy.textContent='benchmark · loading SPY…';fetchSPYData(a,b).then(data=>{const sp=el('det-spy');if(!sp)return;const ret=spyReturnReal(a,b,data)*100;if(!isFinite(ret)){sp.textContent='';return;}sp.innerHTML='Benchmark · SPY buy-&-hold '+a+' → '+b+': <b style="color:'+(ret>=0?'var(--green)':'var(--red)')+'">'+(ret>=0?'+':'')+ret.toFixed(1)+'%</b> <span style="opacity:.7">(context for the equity curve above)</span>';}).catch(()=>{const sp=el('det-spy');if(sp)sp.textContent='';});}
       // scatter / heatmap param pickers — persist the chosen axes and re-render the detail
+      const _tpc=content.querySelector('[data-tpc]');if(_tpc)_tpc.onchange=()=>{savePref('tpColor',_tpc.value);renderApp();};
       const _sx=content.querySelector('[data-scx]');if(_sx)_sx.onchange=()=>{savePref('scX',_sx.value);renderApp();};
       const _hx=content.querySelector('[data-hmx]');if(_hx)_hx.onchange=()=>{savePref('hmX',_hx.value);renderApp();};
       const _hy=content.querySelector('[data-hmy]');if(_hy)_hy.onchange=()=>{savePref('hmY',_hy.value);renderApp();};}
