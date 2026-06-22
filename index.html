@@ -4445,8 +4445,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let eqHtml='';
       if(d.equity&&d.equity.cum&&d.equity.cum.length>1){const cum=d.equity.cum,n=cum.length;let mn=Math.min.apply(null,cum),mx=Math.max.apply(null,cum);if(mx<=mn)mx=mn+1;const W=640,Hh=140;const pts=cum.map((v,i)=>(Math.round(i/(n-1)*W*100)/100)+','+(Math.round((Hh-((v-mn)/(mx-mn))*Hh)*100)/100)).join(' ');const col=(d.equity.final||0)>=0?'#1D9E75':'#E24B4A';const zero=(mn<0&&mx>0)?(Hh-((0-mn)/(mx-mn))*Hh):null;eqHtml='<div class="lbl" style="margin:4px 0 6px">EQUITY CURVE · best config, 1 contract</div><div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:16px"><svg viewBox="0 0 '+W+' '+Hh+'" width="100%" height="120" preserveAspectRatio="none">'+(zero!=null?'<line x1="0" y1="'+zero.toFixed(1)+'" x2="'+W+'" y2="'+zero.toFixed(1)+'" stroke="var(--border)" stroke-width="1"/>':'')+'<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="2"/></svg></div>';}
       const mlt=d.multiplier||20;
-      let valHtml='';
-      if(d.dsr||d.mc){let v='';if(d.dsr){const dc=d.dsr.dsr>=0.95?'var(--green)':d.dsr.dsr>=0.8?'var(--yellow)':'var(--red)';v+='<span>Winner Sharpe <b>'+(d.dsr.winner_sharpe||0).toFixed(2)+'</b></span><span>Luck bar/'+d.dsr.n_cfg+' <b>'+(d.dsr.luck_bar||0).toFixed(2)+'</b></span><span>Deflated Sharpe <b style="color:'+dc+'">'+Math.round(d.dsr.dsr*100)+'%</b> · '+d.dsr.verdict+'</span>';}if(d.mc){v+='<span>P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round((d.mc.p95||0)*mlt))+'</b> (size to this)</span>';}valHtml='<div class="lbl" style="margin:8px 0 6px">VALIDATION</div><div style="display:flex;gap:16px;flex-wrap:wrap;font-size:var(--fsxs);margin-bottom:14px;color:var(--text3)">'+v+'</div>';}
+      const _vrow=(inner)=>'<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:var(--fsxs);margin-bottom:14px;color:var(--text3)">'+inner+'</div>';
+      let dsrHtml='';
+      if(d.dsr){const dc=d.dsr.dsr>=0.95?'var(--green)':d.dsr.dsr>=0.8?'var(--yellow)':'var(--red)';dsrHtml=_vrow('<span>Winner Sharpe <b>'+(d.dsr.winner_sharpe||0).toFixed(2)+'</b></span><span>Luck bar/'+d.dsr.n_cfg+' <b>'+(d.dsr.luck_bar||0).toFixed(2)+'</b></span><span>Deflated Sharpe <b style="color:'+dc+'">'+Math.round(d.dsr.dsr*100)+'%</b> · '+d.dsr.verdict+'</span>');}
+      let mcHtml='';
+      if(d.mc){mcHtml=_vrow('<span>P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round((d.mc.p95||0)*mlt))+'</b> (size your account to survive this)</span>');}
       let regHtml='';
       if(d.regime){const rg=d.regime;const bt=(arr)=>'<table class="table" style="font-size:var(--fsxs)"><thead><tr><th></th><th style="text-align:right">T</th><th style="text-align:right">$</th><th style="text-align:right">PF</th></tr></thead><tbody>'+(arr||[]).map(b=>'<tr><td>'+b.bucket+'</td><td style="text-align:right">'+b.n+'</td><td style="text-align:right;color:'+(b.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(b.pnl*mlt))+'</td><td style="text-align:right">'+(b.pf||0).toFixed(2)+'</td></tr>').join('')+'</tbody></table>';const mo=rg.monthly||{rows:[]};const ml=['J','F','M','A','M','J','J','A','S','O','N','D'];const mhead='<tr><th></th>'+ml.map(m=>'<th style="text-align:center">'+m+'</th>').join('')+'</tr>';const mbody=(mo.rows||[]).map(r=>'<tr><td style="color:var(--text4)">'+r.year+'</td>'+r.months.map(vv=>{if(vv===null||vv===undefined)return '<td></td>';const u=vv*mlt;const c=u>=0?'rgba(29,158,117,':'rgba(226,75,74,';const a=Math.min(.8,Math.abs(u)/8000+.12);return '<td style="text-align:center;background:'+c+a+');font-size:9px">'+(Math.abs(u)>=1000?(u/1000).toFixed(0)+'k':Math.round(u))+'</td>';}).join('')+'</tr>').join('');regHtml='<div class="lbl" style="margin:8px 0 6px">REGIME REPORT CARD · weakest vol bucket: '+(rg.worst_vol||'—')+'</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:10px"><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Volatility (ATR20)</div>'+bt(rg.vol)+'</div><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Trend vs chop</div>'+bt(rg.trend)+'</div><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Day of week</div>'+bt(rg.dow)+'</div></div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Monthly P&L (1 contract)</div><div style="overflow-x:auto;margin-bottom:16px"><table class="table" style="font-size:9px">'+mhead+'<tbody>'+mbody+'</tbody></table></div>';}
       let nbHtml='';
@@ -4474,6 +4477,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const segs=VSTEPS.map((s,i)=>{const stt=vstat[s[1]];const col=_vcol[stt]||'var(--bg1)';const br=(stt==='pass'||stt==='fail')?'0':'1px solid var(--border)';return '<div title="'+(i+1)+'. '+s[0]+' — '+(stt==='pass'?'passed':stt==='fail'?'not met':'n/a / not tested')+'" style="flex:1;height:7px;border-radius:2px;background:'+col+';border:'+br+'"></div>';}).join('');
       const hdrHtml='<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:5px"><span style="font-size:19px;font-weight:800;letter-spacing:.3px">Run #'+d.id+'</span><span style="font-size:14px">'+stratTag(d.strategy,'14px')+'</span><span style="margin-left:auto;font-size:var(--fsxs);font-weight:800;color:'+_scol+'">'+nPass+'/'+nAddr+' checks ✓</span></div>'
         +'<div title="validation checklist · green = passed · red = not met · outline = n/a / not tested" style="display:flex;gap:3px;margin-bottom:11px">'+segs+'</div>';
+      // ── Numbered checklist sections: group each Results panel under its deploy step
+      //    (2 In-sample · 3 Plateau · 4 Stress · 5 Out-of-sample · 8 Drawdown) so the
+      //    report cross-references the validation checklist. Empty steps are omitted. ──
+      const _step=(n,label,sub)=>'<div class="lbl" style="margin:18px 0 8px;display:flex;align-items:baseline;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;border-radius:50%;background:var(--bg1);border:1px solid var(--border);font-size:10px;font-weight:800;color:var(--text2)">'+n+'</span><span style="font-weight:700">'+label+'</span>'+(sub?'<span style="font-weight:400;color:var(--text5);font-size:8px">'+sub+'</span>':'')+'</div>';
+      const _sec=(n,label,sub,content)=>(content&&content.replace(/\s/g,''))?(_step(n,label,sub)+content):'';
+      const _sec2=('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-bottom:14px">'+cardHtml+'</div>'
+        +((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d.equity_top,mlt):eqHtml)
+        +((d.date_from&&d.date_to)?'<div id="det-spy" data-spy-from="'+d.date_from+'" data-spy-to="'+d.date_to+'" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 14px"></div>':'')
+        +dsrHtml
+        +'<div class="lbl" style="margin:8px 0 6px;font-size:9px;color:var(--text5)">TOP CONFIGS</div>'
+        +(t10.length?'<div style="overflow-x:auto"><table class="table">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>'));
+      const _plInner=scatterPanelHtml(d.points,mlt)+heatmapPanelHtml(d.points,mlt);
+      const _sec3=nbHtml+(_plInner?'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+_plInner+'</div>':'')+corrPanelHtml(d.points);
+      const _sec4=stressPanelHtml(d.stress,mlt)+regHtml;
+      const _sec5=isOosFoldsHtml(d,mlt);
+      const _sec8=mcHtml+distPanelHtml(d.dist,mlt)+maeMfePanelHtml(d.mae_mfe,mlt);
       return hdrHtml
         +'<div style="color:var(--text4);font-size:var(--fsxs);margin-bottom:12px;line-height:1.7">run #'+d.id+' · ran '+_dtnice(d.timestamp)+' · '+instTag(d.instrument)+' '+(d.timeframe||'')+' · '+(d.scope||'')
           +' · range '+_dnice(d.date_from)+' → '+_dnice(d.date_to)
@@ -4488,15 +4507,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="width:auto;padding:4px 6px;font-size:9px;border-radius:6px"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
         +'<button class="btn-ghost" id="det-del" data-del-id="'+d.id+'" style="padding:4px 10px;font-size:var(--fsxs);border:1px solid var(--red);border-radius:6px;color:var(--red)">delete</button></div>'
         +valdCard
-        +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-bottom:16px">'+cardHtml+'</div>'
-        +((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d.equity_top,mlt):eqHtml)
-        +((d.date_from&&d.date_to)?'<div id="det-spy" data-spy-from="'+d.date_from+'" data-spy-to="'+d.date_to+'" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 14px"></div>':'')
-        +valHtml+isOosFoldsHtml(d,mlt)+stressPanelHtml(d.stress,mlt)+distPanelHtml(d.dist,mlt)
-        +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+scatterPanelHtml(d.points,mlt)+heatmapPanelHtml(d.points,mlt)+'</div>'
-        +maeMfePanelHtml(d.mae_mfe,mlt)+corrPanelHtml(d.points)
-        +'<div class="lbl" style="margin-bottom:6px">TOP CONFIGS</div>'
-        +(t10.length?'<div style="overflow-x:auto"><table class="table">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>')
-        +regHtml+nbHtml;
+        +_sec('2','In-sample','the candidate config & how it performed',_sec2)
+        +_sec('3','Plateau','robust params — a cluster, not a lonely spike',_sec3)
+        +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4)
+        +_sec('5','Out-of-sample','survives data it was never optimized on',_sec5)
+        +_sec('8','Drawdown','size for the worst-case equity path',_sec8);
     };
     let body='';
     if(augurSub==='launch'){
@@ -4706,13 +4721,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const badge=(passed,auto)=>passed
           ?'<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--green);color:#04130c;font-size:11px;font-weight:900;box-shadow:0 0 0 2px rgba(39,192,138,.25)">'+(auto?'⚙':'✓')+'</span>'
           :'<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:1.5px solid var(--text5);color:var(--text5);font-size:10px">○</span>';
-        const rows=steps.map(s=>{const k=s[0],isAuto=!!auto[k],passed=eff(k),clickable=!isAuto;
+        const rows=steps.map((s,si)=>{const k=s[0],isAuto=!!auto[k],passed=eff(k),clickable=!isAuto;
           const src=isAuto?'auto':(synced[k]?'optimizer.py':(local[k]?'marked here':''));
           const detail=passed&&isAuto&&why[k]?why[k]:(passed&&src&&src!=='auto'?('✓ '+src):s[3]);
           const dcol=passed?'var(--text3)':'var(--text5)';
           return '<div '+(clickable?'data-rmchk="'+k+'" class="arow" style="cursor:pointer;':'style="')+'display:flex;align-items:flex-start;gap:10px;padding:6px 6px;border-radius:7px;border-bottom:1px solid var(--border)" title="'+(clickable?'click to toggle':'auto-derived from run history')+'">'
             +'<span style="flex:0 0 auto;margin-top:1px">'+badge(passed,isAuto)+'</span>'
-            +'<span style="flex:1;min-width:0"><span style="font-size:var(--fsxs);font-weight:600;color:'+(passed?'var(--text2)':'var(--text4)')+'">'+s[1]+'</span>'
+            +'<span style="flex:1;min-width:0"><span style="font-size:var(--fsxs);font-weight:600;color:'+(passed?'var(--text2)':'var(--text4)')+'"><span style="color:var(--text5);font-weight:800;margin-right:5px">'+(si+1)+'.</span>'+s[1]+'</span>'
             +(clickable?'<span style="font-size:8px;color:var(--text5);margin-left:6px">✎ manual</span>':'<span style="font-size:8px;color:var(--green);margin-left:6px">auto</span>')
             +'<br><span style="font-size:9px;color:'+dcol+'">'+detail+'</span></span></div>';}).join('');
         return tile('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span class="lbl">VALIDATION CHECKLIST · '+stratTag(selS.file)+'</span>'
