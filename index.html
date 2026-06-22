@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='30.1';
+const VERSION='30.2';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -2717,10 +2717,12 @@ function renderApp(){
   const _logLbl=t=>t==='import_export'?'IMPORT / EXPORT':t.toUpperCase();
   // Split-screen layout toggle lives in the tab bar (right-aligned), shown for the
   // sub-tabs that actually use a split view (Results, Library).
+  // NOTE: APREF is declared later in renderApp, so read the persisted prefs directly here.
+  const _ap=(()=>{try{return JSON.parse(localStorage.getItem('augurPrefs')||'{}');}catch(e){return {};}})();
   const _spv=(id,gl,on,t)=>`<button class="btn-ghost" id="${id}" title="${t}" style="padding:3px 8px;font-size:12px;border-radius:6px;${on?'background:var(--bg2);color:var(--text)':'color:var(--text4)'}">${gl}</button>`;
   let _splitTog='';
-  if(activeTab==='augur'&&augurSub==='runs'){const rv=APREF.resView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('res-side','◧',rv==='side','Side-by-side split')}${_spv('res-stack','▤',rv==='stack','Stacked layout')}</span>`;}
-  else if(activeTab==='augur'&&augurSub==='lib'){const lv=APREF.libView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('lib-side','◧',lv==='side','Side-by-side split')}${_spv('lib-stack','▤',lv==='stack','Stacked layout')}</span>`;}
+  if(activeTab==='augur'&&augurSub==='runs'){const rv=_ap.resView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('res-side','◧',rv==='side','Side-by-side split')}${_spv('res-stack','▤',rv==='stack','Stacked layout')}</span>`;}
+  else if(activeTab==='augur'&&augurSub==='lib'){const lv=_ap.libView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('lib-side','◧',lv==='side','Side-by-side split')}${_spv('lib-stack','▤',lv==='stack','Stacked layout')}</span>`;}
   sub.innerHTML=((_master==='log')
     ? LOG_TABS.map(t=>`<button class="btn-ghost${activeTab===t?' active':''}" data-tab="${t}" style="font-size:var(--fsxs)"><span style="margin-right:6px;font-size:12px;opacity:.7">${_logIc[t]||''}</span>${_logLbl(t)}</button>`).join('')
     : ASUBS.map(s=>`<button class="btn-ghost${augurSub===s[0]?' active':''}" data-asubtop="${s[0]}" style="font-size:var(--fsxs)"><span style="margin-right:6px;font-size:12px;opacity:.7;font-variant-emoji:text">${ASUB_ICON[s[0]]||''}</span>${s[1]}</button>`).join(''))+_splitTog;
