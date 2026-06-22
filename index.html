@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='29.8';
+const VERSION='29.9';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4474,13 +4474,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _vcol={pass:'var(--green)',fail:'var(--red)'};
       const nPass=VSTEPS.filter(s=>vstat[s[1]]==='pass').length,nAddr=VSTEPS.filter(s=>vstat[s[1]]!=='na').length;
       const _scol=(nAddr&&nPass/nAddr>=0.7)?'var(--green)':(nAddr&&nPass/nAddr>=0.4)?'var(--yellow)':'var(--text4)';
-      const segs=VSTEPS.map((s,i)=>{const stt=vstat[s[1]];const col=_vcol[stt]||'var(--bg1)';const br=(stt==='pass'||stt==='fail')?'0':'1px solid var(--border)';return '<div title="'+(i+1)+'. '+s[0]+' — '+(stt==='pass'?'passed':stt==='fail'?'not met':'n/a / not tested')+'" style="flex:1;height:7px;border-radius:2px;background:'+col+';border:'+br+'"></div>';}).join('');
-      const hdrHtml='<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:5px"><span style="font-size:19px;font-weight:800;letter-spacing:.3px">Run #'+d.id+'</span><span style="font-size:14px">'+stratTag(d.strategy,'14px')+'</span><span style="margin-left:auto;font-size:var(--fsxs);font-weight:800;color:'+_scol+'">'+nPass+'/'+nAddr+' checks ✓</span></div>'
-        +'<div title="validation checklist · green = passed · red = not met · outline = n/a / not tested" style="display:flex;gap:3px;margin-bottom:11px">'+segs+'</div>';
+      // Steps 2/3/4/5/8 have report sections (res-step-N anchors); their pills are
+      // clickable and scroll the report to that section.
+      const _hasSec={2:1,3:1,4:1,5:1,8:1};
+      const segs=VSTEPS.map((s,i)=>{const n=i+1;const stt=vstat[s[1]];const bg=stt==='pass'?'var(--green)':stt==='fail'?'var(--red)':'var(--bg1)';const fg=stt==='pass'?'#04130c':stt==='fail'?'#fff':'var(--text4)';const br=(stt==='pass'||stt==='fail')?'0':'1px solid var(--border)';const go=_hasSec[n]?(' data-vstep-go="'+n+'"'):'';const cur=_hasSec[n]?'cursor:pointer;':'';return '<span'+go+' title="'+n+'. '+s[0]+' — '+(stt==='pass'?'passed':stt==='fail'?'not met':'n/a / not tested')+(_hasSec[n]?' · click to jump':'')+'" style="'+cur+'display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:'+bg+';color:'+fg+';border:'+br+';font-size:9px;font-weight:700;white-space:nowrap"><b style="font-weight:900">'+n+'</b>'+s[0]+'</span>';}).join('');
+      const hdrHtml='<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:7px"><span style="font-size:19px;font-weight:800;letter-spacing:.3px">Run #'+d.id+'</span><span style="font-size:14px">'+stratTag(d.strategy,'14px')+'</span><span style="margin-left:auto;font-size:var(--fsxs);font-weight:800;color:'+_scol+'">'+nPass+'/'+nAddr+' checks ✓</span></div>'
+        +'<div title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:13px">'+segs+'</div>';
       // ── Numbered checklist sections: group each Results panel under its deploy step
       //    (2 In-sample · 3 Plateau · 4 Stress · 5 Out-of-sample · 8 Drawdown) so the
       //    report cross-references the validation checklist. Empty steps are omitted. ──
-      const _step=(n,label,sub)=>'<div class="lbl" style="margin:18px 0 8px;display:flex;align-items:baseline;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;border-radius:50%;background:var(--bg1);border:1px solid var(--border);font-size:10px;font-weight:800;color:var(--text2)">'+n+'</span><span style="font-weight:700">'+label+'</span>'+(sub?'<span style="font-weight:400;color:var(--text5);font-size:8px">'+sub+'</span>':'')+'</div>';
+      const _step=(n,label,sub)=>'<div id="res-step-'+n+'" class="lbl" style="margin:18px 0 8px;display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;border-radius:50%;background:var(--bg1);border:1px solid var(--border);font-size:10px;font-weight:800;color:var(--text2)">'+n+'</span><span style="font-weight:700">'+label+'</span>'+(sub?'<span style="font-weight:400;color:var(--text5);font-size:8px">'+sub+'</span>':'')+'</div>';
       const _sec=(n,label,sub,content)=>(content&&content.replace(/\s/g,''))?(_step(n,label,sub)+content):'';
       const _sec2=('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-bottom:14px">'+cardHtml+'</div>'
         +((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d.equity_top,mlt):eqHtml)
@@ -5170,6 +5173,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _toggleStar=(id)=>{const r=runHistory.find(x=>String(x.id)===String(id));if(!r||!runsRef)return;runsRef.doc(String(id)).update({starred:r.starred?0:1}).catch(e=>alert('star failed: '+e.message));};
       content.querySelectorAll('[data-star]').forEach(s=>{s.onclick=(e)=>{e.stopPropagation();_toggleStar(s.dataset.star);};});
       const _ds=content.querySelector('[data-detstar]');if(_ds)_ds.onclick=()=>_toggleStar(_ds.dataset.detstar);
+      // checklist pills → jump to that step's section in the report card
+      content.querySelectorAll('[data-vstep-go]').forEach(p=>{p.onclick=()=>{const t=el('res-step-'+p.dataset.vstepGo);if(t)t.scrollIntoView({behavior:'smooth',block:'start'});};});
       const _ns=el('det-note-save');if(_ns)_ns.onclick=()=>{const nv=el('det-note');if(nv&&runsRef)runsRef.doc(String(_ns.dataset.noteId)).update({note:nv.value}).then(()=>{_ns.textContent='saved ✓';setTimeout(()=>{if(el('det-note-save'))el('det-note-save').textContent='save';},1500);}).catch(e=>alert('note failed: '+e.message));};
       // delete a run: remove the web doc now + queue a runner command to drop it from the
       // local history DB (so a future full re-sync won't bring it back).
