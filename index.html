@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='30.0';
+const VERSION='30.1';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -2715,9 +2715,15 @@ function renderApp(){
   sub.style.cssText='display:flex;gap:2px;flex-wrap:wrap;padding:3px 14px;border-bottom:1px solid var(--border);background:var(--bg1);align-items:center';
   const _logIc={overview:'◎',trades:'≡',analytics:'⌬',import_export:'⇅',journal:'✎',settings:'⚙'};
   const _logLbl=t=>t==='import_export'?'IMPORT / EXPORT':t.toUpperCase();
-  sub.innerHTML=(_master==='log')
+  // Split-screen layout toggle lives in the tab bar (right-aligned), shown for the
+  // sub-tabs that actually use a split view (Results, Library).
+  const _spv=(id,gl,on,t)=>`<button class="btn-ghost" id="${id}" title="${t}" style="padding:3px 8px;font-size:12px;border-radius:6px;${on?'background:var(--bg2);color:var(--text)':'color:var(--text4)'}">${gl}</button>`;
+  let _splitTog='';
+  if(activeTab==='augur'&&augurSub==='runs'){const rv=APREF.resView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('res-side','◧',rv==='side','Side-by-side split')}${_spv('res-stack','▤',rv==='stack','Stacked layout')}</span>`;}
+  else if(activeTab==='augur'&&augurSub==='lib'){const lv=APREF.libView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('lib-side','◧',lv==='side','Side-by-side split')}${_spv('lib-stack','▤',lv==='stack','Stacked layout')}</span>`;}
+  sub.innerHTML=((_master==='log')
     ? LOG_TABS.map(t=>`<button class="btn-ghost${activeTab===t?' active':''}" data-tab="${t}" style="font-size:var(--fsxs)"><span style="margin-right:6px;font-size:12px;opacity:.7">${_logIc[t]||''}</span>${_logLbl(t)}</button>`).join('')
-    : ASUBS.map(s=>`<button class="btn-ghost${augurSub===s[0]?' active':''}" data-asubtop="${s[0]}" style="font-size:var(--fsxs)"><span style="margin-right:6px;font-size:12px;opacity:.7;font-variant-emoji:text">${ASUB_ICON[s[0]]||''}</span>${s[1]}</button>`).join('');
+    : ASUBS.map(s=>`<button class="btn-ghost${augurSub===s[0]?' active':''}" data-asubtop="${s[0]}" style="font-size:var(--fsxs)"><span style="margin-right:6px;font-size:12px;opacity:.7;font-variant-emoji:text">${ASUB_ICON[s[0]]||''}</span>${s[1]}</button>`).join(''))+_splitTog;
   wrap.appendChild(sub);
   const content=document.createElement('div');content.className='content';wrap.appendChild(content);
   app.innerHTML='';app.appendChild(wrap);
@@ -4372,14 +4378,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5);margin-top:2px"><span>champion equity · optimize window</span><span style="color:#a78bfa">🔒 lockbox (shaded)</span></div>';}
       return '<div class="lbl" style="margin:2px 0 8px">AUTO-VALIDATE · '+stratLabel+'</div>'
         +'<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><div style="font-size:26px;font-weight:800;color:'+vc+';letter-spacing:1px">'+V.verdict+'</div><div style="font-size:var(--fsxs);color:var(--text4)">'+V.n_pass+'/'+ng+' gates · IS PF '+Math.min(V.is_pf||0,99).toFixed(2)+(V.is_sharpe!=null?' · Sharpe '+(+V.is_sharpe).toFixed(2):'')+' · optimized '+(W.optimize[0]||'start')+' → '+W.optimize[1]+' · lockbox last '+W.lockbox_months+'mo (never seen)'+(V.discover==='evolve'?(V.evolved_file?' · <span style="color:#a78bfa">🧬 AI-evolved → '+V.evolved_file+'</span>':' · <span style="color:var(--red)">🧬 evolve failed'+(V.discover_err?' ('+V.discover_err+')':'')+'</span>'):'')+'</div></div>'
-        +'<div style="display:flex;flex-wrap:wrap;gap:4px 24px">'
-        +chk(V.checks.sample,'Sample adequacy',V.trades_per_param+' trd/param ('+V.is_trades+'/'+V.n_params+') · ≥30')
-        +chk(V.checks.plateau,'Plateau (robust params)',(pl.verdict||'n/a')+(pl.tot?' · '+pl.good+'/'+pl.tot+' neighbors hold':''))
-        +chk(V.checks.wfe,'Walk-forward efficiency',(V.wf_ran?Math.round(V.wfe*100)+'%':'n/a')+' · ≥50%')
-        +chk(V.checks.consistency,'Fold consistency',V.folds_held+'/'+V.n_folds+' folds held OOS')
-        +chk(V.checks.luck,'Deflated Sharpe',(V.dsr!=null?Math.round(V.dsr*100)+'%':'n/a')+' · ≥80%')
-        +(('transfer' in (V.checks||{}))?chk(V.checks.transfer,'Cross-instrument transfer',((V.transfer||[]).map(t=>t.inst+' PF '+Math.min(t.pf||0,99).toFixed(2)).join(' · ')||'tested')):'')
-        +'</div>'
         +((V.transfer&&V.transfer.length)?'<div style="margin-top:7px;font-size:var(--fsxs);color:var(--text3)">↔ Champion re-tested (no re-fit): '+V.transfer.map(t=>instTag(t.inst)+' '+(t.pass?'<b style="color:var(--green)">holds</b>':'<b style="color:var(--red)">fails</b>')+' · PF '+Math.min(t.pf||0,99).toFixed(2)+' · '+fmtUsd(Math.round((t.pnl||0)*instMult(t.inst)))+' · '+(t.trades||0)+' trd').join('　·　')+'</div>':'')
         +eqSvg
         +'<div style="margin-top:9px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+(lb.pass?'var(--green)':'var(--red)')+'">'+(lb.pass?'HELD':'FAILED')+'</b> · '+fmtUsd(Math.round((lb.pnl||0)*mlt))+' · PF '+Math.min(lb.pf||0,99).toFixed(2)+' · '+(lb.trades||0)+' trades'+(V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>';
@@ -4415,18 +4413,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // Contextual controls pinned to the FAR RIGHT of the sub-tab row, in a tile.
     let navRight='';
     const vb=(id,gl,on,t)=>'<button class="btn-ghost" id="'+id+'" title="'+t+'" style="padding:3px 8px;font-size:12px;border-radius:6px;'+(on?'background:var(--bg1);color:var(--text)':'color:var(--text4)')+'">'+gl+'</button>';
-    if(augurSub==='lib'&&(metaStrats||[]).length){
-      const lv=APREF.libView==='stack'?'stack':'side';
-      navRight='<div style="display:flex;gap:5px;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:3px 6px;margin-bottom:4px">'
-        +vb('lib-side','◧',lv==='side','Side-by-side split')+vb('lib-stack','▤',lv==='stack','Stacked layout')
-        +'</div>';
-    }
-    if(augurSub==='runs'&&(runHistory||[]).length){
-      const rv=APREF.resView==='stack'?'stack':'side';
-      navRight='<div style="display:flex;gap:5px;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:3px 6px;margin-bottom:4px">'
-        +vb('res-side','◧',rv==='side','Side-by-side split')+vb('res-stack','▤',rv==='stack','Stacked layout')
-        +'</div>';
-    }
+    // Split-layout toggles for Library/Results now live in the tab bar (see `sub`),
+    // not here above the body.
     // sub-tab buttons now live in the top-level subtab bar; here keep only the
     // contextual right-side controls (e.g. the Results side/stack view toggle).
     let nav=navRight?'<div style="display:flex;justify-content:flex-end;margin-bottom:10px">'+navRight+'</div>':'';
@@ -4462,7 +4450,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _V=d.validate||null;
       const _conc=(s)=>{if(!Array.isArray(s)||s.length<4)return null;const tot=s.reduce((a,x)=>a+x,0),top=s.reduce((m,x)=>Math.max(m,x),0),pos=s.filter(x=>x>0).length;return (tot>0&&top>0.5*tot)||pos<s.length*0.5;};
       const _wfHeld=()=>{const t=d.top10_results;if(!Array.isArray(t))return null;const fr=t.filter(x=>x&&x.fold!=null);if(!fr.length)return null;const fs=[...new Set(fr.map(x=>x.fold))];const held=fs.filter(fd=>fr.some(x=>x.fold===fd&&(+x.oos_pf||0)>1)).length;return fs.length?held/fs.length:null;};
-      const vstat={feasibility:'na',paper:'na',deploy:'na'};
+      const vstat={paper:'na',deploy:'na'};
+      // Feasibility: a completed run that produced trades IS the feasibility evidence
+      // (you formed a hypothesis and it traded), so mark it passed.
+      vstat.feasibility=(((+d.best_trades||0)>0)||d.best_pf!=null)?'pass':'na';
       vstat.insample=(d.best_pf!=null)?(((+d.best_pf>=1)&&((+d.best_trades||0)>0))?'pass':'fail'):'na';
       vstat.plateau=(_V&&_V.checks&&('plateau'in _V.checks))?(_V.checks.plateau?'pass':'fail'):(d.neighborhood?(d.neighborhood.verdict==='HIGH GROUND'?'pass':'fail'):'na');
       {const c=_conc(d.stress);vstat.stress=(c==null)?'na':(c?'fail':'pass');}
@@ -4470,16 +4461,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
       vstat.transfer=(_V&&_V.checks&&('transfer'in _V.checks))?(_V.checks.transfer?'pass':'fail'):'na';
       vstat.costs=(((+d.commission_usd>0))||((+d.slippage_pts>0)))?'pass':'na';
       vstat.drawdown=(d.mc&&d.mc.p95!=null)?'pass':'na';
+      // one-line evidence per step — WHY each pill is the colour it is
+      const _ev={};
+      _ev.feasibility=((+d.best_trades||0)>0)?((d.best_trades||0).toLocaleString()+' trades produced — the idea is testable'):'';
+      _ev.insample=(d.best_pf!=null)?('PF '+(+d.best_pf||0).toFixed(2)+' · '+(d.best_trades||0)+' trades · '+fmtUsd(d.best_pnl_usd||0)+(d.dsr?(' · deflated Sharpe '+Math.round((d.dsr.dsr||0)*100)+'%'):'')):'';
+      _ev.plateau=d.neighborhood?((d.neighborhood.verdict||'?')+' · '+(d.neighborhood.good||0)+'/'+(d.neighborhood.tot||0)+' neighbours profitable'):((_V&&_V.plateau)?((_V.plateau.verdict||'?')+' · '+(_V.plateau.good||0)+'/'+(_V.plateau.tot||0)+' neighbours hold'):(vstat.plateau!=='na'?'from auto-validate':''));
+      {const s=d.stress;_ev.stress=(Array.isArray(s)&&s.length>=4)?((vstat.stress==='pass'?'SPREAD':'CONCENTRATED')+' · '+s.filter(x=>x>0).length+'/'+s.length+' time windows green'):'';}
+      _ev.oos=(_V&&_V.n_folds)?((_V.folds_held||0)+'/'+_V.n_folds+' folds held OOS'+(_V.wf_ran?(' · WFE '+Math.round((_V.wfe||0)*100)+'%'):'')):((()=>{const h=_wfHeld();return h==null?'':(Math.round(h*100)+'% of folds held out-of-sample');})());
+      _ev.transfer=(_V&&_V.transfer&&_V.transfer.length)?_V.transfer.map(t=>t.inst+' '+(t.pass?'holds':'fails')).join(' · '):'';
+      _ev.costs=((+d.commission_usd>0)||(+d.slippage_pts>0))?('modeled $'+(d.commission_usd||0)+'/RT + '+(d.slippage_pts||0)+'pt'):'';
+      _ev.drawdown=(d.mc&&d.mc.p95!=null)?('P95 drawdown '+fmtUsd(Math.round((d.mc.p95||0)*mlt))+' — size your account to this'):'';
       const VSTEPS=[['Feasibility','feasibility'],['In-sample','insample'],['Plateau','plateau'],['Stress','stress'],['Out-of-sample','oos'],['Cross-instr','transfer'],['Costs','costs'],['Drawdown','drawdown'],['Paper','paper'],['Deploy','deploy']];
       const _vcol={pass:'var(--green)',fail:'var(--red)'};
       const nPass=VSTEPS.filter(s=>vstat[s[1]]==='pass').length,nAddr=VSTEPS.filter(s=>vstat[s[1]]!=='na').length;
       const _scol=(nAddr&&nPass/nAddr>=0.7)?'var(--green)':(nAddr&&nPass/nAddr>=0.4)?'var(--yellow)':'var(--text4)';
+      const pillInfo=VSTEPS.map((s,i)=>{const n=i+1,st=vstat[s[1]],ev=_ev[s[1]];if(st==='na'||!ev)return '';const c=st==='pass'?'var(--green)':'var(--red)';return '<div style="display:flex;align-items:baseline;gap:7px;padding:2px 0"><span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;min-width:15px;height:15px;border-radius:50%;background:'+c+';color:#04130c;font-size:8px;font-weight:900">'+n+'</span><span style="font-size:9px;color:var(--text3);line-height:1.5"><b style="color:var(--text2)">'+s[0]+'</b> — '+ev+'</span></div>';}).join('');
+      const pillInfoBlock=pillInfo?'<div style="background:var(--bg1);border-radius:8px;padding:8px 11px;margin:-5px 0 13px">'+pillInfo+'</div>':'';
       // Steps 2/3/4/5/8 have report sections (res-step-N anchors); their pills are
       // clickable and scroll the report to that section.
       const _hasSec={2:1,3:1,4:1,5:1,8:1};
       const segs=VSTEPS.map((s,i)=>{const n=i+1;const stt=vstat[s[1]];const bg=stt==='pass'?'var(--green)':stt==='fail'?'var(--red)':'var(--bg1)';const fg=stt==='pass'?'#04130c':stt==='fail'?'#fff':'var(--text4)';const br=(stt==='pass'||stt==='fail')?'0':'1px solid var(--border)';const go=_hasSec[n]?(' data-vstep-go="'+n+'"'):'';const cur=_hasSec[n]?'cursor:pointer;':'';return '<span'+go+' title="'+n+'. '+s[0]+' — '+(stt==='pass'?'passed':stt==='fail'?'not met':'n/a / not tested')+(_hasSec[n]?' · click to jump':'')+'" style="'+cur+'display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:'+bg+';color:'+fg+';border:'+br+';font-size:9px;font-weight:700;white-space:nowrap"><b style="font-weight:900">'+n+'</b>'+s[0]+'</span>';}).join('');
       const hdrHtml='<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:7px"><span style="font-size:19px;font-weight:800;letter-spacing:.3px">Run #'+d.id+'</span><span style="font-size:14px">'+stratTag(d.strategy,'14px')+'</span><span style="margin-left:auto;font-size:var(--fsxs);font-weight:800;color:'+_scol+'">'+nPass+'/'+nAddr+' checks ✓</span></div>'
-        +'<div id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:13px;scroll-margin-top:8px">'+segs+'</div>';
+        +'<div id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:13px;scroll-margin-top:8px">'+segs+'</div>'
+        +pillInfoBlock;
       // ── Numbered checklist sections: group each Results panel under its deploy step
       //    (2 In-sample · 3 Plateau · 4 Stress · 5 Out-of-sample · 8 Drawdown) so the
       //    report cross-references the validation checklist. Empty steps are omitted. ──
@@ -4964,7 +4968,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           body=viewHeader+'<div id="res-wrap" style="display:flex;align-items:stretch">'
             +'<div id="res-left" style="flex:0 0 '+(rH*100)+'%;min-width:280px;overflow:auto">'+listTile+'<div style="margin-top:12px">'+checklistLegend+'</div></div>'
             +'<div id="res-gutter" title="drag to resize" style="flex:0 0 12px;cursor:col-resize;display:flex;align-items:center;justify-content:center"><div style="width:3px;height:46px;background:var(--border);border-radius:2px"></div></div>'
-            +'<div id="res-right" style="flex:1 1 0;min-width:0;overflow:auto">'+detailTile+'</div></div>';
+            +'<div id="res-right" style="flex:1 1 0;min-width:0;overflow:visible">'+detailTile+'</div></div>';
         }else{
           body=viewHeader+'<div id="res-top">'+listTile+'<div style="margin-top:12px">'+checklistLegend+'</div></div>'
             +'<div id="res-gutter" title="drag to resize" style="height:12px;cursor:row-resize;display:flex;align-items:center;justify-content:center;margin:2px 0"><div style="height:3px;width:54px;background:var(--border);border-radius:2px"></div></div>'
@@ -5176,7 +5180,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // checklist pills <-> report sections. Scroll the WINDOW with an offset for the
       // sticky .topbar so the target heading isn't hidden behind it. Pills jump down to
       // a section; clicking a section heading jumps back up to the pills.
-      const _scrollToId=(id)=>{const t=el(id);if(!t)return;const tb=document.querySelector('.topbar');const off=(tb?tb.offsetHeight:0)+14;const y=t.getBoundingClientRect().top+window.scrollY-off;window.scrollTo({top:y,behavior:'smooth'});};
+      // Freeze the checklist pills below the sticky topbar so they stay visible while
+      // scrolling the report (like a frozen header row).
+      const _tbEl=document.querySelector('.topbar'),_rpEl=el('res-pills');
+      if(_rpEl&&_tbEl){_rpEl.style.position='sticky';_rpEl.style.top=_tbEl.offsetHeight+'px';_rpEl.style.zIndex='40';_rpEl.style.background='var(--bg2)';_rpEl.style.paddingTop='8px';_rpEl.style.paddingBottom='8px';_rpEl.style.marginBottom='10px';_rpEl.style.borderBottom='1px solid var(--border)';}
+      // pill jumps land BELOW both the sticky topbar and the frozen pills.
+      const _scrollToId=(id)=>{const t=el(id);if(!t)return;const tb=document.querySelector('.topbar');const rp=el('res-pills');let off=(tb?tb.offsetHeight:0)+14;if(id!=='res-pills'&&rp&&getComputedStyle(rp).position==='sticky')off+=rp.offsetHeight;const y=t.getBoundingClientRect().top+window.scrollY-off;window.scrollTo({top:y,behavior:'smooth'});};
       content.querySelectorAll('[data-vstep-go]').forEach(p=>{p.onclick=()=>_scrollToId('res-step-'+p.dataset.vstepGo);});
       content.querySelectorAll('[data-vstep-back]').forEach(h=>{h.onclick=()=>_scrollToId('res-pills');});
       const _ns=el('det-note-save');if(_ns)_ns.onclick=()=>{const nv=el('det-note');if(nv&&runsRef)runsRef.doc(String(_ns.dataset.noteId)).update({note:nv.value}).then(()=>{_ns.textContent='saved ✓';setTimeout(()=>{if(el('det-note-save'))el('det-note-save').textContent='save';},1500);}).catch(e=>alert('note failed: '+e.message));};
