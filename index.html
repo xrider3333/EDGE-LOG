@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='29.6';
+const VERSION='29.7';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4452,7 +4452,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let nbHtml='';
       if(d.neighborhood){const nb=d.neighborhood;const vc=nb.verdict==='HIGH GROUND'?'var(--green)':'var(--yellow)';const cell=(c,acc)=>{if(!c)return '<td style="text-align:center;opacity:.3">—</td>';return '<td style="text-align:center">'+c.val+'<br><span style="color:'+(acc?'var(--accent)':(c.pf>1?'var(--green)':'var(--red)'))+'">'+(c.pf||0).toFixed(2)+'</span></td>';};const nrows=(nb.rows||[]).map(r=>'<tr><td style="color:var(--text3)">'+r.param.replace(/_/g,' ')+'</td>'+cell(r.minus,false)+cell(r.winner,true)+cell(r.plus,false)+'</tr>').join('');nbHtml='<div class="lbl" style="margin:8px 0 6px">NEIGHBORHOOD ROBUSTNESS · <span style="color:'+vc+'">'+nb.verdict+' · '+nb.good+'/'+nb.tot+' neighbors profitable</span></div><div style="overflow-x:auto;margin-bottom:16px"><table class="table" style="font-size:var(--fsxs)"><thead><tr><th></th><th style="text-align:center">step −</th><th style="text-align:center">winner</th><th style="text-align:center">step +</th></tr></thead><tbody>'+nrows+'</tbody></table></div>';}
       const valdCard=d.validate?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'+validateCardHtml(d.validate,(d.multiplier||20),stratTag(d.strategy))+'</div>':'';
-      return '<div style="font-size:15px;margin-bottom:2px">'+stratTag(d.strategy,'15px')+'</div>'
+      // ── Per-run validation status: map THIS run's analytics onto the 10-step deploy
+      //    checklist so the report card reads as the checklist. Steps 2/3/4/5/6/7/8
+      //    auto-derive from the run's own best_pf/neighborhood/stress/folds/transfer/
+      //    cost/mc data; feasibility/paper/deploy are manual → n/a here. ──
+      const _V=d.validate||null;
+      const _conc=(s)=>{if(!Array.isArray(s)||s.length<4)return null;const tot=s.reduce((a,x)=>a+x,0),top=s.reduce((m,x)=>Math.max(m,x),0),pos=s.filter(x=>x>0).length;return (tot>0&&top>0.5*tot)||pos<s.length*0.5;};
+      const _wfHeld=()=>{const t=d.top10_results;if(!Array.isArray(t))return null;const fr=t.filter(x=>x&&x.fold!=null);if(!fr.length)return null;const fs=[...new Set(fr.map(x=>x.fold))];const held=fs.filter(fd=>fr.some(x=>x.fold===fd&&(+x.oos_pf||0)>1)).length;return fs.length?held/fs.length:null;};
+      const vstat={feasibility:'na',paper:'na',deploy:'na'};
+      vstat.insample=(d.best_pf!=null)?(((+d.best_pf>=1)&&((+d.best_trades||0)>0))?'pass':'fail'):'na';
+      vstat.plateau=(_V&&_V.checks&&('plateau'in _V.checks))?(_V.checks.plateau?'pass':'fail'):(d.neighborhood?(d.neighborhood.verdict==='HIGH GROUND'?'pass':'fail'):'na');
+      {const c=_conc(d.stress);vstat.stress=(c==null)?'na':(c?'fail':'pass');}
+      vstat.oos=(_V&&_V.checks&&(('consistency'in _V.checks)||('wfe'in _V.checks)))?((_V.checks.consistency||_V.checks.wfe)?'pass':'fail'):((()=>{const h=_wfHeld();return h==null?'na':(h>=0.5?'pass':'fail');})());
+      vstat.transfer=(_V&&_V.checks&&('transfer'in _V.checks))?(_V.checks.transfer?'pass':'fail'):'na';
+      vstat.costs=(((+d.commission_usd>0))||((+d.slippage_pts>0)))?'pass':'na';
+      vstat.drawdown=(d.mc&&d.mc.p95!=null)?'pass':'na';
+      const VSTEPS=[['Feasibility','feasibility'],['In-sample','insample'],['Plateau','plateau'],['Stress','stress'],['Out-of-sample','oos'],['Cross-instr','transfer'],['Costs','costs'],['Drawdown','drawdown'],['Paper','paper'],['Deploy','deploy']];
+      const _vcol={pass:'var(--green)',fail:'var(--red)'};
+      const nPass=VSTEPS.filter(s=>vstat[s[1]]==='pass').length,nAddr=VSTEPS.filter(s=>vstat[s[1]]!=='na').length;
+      const _scol=(nAddr&&nPass/nAddr>=0.7)?'var(--green)':(nAddr&&nPass/nAddr>=0.4)?'var(--yellow)':'var(--text4)';
+      const segs=VSTEPS.map((s,i)=>{const stt=vstat[s[1]];const col=_vcol[stt]||'var(--bg1)';const br=(stt==='pass'||stt==='fail')?'0':'1px solid var(--border)';return '<div title="'+(i+1)+'. '+s[0]+' — '+(stt==='pass'?'passed':stt==='fail'?'not met':'n/a / not tested')+'" style="flex:1;height:7px;border-radius:2px;background:'+col+';border:'+br+'"></div>';}).join('');
+      const hdrHtml='<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:5px"><span style="font-size:19px;font-weight:800;letter-spacing:.3px">Run #'+d.id+'</span><span style="font-size:14px">'+stratTag(d.strategy,'14px')+'</span><span style="margin-left:auto;font-size:var(--fsxs);font-weight:800;color:'+_scol+'">'+nPass+'/'+nAddr+' checks ✓</span></div>'
+        +'<div title="validation checklist · green = passed · red = not met · outline = n/a / not tested" style="display:flex;gap:3px;margin-bottom:11px">'+segs+'</div>';
+      return hdrHtml
         +'<div style="color:var(--text4);font-size:var(--fsxs);margin-bottom:12px;line-height:1.7">run #'+d.id+' · ran '+_dtnice(d.timestamp)+' · '+instTag(d.instrument)+' '+(d.timeframe||'')+' · '+(d.scope||'')
           +' · range '+_dnice(d.date_from)+' → '+_dnice(d.date_to)
           +(d.days_in_test?' · '+(+d.days_in_test).toLocaleString()+' days':'')
@@ -4645,7 +4667,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const wfRuns=hs.filter(r=>/walk|🔁/i.test(String(r.scope||'')));
         const bestRun=hs.slice().sort((a,b)=>(b.best_pnl_usd||0)-(a.best_pnl_usd||0))[0];
         const costRun=hs.find(r=>(+r.commission_usd>0)||(+r.slippage_pts>0)||(+r.cost_pts>0));
-        const auto={insample:hs.length>0,oos:wfRuns.length>0,transfer:insts.length>=2,costs:!!costRun};
+        // Plateau / stress / drawdown auto-derive from the strategy's own run analytics
+        // (neighborhood verdict, stress spread, MC P95) — promoted from manual ticks.
+        const platRun=hs.find(r=>(r.neighborhood&&r.neighborhood.verdict==='HIGH GROUND')||(r.validate&&r.validate.checks&&r.validate.checks.plateau));
+        const _spread=s=>{if(!Array.isArray(s)||s.length<4)return false;const tot=s.reduce((a,x)=>a+x,0),top=s.reduce((m,x)=>Math.max(m,x),0),pos=s.filter(x=>x>0).length;return !((tot>0&&top>0.5*tot)||pos<s.length*0.5);};
+        const strRun=hs.find(r=>_spread(r.stress));
+        const ddRun=hs.find(r=>r.mc&&r.mc.p95!=null);
+        const auto={insample:hs.length>0,oos:wfRuns.length>0,transfer:insts.length>=2,costs:!!costRun,plateau:!!platRun,stress:!!strRun,drawdown:!!ddRun};
         // Sharpe + deflated-Sharpe live on the run's dsr object {winner_sharpe, dsr, luck_bar, verdict}
         const _shp=r=>{const d=r&&r.dsr;if(!d)return '';let out='';if(d.winner_sharpe!=null&&!isNaN(+d.winner_sharpe))out+=' · Sharpe '+(+d.winner_sharpe).toFixed(2);if(d.dsr!=null&&!isNaN(+d.dsr))out+=' · DSR '+Math.round(+d.dsr*100)+'%';return out;};
         // walk-forward fold detail: how many folds held up out-of-sample (oos_pf>1)
@@ -4655,7 +4683,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           insample:bestRun?('best run #'+bestRun.id+' · PF '+(bestRun.best_pf||0).toFixed(2)+' · '+fmtUsd(bestRun.best_pnl_usd||0)+' · '+(bestRun.best_trades||0)+' trades'+_shp(bestRun)):'',
           oos:wfRuns[0]?('walk-forward run #'+wfRuns[0].id+_folds(wfRuns[0])+(wfRuns[0].best_oos_pnl!=null?' · OOS '+fmtUsd((wfRuns[0].best_oos_pnl||0)*(wfRuns[0].multiplier||1)):'')+(wfRuns[0].n_valid!=null?' · '+wfRuns[0].n_valid+' valid configs':'')+_shp(wfRuns[0])):'',
           transfer:insts.length>=2?('runs on '+insts.join(', ')):'',
-          costs:costRun?('modeled commission/slippage in run #'+costRun.id):''
+          costs:costRun?('modeled commission/slippage in run #'+costRun.id):'',
+          plateau:platRun?('robust params in run #'+platRun.id+(platRun.neighborhood?(' · '+platRun.neighborhood.good+'/'+platRun.neighborhood.tot+' neighbors hold'):'')):'',
+          stress:strRun?('profit spread across windows in run #'+strRun.id):'',
+          drawdown:ddRun?('MC P95 drawdown '+fmtUsd(Math.round((ddRun.mc.p95||0)*(ddRun.multiplier||1)))+' · run #'+ddRun.id):''
         };
         // [key,label,autoCapable,manualDesc]
         const steps=[['feasibility','Feasibility / hypothesis',false,'Does the edge plausibly exist at all?'],
