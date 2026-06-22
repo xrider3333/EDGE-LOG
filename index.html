@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='29.7';
+const VERSION='29.8';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4951,13 +4951,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'</tr></thead><tbody>'+trows+'</tbody></table></div>';
         const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span></div>'+fbar+tbl);
         const detailTile='<div id="res-detail" class="hero-card" style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:13px;padding:14px 16px">'+runDetail(d)+'</div>';
+        // ── Results-view header + numbered validation-checklist legend shown under the
+        //    Past Runs list. The report card groups its panels under these 10 steps
+        //    (badges ②③④⑤⑧), so this legend is the key the user reads them against. ──
+        const viewHeader='<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px"><span style="font-size:17px;font-weight:800;letter-spacing:.3px">Results View</span><span style="font-size:var(--fsxs);color:var(--text5)">'+allRuns.length+' runs · select one for its validation report card</span></div>';
+        const _CL=[['Feasibility','hypothesis'],['In-sample','candidate config'],['Plateau','robust params'],['Stress','spread across time'],['Out-of-sample','walk-forward'],['Cross-instrument','≥2 markets'],['Costs','commission + slippage'],['Drawdown','Monte-Carlo sizing'],['Paper','forward test'],['Deploy','small size']];
+        const checklistLegend=tile('<div class="lbl" style="margin-bottom:2px">VALIDATION CHECKLIST</div><div style="font-size:8px;color:var(--text5);margin-bottom:8px">the report card groups its panels under these numbered steps</div>'+_CL.map((s,i)=>'<div style="display:flex;align-items:baseline;gap:8px;padding:3px 0;border-bottom:1px solid var(--border)"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:50%;background:var(--bg1);border:1px solid var(--border);font-size:9px;font-weight:800;color:var(--text2)">'+(i+1)+'</span><span style="font-size:var(--fsxs);font-weight:600;color:var(--text2)">'+s[0]+'</span><span style="margin-left:auto;font-size:8px;color:var(--text5)">'+s[1]+'</span></div>').join(''));
         if(rv==='side'){
-          body='<div id="res-wrap" style="display:flex;align-items:stretch">'
-            +'<div id="res-left" style="flex:0 0 '+(rH*100)+'%;min-width:280px;overflow:hidden">'+listTile+'</div>'
+          body=viewHeader+'<div id="res-wrap" style="display:flex;align-items:stretch">'
+            +'<div id="res-left" style="flex:0 0 '+(rH*100)+'%;min-width:280px;overflow:auto">'+listTile+'<div style="margin-top:12px">'+checklistLegend+'</div></div>'
             +'<div id="res-gutter" title="drag to resize" style="flex:0 0 12px;cursor:col-resize;display:flex;align-items:center;justify-content:center"><div style="width:3px;height:46px;background:var(--border);border-radius:2px"></div></div>'
             +'<div id="res-right" style="flex:1 1 0;min-width:0;overflow:auto">'+detailTile+'</div></div>';
         }else{
-          body='<div id="res-top">'+listTile+'</div>'
+          body=viewHeader+'<div id="res-top">'+listTile+'<div style="margin-top:12px">'+checklistLegend+'</div></div>'
             +'<div id="res-gutter" title="drag to resize" style="height:12px;cursor:row-resize;display:flex;align-items:center;justify-content:center;margin:2px 0"><div style="height:3px;width:54px;background:var(--border);border-radius:2px"></div></div>'
             +detailTile;
         }
