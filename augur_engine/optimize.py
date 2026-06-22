@@ -200,6 +200,12 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 cum = [cum[int(i * _st)] for i in range(160)]
             out["equity"] = {"cum": [round(float(x), 1) for x in cum],
                              "final": round(float(_s), 1), "n": len(win_pnls)}
+            # Winner's per-trade PnL sample (downsampled) for the trade-PnL distribution curve.
+            _wd = win_pnls
+            if len(_wd) > 400:
+                _ds = len(_wd) / 400
+                _wd = [_wd[int(i * _ds)] for i in range(400)]
+            out["win_dist"] = [round(float(x), 2) for x in _wd]
             try:    # MAE/MFE (needs rich 5-tuple trades; None for legacy strategies)
                 _wm = fn(O, H, L, C, return_trades=True, **extras, **best[0])
                 if _wm and _wm.get("trades"):

@@ -416,6 +416,8 @@ class FirestoreQueue:
             "equity_top": result.get("equity_top"),   # top-N equity curves (overlay)
             "stress": result.get("stress"),   # PnL across chronological windows
             "mae_mfe": result.get("mae_mfe"),   # per-trade adverse/favorable excursion
+            "win_dist": result.get("win_dist"),   # winner's per-trade PnLs for the distribution curve
+            "wf_mode": job.get("wf_mode"),   # rolling | anchored (walk-forward runs)
             "equity": equity,
             "multiplier": mult,
             # cost realism + date window so Results/roadmap can show & auto-derive them

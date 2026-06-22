@@ -361,6 +361,12 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 cum = [cum[int(i * st)] for i in range(160)]
             out["equity"] = {"cum": [round(float(x), 1) for x in cum],
                              "final": round(float(s), 1), "n": len(win_pnls)}
+            # Winner's per-trade PnL sample (downsampled) for the trade-PnL distribution curve.
+            _wd = win_pnls
+            if len(_wd) > 400:
+                _ds = len(_wd) / 400
+                _wd = [_wd[int(i * _ds)] for i in range(400)]
+            out["win_dist"] = [round(float(x), 2) for x in _wd]
             try:    # MAE/MFE (rich 5-tuple trades only; None for legacy strategies)
                 _exf = {}
                 if pass_vol:

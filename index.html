@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='30.4';
+const VERSION='30.5';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4263,6 +4263,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100" preserveAspectRatio="none">'+bars+'<line x1="'+bestX.toFixed(1)+'" y1="0" x2="'+bestX.toFixed(1)+'" y2="'+H+'" stroke="var(--text)" stroke-width="1.5" stroke-dasharray="3,2"/></svg>'
         +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5)"><span>'+fmtUsd(Math.round(mn))+'</span><span>↑ best '+fmtUsd(Math.round(mx))+'</span></div></div>';
     };
+    // TRADE PNL DISTRIBUTION — histogram of the WINNER's per-trade PnLs with a fitted
+    // normal (bell) curve overlaid. Shows the shape/spread of trade outcomes (fat tails,
+    // skew) behind the headline numbers. Needs d.win_dist (winner per-trade PnLs).
+    const tradeDistPanelHtml=(win,mult)=>{
+      if(!Array.isArray(win)||win.length<12)return '';
+      const v=win.map(x=>x*mult),n=v.length,mean=v.reduce((a,b)=>a+b,0)/n;
+      const sd=Math.sqrt(v.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1;
+      const mn=Math.min.apply(null,v),mx=Math.max.apply(null,v),span=(mx-mn)||1;
+      const NB=28,bins=new Array(NB).fill(0);v.forEach(x=>{let b=Math.floor((x-mn)/span*NB);if(b<0)b=0;if(b>=NB)b=NB-1;bins[b]++;});
+      const bmax=Math.max.apply(null,bins)||1,W=560,H=130,bw=W/NB,binW=span/NB;
+      const bars=bins.map((c,i)=>{const h=(c/bmax)*(H-16),x=i*bw,bc=mn+span*(i+0.5)/NB;return '<rect x="'+(x+1).toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+(bw-2).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+(bc>=0?'var(--green)':'var(--red)')+'" opacity="0.45"/>';}).join('');
+      const pdf=x=>Math.exp(-0.5*Math.pow((x-mean)/sd,2))/(sd*Math.sqrt(2*Math.PI));
+      const pts=[];for(let i=0;i<=120;i++){const x=mn+span*i/120,y=pdf(x)*n*binW,px=(i/120)*W,py=H-(y/bmax)*(H-16);pts.push(px.toFixed(1)+','+Math.max(0,py).toFixed(1));}
+      const meanX=((mean-mn)/span)*W,zeroX=(mn<0&&mx>0)?((0-mn)/span)*W:null,wins=v.filter(x=>x>0).length;
+      return '<div class="lbl" style="margin:8px 0 6px">TRADE PNL DISTRIBUTION · top config · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins</div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="120" preserveAspectRatio="none">'+bars
+        +(zeroX!=null?'<line x1="'+zeroX.toFixed(1)+'" y1="0" x2="'+zeroX.toFixed(1)+'" y2="'+H+'" stroke="var(--border)" stroke-width="1"/>':'')
+        +'<polyline points="'+pts.join(' ')+'" fill="none" stroke="var(--text)" stroke-width="1.5" opacity="0.8"/>'
+        +'<line x1="'+meanX.toFixed(1)+'" y1="0" x2="'+meanX.toFixed(1)+'" y2="'+H+'" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3,2"/></svg>'
+        +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5)"><span>'+fmtUsd(Math.round(mn))+'</span><span>normal-fit bell · accent = mean · per-trade $</span><span>'+fmtUsd(Math.round(mx))+'</span></div></div>';
+    };
     // STRESS — winner PnL across 8 chronological windows. Profit SPREAD across windows is
     // robust; CONCENTRATED in one stretch is a red flag (one lucky regime carried it).
     const stressPanelHtml=(stress,mult)=>{
@@ -4522,6 +4543,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt):eqHtml)
         +((d.date_from&&d.date_to)?'<div id="det-spy" data-spy-from="'+d.date_from+'" data-spy-to="'+d.date_to+'" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 14px"></div>':'')
         +dsrHtml
+        +tradeDistPanelHtml(d.win_dist,mlt)
         +'<div class="lbl" style="margin:8px 0 6px;font-size:9px;color:var(--text5)">TOP CONFIGS</div>'
         +(t10.length?'<div style="overflow-x:auto"><table class="table">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>'));
       const _plInner=scatterPanelHtml(d.points,mlt)+heatmapPanelHtml(d.points,mlt);
