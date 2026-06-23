@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='30.7';
+const VERSION='30.8';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4416,16 +4416,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const validateCardHtml=(V,mlt,stratLabel)=>{
       const vc={PASS:'var(--green)',WEAK:'var(--yellow)',FAIL:'var(--red)'}[V.verdict]||'var(--text4)',lb=V.lockbox||{},W=V.windows||{optimize:['','']},ng=V.n_gates||5,pl=V.plateau||{};
       const chk=(ok,lbl,detail)=>'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;flex:1 1 230px"><span style="flex:0 0 auto;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:'+(ok?'var(--green)':'var(--red)')+';color:#04130c;font-size:10px;font-weight:900">'+(ok?'✓':'✕')+'</span><span style="font-size:var(--fsxs);color:var(--text2)">'+lbl+'</span><span style="font-size:8px;color:var(--text5)">'+detail+'</span></div>';
-      const eq=(V.equity||[]).map(x=>x*mlt),li=V.lb_idx||eq.length,EW=600,EH=120,pd=6;
+      const eq=(V.equity||[]).map(x=>x*mlt),li=V.lb_idx||eq.length,EW=600,EH=130,pd=6;
       let eqSvg='';if(eq.length>2){const mn=Math.min(0,...eq),mx=Math.max(0,...eq),rg=(mx-mn)||1,X=i=>pd+(EW-2*pd)*i/(eq.length-1),Y=v=>EH-pd-(EH-2*pd)*(v-mn)/rg,bx=X(Math.min(li,eq.length-1)),z=Y(0);
         const seg=(a,b)=>eq.slice(a,b).map((v,i)=>((i?'L':'M')+X(a+i).toFixed(1)+' '+Y(v).toFixed(1))).join(' ');
-        eqSvg='<svg width="100%" height="'+EH+'" viewBox="0 0 '+EW+' '+EH+'" preserveAspectRatio="none" style="display:block;margin-top:8px;border-radius:8px;background:var(--bg1)">'
+        const svg='<svg width="100%" height="'+EH+'" viewBox="0 0 '+EW+' '+EH+'" preserveAspectRatio="none" style="display:block;border-radius:8px;background:var(--bg1)">'
+          +'<line x1="0" y1="'+(EH/2)+'" x2="'+EW+'" y2="'+(EH/2)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.35"/>'
           +'<line x1="0" y1="'+z.toFixed(1)+'" x2="'+EW+'" y2="'+z.toFixed(1)+'" stroke="var(--border)" stroke-width="1"/>'
           +'<rect x="'+bx.toFixed(1)+'" y="0" width="'+(EW-bx).toFixed(1)+'" height="'+EH+'" fill="rgba(167,139,250,.08)"/>'
           +'<line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+EH+'" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3"/>'
           +'<path d="'+seg(0,li+1)+'" fill="none" stroke="var(--green)" stroke-width="1.6"/>'
-          +'<path d="'+seg(li,eq.length)+'" fill="none" stroke="#a78bfa" stroke-width="1.6"/></svg>'
-          +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5);margin-top:2px"><span>champion equity · optimize window</span><span style="color:#a78bfa">🔒 lockbox (shaded)</span></div>';}
+          +'<path d="'+seg(li,eq.length)+'" fill="none" stroke="#a78bfa" stroke-width="1.6"/></svg>';
+        eqSvg='<div class="lbl" style="margin:10px 0 4px;font-size:9px;color:var(--text5)">CHAMPION EQUITY · in-sample vs walk-forward lockbox · 1 contract</div>'
+          +'<div style="display:flex;gap:7px"><div style="display:flex;flex-direction:column;justify-content:space-between;font-size:8px;color:var(--text5);text-align:right;min-width:46px;padding:1px 0">'
+          +'<span>'+fmtUsd(Math.round(mx))+'</span><span>'+fmtUsd(Math.round((mx+mn)/2))+'</span><span>'+fmtUsd(Math.round(mn))+'</span></div>'
+          +'<div style="flex:1">'+svg
+          +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5);margin-top:3px"><span style="color:var(--green)">● in-sample (optimized '+(W.optimize[0]||'start')+'→'+(W.optimize[1]||'')+')</span><span style="color:#a78bfa">● lockbox = out-of-sample · last '+W.lockbox_months+'mo, never seen</span></div></div></div>';}
       return '<div class="lbl" style="margin:2px 0 8px">AUTO-VALIDATE · '+stratLabel+'</div>'
         +'<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><div style="font-size:26px;font-weight:800;color:'+vc+';letter-spacing:1px">'+V.verdict+'</div><div style="font-size:var(--fsxs);color:var(--text4)">'+V.n_pass+'/'+ng+' gates · IS PF '+Math.min(V.is_pf||0,99).toFixed(2)+(V.is_sharpe!=null?' · Sharpe '+(+V.is_sharpe).toFixed(2):'')+' · optimized '+(W.optimize[0]||'start')+' → '+W.optimize[1]+' · lockbox last '+W.lockbox_months+'mo (never seen)'+(V.discover==='evolve'?(V.evolved_file?' · <span style="color:#a78bfa">🧬 AI-evolved → '+V.evolved_file+'</span>':' · <span style="color:var(--red)">🧬 evolve failed'+(V.discover_err?' ('+V.discover_err+')':'')+'</span>'):'')+'</div></div>'
         +((V.transfer&&V.transfer.length)?'<div style="margin-top:7px;font-size:var(--fsxs);color:var(--text3)">↔ Champion re-tested (no re-fit): '+V.transfer.map(t=>instTag(t.inst)+' '+(t.pass?'<b style="color:var(--green)">holds</b>':'<b style="color:var(--red)">fails</b>')+' · PF '+Math.min(t.pf||0,99).toFixed(2)+' · '+fmtUsd(Math.round((t.pnl||0)*instMult(t.inst)))+' · '+(t.trades||0)+' trd').join('　·　')+'</div>':'')
