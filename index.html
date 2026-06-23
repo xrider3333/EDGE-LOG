@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='31.0';
+const VERSION='31.1';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4566,14 +4566,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Steps 2/3/4/5/8 have report sections (res-step-N anchors); their pills are
       // clickable and scroll the report to that section. Each pill carries a short stat.
       const _hasSec={2:1,3:1,4:1,5:1,8:1};
-      const segs=VSTEPS.map((s,i)=>{const n=i+1;const stt=vstat[s[1]];const sv=_stat[s[1]];const bg=stt==='pass'?'var(--green)':stt==='fail'?'var(--red)':'transparent';const fg=stt==='pass'?'#04130c':stt==='fail'?'#fff':'var(--text4)';const br=(stt==='pass'||stt==='fail')?'0':'1px solid var(--border)';const go=_hasSec[n]?(' data-vstep-go="'+n+'"'):'';const cur=_hasSec[n]?'cursor:pointer;':'';return '<span'+go+' title="'+n+'. '+s[0]+' — '+(stt==='pass'?'passed':stt==='fail'?'not met':'n/a / not tested')+(_hasSec[n]?' · click to jump':'')+'" style="'+cur+'display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;background:'+bg+';color:'+fg+';border:'+br+';font-size:8px;font-weight:700;white-space:nowrap;flex:0 0 auto"><b style="font-weight:900">'+n+'</b>'+s[0]+(sv?'<span style="opacity:.8;font-weight:800">'+sv+'</span>':'')+'</span>';}).join('');
+      const segs=VSTEPS.map((s,i)=>{const n=i+1;const stt=vstat[s[1]];const sv=_stat[s[1]];const bg=stt==='pass'?'var(--green)':stt==='fail'?'var(--red)':'transparent';const fg=stt==='pass'?'#04130c':stt==='fail'?'#fff':'var(--text4)';const br=(stt==='pass'||stt==='fail')?'0':'1px solid var(--border)';const go=_hasSec[n]?(' data-vstep-go="'+n+'"'):'';const cur=_hasSec[n]?'cursor:pointer;':'';return '<span'+go+' title="'+n+'. '+s[0]+' — '+(stt==='pass'?'passed':stt==='fail'?'not met':'n/a / not tested')+(_hasSec[n]?' · click to jump':'')+'" style="'+cur+'display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:3px 6px;border-radius:999px;background:'+bg+';color:'+fg+';border:'+br+';font-size:8px;font-weight:700;flex:1 1 0;min-width:0;overflow:hidden"><b style="font-weight:900;flex:0 0 auto">'+n+'</b><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">'+s[0]+'</span>'+(sv?'<span style="opacity:.8;font-weight:800;flex:0 0 auto">'+sv+'</span>':'')+'</span>';}).join('');
       // Sticky header block: eyebrow title, then the run-info line (run# + strategy on one
       //   line, sized to read as the title), then the checklist pills on a single row.
       //   The whole block (#res-head) is frozen to the top of the tile as the report scrolls.
+      // Sticky header block: ONE title row (RUN REPORT eyebrow + run# + strategy + checks),
+      //   then the checklist pills on a single flex-to-fit row. The whole block (#res-head)
+      //   is frozen to the top of the tile as the report scrolls; its background matches the
+      //   tile (solid --bg2, no shadow) so content slides cleanly underneath.
       const hdrHtml='<div id="res-head" style="background:var(--bg2)">'
-        +'<div class="lbl" style="font-size:var(--fsxs);letter-spacing:2px;color:var(--text4);margin-bottom:5px">RUN REPORT</div>'
-        +'<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:9px"><span style="font-size:16px;font-weight:800;letter-spacing:.3px">Run #'+d.id+'</span><span style="font-size:16px;font-weight:600">'+stratTag(d.strategy,'16px')+'</span><span style="margin-left:auto;font-size:var(--fsxs);font-weight:800;color:'+_scol+'">'+nPass+'/'+nAddr+' checks ✓</span></div>'
-        +'<div id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex-wrap:nowrap;overflow-x:auto;margin-bottom:13px;padding-bottom:2px;scroll-margin-top:8px">'+segs+'</div>'
+        +'<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:9px"><span class="lbl" style="font-size:var(--fsxs);letter-spacing:2px;color:var(--text4)">RUN REPORT</span><span style="font-size:16px;font-weight:800;letter-spacing:.3px">Run #'+d.id+'</span><span style="font-size:16px;font-weight:600">'+stratTag(d.strategy,'16px')+'</span><span style="margin-left:auto;font-size:var(--fsxs);font-weight:800;color:'+_scol+'">'+nPass+'/'+nAddr+' checks ✓</span></div>'
+        +'<div id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex-wrap:nowrap;margin-bottom:13px;scroll-margin-top:8px">'+segs+'</div>'
         +'</div>';
       // ── Numbered checklist sections: group each Results panel under its deploy step
       //    (2 In-sample · 3 Plateau · 4 Stress · 5 Out-of-sample · 8 Drawdown) so the
@@ -5274,7 +5277,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // scrolls. No overflow:auto ancestor (would trap the sticky in a pane), background
       // transparent so it blends with the tile.
       const _tbEl=document.querySelector('.topbar'),_rhEl=el('res-head');
-      if(_rhEl){const tbH=_tbEl?_tbEl.offsetHeight:64;_rhEl.style.position='sticky';_rhEl.style.top=(tbH-1)+'px';_rhEl.style.zIndex='6';_rhEl.style.background='var(--bg2)';_rhEl.style.paddingTop='4px';_rhEl.style.marginTop='-2px';_rhEl.style.boxShadow='0 6px 10px -8px rgba(0,0,0,.5)';}
+      if(_rhEl){const tbH=_tbEl?_tbEl.offsetHeight:64;_rhEl.style.position='sticky';_rhEl.style.top=(tbH-1)+'px';_rhEl.style.zIndex='6';_rhEl.style.background='var(--bg2)';_rhEl.style.paddingTop='4px';}
       // jump the WINDOW so the target lands below the topbar + the frozen header block.
       const _scrollToId=(id)=>{const t=el(id);if(!t)return;const tb=document.querySelector('.topbar'),rh=el('res-head');const off=(tb?tb.offsetHeight:0)+((rh&&id!=='res-pills'&&id!=='res-head')?rh.offsetHeight:0)+10;const y=t.getBoundingClientRect().top+window.scrollY-off;window.scrollTo({top:Math.max(0,y),behavior:'smooth'});};
       content.querySelectorAll('[data-vstep-go]').forEach(p=>{p.onclick=()=>_scrollToId('res-step-'+p.dataset.vstepGo);});
