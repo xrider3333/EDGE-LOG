@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='31.5';
+const VERSION='31.6';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4574,8 +4574,24 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   children of the report tile (NO wrapper) — so the pills' sticky containing block
       //   is the tall tile, letting them stay pinned through the whole report. The title row
       //   scrolls away normally; only the pills freeze (see the sticky wiring below).
-      const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:9px;margin-bottom:9px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">RUN REPORT</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600">'+stratTag(d.strategy,'14px')+'</span></div>'
-        +'<div id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex-wrap:nowrap;scroll-margin-top:8px;position:sticky;position:-webkit-sticky;top:47px;z-index:6;background:var(--bg2);padding:5px 0;margin:0 0 10px">'+segs+'</div>';
+      // Single header row: title (RUN REPORT · run# · strategy) + the run meta inline, de-duped
+      //   (drop the old standalone "run #id" and the bare instrument/tf — source_name already
+      //   carries market+session). nowrap + overflow-x:auto keeps it on one row.
+      const _meta=[ (d.source_name||((d.instrument||'')+' '+(d.timeframe||'')).trim()),
+          (d.scope||''),
+          (_dnice(d.date_from)+' → '+_dnice(d.date_to)),
+          (d.days_in_test?(+d.days_in_test).toLocaleString()+'d':''),
+          (d.bars?(+d.bars).toLocaleString()+' bars':''),
+          ((d.n_valid||0)+'/'+(d.n_combos||0)+' cfg'),
+          (d.elapsed_s?(d.elapsed_s>=60?(d.elapsed_s/60).toFixed(1)+'m':Math.round(d.elapsed_s)+'s'):''),
+          ((d.commission_usd!=null||d.slippage_pts!=null)?'$'+(d.commission_usd||0)+'/RT'+(d.slippage_pts?' +'+d.slippage_pts+'pt':''):''),
+          (d.app_version?'v'+d.app_version:''),
+          ('ran '+_dtnice(d.timestamp))
+        ].filter(Boolean).join(' · ');
+      const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span><span style="font-size:var(--fsxs);color:var(--text5);flex:0 0 auto">· '+_meta+'</span></div>'
+        // pinned pills: transparent + backdrop blur so they BLEND with the (glass) tile at rest
+        //   and frost the content sliding under them when pinned (no solid block on themed cards).
+        +'<div id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex-wrap:nowrap;scroll-margin-top:8px;position:sticky;position:-webkit-sticky;top:47px;z-index:6;background:transparent;backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);padding:5px 0;margin:0 0 10px">'+segs+'</div>';
       // ── Numbered checklist sections: group each Results panel under its deploy step
       //    (2 In-sample · 3 Plateau · 4 Stress · 5 Out-of-sample · 8 Drawdown) so the
       //    report cross-references the validation checklist. Empty steps are omitted. ──
@@ -4594,15 +4610,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _sec5=isOosFoldsHtml(d,mlt);
       const _sec8=mcHtml+distPanelHtml(d.dist,mlt)+maeMfePanelHtml(d.mae_mfe,mlt);
       return hdrHtml
-        +'<div style="color:var(--text4);font-size:var(--fsxs);margin-bottom:12px;line-height:1.7">run #'+d.id+' · ran '+_dtnice(d.timestamp)+' · '+instTag(d.instrument)+' '+(d.timeframe||'')+' · '+(d.scope||'')
-          +' · range '+_dnice(d.date_from)+' → '+_dnice(d.date_to)
-          +(d.days_in_test?' · '+(+d.days_in_test).toLocaleString()+' days':'')
-          +(d.bars?' · '+(+d.bars).toLocaleString()+' bars':'')
-          +(d.elapsed_s?' · took '+(d.elapsed_s>=60?(d.elapsed_s/60).toFixed(1)+'m':Math.round(d.elapsed_s)+'s'):'')
-          +' · '+(d.n_valid||0)+'/'+(d.n_combos||0)+' configs'
-          +(d.source_name?' · '+d.source_name:(d.data_source?' · '+d.data_source:''))
-          +((d.commission_usd!=null||d.slippage_pts!=null)?' · cost $'+(d.commission_usd||0)+'/RT + '+(d.slippage_pts||0)+'pt':'')
-          +(d.app_version?' · AUGUR v'+d.app_version:'')+'</div>'
         +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px">'+(d.starred?'★':'☆')+'</span><input id="det-note" value="'+String(d.note||'').replace(/"/g,'&quot;')+'" placeholder="add a note…" style="flex:1;padding:4px 8px;font-size:var(--fsxs);border-radius:6px"/><button class="btn-ghost" id="det-note-save" data-note-id="'+d.id+'" style="padding:4px 12px;font-size:var(--fsxs);border:1px solid var(--border);border-radius:6px">save</button>'
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="width:auto;padding:4px 6px;font-size:9px;border-radius:6px"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
         +'<button class="btn-ghost" id="det-del" data-del-id="'+d.id+'" style="padding:4px 10px;font-size:var(--fsxs);border:1px solid var(--red);border-radius:6px;color:var(--red)">delete</button></div>'
