@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='31.1';
+const VERSION='31.2';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4575,7 +4575,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   is frozen to the top of the tile as the report scrolls; its background matches the
       //   tile (solid --bg2, no shadow) so content slides cleanly underneath.
       const hdrHtml='<div id="res-head" style="background:var(--bg2)">'
-        +'<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:9px"><span class="lbl" style="font-size:var(--fsxs);letter-spacing:2px;color:var(--text4)">RUN REPORT</span><span style="font-size:16px;font-weight:800;letter-spacing:.3px">Run #'+d.id+'</span><span style="font-size:16px;font-weight:600">'+stratTag(d.strategy,'16px')+'</span><span style="margin-left:auto;font-size:var(--fsxs);font-weight:800;color:'+_scol+'">'+nPass+'/'+nAddr+' checks ✓</span></div>'
+        +'<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:9px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">RUN REPORT</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600">'+stratTag(d.strategy,'14px')+'</span></div>'
         +'<div id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex-wrap:nowrap;margin-bottom:13px;scroll-margin-top:8px">'+segs+'</div>'
         +'</div>';
       // ── Numbered checklist sections: group each Results panel under its deploy step
@@ -5276,10 +5276,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Freeze the checklist pills to the WINDOW (below the sticky topbar) as the page
       // scrolls. No overflow:auto ancestor (would trap the sticky in a pane), background
       // transparent so it blends with the tile.
-      const _tbEl=document.querySelector('.topbar'),_rhEl=el('res-head');
-      if(_rhEl){const tbH=_tbEl?_tbEl.offsetHeight:64;_rhEl.style.position='sticky';_rhEl.style.top=(tbH-1)+'px';_rhEl.style.zIndex='6';_rhEl.style.background='var(--bg2)';_rhEl.style.paddingTop='4px';}
-      // jump the WINDOW so the target lands below the topbar + the frozen header block.
-      const _scrollToId=(id)=>{const t=el(id);if(!t)return;const tb=document.querySelector('.topbar'),rh=el('res-head');const off=(tb?tb.offsetHeight:0)+((rh&&id!=='res-pills'&&id!=='res-head')?rh.offsetHeight:0)+10;const y=t.getBoundingClientRect().top+window.scrollY-off;window.scrollTo({top:Math.max(0,y),behavior:'smooth'});};
+      // Freeze ONLY the thin checklist-pills row to the window (below the sticky topbar);
+      // the title row (RUN REPORT · run# · strategy) scrolls away normally. Opaque --bg2
+      // (= tile colour) so content slides cleanly under the one pinned row.
+      const _tbEl=document.querySelector('.topbar'),_rpEl=el('res-pills');
+      if(_rpEl){const tbH=_tbEl?_tbEl.offsetHeight:64;_rpEl.style.position='sticky';_rpEl.style.top=(tbH-1)+'px';_rpEl.style.zIndex='6';_rpEl.style.background='var(--bg2)';_rpEl.style.padding='5px 0';_rpEl.style.margin='0 0 10px';}
+      // jump the WINDOW so the target lands below the topbar + the frozen pills row.
+      const _scrollToId=(id)=>{const t=el(id);if(!t)return;const tb=document.querySelector('.topbar'),rp=el('res-pills');const off=(tb?tb.offsetHeight:0)+((rp&&id!=='res-pills'&&id!=='res-head')?rp.offsetHeight:0)+10;const y=t.getBoundingClientRect().top+window.scrollY-off;window.scrollTo({top:Math.max(0,y),behavior:'smooth'});};
       content.querySelectorAll('[data-vstep-go]').forEach(p=>{p.onclick=()=>_scrollToId('res-step-'+p.dataset.vstepGo);});
       content.querySelectorAll('[data-vstep-back]').forEach(h=>{h.onclick=()=>_scrollToId('res-head');});
       const _ns=el('det-note-save');if(_ns)_ns.onclick=()=>{const nv=el('det-note');if(nv&&runsRef)runsRef.doc(String(_ns.dataset.noteId)).update({note:nv.value}).then(()=>{_ns.textContent='saved ✓';setTimeout(()=>{if(el('det-note-save'))el('det-note-save').textContent='save';},1500);}).catch(e=>alert('note failed: '+e.message));};
