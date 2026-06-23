@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='32.3';
+const VERSION='32.4';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4390,6 +4390,30 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const bar=o=>'<div style="display:flex;align-items:center;gap:8px;margin:3px 0;font-size:var(--fsxs)"><span style="flex:0 0 130px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_pp(o.k)+'</span><span style="flex:1;position:relative;height:10px;background:var(--bg1);border-radius:2px"><span style="position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--border)"></span><span style="position:absolute;'+(o.r>=0?'left:50%':'right:50%')+';top:1px;height:8px;width:'+(Math.abs(o.r)*50).toFixed(1)+'%;background:'+(o.r>=0?'var(--green)':'var(--red)')+';opacity:.6;border-radius:2px"></span></span><span style="flex:0 0 38px;text-align:right;color:'+(o.r>=0?'var(--green)':'var(--red)')+'">'+o.r.toFixed(2)+'</span></div>';
       return '<div class="lbl" style="margin:8px 0 6px">PARAM CORRELATION · each parameter vs PnL (−1…+1)</div><div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px">'+rows.map(bar).join('')+'</div>';
     };
+    // PARALLEL COORDINATES — every config as a line across one vertical axis per parameter plus a
+    // final NET $ axis (legacy Augur style). Lines coloured by PnL; hover a line for its config.
+    const parallelCoordsHtml=(points,mult)=>{
+      if(!points||points.length<6)return '';
+      const keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&typeof points[0][k]==='number');
+      if(keys.length<2)return '';
+      const axes=keys.concat(['pnl']),dom={};
+      axes.forEach(k=>{const vs=points.map(p=>k==='pnl'?p.pnl*mult:p[k]);dom[k]=[Math.min.apply(null,vs),Math.max.apply(null,vs)];});
+      const W=600,H=200,padT=16,padB=28,padX=10,n=axes.length,ax=i=>padX+(W-2*padX)*i/(n-1);
+      const Y=(k,v)=>{const m=dom[k];return (H-padB)-((v-m[0])/((m[1]-m[0])||1))*((H-padB)-padT);};
+      const pmx=Math.max.apply(null,points.map(p=>Math.abs(p.pnl)))||1;
+      const rnd=v=>Number.isInteger(v)?v:(+v).toFixed(2);
+      const pts=points.slice().sort((a,b)=>a.pnl-b.pnl);   // best drawn last (on top)
+      const lines=pts.map(p=>{const dd=axes.map((k,i)=>(i?'L':'M')+ax(i).toFixed(1)+' '+Y(k,k==='pnl'?p.pnl*mult:p[k]).toFixed(1)).join(' ');
+        const t=p.pnl/pmx,col=(p.pnl>=0?'rgba(29,158,117,':'rgba(226,75,74,'),op=Math.min(.72,Math.abs(t)*0.6+0.08);
+        const tip='net <b style=&quot;color:'+(p.pnl>=0?'#1d9e75':'#e24b4a')+'&quot;>'+fmtUsd(Math.round(p.pnl*mult))+'</b><br>'+keys.map(k=>_pp(k)+' <b>'+rnd(p[k])+'</b>').join(' · ');
+        return '<path d="'+dd+'" fill="none" stroke="'+col+op+')" stroke-width="1" style="pointer-events:stroke" data-tip="'+tip+'"/>';}).join('');
+      const axled=axes.map((k,i)=>{const x=ax(i);return '<line x1="'+x.toFixed(1)+'" y1="'+padT+'" x2="'+x.toFixed(1)+'" y2="'+(H-padB)+'" stroke="var(--border)" stroke-width="1"/>'
+        +'<text x="'+x.toFixed(1)+'" y="'+(H-padB+11)+'" text-anchor="middle" font-size="7" fill="'+(k==='pnl'?'var(--text3)':'var(--text5)')+'">'+(k==='pnl'?'NET $':_pp(k))+'</text>'
+        +'<text x="'+x.toFixed(1)+'" y="'+(padT-4)+'" text-anchor="middle" font-size="6" fill="var(--text5)">'+(k==='pnl'?fmtUsd(Math.round(dom[k][1])):rnd(dom[k][1]))+'</text>'
+        +'<text x="'+x.toFixed(1)+'" y="'+(H-padB-2)+'" text-anchor="middle" font-size="6" fill="var(--text5)">'+(k==='pnl'?fmtUsd(Math.round(dom[k][0])):rnd(dom[k][0]))+'</text>';}).join('');
+      return '<div class="lbl" style="margin:8px 0 6px">PARALLEL COORDINATES · '+points.length+' configs across every param → net $ <span style="color:var(--text5);font-weight:400">(hover a line)</span></div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="210" preserveAspectRatio="xMidYMid meet">'+lines+axled+'</svg></div>';
+    };
     // WALK-FORWARD IS vs OOS — grouped bars per fold: in-sample champion PnL vs out-of-sample.
     const isOosFoldsHtml=(d,mult)=>{
       const t=d.top10_results;if(!Array.isArray(t))return '';
@@ -4639,6 +4663,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         distPanelHtml(d.dist,mlt),
         nbHtml,
         ((d.dsr?'<div class="lbl" style="margin:0 0 4px;font-size:9px;color:var(--text5)">DEFLATED SHARPE · selection-luck haircut</div>':'')+dsrHtml),
+        parallelCoordsHtml(d.points,mlt),
         scatterPanelHtml(d.points,mlt),
         heatmapPanelHtml(d.points,mlt),
         corrPanelHtml(d.points)]);
