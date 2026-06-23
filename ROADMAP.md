@@ -12,6 +12,16 @@ app reaches parity, then is retired. Ship tab-by-tab, version-bumped 0.1 each ch
 ---
 
 ## 0. Infra / data consolidation (loose ends)
+- [x] **Single EDGE-LOG folder for runner + edits (done 2026-06-22).** There were TWO clones
+      of this repo: `C:\Users\xride\EDGE-LOG` (code-only — no cred, no `augur_uploads/` masters)
+      and `C:\Users\xride\OneDrive\Desktop\EDGE-LOG` (data-rich — `serviceAccount.json`,
+      `augur_config.json`, 1.1 GB masters; **this is where the runner actually runs**, via its
+      `run_augur_runner.bat`). Engine pushes were going to the code-only clone while the runner
+      read the data-rich one, so a 13-commit-stale `augur_engine` silently dropped new fields
+      (this is what made `win_dist` / the trade-PnL distribution curve never populate). FIX:
+      **`OneDrive\Desktop\EDGE-LOG` is now canonical for both editing AND the runner**; the
+      `C:\Users\xride\EDGE-LOG` clone is retired (left as a backup). After any engine change,
+      **restart the runner** so it reloads `augur_engine`. Do NOT reintroduce a second clone.
 - [ ] **Retire the duplicate AUGUR desktop folder.** EDGE-LOG is now the complete copy
       (serviceAccount.json + optimizer_history.db [112 runs] + augur_uploads [25 CSVs] +
       augur_config.json with model numbers + migrated ORB roadmap + pine/ [22 files]). The
