@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='32.0';
+const VERSION='32.1';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4400,40 +4400,47 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const held=fs.filter(f=>f.pf>1).length;let sOos=0,sTe=0,sIs=0,sTr=0;fs.forEach(f=>{sOos+=f.oos;sTe+=f.te;sIs+=f.is;sTr+=f.tr;});
       const wfe=(sTr>0&&sTe>0&&sIs/sTr!==0)?((sOos/sTe)/(sIs/sTr)):null;
       const mxabs=Math.max.apply(null,fs.map(f=>Math.max(Math.abs(f.is),Math.abs(f.oos))))||1;
+      // OOS pass/fail forced to literal green/red — theme greens (e.g. mercury) are too muted to read.
+      const _G='#1d9e75',_R='#e24b4a';
       const W=560,H=144,gw=W/fs.length,mid=H/2-8,bw=gw*0.3;
       const bars=fs.map((f,i)=>{const x=i*gw,isH=(Math.abs(f.is)/mxabs)*(mid-12),oH=(Math.abs(f.oos)/mxabs)*(mid-12);
         return '<rect x="'+(x+gw*0.14).toFixed(1)+'" y="'+(f.is>=0?mid-isH:mid).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+isH.toFixed(1)+'" fill="var(--text4)" opacity="0.5"/>'
-          +'<rect x="'+(x+gw*0.14+bw+3).toFixed(1)+'" y="'+(f.oos>=0?mid-oH:mid).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+oH.toFixed(1)+'" fill="'+(f.oos>=0?'var(--green)':'var(--red)')+'" opacity="0.75"/>'
-          +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-13)+'" text-anchor="middle" font-size="8" fill="'+(f.pf>1?'var(--green)':'var(--red)')+'">PF '+f.pf.toFixed(2)+'</text>'
+          +'<rect x="'+(x+gw*0.14+bw+3).toFixed(1)+'" y="'+(f.oos>=0?mid-oH:mid).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+oH.toFixed(1)+'" fill="'+(f.oos>=0?_G:_R)+'" opacity="0.9"/>'
+          +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-13)+'" text-anchor="middle" font-size="8" fill="'+(f.pf>1?_G:_R)+'">PF '+f.pf.toFixed(2)+'</text>'
           +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-3)+'" text-anchor="middle" font-size="8" fill="var(--text5)">f'+f.fold+'</text>';}).join('');
       const modeBadge=mode?'<span title="'+(mode==='ANCHORED'?'expanding in-sample window — each fold re-optimizes on ALL history up to it':'fixed-length in-sample window — each fold re-optimizes on a constant-size recent slice')+'" style="font-size:8px;padding:1px 6px;border-radius:6px;background:var(--bg1);border:1px solid var(--border);color:var(--text3)">'+mode+'</span>':'';
-      return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">WALK-FORWARD '+modeBadge+'<span style="color:'+(held/fs.length>=0.6?'var(--green)':'var(--yellow)')+'">'+held+'/'+fs.length+' folds held OOS</span>'+(wfe!=null?'<span style="color:var(--text4);font-weight:400" title="OOS return-per-bar ÷ IS return-per-bar. >60% strong, <40% likely curve-fit.">· efficiency '+Math.round(wfe*100)+'%</span>':'')+'</div>'
+      return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">WALK-FORWARD '+modeBadge+'<span style="color:'+(held/fs.length>=0.6?_G:'var(--yellow)')+'">'+held+'/'+fs.length+' folds held OOS</span>'+(wfe!=null?'<span style="color:var(--text4);font-weight:400" title="OOS return-per-bar ÷ IS return-per-bar. >60% strong, <40% likely curve-fit.">· efficiency '+Math.round(wfe*100)+'%</span>':'')+'</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:5px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="132" preserveAspectRatio="none"><line x1="0" y1="'+mid+'" x2="'+W+'" y2="'+mid+'" stroke="var(--border)"/>'+bars+'</svg></div>'
         +'<div style="font-size:8px;color:var(--text5);margin-bottom:14px">grey = in-sample (optimize window) · green/red = out-of-sample PnL · PF under each fold is its OOS · total OOS '+fmtUsd(Math.round(sOos))+(mode?' · '+(mode==='ANCHORED'?'anchored: IS window expands each fold':'rolling: IS window stays fixed-length'):'')+'</div>';
     };
     // Shared Auto-Validate report card (verdict + 5 gates + equity curve + lockbox) —
     // used by both the Builder run panel and the Results/Past-Runs detail so they match.
-    const validateCardHtml=(V,mlt,stratLabel)=>{
+    const validateCardHtml=(V,mlt,stratLabel,folds)=>{
       const vc={PASS:'var(--green)',WEAK:'var(--yellow)',FAIL:'var(--red)'}[V.verdict]||'var(--text4)',lb=V.lockbox||{},W=V.windows||{optimize:['','']},ng=V.n_gates||5,pl=V.plateau||{};
       const chk=(ok,lbl,detail)=>'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;flex:1 1 230px"><span style="flex:0 0 auto;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:'+(ok?'var(--green)':'var(--red)')+';color:#04130c;font-size:10px;font-weight:900">'+(ok?'✓':'✕')+'</span><span style="font-size:var(--fsxs);color:var(--text2)">'+lbl+'</span><span style="font-size:8px;color:var(--text5)">'+detail+'</span></div>';
       const eq=(V.equity||[]).map(x=>x*mlt),li=V.lb_idx||eq.length,EW=600,EH=130,pd=6;
       let eqSvg='';if(eq.length>2){const mn=Math.min(0,...eq),mx=Math.max(0,...eq),rg=(mx-mn)||1,X=i=>pd+(EW-2*pd)*i/(eq.length-1),Y=v=>EH-pd-(EH-2*pd)*(v-mn)/rg,bx=X(Math.min(li,eq.length-1)),z=Y(0);
         const seg=(a,b)=>eq.slice(a,b).map((v,i)=>((i?'L':'M')+X(a+i).toFixed(1)+' '+Y(v).toFixed(1))).join(' ');
+        // walk-forward TEST windows shaded across the in-sample region (alternating blue), placed
+        //   by each fold's bar-fraction of the WF span; the early training-only slice stays plain.
+        let wfBands='',wfNote='';
+        const _fs=(Array.isArray(folds)?folds:[]).filter(f=>f&&f.fold!=null&&(+f.test_bars>0)).sort((a,b)=>a.fold-b.fold);
+        if(_fs.length>=2){const _tr0=+_fs[0].train_bars||0,_tb=_fs.map(f=>+f.test_bars||0),_span=_tr0+_tb.reduce((s,x)=>s+x,0);
+          if(_span>0){let _acc=_tr0;wfBands=_fs.map((f,i)=>{const _x0=bx*_acc/_span,_x1=bx*(_acc+_tb[i])/_span;_acc+=_tb[i];return '<rect x="'+_x0.toFixed(1)+'" y="0" width="'+Math.max(0,_x1-_x0).toFixed(1)+'" height="'+EH+'" fill="'+((i%2===0)?'rgba(96,165,250,.16)':'rgba(96,165,250,.30)')+'"/>';}).join('');
+            wfNote='<span style="color:#60a5fa">▦ '+_fs.length+' walk-forward test windows</span>';}}
         const svg='<svg width="100%" height="'+EH+'" viewBox="0 0 '+EW+' '+EH+'" preserveAspectRatio="none" style="display:block;border-radius:8px;background:var(--bg1)">'
+          +wfBands
+          +'<rect x="'+bx.toFixed(1)+'" y="0" width="'+(EW-bx).toFixed(1)+'" height="'+EH+'" fill="rgba(167,139,250,.16)"/>'
           +'<line x1="0" y1="'+(EH/2)+'" x2="'+EW+'" y2="'+(EH/2)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.35"/>'
           +'<line x1="0" y1="'+z.toFixed(1)+'" x2="'+EW+'" y2="'+z.toFixed(1)+'" stroke="var(--border)" stroke-width="1"/>'
-          +'<rect x="0" y="0" width="'+bx.toFixed(1)+'" height="'+EH+'" fill="rgba(52,211,153,.07)"/>'
-          +'<rect x="'+bx.toFixed(1)+'" y="0" width="'+(EW-bx).toFixed(1)+'" height="'+EH+'" fill="rgba(167,139,250,.20)"/>'
           +'<line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+EH+'" stroke="#a78bfa" stroke-width="1.3" stroke-dasharray="4,3"/>'
-          +'<text x="'+(bx-4).toFixed(1)+'" y="11" text-anchor="end" font-size="8" fill="var(--green)" opacity="0.85">in-sample</text>'
-          +'<text x="'+(bx+4).toFixed(1)+'" y="11" font-size="8" fill="#a78bfa" opacity="0.95">lockbox / OOS →</text>'
           +'<path d="'+seg(0,li+1)+'" fill="none" stroke="var(--green)" stroke-width="1.6"/>'
           +'<path d="'+seg(li,eq.length)+'" fill="none" stroke="#a78bfa" stroke-width="1.6"/></svg>';
-        eqSvg='<div class="lbl" style="margin:10px 0 4px;font-size:9px;color:var(--text5)">CHAMPION EQUITY · in-sample vs walk-forward lockbox · 1 contract</div>'
+        eqSvg='<div class="lbl" style="margin:10px 0 4px;font-size:9px;color:var(--text5)">CHAMPION EQUITY · in-sample (walk-forward) → lockbox · 1 contract</div>'
           +'<div style="display:flex;gap:7px"><div style="display:flex;flex-direction:column;justify-content:space-between;font-size:8px;color:var(--text5);text-align:right;min-width:46px;padding:1px 0">'
           +'<span>'+fmtUsd(Math.round(mx))+'</span><span>'+fmtUsd(Math.round((mx+mn)/2))+'</span><span>'+fmtUsd(Math.round(mn))+'</span></div>'
           +'<div style="flex:1">'+svg
-          +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5);margin-top:3px"><span style="color:var(--green)">● in-sample (optimized '+(W.optimize[0]||'start')+'→'+(W.optimize[1]||'')+')</span><span style="color:#a78bfa">● lockbox = out-of-sample · last '+W.lockbox_months+'mo, never seen</span></div></div></div>';}
+          +'<div style="display:flex;gap:11px;flex-wrap:wrap;font-size:8px;color:var(--text5);margin-top:3px"><span style="color:var(--green)">● in-sample (optimized '+(W.optimize[0]||'start')+'→'+(W.optimize[1]||'')+')</span>'+wfNote+'<span style="color:#a78bfa">● lockbox = OOS · last '+W.lockbox_months+'mo, never seen</span></div></div></div>';}
       return '<div class="lbl" style="margin:2px 0 8px">AUTO-VALIDATE · '+stratLabel+'</div>'
         +'<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><div style="font-size:26px;font-weight:800;color:'+vc+';letter-spacing:1px">'+V.verdict+'</div><div style="font-size:var(--fsxs);color:var(--text4)">'+V.n_pass+'/'+ng+' gates · IS PF '+Math.min(V.is_pf||0,99).toFixed(2)+(V.is_sharpe!=null?' · Sharpe '+(+V.is_sharpe).toFixed(2):'')+' · optimized '+(W.optimize[0]||'start')+' → '+W.optimize[1]+' · lockbox last '+W.lockbox_months+'mo (never seen)'+(V.discover==='evolve'?(V.evolved_file?' · <span style="color:#a78bfa">🧬 AI-evolved → '+V.evolved_file+'</span>':' · <span style="color:var(--red)">🧬 evolve failed'+(V.discover_err?' ('+V.discover_err+')':'')+'</span>'):'')+'</div></div>'
         +((V.transfer&&V.transfer.length)?'<div style="margin-top:7px;font-size:var(--fsxs);color:var(--text3)">↔ Champion re-tested (no re-fit): '+V.transfer.map(t=>instTag(t.inst)+' '+(t.pass?'<b style="color:var(--green)">holds</b>':'<b style="color:var(--red)">fails</b>')+' · PF '+Math.min(t.pf||0,99).toFixed(2)+' · '+fmtUsd(Math.round((t.pnl||0)*instMult(t.inst)))+' · '+(t.trades||0)+' trd').join('　·　')+'</div>':'')
@@ -4532,7 +4539,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="font-size:8px;color:var(--text5);margin-bottom:6px">each parameter is nudged one grid-step up &amp; down — every nudge is a “neighbour”. dots clustered at/above PF&nbsp;1 = a plateau (robust); dots scattered below while only the winner is high = a lucky spike.</div>'
           +graph
           +'<div style="overflow-x:auto;margin-bottom:16px"><table class="table" style="font-size:var(--fsxs)"><thead><tr><th>parameter</th><th style="text-align:center">one step lower</th><th style="text-align:center">winner</th><th style="text-align:center">one step higher</th></tr></thead><tbody>'+nrows+'</tbody></table></div>';}
-      const valdCard=d.validate?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'+validateCardHtml(d.validate,(d.multiplier||20),stratTag(d.strategy))+'</div>':'';
+      const valdCard=d.validate?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'+validateCardHtml(d.validate,(d.multiplier||20),stratTag(d.strategy),d.top10_results)+'</div>':'';
       // ── Per-run validation status: map THIS run's analytics onto the 10-step deploy
       //    checklist so the report card reads as the checklist. Steps 2/3/4/5/6/7/8
       //    auto-derive from the run's own best_pf/neighborhood/stress/folds/transfer/
