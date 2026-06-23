@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='31.6';
+const VERSION='31.7';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -5288,7 +5288,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // the title row (RUN REPORT · run# · strategy) scrolls away normally. Opaque --bg2
       // (= tile colour) so content slides cleanly under the one pinned row.
       const _tbEl=document.querySelector('.topbar'),_rpEl=el('res-pills');
-      if(_rpEl){const tbH=_tbEl?_tbEl.offsetHeight:64;_rpEl.style.position='sticky';_rpEl.style.top=(tbH-1)+'px';_rpEl.style.zIndex='6';_rpEl.style.background='var(--bg2)';_rpEl.style.padding='5px 0';_rpEl.style.margin='0 0 10px';}
+      // markup already declares the full sticky (position/top/z/background/blur); here we only
+      // refine `top` to the ACTUAL topbar height. Do NOT set a solid background — it must stay
+      // transparent+backdrop-blur so it blends with the (glass) tile.
+      if(_rpEl){const tbH=_tbEl?_tbEl.offsetHeight:64;_rpEl.style.position='sticky';_rpEl.style.top=(tbH-1)+'px';_rpEl.style.zIndex='6';}
       // jump the WINDOW so the target lands below the topbar + the frozen pills row.
       const _scrollToId=(id)=>{const t=el(id);if(!t)return;const tb=document.querySelector('.topbar'),rp=el('res-pills');const off=(tb?tb.offsetHeight:0)+((rp&&id!=='res-pills'&&id!=='res-head')?rp.offsetHeight:0)+10;const y=t.getBoundingClientRect().top+window.scrollY-off;window.scrollTo({top:Math.max(0,y),behavior:'smooth'});};
       content.querySelectorAll('[data-vstep-go]').forEach(p=>{p.onclick=()=>_scrollToId('res-step-'+p.dataset.vstepGo);});
