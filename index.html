@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='32.2';
+const VERSION='32.3';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4405,14 +4405,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // OOS pass/fail forced to literal green/red — theme greens (e.g. mercury) are too muted to read.
       const _G='#1d9e75',_R='#e24b4a';
       const W=560,H=144,gw=W/fs.length,mid=H/2-8,bw=gw*0.3;
+      // approx test-window dates per fold (folds carry bar counts, not dates): map each fold's
+      //   bar position across the optimize window to a calendar date for the hover tooltip.
+      const _W2=(d.validate&&d.validate.windows)||{},_optF=_W2.optimize&&_W2.optimize[0],_optT=_W2.optimize&&_W2.optimize[1];
+      const _span=fs.reduce((s,f)=>s+f.te,0)+(fs[0]?fs[0].tr:0);
+      const _dAt=fr=>{if(!_optF||!_optT)return '';const a=+new Date(_optF),b=+new Date(_optT);return new Date(a+(b-a)*fr).toISOString().slice(0,10);};
+      const usd=v=>fmtUsd(Math.round(v));
+      let _acc=(fs[0]?fs[0].tr:0),hits='';
       const bars=fs.map((f,i)=>{const x=i*gw,isH=(Math.abs(f.is)/mxabs)*(mid-12),oH=(Math.abs(f.oos)/mxabs)*(mid-12);
+        const dr=(_span>0&&_optF)?(_dAt(_acc/_span)+' → '+_dAt((_acc+f.te)/_span)):'';_acc+=f.te;
+        hits+='<rect x="'+x.toFixed(1)+'" y="0" width="'+gw.toFixed(1)+'" height="'+H+'" fill="transparent" style="cursor:pointer" data-tip="<b>Fold f'+f.fold+'</b>'+(dr?(' · test '+dr):'')+'<br>in-sample '+usd(f.is)+' · out-of-sample <b style=&quot;color:'+(f.oos>=0?_G:_R)+'&quot;>'+usd(f.oos)+'</b><br>OOS profit factor <b>'+f.pf.toFixed(2)+'</b> · '+(f.pf>1?'held ✓':'failed ✕')+'"/>';
         return '<rect x="'+(x+gw*0.14).toFixed(1)+'" y="'+(f.is>=0?mid-isH:mid).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+isH.toFixed(1)+'" fill="var(--text4)" opacity="0.5"/>'
           +'<rect x="'+(x+gw*0.14+bw+3).toFixed(1)+'" y="'+(f.oos>=0?mid-oH:mid).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+oH.toFixed(1)+'" fill="'+(f.oos>=0?_G:_R)+'" opacity="0.9"/>'
           +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-13)+'" text-anchor="middle" font-size="8" fill="'+(f.pf>1?_G:_R)+'">PF '+f.pf.toFixed(2)+'</text>'
           +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-3)+'" text-anchor="middle" font-size="8" fill="var(--text5)">f'+f.fold+'</text>';}).join('');
       const modeBadge=mode?'<span title="'+(mode==='ANCHORED'?'expanding in-sample window — each fold re-optimizes on ALL history up to it':'fixed-length in-sample window — each fold re-optimizes on a constant-size recent slice')+'" style="font-size:8px;padding:1px 6px;border-radius:6px;background:var(--bg1);border:1px solid var(--border);color:var(--text3)">'+mode+'</span>':'';
       return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">WALK-FORWARD '+modeBadge+'<span style="color:'+(held/fs.length>=0.6?_G:'var(--yellow)')+'">'+held+'/'+fs.length+' folds held OOS</span>'+(wfe!=null?'<span style="color:var(--text4);font-weight:400" title="OOS return-per-bar ÷ IS return-per-bar. >60% strong, <40% likely curve-fit.">· efficiency '+Math.round(wfe*100)+'%</span>':'')+'</div>'
-        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:5px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="132" preserveAspectRatio="none"><line x1="0" y1="'+mid+'" x2="'+W+'" y2="'+mid+'" stroke="var(--border)"/>'+bars+'</svg></div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:5px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="132" preserveAspectRatio="none"><line x1="0" y1="'+mid+'" x2="'+W+'" y2="'+mid+'" stroke="var(--border)"/>'+bars+hits+'</svg></div>'
         +'<div style="font-size:8px;color:var(--text5);margin-bottom:14px">grey = in-sample (optimize window) · green/red = out-of-sample PnL · PF under each fold is its OOS · total OOS '+fmtUsd(Math.round(sOos))+(mode?' · '+(mode==='ANCHORED'?'anchored: IS window expands each fold':'rolling: IS window stays fixed-length'):'')+'</div>';
     };
     // Shared Auto-Validate report card (verdict + 5 gates + equity curve + lockbox) —
@@ -4634,18 +4643,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
         heatmapPanelHtml(d.points,mlt),
         corrPanelHtml(d.points)]);
       const _sec4=_secOf(4,[stressPanelHtml(d.stress,mlt), regHtml]);
-      const _sec5=_secOf(5,[isOosFoldsHtml(d,mlt)]);
+      // Walk-forward folds (was its own §5) now live INSIDE §1 — they ARE the out-of-sample
+      //   detail behind chart 1's WF bands. The res-step-5 anchor keeps pill 5 jumping here.
+      const _wfFolds='<div id="res-step-5" style="scroll-margin-top:64px"></div>'+isOosFoldsHtml(d,mlt);
       // 8 Drawdown = worst-case equity-path sizing (Monte-Carlo P95).
       const _sec8=_secOf(8,[mcHtml]);
       return hdrHtml
         +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><input id="det-note" value="'+String(d.note||'').replace(/"/g,'&quot;')+'" placeholder="add a note…" style="flex:1;padding:4px 8px;font-size:var(--fsxs);border-radius:6px"/><button class="btn-ghost" id="det-note-save" data-note-id="'+d.id+'" style="padding:4px 12px;font-size:var(--fsxs);border:1px solid var(--border);border-radius:6px">save</button>'
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="width:auto;padding:4px 6px;font-size:9px;border-radius:6px"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
         +'<button class="btn-ghost" id="det-del" data-del-id="'+d.id+'" style="padding:4px 10px;font-size:var(--fsxs);border:1px solid var(--red);border-radius:6px;color:var(--red)">delete</button></div>'
-        +_sec('1','Feasibility','it ran and produced trades — the idea is testable (Auto-Validate)',valdCard)
+        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',_secOf(1,[valdCard,_wfFolds]))
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         +_sec('3','Plateau','robust params — a cluster, not a lonely spike',_sec3)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4)
-        +_sec('5','Out-of-sample','survives data it was never optimized on',_sec5)
         +_sec('8','Drawdown','size for the worst-case equity path',_sec8);
     };
     let body='';
@@ -5320,6 +5330,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // refine `top` to the ACTUAL topbar height. Do NOT set a solid background — it must stay
       // transparent+backdrop-blur so it blends with the (glass) tile.
       if(_rpEl){const tbH=_tbEl?_tbEl.offsetHeight:64;_rpEl.style.position='sticky';_rpEl.style.top=(tbH-1)+'px';_rpEl.style.zIndex='6';}
+      // Interactive chart tooltips: any [data-tip] element (incl. SVG shapes) shows a floating
+      //   styled tooltip that follows the cursor. data-tip holds HTML. Reusable across all charts.
+      (function(){const _det=el('res-detail');if(!_det)return;let tip=document.getElementById('chart-tip');
+        if(!tip){tip=document.createElement('div');tip.id='chart-tip';tip.style.cssText='position:fixed;z-index:9999;pointer-events:none;display:none;max-width:280px;padding:6px 9px;border-radius:8px;background:var(--bg1);border:1px solid var(--border);color:var(--text2);font-size:10px;line-height:1.55;box-shadow:0 6px 22px rgba(0,0,0,.45)';document.body.appendChild(tip);}
+        _det.addEventListener('mousemove',e=>{const t=e.target&&e.target.closest?e.target.closest('[data-tip]'):null;if(!t){tip.style.display='none';return;}tip.innerHTML=t.getAttribute('data-tip');tip.style.display='block';const r=tip.getBoundingClientRect();let x=e.clientX+14,y=e.clientY+14;if(x+r.width>innerWidth-8)x=e.clientX-r.width-14;if(y+r.height>innerHeight-8)y=e.clientY-r.height-14;tip.style.left=Math.max(4,x)+'px';tip.style.top=Math.max(4,y)+'px';},{passive:true});
+        _det.addEventListener('mouseleave',()=>{tip.style.display='none';},{passive:true});})();
       // jump the WINDOW so the target lands below the topbar + the frozen pills row.
       const _scrollToId=(id)=>{const t=el(id);if(!t)return;const tb=document.querySelector('.topbar'),rp=el('res-pills');const off=(tb?tb.offsetHeight:0)+((rp&&id!=='res-pills'&&id!=='res-head')?rp.offsetHeight:0)+10;const y=t.getBoundingClientRect().top+window.scrollY-off;window.scrollTo({top:Math.max(0,y),behavior:'smooth'});};
       content.querySelectorAll('[data-vstep-go]').forEach(p=>{p.onclick=()=>_scrollToId('res-step-'+p.dataset.vstepGo);});
