@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='31.3';
+const VERSION='31.4';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4575,7 +4575,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   is the tall tile, letting them stay pinned through the whole report. The title row
       //   scrolls away normally; only the pills freeze (see the sticky wiring below).
       const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:9px;margin-bottom:9px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">RUN REPORT</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600">'+stratTag(d.strategy,'14px')+'</span></div>'
-        +'<div id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex-wrap:nowrap;margin-bottom:13px;scroll-margin-top:8px">'+segs+'</div>';
+        +'<div id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex-wrap:nowrap;scroll-margin-top:8px;position:sticky;position:-webkit-sticky;top:47px;z-index:6;background:var(--bg2);padding:5px 0;margin:0 0 10px">'+segs+'</div>';
       // ── Numbered checklist sections: group each Results panel under its deploy step
       //    (2 In-sample · 3 Plateau · 4 Stress · 5 Out-of-sample · 8 Drawdown) so the
       //    report cross-references the validation checklist. Empty steps are omitted. ──
