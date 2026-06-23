@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='31.8';
+const VERSION='31.9';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4565,7 +4565,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _scol=(nAddr&&nPass/nAddr>=0.7)?'var(--green)':(nAddr&&nPass/nAddr>=0.4)?'var(--yellow)':'var(--text4)';
       // Steps 2/3/4/5/8 have report sections (res-step-N anchors); their pills are
       // clickable and scroll the report to that section. Each pill carries a short stat.
-      const _hasSec={2:1,3:1,4:1,5:1,8:1};
+      const _hasSec={2:1,3:1,4:1,5:1,8:1};if(d.validate)_hasSec[1]=1;   // 1 Feasibility → Auto-Validate card
       const segs=VSTEPS.map((s,i)=>{const n=i+1;const stt=vstat[s[1]];const sv=_stat[s[1]];const bg=stt==='pass'?'var(--green)':stt==='fail'?'var(--red)':'transparent';const fg=stt==='pass'?'#04130c':stt==='fail'?'#fff':'var(--text4)';const br=(stt==='pass'||stt==='fail')?'0':'1px solid var(--border)';const go=_hasSec[n]?(' data-vstep-go="'+n+'"'):'';const cur=_hasSec[n]?'cursor:pointer;':'';return '<span'+go+' title="'+n+'. '+s[0]+' — '+(stt==='pass'?'passed':stt==='fail'?'not met':'n/a / not tested')+(_hasSec[n]?' · click to jump':'')+'" style="'+cur+'display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:3px 6px;border-radius:999px;background:'+bg+';color:'+fg+';border:'+br+';font-size:8px;font-weight:700;flex:1 1 0;min-width:0;overflow:hidden"><b style="font-weight:900;flex:0 0 auto">'+n+'</b><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">'+s[0]+'</span>'+(sv?'<span style="opacity:.8;font-weight:800;flex:0 0 auto">'+sv+'</span>':'')+'</span>';}).join('');
       // Sticky header block: eyebrow title, then the run-info line (run# + strategy on one
       //   line, sized to read as the title), then the checklist pills on a single row.
@@ -4596,37 +4596,36 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // ── Numbered checklist sections: group each Results panel under its deploy step
       //    (2 In-sample · 3 Plateau · 4 Stress · 5 Out-of-sample · 8 Drawdown) so the
       //    report cross-references the validation checklist. Empty steps are omitted. ──
-      const _step=(n,label,sub)=>{const _k=(VSTEPS[(+n)-1]||[])[1];const _st=_k?vstat[_k]:'na';const _bb=_st==='pass'?'var(--green)':_st==='fail'?'var(--red)':'var(--bg1)';const _bf=_st==='pass'?'#04130c':_st==='fail'?'#fff':'var(--text2)';const _bd=(_st==='pass'||_st==='fail')?'0':'1px solid var(--border)';return '<div id="res-step-'+n+'" data-vstep-back="1" class="lbl" title="click to jump back to the checklist pills" style="margin:18px 0 8px;display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px;cursor:pointer"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;border-radius:50%;background:'+_bb+';border:'+_bd+';font-size:10px;font-weight:800;color:'+_bf+'">'+n+'</span><span style="font-weight:700">'+label+'</span>'+(sub?'<span style="font-weight:400;color:var(--text5);font-size:8px">'+sub+'</span>':'')+'<span style="margin-left:auto;font-size:8px;color:var(--text5);font-weight:600">↑ checklist</span></div>';};
+      const _step=(n,label,sub)=>{const _k=(VSTEPS[(+n)-1]||[])[1];const _st=_k?vstat[_k]:'na';const _bb=_st==='pass'?'var(--green)':_st==='fail'?'var(--red)':'var(--bg1)';const _bf=_st==='pass'?'#04130c':_st==='fail'?'#fff':'var(--text2)';const _bd=(_st==='pass'||_st==='fail')?'0':'1px solid var(--border)';return '<div id="res-step-'+n+'" data-vstep-back="1" class="lbl" title="click to jump back to the checklist pills" style="margin:22px 0 10px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px;cursor:pointer"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;border-radius:50%;background:'+_bb+';border:'+_bd+';font-size:10px;font-weight:800;color:'+_bf+'">'+n+'</span><span style="font-weight:700">'+label+'</span>'+(sub?'<span style="font-weight:400;color:var(--text5);font-size:8px">'+sub+'</span>':'')+'<span style="margin-left:auto;font-size:8px;color:var(--text5);font-weight:600">↑ checklist</span></div>';};
       const _sec=(n,label,sub,content)=>(content&&content.replace(/\s/g,''))?(_step(n,label,sub)+content):'';
-      // 2 In-sample = the CHAMPION: its summary cards, its own equity curve, its trade-level
-      //   behaviour (per-trade PnL dist + MAE/MFE excursions → stop/target geometry), top configs.
-      const _sec2=('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-bottom:14px">'+cardHtml+'</div>'
-        +eqHtml
-        +((d.date_from&&d.date_to)?'<div id="det-spy" data-spy-from="'+d.date_from+'" data-spy-to="'+d.date_to+'" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 14px"></div>':'')
-        +tradeDistPanelHtml(d.win_dist,mlt)
-        +maeMfePanelHtml(d.mae_mfe,mlt)
-        +'<div class="lbl" style="margin:8px 0 6px;font-size:9px;color:var(--text5)">TOP CONFIGS</div>'
-        +(t10.length?'<div style="overflow-x:auto"><table class="table">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>'));
-      // 3 Plateau = robustness / not-overfit-or-lucky: neighbour grid, the top-config equity
-      //   overlay (TOP PARAM PNL), the all-configs PnL spread (plateau vs isolated spike), the
-      //   deflated-Sharpe luck haircut, plus the param scatter/heatmap/correlation.
+      // subsection wrapper — a left-rail tag (2a, 2b…) beside each panel so every chart/table in
+      //   a section is individually addressable; each panel keeps its own proper title. Empty drop.
+      const _sub=(tag,html)=>(html&&html.replace(/\s/g,''))?'<div style="display:flex;gap:9px;margin:4px 0 14px"><span style="flex:0 0 auto;font-size:9px;font-weight:800;color:var(--text5);min-width:22px;letter-spacing:.5px;padding-top:1px">'+tag+'</span><div style="flex:1 1 0;min-width:0">'+html+'</div></div>':'';
+      // 2 In-sample = the CHAMPION (metrics, its own equity, trade-level behaviour, top configs)
+      const _spyDiv=(d.date_from&&d.date_to)?'<div id="det-spy" data-spy-from="'+d.date_from+'" data-spy-to="'+d.date_to+'" style="font-size:var(--fsxs);color:var(--text5);margin:-2px 0 0"></div>':'';
+      const _topCfg='<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">TOP CONFIGS</div>'+(t10.length?'<div style="overflow-x:auto"><table class="table">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>');
+      const _sec2=_sub('2a','<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">CHAMPION METRICS</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px">'+cardHtml+'</div>')
+        +_sub('2b',eqHtml?(eqHtml+_spyDiv):'')
+        +_sub('2c',tradeDistPanelHtml(d.win_dist,mlt))
+        +_sub('2d',maeMfePanelHtml(d.mae_mfe,mlt))
+        +_sub('2e',_topCfg);
+      // 3 Plateau = robustness / not-overfit-or-lucky
       const _plInner=scatterPanelHtml(d.points,mlt)+heatmapPanelHtml(d.points,mlt);
-      const _sec3=nbHtml
-        +((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt):'')
-        +distPanelHtml(d.dist,mlt)
-        +dsrHtml
-        +(_plInner?'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+_plInner+'</div>':'')
-        +corrPanelHtml(d.points);
-      const _sec4=stressPanelHtml(d.stress,mlt)+regHtml;
-      const _sec5=isOosFoldsHtml(d,mlt);
-      // 8 Drawdown = worst-case equity-path sizing (Monte-Carlo P95). (CONFIG PNL SPREAD and
-      //   MAE/MFE moved to Plateau / In-sample where they belong.)
-      const _sec8=mcHtml;
+      const _sec3=_sub('3a',nbHtml)
+        +_sub('3b',(d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt):'')
+        +_sub('3c',distPanelHtml(d.dist,mlt))
+        +_sub('3d',(d.dsr?'<div class="lbl" style="margin:0 0 4px;font-size:9px;color:var(--text5)">DEFLATED SHARPE · selection-luck haircut</div>':'')+dsrHtml)
+        +_sub('3e',_plInner?'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+_plInner+'</div>':'')
+        +_sub('3f',corrPanelHtml(d.points));
+      const _sec4=_sub('4a',stressPanelHtml(d.stress,mlt))+_sub('4b',regHtml);
+      const _sec5=_sub('5a',isOosFoldsHtml(d,mlt));
+      // 8 Drawdown = worst-case equity-path sizing (Monte-Carlo P95).
+      const _sec8=_sub('8a',mcHtml);
       return hdrHtml
         +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px">'+(d.starred?'★':'☆')+'</span><input id="det-note" value="'+String(d.note||'').replace(/"/g,'&quot;')+'" placeholder="add a note…" style="flex:1;padding:4px 8px;font-size:var(--fsxs);border-radius:6px"/><button class="btn-ghost" id="det-note-save" data-note-id="'+d.id+'" style="padding:4px 12px;font-size:var(--fsxs);border:1px solid var(--border);border-radius:6px">save</button>'
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="width:auto;padding:4px 6px;font-size:9px;border-radius:6px"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
         +'<button class="btn-ghost" id="det-del" data-del-id="'+d.id+'" style="padding:4px 10px;font-size:var(--fsxs);border:1px solid var(--red);border-radius:6px;color:var(--red)">delete</button></div>'
-        +valdCard
+        +_sec('1','Feasibility','it ran and produced trades — the idea is testable (Auto-Validate)',valdCard)
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         +_sec('3','Plateau','robust params — a cluster, not a lonely spike',_sec3)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4)
