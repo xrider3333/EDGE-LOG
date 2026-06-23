@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='31.4';
+const VERSION='31.5';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -5050,7 +5050,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +sh('pnl','NET $','right')+sh('maxdd','MAX DD','right')+sh('pf','PF','right')+sh('sharpe','SHARPE','right')+sh('wr','WR','right')+'<th style="text-align:center" title="walk-forward folds that held out-of-sample">WF</th>'+sh('trd','TRD','right')+sh('score','SCORE','right')+sh('took','TOOK','right')+'<th>SRC</th>'+sh('date','DATE','left')+'<th>RANGE</th>'+sh('days','DAYS','right')
           +'</tr></thead><tbody>'+trows+'</tbody></table></div>';
         const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span></div>'+fbar+tbl);
-        const detailTile='<div id="res-detail" class="hero-card" style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:13px;padding:14px 16px">'+runDetail(d)+'</div>';
+        // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
+        // would trap the sticky checklist-pills row (sticky breaks under any non-visible
+        // overflow ancestor). Inline beats the class so the pinned pills work on every theme.
+        const detailTile='<div id="res-detail" class="hero-card" style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:13px;padding:14px 16px;overflow:visible">'+runDetail(d)+'</div>';
         // ── Results-view header + numbered validation-checklist legend shown under the
         //    Past Runs list. The report card groups its panels under these 10 steps
         //    (badges ②③④⑤⑧), so this legend is the key the user reads them against. ──
