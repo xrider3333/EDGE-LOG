@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='32.1';
+const VERSION='32.2';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4259,7 +4259,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const bmax=Math.max.apply(null,bins)||1,W=560,H=110,bw=W/nb;
       const bars=bins.map((c,i)=>{const h=(c/bmax)*(H-14),x=i*bw,col=(lo+span*i/nb)>=0?'var(--green)':'var(--red)';return '<rect x="'+(x+1).toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+(bw-2).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+col+'" opacity="0.5"/>';}).join('');
       const bestX=((mx-lo)/span)*W,vc=plateau?'var(--green)':'var(--yellow)';
-      return '<div class="lbl" style="margin:8px 0 6px">CONFIG PNL SPREAD · <span style="color:'+vc+'">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit risk)')+'</span> · '+near+'/'+v.length+' of the '+v.length+' tested configs within 80% of best <span style="color:var(--text5);font-weight:400">(one bar = configs, NOT trades)</span></div>'
+      return '<div class="lbl" style="margin:8px 0 6px">CONFIG DISTRIBUTION · <span style="color:'+vc+'">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit risk)')+'</span> · '+near+'/'+v.length+' of the '+v.length+' tested configs within 80% of best <span style="color:var(--text5);font-weight:400">(one bar = configs, NOT trades · x = net $)</span></div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100" preserveAspectRatio="none">'+bars+'<line x1="'+bestX.toFixed(1)+'" y1="0" x2="'+bestX.toFixed(1)+'" y2="'+H+'" stroke="var(--text)" stroke-width="1.5" stroke-dasharray="3,2"/></svg>'
         +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5)"><span>'+fmtUsd(Math.round(mn))+'</span><span>↑ best '+fmtUsd(Math.round(mx))+'</span></div></div>';
     };
@@ -4315,7 +4315,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const order=series.map((s,i)=>i).sort((a,b)=>b-a);
       const lines=order.map(i=>path(series[i],colOf(i),i===0?2.2:1.2,i===0?1:0.72)).join(''),zeroY=H-pd-(H-2*pd)*(0-mn)/rg;
       const sel='<select data-tpc style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin-left:6px"><option value="rank"'+(mode==='rank'?' selected':'')+'>by rank</option>'+pkeys.map(k=>'<option value="'+k+'"'+(mode===k?' selected':'')+'>by '+k.replace(/_/g,' ')+'</option>').join('')+'</select>';
-      return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP PARAM PNL · '+series.length+' best configs · 1 contract · whole run · colour'+sel+'</div>'
+      return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · equity ($) · 1 contract · colour'+sel+'</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:10px 12px 6px;margin-bottom:14px">'
         +'<div style="display:flex;gap:7px"><div style="display:flex;flex-direction:column;justify-content:space-between;font-size:8px;color:var(--text5);text-align:right;min-width:46px;padding:1px 0">'
         +'<span>'+fmtUsd(Math.round(mx))+'</span><span>'+fmtUsd(Math.round((mx+mn)/2))+'</span><span>'+fmtUsd(Math.round(mn))+'</span></div>'
@@ -4326,6 +4326,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
     };
     // SCATTER — each tested config as a dot: chosen param (X) vs net PnL (Y). Shows
     // whether the edge is a smooth slope (robust) or random noise.
+    // pretty parameter name: drop underscores + title-case (e.g. breakout_buf → Breakout Buf)
+    const _pp=k=>String(k).replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
     const scatterPanelHtml=(points,mult)=>{
       if(!points||points.length<6)return '';
       const keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&typeof points[0][k]==='number');
@@ -4335,10 +4337,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const xmn=Math.min.apply(null,xs),xmx=Math.max.apply(null,xs),ymn=Math.min.apply(null,[0].concat(ys)),ymx=Math.max.apply(null,[0].concat(ys));
       const W=560,H=150,pd=8,X=v=>pd+(W-2*pd)*((v-xmn)/((xmx-xmn)||1)),Y=v=>H-pd-(H-2*pd)*((v-ymn)/((ymx-ymn)||1));
       const dots=points.map(p=>'<circle cx="'+X(p[xk]).toFixed(1)+'" cy="'+Y(p.pnl*mult).toFixed(1)+'" r="2.6" fill="'+(p.pnl>=0?'var(--green)':'var(--red)')+'" opacity="0.6"/>').join('');
-      const sel='<select data-scx style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin:0 0 0 6px">'+keys.map(k=>'<option'+(k===xk?' selected':'')+'>'+k+'</option>').join('')+'</select>';
-      return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center">SCATTER · PnL vs'+sel+'</div>'
+      const sel='<select data-scx style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin:0 0 0 6px">'+keys.map(k=>'<option value="'+k+'"'+(k===xk?' selected':'')+'>'+_pp(k)+'</option>').join('')+'</select>';
+      return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center">SCATTER · PnL ($) vs'+sel+'</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="140" preserveAspectRatio="none"><line x1="0" y1="'+Y(0).toFixed(1)+'" x2="'+W+'" y2="'+Y(0).toFixed(1)+'" stroke="var(--border)"/>'+dots+'</svg>'
-        +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5)"><span>'+xk+' = '+xmn+'</span><span>'+xmx+'</span></div></div>';
+        +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5)"><span>'+_pp(xk)+' = '+xmn+'</span><span>'+xmx+'</span></div></div>';
     };
     // HEATMAP — bin two params into an 8×8 grid, colour each cell by avg PnL. Shows where
     // in parameter space the edge lives (a green region = robust; a lone green cell = fragile).
@@ -4355,10 +4357,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let maxAbs=1;Object.keys(grid).forEach(k=>{const a=grid[k],av=a.reduce((s,x)=>s+x,0)/a.length;maxAbs=Math.max(maxAbs,Math.abs(av));});
       const S=280,cw=S/NB;let cells='';
       for(let cy=0;cy<NB;cy++)for(let cx=0;cx<NB;cx++){const a=grid[cx+','+cy];if(!a)continue;const av=a.reduce((s,x)=>s+x,0)/a.length,t=av/maxAbs,col=(t>=0?'rgba(39,192,138,':'rgba(226,75,74,'),op=Math.min(0.85,Math.abs(t)*0.8+0.12);cells+='<rect x="'+(cx*cw).toFixed(1)+'" y="'+(S-(cy+1)*cw).toFixed(1)+'" width="'+cw.toFixed(1)+'" height="'+cw.toFixed(1)+'" fill="'+col+op+')"/>';}
-      const mk=(a,dk)=>'<select data-'+dk+' style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs)">'+keys.map(k=>'<option'+(k===a?' selected':'')+'>'+k+'</option>').join('')+'</select>';
-      return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">HEATMAP · '+mk(xk,'hmx')+' × '+mk(yk,'hmy')+' → avg PnL</div>'
-        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px;display:inline-block"><svg viewBox="0 0 '+S+' '+S+'" width="'+S+'" height="'+S+'" style="max-width:100%">'+cells+'</svg>'
-        +'<div style="font-size:8px;color:var(--text5);margin-top:4px">'+xk+' → · '+yk+' ↑ · green=profit, red=loss</div></div>';
+      const mk=(a,dk)=>'<select data-'+dk+' style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs)">'+keys.map(k=>'<option value="'+k+'"'+(k===a?' selected':'')+'>'+_pp(k)+'</option>').join('')+'</select>';
+      return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">HEATMAP · '+mk(xk,'hmx')+' × '+mk(yk,'hmy')+' → avg PnL ($)</div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+S+' '+S+'" width="'+S+'" height="'+S+'" style="max-width:100%;display:block">'+cells+'</svg>'
+        +'<div style="font-size:8px;color:var(--text5);margin-top:4px">'+_pp(xk)+' → · '+_pp(yk)+' ↑ · green=profit, red=loss</div></div>';
     };
     // MAE / MFE — per-trade heat (max adverse) vs reach (max favorable), turned into
     // data-driven stop & target guidance from your own winning trades.
@@ -4385,7 +4387,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const ys=points.map(p=>p.pnl),ym=ys.reduce((s,x)=>s+x,0)/ys.length;
       const corr=k=>{const xs=points.map(p=>p[k]),xm=xs.reduce((s,x)=>s+x,0)/xs.length;let sxy=0,sxx=0,syy=0;for(let i=0;i<xs.length;i++){const dx=xs[i]-xm,dy=ys[i]-ym;sxy+=dx*dy;sxx+=dx*dx;syy+=dy*dy;}const den=Math.sqrt(sxx*syy);return den?sxy/den:0;};
       const rows=keys.map(k=>({k:k,r:corr(k)})).sort((a,b)=>Math.abs(b.r)-Math.abs(a.r));
-      const bar=o=>'<div style="display:flex;align-items:center;gap:8px;margin:3px 0;font-size:var(--fsxs)"><span style="flex:0 0 130px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+o.k+'</span><span style="flex:1;position:relative;height:10px;background:var(--bg1);border-radius:2px"><span style="position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--border)"></span><span style="position:absolute;'+(o.r>=0?'left:50%':'right:50%')+';top:1px;height:8px;width:'+(Math.abs(o.r)*50).toFixed(1)+'%;background:'+(o.r>=0?'var(--green)':'var(--red)')+';opacity:.6;border-radius:2px"></span></span><span style="flex:0 0 38px;text-align:right;color:'+(o.r>=0?'var(--green)':'var(--red)')+'">'+o.r.toFixed(2)+'</span></div>';
+      const bar=o=>'<div style="display:flex;align-items:center;gap:8px;margin:3px 0;font-size:var(--fsxs)"><span style="flex:0 0 130px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_pp(o.k)+'</span><span style="flex:1;position:relative;height:10px;background:var(--bg1);border-radius:2px"><span style="position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--border)"></span><span style="position:absolute;'+(o.r>=0?'left:50%':'right:50%')+';top:1px;height:8px;width:'+(Math.abs(o.r)*50).toFixed(1)+'%;background:'+(o.r>=0?'var(--green)':'var(--red)')+';opacity:.6;border-radius:2px"></span></span><span style="flex:0 0 38px;text-align:right;color:'+(o.r>=0?'var(--green)':'var(--red)')+'">'+o.r.toFixed(2)+'</span></div>';
       return '<div class="lbl" style="margin:8px 0 6px">PARAM CORRELATION · each parameter vs PnL (−1…+1)</div><div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px">'+rows.map(bar).join('')+'</div>';
     };
     // WALK-FORWARD IS vs OOS — grouped bars per fold: in-sample champion PnL vs out-of-sample.
@@ -4598,7 +4600,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           (d.app_version?'v'+d.app_version:''),
           ('ran '+_dtnice(d.timestamp))
         ].filter(Boolean).join(' · ');
-      const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span><span style="font-size:var(--fsxs);color:var(--text5);flex:0 0 auto">· '+_meta+'</span></div>'
+      const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span><span style="font-size:var(--fsxs);color:var(--text5);flex:0 0 auto">· '+_meta+'</span></div>'
         // pinned pills: FULLY transparent (no background, no backdrop-filter) so the row looks
         //   identical at rest and while scrolling — the individual pill chips stay opaque so the
         //   labels remain readable as content slides underneath.
@@ -4617,23 +4619,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   equity is shown ONLY when there's no Auto-Validate chart 1 — chart 1 already plots the
       //   champion equity split IS vs lockbox, so this avoids two near-identical equity curves.
       const _spyDiv=(d.date_from&&d.date_to)?'<div id="det-spy" data-spy-from="'+d.date_from+'" data-spy-to="'+d.date_to+'" style="font-size:var(--fsxs);color:var(--text5);margin:-2px 0 0"></div>':'';
-      const _topCfg='<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">TOP CONFIGS</div>'+(t10.length?'<div style="overflow-x:auto"><table class="table">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>');
+      const _topCfg='<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">TOP CONFIGS</div>'+(t10.length?'<div style="overflow-x:auto"><table class="table" style="width:auto;font-size:var(--fsxs);white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>');
       const _champMetrics='<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">CHAMPION METRICS</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px">'+cardHtml+'</div>';
-      const _sec2=_secOf(2,[_champMetrics, (d.validate?'':(eqHtml?(eqHtml+_spyDiv):'')), tradeDistPanelHtml(d.win_dist,mlt), maeMfePanelHtml(d.mae_mfe,mlt), _topCfg]);
-      // 3 Plateau = robustness / not-overfit-or-lucky
-      const _plInner=scatterPanelHtml(d.points,mlt)+heatmapPanelHtml(d.points,mlt);
-      const _sec3=_secOf(3,[nbHtml,
+      const _sec2=_secOf(2,[_champMetrics, (d.validate?'':(eqHtml?(eqHtml+_spyDiv):'')), tradeDistPanelHtml(d.win_dist,mlt), maeMfePanelHtml(d.mae_mfe,mlt)]);
+      // 3 Plateau / CONFIG ANALYSIS = everything about the searched config space: the top-config
+      //   list + their equity + the all-config distribution + neighbour grid + luck + param maps.
+      const _sec3=_secOf(3,[
+        _topCfg,
         ((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt):''),
         distPanelHtml(d.dist,mlt),
+        nbHtml,
         ((d.dsr?'<div class="lbl" style="margin:0 0 4px;font-size:9px;color:var(--text5)">DEFLATED SHARPE · selection-luck haircut</div>':'')+dsrHtml),
-        (_plInner?'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+_plInner+'</div>':''),
+        scatterPanelHtml(d.points,mlt),
+        heatmapPanelHtml(d.points,mlt),
         corrPanelHtml(d.points)]);
       const _sec4=_secOf(4,[stressPanelHtml(d.stress,mlt), regHtml]);
       const _sec5=_secOf(5,[isOosFoldsHtml(d,mlt)]);
       // 8 Drawdown = worst-case equity-path sizing (Monte-Carlo P95).
       const _sec8=_secOf(8,[mcHtml]);
       return hdrHtml
-        +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px">'+(d.starred?'★':'☆')+'</span><input id="det-note" value="'+String(d.note||'').replace(/"/g,'&quot;')+'" placeholder="add a note…" style="flex:1;padding:4px 8px;font-size:var(--fsxs);border-radius:6px"/><button class="btn-ghost" id="det-note-save" data-note-id="'+d.id+'" style="padding:4px 12px;font-size:var(--fsxs);border:1px solid var(--border);border-radius:6px">save</button>'
+        +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><input id="det-note" value="'+String(d.note||'').replace(/"/g,'&quot;')+'" placeholder="add a note…" style="flex:1;padding:4px 8px;font-size:var(--fsxs);border-radius:6px"/><button class="btn-ghost" id="det-note-save" data-note-id="'+d.id+'" style="padding:4px 12px;font-size:var(--fsxs);border:1px solid var(--border);border-radius:6px">save</button>'
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="width:auto;padding:4px 6px;font-size:9px;border-radius:6px"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
         +'<button class="btn-ghost" id="det-del" data-del-id="'+d.id+'" style="padding:4px 10px;font-size:var(--fsxs);border:1px solid var(--red);border-radius:6px;color:var(--red)">delete</button></div>'
         +_sec('1','Feasibility','it ran and produced trades — the idea is testable (Auto-Validate)',valdCard)
@@ -5079,7 +5084,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +sh('id','RUN','right')+sh('strat','STRATEGY')+'<th title="optimization mode / scope preset">MODE</th><th>MARKET</th><th>TF</th><th style="text-align:center">EQUITY</th>'
           +sh('pnl','NET $','right')+sh('maxdd','MAX DD','right')+sh('pf','PF','right')+sh('sharpe','SHARPE','right')+sh('wr','WR','right')+'<th style="text-align:center" title="walk-forward folds that held out-of-sample">WF</th>'+sh('trd','TRD','right')+sh('score','SCORE','right')+sh('took','TOOK','right')+'<th>SRC</th>'+sh('date','DATE','left')+'<th>RANGE</th>'+sh('days','DAYS','right')
           +'</tr></thead><tbody>'+trows+'</tbody></table></div>';
-        const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span></div>'+fbar+tbl);
+        const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span></div>'+fbar+tbl);
         // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
         // would trap the sticky checklist-pills row (sticky breaks under any non-visible
         // overflow ancestor). Inline beats the class so the pinned pills work on every theme.
