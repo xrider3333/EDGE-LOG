@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='30.5';
+const VERSION='30.6';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4475,9 +4475,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const rnd=v=>(typeof v==='number')?(Number.isInteger(v)?v:(Math.abs(v)>=100?Math.round(v):+v.toFixed(2))):(v===true?'yes':v===false?'no':v);
       const thead='<tr><th>#</th>'+pkeys.map(k=>'<th title="'+k+'">'+labOf(k)+'</th>').join('')+'<th style="text-align:right">PnL pts</th><th style="text-align:right">TRD</th><th style="text-align:right">WR</th><th style="text-align:right">PF</th></tr>';
       const trows=t10.map((r,i)=>'<tr><td>'+(i+1)+'</td>'+pkeys.map(k=>'<td style="font-size:var(--fsxs)">'+rnd(r[k])+'</td>').join('')+'<td style="text-align:right">'+Math.round(r.total_pnl||0).toLocaleString()+'</td><td style="text-align:right">'+(r.num_trades||0)+'</td><td style="text-align:right">'+Math.round(r.win_rate||0)+'%</td><td style="text-align:right">'+Math.min(r.profit_factor||0,99).toFixed(2)+'</td></tr>').join('');
-      let eqHtml='';
-      if(d.equity&&d.equity.cum&&d.equity.cum.length>1){const cum=d.equity.cum,n=cum.length;let mn=Math.min.apply(null,cum),mx=Math.max.apply(null,cum);if(mx<=mn)mx=mn+1;const W=640,Hh=140;const pts=cum.map((v,i)=>(Math.round(i/(n-1)*W*100)/100)+','+(Math.round((Hh-((v-mn)/(mx-mn))*Hh)*100)/100)).join(' ');const col=(d.equity.final||0)>=0?'#1D9E75':'#E24B4A';const zero=(mn<0&&mx>0)?(Hh-((0-mn)/(mx-mn))*Hh):null;eqHtml='<div class="lbl" style="margin:4px 0 6px">EQUITY CURVE · best config, 1 contract</div><div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:16px"><svg viewBox="0 0 '+W+' '+Hh+'" width="100%" height="120" preserveAspectRatio="none">'+(zero!=null?'<line x1="0" y1="'+zero.toFixed(1)+'" x2="'+W+'" y2="'+zero.toFixed(1)+'" stroke="var(--border)" stroke-width="1"/>':'')+'<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="2"/></svg></div>';}
       const mlt=d.multiplier||20;
+      let eqHtml='';
+      if(d.equity&&d.equity.cum&&d.equity.cum.length>1){const cum=d.equity.cum,n=cum.length;let mn=Math.min.apply(null,cum),mx=Math.max.apply(null,cum);if(mx<=mn)mx=mn+1;const W=640,Hh=140;const pts=cum.map((v,i)=>(Math.round(i/(n-1)*W*100)/100)+','+(Math.round((Hh-((v-mn)/(mx-mn))*Hh)*100)/100)).join(' ');const col=(d.equity.final||0)>=0?'#1D9E75':'#E24B4A';const zero=(mn<0&&mx>0)?(Hh-((0-mn)/(mx-mn))*Hh):null;
+        const nt=d.equity.n||n,midUsd=Math.round(((mx+mn)/2)*mlt);
+        eqHtml='<div class="lbl" style="margin:4px 0 6px">EQUITY CURVE · best config · 1 contract · whole run, every trade</div>'
+          +'<div style="background:var(--bg2);border-radius:8px;padding:10px 12px 6px;margin-bottom:16px">'
+          +'<div style="display:flex;gap:7px"><div style="display:flex;flex-direction:column;justify-content:space-between;font-size:8px;color:var(--text5);text-align:right;min-width:46px;padding:1px 0">'
+          +'<span>'+fmtUsd(Math.round(mx*mlt))+'</span><span>'+fmtUsd(midUsd)+'</span><span>'+fmtUsd(Math.round(mn*mlt))+'</span></div>'
+          +'<svg viewBox="0 0 '+W+' '+Hh+'" width="100%" height="120" preserveAspectRatio="none" style="flex:1">'
+          +'<line x1="0" y1="'+(Hh/2)+'" x2="'+W+'" y2="'+(Hh/2)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4"/>'
+          +(zero!=null?'<line x1="0" y1="'+zero.toFixed(1)+'" x2="'+W+'" y2="'+zero.toFixed(1)+'" stroke="var(--border)" stroke-width="1"/>':'')
+          +'<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="2"/></svg></div>'
+          +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5);margin-top:3px;padding-left:53px"><span>'+(d.date_from?_dnice(d.date_from):'start')+'</span><span>'+(+nt).toLocaleString()+' trades · ends '+fmtUsd(Math.round((d.equity.final||0)*mlt))+'</span><span>'+(d.date_to?_dnice(d.date_to):'end')+'</span></div>'
+          +'</div>';}
       const _vrow=(inner)=>'<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:var(--fsxs);margin-bottom:14px;color:var(--text3)">'+inner+'</div>';
       let dsrHtml='';
       if(d.dsr){const dc=d.dsr.dsr>=0.95?'var(--green)':d.dsr.dsr>=0.8?'var(--yellow)':'var(--red)';dsrHtml=_vrow('<span>Winner Sharpe <b>'+(d.dsr.winner_sharpe||0).toFixed(2)+'</b></span><span>Luck bar/'+d.dsr.n_cfg+' <b>'+(d.dsr.luck_bar||0).toFixed(2)+'</b></span><span>Deflated Sharpe <b style="color:'+dc+'">'+Math.round(d.dsr.dsr*100)+'%</b> · '+d.dsr.verdict+'</span>');}
@@ -4488,12 +4499,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let nbHtml='';
       if(d.neighborhood){const nb=d.neighborhood;const vc=nb.verdict==='HIGH GROUND'?'var(--green)':'var(--yellow)';const pfcol=p=>p>1?'var(--green)':'var(--red)';
         const cell=(c,acc)=>{if(!c)return '<td style="text-align:center;opacity:.3">—</td>';return '<td style="text-align:center"><div style="font-size:8px;color:var(--text5)">'+c.val+'</div><div style="color:'+(acc?'var(--accent)':pfcol(c.pf))+';font-weight:'+(acc?'800':'600')+'">PF '+(c.pf||0).toFixed(2)+'</div></td>';};
-        // plateau-shape sparkline per parameter: 3 PF bars (−1 / winner / +1), dashed line = PF 1
-        const spark=(r)=>{const ms=[r.minus,r.winner,r.plus];const W=58,H=24,bw=W/3,scale=Math.max(2,Math.max.apply(null,ms.map(x=>(x&&x.pf)||0)));const y1=H-(1/scale)*H;const bars=ms.map((x,i)=>{if(!x)return '';const h=Math.min(H,(x.pf/scale)*H);return '<rect x="'+(i*bw+2).toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+(bw-4).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+(i===1?'var(--accent)':pfcol(x.pf))+'" opacity="'+(i===1?'0.95':'0.5')+'"/>';}).join('');return '<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'"><line x1="0" y1="'+y1.toFixed(1)+'" x2="'+W+'" y2="'+y1.toFixed(1)+'" stroke="var(--text5)" stroke-width="0.5" stroke-dasharray="2,2"/>'+bars+'</svg>';};
-        const nrows=(nb.rows||[]).map(r=>'<tr><td style="color:var(--text3)">'+r.param.replace(/_/g,' ')+'</td>'+cell(r.minus,false)+cell(r.winner,true)+cell(r.plus,false)+'<td style="text-align:center">'+spark(r)+'</td></tr>').join('');
+        const nrows=(nb.rows||[]).map(r=>'<tr><td style="color:var(--text3)">'+r.param.replace(/_/g,' ')+'</td>'+cell(r.minus,false)+cell(r.winner,true)+cell(r.plus,false)+'</tr>').join('');
+        // DISTRIBUTION graph: every neighbour's PF as a dot on a PF axis; winner marked.
+        // tight cluster at/above PF 1 = plateau (robust); neighbours scattered below while
+        // only the winner is high = a lucky spike.
+        const allPf=[];(nb.rows||[]).forEach(r=>{[r.minus,r.plus].forEach(c=>{if(c&&isFinite(c.pf))allPf.push(c.pf);});});
+        const winPf=(nb.rows||[]).reduce((w,r)=>(w!=null?w:((r.winner&&isFinite(r.winner.pf))?r.winner.pf:null)),null);
+        let graph='';
+        if(allPf.length>=2){const maxPf=Math.max(2,(winPf||0),Math.max.apply(null,allPf)),W=520,H=58,pad=26,X=p=>pad+(W-2*pad)*Math.min(p,maxPf)/maxPf,my=H/2-4,oneX=X(1);
+          const dots=allPf.map(p=>'<circle cx="'+X(p).toFixed(1)+'" cy="'+my.toFixed(1)+'" r="3.4" fill="'+pfcol(p)+'" opacity="0.55"/>').join('');
+          const win=(winPf!=null)?'<line x1="'+X(winPf).toFixed(1)+'" y1="6" x2="'+X(winPf).toFixed(1)+'" y2="'+(my+8).toFixed(1)+'" stroke="var(--accent)" stroke-width="1.5"/><text x="'+X(winPf).toFixed(1)+'" y="5" text-anchor="middle" font-size="7" fill="var(--accent)">winner '+winPf.toFixed(2)+'</text>':'';
+          graph='<div style="background:var(--bg2);border-radius:8px;padding:8px 10px;margin-bottom:8px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="56" preserveAspectRatio="none">'
+            +'<line x1="'+pad+'" y1="'+my.toFixed(1)+'" x2="'+(W-pad)+'" y2="'+my.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5"/>'
+            +'<line x1="'+oneX.toFixed(1)+'" y1="8" x2="'+oneX.toFixed(1)+'" y2="'+(H-12)+'" stroke="var(--text5)" stroke-width="1" stroke-dasharray="3,2"/>'
+            +'<text x="'+oneX.toFixed(1)+'" y="'+(H-3)+'" text-anchor="middle" font-size="7" fill="var(--text5)">PF 1 (break-even)</text>'
+            +'<text x="'+pad+'" y="'+(H-3)+'" font-size="7" fill="var(--text5)">0</text><text x="'+(W-pad)+'" y="'+(H-3)+'" text-anchor="end" font-size="7" fill="var(--text5)">'+maxPf.toFixed(1)+'</text>'
+            +dots+win+'</svg></div>';}
         nbHtml='<div class="lbl" style="margin:8px 0 4px">NEIGHBOUR ROBUSTNESS · <span style="color:'+vc+'">'+nb.verdict+' · '+nb.good+'/'+nb.tot+' neighbours stay profitable</span></div>'
-          +'<div style="font-size:8px;color:var(--text5);margin-bottom:6px">each parameter nudged one grid-step up &amp; down — a real edge keeps PF&gt;1 when nudged (a plateau), not only at the exact winner (a lucky spike). dashed line = PF&nbsp;1.</div>'
-          +'<div style="overflow-x:auto;margin-bottom:16px"><table class="table" style="font-size:var(--fsxs)"><thead><tr><th>parameter</th><th style="text-align:center">one step lower</th><th style="text-align:center">winner</th><th style="text-align:center">one step higher</th><th style="text-align:center">plateau shape</th></tr></thead><tbody>'+nrows+'</tbody></table></div>';}
+          +'<div style="font-size:8px;color:var(--text5);margin-bottom:6px">each parameter is nudged one grid-step up &amp; down — every nudge is a “neighbour”. dots clustered at/above PF&nbsp;1 = a plateau (robust); dots scattered below while only the winner is high = a lucky spike.</div>'
+          +graph
+          +'<div style="overflow-x:auto;margin-bottom:16px"><table class="table" style="font-size:var(--fsxs)"><thead><tr><th>parameter</th><th style="text-align:center">one step lower</th><th style="text-align:center">winner</th><th style="text-align:center">one step higher</th></tr></thead><tbody>'+nrows+'</tbody></table></div>';}
       const valdCard=d.validate?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'+validateCardHtml(d.validate,(d.multiplier||20),stratTag(d.strategy))+'</div>':'';
       // ── Per-run validation status: map THIS run's analytics onto the 10-step deploy
       //    checklist so the report card reads as the checklist. Steps 2/3/4/5/6/7/8
@@ -5233,7 +5258,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // at the top of it — a reliable frozen-header that survives window-level layout.
       const _pane=el('res-right'),_rpEl=el('res-pills');
       if(_pane){_pane.style.overflowY='auto';_pane.style.maxHeight=Math.max(380,(window.innerHeight-_pane.getBoundingClientRect().top-16))+'px';}
-      if(_rpEl&&_pane){_rpEl.style.position='sticky';_rpEl.style.top='0';_rpEl.style.zIndex='5';_rpEl.style.background='transparent';_rpEl.style.backdropFilter='blur(6px)';_rpEl.style.webkitBackdropFilter='blur(6px)';_rpEl.style.paddingTop='8px';_rpEl.style.paddingBottom='6px';_rpEl.style.margin='0 0 6px';}
+      if(_rpEl&&_pane){_rpEl.style.position='sticky';_rpEl.style.top='0';_rpEl.style.zIndex='5';_rpEl.style.background='var(--bg2)';_rpEl.style.paddingTop='8px';_rpEl.style.paddingBottom='6px';_rpEl.style.margin='0 0 6px';}
       // jump within the pane (side) or the window (stack), landing below the frozen pills.
       const _scrollToId=(id)=>{const t=el(id);if(!t)return;const sc=el('res-right'),rp=el('res-pills');const pad=(rp&&id!=='res-pills')?rp.offsetHeight+8:6;
         if(sc&&getComputedStyle(sc).overflowY==='auto'){const y=t.getBoundingClientRect().top-sc.getBoundingClientRect().top+sc.scrollTop-pad;sc.scrollTo({top:Math.max(0,y),behavior:'smooth'});}
