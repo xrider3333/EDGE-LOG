@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='32.5';
+const VERSION='32.6';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4257,10 +4257,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const nb=22,lo=Math.min(0,mn),hi=Math.max(0,mx),span=(hi-lo)||1,bins=new Array(nb).fill(0);
       v.forEach(x=>{let b=Math.floor((x-lo)/span*nb);if(b<0)b=0;if(b>=nb)b=nb-1;bins[b]++;});
       const bmax=Math.max.apply(null,bins)||1,W=560,H=110,bw=W/nb;
-      const bars=bins.map((c,i)=>{const h=(c/bmax)*(H-14),x=i*bw,col=(lo+span*i/nb)>=0?'var(--green)':'var(--red)';return '<rect x="'+(x+1).toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+(bw-2).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+col+'" opacity="0.5"/>';}).join('');
+      let hits='';
+      const bars=bins.map((c,i)=>{const h=(c/bmax)*(H-14),x=i*bw,blo=lo+span*i/nb,bhi=lo+span*(i+1)/nb,col=blo>=0?'#1d9e75':'#e24b4a';hits+='<rect x="'+x.toFixed(1)+'" y="0" width="'+bw.toFixed(1)+'" height="'+H+'" fill="transparent" style="cursor:pointer" data-tip="'+fmtUsd(Math.round(blo))+' to '+fmtUsd(Math.round(bhi))+' net<br><b>'+c+'</b> config'+(c===1?'':'s')+'"/>';return '<rect x="'+(x+1).toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+(bw-2).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+col+'" opacity="0.55"/>';}).join('');
       const bestX=((mx-lo)/span)*W,vc=plateau?'var(--green)':'var(--yellow)';
       return '<div class="lbl" style="margin:8px 0 6px">CONFIG DISTRIBUTION · <span style="color:'+vc+'">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit risk)')+'</span> · '+near+'/'+v.length+' of the '+v.length+' tested configs within 80% of best <span style="color:var(--text5);font-weight:400">(one bar = configs, NOT trades · x = net $)</span></div>'
-        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100" preserveAspectRatio="none">'+bars+'<line x1="'+bestX.toFixed(1)+'" y1="0" x2="'+bestX.toFixed(1)+'" y2="'+H+'" stroke="var(--text)" stroke-width="1.5" stroke-dasharray="3,2"/></svg>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100" preserveAspectRatio="none">'+bars+'<line x1="'+bestX.toFixed(1)+'" y1="0" x2="'+bestX.toFixed(1)+'" y2="'+H+'" stroke="var(--text)" stroke-width="1.5" stroke-dasharray="3,2"/>'+hits+'</svg>'
         +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5)"><span>'+fmtUsd(Math.round(mn))+'</span><span>↑ best '+fmtUsd(Math.round(mx))+'</span></div></div>';
     };
     // TRADE PNL DISTRIBUTION — histogram of the WINNER's per-trade PnLs with a fitted
@@ -4273,7 +4274,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const mn=Math.min.apply(null,v),mx=Math.max.apply(null,v),span=(mx-mn)||1;
       const NB=28,bins=new Array(NB).fill(0);v.forEach(x=>{let b=Math.floor((x-mn)/span*NB);if(b<0)b=0;if(b>=NB)b=NB-1;bins[b]++;});
       const bmax=Math.max.apply(null,bins)||1,W=560,H=130,bw=W/NB,binW=span/NB;
-      const bars=bins.map((c,i)=>{const h=(c/bmax)*(H-16),x=i*bw,bc=mn+span*(i+0.5)/NB;return '<rect x="'+(x+1).toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+(bw-2).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+(bc>=0?'var(--green)':'var(--red)')+'" opacity="0.45"/>';}).join('');
+      let hits='';
+      const bars=bins.map((c,i)=>{const h=(c/bmax)*(H-16),x=i*bw,bc=mn+span*(i+0.5)/NB,blo=mn+span*i/NB,bhi=mn+span*(i+1)/NB;hits+='<rect x="'+x.toFixed(1)+'" y="0" width="'+bw.toFixed(1)+'" height="'+H+'" fill="transparent" style="cursor:pointer" data-tip="'+fmtUsd(Math.round(blo))+' to '+fmtUsd(Math.round(bhi))+'/trade<br><b>'+c+'</b> trade'+(c===1?'':'s')+'"/>';return '<rect x="'+(x+1).toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+(bw-2).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+(bc>=0?'#1d9e75':'#e24b4a')+'" opacity="0.5"/>';}).join('');
       const pdf=x=>Math.exp(-0.5*Math.pow((x-mean)/sd,2))/(sd*Math.sqrt(2*Math.PI));
       const pts=[];for(let i=0;i<=120;i++){const x=mn+span*i/120,y=pdf(x)*n*binW,px=(i/120)*W,py=H-(y/bmax)*(H-16);pts.push(px.toFixed(1)+','+Math.max(0,py).toFixed(1));}
       const meanX=((mean-mn)/span)*W,zeroX=(mn<0&&mx>0)?((0-mn)/span)*W:null,wins=v.filter(x=>x>0).length;
@@ -4281,7 +4283,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="120" preserveAspectRatio="none">'+bars
         +(zeroX!=null?'<line x1="'+zeroX.toFixed(1)+'" y1="0" x2="'+zeroX.toFixed(1)+'" y2="'+H+'" stroke="var(--border)" stroke-width="1"/>':'')
         +'<polyline points="'+pts.join(' ')+'" fill="none" stroke="var(--text)" stroke-width="1.5" opacity="0.8"/>'
-        +'<line x1="'+meanX.toFixed(1)+'" y1="0" x2="'+meanX.toFixed(1)+'" y2="'+H+'" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3,2"/></svg>'
+        +'<line x1="'+meanX.toFixed(1)+'" y1="0" x2="'+meanX.toFixed(1)+'" y2="'+H+'" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3,2"/>'+hits+'</svg>'
         +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5)"><span>'+fmtUsd(Math.round(mn))+'</span><span>normal-fit bell · accent = mean · per-trade $</span><span>'+fmtUsd(Math.round(mx))+'</span></div></div>';
     };
     // STRESS — winner PnL across 8 chronological windows. Profit SPREAD across windows is
@@ -4292,10 +4294,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const mxabs=Math.max.apply(null,v.map(Math.abs))||1;
       const top=v.reduce((m,x)=>Math.max(m,x),0),concentrated=(tot>0&&top>0.5*tot)||pos<v.length*0.5;
       const W=560,H=110,bw=W/v.length,mid=H/2;
-      const bars=v.map((x,i)=>{const h=(Math.abs(x)/mxabs)*(mid-6),y=x>=0?mid-h:mid;return '<rect x="'+(i*bw+2).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+(bw-4).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+(x>=0?'var(--green)':'var(--red)')+'" opacity="0.6"/>';}).join('');
+      let hits='';
+      const bars=v.map((x,i)=>{const h=(Math.abs(x)/mxabs)*(mid-6),y=x>=0?mid-h:mid;hits+='<rect x="'+(i*bw).toFixed(1)+'" y="0" width="'+bw.toFixed(1)+'" height="'+H+'" fill="transparent" style="cursor:pointer" data-tip="window '+(i+1)+'/'+v.length+' (oldest→newest)<br>net <b style=&quot;color:'+(x>=0?'#1d9e75':'#e24b4a')+'&quot;>'+fmtUsd(Math.round(x))+'</b>"/>';return '<rect x="'+(i*bw+2).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+(bw-4).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+(x>=0?'#1d9e75':'#e24b4a')+'" opacity="0.7"/>';}).join('');
       const vc=concentrated?'var(--yellow)':'var(--green)';
       return '<div class="lbl" style="margin:8px 0 6px">STRESS ACROSS TIME · <span style="color:'+vc+'">'+(concentrated?'CONCENTRATED':'SPREAD')+'</span> · '+pos+'/'+v.length+' windows green</div>'
-        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100" preserveAspectRatio="none"><line x1="0" y1="'+mid+'" x2="'+W+'" y2="'+mid+'" stroke="var(--border)"/>'+bars+'</svg><div style="font-size:8px;color:var(--text5)">oldest → newest · each bar = 1/'+v.length+' of the trade history</div></div>';
+        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100" preserveAspectRatio="none"><line x1="0" y1="'+mid+'" x2="'+W+'" y2="'+mid+'" stroke="var(--border)"/>'+bars+hits+'</svg><div style="font-size:8px;color:var(--text5)">oldest → newest · each bar = 1/'+v.length+' of the trade history</div></div>';
     };
     // TOP-N EQUITY OVERLAY — the best configs' equity curves on one axis. If they all
     // climb alike the edge is robust; if only the winner climbs it's a fragile outlier.
@@ -4336,7 +4339,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const xs=points.map(p=>p[xk]),ys=points.map(p=>p.pnl*mult);
       const xmn=Math.min.apply(null,xs),xmx=Math.max.apply(null,xs),ymn=Math.min.apply(null,[0].concat(ys)),ymx=Math.max.apply(null,[0].concat(ys));
       const W=560,H=150,pd=8,X=v=>pd+(W-2*pd)*((v-xmn)/((xmx-xmn)||1)),Y=v=>H-pd-(H-2*pd)*((v-ymn)/((ymx-ymn)||1));
-      const dots=points.map(p=>'<circle cx="'+X(p[xk]).toFixed(1)+'" cy="'+Y(p.pnl*mult).toFixed(1)+'" r="2.6" fill="'+(p.pnl>=0?'var(--green)':'var(--red)')+'" opacity="0.6"/>').join('');
+      const _rnd=v=>Number.isInteger(v)?v:(+v).toFixed(2);
+      const dots=points.map(p=>'<circle cx="'+X(p[xk]).toFixed(1)+'" cy="'+Y(p.pnl*mult).toFixed(1)+'" r="2.8" fill="'+(p.pnl>=0?'#1d9e75':'#e24b4a')+'" opacity="0.6" style="cursor:pointer" data-tip="'+_pp(xk)+' <b>'+_rnd(p[xk])+'</b><br>net <b style=&quot;color:'+(p.pnl>=0?'#1d9e75':'#e24b4a')+'&quot;>'+fmtUsd(Math.round(p.pnl*mult))+'</b>"/>').join('');
       const sel='<select data-scx style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin:0 0 0 6px">'+keys.map(k=>'<option value="'+k+'"'+(k===xk?' selected':'')+'>'+_pp(k)+'</option>').join('')+'</select>';
       return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center">SCATTER · PnL ($) vs'+sel+'</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="140" preserveAspectRatio="none"><line x1="0" y1="'+Y(0).toFixed(1)+'" x2="'+W+'" y2="'+Y(0).toFixed(1)+'" stroke="var(--border)"/>'+dots+'</svg>'
@@ -4355,8 +4359,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const NB=8,cell=(v,mn,mx)=>Math.min(NB-1,Math.max(0,Math.floor((v-mn)/((mx-mn)||1)*NB))),grid={};
       points.forEach(p=>{const k=cell(p[xk],xmn,xmx)+','+cell(p[yk],ymn,ymx);(grid[k]=grid[k]||[]).push(p.pnl*mult);});
       let maxAbs=1;Object.keys(grid).forEach(k=>{const a=grid[k],av=a.reduce((s,x)=>s+x,0)/a.length;maxAbs=Math.max(maxAbs,Math.abs(av));});
-      const S=280,cw=S/NB;let cells='';
-      for(let cy=0;cy<NB;cy++)for(let cx=0;cx<NB;cx++){const a=grid[cx+','+cy];if(!a)continue;const av=a.reduce((s,x)=>s+x,0)/a.length,t=av/maxAbs,col=(t>=0?'rgba(39,192,138,':'rgba(226,75,74,'),op=Math.min(0.85,Math.abs(t)*0.8+0.12);cells+='<rect x="'+(cx*cw).toFixed(1)+'" y="'+(S-(cy+1)*cw).toFixed(1)+'" width="'+cw.toFixed(1)+'" height="'+cw.toFixed(1)+'" fill="'+col+op+')"/>';}
+      const S=280,cw=S/NB;let cells='';const _hr=v=>Number.isInteger(v)?v:(+v).toFixed(2);
+      for(let cy=0;cy<NB;cy++)for(let cx=0;cx<NB;cx++){const a=grid[cx+','+cy];if(!a)continue;const av=a.reduce((s,x)=>s+x,0)/a.length,t=av/maxAbs,col=(t>=0?'rgba(39,192,138,':'rgba(226,75,74,'),op=Math.min(0.85,Math.abs(t)*0.8+0.12);const xa=xmn+cx*(xmx-xmn)/NB,xb=xmn+(cx+1)*(xmx-xmn)/NB,ya=ymn+cy*(ymx-ymn)/NB,yb=ymn+(cy+1)*(ymx-ymn)/NB;const tip=_pp(xk)+' '+_hr(xa)+'–'+_hr(xb)+'<br>'+_pp(yk)+' '+_hr(ya)+'–'+_hr(yb)+'<br>avg net <b>'+fmtUsd(Math.round(av))+'</b> · '+a.length+' config'+(a.length===1?'':'s');cells+='<rect x="'+(cx*cw).toFixed(1)+'" y="'+(S-(cy+1)*cw).toFixed(1)+'" width="'+cw.toFixed(1)+'" height="'+cw.toFixed(1)+'" fill="'+col+op+')" style="cursor:pointer" data-tip="'+tip+'"/>';}
       const mk=(a,dk)=>'<select data-'+dk+' style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs)">'+keys.map(k=>'<option value="'+k+'"'+(k===a?' selected':'')+'>'+_pp(k)+'</option>').join('')+'</select>';
       return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">HEATMAP · '+mk(xk,'hmx')+' × '+mk(yk,'hmy')+' → avg PnL ($)</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+S+' '+S+'" width="'+S+'" height="'+S+'" style="max-width:100%;display:block">'+cells+'</svg>'
@@ -4370,14 +4374,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(winHeat.length<5)return '';
       const pct=(arr,p)=>{const s=arr.slice().sort((a,b)=>a-b);return s[Math.min(s.length-1,Math.floor(p*s.length))];};
       const s50=pct(winHeat,0.5),s90=pct(winHeat,0.9),f50=pct(allMfe,0.5),f75=pct(allMfe,0.75);
-      const histo=(arr,col)=>{const mx=Math.max.apply(null,arr)||1,nb=20,bins=new Array(nb).fill(0);arr.forEach(x=>{let b=Math.floor(x/mx*nb);if(b<0)b=0;if(b>=nb)b=nb-1;bins[b]++;});const bm=Math.max.apply(null,bins)||1,W=270,H=70,bw=W/nb;return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="64" preserveAspectRatio="none">'+bins.map((c,i)=>{const h=(c/bm)*(H-2);return '<rect x="'+(i*bw+0.5).toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+(bw-1).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+col+'" opacity="0.55"/>';}).join('')+'</svg>';};
+      const histo=(arr,col)=>{const mx=Math.max.apply(null,arr)||1,nb=20,bins=new Array(nb).fill(0);arr.forEach(x=>{let b=Math.floor(x/mx*nb);if(b<0)b=0;if(b>=nb)b=nb-1;bins[b]++;});const bm=Math.max.apply(null,bins)||1,W=270,H=70,bw=W/nb;let hh='';const bb=bins.map((c,i)=>{const h=(c/bm)*(H-2),blo=i*mx/nb,bhi=(i+1)*mx/nb;hh+='<rect x="'+(i*bw).toFixed(1)+'" y="0" width="'+bw.toFixed(1)+'" height="'+H+'" fill="transparent" style="cursor:pointer" data-tip="'+blo.toFixed(1)+'–'+bhi.toFixed(1)+' pts<br><b>'+c+'</b> trade'+(c===1?'':'s')+'"/>';return '<rect x="'+(i*bw+0.5).toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+(bw-1).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+col+'" opacity="0.6"/>';}).join('');return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="64" preserveAspectRatio="none">'+bb+hh+'</svg>';};
       const usd=v=>fmtUsd(Math.round(v*mult));
       return '<div class="lbl" style="margin:8px 0 6px">MAE / MFE · STOP &amp; TARGET GUIDANCE</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:11px 12px;margin-bottom:14px">'
         +'<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3);margin-bottom:10px">'
         +'<div style="flex:1 1 260px"><span style="color:var(--red)">◀ STOP (heat winners took)</span><br>median <b>'+s50+' pts</b> · 90% within <b>'+s90+' pts</b> ('+usd(s90)+')<br><span style="color:var(--text5);font-size:8px">a stop tighter than ~'+s50+' pts cuts half your winners; ~'+s90+' keeps ~90%</span></div>'
         +'<div style="flex:1 1 260px"><span style="color:var(--green)">TARGET (reach in favour) ▶</span><br>median <b>'+f50+' pts</b> · 75% reach <b>'+f75+' pts</b> ('+usd(f75)+')<br><span style="color:var(--text5);font-size:8px">if your target is below ~'+f50+' pts you\'re likely exiting early</span></div></div>'
-        +'<div style="display:flex;gap:12px;flex-wrap:wrap"><div style="flex:1 1 220px"><div style="font-size:8px;color:var(--text5)">MAE · adverse excursion (heat)</div>'+histo(mm.mae.map(Math.abs),'var(--red)')+'</div><div style="flex:1 1 220px"><div style="font-size:8px;color:var(--text5)">MFE · favourable excursion (reach)</div>'+histo(allMfe,'var(--green)')+'</div></div></div>';
+        +'<div style="display:flex;gap:12px;flex-wrap:wrap"><div style="flex:1 1 220px"><div style="font-size:8px;color:var(--text5)">MAE · adverse excursion (heat)</div>'+histo(mm.mae.map(Math.abs),'#e24b4a')+'</div><div style="flex:1 1 220px"><div style="font-size:8px;color:var(--text5)">MFE · favourable excursion (reach)</div>'+histo(allMfe,'#1d9e75')+'</div></div></div>';
     };
     // PARAM CORRELATION — Pearson r of each parameter vs net PnL across all configs.
     const corrPanelHtml=(points)=>{
