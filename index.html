@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='32.8';
+const VERSION='32.9';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4502,13 +4502,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+EH+'" stroke="#a78bfa" stroke-width="1.3" stroke-dasharray="4,3"/>'
           +'<path d="'+seg(0,li+1)+'" fill="none" stroke="var(--green)" stroke-width="1.6"/>'
           +'<path d="'+seg(li,eq.length)+'" fill="none" stroke="#a78bfa" stroke-width="1.6"/></svg>';
-        eqSvg='<div class="lbl" style="margin:10px 0 4px;font-size:9px;color:var(--text5)">CHAMPION EQUITY · in-sample (walk-forward) → lockbox · 1 contract</div>'
+        eqSvg='<div style="margin:13px 0 5px"><div style="font-weight:700;font-size:11px;color:var(--text2)">Champion equity curve <span style="font-weight:400;color:var(--text5);font-size:9px">· best config · 1 contract</span></div><div style="font-size:8px;color:var(--text5);margin-top:1px">left → right in time: walk-forward <span style="color:var(--green)">in-sample</span> then the <span style="color:#a78bfa">lockbox</span> holdout (never optimized)</div></div>'
           +'<div style="display:flex;gap:7px"><div style="display:flex;flex-direction:column;justify-content:space-between;font-size:8px;color:var(--text5);text-align:right;min-width:46px;padding:1px 0">'
           +'<span>'+fmtUsd(Math.round(mx))+'</span><span>'+fmtUsd(Math.round((mx+mn)/2))+'</span><span>'+fmtUsd(Math.round(mn))+'</span></div>'
           +'<div style="flex:1">'+svg+dateAxis
           +'<div style="display:flex;gap:11px;flex-wrap:wrap;font-size:8px;color:var(--text5);margin-top:3px"><span style="color:var(--green)">● in-sample (optimized '+(W.optimize[0]||'start')+'→'+(W.optimize[1]||'')+')</span>'+wfNote+'<span style="color:#a78bfa">● lockbox = OOS · last '+W.lockbox_months+'mo, never seen</span></div></div></div>';}
-      return '<div class="lbl" style="margin:2px 0 8px">AUTO-VALIDATE · '+stratLabel+'</div>'
-        +'<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><div style="font-size:26px;font-weight:800;color:'+vc+';letter-spacing:1px">'+V.verdict+'</div><div style="font-size:var(--fsxs);color:var(--text4)">'+V.n_pass+'/'+ng+' gates · IS PF '+Math.min(V.is_pf||0,99).toFixed(2)+(V.is_sharpe!=null?' · Sharpe '+(+V.is_sharpe).toFixed(2):'')+' · optimized '+(W.optimize[0]||'start')+' → '+W.optimize[1]+' · lockbox last '+W.lockbox_months+'mo (never seen)'+(V.discover==='evolve'?(V.evolved_file?' · <span style="color:#a78bfa">🧬 AI-evolved → '+V.evolved_file+'</span>':' · <span style="color:var(--red)">🧬 evolve failed'+(V.discover_err?' ('+V.discover_err+')':'')+'</span>'):'')+'</div></div>'
+      // labelled stat chips (replaces the old run-on stat sentence — keeps the verdict big,
+      //   pulls every supporting number into its own titled chip so nothing reads as clutter).
+      const _chip=(lbl,val,col)=>'<span style="display:inline-flex;flex-direction:column;gap:1px;padding:4px 9px;border-radius:7px;background:var(--bg1)"><span style="font-size:7px;letter-spacing:.6px;color:var(--text5)">'+lbl+'</span><span style="font-size:var(--fsxs);font-weight:700;color:'+(col||'var(--text2)')+';white-space:nowrap">'+val+'</span></span>';
+      const _evNote=V.discover==='evolve'?(V.evolved_file?'<span style="color:#a78bfa;font-size:var(--fsxs)">🧬 AI-evolved → '+V.evolved_file+'</span>':'<span style="color:var(--red);font-size:var(--fsxs)">🧬 evolve failed'+(V.discover_err?' ('+V.discover_err+')':'')+'</span>'):'';
+      return '<div class="lbl" style="margin:2px 0 9px;font-size:11px;letter-spacing:1px">FEASIBILITY · AUTO-VALIDATE <span style="color:var(--text5);font-weight:400;letter-spacing:0">· '+stratLabel+'</span></div>'
+        +'<div style="display:flex;gap:13px;flex-wrap:wrap;align-items:center;margin-bottom:10px">'
+        +'<div style="font-size:26px;font-weight:800;color:'+vc+';letter-spacing:1px">'+V.verdict+'</div>'
+        +'<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:stretch">'
+        +_chip('GATES',V.n_pass+'/'+ng,(V.n_pass>=ng?'var(--green)':'var(--text2)'))
+        +_chip('IS PF',Math.min(V.is_pf||0,99).toFixed(2))
+        +(V.is_sharpe!=null?_chip('IS SHARPE',(+V.is_sharpe).toFixed(2)):'')
+        +_chip('OPTIMIZED ON',(W.optimize[0]||'start')+' → '+(W.optimize[1]||''))
+        +_chip('LOCKBOX',(W.lockbox&&W.lockbox[0])?(W.lockbox[0]+' → '+W.lockbox[1]):('last '+W.lockbox_months+'mo'))
+        +'</div>'+(_evNote?'<div>'+_evNote+'</div>':'')+'</div>'
         +((V.transfer&&V.transfer.length)?'<div style="margin-top:7px;font-size:var(--fsxs);color:var(--text3)">↔ Champion re-tested (no re-fit): '+V.transfer.map(t=>instTag(t.inst)+' '+(t.pass?'<b style="color:var(--green)">holds</b>':'<b style="color:var(--red)">fails</b>')+' · PF '+Math.min(t.pf||0,99).toFixed(2)+' · '+fmtUsd(Math.round((t.pnl||0)*instMult(t.inst)))+' · '+(t.trades||0)+' trd').join('　·　')+'</div>':'')
         +eqSvg
         +'<div style="margin-top:9px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+(lb.pass?'var(--green)':'var(--red)')+'">'+(lb.pass?'HELD':'FAILED')+'</b> · '+fmtUsd(Math.round((lb.pnl||0)*mlt))+' · PF '+Math.min(lb.pf||0,99).toFixed(2)+' · '+(lb.trades||0)+' trades'+(V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>';
@@ -4685,10 +4697,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _spyDiv=(d.date_from&&d.date_to)?'<div id="det-spy" data-spy-from="'+d.date_from+'" data-spy-to="'+d.date_to+'" style="font-size:var(--fsxs);color:var(--text5);margin:-2px 0 0"></div>':'';
       const _topCfg='<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">TOP CONFIGS</div>'+(t10.length?'<div style="overflow-x:auto"><table class="table" style="width:auto;font-size:var(--fsxs);white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>');
       const _champMetrics='<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">CHAMPION METRICS</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px">'+cardHtml+'</div>';
-      // Whole-run champion equity (every trade, 1 contract) — shown for ALL runs incl. validate/WF.
-      //   For validate runs chart 1 plots the IS-vs-lockbox split; this is the complete single-curve
-      //   view the user wants on every past run, so it is no longer suppressed.
-      const _sec2=_secOf(2,[_champMetrics, (eqHtml?(eqHtml+_spyDiv):''), tradeDistPanelHtml(d.win_dist,mlt), maeMfePanelHtml(d.mae_mfe,mlt)]);
+      // Whole-run champion equity (every trade, 1 contract) shows ONLY for grid/auto runs —
+      //   validate/WF runs already plot the champion equity (with fold bands + lockbox) as chart 1
+      //   in §1, so showing it again here would just duplicate that graph.
+      const _sec2=_secOf(2,[_champMetrics, (d.validate?'':(eqHtml?(eqHtml+_spyDiv):'')), tradeDistPanelHtml(d.win_dist,mlt), maeMfePanelHtml(d.mae_mfe,mlt)]);
       // 3 Plateau / CONFIG ANALYSIS = everything about the searched config space: the top-config
       //   list + their equity + the all-config distribution + neighbour grid + luck + param maps.
       const _sec3=_secOf(3,[
