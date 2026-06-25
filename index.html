@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='33.4';
+const VERSION='33.5';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4404,29 +4404,41 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //   the folds (per-fold series); lockbox is one window so it shows —.
     const kpiMatrixHtml=(d,mult)=>{
       const V=d.validate;if(!V)return '';
-      const folds=(Array.isArray(d.top10_results)?d.top10_results.filter(x=>x&&x.fold!=null):[]);
-      const agg=(items,pnlKey,pfKey,trKey)=>{let gw=0,gl=0,npnl=0,ntr=0;items.forEach(f=>{const pf=+f[pfKey]||0,net=+f[pnlKey]||0;npnl+=net;ntr+=(+f[trKey]||0);if(pf>0&&isFinite(pf)&&Math.abs(pf-1)>1e-4){const gloss=Math.abs(net/(pf-1));gw+=pf*gloss;gl+=gloss;}});return {pnl:npnl,pf:gl>0?gw/gl:0,trades:ntr};};
-      const wfIs=agg(folds,'total_pnl','profit_factor','num_trades'),wfOos=agg(folds,'oos_pnl','oos_pf','oos_trades'),lb=V.lockbox||{};
-      // annualized Sharpe across the fold series (each fold = one period); needs the optimize-window
-      //   length to set periods-per-year. Returns null when there aren't enough folds.
+      const folds=(Array.isArray(d.top10_results)?d.top10_results.filter(x=>x&&x.fold!=null):[]).slice().sort((a,b)=>(a.fold-b.fold));
+      const lb=V.lockbox||{};
+      // ── NET P&L is read straight off the realized CHAMPION EQUITY CURVE, split at the SAME
+      //    boundaries the chart draws: in-sample warmup → walk-forward OOS → lockbox. Because each
+      //    leg is a curve delta, the three columns sum EXACTLY to the curve endpoint (OVERALL).
+      //    (PF/Sharpe/Trades below come from the per-phase validation backtests — a different,
+      //    per-fold-re-optimized measurement — so they characterise risk, they don't recompute
+      //    these dollars. Disclosed in the footnote.)
+      const eq=(V.equity||[]).map(x=>x*mult),li=Math.min(V.lb_idx||eq.length,eq.length);
+      let segWarm=null,segOos=null,segLock=null,segAll=null,curveOk=false,warmDates='';
+      if(eq.length>2){
+        const tr0=folds.length?(+folds[0].train_bars||0):0,span=tr0+folds.reduce((s,f)=>s+(+f.test_bars||0),0);
+        const warmEnd=(tr0>0&&span>0)?Math.max(0,Math.min(li-1,Math.round(li*tr0/span))):0;
+        // equity is cumulative PnL from zero → leg = endpoint of each region; the three legs sum
+        //   to the curve endpoint (OVERALL). (Anchored at 0, not eq[0], so it matches the chart.)
+        segWarm=eq[warmEnd]; segOos=eq[li-1]-eq[warmEnd]; segLock=eq[eq.length-1]-eq[li-1]; segAll=eq[eq.length-1]; curveOk=true;
+      }
+      // annualized Sharpe across the OOS fold series (each fold = one period); IS folds are
+      //   correlated/trending and the lockbox is a single window → no reliable Sharpe for those.
       const W=V.windows||{},_oS=W.optimize&&W.optimize[0],_oE=W.optimize&&W.optimize[1];
       const _yrs=(_oS&&_oE)?Math.max(0.25,(+new Date(_oE)-+new Date(_oS))/(365.25*864e5)):null;
-      const foldSharpe=key=>{const xs=folds.map(f=>+f[key]||0);if(xs.length<3||_yrs==null)return null;const m=xs.reduce((s,x)=>s+x,0)/xs.length,sd=Math.sqrt(xs.reduce((s,x)=>s+(x-m)*(x-m),0)/xs.length);if(sd<=0)return null;return (m/sd)*Math.sqrt(xs.length/_yrs);};
-      // OVERALL = pooled OUT-OF-SAMPLE (WF OOS folds + lockbox). Phases overlap heavily
-      //   (in-sample / WF-IS / WF-OOS all cover the optimize window), so a naive sum across
-      //   columns double-counts the same dollars. The honest, deploy-relevant aggregate is the
-      //   pooled out-of-sample total — every dollar the optimizer never saw. Gross-pooled PF.
-      const oosItems=folds.map(f=>({net:+f.oos_pnl||0,pf:+f.oos_pf||0,tr:+f.oos_trades||0}));
-      if(lb.pnl!=null)oosItems.push({net:+lb.pnl||0,pf:+lb.pf||0,tr:+lb.trades||0});
-      const aggN=items=>{let gw=0,gl=0,npnl=0,ntr=0;items.forEach(f=>{const pf=+f.pf||0,net=+f.net||0;npnl+=net;ntr+=(+f.tr||0);if(pf>0&&isFinite(pf)&&Math.abs(pf-1)>1e-4){const gloss=Math.abs(net/(pf-1));gw+=pf*gloss;gl+=gloss;}});return {pnl:npnl,pf:gl>0?gw/gl:0,trades:ntr};};
-      const overall=aggN(oosItems);
-      const overallSharpe=()=>{const xs=folds.map(f=>+f.oos_pnl||0);if(lb.pnl!=null)xs.push(+lb.pnl||0);if(xs.length<3||_yrs==null)return null;const m=xs.reduce((s,x)=>s+x,0)/xs.length,sd=Math.sqrt(xs.reduce((s,x)=>s+(x-m)*(x-m),0)/xs.length);if(sd<=0)return null;return (m/sd)*Math.sqrt(xs.length/_yrs);};
+      const foldSharpe=()=>{const xs=folds.map(f=>+f.oos_pnl||0);if(xs.length<3||_yrs==null)return null;const m=xs.reduce((s,x)=>s+x,0)/xs.length,sd=Math.sqrt(xs.reduce((s,x)=>s+(x-m)*(x-m),0)/xs.length);if(sd<=0)return null;return (m/sd)*Math.sqrt(xs.length/_yrs);};
+      // pooled gross-reconstructed PF across a set of {net,pf} items (true pooled, not mean of ratios)
+      const poolPf=items=>{let gw=0,gl=0;items.forEach(f=>{const pf=+f.pf||0,net=+f.net||0;if(pf>0&&isFinite(pf)&&Math.abs(pf-1)>1e-4){const gloss=Math.abs(net/(pf-1));gw+=pf*gloss;gl+=gloss;}});return gl>0?gw/gl:0;};
+      const oosPf=poolPf(folds.map(f=>({net:+f.oos_pnl||0,pf:+f.oos_pf||0}))),oosSh=foldSharpe();
+      const oosTr=folds.reduce((s,f)=>s+(+f.oos_trades||0),0),_wfNet=folds.reduce((s,f)=>s+(+f.oos_pnl||0),0)*mult;
+      // OVERALL risk = out-of-sample composite (OOS folds + lockbox) — the deploy-relevant figure.
+      const compItems=folds.map(f=>({net:+f.oos_pnl||0,pf:+f.oos_pf||0})); if(lb.pnl!=null)compItems.push({net:+lb.pnl||0,pf:+lb.pf||0});
+      const compPf=poolPf(compItems);
+      const compSh=()=>{const xs=folds.map(f=>+f.oos_pnl||0);if(lb.pnl!=null)xs.push(+lb.pnl||0);if(xs.length<3||_yrs==null)return null;const m=xs.reduce((s,x)=>s+x,0)/xs.length,sd=Math.sqrt(xs.reduce((s,x)=>s+(x-m)*(x-m),0)/xs.length);if(sd<=0)return null;return (m/sd)*Math.sqrt(xs.length/_yrs);};
       const phases=[
-        {sh_:'IN-SAMPLE', tip:'in-sample champion · full optimize window', pnl:(d.best_pnl_usd||0), pf:V.is_pf, sh:V.is_sharpe, tr:V.is_trades},
-        folds.length?{sh_:'WF IS', tip:'walk-forward in-sample · pooled across '+folds.length+' folds (in-sample folds are trending/correlated → no reliable Sharpe)', pnl:wfIs.pnl*mult, pf:wfIs.pf, sh:null, tr:wfIs.trades}:null,
-        folds.length?{sh_:'WF OOS', tip:'walk-forward out-of-sample · each fold tested on unseen data (pooled); Sharpe annualized across the OOS folds', pnl:wfOos.pnl*mult, pf:wfOos.pf, sh:foldSharpe('oos_pnl'), tr:wfOos.trades}:null,
-        (lb.pnl!=null)?{sh_:'LOCKBOX', tip:'lockbox holdout · never optimized or browsed', pnl:lb.pnl*mult, pf:lb.pf, sh:null, tr:lb.trades}:null,
-        (oosItems.length>=2)?{sh_:'OVERALL', overall:true, tip:'OVERALL = pooled out-of-sample (WF OOS folds + lockbox) — every dollar the optimizer never saw. NOT a sum of all columns (the in-sample / WF-IS windows overlap and would double-count); this is the honest deploy-relevant aggregate.', pnl:overall.pnl*mult, pf:overall.pf, sh:overallSharpe(), tr:overall.trades}:null
+        {sh_:'IN-SAMPLE', tip:'in-sample leg of the champion equity curve (the warmup region, before walk-forward testing begins). NET is that realized leg; PF/Sharpe/Trades are the in-sample champion over the full optimize window.', pnl:curveOk?segWarm:(d.best_pnl_usd||0), pf:V.is_pf, sh:V.is_sharpe, tr:V.is_trades},
+        folds.length?{sh_:'WALK-FWD OOS', tip:'walk-forward out-of-sample leg of the curve. NET is that realized leg; PF/Sharpe/Trades are the per-fold OOS validation (each fold tested on unseen data, pooled).', pnl:curveOk?segOos:_wfNet, pf:oosPf, sh:oosSh, tr:oosTr}:null,
+        (lb.pnl!=null)?{sh_:'LOCKBOX', tip:'lockbox holdout leg — never optimized or browsed.', pnl:curveOk?segLock:(lb.pnl*mult), pf:lb.pf, sh:null, tr:lb.trades}:null,
+        {sh_:'OVERALL', overall:true, tip:'OVERALL = the champion equity-curve endpoint — the in-sample, walk-forward and lockbox legs to the left sum exactly to it. PF/Sharpe shown are the out-of-sample composite (OOS folds + lockbox) — the deploy-relevant risk.', pnl:curveOk?segAll:((d.best_pnl_usd||0)+(lb.pnl!=null?lb.pnl*mult:0)), pf:compPf, sh:compSh(), tr:null}
       ].filter(Boolean);
       const _pf=v=>(v==null||!isFinite(v)||v<=0)?'—':Math.min(v,99).toFixed(2);
       const _sh=v=>(v==null||!isFinite(v))?'—':(+v).toFixed(2);
@@ -4444,7 +4456,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +phases.map(p=>'<td style="padding:6px 8px;text-align:right;white-space:nowrap'+_ovl(p)+'">'+m.cell(p)+'</td>').join('')+'</tr>').join('');
       return '<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">KPI MATRIX · metrics × phase (in-sample → walk-forward → lockbox → overall)</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 0;margin-bottom:14px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead>'+head+'</thead><tbody>'+body+'</tbody></table>'
-        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px"><b style="color:var(--green)">OVERALL</b> = pooled out-of-sample (WF OOS folds + lockbox) — every dollar the optimizer never saw; it is <i>not</i> a sum of the columns (the in-sample / WF-IS windows overlap and would double-count). Sharpe: in-sample is the stored per-trade Sharpe; WF OOS &amp; OVERALL are annualized across the out-of-sample fold series. WF-IS &amp; lockbox show — (in-sample folds are trending/correlated, lockbox is a single window — neither yields a reliable Sharpe without per-trade returns). Net $ spans differ per phase — read PF for the apples-to-apples comparison.</div></div>';
+        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px"><b>NET P&amp;L</b> is read off the realized champion equity curve, split into its three legs (in-sample warmup → walk-forward OOS → lockbox), so the columns sum exactly to <b style="color:var(--green)">OVERALL</b> = the curve endpoint. <b>PF · SHARPE · TRADES</b> come from the per-phase validation backtests (in-sample champion; per-fold walk-forward OOS; lockbox) — a different, per-fold-re-optimized measurement, so they characterise each phase\'s risk rather than recompute the curve dollars. OVERALL\'s PF/Sharpe are the out-of-sample composite (OOS folds + lockbox) — the deploy-relevant risk; its trades show — (the curve total isn\'t stored). Sharpe is annualized across the OOS folds; lockbox is a single window so it shows —.</div></div>';
     };
     // CONFIG FILTER — a brush slider (legacy-Augur parcoords behaviour). Drag it and every
     //   config mark (parallel-coords line + scatter dot, class .cfgmark, tagged data-net=$)
