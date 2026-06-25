@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='33.3';
+const VERSION='33.4';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4412,11 +4412,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const W=V.windows||{},_oS=W.optimize&&W.optimize[0],_oE=W.optimize&&W.optimize[1];
       const _yrs=(_oS&&_oE)?Math.max(0.25,(+new Date(_oE)-+new Date(_oS))/(365.25*864e5)):null;
       const foldSharpe=key=>{const xs=folds.map(f=>+f[key]||0);if(xs.length<3||_yrs==null)return null;const m=xs.reduce((s,x)=>s+x,0)/xs.length,sd=Math.sqrt(xs.reduce((s,x)=>s+(x-m)*(x-m),0)/xs.length);if(sd<=0)return null;return (m/sd)*Math.sqrt(xs.length/_yrs);};
+      // OVERALL = pooled OUT-OF-SAMPLE (WF OOS folds + lockbox). Phases overlap heavily
+      //   (in-sample / WF-IS / WF-OOS all cover the optimize window), so a naive sum across
+      //   columns double-counts the same dollars. The honest, deploy-relevant aggregate is the
+      //   pooled out-of-sample total — every dollar the optimizer never saw. Gross-pooled PF.
+      const oosItems=folds.map(f=>({net:+f.oos_pnl||0,pf:+f.oos_pf||0,tr:+f.oos_trades||0}));
+      if(lb.pnl!=null)oosItems.push({net:+lb.pnl||0,pf:+lb.pf||0,tr:+lb.trades||0});
+      const aggN=items=>{let gw=0,gl=0,npnl=0,ntr=0;items.forEach(f=>{const pf=+f.pf||0,net=+f.net||0;npnl+=net;ntr+=(+f.tr||0);if(pf>0&&isFinite(pf)&&Math.abs(pf-1)>1e-4){const gloss=Math.abs(net/(pf-1));gw+=pf*gloss;gl+=gloss;}});return {pnl:npnl,pf:gl>0?gw/gl:0,trades:ntr};};
+      const overall=aggN(oosItems);
+      const overallSharpe=()=>{const xs=folds.map(f=>+f.oos_pnl||0);if(lb.pnl!=null)xs.push(+lb.pnl||0);if(xs.length<3||_yrs==null)return null;const m=xs.reduce((s,x)=>s+x,0)/xs.length,sd=Math.sqrt(xs.reduce((s,x)=>s+(x-m)*(x-m),0)/xs.length);if(sd<=0)return null;return (m/sd)*Math.sqrt(xs.length/_yrs);};
       const phases=[
         {sh_:'IN-SAMPLE', tip:'in-sample champion · full optimize window', pnl:(d.best_pnl_usd||0), pf:V.is_pf, sh:V.is_sharpe, tr:V.is_trades},
         folds.length?{sh_:'WF IS', tip:'walk-forward in-sample · pooled across '+folds.length+' folds (in-sample folds are trending/correlated → no reliable Sharpe)', pnl:wfIs.pnl*mult, pf:wfIs.pf, sh:null, tr:wfIs.trades}:null,
         folds.length?{sh_:'WF OOS', tip:'walk-forward out-of-sample · each fold tested on unseen data (pooled); Sharpe annualized across the OOS folds', pnl:wfOos.pnl*mult, pf:wfOos.pf, sh:foldSharpe('oos_pnl'), tr:wfOos.trades}:null,
-        (lb.pnl!=null)?{sh_:'LOCKBOX', tip:'lockbox holdout · never optimized or browsed', pnl:lb.pnl*mult, pf:lb.pf, sh:null, tr:lb.trades}:null
+        (lb.pnl!=null)?{sh_:'LOCKBOX', tip:'lockbox holdout · never optimized or browsed', pnl:lb.pnl*mult, pf:lb.pf, sh:null, tr:lb.trades}:null,
+        (oosItems.length>=2)?{sh_:'OVERALL', overall:true, tip:'OVERALL = pooled out-of-sample (WF OOS folds + lockbox) — every dollar the optimizer never saw. NOT a sum of all columns (the in-sample / WF-IS windows overlap and would double-count); this is the honest deploy-relevant aggregate.', pnl:overall.pnl*mult, pf:overall.pf, sh:overallSharpe(), tr:overall.trades}:null
       ].filter(Boolean);
       const _pf=v=>(v==null||!isFinite(v)||v<=0)?'—':Math.min(v,99).toFixed(2);
       const _sh=v=>(v==null||!isFinite(v))?'—':(+v).toFixed(2);
@@ -4427,13 +4437,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {lbl:'SHARPE', cell:p=>'<span style="color:var(--text3)">'+_sh(p.sh)+'</span>'},
         {lbl:'TRADES', cell:p=>'<span style="color:var(--text4)">'+(p.tr!=null?(+p.tr).toLocaleString():'—')+'</span>'}
       ];
-      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:5px 8px">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:5px 8px;white-space:nowrap;cursor:help">'+p.sh_+'</th>').join('')+'</tr>';
+      const _ovl=p=>p.overall?';border-left:2px solid color-mix(in srgb,var(--green) 55%,transparent);background:color-mix(in srgb,var(--green) 7%,transparent)':'';
+      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:5px 8px">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:5px 8px;white-space:nowrap;cursor:help'+(p.overall?';color:var(--green);font-weight:700':'')+_ovl(p)+'">'+p.sh_+'</th>').join('')+'</tr>';
       const body=metrics.map(m=>'<tr style="border-top:1px solid color-mix(in srgb,var(--border) '+(m.top?'70%':'40%')+',transparent)'+(m.top?';background:color-mix(in srgb,var(--border) 10%,transparent)':'')+'">'
         +'<td style="padding:6px 8px;font-size:var(--fsxs);color:var(--text2);font-weight:'+(m.top?'700':'400')+';white-space:nowrap">'+m.lbl+'</td>'
-        +phases.map(p=>'<td style="padding:6px 8px;text-align:right;white-space:nowrap">'+m.cell(p)+'</td>').join('')+'</tr>').join('');
-      return '<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">KPI MATRIX · metrics × phase (in-sample → walk-forward → lockbox)</div>'
+        +phases.map(p=>'<td style="padding:6px 8px;text-align:right;white-space:nowrap'+_ovl(p)+'">'+m.cell(p)+'</td>').join('')+'</tr>').join('');
+      return '<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">KPI MATRIX · metrics × phase (in-sample → walk-forward → lockbox → overall)</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 0;margin-bottom:14px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead>'+head+'</thead><tbody>'+body+'</tbody></table>'
-        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px">Sharpe: in-sample is the stored per-trade Sharpe; WF OOS is annualized across the '+(folds.length||0)+' out-of-sample folds. WF-IS &amp; lockbox show — (in-sample folds are trending/correlated, lockbox is a single window — neither yields a reliable Sharpe without per-trade returns). Net $ spans differ per phase — read PF for the apples-to-apples comparison.</div></div>';
+        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px"><b style="color:var(--green)">OVERALL</b> = pooled out-of-sample (WF OOS folds + lockbox) — every dollar the optimizer never saw; it is <i>not</i> a sum of the columns (the in-sample / WF-IS windows overlap and would double-count). Sharpe: in-sample is the stored per-trade Sharpe; WF OOS &amp; OVERALL are annualized across the out-of-sample fold series. WF-IS &amp; lockbox show — (in-sample folds are trending/correlated, lockbox is a single window — neither yields a reliable Sharpe without per-trade returns). Net $ spans differ per phase — read PF for the apples-to-apples comparison.</div></div>';
     };
     // CONFIG FILTER — a brush slider (legacy-Augur parcoords behaviour). Drag it and every
     //   config mark (parallel-coords line + scatter dot, class .cfgmark, tagged data-net=$)
