@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='33.0';
+const VERSION='33.1';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4397,6 +4397,33 @@ namespace NinjaTrader.NinjaScript.Strategies {
     };
     // PARALLEL COORDINATES — every config as a line across one vertical axis per parameter plus a
     // final NET $ axis (legacy Augur style). Lines coloured by PnL; hover a line for its config.
+    // KPI MATRIX — the headline numbers (NET $, PF, Sharpe, trades) side-by-side across the
+    //   validation phases: in-sample champion · walk-forward in-sample · walk-forward OOS · lockbox.
+    //   Aggregate PF is reconstructed from each fold's gross (net = grossLoss·(pf−1)) so it's a true
+    //   pooled PF, not an average of ratios. Sharpe is only stored for the in-sample champion.
+    const kpiMatrixHtml=(d,mult)=>{
+      const V=d.validate;if(!V)return '';
+      const folds=(Array.isArray(d.top10_results)?d.top10_results.filter(x=>x&&x.fold!=null):[]);
+      const agg=(items,pnlKey,pfKey,trKey)=>{let gw=0,gl=0,npnl=0,ntr=0;items.forEach(f=>{const pf=+f[pfKey]||0,net=+f[pnlKey]||0;npnl+=net;ntr+=(+f[trKey]||0);if(pf>0&&isFinite(pf)&&Math.abs(pf-1)>1e-4){const gloss=Math.abs(net/(pf-1));gw+=pf*gloss;gl+=gloss;}});return {pnl:npnl,pf:gl>0?gw/gl:0,trades:ntr};};
+      const wfIs=agg(folds,'total_pnl','profit_factor','num_trades'),wfOos=agg(folds,'oos_pnl','oos_pf','oos_trades'),lb=V.lockbox||{};
+      const rows=[
+        {ph:'In-sample · champion', pnl:(d.best_pnl_usd||0), pf:V.is_pf, sh:V.is_sharpe, tr:V.is_trades, tip:'the candidate config over the full optimize window'},
+        folds.length?{ph:'Walk-forward · in-sample', pnl:wfIs.pnl*mult, pf:wfIs.pf, sh:null, tr:wfIs.trades, tip:'each fold\'s training performance, pooled across '+folds.length+' folds'}:null,
+        folds.length?{ph:'Walk-forward · out-of-sample', pnl:wfOos.pnl*mult, pf:wfOos.pf, sh:null, tr:wfOos.trades, tip:'each fold tested on data it never trained on (pooled)'}:null,
+        (lb.pnl!=null)?{ph:'Lockbox · out-of-sample', pnl:lb.pnl*mult, pf:lb.pf, sh:null, tr:lb.trades, tip:'final holdout, never optimized or browsed'}:null
+      ].filter(Boolean);
+      const _pf=v=>(v==null||!isFinite(v)||v<=0)?'—':Math.min(v,99).toFixed(2);
+      const _sh=v=>(v==null||!isFinite(v))?'<span style="color:var(--text5)">—</span>':(+v).toFixed(2);
+      const tr=rows.map(r=>'<tr style="border-top:1px solid color-mix(in srgb,var(--border) 40%,transparent)" title="'+r.tip+'">'
+        +'<td style="padding:6px 8px;font-size:var(--fsxs);color:var(--text2);white-space:nowrap">'+r.ph+'</td>'
+        +'<td style="padding:6px 8px;text-align:right;font-weight:700;color:'+((r.pnl||0)>=0?'#1d9e75':'#e24b4a')+';white-space:nowrap">'+fmtUsd(Math.round(r.pnl||0))+'</td>'
+        +'<td style="padding:6px 8px;text-align:right;color:'+((r.pf!=null&&r.pf>=1)?'var(--text)':'var(--red)')+'">'+_pf(r.pf)+'</td>'
+        +'<td style="padding:6px 8px;text-align:right;color:var(--text3)">'+_sh(r.sh)+'</td>'
+        +'<td style="padding:6px 8px;text-align:right;color:var(--text4)">'+(r.tr!=null?(+r.tr).toLocaleString():'—')+'</td></tr>').join('');
+      return '<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">KPI MATRIX · in-sample → walk-forward → lockbox</div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 0;margin-bottom:14px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead><tr style="color:var(--text5)"><th style="text-align:left;padding:5px 8px">PHASE</th><th style="text-align:right;padding:5px 8px">NET P&L</th><th style="text-align:right;padding:5px 8px">PF</th><th style="text-align:right;padding:5px 8px">SHARPE</th><th style="text-align:right;padding:5px 8px">TRADES</th></tr></thead><tbody>'+tr+'</tbody></table>'
+        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px">Sharpe is stored only for the in-sample champion. Net $ spans differ per phase (full optimize window vs per-fold vs 1-yr holdout) — read PF for an apples-to-apples comparison.</div></div>';
+    };
     // CONFIG FILTER — a brush slider (legacy-Augur parcoords behaviour). Drag it and every
     //   config mark (parallel-coords line + scatter dot, class .cfgmark, tagged data-net=$)
     //   whose net PnL is below the cut greys out, isolating the better region to read param
@@ -4511,7 +4538,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   pulls every supporting number into its own titled chip so nothing reads as clutter).
       const _chip=(lbl,val,col)=>'<span style="display:inline-flex;flex-direction:column;gap:1px;padding:4px 9px;border-radius:7px;background:var(--bg1)"><span style="font-size:7px;letter-spacing:.6px;color:var(--text5)">'+lbl+'</span><span style="font-size:var(--fsxs);font-weight:700;color:'+(col||'var(--text2)')+';white-space:nowrap">'+val+'</span></span>';
       const _evNote=V.discover==='evolve'?(V.evolved_file?'<span style="color:#a78bfa;font-size:var(--fsxs)">🧬 AI-evolved → '+V.evolved_file+'</span>':'<span style="color:var(--red);font-size:var(--fsxs)">🧬 evolve failed'+(V.discover_err?' ('+V.discover_err+')':'')+'</span>'):'';
-      return '<div class="lbl" style="margin:2px 0 9px;font-size:11px;letter-spacing:1px">FEASIBILITY · AUTO-VALIDATE <span style="color:var(--text5);font-weight:400;letter-spacing:0">· '+stratLabel+'</span></div>'
+      return '<div class="lbl" style="margin:2px 0 9px;font-size:11px;letter-spacing:1px">FEASIBILITY · AUTO-VALIDATE</div>'
         +'<div style="display:flex;gap:13px;flex-wrap:wrap;align-items:center;margin-bottom:10px">'
         +'<div style="font-size:26px;font-weight:800;color:'+vc+';letter-spacing:1px">'+V.verdict+'</div>'
         +'<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:stretch">'
@@ -4722,7 +4749,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         scatterPanelHtml(d.points,mlt),
         heatmapPanelHtml(d.points,mlt),
         corrPanelHtml(d.points)]);
-      const _sec4=_secOf(4,[stressPanelHtml(d.stress,mlt), regHtml]);
+      // regHtml (regime report card + monthly P&L) moved into §1 (under the WF folds) per request.
+      const _sec4=_secOf(4,[stressPanelHtml(d.stress,mlt)]);
       // Walk-forward folds (was its own §5) now live INSIDE §1 — they ARE the out-of-sample
       //   detail behind chart 1's WF bands. The res-step-5 anchor keeps pill 5 jumping here.
       // Only emit the WF-folds subsection (with its res-step-5 jump anchor) when there ARE folds —
@@ -4735,7 +4763,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><input id="det-note" value="'+String(d.note||'').replace(/"/g,'&quot;')+'" placeholder="add a note…" style="flex:1;padding:4px 8px;font-size:var(--fsxs);border-radius:6px"/><button class="btn-ghost" id="det-note-save" data-note-id="'+d.id+'" style="padding:4px 12px;font-size:var(--fsxs);border:1px solid var(--border);border-radius:6px">save</button>'
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="width:auto;padding:4px 6px;font-size:9px;border-radius:6px"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
         +'<button class="btn-ghost" id="det-del" data-del-id="'+d.id+'" style="padding:4px 10px;font-size:var(--fsxs);border:1px solid var(--red);border-radius:6px;color:var(--red)">delete</button></div>'
-        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',_secOf(1,[_summaryPanel,valdCard,_wfFolds]))
+        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',_secOf(1,[_summaryPanel,valdCard,kpiMatrixHtml(d,mlt),_wfFolds,regHtml]))
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         +_sec('3','Plateau','robust params — a cluster, not a lonely spike',_sec3)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4)
