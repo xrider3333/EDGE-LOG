@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='32.9';
+const VERSION='33.0';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4665,18 +4665,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Single header row: title (RUN REPORT · run# · strategy) + the run meta inline, de-duped
       //   (drop the old standalone "run #id" and the bare instrument/tf — source_name already
       //   carries market+session). nowrap + overflow-x:auto keeps it on one row.
-      const _meta=[ (d.source_name||((d.instrument||'')+' '+(d.timeframe||'')).trim()),
-          (d.scope||''),
-          (_dnice(d.date_from)+' → '+_dnice(d.date_to)),
-          (d.days_in_test?(+d.days_in_test).toLocaleString()+'d':''),
+      // ── RUN SUMMARY panel (1a). Was the cluttered header meta row + the §2 champion-metrics
+      //    block. Drop the bits the Feasibility card (§1) already states for validate runs — the
+      //    scope (it's the card title) and the date range (covered by OPTIMIZED ON + LOCKBOX
+      //    windows) — and fold the rest, plus the champion metrics, into one panel at the top of §1. ──
+      const _metaBits=[ (d.source_name||((d.instrument||'')+' '+(d.timeframe||'')).trim()),
+          (d.validate?'':(d.scope||'')),
+          (d.validate?'':((d.date_from&&d.date_to)?(_dnice(d.date_from)+' → '+_dnice(d.date_to)):'')),
+          (d.days_in_test?(+d.days_in_test).toLocaleString()+' days':''),
           (d.bars?(+d.bars).toLocaleString()+' bars':''),
-          ((d.n_valid||0)+'/'+(d.n_combos||0)+' cfg'),
-          (d.elapsed_s?(d.elapsed_s>=60?(d.elapsed_s/60).toFixed(1)+'m':Math.round(d.elapsed_s)+'s'):''),
+          (d.n_combos?((d.n_valid||0)+'/'+(d.n_combos||0)+' configs'):''),
+          (d.elapsed_s?('took '+(d.elapsed_s>=60?(d.elapsed_s/60).toFixed(1)+'m':Math.round(d.elapsed_s)+'s')):''),
           ((d.commission_usd!=null||d.slippage_pts!=null)?'$'+(d.commission_usd||0)+'/RT'+(d.slippage_pts?' +'+d.slippage_pts+'pt':''):''),
           (d.app_version?'v'+d.app_version:''),
           ('ran '+_dtnice(d.timestamp))
-        ].filter(Boolean).join(' · ');
-      const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span><span style="font-size:var(--fsxs);color:var(--text5);flex:0 0 auto">· '+_meta+'</span></div>'
+        ].filter(Boolean);
+      const _metaStrip='<div style="font-size:var(--fsxs);color:var(--text4);display:flex;gap:7px;flex-wrap:wrap;align-items:center">'+_metaBits.map((b,i)=>(i?'<span style="opacity:.35">·</span>':'')+'<span>'+b+'</span>').join('')+'</div>';
+      const _summaryPanel='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'
+        +'<div class="lbl" style="margin:0 0 8px;font-size:11px;letter-spacing:1px">RUN SUMMARY</div>'+_metaStrip
+        +'<div class="lbl" style="margin:11px 0 6px;font-size:9px;color:var(--text5)">CHAMPION · best config (in-sample)</div>'
+        +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px">'+cardHtml+'</div></div>';
+      const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span></div>'
         // pinned pills: FULLY transparent (no background, no backdrop-filter) so the row looks
         //   identical at rest and while scrolling — the individual pill chips stay opaque so the
         //   labels remain readable as content slides underneath.
@@ -4696,11 +4705,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   champion equity split IS vs lockbox, so this avoids two near-identical equity curves.
       const _spyDiv=(d.date_from&&d.date_to)?'<div id="det-spy" data-spy-from="'+d.date_from+'" data-spy-to="'+d.date_to+'" style="font-size:var(--fsxs);color:var(--text5);margin:-2px 0 0"></div>':'';
       const _topCfg='<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">TOP CONFIGS</div>'+(t10.length?'<div style="overflow-x:auto"><table class="table" style="width:auto;font-size:var(--fsxs);white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>');
-      const _champMetrics='<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">CHAMPION METRICS</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px">'+cardHtml+'</div>';
-      // Whole-run champion equity (every trade, 1 contract) shows ONLY for grid/auto runs —
-      //   validate/WF runs already plot the champion equity (with fold bands + lockbox) as chart 1
-      //   in §1, so showing it again here would just duplicate that graph.
-      const _sec2=_secOf(2,[_champMetrics, (d.validate?'':(eqHtml?(eqHtml+_spyDiv):'')), tradeDistPanelHtml(d.win_dist,mlt), maeMfePanelHtml(d.mae_mfe,mlt)]);
+      // Champion metrics now live in the §1 RUN SUMMARY panel (consolidated, de-duplicated).
+      // §2 keeps only the trade-level behaviour. Whole-run champion equity shows ONLY for grid/auto
+      //   runs — validate/WF runs already plot it (with fold bands + lockbox) as chart 1 in §1.
+      const _sec2=_secOf(2,[(d.validate?'':(eqHtml?(eqHtml+_spyDiv):'')), tradeDistPanelHtml(d.win_dist,mlt), maeMfePanelHtml(d.mae_mfe,mlt)]);
       // 3 Plateau / CONFIG ANALYSIS = everything about the searched config space: the top-config
       //   list + their equity + the all-config distribution + neighbour grid + luck + param maps.
       const _sec3=_secOf(3,[
@@ -4717,14 +4725,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _sec4=_secOf(4,[stressPanelHtml(d.stress,mlt), regHtml]);
       // Walk-forward folds (was its own §5) now live INSIDE §1 — they ARE the out-of-sample
       //   detail behind chart 1's WF bands. The res-step-5 anchor keeps pill 5 jumping here.
-      const _wfFolds='<div id="res-step-5" style="scroll-margin-top:64px"></div>'+isOosFoldsHtml(d,mlt);
+      // Only emit the WF-folds subsection (with its res-step-5 jump anchor) when there ARE folds —
+      //   otherwise grid/auto runs render a stray empty "1b" subsection (just the anchor div).
+      const _wfInner=isOosFoldsHtml(d,mlt);
+      const _wfFolds=_wfInner?('<div id="res-step-5" style="scroll-margin-top:64px"></div>'+_wfInner):'';
       // 8 Drawdown = worst-case equity-path sizing (Monte-Carlo P95).
       const _sec8=_secOf(8,[mcHtml]);
       return hdrHtml
         +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><input id="det-note" value="'+String(d.note||'').replace(/"/g,'&quot;')+'" placeholder="add a note…" style="flex:1;padding:4px 8px;font-size:var(--fsxs);border-radius:6px"/><button class="btn-ghost" id="det-note-save" data-note-id="'+d.id+'" style="padding:4px 12px;font-size:var(--fsxs);border:1px solid var(--border);border-radius:6px">save</button>'
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="width:auto;padding:4px 6px;font-size:9px;border-radius:6px"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
         +'<button class="btn-ghost" id="det-del" data-del-id="'+d.id+'" style="padding:4px 10px;font-size:var(--fsxs);border:1px solid var(--red);border-radius:6px;color:var(--red)">delete</button></div>'
-        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',_secOf(1,[valdCard,_wfFolds]))
+        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',_secOf(1,[_summaryPanel,valdCard,_wfFolds]))
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         +_sec('3','Plateau','robust params — a cluster, not a lonely spike',_sec3)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4)
