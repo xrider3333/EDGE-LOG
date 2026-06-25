@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='33.2';
+const VERSION='33.3';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4397,32 +4397,43 @@ namespace NinjaTrader.NinjaScript.Strategies {
     };
     // PARALLEL COORDINATES — every config as a line across one vertical axis per parameter plus a
     // final NET $ axis (legacy Augur style). Lines coloured by PnL; hover a line for its config.
-    // KPI MATRIX — the headline numbers (NET $, PF, Sharpe, trades) side-by-side across the
-    //   validation phases: in-sample champion · walk-forward in-sample · walk-forward OOS · lockbox.
-    //   Aggregate PF is reconstructed from each fold's gross (net = grossLoss·(pf−1)) so it's a true
-    //   pooled PF, not an average of ratios. Sharpe is only stored for the in-sample champion.
+    // KPI MATRIX — metrics (rows) × validation phases (columns): in-sample champion · walk-forward
+    //   in-sample · walk-forward OOS · lockbox. NET P&L (the $ totals) sits at the TOP. Pooled PF is
+    //   reconstructed from each fold's gross (net = grossLoss·(pf−1)) — a true pooled PF, not a mean
+    //   of ratios. Sharpe: in-sample is the stored per-trade Sharpe; WF IS/OOS are annualized across
+    //   the folds (per-fold series); lockbox is one window so it shows —.
     const kpiMatrixHtml=(d,mult)=>{
       const V=d.validate;if(!V)return '';
       const folds=(Array.isArray(d.top10_results)?d.top10_results.filter(x=>x&&x.fold!=null):[]);
       const agg=(items,pnlKey,pfKey,trKey)=>{let gw=0,gl=0,npnl=0,ntr=0;items.forEach(f=>{const pf=+f[pfKey]||0,net=+f[pnlKey]||0;npnl+=net;ntr+=(+f[trKey]||0);if(pf>0&&isFinite(pf)&&Math.abs(pf-1)>1e-4){const gloss=Math.abs(net/(pf-1));gw+=pf*gloss;gl+=gloss;}});return {pnl:npnl,pf:gl>0?gw/gl:0,trades:ntr};};
       const wfIs=agg(folds,'total_pnl','profit_factor','num_trades'),wfOos=agg(folds,'oos_pnl','oos_pf','oos_trades'),lb=V.lockbox||{};
-      const rows=[
-        {ph:'In-sample · champion', pnl:(d.best_pnl_usd||0), pf:V.is_pf, sh:V.is_sharpe, tr:V.is_trades, tip:'the candidate config over the full optimize window'},
-        folds.length?{ph:'Walk-forward · in-sample', pnl:wfIs.pnl*mult, pf:wfIs.pf, sh:null, tr:wfIs.trades, tip:'each fold\'s training performance, pooled across '+folds.length+' folds'}:null,
-        folds.length?{ph:'Walk-forward · out-of-sample', pnl:wfOos.pnl*mult, pf:wfOos.pf, sh:null, tr:wfOos.trades, tip:'each fold tested on data it never trained on (pooled)'}:null,
-        (lb.pnl!=null)?{ph:'Lockbox · out-of-sample', pnl:lb.pnl*mult, pf:lb.pf, sh:null, tr:lb.trades, tip:'final holdout, never optimized or browsed'}:null
+      // annualized Sharpe across the fold series (each fold = one period); needs the optimize-window
+      //   length to set periods-per-year. Returns null when there aren't enough folds.
+      const W=V.windows||{},_oS=W.optimize&&W.optimize[0],_oE=W.optimize&&W.optimize[1];
+      const _yrs=(_oS&&_oE)?Math.max(0.25,(+new Date(_oE)-+new Date(_oS))/(365.25*864e5)):null;
+      const foldSharpe=key=>{const xs=folds.map(f=>+f[key]||0);if(xs.length<3||_yrs==null)return null;const m=xs.reduce((s,x)=>s+x,0)/xs.length,sd=Math.sqrt(xs.reduce((s,x)=>s+(x-m)*(x-m),0)/xs.length);if(sd<=0)return null;return (m/sd)*Math.sqrt(xs.length/_yrs);};
+      const phases=[
+        {sh_:'IN-SAMPLE', tip:'in-sample champion · full optimize window', pnl:(d.best_pnl_usd||0), pf:V.is_pf, sh:V.is_sharpe, tr:V.is_trades},
+        folds.length?{sh_:'WF IS', tip:'walk-forward in-sample · pooled across '+folds.length+' folds (in-sample folds are trending/correlated → no reliable Sharpe)', pnl:wfIs.pnl*mult, pf:wfIs.pf, sh:null, tr:wfIs.trades}:null,
+        folds.length?{sh_:'WF OOS', tip:'walk-forward out-of-sample · each fold tested on unseen data (pooled); Sharpe annualized across the OOS folds', pnl:wfOos.pnl*mult, pf:wfOos.pf, sh:foldSharpe('oos_pnl'), tr:wfOos.trades}:null,
+        (lb.pnl!=null)?{sh_:'LOCKBOX', tip:'lockbox holdout · never optimized or browsed', pnl:lb.pnl*mult, pf:lb.pf, sh:null, tr:lb.trades}:null
       ].filter(Boolean);
       const _pf=v=>(v==null||!isFinite(v)||v<=0)?'—':Math.min(v,99).toFixed(2);
-      const _sh=v=>(v==null||!isFinite(v))?'<span style="color:var(--text5)">—</span>':(+v).toFixed(2);
-      const tr=rows.map(r=>'<tr style="border-top:1px solid color-mix(in srgb,var(--border) 40%,transparent)" title="'+r.tip+'">'
-        +'<td style="padding:6px 8px;font-size:var(--fsxs);color:var(--text2);white-space:nowrap">'+r.ph+'</td>'
-        +'<td style="padding:6px 8px;text-align:right;font-weight:700;color:'+((r.pnl||0)>=0?'#1d9e75':'#e24b4a')+';white-space:nowrap">'+fmtUsd(Math.round(r.pnl||0))+'</td>'
-        +'<td style="padding:6px 8px;text-align:right;color:'+((r.pf!=null&&r.pf>=1)?'var(--text)':'var(--red)')+'">'+_pf(r.pf)+'</td>'
-        +'<td style="padding:6px 8px;text-align:right;color:var(--text3)">'+_sh(r.sh)+'</td>'
-        +'<td style="padding:6px 8px;text-align:right;color:var(--text4)">'+(r.tr!=null?(+r.tr).toLocaleString():'—')+'</td></tr>').join('');
-      return '<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">KPI MATRIX · in-sample → walk-forward → lockbox</div>'
-        +'<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 0;margin-bottom:14px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead><tr style="color:var(--text5)"><th style="text-align:left;padding:5px 8px">PHASE</th><th style="text-align:right;padding:5px 8px">NET P&L</th><th style="text-align:right;padding:5px 8px">PF</th><th style="text-align:right;padding:5px 8px">SHARPE</th><th style="text-align:right;padding:5px 8px">TRADES</th></tr></thead><tbody>'+tr+'</tbody></table>'
-        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px">Sharpe is stored only for the in-sample champion. Net $ spans differ per phase (full optimize window vs per-fold vs 1-yr holdout) — read PF for an apples-to-apples comparison.</div></div>';
+      const _sh=v=>(v==null||!isFinite(v))?'—':(+v).toFixed(2);
+      // metric rows — NET P&L (the totals) first/top, then PF, Sharpe, Trades.
+      const metrics=[
+        {lbl:'NET P&L', top:true, cell:p=>'<span style="font-weight:700;color:'+((p.pnl||0)>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(p.pnl||0))+'</span>'},
+        {lbl:'PF', cell:p=>'<span style="color:'+((p.pf!=null&&p.pf>=1)?'var(--text)':'var(--red)')+'">'+_pf(p.pf)+'</span>'},
+        {lbl:'SHARPE', cell:p=>'<span style="color:var(--text3)">'+_sh(p.sh)+'</span>'},
+        {lbl:'TRADES', cell:p=>'<span style="color:var(--text4)">'+(p.tr!=null?(+p.tr).toLocaleString():'—')+'</span>'}
+      ];
+      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:5px 8px">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:5px 8px;white-space:nowrap;cursor:help">'+p.sh_+'</th>').join('')+'</tr>';
+      const body=metrics.map(m=>'<tr style="border-top:1px solid color-mix(in srgb,var(--border) '+(m.top?'70%':'40%')+',transparent)'+(m.top?';background:color-mix(in srgb,var(--border) 10%,transparent)':'')+'">'
+        +'<td style="padding:6px 8px;font-size:var(--fsxs);color:var(--text2);font-weight:'+(m.top?'700':'400')+';white-space:nowrap">'+m.lbl+'</td>'
+        +phases.map(p=>'<td style="padding:6px 8px;text-align:right;white-space:nowrap">'+m.cell(p)+'</td>').join('')+'</tr>').join('');
+      return '<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">KPI MATRIX · metrics × phase (in-sample → walk-forward → lockbox)</div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 0;margin-bottom:14px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead>'+head+'</thead><tbody>'+body+'</tbody></table>'
+        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px">Sharpe: in-sample is the stored per-trade Sharpe; WF OOS is annualized across the '+(folds.length||0)+' out-of-sample folds. WF-IS &amp; lockbox show — (in-sample folds are trending/correlated, lockbox is a single window — neither yields a reliable Sharpe without per-trade returns). Net $ spans differ per phase — read PF for the apples-to-apples comparison.</div></div>';
     };
     // CONFIG FILTER — a brush slider (legacy-Augur parcoords behaviour). Drag it and every
     //   config mark (parallel-coords line + scatter dot, class .cfgmark, tagged data-net=$)
