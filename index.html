@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='34.8';
+const VERSION='34.9';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -5459,6 +5459,32 @@ namespace NinjaTrader.NinjaScript.Strategies {
       }
     }
     content.innerHTML=nav+body;
+    // Make EVERY report chart vertically resizable (like 1a): wrap each sizeable SVG in a
+    // drag-to-grow box with a dashed lower edge. Generic post-render pass — avoids hand-editing
+    // ~9 chart builders. Initial height = the chart's natural aspect (no distortion until dragged);
+    // dragging taller stretches it (preserveAspectRatio=none) to un-squish. Skips list sparklines
+    // (viewBox width < 200) and 1a's own #eq-rs box.
+    (function _rsCharts(){
+      const root=document.getElementById('res-detail');if(!root)return;
+      const made=[];
+      root.querySelectorAll('svg').forEach(svg=>{
+        const vb=(svg.getAttribute('viewBox')||'').split(/\s+/);if(vb.length<4)return;
+        const vw=+vb[2]||0,vh=+vb[3]||0;if(vw<200)return;
+        if(svg.closest('#eq-rs')||svg.closest('.rschart-box'))return;
+        svg.setAttribute('preserveAspectRatio','none');
+        svg.style.height='100%';svg.style.width='100%';svg.style.display='block';
+        const box=document.createElement('div');box.className='rschart-box';
+        // Static default ≈ natural height (viewBoxes are authored at ~display width, so height≈vh);
+        // the rAF below refines it from real clientWidth once layout is flushed.
+        const h0=Math.max(130,Math.min(460,Math.round((vh||150)*1.05)));
+        box.style.cssText='resize:vertical;overflow:hidden;height:'+h0+'px;min-height:120px;max-height:720px;border-bottom:2px dashed color-mix(in srgb,var(--border) 60%,transparent);border-radius:6px;margin-bottom:6px';
+        svg.parentNode.insertBefore(box,svg);box.appendChild(svg);
+        made.push({box,vw,vh});
+      });
+      // Set each chart's RESTING height to its natural aspect once layout is flushed (clientWidth
+      // is 0 synchronously inside the flex panel) — so nothing looks stretched until you drag it.
+      if(made.length)requestAnimationFrame(()=>made.forEach(m=>{const cw=m.box.clientWidth||0;if(cw>0&&m.vw>0)m.box.style.height=Math.max(120,Math.min(460,Math.round(cw*m.vh/m.vw)))+'px';}));
+    })();
     content.querySelectorAll('[data-asub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.asub;augurRunSel=null;augurLibSel=null;augurLibDel=false;augurLibMsg='';renderApp();};});
     if(augurSub==='launch'){const rb=el('au-run');if(rb)rb.onclick=async()=>{const inst=el('au-inst').value,sess=el('au-sess').value;const job={strategy:el('au-strat').value,instrument:inst,timeframe:el('au-tf').value,session:sess,source:sess==='rth'?'tv':null,params:{vol_filter:parseFloat(el('au-vol').value)||0},cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,mc_sims:1000,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};rb.textContent='QUEUED…';rb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='exec'){const ss=el('ex-strat');if(ss)ss.onchange=()=>{augurExecStrat=ss.value;renderApp();};
