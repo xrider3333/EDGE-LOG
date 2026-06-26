@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='34.4';
+const VERSION='34.5';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4500,6 +4500,30 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 0;margin-bottom:14px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead>'+head+'</thead><tbody>'+body+'</tbody></table>'
         +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px">The three sections match the equity graph (1a): <b style="color:var(--text2)">IN-SAMPLE</b> = the un-shaded knob-tuning start · <b style="color:'+C_WF+'">WALK-FORWARD</b> = the blue test bands · <b style="color:'+C_LB+'">LOCKBOX</b> = the purple holdout. They run back-to-back with no overlap, so <b>NET P&amp;L</b> adds up to <b style="color:var(--green)">TOTAL</b> ('+fmtUsd(Math.round(nIS||0))+' + '+fmtUsd(Math.round(nWF||0))+' + '+fmtUsd(Math.round(nLB||0))+' = '+fmtUsd(Math.round(nTOT||0))+'), the curve\'s endpoint. NET P&amp;L &amp; DAYS come from the curve; PF / Win% / Trades are each section\'s backtest. A few cells show — because the run saved each section\'s totals but not the win/loss split of those trades (Win% for walk-forward &amp; lockbox, and their Sharpe) — that needs a re-run to capture.</div></div>';
     };
+    // STRATEGY CODE — the exact plugin source THIS run executed (AUGUR captures the whole
+    //   strategy file at run time; synced to the web from history.get_run). Lets you answer
+    //   "which code produced this result?" forever — view, fingerprint (sha), and download it.
+    //   Honest empty-state for runs synced before code-capture / from the external pipeline.
+    const runCodeHtml=(d)=>{
+      const code=(typeof d.code_snapshot==='string')?d.code_snapshot:'';
+      const ver=d.app_version?('AUGUR v'+d.app_version):'';
+      const head='<div class="lbl" style="margin:14px 0 6px;font-size:9px;color:var(--text5)">STRATEGY CODE · the exact source this run executed</div>';
+      if(!code)return head+'<div style="background:var(--bg2);border-radius:8px;padding:11px 13px;margin-bottom:8px;font-size:var(--fsxs);color:var(--text4)">No code snapshot for this run'+(ver?(' ('+ver+')'):'')+'. AUGUR now keeps each run’s full strategy file — re-sync from the PC to capture it on runs that have one. Runs made before code-capture (or by the external validate pipeline) can’t be back-filled.</div>';
+      const _esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const sha=d.code_sha||'';
+      const lines=code.split('\n').length;
+      const dl='data:text/plain;charset=utf-8,'+encodeURIComponent(code);
+      const fname=(String(d.strategy||'strategy').replace(/[^A-Za-z0-9._-]+/g,'_').replace(/\.py$/,''))+'__run'+d.id+'.py';
+      return head
+        +'<div style="background:var(--bg2);border-radius:8px;padding:10px 12px;margin-bottom:8px">'
+        +'<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'
+        +(ver?'<span>'+ver+'</span>':'')
+        +(sha?'<span title="sha256 of the strategy source — same hash = identical code">code '+sha+'</span>':'')
+        +'<span>'+lines.toLocaleString()+' lines</span>'
+        +'<a href="'+dl+'" download="'+fname+'" style="color:var(--accent);text-decoration:none">⤓ download .py</a></div>'
+        +'<details><summary style="cursor:pointer;font-size:var(--fsxs);color:var(--text3)">view source</summary>'
+        +'<pre style="max-height:360px;overflow:auto;background:var(--bg1);border-radius:6px;padding:10px;font-size:10px;line-height:1.45;white-space:pre;margin:8px 0 0">'+_esc(code)+'</pre></details></div>';
+    };
     // CONFIG FILTER — a brush slider (legacy-Augur parcoords behaviour). Drag it and every
     //   config mark (parallel-coords line + scatter dot, class .cfgmark, tagged data-net=$)
     //   whose net PnL is below the cut greys out, isolating the better region to read param
@@ -4915,7 +4939,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         +_sec('3','Plateau','robust params — a cluster, not a lonely spike',_sec3)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4)
-        +_sec('8','Drawdown','size for the worst-case equity path',_sec8);
+        +_sec('8','Drawdown','size for the worst-case equity path',_sec8)
+        +runCodeHtml(d);
     };
     let body='';
     if(augurSub==='launch'){
