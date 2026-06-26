@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='33.5';
+const VERSION='33.6';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4434,29 +4434,45 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const compItems=folds.map(f=>({net:+f.oos_pnl||0,pf:+f.oos_pf||0})); if(lb.pnl!=null)compItems.push({net:+lb.pnl||0,pf:+lb.pf||0});
       const compPf=poolPf(compItems);
       const compSh=()=>{const xs=folds.map(f=>+f.oos_pnl||0);if(lb.pnl!=null)xs.push(+lb.pnl||0);if(xs.length<3||_yrs==null)return null;const m=xs.reduce((s,x)=>s+x,0)/xs.length,sd=Math.sqrt(xs.reduce((s,x)=>s+(x-m)*(x-m),0)/xs.length);if(sd<=0)return null;return (m/sd)*Math.sqrt(xs.length/_yrs);};
+      // ── per-phase calendar: date range + trading-day count. Anchored on the stored windows; the
+      //    in-sample/OOS split date is the warmup fraction of the optimize span (matches the curve).
+      const _toMs=s=>s?+new Date(s):null;
+      const optS=_toMs(_oS),optE=_toMs(_oE),lbS=_toMs(W.lockbox&&W.lockbox[0]),lbE=_toMs(W.lockbox&&W.lockbox[1]);
+      const _tr0=folds.length?(+folds[0].train_bars||0):0,_spanB=_tr0+folds.reduce((s,f)=>s+(+f.test_bars||0),0);
+      const warmEndMs=(optS&&optE&&_spanB>0)?optS+(_tr0/_spanB)*(optE-optS):optE;
+      const _days=(a,b)=>(a&&b)?Math.round((b-a)/864e5):null;
+      const _mdy=ms=>{if(!ms)return '';const t=new Date(ms);return (t.getUTCMonth()+1)+'/'+t.getUTCDate()+'/'+String(t.getUTCFullYear()).slice(2);};
+      const _dr=(a,b)=>(a&&b)?(_mdy(a)+'–'+_mdy(b)):'';
+      // pooled IN-SAMPLE win rate — per-fold wins/losses are the ONLY win data stored; OOS &
+      //   lockbox carry no win counts, so those show — (disclosed in the footnote).
+      const _w=folds.reduce((s,f)=>s+(+f.wins||0),0),_l=folds.reduce((s,f)=>s+(+f.losses||0),0);
+      const isWr=(_w+_l>0)?(100*_w/(_w+_l)):null;
       const phases=[
-        {sh_:'IN-SAMPLE', tip:'in-sample leg of the champion equity curve (the warmup region, before walk-forward testing begins). NET is that realized leg; PF/Sharpe/Trades are the in-sample champion over the full optimize window.', pnl:curveOk?segWarm:(d.best_pnl_usd||0), pf:V.is_pf, sh:V.is_sharpe, tr:V.is_trades},
-        folds.length?{sh_:'WALK-FWD OOS', tip:'walk-forward out-of-sample leg of the curve. NET is that realized leg; PF/Sharpe/Trades are the per-fold OOS validation (each fold tested on unseen data, pooled).', pnl:curveOk?segOos:_wfNet, pf:oosPf, sh:oosSh, tr:oosTr}:null,
-        (lb.pnl!=null)?{sh_:'LOCKBOX', tip:'lockbox holdout leg — never optimized or browsed.', pnl:curveOk?segLock:(lb.pnl*mult), pf:lb.pf, sh:null, tr:lb.trades}:null,
-        {sh_:'OVERALL', overall:true, tip:'OVERALL = the champion equity-curve endpoint — the in-sample, walk-forward and lockbox legs to the left sum exactly to it. PF/Sharpe shown are the out-of-sample composite (OOS folds + lockbox) — the deploy-relevant risk.', pnl:curveOk?segAll:((d.best_pnl_usd||0)+(lb.pnl!=null?lb.pnl*mult:0)), pf:compPf, sh:compSh(), tr:null}
+        {sh_:'IN-SAMPLE', dr:_dr(optS,warmEndMs), days:_days(optS,warmEndMs), wr:isWr, tip:'in-sample leg of the champion equity curve (the warmup region, before walk-forward testing begins). NET is that realized leg; PF/Sharpe/Trades/Win% are the in-sample champion/folds.', pnl:curveOk?segWarm:(d.best_pnl_usd||0), pf:V.is_pf, sh:V.is_sharpe, tr:V.is_trades},
+        folds.length?{sh_:'WALK-FWD OOS', dr:_dr(warmEndMs,optE), days:_days(warmEndMs,optE), wr:null, tip:'walk-forward out-of-sample leg of the curve. NET is that realized leg; PF/Sharpe/Trades are the per-fold OOS validation (each fold tested on unseen data, pooled). OOS win counts are not stored → Win% shows —.', pnl:curveOk?segOos:_wfNet, pf:oosPf, sh:oosSh, tr:oosTr}:null,
+        (lb.pnl!=null)?{sh_:'LOCKBOX', dr:_dr(lbS,lbE), days:_days(lbS,lbE), wr:null, tip:'lockbox holdout leg — never optimized or browsed. Win counts not stored → Win% shows —.', pnl:curveOk?segLock:(lb.pnl*mult), pf:lb.pf, sh:null, tr:lb.trades}:null,
+        {sh_:'OVERALL', overall:true, dr:_dr(optS,lbE), days:_days(optS,lbE), wr:null, tip:'OVERALL = the champion equity-curve endpoint — the in-sample, walk-forward and lockbox legs to the left sum exactly to it. PF/Sharpe shown are the out-of-sample composite (OOS folds + lockbox) — the deploy-relevant risk.', pnl:curveOk?segAll:((d.best_pnl_usd||0)+(lb.pnl!=null?lb.pnl*mult:0)), pf:compPf, sh:compSh(), tr:null}
       ].filter(Boolean);
       const _pf=v=>(v==null||!isFinite(v)||v<=0)?'—':Math.min(v,99).toFixed(2);
       const _sh=v=>(v==null||!isFinite(v))?'—':(+v).toFixed(2);
       // metric rows — NET P&L (the totals) first/top, then PF, Sharpe, Trades.
+      const _wr=v=>(v==null||!isFinite(v))?'—':(+v).toFixed(0)+'%';
       const metrics=[
         {lbl:'NET P&L', top:true, cell:p=>'<span style="font-weight:700;color:'+((p.pnl||0)>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(p.pnl||0))+'</span>'},
         {lbl:'PF', cell:p=>'<span style="color:'+((p.pf!=null&&p.pf>=1)?'var(--text)':'var(--red)')+'">'+_pf(p.pf)+'</span>'},
+        {lbl:'WIN %', cell:p=>'<span style="color:var(--text3)">'+_wr(p.wr)+'</span>'},
         {lbl:'SHARPE', cell:p=>'<span style="color:var(--text3)">'+_sh(p.sh)+'</span>'},
-        {lbl:'TRADES', cell:p=>'<span style="color:var(--text4)">'+(p.tr!=null?(+p.tr).toLocaleString():'—')+'</span>'}
+        {lbl:'TRADES', cell:p=>'<span style="color:var(--text4)">'+(p.tr!=null?(+p.tr).toLocaleString():'—')+'</span>'},
+        {lbl:'DAYS', cell:p=>'<span style="color:var(--text5)">'+(p.days!=null?(+p.days).toLocaleString():'—')+'</span>'}
       ];
       const _ovl=p=>p.overall?';border-left:2px solid color-mix(in srgb,var(--green) 55%,transparent);background:color-mix(in srgb,var(--green) 7%,transparent)':'';
-      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:5px 8px">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:5px 8px;white-space:nowrap;cursor:help'+(p.overall?';color:var(--green);font-weight:700':'')+_ovl(p)+'">'+p.sh_+'</th>').join('')+'</tr>';
+      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:5px 8px;vertical-align:bottom">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:5px 8px;white-space:nowrap;cursor:help;vertical-align:bottom'+(p.overall?';color:var(--green);font-weight:700':'')+_ovl(p)+'">'+p.sh_+(p.dr?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:2px">'+p.dr+'</div>':'')+'</th>').join('')+'</tr>';
       const body=metrics.map(m=>'<tr style="border-top:1px solid color-mix(in srgb,var(--border) '+(m.top?'70%':'40%')+',transparent)'+(m.top?';background:color-mix(in srgb,var(--border) 10%,transparent)':'')+'">'
         +'<td style="padding:6px 8px;font-size:var(--fsxs);color:var(--text2);font-weight:'+(m.top?'700':'400')+';white-space:nowrap">'+m.lbl+'</td>'
         +phases.map(p=>'<td style="padding:6px 8px;text-align:right;white-space:nowrap'+_ovl(p)+'">'+m.cell(p)+'</td>').join('')+'</tr>').join('');
       return '<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">KPI MATRIX · metrics × phase (in-sample → walk-forward → lockbox → overall)</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 0;margin-bottom:14px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead>'+head+'</thead><tbody>'+body+'</tbody></table>'
-        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px"><b>NET P&amp;L</b> is read off the realized champion equity curve, split into its three legs (in-sample warmup → walk-forward OOS → lockbox), so the columns sum exactly to <b style="color:var(--green)">OVERALL</b> = the curve endpoint. <b>PF · SHARPE · TRADES</b> come from the per-phase validation backtests (in-sample champion; per-fold walk-forward OOS; lockbox) — a different, per-fold-re-optimized measurement, so they characterise each phase\'s risk rather than recompute the curve dollars. OVERALL\'s PF/Sharpe are the out-of-sample composite (OOS folds + lockbox) — the deploy-relevant risk; its trades show — (the curve total isn\'t stored). Sharpe is annualized across the OOS folds; lockbox is a single window so it shows —.</div></div>';
+        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px"><b>NET P&amp;L</b> is read off the realized champion equity curve, split into its three legs (in-sample warmup → walk-forward OOS → lockbox), so the columns sum exactly to <b style="color:var(--green)">OVERALL</b> = the curve endpoint. <b>PF · SHARPE · TRADES</b> come from the per-phase validation backtests (in-sample champion; per-fold walk-forward OOS; lockbox) — a different, per-fold-re-optimized measurement, so they characterise each phase\'s risk rather than recompute the curve dollars. OVERALL\'s PF/Sharpe are the out-of-sample composite (OOS folds + lockbox) — the deploy-relevant risk; its trades show — (the curve total isn\'t stored). Sharpe is annualized across the OOS folds; lockbox is a single window so it shows —. <b>Win %</b> is stored only for the in-sample folds — OOS &amp; lockbox carry no win counts, so they show —. Date range &amp; days under each header are the calendar span of that leg.</div></div>';
     };
     // CONFIG FILTER — a brush slider (legacy-Augur parcoords behaviour). Drag it and every
     //   config mark (parallel-coords line + scatter dot, class .cfgmark, tagged data-net=$)
@@ -4540,20 +4556,39 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const lb=V.lockbox||{},W=V.windows||{optimize:['','']};
       const eq=(V.equity||[]).map(x=>x*mlt),li=V.lb_idx||eq.length,EW=600,EH=130,pd=6;
       if(eq.length<=2)return '';
-      const mn=Math.min(0,...eq),mx=Math.max(0,...eq),rg=(mx-mn)||1,X=i=>pd+(EW-2*pd)*i/(eq.length-1),Y=v=>EH-pd-(EH-2*pd)*(v-mn)/rg,bx=X(Math.min(li,eq.length-1)),z=Y(0);
+      const mn=Math.min(0,...eq),mx=Math.max(0,...eq),rg=(mx-mn)||1;
+      const _of=(W.optimize&&W.optimize[0])||'',_ot=(W.optimize&&W.optimize[1])||'';
+      const _lf=(W.lockbox&&W.lockbox[0])||lb.from||'',_lt=(W.lockbox&&W.lockbox[1])||lb.to||'';
+      const optS=_of?+new Date(_of):null,optE=_ot?+new Date(_ot):null,lbS=_lf?+new Date(_lf):null,lbE=_lt?+new Date(_lt):null;
+      const _mdy=ms=>{const t=new Date(ms);return (t.getUTCMonth()+1)+'/'+t.getUTCDate()+'/'+String(t.getUTCFullYear()).slice(2);};
+      // CHRONOLOGICAL x-axis: place each equity point by TIME, not by array index. The series is
+      //   sampled per-trade, so the 1-yr lockbox holds MORE points than the 5-yr optimize window —
+      //   an index x-axis would let the lockbox hog ~60% of the width and look time-stretched. Map
+      //   optimize pts across [optS,optE] and lockbox pts across [lbS,lbE] of one [optS,lbE] span.
+      const timeOk=!!(optS&&optE&&lbS&&lbE&&lbE>optS);
+      const T0=timeOk?optS:0,T1=timeOk?lbE:(eq.length-1);
+      const tAt=i=>{if(!timeOk)return i; if(i<li){const f=(li>1)?(i/(li-1)):0;return optS+f*(optE-optS);} const k=(eq.length-1-li);const f=(k>0)?((i-li)/k):0;return lbS+f*(lbE-lbS);};
+      const xAt=v=>pd+(EW-2*pd)*((v-T0)/((T1-T0)||1));
+      const X=i=>xAt(tAt(i)),Y=v=>EH-pd-(EH-2*pd)*(v-mn)/rg,z=Y(0),bx=timeOk?xAt(lbS):(pd+(EW-2*pd)*Math.min(li,eq.length-1)/(eq.length-1));
       const seg=(a,b)=>eq.slice(a,b).map((v,i)=>((i?'L':'M')+X(a+i).toFixed(1)+' '+Y(v).toFixed(1))).join(' ');
       let wfBands='',wfNote='';
-      const _of=(W.optimize&&W.optimize[0])||'',_ot=(W.optimize&&W.optimize[1])||'';
-      const _dAt=fr=>{if(!_of||!_ot)return '';const a=+new Date(_of),b=+new Date(_ot);return new Date(a+(b-a)*fr).toISOString().slice(0,10);};
+      const _dAt=fr=>{if(!optS||!optE)return '';return _mdy(optS+(optE-optS)*fr);};
       const _fs=(Array.isArray(folds)?folds:[]).filter(f=>f&&f.fold!=null&&(+f.test_bars>0)).sort((a,b)=>a.fold-b.fold);
       if(_fs.length>=2){const _tr0=+_fs[0].train_bars||0,_tb=_fs.map(f=>+f.test_bars||0),_span=_tr0+_tb.reduce((s,x)=>s+x,0);
-        if(_span>0){let _acc=_tr0;wfBands=_fs.map((f,i)=>{const _x0=bx*_acc/_span,_x1=bx*(_acc+_tb[i])/_span,_f0=_acc/_span,_f1=(_acc+_tb[i])/_span;_acc+=_tb[i];
-          const _tip='<b>WF fold f'+f.fold+'</b>'+(_of?(' · '+_dAt(_f0)+'→'+_dAt(_f1)):'')+'<br>out-of-sample <b>'+fmtUsd(Math.round((+f.oos_pnl||0)*mlt))+'</b> · PF <b>'+(+f.oos_pf||0).toFixed(2)+'</b>';
+        if(_span>0){let _acc=_tr0;wfBands=_fs.map((f,i)=>{const _f0=_acc/_span,_f1=(_acc+_tb[i])/_span;_acc+=_tb[i];
+          const _x0=timeOk?xAt(optS+_f0*(optE-optS)):(bx*_f0),_x1=timeOk?xAt(optS+_f1*(optE-optS)):(bx*_f1);
+          const _tip='<b>WF fold f'+f.fold+'</b>'+(optS?(' · '+_dAt(_f0)+'→'+_dAt(_f1)):'')+'<br>out-of-sample <b>'+fmtUsd(Math.round((+f.oos_pnl||0)*mlt))+'</b> · PF <b>'+(+f.oos_pf||0).toFixed(2)+'</b>';
           return '<rect x="'+_x0.toFixed(1)+'" y="0" width="'+Math.max(0,_x1-_x0).toFixed(1)+'" height="'+EH+'" fill="'+((i%2===0)?'rgba(96,165,250,.16)':'rgba(96,165,250,.30)')+'" style="cursor:pointer" data-tip="'+_tip+'"/>';}).join('');
           wfNote='<span style="color:#60a5fa">▦ '+_fs.length+' walk-forward test windows</span>';}}
-      const _lbTip='<b>Lockbox · out-of-sample, never optimized</b>'+((W.lockbox&&W.lockbox[0])?(' · '+W.lockbox[0]+'→'+W.lockbox[1]):'')+'<br>'+fmtUsd(Math.round((lb.pnl||0)*mlt))+' · PF '+(lb.pf||0).toFixed(2)+' · '+(lb.trades||0)+' trades · '+(lb.pass?'HELD ✓':'FAILED ✕');
+      const _lbTip='<b>Lockbox · out-of-sample, never optimized</b>'+(_lf?(' · '+_mdy(lbS)+'→'+_mdy(lbE)):'')+'<br>'+fmtUsd(Math.round((lb.pnl||0)*mlt))+' · PF '+(lb.pf||0).toFixed(2)+' · '+(lb.trades||0)+' trades · '+(lb.pass?'HELD ✓':'FAILED ✕');
+      // date ticks (M/D/YY) evenly spaced in TIME across [optS,lbE] — x is linear in time so they
+      //   read chronologically and visibly compress the lockbox into the right end.
+      let ticks='';
+      if(timeOk){const N=6;for(let k=0;k<=N;k++){const f=k/N,ms=T0+f*(T1-T0),pct=(pd+(EW-2*pd)*f)/EW*100;
+        const al=k===0?'left:0':(k===N?'right:0':'left:'+pct.toFixed(1)+'%;transform:translateX(-50%)');
+        ticks+='<span style="position:absolute;'+al+'">'+_mdy(ms)+'</span>';}}
       const _bxPct=(bx/EW*100);
-      const dateAxis='<div style="position:relative;height:10px;margin-top:1px;font-size:7px;color:var(--text5)"><span style="position:absolute;left:0">'+(_of||'start')+'</span>'+((W.lockbox&&W.lockbox[0])?'<span style="position:absolute;left:'+_bxPct.toFixed(1)+'%;transform:translateX(-50%);color:#a78bfa">▲'+W.lockbox[0]+'</span>':'')+'<span style="position:absolute;right:0">'+((W.lockbox&&W.lockbox[1])||(lb.to)||'')+'</span></div>';
+      const dateAxis='<div style="position:relative;height:11px;margin-top:2px;font-size:7px;color:var(--text5)">'+ticks+(_lf?'<span style="position:absolute;left:'+_bxPct.toFixed(1)+'%;transform:translateX(-50%);color:#a78bfa;top:-1px">▲</span>':'')+'</div>';
       const svg='<svg width="100%" height="'+EH+'" viewBox="0 0 '+EW+' '+EH+'" preserveAspectRatio="none" style="display:block;border-radius:8px;background:var(--bg1)">'
         +wfBands
         +'<rect x="'+bx.toFixed(1)+'" y="0" width="'+(EW-bx).toFixed(1)+'" height="'+EH+'" fill="rgba(167,139,250,.16)" style="cursor:pointer" data-tip="'+_lbTip+'"/>'
@@ -4562,11 +4597,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+EH+'" stroke="#a78bfa" stroke-width="1.3" stroke-dasharray="4,3"/>'
         +'<path d="'+seg(0,li+1)+'" fill="none" stroke="var(--green)" stroke-width="1.6"/>'
         +'<path d="'+seg(li,eq.length)+'" fill="none" stroke="#a78bfa" stroke-width="1.6"/></svg>';
-      return '<div style="margin:13px 0 5px"><div style="font-weight:700;font-size:11px;color:var(--text2)">Champion equity curve <span style="font-weight:400;color:var(--text5);font-size:9px">· best config · 1 contract</span></div><div style="font-size:8px;color:var(--text5);margin-top:1px">left → right in time: walk-forward <span style="color:var(--green)">in-sample</span> then the <span style="color:#a78bfa">lockbox</span> holdout (never optimized)</div></div>'
-        +'<div style="display:flex;gap:7px"><div style="display:flex;flex-direction:column;justify-content:space-between;font-size:8px;color:var(--text5);text-align:right;min-width:46px;padding:1px 0">'
-        +'<span>'+fmtUsd(Math.round(mx))+'</span><span>'+fmtUsd(Math.round((mx+mn)/2))+'</span><span>'+fmtUsd(Math.round(mn))+'</span></div>'
+      // y-axis ($ PnL) labels on the RIGHT of the chart.
+      const yLabels='<div style="display:flex;flex-direction:column;justify-content:space-between;font-size:8px;color:var(--text5);text-align:left;min-width:46px;padding:1px 0">'
+        +'<span>'+fmtUsd(Math.round(mx))+'</span><span>'+fmtUsd(Math.round((mx+mn)/2))+'</span><span>'+fmtUsd(Math.round(mn))+'</span><span style="color:var(--text4);margin-top:auto">PnL $</span></div>';
+      return '<div style="margin:13px 0 5px"><div style="font-weight:700;font-size:11px;color:var(--text2)">Champion equity curve <span style="font-weight:400;color:var(--text5);font-size:9px">· best config · 1 contract</span></div><div style="font-size:8px;color:var(--text5);margin-top:1px">chronological — <span style="color:var(--green)">in-sample</span> + walk-forward, then the <span style="color:#a78bfa">lockbox</span> holdout (1 yr → compressed at right)</div></div>'
+        +'<div style="display:flex;gap:7px">'
         +'<div style="flex:1">'+svg+dateAxis
-        +'<div style="display:flex;gap:11px;flex-wrap:wrap;font-size:8px;color:var(--text5);margin-top:3px"><span style="color:var(--green)">● in-sample (optimized '+(W.optimize[0]||'start')+'→'+(W.optimize[1]||'')+')</span>'+wfNote+'<span style="color:#a78bfa">● lockbox = OOS · last '+W.lockbox_months+'mo, never seen</span></div></div></div>';
+        +'<div style="display:flex;gap:11px;flex-wrap:wrap;font-size:8px;color:var(--text5);margin-top:3px"><span style="color:var(--green)">● in-sample (optimized '+(_of?_mdy(optS):'start')+'→'+(_ot?_mdy(optE):'')+')</span>'+wfNote+'<span style="color:#a78bfa">● lockbox = OOS · last '+W.lockbox_months+'mo, never seen</span></div></div>'
+        +yLabels+'</div>';
     };
     // Shared Auto-Validate report card (verdict + 5 gates + equity curve + lockbox) —
     // used by both the Builder run panel and the Results/Past-Runs detail so they match.
