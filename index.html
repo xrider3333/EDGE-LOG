@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='35.1';
+const VERSION='35.2';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4467,10 +4467,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const isNet=(d.best_pnl_usd!=null?+d.best_pnl_usd:(+b.total_pnl||0)*mult),oosNet=(+b.oos_pnl||0)*mult;
       const held=(oosNet>0&&(+b.oos_pf||0)>1);
       const _pf=v=>(v==null||!isFinite(+v)||+v<=0)?'—':Math.min(+v,99).toFixed(2);
-      const cols=[{h:'IN-SAMPLE',sub:'first 75% · tuned',col:'var(--text2)',net:isNet,pf:(d.best_pf!=null?+d.best_pf:+b.profit_factor),tr:(d.best_trades!=null?+d.best_trades:+b.num_trades)},
-                  {h:'OUT-OF-SAMPLE',sub:'last 25% · unseen',col:'#60a5fa',net:oosNet,pf:+b.oos_pf,tr:+b.oos_trades}];
+      const cols=[{h:'IN-SAMPLE',sub:'first 75% · tuned',col:'var(--text2)',net:isNet,pf:(d.best_pf!=null?+d.best_pf:+b.profit_factor),tr:(d.best_trades!=null?+d.best_trades:+b.num_trades),wr:(d.best_win_rate!=null?+d.best_win_rate:(b.win_rate!=null?+b.win_rate:null))},
+                  {h:'OUT-OF-SAMPLE',sub:'last 25% · unseen',col:'#60a5fa',net:oosNet,pf:+b.oos_pf,tr:+b.oos_trades,wr:(b.oos_win_rate!=null?+b.oos_win_rate:null)}];
       const rows=[['NET P&L',c=>'<span style="font-weight:700;color:'+((c.net||0)>=0?'#1d9e75':'#e24b4a')+'">'+(c.net!=null?fmtUsd(Math.round(c.net)):'—')+'</span>'],
-                  ['PF',c=>_pf(c.pf)],['TRADES',c=>(c.tr!=null&&isFinite(c.tr)?(+c.tr).toLocaleString():'—')]];
+                  ['PF',c=>_pf(c.pf)],['WIN %',c=>(c.wr!=null&&isFinite(c.wr)?Math.round(c.wr)+'%':'—')],['TRADES',c=>(c.tr!=null&&isFinite(c.tr)?(+c.tr).toLocaleString():'—')]];
       const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:5px 8px">METRIC</th>'+cols.map(c=>'<th style="text-align:right;padding:5px 8px;color:'+c.col+';font-weight:700">'+c.h+'<div style="font-size:7px;font-weight:400;color:'+c.col+';opacity:.8">'+c.sub+'</div></th>').join('')+'</tr>';
       const body=rows.map(r=>'<tr style="border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)"><td style="padding:6px 8px;font-size:var(--fsxs);color:var(--text2)">'+r[0]+'</td>'+cols.map(c=>'<td style="padding:6px 8px;text-align:right">'+r[1](c)+'</td>').join('')+'</tr>').join('');
       return '<div class="lbl" style="margin:8px 0 6px;font-size:9px;color:var(--text5)">IN-SAMPLE vs OUT-OF-SAMPLE · 75 / 25 split · <span style="color:'+(held?'var(--green)':'var(--red)')+'">'+(held?'HELD on unseen data':'did NOT hold out-of-sample')+'</span></div>'
@@ -4501,6 +4501,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const foldSharpe=()=>_foldSharpeOf(folds,_yrs);   // shared with the Past-runs tile
       const poolPf=_poolPf;                              // shared — true pooled PF, not a mean of ratios
       const oosPf=poolPf(folds.map(f=>({net:+f.oos_pnl||0,pf:+f.oos_pf||0}))),oosTr=folds.reduce((s,f)=>s+(+f.oos_trades||0),0);
+      const oosWins=folds.reduce((s,f)=>s+(+f.oos_wins||0),0),oosWr=(oosTr>0&&folds.some(f=>f.oos_wins!=null))?100*oosWins/oosTr:null;
       const totTr=(+f1.num_trades||0)+oosTr+(lb.trades!=null?+lb.trades:0);
       const totPf=poolPf([{net:nIS,pf:+f1.profit_factor||0},{net:nWF,pf:oosPf},{net:nLB,pf:+lb.pf||0}]);
       // section header colours mirror the graph regions: in-sample = neutral, walk-fwd = blue, lockbox = purple
@@ -4508,8 +4509,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const phases=[
         {sh_:'IN-SAMPLE', sub:'no shading', col:'var(--text2)', dr:_dr(optS,isEndMs), days:_days(optS,isEndMs), net:nIS, pf:(f1.profit_factor!=null?+f1.profit_factor:null), wr:(f1.win_rate!=null?+f1.win_rate:null), sh:V.is_sharpe, tr:(f1.num_trades!=null?+f1.num_trades:null),
           tip:'IN-SAMPLE = the knob-tuning start of the graph (the un-shaded part). NET P&L & DAYS are that slice of the equity curve; PF / Win% / Trades are its in-sample backtest.'},
-        folds.length?{sh_:'WALK-FORWARD', sub:'blue bands', col:C_WF, dr:_dr(isEndMs,optE), days:_days(isEndMs,optE), net:nWF, pf:oosPf, wr:null, sh:foldSharpe(), tr:oosTr,
-          tip:'WALK-FORWARD = the blue test bands — data held back while tuning, then tested forward ('+folds.length+' folds). NET P&L & DAYS are that slice of the curve; PF / Sharpe / Trades are the pooled out-of-sample results. Win% was not saved → —.'}:null,
+        folds.length?{sh_:'WALK-FORWARD', sub:'blue bands', col:C_WF, dr:_dr(isEndMs,optE), days:_days(isEndMs,optE), net:nWF, pf:oosPf, wr:oosWr, sh:foldSharpe(), tr:oosTr,
+          tip:'WALK-FORWARD = the blue test bands — data held back while tuning, then tested forward ('+folds.length+' folds). NET P&L & DAYS are that slice of the curve; PF / Win% / Sharpe / Trades are the pooled out-of-sample results.'}:null,
         (lb.pnl!=null)?{sh_:'LOCKBOX', sub:'purple', col:C_LB, dr:_dr(lbS,lbE), days:_days(lbS,lbE), net:nLB, pf:(lb.pf!=null?+lb.pf:null), wr:(lb.win_rate!=null?+lb.win_rate:null), sh:(lb.sharpe!=null?+lb.sharpe:null), tr:(lb.trades!=null?+lb.trades:null),
           tip:'LOCKBOX = the purple holdout — never tuned or browsed, the final untouched test. Win% & Sharpe are from the lockbox trades.'}:null,
         {sh_:'TOTAL', total:true, col:'var(--green)', dr:_dr(optS,lbE), days:_days(optS,lbE), net:nTOT, pf:totPf, wr:(V.total_win_rate!=null?+V.total_win_rate:null), sh:(V.total_sharpe!=null?+V.total_sharpe:null), tr:totTr,

@@ -207,6 +207,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
             row["oos_pnl"] = float(om["total_pnl"]) if om else 0.0
             row["oos_trades"] = int(om["num_trades"]) if om else 0
             row["oos_pf"] = float(om.get("profit_factor", 0)) if om else 0.0
+            row["oos_wins"] = int(om.get("wins", 0) or 0) if om else 0
+            row["oos_win_rate"] = float(om.get("win_rate", 0) or 0) if om else 0.0
             records.append(row)
         if progress_cb:
             progress_cb(n_total, n_total)
@@ -233,6 +235,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 rec["oos_pnl"] = float(om["total_pnl"]) if om else 0.0
                 rec["oos_trades"] = int(om["num_trades"]) if om else 0
                 rec["oos_pf"] = float(om.get("profit_factor", 0)) if om else 0.0
+                rec["oos_wins"] = int(om.get("wins", 0) or 0) if om else 0
+                rec["oos_win_rate"] = float(om.get("win_rate", 0) or 0) if om else 0.0
         is_wf = False
 
     if not records:
@@ -258,7 +262,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
     for r in ranked[:top_n]:
         row = {k: r.get(k) for k in pkeys if k in r}
         row.update({k: r.get(k) for k in _METRIC_KEYS if k in r})
-        for k in ("oos_pnl", "oos_trades", "oos_pf", "fold", "test_bars", "train_bars"):
+        for k in ("oos_pnl", "oos_trades", "oos_pf", "oos_wins", "oos_win_rate",
+                  "fold", "test_bars", "train_bars"):
             if k in r:
                 row[k] = r[k]
         top.append(row)
