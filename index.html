@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='34.9';
+const VERSION='35.0';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -5138,12 +5138,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const rowsSorted=rows.sort((a,b)=>(cmp[sortk]||cmp.num)(a,b)*dir);
       const srows=rowsSorted.map(s=>{const si=stratInfo(s.file);const on=s.file===augurLibSel;const lr=lastRan[s.file];return '<tr class="arow" data-strat="'+s.file+'" style="cursor:pointer;'+(on?'background:var(--bg1)':'')+'">'
         +'<td style="font-size:var(--fsxs);white-space:nowrap">'+stratTag(s.file)+'</td>'
-        +'<td style="font-size:var(--fsxs);color:var(--text5);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(si.full||'')+(si.desc?' — '+si.desc:'')+'</td>'
+        +'<td style="font-size:var(--fsxs);color:var(--text3);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(si.full||'')+(si.desc?' — '+si.desc:'')+'</td>'
         +'<td style="text-align:center">'+chip(s.has_py!==false,'PY')+'</td>'
         +'<td style="text-align:center">'+pineCell(s)+'</td>'
-        +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+fmtD(s.added)+'</td>'
-        +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+(lr?(''+lr).slice(0,10):'—')+'</td>'
-        +'<td style="text-align:right;font-size:var(--fsxs);color:var(--text5)">'+((s.presets||[]).length)+'</td></tr>';}).join('');
+        +'<td style="font-size:var(--fsxs);color:var(--text4);white-space:nowrap">'+fmtD(s.added)+'</td>'
+        +'<td style="font-size:var(--fsxs);color:var(--text4);white-space:nowrap">'+(lr?(''+lr).slice(0,10):'—')+'</td>'
+        +'<td style="text-align:right;font-size:var(--fsxs);color:var(--text4)">'+((s.presets||[]).length)+'</td></tr>';}).join('');
       const mrows=(metaMasters||[]).map(m=>'<tr><td style="font-size:var(--fsxs);border-left:3px solid '+instColor(m.instrument)+';padding-left:7px">'+(m.name||'')+'</td><td>'+instTag(m.instrument)+'</td><td>'+(m.timeframe||'')+'</td><td>'+((m.session||'')+'').toUpperCase()+'</td><td style="font-size:var(--fsxs)">'+(m.source||'')+'</td><td style="text-align:center">'+(m.auto?'<span style="color:var(--green);font-size:10px;letter-spacing:1px" title="auto-pull on">● AUTO</span>':'<span style="color:var(--text5);font-size:10px">○ off</span>')+'</td><td style="text-align:right">'+(m.rows||0).toLocaleString()+'</td><td style="font-size:var(--fsxs)">'+(m.date_from||'')+'→'+(m.date_to||'')+'</td></tr>').join('');
       const pullBanner='<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3);margin-bottom:6px"><span>Auto-pull <b style="color:'+(metaPull.autorefresh?'var(--green)':'var(--text4)')+'">'+(metaPull.autorefresh?'ON':'OFF')+'</b></span><span>'+(metaPull.n_auto||0)+'/'+(metaPull.n_masters||(metaMasters||[]).length)+' masters auto-refreshing</span>'+(metaPull.synced_at?'<span>last sync '+new Date(metaPull.synced_at*1000).toLocaleString()+'</span>':'')+'</div>';
       // ── per-strategy stats + active marker (derived client-side from run history) ──
@@ -5246,6 +5246,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // masters with optional shared scroll height (side mode) so it resizes with strategies
       const mastersTitled=(scrollH)=>tile('<div class="lbl" style="margin:0 0 6px">MASTERS / CSVs · '+(metaMasters||[]).length+'</div>'
         +'<div id="lib-rightscroll" style="'+(scrollH?'max-height:'+scrollH+';overflow:auto;':'')+'margin:-2px -4px 0;padding:2px 4px 0">'+mastersInner+'</div>',0);
+      // ── MODES reference — the 7 optimization / validation modes (matches the BUILDER's mode
+      //    dropdown and the Past-runs MODE number), shown as a Library reference like Strategies
+      //    / Masters so you can look up what each run mode actually does. ──
+      const MODES_INFO=[
+        [1,'Single backtest','Run one fixed parameter set once on the data.','none — in-sample only'],
+        [2,'Grid sweep','Exhaustively test every combination in a preset grid; rank by net PnL.','in-sample (optional 75/25 OOS)'],
+        [3,'Auto-Optimize','Smart (Bayesian) search for the best config, maximizing net PnL.','75/25 in-sample / out-of-sample split'],
+        [4,'Walk-Forward','Re-optimize on past data, test the champion on the next unseen slice, repeat across folds.','rolling / anchored OOS folds'],
+        [5,'AI optimize','An LLM proposes new parameter ranges each round (free, local qwen).','in-sample vs OOS per round'],
+        [6,'AI evolve','An LLM rewrites the strategy CODE each round (compiled + smoke-tested before use).','OOS per round + code diff'],
+        [7,'Auto-Validate','Full sequence — in-sample → walk-forward → lockbox — graded PASS / WEAK / FAIL against pro thresholds.','lockbox holdout + 5 gates'],
+      ];
+      const modeRows=MODES_INFO.map(m=>'<tr>'
+        +'<td style="text-align:center;font-weight:800;color:var(--text2);border-left:3px solid var(--accent);padding-left:7px">'+m[0]+'</td>'
+        +'<td style="font-size:var(--fsxs);font-weight:600;color:var(--text2);white-space:nowrap">'+m[1]+'</td>'
+        +'<td style="font-size:var(--fsxs);color:var(--text3)">'+m[2]+'</td>'
+        +'<td style="font-size:var(--fsxs);color:var(--text4);white-space:nowrap">'+m[3]+'</td></tr>').join('');
+      const modesTile=tile('<div class="lbl" style="margin:0 0 6px">MODES · 7 · how each run was searched &amp; validated</div>'
+        +'<table class="table"><thead><tr><th style="text-align:center">#</th><th>MODE</th><th>WHAT IT DOES</th><th>VALIDATION</th></tr></thead><tbody>'+modeRows+'</tbody></table>'
+        +'<div style="font-size:8px;color:var(--text5);margin-top:6px">The mode number shows in each run\'s MODE column (Past Runs) and report header. Higher ≠ better — pick the validation that fits the question.</div>',0);
       if(!sl.length){
         body=actionTile+tile('<div style="color:var(--text5);font-size:var(--fsxs)">no library synced — start the runner</div>')+'<div style="margin-top:18px">'+mastersTitled()+'</div>'+'<div style="margin-top:18px">'+rmTile+'</div>';
       }else{
@@ -5282,6 +5302,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<div style="margin-top:6px">'+rmTile+'</div>';
         }
       }
+      body+='<div style="margin-top:18px">'+modesTile+'</div>';
     }else if(augurSub==='cmp'){
       const rs=runHistory.slice().sort((a,b)=>b.id-a.id);
       if(!rs.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUNS TO COMPARE YET</div>';}
