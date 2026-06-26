@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='35.0';
+const VERSION='35.1';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4431,9 +4431,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // Whole-run max drawdown: deepest peak-to-trough on the continuous champion equity curve
         // (real — though the curve is downsampled, so it can slightly understate the trough).
         let _pk=-Infinity,_dd=0;for(let i=0;i<eq.length;i++){if(eq[i]>_pk)_pk=eq[i];const _x=eq[i]-_pk;if(_x<_dd)_dd=_x;}
-        // Total Sharpe & total Win% need the per-trade win/loss ledger this run did NOT save → null
-        // (rendered as —). sharpeOOS = the out-of-sample (walk-forward) Sharpe, kept for the tooltip.
-        return {net:nTOT,pf:totPf,trades:totTr,days:days,perDay:(days?nTOT/days:null),dd:_dd,sharpe:null,wr:null,sharpeOOS:_foldSharpeOf(folds,yrs),isWr:(folds[0]&&folds[0].win_rate!=null?+folds[0].win_rate:null),oosNet:oosNet,scope:'total',validated:true};
+        // Whole-run Sharpe / Win% come from validate.py's champion full-window backtest when present
+        // (total_sharpe / total_win_rate); older runs that didn't save them fall back to — / equity DD.
+        const _tSh=(V&&V.total_sharpe!=null)?+V.total_sharpe:null;
+        const _tWr=(V&&V.total_win_rate!=null)?+V.total_win_rate:null;
+        const _tDd=(V&&V.total_dd!=null)?(+V.total_dd*mult):_dd;
+        return {net:nTOT,pf:totPf,trades:totTr,days:days,perDay:(days?nTOT/days:null),dd:_tDd,sharpe:_tSh,wr:_tWr,sharpeOOS:_foldSharpeOf(folds,yrs),isWr:(folds[0]&&folds[0].win_rate!=null?+folds[0].win_rate:null),oosNet:oosNet,scope:'total',validated:true};
       }
       return {net:(r&&r.best_pnl_usd)||0,pf:(r&&r.best_pf)||0,trades:(r&&r.best_trades)||0,days:(r&&r.days_in_test)||null,perDay:(r&&r.best_pnl_per_day)||null,dd:(r&&r.best_dd_usd)||0,sharpe:(r&&r.dsr&&r.dsr.winner_sharpe),wr:(r&&r.best_win_rate),sharpeOOS:null,isWr:null,oosNet:null,scope:'best',validated:false};
     };
@@ -4507,10 +4510,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           tip:'IN-SAMPLE = the knob-tuning start of the graph (the un-shaded part). NET P&L & DAYS are that slice of the equity curve; PF / Win% / Trades are its in-sample backtest.'},
         folds.length?{sh_:'WALK-FORWARD', sub:'blue bands', col:C_WF, dr:_dr(isEndMs,optE), days:_days(isEndMs,optE), net:nWF, pf:oosPf, wr:null, sh:foldSharpe(), tr:oosTr,
           tip:'WALK-FORWARD = the blue test bands — data held back while tuning, then tested forward ('+folds.length+' folds). NET P&L & DAYS are that slice of the curve; PF / Sharpe / Trades are the pooled out-of-sample results. Win% was not saved → —.'}:null,
-        (lb.pnl!=null)?{sh_:'LOCKBOX', sub:'purple', col:C_LB, dr:_dr(lbS,lbE), days:_days(lbS,lbE), net:nLB, pf:(lb.pf!=null?+lb.pf:null), wr:null, sh:null, tr:(lb.trades!=null?+lb.trades:null),
-          tip:'LOCKBOX = the purple holdout — never tuned or browsed, the final untouched test. Win% & Sharpe were not saved → —.'}:null,
-        {sh_:'TOTAL', total:true, col:'var(--green)', dr:_dr(optS,lbE), days:_days(optS,lbE), net:nTOT, pf:totPf, wr:null, sh:null, tr:totTr,
-          tip:'TOTAL = the whole backtest = IN-SAMPLE + WALK-FORWARD + LOCKBOX. NET P&L is the equity curve\'s endpoint — the three sections add up to it. Win% & an overall Sharpe need the per-trade breakdown the run did not save → —.'}
+        (lb.pnl!=null)?{sh_:'LOCKBOX', sub:'purple', col:C_LB, dr:_dr(lbS,lbE), days:_days(lbS,lbE), net:nLB, pf:(lb.pf!=null?+lb.pf:null), wr:(lb.win_rate!=null?+lb.win_rate:null), sh:(lb.sharpe!=null?+lb.sharpe:null), tr:(lb.trades!=null?+lb.trades:null),
+          tip:'LOCKBOX = the purple holdout — never tuned or browsed, the final untouched test. Win% & Sharpe are from the lockbox trades.'}:null,
+        {sh_:'TOTAL', total:true, col:'var(--green)', dr:_dr(optS,lbE), days:_days(optS,lbE), net:nTOT, pf:totPf, wr:(V.total_win_rate!=null?+V.total_win_rate:null), sh:(V.total_sharpe!=null?+V.total_sharpe:null), tr:totTr,
+          tip:'TOTAL = the whole backtest = IN-SAMPLE + WALK-FORWARD + LOCKBOX. NET P&L is the equity curve\'s endpoint — the three sections add up to it. Win% & Sharpe are the champion measured over the whole window.'}
       ].filter(Boolean);
       const _pf=v=>(v==null||!isFinite(v)||v<=0)?'—':Math.min(v,99).toFixed(2);
       const _sh=v=>(v==null||!isFinite(v))?'—':(+v).toFixed(2);
@@ -5439,8 +5442,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<td style="text-align:right;color:var(--text4);white-space:nowrap" title="net $ per calendar day over the whole run">'+(T.perDay!=null?fmtUsd(Math.round(T.perDay))+'/d':'—')+'</td>'
             +'<td title="'+(T.validated?'whole-run max drawdown on the champion equity curve (downsampled curve, so a touch optimistic)':'realized max drawdown')+'" style="text-align:right;color:var(--red);white-space:nowrap;cursor:help">'+(dd?fmtUsd(-Math.abs(dd)):'—')+'</td>'
             +'<td style="text-align:right">'+(T.pf||0).toFixed(2)+'</td>'
-            +'<td title="'+(T.validated?'whole-run Sharpe needs per-trade data the run did not save → —. Out-of-sample (walk-forward) Sharpe '+(T.sharpeOOS!=null?(+T.sharpeOOS).toFixed(2):'—')+' — see the report matrix':'risk-adjusted return')+'" style="text-align:right'+(T.validated?';cursor:help':'')+'">'+(shp!=null&&!isNaN(+shp)?(+shp).toFixed(2):'—')+'</td>'
-            +'<td title="'+(T.validated?'whole-run win% needs per-trade data the run did not save → —'+(T.isWr!=null?' (in-sample was '+Math.round(T.isWr)+'%)':''):'win rate')+'" style="text-align:right'+(T.validated?';cursor:help':'')+'">'+(T.wr!=null?Math.round(T.wr)+'%':'—')+'</td>'
+            +'<td title="'+(T.validated?(shp!=null&&!isNaN(+shp)?'whole-run Sharpe — champion measured over the full window':'whole-run Sharpe needs a re-run that saves per-trade data (this older run did not). Out-of-sample Sharpe '+(T.sharpeOOS!=null?(+T.sharpeOOS).toFixed(2):'—')+' — see the report matrix'):'risk-adjusted return')+'" style="text-align:right'+(T.validated?';cursor:help':'')+'">'+(shp!=null&&!isNaN(+shp)?(+shp).toFixed(2):'—')+'</td>'
+            +'<td title="'+(T.validated?(T.wr!=null?'whole-run win% — champion over the full window':'whole-run win% needs a re-run that saves per-trade data (this older run did not)'+(T.isWr!=null?' (in-sample was '+Math.round(T.isWr)+'%)':'')):'win rate')+'" style="text-align:right'+(T.validated?';cursor:help':'')+'">'+(T.wr!=null?Math.round(T.wr)+'%':'—')+'</td>'
             +'<td style="text-align:center;font-size:var(--fsxs);color:'+(wf?'var(--text3)':'var(--text5)')+'">'+(wf||'—')+'</td>'
             +'<td style="text-align:right">'+(T.trades||0).toLocaleString()+'</td>'
             +'<td style="text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)')+'">'+sc+'</td>'

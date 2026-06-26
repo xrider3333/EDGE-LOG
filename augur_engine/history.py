@@ -69,7 +69,8 @@ def list_runs(limit=None):
 
 def get_run(run_id):
     """One run with detail blobs parsed (best_params, top10_results, full_results,
-    equity_curves_json). Drops the big code_snapshot. Returns None if not found."""
+    equity_curves_json). KEEPS the strategy code_snapshot (so the web report can show the EXACT
+    source that produced the run) plus a short code_sha fingerprint. Returns None if not found."""
     conn = sqlite3.connect(DB_PATH)
     try:
         cur = conn.execute("SELECT * FROM runs WHERE id=?", (int(run_id),))
@@ -127,5 +128,15 @@ def get_run(run_id):
             etop.append({"cum": [round(x / mult, 1) for x in cm]})   # map, not nested array
         if etop:
             d["equity_top"] = etop
-    d.pop("code_snapshot", None)
+    # Keep the strategy source THIS run executed (the whole plugin file, captured at run time) so a
+    # run is always reproducible from the web. Add a short sha fingerprint; cap a pathological blob.
+    snap = d.get("code_snapshot")
+    if isinstance(snap, str) and snap:
+        try:
+            import hashlib
+            d["code_sha"] = hashlib.sha256(snap.encode("utf-8", "ignore")).hexdigest()[:12]
+        except Exception:
+            pass
+        if len(snap) > 300_000:
+            d["code_snapshot"] = snap[:300_000] + "\n\n# … truncated for sync …"
     return d

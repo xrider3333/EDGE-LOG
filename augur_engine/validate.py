@@ -22,6 +22,20 @@ def _parse(d):
         return None
 
 
+def _sharpe_from_trades(trades, cost, years):
+    """Annualized Sharpe from a per-trade NET-PnL series (trade tuple's t[2] is gross points).
+    Returns None when there aren't enough trades / no time span — so the caller can show '—'."""
+    pnls = [float(t[2]) - cost for t in (trades or [])]
+    n = len(pnls)
+    if n < 3 or not years or years <= 0:
+        return None
+    mean = sum(pnls) / n
+    sd = (sum((p - mean) ** 2 for p in pnls) / n) ** 0.5
+    if sd <= 0:
+        return None
+    return (mean / sd) * ((n / years) ** 0.5)
+
+
 def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", source=None,
                  cost_pts=0.0, min_trades=30, n_trials=200, wf_folds=0, seed=42,
                  lockbox_months=12, date_from=None, date_to=None, progress_cb=None,
@@ -143,6 +157,27 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     lb_trades = int((lb or {}).get("num_trades", 0) or 0)
     lb_pass = lb is not None and lb_pnl > 0 and lb_pf >= 1.0
 
+    # ── Per-trade Win% / Sharpe so the report's KPI matrix + Past-runs columns aren't blank.
+    #    Lockbox stats come from the lockbox trades we already have; the WHOLE-RUN totals come
+    #    from ONE champion backtest over the full window (incl. lockbox) with trades. ──
+    lb_wr = (float(lb.get("win_rate", 0) or 0) if lb else None)
+    lb_sharpe = _sharpe_from_trades((lb or {}).get("trades"), cost_pts,
+                                    max(0.05, lockbox_months / 12.0))
+    total_wr = total_sharpe = total_trades = total_dd = None
+    if champ:
+        try:
+            full = run_backtest(strategy, instrument=instrument, timeframe=timeframe,
+                                session=session, source=source, params=champ, cost_pts=cost_pts,
+                                date_from=opt_from, date_to=None, return_trades=True)
+        except Exception:
+            full = None
+        if full:
+            _yrs = max(0.1, ((full_hi - (full_lo or full_hi)).days) / 365.25)
+            total_sharpe = _sharpe_from_trades(full.get("trades"), cost_pts, _yrs)
+            total_wr = float(full.get("win_rate", 0) or 0)
+            total_trades = int(full.get("num_trades", 0) or 0)
+            total_dd = float(full.get("max_drawdown", 0) or 0)
+
     # ── Cross-instrument transfer — re-test the CHAMPION (no re-optimization) on
     #    other instruments. Edge that only works where it was fit is a single-symbol
     #    artifact; surviving on a sibling (NQ↔ES) is structural evidence. ──────────
@@ -193,7 +228,10 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "is_sharpe": (dsr.get("winner_sharpe") if dsr else None),
         "mc_p95": (mc.get("p95") if mc else None),
         "equity": equity, "lb_idx": lb_idx,   # PnL curve (points); lb_idx = lockbox boundary
+        "total_sharpe": total_sharpe, "total_win_rate": total_wr,
+        "total_trades": total_trades, "total_dd": total_dd,   # whole-run champion (incl. lockbox)
         "lockbox": {"pnl": lb_pnl, "pf": lb_pf, "trades": lb_trades, "pass": lb_pass,
+                    "win_rate": lb_wr, "sharpe": lb_sharpe,
                     "from": lb_from, "to": full_hi.isoformat()},
         "windows": {"optimize": [opt_from, opt_to], "lockbox": [lb_from, full_hi.isoformat()],
                     "lockbox_months": lockbox_months},
