@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='34.6';
+const VERSION='34.7';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -5389,13 +5389,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _wfHeld=r=>{const t=r.top10_results;if(!Array.isArray(t))return '';const fr=t.filter(x=>x&&x.fold!=null);if(!fr.length)return '';const fl=[...new Set(fr.map(x=>x.fold))];const held=fl.filter(fd=>fr.filter(x=>x.fold===fd).some(x=>(+x.oos_pf||0)>1)).length;return held+'/'+fl.length;};
         const _spk=cum=>{if(!cum||cum.length<2)return '';let mn=Math.min.apply(null,cum),mx=Math.max.apply(null,cum);if(mx<=mn)mx=mn+1;const W=52,H=15,n=cum.length;const pts=cum.map((v,i)=>(i/(n-1)*W).toFixed(1)+','+(H-((v-mn)/(mx-mn))*H).toFixed(1)).join(' ');return '<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" preserveAspectRatio="none" style="vertical-align:middle"><polyline points="'+pts+'" fill="none" stroke="'+(cum[cum.length-1]>=0?'var(--green)':'var(--red)')+'" stroke-width="1.2"/></svg>';};
         const _instShort=i=>{const m=String(i||'').trim().match(/^[A-Za-z0-9]+/);return m?m[0].toUpperCase():'';};
+        // Mode number matches the BUILDER's mode dropdown: 1 single · 2 grid · 3 auto-optimize ·
+        // 4 walk-forward · 5 AI optimize · 6 AI evolve · 7 Auto-Validate. Derived from the run's
+        // validate object / scope string so old runs map correctly.
+        const _modeName={1:'single backtest',2:'grid sweep',3:'auto-optimize',4:'walk-forward',5:'AI optimize',6:'AI evolve',7:'Auto-Validate'};
+        const _modeNum=(r)=>{
+          if(r.validate)return 7;
+          const s=String(r.scope||'').toLowerCase();
+          if(/walk[- ]?forward|🔁/.test(s))return 4;
+          if(/evolve|🧬/.test(s))return 6;
+          if(/ai[- ]?optim|🧠/.test(s))return 5;
+          if(/auto[- ]?optim|🤖/.test(s))return 3;
+          if(/short|medium|long|xxl|xl|custom|combo|grid/.test(s))return 2;
+          return 1;
+        };
         const trows=sorted.length?sorted.map(r=>{const on=String(r.id)===String(d.id);const T=_T(r);const pnl=T.net||0;const sc=scoreRun(r);const vd=r.validate?r.validate.verdict:'';const dd=T.dd||0;const shp=T.sharpe;const wf=_wfHeld(r);const src=r.source_name||r.data_source||'';const ik=_instShort(r.instrument);
           return '<tr class="arow" data-run="'+r.id+'" style="cursor:pointer;'+(on?'background:var(--bg1)':'')+'">'
             +'<td style="text-align:center"><span data-star="'+r.id+'" title="star" style="cursor:pointer;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span></td>'
             +'<td style="text-align:right;color:var(--text3);font-variant-numeric:tabular-nums">'+r.id+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+_dtmini(r.timestamp)+'</td>'
             +'<td style="white-space:nowrap">'+stratTag(r.strategy)+(vd?' <span style="font-size:8px;color:'+(vd==='PASS'?'var(--green)':vd==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vd+'</span>':'')+'</td>'
-            +'<td style="font-size:var(--fsxs);color:var(--text4);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+String(r.scope||'').replace(/"/g,'')+'">'+(r.scope||'')+'</td>'
+            +'<td style="font-size:var(--fsxs);color:var(--text4);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="mode '+_modeNum(r)+' · '+(_modeName[_modeNum(r)]||'')+' — '+String(r.scope||'').replace(/"/g,'')+'"><b style="color:var(--text2)">'+_modeNum(r)+'</b> · '+(r.scope||'')+'</td>'
             +'<td style="white-space:nowrap">'+(ik?instTag(ik):'—')+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text4)">'+(r.timeframe||'')+'</td>'
             +'<td style="text-align:center">'+_spk(r.equity&&r.equity.cum)+'</td>'
