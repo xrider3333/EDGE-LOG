@@ -1,0 +1,280 @@
+// AUGUR-PINE
+//@version=6
+// Volume + Volume Delta on ONE pane sharing ONE centre zero line (x-axis):
+//   • Volume plots UP   from zero (length = volume, up/down coloured)
+//   • Delta  plots DOWN from zero (length = |delta|, +/- coloured)
+// Three independent axes (shown as input sections):
+//   A. CLASSIFICATION — how each sub-candle is tagged buy/sell
+//   B. BIG ORDERS     — optional sparse markers for large prints
+//   C. RESOLUTION     — the lower timeframe used for sub-candles
+// Per-bar delta divergence flags when a price candle's direction disagrees with
+// the net delta inside it; the big-order layer is purely additive.
+indicator("VOL + DELTA - X-axis split 3.4", shorttitle="VOL/DELTA split 3.4", overlay=false, precision=0, max_labels_count=500)
+
+// ── A · CLASSIFICATION ──────────────────────────────────────────────────────
+grpCls = "A · Classification"
+clf    = input.string("Tick rule", "Tag buy/sell by", options=["Tick rule", "Bar Polarity", "Buying/Selling Pressure"], group=grpCls, tooltip="How each sub-candle's volume is tagged buy vs sell:\n• Tick rule: close vs the PREVIOUS sub-candle's close (uptick=buy). Best proxy without tick data.\n• Bar Polarity: close vs its own open.\n• Buying/Selling Pressure: where close sits in the sub-candle's range.")
+
+// ── B · BIG ORDERS ──────────────────────────────────────────────────────────
+grpBO   = "B · Big Orders"
+bigMdl  = input.string("Turning Points", "Identification type", options=["Turning Points", "Extreme Vol"], group=grpBO, tooltip="• Extreme Vol: any sub-candle volume above the percentile, ANYWHERE.\n• Turning Points: a SUBSET — only big prints occurring while price is at a range extreme (Williams %R near top/bottom). So switching TP -> Extreme can only ADD markers.\nControls the bottom-band big filter, the chart bubbles, and the T&S table.")
+bigPerc = input.float(99, "Aggressiveness (percentile)", minval=50, maxval=99.99, step=0.5, group=grpBO, tooltip="Higher = only the very largest prints qualify.")
+
+// ── Big-order bubbles + Time & Sales ────────────────────────────────────────
+grpTS      = "Bubbles & Time/Sales"
+showBubble = input.bool(true,  "Big-order bubbles on chart", group=grpTS, tooltip="Plots a sized circle on the PRICE chart at each big order's price level (his Big Order Bubbles style).")
+bubMulti   = input.bool(false, "Multiple bubbles per bar",   group=grpTS, tooltip="Off: one bubble (the biggest print) per bar. On: a bubble for EVERY qualifying big print in the bar (his 'Allow Multiple Bubbles Per Bar').")
+maxBub     = input.int(10, "Max bubble size", minval=5, maxval=10, group=grpTS, tooltip="His scaling: bubbles are sized 1..maxBub within the recent big-order range, then rendered as font size (pushSize + 5).")
+bubTransp  = input.int(0, "Bubble transparency", minval=0, maxval=100, group=grpTS)
+bubNeon    = input.bool(true, "Neon glow", group=grpTS, tooltip="Draws a soft halo one size larger behind each bubble.")
+bubBuyC    = input.color(#1d9e75, "Bubble buy",  inline="bub", group=grpTS)
+bubSellC   = input.color(#e24b4a, "Bubble sell", inline="bub", group=grpTS)
+showTS     = input.bool(true,  "Show Time & Sales table",    group=grpTS, tooltip="A running list of the most recent big orders: side, size, price, time.")
+tsRows     = input.int(8, "T&S rows", minval=1, maxval=30,   group=grpTS)
+tsMinSz    = input.float(0.0, "T&S min order size", minval=0, group=grpTS, tooltip="Only list big orders at least this size (volume units) in the tape. 0 = list every qualifying big order.")
+tsTxt      = input.string("Small", "T&S text size", options=["Tiny", "Small", "Normal", "Large"], group=grpTS, tooltip="Adjust the Time & Sales table font size.")
+tsPos      = input.string("Bottom Right", "T&S position", options=["Top Right", "Middle Right", "Bottom Right", "Bottom Left", "Top Left"], group=grpTS, tooltip="Move the Time & Sales table around the chart.")
+
+// ── C · RESOLUTION ──────────────────────────────────────────────────────────
+grpRes = "C · Resolution"
+ltf    = input.timeframe("1S", "Lower timeframe for delta", group=grpRes, tooltip="Sub-candle resolution. Must be FINER than the chart timeframe (chart 1m -> 1S/5S; chart 5m -> 1m). If equal to the chart TF, delta degrades to +/- full volume. On high timeframes 1S can exceed TradingView's intrabar limit — raise it then.")
+
+// ── Display ─────────────────────────────────────────────────────────────────
+grpDsp   = "Display"
+deltaSrc = input.string("Big orders only (his filter)", "Delta source (bottom band)", options=["All flow", "Big orders only (his filter)"], group=grpDsp, tooltip="TOP band is ALWAYS total volume. This only controls the BOTTOM band's net delta:\n• All flow: net delta of every sub-candle.\n• Big orders only: net delta of just the sub-candles above the B percentile (his Turning Points / Extreme Vol filter) — the big stuff only.")
+scaleMd  = input.string("Normalized", "Scale", options=["Normalized", "Raw (volume units)"], group=grpDsp, tooltip="• Normalized: both halves auto-fit the pane (axis is 0..1, no real numbers).\n• Raw: plot true values so the right-hand price scale shows real numbers (5000, 10000, ...). Bottom band appears as negative magnitude below zero.")
+barStyle = input.string("Histogram", "Bar style", options=["Columns", "Histogram"], group=grpDsp, tooltip="Columns = thick blocks. Histogram = thin lines (his style).")
+lookN    = input.int(100, "Normalize lookback (bars)", minval=10, group=grpDsp, tooltip="Normalized mode only: each band is scaled to its peak over this many bars.")
+dSize    = input.string("Fill own band", "Delta sizing", options=["Net vs volume", "Fill own band"], group=grpDsp, tooltip="Normalized mode only.\n• Fill own band: auto-fit delta to its own peak, so small deltas are clearly visible (recommended).\n• Net vs volume: scale delta against the VOLUME peak, so it reads as the net portion — but small deltas become hard to see.")
+dFloor   = input.float(0.05, "Hide delta below (x peak)", minval=0.0, maxval=1.0, step=0.01, group=grpDsp, tooltip="Hide tiny delta bars whose magnitude is below this fraction of the recent delta peak, so they don't smear into a fuzzy line at zero. 0 = show all.")
+showZero = input.bool(true, "Zero line", group=grpDsp, tooltip="Show the gray reference line separating volume (up) from delta (down).")
+
+// ── Delta / Price disagreement ──────────────────────────────────────────────
+grpDv    = "Delta / Price disagreement"
+showBear = input.bool(false, "Price up but net selling",  group=grpDv, tooltip="Price candle closed UP (close>open) yet net delta inside it was NEGATIVE -> rally on selling pressure (weak/hidden selling).")
+showBull = input.bool(false, "Price down but net buying", group=grpDv, tooltip="Price candle closed DOWN (close<open) yet net delta inside it was POSITIVE -> drop on buying pressure (absorption/hidden buying).")
+minDlt   = input.float(0.0, "Min delta to flag (x peak)", minval=0.0, maxval=1.0, step=0.05, group=grpDv, tooltip="Ignore disagreements where |delta| is below this fraction of the recent delta peak (filters tiny/doji noise). 0 = flag any.")
+showAbs  = input.bool(false, "Absorption (big delta, price stalls)", group=grpDv, tooltip="A large net delta with little price movement -> a resting limit wall absorbing the aggression.")
+absThr   = input.float(0.7, "Absorption: delta threshold (x peak)", minval=0.1, maxval=1.0, step=0.05, group=grpDv)
+absStall = input.float(0.5, "Absorption: max bar range (x avg)",    minval=0.1, maxval=1.0, step=0.05, group=grpDv)
+
+// ── Volume coloring (top band) ──────────────────────────────────────────────
+grpVC     = "Volume coloring (top band)"
+volMode   = input.string("Direction", "Volume color", options=["Direction", "Heatmap", "Up/Down intensity"], group=grpVC, tooltip="• Direction: green if price candle up, red if down.\n• Heatmap: shade by how many std-devs above average the volume is (red=extreme ... blue=low), ignoring direction.\n• Up/Down intensity: green/red shades whose brightness scales with that std-dev level.")
+colorBars = input.bool(false, "Also color price candles", group=grpVC, tooltip="Paints the chosen Volume color onto the PRICE candles on the main chart (like xdecow's colored bars).")
+hmLen     = input.int(610, "Heatmap MA / Std length", minval=2, group=grpVC, tooltip="Lookback for the volume average and standard deviation that the tiers are measured against.")
+thrXH   = input.float(4.0,  "Extra-high threshold (std)", step=0.1, group=grpVC)
+thrH    = input.float(2.5,  "High threshold (std)",       step=0.1, group=grpVC)
+thrM    = input.float(1.0,  "Medium threshold (std)",     step=0.1, group=grpVC)
+thrN    = input.float(-0.5, "Normal threshold (std)",     step=0.1, group=grpVC)
+// Heatmap palette
+hmXH = input.color(#ff0000, "Heatmap: extra-high", group=grpVC)
+hmH  = input.color(#ff7800, "Heatmap: high",       group=grpVC)
+hmM  = input.color(#ffcf03, "Heatmap: medium",     group=grpVC)
+hmN  = input.color(#a0d6dc, "Heatmap: normal",     group=grpVC)
+hmL  = input.color(#1f9cac, "Heatmap: low",        group=grpVC)
+// Up / Down intensity palette
+udUXH = input.color(#00ff00, "Up: extra-high",   inline="u1", group=grpVC)
+udUH  = input.color(#30ff30, "Up: high",         inline="u1", group=grpVC)
+udUM  = input.color(#60ff60, "Up: medium",       inline="u2", group=grpVC)
+udUN  = input.color(#8fff8f, "Up: normal",       inline="u2", group=grpVC)
+udUL  = input.color(#bfffbf, "Up: low",          inline="u3", group=grpVC)
+udDXH = input.color(#ff0000, "Down: extra-high", inline="d1", group=grpVC)
+udDH  = input.color(#ff3030, "Down: high",       inline="d1", group=grpVC)
+udDM  = input.color(#ff6060, "Down: medium",     inline="d2", group=grpVC)
+udDN  = input.color(#ff8f8f, "Down: normal",     inline="d2", group=grpVC)
+udDL  = input.color(#ffbfbf, "Down: low",        inline="d3", group=grpVC)
+
+// ── Colors ──────────────────────────────────────────────────────────────────
+grpC   = "Colors"
+volUpC = input.color(color.new(#1d9e75, 45), "Volume up (Direction)",   inline="vc", group=grpC)
+volDnC = input.color(color.new(#e24b4a, 45), "Volume down (Direction)", inline="vc", group=grpC)
+upCol  = input.color(#1d9e75, "Delta/Big up",   inline="dc", group=grpC)
+dnCol  = input.color(#e24b4a, "Delta/Big down", inline="dc", group=grpC)
+absCol = input.color(color.new(color.orange, 0), "Absorption", group=grpC)
+
+// One row of the Time & Sales tape.
+type tsOrder
+    float price
+    float vol
+    int   dir
+    int   t
+
+// ── Classify + measure each sub-candle, fetched from the lower timeframe ─────
+// f_sign tags one sub-candle +1 buy / -1 sell / 0 flat per the chosen method.
+// Evaluated in the lower-TF context, so close[1] = the previous sub-candle.
+useTR = clf == "Tick rule"
+useBP = clf == "Buying/Selling Pressure"
+f_sign() =>
+    s = useTR ? math.sign(close - close[1]) :
+         useBP ? ((close - low) > (high - close) ? 1 : (close - low) < (high - close) ? -1 : 0) :
+         (close > open ? 1 : close < open ? -1 : 0)
+    nz(s)
+[ltfVol, ltfSign, ltfPrice] = request.security_lower_tf(syminfo.tickerid, ltf, [volume, f_sign(), hlc3])
+
+// Net per-bar delta = sum of signed sub-candle volume (ALL sub-candles).
+nSub     = array.size(ltfVol)
+barDelta = 0.0
+if nSub > 0
+    for i = 0 to nSub - 1
+        barDelta += array.get(ltfVol, i) * nz(array.get(ltfSign, i))
+
+// ── Bubble helper (his exact sizing) ────────────────────────────────────────
+// pushSize scales |vol| between 1..maxBub across the recent big-order range,
+// then the label uses NUMERIC font size (pushSize + 5), like his.
+var volPoints = array.new<float>()
+f_bubble(px, dir, vol) =>
+    clr = dir > 0 ? bubBuyC : bubSellC
+    volPoints.push(math.abs(vol))
+    if volPoints.size() > 50
+        volPoints.shift()
+    mn  = volPoints.min()
+    rng = volPoints.range()
+    ps  = rng > 0 ? 1 + (math.abs(vol) - mn) * (maxBub - 1) / rng : maxBub
+    sz  = int(ps + 5)
+    if bubNeon
+        label.new(bar_index, px, "⬤", xloc=xloc.bar_index, color=#00000000, textcolor=color.new(clr, math.min(100, bubTransp + 55)), style=label.style_label_center, size=sz + 4, force_overlay=true)
+    label.new(bar_index, px, "⬤", xloc=xloc.bar_index, color=#00000000, textcolor=color.new(clr, bubTransp), style=label.style_label_center, size=sz, force_overlay=true, tooltip=(dir > 0 ? "BUY " : "SELL ") + str.tostring(vol, format.volume))
+
+// ── Big-order layer (B) — optional, additive, does not affect delta ─────────
+wpr       = ta.wpr(14)
+atExtreme = wpr >= -20 or wpr <= -80
+gateOK    = bigMdl == "Extreme Vol" or atExtreme
+
+bigOnly  = deltaSrc == "Big orders only (his filter)"
+runBig   = bigOnly or showBubble or showTS
+var bigVolArr = array.new<float>()
+float bestVol    = 0.0
+int   bestDir    = 0
+float bestPrice  = na
+float sumBigBuy  = 0.0
+float sumBigSell = 0.0
+if runBig and nSub > 0
+    thr = array.size(bigVolArr) >= 200 ? array.percentile_nearest_rank(bigVolArr, bigPerc) : na
+    for i = 0 to nSub - 1
+        v = array.get(ltfVol, i)
+        array.push(bigVolArr, v)
+        if array.size(bigVolArr) > 4000
+            array.shift(bigVolArr)
+        if not na(thr) and gateOK and v >= thr
+            sgn = int(nz(array.get(ltfSign, i)))
+            if sgn > 0
+                sumBigBuy += v
+            else if sgn < 0
+                sumBigSell -= v          // accumulates negative
+            if sgn != 0 and v > bestVol
+                bestVol   := v
+                bestDir   := sgn
+                bestPrice := array.get(ltfPrice, i)
+            // Multiple bubbles: draw one per qualifying sub-candle.
+            if showBubble and bubMulti and sgn != 0
+                f_bubble(array.get(ltfPrice, i), sgn, v)
+bigDetected = bestVol > 0
+
+// ── Build plot values — TOP is ALWAYS volume; BOTTOM is the net delta ───────
+// Bottom delta = full per-bar delta OR net of big orders only (sumBuy+sumSell).
+raw      = scaleMd == "Raw (volume units)"
+deltaVal = bigOnly ? (sumBigBuy + sumBigSell) : barDelta
+
+topRaw = volume                          // top always = total volume
+botRaw = -math.abs(deltaVal)             // bottom plots magnitude downward
+
+topPeak   = math.max(ta.highest(volume, lookN), 1)
+dPeakFull = math.max(ta.highest(math.abs(barDelta), lookN), 1)   // for disagreement/absorption
+botPk     = math.max(ta.highest(math.abs(deltaVal), lookN), 1)
+botDenom  = dSize == "Net vs volume" ? topPeak : botPk
+
+// Hide tiny deltas (below the floor) so they don't smear into a line at zero.
+deltaShown = math.abs(deltaVal) >= dFloor * botPk
+topPlot = raw ? topRaw : math.min(topRaw / topPeak, 1)                               // up
+botPlot = not deltaShown ? na : raw ? botRaw : -math.min(math.abs(botRaw) / botDenom, 1) // down
+
+// ── Volume colour: Direction / Heatmap / Up-Down intensity ──────────────────
+// stdbar = how many std-devs this bar's volume is above its rolling average.
+hmStd  = ta.stdev(volume, hmLen)                         // population std (biased)
+stdbar = hmStd != 0 ? (volume - ta.sma(volume, hmLen)) / hmStd : 0.0
+dirUp  = close >= open
+heatClr = stdbar > thrXH ? hmXH : stdbar > thrH ? hmH : stdbar > thrM ? hmM : stdbar > thrN ? hmN : hmL
+udClr   = stdbar > thrXH ? (dirUp ? udUXH : udDXH) :
+           stdbar > thrH ? (dirUp ? udUH : udDH) :
+           stdbar > thrM ? (dirUp ? udUM : udDM) :
+           stdbar > thrN ? (dirUp ? udUN : udDN) :
+           (dirUp ? udUL : udDL)
+
+// ── Draw — one plot per style, gated so only the selected one renders ───────
+topClr = volMode == "Heatmap" ? heatClr : volMode == "Up/Down intensity" ? udClr : (close >= open ? volUpC : volDnC)
+botClr = deltaVal >= 0 ? upCol : dnCol
+
+// Optionally paint the same volume colour onto the PRICE candles (main chart).
+barcolor(colorBars ? topClr : na, title="Volume-coloured price candles", editable=false)
+isCol  = barStyle == "Columns"
+isHist = barStyle == "Histogram"
+
+plot(isCol  ? topPlot : na, "Top (cols)", style=plot.style_columns,   color=topClr)
+plot(isHist ? topPlot : na, "Top (hist)", style=plot.style_histogram, color=topClr, linewidth=4)
+plot(isCol  ? botPlot : na, "Bottom (cols)", style=plot.style_columns,   color=botClr)
+plot(isHist ? botPlot : na, "Bottom (hist)", style=plot.style_histogram, color=botClr, linewidth=4)
+
+// Shared zero line (toggle): separates volume (up) from delta (down).
+plot(showZero ? 0.0 : na, "Zero line", color=color.new(color.gray, 40), style=plot.style_line, linewidth=1, editable=false)
+
+// ── Per-bar delta / price disagreement (fires ON the bar, no lag) ───────────
+// Compare what the PRICE CANDLE did (close vs open) against the NET DELTA inside it.
+dltOK   = math.abs(barDelta) >= minDlt * dPeakFull       // ignore tiny-delta noise
+bearDiv = close > open and barDelta < 0 and dltOK        // up candle, net selling
+bullDiv = close < open and barDelta > 0 and dltOK        // down candle, net buying
+
+// Absorption: large net per-bar delta but the price candle's range is unusually small.
+rangeAvg   = math.max(ta.sma(high - low, lookN), syminfo.mintick)
+absorption = (math.abs(barDelta) / dPeakFull) > absThr and (high - low) < rangeAvg * absStall
+
+// Disagreement / absorption markers (location.top/bottom work in both scale modes).
+plotshape(showBear and bearDiv     ? 1 : na, title="Up candle / net selling", style=shape.triangledown, location=location.top,    color=dnCol,  size=size.tiny)
+plotshape(showBull and bullDiv     ? 1 : na, title="Down candle / net buying", style=shape.triangleup,  location=location.bottom, color=upCol,  size=size.tiny)
+plotshape(showAbs  and absorption  ? 0.0 : na, title="Absorption",           style=shape.diamond,      location=location.absolute, color=absCol, size=size.tiny)
+
+// Exportable non-repainting flags (hidden plots — usable from other scripts / strategies)
+plot(bearDiv      ? 1 : 0,       "flag_up_netsell",  display=display.none)
+plot(bullDiv      ? 1 : 0,       "flag_dn_netbuy",   display=display.none)
+plot(absorption   ? 1 : 0,       "flag_absorption",  display=display.none)
+plot(bigDetected  ? bestDir : 0, "flag_big_order",   display=display.none)
+
+// ── Big-order BUBBLES on the price chart + TIME & SALES tape ─────────────────
+// Single-bubble mode: one bubble for the biggest print of the bar.
+if showBubble and not bubMulti and bigDetected and not na(bestPrice)
+    f_bubble(bestPrice, bestDir, bestVol)
+
+// Time & Sales tape (most recent big orders first).
+var array<tsOrder> tsArr = array.new<tsOrder>()
+if showTS and bigDetected and bestVol >= tsMinSz
+    tsArr.unshift(tsOrder.new(bestPrice, bestVol, bestDir, time))
+    if tsArr.size() > tsRows
+        tsArr.pop()
+
+tsPosV = switch tsPos
+    "Top Right"     => position.top_right
+    "Middle Right"  => position.middle_right
+    "Bottom Right"  => position.bottom_right
+    "Bottom Left"   => position.bottom_left
+    => position.top_left
+tsSz = tsTxt == "Tiny" ? size.tiny : tsTxt == "Normal" ? size.normal : tsTxt == "Large" ? size.large : size.small
+var table tsT = table.new(tsPosV, 4, tsRows + 1, bgcolor=#1b1f27, border_color=#363a45, border_width=1, frame_color=#363a45, frame_width=1, force_overlay=true)
+if barstate.islast and showTS
+    table.cell(tsT, 0, 0, "Side",  text_color=color.gray, text_size=tsSz)
+    table.cell(tsT, 1, 0, "Size",  text_color=color.gray, text_size=tsSz)
+    table.cell(tsT, 2, 0, "Price", text_color=color.gray, text_size=tsSz)
+    table.cell(tsT, 3, 0, "Time",  text_color=color.gray, text_size=tsSz)
+    if tsArr.size() > 0
+        for [i, o] in tsArr
+            c = o.dir > 0 ? upCol : dnCol
+            table.cell(tsT, 0, i + 1, o.dir > 0 ? "BUY" : "SELL",                          text_color=c, text_size=tsSz)
+            table.cell(tsT, 1, i + 1, str.tostring(o.vol, format.volume),                  text_color=c, text_size=tsSz)
+            table.cell(tsT, 2, i + 1, str.tostring(o.price, format.mintick),               text_color=c, text_size=tsSz)
+            table.cell(tsT, 3, i + 1, str.format_time(o.t, "HH:mm:ss", syminfo.timezone),  text_color=c, text_size=tsSz)
+
+// Readouts (top-right): top / bottom band current values
+var table tb = table.new(position.top_left, 1, 2, frame_width=0)
+if barstate.islast
+    botLbl = bigOnly ? "BigΔ " : "Delta "
+    table.cell(tb, 0, 0, "Vol "  + str.tostring(volume, format.volume),   text_color=topClr, text_size=size.small)
+    table.cell(tb, 0, 1, botLbl + str.tostring(deltaVal, format.volume),  text_color=botClr, text_size=size.small)
