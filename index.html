@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='34.1';
+const VERSION='34.2';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4812,11 +4812,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let _panelEquity='',_panelMatrix='';
       if(d.validate){const _V=d.validate,_lb=_V.lockbox||{};
         const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px';
+        // Section 1a leads with the equity graph + lockbox strip ONLY. The old
+        // "BEST CONFIG" cards (single parameter set across ALL dates — the $195k NET P&L
+        // among them) were REMOVED: that single-config number overlaps the walk-forward
+        // fold dates and does NOT correspond to any one section of the 3-section matrix
+        // (1b), which was the single biggest source of confusion. The matrix carries the
+        // real per-section + TOTAL accounting; this panel just draws the curve.
         _panelEquity='<div style="'+_card+'">'
           +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:9px"><span class="lbl" style="font-size:12px;letter-spacing:1.5px">CHAMPION EQUITY</span></div>'
           +_metaStrip
-          +'<div class="lbl" style="margin:11px 0 6px;font-size:9px;color:var(--text5)">BEST CONFIG · the single winning parameter set, over the whole tune period (this is one config across all dates — the matrix below splits the timeline into 3 sections instead)</div>'
-          +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px">'+cardHtml+'</div>'
           +championEquityHtml(_V,mlt,d.top10_results)
           +'<div style="margin-top:8px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+(_lb.pass?'var(--green)':'var(--red)')+'">'+(_lb.pass?'HELD':'FAILED')+'</b> · '+fmtUsd(Math.round((_lb.pnl||0)*mlt))+' · PF '+Math.min(_lb.pf||0,99).toFixed(2)+' · '+(_lb.trades||0)+' trades'+(_V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(_V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
           +'</div>';
