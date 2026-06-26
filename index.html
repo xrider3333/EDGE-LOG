@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='34.7';
+const VERSION='34.8';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4517,6 +4517,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _wr=v=>(v==null||!isFinite(v))?'—':(+v).toFixed(0)+'%';
       const metrics=[
         {lbl:'NET P&L', top:true, cell:p=>'<span style="font-weight:700;color:'+((p.net||0)>=0?'#1d9e75':'#e24b4a')+'">'+(p.net!=null?fmtUsd(Math.round(p.net)):'—')+'</span>'},
+        {lbl:'$ / DAY', cell:p=>{const v=(p.net!=null&&p.days)?p.net/p.days:null;return '<span style="color:var(--text3)">'+(v!=null?fmtUsd(Math.round(v)):'—')+'</span>';}},
         {lbl:'PF', cell:p=>'<span style="color:'+((p.pf!=null&&p.pf>=1)?'var(--text)':'var(--red)')+'">'+_pf(p.pf)+'</span>'},
         {lbl:'WIN %', cell:p=>'<span style="color:var(--text3)">'+_wr(p.wr)+'</span>'},
         {lbl:'SHARPE', cell:p=>'<span style="color:var(--text3)">'+_sh(p.sh)+'</span>'},
@@ -4774,6 +4775,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // sub-tab buttons now live in the top-level subtab bar; here keep only the
     // contextual right-side controls (e.g. the Results side/stack view toggle).
     let nav=navRight?'<div style="display:flex;justify-content:flex-end;margin-bottom:10px">'+navRight+'</div>':'';
+    // Mode number/name match the BUILDER's mode dropdown (1 single · 2 grid · 3 auto-optimize ·
+    // 4 walk-forward · 5 AI optimize · 6 AI evolve · 7 Auto-Validate). Used by the run report
+    // header AND the Past-runs MODE column so they agree.
+    const _modeName={1:'single backtest',2:'grid sweep',3:'auto-optimize',4:'walk-forward',5:'AI optimize',6:'AI evolve',7:'Auto-Validate'};
+    const _modeNum=(r)=>{
+      if(r&&r.validate)return 7;
+      const s=String((r&&r.scope)||'').toLowerCase();
+      if(/walk[- ]?forward|🔁/.test(s))return 4;
+      if(/evolve|🧬/.test(s))return 6;
+      if(/ai[- ]?optim|🧠/.test(s))return 5;
+      if(/auto[- ]?optim|🤖/.test(s))return 3;
+      if(/short|medium|long|xxl|xl|custom|combo|grid/.test(s))return 2;
+      return 1;
+    };
     const runDetail=(d)=>{
       if(!d)return '<div style="color:var(--text5);font-size:var(--fsxs);padding:48px 20px;text-align:center;border:1px dashed var(--border);border-radius:10px">select a run on the left to load its report card</div>';
       const _champNetTip=d.validate?'the single best parameter set, measured across the WHOLE tune period (one config, all dates). The matrix below instead splits the timeline into 3 sections — its IN-SAMPLE column is only the first (un-shaded) section, so that is a smaller number than this.':'';
@@ -4921,7 +4936,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="margin-top:8px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+(_lb.pass?'var(--green)':'var(--red)')+'">'+(_lb.pass?'HELD':'FAILED')+'</b> · '+fmtUsd(Math.round((_lb.pnl||0)*mlt))+' · PF '+Math.min(_lb.pf||0,99).toFixed(2)+' · '+(_lb.trades||0)+' trades'+(_V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(_V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
           +'</div>';
         _panelMatrix='<div style="'+_card+'">'+kpiMatrixHtml(d,mlt)+'</div>';}
-      const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span></div>'
+      const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span><span title="optimization mode '+_modeNum(d)+' · '+(_modeName[_modeNum(d)]||'')+'" style="flex:0 0 auto;font-size:10px;padding:2px 8px;border-radius:999px;background:var(--bg1);color:var(--text3);font-weight:700">mode '+_modeNum(d)+' · '+(_modeName[_modeNum(d)]||'')+'</span></div>'
         // pinned pills: FULLY transparent (no background, no backdrop-filter) so the row looks
         //   identical at rest and while scrolling — the individual pill chips stay opaque so the
         //   labels remain readable as content slides underneath.
@@ -5389,20 +5404,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _wfHeld=r=>{const t=r.top10_results;if(!Array.isArray(t))return '';const fr=t.filter(x=>x&&x.fold!=null);if(!fr.length)return '';const fl=[...new Set(fr.map(x=>x.fold))];const held=fl.filter(fd=>fr.filter(x=>x.fold===fd).some(x=>(+x.oos_pf||0)>1)).length;return held+'/'+fl.length;};
         const _spk=cum=>{if(!cum||cum.length<2)return '';let mn=Math.min.apply(null,cum),mx=Math.max.apply(null,cum);if(mx<=mn)mx=mn+1;const W=52,H=15,n=cum.length;const pts=cum.map((v,i)=>(i/(n-1)*W).toFixed(1)+','+(H-((v-mn)/(mx-mn))*H).toFixed(1)).join(' ');return '<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" preserveAspectRatio="none" style="vertical-align:middle"><polyline points="'+pts+'" fill="none" stroke="'+(cum[cum.length-1]>=0?'var(--green)':'var(--red)')+'" stroke-width="1.2"/></svg>';};
         const _instShort=i=>{const m=String(i||'').trim().match(/^[A-Za-z0-9]+/);return m?m[0].toUpperCase():'';};
-        // Mode number matches the BUILDER's mode dropdown: 1 single · 2 grid · 3 auto-optimize ·
-        // 4 walk-forward · 5 AI optimize · 6 AI evolve · 7 Auto-Validate. Derived from the run's
-        // validate object / scope string so old runs map correctly.
-        const _modeName={1:'single backtest',2:'grid sweep',3:'auto-optimize',4:'walk-forward',5:'AI optimize',6:'AI evolve',7:'Auto-Validate'};
-        const _modeNum=(r)=>{
-          if(r.validate)return 7;
-          const s=String(r.scope||'').toLowerCase();
-          if(/walk[- ]?forward|🔁/.test(s))return 4;
-          if(/evolve|🧬/.test(s))return 6;
-          if(/ai[- ]?optim|🧠/.test(s))return 5;
-          if(/auto[- ]?optim|🤖/.test(s))return 3;
-          if(/short|medium|long|xxl|xl|custom|combo|grid/.test(s))return 2;
-          return 1;
-        };
         const trows=sorted.length?sorted.map(r=>{const on=String(r.id)===String(d.id);const T=_T(r);const pnl=T.net||0;const sc=scoreRun(r);const vd=r.validate?r.validate.verdict:'';const dd=T.dd||0;const shp=T.sharpe;const wf=_wfHeld(r);const src=r.source_name||r.data_source||'';const ik=_instShort(r.instrument);
           return '<tr class="arow" data-run="'+r.id+'" style="cursor:pointer;'+(on?'background:var(--bg1)':'')+'">'
             +'<td style="text-align:center"><span data-star="'+r.id+'" title="star" style="cursor:pointer;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span></td>'
