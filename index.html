@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='33.9';
+const VERSION='34.0';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4438,10 +4438,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   counts so they show — (disclosed in the footnote).
       const isNet=(d.best_pnl_usd!=null)?d.best_pnl_usd:((V.is_pnl||0)*mult),isWr=(d.best_win_rate!=null)?d.best_win_rate:null;
       const phases=[
-        {sh_:'IN-SAMPLE', dr:_dr(optS,optE), days:_days(optS,optE), wr:isWr, tip:'in-sample champion (best config) fit on the optimize window — the $ here equals the CHAMPION card above the chart. NOTE the equity curve keeps running PAST this fit, so the curve endpoint is larger.', pnl:isNet, pf:(d.best_pf!=null?d.best_pf:V.is_pf), sh:V.is_sharpe, tr:(d.best_trades!=null?d.best_trades:V.is_trades)},
+        {sh_:'IN-SAMPLE', dr:_dr(optS,optE), days:_days(optS,optE), wr:isWr, tip:'the champion (best config) measured on the dates it was optimized on. The $ here equals the CHAMPION card above the chart. The equity curve keeps drawing PAST this point (through the held-back + lockbox dates), so the line ends higher than this number.', pnl:isNet, pf:(d.best_pf!=null?d.best_pf:V.is_pf), sh:V.is_sharpe, tr:(d.best_trades!=null?d.best_trades:V.is_trades)},
         folds.length?{sh_:'WALK-FWD OOS', dr:_dr(oosStartMs,optE), days:_days(oosStartMs,optE), wr:null, tip:'walk-forward out-of-sample — each fold re-optimized then tested on unseen data, pooled across '+folds.length+' folds. OOS win counts are not stored → Win% shows —.', pnl:_wfNet, pf:oosPf, sh:oosSh, tr:oosTr}:null,
         (lb.pnl!=null)?{sh_:'LOCKBOX', dr:_dr(lbS,lbE), days:_days(lbS,lbE), wr:null, tip:'lockbox holdout — never optimized or browsed. Win counts not stored → Win% shows —.', pnl:lb.pnl*mult, pf:lb.pf, sh:null, tr:lb.trades}:null,
-        {sh_:'OVERALL', overall:true, dr:_dr(oosStartMs,lbE), days:_days(oosStartMs,lbE), wr:null, tip:'OVERALL = out-of-sample composite (walk-forward OOS folds + lockbox) — every dollar the optimizer never saw. NOT a sum of all columns (in-sample overlaps the WF dates) and NOT the equity-curve endpoint (the curve is one continuous champion run). This is the deploy-relevant aggregate.', pnl:compNet, pf:compPf, sh:compSh(), tr:compTr}
+        {sh_:'OOS TOTAL', overall:true, dr:_dr(oosStartMs,lbE), days:_days(oosStartMs,lbE), wr:null, tip:'OOS TOTAL = WALK-FWD OOS + LOCKBOX only (the two out-of-sample columns) = every dollar made on data the optimizer never saw. In-sample is left OUT on purpose (it is the optimized fit, not out-of-sample), so this is NOT a sum of all three columns — it is WALK-FWD OOS + LOCKBOX.', pnl:compNet, pf:compPf, sh:compSh(), tr:compTr}
       ].filter(Boolean);
       const _pf=v=>(v==null||!isFinite(v)||v<=0)?'—':Math.min(v,99).toFixed(2);
       const _sh=v=>(v==null||!isFinite(v))?'—':(+v).toFixed(2);
@@ -4468,7 +4468,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +(V.dsr!=null?'<span title="deflated Sharpe (selection-luck haircut)" style="font-size:8px;padding:2px 7px;border-radius:6px;background:var(--bg1);color:var(--text3);cursor:help">DSR '+(+V.dsr).toFixed(2)+'</span>':'')
         +'</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 0;margin-bottom:14px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead>'+head+'</thead><tbody>'+body+'</tbody></table>'
-        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px">Each column is a <b>stored validation phase</b>, not a slice of the equity curve. <b>IN-SAMPLE</b> = the champion (best config) fit — equals the CHAMPION card above the chart. <b>WALK-FWD OOS</b> = the pooled walk-forward out-of-sample folds. <b>LOCKBOX</b> = the holdout. They <b>overlap in time</b> (in-sample spans the optimize window; the WF folds test inside it), so they are <i>not</i> additive and do <i>not</i> equal the champion-equity-curve endpoint — that curve is one continuous champion run that keeps growing past the in-sample fit. <b style="color:var(--green)">OVERALL</b> = out-of-sample composite (OOS folds + lockbox) = the deploy-relevant total the optimizer never saw. <b>Win %</b> is the champion win rate for in-sample; OOS &amp; lockbox carry no stored win counts so they show —. Sharpe is annualized across the OOS folds; lockbox is one window so it shows —.</div></div>';
+        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px"><b>IN-SAMPLE</b> = the champion fit on the dates it was optimized on ('+(optS?_mdy(optS):'')+'–'+(optE?_mdy(optE):'')+'); this equals the CHAMPION card above the chart. <b>WALK-FWD OOS</b> = the walk-forward test results (data held back during optimizing). <b>LOCKBOX</b> = the final untouched year. <b style="color:var(--green)">OOS TOTAL</b> = WALK-FWD OOS + LOCKBOX only ('+fmtUsd(Math.round(_wfNet))+' + '+fmtUsd(Math.round(lb.pnl!=null?lb.pnl*mult:0))+'); in-sample is excluded because it is the optimized fit, not out-of-sample. The three left columns do NOT sum (in-sample overlaps the walk-forward dates). <b>Win %</b> and lockbox <b>Sharpe</b> show — because the run saved each phase\'s totals (net $, profit factor, trade count) but not the win/loss breakdown of those trades — that has to be re-run to capture.</div></div>';
     };
     // CONFIG FILTER — a brush slider (legacy-Augur parcoords behaviour). Drag it and every
     //   config mark (parallel-coords line + scatter dot, class .cfgmark, tagged data-net=$)
@@ -4591,30 +4591,30 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _nice=x=>{x=Math.abs(x)||1;const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
       const _gstep=_nice((mx-mn)/5)||1;const _lvls=[];for(let L=Math.ceil(mn/_gstep)*_gstep;L<=mx+1e-6;L+=_gstep)_lvls.push(L);
       const grid=_lvls.map(L=>{const _z=Math.abs(L)<1e-6;return '<line x1="0" y1="'+Y(L).toFixed(1)+'" x2="'+EW+'" y2="'+Y(L).toFixed(1)+'" stroke="var(--border)" stroke-width="'+(_z?'1':'0.5')+'" opacity="'+(_z?'0.65':'0.22')+'"/>';}).join('');
-      const svg='<svg width="100%" height="'+EH+'" viewBox="0 0 '+EW+' '+EH+'" preserveAspectRatio="none" style="display:block;border-radius:8px;background:var(--bg1)">'
+      const svg='<svg width="100%" height="100%" viewBox="0 0 '+EW+' '+EH+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%;border-radius:8px;background:var(--bg1)">'
         +wfBands
         +'<rect x="'+bx.toFixed(1)+'" y="0" width="'+(EW-bx).toFixed(1)+'" height="'+EH+'" fill="rgba(167,139,250,.16)" style="cursor:pointer" data-tip="'+_lbTip+'"/>'
         +grid
         +'<line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+EH+'" stroke="#a78bfa" stroke-width="1.3" stroke-dasharray="4,3"/>'
         +'<path d="'+seg(0,li+1)+'" fill="none" stroke="var(--green)" stroke-width="1.6"/>'
         +'<path d="'+seg(li,eq.length)+'" fill="none" stroke="#a78bfa" stroke-width="1.6"/></svg>';
-      // y-axis ($ PnL) labels on the RIGHT, one per gridline, aligned to the line's pixel y.
-      const yLabels='<div style="position:relative;width:54px;min-width:54px;height:'+EH+'px;font-size:8px;color:var(--text5)">'
-        +_lvls.map(L=>'<span style="position:absolute;left:3px;top:'+(Y(L)-4).toFixed(1)+'px;white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtUsd(Math.round(L))+'</span>').join('')
-        +'<span style="position:absolute;left:3px;bottom:-2px;color:var(--text4)">PnL $</span></div>';
-      // ZOOM control: the slider widens the inner wrapper (svg + date axis stretch together) inside
-      //   a horizontal scroll box, so you can blow up the time-compressed lockbox and pan to it.
-      //   Pure CSS width — no redraw. The y-axis labels stay fixed outside the scroll box.
-      const zoomBar='<div style="display:flex;align-items:center;gap:7px;margin:1px 0 5px;font-size:8px;color:var(--text5)"><span style="font-weight:700;letter-spacing:.5px">ZOOM</span>'
-        +'<input id="eq-zoom" type="range" min="100" max="600" value="100" style="flex:0 0 150px;accent-color:#a78bfa"/>'
-        +'<span id="eq-zoom-lbl" style="min-width:26px;color:var(--text3)">1.0×</span>'
-        +'<span>drag to expand the timeline, then scroll right to inspect the lockbox</span></div>';
-      return '<div style="margin:13px 0 5px"><div style="font-weight:700;font-size:11px;color:var(--text2)">Champion equity curve <span style="font-weight:400;color:var(--text5);font-size:9px">· best config · 1 contract</span></div><div style="font-size:8px;color:var(--text5);margin-top:1px">chronological — <span style="color:var(--green)">in-sample</span> + walk-forward, then the <span style="color:#a78bfa">lockbox</span> holdout (1 yr → compressed at right)</div></div>'
-        +zoomBar
-        +'<div style="display:flex;gap:7px">'
-        +'<div style="flex:1;min-width:0"><div id="eq-scroll" style="overflow-x:auto;overflow-y:hidden"><div id="eq-inner" style="width:100%">'+svg+dateAxis+'</div></div>'
-        +'<div style="display:flex;gap:11px;flex-wrap:wrap;font-size:8px;color:var(--text5);margin-top:3px"><span style="color:var(--green)">● in-sample (optimized '+(_of?_mdy(optS):'start')+'→'+(_ot?_mdy(optE):'')+')</span>'+wfNote+'<span style="color:#a78bfa">● lockbox = OOS · last '+W.lockbox_months+'mo, never seen</span></div></div>'
-        +yLabels+'</div>';
+      // y-axis ($ PnL) labels on the RIGHT, one per gridline. Positioned by PERCENT of the plot
+      //   height (not px) so they stay aligned when the chart is dragged taller (see eq-rs resize).
+      const yLabels='<div style="width:54px;min-width:54px;height:100%;display:flex;flex-direction:column;font-size:8px;color:var(--text5)">'
+        +'<div style="position:relative;flex:1;min-height:0">'
+        +_lvls.map(L=>'<span style="position:absolute;left:3px;top:calc('+(Y(L)/EH*100).toFixed(2)+'% - 5px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtUsd(Math.round(L))+'</span>').join('')
+        +'</div><div style="height:12px;color:var(--text4)">PnL $</div></div>';
+      // RESIZE: the chart sits in a vertically-resizable box (drag the grip at its lower edge to
+      //   make it taller). The SVG fills the box (preserveAspectRatio=none → gridlines & curve scale
+      //   vertically), the date axis stays a fixed 12px strip at the bottom, and the y-labels scale
+      //   by percent — so everything stays aligned at any height.
+      return '<div style="margin:13px 0 5px"><div style="font-weight:700;font-size:11px;color:var(--text2)">Champion equity curve <span style="font-weight:400;color:var(--text5);font-size:9px">· best config · 1 contract</span></div><div style="font-size:8px;color:var(--text5);margin-top:1px">chronological — <span style="color:var(--green)">in-sample</span> + walk-forward, then the <span style="color:#a78bfa">lockbox</span> holdout (drag the chart\'s lower edge ↕ to make it taller)</div></div>'
+        +'<div id="eq-rs" style="display:flex;gap:7px;height:210px;min-height:130px;max-height:640px;resize:vertical;overflow:hidden;border-bottom:2px dashed color-mix(in srgb,var(--border) 70%,transparent);padding-bottom:3px">'
+        +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;height:100%">'
+        +'<div style="flex:1;min-height:0">'+svg+'</div>'
+        +'<div style="height:12px">'+dateAxis+'</div></div>'
+        +yLabels+'</div>'
+        +'<div style="display:flex;gap:11px;flex-wrap:wrap;font-size:8px;color:var(--text5);margin-top:4px"><span style="color:var(--green)">● in-sample (optimized '+(_of?_mdy(optS):'start')+'→'+(_ot?_mdy(optE):'')+')</span>'+wfNote+'<span style="color:#a78bfa">● lockbox = OOS · last '+W.lockbox_months+'mo, never seen</span><span style="color:var(--text5);margin-left:auto">↕ drag lower edge to resize</span></div>';
     };
     // Shared Auto-Validate report card (verdict + 5 gates + equity curve + lockbox) —
     // used by both the Builder run panel and the Results/Past-Runs detail so they match.
@@ -4805,20 +4805,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // ── MASTER panel (validate runs only): ONE hero combining the champion equity curve, the
       //    KPI matrix, the champion headline cards, verdict + gate windows, run meta and the
       //    lockbox/MC strip — so the whole at-a-glance story lives in a single chart-led card. ──
-      let _masterPanel='';
-      if(d.validate){const _V=d.validate,_vc={PASS:'var(--green)',WEAK:'var(--yellow)',FAIL:'var(--red)'}[_V.verdict]||'var(--text4)',_W=_V.windows||{optimize:['','']},_lb=_V.lockbox||{},_ng=_V.n_gates||5;
-        const _mc=(lbl,val,col)=>'<span style="display:inline-flex;flex-direction:column;gap:1px;padding:4px 9px;border-radius:7px;background:var(--bg1)"><span style="font-size:7px;letter-spacing:.6px;color:var(--text5)">'+lbl+'</span><span style="font-size:var(--fsxs);font-weight:700;color:'+(col||'var(--text2)')+';white-space:nowrap">'+val+'</span></span>';
-        _masterPanel='<div style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px;margin-bottom:14px">'
-          // verdict/gates/date-range strip dropped per request — that data now lives in the KPI
-          //   matrix (verdict + gates + IS Sharpe in its title; per-phase date ranges in its headers).
-          +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:9px"><span class="lbl" style="font-size:12px;letter-spacing:1.5px">MASTER</span></div>'
+      // §1 splits into lettered subsections so each chart/table is individually addressable:
+      //   1a = champion + equity graph · 1b = KPI matrix · 1c = walk-forward folds · 1d = regime.
+      let _panelEquity='',_panelMatrix='';
+      if(d.validate){const _V=d.validate,_lb=_V.lockbox||{};
+        const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px';
+        _panelEquity='<div style="'+_card+'">'
+          +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:9px"><span class="lbl" style="font-size:12px;letter-spacing:1.5px">CHAMPION EQUITY</span></div>'
           +_metaStrip
           +'<div class="lbl" style="margin:11px 0 6px;font-size:9px;color:var(--text5)">CHAMPION · best config (in-sample)</div>'
           +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px">'+cardHtml+'</div>'
           +championEquityHtml(_V,mlt,d.top10_results)
-          +'<div style="margin-top:8px">'+kpiMatrixHtml(d,mlt)+'</div>'
-          +'<div style="margin-top:2px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+(_lb.pass?'var(--green)':'var(--red)')+'">'+(_lb.pass?'HELD':'FAILED')+'</b> · '+fmtUsd(Math.round((_lb.pnl||0)*mlt))+' · PF '+Math.min(_lb.pf||0,99).toFixed(2)+' · '+(_lb.trades||0)+' trades'+(_V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(_V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
-          +'</div>';}
+          +'<div style="margin-top:8px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+(_lb.pass?'var(--green)':'var(--red)')+'">'+(_lb.pass?'HELD':'FAILED')+'</b> · '+fmtUsd(Math.round((_lb.pnl||0)*mlt))+' · PF '+Math.min(_lb.pf||0,99).toFixed(2)+' · '+(_lb.trades||0)+' trades'+(_V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(_V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
+          +'</div>';
+        _panelMatrix='<div style="'+_card+'">'+kpiMatrixHtml(d,mlt)+'</div>';}
       const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span></div>'
         // pinned pills: FULLY transparent (no background, no backdrop-filter) so the row looks
         //   identical at rest and while scrolling — the individual pill chips stay opaque so the
@@ -4870,7 +4870,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><input id="det-note" value="'+String(d.note||'').replace(/"/g,'&quot;')+'" placeholder="add a note…" style="flex:1;padding:4px 8px;font-size:var(--fsxs);border-radius:6px"/><button class="btn-ghost" id="det-note-save" data-note-id="'+d.id+'" style="padding:4px 12px;font-size:var(--fsxs);border:1px solid var(--border);border-radius:6px">save</button>'
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="width:auto;padding:4px 6px;font-size:9px;border-radius:6px"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
         +'<button class="btn-ghost" id="det-del" data-del-id="'+d.id+'" style="padding:4px 10px;font-size:var(--fsxs);border:1px solid var(--red);border-radius:6px;color:var(--red)">delete</button></div>'
-        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',_secOf(1,[(d.validate?_masterPanel:_summaryPanel),_wfFolds,regHtml]))
+        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',_secOf(1,[(d.validate?_panelEquity:_summaryPanel),_panelMatrix,_wfFolds,regHtml]))
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         +_sec('3','Plateau','robust params — a cluster, not a lonely spike',_sec3)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4)
@@ -5544,12 +5544,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _apply=()=>{const v=+_brush.value;let shown=0;_marks.forEach(m=>{const on=(+m.getAttribute('data-net'))>=v;if(on)shown++;m.style.opacity=on?(m.tagName.toLowerCase()==='circle'?'0.6':''):'0.05';m.style.pointerEvents=on?'':'none';});
           const cfg=Math.round(shown/_inst);if(_cut)_cut.textContent='cut ≥ '+fmtUsd(v);if(_cn){_cn.textContent=cfg+' / '+_total+' configs shown';_cn.style.color=cfg?'var(--green)':'var(--text5)';}};
         _brush.addEventListener('input',_apply);}
-      // CHAMPION-EQUITY zoom: widen the inner wrapper (svg + date axis) inside its scroll box so
-      //   the time-compressed lockbox can be expanded and panned to. Pure CSS — no redraw.
-      const _eqz=el('eq-zoom');
-      if(_eqz){const _eqi=el('eq-inner'),_eqs=el('eq-scroll'),_eql=el('eq-zoom-lbl');
-        const _zap=()=>{const v=+_eqz.value;if(_eqi)_eqi.style.width=v+'%';if(_eql)_eql.textContent=(v/100).toFixed(1)+'×';if(_eqs&&v>100)_eqs.scrollLeft=_eqs.scrollWidth;};
-        _eqz.addEventListener('input',_zap);}
       // checklist pills <-> report sections. Scroll the WINDOW with an offset for the
       // sticky .topbar so the target heading isn't hidden behind it. Pills jump down to
       // a section; clicking a section heading jumps back up to the pills.
