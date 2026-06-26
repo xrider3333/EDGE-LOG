@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='34.3';
+const VERSION='34.4';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4428,9 +4428,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const W=V.windows||{},optS=W.optimize&&+new Date(W.optimize[0]),optE=W.optimize&&+new Date(W.optimize[1]),lbE=(W.lockbox&&+new Date(W.lockbox[1]))||optE;
         const days=(optS&&lbE)?Math.round((lbE-optS)/864e5):(r.days_in_test||null);
         const yrs=(optS&&optE)?Math.max(0.25,(optE-optS)/(365.25*864e5)):null;
-        return {net:nTOT,pf:totPf,trades:totTr,days:days,perDay:(days?nTOT/days:null),sharpe:_foldSharpeOf(folds,yrs),oosNet:oosNet,scope:'total',validated:true};
+        // Whole-run max drawdown: deepest peak-to-trough on the continuous champion equity curve
+        // (real — though the curve is downsampled, so it can slightly understate the trough).
+        let _pk=-Infinity,_dd=0;for(let i=0;i<eq.length;i++){if(eq[i]>_pk)_pk=eq[i];const _x=eq[i]-_pk;if(_x<_dd)_dd=_x;}
+        // Total Sharpe & total Win% need the per-trade win/loss ledger this run did NOT save → null
+        // (rendered as —). sharpeOOS = the out-of-sample (walk-forward) Sharpe, kept for the tooltip.
+        return {net:nTOT,pf:totPf,trades:totTr,days:days,perDay:(days?nTOT/days:null),dd:_dd,sharpe:null,wr:null,sharpeOOS:_foldSharpeOf(folds,yrs),isWr:(folds[0]&&folds[0].win_rate!=null?+folds[0].win_rate:null),oosNet:oosNet,scope:'total',validated:true};
       }
-      return {net:(r&&r.best_pnl_usd)||0,pf:(r&&r.best_pf)||0,trades:(r&&r.best_trades)||0,days:(r&&r.days_in_test)||null,perDay:(r&&r.best_pnl_per_day)||null,sharpe:(r&&r.dsr&&r.dsr.winner_sharpe),oosNet:null,scope:'best',validated:false};
+      return {net:(r&&r.best_pnl_usd)||0,pf:(r&&r.best_pf)||0,trades:(r&&r.best_trades)||0,days:(r&&r.days_in_test)||null,perDay:(r&&r.best_pnl_per_day)||null,dd:(r&&r.best_dd_usd)||0,sharpe:(r&&r.dsr&&r.dsr.winner_sharpe),wr:(r&&r.best_win_rate),sharpeOOS:null,isWr:null,oosNet:null,scope:'best',validated:false};
     };
     const kpiMatrixHtml=(d,mult)=>{
       const V=d.validate;if(!V)return '';
@@ -5321,7 +5326,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _wfHeld=r=>{const t=r.top10_results;if(!Array.isArray(t))return '';const fr=t.filter(x=>x&&x.fold!=null);if(!fr.length)return '';const fl=[...new Set(fr.map(x=>x.fold))];const held=fl.filter(fd=>fr.filter(x=>x.fold===fd).some(x=>(+x.oos_pf||0)>1)).length;return held+'/'+fl.length;};
         const _spk=cum=>{if(!cum||cum.length<2)return '';let mn=Math.min.apply(null,cum),mx=Math.max.apply(null,cum);if(mx<=mn)mx=mn+1;const W=52,H=15,n=cum.length;const pts=cum.map((v,i)=>(i/(n-1)*W).toFixed(1)+','+(H-((v-mn)/(mx-mn))*H).toFixed(1)).join(' ');return '<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" preserveAspectRatio="none" style="vertical-align:middle"><polyline points="'+pts+'" fill="none" stroke="'+(cum[cum.length-1]>=0?'var(--green)':'var(--red)')+'" stroke-width="1.2"/></svg>';};
         const _instShort=i=>{const m=String(i||'').trim().match(/^[A-Za-z0-9]+/);return m?m[0].toUpperCase():'';};
-        const trows=sorted.length?sorted.map(r=>{const on=String(r.id)===String(d.id);const T=_T(r);const pnl=T.net||0;const sc=scoreRun(r);const vd=r.validate?r.validate.verdict:'';const dd=r.best_dd_usd||0;const shp=T.sharpe;const wf=_wfHeld(r);const src=r.source_name||r.data_source||'';const ik=_instShort(r.instrument);
+        const trows=sorted.length?sorted.map(r=>{const on=String(r.id)===String(d.id);const T=_T(r);const pnl=T.net||0;const sc=scoreRun(r);const vd=r.validate?r.validate.verdict:'';const dd=T.dd||0;const shp=T.sharpe;const wf=_wfHeld(r);const src=r.source_name||r.data_source||'';const ik=_instShort(r.instrument);
           return '<tr class="arow" data-run="'+r.id+'" style="cursor:pointer;'+(on?'background:var(--bg1)':'')+'">'
             +'<td style="text-align:center"><span data-star="'+r.id+'" title="star" style="cursor:pointer;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span></td>'
             +'<td style="text-align:right;color:var(--text3);font-variant-numeric:tabular-nums">'+r.id+'</td>'
@@ -5333,10 +5338,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<td style="text-align:center">'+_spk(r.equity&&r.equity.cum)+'</td>'
             +'<td title="'+(T.validated?'whole-run total = in-sample + walk-forward + lockbox (the deployable end result · out-of-sample portion '+fmtUsd(Math.round(T.oosNet||0))+')':'best single config')+'" style="text-align:right;color:'+(pnl>=0?'var(--green)':'var(--red)')+';white-space:nowrap;cursor:help">'+fmtUsd(pnl)+'</td>'
             +'<td style="text-align:right;color:var(--text4);white-space:nowrap" title="net $ per calendar day over the whole run">'+(T.perDay!=null?fmtUsd(Math.round(T.perDay))+'/d':'—')+'</td>'
-            +'<td style="text-align:right;color:var(--red);white-space:nowrap">'+(dd?fmtUsd(-Math.abs(dd)):'—')+'</td>'
+            +'<td title="'+(T.validated?'whole-run max drawdown on the champion equity curve (downsampled curve, so a touch optimistic)':'realized max drawdown')+'" style="text-align:right;color:var(--red);white-space:nowrap;cursor:help">'+(dd?fmtUsd(-Math.abs(dd)):'—')+'</td>'
             +'<td style="text-align:right">'+(T.pf||0).toFixed(2)+'</td>'
-            +'<td style="text-align:right">'+(shp!=null&&!isNaN(+shp)?(+shp).toFixed(2):'—')+'</td>'
-            +'<td style="text-align:right">'+Math.round(r.best_win_rate||0)+'%</td>'
+            +'<td title="'+(T.validated?'whole-run Sharpe needs per-trade data the run did not save → —. Out-of-sample (walk-forward) Sharpe '+(T.sharpeOOS!=null?(+T.sharpeOOS).toFixed(2):'—')+' — see the report matrix':'risk-adjusted return')+'" style="text-align:right'+(T.validated?';cursor:help':'')+'">'+(shp!=null&&!isNaN(+shp)?(+shp).toFixed(2):'—')+'</td>'
+            +'<td title="'+(T.validated?'whole-run win% needs per-trade data the run did not save → —'+(T.isWr!=null?' (in-sample was '+Math.round(T.isWr)+'%)':''):'win rate')+'" style="text-align:right'+(T.validated?';cursor:help':'')+'">'+(T.wr!=null?Math.round(T.wr)+'%':'—')+'</td>'
             +'<td style="text-align:center;font-size:var(--fsxs);color:'+(wf?'var(--text3)':'var(--text5)')+'">'+(wf||'—')+'</td>'
             +'<td style="text-align:right">'+(T.trades||0).toLocaleString()+'</td>'
             +'<td style="text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)')+'">'+sc+'</td>'
