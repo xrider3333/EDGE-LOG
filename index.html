@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='34.5';
+const VERSION='34.6';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4437,6 +4437,43 @@ namespace NinjaTrader.NinjaScript.Strategies {
       }
       return {net:(r&&r.best_pnl_usd)||0,pf:(r&&r.best_pf)||0,trades:(r&&r.best_trades)||0,days:(r&&r.days_in_test)||null,perDay:(r&&r.best_pnl_per_day)||null,dd:(r&&r.best_dd_usd)||0,sharpe:(r&&r.dsr&&r.dsr.winner_sharpe),wr:(r&&r.best_win_rate),sharpeOOS:null,isWr:null,oosNet:null,scope:'best',validated:false};
     };
+    // ── VALIDATION METHOD · read the run object and say plainly HOW it was validated, so every
+    //    run reads as its own method (no mixing). Drives a banner on every report + which sections
+    //    show. validate(folds+lockbox) > walk-forward(folds) > 75/25 split(oos, no folds) > none. ──
+    const _valMethod=(d)=>{
+      const t10=Array.isArray(d.top10_results)?d.top10_results:[];
+      const folds=t10.filter(x=>x&&x.fold!=null);
+      const anyOos=t10.some(x=>x&&x.oos_pnl!=null);
+      if(d.validate)return {key:'validate',label:'Walk-forward + lockbox'+(folds.length?' · '+folds.length+' folds':''),desc:'tuned on early data, tested forward on unseen windows, then a final never-touched lockbox holdout — the strongest check here.',col:'var(--green)'};
+      if(folds.length)return {key:'wf',label:'Walk-forward · '+folds.length+' folds',desc:'re-tuned and tested forward across '+folds.length+' unseen windows (no separate lockbox holdout).',col:'#60a5fa'};
+      if(anyOos)return {key:'split',label:'In-sample / out-of-sample · 75 / 25 split',desc:'tuned on the first 75% of the data, then tested once on the held-out last 25%.',col:'#60a5fa'};
+      return {key:'none',label:'In-sample only · NOT validated',desc:'tuned and measured on the SAME data, with no unseen test — treat these numbers as optimistic (overfit risk).',col:'var(--yellow)'};
+    };
+    const valBannerHtml=(d)=>{const m=_valMethod(d);
+      return '<div style="display:flex;gap:9px;align-items:baseline;flex-wrap:wrap;background:var(--bg2);border-left:3px solid '+m.col+';border-radius:6px;padding:8px 12px;margin-bottom:12px">'
+        +'<span class="lbl" style="font-size:9px;color:var(--text5);letter-spacing:1px;flex:0 0 auto">VALIDATION</span>'
+        +'<span style="font-size:var(--fsxs);font-weight:700;color:'+m.col+';flex:0 0 auto">'+m.label+'</span>'
+        +'<span style="font-size:var(--fsxs);color:var(--text4)">— '+m.desc+'</span></div>';};
+    // 2-section IN-SAMPLE / OUT-OF-SAMPLE readout for a 75/25 split run (no folds, but the
+    // champion carries oos_* from the held-out 25%). Mirrors the validate matrix, two columns.
+    const splitOosHtml=(d,mult)=>{
+      const t10=Array.isArray(d.top10_results)?d.top10_results:[];
+      if(t10.some(x=>x&&x.fold!=null))return '';   // walk-forward runs are shown per-fold (1c), not as a 75/25 split
+      const b=t10[0]||{};
+      if(b.oos_pnl==null)return '';
+      const isNet=(d.best_pnl_usd!=null?+d.best_pnl_usd:(+b.total_pnl||0)*mult),oosNet=(+b.oos_pnl||0)*mult;
+      const held=(oosNet>0&&(+b.oos_pf||0)>1);
+      const _pf=v=>(v==null||!isFinite(+v)||+v<=0)?'—':Math.min(+v,99).toFixed(2);
+      const cols=[{h:'IN-SAMPLE',sub:'first 75% · tuned',col:'var(--text2)',net:isNet,pf:(d.best_pf!=null?+d.best_pf:+b.profit_factor),tr:(d.best_trades!=null?+d.best_trades:+b.num_trades)},
+                  {h:'OUT-OF-SAMPLE',sub:'last 25% · unseen',col:'#60a5fa',net:oosNet,pf:+b.oos_pf,tr:+b.oos_trades}];
+      const rows=[['NET P&L',c=>'<span style="font-weight:700;color:'+((c.net||0)>=0?'#1d9e75':'#e24b4a')+'">'+(c.net!=null?fmtUsd(Math.round(c.net)):'—')+'</span>'],
+                  ['PF',c=>_pf(c.pf)],['TRADES',c=>(c.tr!=null&&isFinite(c.tr)?(+c.tr).toLocaleString():'—')]];
+      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:5px 8px">METRIC</th>'+cols.map(c=>'<th style="text-align:right;padding:5px 8px;color:'+c.col+';font-weight:700">'+c.h+'<div style="font-size:7px;font-weight:400;color:'+c.col+';opacity:.8">'+c.sub+'</div></th>').join('')+'</tr>';
+      const body=rows.map(r=>'<tr style="border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)"><td style="padding:6px 8px;font-size:var(--fsxs);color:var(--text2)">'+r[0]+'</td>'+cols.map(c=>'<td style="padding:6px 8px;text-align:right">'+r[1](c)+'</td>').join('')+'</tr>').join('');
+      return '<div class="lbl" style="margin:8px 0 6px;font-size:9px;color:var(--text5)">IN-SAMPLE vs OUT-OF-SAMPLE · 75 / 25 split · <span style="color:'+(held?'var(--green)':'var(--red)')+'">'+(held?'HELD on unseen data':'did NOT hold out-of-sample')+'</span></div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 0;margin-bottom:14px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead>'+head+'</thead><tbody>'+body+'</tbody></table>'
+        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px">The champion was tuned on the first 75% (IN-SAMPLE) and tested once on the held-out last 25% (OUT-OF-SAMPLE). A real edge keeps a profit factor &gt; 1 on the unseen part. Win% / Sharpe per side were not saved.</div></div>';
+    };
     const kpiMatrixHtml=(d,mult)=>{
       const V=d.validate;if(!V)return '';
       const folds=(Array.isArray(d.top10_results)?d.top10_results.filter(x=>x&&x.fold!=null):[]).slice().sort((a,b)=>(a.fold-b.fold));
@@ -4935,7 +4972,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><input id="det-note" value="'+String(d.note||'').replace(/"/g,'&quot;')+'" placeholder="add a note…" style="flex:1;padding:4px 8px;font-size:var(--fsxs);border-radius:6px"/><button class="btn-ghost" id="det-note-save" data-note-id="'+d.id+'" style="padding:4px 12px;font-size:var(--fsxs);border:1px solid var(--border);border-radius:6px">save</button>'
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="width:auto;padding:4px 6px;font-size:9px;border-radius:6px"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
         +'<button class="btn-ghost" id="det-del" data-del-id="'+d.id+'" style="padding:4px 10px;font-size:var(--fsxs);border:1px solid var(--red);border-radius:6px;color:var(--red)">delete</button></div>'
-        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',_secOf(1,[(d.validate?_panelEquity:_summaryPanel),_panelMatrix,_wfFolds,regHtml]))
+        +valBannerHtml(d)
+        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',_secOf(1,[(d.validate?_panelEquity:_summaryPanel),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml]))
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         +_sec('3','Plateau','robust params — a cluster, not a lonely spike',_sec3)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4)
