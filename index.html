@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='33.8';
+const VERSION='33.9';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4602,9 +4602,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const yLabels='<div style="position:relative;width:54px;min-width:54px;height:'+EH+'px;font-size:8px;color:var(--text5)">'
         +_lvls.map(L=>'<span style="position:absolute;left:3px;top:'+(Y(L)-4).toFixed(1)+'px;white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtUsd(Math.round(L))+'</span>').join('')
         +'<span style="position:absolute;left:3px;bottom:-2px;color:var(--text4)">PnL $</span></div>';
+      // ZOOM control: the slider widens the inner wrapper (svg + date axis stretch together) inside
+      //   a horizontal scroll box, so you can blow up the time-compressed lockbox and pan to it.
+      //   Pure CSS width — no redraw. The y-axis labels stay fixed outside the scroll box.
+      const zoomBar='<div style="display:flex;align-items:center;gap:7px;margin:1px 0 5px;font-size:8px;color:var(--text5)"><span style="font-weight:700;letter-spacing:.5px">ZOOM</span>'
+        +'<input id="eq-zoom" type="range" min="100" max="600" value="100" style="flex:0 0 150px;accent-color:#a78bfa"/>'
+        +'<span id="eq-zoom-lbl" style="min-width:26px;color:var(--text3)">1.0×</span>'
+        +'<span>drag to expand the timeline, then scroll right to inspect the lockbox</span></div>';
       return '<div style="margin:13px 0 5px"><div style="font-weight:700;font-size:11px;color:var(--text2)">Champion equity curve <span style="font-weight:400;color:var(--text5);font-size:9px">· best config · 1 contract</span></div><div style="font-size:8px;color:var(--text5);margin-top:1px">chronological — <span style="color:var(--green)">in-sample</span> + walk-forward, then the <span style="color:#a78bfa">lockbox</span> holdout (1 yr → compressed at right)</div></div>'
+        +zoomBar
         +'<div style="display:flex;gap:7px">'
-        +'<div style="flex:1">'+svg+dateAxis
+        +'<div style="flex:1;min-width:0"><div id="eq-scroll" style="overflow-x:auto;overflow-y:hidden"><div id="eq-inner" style="width:100%">'+svg+dateAxis+'</div></div>'
         +'<div style="display:flex;gap:11px;flex-wrap:wrap;font-size:8px;color:var(--text5);margin-top:3px"><span style="color:var(--green)">● in-sample (optimized '+(_of?_mdy(optS):'start')+'→'+(_ot?_mdy(optE):'')+')</span>'+wfNote+'<span style="color:#a78bfa">● lockbox = OOS · last '+W.lockbox_months+'mo, never seen</span></div></div>'
         +yLabels+'</div>';
     };
@@ -5536,6 +5544,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _apply=()=>{const v=+_brush.value;let shown=0;_marks.forEach(m=>{const on=(+m.getAttribute('data-net'))>=v;if(on)shown++;m.style.opacity=on?(m.tagName.toLowerCase()==='circle'?'0.6':''):'0.05';m.style.pointerEvents=on?'':'none';});
           const cfg=Math.round(shown/_inst);if(_cut)_cut.textContent='cut ≥ '+fmtUsd(v);if(_cn){_cn.textContent=cfg+' / '+_total+' configs shown';_cn.style.color=cfg?'var(--green)':'var(--text5)';}};
         _brush.addEventListener('input',_apply);}
+      // CHAMPION-EQUITY zoom: widen the inner wrapper (svg + date axis) inside its scroll box so
+      //   the time-compressed lockbox can be expanded and panned to. Pure CSS — no redraw.
+      const _eqz=el('eq-zoom');
+      if(_eqz){const _eqi=el('eq-inner'),_eqs=el('eq-scroll'),_eql=el('eq-zoom-lbl');
+        const _zap=()=>{const v=+_eqz.value;if(_eqi)_eqi.style.width=v+'%';if(_eql)_eql.textContent=(v/100).toFixed(1)+'×';if(_eqs&&v>100)_eqs.scrollLeft=_eqs.scrollWidth;};
+        _eqz.addEventListener('input',_zap);}
       // checklist pills <-> report sections. Scroll the WINDOW with an offset for the
       // sticky .topbar so the target heading isn't hidden behind it. Pills jump down to
       // a section; clicking a section heading jumps back up to the pills.
