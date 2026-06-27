@@ -2,7 +2,7 @@
 
 Single source of truth for what's done and what's next. `CLAUDE.md` holds durable
 context/conventions and points here; `docs/` holds reference (architecture, go-live).
-Newest/priority items near the top of each section. Status as of **index.html v25.0**.
+Newest/priority items near the top of each section. Status as of **index.html v35.4**.
 
 The big picture (see `docs/EDGELOG_PORT_PLAN.md` for the phased detail): port the entire
 AUGUR optimizer (`optimizer.py`, Streamlit) into the EDGELOG website, with compute on the
@@ -125,6 +125,14 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v35.4** (2026-06-27) Reference tab rebuilt (ES/NQ-only instruments + the 10-method
+  VALIDATION METHODOLOGY moved here from Research); Research → walk-forward-studies placeholder;
+  Settings launcher name fixed to `EdgeLog.bat`. Results: dropped the "Results View" header row
+  and the MODE pill from the run-report header; trimmed chart 1b's footnote; **PAST RUNS filters
+  embedded into the column headers** (pivot-style sort+filter; the separate filter bar is gone).
+  Runner/engine: console rebranded AUGUR→EDGELOG and now reports the **website** version (legacy
+  `optimizer.py` 5.8.103 banner suppressed). Tooling: standing auto-push authorization added to
+  CLAUDE.md.
 - **v35.3 (NinjaTrader auto-sync, runner-bridged).** Hands-free live trade import: a NinjaScript
   AddOn (`tools/EdgeLogExport.cs`) subscribes to every account's `ExecutionUpdate` and appends each
   fill to `C:\EdgeLog\fills.csv` (captures manual *and* automated trades — an AddOn, not a Strategy).

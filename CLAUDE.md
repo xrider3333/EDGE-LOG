@@ -107,8 +107,12 @@ Update `ROADMAP.md` as work ships; keep this file for durable context/convention
 - **Never handle the user's Firebase login/password.**
 - **Runner command channel** only processes commands behind a uid allowlist
   (`--allow-uid`); jobs from other uids are ignored.
-- **Git:** don't delete branches without an explicit request; pushing to `main` requires
-  explicit authorization from the user. Confirm before any destructive action.
+- **Git (standing authorization — granted by owner 2026-06-27):** AUTO-COMMIT AND PUSH. After
+  any change, bump the website version by 0.1 (`const VERSION` in `index.html`), commit, and
+  push to `main` WITHOUT asking — GitHub serves the live site, so the push IS the deploy, and a
+  change that isn't pushed is invisible to the owner. Always state the version you pushed. You
+  have full standing permission to edit ANY file and to start/restart `EdgeLog.bat`. (Only true
+  history-rewrites — force-push to `main`, branch deletion — still warrant a quick heads-up.)
 - **Keyless-AI doctrine** (the documented AUGUR convention): prefer a file-handoff through
   the Claude Code session over direct paid-CLI spend. NOTE: `make_pine`/`review_pine`
   currently call the provider directly (qwen/claude-cli/anthropic) — this is the open

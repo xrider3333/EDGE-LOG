@@ -87,7 +87,12 @@ def _load_backend():
     cut = src.rfind("\n", 0, cut) + 1       # include the box-rule line above it
     backend_src = src[:cut]
     ns = {"__name__": "augur_opt_backend", "__file__": OPT, "__builtins__": __builtins__}
-    exec(compile(backend_src, OPT, "exec"), ns)
+    # Suppress the legacy optimizer.py startup banner during exec — it prints its OWN engine
+    # version (5.8.103), confusing now that EDGELOG reports a single website version. We only
+    # want optimizer's data-refresh helpers, not its console noise.
+    import contextlib, io
+    with contextlib.redirect_stdout(io.StringIO()):
+        exec(compile(backend_src, OPT, "exec"), ns)
     _backend = ns
     return ns
 

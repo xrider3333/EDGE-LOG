@@ -43,6 +43,19 @@ def _anthropic_key():
         return None
 
 
+def _web_version():
+    """EDGELOG's single version number, read off the website (index.html `const VERSION`).
+    The runner reports the SAME number as the web app so they always match — deliberately
+    NOT optimizer.py's legacy engine version (that file is being retired)."""
+    try:
+        import re
+        head = open(os.path.join(ROOT, "index.html"), encoding="utf-8").read(60000)
+        m = re.search(r"const VERSION\s*=\s*'([^']+)'", head)
+        return m.group(1) if m else "?"
+    except Exception:
+        return "?"
+
+
 class _JobStopped(BaseException):
     """Raised from the progress callback to abort a running job when the web sets
     control='stop'. Subclasses BaseException so process_job's `except Exception`
@@ -598,7 +611,7 @@ def auto_pine(log=print, limit=25, provider=None):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="AUGUR local job runner")
+    ap = argparse.ArgumentParser(description="EDGELOG local job runner")
     ap.add_argument("--firestore", action="store_true", help="use Firestore queue")
     ap.add_argument("--cred", help="Firebase service-account JSON path")
     ap.add_argument("--allow-uid", action="append", default=[], help="allowlisted Firebase uid (repeatable)")
@@ -641,7 +654,7 @@ def main(argv=None):
 
     if a.firestore:
         q = FirestoreQueue(a.cred, a.collection, a.allow_uid, nt_fills=a.nt_fills)
-        print(f"AUGUR runner: Firestore '{a.collection}', allow {a.allow_uid or 'ALL (no uid filter!)'}")
+        print(f"EDGELOG runner v{_web_version()}: Firestore '{a.collection}', allow {a.allow_uid or 'ALL (no uid filter!)'}")
         if a.nt_fills:
             _present = os.path.exists(a.nt_fills)
             print(f"NinjaTrader trade sync: {a.nt_fills} "
@@ -653,7 +666,7 @@ def main(argv=None):
             return
     else:
         q = LocalQueue()
-        print(f"AUGUR runner: local queue at {JOBS_DIR}")
+        print(f"EDGELOG runner v{_web_version()}: local queue at {JOBS_DIR}")
 
     if a.watch:
         # Auto-refresh data on start and on a timer — hands-free, like the desktop

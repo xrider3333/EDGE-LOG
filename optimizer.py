@@ -13,7 +13,7 @@ __version__ = "5.8.103"
 # Loud startup banner — prints to the terminal so you can confirm WHICH file
 # is actually running, independent of any browser cache.
 print("\n" + "=" * 50)
-print(f"  AUGUR  v{__version__}  —  running from this file")
+print(f"  EDGELOG  v{__version__}  —  running from this file")
 print("=" * 50 + "\n", flush=True)
 
 import streamlit as st

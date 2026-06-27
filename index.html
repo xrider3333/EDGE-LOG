@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='35.3';
+const VERSION='35.4';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -5472,17 +5472,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const selId=augurRunSel||pickFrom[0].id;
         let d=null;for(let i=0;i<allRuns.length;i++){if(String(allRuns[i].id)===String(selId))d=allRuns[i];}
         if(!d)d=pickFrom[0];
-        const sel=(k,v,opts)=>'<select data-rf="'+k+'" style="width:auto;padding:3px 6px;font-size:9px;border-radius:6px">'+opts.map(o=>'<option value="'+o[0]+'"'+(String(o[0])===String(v)?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
         const _anyF=fStrat||fInst||fTf||fScope||fStar;
-        const fbar='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin:6px 0 8px">'
-          +sel('rfStrat',fStrat,[['','all strategies']].concat(_strats.map(f=>[f,stratInfo(f).label])))
-          +sel('rfInst',fInst,[['','all markets']].concat(_insts.map(i=>[i,i])))
-          +(_tfs.length>1?sel('rfTf',fTf,[['','all TF']].concat(_tfs.map(t=>[t,t]))):'')
-          +(_scopes.length>1?sel('rfScope',fScope,[['','all scopes']].concat(_scopes.map(s=>[s,s.slice(0,16)]))):'')
-          +'<span data-rfstar style="cursor:pointer;font-size:10px;user-select:none;color:'+(fStar?'var(--yellow)':'var(--text5)')+'">'+(fStar?'★':'☆')+' starred</span>'
-          +(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">clear</span>':'')+'</div>';
-        // sortable header (click a column to sort by it)
-        const sh=(k,lbl,al)=>'<th data-rsort="'+k+'" title="sort by '+lbl+'" style="cursor:pointer;white-space:nowrap;user-select:none;'+(al?'text-align:'+al+';':'')+(fSort===k?'color:var(--text)':'')+'">'+lbl+(fSort===k?' ▾':'')+'</th>';
+        // sortable header — click the label to sort (▾ marks the active column).
+        const sh=(k,lbl,al)=>'<th data-rsort="'+k+'" title="sort by '+lbl+'" style="cursor:pointer;white-space:nowrap;user-select:none;vertical-align:bottom;'+(al?'text-align:'+al+';':'')+(fSort===k?'color:var(--text)':'')+'">'+lbl+(fSort===k?' ▾':'')+'</th>';
+        // pivot-style header: a clickable sort label stacked over a compact filter <select>,
+        //   so each column carries its own filter+sort (the old separate filter bar is gone).
+        //   data-rsort lives on the INNER label span, so clicking the dropdown never sorts.
+        const _fopt=(v,opts)=>opts.map(o=>'<option value="'+String(o[0]).replace(/"/g,'&quot;')+'"'+(String(o[0])===String(v)?' selected':'')+'>'+o[1]+'</option>').join('');
+        const fh=(sortK,lbl,al,filtK,filtV,filtOpts)=>{
+          const lab=sortK?'<span data-rsort="'+sortK+'" title="sort by '+lbl+'" style="cursor:pointer;user-select:none;'+(fSort===sortK?'color:var(--text)':'')+'">'+lbl+(fSort===sortK?' ▾':'')+'</span>':lbl;
+          const flt=filtK?'<select data-rf="'+filtK+'" title="filter by '+lbl+'" style="display:block;width:100%;max-width:108px;margin-top:3px;padding:1px 3px;font-size:8px;border-radius:5px;'+(filtV?'color:var(--text);border:1px solid var(--accent)':'color:var(--text5)')+'">'+_fopt(filtV,filtOpts)+'</select>':'';
+          return '<th style="'+(al?'text-align:'+al+';':'')+'white-space:nowrap;vertical-align:bottom">'+lab+flt+'</th>';
+        };
         // compact column helpers (legacy-AUGUR parity): equity spark, run duration, mini
         // date, walk-forward folds-held. Render '—' wherever a run lacks the field.
         const _dur=s=>{s=+s||0;if(!s)return '—';if(s<60)return Math.round(s)+'s';if(s<3600){const m=Math.floor(s/60),x=Math.round(s%60);return m+'m'+(x?' '+x+'s':'');}return (s/3600).toFixed(1)+'h';};
@@ -5519,11 +5520,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const rVH=Math.min(520,Math.max(120,APREF.splitV||300));
         const tbl='<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}</style>'
           +'<div id="res-listscroll" style="overflow:auto;max-height:'+(rv==='side'?'68vh':rVH+'px')+'">'
-          +'<table class="table" style="font-size:var(--fsxs)"><thead><tr><th style="text-align:center">★</th>'
-          +sh('id','RUN','right')+sh('date','DATE','left')+sh('strat','STRATEGY')+'<th title="optimization mode / scope preset">MODE</th><th>MARKET</th><th>TF</th><th style="text-align:center">EQUITY</th>'
-          +sh('pnl','NET $','right')+sh('perday','$/DAY','right')+sh('maxdd','MAX DD','right')+sh('pf','PF','right')+sh('sharpe','SHARPE','right')+sh('wr','WR','right')+'<th style="text-align:center" title="walk-forward folds that held out-of-sample">WF</th>'+sh('trd','TRD','right')+sh('score','SCORE','right')+sh('took','TOOK','right')+'<th>SRC</th>'+'<th>RANGE</th>'+sh('days','DAYS','right')
+          +'<table class="table" style="font-size:var(--fsxs)"><thead><tr><th style="text-align:center;vertical-align:bottom" title="show starred only"><span data-rfstar style="cursor:pointer;user-select:none;font-size:12px;color:'+(fStar?'var(--yellow)':'var(--text5)')+'">'+(fStar?'★':'☆')+'</span></th>'
+          +sh('id','RUN','right')+sh('date','DATE','left')+fh('strat','STRATEGY','left','rfStrat',fStrat,[['','all']].concat(_strats.map(f=>[f,stratInfo(f).label])))+fh(null,'MODE','left',(_scopes.length>1?'rfScope':''),fScope,[['','all scopes']].concat(_scopes.map(s=>[s,s.slice(0,16)])))+fh(null,'MARKET','left',(_insts.length>1?'rfInst':''),fInst,[['','all']].concat(_insts.map(i=>[i,i])))+fh(null,'TF','left',(_tfs.length>1?'rfTf':''),fTf,[['','all']].concat(_tfs.map(t=>[t,t])))+'<th style="text-align:center;vertical-align:bottom">EQUITY</th>'
+          +sh('pnl','NET $','right')+sh('perday','$/DAY','right')+sh('maxdd','MAX DD','right')+sh('pf','PF','right')+sh('sharpe','SHARPE','right')+sh('wr','WR','right')+'<th style="text-align:center;vertical-align:bottom" title="walk-forward folds that held out-of-sample">WF</th>'+sh('trd','TRD','right')+sh('score','SCORE','right')+sh('took','TOOK','right')+'<th style="vertical-align:bottom">SRC</th>'+'<th style="vertical-align:bottom">RANGE</th>'+sh('days','DAYS','right')
           +'</tr></thead><tbody>'+trows+'</tbody></table></div>';
-        const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span></div>'+fbar+tbl);
+        const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span>'+(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">✕ clear filters</span>':'')+'</div>'+tbl);
         // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
         // would trap the sticky checklist-pills row (sticky breaks under any non-visible
         // overflow ancestor). Inline beats the class so the pinned pills work on every theme.
