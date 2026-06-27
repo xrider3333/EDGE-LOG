@@ -22,13 +22,14 @@ app reaches parity, then is retired. Ship tab-by-tab, version-bumped 0.1 each ch
       **`OneDrive\Desktop\EDGE-LOG` is now canonical for both editing AND the runner**; the
       `C:\Users\xride\EDGE-LOG` clone is retired (left as a backup). After any engine change,
       **restart the runner** so it reloads `augur_engine`. Do NOT reintroduce a second clone.
-- [ ] **Retire the duplicate AUGUR desktop folder.** EDGE-LOG is now the complete copy
-      (serviceAccount.json + optimizer_history.db [112 runs] + augur_uploads [25 CSVs] +
-      augur_config.json with model numbers + migrated ORB roadmap + pine/ [22 files]). The
-      AUGUR folder has an *older* runner.py and a stale `run_augur_runner.bat` whose cred
-      points at `C:\Users\xride\Downloads\edge-tracker-…json` — kill that .bat so EDGE-LOG's
-      launcher (cred = local `serviceAccount.json`) is the only one. Confirm a clean runner
-      start, then archive/ignore AUGUR.
+- [x] **Retire the duplicate AUGUR desktop folder (done 2026-06-27).** EDGE-LOG verified as the
+      complete copy (serviceAccount.json + optimizer_history.db [112 runs] + augur_uploads
+      [25 CSVs] + augur_config.json with model numbers + migrated ORB roadmap + pine/ [23 files])
+      and the AUGUR desktop folder was deleted to the Recycle Bin. The stale
+      `run_augur_runner.bat` (cred → `C:\Users\xride\Downloads\edge-tracker-…json`) is gone;
+      the sole launcher is now `EdgeLog.bat`, which reads the **local** `serviceAccount.json`.
+      EDGE-LOG is the single canonical folder for editing AND the runner — do NOT reintroduce a
+      second clone, and restart `EdgeLog.bat` after any engine change so it reloads `augur_engine`.
 - [x] **`pine/` parity** — copied the 12 AI-generated (qwen) `.pine` files that existed only
       in AUGUR (ENGU_1_2_1, ENGU_1_3_4, ORB_1_0/2_0, OVERNIGHT_HOLD_1_0, REVERT_1_0/1_1/1_2,
       RF_ML_1_0, SUPERTREND_1_0/2_0, VWAP_FADE_2_0) into EDGE-LOG/pine. They are unreviewed —
@@ -56,11 +57,17 @@ app reaches parity, then is retired. Ship tab-by-tab, version-bumped 0.1 each ch
 - [ ] **Auto-detect instrument from CSV filename/symbol** on upload (was AUGUR TODO #10).
 
 ## 2. Other AUGUR sub-tabs — migration gaps (not started)
-- [ ] **Reference** — only 4 instruments (add YM/MYM/RTY/M2K/CL/GC); add signal-logic block,
-      Yahoo data-limit table, and the backtesting-maturity roadmap. Also move the
-      validation-methodology text here from Research. *Cheap, mostly static — recommended next.*
-- [ ] **Research** — currently shows the methodology text (belongs in Reference). Real tab
-      should render study JSON (walk-forward studies) — needs runner sync of `augur_research/`.
+- [~] **Reference** *(partial, 2026-06-27)* — INSTRUMENTS table trimmed to the minis we actually
+      have data for (ES, NQ; micros dropped), with a note that YM/RTY/CL/GC are selectable in the
+      Builder but unbacked until their OHLC is imported (only ES/NQ exist, via Databento). The
+      VALIDATION METHODOLOGY block was moved here from Research and expanded to 10 methods (OOS,
+      walk-forward, lockbox, plateau/neighborhood, stress, cross-instrument transfer, DSR, MC,
+      sample-adequacy/DOF, regime). **Dropped by decision:** Yahoo data-limit table (low value
+      while ES/NQ run on Databento) and the maturity-roadmap block (already covered by the Library
+      VALIDATION CHECKLIST + Results pills). **Open:** signal-logic block.
+- [~] **Research** — methodology text moved out to Reference; tab now shows a WALK-FORWARD STUDIES
+      placeholder. Real tab should render study JSON (walk-forward studies) — needs runner sync of
+      `augur_research/`.
 - [x] **Results** — filters (strategy/market) + sort (newest/score/$/PF), per-run star/favorite
       + notes (write-back to Firestore), Rankings 0–100 leaderboard, and full legacy chart parity
       (distribution+plateau, scatter, heatmap, top-N equity, stress). *(v27.x)* Open: TF/scope
@@ -118,6 +125,19 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v35.3 (NinjaTrader auto-sync, runner-bridged).** Hands-free live trade import: a NinjaScript
+  AddOn (`tools/EdgeLogExport.cs`) subscribes to every account's `ExecutionUpdate` and appends each
+  fill to `C:\EdgeLog\fills.csv` (captures manual *and* automated trades — an AddOn, not a Strategy).
+  The always-on runner (`api/nt_sync.py`, wired into `api/runner.py` watch loop, default every 20s +
+  on a `sync_trades` command) FIFO-pairs fills into round-trip trades — P&L/symbol/schema mirror
+  index.html's `calcPnl`/PRESETS exactly — and upserts them to `users/{uid}/trades` with deterministic
+  doc ids (`nt_<exitExecId>`), so re-reading the whole file never duplicates. Status doc at
+  `users/{uid}/meta/nt_sync`. Web: DATA→IMPORT tab gains a NINJATRADER AUTO-SYNC panel (live
+  connected/last-sync/open-positions status, ↻ REFRESH NOW → enqueues `sync_trades`, collapsible
+  one-time AddOn setup). Runner flags: `--nt-fills PATH` (env `EDGELOG_NT_FILLS`), `--trades-sec N`.
+  NOTE: there is no NinjaTrader web/cloud login API — "connect from the website" is intentionally the
+  PC-side bridge. A true server-side login→pull is only possible for API brokers (Tradovate /
+  TopstepX-ProjectX); revisit if the user moves execution there.
 - **v28.8** Auto-Validate gains a DISCOVER WITH selector: Statistical (default, fast/free) or
   AI-evolve (rewrites the strategy code on the pre-lockbox window via ai_evolve, then judges
   the evolved strategy through the full pipeline — lockbox stays untouched). Provider/rounds

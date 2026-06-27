@@ -196,7 +196,7 @@ class LocalQueue:
 class FirestoreQueue:
     """Firestore-backed queue. Only runs jobs whose uid is allowlisted."""
 
-    def __init__(self, cred_path=None, collection="backtests", allow_uids=()):
+    def __init__(self, cred_path=None, collection="backtests", allow_uids=(), nt_fills=None):
         try:
             import firebase_admin
             from firebase_admin import credentials, firestore
@@ -208,6 +208,23 @@ class FirestoreQueue:
         self.db = firestore.client()
         self.col = collection
         self.allow = set(allow_uids)
+        self.nt_fills = nt_fills
+
+    def sync_trades(self, log=print) -> int:
+        """Pull NinjaTrader fills (written by the EdgeLogExport AddOn) into each
+        allowlisted user's trade journal (users/{uid}/trades). Idempotent — re-reading
+        the whole fills file never duplicates trades. Returns trades added+updated."""
+        if not self.nt_fills:
+            return 0
+        from api import nt_sync
+        total = 0
+        for uid in (self.allow or []):
+            try:
+                r = nt_sync.sync_trades(self.db, uid, self.nt_fills, log)
+                total += r.get("added", 0) + r.get("updated", 0)
+            except Exception as e:
+                log(f"  [nt-sync] skipped for {uid}: {type(e).__name__}: {e}")
+        return total
 
     def sync_runs(self, log=print) -> int:
         """Push run history from optimizer_history.db up to users/{uid}/runs so the web
@@ -448,6 +465,21 @@ class FirestoreQueue:
                 ref.update({"status": "running"})
                 doc = snap.to_dict() or {}
                 action = doc.get("action")
+                # NinjaTrader trade refresh is a Firestore-write op (db+uid), so it's
+                # handled here rather than in lib_commands (which is file-ops only).
+                if action == "sync_trades":
+                    if self.nt_fills:
+                        from api import nt_sync
+                        try:
+                            res = {"ok": True, **nt_sync.sync_trades(self.db, uid, self.nt_fills, log)}
+                        except Exception as e:
+                            res = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+                    else:
+                        res = {"ok": False, "error": "runner has no --nt-fills path configured"}
+                    ref.update({"status": "done" if res.get("ok") else "error",
+                                "result": json_safe(res), "finishedAt": time.time()})
+                    n += 1
+                    continue
                 res = process_command(action, doc.get("payload") or doc, log)
                 ref.update({"status": "done" if res.get("ok") else "error",
                             "result": json_safe(res), "finishedAt": time.time()})
@@ -577,6 +609,12 @@ def main(argv=None):
     ap.add_argument("--refresh-min", type=float, default=30.0,
                     help="auto-refresh masters (Yahoo + watch-folder ingest) every N minutes "
                          "while --watch (0 disables); also runs once on start")
+    ap.add_argument("--nt-fills", default=os.environ.get("EDGELOG_NT_FILLS", r"C:\EdgeLog\fills.csv"),
+                    help="path to the NinjaTrader fills CSV written by the EdgeLogExport AddOn "
+                         "(default C:\\EdgeLog\\fills.csv). Synced into users/{uid}/trades.")
+    ap.add_argument("--trades-sec", type=float, default=20.0,
+                    help="auto-sync NinjaTrader trades every N seconds while --watch "
+                         "(0 disables); also runs once on start")
     ap.add_argument("--auto-pine", dest="auto_pine", action="store_true", default=False,
                     help="on --watch start, auto-generate a .pine for every strategy missing one "
                          "(default OFF — costs AI calls; the web MAKE PINE button is the per-click path)")
@@ -602,8 +640,13 @@ def main(argv=None):
             print(f"[{tag}] skipped: {type(e).__name__}: {e}")
 
     if a.firestore:
-        q = FirestoreQueue(a.cred, a.collection, a.allow_uid)
+        q = FirestoreQueue(a.cred, a.collection, a.allow_uid, nt_fills=a.nt_fills)
         print(f"AUGUR runner: Firestore '{a.collection}', allow {a.allow_uid or 'ALL (no uid filter!)'}")
+        if a.nt_fills:
+            _present = os.path.exists(a.nt_fills)
+            print(f"NinjaTrader trade sync: {a.nt_fills} "
+                  f"({'found' if _present else 'not present yet — install the EdgeLogExport AddOn'}), "
+                  f"every {a.trades_sec:g}s" if a.trades_sec > 0 else "(auto OFF)")
         if a.sync_runs or a.watch:
             print("syncing run history + meta…"); q.sync_runs(); q.sync_meta()
         if a.sync_runs and not a.watch:
@@ -619,6 +662,13 @@ def main(argv=None):
         next_refresh = 0.0
         if a.refresh_min > 0:
             _refresh("startup"); next_refresh = time.time() + a.refresh_min * 60
+        next_trades = 0.0
+        if a.firestore and a.trades_sec > 0:
+            try:
+                q.sync_trades()
+            except Exception as e:
+                print(f"[nt-sync] startup skipped: {type(e).__name__}: {e}")
+            next_trades = time.time() + a.trades_sec
         if a.auto_pine:
             try:
                 if auto_pine(provider=a.pine_provider) and a.firestore:
@@ -635,6 +685,12 @@ def main(argv=None):
                     print(f"[commands] skipped: {type(_e).__name__}: {_e}")
             if a.refresh_min > 0 and time.time() >= next_refresh:
                 _refresh(); next_refresh = time.time() + a.refresh_min * 60
+            if a.firestore and a.trades_sec > 0 and time.time() >= next_trades:
+                try:
+                    done += q.sync_trades()
+                except Exception as e:
+                    print(f"[nt-sync] skipped: {type(e).__name__}: {e}")
+                next_trades = time.time() + a.trades_sec
             if not done:
                 time.sleep(a.interval)
     else:

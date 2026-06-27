@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='35.2';
+const VERSION='35.3';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -418,6 +418,7 @@ let trades=[],lessons=[],balanceHistory=[],currentUser=null;
 let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyOverlay=false,chartPctMode=false;window.chartPctMode=false;
 let formOpen=false,showAllCols=false;
 let autoHandle=null,autoTimer=null,autoInterval=60;
+let ntSync=null,unsubNT=null,ntRefreshing=false; // NinjaTrader runner auto-sync status
 let useGross=false; // gross vs net toggle for KPI stats
 let filters={sym:'',dir:'',grade:'',setup:'',tf:'',dateFrom:'',dateTo:'',minPnl:'',maxPnl:''};
 let sortCol='date',sortDir=-1;
@@ -675,6 +676,8 @@ function subscribeAll(uid){
   unsubMeta=metaRef.doc('strategies').onSnapshot(d=>{const x=d.data();metaStrats=(x&&x.list)||[];metaEta=(x&&x.eta_calib)||null;metaWorkers=(x&&x.workers)||null;if(activeTab==='augur'&&(augurSub==='exec'||augurSub==='lib'))renderApp();});
   if(unsubMM)unsubMM();
   unsubMM=metaRef.doc('masters').onSnapshot(d=>{const x=d.data();metaMasters=(x&&x.list)||[];metaPull=(x&&x.status)||{};if(activeTab==='augur'&&(augurSub==='lib'||augurSub==='set'))renderApp();});
+  if(unsubNT)unsubNT();
+  unsubNT=metaRef.doc('nt_sync').onSnapshot(d=>{ntSync=d.data()||null;if(activeTab==='import_export'&&(window._dataSubTab||'import')==='import')renderApp();});
 }
 function _libDownload(name,content){try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'}));a.download=name||'strategy.txt';document.body.appendChild(a);a.click();a.remove();}catch(e){}}
 async function libCmd(action,payload,verb){
@@ -3912,6 +3915,39 @@ function renderApp(){
     // ─── IMPORT ──────────────────────────────────────────────────
     if(dSubTab==='import'){
       content.innerHTML+=`<div style="max-width:740px">
+      <div class="section" style="margin-bottom:10px;border-color:color-mix(in srgb,var(--green) 35%,transparent)">
+        <div class="sec-hd" style="display:flex;align-items:center;gap:8px">NINJATRADER AUTO-SYNC <span style="color:var(--green);font-size:var(--fsxs);border:1px solid color-mix(in srgb,var(--green) 40%,transparent);padding:1px 6px;border-radius:8px">RECOMMENDED · HANDS-FREE</span></div>
+        <div style="padding:14px">
+          <div style="font-size:var(--fsm);color:var(--text4);margin-bottom:12px;line-height:1.8">Your trades flow in automatically: the NinjaScript AddOn logs every fill on your PC → your always-on <b style="color:var(--text2)">EdgeLog runner</b> pairs them into trades and pushes them here. Works with this tab closed and on iPad. (NinjaTrader has no web login, so the bridge runs on your PC — this is the closest thing to "connect &amp; refresh".)</div>
+          ${(()=>{
+            const present=ntSync&&ntSync.file_present;
+            const last=ntSync&&ntSync.last_sync?Math.max(0,Math.round(Date.now()/1000-ntSync.last_sync)):null;
+            const ago=last==null?'never':last<60?last+'s ago':last<3600?Math.round(last/60)+'m ago':Math.round(last/3600)+'h ago';
+            const dot=present?'var(--green)':(ntSync?'var(--yellow)':'var(--text5)');
+            const msg=!ntSync?'Runner has not reported yet — start EdgeLog.bat on your PC.':!present?'Runner is up, but the fills file is not there yet — install the AddOn (setup below), then place a trade.':'Connected — trades syncing automatically.';
+            return `<div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border2);padding:11px 14px;margin-bottom:10px">
+              <span style="width:9px;height:9px;border-radius:50%;background:${dot};box-shadow:0 0 8px ${dot};flex:none"></span>
+              <div style="flex:1;font-size:var(--fsm);color:var(--text3)">${msg}</div>
+              <div style="text-align:right;font-size:var(--fsxs);color:var(--text4);line-height:1.6">
+                ${ntSync?`last sync <b style="color:var(--text2)">${ago}</b> · ${ntSync.total_trades||0} trades${ntSync.open_positions?` · <span style="color:var(--yellow)">${ntSync.open_positions} open</span>`:''}`:'waiting for runner'}
+              </div>
+            </div>`;
+          })()}
+          <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+            <button class="btn-g" id="nt-refresh-btn" ${ntRefreshing?'disabled':''}>${ntRefreshing?'⏳ REFRESHING…':'↻ REFRESH NOW'}</button>
+            <a href="#" id="nt-setup-toggle" style="color:var(--blue);font-size:var(--fsm)">▸ One-time setup (install the NinjaScript AddOn)</a>
+          </div>
+          <div id="nt-setup-steps" style="display:none;margin-top:12px;background:var(--bg);border:1px solid var(--border);padding:13px 16px;font-size:var(--fsm);color:var(--text3);line-height:1.9">
+            <div style="color:var(--text2);margin-bottom:6px">Do this once on the PC that runs NinjaTrader:</div>
+            <div style="margin-bottom:4px"><b style="color:var(--blue)">1.</b> In this repo open <code style="color:var(--green)">tools/EdgeLogExport.cs</code> and copy it all.</div>
+            <div style="margin-bottom:4px"><b style="color:var(--blue)">2.</b> NinjaTrader 8 → New → NinjaScript Editor → right-click <b>AddOns</b> → New AddOn, delete the boilerplate, paste it in.</div>
+            <div style="margin-bottom:4px"><b style="color:var(--blue)">3.</b> Press <b>F5</b> to compile, then restart NinjaTrader 8. It runs in the background — nothing to add to a chart.</div>
+            <div style="margin-bottom:4px"><b style="color:var(--blue)">4.</b> Make sure <code style="color:var(--green)">EdgeLog.bat</code> is running (it watches the fills file and pushes trades here).</div>
+            <div style="margin-bottom:4px"><b style="color:var(--blue)">5.</b> Place &amp; close a trade — it appears in your journal within ~20s. Captures manual <i>and</i> automated trades.</div>
+            <div style="margin-top:8px;font-size:var(--fsxs);color:var(--text5)">Fills are logged to <code>C:\\EdgeLog\\fills.csv</code>. Re-syncing never duplicates trades (each fill has a unique id).</div>
+          </div>
+        </div>
+      </div>
       <div class="section">
         <div class="sec-hd">MANUAL IMPORT — DROP MULTIPLE FILES</div>
         <div style="padding:14px">
@@ -3980,6 +4016,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       </div>
       </div>`;
       setTimeout(()=>{
+        const ntToggle=el('nt-setup-toggle');if(ntToggle)ntToggle.onclick=e=>{e.preventDefault();const s=el('nt-setup-steps');if(s){const open=s.style.display==='none';s.style.display=open?'block':'none';ntToggle.innerHTML=(open?'▾':'▸')+' One-time setup (install the NinjaScript AddOn)';}};
+        const ntBtn=el('nt-refresh-btn');if(ntBtn)ntBtn.onclick=async()=>{
+          if(!cmdRef){alert('Sign in first.');return;}
+          ntRefreshing=true;renderApp();
+          try{
+            const ref=await cmdRef.add({action:'sync_trades',status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+            const u=ref.onSnapshot(d=>{const x=d.data()||{};if(x.status!=='done'&&x.status!=='error')return;u();ntRefreshing=false;renderApp();});
+            setTimeout(()=>{if(ntRefreshing){ntRefreshing=false;renderApp();}},20000);
+          }catch(e){ntRefreshing=false;alert('Refresh failed: '+e.message);renderApp();}
+        };
         const ai=el('auto-interval');if(ai)ai.onchange=()=>{autoInterval=parseInt(ai.value)||60;};
         if(el('auto-start-btn'))el('auto-start-btn').onclick=startAutoImport;
         if(el('auto-stop-btn'))el('auto-stop-btn').onclick=stopAutoImport;
@@ -4540,7 +4586,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +(V.dsr!=null?'<span title="deflated Sharpe (selection-luck haircut)" style="font-size:8px;padding:2px 7px;border-radius:6px;background:var(--bg1);color:var(--text3);cursor:help">DSR '+(+V.dsr).toFixed(2)+'</span>':'')
         +'</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 0;margin-bottom:14px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead>'+head+'</thead><tbody>'+body+'</tbody></table>'
-        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px">The three sections match the equity graph (1a): <b style="color:var(--text2)">IN-SAMPLE</b> = the un-shaded knob-tuning start · <b style="color:'+C_WF+'">WALK-FORWARD</b> = the blue test bands · <b style="color:'+C_LB+'">LOCKBOX</b> = the purple holdout. They run back-to-back with no overlap, so <b>NET P&amp;L</b> adds up to <b style="color:var(--green)">TOTAL</b> ('+fmtUsd(Math.round(nIS||0))+' + '+fmtUsd(Math.round(nWF||0))+' + '+fmtUsd(Math.round(nLB||0))+' = '+fmtUsd(Math.round(nTOT||0))+'), the curve\'s endpoint. NET P&amp;L &amp; DAYS come from the curve; PF / Win% / Trades are each section\'s backtest. A few cells show — because the run saved each section\'s totals but not the win/loss split of those trades (Win% for walk-forward &amp; lockbox, and their Sharpe) — that needs a re-run to capture.</div></div>';
+        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px">Sections run back-to-back (matching the shaded regions on chart 1a), so <b>NET P&amp;L</b> sums to <b style="color:var(--green)">TOTAL</b>: '+fmtUsd(Math.round(nIS||0))+' + '+fmtUsd(Math.round(nWF||0))+' + '+fmtUsd(Math.round(nLB||0))+' = '+fmtUsd(Math.round(nTOT||0))+'. NET P&amp;L &amp; DAYS read off the curve; PF / Win% / Trades are each section\'s own backtest. Blank cells = the run saved section totals but not the per-trade win/loss split (needs a re-run).</div></div>';
     };
     // STRATEGY CODE — the exact plugin source THIS run executed (AUGUR captures the whole
     //   strategy file at run time; synced to the web from history.get_run). Lets you answer
@@ -4940,7 +4986,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="margin-top:8px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+(_lb.pass?'var(--green)':'var(--red)')+'">'+(_lb.pass?'HELD':'FAILED')+'</b> · '+fmtUsd(Math.round((_lb.pnl||0)*mlt))+' · PF '+Math.min(_lb.pf||0,99).toFixed(2)+' · '+(_lb.trades||0)+' trades'+(_V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(_V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
           +'</div>';
         _panelMatrix='<div style="'+_card+'">'+kpiMatrixHtml(d,mlt)+'</div>';}
-      const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span><span title="optimization mode '+_modeNum(d)+' · '+(_modeName[_modeNum(d)]||'')+'" style="flex:0 0 auto;font-size:10px;padding:2px 8px;border-radius:999px;background:var(--bg1);color:var(--text3);font-weight:700">mode '+_modeNum(d)+' · '+(_modeName[_modeNum(d)]||'')+'</span></div>'
+      const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span></div>'
         // pinned pills: FULLY transparent (no background, no backdrop-filter) so the row looks
         //   identical at rest and while scrolling — the individual pill chips stay opaque so the
         //   labels remain readable as content slides underneath.
@@ -5356,14 +5402,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="font-size:8px;color:var(--text5);margin-bottom:9px;max-width:680px">0–100 blends out-of-sample strength (Deflated Sharpe, walk-forward folds held, lockbox), profit factor and sample size. Auto-Validate runs use their gate results. Click a row to open the run in Results.</div>'
           +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th><th style="min-width:90px">SCORE</th><th>STRATEGY</th><th>MARKET</th><th>SCOPE</th><th style="text-align:right">PF</th><th style="text-align:right">DSR</th><th style="text-align:right">TRD</th><th style="text-align:right">$PNL</th><th>DATE</th></tr></thead><tbody>'+rows+'</tbody></table></div>');}
     }else if(augurSub==='ref'){
-      const inst=[['NQ','E-mini Nasdaq-100','$20 / pt'],['MNQ','Micro Nasdaq-100','$2 / pt'],['ES','E-mini S&P 500','$50 / pt'],['MES','Micro S&P 500','$5 / pt']];
+      const inst=[['ES','E-mini S&P 500','$50 / pt'],['NQ','E-mini Nasdaq-100','$20 / pt']];
       const irows=inst.map(i=>'<tr><td><b>'+i[0]+'</b></td><td style="color:var(--text3)">'+i[1]+'</td><td style="text-align:right">'+i[2]+'</td></tr>').join('');
+      const vmeth=[
+        ['Out-of-sample (75/25)','Optimize on the first 75% of history, validate the winner on the unseen last 25%. A config that wins in-sample but collapses out-of-sample is overfit.'],
+        ['Walk-forward','Re-optimize on each train window, test on the next unseen window, roll forward. Anchored grows the window; Rolling slides a fixed length (regime-honest). Tracks fold consistency + walk-forward efficiency (OOS-per-bar / IS-per-bar).'],
+        ['Lockbox holdout','A "reserve since" date caps every search the day before it, so the most recent slice is never seen while optimizing. The last winner is then tested once on that reserved slice — the final overfit gate.'],
+        ['Plateau / neighborhood','A trustworthy winner is surrounded by other good configs, not an isolated spike. The neighborhood table grades how its closest parameter neighbors performed.'],
+        ['Stress across time','Re-score the winner over 8 chronological windows. SPREAD (profitable across most) beats CONCENTRATED (one lucky stretch carrying the result).'],
+        ['Cross-instrument transfer','Re-test the champion on a sibling instrument (NQ↔ES) with NO re-optimization. An edge that survives the move is likelier real than curve-fit.'],
+        ['Deflated Sharpe','Haircuts the Sharpe by the best Sharpe expected from pure luck across the N searched configs (Bailey / Lopez de Prado). DSR at or above 95% beats the luck bar.'],
+        ['Monte-Carlo drawdown','Block-shuffles the trade order to map the drawdown distribution. Size the account to the p95.'],
+        ['Sample adequacy (DOF)','Trades-per-optimized-parameter gauge — under 10 is fragile (red), 30+ is healthy (green). Answers "is my in-sample big enough for this search".'],
+        ['Regime report card','Slices performance by market regime/era so a strategy that only works in one environment is exposed.']
+      ];
+      const vrows=vmeth.map(i=>'<div style="background:var(--bg2);border-radius:8px;padding:12px 14px;margin-bottom:10px"><div style="font-size:14px;margin-bottom:3px">'+i[0]+'</div><div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6">'+i[1]+'</div></div>').join('');
       body='<div class="lbl" style="margin-bottom:6px">INSTRUMENTS</div>'+tile('<table class="table"><thead><tr><th>SYMBOL</th><th>NAME</th><th style="text-align:right">MULTIPLIER</th></tr></thead><tbody>'+irows+'</tbody></table>')
+        +'<div style="font-size:var(--fsxs);color:var(--text5);margin:6px 2px 0;line-height:1.6">Only ES and NQ have imported price history (Databento, 2010→present). Other minis (YM · RTY · CL · GC) appear in the Builder for multiplier math but need data imported before they can be backtested.</div>'
         +'<div class="lbl" style="margin:18px 0 6px">COST MODEL</div><div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">Round-turn commission $2.83/order x 2 = $5.66 (about 0.28 NQ pts / 0.11 ES pts), applied per trade. PNL = shares x (exit - entry) x multiplier, net of cost.</div>'
-        +'<div class="lbl" style="margin:18px 0 6px">SESSIONS</div><div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">RTH = 09:30-16:00 ET cash session (last 5m bar 15:55). ETH = full 24h. Masters are keyed per instrument + timeframe + session + source.</div>';
+        +'<div class="lbl" style="margin:18px 0 6px">SESSIONS</div><div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">RTH = 09:30-16:00 ET cash session (last 5m bar 15:55). ETH = full 24h. Masters are keyed per instrument + timeframe + session + source.</div>'
+        +'<div class="lbl" style="margin:18px 0 6px">VALIDATION METHODOLOGY</div>'+vrows;
     }else if(augurSub==='research'){
-      const items=[['Out-of-sample (75/25)','Optimize on the first 75% of history, validate the winner on the unseen last 25%. A config that wins in-sample but collapses out-of-sample is overfit.'],['Deflated Sharpe','Haircuts the Sharpe by the best Sharpe expected from pure luck across N searched configs (Bailey / Lopez de Prado). DSR at or above 95% beats the luck bar.'],['Monte-Carlo drawdown','Block-shuffles the trade order to map the drawdown distribution. Size the account to the p95.'],['Walk-forward','Anchored: re-optimize on each train window, test on the next unseen window, roll forward.']];
-      body='<div class="lbl" style="margin-bottom:6px">VALIDATION METHODOLOGY</div>'+items.map(i=>'<div style="background:var(--bg2);border-radius:8px;padding:12px 14px;margin-bottom:10px"><div style="font-size:14px;margin-bottom:3px">'+i[0]+'</div><div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6">'+i[1]+'</div></div>').join('');
+      body='<div class="lbl" style="margin-bottom:6px">WALK-FORWARD STUDIES</div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">Saved walk-forward studies will render here once the runner syncs the <code>augur_research/</code> folder. The validation-methodology reference now lives in the REFERENCE tab.</div>';
     }else if(augurSub==='set'){
       const sel=(id,opts,cur)=>'<select id="'+id+'">'+opts.map(o=>'<option'+(String(o)===String(cur)?' selected':'')+'>'+o+'</option>').join('')+'</select>';
       body='<div style="max-width:680px">'
@@ -5379,7 +5440,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="grid-column:span 2"><label class="lbl">AI PROVIDER</label>'+sel('set-prov',['ollama','claude-cli','anthropic'],APREF.provider||'ollama')+'</div>'
           +'</div><button class="btn-ghost active" id="set-save" style="margin-top:12px">SAVE DEFAULTS</button><span id="set-saved" style="margin-left:10px;font-size:var(--fsxs);color:var(--green)"></span>')
         +'<div class="lbl" style="margin-bottom:6px">RUNNER</div>'
-        +'<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7;margin-bottom:14px">Backtests, sweeps and AI runs execute on YOUR PC via the local runner. Start it with <code>run_augur_runner.bat</code> (it watches Firestore and syncs run history + library). Only one runner should watch at a time.</div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7;margin-bottom:14px">Backtests, sweeps and AI runs execute on YOUR PC via the local runner. Start it with <code>EdgeLog.bat</code> (it watches Firestore and syncs run history + library). Only one runner should watch at a time.</div>'
         +'<div class="lbl" style="margin-bottom:6px">AI PROVIDERS</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7;margin-bottom:14px"><b>Ollama · qwen3.6</b> — free, local. <b>Claude CLI</b> — your Claude subscription, fastest/sharpest. <b>Anthropic API</b> — pay-per-token (key read from local augur_config.json, never the browser).</div>'
         +'<div class="lbl" style="margin-bottom:6px">AUTO-PULL / DATA SYNC</div>'
@@ -5467,10 +5528,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // would trap the sticky checklist-pills row (sticky breaks under any non-visible
         // overflow ancestor). Inline beats the class so the pinned pills work on every theme.
         const detailTile='<div id="res-detail" class="hero-card" style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:13px;padding:14px 16px;overflow:visible">'+runDetail(d)+'</div>';
-        // ── Results-view header + numbered validation-checklist legend shown under the
-        //    Past Runs list. The report card groups its panels under these 10 steps
-        //    (badges ②③④⑤⑧), so this legend is the key the user reads them against. ──
-        const viewHeader='<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px"><span style="font-size:17px;font-weight:800;letter-spacing:.3px">Results View</span><span style="font-size:var(--fsxs);color:var(--text5)">'+allRuns.length+' runs · select one for its validation report card</span></div>';
+        // Results-view header removed per request (redundant — the PAST RUNS tile title
+        //   already carries the run count, and the empty-state copy explains selection).
+        const viewHeader='';
         if(rv==='side'){
           body=viewHeader+'<div id="res-wrap" style="display:flex;align-items:stretch">'
             +'<div id="res-left" style="flex:0 0 '+(rH*100)+'%;min-width:280px;overflow:auto">'+listTile+'</div>'
