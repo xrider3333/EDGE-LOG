@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='35.4';
+const VERSION='35.5';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -5479,10 +5479,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   so each column carries its own filter+sort (the old separate filter bar is gone).
         //   data-rsort lives on the INNER label span, so clicking the dropdown never sorts.
         const _fopt=(v,opts)=>opts.map(o=>'<option value="'+String(o[0]).replace(/"/g,'&quot;')+'"'+(String(o[0])===String(v)?' selected':'')+'>'+o[1]+'</option>').join('');
-        const fh=(sortK,lbl,al,filtK,filtV,filtOpts)=>{
-          const lab=sortK?'<span data-rsort="'+sortK+'" title="sort by '+lbl+'" style="cursor:pointer;user-select:none;'+(fSort===sortK?'color:var(--text)':'')+'">'+lbl+(fSort===sortK?' ▾':'')+'</span>':lbl;
-          const flt=filtK?'<select data-rf="'+filtK+'" title="filter by '+lbl+'" style="display:block;width:100%;max-width:108px;margin-top:3px;padding:1px 3px;font-size:8px;border-radius:5px;'+(filtV?'color:var(--text);border:1px solid var(--accent)':'color:var(--text5)')+'">'+_fopt(filtV,filtOpts)+'</select>':'';
-          return '<th style="'+(al?'text-align:'+al+';':'')+'white-space:nowrap;vertical-align:bottom">'+lab+flt+'</th>';
+        const fh=(lbl,filtK,filtV,filtOpts)=>{
+          // pivot-style header: a plain column label that IS the filter — it renders as the
+          //   header text with no dropdown chrome and opens the value list on click. The first
+          //   option is the column name itself, doubling as "all / clear". (Numeric columns
+          //   keep click-to-sort via sh; these categorical columns filter.)
+          if(!filtK)return '<th style="vertical-align:bottom;white-space:nowrap">'+lbl+'</th>';
+          return '<th style="vertical-align:bottom;white-space:nowrap;padding:0"><select data-rf="'+filtK+'" title="click to filter by '+lbl+'" class="fhsel'+(filtV?' on':'')+'">'+_fopt(filtV,[['',lbl]].concat(filtOpts))+'</select></th>';
         };
         // compact column helpers (legacy-AUGUR parity): equity spark, run duration, mini
         // date, walk-forward folds-held. Render '—' wherever a run lacks the field.
@@ -5518,10 +5521,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const rv=APREF.resView==='stack'?'stack':'side';
         const rH=Math.min(.6,Math.max(.15,APREF.splitH||0.34));
         const rVH=Math.min(520,Math.max(120,APREF.splitV||300));
-        const tbl='<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}</style>'
+        const tbl='<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}'
+          +'.fhsel{appearance:none;-webkit-appearance:none;background:transparent;border:none;cursor:pointer;font:inherit;color:inherit;letter-spacing:inherit;padding:6px 8px;max-width:118px;text-overflow:ellipsis}'
+          +'.fhsel:hover{color:var(--text);text-decoration:underline}.fhsel.on{color:var(--text);text-decoration:underline}</style>'
           +'<div id="res-listscroll" style="overflow:auto;max-height:'+(rv==='side'?'68vh':rVH+'px')+'">'
           +'<table class="table" style="font-size:var(--fsxs)"><thead><tr><th style="text-align:center;vertical-align:bottom" title="show starred only"><span data-rfstar style="cursor:pointer;user-select:none;font-size:12px;color:'+(fStar?'var(--yellow)':'var(--text5)')+'">'+(fStar?'★':'☆')+'</span></th>'
-          +sh('id','RUN','right')+sh('date','DATE','left')+fh('strat','STRATEGY','left','rfStrat',fStrat,[['','all']].concat(_strats.map(f=>[f,stratInfo(f).label])))+fh(null,'MODE','left',(_scopes.length>1?'rfScope':''),fScope,[['','all scopes']].concat(_scopes.map(s=>[s,s.slice(0,16)])))+fh(null,'MARKET','left',(_insts.length>1?'rfInst':''),fInst,[['','all']].concat(_insts.map(i=>[i,i])))+fh(null,'TF','left',(_tfs.length>1?'rfTf':''),fTf,[['','all']].concat(_tfs.map(t=>[t,t])))+'<th style="text-align:center;vertical-align:bottom">EQUITY</th>'
+          +sh('id','RUN','right')+sh('date','DATE','left')+fh('STRATEGY','rfStrat',fStrat,_strats.map(f=>[f,stratInfo(f).label]))+fh('MODE',(_scopes.length>1?'rfScope':''),fScope,_scopes.map(s=>[s,s.slice(0,16)]))+fh('MARKET',(_insts.length>1?'rfInst':''),fInst,_insts.map(i=>[i,i]))+fh('TF',(_tfs.length>1?'rfTf':''),fTf,_tfs.map(t=>[t,t]))+'<th style="text-align:center;vertical-align:bottom">EQUITY</th>'
           +sh('pnl','NET $','right')+sh('perday','$/DAY','right')+sh('maxdd','MAX DD','right')+sh('pf','PF','right')+sh('sharpe','SHARPE','right')+sh('wr','WR','right')+'<th style="text-align:center;vertical-align:bottom" title="walk-forward folds that held out-of-sample">WF</th>'+sh('trd','TRD','right')+sh('score','SCORE','right')+sh('took','TOOK','right')+'<th style="vertical-align:bottom">SRC</th>'+'<th style="vertical-align:bottom">RANGE</th>'+sh('days','DAYS','right')
           +'</tr></thead><tbody>'+trows+'</tbody></table></div>';
         const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span>'+(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">✕ clear filters</span>':'')+'</div>'+tbl);
