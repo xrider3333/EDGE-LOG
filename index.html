@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='38.2';
+const VERSION='38.3';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4590,7 +4590,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 0;margin-bottom:14px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead>'+head+'</thead><tbody>'+body+'</tbody></table>'
         +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px">The champion was tuned on the first 75% (IN-SAMPLE) and tested once on the held-out last 25% (OUT-OF-SAMPLE). A real edge keeps a profit factor &gt; 1 on the unseen part. Win% / Sharpe per side were not saved.</div></div>';
     };
-    const kpiMatrixHtml=(d,mult)=>{
+    const kpiMatrixHtml=(d,mult,bare)=>{
       const V=d.validate;if(!V)return '';
       const folds=(Array.isArray(d.top10_results)?d.top10_results.filter(x=>x&&x.fold!=null):[]).slice().sort((a,b)=>(a.fold-b.fold));
       const lb=V.lockbox||{},f1=folds[0]||{};
@@ -4647,7 +4647,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<td style="padding:6px 8px;font-size:var(--fsxs);color:var(--text2);font-weight:'+(m.top?'700':'400')+';white-space:nowrap">'+m.lbl+'</td>'
         +phases.map(p=>'<td style="padding:6px 8px;text-align:right;white-space:nowrap'+_ovl(p)+'">'+m.cell(p)+'</td>').join('')+'</tr>').join('');
       const _vc={PASS:'var(--green)',WEAK:'var(--yellow)',FAIL:'var(--red)'}[V.verdict]||'var(--text4)',_ng=V.n_gates||5;
-      return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 6px"><span class="lbl" style="font-size:9px;color:var(--text5)">KPI MATRIX · 3 sections + total</span>'
+      return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 6px"><span class="lbl" style="font-size:9px;color:var(--text5)">'+(bare?'3 sections + total':'KPI MATRIX · 3 sections + total')+'</span>'
         +(V.verdict?'<span style="font-size:13px;font-weight:800;letter-spacing:.5px;color:'+_vc+'">'+V.verdict+'</span>':'')
         +(V.n_pass!=null?'<span style="font-size:8px;padding:2px 7px;border-radius:6px;background:var(--bg1);color:'+(V.n_pass>=_ng?'var(--green)':'var(--text2)')+'">GATES '+V.n_pass+'/'+_ng+'</span>':'')
         +(V.dsr!=null?'<span title="deflated Sharpe (selection-luck haircut)" style="font-size:8px;padding:2px 7px;border-radius:6px;background:var(--bg1);color:var(--text3);cursor:help">DSR '+(+V.dsr).toFixed(2)+'</span>':'')
@@ -4764,7 +4764,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // Champion equity curve (walk-forward in-sample → lockbox holdout), with WF test-window
     //   bands + a lockbox region. Extracted so the MASTER panel and the Builder's validate card
     //   share ONE chart. Returns '' when there's no stored equity series.
-    const championEquityHtml=(V,mlt,folds)=>{
+    const championEquityHtml=(V,mlt,folds,bare)=>{
       const lb=V.lockbox||{},W=V.windows||{optimize:['','']};
       const eq=(V.equity||[]).map(x=>x*mlt),li=V.lb_idx||eq.length,EW=600,EH=130,pd=6;
       if(eq.length<=2)return '';
@@ -4844,7 +4844,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   make it taller). The SVG fills the box (preserveAspectRatio=none → gridlines & curve scale
       //   vertically), the date axis stays a fixed 12px strip at the bottom, and the y-labels scale
       //   by percent — so everything stays aligned at any height.
-      return '<div style="margin:13px 0 5px"><div style="font-weight:700;font-size:11px;color:var(--text2)">Champion equity + drawdown <span style="font-weight:400;color:var(--text5);font-size:9px">· best config · 1 contract</span></div><div style="font-size:8px;color:var(--text5);margin-top:1px">chronological — <span style="color:var(--green)">in-sample</span> + walk-forward, then the <span style="color:#a78bfa">lockbox</span> holdout · <span style="color:#d6557a">underwater drawdown</span> below (drag the lower edge ↕ to resize)</div></div>'
+      return '<div style="margin:13px 0 5px">'+(bare?'':'<div style="font-weight:700;font-size:11px;color:var(--text2)">Champion equity + drawdown <span style="font-weight:400;color:var(--text5);font-size:9px">· best config · 1 contract</span></div>')+'<div style="font-size:8px;color:var(--text5);margin-top:1px">chronological — <span style="color:var(--green)">in-sample</span> + walk-forward, then the <span style="color:#a78bfa">lockbox</span> holdout · <span style="color:#d6557a">underwater drawdown</span> below (drag the lower edge ↕ to resize)</div></div>'
         +'<div id="eq-rs" style="display:flex;gap:7px;height:250px;min-height:150px;max-height:700px;resize:vertical;overflow:hidden;border-bottom:2px dashed color-mix(in srgb,var(--border) 70%,transparent);padding-bottom:3px">'
         +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;height:100%;position:relative">'
         +anno
@@ -4995,7 +4995,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let mcHtml='';
       if(d.mc){mcHtml=_vrow('<span>P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round((d.mc.p95||0)*mlt))+'</b> (size your account to survive this)</span>');}
       let regHtml='';
-      if(d.regime){const rg=d.regime;const bt=(arr)=>'<table class="table" style="font-size:var(--fsxs)"><thead><tr><th></th><th style="text-align:right">T</th><th style="text-align:right">$</th><th style="text-align:right">PF</th></tr></thead><tbody>'+(arr||[]).map(b=>'<tr><td>'+b.bucket+'</td><td style="text-align:right">'+b.n+'</td><td style="text-align:right;color:'+(b.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(b.pnl*mlt))+'</td><td style="text-align:right">'+(b.pf||0).toFixed(2)+'</td></tr>').join('')+'</tbody></table>';const mo=rg.monthly||{rows:[]};const ml=['J','F','M','A','M','J','J','A','S','O','N','D'];const _flat=[];(mo.rows||[]).forEach(r=>{(r.months||[]).forEach((vv,mi)=>{if(vv!=null)_flat.push({y:r.year,m:mi,v:vv*mlt});});});const mhHist=(function(){if(_flat.length<2)return '<div style="font-size:8px;color:var(--text5)">not enough monthly data</div>';const _mxa=Math.max.apply(null,_flat.map(f=>Math.abs(f.v)))||1,_W=560,_H=96,_bw=_W/_flat.length,_m2=_H/2-6;const _bars=_flat.map((f,i)=>{const h=(Math.abs(f.v)/_mxa)*(_m2-2),x=i*_bw,_c=f.v>=0?'#1d9e75':'#e24b4a',_tip=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][f.m]+' '+f.y+' · <b style=&quot;color:'+_c+'&quot;>'+fmtUsd(Math.round(f.v))+'</b>';return '<rect x="'+(x+0.4).toFixed(1)+'" y="'+(f.v>=0?_m2-h:_m2).toFixed(1)+'" width="'+Math.max(0.6,_bw-0.8).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+_c+'" opacity="0.82" style="cursor:pointer" data-tip="'+_tip+'"/>';}).join('');let _py=null,_tk='';_flat.forEach((f,i)=>{if(f.y!==_py){_tk+='<text x="'+(i*_bw+1).toFixed(1)+'" y="'+(_H-2)+'" font-size="7" fill="var(--text5)">'+f.y+'</text>';_py=f.y;}});return '<div style="background:var(--bg2);border-radius:8px;padding:8px;margin-bottom:16px"><svg viewBox="0 0 '+_W+' '+_H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"><line x1="0" y1="'+_m2+'" x2="'+_W+'" y2="'+_m2+'" stroke="var(--border)" stroke-width="0.5"/>'+_bars+_tk+'</svg></div>';})();regHtml='<div class="lbl" style="margin:8px 0 6px">REGIME REPORT CARD · weakest vol bucket: '+(rg.worst_vol||'—')+'</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:10px"><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Volatility (ATR20)</div>'+bt(rg.vol)+'</div><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Trend vs chop</div>'+bt(rg.trend)+'</div><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Day of week</div>'+bt(rg.dow)+'</div></div>';}
+      if(d.regime){const rg=d.regime;const bt=(arr)=>'<table class="table" style="font-size:var(--fsxs)"><thead><tr><th></th><th style="text-align:right">T</th><th style="text-align:right">$</th><th style="text-align:right">PF</th></tr></thead><tbody>'+(arr||[]).map(b=>'<tr><td>'+b.bucket+'</td><td style="text-align:right">'+b.n+'</td><td style="text-align:right;color:'+(b.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(b.pnl*mlt))+'</td><td style="text-align:right">'+(b.pf||0).toFixed(2)+'</td></tr>').join('')+'</tbody></table>';const mo=rg.monthly||{rows:[]};const ml=['J','F','M','A','M','J','J','A','S','O','N','D'];const _flat=[];(mo.rows||[]).forEach(r=>{(r.months||[]).forEach((vv,mi)=>{if(vv!=null)_flat.push({y:r.year,m:mi,v:vv*mlt});});});const mhHist=(function(){if(_flat.length<2)return '<div style="font-size:8px;color:var(--text5)">not enough monthly data</div>';const _mxa=Math.max.apply(null,_flat.map(f=>Math.abs(f.v)))||1,_W=560,_H=96,_bw=_W/_flat.length,_m2=_H/2-6;const _bars=_flat.map((f,i)=>{const h=(Math.abs(f.v)/_mxa)*(_m2-2),x=i*_bw,_c=f.v>=0?'#1d9e75':'#e24b4a',_tip=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][f.m]+' '+f.y+' · <b style=&quot;color:'+_c+'&quot;>'+fmtUsd(Math.round(f.v))+'</b>';return '<rect x="'+(x+0.4).toFixed(1)+'" y="'+(f.v>=0?_m2-h:_m2).toFixed(1)+'" width="'+Math.max(0.6,_bw-0.8).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+_c+'" opacity="0.82" style="cursor:pointer" data-tip="'+_tip+'"/>';}).join('');let _py=null,_tk='';_flat.forEach((f,i)=>{if(f.y!==_py){_tk+='<text x="'+(i*_bw+1).toFixed(1)+'" y="'+(_H-2)+'" font-size="7" fill="var(--text5)">'+f.y+'</text>';_py=f.y;}});return '<div style="background:var(--bg2);border-radius:8px;padding:8px;margin-bottom:16px"><svg viewBox="0 0 '+_W+' '+_H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"><line x1="0" y1="'+_m2+'" x2="'+_W+'" y2="'+_m2+'" stroke="var(--border)" stroke-width="0.5"/>'+_bars+_tk+'</svg></div>';})();regHtml='<div class="lbl" style="margin:8px 0 6px">'+(d.validate?'':'REGIME REPORT CARD · ')+'weakest vol bucket: '+(rg.worst_vol||'—')+'</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:10px"><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Volatility (ATR20)</div>'+bt(rg.vol)+'</div><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Trend vs chop</div>'+bt(rg.trend)+'</div><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Day of week</div>'+bt(rg.dow)+'</div></div>';}
       let nbHtml='';
       if(d.neighborhood){const nb=d.neighborhood;const vc=nb.verdict==='HIGH GROUND'?'var(--green)':'var(--yellow)';const pfcol=p=>p>1?'var(--green)':'var(--red)';
         const cell=(c,acc)=>{if(!c)return '<td style="text-align:center;opacity:.3">—</td>';return '<td style="text-align:center"><div style="font-size:8px;color:var(--text5)">'+c.val+'</div><div style="color:'+(acc?'var(--accent)':pfcol(c.pf))+';font-weight:'+(acc?'800':'600')+'">PF '+(c.pf||0).toFixed(2)+'</div></td>';};
@@ -5102,14 +5102,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // (1b), which was the single biggest source of confusion. The matrix carries the
         // real per-section + TOTAL accounting; this panel just draws the curve.
         _panelEquity='<div style="'+_card+'">'
-          +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:9px"><span class="lbl" style="font-size:12px;letter-spacing:1.5px">CHAMPION EQUITY</span></div>'
           +_metaStrip
           +'<div style="margin:9px 0 12px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+(_lb.pass?'var(--green)':'var(--red)')+'">'+(_lb.pass?'HELD':'FAILED')+'</b> · '+fmtUsd(Math.round((_lb.pnl||0)*mlt))+' · PF '+Math.min(_lb.pf||0,99).toFixed(2)+' · '+(_lb.trades||0)+' trades'+(_V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(_V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
-          +'<div id="res-step-8" style="scroll-margin-top:64px">'+championEquityHtml(_V,mlt,d.top10_results)+'</div>'
+          +'<div id="res-step-8" style="scroll-margin-top:64px">'+championEquityHtml(_V,mlt,d.top10_results,1)+'</div>'
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
           +((wf=>wf?'<div style="margin-top:9px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
           +'</div>';
-        _panelMatrix='<div style="'+_card+'">'+kpiMatrixHtml(d,mlt)+'</div>';}
+        _panelMatrix='<div style="'+_card+'">'+kpiMatrixHtml(d,mlt,1)+'</div>';}
       const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span></div>'
         // pinned pills: FULLY transparent (no background, no backdrop-filter) so the row looks
         //   identical at rest and while scrolling — the individual pill chips stay opaque so the
@@ -5120,11 +5119,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    report cross-references the validation checklist. Empty steps are omitted. ──
       const _step=(n,label,sub)=>{const _k=(VSTEPS[(+n)-1]||[])[1];const _st=_k?vstat[_k]:'na';const _bb=_st==='pass'?'var(--green)':_st==='fail'?'var(--red)':'var(--bg1)';const _bf=_st==='pass'?'#04130c':_st==='fail'?'#fff':'var(--text2)';const _bd=(_st==='pass'||_st==='fail')?'0':'1px solid var(--border)';return '<div id="res-step-'+n+'" data-vstep-back="1" class="lbl" title="click to jump back to the checklist pills" style="margin:22px 0 10px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px;cursor:pointer"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;border-radius:50%;background:'+_bb+';border:'+_bd+';font-size:10px;font-weight:800;color:'+_bf+'">'+n+'</span><span style="font-weight:700">'+label+'</span>'+(sub?'<span style="font-weight:400;color:var(--text5);font-size:8px">'+sub+'</span>':'')+'<span style="margin-left:auto;font-size:8px;color:var(--text5);font-weight:600">↑ checklist</span></div>';};
       const _sec=(n,label,sub,content)=>(content&&content.replace(/\s/g,''))?(_step(n,label,sub)+content):'';
-      // subsection wrapper — a left-rail tag (2a, 2b…) beside each panel so every chart/table in
-      //   a section is individually addressable; each panel keeps its own proper title. Empty drop.
-      const _sub=(tag,html)=>(html&&html.replace(/\s/g,''))?'<div style="margin:5px 0 14px"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:3px">'+tag+'</div>'+html+'</div>':'';
+      // subsection wrapper — a number header (2a, 2b…) above each panel, optionally "· Name",
+      //   so every chart/table in a section is individually addressable. Empty panels drop out.
+      const _sub=(tag,html,label)=>(html&&html.replace(/\s/g,''))?'<div style="margin:5px 0 14px"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:3px">'+tag+(label?' <span style="font-weight:600;color:var(--text4)">· '+label+'</span>':'')+'</div>'+html+'</div>':'';
       // auto-letter the non-empty panels of a section (2a,2b,2c…) so dropping a panel leaves no gap.
-      const _secOf=(n,arr,off)=>arr.filter(h=>h&&h.replace(/\s/g,'')).map((h,i)=>_sub(n+String.fromCharCode(97+i+(off||0)),h)).join('');
+      const _secOf=(n,arr,off)=>arr.map(e=>Array.isArray(e)?e:[e,'']).filter(e=>e[0]&&e[0].replace(/\s/g,'')).map((e,i)=>_sub(n+String.fromCharCode(97+i+(off||0)),e[0],e[1])).join('');
       // 2 In-sample = the CHAMPION (metrics, trade-level behaviour, top configs). The whole-run
       //   equity is shown ONLY when there's no Auto-Validate chart 1 — chart 1 already plots the
       //   champion equity split IS vs lockbox, so this avoids two near-identical equity curves.
@@ -5161,7 +5160,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="width:auto;padding:4px 6px;font-size:9px;border-radius:6px"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
         +'<button class="btn-ghost" id="det-del" data-del-id="'+d.id+'" style="padding:4px 10px;font-size:var(--fsxs);border:1px solid var(--red);border-radius:6px;color:var(--red)">delete</button></div>'
         +valBannerHtml(d)
-        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',(d.validate?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:2 1 460px;min-width:0">'+_secOf(1,[_panelEquity])+'</div><div style="flex:1 1 300px;min-width:0">'+_secOf(1,[(_panelMatrix||splitOosHtml(d,mlt))],1)+'</div></div>'+_secOf(1,[regHtml],2)):_secOf(1,[_summaryPanel,monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml])))
+        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',(d.validate?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:2 1 460px;min-width:0">'+_secOf(1,[[_panelEquity,'Champion equity']])+'</div><div style="flex:1 1 300px;min-width:0">'+_secOf(1,[[(_panelMatrix||splitOosHtml(d,mlt)),'KPI matrix']],1)+'</div></div>'+_secOf(1,[[regHtml,'Regime report card']],2)):_secOf(1,[_summaryPanel,monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml])))
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         +_sec('3','Plateau','robust params — a cluster, not a lonely spike',_sec3)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4)
