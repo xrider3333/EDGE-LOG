@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='37.8';
+const VERSION='37.9';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4854,18 +4854,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="height:12px">'+dateAxis+'</div></div>'
         +yLabels+'</div>';
     };
-    // Monthly P&L bars — time-aligned to the equity/drawdown x-axis (each month sits under where it
-    //   occurred), $ labels in a matching 54px right gutter, compact to ~the drawdown's height.
+    // Monthly P&L bars — derived from the FULL champion equity curve when available (covers
+    //   in-sample + walk-forward + LOCKBOX, so it spans the whole timeframe and sums to the matrix
+    //   TOTAL; regime.monthly alone only covers the optimize window — that's why it ended early and
+    //   under-counted). Time-aligned to the equity x-axis; $ labels in a 54px right gutter; compact.
     const monthlyPnlHtml=(regime,mlt,V)=>{
-      const mo=(regime&&regime.monthly)||{rows:[]},flat=[];
-      (mo.rows||[]).forEach(r=>{(r.months||[]).forEach((vv,mi)=>{if(vv!=null)flat.push({y:r.year,m:mi,v:vv*mlt,t:Date.UTC(r.year,mi,15)});});});
+      const Wn=(V&&V.windows)||{},_ms=s=>s?+new Date(s):null;
+      const optS=_ms(Wn.optimize&&Wn.optimize[0]),optE=_ms(Wn.optimize&&Wn.optimize[1]),lbS=_ms(Wn.lockbox&&Wn.lockbox[0]),lbE=_ms(Wn.lockbox&&Wn.lockbox[1]);
+      const eqRaw=(V&&V.equity)||[],fullOk=!!(optS&&optE&&lbS&&lbE&&lbE>optS&&eqRaw.length>=3);
+      let flat=[];
+      if(fullOk){const eq=eqRaw.map(x=>x*mlt),n=eq.length,li=V.lb_idx||n;
+        const tAt=i=>{if(i<li){const f=(li>1)?(i/(li-1)):0;return optS+f*(optE-optS);}const k=(n-1-li);const f=(k>0)?((i-li)/k):0;return lbS+f*(lbE-lbS);};
+        const M={};for(let i=1;i<n;i++){const dt=new Date(tAt(i)),k=dt.getUTCFullYear()*12+dt.getUTCMonth();(M[k]||(M[k]={y:dt.getUTCFullYear(),m:dt.getUTCMonth(),v:0})).v+=eq[i]-eq[i-1];}
+        flat=Object.keys(M).map(k=>M[k]).sort((a,b)=>(a.y-b.y)||(a.m-b.m)).map(o=>({y:o.y,m:o.m,v:o.v,t:Date.UTC(o.y,o.m,15)}));
+      }else{const mo=(regime&&regime.monthly)||{rows:[]};
+        (mo.rows||[]).forEach(r=>{(r.months||[]).forEach((vv,mi)=>{if(vv!=null)flat.push({y:r.year,m:mi,v:vv*mlt,t:Date.UTC(r.year,mi,15)});});});}
       if(flat.length<2)return '';
       const vals=flat.map(f=>f.v),mx=Math.max(0,...vals),mn=Math.min(0,...vals),rg=(mx-mn)||1;
       const EW=600,H=56,padT=4,padB=3,pd=6,plotH=H-padT-padB,Y=v=>padT+(mx-v)/rg*plotH,z=Y(0);
-      // align the bars to the equity's chronological scale [optimize start → lockbox end] so each
-      //   month lands under that point on the curve/drawdown above; fall back to evenly spaced.
-      const Wn=(V&&V.windows)||{},_oS=Wn.optimize&&Wn.optimize[0],_lE=(Wn.lockbox&&Wn.lockbox[1])||(Wn.optimize&&Wn.optimize[1]);
-      const T0=_oS?+new Date(_oS):null,T1=_lE?+new Date(_lE):null,timeOk=!!(T0&&T1&&T1>T0);
+      const T0=optS,T1=(lbE||optE),timeOk=!!(T0&&T1&&T1>T0);
       const X=timeOk?(t=>pd+(EW-2*pd)*((t-T0)/(T1-T0))):(i=>pd+(EW-2*pd)*(i/(flat.length-1)));
       const bw=timeOk?Math.max(1.5,(EW-2*pd)*2.63e9/(T1-T0)*0.85):Math.max(1.5,(EW-2*pd)/flat.length*0.7);
       const _k=v=>{const a=Math.abs(v);return (v<0?'-$':'$')+(a>=1000?(a/1000).toFixed(1)+'k':Math.round(a));};
