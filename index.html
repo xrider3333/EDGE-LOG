@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='35.8';
+const VERSION='35.9';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4387,7 +4387,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const xmn=Math.min.apply(null,xs),xmx=Math.max.apply(null,xs),ymn=Math.min.apply(null,[0].concat(ys)),ymx=Math.max.apply(null,[0].concat(ys));
       const W=560,H=150,pd=8,X=v=>pd+(W-2*pd)*((v-xmn)/((xmx-xmn)||1)),Y=v=>H-pd-(H-2*pd)*((v-ymn)/((ymx-ymn)||1));
       const _rnd=v=>Number.isInteger(v)?v:(+v).toFixed(2);
-      const dots=points.map(p=>'<circle class="cfgmark" data-net="'+Math.round(p.pnl*mult)+'" cx="'+X(p[xk]).toFixed(1)+'" cy="'+Y(p.pnl*mult).toFixed(1)+'" r="2.8" fill="'+(p.pnl>=0?'#1d9e75':'#e24b4a')+'" opacity="0.6" style="cursor:pointer;transition:opacity .12s" data-tip="'+_pp(xk)+' <b>'+_rnd(p[xk])+'</b><br>net <b style=&quot;color:'+(p.pnl>=0?'#1d9e75':'#e24b4a')+'&quot;>'+fmtUsd(Math.round(p.pnl*mult))+'</b>"/>').join('');
+      const dots=points.map((p,i)=>'<circle class="cfgmark" data-cfg="'+i+'" data-net="'+Math.round(p.pnl*mult)+'" cx="'+X(p[xk]).toFixed(1)+'" cy="'+Y(p.pnl*mult).toFixed(1)+'" r="2.8" fill="'+(p.pnl>=0?'#1d9e75':'#e24b4a')+'" opacity="0.6" style="cursor:pointer;transition:opacity .12s" data-tip="'+_pp(xk)+' <b>'+_rnd(p[xk])+'</b><br>net <b style=&quot;color:'+(p.pnl>=0?'#1d9e75':'#e24b4a')+'&quot;>'+fmtUsd(Math.round(p.pnl*mult))+'</b>"/>').join('');
       const sel='<select data-scx style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin:0 0 0 6px">'+keys.map(k=>'<option value="'+k+'"'+(k===xk?' selected':'')+'>'+_pp(k)+'</option>').join('')+'</select>';
       return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center">SCATTER · PnL ($) vs'+sel+'</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px;display:flex;gap:7px"><div style="display:flex;flex-direction:column;justify-content:space-between;font-size:8px;color:var(--text5);text-align:right;min-width:42px;padding:1px 0"><span>'+fmtUsd(Math.round(ymx))+'</span><span>$0</span><span>'+fmtUsd(Math.round(ymn))+'</span></div><div style="flex:1;min-width:0"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"><line x1="0" y1="'+Y(0).toFixed(1)+'" x2="'+W+'" y2="'+Y(0).toFixed(1)+'" stroke="var(--border)"/>'+dots+'</svg>'
@@ -4641,12 +4641,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const Y=(k,v)=>{const m=dom[k];return (H-padB)-((v-m[0])/((m[1]-m[0])||1))*((H-padB)-padT);};
       const pmx=Math.max.apply(null,points.map(p=>Math.abs(p.pnl)))||1;
       const rnd=v=>Number.isInteger(v)?v:(+v).toFixed(2);
-      const pts=points.slice().sort((a,b)=>a.pnl-b.pnl);   // best drawn last (on top)
-      const lines=pts.map(p=>{const ys=axes.map(k=>Y(k,k==='pnl'?p.pnl*mult:p[k]));
+      const pts=points.map((p,i)=>({p,_i:i})).sort((a,b)=>a.p.pnl-b.p.pnl);   // best drawn last (on top)
+      const lines=pts.map(({p,_i})=>{const ys=axes.map(k=>Y(k,k==='pnl'?p.pnl*mult:p[k]));
         const dd=ys.map((y,i)=>(i?'L':'M')+ax(i).toFixed(1)+' '+y.toFixed(1)).join(' ');
         const t=p.pnl/pmx,col=(p.pnl>=0?'rgba(29,158,117,':'rgba(226,75,74,'),op=Math.min(.72,Math.abs(t)*0.6+0.08);
         const tip='net <b style=&quot;color:'+(p.pnl>=0?'#1d9e75':'#e24b4a')+'&quot;>'+fmtUsd(Math.round(p.pnl*mult))+'</b><br>'+keys.map(k=>_pp(k)+' <b>'+rnd(p[k])+'</b>').join(' · ');
-        return '<path class="pcline" data-ys="'+ys.map(y=>y.toFixed(1)).join(',')+'" data-net="'+Math.round(p.pnl*mult)+'" d="'+dd+'" fill="none" stroke="'+col+op+')" stroke-width="1" style="pointer-events:stroke;transition:opacity .12s" data-tip="'+tip+'"/>';}).join('');
+        return '<path class="pcline" data-cfg="'+_i+'" data-ys="'+ys.map(y=>y.toFixed(1)).join(',')+'" data-net="'+Math.round(p.pnl*mult)+'" d="'+dd+'" fill="none" stroke="'+col+op+')" stroke-width="1" style="pointer-events:stroke;transition:opacity .12s" data-tip="'+tip+'"/>';}).join('');
       const axled=axes.map((k,i)=>{const x=ax(i);return '<line x1="'+x.toFixed(1)+'" y1="'+padT+'" x2="'+x.toFixed(1)+'" y2="'+(H-padB)+'" stroke="var(--border)" stroke-width="1"/>'
         +'<text x="'+x.toFixed(1)+'" y="'+(H-padB+11)+'" text-anchor="middle" font-size="7" fill="'+(k==='pnl'?'var(--text3)':'var(--text5)')+'">'+(k==='pnl'?'NET $':_pp(k))+'</text>'
         +'<text x="'+x.toFixed(1)+'" y="'+(padT-4)+'" text-anchor="middle" font-size="6" fill="var(--text5)">'+(k==='pnl'?fmtUsd(Math.round(dom[k][1])):rnd(dom[k][1]))+'</text>'
@@ -5798,11 +5798,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   click an axis (no drag) clears it. Pure DOM — no re-render, no state save.
       content.querySelectorAll('.pcoords-svg').forEach(svg=>{
         const lines=[...svg.querySelectorAll('.pcline')],total=lines.length,cnt=content.querySelector('.pc-count'),brushes={};
+        // linked brushing: same config index ties each parcoords line to its SCATTER dot
+        //   (.cfgmark[data-cfg]) so an axis brush dims BOTH charts together (legacy AUGUR).
+        const dotMap={};content.querySelectorAll('.cfgmark[data-cfg]').forEach(d=>{const c=d.getAttribute('data-cfg');(dotMap[c]||(dotMap[c]=[])).push(d);});
         const vbY=cy=>{const ctm=svg.getScreenCTM();if(!ctm)return 0;const pt=svg.createSVGPoint();pt.x=0;pt.y=cy;return pt.matrixTransform(ctm.inverse()).y;};
         const apply=()=>{const ks=Object.keys(brushes);let shown=0;
           lines.forEach(ln=>{const ys=(ln.getAttribute('data-ys')||'').split(',').map(Number);let ok=true;
             for(const k of ks){const b=brushes[k];if(!(ys[+k]>=b[0]&&ys[+k]<=b[1])){ok=false;break;}}
-            ln.style.opacity=ok?'':'0.04';ln.style.pointerEvents=ok?'stroke':'none';if(ok)shown++;});
+            ln.style.opacity=ok?'':'0.04';ln.style.pointerEvents=ok?'stroke':'none';if(ok)shown++;
+            const dots=dotMap[ln.getAttribute('data-cfg')];if(dots)dots.forEach(dt=>{dt.style.opacity=ok?'0.6':'0.05';dt.style.pointerEvents=ok?'':'none';});});
           if(cnt)cnt.textContent=ks.length?(shown+' / '+total+' configs · brushed'):(total+' configs');};
         svg.querySelectorAll('.pc-track').forEach(tr=>{const axi=tr.getAttribute('data-ax'),br=svg.querySelector('.pc-brush[data-ax="'+axi+'"]');
           tr.addEventListener('pointerdown',e=>{e.preventDefault();const y0=vbY(e.clientY);let moved=false;
