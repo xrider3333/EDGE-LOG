@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='36.6';
+const VERSION='36.7';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4797,10 +4797,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _nice=x=>{x=Math.abs(x)||1;const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
       const _gstep=_nice((mx-mn)/5)||1;const _lvls=[];for(let L=Math.ceil(mn/_gstep)*_gstep;L<=mx+1e-6;L+=_gstep)_lvls.push(L);
       const grid=_lvls.map(L=>{const _z=Math.abs(L)<1e-6;return '<line x1="0" y1="'+Y(L).toFixed(1)+'" x2="'+EW+'" y2="'+Y(L).toFixed(1)+'" stroke="var(--border)" stroke-width="'+(_z?'1':'0.5')+'" opacity="'+(_z?'0.65':'0.22')+'"/>';}).join('');
+      // High-water-mark lines (QuantVue-style): a horizontal segment at each running peak that holds
+      //   while equity is underwater, until it recovers — shows WHERE the drawdowns sit on the curve.
+      let _hwPk=eq[0],_hwI=0,hwLines='';const _hwSeg=(a,b)=>{const tr=Math.min.apply(null,eq.slice(a,b+1));if(_hwPk-tr>0.03*rg)hwLines+='<line x1="'+X(a).toFixed(1)+'" y1="'+Y(_hwPk).toFixed(1)+'" x2="'+X(b).toFixed(1)+'" y2="'+Y(_hwPk).toFixed(1)+'" stroke="#d6557a" stroke-width="1" opacity="0.7"/>';};
+      for(let i=1;i<eq.length;i++){if(eq[i]>=_hwPk){if(i-1>_hwI)_hwSeg(_hwI,i);_hwPk=eq[i];_hwI=i;}}
+      if(eq.length-1>_hwI)_hwSeg(_hwI,eq.length-1);
       const svg='<svg width="100%" height="100%" viewBox="0 0 '+EW+' '+EH+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%;border-radius:8px;background:var(--bg1)">'
         +wfBands
         +'<rect x="'+bx.toFixed(1)+'" y="0" width="'+(EW-bx).toFixed(1)+'" height="'+EH+'" fill="rgba(167,139,250,.16)" style="cursor:pointer" data-tip="'+_lbTip+'"/>'
         +grid
+        +hwLines
         +'<line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+EH+'" stroke="#a78bfa" stroke-width="1.3" stroke-dasharray="4,3"/>'
         +'<path d="'+seg(0,li+1)+'" fill="none" stroke="var(--green)" stroke-width="1.6"/>'
         +'<path d="'+seg(li,eq.length)+'" fill="none" stroke="#a78bfa" stroke-width="1.6"/></svg>';
@@ -4820,8 +4826,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +anno
         +'<div style="flex:1;min-height:0">'+svg+'</div>'
         +'<div style="height:12px">'+dateAxis+'</div></div>'
-        +yLabels+'</div>'
-        +'<div style="display:flex;gap:11px;flex-wrap:wrap;font-size:8px;color:var(--text5);margin-top:4px"><span style="color:var(--green)">● in-sample (optimized '+(_of?_mdy(optS):'start')+'→'+(_ot?_mdy(optE):'')+')</span>'+wfNote+'<span style="color:#a78bfa">● lockbox = OOS · last '+W.lockbox_months+'mo, never seen</span><span style="color:var(--text5);margin-left:auto">↕ drag lower edge to resize</span></div>';
+        +yLabels+'</div>';
     };
     // Underwater drawdown chart — peak-to-trough of the champion equity, aligned UNDER the curve
     //   (same chronological x-mapping + flex layout as championEquityHtml). QuantVue-style red fill.
@@ -4841,9 +4846,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<line x1="0" y1="2" x2="'+EW+'" y2="2" stroke="var(--border)" stroke-width="0.6"/>'
         +'<line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+DH+'" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/>'
         +'<path d="'+area+'" fill="rgba(193,66,106,0.5)" stroke="#d6557a" stroke-width="1"/></svg>';
-      return '<div class="lbl" style="margin:11px 0 5px;font-size:9px;color:var(--text5)">DRAWDOWN · underwater · worst <b style="color:#e24b4a">'+fmtUsd(Math.round(ddMin))+'</b></div>'
-        +'<div style="display:flex;gap:7px;height:78px"><div class="rschart-box" style="flex:1;min-width:0;background:var(--bg1);border-radius:8px;overflow:hidden">'+svg+'</div>'
-        +'<div style="width:54px;min-width:54px;display:flex;flex-direction:column;justify-content:space-between;font-size:8px;color:var(--text5);text-align:right;padding:1px 3px 1px 0"><span>$0</span><span>'+fmtUsd(Math.round(ddMin))+'</span></div></div>';
+      return '<div class="lbl" style="margin:9px 0 5px;font-size:9px;color:var(--text5)">DRAWDOWN · underwater · worst <b style="color:#e24b4a">'+fmtUsd(Math.round(ddMin))+'</b></div>'
+        +'<div style="display:flex;gap:7px;height:92px;min-height:56px;max-height:320px;resize:vertical;overflow:hidden;border-bottom:2px dashed color-mix(in srgb,var(--border) 70%,transparent);padding-bottom:3px"><div class="rschart-box" style="flex:1;min-width:0;background:var(--bg1);border-radius:8px;overflow:hidden">'+svg+'</div>'
+        +'<div style="width:54px;min-width:54px;display:flex;flex-direction:column;justify-content:space-between;font-size:8px;color:var(--text5);text-align:right;padding:1px 3px 13px 0"><span>$0</span><span>'+fmtUsd(Math.round(ddMin))+'</span></div></div>';
     };
     // Monthly P&L bar chart (QuantVue-style): one green/red bar per calendar month, each labelled
     //   with its $ value, on a $ axis. Built from regime.monthly; placed under the 1a equity tile.
@@ -4852,20 +4857,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       (mo.rows||[]).forEach(r=>{(r.months||[]).forEach((vv,mi)=>{if(vv!=null)flat.push({y:r.year,m:mi,v:vv*mlt});});});
       if(flat.length<2)return '';
       const vals=flat.map(f=>f.v),mx=Math.max(0,...vals),mn=Math.min(0,...vals),rg=(mx-mn)||1;
-      const padL=46,padR=8,padT=20,padB=22,bwOuter=Math.max(13,Math.min(34,Math.round(760/flat.length)));
-      const W=padL+padR+flat.length*bwOuter,H=210,plotH=H-padT-padB,Y=v=>padT+(mx-v)/rg*plotH,z=Y(0);
+      const padL=42,padR=6,padT=8,padB=18,bwOuter=Math.max(7,Math.min(26,Math.round(620/flat.length)));
+      const W=padL+padR+flat.length*bwOuter,H=120,plotH=H-padT-padB,Y=v=>padT+(mx-v)/rg*plotH,z=Y(0);
       const _k=v=>{const a=Math.abs(v);return (v<0?'-$':'$')+(a>=1000?(a/1000).toFixed(1)+'k':Math.round(a));};
       const _nice=x=>{x=Math.abs(x)||1;const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
-      const step=_nice(rg/6)||1,gl=[];for(let L=Math.ceil(mn/step)*step;L<=mx+1e-6;L+=step)gl.push(L);
-      const grid=gl.map(L=>{const zl=Math.abs(L)<1e-6;return '<line x1="'+padL+'" y1="'+Y(L).toFixed(1)+'" x2="'+(W-padR)+'" y2="'+Y(L).toFixed(1)+'" stroke="var(--border)" stroke-width="'+(zl?'1':'0.5')+'" opacity="'+(zl?'0.6':'0.2')+'"/><text x="'+(padL-5)+'" y="'+(Y(L)+3).toFixed(1)+'" text-anchor="end" font-size="8" fill="var(--text5)">'+_k(L)+'</text>';}).join('');
+      const step=_nice(rg/5)||1,gl=[];for(let L=Math.ceil(mn/step)*step;L<=mx+1e-6;L+=step)gl.push(L);
+      const grid=gl.map(L=>{const zl=Math.abs(L)<1e-6;return '<line x1="'+padL+'" y1="'+Y(L).toFixed(1)+'" x2="'+(W-padR)+'" y2="'+Y(L).toFixed(1)+'" stroke="var(--border)" stroke-width="'+(zl?'1':'0.5')+'" opacity="'+(zl?'0.6':'0.2')+'"/><text x="'+(padL-4)+'" y="'+(Y(L)+3).toFixed(1)+'" text-anchor="end" font-size="7" fill="var(--text5)">'+_k(L)+'</text>';}).join('');
       let py=null,yrs='';
       const bars=flat.map((f,i)=>{const x=padL+i*bwOuter,h=Math.abs(f.v)/rg*plotH,col=f.v>=0?'#21c179':'#e24b4a',by=f.v>=0?z-h:z;
-        const lbl='<text x="'+(x+bwOuter/2).toFixed(1)+'" y="'+(f.v>=0?(by-2):(by+h+8)).toFixed(1)+'" text-anchor="middle" font-size="6.5" fill="var(--text4)">'+_k(f.v)+'</text>';
-        if(f.y!==py){yrs+='<text x="'+(x+1).toFixed(1)+'" y="'+(H-4)+'" font-size="8" fill="var(--text5)">'+f.y+'</text>';py=f.y;}
-        return '<rect x="'+(x+1.5).toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+(bwOuter-3).toFixed(1)+'" height="'+h.toFixed(1)+'" rx="1" fill="'+col+'" opacity="0.92" style="cursor:pointer" data-tip="'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][f.m]+' '+f.y+' · <b style=&quot;color:'+col+'&quot;>'+_k(f.v)+'</b>"/>'+lbl;}).join('');
+        if(f.y!==py){yrs+='<text x="'+(x+1).toFixed(1)+'" y="'+(H-4)+'" font-size="7" fill="var(--text5)">'+f.y+'</text>';py=f.y;}
+        return '<rect x="'+(x+1).toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+Math.max(1,bwOuter-2).toFixed(1)+'" height="'+h.toFixed(1)+'" rx="0.7" fill="'+col+'" opacity="0.9" style="cursor:pointer" data-tip="'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][f.m]+' '+f.y+' · <b style=&quot;color:'+col+'&quot;>'+_k(f.v)+'</b>"/>';}).join('');
       const tot=vals.reduce((s,v)=>s+v,0),pos=vals.filter(v=>v>0).length;
-      return '<div class="lbl" style="margin:14px 0 6px;font-size:9px;color:var(--text5)">MONTHLY P&amp;L · '+pos+'/'+flat.length+' green · net <b style="color:'+(tot>=0?'var(--green)':'var(--red)')+'">'+_k(tot)+'</b></div>'
-        +'<div class="rschart-box" style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px;overflow-x:auto"><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;min-width:'+Math.min(W,820)+'px;height:auto">'+grid+'<line x1="'+padL+'" y1="'+z.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+z.toFixed(1)+'" stroke="var(--border)"/>'+bars+yrs+'</svg></div>';
+      return '<div class="lbl" style="margin:10px 0 6px;font-size:9px;color:var(--text5)">MONTHLY P&amp;L · '+pos+'/'+flat.length+' green · net <b style="color:'+(tot>=0?'var(--green)':'var(--red)')+'">'+_k(tot)+'</b> <span style="font-weight:400;color:var(--text5)">· hover a bar</span></div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:8px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:auto">'+grid+'<line x1="'+padL+'" y1="'+z.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+z.toFixed(1)+'" stroke="var(--border)"/>'+bars+yrs+'</svg></div>';
     };
     // Shared Auto-Validate report card (verdict + 5 gates + equity curve + lockbox) —
     // used by both the Builder run panel and the Results/Past-Runs detail so they match.
@@ -5072,7 +5076,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    lockbox/MC strip — so the whole at-a-glance story lives in a single chart-led card. ──
       // §1 splits into lettered subsections so each chart/table is individually addressable:
       //   1a = champion + equity graph · 1b = KPI matrix · 1c = walk-forward folds · 1d = regime.
-      let _panelEquity='',_panelMatrix='';
+      let _panelEquity='',_panelMatrix='',_panelDD='';
       if(d.validate){const _V=d.validate,_lb=_V.lockbox||{};
         const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px';
         // Section 1a leads with the equity graph + lockbox strip ONLY. The old
@@ -5086,9 +5090,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +_metaStrip
           +'<div style="margin:9px 0 12px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+(_lb.pass?'var(--green)':'var(--red)')+'">'+(_lb.pass?'HELD':'FAILED')+'</b> · '+fmtUsd(Math.round((_lb.pnl||0)*mlt))+' · PF '+Math.min(_lb.pf||0,99).toFixed(2)+' · '+(_lb.trades||0)+' trades'+(_V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(_V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
           +championEquityHtml(_V,mlt,d.top10_results)
-          +'<div id="res-step-8" style="scroll-margin-top:64px">'+drawdownChartHtml(_V,mlt)+mcHtml+'</div>'
-          +monthlyPnlHtml(d.regime,mlt)
           +'</div>';
+        _panelDD='<div id="res-step-8" style="scroll-margin-top:64px">'+drawdownChartHtml(_V,mlt)+mcHtml+'</div>';
         _panelMatrix='<div style="'+_card+'">'+kpiMatrixHtml(d,mlt)+'</div>';}
       const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span></div>'
         // pinned pills: FULLY transparent (no background, no backdrop-filter) so the row looks
@@ -5141,7 +5144,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="width:auto;padding:4px 6px;font-size:9px;border-radius:6px"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
         +'<button class="btn-ghost" id="det-del" data-del-id="'+d.id+'" style="padding:4px 10px;font-size:var(--fsxs);border:1px solid var(--red);border-radius:6px;color:var(--red)">delete</button></div>'
         +valBannerHtml(d)
-        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',_secOf(1,[(d.validate?_panelEquity:_summaryPanel),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml]))
+        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',_secOf(1,[(d.validate?_panelEquity:_summaryPanel),_panelDD,monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml]))
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         +_sec('3','Plateau','robust params — a cluster, not a lonely spike',_sec3)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4)
