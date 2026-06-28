@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='36.2';
+const VERSION='36.3';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -3308,35 +3308,13 @@ function renderApp(){
     }
     content.appendChild(fd);
 
-    // ─── FILTER BAR ───
-    const fltb=document.createElement('div');
-    fltb.className='section';
-    fltb.style.cssText='margin-bottom:8px;padding:10px 12px';
-    fltb.innerHTML=`
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <span style="font-size:10px;letter-spacing:2px;color:var(--text4);font-weight:bold">FILTERS</span>
-        <button class="btn-d" style="font-size:9px;padding:3px 10px;margin-left:auto" onclick="clearFilters()">✕ CLEAR ALL</button>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px;align-items:end">
-        <div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">SYM</label><input id="fi-sym" value="${filters.sym}" placeholder="ES..." style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 6px;outline:none"/></div>
-        <div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">DIR</label><select id="fi-dir" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 6px"><option value="">ALL</option><option${filters.dir==='LONG'?' selected':''}>LONG</option><option${filters.dir==='SHORT'?' selected':''}>SHORT</option></select></div>
-        <div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">TF</label><select id="fi-tf" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 6px"><option value="">ALL</option>${TIMEFRAMES.map(t=>`<option${t===filters.tf?' selected':''}>${t}</option>`).join('')}</select></div>
-        <div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">SETUP</label><select id="fi-setup" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 6px"><option value="">ALL</option>${customSetups.map(s=>`<option${s===filters.setup?' selected':''}>${s}</option>`).join('')}</select></div>
-        <div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">GRADE</label><select id="fi-grade" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 6px"><option value="">ALL</option>${GRADES.map(g=>`<option${g===filters.grade?' selected':''}>${g}</option>`).join('')}</select></div>
-        <div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">DATE FROM</label><input id="fi-df" type="date" value="${filters.dateFrom}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 6px"/></div>
-        <div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">DATE TO</label><input id="fi-dt" type="date" value="${filters.dateTo}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 6px"/></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px"><div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">MIN $</label><input id="fi-mn" placeholder="-500" value="${filters.minPnl}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 4px"/></div><div><label style="font-size:8px;letter-spacing:1px;color:var(--text5);display:block;margin-bottom:3px">MAX $</label><input id="fi-mx" placeholder="500" value="${filters.maxPnl}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 4px"/></div></div>
-      </div>
-    `;
-    content.appendChild(fltb);
-    setTimeout(()=>{
-      const fmap={sym:'fi-sym',dir:'fi-dir',tf:'fi-tf',grade:'fi-grade',setup:'fi-setup',dateFrom:'fi-df',dateTo:'fi-dt',minPnl:'fi-mn',maxPnl:'fi-mx'};
-      Object.entries(fmap).forEach(([k,id])=>{const inp=el(id);if(!inp)return;inp.addEventListener(inp.tagName==='SELECT'?'change':'input',()=>{filters[k]=inp.value;renderApp();});});
-    },50);
-    
+    // FILTER BAR removed — filters are now embedded in each table column header
+    // (pivot style): a clickable sort label stacked over a compact per-column
+    // filter control. See the thead build + the [data-fil] wiring below.
+
     const cr=document.createElement('div');
     cr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;font-size:var(--fsxs);color:var(--text4)';
-    cr.innerHTML=`<span>${filtered.length} / ${trades.length} trades ${useGross?'<span style="color:var(--yellow)">[GROSS MODE]</span>':''} <span style="color:var(--text5);font-size:var(--fsxs)">sorted by ${sortCol} ${sortDir>0?'▲':'▼'}</span></span><button class="btn-d" style="font-size:var(--fsxs);padding:4px 12px;margin-right:6px" onclick="window.openAllChartsForFiltered()" title="Open chart links for currently filtered trades">📈 OPEN ALL</button><button class="btn-d" style="font-size:var(--fsxs);padding:4px 12px;margin-right:6px" onclick="showAllCols=!showAllCols;renderApp()">${showAllCols?'HIDE EXTRAS':'SHOW MORE'}</button><button class="btn-y" style="margin-left:auto;font-size:var(--fsxs);padding:4px 12px" onclick="scanForDuplicates()">🔍 SCAN DUPLICATES</button>`;
+    cr.innerHTML=`<span>${filtered.length} / ${trades.length} trades ${useGross?'<span style="color:var(--yellow)">[GROSS MODE]</span>':''} <span style="color:var(--text5);font-size:var(--fsxs)">sorted by ${sortCol} ${sortDir>0?'▲':'▼'}</span></span>${Object.values(filters).some(v=>v!=='')?'<span onclick="clearFilters()" title="clear all filters" style="cursor:pointer;color:var(--text5);text-decoration:underline;margin-left:10px;font-size:var(--fsxs)">✕ clear filters</span>':''}<button class="btn-d" style="font-size:var(--fsxs);padding:4px 12px;margin-right:6px" onclick="window.openAllChartsForFiltered()" title="Open chart links for currently filtered trades">📈 OPEN ALL</button><button class="btn-d" style="font-size:var(--fsxs);padding:4px 12px;margin-right:6px" onclick="showAllCols=!showAllCols;renderApp()">${showAllCols?'HIDE EXTRAS':'SHOW MORE'}</button><button class="btn-y" style="margin-left:auto;font-size:var(--fsxs);padding:4px 12px" onclick="scanForDuplicates()">🔍 SCAN DUPLICATES</button>`;
     content.appendChild(cr);
     setTimeout(()=>{},50);
 
@@ -3487,13 +3465,24 @@ function renderApp(){
         </tr>`;
       })(t,i);
       }).join('');
-      const mkTh=(label,col)=>`<th onclick="setSortCol('${col}')" title="Click to sort" style="cursor:pointer;user-select:none">${label}${sortCol===col?(sortDir>0?' ▲':' ▼'):''}</th>`;
+      // ── Pivot headers: a clickable sort label stacked over an embedded per-column
+      //    filter control (the old separate filter bar is gone). Categorical columns get
+      //    a dropdown; DATE gets from/to; NET P&L gets min/max. data-fil is wired below.
+      const _syms=[...new Set(trades.map(t=>t.symbol).filter(Boolean))].sort();
+      const _fb='appearance:none;-webkit-appearance:none;font:inherit;font-size:9px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:transparent;color:var(--text4);outline:none';
+      const _on=';background:var(--bg3);border-color:var(--green);color:var(--text)';
+      const _fsel=(k,opts)=>`<select data-fil="${k}" title="filter ${k}" style="${_fb};cursor:pointer;max-width:78px${filters[k]!==''?_on:''}">${['',...opts].map(o=>`<option value="${String(o).replace(/"/g,'&quot;')}"${String(o)===String(filters[k])?' selected':''}>${o===''?'all':o}</option>`).join('')}</select>`;
+      const _finp=(k,ph,w)=>`<input data-fil="${k}" value="${(filters[k]||'').toString().replace(/"/g,'&quot;')}" placeholder="${ph}" style="${_fb};cursor:text;width:${w||40}px;color:var(--text2)${filters[k]!==''?_on:''}"/>`;
+      const _fdate=(k)=>`<input type="date" data-fil="${k}" value="${filters[k]||''}" title="${k}" style="${_fb};cursor:pointer;font-size:8px;padding:1px 3px;width:104px;color:var(--text3)${filters[k]!==''?_on:''}"/>`;
+      const _psort=(label,col)=>`<span onclick="setSortCol('${col}')" title="sort by ${label}" style="cursor:pointer;user-select:none">${label}${sortCol===col?(sortDir>0?' ▲':' ▼'):''}</span>`;
+      const _pth=(label,col,filt)=>`<th style="vertical-align:top;white-space:nowrap;padding:5px 8px"><div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">${col?_psort(label,col):`<span style="color:var(--text5)">${label}</span>`}${filt||''}</div></th>`;
       tw.innerHTML=`<table style="min-width:900px"><thead><tr>
         <th>#</th>
-        ${mkTh('DATE','date')}<th>IN</th><th>OUT</th><th>DUR</th>${mkTh('SYM','symbol')}${mkTh('DIR','type')}
-        ${mkTh('ENTRY','entry')}${mkTh('EXIT','exit')}${mkTh('PTS','_pts')}${mkTh('CTRS','size')}
-        ${mkTh('GROSS','grossPnl')}${mkTh('FEES','fees')}${mkTh('NET P&L','pnl')}${mkTh('ACCT','_runbal')}<th>ACCT%</th>
-        ${mkTh('GRADE','grade')}${mkTh('SETUP','setup')}${mkTh('TF','timeframe')}
+        ${_pth('DATE','date',_fdate('dateFrom')+_fdate('dateTo'))}<th>IN</th><th>OUT</th><th>DUR</th>
+        ${_pth('SYM','symbol',_fsel('sym',_syms))}${_pth('DIR','type',_fsel('dir',['LONG','SHORT']))}
+        ${_pth('ENTRY','entry')}${_pth('EXIT','exit')}${_pth('PTS','_pts')}${_pth('CTRS','size')}
+        ${_pth('GROSS','grossPnl')}${_pth('FEES','fees')}${_pth('NET P&L','pnl','<div style="display:flex;gap:2px">'+_finp('minPnl','min',38)+_finp('maxPnl','max',38)+'</div>')}${_pth('ACCT','_runbal')}<th>ACCT%</th>
+        ${_pth('GRADE','grade',_fsel('grade',GRADES.filter(g=>g!=='—')))}${_pth('SETUP','setup',_fsel('setup',customSetups.filter(s=>s!=='—')))}${_pth('TF','timeframe',_fsel('tf',TIMEFRAMES))}
         <th>CHART</th><th>TAGS</th><th>NOTES</th>${exH}<th></th><th></th>
       </tr></thead><tbody>${tbody}</tbody></table>`;
       content.appendChild(tw);
@@ -3513,6 +3502,13 @@ function renderApp(){
         _topScroll.onscroll=()=>{if(_lk)return;_lk=true;tw.scrollLeft=_topScroll.scrollLeft;_lk=false;};
         tw.onscroll=()=>{if(_lk)return;_lk=true;_topScroll.scrollLeft=tw.scrollLeft;_lk=false;};
       },60);
+      // Pivot-header filters — each column's embedded select/input writes to `filters`
+      // (change-event, so typing min/max doesn't re-render mid-keystroke) then re-renders.
+      tw.querySelectorAll('[data-fil]').forEach(inp=>{
+        const k=inp.dataset.fil;
+        inp.addEventListener('change',()=>{filters[k]=inp.value;renderApp();});
+        inp.addEventListener('click',e=>e.stopPropagation());
+      });
       // Inline grade/setup changes — save immediately
       tw.querySelectorAll('.inline-sel').forEach(sel=>{
         sel.onchange=async()=>{
