@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='36.0';
+const VERSION='36.1';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -3444,7 +3444,7 @@ function renderApp(){
           <td style="color:var(--yellow);cursor:pointer" onclick="showFeeBreakdown('${t.id}')" title="Click for fee breakdown">${t.fees>0?'-$'+t.fees.toFixed(2):'—'}</td>
           <td style="color:${gch(t.pnl)};font-family:'Bebas Neue',monospace;font-size:14px;white-space:nowrap">${fmt(t.pnl)}</td>
           <td style="font-size:var(--fsxs);white-space:nowrap">
-            <div style="color:var(--text3)">${_runBals[t.id]!=null?'$'+_runBals[t.id].toLocaleString(undefined,{maximumFractionDigits:0}):'—'}</div>
+            <div style="color:var(--text3)">${_runBals[t.id]!=null?'$'+_runBals[t.id].toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</div>
           </td>
           <td style="font-size:var(--fsxs);white-space:nowrap;text-align:right">${(()=>{const bal=_runBals[t.id];if(!bal||!t.pnl)return'<span style="color:var(--text5)">—</span>';const base=bal-t.pnl;const pct=base>0?((t.pnl/base)*100):0;return pct!==0?`<span style="color:${pct>=0?'var(--green)':'var(--red)'}">${pct>=0?'+':''}${pct.toFixed(2)}%</span>`:'<span style="color:var(--text5)">—</span>';})()}</td>
           <!-- INLINE GRADE -->
@@ -3497,6 +3497,22 @@ function renderApp(){
         <th>CHART</th><th>TAGS</th><th>NOTES</th>${exH}<th></th><th></th>
       </tr></thead><tbody>${tbody}</tbody></table>`;
       content.appendChild(tw);
+      // Top horizontal scrollbar, synced to the table — so wide tables (esp. SHOW MORE with the
+      // extra order-ID columns) can be scrolled from the top without scrolling down to reach the
+      // native bottom scrollbar.
+      const _topScroll=document.createElement('div');
+      _topScroll.style.cssText='overflow-x:auto;overflow-y:hidden;margin-bottom:2px';
+      const _topInner=document.createElement('div');_topInner.style.cssText='height:1px';
+      _topScroll.appendChild(_topInner);
+      content.insertBefore(_topScroll,tw);
+      setTimeout(()=>{
+        const _tbl=tw.querySelector('table');if(!_tbl)return;
+        const _sync=()=>{_topInner.style.width=_tbl.scrollWidth+'px';};
+        _sync();
+        let _lk=false;
+        _topScroll.onscroll=()=>{if(_lk)return;_lk=true;tw.scrollLeft=_topScroll.scrollLeft;_lk=false;};
+        tw.onscroll=()=>{if(_lk)return;_lk=true;_topScroll.scrollLeft=tw.scrollLeft;_lk=false;};
+      },60);
       // Inline grade/setup changes — save immediately
       tw.querySelectorAll('.inline-sel').forEach(sel=>{
         sel.onchange=async()=>{
