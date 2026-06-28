@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='35.7';
+const VERSION='35.8';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4642,16 +4642,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const pmx=Math.max.apply(null,points.map(p=>Math.abs(p.pnl)))||1;
       const rnd=v=>Number.isInteger(v)?v:(+v).toFixed(2);
       const pts=points.slice().sort((a,b)=>a.pnl-b.pnl);   // best drawn last (on top)
-      const lines=pts.map(p=>{const dd=axes.map((k,i)=>(i?'L':'M')+ax(i).toFixed(1)+' '+Y(k,k==='pnl'?p.pnl*mult:p[k]).toFixed(1)).join(' ');
+      const lines=pts.map(p=>{const ys=axes.map(k=>Y(k,k==='pnl'?p.pnl*mult:p[k]));
+        const dd=ys.map((y,i)=>(i?'L':'M')+ax(i).toFixed(1)+' '+y.toFixed(1)).join(' ');
         const t=p.pnl/pmx,col=(p.pnl>=0?'rgba(29,158,117,':'rgba(226,75,74,'),op=Math.min(.72,Math.abs(t)*0.6+0.08);
         const tip='net <b style=&quot;color:'+(p.pnl>=0?'#1d9e75':'#e24b4a')+'&quot;>'+fmtUsd(Math.round(p.pnl*mult))+'</b><br>'+keys.map(k=>_pp(k)+' <b>'+rnd(p[k])+'</b>').join(' · ');
-        return '<path class="cfgmark" data-net="'+Math.round(p.pnl*mult)+'" d="'+dd+'" fill="none" stroke="'+col+op+')" stroke-width="1" style="pointer-events:stroke;transition:opacity .12s" data-tip="'+tip+'"/>';}).join('');
+        return '<path class="pcline" data-ys="'+ys.map(y=>y.toFixed(1)).join(',')+'" data-net="'+Math.round(p.pnl*mult)+'" d="'+dd+'" fill="none" stroke="'+col+op+')" stroke-width="1" style="pointer-events:stroke;transition:opacity .12s" data-tip="'+tip+'"/>';}).join('');
       const axled=axes.map((k,i)=>{const x=ax(i);return '<line x1="'+x.toFixed(1)+'" y1="'+padT+'" x2="'+x.toFixed(1)+'" y2="'+(H-padB)+'" stroke="var(--border)" stroke-width="1"/>'
         +'<text x="'+x.toFixed(1)+'" y="'+(H-padB+11)+'" text-anchor="middle" font-size="7" fill="'+(k==='pnl'?'var(--text3)':'var(--text5)')+'">'+(k==='pnl'?'NET $':_pp(k))+'</text>'
         +'<text x="'+x.toFixed(1)+'" y="'+(padT-4)+'" text-anchor="middle" font-size="6" fill="var(--text5)">'+(k==='pnl'?fmtUsd(Math.round(dom[k][1])):rnd(dom[k][1]))+'</text>'
         +'<text x="'+x.toFixed(1)+'" y="'+(H-padB-2)+'" text-anchor="middle" font-size="6" fill="var(--text5)">'+(k==='pnl'?fmtUsd(Math.round(dom[k][0])):rnd(dom[k][0]))+'</text>';}).join('');
-      return '<div class="lbl" style="margin:8px 0 6px">PARALLEL COORDINATES · '+points.length+' configs across every param → net $ <span style="color:var(--text5);font-weight:400">(hover a line)</span></div>'
-        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+lines+axled+'</svg></div>';
+      // BRUSH layer (legacy-AUGUR parcoords): an invisible drag-track over each axis + a
+      //   translucent selection rect the JS shows while you drag. Lines outside any axis brush
+      //   grey out; multiple axis brushes AND together. Wired in the post-render handler below.
+      const brush=axes.map((k,i)=>{const x=ax(i);
+        return '<rect class="pc-track" data-ax="'+i+'" x="'+(x-8).toFixed(1)+'" y="'+padT+'" width="16" height="'+((H-padB)-padT).toFixed(1)+'" fill="transparent" style="cursor:ns-resize"/>'
+          +'<rect class="pc-brush" data-ax="'+i+'" x="'+(x-6).toFixed(1)+'" y="0" width="12" height="0" fill="var(--blue)" fill-opacity="0.2" stroke="var(--blue)" stroke-width="0.6" rx="2" style="display:none;pointer-events:none"/>';}).join('');
+      return '<div class="lbl" style="margin:8px 0 6px">PARALLEL COORDINATES · <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="color:var(--text5);font-weight:400">· drag any axis to brush a range, click an axis to clear</span></div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg class="pcoords-svg" viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+lines+axled+brush+'</svg></div>';
     };
     // WALK-FORWARD IS vs OOS — grouped bars per fold: in-sample champion PnL vs out-of-sample.
     const isOosFoldsHtml=(d,mult)=>{
@@ -5013,7 +5020,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // 3 Plateau / CONFIG ANALYSIS = everything about the searched config space: the top-config
       //   list + their equity + the all-config distribution + neighbour grid + luck + param maps.
       const _sec3=_secOf(3,[
-        _cfgBrushHtml(d.points,mlt),
         _topCfg,
         ((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt):''),
         distPanelHtml(d.dist,mlt),
@@ -5787,6 +5793,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _apply=()=>{const v=+_brush.value;let shown=0;_marks.forEach(m=>{const on=(+m.getAttribute('data-net'))>=v;if(on)shown++;m.style.opacity=on?(m.tagName.toLowerCase()==='circle'?'0.6':''):'0.05';m.style.pointerEvents=on?'':'none';});
           const cfg=Math.round(shown/_inst);if(_cut)_cut.textContent='cut ≥ '+fmtUsd(v);if(_cn){_cn.textContent=cfg+' / '+_total+' configs shown';_cn.style.color=cfg?'var(--green)':'var(--text5)';}};
         _brush.addEventListener('input',_apply);}
+      // PARALLEL-COORDINATES axis brushing (legacy-AUGUR parcoords): drag a range on any axis
+      //   to keep only the config-lines passing through it; brushes on multiple axes AND together;
+      //   click an axis (no drag) clears it. Pure DOM — no re-render, no state save.
+      content.querySelectorAll('.pcoords-svg').forEach(svg=>{
+        const lines=[...svg.querySelectorAll('.pcline')],total=lines.length,cnt=content.querySelector('.pc-count'),brushes={};
+        const vbY=cy=>{const ctm=svg.getScreenCTM();if(!ctm)return 0;const pt=svg.createSVGPoint();pt.x=0;pt.y=cy;return pt.matrixTransform(ctm.inverse()).y;};
+        const apply=()=>{const ks=Object.keys(brushes);let shown=0;
+          lines.forEach(ln=>{const ys=(ln.getAttribute('data-ys')||'').split(',').map(Number);let ok=true;
+            for(const k of ks){const b=brushes[k];if(!(ys[+k]>=b[0]&&ys[+k]<=b[1])){ok=false;break;}}
+            ln.style.opacity=ok?'':'0.04';ln.style.pointerEvents=ok?'stroke':'none';if(ok)shown++;});
+          if(cnt)cnt.textContent=ks.length?(shown+' / '+total+' configs · brushed'):(total+' configs');};
+        svg.querySelectorAll('.pc-track').forEach(tr=>{const axi=tr.getAttribute('data-ax'),br=svg.querySelector('.pc-brush[data-ax="'+axi+'"]');
+          tr.addEventListener('pointerdown',e=>{e.preventDefault();const y0=vbY(e.clientY);let moved=false;
+            const mv=ev=>{const y=vbY(ev.clientY),a=Math.min(y0,y),b=Math.max(y0,y);if(b-a>1)moved=true;brushes[axi]=[a,b];br.setAttribute('y',a.toFixed(1));br.setAttribute('height',(b-a).toFixed(1));br.style.display='';apply();};
+            const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);if(!moved){delete brushes[axi];br.style.display='none';apply();}};
+            window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});});
+      });
       // checklist pills <-> report sections. Scroll the WINDOW with an offset for the
       // sticky .topbar so the target heading isn't hidden behind it. Pills jump down to
       // a section; clicking a section heading jumps back up to the pills.
