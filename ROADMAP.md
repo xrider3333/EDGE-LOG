@@ -2,7 +2,7 @@
 
 Single source of truth for what's done and what's next. `CLAUDE.md` holds durable
 context/conventions and points here; `docs/` holds reference (architecture, go-live).
-Newest/priority items near the top of each section. Status as of **index.html v35.4**.
+Newest/priority items near the top of each section. Status as of **index.html v36.0**.
 
 The big picture (see `docs/EDGELOG_PORT_PLAN.md` for the phased detail): port the entire
 AUGUR optimizer (`optimizer.py`, Streamlit) into the EDGELOG website, with compute on the
@@ -125,6 +125,14 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v36.0** (2026-06-27) Account balance is now **live / auto-derived** instead of a static
+  field. `accountEquity` is treated as the STARTING balance and the shown balance =
+  starting + cumulative net P&L (new helpers `totalNetPnl()` / `liveBalance()`). Settings field
+  relabeled **CURRENT BALANCE** — entering a value back-solves the start
+  (`accountEquity = entered − ΣP&L`) so it reads correct immediately and then tracks every new
+  trade; equity-chart footer shows live **BALANCE**. Deposits/withdrawals still fold in via the
+  existing ledger (they raise `accountEquity`). Migration: a stored "current" equity should be
+  re-saved once (or set `el_equity = current − ΣP&L`).
 - **v35.4** (2026-06-27) Reference tab rebuilt (ES/NQ-only instruments + the 10-method
   VALIDATION METHODOLOGY moved here from Research); Research → walk-forward-studies placeholder;
   Settings launcher name fixed to `EdgeLog.bat`. Results: dropped the "Results View" header row

@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='35.9';
+const VERSION='36.0';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -579,6 +579,12 @@ function calcPnl(sym,type,entry,exit,size,fees){
 }
 function stdDev(arr){if(arr.length<2)return 0;const m=arr.reduce((a,b)=>a+b,0)/arr.length;return Math.sqrt(arr.reduce((s,v)=>s+(v-m)**2,0)/(arr.length-1));}
 function tradeCalc(sym,type,entry,exit,size,fees){const r=calcPnl(sym,type,entry,exit,size,fees);return{grossPnl:r.gross,pnl:r.net,fees:fees||0};}
+// ── Live account balance ──────────────────────────────────────────
+// accountEquity is the STARTING balance (balance before the first logged
+// trade; deposits/withdrawals fold into it via the ledger). The live balance
+// derives automatically so it tracks every trade's P&L.
+function totalNetPnl(){return (typeof trades!=='undefined'&&trades.length)?+trades.reduce((s,t)=>s+(t.pnl||0),0).toFixed(2):0;}
+function liveBalance(){return +(((accountEquity||0)+totalNetPnl())).toFixed(2);}
 
 // pnlVal = which value to use for win/loss decisions
 function pnlVal(t){return useGross?(t.grossPnl||t.pnl):t.pnl;}
@@ -3026,7 +3032,7 @@ function renderApp(){
         <span style="color:var(--text4)">R:R <span style="color:${S.rr>=1.5?'var(--green)':S.rr>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.rr.toFixed(2)}R</span></span>
         <span style="color:var(--text4)">RECOVERY <span style="color:${S.recovery>=2?'var(--green)':S.recovery>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.recovery.toFixed(2)}×</span></span>
         <span style="color:var(--text4)">SHARPE <span style="color:${S.sharpe>=1?'var(--green)':S.sharpe>=0?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.sharpe.toFixed(2)}</span></span>
-        ${accountEquity>0?`<span style="color:var(--text4)">ACCT EQUITY <span style="color:var(--blue);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">$${accountEquity.toLocaleString()}</span></span>`:''}
+        ${accountEquity>0?`<span style="color:var(--text4)">BALANCE <span style="color:var(--blue);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Starting balance + cumulative net P&L (live)">$${liveBalance().toLocaleString()}</span></span>`:''}
       </div>
     </div>
 
@@ -5927,13 +5933,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
 
     <!-- ACCOUNT EQUITY -->
     <div class="section" style="margin-bottom:12px">
-      <div class="sec-hd">ACCOUNT EQUITY</div>
+      <div class="sec-hd">ACCOUNT BALANCE</div>
       <div style="padding:14px">
-        <div style="font-size:var(--fsm);color:var(--text4);margin-bottom:10px;line-height:1.8">Your current account balance. Used to calculate position size as % of account on each trade. Auto-detected from Cash History CSV or enter manually.</div>
-        <div style="display:flex;gap:10px;align-items:flex-end">
-          <div style="width:200px"><label class="lbl">ACCOUNT BALANCE ($)</label><input type="number" id="acct-equity-input" value="${accountEquity||''}" placeholder="50000" step="100"/></div>
+        <div style="font-size:var(--fsm);color:var(--text4);margin-bottom:10px;line-height:1.8">Your account balance now <b style="color:var(--text2)">updates automatically</b> with each trade's P&amp;L. Enter your <b>current</b> balance once — EDGELOG stores the implied starting balance and tracks forward from there. (Deposits/withdrawals fold in via the ledger; also used to size each trade as % of account.)</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+          <div style="width:200px"><label class="lbl">CURRENT BALANCE ($)</label><input type="number" id="acct-equity-input" value="${accountEquity>0?liveBalance():''}" placeholder="50000" step="100"/></div>
           <button class="btn-g" id="save-equity">SET</button>
-          ${accountEquity>0?`<span style="font-size:var(--fsxs);color:var(--green)">Current: $${accountEquity.toLocaleString()}</span>`:''}
+          ${accountEquity>0?`<span style="font-size:var(--fsxs);color:var(--text4)">Live <span style="color:var(--green);font-family:'Bebas Neue',monospace;font-size:13px">$${liveBalance().toLocaleString()}</span> = start $${accountEquity.toLocaleString()} ${totalNetPnl()>=0?'+':'−'} $${Math.abs(totalNetPnl()).toLocaleString()} P&amp;L</span>`:''}
         </div>
       </div>
     </div>
@@ -5987,7 +5993,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(el('reset-setups-btn'))el('reset-setups-btn').onclick=()=>{customSetups=[...DEFAULT_SETUPS];localStorage.setItem('el_setups',JSON.stringify(customSetups));renderApp();};
       if(el('add-tag-btn'))el('add-tag-btn').onclick=()=>{const v=(el('new-tag-inp')?.value||'').trim();if(v&&!customTags.includes(v)){customTags.push(v);localStorage.setItem('el_tags',JSON.stringify(customTags));renderApp();}};
       if(el('new-tag-inp'))el('new-tag-inp').onkeydown=e=>{if(e.key==='Enter')el('add-tag-btn').click();};
-      if(el('save-equity'))el('save-equity').onclick=()=>{const v=parseFloat(el('acct-equity-input')?.value||'0');if(v>0){accountEquity=v;localStorage.setItem('el_equity',v);renderApp();}};
+      if(el('save-equity'))el('save-equity').onclick=()=>{const v=parseFloat(el('acct-equity-input')?.value||'0');if(v>0){accountEquity=+(v-totalNetPnl()).toFixed(2);localStorage.setItem('el_equity',accountEquity);renderApp();}};
       if(el('save-acct-info'))el('save-acct-info').onclick=()=>{
         const aid=(el('acct-id-input')?.value||'').trim();
         const brk=(el('broker-input')?.value||'').trim();
