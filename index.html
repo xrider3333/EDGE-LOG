@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='36.7';
+const VERSION='36.8';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4810,21 +4810,31 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+EH+'" stroke="#a78bfa" stroke-width="1.3" stroke-dasharray="4,3"/>'
         +'<path d="'+seg(0,li+1)+'" fill="none" stroke="var(--green)" stroke-width="1.6"/>'
         +'<path d="'+seg(li,eq.length)+'" fill="none" stroke="#a78bfa" stroke-width="1.6"/></svg>';
+      // Fused DRAWDOWN pane — underwater area UNDER the equity, sharing the exact same x-axis.
+      let _ddPk=eq[0];const ddSeries=eq.map(v=>{if(v>_ddPk)_ddPk=v;return v-_ddPk;});
+      const ddMin=Math.min.apply(null,ddSeries)||-1,DDH=60,ddY=v=>2+(v/(ddMin||-1))*(DDH-4);
+      const ddArea='M '+X(0).toFixed(1)+' 2 '+ddSeries.map((v,i)=>'L '+X(i).toFixed(1)+' '+ddY(v).toFixed(1)).join(' ')+' L '+X(eq.length-1).toFixed(1)+' 2 Z';
+      const ddSvg='<svg width="100%" height="100%" viewBox="0 0 '+EW+' '+DDH+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%;border-radius:8px;background:var(--bg1)"><line x1="0" y1="2" x2="'+EW+'" y2="2" stroke="var(--border)" stroke-width="0.6"/><line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+DDH+'" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/><path d="'+ddArea+'" fill="rgba(193,66,106,0.5)" stroke="#d6557a" stroke-width="1"/></svg>';
       // y-axis ($ PnL) labels on the RIGHT, one per gridline. Positioned by PERCENT of the plot
       //   height (not px) so they stay aligned when the chart is dragged taller (see eq-rs resize).
       const yLabels='<div style="width:54px;min-width:54px;height:100%;display:flex;flex-direction:column;font-size:8px;color:var(--text5)">'
-        +'<div style="position:relative;flex:1;min-height:0">'
+        +'<div style="position:relative;flex:3.2;min-height:0">'
         +_lvls.map(L=>'<span style="position:absolute;left:3px;top:calc('+(Y(L)/EH*100).toFixed(2)+'% - 5px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtUsd(Math.round(L))+'</span>').join('')
-        +'</div><div style="height:12px;color:var(--text4)">PnL $</div></div>';
+        +'</div>'
+        +'<div style="height:11px"></div>'
+        +'<div style="position:relative;flex:1;min-height:0;font-size:7px"><span style="position:absolute;left:3px;top:0">$0</span><span style="position:absolute;left:3px;bottom:0;color:#d6557a">'+fmtUsd(Math.round(ddMin))+'</span></div>'
+        +'<div style="height:12px;color:var(--text4)">PnL $</div></div>';
       // RESIZE: the chart sits in a vertically-resizable box (drag the grip at its lower edge to
       //   make it taller). The SVG fills the box (preserveAspectRatio=none → gridlines & curve scale
       //   vertically), the date axis stays a fixed 12px strip at the bottom, and the y-labels scale
       //   by percent — so everything stays aligned at any height.
-      return '<div style="margin:13px 0 5px"><div style="font-weight:700;font-size:11px;color:var(--text2)">Champion equity curve <span style="font-weight:400;color:var(--text5);font-size:9px">· best config · 1 contract</span></div><div style="font-size:8px;color:var(--text5);margin-top:1px">chronological — <span style="color:var(--green)">in-sample</span> + walk-forward, then the <span style="color:#a78bfa">lockbox</span> holdout (drag the chart\'s lower edge ↕ to make it taller)</div></div>'
-        +'<div id="eq-rs" style="display:flex;gap:7px;height:210px;min-height:130px;max-height:640px;resize:vertical;overflow:hidden;border-bottom:2px dashed color-mix(in srgb,var(--border) 70%,transparent);padding-bottom:3px">'
+      return '<div style="margin:13px 0 5px"><div style="font-weight:700;font-size:11px;color:var(--text2)">Champion equity + drawdown <span style="font-weight:400;color:var(--text5);font-size:9px">· best config · 1 contract</span></div><div style="font-size:8px;color:var(--text5);margin-top:1px">chronological — <span style="color:var(--green)">in-sample</span> + walk-forward, then the <span style="color:#a78bfa">lockbox</span> holdout · <span style="color:#d6557a">underwater drawdown</span> below (drag the lower edge ↕ to resize)</div></div>'
+        +'<div id="eq-rs" style="display:flex;gap:7px;height:250px;min-height:150px;max-height:700px;resize:vertical;overflow:hidden;border-bottom:2px dashed color-mix(in srgb,var(--border) 70%,transparent);padding-bottom:3px">'
         +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;height:100%;position:relative">'
         +anno
-        +'<div style="flex:1;min-height:0">'+svg+'</div>'
+        +'<div style="flex:3.2;min-height:0">'+svg+'</div>'
+        +'<div style="height:11px;display:flex;align-items:center;font-size:7px;color:#d6557a;letter-spacing:.5px">DRAWDOWN</div>'
+        +'<div style="flex:1;min-height:0">'+ddSvg+'</div>'
         +'<div style="height:12px">'+dateAxis+'</div></div>'
         +yLabels+'</div>';
     };
@@ -5076,7 +5086,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    lockbox/MC strip — so the whole at-a-glance story lives in a single chart-led card. ──
       // §1 splits into lettered subsections so each chart/table is individually addressable:
       //   1a = champion + equity graph · 1b = KPI matrix · 1c = walk-forward folds · 1d = regime.
-      let _panelEquity='',_panelMatrix='',_panelDD='';
+      let _panelEquity='',_panelMatrix='';
       if(d.validate){const _V=d.validate,_lb=_V.lockbox||{};
         const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px';
         // Section 1a leads with the equity graph + lockbox strip ONLY. The old
@@ -5090,8 +5100,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +_metaStrip
           +'<div style="margin:9px 0 12px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+(_lb.pass?'var(--green)':'var(--red)')+'">'+(_lb.pass?'HELD':'FAILED')+'</b> · '+fmtUsd(Math.round((_lb.pnl||0)*mlt))+' · PF '+Math.min(_lb.pf||0,99).toFixed(2)+' · '+(_lb.trades||0)+' trades'+(_V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(_V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
           +championEquityHtml(_V,mlt,d.top10_results)
+          +'<div id="res-step-8" style="scroll-margin-top:64px">'+mcHtml+'</div>'
           +'</div>';
-        _panelDD='<div id="res-step-8" style="scroll-margin-top:64px">'+drawdownChartHtml(_V,mlt)+mcHtml+'</div>';
         _panelMatrix='<div style="'+_card+'">'+kpiMatrixHtml(d,mlt)+'</div>';}
       const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span></div>'
         // pinned pills: FULLY transparent (no background, no backdrop-filter) so the row looks
@@ -5144,7 +5154,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="width:auto;padding:4px 6px;font-size:9px;border-radius:6px"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
         +'<button class="btn-ghost" id="det-del" data-del-id="'+d.id+'" style="padding:4px 10px;font-size:var(--fsxs);border:1px solid var(--red);border-radius:6px;color:var(--red)">delete</button></div>'
         +valBannerHtml(d)
-        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',_secOf(1,[(d.validate?_panelEquity:_summaryPanel),_panelDD,monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml]))
+        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',_secOf(1,[(d.validate?_panelEquity:_summaryPanel),monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml]))
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         +_sec('3','Plateau','robust params — a cluster, not a lonely spike',_sec3)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4)
