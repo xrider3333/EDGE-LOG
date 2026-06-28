@@ -283,7 +283,7 @@ button{cursor:pointer;font-family:'JetBrains Mono',monospace;border:none;transit
 .tag{font-size:var(--fsxs);letter-spacing:1px;padding:1px 7px;background:var(--bg2);color:var(--text3);border:1px solid var(--border2)}
 .tr-row:hover{background:var(--bg2)}
 .topbar{background:color-mix(in srgb,var(--bg) 85%,var(--bg1));border-bottom:1px solid var(--border);display:flex;align-items:stretch;padding:0 16px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
-.content{padding:calc(var(--pad)*1.5) calc(var(--pad)*1.75);max-width:1440px;margin:0 auto}
+.content{padding:calc(var(--pad)*1.5) calc(var(--pad)*1.75);max-width:2400px;margin:0 auto}
 table{width:100%;border-collapse:collapse;font-size:var(--fsm)}
 th{padding:7px 9px;text-align:left;color:var(--text3);font-weight:normal;font-size:var(--fsxs);letter-spacing:2px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--bg2);cursor:pointer}
 th:hover{color:var(--text2)}
@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='37.3';
+const VERSION='37.4';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -3202,22 +3202,19 @@ function renderApp(){
       const totalDeposits=ledgerEvents.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
       const totalWithdrawals=ledgerEvents.filter(e=>e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
       const lb=document.createElement('div');
-      lb.className='section';lb.style.marginBottom='10px';
-      lb.innerHTML=`<div class="sec-hd">
-        <span>ACCOUNT LEDGER · DEPOSITS / WITHDRAWALS</span>
-        <span style="display:flex;gap:14px;font-size:var(--fsxs)">
-          <span style="color:var(--text4)">DEPOSITS <span style="color:var(--green)">+$${totalDeposits.toLocaleString()}</span></span>
-          ${totalWithdrawals>0?`<span style="color:var(--text4)">WITHDRAWALS <span style="color:var(--red)">-$${totalWithdrawals.toLocaleString()}</span></span>`:''}
-          <span style="color:var(--text4)">NET DEPOSITED <span style="color:var(--blue)">$${(totalDeposits-totalWithdrawals).toLocaleString()}</span></span>
-        </span>
-      </div>
-      <div style="padding:8px 14px;display:flex;flex-wrap:wrap;gap:6px">
-        ${ledgerEvents.map((ev,i)=>`<div style="background:var(--bg3);border:1px solid ${ev.amount>0?'color-mix(in srgb,var(--green) 25%,transparent)':'color-mix(in srgb,var(--red) 25%,transparent)'};padding:5px 10px;display:flex;align-items:center;gap:8px">
-          <span style="font-size:var(--fsxs);color:var(--text4)">${ev.date}</span>
-          <span style="font-family:'Bebas Neue',monospace;font-size:14px;color:${ev.amount>0?'var(--green)':'var(--red)'}">${ev.amount>0?'+':''}$${Math.abs(ev.amount).toFixed(2)}</span>
-          <span style="font-size:8px;color:var(--text5);text-transform:uppercase">${ev.type||'DEPOSIT'}</span>
-          <button onclick="removeLedgerEvent(${i})" style="background:none;border:none;color:var(--text5);cursor:pointer;font-size:11px;padding:0 2px">✕</button>
-        </div>`).join('')}
+      lb.className='section';lb.style.marginBottom='8px';
+      // Single compact wrapping row: label · totals · deposit chips — keeps the ledger short.
+      lb.innerHTML=`<div style="display:flex;align-items:center;flex-wrap:wrap;gap:7px 12px;padding:6px 12px;font-size:var(--fsxs)">
+        <span style="letter-spacing:1.5px;color:var(--text4)">LEDGER</span>
+        <span style="color:var(--text4)">DEP <span style="color:var(--green)">+$${totalDeposits.toLocaleString()}</span></span>
+        ${totalWithdrawals>0?`<span style="color:var(--text4)">WD <span style="color:var(--red)">-$${totalWithdrawals.toLocaleString()}</span></span>`:''}
+        <span style="color:var(--text4)">NET <span style="color:var(--blue)">$${(totalDeposits-totalWithdrawals).toLocaleString()}</span></span>
+        <span style="width:1px;height:13px;background:var(--border)"></span>
+        ${ledgerEvents.map((ev,i)=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid ${ev.amount>0?'color-mix(in srgb,var(--green) 25%,transparent)':'color-mix(in srgb,var(--red) 25%,transparent)'};padding:2px 8px">
+          <span style="color:var(--text5)">${ev.date}</span>
+          <span style="font-family:'Bebas Neue',monospace;font-size:13px;color:${ev.amount>0?'var(--green)':'var(--red)'}">${ev.amount>0?'+':''}$${Math.abs(ev.amount).toFixed(2)}</span>
+          <span onclick="removeLedgerEvent(${i})" title="remove" style="cursor:pointer;color:var(--text5);font-weight:bold">✕</span>
+        </span>`).join('')}
       </div>`;
       content.appendChild(lb);
     }
@@ -3232,9 +3229,9 @@ function renderApp(){
         ${Object.values(filters).some(v=>v!=='')?'<span onclick="clearFilters()" title="clear all filters" style="cursor:pointer;color:var(--text5);text-decoration:underline">✕ clear filters</span>':''}
       </span>
       <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <button class="btn-g" style="font-size:var(--fsxs);padding:5px 12px" onclick="formOpen=!formOpen;renderApp()">${formOpen?'▲ NEW TRADE':'＋ NEW TRADE'}</button>
+        <button class="btn-d" style="font-size:var(--fsxs);padding:5px 12px" onclick="formOpen=!formOpen;renderApp()">${formOpen?'▲ NEW TRADE':'＋ NEW TRADE'}</button>
         <button class="btn-d" style="font-size:var(--fsxs);padding:5px 12px" onclick="addLedgerEvent()">＋ ADD DEPOSIT</button>
-        <button class="btn-y" style="font-size:var(--fsxs);padding:5px 12px" onclick="scanForDuplicates()">🔍 SCAN DUPLICATES</button>
+        <button class="btn-d" style="font-size:var(--fsxs);padding:5px 12px" onclick="scanForDuplicates()">🔍 SCAN DUPLICATES</button>
         <button class="btn-d" style="font-size:var(--fsxs);padding:5px 12px" onclick="window.openAllChartsForFiltered()" title="Open chart links for currently filtered trades">📈 OPEN ALL</button>
         <button class="btn-d" style="font-size:var(--fsxs);padding:5px 12px" onclick="showAllCols=!showAllCols;renderApp()">${showAllCols?'HIDE EXTRAS':'SHOW MORE'}</button>
       </span>`;
@@ -3493,7 +3490,7 @@ function renderApp(){
         const menu=open?`<div class="thmenu" style="position:fixed;left:-9999px;top:0;z-index:2000;background:var(--bg1);border:1px solid var(--border2);border-radius:7px;box-shadow:0 8px 26px rgba(0,0,0,.5);min-width:150px;padding:4px 0;font-weight:400;text-align:left">${_sortRows(col)}${filtBody||''}</div>`:'';
         return `<th data-thcol="${col}" style="white-space:nowrap;padding:7px 10px"><span class="thh" onclick="event.stopPropagation();toggleThMenu('${col}')" title="click to sort / filter" style="cursor:pointer;user-select:none">${label}${mark} <span style="color:var(--text5);font-size:8px">▾</span></span>${menu}</th>`;
       };
-      tw.innerHTML=`<style>#trd-tbl thead th{position:sticky;top:0;z-index:6;background:var(--bg2);font-size:var(--fsm);letter-spacing:1px;color:var(--text2)}#trd-tbl tbody td{font-size:var(--fsm)}</style><table id="trd-tbl" style="min-width:900px"><thead><tr>
+      tw.innerHTML=`<style>#trd-tbl thead th{position:sticky;top:0;z-index:6;background:var(--bg2);font-size:var(--fsm);letter-spacing:1px;color:var(--text2)}#trd-tbl tbody td{font-size:var(--fss)}</style><table id="trd-tbl" style="min-width:900px"><thead><tr>
         <th>#</th>
         ${_th('DATE','date',_fDates('dateFrom','dateTo'))}<th>IN</th><th>OUT</th><th>DUR</th>
         ${_th('SYM','symbol',_fList('sym',_syms))}${_th('DIR','type',_fList('dir',['LONG','SHORT']))}
