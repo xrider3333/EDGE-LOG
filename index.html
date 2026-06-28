@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='36.3';
+const VERSION='36.4';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -1968,6 +1968,11 @@ function removeLedgerEvent(idx){
 }
 function removeCustomTag(idx){customTags.splice(idx,1);localStorage.setItem('el_tags',JSON.stringify(customTags));renderApp();}
 function setSortCol(col){if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=col==='date'?-1:-1;}renderApp();}
+// Excel/Sheets-style column header menu: the header shows just text; clicking opens a
+// dropdown with sort + filter. Only one menu open at a time (window._thMenu = its col).
+function setSort(col,dir){sortCol=col;sortDir=dir;window._thMenu=null;renderApp();}
+function setFilt(k,v){filters[k]=v;window._thMenu=null;renderApp();}
+function toggleThMenu(col){window._thMenu=(window._thMenu===col?null:col);renderApp();}
 
 // ── AI Summary — client-side engine (always works) + Claude API ──
 
@@ -3465,24 +3470,34 @@ function renderApp(){
         </tr>`;
       })(t,i);
       }).join('');
-      // ── Pivot headers: a clickable sort label stacked over an embedded per-column
-      //    filter control (the old separate filter bar is gone). Categorical columns get
-      //    a dropdown; DATE gets from/to; NET P&L gets min/max. data-fil is wired below.
+      // ── Excel/Sheets-style headers: each header shows just its name; clicking it opens a
+      //    dropdown with Sort ▲/▼ + (where applicable) a Filter. No filter boxes are shown by
+      //    default. The menu is position:fixed (placed via JS after append) so the table's
+      //    horizontal-scroll overflow can't clip it. window._thMenu = the open column.
       const _syms=[...new Set(trades.map(t=>t.symbol).filter(Boolean))].sort();
-      const _fb='appearance:none;-webkit-appearance:none;font:inherit;font-size:9px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:transparent;color:var(--text4);outline:none';
-      const _on=';background:var(--bg3);border-color:var(--green);color:var(--text)';
-      const _fsel=(k,opts)=>`<select data-fil="${k}" title="filter ${k}" style="${_fb};cursor:pointer;max-width:78px${filters[k]!==''?_on:''}">${['',...opts].map(o=>`<option value="${String(o).replace(/"/g,'&quot;')}"${String(o)===String(filters[k])?' selected':''}>${o===''?'all':o}</option>`).join('')}</select>`;
-      const _finp=(k,ph,w)=>`<input data-fil="${k}" value="${(filters[k]||'').toString().replace(/"/g,'&quot;')}" placeholder="${ph}" style="${_fb};cursor:text;width:${w||40}px;color:var(--text2)${filters[k]!==''?_on:''}"/>`;
-      const _fdate=(k)=>`<input type="date" data-fil="${k}" value="${filters[k]||''}" title="${k}" style="${_fb};cursor:pointer;font-size:8px;padding:1px 3px;width:104px;color:var(--text3)${filters[k]!==''?_on:''}"/>`;
-      const _psort=(label,col)=>`<span onclick="setSortCol('${col}')" title="sort by ${label}" style="cursor:pointer;user-select:none">${label}${sortCol===col?(sortDir>0?' ▲':' ▼'):''}</span>`;
-      const _pth=(label,col,filt)=>`<th style="vertical-align:top;white-space:nowrap;padding:5px 8px"><div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">${col?_psort(label,col):`<span style="color:var(--text5)">${label}</span>`}${filt||''}</div></th>`;
+      const _mi='padding:5px 12px;cursor:pointer;font-size:10px;white-space:nowrap;color:var(--text3)';
+      const _hv=`onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='transparent'"`;
+      const _fcols={date:['dateFrom','dateTo'],pnl:['minPnl','maxPnl'],symbol:['sym'],type:['dir'],grade:['grade'],setup:['setup'],timeframe:['tf']};
+      const _isFilt=col=>(_fcols[col]||[]).some(k=>filters[k]!=='');
+      const _sep='<div style="height:1px;background:var(--border);margin:3px 0"></div>';
+      const _flbl='<div style="font-size:8px;letter-spacing:1px;color:var(--text5);padding:4px 12px 2px">FILTER</div>';
+      const _sortRows=col=>`<div style="${_mi}" ${_hv} onclick="event.stopPropagation();setSort('${col}',1)">▲&nbsp;&nbsp;Sort ascending</div><div style="${_mi}" ${_hv} onclick="event.stopPropagation();setSort('${col}',-1)">▼&nbsp;&nbsp;Sort descending</div>`;
+      const _fList=(k,opts)=>_sep+_flbl+'<div style="max-height:188px;overflow:auto">'+[['','(all)']].concat(opts.map(o=>[o,o])).map(([v,lbl])=>`<div data-v="${String(v).replace(/"/g,'&quot;')}" style="${_mi};color:${String(v)===String(filters[k])?'var(--green)':'var(--text3)'}" ${_hv} onclick="event.stopPropagation();setFilt('${k}',this.dataset.v)">${String(v)===String(filters[k])?'✓ ':'   '}${lbl}</div>`).join('')+'</div>';
+      const _fRange=(kmin,kmax)=>_sep+_flbl+`<div style="display:flex;gap:5px;padding:4px 12px 8px" onclick="event.stopPropagation()"><input data-fil="${kmin}" value="${(filters[kmin]||'').toString().replace(/"/g,'&quot;')}" placeholder="min $" style="width:60px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font:inherit;font-size:10px;padding:3px 5px;outline:none"/><input data-fil="${kmax}" value="${(filters[kmax]||'').toString().replace(/"/g,'&quot;')}" placeholder="max $" style="width:60px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font:inherit;font-size:10px;padding:3px 5px;outline:none"/></div>`;
+      const _fDates=(kf,kt)=>_sep+_flbl+`<div style="display:flex;flex-direction:column;gap:5px;padding:4px 12px 8px" onclick="event.stopPropagation()"><input type="date" data-fil="${kf}" value="${filters[kf]||''}" title="from" style="background:var(--bg3);border:1px solid var(--border);color:var(--text3);font:inherit;font-size:10px;padding:3px 5px;outline:none"/><input type="date" data-fil="${kt}" value="${filters[kt]||''}" title="to" style="background:var(--bg3);border:1px solid var(--border);color:var(--text3);font:inherit;font-size:10px;padding:3px 5px;outline:none"/></div>`;
+      const _th=(label,col,filtBody)=>{
+        const open=window._thMenu===col;
+        const mark=(sortCol===col?(sortDir>0?' ▲':' ▼'):'')+(filtBody&&_isFilt(col)?' <span style="color:var(--green)">●</span>':'');
+        const menu=open?`<div class="thmenu" style="position:fixed;left:-9999px;top:0;z-index:2000;background:var(--bg1);border:1px solid var(--border2);border-radius:7px;box-shadow:0 8px 26px rgba(0,0,0,.5);min-width:150px;padding:4px 0;font-weight:400;text-align:left">${_sortRows(col)}${filtBody||''}</div>`:'';
+        return `<th data-thcol="${col}" style="white-space:nowrap;padding:7px 10px"><span class="thh" onclick="event.stopPropagation();toggleThMenu('${col}')" title="click to sort / filter" style="cursor:pointer;user-select:none">${label}${mark} <span style="color:var(--text5);font-size:8px">▾</span></span>${menu}</th>`;
+      };
       tw.innerHTML=`<table style="min-width:900px"><thead><tr>
         <th>#</th>
-        ${_pth('DATE','date',_fdate('dateFrom')+_fdate('dateTo'))}<th>IN</th><th>OUT</th><th>DUR</th>
-        ${_pth('SYM','symbol',_fsel('sym',_syms))}${_pth('DIR','type',_fsel('dir',['LONG','SHORT']))}
-        ${_pth('ENTRY','entry')}${_pth('EXIT','exit')}${_pth('PTS','_pts')}${_pth('CTRS','size')}
-        ${_pth('GROSS','grossPnl')}${_pth('FEES','fees')}${_pth('NET P&L','pnl','<div style="display:flex;gap:2px">'+_finp('minPnl','min',38)+_finp('maxPnl','max',38)+'</div>')}${_pth('ACCT','_runbal')}<th>ACCT%</th>
-        ${_pth('GRADE','grade',_fsel('grade',GRADES.filter(g=>g!=='—')))}${_pth('SETUP','setup',_fsel('setup',customSetups.filter(s=>s!=='—')))}${_pth('TF','timeframe',_fsel('tf',TIMEFRAMES))}
+        ${_th('DATE','date',_fDates('dateFrom','dateTo'))}<th>IN</th><th>OUT</th><th>DUR</th>
+        ${_th('SYM','symbol',_fList('sym',_syms))}${_th('DIR','type',_fList('dir',['LONG','SHORT']))}
+        ${_th('ENTRY','entry')}${_th('EXIT','exit')}${_th('PTS','_pts')}${_th('CTRS','size')}
+        ${_th('GROSS','grossPnl')}${_th('FEES','fees')}${_th('NET P&L','pnl',_fRange('minPnl','maxPnl'))}${_th('ACCT','_runbal')}<th>ACCT%</th>
+        ${_th('GRADE','grade',_fList('grade',GRADES.filter(g=>g!=='—')))}${_th('SETUP','setup',_fList('setup',customSetups.filter(s=>s!=='—')))}${_th('TF','timeframe',_fList('tf',TIMEFRAMES))}
         <th>CHART</th><th>TAGS</th><th>NOTES</th>${exH}<th></th><th></th>
       </tr></thead><tbody>${tbody}</tbody></table>`;
       content.appendChild(tw);
@@ -3502,13 +3517,26 @@ function renderApp(){
         _topScroll.onscroll=()=>{if(_lk)return;_lk=true;tw.scrollLeft=_topScroll.scrollLeft;_lk=false;};
         tw.onscroll=()=>{if(_lk)return;_lk=true;_topScroll.scrollLeft=tw.scrollLeft;_lk=false;};
       },60);
-      // Pivot-header filters — each column's embedded select/input writes to `filters`
-      // (change-event, so typing min/max doesn't re-render mid-keystroke) then re-renders.
-      tw.querySelectorAll('[data-fil]').forEach(inp=>{
+      // Header menu: position the open one (fixed → not clipped by the table overflow),
+      // wire its filter inputs (change-event, so min/max don't re-render mid-keystroke), and
+      // close it on an outside mousedown.
+      if(window._thMenu){
+        const _hdr=tw.querySelector('[data-thcol="'+window._thMenu+'"]');
+        const _menu=tw.querySelector('.thmenu');
+        if(_hdr&&_menu){const r=_hdr.getBoundingClientRect();const mw=_menu.offsetWidth||152;let l=r.left;if(l+mw>window.innerWidth-8)l=window.innerWidth-mw-8;_menu.style.left=Math.max(6,l)+'px';_menu.style.top=(r.bottom+2)+'px';}
+      }
+      tw.querySelectorAll('.thmenu [data-fil]').forEach(inp=>{
         const k=inp.dataset.fil;
         inp.addEventListener('change',()=>{filters[k]=inp.value;renderApp();});
-        inp.addEventListener('click',e=>e.stopPropagation());
       });
+      if(!window._thMenuOutside){
+        window._thMenuOutside=true;
+        document.addEventListener('mousedown',(e)=>{
+          if(window._thMenu==null)return;
+          if(e.target.closest&&(e.target.closest('.thmenu')||e.target.closest('.thh')))return;
+          window._thMenu=null;renderApp();
+        });
+      }
       // Inline grade/setup changes — save immediately
       tw.querySelectorAll('.inline-sel').forEach(sel=>{
         sel.onchange=async()=>{
