@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='36.4';
+const VERSION='36.5';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -3325,7 +3325,7 @@ function renderApp(){
 
     if(!filtered.length){const e=document.createElement('div');e.style.cssText='border:1px dashed var(--border);padding:48px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px';e.textContent=trades.length?'NO TRADES MATCH FILTER':'NO TRADES YET';content.appendChild(e);}
     else{
-      const tw=document.createElement('div');tw.className='section';tw.style.overflowX='auto';
+      const tw=document.createElement('div');tw.className='section';tw.style.cssText='overflow:auto;max-height:72vh';
       const exH=showAllCols?'<th>ACCT</th><th>BROKER</th><th>BUY ORD</th><th>SELL ORD</th><th>BUY FILL</th><th>SELL FILL</th><th>POS ID</th><th>PAIR ID</th><th>SRC</th>':'';
       // Apply sort
       const sortedFiltered=[...filtered].sort((a,b)=>{
@@ -3491,7 +3491,7 @@ function renderApp(){
         const menu=open?`<div class="thmenu" style="position:fixed;left:-9999px;top:0;z-index:2000;background:var(--bg1);border:1px solid var(--border2);border-radius:7px;box-shadow:0 8px 26px rgba(0,0,0,.5);min-width:150px;padding:4px 0;font-weight:400;text-align:left">${_sortRows(col)}${filtBody||''}</div>`:'';
         return `<th data-thcol="${col}" style="white-space:nowrap;padding:7px 10px"><span class="thh" onclick="event.stopPropagation();toggleThMenu('${col}')" title="click to sort / filter" style="cursor:pointer;user-select:none">${label}${mark} <span style="color:var(--text5);font-size:8px">▾</span></span>${menu}</th>`;
       };
-      tw.innerHTML=`<table style="min-width:900px"><thead><tr>
+      tw.innerHTML=`<style>#trd-tbl thead th{position:sticky;top:0;z-index:6;background:var(--bg2)}</style><table id="trd-tbl" style="min-width:900px"><thead><tr>
         <th>#</th>
         ${_th('DATE','date',_fDates('dateFrom','dateTo'))}<th>IN</th><th>OUT</th><th>DUR</th>
         ${_th('SYM','symbol',_fList('sym',_syms))}${_th('DIR','type',_fList('dir',['LONG','SHORT']))}
@@ -3517,18 +3517,23 @@ function renderApp(){
         _topScroll.onscroll=()=>{if(_lk)return;_lk=true;tw.scrollLeft=_topScroll.scrollLeft;_lk=false;};
         tw.onscroll=()=>{if(_lk)return;_lk=true;_topScroll.scrollLeft=tw.scrollLeft;_lk=false;};
       },60);
-      // Header menu: position the open one (fixed → not clipped by the table overflow),
-      // wire its filter inputs (change-event, so min/max don't re-render mid-keystroke), and
-      // close it on an outside mousedown.
+      // Place the open header menu directly under its header. Move it to <body> and position it
+      // with requestAnimationFrame (after layout): this escapes BOTH the table's scroll-overflow
+      // clip AND any transformed/blurred theme ancestor (which was offsetting position:fixed and
+      // landing the menu mid-screen). Filter inputs are wired after the move.
+      const _stale=document.getElementById('_thFloatMenu'); if(_stale)_stale.remove();
       if(window._thMenu){
-        const _hdr=tw.querySelector('[data-thcol="'+window._thMenu+'"]');
-        const _menu=tw.querySelector('.thmenu');
-        if(_hdr&&_menu){const r=_hdr.getBoundingClientRect();const mw=_menu.offsetWidth||152;let l=r.left;if(l+mw>window.innerWidth-8)l=window.innerWidth-mw-8;_menu.style.left=Math.max(6,l)+'px';_menu.style.top=(r.bottom+2)+'px';}
+        requestAnimationFrame(()=>{
+          const _hdr=tw.querySelector('[data-thcol="'+window._thMenu+'"]');
+          const _menu=tw.querySelector('.thmenu');
+          if(!_hdr||!_menu)return;
+          _menu.id='_thFloatMenu'; document.body.appendChild(_menu);
+          const r=_hdr.getBoundingClientRect(); const mw=_menu.offsetWidth||152;
+          let l=r.left; if(l+mw>window.innerWidth-8) l=window.innerWidth-mw-8;
+          _menu.style.left=Math.max(6,l)+'px'; _menu.style.top=(r.bottom+2)+'px';
+          _menu.querySelectorAll('[data-fil]').forEach(inp=>{const k=inp.dataset.fil;inp.addEventListener('change',()=>{filters[k]=inp.value;renderApp();});});
+        });
       }
-      tw.querySelectorAll('.thmenu [data-fil]').forEach(inp=>{
-        const k=inp.dataset.fil;
-        inp.addEventListener('change',()=>{filters[k]=inp.value;renderApp();});
-      });
       if(!window._thMenuOutside){
         window._thMenuOutside=true;
         document.addEventListener('mousedown',(e)=>{
