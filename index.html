@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='37.1';
+const VERSION='37.2';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4856,8 +4856,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(f.y!==py){yrs+='<text x="'+(x+1).toFixed(1)+'" y="'+(H-4)+'" font-size="7" fill="var(--text5)">'+f.y+'</text>';py=f.y;}
         return '<rect x="'+(x+1).toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+Math.max(1,bwOuter-2).toFixed(1)+'" height="'+h.toFixed(1)+'" rx="0.7" fill="'+col+'" opacity="0.9" style="cursor:pointer" data-tip="'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][f.m]+' '+f.y+' · <b style=&quot;color:'+col+'&quot;>'+_k(f.v)+'</b>"/>';}).join('');
       const tot=vals.reduce((s,v)=>s+v,0),pos=vals.filter(v=>v>0).length;
-      return '<div class="lbl" style="margin:10px 0 6px;font-size:9px;color:var(--text5)">MONTHLY P&amp;L · '+pos+'/'+flat.length+' green · net <b style="color:'+(tot>=0?'var(--green)':'var(--red)')+'">'+_k(tot)+'</b> <span style="font-weight:400;color:var(--text5)">· hover a bar</span></div>'
-        +'<div style="background:var(--bg2);border-radius:8px;padding:8px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:auto">'+grid+'<line x1="'+padL+'" y1="'+z.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+z.toFixed(1)+'" stroke="var(--border)"/>'+bars+yrs+'</svg></div>';
+      return '<div class="lbl" style="margin:0 0 4px;font-size:9px;color:var(--text5)">MONTHLY P&amp;L · '+pos+'/'+flat.length+' green · net <b style="color:'+(tot>=0?'var(--green)':'var(--red)')+'">'+_k(tot)+'</b> <span style="font-weight:400;color:var(--text5)">· hover a bar</span></div>'
+        +'<div style="padding:2px 0 0"><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:auto">'+grid+'<line x1="'+padL+'" y1="'+z.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+z.toFixed(1)+'" stroke="var(--border)"/>'+bars+yrs+'</svg></div>';
     };
     // Shared Auto-Validate report card (verdict + 5 gates + equity curve + lockbox) —
     // used by both the Builder run panel and the Results/Past-Runs detail so they match.
@@ -5078,6 +5078,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +_metaStrip
           +'<div style="margin:9px 0 12px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+(_lb.pass?'var(--green)':'var(--red)')+'">'+(_lb.pass?'HELD':'FAILED')+'</b> · '+fmtUsd(Math.round((_lb.pnl||0)*mlt))+' · PF '+Math.min(_lb.pf||0,99).toFixed(2)+' · '+(_lb.trades||0)+' trades'+(_V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(_V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
           +'<div id="res-step-8" style="scroll-margin-top:64px">'+championEquityHtml(_V,mlt,d.top10_results)+'</div>'
+          +((mo=>mo?'<div style="display:flex;gap:9px;margin:6px 0 0"><span style="flex:0 0 auto;font-size:9px;font-weight:800;color:var(--text5);min-width:22px;letter-spacing:.5px;padding-top:1px">1b</span><div style="flex:1 1 0;min-width:0">'+mo+'</div></div>':'')(monthlyPnlHtml(d.regime,mlt)))
           +'</div>';
         _panelMatrix='<div style="'+_card+'">'+kpiMatrixHtml(d,mlt)+'</div>';}
       const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span></div>'
@@ -5094,7 +5095,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   a section is individually addressable; each panel keeps its own proper title. Empty drop.
       const _sub=(tag,html)=>(html&&html.replace(/\s/g,''))?'<div style="display:flex;gap:9px;margin:4px 0 14px"><span style="flex:0 0 auto;font-size:9px;font-weight:800;color:var(--text5);min-width:22px;letter-spacing:.5px;padding-top:1px">'+tag+'</span><div style="flex:1 1 0;min-width:0">'+html+'</div></div>':'';
       // auto-letter the non-empty panels of a section (2a,2b,2c…) so dropping a panel leaves no gap.
-      const _secOf=(n,arr)=>arr.filter(h=>h&&h.replace(/\s/g,'')).map((h,i)=>_sub(n+String.fromCharCode(97+i),h)).join('');
+      const _secOf=(n,arr,off)=>arr.filter(h=>h&&h.replace(/\s/g,'')).map((h,i)=>_sub(n+String.fromCharCode(97+i+(off||0)),h)).join('');
       // 2 In-sample = the CHAMPION (metrics, trade-level behaviour, top configs). The whole-run
       //   equity is shown ONLY when there's no Auto-Validate chart 1 — chart 1 already plots the
       //   champion equity split IS vs lockbox, so this avoids two near-identical equity curves.
@@ -5131,7 +5132,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="width:auto;padding:4px 6px;font-size:9px;border-radius:6px"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
         +'<button class="btn-ghost" id="det-del" data-del-id="'+d.id+'" style="padding:4px 10px;font-size:var(--fsxs);border:1px solid var(--red);border-radius:6px;color:var(--red)">delete</button></div>'
         +valBannerHtml(d)
-        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',_secOf(1,[(d.validate?_panelEquity:_summaryPanel),monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml]))
+        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',(d.validate?(_secOf(1,[_panelEquity])+_secOf(1,[(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml],2)):_secOf(1,[_summaryPanel,monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml])))
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         +_sec('3','Plateau','robust params — a cluster, not a lonely spike',_sec3)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4)
