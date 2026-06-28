@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='37.2';
+const VERSION='37.3';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -3218,23 +3218,31 @@ function renderApp(){
           <span style="font-size:8px;color:var(--text5);text-transform:uppercase">${ev.type||'DEPOSIT'}</span>
           <button onclick="removeLedgerEvent(${i})" style="background:none;border:none;color:var(--text5);cursor:pointer;font-size:11px;padding:0 2px">✕</button>
         </div>`).join('')}
-        <button class="btn-d" style="font-size:var(--fsxs);padding:4px 10px" onclick="addLedgerEvent()">＋ ADD DEPOSIT</button>
       </div>`;
       content.appendChild(lb);
-    } else {
-      // No ledger yet — show a simple "add deposit" prompt
-      const lb=document.createElement('div');
-      lb.style.cssText='margin-bottom:10px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center';
-      lb.innerHTML=`<div style="font-size:var(--fsxs);color:var(--text4)">📊 No deposits tracked yet. Add your initial deposit to track account growth properly.</div>
-        <button class="btn-d" style="font-size:var(--fsxs);padding:4px 10px" onclick="addLedgerEvent()">＋ ADD DEPOSIT</button>`;
-      content.appendChild(lb);
     }
-    // Add form
-    const fd=document.createElement('div');fd.className='section';fd.style.marginBottom='12px';
-    const fhd=document.createElement('div');fhd.className='sec-hd';fhd.style.cursor='pointer';
-    fhd.innerHTML=`<span style="color:var(--green)">＋ NEW TRADE</span><span style="color:var(--text5)">${formOpen?'▲':'▼'}</span>`;
-    fhd.onclick=()=>{formOpen=!formOpen;renderApp();};fd.appendChild(fhd);
+    // ── Unified action toolbar (sits between the sub-tab and the trades tile):
+    //    NEW TRADE · ADD DEPOSIT · SCAN DUPLICATES · OPEN ALL · SHOW MORE on the right,
+    //    with the trade count / sort / clear-filters on the left. Replaces the old
+    //    stacked rows (standalone NEW TRADE header + separate count/actions row).
+    const cr=document.createElement('div');
+    cr.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:var(--fsxs);color:var(--text4)';
+    cr.innerHTML=`<span style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span>${filtered.length} / ${trades.length} trades ${useGross?'<span style="color:var(--yellow)">[GROSS MODE]</span>':''} <span style="color:var(--text5)">sorted by ${sortCol} ${sortDir>0?'▲':'▼'}</span></span>
+        ${Object.values(filters).some(v=>v!=='')?'<span onclick="clearFilters()" title="clear all filters" style="cursor:pointer;color:var(--text5);text-decoration:underline">✕ clear filters</span>':''}
+      </span>
+      <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <button class="btn-g" style="font-size:var(--fsxs);padding:5px 12px" onclick="formOpen=!formOpen;renderApp()">${formOpen?'▲ NEW TRADE':'＋ NEW TRADE'}</button>
+        <button class="btn-d" style="font-size:var(--fsxs);padding:5px 12px" onclick="addLedgerEvent()">＋ ADD DEPOSIT</button>
+        <button class="btn-y" style="font-size:var(--fsxs);padding:5px 12px" onclick="scanForDuplicates()">🔍 SCAN DUPLICATES</button>
+        <button class="btn-d" style="font-size:var(--fsxs);padding:5px 12px" onclick="window.openAllChartsForFiltered()" title="Open chart links for currently filtered trades">📈 OPEN ALL</button>
+        <button class="btn-d" style="font-size:var(--fsxs);padding:5px 12px" onclick="showAllCols=!showAllCols;renderApp()">${showAllCols?'HIDE EXTRAS':'SHOW MORE'}</button>
+      </span>`;
+    content.appendChild(cr);
+    // ── New-trade form — toggled by the toolbar's NEW TRADE button; rendered in place
+    //    beneath the toolbar so it expands above the table.
     if(formOpen){
+      const fd=document.createElement('div');fd.className='section';fd.style.marginBottom='12px';
       const fb=document.createElement('div');fb.style.padding='14px';
       fb.innerHTML=`
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:7px">
@@ -3310,18 +3318,9 @@ function renderApp(){
           if(el('nfprev'))el('nfprev').innerHTML='';
         };
       },50);
+      content.appendChild(fd);
     }
-    content.appendChild(fd);
-
-    // FILTER BAR removed — filters are now embedded in each table column header
-    // (pivot style): a clickable sort label stacked over a compact per-column
-    // filter control. See the thead build + the [data-fil] wiring below.
-
-    const cr=document.createElement('div');
-    cr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;font-size:var(--fsxs);color:var(--text4)';
-    cr.innerHTML=`<span>${filtered.length} / ${trades.length} trades ${useGross?'<span style="color:var(--yellow)">[GROSS MODE]</span>':''} <span style="color:var(--text5);font-size:var(--fsxs)">sorted by ${sortCol} ${sortDir>0?'▲':'▼'}</span></span>${Object.values(filters).some(v=>v!=='')?'<span onclick="clearFilters()" title="clear all filters" style="cursor:pointer;color:var(--text5);text-decoration:underline;margin-left:10px;font-size:var(--fsxs)">✕ clear filters</span>':''}<button class="btn-d" style="font-size:var(--fsxs);padding:4px 12px;margin-right:6px" onclick="window.openAllChartsForFiltered()" title="Open chart links for currently filtered trades">📈 OPEN ALL</button><button class="btn-d" style="font-size:var(--fsxs);padding:4px 12px;margin-right:6px" onclick="showAllCols=!showAllCols;renderApp()">${showAllCols?'HIDE EXTRAS':'SHOW MORE'}</button><button class="btn-y" style="margin-left:auto;font-size:var(--fsxs);padding:4px 12px" onclick="scanForDuplicates()">🔍 SCAN DUPLICATES</button>`;
-    content.appendChild(cr);
-    setTimeout(()=>{},50);
+    // (toolbar + count/sort/clear built above; per-column pivot filters live in the thead below)
 
     if(!filtered.length){const e=document.createElement('div');e.style.cssText='border:1px dashed var(--border);padding:48px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px';e.textContent=trades.length?'NO TRADES MATCH FILTER':'NO TRADES YET';content.appendChild(e);}
     else{
@@ -3408,14 +3407,17 @@ function renderApp(){
           </tr>`;
         }
         return ((t,i)=>{
-        const _idCell=(v)=>`<td style="color:var(--text5);font-size:var(--fsxs);max-width:90px;overflow:hidden;text-overflow:ellipsis" title="${v||''}">${v||'—'}</td>`;
-        const ex=showAllCols?`<td style="font-size:9px;color:var(--text3)">${t.account||'—'}</td><td style="font-size:9px;color:var(--text3)">${t.broker||'—'}</td>${_idCell(t.buyOrderId)}${_idCell(t.sellOrderId)}${_idCell(t.buyFillId)}${_idCell(t.sellFillId)}${_idCell(t.positionId)}${_idCell(t.pairId)}<td style="color:var(--text5);font-size:var(--fsxs)">${t.source||''}</td>`:'';
+        // IDs are long — show only the last 4 chars (full value on hover) so the columns
+        // stay narrow and the row's text size stays consistent with the rest of the table.
+        const _id4=(v)=>{v=(v==null?'':String(v));return v?'…'+v.slice(-4):'—';};
+        const _idCell=(v)=>`<td style="color:var(--text5);white-space:nowrap" title="${(v==null?'':String(v)).replace(/"/g,'&quot;')}">${_id4(v)}</td>`;
+        const ex=showAllCols?`<td style="color:var(--text3)">${t.account||'—'}</td><td style="color:var(--text3)">${t.broker||'—'}</td>${_idCell(t.buyOrderId)}${_idCell(t.sellOrderId)}${_idCell(t.buyFillId)}${_idCell(t.sellFillId)}${_idCell(t.positionId)}${_idCell(t.pairId)}<td style="color:var(--text5)" title="${(t.source||'').replace(/"/g,'&quot;')}">${t.source||''}</td>`:'';
         return`<tr class="tr-row" data-id="${t.id}">
           <td style="color:var(--text5)">${String(sortedFiltered.length-(_tradeIdxMap.get(t.id)??0)).padStart(2,'0')}</td>
           <td style="color:var(--text4);white-space:nowrap">${t.date}</td>
-          <td style="color:var(--text4);font-size:var(--fsxs);white-space:nowrap">${t.entryTime||'—'}</td>
-          <td style="color:var(--text4);font-size:var(--fsxs);white-space:nowrap">${t.exitTime||'—'}</td>
-          <td style="color:var(--text4);font-size:var(--fsxs);white-space:nowrap">${fmtDur(t.durationMins)}</td>
+          <td style="color:var(--text4);white-space:nowrap">${t.entryTime||'—'}</td>
+          <td style="color:var(--text4);white-space:nowrap">${t.exitTime||'—'}</td>
+          <td style="color:var(--text4);white-space:nowrap">${fmtDur(t.durationMins)}</td>
           <td style="color:var(--text);font-weight:bold">${t.symbol}<span style="font-size:8px;color:var(--text5);margin-left:2px">${isFut(t.symbol)?'':'S'}</span></td>
           <td style="color:${t.type==='LONG'?'var(--green)':'var(--blue)'}">${t.type}</td>
           <td>${t.entry}</td><td>${t.exit}</td>
@@ -3426,10 +3428,10 @@ function renderApp(){
           <td style="color:${gch(t.grossPnl||t.pnl)};white-space:nowrap;font-family:'Bebas Neue',monospace;font-size:13px;opacity:.85">${fmt(t.grossPnl||t.pnl)}</td>
           <td style="color:var(--yellow);cursor:pointer" onclick="showFeeBreakdown('${t.id}')" title="Click for fee breakdown">${t.fees>0?'-$'+t.fees.toFixed(2):'—'}</td>
           <td style="color:${gch(t.pnl)};font-family:'Bebas Neue',monospace;font-size:14px;white-space:nowrap">${fmt(t.pnl)}</td>
-          <td style="font-size:var(--fsxs);white-space:nowrap">
+          <td style="white-space:nowrap">
             <div style="color:var(--text3)">${_runBals[t.id]!=null?'$'+_runBals[t.id].toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</div>
           </td>
-          <td style="font-size:var(--fsxs);white-space:nowrap;text-align:right">${(()=>{const bal=_runBals[t.id];if(!bal||!t.pnl)return'<span style="color:var(--text5)">—</span>';const base=bal-t.pnl;const pct=base>0?((t.pnl/base)*100):0;return pct!==0?`<span style="color:${pct>=0?'var(--green)':'var(--red)'}">${pct>=0?'+':''}${pct.toFixed(2)}%</span>`:'<span style="color:var(--text5)">—</span>';})()}</td>
+          <td style="white-space:nowrap;text-align:right">${(()=>{const bal=_runBals[t.id];if(!bal||!t.pnl)return'<span style="color:var(--text5)">—</span>';const base=bal-t.pnl;const pct=base>0?((t.pnl/base)*100):0;return pct!==0?`<span style="color:${pct>=0?'var(--green)':'var(--red)'}">${pct>=0?'+':''}${pct.toFixed(2)}%</span>`:'<span style="color:var(--text5)">—</span>';})()}</td>
           <!-- INLINE GRADE -->
           <td><select class="inline-sel" data-field="grade" data-id="${t.id}">
             ${GRADES.map(g=>`<option${g===(t.grade||'—')?' selected':''}>${g}</option>`).join('')}
@@ -3462,7 +3464,7 @@ function renderApp(){
             </div>
           </td>
           <td style="max-width:260px;padding:4px 9px">
-            <input class="inline-txt" data-field="notes" data-id="${t.id}" value="${(t.notes||'').replace(/"/g,'&quot;')}" placeholder="notes..." style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:var(--fsxs);width:100%;padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--green)'" onblur="this.style.borderBottomColor='transparent';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()"/>
+            <input class="inline-txt" data-field="notes" data-id="${t.id}" value="${(t.notes||'').replace(/"/g,'&quot;')}" placeholder="notes..." style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:var(--fsm);width:100%;padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--green)'" onblur="this.style.borderBottomColor='transparent';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()"/>
           </td>
           ${ex}
           <td><button class="edit-btn" data-id="${t.id}">✎</button></td>
@@ -3491,7 +3493,7 @@ function renderApp(){
         const menu=open?`<div class="thmenu" style="position:fixed;left:-9999px;top:0;z-index:2000;background:var(--bg1);border:1px solid var(--border2);border-radius:7px;box-shadow:0 8px 26px rgba(0,0,0,.5);min-width:150px;padding:4px 0;font-weight:400;text-align:left">${_sortRows(col)}${filtBody||''}</div>`:'';
         return `<th data-thcol="${col}" style="white-space:nowrap;padding:7px 10px"><span class="thh" onclick="event.stopPropagation();toggleThMenu('${col}')" title="click to sort / filter" style="cursor:pointer;user-select:none">${label}${mark} <span style="color:var(--text5);font-size:8px">▾</span></span>${menu}</th>`;
       };
-      tw.innerHTML=`<style>#trd-tbl thead th{position:sticky;top:0;z-index:6;background:var(--bg2)}</style><table id="trd-tbl" style="min-width:900px"><thead><tr>
+      tw.innerHTML=`<style>#trd-tbl thead th{position:sticky;top:0;z-index:6;background:var(--bg2);font-size:var(--fsm);letter-spacing:1px;color:var(--text2)}#trd-tbl tbody td{font-size:var(--fsm)}</style><table id="trd-tbl" style="min-width:900px"><thead><tr>
         <th>#</th>
         ${_th('DATE','date',_fDates('dateFrom','dateTo'))}<th>IN</th><th>OUT</th><th>DUR</th>
         ${_th('SYM','symbol',_fList('sym',_syms))}${_th('DIR','type',_fList('dir',['LONG','SHORT']))}
