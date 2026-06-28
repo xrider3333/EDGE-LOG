@@ -118,6 +118,13 @@ Update `ROADMAP.md` as work ships; keep this file for durable context/convention
   staged.** A second Claude session may be committing to this same repo/working tree
   concurrently (e.g. the trades-table work that jumped 36.0→36.5) — fetch-first avoids
   version clashes and clobbering its in-flight edits.
+  **Multi-session protocol (shared working tree):** `git add` ONLY the specific file(s) you
+  changed — never `git add -A` / `git add .` (it sweeps in another session's files). Before
+  committing, `git diff` your file; if it carries uncommitted edits you did NOT make (another
+  agent mid-task on a different feature in the SAME file), do NOT commit — you'd bundle and
+  maybe ship its half-finished work. Wait for it to commit/push, then `git pull` and rebuild
+  on top. Different tabs/features rarely touch the same code, but they share `index.html` and
+  the `VERSION` line, so always verify your diff before pushing.
 - **Keyless-AI doctrine** (the documented AUGUR convention): prefer a file-handoff through
   the Claude Code session over direct paid-CLI spend. NOTE: `make_pine`/`review_pine`
   currently call the provider directly (qwen/claude-cli/anthropic) — this is the open
