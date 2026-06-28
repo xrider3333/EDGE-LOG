@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='35.5';
+const VERSION='35.6';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -5523,7 +5523,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const rVH=Math.min(520,Math.max(120,APREF.splitV||300));
         const tbl='<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}'
           +'.fhsel{appearance:none;-webkit-appearance:none;background:transparent;border:none;cursor:pointer;font:inherit;color:inherit;letter-spacing:inherit;padding:6px 8px;max-width:118px;text-overflow:ellipsis}'
-          +'.fhsel:hover{color:var(--text);text-decoration:underline}.fhsel.on{color:var(--text);text-decoration:underline}</style>'
+          +'.fhsel:hover{color:var(--text);text-decoration:underline}.fhsel.on{color:var(--text);text-decoration:underline}'
+          +'.fhsel option{background:var(--bg2);color:var(--text);letter-spacing:normal;font-weight:400}</style>'
           +'<div id="res-listscroll" style="overflow:auto;max-height:'+(rv==='side'?'68vh':rVH+'px')+'">'
           +'<table class="table" style="font-size:var(--fsxs)"><thead><tr><th style="text-align:center;vertical-align:bottom" title="show starred only"><span data-rfstar style="cursor:pointer;user-select:none;font-size:12px;color:'+(fStar?'var(--yellow)':'var(--text5)')+'">'+(fStar?'★':'☆')+'</span></th>'
           +sh('id','RUN','right')+sh('date','DATE','left')+fh('STRATEGY','rfStrat',fStrat,_strats.map(f=>[f,stratInfo(f).label]))+fh('MODE',(_scopes.length>1?'rfScope':''),fScope,_scopes.map(s=>[s,s.slice(0,16)]))+fh('MARKET',(_insts.length>1?'rfInst':''),fInst,_insts.map(i=>[i,i]))+fh('TF',(_tfs.length>1?'rfTf':''),fTf,_tfs.map(t=>[t,t]))+'<th style="text-align:center;vertical-align:bottom">EQUITY</th>'
