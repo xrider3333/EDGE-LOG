@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='36.8';
+const VERSION='36.9';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4838,28 +4838,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="height:12px">'+dateAxis+'</div></div>'
         +yLabels+'</div>';
     };
-    // Underwater drawdown chart — peak-to-trough of the champion equity, aligned UNDER the curve
-    //   (same chronological x-mapping + flex layout as championEquityHtml). QuantVue-style red fill.
-    const drawdownChartHtml=(V,mlt)=>{
-      const eq=(V.equity||[]).map(x=>x*mlt);if(eq.length<=2)return '';
-      let peak=eq[0];const dd=eq.map(v=>{if(v>peak)peak=v;return v-peak;});
-      const ddMin=Math.min.apply(null,dd);if(!(ddMin<0))return '';
-      const Wd=V.windows||{optimize:['','']},li=V.lb_idx||eq.length;
-      const _of=(Wd.optimize&&Wd.optimize[0])||'',_ot=(Wd.optimize&&Wd.optimize[1])||'',_lf=(Wd.lockbox&&Wd.lockbox[0])||'',_lt=(Wd.lockbox&&Wd.lockbox[1])||'';
-      const optS=_of?+new Date(_of):null,optE=_ot?+new Date(_ot):null,lbS=_lf?+new Date(_lf):null,lbE=_lt?+new Date(_lt):null;
-      const EW=600,DH=70,pd=6,timeOk=!!(optS&&optE&&lbS&&lbE&&lbE>optS),T0=timeOk?optS:0,T1=timeOk?lbE:(eq.length-1);
-      const tAt=i=>{if(!timeOk)return i;if(i<li){const f=(li>1)?(i/(li-1)):0;return optS+f*(optE-optS);}const k=(eq.length-1-li);const f=(k>0)?((i-li)/k):0;return lbS+f*(lbE-lbS);};
-      const X=i=>pd+(EW-2*pd)*((tAt(i)-T0)/((T1-T0)||1)),Y=v=>2+(v/ddMin)*(DH-4);
-      const bx=timeOk?(pd+(EW-2*pd)*((lbS-T0)/((T1-T0)||1))):(pd+(EW-2*pd)*Math.min(li,eq.length-1)/(eq.length-1));
-      const area='M '+X(0).toFixed(1)+' 2 '+dd.map((v,i)=>'L '+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join(' ')+' L '+X(eq.length-1).toFixed(1)+' 2 Z';
-      const svg='<svg viewBox="0 0 '+EW+' '+DH+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%">'
-        +'<line x1="0" y1="2" x2="'+EW+'" y2="2" stroke="var(--border)" stroke-width="0.6"/>'
-        +'<line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+DH+'" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/>'
-        +'<path d="'+area+'" fill="rgba(193,66,106,0.5)" stroke="#d6557a" stroke-width="1"/></svg>';
-      return '<div class="lbl" style="margin:9px 0 5px;font-size:9px;color:var(--text5)">DRAWDOWN · underwater · worst <b style="color:#e24b4a">'+fmtUsd(Math.round(ddMin))+'</b></div>'
-        +'<div style="display:flex;gap:7px;height:92px;min-height:56px;max-height:320px;resize:vertical;overflow:hidden;border-bottom:2px dashed color-mix(in srgb,var(--border) 70%,transparent);padding-bottom:3px"><div class="rschart-box" style="flex:1;min-width:0;background:var(--bg1);border-radius:8px;overflow:hidden">'+svg+'</div>'
-        +'<div style="width:54px;min-width:54px;display:flex;flex-direction:column;justify-content:space-between;font-size:8px;color:var(--text5);text-align:right;padding:1px 3px 13px 0"><span>$0</span><span>'+fmtUsd(Math.round(ddMin))+'</span></div></div>';
-    };
     // Monthly P&L bar chart (QuantVue-style): one green/red bar per calendar month, each labelled
     //   with its $ value, on a $ axis. Built from regime.monthly; placed under the 1a equity tile.
     const monthlyPnlHtml=(regime,mlt)=>{
@@ -5099,8 +5077,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:9px"><span class="lbl" style="font-size:12px;letter-spacing:1.5px">CHAMPION EQUITY</span></div>'
           +_metaStrip
           +'<div style="margin:9px 0 12px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+(_lb.pass?'var(--green)':'var(--red)')+'">'+(_lb.pass?'HELD':'FAILED')+'</b> · '+fmtUsd(Math.round((_lb.pnl||0)*mlt))+' · PF '+Math.min(_lb.pf||0,99).toFixed(2)+' · '+(_lb.trades||0)+' trades'+(_V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(_V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
-          +championEquityHtml(_V,mlt,d.top10_results)
-          +'<div id="res-step-8" style="scroll-margin-top:64px">'+mcHtml+'</div>'
+          +'<div id="res-step-8" style="scroll-margin-top:64px">'+championEquityHtml(_V,mlt,d.top10_results)+'</div>'
           +'</div>';
         _panelMatrix='<div style="'+_card+'">'+kpiMatrixHtml(d,mlt)+'</div>';}
       const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span></div>'
