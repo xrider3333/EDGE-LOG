@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='36.5';
+const VERSION='36.6';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4823,6 +4823,50 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +yLabels+'</div>'
         +'<div style="display:flex;gap:11px;flex-wrap:wrap;font-size:8px;color:var(--text5);margin-top:4px"><span style="color:var(--green)">● in-sample (optimized '+(_of?_mdy(optS):'start')+'→'+(_ot?_mdy(optE):'')+')</span>'+wfNote+'<span style="color:#a78bfa">● lockbox = OOS · last '+W.lockbox_months+'mo, never seen</span><span style="color:var(--text5);margin-left:auto">↕ drag lower edge to resize</span></div>';
     };
+    // Underwater drawdown chart — peak-to-trough of the champion equity, aligned UNDER the curve
+    //   (same chronological x-mapping + flex layout as championEquityHtml). QuantVue-style red fill.
+    const drawdownChartHtml=(V,mlt)=>{
+      const eq=(V.equity||[]).map(x=>x*mlt);if(eq.length<=2)return '';
+      let peak=eq[0];const dd=eq.map(v=>{if(v>peak)peak=v;return v-peak;});
+      const ddMin=Math.min.apply(null,dd);if(!(ddMin<0))return '';
+      const Wd=V.windows||{optimize:['','']},li=V.lb_idx||eq.length;
+      const _of=(Wd.optimize&&Wd.optimize[0])||'',_ot=(Wd.optimize&&Wd.optimize[1])||'',_lf=(Wd.lockbox&&Wd.lockbox[0])||'',_lt=(Wd.lockbox&&Wd.lockbox[1])||'';
+      const optS=_of?+new Date(_of):null,optE=_ot?+new Date(_ot):null,lbS=_lf?+new Date(_lf):null,lbE=_lt?+new Date(_lt):null;
+      const EW=600,DH=70,pd=6,timeOk=!!(optS&&optE&&lbS&&lbE&&lbE>optS),T0=timeOk?optS:0,T1=timeOk?lbE:(eq.length-1);
+      const tAt=i=>{if(!timeOk)return i;if(i<li){const f=(li>1)?(i/(li-1)):0;return optS+f*(optE-optS);}const k=(eq.length-1-li);const f=(k>0)?((i-li)/k):0;return lbS+f*(lbE-lbS);};
+      const X=i=>pd+(EW-2*pd)*((tAt(i)-T0)/((T1-T0)||1)),Y=v=>2+(v/ddMin)*(DH-4);
+      const bx=timeOk?(pd+(EW-2*pd)*((lbS-T0)/((T1-T0)||1))):(pd+(EW-2*pd)*Math.min(li,eq.length-1)/(eq.length-1));
+      const area='M '+X(0).toFixed(1)+' 2 '+dd.map((v,i)=>'L '+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join(' ')+' L '+X(eq.length-1).toFixed(1)+' 2 Z';
+      const svg='<svg viewBox="0 0 '+EW+' '+DH+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%">'
+        +'<line x1="0" y1="2" x2="'+EW+'" y2="2" stroke="var(--border)" stroke-width="0.6"/>'
+        +'<line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+DH+'" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/>'
+        +'<path d="'+area+'" fill="rgba(193,66,106,0.5)" stroke="#d6557a" stroke-width="1"/></svg>';
+      return '<div class="lbl" style="margin:11px 0 5px;font-size:9px;color:var(--text5)">DRAWDOWN · underwater · worst <b style="color:#e24b4a">'+fmtUsd(Math.round(ddMin))+'</b></div>'
+        +'<div style="display:flex;gap:7px;height:78px"><div class="rschart-box" style="flex:1;min-width:0;background:var(--bg1);border-radius:8px;overflow:hidden">'+svg+'</div>'
+        +'<div style="width:54px;min-width:54px;display:flex;flex-direction:column;justify-content:space-between;font-size:8px;color:var(--text5);text-align:right;padding:1px 3px 1px 0"><span>$0</span><span>'+fmtUsd(Math.round(ddMin))+'</span></div></div>';
+    };
+    // Monthly P&L bar chart (QuantVue-style): one green/red bar per calendar month, each labelled
+    //   with its $ value, on a $ axis. Built from regime.monthly; placed under the 1a equity tile.
+    const monthlyPnlHtml=(regime,mlt)=>{
+      const mo=(regime&&regime.monthly)||{rows:[]},flat=[];
+      (mo.rows||[]).forEach(r=>{(r.months||[]).forEach((vv,mi)=>{if(vv!=null)flat.push({y:r.year,m:mi,v:vv*mlt});});});
+      if(flat.length<2)return '';
+      const vals=flat.map(f=>f.v),mx=Math.max(0,...vals),mn=Math.min(0,...vals),rg=(mx-mn)||1;
+      const padL=46,padR=8,padT=20,padB=22,bwOuter=Math.max(13,Math.min(34,Math.round(760/flat.length)));
+      const W=padL+padR+flat.length*bwOuter,H=210,plotH=H-padT-padB,Y=v=>padT+(mx-v)/rg*plotH,z=Y(0);
+      const _k=v=>{const a=Math.abs(v);return (v<0?'-$':'$')+(a>=1000?(a/1000).toFixed(1)+'k':Math.round(a));};
+      const _nice=x=>{x=Math.abs(x)||1;const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
+      const step=_nice(rg/6)||1,gl=[];for(let L=Math.ceil(mn/step)*step;L<=mx+1e-6;L+=step)gl.push(L);
+      const grid=gl.map(L=>{const zl=Math.abs(L)<1e-6;return '<line x1="'+padL+'" y1="'+Y(L).toFixed(1)+'" x2="'+(W-padR)+'" y2="'+Y(L).toFixed(1)+'" stroke="var(--border)" stroke-width="'+(zl?'1':'0.5')+'" opacity="'+(zl?'0.6':'0.2')+'"/><text x="'+(padL-5)+'" y="'+(Y(L)+3).toFixed(1)+'" text-anchor="end" font-size="8" fill="var(--text5)">'+_k(L)+'</text>';}).join('');
+      let py=null,yrs='';
+      const bars=flat.map((f,i)=>{const x=padL+i*bwOuter,h=Math.abs(f.v)/rg*plotH,col=f.v>=0?'#21c179':'#e24b4a',by=f.v>=0?z-h:z;
+        const lbl='<text x="'+(x+bwOuter/2).toFixed(1)+'" y="'+(f.v>=0?(by-2):(by+h+8)).toFixed(1)+'" text-anchor="middle" font-size="6.5" fill="var(--text4)">'+_k(f.v)+'</text>';
+        if(f.y!==py){yrs+='<text x="'+(x+1).toFixed(1)+'" y="'+(H-4)+'" font-size="8" fill="var(--text5)">'+f.y+'</text>';py=f.y;}
+        return '<rect x="'+(x+1.5).toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+(bwOuter-3).toFixed(1)+'" height="'+h.toFixed(1)+'" rx="1" fill="'+col+'" opacity="0.92" style="cursor:pointer" data-tip="'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][f.m]+' '+f.y+' · <b style=&quot;color:'+col+'&quot;>'+_k(f.v)+'</b>"/>'+lbl;}).join('');
+      const tot=vals.reduce((s,v)=>s+v,0),pos=vals.filter(v=>v>0).length;
+      return '<div class="lbl" style="margin:14px 0 6px;font-size:9px;color:var(--text5)">MONTHLY P&amp;L · '+pos+'/'+flat.length+' green · net <b style="color:'+(tot>=0?'var(--green)':'var(--red)')+'">'+_k(tot)+'</b></div>'
+        +'<div class="rschart-box" style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px;overflow-x:auto"><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;min-width:'+Math.min(W,820)+'px;height:auto">'+grid+'<line x1="'+padL+'" y1="'+z.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+z.toFixed(1)+'" stroke="var(--border)"/>'+bars+yrs+'</svg></div>';
+    };
     // Shared Auto-Validate report card (verdict + 5 gates + equity curve + lockbox) —
     // used by both the Builder run panel and the Results/Past-Runs detail so they match.
     const validateCardHtml=(V,mlt,stratLabel,folds)=>{
@@ -4931,7 +4975,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let mcHtml='';
       if(d.mc){mcHtml=_vrow('<span>P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round((d.mc.p95||0)*mlt))+'</b> (size your account to survive this)</span>');}
       let regHtml='';
-      if(d.regime){const rg=d.regime;const bt=(arr)=>'<table class="table" style="font-size:var(--fsxs)"><thead><tr><th></th><th style="text-align:right">T</th><th style="text-align:right">$</th><th style="text-align:right">PF</th></tr></thead><tbody>'+(arr||[]).map(b=>'<tr><td>'+b.bucket+'</td><td style="text-align:right">'+b.n+'</td><td style="text-align:right;color:'+(b.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(b.pnl*mlt))+'</td><td style="text-align:right">'+(b.pf||0).toFixed(2)+'</td></tr>').join('')+'</tbody></table>';const mo=rg.monthly||{rows:[]};const ml=['J','F','M','A','M','J','J','A','S','O','N','D'];const _flat=[];(mo.rows||[]).forEach(r=>{(r.months||[]).forEach((vv,mi)=>{if(vv!=null)_flat.push({y:r.year,m:mi,v:vv*mlt});});});const mhHist=(function(){if(_flat.length<2)return '<div style="font-size:8px;color:var(--text5)">not enough monthly data</div>';const _mxa=Math.max.apply(null,_flat.map(f=>Math.abs(f.v)))||1,_W=560,_H=96,_bw=_W/_flat.length,_m2=_H/2-6;const _bars=_flat.map((f,i)=>{const h=(Math.abs(f.v)/_mxa)*(_m2-2),x=i*_bw,_c=f.v>=0?'#1d9e75':'#e24b4a',_tip=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][f.m]+' '+f.y+' · <b style=&quot;color:'+_c+'&quot;>'+fmtUsd(Math.round(f.v))+'</b>';return '<rect x="'+(x+0.4).toFixed(1)+'" y="'+(f.v>=0?_m2-h:_m2).toFixed(1)+'" width="'+Math.max(0.6,_bw-0.8).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+_c+'" opacity="0.82" style="cursor:pointer" data-tip="'+_tip+'"/>';}).join('');let _py=null,_tk='';_flat.forEach((f,i)=>{if(f.y!==_py){_tk+='<text x="'+(i*_bw+1).toFixed(1)+'" y="'+(_H-2)+'" font-size="7" fill="var(--text5)">'+f.y+'</text>';_py=f.y;}});return '<div style="background:var(--bg2);border-radius:8px;padding:8px;margin-bottom:16px"><svg viewBox="0 0 '+_W+' '+_H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"><line x1="0" y1="'+_m2+'" x2="'+_W+'" y2="'+_m2+'" stroke="var(--border)" stroke-width="0.5"/>'+_bars+_tk+'</svg></div>';})();regHtml='<div class="lbl" style="margin:8px 0 6px">REGIME REPORT CARD · weakest vol bucket: '+(rg.worst_vol||'—')+'</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:10px"><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Volatility (ATR20)</div>'+bt(rg.vol)+'</div><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Trend vs chop</div>'+bt(rg.trend)+'</div><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Day of week</div>'+bt(rg.dow)+'</div></div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Monthly P&amp;L over time · 1 contract · hover a bar</div>'+mhHist+'';}
+      if(d.regime){const rg=d.regime;const bt=(arr)=>'<table class="table" style="font-size:var(--fsxs)"><thead><tr><th></th><th style="text-align:right">T</th><th style="text-align:right">$</th><th style="text-align:right">PF</th></tr></thead><tbody>'+(arr||[]).map(b=>'<tr><td>'+b.bucket+'</td><td style="text-align:right">'+b.n+'</td><td style="text-align:right;color:'+(b.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(b.pnl*mlt))+'</td><td style="text-align:right">'+(b.pf||0).toFixed(2)+'</td></tr>').join('')+'</tbody></table>';const mo=rg.monthly||{rows:[]};const ml=['J','F','M','A','M','J','J','A','S','O','N','D'];const _flat=[];(mo.rows||[]).forEach(r=>{(r.months||[]).forEach((vv,mi)=>{if(vv!=null)_flat.push({y:r.year,m:mi,v:vv*mlt});});});const mhHist=(function(){if(_flat.length<2)return '<div style="font-size:8px;color:var(--text5)">not enough monthly data</div>';const _mxa=Math.max.apply(null,_flat.map(f=>Math.abs(f.v)))||1,_W=560,_H=96,_bw=_W/_flat.length,_m2=_H/2-6;const _bars=_flat.map((f,i)=>{const h=(Math.abs(f.v)/_mxa)*(_m2-2),x=i*_bw,_c=f.v>=0?'#1d9e75':'#e24b4a',_tip=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][f.m]+' '+f.y+' · <b style=&quot;color:'+_c+'&quot;>'+fmtUsd(Math.round(f.v))+'</b>';return '<rect x="'+(x+0.4).toFixed(1)+'" y="'+(f.v>=0?_m2-h:_m2).toFixed(1)+'" width="'+Math.max(0.6,_bw-0.8).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+_c+'" opacity="0.82" style="cursor:pointer" data-tip="'+_tip+'"/>';}).join('');let _py=null,_tk='';_flat.forEach((f,i)=>{if(f.y!==_py){_tk+='<text x="'+(i*_bw+1).toFixed(1)+'" y="'+(_H-2)+'" font-size="7" fill="var(--text5)">'+f.y+'</text>';_py=f.y;}});return '<div style="background:var(--bg2);border-radius:8px;padding:8px;margin-bottom:16px"><svg viewBox="0 0 '+_W+' '+_H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"><line x1="0" y1="'+_m2+'" x2="'+_W+'" y2="'+_m2+'" stroke="var(--border)" stroke-width="0.5"/>'+_bars+_tk+'</svg></div>';})();regHtml='<div class="lbl" style="margin:8px 0 6px">REGIME REPORT CARD · weakest vol bucket: '+(rg.worst_vol||'—')+'</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:10px"><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Volatility (ATR20)</div>'+bt(rg.vol)+'</div><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Trend vs chop</div>'+bt(rg.trend)+'</div><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Day of week</div>'+bt(rg.dow)+'</div></div>';}
       let nbHtml='';
       if(d.neighborhood){const nb=d.neighborhood;const vc=nb.verdict==='HIGH GROUND'?'var(--green)':'var(--yellow)';const pfcol=p=>p>1?'var(--green)':'var(--red)';
         const cell=(c,acc)=>{if(!c)return '<td style="text-align:center;opacity:.3">—</td>';return '<td style="text-align:center"><div style="font-size:8px;color:var(--text5)">'+c.val+'</div><div style="color:'+(acc?'var(--accent)':pfcol(c.pf))+';font-weight:'+(acc?'800':'600')+'">PF '+(c.pf||0).toFixed(2)+'</div></td>';};
@@ -5042,6 +5086,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +_metaStrip
           +'<div style="margin:9px 0 12px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+(_lb.pass?'var(--green)':'var(--red)')+'">'+(_lb.pass?'HELD':'FAILED')+'</b> · '+fmtUsd(Math.round((_lb.pnl||0)*mlt))+' · PF '+Math.min(_lb.pf||0,99).toFixed(2)+' · '+(_lb.trades||0)+' trades'+(_V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(_V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
           +championEquityHtml(_V,mlt,d.top10_results)
+          +'<div id="res-step-8" style="scroll-margin-top:64px">'+drawdownChartHtml(_V,mlt)+mcHtml+'</div>'
+          +monthlyPnlHtml(d.regime,mlt)
           +'</div>';
         _panelMatrix='<div style="'+_card+'">'+kpiMatrixHtml(d,mlt)+'</div>';}
       const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span></div>'
@@ -5089,7 +5135,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _wfInner=isOosFoldsHtml(d,mlt);
       const _wfFolds=_wfInner?('<div id="res-step-5" style="scroll-margin-top:64px"></div>'+_wfInner):'';
       // 8 Drawdown = worst-case equity-path sizing (Monte-Carlo P95).
-      const _sec8=_secOf(8,[mcHtml]);
+      const _sec8=d.validate?'':_secOf(8,[mcHtml]);   // validate runs show MC + the underwater drawdown inside the 1a tile
       return hdrHtml
         +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><input id="det-note" value="'+String(d.note||'').replace(/"/g,'&quot;')+'" placeholder="add a note…" style="flex:1;padding:4px 8px;font-size:var(--fsxs);border-radius:6px"/><button class="btn-ghost" id="det-note-save" data-note-id="'+d.id+'" style="padding:4px 12px;font-size:var(--fsxs);border:1px solid var(--border);border-radius:6px">save</button>'
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="width:auto;padding:4px 6px;font-size:9px;border-radius:6px"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
