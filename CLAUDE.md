@@ -113,6 +113,11 @@ Update `ROADMAP.md` as work ships; keep this file for durable context/convention
   change that isn't pushed is invisible to the owner. Always state the version you pushed. You
   have full standing permission to edit ANY file and to start/restart `EdgeLog.bat`. (Only true
   history-rewrites — force-push to `main`, branch deletion — still warrant a quick heads-up.)
+  **Before bumping VERSION: `git fetch` + read the CURRENT `const VERSION` from `index.html`
+  (don't assume the next number), and `git diff index.html` to confirm ONLY your changes are
+  staged.** A second Claude session may be committing to this same repo/working tree
+  concurrently (e.g. the trades-table work that jumped 36.0→36.5) — fetch-first avoids
+  version clashes and clobbering its in-flight edits.
 - **Keyless-AI doctrine** (the documented AUGUR convention): prefer a file-handoff through
   the Claude Code session over direct paid-CLI spend. NOTE: `make_pine`/`review_pine`
   currently call the provider directly (qwen/claude-cli/anthropic) — this is the open
