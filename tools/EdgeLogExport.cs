@@ -110,7 +110,10 @@ namespace NinjaTrader.NinjaScript.AddOns
 
                     string line = string.Join(",", new string[] {
                         Csv(execId),
-                        ex.Time.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
+                        // Log in UTC so the journal can convert to the market's local
+                        // timezone deterministically (nt_sync.py -> America/New_York),
+                        // independent of this PC's NinjaTrader time-zone setting.
+                        ex.Time.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
                         Csv(ex.Account != null ? ex.Account.Name : ""),
                         Csv(ex.Instrument != null ? ex.Instrument.FullName : ""),
                         action,

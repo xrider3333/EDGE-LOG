@@ -21,7 +21,24 @@ import csv
 import json
 import time
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
+
+# Fill timestamps in fills.csv are written by the AddOn in UTC
+# (ex.Time.ToUniversalTime()). We convert them to New York session time for the
+# journal so entry/exit read in the trader's local market timezone (handles EST/EDT).
+try:
+    from zoneinfo import ZoneInfo
+    _NY = ZoneInfo("America/New_York")
+except Exception:  # zoneinfo missing (pre-3.9) — leave times as-is
+    _NY = None
+
+
+def _to_ny(dt):
+    """Treat a naive fills.csv datetime as UTC and convert to America/New_York."""
+    if dt is None or _NY is None:
+        return dt
+    return dt.replace(tzinfo=timezone.utc).astimezone(_NY)
+
 
 # tick value (tv) / tick size (ts) per instrument — copied verbatim from index.html
 PRESETS = {
@@ -169,9 +186,11 @@ def build_trades(fills):
                 if entry_dt and exit_dt:
                     dur_sec = max(0, int((exit_dt - entry_dt).total_seconds()))
                     dur = max(0, dur_sec // 60)
+                e_ny = _to_ny(entry_dt)
+                x_ny = _to_ny(exit_dt)
                 trades.append({
                     "doc_id": "nt_" + _safe_id(close_exec_id or f"{account}{instrument}{entry_dt}{avg_exit}"),
-                    "date": entry_dt.strftime("%Y-%m-%d"),
+                    "date": e_ny.strftime("%Y-%m-%d"),
                     "symbol": sym,
                     "type": entry_side,
                     "entry": round(avg_entry, 4),
@@ -184,8 +203,8 @@ def build_trades(fills):
                     "notes": "", "chartUrl": "",
                     "durationMins": dur,
                     "durationSecs": dur_sec,
-                    "entryTime": entry_dt.strftime("%H:%M"),
-                    "exitTime": exit_dt.strftime("%H:%M") if exit_dt else None,
+                    "entryTime": e_ny.strftime("%H:%M"),
+                    "exitTime": x_ny.strftime("%H:%M") if x_ny else None,
                     "orderId": entry_oid or "",
                     "source": "NinjaTrader",
                     "assetType": "futures" if is_fut(sym) else "stock",
