@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='38.3';
+const VERSION='38.4';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4566,6 +4566,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       return {key:'none',label:'In-sample only · NOT validated',desc:'tuned and measured on the SAME data, with no unseen test — treat these numbers as optimistic (overfit risk).',col:'var(--yellow)'};
     };
     const valBannerHtml=(d)=>{const m=_valMethod(d);
+      // For fully-validated runs the method is already conveyed by the KPI-matrix columns
+      //   (in-sample · walk-forward · lockbox) + the "🔒 Lockbox HELD" strip, so the banner is
+      //   redundant — drop it. Keep it for weaker methods, where it carries the overfit warning.
+      if(m.key==='validate')return '';
       return '<div style="display:flex;gap:9px;align-items:baseline;flex-wrap:wrap;background:var(--bg2);border-left:3px solid '+m.col+';border-radius:6px;padding:8px 12px;margin-bottom:12px">'
         +'<span class="lbl" style="font-size:9px;color:var(--text5);letter-spacing:1px;flex:0 0 auto">VALIDATION</span>'
         +'<span style="font-size:var(--fsxs);font-weight:700;color:'+m.col+';flex:0 0 auto">'+m.label+'</span>'
@@ -4844,7 +4848,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   make it taller). The SVG fills the box (preserveAspectRatio=none → gridlines & curve scale
       //   vertically), the date axis stays a fixed 12px strip at the bottom, and the y-labels scale
       //   by percent — so everything stays aligned at any height.
-      return '<div style="margin:13px 0 5px">'+(bare?'':'<div style="font-weight:700;font-size:11px;color:var(--text2)">Champion equity + drawdown <span style="font-weight:400;color:var(--text5);font-size:9px">· best config · 1 contract</span></div>')+'<div style="font-size:8px;color:var(--text5);margin-top:1px">chronological — <span style="color:var(--green)">in-sample</span> + walk-forward, then the <span style="color:#a78bfa">lockbox</span> holdout · <span style="color:#d6557a">underwater drawdown</span> below (drag the lower edge ↕ to resize)</div></div>'
+      return (bare?'':'<div style="margin:13px 0 5px"><div style="font-weight:700;font-size:11px;color:var(--text2)">Champion equity + drawdown <span style="font-weight:400;color:var(--text5);font-size:9px">· best config · 1 contract</span></div><div style="font-size:8px;color:var(--text5);margin-top:1px">chronological — <span style="color:var(--green)">in-sample</span> + walk-forward, then the <span style="color:#a78bfa">lockbox</span> holdout · <span style="color:#d6557a">underwater drawdown</span> below (drag the lower edge ↕ to resize)</div></div>')
         +'<div id="eq-rs" style="display:flex;gap:7px;height:250px;min-height:150px;max-height:700px;resize:vertical;overflow:hidden;border-bottom:2px dashed color-mix(in srgb,var(--border) 70%,transparent);padding-bottom:3px">'
         +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;height:100%;position:relative">'
         +anno
@@ -5109,7 +5113,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +((wf=>wf?'<div style="margin-top:9px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
           +'</div>';
         _panelMatrix='<div style="'+_card+'">'+kpiMatrixHtml(d,mlt,1)+'</div>';}
-      const hdrHtml='<div id="res-head" style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span><span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span><span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span><span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span></div>'
+      const _noteEsc=String(d.note||'').replace(/"/g,'&quot;'),_hasNote=!!(d.note&&String(d.note).trim());
+      // shared style so the note / relabel / delete controls read as one consistent button group
+      const _ctlBase='padding:4px 10px;font-size:var(--fsxs);border-radius:6px;cursor:pointer;line-height:1.4';
+      const hdrHtml='<div id="res-head" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px">'
+        +'<span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span>'
+        +'<span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span>'
+        +'<span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span>'
+        +'<span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span>'
+        +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center;flex:0 0 auto">'
+          +'<button id="det-note" data-note-id="'+d.id+'" data-note-val="'+_noteEsc+'" title="'+(_hasNote?_noteEsc:'add a note')+'" style="'+_ctlBase+';border:1px solid '+(_hasNote?'var(--green)':'var(--border)')+';background:'+(_hasNote?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+';color:'+(_hasNote?'var(--green)':'var(--text3)')+'">note'+(_hasNote?' ✓':'')+'</button>'
+          +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="'+_ctlBase+';border:1px solid var(--border);background:var(--bg2);color:var(--text3)"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
+          +'<button id="det-del" data-del-id="'+d.id+'" style="'+_ctlBase+';border:1px solid var(--red);background:var(--bg2);color:var(--red)">delete</button>'
+        +'</span>'
+        +'</div>'
         // pinned pills: FULLY transparent (no background, no backdrop-filter) so the row looks
         //   identical at rest and while scrolling — the individual pill chips stay opaque so the
         //   labels remain readable as content slides underneath.
@@ -5156,11 +5173,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // 8 Drawdown = worst-case equity-path sizing (Monte-Carlo P95).
       const _sec8=d.validate?'':_secOf(8,[mcHtml]);   // validate runs show MC + the underwater drawdown inside the 1a tile
       return hdrHtml
-        +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><input id="det-note" value="'+String(d.note||'').replace(/"/g,'&quot;')+'" placeholder="add a note…" style="flex:1;padding:4px 8px;font-size:var(--fsxs);border-radius:6px"/><button class="btn-ghost" id="det-note-save" data-note-id="'+d.id+'" style="padding:4px 12px;font-size:var(--fsxs);border:1px solid var(--border);border-radius:6px">save</button>'
-        +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="width:auto;padding:4px 6px;font-size:9px;border-radius:6px"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
-        +'<button class="btn-ghost" id="det-del" data-del-id="'+d.id+'" style="padding:4px 10px;font-size:var(--fsxs);border:1px solid var(--red);border-radius:6px;color:var(--red)">delete</button></div>'
         +valBannerHtml(d)
-        +_sec('1','Feasibility & walk-forward','it ran, traded, and held out-of-sample (walk-forward + lockbox)',(d.validate?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:2 1 460px;min-width:0">'+_secOf(1,[[_panelEquity,'Champion equity']])+'</div><div style="flex:1 1 300px;min-width:0">'+_secOf(1,[[(_panelMatrix||splitOosHtml(d,mlt)),'KPI matrix']],1)+'</div></div>'+_secOf(1,[[regHtml,'Regime report card']],2)):_secOf(1,[_summaryPanel,monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml])))
+        +_sec('1','Feasibility & walk-forward','',(d.validate?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:2 1 460px;min-width:0">'+_secOf(1,[[_panelEquity,'Champion equity']])+'</div><div style="flex:1 1 300px;min-width:0">'+_secOf(1,[[(_panelMatrix||splitOosHtml(d,mlt)),'KPI matrix']],1)+'</div></div>'+_secOf(1,[[regHtml,'Regime report card']],2)):_secOf(1,[_summaryPanel,monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml])))
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         +_sec('3','Plateau','robust params — a cluster, not a lonely spike',_sec3)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4)
@@ -5954,7 +5968,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _scrollToId=(id)=>{const t=el(id);if(!t)return;const tb=document.querySelector('.topbar'),rp=el('res-pills');const off=(tb?tb.offsetHeight:0)+((rp&&id!=='res-pills'&&id!=='res-head')?rp.offsetHeight:0)+10;const y=t.getBoundingClientRect().top+window.scrollY-off;window.scrollTo({top:Math.max(0,y),behavior:'smooth'});};
       content.querySelectorAll('[data-vstep-go]').forEach(p=>{p.onclick=()=>_scrollToId('res-step-'+p.dataset.vstepGo);});
       content.querySelectorAll('[data-vstep-back]').forEach(h=>{h.onclick=()=>_scrollToId('res-head');});
-      const _ns=el('det-note-save');if(_ns)_ns.onclick=()=>{const nv=el('det-note');if(nv&&runsRef)runsRef.doc(String(_ns.dataset.noteId)).update({note:nv.value}).then(()=>{_ns.textContent='saved ✓';setTimeout(()=>{if(el('det-note-save'))el('det-note-save').textContent='save';},1500);}).catch(e=>alert('note failed: '+e.message));};
+      // note is now a single button: click → prompt to add/edit/clear; button turns green + shows
+      //   the note on hover when one exists. Consolidates the old note-input + save button.
+      const _nb=el('det-note');if(_nb)_nb.onclick=()=>{const id=_nb.dataset.noteId,cur=_nb.dataset.noteVal||'';const nv=prompt('Note for run #'+id+' (leave blank to clear):',cur);if(nv===null||!runsRef)return;runsRef.doc(String(id)).update({note:nv}).then(()=>renderApp()).catch(e=>alert('note failed: '+e.message));};
       // delete a run: remove the web doc now + queue a runner command to drop it from the
       // local history DB (so a future full re-sync won't bring it back).
       const _del=el('det-del');if(_del)_del.onclick=async()=>{const id=_del.dataset.delId;if(!confirm('Delete run #'+id+'? Removes it from the web and your local AUGUR history.'))return;try{await runsRef.doc(String(id)).delete();if(cmdRef)await cmdRef.add({action:'delete_run',payload:{id:+id},status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()});if(String(augurRunSel)===String(id))augurRunSel=null;}catch(e){alert('delete failed: '+e.message);}renderApp();};
