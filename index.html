@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='37.5';
+const VERSION='37.6';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -561,6 +561,23 @@ const isFut=sym=>!!PRESETS[sym];
 const getBase=s=>(s||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase()||'';
 const gradeClass=g=>({'+':'grade-A','A':'grade-A','B':'grade-B','C':'grade-C','D':'grade-D','F':'grade-F'}[g?.slice(-1)]||'grade-x');
 function fmtDur(m){if(!m||m<0)return'—';if(m<60)return m+'m';return Math.floor(m/60)+'h'+(m%60>0?' '+m%60+'m':'');}
+// Seconds-aware duration for the trades table: prefer t.durationSecs (exact), else fall
+// back to whole-minute durationMins. Sub-minute trades show seconds (e.g. "45s", "1m 10s")
+// instead of a blank dash; if only minute precision is known, a sub-minute trade shows "<1m".
+function durStr(t){
+  let s=(t&&t.durationSecs!=null&&t.durationSecs!=='')?+t.durationSecs:null;
+  if(s!=null&&!isNaN(s)&&s>=0){
+    if(s<60)return Math.round(s)+'s';
+    const m=Math.floor(s/60),ss=Math.round(s%60);
+    if(m<60)return m+'m'+(ss?' '+ss+'s':'');
+    const h=Math.floor(m/60),mm=m%60;return h+'h'+(mm?' '+mm+'m':'');
+  }
+  let m=(t&&t.durationMins!=null&&t.durationMins!=='')?+t.durationMins:null;
+  if(m==null||isNaN(m)||m<0)return'—';
+  if(m===0)return'<1m';
+  if(m<60)return m+'m';
+  return Math.floor(m/60)+'h'+(m%60>0?' '+m%60+'m':'');
+}
 function getFee(sym){return instrumentFees[sym]??instrumentFees[getBase(sym)]??4.50;}
 function setFavicon(dataUrl){const l=el('favicon')||document.createElement('link');l.id='favicon';l.rel='icon';l.href=dataUrl;document.head.appendChild(l);if(el('favicon')!==l)document.head.appendChild(l);}
 function updateFavicon(){
@@ -2647,8 +2664,8 @@ function openEditModal(tradeId){
         <div><label class="lbl">EXIT</label><input id="${mid}_ex" value="${t.exit}"/></div>
         <div><label class="lbl">CONTRACTS</label><input id="${mid}_sz" value="${t.size}"/></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
-          <div><label class="lbl">IN</label><input id="${mid}_et" value="${t.entryTime||''}" placeholder="09:30"/></div>
-          <div><label class="lbl">OUT</label><input id="${mid}_xt" value="${t.exitTime||''}" placeholder="10:15"/></div>
+          <div><label class="lbl">IN</label><input id="${mid}_et" value="${t.entryTime||''}" placeholder="09:30:05"/></div>
+          <div><label class="lbl">OUT</label><input id="${mid}_xt" value="${t.exitTime||''}" placeholder="10:15:00"/></div>
         </div>
       </div>
       <div><label class="lbl">CHART URL</label><input id="${mid}_cu" value="${t.chartUrl||''}"/></div>
@@ -2671,8 +2688,8 @@ function openEditModal(tradeId){
       const sz=parseInt(el(`${mid}_sz`).value)||t.size,fe=parseFloat(el(`${mid}_fees`).value)||0,tp=el(`${mid}_t`).value;
       const calc=tradeCalc(t.symbol,tp,en,ex,sz,fe);
       const et=el(`${mid}_et`).value,xt=el(`${mid}_xt`).value;
-      let dur=t.durationMins||null;if(et&&xt){const[eh,em]=et.split(':').map(Number),[xh,xm]=xt.split(':').map(Number);dur=Math.abs((xh*60+xm)-(eh*60+em));}
-      await updateTrade(t.id,{type:tp,setup:el(`${mid}_s`).value,grade:el(`${mid}_g`).value,timeframe:el(`${mid}_tf`).value,orderId:el(`${mid}_oid`).value,fees:fe,entry:en,exit:ex,size:sz,grossPnl:calc.grossPnl,pnl:calc.pnl,durationMins:dur,entryTime:et||t.entryTime||null,exitTime:xt||t.exitTime||null,chartUrl:el(`${mid}_cu`).value,notes:el(`${mid}_no`).value,tags:(el(`${mid}_tags`)?.value||'').split(',').map(t=>t.trim()).filter(Boolean),account:el(`${mid}_acct`)?.value||'',broker:el(`${mid}_brk`)?.value||''});
+      let dur=t.durationMins||null,durSec=t.durationSecs||null;if(et&&xt){const _ps=s=>{const[a,b,c]=s.split(':').map(Number);return (a||0)*3600+(b||0)*60+(c||0);};durSec=Math.abs(_ps(xt)-_ps(et));dur=Math.round(durSec/60);}
+      await updateTrade(t.id,{type:tp,setup:el(`${mid}_s`).value,grade:el(`${mid}_g`).value,timeframe:el(`${mid}_tf`).value,orderId:el(`${mid}_oid`).value,fees:fe,entry:en,exit:ex,size:sz,grossPnl:calc.grossPnl,pnl:calc.pnl,durationMins:dur,durationSecs:durSec,entryTime:et||t.entryTime||null,exitTime:xt||t.exitTime||null,chartUrl:el(`${mid}_cu`).value,notes:el(`${mid}_no`).value,tags:(el(`${mid}_tags`)?.value||'').split(',').map(t=>t.trim()).filter(Boolean),account:el(`${mid}_acct`)?.value||'',broker:el(`${mid}_brk`)?.value||''});
       div.remove();
     }catch(e){alert('Save failed: '+e.message);btn.textContent='SAVE CHANGES';btn.disabled=false;}
   };
@@ -3251,8 +3268,8 @@ function renderApp(){
           <div><label class="lbl">EXIT</label><input id="nfex" type="text" placeholder="5228.50"/></div>
           <div><label class="lbl">CONTRACTS/SHARES</label><input id="nfsz" value="1"/></div>
           <div><label class="lbl">FEES ($) <span style="color:var(--text5);font-size:8px">auto by sym</span></label><input id="nffe" type="text" value="${getFee('MES')}"/></div>
-          <div><label class="lbl">ENTRY TIME</label><input id="nfet" type="time"/></div>
-          <div><label class="lbl">EXIT TIME</label><input id="nfxt" type="time"/></div>
+          <div><label class="lbl">ENTRY TIME</label><input id="nfet" type="time" step="1"/></div>
+          <div><label class="lbl">EXIT TIME</label><input id="nfxt" type="time" step="1"/></div>
           <div><label class="lbl">GRADE</label><select id="nfgr">${GRADES.map(g=>`<option>${g}</option>`).join('')}</select></div>
           <div><label class="lbl">SETUP</label><select id="nfst">${customSetups.map(s=>`<option>${s}</option>`).join('')}</select></div>
         </div>
@@ -3306,10 +3323,10 @@ function renderApp(){
           if(el('nferr'))el('nferr').style.display='none';
           el('nfadd').innerHTML='<span class="spinner"></span>';
           const et=el('nfet')?.value,xt=el('nfxt')?.value;
-          let dur=null;if(et&&xt){const[eh,em]=et.split(':').map(Number),[xh,xm]=xt.split(':').map(Number);dur=Math.abs((xh*60+xm)-(eh*60+em));}
+          let dur=null,durSec=null;if(et&&xt){const _ps=s=>{const[a,b,c]=s.split(':').map(Number);return (a||0)*3600+(b||0)*60+(c||0);};durSec=Math.abs(_ps(xt)-_ps(et));dur=Math.round(durSec/60);}
           const calc=tradeCalc(sym,dir,en,ex,sz,fe);
           const tagsVal=(el('nftags')?.value||'').split(',').map(t=>t.trim()).filter(Boolean);
-          await addTrade({date,symbol:sym,type:dir,entry:en,exit:ex,size:sz,fees:fe,...calc,setup:el('nfst')?.value||'—',grade:el('nfgr')?.value||'—',timeframe:el('nftf')?.value||'—',orderId:el('nfoid')?.value||'',notes:el('nfno')?.value||'',chartUrl:el('nfcu')?.value||'',tags:tagsVal,durationMins:dur,entryTime:et||null,exitTime:xt||null,source:'Manual',assetType:isFut(sym)?'futures':'stock'});
+          await addTrade({date,symbol:sym,type:dir,entry:en,exit:ex,size:sz,fees:fe,...calc,setup:el('nfst')?.value||'—',grade:el('nfgr')?.value||'—',timeframe:el('nftf')?.value||'—',orderId:el('nfoid')?.value||'',notes:el('nfno')?.value||'',chartUrl:el('nfcu')?.value||'',tags:tagsVal,durationMins:dur,durationSecs:durSec,entryTime:et||null,exitTime:xt||null,source:'Manual',assetType:isFut(sym)?'futures':'stock'});
           el('nfadd').textContent='ADD TRADE';
           ['nfen','nfex','nfno','nfcu','nfet','nfxt','nfoid','nftags'].forEach(id=>{const i=el(id);if(i)i.value='';});
           if(el('nfprev'))el('nfprev').innerHTML='';
@@ -3414,7 +3431,7 @@ function renderApp(){
           <td style="color:var(--text4);white-space:nowrap">${t.date}</td>
           <td style="color:var(--text4);white-space:nowrap">${t.entryTime||'—'}</td>
           <td style="color:var(--text4);white-space:nowrap">${t.exitTime||'—'}</td>
-          <td style="color:var(--text4);white-space:nowrap">${fmtDur(t.durationMins)}</td>
+          <td style="color:var(--text4);white-space:nowrap">${durStr(t)}</td>
           <td style="color:var(--text);font-weight:bold">${t.symbol}<span style="font-size:8px;color:var(--text5);margin-left:2px">${isFut(t.symbol)?'':'S'}</span></td>
           <td style="color:${t.type==='LONG'?'var(--green)':'var(--blue)'}">${t.type}</td>
           <td>${t.entry}</td><td>${t.exit}</td>

@@ -165,8 +165,10 @@ def build_trades(fills):
                 fees = round(comm_acc, 2)
                 gross, net = calc_pnl(sym, entry_side, avg_entry, avg_exit, entry_qty, fees)
                 dur = None
+                dur_sec = None
                 if entry_dt and exit_dt:
-                    dur = max(0, int((exit_dt - entry_dt).total_seconds() // 60))
+                    dur_sec = max(0, int((exit_dt - entry_dt).total_seconds()))
+                    dur = max(0, dur_sec // 60)
                 trades.append({
                     "doc_id": "nt_" + _safe_id(close_exec_id or f"{account}{instrument}{entry_dt}{avg_exit}"),
                     "date": entry_dt.strftime("%Y-%m-%d"),
@@ -181,6 +183,7 @@ def build_trades(fills):
                     "setup": "—", "grade": "—", "timeframe": "—",
                     "notes": "", "chartUrl": "",
                     "durationMins": dur,
+                    "durationSecs": dur_sec,
                     "entryTime": entry_dt.strftime("%H:%M"),
                     "exitTime": exit_dt.strftime("%H:%M") if exit_dt else None,
                     "orderId": entry_oid or "",
