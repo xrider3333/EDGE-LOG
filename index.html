@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='38.1';
+const VERSION='38.2';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -5122,7 +5122,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _sec=(n,label,sub,content)=>(content&&content.replace(/\s/g,''))?(_step(n,label,sub)+content):'';
       // subsection wrapper — a left-rail tag (2a, 2b…) beside each panel so every chart/table in
       //   a section is individually addressable; each panel keeps its own proper title. Empty drop.
-      const _sub=(tag,html)=>(html&&html.replace(/\s/g,''))?'<div style="display:flex;gap:9px;margin:4px 0 14px"><span style="flex:0 0 auto;font-size:9px;font-weight:800;color:var(--text5);min-width:22px;letter-spacing:.5px;padding-top:1px">'+tag+'</span><div style="flex:1 1 0;min-width:0">'+html+'</div></div>':'';
+      const _sub=(tag,html)=>(html&&html.replace(/\s/g,''))?'<div style="margin:5px 0 14px"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:3px">'+tag+'</div>'+html+'</div>':'';
       // auto-letter the non-empty panels of a section (2a,2b,2c…) so dropping a panel leaves no gap.
       const _secOf=(n,arr,off)=>arr.filter(h=>h&&h.replace(/\s/g,'')).map((h,i)=>_sub(n+String.fromCharCode(97+i+(off||0)),h)).join('');
       // 2 In-sample = the CHAMPION (metrics, trade-level behaviour, top configs). The whole-run
