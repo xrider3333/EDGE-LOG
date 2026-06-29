@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='39.4';
+const VERSION='39.5';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4416,7 +4416,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     };
     // TOP-N EQUITY OVERLAY — the best configs' equity curves on one axis. If they all
     // climb alike the edge is robust; if only the winner climbs it's a fragile outlier.
-    const topEqOverlayHtml=(d,mult)=>{
+    const topEqOverlayHtml=(d,mult,tag)=>{
       const etop=d&&d.equity_top;if(!etop||etop.length<2)return '';
       const series=etop.map(o=>((o&&o.cum)?o.cum:o).map(x=>x*mult));let mn=0,mx=0;series.forEach(s=>s.forEach(v=>{if(v<mn)mn=v;if(v>mx)mx=v;}));const rg=(mx-mn)||1;
       // colour the curves: by RANK (winner brightest) or by a chosen PARAM value (mapped to
@@ -4432,14 +4432,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const order=series.map((s,i)=>i).sort((a,b)=>b-a);
       const lines=order.map(i=>path(series[i],colOf(i),i===0?2.2:1.2,i===0?1:0.72)).join(''),zeroY=H-pd-(H-2*pd)*(0-mn)/rg;
       const sel='<select data-tpc style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin-left:6px"><option value="rank"'+(mode==='rank'?' selected':'')+'>by rank</option>'+pkeys.map(k=>'<option value="'+k+'"'+(mode===k?' selected':'')+'>by '+k.replace(/_/g,' ')+'</option>').join('')+'</select>';
-      return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · equity ($) · 1 contract · colour'+sel+'</div>'
-        +'<div style="background:var(--bg2);border-radius:8px;padding:10px 12px 6px;margin-bottom:14px">'
-        +'<div style="display:flex;gap:7px"><div style="display:flex;flex-direction:column;justify-content:space-between;font-size:8px;color:var(--text5);text-align:right;min-width:46px;padding:1px 0">'
+      return (tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · TOP CONFIGS PNL <span style="font-weight:400;color:var(--text5);font-size:8px">· '+series.length+' best · equity $ · 1 contract</span>'+sel+'</div>':'<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · equity ($) · 1 contract · colour'+sel+'</div>')
+        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:8px 8px 4px;margin-bottom:14px">'
+        +'<div style="display:flex;gap:6px"><div style="display:flex;flex-direction:column;justify-content:space-between;font-size:8px;color:var(--text5);text-align:right;min-width:38px;padding:1px 0">'
         +'<span>'+fmtUsd(Math.round(mx))+'</span><span>'+fmtUsd(Math.round((mx+mn)/2))+'</span><span>'+fmtUsd(Math.round(mn))+'</span></div>'
         +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="150" preserveAspectRatio="none" style="flex:1">'
         +'<line x1="0" y1="'+(H/2)+'" x2="'+W+'" y2="'+(H/2)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4"/>'
         +'<line x1="0" y1="'+zeroY.toFixed(1)+'" x2="'+W+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--border)"/>'+lines+'</svg></div>'
-        +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5);margin-top:3px;padding-left:53px"><span>'+(d.date_from?_dnice(d.date_from):'start')+'</span><span>'+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' · '+((d.best_trades||0)).toLocaleString()+' trades</span><span>'+(d.date_to?_dnice(d.date_to):'end')+'</span></div></div>';
+        +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5);margin-top:3px;padding-left:44px"><span>'+(d.date_from?_dnice(d.date_from):'start')+'</span><span>'+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' · '+((d.best_trades||0)).toLocaleString()+' trades</span><span>'+(d.date_to?_dnice(d.date_to):'end')+'</span></div></div>';
     };
     // SCATTER — each tested config as a dot: chosen param (X) vs net PnL (Y). Shows
     // whether the edge is a smooth slope (robust) or random noise.
@@ -5208,22 +5208,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   runs — validate/WF runs already plot it (with fold bands + lockbox) as chart 1 in §1.
       const _sec2=_secOf(2,[(d.validate?'':(eqHtml?(eqHtml+_spyDiv):'')), (d.validate?'':tradeDistPanelHtml(d.win_dist,mlt)), (d.validate?'':maeMfePanelHtml(d.mae_mfe,mlt))]);
       // §2 Configuration Analysis (was §3 Plateau) — the searched config space. First row puts
-      //   TOP CONFIGS (2a) and CONFIG DISTRIBUTION (2b) side by side as section-1-style tiles; the
-      //   deeper config-space charts follow as 2c+. Display number is 2 on validate runs (the empty
-      //   In-sample §2 drops out), else 3.
+      //   TOP CONFIGS PNL (2a, the per-config equity overlay) and CONFIG DISTRIBUTION (2b) side by
+      //   side as section-1-style tiles; the TOP CONFIGS table is 2c; deeper charts follow as 2d+.
+      //   Display number is 2 on validate runs (the empty In-sample §2 drops out), else 3.
       const _cfgN=d.validate?2:3, _strN=d.validate?3:4;
-      const _card2='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px';
-      const _topTile='<div style="'+_card2+'">'+_numHdr(_cfgN+'A','TOP CONFIGS')+(t10.length?'<div style="overflow-x:auto"><table class="table" style="width:auto;font-size:var(--fsxs);white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>')+'</div>';
+      const _card2='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:12px 14px';
+      const _eq=((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt,_cfgN+'A'):'');
       const _dist=distPanelHtml(d.dist,mlt,_cfgN+'B');
-      const _cfgRow='<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px"><div style="flex:1 1 320px;min-width:0">'+_topTile+'</div>'+(_dist?'<div style="flex:1 1 320px;min-width:0"><div style="'+_card2+'">'+_dist+'</div></div>':'')+'</div>';
-      const _sec3=_cfgRow+_secOf(_cfgN,[
-        ((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt):''),
+      const _cfgRow=(_eq||_dist)?'<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'+(_eq?'<div style="flex:1 1 300px;min-width:0"><div style="'+_card2+'">'+_eq+'</div></div>':'')+(_dist?'<div style="flex:1 1 300px;min-width:0"><div style="'+_card2+'">'+_dist+'</div></div>':'')+'</div>':'';
+      const _topTile=(t10.length?'<div style="'+_card2+';margin-bottom:14px">'+_numHdr(_cfgN+'C','TOP CONFIGS')+'<style>.cfgtbl th,.cfgtbl td{padding:3px 7px!important}</style><div style="overflow-x:auto"><table class="table cfgtbl" style="width:auto;font-size:var(--fsxs);white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div></div>':'');
+      const _sec3=_cfgRow+_topTile+_secOf(_cfgN,[
         nbHtml,
         ((d.dsr?'<div class="lbl" style="margin:0 0 4px;font-size:9px;color:var(--text5)">DEFLATED SHARPE · selection-luck haircut</div>':'')+dsrHtml),
         parallelCoordsHtml(d.points,mlt),
         scatterPanelHtml(d.points,mlt),
         heatmapPanelHtml(d.points,mlt),
-        corrPanelHtml(d.points)],2);
+        corrPanelHtml(d.points)],3);
       // regHtml (regime report card + monthly P&L) moved into §1 (under the WF folds) per request.
       const _sec4=_secOf(_strN,[stressPanelHtml(d.stress,mlt)]);
       // Walk-forward folds (was its own §5) now live INSIDE §1 — they ARE the out-of-sample
