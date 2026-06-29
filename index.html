@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='38.7';
+const VERSION='38.8';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4619,7 +4619,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const isEndMs=(optS&&optE&&spanB>0)?optS+(tr0/spanB)*(optE-optS):optE; // in-sample → walk-forward boundary
       const _days=(a,b)=>(a&&b)?Math.round((b-a)/864e5):null;
       const _mdy=ms=>{if(!ms)return '';const t=new Date(ms);return (t.getUTCMonth()+1)+'/'+t.getUTCDate()+'/'+String(t.getUTCFullYear()).slice(2);};
-      const _dr=(a,b)=>(a&&b)?(_mdy(a)+'–'+_mdy(b)):'';
+      // compact year-only range for the column headers (saves horizontal space so 1b fits on screen)
+      const _yy=ms=>'’'+String(new Date(ms).getUTCFullYear()).slice(2);
+      const _dr=(a,b)=>(a&&b)?(_yy(a)+'–'+_yy(b)):'';
       const foldSharpe=()=>_foldSharpeOf(folds,_yrs);   // shared with the Past-runs tile
       const poolPf=_poolPf;                              // shared — true pooled PF, not a mean of ratios
       const oosPf=poolPf(folds.map(f=>({net:+f.oos_pnl||0,pf:+f.oos_pf||0}))),oosTr=folds.reduce((s,f)=>s+(+f.oos_trades||0),0);
@@ -4667,19 +4669,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {lbl:'BARS', cell:p=>'<span style="color:var(--text5)">'+(p.bars!=null?(+p.bars).toLocaleString():'—')+'</span>'},
         {lbl:'DAYS', cell:p=>'<span style="color:var(--text5)">'+(p.days!=null?(+p.days).toLocaleString():'—')+'</span>'}
       ];
-      const _ovl=p=>p.total?';border-left:2px solid color-mix(in srgb,var(--green) 55%,transparent);background:color-mix(in srgb,var(--green) 7%,transparent)':'';
-      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:5px 8px;vertical-align:bottom">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:5px 8px;white-space:nowrap;cursor:help;vertical-align:bottom;color:'+p.col+(p.total?';font-weight:800':';font-weight:700')+_ovl(p)+'">'+p.sh_+(p.sub?'<div style="font-size:7px;font-weight:400;color:'+p.col+';opacity:.8;margin-top:1px">'+p.sub+'</div>':'')+(p.dr?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+p.dr+'</div>':'')+'</th>').join('')+'</tr>';
+      // Per-column background tint REPLACES the old "no shading / blue bands / purple" subtitle text:
+      //   walk-forward = blue wash, lockbox = purple wash, total = green wash, in-sample = neutral.
+      const _ovl=p=>p.total?';border-left:2px solid color-mix(in srgb,var(--green) 55%,transparent);background:color-mix(in srgb,var(--green) 9%,transparent)':(p.col&&p.col[0]==='#'?';background:color-mix(in srgb,'+p.col+' 12%,transparent)':'');
+      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:4px 6px;vertical-align:bottom">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:4px 6px;white-space:nowrap;cursor:help;vertical-align:bottom;color:'+p.col+(p.total?';font-weight:800':';font-weight:700')+_ovl(p)+'">'+p.sh_+(p.dr?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+p.dr+'</div>':'')+'</th>').join('')+'</tr>';
       const body=metrics.map(m=>'<tr style="border-top:1px solid color-mix(in srgb,var(--border) '+(m.top?'70%':'40%')+',transparent)'+(m.top?';background:color-mix(in srgb,var(--border) 10%,transparent)':'')+'">'
-        +'<td style="padding:6px 8px;font-size:var(--fsxs);color:var(--text2);font-weight:'+(m.top?'700':'400')+';white-space:nowrap">'+m.lbl+'</td>'
-        +phases.map(p=>'<td style="padding:6px 8px;text-align:right;white-space:nowrap'+_ovl(p)+'">'+m.cell(p)+'</td>').join('')+'</tr>').join('');
+        +'<td style="padding:5px 6px;font-size:var(--fsxs);color:var(--text2);font-weight:'+(m.top?'700':'400')+';white-space:nowrap">'+m.lbl+'</td>'
+        +phases.map(p=>'<td style="padding:5px 6px;text-align:right;white-space:nowrap'+_ovl(p)+'">'+m.cell(p)+'</td>').join('')+'</tr>').join('');
       const _vc={PASS:'var(--green)',WEAK:'var(--yellow)',FAIL:'var(--red)'}[V.verdict]||'var(--text4)',_ng=V.n_gates||5;
-      return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 6px"><span class="lbl" style="font-size:9px;color:var(--text5)">'+(bare?'3 sections + total':'KPI MATRIX · 3 sections + total')+'</span>'
+      return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 6px">'
         +(V.verdict?'<span style="font-size:13px;font-weight:800;letter-spacing:.5px;color:'+_vc+'">'+V.verdict+'</span>':'')
         +(V.n_pass!=null?'<span style="font-size:8px;padding:2px 7px;border-radius:6px;background:var(--bg1);color:'+(V.n_pass>=_ng?'var(--green)':'var(--text2)')+'">GATES '+V.n_pass+'/'+_ng+'</span>':'')
         +(V.dsr!=null?'<span title="deflated Sharpe (selection-luck haircut)" style="font-size:8px;padding:2px 7px;border-radius:6px;background:var(--bg1);color:var(--text3);cursor:help">DSR '+(+V.dsr).toFixed(2)+'</span>':'')
         +'</div>'
-        +'<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 0;margin-bottom:14px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead>'+head+'</thead><tbody>'+body+'</tbody></table>'
-        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px">Sections run back-to-back (matching the shaded regions on chart 1a), so <b>NET P&amp;L</b> sums to <b style="color:var(--green)">TOTAL</b>: '+fmtUsd(Math.round(nIS||0))+' + '+fmtUsd(Math.round(nWF||0))+' + '+fmtUsd(Math.round(nLB||0))+' = '+fmtUsd(Math.round(nTOT||0))+'. <b>LOCKBOX</b> NET is its own held-out backtest (the 🔒 strip figure); <b>IN-SAMPLE</b> absorbs the small gap between that and the coarse curve so the three still total. <b>AVG WIN / AVG LOSS</b> are measured from the actual trades for LOCKBOX & TOTAL; IN-SAMPLE & WALK-FORWARD are derived from PF + net + counts (re-run a validate to measure those too). <b>BARS</b>: in-sample = initial train window, walk-forward = Σ test windows; lockbox bar-count wasn\'t saved (—).</div></div>';
+        +'<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 4px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
     };
     // STRATEGY CODE — the exact plugin source THIS run executed (AUGUR captures the whole
     //   strategy file at run time; synced to the web from history.get_run). Lets you answer
@@ -4764,10 +4767,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(trs.length>=2){const grow=trs[trs.length-1]-trs[0],span=Math.max.apply(null,trs)||1;mode=(grow>0.25*span)?'ANCHORED':'ROLLING';}
       const held=fs.filter(f=>f.pf>1).length;let sOos=0,sTe=0,sIs=0,sTr=0;fs.forEach(f=>{sOos+=f.oos;sTe+=f.te;sIs+=f.is;sTr+=f.tr;});
       const wfe=(sTr>0&&sTe>0&&sIs/sTr!==0)?((sOos/sTe)/(sIs/sTr)):null;
-      const mxabs=Math.max.apply(null,fs.map(f=>Math.max(Math.abs(f.is),Math.abs(f.oos))))||1;
+      // Adaptive y-scale: the zero line FLOATS to the data's [min,max] so we don't reserve a big
+      //   empty half (most folds are positive → zero line sits low, bars fill upward, PF/f# labels
+      //   sit right under the bars). Labels live in a fixed strip at the bottom.
+      const _vmax=Math.max(0,...fs.map(f=>Math.max(f.is,f.oos))),_vmin=Math.min(0,...fs.map(f=>Math.min(f.is,f.oos))),_vr=(_vmax-_vmin)||1;
       // OOS pass/fail forced to literal green/red — theme greens (e.g. mercury) are too muted to read.
       const _G='#1d9e75',_R='#e24b4a';
-      const W=560,H=144,gw=W/fs.length,mid=H/2-8,bw=gw*0.3;
+      const W=560,_top=4,_lblH=20,H=110,_plotH=H-_top-_lblH,gw=W/fs.length,bw=gw*0.3,Yf=v=>_top+(_vmax-v)/_vr*_plotH,baseY=Yf(0);
       // approx test-window dates per fold (folds carry bar counts, not dates): map each fold's
       //   bar position across the optimize window to a calendar date for the hover tooltip.
       const _W2=(d.validate&&d.validate.windows)||{},_optF=_W2.optimize&&_W2.optimize[0],_optT=_W2.optimize&&_W2.optimize[1];
@@ -4775,16 +4781,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _dAt=fr=>{if(!_optF||!_optT)return '';const a=+new Date(_optF),b=+new Date(_optT);return new Date(a+(b-a)*fr).toISOString().slice(0,10);};
       const usd=v=>fmtUsd(Math.round(v));
       let _acc=(fs[0]?fs[0].tr:0),hits='';
-      const bars=fs.map((f,i)=>{const x=i*gw,isH=(Math.abs(f.is)/mxabs)*(mid-12),oH=(Math.abs(f.oos)/mxabs)*(mid-12);
+      const bars=fs.map((f,i)=>{const x=i*gw;
+        const isTop=Yf(Math.max(f.is,0)),isHt=Math.abs(Yf(f.is)-baseY),oTop=Yf(Math.max(f.oos,0)),oHt=Math.abs(Yf(f.oos)-baseY);
         const dr=(_span>0&&_optF)?(_dAt(_acc/_span)+' → '+_dAt((_acc+f.te)/_span)):'';_acc+=f.te;
         hits+='<rect x="'+x.toFixed(1)+'" y="0" width="'+gw.toFixed(1)+'" height="'+H+'" fill="transparent" style="cursor:pointer" data-tip="<b>Fold f'+f.fold+'</b>'+(dr?(' · test '+dr):'')+'<br>in-sample '+usd(f.is)+' · out-of-sample <b style=&quot;color:'+(f.oos>=0?_G:_R)+'&quot;>'+usd(f.oos)+'</b><br>OOS profit factor <b>'+f.pf.toFixed(2)+'</b> · '+(f.pf>1?'held ✓':'failed ✕')+'"/>';
-        return '<rect x="'+(x+gw*0.14).toFixed(1)+'" y="'+(f.is>=0?mid-isH:mid).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+isH.toFixed(1)+'" fill="var(--text4)" opacity="0.5"/>'
-          +'<rect x="'+(x+gw*0.14+bw+3).toFixed(1)+'" y="'+(f.oos>=0?mid-oH:mid).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+oH.toFixed(1)+'" fill="'+(f.oos>=0?_G:_R)+'" opacity="0.9"/>'
-          +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-13)+'" text-anchor="middle" font-size="8" fill="'+(f.pf>1?_G:_R)+'">PF '+f.pf.toFixed(2)+'</text>'
+        return '<rect x="'+(x+gw*0.14).toFixed(1)+'" y="'+isTop.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+isHt.toFixed(1)+'" fill="var(--text4)" opacity="0.5"/>'
+          +'<rect x="'+(x+gw*0.14+bw+3).toFixed(1)+'" y="'+oTop.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+oHt.toFixed(1)+'" fill="'+(f.oos>=0?_G:_R)+'" opacity="0.9"/>'
+          +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-12)+'" text-anchor="middle" font-size="8" fill="'+(f.pf>1?_G:_R)+'">PF '+f.pf.toFixed(2)+'</text>'
           +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-3)+'" text-anchor="middle" font-size="8" fill="var(--text5)">f'+f.fold+'</text>';}).join('');
       const modeBadge=mode?'<span title="'+(mode==='ANCHORED'?'expanding in-sample window — each fold re-optimizes on ALL history up to it':'fixed-length in-sample window — each fold re-optimizes on a constant-size recent slice')+'" style="font-size:8px;padding:1px 6px;border-radius:6px;background:var(--bg1);border:1px solid var(--border);color:var(--text3)">'+mode+'</span>':'';
-      return '<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">WALK-FORWARD '+modeBadge+'<span style="color:'+(held/fs.length>=0.6?_G:'var(--yellow)')+'">'+held+'/'+fs.length+' folds held OOS</span>'+(wfe!=null?'<span style="color:var(--text4);font-weight:400" title="OOS return-per-bar ÷ IS return-per-bar. >60% strong, <40% likely curve-fit.">· efficiency '+Math.round(wfe*100)+'%</span>':'')+'</div>'
-        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:5px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"><line x1="0" y1="'+mid+'" x2="'+W+'" y2="'+mid+'" stroke="var(--border)"/>'+bars+hits+'</svg></div>'
+      return '<div style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">WALK-FORWARD '+modeBadge+'<span style="font-weight:400;font-size:8px;color:'+(held/fs.length>=0.6?_G:'var(--yellow)')+'">'+held+'/'+fs.length+' folds held OOS</span>'+(wfe!=null?'<span style="color:var(--text5);font-weight:400;font-size:8px" title="OOS return-per-bar ÷ IS return-per-bar. >60% strong, <40% likely curve-fit.">· efficiency '+Math.round(wfe*100)+'%</span>':'')+'</div>'
+        +'<div style="background:var(--bg1);border-radius:8px;padding:8px;margin-bottom:5px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"><line x1="0" y1="'+baseY.toFixed(1)+'" x2="'+W+'" y2="'+baseY.toFixed(1)+'" stroke="var(--border)"/>'+bars+hits+'</svg></div>'
         +'<div style="font-size:8px;color:var(--text5);margin-bottom:14px">grey = in-sample (optimize window) · green/red = out-of-sample PnL · PF under each fold is its OOS · total OOS '+fmtUsd(Math.round(sOos))+(mode?' · '+(mode==='ANCHORED'?'anchored: IS window expands each fold':'rolling: IS window stays fixed-length'):'')+'</div>';
     };
     // Champion equity curve (walk-forward in-sample → lockbox holdout), with WF test-window
@@ -4831,7 +4838,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   matrix (1b): IN-SAMPLE (un-shaded) · WALK-FORWARD (blue) · LOCKBOX (purple).
       const _frac0=(_fs.length>=2)?((+_fs[0].train_bars||0)/((+_fs[0].train_bars||0)+_fs.reduce((s,x)=>s+(+x.test_bars||0),0))):0.4;
       const _xWarm=timeOk?xAt(optS+_frac0*(optE-optS)):(pd+(EW-2*pd)*_frac0);
-      const _annoArr=[{x:(pd+_xWarm)/2,t:'IN-SAMPLE',c:'var(--text3)'},{x:(_xWarm+bx)/2,t:'WALK-FORWARD',c:'#60a5fa'},{x:(bx+EW)/2,t:'LOCKBOX',c:'#a78bfa'}];
+      const _annoArr=[{x:(pd+_xWarm)/2,t:'IN-SAMPLE',c:'var(--text3)'},{x:(_xWarm+bx)/2,t:'WALK-FORWARD',c:'#60a5fa'},{x:(bx+EW)/2,t:'LOCKBOX <span style="color:'+(lb.pass?'#1d9e75':'#e24b4a')+'">'+(lb.pass?'✓ HELD':'✕ FAIL')+'</span>',c:'#a78bfa'}];
       const anno='<div style="position:absolute;top:2px;left:0;right:0;height:11px;pointer-events:none;z-index:3;font-size:7px;font-weight:700;letter-spacing:.3px">'+_annoArr.map(a=>'<span style="position:absolute;left:'+(a.x/EW*100).toFixed(1)+'%;transform:translateX(-50%);color:'+a.c+';background:color-mix(in srgb,var(--bg1) 80%,transparent);padding:0 3px;border-radius:3px;white-space:nowrap">'+a.t+'</span>').join('')+'</div>';
       // Y-AXIS gridlines + labels at nice round $ increments (≈5 lines). Lines live in the SVG;
       //   the matching $ labels are absolutely positioned in an HTML column on the RIGHT at the
@@ -4854,9 +4861,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<path d="'+seg(li,eq.length)+'" fill="none" stroke="#a78bfa" stroke-width="1.6"/></svg>';
       // Fused DRAWDOWN pane — underwater area UNDER the equity, sharing the exact same x-axis.
       let _ddPk=eq[0];const ddSeries=eq.map(v=>{if(v>_ddPk)_ddPk=v;return v-_ddPk;});
-      const ddMin=Math.min.apply(null,ddSeries)||-1,DDH=60,ddY=v=>2+(v/(ddMin||-1))*(DDH-4);
+      const ddMin=Math.min.apply(null,ddSeries)||-1,DDH=60;
+      // Monte-Carlo P95 drawdown (the sizing floor): if it's deeper than the realised drawdown,
+      //   expand the pane's range so the dashed line still fits. (mc_p95 is points; ×mlt = $.)
+      const mcDD=(V.mc_p95!=null)?(+V.mc_p95)*mlt:null;
+      const ddFloor=Math.min(ddMin,(mcDD!=null?mcDD:ddMin))||-1,ddY=v=>2+(v/(ddFloor||-1))*(DDH-4);
       const ddArea='M '+X(0).toFixed(1)+' 2 '+ddSeries.map((v,i)=>'L '+X(i).toFixed(1)+' '+ddY(v).toFixed(1)).join(' ')+' L '+X(eq.length-1).toFixed(1)+' 2 Z';
-      const ddSvg='<svg width="100%" height="100%" viewBox="0 0 '+EW+' '+DDH+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%;border-radius:8px;background:var(--bg1)"><line x1="0" y1="2" x2="'+EW+'" y2="2" stroke="var(--border)" stroke-width="0.6"/><line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+DDH+'" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/><path d="'+ddArea+'" fill="rgba(193,66,106,0.5)" stroke="#d6557a" stroke-width="1"/></svg>';
+      const mcLine=(mcDD!=null)?'<line x1="0" y1="'+ddY(mcDD).toFixed(1)+'" x2="'+EW+'" y2="'+ddY(mcDD).toFixed(1)+'" stroke="#f5c842" stroke-width="1" stroke-dasharray="5,3" opacity="0.9"/>':'';
+      const ddSvg='<svg width="100%" height="100%" viewBox="0 0 '+EW+' '+DDH+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%;border-radius:8px;background:var(--bg1)"><line x1="0" y1="2" x2="'+EW+'" y2="2" stroke="var(--border)" stroke-width="0.6"/><line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+DDH+'" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/><path d="'+ddArea+'" fill="rgba(193,66,106,0.5)" stroke="#d6557a" stroke-width="1"/>'+mcLine+'</svg>';
       // y-axis ($ PnL) labels on the RIGHT, one per gridline. Positioned by PERCENT of the plot
       //   height (not px) so they stay aligned when the chart is dragged taller (see eq-rs resize).
       const yLabels='<div style="width:54px;min-width:54px;height:100%;display:flex;flex-direction:column;font-size:8px;color:var(--text5)">'
@@ -4864,7 +4876,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +_lvls.map(L=>'<span style="position:absolute;left:3px;top:calc('+(Y(L)/EH*100).toFixed(2)+'% - 5px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtUsd(Math.round(L))+'</span>').join('')
         +'</div>'
         +'<div style="height:11px"></div>'
-        +'<div style="position:relative;flex:1;min-height:0;font-size:7px"><span style="position:absolute;left:3px;top:0">$0</span><span style="position:absolute;left:3px;bottom:0;color:#d6557a">'+fmtUsd(Math.round(ddMin))+'</span></div>'
+        +'<div style="position:relative;flex:1;min-height:0;font-size:7px"><span style="position:absolute;left:3px;top:0">$0</span><span style="position:absolute;left:3px;bottom:0;color:#d6557a">'+fmtUsd(Math.round(ddFloor))+'</span></div>'
         +'<div style="height:12px;color:var(--text4)">PnL $</div></div>';
       // RESIZE: the chart sits in a vertically-resizable box (drag the grip at its lower edge to
       //   make it taller). The SVG fills the box (preserveAspectRatio=none → gridlines & curve scale
@@ -4875,7 +4887,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;height:100%;position:relative">'
         +anno
         +'<div style="flex:3.2;min-height:0">'+svg+'</div>'
-        +'<div style="height:11px;display:flex;align-items:center;font-size:7px;color:#d6557a;letter-spacing:.5px">DRAWDOWN</div>'
+        +'<div style="height:11px;display:flex;align-items:center;gap:8px;font-size:7px;color:#d6557a;letter-spacing:.5px">DRAWDOWN'+(mcDD!=null?'<span style="color:#f5c842">⌁ MC P95 '+fmtUsd(Math.round(mcDD))+' (size to this)</span>':'')+'</div>'
         +'<div style="flex:1;min-height:0">'+ddSvg+'</div>'
         +'<div style="height:12px">'+dateAxis+'</div></div>'
         +yLabels+'</div>';
@@ -4910,7 +4922,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const svg='<svg viewBox="0 0 '+EW+' '+H+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%">'+grid+bars+'</svg>';
       const yLab='<div style="width:54px;min-width:54px;height:100%;position:relative;font-size:8px;color:var(--text5)">'+gl.map(L=>'<span style="position:absolute;left:3px;top:calc('+(Y(L)/H*100).toFixed(2)+'% - 5px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+_k(L)+'</span>').join('')+'</div>';
       const tot=vals.reduce((s,v)=>s+v,0),pos=vals.filter(v=>v>0).length;
-      return '<div style="margin:0 0 5px;font-weight:700;font-size:11px;color:var(--text2)">Monthly P&amp;L <span style="font-weight:400;color:var(--text5);font-size:9px">· '+pos+'/'+flat.length+' green · net <b style="color:'+(tot>=0?'var(--green)':'var(--red)')+'">'+_k(tot)+'</b> · hover a bar</span></div>'
+      return '<div style="margin:0 0 5px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">Monthly P&amp;L <span style="font-weight:400;color:var(--text5);font-size:8px">· '+pos+'/'+flat.length+' green</span></div>'
         +'<div style="display:flex;gap:7px;height:56px;min-height:42px;max-height:220px;resize:vertical;overflow:hidden"><div class="rschart-box" style="flex:1;min-width:0;background:var(--bg1);border-radius:8px;overflow:hidden">'+svg+'</div>'+yLab+'</div>';
     };
     // Shared Auto-Validate report card (verdict + 5 gates + equity curve + lockbox) —
@@ -5119,6 +5131,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let _panelEquity='',_panelMatrix='';
       if(d.validate){const _V=d.validate,_lb=_V.lockbox||{};
         const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px';
+        // number+name header rendered as the FIRST ROW INSIDE each tile (1a & 1b), with an optional
+        //   hover tooltip on the number (carries the matrix explanation that used to be a paragraph).
+        const _numHdr=(tag,label,tip)=>'<div'+(tip?' title="'+tip+'"':'')+' style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin:0 0 10px'+(tip?';cursor:help':'')+'">'+tag+' <span style="font-weight:600;color:var(--text4)">· '+label+'</span>'+(tip?' <span style="font-weight:400;color:var(--text5)">ⓘ</span>':'')+'</div>';
+        const _mtip='Three sections — in-sample, walk-forward and lockbox — run back-to-back, so NET P&L sums to TOTAL. LOCKBOX NET is its own held-out backtest (the lock-strip figure); IN-SAMPLE absorbs the small curve-vs-backtest gap. AVG WIN / AVG LOSS are measured from the real trades for LOCKBOX and TOTAL, and derived from PF for IN-SAMPLE and WALK-FORWARD (re-run a validate to measure all). BARS: in-sample = initial train window, walk-forward = sum of test windows; lockbox bar-count is not saved.';
         // Section 1a leads with the equity graph + lockbox strip ONLY. The old
         // "BEST CONFIG" cards (single parameter set across ALL dates — the $195k NET P&L
         // among them) were REMOVED: that single-config number overlaps the walk-forward
@@ -5126,12 +5142,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // (1b), which was the single biggest source of confusion. The matrix carries the
         // real per-section + TOTAL accounting; this panel just draws the curve.
         _panelEquity='<div style="'+_card+'">'
+          +_numHdr('1a','Champion equity')
           +'<div title="The lockbox is the most recent slice of data (here the last 12 months), held out entirely: the optimizer never saw it while tuning parameters. The champion is then tested on it ONCE — an unbiased, out-of-sample check. HELD = it stayed profitable on this unseen data." style="margin:0 0 12px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs);cursor:help">🔒 Lockbox holdout (never tuned on): <b style="color:'+(_lb.pass?'var(--green)':'var(--red)')+'">'+(_lb.pass?'HELD':'FAILED')+'</b> <span style="color:var(--text5)">— see the LOCKBOX column in the matrix</span>'+(_V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(_V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
           +'<div id="res-step-8" style="scroll-margin-top:64px">'+championEquityHtml(_V,mlt,d.top10_results,1)+'</div>'
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
           +((wf=>wf?'<div style="margin-top:9px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
           +'</div>';
-        _panelMatrix='<div style="'+_card+'">'+kpiMatrixHtml(d,mlt,1)+'</div>';}
+        _panelMatrix='<div style="'+_card+'">'+_numHdr('1b','KPI matrix',_mtip)+kpiMatrixHtml(d,mlt,1)+'</div>';}
       const _noteEsc=String(d.note||'').replace(/"/g,'&quot;'),_hasNote=!!(d.note&&String(d.note).trim());
       // shared style so the note / relabel / delete controls read as one consistent button group.
       //   Fixed height + box-sizing makes the <select> match the <button>s (selects size differently);
@@ -5199,7 +5216,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _sec8=d.validate?'':_secOf(8,[mcHtml]);   // validate runs show MC + the underwater drawdown inside the 1a tile
       return hdrHtml
         +valBannerHtml(d)
-        +_sec('1','Feasibility & walk-forward','',(d.validate?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:2 1 460px;min-width:0">'+_secOf(1,[[_panelEquity,'Champion equity']])+'</div><div style="flex:1 1 300px;min-width:0">'+_secOf(1,[[(_panelMatrix||splitOosHtml(d,mlt)),'KPI matrix']],1)+'</div></div>'+_secOf(1,[[regHtml,'Regime report card']],2)):_secOf(1,[_summaryPanel,monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml])))
+        +_sec('1','Feasibility & walk-forward','',(d.validate?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:2 1 460px;min-width:0">'+_panelEquity+'</div><div style="flex:1 1 300px;min-width:0">'+(_panelMatrix||_secOf(1,[[splitOosHtml(d,mlt),'KPI matrix']],1))+'</div></div>'+_secOf(1,[[regHtml,'Regime report card']],2)):_secOf(1,[_summaryPanel,monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml])))
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         +_sec('3','Plateau','robust params — a cluster, not a lonely spike',_sec3)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4)
