@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='38.4';
+const VERSION='38.5';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4610,7 +4610,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const tr0=+f1.train_bars||0,spanB=tr0+folds.reduce((s,f)=>s+(+f.test_bars||0),0);
       const wEnd=(tr0>0&&spanB>0)?Math.max(0,Math.min(li-1,Math.round(li*tr0/spanB))):0;
       let nIS=null,nWF=null,nLB=null,nTOT=null;
-      if(eq.length>2){nIS=eq[wEnd];nWF=eq[li-1]-eq[wEnd];nLB=eq[eq.length-1]-eq[li-1];nTOT=eq[eq.length-1];}
+      if(eq.length>2){nIS=eq[wEnd];nWF=eq[li-1]-eq[wEnd];nLB=eq[eq.length-1]-eq[li-1];nTOT=eq[eq.length-1];
+        // LOCKBOX NET: use the lockbox's OWN held-out backtest (lb.pnl — exactly what the 🔒 strip
+        //   shows, and what its PF/Win%/trades belong to), NOT the coarse ~240-pt equity-curve slice
+        //   which can't resolve ~99k bars exactly. IN-SAMPLE absorbs the small reconciliation gap so
+        //   the three sections still sum to TOTAL (the curve endpoint). Fixes strip-vs-matrix mismatch.
+        if(lb.pnl!=null){const _lbA=(+lb.pnl)*mult;nIS+=(nLB-_lbA);nLB=_lbA;}}
       const isEndMs=(optS&&optE&&spanB>0)?optS+(tr0/spanB)*(optE-optS):optE; // in-sample → walk-forward boundary
       const _days=(a,b)=>(a&&b)?Math.round((b-a)/864e5):null;
       const _mdy=ms=>{if(!ms)return '';const t=new Date(ms);return (t.getUTCMonth()+1)+'/'+t.getUTCDate()+'/'+String(t.getUTCFullYear()).slice(2);};
@@ -4623,14 +4628,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const totPf=poolPf([{net:nIS,pf:+f1.profit_factor||0},{net:nWF,pf:oosPf},{net:nLB,pf:+lb.pf||0}]);
       // section header colours mirror the graph regions: in-sample = neutral, walk-fwd = blue, lockbox = purple
       const C_WF='#60a5fa',C_LB='#a78bfa';
+      // BARS per section: in-sample = fold-1's initial train window, walk-forward = Σ test windows
+      //   (≈ d.bars, the optimize window). Lockbox bar count isn't saved → null.
+      const wfBars=spanB-tr0,totBars=(+d.bars||spanB)||null;
+      // AVG WIN / AVG LOSS are NOT saved per trade — derive them from each section's net, profit
+      //   factor and win/loss counts: gross loss = net/(pf−1), gross profit = pf·gross loss, ÷counts.
+      //   ($ via mult; needs pf>1 and both counts.) Net/counts use each section's own backtest.
+      const oosNet=folds.reduce((s,f)=>s+(+f.oos_pnl||0),0);
+      const lbNw=(lb.win_rate!=null&&lb.trades!=null)?Math.round(lb.win_rate/100*lb.trades):null;
+      const _awl=(net,pf,nw,nl)=>{if(net==null||pf==null||!(pf>1)||!nw||!nl)return{aw:null,al:null};const gl=net/(pf-1),gp=pf*gl;return{aw:gp/nw*mult,al:gl/nl*mult};};
+      const awIS=_awl((f1.total_pnl!=null?+f1.total_pnl:null),(f1.profit_factor!=null?+f1.profit_factor:null),+f1.wins||0,+f1.losses||0);
+      const awWF=_awl(oosNet,oosPf,oosWins,oosTr-oosWins);
+      const awLB=_awl((lb.pnl!=null?+lb.pnl:null),(lb.pf!=null?+lb.pf:null),lbNw,(lb.trades!=null&&lbNw!=null)?(lb.trades-lbNw):null);
+      const _totNet=(+f1.total_pnl||0)+oosNet+(+lb.pnl||0),_totNw=(+f1.wins||0)+oosWins+(lbNw||0);
+      const awTOT=_awl(_totNet,totPf,_totNw,totTr-_totNw);
       const phases=[
-        {sh_:'IN-SAMPLE', sub:'no shading', col:'var(--text2)', dr:_dr(optS,isEndMs), days:_days(optS,isEndMs), net:nIS, pf:(f1.profit_factor!=null?+f1.profit_factor:null), wr:(f1.win_rate!=null?+f1.win_rate:null), sh:V.is_sharpe, tr:(f1.num_trades!=null?+f1.num_trades:null),
-          tip:'IN-SAMPLE = the knob-tuning start of the graph (the un-shaded part). NET P&L & DAYS are that slice of the equity curve; PF / Win% / Trades are its in-sample backtest.'},
-        folds.length?{sh_:'WALK-FORWARD', sub:'blue bands', col:C_WF, dr:_dr(isEndMs,optE), days:_days(isEndMs,optE), net:nWF, pf:oosPf, wr:oosWr, sh:foldSharpe(), tr:oosTr,
+        {sh_:'IN-SAMPLE', sub:'no shading', col:'var(--text2)', dr:_dr(optS,isEndMs), days:_days(optS,isEndMs), bars:tr0||null, net:nIS, pf:(f1.profit_factor!=null?+f1.profit_factor:null), wr:(f1.win_rate!=null?+f1.win_rate:null), aw:awIS.aw, al:awIS.al, sh:V.is_sharpe, tr:(f1.num_trades!=null?+f1.num_trades:null),
+          tip:'IN-SAMPLE = the knob-tuning start of the graph (the un-shaded part). DAYS read off the curve; NET also absorbs the small curve-vs-backtest reconciliation gap (see footnote). PF / Win% / Trades are its in-sample backtest.'},
+        folds.length?{sh_:'WALK-FORWARD', sub:'blue bands', col:C_WF, dr:_dr(isEndMs,optE), days:_days(isEndMs,optE), bars:wfBars||null, net:nWF, pf:oosPf, wr:oosWr, aw:awWF.aw, al:awWF.al, sh:foldSharpe(), tr:oosTr,
           tip:'WALK-FORWARD = the blue test bands — data held back while tuning, then tested forward ('+folds.length+' folds). NET P&L & DAYS are that slice of the curve; PF / Win% / Sharpe / Trades are the pooled out-of-sample results.'}:null,
-        (lb.pnl!=null)?{sh_:'LOCKBOX', sub:'purple', col:C_LB, dr:_dr(lbS,lbE), days:_days(lbS,lbE), net:nLB, pf:(lb.pf!=null?+lb.pf:null), wr:(lb.win_rate!=null?+lb.win_rate:null), sh:(lb.sharpe!=null?+lb.sharpe:null), tr:(lb.trades!=null?+lb.trades:null),
-          tip:'LOCKBOX = the purple holdout — never tuned or browsed, the final untouched test. Win% & Sharpe are from the lockbox trades.'}:null,
-        {sh_:'TOTAL', total:true, col:'var(--green)', dr:_dr(optS,lbE), days:_days(optS,lbE), net:nTOT, pf:totPf, wr:(V.total_win_rate!=null?+V.total_win_rate:null), sh:(V.total_sharpe!=null?+V.total_sharpe:null), tr:totTr,
+        (lb.pnl!=null)?{sh_:'LOCKBOX', sub:'purple', col:C_LB, dr:_dr(lbS,lbE), days:_days(lbS,lbE), bars:(lb.bars!=null?+lb.bars:null), net:nLB, pf:(lb.pf!=null?+lb.pf:null), wr:(lb.win_rate!=null?+lb.win_rate:null), aw:awLB.aw, al:awLB.al, sh:(lb.sharpe!=null?+lb.sharpe:null), tr:(lb.trades!=null?+lb.trades:null),
+          tip:'LOCKBOX = the purple holdout — never tuned or browsed, the final untouched test. NET P&L is the lockbox\'s own backtest (the 🔒 strip figure). Win% & Sharpe are from the lockbox trades.'}:null,
+        {sh_:'TOTAL', total:true, col:'var(--green)', dr:_dr(optS,lbE), days:_days(optS,lbE), bars:totBars, net:nTOT, pf:totPf, wr:(V.total_win_rate!=null?+V.total_win_rate:null), aw:awTOT.aw, al:awTOT.al, sh:(V.total_sharpe!=null?+V.total_sharpe:null), tr:totTr,
           tip:'TOTAL = the whole backtest = IN-SAMPLE + WALK-FORWARD + LOCKBOX. NET P&L is the equity curve\'s endpoint — the three sections add up to it. Win% & Sharpe are the champion measured over the whole window.'}
       ].filter(Boolean);
       const _pf=v=>(v==null||!isFinite(v)||v<=0)?'—':Math.min(v,99).toFixed(2);
@@ -4641,8 +4660,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {lbl:'$ / DAY', cell:p=>{const v=(p.net!=null&&p.days)?p.net/p.days:null;return '<span style="color:var(--text3)">'+(v!=null?fmtUsd(Math.round(v)):'—')+'</span>';}},
         {lbl:'PF', cell:p=>'<span style="color:'+((p.pf!=null&&p.pf>=1)?'var(--text)':'var(--red)')+'">'+_pf(p.pf)+'</span>'},
         {lbl:'WIN %', cell:p=>'<span style="color:var(--text3)">'+_wr(p.wr)+'</span>'},
+        {lbl:'AVG WIN', cell:p=>'<span style="color:#1d9e75">'+(p.aw!=null&&isFinite(p.aw)?fmtUsd(Math.round(p.aw)):'—')+'</span>'},
+        {lbl:'AVG LOSS', cell:p=>'<span style="color:#e24b4a">'+(p.al!=null&&isFinite(p.al)?'-'+fmtUsd(Math.round(p.al)):'—')+'</span>'},
         {lbl:'SHARPE', cell:p=>'<span style="color:var(--text3)">'+_sh(p.sh)+'</span>'},
         {lbl:'TRADES', cell:p=>'<span style="color:var(--text4)">'+(p.tr!=null?(+p.tr).toLocaleString():'—')+'</span>'},
+        {lbl:'BARS', cell:p=>'<span style="color:var(--text5)">'+(p.bars!=null?(+p.bars).toLocaleString():'—')+'</span>'},
         {lbl:'DAYS', cell:p=>'<span style="color:var(--text5)">'+(p.days!=null?(+p.days).toLocaleString():'—')+'</span>'}
       ];
       const _ovl=p=>p.total?';border-left:2px solid color-mix(in srgb,var(--green) 55%,transparent);background:color-mix(in srgb,var(--green) 7%,transparent)':'';
@@ -4657,7 +4679,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +(V.dsr!=null?'<span title="deflated Sharpe (selection-luck haircut)" style="font-size:8px;padding:2px 7px;border-radius:6px;background:var(--bg1);color:var(--text3);cursor:help">DSR '+(+V.dsr).toFixed(2)+'</span>':'')
         +'</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 0;margin-bottom:14px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead>'+head+'</thead><tbody>'+body+'</tbody></table>'
-        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px">Sections run back-to-back (matching the shaded regions on chart 1a), so <b>NET P&amp;L</b> sums to <b style="color:var(--green)">TOTAL</b>: '+fmtUsd(Math.round(nIS||0))+' + '+fmtUsd(Math.round(nWF||0))+' + '+fmtUsd(Math.round(nLB||0))+' = '+fmtUsd(Math.round(nTOT||0))+'. NET P&amp;L &amp; DAYS read off the curve; PF / Win% / Trades are each section\'s own backtest. Blank cells = the run saved section totals but not the per-trade win/loss split (needs a re-run).</div></div>';
+        +'<div style="font-size:8px;color:var(--text5);padding:4px 8px 6px">Sections run back-to-back (matching the shaded regions on chart 1a), so <b>NET P&amp;L</b> sums to <b style="color:var(--green)">TOTAL</b>: '+fmtUsd(Math.round(nIS||0))+' + '+fmtUsd(Math.round(nWF||0))+' + '+fmtUsd(Math.round(nLB||0))+' = '+fmtUsd(Math.round(nTOT||0))+'. <b>LOCKBOX</b> NET is its own held-out backtest (the 🔒 strip figure); <b>IN-SAMPLE</b> absorbs the small gap between that and the coarse curve so the three still total. <b>AVG WIN / AVG LOSS</b> are derived from PF + net + win/loss counts (the raw split isn\'t saved). <b>BARS</b>: in-sample = initial train window, walk-forward = Σ test windows; lockbox bar-count wasn\'t saved (—).</div></div>';
     };
     // STRATEGY CODE — the exact plugin source THIS run executed (AUGUR captures the whole
     //   strategy file at run time; synced to the web from history.get_run). Lets you answer
@@ -5078,8 +5100,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _metaBits=[ (d.source_name||((d.instrument||'')+' '+(d.timeframe||'')).trim()),
           (d.validate?'':(d.scope||'')),
           (d.validate?'':((d.date_from&&d.date_to)?(_dnice(d.date_from)+' → '+_dnice(d.date_to)):'')),
-          (d.days_in_test?(+d.days_in_test).toLocaleString()+' days':''),
-          (d.bars?(+d.bars).toLocaleString()+' bars':''),
+          (d.validate?'':(d.days_in_test?(+d.days_in_test).toLocaleString()+' days':'')),
+          (d.validate?'':(d.bars?(+d.bars).toLocaleString()+' bars':'')),
           (d.n_combos?((d.n_valid||0)+'/'+(d.n_combos||0)+' configs'):''),
           (d.elapsed_s?('took '+(d.elapsed_s>=60?(d.elapsed_s/60).toFixed(1)+'m':Math.round(d.elapsed_s)+'s')):''),
           ((d.commission_usd!=null||d.slippage_pts!=null)?'$'+(d.commission_usd||0)+'/RT'+(d.slippage_pts?' +'+d.slippage_pts+'pt':''):''),
@@ -5088,8 +5110,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         ].filter(Boolean);
       const _metaStrip='<div style="font-size:var(--fsxs);color:var(--text4);display:flex;gap:7px;flex-wrap:wrap;align-items:center">'+_metaBits.map((b,i)=>(i?'<span style="opacity:.35">·</span>':'')+'<span>'+b+'</span>').join('')+'</div>';
       const _summaryPanel='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'
-        +'<div class="lbl" style="margin:0 0 8px;font-size:11px;letter-spacing:1px">RUN SUMMARY</div>'+_metaStrip
-        +'<div class="lbl" style="margin:11px 0 6px;font-size:9px;color:var(--text5)">CHAMPION · best config (in-sample)</div>'
+        +'<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">CHAMPION · best config (in-sample)</div>'
         +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px">'+cardHtml+'</div></div>';
       // ── MASTER panel (validate runs only): ONE hero combining the champion equity curve, the
       //    KPI matrix, the champion headline cards, verdict + gate windows, run meta and the
@@ -5106,27 +5127,32 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // (1b), which was the single biggest source of confusion. The matrix carries the
         // real per-section + TOTAL accounting; this panel just draws the curve.
         _panelEquity='<div style="'+_card+'">'
-          +_metaStrip
-          +'<div style="margin:9px 0 12px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+(_lb.pass?'var(--green)':'var(--red)')+'">'+(_lb.pass?'HELD':'FAILED')+'</b> · '+fmtUsd(Math.round((_lb.pnl||0)*mlt))+' · PF '+Math.min(_lb.pf||0,99).toFixed(2)+' · '+(_lb.trades||0)+' trades'+(_V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(_V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
+          +'<div title="The lockbox is the most recent slice of data (here the last 12 months), held out entirely: the optimizer never saw it while tuning parameters. The champion is then tested on it ONCE — an unbiased, out-of-sample check. HELD = it stayed profitable on this unseen data." style="margin:0 0 12px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs);cursor:help">🔒 Lockbox (held-out — never tuned on): <b style="color:'+(_lb.pass?'var(--green)':'var(--red)')+'">'+(_lb.pass?'HELD':'FAILED')+'</b> · '+fmtUsd(Math.round((_lb.pnl||0)*mlt))+' · PF '+Math.min(_lb.pf||0,99).toFixed(2)+' · '+(_lb.trades||0)+' trades'+(_V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(_V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
           +'<div id="res-step-8" style="scroll-margin-top:64px">'+championEquityHtml(_V,mlt,d.top10_results,1)+'</div>'
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
           +((wf=>wf?'<div style="margin-top:9px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
           +'</div>';
         _panelMatrix='<div style="'+_card+'">'+kpiMatrixHtml(d,mlt,1)+'</div>';}
       const _noteEsc=String(d.note||'').replace(/"/g,'&quot;'),_hasNote=!!(d.note&&String(d.note).trim());
-      // shared style so the note / relabel / delete controls read as one consistent button group
-      const _ctlBase='padding:4px 10px;font-size:var(--fsxs);border-radius:6px;cursor:pointer;line-height:1.4';
+      // shared style so the note / relabel / delete controls read as one consistent button group.
+      //   Fixed height + box-sizing makes the <select> match the <button>s (selects size differently);
+      //   buttons flex-center their label inside that height.
+      const _ctlBase='height:26px;box-sizing:border-box;padding:0 10px;font-size:var(--fsxs);border-radius:6px;cursor:pointer';
+      const _ctlBtn=_ctlBase+';display:inline-flex;align-items:center;justify-content:center';
       const hdrHtml='<div id="res-head" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px">'
         +'<span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span>'
         +'<span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span>'
         +'<span style="font-size:14px;font-weight:800;letter-spacing:.3px;flex:0 0 auto">Run #'+d.id+'</span>'
         +'<span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span>'
         +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center;flex:0 0 auto">'
-          +'<button id="det-note" data-note-id="'+d.id+'" data-note-val="'+_noteEsc+'" title="'+(_hasNote?_noteEsc:'add a note')+'" style="'+_ctlBase+';border:1px solid '+(_hasNote?'var(--green)':'var(--border)')+';background:'+(_hasNote?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+';color:'+(_hasNote?'var(--green)':'var(--text3)')+'">note'+(_hasNote?' ✓':'')+'</button>'
+          +'<button id="det-note" data-note-id="'+d.id+'" data-note-val="'+_noteEsc+'" title="'+(_hasNote?_noteEsc:'add a note')+'" style="'+_ctlBtn+';border:1px solid '+(_hasNote?'var(--green)':'var(--border)')+';background:'+(_hasNote?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+';color:'+(_hasNote?'var(--green)':'var(--text3)')+'">note'+(_hasNote?' ✓':'')+'</button>'
           +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="'+_ctlBase+';border:1px solid var(--border);background:var(--bg2);color:var(--text3)"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
-          +'<button id="det-del" data-del-id="'+d.id+'" style="'+_ctlBase+';border:1px solid var(--red);background:var(--bg2);color:var(--red)">delete</button>'
+          +'<button id="det-del" data-del-id="'+d.id+'" style="'+_ctlBtn+';border:1px solid var(--red);background:var(--bg2);color:var(--red)">delete</button>'
         +'</span>'
         +'</div>'
+        // run meta on its own thin line under the title (instrument · mode · configs · ran-date);
+        //   days/bars live in the KPI matrix now (per-section), so they're dropped from here.
+        +'<div style="margin:-2px 0 9px">'+_metaStrip+'</div>'
         // pinned pills: FULLY transparent (no background, no backdrop-filter) so the row looks
         //   identical at rest and while scrolling — the individual pill chips stay opaque so the
         //   labels remain readable as content slides underneath.
