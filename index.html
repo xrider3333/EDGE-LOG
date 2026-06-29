@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='38.5';
+const VERSION='38.6';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -5356,7 +5356,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<td style="font-size:var(--fsxs);color:var(--text4);white-space:nowrap">'+fmtD(s.added)+'</td>'
         +'<td style="font-size:var(--fsxs);color:var(--text4);white-space:nowrap">'+(lr?(''+lr).slice(0,10):'—')+'</td>'
         +'<td style="text-align:right;font-size:var(--fsxs);color:var(--text4)">'+((s.presets||[]).length)+'</td></tr>';}).join('');
-      const mrows=(metaMasters||[]).map(m=>'<tr><td style="font-size:var(--fsxs);border-left:3px solid '+instColor(m.instrument)+';padding-left:7px">'+(m.name||'')+'</td><td>'+instTag(m.instrument)+'</td><td>'+(m.timeframe||'')+'</td><td>'+((m.session||'')+'').toUpperCase()+'</td><td style="font-size:var(--fsxs)">'+(m.source||'')+'</td><td style="text-align:center">'+(m.auto?'<span style="color:var(--green);font-size:10px;letter-spacing:1px" title="auto-pull on">● AUTO</span>':'<span style="color:var(--text5);font-size:10px">○ off</span>')+'</td><td style="text-align:right">'+(m.rows||0).toLocaleString()+'</td><td style="font-size:var(--fsxs)">'+(m.date_from||'')+'→'+(m.date_to||'')+'</td></tr>').join('');
+      // Friendly SOURCE label: the DB stores cryptic codes (nt_noadj_eth, db_noadj_rth,
+      // yahoo, tv, merged). Show the provider name (color-coded) so it's obvious at a
+      // glance which feed backs each master; raw code stays in the tooltip. Session (ETH/
+      // RTH) is already its own column, so we only append the adjustment tag here.
+      const srcLabel=(raw)=>{const s=String(raw||''),lo=s.toLowerCase();
+        if(!s)return '<span style="color:var(--text5)">—</span>';
+        let prov,col;
+        if(lo.indexOf('nt')===0){prov='NinjaTrader';col='var(--green)';}
+        else if(lo.indexOf('db')===0){prov='Databento';col='var(--purple)';}
+        else if(lo.indexOf('yahoo')===0){prov='Yahoo';col='var(--yellow)';}
+        else if(lo.indexOf('tv')===0){prov='TradingView';col='var(--blue)';}
+        else if(lo==='merged'){prov='Merged';col='var(--text3)';}
+        else{prov=s;col='var(--text4)';}
+        const noadj=lo.indexOf('noadj')>=0?'<span style="color:var(--text5);font-size:8px"> · non-adj</span>':'';
+        return '<span title="raw: '+s+'" style="color:'+col+';font-weight:600">'+prov+'</span>'+noadj;};
+      const mrows=(metaMasters||[]).map(m=>'<tr><td style="font-size:var(--fsxs);border-left:3px solid '+instColor(m.instrument)+';padding-left:7px">'+(m.name||'')+'</td><td>'+instTag(m.instrument)+'</td><td>'+(m.timeframe||'')+'</td><td>'+((m.session||'')+'').toUpperCase()+'</td><td style="font-size:var(--fsxs)">'+srcLabel(m.source)+'</td><td style="text-align:center">'+(m.auto?'<span style="color:var(--green);font-size:10px;letter-spacing:1px" title="auto-pull on">● AUTO</span>':'<span style="color:var(--text5);font-size:10px">○ off</span>')+'</td><td style="text-align:right">'+(m.rows||0).toLocaleString()+'</td><td style="font-size:var(--fsxs)">'+(m.date_from||'')+'→'+(m.date_to||'')+'</td></tr>').join('');
       const pullBanner='<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3);margin-bottom:6px"><span>Auto-pull <b style="color:'+(metaPull.autorefresh?'var(--green)':'var(--text4)')+'">'+(metaPull.autorefresh?'ON':'OFF')+'</b></span><span>'+(metaPull.n_auto||0)+'/'+(metaPull.n_masters||(metaMasters||[]).length)+' masters auto-refreshing</span>'+(metaPull.synced_at?'<span>last sync '+new Date(metaPull.synced_at*1000).toLocaleString()+'</span>':'')+'</div>';
       // ── per-strategy stats + active marker (derived client-side from run history) ──
       const statOf={};(runHistory||[]).forEach(r=>{const m=_stratMatch(r.strategy);if(!m)return;const f=m.file;const st=statOf[f]||(statOf[f]={runs:0,bestPnl:-Infinity,bestPf:0,last:''});st.runs++;const pnl=r.best_pnl_usd||0;if(pnl>st.bestPnl)st.bestPnl=pnl;if((r.best_pf||0)>st.bestPf)st.bestPf=r.best_pf||0;if((r.timestamp||'')>st.last)st.last=r.timestamp||'';});
