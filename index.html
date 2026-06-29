@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='39.1';
+const VERSION='39.2';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4381,7 +4381,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // TRADE PNL DISTRIBUTION — histogram of the WINNER's per-trade PnLs with a fitted
     // normal (bell) curve overlaid. Shows the shape/spread of trade outcomes (fat tails,
     // skew) behind the headline numbers. Needs d.win_dist (winner per-trade PnLs).
-    const tradeDistPanelHtml=(win,mult)=>{
+    const tradeDistPanelHtml=(win,mult,bare)=>{
       if(!Array.isArray(win)||win.length<12)return '';
       const v=win.map(x=>x*mult),n=v.length,mean=v.reduce((a,b)=>a+b,0)/n;
       const sd=Math.sqrt(v.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1;
@@ -4393,10 +4393,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const pdf=x=>Math.exp(-0.5*Math.pow((x-mean)/sd,2))/(sd*Math.sqrt(2*Math.PI));
       const pts=[];for(let i=0;i<=120;i++){const x=mn+span*i/120,y=pdf(x)*n*binW,px=(i/120)*W,py=H-(y/bmax)*(H-16);pts.push(px.toFixed(1)+','+Math.max(0,py).toFixed(1));}
       const meanX=((mean-mn)/span)*W,zeroX=(mn<0&&mx>0)?((0-mn)/span)*W:null,wins=v.filter(x=>x>0).length;
-      return '<div class="lbl" style="margin:8px 0 6px">TRADE PNL DISTRIBUTION · top config · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins</div>'
-        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+bars
+      return (bare?'<div style="font-size:8px;color:var(--text5);margin:0 0 4px">top config · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins</div>':'<div class="lbl" style="margin:8px 0 6px">TRADE PNL DISTRIBUTION · top config · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins</div>')
+        +'<div style="background:'+(bare?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+bars
         +(zeroX!=null?'<line x1="'+zeroX.toFixed(1)+'" y1="0" x2="'+zeroX.toFixed(1)+'" y2="'+H+'" stroke="var(--border)" stroke-width="1"/>':'')
-        +'<polyline points="'+pts.join(' ')+'" fill="none" stroke="var(--text)" stroke-width="1.5" opacity="0.8"/>'
+        +'<polyline points="'+pts.join(' ')+'" fill="none" stroke="var(--text)" stroke-width="2" opacity="1"/>'
         +'<line x1="'+meanX.toFixed(1)+'" y1="0" x2="'+meanX.toFixed(1)+'" y2="'+H+'" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3,2"/>'+hits+'</svg>'
         +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5)"><span>'+fmtUsd(Math.round(mn))+'</span><span>normal-fit bell · accent = mean · per-trade $</span><span>'+fmtUsd(Math.round(mx))+'</span></div></div>';
     };
@@ -4876,8 +4876,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _ddHL=(y,c)=>'<line x1="0" y1="'+y.toFixed(1)+'" x2="'+EW+'" y2="'+y.toFixed(1)+'" stroke="'+c+'" stroke-width="1" stroke-dasharray="5,3" opacity="0.85"/>';
       const mcLine=(mcDD!=null)?_ddHL(ddY(mcDD),'#f5c842'):'';
       const ddSvg='<svg width="100%" height="100%" viewBox="0 0 '+EW+' '+DDH+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%;border-radius:8px;background:var(--bg1)"><line x1="0" y1="2" x2="'+EW+'" y2="2" stroke="var(--border)" stroke-width="0.6"/><line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+DDH+'" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/><path d="'+ddArea+'" fill="rgba(193,66,106,0.5)" stroke="#d6557a" stroke-width="1"/>'+_ddHL(ddY(ddMin),'#d6557a')+mcLine+'</svg>';
-      const _ddLab=(y,c,txt)=>'<div style="position:absolute;left:50%;top:'+(y/DDH*100).toFixed(1)+'%;transform:translate(-50%,-50%);font-size:7px;color:'+c+';background:var(--bg1);padding:0 4px;white-space:nowrap;border-radius:3px">'+txt+'</div>';
-      const ddLabels=_ddLab(ddY(ddMin),'#d6557a','Drawdown '+fmtUsd(Math.round(ddMin)))+(mcDD!=null?_ddLab(ddY(mcDD),'#f5c842','MC '+fmtUsd(Math.round(mcDD))):'');
       // y-axis ($ PnL) labels on the RIGHT, one per gridline. Positioned by PERCENT of the plot
       //   height (not px) so they stay aligned when the chart is dragged taller (see eq-rs resize).
       const yLabels='<div style="width:54px;min-width:54px;height:100%;display:flex;flex-direction:column;font-size:8px;color:var(--text5)">'
@@ -4885,7 +4883,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +_lvls.map(L=>'<span style="position:absolute;left:3px;top:calc('+(Y(L)/EH*100).toFixed(2)+'% - 5px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtUsd(Math.round(L))+'</span>').join('')
         +'</div>'
         +'<div style="height:5px"></div>'
-        +'<div style="position:relative;flex:1;min-height:0;font-size:7px"><span style="position:absolute;left:3px;top:0">$0</span><span style="position:absolute;left:3px;bottom:0;color:#d6557a">'+fmtUsd(Math.round(ddFloor))+'</span></div>'
+        +'<div style="position:relative;flex:1;min-height:0;font-size:7px"><span style="position:absolute;left:3px;top:0">$0</span><span style="position:absolute;left:3px;top:calc('+(ddY(ddMin)/DDH*100).toFixed(1)+'% - 4px);color:#d6557a;white-space:nowrap">'+fmtUsd(Math.round(ddMin))+'</span>'+(mcDD!=null?'<span style="position:absolute;left:3px;top:calc('+(ddY(mcDD)/DDH*100).toFixed(1)+'% - 4px);color:#f5c842;white-space:nowrap">'+fmtUsd(Math.round(mcDD))+'</span>':'')+'</div>'
         +'<div style="height:12px;color:var(--text4)">PnL $</div></div>';
       // RESIZE: the chart sits in a vertically-resizable box (drag the grip at its lower edge to
       //   make it taller). The SVG fills the box (preserveAspectRatio=none → gridlines & curve scale
@@ -4897,7 +4895,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +anno
         +'<div style="flex:3.2;min-height:0">'+svg+'</div>'
         +'<div style="height:5px"></div>'
-        +'<div style="flex:1;min-height:0;position:relative">'+ddSvg+ddLabels+'</div>'
+        +'<div style="flex:1;min-height:0">'+ddSvg+'</div>'
         +'<div style="height:12px">'+dateAxis+'</div></div>'
         +yLabels+'</div>';
     };
@@ -5136,7 +5134,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    KPI matrix, the champion headline cards, verdict + gate windows, run meta and the
       //    lockbox/MC strip — so the whole at-a-glance story lives in a single chart-led card. ──
       // §1 charts are individually identified: 1a = champion equity · 1b = monthly P&L ·
-      //   1c = walk-forward folds · 1d = KPI matrix · 1e = regime report card.
+      //   1c = walk-forward folds · 1d = trade-PnL distribution (all in the left tile) ·
+      //   1e = KPI matrix · 1f = regime report card (right column).
       // chart identifier+name in the WALK-FORWARD title style (all-caps), e.g. "1A · CHAMPION
       //   EQUITY". Optional hover tooltip on the header carries the matrix explanation.
       const _numHdr=(tag,label,tip)=>'<div'+(tip?' title="'+tip+'"':'')+' style="margin:0 0 10px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px'+(tip?';cursor:help':'')+'">'+tag+' · '+label+(tip?' <span style="font-weight:400;color:var(--text5)">ⓘ</span>':'')+'</div>';
@@ -5155,9 +5154,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div id="res-step-8" style="scroll-margin-top:64px">'+championEquityHtml(_V,mlt,d.top10_results,1)+'</div>'
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
           +((wf=>wf?'<div style="margin-top:9px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
+          +((td=>td?'<div style="margin-top:12px">'+_numHdr('1D','TRADE PNL DISTRIBUTION')+td+'</div>':'')(tradeDistPanelHtml(d.win_dist,mlt,1)))
           +'</div>';
-        _panelMatrix='<div style="'+_card+'">'+_numHdr('1D','KPI MATRIX',_mtip)+kpiMatrixHtml(d,mlt,1)+'</div>';
-        _panelRegime=(regHtml&&regHtml.replace(/\s/g,''))?'<div style="'+_card+';margin-top:14px">'+_numHdr('1E','REGIME REPORT CARD')+regHtml+'</div>':'';}
+        _panelMatrix='<div style="'+_card+'">'+_numHdr('1E','KPI MATRIX',_mtip)+kpiMatrixHtml(d,mlt,1)+'</div>';
+        _panelRegime=(regHtml&&regHtml.replace(/\s/g,''))?'<div style="'+_card+';margin-top:14px">'+_numHdr('1F','REGIME REPORT CARD')+regHtml+'</div>':'';}
       const _noteEsc=String(d.note||'').replace(/"/g,'&quot;'),_hasNote=!!(d.note&&String(d.note).trim());
       // shared style so the note / relabel / delete controls read as one consistent button group.
       //   Fixed height + box-sizing makes the <select> match the <button>s (selects size differently);
@@ -5174,7 +5174,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<span style="font-size:var(--fsxs);color:var(--text4);white-space:nowrap;flex:0 0 auto">'+_metaBits.join(' · ')+'</span>'
         +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center;flex:0 0 auto;padding-left:8px">'
           +'<button id="det-note" data-note-id="'+d.id+'" data-note-val="'+_noteEsc+'" title="'+(_hasNote?_noteEsc:'add a note')+'" style="'+_ctlBtn+';border:1px solid '+(_hasNote?'var(--green)':'var(--border)')+';background:'+(_hasNote?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+';color:'+(_hasNote?'var(--green)':'var(--text3)')+'">✎</button>'
-          +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="'+_ctlBase+';border:1px solid var(--border);background:var(--bg2);color:var(--text3)"><option value="">🏷</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
+          +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="'+_ctlBase+';width:24px;min-width:24px;padding:0;text-align:center;text-align-last:center;-webkit-appearance:none;-moz-appearance:none;appearance:none;border:1px solid var(--border);background:var(--bg2);color:var(--text3)"><option value="">≡</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
           +'<button id="det-del" data-del-id="'+d.id+'" title="delete run" style="'+_ctlBtn+';border:1px solid var(--red);background:var(--bg2);color:var(--red)">🗑</button>'
         +'</span>'
         +'</div>'
@@ -5185,7 +5185,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // ── Numbered checklist sections: group each Results panel under its deploy step
       //    (2 In-sample · 3 Plateau · 4 Stress · 5 Out-of-sample · 8 Drawdown) so the
       //    report cross-references the validation checklist. Empty steps are omitted. ──
-      const _step=(n,label,sub)=>{const _k=(VSTEPS[(+n)-1]||[])[1];const _st=_k?vstat[_k]:'na';const _bb=_st==='pass'?'var(--green)':_st==='fail'?'var(--red)':'var(--bg1)';const _bf=_st==='pass'?'#04130c':_st==='fail'?'#fff':'var(--text2)';const _bd=(_st==='pass'||_st==='fail')?'0':'1px solid var(--border)';return '<div id="res-step-'+n+'" data-vstep-back="1" class="lbl" title="click to jump back to the checklist pills" style="margin:22px 0 10px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px;cursor:pointer"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;border-radius:50%;background:'+_bb+';border:'+_bd+';font-size:10px;font-weight:800;color:'+_bf+'">'+n+'</span><span style="font-weight:700">'+label+'</span>'+(sub?'<span style="font-weight:400;color:var(--text5);font-size:8px">'+sub+'</span>':'')+'<span style="margin-left:auto;font-size:8px;color:var(--text5);font-weight:600">↑ checklist</span></div>';};
+      const _step=(n,label,sub)=>{const _k=(VSTEPS[(+n)-1]||[])[1];const _st=_k?vstat[_k]:'na';const _bb=_st==='pass'?'var(--green)':_st==='fail'?'var(--red)':'var(--bg1)';const _bf=_st==='pass'?'#04130c':_st==='fail'?'#fff':'var(--text2)';const _bd=(_st==='pass'||_st==='fail')?'0':'1px solid var(--border)';return '<div id="res-step-'+n+'" data-vstep-back="1" class="lbl" title="click to jump back to the checklist pills" style="margin:'+(+n===1?'4px':'22px')+' 0 8px;'+(+n===1?'':'padding-top:16px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);')+'display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px;cursor:pointer"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;border-radius:50%;background:'+_bb+';border:'+_bd+';font-size:10px;font-weight:800;color:'+_bf+'">'+n+'</span><span style="font-weight:700">'+label+'</span>'+(sub?'<span style="font-weight:400;color:var(--text5);font-size:8px">'+sub+'</span>':'')+'<span style="margin-left:auto;font-size:8px;color:var(--text5);font-weight:600">↑ checklist</span></div>';};
       const _sec=(n,label,sub,content)=>(content&&content.replace(/\s/g,''))?(_step(n,label,sub)+content):'';
       // subsection wrapper — a number header (2a, 2b…) above each panel, optionally "· Name",
       //   so every chart/table in a section is individually addressable. Empty panels drop out.
@@ -5200,7 +5200,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Champion metrics now live in the §1 RUN SUMMARY panel (consolidated, de-duplicated).
       // §2 keeps only the trade-level behaviour. Whole-run champion equity shows ONLY for grid/auto
       //   runs — validate/WF runs already plot it (with fold bands + lockbox) as chart 1 in §1.
-      const _sec2=_secOf(2,[(d.validate?'':(eqHtml?(eqHtml+_spyDiv):'')), tradeDistPanelHtml(d.win_dist,mlt), maeMfePanelHtml(d.mae_mfe,mlt)]);
+      const _sec2=_secOf(2,[(d.validate?'':(eqHtml?(eqHtml+_spyDiv):'')), (d.validate?'':tradeDistPanelHtml(d.win_dist,mlt)), maeMfePanelHtml(d.mae_mfe,mlt)]);
       // 3 Plateau / CONFIG ANALYSIS = everything about the searched config space: the top-config
       //   list + their equity + the all-config distribution + neighbour grid + luck + param maps.
       const _sec3=_secOf(3,[
