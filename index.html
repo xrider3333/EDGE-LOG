@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='38.8';
+const VERSION='38.9';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4611,10 +4611,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const wEnd=(tr0>0&&spanB>0)?Math.max(0,Math.min(li-1,Math.round(li*tr0/spanB))):0;
       let nIS=null,nWF=null,nLB=null,nTOT=null;
       if(eq.length>2){nIS=eq[wEnd];nWF=eq[li-1]-eq[wEnd];nLB=eq[eq.length-1]-eq[li-1];nTOT=eq[eq.length-1];
-        // LOCKBOX NET: use the lockbox's OWN held-out backtest (lb.pnl — exactly what the 🔒 strip
-        //   shows, and what its PF/Win%/trades belong to), NOT the coarse ~240-pt equity-curve slice
-        //   which can't resolve ~99k bars exactly. IN-SAMPLE absorbs the small reconciliation gap so
-        //   the three sections still sum to TOTAL (the curve endpoint). Fixes strip-vs-matrix mismatch.
+        // WALK-FORWARD & LOCKBOX NET use their OWN authoritative out-of-sample backtests — the Σ of
+        //   the fold OOS results (matches the WF folds chart's "total OOS") and the lockbox holdout
+        //   (matches the 🔒 strip) — NOT the coarse ~240-pt equity-curve slices, which don't resolve
+        //   them exactly. IN-SAMPLE is then the residual (TOTAL − WALK-FORWARD − LOCKBOX) so the three
+        //   still sum to TOTAL (the curve endpoint). Fixes matrix-vs-chart/strip mismatches.
+        if(folds.length){const _wfA=folds.reduce((s,f)=>s+(+f.oos_pnl||0),0)*mult;nIS+=(nWF-_wfA);nWF=_wfA;}
         if(lb.pnl!=null){const _lbA=(+lb.pnl)*mult;nIS+=(nLB-_lbA);nLB=_lbA;}}
       const isEndMs=(optS&&optE&&spanB>0)?optS+(tr0/spanB)*(optE-optS):optE; // in-sample → walk-forward boundary
       const _days=(a,b)=>(a&&b)?Math.round((b-a)/864e5):null;
@@ -4646,7 +4648,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const awTOT=_awl(_totNet,totPf,_totNw,totTr-_totNw);
       const phases=[
         {sh_:'IN-SAMPLE', sub:'no shading', col:'var(--text2)', dr:_dr(optS,isEndMs), days:_days(optS,isEndMs), bars:tr0||null, net:nIS, pf:(f1.profit_factor!=null?+f1.profit_factor:null), wr:(f1.win_rate!=null?+f1.win_rate:null), aw:awIS.aw, al:awIS.al, sh:V.is_sharpe, tr:(f1.num_trades!=null?+f1.num_trades:null),
-          tip:'IN-SAMPLE = the knob-tuning start of the graph (the un-shaded part). DAYS read off the curve; NET also absorbs the small curve-vs-backtest reconciliation gap (see footnote). PF / Win% / Trades are its in-sample backtest.'},
+          tip:'IN-SAMPLE = the knob-tuning start of the graph. NET here is the RESIDUAL (TOTAL − WALK-FORWARD − LOCKBOX) so the three sections reconcile to the whole-run total. PF / Win% / Trades are its in-sample backtest; DAYS read off the curve.'},
         folds.length?{sh_:'WALK-FORWARD', sub:'blue bands', col:C_WF, dr:_dr(isEndMs,optE), days:_days(isEndMs,optE), bars:wfBars||null, net:nWF, pf:oosPf, wr:oosWr, aw:awWF.aw, al:awWF.al, sh:foldSharpe(), tr:oosTr,
           tip:'WALK-FORWARD = the blue test bands — data held back while tuning, then tested forward ('+folds.length+' folds). NET P&L & DAYS are that slice of the curve; PF / Win% / Sharpe / Trades are the pooled out-of-sample results.'}:null,
         (lb.pnl!=null)?{sh_:'LOCKBOX', sub:'purple', col:C_LB, dr:_dr(lbS,lbE), days:_days(lbS,lbE), bars:(lb.bars!=null?+lb.bars:null), net:nLB, pf:(lb.pf!=null?+lb.pf:null), wr:(lb.win_rate!=null?+lb.win_rate:null), aw:(lb.avg_win!=null?(+lb.avg_win)*mult:awLB.aw), al:(lb.avg_loss!=null?(+lb.avg_loss)*mult:awLB.al), sh:(lb.sharpe!=null?+lb.sharpe:null), tr:(lb.trades!=null?+lb.trades:null),
@@ -4773,7 +4775,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _vmax=Math.max(0,...fs.map(f=>Math.max(f.is,f.oos))),_vmin=Math.min(0,...fs.map(f=>Math.min(f.is,f.oos))),_vr=(_vmax-_vmin)||1;
       // OOS pass/fail forced to literal green/red — theme greens (e.g. mercury) are too muted to read.
       const _G='#1d9e75',_R='#e24b4a';
-      const W=560,_top=4,_lblH=20,H=110,_plotH=H-_top-_lblH,gw=W/fs.length,bw=gw*0.3,Yf=v=>_top+(_vmax-v)/_vr*_plotH,baseY=Yf(0);
+      const W=560,_top=2,_lblH=15,H=56,_plotH=H-_top-_lblH,gw=W/fs.length,bw=gw*0.3,Yf=v=>_top+(_vmax-v)/_vr*_plotH,baseY=Yf(0);
       // approx test-window dates per fold (folds carry bar counts, not dates): map each fold's
       //   bar position across the optimize window to a calendar date for the hover tooltip.
       const _W2=(d.validate&&d.validate.windows)||{},_optF=_W2.optimize&&_W2.optimize[0],_optT=_W2.optimize&&_W2.optimize[1];
@@ -4787,11 +4789,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         hits+='<rect x="'+x.toFixed(1)+'" y="0" width="'+gw.toFixed(1)+'" height="'+H+'" fill="transparent" style="cursor:pointer" data-tip="<b>Fold f'+f.fold+'</b>'+(dr?(' · test '+dr):'')+'<br>in-sample '+usd(f.is)+' · out-of-sample <b style=&quot;color:'+(f.oos>=0?_G:_R)+'&quot;>'+usd(f.oos)+'</b><br>OOS profit factor <b>'+f.pf.toFixed(2)+'</b> · '+(f.pf>1?'held ✓':'failed ✕')+'"/>';
         return '<rect x="'+(x+gw*0.14).toFixed(1)+'" y="'+isTop.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+isHt.toFixed(1)+'" fill="var(--text4)" opacity="0.5"/>'
           +'<rect x="'+(x+gw*0.14+bw+3).toFixed(1)+'" y="'+oTop.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+oHt.toFixed(1)+'" fill="'+(f.oos>=0?_G:_R)+'" opacity="0.9"/>'
-          +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-12)+'" text-anchor="middle" font-size="8" fill="'+(f.pf>1?_G:_R)+'">PF '+f.pf.toFixed(2)+'</text>'
-          +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-3)+'" text-anchor="middle" font-size="8" fill="var(--text5)">f'+f.fold+'</text>';}).join('');
+          +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-9)+'" text-anchor="middle" font-size="7" fill="'+(f.pf>1?_G:_R)+'">PF '+f.pf.toFixed(2)+'</text>'
+          +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-2)+'" text-anchor="middle" font-size="7" fill="var(--text5)">f'+f.fold+'</text>';}).join('');
       const modeBadge=mode?'<span title="'+(mode==='ANCHORED'?'expanding in-sample window — each fold re-optimizes on ALL history up to it':'fixed-length in-sample window — each fold re-optimizes on a constant-size recent slice')+'" style="font-size:8px;padding:1px 6px;border-radius:6px;background:var(--bg1);border:1px solid var(--border);color:var(--text3)">'+mode+'</span>':'';
-      return '<div style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">WALK-FORWARD '+modeBadge+'<span style="font-weight:400;font-size:8px;color:'+(held/fs.length>=0.6?_G:'var(--yellow)')+'">'+held+'/'+fs.length+' folds held OOS</span>'+(wfe!=null?'<span style="color:var(--text5);font-weight:400;font-size:8px" title="OOS return-per-bar ÷ IS return-per-bar. >60% strong, <40% likely curve-fit.">· efficiency '+Math.round(wfe*100)+'%</span>':'')+'</div>'
-        +'<div style="background:var(--bg1);border-radius:8px;padding:8px;margin-bottom:5px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"><line x1="0" y1="'+baseY.toFixed(1)+'" x2="'+W+'" y2="'+baseY.toFixed(1)+'" stroke="var(--border)"/>'+bars+hits+'</svg></div>'
+      return '<div style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">WALK-FORWARD '+modeBadge+'<span style="font-weight:400;font-size:8px;color:var(--text5)">'+held+'/'+fs.length+' folds held OOS</span>'+(wfe!=null?'<span style="color:var(--text5);font-weight:400;font-size:8px" title="Walk-forward efficiency = out-of-sample return-per-bar ÷ in-sample return-per-bar. 100% = performed just as well on unseen data as in-sample (no degradation); >100% = even better out-of-sample; >60% strong, <40% likely curve-fit.">· efficiency '+Math.round(wfe*100)+'%</span>':'')+'</div>'
+        +'<div style="background:var(--bg1);border-radius:8px;padding:5px 8px;margin-bottom:5px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="56" preserveAspectRatio="none" style="display:block"><line x1="0" y1="'+baseY.toFixed(1)+'" x2="'+W+'" y2="'+baseY.toFixed(1)+'" stroke="var(--border)"/>'+bars+hits+'</svg></div>'
         +'<div style="font-size:8px;color:var(--text5);margin-bottom:14px">grey = in-sample (optimize window) · green/red = out-of-sample PnL · PF under each fold is its OOS · total OOS '+fmtUsd(Math.round(sOos))+(mode?' · '+(mode==='ANCHORED'?'anchored: IS window expands each fold':'rolling: IS window stays fixed-length'):'')+'</div>';
     };
     // Champion equity curve (walk-forward in-sample → lockbox holdout), with WF test-window
@@ -4868,14 +4870,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const ddFloor=Math.min(ddMin,(mcDD!=null?mcDD:ddMin))||-1,ddY=v=>2+(v/(ddFloor||-1))*(DDH-4);
       const ddArea='M '+X(0).toFixed(1)+' 2 '+ddSeries.map((v,i)=>'L '+X(i).toFixed(1)+' '+ddY(v).toFixed(1)).join(' ')+' L '+X(eq.length-1).toFixed(1)+' 2 Z';
       const mcLine=(mcDD!=null)?'<line x1="0" y1="'+ddY(mcDD).toFixed(1)+'" x2="'+EW+'" y2="'+ddY(mcDD).toFixed(1)+'" stroke="#f5c842" stroke-width="1" stroke-dasharray="5,3" opacity="0.9"/>':'';
-      const ddSvg='<svg width="100%" height="100%" viewBox="0 0 '+EW+' '+DDH+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%;border-radius:8px;background:var(--bg1)"><line x1="0" y1="2" x2="'+EW+'" y2="2" stroke="var(--border)" stroke-width="0.6"/><line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+DDH+'" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/><path d="'+ddArea+'" fill="rgba(193,66,106,0.5)" stroke="#d6557a" stroke-width="1"/>'+mcLine+'</svg>';
+      const mcTxt=(mcDD!=null)?'<text x="3" y="'+Math.max(7,ddY(mcDD)-1.5).toFixed(1)+'" font-size="6" fill="#f5c842">MC '+fmtUsd(Math.round(mcDD))+'</text>':'';
+      const ddSvg='<svg width="100%" height="100%" viewBox="0 0 '+EW+' '+DDH+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%;border-radius:8px;background:var(--bg1)"><line x1="0" y1="2" x2="'+EW+'" y2="2" stroke="var(--border)" stroke-width="0.6"/><line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+DDH+'" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/><path d="'+ddArea+'" fill="rgba(193,66,106,0.5)" stroke="#d6557a" stroke-width="1"/>'+mcLine+'<text x="3" y="9" font-size="6" fill="#d6557a">drawdown</text>'+mcTxt+'</svg>';
       // y-axis ($ PnL) labels on the RIGHT, one per gridline. Positioned by PERCENT of the plot
       //   height (not px) so they stay aligned when the chart is dragged taller (see eq-rs resize).
       const yLabels='<div style="width:54px;min-width:54px;height:100%;display:flex;flex-direction:column;font-size:8px;color:var(--text5)">'
         +'<div style="position:relative;flex:3.2;min-height:0">'
         +_lvls.map(L=>'<span style="position:absolute;left:3px;top:calc('+(Y(L)/EH*100).toFixed(2)+'% - 5px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtUsd(Math.round(L))+'</span>').join('')
         +'</div>'
-        +'<div style="height:11px"></div>'
+        +'<div style="height:5px"></div>'
         +'<div style="position:relative;flex:1;min-height:0;font-size:7px"><span style="position:absolute;left:3px;top:0">$0</span><span style="position:absolute;left:3px;bottom:0;color:#d6557a">'+fmtUsd(Math.round(ddFloor))+'</span></div>'
         +'<div style="height:12px;color:var(--text4)">PnL $</div></div>';
       // RESIZE: the chart sits in a vertically-resizable box (drag the grip at its lower edge to
@@ -4887,7 +4890,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;height:100%;position:relative">'
         +anno
         +'<div style="flex:3.2;min-height:0">'+svg+'</div>'
-        +'<div style="height:11px;display:flex;align-items:center;gap:8px;font-size:7px;color:#d6557a;letter-spacing:.5px">DRAWDOWN'+(mcDD!=null?'<span style="color:#f5c842">⌁ MC P95 '+fmtUsd(Math.round(mcDD))+' (size to this)</span>':'')+'</div>'
+        +'<div style="height:5px"></div>'
         +'<div style="flex:1;min-height:0">'+ddSvg+'</div>'
         +'<div style="height:12px">'+dateAxis+'</div></div>'
         +yLabels+'</div>';
@@ -5134,7 +5137,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // number+name header rendered as the FIRST ROW INSIDE each tile (1a & 1b), with an optional
         //   hover tooltip on the number (carries the matrix explanation that used to be a paragraph).
         const _numHdr=(tag,label,tip)=>'<div'+(tip?' title="'+tip+'"':'')+' style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin:0 0 10px'+(tip?';cursor:help':'')+'">'+tag+' <span style="font-weight:600;color:var(--text4)">· '+label+'</span>'+(tip?' <span style="font-weight:400;color:var(--text5)">ⓘ</span>':'')+'</div>';
-        const _mtip='Three sections — in-sample, walk-forward and lockbox — run back-to-back, so NET P&L sums to TOTAL. LOCKBOX NET is its own held-out backtest (the lock-strip figure); IN-SAMPLE absorbs the small curve-vs-backtest gap. AVG WIN / AVG LOSS are measured from the real trades for LOCKBOX and TOTAL, and derived from PF for IN-SAMPLE and WALK-FORWARD (re-run a validate to measure all). BARS: in-sample = initial train window, walk-forward = sum of test windows; lockbox bar-count is not saved.';
+        const _mtip='Three sections — in-sample, walk-forward and lockbox — run back-to-back and sum to TOTAL. WALK-FORWARD NET = the sum of the fold out-of-sample results (matches the WALK-FORWARD chart); LOCKBOX NET = the holdout backtest (matches the lock strip). IN-SAMPLE is the residual (TOTAL − WALK-FORWARD − LOCKBOX) so the three reconcile. AVG WIN / AVG LOSS are measured from the real trades for LOCKBOX and TOTAL, and derived from PF for IN-SAMPLE and WALK-FORWARD (re-run a validate to measure all). BARS: in-sample = initial train window, walk-forward = sum of test windows; lockbox bar-count is not saved.';
         // Section 1a leads with the equity graph + lockbox strip ONLY. The old
         // "BEST CONFIG" cards (single parameter set across ALL dates — the $195k NET P&L
         // among them) were REMOVED: that single-config number overlaps the walk-forward
