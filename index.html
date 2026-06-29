@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='39.0';
+const VERSION='39.1';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4775,7 +4775,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _vmax=Math.max(0,...fs.map(f=>Math.max(f.is,f.oos))),_vmin=Math.min(0,...fs.map(f=>Math.min(f.is,f.oos))),_vr=(_vmax-_vmin)||1;
       // OOS pass/fail forced to literal green/red — theme greens (e.g. mercury) are too muted to read.
       const _G='#1d9e75',_R='#e24b4a';
-      const W=560,_top=2,_lblH=15,H=56,_plotH=H-_top-_lblH,gw=W/fs.length,bw=gw*0.3,Yf=v=>_top+(_vmax-v)/_vr*_plotH,baseY=Yf(0);
+      // SVG holds ONLY the bars (height-controlled, stretched to fill width); the PF/f# labels are
+      //   rendered as HTML below so they aren't horizontally distorted by preserveAspectRatio=none.
+      const W=560,_top=2,H=40,_plotH=H-_top-2,gw=W/fs.length,bw=gw*0.3,Yf=v=>_top+(_vmax-v)/_vr*_plotH,baseY=Yf(0);
       // approx test-window dates per fold (folds carry bar counts, not dates): map each fold's
       //   bar position across the optimize window to a calendar date for the hover tooltip.
       const _W2=(d.validate&&d.validate.windows)||{},_optF=_W2.optimize&&_W2.optimize[0],_optT=_W2.optimize&&_W2.optimize[1];
@@ -4788,13 +4790,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const dr=(_span>0&&_optF)?(_dAt(_acc/_span)+' → '+_dAt((_acc+f.te)/_span)):'';_acc+=f.te;
         hits+='<rect x="'+x.toFixed(1)+'" y="0" width="'+gw.toFixed(1)+'" height="'+H+'" fill="transparent" style="cursor:pointer" data-tip="<b>Fold f'+f.fold+'</b>'+(dr?(' · test '+dr):'')+'<br>in-sample '+usd(f.is)+' · out-of-sample <b style=&quot;color:'+(f.oos>=0?_G:_R)+'&quot;>'+usd(f.oos)+'</b><br>OOS profit factor <b>'+f.pf.toFixed(2)+'</b> · '+(f.pf>1?'held ✓':'failed ✕')+'"/>';
         return '<rect x="'+(x+gw*0.14).toFixed(1)+'" y="'+isTop.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+isHt.toFixed(1)+'" fill="var(--text4)" opacity="0.5"/>'
-          +'<rect x="'+(x+gw*0.14+bw+3).toFixed(1)+'" y="'+oTop.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+oHt.toFixed(1)+'" fill="'+(f.oos>=0?_G:_R)+'" opacity="0.9"/>'
-          +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-9)+'" text-anchor="middle" font-size="7" fill="'+(f.pf>1?_G:_R)+'">PF '+f.pf.toFixed(2)+'</text>'
-          +'<text x="'+(x+gw/2).toFixed(1)+'" y="'+(H-2)+'" text-anchor="middle" font-size="7" fill="var(--text5)">f'+f.fold+'</text>';}).join('');
+          +'<rect x="'+(x+gw*0.14+bw+3).toFixed(1)+'" y="'+oTop.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+oHt.toFixed(1)+'" fill="'+(f.oos>=0?_G:_R)+'" opacity="0.9"/>';}).join('');
       const modeBadge=mode?'<span title="'+(mode==='ANCHORED'?'expanding in-sample window — each fold re-optimizes on ALL history up to it':'fixed-length in-sample window — each fold re-optimizes on a constant-size recent slice')+'" style="font-size:8px;padding:1px 6px;border-radius:6px;background:var(--bg1);border:1px solid var(--border);color:var(--text3)">'+mode+'</span>':'';
-      return '<div style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1C · WALK-FORWARD '+modeBadge+'<span style="font-weight:400;font-size:8px;color:var(--text5)">'+held+'/'+fs.length+' folds held OOS</span>'+(wfe!=null?'<span style="color:var(--text5);font-weight:400;font-size:8px" title="Walk-forward efficiency = out-of-sample return-per-bar ÷ in-sample return-per-bar. 100% = performed just as well on unseen data as in-sample (no degradation); >100% = even better out-of-sample; >60% strong, <40% likely curve-fit.">· efficiency '+Math.round(wfe*100)+'%</span>':'')+'</div>'
-        +'<div style="background:var(--bg1);border-radius:8px;padding:5px 8px;margin-bottom:5px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="56" preserveAspectRatio="none" style="display:block"><line x1="0" y1="'+baseY.toFixed(1)+'" x2="'+W+'" y2="'+baseY.toFixed(1)+'" stroke="var(--border)"/>'+bars+hits+'</svg></div>'
-        +'<div style="font-size:8px;color:var(--text5);margin-bottom:14px">grey = in-sample (optimize window) · green/red = out-of-sample PnL · PF under each fold is its OOS · total OOS '+fmtUsd(Math.round(sOos))+(mode?' · '+(mode==='ANCHORED'?'anchored: IS window expands each fold':'rolling: IS window stays fixed-length'):'')+'</div>';
+      const _wfTip='grey = in-sample (optimize window); green/red = out-of-sample PnL; PF under each fold is its OOS. Total OOS '+fmtUsd(Math.round(sOos))+'.'+(mode?(' '+(mode==='ANCHORED'?'Anchored: the in-sample window expands each fold.':'Rolling: the in-sample window stays a fixed length.')):'');
+      return '<div title="'+_wfTip+'" style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;cursor:help">1C · WALK-FORWARD '+modeBadge+'<span style="font-weight:400;font-size:8px;color:var(--text5)">'+held+'/'+fs.length+' folds held OOS</span>'+(wfe!=null?'<span style="color:var(--text5);font-weight:400;font-size:8px" title="Walk-forward efficiency = out-of-sample return-per-bar ÷ in-sample return-per-bar. 100% = performed just as well on unseen data as in-sample (no degradation); >100% = even better out-of-sample; >60% strong, <40% likely curve-fit.">· efficiency '+Math.round(wfe*100)+'%</span>':'')+'<span style="font-weight:400;color:var(--text5)">ⓘ</span></div>'
+        +'<div style="background:var(--bg1);border-radius:8px;padding:5px 8px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="40" preserveAspectRatio="none" style="display:block"><line x1="0" y1="'+baseY.toFixed(1)+'" x2="'+W+'" y2="'+baseY.toFixed(1)+'" stroke="var(--border)"/>'+bars+hits+'</svg></div>'
+        +'<div style="display:flex;margin:2px 0 14px">'+fs.map(f=>'<div style="flex:1;text-align:center;font-size:8px;line-height:1.3"><div style="color:'+(f.pf>1?_G:_R)+'">PF '+f.pf.toFixed(2)+'</div><div style="color:var(--text5)">f'+f.fold+'</div></div>').join('')+'</div>';
     };
     // Champion equity curve (walk-forward in-sample → lockbox holdout), with WF test-window
     //   bands + a lockbox region. Extracted so the MASTER panel and the Builder's validate card
@@ -4869,9 +4870,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const mcDD=(V.mc_p95!=null)?(+V.mc_p95)*mlt:null;
       const ddFloor=Math.min(ddMin,(mcDD!=null?mcDD:ddMin))||-1,ddY=v=>2+(v/(ddFloor||-1))*(DDH-4);
       const ddArea='M '+X(0).toFixed(1)+' 2 '+ddSeries.map((v,i)=>'L '+X(i).toFixed(1)+' '+ddY(v).toFixed(1)).join(' ')+' L '+X(eq.length-1).toFixed(1)+' 2 Z';
-      const mcLine=(mcDD!=null)?'<line x1="0" y1="'+ddY(mcDD).toFixed(1)+'" x2="'+EW+'" y2="'+ddY(mcDD).toFixed(1)+'" stroke="#f5c842" stroke-width="1" stroke-dasharray="5,3" opacity="0.9"/>':'';
-      const mcTxt=(mcDD!=null)?'<text x="3" y="'+Math.max(7,ddY(mcDD)-1.5).toFixed(1)+'" font-size="6" fill="#f5c842">MC '+fmtUsd(Math.round(mcDD))+'</text>':'';
-      const ddSvg='<svg width="100%" height="100%" viewBox="0 0 '+EW+' '+DDH+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%;border-radius:8px;background:var(--bg1)"><line x1="0" y1="2" x2="'+EW+'" y2="2" stroke="var(--border)" stroke-width="0.6"/><line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+DDH+'" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/><path d="'+ddArea+'" fill="rgba(193,66,106,0.5)" stroke="#d6557a" stroke-width="1"/>'+mcLine+'<text x="3" y="9" font-size="6" fill="#d6557a">drawdown</text>'+mcTxt+'</svg>';
+      // two horizontal reference lines: the realised MAX drawdown (ddMin) and the Monte-Carlo P95
+      //   floor (mcDD). Their HTML labels sit centred ON each line (bg blocks the line) so the
+      //   vertical gap between "what happened" and "what could happen" is easy to read.
+      const _ddHL=(y,c)=>'<line x1="0" y1="'+y.toFixed(1)+'" x2="'+EW+'" y2="'+y.toFixed(1)+'" stroke="'+c+'" stroke-width="1" stroke-dasharray="5,3" opacity="0.85"/>';
+      const mcLine=(mcDD!=null)?_ddHL(ddY(mcDD),'#f5c842'):'';
+      const ddSvg='<svg width="100%" height="100%" viewBox="0 0 '+EW+' '+DDH+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%;border-radius:8px;background:var(--bg1)"><line x1="0" y1="2" x2="'+EW+'" y2="2" stroke="var(--border)" stroke-width="0.6"/><line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+DDH+'" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/><path d="'+ddArea+'" fill="rgba(193,66,106,0.5)" stroke="#d6557a" stroke-width="1"/>'+_ddHL(ddY(ddMin),'#d6557a')+mcLine+'</svg>';
+      const _ddLab=(y,c,txt)=>'<div style="position:absolute;left:50%;top:'+(y/DDH*100).toFixed(1)+'%;transform:translate(-50%,-50%);font-size:7px;color:'+c+';background:var(--bg1);padding:0 4px;white-space:nowrap;border-radius:3px">'+txt+'</div>';
+      const ddLabels=_ddLab(ddY(ddMin),'#d6557a','Drawdown '+fmtUsd(Math.round(ddMin)))+(mcDD!=null?_ddLab(ddY(mcDD),'#f5c842','MC '+fmtUsd(Math.round(mcDD))):'');
       // y-axis ($ PnL) labels on the RIGHT, one per gridline. Positioned by PERCENT of the plot
       //   height (not px) so they stay aligned when the chart is dragged taller (see eq-rs resize).
       const yLabels='<div style="width:54px;min-width:54px;height:100%;display:flex;flex-direction:column;font-size:8px;color:var(--text5)">'
@@ -4891,7 +4897,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +anno
         +'<div style="flex:3.2;min-height:0">'+svg+'</div>'
         +'<div style="height:5px"></div>'
-        +'<div style="flex:1;min-height:0">'+ddSvg+'</div>'
+        +'<div style="flex:1;min-height:0;position:relative">'+ddSvg+ddLabels+'</div>'
         +'<div style="height:12px">'+dateAxis+'</div></div>'
         +yLabels+'</div>';
     };
@@ -5036,7 +5042,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let mcHtml='';
       if(d.mc){mcHtml=_vrow('<span>P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round((d.mc.p95||0)*mlt))+'</b> (size your account to survive this)</span>');}
       let regHtml='';
-      if(d.regime){const rg=d.regime;const bt=(arr)=>'<table class="table" style="font-size:var(--fsxs)"><thead><tr><th></th><th style="text-align:right">T</th><th style="text-align:right">$</th><th style="text-align:right">PF</th></tr></thead><tbody>'+(arr||[]).map(b=>'<tr><td>'+b.bucket+'</td><td style="text-align:right">'+b.n+'</td><td style="text-align:right;color:'+(b.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(b.pnl*mlt))+'</td><td style="text-align:right">'+(b.pf||0).toFixed(2)+'</td></tr>').join('')+'</tbody></table>';const mo=rg.monthly||{rows:[]};const ml=['J','F','M','A','M','J','J','A','S','O','N','D'];const _flat=[];(mo.rows||[]).forEach(r=>{(r.months||[]).forEach((vv,mi)=>{if(vv!=null)_flat.push({y:r.year,m:mi,v:vv*mlt});});});const mhHist=(function(){if(_flat.length<2)return '<div style="font-size:8px;color:var(--text5)">not enough monthly data</div>';const _mxa=Math.max.apply(null,_flat.map(f=>Math.abs(f.v)))||1,_W=560,_H=96,_bw=_W/_flat.length,_m2=_H/2-6;const _bars=_flat.map((f,i)=>{const h=(Math.abs(f.v)/_mxa)*(_m2-2),x=i*_bw,_c=f.v>=0?'#1d9e75':'#e24b4a',_tip=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][f.m]+' '+f.y+' · <b style=&quot;color:'+_c+'&quot;>'+fmtUsd(Math.round(f.v))+'</b>';return '<rect x="'+(x+0.4).toFixed(1)+'" y="'+(f.v>=0?_m2-h:_m2).toFixed(1)+'" width="'+Math.max(0.6,_bw-0.8).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+_c+'" opacity="0.82" style="cursor:pointer" data-tip="'+_tip+'"/>';}).join('');let _py=null,_tk='';_flat.forEach((f,i)=>{if(f.y!==_py){_tk+='<text x="'+(i*_bw+1).toFixed(1)+'" y="'+(_H-2)+'" font-size="7" fill="var(--text5)">'+f.y+'</text>';_py=f.y;}});return '<div style="background:var(--bg2);border-radius:8px;padding:8px;margin-bottom:16px"><svg viewBox="0 0 '+_W+' '+_H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"><line x1="0" y1="'+_m2+'" x2="'+_W+'" y2="'+_m2+'" stroke="var(--border)" stroke-width="0.5"/>'+_bars+_tk+'</svg></div>';})();regHtml='<div class="lbl" style="margin:8px 0 6px">'+(d.validate?'':'REGIME REPORT CARD · ')+'weakest vol bucket: '+(rg.worst_vol||'—')+'</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:10px"><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Volatility (ATR20)</div>'+bt(rg.vol)+'</div><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Trend vs chop</div>'+bt(rg.trend)+'</div><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Day of week</div>'+bt(rg.dow)+'</div></div>';}
+      if(d.regime){const rg=d.regime;const bt=(arr)=>'<table class="table" style="font-size:var(--fsxs)"><thead><tr><th></th><th style="text-align:right">T</th><th style="text-align:right">$</th><th style="text-align:right">PF</th></tr></thead><tbody>'+(arr||[]).map(b=>'<tr><td>'+b.bucket+'</td><td style="text-align:right">'+b.n+'</td><td style="text-align:right;color:'+(b.pnl>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(b.pnl*mlt))+'</td><td style="text-align:right">'+(b.pf||0).toFixed(2)+'</td></tr>').join('')+'</tbody></table>';const mo=rg.monthly||{rows:[]};const ml=['J','F','M','A','M','J','J','A','S','O','N','D'];const _flat=[];(mo.rows||[]).forEach(r=>{(r.months||[]).forEach((vv,mi)=>{if(vv!=null)_flat.push({y:r.year,m:mi,v:vv*mlt});});});const mhHist=(function(){if(_flat.length<2)return '<div style="font-size:8px;color:var(--text5)">not enough monthly data</div>';const _mxa=Math.max.apply(null,_flat.map(f=>Math.abs(f.v)))||1,_W=560,_H=96,_bw=_W/_flat.length,_m2=_H/2-6;const _bars=_flat.map((f,i)=>{const h=(Math.abs(f.v)/_mxa)*(_m2-2),x=i*_bw,_c=f.v>=0?'#1d9e75':'#e24b4a',_tip=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][f.m]+' '+f.y+' · <b style=&quot;color:'+_c+'&quot;>'+fmtUsd(Math.round(f.v))+'</b>';return '<rect x="'+(x+0.4).toFixed(1)+'" y="'+(f.v>=0?_m2-h:_m2).toFixed(1)+'" width="'+Math.max(0.6,_bw-0.8).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+_c+'" opacity="0.82" style="cursor:pointer" data-tip="'+_tip+'"/>';}).join('');let _py=null,_tk='';_flat.forEach((f,i)=>{if(f.y!==_py){_tk+='<text x="'+(i*_bw+1).toFixed(1)+'" y="'+(_H-2)+'" font-size="7" fill="var(--text5)">'+f.y+'</text>';_py=f.y;}});return '<div style="background:var(--bg2);border-radius:8px;padding:8px;margin-bottom:16px"><svg viewBox="0 0 '+_W+' '+_H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"><line x1="0" y1="'+_m2+'" x2="'+_W+'" y2="'+_m2+'" stroke="var(--border)" stroke-width="0.5"/>'+_bars+_tk+'</svg></div>';})();regHtml='<div class="lbl" style="margin:8px 0 6px">'+(d.validate?'':'REGIME REPORT CARD · ')+'weakest vol bucket: '+(rg.worst_vol||'—')+'</div><div style="display:grid;grid-template-columns:'+(d.validate?'1fr':'repeat(auto-fit,minmax(180px,1fr))')+';gap:12px;margin-bottom:10px"><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Volatility (ATR20)</div>'+bt(rg.vol)+'</div><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Trend vs chop</div>'+bt(rg.trend)+'</div><div><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:2px">Day of week</div>'+bt(rg.dow)+'</div></div>';}
       let nbHtml='';
       if(d.neighborhood){const nb=d.neighborhood;const vc=nb.verdict==='HIGH GROUND'?'var(--green)':'var(--yellow)';const pfcol=p=>p>1?'var(--green)':'var(--red)';
         const cell=(c,acc)=>{if(!c)return '<td style="text-align:center;opacity:.3">—</td>';return '<td style="text-align:center"><div style="font-size:8px;color:var(--text5)">'+c.val+'</div><div style="color:'+(acc?'var(--accent)':pfcol(c.pf))+';font-weight:'+(acc?'800':'600')+'">PF '+(c.pf||0).toFixed(2)+'</div></td>';};
@@ -5134,7 +5140,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // chart identifier+name in the WALK-FORWARD title style (all-caps), e.g. "1A · CHAMPION
       //   EQUITY". Optional hover tooltip on the header carries the matrix explanation.
       const _numHdr=(tag,label,tip)=>'<div'+(tip?' title="'+tip+'"':'')+' style="margin:0 0 10px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px'+(tip?';cursor:help':'')+'">'+tag+' · '+label+(tip?' <span style="font-weight:400;color:var(--text5)">ⓘ</span>':'')+'</div>';
-      let _panelEquity='',_panelMatrix='';
+      let _panelEquity='',_panelMatrix='',_panelRegime='';
       if(d.validate){const _V=d.validate,_lb=_V.lockbox||{};
         const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px';
         const _mtip='Three sections — in-sample, walk-forward and lockbox — run back-to-back and sum to TOTAL. WALK-FORWARD NET = the sum of the fold out-of-sample results (matches the WALK-FORWARD chart); LOCKBOX NET = the holdout backtest (matches the lock strip). IN-SAMPLE is the residual (TOTAL − WALK-FORWARD − LOCKBOX) so the three reconcile. AVG WIN / AVG LOSS are measured from the real trades for LOCKBOX and TOTAL, and derived from PF for IN-SAMPLE and WALK-FORWARD (re-run a validate to measure all). BARS: in-sample = initial train window, walk-forward = sum of test windows; lockbox bar-count is not saved.';
@@ -5146,18 +5152,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // real per-section + TOTAL accounting; this panel just draws the curve.
         _panelEquity='<div style="'+_card+'">'
           +_numHdr('1A','CHAMPION EQUITY')
-          +'<div title="The lockbox is the most recent slice of data (here the last 12 months), held out entirely: the optimizer never saw it while tuning parameters. The champion is then tested on it ONCE — an unbiased, out-of-sample check. HELD = it stayed profitable on this unseen data." style="margin:0 0 12px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs);cursor:help">🔒 Lockbox holdout (never tuned on): <b style="color:'+(_lb.pass?'var(--green)':'var(--red)')+'">'+(_lb.pass?'HELD':'FAILED')+'</b> <span style="color:var(--text5)">— see the LOCKBOX column in the matrix</span>'+(_V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(_V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
           +'<div id="res-step-8" style="scroll-margin-top:64px">'+championEquityHtml(_V,mlt,d.top10_results,1)+'</div>'
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
           +((wf=>wf?'<div style="margin-top:9px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
           +'</div>';
-        _panelMatrix='<div style="'+_card+'">'+_numHdr('1D','KPI MATRIX',_mtip)+kpiMatrixHtml(d,mlt,1)+'</div>';}
+        _panelMatrix='<div style="'+_card+'">'+_numHdr('1D','KPI MATRIX',_mtip)+kpiMatrixHtml(d,mlt,1)+'</div>';
+        _panelRegime=(regHtml&&regHtml.replace(/\s/g,''))?'<div style="'+_card+';margin-top:14px">'+_numHdr('1E','REGIME REPORT CARD')+regHtml+'</div>':'';}
       const _noteEsc=String(d.note||'').replace(/"/g,'&quot;'),_hasNote=!!(d.note&&String(d.note).trim());
       // shared style so the note / relabel / delete controls read as one consistent button group.
       //   Fixed height + box-sizing makes the <select> match the <button>s (selects size differently);
       //   buttons flex-center their label inside that height.
-      const _ctlBase='height:26px;box-sizing:border-box;padding:0 10px;font-size:var(--fsxs);border-radius:6px;cursor:pointer';
-      const _ctlBtn=_ctlBase+';display:inline-flex;align-items:center;justify-content:center';
+      const _ctlBase='height:24px;box-sizing:border-box;padding:0 5px;font-size:12px;border-radius:6px;cursor:pointer;line-height:1;font-variant-emoji:text';
+      const _ctlBtn=_ctlBase+';min-width:24px;display:inline-flex;align-items:center;justify-content:center';
       const hdrHtml='<div id="res-head" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px">'
         +'<span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span>'
         +'<span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span>'
@@ -5167,9 +5173,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   in the KPI matrix now. Fully shown — the row scrolls horizontally if it gets too wide.
         +'<span style="font-size:var(--fsxs);color:var(--text4);white-space:nowrap;flex:0 0 auto">'+_metaBits.join(' · ')+'</span>'
         +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center;flex:0 0 auto;padding-left:8px">'
-          +'<button id="det-note" data-note-id="'+d.id+'" data-note-val="'+_noteEsc+'" title="'+(_hasNote?_noteEsc:'add a note')+'" style="'+_ctlBtn+';border:1px solid '+(_hasNote?'var(--green)':'var(--border)')+';background:'+(_hasNote?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+';color:'+(_hasNote?'var(--green)':'var(--text3)')+'">note'+(_hasNote?' ✓':'')+'</button>'
-          +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="'+_ctlBase+';border:1px solid var(--border);background:var(--bg2);color:var(--text3)"><option value="">relabel…</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
-          +'<button id="det-del" data-del-id="'+d.id+'" style="'+_ctlBtn+';border:1px solid var(--red);background:var(--bg2);color:var(--red)">delete</button>'
+          +'<button id="det-note" data-note-id="'+d.id+'" data-note-val="'+_noteEsc+'" title="'+(_hasNote?_noteEsc:'add a note')+'" style="'+_ctlBtn+';border:1px solid '+(_hasNote?'var(--green)':'var(--border)')+';background:'+(_hasNote?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+';color:'+(_hasNote?'var(--green)':'var(--text3)')+'">✎</button>'
+          +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="'+_ctlBase+';border:1px solid var(--border);background:var(--bg2);color:var(--text3)"><option value="">🏷</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
+          +'<button id="det-del" data-del-id="'+d.id+'" title="delete run" style="'+_ctlBtn+';border:1px solid var(--red);background:var(--bg2);color:var(--red)">🗑</button>'
         +'</span>'
         +'</div>'
         // pinned pills: FULLY transparent (no background, no backdrop-filter) so the row looks
@@ -5219,7 +5225,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _sec8=d.validate?'':_secOf(8,[mcHtml]);   // validate runs show MC + the underwater drawdown inside the 1a tile
       return hdrHtml
         +valBannerHtml(d)
-        +_sec('1','Feasibility & walk-forward','',(d.validate?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:2 1 460px;min-width:0">'+_panelEquity+'</div><div style="flex:1 1 300px;min-width:0">'+(_panelMatrix||_secOf(1,[[splitOosHtml(d,mlt),'KPI matrix']],1))+'</div></div>'+((regHtml&&regHtml.replace(/\s/g,''))?'<div style="margin-top:14px">'+_numHdr('1E','REGIME REPORT CARD')+regHtml+'</div>':'')):_secOf(1,[_summaryPanel,monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml])))
+        +_sec('1','Feasibility & walk-forward','',(d.validate?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:2 1 460px;min-width:0">'+_panelEquity+'</div><div style="flex:1 1 300px;min-width:0">'+(_panelMatrix||_secOf(1,[[splitOosHtml(d,mlt),'KPI matrix']],1))+_panelRegime+'</div></div>'):_secOf(1,[_summaryPanel,monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml])))
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         +_sec('3','Plateau','robust params — a cluster, not a lonely spike',_sec3)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4)
