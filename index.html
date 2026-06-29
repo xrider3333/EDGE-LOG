@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='39.3';
+const VERSION='39.4';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4364,18 +4364,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // PNL distribution + plateau/isolated-spike verdict (legacy AUGUR panel): histogram of
     // every tested config's net PnL. A cluster near the best = robust PLATEAU; the best
     // standing alone = ISOLATED SPIKE (likely overfit/lucky).
-    const distPanelHtml=(dist,mult)=>{
+    const distPanelHtml=(dist,mult,tag)=>{
       if(!dist||dist.length<8)return '';
       const v=dist.map(x=>x*mult),mx=Math.max.apply(null,v),mn=Math.min.apply(null,v);
       const near=v.filter(x=>x>=0.8*mx).length,plateau=(near/v.length)>=0.12;
-      const nb=22,lo=Math.min(0,mn),hi=Math.max(0,mx),span=(hi-lo)||1,bins=new Array(nb).fill(0);
+      const nb=Math.max(12,Math.min(50,(+APREF.cfgBins)||22)),lo=Math.min(0,mn),hi=Math.max(0,mx),span=(hi-lo)||1,bins=new Array(nb).fill(0);
       v.forEach(x=>{let b=Math.floor((x-lo)/span*nb);if(b<0)b=0;if(b>=nb)b=nb-1;bins[b]++;});
       const bmax=Math.max.apply(null,bins)||1,W=560,H=110,bw=W/nb;
       let hits='';
       const bars=bins.map((c,i)=>{const h=(c/bmax)*(H-14),x=i*bw,blo=lo+span*i/nb,bhi=lo+span*(i+1)/nb,col=blo>=0?'#1d9e75':'#e24b4a';hits+='<rect x="'+x.toFixed(1)+'" y="0" width="'+bw.toFixed(1)+'" height="'+H+'" fill="transparent" style="cursor:pointer" data-tip="'+fmtUsd(Math.round(blo))+' to '+fmtUsd(Math.round(bhi))+' net<br><b>'+c+'</b> config'+(c===1?'':'s')+'"/>';return '<rect x="'+(x+1).toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+(bw-2).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+col+'" opacity="0.55"/>';}).join('');
       const bestX=((mx-lo)/span)*W,vc=plateau?'var(--green)':'var(--yellow)';
-      return '<div class="lbl" style="margin:8px 0 6px">CONFIG DISTRIBUTION · <span style="color:'+vc+'">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit risk)')+'</span> · '+near+'/'+v.length+' of the '+v.length+' tested configs within 80% of best <span style="color:var(--text5);font-weight:400">(one bar = configs, NOT trades · x = net $)</span></div>'
-        +'<div style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+bars+'<line x1="'+bestX.toFixed(1)+'" y1="0" x2="'+bestX.toFixed(1)+'" y2="'+H+'" stroke="var(--text)" stroke-width="1.5" stroke-dasharray="3,2"/>'+hits+'</svg>'
+      return (tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · CONFIG DISTRIBUTION <span style="font-weight:400;color:'+vc+';font-size:8px">· '+(plateau?'plateau (robust)':'isolated spike (overfit)')+'</span><span style="font-weight:400;color:var(--text5);font-size:8px">· '+near+'/'+v.length+' within 80% of best</span><span title="how many bars the configs are bucketed into — drag for a finer or coarser view" style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-weight:400;color:var(--text5);font-size:8px;cursor:help">data points <input type="range" data-cfgbins min="12" max="50" step="2" value="'+nb+'" style="width:64px;height:11px;cursor:pointer"></span></div>':'<div class="lbl" style="margin:8px 0 6px">CONFIG DISTRIBUTION · <span style="color:'+vc+'">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit risk)')+'</span> · '+near+'/'+v.length+' of the '+v.length+' tested configs within 80% of best <span style="color:var(--text5);font-weight:400">(one bar = configs, NOT trades · x = net $)</span></div>')
+        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+bars+'<line x1="'+bestX.toFixed(1)+'" y1="0" x2="'+bestX.toFixed(1)+'" y2="'+H+'" stroke="var(--text)" stroke-width="1.5" stroke-dasharray="3,2"/>'+hits+'</svg>'
         +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text5)"><span>'+fmtUsd(Math.round(mn))+'</span><span>↑ best '+fmtUsd(Math.round(mx))+'</span></div></div>';
     };
     // TRADE PNL DISTRIBUTION — histogram of the WINNER's per-trade PnLs with a fitted
@@ -5192,8 +5192,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // ── Numbered checklist sections: group each Results panel under its deploy step
       //    (2 In-sample · 3 Plateau · 4 Stress · 5 Out-of-sample · 8 Drawdown) so the
       //    report cross-references the validation checklist. Empty steps are omitted. ──
-      const _step=(n,label,sub)=>{const _k=(VSTEPS[(+n)-1]||[])[1];const _st=_k?vstat[_k]:'na';const _bb=_st==='pass'?'var(--green)':_st==='fail'?'var(--red)':'var(--bg1)';const _bf=_st==='pass'?'#04130c':_st==='fail'?'#fff':'var(--text2)';const _bd=(_st==='pass'||_st==='fail')?'0':'1px solid var(--border)';return '<div id="res-step-'+n+'" data-vstep-back="1" class="lbl" title="click to jump back to the checklist pills" style="margin:'+(+n===1?'4px':'22px')+' 0 8px;'+(+n===1?'':'padding-top:16px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);')+'display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px;cursor:pointer"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;border-radius:50%;background:'+_bb+';border:'+_bd+';font-size:10px;font-weight:800;color:'+_bf+'">'+n+'</span><span style="font-weight:700">'+label+'</span>'+(sub?'<span style="font-weight:400;color:var(--text5);font-size:8px">'+sub+'</span>':'')+'<span style="margin-left:auto;font-size:8px;color:var(--text5);font-weight:600">↑ checklist</span></div>';};
-      const _sec=(n,label,sub,content)=>(content&&content.replace(/\s/g,''))?(_step(n,label,sub)+content):'';
+      const _step=(n,label,sub,disp)=>{const _k=(VSTEPS[(+n)-1]||[])[1];const _st=_k?vstat[_k]:'na';const _bb=_st==='pass'?'var(--green)':_st==='fail'?'var(--red)':'var(--bg1)';const _bf=_st==='pass'?'#04130c':_st==='fail'?'#fff':'var(--text2)';const _bd=(_st==='pass'||_st==='fail')?'0':'1px solid var(--border)';return '<div id="res-step-'+n+'" data-vstep-back="1" class="lbl" title="click to jump back to the checklist pills" style="margin:'+(+n===1?'4px':'22px')+' 0 8px;'+(+n===1?'':'padding-top:16px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);')+'display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px;cursor:pointer"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;border-radius:50%;background:'+_bb+';border:'+_bd+';font-size:10px;font-weight:800;color:'+_bf+'">'+(disp!=null?disp:n)+'</span><span style="font-weight:700">'+label+'</span>'+(sub?'<span style="font-weight:400;color:var(--text5);font-size:8px">'+sub+'</span>':'')+'<span style="margin-left:auto;font-size:8px;color:var(--text5);font-weight:600">↑ checklist</span></div>';};
+      const _sec=(n,label,sub,content,disp)=>(content&&content.replace(/\s/g,''))?(_step(n,label,sub,disp)+content):'';
       // subsection wrapper — a number header (2a, 2b…) above each panel, optionally "· Name",
       //   so every chart/table in a section is individually addressable. Empty panels drop out.
       const _sub=(tag,html,label)=>(html&&html.replace(/\s/g,''))?'<div style="margin:5px 0 14px"><div style="font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:3px">'+tag+(label?' <span style="font-weight:600;color:var(--text4)">· '+label+'</span>':'')+'</div>'+html+'</div>':'';
@@ -5203,25 +5203,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   equity is shown ONLY when there's no Auto-Validate chart 1 — chart 1 already plots the
       //   champion equity split IS vs lockbox, so this avoids two near-identical equity curves.
       const _spyDiv=(d.date_from&&d.date_to)?'<div id="det-spy" data-spy-from="'+d.date_from+'" data-spy-to="'+d.date_to+'" style="font-size:var(--fsxs);color:var(--text5);margin:-2px 0 0"></div>':'';
-      const _topCfg='<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">TOP CONFIGS</div>'+(t10.length?'<div style="overflow-x:auto"><table class="table" style="width:auto;font-size:var(--fsxs);white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>');
       // Champion metrics now live in the §1 RUN SUMMARY panel (consolidated, de-duplicated).
       // §2 keeps only the trade-level behaviour. Whole-run champion equity shows ONLY for grid/auto
       //   runs — validate/WF runs already plot it (with fold bands + lockbox) as chart 1 in §1.
       const _sec2=_secOf(2,[(d.validate?'':(eqHtml?(eqHtml+_spyDiv):'')), (d.validate?'':tradeDistPanelHtml(d.win_dist,mlt)), (d.validate?'':maeMfePanelHtml(d.mae_mfe,mlt))]);
-      // 3 Plateau / CONFIG ANALYSIS = everything about the searched config space: the top-config
-      //   list + their equity + the all-config distribution + neighbour grid + luck + param maps.
-      const _sec3=_secOf(3,[
-        _topCfg,
+      // §2 Configuration Analysis (was §3 Plateau) — the searched config space. First row puts
+      //   TOP CONFIGS (2a) and CONFIG DISTRIBUTION (2b) side by side as section-1-style tiles; the
+      //   deeper config-space charts follow as 2c+. Display number is 2 on validate runs (the empty
+      //   In-sample §2 drops out), else 3.
+      const _cfgN=d.validate?2:3, _strN=d.validate?3:4;
+      const _card2='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px';
+      const _topTile='<div style="'+_card2+'">'+_numHdr(_cfgN+'A','TOP CONFIGS')+(t10.length?'<div style="overflow-x:auto"><table class="table" style="width:auto;font-size:var(--fsxs);white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div>':'<div style="color:var(--text5);font-size:var(--fsxs)">no ranking stored for this run</div>')+'</div>';
+      const _dist=distPanelHtml(d.dist,mlt,_cfgN+'B');
+      const _cfgRow='<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px"><div style="flex:1 1 320px;min-width:0">'+_topTile+'</div>'+(_dist?'<div style="flex:1 1 320px;min-width:0"><div style="'+_card2+'">'+_dist+'</div></div>':'')+'</div>';
+      const _sec3=_cfgRow+_secOf(_cfgN,[
         ((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt):''),
-        distPanelHtml(d.dist,mlt),
         nbHtml,
         ((d.dsr?'<div class="lbl" style="margin:0 0 4px;font-size:9px;color:var(--text5)">DEFLATED SHARPE · selection-luck haircut</div>':'')+dsrHtml),
         parallelCoordsHtml(d.points,mlt),
         scatterPanelHtml(d.points,mlt),
         heatmapPanelHtml(d.points,mlt),
-        corrPanelHtml(d.points)]);
+        corrPanelHtml(d.points)],2);
       // regHtml (regime report card + monthly P&L) moved into §1 (under the WF folds) per request.
-      const _sec4=_secOf(4,[stressPanelHtml(d.stress,mlt)]);
+      const _sec4=_secOf(_strN,[stressPanelHtml(d.stress,mlt)]);
       // Walk-forward folds (was its own §5) now live INSIDE §1 — they ARE the out-of-sample
       //   detail behind chart 1's WF bands. The res-step-5 anchor keeps pill 5 jumping here.
       // Only emit the WF-folds subsection (with its res-step-5 jump anchor) when there ARE folds —
@@ -5234,8 +5238,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +valBannerHtml(d)
         +_sec('1','Feasibility & walk-forward','',(d.validate?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:2 1 460px;min-width:0">'+_panelEquity+'</div><div style="flex:1 1 300px;min-width:0">'+(_panelMatrix||_secOf(1,[[splitOosHtml(d,mlt),'KPI matrix']],1))+_panelRegime+'</div></div>'+_panelMae):_secOf(1,[_summaryPanel,monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml])))
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
-        +_sec('3','Plateau','robust params — a cluster, not a lonely spike',_sec3)
-        +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4)
+        +_sec('3','Configuration Analysis','robust params — a cluster, not a lonely spike',_sec3,_cfgN)
+        +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4,_strN)
         +_sec('8','Drawdown','size for the worst-case equity path',_sec8)
         +runCodeHtml(d);
     };
@@ -6051,6 +6055,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _rl=el('det-relabel');if(_rl)_rl.onchange=async()=>{const f=_rl.value,id=_rl.dataset.relabelId;if(!f)return;try{await runsRef.doc(String(id)).update({strategy:f});if(cmdRef)await cmdRef.add({action:'relabel_run',payload:{id:+id,strategy:f},status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){alert('relabel failed: '+e.message);}renderApp();};
       // SPY buy-&-hold benchmark over the run's window (async; cached) — context for the equity.
       const _spy=el('det-spy');if(_spy){const a=_spy.dataset.spyFrom,b=_spy.dataset.spyTo;_spy.textContent='benchmark · loading SPY…';fetchSPYData(a,b).then(data=>{const sp=el('det-spy');if(!sp)return;const ret=spyReturnReal(a,b,data)*100;if(!isFinite(ret)){sp.textContent='';return;}sp.innerHTML='Benchmark · SPY buy-&-hold '+a+' → '+b+': <b style="color:'+(ret>=0?'var(--green)':'var(--red)')+'">'+(ret>=0?'+':'')+ret.toFixed(1)+'%</b> <span style="opacity:.7">(context for the equity curve above)</span>';}).catch(()=>{const sp=el('det-spy');if(sp)sp.textContent='';});}
+      // CONFIG DISTRIBUTION bin slider — more/fewer bars (data points) for the config landscape.
+      //   onchange (release) not oninput, so we don't re-render the whole report on every drag tick.
+      const _cb=content.querySelector('[data-cfgbins]');if(_cb)_cb.onchange=()=>{savePref('cfgBins',+_cb.value);renderApp();};
       // scatter / heatmap param pickers — persist the chosen axes and re-render the detail
       const _tpc=content.querySelector('[data-tpc]');if(_tpc)_tpc.onchange=()=>{savePref('tpColor',_tpc.value);renderApp();};
       const _sx=content.querySelector('[data-scx]');if(_sx)_sx.onchange=()=>{savePref('scX',_sx.value);renderApp();};
