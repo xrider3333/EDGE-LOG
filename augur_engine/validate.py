@@ -36,6 +36,18 @@ def _sharpe_from_trades(trades, cost, years):
     return (mean / sd) * ((n / years) ** 0.5)
 
 
+def _avg_wl(trades, cost):
+    """Avg win / avg loss in POINTS (fees included) from a per-trade NET-PnL series
+    (trade tuple's t[2] is gross points). avg_loss is a POSITIVE magnitude. Returns
+    (None, None) when there are no wins / losses — so the report shows '—' or falls back."""
+    pnls = [float(t[2]) - cost for t in (trades or [])]
+    wins = [p for p in pnls if p > 0]
+    losses = [-p for p in pnls if p < 0]
+    aw = (sum(wins) / len(wins)) if wins else None
+    al = (sum(losses) / len(losses)) if losses else None
+    return aw, al
+
+
 def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", source=None,
                  cost_pts=0.0, min_trades=30, n_trials=200, wf_folds=0, seed=42,
                  lockbox_months=12, date_from=None, date_to=None, progress_cb=None,
@@ -163,7 +175,9 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     lb_wr = (float(lb.get("win_rate", 0) or 0) if lb else None)
     lb_sharpe = _sharpe_from_trades((lb or {}).get("trades"), cost_pts,
                                     max(0.05, lockbox_months / 12.0))
+    lb_aw, lb_al = _avg_wl((lb or {}).get("trades"), cost_pts)   # honest avg win/loss (points)
     total_wr = total_sharpe = total_trades = total_dd = None
+    total_aw = total_al = None
     if champ:
         try:
             full = run_backtest(strategy, instrument=instrument, timeframe=timeframe,
@@ -177,6 +191,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
             total_wr = float(full.get("win_rate", 0) or 0)
             total_trades = int(full.get("num_trades", 0) or 0)
             total_dd = float(full.get("max_drawdown", 0) or 0)
+            total_aw, total_al = _avg_wl(full.get("trades"), cost_pts)   # honest avg win/loss (points)
 
     # ── Cross-instrument transfer — re-test the CHAMPION (no re-optimization) on
     #    other instruments. Edge that only works where it was fit is a single-symbol
@@ -230,8 +245,10 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "equity": equity, "lb_idx": lb_idx,   # PnL curve (points); lb_idx = lockbox boundary
         "total_sharpe": total_sharpe, "total_win_rate": total_wr,
         "total_trades": total_trades, "total_dd": total_dd,   # whole-run champion (incl. lockbox)
+        "total_avg_win": total_aw, "total_avg_loss": total_al,   # measured (points), not derived
         "lockbox": {"pnl": lb_pnl, "pf": lb_pf, "trades": lb_trades, "pass": lb_pass,
                     "win_rate": lb_wr, "sharpe": lb_sharpe,
+                    "avg_win": lb_aw, "avg_loss": lb_al,   # measured from lockbox trades (points)
                     "from": lb_from, "to": full_hi.isoformat()},
         "windows": {"optimize": [opt_from, opt_to], "lockbox": [lb_from, full_hi.isoformat()],
                     "lockbox_months": lockbox_months},
