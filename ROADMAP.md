@@ -117,6 +117,10 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       check** — all drop into `validate.py`'s `checks` dict. **(f) feature importance** (perm/SHAP)
       for the learned models (RF_ML). **(g) data-quality gate** + **(h) EDA honesty pre-flight** at
       data load. Most of steps 6/10/11 (walk-forward, DSR, MC, lockbox, DOF) are already LIVE.
+      **Shipped 2026-06-30:** relationship scoring — per-param **Pearson + Mutual Information (KSG
+      estimator) + a PPS-style tree score** in `analytics.relationship_scores()`, wired into
+      `run_grid`/`run_auto`, synced by the runner (`relationship`), and rendered in the web
+      **PARAM RELATIONSHIP** panel (index.html v41.3). PDP-plateau (a) remains the NEXT item.
 
 ## 4. optimizer.py (Streamlit) — open bugs (only while Streamlit is still in use)
 - [ ] **#1 Results shows only the most-recent completed run** — live panel hydrates only the

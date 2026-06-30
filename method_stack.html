@@ -87,9 +87,9 @@
     and the <b style="color:var(--text2)">roadmap</b> (what exists + status). <span style="color:var(--text5)">Updated 2026-06-30.</span></p>
 
   <div class="summary">
-    <span class="pill"><span class="dot dg"></span><b>17</b> live</span>
+    <span class="pill"><span class="dot dg"></span><b>19</b> live</span>
     <span class="pill"><span class="dot db"></span><b>1</b> partial</span>
-    <span class="pill"><span class="dot dy"></span><b>10</b> planned</span>
+    <span class="pill"><span class="dot dy"></span><b>8</b> planned</span>
   </div>
 
   <div class="views" id="views">
@@ -128,7 +128,7 @@
     <g font-size="12.5">
     <rect x="300" y="281" width="96" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="312" y="297" fill="#00e5a0">grid sweep</text>
     <rect x="404" y="281" width="130" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="416" y="297" fill="#00e5a0">auto / Bayesian</text>
-    <rect x="542" y="281" width="138" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="554" y="297" fill="#f5c842">MI / PPS ranks*</text></g>
+    <rect x="542" y="281" width="138" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="554" y="297" fill="#00e5a0">MI / PPS ranks*</text></g>
     <rect x="24" y="350" width="832" height="92" rx="13" fill="#0e0e1e" stroke="#1e1e36"/>
     <circle cx="58" cy="383" r="15" fill="#23234a"/><text x="58" y="388" font-size="15" font-weight="700" fill="#c8ccd8" text-anchor="middle">4</text>
     <text x="86" y="379" font-size="15.5" font-weight="700" fill="#c8ccd8">Pick the winner</text>
@@ -202,14 +202,14 @@
     <div class="fam"><span>Relationship scoring — feature selection</span><span class="ft">cross-cutting · step 5</span></div>
     <div class="reg-grid">
       <div class="reg-row" title="linear correlation of each param vs PnL (the live Param-Correlation panel)"><span class="rn">Pearson correlation</span><span class="badge b-live">LIVE</span></div>
-      <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">Mutual Information (MI)</span><span class="badge b-planned">PLANNED</span></summary>
+      <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">Mutual Information (MI)</span><span class="badge b-live">LIVE</span></summary>
         <div class="detail"><span class="k">What</span>Scores <b>any</b> dependency between a param/feature and PnL — linear or not.
           <span class="k">Why</span>Pearson misses inverted-U / threshold relationships (good mid-range, bad at extremes → r ≈ 0).
-          <span class="k">How it's computed</span><code>sklearn.feature_selection.mutual_info_regression</code> — uses the <b>KSG</b> (Kraskov 2004) k-NN estimator under the hood. KSG is the math <i>inside</i> MI, not a separate score.</div></details>
-      <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">Predictive Power Score (PPS)</span><span class="badge b-planned">PLANNED</span></summary>
+          <span class="k">How it's computed</span><code>sklearn.feature_selection.mutual_info_regression</code> — uses the <b>KSG</b> (Kraskov 2004) k-NN estimator under the hood (the math <i>inside</i> MI, not a separate score). <b>Now live</b> beside Pearson in each run's PARAM RELATIONSHIP panel.</div></details>
+      <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">Predictive Power Score (PPS)</span><span class="badge b-live">LIVE</span></summary>
         <div class="detail"><span class="k">What</span>A single <b>0–1</b> score of how well X predicts Y — asymmetric, nonlinear, handles categoricals.
           <span class="k">Why</span>One readable number to rank params/features; better than r for screening.
-          <span class="k">Tool / caveat</span><code>ppscore</code>. Default model is a tree → use cross-validated PPS so it doesn't overfit tiny samples.</div></details>
+          <span class="k">How it's computed</span>A depth-4 sklearn decision tree, cross-validated MAE vs the naive-median baseline (1 − MAE/MAE_naive, clipped to 0–1) — no extra dependency. <b>Now live</b> beside Pearson in the PARAM RELATIONSHIP panel.</div></details>
     </div>
 
     <div class="fam"><span>Selection — pick the winner</span><span class="ft">Stage 4</span></div>
@@ -279,7 +279,7 @@
       <tr><td>2</td><td>Data cleaning / prep</td><td>master gap-detection; formal quality gate planned</td><td class="s"><span class="dot dy"></span>Planned</td></tr>
       <tr><td>3</td><td>Classification / regression</td><td>RF_ML model + AI-evolve code rewriter</td><td class="s"><span class="dot dg"></span>Live</td></tr>
       <tr><td>4</td><td>Conformal prediction</td><td>conformal band on gates planned</td><td class="s"><span class="dot dy"></span>Planned</td></tr>
-      <tr><td>5</td><td>Feature selection / eng.</td><td>Pearson live; MI + PPS + PDP planned</td><td class="s"><span class="dot db"></span>Partial</td></tr>
+      <tr><td>5</td><td>Feature selection / eng.</td><td>Pearson + MI + PPS live; PDP planned</td><td class="s"><span class="dot db"></span>Partial</td></tr>
       <tr><td>6</td><td>Time series / forecasting</td><td>rolling + anchored walk-forward, lockbox</td><td class="s"><span class="dot dg"></span>Live</td></tr>
       <tr><td>7</td><td>Ensemble methods</td><td>top-K ensemble of configs planned</td><td class="s"><span class="dot dy"></span>Planned</td></tr>
       <tr><td>8</td><td>Explainability</td><td>regime, MAE/MFE, param-correlation; SHAP planned</td><td class="s"><span class="dot db"></span>Partial</td></tr>
