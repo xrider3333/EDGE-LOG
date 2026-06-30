@@ -191,9 +191,9 @@
   </div><span class="badge b-planned">PLANNED</span></div></div>
 
   <div class="card"><div class="row"><div>
-    <div class="name">Feature importance (for the ML models)</div>
-    <div class="stage">Stage 3 · search</div>
-    <div class="desc">Permutation / SHAP / mutual-info on RF_ML and future learned signals — which order-flow inputs the model actually uses, and whether it's keying on regime noise. (Hand-coded rules are already covered by the Param-Correlation panel.)</div>
+    <div class="name">Relationship scoring — MI &amp; PPS (+ SHAP for ML)</div>
+    <div class="stage">Stage 3 / 5 · feature &amp; param ranking</div>
+    <div class="desc">The live Param-Correlation panel is <b style="color:var(--text)">Pearson-only (linear)</b> — it misses the inverted-U / threshold param relationships that matter most in trading. Add <b style="color:var(--text)">Mutual Information</b> (sklearn, KSG estimator) and <b style="color:var(--text)">PPS</b> (asymmetric 0–1) beside it; reuse for RF_ML feature ranking + permutation/SHAP on the learned models.</div>
   </div><span class="badge b-planned">PLANNED</span></div></div>
 
   <div class="card"><div class="row"><div>
