@@ -86,24 +86,17 @@
   <p class="sub">Two views of the same methods: the <b style="color:var(--text2)">pipeline</b> (where each runs)
     and the <b style="color:var(--text2)">roadmap</b> (what exists + status). <span style="color:var(--text5)">Updated 2026-06-30.</span></p>
 
-  <div class="topbar">
-    <div class="summary">
-      <span class="pill"><span class="dot dg"></span><b>17</b> live</span>
-      <span class="pill"><span class="dot db"></span><b>1</b> partial</span>
-      <span class="pill"><span class="dot dy"></span><b>10</b> planned</span>
-    </div>
-    <div class="split-tog">
-      <span class="stl">Layout</span>
-      <button data-split="stack" title="Stacked (vertical)">&#9636;</button>
-      <button data-split="side" title="Side-by-side (horizontal)">&#9703;</button>
-    </div>
+  <div class="summary">
+    <span class="pill"><span class="dot dg"></span><b>17</b> live</span>
+    <span class="pill"><span class="dot db"></span><b>1</b> partial</span>
+    <span class="pill"><span class="dot dy"></span><b>10</b> planned</span>
   </div>
 
   <div class="views" id="views">
 
     <!-- ===================== VIEW 1 — PIPELINE ===================== -->
     <section class="view view1">
-    <div class="lbl">View 1 · pipeline — where each method runs</div>
+    <div class="lbl">Pipeline — where each method runs</div>
     <div class="svgwrap">
     <svg viewBox="0 0 880 790" xmlns="http://www.w3.org/2000/svg" width="100%" role="img"
          font-family="-apple-system,ui-sans-serif,system-ui,sans-serif">
@@ -136,10 +129,10 @@
     <rect x="300" y="281" width="96" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="312" y="297" fill="#00e5a0">grid sweep</text>
     <rect x="404" y="281" width="130" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="416" y="297" fill="#00e5a0">auto / Bayesian</text>
     <rect x="542" y="281" width="138" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="554" y="297" fill="#f5c842">MI / PPS ranks*</text></g>
-    <rect x="24" y="350" width="832" height="92" rx="13" fill="rgba(74,158,255,.07)" stroke="#4a9eff" stroke-width="2"/>
-    <circle cx="58" cy="383" r="15" fill="#4a9eff"/><text x="58" y="388" font-size="15" font-weight="700" fill="#05050a" text-anchor="middle">4</text>
+    <rect x="24" y="350" width="832" height="92" rx="13" fill="#0e0e1e" stroke="#1e1e36"/>
+    <circle cx="58" cy="383" r="15" fill="#23234a"/><text x="58" y="388" font-size="15" font-weight="700" fill="#c8ccd8" text-anchor="middle">4</text>
     <text x="86" y="379" font-size="15.5" font-weight="700" fill="#c8ccd8">Pick the winner</text>
-    <text x="86" y="399" font-size="12.5" font-weight="600" fill="#7db5ff">Choose which setting to trust ← the two model-building ideas live here</text>
+    <text x="86" y="399" font-size="12.5" fill="#8a8ab0">Choose which setting to trust — model-building upgrades land here</text>
     <g font-size="12.5">
     <rect x="300" y="406" width="138" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="312" y="422" fill="#00e5a0">highest-PnL pick</text>
     <rect x="446" y="406" width="140" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="458" y="422" fill="#f5c842">PDP plateau pick</text>
@@ -175,13 +168,13 @@
       (relationship-scoring informs Stage 1 and Stage 3→4); their status home is the roadmap.</p>
     <div class="lbl">Pipeline stages — plain English</div>
     <div class="stx"><b class="k">3 · Search</b> — run the strategy hundreds of times with different knobs. Grid = every combo; auto/Bayesian = smart search. Both live.</div>
-    <div class="stx" style="border-color:rgba(74,158,255,.4)"><b class="k">4 · Pick</b> — today grabs the highest-PnL setting. <b style="color:var(--yellow)">PDP plateau</b> = a broad hill of good neighbors, not a spike. <b style="color:var(--yellow)">Ensemble</b> = blend the best several.</div>
+    <div class="stx"><b class="k">4 · Pick</b> — today grabs the highest-PnL setting. <b style="color:var(--yellow)">PDP plateau</b> = a broad hill of good neighbors, not a spike. <b style="color:var(--yellow)">Ensemble</b> = blend the best several.</div>
     <div class="stx"><b class="k">5 · Stress</b> — already strongest: walk-forward, Monte-Carlo, Deflated Sharpe, transfer. The 3 amber adds (adversarial · causal · conformal) drop into the same gate list.</div>
     </section>
 
     <!-- ===================== VIEW 2 — ROADMAP ===================== -->
     <section class="view view2">
-    <div class="lbl">View 2 · roadmap — what exists &amp; status</div>
+    <div class="lbl">Roadmap — what exists &amp; status</div>
     <p class="hint">Rows = <span style="color:var(--green)">LIVE</span>. ▸ tiles expand (what · why · engine hooks) for
       <span style="color:var(--blue)">PARTIAL</span> / <span style="color:var(--yellow)">PLANNED</span>.</p>
 
@@ -309,17 +302,12 @@
 
 <script>
   (function(){
+    // Layout is driven by the URL hash, set by the Research-tab split toggle in the app
+    // (#side = side-by-side, #stack / none = stacked). Works standalone too.
     var v=document.getElementById('views');
-    var saved=localStorage.getItem('el_stack_split')||'stack';
-    function set(m){
-      v.classList.toggle('side', m==='side');
-      try{localStorage.setItem('el_stack_split', m);}catch(e){}
-      var btns=document.querySelectorAll('[data-split]');
-      for(var i=0;i<btns.length;i++){btns[i].classList.toggle('active', btns[i].getAttribute('data-split')===m);}
-    }
-    var btns=document.querySelectorAll('[data-split]');
-    for(var i=0;i<btns.length;i++){(function(b){b.onclick=function(){set(b.getAttribute('data-split'));};})(btns[i]);}
-    set(saved);
+    function apply(){ if(v) v.classList.toggle('side', location.hash==='#side'); }
+    window.addEventListener('hashchange', apply);
+    apply();
   })();
 </script>
 </body>

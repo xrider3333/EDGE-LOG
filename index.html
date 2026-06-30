@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='40.9';
+const VERSION='41.0';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -2798,6 +2798,7 @@ function renderApp(){
   let _splitTog='';
   if(activeTab==='augur'&&augurSub==='runs'){const rv=_ap.resView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('res-side','◧',rv==='side','Side-by-side split')}${_spv('res-stack','▤',rv==='stack','Stacked layout')}</span>`;}
   else if(activeTab==='augur'&&augurSub==='lib'){const lv=_ap.libView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('lib-side','◧',lv==='side','Side-by-side split')}${_spv('lib-stack','▤',lv==='stack','Stacked layout')}</span>`;}
+  else if(activeTab==='augur'&&augurSub==='research'){const sv=_ap.stackView==='side'?'side':'stack';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('stack-side','◧',sv==='side','Side-by-side split')}${_spv('stack-stack','▤',sv==='stack','Stacked layout')}</span>`;}
   sub.innerHTML=((_master==='log')
     ? LOG_TABS.map(t=>`<button class="btn-ghost${activeTab===t?' active':''}" data-tab="${t}" style="font-size:var(--fsxs)"><span style="margin-right:6px;font-size:12px;opacity:.7">${_logIc[t]||''}</span>${_logLbl(t)}</button>`).join('')
     : ASUBS.map(s=>`<button class="btn-ghost${augurSub===s[0]?' active':''}" data-asubtop="${s[0]}" style="font-size:var(--fsxs)"><span style="margin-right:6px;font-size:12px;opacity:.7;font-variant-emoji:text">${ASUB_ICON[s[0]]||''}</span>${s[1]}</button>`).join(''))+_splitTog;
@@ -2808,6 +2809,7 @@ function renderApp(){
   wrap.querySelectorAll('[data-master]').forEach(b=>{b.onclick=()=>{const m=b.dataset.master;if(m==='backtester'){activeTab='augur';if(!ASUBS.some(s=>s[0]===augurSub))augurSub='lib';}else{if(activeTab==='augur')activeTab=window._lastLogTab||'overview';}renderApp();};});
   wrap.querySelectorAll('[data-tab]').forEach(b=>{b.onclick=()=>{activeTab=b.dataset.tab;window._lastLogTab=b.dataset.tab;renderApp();};});
   wrap.querySelectorAll('[data-asubtop]').forEach(b=>{b.onclick=()=>{activeTab='augur';augurSub=b.dataset.asubtop;augurRunSel=null;augurLibSel=null;augurLibDel=false;augurLibMsg='';renderApp();};});
+  {const _ss=el('stack-side'),_sk=el('stack-stack');if(_ss)_ss.onclick=()=>{savePref('stackView','side');renderApp();};if(_sk)_sk.onclick=()=>{savePref('stackView','stack');renderApp();};}
   el('so-btn').onclick=()=>{if(unsub)unsub();if(unsubL)unsubL();if(unsubBT)unsubBT();if(unsubRuns)unsubRuns();if(unsubMeta)unsubMeta();if(unsubMM)unsubMM();stopAutoImport();auth.signOut();renderAuth();};
   const lu=el('logo-upload');if(lu)lu.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{userLogo=ev.target.result;localStorage.setItem('el_logo',userLogo);updateFavicon();document.title='EDGE LOG — Trade Tracker';renderApp();};r.readAsDataURL(f);};
   const la=el('logo-area');if(la)la.onclick=()=>{if(userLogo){if(confirm('Remove logo?')){userLogo=null;localStorage.removeItem('el_logo');updateFavicon();renderApp();}}else el('logo-upload').click();};
@@ -5765,6 +5767,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const inst=[['ES','E-mini S&P 500','$50 / pt'],['NQ','E-mini Nasdaq-100','$20 / pt']];
       const irows=inst.map(i=>'<tr><td><b>'+i[0]+'</b></td><td style="color:var(--text3)">'+i[1]+'</td><td style="text-align:right">'+i[2]+'</td></tr>').join('');
       const vmeth=[
+        ['Look at the distribution, not one number','The Anscombe quartet and the Datasaurus Dozen (Matejka and Fitzmaurice, 2017) show datasets with identical mean, SD and correlation but completely different shapes — even a dinosaur. Why every report leads with the PnL distribution, median-vs-mean and a bootstrap, not just the headline average.'],
         ['Out-of-sample (75/25)','Optimize on the first 75% of history, validate the winner on the unseen last 25%. A config that wins in-sample but collapses out-of-sample is overfit.'],
         ['Walk-forward','Re-optimize on each train window, test on the next unseen window, roll forward. Anchored grows the window; Rolling slides a fixed length (regime-honest). Tracks fold consistency + walk-forward efficiency (OOS-per-bar / IS-per-bar).'],
         ['Lockbox holdout','A "reserve since" date caps every search the day before it, so the most recent slice is never seen while optimizing. The last winner is then tested once on that reserved slice — the final overfit gate.'],
@@ -5783,9 +5786,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div class="lbl" style="margin:18px 0 6px">SESSIONS</div><div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">RTH = 09:30-16:00 ET cash session (last 5m bar 15:55). ETH = full 24h. Masters are keyed per instrument + timeframe + session + source.</div>'
         +'<div class="lbl" style="margin:18px 0 6px">VALIDATION METHODOLOGY</div>'+vrows;
     }else if(augurSub==='research'){
-      body='<div class="lbl" style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">DATA-TESTING METHOD STACK<a href="method_stack.html" target="_blank" style="font-size:var(--fsxs);letter-spacing:1px;color:var(--blue);text-decoration:none">OPEN FULL PAGE ↗</a></div>'
+      body='<div class="lbl" style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">EDGELOG BACKTESTING STACK<a href="method_stack.html" target="_blank" style="font-size:var(--fsxs);letter-spacing:1px;color:var(--blue);text-decoration:none">OPEN FULL PAGE ↗</a></div>'
         +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6;margin:0 2px 10px">The 7-stage backtest pipeline and the roadmap of validation &amp; model-building methods — <span style="color:var(--green)">green = live in EDGELOG</span>, <span style="color:var(--yellow)">amber = planned</span>. Updated as each piece ships.</div>'
-        +'<iframe src="method_stack.html" title="Method Stack" style="width:100%;height:calc(100vh - 230px);min-height:1500px;border:1px solid var(--border);border-radius:10px;background:var(--bg)"></iframe>'
+        +'<iframe id="stack-frame" src="method_stack.html#'+(_ap.stackView==='side'?'side':'stack')+'" title="Method Stack" style="width:100%;height:calc(100vh - 230px);min-height:1500px;border:1px solid var(--border);border-radius:10px;background:var(--bg)"></iframe>'
         +'<div class="lbl" style="margin:22px 0 6px">WALK-FORWARD STUDIES</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">Saved walk-forward studies will render here once the runner syncs the <code>augur_research/</code> folder. The validation-methodology reference now lives in the REFERENCE tab.</div>';
     }else if(augurSub==='set'){
