@@ -18,11 +18,14 @@ import os
 import re
 import json
 import time
+import gzip
+import base64
 import subprocess
+from collections import deque
 
 import augur_engine as ae  # noqa: F401  (ensures package import side-effects/paths)
 import sqlite3
-from augur_engine.paths import STRAT_DIR, PINE_DIR, CONFIG, DB_PATH
+from augur_engine.paths import STRAT_DIR, PINE_DIR, CONFIG, DB_PATH, UPLOADS
 from augur_engine.strategies import _pine_path, load_strategy
 from augur_engine.ai import validate_strategy_code, OLLAMA_URL, DEFAULT_OLLAMA_MODEL
 
@@ -300,10 +303,71 @@ def cmd_relabel_run(p):
         conn.close()
 
 
+def _resolve_master(payload):
+    """Map a master's logical key (instrument,timeframe,source) to its CSV file via the
+    csv_files registry. Returns (abs_path, meta). Basename-confined to UPLOADS — the web
+    sends only the logical key, never a path, so it cannot escape the uploads dir."""
+    inst = str(payload.get("instrument", "")).strip()
+    tf   = str(payload.get("timeframe", "")).strip()
+    src  = str(payload.get("source", "")).strip()
+    if not inst or not tf:
+        raise ValueError("need instrument + timeframe")
+    conn = sqlite3.connect(DB_PATH, timeout=30)
+    try:
+        if src:
+            row = conn.execute(
+                "SELECT filename,name,rows FROM csv_files WHERE is_master=1 AND "
+                "instrument=? AND timeframe=? AND source=?", (inst, tf, src)).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT filename,name,rows FROM csv_files WHERE is_master=1 AND "
+                "instrument=? AND timeframe=? ORDER BY rows DESC", (inst, tf)).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        raise ValueError(f"no master for {inst} {tf} {src or '(any source)'}")
+    fn = os.path.basename(str(row[0]))
+    path = os.path.join(UPLOADS, fn)
+    if not os.path.isfile(path):
+        raise ValueError(f"master file missing on disk: {fn}")
+    return path, {"filename": fn, "name": row[1], "rows": row[2]}
+
+
+def cmd_peek_master(payload):
+    """Preview a master CSV for the web viewer: header + last N rows (default 200) + total
+    row count. Tiny payload — fits the Firestore result doc with no gzip needed."""
+    path, meta = _resolve_master(payload)
+    n = max(1, min(int(payload.get("n", 200) or 200), 1000))
+    with open(path, "r", encoding="utf-8") as fh:
+        header = fh.readline().rstrip("\r\n")
+        tail = deque(fh, maxlen=n)              # last N data lines, O(n) memory
+    rows = [ln.rstrip("\r\n") for ln in tail if ln.strip()]
+    return {"ok": True, "filename": meta["filename"], "name": meta["name"],
+            "header": header, "rows": rows, "shown": len(rows), "total": meta["rows"]}
+
+
+def cmd_get_master(payload):
+    """Full master CSV, gzip+base64-encoded, for download WITHOUT Firebase Storage. CSV
+    compresses ~8x, so the 10s/1m masters (~2 MB) fit under Firestore's ~1 MB doc cap; the
+    big 5m/1m masters do not and are refused with a clear, actionable message."""
+    path, meta = _resolve_master(payload)
+    raw = open(path, "rb").read()
+    b64 = base64.b64encode(gzip.compress(raw, 6)).decode("ascii")
+    if len(b64) > 950000:                      # headroom under the 1,048,576-byte doc cap
+        return {"ok": False, "error":
+                f"{meta['filename']} is too large to download inline "
+                f"({len(raw)//1024} KB raw -> {len(b64)//1024} KB gzipped). Without Firebase "
+                f"Storage, only smaller masters (10s, 1m) download this way; use the VIEW "
+                f"button for a preview of large ones."}
+    return {"ok": True, "filename": meta["filename"], "gzip_b64": b64,
+            "raw_bytes": len(raw), "rows": meta["rows"]}
+
+
 HANDLERS = {"get_src": cmd_get_src, "delete": cmd_delete,
             "add": cmd_add, "make_pine": cmd_make_pine,
             "review_pine": cmd_review_pine, "write_pine": cmd_write_pine,
-            "delete_run": cmd_delete_run, "relabel_run": cmd_relabel_run}
+            "delete_run": cmd_delete_run, "relabel_run": cmd_relabel_run,
+            "peek_master": cmd_peek_master, "get_master": cmd_get_master}
 
 
 def process_command(action, payload, log=print):
