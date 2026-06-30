@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='41.1';
+const VERSION='41.2';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4443,14 +4443,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const NB=28,bins=new Array(NB).fill(0);v.forEach(x=>{let b=Math.floor((x-mn)/span*NB);if(b<0)b=0;if(b>=NB)b=NB-1;bins[b]++;});
       const bmax=Math.max.apply(null,bins)||1,W=560,H=130,padR=30,Wp=W-padR,bw=Wp/NB,binW=span/NB;
       let hits='';
-      const bars=bins.map((c,i)=>{const rawh=(c/bmax)*(H-16),h=c>0?Math.max(2,rawh):0,x=i*bw,bc=mn+span*(i+0.5)/NB,blo=mn+span*i/NB,bhi=mn+span*(i+1)/NB,col=bc>=0?'#1d9e75':'#e24b4a';hits+='<rect x="'+x.toFixed(1)+'" y="0" width="'+bw.toFixed(1)+'" height="'+H+'" fill="transparent" style="cursor:pointer" data-tip="'+fmtUsd(Math.round(blo))+' to '+fmtUsd(Math.round(bhi))+'/trade<br><b>'+c+'</b> trade'+(c===1?'':'s')+'"/>';return c>0?'<rect x="'+(x+1).toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+(bw-2).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+col+'" opacity="0.5"/>'+(rawh<7?'<circle cx="'+(x+bw/2).toFixed(1)+'" cy="'+(H-h-1.6).toFixed(1)+'" r="1.6" fill="'+col+'"/>':''):'';}).join('');
+      const bars=bins.map((c,i)=>{const rawh=(c/bmax)*(H-16),h=c>0?Math.max(4,rawh):0,x=i*bw,bc=mn+span*(i+0.5)/NB,blo=mn+span*i/NB,bhi=mn+span*(i+1)/NB,col=bc>=0?'#1d9e75':'#e24b4a',op=(rawh<8?0.92:0.5);hits+='<rect x="'+x.toFixed(1)+'" y="0" width="'+bw.toFixed(1)+'" height="'+H+'" fill="transparent" style="cursor:pointer" data-tip="'+fmtUsd(Math.round(blo))+' to '+fmtUsd(Math.round(bhi))+'/trade<br><b>'+c+'</b> trade'+(c===1?'':'s')+'"/>';return c>0?'<rect x="'+(x+1).toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+(bw-2).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+col+'" opacity="'+op+'"/>'+(rawh<8?'<circle cx="'+(x+bw/2).toFixed(1)+'" cy="'+(H-h-2.2).toFixed(1)+'" r="2.4" fill="'+col+'"/>':''):'';}).join('');
       const pdf=x=>Math.exp(-0.5*Math.pow((x-mean)/sd,2))/(sd*Math.sqrt(2*Math.PI));
       const pts=[];for(let i=0;i<=120;i++){const x=mn+span*i/120,y=pdf(x)*n*binW,px=(i/120)*Wp,py=H-(y/bmax)*(H-16);pts.push(px.toFixed(1)+','+Math.max(0,py).toFixed(1));}
       const meanX=((mean-mn)/span)*Wp,zeroX=(mn<0&&mx>0)?((0-mn)/span)*Wp:null,wins=v.filter(x=>x>0).length;
       // horizontal count gridlines + right-side count (y) axis labels.
       const grid=[0.25,0.5,0.75,1].map(fr=>{const gy=H-fr*(H-16),cv=Math.round(bmax*fr);return '<line x1="0" y1="'+gy.toFixed(1)+'" x2="'+Wp.toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4"/><text x="'+(W-9)+'" y="'+(gy+2.5).toFixed(1)+'" text-anchor="end" font-size="7" fill="var(--text3)">'+cv+'</text>';}).join('');
       return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · TRADE PNL DISTRIBUTION <span style="font-weight:400;color:var(--text4);font-size:8px">· in-sample · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins</span></div>':'<div class="lbl" style="margin:8px 0 6px">TRADE PNL DISTRIBUTION · top config · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins</div>')
-        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;display:flex;flex-direction:column;min-height:0':'margin-bottom:14px')+'"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="'+(tag?'none':'xMidYMid meet')+'" style="display:block;'+(tag?'flex:1;width:100%;min-height:120px':'height:auto')+'">'+grid+bars
+        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'':'margin-bottom:14px')+'"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+grid+bars
         +(zeroX!=null?'<line x1="'+zeroX.toFixed(1)+'" y1="0" x2="'+zeroX.toFixed(1)+'" y2="'+H+'" stroke="var(--border)" stroke-width="1"/>':'')
         +'<polyline points="'+pts.join(' ')+'" fill="none" stroke="var(--text)" stroke-width="1.5" opacity="0.95" stroke-dasharray="2,2"/>'
         +'<line x1="'+meanX.toFixed(1)+'" y1="0" x2="'+meanX.toFixed(1)+'" y2="'+H+'" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3,2"/>'+hits+'<text x="'+(W-1)+'" y="'+((H/2).toFixed(1))+'" transform="rotate(-90 '+(W-1)+' '+((H/2).toFixed(1))+')" text-anchor="middle" font-size="6" fill="var(--text4)">trades</text></svg>'
@@ -4580,8 +4580,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       allMfe.forEach(v=>{let b=Math.floor(v/maxMfe*nbMfe);if(b<0)b=0;if(b>=nbMfe)b=nbMfe-1;mfeC[b]++;});
       const cmax=Math.max(Math.max.apply(null,maeC),Math.max.apply(null,mfeC))||1;
       let bars='',hits='';
-      maeC.forEach((c,b)=>{const rawh=(c/cmax)*plotH,h=c>0?Math.max(2,rawh):0,x=X0-(b+1)*maeBwP,lo=b/nbMae*maxMae,hi=(b+1)/nbMae*maxMae;if(c>0){bars+='<rect x="'+(x+0.4).toFixed(1)+'" y="'+(plotB-h).toFixed(1)+'" width="'+Math.max(0.6,maeBwP-0.8).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#e24b4a" opacity="0.6"/>'+(rawh<7?'<circle cx="'+(x+maeBwP/2).toFixed(1)+'" cy="'+(plotB-h-1.6).toFixed(1)+'" r="1.6" fill="#e24b4a"/>':'');}hits+='<rect x="'+x.toFixed(1)+'" y="'+plotT+'" width="'+maeBwP.toFixed(1)+'" height="'+plotH+'" fill="transparent" style="cursor:pointer" data-tip="adverse '+lo.toFixed(1)+'–'+hi.toFixed(1)+' pts<br><b>'+c+'</b> trade'+(c===1?'':'s')+'"/>';});
-      mfeC.forEach((c,b)=>{const rawh=(c/cmax)*plotH,h=c>0?Math.max(2,rawh):0,x=X0+b*mfeBwP,lo=b/nbMfe*maxMfe,hi=(b+1)/nbMfe*maxMfe;if(c>0){bars+='<rect x="'+(x+0.4).toFixed(1)+'" y="'+(plotB-h).toFixed(1)+'" width="'+Math.max(0.6,mfeBwP-0.8).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#1d9e75" opacity="0.6"/>'+(rawh<7?'<circle cx="'+(x+mfeBwP/2).toFixed(1)+'" cy="'+(plotB-h-1.6).toFixed(1)+'" r="1.6" fill="#1d9e75"/>':'');}hits+='<rect x="'+x.toFixed(1)+'" y="'+plotT+'" width="'+mfeBwP.toFixed(1)+'" height="'+plotH+'" fill="transparent" style="cursor:pointer" data-tip="favourable '+lo.toFixed(1)+'–'+hi.toFixed(1)+' pts<br><b>'+c+'</b> trade'+(c===1?'':'s')+'"/>';});
+      maeC.forEach((c,b)=>{const rawh=(c/cmax)*plotH,h=c>0?Math.max(4,rawh):0,x=X0-(b+1)*maeBwP,lo=b/nbMae*maxMae,hi=(b+1)/nbMae*maxMae,op=(rawh<8?0.92:0.6);if(c>0){bars+='<rect x="'+(x+0.4).toFixed(1)+'" y="'+(plotB-h).toFixed(1)+'" width="'+Math.max(0.6,maeBwP-0.8).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#e24b4a" opacity="'+op+'"/>'+(rawh<8?'<circle cx="'+(x+maeBwP/2).toFixed(1)+'" cy="'+(plotB-h-2.2).toFixed(1)+'" r="2.4" fill="#e24b4a"/>':'');}hits+='<rect x="'+x.toFixed(1)+'" y="'+plotT+'" width="'+maeBwP.toFixed(1)+'" height="'+plotH+'" fill="transparent" style="cursor:pointer" data-tip="adverse '+lo.toFixed(1)+'–'+hi.toFixed(1)+' pts<br><b>'+c+'</b> trade'+(c===1?'':'s')+'"/>';});
+      mfeC.forEach((c,b)=>{const rawh=(c/cmax)*plotH,h=c>0?Math.max(4,rawh):0,x=X0+b*mfeBwP,lo=b/nbMfe*maxMfe,hi=(b+1)/nbMfe*maxMfe,op=(rawh<8?0.92:0.6);if(c>0){bars+='<rect x="'+(x+0.4).toFixed(1)+'" y="'+(plotB-h).toFixed(1)+'" width="'+Math.max(0.6,mfeBwP-0.8).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#1d9e75" opacity="'+op+'"/>'+(rawh<8?'<circle cx="'+(x+mfeBwP/2).toFixed(1)+'" cy="'+(plotB-h-2.2).toFixed(1)+'" r="2.4" fill="#1d9e75"/>':'');}hits+='<rect x="'+x.toFixed(1)+'" y="'+plotT+'" width="'+mfeBwP.toFixed(1)+'" height="'+plotH+'" fill="transparent" style="cursor:pointer" data-tip="favourable '+lo.toFixed(1)+'–'+hi.toFixed(1)+' pts<br><b>'+c+'</b> trade'+(c===1?'':'s')+'"/>';});
       // count gridlines + a right-side count axis (numbers brighter; "trades" rotated 90° to their right).
       const grid=[0.25,0.5,0.75,1].map(fr=>{const gy=plotB-fr*plotH,cv=Math.round(cmax*fr);return '<line x1="0" y1="'+gy.toFixed(1)+'" x2="'+Wp.toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4"/><text x="'+(W-9)+'" y="'+(gy+2.5).toFixed(1)+'" text-anchor="end" font-size="7" fill="var(--text3)">'+cv+'</text>';}).join('');
       // suggested STOP (adverse side, s90 = keeps ~90% of winners) & TARGET (favourable side, f75).
@@ -4589,15 +4589,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const marks='<line x1="'+stopX.toFixed(1)+'" y1="'+plotT+'" x2="'+stopX.toFixed(1)+'" y2="'+plotB+'" stroke="#e24b4a" stroke-width="1.3" stroke-dasharray="3,2"/><text x="'+(stopX-2).toFixed(1)+'" y="'+(plotT+8)+'" text-anchor="end" font-size="7" font-weight="700" fill="#e24b4a">◀ stop '+s90+'p</text>'
         +'<line x1="'+tgtX.toFixed(1)+'" y1="'+plotT+'" x2="'+tgtX.toFixed(1)+'" y2="'+plotB+'" stroke="#1d9e75" stroke-width="1.3" stroke-dasharray="3,2"/><text x="'+(tgtX+2).toFixed(1)+'" y="'+(plotT+8)+'" text-anchor="start" font-size="7" font-weight="700" fill="#1d9e75">target '+f75+'p ▶</text>';
       const _yc=(plotT+plotH/2).toFixed(1);
-      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="'+(tag?'none':'xMidYMid meet')+'" style="display:block;'+(tag?'flex:1;width:100%;min-height:90px':'height:auto')+'">'
+      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'
         +grid
-        +'<line x1="'+X0.toFixed(1)+'" y1="'+plotT+'" x2="'+X0.toFixed(1)+'" y2="'+plotB+'" stroke="var(--text4)" stroke-width="1"/>'
+        +'<line x1="'+X0.toFixed(1)+'" y1="'+plotT+'" x2="'+X0.toFixed(1)+'" y2="'+plotB+'" stroke="var(--text4)" stroke-width="1"/><text x="'+X0.toFixed(1)+'" y="'+(plotT-1.5)+'" text-anchor="middle" font-size="6" fill="var(--text4)">0</text>'
         +bars+hits+marks
         +'<text x="'+(W-1)+'" y="'+_yc+'" transform="rotate(-90 '+(W-1)+' '+_yc+')" text-anchor="middle" font-size="6" fill="var(--text4)">trades</text></svg>';
       // x-axis labels in an HTML row BELOW the chart (like 1D); 0 sits at its TRUE position on the shared scale.
-      const xrow='<div style="position:relative;height:11px;margin-top:2px;font-size:8px"><span style="position:absolute;left:0;color:#e24b4a">◀ adverse '+Math.round(maxMae)+'p</span><span style="position:absolute;left:'+(X0/W*100).toFixed(1)+'%;transform:translateX(-50%);color:var(--text4)">0 entry</span><span style="position:absolute;left:'+(Wp/W*100).toFixed(1)+'%;transform:translateX(-100%);color:#1d9e75">favourable '+Math.round(maxMfe)+'p ▶</span></div>';
+      const xrow='<div style="position:relative;height:11px;margin-top:2px;font-size:8px"><span style="position:absolute;left:0;color:#e24b4a">◀ adverse '+Math.round(maxMae)+'p</span><span style="position:absolute;left:'+(Wp/W*100).toFixed(1)+'%;transform:translateX(-100%);color:#1d9e75">favourable '+Math.round(maxMfe)+'p ▶</span></div>';
       return (tag?'<div title="One distribution of every trade\'s excursion in points from entry (0 = entry, middle): how far price ran AGAINST you (MAE — adverse / heat) is mirrored LEFT in red, how far it ran IN YOUR FAVOUR (MFE — favourable / reach) is RIGHT in green. y = number of trades.&#10;&#10;STOP — heat winners endured: median '+s50+' pts, 90% within '+s90+' pts ('+usd(s90)+'). A stop tighter than ~'+s50+' pts cuts half your winners; ~'+s90+' keeps ~90%.&#10;TARGET — reach in favour: median '+f50+' pts, 75% reach '+f75+' pts ('+usd(f75)+'). A target below ~'+f50+' pts exits early." style="cursor:help;margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · MAE / MFE <span style="font-weight:400;font-size:8px"> · <span style="color:#e24b4a">◀ STOP '+s50+'p (90% ≤ '+s90+'p)</span> · <span style="color:#1d9e75">TARGET '+f50+'p (75% ≤ '+f75+'p) ▶</span> <span style="color:var(--text4)">ⓘ</span></span></div>':'<div class="lbl" style="margin:8px 0 6px">MAE / MFE · STOP &amp; TARGET GUIDANCE</div>')
-        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:11px 12px;'+(tag?'flex:1;display:flex;flex-direction:column':'margin-bottom:14px')+'">'
+        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:11px 12px;'+(tag?'':'margin-bottom:14px')+'">'
         +svg+xrow+'</div>';
     };
     // PARAM CORRELATION — Pearson r of each parameter vs net PnL across all configs.
@@ -5290,6 +5290,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div id="res-step-8" style="scroll-margin-top:64px">'+championEquityHtml(_V,mlt,d.top10_results,1)+'</div>'
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
           +((wf=>wf?'<div style="margin-top:9px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
+          +((st=>st?'<div style="margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+st+'</div>':'')(stressPanelHtml(d.stress,mlt,'1I')))
           +'</div>';
         // 1H header: title (description on hover) with the calculated stats pinned to the right — the standard chart-header pattern.
         const _dsrBlock='<div style="margin-top:14px;padding-top:13px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1H · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>';
@@ -5298,12 +5299,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _mHdr='<span title="'+_mtip+'" style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;cursor:help">1E · KPI MATRIX <span style="font-weight:400;color:var(--text5)">ⓘ</span></span>';
         _panelMatrix='<div style="'+_card+';height:100%;box-sizing:border-box">'+kpiMatrixHtml(d,mlt,1,_mHdr)
           +((regHtml&&regHtml.replace(/\s/g,''))?'<div style="margin-top:14px;padding-top:13px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)">'+_numHdr('1F','REGIME REPORT CARD',null,'weakest vol bucket: '+((d.regime&&d.regime.worst_vol)||'—'))+regHtml+'</div>':'')
-          +((dsrHtml&&dsrHtml.replace(/\s/g,''))?_dsrBlock:'')
           +'</div>';
         _panelRegime='';
-        // 1D + 1G stacked in ONE master tile (the third column of §1's top row, beside 1E).
+        // 1D + 1G (+ 1H Deflated Sharpe) stacked in ONE master tile (third column of §1's top row, beside 1E).
         const _mae=maeMfePanelHtml(d.mae_mfe,mlt,'1G'),_td=tradeDistPanelHtml(d.win_dist,mlt,'1D');
-        _distTile=(_td||_mae)?'<div style="'+_card+';height:100%;box-sizing:border-box">'+_td+((_td&&_mae)?'<div style="margin:11px 0;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)"></div>':'')+_mae+'</div>':'';}
+        _distTile=(_td||_mae)?'<div style="'+_card+';height:100%;box-sizing:border-box">'+_td+((_td&&_mae)?'<div style="margin:11px 0;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)"></div>':'')+_mae+((dsrHtml&&dsrHtml.replace(/\s/g,''))?_dsrBlock:'')+'</div>':'';}
       const _noteEsc=String(d.note||'').replace(/"/g,'&quot;'),_hasNote=!!(d.note&&String(d.note).trim());
       // shared style so the note / relabel / delete controls read as one consistent button group.
       //   Fixed height + box-sizing makes the <select> match the <button>s (selects size differently);
@@ -5373,7 +5373,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _paramTile=(_hm||_sc||_corr)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_hm,_sc,_corr])+'</div>':'';
       const _sec3=_cfgTile+_paramTile+_topTile+_nbTile+_dsrTile;
       // regHtml (regime report card + monthly P&L) moved into §1 (under the WF folds) per request.
-      const _strStress=stressPanelHtml(d.stress,mlt,_strN+'A');
+      // Stress = the champion's profit spread across time → it lives in §1 (1I) for validate runs; keep the standalone §3/§4 only for non-validate sweeps.
+      const _strStress=d.validate?'':stressPanelHtml(d.stress,mlt,_strN+'A');
       const _sec4=_strStress?'<div style="'+_card2+';max-width:600px;margin-bottom:14px">'+_strStress+'</div>':'';
       // Walk-forward folds (was its own §5) now live INSIDE §1 — they ARE the out-of-sample
       //   detail behind chart 1's WF bands. The res-step-5 anchor keeps pill 5 jumping here.
