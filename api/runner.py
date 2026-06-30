@@ -457,6 +457,7 @@ class FirestoreQueue:
             "date_from": df, "date_to": dt,
             "dsr": result.get("dsr"), "mc": result.get("mc"),
             "regime": result.get("regime"), "neighborhood": result.get("neighborhood"),
+            "relationship": result.get("relationship"),   # per-param Pearson / MI / PPS (#24)
             "source_web": True,
         })
         self.db.collection("users").document(uid).collection("runs").document(str(rid)).set(doc)

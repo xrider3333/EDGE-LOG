@@ -258,3 +258,79 @@ def neighborhood(evalfn, best_params, value_options):
     ok = (good >= tot * 0.7) if tot else False
     return {"verdict": ("HIGH GROUND" if ok else "CHECK NEIGHBORS"),
             "good": int(good), "tot": int(tot), "rows": rows}
+
+
+def relationship_scores(points, target="pnl", max_rows=4000):
+    """RELATIONSHIP SCORING (ROADMAP #24): per-parameter relationship to PnL across the
+    searched configs, three measures of increasing power:
+      • Pearson r            — linear correlation only,
+      • Mutual Information    — ANY dependency, linear or not (sklearn's
+        mutual_info_regression, which uses the Kraskov-Stogbauer-Grassberger k-NN estimator),
+      • PPS-style score       — a depth-4 decision tree's cross-validated MAE vs the naive
+        median baseline (1 - MAE_model/MAE_naive, clipped to 0..1) — catches non-linear
+        predictive power (inverted-U / threshold relationships Pearson misses).
+    `points` = [{param:val, ..., target:val}, ...] (the same shape synced for the scatter).
+    Returns [{param, r, mi, pps}, ...] sorted by pps -> mi -> |r|, or None when there isn't
+    enough numeric variation / rows. Never raises — an unavailable piece comes back as None.
+    """
+    try:
+        pts = [p for p in (points or []) if isinstance(p, dict) and target in p]
+        if len(pts) < 30:
+            return None
+        if len(pts) > max_rows:                      # cap for speed; stride-sample
+            step = len(pts) / max_rows
+            pts = [pts[int(i * step)] for i in range(max_rows)]
+        cols = {}
+        for k in pts[0].keys():
+            if k == target:
+                continue
+            v0 = pts[0][k]
+            if isinstance(v0, bool) or not isinstance(v0, (int, float)):
+                continue                             # numeric params only
+            try:
+                col = [float(p[k]) for p in pts]
+            except (KeyError, TypeError, ValueError):
+                continue
+            if len(set(col)) > 1:                    # needs variation to score
+                cols[k] = col
+        if not cols:
+            return None
+        knames = list(cols.keys())
+        X = np.column_stack([cols[k] for k in knames]).astype(float)
+        y = np.asarray([float(p[target]) for p in pts], float)
+        try:
+            from sklearn.feature_selection import mutual_info_regression
+            mi = mutual_info_regression(X, y, random_state=42)
+        except Exception:
+            mi = [None] * len(knames)
+        tree = None
+        try:
+            from sklearn.tree import DecisionTreeRegressor
+            from sklearn.model_selection import cross_val_score
+            tree = DecisionTreeRegressor
+            naive = float(np.mean(np.abs(y - np.median(y)))) or 1e-9
+            cv = max(2, min(5, len(pts) // 10))
+        except Exception:
+            tree = None
+        rows = []
+        for i, k in enumerate(knames):
+            xi = X[:, i]
+            dx = xi - xi.mean(); dy = y - y.mean()
+            den = float(np.sqrt((dx * dx).sum() * (dy * dy).sum()))
+            r = float((dx * dy).sum() / den) if den else 0.0
+            pps = None
+            if tree is not None:
+                try:
+                    mae = -cross_val_score(tree(max_depth=4, random_state=42),
+                                           xi.reshape(-1, 1), y, cv=cv,
+                                           scoring="neg_mean_absolute_error").mean()
+                    pps = max(0.0, 1.0 - mae / naive)
+                except Exception:
+                    pps = None
+            rows.append({"param": k, "r": round(r, 3),
+                         "mi": (round(float(mi[i]), 3) if (i < len(mi) and mi[i] is not None) else None),
+                         "pps": (round(float(pps), 3) if pps is not None else None)})
+        rows.sort(key=lambda d: ((d["pps"] or 0), (d["mi"] or 0), abs(d["r"])), reverse=True)
+        return rows or None
+    except Exception:
+        return None

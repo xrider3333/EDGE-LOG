@@ -15,7 +15,7 @@ from .data import find_master, load_master_arrays
 from .engine import _apply_costs
 from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
                         regime_report, neighborhood, downsample_pnls, downsample_points,
-                        mae_mfe)
+                        mae_mfe, relationship_scores)
 
 _METRIC_KEYS = ("total_pnl", "num_trades", "win_rate", "profit_factor",
                 "max_drawdown", "avg_pnl")
@@ -131,6 +131,7 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
         row.update({k: m.get(k) for k in _METRIC_KEYS})
         top.append(row)
     best = valid[0] if valid else None
+    _pts_full = [dict(p, pnl=round(float(m.get("total_pnl", 0) or 0), 1)) for p, m in valid]
     out = {
         "n_combos": len(combos), "n_valid": len(valid), "top": top,
         "best_params": (best[0] if best else None),
@@ -138,9 +139,11 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
         "bars": int(len(C)),
         "master": (arrays.get("meta") or {}).get("name"),
         "dist": downsample_pnls([m.get("total_pnl", 0) for _, m in valid]),
-        "points": downsample_points([dict(p, pnl=round(float(m.get("total_pnl", 0) or 0), 1))
-                                     for p, m in valid]),
+        "points": downsample_points(_pts_full),
     }
+    _rel = relationship_scores(_pts_full)   # Pearson / MI / PPS per param vs PnL (ROADMAP #24)
+    if _rel:
+        out["relationship"] = _rel
 
     # Regime report card + neighborhood robustness on the winner (opt-in).
     if best and (compute_regime or compute_neighbors):

@@ -27,7 +27,7 @@ from .data import find_master, load_master_arrays
 from .engine import _apply_costs
 from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
                         regime_report, neighborhood, downsample_pnls, downsample_points,
-                        mae_mfe)
+                        mae_mfe, relationship_scores)
 
 # Realism gates — identical to optimizer.py (WF_MIN_SIDE / MAX_TRADE_RATE / MAX_PF).
 # A champion/headline config must take at least this many WINNING and LOSING trades
@@ -276,9 +276,12 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
            "wf": is_wf}
     if not is_wf:   # config-PnL spread + param points for distribution / scatter / heatmap
         out["dist"] = downsample_pnls([r.get("total_pnl", 0) for r in records])
-        out["points"] = downsample_points(
-            [dict({k: r.get(k) for k in pkeys}, pnl=round(float(r.get("total_pnl", 0) or 0), 1))
-             for r in records])
+        _pts_full = [dict({k: r.get(k) for k in pkeys}, pnl=round(float(r.get("total_pnl", 0) or 0), 1))
+                     for r in records]
+        out["points"] = downsample_points(_pts_full)
+        _rel = relationship_scores(_pts_full)   # Pearson / MI / PPS per param vs PnL (ROADMAP #24)
+        if _rel:
+            out["relationship"] = _rel
 
     # ── Regime report card + neighborhood robustness on the winner (opt-in) ──
     if (compute_regime or compute_neighbors) and best:
