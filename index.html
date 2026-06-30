@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='41.2';
+const VERSION='41.3';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4601,17 +4601,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +svg+xrow+'</div>';
     };
     // PARAM CORRELATION — Pearson r of each parameter vs net PnL across all configs.
-    const corrPanelHtml=(points,tag)=>{
+    const corrPanelHtml=(points,tag,rel)=>{
       if(!points||points.length<8)return '';
       const keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&typeof points[0][k]==='number');
       if(!keys.length)return '';
       const ys=points.map(p=>p.pnl),ym=ys.reduce((s,x)=>s+x,0)/ys.length;
       const corr=k=>{const xs=points.map(p=>p[k]),xm=xs.reduce((s,x)=>s+x,0)/xs.length;let sxy=0,sxx=0,syy=0;for(let i=0;i<xs.length;i++){const dx=xs[i]-xm,dy=ys[i]-ym;sxy+=dx*dy;sxx+=dx*dx;syy+=dy*dy;}const den=Math.sqrt(sxx*syy);return den?sxy/den:0;};
-      const rows=keys.map(k=>({k:k,r:corr(k)})).sort((a,b)=>Math.abs(b.r)-Math.abs(a.r));
+      const R={};(rel||[]).forEach(o=>{if(o&&o.param!=null)R[o.param]=o;});const hasMI=!!(rel&&rel.length);
+      const rows=keys.map(k=>({k:k,r:corr(k),mi:(R[k]?R[k].mi:null),pps:(R[k]?R[k].pps:null)})).sort((a,b)=>hasMI?(((b.mi||0)-(a.mi||0))||(Math.abs(b.r)-Math.abs(a.r))):(Math.abs(b.r)-Math.abs(a.r)));
       const trk=tag?'var(--bg2)':'var(--bg1)';
-      const bar=o=>'<div style="display:flex;align-items:center;gap:6px;margin:4px 0;font-size:var(--fsxs)"><span style="flex:0 0 84px;color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_pp(o.k)+'">'+_pp(o.k)+'</span><span style="flex:1;position:relative;height:11px;background:'+trk+';border-radius:2px"><span style="position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--border)"></span><span style="position:absolute;'+(o.r>=0?'left:50%':'right:50%')+';top:1px;height:9px;width:'+(Math.abs(o.r)*50).toFixed(1)+'%;background:'+(o.r>=0?'var(--green)':'var(--red)')+';opacity:.7;border-radius:2px"></span></span><span style="flex:0 0 38px;text-align:right;font-weight:700;color:'+(o.r>=0?'var(--green)':'var(--red)')+'">'+o.r.toFixed(2)+'</span></div>';
-      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · PARAM CORRELATION <span style="font-weight:400;color:var(--text4);font-size:8px">· each param vs net $ (−1…+1) · sorted by strength</span></div>':'<div class="lbl" style="margin:8px 0 6px">PARAM CORRELATION · each parameter vs PnL (−1…+1)</div>')
-        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'+rows.map(bar).join('')+'</div>';
+      const bar=o=>'<div style="display:flex;align-items:center;gap:6px;margin:4px 0;font-size:var(--fsxs)"><span style="flex:0 0 84px;color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_pp(o.k)+'">'+_pp(o.k)+'</span><span style="flex:1;position:relative;height:11px;background:'+trk+';border-radius:2px"><span style="position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--border)"></span><span style="position:absolute;'+(o.r>=0?'left:50%':'right:50%')+';top:1px;height:9px;width:'+(Math.abs(o.r)*50).toFixed(1)+'%;background:'+(o.r>=0?'var(--green)':'var(--red)')+';opacity:.7;border-radius:2px"></span></span><span style="flex:0 0 38px;text-align:right;font-weight:700;color:'+(o.r>=0?'var(--green)':'var(--red)')+'" title="Pearson r (linear)">'+o.r.toFixed(2)+'</span>'+(hasMI?'<span style="flex:0 0 40px;text-align:right;color:var(--blue)" title="Mutual Information — any dependency (KSG estimator)">'+(o.mi!=null?o.mi.toFixed(2):'·')+'</span><span style="flex:0 0 40px;text-align:right;color:var(--purple)" title="Predictive Power Score (0-1)">'+(o.pps!=null?o.pps.toFixed(2):'·')+'</span>':'')+'</div>';
+      const _ttl=hasMI?'PARAM RELATIONSHIP':'PARAM CORRELATION';
+      const _note=hasMI?'r linear · MI any-dependency · PPS 0–1 · sorted by MI':'each param vs net $ (−1…+1)';
+      const _hdr=hasMI?'<div style="display:flex;gap:6px;font-size:8px;margin:1px 0 4px;color:var(--text4)"><span style="flex:0 0 84px"></span><span style="flex:1"></span><span style="flex:0 0 38px;text-align:right">r</span><span style="flex:0 0 40px;text-align:right;color:var(--blue)">MI</span><span style="flex:0 0 40px;text-align:right;color:var(--purple)">PPS</span></div>':'';
+      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · '+_ttl+' <span style="font-weight:400;color:var(--text4);font-size:8px">· '+_note+'</span></div>':'<div class="lbl" style="margin:8px 0 6px">'+_ttl+' · '+_note+'</div>')
+        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'+_hdr+rows.map(bar).join('')+'</div>';
     };
     // PARALLEL COORDINATES — every config as a line across one vertical axis per parameter plus a
     // final NET $ axis (legacy Augur style). Lines coloured by PnL; hover a line for its config.
@@ -5356,7 +5360,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _eq=((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt,_cfgN+'A'):'');
       const _dist=distPanelHtml(d.dist,mlt,_cfgN+'B');
       const _parc=parallelCoordsHtml(d.points,mlt,_cfgN+'C');
-      const _corr=corrPanelHtml(d.points,_cfgN+'I');
+      const _corr=corrPanelHtml(d.points,_cfgN+'I',d.relationship);
       const _hm=heatmapPanelHtml(d.points,mlt,_cfgN+'H');
       const _sc=scatterPanelHtml(d.points,mlt,_cfgN+'G');
       // lay non-empty panels in a row (1, 2 or 3 across); single panel = full-width. stretch=true makes
