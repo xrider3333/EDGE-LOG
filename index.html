@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='39.8';
+const VERSION='39.9';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -703,6 +703,50 @@ function subscribeAll(uid){
   unsubNT=metaRef.doc('nt_sync').onSnapshot(d=>{ntSync=d.data()||null;if(activeTab==='import_export'&&(window._dataSubTab||'import')==='import')renderApp();});
 }
 function _libDownload(name,content){try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'}));a.download=name||'strategy.txt';document.body.appendChild(a);a.click();a.remove();}catch(e){}}
+// ── Master CSV viewer + download (no Firebase Storage; data fetched via the runner) ──
+function _runCmd(action,payload){return new Promise((resolve,reject)=>{
+  if(!cmdRef){reject(new Error('sign in first'));return;}
+  cmdRef.add({action:action,payload:payload,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()}).then(ref=>{
+    let done=false;
+    const unsub=ref.onSnapshot(d=>{const x=d.data()||{};if(x.status!=='done'&&x.status!=='error')return;done=true;try{unsub();}catch(_){}
+      const r=x.result||{};
+      if(x.status==='error'||!r.ok){reject(new Error(r.error||x.error||'failed'));return;}resolve(r);});
+    setTimeout(()=>{if(!done){try{unsub();}catch(_){}reject(new Error('no response in 90s — is the runner running (EdgeLog.bat)?'));}},90000);
+  }).catch(reject);
+});}
+async function _gunzipB64(b64){const bin=atob(b64);const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  if(typeof DecompressionStream==='undefined')throw new Error('this browser cannot un-gzip — use Chrome or Edge');
+  const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));return await new Response(stream).text();}
+async function masterDownload(m,btn){const lbl=btn?btn.textContent:'';try{if(btn)btn.textContent='⏳ …';
+    const r=await _runCmd('get_master',{instrument:m.instrument,timeframe:m.timeframe,source:m.source});
+    _libDownload(r.filename,await _gunzipB64(r.gzip_b64));if(btn)btn.textContent='✓ downloaded';}
+  catch(e){alert('Download failed: '+e.message);if(btn)btn.textContent=lbl||'⬇ download';}}
+function masterView(i){const m=(metaMasters||[])[i];if(!m)return;_showMasterModal(m,null);
+  _runCmd('peek_master',{instrument:m.instrument,timeframe:m.timeframe,source:m.source,n:300})
+    .then(r=>_showMasterModal(m,r)).catch(e=>_showMasterModal(m,{error:e.message}));}
+function _showMasterModal(m,r){
+  const old=document.getElementById('mv-overlay');if(old)old.remove();
+  const ov=document.createElement('div');ov.id='mv-overlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:24px';
+  ov.onclick=(e)=>{if(e.target===ov)ov.remove();};
+  const title=(m.name||(m.instrument+' '+m.timeframe))+' · '+(m.source||'');
+  let body;
+  if(!r)body='<div style="color:var(--text4);padding:30px;text-align:center;font-size:var(--fsxs)">⏳ loading from your runner…</div>';
+  else if(r.error)body='<div style="color:var(--red);padding:18px;font-size:var(--fsxs)">✖ '+r.error+'</div>';
+  else{const cols=(r.header||'').split(',');
+    const head='<tr>'+cols.map(c=>'<th style="position:sticky;top:0;background:var(--bg1);text-align:right;padding:3px 8px;font-size:9px;color:var(--text4);border-bottom:1px solid var(--border)">'+c+'</th>').join('')+'</tr>';
+    const rows=(r.rows||[]).slice().reverse().map(ln=>'<tr>'+ln.split(',').map((v,ci)=>'<td style="text-align:'+(ci===0?'left':'right')+';padding:2px 8px;font-size:var(--fsxs);color:var(--text3);white-space:nowrap">'+v+'</td>').join('')+'</tr>').join('');
+    body='<div style="font-size:9px;color:var(--text5);margin-bottom:6px">newest '+(r.shown||0)+' of '+(r.total||0).toLocaleString()+' rows (most recent on top)</div>'
+      +'<div style="overflow:auto;max-height:60vh;border:1px solid var(--border);border-radius:8px"><table style="border-collapse:collapse;width:100%">'+head+rows+'</table></div>';}
+  ov.innerHTML='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;max-width:920px;width:100%;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.5)">'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><span style="font-size:13px;font-weight:700;color:var(--text)">'+title+'</span><span style="flex:1"></span>'
+    +'<button id="mv-dl" class="btn-ghost" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px;border:1px solid var(--border)">⬇ download</button>'
+    +'<button id="mv-x" class="btn-ghost" style="padding:5px 10px;font-size:var(--fsxs);border-radius:6px;border:1px solid var(--border)">✕</button></div>'
+    +body+'</div>';
+  document.body.appendChild(ov);
+  const x=document.getElementById('mv-x');if(x)x.onclick=()=>ov.remove();
+  const dl=document.getElementById('mv-dl');if(dl)dl.onclick=()=>masterDownload(m,dl);
+}
 async function libCmd(action,payload,verb){
   if(!cmdRef){augurLibMsg='⚠ sign in first';renderApp();return;}
   augurLibMsg='⏳ '+verb+' — sent to your runner (needs the runner running on your PC)…';renderApp();
@@ -5423,7 +5467,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         else{prov=s;col='var(--text4)';}
         const noadj=lo.indexOf('noadj')>=0?'<span style="color:var(--text5);font-size:8px"> · non-adj</span>':'';
         return '<span title="raw: '+s+'" style="color:'+col+';font-weight:600">'+prov+'</span>'+noadj;};
-      const mrows=(metaMasters||[]).map(m=>'<tr><td style="font-size:var(--fsxs);border-left:3px solid '+instColor(m.instrument)+';padding-left:7px">'+(m.name||'')+'</td><td>'+instTag(m.instrument)+'</td><td>'+(m.timeframe||'')+'</td><td>'+((m.session||'')+'').toUpperCase()+'</td><td style="font-size:var(--fsxs)">'+srcLabel(m.source)+'</td><td style="text-align:center">'+(m.auto?'<span style="color:var(--green);font-size:10px;letter-spacing:1px" title="auto-pull on">● AUTO</span>':'<span style="color:var(--text5);font-size:10px">○ off</span>')+'</td><td style="text-align:right">'+(m.rows||0).toLocaleString()+'</td><td style="font-size:var(--fsxs)">'+(m.date_from||'')+'→'+(m.date_to||'')+'</td></tr>').join('');
+      const mrows=(metaMasters||[]).map((m,i)=>'<tr onclick="masterView('+i+')" style="cursor:pointer" title="click to view / download this CSV"><td style="font-size:var(--fsxs);border-left:3px solid '+instColor(m.instrument)+';padding-left:7px">'+(m.name||'')+'</td><td>'+instTag(m.instrument)+'</td><td>'+(m.timeframe||'')+'</td><td>'+((m.session||'')+'').toUpperCase()+'</td><td style="font-size:var(--fsxs)">'+srcLabel(m.source)+'</td><td style="text-align:center">'+(m.auto?'<span style="color:var(--green);font-size:10px;letter-spacing:1px" title="auto-pull on">● AUTO</span>':(String(m.source||'').toLowerCase().indexOf('nt')===0?'<span style="color:var(--green);font-size:10px" title="auto-imported from NinjaTrader every 15 min (preserves order-flow delta); generic auto-pull stays off on purpose so it cannot strip the delta columns">● NT · 15m</span>':'<span style="color:var(--text5);font-size:10px">○ off</span>'))+'</td><td style="text-align:right">'+(m.rows||0).toLocaleString()+'</td><td style="font-size:var(--fsxs)">'+(m.date_from||'')+'→'+(m.date_to||'')+'</td></tr>').join('');
       const pullBanner='<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3);margin-bottom:6px"><span>Auto-pull <b style="color:'+(metaPull.autorefresh?'var(--green)':'var(--text4)')+'">'+(metaPull.autorefresh?'ON':'OFF')+'</b></span><span>'+(metaPull.n_auto||0)+'/'+(metaPull.n_masters||(metaMasters||[]).length)+' masters auto-refreshing</span>'+(metaPull.synced_at?'<span>last sync '+new Date(metaPull.synced_at*1000).toLocaleString()+'</span>':'')+'</div>';
       // ── per-strategy stats + active marker (derived client-side from run history) ──
       const statOf={};(runHistory||[]).forEach(r=>{const m=_stratMatch(r.strategy);if(!m)return;const f=m.file;const st=statOf[f]||(statOf[f]={runs:0,bestPnl:-Infinity,bestPf:0,last:''});st.runs++;const pnl=r.best_pnl_usd||0;if(pnl>st.bestPnl)st.bestPnl=pnl;if((r.best_pf||0)>st.bestPf)st.bestPf=r.best_pf||0;if((r.timestamp||'')>st.last)st.last=r.timestamp||'';});
