@@ -8,7 +8,7 @@ The whole point, repeated at every step: *don't trust the final mean-profit numb
 
 ---
 
-## 1. EDA — look at the data before you model it
+## 1. EDA — Exploratory Data Analysis  *(look at the data before you model it)*
 - **Is:** Plot and summarize the raw numbers before drawing any conclusion. Anscombe's quartet is the classic warning — four datasets with identical means/correlations that look completely different once plotted.
 - **Carl's notebooks / methods:**
   1. **Anscombe's quartet** — 4 datasets with identical summary stats but wildly different plots; proves you must *plot*, not just summarize.

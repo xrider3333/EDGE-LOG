@@ -120,6 +120,10 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 progress_cb(i + 1, len(combos))
 
     valid = [(p, m) for p, m in results if m and m.get("num_trades", 0) >= min_trades]
+    # TODO (ROADMAP #24 — PDP-plateau selector; on hold per owner 2026-06-30): selection
+    # below is argmax on rank_by (the raw peak). Replace/augment with a partial-dependence
+    # plateau pick — choose the config on the broadest high-and-flat region (reuse the grid
+    # `points` + `neighborhood`) so the champion sits on high ground, not a curve-fit spike.
     valid.sort(key=lambda pm: pm[1].get(rank_by, 0) or 0, reverse=True)
     top = []
     for p, m in valid[:top_n]:
