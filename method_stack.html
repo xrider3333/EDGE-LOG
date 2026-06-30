@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>EDGELOG — Data-Testing Method Stack</title>
+<style>
+  :root{
+    --bg:#05050a;--bg1:#0e0e1e;--bg2:#0a0a18;--border:#1e1e36;--border2:#181830;
+    --text:#c8ccd8;--text2:#a0a4b8;--text3:#7070a0;--text5:#5a5a78;
+    --green:#00e5a0;--red:#ff3d5a;--yellow:#f5c842;--blue:#4a9eff;--purple:#a78bfa;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:-apple-system,ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+       font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:26px 20px 60px}
+  h1{font-size:21px;font-weight:700;margin:0 0 4px;letter-spacing:.2px}
+  .sub{color:var(--text3);font-size:13px;margin:0 0 18px}
+  .lbl{font-size:11px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin:30px 0 12px}
+  .card{background:var(--bg1);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px}
+  .row{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+  .name{font-size:14.5px;font-weight:650;color:var(--text)}
+  .stage{font-size:10.5px;letter-spacing:1px;color:var(--text5);text-transform:uppercase;margin-top:1px}
+  .desc{font-size:12.5px;color:var(--text2);margin-top:6px;line-height:1.55}
+  .badge{font-size:10px;font-weight:700;letter-spacing:.6px;padding:4px 9px;border-radius:999px;white-space:nowrap;flex:none}
+  .b-live{color:var(--green);background:rgba(0,229,160,.10);border:1px solid rgba(0,229,160,.35)}
+  .b-partial{color:var(--blue);background:rgba(74,158,255,.10);border:1px solid rgba(74,158,255,.35)}
+  .b-planned{color:var(--yellow);background:rgba(245,200,66,.10);border:1px solid rgba(245,200,66,.32)}
+  .tag-next{color:var(--purple);background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.4);
+            font-size:9.5px;font-weight:700;letter-spacing:.6px;padding:3px 7px;border-radius:999px;margin-left:7px}
+  .summary{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 6px}
+  .pill{font-size:11px;padding:5px 11px;border-radius:999px;border:1px solid var(--border)}
+  .pill b{font-weight:700}
+  .green-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+  .chip{font-size:11.5px;color:var(--green);background:rgba(0,229,160,.07);
+        border:1px solid rgba(0,229,160,.25);border-radius:999px;padding:5px 11px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border2);vertical-align:top}
+  th{font-size:10.5px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;font-weight:600}
+  td.s{white-space:nowrap}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .dg{background:var(--green)} .db{background:var(--blue)} .dy{background:var(--yellow)}
+  .svgwrap{background:var(--bg1);border:1px solid var(--border);border-radius:12px;padding:8px;overflow-x:auto}
+  .foot{color:var(--text5);font-size:11px;margin-top:26px;border-top:1px solid var(--border2);padding-top:14px;line-height:1.7}
+  p.note{font-size:12.5px;color:var(--text2)}
+  b.k{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>EDGELOG — Data-Testing Method Stack</h1>
+  <p class="sub">The 7-stage backtest pipeline and the roadmap of validation &amp; model-building methods.
+    Adapted from Carl McBride Ellis's 12 Kaggle categories. <span style="color:var(--text5)">Updated 2026-06-30.</span></p>
+
+  <div class="summary">
+    <span class="pill"><span class="dot dg"></span><b>14</b> live in EDGELOG</span>
+    <span class="pill"><span class="dot db"></span><b>1</b> partial</span>
+    <span class="pill"><span class="dot dy"></span><b>7</b> planned</span>
+  </div>
+
+  <!-- ===================== PIPELINE DIAGRAM ===================== -->
+  <div class="lbl">How a backtest runs · start → finish</div>
+  <div class="svgwrap">
+  <svg viewBox="0 0 880 790" xmlns="http://www.w3.org/2000/svg" width="100%" role="img"
+       font-family="-apple-system,ui-sans-serif,system-ui,sans-serif">
+  <title>The seven stages of an EDGELOG backtest and where each method slots in</title>
+  <desc>Load data, lock the box, search params, pick the winner, stress the winner, final exam, verdict. Green chips are live in EDGELOG; amber chips are planned additions.</desc>
+
+  <text x="24" y="30" font-size="18" font-weight="700" fill="#c8ccd8">How an EDGELOG backtest runs · start → finish</text>
+  <circle cx="32" cy="52" r="6" fill="#00e5a0"/><text x="44" y="56" font-size="13" fill="#a0a4b8">In EDGELOG today</text>
+  <circle cx="196" cy="52" r="6" fill="#f5c842"/><text x="208" y="56" font-size="13" fill="#a0a4b8">Planned add (Carl's armaments)</text>
+
+  <g fill="#3a3a5e" font-size="13" text-anchor="middle">
+  <text x="58" y="171">▼</text><text x="58" y="247">▼</text><text x="58" y="345">▼</text>
+  <text x="58" y="453">▼</text><text x="58" y="619">▼</text><text x="58" y="695">▼</text></g>
+
+  <!-- chip styles inline: green fill rgba(0,229,160,.12) stroke .4 ; amber fill rgba(245,200,66,.12) -->
+  <!-- STAGE 1 -->
+  <rect x="24" y="76" width="832" height="82" rx="13" fill="#0e0e1e" stroke="#1e1e36"/>
+  <circle cx="58" cy="104" r="15" fill="#23234a"/><text x="58" y="109" font-size="15" font-weight="700" fill="#c8ccd8" text-anchor="middle">1</text>
+  <text x="86" y="100" font-size="15.5" font-weight="700" fill="#c8ccd8">Load the data</text>
+  <text x="86" y="120" font-size="12.5" fill="#8a8ab0">Pull ES / NQ price bars</text>
+  <g font-size="12.5">
+  <rect x="300" y="107" width="88" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="312" y="123" fill="#00e5a0">gap-check</text>
+  <rect x="396" y="107" width="108" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="408" y="123" fill="#f5c842">quality gate</text>
+  <rect x="512" y="107" width="84" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="524" y="123" fill="#f5c842">EDA peek</text></g>
+
+  <!-- STAGE 2 -->
+  <rect x="24" y="176" width="832" height="60" rx="13" fill="#0e0e1e" stroke="#1e1e36"/>
+  <circle cx="58" cy="206" r="15" fill="#23234a"/><text x="58" y="211" font-size="15" font-weight="700" fill="#c8ccd8" text-anchor="middle">2</text>
+  <text x="86" y="201" font-size="15.5" font-weight="700" fill="#c8ccd8">Lock the box</text>
+  <text x="86" y="221" font-size="12.5" fill="#8a8ab0">Hide the last ~12 months as a final exam</text>
+  <g font-size="12.5"><rect x="560" y="194" width="132" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="572" y="210" fill="#00e5a0">lockbox holdout</text></g>
+
+  <!-- STAGE 3 -->
+  <rect x="24" y="252" width="832" height="82" rx="13" fill="#0e0e1e" stroke="#1e1e36"/>
+  <circle cx="58" cy="280" r="15" fill="#23234a"/><text x="58" y="285" font-size="15" font-weight="700" fill="#c8ccd8" text-anchor="middle">3</text>
+  <text x="86" y="276" font-size="15.5" font-weight="700" fill="#c8ccd8">Search the params</text>
+  <text x="86" y="296" font-size="12.5" fill="#8a8ab0">Try hundreds of settings</text>
+  <g font-size="12.5">
+  <rect x="300" y="281" width="96" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="312" y="297" fill="#00e5a0">grid sweep</text>
+  <rect x="404" y="281" width="130" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="416" y="297" fill="#00e5a0">auto / Bayesian</text>
+  <rect x="542" y="281" width="118" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="554" y="297" fill="#f5c842">feature ranks*</text></g>
+
+  <!-- STAGE 4 (highlight) -->
+  <rect x="24" y="350" width="832" height="92" rx="13" fill="rgba(74,158,255,.07)" stroke="#4a9eff" stroke-width="2"/>
+  <circle cx="58" cy="383" r="15" fill="#4a9eff"/><text x="58" y="388" font-size="15" font-weight="700" fill="#05050a" text-anchor="middle">4</text>
+  <text x="86" y="379" font-size="15.5" font-weight="700" fill="#c8ccd8">Pick the winner</text>
+  <text x="86" y="399" font-size="12.5" font-weight="600" fill="#7db5ff">Choose which setting to trust ← the two model-building ideas live here</text>
+  <g font-size="12.5">
+  <rect x="300" y="406" width="138" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="312" y="422" fill="#00e5a0">highest-PnL pick</text>
+  <rect x="446" y="406" width="140" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="458" y="422" fill="#f5c842">PDP plateau pick</text>
+  <rect x="594" y="406" width="126" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="606" y="422" fill="#f5c842">ensemble top-K</text></g>
+
+  <!-- STAGE 5 -->
+  <rect x="24" y="458" width="832" height="150" rx="13" fill="#0e0e1e" stroke="#1e1e36"/>
+  <circle cx="58" cy="490" r="15" fill="#23234a"/><text x="58" y="495" font-size="15" font-weight="700" fill="#c8ccd8" text-anchor="middle">5</text>
+  <text x="86" y="486" font-size="15.5" font-weight="700" fill="#c8ccd8">Stress the winner</text>
+  <text x="86" y="506" font-size="12.5" fill="#8a8ab0">Try hard to break it</text>
+  <g font-size="12.5">
+  <rect x="300" y="489" width="116" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="312" y="505" fill="#00e5a0">walk-forward</text>
+  <rect x="424" y="489" width="158" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="436" y="505" fill="#00e5a0">neighbors / plateau</text>
+  <rect x="590" y="489" width="108" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="602" y="505" fill="#00e5a0">Monte-Carlo</text>
+  <rect x="300" y="521" width="134" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="312" y="537" fill="#00e5a0">Deflated Sharpe</text>
+  <rect x="442" y="521" width="138" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="454" y="537" fill="#00e5a0">NQ↔ES transfer</text>
+  <rect x="588" y="521" width="92" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="600" y="537" fill="#00e5a0">stress</text>
+  <rect x="300" y="553" width="146" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="312" y="569" fill="#f5c842">adversarial check</text>
+  <rect x="454" y="553" width="110" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="466" y="569" fill="#f5c842">causal check</text>
+  <rect x="572" y="553" width="128" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="584" y="569" fill="#f5c842">conformal band</text></g>
+
+  <!-- STAGE 6 -->
+  <rect x="24" y="624" width="832" height="60" rx="13" fill="#0e0e1e" stroke="#1e1e36"/>
+  <circle cx="58" cy="654" r="15" fill="#23234a"/><text x="58" y="659" font-size="15" font-weight="700" fill="#c8ccd8" text-anchor="middle">6</text>
+  <text x="86" y="649" font-size="15.5" font-weight="700" fill="#c8ccd8">Final exam</text>
+  <text x="86" y="669" font-size="12.5" fill="#8a8ab0">Run the winner once on the hidden data</text>
+  <g font-size="12.5"><rect x="560" y="642" width="140" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="572" y="658" fill="#00e5a0">lockbox one-shot</text></g>
+
+  <!-- STAGE 7 -->
+  <rect x="24" y="700" width="832" height="60" rx="13" fill="#0e0e1e" stroke="#1e1e36"/>
+  <circle cx="58" cy="730" r="15" fill="#23234a"/><text x="58" y="735" font-size="15" font-weight="700" fill="#c8ccd8" text-anchor="middle">7</text>
+  <text x="86" y="725" font-size="15.5" font-weight="700" fill="#c8ccd8">Verdict + report</text>
+  <text x="86" y="745" font-size="12.5" fill="#8a8ab0">PASS / WEAK / FAIL, charts, rankings</text>
+  <g font-size="12.5"><rect x="560" y="718" width="158" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="572" y="734" fill="#00e5a0">report cards</text></g>
+
+  <text x="24" y="782" font-size="11.5" fill="#5a5a78">*feature ranks apply to the learned models (RF_ML), not hand-coded rule strategies.</text>
+  </svg>
+  </div>
+
+  <!-- ===================== STAGE EXPLANATIONS ===================== -->
+  <div class="lbl">What each stage means (plain English)</div>
+  <p class="note" style="margin-top:0">Almost every upgrade below lives in just two spots —
+    <b class="k">Stage 4</b> (how you pick the winner) and <b class="k">Stage 5</b> (how you try to break it).
+    EDGELOG already owns Stages 1, 2, 6, 7 and most of Stage 5.</p>
+  <div class="card"><b class="k">3 · Search</b> — run the strategy hundreds of times with different knob settings ("params"). <i>Grid</i> = try every combo; <i>auto/Bayesian</i> = a smart search that hunts the good region. Both live.</div>
+  <div class="card" style="border-color:rgba(74,158,255,.4)"><b class="k">4 · Pick the winner</b> — today EDGELOG grabs the single highest-profit setting. <b style="color:var(--yellow)">PDP plateau pick</b> = choose the setting sitting in a <i>broad hill</i> of good neighbors, not a lone lucky spike. <b style="color:var(--yellow)">Ensemble</b> = don't crown one at all — blend the best several so no single fluke decides it. Both just change <i>which row of the results you trust</i>.</div>
+  <div class="card"><b class="k">5 · Stress the winner</b> — already the strongest stage: walk-forward, Monte-Carlo drawdown, Deflated Sharpe (haircut the score for how many settings you tried), neighborhood, NQ↔ES transfer. The three planned adds drop into the same gate list — <i>adversarial</i> ("has the market changed character since I fit?"), <i>causal</i> ("did my rule make the money, or was I just long in an up year?"), <i>conformal</i> ("report a range, require even the low end positive").</div>
+
+  <!-- ===================== BUILD QUEUE ===================== -->
+  <div class="lbl">Build queue — what's being added</div>
+
+  <div class="card"><div class="row"><div>
+    <div class="name">PDP plateau selector <span class="tag-next">NEXT</span></div>
+    <div class="stage">Stage 4 · pick the winner</div>
+    <div class="desc">Pick the param setting on a broad hill of good neighbors, not a lone lucky spike. Reuses the grid results + the existing heatmap/neighborhood machinery; bonus: reveals which params interact.</div>
+  </div><span class="badge b-planned">PLANNED</span></div></div>
+
+  <div class="card"><div class="row"><div>
+    <div class="name">Ensemble the top-K</div>
+    <div class="stage">Stage 4 · pick the winner</div>
+    <div class="desc">Blend the best several settings instead of crowning one — convex-combine their signals with weights fit on the out-of-sample folds. The top-N equity overlay already shows the members; this actually blends them.</div>
+  </div><span class="badge b-planned">PLANNED</span></div></div>
+
+  <div class="card"><div class="row"><div>
+    <div class="name">Adversarial-validation gate</div>
+    <div class="stage">Stage 5 · stress the winner</div>
+    <div class="desc">Train a quick classifier to tell the fit-era bars from recent/lockbox bars. If it can, the regime shifted and the champion is fit to a stale world. Slots into the existing gate list.</div>
+  </div><span class="badge b-planned">PLANNED</span></div></div>
+
+  <div class="card"><div class="row"><div>
+    <div class="name">Conformal band on the gates</div>
+    <div class="stage">Stage 5 · stress the winner</div>
+    <div class="desc">Turn the point thresholds (PnL&gt;0, PF≥1) into a calibrated range and gate on the lower bound — small-sample-noise protection the point tests don't have.</div>
+  </div><span class="badge b-planned">PLANNED</span></div></div>
+
+  <div class="card"><div class="row"><div>
+    <div class="name">Causal counterfactual check</div>
+    <div class="stage">Stage 5 · stress the winner</div>
+    <div class="desc">"What's the PnL on these same bars without the signal?" Separates a real entry edge from just being long in a rising market — the classic directional-futures trap.</div>
+  </div><span class="badge b-planned">PLANNED</span></div></div>
+
+  <div class="card"><div class="row"><div>
+    <div class="name">Feature importance (for the ML models)</div>
+    <div class="stage">Stage 3 · search</div>
+    <div class="desc">Permutation / SHAP / mutual-info on RF_ML and future learned signals — which order-flow inputs the model actually uses, and whether it's keying on regime noise. (Hand-coded rules are already covered by the Param-Correlation panel.)</div>
+  </div><span class="badge b-planned">PLANNED</span></div></div>
+
+  <div class="card"><div class="row"><div>
+    <div class="name">Data-quality gate</div>
+    <div class="stage">Stage 1 · load the data</div>
+    <div class="desc">Refuse (or loudly warn) before backtesting on holey data — missing web/mobile fills, gaps in the 10s OHLC + order-flow import. Formalizes the manual Position-History reconciliation.</div>
+  </div><span class="badge b-planned">PLANNED</span></div></div>
+
+  <div class="card"><div class="row"><div>
+    <div class="name">EDA honesty pre-flight</div>
+    <div class="stage">Stage 1 · load the data</div>
+    <div class="desc">Lead with median / quartiles / skew / bootstrap on the return &amp; PnL distribution, not just the mean. <i>Partly there</i> — the PnL distribution, win-distribution and MAE/MFE panels already exist; the median-vs-mean honesty block is the gap.</div>
+  </div><span class="badge b-partial">PARTIAL</span></div></div>
+
+  <!-- ===================== ALREADY IN EDGELOG ===================== -->
+  <div class="lbl">Already live in EDGELOG</div>
+  <div class="green-list">
+    <span class="chip">walk-forward (rolling + anchored)</span>
+    <span class="chip">lockbox holdout</span>
+    <span class="chip">Deflated Sharpe (luck bar)</span>
+    <span class="chip">Monte-Carlo drawdown</span>
+    <span class="chip">neighborhood / plateau</span>
+    <span class="chip">regime report card</span>
+    <span class="chip">cross-instrument transfer (NQ↔ES)</span>
+    <span class="chip">stress across 8 windows</span>
+    <span class="chip">sample adequacy (DOF)</span>
+    <span class="chip">grid + auto/Bayesian search</span>
+    <span class="chip">PnL distribution / MAE-MFE</span>
+    <span class="chip">RF_ML model</span>
+    <span class="chip">AI-evolve (LLM rewrites strategy)</span>
+    <span class="chip">PASS / WEAK / FAIL verdict</span>
+  </div>
+
+  <!-- ===================== CARL 12-STEP REFERENCE ===================== -->
+  <div class="lbl">Carl's 12 categories → EDGELOG status</div>
+  <table>
+    <thead><tr><th style="width:34px">#</th><th>Category</th><th>In EDGELOG</th><th class="s">Status</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>EDA</td><td>PnL distribution, win-dist, MAE/MFE, regime — median/bootstrap block pending</td><td class="s"><span class="dot db"></span>Partial</td></tr>
+      <tr><td>2</td><td>Data cleaning / prep</td><td>master gap-detection; formal quality gate planned</td><td class="s"><span class="dot dy"></span>Planned</td></tr>
+      <tr><td>3</td><td>Classification / regression</td><td>RF_ML model + AI-evolve code rewriter</td><td class="s"><span class="dot dg"></span>Live</td></tr>
+      <tr><td>4</td><td>Conformal prediction</td><td>conformal band on gates planned</td><td class="s"><span class="dot dy"></span>Planned</td></tr>
+      <tr><td>5</td><td>Feature selection / eng.</td><td>param correlation + neighborhood; PDP + adversarial planned</td><td class="s"><span class="dot db"></span>Partial</td></tr>
+      <tr><td>6</td><td>Time series / forecasting</td><td>rolling + anchored walk-forward, lockbox</td><td class="s"><span class="dot dg"></span>Live</td></tr>
+      <tr><td>7</td><td>Ensemble methods</td><td>top-K ensemble of configs planned</td><td class="s"><span class="dot dy"></span>Planned</td></tr>
+      <tr><td>8</td><td>Explainability</td><td>param correlation, regime, neighborhood; SHAP planned</td><td class="s"><span class="dot db"></span>Partial</td></tr>
+      <tr><td>9</td><td>Causality</td><td>SPY benchmark; counterfactual check planned</td><td class="s"><span class="dot dy"></span>Planned</td></tr>
+      <tr><td>10</td><td>Statistics</td><td>Deflated Sharpe + Monte-Carlo</td><td class="s"><span class="dot dg"></span>Live</td></tr>
+      <tr><td>11</td><td>Didactic / sanity</td><td>DOF governor, plateau, lockbox, stress, seed=42</td><td class="s"><span class="dot dg"></span>Live</td></tr>
+      <tr><td>12</td><td>Generative AI</td><td>AI-evolve; synthetic stress scenarios planned</td><td class="s"><span class="dot db"></span>Partial</td></tr>
+    </tbody>
+  </table>
+
+  <div class="foot">
+    Source: Carl McBride Ellis's 12-category Kaggle notebook index, translated to EDGELOG's engine
+    (<code>run_grid</code> → <code>validate.py</code> gates → lockbox). Full write-up in
+    <code>docs/EDGELOG_TESTING_STACK.md</code>; engine backlog in <code>ROADMAP.md</code> (#24).
+    Statuses hand-maintained — flip a card from PLANNED → PARTIAL → LIVE as each piece ships.
+  </div>
+
+</div>
+</body>
+</html>

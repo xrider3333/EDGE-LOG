@@ -105,6 +105,18 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 - [ ] **#22 Capacity check** (max contracts vs typical entry-bar volume per instrument).
 - [ ] **#23 Order-flow enrichment (Databento, paid)** — CME MDP3 *Trades* ($28/GB); per-bar
       aggressor DELTA (buy−sell vol) into enriched masters; strategies filter on real pressure.
+- [~] **#24 Data-testing Method Stack** — the model-building / validation roadmap adapted from
+      Carl McBride Ellis's 12 Kaggle categories, mapped onto the 7-stage backtest pipeline.
+      Live status board at **`method_stack.html`** (embedded in the web **RESEARCH** tab); full
+      write-up in **`docs/EDGELOG_TESTING_STACK.md`**. Build queue (flip PLANNED→PARTIAL→LIVE on
+      the board as each ships): **(a) PDP-plateau selector** — replace `run_grid`'s argmax-PnL
+      `best=valid[0]` with "center of the broadest partial-dependence plateau" (reuses the grid
+      `points`/heatmap/`neighborhood`); the NEXT item. **(b) Ensemble top-K** — convex-combine
+      the top configs (weights fit on OOS folds) instead of crowning one. **(c) Adversarial-
+      validation gate**, **(d) conformal band on the gate thresholds**, **(e) causal counterfactual
+      check** — all drop into `validate.py`'s `checks` dict. **(f) feature importance** (perm/SHAP)
+      for the learned models (RF_ML). **(g) data-quality gate** + **(h) EDA honesty pre-flight** at
+      data load. Most of steps 6/10/11 (walk-forward, DSR, MC, lockbox, DOF) are already LIVE.
 
 ## 4. optimizer.py (Streamlit) — open bugs (only while Streamlit is still in use)
 - [ ] **#1 Results shows only the most-recent completed run** — live panel hydrates only the
