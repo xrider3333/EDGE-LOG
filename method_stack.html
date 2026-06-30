@@ -19,10 +19,6 @@
   .sub{color:var(--text3);font-size:13px;margin:0 0 18px}
   .lbl{font-size:11px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin:30px 0 12px}
   .card{background:var(--bg1);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px}
-  .row{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
-  .name{font-size:14.5px;font-weight:650;color:var(--text)}
-  .stage{font-size:10.5px;letter-spacing:1px;color:var(--text5);text-transform:uppercase;margin-top:1px}
-  .desc{font-size:12.5px;color:var(--text2);margin-top:6px;line-height:1.55}
   .badge{font-size:10px;font-weight:700;letter-spacing:.6px;padding:4px 9px;border-radius:999px;white-space:nowrap;flex:none}
   .b-live{color:var(--green);background:rgba(0,229,160,.10);border:1px solid rgba(0,229,160,.35)}
   .b-partial{color:var(--blue);background:rgba(74,158,255,.10);border:1px solid rgba(74,158,255,.35)}
@@ -32,31 +28,38 @@
   .summary{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 6px}
   .pill{font-size:11px;padding:5px 11px;border-radius:999px;border:1px solid var(--border)}
   .pill b{font-weight:700}
-  .green-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
-  .chip{font-size:11.5px;color:var(--green);background:rgba(0,229,160,.07);
-        border:1px solid rgba(0,229,160,.25);border-radius:999px;padding:5px 11px}
-  table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
-  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border2);vertical-align:top}
-  th{font-size:10.5px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;font-weight:600}
-  td.s{white-space:nowrap}
+  table.cat{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
+  .cat th,.cat td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border2);vertical-align:top}
+  .cat th{font-size:10.5px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;font-weight:600}
+  .cat td.s{white-space:nowrap}
   .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle}
   .dg{background:var(--green)} .db{background:var(--blue)} .dy{background:var(--yellow)}
   .svgwrap{background:var(--bg1);border:1px solid var(--border);border-radius:12px;padding:8px;overflow-x:auto}
   .foot{color:var(--text5);font-size:11px;margin-top:26px;border-top:1px solid var(--border2);padding-top:14px;line-height:1.7}
   p.note{font-size:12.5px;color:var(--text2)}
   b.k{color:var(--text)}
-  .hint{font-size:11.5px;color:var(--text5);margin:0 0 12px}
-  /* expandable tiles */
-  details.tile{background:var(--bg1);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden}
+  .hint{font-size:11.5px;color:var(--text5);margin:0 0 14px}
+  /* family group header */
+  .fam{font-size:10.5px;letter-spacing:1.5px;color:var(--text2);text-transform:uppercase;margin:24px 0 9px;
+       font-weight:700;border-bottom:1px solid var(--border2);padding-bottom:6px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .fam .ft{font-size:9px;color:var(--text5);letter-spacing:1px;font-weight:600}
+  /* compact LIVE row */
+  .reg-row{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:9px 14px;margin-bottom:7px;display:flex;align-items:center;gap:12px}
+  .rrmain{flex:1;min-width:0}
+  .rn{font-size:13.5px;font-weight:600;color:var(--text)}
+  .rstage{font-size:9px;letter-spacing:.8px;color:var(--text5);text-transform:uppercase;margin-left:8px}
+  .rd{font-size:11.5px;color:var(--text3);margin-top:2px;line-height:1.5}
+  /* expandable PLANNED/PARTIAL tile */
+  details.tile{background:var(--bg1);border:1px solid var(--border);border-radius:10px;margin-bottom:7px;overflow:hidden}
   details.tile[open]{border-color:var(--border2);background:#0c0c1a}
-  details.tile summary{list-style:none;cursor:pointer;padding:13px 16px;display:flex;align-items:center;gap:12px;outline:none}
+  details.tile summary{list-style:none;cursor:pointer;padding:11px 14px;display:flex;align-items:center;gap:12px;outline:none}
   details.tile summary::-webkit-details-marker{display:none}
   .chev{color:var(--text3);font-size:11px;transition:transform .15s ease;flex:none;width:10px}
   details[open] .chev{transform:rotate(90deg)}
   .sum-main{flex:1;min-width:0}
-  .sum-name{font-size:14.5px;font-weight:650;color:var(--text)}
-  .sum-stage{font-size:10.5px;letter-spacing:1px;color:var(--text5);text-transform:uppercase;margin-top:1px}
-  .detail{padding:12px 16px 15px 38px;font-size:12.5px;color:var(--text2);line-height:1.62;border-top:1px solid var(--border2)}
+  .sum-name{font-size:13.5px;font-weight:600;color:var(--text)}
+  .sum-stage{font-size:9px;letter-spacing:.8px;color:var(--text5);text-transform:uppercase;margin-top:1px}
+  .detail{padding:11px 14px 14px 36px;font-size:12.5px;color:var(--text2);line-height:1.62;border-top:1px solid var(--border2)}
   .detail b{color:var(--text)}
   .detail .k{color:var(--text3);text-transform:uppercase;font-size:9.5px;letter-spacing:1.2px;display:block;margin:11px 0 2px;font-weight:700}
   .detail .k:first-child{margin-top:0}
@@ -70,17 +73,18 @@
 <div class="wrap">
 
   <h1>EDGELOG — Backtesting Stack</h1>
-  <p class="sub">The 7-stage backtest pipeline + the validation &amp; model-building method roadmap.
+  <p class="sub">Two views of the same methods: the <b style="color:var(--text2)">pipeline</b> (where each runs in a backtest)
+    and the <b style="color:var(--text2)">capability register</b> (what exists + status).
     Adapted from Carl McBride Ellis's 12 Kaggle categories. <span style="color:var(--text5)">Updated 2026-06-30.</span></p>
 
   <div class="summary">
-    <span class="pill"><span class="dot dg"></span><b>14</b> live in EDGELOG</span>
-    <span class="pill"><span class="dot db"></span><b>2</b> partial</span>
-    <span class="pill"><span class="dot dy"></span><b>6</b> planned</span>
+    <span class="pill"><span class="dot dg"></span><b>17</b> live in EDGELOG</span>
+    <span class="pill"><span class="dot db"></span><b>1</b> partial</span>
+    <span class="pill"><span class="dot dy"></span><b>10</b> planned</span>
   </div>
 
-  <!-- ===================== PIPELINE DIAGRAM ===================== -->
-  <div class="lbl">The backtest pipeline · start → finish</div>
+  <!-- ===================== VIEW 1 — PIPELINE ===================== -->
+  <div class="lbl">View 1 · the pipeline — where each method runs · start → finish</div>
   <div class="svgwrap">
   <svg viewBox="0 0 880 790" xmlns="http://www.w3.org/2000/svg" width="100%" role="img"
        font-family="-apple-system,ui-sans-serif,system-ui,sans-serif">
@@ -162,144 +166,113 @@
   <text x="86" y="745" font-size="12.5" fill="#8a8ab0">PASS / WEAK / FAIL, charts, rankings</text>
   <g font-size="12.5"><rect x="560" y="718" width="158" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="572" y="734" fill="#00e5a0">report cards</text></g>
 
-  <text x="24" y="782" font-size="11.5" fill="#5a5a78">*MI / PPS feature &amp; param ranking — see the Relationship-scoring tile below.</text>
+  <text x="24" y="782" font-size="11.5" fill="#5a5a78">*MI / PPS feature &amp; param ranking — cross-cutting; see the Relationship-scoring family below.</text>
   </svg>
   </div>
 
-  <!-- ===================== STAGE EXPLANATIONS ===================== -->
-  <div class="lbl">What each stage means (plain English)</div>
-  <p class="note" style="margin-top:0">Almost every upgrade below lives in just two spots —
-    <b class="k">Stage 4</b> (how you pick the winner) and <b class="k">Stage 5</b> (how you try to break it).
-    EDGELOG already owns Stages 1, 2, 6, 7 and most of Stage 5.</p>
-  <div class="card"><b class="k">3 · Search</b> — run the strategy hundreds of times with different knob settings ("params"). <i>Grid</i> = try every combo; <i>auto/Bayesian</i> = a smart search that hunts the good region. Both live.</div>
-  <div class="card" style="border-color:rgba(74,158,255,.4)"><b class="k">4 · Pick the winner</b> — today EDGELOG grabs the single highest-profit setting. <b style="color:var(--yellow)">PDP plateau pick</b> = choose the setting sitting in a <i>broad hill</i> of good neighbors, not a lone lucky spike. <b style="color:var(--yellow)">Ensemble</b> = don't crown one at all — blend the best several so no single fluke decides it.</div>
-  <div class="card"><b class="k">5 · Stress the winner</b> — already the strongest stage: walk-forward, Monte-Carlo drawdown, Deflated Sharpe, neighborhood, NQ↔ES transfer. The three planned adds drop into the same gate list — <i>adversarial</i>, <i>causal</i>, <i>conformal</i>.</div>
+  <p class="note" style="margin-top:14px">The pipeline pins each method to <i>when</i> it runs. A few capabilities are
+    <b class="k">cross-cutting</b> (relationship-scoring informs both Stage 1 and Stage 3→4), so their real home is the register below.</p>
 
-  <!-- ===================== BUILD QUEUE (expandable) ===================== -->
-  <div class="lbl">Method roadmap — tap a tile to expand</div>
-  <p class="hint">▸ Each tile opens to: what it is · why it matters for EDGELOG · where it hooks into the engine.</p>
+  <!-- ===================== VIEW 2 — CAPABILITY REGISTER ===================== -->
+  <div class="lbl">View 2 · the capability register — what exists + status</div>
+  <p class="hint">Compact rows = <span style="color:var(--green)">LIVE</span>. ▸ Tiles expand (what it is · why · engine hooks) for
+    <span style="color:var(--blue)">PARTIAL</span> / <span style="color:var(--yellow)">PLANNED</span> items.</p>
 
-  <details class="tile"><summary>
-    <span class="chev">▸</span>
-    <span class="sum-main"><span class="sum-name">PDP plateau selector <span class="tag-next">NEXT</span></span><span class="sum-stage">Stage 4 · pick the winner</span></span>
-    <span class="badge b-planned">PLANNED</span></summary>
-    <div class="detail">
-      <span class="k">What it is</span>Pick the param config sitting on a broad, high-and-flat region of the result surface, instead of the single highest-PnL spike. A <b>partial-dependence</b> view = "average result as one param changes, marginalizing the others."
-      <span class="k">Why it matters</span>Today selection is <b>argmax PnL</b> — it crowns lone lucky spikes. A plateau (good neighbors all around) generalizes; a spike is usually curve-fit. Bonus: a 2-D PDP reveals which params <b>interact</b> (can't be tuned independently).
-      <span class="k">Hooks into</span><code>optimize.py</code> — replaces <code>best = valid[0]</code> after <code>valid.sort(...)</code>; reuses the grid <code>points</code> + <code>neighborhood()</code> you already compute. TODO marker is in the code (ROADMAP #24). On hold per owner.
-    </div></details>
+  <!-- DATA & EDA -->
+  <div class="fam"><span>Data &amp; EDA</span><span class="ft">Stage 1</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">Gap-check</span><span class="rstage">Stage 1</span><div class="rd">master combine dedupes overlaps and flags gaps→segments on import.</div></div><span class="badge b-live">LIVE</span></div>
+  <details class="tile"><summary><span class="chev">▸</span><span class="sum-main"><span class="sum-name">EDA honesty pre-flight</span><span class="sum-stage">Stage 1</span></span><span class="badge b-partial">PARTIAL</span></summary>
+    <div class="detail"><span class="k">What it is</span>Lead with median / quartiles / skew / bootstrap on the return &amp; PnL distribution, not just the mean.
+      <span class="k">Why it matters</span>Catch <i>mean ≫ median</i> (a few lucky trades). Anscombe + the Datasaurus Dozen prove identical summary stats can hide totally different realities.
+      <span class="k">Status / tools</span>PnL-dist, win-dist and MAE/MFE panels exist; the median-vs-mean block is the gap. Tools: dabl / ydata-profiling on the <b>trades / PnL table</b>.</div></details>
+  <details class="tile"><summary><span class="chev">▸</span><span class="sum-main"><span class="sum-name">Data-quality gate</span><span class="sum-stage">Stage 1</span></span><span class="badge b-planned">PLANNED</span></summary>
+    <div class="detail"><span class="k">What it is</span>Refuse / warn before backtesting on holey data — missing web/mobile fills, gaps in the 10s OHLC + order-flow import.
+      <span class="k">Why it matters</span>Garbage-in protection. Lower priority for the clean Databento history; real value is guarding the <i>newer / incoming</i> imports.
+      <span class="k">Hooks / tools</span>import pipeline; reconcile vs Position-History CSV. PyDeequ-style asserts, Isolation-Forest outliers, a <b>missingno</b> nullity map.</div></details>
 
-  <details class="tile"><summary>
-    <span class="chev">▸</span>
-    <span class="sum-main"><span class="sum-name">Ensemble the top-K</span><span class="sum-stage">Stage 4 · pick the winner</span></span>
-    <span class="badge b-planned">PLANNED</span></summary>
-    <div class="detail">
-      <span class="k">What it is</span>Blend the best K configs instead of crowning one — vote to enter only on agreement, or convex-combine their position sizing with weights fit on the out-of-sample folds.
-      <span class="k">Why it matters</span>Lower variance than any single member; the top-N equity overlay already <i>shows</i> the members — this actually blends them. The matrix is positioned to feed it.
-      <span class="k">Hooks into</span><code>optimize.py</code> top-N + a new combiner (hillclimbers / convex combination, CCMP); weights frozen before the lockbox.
-    </div></details>
+  <!-- SEARCH & MODELS -->
+  <div class="fam"><span>Search &amp; models</span><span class="ft">Stage 3</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">Grid sweep</span><span class="rstage">Stage 3</span><div class="rd">exhaustive parameter grid, parallelized across cores.</div></div><span class="badge b-live">LIVE</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">Auto / Bayesian search</span><span class="rstage">Stage 3</span><div class="rd">smart sampler that hunts the good region instead of brute force (seed=42).</div></div><span class="badge b-live">LIVE</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">RF_ML model</span><span class="rstage">Stage 3</span><div class="rd">a random-forest strategy plugin — learned signal beside the hand-coded rules.</div></div><span class="badge b-live">LIVE</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">AI-evolve</span><span class="rstage">Stage 3</span><div class="rd">LLM rewrites the strategy code on the pre-lockbox window, then re-validates.</div></div><span class="badge b-live">LIVE</span></div>
 
-  <details class="tile"><summary>
-    <span class="chev">▸</span>
-    <span class="sum-main"><span class="sum-name">Relationship scoring — feature &amp; param ranking</span><span class="sum-stage">Stage 3 / 5 · feature selection (Carl step 5)</span></span>
-    <span class="badge b-partial">PARTIAL</span></summary>
-    <div class="detail">
-      <span class="k">What it is</span>Score how strongly each param / feature relates to PnL. Three measures, increasing power:
-      <table class="mini">
-        <thead><tr><th>Measure</th><th>Catches</th><th>Status</th></tr></thead>
-        <tbody>
-          <tr><td><b>Pearson r</b></td><td>linear only</td><td><span class="dot dg"></span>LIVE — Param-Correlation panel</td></tr>
-          <tr><td><b>Mutual Information</b></td><td>any dependency (nonlinear)</td><td><span class="dot dy"></span>PLANNED</td></tr>
-          <tr><td><b>PPS</b> (Predictive Power Score)</td><td>asymmetric, nonlinear, 0–1</td><td><span class="dot dy"></span>PLANNED</td></tr>
-        </tbody>
-      </table>
-      <span class="k">Why it matters</span>Pearson sees <b>only linear</b> relationships — it misses the inverted-U / threshold relationships that matter most in trading (a param good in a mid-range, bad at both extremes reads as r ≈ 0). MI/PPS catch those.
-      <span class="k">KSG note</span>The <b>Kraskov–Stögbauer–Grassberger</b> estimator (2004) is the k-NN method that powers continuous MI — it's the engine <i>under</i> MI, not a separate score.
-      <span class="k">Hooks into</span>extend the live Param-Correlation panel with <code>sklearn mutual_info_regression</code> (KSG) + <code>ppscore</code>; reuse the same scoring for RF_ML feature ranking. Pairs with the PDP tile: <b>MI/PPS say <i>whether</i> a knob matters; the PDP shows <i>how</i>.</b>
-    </div></details>
+  <!-- RELATIONSHIP SCORING -->
+  <div class="fam"><span>Relationship scoring — feature selection</span><span class="ft">cross-cutting · Carl step 5</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">Pearson correlation</span><span class="rstage">Stage 3 / 5</span><div class="rd">linear correlation of each param vs PnL (the live Param-Correlation panel).</div></div><span class="badge b-live">LIVE</span></div>
+  <details class="tile"><summary><span class="chev">▸</span><span class="sum-main"><span class="sum-name">Mutual Information (MI)</span><span class="sum-stage">Stage 3 / 5</span></span><span class="badge b-planned">PLANNED</span></summary>
+    <div class="detail"><span class="k">What it is</span>Scores <b>any</b> dependency between a param/feature and PnL — linear or not.
+      <span class="k">Why it matters</span>Pearson misses inverted-U / threshold relationships (good in a mid-range, bad at extremes → r ≈ 0). MI catches them.
+      <span class="k">Hooks / how it's computed</span><code>sklearn.feature_selection.mutual_info_regression</code>, which uses the <b>KSG</b> (Kraskov–Stögbauer–Grassberger, 2004) k-nearest-neighbor estimator under the hood — that's the math <i>inside</i> MI, not a separate score.</div></details>
+  <details class="tile"><summary><span class="chev">▸</span><span class="sum-main"><span class="sum-name">Predictive Power Score (PPS)</span><span class="sum-stage">Stage 3 / 5</span></span><span class="badge b-planned">PLANNED</span></summary>
+    <div class="detail"><span class="k">What it is</span>A single intuitive <b>0–1</b> score of how well X predicts Y — asymmetric (X→Y ≠ Y→X), nonlinear, handles categoricals.
+      <span class="k">Why it matters</span>One readable number to rank params/features by real predictive power; better than r for screening.
+      <span class="k">Hooks / caveat</span><code>ppscore</code> package. Default model is a decision tree → use cross-validated PPS so it doesn't overfit tiny samples.</div></details>
 
-  <details class="tile"><summary>
-    <span class="chev">▸</span>
-    <span class="sum-main"><span class="sum-name">Adversarial-validation gate</span><span class="sum-stage">Stage 5 · stress the winner</span></span>
-    <span class="badge b-planned">PLANNED</span></summary>
-    <div class="detail">
-      <span class="k">What it is</span>Train a quick classifier to tell the fit-era bars from recent / lockbox bars. If it <i>can</i>, the two distributions differ — the regime shifted.
-      <span class="k">Why it matters</span>Catches a champion that's fit to a stale world before the lockbox does. Complements cross-instrument transfer.
-      <span class="k">Hooks into</span><code>validate.py</code> — one more entry in the <code>checks</code> dict.
-    </div></details>
+  <!-- SELECTION -->
+  <div class="fam"><span>Selection — pick the winner</span><span class="ft">Stage 4</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">Highest-PnL pick</span><span class="rstage">Stage 4</span><div class="rd">today's default: <code style="font-size:11px">best = valid[0]</code> — argmax on the ranked metric.</div></div><span class="badge b-live">LIVE</span></div>
+  <details class="tile"><summary><span class="chev">▸</span><span class="sum-main"><span class="sum-name">PDP plateau selector <span class="tag-next">NEXT</span></span><span class="sum-stage">Stage 4</span></span><span class="badge b-planned">PLANNED</span></summary>
+    <div class="detail"><span class="k">What it is</span>Pick the config on a broad, high-and-flat region of the result surface instead of the single highest spike.
+      <span class="k">Why it matters</span>argmax crowns lone lucky spikes; a plateau generalizes. A 2-D PDP also reveals which params <b>interact</b>.
+      <span class="k">Hooks into</span><code>optimize.py</code> — replaces <code>best = valid[0]</code>; reuses the grid <code>points</code> + <code>neighborhood()</code>. TODO #24 in code; on hold per owner.</div></details>
+  <details class="tile"><summary><span class="chev">▸</span><span class="sum-main"><span class="sum-name">Ensemble the top-K</span><span class="sum-stage">Stage 4</span></span><span class="badge b-planned">PLANNED</span></summary>
+    <div class="detail"><span class="k">What it is</span>Blend the best K configs — vote on agreement, or convex-combine sizing with weights fit on OOS folds.
+      <span class="k">Why it matters</span>Lower variance than one member; the top-N equity overlay already shows them — this blends them.
+      <span class="k">Hooks into</span><code>optimize.py</code> top-N + a combiner (hillclimbers / CCMP); weights frozen before the lockbox.</div></details>
 
-  <details class="tile"><summary>
-    <span class="chev">▸</span>
-    <span class="sum-main"><span class="sum-name">Conformal band on the gates</span><span class="sum-stage">Stage 5 · stress the winner</span></span>
-    <span class="badge b-planned">PLANNED</span></summary>
-    <div class="detail">
-      <span class="k">What it is</span>Wrap the fold / lockbox estimate in a <b>calibrated interval</b> and gate on the <i>lower</i> bound instead of a point number.
-      <span class="k">Why it matters</span>Point thresholds (<code>PnL&gt;0</code>, <code>PF≥1</code>) ignore small-sample noise; "lower bound &gt; 0" is much harder to fool.
-      <span class="k">Hooks into</span><code>validate.py</code> gate logic; tools: MAPIE (regression) / Venn-ABERS (classification calibration).
-    </div></details>
+  <!-- VALIDATION GATES -->
+  <div class="fam"><span>Validation gates</span><span class="ft">Stage 2 &amp; 5–6</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">Lockbox holdout</span><span class="rstage">Stage 2 / 6</span><div class="rd">reserve the last slice; the champion is tested on it once — the final overfit gate.</div></div><span class="badge b-live">LIVE</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">Walk-forward</span><span class="rstage">Stage 5</span><div class="rd">rolling + anchored; tracks walk-forward efficiency + fold consistency.</div></div><span class="badge b-live">LIVE</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">Neighborhood / plateau</span><span class="rstage">Stage 5</span><div class="rd">are the winner's ±1-step param neighbors also profitable? HIGH GROUND vs cliff.</div></div><span class="badge b-live">LIVE</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">Monte-Carlo drawdown</span><span class="rstage">Stage 5</span><div class="rd">block-shuffle the trade order; size to the p95 drawdown.</div></div><span class="badge b-live">LIVE</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">Deflated Sharpe</span><span class="rstage">Stage 5</span><div class="rd">haircut the Sharpe by the best-of-N luck bar (López de Prado).</div></div><span class="badge b-live">LIVE</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">Cross-instrument transfer</span><span class="rstage">Stage 5</span><div class="rd">re-test the champion on the sibling (NQ↔ES) with no re-optimization.</div></div><span class="badge b-live">LIVE</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">Stress across windows</span><span class="rstage">Stage 5</span><div class="rd">winner PnL over 8 chronological windows — SPREAD vs CONCENTRATED.</div></div><span class="badge b-live">LIVE</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">Sample adequacy (DOF)</span><span class="rstage">Stage 5</span><div class="rd">trades-per-optimized-parameter gauge — &lt;10 fragile, 30+ healthy.</div></div><span class="badge b-live">LIVE</span></div>
+  <details class="tile"><summary><span class="chev">▸</span><span class="sum-main"><span class="sum-name">Adversarial-validation gate</span><span class="sum-stage">Stage 5</span></span><span class="badge b-planned">PLANNED</span></summary>
+    <div class="detail"><span class="k">What it is</span>Train a classifier to tell fit-era bars from recent / lockbox bars. If it can, the regime shifted.
+      <span class="k">Why it matters</span>Catches a champion fit to a stale world. Complements transfer + lockbox.
+      <span class="k">Hooks into</span><code>validate.py</code> — one more entry in the <code>checks</code> dict.</div></details>
+  <details class="tile"><summary><span class="chev">▸</span><span class="sum-main"><span class="sum-name">Conformal band on the gates</span><span class="sum-stage">Stage 5</span></span><span class="badge b-planned">PLANNED</span></summary>
+    <div class="detail"><span class="k">What it is</span>Wrap the fold / lockbox estimate in a calibrated interval; gate on the <i>lower</i> bound.
+      <span class="k">Why it matters</span>Point thresholds (PnL&gt;0, PF≥1) ignore small-sample noise; "lower bound &gt; 0" is harder to fool.
+      <span class="k">Hooks / tools</span><code>validate.py</code> gate logic; MAPIE / Venn-ABERS.</div></details>
+  <details class="tile"><summary><span class="chev">▸</span><span class="sum-main"><span class="sum-name">Causal counterfactual check</span><span class="sum-stage">Stage 5</span></span><span class="badge b-planned">PLANNED</span></summary>
+    <div class="detail"><span class="k">What it is</span>"What's the PnL on these <i>same</i> bars without the signal?" — the counterfactual.
+      <span class="k">Why it matters</span>Separates a real entry edge from just being long in a rising market. Sharper than the SPY benchmark.
+      <span class="k">Hooks / tools</span><code>validate.py</code>; CausalImpact / interrupted-time-series.</div></details>
 
-  <details class="tile"><summary>
-    <span class="chev">▸</span>
-    <span class="sum-main"><span class="sum-name">Causal counterfactual check</span><span class="sum-stage">Stage 5 · stress the winner</span></span>
-    <span class="badge b-planned">PLANNED</span></summary>
-    <div class="detail">
-      <span class="k">What it is</span>"What's the PnL on these <i>same</i> bars without the signal?" — the counterfactual equity curve.
-      <span class="k">Why it matters</span>Separates a real entry edge from just being long in a rising market (the classic directional-futures trap). Sharper than the SPY buy-&amp;-hold benchmark you already show.
-      <span class="k">Hooks into</span><code>validate.py</code>; tool: CausalImpact / interrupted-time-series.
-    </div></details>
+  <!-- EXPLAINABILITY -->
+  <div class="fam"><span>Explainability</span><span class="ft">Stage 7–8</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">Regime report card</span><span class="rstage">Stage 5 / 7</span><div class="rd">PnL sliced by volatility tercile, trend-vs-chop, day-of-week, monthly grid.</div></div><span class="badge b-live">LIVE</span></div>
+  <div class="reg-row"><div class="rrmain"><span class="rn">MAE / MFE distributions</span><span class="rstage">Stage 7</span><div class="rd">per-trade adverse/favorable excursion → stop &amp; target guidance.</div></div><span class="badge b-live">LIVE</span></div>
+  <details class="tile"><summary><span class="chev">▸</span><span class="sum-main"><span class="sum-name">SHAP on learned models</span><span class="sum-stage">Stage 8</span></span><span class="badge b-planned">PLANNED</span></summary>
+    <div class="detail"><span class="k">What it is</span>Per-prediction feature contributions for the learned models (RF_ML).
+      <span class="k">Why it matters</span>Shows which order-flow inputs drove a decision, and whether it's keying on regime noise.
+      <span class="k">Hooks / tools</span><code>shap</code> on RF_ML; pairs with MI/PPS (screen) and PDP (shape).</div></details>
 
-  <details class="tile"><summary>
-    <span class="chev">▸</span>
-    <span class="sum-main"><span class="sum-name">Data-quality gate</span><span class="sum-stage">Stage 1 · load the data</span></span>
-    <span class="badge b-planned">PLANNED</span></summary>
-    <div class="detail">
-      <span class="k">What it is</span>Refuse (or loudly warn) before backtesting on holey data — missing web/mobile fills, gaps in the 10s OHLC + order-flow import.
-      <span class="k">Why it matters</span>Garbage-in protection — every downstream stat (gates, DSR, lockbox) is only as good as the bars. Lower priority for the clean Databento history; real value is guarding the <i>newer / incoming</i> imports.
-      <span class="k">Hooks into</span>import pipeline; reconcile vs the Position-History CSV. Tools: PyDeequ-style asserts, Isolation-Forest outliers, a <b>missingno</b> nullity map.
-    </div></details>
-
-  <details class="tile"><summary>
-    <span class="chev">▸</span>
-    <span class="sum-main"><span class="sum-name">EDA honesty pre-flight</span><span class="sum-stage">Stage 1 · load the data</span></span>
-    <span class="badge b-partial">PARTIAL</span></summary>
-    <div class="detail">
-      <span class="k">What it is</span>Lead with median / quartiles / skew / bootstrap on the return &amp; PnL distribution, not just the mean.
-      <span class="k">Why it matters</span>Catch <i>mean ≫ median</i> (a few lucky trades carrying the result). The Anscombe quartet &amp; the <b>Datasaurus Dozen</b> prove identical summary stats can hide totally different realities.
-      <span class="k">Status</span>The PnL-distribution, win-distribution and MAE/MFE panels exist; the median-vs-mean honesty block is the gap. Tools: dabl / ydata-profiling on the <b>trades / PnL table</b> (not the raw bars).
-    </div></details>
-
-  <!-- ===================== ALREADY IN EDGELOG ===================== -->
-  <div class="lbl">Already live in EDGELOG</div>
-  <div class="green-list">
-    <span class="chip">walk-forward (rolling + anchored)</span>
-    <span class="chip">lockbox holdout</span>
-    <span class="chip">Deflated Sharpe (luck bar)</span>
-    <span class="chip">Monte-Carlo drawdown</span>
-    <span class="chip">neighborhood / plateau</span>
-    <span class="chip">regime report card</span>
-    <span class="chip">cross-instrument transfer (NQ↔ES)</span>
-    <span class="chip">stress across 8 windows</span>
-    <span class="chip">sample adequacy (DOF)</span>
-    <span class="chip">grid + auto/Bayesian search</span>
-    <span class="chip">Pearson param-correlation</span>
-    <span class="chip">PnL distribution / MAE-MFE</span>
-    <span class="chip">RF_ML model</span>
-    <span class="chip">AI-evolve + PASS/WEAK/FAIL verdict</span>
-  </div>
+  <!-- GENERATIVE -->
+  <div class="fam"><span>Generative</span><span class="ft">cross-cutting</span></div>
+  <details class="tile"><summary><span class="chev">▸</span><span class="sum-main"><span class="sum-name">Synthetic stress scenarios</span><span class="sum-stage">Stage 1 / 5</span></span><span class="badge b-planned">PLANNED</span></summary>
+    <div class="detail"><span class="k">What it is</span>Generate synthetic stress paths (gaps, halts, low-liquidity sessions) to test where history is thin.
+      <span class="k">Why it matters</span>Stress regimes that rarely occur in the real record — without contaminating the lockbox.
+      <span class="k">Caveat</span>Tag synthetic data clearly; never let it into the authoritative backtest.</div></details>
 
   <!-- ===================== CARL 12-STEP REFERENCE ===================== -->
-  <div class="lbl">Carl's 12 categories → EDGELOG status</div>
-  <table>
+  <div class="lbl">Reference · Carl's 12 categories → EDGELOG status</div>
+  <table class="cat">
     <thead><tr><th style="width:34px">#</th><th>Category</th><th>In EDGELOG</th><th class="s">Status</th></tr></thead>
     <tbody>
       <tr><td>1</td><td>EDA</td><td>PnL distribution, win-dist, MAE/MFE, regime — median/bootstrap block pending</td><td class="s"><span class="dot db"></span>Partial</td></tr>
       <tr><td>2</td><td>Data cleaning / prep</td><td>master gap-detection; formal quality gate planned</td><td class="s"><span class="dot dy"></span>Planned</td></tr>
       <tr><td>3</td><td>Classification / regression</td><td>RF_ML model + AI-evolve code rewriter</td><td class="s"><span class="dot dg"></span>Live</td></tr>
       <tr><td>4</td><td>Conformal prediction</td><td>conformal band on gates planned</td><td class="s"><span class="dot dy"></span>Planned</td></tr>
-      <tr><td>5</td><td>Feature selection / eng.</td><td>Pearson param-correlation live; MI + PPS + PDP planned</td><td class="s"><span class="dot db"></span>Partial</td></tr>
+      <tr><td>5</td><td>Feature selection / eng.</td><td>Pearson live; MI + PPS + PDP planned</td><td class="s"><span class="dot db"></span>Partial</td></tr>
       <tr><td>6</td><td>Time series / forecasting</td><td>rolling + anchored walk-forward, lockbox</td><td class="s"><span class="dot dg"></span>Live</td></tr>
       <tr><td>7</td><td>Ensemble methods</td><td>top-K ensemble of configs planned</td><td class="s"><span class="dot dy"></span>Planned</td></tr>
-      <tr><td>8</td><td>Explainability</td><td>param correlation, regime, neighborhood; SHAP planned</td><td class="s"><span class="dot db"></span>Partial</td></tr>
+      <tr><td>8</td><td>Explainability</td><td>regime, MAE/MFE, param-correlation; SHAP planned</td><td class="s"><span class="dot db"></span>Partial</td></tr>
       <tr><td>9</td><td>Causality</td><td>SPY benchmark; counterfactual check planned</td><td class="s"><span class="dot dy"></span>Planned</td></tr>
       <tr><td>10</td><td>Statistics</td><td>Deflated Sharpe + Monte-Carlo</td><td class="s"><span class="dot dg"></span>Live</td></tr>
       <tr><td>11</td><td>Didactic / sanity</td><td>DOF governor, plateau, lockbox, stress, seed=42</td><td class="s"><span class="dot dg"></span>Live</td></tr>
