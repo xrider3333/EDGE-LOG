@@ -9,7 +9,7 @@ The whole point, repeated at every step: *don't trust the final mean-profit numb
 ---
 
 ## 1. EDA — Exploratory Data Analysis  *(look at the data before you model it)*
-- **Is:** Plot and summarize the raw numbers before drawing any conclusion. Anscombe's quartet is the classic warning — four datasets with identical means/correlations that look completely different once plotted.
+- **Is:** Plot and summarize the raw numbers before drawing any conclusion. Anscombe's quartet is the classic warning — four datasets with identical means/correlations that look completely different once plotted. Its modern proof is the **Datasaurus Dozen** ("Same Stats, Different Graphs", Matejka & Fitzmaurice 2017): one dataset morphed into 13 shapes — even a dinosaur — all sharing identical mean, SD and correlation. The lesson EDGELOG runs on: a single summary number (mean PnL) can hide a totally different reality, so always look at the distribution.
 - **Carl's notebooks / methods:**
   1. **Anscombe's quartet** — 4 datasets with identical summary stats but wildly different plots; proves you must *plot*, not just summarize.
   2. **dabl EDA (Titanic)** — one-line auto-EDA library that plots a whole dataset for you.
@@ -18,6 +18,8 @@ The whole point, repeated at every step: *don't trust the final mean-profit numb
   5. **Jane Street: EDA of day 0 + feature importance** — exploring a real quant dataset and ranking features.
   6. **Riiid: EDA + feature importance** — same workflow on a large behavioral dataset.
   7. **Ventilator Pressure: EDA + simple submission** — EDA followed by a baseline model.
+  8. **missingno** — a visual map of *missing* values (matrix / bar / heatmap). The cleanest way to see the web/mobile fills-miss-local gaps and holes in the 10s bars → feeds Step 2's quality gate.
+  9. **pandas-profiling + dabl** — one-line auto-EDA: a full distribution + correlation + missing-value report (with warnings on skew/zeros/cardinality) from a single call. The off-the-shelf engine for the EDA pre-flight — run it on the **trades / PnL table**, not the millions of raw bars. *(pandas-profiling is now `ydata-profiling`.)*
 - **Computes:** Distribution shape of returns/PNL, median vs mean, quartiles, skew/kurtosis, missing/weird values, and resampling (bootstrap) to ask "if I ran this 500×, what's the *median* outcome?"
 - **EDGELOG / Augur:** A Pinscript pre-flight that runs **before the strip backtest**. For any new strategy or dataset it auto-builds: PNL histogram, median & quartiles (not just mean), skew flag, and a bootstrap of trade outcomes. If mean ≫ median, the edge is a few lucky trades — flag it.
 - **Build:** `EDA pre-flight` Pinscript → emits charts + an "honest stats" block (median, IQR, skew, bootstrap median win-rate) attached to every backtest report.

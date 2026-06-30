@@ -199,13 +199,13 @@
   <div class="card"><div class="row"><div>
     <div class="name">Data-quality gate</div>
     <div class="stage">Stage 1 · load the data</div>
-    <div class="desc">Refuse (or loudly warn) before backtesting on holey data — missing web/mobile fills, gaps in the 10s OHLC + order-flow import. Formalizes the manual Position-History reconciliation.</div>
+    <div class="desc">Refuse (or loudly warn) before backtesting on holey data — missing web/mobile fills, gaps in the 10s OHLC + order-flow import. Formalizes the manual Position-History reconciliation. A <b style="color:var(--text)">missingno</b> nullity map is the cleanest view of the gap.</div>
   </div><span class="badge b-planned">PLANNED</span></div></div>
 
   <div class="card"><div class="row"><div>
     <div class="name">EDA honesty pre-flight</div>
     <div class="stage">Stage 1 · load the data</div>
-    <div class="desc">Lead with median / quartiles / skew / bootstrap on the return &amp; PnL distribution, not just the mean. <i>Partly there</i> — the PnL distribution, win-distribution and MAE/MFE panels already exist; the median-vs-mean honesty block is the gap.</div>
+    <div class="desc">Lead with median / quartiles / skew / bootstrap on the return &amp; PnL distribution, not just the mean. <i>Partly there</i> — the PnL distribution, win-distribution and MAE/MFE panels already exist; the median-vs-mean honesty block is the gap. Tools: <b style="color:var(--text)">dabl / ydata-profiling</b> auto-EDA on the trades/PnL table.</div>
   </div><span class="badge b-partial">PARTIAL</span></div></div>
 
   <!-- ===================== ALREADY IN EDGELOG ===================== -->
