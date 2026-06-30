@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='41.0';
+const VERSION='41.1';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -2809,7 +2809,7 @@ function renderApp(){
   wrap.querySelectorAll('[data-master]').forEach(b=>{b.onclick=()=>{const m=b.dataset.master;if(m==='backtester'){activeTab='augur';if(!ASUBS.some(s=>s[0]===augurSub))augurSub='lib';}else{if(activeTab==='augur')activeTab=window._lastLogTab||'overview';}renderApp();};});
   wrap.querySelectorAll('[data-tab]').forEach(b=>{b.onclick=()=>{activeTab=b.dataset.tab;window._lastLogTab=b.dataset.tab;renderApp();};});
   wrap.querySelectorAll('[data-asubtop]').forEach(b=>{b.onclick=()=>{activeTab='augur';augurSub=b.dataset.asubtop;augurRunSel=null;augurLibSel=null;augurLibDel=false;augurLibMsg='';renderApp();};});
-  {const _ss=el('stack-side'),_sk=el('stack-stack');if(_ss)_ss.onclick=()=>{savePref('stackView','side');renderApp();};if(_sk)_sk.onclick=()=>{savePref('stackView','stack');renderApp();};}
+  {const _ss=el('stack-side'),_sk=el('stack-stack');const _setSV=(m)=>{try{var _p=JSON.parse(localStorage.getItem('augurPrefs')||'{}');_p.stackView=m;localStorage.setItem('augurPrefs',JSON.stringify(_p));}catch(e){}var _f=el('stack-frame');if(_f&&_f.contentWindow){try{_f.contentWindow.location.hash=m;}catch(e){}}if(_ss){_ss.style.background=m==='side'?'var(--bg2)':'';_ss.style.color=m==='side'?'var(--text)':'var(--text4)';}if(_sk){_sk.style.background=m==='stack'?'var(--bg2)':'';_sk.style.color=m==='stack'?'var(--text)':'var(--text4)';}};if(_ss)_ss.onclick=()=>_setSV('side');if(_sk)_sk.onclick=()=>_setSV('stack');}
   el('so-btn').onclick=()=>{if(unsub)unsub();if(unsubL)unsubL();if(unsubBT)unsubBT();if(unsubRuns)unsubRuns();if(unsubMeta)unsubMeta();if(unsubMM)unsubMM();stopAutoImport();auth.signOut();renderAuth();};
   const lu=el('logo-upload');if(lu)lu.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{userLogo=ev.target.result;localStorage.setItem('el_logo',userLogo);updateFavicon();document.title='EDGE LOG — Trade Tracker';renderApp();};r.readAsDataURL(f);};
   const la=el('logo-area');if(la)la.onclick=()=>{if(userLogo){if(confirm('Remove logo?')){userLogo=null;localStorage.removeItem('el_logo');updateFavicon();renderApp();}}else el('logo-upload').click();};
