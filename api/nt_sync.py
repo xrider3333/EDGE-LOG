@@ -94,6 +94,17 @@ PRESETS = {
     "ZN": (31.25, 0.015625), "ZC": (12.50, 0.25), "NG": (10.00, 0.001),
 }
 
+# All-in broker fee per contract, PER SIDE (exchange + clearing + NFA + commission).
+# Validated against the account's Cash History: CME micros = $0.95/side, i.e. $1.90 per
+# 1-lot round-trip, with ZERO variance across 74 fills. The desktop AddOn reports $0
+# commission at fill time (fees only settle overnight), so we apply this fixed schedule at
+# sync time — no post-close broker export needed. If a symbol isn't listed, we fall back to
+# whatever commission the fill carried. Update these if the broker's fee schedule changes
+# (re-derive from a fresh Cash History export).
+FEE_PER_SIDE = {
+    "MES": 0.95, "MNQ": 0.95, "MGC": 0.95, "MCL": 0.95, "M2K": 0.95, "MYM": 0.95, "MBT": 0.95,
+}
+
 DEFAULT_FILLS = r"C:\EdgeLog\fills.csv"
 
 
@@ -225,7 +236,11 @@ def build_trades(fills):
             if pos != 0 and new_pos == 0:
                 avg_entry = entry_notional / entry_qty if entry_qty else 0.0
                 avg_exit = exit_notional / exit_qty if exit_qty else 0.0
-                fees = round(comm_acc, 2)
+                # Fees: apply the fixed broker schedule (per contract x 2 sides) when known —
+                # the AddOn's live commission is $0 until overnight settlement. Fall back to
+                # the fill's reported commission for symbols not in the schedule.
+                _side = FEE_PER_SIDE.get(sym)
+                fees = round(_side * entry_qty * 2, 2) if _side is not None else round(comm_acc, 2)
                 gross, net = calc_pnl(sym, entry_side, avg_entry, avg_exit, entry_qty, fees)
                 dur = None
                 dur_sec = None
