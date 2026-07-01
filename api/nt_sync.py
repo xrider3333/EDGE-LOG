@@ -20,24 +20,70 @@ import os
 import csv
 import json
 import time
+import sqlite3
 import hashlib
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
-# Fill timestamps in fills.csv are written by the AddOn in UTC
-# (ex.Time.ToUniversalTime()). We convert them to New York session time for the
-# journal so entry/exit read in the trader's local market timezone (handles EST/EDT).
+# The AddOn's fills.csv timestamp follows NinjaTrader's *display* time-zone setting, which
+# the user can change (observed: some fills logged UTC, later ones logged Pacific) — so it is
+# NOT reliable. The local NinjaTrader.sqlite `Executions.Time` (.NET ticks) is stored in
+# absolute UTC regardless of that setting, so we prefer it (matched by ExecutionId) and only
+# fall back to the CSV time when a fill isn't in the DB yet. Times are then converted to New
+# York session time for the journal (handles EST/EDT).
 try:
     from zoneinfo import ZoneInfo
     _NY = ZoneInfo("America/New_York")
 except Exception:  # zoneinfo missing (pre-3.9) — leave times as-is
     _NY = None
 
+# Local NinjaTrader execution DB (override with EDGELOG_NT_DB). Standard install location.
+NT_DB = os.environ.get(
+    "EDGELOG_NT_DB",
+    os.path.expanduser(r"~\Documents\NinjaTrader 8\db\NinjaTrader.sqlite"))
+
 
 def _to_ny(dt):
-    """Treat a naive fills.csv datetime as UTC and convert to America/New_York."""
+    """Treat a naive UTC datetime as UTC and convert to America/New_York."""
     if dt is None or _NY is None:
         return dt
     return dt.replace(tzinfo=timezone.utc).astimezone(_NY)
+
+
+def _exec_utc_by_id(db_path=NT_DB):
+    """Map ExecutionId -> naive UTC datetime from NinjaTrader.sqlite (absolute-UTC ticks).
+    Opened read-only so it works even while NinjaTrader has the DB open. Best-effort: any
+    problem (missing/locked DB) returns {} and callers fall back to the CSV timestamp."""
+    out = {}
+    if not db_path or not os.path.exists(db_path):
+        return out
+    try:
+        con = sqlite3.connect(f"file:{db_path}?mode=ro&immutable=1", uri=True, timeout=2)
+        try:
+            for eid, ticks in con.execute("SELECT ExecutionId, Time FROM Executions"):
+                if eid is None or ticks is None:
+                    continue
+                try:
+                    out[str(eid)] = datetime(1, 1, 1) + timedelta(microseconds=int(ticks) // 10)
+                except Exception:
+                    continue
+        finally:
+            con.close()
+    except Exception:
+        return {}
+    return out
+
+
+def enrich_utc_from_db(fills, db_path=NT_DB):
+    """Override each fill's dt with the DB's absolute-UTC time (matched by ExecutionId).
+    Leaves fills not present in the DB (e.g. web/mobile trades) untouched."""
+    times = _exec_utc_by_id(db_path)
+    if not times:
+        return fills
+    for f in fills:
+        u = times.get(str(f.get("exec_id") or ""))
+        if u is not None:
+            f["dt"] = u
+    return fills
 
 
 # tick value (tv) / tick size (ts) per instrument — copied verbatim from index.html
@@ -244,6 +290,7 @@ def sync_trades(db, uid, fills_path=DEFAULT_FILLS, log=print):
     from firebase_admin import firestore
 
     fills = parse_fills(fills_path)
+    enrich_utc_from_db(fills)   # prefer NinjaTrader.sqlite's absolute-UTC execution times
     trades = build_trades(fills)
 
     # local cursor: doc_id -> content hash already written, so steady-state writes 0 docs.
