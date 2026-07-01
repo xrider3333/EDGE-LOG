@@ -662,7 +662,13 @@ def main(argv=None):
                   f"({'found' if _present else 'not present yet — install the EdgeLogExport AddOn'}), "
                   f"every {a.trades_sec:g}s" if a.trades_sec > 0 else "(auto OFF)")
         if a.sync_runs or a.watch:
-            print("syncing run history + meta…"); q.sync_runs(); q.sync_meta()
+            print("syncing run history + meta…")
+            try:
+                q.sync_runs(); q.sync_meta()
+            except Exception as e:
+                # Don't let a transient error (e.g. Firestore 429 quota) kill the runner
+                # before it reaches the watch loop — trade sync must still come up.
+                print(f"[sync-runs] startup skipped: {type(e).__name__}: {e}")
         if a.sync_runs and not a.watch:
             return
     else:
@@ -691,7 +697,10 @@ def main(argv=None):
                 print(f"[auto-pine] skipped: {type(e).__name__}: {e}")
         print("watching… (Ctrl+C to stop)")
         while True:
-            done = q.run_once()
+            try:
+                done = q.run_once()
+            except Exception as _e:
+                print(f"[queue] skipped: {type(_e).__name__}: {_e}"); done = 0
             if a.firestore:
                 try:
                     done += q.run_commands()

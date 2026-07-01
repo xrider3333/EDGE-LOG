@@ -343,27 +343,35 @@ def sync_trades(db, uid, fills_path=DEFAULT_FILLS, log=print):
     # how many round-trips are still open (position not back to flat) — informational
     open_positions = _count_open(fills)
 
-    state = {"written": written, "last_sync": time.time(),
-             "total_trades": len(trades), "fills": len(fills)}
+    now = time.time()
+    prev_meta = state.get("last_meta", 0) if isinstance(state, dict) else 0
+    # Only touch the Firestore heartbeat doc when something changed or ~every 5 min. Writing
+    # it every cycle (20s) would burn ~4k writes/day of the free-tier quota for nothing.
+    write_meta = bool(added or updated) or (now - float(prev_meta or 0) > 300)
+
+    state = {"written": written, "last_sync": now,
+             "total_trades": len(trades), "fills": len(fills),
+             "last_meta": now if write_meta else prev_meta}
     try:
         json.dump(state, open(sp, "w", encoding="utf-8"))
     except Exception:
         pass
 
     # status doc the web subscribes to (meta/nt_sync) so the UI can show last-sync info
-    try:
-        db.collection("users").document(uid).collection("meta").document("nt_sync").set({
-            "last_sync": time.time(),
-            "total_trades": len(trades),
-            "fills": len(fills),
-            "open_positions": open_positions,
-            "last_added": added,
-            "last_updated": updated,
-            "fills_path": fills_path,
-            "file_present": os.path.exists(fills_path),
-        })
-    except Exception as e:
-        log(f"  [nt-sync] status write failed: {e}")
+    if write_meta:
+        try:
+            db.collection("users").document(uid).collection("meta").document("nt_sync").set({
+                "last_sync": now,
+                "total_trades": len(trades),
+                "fills": len(fills),
+                "open_positions": open_positions,
+                "last_added": added,
+                "last_updated": updated,
+                "fills_path": fills_path,
+                "file_present": os.path.exists(fills_path),
+            })
+        except Exception as e:
+            log(f"  [nt-sync] status write failed: {e}")
 
     if added or updated:
         log(f"  [nt-sync] {added} new, {updated} updated -> users/{uid}/trades "
