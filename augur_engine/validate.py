@@ -205,7 +205,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
             OV = run_grid(strategy, instrument=instrument, timeframe=timeframe, session=session,
                           source=source, grid={k: [v] for k, v in champ.items()},
                           cost_pts=cost_pts, min_trades=1, top_n=1,
-                          compute_dsr=False, mc_sims=0, compute_regime=False,
+                          compute_dsr=False, mc_sims=500, compute_regime=True,
                           date_from=opt_from, date_to=None) or {}
         except Exception:
             OV = {}
@@ -258,7 +258,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "dsr": (dsr.get("dsr") if dsr else None),
         "is_pf": float(bestA.get("profit_factor", 0) or 0),
         "is_sharpe": (dsr.get("winner_sharpe") if dsr else None),
-        "mc_p95": (mc.get("p95") if mc else None),
+        "mc_p95": ((OV.get("mc") or mc or {}).get("p95")),   # whole-run Monte-Carlo P95 drawdown (sizing floor)
         "equity": equity, "lb_idx": lb_idx,   # PnL curve (points); lb_idx = lockbox boundary
         "total_sharpe": total_sharpe, "total_win_rate": total_wr,
         "total_trades": total_trades, "total_dd": total_dd,   # whole-run champion (incl. lockbox)
@@ -284,6 +284,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "mae_mfe": (OV.get("mae_mfe") or A.get("mae_mfe")),
         "win_dist": (OV.get("win_dist") or A.get("win_dist")),
         "champ_dist_scope": ("overall" if OV.get("win_dist") else "in-sample"),
-        "mc": A.get("mc"), "regime": A.get("regime"), "neighborhood": A.get("neighborhood"),
+        # 1B monthly + 1F regime + §8 MC drawdown → whole-run champion when available, else in-sample.
+        "mc": (OV.get("mc") or A.get("mc")), "regime": (OV.get("regime") or A.get("regime")),
+        "neighborhood": A.get("neighborhood"),
         "relationship": A.get("relationship"),   # per-param Pearson / MI / PPS (#24)
     }

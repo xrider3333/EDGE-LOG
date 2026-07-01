@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='42.0';
+const VERSION='42.1';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -5314,7 +5314,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // 1E title rides on the matrix's own verdict/gates/DSR row (one line) instead of a separate header above it.
         const _mHdr='<span title="'+_mtip+'" style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;cursor:help">1E · KPI MATRIX <span style="font-weight:400;color:var(--text5)">ⓘ</span></span>';
         _panelMatrix='<div style="'+_card+';height:100%;box-sizing:border-box">'+kpiMatrixHtml(d,mlt,1,_mHdr)
-          +((regHtml&&regHtml.replace(/\s/g,''))?'<div style="margin-top:14px;padding-top:13px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)">'+_numHdr('1F','REGIME REPORT CARD',null,'weakest vol bucket: '+((d.regime&&d.regime.worst_vol)||'—'))+regHtml+'</div>':'')
+          +((regHtml&&regHtml.replace(/\s/g,''))?'<div style="margin-top:14px;padding-top:13px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)">'+_numHdr('1F','REGIME REPORT CARD',null,_dscope+' · weakest vol bucket: '+((d.regime&&d.regime.worst_vol)||'—'))+regHtml+'</div>':'')
           +'</div>';
         _panelRegime='';
         // 1D + 1G (+ 1H Deflated Sharpe) stacked in ONE master tile (third column of §1's top row, beside 1E).
