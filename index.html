@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='41.9';
+const VERSION='42.0';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4442,7 +4442,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // TRADE PNL DISTRIBUTION — histogram of the WINNER's per-trade PnLs with a fitted
     // normal (bell) curve overlaid. Shows the shape/spread of trade outcomes (fat tails,
     // skew) behind the headline numbers. Needs d.win_dist (winner per-trade PnLs).
-    const tradeDistPanelHtml=(win,mult,tag)=>{
+    const tradeDistPanelHtml=(win,mult,tag,scope)=>{
       if(!Array.isArray(win)||win.length<12)return '';
       const v=win.map(x=>x*mult),n=v.length,mean=v.reduce((a,b)=>a+b,0)/n;
       const sd=Math.sqrt(v.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1;
@@ -4456,7 +4456,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const meanX=((mean-mn)/span)*Wp,zeroX=(mn<0&&mx>0)?((0-mn)/span)*Wp:null,wins=v.filter(x=>x>0).length;
       // horizontal count gridlines + right-side count (y) axis labels.
       const grid=[0.25,0.5,0.75,1].map(fr=>{const gy=H-fr*(H-16),cv=Math.round(bmax*fr);return '<line x1="0" y1="'+gy.toFixed(1)+'" x2="'+Wp.toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4"/><text x="'+(W-9)+'" y="'+(gy+2.5).toFixed(1)+'" text-anchor="end" font-size="7" fill="var(--text3)">'+cv+'</text>';}).join('');
-      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · TRADE PNL DISTRIBUTION <span style="font-weight:400;color:var(--text4);font-size:8px">· in-sample · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins</span></div>':'<div class="lbl" style="margin:8px 0 6px">TRADE PNL DISTRIBUTION · top config · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins</div>')
+      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · TRADE PNL DISTRIBUTION <span style="font-weight:400;color:var(--text4);font-size:8px">· '+(scope||'in-sample')+' · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins</span></div>':'<div class="lbl" style="margin:8px 0 6px">TRADE PNL DISTRIBUTION · top config · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins</div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'':'margin-bottom:14px')+'"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+grid+bars
         +(zeroX!=null?'<line x1="'+zeroX.toFixed(1)+'" y1="0" x2="'+zeroX.toFixed(1)+'" y2="'+H+'" stroke="var(--border)" stroke-width="1"/>':'')
         +'<polyline points="'+pts.join(' ')+'" fill="none" stroke="var(--text)" stroke-width="1.5" opacity="0.95" stroke-dasharray="2,2"/>'
@@ -4465,7 +4465,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     };
     // STRESS — winner PnL across 8 chronological windows. Profit SPREAD across windows is
     // robust; CONCENTRATED in one stretch is a red flag (one lucky regime carried it).
-    const stressPanelHtml=(stress,mult,tag)=>{
+    const stressPanelHtml=(stress,mult,tag,scope)=>{
       if(!stress||stress.length<4)return '';
       const v=stress.map(x=>x*mult),pos=v.filter(x=>x>0).length,tot=v.reduce((s,x)=>s+x,0);
       const mxabs=Math.max.apply(null,v.map(Math.abs))||1;
@@ -4475,7 +4475,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const bars=v.map((x,i)=>{const h=(Math.abs(x)/mxabs)*(mid-10),y=x>=0?mid-h:mid;hits+='<rect x="'+(i*bw).toFixed(1)+'" y="0" width="'+bw.toFixed(1)+'" height="'+H+'" fill="transparent" style="cursor:pointer" data-tip="window '+(i+1)+'/'+v.length+' (oldest→newest)<br>net <b style=&quot;color:'+(x>=0?'#1d9e75':'#e24b4a')+'&quot;>'+fmtUsd(Math.round(x))+'</b>"/>';return '<rect x="'+(i*bw+3).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+(bw-6).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+(x>=0?'#1d9e75':'#e24b4a')+'" opacity="0.75"/>';}).join('');
       const vc=concentrated?'var(--yellow)':'var(--green)';
       const _tip='Splits the champion\'s ENTIRE trade history into '+v.length+' equal time slices (oldest → newest) and plots the net $ of each slice. It is the SAME trades as the equity curve — just cut into time buckets to test consistency, not a different dataset. Profit SPREAD across the bars = a durable edge; CONCENTRATED in one bar = one lucky stretch carried the whole result.';
-      const hdr=(tag?'<div title="'+_tip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · STRESS ACROSS TIME <span style="font-weight:700;color:'+vc+';font-size:9px">'+(concentrated?'CONCENTRATED':'SPREAD')+'</span><span style="font-weight:400;color:var(--text4);font-size:8px">· '+pos+'/'+v.length+' windows green · hover ⓘ</span></div>':'<div class="lbl" style="margin:8px 0 6px">STRESS ACROSS TIME · <span style="color:'+vc+'">'+(concentrated?'CONCENTRATED':'SPREAD')+'</span> · '+pos+'/'+v.length+' windows green</div>');
+      const hdr=(tag?'<div title="'+_tip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · STRESS ACROSS TIME <span style="font-weight:700;color:'+vc+';font-size:9px">'+(concentrated?'CONCENTRATED':'SPREAD')+'</span><span style="font-weight:400;color:var(--text4);font-size:8px">· '+(scope?scope+' · ':'')+pos+'/'+v.length+' windows green · hover ⓘ</span></div>':'<div class="lbl" style="margin:8px 0 6px">STRESS ACROSS TIME · <span style="color:'+vc+'">'+(concentrated?'CONCENTRATED':'SPREAD')+'</span> · '+pos+'/'+v.length+' windows green</div>');
       return hdr
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
         +'<div style="display:flex;gap:6px"><div style="flex:1;min-width:0"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"><line x1="0" y1="'+mid+'" x2="'+W+'" y2="'+mid+'" stroke="var(--border)"/>'+bars+hits+'</svg>'
@@ -4567,7 +4567,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     };
     // MAE / MFE — per-trade heat (max adverse) vs reach (max favorable), turned into
     // data-driven stop & target guidance from your own winning trades.
-    const maeMfePanelHtml=(mm,mult,tag)=>{
+    const maeMfePanelHtml=(mm,mult,tag,scope)=>{
       if(!mm||!mm.mae||mm.mae.length<10)return '';
       const won=mm.won||[],winHeat=mm.mae.map(v=>Math.abs(v)).filter((_,i)=>won[i]),allMfe=mm.mfe.map(Math.abs),allMae=mm.mae.map(Math.abs);
       if(winHeat.length<5)return '';
@@ -4603,7 +4603,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<text x="'+(W-1)+'" y="'+_yc+'" transform="rotate(-90 '+(W-1)+' '+_yc+')" text-anchor="middle" font-size="6" fill="var(--text4)">trades</text></svg>';
       // x-axis labels in an HTML row BELOW the chart (like 1D); 0 sits at its TRUE position on the shared scale.
       const xrow='<div style="position:relative;height:11px;margin-top:2px;font-size:8px"><span style="position:absolute;left:0;color:#e24b4a">◀ adverse '+Math.round(maxMae)+'p</span><span style="position:absolute;left:'+(Wp/W*100).toFixed(1)+'%;transform:translateX(-100%);color:#1d9e75">favourable '+Math.round(maxMfe)+'p ▶</span></div>';
-      return (tag?'<div title="One distribution of every trade\'s excursion in points from entry (0 = entry, middle): how far price ran AGAINST you (MAE — adverse / heat) is mirrored LEFT in red, how far it ran IN YOUR FAVOUR (MFE — favourable / reach) is RIGHT in green. y = number of trades.&#10;&#10;STOP — heat winners endured: median '+s50+' pts, 90% within '+s90+' pts ('+usd(s90)+'). A stop tighter than ~'+s50+' pts cuts half your winners; ~'+s90+' keeps ~90%.&#10;TARGET — reach in favour: median '+f50+' pts, 75% reach '+f75+' pts ('+usd(f75)+'). A target below ~'+f50+' pts exits early." style="cursor:help;margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · MAE / MFE <span style="font-weight:400;font-size:8px"> · <span style="color:#e24b4a">◀ STOP '+s50+'p (90% ≤ '+s90+'p)</span> · <span style="color:#1d9e75">TARGET '+f50+'p (75% ≤ '+f75+'p) ▶</span> <span style="color:var(--text4)">ⓘ</span></span></div>':'<div class="lbl" style="margin:8px 0 6px">MAE / MFE · STOP &amp; TARGET GUIDANCE</div>')
+      return (tag?'<div title="One distribution of every trade\'s excursion in points from entry (0 = entry, middle): how far price ran AGAINST you (MAE — adverse / heat) is mirrored LEFT in red, how far it ran IN YOUR FAVOUR (MFE — favourable / reach) is RIGHT in green. y = number of trades.&#10;&#10;STOP — heat winners endured: median '+s50+' pts, 90% within '+s90+' pts ('+usd(s90)+'). A stop tighter than ~'+s50+' pts cuts half your winners; ~'+s90+' keeps ~90%.&#10;TARGET — reach in favour: median '+f50+' pts, 75% reach '+f75+' pts ('+usd(f75)+'). A target below ~'+f50+' pts exits early." style="cursor:help;margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · MAE / MFE '+(scope?'<span style="font-weight:400;color:var(--text5);font-size:8px">· '+scope+' </span>':'')+'<span style="font-weight:400;font-size:8px"> · <span style="color:#e24b4a">◀ STOP '+s50+'p (90% ≤ '+s90+'p)</span> · <span style="color:#1d9e75">TARGET '+f50+'p (75% ≤ '+f75+'p) ▶</span> <span style="color:var(--text4)">ⓘ</span></span></div>':'<div class="lbl" style="margin:8px 0 6px">MAE / MFE · STOP &amp; TARGET GUIDANCE</div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:11px 12px;'+(tag?'':'margin-bottom:14px')+'">'
         +svg+xrow+'</div>';
     };
@@ -5291,6 +5291,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _numHdr=(tag,label,tip,sub)=>'<div'+(tip?' title="'+tip+'"':'')+' style="margin:0 0 10px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px'+(tip?';cursor:help':'')+'">'+tag+' · '+label+(sub?' <span style="font-weight:400;color:var(--text4);font-size:8px">· '+sub+'</span>':'')+(tip?' <span style="font-weight:400;color:var(--text5)">ⓘ</span>':'')+'</div>';
       let _panelEquity='',_panelMatrix='',_panelRegime='',_panelMae='',_panelTD='',_distTile='';
       if(d.validate){const _V=d.validate,_lb=_V.lockbox||{};
+        // 1D/1G/1I show WHOLE-RUN champion behaviour on new runs (engine full-window pass); older runs fall back to the in-sample slice.
+        const _dscope=(d.champ_dist_scope==='overall')?'whole run':'in-sample';
         const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px';
         const _mtip='Three sections — in-sample, walk-forward and lockbox — run back-to-back and sum to TOTAL. WALK-FORWARD NET = the sum of the fold out-of-sample results (matches the WALK-FORWARD chart); LOCKBOX NET = the holdout backtest (matches the lock strip). IN-SAMPLE is the residual (TOTAL − WALK-FORWARD − LOCKBOX) so the three reconcile. AVG WIN / AVG LOSS are measured from the real trades for LOCKBOX and TOTAL, and derived from PF for IN-SAMPLE and WALK-FORWARD (re-run a validate to measure all). BARS: in-sample = initial train window, walk-forward = sum of test windows; lockbox bar-count is not saved.';
         // Section 1a leads with the equity graph + lockbox strip ONLY. The old
@@ -5304,7 +5306,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div id="res-step-8" style="scroll-margin-top:64px">'+championEquityHtml(_V,mlt,d.top10_results,1)+'</div>'
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
           +((wf=>wf?'<div style="margin-top:9px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
-          +((st=>st?'<div style="margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+st+'</div>':'')(stressPanelHtml(d.stress,mlt,'1I')))
+          +((st=>st?'<div style="margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+st+'</div>':'')(stressPanelHtml(d.stress,mlt,'1I',_dscope)))
           +'</div>';
         // 1H header: title (description on hover) with the calculated stats pinned to the right — the standard chart-header pattern.
         const _dsrBlock='<div style="margin-top:14px;padding-top:13px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1H · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>';
@@ -5316,7 +5318,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'</div>';
         _panelRegime='';
         // 1D + 1G (+ 1H Deflated Sharpe) stacked in ONE master tile (third column of §1's top row, beside 1E).
-        const _mae=maeMfePanelHtml(d.mae_mfe,mlt,'1G'),_td=tradeDistPanelHtml(d.win_dist,mlt,'1D');
+        const _mae=maeMfePanelHtml(d.mae_mfe,mlt,'1G',_dscope),_td=tradeDistPanelHtml(d.win_dist,mlt,'1D',_dscope);
         // ── ACTIONABLE MAE/MFE: a button that queues a focused GRID re-run — the champion config pinned,
         //    stop_mult × tp_mult swept around the winners' reach:heat ratio (scale-free, so no ATR needed).
         //    Only for a champion that exposes ATR stop/target mults (ENGU family). Wired in the handler below.

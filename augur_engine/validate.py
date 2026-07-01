@@ -13,6 +13,7 @@ import datetime as _dt
 from .data import find_master
 from .engine import run_backtest
 from .auto import run_auto
+from .optimize import run_grid
 
 
 def _parse(d):
@@ -193,6 +194,22 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
             total_dd = float(full.get("max_drawdown", 0) or 0)
             total_aw, total_al = _avg_wl(full.get("trades"), cost_pts)   # honest avg win/loss (points)
 
+    # ── OVERALL champion behaviour for the distribution charts (1D trade-PnL, 1G MAE/MFE, 1I stress).
+    #    Stage A's win_dist / mae_mfe / stress cover only the 75% in-sample tune slice; re-run the ONE
+    #    champion over the ENTIRE window (in-sample + walk-forward span + lockbox) so those charts show
+    #    how it actually trades. A 1-combo grid reuses the same analytics pipeline. Falls back to the
+    #    in-sample values (below) if it fails, so a validate never breaks on this. ──
+    OV = {}
+    if champ:
+        try:
+            OV = run_grid(strategy, instrument=instrument, timeframe=timeframe, session=session,
+                          source=source, grid={k: [v] for k, v in champ.items()},
+                          cost_pts=cost_pts, min_trades=1, top_n=1,
+                          compute_dsr=False, mc_sims=0, compute_regime=False,
+                          date_from=opt_from, date_to=None) or {}
+        except Exception:
+            OV = {}
+
     # ── Cross-instrument transfer — re-test the CHAMPION (no re-optimization) on
     #    other instruments. Edge that only works where it was fit is a single-symbol
     #    artifact; surviving on a sibling (NQ↔ES) is structural evidence. ──────────
@@ -260,9 +277,13 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "best_params": champ, "best": bestA, "top": folds,
         "dsr": (dsr or None), "n_combos": n_trials * 2, "n_valid": A.get("n_valid"),
         "bars": A.get("bars"), "wf": True, "best_oos_pnl": sOos, "evolved_file": evolved_file,
-        "dist": A.get("dist"), "points": A.get("points"),
-        "equity_top": A.get("equity_top"), "stress": A.get("stress"),
-        "mae_mfe": A.get("mae_mfe"), "win_dist": A.get("win_dist"),
+        "dist": A.get("dist"), "points": A.get("points"),   # config SEARCH space → stays in-sample
+        "equity_top": A.get("equity_top"),
+        # 1D / 1G / 1I: whole-run champion behaviour when available, else the in-sample slice.
+        "stress": (OV.get("stress") or A.get("stress")),
+        "mae_mfe": (OV.get("mae_mfe") or A.get("mae_mfe")),
+        "win_dist": (OV.get("win_dist") or A.get("win_dist")),
+        "champ_dist_scope": ("overall" if OV.get("win_dist") else "in-sample"),
         "mc": A.get("mc"), "regime": A.get("regime"), "neighborhood": A.get("neighborhood"),
         "relationship": A.get("relationship"),   # per-param Pearson / MI / PPS (#24)
     }
