@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='41.7';
+const VERSION='41.8';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -5314,7 +5314,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
         _panelRegime='';
         // 1D + 1G (+ 1H Deflated Sharpe) stacked in ONE master tile (third column of §1's top row, beside 1E).
         const _mae=maeMfePanelHtml(d.mae_mfe,mlt,'1G'),_td=tradeDistPanelHtml(d.win_dist,mlt,'1D');
-        _distTile=(_td||_mae)?'<div style="'+_card+';height:100%;box-sizing:border-box">'+_td+((_td&&_mae)?'<div style="margin:11px 0;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)"></div>':'')+_mae+((dsrHtml&&dsrHtml.replace(/\s/g,''))?_dsrBlock:'')+'</div>':'';}
+        // ── ACTIONABLE MAE/MFE: a button that queues a focused GRID re-run — the champion config pinned,
+        //    stop_mult × tp_mult swept around the winners' reach:heat ratio (scale-free, so no ATR needed).
+        //    Only for a champion that exposes ATR stop/target mults (ENGU family). Wired in the handler below.
+        let _exitBtn='';
+        try{const mm=d.mae_mfe,bp=(d.best_params||(d.result&&d.result.best_params)||{});
+          if(mm&&mm.mae&&mm.mfe&&('stop_mult' in bp)&&('tp_mult' in bp)){
+            const won=mm.won||[],winHeat=mm.mae.map(v=>Math.abs(v)).filter((_,i)=>won[i]),allMfe=mm.mfe.map(v=>Math.abs(v));
+            if(winHeat.length>=5){const pct=(a,p)=>{const s=a.slice().sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.floor(p*s.length))];};
+              const s50=pct(winHeat,0.5)||1,f50=pct(allMfe,0.5)||1,R=Math.max(0.5,Math.min(4,f50/s50)),cs=+bp.stop_mult||1.3;
+              const grid={};Object.keys(bp).forEach(k=>{grid[k]=[bp[k]];});grid.exit_mode=['Stop / Target'];
+              // sweep stop around the champion, target around stop×R; keep the champion's own exits in the set as the baseline.
+              grid.stop_mult=Array.from(new Set([0.7,0.85,1.0,1.2,1.5].map(k=>+(cs*k).toFixed(2)).concat([+bp.stop_mult]))).sort((a,b)=>a-b);
+              grid.tp_mult=Array.from(new Set([0.8,1.0,1.3].map(k=>+(cs*R*k).toFixed(2)).concat([+bp.tp_mult]))).sort((a,b)=>a-b);
+              const job={type:'grid',strategy:d.strategy,instrument:d.instrument||'NQ',timeframe:d.timeframe||'5m',session:d.session||'rth',source:d.source||null,grid:grid,date_from:d.date_from||'',date_to:d.date_to||'',cost_pts:(d.cost_pts!=null?d.cost_pts:5.66/mlt),mult:mlt,min_trades:20,top_n:10,dsr:false,mc_sims:0,preset:'exit-sweep',note:'MAE/MFE exit sweep · R≈'+R.toFixed(2)+':1 · from run #'+d.id};
+              _exitBtn='<div style="margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'
+                +'<div style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;margin-bottom:5px">TUNE EXITS <span style="font-weight:400;color:var(--text4);font-size:8px">· from MAE / MFE</span></div>'
+                +'<button id="det-exitsweep" data-exitjob="'+encodeURIComponent(JSON.stringify(job))+'" style="width:100%;height:26px;border-radius:6px;border:1px solid var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);font-size:11px;font-weight:600;cursor:pointer">▶ Re-run exit sweep on my PC</button>'
+                +'<div style="font-size:8px;color:var(--text5);margin-top:5px;line-height:1.5">Re-runs the champion with stop × target swept around your winners\' reach : heat ≈ <b style="color:var(--text3)">'+R.toFixed(1)+' : 1</b> ('+Math.round(f50)+'p reach vs '+Math.round(s50)+'p heat). <b>In-sample</b> sweep — validate the winner to confirm out-of-sample.</div></div>';
+            }}
+        }catch(_e){}
+        _distTile=(_td||_mae)?'<div style="'+_card+';height:100%;box-sizing:border-box">'+_td+((_td&&_mae)?'<div style="margin:11px 0;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)"></div>':'')+_mae+((dsrHtml&&dsrHtml.replace(/\s/g,''))?_dsrBlock:'')+_exitBtn+'</div>':'';}
       const _noteEsc=String(d.note||'').replace(/"/g,'&quot;'),_hasNote=!!(d.note&&String(d.note).trim());
       // shared style so the note / relabel / delete controls read as one consistent button group.
       //   Fixed height + box-sizing makes the <select> match the <button>s (selects size differently);
@@ -6218,6 +6238,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _del=el('det-del');if(_del)_del.onclick=async()=>{const id=_del.dataset.delId;if(!confirm('Delete run #'+id+'? Removes it from the web and your local AUGUR history.'))return;try{await runsRef.doc(String(id)).delete();if(cmdRef)await cmdRef.add({action:'delete_run',payload:{id:+id},status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()});if(String(augurRunSel)===String(id))augurRunSel=null;}catch(e){alert('delete failed: '+e.message);}renderApp();};
       // relabel: update the web doc strategy + queue a runner command to update the DB.
       const _rl=el('det-relabel');if(_rl)_rl.onchange=async()=>{const f=_rl.value,id=_rl.dataset.relabelId;if(!f)return;try{await runsRef.doc(String(id)).update({strategy:f});if(cmdRef)await cmdRef.add({action:'relabel_run',payload:{id:+id,strategy:f},status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){alert('relabel failed: '+e.message);}renderApp();};
+      // MAE/MFE exit sweep: queue the pinned-champion + stop×target grid to the runner (Backtests collection).
+      const _es=el('det-exitsweep');if(_es)_es.onclick=async()=>{let job;try{job=JSON.parse(decodeURIComponent(_es.dataset.exitjob));}catch(e){return;}const ns=((job.grid&&job.grid.stop_mult)||[]).length,nt=((job.grid&&job.grid.tp_mult)||[]).length;if(!confirm('Queue an exit sweep for '+job.strategy+' ('+job.instrument+' '+job.timeframe+') on your PC?\n\nRe-runs the champion with a stop × target grid ('+ns+'×'+nt+' = '+(ns*nt)+' combos). Results stream into Backtests.'))return;job.status='queued';job.createdAt=firebase.firestore.FieldValue.serverTimestamp();_es.textContent='QUEUED…';_es.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};
       // SPY buy-&-hold benchmark over the run's window (async; cached) — context for the equity.
       const _spy=el('det-spy');if(_spy){const a=_spy.dataset.spyFrom,b=_spy.dataset.spyTo;_spy.textContent='benchmark · loading SPY…';fetchSPYData(a,b).then(data=>{const sp=el('det-spy');if(!sp)return;const ret=spyReturnReal(a,b,data)*100;if(!isFinite(ret)){sp.textContent='';return;}sp.innerHTML='Benchmark · SPY buy-&-hold '+a+' → '+b+': <b style="color:'+(ret>=0?'var(--green)':'var(--red)')+'">'+(ret>=0?'+':'')+ret.toFixed(1)+'%</b> <span style="opacity:.7">(context for the equity curve above)</span>';}).catch(()=>{const sp=el('det-spy');if(sp)sp.textContent='';});}
       // CONFIG DISTRIBUTION bin slider — more/fewer bars (data points) for the config landscape.
