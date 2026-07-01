@@ -13,302 +13,231 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);
        font-family:-apple-system,ui-sans-serif,system-ui,"Segoe UI",sans-serif;
-       font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 60px}
-  h1{font-size:21px;font-weight:700;margin:0 0 4px;letter-spacing:.2px}
-  .sub{color:var(--text3);font-size:13px;margin:0 0 14px}
-  .lbl{font-size:11px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin:24px 0 11px}
-  .view1 .lbl:first-child,.view2 .lbl:first-child{margin-top:6px}
-  .card{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:11px 14px;margin-bottom:8px;font-size:12.5px}
-  .badge{font-size:9.5px;font-weight:700;letter-spacing:.5px;padding:3px 8px;border-radius:999px;white-space:nowrap;flex:none}
-  .b-live{color:var(--green);background:rgba(0,229,160,.10);border:1px solid rgba(0,229,160,.35)}
-  .b-partial{color:var(--blue);background:rgba(74,158,255,.10);border:1px solid rgba(74,158,255,.35)}
-  .b-planned{color:var(--yellow);background:rgba(245,200,66,.10);border:1px solid rgba(245,200,66,.32)}
-  .tag-next{color:var(--purple);background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.4);
-            font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 6px;border-radius:999px;margin-left:6px}
-  /* topbar: pills + split toggle */
-  .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px}
-  .summary{display:flex;gap:8px;flex-wrap:wrap}
-  .pill{font-size:11px;padding:5px 11px;border-radius:999px;border:1px solid var(--border)}
-  .mp{display:inline-block;font-size:10px;color:var(--text2);background:var(--bg2);border:1px solid var(--border);border-radius:999px;padding:3px 8px;margin:3px 4px 0 0}
+       font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1200px;margin:0 auto;padding:22px 20px 56px}
+  h1{font-size:20px;font-weight:700;margin:0 0 3px;letter-spacing:.2px}
+  .sub{color:var(--text3);font-size:12.5px;margin:0 0 12px}
+  .summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+  .pill{font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid var(--border)}
   .pill b{font-weight:700}
   .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle}
   .dg{background:var(--green)} .db{background:var(--blue)} .dy{background:var(--yellow)}
-  .split-tog{display:flex;gap:4px;align-items:center}
-  .split-tog .stl{font-size:9.5px;letter-spacing:1px;color:var(--text5);text-transform:uppercase;margin-right:3px}
-  .split-tog button{background:var(--bg1);border:1px solid var(--border);color:var(--text3);border-radius:7px;
-                    padding:4px 10px;font-size:14px;cursor:pointer;font-variant-emoji:text;line-height:1}
-  .split-tog button.active{color:var(--text);border-color:var(--border2);background:#14142a}
-  /* two-view layout */
+  .lbl{font-size:10.5px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin:20px 0 9px}
+  /* two aligned views */
   .views{display:flex;flex-direction:column}
-  .views.side{flex-direction:row;gap:24px;align-items:flex-start}
+  .views.side{flex-direction:row;gap:22px;align-items:flex-start}
   .views.side .view{flex:1;min-width:0}
-  @media(max-width:780px){.views.side{flex-direction:column;gap:0}}
-  .svgwrap{background:var(--bg1);border:1px solid var(--border);border-radius:12px;padding:8px;overflow-x:auto}
-  p.note{font-size:12px;color:var(--text2);margin:12px 0 0}
-  b.k{color:var(--text)}
-  .hint{font-size:11px;color:var(--text5);margin:0 0 12px}
-  /* family group + compact grid */
-  .fam{font-size:10px;letter-spacing:1.4px;color:var(--text2);text-transform:uppercase;margin:16px 0 7px;
-       font-weight:700;border-bottom:1px solid var(--border2);padding-bottom:5px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-  .fam .ft{font-size:8.5px;color:var(--text5);letter-spacing:.8px;font-weight:600}
-  .reg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:6px;align-items:start;margin-bottom:2px}
-  .views.side .reg-grid{grid-template-columns:1fr}
-  .reg-row{background:var(--bg1);border:1px solid var(--border);border-radius:9px;padding:7px 11px;
-           display:flex;justify-content:space-between;align-items:center;gap:8px}
-  .reg-row .rn{font-size:12.5px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  /* expandable PLANNED/PARTIAL tile */
-  details.tile{background:var(--bg1);border:1px solid var(--border);border-radius:9px;overflow:hidden}
-  details.tile[open]{border-color:var(--border2);background:#0c0c1a}
-  details.tile summary{list-style:none;cursor:pointer;padding:7px 11px;display:flex;align-items:center;gap:9px;outline:none}
-  details.tile summary::-webkit-details-marker{display:none}
-  .chev{color:var(--text3);font-size:10px;transition:transform .15s ease;flex:none;width:9px}
-  details[open] .chev{transform:rotate(90deg)}
-  .sum-name{font-size:12.5px;font-weight:600;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .detail{padding:10px 12px 13px 30px;font-size:12px;color:var(--text2);line-height:1.6;border-top:1px solid var(--border2)}
-  .detail b{color:var(--text)}
-  .detail .k{color:var(--text3);text-transform:uppercase;font-size:9px;letter-spacing:1.1px;display:block;margin:10px 0 2px;font-weight:700}
-  .detail .k:first-child{margin-top:0}
-  .detail code{background:var(--bg2);border:1px solid var(--border2);border-radius:5px;padding:1px 5px;font-size:11px;color:var(--text2)}
-  /* stage explainers (compact) */
-  .stx{font-size:12px;color:var(--text2);background:var(--bg1);border:1px solid var(--border);border-radius:9px;padding:9px 12px;margin-bottom:7px;line-height:1.5}
-  /* reference table */
-  table.cat{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
-  .cat th,.cat td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border2);vertical-align:top}
-  .cat th{font-size:10px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;font-weight:600}
-  .cat td.s{white-space:nowrap}
-  .foot{color:var(--text5);font-size:11px;margin-top:24px;border-top:1px solid var(--border2);padding-top:14px;line-height:1.7}
+  @media(max-width:820px){.views.side{flex-direction:column;gap:0}}
+  .svgwrap{background:var(--bg1);border:1px solid var(--border);border-radius:12px;padding:8px}
+  /* roadmap sections */
+  .sec{margin-bottom:12px}
+  .sech{font-size:11px;letter-spacing:.8px;color:var(--text);text-transform:uppercase;font-weight:700;
+        border-bottom:1px solid var(--border2);padding-bottom:5px;margin-bottom:8px;
+        display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .secn{color:var(--text5);font-size:9px;letter-spacing:.5px;font-weight:600}
+  .p{display:inline-block;font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid;
+     margin:0 5px 5px 0;cursor:pointer;user-select:none;white-space:nowrap}
+  .p-live{color:var(--green);background:rgba(0,229,160,.08);border-color:rgba(0,229,160,.30)}
+  .p-part{color:var(--blue);background:rgba(74,158,255,.08);border-color:rgba(74,158,255,.30)}
+  .p-plan{color:var(--yellow);background:rgba(245,200,66,.08);border-color:rgba(245,200,66,.28)}
+  .p.on{box-shadow:0 0 0 1px currentColor inset;filter:brightness(1.25)}
+  .info{font-size:11.5px;color:var(--text2);line-height:1.55;max-height:0;overflow:hidden;transition:max-height .12s ease}
+  .info.show{max-height:320px;padding:8px 11px;background:var(--bg1);border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
+  .foot{color:var(--text5);font-size:11px;margin-top:22px;border-top:1px solid var(--border2);padding-top:12px;line-height:1.7}
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <h1>EDGELOG — Backtesting Stack</h1>
-  <p class="sub">Two views of the same methods: the <b style="color:var(--text2)">pipeline</b> (where each runs)
-    and the <b style="color:var(--text2)">roadmap</b> (what exists + status). <span style="color:var(--text5)">Updated 2026-06-30.</span></p>
+  <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> and its method <b style="color:var(--text2)">roadmap</b> — both use the same 6 numbered stages. Tap a pill for details. <span style="color:var(--text5)">Updated 2026-06-30.</span></p>
 
   <div class="summary">
-    <span class="pill"><span class="dot dg"></span><b>19</b> live</span>
+    <span class="pill"><span class="dot dg"></span><b>20</b> live</span>
     <span class="pill"><span class="dot db"></span><b>1</b> partial</span>
     <span class="pill"><span class="dot dy"></span><b>8</b> planned</span>
   </div>
 
   <div class="views" id="views">
 
-    <!-- ===================== VIEW 1 — PIPELINE ===================== -->
-    <section class="view view1">
-    <div class="lbl">Pipeline — where each method runs</div>
+    <!-- ===== VIEW 1 · PIPELINE ===== -->
+    <section class="view">
+    <div class="lbl">Pipeline — where each stage runs</div>
     <div class="svgwrap">
-    <svg viewBox="0 0 880 790" xmlns="http://www.w3.org/2000/svg" width="100%" role="img"
+    <svg viewBox="0 0 760 500" xmlns="http://www.w3.org/2000/svg" width="100%" role="img"
          font-family="-apple-system,ui-sans-serif,system-ui,sans-serif">
-    <title>The seven stages of an EDGELOG backtest and where each method slots in</title>
-    <desc>Load data, lock the box, search params, pick the winner, stress the winner, final exam, verdict. Green chips are live; amber chips are planned.</desc>
-    <text x="24" y="30" font-size="18" font-weight="700" fill="#c8ccd8">The backtest pipeline · start → finish</text>
-    <circle cx="32" cy="52" r="6" fill="#00e5a0"/><text x="44" y="56" font-size="13" fill="#a0a4b8">In EDGELOG today</text>
-    <circle cx="196" cy="52" r="6" fill="#f5c842"/><text x="208" y="56" font-size="13" fill="#a0a4b8">Planned add</text>
-    <g fill="#3a3a5e" font-size="13" text-anchor="middle">
-    <text x="58" y="171">▼</text><text x="58" y="247">▼</text><text x="58" y="345">▼</text>
-    <text x="58" y="453">▼</text><text x="58" y="619">▼</text><text x="58" y="695">▼</text></g>
-    <rect x="24" y="76" width="832" height="82" rx="13" fill="#0e0e1e" stroke="#1e1e36"/>
-    <circle cx="58" cy="104" r="15" fill="#23234a"/><text x="58" y="109" font-size="15" font-weight="700" fill="#c8ccd8" text-anchor="middle">1</text>
-    <text x="86" y="100" font-size="15.5" font-weight="700" fill="#c8ccd8">Load the data</text>
-    <text x="86" y="120" font-size="12.5" fill="#8a8ab0">Pull ES / NQ price bars</text>
-    <g font-size="12.5">
-    <rect x="300" y="107" width="88" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="312" y="123" fill="#00e5a0">gap-check</text>
-    <rect x="396" y="107" width="108" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="408" y="123" fill="#f5c842">quality gate</text>
-    <rect x="512" y="107" width="84" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="524" y="123" fill="#f5c842">EDA peek</text></g>
-    <rect x="24" y="176" width="832" height="60" rx="13" fill="#0e0e1e" stroke="#1e1e36"/>
-    <circle cx="58" cy="206" r="15" fill="#23234a"/><text x="58" y="211" font-size="15" font-weight="700" fill="#c8ccd8" text-anchor="middle">2</text>
-    <text x="86" y="201" font-size="15.5" font-weight="700" fill="#c8ccd8">Lock the box</text>
-    <text x="86" y="221" font-size="12.5" fill="#8a8ab0">Hide the last ~12 months as a final exam</text>
-    <g font-size="12.5"><rect x="560" y="194" width="132" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="572" y="210" fill="#00e5a0">lockbox holdout</text></g>
-    <rect x="24" y="252" width="832" height="82" rx="13" fill="#0e0e1e" stroke="#1e1e36"/>
-    <circle cx="58" cy="280" r="15" fill="#23234a"/><text x="58" y="285" font-size="15" font-weight="700" fill="#c8ccd8" text-anchor="middle">3</text>
-    <text x="86" y="276" font-size="15.5" font-weight="700" fill="#c8ccd8">Search the params</text>
-    <text x="86" y="296" font-size="12.5" fill="#8a8ab0">Try hundreds of settings</text>
-    <g font-size="12.5">
-    <rect x="300" y="281" width="96" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="312" y="297" fill="#00e5a0">grid sweep</text>
-    <rect x="404" y="281" width="130" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="416" y="297" fill="#00e5a0">auto / Bayesian</text>
-    <rect x="542" y="281" width="138" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="554" y="297" fill="#00e5a0">MI / PPS ranks*</text></g>
-    <rect x="24" y="350" width="832" height="92" rx="13" fill="#0e0e1e" stroke="#1e1e36"/>
-    <circle cx="58" cy="383" r="15" fill="#23234a"/><text x="58" y="388" font-size="15" font-weight="700" fill="#c8ccd8" text-anchor="middle">4</text>
-    <text x="86" y="379" font-size="15.5" font-weight="700" fill="#c8ccd8">Pick the winner</text>
-    <text x="86" y="399" font-size="12.5" fill="#8a8ab0">Choose which setting to trust — model-building upgrades land here</text>
-    <g font-size="12.5">
-    <rect x="300" y="406" width="138" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="312" y="422" fill="#00e5a0">highest-PnL pick</text>
-    <rect x="446" y="406" width="140" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="458" y="422" fill="#f5c842">PDP plateau pick</text>
-    <rect x="594" y="406" width="126" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="606" y="422" fill="#f5c842">ensemble top-K</text></g>
-    <rect x="24" y="458" width="832" height="150" rx="13" fill="#0e0e1e" stroke="#1e1e36"/>
-    <circle cx="58" cy="490" r="15" fill="#23234a"/><text x="58" y="495" font-size="15" font-weight="700" fill="#c8ccd8" text-anchor="middle">5</text>
-    <text x="86" y="486" font-size="15.5" font-weight="700" fill="#c8ccd8">Stress the winner</text>
-    <text x="86" y="506" font-size="12.5" fill="#8a8ab0">Try hard to break it</text>
-    <g font-size="12.5">
-    <rect x="300" y="489" width="116" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="312" y="505" fill="#00e5a0">walk-forward</text>
-    <rect x="424" y="489" width="158" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="436" y="505" fill="#00e5a0">neighbors / plateau</text>
-    <rect x="590" y="489" width="108" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="602" y="505" fill="#00e5a0">Monte-Carlo</text>
-    <rect x="300" y="521" width="134" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="312" y="537" fill="#00e5a0">Deflated Sharpe</text>
-    <rect x="442" y="521" width="138" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="454" y="537" fill="#00e5a0">NQ↔ES transfer</text>
-    <rect x="588" y="521" width="92" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="600" y="537" fill="#00e5a0">stress</text>
-    <rect x="300" y="553" width="146" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="312" y="569" fill="#f5c842">adversarial check</text>
-    <rect x="454" y="553" width="110" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="466" y="569" fill="#f5c842">causal check</text>
-    <rect x="572" y="553" width="128" height="24" rx="12" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="584" y="569" fill="#f5c842">conformal band</text></g>
-    <rect x="24" y="624" width="832" height="60" rx="13" fill="#0e0e1e" stroke="#1e1e36"/>
-    <circle cx="58" cy="654" r="15" fill="#23234a"/><text x="58" y="659" font-size="15" font-weight="700" fill="#c8ccd8" text-anchor="middle">6</text>
-    <text x="86" y="649" font-size="15.5" font-weight="700" fill="#c8ccd8">Final exam</text>
-    <text x="86" y="669" font-size="12.5" fill="#8a8ab0">Run the winner once on the hidden data</text>
-    <g font-size="12.5"><rect x="560" y="642" width="140" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="572" y="658" fill="#00e5a0">lockbox one-shot</text></g>
-    <rect x="24" y="700" width="832" height="60" rx="13" fill="#0e0e1e" stroke="#1e1e36"/>
-    <circle cx="58" cy="730" r="15" fill="#23234a"/><text x="58" y="735" font-size="15" font-weight="700" fill="#c8ccd8" text-anchor="middle">7</text>
-    <text x="86" y="725" font-size="15.5" font-weight="700" fill="#c8ccd8">Verdict + report</text>
-    <text x="86" y="745" font-size="12.5" fill="#8a8ab0">PASS / WEAK / FAIL, charts, rankings</text>
-    <g font-size="12.5"><rect x="560" y="718" width="158" height="24" rx="12" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="572" y="734" fill="#00e5a0">report cards</text></g>
-    <text x="24" y="782" font-size="11.5" fill="#5a5a78">*MI / PPS ranking is cross-cutting — see Relationship-scoring in the roadmap.</text>
+    <title>The six aligned stages of an EDGELOG backtest</title>
+    <desc>Data and EDA, Search, Pick the winner, Validation gates, Final exam, Verdict. Green chips are live; amber chips are planned.</desc>
+    <circle cx="30" cy="22" r="5.5" fill="#00e5a0"/><text x="41" y="26" font-size="12" fill="#a0a4b8">In EDGELOG</text>
+    <circle cx="150" cy="22" r="5.5" fill="#f5c842"/><text x="161" y="26" font-size="12" fill="#a0a4b8">Planned</text>
+    <g fill="#3a3a5e" font-size="12" text-anchor="middle">
+      <text x="52" y="128">▼</text><text x="52" y="194">▼</text><text x="52" y="260">▼</text><text x="52" y="360">▼</text><text x="52" y="420">▼</text>
+    </g>
+    <!-- S1 -->
+    <rect x="24" y="66" width="712" height="58" rx="12" fill="#0e0e1e" stroke="#1e1e36"/>
+    <circle cx="52" cy="95" r="14" fill="#23234a"/><text x="52" y="100" font-size="14" font-weight="700" fill="#c8ccd8" text-anchor="middle">1</text>
+    <text x="78" y="100" font-size="14.5" font-weight="700" fill="#c8ccd8">Data &amp; EDA</text>
+    <g font-size="12">
+      <rect x="280" y="84" width="78" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="291" y="99" fill="#00e5a0">gap-check</text>
+      <rect x="366" y="84" width="96" height="22" rx="11" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="377" y="99" fill="#f5c842">quality gate</text>
+      <rect x="470" y="84" width="104" height="22" rx="11" fill="rgba(74,158,255,.10)" stroke="rgba(74,158,255,.4)"/><text x="481" y="99" fill="#4a9eff">EDA pre-flight</text>
+    </g>
+    <!-- S2 -->
+    <rect x="24" y="132" width="712" height="58" rx="12" fill="#0e0e1e" stroke="#1e1e36"/>
+    <circle cx="52" cy="161" r="14" fill="#23234a"/><text x="52" y="166" font-size="14" font-weight="700" fill="#c8ccd8" text-anchor="middle">2</text>
+    <text x="78" y="166" font-size="14.5" font-weight="700" fill="#c8ccd8">Search</text>
+    <g font-size="12">
+      <rect x="280" y="150" width="50" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="291" y="165" fill="#00e5a0">grid</text>
+      <rect x="338" y="150" width="54" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="349" y="165" fill="#00e5a0">auto</text>
+      <rect x="400" y="150" width="66" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="411" y="165" fill="#00e5a0">RF_ML</text>
+      <rect x="474" y="150" width="80" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="485" y="165" fill="#00e5a0">MI / PPS</text>
+    </g>
+    <!-- S3 -->
+    <rect x="24" y="198" width="712" height="58" rx="12" fill="#0e0e1e" stroke="#1e1e36"/>
+    <circle cx="52" cy="227" r="14" fill="#23234a"/><text x="52" y="232" font-size="14" font-weight="700" fill="#c8ccd8" text-anchor="middle">3</text>
+    <text x="78" y="232" font-size="14.5" font-weight="700" fill="#c8ccd8">Pick the winner</text>
+    <g font-size="12">
+      <rect x="280" y="216" width="104" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="291" y="231" fill="#00e5a0">highest-PnL</text>
+      <rect x="392" y="216" width="98" height="22" rx="11" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="403" y="231" fill="#f5c842">PDP · NEXT</text>
+      <rect x="498" y="216" width="80" height="22" rx="11" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="509" y="231" fill="#f5c842">ensemble</text>
+    </g>
+    <!-- S4 -->
+    <rect x="24" y="264" width="712" height="92" rx="12" fill="#0e0e1e" stroke="#1e1e36"/>
+    <circle cx="52" cy="310" r="14" fill="#23234a"/><text x="52" y="315" font-size="14" font-weight="700" fill="#c8ccd8" text-anchor="middle">4</text>
+    <text x="78" y="292" font-size="14.5" font-weight="700" fill="#c8ccd8">Validation gates</text>
+    <text x="78" y="330" font-size="10.5" fill="#7070a0">stress-test the winner</text>
+    <g font-size="12">
+      <rect x="280" y="278" width="108" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="291" y="293" fill="#00e5a0">walk-forward</text>
+      <rect x="396" y="278" width="104" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="407" y="293" fill="#00e5a0">Monte-Carlo</text>
+      <rect x="508" y="278" width="118" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="519" y="293" fill="#00e5a0">Deflated Sharpe</text>
+      <rect x="280" y="308" width="72" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="291" y="323" fill="#00e5a0">transfer</text>
+      <rect x="360" y="308" width="94" height="22" rx="11" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="371" y="323" fill="#f5c842">adversarial</text>
+      <rect x="462" y="308" width="90" height="22" rx="11" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="473" y="323" fill="#f5c842">conformal</text>
+      <rect x="560" y="308" width="66" height="22" rx="11" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="571" y="323" fill="#f5c842">causal</text>
+    </g>
+    <!-- S5 -->
+    <rect x="24" y="364" width="712" height="52" rx="12" fill="#0e0e1e" stroke="#1e1e36"/>
+    <circle cx="52" cy="390" r="14" fill="#23234a"/><text x="52" y="395" font-size="14" font-weight="700" fill="#c8ccd8" text-anchor="middle">5</text>
+    <text x="78" y="395" font-size="14.5" font-weight="700" fill="#c8ccd8">Final exam</text>
+    <g font-size="12">
+      <rect x="280" y="379" width="132" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="291" y="394" fill="#00e5a0">lockbox one-shot</text>
+    </g>
+    <!-- S6 -->
+    <rect x="24" y="424" width="712" height="58" rx="12" fill="#0e0e1e" stroke="#1e1e36"/>
+    <circle cx="52" cy="453" r="14" fill="#23234a"/><text x="52" y="458" font-size="14" font-weight="700" fill="#c8ccd8" text-anchor="middle">6</text>
+    <text x="78" y="458" font-size="14.5" font-weight="700" fill="#c8ccd8">Verdict &amp; report</text>
+    <g font-size="12">
+      <rect x="280" y="442" width="128" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="291" y="457" fill="#00e5a0">PASS / WEAK / FAIL</text>
+      <rect x="416" y="442" width="72" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="427" y="457" fill="#00e5a0">regime</text>
+      <rect x="496" y="442" width="68" height="22" rx="11" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="507" y="457" fill="#f5c842">SHAP</text>
+    </g>
     </svg>
     </div>
-    <p class="note">The pipeline pins each method to <i>when</i> it runs. A few capabilities are <b class="k">cross-cutting</b>
-      (relationship-scoring informs Stage 1 and Stage 3→4); their status home is the roadmap.</p>
-    <div class="lbl">Pipeline stages — plain English</div>
-    <div class="stx"><b class="k">3 · Search</b> — run the strategy hundreds of times with different knobs. Grid = every combo; auto/Bayesian = smart search. Both live.</div>
-    <div class="stx"><b class="k">4 · Pick</b> — today grabs the highest-PnL setting. <b style="color:var(--yellow)">PDP plateau</b> = a broad hill of good neighbors, not a spike. <b style="color:var(--yellow)">Ensemble</b> = blend the best several.</div>
-    <div class="stx"><b class="k">5 · Stress</b> — already strongest: walk-forward, Monte-Carlo, Deflated Sharpe, transfer. The 3 amber adds (adversarial · causal · conformal) drop into the same gate list.</div>
     </section>
 
-    <!-- ===================== VIEW 2 — ROADMAP ===================== -->
-    <section class="view view2">
-    <div class="lbl">Roadmap — what exists &amp; status</div>
-    <p class="hint">Rows = <span style="color:var(--green)">LIVE</span>. ▸ tiles expand (what · why · engine hooks) for
-      <span style="color:var(--blue)">PARTIAL</span> / <span style="color:var(--yellow)">PLANNED</span>.</p>
+    <!-- ===== VIEW 2 · ROADMAP ===== -->
+    <section class="view">
+    <div class="lbl">Roadmap — the methods in each stage · tap a pill</div>
 
-    <div class="fam"><span>Data &amp; EDA</span><span class="ft">Stage 1</span></div>
-    <div class="reg-grid">
-      <div class="reg-row" title="master combine dedupes overlaps and flags gaps→segments on import"><span class="rn">Gap-check</span><span class="badge b-live">LIVE</span></div>
-      <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">EDA honesty pre-flight</span><span class="badge b-partial">PARTIAL</span></summary>
-        <div class="detail"><span class="k">What</span>Median / quartiles / skew / bootstrap on the PnL distribution, not just the mean.
-          <span class="k">Why</span>Catch <i>mean ≫ median</i> (a few lucky trades). Anscombe + Datasaurus: identical stats hide different realities.
-          <span class="k">Status</span>PnL-dist, win-dist, MAE/MFE exist; median-vs-mean block is the gap.<span class="k">Methods</span><div><span class="mp">median / quartiles</span><span class="mp">skew</span><span class="mp">bootstrap</span><span class="mp">dabl</span><span class="mp">ydata-profiling</span></div></div></details>
-      <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">Data-quality gate</span><span class="badge b-planned">PLANNED</span></summary>
-        <div class="detail"><span class="k">What</span>Refuse / warn before backtesting on holey data — missing fills, gaps in the 10s import.
-          <span class="k">Why</span>Garbage-in protection. Lower priority for clean Databento history; guards the newer / incoming imports.
-          <span class="k">Hooks</span>Two layers: <b>hard structural asserts</b> (high≥low, price&gt;0, volume≥0, no duplicate timestamps) for <i>impossible</i> data; and <code>sklearn IsolationForest</code> or <b>inverse-PCA reconstruction error</b> (Liu-Ting-Zhou 2008/2012 · Gnanadesikan-Kettenring 1972) on <b>derived</b> bar features (range/return/wick/volume/gap) to <b>flag — not delete</b> statistically-extreme bars for review (real markets gap). Plus a <b>missingno</b> nullity map + Position-History reconciliation. Bonus: the IF anomaly score (or PCA reconstruction error) per bar is itself a candidate RF_ML feature — rank it via MI/PPS.<span class="k">Methods</span><div><span class="mp">structural asserts</span><span class="mp">IsolationForest</span><span class="mp">inverse-PCA</span><span class="mp">missingno</span><span class="mp">PyDeequ-style</span></div></div></details>
+    <div class="sec">
+      <div class="sech"><span>1 · Data &amp; EDA</span><span class="secn">stage 1</span></div>
+      <div>
+        <span class="p p-live" data-info="Master combine dedupes overlaps and flags gaps-to-segments on import.">gap-check</span>
+        <span class="p p-plan" data-info="Block or warn on holey data before backtesting. Hard structural asserts (high>=low, price>0, no duplicate timestamps) for impossible data; sklearn IsolationForest or inverse-PCA flag — not delete — statistically-extreme bars for review; missingno nullity map. Guards the newer / incoming imports.">data-quality gate</span>
+        <span class="p p-part" data-info="Lead with median / quartiles / skew / bootstrap on the PnL distribution, not just the mean. PnL-dist, win-dist and MAE/MFE panels exist; the median-vs-mean honesty block is the gap. Tools: dabl, ydata-profiling.">EDA pre-flight</span>
+      </div>
+      <div class="info"></div>
     </div>
 
-    <div class="fam"><span>Search &amp; models</span><span class="ft">Stage 3</span></div>
-    <div class="reg-grid">
-      <div class="reg-row" title="exhaustive parameter grid, parallelized across cores"><span class="rn">Grid sweep</span><span class="badge b-live">LIVE</span></div>
-      <div class="reg-row" title="smart sampler that hunts the good region instead of brute force (seed=42)"><span class="rn">Auto / Bayesian</span><span class="badge b-live">LIVE</span></div>
-      <div class="reg-row" title="a random-forest strategy plugin — learned signal beside hand-coded rules"><span class="rn">RF_ML model</span><span class="badge b-live">LIVE</span></div>
-      <div class="reg-row" title="LLM rewrites the strategy code on the pre-lockbox window, then re-validates"><span class="rn">AI-evolve</span><span class="badge b-live">LIVE</span></div>
+    <div class="sec">
+      <div class="sech"><span>2 · Search</span><span class="secn">stage 2</span></div>
+      <div>
+        <span class="p p-live" data-info="Exhaustive parameter grid, parallelized across cores.">grid sweep</span>
+        <span class="p p-live" data-info="Smart sampler that hunts the good region instead of brute force (seed 42).">auto / Bayesian</span>
+        <span class="p p-live" data-info="Random-forest next-bar-direction strategy (RSI / trend / momentum features) — your one ML strategy, the model MI/PPS feature-ranking is for.">RF_ML</span>
+        <span class="p p-live" data-info="LLM rewrites the strategy code on the pre-lockbox window, then re-validates.">AI-evolve</span>
+        <span class="p p-live" data-info="Linear correlation of each param vs PnL (the live Param-Relationship panel).">Pearson r</span>
+        <span class="p p-live" data-info="Any-dependency score (sklearn mutual_info_regression, KSG k-NN estimator) — catches the non-linear (inverted-U / threshold) param relationships Pearson misses.">Mutual Information</span>
+        <span class="p p-live" data-info="Predictive Power Score, 0 to 1 (sklearn tree, cross-validated, no extra dependency) — asymmetric, non-linear predictive power.">PPS</span>
+      </div>
+      <div class="info"></div>
     </div>
 
-    <div class="fam"><span>Relationship scoring — feature selection</span><span class="ft">cross-cutting · step 5</span></div>
-    <div class="reg-grid">
-      <div class="reg-row" title="linear correlation of each param vs PnL (the live Param-Correlation panel)"><span class="rn">Pearson correlation</span><span class="badge b-live">LIVE</span></div>
-      <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">Mutual Information (MI)</span><span class="badge b-live">LIVE</span></summary>
-        <div class="detail"><span class="k">What</span>Scores <b>any</b> dependency between a param/feature and PnL — linear or not.
-          <span class="k">Why</span>Pearson misses inverted-U / threshold relationships (good mid-range, bad at extremes → r ≈ 0).
-          <span class="k">How it's computed</span><code>sklearn.feature_selection.mutual_info_regression</code> — uses the <b>KSG</b> (Kraskov 2004) k-NN estimator under the hood (the math <i>inside</i> MI, not a separate score). <b>Now live</b> beside Pearson in each run's PARAM RELATIONSHIP panel.</div></details>
-      <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">Predictive Power Score (PPS)</span><span class="badge b-live">LIVE</span></summary>
-        <div class="detail"><span class="k">What</span>A single <b>0–1</b> score of how well X predicts Y — asymmetric, nonlinear, handles categoricals.
-          <span class="k">Why</span>One readable number to rank params/features; better than r for screening.
-          <span class="k">How it's computed</span>A depth-4 sklearn decision tree, cross-validated MAE vs the naive-median baseline (1 − MAE/MAE_naive, clipped to 0–1) — no extra dependency. <b>Now live</b> beside Pearson in the PARAM RELATIONSHIP panel.</div></details>
+    <div class="sec">
+      <div class="sech"><span>3 · Pick the winner</span><span class="secn">stage 3 · selection</span></div>
+      <div>
+        <span class="p p-live" data-info="Today's default — argmax on the ranked metric (best = valid[0]).">highest-PnL pick</span>
+        <span class="p p-plan" data-info="THE NEXT BUILD. Pick the config on a broad high-and-flat region of the result surface, not a lone lucky spike. Reuses the grid points + neighborhood already computed; a 2-D partial-dependence view also reveals which params interact. optimize.py TODO #24.">PDP plateau · NEXT</span>
+        <span class="p p-plan" data-info="Blend the best K configs — vote to enter, or convex-combine sizing with weights fit on the OOS folds — instead of crowning one. Lower variance; the top-N equity overlay already shows the members.">ensemble top-K</span>
+      </div>
+      <div class="info"></div>
     </div>
 
-    <div class="fam"><span>Selection — pick the winner</span><span class="ft">Stage 4</span></div>
-    <div class="reg-grid">
-      <div class="reg-row" title="today's default: best = valid[0], argmax on the ranked metric"><span class="rn">Highest-PnL pick</span><span class="badge b-live">LIVE</span></div>
-      <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">PDP plateau selector <span class="tag-next">NEXT</span></span><span class="badge b-planned">PLANNED</span></summary>
-        <div class="detail"><span class="k">What</span>Pick the config on a broad high-and-flat region of the result surface, not the single highest spike.
-          <span class="k">Why</span>argmax crowns lucky spikes; a plateau generalizes. A 2-D PDP also reveals which params <b>interact</b>.
-          <span class="k">Hooks</span><code>optimize.py</code> — replaces <code>best = valid[0]</code>; reuses grid <code>points</code> + <code>neighborhood()</code>. TODO #24; on hold per owner.</div></details>
-      <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">Ensemble the top-K</span><span class="badge b-planned">PLANNED</span></summary>
-        <div class="detail"><span class="k">What</span>Blend the best K configs — vote on agreement, or convex-combine sizing (weights fit on OOS folds).
-          <span class="k">Why</span>Lower variance than one member; the top-N equity overlay already shows them.
-          <span class="k">Hooks</span><code>optimize.py</code> top-N + a combiner (hillclimbers / CCMP); weights frozen before the lockbox.</div></details>
+    <div class="sec">
+      <div class="sech"><span>4 · Validation gates</span><span class="secn">stage 4 · stress-test</span></div>
+      <div>
+        <span class="p p-live" data-info="Rolling + anchored; tracks walk-forward efficiency and fold consistency.">walk-forward</span>
+        <span class="p p-live" data-info="Are the winner's plus/minus-1-step param neighbors also profitable? HIGH GROUND vs a cliff.">neighborhood</span>
+        <span class="p p-live" data-info="Block-shuffle the trade order; size the account to the p95 drawdown.">Monte-Carlo</span>
+        <span class="p p-live" data-info="Haircut the Sharpe by the best-of-N luck bar (Bailey / Lopez de Prado).">Deflated Sharpe</span>
+        <span class="p p-live" data-info="Re-test the champion on the sibling instrument (NQ to ES) with no re-optimization.">transfer</span>
+        <span class="p p-live" data-info="Winner PnL over 8 chronological windows — SPREAD (robust) vs CONCENTRATED (one lucky stretch).">stress windows</span>
+        <span class="p p-live" data-info="Trades-per-optimized-parameter gauge — under 10 fragile, 30+ healthy.">sample adequacy</span>
+        <span class="p p-plan" data-info="Train a classifier to tell fit-era bars from recent / lockbox bars; if it can, the regime shifted and the champion is fit to a stale world.">adversarial check</span>
+        <span class="p p-plan" data-info="Wrap the fold estimate in a calibrated interval and gate on the lower bound instead of a point number (MAPIE / Venn-ABERS).">conformal band</span>
+        <span class="p p-plan" data-info="PnL on the same bars without the signal — separates a real entry edge from just being long in a rising market (CausalImpact / interrupted time series).">causal check</span>
+        <span class="p p-plan" data-info="Generate synthetic stress paths (gaps, halts, low-liquidity sessions) to test where history is thin; tagged non-authoritative, never enters the lockbox.">synthetic scenarios</span>
+      </div>
+      <div class="info"></div>
     </div>
 
-    <div class="fam"><span>Validation gates</span><span class="ft">Stage 2 &amp; 5–6</span></div>
-    <div class="reg-grid">
-      <div class="reg-row" title="reserve the last slice; the champion is tested on it once — the final overfit gate"><span class="rn">Lockbox holdout</span><span class="badge b-live">LIVE</span></div>
-      <div class="reg-row" title="rolling + anchored; tracks walk-forward efficiency + fold consistency"><span class="rn">Walk-forward</span><span class="badge b-live">LIVE</span></div>
-      <div class="reg-row" title="are the winner's ±1-step neighbors also profitable? HIGH GROUND vs cliff"><span class="rn">Neighborhood / plateau</span><span class="badge b-live">LIVE</span></div>
-      <div class="reg-row" title="block-shuffle the trade order; size to the p95 drawdown"><span class="rn">Monte-Carlo drawdown</span><span class="badge b-live">LIVE</span></div>
-      <div class="reg-row" title="haircut the Sharpe by the best-of-N luck bar (López de Prado)"><span class="rn">Deflated Sharpe</span><span class="badge b-live">LIVE</span></div>
-      <div class="reg-row" title="re-test the champion on the sibling (NQ↔ES), no re-optimization"><span class="rn">Cross-instrument transfer</span><span class="badge b-live">LIVE</span></div>
-      <div class="reg-row" title="winner PnL over 8 chronological windows — SPREAD vs CONCENTRATED"><span class="rn">Stress across windows</span><span class="badge b-live">LIVE</span></div>
-      <div class="reg-row" title="trades-per-optimized-parameter gauge — <10 fragile, 30+ healthy"><span class="rn">Sample adequacy (DOF)</span><span class="badge b-live">LIVE</span></div>
-      <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">Adversarial-validation gate</span><span class="badge b-planned">PLANNED</span></summary>
-        <div class="detail"><span class="k">What</span>Train a classifier to tell fit-era bars from recent / lockbox bars. If it can, the regime shifted.
-          <span class="k">Why</span>Catches a champion fit to a stale world. Complements transfer + lockbox.
-          <span class="k">Hooks</span><code>validate.py</code> — one more entry in the <code>checks</code> dict.</div></details>
-      <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">Conformal band on the gates</span><span class="badge b-planned">PLANNED</span></summary>
-        <div class="detail"><span class="k">What</span>Wrap the fold / lockbox estimate in a calibrated interval; gate on the <i>lower</i> bound.
-          <span class="k">Why</span>Point thresholds ignore small-sample noise; "lower bound &gt; 0" is harder to fool.
-          <span class="k">Tools</span><code>validate.py</code> gate logic; MAPIE / Venn-ABERS.</div></details>
-      <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">Causal counterfactual check</span><span class="badge b-planned">PLANNED</span></summary>
-        <div class="detail"><span class="k">What</span>"What's the PnL on these <i>same</i> bars without the signal?" — the counterfactual.
-          <span class="k">Why</span>Separates a real entry edge from just being long in a rising market. Sharper than the SPY benchmark.
-          <span class="k">Tools</span><code>validate.py</code>; CausalImpact / interrupted-time-series.</div></details>
+    <div class="sec">
+      <div class="sech"><span>5 · Final exam</span><span class="secn">stage 5 · lockbox</span></div>
+      <div>
+        <span class="p p-live" data-info="The last ~12 months are reserved and never seen during the search, then the champion is tested on that slice exactly once — the final overfit gate. (This is the only place the lockbox is touched.)">lockbox one-shot</span>
+      </div>
+      <div class="info"></div>
     </div>
 
-    <div class="fam"><span>Explainability</span><span class="ft">Stage 7–8</span></div>
-    <div class="reg-grid">
-      <div class="reg-row" title="PnL sliced by volatility tercile, trend-vs-chop, day-of-week, monthly grid"><span class="rn">Regime report card</span><span class="badge b-live">LIVE</span></div>
-      <div class="reg-row" title="per-trade adverse/favorable excursion → stop & target guidance"><span class="rn">MAE / MFE distributions</span><span class="badge b-live">LIVE</span></div>
-      <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">SHAP on learned models</span><span class="badge b-planned">PLANNED</span></summary>
-        <div class="detail"><span class="k">What</span>Per-prediction feature contributions for the learned models (RF_ML).
-          <span class="k">Why</span>Shows which order-flow inputs drove a decision; whether it's keying on regime noise.
-          <span class="k">Tools</span><code>shap</code>; pairs with MI/PPS (screen) and PDP (shape).</div></details>
+    <div class="sec">
+      <div class="sech"><span>6 · Verdict &amp; report</span><span class="secn">stage 6 · explainability</span></div>
+      <div>
+        <span class="p p-live" data-info="The gate verdict from the Stage-4 checks + the lockbox result.">PASS / WEAK / FAIL</span>
+        <span class="p p-live" data-info="PnL sliced by volatility tercile, trend-vs-chop, day-of-week, and a monthly grid.">regime report card</span>
+        <span class="p p-live" data-info="Per-trade maximum adverse / favorable excursion — turns into stop and target guidance.">MAE / MFE</span>
+        <span class="p p-plan" data-info="Per-prediction feature contributions for the learned models (RF_ML) — which order-flow inputs drove a decision. Pairs with MI/PPS (screen) and PDP (shape).">SHAP</span>
+      </div>
+      <div class="info"></div>
     </div>
 
-    <div class="fam"><span>Generative</span><span class="ft">cross-cutting</span></div>
-    <div class="reg-grid">
-      <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">Synthetic stress scenarios</span><span class="badge b-planned">PLANNED</span></summary>
-        <div class="detail"><span class="k">What</span>Generate synthetic stress paths (gaps, halts, low-liquidity) to test where history is thin.
-          <span class="k">Why</span>Stress rare regimes without contaminating the lockbox.
-          <span class="k">Caveat</span>Tag synthetic data clearly; never let it into the authoritative backtest.</div></details>
-    </div>
     </section>
-
   </div><!-- /views -->
 
-  <!-- ===================== REFERENCE ===================== -->
-  <div class="lbl">Reference · Carl's 12 categories → EDGELOG status</div>
-  <table class="cat">
-    <thead><tr><th style="width:34px">#</th><th>Category</th><th>In EDGELOG</th><th class="s">Status</th></tr></thead>
-    <tbody>
-      <tr><td>1</td><td>EDA</td><td>PnL distribution, win-dist, MAE/MFE, regime — median/bootstrap pending</td><td class="s"><span class="dot db"></span>Partial</td></tr>
-      <tr><td>2</td><td>Data cleaning / prep</td><td>master gap-detection; formal quality gate planned</td><td class="s"><span class="dot dy"></span>Planned</td></tr>
-      <tr><td>3</td><td>Classification / regression</td><td>RF_ML model + AI-evolve code rewriter</td><td class="s"><span class="dot dg"></span>Live</td></tr>
-      <tr><td>4</td><td>Conformal prediction</td><td>conformal band on gates planned</td><td class="s"><span class="dot dy"></span>Planned</td></tr>
-      <tr><td>5</td><td>Feature selection / eng.</td><td>Pearson + MI + PPS live; PDP planned</td><td class="s"><span class="dot db"></span>Partial</td></tr>
-      <tr><td>6</td><td>Time series / forecasting</td><td>rolling + anchored walk-forward, lockbox</td><td class="s"><span class="dot dg"></span>Live</td></tr>
-      <tr><td>7</td><td>Ensemble methods</td><td>top-K ensemble of configs planned</td><td class="s"><span class="dot dy"></span>Planned</td></tr>
-      <tr><td>8</td><td>Explainability</td><td>regime, MAE/MFE, param-correlation; SHAP planned</td><td class="s"><span class="dot db"></span>Partial</td></tr>
-      <tr><td>9</td><td>Causality</td><td>SPY benchmark; counterfactual check planned</td><td class="s"><span class="dot dy"></span>Planned</td></tr>
-      <tr><td>10</td><td>Statistics</td><td>Deflated Sharpe + Monte-Carlo</td><td class="s"><span class="dot dg"></span>Live</td></tr>
-      <tr><td>11</td><td>Didactic / sanity</td><td>DOF governor, plateau, lockbox, stress, seed=42</td><td class="s"><span class="dot dg"></span>Live</td></tr>
-      <tr><td>12</td><td>Generative AI</td><td>AI-evolve; synthetic stress scenarios planned</td><td class="s"><span class="dot db"></span>Partial</td></tr>
-    </tbody>
-  </table>
-
   <div class="foot">
-    Source: Carl McBride Ellis's 12-category Kaggle notebook index, translated to EDGELOG's engine
-    (<code>run_grid</code> → <code>validate.py</code> gates → lockbox). Full write-up in
-    <code>docs/EDGELOG_TESTING_STACK.md</code>; engine backlog in <code>ROADMAP.md</code> (#24).
-    Why never trust one summary number: Anscombe's quartet &amp; the Datasaurus Dozen (2017).
-    Statuses hand-maintained — flip a tile PLANNED → PARTIAL → LIVE as each piece ships.
+    Adapted from Carl McBride Ellis's Kaggle notebook categories, mapped onto EDGELOG's engine
+    (<code>run_grid</code> / <code>run_auto</code> → <code>validate.py</code> gates → lockbox).
+    Full write-up: <code>docs/EDGELOG_TESTING_STACK.md</code> · backlog: <code>ROADMAP.md</code> (#24).
+    Statuses hand-maintained — flip a pill's colour as each piece ships.
   </div>
 
 </div>
 
 <script>
   (function(){
-    // Layout is driven by the URL hash, set by the Research-tab split toggle in the app
-    // (#side = side-by-side, #stack / none = stacked). Works standalone too.
+    // Layout (stacked / side-by-side) is set by the Research-tab split toggle via the URL hash.
     var v=document.getElementById('views');
     function apply(){ if(v) v.classList.toggle('side', location.hash==='#side'); }
-    window.addEventListener('hashchange', apply);
-    apply();
+    window.addEventListener('hashchange', apply); apply();
+    // Tap a pill -> reveal its info in that section's panel (one open per section).
+    document.querySelectorAll('.p[data-info]').forEach(function(p){
+      p.addEventListener('click', function(){
+        var sec=p.closest('.sec'); if(!sec) return;
+        var info=sec.querySelector('.info'); var was=p.classList.contains('on');
+        sec.querySelectorAll('.p').forEach(function(x){x.classList.remove('on');});
+        if(was){ info.textContent=''; info.classList.remove('show'); }
+        else{ p.classList.add('on'); info.textContent=p.getAttribute('data-info'); info.classList.add('show'); }
+      });
+    });
   })();
 </script>
 </body>
