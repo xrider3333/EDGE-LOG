@@ -30,6 +30,7 @@
   .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px}
   .summary{display:flex;gap:8px;flex-wrap:wrap}
   .pill{font-size:11px;padding:5px 11px;border-radius:999px;border:1px solid var(--border)}
+  .mp{display:inline-block;font-size:10px;color:var(--text2);background:var(--bg2);border:1px solid var(--border);border-radius:999px;padding:3px 8px;margin:3px 4px 0 0}
   .pill b{font-weight:700}
   .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle}
   .dg{background:var(--green)} .db{background:var(--blue)} .dy{background:var(--yellow)}
@@ -90,18 +91,6 @@
     <span class="pill"><span class="dot dg"></span><b>19</b> live</span>
     <span class="pill"><span class="dot db"></span><b>1</b> partial</span>
     <span class="pill"><span class="dot dy"></span><b>8</b> planned</span>
-  </div>
-  <div class="lbl" style="margin:16px 0 7px">Planned &amp; in progress — the roadmap ahead</div>
-  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:2px">
-    <span class="badge b-planned" style="font-size:11px;padding:5px 10px">PDP plateau selector · NEXT</span>
-    <span class="badge b-planned" style="font-size:11px;padding:5px 10px">Ensemble top-K</span>
-    <span class="badge b-partial" style="font-size:11px;padding:5px 10px">EDA honesty pre-flight</span>
-    <span class="badge b-planned" style="font-size:11px;padding:5px 10px">Data-quality gate</span>
-    <span class="badge b-planned" style="font-size:11px;padding:5px 10px">Adversarial gate</span>
-    <span class="badge b-planned" style="font-size:11px;padding:5px 10px">Conformal band</span>
-    <span class="badge b-planned" style="font-size:11px;padding:5px 10px">Causal check</span>
-    <span class="badge b-planned" style="font-size:11px;padding:5px 10px">SHAP · learned models</span>
-    <span class="badge b-planned" style="font-size:11px;padding:5px 10px">Synthetic stress scenarios</span>
   </div>
 
   <div class="views" id="views">
@@ -196,11 +185,11 @@
       <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">EDA honesty pre-flight</span><span class="badge b-partial">PARTIAL</span></summary>
         <div class="detail"><span class="k">What</span>Median / quartiles / skew / bootstrap on the PnL distribution, not just the mean.
           <span class="k">Why</span>Catch <i>mean ≫ median</i> (a few lucky trades). Anscombe + Datasaurus: identical stats hide different realities.
-          <span class="k">Status</span>PnL-dist, win-dist, MAE/MFE exist; median-vs-mean block is the gap. Tools: dabl / ydata-profiling on the trades table.</div></details>
+          <span class="k">Status</span>PnL-dist, win-dist, MAE/MFE exist; median-vs-mean block is the gap.<span class="k">Methods</span><div><span class="mp">median / quartiles</span><span class="mp">skew</span><span class="mp">bootstrap</span><span class="mp">dabl</span><span class="mp">ydata-profiling</span></div></div></details>
       <details class="tile"><summary><span class="chev">▸</span><span class="sum-name">Data-quality gate</span><span class="badge b-planned">PLANNED</span></summary>
         <div class="detail"><span class="k">What</span>Refuse / warn before backtesting on holey data — missing fills, gaps in the 10s import.
           <span class="k">Why</span>Garbage-in protection. Lower priority for clean Databento history; guards the newer / incoming imports.
-          <span class="k">Hooks</span>Two layers: <b>hard structural asserts</b> (high≥low, price&gt;0, volume≥0, no duplicate timestamps) for <i>impossible</i> data; and <code>sklearn IsolationForest</code> or <b>inverse-PCA reconstruction error</b> (Liu-Ting-Zhou 2008/2012 · Gnanadesikan-Kettenring 1972) on <b>derived</b> bar features (range/return/wick/volume/gap) to <b>flag — not delete</b> statistically-extreme bars for review (real markets gap). Plus a <b>missingno</b> nullity map + Position-History reconciliation. Bonus: the IF anomaly score (or PCA reconstruction error) per bar is itself a candidate RF_ML feature — rank it via MI/PPS.</div></details>
+          <span class="k">Hooks</span>Two layers: <b>hard structural asserts</b> (high≥low, price&gt;0, volume≥0, no duplicate timestamps) for <i>impossible</i> data; and <code>sklearn IsolationForest</code> or <b>inverse-PCA reconstruction error</b> (Liu-Ting-Zhou 2008/2012 · Gnanadesikan-Kettenring 1972) on <b>derived</b> bar features (range/return/wick/volume/gap) to <b>flag — not delete</b> statistically-extreme bars for review (real markets gap). Plus a <b>missingno</b> nullity map + Position-History reconciliation. Bonus: the IF anomaly score (or PCA reconstruction error) per bar is itself a candidate RF_ML feature — rank it via MI/PPS.<span class="k">Methods</span><div><span class="mp">structural asserts</span><span class="mp">IsolationForest</span><span class="mp">inverse-PCA</span><span class="mp">missingno</span><span class="mp">PyDeequ-style</span></div></div></details>
     </div>
 
     <div class="fam"><span>Search &amp; models</span><span class="ft">Stage 3</span></div>
