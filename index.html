@@ -376,7 +376,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='41.4';
+const VERSION='41.5';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -3505,13 +3505,13 @@ function renderApp(){
             ${TIMEFRAMES.map(tf=>`<option${tf===(t.timeframe||'—')?' selected':''}>${tf}</option>`).join('')}
             ${t.timeframe&&!TIMEFRAMES.includes(t.timeframe)?`<option selected>${t.timeframe}</option>`:''}
           </select></td>
-          <td style="padding:4px 9px">
+          <td style="padding:3px 6px">
             ${t.chartUrl?`<a href="${t.chartUrl}" target="_blank" class="clink chart-link" data-url="${t.chartUrl}" style="margin-right:4px">📈</a>`:''}
             <input class="inline-txt" data-field="chartUrl" data-id="${t.id}" value="${t.chartUrl||''}" placeholder="chart url" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--blue);font-family:inherit;font-size:8px;width:${t.chartUrl?'40px':'70px'};padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='160px'" onblur="this.style.borderBottomColor='transparent';this.style.width=this.value?'40px':'70px';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()" title="${t.chartUrl||'Paste chart URL'}"/>
           </td>
           
           
-          <td style="padding:4px 9px;max-width:160px;position:relative" class="tag-cell" data-id="${t.id}">
+          <td style="padding:3px 6px;max-width:130px;position:relative" class="tag-cell" data-id="${t.id}">
             <div style="display:flex;flex-wrap:wrap;gap:2px;align-items:center;min-height:18px;cursor:pointer" onclick="event.stopPropagation();const d=document.getElementById('tagpick-${t.id}');d.style.display=d.style.display==='flex'?'none':'flex'">
               ${(t.tags||[]).map(tag=>`<span style="font-size:8px;padding:2px 6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text3);display:inline-flex;align-items:center;gap:3px"><span>${tag}</span><span onclick="event.stopPropagation();window.removeTagFromTrade('${t.id}','${tag.replace(/'/g,'\\\'')}');return false" style="cursor:pointer;color:var(--text5);font-weight:bold">×</span></span>`).join('')}
               ${(t.tags||[]).length===0?`<span style="color:var(--text5);font-size:9px">+ tag</span>`:`<span style="color:var(--text5);font-size:10px;margin-left:4px">+</span>`}
@@ -3523,7 +3523,7 @@ function renderApp(){
               }).join('')}
             </div>
           </td>
-          <td style="max-width:260px;padding:4px 9px">
+          <td style="max-width:190px;padding:3px 6px">
             <input class="inline-txt" data-field="notes" data-id="${t.id}" value="${(t.notes||'').replace(/"/g,'&quot;')}" placeholder="notes..." style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:var(--fsm);width:100%;padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--green)'" onblur="this.style.borderBottomColor='transparent';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()"/>
           </td>
           ${ex}
@@ -3553,7 +3553,7 @@ function renderApp(){
         const menu=open?`<div class="thmenu" style="position:fixed;left:-9999px;top:0;z-index:2000;background:var(--bg1);border:1px solid var(--border2);border-radius:7px;box-shadow:0 8px 26px rgba(0,0,0,.5);min-width:150px;padding:4px 0;font-weight:400;text-align:left">${_sortRows(col)}${filtBody||''}</div>`:'';
         return `<th data-thcol="${col}" style="white-space:nowrap;padding:7px 10px"><span class="thh" onclick="event.stopPropagation();toggleThMenu('${col}')" title="click to sort / filter" style="cursor:pointer;user-select:none">${label}${mark} <span style="color:var(--text5);font-size:8px">▾</span></span>${menu}</th>`;
       };
-      tw.innerHTML=`<style>#trd-tbl thead th{position:sticky;top:0;z-index:6;background:var(--bg2);font-size:var(--fsm);letter-spacing:1px;color:var(--text2)}#trd-tbl tbody td{font-size:var(--fss)}</style><table id="trd-tbl" style="min-width:900px"><thead><tr>
+      tw.innerHTML=`<style>#trd-tbl thead th{position:sticky;top:0;z-index:6;background:var(--bg2);font-size:var(--fsm);letter-spacing:.3px;color:var(--text2)}#trd-tbl thead th,#trd-tbl tbody td{padding:3px 6px}#trd-tbl tbody td{font-size:var(--fss)}</style><table id="trd-tbl" style="min-width:900px"><thead><tr>
         <th>#</th>
         ${_th('DATE','date',_fDates('dateFrom','dateTo'))}<th>IN</th><th>OUT</th><th>DUR</th>
         ${_th('SYM','symbol',_fList('sym',_syms))}${_th('DIR','type',_fList('dir',['LONG','SHORT']))}
