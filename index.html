@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='41.8';
+const VERSION='41.9';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -696,7 +696,10 @@ function subscribeAll(uid){
   unsubBT=btRef.orderBy('createdAt','desc').limit(50).onSnapshot(snap=>{backtests=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='augur')renderApp();});
   runsRef=db.collection('users').doc(uid).collection('runs');
   if(unsubRuns)unsubRuns();
-  unsubRuns=runsRef.onSnapshot(snap=>{runHistory=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='augur'&&(augurSub==='runs'||augurSub==='rank'))renderApp();});
+  // Cap the runs listener at the most-recent 300 (was reading the ENTIRE runs history on
+  // every page load — a growing Firestore read cost). The runs/rank tabs re-sort locally,
+  // so order is unaffected; older-than-300 runs just aren't pulled into that view.
+  unsubRuns=runsRef.orderBy('timestamp','desc').limit(300).onSnapshot(snap=>{runHistory=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='augur'&&(augurSub==='runs'||augurSub==='rank'))renderApp();});
   cmdRef=db.collection('users').doc(uid).collection('commands');
   metaRef=db.collection('users').doc(uid).collection('meta');
   if(unsubMeta)unsubMeta();
