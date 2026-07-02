@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='42.3';
+const VERSION='42.4';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -2048,32 +2048,49 @@ function toggleThMenu(col){window._thMenu=(window._thMenu===col?null:col);render
 // tooltips as the report (delegated here too, since the report's listener sits on
 // #res-detail) PLUS an axis crosshair readout (date/param + $/count under the mouse)
 // when the source chart carries a data-xh domain descriptor.
-window.expandChart=function(title,svgHTML){
+window.expandChart=function(title,svgHTML,opts){
+  opts=opts||{};
   const modal=document.createElement('div');
   modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;align-items:center;justify-content:center;padding:30px;cursor:pointer';
   modal.onclick=(e)=>{if(e.target===modal)modal.remove();};
   modal.innerHTML=`<div style="background:var(--bg1);border:1px solid var(--border);max-width:95vw;max-height:95vh;padding:24px;cursor:default;overflow:auto" onclick="event.stopPropagation()">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-      <div style="font-family:'Bebas Neue',monospace;font-size:22px;letter-spacing:3px;color:var(--text)">${title}</div>
-      <button id="chart-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:6px 16px;cursor:pointer;font-family:inherit;letter-spacing:2px">CLOSE ✕</button>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+      <div style="min-width:0"><div style="font-family:'Bebas Neue',monospace;font-size:22px;letter-spacing:3px;color:var(--text)">${title}</div>
+      <div id="chart-sub" style="font-size:11px;color:var(--text3);margin-top:2px">${opts.sub||''}</div></div>
+      <button id="chart-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:6px 16px;cursor:pointer;font-family:inherit;letter-spacing:2px;flex:0 0 auto">CLOSE ✕</button>
     </div>
-    <div style="min-width:1000px">${svgHTML}</div>
+    <div id="chart-ctl" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"></div>
+    <div id="chart-body" style="min-width:1000px;position:relative">${svgHTML}</div>
   </div>`;
   document.body.appendChild(modal);
+  const body=modal.querySelector('#chart-body'),ctl=modal.querySelector('#chart-ctl'),subEl=modal.querySelector('#chart-sub');
   const _cl=modal.querySelector('#chart-close');if(_cl)_cl.onclick=(e)=>{e.stopPropagation();modal.remove();};
-  const _esc=(e)=>{if(e.key==='Escape'){modal.remove();document.removeEventListener('keydown',_esc);}};
+  const _esc=(e)=>{if(e.key==='Escape')modal.remove();};
   document.addEventListener('keydown',_esc);
+  // crosshair — vertical + horizontal hairlines through the mouse (stock-chart style),
+  // clamped to the svg's plot box.
+  const vln=document.createElement('div'),hln=document.createElement('div');
+  vln.style.cssText='position:absolute;width:0;border-left:1px dashed var(--text4);opacity:.65;pointer-events:none;display:none;z-index:3';
+  hln.style.cssText='position:absolute;height:0;border-top:1px dashed var(--text4);opacity:.65;pointer-events:none;display:none;z-index:3';
+  body.appendChild(vln);body.appendChild(hln);
   // shared floating tooltip element (same one the report uses)
   let tip=document.getElementById('chart-tip');
   if(!tip){tip=document.createElement('div');tip.id='chart-tip';tip.style.cssText='position:fixed;z-index:9999;pointer-events:none;display:none;max-width:280px;padding:6px 9px;border-radius:8px;background:var(--bg1);border:1px solid var(--border);color:var(--text2);font-size:10px;line-height:1.55;box-shadow:0 6px 22px rgba(0,0,0,.45)';document.body.appendChild(tip);}
   tip.style.zIndex='10001';
-  const svg=modal.querySelector('svg');
-  let xh=null;try{if(svg&&svg.dataset.xh)xh=JSON.parse(decodeURIComponent(svg.dataset.xh));}catch(e){}
+  let svg=body.querySelector('svg'),xh=null;
+  const _readXh=()=>{xh=null;try{if(svg&&svg.dataset.xh)xh=JSON.parse(decodeURIComponent(svg.dataset.xh));}catch(e){}};
+  _readXh();
   const _fmtv=(t,v)=>t==='date'?new Date(v).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'2-digit'})
     :t==='usd'?((v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString())
     :t==='int'?String(Math.round(v))
     :(Number.isInteger(+v)?String(v):(+v).toFixed(2));
   modal.addEventListener('mousemove',(e)=>{
+    if(svg&&document.body.contains(svg)){const sr=svg.getBoundingClientRect(),br=body.getBoundingClientRect();
+      const inside=e.clientX>=sr.left&&e.clientX<=sr.right&&e.clientY>=sr.top&&e.clientY<=sr.bottom;
+      if(inside){vln.style.display=hln.style.display='block';
+        vln.style.left=(e.clientX-br.left)+'px';vln.style.top=(sr.top-br.top)+'px';vln.style.height=sr.height+'px';
+        hln.style.top=(e.clientY-br.top)+'px';hln.style.left=(sr.left-br.left)+'px';hln.style.width=sr.width+'px';}
+      else{vln.style.display=hln.style.display='none';}}
     const t=e.target&&e.target.closest?e.target.closest('[data-tip]'):null;
     let html=t?t.getAttribute('data-tip'):'';
     if(!html&&xh&&svg){const ctm=svg.getScreenCTM();
@@ -2090,8 +2107,13 @@ window.expandChart=function(title,svgHTML){
     if(x+r.width>innerWidth-8)x=e.clientX-r.width-14;if(y+r.height>innerHeight-8)y=e.clientY-r.height-14;
     tip.style.left=Math.max(4,x)+'px';tip.style.top=Math.max(4,y)+'px';
   },{passive:true});
-  modal.addEventListener('mouseleave',()=>{tip.style.display='none';});
-  const _rm=modal.remove.bind(modal);modal.remove=()=>{tip.style.display='none';tip.style.zIndex='9999';_rm();};
+  modal.addEventListener('mouseleave',()=>{tip.style.display='none';vln.style.display=hln.style.display='none';});
+  const _rm=modal.remove.bind(modal);modal.remove=()=>{tip.style.display='none';tip.style.zIndex='9999';document.removeEventListener('keydown',_esc);_rm();};
+  // API for callers that keep the modal LIVE (filters re-render the report, then push
+  // the fresh svg/header back in — see the report expand button).
+  return {modal,ctl,
+    setSub:(s)=>{if(subEl)subEl.innerHTML=s||'';},
+    setSvg:(html)=>{const old=body.querySelector('svg');const tmp=document.createElement('div');tmp.innerHTML=html;const ns=tmp.querySelector('svg');if(old&&ns){old.replaceWith(ns);svg=ns;_readXh();}}};
 };
 
 window.changeCalMonth=function(delta){
@@ -4457,15 +4479,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //    the y-axis, identical gridline weight/opacity + 7px axis type, and an x-label row
     //    padded by the same gutter so its ends sit under the plot edges. ──
     const C2W=560,C2R=46,C2P=C2W-C2R;
-    const c2Txt=(y,s)=>'<text x="'+(C2W-9)+'" y="'+y+'" text-anchor="end" font-size="7" fill="var(--text3)">'+s+'</text>';
+    const c2Txt=(y,s)=>'<text x="'+(C2W-11)+'" y="'+y+'" text-anchor="end" font-size="9" fill="var(--text3)">'+s+'</text>';
     // count-style y grid: lines at ¼ fractions of the max count, labels in the right gutter
     const c2GridN=(top,bot,vmax)=>[0.25,0.5,0.75,1].map(fr=>{const gy=bot-fr*(bot-top);return '<line x1="0" y1="'+gy.toFixed(1)+'" x2="'+C2P+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.35"/>'+c2Txt((gy+2.5).toFixed(1),Math.round(vmax*fr));}).join('');
     // value-style y grid: lines at NICE $ steps between mn..mx (zero line drawn heavier)
     const c2GridV=(top,bot,mn,mx)=>{const nice=v=>{v=Math.abs(v)||1;const e=Math.pow(10,Math.floor(Math.log10(v)));const f=v/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};const gs=nice((mx-mn)/4)||1;let out='';for(let L=Math.ceil(mn/gs)*gs;L<=mx+1e-6;L+=gs){const z=Math.abs(L)<1e-6,gy=bot-(bot-top)*(L-mn)/((mx-mn)||1);out+='<line x1="0" y1="'+gy.toFixed(1)+'" x2="'+C2P+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="'+(z?0.8:0.5)+'" opacity="'+(z?0.5:0.35)+'"/>'+c2Txt((gy+2.5).toFixed(1),fmtUsd(Math.round(L)));}return out;};
     // rotated y-axis title hugging the right edge (matches 1D's "trades")
-    const c2YTitle=(H,s)=>{const yc=(H/2).toFixed(1);return '<text x="'+(C2W-1)+'" y="'+yc+'" transform="rotate(-90 '+(C2W-1)+' '+yc+')" text-anchor="middle" font-size="7.5" font-weight="700" fill="var(--text3)">'+s+' (y)</text>';};
+    const c2YTitle=(H,s)=>{const yc=(H/2).toFixed(1);return '<text x="'+(C2W-1)+'" y="'+yc+'" transform="rotate(-90 '+(C2W-1)+' '+yc+')" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text3)">'+s+' (y)</text>';};
     // x-axis label row under a chart — right-padded by the gutter so its ends align with the plot
-    const c2XRow=(l,m,r)=>'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text3);margin-top:3px;padding-right:'+(C2R/C2W*100).toFixed(1)+'%"><span>'+l+'</span><span style="color:var(--text5)">'+(m||'')+'</span><span>'+r+'</span></div>';
+    const c2XRow=(l,m,r)=>'<div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--text3);margin-top:3px;padding-right:'+(C2R/C2W*100).toFixed(1)+'%"><span>'+l+'</span><span style="color:var(--text5)">'+(m||'')+'</span><span>'+r+'</span></div>';
     const distPanelHtml=(dist,mult,tag)=>{
       if(!dist||dist.length<8)return '';
       const v=dist.map(x=>x*mult),mx=Math.max.apply(null,v),mn=Math.min.apply(null,v),n=v.length;
@@ -4556,7 +4578,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const cfgSlider='<span title="how many configs to plot — also sets the config-distribution (2b) bin detail. This chart only stores the top '+etop.length+' curves, so it stops adding past '+etop.length+' even though the slider (shared with 2b) goes to 50." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" data-cfgpts min="2" max="50" step="1" value="'+_cfgPts+'" style="width:120px;height:14px;cursor:pointer;vertical-align:middle"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+'</b></span>';
       const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
       return (tag?'<div title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · TOP CONFIGS PNL <span style="font-weight:400;color:var(--text4);font-size:8px">· top '+series.length+((d.date_from&&d.date_to)?' · '+_dnice(d.date_from)+' → '+_dnice(d.date_to):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades <span style="color:var(--text4)">ⓘ</span></span>'+sel+cfgSlider+'</div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+sel+'</div>')
-        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:8px 8px 4px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
+        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
         +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+((d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:pd,py:pd,pw:PW-2*pd,ph:H-2*pd,yl:'equity'}))+'"':'')+'>'
         +grid
         +'<line x1="0" y1="'+zeroY.toFixed(1)+'" x2="'+PW+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--border)"/>'+lines+c2YTitle(H,'equity $')+'</svg></div>';
@@ -4641,18 +4663,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const NB=8,cell=(v,mn,mx)=>Math.min(NB-1,Math.max(0,Math.floor((v-mn)/((mx-mn)||1)*NB))),grid={};
       points.forEach(p=>{const k=cell(p[xk],xmn,xmx)+','+cell(p[yk],ymn,ymx);(grid[k]=grid[k]||[]).push(p.pnl*mult);});
       let maxAbs=1;Object.keys(grid).forEach(k=>{const a=grid[k],av=a.reduce((s,x)=>s+x,0)/a.length;maxAbs=Math.max(maxAbs,Math.abs(av));});
-      const S=280,cw=S/NB;let cells='';const _hr=v=>Number.isInteger(v)?v:(+v).toFixed(2);
-      for(let cy=0;cy<NB;cy++)for(let cx=0;cx<NB;cx++){const a=grid[cx+','+cy];if(!a)continue;const av=a.reduce((s,x)=>s+x,0)/a.length,t=av/maxAbs,col=(t>=0?'rgba(39,192,138,':'rgba(226,75,74,'),op=Math.min(0.85,Math.abs(t)*0.8+0.12);const xa=xmn+cx*(xmx-xmn)/NB,xb=xmn+(cx+1)*(xmx-xmn)/NB,ya=ymn+cy*(ymx-ymn)/NB,yb=ymn+(cy+1)*(ymx-ymn)/NB;const tip=_pp(xk)+' '+_hr(xa)+'–'+_hr(xb)+'<br>'+_pp(yk)+' '+_hr(ya)+'–'+_hr(yb)+'<br>avg net <b>'+fmtUsd(Math.round(av))+'</b> · '+a.length+' config'+(a.length===1?'':'s');cells+='<rect x="'+(cx*cw).toFixed(1)+'" y="'+(S-(cy+1)*cw).toFixed(1)+'" width="'+cw.toFixed(1)+'" height="'+cw.toFixed(1)+'" fill="'+col+op+')" style="cursor:pointer" data-tip="'+tip+'"/>';}
+      // full shared-chrome canvas (560 wide, 46px right gutter) so 2h's plot + x-axis line
+      //   up with every other §2 chart; cells become 64×35 tiles (treemap-style), same data.
+      const S=280,cwx=C2P/NB,cwy=S/NB;let cells='';const _hr=v=>Number.isInteger(v)?v:(+v).toFixed(2);
+      for(let cy=0;cy<NB;cy++)for(let cx=0;cx<NB;cx++){const a=grid[cx+','+cy];if(!a)continue;const av=a.reduce((s,x)=>s+x,0)/a.length,t=av/maxAbs,col=(t>=0?'rgba(39,192,138,':'rgba(226,75,74,'),op=Math.min(0.85,Math.abs(t)*0.8+0.12);const xa=xmn+cx*(xmx-xmn)/NB,xb=xmn+(cx+1)*(xmx-xmn)/NB,ya=ymn+cy*(ymx-ymn)/NB,yb=ymn+(cy+1)*(ymx-ymn)/NB;const tip=_pp(xk)+' '+_hr(xa)+'–'+_hr(xb)+'<br>'+_pp(yk)+' '+_hr(ya)+'–'+_hr(yb)+'<br>avg net <b>'+fmtUsd(Math.round(av))+'</b> · '+a.length+' config'+(a.length===1?'':'s');cells+='<rect x="'+(cx*cwx).toFixed(1)+'" y="'+(S-(cy+1)*cwy).toFixed(1)+'" width="'+cwx.toFixed(1)+'" height="'+cwy.toFixed(1)+'" fill="'+col+op+')" style="cursor:pointer" data-tip="'+tip+'"/>';}
       const mk=(a,dk)=>'<select data-'+dk+' style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs)">'+keys.map(k=>'<option value="'+k+'"'+(k===a?' selected':'')+'>'+_pp(k)+'</option>').join('')+'</select>';
-      const xmid=_hr((xmn+xmx)/2),ymid=_hr((ymn+ymx)/2);
+      const ymid=_hr((ymn+ymx)/2);
       return (tag?'<div title="Each square is a region of the two chosen parameters (x across, y up). Its colour = the AVERAGE net $ of every tested config that landed in that square — green = profit, red = loss, brighter = bigger. A large green block means the edge holds across a whole zone of settings (robust); a lone green square means it only worked at one exact setting (fragile). Pick which two params to compare with the dropdowns." style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · HEATMAP <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span>'+mk(xk,'hmx')+'<span style="color:var(--text5)">×</span>'+mk(yk,'hmy')+'</div>':'<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">HEATMAP · '+mk(xk,'hmx')+' × '+mk(yk,'hmy')+' → avg PnL ($)</div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
-        // y-axis labels live IN the svg's right gutter (same 7px/text3 chrome as 2a/2b/2g)
-        +'<div style="max-width:268px"><svg viewBox="0 0 '+(S+C2R)+' '+S+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+cells
-        +'<text x="'+(S+C2R-9)+'" y="10" text-anchor="end" font-size="7" fill="var(--text3)">'+_hr(ymx)+'</text><text x="'+(S+C2R-9)+'" y="'+(S/2+2.5).toFixed(1)+'" text-anchor="end" font-size="7" fill="var(--text3)">'+ymid+'</text><text x="'+(S+C2R-9)+'" y="'+(S-2)+'" text-anchor="end" font-size="7" fill="var(--text3)">'+_hr(ymn)+'</text>'
-        +'<text x="'+(S+C2R-1)+'" y="'+(S/2).toFixed(1)+'" transform="rotate(-90 '+(S+C2R-1)+' '+(S/2).toFixed(1)+')" text-anchor="middle" font-size="7.5" font-weight="700" fill="var(--text3)">'+_pp(yk)+' (y)</text></svg>'
-        +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text3);margin-top:3px;padding-right:'+(C2R/(S+C2R)*100).toFixed(1)+'%"><span>'+_hr(xmn)+'</span><span style="color:var(--text5)">'+xmid+'</span><span>'+_hr(xmx)+'</span></div>'
-        +'<div style="text-align:center;font-size:8px;color:var(--text3);margin-top:1px;padding-right:'+(C2R/(S+C2R)*100).toFixed(1)+'%"><b style="color:var(--text2)">'+_pp(xk)+'</b> → (x) · <b style="color:var(--text2)">'+_pp(yk)+'</b> ↑ (y, right)</div></div></div>';
+        +'<svg viewBox="0 0 '+C2W+' '+S+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'
+        +' data-xh="'+encodeURIComponent(JSON.stringify({xt:'num',x0:xmn,x1:xmx,yt:'num',y0:ymn,y1:ymx,px:0,py:0,pw:C2P,ph:S,xl:_pp(xk),yl:_pp(yk)}))+'">'+cells
+        +c2Txt(10,_hr(ymx))+c2Txt((S/2+3).toFixed(1),ymid)+c2Txt(S-2,_hr(ymn))+c2YTitle(S,_pp(yk))+'</svg>'
+        +c2XRow(_hr(xmn),'<b style="color:var(--text2)">'+_pp(xk)+'</b> (x)',_hr(xmx))+'</div>';
     };
     // MAE / MFE — per-trade heat (max adverse) vs reach (max favorable), turned into
     // data-driven stop & target guidance from your own winning trades.
@@ -4708,10 +4730,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const miMax=Math.max(0.001,...rows.map(o=>o.mi||0));
       const trk=tag?'var(--bg2)':'var(--bg1)';
       const meter=(v,mx,col)=>(v!=null?'<span style="flex:1;height:7px;background:'+trk+';border-radius:2px;position:relative;overflow:hidden"><span style="position:absolute;left:0;top:0;height:100%;width:'+Math.min(100,v/mx*100).toFixed(0)+'%;background:'+col+';opacity:.75"></span></span><span style="flex:0 0 22px;text-align:right;color:'+col+';font-weight:600">'+v.toFixed(2)+'</span>':'<span style="flex:1"></span><span style="flex:0 0 22px;text-align:right;color:var(--text5)">·</span>');
-      const bar=o=>'<div style="display:flex;align-items:center;gap:6px;margin:4px 0;font-size:var(--fsxs)"><span style="flex:0 0 84px;color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_pp(o.k)+'">'+_pp(o.k)+'</span><span style="flex:1;position:relative;height:11px;background:'+trk+';border-radius:2px"><span style="position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--border)"></span><span style="position:absolute;'+(o.r>=0?'left:50%':'right:50%')+';top:1px;height:9px;width:'+(Math.abs(o.r)*50).toFixed(1)+'%;background:'+(o.r>=0?'var(--green)':'var(--red)')+';opacity:.7;border-radius:2px"></span></span><span style="flex:0 0 34px;text-align:right;font-weight:700;color:'+(o.r>=0?'var(--green)':'var(--red)')+'" title="Pearson r (signed, linear)">'+o.r.toFixed(2)+'</span>'+(hasMI?'<span style="flex:1;display:flex;align-items:center;gap:3px" title="Mutual Information — any dependency (KSG); bar scaled to the panel max">'+meter(o.mi,miMax,'var(--blue)')+'</span><span style="flex:1;display:flex;align-items:center;gap:3px" title="Predictive Power Score 0–1">'+meter(o.pps,1,'var(--purple)')+'</span>':'')+'</div>';
+      const bar=o=>'<div style="display:flex;align-items:center;gap:6px;margin:4px 0;font-size:var(--fsxs)"><span style="flex:0 0 84px;color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_pp(o.k)+'">'+_pp(o.k)+'</span><span style="flex:1;position:relative;height:11px;background:'+trk+';border-radius:2px"><span style="position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--border)"></span><span style="position:absolute;'+(o.r>=0?'left:50%':'right:50%')+';top:1px;height:9px;width:'+(Math.abs(o.r)*50).toFixed(1)+'%;background:'+(o.r>=0?'var(--green)':'var(--red)')+';opacity:.7;border-radius:2px"></span></span><span style="flex:0 0 34px;text-align:right;font-weight:700;color:'+(o.r>=0?'var(--green)':'var(--red)')+'" title="Pearson r (signed, linear)">'+o.r.toFixed(2)+'</span>'+(hasMI?'<span style="flex:1;display:flex;align-items:center;gap:3px;margin-left:10px" title="Mutual Information — any dependency (KSG); bar scaled to the panel max">'+meter(o.mi,miMax,'var(--blue)')+'</span><span style="flex:1;display:flex;align-items:center;gap:3px" title="Predictive Power Score 0–1">'+meter(o.pps,1,'var(--purple)')+'</span>':'')+'</div>';
       const _ttl=hasMI?'PARAM RELATIONSHIP':'PARAM CORRELATION';
       const _note=hasMI?'r linear · MI any-dependency · PPS 0–1 · sorted by MI':'each param vs net $ (−1…+1)';
-      const _hdr=hasMI?'<div style="display:flex;gap:6px;font-size:8px;margin:1px 0 5px;color:var(--text4)"><span style="flex:0 0 84px"></span><span style="flex:1;text-align:center">← Pearson r →</span><span style="flex:0 0 34px;text-align:right">r</span><span style="flex:1;text-align:center;color:var(--blue)">MI ▸</span><span style="flex:1;text-align:center;color:var(--purple)">PPS ▸</span></div>':'';
+      const _hdr=hasMI?'<div style="display:flex;gap:6px;align-items:baseline;font-size:9px;font-weight:700;margin:2px 0 3px;color:var(--text4)"><span style="flex:0 0 84px"></span><span style="flex:1;text-align:center">Pearson r</span><span style="flex:0 0 34px;text-align:right">r</span><span style="flex:1;text-align:center;color:var(--blue);margin-left:10px">MI</span><span style="flex:1;text-align:center;color:var(--purple)">PPS</span></div>':'';
       const _expl='How to read this panel ('+_note+').&#10;&#10;Pearson r is DIRECTIONAL (−1 to +1): the sign = which way (a higher param value maps to higher or lower PnL), the size = strength of a LINEAR relationship.&#10;&#10;Mutual Information and PPS are STRENGTH-ONLY (always at least 0): how much a param relates to PnL in ANY shape (linear or not) — never the direction, so they cannot be negative.&#10;&#10;All three high = a strong, real driver. A big r with near-zero MI/PPS = a linear artifact (often a param confounded with another) that has no genuine standalone predictive power.';
       return (tag?'<div title="'+_expl+'" style="cursor:help;margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · '+_ttl+' <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span></div>':'<div class="lbl" title="'+_expl+'" style="cursor:help;margin:8px 0 6px">'+_ttl+' <span style="font-size:9px;color:var(--text4);font-weight:400">ⓘ</span></div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'+_hdr+rows.map(bar).join('')+'</div>';
@@ -4955,9 +4977,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const tip='net <b style=&quot;color:'+(p.pnl>=0?'#1d9e75':'#e24b4a')+'&quot;>'+fmtUsd(Math.round(p.pnl*mult))+'</b><br>'+keys.map(k=>_pp(k)+' <b>'+rnd(p[k])+'</b>').join(' · ');
         return '<path class="pcline" data-cfg="'+_i+'" data-ys="'+ys.map(y=>y.toFixed(1)).join(',')+'" data-net="'+Math.round(p.pnl*mult)+'" d="'+dd+'" fill="none" stroke="'+col+op+')" stroke-width="1" style="pointer-events:stroke;transition:opacity .12s" data-tip="'+tip+'"/>';}).join('');
       const axled=axes.map((k,i)=>{const x=ax(i);const isP=k==='pnl';return '<line x1="'+x.toFixed(1)+'" y1="'+padT+'" x2="'+x.toFixed(1)+'" y2="'+(H-padB)+'" stroke="var(--border)" stroke-width="1"/>'
-        +'<text x="'+x.toFixed(1)+'" y="'+(H-padB+11)+'" text-anchor="middle" font-size="6.5" font-weight="'+(isP?'700':'600')+'" fill="'+(isP?'var(--text2)':'var(--text3)')+'">'+(isP?'NET $':_pp(k))+'</text>'
-        +(isP?'':'<text x="'+x.toFixed(1)+'" y="'+(padT-2)+'" text-anchor="middle" font-size="6" fill="var(--text3)">'+rnd(dom[k][1])+'</text>'
-        +'<text x="'+x.toFixed(1)+'" y="'+(H-padB-2)+'" text-anchor="middle" font-size="6" fill="var(--text3)">'+rnd(dom[k][0])+'</text>');}).join('');
+        +'<text x="'+x.toFixed(1)+'" y="'+(H-padB+11)+'" text-anchor="middle" font-size="8" font-weight="'+(isP?'700':'600')+'" fill="'+(isP?'var(--text2)':'var(--text3)')+'">'+(isP?'NET $':_pp(k))+'</text>'
+        +(isP?'':'<text x="'+x.toFixed(1)+'" y="'+(padT-2)+'" text-anchor="middle" font-size="7.5" fill="var(--text3)">'+rnd(dom[k][1])+'</text>'
+        +'<text x="'+x.toFixed(1)+'" y="'+(H-padB-2)+'" text-anchor="middle" font-size="7.5" fill="var(--text3)">'+rnd(dom[k][0])+'</text>');}).join('');
       // BRUSH layer (legacy-AUGUR parcoords): an invisible drag-track over each axis + a
       //   translucent selection rect the JS shows while you drag. Lines outside any axis brush
       //   grey out; multiple axis brushes AND together. Wired in the post-render handler below.
@@ -6074,12 +6096,35 @@ namespace NinjaTrader.NinjaScript.Strategies {
         xb.style.cssText='position:absolute;top:2px;left:5px;font-size:12px;line-height:1;color:var(--text4);cursor:pointer;z-index:5;opacity:.4;padding:2px 4px;border-radius:4px;background:color-mix(in srgb,var(--bg1) 65%,transparent)';
         xb.onmouseenter=()=>xb.style.opacity='1';xb.onmouseleave=()=>xb.style.opacity='.4';
         xb.onclick=e=>{e.stopPropagation();
-          // title = the nearest preceding short header text (chart builders emit a header div right above the card)
-          let t='CHART',n=box;for(let up=0;up<4&&n&&n!==root;up++){let s=n.previousElementSibling;let hit=false;
-            while(s){const tx=(s.textContent||'').trim();if(tx&&tx.length<160){t=tx.split('·').slice(0,2).join(' · ').trim();hit=true;break;}s=s.previousElementSibling;}
-            if(hit)break;n=n.parentElement;}
-          const c=svg.cloneNode(true);c.setAttribute('preserveAspectRatio','xMidYMid meet');c.style.cssText='width:100%;height:74vh;display:block';
-          window.expandChart(t,c.outerHTML);};
+          // fresh lookups each time — renderApp rebuilds the report DOM, so cached nodes go stale
+          const _boxes=()=>{const r=document.getElementById('res-detail');return r?[...r.querySelectorAll('.rschart-box')]:[];};
+          const idx=_boxes().indexOf(box);
+          // nearest preceding header element (chart builders emit a header div right above the card)
+          const findHdr=bx=>{let n=bx;for(let up=0;up<4&&n;up++){let s=n.previousElementSibling;
+            while(s){const tx=(s.textContent||'').trim();if(tx&&tx.length<300)return s;s=s.previousElementSibling;}n=n.parentElement;}return null;};
+          // header text → big title (tag + chart name) + the calculated values that follow it
+          const parseHdr=h=>{if(!h)return {main:'CHART',sub:''};
+            const cl=h.cloneNode(true);cl.querySelectorAll('select,input,[data-sccmp-rm]').forEach(x=>x.remove());
+            const parts=cl.textContent.replace(/\s+/g,' ').replace(/ⓘ/g,'').trim().split('·').map(s=>s.trim()).filter(Boolean);
+            return {main:parts.slice(0,2).join(' · ')||'CHART',sub:parts.slice(2).join(' · ')};};
+          const cloneSvg=sv=>{const c=sv.cloneNode(true);c.setAttribute('preserveAspectRatio','xMidYMid meet');c.style.cssText='width:100%;height:68vh;display:block';return c.outerHTML;};
+          const hp=parseHdr(findHdr(box));
+          const api=window.expandChart(hp.main,cloneSvg(svg),{sub:hp.sub});
+          // FILTERS live in the modal too: clone the header's controls (param pickers, sliders,
+          // compare-chips). A change drives the LIVE control — which saves the pref and
+          // re-renders the report — then the fresh svg + header values are pulled back in
+          // by box index (chart order is stable across re-renders).
+          const wireCtl=()=>{if(!api||!api.ctl)return;api.ctl.innerHTML='';
+            const bx=_boxes()[idx],hd=bx?findHdr(bx):null;if(!hd)return;
+            hd.querySelectorAll('select,input[type=range],[data-sccmp-rm]').forEach(src=>{
+              const cp=src.cloneNode(true);
+              if(cp.tagName==='SELECT')cp.value=src.value;
+              const refresh=()=>setTimeout(()=>{const nb=_boxes()[idx],ns=nb&&nb.querySelector('svg');
+                if(ns){api.setSvg(cloneSvg(ns));api.setSub(parseHdr(findHdr(nb)).sub);}wireCtl();},80);
+              if(cp.tagName==='SELECT'||cp.tagName==='INPUT'){cp.onchange=()=>{src.value=cp.value;if(src.onchange)src.onchange();refresh();};}
+              else{cp.style.cursor='pointer';cp.onclick=()=>{if(src.onclick)src.onclick();refresh();};}
+              api.ctl.appendChild(cp);});};
+          wireCtl();};
         box.appendChild(xb);
         made.push({box,vw,vh});
       });
