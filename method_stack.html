@@ -259,6 +259,14 @@
     var v=document.getElementById('views');
     function apply(){ if(v) v.classList.toggle('side', location.hash==='#side'); }
     window.addEventListener('hashchange', apply); apply();
+    // Auto-number each pill as section.position (e.g. 5.4) for easy reference.
+    document.querySelectorAll('.sec').forEach(function(sec){
+      var h=sec.querySelector('.sech>span'); var sn=((h&&h.textContent.match(/^(\d+)/))||[])[1]||'';
+      sec.querySelectorAll('.p').forEach(function(p,i){
+        var num=sn+'.'+(i+1); p.setAttribute('data-num',num);
+        p.insertAdjacentHTML('afterbegin','<b style="opacity:.55;font-weight:700;margin-right:5px">'+num+'</b> ');
+      });
+    });
     document.querySelectorAll('.p[data-info]').forEach(function(p){
       p.addEventListener('click', function(){
         var sec=p.closest('.sec'); if(!sec) return;
