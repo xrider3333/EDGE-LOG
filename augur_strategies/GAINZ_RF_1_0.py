@@ -36,7 +36,7 @@ at close[i]; exits are evaluated from bar i+1 on.
 import numpy as np
 import pandas as pd
 
-STRATEGY_NAME = 'RF ML 1.0 · random-forest direction'
+STRATEGY_NAME = 'GainzAlgo RF 1.0 · RSI/trend/momentum direction (random-forest)'
 DESCRIPTION   = ("Rolling-window random-forest (Gini decision-stump ensemble) classifies "
                  "next-bar direction from RSI/trend/momentum features; trades fresh "
                  "high-conviction signals with ATR TP/SL + time-stop. Port of the "

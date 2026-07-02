@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='42.7';
+const VERSION='42.8';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4429,7 +4429,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
 
   // ══ SETTINGS ══
   if(activeTab==='augur'){
-    const stratOpts=['ORB_SIMPLE_1_0.py','ORB_2_0.py','ORB_1_0.py','OVERNIGHT_HOLD_1_0.py','REVERT_1_0.py','REVERT_1_1.py','REVERT_1_2.py','VWAP_FADE_1_0.py','VWAP_FADE_2_0.py','SUPERTREND_1_0.py','SUPERTREND_2_0.py','RF_ML_1_0.py','ENGU_1_1_20.py','ENGU_1_1_21.py','ENGU_1_2_1.py','ENGU_1_3_1.py','ENGU_1_3_2.py','ENGU_1_3_3.py','ENGU_1_3_4.py','ENGU_1_3_5.py'];
+    const stratOpts=['ORB_SIMPLE_1_0.py','ORB_2_0.py','ORB_1_0.py','OVERNIGHT_HOLD_1_0.py','REVERT_1_0.py','REVERT_1_1.py','REVERT_1_2.py','VWAP_FADE_1_0.py','VWAP_FADE_2_0.py','SUPERTREND_1_0.py','SUPERTREND_2_0.py','GAINZ_RF_1_0.py','ENGU_1_1_20.py','ENGU_1_1_21.py','ENGU_1_2_1.py','ENGU_1_3_1.py','ENGU_1_3_2.py','ENGU_1_3_3.py','ENGU_1_3_4.py','ENGU_1_3_5.py'];
     const badge=s=>{const c={done:'var(--green)',error:'var(--red)',running:'var(--yellow)',queued:'var(--text4)'}[s]||'var(--text4)';return '<span style="color:'+c+';font-size:var(--fsxs);letter-spacing:1px">'+((s||'?').toUpperCase())+'</span>';};
     const rows=backtests.map(b=>{const r=b.result||{};const done=b.status==='done';const net=done?Math.round((r.total_pnl||0)*(b.mult||20)):0;const last='<td style="text-align:right;color:'+(done?(net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(done?'$'+net.toLocaleString():(b.status==='error'?'err':'—'))+'</td>';return '<tr><td>'+badge(b.status)+'</td><td style="font-size:var(--fsxs)">'+(b.strategy||'')+'</td><td>'+(b.instrument||'')+' '+(b.timeframe||'')+'</td><td style="text-align:right">'+(done?Math.min(r.profit_factor,99).toFixed(2):'—')+'</td><td style="text-align:right">'+(done?r.num_trades:'—')+'</td>'+last+'<td style="text-align:right;color:var(--text4)">'+(done&&r.mc?'$'+Math.round((r.mc.p95||0)*(b.mult||20)).toLocaleString():'—')+'</td></tr>';}).join('');
     const fmtUsd=v=>((v||0)<0?'-$':'$')+Math.abs(Math.round(v||0)).toLocaleString();

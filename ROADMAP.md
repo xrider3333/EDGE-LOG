@@ -32,7 +32,7 @@ app reaches parity, then is retired. Ship tab-by-tab, version-bumped 0.1 each ch
       second clone, and restart `EdgeLog.bat` after any engine change so it reloads `augur_engine`.
 - [x] **`pine/` parity** — copied the 12 AI-generated (qwen) `.pine` files that existed only
       in AUGUR (ENGU_1_2_1, ENGU_1_3_4, ORB_1_0/2_0, OVERNIGHT_HOLD_1_0, REVERT_1_0/1_1/1_2,
-      RF_ML_1_0, SUPERTREND_1_0/2_0, VWAP_FADE_2_0) into EDGE-LOG/pine. They are unreviewed —
+      GAINZ_RF_1_0, SUPERTREND_1_0/2_0, VWAP_FADE_2_0) into EDGE-LOG/pine. They are unreviewed —
       use the site's Review-with-Claude flow before trusting any for live.
 - [ ] **Package the runner as a desktop app** (PyInstaller → `AugurRunner.exe`): tray icon,
       auto-start with Windows, connected/disconnected dot, pause/quit menu — kills the

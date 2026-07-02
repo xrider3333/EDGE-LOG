@@ -1,115 +1,115 @@
 {
-  "active_strategy": "C:\\Users\\xride\\OneDrive\\Desktop\\AUGUR\\augur_strategies\\ORB_SIMPLE_1_0.py",
-  "theme": "Liquid Carbon",
-  "autorefresh": {
-    "enabled_global": true,
-    "masters": {
-      "ES|1m|merged": true,
-      "ES|5m|merged": true,
-      "NQ|1m|merged": true,
-      "NQ|5m|yahoo": true,
-      "ES|5m|tv": true,
-      "ES|1m|tv": true,
-      "NQ|1m|tv": true,
-      "NQ|5m|tv": true,
-      "ES|1m|db_noadj_eth": true,
-      "ES|1m|db_noadj_rth": true,
-      "ES|5m|db_noadj_eth": true,
-      "ES|5m|db_noadj_rth": true,
-      "NQ|1m|db_noadj_eth": true,
-      "NQ|1m|db_noadj_rth": true,
-      "NQ|5m|db_noadj_eth": true,
-      "NQ|5m|db_noadj_rth": true
-    }
+ "active_strategy": "C:\\Users\\xride\\OneDrive\\Desktop\\EDGE-LOG\\augur_strategies\\ENGU_1_1_20.py",
+ "theme": "Liquid Carbon",
+ "autorefresh": {
+  "enabled_global": true,
+  "masters": {
+   "ES|1m|merged": true,
+   "ES|5m|merged": true,
+   "NQ|1m|merged": true,
+   "NQ|5m|yahoo": true,
+   "ES|5m|tv": true,
+   "ES|1m|tv": true,
+   "NQ|1m|tv": true,
+   "NQ|5m|tv": true,
+   "ES|1m|db_noadj_eth": true,
+   "ES|1m|db_noadj_rth": true,
+   "ES|5m|db_noadj_eth": true,
+   "ES|5m|db_noadj_rth": true,
+   "NQ|1m|db_noadj_eth": true,
+   "NQ|1m|db_noadj_rth": true,
+   "NQ|5m|db_noadj_eth": true,
+   "NQ|5m|db_noadj_rth": true
+  }
+ },
+ "strat_nums": {
+  "ENGU_1_3_2.py": 1,
+  "ENGU_1_3_3.py": 2,
+  "ENGU_1_3_4.py": 3,
+  "ENGU_1_3_5.py": 4,
+  "REVERT_1_0.py": 5,
+  "REVERT_1_1.py": 6,
+  "REVERT_1_2.py": 7,
+  "VWAP_FADE_1_0.py": 8,
+  "ENGU_1_1_20.py": 9,
+  "ENGU_1_1_21.py": 10,
+  "ENGU_1_2_1.py": 11,
+  "ENGU_1_3_1.py": 12,
+  "SUPERTREND_2_0.py": 14,
+  "SUPERTREND_1_0.py": 15,
+  "VWAP_FADE_2_0.py": 16,
+  "OVERNIGHT_HOLD_1_0.py": 17,
+  "ORB_2_0.py": 18,
+  "ORB_1_0.py": 19,
+  "ORB_SIMPLE_1_0.py": 20,
+  "GAINZ_RF_1_0.py": 13
+ },
+ "eta_calib": {
+  "sec_per_bt": 2.2656345758279786,
+  "bars": 316850
+ },
+ "roadmaps": {
+  "ORB_SIMPLE_1_0.py": {
+   "feasibility": true,
+   "plateau": true,
+   "stress": true,
+   "drawdown": true
+  }
+ },
+ "workers": 16,
+ "last_run_cfg": {
+  "name": "ES Short",
+  "instrument": "ES",
+  "timeframe": "5m",
+  "data_source": "CSV",
+  "source_name": "ES 5m RTH",
+  "scope": "Short  (OR + direction)",
+  "strategy_name": "ORB SIMPLE · low-DOF (break + stop + vol filter)",
+  "strategy_path": "C:\\Users\\xride\\OneDrive\\Desktop\\AUGUR\\augur_strategies\\OPENING_RANGE_BREAKOUT_SIMPLE.py",
+  "grid": {
+   "or_bars": [
+    3,
+    6
+   ],
+   "trade_mode": [
+    "Both",
+    "First-candle dir"
+   ],
+   "stop_frac": [
+    0.75,
+    1.0
+   ],
+   "vol_filter": [
+    1.5
+   ],
+   "breakout_buf": [
+    0.0
+   ],
+   "target_R": [
+    0.0
+   ],
+   "flat_eod": [
+    true
+   ]
   },
-  "strat_nums": {
-    "ENGU_1_3_2.py": 1,
-    "ENGU_1_3_3.py": 2,
-    "ENGU_1_3_4.py": 3,
-    "ENGU_1_3_5.py": 4,
-    "REVERT_1_0.py": 5,
-    "REVERT_1_1.py": 6,
-    "REVERT_1_2.py": 7,
-    "VWAP_FADE_1_0.py": 8,
-    "ENGU_1_1_20.py": 9,
-    "ENGU_1_1_21.py": 10,
-    "ENGU_1_2_1.py": 11,
-    "ENGU_1_3_1.py": 12,
-    "RF_ML_1_0.py": 13,
-    "SUPERTREND_2_0.py": 14,
-    "SUPERTREND_1_0.py": 15,
-    "VWAP_FADE_2_0.py": 16,
-    "OVERNIGHT_HOLD_1_0.py": 17,
-    "ORB_2_0.py": 18,
-    "ORB_1_0.py": 19,
-    "ORB_SIMPLE_1_0.py": 20
+  "n_combos": 8,
+  "opt_mode": "grid",
+  "n_trials": 200,
+  "oos_on": true,
+  "oos_method": "single",
+  "wf_folds": 0,
+  "commission_usd": 5.66,
+  "slippage_pts": 0.25,
+  "n_workers": 16,
+  "ticker": "CSV",
+  "tf_cfg": {
+   "interval": "csv"
   },
-  "eta_calib": {
-    "sec_per_bt": 2.2656345758279786,
-    "bars": 316850
-  },
-  "roadmaps": {
-    "OPENING_RANGE_BREAKOUT_SIMPLE.py": {
-      "feasibility": true,
-      "plateau": true,
-      "stress": true,
-      "drawdown": true
-    }
-  },
-  "workers": 16,
-  "last_run_cfg": {
-    "name": "ES Short",
-    "instrument": "ES",
-    "timeframe": "5m",
-    "data_source": "CSV",
-    "source_name": "ES 5m RTH",
-    "scope": "Short  (OR + direction)",
-    "strategy_name": "ORB SIMPLE \u00b7 low-DOF (break + stop + vol filter)",
-    "strategy_path": "C:\\Users\\xride\\OneDrive\\Desktop\\AUGUR\\augur_strategies\\OPENING_RANGE_BREAKOUT_SIMPLE.py",
-    "grid": {
-      "or_bars": [
-        3,
-        6
-      ],
-      "trade_mode": [
-        "Both",
-        "First-candle dir"
-      ],
-      "stop_frac": [
-        0.75,
-        1.0
-      ],
-      "vol_filter": [
-        1.5
-      ],
-      "breakout_buf": [
-        0.0
-      ],
-      "target_R": [
-        0.0
-      ],
-      "flat_eod": [
-        true
-      ]
-    },
-    "n_combos": 8,
-    "opt_mode": "grid",
-    "n_trials": 200,
-    "oos_on": true,
-    "oos_method": "single",
-    "wf_folds": 0,
-    "commission_usd": 5.66,
-    "slippage_pts": 0.25,
-    "n_workers": 16,
-    "ticker": "CSV",
-    "tf_cfg": {
-      "interval": "csv"
-    },
-    "multiplier": 50,
-    "min_trades": 30,
-    "_csv_lib_path": "C:\\Users\\xride\\OneDrive\\Desktop\\AUGUR\\augur_uploads\\master_a85a0438.csv",
-    "date_from": null,
-    "date_to": null
-  },
-  "ui_density": 2
+  "multiplier": 50,
+  "min_trades": 30,
+  "_csv_lib_path": "C:\\Users\\xride\\OneDrive\\Desktop\\AUGUR\\augur_uploads\\master_a85a0438.csv",
+  "date_from": null,
+  "date_to": null
+ },
+ "ui_density": 2
 }
