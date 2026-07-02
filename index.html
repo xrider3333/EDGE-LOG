@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='43.0';
+const VERSION='43.1';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5669,7 +5669,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const c_search=_axSel('ex-search',[['single','Single · run 1 config'],['grid','Grid · sweep every combo'],['bayes','Bayesian · smart search']],_ax0[0])+'<input type="hidden" id="ex-mode" value="'+(APREF.mode||'single')+'"/>';
       const c_valid=_axSel('ex-valid',[['none','None · in-sample only'],['wf','Walk-forward folds'],['full','WF + gates + 🔒 lockbox']],_ax0[1]);
       const c_ai=_axSel('ex-ai',[['off','Off'],['propose','🧠 Propose ranges'],['rewrite','🧬 Rewrite code']],_ax0[2]);
-      const c_strat='<select id="ex-strat">'+slist.map(s=>'<option value="'+s.file+'"'+(s.file===curStrat?' selected':'')+'>'+stratInfo(s.file).label+'</option>').join('')+'</select>';
+      // STRATEGY dropdown = where the board's 3A Models shelf lives (a learned model IS a
+      // strategy — it makes the trades). Split into rule vs model optgroups so the 3A
+      // options are visible; planned 3A models show greyed until their plugin exists.
+      const _isModelStrat=f=>/^(GAINZ_RF|RF_|XGB|LOGIT|GAM_)/i.test(String(f||''));
+      const _sOpt=s=>'<option value="'+s.file+'"'+(s.file===curStrat?' selected':'')+'>'+stratInfo(s.file).label+'</option>';
+      const _rules=slist.filter(s=>!_isModelStrat(s.file)),_models=slist.filter(s=>_isModelStrat(s.file));
+      const c_strat='<select id="ex-strat"><optgroup label="RULE STRATEGIES — hand-coded">'+_rules.map(_sOpt).join('')+'</optgroup>'
+        +'<optgroup label="MODEL STRATEGIES — learned · board 3A">'+_models.map(_sOpt).join('')
+        +'<option disabled>logistic baseline · 3A.2 — planned</option><option disabled>XGBoost signal · 3A.3 — planned</option></optgroup></select>';
       const _curSess=(APREF.session==='eth'?'eth':'rth');
       const c_master='<select id="ex-master">'+masterOptsHtml(APREF.instrument||'NQ',APREF.timeframe||'5m',_curSess)+'</select>';
       const c_inst='<select id="ex-inst">'+INSTORD.map(k=>'<option'+(k===(APREF.instrument||'NQ')?' selected':'')+'>'+k+'</option>').join('')+'</select>';
