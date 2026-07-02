@@ -147,7 +147,11 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 cost_pts=float(job.get("cost_pts", 0) or 0),
                 date_from=df_from, date_to=df_to,
                 return_trades=bool(job.get("return_trades")),
-                mc_sims=int(job.get("mc_sims", 0)))
+                mc_sims=int(job.get("mc_sims", 0)),
+                # ML trade gate (board 3A.2): 'none'/missing = ungated, as ever
+                ml_filter=job.get("ml_filter"),
+                ml_threshold=float(job.get("ml_threshold", 0.50) or 0.50),
+                ml_min_history=int(job.get("ml_min_history", 30) or 30))
     except Exception as e:
         return {"status": "error", "error": f"{type(e).__name__}: {e}",
                 "finishedAt": time.time()}

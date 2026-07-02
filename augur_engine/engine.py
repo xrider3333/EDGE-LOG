@@ -51,7 +51,9 @@ def _apply_costs(m, cost_pts):
 def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
                  source=None, params=None, master=None, arrays=None,
                  cost_pts=0.0, return_trades=False, mc_sims=0, mc_block=1,
-                 date_from=None, date_to=None):
+                 date_from=None, date_to=None,
+                 ml_filter=None, ml_threshold=0.50, ml_min_history=30,
+                 ml_refit_every=25):
     """Run one backtest and return the metrics dict (with a "_meta" block).
 
     strategy   : plugin filename ('ORB_SIMPLE_1_0.py'), path, or a loaded module.
@@ -84,11 +86,27 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
     if did is not None and (has_kw or "day_id" in sp):
         extras["day_id"] = did
 
-    want_trades = bool(return_trades or cost_pts > 0 or mc_sims > 0)
+    _gate_on = bool(ml_filter) and str(ml_filter).lower() not in ("", "none")
+    want_trades = bool(return_trades or cost_pts > 0 or mc_sims > 0 or _gate_on)
     res = fn(O, H, L, C, **extras, **params, return_trades=want_trades)
 
     if res and cost_pts > 0:
         res = _apply_costs(res, cost_pts)
+
+    # ── ML trade gate (board 3A.2 / ROADMAP #25): gate AFTER costs (the model
+    #    learns net wins), BEFORE Monte-Carlo (MC sizes the gated equity curve).
+    #    Headline stats become the GATED run; the ungated originals ride along
+    #    inside res["ml_gate"]["ungated"] for the before/after card.
+    if _gate_on and isinstance(res, dict) and res.get("trades"):
+        from .ml_gate import gate_trades
+        g = gate_trades(arrays, res["trades"], model=str(ml_filter),
+                        threshold=float(ml_threshold),
+                        min_history=int(ml_min_history),
+                        refit_every=int(ml_refit_every))
+        if g:
+            res["trades"] = g["trades"]
+            res.update(g["stats"])
+            res["ml_gate"] = g["summary"]
 
     if isinstance(res, dict):
         if mc_sims and res.get("trades"):

@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='43.3';
+const VERSION='43.4';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5634,8 +5634,30 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const jobCtl=b=>{const s=b.status;if(s==='done'||s==='error'||s==='cancelled')return '<span style="color:var(--text5)">—</span>';
         const btn=(v,gl,t,col)=>'<span data-jobctl="'+v+'" data-jobid="'+b.id+'" title="'+t+'" style="cursor:pointer;font-size:12px;margin-left:8px;color:'+col+'">'+gl+'</span>';
         return (s==='paused'?btn('run','▶','Resume','var(--green)'):btn('pause','⏸','Pause','var(--text4)'))+btn('stop','■','Stop','var(--red)');};
-      const grows=grids.map(b=>{const r=b.result||{};const done=b.status==='done';const ai=b.type==='ai_optimize'||b.type==='ai_evolve';const vald=b.type==='validate';const smart=b.type==='auto'||b.type==='walkforward'||vald;const single=!ai&&!smart&&b.type!=='grid';const m=single?r:(r.best||{});const net=done?Math.round((m.total_pnl||0)*(b.mult||20)):0;const sizecell=done?(vald?((r.validate&&r.validate.n_pass!=null?r.validate.n_pass+'/'+(r.validate.n_gates||5):'—')):single?((r.num_trades||0)+'T'):ai?((r.n_rounds||'?')+' rnds'):(r.n_valid+'/'+r.n_combos)):'—';const scope=b.lockbox?'🔒 lockbox':vald?('🧭 '+((r.validate&&r.validate.verdict)||'…')):single?'single':(scopeLbl[b.type]||(b.preset||'').slice(0,16));return '<tr><td>'+gbadge(b)+'</td><td style="font-size:var(--fsxs)">'+(ai?'AI ':'')+stratTag(b.strategy)+'</td><td style="font-size:var(--fsxs)">'+scope+'</td><td style="text-align:right">'+sizecell+'</td><td style="text-align:right">'+(done?Math.min(m.profit_factor||0,99).toFixed(2):'—')+'</td><td style="text-align:right;color:'+(done?(net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(done?fmtUsd(net):'—')+'</td><td style="text-align:right;white-space:nowrap">'+jobCtl(b)+'</td></tr>';}).join('');
+      const grows=grids.map(b=>{const r=b.result||{};const done=b.status==='done';const ai=b.type==='ai_optimize'||b.type==='ai_evolve';const vald=b.type==='validate';const smart=b.type==='auto'||b.type==='walkforward'||vald;const single=!ai&&!smart&&b.type!=='grid';const m=single?r:(r.best||{});const net=done?Math.round((m.total_pnl||0)*(b.mult||20)):0;const sizecell=done?(vald?((r.validate&&r.validate.n_pass!=null?r.validate.n_pass+'/'+(r.validate.n_gates||5):'—')):single?((r.num_trades||0)+'T'):ai?((r.n_rounds||'?')+' rnds'):(r.n_valid+'/'+r.n_combos)):'—';const scope=b.lockbox?'🔒 lockbox':vald?('🧭 '+((r.validate&&r.validate.verdict)||'…')):single?((b.ml_filter&&b.ml_filter!=='none')?'🚪 gated':'single'):(scopeLbl[b.type]||(b.preset||'').slice(0,16));return '<tr><td>'+gbadge(b)+'</td><td style="font-size:var(--fsxs)">'+(ai?'AI ':'')+stratTag(b.strategy)+'</td><td style="font-size:var(--fsxs)">'+scope+'</td><td style="text-align:right">'+sizecell+'</td><td style="text-align:right">'+(done?Math.min(m.profit_factor||0,99).toFixed(2):'—')+'</td><td style="text-align:right;color:'+(done?(net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(done?fmtUsd(net):'—')+'</td><td style="text-align:right;white-space:nowrap">'+jobCtl(b)+'</td></tr>';}).join('');
       const lastDone=grids.filter(b=>b.status==='done'&&b.result&&b.result.top)[0];
+      // ── ML GATE before/after card (board 3A.2): the most recent gated single run.
+      //    UNGATED = the strategy taking every trade; GATED = only the trades the
+      //    model let through. Headline result of the run IS the gated column.
+      const lastGated=grids.filter(b=>b.status==='done'&&b.result&&b.result.ml_gate)[0];
+      let gateHtml='';
+      if(lastGated){const G=lastGated.result.ml_gate,mlt2=lastGated.mult||20,u=G.ungated||{},ga=G.gated||{};
+        const money=v=>fmtUsd(Math.round((v||0)*mlt2));
+        const helped=(ga.total_pnl||0)>=(u.total_pnl||0);
+        const grow=(lbl,uv,gv,hl)=>'<tr><td style="color:var(--text4)">'+lbl+'</td><td style="text-align:right">'+uv+'</td><td style="text-align:right'+(hl?';color:'+(helped?'var(--green)':'var(--red)'):'')+'">'+gv+'</td></tr>';
+        gateHtml='<div class="lbl" style="margin:0 0 6px">🚪 ML GATE — '+String(G.model||'').toUpperCase()+' · CUT-OFF '+Math.round((G.threshold||0)*100)+'% · '+stratTag(lastGated.strategy)+'</div>'
+          +'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+G.n_kept+' of '+G.n_total+' trades let through · '+G.n_skipped+' turned away · first '+G.warmup+' passed ungated (model still learning) · refit '+G.n_fits+'×</div>'
+          +'<div style="overflow-x:auto"><table class="table"><thead><tr><th></th><th style="text-align:right">UNGATED — every trade</th><th style="text-align:right">GATED — kept only</th></tr></thead><tbody>'
+          +grow('NET P&L',money(u.total_pnl),money(ga.total_pnl),1)
+          +grow('TRADES',u.num_trades||0,ga.num_trades||0)
+          +grow('WIN %',Math.round(u.win_rate||0)+'%',Math.round(ga.win_rate||0)+'%')
+          +grow('PROFIT FACTOR',Math.min(u.profit_factor||0,99).toFixed(2),Math.min(ga.profit_factor||0,99).toFixed(2))
+          +grow('AVG $/TRADE',money(u.avg_pnl),money(ga.avg_pnl))
+          +grow('MAX DRAWDOWN',money(u.max_drawdown),money(ga.max_drawdown))
+          +'</tbody></table></div>'
+          +'<div style="font-size:var(--fsxs);color:'+(helped?'var(--green)':'var(--yellow)')+';margin-top:6px">'+(helped
+            ?'Gate helped — the trades it kept beat taking everything.'
+            :'Gate did not help here — the trades it kept did worse than taking everything. Honest KISS-baseline result: the entry-time features (vol / trend / clock) carry little signal for this strategy; richer features (order-flow delta, ROADMAP #23) are the next lever.')+'</div>';}
       let topHtml='';
       if(lastDone){const t=lastDone.result.top;const pk=t.length?Object.keys(t[0]).filter(k=>['total_pnl','num_trades','win_rate','profit_factor','max_drawdown','avg_pnl','wins','losses','oos_pnl','oos_trades','oos_pf','fold','test_bars','train_bars'].indexOf(k)<0):[];const hasOos=t.length&&t[0].oos_pnl!==undefined,isWf=t.length&&t[0].fold!==undefined;const R=lastDone.result,mlt=lastDone.mult||20;let val='';if(R.dsr){const dc=R.dsr.dsr>=0.95?'var(--green)':R.dsr.dsr>=0.8?'var(--yellow)':'var(--red)';val+='<span>Winner Sharpe <b>'+R.dsr.winner_sharpe.toFixed(2)+'</b></span><span>Luck bar / '+R.dsr.n_cfg+' <b>'+R.dsr.luck_bar.toFixed(2)+'</b></span><span>Deflated Sharpe <b style="color:'+dc+'">'+Math.round(R.dsr.dsr*100)+'%</b> · '+R.dsr.verdict+'</span>';}if(R.mc){val+='<span>P95 drawdown <b style="color:var(--red)">$'+Math.round((R.mc.p95||0)*mlt).toLocaleString()+'</b> (size to this)</span>';}
         // ── Walk-forward efficiency + fold consistency (the numbers a pro reads off WF) ──
@@ -5678,10 +5700,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const c_strat='<select id="ex-strat"><optgroup label="RULE STRATEGIES — hand-coded">'+_rules.map(_sOpt).join('')+'</optgroup>'
         +(_models.length?'<optgroup label="MODEL STRATEGIES — self-contained learners">'+_models.map(_sOpt).join('')+'</optgroup>':'')+'</select>';
       // ML FILTER = the plug-and-play slot for Carl's classification models (board 3A):
-      // the strategy fires entries, the chosen model gates them by P(win) — pair ANY
-      // strategy with ANY model. Engine = ROADMAP #25 (machinery ships with the first
-      // gate model, board 3A.2); None is the only live option until it ships.
-      const c_mlf='<select id="ex-mlf"><option value="none" selected>None — trade every signal</option><option disabled>logistic gate · 3A.2 — planned</option><option disabled>Random Forest gate · 3A.1 — planned</option><option disabled>XGBoost gate · 3A.3 — planned</option></select>';
+      // the strategy fires entries, the chosen model gates them by profit-weighted
+      // P(win) — pair ANY strategy with ANY model (meta-labeling, ROADMAP #25).
+      // v1: logistic gate LIVE on Single backtests; RF/XGB gates still planned.
+      const _mlf0=APREF.mlf||'none';
+      const c_mlf='<select id="ex-mlf"><option value="none"'+(_mlf0!=='logistic'?' selected':'')+'>None — trade every signal</option><option value="logistic"'+(_mlf0==='logistic'?' selected':'')+'>🚪 logistic gate · 3A.2</option><option disabled>Random Forest gate · 3A.1 — planned</option><option disabled>XGBoost gate · 3A.3 — planned</option></select>';
+      const c_mlth='<input id="ex-mlth" type="number" min="50" max="90" step="1" value="'+(APREF.mlth||50)+'"/>';
       const _curSess=(APREF.session==='eth'?'eth':'rth');
       const c_master='<select id="ex-master">'+masterOptsHtml(APREF.instrument||'NQ',APREF.timeframe||'5m',_curSess)+'</select>';
       const c_inst='<select id="ex-inst">'+INSTORD.map(k=>'<option'+(k===(APREF.instrument||'NQ')?' selected':'')+'>'+k+'</option>').join('')+'</select>';
@@ -5730,7 +5754,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<input id="ex-from" type="hidden" value="'+(APREF.date_from||'')+'"/><input id="ex-to" type="hidden" value="'+(APREF.date_to||'')+'"/></div>';
       body=exStyle+'<div class="section ex-build">'
         +'<div class="lbl" style="margin-bottom:10px">DATA &amp; STRATEGY</div>'
-        +exrow(fld('STRATEGY',c_strat,190)+fld('ML FILTER',c_mlf,185)+fld('INSTRUMENT',c_inst,110)+fld('TIMEFRAME',c_tf,100)+fld('SESSION',c_sess,100)+fld('CSV FILE',c_master,200)+fld('DATE RANGE',c_dates,230))
+        +exrow(fld('STRATEGY',c_strat,190)+fld('ML FILTER',c_mlf,185)+fld('GATE CUT-OFF %',c_mlth,115)+fld('INSTRUMENT',c_inst,110)+fld('TIMEFRAME',c_tf,100)+fld('SESSION',c_sess,100)+fld('CSV FILE',c_master,200)+fld('DATE RANGE',c_dates,230))
         +'<div id="ex-dataspan" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 8px">—</div>'
         +grpH('HOW TO RUN — SEARCH × VALIDATION × AI')
         +exrow(fld('SEARCH',c_search,185)+fld('VALIDATION',c_valid,190)+fld('AI ASSIST',c_ai,155)+fld('SCOPE',c_preset,190)+fld('MIN TRADES','<input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/>',100)+fld('WORKERS','<input id="ex-work" type="number" value="'+(APREF.workers||4)+'"/>',90)+fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||200)+'"/>',90)+fld('WF FOLDS','<input id="ex-folds" type="number" value="0"/>',90)+fld('WF TYPE','<select id="ex-wfmode"><option value="anchored"'+(APREF.wf_mode==='rolling'?'':' selected')+'>Anchored (expanding)</option><option value="rolling"'+(APREF.wf_mode==='rolling'?' selected':'')+'>Rolling (fixed window)</option></select>',160)+fld('AI ROUNDS','<input id="ex-rounds" type="number" value="'+(APREF.rounds||4)+'"/>',90)+fld('DISCOVER WITH','<select id="ex-discover"><option value="auto"'+(APREF.discover==='evolve'?'':' selected')+'>Statistical (fast · free)</option><option value="evolve"'+(APREF.discover==='evolve'?' selected':'')+'>AI-evolve (rewrite code → judge)</option></select>',230)+fld('VALIDATE SCOPE','<select id="ex-vscope">'+[['short','Short · ~3yr · 80 trials · 6mo lock'],['medium','Medium · ~6yr · 120 trials · 12mo lock'],['long','Long · ~12yr · 200 trials · 12mo lock'],['xl','XL · all data · 300 trials · 18mo lock']].map(o=>'<option value="'+o[0]+'"'+(o[0]===(APREF.vscope||'medium')?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>',300)+(function(){const _xd=(APREF.xfer!=null?APREF.xfer:(SIB[APREF.instrument||'NQ']||''));return fld('TRANSFER TO','<select id="ex-xfer"><option value="">— none —</option>'+INSTORD.map(k=>'<option value="'+k+'"'+(k===_xd?' selected':'')+'>'+k+'</option>').join('')+'</select>',120);})()+fld('AI PROVIDER',c_prov,170))
@@ -5743,6 +5767,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="font-size:8px;color:var(--text5);margin:-4px 0 8px;max-width:640px">Data on/after this date is reserved — every optimization mode caps its window before it, so it\'s never seen during the search. Once you\'ve settled on a config, test it <b>once</b> here on the untouched slice. A pass it didn\'t earn means it was overfit. You only get to look once.</div></div>'
         +'<div style="display:flex;align-items:center;gap:14px;margin-top:6px;border-top:1px solid var(--border);padding-top:12px"><button class="btn-ghost active" id="ex-run" style="flex:0 0 auto;padding:9px 30px">▶ RUN ON MY PC</button><span style="color:var(--text5);font-size:var(--fsxs)">Runs on your PC; progress + results stream into Results history.</span></div>'
         +'</div>'
+        +(gateHtml?tile(gateHtml):'')
         +'<div class="lbl" style="margin-bottom:8px">RUNS</div>'
         +(grids.length?tile('<table class="table"><thead><tr><th>STATUS</th><th>STRATEGY</th><th>SCOPE</th><th style="text-align:right">SIZE</th><th style="text-align:right">PF</th><th style="text-align:right">BEST $</th><th style="text-align:right">CONTROL</th></tr></thead><tbody>'+grows+'</tbody></table>'):'<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO SWEEPS YET — RUN ONE</div>')
         +(topHtml?tile(topHtml):'');
@@ -6301,7 +6326,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // MODE (derived from the 3 axes) drives which fields apply — hide the rest.
       const em=el('ex-mode');if(em){
         const MODENOTE={single:'1 · Single backtest — one config, one pass',grid:'2 · Grid sweep — every combo in scope, in-sample only',auto:'3 · Auto-Optimize — Bayesian sampler, in-sample only',walkforward:'4 · Walk-Forward — Bayesian re-tuned per fold, tested on the next unseen window',ai:'5 · AI optimize — Claude proposes ranges each round · validates on a built-in 75/25 split',evolve:'6 · AI evolve — Claude rewrites the code each round · built-in 75/25 split',validate:'7 · 🧭 Auto-Validate — Bayesian → WF folds → gates → 🔒 lockbox → PASS/WEAK/FAIL'};
-        const exSyncMode=()=>{applyExMode(em.value);exApplyCustom();const lg=el('ex-lockbox-group');if(lg)lg.style.display=(em.value==='validate')?'none':'';const nt=el('ex-modenote');if(nt)nt.innerHTML='→ runs: '+(MODENOTE[em.value]||em.value);exUpdateDataSpan();};
+        const exSyncMode=()=>{applyExMode(em.value);exApplyCustom();const lg=el('ex-lockbox-group');if(lg)lg.style.display=(em.value==='validate')?'none':'';
+          // ML gate rides the SINGLE backtest only (v1): leaving Single switches it off.
+          const mf=el('ex-mlf'),mth=el('ex-mlth');
+          if(mf&&mf.value!=='none'&&em.value!=='single'){mf.value='none';savePref('mlf','none');}
+          if(mth){const w=mth.closest('div');if(w)w.style.display=(mf&&mf.value!=='none')?'':'none';}
+          const nt=el('ex-modenote');if(nt){let s=MODENOTE[em.value]||em.value;
+            if(mf&&mf.value!=='none')s+=' · 🚪 gated: '+mf.value+' reviews each trade, cut-off '+((mth&&mth.value)||50)+'%';
+            nt.innerHTML='→ runs: '+s;}
+          exUpdateDataSpan();};
         // 3-axis → job-type wiring: an axis change snaps the OTHER axes to the nearest
         // ENGINE-SUPPORTED combo (folds/lockbox ride the Bayesian search; the AI modes
         // bring their own 75/25 split), then derives the job type into #ex-mode.
@@ -6314,6 +6347,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
           savePref('mode',em.value);exSyncMode();};
         exSyncMode();
         const x0=_axs();if(!x0.some(e=>!e)){x0[0].onchange=()=>exAxChange('search');x0[1].onchange=()=>exAxChange('valid');x0[2].onchange=()=>exAxChange('ai');}
+        // picking a gate snaps the run to a Single backtest (the only mode the gate
+        // rides in v1) so what executes always matches what the note says.
+        const mf0=el('ex-mlf');if(mf0){mf0.onchange=()=>{savePref('mlf',mf0.value);
+          if(mf0.value!=='none'){const x=_axs();if(!x.some(e=>!e)){x[0].value='single';x[1].value='none';x[2].value='off';}em.value='single';savePref('mode','single');}
+          exSyncMode();};}
+        const mth0=el('ex-mlth');if(mth0)mth0.addEventListener('input',()=>{savePref('mlth',parseInt(mth0.value)||50);exSyncMode();});
       }
       // LOCKBOX test: run the most recent winning config as ONE backtest over only the
       // reserved slice (date_from = reserve-since). One look — the final overfit check.
@@ -6351,7 +6390,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const mm2=mSel||(metaMasters||[]).find(m=>String(m.instrument)===inst&&String(m.timeframe)===tf);
         if(mm2&&mm2.date_to){const e=new Date(String(mm2.date_to).slice(0,10)+'T00:00');e.setFullYear(e.getFullYear()-mp[0]);vFrom=e.toISOString().slice(0,10);const ms=mm2.date_from?String(mm2.date_from).slice(0,10):'';if(ms&&vFrom<ms)vFrom=ms;}}
       savePref('mode',mode);savePref('instrument',el('ex-inst').value);savePref('session',el('ex-sess').value);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);if(el('ex-wfmode'))savePref('wf_mode',el('ex-wfmode').value);savePref('comm_usd',commU);savePref('slip_pts',slipP);savePref('date_from',dFrom);savePref('date_to',dTo);savePref('lockbox',lockbox);if(el('ex-lockmo'))savePref('lockbox_months',parseInt(el('ex-lockmo').value)||12);
-      const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:effTo,preset:scopeVal,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};if(useCustom)base.grid=customGrid;const job=(mode==='validate')?Object.assign({},base,{type:'validate',date_from:vFrom,date_to:'',n_trials:vTrials,wf_folds:0,lockbox_months:vLockMo,transfer_to:(el('ex-xfer')&&el('ex-xfer').value)||null,discover:(el('ex-discover')&&el('ex-discover').value)||'auto',provider:el('ex-prov')?el('ex-prov').value:'ollama',n_rounds:parseInt(el('ex-rounds').value)||4,dsr:true}):(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,wf_mode:(el('ex-wfmode')?el('ex-wfmode').value:'anchored'),top_n:10,dsr:true,mc_sims:500}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
+      const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:effTo,preset:scopeVal,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};if(useCustom)base.grid=customGrid;const job=(mode==='validate')?Object.assign({},base,{type:'validate',date_from:vFrom,date_to:'',n_trials:vTrials,wf_folds:0,lockbox_months:vLockMo,transfer_to:(el('ex-xfer')&&el('ex-xfer').value)||null,discover:(el('ex-discover')&&el('ex-discover').value)||'auto',provider:el('ex-prov')?el('ex-prov').value:'ollama',n_rounds:parseInt(el('ex-rounds').value)||4,dsr:true}):(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000},(el('ex-mlf')&&el('ex-mlf').value!=='none')?{ml_filter:el('ex-mlf').value,ml_threshold:(parseInt(el('ex-mlth')&&el('ex-mlth').value)||50)/100}:{}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,wf_mode:(el('ex-wfmode')?el('ex-wfmode').value:'anchored'),top_n:10,dsr:true,mc_sims:500}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='cmp'){
       const _cur=()=>{const rs=runHistory.slice().sort((a,b)=>b.id-a.id);let ids=(APREF.cmpIds||[]).map(String).filter(id=>rs.some(r=>String(r.id)===id));if(ids.length<2)ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));return ids;};
       const add=el('cmp-add');if(add)add.onchange=()=>{if(!add.value)return;const ids=_cur();if(ids.indexOf(add.value)<0)ids.push(add.value);savePref('cmpIds',ids);renderApp();};

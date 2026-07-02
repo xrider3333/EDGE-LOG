@@ -133,7 +133,7 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       unprompted) synced as `m.profile` and rendered as an EDA strip in the master modal;
       `tools/profile_report.py` = one-call native HTML auto-EDA report per master. Remaining
       in section 2: **2.5 fills reconciliation** (blocked on a sample NT Position-History CSV).
-- [ ] **#25 Plug-and-play ML gate (Strategy × Model matrix)** — decouple Carl's
+- [~] **#25 Plug-and-play ML gate (Strategy × Model matrix)** — decouple Carl's
       classification/regression MODELS from the rule strategies so any strategy pairs with
       any model WITHOUT a combinatorial strategy list (owner spec 2026-07-02: "select ENGU
       then XGB, rerun ENGU then logistic"). Design: the base strategy fires its normal
@@ -147,6 +147,15 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       become searchable params; gated runs go
       through the same folds/gates/lockbox. Self-contained learners (GAINZ_RF_1_0) stay
       ordinary strategies — the gate is an OVERLAY, not a rewrite.
+      **Shipped v1 (2026-07-02, v43.4 / stack v2.4):** `augur_engine/ml_gate.py` — logistic
+      gate on SINGLE backtests (leakage-safe: trained only on trades exited strictly before
+      each entry; 30-trade warm-up passes ungated; refit every 25 completions; |PnL| sample
+      weights so P≥50% ≈ positive expectancy). Builder: ML FILTER + GATE CUT-OFF % fields;
+      results render an UNGATED-vs-GATED card; runner passes ml_filter/ml_threshold.
+      First findings (NQ 5m RTH, 2022→): ORB 1.0 (978 trd) PF 1.18→1.20 / WR 47→48.5;
+      ENGU 1.3.4 (200 trd) worse — gates need trade volume; clock/OHLC features are weak
+      fuel (order-flow delta #23 = next). REMAINING: RF/XGB gate models, gate inside
+      grid/auto/WF/validate (refit-per-fold), threshold as a searchable param.
 
 ## 4. optimizer.py (Streamlit) — open bugs (only while Streamlit is still in use)
 - [ ] **#1 Results shows only the most-recent completed run** — live panel hydrates only the
