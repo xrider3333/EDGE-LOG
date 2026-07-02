@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='43.2';
+const VERSION='43.3';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5679,8 +5679,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +(_models.length?'<optgroup label="MODEL STRATEGIES — self-contained learners">'+_models.map(_sOpt).join('')+'</optgroup>':'')+'</select>';
       // ML FILTER = the plug-and-play slot for Carl's classification models (board 3A):
       // the strategy fires entries, the chosen model gates them by P(win) — pair ANY
-      // strategy with ANY model. Engine = ROADMAP #25 (ML gate harness, board 3A.4);
-      // None is the only live option until it ships.
+      // strategy with ANY model. Engine = ROADMAP #25 (machinery ships with the first
+      // gate model, board 3A.2); None is the only live option until it ships.
       const c_mlf='<select id="ex-mlf"><option value="none" selected>None — trade every signal</option><option disabled>logistic gate · 3A.2 — planned</option><option disabled>Random Forest gate · 3A.1 — planned</option><option disabled>XGBoost gate · 3A.3 — planned</option></select>';
       const _curSess=(APREF.session==='eth'?'eth':'rth');
       const c_master='<select id="ex-master">'+masterOptsHtml(APREF.instrument||'NQ',APREF.timeframe||'5m',_curSess)+'</select>';

@@ -142,8 +142,9 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       strength, time-of-day, day-of-week; order-flow delta once #23 lands); entries under
       the gate threshold are skipped. Gate model = the Builder's **ML FILTER** dropdown
       (slot shipped v43.2: None active; logistic/RF/XGB greyed). Build order: **logistic
-      first** (board 3A.2, the KISS baseline), then XGBoost (3A.3); harness itself = board
-      **3A.4**. Gate threshold + min-history trades become searchable params; gated runs go
+      first** (board 3A.2, the KISS baseline — the plug-and-play machinery ships WITH it;
+      no separate board item), then XGBoost (3A.3). Gate threshold + min-history trades
+      become searchable params; gated runs go
       through the same folds/gates/lockbox. Self-contained learners (GAINZ_RF_1_0) stay
       ordinary strategies — the gate is an OVERLAY, not a rewrite.
 
