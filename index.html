@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='42.8';
+const VERSION='42.9';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -5628,7 +5628,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const fld=(lbl,inner,w)=>'<div style="flex:0 1 '+(w||150)+'px;width:'+(w||150)+'px"><label class="lbl">'+lbl+'</label>'+inner+'</div>';
       const exrow=(inner,gap)=>'<div style="display:flex;flex-wrap:wrap;gap:'+(gap||10)+'px;align-items:flex-end;margin-bottom:12px">'+inner+'</div>';
       const grpH=t=>'<div class="lbl" style="opacity:.55;letter-spacing:2px;margin:2px 0 7px;border-top:1px solid var(--border);padding-top:9px">'+t+'</div>';
-      const c_mode='<select id="ex-mode">'+[['single','1 · Single backtest'],['grid','2 · Grid sweep'],['auto','3 · Auto-Optimize (smart search)'],['walkforward','4 · Walk-Forward (anchored)'],['ai','5 · AI optimize (free, local)'],['evolve','6 · AI evolve (rewrites code)'],['validate','7 · 🧭 Auto-Validate (judge it)']].map(o=>'<option value="'+o[0]+'"'+(o[0]===(APREF.mode||'single')?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
+      // ── Mode = 3 independent axes (SEARCH × VALIDATION × AI ASSIST) mapped onto the
+      //    engine's 7 job types (mirrors the Research-tab Stack: §3 Model & Search /
+      //    §4 Validation / AI assist). The hidden #ex-mode input carries the DERIVED job
+      //    type, so every existing reader (ETA, field-gating, submit) works unchanged.
+      const MODEAX={single:['single','none','off'],grid:['grid','none','off'],auto:['bayes','none','off'],walkforward:['bayes','wf','off'],validate:['bayes','full','off'],ai:['bayes','none','propose'],evolve:['bayes','none','rewrite']};
+      const _ax0=MODEAX[APREF.mode||'single']||MODEAX.single;
+      const _axSel=(id,opts,cur)=>'<select id="'+id+'">'+opts.map(o=>'<option value="'+o[0]+'"'+(o[0]===cur?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
+      const c_search=_axSel('ex-search',[['single','Single · run 1 config'],['grid','Grid · sweep every combo'],['bayes','Bayesian · smart search']],_ax0[0])+'<input type="hidden" id="ex-mode" value="'+(APREF.mode||'single')+'"/>';
+      const c_valid=_axSel('ex-valid',[['none','None · in-sample only'],['wf','Walk-forward folds'],['full','WF + gates + 🔒 lockbox']],_ax0[1]);
+      const c_ai=_axSel('ex-ai',[['off','Off'],['propose','🧠 Propose ranges'],['rewrite','🧬 Rewrite code']],_ax0[2]);
       const c_strat='<select id="ex-strat">'+slist.map(s=>'<option value="'+s.file+'"'+(s.file===curStrat?' selected':'')+'>'+stratInfo(s.file).label+'</option>').join('')+'</select>';
       const _curSess=(APREF.session==='eth'?'eth':'rth');
       const c_master='<select id="ex-master">'+masterOptsHtml(APREF.instrument||'NQ',APREF.timeframe||'5m',_curSess)+'</select>';
@@ -5680,8 +5689,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div class="lbl" style="margin-bottom:10px">DATA &amp; STRATEGY</div>'
         +exrow(fld('STRATEGY',c_strat,190)+fld('INSTRUMENT',c_inst,110)+fld('TIMEFRAME',c_tf,100)+fld('SESSION',c_sess,100)+fld('CSV FILE',c_master,200)+fld('DATE RANGE',c_dates,230))
         +'<div id="ex-dataspan" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 8px">—</div>'
-        +grpH('RUN MODE · SEARCH PARAMS')
-        +exrow(fld('MODE',c_mode,190)+fld('SCOPE',c_preset,190)+fld('MIN TRADES','<input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/>',100)+fld('WORKERS','<input id="ex-work" type="number" value="'+(APREF.workers||4)+'"/>',90)+fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||200)+'"/>',90)+fld('WF FOLDS','<input id="ex-folds" type="number" value="0"/>',90)+fld('WF TYPE','<select id="ex-wfmode"><option value="anchored"'+(APREF.wf_mode==='rolling'?'':' selected')+'>Anchored (expanding)</option><option value="rolling"'+(APREF.wf_mode==='rolling'?' selected':'')+'>Rolling (fixed window)</option></select>',160)+fld('AI ROUNDS','<input id="ex-rounds" type="number" value="'+(APREF.rounds||4)+'"/>',90)+fld('DISCOVER WITH','<select id="ex-discover"><option value="auto"'+(APREF.discover==='evolve'?'':' selected')+'>Statistical (fast · free)</option><option value="evolve"'+(APREF.discover==='evolve'?' selected':'')+'>AI-evolve (rewrite code → judge)</option></select>',230)+fld('VALIDATE SCOPE','<select id="ex-vscope">'+[['short','Short · ~3yr · 80 trials · 6mo lock'],['medium','Medium · ~6yr · 120 trials · 12mo lock'],['long','Long · ~12yr · 200 trials · 12mo lock'],['xl','XL · all data · 300 trials · 18mo lock']].map(o=>'<option value="'+o[0]+'"'+(o[0]===(APREF.vscope||'medium')?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>',300)+(function(){const _xd=(APREF.xfer!=null?APREF.xfer:(SIB[APREF.instrument||'NQ']||''));return fld('TRANSFER TO','<select id="ex-xfer"><option value="">— none —</option>'+INSTORD.map(k=>'<option value="'+k+'"'+(k===_xd?' selected':'')+'>'+k+'</option>').join('')+'</select>',120);})()+fld('AI PROVIDER',c_prov,170))
+        +grpH('HOW TO RUN — SEARCH × VALIDATION × AI')
+        +exrow(fld('SEARCH',c_search,185)+fld('VALIDATION',c_valid,190)+fld('AI ASSIST',c_ai,155)+fld('SCOPE',c_preset,190)+fld('MIN TRADES','<input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/>',100)+fld('WORKERS','<input id="ex-work" type="number" value="'+(APREF.workers||4)+'"/>',90)+fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||200)+'"/>',90)+fld('WF FOLDS','<input id="ex-folds" type="number" value="0"/>',90)+fld('WF TYPE','<select id="ex-wfmode"><option value="anchored"'+(APREF.wf_mode==='rolling'?'':' selected')+'>Anchored (expanding)</option><option value="rolling"'+(APREF.wf_mode==='rolling'?' selected':'')+'>Rolling (fixed window)</option></select>',160)+fld('AI ROUNDS','<input id="ex-rounds" type="number" value="'+(APREF.rounds||4)+'"/>',90)+fld('DISCOVER WITH','<select id="ex-discover"><option value="auto"'+(APREF.discover==='evolve'?'':' selected')+'>Statistical (fast · free)</option><option value="evolve"'+(APREF.discover==='evolve'?' selected':'')+'>AI-evolve (rewrite code → judge)</option></select>',230)+fld('VALIDATE SCOPE','<select id="ex-vscope">'+[['short','Short · ~3yr · 80 trials · 6mo lock'],['medium','Medium · ~6yr · 120 trials · 12mo lock'],['long','Long · ~12yr · 200 trials · 12mo lock'],['xl','XL · all data · 300 trials · 18mo lock']].map(o=>'<option value="'+o[0]+'"'+(o[0]===(APREF.vscope||'medium')?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>',300)+(function(){const _xd=(APREF.xfer!=null?APREF.xfer:(SIB[APREF.instrument||'NQ']||''));return fld('TRANSFER TO','<select id="ex-xfer"><option value="">— none —</option>'+INSTORD.map(k=>'<option value="'+k+'"'+(k===_xd?' selected':'')+'>'+k+'</option>').join('')+'</select>',120);})()+fld('AI PROVIDER',c_prov,170))
+        +'<div id="ex-modenote" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 10px">—</div>'
         +customTile
         +grpH('COSTS')
         +exrow(fld('COMMISSION $/RT','<input id="ex-comm" type="number" step="0.01" value="'+(APREF.comm_usd!=null?APREF.comm_usd:5.66)+'"/>',140)+fld('SLIPPAGE pts/RT','<input id="ex-slip" type="number" step="0.25" value="'+(APREF.slip_pts!=null?APREF.slip_pts:0)+'"/>',140))
@@ -6245,8 +6255,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const ep=el('ex-preset');if(ep)ep.addEventListener('change',()=>{savePref('scope_tier',scopeTier(ep.value));exApplyCustom();exUpdateDataSpan();});
       // keep the ETA estimate live as scope-sizing inputs change
       ['ex-trials','ex-work'].forEach(id=>{const e=el(id);if(e)e.addEventListener('input',exUpdateDataSpan);});
-      // MODE drives which fields apply — hide the rest (and remember the choice).
-      const em=el('ex-mode');if(em){const exSyncMode=()=>{applyExMode(em.value);exApplyCustom();const lg=el('ex-lockbox-group');if(lg)lg.style.display=(em.value==='validate')?'none':'';exUpdateDataSpan();};exSyncMode();em.onchange=()=>{savePref('mode',em.value);exSyncMode();};}
+      // MODE (derived from the 3 axes) drives which fields apply — hide the rest.
+      const em=el('ex-mode');if(em){
+        const MODENOTE={single:'1 · Single backtest — one config, one pass',grid:'2 · Grid sweep — every combo in scope, in-sample only',auto:'3 · Auto-Optimize — Bayesian sampler, in-sample only',walkforward:'4 · Walk-Forward — Bayesian re-tuned per fold, tested on the next unseen window',ai:'5 · AI optimize — Claude proposes ranges each round · validates on a built-in 75/25 split',evolve:'6 · AI evolve — Claude rewrites the code each round · built-in 75/25 split',validate:'7 · 🧭 Auto-Validate — Bayesian → WF folds → gates → 🔒 lockbox → PASS/WEAK/FAIL'};
+        const exSyncMode=()=>{applyExMode(em.value);exApplyCustom();const lg=el('ex-lockbox-group');if(lg)lg.style.display=(em.value==='validate')?'none':'';const nt=el('ex-modenote');if(nt)nt.innerHTML='→ runs: '+(MODENOTE[em.value]||em.value);exUpdateDataSpan();};
+        // 3-axis → job-type wiring: an axis change snaps the OTHER axes to the nearest
+        // ENGINE-SUPPORTED combo (folds/lockbox ride the Bayesian search; the AI modes
+        // bring their own 75/25 split), then derives the job type into #ex-mode.
+        const _axs=()=>[el('ex-search'),el('ex-valid'),el('ex-ai')];
+        const exAxChange=which=>{const x=_axs();if(x.some(e=>!e))return;const s=x[0],v=x[1],a=x[2];
+          if(which==='search'&&s.value!=='bayes'){v.value='none';a.value='off';}
+          if(which==='valid'&&v.value!=='none'){s.value='bayes';a.value='off';}
+          if(which==='ai'&&a.value!=='off'){s.value='bayes';v.value='none';}
+          em.value=(a.value==='rewrite')?'evolve':(a.value==='propose')?'ai':(v.value==='full')?'validate':(v.value==='wf')?'walkforward':(s.value==='grid')?'grid':(s.value==='bayes')?'auto':'single';
+          savePref('mode',em.value);exSyncMode();};
+        exSyncMode();
+        const x0=_axs();if(!x0.some(e=>!e)){x0[0].onchange=()=>exAxChange('search');x0[1].onchange=()=>exAxChange('valid');x0[2].onchange=()=>exAxChange('ai');}
+      }
       // LOCKBOX test: run the most recent winning config as ONE backtest over only the
       // reserved slice (date_from = reserve-since). One look — the final overfit check.
       const lbBtn=el('ex-lockbox-test');if(lbBtn)lbBtn.onclick=async()=>{
