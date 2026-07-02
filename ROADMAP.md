@@ -133,6 +133,19 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       unprompted) synced as `m.profile` and rendered as an EDA strip in the master modal;
       `tools/profile_report.py` = one-call native HTML auto-EDA report per master. Remaining
       in section 2: **2.5 fills reconciliation** (blocked on a sample NT Position-History CSV).
+- [ ] **#25 Plug-and-play ML gate (Strategy × Model matrix)** — decouple Carl's
+      classification/regression MODELS from the rule strategies so any strategy pairs with
+      any model WITHOUT a combinatorial strategy list (owner spec 2026-07-02: "select ENGU
+      then XGB, rerun ENGU then logistic"). Design: the base strategy fires its normal
+      entries; a leakage-safe model — trained ONLY on trades strictly before each entry,
+      refit per WF fold — scores P(win) from entry-time features (vol regime, trend
+      strength, time-of-day, day-of-week; order-flow delta once #23 lands); entries under
+      the gate threshold are skipped. Gate model = the Builder's **ML FILTER** dropdown
+      (slot shipped v43.2: None active; logistic/RF/XGB greyed). Build order: **logistic
+      first** (board 3A.2, the KISS baseline), then XGBoost (3A.3); harness itself = board
+      **3A.4**. Gate threshold + min-history trades become searchable params; gated runs go
+      through the same folds/gates/lockbox. Self-contained learners (GAINZ_RF_1_0) stay
+      ordinary strategies — the gate is an OVERLAY, not a rewrite.
 
 ## 4. optimizer.py (Streamlit) — open bugs (only while Streamlit is still in use)
 - [ ] **#1 Results shows only the most-recent completed run** — live panel hydrates only the

@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='43.1';
+const VERSION='43.2';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5669,15 +5669,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const c_search=_axSel('ex-search',[['single','Single · run 1 config'],['grid','Grid · sweep every combo'],['bayes','Bayesian · smart search']],_ax0[0])+'<input type="hidden" id="ex-mode" value="'+(APREF.mode||'single')+'"/>';
       const c_valid=_axSel('ex-valid',[['none','None · in-sample only'],['wf','Walk-forward folds'],['full','WF + gates + 🔒 lockbox']],_ax0[1]);
       const c_ai=_axSel('ex-ai',[['off','Off'],['propose','🧠 Propose ranges'],['rewrite','🧬 Rewrite code']],_ax0[2]);
-      // STRATEGY dropdown = where the board's 3A Models shelf lives (a learned model IS a
-      // strategy — it makes the trades). Split into rule vs model optgroups so the 3A
-      // options are visible; planned 3A models show greyed until their plugin exists.
+      // STRATEGY = the trigger/knobs (rule strategies + self-contained learners like
+      // GAINZ_RF). Carl's classification MODELS do NOT multiply this list — they plug in
+      // via the separate ML FILTER slot below (Strategy × Model matrix, ROADMAP #25).
       const _isModelStrat=f=>/^(GAINZ_RF|RF_|XGB|LOGIT|GAM_)/i.test(String(f||''));
       const _sOpt=s=>'<option value="'+s.file+'"'+(s.file===curStrat?' selected':'')+'>'+stratInfo(s.file).label+'</option>';
       const _rules=slist.filter(s=>!_isModelStrat(s.file)),_models=slist.filter(s=>_isModelStrat(s.file));
       const c_strat='<select id="ex-strat"><optgroup label="RULE STRATEGIES — hand-coded">'+_rules.map(_sOpt).join('')+'</optgroup>'
-        +'<optgroup label="MODEL STRATEGIES — learned · board 3A">'+_models.map(_sOpt).join('')
-        +'<option disabled>logistic baseline · 3A.2 — planned</option><option disabled>XGBoost signal · 3A.3 — planned</option></optgroup></select>';
+        +(_models.length?'<optgroup label="MODEL STRATEGIES — self-contained learners">'+_models.map(_sOpt).join('')+'</optgroup>':'')+'</select>';
+      // ML FILTER = the plug-and-play slot for Carl's classification models (board 3A):
+      // the strategy fires entries, the chosen model gates them by P(win) — pair ANY
+      // strategy with ANY model. Engine = ROADMAP #25 (ML gate harness, board 3A.4);
+      // None is the only live option until it ships.
+      const c_mlf='<select id="ex-mlf"><option value="none" selected>None — trade every signal</option><option disabled>logistic gate · 3A.2 — planned</option><option disabled>Random Forest gate · 3A.1 — planned</option><option disabled>XGBoost gate · 3A.3 — planned</option></select>';
       const _curSess=(APREF.session==='eth'?'eth':'rth');
       const c_master='<select id="ex-master">'+masterOptsHtml(APREF.instrument||'NQ',APREF.timeframe||'5m',_curSess)+'</select>';
       const c_inst='<select id="ex-inst">'+INSTORD.map(k=>'<option'+(k===(APREF.instrument||'NQ')?' selected':'')+'>'+k+'</option>').join('')+'</select>';
@@ -5726,7 +5730,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<input id="ex-from" type="hidden" value="'+(APREF.date_from||'')+'"/><input id="ex-to" type="hidden" value="'+(APREF.date_to||'')+'"/></div>';
       body=exStyle+'<div class="section ex-build">'
         +'<div class="lbl" style="margin-bottom:10px">DATA &amp; STRATEGY</div>'
-        +exrow(fld('STRATEGY',c_strat,190)+fld('INSTRUMENT',c_inst,110)+fld('TIMEFRAME',c_tf,100)+fld('SESSION',c_sess,100)+fld('CSV FILE',c_master,200)+fld('DATE RANGE',c_dates,230))
+        +exrow(fld('STRATEGY',c_strat,190)+fld('ML FILTER',c_mlf,185)+fld('INSTRUMENT',c_inst,110)+fld('TIMEFRAME',c_tf,100)+fld('SESSION',c_sess,100)+fld('CSV FILE',c_master,200)+fld('DATE RANGE',c_dates,230))
         +'<div id="ex-dataspan" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 8px">—</div>'
         +grpH('HOW TO RUN — SEARCH × VALIDATION × AI')
         +exrow(fld('SEARCH',c_search,185)+fld('VALIDATION',c_valid,190)+fld('AI ASSIST',c_ai,155)+fld('SCOPE',c_preset,190)+fld('MIN TRADES','<input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/>',100)+fld('WORKERS','<input id="ex-work" type="number" value="'+(APREF.workers||4)+'"/>',90)+fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||200)+'"/>',90)+fld('WF FOLDS','<input id="ex-folds" type="number" value="0"/>',90)+fld('WF TYPE','<select id="ex-wfmode"><option value="anchored"'+(APREF.wf_mode==='rolling'?'':' selected')+'>Anchored (expanding)</option><option value="rolling"'+(APREF.wf_mode==='rolling'?' selected':'')+'>Rolling (fixed window)</option></select>',160)+fld('AI ROUNDS','<input id="ex-rounds" type="number" value="'+(APREF.rounds||4)+'"/>',90)+fld('DISCOVER WITH','<select id="ex-discover"><option value="auto"'+(APREF.discover==='evolve'?'':' selected')+'>Statistical (fast · free)</option><option value="evolve"'+(APREF.discover==='evolve'?' selected':'')+'>AI-evolve (rewrite code → judge)</option></select>',230)+fld('VALIDATE SCOPE','<select id="ex-vscope">'+[['short','Short · ~3yr · 80 trials · 6mo lock'],['medium','Medium · ~6yr · 120 trials · 12mo lock'],['long','Long · ~12yr · 200 trials · 12mo lock'],['xl','XL · all data · 300 trials · 18mo lock']].map(o=>'<option value="'+o[0]+'"'+(o[0]===(APREF.vscope||'medium')?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>',300)+(function(){const _xd=(APREF.xfer!=null?APREF.xfer:(SIB[APREF.instrument||'NQ']||''));return fld('TRANSFER TO','<select id="ex-xfer"><option value="">— none —</option>'+INSTORD.map(k=>'<option value="'+k+'"'+(k===_xd?' selected':'')+'>'+k+'</option>').join('')+'</select>',120);})()+fld('AI PROVIDER',c_prov,170))
