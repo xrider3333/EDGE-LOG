@@ -162,8 +162,14 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       1.18→1.27 clearly BEAT logistic (1.20); RF (1.21) only tied it — KISS doctrine
       holding for the forest, not for boosting. NB:
       best-of-3 gate choice = multiple testing; must survive WF+lockbox to be believed.
+      **Shipped v1.2 (2026-07-02, v43.6 / stack v2.6):** literal **xgboost 3.3.0**
+      installed (owner-approved same day — the one sanctioned exception to the
+      no-new-deps doctrine; sklearn HGB remains the automatic fallback). ML FILTER
+      option is now '⚡ XGBoost gate'. ORB 1.0 head-to-head (cut-off 50%, ungated PF
+      1.18): XGBoost kept 507/978, **PF 1.43**, WR 52.3 — gated PnL beat taking every
+      trade; HGB stand-in 1.27, logistic 1.20, RF 1.21.
       REMAINING: gate inside grid/auto/WF/validate (refit-per-fold), threshold as a
-      searchable param, literal xgboost as an optional swap-in.
+      searchable param.
 
 ## 4. optimizer.py (Streamlit) — open bugs (only while Streamlit is still in use)
 - [ ] **#1 Results shows only the most-recent completed run** — live panel hydrates only the

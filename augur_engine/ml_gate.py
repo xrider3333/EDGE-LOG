@@ -16,10 +16,10 @@ Leakage rules (the whole point):
   • refits happen every `refit_every` newly-completed trades (a per-trade refit
     is pointlessly slow; the model barely moves one trade at a time).
 
-Model zoo (all sklearn, no new deps): "logistic" (the KISS baseline), "rf"
-(shallow RandomForest), "boosted" (HistGradientBoosting — the gradient-boosted-
-trees family XGBoost popularized; the xgboost package itself is not installed).
-The doctrine: if rf/boosted can't beat logistic out-of-sample, the extra
+Model zoo: "logistic" (sklearn, the KISS baseline), "rf" (shallow sklearn
+RandomForest), "xgb" (literal XGBoost — installed 2026-07-02, owner-approved;
+sklearn HistGradientBoosting is the automatic fallback if the package is
+missing). The doctrine: if rf/xgb can't beat logistic out-of-sample, the extra
 complexity isn't earning anything.
 """
 import numpy as np
@@ -92,9 +92,7 @@ def _make_model(name, seed):
     """Gate-model zoo. All shallow/regularized on purpose: training sets are a few
     hundred trades, and an expressive model would memorize them. Uniform Pipeline
     (scaler is a no-op for the trees, harmless) so fit(clf__sample_weight=…) works
-    for every member. XGBoost the *package* isn't installed (no-new-deps doctrine);
-    'boosted' = sklearn HistGradientBoosting — the same gradient-boosted-trees
-    family XGBoost popularized."""
+    for every member."""
     name = str(name or "").lower()
     from sklearn.pipeline import Pipeline
     from sklearn.preprocessing import StandardScaler
@@ -107,10 +105,25 @@ def _make_model(name, seed):
                                      min_samples_leaf=10, n_jobs=-1,
                                      random_state=int(seed))
     elif name in ("boosted", "xgb", "xgboost", "hgb", "gbt"):
-        from sklearn.ensemble import HistGradientBoostingClassifier
-        clf = HistGradientBoostingClassifier(max_depth=3, max_iter=100,
-                                             learning_rate=0.1,
-                                             random_state=int(seed))
+        # literal XGBoost (installed 2026-07-02, owner-approved); sklearn
+        # HistGradientBoosting stays as the automatic fallback so the gate
+        # still works on a machine without the package.
+        try:
+            from xgboost import XGBClassifier
+            clf = XGBClassifier(max_depth=3, n_estimators=100, learning_rate=0.1,
+                                tree_method="hist", n_jobs=-1, verbosity=0,
+                                random_state=int(seed))
+            impl = "xgboost"
+        except ImportError:
+            from sklearn.ensemble import HistGradientBoostingClassifier
+            clf = HistGradientBoostingClassifier(max_depth=3, max_iter=100,
+                                                 learning_rate=0.1,
+                                                 random_state=int(seed))
+            impl = "hgb-fallback"
+        from sklearn.pipeline import Pipeline as _P
+        pipe = _P([("sc", StandardScaler()), ("clf", clf)])
+        pipe._gate_impl = impl
+        return pipe
     else:
         raise ValueError(
             f"unknown gate model '{name}' (supported: logistic, rf, boosted)")
@@ -182,7 +195,9 @@ def gate_trades(arrays, trades, model="logistic", threshold=0.50,
         "trades": kept,
         "stats": after,
         "summary": {
-            "model": str(model), "threshold": thr,
+            "model": str(model),
+            "model_impl": getattr(mdl, "_gate_impl", str(model)),
+            "threshold": thr,
             "min_history": int(min_history), "refit_every": int(refit_every),
             "n_fits": int(n_fits), "warmup": int(warmup),
             "degenerate": int(degenerate),
