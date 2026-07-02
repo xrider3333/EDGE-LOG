@@ -33,6 +33,7 @@
         border-bottom:1px solid var(--border2);padding-bottom:5px;margin-bottom:7px;
         display:flex;justify-content:space-between;align-items:baseline;gap:10px}
   .secn{color:var(--text5);font-size:9px;letter-spacing:.5px;font-weight:600;white-space:nowrap}
+  .grp{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text5);font-weight:700;margin:9px 0 5px}
   .p{display:inline-block;font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid;
      margin:0 5px 5px 0;cursor:pointer;user-select:none;white-space:nowrap}
   .p-live{color:var(--green);background:rgba(0,229,160,.08);border-color:rgba(0,229,160,.30)}
@@ -47,8 +48,8 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v1.8</span></h1>
-  <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (Carl McBride Ellis's 12 notebook categories, mapped to EDGELOG). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-01.</span></p>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v1.9</span></h1>
+  <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (EDGELOG's own workflow axes — Model &amp; Search, Validation, … — each pill tagged with its old Carl category). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-02.</span></p>
 
   <div class="summary">
     <span class="pill"><span class="dot dg"></span><b>25</b> live</span>
@@ -126,125 +127,101 @@
     </div>
     </section>
 
-    <!-- ===== VIEW 2 · ROADMAP (Carl's 12 categories) ===== -->
+    <!-- ===== VIEW 2 · BACKTESTING STACK (EDGELOG-native workflow axes) ===== -->
     <section class="view">
-    <div class="lbl">Backtesting Stack — Carl's 12 method categories · tap a pill</div>
+    <div class="lbl">Backtesting Stack — EDGELOG workflow axes · tap a pill <span style="color:var(--text5)">· "was §X.Y" = old Carl category</span></div>
 
     <div class="sec">
-      <div class="sech"><span>1 · EDA</span><span class="secn">→ pipeline 1 · per-master</span></div>
+      <div class="sech"><span>1 · Data health &amp; EDA</span><span class="secn">→ pipeline 1 · know your input</span></div>
       <div>
-        <span class="p p-live" data-info="LIVE (v42.7). Input-data EDA per master: within-session return stats (bp sigma / skew / excess kurtosis), annualized vol by year, activity by ET hour, monthly bar-coverage, price range — shown as an EDA strip in the master modal (click a master in the Library). Cached per file; recomputes only on change. NQ 5m RTH reads: sigma 11bp, kurt 29.6 (fat tails), vol peaks 2011/2020/2025.">EDA pre-flight</span>
-        <span class="p p-live" data-info="LIVE (v42.7). One-call auto-EDA HTML report per master: python tools/profile_report.py &quot;NQ 5m RTH&quot; (or --all) -> augur_uploads/_profiles/<name>.html — return-distribution histogram vs normal (fat tails in red), vol-by-year, hour activity, coverage, health + roll-seam summary, outlier examples. Built NATIVE instead of ydata-profiling/dabl on purpose: their heavy pinned deps risk destabilizing the trading PC's python env; zero new dependencies.">auto-EDA report</span>
+        <span class="p p-live" data-info="Master combine dedupes overlaps and flags gaps-to-segments on import. Runs: per pull (cheap). · was §2.1">gap-check</span>
+        <span class="p p-live" data-info="LIVE (v42.5). Hard checks for IMPOSSIBLE data: high not below low, open/close within the bar, price above 0, volume not negative, no duplicate/unsorted timestamps, session-gap scan (RTH >1.5x bar; ETH/sub-1m >=2h; recent gaps WARN, historic halts stay visible). Blocks the NT import merge on impossible prices; per-master HEALTH chip in the Library masters table, cached by file mtime (0.02s warm). Verified on all 18 masters / 18.6M rows: zero structural failures; the 2020 COVID halts surface as the RTH gap examples. · was §2.2">structural asserts</span>
+        <span class="p p-live" data-info="LIVE (v42.7). sklearn IsolationForest on derived bar features (|return| / range / wicks / volume-change), fit on a 150k sample, scored over the most recent 2M bars at 1e-4 contamination — FLAGS for review, never deletes. Sanity-proof: it independently flagged the April-2025 tariff-crash days on NQ. Count + examples in the master modal's EDA strip. (Inverse-PCA reconstruction error remains a possible second detector.) · was §2.3">Isolation Forest outliers</span>
+        <span class="p p-live" data-info="LIVE (v42.7). Monthly bar-coverage map — bars per month vs expected (median daily bars x business days, clamped to the observed span), rendered as the green/yellow/red MONTHLY BAR COVERAGE strip in the master modal. Built native (missingno isn't installed and OHLC 'missingness' is absent BARS, not NaN cells — a coverage strip is the honest visualization). · was §2.4">coverage map</span>
+        <span class="p p-live" data-info="LIVE. Diffs the session-boundary gaps IN POINTS between a master and its adj/no-adj stitch twin — market moves cancel, pure roll spread remains (a single series can't tell spread from news gaps). Finds the quarterly rolls (ES 62/65, NQ 58/65 quarters; ~2.1-2.7% max spread), records each master's adjustment class, and WARNs if >25% of quarters show no seam (a roll the back-adjustment missed). ES's missing 2017-2019 quarters = the near-zero-carry era (genuinely tiny spreads). No-adj masters carry the note that overnight PnL across a seam is roll spread, not a real move. Runs: cached per master, recomputed on file change. · was §2.6">roll-seam / adjustment check</span>
+        <span class="p p-plan" data-info="Reconcile paired trades vs the NinjaTrader Position-History CSV to catch web / mobile fills that skip the local DB + AddOn. Runs: PER NT SYNC (ongoing, not per-master). · was §2.5">fills reconciliation</span>
+        <span class="p p-live" data-info="LIVE (v42.7). Input-data EDA per master: within-session return stats (bp sigma / skew / excess kurtosis), annualized vol by year, activity by ET hour, monthly bar-coverage, price range — shown as an EDA strip in the master modal (click a master in the Library). Cached per file; recomputes only on change. NQ 5m RTH reads: sigma 11bp, kurt 29.6 (fat tails), vol peaks 2011/2020/2025. · was §1.1">EDA pre-flight</span>
+        <span class="p p-live" data-info="LIVE (v42.7). One-call auto-EDA HTML report per master: python tools/profile_report.py &quot;NQ 5m RTH&quot; (or --all) -> augur_uploads/_profiles/<name>.html — return-distribution histogram vs normal (fat tails in red), vol-by-year, hour activity, coverage, health + roll-seam summary, outlier examples. Built NATIVE instead of ydata-profiling/dabl on purpose: their heavy pinned deps risk destabilizing the trading PC's python env; zero new dependencies. · was §1.2">auto-EDA report</span>
       </div>
       <div class="info"></div>
     </div>
 
     <div class="sec">
-      <div class="sech"><span>2 · Data cleaning / prep</span><span class="secn">→ pipeline 1 · data-health card</span></div>
+      <div class="sech"><span>2 · Feature screen</span><span class="secn">→ pipeline 2 · which inputs matter</span></div>
       <div>
-        <span class="p p-live" data-info="Master combine dedupes overlaps and flags gaps-to-segments on import. Runs: per pull (cheap).">gap-check</span>
-        <span class="p p-live" data-info="LIVE (v42.5). Hard checks for IMPOSSIBLE data: high not below low, open/close within the bar, price above 0, volume not negative, no duplicate/unsorted timestamps, session-gap scan (RTH >1.5x bar; ETH/sub-1m >=2h; recent gaps WARN, historic halts stay visible). Blocks the NT import merge on impossible prices; per-master HEALTH chip in the Library masters table, cached by file mtime (0.02s warm). Verified on all 18 masters / 18.6M rows: zero structural failures; the 2020 COVID halts surface as the RTH gap examples.">structural asserts</span>
-        <span class="p p-live" data-info="LIVE (v42.7). sklearn IsolationForest on derived bar features (|return| / range / wicks / volume-change), fit on a 150k sample, scored over the most recent 2M bars at 1e-4 contamination — FLAGS for review, never deletes. Sanity-proof: it independently flagged the April-2025 tariff-crash days on NQ. Count + examples in the master modal's EDA strip. (Inverse-PCA reconstruction error remains a possible second detector.)">Isolation Forest outliers</span>
-        <span class="p p-live" data-info="LIVE (v42.7). Monthly bar-coverage map — bars per month vs expected (median daily bars x business days, clamped to the observed span), rendered as the green/yellow/red MONTHLY BAR COVERAGE strip in the master modal. Built native (missingno isn't installed and OHLC 'missingness' is absent BARS, not NaN cells — a coverage strip is the honest visualization).">coverage map</span>
-        <span class="p p-plan" data-info="Reconcile paired trades vs the NinjaTrader Position-History CSV to catch web / mobile fills that skip the local DB + AddOn. Runs: PER NT SYNC (ongoing, not per-master).">fills reconciliation</span>
-        <span class="p p-live" data-info="LIVE. Diffs the session-boundary gaps IN POINTS between a master and its adj/no-adj stitch twin — market moves cancel, pure roll spread remains (a single series can't tell spread from news gaps). Finds the quarterly rolls (ES 62/65, NQ 58/65 quarters; ~2.1-2.7% max spread), records each master's adjustment class, and WARNs if >25% of quarters show no seam (a roll the back-adjustment missed). ES's missing 2017-2019 quarters = the near-zero-carry era (genuinely tiny spreads). No-adj masters carry the note that overnight PnL across a seam is roll spread, not a real move. Runs: cached per master, recomputed on file change.">roll-seam / adjustment check</span>
+        <span class="p p-live" data-info="Linear correlation of each param vs PnL (the live Param-Relationship panel). · was §5.1">Pearson r</span>
+        <span class="p p-live" data-info="Any-dependency score (sklearn mutual_info_regression, KSG k-NN estimator) — catches the non-linear (inverted-U / threshold) param relationships Pearson misses. · was §5.2">Mutual Information</span>
+        <span class="p p-live" data-info="Predictive Power Score, 0 to 1 (sklearn tree, cross-validated) — asymmetric, non-linear predictive power. · was §5.3">PPS</span>
       </div>
       <div class="info"></div>
     </div>
 
     <div class="sec">
-      <div class="sech"><span>3 · Classification / regression</span><span class="secn">→ pipeline 2</span></div>
+      <div class="sech"><span>3 · Model &amp; Search</span><span class="secn">→ pipeline 2–3 · make + tune the signal</span></div>
       <div>
-        <span class="p p-live" data-info="Exhaustive parameter grid, parallelized across cores.">grid sweep</span>
-        <span class="p p-live" data-info="Smart hyperparameter sampler that hunts the good region instead of brute force (seed 42).">auto / Bayesian</span>
-        <span class="p p-live" data-info="THE ENGINE TYPE (not a search mode). A random forest that learns features → next-bar direction. It only exists in EDGELOG today as ONE concrete strategy: the GainzAlgo RF port — Backtest builder → Strategy dropdown → 'GAINZ_RF_1_0' (RSI/trend/momentum → forest direction), defaults ES 5m, Short/Medium/Long grid presets. TO RUN: select it → ES 5m master → a grid tier or 🤖 Auto-Optimize → Run. It's a from-scratch Gini decision-stump forest (faithful port of the GainzAlgo TradingView indicator — NOT sklearn), retrained on a rolling window; that per-window retrain is why it's slow, why the batch screen skips it, and why no run exists yet (live runs are all ENGU/ORB/VWAP/REVERT/SuperTrend). AS A GENERAL ENGINE you can bolt onto any feature set it is NOT yet built — that's the section-3 gap. NB: grid sweep + auto/Bayesian above are the SEARCH that tunes params; a random forest is a MODEL that makes the signal — a different axis. Carl's single ID3 / Titanic decision tree (Quinlan 1986) is the primitive this forest ensembles — skipped standalone (one tree overfits; the forest already averages many); ID3's info-gain split = mutual information, already live as 5.2.">Random Forest</span>
-        <span class="p p-plan" data-info="The KISS baseline from Carl's zoo: a logistic-regression direction signal on the same features as RF_ML. Cheap, interpretable, and the bar every fancier model must beat out-of-sample — if logistic matches XGB/RF, the extra complexity isn't earning anything.">logistic baseline</span>
-        <span class="p p-plan" data-info="Gradient-boosted trees (XGBoost) — the tabular workhorse of Carl's zoo and the natural upgrade from RF_ML's stump forest. A new strategy plugin: P(next-bar up) from order-flow features (delta / imbalance from the 10s feed) + OHLC shape, validated through the same folds/gates as every other strategy. Rest of the zoo (GAM, TabNet, H2O, TFDF, GATE, Gaussian process) adds little for this use case; TabPFN is interesting for rare setups but needs torch — skipped for now.">XGBoost signal</span>
+        <div class="grp">Models — make the signal</div>
+        <span class="p p-live" data-info="THE ENGINE TYPE (not a search mode). A random forest that learns features → next-bar direction. It only exists in EDGELOG today as ONE concrete strategy: the GainzAlgo RF port — Backtest builder → Strategy dropdown → 'GAINZ_RF_1_0' (RSI/trend/momentum → forest direction), defaults ES 5m, Short/Medium/Long grid presets. TO RUN: select it → ES 5m master → a grid tier or 🤖 Auto-Optimize → Run. It's a from-scratch Gini decision-stump forest (faithful port of the GainzAlgo TradingView indicator — NOT sklearn), retrained on a rolling window; that per-window retrain is why it's slow, why the batch screen skips it, and why no run exists yet (live runs are all ENGU/ORB/VWAP/REVERT/SuperTrend). AS A GENERAL ENGINE you can bolt onto any feature set it is NOT yet built — that's the gap. NB: grid + Bayesian on the Search shelf below are the SEARCH that tunes params; a random forest is a MODEL that makes the signal — a different axis. Carl's single ID3 / Titanic decision tree (Quinlan 1986) is the primitive this forest ensembles — skipped standalone (one tree overfits; the forest already averages many); ID3's info-gain split = mutual information, already live as 2.2. · was §3.3">Random Forest</span>
+        <span class="p p-plan" data-info="The KISS baseline from Carl's zoo: a logistic-regression direction signal on the same features as the Random Forest. Cheap, interpretable, and the bar every fancier model must beat out-of-sample — if logistic matches XGB/RF, the extra complexity isn't earning anything. · was §3.4">logistic baseline</span>
+        <span class="p p-plan" data-info="Gradient-boosted trees (XGBoost) — the tabular workhorse of Carl's zoo and the natural upgrade from the Random Forest's stump forest. A new strategy plugin: P(next-bar up) from order-flow features (delta / imbalance from the 10s feed) + OHLC shape, validated through the same folds/gates as every other strategy. Rest of the zoo (GAM, TabNet, H2O, TFDF, GATE, Gaussian process) adds little for this use case; TabPFN is interesting for rare setups but needs torch — skipped for now. · was §3.5">XGBoost signal</span>
+        <div class="grp">Search — tune the knobs</div>
+        <span class="p p-live" data-info="Exhaustive parameter grid, parallelized across cores. · was §3.1">grid sweep</span>
+        <span class="p p-live" data-info="Bayesian/TPE-style sampler that hunts the good region instead of brute-forcing the whole grid (seed 42). GP vs TPE is an implementation detail — one family, one pill. · was §3.2">Bayesian search</span>
+        <div class="grp">Pick the winner — which config to deploy</div>
+        <span class="p p-plan" data-info="THE NEXT BUILD. GOAL — PDP (partial-dependence plot): pick the config on a broad, flat, HIGH region of the param→PnL surface — a plateau — not a lone lucky spike, because a plateau is far likelier to survive live. ENGINE — GAM smoothing (Hastie–Tibshirani 1986; pyGAM) is how that plateau gets drawn: a GAM is literally a sum of smooth per-param curves, i.e. the smoothed surface. So PDP = the goal, GAM = the smoother that computes it. Reuses the existing grid points + neighborhood. optimize.py TODO #24. · was §5.4">PDP plateau (GAM) · NEXT</span>
+        <span class="p p-live" data-info="Are the winner's plus/minus-1-step param neighbors also profitable? HIGH GROUND vs a curve-fit cliff — the overfitting check. · was §11.1">neighborhood / plateau</span>
+        <span class="p p-live" data-info="Today's default selection — argmax on the ranked metric (best = valid[0]). The overfit-prone choice that PDP-plateau (the Pick-the-winner shelf) is built to replace. · was §11.4">highest-PnL pick</span>
+        <div class="grp">AI assist — Claude in the loop</div>
+        <span class="p p-live" data-info="LLM rewrites the strategy code on the pre-lockbox window, then re-validates the evolved strategy — generative code search (the lockbox is never seen by the rewrite). Rides ON TOP of a model + a search; it is not a search of its own. · was §12.1">AI-evolve</span>
       </div>
       <div class="info"></div>
     </div>
 
     <div class="sec">
-      <div class="sech"><span>4 · Conformal prediction</span><span class="secn">→ pipeline 4</span></div>
+      <div class="sech"><span>4 · Validation</span><span class="secn">→ pipeline 4 · rigor · five Carl sections → one</span></div>
       <div>
-        <span class="p p-plan" data-info="Wrap the fold / lockbox estimate in a calibrated interval and gate on the lower bound instead of a point number (MAPIE / Venn-ABERS) — small-sample-noise protection.">conformal band</span>
+        <span class="p p-live" data-info="Rolling + anchored re-optimization, test on the next unseen window, roll forward; tracks walk-forward efficiency + fold consistency — the time-aware, no-leakage validation. · was §6.1">walk-forward</span>
+        <span class="p p-live" data-info="Winner PnL over 8 chronological windows — SPREAD (robust) vs CONCENTRATED (one lucky stretch carrying the result). · was §6.2">stress windows</span>
+        <span class="p p-live" data-info="The last ~12 months are reserved and never seen during the search, then the champion is tested on that slice exactly once — the final overfit gate. · was §11.2">lockbox one-shot</span>
+        <span class="p p-live" data-info="Re-test the champion on the sibling instrument (NQ to ES) with no re-optimization — does the edge generalize, or is it a single-symbol artifact? · was §11.3">cross-instrument transfer</span>
+        <span class="p p-live" data-info="Haircut the Sharpe by the best-of-N luck bar (Bailey / Lopez de Prado) — the multiple-testing correction, so a best-of-1000 mirage cannot headline. · was §10.1">Deflated Sharpe</span>
+        <span class="p p-live" data-info="Block-shuffle the trade order thousands of times; size the account to the p95 drawdown. · was §10.2">Monte-Carlo</span>
+        <span class="p p-live" data-info="Trades-per-optimized-parameter gauge — under 10 fragile, 30+ healthy. The degrees-of-freedom / overfit governor. · was §10.3">sample adequacy (DOF)</span>
+        <span class="p p-plan" data-info="Wrap the fold / lockbox estimate in a calibrated interval and gate on the lower bound instead of a point number (MAPIE / Venn-ABERS) — small-sample-noise protection. · was §4.1">conformal band</span>
+        <span class="p p-plan" data-info="Train a classifier to tell fit-era bars from recent / lockbox bars; if it can, your train and live distributions differ (regime drift / leakage). · was §5.5">adversarial validation</span>
       </div>
       <div class="info"></div>
     </div>
 
     <div class="sec">
-      <div class="sech"><span>5 · Feature selection / eng.</span><span class="secn">→ pipeline 2–3</span></div>
+      <div class="sech"><span>5 · Explain</span><span class="secn">→ pipeline 6 · where the edge lives</span></div>
       <div>
-        <span class="p p-live" data-info="Linear correlation of each param vs PnL (the live Param-Relationship panel).">Pearson r</span>
-        <span class="p p-live" data-info="Any-dependency score (sklearn mutual_info_regression, KSG k-NN estimator) — catches the non-linear (inverted-U / threshold) param relationships Pearson misses.">Mutual Information</span>
-        <span class="p p-live" data-info="Predictive Power Score, 0 to 1 (sklearn tree, cross-validated) — asymmetric, non-linear predictive power.">PPS</span>
-        <span class="p p-plan" data-info="THE NEXT BUILD. GOAL — PDP (partial-dependence plot): pick the config on a broad, flat, HIGH region of the param→PnL surface — a plateau — not a lone lucky spike, because a plateau is far likelier to survive live. ENGINE — GAM smoothing (Hastie–Tibshirani 1986; pyGAM) is how that plateau gets drawn: a GAM is literally a sum of smooth per-param curves, i.e. the smoothed surface. So PDP = the goal, GAM = the smoother that computes it. Reuses the existing grid points + neighborhood. optimize.py TODO #24.">PDP plateau (GAM) · NEXT</span>
-        <span class="p p-plan" data-info="Train a classifier to tell fit-era bars from recent / lockbox bars; if it can, your train and live distributions differ (regime drift / leakage).">adversarial validation</span>
+        <span class="p p-live" data-info="PnL sliced by volatility tercile, trend-vs-chop, day-of-week, and a monthly grid — where does the edge actually live? · was §8.1">regime report card</span>
+        <span class="p p-live" data-info="Per-trade maximum adverse / favorable excursion — turns into stop and target guidance. · was §8.2">MAE / MFE</span>
+        <span class="p p-plan" data-info="Per-prediction feature contributions for the learned models (Random Forest / XGBoost) — which order-flow inputs drove a decision. Pairs with MI/PPS (screen) and PDP (shape). · was §8.3">SHAP</span>
       </div>
       <div class="info"></div>
     </div>
 
     <div class="sec">
-      <div class="sech"><span>6 · Time series / forecasting</span><span class="secn">→ pipeline 4</span></div>
+      <div class="sech"><span>6 · Ensemble</span><span class="secn">→ pipeline 3</span></div>
       <div>
-        <span class="p p-live" data-info="Rolling + anchored re-optimization, test on the next unseen window, roll forward; tracks walk-forward efficiency + fold consistency — the time-aware, no-leakage validation.">walk-forward</span>
-        <span class="p p-live" data-info="Winner PnL over 8 chronological windows — SPREAD (robust) vs CONCENTRATED (one lucky stretch carrying the result).">stress windows</span>
+        <span class="p p-plan" data-info="Blend the best K configs — vote to enter, or convex-combine sizing with weights fit on the OOS folds — instead of crowning one. Lower variance; the top-N equity overlay already shows the members. · was §7.1">ensemble top-K</span>
       </div>
       <div class="info"></div>
     </div>
 
     <div class="sec">
-      <div class="sech"><span>7 · Ensemble methods</span><span class="secn">→ pipeline 3</span></div>
+      <div class="sech"><span>7 · Causality</span><span class="secn">→ pipeline 4</span></div>
       <div>
-        <span class="p p-plan" data-info="Blend the best K configs — vote to enter, or convex-combine sizing with weights fit on the OOS folds — instead of crowning one. Lower variance; the top-N equity overlay already shows the members.">ensemble top-K</span>
+        <span class="p p-plan" data-info="PnL on the same bars without the signal — separates a real entry edge from just being long in a rising market (CausalImpact / interrupted time series / Double-ML). · was §9.1">causal check</span>
       </div>
       <div class="info"></div>
     </div>
 
     <div class="sec">
-      <div class="sech"><span>8 · Explainability</span><span class="secn">→ pipeline 6</span></div>
+      <div class="sech"><span>8 · Generative</span><span class="secn">cross-cutting</span></div>
       <div>
-        <span class="p p-live" data-info="PnL sliced by volatility tercile, trend-vs-chop, day-of-week, and a monthly grid — where does the edge actually live?">regime report card</span>
-        <span class="p p-live" data-info="Per-trade maximum adverse / favorable excursion — turns into stop and target guidance.">MAE / MFE</span>
-        <span class="p p-plan" data-info="Per-prediction feature contributions for the learned models (RF_ML) — which order-flow inputs drove a decision. Pairs with MI/PPS (screen) and PDP (shape).">SHAP</span>
-      </div>
-      <div class="info"></div>
-    </div>
-
-    <div class="sec">
-      <div class="sech"><span>9 · Causality</span><span class="secn">→ pipeline 4</span></div>
-      <div>
-        <span class="p p-plan" data-info="PnL on the same bars without the signal — separates a real entry edge from just being long in a rising market (CausalImpact / interrupted time series / Double-ML).">causal check</span>
-      </div>
-      <div class="info"></div>
-    </div>
-
-    <div class="sec">
-      <div class="sech"><span>10 · Statistics</span><span class="secn">→ pipeline 4</span></div>
-      <div>
-        <span class="p p-live" data-info="Haircut the Sharpe by the best-of-N luck bar (Bailey / Lopez de Prado) — the multiple-testing correction, so a best-of-1000 mirage cannot headline.">Deflated Sharpe</span>
-        <span class="p p-live" data-info="Block-shuffle the trade order thousands of times; size the account to the p95 drawdown.">Monte-Carlo</span>
-        <span class="p p-live" data-info="Trades-per-optimized-parameter gauge — under 10 fragile, 30+ healthy. The degrees-of-freedom / overfit governor.">sample adequacy (DOF)</span>
-      </div>
-      <div class="info"></div>
-    </div>
-
-    <div class="sec">
-      <div class="sech"><span>11 · Didactic / sanity</span><span class="secn">→ pipeline 3–5</span></div>
-      <div>
-        <span class="p p-live" data-info="Are the winner's plus/minus-1-step param neighbors also profitable? HIGH GROUND vs a curve-fit cliff — the overfitting check.">neighborhood / plateau</span>
-        <span class="p p-live" data-info="The last ~12 months are reserved and never seen during the search, then the champion is tested on that slice exactly once — the final overfit gate.">lockbox one-shot</span>
-        <span class="p p-live" data-info="Re-test the champion on the sibling instrument (NQ to ES) with no re-optimization — does the edge generalize, or is it a single-symbol artifact?">cross-instrument transfer</span>
-        <span class="p p-live" data-info="Today's default selection — argmax on the ranked metric (best = valid[0]). The overfit-prone choice that PDP-plateau (Feature selection) is built to replace.">highest-PnL pick</span>
-      </div>
-      <div class="info"></div>
-    </div>
-
-    <div class="sec">
-      <div class="sech"><span>12 · Generative AI</span><span class="secn">cross-cutting</span></div>
-      <div>
-        <span class="p p-live" data-info="LLM rewrites the strategy code on the pre-lockbox window, then re-validates the evolved strategy — generative code search (the lockbox is never seen by the rewrite).">AI-evolve</span>
-        <span class="p p-plan" data-info="Generate synthetic stress paths (gaps, halts, low-liquidity sessions) to test where history is thin; tagged non-authoritative, never enters the lockbox.">synthetic scenarios</span>
+        <span class="p p-plan" data-info="Generate synthetic stress paths (gaps, halts, low-liquidity sessions) to test where history is thin; tagged non-authoritative, never enters the lockbox. · was §12.2">synthetic scenarios</span>
       </div>
       <div class="info"></div>
     </div>
@@ -253,8 +230,8 @@
   </div><!-- /views -->
 
   <div class="foot">
-    Roadmap = Carl McBride Ellis's 12 Kaggle notebook categories, each pill an EDGELOG method placed where it fits
-    (a category's <b>→ pipeline N</b> hint shows where it runs). Engine: <code>run_grid</code> / <code>run_auto</code>
+    Backtesting Stack = EDGELOG's own workflow axes (Model &amp; Search · Validation · …); each pill keeps its old Carl
+    category as a "was §X.Y" tag (a section's <b>→ pipeline N</b> hint shows where it runs). Engine: <code>run_grid</code> / <code>run_auto</code>
     → <code>validate.py</code> gates → lockbox. Write-up: <code>docs/EDGELOG_TESTING_STACK.md</code> · backlog <code>ROADMAP.md</code> (#24).
   </div>
 
