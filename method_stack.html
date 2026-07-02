@@ -48,7 +48,7 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v1.9</span></h1>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v2.0</span></h1>
   <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (EDGELOG's own workflow axes — Model &amp; Search, Validation, … — each pill tagged with its old Carl category). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-02.</span></p>
 
   <div class="summary">
@@ -168,7 +168,7 @@
         <span class="p p-live" data-info="Bayesian/TPE-style sampler that hunts the good region instead of brute-forcing the whole grid (seed 42). GP vs TPE is an implementation detail — one family, one pill. · was §3.2">Bayesian search</span>
         <div class="grp">Pick the winner — which config to deploy</div>
         <span class="p p-plan" data-info="THE NEXT BUILD. GOAL — PDP (partial-dependence plot): pick the config on a broad, flat, HIGH region of the param→PnL surface — a plateau — not a lone lucky spike, because a plateau is far likelier to survive live. ENGINE — GAM smoothing (Hastie–Tibshirani 1986; pyGAM) is how that plateau gets drawn: a GAM is literally a sum of smooth per-param curves, i.e. the smoothed surface. So PDP = the goal, GAM = the smoother that computes it. Reuses the existing grid points + neighborhood. optimize.py TODO #24. · was §5.4">PDP plateau (GAM) · NEXT</span>
-        <span class="p p-live" data-info="Are the winner's plus/minus-1-step param neighbors also profitable? HIGH GROUND vs a curve-fit cliff — the overfitting check. · was §11.1">neighborhood / plateau</span>
+        <span class="p p-live" data-info="Are the winner's plus/minus-1-step param neighbors also profitable? HIGH GROUND vs a curve-fit cliff — the overfitting check. NO GAM here on purpose: this is the DISCRETE cousin of PDP plateau (GAM) — it reads the raw ±1-step grid points with no smoothing, so the two cross-check each other (a smooth curve can't invent a plateau the raw neighbors don't show). The GAM lives only in the PDP pill, which smooths the WHOLE param→PnL surface. · was §11.1">neighborhood / plateau</span>
         <span class="p p-live" data-info="Today's default selection — argmax on the ranked metric (best = valid[0]). The overfit-prone choice that PDP-plateau (the Pick-the-winner shelf) is built to replace. · was §11.4">highest-PnL pick</span>
         <div class="grp">AI assist — Claude in the loop</div>
         <span class="p p-live" data-info="LLM rewrites the strategy code on the pre-lockbox window, then re-validates the evolved strategy — generative code search (the lockbox is never seen by the rewrite). Rides ON TOP of a model + a search; it is not a search of its own. · was §12.1">AI-evolve</span>
@@ -242,13 +242,24 @@
     var v=document.getElementById('views');
     function apply(){ if(v) v.classList.toggle('side', location.hash==='#side'); }
     window.addEventListener('hashchange', apply); apply();
-    // Auto-number each pill as section.position (e.g. 5.4) for easy reference.
+    // Auto-number each pill as section.position (e.g. 4.3). Sections with lettered
+    // sub-shelves (.grp) number as section+letter.position (3A.1 Random Forest,
+    // 3B.2 Bayesian, …) and each shelf label gets its 3A/3B/… prefix.
     document.querySelectorAll('.sec').forEach(function(sec){
       var h=sec.querySelector('.sech>span'); var sn=((h&&h.textContent.match(/^(\d+)/))||[])[1]||'';
-      sec.querySelectorAll('.p').forEach(function(p,i){
-        var num=sn+'.'+(i+1); p.setAttribute('data-num',num);
-        p.insertAdjacentHTML('afterbegin','<b style="opacity:.55;font-weight:700;margin-right:5px">'+num+'</b> ');
-      });
+      var wrap=sec.querySelector('.sech').nextElementSibling;
+      if(wrap&&wrap.querySelector('.grp')){
+        var L=0,i=0;
+        Array.prototype.forEach.call(wrap.children,function(ch){
+          if(ch.classList.contains('grp')){L++;i=0;ch.insertAdjacentHTML('afterbegin','<b style="opacity:.85;margin-right:6px">'+sn+String.fromCharCode(64+L)+'</b>');}
+          else if(ch.classList.contains('p')){i++;var num=sn+String.fromCharCode(64+L)+'.'+i;ch.setAttribute('data-num',num);ch.insertAdjacentHTML('afterbegin','<b style="opacity:.55;font-weight:700;margin-right:5px">'+num+'</b> ');}
+        });
+      }else{
+        sec.querySelectorAll('.p').forEach(function(p,i){
+          var num=sn+'.'+(i+1); p.setAttribute('data-num',num);
+          p.insertAdjacentHTML('afterbegin','<b style="opacity:.55;font-weight:700;margin-right:5px">'+num+'</b> ');
+        });
+      }
     });
     document.querySelectorAll('.p[data-info]').forEach(function(p){
       p.addEventListener('click', function(){

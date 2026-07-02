@@ -380,7 +380,38 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='42.9';
+const VERSION='43.0';
+// ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
+//   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
+//   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
+//   hard-reload NOW (fresh when you come back); tab visible → green tap-to-update
+//   pill (never yank the page mid-interaction). Checks every 5 min + each time the
+//   tab becomes visible. sessionStorage guards against reload loops while the CDN
+//   still serves the old build; the ?v= cache-buster is cleaned from the URL below.
+(function(){
+  if(location.search.indexOf('v=')>=0){try{history.replaceState(null,'',location.pathname+location.hash);}catch(_e){}}
+  var _remote='',_busy=false;
+  function hardReload(){try{sessionStorage.setItem('_upd_done',_remote||'');}catch(_e){}location.replace(location.pathname+'?v='+Date.now()+location.hash);}
+  function showPill(v){if(document.getElementById('upd-pill'))return;var d=document.createElement('div');d.id='upd-pill';
+    d.style.cssText='position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99999;background:rgba(0,229,160,.16);border:1px solid rgba(0,229,160,.45);color:#00e5a0;backdrop-filter:blur(14px);border-radius:999px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.4px';
+    d.textContent='⬆ v'+v+' available — tap to update';d.onclick=hardReload;
+    if(document.body)document.body.appendChild(d);}
+  function check(){
+    if(_busy)return;_busy=true;
+    fetch('index.html?uc='+Date.now(),{cache:'no-store',headers:{'Range':'bytes=0-65535'}})
+      .then(function(r){return r.text();})
+      .then(function(t){_busy=false;
+        var m=t.match(/const VERSION='([0-9.]+)'/);if(!m)return;
+        _remote=m[1];if(_remote===VERSION)return;
+        var done='';try{done=sessionStorage.getItem('_upd_done')||'';}catch(_e){}
+        if(document.hidden&&done!==_remote){hardReload();return;}
+        showPill(_remote);})
+      .catch(function(){_busy=false;});
+  }
+  setInterval(check,5*60*1000);
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')setTimeout(check,1200);});
+  setTimeout(check,20000);
+})();
 window._setStage('SCRIPT START');
 </script>
 <script>
