@@ -121,6 +121,12 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       estimator) + a PPS-style tree score** in `analytics.relationship_scores()`, wired into
       `run_grid`/`run_auto`, synced by the runner (`relationship`), and rendered in the web
       **PARAM RELATIONSHIP** panel (index.html v41.3). PDP-plateau (a) remains the NEXT item.
+      **Shipped 2026-07-01 (stack 2.2 + 2.6):** `augur_engine/data_quality.py` — structural
+      asserts (impossible-data checks + tuned session-gap scan; per-pull gate in
+      `tools/import_nt_ohlc.py`; per-master HEALTH chip in the Library masters table,
+      index.html v42.5) and the **paired roll-seam / adjustment check** (points-diff vs the
+      adj/no-adj stitch twin; ES 62/65 / NQ 58/65 quarterly rolls detected; missed-roll WARN
+      at >25% missing quarters). All 18 masters PASS; mtime-cached (`_data_health.json`).
 
 ## 4. optimizer.py (Streamlit) — open bugs (only while Streamlit is still in use)
 - [ ] **#1 Results shows only the most-recent completed run** — live panel hydrates only the

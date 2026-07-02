@@ -47,12 +47,12 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v1.0</span></h1>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v1.1</span></h1>
   <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the method <b style="color:var(--text2)">roadmap</b> (Carl McBride Ellis's 12 notebook categories, mapped to EDGELOG). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-01.</span></p>
 
   <div class="summary">
-    <span class="pill"><span class="dot dg"></span><b>20</b> live</span>
-    <span class="pill"><span class="dot dy"></span><b>13</b> planned</span>
+    <span class="pill"><span class="dot dg"></span><b>21</b> live</span>
+    <span class="pill"><span class="dot dy"></span><b>12</b> planned</span>
   </div>
 
   <div class="views" id="views">
@@ -147,7 +147,7 @@
         <span class="p p-plan" data-info="Flag (not delete) statistically-extreme bars — sklearn IsolationForest, or inverse-PCA reconstruction error (Gnanadesikan-Kettenring) — on derived features (range / return / wick / volume / gap). Runs: DAILY fit; optional per-pull scoring.">Isolation Forest / PCA</span>
         <span class="p p-plan" data-info="Nullity map — visualize missing bars / fills across the master at a glance (the web/mobile fills gap). Runs: DAILY / on-demand.">missingno</span>
         <span class="p p-plan" data-info="Reconcile paired trades vs the NinjaTrader Position-History CSV to catch web / mobile fills that skip the local DB + AddOn. Runs: PER NT SYNC (ongoing, not per-master).">fills reconciliation</span>
-        <span class="p p-plan" data-info="Databento ships per-MONTH contracts, stitched + back-adjusted into a continuous master — so flag the monthly roll dates, verify no impossible adjusted values (back-adjustment can push deep-history prices to or below zero), and mark seam-bar returns so they are not treated as real moves. Record each master's adjustment type (adj vs no-adj). Runs: DAILY / on-demand per master.">roll-seam / adjustment check</span>
+        <span class="p p-live" data-info="LIVE. Diffs the session-boundary gaps IN POINTS between a master and its adj/no-adj stitch twin — market moves cancel, pure roll spread remains (a single series can't tell spread from news gaps). Finds the quarterly rolls (ES 62/65, NQ 58/65 quarters; ~2.1-2.7% max spread), records each master's adjustment class, and WARNs if >25% of quarters show no seam (a roll the back-adjustment missed). ES's missing 2017-2019 quarters = the near-zero-carry era (genuinely tiny spreads). No-adj masters carry the note that overnight PnL across a seam is roll spread, not a real move. Runs: cached per master, recomputed on file change.">roll-seam / adjustment check</span>
       </div>
       <div class="info"></div>
     </div>
