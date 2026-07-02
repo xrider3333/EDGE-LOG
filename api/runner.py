@@ -319,7 +319,16 @@ class FirestoreQueue:
                  "workers": _cfg0.get("workers")}))
             keep = ("name", "instrument", "timeframe", "session", "source",
                     "rows", "date_from", "date_to")
-            masters = [{k: m.get(k) for k in keep} for m in ae.list_masters()]
+            _mfull = ae.list_masters()
+            masters = [{k: m.get(k) for k in keep} for m in _mfull]
+            # Per-master data-health card (stack 2.2): structural asserts, cached by
+            # file mtime+size — only masters that changed since last sync get re-scanned.
+            try:
+                from augur_engine import data_quality as _dq
+                for m, mf in zip(masters, _mfull):
+                    m["health"] = _dq.health_summary(mf)
+            except Exception as e:
+                log(f"  [data-health] skipped: {type(e).__name__}: {e}")
             # Auto-pull (auto-refresh) status, read from local augur_config.json. Tag
             # each master with whether auto-refresh is enabled for it so the web Library
             # can show a live AUTO badge + last-bar date, and Settings a sync summary.
