@@ -51,8 +51,8 @@
   <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the method <b style="color:var(--text2)">roadmap</b> (Carl McBride Ellis's 12 notebook categories, mapped to EDGELOG). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-06-30.</span></p>
 
   <div class="summary">
-    <span class="pill"><span class="dot dg"></span><b>19</b> live</span>
-    <span class="pill"><span class="dot dy"></span><b>14</b> planned</span>
+    <span class="pill"><span class="dot dg"></span><b>20</b> live</span>
+    <span class="pill"><span class="dot dy"></span><b>13</b> planned</span>
   </div>
 
   <div class="views" id="views">
@@ -75,7 +75,7 @@
     <text x="78" y="100" font-size="14.5" font-weight="700" fill="#c8ccd8">Data &amp; EDA</text>
     <g font-size="12">
       <rect x="280" y="84" width="78" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="291" y="99" fill="#00e5a0">gap-check</text>
-      <rect x="366" y="84" width="96" height="22" rx="11" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="377" y="99" fill="#f5c842">quality gate</text>
+      <rect x="366" y="84" width="96" height="22" rx="11" fill="rgba(74,158,255,.10)" stroke="rgba(74,158,255,.4)"/><text x="377" y="99" fill="#4a9eff">quality gate</text>
       <rect x="470" y="84" width="104" height="22" rx="11" fill="rgba(74,158,255,.10)" stroke="rgba(74,158,255,.4)"/><text x="481" y="99" fill="#4a9eff">EDA pre-flight</text>
     </g>
     <rect x="24" y="132" width="712" height="58" rx="12" fill="#0e0e1e" stroke="#1e1e36"/>
@@ -143,7 +143,7 @@
       <div class="sech"><span>2 · Data cleaning / prep</span><span class="secn">→ pipeline 1 · data-health card</span></div>
       <div>
         <span class="p p-live" data-info="Master combine dedupes overlaps and flags gaps-to-segments on import. Runs: per pull (cheap).">gap-check</span>
-        <span class="p p-plan" data-info="Hard checks for IMPOSSIBLE data: high not below low, open and close within the bar, price above 0, volume not negative, strictly-increasing timestamps (no duplicates), intra-session gap flags. The gate — blocks / warns at ingest. Runs: PER PULL on the newly-appended bars only (milliseconds).">structural asserts</span>
+        <span class="p p-live" data-info="LIVE (v42.5). Hard checks for IMPOSSIBLE data: high not below low, open/close within the bar, price above 0, volume not negative, no duplicate/unsorted timestamps, session-gap scan (RTH >1.5x bar; ETH/sub-1m >=2h; recent gaps WARN, historic halts stay visible). Blocks the NT import merge on impossible prices; per-master HEALTH chip in the Library masters table, cached by file mtime (0.02s warm). Verified on all 18 masters / 18.6M rows: zero structural failures; the 2020 COVID halts surface as the RTH gap examples.">structural asserts</span>
         <span class="p p-plan" data-info="Flag (not delete) statistically-extreme bars — sklearn IsolationForest, or inverse-PCA reconstruction error (Gnanadesikan-Kettenring) — on derived features (range / return / wick / volume / gap). Runs: DAILY fit; optional per-pull scoring.">Isolation Forest / PCA</span>
         <span class="p p-plan" data-info="Nullity map — visualize missing bars / fills across the master at a glance (the web/mobile fills gap). Runs: DAILY / on-demand.">missingno</span>
         <span class="p p-plan" data-info="Reconcile paired trades vs the NinjaTrader Position-History CSV to catch web / mobile fills that skip the local DB + AddOn. Runs: PER NT SYNC (ongoing, not per-master).">fills reconciliation</span>
