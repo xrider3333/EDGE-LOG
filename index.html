@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='43.4';
+const VERSION='43.5';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5704,7 +5704,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // P(win) — pair ANY strategy with ANY model (meta-labeling, ROADMAP #25).
       // v1: logistic gate LIVE on Single backtests; RF/XGB gates still planned.
       const _mlf0=APREF.mlf||'none';
-      const c_mlf='<select id="ex-mlf"><option value="none"'+(_mlf0!=='logistic'?' selected':'')+'>None — trade every signal</option><option value="logistic"'+(_mlf0==='logistic'?' selected':'')+'>🚪 logistic gate · 3A.2</option><option disabled>Random Forest gate · 3A.1 — planned</option><option disabled>XGBoost gate · 3A.3 — planned</option></select>';
+      const _mlfOpt=(v,lbl)=>'<option value="'+v+'"'+(_mlf0===v?' selected':'')+'>'+lbl+'</option>';
+      const c_mlf='<select id="ex-mlf">'+_mlfOpt('none','None — trade every signal')+_mlfOpt('logistic','🚪 logistic gate · 3A.2')+_mlfOpt('rf','🌲 Random Forest gate · 3A.1')+_mlfOpt('boosted','⚡ boosted-trees gate · 3A.3')+'</select>';
       const c_mlth='<input id="ex-mlth" type="number" min="50" max="90" step="1" value="'+(APREF.mlth||50)+'"/>';
       const _curSess=(APREF.session==='eth'?'eth':'rth');
       const c_master='<select id="ex-master">'+masterOptsHtml(APREF.instrument||'NQ',APREF.timeframe||'5m',_curSess)+'</select>';

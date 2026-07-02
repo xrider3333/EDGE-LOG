@@ -16,8 +16,11 @@ Leakage rules (the whole point):
   • refits happen every `refit_every` newly-completed trades (a per-trade refit
     is pointlessly slow; the model barely moves one trade at a time).
 
-v1 model zoo: "logistic" (sklearn LogisticRegression behind a StandardScaler) —
-the KISS baseline. RF / XGBoost gates plug into the same registry later.
+Model zoo (all sklearn, no new deps): "logistic" (the KISS baseline), "rf"
+(shallow RandomForest), "boosted" (HistGradientBoosting — the gradient-boosted-
+trees family XGBoost popularized; the xgboost package itself is not installed).
+The doctrine: if rf/boosted can't beat logistic out-of-sample, the extra
+complexity isn't earning anything.
 """
 import numpy as np
 import pandas as pd
@@ -86,15 +89,32 @@ def _stats(pnls):
 
 
 def _make_model(name, seed):
+    """Gate-model zoo. All shallow/regularized on purpose: training sets are a few
+    hundred trades, and an expressive model would memorize them. Uniform Pipeline
+    (scaler is a no-op for the trees, harmless) so fit(clf__sample_weight=…) works
+    for every member. XGBoost the *package* isn't installed (no-new-deps doctrine);
+    'boosted' = sklearn HistGradientBoosting — the same gradient-boosted-trees
+    family XGBoost popularized."""
     name = str(name or "").lower()
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import StandardScaler
     if name in ("logistic", "logit", "lr"):
-        from sklearn.pipeline import Pipeline
-        from sklearn.preprocessing import StandardScaler
         from sklearn.linear_model import LogisticRegression
-        return Pipeline([("sc", StandardScaler()),
-                         ("lr", LogisticRegression(max_iter=500, C=1.0,
-                                                   random_state=int(seed)))])
-    raise ValueError(f"unknown gate model '{name}' (v1 supports: logistic)")
+        clf = LogisticRegression(max_iter=500, C=1.0, random_state=int(seed))
+    elif name in ("rf", "forest", "random_forest", "randomforest"):
+        from sklearn.ensemble import RandomForestClassifier
+        clf = RandomForestClassifier(n_estimators=100, max_depth=4,
+                                     min_samples_leaf=10, n_jobs=-1,
+                                     random_state=int(seed))
+    elif name in ("boosted", "xgb", "xgboost", "hgb", "gbt"):
+        from sklearn.ensemble import HistGradientBoostingClassifier
+        clf = HistGradientBoostingClassifier(max_depth=3, max_iter=100,
+                                             learning_rate=0.1,
+                                             random_state=int(seed))
+    else:
+        raise ValueError(
+            f"unknown gate model '{name}' (supported: logistic, rf, boosted)")
+    return Pipeline([("sc", StandardScaler()), ("clf", clf)])
 
 
 # ── the gate itself ────────────────────────────────────────────────────────────
@@ -148,7 +168,7 @@ def gate_trades(arrays, trades, model="logistic", threshold=0.50,
             mdl = _make_model(model, seed)
             # |pnl| sample weights: learn "which trades MATTER", not raw frequency
             mdl.fit(X[:k][done], ytr,
-                    lr__sample_weight=np.abs(P[:k][done]) + 1e-9)
+                    clf__sample_weight=np.abs(P[:k][done]) + 1e-9)
             fitted_on = nd; n_fits += 1
         p = float(mdl.predict_proba(X[k:k + 1])[0, 1])
         prob[k] = p

@@ -154,8 +154,16 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       results render an UNGATED-vs-GATED card; runner passes ml_filter/ml_threshold.
       First findings (NQ 5m RTH, 2022→): ORB 1.0 (978 trd) PF 1.18→1.20 / WR 47→48.5;
       ENGU 1.3.4 (200 trd) worse — gates need trade volume; clock/OHLC features are weak
-      fuel (order-flow delta #23 = next). REMAINING: RF/XGB gate models, gate inside
-      grid/auto/WF/validate (refit-per-fold), threshold as a searchable param.
+      fuel (order-flow delta #23 = next).
+      **Shipped v1.1 (2026-07-02, v43.5 / stack v2.5):** RF gate (sklearn forest, 100
+      trees / depth 4) + boosted-trees gate (sklearn HistGradientBoosting — the XGB
+      family; the xgboost package itself is NOT installed, no-new-deps doctrine). All 3
+      selectable in ML FILTER. Head-to-head on ORB 1.0 (cut-off 50%): boosted PF
+      1.18→1.27 clearly BEAT logistic (1.20); RF (1.21) only tied it — KISS doctrine
+      holding for the forest, not for boosting. NB:
+      best-of-3 gate choice = multiple testing; must survive WF+lockbox to be believed.
+      REMAINING: gate inside grid/auto/WF/validate (refit-per-fold), threshold as a
+      searchable param, literal xgboost as an optional swap-in.
 
 ## 4. optimizer.py (Streamlit) — open bugs (only while Streamlit is still in use)
 - [ ] **#1 Results shows only the most-recent completed run** — live panel hydrates only the
