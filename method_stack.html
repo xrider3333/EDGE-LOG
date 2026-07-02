@@ -47,12 +47,12 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v1.2</span></h1>
-  <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the method <b style="color:var(--text2)">roadmap</b> (Carl McBride Ellis's 12 notebook categories, mapped to EDGELOG). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-01.</span></p>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v1.3</span></h1>
+  <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (Carl McBride Ellis's 12 notebook categories, mapped to EDGELOG). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-01.</span></p>
 
   <div class="summary">
     <span class="pill"><span class="dot dg"></span><b>25</b> live</span>
-    <span class="pill"><span class="dot dy"></span><b>8</b> planned</span>
+    <span class="pill"><span class="dot dy"></span><b>10</b> planned</span>
   </div>
 
   <div class="views" id="views">
@@ -128,7 +128,7 @@
 
     <!-- ===== VIEW 2 · ROADMAP (Carl's 12 categories) ===== -->
     <section class="view">
-    <div class="lbl">Roadmap — Carl's 12 method categories · tap a pill</div>
+    <div class="lbl">Backtesting Stack — Carl's 12 method categories · tap a pill</div>
 
     <div class="sec">
       <div class="sech"><span>1 · EDA</span><span class="secn">→ pipeline 1 · per-master</span></div>
@@ -158,6 +158,8 @@
         <span class="p p-live" data-info="Exhaustive parameter grid, parallelized across cores.">grid sweep</span>
         <span class="p p-live" data-info="Smart hyperparameter sampler that hunts the good region instead of brute force (seed 42).">auto / Bayesian</span>
         <span class="p p-live" data-info="Random-forest next-bar-direction strategy (RSI / trend / momentum features) — your one ML strategy, the model MI/PPS feature-ranking is for.">RF_ML</span>
+        <span class="p p-plan" data-info="The KISS baseline from Carl's zoo: a logistic-regression direction signal on the same features as RF_ML. Cheap, interpretable, and the bar every fancier model must beat out-of-sample — if logistic matches XGB/RF, the extra complexity isn't earning anything.">logistic baseline</span>
+        <span class="p p-plan" data-info="Gradient-boosted trees (XGBoost) — the tabular workhorse of Carl's zoo and the natural upgrade from RF_ML's stump forest. A new strategy plugin: P(next-bar up) from order-flow features (delta / imbalance from the 10s feed) + OHLC shape, validated through the same folds/gates as every other strategy. Rest of the zoo (GAM, TabNet, H2O, TFDF, GATE, Gaussian process) adds little for this use case; TabPFN is interesting for rare setups but needs torch — skipped for now.">XGBoost signal</span>
       </div>
       <div class="info"></div>
     </div>
