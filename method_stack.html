@@ -51,9 +51,8 @@
   <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the method <b style="color:var(--text2)">roadmap</b> (Carl McBride Ellis's 12 notebook categories, mapped to EDGELOG). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-06-30.</span></p>
 
   <div class="summary">
-    <span class="pill"><span class="dot dg"></span><b>20</b> live</span>
-    <span class="pill"><span class="dot db"></span><b>1</b> partial</span>
-    <span class="pill"><span class="dot dy"></span><b>8</b> planned</span>
+    <span class="pill"><span class="dot dg"></span><b>19</b> live</span>
+    <span class="pill"><span class="dot dy"></span><b>14</b> planned</span>
   </div>
 
   <div class="views" id="views">
@@ -132,18 +131,23 @@
     <div class="lbl">Roadmap — Carl's 12 method categories · tap a pill</div>
 
     <div class="sec">
-      <div class="sech"><span>1 · EDA</span><span class="secn">→ pipeline 1</span></div>
+      <div class="sech"><span>1 · EDA</span><span class="secn">→ pipeline 1 · per-master</span></div>
       <div>
-        <span class="p p-part" data-info="Lead with median / quartiles / skew / bootstrap on the PnL distribution, not just the mean. Anscombe + the Datasaurus Dozen: identical summary stats hide totally different shapes. PnL-dist / win-dist / MAE-MFE panels exist; the median-vs-mean honesty block is the gap. Tools: dabl, ydata-profiling.">EDA pre-flight</span>
+        <span class="p p-plan" data-info="INPUT-DATA EDA (not results): profile the loaded OHLC before a backtest — return distribution (skew / fat-tails), rolling volatility over the window, session / time-of-day profile, coverage. Know what you are testing on. (Results-side resampling already exists: Monte-Carlo 10.2, stress-windows 6.2, dist panels.) Runs: DAILY / on-demand per master (cached), not per pull.">EDA pre-flight</span>
+        <span class="p p-plan" data-info="The one-call auto-EDA tool that generates the input-data report (histograms, correlations, warnings) on the bar / return frame. Heavy — run DAILY / on-demand, never per pull. (pandas-profiling is now ydata-profiling.)">dabl / ydata-profiling</span>
       </div>
       <div class="info"></div>
     </div>
 
     <div class="sec">
-      <div class="sech"><span>2 · Data cleaning / prep</span><span class="secn">→ pipeline 1</span></div>
+      <div class="sech"><span>2 · Data cleaning / prep</span><span class="secn">→ pipeline 1 · data-health card</span></div>
       <div>
-        <span class="p p-live" data-info="Master combine dedupes overlaps and flags gaps-to-segments on import.">gap-check</span>
-        <span class="p p-plan" data-info="Block or warn on holey data before backtesting. Hard structural asserts (high>=low, price>0, no duplicate timestamps) for impossible data; sklearn IsolationForest or inverse-PCA flag — not delete — statistically-extreme bars; missingno nullity map; PyDeequ-style checks. (Faker anonymization + dataset distillation: skipped — not relevant to a futures backtester.)">data-quality gate</span>
+        <span class="p p-live" data-info="Master combine dedupes overlaps and flags gaps-to-segments on import. Runs: per pull (cheap).">gap-check</span>
+        <span class="p p-plan" data-info="Hard checks for IMPOSSIBLE data: high not below low, open and close within the bar, price above 0, volume not negative, strictly-increasing timestamps (no duplicates), intra-session gap flags. The gate — blocks / warns at ingest. Runs: PER PULL on the newly-appended bars only (milliseconds).">structural asserts</span>
+        <span class="p p-plan" data-info="Flag (not delete) statistically-extreme bars — sklearn IsolationForest, or inverse-PCA reconstruction error (Gnanadesikan-Kettenring) — on derived features (range / return / wick / volume / gap). Runs: DAILY fit; optional per-pull scoring.">Isolation Forest / PCA</span>
+        <span class="p p-plan" data-info="Nullity map — visualize missing bars / fills across the master at a glance (the web/mobile fills gap). Runs: DAILY / on-demand.">missingno</span>
+        <span class="p p-plan" data-info="Reconcile paired trades vs the NinjaTrader Position-History CSV to catch web / mobile fills that skip the local DB + AddOn. Runs: PER NT SYNC (ongoing, not per-master).">fills reconciliation</span>
+        <span class="p p-plan" data-info="Databento ships per-MONTH contracts, stitched + back-adjusted into a continuous master — so flag the monthly roll dates, verify no impossible adjusted values (back-adjustment can push deep-history prices to or below zero), and mark seam-bar returns so they are not treated as real moves. Record each master's adjustment type (adj vs no-adj). Runs: DAILY / on-demand per master.">roll-seam / adjustment check</span>
       </div>
       <div class="info"></div>
     </div>
