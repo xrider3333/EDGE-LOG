@@ -47,7 +47,7 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v1.7</span></h1>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v1.8</span></h1>
   <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (Carl McBride Ellis's 12 notebook categories, mapped to EDGELOG). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-01.</span></p>
 
   <div class="summary">
@@ -178,7 +178,7 @@
         <span class="p p-live" data-info="Linear correlation of each param vs PnL (the live Param-Relationship panel).">Pearson r</span>
         <span class="p p-live" data-info="Any-dependency score (sklearn mutual_info_regression, KSG k-NN estimator) — catches the non-linear (inverted-U / threshold) param relationships Pearson misses.">Mutual Information</span>
         <span class="p p-live" data-info="Predictive Power Score, 0 to 1 (sklearn tree, cross-validated) — asymmetric, non-linear predictive power.">PPS</span>
-        <span class="p p-plan" data-info="THE NEXT BUILD. Pick the config on a broad high-and-flat region of the result surface (a partial-dependence plateau), not a lone lucky spike — reuses the grid points + neighborhood. Implementation option: GAM-style smoothing (Hastie-Tibshirani 1986; pyGAM) of the param-to-PnL surface — a GAM is literally a sum of smooth per-param curves, i.e. the plateau map. optimize.py TODO #24.">PDP plateau · NEXT</span>
+        <span class="p p-plan" data-info="THE NEXT BUILD. GOAL — PDP (partial-dependence plot): pick the config on a broad, flat, HIGH region of the param→PnL surface — a plateau — not a lone lucky spike, because a plateau is far likelier to survive live. ENGINE — GAM smoothing (Hastie–Tibshirani 1986; pyGAM) is how that plateau gets drawn: a GAM is literally a sum of smooth per-param curves, i.e. the smoothed surface. So PDP = the goal, GAM = the smoother that computes it. Reuses the existing grid points + neighborhood. optimize.py TODO #24.">PDP plateau (GAM) · NEXT</span>
         <span class="p p-plan" data-info="Train a classifier to tell fit-era bars from recent / lockbox bars; if it can, your train and live distributions differ (regime drift / leakage).">adversarial validation</span>
       </div>
       <div class="info"></div>
