@@ -241,6 +241,139 @@ def roll_seam_check(master, rep, uploads=None, max_examples=6):
     return out
 
 
+def _outlier_scan(df, timeframe=None, max_examples=3):
+    """Statistical outlier flag (stack pill 2.3): IsolationForest on derived bar
+    features (range, |return|, wicks, volume-change). FLAGS — never deletes: real
+    markets produce legitimate extremes; these are 'look at me' bars, not deletions.
+    Fit on a <=150k sample; scoring capped at the most recent 2M bars for speed.
+    Returns {n, examples:[ts...], scored, note} or None when unavailable."""
+    try:
+        from sklearn.ensemble import IsolationForest
+    except Exception:
+        return None
+    n = len(df)
+    if n < 5000 or "close" not in df or "time" not in df:
+        return None
+    lo = max(0, n - 2_000_000)                     # score the most recent <=2M bars
+    o = df["open"].to_numpy(float)[lo:]
+    h = df["high"].to_numpy(float)[lo:]
+    l = df["low"].to_numpy(float)[lo:]
+    c = df["close"].to_numpy(float)[lo:]
+    t = df["time"].to_numpy("int64")[lo:]
+    v = (df["volume"].to_numpy(float)[lo:] if "volume" in df.columns
+         else np.zeros(len(c)))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        prev_c = np.concatenate([[c[0]], c[:-1]])
+        ret = np.abs(c - prev_c) / np.where(prev_c == 0, np.nan, np.abs(prev_c))
+        rng = (h - l) / np.where(np.abs(c) == 0, np.nan, np.abs(c))
+        body_hi = np.maximum(o, c); body_lo = np.minimum(o, c)
+        wick = ((h - body_hi) + (body_lo - l)) / np.where(np.abs(c) == 0, np.nan, np.abs(c))
+        prev_v = np.concatenate([[v[0]], v[:-1]])
+        dvol = np.log1p(v) - np.log1p(prev_v)
+    X = np.column_stack([ret, rng, wick, dvol])
+    ok = np.isfinite(X).all(axis=1)
+    Xo = X[ok]
+    if len(Xo) < 5000:
+        return None
+    rng_ = np.random.default_rng(42)
+    fit_idx = rng_.choice(len(Xo), size=min(150_000, len(Xo)), replace=False)
+    iso = IsolationForest(n_estimators=60, random_state=42, n_jobs=-1,
+                          contamination=1e-4)
+    iso.fit(Xo[fit_idx])
+    pred = iso.predict(Xo)                          # -1 = outlier at ~1e-4 contamination
+    out_idx = np.flatnonzero(ok)[pred == -1]
+    ts = t[out_idx]
+    ex = [pd.Timestamp(x, unit="s", tz="UTC").tz_convert("US/Eastern")
+          .strftime("%Y-%m-%d %H:%M") for x in ts[-max_examples:]]
+    return {"n": int(len(out_idx)), "scored": int(len(Xo)), "examples": ex}
+
+
+def profile_master(master, uploads=None):
+    """Input-data EDA profile (stack pill 1.1) — 'what does this data look like':
+    return distribution (bp std / skew / excess kurtosis), annualized vol by year,
+    |return| by ET hour, monthly bar-coverage %, price range. Cached like the health
+    report (same file, key '<filename>::profile')."""
+    uploads = uploads or UPLOADS
+    cpath = os.path.join(uploads, CACHE_FILE)
+    try:
+        cache = json.load(open(cpath, encoding="utf-8"))
+    except Exception:
+        cache = {}
+    fn = master.get("filename")
+    key = f"{fn}::profile"
+    try:
+        st = os.stat(os.path.join(uploads, fn))
+        hit = cache.get(key)
+        if (hit and hit.get("file_mtime") == st.st_mtime
+                and hit.get("file_size") == st.st_size and hit.get("_v") == 2):
+            return hit
+        df = pd.read_csv(os.path.join(uploads, fn), usecols=lambda col: col in
+                         ("time", "open", "high", "low", "close", "volume"))
+        secs = tf_seconds(master.get("timeframe")) or 300
+        t = df["time"].to_numpy("int64")
+        c = df["close"].to_numpy(float)
+        et = pd.to_datetime(pd.Series(t), unit="s", utc=True).dt.tz_convert("US/Eastern")
+        # within-session bar returns (skip boundaries so gaps/seams don't pollute)
+        dt = np.diff(t)
+        same = dt <= 3 * secs
+        with np.errstate(divide="ignore", invalid="ignore"):
+            r = np.diff(c) / np.where(c[:-1] == 0, np.nan, np.abs(c[:-1]))
+        r = r[same]; r = r[np.isfinite(r)]
+        m1 = float(np.mean(r)) if len(r) else 0.0
+        sd = float(np.std(r)) if len(r) else 0.0
+        z = (r - m1) / sd if sd else r * 0
+        prof = {"bars": int(len(df)),
+                "ret": {"std_bp": round(sd * 1e4, 2),
+                        "skew": round(float(np.mean(z ** 3)), 2) if sd else None,
+                        "kurt": round(float(np.mean(z ** 4) - 3), 1) if sd else None},
+                "price": {"min": round(float(np.nanmin(c)), 2),
+                          "max": round(float(np.nanmax(c)), 2)}}
+        # annualized vol by year (from daily closes)
+        day = pd.Series(c, index=et.values).groupby(et.dt.date.values).last()
+        dret = day.pct_change().dropna()
+        yrs = pd.Series(dret.values, index=pd.to_datetime(dret.index.astype(str))).groupby(
+            lambda ix: ix.year)
+        prof["vol_by_year"] = [{"y": int(y), "vol": round(float(g.std() * np.sqrt(252) * 100), 1)}
+                               for y, g in yrs if len(g) > 30]
+        # |return| by ET hour (activity profile, normalized 0-100)
+        hr = et.dt.hour.values[1:][same]
+        ar = np.abs(np.diff(c) / np.where(c[:-1] == 0, np.nan, np.abs(c[:-1])))[same]
+        okh = np.isfinite(ar)
+        hp = pd.Series(ar[okh]).groupby(hr[okh]).mean()
+        mx = float(hp.max()) if len(hp) else 1.0
+        prof["hour_profile"] = [{"h": int(h), "a": int(round(x / mx * 100))}
+                                for h, x in hp.items()] if mx else []
+        # monthly bar-coverage % (the at-a-glance missing-bars map, pill 2.4)
+        ym = et.dt.strftime("%Y-%m")
+        bars_pm = ym.groupby(ym).size()
+        days_pm = et.dt.date.groupby(ym.values).nunique()
+        med_daily = float((bars_pm / days_pm).median()) or 1.0
+        d0, d1 = et.iloc[0].date(), et.iloc[-1].date()
+        def _bdays(m_):
+            # business days of month m_, clamped to the master's observed span so
+            # edge months (data starts/ends mid-month) aren't scored as holes.
+            lo = max(np.datetime64(m_ + "-01"), np.datetime64(d0))
+            hi = min(np.datetime64((pd.Period(m_) + 1).strftime("%Y-%m-01")),
+                     np.datetime64(d1) + 1)
+            return float(np.busday_count(lo, hi))
+        prof["coverage"] = [{"m": m_, "pct": int(min(100, round(
+            bars_pm[m_] / (med_daily * max(1.0, _bdays(m_))) * 100)))}
+            for m_ in bars_pm.index]
+        # statistical outliers (pill 2.3) — flag, never delete
+        prof["outliers"] = _outlier_scan(df, master.get("timeframe"))
+        prof.update({"_v": 2, "checked_at": time.time(),
+                     "file_mtime": st.st_mtime, "file_size": st.st_size})
+        cache[key] = prof
+        try:
+            with open(cpath, "w", encoding="utf-8") as fh:
+                json.dump(cache, fh)
+        except OSError:
+            pass
+        return prof
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
+
+
 def check_master(master, uploads=None):
     """Full-file structural scan of one master registry row -> report dict."""
     uploads = uploads or UPLOADS

@@ -327,6 +327,11 @@ class FirestoreQueue:
                 from augur_engine import data_quality as _dq
                 for m, mf in zip(masters, _mfull):
                     m["health"] = _dq.health_summary(mf)
+                    p = _dq.profile_master(mf)          # EDA profile (stack 1.1/2.3/2.4)
+                    if p and "error" not in p:
+                        m["profile"] = {k: p.get(k) for k in
+                                        ("bars", "ret", "price", "vol_by_year",
+                                         "hour_profile", "coverage", "outliers")}
             except Exception as e:
                 log(f"  [data-health] skipped: {type(e).__name__}: {e}")
             # Auto-pull (auto-refresh) status, read from local augur_config.json. Tag

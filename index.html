@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='42.6';
+const VERSION='42.7';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -731,6 +731,34 @@ async function masterDownload(m,btn){const lbl=btn?btn.textContent:'';try{if(btn
 function masterView(i){const m=(metaMasters||[])[i];if(!m)return;_showMasterModal(m,null);
   _runCmd('peek_master',{instrument:m.instrument,timeframe:m.timeframe,source:m.source,n:300})
     .then(r=>_showMasterModal(m,r)).catch(e=>_showMasterModal(m,{error:e.message}));}
+// EDA profile strip for the master modal (stack 1.1 return stats / vol / hours,
+// 2.3 outliers, 2.4 monthly coverage) — rendered from the runner-synced m.profile.
+function _mvProf(m){
+  const p=m.profile;if(!p)return '';
+  const box=(ttl,svg)=>'<div style="flex:1 1 240px;min-width:200px;background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:8px 10px"><div style="font-size:8.5px;letter-spacing:1px;color:var(--text4);margin-bottom:4px">'+ttl+'</div>'+svg+'</div>';
+  let out='';
+  const rt=p.ret||{};
+  out+='<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3);margin-bottom:8px">'
+    +'<span>'+(p.bars||0).toLocaleString()+' bars</span>'
+    +'<span title="std of within-session bar returns, basis points">σ '+(rt.std_bp!=null?rt.std_bp+'bp':'—')+'</span>'
+    +'<span title="skew of bar returns (0 = symmetric)">skew '+(rt.skew!=null?rt.skew:'—')+'</span>'
+    +'<span title="EXCESS kurtosis (0 = normal; higher = fat tails)">kurt '+(rt.kurt!=null?rt.kurt:'—')+'</span>'
+    +(p.price?'<span>px '+p.price.min.toLocaleString()+'–'+p.price.max.toLocaleString()+'</span>':'')
+    +((p.outliers&&p.outliers.n)?'<span style="color:var(--yellow)" title="IsolationForest statistical outliers over the last '+(p.outliers.scored||0).toLocaleString()+' bars — flagged for review, never deleted. Examples: '+(p.outliers.examples||[]).join(', ')+'">▲ '+p.outliers.n+' outlier bars</span>':'')
+    +'</div>';
+  let row='';
+  const vb=p.vol_by_year||[];
+  if(vb.length>1){const mx=Math.max(...vb.map(x=>x.vol))||1,W=Math.max(120,vb.length*14),H=40;
+    row+=box('ANNUALIZED VOL BY YEAR','<svg viewBox="0 0 '+W+' '+(H+10)+'" width="100%" preserveAspectRatio="none" style="display:block">'+vb.map((x,i)=>{const bh=x.vol/mx*H;return '<rect x="'+(i*14+2)+'" y="'+(H-bh)+'" width="10" height="'+bh+'" fill="var(--blue)" opacity="0.7"><title>'+x.y+': '+x.vol+'%</title></rect>'+(i%4===0?'<text x="'+(i*14+2)+'" y="'+(H+9)+'" font-size="6.5" fill="var(--text5)">'+String(x.y).slice(2)+'</text>':'');}).join('')+'</svg>');}
+  const hp=p.hour_profile||[];
+  if(hp.length>2){const W=Math.max(120,hp.length*11),H=40;
+    row+=box('ACTIVITY BY HOUR (ET · |ret|)','<svg viewBox="0 0 '+W+' '+(H+10)+'" width="100%" preserveAspectRatio="none" style="display:block">'+hp.map((x,i)=>{const bh=x.a/100*H;return '<rect x="'+(i*11+1)+'" y="'+(H-bh)+'" width="8" height="'+bh+'" fill="var(--purple)" opacity="0.7"><title>'+x.h+':00 — '+x.a+'</title></rect>'+(x.h%3===0?'<text x="'+(i*11+1)+'" y="'+(H+9)+'" font-size="6.5" fill="var(--text5)">'+x.h+'</text>':'');}).join('')+'</svg>');}
+  const cov=p.coverage||[];
+  if(cov.length>2){const W=Math.max(120,cov.length*3),H=26;
+    row+=box('MONTHLY BAR COVERAGE','<svg viewBox="0 0 '+W+' '+(H+10)+'" width="100%" preserveAspectRatio="none" style="display:block">'+cov.map((x,i)=>{const col=x.pct>=95?'var(--green)':(x.pct>=85?'var(--yellow)':'var(--red)');return '<rect x="'+(i*3)+'" y="'+(H-x.pct/100*H)+'" width="2.4" height="'+(x.pct/100*H)+'" fill="'+col+'" opacity="0.75"><title>'+x.m+': '+x.pct+'%</title></rect>'+(x.m.slice(5)==='01'&&(+x.m.slice(0,4))%4===0?'<text x="'+(i*3)+'" y="'+(H+9)+'" font-size="6.5" fill="var(--text5)">'+x.m.slice(0,4)+'</text>':'');}).join('')+'</svg>');}
+  if(row)out+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+row+'</div>';
+  return out;
+}
 function _showMasterModal(m,r){
   const old=document.getElementById('mv-overlay');if(old)old.remove();
   const ov=document.createElement('div');ov.id='mv-overlay';
@@ -749,7 +777,7 @@ function _showMasterModal(m,r){
     +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><span style="font-size:13px;font-weight:700;color:var(--text)">'+title+'</span><span style="flex:1"></span>'
     +'<button id="mv-dl" class="btn-ghost" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px;border:1px solid var(--border)">⬇ download</button>'
     +'<button id="mv-x" class="btn-ghost" style="padding:5px 10px;font-size:var(--fsxs);border-radius:6px;border:1px solid var(--border)">✕</button></div>'
-    +body+'</div>';
+    +_mvProf(m)+body+'</div>';
   document.body.appendChild(ov);
   const x=document.getElementById('mv-x');if(x)x.onclick=()=>ov.remove();
   const dl=document.getElementById('mv-dl');if(dl)dl.onclick=()=>masterDownload(m,dl);
