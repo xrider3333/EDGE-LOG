@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='42.2';
+const VERSION='42.3';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -2044,11 +2044,14 @@ function toggleThMenu(col){window._thMenu=(window._thMenu===col?null:col);render
 
 // ── AI Summary — client-side engine (always works) + Claude API ──
 
-// Chart expand modal
+// Chart expand modal — fullscreen copy of a chart with LIVE hover: the same data-tip
+// tooltips as the report (delegated here too, since the report's listener sits on
+// #res-detail) PLUS an axis crosshair readout (date/param + $/count under the mouse)
+// when the source chart carries a data-xh domain descriptor.
 window.expandChart=function(title,svgHTML){
   const modal=document.createElement('div');
   modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;align-items:center;justify-content:center;padding:30px;cursor:pointer';
-  modal.onclick=(e)=>{if(e.target===modal||e.target.id==='chart-close')modal.remove();};
+  modal.onclick=(e)=>{if(e.target===modal)modal.remove();};
   modal.innerHTML=`<div style="background:var(--bg1);border:1px solid var(--border);max-width:95vw;max-height:95vh;padding:24px;cursor:default;overflow:auto" onclick="event.stopPropagation()">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)">
       <div style="font-family:'Bebas Neue',monospace;font-size:22px;letter-spacing:3px;color:var(--text)">${title}</div>
@@ -2057,6 +2060,38 @@ window.expandChart=function(title,svgHTML){
     <div style="min-width:1000px">${svgHTML}</div>
   </div>`;
   document.body.appendChild(modal);
+  const _cl=modal.querySelector('#chart-close');if(_cl)_cl.onclick=(e)=>{e.stopPropagation();modal.remove();};
+  const _esc=(e)=>{if(e.key==='Escape'){modal.remove();document.removeEventListener('keydown',_esc);}};
+  document.addEventListener('keydown',_esc);
+  // shared floating tooltip element (same one the report uses)
+  let tip=document.getElementById('chart-tip');
+  if(!tip){tip=document.createElement('div');tip.id='chart-tip';tip.style.cssText='position:fixed;z-index:9999;pointer-events:none;display:none;max-width:280px;padding:6px 9px;border-radius:8px;background:var(--bg1);border:1px solid var(--border);color:var(--text2);font-size:10px;line-height:1.55;box-shadow:0 6px 22px rgba(0,0,0,.45)';document.body.appendChild(tip);}
+  tip.style.zIndex='10001';
+  const svg=modal.querySelector('svg');
+  let xh=null;try{if(svg&&svg.dataset.xh)xh=JSON.parse(decodeURIComponent(svg.dataset.xh));}catch(e){}
+  const _fmtv=(t,v)=>t==='date'?new Date(v).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'2-digit'})
+    :t==='usd'?((v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString())
+    :t==='int'?String(Math.round(v))
+    :(Number.isInteger(+v)?String(v):(+v).toFixed(2));
+  modal.addEventListener('mousemove',(e)=>{
+    const t=e.target&&e.target.closest?e.target.closest('[data-tip]'):null;
+    let html=t?t.getAttribute('data-tip'):'';
+    if(!html&&xh&&svg){const ctm=svg.getScreenCTM();
+      if(ctm){const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const v=pt.matrixTransform(ctm.inverse());
+        const fx=(v.x-xh.px)/xh.pw,fy=(v.y-xh.py)/xh.ph;
+        if(fx>=0&&fx<=1&&fy>=0&&fy<=1){
+          const xv=(xh.xt==='date')?(+new Date(xh.x0)+(+new Date(xh.x1)-+new Date(xh.x0))*fx):(+xh.x0+(+xh.x1-+xh.x0)*fx);
+          const yv=+xh.y1-(+xh.y1-+xh.y0)*fy;
+          html=(xh.xl?xh.xl+' ':'')+'<b>'+_fmtv(xh.xt,xv)+'</b> · '+(xh.yl?xh.yl+' ':'')+'<b>'+_fmtv(xh.yt,yv)+'</b>';
+        }}}
+    if(!html){tip.style.display='none';return;}
+    tip.innerHTML=html;tip.style.display='block';
+    const r=tip.getBoundingClientRect();let x=e.clientX+14,y=e.clientY+14;
+    if(x+r.width>innerWidth-8)x=e.clientX-r.width-14;if(y+r.height>innerHeight-8)y=e.clientY-r.height-14;
+    tip.style.left=Math.max(4,x)+'px';tip.style.top=Math.max(4,y)+'px';
+  },{passive:true});
+  modal.addEventListener('mouseleave',()=>{tip.style.display='none';});
+  const _rm=modal.remove.bind(modal);modal.remove=()=>{tip.style.display='none';tip.style.zIndex='9999';_rm();};
 };
 
 window.changeCalMonth=function(delta){
@@ -4428,7 +4463,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // value-style y grid: lines at NICE $ steps between mn..mx (zero line drawn heavier)
     const c2GridV=(top,bot,mn,mx)=>{const nice=v=>{v=Math.abs(v)||1;const e=Math.pow(10,Math.floor(Math.log10(v)));const f=v/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};const gs=nice((mx-mn)/4)||1;let out='';for(let L=Math.ceil(mn/gs)*gs;L<=mx+1e-6;L+=gs){const z=Math.abs(L)<1e-6,gy=bot-(bot-top)*(L-mn)/((mx-mn)||1);out+='<line x1="0" y1="'+gy.toFixed(1)+'" x2="'+C2P+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="'+(z?0.8:0.5)+'" opacity="'+(z?0.5:0.35)+'"/>'+c2Txt((gy+2.5).toFixed(1),fmtUsd(Math.round(L)));}return out;};
     // rotated y-axis title hugging the right edge (matches 1D's "trades")
-    const c2YTitle=(H,s)=>{const yc=(H/2).toFixed(1);return '<text x="'+(C2W-1)+'" y="'+yc+'" transform="rotate(-90 '+(C2W-1)+' '+yc+')" text-anchor="middle" font-size="6" fill="var(--text4)">'+s+'</text>';};
+    const c2YTitle=(H,s)=>{const yc=(H/2).toFixed(1);return '<text x="'+(C2W-1)+'" y="'+yc+'" transform="rotate(-90 '+(C2W-1)+' '+yc+')" text-anchor="middle" font-size="7.5" font-weight="700" fill="var(--text3)">'+s+' (y)</text>';};
     // x-axis label row under a chart — right-padded by the gutter so its ends align with the plot
     const c2XRow=(l,m,r)=>'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text3);margin-top:3px;padding-right:'+(C2R/C2W*100).toFixed(1)+'%"><span>'+l+'</span><span style="color:var(--text5)">'+(m||'')+'</span><span>'+r+'</span></div>';
     const distPanelHtml=(dist,mult,tag)=>{
@@ -4449,9 +4484,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let bell=[];for(let i=0;i<=120;i++){const x=lo+span*i/120,y=pdf(x)*n*binW,px=(i/120)*Wp,py=H-(y/bmax)*(H-14);bell.push(px.toFixed(1)+','+Math.max(0,py).toFixed(1));}
       const sdMarks=[-2,-1,1,2].map(k=>{const xx=mean+k*sd;if(xx<lo||xx>hi)return '';const X=Xv(xx);return '<line x1="'+X.toFixed(1)+'" y1="13" x2="'+X.toFixed(1)+'" y2="'+H+'" stroke="var(--text5)" stroke-width="0.5" stroke-dasharray="2,3" opacity="0.5"/><text x="'+X.toFixed(1)+'" y="10" text-anchor="middle" font-size="6" fill="var(--text5)">'+(k>0?'+':'')+k+'σ</text>';}).join('');
       const meanLine='<line x1="'+Xv(mean).toFixed(1)+'" y1="0" x2="'+Xv(mean).toFixed(1)+'" y2="'+H+'" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3,2"/>';
-      return (tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · CONFIG DISTRIBUTION <span style="font-weight:400;color:'+vc+';font-size:8px">· '+(plateau?'plateau (robust)':'isolated spike (overfit)')+'</span><span style="font-weight:400;color:var(--text4);font-size:8px">· '+near+'/'+n+' within 80% · mean '+fmtUsd(Math.round(mean))+' · σ '+fmtUsd(Math.round(sd))+'</span></div>':'<div class="lbl" style="margin:8px 0 6px">CONFIG DISTRIBUTION · <span style="color:'+vc+'">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit risk)')+'</span> · '+near+'/'+n+' within 80% of best <span style="color:var(--text5);font-weight:400">(one bar = configs · x = net $)</span></div>')
-        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+grid+bars+sdMarks+meanLine+'<polyline points="'+bell.join(' ')+'" fill="none" stroke="var(--text)" stroke-width="1.5" opacity="0.9" stroke-dasharray="2,2"/>'+hits+c2YTitle(H,'configs')+'</svg>'
-        +c2XRow(fmtUsd(Math.round(mn)),'<span style="color:var(--accent)">accent = mean</span> · dotted = ±σ','↑ best '+fmtUsd(Math.round(mx)))+'</div>';
+      const _cdTip='Histogram of every tested config\'s net $ (one bar = configs landing in that $ range). A PLATEAU (many configs near the best) = a robust edge; an isolated spike = likely overfit. Dashed bell = fitted normal · accent line = mean · dotted verticals = ±σ.';
+      return (tag?'<div title="'+_cdTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · CONFIG DISTRIBUTION <span style="font-weight:400;color:'+vc+';font-size:8px">· '+(plateau?'plateau (robust)':'isolated spike (overfit)')+'</span><span style="font-weight:400;color:var(--text4);font-size:8px">· '+near+'/'+n+' within 80% · mean '+fmtUsd(Math.round(mean))+' · σ '+fmtUsd(Math.round(sd))+' <span style="color:var(--text4)">ⓘ</span></span></div>':'<div class="lbl" title="'+_cdTip+'" style="cursor:help;margin:8px 0 6px">CONFIG DISTRIBUTION · <span style="color:'+vc+'">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit risk)')+'</span> · '+near+'/'+n+' within 80% of best</div>')
+        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto" data-xh="'+encodeURIComponent(JSON.stringify({xt:'usd',x0:lo,x1:hi,yt:'int',y0:0,y1:bmax,px:0,py:14,pw:Wp,ph:H-14,xl:'net',yl:'configs'}))+'">'+grid+bars+sdMarks+meanLine+'<polyline points="'+bell.join(' ')+'" fill="none" stroke="var(--text)" stroke-width="1.5" opacity="0.9" stroke-dasharray="2,2"/>'+hits+c2YTitle(H,'configs')+'</svg>'
+        +c2XRow(fmtUsd(Math.round(mn)),'<b style="color:var(--text2)">net $ per config</b> (x)','↑ best '+fmtUsd(Math.round(mx)))+'</div>';
     };
     // TRADE PNL DISTRIBUTION — histogram of the WINNER's per-trade PnLs with a fitted
     // normal (bell) curve overlaid. Shows the shape/spread of trade outcomes (fat tails,
@@ -4518,12 +4554,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const grid=c2GridV(pd,H-pd,mn,mx);
       const sel='<select data-tpc style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin-left:6px"><option value="rank"'+(mode==='rank'?' selected':'')+'>by rank</option>'+pkeys.map(k=>'<option value="'+k+'"'+(mode===k?' selected':'')+'>by '+k.replace(/_/g,' ')+'</option>').join('')+'</select>';
       const cfgSlider='<span title="how many configs to plot — also sets the config-distribution (2b) bin detail. This chart only stores the top '+etop.length+' curves, so it stops adding past '+etop.length+' even though the slider (shared with 2b) goes to 50." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" data-cfgpts min="2" max="50" step="1" value="'+_cfgPts+'" style="width:120px;height:14px;cursor:pointer;vertical-align:middle"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+'</b></span>';
-      return (tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · TOP CONFIGS PNL <span style="font-weight:400;color:var(--text4);font-size:8px">· top '+series.length+' · equity $ · 1 contract</span>'+sel+cfgSlider+'</div>':'<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · equity ($) · 1 contract · colour'+sel+'</div>')
+      const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
+      return (tag?'<div title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · TOP CONFIGS PNL <span style="font-weight:400;color:var(--text4);font-size:8px">· top '+series.length+((d.date_from&&d.date_to)?' · '+_dnice(d.date_from)+' → '+_dnice(d.date_to):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades <span style="color:var(--text4)">ⓘ</span></span>'+sel+cfgSlider+'</div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+sel+'</div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:8px 8px 4px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
-        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'
+        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+((d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:pd,py:pd,pw:PW-2*pd,ph:H-2*pd,yl:'equity'}))+'"':'')+'>'
         +grid
-        +'<line x1="0" y1="'+zeroY.toFixed(1)+'" x2="'+PW+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--border)"/>'+lines+c2YTitle(H,'equity $')+'</svg>'
-        +c2XRow((d.date_from?_dnice(d.date_from):'start'),(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' · '+((d.best_trades||0)).toLocaleString()+' trades',(d.date_to?_dnice(d.date_to):'end'))+'</div>';
+        +'<line x1="0" y1="'+zeroY.toFixed(1)+'" x2="'+PW+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--border)"/>'+lines+c2YTitle(H,'equity $')+'</svg></div>';
     };
     // SCATTER — each tested config as a dot: chosen param (X) vs net PnL (Y). Shows
     // whether the edge is a smooth slope (robust) or random noise.
@@ -4583,13 +4619,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const addSel=addOpts.length?'<select data-sccmp style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin-left:4px"><option value="" selected>+ compare…</option>'+addOpts.map(k=>'<option value="'+k+'">'+_pp(k)+'</option>').join('')+'</select>':'';
       const chips=cmp.map((k,i)=>'<span data-sccmp-rm="'+k+'" title="remove '+_pp(k)+' from the overlay" style="cursor:pointer;font-size:8px;padding:1px 6px;border-radius:6px;background:var(--bg1);border:1px solid var(--border);color:'+PAL[(i+1)%PAL.length]+'">'+_pp(k)+' ✕</span>').join('');
       const grid=c2GridV(pd,H-pd,ymn,ymx);
-      const xrow=multi?c2XRow('0%','x = % of each param’s range · rings = config density','100%')
-        :c2XRow(_rnd(S[0].mn),'rings = config density (denser inward)',_rnd(S[0].mx));
-      const legend=multi?'<div style="text-align:center;font-size:8px;margin-top:1px">'+S.map(s=>'<span style="color:'+PAL[s.si%PAL.length]+'">● '+_pp(s.k)+'</span>').join(' · ')+'</div>'
-        :'<div style="text-align:center;font-size:8px;color:var(--text3);margin-top:1px"><b style="color:var(--text2)">'+_pp(xk)+'</b> (x) · net $ (y, right)</div>';
-      return (tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · SCATTER <span style="font-weight:400;color:var(--text4);font-size:8px">· net $ (y) vs param (x) · dot = 1 config · rings = density</span>'+sel+addSel+chips+'</div>':'<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">SCATTER · PnL ($) vs'+sel+addSel+chips+'</div>')
+      const xrow=multi?c2XRow('0%','<b style="color:var(--text2)">% of each param’s range</b> (x)','100%')
+        :c2XRow(_rnd(S[0].mn),'<b style="color:var(--text2)">'+_pp(xk)+'</b> (x)',_rnd(S[0].mx));
+      const legend=multi?'<div style="text-align:center;font-size:8px;margin-top:1px">'+S.map(s=>'<span style="color:'+PAL[s.si%PAL.length]+'">● '+_pp(s.k)+'</span>').join(' · ')+'</div>':'';
+      const _scTip='Each dot = one tested config: chosen parameter (x) vs its net $ (y). Contour rings trace config DENSITY (topographic style — denser toward the inner rings), so where results cluster reads even when dots pile up. A smooth slope of green = a robust edge; random speckle = noise. “+ compare” overlays more parameters against the same net-$ axis, each in its own colour with x as % of that param’s range.';
+      return (tag?'<div title="'+_scTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · SCATTER <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span>'+sel+addSel+chips+'</div>':'<div class="lbl" title="'+_scTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">SCATTER · PnL ($) vs'+sel+addSel+chips+'</div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
-        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+grid+dots+contours+c2YTitle(H,'net $')+'</svg>'
+        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+(multi?'':' data-xh="'+encodeURIComponent(JSON.stringify({xt:'num',x0:S[0].mn,x1:S[0].mx,yt:'usd',y0:ymn,y1:ymx,px:pd,py:pd,pw:PW-2*pd,ph:H-2*pd,xl:_pp(xk),yl:'net'}))+'"')+'>'+grid+dots+contours+c2YTitle(H,'net $')+'</svg>'
         +xrow+legend+'</div>';
     };
     // HEATMAP — bin two params into an 8×8 grid, colour each cell by avg PnL. Shows where
@@ -4609,15 +4645,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       for(let cy=0;cy<NB;cy++)for(let cx=0;cx<NB;cx++){const a=grid[cx+','+cy];if(!a)continue;const av=a.reduce((s,x)=>s+x,0)/a.length,t=av/maxAbs,col=(t>=0?'rgba(39,192,138,':'rgba(226,75,74,'),op=Math.min(0.85,Math.abs(t)*0.8+0.12);const xa=xmn+cx*(xmx-xmn)/NB,xb=xmn+(cx+1)*(xmx-xmn)/NB,ya=ymn+cy*(ymx-ymn)/NB,yb=ymn+(cy+1)*(ymx-ymn)/NB;const tip=_pp(xk)+' '+_hr(xa)+'–'+_hr(xb)+'<br>'+_pp(yk)+' '+_hr(ya)+'–'+_hr(yb)+'<br>avg net <b>'+fmtUsd(Math.round(av))+'</b> · '+a.length+' config'+(a.length===1?'':'s');cells+='<rect x="'+(cx*cw).toFixed(1)+'" y="'+(S-(cy+1)*cw).toFixed(1)+'" width="'+cw.toFixed(1)+'" height="'+cw.toFixed(1)+'" fill="'+col+op+')" style="cursor:pointer" data-tip="'+tip+'"/>';}
       const mk=(a,dk)=>'<select data-'+dk+' style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs)">'+keys.map(k=>'<option value="'+k+'"'+(k===a?' selected':'')+'>'+_pp(k)+'</option>').join('')+'</select>';
       const xmid=_hr((xmn+xmx)/2),ymid=_hr((ymn+ymx)/2);
-      return (tag?'<div title="Each square is a region of the two chosen parameters (x across, y up). Its colour = the AVERAGE net $ of every tested config that landed in that square — green = profit, red = loss, brighter = bigger. A large green block means the edge holds across a whole zone of settings (robust); a lone green square means it only worked at one exact setting (fragile). Pick which two params to compare with the dropdowns." style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · HEATMAP <span style="font-weight:400;color:var(--text4);font-size:8px">· avg net $ by two params ⓘ</span>'+mk(xk,'hmx')+'<span style="color:var(--text5)">×</span>'+mk(yk,'hmy')+'</div>':'<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">HEATMAP · '+mk(xk,'hmx')+' × '+mk(yk,'hmy')+' → avg PnL ($)</div>')
+      return (tag?'<div title="Each square is a region of the two chosen parameters (x across, y up). Its colour = the AVERAGE net $ of every tested config that landed in that square — green = profit, red = loss, brighter = bigger. A large green block means the edge holds across a whole zone of settings (robust); a lone green square means it only worked at one exact setting (fragile). Pick which two params to compare with the dropdowns." style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · HEATMAP <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span>'+mk(xk,'hmx')+'<span style="color:var(--text5)">×</span>'+mk(yk,'hmy')+'</div>':'<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">HEATMAP · '+mk(xk,'hmx')+' × '+mk(yk,'hmy')+' → avg PnL ($)</div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
         // y-axis labels live IN the svg's right gutter (same 7px/text3 chrome as 2a/2b/2g)
         +'<div style="max-width:268px"><svg viewBox="0 0 '+(S+C2R)+' '+S+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+cells
         +'<text x="'+(S+C2R-9)+'" y="10" text-anchor="end" font-size="7" fill="var(--text3)">'+_hr(ymx)+'</text><text x="'+(S+C2R-9)+'" y="'+(S/2+2.5).toFixed(1)+'" text-anchor="end" font-size="7" fill="var(--text3)">'+ymid+'</text><text x="'+(S+C2R-9)+'" y="'+(S-2)+'" text-anchor="end" font-size="7" fill="var(--text3)">'+_hr(ymn)+'</text>'
-        +'<text x="'+(S+C2R-1)+'" y="'+(S/2).toFixed(1)+'" transform="rotate(-90 '+(S+C2R-1)+' '+(S/2).toFixed(1)+')" text-anchor="middle" font-size="6" fill="var(--text4)">'+_pp(yk)+'</text></svg>'
+        +'<text x="'+(S+C2R-1)+'" y="'+(S/2).toFixed(1)+'" transform="rotate(-90 '+(S+C2R-1)+' '+(S/2).toFixed(1)+')" text-anchor="middle" font-size="7.5" font-weight="700" fill="var(--text3)">'+_pp(yk)+' (y)</text></svg>'
         +'<div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text3);margin-top:3px;padding-right:'+(C2R/(S+C2R)*100).toFixed(1)+'%"><span>'+_hr(xmn)+'</span><span style="color:var(--text5)">'+xmid+'</span><span>'+_hr(xmx)+'</span></div>'
-        +'<div style="text-align:center;font-size:8px;color:var(--text3);margin-top:1px;padding-right:'+(C2R/(S+C2R)*100).toFixed(1)+'%"><b style="color:var(--text2)">'+_pp(xk)+'</b> → (x) · <b style="color:var(--text2)">'+_pp(yk)+'</b> ↑ (y, right)</div></div>'
-        +'<div style="font-size:8px;color:var(--text3);margin-top:6px">cell colour = avg net $ · <span style="color:#1d9e75">green = profit</span> · <span style="color:#e24b4a">red = loss</span> · hover a cell for its range</div></div>';
+        +'<div style="text-align:center;font-size:8px;color:var(--text3);margin-top:1px;padding-right:'+(C2R/(S+C2R)*100).toFixed(1)+'%"><b style="color:var(--text2)">'+_pp(xk)+'</b> → (x) · <b style="color:var(--text2)">'+_pp(yk)+'</b> ↑ (y, right)</div></div></div>';
     };
     // MAE / MFE — per-trade heat (max adverse) vs reach (max favorable), turned into
     // data-driven stop & target guidance from your own winning trades.
@@ -4677,8 +4712,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _ttl=hasMI?'PARAM RELATIONSHIP':'PARAM CORRELATION';
       const _note=hasMI?'r linear · MI any-dependency · PPS 0–1 · sorted by MI':'each param vs net $ (−1…+1)';
       const _hdr=hasMI?'<div style="display:flex;gap:6px;font-size:8px;margin:1px 0 5px;color:var(--text4)"><span style="flex:0 0 84px"></span><span style="flex:1;text-align:center">← Pearson r →</span><span style="flex:0 0 34px;text-align:right">r</span><span style="flex:1;text-align:center;color:var(--blue)">MI ▸</span><span style="flex:1;text-align:center;color:var(--purple)">PPS ▸</span></div>':'';
-      const _expl='How to read this panel.&#10;&#10;Pearson r is DIRECTIONAL (−1 to +1): the sign = which way (a higher param value maps to higher or lower PnL), the size = strength of a LINEAR relationship.&#10;&#10;Mutual Information and PPS are STRENGTH-ONLY (always at least 0): how much a param relates to PnL in ANY shape (linear or not) — never the direction, so they cannot be negative.&#10;&#10;All three high = a strong, real driver. A big r with near-zero MI/PPS = a linear artifact (often a param confounded with another) that has no genuine standalone predictive power.';
-      return (tag?'<div title="'+_expl+'" style="cursor:help;margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · '+_ttl+' <span style="font-weight:400;color:var(--text4);font-size:8px">· '+_note+' <span style="color:var(--text4)">ⓘ</span></span></div>':'<div class="lbl" title="'+_expl+'" style="cursor:help;margin:8px 0 6px">'+_ttl+' · '+_note+' <span style="font-size:9px;color:var(--text4)">ⓘ</span></div>')
+      const _expl='How to read this panel ('+_note+').&#10;&#10;Pearson r is DIRECTIONAL (−1 to +1): the sign = which way (a higher param value maps to higher or lower PnL), the size = strength of a LINEAR relationship.&#10;&#10;Mutual Information and PPS are STRENGTH-ONLY (always at least 0): how much a param relates to PnL in ANY shape (linear or not) — never the direction, so they cannot be negative.&#10;&#10;All three high = a strong, real driver. A big r with near-zero MI/PPS = a linear artifact (often a param confounded with another) that has no genuine standalone predictive power.';
+      return (tag?'<div title="'+_expl+'" style="cursor:help;margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · '+_ttl+' <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span></div>':'<div class="lbl" title="'+_expl+'" style="cursor:help;margin:8px 0 6px">'+_ttl+' <span style="font-size:9px;color:var(--text4);font-weight:400">ⓘ</span></div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'+_hdr+rows.map(bar).join('')+'</div>';
     };
     // PARALLEL COORDINATES — every config as a line across one vertical axis per parameter plus a
@@ -4929,7 +4964,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const brush=axes.map((k,i)=>{const x=ax(i);
         return '<rect class="pc-track" data-ax="'+i+'" x="'+(x-8).toFixed(1)+'" y="'+padT+'" width="16" height="'+((H-padB)-padT).toFixed(1)+'" fill="transparent" style="cursor:ns-resize"/>'
           +'<rect class="pc-brush" data-ax="'+i+'" x="'+(x-6).toFixed(1)+'" y="0" width="12" height="0" fill="var(--blue)" fill-opacity="0.2" stroke="var(--blue)" stroke-width="0.6" rx="2" style="display:none;pointer-events:none"/>';}).join('');
-      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · PARALLEL COORDINATES <span style="font-weight:400;color:var(--text4);font-size:8px">· <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> · drag any axis to brush a range, click to clear</span></div>':'<div class="lbl" style="margin:8px 0 6px">PARALLEL COORDINATES · <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="color:var(--text5);font-weight:400">· drag any axis to brush a range, click an axis to clear</span></div>')
+      const _pcTip='Every tested config drawn as one line across a vertical axis per parameter, ending on the NET $ axis — green lines made money, red lost. Lines that bunch through the same parameter values = the settings winners share. DRAG up/down on any axis to brush a range (lines outside grey out, and the scatter dots dim with them); click an axis to clear its brush.';
+      return (tag?'<div title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · PARALLEL COORDINATES <span style="font-weight:400;color:var(--text4);font-size:8px">· <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="color:var(--text4)">ⓘ</span></span></div>':'<div class="lbl" title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px">PARALLEL COORDINATES · <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="font-size:9px;color:var(--text4);font-weight:400">ⓘ</span></div>')
         +(function(){const _pm=dom['pnl'],_mY=((padT+(H-padB))/2).toFixed(1);
           // NET $ scale labels live IN the svg's right gutter (shared §2 chrome) so the plot
           //   width lines up with 2a/2b above it.
@@ -6035,7 +6071,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // ⛶ fullscreen — every chart gets the same top-right expand button, opening the
         // existing expandChart modal with a clean (undistorted) copy of the svg.
         const xb=document.createElement('div');xb.textContent='⛶';xb.title='expand fullscreen';
-        xb.style.cssText='position:absolute;top:2px;right:5px;font-size:12px;line-height:1;color:var(--text4);cursor:pointer;z-index:5;opacity:.4;padding:2px 4px;border-radius:4px;background:color-mix(in srgb,var(--bg1) 65%,transparent)';
+        xb.style.cssText='position:absolute;top:2px;left:5px;font-size:12px;line-height:1;color:var(--text4);cursor:pointer;z-index:5;opacity:.4;padding:2px 4px;border-radius:4px;background:color-mix(in srgb,var(--bg1) 65%,transparent)';
         xb.onmouseenter=()=>xb.style.opacity='1';xb.onmouseleave=()=>xb.style.opacity='.4';
         xb.onclick=e=>{e.stopPropagation();
           // title = the nearest preceding short header text (chart builders emit a header div right above the card)
