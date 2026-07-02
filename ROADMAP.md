@@ -127,6 +127,12 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       index.html v42.5) and the **paired roll-seam / adjustment check** (points-diff vs the
       adj/no-adj stitch twin; ES 62/65 / NQ 58/65 quarterly rolls detected; missed-roll WARN
       at >25% missing quarters). All 18 masters PASS; mtime-cached (`_data_health.json`).
+      **Shipped 2026-07-02 (stack 1.1 + 1.2 + 2.3 + 2.4, index.html v42.7):** input-data EDA —
+      `profile_master()` (return sigma/skew/kurtosis, vol-by-year, hour activity, monthly
+      coverage, price range) + IsolationForest outlier flag (found the Apr-2025 tariff days
+      unprompted) synced as `m.profile` and rendered as an EDA strip in the master modal;
+      `tools/profile_report.py` = one-call native HTML auto-EDA report per master. Remaining
+      in section 2: **2.5 fills reconciliation** (blocked on a sample NT Position-History CSV).
 
 ## 4. optimizer.py (Streamlit) — open bugs (only while Streamlit is still in use)
 - [ ] **#1 Results shows only the most-recent completed run** — live panel hydrates only the

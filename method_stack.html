@@ -47,12 +47,12 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v1.1</span></h1>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v1.2</span></h1>
   <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the method <b style="color:var(--text2)">roadmap</b> (Carl McBride Ellis's 12 notebook categories, mapped to EDGELOG). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-01.</span></p>
 
   <div class="summary">
-    <span class="pill"><span class="dot dg"></span><b>21</b> live</span>
-    <span class="pill"><span class="dot dy"></span><b>12</b> planned</span>
+    <span class="pill"><span class="dot dg"></span><b>25</b> live</span>
+    <span class="pill"><span class="dot dy"></span><b>8</b> planned</span>
   </div>
 
   <div class="views" id="views">
@@ -76,7 +76,7 @@
     <g font-size="12">
       <rect x="280" y="84" width="78" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="291" y="99" fill="#00e5a0">gap-check</text>
       <rect x="366" y="84" width="96" height="22" rx="11" fill="rgba(74,158,255,.10)" stroke="rgba(74,158,255,.4)"/><text x="377" y="99" fill="#4a9eff">quality gate</text>
-      <rect x="470" y="84" width="104" height="22" rx="11" fill="rgba(74,158,255,.10)" stroke="rgba(74,158,255,.4)"/><text x="481" y="99" fill="#4a9eff">EDA pre-flight</text>
+      <rect x="470" y="84" width="104" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="481" y="99" fill="#00e5a0">EDA pre-flight</text>
     </g>
     <rect x="24" y="132" width="712" height="58" rx="12" fill="#0e0e1e" stroke="#1e1e36"/>
     <circle cx="52" cy="161" r="14" fill="#23234a"/><text x="52" y="166" font-size="14" font-weight="700" fill="#c8ccd8" text-anchor="middle">2</text>
@@ -133,8 +133,8 @@
     <div class="sec">
       <div class="sech"><span>1 · EDA</span><span class="secn">→ pipeline 1 · per-master</span></div>
       <div>
-        <span class="p p-plan" data-info="INPUT-DATA EDA (not results): profile the loaded OHLC before a backtest — return distribution (skew / fat-tails), rolling volatility over the window, session / time-of-day profile, coverage. Know what you are testing on. (Results-side resampling already exists: Monte-Carlo 10.2, stress-windows 6.2, dist panels.) Runs: DAILY / on-demand per master (cached), not per pull.">EDA pre-flight</span>
-        <span class="p p-plan" data-info="The one-call auto-EDA tool that generates the input-data report (histograms, correlations, warnings) on the bar / return frame. Heavy — run DAILY / on-demand, never per pull. (pandas-profiling is now ydata-profiling.)">dabl / ydata-profiling</span>
+        <span class="p p-live" data-info="LIVE (v42.7). Input-data EDA per master: within-session return stats (bp sigma / skew / excess kurtosis), annualized vol by year, activity by ET hour, monthly bar-coverage, price range — shown as an EDA strip in the master modal (click a master in the Library). Cached per file; recomputes only on change. NQ 5m RTH reads: sigma 11bp, kurt 29.6 (fat tails), vol peaks 2011/2020/2025.">EDA pre-flight</span>
+        <span class="p p-live" data-info="LIVE (v42.7). One-call auto-EDA HTML report per master: python tools/profile_report.py &quot;NQ 5m RTH&quot; (or --all) -> augur_uploads/_profiles/<name>.html — return-distribution histogram vs normal (fat tails in red), vol-by-year, hour activity, coverage, health + roll-seam summary, outlier examples. Built NATIVE instead of ydata-profiling/dabl on purpose: their heavy pinned deps risk destabilizing the trading PC's python env; zero new dependencies.">auto-EDA report</span>
       </div>
       <div class="info"></div>
     </div>
@@ -144,8 +144,8 @@
       <div>
         <span class="p p-live" data-info="Master combine dedupes overlaps and flags gaps-to-segments on import. Runs: per pull (cheap).">gap-check</span>
         <span class="p p-live" data-info="LIVE (v42.5). Hard checks for IMPOSSIBLE data: high not below low, open/close within the bar, price above 0, volume not negative, no duplicate/unsorted timestamps, session-gap scan (RTH >1.5x bar; ETH/sub-1m >=2h; recent gaps WARN, historic halts stay visible). Blocks the NT import merge on impossible prices; per-master HEALTH chip in the Library masters table, cached by file mtime (0.02s warm). Verified on all 18 masters / 18.6M rows: zero structural failures; the 2020 COVID halts surface as the RTH gap examples.">structural asserts</span>
-        <span class="p p-plan" data-info="Flag (not delete) statistically-extreme bars — sklearn IsolationForest, or inverse-PCA reconstruction error (Gnanadesikan-Kettenring) — on derived features (range / return / wick / volume / gap). Runs: DAILY fit; optional per-pull scoring.">Isolation Forest / PCA</span>
-        <span class="p p-plan" data-info="Nullity map — visualize missing bars / fills across the master at a glance (the web/mobile fills gap). Runs: DAILY / on-demand.">missingno</span>
+        <span class="p p-live" data-info="LIVE (v42.7). sklearn IsolationForest on derived bar features (|return| / range / wicks / volume-change), fit on a 150k sample, scored over the most recent 2M bars at 1e-4 contamination — FLAGS for review, never deletes. Sanity-proof: it independently flagged the April-2025 tariff-crash days on NQ. Count + examples in the master modal's EDA strip. (Inverse-PCA reconstruction error remains a possible second detector.)">Isolation Forest outliers</span>
+        <span class="p p-live" data-info="LIVE (v42.7). Monthly bar-coverage map — bars per month vs expected (median daily bars x business days, clamped to the observed span), rendered as the green/yellow/red MONTHLY BAR COVERAGE strip in the master modal. Built native (missingno isn't installed and OHLC 'missingness' is absent BARS, not NaN cells — a coverage strip is the honest visualization).">coverage map</span>
         <span class="p p-plan" data-info="Reconcile paired trades vs the NinjaTrader Position-History CSV to catch web / mobile fills that skip the local DB + AddOn. Runs: PER NT SYNC (ongoing, not per-master).">fills reconciliation</span>
         <span class="p p-live" data-info="LIVE. Diffs the session-boundary gaps IN POINTS between a master and its adj/no-adj stitch twin — market moves cancel, pure roll spread remains (a single series can't tell spread from news gaps). Finds the quarterly rolls (ES 62/65, NQ 58/65 quarters; ~2.1-2.7% max spread), records each master's adjustment class, and WARNs if >25% of quarters show no seam (a roll the back-adjustment missed). ES's missing 2017-2019 quarters = the near-zero-carry era (genuinely tiny spreads). No-adj masters carry the note that overnight PnL across a seam is roll spread, not a real move. Runs: cached per master, recomputed on file change.">roll-seam / adjustment check</span>
       </div>
