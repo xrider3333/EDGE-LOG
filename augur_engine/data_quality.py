@@ -119,6 +119,128 @@ def structural_report(df, timeframe=None, source=None, session=None, max_example
     return out
 
 
+def _boundary_gaps(df, timeframe=None):
+    """SESSION-boundary close->open gaps in POINTS, keyed by the resume bar's unix ts:
+    {'ts': [...], 'p': [point gaps], 'c': [prev closes]}.
+
+    Boundary = wall-clock jump >= max(30 min, 3x bar). Calendar-date breaks are NOT
+    used because the ETH session's real break (17:00->18:00 ET) sits INSIDE one
+    calendar date — date-keying makes mid-week rolls invisible on ETH masters.
+    Points (not %) on purpose: back-adjustment shifts the price LEVEL of a whole
+    segment, so at a non-roll boundary the adjusted and raw point-gaps are IDENTICAL —
+    their diff isolates pure roll spread. Keying by exact ts aligns siblings 1:1
+    (adj / no-adj twins share the same bar grid)."""
+    if df is None or len(df) < 2 or "time" not in df:
+        return {"ts": [], "p": [], "c": []}
+    t = df["time"].to_numpy("int64")
+    o = df["open"].to_numpy(float)
+    c = df["close"].to_numpy(float)
+    secs = tf_seconds(timeframe) or 300
+    # boundaries = wall-clock holes (session breaks / weekends) UNION UTC-day
+    # crossings: the stitcher's volume-dominance roll is keyed by UTC day
+    # (sec // 86400), so on ETH masters the contract switch is a MID-SESSION
+    # bar-to-bar seam at 20:00/19:00 ET with no time hole at all.
+    hole = np.diff(t) >= max(1800, 3 * secs)
+    utc_day = (t // 86400)
+    bnd = np.flatnonzero(hole | (np.diff(utc_day) != 0))
+    if not len(bnd):
+        return {"ts": [], "p": [], "c": []}
+    p = o[bnd + 1] - c[bnd]
+    ok = np.isfinite(p)
+    return {"ts": [int(x) for x, k in zip(t[bnd + 1], ok) if k],
+            "p": [round(float(x), 4) for x, k in zip(p, ok) if k],
+            "c": [round(float(x), 4) for x, k in zip(c[bnd], ok) if k]}
+
+
+def _find_sibling(master, masters=None):
+    """The adj<->no-adj counterpart of a master (same instrument/timeframe/session,
+    opposite adjustment class). Prefers the db_noadj_* twin for adjusted masters."""
+    if masters is None:
+        from .data import list_masters
+        masters = list_masters()
+    # Pair only true stitch twins: the adjusted stitch output <-> 'db_noadj_*' (raw
+    # stitch output). The adjusted side's registered source varies by ingest path
+    # (tv / yahoo / merged), so classify by exclusion: adjusted = anything that isn't
+    # db_noadj_* or nt_*. Twins share the SAME bar set by construction, so row-count
+    # parity (±0.5%) is the real gate — it rejects cross-feed impostors like the
+    # small true-Yahoo 1m pulls, whose grids/prices would produce junk diffs.
+    _is_raw = lambda s: s.startswith("db_noadj_") or s.startswith("nt_")
+    src = str(master.get("source", ""))
+    if src.startswith("nt_"):
+        return None                                        # NT 10s feed has no stitch twin
+    want = (lambda s: not _is_raw(s)) if src.startswith("db_noadj_") else _is_raw
+    rows0 = float(master.get("rows") or 0)
+    cand = [m for m in masters
+            if str(m.get("instrument")) == str(master.get("instrument"))
+            and str(m.get("timeframe")) == str(master.get("timeframe"))
+            and str(m.get("session", "")).lower() == str(master.get("session", "")).lower()
+            and m.get("filename") != master.get("filename")
+            and want(str(m.get("source", "")))
+            and rows0 and abs(float(m.get("rows") or 0) - rows0) <= 0.005 * rows0]
+    return cand[0] if cand else None
+
+
+def roll_seam_check(master, rep, uploads=None, max_examples=6):
+    """Roll-seam / adjustment check (stack pill 2.6) — PAIRED design.
+
+    ES/NQ roll quarterly; stitch_noadj keeps the raw front-month (a price JUMP lives
+    at each roll boundary) while stitch_databento Panama-adjusts those jumps away.
+    A single series can't separate roll spread from a real news gap (COVID overnights
+    and weekend reopens land in roll windows too), so we DIFF the day-boundary gaps
+    of the adj/no-adj SIBLINGS: market movement cancels, roll spread remains.
+
+      seam:   |gap_noadj - gap_adj| > max(4 x robust scale of the diff, 0.15%)
+              inside a quarterly roll window (Mar/Jun/Sep/Dec, day 1-25)
+      no-adj master -> seams reported (expected; overnight PnL across one is fake)
+      adjusted master -> rolls_removed + a MISSING-QUARTER scan: a quarter in range
+              with no detected seam = a roll the adjustment may have missed -> WARN
+              when >25% of quarters are missing (systematic failure).
+    Masters without a stitch twin (e.g. the NT 10s feed) just record their class.
+    """
+    bg = rep.get("_bg") or {}
+    adjusted = _is_adjusted(master.get("source"))
+    out = {"adjusted": adjusted, "paired_with": None, "seams": None,
+           "seam_dates": [], "max_spread_pct": None, "missing_quarters": []}
+    sib = _find_sibling(master)
+    if sib is None or not bg.get("ts"):
+        return out
+    sib_rep = check_master_cached(sib, uploads)          # cached -> cheap after 1st scan
+    sbg = sib_rep.get("_bg") or {}
+    if not sbg.get("ts"):
+        return out
+    out["paired_with"] = sib.get("name")
+    sg = dict(zip(sbg["ts"], sbg["p"]))
+    common = [(ts, p, sg[ts], c) for ts, p, c in zip(bg["ts"], bg["p"], bg["c"]) if ts in sg]
+    if len(common) < 8:
+        return out
+    dd = np.array([abs(a - b) for _, a, b, _ in common])        # |points diff| = roll spread
+    cc = np.array([c for _, _, _, c in common], float)
+    px = float(np.median(cc)) or 1.0                             # typical price (reporting)
+    mad = float(np.median(np.abs(dd - np.median(dd)))) or 1e-9
+    # per-boundary floor (0.05% of THAT boundary's price): prices grow ~10x over the
+    # span, so a global floor sized for late-era prices swallows early-era spreads.
+    thresh = np.maximum(4 * 1.4826 * mad, 0.0005 * np.abs(cc))
+    dts = pd.to_datetime(pd.Series([ts for ts, _, _, _ in common]), unit="s",
+                         utc=True).dt.tz_convert("US/Eastern")
+    in_win = dts.dt.month.isin([3, 6, 9, 12]).values & (dts.dt.day.values >= 1) & (dts.dt.day.values <= 25)
+    seam = in_win & (dd > thresh)
+    idx = np.flatnonzero(seam)
+    out["seams"] = int(len(idx))
+    out["seam_dates"] = [dts.iloc[i].strftime("%Y-%m-%d") for i in idx[:max_examples]]
+    if len(idx):
+        out["max_spread_pct"] = round(float((dd[idx] / px).max()) * 100, 2)
+    # missing-quarter scan: every quarter spanned should contain >=1 seam.
+    if len(common) > 60:                                  # only meaningful on long spans
+        yq = list(zip(dts.dt.year.values, (dts.dt.month.values + 2) // 3))
+        q = sorted(set(yq))
+        hit = {yq[i] for i in idx}
+        miss = [f"{y}Q{n}" for y, n in q if (y, n) not in hit]
+        out["n_quarters"] = len(q)
+        out["n_missing"] = len(miss)                       # FULL count (list below is capped)
+        out["missing_quarters"] = miss[:8]
+    return out
+
+
 def check_master(master, uploads=None):
     """Full-file structural scan of one master registry row -> report dict."""
     uploads = uploads or UPLOADS
@@ -128,7 +250,10 @@ def check_master(master, uploads=None):
                      ("time", "open", "high", "low", "close", "volume"))
     rep = structural_report(df, timeframe=master.get("timeframe"),
                             source=master.get("source"), session=master.get("session"))
-    rep.update({"checked_at": time.time(),
+    # boundary gaps stored for the PAIRED roll-seam check (pill 2.6). Rolls themselves
+    # are computed in health_summary() so sibling lookups can't recurse.
+    rep["_bg"] = _boundary_gaps(df, timeframe=master.get("timeframe"))
+    rep.update({"_v": 6, "checked_at": time.time(),
                 "file_mtime": st.st_mtime, "file_size": st.st_size})
     return rep
 
@@ -147,7 +272,8 @@ def check_master_cached(master, uploads=None):
     try:
         st = os.stat(os.path.join(uploads, fn))
         hit = cache.get(fn)
-        if hit and hit.get("file_mtime") == st.st_mtime and hit.get("file_size") == st.st_size:
+        if (hit and hit.get("file_mtime") == st.st_mtime
+                and hit.get("file_size") == st.st_size and hit.get("_v") == 6):
             return hit
         rep = check_master(master, uploads)
         cache[fn] = rep
@@ -165,8 +291,32 @@ def health_summary(master, uploads=None):
     """Compact per-master health blob for the runner's meta sync (small for Firestore):
     verdict + only the non-zero check counts + first gap examples."""
     rep = check_master_cached(master, uploads)
-    return {"verdict": rep.get("verdict"),
+    verdict = rep.get("verdict")
+    notes = list((rep.get("notes") or []))
+    try:
+        rolls = roll_seam_check(master, rep, uploads)
+    except Exception:
+        rolls = {"adjusted": _is_adjusted(master.get("source")), "seams": None}
+    nq = rolls.get("n_quarters") or 0
+    miss = rolls.get("missing_quarters") or []
+    n_miss = rolls.get("n_missing", len(miss))
+    if rolls.get("seams"):
+        if rolls.get("adjusted"):
+            notes.append(f"{rolls['seams']} quarterly rolls adjusted away "
+                         f"(max spread {rolls.get('max_spread_pct')}% vs raw sibling)")
+        else:
+            notes.append(f"{rolls['seams']} roll seams (raw front-month, e.g. "
+                         f"{', '.join(rolls.get('seam_dates', [])[:2])}) — overnight PnL "
+                         "across a seam is roll spread, not a real move")
+    if rolls.get("adjusted") and nq >= 8 and n_miss > 0.25 * nq:
+        notes.append(f"adjustment may have MISSED rolls — no seam found in "
+                     f"{n_miss}/{nq} quarters (e.g. {', '.join(miss[:3])})")
+        if verdict == "PASS":
+            verdict = "WARN"
+    return {"verdict": verdict,
             "bad": {k: v for k, v in (rep.get("checks") or {}).items() if v},
             "gaps": (rep.get("gaps") or [])[:3],
-            "notes": (rep.get("notes") or [])[:2],
+            "notes": notes[:3],
+            "adj": ("adj" if rolls.get("adjusted") else "no-adj"),
+            "seams": rolls.get("seams"),
             "checked_at": rep.get("checked_at")}
