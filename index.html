@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='42.5';
+const VERSION='42.6';
 window._setStage('SCRIPT START');
 </script>
 <script>
@@ -4509,7 +4509,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _cdTip='Histogram of every tested config\'s net $ (one bar = configs landing in that $ range). A PLATEAU (many configs near the best) = a robust edge; an isolated spike = likely overfit. Dashed bell = fitted normal · accent line = mean · dotted verticals = ±σ.';
       return (tag?'<div title="'+_cdTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · CONFIG DISTRIBUTION <span style="font-weight:400;color:'+vc+';font-size:8px">· '+(plateau?'plateau (robust)':'isolated spike (overfit)')+'</span><span style="font-weight:400;color:var(--text4);font-size:8px">· '+near+'/'+n+' within 80% · mean '+fmtUsd(Math.round(mean))+' · σ '+fmtUsd(Math.round(sd))+' <span style="color:var(--text4)">ⓘ</span></span></div>':'<div class="lbl" title="'+_cdTip+'" style="cursor:help;margin:8px 0 6px">CONFIG DISTRIBUTION · <span style="color:'+vc+'">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit risk)')+'</span> · '+near+'/'+n+' within 80% of best</div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto" data-xh="'+encodeURIComponent(JSON.stringify({xt:'usd',x0:lo,x1:hi,yt:'int',y0:0,y1:bmax,px:0,py:14,pw:Wp,ph:H-14,xl:'net',yl:'configs'}))+'">'+grid+bars+sdMarks+meanLine+'<polyline points="'+bell.join(' ')+'" fill="none" stroke="var(--text)" stroke-width="1.5" opacity="0.9" stroke-dasharray="2,2"/>'+hits+c2YTitle(H,'configs')+'</svg>'
-        +c2XRow(fmtUsd(Math.round(mn)),'<b style="color:var(--text2)">net $ per config</b> (x)','↑ best '+fmtUsd(Math.round(mx)))+'</div>';
+        +c2XRow(fmtUsd(Math.round(mn)),'','↑ best '+fmtUsd(Math.round(mx)))+'</div>';
     };
     // TRADE PNL DISTRIBUTION — histogram of the WINNER's per-trade PnLs with a fitted
     // normal (bell) curve overlaid. Shows the shape/spread of trade outcomes (fat tails,
@@ -4568,20 +4568,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let colOf;
       if(mode==='rank'){colOf=i=>{const t=i/Math.max(1,series.length-1);return 'rgb('+Math.round(40+40*t)+','+Math.round(190-120*t)+','+Math.round(120+60*t)+')';};}
       else{const vals=series.map((s,i)=>tops[i]?+tops[i][mode]:NaN),fin=vals.filter(v=>!isNaN(v)),vmn=Math.min.apply(null,fin),vmx=Math.max.apply(null,fin);colOf=i=>{const v=vals[i];if(isNaN(v))return 'var(--text4)';const t=(v-vmn)/((vmx-vmn)||1);return 'rgb('+Math.round(70-30*t)+','+Math.round(110+110*t)+','+Math.round(200-90*t)+')';};}
-      const W=C2W,H=140,pd=6,PW=C2P,path=(s,col,wd,op)=>{const n=s.length;if(n<2)return '';return '<path d="'+s.map((v,i)=>((i?'L':'M')+(pd+(PW-2*pd)*i/(n-1)).toFixed(1)+' '+(H-pd-(H-2*pd)*(v-mn)/rg).toFixed(1))).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'"/>';};
+      // plot insets: pt top headroom (so the winner curve + its $ label clear the top),
+      //   pr right gap (so the curves stop short of the y-axis numbers in the gutter).
+      const W=C2W,H=140,pd=6,pt=13,pr=16,PW=C2P,plotR=PW-pr,path=(s,col,wd,op)=>{const n=s.length;if(n<2)return '';return '<path d="'+s.map((v,i)=>((i?'L':'M')+(pd+(plotR-pd)*i/(n-1)).toFixed(1)+' '+(H-pd-(H-pt-pd)*(v-mn)/rg).toFixed(1))).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'"/>';};
       // draw worst→best so the winner sits on top
       const order=series.map((s,i)=>i).sort((a,b)=>b-a);
-      const lines=order.map(i=>path(series[i],colOf(i),i===0?2.2:1.2,i===0?1:0.72)).join(''),zeroY=H-pd-(H-2*pd)*(0-mn)/rg;
+      const lines=order.map(i=>path(series[i],colOf(i),i===0?2.2:1.2,i===0?1:0.72)).join(''),zeroY=H-pd-(H-pt-pd)*(0-mn)/rg;
       // NICE-step $ gridlines + right-gutter labels — shared §2 chrome.
-      const grid=c2GridV(pd,H-pd,mn,mx);
+      const grid=c2GridV(pt,H-pd,mn,mx);
       const sel='<select data-tpc style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin-left:6px"><option value="rank"'+(mode==='rank'?' selected':'')+'>by rank</option>'+pkeys.map(k=>'<option value="'+k+'"'+(mode===k?' selected':'')+'>by '+k.replace(/_/g,' ')+'</option>').join('')+'</select>';
       const cfgSlider='<span title="how many configs to plot — also sets the config-distribution (2b) bin detail. This chart only stores the top '+etop.length+' curves, so it stops adding past '+etop.length+' even though the slider (shared with 2b) goes to 50." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" data-cfgpts min="2" max="50" step="1" value="'+_cfgPts+'" style="width:120px;height:14px;cursor:pointer;vertical-align:middle"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+'</b></span>';
       const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
-      return (tag?'<div title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · TOP CONFIGS PNL <span style="font-weight:400;color:var(--text4);font-size:8px">· top '+series.length+((d.date_from&&d.date_to)?' · '+_dnice(d.date_from)+' → '+_dnice(d.date_to):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades <span style="color:var(--text4)">ⓘ</span></span>'+sel+cfgSlider+'</div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+sel+'</div>')
+      return (tag?'<div title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · TOP CONFIGS PNL <span style="font-weight:400;color:var(--text4);font-size:8px">· top '+series.length+((d.date_from&&d.date_to)?' · '+_dnice(d.date_from)+' → '+_dnice(d.date_to):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades</span>'+sel+cfgSlider+'</div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+sel+'</div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
-        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+((d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:pd,py:pd,pw:PW-2*pd,ph:H-2*pd,yl:'equity'}))+'"':'')+'>'
+        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+((d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:pd,py:pt,pw:plotR-pd,ph:H-pt-pd,yl:'equity'}))+'"':'')+'>'
         +grid
-        +'<line x1="0" y1="'+zeroY.toFixed(1)+'" x2="'+PW+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--border)"/>'+lines+c2YTitle(H,'equity $')+'</svg></div>';
+        +'<line x1="0" y1="'+zeroY.toFixed(1)+'" x2="'+plotR+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--border)"/>'+lines+c2YTitle(H,'equity $')+'</svg></div>';
     };
     // SCATTER — each tested config as a dot: chosen param (X) vs net PnL (Y). Shows
     // whether the edge is a smooth slope (robust) or random noise.
@@ -4598,7 +4600,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const series=[xk].concat(cmp),multi=series.length>1;
       const ys=points.map(p=>p.pnl*mult);
       const ymn=Math.min.apply(null,[0].concat(ys)),ymx=Math.max.apply(null,[0].concat(ys)),yrg=(ymx-ymn)||1;
-      const W=C2W,H=170,pd=8,PW=C2P;
+      const W=C2W,H=280,pd=8,PW=C2P;
       const Y=v=>H-pd-(H-2*pd)*((v-ymn)/yrg);
       const _rnd=v=>Number.isInteger(v)?v:(+v).toFixed(2);
       const PAL=['var(--blue)','var(--purple)','var(--yellow)','#e879f9'];
@@ -4966,7 +4968,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(keys.length<2)return '';
       const axes=keys.concat(['pnl']),dom={};
       axes.forEach(k=>{const vs=points.map(p=>k==='pnl'?p.pnl*mult:p[k]);dom[k]=[Math.min.apply(null,vs),Math.max.apply(null,vs)];});
-      const W=C2W,H=180,padT=14,padB=26,padX=10,n=axes.length,ax=i=>padX+(C2P-2*padX)*i/(n-1);
+      const W=C2W,H=110,padT=13,padB=22,padX=10,n=axes.length,ax=i=>padX+(C2P-2*padX)*i/(n-1);
       const Y=(k,v)=>{const m=dom[k];return (H-padB)-((v-m[0])/((m[1]-m[0])||1))*((H-padB)-padT);};
       const pmx=Math.max.apply(null,points.map(p=>Math.abs(p.pnl)))||1;
       const rnd=v=>Number.isInteger(v)?v:(+v).toFixed(2);
@@ -6100,7 +6102,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // ⛶ fullscreen — every chart gets the same top-right expand button, opening the
         // existing expandChart modal with a clean (undistorted) copy of the svg.
         const xb=document.createElement('div');xb.textContent='⛶';xb.title='expand fullscreen';
-        xb.style.cssText='position:absolute;top:2px;left:5px;font-size:12px;line-height:1;color:var(--text4);cursor:pointer;z-index:5;opacity:.4;padding:2px 4px;border-radius:4px;background:color-mix(in srgb,var(--bg1) 65%,transparent)';
+        xb.style.cssText='position:absolute;bottom:3px;left:5px;font-size:12px;line-height:1;color:var(--text4);cursor:pointer;z-index:5;opacity:.4;padding:2px 4px;border-radius:4px;background:color-mix(in srgb,var(--bg1) 65%,transparent)';
         xb.onmouseenter=()=>xb.style.opacity='1';xb.onmouseleave=()=>xb.style.opacity='.4';
         xb.onclick=e=>{e.stopPropagation();
           // fresh lookups each time — renderApp rebuilds the report DOM, so cached nodes go stale
