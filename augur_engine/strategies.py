@@ -16,7 +16,7 @@ _CACHE = {}   # path -> (mtime, module)
 
 
 def _resolve(name_or_path: str) -> str:
-    """Accept a bare filename ('ORB_SIMPLE_1_0.py' or 'ORB_SIMPLE_1_0'), or an
+    """Accept a bare filename ('ORB_3_0.py' or 'ORB_3_0'), or an
     absolute path. Returns an absolute .py path under augur_strategies/."""
     if os.path.isabs(name_or_path) and os.path.exists(name_or_path):
         return name_or_path

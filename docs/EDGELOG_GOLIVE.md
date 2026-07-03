@@ -61,7 +61,7 @@ net P&L — streamed live via the same onSnapshot path EDGELOG uses for trades.
 ## Test without the frontend (optional sanity check)
 Local queue mode needs no Firebase at all:
 ```
-python -c "from api.runner import LocalQueue; LocalQueue().enqueue({'strategy':'ORB_SIMPLE_1_0.py','instrument':'NQ','timeframe':'5m','session':'rth','source':'tv','params':{'vol_filter':1.5},'cost_pts':0.283})"
+python -c "from api.runner import LocalQueue; LocalQueue().enqueue({'strategy':'ORB_3_0.py','instrument':'NQ','timeframe':'5m','session':'rth','source':'tv','params':{'vol_filter':1.5},'cost_pts':0.283})"
 python -m api.runner            # processes augur_jobs/*.json, writes results back
 ```
 

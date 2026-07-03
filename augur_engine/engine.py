@@ -56,7 +56,7 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
                  ml_refit_every=25):
     """Run one backtest and return the metrics dict (with a "_meta" block).
 
-    strategy   : plugin filename ('ORB_SIMPLE_1_0.py'), path, or a loaded module.
+    strategy   : plugin filename ('ORB_3_0.py'), path, or a loaded module.
     Data is resolved in priority order: explicit `arrays` -> explicit `master` row
     -> find_master(instrument, timeframe, session, source).
     cost_pts   : per-round-trip cost in POINTS (e.g. NQ $5.66 / $20 = 0.283).

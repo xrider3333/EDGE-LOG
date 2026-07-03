@@ -1,7 +1,7 @@
 //@version=5
 // =============================================================================
-//  AUGUR · ORB SIMPLE — Opening Range Breakout (low-DOF deployable cut)
-//  Pine port of augur_strategies/OPENING_RANGE_BREAKOUT_SIMPLE.py  (#20)
+//  AUGUR · ORB 3.0 — Opening Range Breakout (low-DOF deployable cut)
+//  Pine port of augur_strategies/ORB_3_0.py  (#20)
 //  v1.1 — 2026-06-14: thin-vol behaviour documented (see Fidelity notes)
 //  v1.2 — 2026-06-15: defaults set to the DEPLOYABLE config (volFilter 1.0->1.5,
 //          the validated edge). All inputs now match the paper-trading config:
@@ -36,7 +36,7 @@
 //  Deployable defaults = the WF-validated simple family (NQ/ES 5m RTH).
 //  RESEARCH / paper-trading tool. Validate before risking money.
 // =============================================================================
-strategy("AUGUR ORB SIMPLE v1.1 — opening range breakout", overlay=true,
+strategy("AUGUR ORB 3.0 v1.1 — opening range breakout", overlay=true,
      default_qty_type=strategy.fixed, default_qty_value=1, pyramiding=0,
      commission_type=strategy.commission.cash_per_order, commission_value=2.83,
      slippage=0, calc_on_every_tick=false, process_orders_on_close=true)

@@ -12,7 +12,7 @@ working exactly as before; later steps can point it at this package too.
 
 Quick use:
     from augur_engine import run_backtest, list_strategies, list_masters
-    r = run_backtest("ORB_SIMPLE_1_0.py", instrument="NQ", timeframe="5m",
+    r = run_backtest("ORB_3_0.py", instrument="NQ", timeframe="5m",
                      session="rth", params={"vol_filter": 1.5})
     print(r["total_pnl"], r["profit_factor"], r["num_trades"])
 """

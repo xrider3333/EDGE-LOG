@@ -41,7 +41,7 @@
   "OVERNIGHT_HOLD_1_0.py": 17,
   "ORB_2_0.py": 18,
   "ORB_1_0.py": 19,
-  "ORB_SIMPLE_1_0.py": 20,
+  "ORB_3_0.py": 20,
   "GAINZ_RF_1_0.py": 13
  },
  "eta_calib": {
@@ -49,7 +49,7 @@
   "bars": 316850
  },
  "roadmaps": {
-  "ORB_SIMPLE_1_0.py": {
+  "ORB_3_0.py": {
    "feasibility": true,
    "plateau": true,
    "stress": true,
@@ -64,8 +64,8 @@
   "data_source": "CSV",
   "source_name": "ES 5m RTH",
   "scope": "Short  (OR + direction)",
-  "strategy_name": "ORB SIMPLE · low-DOF (break + stop + vol filter)",
-  "strategy_path": "C:\\Users\\xride\\OneDrive\\Desktop\\AUGUR\\augur_strategies\\OPENING_RANGE_BREAKOUT_SIMPLE.py",
+  "strategy_name": "ORB 3.0 · low-DOF (break + stop + vol filter)",
+  "strategy_path": "C:\\Users\\xride\\OneDrive\\Desktop\\AUGUR\\augur_strategies\\ORB_3_0.py",
   "grid": {
    "or_bars": [
     3,

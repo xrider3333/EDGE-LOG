@@ -1,7 +1,7 @@
 # xcheck_orb.py — cross-check blotter: ORB SIMPLE (python engine) vs TradingView.
 # Runs the engine on the most recent N sessions of the NQ/ES 5m RTH master and
 # prints a DIAGNOSTIC trade blotter: side, entry/exit prices, exit reason, plus
-# each session's opening-range hi/lo and last-bar time. Load pine/ORB_SIMPLE_1_0.pine
+# each session's opening-range hi/lo and last-bar time. Load pine/ORB_3_0.pine
 # on the matching TV chart (5m, RTH, same config) and compare trade-for-trade.
 #
 # The extra columns exist to pin every engine-vs-TV mismatch to its real cause:
@@ -36,7 +36,7 @@ fname, mult = MASTERS[INST]
 # with Back-adjustment OFF:  set XC_MASTER=NOADJ_NQ_5m_RTH.csv
 fname = os.environ.get("XC_MASTER", fname)
 spec = importlib.util.spec_from_file_location(
-    "orbs", os.path.join(ROOT, "augur_strategies", "ORB_SIMPLE_1_0.py"))
+    "orbs", os.path.join(ROOT, "augur_strategies", "ORB_3_0.py"))
 mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
 
 df = pd.read_csv(os.path.join(ROOT, "augur_uploads", fname))
@@ -119,7 +119,7 @@ for idx, (eb, xb, pnl) in enumerate(r["trades"], 1):
           f"{xt:<16} {out_px:>9.2f} {why:>4} {pnl:>8.2f} "
           f"{pnl*mult:>10,.2f} {pnl*mult-RT_COST:>10,.2f}   {orlbl:>18} {last_t:>6}")
 print()
-print("Compare against pine/ORB_SIMPLE_1_0.pine on the SAME chart "
+print("Compare against pine/ORB_3_0.pine on the SAME chart "
       f"({INST}1! or continuous, 5m, RTH session, ET timezone), vol filter = 0.")
 print("Mismatch decoder:")
 print("  - side or entry-bar differs -> knife-edge OR boundary (1-tick data diff)")

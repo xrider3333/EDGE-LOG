@@ -92,7 +92,7 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       excursion from rich trades and the Results panel turns it into stop/target guidance
       (median/90th heat winners took → stop; median/75th reach → target) + histograms.
       Needs each strategy to emit 5-tuple trades `(entry_i, exit_i, pnl, side, entry_px)`;
-      ORB_SIMPLE_1_0 done, others fall back to no-panel until upgraded. *(v28.3)*
+      ORB_3_0 done, others fall back to no-panel until upgraded. *(v28.3)*
 - [ ] **#15 Risk-of-ruin + bootstrap MC** (resample-with-replacement, ruin prob, time-to-recovery).
 - [ ] **#16 Vol-targeted position sizing** (size by ATR so $ risk/trade is constant).
 - [ ] **#17 Half-day / holiday calendar** (13:00 ET closes break ORB EOD-flat & session stats).
@@ -114,7 +114,7 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       per-param group-mean curves + 1-2-1 kernel; each config scored by the sum of its params'
       smoothed curves) runs in EVERY `run_grid` + `run_auto`, reported as `result.plateau_pick`
       ALONGSIDE the argmax `best` (not replacing it) and rendered as the 🏔 PLATEAU PICK strip
-      in the Builder; agreement = champion is not a spike (first run, ORB SIMPLE Medium grid:
+      in the Builder; agreement = champion is not a spike (first run, ORB 3.0 Medium grid:
       agreed). **(b) Ensemble top-K** — convex-combine
       the top configs (weights fit on OOS folds) instead of crowning one. **(c) Adversarial-
       validation gate**, **(d) conformal band on the gate thresholds**, **(e) causal counterfactual

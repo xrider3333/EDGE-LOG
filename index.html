@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='43.9';
+const VERSION='44.0';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -4460,7 +4460,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
 
   // ══ SETTINGS ══
   if(activeTab==='augur'){
-    const stratOpts=['ORB_SIMPLE_1_0.py','ORB_2_0.py','ORB_1_0.py','OVERNIGHT_HOLD_1_0.py','REVERT_1_0.py','REVERT_1_1.py','REVERT_1_2.py','VWAP_FADE_1_0.py','VWAP_FADE_2_0.py','SUPERTREND_1_0.py','SUPERTREND_2_0.py','GAINZ_RF_1_0.py','ENGU_1_1_20.py','ENGU_1_1_21.py','ENGU_1_2_1.py','ENGU_1_3_1.py','ENGU_1_3_2.py','ENGU_1_3_3.py','ENGU_1_3_4.py','ENGU_1_3_5.py'];
+    const stratOpts=['ORB_3_0.py','ORB_2_0.py','ORB_1_0.py','OVERNIGHT_HOLD_1_0.py','REVERT_1_0.py','REVERT_1_1.py','REVERT_1_2.py','VWAP_FADE_1_0.py','VWAP_FADE_2_0.py','SUPERTREND_1_0.py','SUPERTREND_2_0.py','GAINZ_RF_1_0.py','ENGU_1_1_20.py','ENGU_1_1_21.py','ENGU_1_2_1.py','ENGU_1_3_1.py','ENGU_1_3_2.py','ENGU_1_3_3.py','ENGU_1_3_4.py','ENGU_1_3_5.py'];
     const badge=s=>{const c={done:'var(--green)',error:'var(--red)',running:'var(--yellow)',queued:'var(--text4)'}[s]||'var(--text4)';return '<span style="color:'+c+';font-size:var(--fsxs);letter-spacing:1px">'+((s||'?').toUpperCase())+'</span>';};
     const rows=backtests.map(b=>{const r=b.result||{};const done=b.status==='done';const net=done?Math.round((r.total_pnl||0)*(b.mult||20)):0;const last='<td style="text-align:right;color:'+(done?(net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(done?'$'+net.toLocaleString():(b.status==='error'?'err':'—'))+'</td>';return '<tr><td>'+badge(b.status)+'</td><td style="font-size:var(--fsxs)">'+(b.strategy||'')+'</td><td>'+(b.instrument||'')+' '+(b.timeframe||'')+'</td><td style="text-align:right">'+(done?Math.min(r.profit_factor,99).toFixed(2):'—')+'</td><td style="text-align:right">'+(done?r.num_trades:'—')+'</td>'+last+'<td style="text-align:right;color:var(--text4)">'+(done&&r.mc?'$'+Math.round((r.mc.p95||0)*(b.mult||20)).toLocaleString():'—')+'</td></tr>';}).join('');
     const fmtUsd=v=>((v||0)<0?'-$':'$')+Math.abs(Math.round(v||0)).toLocaleString();
@@ -4476,7 +4476,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const stratColor=key=>'hsl('+_hashHue(_norm(key))+',60%,66%)';
     // Known families → fixed abbreviation, spelled-out name, one-line description.
     const STRAT_FAM=[
-      {re:/^(orb[_\s]*simple|opening.*simple)/i,abbr:'ORB-S',full:'Opening Range Breakout · Simple',desc:'Low-DOF deployable ORB — the simple lever set (the deploy candidate)'},
+      {re:/^orb[_\s]*3/i,abbr:'ORB',full:'Opening Range Breakout · 3.0',desc:'Low-DOF deployable ORB — the deploy candidate'},
       {re:/^(orb|opening)/i,abbr:'ORB',full:'Opening Range Breakout',desc:'Trades the breakout of the session opening range'},
       {re:/^overnight/i,abbr:'OVN',full:'Overnight Hold',desc:'Close-to-open trend-gated overnight hold'},
       {re:/^engu/i,abbr:'ENGU',full:'Engulfing Reversal',desc:'Engulfing-candle reversal entries'},
@@ -4505,7 +4505,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const vn=String(str).match(/\bv?(\d+)\b/);                // single "v2" / "2" form
       if(fam&&vn){const fmaj=lib.filter(s=>_famKey(s.file)===fam&&maj(vOf(s))===vn[1]);if(fmaj.length===1)return fmaj[0];
         const fl=lib.filter(s=>_famKey(s.file)===fam&&lst(vOf(s))===vn[1]);if(fl.length===1)return fl[0];}
-      if(fam==='ORB'&&/simple/i.test(str)){const s=lib.find(x=>/simple/i.test(x.file));if(s)return s;}
+      if(fam==='ORB'&&/simple/i.test(str)){const s=lib.find(x=>_famKey(x.file)==='ORB'&&_abbrVer(x.file).ver==='3.0');if(s)return s;}
       if(fam){const fc=lib.filter(s=>_famKey(s.file)===fam);if(fc.length===1)return fc[0];}  // lone-member family
       return null;};
     const stratInfo=str=>{const m=_stratMatch(str);const src=m?m.file:str;const av=_abbrVer(src);const fam=stratFam(src);const abbr=fam?fam.abbr:av.abbr;const num=m&&m.num!=null?m.num:null;const color=stratColor(m?m.file:str);return {num:num,abbr:abbr,ver:av.ver,full:(fam?fam.full:av.abbr),desc:(fam?fam.desc:''),color:color,label:(num!=null?'#'+num+' ':'')+abbr+(av.ver?' '+av.ver:'')};};

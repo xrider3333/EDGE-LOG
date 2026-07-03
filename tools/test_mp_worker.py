@@ -8,7 +8,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-STRAT = os.path.join(ROOT, "augur_strategies", "ORB_SIMPLE_1_0.py")
+STRAT = os.path.join(ROOT, "augur_strategies", "ORB_3_0.py")
 MASTER = os.path.join(ROOT, "augur_uploads", "master_00c66966.csv")
 COST_PTS = 5.66 / 20 + 0.25       # NQ commission->pts + slippage
 MIN_T = 30

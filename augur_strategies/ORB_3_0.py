@@ -17,7 +17,7 @@ to walk-forward THAT family. PNL = SHARES*(EXIT-ENTRY).
 """
 import numpy as np
 
-STRATEGY_NAME = 'ORB SIMPLE 1.0 · low-DOF deployable'
+STRATEGY_NAME = 'ORB 3.0 · low-DOF deployable'
 DESCRIPTION   = ("The deployable ORB config stripped to 5 knobs (OR length, direction, "
                  "stop, volume filter, buffer) — no ATR/partial/trail. Built for a clean "
                  "walk-forward of the simple family. NQ 5m default; transfers to ES.")
