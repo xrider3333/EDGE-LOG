@@ -48,11 +48,11 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v2.6</span></h1>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v2.7</span></h1>
   <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (EDGELOG's own workflow axes — Model &amp; Search, Validation, … — each pill tagged with its old Carl category). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-02.</span></p>
 
   <div class="summary">
-    <span class="pill"><span class="dot dg"></span><b>27</b> live</span>
+    <span class="pill"><span class="dot dg"></span><b>28</b> live</span>
     <span class="pill"><span class="dot dy"></span><b>8</b> planned</span>
   </div>
 
@@ -187,6 +187,7 @@
         <span class="p p-live" data-info="Trades-per-optimized-parameter gauge — under 10 fragile, 30+ healthy. The degrees-of-freedom / overfit governor. · was §10.3">sample adequacy (DOF)</span>
         <span class="p p-plan" data-info="Wrap the fold / lockbox estimate in a calibrated interval and gate on the lower bound instead of a point number (MAPIE / Venn-ABERS) — small-sample-noise protection. · was §4.1">conformal band</span>
         <span class="p p-plan" data-info="Train a classifier to tell fit-era bars from recent / lockbox bars; if it can, your train and live distributions differ (regime drift / leakage). · was §5.5">adversarial validation</span>
+        <span class="p p-live" data-info="LIVE (v43.7) — the honest way to pick an ML gate (ROADMAP #25). Builder: pick any ML FILTER + set VALIDATION to walk-forward or WF+lockbox → runs GATE-VALIDATE: the strategy runs once; ALL 9 candidates (3 gates × 3 cut-offs) are ranked on the PRE-LOCKBOX slice only, by RECOVERY FACTOR ($ made per $ of drawdown — the equal-risk yardstick, since a gate always trades less than ungated); ungated is always candidate #0. The winner gets exactly ONE look at the reserved last-12-months lockbox — and losing candidates' lockbox numbers are never computed into the result, so lockbox-shopping is impossible BY DESIGN. Also reports per-window PF consistency (held X/4 pre-lockbox windows). First run (ORB 1.0, NQ 5m RTH 2022→): best gate xgb@50% rec 5.05 vs ungated 5.66 → 'no gate earns its keep', lockbox not opened — the full-window PF 1.43 did NOT survive discipline. Exactly what this exists to catch.">ML-gate validate</span>
       </div>
       <div class="info"></div>
     </div>

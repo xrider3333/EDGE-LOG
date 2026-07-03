@@ -168,8 +168,17 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       option is now '⚡ XGBoost gate'. ORB 1.0 head-to-head (cut-off 50%, ungated PF
       1.18): XGBoost kept 507/978, **PF 1.43**, WR 52.3 — gated PnL beat taking every
       trade; HGB stand-in 1.27, logistic 1.20, RF 1.21.
-      REMAINING: gate inside grid/auto/WF/validate (refit-per-fold), threshold as a
-      searchable param.
+      **Shipped v2 (2026-07-02, v43.7 / stack v2.7 — board 4.10 "ML-gate validate"):**
+      `run_gate_validate` engine job + runner type `gate_validate` + Builder wiring (any
+      ML FILTER + VALIDATION≠none) + result card. The strategy runs once; all 9
+      candidates (3 gates × 3 cut-offs) are ranked on the PRE-LOCKBOX slice only by
+      recovery factor ($/dd — equal-risk yardstick; raw PnL structurally favours
+      ungated); winner gets ONE look at the last-12-mo lockbox; losers' lockbox numbers
+      are never computed (no shopping); +per-window PF consistency. First run (ORB 1.0):
+      best gate xgb@50% rec 5.05 < ungated 5.66 → "no gate earns its keep", lockbox not
+      opened — the full-window PF 1.43 did NOT survive discipline, exactly the
+      multiple-testing catch this exists for. REMAINING: gate inside the grid/auto
+      SEARCH itself (tune strategy params with the gate active).
 
 ## 4. optimizer.py (Streamlit) — open bugs (only while Streamlit is still in use)
 - [ ] **#1 Results shows only the most-recent completed run** — live panel hydrates only the

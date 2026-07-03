@@ -114,6 +114,17 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 discover=_disc, provider=_prov, api_key=_key,
                 ai_rounds=int(job.get("n_rounds", 4)),
                 thresholds=job.get("thresholds"), progress_cb=progress_cb)
+        elif jtype == "gate_validate":
+            r = ae.run_gate_validate(
+                job["strategy"], instrument=job.get("instrument"),
+                timeframe=job.get("timeframe", "5m"), session=job.get("session", "rth"),
+                source=job.get("source"), params=job.get("params") or {},
+                cost_pts=float(job.get("cost_pts", 0) or 0),
+                date_from=df_from, date_to=df_to,
+                gates=job.get("gates") or ("logistic", "rf", "xgb"),
+                thresholds=job.get("thresholds") or (0.50, 0.55, 0.60),
+                lockbox_months=int(job.get("lockbox_months", 12) or 12),
+                progress_cb=progress_cb)
         elif jtype == "ai_optimize":
             prov = job.get("provider", "ollama")
             # Anthropic key comes from LOCAL config, never the job doc (which is in

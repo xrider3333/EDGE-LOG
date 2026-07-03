@@ -25,7 +25,7 @@ complexity isn't earning anything.
 import numpy as np
 import pandas as pd
 
-__all__ = ["gate_trades", "entry_features"]
+__all__ = ["gate_trades", "entry_features", "gate_validate"]
 
 
 # ── features at the entry bar (OHLC + clock only — no volume dependency) ───────
@@ -132,7 +132,7 @@ def _make_model(name, seed):
 
 # ── the gate itself ────────────────────────────────────────────────────────────
 def gate_trades(arrays, trades, model="logistic", threshold=0.50,
-                min_history=30, refit_every=25, seed=42):
+                min_history=30, refit_every=25, seed=42, feats=None):
     """Walk the trade list chronologically; keep/skip each trade by the model's
     profit-weighted win-probability, trained only on trades completed before its
     entry.
@@ -156,7 +156,7 @@ def gate_trades(arrays, trades, model="logistic", threshold=0.50,
     P = np.array([t[2] for t in T]); y = (P > 0).astype(int)
     n = len(T)
 
-    F, _names = entry_features(arrays)
+    F = feats if feats is not None else entry_features(arrays)[0]
     nb = len(F)
     Ecl = np.clip(E, 0, nb - 1)                     # guard odd bar indices
     X = F[Ecl]
@@ -209,3 +209,138 @@ def gate_trades(arrays, trades, model="logistic", threshold=0.50,
             "ungated": before, "gated": after,
         },
     }
+
+
+# ── gate VALIDATE: choose the gate honestly, then one look at the lockbox ─────
+def _slice_stats(entry_ts, pnls, t0=None, t1=None):
+    """Stats over trades whose ENTRY falls in [t0, t1) (None = open end)."""
+    m = np.ones(len(pnls), bool)
+    if t0 is not None:
+        m &= entry_ts >= t0
+    if t1 is not None:
+        m &= entry_ts < t1
+    return _stats(np.asarray(pnls, float)[m])
+
+
+def _rec(s):
+    """Recovery factor = profit per point of drawdown — the fair gated-vs-ungated
+    yardstick: a gate trades LESS, so raw total PnL structurally favours ungated,
+    but equal-risk sizing scales with drawdown. Positive-pnl/zero-dd → big."""
+    dd = abs(s.get("max_drawdown") or 0.0)
+    p = s.get("total_pnl") or 0.0
+    return (p / dd) if dd > 1e-9 else (999.0 if p > 0 else 0.0)
+
+
+def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
+                  thresholds=(0.50, 0.55, 0.60), lockbox_months=12,
+                  min_kept=50, windows=4, min_history=30, refit_every=25,
+                  seed=42):
+    """The honest way to pick a gate (board 4.10, ROADMAP #25).
+
+    Discipline, by construction:
+      • the last `lockbox_months` are RESERVED: every candidate (model x cut-off)
+        is ranked ONLY on its pre-lockbox results;
+      • the winner gets exactly ONE look at the lockbox — and the lockbox numbers
+        of the losing candidates never leave this function, so lockbox-shopping
+        is impossible by design;
+      • the gate model itself trains rolling on past trades only (gate_trades),
+        so even the lockbox slice mirrors live behaviour;
+      • 'ungated' (take every trade) is always candidate #0 — if no gate beats
+        it pre-lockbox, the verdict says so and the one-look is skipped.
+
+    Returns a compact json-safe dict for the web card.
+    """
+    if not trades:
+        return None
+    idx = arrays["index"]
+    T = sorted([(int(t[0]), int(t[1]), float(t[2])) for t in trades if len(t) >= 3],
+               key=lambda t: t[0])
+    nb = len(idx)
+    entry_ts = np.array([idx[min(t[0], nb - 1)] for t in T])
+    pnls_all = np.array([t[2] for t in T], float)
+    lb_start = idx[-1] - pd.DateOffset(months=int(lockbox_months))
+    t_first = entry_ts.min()
+
+    feats = entry_features(arrays)[0]                      # compute once, reuse 9x
+    ung_pre = _slice_stats(entry_ts, pnls_all, None, lb_start)
+    ung_lb = _slice_stats(entry_ts, pnls_all, lb_start, None)
+
+    cands = []
+    lb_secret = {}                                         # lockbox stats stay HERE
+    for m in gates:
+        for th in thresholds:
+            g = gate_trades(arrays, T, model=m, threshold=th,
+                            min_history=min_history, refit_every=refit_every,
+                            seed=seed, feats=feats)
+            kept = g["trades"]
+            k_ts = np.array([idx[min(t[0], nb - 1)] for t in kept])
+            k_p = np.array([t[2] for t in kept], float)
+            pre = _slice_stats(k_ts, k_p, None, lb_start)
+            key = f"{m}@{th:.2f}"
+            lb_secret[key] = (_slice_stats(k_ts, k_p, lb_start, None), k_ts, k_p)
+            cands.append({"model": str(m), "threshold": float(th),
+                          "impl": g["summary"].get("model_impl", str(m)),
+                          "kept_pre": int(pre["num_trades"]),
+                          "pre": pre, "eligible": pre["num_trades"] >= int(min_kept)})
+
+    # ── selection: pre-lockbox RECOVERY FACTOR (pnl per point of drawdown) among
+    #    eligible gated candidates — the equal-risk yardstick, not raw totals.
+    elig = [c for c in cands if c["eligible"]]
+    chosen = max(elig, key=lambda c: _rec(c["pre"])) if elig else None
+    gate_earns = bool(chosen and _rec(chosen["pre"]) > _rec(ung_pre))
+
+    out = {
+        "gates": list(gates), "thresholds": [float(t) for t in thresholds],
+        "n_candidates": len(cands), "lockbox_months": int(lockbox_months),
+        "windows": int(windows), "min_kept": int(min_kept),
+        "span": [str(pd.Timestamp(t_first).date()), str(idx[-1].date())],
+        "lockbox_from": str(pd.Timestamp(lb_start).date()),
+        "ungated_pre": ung_pre, "ungated_lockbox": ung_lb,
+        "candidates": [{"model": c["model"], "threshold": c["threshold"],
+                        "kept_pre": c["kept_pre"],
+                        "pre_pnl": c["pre"]["total_pnl"],
+                        "pre_pf": c["pre"]["profit_factor"],
+                        "pre_wr": c["pre"]["win_rate"],
+                        "pre_rec": round(_rec(c["pre"]), 2),
+                        "eligible": c["eligible"]} for c in cands],
+        "ungated_pre_rec": round(_rec(ung_pre), 2),
+        "gate_earns_pre": gate_earns,
+        "chosen": None, "lockbox": None,
+    }
+    if chosen is None:
+        out["verdict"] = "NO ELIGIBLE GATE (all kept too few pre-lockbox trades)"
+        return out
+    key = f"{chosen['model']}@{chosen['threshold']:.2f}"
+    ch_lb, ch_ts, ch_p = lb_secret[key]
+    out["chosen"] = {"model": chosen["model"], "threshold": chosen["threshold"],
+                     "impl": chosen["impl"], "pre": chosen["pre"]}
+    if not gate_earns:
+        out["verdict"] = "UNGATED WINS PRE-LOCKBOX — no gate earns its keep; lockbox not opened"
+        return out
+
+    # ── consistency: chosen vs ungated across chronological pre-lockbox slices ─
+    edges = pd.date_range(pd.Timestamp(t_first), pd.Timestamp(lb_start),
+                          periods=int(windows) + 1)
+    held = 0; wrows = []
+    for i in range(int(windows)):
+        a, b = edges[i], edges[i + 1]
+        gw = _slice_stats(ch_ts, ch_p, a, b)
+        uw = _slice_stats(entry_ts, pnls_all, a, b)
+        ok = gw["profit_factor"] >= uw["profit_factor"]   # quality, per window
+        held += int(ok)
+        wrows.append({"from": str(a.date()), "to": str(b.date()),
+                      "gated_pf": round(min(gw["profit_factor"], 99), 2),
+                      "ungated_pf": round(min(uw["profit_factor"], 99), 2),
+                      "held": ok})
+    out["consistency"] = {"held": held, "windows": int(windows), "rows": wrows}
+
+    # ── the ONE look at the lockbox (chosen candidate only) ───────────────────
+    lb_helped = _rec(ch_lb) >= _rec(ung_lb)               # equal-risk yardstick
+    out["lockbox"] = {"gated": ch_lb, "ungated": ung_lb,
+                      "gated_rec": round(_rec(ch_lb), 2),
+                      "ungated_rec": round(_rec(ung_lb), 2),
+                      "helped": bool(lb_helped)}
+    out["verdict"] = ("LOCKBOX HELD — gate beat ungated on the untouched slice"
+                      if lb_helped else
+                      "LOCKBOX FAILED — gate lost to ungated out-of-sample (pre-lockbox win was likely fit)")
+    return out

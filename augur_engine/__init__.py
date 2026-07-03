@@ -18,7 +18,7 @@ Quick use:
 """
 from .strategies import list_strategies, load_strategy, strategy_params
 from .data import list_masters, find_master, load_master_arrays
-from .engine import run_backtest
+from .engine import run_backtest, run_gate_validate
 from .history import list_runs, get_run
 from .optimize import run_grid, list_presets, expand_grid
 from .auto import run_auto
@@ -28,6 +28,7 @@ from .ai import ai_optimize, ai_evolve, validate_strategy_code, call_llm
 
 __all__ = ["list_strategies", "load_strategy", "strategy_params",
            "list_masters", "find_master", "load_master_arrays", "run_backtest",
+           "run_gate_validate",
            "list_runs", "get_run", "run_grid", "run_auto", "run_validate",
            "list_presets", "expand_grid",
            "monte_carlo_drawdown", "deflated_sharpe", "annualized_sr",

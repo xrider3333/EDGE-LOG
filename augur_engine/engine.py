@@ -121,3 +121,46 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
             "cost_pts": float(cost_pts),
         }
     return res
+
+
+def run_gate_validate(strategy, *, instrument=None, timeframe="5m", session="rth",
+                      source=None, params=None, master=None, arrays=None,
+                      cost_pts=0.0, date_from=None, date_to=None,
+                      gates=("logistic", "rf", "xgb"),
+                      thresholds=(0.50, 0.55, 0.60), lockbox_months=12,
+                      progress_cb=None):
+    """The honest gate bake-off (board 4.10, ROADMAP #25): run the strategy ONCE
+    (fixed params), then rank every gate x cut-off candidate on the PRE-LOCKBOX
+    slice only, and give the single winner ONE look at the lockbox. Losing
+    candidates' lockbox numbers never leave ml_gate.gate_validate — no shopping.
+    """
+    from .ml_gate import gate_validate as _gv
+    mod = strategy if hasattr(strategy, "run_backtest") else load_strategy(strategy)
+    if arrays is None:
+        if master is None:
+            master = find_master(instrument, timeframe, session, source)
+            if master is None:
+                raise ValueError(
+                    f"no master for instrument={instrument} timeframe={timeframe} "
+                    f"session={session} source={source}")
+        arrays = load_master_arrays(master, date_from=date_from, date_to=date_to)
+    if progress_cb:
+        progress_cb(5)
+    base = run_backtest(mod, arrays=arrays, params=params, cost_pts=cost_pts,
+                        return_trades=True)
+    if not (isinstance(base, dict) and base.get("trades")):
+        return None
+    if progress_cb:
+        progress_cb(15)
+    gv = _gv(arrays, base["trades"], gates=tuple(gates),
+             thresholds=tuple(thresholds), lockbox_months=int(lockbox_months))
+    if progress_cb:
+        progress_cb(95)
+    res = {k: v for k, v in base.items() if k != "trades"}
+    res["gate_validate"] = gv
+    res["_meta"] = {
+        "strategy": getattr(mod, "STRATEGY_NAME", None),
+        "master": (arrays.get("meta") or {}).get("name"),
+        "bars": int(len(arrays["close"])), "cost_pts": float(cost_pts),
+    }
+    return res
