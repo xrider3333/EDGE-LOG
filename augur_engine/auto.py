@@ -27,7 +27,7 @@ from .data import find_master, load_master_arrays
 from .engine import _apply_costs
 from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
                         regime_report, neighborhood, downsample_pnls, downsample_points,
-                        mae_mfe, relationship_scores)
+                        mae_mfe, relationship_scores, pdp_plateau)
 
 # Realism gates — identical to optimizer.py (WF_MIN_SIDE / MAX_TRADE_RATE / MAX_PF).
 # A champion/headline config must take at least this many WINNING and LOSING trades
@@ -282,6 +282,19 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
         _rel = relationship_scores(_pts_full)   # Pearson / MI / PPS per param vs PnL (ROADMAP #24)
         if _rel:
             out["relationship"] = _rel
+        # 3C.1 PDP-plateau pick on the sampler's evaluated configs (ROADMAP #24a)
+        _pp = pdp_plateau(_pts_full)
+        if _pp:
+            _pi = _pp.pop("index")
+            _prow = records[_pi]
+            _bp = {k: best.get(k) for k in pkeys if k in best}
+            out["plateau_pick"] = {
+                "params": {k: _prow.get(k) for k in pkeys},
+                "metrics": {k: _prow.get(k) for k in _METRIC_KEYS if k in _prow},
+                "score": _pp["score"], "argmax_score": _pp["argmax_score"],
+                "curves": _pp["curves"],
+                "same_as_best": bool({k: _prow.get(k) for k in pkeys} == _bp),
+            }
 
     # ── Regime report card + neighborhood robustness on the winner (opt-in) ──
     if (compute_regime or compute_neighbors) and best:

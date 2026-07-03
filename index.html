@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window_stages[window._stages.length-1]?.name);
 });
-const VERSION='43.7';
+const VERSION='43.8';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5699,7 +5699,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const valHtml=val?'<div class="lbl" style="margin:16px 0 6px">VALIDATION</div><div style="display:flex;gap:16px;flex-wrap:wrap;font-size:var(--fsxs);margin-bottom:6px;color:var(--text3)">'+val+'</div>':'';
         // ── Auto-Validate report card (verdict + 4 gates + lockbox) ──
         const cardHtml=R.validate?validateCardHtml(R.validate,mlt,stratTag(lastDone.strategy)):'';
-        topHtml=cardHtml+valHtml+'<div class="lbl" style="margin:16px 0 6px">'+(isWf?'WALK-FORWARD FOLDS · ':'TOP CONFIGS · ')+stratTag(lastDone.strategy)+(hasOos&&!isWf?' · IS vs OOS':'')+'</div><div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th>'+(isWf?'<th>FOLD</th>':'')+pk.map(k=>'<th>'+k+'</th>').join('')+'<th style="text-align:right">PnL pts</th><th style="text-align:right">TRD</th><th style="text-align:right">WR</th><th style="text-align:right">PF</th>'+(hasOos?'<th style="text-align:right">OOS $</th><th style="text-align:right">OOS PF</th>':'')+'</tr></thead><tbody>'+t.map((r,i)=>'<tr><td>'+(i+1)+'</td>'+(isWf?'<td>'+(r.fold||'')+'</td>':'')+pk.map(k=>'<td style="font-size:var(--fsxs)">'+r[k]+'</td>').join('')+'<td style="text-align:right">'+Math.round(r.total_pnl||0).toLocaleString()+'</td><td style="text-align:right">'+(r.num_trades||0)+'</td><td style="text-align:right">'+Math.round(r.win_rate||0)+'%</td><td style="text-align:right">'+Math.min(r.profit_factor||0,99).toFixed(2)+'</td>'+(hasOos?'<td style="text-align:right;color:'+((r.oos_pnl||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round((r.oos_pnl||0)*mlt))+'</td><td style="text-align:right">'+Math.min(r.oos_pf||0,99).toFixed(2)+'</td>':'')+'</tr>').join('')+'</tbody></table></div>';}
+        // ── 3C.1 PDP-plateau pick: the broad-high-ground config, next to the argmax
+        //    champion. Agreement = the champion is NOT a lucky spike; disagreement
+        //    shows both so the deploy decision is explicit.
+        let platHtml='';
+        const PP=R.plateau_pick;
+        if(PP&&PP.params){
+          if(PP.same_as_best){platHtml='<div style="font-size:var(--fsxs);color:var(--green);margin:10px 0 2px">🏔 PLATEAU PICK (3C.1) agrees with the champion — the argmax winner sits on broad high ground, not a spike.</div>';}
+          else{const bpx=R.best_params||{};const diffs=Object.keys(PP.params).filter(k=>String(PP.params[k])!==String(bpx[k]));const pm=PP.metrics||{};
+            platHtml='<div class="lbl" style="margin:14px 0 4px">🏔 PLATEAU PICK · 3C.1 — broad high ground vs the champion spike</div>'
+             +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.7">'
+             +(diffs.length?diffs.map(k=>k+': <b>'+PP.params[k]+'</b> <span style="color:var(--text5)">(champion: '+bpx[k]+')</span>').join(' · '):'(differs only in tie-break)')
+             +'<br>plateau config: '+fmtUsd(Math.round(((pm.total_pnl||0))*mlt))+' · PF '+Math.min(pm.profit_factor||0,99).toFixed(2)+' · '+(pm.num_trades||0)+' trd · plateau score <b>'+Math.round(PP.score||0).toLocaleString()+'</b> vs champion\\'s '+Math.round(PP.argmax_score||0).toLocaleString()
+             +' <span style="color:var(--text5)">— the smoothed param→PnL surface prefers this config; the champion may be a lucky spike. Surviving the plateau is the sturdier deploy.</span></div>';}}
+        topHtml=cardHtml+valHtml+platHtml+'<div class="lbl" style="margin:16px 0 6px">'+(isWf?'WALK-FORWARD FOLDS · ':'TOP CONFIGS · ')+stratTag(lastDone.strategy)+(hasOos&&!isWf?' · IS vs OOS':'')+'</div><div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th>'+(isWf?'<th>FOLD</th>':'')+pk.map(k=>'<th>'+k+'</th>').join('')+'<th style="text-align:right">PnL pts</th><th style="text-align:right">TRD</th><th style="text-align:right">WR</th><th style="text-align:right">PF</th>'+(hasOos?'<th style="text-align:right">OOS $</th><th style="text-align:right">OOS PF</th>':'')+'</tr></thead><tbody>'+t.map((r,i)=>'<tr><td>'+(i+1)+'</td>'+(isWf?'<td>'+(r.fold||'')+'</td>':'')+pk.map(k=>'<td style="font-size:var(--fsxs)">'+r[k]+'</td>').join('')+'<td style="text-align:right">'+Math.round(r.total_pnl||0).toLocaleString()+'</td><td style="text-align:right">'+(r.num_trades||0)+'</td><td style="text-align:right">'+Math.round(r.win_rate||0)+'%</td><td style="text-align:right">'+Math.min(r.profit_factor||0,99).toFixed(2)+'</td>'+(hasOos?'<td style="text-align:right;color:'+((r.oos_pnl||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round((r.oos_pnl||0)*mlt))+'</td><td style="text-align:right">'+Math.min(r.oos_pf||0,99).toFixed(2)+'</td>':'')+'</tr>').join('')+'</tbody></table></div>';}
       // ── Horizontal, left-to-right build flow (like legacy AUGUR "Executions") ──
       // Each field is a flex cell that packs across the row and wraps as the window
       // narrows. Groups read in build order: SETUP → DATA WINDOW · COSTS → SEARCH → RUN.

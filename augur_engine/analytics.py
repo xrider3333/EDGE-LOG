@@ -334,3 +334,61 @@ def relationship_scores(points, target="pnl", max_rows=4000):
         return rows or None
     except Exception:
         return None
+
+
+def pdp_plateau(points, pnl_key="pnl", min_points=12):
+    """3C.1 — PDP-plateau winner pick (ROADMAP #24a; board 3C.1).
+
+    GOAL: pick the config sitting on a broad, HIGH region of the param→PnL
+    surface — a plateau — instead of the raw argmax spike, because a lone spike
+    is usually luck while a plateau survives live drift.
+
+    ENGINE (GAM-style, native — no pyGAM dependency): for each varying param,
+    the partial-dependence curve = mean PnL of all evaluated configs grouped by
+    that param's value, lightly kernel-smoothed (a GAM is exactly a sum of
+    smooth per-param curves). Each config is then scored ADDITIVELY:
+        score(c) = mean_pnl + Σ_k [ smoothed_curve_k(c[k]) − mean_pnl ]
+    A spike scores low because its neighbours on every axis drag its curves
+    down; a plateau member scores high because the whole ridge supports it.
+
+    points : [{param: value, ..., pnl: float}, ...] — every VALID evaluated
+             config (grid combos or auto samples). Returns None when the
+             surface is too thin to say anything (< min_points or no varying
+             numeric/categorical params).
+    """
+    if not points or len(points) < int(min_points):
+        return None
+    import numpy as np
+    keys = [k for k in points[0] if k != pnl_key]
+    vary = [k for k in keys if len({str(p.get(k)) for p in points}) > 1]
+    if not vary:
+        return None
+    pnls = np.array([float(p.get(pnl_key, 0) or 0) for p in points])
+    mu = float(pnls.mean())
+    contrib = np.zeros(len(points))
+    curves = {}
+    for k in vary:
+        groups = {}
+        for p, y in zip(points, pnls):
+            groups.setdefault(p.get(k), []).append(y)
+        numeric = all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                      for v in groups)
+        order = sorted(groups) if numeric else sorted(groups, key=str)
+        means = np.array([float(np.mean(groups[v])) for v in order])
+        sm = means.copy()
+        if numeric and len(order) >= 3:            # 1-2-1 kernel + softened ends
+            sm[1:-1] = 0.25 * means[:-2] + 0.5 * means[1:-1] + 0.25 * means[2:]
+            sm[0] = 0.6 * means[0] + 0.4 * means[1]
+            sm[-1] = 0.6 * means[-1] + 0.4 * means[-2]
+        curve = {v: float(s) for v, s in zip(order, sm)}
+        curves[k] = [[v, round(float(m), 1), round(float(s), 1)]
+                     for v, m, s in zip(order, means, sm)]
+        contrib += np.array([curve[p.get(k)] - mu for p in points])
+    score = mu + contrib
+    i = int(np.argmax(score))
+    return {"index": i,
+            "params": {k: points[i][k] for k in keys},
+            "score": round(float(score[i]), 1),
+            "argmax_index": int(np.argmax(pnls)),
+            "argmax_score": round(float(score[int(np.argmax(pnls))]), 1),
+            "curves": curves}

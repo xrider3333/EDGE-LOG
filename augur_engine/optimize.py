@@ -15,7 +15,7 @@ from .data import find_master, load_master_arrays
 from .engine import _apply_costs
 from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
                         regime_report, neighborhood, downsample_pnls, downsample_points,
-                        mae_mfe, relationship_scores)
+                        mae_mfe, relationship_scores, pdp_plateau)
 
 _METRIC_KEYS = ("total_pnl", "num_trades", "win_rate", "profit_factor",
                 "max_drawdown", "avg_pnl")
@@ -120,10 +120,6 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 progress_cb(i + 1, len(combos))
 
     valid = [(p, m) for p, m in results if m and m.get("num_trades", 0) >= min_trades]
-    # TODO (ROADMAP #24 — PDP-plateau selector; on hold per owner 2026-06-30): selection
-    # below is argmax on rank_by (the raw peak). Replace/augment with a partial-dependence
-    # plateau pick — choose the config on the broadest high-and-flat region (reuse the grid
-    # `points` + `neighborhood`) so the champion sits on high ground, not a curve-fit spike.
     valid.sort(key=lambda pm: pm[1].get(rank_by, 0) or 0, reverse=True)
     top = []
     for p, m in valid[:top_n]:
@@ -144,6 +140,20 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
     _rel = relationship_scores(_pts_full)   # Pearson / MI / PPS per param vs PnL (ROADMAP #24)
     if _rel:
         out["relationship"] = _rel
+    # ── 3C.1 PDP-plateau pick (ROADMAP #24a): the broad-high-ground champion,
+    #    reported ALONGSIDE the argmax `best` (both visible; deploy decision is
+    #    the owner's). Index aligns with `valid` so we attach real metrics.
+    _pp = pdp_plateau(_pts_full)
+    if _pp:
+        _pi = _pp.pop("index")
+        _ppm = valid[_pi][1]
+        out["plateau_pick"] = {
+            "params": valid[_pi][0],
+            "metrics": {k: _ppm.get(k) for k in _METRIC_KEYS},
+            "score": _pp["score"], "argmax_score": _pp["argmax_score"],
+            "curves": _pp["curves"],
+            "same_as_best": bool(best and valid[_pi][0] == best[0]),
+        }
 
     # Regime report card + neighborhood robustness on the winner (opt-in).
     if best and (compute_regime or compute_neighbors):

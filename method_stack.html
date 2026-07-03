@@ -48,12 +48,12 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v2.7</span></h1>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v2.8</span></h1>
   <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (EDGELOG's own workflow axes — Model &amp; Search, Validation, … — each pill tagged with its old Carl category). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-02.</span></p>
 
   <div class="summary">
-    <span class="pill"><span class="dot dg"></span><b>28</b> live</span>
-    <span class="pill"><span class="dot dy"></span><b>8</b> planned</span>
+    <span class="pill"><span class="dot dg"></span><b>29</b> live</span>
+    <span class="pill"><span class="dot dy"></span><b>7</b> planned</span>
   </div>
 
   <div class="views" id="views">
@@ -93,7 +93,7 @@
     <text x="78" y="232" font-size="14.5" font-weight="700" fill="#c8ccd8">Pick the winner</text>
     <g font-size="12">
       <rect x="280" y="216" width="104" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="291" y="231" fill="#00e5a0">highest-PnL</text>
-      <rect x="392" y="216" width="98" height="22" rx="11" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="403" y="231" fill="#f5c842">PDP · NEXT</text>
+      <rect x="392" y="216" width="98" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="403" y="231" fill="#00e5a0">PDP plateau</text>
       <rect x="498" y="216" width="80" height="22" rx="11" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="509" y="231" fill="#f5c842">ensemble</text>
     </g>
     <rect x="24" y="264" width="712" height="92" rx="12" fill="#0e0e1e" stroke="#1e1e36"/>
@@ -166,9 +166,9 @@
         <span class="p p-live" data-info="Exhaustive parameter grid, parallelized across cores. · was §3.1">grid sweep</span>
         <span class="p p-live" data-info="Bayesian/TPE-style sampler that hunts the good region instead of brute-forcing the whole grid (seed 42). GP vs TPE is an implementation detail — one family, one pill. · was §3.2">Bayesian search</span>
         <div class="grp">Pick the winner — post-sweep selection rule (set before, runs after)</div>
-        <span class="p p-plan" data-info="THE NEXT BUILD. GOAL — PDP (partial-dependence plot): pick the config on a broad, flat, HIGH region of the param→PnL surface — a plateau — not a lone lucky spike, because a plateau is far likelier to survive live. ENGINE — GAM smoothing (Hastie–Tibshirani 1986; pyGAM) is how that plateau gets drawn: a GAM is literally a sum of smooth per-param curves, i.e. the smoothed surface. So PDP = the goal, GAM = the smoother that computes it. Reuses the existing grid points + neighborhood. optimize.py TODO #24. · was §5.4">PDP plateau (GAM) · NEXT</span>
+        <span class="p p-live" data-info="LIVE (v43.8). GOAL — PDP (partial-dependence plot): pick the config on a broad, flat, HIGH region of the param→PnL surface — a plateau — not a lone lucky spike, because a plateau is far likelier to survive live. ENGINE — GAM-style additive smoothing, built native (a GAM is literally a sum of smooth per-param curves; per-param group-mean curves + 1-2-1 kernel — no pyGAM dependency): each config is scored by the SUM of its params' smoothed curve values, so a spike scores low (its neighbours drag every axis down) and a ridge member scores high. Runs automatically in EVERY grid sweep + Bayesian search (analytics.pdp_plateau → result.plateau_pick) and renders as the 🏔 PLATEAU PICK strip next to the argmax champion: AGREEMENT = the champion is not a spike (first live run, ORB SIMPLE Medium grid: agreed ✓); DISAGREEMENT shows both configs so the deploy choice is explicit. The overfit-prone 3C.3 argmax stays visible — this is its counterweight. · was §5.4">PDP plateau (GAM)</span>
         <span class="p p-live" data-info="Are the winner's plus/minus-1-step param neighbors also profitable? HIGH GROUND vs a curve-fit cliff — the overfitting check. NO GAM here on purpose: this is the DISCRETE cousin of PDP plateau (GAM) — it reads the raw ±1-step grid points with no smoothing, so the two cross-check each other (a smooth curve can't invent a plateau the raw neighbors don't show). The GAM lives only in the PDP pill, which smooths the WHOLE param→PnL surface. · was §11.1">neighborhood / plateau</span>
-        <span class="p p-live" data-info="Today's default selection — argmax on the ranked metric (best = valid[0]). The overfit-prone choice that PDP-plateau (the Pick-the-winner shelf) is built to replace. · was §11.4">highest-PnL pick</span>
+        <span class="p p-live" data-info="The default selection — argmax on the ranked metric (best = valid[0]). Overfit-prone on its own; since v43.8 every sweep also computes the 3C.1 PDP-plateau pick as its counterweight — when the two AGREE the champion is real high ground, when they differ you get both and choose. · was §11.4">highest-PnL pick</span>
         <div class="grp">AI assist — Claude in the loop</div>
         <span class="p p-live" data-info="LLM rewrites the strategy code on the pre-lockbox window, then re-validates the evolved strategy — generative code search (the lockbox is never seen by the rewrite). Rides ON TOP of a model + a search; it is not a search of its own. · was §12.1">AI-evolve</span>
       </div>

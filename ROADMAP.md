@@ -109,9 +109,13 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       Carl McBride Ellis's 12 Kaggle categories, mapped onto the 7-stage backtest pipeline.
       Live status board at **`method_stack.html`** (embedded in the web **RESEARCH** tab); full
       write-up in **`docs/EDGELOG_TESTING_STACK.md`**. Build queue (flip PLANNED→PARTIAL→LIVE on
-      the board as each ships): **(a) PDP-plateau selector** — replace `run_grid`'s argmax-PnL
-      `best=valid[0]` with "center of the broadest partial-dependence plateau" (reuses the grid
-      `points`/heatmap/`neighborhood`); the NEXT item. **(b) Ensemble top-K** — convex-combine
+      the board as each ships): **(a) PDP-plateau selector — SHIPPED 2026-07-02 (v43.8 /
+      stack v2.8, board 3C.1):** `analytics.pdp_plateau` (native GAM-style additive smoothing:
+      per-param group-mean curves + 1-2-1 kernel; each config scored by the sum of its params'
+      smoothed curves) runs in EVERY `run_grid` + `run_auto`, reported as `result.plateau_pick`
+      ALONGSIDE the argmax `best` (not replacing it) and rendered as the 🏔 PLATEAU PICK strip
+      in the Builder; agreement = champion is not a spike (first run, ORB SIMPLE Medium grid:
+      agreed). **(b) Ensemble top-K** — convex-combine
       the top configs (weights fit on OOS folds) instead of crowning one. **(c) Adversarial-
       validation gate**, **(d) conformal band on the gate thresholds**, **(e) causal counterfactual
       check** — all drop into `validate.py`'s `checks` dict. **(f) feature importance** (perm/SHAP)
