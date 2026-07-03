@@ -381,7 +381,8 @@ def pdp_plateau(points, pnl_key="pnl", min_points=12):
             sm[0] = 0.6 * means[0] + 0.4 * means[1]
             sm[-1] = 0.6 * means[-1] + 0.4 * means[-2]
         curve = {v: float(s) for v, s in zip(order, sm)}
-        curves[k] = [[v, round(float(m), 1), round(float(s), 1)]
+        # list of dicts, NOT list of lists — Firestore rejects nested arrays
+        curves[k] = [{"v": v, "mean": round(float(m), 1), "smooth": round(float(s), 1)}
                      for v, m, s in zip(order, means, sm)]
         contrib += np.array([curve[p.get(k)] - mu for p in points])
     score = mu + contrib
