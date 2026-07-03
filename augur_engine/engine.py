@@ -145,17 +145,17 @@ def run_gate_validate(strategy, *, instrument=None, timeframe="5m", session="rth
                     f"session={session} source={source}")
         arrays = load_master_arrays(master, date_from=date_from, date_to=date_to)
     if progress_cb:
-        progress_cb(5)
+        progress_cb(5, 100)                       # runner cb signature: (done, total)
     base = run_backtest(mod, arrays=arrays, params=params, cost_pts=cost_pts,
                         return_trades=True)
     if not (isinstance(base, dict) and base.get("trades")):
         return None
     if progress_cb:
-        progress_cb(15)
+        progress_cb(15, 100)
     gv = _gv(arrays, base["trades"], gates=tuple(gates),
              thresholds=tuple(thresholds), lockbox_months=int(lockbox_months))
     if progress_cb:
-        progress_cb(95)
+        progress_cb(95, 100)
     res = {k: v for k, v in base.items() if k != "trades"}
     res["gate_validate"] = gv
     res["_meta"] = {
