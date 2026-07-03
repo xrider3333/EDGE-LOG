@@ -178,11 +178,15 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       candidates (3 gates × 3 cut-offs) are ranked on the PRE-LOCKBOX slice only by
       recovery factor ($/dd — equal-risk yardstick; raw PnL structurally favours
       ungated); winner gets ONE look at the last-12-mo lockbox; losers' lockbox numbers
-      are never computed (no shopping); +per-window PF consistency. First run (ORB 1.0):
-      best gate xgb@50% rec 5.05 < ungated 5.66 → "no gate earns its keep", lockbox not
-      opened — the full-window PF 1.43 did NOT survive discipline, exactly the
-      multiple-testing catch this exists for. REMAINING: gate inside the grid/auto
-      SEARCH itself (tune strategy params with the gate active).
+      are never computed (no shopping); +per-window PF consistency. First run (ORB 1.0,
+      2022→): best gate xgb@50% rec 5.05 < ungated 5.66 → "no gate earns its keep",
+      lockbox not opened — the full-window PF 1.43 did NOT survive discipline, exactly
+      the multiple-testing catch this exists for. **Full-16yr re-audition (2010→, same
+      strategy): verdict FLIPPED** — rf@50% chosen pre-lockbox (rec 16.66 vs ungated
+      6.77, PF 1.19→1.49, kept 1533 trades), held 4/4 chronological windows, **LOCKBOX
+      HELD** (ungated lost money in the reserved year; gated positive). Confirms the
+      data-volume hypothesis: ~600 training trades too few, ~3000 enough. REMAINING:
+      gate inside the grid/auto SEARCH itself (tune strategy params with gate active).
 
 ## 4. optimizer.py (Streamlit) — open bugs (only while Streamlit is still in use)
 - [ ] **#1 Results shows only the most-recent completed run** — live panel hydrates only the
