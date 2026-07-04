@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='45.2';
+const VERSION='45.3';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -454,6 +454,7 @@ let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyO
 let formOpen=false,showAllCols=false;
 let autoHandle=null,autoTimer=null,autoInterval=60;
 let ntSync=null,unsubNT=null,ntRefreshing=false; // NinjaTrader runner auto-sync status
+let wbSync=null,unsubWB=null; // Webull runner auto-sync status + live account balance
 let useGross=false; // gross vs net toggle for KPI stats
 let filters={sym:'',dir:'',grade:'',setup:'',tf:'',dateFrom:'',dateTo:'',minPnl:'',maxPnl:''};
 let sortCol='date',sortDir=-1;
@@ -643,7 +644,24 @@ function tradeCalc(sym,type,entry,exit,size,fees){const r=calcPnl(sym,type,entry
 // trade; deposits/withdrawals fold into it via the ledger). The live balance
 // derives automatically so it tracks every trade's P&L.
 function totalNetPnl(){return (typeof trades!=='undefined'&&trades.length)?+trades.reduce((s,t)=>s+(t.pnl||0),0).toFixed(2):0;}
-function liveBalance(){return +(((accountEquity||0)+totalNetPnl())).toFixed(2);}
+// ── Per-account deposits & equity ──────────────────────────────────
+// Deposits/equity are tracked per broker. Legacy untagged ledger events + the global
+// accountEquity belong to NinjaTrader (the only prior source). Webull has NO deposit-
+// history API, so its starting equity is DERIVED from the live net-liq snapshot
+// (meta/webull_sync): start = net_liq − realized Webull P&L, so the curve ends at the
+// real balance. All bScope-aware: pick an ACCOUNT pill → balance/equity/ledger scope too.
+const _LEGACY_BROKER='NinjaTrader';
+function _evBroker(ev){return (ev&&ev.broker)||_LEGACY_BROKER;}
+function scopedLedger(){return activeBroker?ledgerEvents.filter(e=>_evBroker(e)===activeBroker):ledgerEvents;}
+function scopedNetPnl(){const ts=bScope(trades);return ts.length?+ts.reduce((s,t)=>s+(t.pnl||0),0).toFixed(2):0;}
+function brokerStartEquity(){
+  if(!activeBroker)return accountEquity||0;                          // ALL → global
+  if(activeBroker==='Webull'&&wbSync&&wbSync.net_liq!=null)          // live snapshot → derive
+    return +((+wbSync.net_liq)-scopedNetPnl()).toFixed(2);
+  try{const m=JSON.parse(localStorage.getItem('el_broker_equity')||'{}');if(m[activeBroker]!=null)return +m[activeBroker];}catch(e){}
+  return activeBroker===_LEGACY_BROKER?(accountEquity||0):0;         // NT → legacy global
+}
+function liveBalance(){return +((brokerStartEquity()+scopedNetPnl())).toFixed(2);}
 
 // pnlVal = which value to use for win/loss decisions
 function pnlVal(t){return useGross?(t.grossPnl||t.pnl):t.pnl;}
@@ -747,6 +765,8 @@ function subscribeAll(uid){
   unsubMM=metaRef.doc('masters').onSnapshot(d=>{const x=d.data();metaMasters=(x&&x.list)||[];metaPull=(x&&x.status)||{};if(activeTab==='augur'&&(augurSub==='lib'||augurSub==='set'))renderApp();});
   if(unsubNT)unsubNT();
   unsubNT=metaRef.doc('nt_sync').onSnapshot(d=>{ntSync=d.data()||null;if(activeTab==='import_export'&&(window._dataSubTab||'import')==='import')renderApp();});
+  if(unsubWB)unsubWB();
+  unsubWB=metaRef.doc('webull_sync').onSnapshot(d=>{wbSync=d.data()||null;renderApp();}); // net_liq drives Webull's per-account balance
 }
 function _libDownload(name,content){try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'}));a.download=name||'strategy.txt';document.body.appendChild(a);a.click();a.remove();}catch(e){}}
 // ── Master CSV viewer + download (no Firebase Storage; data fetched via the runner) ──
@@ -3173,11 +3193,11 @@ function renderApp(){
           if(chartMode==='equity'){
             // Build ledger map by date
             const _ledgerByDate={};
-            (ledgerEvents||[]).forEach(e=>{_ledgerByDate[e.date]=(_ledgerByDate[e.date]||0)+e.amount;});
+            (scopedLedger()||[]).forEach(e=>{_ledgerByDate[e.date]=(_ledgerByDate[e.date]||0)+e.amount;});
             // Sort filtered trades by date (already sorted but ensure)
             const sortedTr=[...filtTr].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
             // Find any deposits that happen BEFORE first filtered trade — use as starting balance
-            let bal=accountEquity||0;
+            let bal=brokerStartEquity();
             const _appliedDates=new Set();
             const firstTradeDate=sortedTr[0]?.date;
             if(firstTradeDate){
@@ -3203,7 +3223,7 @@ function renderApp(){
           let c=0,pk=0;
           if(chartPctMode){
             // % MODE: show account % return based on starting balance
-            const startB=accountEquity||(ledgerEvents||[]).filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0)||1000;
+            const startB=brokerStartEquity()||(scopedLedger()||[]).filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0)||1000;
             const startPoint={y:0,pnl:0,id:null,date:null,symbol:null};
             let bal=startB;
             const points=filtTr.map(t=>{bal=bal+t.pnl;const pct=((bal-startB)/startB)*100;return{y:pct,pnl:t.pnl,id:t.id,date:t.date,symbol:t.symbol,type:t.type};});
@@ -3225,7 +3245,7 @@ function renderApp(){
         <span style="color:var(--text4)">MAX DD <span style="color:var(--red);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">-$${S.maxDD.toFixed(0)}</span></span>
         ${(()=>{
           if(!tfTrades.length)return '';
-          const startB=accountEquity||(ledgerEvents||[]).filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0)||1000;
+          const startB=brokerStartEquity()||(scopedLedger()||[]).filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0)||1000;
           const acctPct=startB>0?(tfS.net/startB)*100:0;
           const startD=tfTrades[0].date;
           const endD=tfTrades[tfTrades.length-1].date;
@@ -3399,10 +3419,11 @@ function renderApp(){
 
     // ══ JOURNAL ══
   if(activeTab==='trades'){
-    // Ledger banner — show deposits/withdrawals
-    if(ledgerEvents&&ledgerEvents.length){
-      const totalDeposits=ledgerEvents.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
-      const totalWithdrawals=ledgerEvents.filter(e=>e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
+    // Ledger banner — deposits/withdrawals, scoped to the active ACCOUNT pill
+    const _led=scopedLedger();
+    if(_led&&_led.length){
+      const totalDeposits=_led.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
+      const totalWithdrawals=_led.filter(e=>e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
       const lb=document.createElement('div');
       lb.className='section';lb.style.marginBottom='8px';
       // Single compact wrapping row: label · totals · deposit chips — keeps the ledger short.
@@ -3412,10 +3433,10 @@ function renderApp(){
         ${totalWithdrawals>0?`<span style="color:var(--text4)">WD <span style="color:var(--red)">-$${totalWithdrawals.toLocaleString()}</span></span>`:''}
         <span style="color:var(--text4)">NET <span style="color:var(--blue)">$${(totalDeposits-totalWithdrawals).toLocaleString()}</span></span>
         <span style="width:1px;height:13px;background:var(--border)"></span>
-        ${ledgerEvents.map((ev,i)=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid ${ev.amount>0?'color-mix(in srgb,var(--green) 25%,transparent)':'color-mix(in srgb,var(--red) 25%,transparent)'};padding:2px 8px">
+        ${_led.map((ev)=>`<span style="display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid ${ev.amount>0?'color-mix(in srgb,var(--green) 25%,transparent)':'color-mix(in srgb,var(--red) 25%,transparent)'};padding:2px 8px">
           <span style="color:var(--text5)">${ev.date}</span>
           <span style="font-family:'Bebas Neue',monospace;font-size:13px;color:${ev.amount>0?'var(--green)':'var(--red)'}">${ev.amount>0?'+':''}$${Math.abs(ev.amount).toFixed(2)}</span>
-          <span onclick="removeLedgerEvent(${i})" title="remove" style="cursor:pointer;color:var(--text5);font-weight:bold">✕</span>
+          <span onclick="removeLedgerEvent(${ledgerEvents.indexOf(ev)})" title="remove" style="cursor:pointer;color:var(--text5);font-weight:bold">✕</span>
         </span>`).join('')}
       </div>`;
       content.appendChild(lb);
