@@ -47,7 +47,7 @@ def _topk_ensemble(fn, O, H, L, C, extras, cost_pts, ranked, k=5):
     configs used) or None if fewer than 2 produced trades. Kept small so both
     run_grid (auto) and engine.run_ensemble_topk can share it."""
     import numpy as np
-    from .analytics import ensemble_blend
+    from .analytics import ensemble_blend, ensemble_ccmp
     nb = len(C)
     bar_pnls, used = [], []
     for pp in ranked[:int(k)]:
@@ -69,6 +69,12 @@ def _topk_ensemble(fn, O, H, L, C, extras, cost_pts, ranked, k=5):
     ens = ensemble_blend([b.tolist() for b in bar_pnls])
     if ens:
         ens["configs"] = used
+        try:                                    # §6 stacking / CCMP (weights fit OOS)
+            cc = ensemble_ccmp([b.tolist() for b in bar_pnls])
+            if cc:
+                ens["ccmp"] = cc
+        except Exception:
+            pass
     return ens
 
 

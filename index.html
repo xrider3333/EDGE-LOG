@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='45.4';
+const VERSION='45.5';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5793,7 +5793,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
            +'</tbody></table></div>'
            +'<div style="font-size:var(--fsxs);color:'+gc+';margin-top:6px">'+(imp
              ?'Blend is more robust — recovery +'+(ENS.recovery_gain||0).toFixed(2)+' for '+(ENS.pnl_kept_pct!=null?ENS.pnl_kept_pct:100)+'% of the PnL (top-'+ENS.k+' avg corr '+(ENS.avg_corr!=null?ENS.avg_corr:'—')+').'
-             :'Single best wins — the top '+ENS.k+' configs are too correlated (avg corr '+(ENS.avg_corr!=null?ENS.avg_corr:'—')+') to diversify. Deploy the champion.')+'</div>';}
+             :'Single best wins — the top '+ENS.k+' configs are too correlated (avg corr '+(ENS.avg_corr!=null?ENS.avg_corr:'—')+') to diversify. Deploy the champion.')+'</div>'
+           +(ENS.ccmp?('<div class="lbl" style="margin:10px 0 2px" title="Stacking / CCMP (hillclimbers): weights fit by greedy hill-climb on a train split, then tested on a held-out split vs equal-weight. If it does not beat equal-weight OUT-OF-SAMPLE, the configs are too correlated to reweight.">🏗️ STACKING / CCMP · §6 — weighted vs equal-weight (OOS)</div>'
+             +'<div style="font-size:var(--fsxs);color:'+(ENS.ccmp.improved?'var(--green)':'var(--text3)')+'">'+ENS.ccmp.verdict+' <span style="color:var(--text5)">· weights ['+(ENS.ccmp.weights||[]).map(function(x){return x.toFixed(2);}).join(', ')+']</span></div>'):'');}
         // ── §4 Adversarial validation: is the lockbox a different regime than the training history? ──
         let advHtml='';const AV=(R.validate||{}).adversarial;
         if(AV&&AV.auc!=null){const a=AV.auc,acol=a<0.55?'var(--green)':a<0.70?'var(--yellow)':a<0.85?'#f0997b':'var(--red)';

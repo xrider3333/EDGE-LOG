@@ -4,8 +4,8 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-04
-- **Web VERSION:** 45.4 · **Stack board (`method_stack.html`):** v3.8
-- **Board tally:** 40 method pills LIVE; 2 planned (stacking/CCMP + operational fills reconciliation — see §7)
+- **Web VERSION:** 45.5 · **Stack board (`method_stack.html`):** v3.9
+- **Board tally:** 41 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every research/method pill is LIVE.**
 
 > **Plain-language rule** (owner preference): every technical term is defined in
 > EDGELOG terms the first time it appears. Don't assume the reader knows the jargon.
@@ -98,7 +98,7 @@ table of contents has **14 sections** — far more than the sub-links first sent
 | 4 | Conformal prediction | ✅ conformal PnL band · ✅ **gate calibration** (reliability + ECE + isotonic headroom, on the gate card) |
 | 5 | Feature selection / eng | ✅ MI/PPS screen · adversarial validation · SHAP · ✅ **feature selection (RFE-CV)** |
 | 6 | Time series / forecasting | ~ regime + time-of-day features · ✅ **lead-lag/Granger** · ✅ **serial-dependence (ACF)**. Direct forecasting (LSTM/Prophet/GluonTS) deferred — heavy-dep + low-success (Carl's own "stock-price LSTM = FAIL"), **not** *inapplicable* |
-| 7 | Ensemble | ✅ ensemble top-K · **⏳ stacking/CCMP — NEW planned** |
+| 7 | Ensemble | ✅ ensemble top-K · ✅ **stacking/CCMP** |
 | 8 | Explainability | ✅ SHAP · regime report card · ✅ **VIF/collinearity** |
 | 9 | Causality | ✅ causal check (randomization). Double-ML / Causal Forests **deferred** (EconML dep) |
 | 10 | Statistics | ~ Deflated Sharpe (significance, multiple-testing-aware). Plain t-test/power **deferred** (DSR supersedes) |
@@ -256,11 +256,9 @@ not saved to the runs DB — so they carry no run id.*
 
 ## 7. Open items / next up
 
-The full master TOC pass shipped **5 of its 6** applicable methods. Remaining, best-value first:
-1. **stacking / CCMP** (§6) — weighted ensemble (weights fit on OOS) beyond the equal-weight
-   top-K. The last research pill. **← build next**
-2. **fills reconciliation** (§1) — *operational*; reconcile web/mobile NinjaTrader (+ Webull)
-   fills that skip the local DB. Do WITH the owner present (needs live broker data).
+🎉 **Every research/method pill is now LIVE** (41/41). The only remaining item is operational:
+1. **fills reconciliation** (§1) — reconcile web/mobile NinjaTrader (+ Webull) fills that skip
+   the local DB. *Needs your live broker data — do this one WITH the owner present.*
 
 *(✅ SHAP · ensemble top-K · adversarial validation · conformal band · causal check ·
 synthetic scenarios all shipped 2026-07-04 — see Changelog.)*
@@ -289,6 +287,13 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-04** — **Stacking / CCMP shipped — the LAST research pill** (board §6 → LIVE, web
+  v45.5, stack v3.9; board 41 live / 1 planned). `analytics.ensemble_ccmp`: greedy hill-climb
+  (Caruana ensemble selection) of config weights on a train split, tested on a held-out split
+  vs equal-weight — on the ensemble card of every grid sweep. First run (ORB 3.0 top-5, avg
+  corr 0.89): stacking BEAT equal-weight OOS (recovery 10.57 vs 8.17) by concentrating on 2
+  configs [0, .24, 0, .76, 0]. **Every Carl-derived method pill is now live; only operational
+  fills-reconciliation remains.**
 - **2026-07-04** — **Three diagnostics shipped: serial-dependence ACF (§1) + VIF/collinearity (§2)
   + feature selection RFE-CV (§2)** (web v45.4, stack v3.8; board 40 live / 2 planned). All auto-run
   in Auto-Validate:

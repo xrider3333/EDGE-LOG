@@ -721,3 +721,46 @@ def vif_collinearity(X, names, sample=20000, seed=42, high=5.0):
     return {"features": out, "n_high": int(n_high), "high_threshold": float(high),
             "verdict": (f"{n_high} feature(s) collinear (VIF ≥ {high:.0f}) — candidates to drop"
                         if n_high else "no collinearity — the entry inputs are independent")}
+
+
+def ensemble_ccmp(bar_pnls, train_frac=0.7, iters=80):
+    """Stacking / convex-combination (CCMP · hillclimbers, board §6): instead of the
+    equal-weight 1/K blend, greedily hill-climb weights on a TRAIN split (Caruana et al.
+    ensemble selection — repeatedly add, with replacement, the config that most improves
+    the blend's recovery), then test the weighted blend vs equal-weight on a held-out TEST
+    split. Weights = normalized selection counts. If the weighted blend doesn't beat
+    equal-weight OUT-OF-SAMPLE, the configs are too correlated to reweight — equal-weight
+    wins (the honest, common outcome). numpy-only. None if too few bars."""
+    A = np.asarray(bar_pnls, float)
+    if A.ndim != 2 or A.shape[0] < 2:
+        return None
+    k, nb = A.shape
+    cut = int(nb * float(train_frac))
+    if cut < 50 or nb - cut < 50:
+        return None
+    tr, te = A[:, :cut], A[:, cut:]
+
+    def _rec(inc):
+        cum = np.cumsum(inc); tot = float(cum[-1])
+        peak = np.maximum.accumulate(cum); dd = float((cum - peak).min())
+        return (tot / abs(dd)) if dd < -1e-9 else (999.0 if tot > 0 else 0.0)
+
+    counts = np.zeros(k); cur = np.zeros(cut)
+    for _ in range(int(iters)):
+        best_j, best_m = 0, -1e18
+        for j in range(k):
+            m = _rec(cur + tr[j])
+            if m > best_m:
+                best_m, best_j = m, j
+        cur = cur + tr[best_j]; counts[best_j] += 1
+    w = counts / counts.sum() if counts.sum() else np.full(k, 1.0 / k)
+    rw = _rec((w[:, None] * te).sum(0))     # weighted blend, OOS
+    re = _rec(te.mean(0))                    # equal-weight blend, OOS
+    improved = bool(rw > re + 1e-9)
+    return {"k": int(k), "weights": [round(float(x), 3) for x in w],
+            "oos_weighted_recovery": round(rw, 2), "oos_equal_recovery": round(re, 2),
+            "improved": improved,
+            "verdict": (f"stacking beats equal-weight out-of-sample ({rw:.2f} vs {re:.2f})"
+                        if improved else
+                        f"equal-weight wins out-of-sample — configs too correlated to reweight "
+                        f"({re:.2f} vs {rw:.2f})")}
