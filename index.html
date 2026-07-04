@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='44.4';
+const VERSION='44.5';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5329,7 +5329,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(!d)return '<div style="color:var(--text5);font-size:var(--fsxs);padding:48px 20px;text-align:center;border:1px dashed var(--border);border-radius:10px">select a run on the left to load its report card</div>';
       const _champNetTip=d.validate?'the single best parameter set, measured across the WHOLE tune period (one config, all dates). The matrix below instead splits the timeline into 3 sections — its IN-SAMPLE column is only the first (un-shaded) section, so that is a smaller number than this.':'';
       const _champDdTip=d.validate?'realized in-sample max drawdown (champion over the optimize window). This is NOT the Monte-Carlo P95 drawdown — that simulated worst-case (larger) is the "size to this" figure in §8 / the lockbox strip.':'';
-      const cards=[['NET P&L',fmtUsd(d.best_pnl_usd),((d.best_pnl_usd||0)>=0?'var(--green)':'var(--red)'),_champNetTip],['PF',(d.best_pf||0).toFixed(2),'var(--text)'],['WIN %',Math.round(d.best_win_rate||0)+'%','var(--text)'],['TRADES',(d.best_trades||0),'var(--text)'],['MAX DD',fmtUsd(d.best_dd_usd||0),'var(--red)',_champDdTip],['$/DAY',fmtUsd(d.best_pnl_per_day||0),'var(--text)']];
+      const cards=[['NET P&L',fmtUsd(d.best_pnl_usd),((d.best_pnl_usd||0)>=0?'var(--green)':'var(--red)'),_champNetTip],['PF',(d.best_pf||0).toFixed(2),'var(--text)'],['WIN %',Math.round(d.best_win_rate||0)+'%','var(--text)'],['TRADES',(d.best_trades||0),'var(--text)'],['MAX DD',fmtUsd(d.best_dd_usd||0),'var(--red)',_champDdTip],['MAR',(function(){var dd=Math.abs(+d.best_dd_usd||0);return dd>1e-9?((+d.best_pnl_usd||0)/dd).toFixed(1):'—';})(),'var(--text)','Recovery factor (MAR) — net PnL ÷ max drawdown. Dollars earned per $1 of worst-case drawdown; higher = better risk-adjusted return, the metric you size on.'],['$/DAY',fmtUsd(d.best_pnl_per_day||0),'var(--text)']];
       const cardHtml=cards.map(c=>'<div'+(c[3]?' title="'+c[3]+'" style="cursor:help;background:var(--bg2);border-radius:8px;padding:10px 12px"':' style="background:var(--bg2);border-radius:8px;padding:10px 12px"')+'><div style="font-size:var(--fsxs);color:var(--text5)">'+c[0]+(c[3]?' <span style="opacity:.5">ⓘ</span>':'')+'</div><div style="font-size:18px;color:'+c[2]+'">'+c[1]+'</div></div>').join('');
       const t10=Array.isArray(d.top10_results)?d.top10_results:[];
       const pkeys=t10.length?Object.keys(t10[0]).filter(k=>['total_pnl','num_trades','win_rate','profit_factor','wins','losses','avg_pnl','max_drawdown'].indexOf(k)<0):[];
@@ -6080,6 +6080,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           {l:'Win %',v:x=>x.best_win_rate||0,f:x=>Math.round(x.best_win_rate||0)+'%',b:'max'},
           {l:'Trades',f:x=>(x.best_trades||0)},
           {l:'Max DD',v:x=>x.best_dd_usd||0,f:x=>fmtUsd(x.best_dd_usd||0),b:'max'},
+          {l:'MAR',v:x=>{var dd=Math.abs(+x.best_dd_usd||0);return dd>1e-9?(+x.best_pnl_usd||0)/dd:0;},f:x=>{var dd=Math.abs(+x.best_dd_usd||0);return dd>1e-9?((+x.best_pnl_usd||0)/dd).toFixed(1):'—';},b:'max'},
           {l:'$/day',v:x=>x.best_pnl_per_day||0,f:x=>fmtUsd(x.best_pnl_per_day||0),b:'max'},
           {l:'DSR',f:x=>(x.dsr&&x.dsr.dsr!=null?Math.round(x.dsr.dsr*100)+'%':'—')},
           {l:'Verdict',f:x=>x.validate?'<b style="color:'+(x.validate.verdict==='PASS'?'var(--green)':x.validate.verdict==='WEAK'?'var(--yellow)':'var(--red)')+'">'+x.validate.verdict+'</b>':'—'}];
@@ -6103,13 +6104,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<td style="font-size:var(--fsxs)">'+stratTag(r.strategy)+(vv?' <span style="font-size:8px;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vv+'</span>':'')+'</td>'
           +'<td style="font-size:var(--fsxs)">'+instTag(r.instrument)+' '+(r.timeframe||'')+'</td><td style="font-size:var(--fsxs);color:var(--text5)">'+(r.scope||'')+'</td>'
           +'<td style="text-align:right">'+(r.best_pf||0).toFixed(2)+'</td>'
+          +'<td style="text-align:right">'+(function(){var dd=Math.abs(+r.best_dd_usd||0);return dd>1e-9?((+r.best_pnl_usd||0)/dd).toFixed(1):'—';})()+'</td>'
           +'<td style="text-align:right;font-size:var(--fsxs)">'+(r.dsr&&r.dsr.dsr!=null?Math.round(r.dsr.dsr*100)+'%':'—')+'</td>'
           +'<td style="text-align:right">'+(r.best_trades||0)+'</td>'
           +'<td style="text-align:right;color:'+((r.best_pnl_usd||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(r.best_pnl_usd||0)+'</td>'
           +'<td style="font-size:var(--fsxs);color:var(--text5)">'+((r.timestamp||'').slice(0,10))+'</td></tr>';}).join('');
         body=tile('<div class="lbl" style="margin-bottom:4px">▤ RANKINGS · '+scored.length+' runs by robustness score</div>'
           +'<div style="font-size:8px;color:var(--text5);margin-bottom:9px;max-width:680px">0–100 blends out-of-sample strength (Deflated Sharpe, walk-forward folds held, lockbox), profit factor and sample size. Auto-Validate runs use their gate results. Click a row to open the run in Results.</div>'
-          +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th><th style="min-width:90px">SCORE</th><th>STRATEGY</th><th>MARKET</th><th>SCOPE</th><th style="text-align:right">PF</th><th style="text-align:right">DSR</th><th style="text-align:right">TRD</th><th style="text-align:right">$PNL</th><th>DATE</th></tr></thead><tbody>'+rows+'</tbody></table></div>');}
+          +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th><th style="min-width:90px">SCORE</th><th>STRATEGY</th><th>MARKET</th><th>SCOPE</th><th style="text-align:right">PF</th><th style="text-align:right" title="Recovery factor: net PnL / max drawdown">MAR</th><th style="text-align:right">DSR</th><th style="text-align:right">TRD</th><th style="text-align:right">$PNL</th><th>DATE</th></tr></thead><tbody>'+rows+'</tbody></table></div>');}
     }else if(augurSub==='ref'){
       const inst=[['ES','E-mini S&P 500','$50 / pt'],['NQ','E-mini Nasdaq-100','$20 / pt']];
       const irows=inst.map(i=>'<tr><td><b>'+i[0]+'</b></td><td style="color:var(--text3)">'+i[1]+'</td><td style="text-align:right">'+i[2]+'</td></tr>').join('');

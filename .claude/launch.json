@@ -13,6 +13,12 @@
         "8520"
       ],
       "port": 8520
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8531"],
+      "port": 8531
     }
   ]
 }

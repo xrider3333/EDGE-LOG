@@ -48,6 +48,13 @@ _LIST_COLS = ("id,timestamp,strategy,instrument,timeframe,scope,data_source,sour
               "multiplier,starred,note,app_version,elapsed_s")
 
 
+def _mar(pnl_usd, dd_usd):
+    """MAR = net PnL / |max drawdown| — the drawdown-adjusted return you size on.
+    Derived (not stored), so it's available for ranking/columns without a migration."""
+    dd = abs(float(dd_usd or 0.0)); pnl = float(pnl_usd or 0.0)
+    return round(pnl / dd, 2) if dd > 1e-9 else None
+
+
 def list_runs(limit=None):
     """All runs as trimmed dicts, newest first (no large blobs). Returns [] if the
     history DB hasn't been initialized yet (no `runs` table — e.g. a fresh copy)."""
@@ -58,7 +65,10 @@ def list_runs(limit=None):
     try:
         cur = conn.execute(q)
         cols = [d[0] for d in cur.description]
-        return [dict(zip(cols, row)) for row in cur.fetchall()]
+        rows = [dict(zip(cols, row)) for row in cur.fetchall()]
+        for d in rows:                       # derived drawdown-adjusted return (net/|maxDD|)
+            d["mar"] = _mar(d.get("best_pnl_usd"), d.get("best_dd_usd"))
+        return rows
     except sqlite3.OperationalError as e:
         if "no such table" in str(e).lower():
             return []
@@ -81,6 +91,7 @@ def get_run(run_id):
     if not row:
         return None
     d = dict(zip(cols, row))
+    d["mar"] = _mar(d.get("best_pnl_usd"), d.get("best_dd_usd"))   # drawdown-adjusted return
     for k in ("best_params", "top10_results"):
         v = d.get(k)
         if isinstance(v, str) and v:
