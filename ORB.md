@@ -251,6 +251,9 @@ Split the deployable's trades by side (net of fees, size 1):
 
 - **Short-*tilt* beats short-*only* on MAR** (a little long diversifies the drawdown) — same "tilt, don't cut"
   lesson as truncation. Full deploy stack: **lockbox MAR 15.0 = +118% vs baseline**, PF 2.85; 5/6 WF folds beat baseline.
+- **The whole stack transfers to ES** (no re-fit, `python tools/orb_edge_report.py ES`): ES lockbox
+  MAR **5.0 → 13.5 (+170%)**, PF 1.57 → 3.10, each lever adding monotonically (short-only ES lockbox PF 4.99).
+  The short-tilt is the dominant lever on both instruments → the overlay is structural, not an NQ fit.
 - **Caveats (deploy short-tilt, not hard short-only):** this is a 2010-2026 *secular-bull* sample; short
   books carry squeeze / gap-up tail risk; the short *direction* was chosen after seeing the split (though
   it's stark, OOS-confirmed, and cross-instrument). A regime flip could revive longs / punish shorts —
@@ -293,7 +296,7 @@ Split the deployable's trades by side (net of fees, size 1):
 | **G** | **Entry-time × sizing combo** | HIGH | ☑ DONE | **WIN** (§4.10). Time-tilt × risk-parity *stack*: lockbox MAR +85% (6.9→12.7), 5/6 WF folds. Truncation ✗ — tilt, don't cut. |
 | **D** | **Long/short asymmetry** | MED | ☑ DONE | **WIN — shorts carry the edge** (§4.11). LONG PF 1.03 (deadweight) vs SHORT PF 2.74; holds on lockbox + ES. Short-tilt stacks → full stack lockbox MAR **15.0 (+118%)**, PF 2.85. Deploy short-tilt not short-only. |
 | **F** | **Consolidate — durable code + MAR ranking** | HIGH leverage | ☑ DONE | `augur_engine/sizing.py` (rp × time × side overlay, capital-matched, MAR helper); `tools/orb_edge_report.py` (reproduces §4 numbers exactly). `run_grid(rank_by="mar")` implemented + verified, **commit deferred** (concurrent ensemble work in the same file). Web-UI toggle deferred (changes core PnL semantics → owner-reviewed). |
-| — | ES transfer of the deployable config | — | ☑ DONE | **PASS** (ES lockbox PF 1.57; long/short asymmetry also transfers) |
+| — | ES transfer (base config + long/short + full sizing stack) | — | ☑ DONE | **PASS all three** — base ES lockbox PF 1.57; long/short asymmetry transfers; **full sizing stack transfers** (ES lockbox MAR 5.0→13.5 = +170%, PF→3.10). |
 | — | Walk-forward + lockbox of the scale-out | — | ☑ DONE | **PASS** (6/6 folds, lockbox PF 1.63) |
 
 **Recommended next:** the edge-hunting is essentially done — the deployable + a 3-lever sizing overlay
