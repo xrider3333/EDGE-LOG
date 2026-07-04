@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='44.8';
+const VERSION='44.9';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5477,7 +5477,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           var _sz=_sj&&_sj.result&&_sj.result.sizing, _body;
           if(_sz&&_sz.baseline&&_sz.sized){
             var _r=function(l,m,c){return '<tr><td style="color:var(--text4);padding:2px 12px 2px 0">'+l+'</td><td style="text-align:right;padding:2px 12px">'+fmtUsd(Math.round(m.net||0))+'</td><td style="text-align:right;padding:2px 12px">'+(+(m.profit_factor||0)).toFixed(2)+'</td><td style="text-align:right;padding:2px 12px;color:var(--red)">'+fmtUsd(Math.round(m.max_drawdown||0))+'</td><td style="text-align:right;padding:2px 0;font-weight:700;color:'+(c||'var(--text)')+'">'+(+(m.mar||0)).toFixed(1)+'</td></tr>';};
-            _body='<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.5;margin-bottom:8px">'+_rule+'</div><table style="font-size:var(--fsxs);border-collapse:collapse"><thead><tr style="color:var(--text5)"><th></th><th style="text-align:right;padding:0 12px">net $</th><th style="text-align:right;padding:0 12px">PF</th><th style="text-align:right;padding:0 12px">max DD</th><th style="text-align:right">MAR</th></tr></thead><tbody>'+_r('baseline (1 contract)',_sz.baseline,'var(--text)')+_r('sized overlay',_sz.sized,'var(--green)')+'</tbody></table><div style="font-size:8px;color:var(--text5);margin-top:6px">this config over the run window, capital-matched to the same total $risk</div>';
+            _body='<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.5;margin-bottom:8px">'+_rule+'</div><table style="font-size:var(--fsxs);border-collapse:collapse"><thead><tr style="color:var(--text5)"><th></th><th style="text-align:right;padding:0 12px">net $</th><th style="text-align:right;padding:0 12px">PF</th><th style="text-align:right;padding:0 12px">max DD</th><th style="text-align:right">MAR</th></tr></thead><tbody>'+_r('baseline (1 contract)',_sz.baseline,'var(--text)')+_r('sized overlay',_sz.sized,'var(--green)')+'</tbody></table><div style="font-size:8px;color:var(--text5);margin-top:6px">the rule auto-sizes each trade 1×–3× your base contract (capital-matched to the same total $risk) — this run: avg <b>'+(+(_sz.sized.avg_size||1)).toFixed(1)+'×</b>, biggest <b>'+(+(_sz.sized.max_size||1)).toFixed(1)+'×</b> on the strongest signals. No manual contract input — the rule sets the size.</div>';
           }else if(_sj&&_sj.status&&_sj.status!=='done'&&_sj.status!=='error'){
             _body='<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.5">'+_rule+'</div><div style="font-size:var(--fsxs);color:var(--yellow);margin-top:8px">computing the exact overlay for this run on your PC…</div>';
           }else{
@@ -6676,7 +6676,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const comm=(run.commission_usd!=null?+run.commission_usd:5.66),slip=(run.slippage_pts!=null?+run.slippage_pts:0.25);
         const cost=(run.cost_pts!=null&&+run.cost_pts>0)?+run.cost_pts:(comm/mlt+slip);
         const sess=/eth/i.test(String(run.source_name||run.data_source||''))?'eth':'rth';
-        const sizing={risk_parity:true,time_tilt:true,long_w:0.5,short_w:1.5,stop_frac:(+bp.stop_frac)||0.75,or_bars:(+bp.or_bars)||1,mult:mlt,fee_pts:cost};
+        const sizing={risk_parity:true,time_tilt:true,long_w:0.5,short_w:1.5,cap_final:3,stop_frac:(+bp.stop_frac)||0.75,or_bars:(+bp.or_bars)||1,mult:mlt,fee_pts:cost};
         const job={type:'backtest',kind:'sizing',run_id:String(id),strategy:stratFile,instrument:run.instrument,timeframe:run.timeframe||'5m',session:sess,source:null,params:bp,date_from:run.date_from||'',date_to:run.date_to||'',cost_pts:cost,commission_usd:comm,slippage_pts:slip,mult:mlt,sizing:sizing,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};
         btn.textContent='QUEUED…';btn.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();
       };});

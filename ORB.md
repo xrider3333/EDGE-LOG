@@ -280,7 +280,9 @@ Split the deployable's trades by side (net of fees, size 1):
    1× midday, 0.5× afternoon), **S** = side tilt (≈1.5× short, 0.5× long — shorts carry the edge). Tight-stop
    / morning / short signals get more contracts. Three **independent** edges that stack → **lockbox MAR 6.9 → 15.0**.
    Execution-layer only; entries/exits unchanged. Implemented in `augur_engine/sizing.py`; reproduce with
-   `python tools/orb_edge_report.py`.
+   `python tools/orb_edge_report.py`. **The 3× cap isn't just realism — it *improves* MAR:** uncapped, the
+   rule occasionally sizes ~22× base (bloating drawdown); capping at 3× lifts full-history MAR **71.5 → 96.1**
+   ($921k → $590k net, biggest position 3× base). The web report card's overlay uses the 3× cap.
 
 ---
 
