@@ -650,3 +650,74 @@ def lead_lag(arrays_a, arrays_b, name_a="A", name_b="B", max_lag=6):
             "tradeable": bool(tradeable),
             "xcorr": xc, "granger_a_to_b": g_ab, "granger_b_to_a": g_ba,
             "verdict": verdict, "note": note}
+
+
+def serial_dependence(arrays, max_lag=10):
+    """Serial dependence of returns (board §1): momentum, mean-reversion, or random walk?
+
+    ACF of bar log-returns at lags 1..max_lag (with the ±1.96/√n significance band) + a
+    variance-ratio test (VR(q) = Var(q-bar return) / q·Var(1-bar return): >1 trending,
+    <1 mean-reverting, ≈1 random). Tells you which strategy FAMILY the data structurally
+    supports before you fit anything. numpy-only. None if too few bars.
+    """
+    c = np.asarray(arrays["close"], float)
+    r = np.diff(np.log(c))
+    r = r[np.isfinite(r)]
+    n = len(r)
+    if n < 500:
+        return None
+    r = r - r.mean()
+    var = float((r * r).mean())
+    acf = []
+    for k in range(1, int(max_lag) + 1):
+        if k >= n:
+            break
+        a = float((r[:-k] * r[k:]).mean() / var) if var > 0 else 0.0
+        acf.append({"lag": k, "acf": round(a, 4)})
+    band = round(1.96 / math.sqrt(n), 4)
+
+    def _vr(q):
+        if q >= n or var <= 0:
+            return None
+        m = (n // q) * q
+        agg = np.add.reduceat(r[:m], np.arange(0, m, q))
+        return round(float(agg.var() / (q * var)), 3)
+
+    lag1 = acf[0]["acf"] if acf else 0.0
+    if abs(lag1) < band:
+        verdict = "≈ random walk — weak serial dependence (both momentum & fade edges are thin here)"
+    elif lag1 > 0:
+        verdict = "momentum — positive autocorrelation (breakouts have structural support)"
+    else:
+        verdict = "mean-reverting — negative autocorrelation (fades have structural support)"
+    return {"n": int(n), "lag1_acf": round(float(lag1), 4), "sig_band": band,
+            "vr5": _vr(5), "vr10": _vr(10), "acf": acf, "verdict": verdict}
+
+
+def vif_collinearity(X, names, sample=20000, seed=42, high=5.0):
+    """Variance Inflation Factor per feature (board §2): VIF_j = 1/(1−R²_j), where R²_j is
+    from regressing feature j on all the others. VIF ≳ 5 = that input is largely a linear
+    combo of the rest (redundant) — it muddies gate importance + calibration. numpy-only."""
+    X = np.asarray(X, float)
+    if X.ndim != 2 or X.shape[0] < 50 or X.shape[1] < 2:
+        return None
+    if len(X) > int(sample):
+        rng = np.random.RandomState(int(seed))
+        X = X[rng.choice(len(X), int(sample), replace=False)]
+    Xs = (X - X.mean(0)) / (X.std(0) + 1e-12)
+    p = Xs.shape[1]
+    out = []
+    for j in range(p):
+        y = Xs[:, j]; A = np.delete(Xs, j, axis=1)
+        A1 = np.column_stack([np.ones(len(A)), A])
+        beta, *_ = np.linalg.lstsq(A1, y, rcond=None)
+        resid = y - A1 @ beta
+        ss_res = float(resid @ resid); ss_tot = float(((y - y.mean()) ** 2).sum())
+        r2 = (1 - ss_res / ss_tot) if ss_tot > 0 else 0.0
+        vif = 1.0 / max(1e-6, 1 - r2)
+        out.append({"name": names[j], "vif": round(float(min(vif, 999.0)), 2)})
+    out.sort(key=lambda d: d["vif"], reverse=True)
+    n_high = sum(1 for d in out if d["vif"] >= float(high))
+    return {"features": out, "n_high": int(n_high), "high_threshold": float(high),
+            "verdict": (f"{n_high} feature(s) collinear (VIF ≥ {high:.0f}) — candidates to drop"
+                        if n_high else "no collinearity — the entry inputs are independent")}

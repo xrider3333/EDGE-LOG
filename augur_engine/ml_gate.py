@@ -26,7 +26,7 @@ import numpy as np
 import pandas as pd
 
 __all__ = ["gate_trades", "entry_features", "gate_validate", "gate_explain",
-           "adversarial_validation", "gate_calibration"]
+           "adversarial_validation", "gate_calibration", "gate_feature_select"]
 
 
 # ── features at the entry bar (OHLC + clock only — no volume dependency) ───────
@@ -636,3 +636,47 @@ def gate_calibration(arrays, trades, model="rf", min_history=30, seed=42, nbins=
             "expectancy_monotone": bool(sp is not None and sp > 0.5),
             "bins": rows,
             "note": "gate trains |PnL|-weighted → tuned for expectancy, not win-frequency"}
+
+
+# ── gate FEATURE SELECTION: which entry inputs earn their place? (board §2) ─────
+def gate_feature_select(arrays, trades, min_history=30, seed=42):
+    """Which entry features would a gate KEEP? (board §2 feature selection)
+
+    RFE-CV (recursive feature elimination, cross-validated) on the entry features vs
+    win/loss — a shallow RandomForest, ROC-AUC scoring — recursively drops the weakest
+    input and keeps the subset that maximizes cross-validated AUC. Turns the MI/PPS
+    RANKING into an actual keep/drop decision, so the gate can run on fewer, sturdier
+    inputs. sklearn-only. None if too few trades / one outcome class.
+    """
+    if not trades:
+        return None
+    T = [(int(t[0]), int(t[1]), float(t[2])) for t in trades if len(t) >= 3]
+    if len(T) < max(int(min_history), 80):
+        return None
+    E = np.array([t[0] for t in T]); P = np.array([t[2] for t in T], float)
+    y = (P > 0).astype(int)
+    if np.unique(y).size < 2:
+        return None
+    F, names = entry_features(arrays)
+    nb = len(F)
+    X = F[np.clip(E, 0, nb - 1)]
+    try:
+        from sklearn.feature_selection import RFECV
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.model_selection import StratifiedKFold
+        est = RandomForestClassifier(n_estimators=80, max_depth=4, min_samples_leaf=10,
+                                     random_state=int(seed), n_jobs=-1)
+        sel = RFECV(est, step=1, min_features_to_select=2, scoring="roc_auc",
+                    cv=StratifiedKFold(3, shuffle=True, random_state=int(seed)))
+        sel.fit(X, y)
+    except Exception:
+        return None
+    rank = [{"name": names[i], "rank": int(sel.ranking_[i]), "keep": bool(sel.support_[i])}
+            for i in range(len(names))]
+    rank.sort(key=lambda d: (d["rank"], d["name"]))
+    kept = [d["name"] for d in rank if d["keep"]]
+    dropped = [d["name"] for d in rank if not d["keep"]]
+    return {"names": list(names), "kept": kept, "dropped": dropped,
+            "n_selected": int(len(kept)), "n_total": int(len(names)), "ranking": rank,
+            "verdict": (f"{len(kept)}/{len(names)} inputs carry the signal · drop: "
+                        + (", ".join(dropped) if dropped else "none"))}

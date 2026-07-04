@@ -48,7 +48,7 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v3.7</span></h1>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v3.8</span></h1>
   <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (EDGELOG's own workflow axes — Model &amp; Search, Validation, … — each pill tagged with its old Carl category). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-04.</span></p>
 
   <div class="summary">
@@ -142,7 +142,7 @@
         <span class="p p-plan" data-info="Reconcile paired trades vs the NinjaTrader Position-History CSV to catch web / mobile fills that skip the local DB + AddOn. Runs: PER NT SYNC (ongoing, not per-master). · was §2.5">fills reconciliation</span>
         <span class="p p-live" data-info="LIVE (v42.7). Input-data EDA per master: within-session return stats (bp sigma / skew / excess kurtosis), annualized vol by year, activity by ET hour, monthly bar-coverage, price range — shown as an EDA strip in the master modal (click a master in the Library). Cached per file; recomputes only on change. NQ 5m RTH reads: sigma 11bp, kurt 29.6 (fat tails), vol peaks 2011/2020/2025. · was §1.1">EDA pre-flight</span>
         <span class="p p-live" data-info="LIVE (v42.7). One-call auto-EDA HTML report per master: python tools/profile_report.py &quot;NQ 5m RTH&quot; (or --all) -> augur_uploads/_profiles/<name>.html — return-distribution histogram vs normal (fat tails in red), vol-by-year, hour activity, coverage, health + roll-seam summary, outlier examples. Built NATIVE instead of ydata-profiling/dabl on purpose: their heavy pinned deps risk destabilizing the trading PC's python env; zero new dependencies. · was §1.2">auto-EDA report</span>
-        <span class="p p-plan" data-info="PLANNED. Serial-dependence / autocorrelation (ACF) of returns at multiple lags + a variance-ratio test — is the instrument momentum-like (positive autocorr → breakouts have structural support) or mean-reverting (negative → fades do)? A cheap numpy diagnostic that validates which strategy FAMILY the data actually supports. NOT forecasting — a structure check (this was wrongly deferred as 'time-series/forecasting' in the first pass). Carl master §6 (correlograms).">serial dependence (ACF)</span>
+        <span class="p p-live" data-info="LIVE (v45.4). Serial dependence of bar returns (analytics.serial_dependence): ACF at lags 1..10 + a variance-ratio test. Positive autocorr = momentum (breakouts have support), negative = mean-reversion (fades do), ~0 = random walk. Auto-runs in Auto-Validate on the primary instrument. First run (NQ 5m): lag-1 ACF −0.019, VR 0.94 → mild MEAN-REVERSION (intraday microstructure). NOT forecasting — a structure check. Carl master §6 (correlograms).">serial dependence (ACF)</span>
       </div>
       <div class="info"></div>
     </div>
@@ -153,8 +153,8 @@
         <span class="p p-live" data-info="Linear correlation of each param vs PnL (the live Param-Relationship panel). · was §5.1">Pearson r</span>
         <span class="p p-live" data-info="Any-dependency score (sklearn mutual_info_regression, KSG k-NN estimator) — catches the non-linear (inverted-U / threshold) param relationships Pearson misses. · was §5.2">Mutual Information</span>
         <span class="p p-live" data-info="Predictive Power Score, 0 to 1 (sklearn tree, cross-validated) — asymmetric, non-linear predictive power. · was §5.3">PPS</span>
-        <span class="p p-plan" data-info="PLANNED. Variance Inflation Factor — flag entry features that are collinear/redundant (VIF &gt; ~5), which muddies the gate's importance + calibration. A cheap numpy health check on the gate's feature matrix. Carl master §8/§10 (VIF / collinearity).">VIF / collinearity</span>
-        <span class="p p-plan" data-info="PLANNED. Auto-select the gate's feature SUBSET (Boruta-SHAP / recursive feature elimination / LASSO) instead of feeding every entry feature — drop inputs that don't earn their place so the gate is simpler and harder to overfit. Turns the MI/PPS ranking into an actual keep/drop decision. Carl master §5 (Boruta-SHAP / RFE / LASSO).">feature selection</span>
+        <span class="p p-live" data-info="LIVE (v45.4). Variance Inflation Factor per entry feature (analytics.vif_collinearity): VIF_j = 1/(1−R²_j) from regressing feature j on the others; VIF≥5 = redundant. Auto-runs in Auto-Validate. First run (NQ entry features): range_pos VIF 5.67 flagged (correlates with momentum/trend); the rest independent. Carl master §8/§10 (VIF / collinearity).">VIF / collinearity</span>
+        <span class="p p-live" data-info="LIVE (v45.4). RFE-CV feature selection (ml_gate.gate_feature_select): recursively eliminates the weakest entry feature, keeps the subset that maximizes cross-validated AUC vs win/loss. Auto-runs in Auto-Validate on the champion's trades. First run (ORB 3.1): keeps 6/9, drops trend_20 / atr_norm / dow — matches SHAP (dow ≈ zero importance). Carl master §5 (Boruta-SHAP / RFE / LASSO).">feature selection</span>
       </div>
       <div class="info"></div>
     </div>
