@@ -51,7 +51,7 @@ def _apply_costs(m, cost_pts):
 def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
                  source=None, params=None, master=None, arrays=None,
                  cost_pts=0.0, return_trades=False, mc_sims=0, mc_block=1,
-                 date_from=None, date_to=None,
+                 date_from=None, date_to=None, sizing=None,
                  ml_filter=None, ml_threshold=0.50, ml_min_history=30,
                  ml_refit_every=25):
     """Run one backtest and return the metrics dict (with a "_meta" block).
@@ -87,7 +87,7 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
         extras["day_id"] = did
 
     _gate_on = bool(ml_filter) and str(ml_filter).lower() not in ("", "none")
-    want_trades = bool(return_trades or cost_pts > 0 or mc_sims > 0 or _gate_on)
+    want_trades = bool(return_trades or cost_pts > 0 or mc_sims > 0 or _gate_on or sizing)
     res = fn(O, H, L, C, **extras, **params, return_trades=want_trades)
 
     if res and cost_pts > 0:
@@ -118,6 +118,37 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
                     res["ml_gate"]["explain"] = ex
             except Exception:
                 pass
+
+    # ── Sizing overlay (opt-in, ORB-family): attach a sized-vs-baseline comparison to
+    #    res["sizing"] WITHOUT touching the headline 1-contract metrics. Needs the
+    #    strategy's per-trade risk model (stop_frac × opening-range width), so it is
+    #    gated on stop_frac/or_bars. `sizing` = a dict of augur_engine.sizing rule
+    #    kwargs (risk_parity / time_tilt / long_w / short_w) + mult / fee_pts / cap_final.
+    #    See ORB.md §4.7-4.11 + tools/orb_edge_report.py. Best-effort: never breaks a run.
+    if sizing and isinstance(res, dict):
+        try:
+            from . import sizing as _SZ
+            sp2 = dict(sizing)
+            _stopf = sp2.pop("stop_frac", params.get("stop_frac"))
+            _orb   = sp2.pop("or_bars", params.get("or_bars"))
+            _mult  = float(sp2.pop("mult", 1.0))
+            _fee   = float(sp2.pop("fee_pts", cost_pts))
+            _cap   = sp2.pop("cap_final", None)
+            if _stopf and _orb:
+                _gross = fn(O, H, L, C, **extras, **params, return_trades=True)   # gross trades (fees applied per-size below)
+                _gtr = _gross.get("trades") if isinstance(_gross, dict) else None
+                if _gtr:
+                    _p, _r, _eb, _sd = _SZ.trade_features(_gtr, arrays, float(_stopf), int(_orb))
+                    _base = _SZ.sized_metrics(_p, _r, _SZ.sizing_weights(_r, _eb, _sd, risk_parity=False),
+                                              mult=_mult, fee_pts=_fee)
+                    _over = _SZ.sized_metrics(_p, _r, _SZ.sizing_weights(_r, _eb, _sd, **sp2),
+                                              mult=_mult, fee_pts=_fee, cap_final=_cap)
+                    if _base and _over:
+                        _base.pop("equity_usd", None); _over.pop("equity_usd", None)
+                        res["sizing"] = {"baseline": _base, "sized": _over, "rule": sp2,
+                                         "mult": _mult, "fee_pts": _fee}
+        except Exception:
+            pass
 
     if isinstance(res, dict):
         if mc_sims and res.get("trades"):

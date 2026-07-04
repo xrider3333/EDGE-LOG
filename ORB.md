@@ -295,15 +295,16 @@ Split the deployable's trades by side (net of fees, size 1):
 | C | **Time structure** (`ORB_3_3.py`) | MED | ☑ DONE | time-stop ✗ (cuts winners); **entry-time cutoff = real quality signal** (first-hour PF 2.2, lockbox 3.5, 6/6 WF folds) but quality-vs-quantity on raw MAR → spawned item **G** (§4.9). |
 | **G** | **Entry-time × sizing combo** | HIGH | ☑ DONE | **WIN** (§4.10). Time-tilt × risk-parity *stack*: lockbox MAR +85% (6.9→12.7), 5/6 WF folds. Truncation ✗ — tilt, don't cut. |
 | **D** | **Long/short asymmetry** | MED | ☑ DONE | **WIN — shorts carry the edge** (§4.11). LONG PF 1.03 (deadweight) vs SHORT PF 2.74; holds on lockbox + ES. Short-tilt stacks → full stack lockbox MAR **15.0 (+118%)**, PF 2.85. Deploy short-tilt not short-only. |
-| **F** | **Consolidate — durable code + MAR in the app** | HIGH leverage | ☑ DONE | `augur_engine/sizing.py` (rp × time × side overlay, capital-matched, MAR helper); `tools/orb_edge_report.py` (reproduces §4 numbers exactly); `run_grid(rank_by="mar")` (committed); `history.py` returns a derived `mar` field; **MAR column shipped to the web app (v44.5)** — champion cards, COMPARE + RANKINGS tables. *Phase 2 (open):* a sizing-overlay toggle in the web needs a sized-backtest runner job (changes core PnL semantics → owner-reviewed). |
+| **F** | **Consolidate — durable code + MAR in the app** | HIGH leverage | ☑ DONE | `augur_engine/sizing.py` (rp × time × side overlay, capital-matched, MAR helper); `tools/orb_edge_report.py`; `run_grid(rank_by="mar")`; `history.py` `mar` field; **MAR column live in the web app (v44.5)**. **Phase-2 engine capability BUILT (not deployed):** `engine.run_backtest(sizing=…)` attaches a `res["sizing"]` baseline-vs-sized block (headline unchanged); `tools/orb_sized_backtest.py` runs it locally (reproduces §4 numbers). *Remaining "take it live" step:* the web sizing toggle + a runner `sized_backtest` job (owner-reviewed, alters core PnL semantics). |
 | — | ES transfer (base config + long/short + full sizing stack) | — | ☑ DONE | **PASS all three** — base ES lockbox PF 1.57; long/short asymmetry transfers; **full sizing stack transfers** (ES lockbox MAR 5.0→13.5 = +170%, PF→3.10). |
 | — | Walk-forward + lockbox of the scale-out | — | ☑ DONE | **PASS** (6/6 folds, lockbox PF 1.63) |
 
-**Recommended next:** the edge-hunting is done and the wins are shipped where safe — deployable +
-3-lever sizing overlay (rp × time × short-tilt) lift lockbox MAR **6.9 → 15.0** (all validated, ES-confirmed),
-and the **MAR column is live in the app (v44.5)**. The only substantial item left is **phase-2: a
-sizing-overlay toggle in the web** (a sized-backtest runner job — owner-reviewed, alters core PnL
-semantics). Everything else is minor (E: ride+trailed ensemble). Otherwise: **deploy the §5.6 rule.**
+**Recommended next:** edge-hunting is done; wins shipped/built where safe. The 3-lever sizing overlay
+is now a **first-class engine call** (`run_backtest(sizing=…)`, runnable via `tools/orb_sized_backtest.py`)
+and the **MAR column is live (v44.5)**. The overlay is *built but NOT deployed to the web* by request.
+The only remaining step is the **live web sizing toggle** (add a runner `sized_backtest` job + a UI button;
+edits `index.html`, so it's the deliberate "take it live" action — owner does it when ready). Everything
+else is minor (E: ride+trailed ensemble). Or just **deploy the §5.6 rule** at the execution layer.
 
 ---
 
