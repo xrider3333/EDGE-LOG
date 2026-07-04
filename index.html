@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='45.1';
+const VERSION='45.2';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5793,6 +5793,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(SY){const syc=SY.prob_profit>=90?'var(--green)':SY.prob_profit>=70?'var(--yellow)':'var(--red)';
           advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Resamples whole trading days WITH REPLACEMENT to build alternate histories — changes which days happen, not just their order (distinct from the Monte-Carlo pill). Caveat: treats days as exchangeable.">🌀 SYNTHETIC SCENARIOS · §8 — alternate day-histories</div>'
            +'<div style="font-size:var(--fsxs);color:'+syc+'">profitable in <b>'+SY.prob_profit.toFixed(0)+'%</b> of '+SY.n_sims+' histories · PnL '+fmtUsd(Math.round(SY.p05_total_pts*mlt))+' … '+fmtUsd(Math.round(SY.p95_total_pts*mlt))+' (p5–p95) · worst-5% DD '+fmtUsd(Math.round(SY.worst5_maxdd_pts*mlt))+'</div>';}
+        const LL=(R.validate||{}).lead_lag;
+        if(LL&&LL.contemp_corr!=null){const llc=LL.tradeable?'var(--green)':'var(--text3)';
+          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Cross-instrument lead-lag: does one sibling (e.g. ES↔NQ) move before the other at the bar scale? Cross-correlation of returns at ±lags + a Granger F-test each way. At 5-min on efficient index futures the honest answer is usually contemporaneous — lead-lag lives at the tick scale.">🔗 LEAD-LAG / GRANGER · §7 — does '+LL.a+' or '+LL.b+' lead?</div>'
+           +'<div style="font-size:var(--fsxs);color:'+llc+'">'+LL.verdict+' <span style="color:var(--text5)">· contemporaneous r '+LL.contemp_corr+' · peak lag '+LL.peak_lag+' (r '+LL.peak_corr+')</span></div>'
+           +(LL.note?'<div style="font-size:8px;color:var(--text5)">'+LL.note+'</div>':'');}
         topHtml=cardHtml+advHtml+valHtml+platHtml+ensHtml+'<div class="lbl" style="margin:16px 0 6px">'+(isWf?'WALK-FORWARD FOLDS · ':'TOP CONFIGS · ')+stratTag(lastDone.strategy)+(hasOos&&!isWf?' · IS vs OOS':'')+'</div><div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th>'+(isWf?'<th>FOLD</th>':'')+pk.map(k=>'<th>'+k+'</th>').join('')+'<th style="text-align:right">PnL pts</th><th style="text-align:right">TRD</th><th style="text-align:right">WR</th><th style="text-align:right">PF</th>'+(hasOos?'<th style="text-align:right">OOS $</th><th style="text-align:right">OOS PF</th>':'')+'</tr></thead><tbody>'+t.map((r,i)=>'<tr><td>'+(i+1)+'</td>'+(isWf?'<td>'+(r.fold||'')+'</td>':'')+pk.map(k=>'<td style="font-size:var(--fsxs)">'+r[k]+'</td>').join('')+'<td style="text-align:right">'+Math.round(r.total_pnl||0).toLocaleString()+'</td><td style="text-align:right">'+(r.num_trades||0)+'</td><td style="text-align:right">'+Math.round(r.win_rate||0)+'%</td><td style="text-align:right">'+Math.min(r.profit_factor||0,99).toFixed(2)+'</td>'+(hasOos?'<td style="text-align:right;color:'+((r.oos_pnl||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round((r.oos_pnl||0)*mlt))+'</td><td style="text-align:right">'+Math.min(r.oos_pf||0,99).toFixed(2)+'</td>':'')+'</tr>').join('')+'</tbody></table></div>';}
       // ── Horizontal, left-to-right build flow (like legacy AUGUR "Executions") ──
       // Each field is a flex cell that packs across the row and wraps as the window

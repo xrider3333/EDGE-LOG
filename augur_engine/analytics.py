@@ -558,3 +558,95 @@ def synthetic_day_bootstrap(trades, index, n_sims=800, seed=42):
             "p95_total_pts": round(float(np.percentile(tot, 95)), 1),
             "worst5_maxdd_pts": round(float(np.percentile(mdd, 5)), 1),
             "prob_profit": round(float((tot > 0).mean()) * 100.0, 1)}
+
+
+def lead_lag(arrays_a, arrays_b, name_a="A", name_b="B", max_lag=6):
+    """Cross-instrument lead-lag (board §7): does A lead B (or B lead A) at the bar scale?
+
+    Aligns the two closes on common timestamps, takes log returns, and reports:
+      • cross-correlation at lags −max..+max (lag k>0 = A's move at t predicts B's at t+k,
+        i.e. A LEADS B) — the peak nonzero lag + its correlation, and the contemporaneous r;
+      • a native Granger F-test each direction (do A's lagged returns improve the prediction
+        of B's next return beyond B's own lags? and vice-versa) — numpy OLS, no statsmodels;
+      • a plain verdict. At 5-min bars on efficient index futures the honest answer is often
+        'contemporaneous — no usable lead-lag' (it lives at the tick scale) — that's a real,
+        useful finding, not a failure. numpy/scipy-only. None if the series barely overlap.
+    """
+    import pandas as pd
+    ia = pd.DatetimeIndex(arrays_a["index"]); ib = pd.DatetimeIndex(arrays_b["index"])
+    if ia.tz is not None:
+        ia = ia.tz_localize(None)
+    if ib.tz is not None:
+        ib = ib.tz_localize(None)
+    ca = pd.Series(np.asarray(arrays_a["close"], float), index=ia)
+    cb = pd.Series(np.asarray(arrays_b["close"], float), index=ib)
+    df = pd.concat([ca.rename("a"), cb.rename("b")], axis=1, join="inner").dropna()
+    if len(df) < 500:
+        return None
+    ra = np.log(df["a"].to_numpy())
+    rb = np.log(df["b"].to_numpy())
+    ra = np.diff(ra); rb = np.diff(rb)
+    n = len(ra)
+
+    def _xc(x, y, k):
+        if k > 0:
+            xa, ya = x[:-k], y[k:]
+        elif k < 0:
+            xa, ya = x[-k:], y[:k]
+        else:
+            xa, ya = x, y
+        if len(xa) < 30 or xa.std() < 1e-12 or ya.std() < 1e-12:
+            return 0.0
+        return float(np.corrcoef(xa, ya)[0, 1])
+
+    lags = list(range(-int(max_lag), int(max_lag) + 1))
+    xc = [{"lag": k, "corr": round(_xc(ra, rb, k), 4)} for k in lags]
+    contemp = next(d["corr"] for d in xc if d["lag"] == 0)
+    peak = max((d for d in xc if d["lag"] != 0), key=lambda d: abs(d["corr"]))
+
+    def _granger(src, tgt, L):
+        N = len(tgt); rows = N - L
+        if rows < 60:
+            return None
+        Yt = tgt[L:]
+        own = np.column_stack([tgt[L - i - 1:N - i - 1] for i in range(L)])
+        srl = np.column_stack([src[L - i - 1:N - i - 1] for i in range(L)])
+        X0 = np.column_stack([np.ones(rows), own])
+        X1 = np.column_stack([X0, srl])
+
+        def _rss(X, y):
+            beta, *_ = np.linalg.lstsq(X, y, rcond=None)
+            r = y - X @ beta
+            return float(r @ r)
+        rss0, rss1 = _rss(X0, Yt), _rss(X1, Yt)
+        if rss1 <= 1e-18 or rss0 <= rss1:
+            F = 0.0
+        else:
+            F = ((rss0 - rss1) / L) / (rss1 / (rows - X1.shape[1]))
+        try:
+            p = float(_sst.f.sf(F, L, rows - X1.shape[1]))
+        except Exception:
+            p = None
+        return {"F": round(float(F), 2), "p": (round(p, 4) if p is not None else None)}
+
+    L = min(int(max_lag), 5)
+    g_ab = _granger(ra, rb, L)
+    g_ba = _granger(rb, ra, L)
+
+    tradeable = abs(peak["corr"]) >= 0.05
+    if not tradeable:
+        verdict = "contemporaneous — no usable lead-lag at this timeframe (it lives at the tick scale)"
+    elif peak["lag"] > 0:
+        verdict = f"{name_a} leads {name_b} by {peak['lag']} bar(s)"
+    else:
+        verdict = f"{name_b} leads {name_a} by {abs(peak['lag'])} bar(s)"
+    gsig = ((g_ab and (g_ab.get("p") or 1) < 0.05) or (g_ba and (g_ba.get("p") or 1) < 0.05))
+    note = ("Granger tests 'significant' here (p≈0) — but that's the huge sample, not an "
+            "edge: the lag correlations are tiny, so it's statistically real, not tradeable."
+            if (gsig and not tradeable) else "")
+    return {"a": name_a, "b": name_b, "n": int(n), "bars": int(len(df)),
+            "contemp_corr": round(float(contemp), 3),
+            "peak_lag": int(peak["lag"]), "peak_corr": round(float(peak["corr"]), 4),
+            "tradeable": bool(tradeable),
+            "xcorr": xc, "granger_a_to_b": g_ab, "granger_b_to_a": g_ba,
+            "verdict": verdict, "note": note}

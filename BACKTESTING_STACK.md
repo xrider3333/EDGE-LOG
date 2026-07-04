@@ -4,8 +4,8 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-04
-- **Web VERSION:** 45.1 · **Stack board (`method_stack.html`):** v3.6
-- **Board tally:** 36 method pills LIVE; 6 planned (5 from Carl's full master TOC + fills reconciliation — see §7)
+- **Web VERSION:** 45.2 · **Stack board (`method_stack.html`):** v3.7
+- **Board tally:** 37 method pills LIVE; 5 planned (4 from Carl's full master TOC + fills reconciliation — see §7)
 
 > **Plain-language rule** (owner preference): every technical term is defined in
 > EDGELOG terms the first time it appears. Don't assume the reader knows the jargon.
@@ -97,7 +97,7 @@ table of contents has **14 sections** — far more than the sub-links first sent
 | 3 | Classification / Regression | ✅ Logistic · RF · XGBoost gates · GAM (plateau). NN/TabNet/GP/RGF **deferred** (heavy deps, little over XGBoost) |
 | 4 | Conformal prediction | ✅ conformal PnL band · ✅ **gate calibration** (reliability + ECE + isotonic headroom, on the gate card) |
 | 5 | Feature selection / eng | ✅ MI/PPS screen · adversarial validation · SHAP · **⏳ feature selection (Boruta/RFE) — NEW planned** |
-| 6 | Time series / forecasting | ~ regime + time-of-day features · **⏳ lead-lag/Granger + serial-dependence (ACF) — NEW planned** (both diagnostics). Direct forecasting (LSTM/Prophet/GluonTS) deferred — heavy-dep + low-success (Carl's own "stock-price LSTM = FAIL"), **not** *inapplicable* |
+| 6 | Time series / forecasting | ~ regime + time-of-day features · ✅ **lead-lag/Granger** · **⏳ serial-dependence (ACF) — planned**. Direct forecasting (LSTM/Prophet/GluonTS) deferred — heavy-dep + low-success (Carl's own "stock-price LSTM = FAIL"), **not** *inapplicable* |
 | 7 | Ensemble | ✅ ensemble top-K · **⏳ stacking/CCMP — NEW planned** |
 | 8 | Explainability | ✅ SHAP · regime report card · **⏳ VIF/collinearity — NEW planned** |
 | 9 | Causality | ✅ causal check (randomization). Double-ML / Causal Forests **deferred** (EconML dep) |
@@ -257,15 +257,13 @@ not saved to the runs DB — so they carry no run id.*
 ## 7. Open items / next up
 
 The core method stack is live; passes over Carl's **full master TOC** (§2) surfaced 6 more
-applicable methods (gate calibration now ✅ shipped; 5 remain planned). Best-value first:
-1. **lead-lag / Granger** (§7) — does ES lead NQ? a cross-instrument signal a single-symbol
-   backtest can't see. **← build next**
-2. **serial dependence (ACF)** (§1) — momentum vs mean-reversion structure of returns;
-   validates which strategy family the data actually supports. Cheap.
-3. **VIF / collinearity** (§2) — flag redundant entry features (cheap health check).
-4. **feature selection** (Boruta/RFE, §2) — auto-prune the gate's feature subset.
-5. **stacking / CCMP** (§6) — weighted ensemble beyond the equal-weight top-K.
-6. **fills reconciliation** (§1) — *operational*; reconcile web/mobile NinjaTrader (+ Webull)
+applicable methods (gate calibration + lead-lag/Granger now ✅ shipped; 4 remain planned). Best-value first:
+1. **serial dependence (ACF)** (§1) — momentum vs mean-reversion structure of returns;
+   validates which strategy family the data actually supports. Cheap. **← build next**
+2. **VIF / collinearity** (§2) — flag redundant entry features (cheap health check).
+3. **feature selection** (Boruta/RFE, §2) — auto-prune the gate's feature subset.
+4. **stacking / CCMP** (§6) — weighted ensemble beyond the equal-weight top-K.
+5. **fills reconciliation** (§1) — *operational*; reconcile web/mobile NinjaTrader (+ Webull)
    fills that skip the local DB. Do WITH the owner present (needs live broker data).
 
 *(✅ SHAP · ensemble top-K · adversarial validation · conformal band · causal check ·
@@ -295,6 +293,13 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-04** — **Lead-lag / Granger shipped** (board §7 → LIVE, web v45.2, stack v3.7).
+  `analytics.lead_lag`: aligns two sibling closes (ES↔NQ), returns, cross-correlation at ±lags +
+  a native Granger F-test each way (numpy OLS, no statsmodels). Auto-runs in Auto-Validate vs
+  the sibling / transfer instrument. First run (NQ vs ES, 5m, 317k bars): contemporaneous r 0.93,
+  lag correlations ~0.02 → **no usable lead-lag at 5m** (it lives at the tick scale). Honest trap
+  flagged: Granger is "significant" both ways (p≈0) only because of the 317k-bar sample —
+  statistically real, not tradeable. Board 37 live / 5 planned.
 - **2026-07-04** — **Gate calibration shipped** (board §3A → LIVE, web v45.1, stack v3.6).
   `ml_gate.gate_calibration`: 5-fold out-of-fold reliability of the gate's P(win) (|PnL|-weighted
   like the live gate) — ECE + a reliability table (predicted P vs actual win rate vs mean $/trade

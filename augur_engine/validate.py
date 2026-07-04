@@ -241,12 +241,12 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     #    Also runs three more distribution-free robustness checks on the champion's
     #    whole-history trades: conformal PnL band (§4), causal entry test (§7), and a
     #    trading-day bootstrap (§8). All INFORMATIONAL — none changes the verdict.
-    adversarial = conformal = causal = synthetic = None
+    adversarial = conformal = causal = synthetic = leadlag = None
     try:
         from .data import load_master_arrays
         from .ml_gate import adversarial_validation
         from .analytics import (conformal_pnl_band, causal_entry_test,
-                                synthetic_day_bootstrap)
+                                synthetic_day_bootstrap, lead_lag)
         _avarr = load_master_arrays(master, date_from=opt_from, date_to=None)
         adversarial = adversarial_validation(_avarr, lb_start)
         _ftr = full.get("trades") if (champ and isinstance(full, dict)) else None
@@ -254,6 +254,14 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
             conformal = conformal_pnl_band([t[2] for t in _ftr])
             causal = causal_entry_test(_ftr, _avarr.get("close"), cost_pts=cost_pts)
             synthetic = synthetic_day_bootstrap(_ftr, _avarr.get("index"))
+        # cross-instrument lead-lag (board §7): does a sibling lead this instrument?
+        _sib = (tlist[0] if tlist else
+                {"NQ": "ES", "ES": "NQ", "MNQ": "MES", "MES": "MNQ"}.get(str(instrument).upper()))
+        if _sib and str(_sib).upper() != str(instrument).upper():
+            _sm = find_master(_sib, timeframe, session, source)
+            if _sm:
+                leadlag = lead_lag(_avarr, load_master_arrays(_sm),
+                                   name_a=str(instrument), name_b=str(_sib))
     except Exception:
         pass
 
@@ -296,6 +304,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "conformal": conformal,       # §4: distribution-free per-trade PnL band + coverage
         "causal": causal,             # §7: does entry timing beat random-entry nulls?
         "synthetic": synthetic,       # §8: PnL spread across a trading-day bootstrap
+        "lead_lag": leadlag,          # §7: does a sibling instrument lead this one?
         "champion": champ, "thresholds": th,
     }
     # Shape stays compatible with the Runs-history saver (best / top / dsr).

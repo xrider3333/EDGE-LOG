@@ -48,7 +48,7 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v3.6</span></h1>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v3.7</span></h1>
   <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (EDGELOG's own workflow axes — Model &amp; Search, Validation, … — each pill tagged with its old Carl category). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-04.</span></p>
 
   <div class="summary">
@@ -220,7 +220,7 @@
       <div class="sech"><span>7 · Causality</span><span class="secn">→ pipeline 4</span></div>
       <div>
         <span class="p p-live" data-info="LIVE (v44.7). Randomization test (analytics.causal_entry_test): keep each trade's direction + holding length but move entries to RANDOM times (exit at close); build a null of 'same bets, random timing'. High percentile = the entry rule carries real predictive content, not just market exposure. Auto-runs in Auto-Validate. First run (ORB 3.1): beats 100% of random-entry nulls → entry timing carries real signal. Caveat: nulls exit at close, not the strategy stop/target. · was §9.1">causal check</span>
-        <span class="p p-plan" data-info="PLANNED. Cross-instrument lead-lag: does ES lead NQ (or vice-versa) at the bar scale? Granger-causality test / cross-correlogram of returns between siblings — if one reliably leads, that's a tradeable signal a single-instrument backtest can't see. Diagnostic, not a forecaster. Carl master §6/§9 (Granger causality).">lead-lag / Granger</span>
+        <span class="p p-live" data-info="LIVE (v45.2). Cross-instrument lead-lag (analytics.lead_lag): aligns the sibling closes (ES↔NQ), takes returns, and reports the cross-correlation at ±lags + a native Granger F-test each way (numpy OLS, no statsmodels). Auto-runs in Auto-Validate vs the sibling / transfer instrument. First run (NQ vs ES, 5m, 317k bars): contemporaneous r 0.93, lag correlations ~0.02 → NO usable lead-lag at 5m (it lives at the tick scale). HONEST TRAP flagged: Granger tests 'significant' both ways (p≈0) only because of the 317k-bar sample — statistically real, not tradeable. Diagnostic, not a forecaster. Carl master §6/§9 (Granger causality).">lead-lag / Granger</span>
       </div>
       <div class="info"></div>
     </div>
