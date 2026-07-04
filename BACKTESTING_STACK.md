@@ -4,8 +4,8 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-04
-- **Web VERSION:** 44.7 · **Stack board (`method_stack.html`):** v3.4
-- **Board tally:** 35 method pills LIVE; 6 planned (5 new from Carl's full master TOC + fills reconciliation — see §7)
+- **Web VERSION:** 44.7 · **Stack board (`method_stack.html`):** v3.5
+- **Board tally:** 35 method pills LIVE; 7 planned (6 from Carl's full master TOC + fills reconciliation — see §7)
 
 > **Plain-language rule** (owner preference): every technical term is defined in
 > EDGELOG terms the first time it appears. Don't assume the reader knows the jargon.
@@ -97,7 +97,7 @@ table of contents has **14 sections** — far more than the sub-links first sent
 | 3 | Classification / Regression | ✅ Logistic · RF · XGBoost gates · GAM (plateau). NN/TabNet/GP/RGF **deferred** (heavy deps, little over XGBoost) |
 | 4 | Conformal prediction | ✅ conformal PnL band · **⏳ gate calibration (Venn-ABERS/isotonic) — NEW planned** |
 | 5 | Feature selection / eng | ✅ MI/PPS screen · adversarial validation · SHAP · **⏳ feature selection (Boruta/RFE) — NEW planned** |
-| 6 | Time series / forecasting | ~ regime + time-of-day features · **⏳ lead-lag/Granger — NEW planned**. Forecasting (LSTM/Prophet/GluonTS) **deferred** — EDGELOG is rule-based, not a forecaster |
+| 6 | Time series / forecasting | ~ regime + time-of-day features · **⏳ lead-lag/Granger + serial-dependence (ACF) — NEW planned** (both diagnostics). Direct forecasting (LSTM/Prophet/GluonTS) deferred — heavy-dep + low-success (Carl's own "stock-price LSTM = FAIL"), **not** *inapplicable* |
 | 7 | Ensemble | ✅ ensemble top-K · **⏳ stacking/CCMP — NEW planned** |
 | 8 | Explainability | ✅ SHAP · regime report card · **⏳ VIF/collinearity — NEW planned** |
 | 9 | Causality | ✅ causal check (randomization). Double-ML / Causal Forests **deferred** (EconML dep) |
@@ -107,8 +107,17 @@ table of contents has **14 sections** — far more than the sub-links first sent
 | 13 | Miscellaneous | mostly n/a; the finance notebooks (returns Normal-vs-Cauchy fit) = a low-priority §1 EDA add |
 | 14 | Meta-Kaggle | n/a |
 
-**5 NEW planned pills added from this pass** (board v3.4): gate calibration (§3A) · feature selection (§2) · VIF/collinearity (§2) · stacking/CCMP (§6) · lead-lag/Granger (§7).
-**Deferred on purpose:** neural/TabNet/LSTM/TCN gate models + all forecasting (heavy deps / not a forecaster), Double-ML (EconML), generative image/LLM, meta-kaggle/geospatial — not applicable to a futures backtester.
+**6 NEW planned pills added from these passes** (board v3.5): gate calibration (§3A) · feature selection (§2) · VIF/collinearity (§2) · stacking/CCMP (§6) · lead-lag/Granger (§7) · serial-dependence ACF (§1).
+
+**"Deferred" ≠ "inapplicable" — three honest buckets:**
+- **Needs a heavy dependency** (applicable, buildable *if you approve the dep*): neural-net /
+  TabNet gate models (torch), Double-ML / Causal Forests (EconML). Payoff is small — boosted
+  trees already match/beat NNs on ~9 features + a few-thousand trades.
+- **Different paradigm, known-low-success:** direct price/return forecasting (LSTM / Prophet /
+  GluonTS / TCN). EDGELOG *can* host a forecast strategy (GAINZ_RF already is one), but Carl's
+  own notebook is titled "LSTM + stock-price prediction = FAIL" — low expected value.
+- **Genuinely not applicable:** generative image/LLM (StableDiffusion/Gemma), meta-Kaggle
+  stats, geospatial, Titanic didactics — these truly don't map to a futures backtester.
 
 ---
 
@@ -247,16 +256,18 @@ not saved to the runs DB — so they carry no run id.*
 
 ## 7. Open items / next up
 
-The core method stack is live; a fresh pass over Carl's **full master TOC** (§2) surfaced
-5 more applicable methods, now planned. Best-value first:
+The core method stack is live; passes over Carl's **full master TOC** (§2) surfaced 6 more
+applicable methods, now planned. Best-value first:
 1. **gate calibration** (Venn-ABERS/isotonic, §3A/§4) — make the gate's P(win) a trustworthy
-   probability, not just a rank. *(highest value — makes the GATE CUT-OFF mean something)*
+   probability, not just a rank. *(highest value — makes the GATE CUT-OFF mean something)* **← build next**
 2. **lead-lag / Granger** (§7) — does ES lead NQ? a cross-instrument signal a single-symbol
    backtest can't see.
-3. **VIF / collinearity** (§2) — flag redundant entry features (cheap health check).
-4. **feature selection** (Boruta/RFE, §2) — auto-prune the gate's feature subset.
-5. **stacking / CCMP** (§6) — weighted ensemble beyond the equal-weight top-K.
-6. **fills reconciliation** (§1) — *operational*; reconcile web/mobile NinjaTrader (+ Webull)
+3. **serial dependence (ACF)** (§1) — momentum vs mean-reversion structure of returns;
+   validates which strategy family the data actually supports. Cheap.
+4. **VIF / collinearity** (§2) — flag redundant entry features (cheap health check).
+5. **feature selection** (Boruta/RFE, §2) — auto-prune the gate's feature subset.
+6. **stacking / CCMP** (§6) — weighted ensemble beyond the equal-weight top-K.
+7. **fills reconciliation** (§1) — *operational*; reconcile web/mobile NinjaTrader (+ Webull)
    fills that skip the local DB. Do WITH the owner present (needs live broker data).
 
 *(✅ SHAP · ensemble top-K · adversarial validation · conformal band · causal check ·
@@ -265,6 +276,11 @@ synthetic scenarios all shipped 2026-07-04 — see Changelog.)*
 ---
 
 ## Changelog
+- **2026-07-04** — **Deferred list reclassified (honest).** Split "deferred" into three buckets —
+  *heavy-dep* (NN/TabNet/Double-ML — buildable if a dep is approved), *different paradigm /
+  low-success* (direct forecasting; Carl's own "LSTM = FAIL"), and *truly n/a* (image/LLM,
+  meta-Kaggle, geospatial). Reclaimed **serial-dependence (ACF)** as a cheap applicable
+  diagnostic → new planned pill (§1, board v3.5). Only image/LLM/meta/geo are genuinely inapplicable.
 - **2026-07-04** — **Full master-TOC pass.** Pulled Carl's complete
   [master notebook](https://www.kaggle.com/code/carlmcbrideellis/a-selection-of-my-kaggle-notebooks)
   TOC (14 sections — many more than the sub-links first sent), assessed coverage (§2), and

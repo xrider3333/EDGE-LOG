@@ -48,7 +48,7 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v3.4</span></h1>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v3.5</span></h1>
   <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (EDGELOG's own workflow axes — Model &amp; Search, Validation, … — each pill tagged with its old Carl category). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-04.</span></p>
 
   <div class="summary">
@@ -142,6 +142,7 @@
         <span class="p p-plan" data-info="Reconcile paired trades vs the NinjaTrader Position-History CSV to catch web / mobile fills that skip the local DB + AddOn. Runs: PER NT SYNC (ongoing, not per-master). · was §2.5">fills reconciliation</span>
         <span class="p p-live" data-info="LIVE (v42.7). Input-data EDA per master: within-session return stats (bp sigma / skew / excess kurtosis), annualized vol by year, activity by ET hour, monthly bar-coverage, price range — shown as an EDA strip in the master modal (click a master in the Library). Cached per file; recomputes only on change. NQ 5m RTH reads: sigma 11bp, kurt 29.6 (fat tails), vol peaks 2011/2020/2025. · was §1.1">EDA pre-flight</span>
         <span class="p p-live" data-info="LIVE (v42.7). One-call auto-EDA HTML report per master: python tools/profile_report.py &quot;NQ 5m RTH&quot; (or --all) -> augur_uploads/_profiles/<name>.html — return-distribution histogram vs normal (fat tails in red), vol-by-year, hour activity, coverage, health + roll-seam summary, outlier examples. Built NATIVE instead of ydata-profiling/dabl on purpose: their heavy pinned deps risk destabilizing the trading PC's python env; zero new dependencies. · was §1.2">auto-EDA report</span>
+        <span class="p p-plan" data-info="PLANNED. Serial-dependence / autocorrelation (ACF) of returns at multiple lags + a variance-ratio test — is the instrument momentum-like (positive autocorr → breakouts have structural support) or mean-reverting (negative → fades do)? A cheap numpy diagnostic that validates which strategy FAMILY the data actually supports. NOT forecasting — a structure check (this was wrongly deferred as 'time-series/forecasting' in the first pass). Carl master §6 (correlograms).">serial dependence (ACF)</span>
       </div>
       <div class="info"></div>
     </div>
