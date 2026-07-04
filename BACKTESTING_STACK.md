@@ -4,8 +4,8 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-04
-- **Web VERSION:** 44.7 · **Stack board (`method_stack.html`):** v3.3
-- **Board tally:** 35 method pills LIVE; 1 still planned — fills reconciliation (see §7)
+- **Web VERSION:** 44.7 · **Stack board (`method_stack.html`):** v3.4
+- **Board tally:** 35 method pills LIVE; 6 planned (5 new from Carl's full master TOC + fills reconciliation — see §7)
 
 > **Plain-language rule** (owner preference): every technical term is defined in
 > EDGELOG terms the first time it appears. Don't assume the reader knows the jargon.
@@ -84,7 +84,31 @@ Legend: ✅ built · ⏳ planned · ❌ not adopted (used a different method) ·
 [GitHub mirror](https://github.com/Carl-McBride-Ellis/My-kaggle-notebooks) ·
 LinkedIn: [ensembling guide](https://www.linkedin.com/posts/carl-mcbride-ellis_kaggle-ensembling-guide-activity-7041377476710653952-iEGp) · [ML regression](https://www.linkedin.com/posts/carl-mcbride-ellis_kaggle-machinelearning-regression-activity-7155071941773516800-qsn8) · [competitions](https://www.linkedin.com/posts/carl-mcbride-ellis_kaggle-competitions-activity-6989874021894885376-s2zX)
 
-**Score:** 11 methods live · 0 planned · 5 skipped/superseded — every Carl notebook is now mapped.
+**Score (the sub-links originally sent):** 11 methods live · 5 skipped/superseded.
+
+### Full master-notebook coverage — all 14 sections
+The [master notebook](https://www.kaggle.com/code/carlmcbrideellis/a-selection-of-my-kaggle-notebooks)'s
+table of contents has **14 sections** — far more than the sub-links first sent. Assessment:
+
+| Carl master § | Topic | EDGELOG status |
+|---|---|---|
+| 1 | EDA | ✅ EDA pre-flight · Pearson/MI/PPS |
+| 2 | Data cleaning | ✅ Isolation-Forest outliers · PyDeequ (gap-check). Distillation/anonymization skipped (n/a to price) |
+| 3 | Classification / Regression | ✅ Logistic · RF · XGBoost gates · GAM (plateau). NN/TabNet/GP/RGF **deferred** (heavy deps, little over XGBoost) |
+| 4 | Conformal prediction | ✅ conformal PnL band · **⏳ gate calibration (Venn-ABERS/isotonic) — NEW planned** |
+| 5 | Feature selection / eng | ✅ MI/PPS screen · adversarial validation · SHAP · **⏳ feature selection (Boruta/RFE) — NEW planned** |
+| 6 | Time series / forecasting | ~ regime + time-of-day features · **⏳ lead-lag/Granger — NEW planned**. Forecasting (LSTM/Prophet/GluonTS) **deferred** — EDGELOG is rule-based, not a forecaster |
+| 7 | Ensemble | ✅ ensemble top-K · **⏳ stacking/CCMP — NEW planned** |
+| 8 | Explainability | ✅ SHAP · regime report card · **⏳ VIF/collinearity — NEW planned** |
+| 9 | Causality | ✅ causal check (randomization). Double-ML / Causal Forests **deferred** (EconML dep) |
+| 10 | Statistics | ~ Deflated Sharpe (significance, multiple-testing-aware). Plain t-test/power **deferred** (DSR supersedes) |
+| 11 | Didactic | n/a — teaching notebooks; overfitting is handled by plateau/DSR/lockbox |
+| 12 | Generative AI | ~ AI-evolve (Claude). StableDiffusion/Gemma **n/a** to trading |
+| 13 | Miscellaneous | mostly n/a; the finance notebooks (returns Normal-vs-Cauchy fit) = a low-priority §1 EDA add |
+| 14 | Meta-Kaggle | n/a |
+
+**5 NEW planned pills added from this pass** (board v3.4): gate calibration (§3A) · feature selection (§2) · VIF/collinearity (§2) · stacking/CCMP (§6) · lead-lag/Granger (§7).
+**Deferred on purpose:** neural/TabNet/LSTM/TCN gate models + all forecasting (heavy deps / not a forecaster), Double-ML (EconML), generative image/LLM, meta-kaggle/geospatial — not applicable to a futures backtester.
 
 ---
 
@@ -223,10 +247,17 @@ not saved to the runs DB — so they carry no run id.*
 
 ## 7. Open items / next up
 
-**The backtesting-method stack is COMPLETE.** The only remaining pill is operational:
-1. **fills reconciliation** (§1) — reconcile web/mobile NinjaTrader (+ Webull) fills that
-   skip the local DB. *Needs your live broker data to build safely — not a backtesting
-   method. Do this one WITH the owner present.*
+The core method stack is live; a fresh pass over Carl's **full master TOC** (§2) surfaced
+5 more applicable methods, now planned. Best-value first:
+1. **gate calibration** (Venn-ABERS/isotonic, §3A/§4) — make the gate's P(win) a trustworthy
+   probability, not just a rank. *(highest value — makes the GATE CUT-OFF mean something)*
+2. **lead-lag / Granger** (§7) — does ES lead NQ? a cross-instrument signal a single-symbol
+   backtest can't see.
+3. **VIF / collinearity** (§2) — flag redundant entry features (cheap health check).
+4. **feature selection** (Boruta/RFE, §2) — auto-prune the gate's feature subset.
+5. **stacking / CCMP** (§6) — weighted ensemble beyond the equal-weight top-K.
+6. **fills reconciliation** (§1) — *operational*; reconcile web/mobile NinjaTrader (+ Webull)
+   fills that skip the local DB. Do WITH the owner present (needs live broker data).
 
 *(✅ SHAP · ensemble top-K · adversarial validation · conformal band · causal check ·
 synthetic scenarios all shipped 2026-07-04 — see Changelog.)*
@@ -234,6 +265,13 @@ synthetic scenarios all shipped 2026-07-04 — see Changelog.)*
 ---
 
 ## Changelog
+- **2026-07-04** — **Full master-TOC pass.** Pulled Carl's complete
+  [master notebook](https://www.kaggle.com/code/carlmcbrideellis/a-selection-of-my-kaggle-notebooks)
+  TOC (14 sections — many more than the sub-links first sent), assessed coverage (§2), and
+  added **5 NEW planned pills** for genuinely-applicable gaps (board v3.4): gate calibration
+  (Venn-ABERS), feature selection (Boruta/RFE), VIF/collinearity, stacking/CCMP,
+  lead-lag/Granger. Forecasting / neural / generative-image / EconML items deferred as
+  out-of-paradigm or heavy-dep for a rule-based futures backtester.
 - **2026-07-04** — **Method stack COMPLETE: conformal band (§4) + causal check (§7) +
   synthetic scenarios (§8) shipped** (web v44.7, stack v3.3; board 35 live / 1 planned).
   All three are distribution-free (numpy/sklearn only), auto-run in Auto-Validate on the
