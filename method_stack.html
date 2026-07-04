@@ -48,7 +48,7 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v3.2</span></h1>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v3.3</span></h1>
   <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (EDGELOG's own workflow axes — Model &amp; Search, Validation, … — each pill tagged with its old Carl category). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-04.</span></p>
 
   <div class="summary">
@@ -185,7 +185,7 @@
         <span class="p p-live" data-info="Haircut the Sharpe by the best-of-N luck bar (Bailey / Lopez de Prado) — the multiple-testing correction, so a best-of-1000 mirage cannot headline. · was §10.1">Deflated Sharpe</span>
         <span class="p p-live" data-info="Block-shuffle the trade order thousands of times; size the account to the p95 drawdown. · was §10.2">Monte-Carlo</span>
         <span class="p p-live" data-info="Trades-per-optimized-parameter gauge — under 10 fragile, 30+ healthy. The degrees-of-freedom / overfit governor. · was §10.3">sample adequacy (DOF)</span>
-        <span class="p p-plan" data-info="Wrap the fold / lockbox estimate in a calibrated interval and gate on the lower bound instead of a point number (MAPIE / Venn-ABERS) — small-sample-noise protection. · was §4.1">conformal band</span>
+        <span class="p p-live" data-info="LIVE (v44.7). Split-conformal, distribution-free prediction interval for one trade's net PnL (analytics.conformal_pnl_band) — coverage MEASURED on a held-out split as the self-check (a valid 80% band should cover ~80%). Auto-runs in Auto-Validate on the champion's whole-history trades. First run (ORB 3.1): 80% band ≈ [−$900, +$713]/trade, measured coverage 79% ✓. · was §4.1">conformal band</span>
         <span class="p p-live" data-info="LIVE (v44.4). Trains a classifier (RF) to tell LOCKBOX bars from the pre-lockbox training history using market-state features; cross-validated ROC-AUC. AUC≈0.50 = indistinguishable (trust the lockbox); high AUC = regime drift, so a lockbox PASS/FAIL is weaker evidence. Reports the most-shifted inputs (in σ). Auto-runs in Auto-Validate; informational, does NOT change the verdict. First run (NQ, 12mo lockbox): AUC 0.60 = mild drift, driven by the volatility regime (atr_ratio/atr_norm). · was §5.5">adversarial validation</span>
         <span class="p p-live" data-info="LIVE (v43.7) — the honest way to pick an ML gate (ROADMAP #25). Builder: pick any ML FILTER + set VALIDATION to walk-forward or WF+lockbox → runs GATE-VALIDATE: the strategy runs once; ALL 9 candidates (3 gates × 3 cut-offs) are ranked on the PRE-LOCKBOX slice only, by RECOVERY FACTOR ($ made per $ of drawdown — the equal-risk yardstick, since a gate always trades less than ungated); ungated is always candidate #0. The winner gets exactly ONE look at the reserved last-12-months lockbox — and losing candidates' lockbox numbers are never computed into the result, so lockbox-shopping is impossible BY DESIGN. Also reports per-window PF consistency (held X/4 pre-lockbox windows). First run (ORB 1.0, NQ 5m RTH 2022→): best gate xgb@50% rec 5.05 vs ungated 5.66 → 'no gate earns its keep', lockbox not opened — the full-window PF 1.43 did NOT survive discipline. SECOND run (same strategy, FULL 16yr 2010→): verdict FLIPPED — rf@50% chosen pre-lockbox with rec 16.66 vs ungated 6.77, held 4/4 chronological windows, LOCKBOX HELD (ungated lost money in the reserved year; gated was positive). Same tool, same rules, opposite verdicts = the data-volume lesson made concrete: a gate needs thousands of training trades, and the audition only says yes when it truly has them.">ML-gate validate</span>
       </div>
@@ -213,7 +213,7 @@
     <div class="sec">
       <div class="sech"><span>7 · Causality</span><span class="secn">→ pipeline 4</span></div>
       <div>
-        <span class="p p-plan" data-info="PnL on the same bars without the signal — separates a real entry edge from just being long in a rising market (CausalImpact / interrupted time series / Double-ML). · was §9.1">causal check</span>
+        <span class="p p-live" data-info="LIVE (v44.7). Randomization test (analytics.causal_entry_test): keep each trade's direction + holding length but move entries to RANDOM times (exit at close); build a null of 'same bets, random timing'. High percentile = the entry rule carries real predictive content, not just market exposure. Auto-runs in Auto-Validate. First run (ORB 3.1): beats 100% of random-entry nulls → entry timing carries real signal. Caveat: nulls exit at close, not the strategy stop/target. · was §9.1">causal check</span>
       </div>
       <div class="info"></div>
     </div>
@@ -221,7 +221,7 @@
     <div class="sec">
       <div class="sech"><span>8 · Generative</span><span class="secn">cross-cutting</span></div>
       <div>
-        <span class="p p-plan" data-info="Generate synthetic stress paths (gaps, halts, low-liquidity sessions) to test where history is thin; tagged non-authoritative, never enters the lockbox. · was §12.2">synthetic scenarios</span>
+        <span class="p p-live" data-info="LIVE (v44.7). Trading-DAY bootstrap (analytics.synthetic_day_bootstrap): resample whole days WITH REPLACEMENT to build alternate histories — changes WHICH days happen, not just their order (distinct from the Monte-Carlo pill). Reports the PnL spread (p5–p95), a bad-case drawdown, and how often the run stays profitable. Auto-runs in Auto-Validate. First run (ORB 3.1): profitable in 100% of 800 histories. Caveat: treats days as exchangeable (ignores regime persistence). · was §12.2">synthetic scenarios</span>
       </div>
       <div class="info"></div>
     </div>

@@ -452,3 +452,109 @@ def ensemble_blend(bar_pnls, buckets=50):
         "blend_curve": _dscurve(ens_inc), "best_curve": _dscurve(A[0]),
         "improved": bool(blend["recovery"] > best["recovery"]),
     }
+
+
+def conformal_pnl_band(pnls, alpha=0.2, cal_frac=0.5, seed=42):
+    """Split-conformal prediction interval for a single trade's NET PnL (board §4).
+
+    Distribution-free: split the trades into calibration/test, build a symmetric
+    interval around the calibration median whose half-width is the conformal quantile
+    of |pnl − median|, then MEASURE the coverage on the untouched test split. The
+    self-check is the point — a valid 80% band should actually cover ~80% of held-out
+    trades. Units are POINTS (the web multiplies by the contract value)."""
+    p = np.asarray([float(x) for x in pnls], float)
+    n = len(p)
+    if n < 60:
+        return None
+    rng = np.random.RandomState(int(seed))
+    perm = rng.permutation(n)
+    ncal = max(20, int(n * cal_frac))
+    cal, test = p[perm[:ncal]], p[perm[ncal:]]
+    med = float(np.median(cal))
+    scores = np.abs(cal - med)
+    lvl = min(1.0, np.ceil((ncal + 1) * (1 - alpha)) / ncal)
+    q = float(np.quantile(scores, lvl, method="higher"))
+    lo, hi = med - q, med + q
+    cov = float(np.mean((test >= lo) & (test <= hi))) if len(test) else None
+    return {"alpha": round(float(alpha), 2), "coverage_target": round(1 - float(alpha), 2),
+            "coverage_measured": (round(cov, 3) if cov is not None else None),
+            "lo": round(lo, 2), "hi": round(hi, 2), "median": round(med, 2),
+            "half_width": round(q, 2), "n": int(n),
+            "calibrated": bool(cov is not None and abs(cov - (1 - alpha)) <= 0.07)}
+
+
+def causal_entry_test(trades, closes, cost_pts=0.0, n_sims=1000, seed=42):
+    """Does the ENTRY RULE carry signal, or is the edge just market exposure? (board §7)
+
+    Randomization test: keep each trade's direction (side) and holding length, but move
+    every entry to a RANDOM bar; exit at the close that many bars later. Repeat n_sims
+    times to build a null of 'same bets, random timing', then read where the real total
+    sits. High percentile → entry timing has genuine predictive content. Needs 5-tuple
+    trades (side at t[3]). CAVEAT: random trades exit at close, not the strategy's
+    stop/target — so this isolates entry-timing/direction skill, not the exit logic."""
+    C = np.asarray(closes, float)
+    nb = len(C)
+    T = [t for t in trades if len(t) >= 4]
+    if len(T) < 30 or nb < 50:
+        return None
+    durs = np.array([max(1, int(t[1]) - int(t[0])) for t in T])
+    sides = np.array([1.0 if float(t[3]) > 0 else -1.0 for t in T])
+    m = len(T)
+    maxd = int(durs.max())
+    if nb - maxd - 1 <= 0:
+        return None
+    real = float(sum(float(t[2]) for t in T))           # NET (costs already in t[2])
+    rng = np.random.RandomState(int(seed))
+    nulls = np.empty(int(n_sims))
+    for s in range(int(n_sims)):
+        e = rng.randint(0, nb - maxd - 1, size=m)
+        nulls[s] = float(np.sum(sides * (C[e + durs] - C[e]))) - m * float(cost_pts)
+    pct = float((nulls < real).mean()) * 100.0
+    return {"real_total_pts": round(real, 1),
+            "null_median_pts": round(float(np.median(nulls)), 1),
+            "null_p95_pts": round(float(np.percentile(nulls, 95)), 1),
+            "percentile": round(pct, 1), "n_sims": int(n_sims), "n_trades": m,
+            "verdict": ("entry timing carries real signal" if pct >= 95 else
+                        ("modest signal" if pct >= 80 else
+                         "weak / none — edge ≈ market exposure"))}
+
+
+def synthetic_day_bootstrap(trades, index, n_sims=800, seed=42):
+    """Alternate-history stress via a trading-DAY bootstrap (board §8).
+
+    Group trades into trading days (by entry date), then resample whole days WITH
+    REPLACEMENT to build n_sims synthetic histories of the same length. Unlike the
+    Monte-Carlo pill (which reorders the exact realized trades), this changes the
+    COMPOSITION of days — some days repeat, some drop — so it answers 'how would a
+    different mix of market days have gone'. Reports the PnL spread + a bad-case
+    drawdown + how often the run stays profitable. CAVEAT: treats days as exchangeable
+    (ignores regime persistence across days). Points; web ×contract value."""
+    import pandas as pd
+    T = [t for t in trades if len(t) >= 3]
+    if len(T) < 40 or index is None:
+        return None
+    ts = pd.DatetimeIndex(index)
+    if ts.tz is not None:
+        ts = ts.tz_localize(None)
+    day_pnls = {}
+    for t in T:
+        d = ts[min(int(t[0]), len(ts) - 1)].date()
+        day_pnls[d] = day_pnls.get(d, 0.0) + float(t[2])
+    days = sorted(day_pnls)
+    vals = np.array([day_pnls[d] for d in days], float)
+    nd = len(vals)
+    if nd < 30:
+        return None
+    rng = np.random.RandomState(int(seed))
+    tot = np.empty(int(n_sims)); mdd = np.empty(int(n_sims))
+    for s in range(int(n_sims)):
+        seq = vals[rng.randint(0, nd, size=nd)]
+        cum = np.cumsum(seq); peak = np.maximum.accumulate(cum)
+        tot[s] = float(cum[-1]); mdd[s] = float((cum - peak).min())
+    return {"n_days": int(nd), "n_sims": int(n_sims),
+            "real_total_pts": round(float(vals.sum()), 1),
+            "p05_total_pts": round(float(np.percentile(tot, 5)), 1),
+            "p50_total_pts": round(float(np.percentile(tot, 50)), 1),
+            "p95_total_pts": round(float(np.percentile(tot, 95)), 1),
+            "worst5_maxdd_pts": round(float(np.percentile(mdd, 5)), 1),
+            "prob_profit": round(float((tot > 0).mean()) * 100.0, 1)}

@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='44.6';
+const VERSION='44.7';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5755,9 +5755,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
         let advHtml='';const AV=(R.validate||{}).adversarial;
         if(AV&&AV.auc!=null){const a=AV.auc,acol=a<0.55?'var(--green)':a<0.70?'var(--yellow)':a<0.85?'#f0997b':'var(--red)';
           const drift=(AV.drift_features||[]).slice(0,3).map(d=>d.name+' ('+(d.shift>0?'+':'')+d.shift+'σ)').join(' · ');
-          advHtml='<div class="lbl" style="margin:14px 0 4px" title="A classifier tries to tell the lockbox period apart from the training history using market-state features. AUC near 0.50 = indistinguishable (trust the lockbox); high AUC = the lockbox is a different regime, so its PASS/FAIL is weaker evidence.">🎭 ADVERSARIAL VALIDATION · §4 — is the lockbox a different regime?</div>'
+          advHtml+='<div class="lbl" style="margin:14px 0 4px" title="A classifier tries to tell the lockbox period apart from the training history using market-state features. AUC near 0.50 = indistinguishable (trust the lockbox); high AUC = the lockbox is a different regime, so its PASS/FAIL is weaker evidence.">🎭 ADVERSARIAL VALIDATION · §4 — is the lockbox a different regime?</div>'
            +'<div style="font-size:var(--fsxs);color:'+acol+';margin-bottom:2px">AUC <b>'+a.toFixed(3)+'</b> — '+AV.verdict+'</div>'
            +(drift?'<div style="font-size:var(--fsxs);color:var(--text4)">most-shifted inputs: '+drift+' <span style="color:var(--text5)">(lockbox vs history, in σ)</span></div>':'');}
+        // ── §4 Conformal PnL band · §7 Causal entry test · §8 Synthetic scenarios (all on the champion) ──
+        const CF=(R.validate||{}).conformal;
+        if(CF){const cfc=CF.calibrated?'var(--green)':'var(--yellow)';
+          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Split-conformal, distribution-free prediction interval for one trade\'s net PnL, with coverage MEASURED on a held-out split (the self-check: a valid 80% band should cover ~80%).">📏 CONFORMAL PnL BAND · §4 — per-trade risk interval</div>'
+           +'<div style="font-size:var(--fsxs);color:var(--text3)">'+Math.round((1-CF.alpha)*100)+'% of trades land in <b>'+fmtUsd(Math.round(CF.lo*mlt))+' … '+fmtUsd(Math.round(CF.hi*mlt))+'</b> (median '+fmtUsd(Math.round(CF.median*mlt))+') · measured coverage <b style="color:'+cfc+'">'+(CF.coverage_measured!=null?Math.round(CF.coverage_measured*100)+'%':'—')+'</b>'+(CF.calibrated?' ✓':'')+'</div>';}
+        const CU=(R.validate||{}).causal;
+        if(CU){const cuc=CU.percentile>=95?'var(--green)':CU.percentile>=80?'var(--yellow)':'var(--red)';
+          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Randomization test: keep each trade\'s direction and holding length but move entries to random times (exit at close). High percentile = the entry rule carries real predictive content, not just market exposure. Caveat: random trades exit at close, not the strategy stop/target.">🎲 CAUSAL ENTRY TEST · §7 — is the entry rule real?</div>'
+           +'<div style="font-size:var(--fsxs);color:'+cuc+'">beats <b>'+CU.percentile.toFixed(0)+'%</b> of random-entry nulls — '+CU.verdict+' <span style="color:var(--text5)">(real '+fmtUsd(Math.round(CU.real_total_pts*mlt))+' vs null median '+fmtUsd(Math.round(CU.null_median_pts*mlt))+')</span></div>';}
+        const SY=(R.validate||{}).synthetic;
+        if(SY){const syc=SY.prob_profit>=90?'var(--green)':SY.prob_profit>=70?'var(--yellow)':'var(--red)';
+          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Resamples whole trading days WITH REPLACEMENT to build alternate histories — changes which days happen, not just their order (distinct from the Monte-Carlo pill). Caveat: treats days as exchangeable.">🌀 SYNTHETIC SCENARIOS · §8 — alternate day-histories</div>'
+           +'<div style="font-size:var(--fsxs);color:'+syc+'">profitable in <b>'+SY.prob_profit.toFixed(0)+'%</b> of '+SY.n_sims+' histories · PnL '+fmtUsd(Math.round(SY.p05_total_pts*mlt))+' … '+fmtUsd(Math.round(SY.p95_total_pts*mlt))+' (p5–p95) · worst-5% DD '+fmtUsd(Math.round(SY.worst5_maxdd_pts*mlt))+'</div>';}
         topHtml=cardHtml+advHtml+valHtml+platHtml+ensHtml+'<div class="lbl" style="margin:16px 0 6px">'+(isWf?'WALK-FORWARD FOLDS · ':'TOP CONFIGS · ')+stratTag(lastDone.strategy)+(hasOos&&!isWf?' · IS vs OOS':'')+'</div><div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th>'+(isWf?'<th>FOLD</th>':'')+pk.map(k=>'<th>'+k+'</th>').join('')+'<th style="text-align:right">PnL pts</th><th style="text-align:right">TRD</th><th style="text-align:right">WR</th><th style="text-align:right">PF</th>'+(hasOos?'<th style="text-align:right">OOS $</th><th style="text-align:right">OOS PF</th>':'')+'</tr></thead><tbody>'+t.map((r,i)=>'<tr><td>'+(i+1)+'</td>'+(isWf?'<td>'+(r.fold||'')+'</td>':'')+pk.map(k=>'<td style="font-size:var(--fsxs)">'+r[k]+'</td>').join('')+'<td style="text-align:right">'+Math.round(r.total_pnl||0).toLocaleString()+'</td><td style="text-align:right">'+(r.num_trades||0)+'</td><td style="text-align:right">'+Math.round(r.win_rate||0)+'%</td><td style="text-align:right">'+Math.min(r.profit_factor||0,99).toFixed(2)+'</td>'+(hasOos?'<td style="text-align:right;color:'+((r.oos_pnl||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round((r.oos_pnl||0)*mlt))+'</td><td style="text-align:right">'+Math.min(r.oos_pf||0,99).toFixed(2)+'</td>':'')+'</tr>').join('')+'</tbody></table></div>';}
       // ── Horizontal, left-to-right build flow (like legacy AUGUR "Executions") ──
       // Each field is a flex cell that packs across the row and wraps as the window

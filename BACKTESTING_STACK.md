@@ -4,8 +4,8 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-04
-- **Web VERSION:** 44.4 · **Stack board (`method_stack.html`):** v3.2
-- **Board tally:** 32 method pills LIVE; 4 still planned (see §7)
+- **Web VERSION:** 44.7 · **Stack board (`method_stack.html`):** v3.3
+- **Board tally:** 35 method pills LIVE; 1 still planned — fills reconciliation (see §7)
 
 > **Plain-language rule** (owner preference): every technical term is defined in
 > EDGELOG terms the first time it appears. Don't assume the reader knows the jargon.
@@ -37,11 +37,11 @@ numbering. Each pill still carries its old Carl section as a `· was §X.Y` tag.
 | 1 | **Data health & EDA** — know your input | ✅ gap-check (1.5× bar; ETH/sub-1m ≥2h) · ✅ Isolation-Forest outliers · ✅ coverage map · ✅ roll-seam check · ✅ EDA pre-flight (`_profiles/*.html` return-dist) · ⏳ fills reconciliation |
 | 2 | **Feature screen** — which inputs matter | ✅ Pearson r · ✅ Mutual Information · ✅ PPS (predictive power score) |
 | 3 | **Model & Search** — make + tune the signal | **3A Models:** ✅ Logistic · ✅ Random Forest · ✅ XGBoost gate  **3B Search:** ✅ grid sweep · ✅ Bayesian search  **3C Pick-winner:** ✅ PDP plateau (GAM) · ✅ neighborhood/plateau · ✅ highest-PnL (argmax)  **3D AI assist:** ✅ AI-evolve (Claude in the loop) |
-| 4 | **Validation** — rigor | ✅ walk-forward · ✅ stress windows · ✅ lockbox one-shot · ✅ cross-instrument transfer · ✅ Deflated Sharpe · ✅ Monte-Carlo · ✅ sample adequacy (DOF) · ✅ ML-gate validate · ✅ adversarial validation · ⏳ conformal band |
+| 4 | **Validation** — rigor | ✅ walk-forward · ✅ stress windows · ✅ lockbox one-shot · ✅ cross-instrument transfer · ✅ Deflated Sharpe · ✅ Monte-Carlo · ✅ sample adequacy (DOF) · ✅ ML-gate validate · ✅ adversarial validation · ✅ conformal band |
 | 5 | **Explain** — where the edge lives | ✅ regime report card · ✅ MAE/MFE (heat/reach) · ✅ SHAP (gate feature attribution) |
 | 6 | **Ensemble** | ✅ ensemble top-K (blend of top configs vs single best) |
-| 7 | **Causality** | ⏳ causal check |
-| 8 | **Generative** | ⏳ synthetic scenarios |
+| 7 | **Causality** | ✅ causal check (random-entry randomization test) |
+| 8 | **Generative** | ✅ synthetic scenarios (trading-day bootstrap) |
 
 ---
 
@@ -66,10 +66,7 @@ Legend: ✅ built · ⏳ planned · ❌ not adopted (used a different method) ·
 | [Self-made ensemble methods](https://www.kaggle.com/code/caerno/eda-self-made-ensemble-methods) | blend top models | §7.1 | ensemble top-K (§6) — equal-weight blend of top-K vs single best, auto on grid sweeps |
 
 ### ⏳ On the board, not built yet
-| Carl notebook | Method | Carl § | Planned pill |
-|---|---|---|---|
-| [Naïve dataset distillation](https://www.kaggle.com/code/carlmcbrideellis/ps-s3-e21-na-ve-dataset-distillation) | shrink/synthesize data | §12 | synthetic scenarios (§8) |
-| [Data anonymization with Faker](https://www.kaggle.com/code/carlmcbrideellis/data-anonymization-using-faker-titanic-example) | synthetic data | §12 | synthetic scenarios (§8, same slot) |
+*(none — every Carl notebook the owner sent is now built or superseded.)*
 
 ### ❌ Not adopted — different method on purpose
 | Carl notebook | Why not | We use instead |
@@ -77,6 +74,8 @@ Legend: ✅ built · ⏳ planned · ❌ not adopted (used a different method) ·
 | [Outliers via inverse-PCA](https://www.kaggle.com/code/carlmcbrideellis/filtering-outliers-using-inverse-pca) | one outlier tool is enough | Isolation Forest |
 | [A bit of class and a tree](https://www.kaggle.com/code/carlmcbrideellis/titanic-some-sex-a-bit-of-class-and-a-tree) | single tree overfits | Random Forest gate |
 | [ID3 decision tree](https://www.kaggle.com/code/carlmcbrideellis/titanic-using-the-iterative-dichotomiser-3-id3) | teaching algo, not deployable | Random Forest / XGBoost gate |
+| [Naïve dataset distillation](https://www.kaggle.com/code/carlmcbrideellis/ps-s3-e21-na-ve-dataset-distillation) | distillation doesn't apply to price backtesting | §8 built as a trading-day bootstrap instead |
+| [Data anonymization with Faker](https://www.kaggle.com/code/carlmcbrideellis/data-anonymization-using-faker-titanic-example) | no need to anonymize your own OHLC | (same — day bootstrap fills the §8 slot) |
 
 ### 🔖 Index / reference (not methods)
 [A selection of my Kaggle notebooks](https://www.kaggle.com/code/carlmcbrideellis/a-selection-of-my-kaggle-notebooks#--7.-ensemble-methods-) (the source page) ·
@@ -85,7 +84,7 @@ Legend: ✅ built · ⏳ planned · ❌ not adopted (used a different method) ·
 [GitHub mirror](https://github.com/Carl-McBride-Ellis/My-kaggle-notebooks) ·
 LinkedIn: [ensembling guide](https://www.linkedin.com/posts/carl-mcbride-ellis_kaggle-ensembling-guide-activity-7041377476710653952-iEGp) · [ML regression](https://www.linkedin.com/posts/carl-mcbride-ellis_kaggle-machinelearning-regression-activity-7155071941773516800-qsn8) · [competitions](https://www.linkedin.com/posts/carl-mcbride-ellis_kaggle-competitions-activity-6989874021894885376-s2zX)
 
-**Score:** 11 methods live · 2 planned · 3 skipped on purpose.
+**Score:** 11 methods live · 0 planned · 5 skipped/superseded — every Carl notebook is now mapped.
 
 ---
 
@@ -224,18 +223,37 @@ not saved to the runs DB — so they carry no run id.*
 
 ## 7. Open items / next up
 
-Planned pills, best-value first:
-1. **conformal band** (§4) — calibrated confidence intervals around the gate's P(win).
-2. **synthetic scenarios** (§8) — dataset distillation / synthetic stress data.
-3. **causal check** (§7).
-4. **fills reconciliation** (§1) — reconcile web/mobile NinjaTrader fills that skip the
-   local DB.
+**The backtesting-method stack is COMPLETE.** The only remaining pill is operational:
+1. **fills reconciliation** (§1) — reconcile web/mobile NinjaTrader (+ Webull) fills that
+   skip the local DB. *Needs your live broker data to build safely — not a backtesting
+   method. Do this one WITH the owner present.*
 
-*(✅ SHAP + ensemble top-K + adversarial validation shipped 2026-07-04 — see Changelog.)*
+*(✅ SHAP · ensemble top-K · adversarial validation · conformal band · causal check ·
+synthetic scenarios all shipped 2026-07-04 — see Changelog.)*
 
 ---
 
 ## Changelog
+- **2026-07-04** — **Method stack COMPLETE: conformal band (§4) + causal check (§7) +
+  synthetic scenarios (§8) shipped** (web v44.7, stack v3.3; board 35 live / 1 planned).
+  All three are distribution-free (numpy/sklearn only), auto-run in Auto-Validate on the
+  champion's whole-history trades, and are INFORMATIONAL (verdict unchanged):
+  • **conformal band** (`analytics.conformal_pnl_band`) — split-conformal per-trade net-PnL
+    interval with coverage MEASURED on a held-out split (self-check). ORB 3.1: 80% band ≈
+    [−$900, +$713]/trade, measured coverage 79% ✓.
+  • **causal check** (`analytics.causal_entry_test`) — randomization test vs random-entry
+    nulls (same direction + holding length, random timing). ORB 3.1: beats 100% of nulls →
+    entry timing carries real signal.
+  • **synthetic scenarios** (`analytics.synthetic_day_bootstrap`) — trading-day bootstrap
+    (resample days with replacement → alternate histories). ORB 3.1: profitable in 100% of
+    800 histories. Only the operational fills-reconciliation pill now remains.
+- **2026-07-04** — **Stack verified end-to-end.** Full Auto-Validate on the deployable
+  **ORB 3.1** (NQ 5m RTH) exercised the whole session's stack in the real pipeline:
+  **PASS 5/5** · WFE **1.63** (163%) · **8/8** folds held · DSR **~100%** · lockbox
+  **+$64.2k** PF **1.70** · adversarial **AUC 0.60** (mild drift, matches standalone → the
+  new checks are wired correctly). Cross-instrument regime read: NQ AUC 0.60 / ES 0.62 —
+  both mild drift, both driven by a **modestly lower recent volatility** regime (a lockbox
+  PASS on a calmer market is *reassuring* for a breakout strategy).
 - **2026-07-04** — **Adversarial validation shipped** (board §4 → LIVE, web v44.4, stack v3.2).
   `ml_gate.adversarial_validation`: trains an RF to tell LOCKBOX bars from the pre-lockbox
   training history on market-state features; cross-validated ROC-AUC. AUC≈0.5 = the lockbox
