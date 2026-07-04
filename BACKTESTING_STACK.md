@@ -4,8 +4,8 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-04
-- **Web VERSION:** 44.7 · **Stack board (`method_stack.html`):** v3.5
-- **Board tally:** 35 method pills LIVE; 7 planned (6 from Carl's full master TOC + fills reconciliation — see §7)
+- **Web VERSION:** 45.1 · **Stack board (`method_stack.html`):** v3.6
+- **Board tally:** 36 method pills LIVE; 6 planned (5 from Carl's full master TOC + fills reconciliation — see §7)
 
 > **Plain-language rule** (owner preference): every technical term is defined in
 > EDGELOG terms the first time it appears. Don't assume the reader knows the jargon.
@@ -95,7 +95,7 @@ table of contents has **14 sections** — far more than the sub-links first sent
 | 1 | EDA | ✅ EDA pre-flight · Pearson/MI/PPS |
 | 2 | Data cleaning | ✅ Isolation-Forest outliers · PyDeequ (gap-check). Distillation/anonymization skipped (n/a to price) |
 | 3 | Classification / Regression | ✅ Logistic · RF · XGBoost gates · GAM (plateau). NN/TabNet/GP/RGF **deferred** (heavy deps, little over XGBoost) |
-| 4 | Conformal prediction | ✅ conformal PnL band · **⏳ gate calibration (Venn-ABERS/isotonic) — NEW planned** |
+| 4 | Conformal prediction | ✅ conformal PnL band · ✅ **gate calibration** (reliability + ECE + isotonic headroom, on the gate card) |
 | 5 | Feature selection / eng | ✅ MI/PPS screen · adversarial validation · SHAP · **⏳ feature selection (Boruta/RFE) — NEW planned** |
 | 6 | Time series / forecasting | ~ regime + time-of-day features · **⏳ lead-lag/Granger + serial-dependence (ACF) — NEW planned** (both diagnostics). Direct forecasting (LSTM/Prophet/GluonTS) deferred — heavy-dep + low-success (Carl's own "stock-price LSTM = FAIL"), **not** *inapplicable* |
 | 7 | Ensemble | ✅ ensemble top-K · **⏳ stacking/CCMP — NEW planned** |
@@ -257,25 +257,51 @@ not saved to the runs DB — so they carry no run id.*
 ## 7. Open items / next up
 
 The core method stack is live; passes over Carl's **full master TOC** (§2) surfaced 6 more
-applicable methods, now planned. Best-value first:
-1. **gate calibration** (Venn-ABERS/isotonic, §3A/§4) — make the gate's P(win) a trustworthy
-   probability, not just a rank. *(highest value — makes the GATE CUT-OFF mean something)* **← build next**
-2. **lead-lag / Granger** (§7) — does ES lead NQ? a cross-instrument signal a single-symbol
-   backtest can't see.
-3. **serial dependence (ACF)** (§1) — momentum vs mean-reversion structure of returns;
+applicable methods (gate calibration now ✅ shipped; 5 remain planned). Best-value first:
+1. **lead-lag / Granger** (§7) — does ES lead NQ? a cross-instrument signal a single-symbol
+   backtest can't see. **← build next**
+2. **serial dependence (ACF)** (§1) — momentum vs mean-reversion structure of returns;
    validates which strategy family the data actually supports. Cheap.
-4. **VIF / collinearity** (§2) — flag redundant entry features (cheap health check).
-5. **feature selection** (Boruta/RFE, §2) — auto-prune the gate's feature subset.
-6. **stacking / CCMP** (§6) — weighted ensemble beyond the equal-weight top-K.
-7. **fills reconciliation** (§1) — *operational*; reconcile web/mobile NinjaTrader (+ Webull)
+3. **VIF / collinearity** (§2) — flag redundant entry features (cheap health check).
+4. **feature selection** (Boruta/RFE, §2) — auto-prune the gate's feature subset.
+5. **stacking / CCMP** (§6) — weighted ensemble beyond the equal-weight top-K.
+6. **fills reconciliation** (§1) — *operational*; reconcile web/mobile NinjaTrader (+ Webull)
    fills that skip the local DB. Do WITH the owner present (needs live broker data).
 
 *(✅ SHAP · ensemble top-K · adversarial validation · conformal band · causal check ·
 synthetic scenarios all shipped 2026-07-04 — see Changelog.)*
 
+### Deferred candidates — full backlog (nothing lost)
+Applicable in principle; deferred for the reason shown. Promote any to a pill on request.
+
+**Needs a heavy dependency:**
+- **Neural-net / TabNet gate model** — `torch`. Tabular payoff usually ≤ XGBoost on ~9 features + a few-thousand trades.
+- **Double-ML / Causal Forests** — `EconML`. Rigorous causal effect (controls for regime) — deeper than the randomization causal check.
+- **Regularized Greedy Forest (RGF) gate** — `rgf-python`. Another tree learner; marginal over XGBoost.
+- **Gaussian-Process gate** — sklearn (no new dep) but O(n³); impractical at thousands of trades.
+
+**Different paradigm / known-low-success:**
+- **Direct forecasting strategy** (LSTM / TCN) — `torch`/`keras`. Predict return → trade it. `GAINZ_RF` is the existing example; Carl's own notebook is "LSTM = FAIL."
+- **Prophet / GluonTS probabilistic forecasting** — deps; overlaps the conformal band.
+- **Time-series decomposition / seasonality** — could feed seasonality features; low priority.
+
+**Cheap — promotable to planned any time:**
+- **Hypothesis test** (t-test / power) on trade PnL — DSR already supersedes the multiple-testing-aware version.
+- **Return fat-tail fit** (Normal vs Cauchy / Student-t) — a §1 EDA add.
+- **t-SNE / UMAP** of the gate's entry-feature space — visualize win/loss separability.
+
+**Truly not applicable:** generative image/LLM (StableDiffusion, Gemma), meta-Kaggle stats, geospatial maps, Titanic didactics.
+
 ---
 
 ## Changelog
+- **2026-07-04** — **Gate calibration shipped** (board §3A → LIVE, web v45.1, stack v3.6).
+  `ml_gate.gate_calibration`: 5-fold out-of-fold reliability of the gate's P(win) (|PnL|-weighted
+  like the live gate) — ECE + a reliability table (predicted P vs actual win rate vs mean $/trade
+  per bin) on the gate card. Because the gate trains |PnL|-weighted it targets EXPECTANCY, not
+  win-frequency, so the check that matters is "higher score → higher $/trade". First run
+  (ORB 3.1 + RF gate): expectancy MONOTONE (Spearman 1.0; predicted 0.39→−$121 … 0.82→+$458/trade),
+  frequency ECE 0.18 → 0.06 if isotonic-calibrated. Board 36 live / 6 planned.
 - **2026-07-04** — **Deferred list reclassified (honest).** Split "deferred" into three buckets —
   *heavy-dep* (NN/TabNet/Double-ML — buildable if a dep is approved), *different paradigm /
   low-success* (direct forecasting; Carl's own "LSTM = FAIL"), and *truly n/a* (image/LLM,

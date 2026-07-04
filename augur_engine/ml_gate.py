@@ -26,7 +26,7 @@ import numpy as np
 import pandas as pd
 
 __all__ = ["gate_trades", "entry_features", "gate_validate", "gate_explain",
-           "adversarial_validation"]
+           "adversarial_validation", "gate_calibration"]
 
 
 # ── features at the entry bar (OHLC + clock only — no volume dependency) ───────
@@ -545,3 +545,94 @@ def adversarial_validation(arrays, lb_start, model="rf", max_per_class=4000, see
     return {"auc": round(auc, 3), "verdict": v, "model": str(model),
             "n_pre": int(len(pre)), "n_lockbox": int(len(post)),
             "drift_features": drift[:5], "lockbox_from": str(lb.date())}
+
+
+# ── gate CALIBRATION: is the gate's P(win) a trustworthy probability? (board 3A) ─
+def gate_calibration(arrays, trades, model="rf", min_history=30, seed=42, nbins=10):
+    """Out-of-fold reliability of the gate's P(win): K-fold the completed trades, predict
+    each trade's win-odds from a model fit on the OTHER folds (|PnL|-weighted, exactly like
+    the live gate), then bin the predictions and compare predicted-P to the ACTUAL win rate.
+
+      • ece  — expected calibration error: avg |predicted − actual|, count-weighted.
+      • bins — the reliability curve (predicted vs actual win rate per bin).
+
+    IMPORTANT nuance: the gate trains with |PnL| sample weights, so it's tuned for
+    EXPECTANCY, not raw win-frequency — a purely-frequency ECE looks 'off' BY DESIGN. So we
+    also report mean NET PnL per predicted-P bin and whether it rises with the score
+    (expectancy_monotone) — the check that actually matters for a cut-off. `ece_isotonic`
+    (isotonic recalibration on a held-out half) shows the headroom if you want the cut-off to
+    read as a literal win-probability. sklearn-only.
+    """
+    if not trades:
+        return None
+    T = [(int(t[0]), int(t[1]), float(t[2])) for t in trades if len(t) >= 3]
+    if len(T) < max(int(min_history), 80):
+        return None
+    E = np.array([t[0] for t in T]); P = np.array([t[2] for t in T], float)
+    y = (P > 0).astype(int)
+    if np.unique(y).size < 2:
+        return None
+    F = entry_features(arrays)[0]
+    nb = len(F)
+    X = F[np.clip(E, 0, nb - 1)]; w = np.abs(P) + 1e-9
+
+    from sklearn.model_selection import StratifiedKFold
+    oof = np.full(len(T), np.nan)
+    skf = StratifiedKFold(5, shuffle=True, random_state=int(seed))
+    try:
+        for tr_i, te_i in skf.split(X, y):
+            mdl = _make_model(model, seed)
+            mdl.fit(X[tr_i], y[tr_i], clf__sample_weight=w[tr_i])
+            oof[te_i] = mdl.predict_proba(X[te_i])[:, 1]
+    except Exception:
+        return None
+    ok = ~np.isnan(oof)
+    op, oy, opnl = oof[ok], y[ok], P[ok]
+    n = len(op)
+    if n < 60:
+        return None
+
+    edges = np.linspace(0.0, 1.0, int(nbins) + 1)
+    rows = []; ece = 0.0
+    for i in range(int(nbins)):
+        m = (op >= edges[i]) & (op <= edges[i + 1] if i == nbins - 1 else op < edges[i + 1])
+        c = int(m.sum())
+        if c == 0:
+            continue
+        pp = float(op[m].mean()); wr = float(oy[m].mean()); mp = float(opnl[m].mean())
+        rows.append({"p_pred": round(pp, 3), "win_rate": round(wr, 3),
+                     "mean_pnl": round(mp, 2), "n": c})
+        ece += (c / n) * abs(pp - wr)
+    brier = float(np.mean((op - oy) ** 2))
+
+    sp = None
+    if len(rows) >= 3:
+        try:
+            from scipy.stats import spearmanr
+            sp = float(spearmanr([r["p_pred"] for r in rows],
+                                 [r["mean_pnl"] for r in rows]).correlation)
+        except Exception:
+            sp = None
+
+    ece_iso = None
+    try:
+        from sklearn.isotonic import IsotonicRegression
+        h = n // 2
+        iso = IsotonicRegression(out_of_bounds="clip").fit(op[:h], oy[:h])
+        cp = iso.predict(op[h:]); yy = oy[h:]; hh = n - h
+        e2 = 0.0
+        for i in range(int(nbins)):
+            m = (cp >= edges[i]) & (cp <= edges[i + 1] if i == nbins - 1 else cp < edges[i + 1])
+            c = int(m.sum())
+            if c:
+                e2 += (c / hh) * abs(float(cp[m].mean()) - float(yy[m].mean()))
+        ece_iso = round(e2, 3)
+    except Exception:
+        pass
+
+    return {"model": str(model), "n": int(n), "base_rate": round(float(oy.mean()), 3),
+            "ece": round(float(ece), 3), "ece_isotonic": ece_iso, "brier": round(brier, 3),
+            "expectancy_spearman": (round(sp, 2) if sp is not None else None),
+            "expectancy_monotone": bool(sp is not None and sp > 0.5),
+            "bins": rows,
+            "note": "gate trains |PnL|-weighted → tuned for expectancy, not win-frequency"}

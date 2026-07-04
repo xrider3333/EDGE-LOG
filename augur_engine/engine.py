@@ -118,6 +118,16 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
                     res["ml_gate"]["explain"] = ex
             except Exception:
                 pass
+            # Gate calibration (board 3A): is the gate's P(win) a trustworthy probability,
+            # and does a higher score mean higher expectancy? Best-effort (5-fold refit).
+            try:
+                from .ml_gate import gate_calibration
+                cal = gate_calibration(arrays, orig_trades, model=str(ml_filter),
+                                       min_history=int(ml_min_history))
+                if cal:
+                    res["ml_gate"]["calibration"] = cal
+            except Exception:
+                pass
 
     # ── Sizing overlay (opt-in, ORB-family): attach a sized-vs-baseline comparison to
     #    res["sizing"] WITHOUT touching the headline 1-contract metrics. Needs the
