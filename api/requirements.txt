@@ -4,3 +4,4 @@ uvicorn
 firebase-admin
 numpy
 pandas
+webull-openapi-python-sdk   # official Webull OpenAPI (webull_sync daily trade pull)

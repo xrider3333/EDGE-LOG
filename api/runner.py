@@ -224,7 +224,8 @@ class LocalQueue:
 class FirestoreQueue:
     """Firestore-backed queue. Only runs jobs whose uid is allowlisted."""
 
-    def __init__(self, cred_path=None, collection="backtests", allow_uids=(), nt_fills=None):
+    def __init__(self, cred_path=None, collection="backtests", allow_uids=(), nt_fills=None,
+                 webull_keys=None):
         try:
             import firebase_admin
             from firebase_admin import credentials, firestore
@@ -237,6 +238,23 @@ class FirestoreQueue:
         self.col = collection
         self.allow = set(allow_uids)
         self.nt_fills = nt_fills
+        self.webull_keys = webull_keys
+
+    def sync_webull(self, log=print) -> int:
+        """Pull Webull filled orders (official OpenAPI) into each allowlisted user's
+        journal. webull_sync gates itself to ONCE PER NY DAY (free-plan Firestore
+        quota rule) — calling this every loop is free on all but the first pass."""
+        if not self.webull_keys:
+            return 0
+        from api import webull_sync
+        total = 0
+        for uid in (self.allow or []):
+            try:
+                r = webull_sync.sync_trades(self.db, uid, self.webull_keys, log)
+                total += r.get("added", 0) + r.get("updated", 0)
+            except Exception as e:
+                log(f"  [webull] skipped for {uid}: {type(e).__name__}: {e}")
+        return total
 
     def sync_trades(self, log=print) -> int:
         """Pull NinjaTrader fills (written by the EdgeLogExport AddOn) into each
@@ -658,6 +676,9 @@ def main(argv=None):
     ap.add_argument("--trades-sec", type=float, default=20.0,
                     help="auto-sync NinjaTrader trades every N seconds while --watch "
                          "(0 disables); also runs once on start")
+    ap.add_argument("--webull-keys", default=os.environ.get("EDGELOG_WEBULL_KEYS", r"C:\EdgeLog\webull_keys.json"),
+                    help="path to the Webull OpenAPI keys JSON (app_key/app_secret; kept OUTSIDE "
+                         "the repo). Pull is self-gated to ONCE per NY day. Empty string disables.")
     ap.add_argument("--auto-pine", dest="auto_pine", action="store_true", default=False,
                     help="on --watch start, auto-generate a .pine for every strategy missing one "
                          "(default OFF — costs AI calls; the web MAKE PINE button is the per-click path)")
@@ -683,13 +704,20 @@ def main(argv=None):
             print(f"[{tag}] skipped: {type(e).__name__}: {e}")
 
     if a.firestore:
-        q = FirestoreQueue(a.cred, a.collection, a.allow_uid, nt_fills=a.nt_fills)
+        q = FirestoreQueue(a.cred, a.collection, a.allow_uid, nt_fills=a.nt_fills,
+                           webull_keys=a.webull_keys)
         print(f"EDGELOG runner v{_web_version()}: Firestore '{a.collection}', allow {a.allow_uid or 'ALL (no uid filter!)'}")
         if a.nt_fills:
             _present = os.path.exists(a.nt_fills)
             print(f"NinjaTrader trade sync: {a.nt_fills} "
                   f"({'found' if _present else 'not present yet — install the EdgeLogExport AddOn'}), "
                   f"every {a.trades_sec:g}s" if a.trades_sec > 0 else "(auto OFF)")
+        if a.webull_keys:
+            from api import webull_sync as _wb
+            _wb_ok = _wb.load_keys(a.webull_keys) is not None
+            print(f"Webull trade sync: {a.webull_keys} "
+                  f"({'keys found' if _wb_ok else 'not configured yet — paste App Key/Secret into the file'}), "
+                  f"once per NY day")
         if a.sync_runs or a.watch:
             print("syncing run history + meta…")
             try:
@@ -717,6 +745,10 @@ def main(argv=None):
                 q.sync_trades()
             except Exception as e:
                 print(f"[nt-sync] startup skipped: {type(e).__name__}: {e}")
+            try:
+                q.sync_webull()
+            except Exception as e:
+                print(f"[webull] startup skipped: {type(e).__name__}: {e}")
             next_trades = time.time() + a.trades_sec
         if a.auto_pine:
             try:
@@ -742,6 +774,11 @@ def main(argv=None):
                     done += q.sync_trades()
                 except Exception as e:
                     print(f"[nt-sync] skipped: {type(e).__name__}: {e}")
+                try:
+                    # self-gated to once per NY day inside webull_sync — free otherwise
+                    done += q.sync_webull()
+                except Exception as e:
+                    print(f"[webull] skipped: {type(e).__name__}: {e}")
                 next_trades = time.time() + a.trades_sec
             if not done:
                 time.sleep(a.interval)
