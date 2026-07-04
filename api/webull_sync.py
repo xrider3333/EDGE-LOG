@@ -33,6 +33,12 @@ try:
 except Exception:
     _NY = None
 
+import logging
+# Keep secrets out of runner.log: on any API error the SDK's client logger dumps the full
+# signed request — including x-app-key and x-access-token — at ERROR level. Silence only
+# that logger; our own log() lines and the SDK's already-masked token INFO stay visible.
+logging.getLogger("webull.core.client").setLevel(logging.CRITICAL)
+
 DEFAULT_KEYS = os.environ.get("EDGELOG_WEBULL_KEYS", r"C:\EdgeLog\webull_keys.json")
 TOKEN_DIR = os.environ.get("EDGELOG_WEBULL_TOKEN_DIR", r"C:\EdgeLog\webull_token")
 _PLACEHOLDERS = ("", "PASTE_APP_KEY_HERE", "PASTE_APP_SECRET_HERE")
@@ -62,7 +68,9 @@ def load_keys(keys_path=DEFAULT_KEYS):
         return None   # template not filled in yet — silently disabled
     return {"app_key": ak, "app_secret": sk,
             "region": (cfg.get("region") or "us").strip().lower(),
-            "backfill_days": int(cfg.get("backfill_days") or 90)}
+            # ~180d is the API's max query window (wider → OAUTH_OPENAPI_PARAM_ERR);
+            # it also comfortably covers this account's full history (starts 2026-01-12).
+            "backfill_days": int(cfg.get("backfill_days") or 180)}
 
 
 # ── Webull API pull ────────────────────────────────────────────────
@@ -190,15 +198,23 @@ def _order_to_fill(o):
     }
 
 
-def fetch_fills(keys, start_date, end_date, log=print, page_size=100, max_pages=200):
-    """Pull FILLED fills from every Webull account on the key. Paginates via
-    last_client_order_id; polite 1.1s sleep between calls (documented rate limits
-    are ~2 req / 2 s on trade endpoints)."""
+def fetch_fills(keys, start_date, end_date, log=print, page_size=100):
+    """Pull FILLED stock/ETF fills from every Webull account on the key.
+
+    ONE request per account. Verified against the live API: get_order_history returns the
+    whole window in a single response (group orders come back together and can exceed
+    page_size), and its cursor pagination is fragile — replaying the tail cursor returns
+    ORDER_NOT_FOUND — so we deliberately do a single bounded call and lean on the window
+    size instead. The API's max window is ~180 days (wider → OAUTH_OPENAPI_PARAM_ERR).
+    Per-account failures (PARAM_ERR on unsupported account types, TOO_MANY_REQUESTS) are
+    caught and skipped so one bad account never sinks the whole pull."""
+    from webull.core.exception.exceptions import ServerException
     tc = _client(keys)
-    res = tc.account_v2.get_account_list()
-    if res.status_code != 200:
-        raise RuntimeError(f"get_account_list HTTP {res.status_code}: {res.text[:200]}")
-    accts = _extract_orders(res.json())        # same tolerant unwrap works for accounts
+    try:
+        accts = _extract_orders(tc.account_v2.get_account_list().json())
+    except Exception as e:
+        raise RuntimeError(f"get_account_list failed: {type(e).__name__}: {e}")
+
     fills, first_sample_logged = [], False
     for a in accts:
         acct_id = _field(a, "account_id", "accountId", "id")
@@ -206,37 +222,37 @@ def fetch_fills(keys, start_date, end_date, log=print, page_size=100, max_pages=
             continue
         acct_num = str(_field(a, "account_number", "accountNumber", default=""))
         label = "Webull-" + acct_num[-4:] if len(acct_num) >= 4 else "Webull"
-        last_coid = last_oid = None
-        for _page in range(max_pages):
-            time.sleep(1.1)
-            res = tc.order_v2.get_order_history(
-                acct_id, page_size=page_size,
-                start_date=start_date, end_date=end_date,
-                last_client_order_id=last_coid, last_order_id=last_oid)
-            if res.status_code != 200:
-                log(f"  [webull] order_history HTTP {res.status_code}: {res.text[:200]}")
+        orders = []
+        for attempt in range(3):
+            time.sleep(1.5)                      # stay inside the ~2 req / 2 s trade limit
+            try:
+                res = tc.order_v2.get_order_history(acct_id, page_size=page_size,
+                                                    start_date=start_date, end_date=end_date)
+                orders = _extract_orders(res.json())
                 break
-            orders = _extract_orders(res.json())
-            if not orders:
+            except ServerException as e:
+                code = ""
+                try:
+                    code = e.get_error_code() or ""
+                except Exception:
+                    pass
+                if "TOO_MANY_REQUESTS" in code and attempt < 2:
+                    time.sleep(3.0); continue    # transient rate limit — back off and retry
+                log(f"  [webull] acct ...{str(acct_id)[-4:]} skipped: {code or e}")
                 break
-            if not first_sample_logged:
-                # one-time desensitized shape log → lets us lock field names fast
-                keys_seen = sorted(orders[0].keys())
-                log(f"  [webull] payload fields: {keys_seen}")
-                first_sample_logged = True
-            page_new = 0
-            for o in orders:
-                f = _order_to_fill(o)
-                if f:
-                    f["account"] = label
-                    if not any(x["exec_id"] == f["exec_id"] and x["dt"] == f["dt"] for x in fills):
-                        fills.append(f); page_new += 1
-                last_coid = str(_field(o, "client_order_id", "clientOrderId", default=last_coid or ""))
-                last_oid = str(_field(o, "order_id", "orderId", default=last_oid or ""))
-            if len(orders) < page_size and page_new == 0:
+            except Exception as e:
+                log(f"  [webull] acct ...{str(acct_id)[-4:]} error: {type(e).__name__}: {e}")
                 break
-            if len(orders) < page_size:
-                break
+        if not orders:
+            continue
+        if not first_sample_logged:
+            log(f"  [webull] payload fields: {sorted(orders[0].keys())}")
+            first_sample_logged = True
+        for o in orders:
+            f = _order_to_fill(o)
+            if f and not any(x["exec_id"] == f["exec_id"] and x["dt"] == f["dt"] for x in fills):
+                f["account"] = label
+                fills.append(f)
     return fills
 
 
