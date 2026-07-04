@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='44.5';
+const VERSION='44.6';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5470,7 +5470,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         ].filter(Boolean);
       const _summaryPanel='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'
         +'<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">CHAMPION · best config (in-sample)</div>'
-        +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px">'+cardHtml+'</div></div>';
+        +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px">'+cardHtml+'</div></div>'
+        +((/\bORB\b/i.test(String(d.strategy||'')))?('<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'
+          +'<div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">SIZING OVERLAY · execution-layer (the cards above are 1 contract)</div>'
+          +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.55">Bet bigger on the higher-edge ORB signals — <b>tight stop</b> (risk-parity), <b>morning ×2</b>, <b>short ×1.5</b> (ORB longs are ~deadweight). '
+          +'<code style="color:var(--text2)">contracts = round( T·S·RISK$ ÷ (stop_pts·$/pt) )</code>, clamp&nbsp;[1,&nbsp;3×]. '
+          +'Measured on the deployable (single-lot ride + 5-bar trail): drawdown-adjusted return <b style="color:var(--green)">MAR 6.9 → 15.0</b> on the reserved year (+118%), PF 1.6 → 2.9. '
+          +'Exact per-config: <code style="color:var(--text2)">python tools/orb_sized_backtest.py</code>.</div></div>'):'');
       // ── MASTER panel (validate runs only): ONE hero combining the champion equity curve, the
       //    KPI matrix, the champion headline cards, verdict + gate windows, run meta and the
       //    lockbox/MC strip — so the whole at-a-glance story lives in a single chart-led card. ──

@@ -161,6 +161,10 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 date_from=df_from, date_to=df_to,
                 return_trades=bool(job.get("return_trades")),
                 mc_sims=int(job.get("mc_sims", 0)),
+                # Sizing overlay (ORB): a dict of augur_engine.sizing rule kwargs +
+                # stop_frac/or_bars/mult/fee_pts → adds res["sizing"] (baseline vs sized),
+                # headline unchanged. Missing/None = off. (ORB.md §4.7-4.11)
+                sizing=job.get("sizing"),
                 # ML trade gate (board 3A.2): 'none'/missing = ungated, as ever
                 ml_filter=job.get("ml_filter"),
                 ml_threshold=float(job.get("ml_threshold", 0.50) or 0.50),
