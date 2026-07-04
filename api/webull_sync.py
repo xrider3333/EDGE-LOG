@@ -328,6 +328,10 @@ def build_trades(fills):
                     "entryTime": entry_dt.strftime("%H:%M"),
                     "exitTime": exit_dt.strftime("%H:%M") if exit_dt else None,
                     "orderId": entry_oid,
+                    # Map open/close order ids onto the journal's buy/sell columns by
+                    # direction, so Webull rows populate BUY ORD / SELL ORD like NT does.
+                    "buyOrderId": entry_oid if entry_side == "LONG" else close_exec_id,
+                    "sellOrderId": close_exec_id if entry_side == "LONG" else entry_oid,
                     "source": "Webull API",
                     "assetType": "stock",
                     "account": account,

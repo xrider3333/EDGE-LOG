@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='44.9';
+const VERSION='45.0';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -3609,8 +3609,16 @@ function renderApp(){
         // IDs are long — show only the last 4 chars (full value on hover) so the columns
         // stay narrow and the row's text size stays consistent with the rest of the table.
         const _id4=(v)=>{v=(v==null?'':String(v));return v?'…'+v.slice(-4):'—';};
-        const _idCell=(v)=>`<td style="color:var(--text5);white-space:nowrap" title="${(v==null?'':String(v)).replace(/"/g,'&quot;')}">${_id4(v)}</td>`;
-        const ex=showAllCols?`<td style="color:var(--text3)">${t.account||'—'}</td><td style="color:var(--text3)">${t.broker||'—'}</td>${_idCell(t.buyOrderId)}${_idCell(t.sellOrderId)}${_idCell(t.buyFillId)}${_idCell(t.sellFillId)}${_idCell(t.positionId)}${_idCell(t.pairId)}<td style="color:var(--text5)" title="${(t.source||'').replace(/"/g,'&quot;')}">${t.source||''}</td>`:'';
+        // Columns a broker structurally doesn't have → "N/A" (distinct from "—" = has the
+        // concept but value missing). Webull exposes order ids only, no fill/position/pair.
+        const _naCols={Webull:['buyFillId','sellFillId','positionId','pairId']};
+        const _idCell=(v,field)=>{
+          const empty=(v==null||String(v).trim()==='');
+          const na=empty&&(_naCols[t.broker]||[]).includes(field);
+          const disp=na?'<span style="opacity:.35">N/A</span>':_id4(v);
+          return `<td style="color:var(--text5);white-space:nowrap" title="${(v==null?'':String(v)).replace(/"/g,'&quot;')}">${disp}</td>`;
+        };
+        const ex=showAllCols?`<td style="color:var(--text3)">${t.account||'—'}</td><td style="color:var(--text3)">${t.broker||'—'}</td>${_idCell(t.buyOrderId,'buyOrderId')}${_idCell(t.sellOrderId,'sellOrderId')}${_idCell(t.buyFillId,'buyFillId')}${_idCell(t.sellFillId,'sellFillId')}${_idCell(t.positionId,'positionId')}${_idCell(t.pairId,'pairId')}<td style="color:var(--text5)" title="${(t.source||'').replace(/"/g,'&quot;')}">${t.source||''}</td>`:'';
         return`<tr class="tr-row" data-id="${t.id}">
           <td style="color:var(--text5)">${String(sortedFiltered.length-(_tradeIdxMap.get(t.id)??0)).padStart(2,'0')}</td>
           <td style="color:var(--text4);white-space:nowrap">${t.date}</td>
