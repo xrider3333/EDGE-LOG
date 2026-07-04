@@ -25,7 +25,8 @@ complexity isn't earning anything.
 import numpy as np
 import pandas as pd
 
-__all__ = ["gate_trades", "entry_features", "gate_validate", "gate_explain"]
+__all__ = ["gate_trades", "entry_features", "gate_validate", "gate_explain",
+           "adversarial_validation"]
 
 
 # ── features at the entry bar (OHLC + clock only — no volume dependency) ───────
@@ -467,3 +468,80 @@ def gate_explain(arrays, trades, model="logistic", min_history=30, seed=42, top=
         "method": method, "shap": bool(shap_used),
         "features": feats_out[:int(top)],
     }
+
+
+# ── adversarial validation: is the lockbox a DIFFERENT regime? (board §4) ───────
+def adversarial_validation(arrays, lb_start, model="rf", max_per_class=4000, seed=42):
+    """Can a classifier tell the LOCKBOX period apart from the training history?
+
+    The lockbox only proves an edge transfers if the reserved slice *looks like* the
+    data the strategy was built on. Here we label every pre-lockbox bar class 0 and
+    every lockbox bar class 1, train a classifier on the market-state features
+    (entry_features: momentum / volatility / trend / range-pos / clock), and read the
+    cross-validated ROC-AUC:
+      • AUC ~ 0.50 → the two periods are INDISTINGUISHABLE — a lockbox PASS is trustworthy;
+      • AUC high  → the lockbox is a DIFFERENT regime — a PASS there is weaker evidence,
+                    and a FAIL might just be regime change, not a broken edge.
+    Also reports which features drifted most (importance) and the direction of the
+    shift (lockbox mean − pre mean, in pre-period std units). Informational — it
+    contextualizes the lockbox, it does not change the verdict. sklearn-only.
+    """
+    import pandas as pd
+    idx = arrays.get("index")
+    if idx is None:
+        return None
+    X, names = entry_features(arrays)
+    ts = pd.DatetimeIndex(idx)
+    if ts.tz is not None:                    # master index is tz-aware; compare tz-naive
+        ts = ts.tz_localize(None)
+    lb = pd.Timestamp(lb_start)
+    pre = np.where(ts < lb)[0]
+    post = np.where(ts >= lb)[0]
+    if len(pre) < 100 or len(post) < 100:
+        return None
+    rng = np.random.RandomState(int(seed))
+
+    def _samp(ix):
+        return ix if len(ix) <= max_per_class else rng.choice(ix, max_per_class, replace=False)
+
+    pi, qi = _samp(pre), _samp(post)
+    Xa = np.vstack([X[pi], X[qi]])
+    ya = np.r_[np.zeros(len(pi)), np.ones(len(qi))]
+    from sklearn.model_selection import cross_val_score, StratifiedKFold
+    mdl = _make_model(model, seed)
+    try:
+        auc = float(np.mean(cross_val_score(
+            mdl, Xa, ya, scoring="roc_auc",
+            cv=StratifiedKFold(4, shuffle=True, random_state=int(seed)))))
+    except Exception:
+        return None
+
+    mdl.fit(Xa, ya)
+    clf = mdl.named_steps.get("clf")
+    if hasattr(clf, "feature_importances_"):
+        imp = np.asarray(clf.feature_importances_, float)
+    elif hasattr(clf, "coef_"):
+        imp = np.abs(np.ravel(clf.coef_))
+    else:
+        imp = np.zeros(len(names))
+    if len(imp) != len(names):
+        imp = np.zeros(len(names))
+    drift = []
+    for j in range(len(names)):
+        pm = float(X[pi][:, j].mean()); lm = float(X[qi][:, j].mean())
+        sd = float(X[pi][:, j].std()) or 1.0
+        drift.append({"name": names[j], "imp": round(float(imp[j]), 4),
+                      "shift": round((lm - pm) / sd, 2)})
+    drift.sort(key=lambda d: d["imp"], reverse=True)
+
+    if auc < 0.55:
+        v = "indistinguishable — the lockbox looks like the training history; trust the holdout"
+    elif auc < 0.70:
+        v = "mild drift — a modestly different regime"
+    elif auc < 0.85:
+        v = "notable drift — the lockbox is a meaningfully different regime; weigh the PASS/FAIL accordingly"
+    else:
+        v = "strong drift — the lockbox is a different market; a PASS there is weak evidence (and a FAIL may be regime, not a broken edge)"
+    return {"auc": round(auc, 3), "verdict": v, "model": str(model),
+            "n_pre": int(len(pre)), "n_lockbox": int(len(post)),
+            "drift_features": drift[:5], "lockbox_from": str(lb.date())}

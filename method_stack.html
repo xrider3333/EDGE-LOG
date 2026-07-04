@@ -48,7 +48,7 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v3.1</span></h1>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v3.2</span></h1>
   <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (EDGELOG's own workflow axes — Model &amp; Search, Validation, … — each pill tagged with its old Carl category). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-04.</span></p>
 
   <div class="summary">
@@ -186,7 +186,7 @@
         <span class="p p-live" data-info="Block-shuffle the trade order thousands of times; size the account to the p95 drawdown. · was §10.2">Monte-Carlo</span>
         <span class="p p-live" data-info="Trades-per-optimized-parameter gauge — under 10 fragile, 30+ healthy. The degrees-of-freedom / overfit governor. · was §10.3">sample adequacy (DOF)</span>
         <span class="p p-plan" data-info="Wrap the fold / lockbox estimate in a calibrated interval and gate on the lower bound instead of a point number (MAPIE / Venn-ABERS) — small-sample-noise protection. · was §4.1">conformal band</span>
-        <span class="p p-plan" data-info="Train a classifier to tell fit-era bars from recent / lockbox bars; if it can, your train and live distributions differ (regime drift / leakage). · was §5.5">adversarial validation</span>
+        <span class="p p-live" data-info="LIVE (v44.4). Trains a classifier (RF) to tell LOCKBOX bars from the pre-lockbox training history using market-state features; cross-validated ROC-AUC. AUC≈0.50 = indistinguishable (trust the lockbox); high AUC = regime drift, so a lockbox PASS/FAIL is weaker evidence. Reports the most-shifted inputs (in σ). Auto-runs in Auto-Validate; informational, does NOT change the verdict. First run (NQ, 12mo lockbox): AUC 0.60 = mild drift, driven by the volatility regime (atr_ratio/atr_norm). · was §5.5">adversarial validation</span>
         <span class="p p-live" data-info="LIVE (v43.7) — the honest way to pick an ML gate (ROADMAP #25). Builder: pick any ML FILTER + set VALIDATION to walk-forward or WF+lockbox → runs GATE-VALIDATE: the strategy runs once; ALL 9 candidates (3 gates × 3 cut-offs) are ranked on the PRE-LOCKBOX slice only, by RECOVERY FACTOR ($ made per $ of drawdown — the equal-risk yardstick, since a gate always trades less than ungated); ungated is always candidate #0. The winner gets exactly ONE look at the reserved last-12-months lockbox — and losing candidates' lockbox numbers are never computed into the result, so lockbox-shopping is impossible BY DESIGN. Also reports per-window PF consistency (held X/4 pre-lockbox windows). First run (ORB 1.0, NQ 5m RTH 2022→): best gate xgb@50% rec 5.05 vs ungated 5.66 → 'no gate earns its keep', lockbox not opened — the full-window PF 1.43 did NOT survive discipline. SECOND run (same strategy, FULL 16yr 2010→): verdict FLIPPED — rf@50% chosen pre-lockbox with rec 16.66 vs ungated 6.77, held 4/4 chronological windows, LOCKBOX HELD (ungated lost money in the reserved year; gated was positive). Same tool, same rules, opposite verdicts = the data-volume lesson made concrete: a gate needs thousands of training trades, and the audition only says yes when it truly has them.">ML-gate validate</span>
       </div>
       <div class="info"></div>

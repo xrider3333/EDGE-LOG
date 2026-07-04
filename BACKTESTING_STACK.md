@@ -4,8 +4,8 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-04
-- **Web VERSION:** 44.3 · **Stack board (`method_stack.html`):** v3.1
-- **Board tally:** 31 method pills LIVE; 5 still planned (see §7)
+- **Web VERSION:** 44.4 · **Stack board (`method_stack.html`):** v3.2
+- **Board tally:** 32 method pills LIVE; 4 still planned (see §7)
 
 > **Plain-language rule** (owner preference): every technical term is defined in
 > EDGELOG terms the first time it appears. Don't assume the reader knows the jargon.
@@ -37,7 +37,7 @@ numbering. Each pill still carries its old Carl section as a `· was §X.Y` tag.
 | 1 | **Data health & EDA** — know your input | ✅ gap-check (1.5× bar; ETH/sub-1m ≥2h) · ✅ Isolation-Forest outliers · ✅ coverage map · ✅ roll-seam check · ✅ EDA pre-flight (`_profiles/*.html` return-dist) · ⏳ fills reconciliation |
 | 2 | **Feature screen** — which inputs matter | ✅ Pearson r · ✅ Mutual Information · ✅ PPS (predictive power score) |
 | 3 | **Model & Search** — make + tune the signal | **3A Models:** ✅ Logistic · ✅ Random Forest · ✅ XGBoost gate  **3B Search:** ✅ grid sweep · ✅ Bayesian search  **3C Pick-winner:** ✅ PDP plateau (GAM) · ✅ neighborhood/plateau · ✅ highest-PnL (argmax)  **3D AI assist:** ✅ AI-evolve (Claude in the loop) |
-| 4 | **Validation** — rigor | ✅ walk-forward · ✅ stress windows · ✅ lockbox one-shot · ✅ cross-instrument transfer · ✅ Deflated Sharpe · ✅ Monte-Carlo · ✅ sample adequacy (DOF) · ✅ ML-gate validate · ⏳ conformal band · ⏳ adversarial validation |
+| 4 | **Validation** — rigor | ✅ walk-forward · ✅ stress windows · ✅ lockbox one-shot · ✅ cross-instrument transfer · ✅ Deflated Sharpe · ✅ Monte-Carlo · ✅ sample adequacy (DOF) · ✅ ML-gate validate · ✅ adversarial validation · ⏳ conformal band |
 | 5 | **Explain** — where the edge lives | ✅ regime report card · ✅ MAE/MFE (heat/reach) · ✅ SHAP (gate feature attribution) |
 | 6 | **Ensemble** | ✅ ensemble top-K (blend of top configs vs single best) |
 | 7 | **Causality** | ⏳ causal check |
@@ -225,17 +225,25 @@ not saved to the runs DB — so they carry no run id.*
 ## 7. Open items / next up
 
 Planned pills, best-value first:
-1. **conformal band** / **adversarial validation** (§4) — extra validation rigor.
+1. **conformal band** (§4) — calibrated confidence intervals around the gate's P(win).
 2. **synthetic scenarios** (§8) — dataset distillation / synthetic stress data.
 3. **causal check** (§7).
 4. **fills reconciliation** (§1) — reconcile web/mobile NinjaTrader fills that skip the
    local DB.
 
-*(✅ SHAP + ensemble top-K shipped 2026-07-04 — see Changelog.)*
+*(✅ SHAP + ensemble top-K + adversarial validation shipped 2026-07-04 — see Changelog.)*
 
 ---
 
 ## Changelog
+- **2026-07-04** — **Adversarial validation shipped** (board §4 → LIVE, web v44.4, stack v3.2).
+  `ml_gate.adversarial_validation`: trains an RF to tell LOCKBOX bars from the pre-lockbox
+  training history on market-state features; cross-validated ROC-AUC. AUC≈0.5 = the lockbox
+  looks like history (trust the holdout); high AUC = regime drift, so a lockbox PASS/FAIL is
+  weaker evidence. Reports the most-shifted inputs (in σ). Auto-runs in Auto-Validate
+  (`run_validate` → `report.adversarial`), rendered as a strip; **informational — does NOT
+  change the PASS/WEAK/FAIL verdict.** First run (NQ, 12-mo lockbox): AUC 0.60 = mild drift,
+  driven by the volatility regime (atr_ratio/atr_norm).
 - **2026-07-04** — **Ensemble top-K shipped** (board §6 → LIVE, web v44.3, stack v3.1).
   Equal-weight blend of the top-K sweep configs vs the single rank-1 winner, auto-computed
   on every grid sweep (`analytics.ensemble_blend` + `optimize._topk_ensemble`, opt-in

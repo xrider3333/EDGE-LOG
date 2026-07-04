@@ -234,6 +234,19 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     if champ and tlist:
         checks["transfer"] = any(t["pass"] for t in transfer)
 
+    # ── Adversarial validation (board §4): is the reserved lockbox a DIFFERENT regime
+    #    than the training history? Trains a classifier to tell lockbox bars from
+    #    pre-lockbox bars on market-state features — high AUC = regime drift, so the
+    #    lockbox verdict is weaker evidence. INFORMATIONAL (not a gate; verdict unchanged). ──
+    adversarial = None
+    try:
+        from .data import load_master_arrays
+        from .ml_gate import adversarial_validation
+        _avarr = load_master_arrays(master, date_from=opt_from, date_to=None)
+        adversarial = adversarial_validation(_avarr, lb_start)
+    except Exception:
+        adversarial = None
+
     n_pass = sum(1 for v in checks.values() if v)
     n_gates = len(checks)
     if progress_cb:
@@ -269,6 +282,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                     "from": lb_from, "to": full_hi.isoformat()},
         "windows": {"optimize": [opt_from, opt_to], "lockbox": [lb_from, full_hi.isoformat()],
                     "lockbox_months": lockbox_months},
+        "adversarial": adversarial,   # §4: is the lockbox a different regime? (context)
         "champion": champ, "thresholds": th,
     }
     # Shape stays compatible with the Runs-history saver (best / top / dsr).
