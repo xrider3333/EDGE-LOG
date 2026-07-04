@@ -25,12 +25,14 @@
   Best practical form: **risk-parity capped at 3× avg size (`rp-cap3`)**, applied at the execution layer.
 - **ML gate does NOT earn its keep on ORB** (per ROADMAP #25) — ORB is already clean/high-volume. Keep the gate for marginal strategies (VWAP FADE), not ORB.
 
-- **Best result of the study — the sizing overlay (§4.10):** two independent edges *stack* — tilt size to
-  the morning window (~2× the profit factor there) **×** risk-parity (size ∝ 1/stop). Capital-matched, this
-  lifts lockbox MAR **+85%** (6.9 → 12.7) and PF 1.61→2.16, winning 5/6 WF folds — an execution-layer
-  overlay (§5.6), no entry/exit change. *Truncating* to morning-only is worse than baseline (tilt, don't cut).
+- **Best result — the sizing overlay (§4.7/4.10/4.11):** THREE independent edges *stack* into one
+  execution-layer size rule — **risk-parity** (∝1/stop) **× time-tilt** (~2× the morning PF window)
+  **× short-tilt** (shorts carry the edge; longs are ~deadweight, PF 1.03 vs 2.74, confirmed on ES).
+  Capital-matched, the full stack lifts lockbox MAR **6.9 → 15.0 (+118%)**, PF 1.63 → 2.85, winning
+  5/6 WF folds. No entry/exit change (§5.6 deploy rule). *Tilt, don't cut* — truncation/short-only balloon DD.
+- Consolidated into reusable code (item F): `augur_engine/sizing.py` + `tools/orb_edge_report.py`.
 
-**Next up: (F) wire the size overlay + MAR ranking into the app to make this deployable, or (D) long/short asymmetry.**
+**Next up: the edge-hunting is done. Ship it — wire the sizing overlay + MAR column into the app (owner-reviewed, changes core PnL semantics), or deploy as-is.** *(E: ride+trailed ensemble = minor smoothing.)*
 *(Tested & rejected: smarter trailing (chandelier/activate/breakeven), regime skip `atr_filter`, midday time-stop, morning-only truncation — the trail already handles low-vol/stalled trades; truncation balloons drawdown.)*
 
 ---
@@ -225,6 +227,35 @@ Tier weights (morning ×2 / midday ×1 / afternoon ×0.5) are a **fixed a-priori
   the lockbox un-tuned is the signal; a fitted weight curve would need its own WF. The `WR` on morning-only
   rows is a display artifact (zeroed afternoon trades dilute it) — read PF/MAR, not WR, there.
 
+### 4.11 Long/short asymmetry (item D) — shorts carry the edge ✅ *(2nd-biggest finding)*
+Split the deployable's trades by side (net of fees, size 1):
+
+| side | trades | net $ | PF | MAR |
+|---|---|---|---|---|
+| **LONG only** | 2,199 | $11.8k | **1.03** | 0.30 |
+| **SHORT only** | 1,865 | $348.9k | **2.74** | 41.2 |
+
+- **The longs are ~deadweight; the shorts are the whole edge.** Holds on the lockbox (SHORT PF 2.71 vs
+  LONG 1.04) and **transfers to ES** (SHORT PF 2.18 vs LONG 1.09) → structural index-futures behaviour,
+  not an NQ artifact. Plausible mechanism: indices gap up overnight, so the intraday *long* break of the
+  tiny opening range buys the post-gap high and gets faded; *short* breaks catch the sharp risk-off moves.
+- Stacks with everything (capital-matched):
+
+| scheme | full MAR | lockbox MAR | lockbox PF |
+|---|---|---|---|
+| baseline | 38.6 | 6.88 | 1.63 |
+| + short-tilt L0.5/S1.5 (alone) | 53.6 | 8.10 | 2.08 |
+| G combo (time × rp) | 48.0 | 12.74 | 2.16 |
+| **G combo + short-tilt (full deploy stack)** | **71.5** | **15.00** | 2.85 |
+| full stack, short-**only** | 82.4 | 11.64 | **3.80** |
+
+- **Short-*tilt* beats short-*only* on MAR** (a little long diversifies the drawdown) — same "tilt, don't cut"
+  lesson as truncation. Full deploy stack: **lockbox MAR 15.0 = +118% vs baseline**, PF 2.85; 5/6 WF folds beat baseline.
+- **Caveats (deploy short-tilt, not hard short-only):** this is a 2010-2026 *secular-bull* sample; short
+  books carry squeeze / gap-up tail risk; the short *direction* was chosen after seeing the split (though
+  it's stark, OOS-confirmed, and cross-instrument). A regime flip could revive longs / punish shorts —
+  size the tilt, keep some long, and re-check per regime.
+
 ---
 
 ## 5. What a pro would actually do here (principles)
@@ -240,12 +271,13 @@ Tier weights (morning ×2 / midday ×1 / afternoon ×0.5) are a **fixed a-priori
    a mirage; the reserved slice is the only honest judge.
 5. **Rank deploy decisions by MAR in the app.** The runs table already stores `best_dd_usd`; a
    MAR column / `rank_by="mar"` is a trivial, high-value add (would've surfaced this on sweep #1).
-6. **Size each signal by its stop AND its entry hour (§4.7 + §4.10 deploy rule).** Per ORB signal:
-   `contracts = round( T · RISK_$ / (0.75 × OR_width_pts × $per_pt) )`, clamped to `[1, 3× baseline]`,
-   where **RISK_$** = fixed per-trade dollar risk (~0.5-1% equity) and **T** = the time-of-day tilt
-   (≈2× a first-hour breakout, 1× midday, 0.5× afternoon). Tight-stop / morning signals get more
-   contracts; wide-stop / afternoon signals fewer. The two tilts are independent edges that stack
-   (combo lockbox MAR **12.7 vs 6.9** baseline). Execution-layer only; entries/exits unchanged.
+6. **Size each signal by its stop, its entry hour, AND its side (§4.7 + §4.10 + §4.11 deploy rule).**
+   `contracts = round( T · S · RISK_$ / (0.75 × OR_width_pts × $per_pt) )`, clamped to `[1, 3× baseline]`,
+   where **RISK_$** = fixed per-trade dollar risk (~0.5-1% equity), **T** = time-of-day tilt (≈2× first-hour,
+   1× midday, 0.5× afternoon), **S** = side tilt (≈1.5× short, 0.5× long — shorts carry the edge). Tight-stop
+   / morning / short signals get more contracts. Three **independent** edges that stack → **lockbox MAR 6.9 → 15.0**.
+   Execution-layer only; entries/exits unchanged. Implemented in `augur_engine/sizing.py`; reproduce with
+   `python tools/orb_edge_report.py`.
 
 ---
 
@@ -253,21 +285,21 @@ Tier weights (morning ×2 / midday ×1 / afternoon ×0.5) are a **fixed a-priori
 
 | # | idea | expected payoff | status | result |
 |---|---|---|---|---|
-| D | **Long/short asymmetry** — split exits (looser trail longs, tighter/faster shorts) or regime-gate shorts | MED | ☐ TODO | — |
 | E | **Ensemble** — 1 lot full-ride + 1 lot trailed → blended curve between MAR 15 and 33 (your original 2-contract idea, done right) | MED (smoothing, not new edge) | ☐ TODO | — |
-| F | **App: MAR ranking** — add MAR column + `rank_by="mar"` to the optimizer/runs UI | LOW effort, HIGH leverage | ☐ TODO | — |
 | — | Smarter trailing (chandelier / activate / breakeven) | — | ☑ DONE | chandelier overfits; activate hurts; breakeven wash. **Simple bar-trail wins.** |
 | A | **Vol-target (risk-parity) sizing** | HIGH | ☑ DONE | **WIN (modest, generalizes)** — lockbox MAR +29% (6.9→8.9), DD ~halved, PF→1.73, survives lockbox + 4/6 WF folds. Best = `rp-cap3` overlay (§4.7, deploy rule §5.6). |
 | B | **Regime skip** (`atr_filter`) | MED-HIGH | ☑ DONE | **NO help** (§4.8) — every filter>0 lowers MAR/PF/PnL, DD doesn't improve. The trail already neutralizes low-vol days (substitutes, not complements). Leave off. |
 | C | **Time structure** (`ORB_3_3.py`) | MED | ☑ DONE | time-stop ✗ (cuts winners); **entry-time cutoff = real quality signal** (first-hour PF 2.2, lockbox 3.5, 6/6 WF folds) but quality-vs-quantity on raw MAR → spawned item **G** (§4.9). |
-| **G** | **Entry-time × sizing combo** | HIGH | ☑ DONE | **WIN — best result of the study** (§4.10). Time-tilt × risk-parity *stack*: lockbox MAR **+85%** (6.9→12.7), PF 1.61→2.16, 5/6 WF folds. Deploy = size overlay (§5.6). Truncation ✗ — tilt, don't cut. |
-| — | ES transfer of the deployable config | — | ☑ DONE | **PASS** (ES lockbox PF 1.57) |
+| **G** | **Entry-time × sizing combo** | HIGH | ☑ DONE | **WIN** (§4.10). Time-tilt × risk-parity *stack*: lockbox MAR +85% (6.9→12.7), 5/6 WF folds. Truncation ✗ — tilt, don't cut. |
+| **D** | **Long/short asymmetry** | MED | ☑ DONE | **WIN — shorts carry the edge** (§4.11). LONG PF 1.03 (deadweight) vs SHORT PF 2.74; holds on lockbox + ES. Short-tilt stacks → full stack lockbox MAR **15.0 (+118%)**, PF 2.85. Deploy short-tilt not short-only. |
+| **F** | **Consolidate — durable code + MAR ranking** | HIGH leverage | ☑ DONE | `augur_engine/sizing.py` (rp × time × side overlay, capital-matched, MAR helper); `tools/orb_edge_report.py` (reproduces §4 numbers exactly). `run_grid(rank_by="mar")` implemented + verified, **commit deferred** (concurrent ensemble work in the same file). Web-UI toggle deferred (changes core PnL semantics → owner-reviewed). |
+| — | ES transfer of the deployable config | — | ☑ DONE | **PASS** (ES lockbox PF 1.57; long/short asymmetry also transfers) |
 | — | Walk-forward + lockbox of the scale-out | — | ☑ DONE | **PASS** (6/6 folds, lockbox PF 1.63) |
 
-**Recommended next — pick a lane:** (1) **F — make it real:** wire the §5.6 size overlay (risk-parity ×
-time-tilt) + MAR ranking into the app so this research is actually deployable; the edges are found, the
-value now is in using them. Or (2) **D — keep mining:** long/short asymmetry, the last untested structural
-lever. Given how much has landed, **F (consolidate) is the higher-value move.**
+**Recommended next:** the edge-hunting is essentially done — the deployable + a 3-lever sizing overlay
+(rp × time × short-tilt) lift lockbox MAR **6.9 → 15.0**, all validated. Remaining: **E (ensemble)** is
+minor smoothing, and the **web-UI integration** of the sizing overlay + MAR column is the real "ship it"
+step (a deliberate, owner-reviewed change since it alters core backtest semantics). Otherwise: **deploy.**
 
 ---
 
@@ -283,8 +315,12 @@ lever. Given how much has landed, **F (consolidate) is the higher-value move.**
   byte-equivalent to 3.1 — asserted in the `__main__` smoke test (`python augur_strategies/ORB_3_2.py`).
 - **Walk-forward:** expanding window, 6 folds over the pre-lockbox span; per fold optimize the grid on
   all prior data, test the champion OOS; then one lockbox look for the full-span champion.
-- *(The one-off WF/rerank/transfer scripts ran from the session scratchpad and are ephemeral — this
-  doc + the engine calls above are the durable record. Re-derive with `run_grid`/`run_backtest`.)*
+- **Durable artifacts (item F):** `augur_engine/sizing.py` = the sizing overlays (risk-parity × time-tilt ×
+  side-tilt, capital-matched) + `trade_features()` (recompute per-trade risk/entry-bar/side from engine
+  trades) + `mar()`. `tools/orb_edge_report.py [NQ|ES]` reproduces the §4 edge-stack tables exactly.
+  `run_grid(rank_by="mar")` ranks by drawdown-adjusted return (verified; commit pending shared-file coord).
+- *(The exploratory WF/rerank scripts ran from the session scratchpad and are ephemeral — this doc, the
+  engine calls above, and the `tools/` report are the durable record.)*
 
 ---
 

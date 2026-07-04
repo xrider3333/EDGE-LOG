@@ -124,10 +124,12 @@ plateau (stop 0.75). Run 121 makes more money but rides a few big winners = risk
   best = `rp-cap3` execution-layer overlay (size ∝ 1/stop-distance, cap 3×).
 - **Time-of-day is a real edge signal:** morning breakouts carry ~2× the profit factor of afternoon
   ones (first-hour PF 2.2 vs all-day 1.6; **lockbox PF 3.5 vs 1.6**, 6/6 WF folds).
-- **★ Best result — the sizing overlay:** time-of-day tilt **×** risk-parity are independent edges that
-  *stack*. Capital-matched, the combo lifts **lockbox MAR +85% (6.9→12.7)**, PF 1.61→2.16, 5/6 WF folds.
-  Execution-layer overlay (`size ∝ time_weight × cap3(1/stop)`), no entry/exit change. Truncating to
-  morning-only is *worse* than baseline — tilt the size, don't cut the trades.
+- **★ Best result — the 3-lever sizing overlay:** risk-parity (∝1/stop) **×** time-tilt (~2× morning PF)
+  **×** short-tilt are three *independent* edges that *stack*. **Longs are ~deadweight (PF 1.03) vs shorts
+  (PF 2.74)** — confirmed on NQ *and* ES. Capital-matched, the full stack lifts **lockbox MAR 6.9 → 15.0
+  (+118%)**, PF 1.63→2.85, 5/6 WF folds. Execution-layer only, no entry/exit change. *Tilt, don't cut*
+  (truncation / hard short-only balloon drawdown). Durable code: `augur_engine/sizing.py` +
+  `tools/orb_edge_report.py`; `run_grid(rank_by="mar")` added.
 - **Tested & rejected:** chandelier ATR trail (overfits), trail-activation (hurts), breakeven (wash),
   regime-skip `atr_filter` and midday time-stop (the trail already handles low-vol / stalled trades).
 - Run 121's headline came partly from an **inflated 0.25 stop** (below the 0.5 floor) — treat with caution.
@@ -235,6 +237,12 @@ Planned pills, best-value first:
 ---
 
 ## Changelog
+- **2026-07-04** — **ORB items D + F.** D: **long/short asymmetry — shorts carry the whole edge**
+  (LONG PF 1.03 deadweight vs SHORT PF 2.74; holds on lockbox + ES). Short-tilt stacks on the sizing
+  overlay → 3-lever full stack **lockbox MAR 6.9 → 15.0 (+118%)**, PF 2.85 (5/6 WF folds). *Tilt, don't
+  cut* (hard short-only balloons DD). F (consolidate): promoted the research into durable code —
+  `augur_engine/sizing.py` (rp × time × side overlay + MAR), `tools/orb_edge_report.py` (reproduces
+  the tables), `run_grid(rank_by="mar")`. See `ORB.md` §4.11 + §5.6. ORB edge-hunting complete.
 - **2026-07-04** — **ORB item G (entry-time × sizing) — best result of the study.** Time-of-day tilt
   and risk-parity are independent edges that *stack*: capital-matched, the size overlay lifts ORB's
   **lockbox MAR +85% (6.9→12.7)**, PF 1.61→2.16, winning 5/6 WF folds — execution-layer only. Morning-only
