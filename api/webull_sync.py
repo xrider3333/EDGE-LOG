@@ -256,6 +256,44 @@ def fetch_fills(keys, start_date, end_date, log=print, page_size=100):
     return fills
 
 
+def fetch_balance(keys, log=print):
+    """Sum current net-liquidation + cash across the stock/ETF (non-futures) accounts —
+    the live value behind the 'Webull' pill. The API has NO deposit history, so the web
+    derives Webull's starting equity from this snapshot (start = net_liq − realized P&L).
+    Returns {net_liq, cash} or None if unavailable. Futures accounts are excluded (owner
+    keeps Webull stocks-only)."""
+    from webull.core.exception.exceptions import ServerException
+    tc = _client(keys)
+    try:
+        accts = _extract_orders(tc.account_v2.get_account_list().json())
+    except Exception:
+        return None
+    net = cash = 0.0
+    found = False
+    for a in accts:
+        atype = str(_field(a, "account_type", "accountType", default="")).upper()
+        if "FUTURE" in atype:
+            continue
+        aid = _field(a, "account_id", "accountId", "id")
+        if not aid:
+            continue
+        time.sleep(1.2)
+        try:
+            b = tc.account_v2.get_account_balance(aid).json()
+        except (ServerException, Exception) as e:  # noqa: B014 — never let balance sink the sync
+            log(f"  [webull] balance ...{str(aid)[-4:]} skipped: {type(e).__name__}")
+            continue
+        try:
+            net += float(_field(b, "total_net_liquidation_value", "net_liquidation",
+                                "netLiquidation", default=0) or 0)
+            cash += float(_field(b, "total_cash_balance", "cash_balance",
+                                 "cashBalance", default=0) or 0)
+            found = True
+        except (TypeError, ValueError):
+            pass
+    return {"net_liq": round(net, 2), "cash": round(cash, 2)} if found else None
+
+
 # ── FIFO pairing (stock math) ──────────────────────────────────────
 
 def build_trades(fills):
@@ -433,12 +471,21 @@ def sync_trades(db, uid, keys_path=DEFAULT_KEYS, log=print, force=False):
     except Exception:
         pass
 
+    # current account value → lets the web show a real per-account balance + derive the
+    # Webull starting equity (no deposit-history endpoint exists). Best-effort.
+    bal = None
+    try:
+        bal = fetch_balance(keys, log=log)
+    except Exception as e:
+        log(f"  [webull] balance fetch failed: {type(e).__name__}: {e}")
+
     # status doc for the web UI (mirrors meta/nt_sync) — one write per day, cheap
     try:
-        db.collection("users").document(uid).collection("meta").document("webull_sync").set({
-            "last_sync": time.time(), "total_trades": len(trades), "fills": len(fills),
-            "last_added": added, "last_updated": updated, "window_start": start,
-        })
+        meta = {"last_sync": time.time(), "total_trades": len(trades), "fills": len(fills),
+                "last_added": added, "last_updated": updated, "window_start": start}
+        if bal:
+            meta.update(bal)
+        db.collection("users").document(uid).collection("meta").document("webull_sync").set(meta)
     except Exception as e:
         log(f"  [webull] status write failed: {e}")
 
