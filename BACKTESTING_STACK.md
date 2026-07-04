@@ -62,7 +62,7 @@ Legend: ✅ built · ⏳ planned · ❌ not adopted (used a different method) ·
 | [Missing values with missingno](https://www.kaggle.com/code/carlmcbrideellis/titanic-view-missing-values-with-missingno) | missing-data view | §2.4 | coverage map / gap-check (§1) |
 | [pydeequ data-quality tests](https://www.kaggle.com/code/carlmcbrideellis/aws-pydeequ-unit-tests-to-measure-data-quality) | data-quality unit tests | §2.1 | gap-check (`data_quality.py`) |
 | [Classification using GAMs](https://www.kaggle.com/code/carlmcbrideellis/classification-using-generalized-additive-models) | GAM smoothing | §5.4 | PDP plateau (GAM) — *used as the plateau **selector**, not a standalone classifier gate* |
-| [SHAP explainability](https://www.kaggle.com/code/carlmcbrideellis/titanic-explainability-why-me-asks-miss-doyle) | feature attribution for the gate | §8.3 | SHAP (§5) — permutation importance + direction, on the gate card |
+| [SHAP explainability](https://www.kaggle.com/code/carlmcbrideellis/titanic-explainability-why-me-asks-miss-doyle) | feature attribution for the gate | §8.3 | SHAP (§5) — real TreeSHAP for tree gates (shap 0.52), permutation fallback; on the gate card |
 
 ### ⏳ On the board, not built yet
 | Carl notebook | Method | Carl § | Planned pill |
@@ -233,11 +233,11 @@ Planned pills, best-value first:
 
 ## Changelog
 - **2026-07-04** — **SHAP shipped** (board §5 → LIVE, web v44.1, stack board v3.0). Gate
-  feature attribution: `ml_gate.gate_explain` (permutation importance + native importance +
-  direction), surfaced as a bar panel on the gate before/after card. Dependency-free
-  (sklearn); local per-trade SHAP lights up if the optional `shap` package is added. First
-  result on ORB + RF gate: keys on **momentum** (mom_20/mom_5) and **range-position**, not
-  time-of-day.
+  feature attribution: `ml_gate.gate_explain`, surfaced as a bar panel on the gate
+  before/after card. **shap 0.52 installed (owner-approved dep 2026-07-04):** tree gates
+  (RF/XGBoost) use real TreeSHAP (mean|value|); logistic falls back to permutation
+  importance (Δ log-loss). Per-trade local SHAP is a further step. First result on
+  ORB + RF gate: keys on **momentum** (mom_20/mom_5) and **range-position**, not time-of-day.
 - **2026-07-04** — ORB time-structure (`ORB_3_3.py`): midday time-stop rejected (cuts winners);
   **entry-time cutoff surfaced a real signal — morning breakouts carry ~2× the profit factor**
   (first-hour PF 2.2 / lockbox 3.5 vs all-day 1.6, 6/6 WF folds). Quality-vs-quantity, so best used

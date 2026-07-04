@@ -363,10 +363,12 @@ def gate_explain(arrays, trades, model="logistic", min_history=30, seed=42, top=
       • dir  — +1 if a HIGHER value pushes P(win) UP (gate tends to KEEP), -1 if it
                pushes DOWN (SKIP), 0 if flat.
 
-    Dependency-free (sklearn only, per the no-new-deps doctrine). LOCAL per-trade
-    Shapley values light up automatically if the optional `shap` package is ever
-    installed — until then this is the global attribution. Returns a json-safe dict
-    or None if there aren't enough trades / only one outcome class.
+    If the optional `shap` package is installed, TREE gates (rf/xgb) use real SHAP
+    values (TreeExplainer mean|value|) for importance + direction; otherwise the
+    permutation importance above stands in — so this works with or without shap.
+    Per-trade LOCAL explanations ("why was THIS trade skipped") are a further step
+    (no per-trade drill-down UI yet). Returns a json-safe dict or None if there
+    aren't enough trades / only one outcome class.
     """
     if not trades:
         return None
@@ -421,7 +423,39 @@ def gate_explain(arrays, trades, model="logistic", min_history=30, seed=42, top=
             c = float(np.corrcoef(xj, p)[0, 1])
             dirs.append(1 if c > 0.02 else (-1 if c < -0.02 else 0))
 
-    mx = float(max(imp.max(), 1e-9))
+    # ── prefer REAL SHAP for tree gates when the package is present (owner-approved
+    #    dep 2026-07-04); otherwise the permutation importance above stands in. ──
+    method = "permutation Δlog-loss + native"
+    shap_used = False
+    if str(model).lower() in ("rf", "forest", "random_forest", "randomforest",
+                              "boosted", "xgb", "xgboost", "hgb", "gbt"):
+        try:
+            import shap
+            Xs = mdl.named_steps["sc"].transform(X)
+            if len(Xs) > 2000:                        # cap for speed
+                rng = np.random.RandomState(int(seed))
+                Xs = Xs[rng.choice(len(Xs), 2000, replace=False)]
+            sv = shap.TreeExplainer(mdl.named_steps["clf"]).shap_values(Xs)
+            if isinstance(sv, list):                  # [class0, class1]
+                sv = np.asarray(sv[-1])
+            sv = np.asarray(sv)
+            if sv.ndim == 3:                          # (n, feat, class) -> class 1
+                sv = sv[:, :, -1]
+            imp = np.abs(sv).mean(axis=0)
+            dirs = []
+            for j in range(sv.shape[1]):
+                xj = Xs[:, j]
+                if np.std(xj) < 1e-12 or np.std(sv[:, j]) < 1e-12:
+                    dirs.append(0)
+                else:
+                    c = float(np.corrcoef(xj, sv[:, j])[0, 1])
+                    dirs.append(1 if c > 0.02 else (-1 if c < -0.02 else 0))
+            method = "SHAP · TreeExplainer mean|value|"
+            shap_used = True
+        except Exception:
+            pass
+
+    mx = float(max(np.max(imp), 1e-9))
     feats_out = [{"name": names[j], "imp": round(float(imp[j]), 5),
                  "rel": round(float(max(imp[j], 0.0) / mx), 4),
                  "native": round(float(nat[j]), 4), "dir": int(dirs[j])}
@@ -430,6 +464,6 @@ def gate_explain(arrays, trades, model="logistic", min_history=30, seed=42, top=
     return {
         "model": str(model), "impl": getattr(mdl, "_gate_impl", str(model)),
         "n": int(len(T)), "base_rate": round(float(100.0 * y.mean()), 1),
-        "method": "permutation Δlog-loss + native", "shap_local": False,
+        "method": method, "shap": bool(shap_used),
         "features": feats_out[:int(top)],
     }

@@ -197,7 +197,7 @@
       <div>
         <span class="p p-live" data-info="PnL sliced by volatility tercile, trend-vs-chop, day-of-week, and a monthly grid — where does the edge actually live? · was §8.1">regime report card</span>
         <span class="p p-live" data-info="Per-trade maximum adverse / favorable excursion — turns into stop and target guidance. · was §8.2">MAE / MFE</span>
-        <span class="p p-live" data-info="LIVE (v44.1). Global feature attribution for the ML gate: permutation importance (Δ log-loss when an entry input is shuffled) + the model's native importance + direction (higher value → KEEP or SKIP), shown as a bar panel on the gate before/after card. Answers 'which entry inputs the gate keys on'. Dependency-free (sklearn); local per-trade SHAP lights up if the optional shap package is added. Pairs with MI/PPS (screen) and PDP (shape). · was §8.3">SHAP</span>
+        <span class="p p-live" data-info="LIVE (v44.1). Feature attribution for the ML gate, shown as a bar panel on the gate before/after card — which entry inputs drive KEEP vs SKIP, and in which direction. Tree gates (RF/XGBoost) use REAL SHAP (shap 0.52 · TreeExplainer mean|value|); logistic falls back to permutation importance (Δ log-loss when an input is shuffled). First result (ORB+RF): keys on momentum + range-position, not time-of-day. Per-trade local SHAP ('why THIS trade') is a further step. Pairs with MI/PPS (screen) and PDP (shape). · was §8.3">SHAP</span>
       </div>
       <div class="info"></div>
     </div>
