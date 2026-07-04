@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='44.1';
+const VERSION='44.2';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -457,6 +457,13 @@ let ntSync=null,unsubNT=null,ntRefreshing=false; // NinjaTrader runner auto-sync
 let useGross=false; // gross vs net toggle for KPI stats
 let filters={sym:'',dir:'',grade:'',setup:'',tf:'',dateFrom:'',dateTo:'',minPnl:'',maxPnl:''};
 let sortCol='date',sortDir=-1;
+// ── ACCOUNT scope (the ACCOUNT toggle: ALL / NinjaTrader / Webull / …) ──
+// One broker at a time, or ALL. Scopes the WHOLE app: calcStats, applyFilters and the
+// equity curve all pass trades through bScope(), so every KPI, chart, the calendar and the
+// trades table reflect the selected account. '' = ALL accounts combined.
+let activeBroker='';try{activeBroker=localStorage.getItem('el_active_broker')||'';}catch(e){}
+function bScope(tds){return(activeBroker&&tds)?tds.filter(t=>(t.broker||'')===activeBroker):tds;}
+function setBroker(b){activeBroker=b||'';try{activeBroker?localStorage.setItem('el_active_broker',activeBroker):localStorage.removeItem('el_active_broker');}catch(e){}renderApp();}
 let accountEquity=0,calMonth=new Date().toISOString().slice(0,7);
 const _storedEquity=parseFloat(localStorage.getItem('el_equity')||'0');
 if(_storedEquity>0)accountEquity=_storedEquity;
@@ -642,6 +649,7 @@ function liveBalance(){return +(((accountEquity||0)+totalNetPnl())).toFixed(2);}
 function pnlVal(t){return useGross?(t.grossPnl||t.pnl):t.pnl;}
 
 function calcStats(tds){
+  tds=bScope(tds);
   if(!tds||!tds.length)return null;
   const wins=tds.filter(t=>pnlVal(t)>0),losses=tds.filter(t=>pnlVal(t)<0);
   const wr=wins.length/tds.length;
@@ -2007,9 +2015,9 @@ function svgBellCurve(pnls, W, H){
 }
 
 function generateHTMLReport(){
-  const S=calcStats(trades);if(!trades.length)return;
-  const dateRange=trades.length?trades[0].date+' – '+trades[trades.length-1].date:'';
-  const rows=trades.map(t=>`<tr style="border-bottom:1px solid #1e1e36">
+  const _rt=bScope(trades);const S=calcStats(_rt);if(!_rt.length)return;
+  const dateRange=_rt.length?_rt[0].date+' – '+_rt[_rt.length-1].date:'';
+  const rows=_rt.map(t=>`<tr style="border-bottom:1px solid #1e1e36">
     <td>${t.date}</td><td><b>${t.symbol}</b></td><td style="color:${t.type==='LONG'?'#00e5a0':'#4a9eff'}">${t.type}</td>
     <td>${t.entry}</td><td>${t.exit}</td><td>${t.size}</td>
     <td style="color:#f5c842">${t.fees>0?'-$'+t.fees.toFixed(2):'—'}</td>
@@ -2051,7 +2059,7 @@ function exportCSV(){
   const rows=trades.map(t=>`${t.date},${t.symbol},${t.assetType||'futures'},${t.type},"${t.timeframe||'—'}","${t.orderId||''}",${t.entry},${t.exit},${t.size},${t.fees||0},${(t.grossPnl||t.pnl).toFixed(2)},${t.pnl},"${fmtDur(t.durationMins)}","${t.grade||'—'}","${t.setup||'—'}","${(t.notes||'').replace(/"/g,"'")}","${t.chartUrl||''}","${t.source||''}"`).join('\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([h+rows],{type:'text/csv'}));a.download=`edgelog_v${VERSION}_${new Date().toISOString().slice(0,10)}.csv`;a.click();
 }
-function applyFilters(tds){return tds.filter(t=>{if(filters.sym&&!t.symbol.toLowerCase().includes(filters.sym.toLowerCase()))return false;if(filters.dir&&t.type!==filters.dir)return false;if(filters.grade&&filters.grade!=='—'&&(t.grade||'—')!==filters.grade)return false;if(filters.setup&&filters.setup!=='—'&&(t.setup||'—')!==filters.setup)return false;if(filters.tf&&filters.tf!=='—'&&(t.timeframe||'—')!==filters.tf)return false;if(filters.dateFrom&&t.date<filters.dateFrom)return false;if(filters.dateTo&&t.date>filters.dateTo)return false;if(filters.minPnl!==''&&t.pnl<parseFloat(filters.minPnl))return false;if(filters.maxPnl!==''&&t.pnl>parseFloat(filters.maxPnl))return false;return true;});}
+function applyFilters(tds){return bScope(tds).filter(t=>{if(filters.sym&&!t.symbol.toLowerCase().includes(filters.sym.toLowerCase()))return false;if(filters.dir&&t.type!==filters.dir)return false;if(filters.grade&&filters.grade!=='—'&&(t.grade||'—')!==filters.grade)return false;if(filters.setup&&filters.setup!=='—'&&(t.setup||'—')!==filters.setup)return false;if(filters.tf&&filters.tf!=='—'&&(t.timeframe||'—')!==filters.tf)return false;if(filters.dateFrom&&t.date<filters.dateFrom)return false;if(filters.dateTo&&t.date>filters.dateTo)return false;if(filters.minPnl!==''&&t.pnl<parseFloat(filters.minPnl))return false;if(filters.maxPnl!==''&&t.pnl>parseFloat(filters.maxPnl))return false;return true;});}
 function clearFilters(){filters={sym:'',dir:'',grade:'',setup:'',tf:'',dateFrom:'',dateTo:'',minPnl:'',maxPnl:''};renderApp();}
 async function saveInlineField(inp){
   const field=inp.dataset.field,id=inp.dataset.id,val=inp.value;
@@ -2886,7 +2894,7 @@ function renderApp(){
         <div style="font-family:'Bebas Neue',monospace;font-size:${userLogo?'13':'18'}px;letter-spacing:3px;color:var(--green);line-height:1">EDGE LOG</div>
         <div style="font-size:var(--fsxs);color:var(--text5);letter-spacing:1px;margin-top:1px;display:flex;align-items:center;gap:6px">
           <span class="vbadge">v${VERSION}</span><span style="color:var(--text5)">·</span>
-          <span>${trades.length} trades</span><span style="color:var(--text5)">·</span>
+          <span>${bScope(trades).length}${activeBroker?' '+activeBroker:''} trades</span><span style="color:var(--text5)">·</span>
           <span style="color:${S?gch(S.net):'var(--text5)'}">${S?fmt(S.net):'—'}</span>
           ${autoHandle?'<span style="color:var(--text5)">·</span><span style="color:var(--yellow)"><span class="pulse-y"></span> AUTO</span>':''}
         </div>
@@ -2922,9 +2930,17 @@ function renderApp(){
   if(activeTab==='augur'&&augurSub==='runs'){const rv=_ap.resView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('res-side','◧',rv==='side','Side-by-side split')}${_spv('res-stack','▤',rv==='stack','Stacked layout')}</span>`;}
   else if(activeTab==='augur'&&augurSub==='lib'){const lv=_ap.libView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('lib-side','◧',lv==='side','Side-by-side split')}${_spv('lib-stack','▤',lv==='stack','Stacked layout')}</span>`;}
   else if(activeTab==='augur'&&augurSub==='research'){const sv=_ap.stackView==='side'?'side':'stack';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('stack-side','◧',sv==='side','Side-by-side split')}${_spv('stack-stack','▤',sv==='stack','Stacked layout')}</span>`;}
+  // ── ACCOUNT scope pills (ALL / <broker> …) — trading-log side only, and only once at
+  // least one broker is tagged on trades. Right-aligned; clicking sets the global scope.
+  const _brokers=[...new Set(trades.map(t=>t.broker).filter(Boolean))].sort();
+  let _acctTog='';
+  if(_master==='log'&&_brokers.length){
+    const _pill=(v,l)=>`<button class="btn-ghost" onclick="setBroker('${String(v).replace(/'/g,"\\'")}')" title="Show ${l} only" style="padding:3px 9px;font-size:var(--fsxs);border-radius:6px;${activeBroker===v?'background:var(--green);color:#04120d;font-weight:600':'color:var(--text4)'}">${l}</button>`;
+    _acctTog=`<span style="margin-left:auto;display:flex;gap:3px;align-items:center"><span class="lbl" style="font-size:8px;margin-right:3px">ACCOUNT</span>${_pill('','ALL')}${_brokers.map(b=>_pill(b,b)).join('')}</span>`;
+  }
   sub.innerHTML=((_master==='log')
     ? LOG_TABS.map(t=>`<button class="btn-ghost${activeTab===t?' active':''}" data-tab="${t}" style="font-size:var(--fsxs)"><span style="margin-right:6px;font-size:12px;opacity:.7">${_logIc[t]||''}</span>${_logLbl(t)}</button>`).join('')
-    : ASUBS.map(s=>`<button class="btn-ghost${augurSub===s[0]?' active':''}" data-asubtop="${s[0]}" style="font-size:var(--fsxs)"><span style="margin-right:6px;font-size:12px;opacity:.7;font-variant-emoji:text">${ASUB_ICON[s[0]]||''}</span>${s[1]}</button>`).join(''))+_splitTog;
+    : ASUBS.map(s=>`<button class="btn-ghost${augurSub===s[0]?' active':''}" data-asubtop="${s[0]}" style="font-size:var(--fsxs)"><span style="margin-right:6px;font-size:12px;opacity:.7;font-variant-emoji:text">${ASUB_ICON[s[0]]||''}</span>${s[1]}</button>`).join(''))+_acctTog+_splitTog;
   wrap.appendChild(sub);
   const content=document.createElement('div');content.className='content';wrap.appendChild(content);
   app.innerHTML='';app.appendChild(wrap);
@@ -2954,7 +2970,7 @@ function renderApp(){
       const cs=cutoff.toISOString().slice(0,10);
       return tds.filter(t=>t.date>=cs);
     };
-    const tfTrades=_filterByTF(trades);
+    const tfTrades=_filterByTF(bScope(trades));
     const tfS=calcStats(tfTrades)||S;
     // Use tfS for hero KPI display; original S is still available for chart-independent stats
     const modeLabel=useGross?'<span style="color:var(--yellow);font-size:var(--fsxs);margin-left:6px">[GROSS]</span>':'';
@@ -3149,7 +3165,7 @@ function renderApp(){
           else if(chartTF==='90d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-90);}
           else if(chartTF==='ytd'){cutoff=new Date(now.getFullYear(),0,1);}
           const cutStr=cutoff?cutoff.toISOString().slice(0,10):null;
-          const filtTr=cutStr?trades.filter(t=>t.date>=cutStr):trades;
+          const filtTr=cutStr?bScope(trades).filter(t=>t.date>=cutStr):bScope(trades);
           if(!filtTr.length){return '<div style="padding:120px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px">NO TRADES IN '+chartTF.toUpperCase()+'</div>';}
           ensureSPYData();
           // EQUITY MODE: track actual account value over time, applying deposits as they happen
