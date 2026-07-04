@@ -81,7 +81,9 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 workers=int(job.get("workers", 1)), progress_cb=progress_cb,
                 compute_dsr=bool(job.get("dsr", False)), mc_sims=int(job.get("mc_sims", 0)),
                 compute_regime=bool(job.get("regime", True)),
-                compute_neighbors=bool(job.get("neighbors", True)))
+                compute_neighbors=bool(job.get("neighbors", True)),
+                compute_ensemble=bool(job.get("ensemble", True)),
+                ensemble_k=int(job.get("ensemble_k", 5)))
         elif jtype in ("auto", "walkforward"):
             r = ae.run_auto(
                 job["strategy"], instrument=job.get("instrument"),

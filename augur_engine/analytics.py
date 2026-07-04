@@ -393,3 +393,62 @@ def pdp_plateau(points, pnl_key="pnl", min_points=12):
             "argmax_index": int(np.argmax(pnls)),
             "argmax_score": round(float(score[int(np.argmax(pnls))]), 1),
             "curves": curves}
+
+
+def ensemble_blend(bar_pnls, buckets=50):
+    """Equal-weight top-K ensemble (board §6 · Carl §7.1).
+
+    `bar_pnls` = list of K aligned per-bar NET-PnL arrays (one per config, length =
+    #bars). Allocating 1/K of capital to each config gives a portfolio whose per-bar
+    PnL is the mean of the K series: its total PnL is the average of the K totals
+    (so LOWER than the rank-1 config by construction), but its drawdown is usually
+    SHALLOWER because the configs don't all dip at once — that's the whole point.
+    The honest verdict is on RECOVERY (profit ÷ drawdown), not raw $.
+
+    Returns the blend vs the single best (rank-1) config, the diversification
+    (avg pairwise correlation of the configs on chronological buckets — lower = more
+    diversified), and downsampled equity curves for the web. None if < 2 configs.
+    """
+    A = np.asarray(bar_pnls, float)
+    if A.ndim != 2 or A.shape[0] < 2:
+        return None
+    k, nb = A.shape
+
+    def _dscurve(inc, n=100):
+        cum = np.cumsum(inc)
+        if len(cum) > n:
+            step = len(cum) / n
+            cum = [cum[int(i * step)] for i in range(n)]
+        return [round(float(x), 1) for x in cum]
+
+    def _st(inc):
+        cum = np.cumsum(inc)
+        tot = float(cum[-1]); dd = _max_dd(inc)
+        return {"total_pnl": round(tot, 1), "max_drawdown": round(dd, 1),
+                "recovery": (round(tot / abs(dd), 2) if dd < -1e-9
+                             else (999.0 if tot > 0 else 0.0))}
+
+    ens_inc = A.mean(axis=0)                       # equal-weight portfolio
+    blend, best = _st(ens_inc), _st(A[0])
+
+    # diversification: correlate the configs on ~`buckets` chronological chunks
+    # (per-bar PnL is too sparse — mostly zeros — to correlate directly).
+    bsz = max(1, nb // int(buckets))
+    B = np.array([A[:, i:i + bsz].sum(axis=1) for i in range(0, nb, bsz)]).T
+    cors = []
+    for i in range(k):
+        for j in range(i + 1, k):
+            a, b = B[i], B[j]
+            if a.std() > 1e-9 and b.std() > 1e-9:
+                cors.append(float(np.corrcoef(a, b)[0, 1]))
+    avg_cor = round(float(np.mean(cors)), 3) if cors else None
+
+    return {
+        "k": int(k), "blend": blend, "best": best,
+        "avg_corr": avg_cor,
+        "recovery_gain": round(blend["recovery"] - best["recovery"], 2),
+        "pnl_kept_pct": (round(100.0 * blend["total_pnl"] / best["total_pnl"], 1)
+                         if best["total_pnl"] else None),
+        "blend_curve": _dscurve(ens_inc), "best_curve": _dscurve(A[0]),
+        "improved": bool(blend["recovery"] > best["recovery"]),
+    }

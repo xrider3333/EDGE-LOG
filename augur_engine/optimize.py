@@ -41,11 +41,43 @@ def list_presets(strategy):
     return list(getattr(mod, "PARAM_GRID_PRESETS", {}).keys())
 
 
+def _topk_ensemble(fn, O, H, L, C, extras, cost_pts, ranked, k=5):
+    """Re-run the top-K ranked configs and equal-weight blend them (board §6).
+    `ranked` = param dicts, best first. Returns the ensemble_blend dict (+ the
+    configs used) or None if fewer than 2 produced trades. Kept small so both
+    run_grid (auto) and engine.run_ensemble_topk can share it."""
+    import numpy as np
+    from .analytics import ensemble_blend
+    nb = len(C)
+    bar_pnls, used = [], []
+    for pp in ranked[:int(k)]:
+        try:
+            m = fn(O, H, L, C, return_trades=True, **extras, **pp)
+        except Exception:
+            m = None
+        tr = (m or {}).get("trades") or []
+        if not tr:
+            continue
+        bar = np.zeros(nb)
+        for t in tr:
+            eb = int(t[1]) if len(t) > 1 else int(t[0])
+            eb = 0 if eb < 0 else (nb - 1 if eb >= nb else eb)
+            bar[eb] += float(t[2]) - (cost_pts if cost_pts > 0 else 0.0)
+        bar_pnls.append(bar); used.append(pp)
+    if len(bar_pnls) < 2:
+        return None
+    ens = ensemble_blend([b.tolist() for b in bar_pnls])
+    if ens:
+        ens["configs"] = used
+    return ens
+
+
 def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source=None,
              preset=None, grid=None, master=None, arrays=None, cost_pts=0.0,
              min_trades=30, top_n=10, workers=1, rank_by="total_pnl", progress_cb=None,
              compute_dsr=False, mc_sims=0, years=None,
              compute_regime=False, compute_neighbors=False,
+             compute_ensemble=False, ensemble_k=5,
              date_from=None, date_to=None):
     """Exhaustive grid sweep. Returns {n_combos,n_valid,top[...],best_params,best,bars,master}.
 
@@ -120,7 +152,18 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 progress_cb(i + 1, len(combos))
 
     valid = [(p, m) for p, m in results if m and m.get("num_trades", 0) >= min_trades]
-    valid.sort(key=lambda pm: pm[1].get(rank_by, 0) or 0, reverse=True)
+
+    def _rank_key(pm):
+        # "mar" = net PnL / |max drawdown| (drawdown-adjusted return — what you size on).
+        # Not a returned metric key, so derive it; otherwise sort by the named metric.
+        m = pm[1]
+        if rank_by == "mar":
+            dd = abs(float(m.get("max_drawdown", 0) or 0.0))
+            pnl = float(m.get("total_pnl", 0) or 0.0)
+            return (pnl / dd) if dd > 1e-9 else (float("inf") if pnl > 0 else 0.0)
+        return m.get(rank_by, 0) or 0
+
+    valid.sort(key=_rank_key, reverse=True)
     top = []
     for p, m in valid[:top_n]:
         row = dict(p)
@@ -154,6 +197,18 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
             "curves": _pp["curves"],
             "same_as_best": bool(best and valid[_pi][0] == best[0]),
         }
+
+    # ── §6 Ensemble top-K (opt-in): blend the top-K configs equal-weight and compare
+    #    to the rank-1 winner by recovery factor — a diversified blend is more robust
+    #    to the winner being a lucky spike. Costs `ensemble_k` extra backtests. ──
+    if compute_ensemble and len(valid) >= 2:
+        _ens = _topk_ensemble(fn, O, H, L, C, extras, cost_pts,
+                              [p for p, _m in valid], k=int(ensemble_k))
+        if _ens:
+            _ens["rank_by"] = rank_by
+            _ens["n_valid"] = len(valid)
+            _ens["single_best_params"] = valid[0][0]
+            out["ensemble"] = _ens
 
     # Regime report card + neighborhood robustness on the winner (opt-in).
     if best and (compute_regime or compute_neighbors):

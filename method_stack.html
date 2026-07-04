@@ -48,7 +48,7 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v3.0</span></h1>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v3.1</span></h1>
   <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (EDGELOG's own workflow axes — Model &amp; Search, Validation, … — each pill tagged with its old Carl category). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-04.</span></p>
 
   <div class="summary">
@@ -205,7 +205,7 @@
     <div class="sec">
       <div class="sech"><span>6 · Ensemble</span><span class="secn">→ pipeline 3</span></div>
       <div>
-        <span class="p p-plan" data-info="Blend the best K configs — vote to enter, or convex-combine sizing with weights fit on the OOS folds — instead of crowning one. Lower variance; the top-N equity overlay already shows the members. · was §7.1">ensemble top-K</span>
+        <span class="p p-live" data-info="LIVE (v44.3). Equal-weight blend of the top-K configs (allocate 1/K to each) vs the single rank-1 winner, auto-computed on every grid sweep and shown as a card. The blend usually keeps most of the PnL with a shallower drawdown (configs don't all dip at once), so it wins on recovery = profit/drawdown — unless the top configs are too correlated to diversify (avg pairwise corr reported). First run (ORB 3.0): recovery 12.4→12.9 keeping 92% of PnL, avg corr 0.89. · was §7.1">ensemble top-K</span>
       </div>
       <div class="info"></div>
     </div>

@@ -4,8 +4,8 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-04
-- **Web VERSION:** 44.1 · **Stack board (`method_stack.html`):** v3.0
-- **Board tally:** 30 method pills LIVE; 6 still planned (see §7)
+- **Web VERSION:** 44.3 · **Stack board (`method_stack.html`):** v3.1
+- **Board tally:** 31 method pills LIVE; 5 still planned (see §7)
 
 > **Plain-language rule** (owner preference): every technical term is defined in
 > EDGELOG terms the first time it appears. Don't assume the reader knows the jargon.
@@ -39,7 +39,7 @@ numbering. Each pill still carries its old Carl section as a `· was §X.Y` tag.
 | 3 | **Model & Search** — make + tune the signal | **3A Models:** ✅ Logistic · ✅ Random Forest · ✅ XGBoost gate  **3B Search:** ✅ grid sweep · ✅ Bayesian search  **3C Pick-winner:** ✅ PDP plateau (GAM) · ✅ neighborhood/plateau · ✅ highest-PnL (argmax)  **3D AI assist:** ✅ AI-evolve (Claude in the loop) |
 | 4 | **Validation** — rigor | ✅ walk-forward · ✅ stress windows · ✅ lockbox one-shot · ✅ cross-instrument transfer · ✅ Deflated Sharpe · ✅ Monte-Carlo · ✅ sample adequacy (DOF) · ✅ ML-gate validate · ⏳ conformal band · ⏳ adversarial validation |
 | 5 | **Explain** — where the edge lives | ✅ regime report card · ✅ MAE/MFE (heat/reach) · ✅ SHAP (gate feature attribution) |
-| 6 | **Ensemble** | ⏳ ensemble top-K |
+| 6 | **Ensemble** | ✅ ensemble top-K (blend of top configs vs single best) |
 | 7 | **Causality** | ⏳ causal check |
 | 8 | **Generative** | ⏳ synthetic scenarios |
 
@@ -63,11 +63,11 @@ Legend: ✅ built · ⏳ planned · ❌ not adopted (used a different method) ·
 | [pydeequ data-quality tests](https://www.kaggle.com/code/carlmcbrideellis/aws-pydeequ-unit-tests-to-measure-data-quality) | data-quality unit tests | §2.1 | gap-check (`data_quality.py`) |
 | [Classification using GAMs](https://www.kaggle.com/code/carlmcbrideellis/classification-using-generalized-additive-models) | GAM smoothing | §5.4 | PDP plateau (GAM) — *used as the plateau **selector**, not a standalone classifier gate* |
 | [SHAP explainability](https://www.kaggle.com/code/carlmcbrideellis/titanic-explainability-why-me-asks-miss-doyle) | feature attribution for the gate | §8.3 | SHAP (§5) — real TreeSHAP for tree gates (shap 0.52), permutation fallback; on the gate card |
+| [Self-made ensemble methods](https://www.kaggle.com/code/caerno/eda-self-made-ensemble-methods) | blend top models | §7.1 | ensemble top-K (§6) — equal-weight blend of top-K vs single best, auto on grid sweeps |
 
 ### ⏳ On the board, not built yet
 | Carl notebook | Method | Carl § | Planned pill |
 |---|---|---|---|
-| [Self-made ensemble methods](https://www.kaggle.com/code/caerno/eda-self-made-ensemble-methods) | blend top models | §7.1 | ensemble top-K (§6) |
 | [Naïve dataset distillation](https://www.kaggle.com/code/carlmcbrideellis/ps-s3-e21-na-ve-dataset-distillation) | shrink/synthesize data | §12 | synthetic scenarios (§8) |
 | [Data anonymization with Faker](https://www.kaggle.com/code/carlmcbrideellis/data-anonymization-using-faker-titanic-example) | synthetic data | §12 | synthetic scenarios (§8, same slot) |
 
@@ -85,7 +85,7 @@ Legend: ✅ built · ⏳ planned · ❌ not adopted (used a different method) ·
 [GitHub mirror](https://github.com/Carl-McBride-Ellis/My-kaggle-notebooks) ·
 LinkedIn: [ensembling guide](https://www.linkedin.com/posts/carl-mcbride-ellis_kaggle-ensembling-guide-activity-7041377476710653952-iEGp) · [ML regression](https://www.linkedin.com/posts/carl-mcbride-ellis_kaggle-machinelearning-regression-activity-7155071941773516800-qsn8) · [competitions](https://www.linkedin.com/posts/carl-mcbride-ellis_kaggle-competitions-activity-6989874021894885376-s2zX)
 
-**Score:** 10 methods live · 3 planned · 3 skipped on purpose.
+**Score:** 11 methods live · 2 planned · 3 skipped on purpose.
 
 ---
 
@@ -225,18 +225,24 @@ not saved to the runs DB — so they carry no run id.*
 ## 7. Open items / next up
 
 Planned pills, best-value first:
-1. **ensemble top-K** (§6) — blend the top configs instead of crowning one.
-2. **conformal band** / **adversarial validation** (§4) — extra validation rigor.
-3. **synthetic scenarios** (§8) — dataset distillation / synthetic stress data.
-4. **causal check** (§7).
-5. **fills reconciliation** (§1) — reconcile web/mobile NinjaTrader fills that skip the
+1. **conformal band** / **adversarial validation** (§4) — extra validation rigor.
+2. **synthetic scenarios** (§8) — dataset distillation / synthetic stress data.
+3. **causal check** (§7).
+4. **fills reconciliation** (§1) — reconcile web/mobile NinjaTrader fills that skip the
    local DB.
 
-*(✅ SHAP shipped 2026-07-04 — was the top gap; see Changelog.)*
+*(✅ SHAP + ensemble top-K shipped 2026-07-04 — see Changelog.)*
 
 ---
 
 ## Changelog
+- **2026-07-04** — **Ensemble top-K shipped** (board §6 → LIVE, web v44.3, stack v3.1).
+  Equal-weight blend of the top-K sweep configs vs the single rank-1 winner, auto-computed
+  on every grid sweep (`analytics.ensemble_blend` + `optimize._topk_ensemble`, opt-in
+  `compute_ensemble`), shown as a card. Verdict on recovery (profit ÷ drawdown), with the
+  top-K avg pairwise correlation as the diversification read. First run (ORB 3.0): recovery
+  12.4 → 12.9 keeping 92% of PnL, avg corr 0.89 — a modest gain because the top ORB configs
+  cluster tightly (a clean, low-DOF strategy has little to diversify).
 - **2026-07-04** — **ORB items D + F.** D: **long/short asymmetry — shorts carry the whole edge**
   (LONG PF 1.03 deadweight vs SHORT PF 2.74; holds on lockbox + ES). Short-tilt stacks on the sizing
   overlay → 3-lever full stack **lockbox MAR 6.9 → 15.0 (+118%)**, PF 2.85 (5/6 WF folds). *Tilt, don't

@@ -175,3 +175,37 @@ def run_gate_validate(strategy, *, instrument=None, timeframe="5m", session="rth
         "bars": int(len(arrays["close"])), "cost_pts": float(cost_pts),
     }
     return res
+
+
+def run_ensemble_topk(strategy, *, instrument=None, timeframe="5m", session="rth",
+                      source=None, preset=None, grid=None, master=None, arrays=None,
+                      cost_pts=0.0, date_from=None, date_to=None, k=5, top_n=12,
+                      min_trades=30, rank_by="total_pnl", workers=1, progress_cb=None):
+    """Ensemble top-K (board §6, Carl §7.1): sweep the grid, then — instead of
+    crowning the single best config — BLEND the top-K equal-weight and compare the
+    blend to the rank-1 config by recovery factor. A blend that dips less often is
+    more robust to the winner being a lucky spike; the trade-off is a bit less raw $.
+    """
+    from .optimize import run_grid
+    mod = strategy if hasattr(strategy, "run_backtest") else load_strategy(strategy)
+    if arrays is None:
+        if master is None:
+            master = find_master(instrument, timeframe, session, source)
+            if master is None:
+                raise ValueError(
+                    f"no master for instrument={instrument} timeframe={timeframe} "
+                    f"session={session} source={source}")
+        arrays = load_master_arrays(master, date_from=date_from, date_to=date_to)
+    gr = run_grid(mod, arrays=arrays, preset=preset, grid=grid, cost_pts=cost_pts,
+                  min_trades=int(min_trades), top_n=max(int(top_n), int(k)),
+                  rank_by=rank_by, workers=int(workers), progress_cb=progress_cb,
+                  compute_ensemble=True, ensemble_k=int(k))
+    ens = gr.get("ensemble")
+    if not ens:
+        return None
+    return {"ensemble": ens, "best_params": gr.get("best_params"),
+            "sweep": {"n_combos": gr.get("n_combos"), "n_valid": gr.get("n_valid"),
+                      "top": gr.get("top")},
+            "_meta": {"strategy": getattr(mod, "STRATEGY_NAME", None),
+                      "master": (arrays.get("meta") or {}).get("name"),
+                      "bars": int(len(arrays["close"])), "cost_pts": float(cost_pts)}}
