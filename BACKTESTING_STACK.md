@@ -108,6 +108,14 @@ deserves a fresh single-strategy re-validation before trust.*
 **ORB 3.0 forward-test pick = run 119** (see §5): robust, tiny drawdown, sits on the
 plateau (stop 0.75). Run 121 makes more money but rides a few big winners = riskier.
 
+**Scale-out finding** (earlier session; that config was informally called "ORB 3.1" —
+it's ORB 3.0 with partial exits + a trailing stop bolted on): the partial+trail version
+passes WF and the lockbox, **but the scale-out only makes the curve *smoother* (better
+risk-adjusted), not *richer***. On the safe **0.75 stop**, single-lot **ride-to-close**
+is the PnL champ. Run 121's headline came partly from an **inflated 0.25 stop** — treat
+its raw dollars with caution. Net: deploy the simple single-lot ORB 3.0; add scale-out
+only if you specifically want a smoother equity curve, not more money.
+
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
 |---|---|---|---|
