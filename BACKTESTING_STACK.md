@@ -4,8 +4,8 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-04
-- **Web VERSION:** 44.0 · **Stack board (`method_stack.html`):** v2.9
-- **Board tally:** most method pills LIVE; 7 still planned (see §7)
+- **Web VERSION:** 44.1 · **Stack board (`method_stack.html`):** v3.0
+- **Board tally:** 30 method pills LIVE; 6 still planned (see §7)
 
 > **Plain-language rule** (owner preference): every technical term is defined in
 > EDGELOG terms the first time it appears. Don't assume the reader knows the jargon.
@@ -38,7 +38,7 @@ numbering. Each pill still carries its old Carl section as a `· was §X.Y` tag.
 | 2 | **Feature screen** — which inputs matter | ✅ Pearson r · ✅ Mutual Information · ✅ PPS (predictive power score) |
 | 3 | **Model & Search** — make + tune the signal | **3A Models:** ✅ Logistic · ✅ Random Forest · ✅ XGBoost gate  **3B Search:** ✅ grid sweep · ✅ Bayesian search  **3C Pick-winner:** ✅ PDP plateau (GAM) · ✅ neighborhood/plateau · ✅ highest-PnL (argmax)  **3D AI assist:** ✅ AI-evolve (Claude in the loop) |
 | 4 | **Validation** — rigor | ✅ walk-forward · ✅ stress windows · ✅ lockbox one-shot · ✅ cross-instrument transfer · ✅ Deflated Sharpe · ✅ Monte-Carlo · ✅ sample adequacy (DOF) · ✅ ML-gate validate · ⏳ conformal band · ⏳ adversarial validation |
-| 5 | **Explain** — where the edge lives | ✅ regime report card · ✅ MAE/MFE (heat/reach) · ⏳ SHAP |
+| 5 | **Explain** — where the edge lives | ✅ regime report card · ✅ MAE/MFE (heat/reach) · ✅ SHAP (gate feature attribution) |
 | 6 | **Ensemble** | ⏳ ensemble top-K |
 | 7 | **Causality** | ⏳ causal check |
 | 8 | **Generative** | ⏳ synthetic scenarios |
@@ -62,11 +62,11 @@ Legend: ✅ built · ⏳ planned · ❌ not adopted (used a different method) ·
 | [Missing values with missingno](https://www.kaggle.com/code/carlmcbrideellis/titanic-view-missing-values-with-missingno) | missing-data view | §2.4 | coverage map / gap-check (§1) |
 | [pydeequ data-quality tests](https://www.kaggle.com/code/carlmcbrideellis/aws-pydeequ-unit-tests-to-measure-data-quality) | data-quality unit tests | §2.1 | gap-check (`data_quality.py`) |
 | [Classification using GAMs](https://www.kaggle.com/code/carlmcbrideellis/classification-using-generalized-additive-models) | GAM smoothing | §5.4 | PDP plateau (GAM) — *used as the plateau **selector**, not a standalone classifier gate* |
+| [SHAP explainability](https://www.kaggle.com/code/carlmcbrideellis/titanic-explainability-why-me-asks-miss-doyle) | feature attribution for the gate | §8.3 | SHAP (§5) — permutation importance + direction, on the gate card |
 
 ### ⏳ On the board, not built yet
 | Carl notebook | Method | Carl § | Planned pill |
 |---|---|---|---|
-| [SHAP explainability](https://www.kaggle.com/code/carlmcbrideellis/titanic-explainability-why-me-asks-miss-doyle) | per-trade feature attribution | §8.3 | SHAP (§5) — **highest-value next gap** |
 | [Self-made ensemble methods](https://www.kaggle.com/code/caerno/eda-self-made-ensemble-methods) | blend top models | §7.1 | ensemble top-K (§6) |
 | [Naïve dataset distillation](https://www.kaggle.com/code/carlmcbrideellis/ps-s3-e21-na-ve-dataset-distillation) | shrink/synthesize data | §12 | synthetic scenarios (§8) |
 | [Data anonymization with Faker](https://www.kaggle.com/code/carlmcbrideellis/data-anonymization-using-faker-titanic-example) | synthetic data | §12 | synthetic scenarios (§8, same slot) |
@@ -85,7 +85,7 @@ Legend: ✅ built · ⏳ planned · ❌ not adopted (used a different method) ·
 [GitHub mirror](https://github.com/Carl-McBride-Ellis/My-kaggle-notebooks) ·
 LinkedIn: [ensembling guide](https://www.linkedin.com/posts/carl-mcbride-ellis_kaggle-ensembling-guide-activity-7041377476710653952-iEGp) · [ML regression](https://www.linkedin.com/posts/carl-mcbride-ellis_kaggle-machinelearning-regression-activity-7155071941773516800-qsn8) · [competitions](https://www.linkedin.com/posts/carl-mcbride-ellis_kaggle-competitions-activity-6989874021894885376-s2zX)
 
-**Score:** 9 methods live · 4 planned · 3 skipped on purpose.
+**Score:** 10 methods live · 3 planned · 3 skipped on purpose.
 
 ---
 
@@ -215,18 +215,24 @@ not saved to the runs DB — so they carry no run id.*
 ## 7. Open items / next up
 
 Planned pills, best-value first:
-1. **SHAP** (§5) — show *which entry features* the ML gate uses to skip trades. Natural
-   follow-up to the gate work; turns the gate from a black box into an explanation.
-2. **ensemble top-K** (§6) — blend the top configs instead of crowning one.
-3. **conformal band** / **adversarial validation** (§4) — extra validation rigor.
-4. **synthetic scenarios** (§8) — dataset distillation / synthetic stress data.
-5. **causal check** (§7).
-6. **fills reconciliation** (§1) — reconcile web/mobile NinjaTrader fills that skip the
+1. **ensemble top-K** (§6) — blend the top configs instead of crowning one.
+2. **conformal band** / **adversarial validation** (§4) — extra validation rigor.
+3. **synthetic scenarios** (§8) — dataset distillation / synthetic stress data.
+4. **causal check** (§7).
+5. **fills reconciliation** (§1) — reconcile web/mobile NinjaTrader fills that skip the
    local DB.
+
+*(✅ SHAP shipped 2026-07-04 — was the top gap; see Changelog.)*
 
 ---
 
 ## Changelog
+- **2026-07-04** — **SHAP shipped** (board §5 → LIVE, web v44.1, stack board v3.0). Gate
+  feature attribution: `ml_gate.gate_explain` (permutation importance + native importance +
+  direction), surfaced as a bar panel on the gate before/after card. Dependency-free
+  (sklearn); local per-trade SHAP lights up if the optional `shap` package is added. First
+  result on ORB + RF gate: keys on **momentum** (mom_20/mom_5) and **range-position**, not
+  time-of-day.
 - **2026-07-04** — ORB deep-dive folded in (see [`ORB.md`](ORB.md) for the full record).
   Real `ORB_3_1.py` (deployable single-lot ride + 5-bar trailing stop, run #125) + `ORB_3_2.py`
   (trail research). Findings: the trailing stop is the risk-adjusted lever (MAR 15→33); triple-

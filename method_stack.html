@@ -48,8 +48,8 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v2.9</span></h1>
-  <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (EDGELOG's own workflow axes — Model &amp; Search, Validation, … — each pill tagged with its old Carl category). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-02.</span></p>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v3.0</span></h1>
+  <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (EDGELOG's own workflow axes — Model &amp; Search, Validation, … — each pill tagged with its old Carl category). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-04.</span></p>
 
   <div class="summary">
     <span class="pill"><span class="dot dg"></span><b>29</b> live</span>
@@ -121,7 +121,7 @@
     <g font-size="12">
       <rect x="280" y="442" width="128" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="291" y="457" fill="#00e5a0">PASS / WEAK / FAIL</text>
       <rect x="416" y="442" width="72" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="427" y="457" fill="#00e5a0">regime</text>
-      <rect x="496" y="442" width="68" height="22" rx="11" fill="rgba(245,200,66,.10)" stroke="rgba(245,200,66,.4)"/><text x="507" y="457" fill="#f5c842">SHAP</text>
+      <rect x="496" y="442" width="68" height="22" rx="11" fill="rgba(0,229,160,.10)" stroke="rgba(0,229,160,.4)"/><text x="507" y="457" fill="#00e5a0">SHAP</text>
     </g>
     </svg>
     </div>
@@ -197,7 +197,7 @@
       <div>
         <span class="p p-live" data-info="PnL sliced by volatility tercile, trend-vs-chop, day-of-week, and a monthly grid — where does the edge actually live? · was §8.1">regime report card</span>
         <span class="p p-live" data-info="Per-trade maximum adverse / favorable excursion — turns into stop and target guidance. · was §8.2">MAE / MFE</span>
-        <span class="p p-plan" data-info="Per-prediction feature contributions for the learned models (Random Forest / XGBoost) — which order-flow inputs drove a decision. Pairs with MI/PPS (screen) and PDP (shape). · was §8.3">SHAP</span>
+        <span class="p p-live" data-info="LIVE (v44.1). Global feature attribution for the ML gate: permutation importance (Δ log-loss when an entry input is shuffled) + the model's native importance + direction (higher value → KEEP or SKIP), shown as a bar panel on the gate before/after card. Answers 'which entry inputs the gate keys on'. Dependency-free (sklearn); local per-trade SHAP lights up if the optional shap package is added. Pairs with MI/PPS (screen) and PDP (shape). · was §8.3">SHAP</span>
       </div>
       <div class="info"></div>
     </div>

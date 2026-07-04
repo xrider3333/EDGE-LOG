@@ -104,9 +104,20 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
                         min_history=int(ml_min_history),
                         refit_every=int(ml_refit_every))
         if g:
+            orig_trades = res["trades"]          # all trades, pre-gate (win+loss)
             res["trades"] = g["trades"]
             res.update(g["stats"])
             res["ml_gate"] = g["summary"]
+            # SHAP-style feature attribution (board §5): which entry inputs the gate
+            # keys on. Trains one as-of-now model on ALL completed trades. Best-effort.
+            try:
+                from .ml_gate import gate_explain
+                ex = gate_explain(arrays, orig_trades, model=str(ml_filter),
+                                  min_history=int(ml_min_history))
+                if ex:
+                    res["ml_gate"]["explain"] = ex
+            except Exception:
+                pass
 
     if isinstance(res, dict):
         if mc_sims and res.get("trades"):

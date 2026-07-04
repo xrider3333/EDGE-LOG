@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='44.0';
+const VERSION='44.1';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5655,6 +5655,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +grow('AVG $/TRADE',money(u.avg_pnl),money(ga.avg_pnl))
           +grow('MAX DRAWDOWN',money(u.max_drawdown),money(ga.max_drawdown))
           +'</tbody></table></div>'
+          +((G.explain&&G.explain.features&&G.explain.features.length)?(
+             '<div class="lbl" style="margin:12px 0 4px" title="Global feature attribution for the ML gate: bars = permutation importance (how much the fit degrades when that entry input is shuffled). Direction = does a higher value push the gate toward KEEP or SKIP. Local per-trade SHAP lights up if the shap package is installed.">🔍 GATE FEATURE ATTRIBUTION · SHAP-style</div>'
+            +'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:6px">'+String(G.explain.method||'')+' · <span style="color:var(--green)">green ↑ keep</span> · <span style="color:var(--red)">red ↓ skip</span></div>'
+            +G.explain.features.map(function(f){var w=Math.max(2,Math.round((f.rel||0)*100));var col=f.dir>0?'var(--green)':(f.dir<0?'var(--red)':'var(--text4)');var ar=f.dir>0?'↑ keep':(f.dir<0?'↓ skip':'·');return '<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:var(--fsxs)"><span style="width:82px;color:var(--text3);text-align:right">'+f.name+'</span><div style="flex:1;background:var(--bg1);border-radius:4px;height:11px;overflow:hidden"><div style="width:'+w+'%;height:100%;background:'+col+';opacity:.72"></div></div><span style="width:46px;color:'+col+';font-size:8px">'+ar+'</span></div>';}).join('')
+           ):'')
           +'<div style="font-size:var(--fsxs);color:'+(helped?'var(--green)':'var(--yellow)')+';margin-top:6px">'+(helped
             ?'Gate helped — the trades it kept beat taking everything.'
             :'Gate did not help here — the trades it kept did worse than taking everything. Honest KISS-baseline result: the entry-time features (vol / trend / clock) carry little signal for this strategy; richer features (order-flow delta, ROADMAP #23) are the next lever.')+'</div>';}

@@ -25,7 +25,7 @@ complexity isn't earning anything.
 import numpy as np
 import pandas as pd
 
-__all__ = ["gate_trades", "entry_features", "gate_validate"]
+__all__ = ["gate_trades", "entry_features", "gate_validate", "gate_explain"]
 
 
 # ── features at the entry bar (OHLC + clock only — no volume dependency) ───────
@@ -344,3 +344,92 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
                       if lb_helped else
                       "LOCKBOX FAILED — gate lost to ungated out-of-sample (pre-lockbox win was likely fit)")
     return out
+
+
+# ── gate EXPLAIN: which entry features the gate keys on (board 5 · SHAP-style) ──
+def gate_explain(arrays, trades, model="logistic", min_history=30, seed=42, top=10):
+    """Global feature attribution for the ML gate — the "which inputs does the
+    bouncer actually use" panel (board §5 SHAP).
+
+    Trains ONE gate model on ALL completed trades (the as-of-now deployed gate: same
+    entry features + |pnl| weighting as gate_trades) and reports, per feature:
+      • imp  — PERMUTATION importance: how much the fit degrades (Δ log-loss) when
+               that one input is shuffled. Model-agnostic, so it's directly
+               comparable across logistic / rf / xgb — the honest "how hard the gate
+               leans on this input" number.
+      • rel  — imp scaled 0..1 (for the bar chart).
+      • native — the model's own importance (|coef| logistic / feature_importances_
+               trees), as a cross-check.
+      • dir  — +1 if a HIGHER value pushes P(win) UP (gate tends to KEEP), -1 if it
+               pushes DOWN (SKIP), 0 if flat.
+
+    Dependency-free (sklearn only, per the no-new-deps doctrine). LOCAL per-trade
+    Shapley values light up automatically if the optional `shap` package is ever
+    installed — until then this is the global attribution. Returns a json-safe dict
+    or None if there aren't enough trades / only one outcome class.
+    """
+    if not trades:
+        return None
+    T = [(int(t[0]), int(t[1]), float(t[2])) for t in trades if len(t) >= 3]
+    if len(T) < max(int(min_history), 40):
+        return None
+    E = np.array([t[0] for t in T]); P = np.array([t[2] for t in T], float)
+    y = (P > 0).astype(int)
+    if np.unique(y).size < 2:
+        return None
+
+    F, names = entry_features(arrays)
+    nb = len(F)
+    X = F[np.clip(E, 0, nb - 1)]
+    w = np.abs(P) + 1e-9
+
+    mdl = _make_model(model, seed)
+    mdl.fit(X, y, clf__sample_weight=w)
+
+    # permutation importance — model-agnostic, profit-weighted, Δ log-loss
+    try:
+        from sklearn.inspection import permutation_importance
+        pim = permutation_importance(mdl, X, y, scoring="neg_log_loss",
+                                     n_repeats=6, random_state=int(seed),
+                                     sample_weight=w)
+        imp = np.asarray(pim.importances_mean, float)
+    except Exception:
+        imp = np.zeros(len(names))
+
+    # the model's own importance, for cross-check
+    clf = mdl.named_steps.get("clf")
+    if hasattr(clf, "coef_"):
+        nat = np.abs(np.ravel(clf.coef_))
+    elif hasattr(clf, "feature_importances_"):
+        nat = np.asarray(clf.feature_importances_, float)
+    else:
+        nat = np.zeros(len(names))
+    if len(nat) != len(names):
+        nat = np.zeros(len(names))
+
+    # direction: sign of corr(raw feature, predicted P(win))
+    try:
+        p = mdl.predict_proba(X)[:, 1]
+    except Exception:
+        p = np.full(len(X), 0.5)
+    dirs = []
+    for j in range(X.shape[1]):
+        xj = X[:, j]
+        if np.std(xj) < 1e-12 or np.std(p) < 1e-12:
+            dirs.append(0)
+        else:
+            c = float(np.corrcoef(xj, p)[0, 1])
+            dirs.append(1 if c > 0.02 else (-1 if c < -0.02 else 0))
+
+    mx = float(max(imp.max(), 1e-9))
+    feats_out = [{"name": names[j], "imp": round(float(imp[j]), 5),
+                 "rel": round(float(max(imp[j], 0.0) / mx), 4),
+                 "native": round(float(nat[j]), 4), "dir": int(dirs[j])}
+                for j in range(len(names))]
+    feats_out.sort(key=lambda d: d["imp"], reverse=True)
+    return {
+        "model": str(model), "impl": getattr(mdl, "_gate_impl", str(model)),
+        "n": int(len(T)), "base_rate": round(float(100.0 * y.mean()), 1),
+        "method": "permutation Δlog-loss + native", "shap_local": False,
+        "features": feats_out[:int(top)],
+    }
