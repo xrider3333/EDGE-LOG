@@ -101,6 +101,8 @@ deserves a fresh single-strategy re-validation before trust.*
 
 | # | Strategy | What it is | Status |
 |---|---|---|---|
+| new | **ORB 3.1** · low-DOF + scale-out *(`ORB_3_1.py`)* | ORB 3.0 base + optional partial + **bar-trailing stop** | ✅ **Current deployable** at `p0/trail5` (single-lot ride + 5-bar trail). Run #125. WF + lockbox + ES transfer all PASS. See [`ORB.md`](ORB.md). |
+| new | ORB 3.2 · trail research *(`ORB_3_2.py`)* | 3.1 + chandelier/activate/breakeven levers | 🔬 research only — the smarter trails overfit / don't beat the simple bar-trail (invariant-verified == 3.1 when off) |
 | 20 | **ORB 3.0** · low-DOF deployable *(formerly "ORB SIMPLE")* | breakout of the opening range, stripped to **5 knobs** (no ATR/partials/trail) | ✅ **Strongest validated asset.** Auto-Validate 6yr PASS 6/6 (+$85.7k lockbox); XL 16yr PASS 6/6, WFE 176% (+$156.8k lockbox), DSR ~100%. Needs **no gate**. |
 | 18 | ORB 2.0 · trail + ATR stop + vol filter | the complex ORB (ATR-normalized stop, partial exits, trailing) | ⚠️ WEAK on screen — the extra knobs didn't earn their keep |
 | 19 | ORB 1.0 · open-momentum | the earliest, looser ORB | ⚠️ WEAK raw; became viable **only with the Random-Forest ML gate on 16yr** (see §4) |
@@ -108,13 +110,21 @@ deserves a fresh single-strategy re-validation before trust.*
 **ORB 3.0 forward-test pick = run 119** (see §5): robust, tiny drawdown, sits on the
 plateau (stop 0.75). Run 121 makes more money but rides a few big winners = riskier.
 
-**Scale-out finding** (earlier session; that config was informally called "ORB 3.1" —
-it's ORB 3.0 with partial exits + a trailing stop bolted on): the partial+trail version
-passes WF and the lockbox, **but the scale-out only makes the curve *smoother* (better
-risk-adjusted), not *richer***. On the safe **0.75 stop**, single-lot **ride-to-close**
-is the PnL champ. Run 121's headline came partly from an **inflated 0.25 stop** — treat
-its raw dollars with caution. Net: deploy the simple single-lot ORB 3.0; add scale-out
-only if you specifically want a smoother equity curve, not more money.
+**ORB 3.1 / 3.2 are now REAL committed files (not informal), with a full deep-dive.**
+> **Full running record: [`ORB.md`](ORB.md)** — deployable config, all results, backlog. Summary:
+- **Deployable (2026-07-03): single-lot · ride-to-close · 0.75 stop · vol 1.25 · flat-EOD · 5-bar
+  trailing stop** = `ORB_3_1.py` at `p0/trail5`. Saved as **starred run #125**. Full-history net
+  $361k · PF 1.61 · maxDD −$9.4k · **MAR 38.6**.
+- **The trailing stop is the risk-adjusted lever** — halves drawdown vs no-trail, doubles MAR (15→33).
+  The 2-lot **partial** only lifts win-rate (→50-60%), not MAR — optional psychology, not edge.
+- **Triple-validated:** walk-forward 6/6 folds OOS+, lockbox one-shot PASS (PF 1.63), **ES transfer
+  PASS with no re-fit** (ES lockbox PF 1.57) → the edge is structural, not an NQ artifact.
+- **Vol-target (risk-parity) sizing** = modest WIN that generalizes (lockbox MAR +29%, DD ~halved);
+  best = `rp-cap3` execution-layer overlay (size ∝ 1/stop-distance, cap 3×).
+- **Tested & rejected:** chandelier ATR trail (overfits the lockbox), trail-activation (hurts),
+  breakeven (wash), regime-skip `atr_filter` (the trail already handles low-vol days).
+- Run 121's headline came partly from an **inflated 0.25 stop** (below the 0.5 floor) — treat with caution.
+- `ORB_3_2.py` = trailing-research fork (invariant-verified == 3.1 when its levers are off); research only.
 
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
@@ -177,6 +187,11 @@ ORB family walk-forward, 16yr (2010-06 → 2026-06), NQ/ES 5m RTH. `#` = real ru
 | 122 | NQ | stop 2.0 | 1.34 | 51% | 3,765 | +$517.9k | **−$62.7k** | drawdown too deep |
 | 123 | ES | or 4, stop 0.75 | 1.41 | 43% | 3,733 | +$273.7k | −$18.4k | — |
 | 124 | ES | Short sweep | 1.35 | 45% | 3,857 | +$251.3k | −$16.1k | — |
+| **125** ⭐ | NQ | **3.1 single-lot ride + 5-bar trail** | 1.61 | 41% | 4,064 | +$360.6k | **−$9.4k** | **deployable — WF + lockbox + ES transfer all PASS** |
+
+*2026-07-03 prune: removed 4 exact-duplicate re-runs + 3 superseded ETH runs (backup
+`optimizer_history.db.bak_20260703_163836_preprune`); ORB family 20 → 13 runs. Runs 119/121/112
+relabeled with notes; double-star on 112/114 fixed.*
 
 *Yesterday's gate/validate experiments ran as engine jobs (task outputs + Firestore),
 not saved to the runs DB — so they carry no run id.*
@@ -212,6 +227,12 @@ Planned pills, best-value first:
 ---
 
 ## Changelog
+- **2026-07-04** — ORB deep-dive folded in (see [`ORB.md`](ORB.md) for the full record).
+  Real `ORB_3_1.py` (deployable single-lot ride + 5-bar trailing stop, run #125) + `ORB_3_2.py`
+  (trail research). Findings: the trailing stop is the risk-adjusted lever (MAR 15→33); triple-
+  validated (WF, lockbox, **ES transfer PASS**); vol-target sizing a modest generalizing win
+  (`rp-cap3`); chandelier/activation/breakeven and regime-skip `atr_filter` tested & rejected.
+  Pruned the runs DB (ORB 20→13, dupes + ETH). Added ORB 3.1/3.2 to §3; run #125 to §5.
 - **2026-07-04** — Created this doc. Renamed ORB SIMPLE → **ORB 3.0** across engine +
   site (web VERSION 44.0). Confirmed ORB 3.0 is the strongest validated asset and needs
   no gate; documented the 16yr RF-gate flip on ORB 1.0. Mapped all Carl McBride Ellis
