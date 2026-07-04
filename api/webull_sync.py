@@ -172,11 +172,20 @@ def _order_to_fill(o):
         return None
     if itype not in ("EQUITY", "ETF", "STOCK", ""):
         return None                            # options/crypto out of scope (stocks/ETFs only)
+    # Real per-fill cost: Webull US stock commission is $0, but sells carry small
+    # regulatory fees (SEC/TAF). Both fields ship in the payload — sum them so the
+    # journal's fee column is honest (commission is ~always 0, so no double-count).
+    fee = 0.0
+    for fk in ("fees", "commission"):
+        try:
+            fee += abs(float(_field(o, fk, default=0) or 0))
+        except (TypeError, ValueError):
+            pass
     return {
         "exec_id": str(_field(o, "order_id", "orderId", "client_order_id", "clientOrderId",
                               default="")) or None,
         "dt": when, "symbol": sym, "action": side,
-        "qty": qty, "price": px,
+        "qty": qty, "price": px, "fee": round(fee, 4),
         "account": str(_field(o, "account_id", "accountId", default="")),
     }
 
@@ -250,6 +259,7 @@ def build_trades(fills):
         entry_dt = exit_dt = None
         entry_side = None
         entry_oid = close_exec_id = ""
+        fee_acc = 0.0                          # regulatory fees across the open round-trip
 
         for f in grp:
             delta = f["qty"] if f["action"] == "BUY" else -f["qty"]
@@ -264,22 +274,25 @@ def build_trades(fills):
                     entry_notional = f["price"] * abs(delta)
                     exit_qty = exit_notional = 0.0
                     exit_dt = None
+                    fee_acc = f.get("fee", 0.0)
                 else:
                     entry_qty += abs(delta)
                     entry_notional += f["price"] * abs(delta)
+                    fee_acc += f.get("fee", 0.0)
             else:
                 closing = min(abs(delta), abs(pos))
                 exit_qty += closing
                 exit_notional += f["price"] * closing
                 exit_dt = f["dt"]
                 close_exec_id = f["exec_id"] or ""
+                fee_acc += f.get("fee", 0.0)
 
             if pos != 0 and new_pos == 0:
                 avg_entry = entry_notional / entry_qty if entry_qty else 0.0
                 avg_exit = exit_notional / exit_qty if exit_qty else 0.0
                 d = 1 if entry_side == "LONG" else -1
                 gross = round((avg_exit - avg_entry) * d * entry_qty, 2)
-                fees = 0.0                      # Webull US stock commission is $0
+                fees = round(fee_acc, 2)        # SEC/TAF; Webull US commission is $0
                 dur_sec = max(0, int((exit_dt - entry_dt).total_seconds())) if entry_dt and exit_dt else None
                 trades.append({
                     "doc_id": "wb_" + _safe_id(close_exec_id or f"{account}{symbol}{entry_dt}{avg_exit}"),
@@ -310,6 +323,7 @@ def build_trades(fills):
                 entry_dt = exit_dt = None
                 entry_side = None
                 entry_oid = close_exec_id = ""
+                fee_acc = 0.0
                 continue
             pos = new_pos
     return trades
