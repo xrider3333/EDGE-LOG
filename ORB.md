@@ -19,9 +19,13 @@
 - **The 2-lot "book early" partial is optional** — it lifts win-rate (→50-60%) but not MAR. Psychology lever, not an edge lever.
 - **Smarter trails were tested and lost:** chandelier ATR trail overfits (great in-sample, worse on lockbox); activation hurts; breakeven@1R is a wash. Simple fixed bar-trail wins forward.
 - **Edge is structural:** the NQ config transfers to ES with no re-fit (ES lockbox PF 1.57).
+- **Vol-target (risk-parity) sizing is a modest but GENERALIZING win** (unlike the chandelier):
+  size ∝ 1/initial-risk lifts lockbox MAR +29% (6.9 → 8.9) and roughly halves drawdown, at the
+  cost of absolute PnL at equal average size (you recover it by sizing up into the freed DD budget).
+  Best practical form: **risk-parity capped at 3× avg size (`rp-cap3`)**, applied at the execution layer.
 - **ML gate does NOT earn its keep on ORB** (per ROADMAP #25) — ORB is already clean/high-volume. Keep the gate for marginal strategies (VWAP FADE), not ORB.
 
-**Next up (unstarted, by expected payoff): vol-target sizing → regime skip → time structure → long/short asymmetry → ensemble.**
+**Next up (unstarted, by expected payoff): regime skip → time structure → long/short asymmetry → ensemble → app MAR ranking.**
 
 ---
 
@@ -125,6 +129,28 @@ Trail (t3/t5/t8) tops the MAR frontier → it's a **plateau, not a spike** (robu
 
 Edge holds on a sibling instrument it was never fit to → **structural**, not an NQ artifact.
 
+### 4.7 Vol-target (risk-parity) sizing — modest, and it GENERALIZES ✅
+Re-weight position size ∝ 1/initial-risk (constant-$ risk per trade) vs fixed 1 contract,
+capital-matched (mean size = 1), fee scales with size. `rp-cap3` = risk-parity capped at 3× avg;
+`rp-sqrt` = dampened (size ∝ 1/√risk).
+
+| window | scheme | net $ | PF | maxDD | MAR |
+|---|---|---|---|---|---|
+| full | fixed (baseline) | $360.6k | 1.61 | −$9.35k | 38.6 |
+| full | rp-cap3 | $188.8k | 1.73 | −$4.26k | 44.3 |
+| full | rp-sqrt | $255.9k | 1.67 | −$5.02k | **50.9** |
+| **lockbox** | fixed | $54.1k | 1.63 | −$7.87k | 6.88 |
+| **lockbox** | **rp-cap3** | $55.2k | 1.72 | −$6.24k | **8.85** (+29%) |
+
+- Improves MAR on full history (38.6 → 44-51), the unseen lockbox (6.9 → 8.9), and **4 of 6 WF folds**.
+  Cuts drawdown ~in half; lifts PF (1.61 → 1.73). **Survives the lockbox** — a real edge, not a mirage.
+- Costs absolute PnL *at equal average size* because it downsizes the wide-OR trend days that make the
+  fat tail. On a **drawdown budget** (size up to the old DD) rp-sqrt ≈ **+32% return** at equal risk.
+- Best practical: **`rp-cap3`**. It's a sizing OVERLAY at the execution layer (contracts per signal),
+  not a signal change — see the deploy rule in §5.6 below.
+- Caveats: realize it via whole-contract rounding (cleaner on micros/larger accounts); risk-parity
+  concentrates size into quiet-day tight-stop trades (the cap + the 1.25 vol filter mitigate the tail).
+
 ---
 
 ## 5. What a pro would actually do here (principles)
@@ -140,6 +166,11 @@ Edge holds on a sibling instrument it was never fit to → **structural**, not a
    a mirage; the reserved slice is the only honest judge.
 5. **Rank deploy decisions by MAR in the app.** The runs table already stores `best_dd_usd`; a
    MAR column / `rank_by="mar"` is a trivial, high-value add (would've surfaced this on sweep #1).
+6. **Size each signal by its stop, not one-lot-fits-all (§4.7 deploy rule).** Per ORB signal:
+   `contracts = round( RISK_$ / (0.75 × OR_width_pts × $per_pt) )`, clamped to `[1, 3× your baseline]`.
+   RISK_$ = your fixed per-trade dollar risk (e.g. 0.5-1% of equity). This is the `rp-cap3` overlay —
+   quiet-day (tight-stop) signals get more contracts, wild-day (wide-stop) signals fewer, so every
+   trade risks ~the same dollars. Applied at execution; the signal/exit logic is unchanged.
 
 ---
 
@@ -147,17 +178,17 @@ Edge holds on a sibling instrument it was never fit to → **structural**, not a
 
 | # | idea | expected payoff | status | result |
 |---|---|---|---|---|
-| A | **Vol-target sizing** — risk a constant % of equity/trade (stop-dist × $ fixed) instead of 1 lot. Graft `use_atr_stop` from v2 onto the 3.1 base. | **HIGH** — biggest untapped MAR lever | ☐ TODO | — |
 | B | **Regime skip** — sweep `atr_filter` (skip low-vol sessions, ORB's flagged bleeding bucket) on the trailed base | MED-HIGH | ☐ TODO | — |
 | C | **Time structure** — entry-time window (skip late-day breaks) + midday time-stop | MED | ☐ TODO | — |
 | D | **Long/short asymmetry** — split exits (looser trail longs, tighter/faster shorts) or regime-gate shorts | MED | ☐ TODO | — |
 | E | **Ensemble** — 1 lot full-ride + 1 lot trailed → blended curve between MAR 15 and 33 (your original 2-contract idea, done right) | MED (smoothing, not new edge) | ☐ TODO | — |
 | F | **App: MAR ranking** — add MAR column + `rank_by="mar"` to the optimizer/runs UI | LOW effort, HIGH leverage | ☐ TODO | — |
 | — | Smarter trailing (chandelier / activate / breakeven) | — | ☑ DONE | chandelier overfits; activate hurts; breakeven wash. **Simple bar-trail wins.** |
+| A | **Vol-target (risk-parity) sizing** | HIGH | ☑ DONE | **WIN (modest, generalizes)** — lockbox MAR +29% (6.9→8.9), DD ~halved, PF→1.73, survives lockbox + 4/6 WF folds. Best = `rp-cap3` overlay (§4.7, deploy rule §5.6). |
 | — | ES transfer of the deployable config | — | ☑ DONE | **PASS** (ES lockbox PF 1.57) |
 | — | Walk-forward + lockbox of the scale-out | — | ☑ DONE | **PASS** (6/6 folds, lockbox PF 1.63) |
 
-**Recommended next: A (vol-target sizing)** — it directly attacks the metric everything else is judged on (drawdown-adjusted return) and is the standard pro move once exits are settled.
+**Recommended next: B (regime skip via `atr_filter`)** — cheap, complements sizing (both attack drawdown), and directly targets ORB's known bleeding bucket (low-vol sessions).
 
 ---
 
