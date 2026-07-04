@@ -25,12 +25,13 @@
   Best practical form: **risk-parity capped at 3× avg size (`rp-cap3`)**, applied at the execution layer.
 - **ML gate does NOT earn its keep on ORB** (per ROADMAP #25) — ORB is already clean/high-volume. Keep the gate for marginal strategies (VWAP FADE), not ORB.
 
-- **Time-of-day is a real edge signal:** morning breakouts carry ~2× the profit factor of afternoon ones
-  (first-hour PF 2.2 vs all-day 1.6; lockbox 3.5 vs 1.6). Cash it in by *concentrating size* in the
-  morning window, not by trading less — see backlog item **G**.
+- **Best result of the study — the sizing overlay (§4.10):** two independent edges *stack* — tilt size to
+  the morning window (~2× the profit factor there) **×** risk-parity (size ∝ 1/stop). Capital-matched, this
+  lifts lockbox MAR **+85%** (6.9 → 12.7) and PF 1.61→2.16, winning 5/6 WF folds — an execution-layer
+  overlay (§5.6), no entry/exit change. *Truncating* to morning-only is worse than baseline (tilt, don't cut).
 
-**Next up (unstarted, by expected payoff): entry-time × sizing combo (G) → long/short asymmetry → ensemble → app MAR ranking.**
-*(Tested & rejected: smarter trailing (chandelier/activate/breakeven), regime skip `atr_filter`, midday time-stop — the trail already handles low-vol/stalled trades.)*
+**Next up: (F) wire the size overlay + MAR ranking into the app to make this deployable, or (D) long/short asymmetry.**
+*(Tested & rejected: smarter trailing (chandelier/activate/breakeven), regime skip `atr_filter`, midday time-stop, morning-only truncation — the trail already handles low-vol/stalled trades; truncation balloons drawdown.)*
 
 ---
 
@@ -201,6 +202,29 @@ Same story as regime-skip: the trailing stop already exits stalled trades; a har
   PF supports more risk/trade), or tier size by time-of-day. Paired with §4.7 sizing this could match the
   all-day $ at lower drawdown, far fewer trades, less fee/slippage drag. → **backlog item G.**
 
+### 4.10 Entry-time × sizing (item G) — the combo WINS ✅ *(best result of the study)*
+Capital-matched to the **same total $risk budget** (a fair "where do you spend the risk?" test).
+Tier weights (morning ×2 / midday ×1 / afternoon ×0.5) are a **fixed a-priori rule** → lockbox is clean OOS.
+
+| scheme (capital-matched) | full MAR | lockbox MAR | full PF | lockbox PF |
+|---|---|---|---|---|
+| baseline all-day, size 1 | 38.6 | 6.88 | 1.61 | 1.63 |
+| risk-parity alone (A) | 44.3 | 8.85 | 1.73 | 1.72 |
+| time-tiered alone | 38.8 | 10.52 | 1.89 | 2.08 |
+| morning-only truncation | 29.7 | 7.67 | 2.31 | 3.48 |
+| **time-tiered × risk-parity (the combo)** | **48.1** | **12.74** | **2.02** | **2.16** |
+
+- **The two edges stack.** Time-of-day tilt and risk-parity are independent; combined MAR (48.1 full,
+  **12.74 lockbox = +85% vs baseline**) beats either alone. Combo MAR > baseline in **5/6 WF folds**,
+  higher PF in all 6. Best risk-adjusted result in the whole ORB study.
+- **Truncation is the wrong way to use the morning edge** — morning-only MAR (29.7) is *below* baseline:
+  concentrating the whole risk budget into 31% of trades balloons drawdown. **Keep all trades, tilt size.**
+- **Deploy = execution-layer overlay** (no entry/exit change): `size ∝ time_weight(entry_hour) ×
+  cap3(1/stop_dist)`, then hard-cap the final size (§5.6). Raw combo maxSz ~14× → cap it for realism.
+- Honest caveats: the tier weights are deliberately **un-tuned** (a-priori) to avoid overfit — surviving
+  the lockbox un-tuned is the signal; a fitted weight curve would need its own WF. The `WR` on morning-only
+  rows is a display artifact (zeroed afternoon trades dilute it) — read PF/MAR, not WR, there.
+
 ---
 
 ## 5. What a pro would actually do here (principles)
@@ -216,11 +240,12 @@ Same story as regime-skip: the trailing stop already exits stalled trades; a har
    a mirage; the reserved slice is the only honest judge.
 5. **Rank deploy decisions by MAR in the app.** The runs table already stores `best_dd_usd`; a
    MAR column / `rank_by="mar"` is a trivial, high-value add (would've surfaced this on sweep #1).
-6. **Size each signal by its stop, not one-lot-fits-all (§4.7 deploy rule).** Per ORB signal:
-   `contracts = round( RISK_$ / (0.75 × OR_width_pts × $per_pt) )`, clamped to `[1, 3× your baseline]`.
-   RISK_$ = your fixed per-trade dollar risk (e.g. 0.5-1% of equity). This is the `rp-cap3` overlay —
-   quiet-day (tight-stop) signals get more contracts, wild-day (wide-stop) signals fewer, so every
-   trade risks ~the same dollars. Applied at execution; the signal/exit logic is unchanged.
+6. **Size each signal by its stop AND its entry hour (§4.7 + §4.10 deploy rule).** Per ORB signal:
+   `contracts = round( T · RISK_$ / (0.75 × OR_width_pts × $per_pt) )`, clamped to `[1, 3× baseline]`,
+   where **RISK_$** = fixed per-trade dollar risk (~0.5-1% equity) and **T** = the time-of-day tilt
+   (≈2× a first-hour breakout, 1× midday, 0.5× afternoon). Tight-stop / morning signals get more
+   contracts; wide-stop / afternoon signals fewer. The two tilts are independent edges that stack
+   (combo lockbox MAR **12.7 vs 6.9** baseline). Execution-layer only; entries/exits unchanged.
 
 ---
 
@@ -228,7 +253,6 @@ Same story as regime-skip: the trailing stop already exits stalled trades; a har
 
 | # | idea | expected payoff | status | result |
 |---|---|---|---|---|
-| **G** | **Entry-time × sizing combo** — size up morning breakouts (PF 2.2-3.5 window) / tier size by time-of-day; combine §4.9 edge-concentration with §4.7 risk-parity | **HIGH** — the live lead from item C | ☐ TODO | — |
 | D | **Long/short asymmetry** — split exits (looser trail longs, tighter/faster shorts) or regime-gate shorts | MED | ☐ TODO | — |
 | E | **Ensemble** — 1 lot full-ride + 1 lot trailed → blended curve between MAR 15 and 33 (your original 2-contract idea, done right) | MED (smoothing, not new edge) | ☐ TODO | — |
 | F | **App: MAR ranking** — add MAR column + `rank_by="mar"` to the optimizer/runs UI | LOW effort, HIGH leverage | ☐ TODO | — |
@@ -236,12 +260,14 @@ Same story as regime-skip: the trailing stop already exits stalled trades; a har
 | A | **Vol-target (risk-parity) sizing** | HIGH | ☑ DONE | **WIN (modest, generalizes)** — lockbox MAR +29% (6.9→8.9), DD ~halved, PF→1.73, survives lockbox + 4/6 WF folds. Best = `rp-cap3` overlay (§4.7, deploy rule §5.6). |
 | B | **Regime skip** (`atr_filter`) | MED-HIGH | ☑ DONE | **NO help** (§4.8) — every filter>0 lowers MAR/PF/PnL, DD doesn't improve. The trail already neutralizes low-vol days (substitutes, not complements). Leave off. |
 | C | **Time structure** (`ORB_3_3.py`) | MED | ☑ DONE | time-stop ✗ (cuts winners); **entry-time cutoff = real quality signal** (first-hour PF 2.2, lockbox 3.5, 6/6 WF folds) but quality-vs-quantity on raw MAR → spawned item **G** (§4.9). |
+| **G** | **Entry-time × sizing combo** | HIGH | ☑ DONE | **WIN — best result of the study** (§4.10). Time-tilt × risk-parity *stack*: lockbox MAR **+85%** (6.9→12.7), PF 1.61→2.16, 5/6 WF folds. Deploy = size overlay (§5.6). Truncation ✗ — tilt, don't cut. |
 | — | ES transfer of the deployable config | — | ☑ DONE | **PASS** (ES lockbox PF 1.57) |
 | — | Walk-forward + lockbox of the scale-out | — | ☑ DONE | **PASS** (6/6 folds, lockbox PF 1.63) |
 
-**Recommended next: G (entry-time × sizing)** — item C surfaced that morning breakouts carry ~2× the
-profit factor. The move isn't to trade less; it's to *concentrate size* in the high-edge window (pair
-§4.9 with §4.7 risk-parity) and see if it matches the all-day $ at lower drawdown + far fewer trades.
+**Recommended next — pick a lane:** (1) **F — make it real:** wire the §5.6 size overlay (risk-parity ×
+time-tilt) + MAR ranking into the app so this research is actually deployable; the edges are found, the
+value now is in using them. Or (2) **D — keep mining:** long/short asymmetry, the last untested structural
+lever. Given how much has landed, **F (consolidate) is the higher-value move.**
 
 ---
 
