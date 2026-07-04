@@ -342,3 +342,31 @@ else is minor (E: ride+trailed ensemble). Or just **deploy the §5.6 rule** at t
 - **Rank by MAR, not PnL** — PnL ranking wrongly crowned the single-lot no-trail config; every
   risk-adjusted lens (PF, MAR, lockbox) prefers the trailed one.
 - **In-sample ≠ deployable** — the chandelier proved it. Always let the lockbox decide.
+- **⚠️ The lockbox is now OVER-USED** — the reserved last-12-months has been peeked at many times
+  (trail, scale-out, sizing, time, side, ES, cap). Each look erodes its held-out value; after this many
+  it's effectively an extension of the in-sample set. **The only clean forward test left is LIVE
+  performance.** Treat the lockbox MARs as encouraging, not confirmatory. A future clean read needs a
+  fresh, never-touched reserved slice.
+- **Overlay weights were chosen post-hoc** — morning ×2 / short ×1.5 / 3× cap are a-priori (un-tuned,
+  which limits overfit) but the *directions* were picked after seeing the splits. Some selection bias baked in.
+- **Slippage may bite the overlay hardest** — the sizing rule concentrates size onto tight-stop (tiny-OR)
+  morning trades, which are the *most* fill-sensitive (small range, stop/market entries). Flat 0.25pt
+  slippage likely understates cost exactly where the overlay bets biggest — haircut the sized numbers in your head.
+- **Short-tilt is regime-untested** — the short edge is measured over a 2010-2026 secular bull, never broken
+  down by year/regime. It could concentrate in a few risk-off years. Deploy the *tilt* (not hard short-only),
+  and see the open dive below before sizing it up.
+- **§4 tables are UNCAPPED; the deployable is CAPPED** — the §4.10/4.11 deploy-stack numbers (full MAR 71.5,
+  lockbox 15.0) are the uncapped research frontier. The tradeable rule (§5.6 + the app card) caps at 3× →
+  full MAR 96.1 / $590k net. Read §4 as "how big is the edge," §5.6 as "what you'd actually trade."
+
+---
+
+## 9. Open dive (the one worth doing)
+
+**Sub-period / regime stability of the short-side edge.** Everything hinges on shorts carrying the edge
+(PF 2.74 vs longs 1.03) — but that's an aggregate over 16 years. Before trusting a short-tilted book, break
+the short edge down **by calendar year and by vol regime**: is it steady, or does it live in 2018/2020/2022
+risk-off spikes? If the short PF is positive in most years it's structural and safe to tilt; if it's a few
+crash years carrying the rest, the tilt is a bet on volatility returning. This is cheap (reuse the deployable
+trade log, group by year/VIX-regime) and it's the last thing standing between "measured edge" and "deployable
+with confidence." *(Not yet run.)*
