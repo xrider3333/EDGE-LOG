@@ -103,6 +103,7 @@ deserves a fresh single-strategy re-validation before trust.*
 |---|---|---|---|
 | new | **ORB 3.1** · low-DOF + scale-out *(`ORB_3_1.py`)* | ORB 3.0 base + optional partial + **bar-trailing stop** | ✅ **Current deployable** at `p0/trail5` (single-lot ride + 5-bar trail). Run #125. WF + lockbox + ES transfer all PASS. See [`ORB.md`](ORB.md). |
 | new | ORB 3.2 · trail research *(`ORB_3_2.py`)* | 3.1 + chandelier/activate/breakeven levers | 🔬 research only — the smarter trails overfit / don't beat the simple bar-trail (invariant-verified == 3.1 when off) |
+| new | ORB 3.3 · time-structure research *(`ORB_3_3.py`)* | 3.1 + entry-time cutoff + midday time-stop | 🔬 research only — time-stop ✗; entry-cutoff shows morning breakouts carry ~2× PF (a size-concentration lead, not a truncation) |
 | 20 | **ORB 3.0** · low-DOF deployable *(formerly "ORB SIMPLE")* | breakout of the opening range, stripped to **5 knobs** (no ATR/partials/trail) | ✅ **Strongest validated asset.** Auto-Validate 6yr PASS 6/6 (+$85.7k lockbox); XL 16yr PASS 6/6, WFE 176% (+$156.8k lockbox), DSR ~100%. Needs **no gate**. |
 | 18 | ORB 2.0 · trail + ATR stop + vol filter | the complex ORB (ATR-normalized stop, partial exits, trailing) | ⚠️ WEAK on screen — the extra knobs didn't earn their keep |
 | 19 | ORB 1.0 · open-momentum | the earliest, looser ORB | ⚠️ WEAK raw; became viable **only with the Random-Forest ML gate on 16yr** (see §4) |
@@ -121,10 +122,14 @@ plateau (stop 0.75). Run 121 makes more money but rides a few big winners = risk
   PASS with no re-fit** (ES lockbox PF 1.57) → the edge is structural, not an NQ artifact.
 - **Vol-target (risk-parity) sizing** = modest WIN that generalizes (lockbox MAR +29%, DD ~halved);
   best = `rp-cap3` execution-layer overlay (size ∝ 1/stop-distance, cap 3×).
-- **Tested & rejected:** chandelier ATR trail (overfits the lockbox), trail-activation (hurts),
-  breakeven (wash), regime-skip `atr_filter` (the trail already handles low-vol days).
+- **Time-of-day is a real edge signal:** morning breakouts carry ~2× the profit factor of afternoon
+  ones (first-hour PF 2.2 vs all-day 1.6; **lockbox PF 3.5 vs 1.6**, 6/6 WF folds). Quality-vs-quantity,
+  so best cashed in by *concentrating size* in the morning window, not trading less (→ next lead).
+- **Tested & rejected:** chandelier ATR trail (overfits), trail-activation (hurts), breakeven (wash),
+  regime-skip `atr_filter` and midday time-stop (the trail already handles low-vol / stalled trades).
 - Run 121's headline came partly from an **inflated 0.25 stop** (below the 0.5 floor) — treat with caution.
-- `ORB_3_2.py` = trailing-research fork (invariant-verified == 3.1 when its levers are off); research only.
+- `ORB_3_2.py` (trail research) + `ORB_3_3.py` (time-structure research) = A/B forks, invariant-verified
+  == 3.1 when their levers are off; research only, not for deploy.
 
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
@@ -233,6 +238,12 @@ Planned pills, best-value first:
   (sklearn); local per-trade SHAP lights up if the optional `shap` package is added. First
   result on ORB + RF gate: keys on **momentum** (mom_20/mom_5) and **range-position**, not
   time-of-day.
+- **2026-07-04** — ORB time-structure (`ORB_3_3.py`): midday time-stop rejected (cuts winners);
+  **entry-time cutoff surfaced a real signal — morning breakouts carry ~2× the profit factor**
+  (first-hour PF 2.2 / lockbox 3.5 vs all-day 1.6, 6/6 WF folds). Quality-vs-quantity, so best used
+  as size-concentration, not truncation (new lead: entry-time × sizing). See `ORB.md` §4.9. *(NB: the
+  SHAP note above found the RF **gate** keys on momentum not time-of-day — different question; that's
+  gate trade-selection features, this is raw-strategy PF by entry hour.)*
 - **2026-07-04** — ORB deep-dive folded in (see [`ORB.md`](ORB.md) for the full record).
   Real `ORB_3_1.py` (deployable single-lot ride + 5-bar trailing stop, run #125) + `ORB_3_2.py`
   (trail research). Findings: the trailing stop is the risk-adjusted lever (MAR 15→33); triple-

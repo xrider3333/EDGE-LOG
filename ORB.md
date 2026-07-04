@@ -25,8 +25,12 @@
   Best practical form: **risk-parity capped at 3× avg size (`rp-cap3`)**, applied at the execution layer.
 - **ML gate does NOT earn its keep on ORB** (per ROADMAP #25) — ORB is already clean/high-volume. Keep the gate for marginal strategies (VWAP FADE), not ORB.
 
-**Next up (unstarted, by expected payoff): time structure → long/short asymmetry → ensemble → app MAR ranking.**
-*(Tested & rejected: smarter trailing (chandelier/activate/breakeven), regime skip `atr_filter` — the trail already handles low-vol days.)*
+- **Time-of-day is a real edge signal:** morning breakouts carry ~2× the profit factor of afternoon ones
+  (first-hour PF 2.2 vs all-day 1.6; lockbox 3.5 vs 1.6). Cash it in by *concentrating size* in the
+  morning window, not by trading less — see backlog item **G**.
+
+**Next up (unstarted, by expected payoff): entry-time × sizing combo (G) → long/short asymmetry → ensemble → app MAR ranking.**
+*(Tested & rejected: smarter trailing (chandelier/activate/breakeven), regime skip `atr_filter`, midday time-stop — the trail already handles low-vol/stalled trades.)*
 
 ---
 
@@ -170,6 +174,33 @@ deployable p0/trail5, pre-lockbox, net:
   skipping them just removes trades (some are winners) and *concentrates* the remaining drawdown.
   **Regime-skip and the trail are substitutes, not complements.** Leave `atr_filter = 0`.
 
+### 4.9 Time structure — time-stop ✗, but entry-time reveals a real edge signal ◐
+Two session-clock levers (`ORB_3_3.py`, 5m RTH: bar t ≈ 9:30 + 5·t min), net of fees:
+
+**Midday time-stop (force-exit at session-bar X) — REJECTED.** Every setting worsens it:
+| time_stop_bar | net $ | PF | maxDD | MAR |
+|---|---|---|---|---|
+| 0 (off) | $306.5k | 1.61 | −$9.35k | 32.8 |
+| 48 (~13:30) | $260.5k | 1.54 | −$13.7k | 19.0 |
+Same story as regime-skip: the trailing stop already exits stalled trades; a hard time-exit just cuts winners.
+
+**Entry-time cutoff (only enter before session-bar X) — a real QUALITY signal that generalizes:**
+| cutoff | window | trades | net $ | PF | maxDD | MAR |
+|---|---|---|---|---|---|---|
+| 0 (all day) | — | 3,814 | $306.5k | 1.61 | −$9.35k | **32.8** |
+| 6 | first 30 min | 438 | $56.6k | **2.45** | −$4.65k | 12.2 |
+| 12 | **first hour** | 1,185 | $158.5k | **2.20** | −$6.42k | 24.7 |
+| 36 | first 3 h | 2,189 | $248.6k | 1.99 | −$10.2k | 24.5 |
+
+- **The morning breakouts carry the edge** — PF rises monotonically the earlier you cut off (first-hour
+  PF 2.20 vs all-day 1.61). On the unseen **lockbox, cutoff-12 PF = 3.48 vs 1.63**, and it has higher PF
+  in **6/6 WF folds**. The quality signal is real and robust.
+- **But it's quality-vs-quantity:** fewer trades → less total $ → *naive* MAR favors trading all day
+  (32.8 > 24.7). So "just stop trading at 1pm" is NOT a drop-in win.
+- **The payoff is edge-concentration, not truncation:** trade first-hour-only and **size up** (the higher
+  PF supports more risk/trade), or tier size by time-of-day. Paired with §4.7 sizing this could match the
+  all-day $ at lower drawdown, far fewer trades, less fee/slippage drag. → **backlog item G.**
+
 ---
 
 ## 5. What a pro would actually do here (principles)
@@ -197,19 +228,20 @@ deployable p0/trail5, pre-lockbox, net:
 
 | # | idea | expected payoff | status | result |
 |---|---|---|---|---|
-| C | **Time structure** — entry-time window (skip late-day breaks) + midday time-stop | MED | ☐ TODO | — |
+| **G** | **Entry-time × sizing combo** — size up morning breakouts (PF 2.2-3.5 window) / tier size by time-of-day; combine §4.9 edge-concentration with §4.7 risk-parity | **HIGH** — the live lead from item C | ☐ TODO | — |
 | D | **Long/short asymmetry** — split exits (looser trail longs, tighter/faster shorts) or regime-gate shorts | MED | ☐ TODO | — |
 | E | **Ensemble** — 1 lot full-ride + 1 lot trailed → blended curve between MAR 15 and 33 (your original 2-contract idea, done right) | MED (smoothing, not new edge) | ☐ TODO | — |
 | F | **App: MAR ranking** — add MAR column + `rank_by="mar"` to the optimizer/runs UI | LOW effort, HIGH leverage | ☐ TODO | — |
 | — | Smarter trailing (chandelier / activate / breakeven) | — | ☑ DONE | chandelier overfits; activate hurts; breakeven wash. **Simple bar-trail wins.** |
 | A | **Vol-target (risk-parity) sizing** | HIGH | ☑ DONE | **WIN (modest, generalizes)** — lockbox MAR +29% (6.9→8.9), DD ~halved, PF→1.73, survives lockbox + 4/6 WF folds. Best = `rp-cap3` overlay (§4.7, deploy rule §5.6). |
 | B | **Regime skip** (`atr_filter`) | MED-HIGH | ☑ DONE | **NO help** (§4.8) — every filter>0 lowers MAR/PF/PnL, DD doesn't improve. The trail already neutralizes low-vol days (substitutes, not complements). Leave off. |
+| C | **Time structure** (`ORB_3_3.py`) | MED | ☑ DONE | time-stop ✗ (cuts winners); **entry-time cutoff = real quality signal** (first-hour PF 2.2, lockbox 3.5, 6/6 WF folds) but quality-vs-quantity on raw MAR → spawned item **G** (§4.9). |
 | — | ES transfer of the deployable config | — | ☑ DONE | **PASS** (ES lockbox PF 1.57) |
 | — | Walk-forward + lockbox of the scale-out | — | ☑ DONE | **PASS** (6/6 folds, lockbox PF 1.63) |
 
-**Recommended next: C (time structure)** — an entry-time window (skip late-day breaks) + a midday
-time-stop. It's the largest lever we haven't touched; the current knobs don't address *when* in the
-session a breakout fires, and ORB edge is known to be time-of-day sensitive.
+**Recommended next: G (entry-time × sizing)** — item C surfaced that morning breakouts carry ~2× the
+profit factor. The move isn't to trade less; it's to *concentrate size* in the high-edge window (pair
+§4.9 with §4.7 risk-parity) and see if it matches the all-day $ at lower drawdown + far fewer trades.
 
 ---
 
