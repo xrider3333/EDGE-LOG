@@ -300,6 +300,70 @@ def fetch_balance(keys, log=print):
     return {"net_liq": round(net, 2), "cash": round(cash, 2)} if found else None
 
 
+def _open_positions(fills):
+    """Net share position per symbol implied by the fills (non-zero = still open)."""
+    pos = {}
+    for f in fills:
+        d = f["qty"] if f["action"] == "BUY" else -f["qty"]
+        pos[f["symbol"]] = pos.get(f["symbol"], 0.0) + d
+    return {s: round(q, 4) for s, q in pos.items() if abs(q) > 1e-6}
+
+
+def fetch_positions(keys, log=print):
+    """Live open positions {symbol: net_qty} across the non-futures accounts — the
+    broker's own view, used to reconcile against the fills-implied position. {} = flat."""
+    tc = _client(keys)
+    try:
+        accts = _extract_orders(tc.account_v2.get_account_list().json())
+    except Exception:
+        return None
+    out, sample = {}, False
+    for a in accts:
+        atype = str(_field(a, "account_type", "accountType", default="")).upper()
+        if "FUTURE" in atype:
+            continue
+        aid = _field(a, "account_id", "accountId", "id")
+        if not aid:
+            continue
+        time.sleep(1.2)
+        try:
+            items = _extract_orders(tc.account_v2.get_account_position(aid).json())
+        except Exception as e:
+            log(f"  [webull] positions ...{str(aid)[-4:]} skipped: {type(e).__name__}")
+            continue
+        for it in items:
+            if not sample:  # one-time field-shape log (positions are empty when flat)
+                log(f"  [webull] position fields: {sorted(it.keys())}")
+                sample = True
+            sym = str(_field(it, "symbol", "ticker", "disSymbol", default="")).upper().strip()
+            try:
+                q = float(_field(it, "quantity", "qty", "position", "shares", default=0) or 0)
+            except (TypeError, ValueError):
+                continue
+            if not sym or q == 0:
+                continue
+            if "SHORT" in str(_field(it, "side", "position_side", "positionSide", default="")).upper():
+                q = -abs(q)
+            out[sym] = out.get(sym, 0.0) + q
+    return {s: round(q, 4) for s, q in out.items() if abs(q) > 1e-6}
+
+
+def reconcile(fills, keys, log=print):
+    """Compare the broker's live positions to the fills-implied positions — an INDEPENDENT
+    integrity check: a mismatch means a fill probably failed to sync. Returns a dict for
+    meta/webull_sync, or None if positions couldn't be read. (Assumes no position is held
+    longer than the pull window — safe for a day-trader; the flat case is always exact.)"""
+    brk = fetch_positions(keys, log=log)
+    if brk is None:
+        return None
+    jrnl = _open_positions(fills)
+    syms = set(brk) | set(jrnl)
+    mism = [{"symbol": s, "broker": brk.get(s, 0.0), "log": jrnl.get(s, 0.0)}
+            for s in sorted(syms) if abs(brk.get(s, 0.0) - jrnl.get(s, 0.0)) > 1e-4]
+    return {"ok": not mism, "flat": not brk, "mismatches": mism,
+            "positions": brk, "checked_at": time.time()}
+
+
 # ── FIFO pairing (stock math) ──────────────────────────────────────
 
 def build_trades(fills):
@@ -503,6 +567,15 @@ def sync_trades(db, uid, keys_path=DEFAULT_KEYS, log=print, force=False):
     except Exception as e:
         log(f"  [webull] balance fetch failed: {type(e).__name__}: {e}")
 
+    # reconcile: broker live positions vs the fills-implied positions (independent check).
+    recon = None
+    try:
+        recon = reconcile(fills, keys, log=log)
+        if recon and not recon["ok"]:
+            log(f"  [webull] ⚠ reconcile drift: {recon['mismatches']}")
+    except Exception as e:
+        log(f"  [webull] reconcile failed: {type(e).__name__}: {e}")
+
     # status doc for the web UI (mirrors meta/nt_sync) — one write per day, cheap.
     # total_trades = cumulative Webull round-trips in the journal (from the persisted
     # written-set — free, no read), not just this run's window.
@@ -513,6 +586,8 @@ def sync_trades(db, uid, keys_path=DEFAULT_KEYS, log=print, force=False):
                 "reauth_needed": False, "last_error": None}
         if bal:
             meta.update(bal)
+        if recon:
+            meta["recon"] = recon
         db.collection("users").document(uid).collection("meta").document("webull_sync").set(meta)
     except Exception as e:
         log(f"  [webull] status write failed: {e}")
