@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='45.7';
+const VERSION='45.8';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -662,6 +662,16 @@ function brokerStartEquity(){
   return activeBroker===_LEGACY_BROKER?(accountEquity||0):0;         // NT → legacy global
 }
 function liveBalance(){return +((brokerStartEquity()+scopedNetPnl())).toFixed(2);}
+// Reconciliation badge — compares Webull's LIVE positions to what your logged fills imply
+// (written to meta/webull_sync by the daily sync). ✓ = broker agrees (no missing fills);
+// ⚠ = a position is out of sync (a fill likely didn't import). Shown on the Webull + ALL views.
+function reconBadge(){
+  if(!wbSync||!wbSync.recon||(activeBroker&&activeBroker!=='Webull'))return '';
+  const r=wbSync.recon;
+  if(r.ok)return `<span title="Webull's live positions match your logged fills — nothing missing. From the daily sync." style="color:var(--green);font-size:var(--fsxs);margin-left:8px">✓ reconciled w/ Webull${r.flat?' · flat':''}</span>`;
+  const m=(r.mismatches||[]).map(x=>`${x.symbol}: broker ${x.broker} vs log ${x.log}`).join('; ');
+  return `<span title="Webull holds a position your log doesn't reflect (or vice-versa) — a fill may not have synced. ${m}" style="color:var(--yellow);font-size:var(--fsxs);margin-left:8px">⚠ Webull out of sync (${(r.mismatches||[]).length})</span>`;
+}
 
 // pnlVal = which value to use for win/loss decisions
 function pnlVal(t){return useGross?(t.grossPnl||t.pnl):t.pnl;}
@@ -3259,7 +3269,7 @@ function renderApp(){
         <span style="color:var(--text4)">R:R <span style="color:${S.rr>=1.5?'var(--green)':S.rr>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.rr.toFixed(2)}R</span></span>
         <span style="color:var(--text4)">RECOVERY <span style="color:${S.recovery>=2?'var(--green)':S.recovery>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.recovery.toFixed(2)}×</span></span>
         <span style="color:var(--text4)">SHARPE <span style="color:${S.sharpe>=1?'var(--green)':S.sharpe>=0?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.sharpe.toFixed(2)}</span></span>
-        ${accountEquity>0?`<span style="color:var(--text4)">BALANCE <span style="color:var(--blue);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Starting balance + cumulative net P&L (live)">$${liveBalance().toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></span>`:''}
+        ${accountEquity>0?`<span style="color:var(--text4)">BALANCE <span style="color:var(--blue);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Starting balance + cumulative net P&L (live)">$${liveBalance().toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></span>`:''}${reconBadge()}
       </div>
     </div>
 
