@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='45.8';
+const VERSION='45.9';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -654,12 +654,21 @@ const _LEGACY_BROKER='NinjaTrader';
 function _evBroker(ev){return (ev&&ev.broker)||_LEGACY_BROKER;}
 function scopedLedger(){return activeBroker?ledgerEvents.filter(e=>_evBroker(e)===activeBroker):ledgerEvents;}
 function scopedNetPnl(){const ts=bScope(trades);return ts.length?+ts.reduce((s,t)=>s+(t.pnl||0),0).toFixed(2):0;}
+// Per-account starting balance. Webull derives from its live net-liq snapshot (net_liq −
+// its realized P&L); any account can be set explicitly (el_broker_equity); NinjaTrader
+// falls back to the legacy global accountEquity. ALL = Σ over accounts, so the combined
+// balance is a REAL sum of each account's own balance (not one global start + all P&L).
+function _brokerList(){return [...new Set(trades.map(t=>t.broker||_LEGACY_BROKER))];}
+function _pnlForBroker(b){return +trades.filter(t=>(t.broker||_LEGACY_BROKER)===b).reduce((s,t)=>s+(t.pnl||0),0).toFixed(2);}
+function _startForBroker(b){
+  if(b==='Webull'&&wbSync&&wbSync.net_liq!=null)return +((+wbSync.net_liq)-_pnlForBroker('Webull')).toFixed(2);
+  try{const m=JSON.parse(localStorage.getItem('el_broker_equity')||'{}');if(m[b]!=null&&m[b]!=='')return +m[b];}catch(e){}
+  return b===_LEGACY_BROKER?(accountEquity||0):0;
+}
+function brokerBalance(b){return +(_startForBroker(b)+_pnlForBroker(b)).toFixed(2);}
 function brokerStartEquity(){
-  if(!activeBroker)return accountEquity||0;                          // ALL → global
-  if(activeBroker==='Webull'&&wbSync&&wbSync.net_liq!=null)          // live snapshot → derive
-    return +((+wbSync.net_liq)-scopedNetPnl()).toFixed(2);
-  try{const m=JSON.parse(localStorage.getItem('el_broker_equity')||'{}');if(m[activeBroker]!=null)return +m[activeBroker];}catch(e){}
-  return activeBroker===_LEGACY_BROKER?(accountEquity||0):0;         // NT → legacy global
+  if(activeBroker)return _startForBroker(activeBroker);
+  return +_brokerList().reduce((s,b)=>s+_startForBroker(b),0).toFixed(2);   // ALL = Σ account starts
 }
 function liveBalance(){return +((brokerStartEquity()+scopedNetPnl())).toFixed(2);}
 // Reconciliation badge — compares Webull's LIVE positions to what your logged fills imply
@@ -6851,12 +6860,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
     <div class="section" style="margin-bottom:12px">
       <div class="sec-hd">ACCOUNT BALANCE</div>
       <div style="padding:14px">
-        <div style="font-size:var(--fsm);color:var(--text4);margin-bottom:10px;line-height:1.8">Your account balance now <b style="color:var(--text2)">updates automatically</b> with each trade's P&amp;L. Enter your <b>current</b> balance once — EDGELOG stores the implied starting balance and tracks forward from there. (Deposits/withdrawals fold in via the ledger; also used to size each trade as % of account.)</div>
-        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-          <div style="width:200px"><label class="lbl">CURRENT BALANCE ($)</label><input type="number" id="acct-equity-input" value="${accountEquity>0?liveBalance():''}" placeholder="50000" step="100"/></div>
-          <button class="btn-g" id="save-equity">SET</button>
-          ${accountEquity>0?`<span style="font-size:var(--fsxs);color:var(--text4)">Live <span style="color:var(--green);font-family:'Bebas Neue',monospace;font-size:13px">$${liveBalance().toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span> = start $${accountEquity.toLocaleString()} ${totalNetPnl()>=0?'+':'−'} $${Math.abs(totalNetPnl()).toLocaleString()} P&amp;L</span>`:''}
-        </div>
+        <div style="font-size:var(--fsm);color:var(--text4);margin-bottom:10px;line-height:1.8">Set each <b>account's</b> current balance — EDGELOG stores the implied starting balance and tracks forward with each trade's P&amp;L. <b style="color:var(--text2)">Webull auto-fills</b> from its live balance. The combined total below is the real sum of every account.</div>
+        ${(_brokerList().length?_brokerList():[_LEGACY_BROKER]).sort().map(b=>{
+          const auto=(b==='Webull'&&wbSync&&wbSync.net_liq!=null);
+          const bal=brokerBalance(b), st=_startForBroker(b), pn=_pnlForBroker(b);
+          const fmt=x=>(+x).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+          return `<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px">
+            <div style="width:170px"><label class="lbl">${b}${auto?' <span style="color:var(--green);font-size:8px">AUTO</span>':''}</label>
+              ${auto
+                ? `<div style="font-family:'Bebas Neue',monospace;font-size:16px;color:var(--green);padding:3px 0">$${fmt(bal)}</div>`
+                : `<input type="number" class="acct-bal-input" data-broker="${b}" value="${(st!==0||pn!==0)?bal:''}" placeholder="current $" step="100"/>`}
+            </div>
+            ${auto?'':`<button class="btn-g acct-bal-save" data-broker="${b}">SET</button>`}
+            <span style="font-size:var(--fsxs);color:var(--text4)">= start $${fmt(st)} ${pn>=0?'+':'−'} $${fmt(Math.abs(pn))} P&amp;L${auto?' · live net-liq':''}</span>
+          </div>`;
+        }).join('')}
+        ${_brokerList().length>1?`<div style="margin-top:6px;padding-top:8px;border-top:1px solid var(--border);font-size:var(--fsxs);color:var(--text4)">COMBINED (all accounts) <span style="color:var(--blue);font-family:'Bebas Neue',monospace;font-size:15px;margin-left:6px">$${(_brokerList().reduce((s,b)=>s+brokerBalance(b),0)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>`:''}
       </div>
     </div>
 
@@ -6909,7 +6928,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(el('reset-setups-btn'))el('reset-setups-btn').onclick=()=>{customSetups=[...DEFAULT_SETUPS];localStorage.setItem('el_setups',JSON.stringify(customSetups));renderApp();};
       if(el('add-tag-btn'))el('add-tag-btn').onclick=()=>{const v=(el('new-tag-inp')?.value||'').trim();if(v&&!customTags.includes(v)){customTags.push(v);localStorage.setItem('el_tags',JSON.stringify(customTags));renderApp();}};
       if(el('new-tag-inp'))el('new-tag-inp').onkeydown=e=>{if(e.key==='Enter')el('add-tag-btn').click();};
-      if(el('save-equity'))el('save-equity').onclick=()=>{const v=parseFloat(el('acct-equity-input')?.value||'0');if(v>0){accountEquity=+(v-totalNetPnl()).toFixed(2);localStorage.setItem('el_equity',accountEquity);renderApp();}};
+      document.querySelectorAll('.acct-bal-save').forEach(btn=>btn.onclick=()=>{
+        const b=btn.dataset.broker,inp=document.querySelector('.acct-bal-input[data-broker="'+b+'"]');
+        const v=parseFloat(inp?.value||'');if(isNaN(v))return;
+        const start=+(v-_pnlForBroker(b)).toFixed(2);   // store implied START = current − this account's P&L
+        let m={};try{m=JSON.parse(localStorage.getItem('el_broker_equity')||'{}');}catch(e){}
+        m[b]=start;localStorage.setItem('el_broker_equity',JSON.stringify(m));
+        if(b===_LEGACY_BROKER){accountEquity=start;localStorage.setItem('el_equity',accountEquity);} // keep legacy global in sync
+        renderApp();
+      });
       if(el('save-acct-info'))el('save-acct-info').onclick=()=>{
         const aid=(el('acct-id-input')?.value||'').trim();
         const brk=(el('broker-input')?.value||'').trim();
