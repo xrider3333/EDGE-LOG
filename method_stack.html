@@ -48,11 +48,11 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v4.0</span></h1>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v4.1</span></h1>
   <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (EDGELOG's own workflow axes — Model &amp; Search, Validation, … — each pill tagged with its old Carl category). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-04.</span></p>
 
   <div class="summary">
-    <span class="pill"><span class="dot dg"></span><b>43</b> live</span>
+    <span class="pill"><span class="dot dg"></span><b>45</b> live</span>
     <span class="pill"><span class="dot dy"></span><b>1</b> planned</span>
   </div>
 
@@ -143,6 +143,8 @@
         <span class="p p-live" data-info="LIVE (v42.7). Input-data EDA per master: within-session return stats (bp sigma / skew / excess kurtosis), annualized vol by year, activity by ET hour, monthly bar-coverage, price range — shown as an EDA strip in the master modal (click a master in the Library). Cached per file; recomputes only on change. NQ 5m RTH reads: sigma 11bp, kurt 29.6 (fat tails), vol peaks 2011/2020/2025. · was §1.1">🔬 EDA pre-flight</span>
         <span class="p p-live" data-info="LIVE (v42.7). One-call auto-EDA HTML report per master: python tools/profile_report.py &quot;NQ 5m RTH&quot; (or --all) -> augur_uploads/_profiles/<name>.html — return-distribution histogram vs normal (fat tails in red), vol-by-year, hour activity, coverage, health + roll-seam summary, outlier examples. Built NATIVE instead of ydata-profiling/dabl on purpose: their heavy pinned deps risk destabilizing the trading PC's python env; zero new dependencies. · was §1.2">📄 auto-EDA report</span>
         <span class="p p-live" data-info="LIVE (v45.4). Serial dependence of bar returns (analytics.serial_dependence): ACF at lags 1..10 + a variance-ratio test. Positive autocorr = momentum (breakouts have support), negative = mean-reversion (fades do), ~0 = random walk. Auto-runs in Auto-Validate on the primary instrument. First run (NQ 5m): lag-1 ACF −0.019, VR 0.94 → mild MEAN-REVERSION (intraday microstructure). NOT forecasting — a structure check. Carl master §6 (correlograms).">📈 serial dependence (ACF)</span>
+        <span class="p p-live" data-info="LIVE (v45.7). Fat-tail fit of WITHIN-session returns (analytics.return_tailfit): fit a Student-t; low degrees of freedom = fatter tails (df&lt;4 = extreme). Auto-runs in Auto-Validate. First run (NQ 5m, within-session): df 2.6, excess kurtosis 29.4 (matches the EDA pre-flight), 1% bar move −32bp (1.23× a normal) → extreme fat tails, so Monte-Carlo / tail-VaR sizing matters. Carl master §1/§13 (returns Normal-vs-Cauchy fit).">🐟 return tail-fit</span>
+        <span class="p p-live" data-info="LIVE (v45.7). Intraday + weekly seasonality of within-session returns (analytics.seasonality): mean return + volatility by ET hour and day-of-week — where the action and risk concentrate. Auto-runs in Auto-Validate. First run (NQ 5m): vol peaks at the 09:00 ET open (classic U-shape), best avg return late-morning. Carl master §6 (time-series / day-of-week).">🕰️ seasonality</span>
       </div>
       <div class="info"></div>
     </div>

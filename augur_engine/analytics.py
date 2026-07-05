@@ -799,3 +799,92 @@ def edge_significance(pnls, n_boot=1000, seed=42):
             "verdict": (f"edge is significant (p={pval:.4f}, mean > 0)" if sig else
                         (f"mean not significantly > 0 (p={pval:.3f})" if mean > 0
                          else "mean per-trade PnL is negative"))}
+
+
+def _within_session_mask(arrays, m):
+    """Boolean mask (length m = #returns) keeping only WITHIN-session returns — drops the
+    overnight / session-boundary jump between the last bar of one day and the first of the
+    next (those fake extreme tails and inflate open-bar vol). Uses day_id if present, else
+    the index date; all-True fallback."""
+    did = arrays.get("day_id")
+    if did is not None:
+        did = np.asarray(did)
+        if len(did) >= m + 1:
+            return did[1:m + 1] == did[:m]
+    idx = arrays.get("index")
+    if idx is not None:
+        import pandas as pd
+        dn = pd.DatetimeIndex(idx).normalize().asi8
+        if len(dn) >= m + 1:
+            return dn[1:m + 1] == dn[:m]
+    return np.ones(m, dtype=bool)
+
+
+def return_tailfit(arrays, sample=40000, seed=42):
+    """Fat-tail fit of returns (board §1, Carl §13 finance): fit a Student-t to bar
+    log-returns and report the degrees of freedom (lower = fatter tails; <~4 = extreme),
+    excess kurtosis, and the empirical 1%/99% tail moves (a per-bar VaR read) vs what a
+    Normal would predict. Fat tails = the Monte-Carlo / tail-VaR sizing actually matters.
+    scipy-only. None if too few bars."""
+    c = np.asarray(arrays["close"], float)
+    r = np.diff(np.log(c))
+    r = r[_within_session_mask(arrays, len(r))]   # drop overnight/session-boundary jumps
+    r = r[np.isfinite(r)]
+    n = len(r)
+    if n < 500:
+        return None
+    mu = float(r.mean()); sd = float(r.std())
+    kurt = float(_sst.kurtosis(r))
+    rf = r
+    if n > int(sample):
+        rng = np.random.RandomState(int(seed))
+        rf = r[rng.choice(n, int(sample), replace=False)]
+    try:
+        df, _loc, _scale = _sst.t.fit(rf)
+    except Exception:
+        return None
+    q01 = float(np.percentile(r, 1)); q99 = float(np.percentile(r, 99))
+    norm_q01 = mu - 2.326 * sd
+    ratio = round(q01 / norm_q01, 2) if abs(norm_q01) > 1e-12 else None
+    if df < 4:
+        verdict = f"extreme fat tails (Student-t df {df:.1f}) — size for shocks, not the normal case"
+    elif df < 8:
+        verdict = f"fat tails (Student-t df {df:.1f}) — heavier than normal; MC / tail-VaR sizing matters"
+    else:
+        verdict = f"near-normal tails (Student-t df {df:.1f})"
+    return {"n": int(n), "excess_kurtosis": round(kurt, 2), "student_df": round(float(df), 2),
+            "tail_1pct_bp": round(q01 * 1e4, 1), "tail_99pct_bp": round(q99 * 1e4, 1),
+            "vs_normal_1pct": ratio, "verdict": verdict}
+
+
+def seasonality(arrays):
+    """Intraday + weekly seasonality (board §6): mean return and volatility by ET hour and
+    by day-of-week — where in the session/week the action (and risk) concentrate. A clean
+    seasonal profile that complements the regime report card. numpy/pandas-only."""
+    idx = arrays.get("index")
+    c = np.asarray(arrays["close"], float)
+    if idx is None or len(c) < 500:
+        return None
+    import pandas as pd
+    ts = pd.DatetimeIndex(idx)
+    if ts.tz is not None:
+        ts = ts.tz_localize(None)
+    r = np.diff(np.log(c))
+    m = _within_session_mask(arrays, len(r))       # drop overnight/session-boundary jumps
+    r = r[m]; ts2 = ts[1:][m]
+    d = pd.DataFrame({"r": r, "hour": ts2.hour, "dow": ts2.dayofweek})
+    byh = d.groupby("hour")["r"].agg(["mean", "std", "count"])
+    byd = d.groupby("dow")["r"].agg(["mean", "std"])
+    hours = [{"hour": int(h), "mean_bp": round(float(row["mean"]) * 1e4, 2),
+              "vol_bp": round(float(row["std"]) * 1e4, 1), "n": int(row["count"])}
+             for h, row in byh.iterrows()]
+    _wd = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    dows = [{"dow": _wd[int(dd)], "mean_bp": round(float(row["mean"]) * 1e4, 2),
+             "vol_bp": round(float(row["std"]) * 1e4, 1)} for dd, row in byd.iterrows()]
+    peakh = max(hours, key=lambda x: x["vol_bp"]) if hours else None
+    besth = max(hours, key=lambda x: x["mean_bp"]) if hours else None
+    return {"by_hour": hours, "by_dow": dows,
+            "peak_vol_hour": (peakh["hour"] if peakh else None),
+            "best_ret_hour": (besth["hour"] if besth else None),
+            "verdict": (f"vol peaks {peakh['hour']:02d}:00 ET · best avg return {besth['hour']:02d}:00"
+                        if (peakh and besth) else "")}

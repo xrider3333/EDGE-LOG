@@ -241,16 +241,19 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     #    Also runs three more distribution-free robustness checks on the champion's
     #    whole-history trades: conformal PnL band (§4), causal entry test (§7), and a
     #    trading-day bootstrap (§8). All INFORMATIONAL — none changes the verdict.
-    adversarial = conformal = causal = synthetic = leadlag = acf = vif = featsel = edgesig = None
+    adversarial = conformal = causal = synthetic = leadlag = acf = vif = featsel = edgesig = tailfit = season = None
     try:
         from .data import load_master_arrays
         from .ml_gate import (adversarial_validation, entry_features, gate_feature_select)
         from .analytics import (conformal_pnl_band, causal_entry_test,
                                 synthetic_day_bootstrap, lead_lag, serial_dependence,
-                                vif_collinearity, edge_significance)
+                                vif_collinearity, edge_significance, return_tailfit,
+                                seasonality)
         _avarr = load_master_arrays(master, date_from=opt_from, date_to=None)
         adversarial = adversarial_validation(_avarr, lb_start)
         acf = serial_dependence(_avarr)                       # §1 momentum vs mean-revert
+        tailfit = return_tailfit(_avarr)                      # §1 fat-tail fit
+        season = seasonality(_avarr)                          # §6 intraday/weekly seasonality
         _Xf, _nf = entry_features(_avarr)
         vif = vif_collinearity(_Xf, _nf)                      # §2 collinearity of inputs
         _ftr = full.get("trades") if (champ and isinstance(full, dict)) else None
@@ -315,6 +318,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "vif": vif,                   # §2: collinearity of the entry features
         "feature_select": featsel,    # §2: which entry inputs a gate would keep
         "edge_sig": edgesig,          # §4: is the edge statistically significant?
+        "tailfit": tailfit,           # §1: fat-tail fit of returns (Student-t df)
+        "seasonality": season,        # §6: intraday / weekly seasonality
         "champion": champ, "thresholds": th,
     }
     # Shape stays compatible with the Runs-history saver (best / top / dsr).

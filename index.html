@@ -380,7 +380,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='45.6';
+const VERSION='45.7';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5839,6 +5839,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(ES2&&ES2.p_value!=null){const ec=ES2.significant?'var(--green)':'var(--yellow)';
           advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Is the edge statistically real? One-sample test on per-trade net PnL: t-stat, two-sided p-value, a 95% t-CI and a bootstrap CI on the mean. Complements the Deflated Sharpe (multiple-testing haircut) with a plain, direct read.">📛 EDGE SIGNIFICANCE · §4 — is the edge statistically real?</div>'
            +'<div style="font-size:var(--fsxs);color:'+ec+'">'+ES2.verdict+' <span style="color:var(--text5)">· mean '+fmtUsd(Math.round(ES2.mean_pnl*mlt))+'/trade · t '+ES2.t_stat+' · 95% CI ['+fmtUsd(Math.round(ES2.ci95[0]*mlt))+', '+fmtUsd(Math.round(ES2.ci95[1]*mlt))+'] · bootstrap '+ES2.boot_prob_profit+'% profitable</span></div>';}
+        const TFa=(R.validate||{}).tailfit;
+        if(TFa&&TFa.student_df!=null){const tc=TFa.student_df<4?'#f0997b':(TFa.student_df<8?'var(--yellow)':'var(--green)');
+          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Fat-tail fit of within-session returns: a Student-t is fit; lower degrees of freedom = fatter tails (df<4 = extreme). Fat tails mean the Monte-Carlo / tail-VaR sizing matters — the normal case understates shock risk.">🐟 RETURN TAIL-FIT · §1 — how fat are the tails?</div>'
+           +'<div style="font-size:var(--fsxs);color:'+tc+'">'+TFa.verdict+' <span style="color:var(--text5)">· excess kurtosis '+TFa.excess_kurtosis+' · 1% bar move '+TFa.tail_1pct_bp+'bp ('+TFa.vs_normal_1pct+'× a normal)</span></div>';}
+        const SZ=(R.validate||{}).seasonality;
+        if(SZ&&SZ.verdict){advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Intraday + weekly seasonality of within-session returns: mean return and volatility by ET hour and day-of-week — where the action and the risk concentrate.">🕰️ SEASONALITY · §1 — when does the action happen?</div>'
+           +'<div style="font-size:var(--fsxs);color:var(--text3)">'+SZ.verdict+' <span style="color:var(--text5)">· weekday mean(bp): '+(SZ.by_dow||[]).map(function(x){return x.dow+' '+x.mean_bp;}).join(' · ')+'</span></div>';}
         topHtml=cardHtml+advHtml+valHtml+platHtml+ensHtml+'<div class="lbl" style="margin:16px 0 6px">'+(isWf?'WALK-FORWARD FOLDS · ':'TOP CONFIGS · ')+stratTag(lastDone.strategy)+(hasOos&&!isWf?' · IS vs OOS':'')+'</div><div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th>'+(isWf?'<th>FOLD</th>':'')+pk.map(k=>'<th>'+k+'</th>').join('')+'<th style="text-align:right">PnL pts</th><th style="text-align:right">TRD</th><th style="text-align:right">WR</th><th style="text-align:right">PF</th>'+(hasOos?'<th style="text-align:right">OOS $</th><th style="text-align:right">OOS PF</th>':'')+'</tr></thead><tbody>'+t.map((r,i)=>'<tr><td>'+(i+1)+'</td>'+(isWf?'<td>'+(r.fold||'')+'</td>':'')+pk.map(k=>'<td style="font-size:var(--fsxs)">'+r[k]+'</td>').join('')+'<td style="text-align:right">'+Math.round(r.total_pnl||0).toLocaleString()+'</td><td style="text-align:right">'+(r.num_trades||0)+'</td><td style="text-align:right">'+Math.round(r.win_rate||0)+'%</td><td style="text-align:right">'+Math.min(r.profit_factor||0,99).toFixed(2)+'</td>'+(hasOos?'<td style="text-align:right;color:'+((r.oos_pnl||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round((r.oos_pnl||0)*mlt))+'</td><td style="text-align:right">'+Math.min(r.oos_pf||0,99).toFixed(2)+'</td>':'')+'</tr>').join('')+'</tbody></table></div>';}
       // ── Horizontal, left-to-right build flow (like legacy AUGUR "Executions") ──
       // Each field is a flex cell that packs across the row and wraps as the window

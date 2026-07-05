@@ -4,8 +4,8 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-04
-- **Web VERSION:** 45.6 · **Stack board (`method_stack.html`):** v4.0
-- **Board tally:** 43 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every research/method pill is LIVE** (all icon-tagged).
+- **Web VERSION:** 45.7 · **Stack board (`method_stack.html`):** v4.1
+- **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
 > EDGELOG terms the first time it appears. Don't assume the reader knows the jargon.
@@ -92,19 +92,19 @@ table of contents has **14 sections** — far more than the sub-links first sent
 
 | Carl master § | Topic | EDGELOG status |
 |---|---|---|
-| 1 | EDA | ✅ EDA pre-flight · Pearson/MI/PPS |
+| 1 | EDA | ✅ EDA pre-flight · Pearson/MI/PPS · ✅ **return tail-fit** (Student-t) · ✅ **seasonality** |
 | 2 | Data cleaning | ✅ Isolation-Forest outliers · PyDeequ (gap-check). Distillation/anonymization skipped (n/a to price) |
 | 3 | Classification / Regression | ✅ Logistic · RF · XGBoost gates · GAM (plateau). NN/TabNet/GP/RGF **deferred** (heavy deps, little over XGBoost) |
 | 4 | Conformal prediction | ✅ conformal PnL band · ✅ **gate calibration** (reliability + ECE + isotonic headroom, on the gate card) |
 | 5 | Feature selection / eng | ✅ MI/PPS screen · adversarial validation · SHAP · ✅ **feature selection (RFE-CV)** |
-| 6 | Time series / forecasting | ~ regime + time-of-day features · ✅ **lead-lag/Granger** · ✅ **serial-dependence (ACF)**. Direct forecasting (LSTM/Prophet/GluonTS) deferred — heavy-dep + low-success (Carl's own "stock-price LSTM = FAIL"), **not** *inapplicable* |
+| 6 | Time series / forecasting | ~ regime + time features · ✅ **lead-lag/Granger** · ✅ **serial-dependence (ACF)** · ✅ **seasonality**. Direct forecasting (LSTM/Prophet/GluonTS) deferred — heavy-dep + low-success (Carl's own "LSTM = FAIL"), **not** *inapplicable* |
 | 7 | Ensemble | ✅ ensemble top-K · ✅ **stacking/CCMP** |
 | 8 | Explainability | ✅ SHAP · regime report card · ✅ **VIF/collinearity** |
 | 9 | Causality | ✅ causal check (randomization). Double-ML / Causal Forests **deferred** (EconML dep) |
 | 10 | Statistics | ✅ Deflated Sharpe · ✅ **edge significance** (t-test + bootstrap CI on mean PnL) |
 | 11 | Didactic | mostly n/a (teaching); but ✅ **gate discrimination** (ROC / confusion / discrimination threshold) built from here |
 | 12 | Generative AI | ~ AI-evolve (Claude). StableDiffusion/Gemma **n/a** to trading |
-| 13 | Miscellaneous | mostly n/a; the finance notebooks (returns Normal-vs-Cauchy fit) = a low-priority §1 EDA add |
+| 13 | Miscellaneous | mostly n/a; finance notebooks (returns Normal-vs-Cauchy) ✅ built as **return tail-fit** (§1) |
 | 14 | Meta-Kaggle | n/a |
 
 **6 NEW planned pills added from these passes** (board v3.5): gate calibration (§3A) · feature selection (§2) · VIF/collinearity (§2) · stacking/CCMP (§6) · lead-lag/Granger (§7) · serial-dependence ACF (§1).
@@ -275,11 +275,11 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 **Different paradigm / known-low-success:**
 - **Direct forecasting strategy** (LSTM / TCN) — `torch`/`keras`. Predict return → trade it. `GAINZ_RF` is the existing example; Carl's own notebook is "LSTM = FAIL."
 - **Prophet / GluonTS probabilistic forecasting** — deps; overlaps the conformal band.
-- **Time-series decomposition / seasonality** — could feed seasonality features; low priority.
+- ✅ **Seasonality** (intraday / weekly) — BUILT (§1 seasonality).
 
 **Cheap — promotable to planned any time:**
 - ✅ **Hypothesis test** (t-test + bootstrap CI) — BUILT as **edge significance** (§4). Confusion-matrix / discrimination-threshold (Carl §11) BUILT as **gate discrimination** (§5).
-- **Return fat-tail fit** (Normal vs Cauchy / Student-t) — a §1 EDA add.
+- ✅ **Return fat-tail fit** (Student-t) — BUILT (§1 return tail-fit).
 - **t-SNE / UMAP** of the gate's entry-feature space — visualize win/loss separability.
 
 **Truly not applicable:** generative image/LLM (StableDiffusion, Gemma), meta-Kaggle stats, geospatial maps, Titanic didactics.
@@ -287,6 +287,14 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-04** — **Two more no-dep diagnostics: return tail-fit (§1) + seasonality (§1)**
+  (web v45.7, stack v4.1; board 45 live / 1 planned). `analytics.return_tailfit` — Student-t fit
+  of **within-session** returns (drops overnight jumps that fake extreme tails). NQ 5m: df 2.6,
+  excess kurtosis 29.4 (matches the EDA pre-flight), 1% bar move −32bp (1.23× normal) → extreme
+  fat tails. `analytics.seasonality` — return/vol by ET hour + day-of-week; NQ: vol peaks at the
+  09:00 open (U-shape). Both auto-run in Auto-Validate. **Every no-dep Carl method is now built;
+  the only remaining items need heavy deps (torch/EconML) the project doctrine avoids on the
+  trading PC, or are operational (fills reconciliation).**
 - **2026-07-04** — **Two more from Carl's TOC + pill icons.** Iconified all 43 board pills
   (matching the card icons). Built **edge significance** (§4 · `analytics.edge_significance` —
   t-stat + p-value + bootstrap CI on mean trade PnL; ORB 3.1: mean +6.05 pts/trade, t 5.89, p≈0,
