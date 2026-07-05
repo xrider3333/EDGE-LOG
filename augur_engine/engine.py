@@ -85,6 +85,12 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
         extras["volumes"] = V
     if did is not None and (has_kw or "day_id" in sp):
         extras["day_id"] = did
+    # Bar timestamps — only handed to strategies that ask for `index` (e.g. REPLAY_1_0,
+    # which matches discretionary entry times to bars). Existing strategies don't declare
+    # it, so this is a no-op for them.
+    _idx = arrays.get("index")
+    if _idx is not None and (has_kw or "index" in sp):
+        extras["index"] = _idx
 
     _gate_on = bool(ml_filter) and str(ml_filter).lower() not in ("", "none")
     want_trades = bool(return_trades or cost_pts > 0 or mc_sims > 0 or _gate_on or sizing)
