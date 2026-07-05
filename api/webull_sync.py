@@ -80,7 +80,13 @@ def _client(keys):
     starts when the SDK isn't installed (sync just logs a hint and skips)."""
     from webull.core.client import ApiClient
     from webull.trade.trade_client import TradeClient
-    api = ApiClient(keys["app_key"], keys["app_secret"], keys["region"])
+    # Bound the re-auth wait: if the saved token lapses (PC off >2 wks) the SDK would
+    # otherwise poll for 2FA approval for 5 MINUTES, stalling the shared runner loop
+    # (and the NinjaTrader sync with it). Cap it at ~15s so Webull fails fast instead;
+    # plus per-call HTTP timeouts. Normal daily runs load a valid token and never wait.
+    api = ApiClient(keys["app_key"], keys["app_secret"], keys["region"],
+                    token_check_duration_seconds=15, token_check_interval_seconds=5,
+                    connect_timeout=10, timeout=25)
     # Persist the SDK's 2FA/access token OUTSIDE the repo so unattended daily runs
     # keep working after the one-time verification.
     try:
@@ -418,6 +424,10 @@ def sync_trades(db, uid, keys_path=DEFAULT_KEYS, log=print, force=False):
     today = _ny_today()
     if not force and state.get("last_run_day") == today:
         return {"skipped": "already-ran-today"}
+    # After a failed pull (e.g. token lapsed → needs 2FA re-approval) back off ~30 min
+    # instead of retrying — and blocking the runner ~15s — on every 20s loop pass.
+    if not force and time.time() < float(state.get("fail_until", 0) or 0):
+        return {"skipped": "backoff"}
 
     try:
         import webull  # noqa: F401 — presence check only
@@ -437,9 +447,23 @@ def sync_trades(db, uid, keys_path=DEFAULT_KEYS, log=print, force=False):
     try:
         fills = fetch_fills(keys, start, today, log=log)
     except Exception as e:
-        log(f"  [webull] pull failed: {type(e).__name__}: {e}")
-        # do NOT stamp last_run_day — retry on the next loop pass
-        return {"error": f"{type(e).__name__}: {e}"}
+        msg = f"{type(e).__name__}: {e}"
+        u = msg.upper()
+        reauth = ("TOKEN" in u) or ("NORMAL" in u) or ("VERIF" in u) or ("INIT_TOKEN" in u)
+        log(f"  [webull] pull failed{' — token needs re-approval in the Webull app' if reauth else ''}: {msg}")
+        # back off ~30 min so we don't re-block the runner every loop; surface for the UI
+        state["fail_until"] = time.time() + 1800
+        try:
+            json.dump(state, open(sp, "w", encoding="utf-8"))
+        except Exception:
+            pass
+        try:
+            db.collection("users").document(uid).collection("meta").document("webull_sync").set(
+                {"last_error": msg, "reauth_needed": bool(reauth), "last_error_at": time.time()},
+                merge=True)
+        except Exception:
+            pass
+        return {"error": msg, "reauth_needed": bool(reauth)}
 
     trades = build_trades(fills)
     written = state.get("written", {}) if isinstance(state, dict) else {}
@@ -465,7 +489,7 @@ def sync_trades(db, uid, keys_path=DEFAULT_KEYS, log=print, force=False):
         batch.commit()
 
     state = {"written": written, "last_run_day": today, "last_sync": time.time(),
-             "total_trades": len(trades), "fills": len(fills)}
+             "total_trades": len(written), "fills": len(fills), "fail_until": 0}
     try:
         json.dump(state, open(sp, "w", encoding="utf-8"))
     except Exception:
@@ -479,10 +503,14 @@ def sync_trades(db, uid, keys_path=DEFAULT_KEYS, log=print, force=False):
     except Exception as e:
         log(f"  [webull] balance fetch failed: {type(e).__name__}: {e}")
 
-    # status doc for the web UI (mirrors meta/nt_sync) — one write per day, cheap
+    # status doc for the web UI (mirrors meta/nt_sync) — one write per day, cheap.
+    # total_trades = cumulative Webull round-trips in the journal (from the persisted
+    # written-set — free, no read), not just this run's window.
     try:
-        meta = {"last_sync": time.time(), "total_trades": len(trades), "fills": len(fills),
-                "last_added": added, "last_updated": updated, "window_start": start}
+        meta = {"last_sync": time.time(), "total_trades": len(written),
+                "window_trades": len(trades), "fills": len(fills),
+                "last_added": added, "last_updated": updated, "window_start": start,
+                "reauth_needed": False, "last_error": None}
         if bal:
             meta.update(bal)
         db.collection("users").document(uid).collection("meta").document("webull_sync").set(meta)
