@@ -241,13 +241,13 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     #    Also runs three more distribution-free robustness checks on the champion's
     #    whole-history trades: conformal PnL band (§4), causal entry test (§7), and a
     #    trading-day bootstrap (§8). All INFORMATIONAL — none changes the verdict.
-    adversarial = conformal = causal = synthetic = leadlag = acf = vif = featsel = None
+    adversarial = conformal = causal = synthetic = leadlag = acf = vif = featsel = edgesig = None
     try:
         from .data import load_master_arrays
         from .ml_gate import (adversarial_validation, entry_features, gate_feature_select)
         from .analytics import (conformal_pnl_band, causal_entry_test,
                                 synthetic_day_bootstrap, lead_lag, serial_dependence,
-                                vif_collinearity)
+                                vif_collinearity, edge_significance)
         _avarr = load_master_arrays(master, date_from=opt_from, date_to=None)
         adversarial = adversarial_validation(_avarr, lb_start)
         acf = serial_dependence(_avarr)                       # §1 momentum vs mean-revert
@@ -259,6 +259,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
             causal = causal_entry_test(_ftr, _avarr.get("close"), cost_pts=cost_pts)
             synthetic = synthetic_day_bootstrap(_ftr, _avarr.get("index"))
             featsel = gate_feature_select(_avarr, _ftr)       # §2 which inputs to keep
+            edgesig = edge_significance([t[2] for t in _ftr]) # §4 is the edge significant?
         # cross-instrument lead-lag (board §7): does a sibling lead this instrument?
         _sib = (tlist[0] if tlist else
                 {"NQ": "ES", "ES": "NQ", "MNQ": "MES", "MES": "MNQ"}.get(str(instrument).upper()))
@@ -313,6 +314,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "acf": acf,                   # §1: serial dependence (momentum vs mean-revert)
         "vif": vif,                   # §2: collinearity of the entry features
         "feature_select": featsel,    # §2: which entry inputs a gate would keep
+        "edge_sig": edgesig,          # §4: is the edge statistically significant?
         "champion": champ, "thresholds": th,
     }
     # Shape stays compatible with the Runs-history saver (best / top / dsr).

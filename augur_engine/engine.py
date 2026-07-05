@@ -123,7 +123,8 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
             try:
                 from .ml_gate import gate_calibration
                 cal = gate_calibration(arrays, orig_trades, model=str(ml_filter),
-                                       min_history=int(ml_min_history))
+                                       min_history=int(ml_min_history),
+                                       threshold=float(ml_threshold))
                 if cal:
                     res["ml_gate"]["calibration"] = cal
             except Exception:

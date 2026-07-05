@@ -764,3 +764,38 @@ def ensemble_ccmp(bar_pnls, train_frac=0.7, iters=80):
                         if improved else
                         f"equal-weight wins out-of-sample — configs too correlated to reweight "
                         f"({re:.2f} vs {rw:.2f})")}
+
+
+def edge_significance(pnls, n_boot=1000, seed=42):
+    """Is the edge statistically real? (board §4, Carl §10 hypothesis testing)
+
+    One-sample test on per-trade NET PnL: is the mean > 0? Reports the t-stat + two-sided
+    p-value, a 95% t-CI and a bootstrap 95% CI on the mean, and the share of bootstrap
+    resamples that stay profitable. Complements the Deflated Sharpe (which haircuts for
+    multiple testing) with a plain, direct significance read. Units: points (web ×contract).
+    numpy/scipy-only. None if too few trades / zero variance."""
+    p = np.asarray([float(x) for x in pnls], float)
+    n = len(p)
+    if n < 30:
+        return None
+    mean = float(p.mean()); sd = float(p.std(ddof=1))
+    if sd <= 0:
+        return None
+    se = sd / math.sqrt(n)
+    t = mean / se
+    pval = float(2 * _sst.t.sf(abs(t), n - 1))
+    tcrit = float(_sst.t.ppf(0.975, n - 1))
+    ci = (mean - tcrit * se, mean + tcrit * se)
+    rng = np.random.RandomState(int(seed))
+    bmeans = p[rng.randint(0, n, size=(int(n_boot), n))].mean(axis=1)
+    bci = (float(np.percentile(bmeans, 2.5)), float(np.percentile(bmeans, 97.5)))
+    sig = bool(pval < 0.05 and mean > 0)
+    return {"n": int(n), "mean_pnl": round(mean, 3), "t_stat": round(float(t), 2),
+            "p_value": round(pval, 5),
+            "ci95": [round(ci[0], 3), round(ci[1], 3)],
+            "boot_ci95": [round(bci[0], 3), round(bci[1], 3)],
+            "boot_prob_profit": round(float((bmeans > 0).mean()) * 100.0, 1),
+            "significant": sig,
+            "verdict": (f"edge is significant (p={pval:.4f}, mean > 0)" if sig else
+                        (f"mean not significantly > 0 (p={pval:.3f})" if mean > 0
+                         else "mean per-trade PnL is negative"))}

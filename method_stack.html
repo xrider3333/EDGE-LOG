@@ -48,11 +48,11 @@
 <body>
 <div class="wrap">
 
-  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v3.9</span></h1>
+  <h1>EDGELOG — Backtesting Stack <span id="stack-ver" style="font-size:11px;font-weight:600;color:var(--text5);letter-spacing:1px;vertical-align:2px">v4.0</span></h1>
   <p class="sub">The backtest <b style="color:var(--text2)">pipeline</b> (how we test) and the <b style="color:var(--text2)">Backtesting Stack</b> (EDGELOG's own workflow axes — Model &amp; Search, Validation, … — each pill tagged with its old Carl category). Tap a pill for details. <span style="color:var(--text5)">Updated 2026-07-04.</span></p>
 
   <div class="summary">
-    <span class="pill"><span class="dot dg"></span><b>41</b> live</span>
+    <span class="pill"><span class="dot dg"></span><b>43</b> live</span>
     <span class="pill"><span class="dot dy"></span><b>1</b> planned</span>
   </div>
 
@@ -193,6 +193,7 @@
         <span class="p p-live" data-info="LIVE (v44.7). Split-conformal, distribution-free prediction interval for one trade's net PnL (analytics.conformal_pnl_band) — coverage MEASURED on a held-out split as the self-check (a valid 80% band should cover ~80%). Auto-runs in Auto-Validate on the champion's whole-history trades. First run (ORB 3.1): 80% band ≈ [−$900, +$713]/trade, measured coverage 79% ✓. · was §4.1">📏 conformal band</span>
         <span class="p p-live" data-info="LIVE (v44.4). Trains a classifier (RF) to tell LOCKBOX bars from the pre-lockbox training history using market-state features; cross-validated ROC-AUC. AUC≈0.50 = indistinguishable (trust the lockbox); high AUC = regime drift, so a lockbox PASS/FAIL is weaker evidence. Reports the most-shifted inputs (in σ). Auto-runs in Auto-Validate; informational, does NOT change the verdict. First run (NQ, 12mo lockbox): AUC 0.60 = mild drift, driven by the volatility regime (atr_ratio/atr_norm). · was §5.5">🎭 adversarial validation</span>
         <span class="p p-live" data-info="LIVE (v43.7) — the honest way to pick an ML gate (ROADMAP #25). Builder: pick any ML FILTER + set VALIDATION to walk-forward or WF+lockbox → runs GATE-VALIDATE: the strategy runs once; ALL 9 candidates (3 gates × 3 cut-offs) are ranked on the PRE-LOCKBOX slice only, by RECOVERY FACTOR ($ made per $ of drawdown — the equal-risk yardstick, since a gate always trades less than ungated); ungated is always candidate #0. The winner gets exactly ONE look at the reserved last-12-months lockbox — and losing candidates' lockbox numbers are never computed into the result, so lockbox-shopping is impossible BY DESIGN. Also reports per-window PF consistency (held X/4 pre-lockbox windows). First run (ORB 1.0, NQ 5m RTH 2022→): best gate xgb@50% rec 5.05 vs ungated 5.66 → 'no gate earns its keep', lockbox not opened — the full-window PF 1.43 did NOT survive discipline. SECOND run (same strategy, FULL 16yr 2010→): verdict FLIPPED — rf@50% chosen pre-lockbox with rec 16.66 vs ungated 6.77, held 4/4 chronological windows, LOCKBOX HELD (ungated lost money in the reserved year; gated was positive). Same tool, same rules, opposite verdicts = the data-volume lesson made concrete: a gate needs thousands of training trades, and the audition only says yes when it truly has them.">🛂 ML-gate validate</span>
+        <span class="p p-live" data-info="LIVE (v45.6). Is the edge statistically real? (analytics.edge_significance) One-sample test on per-trade net PnL — t-stat + two-sided p-value, a 95% t-CI and a bootstrap CI on the mean, plus the share of bootstrap resamples that stay profitable. Auto-runs in Auto-Validate on the champion's whole-history trades. Complements Deflated Sharpe (which haircuts for multiple testing) with a plain direct read. First run (ORB 3.1): mean +6.05 pts/trade, t 5.89, p≈0, bootstrap 100% profitable → significant. Carl master §10 (hypothesis testing · t-test · power).">📛 edge significance</span>
       </div>
       <div class="info"></div>
     </div>
@@ -203,6 +204,7 @@
         <span class="p p-live" data-info="PnL sliced by volatility tercile, trend-vs-chop, day-of-week, and a monthly grid — where does the edge actually live? · was §8.1">🗂️ regime report card</span>
         <span class="p p-live" data-info="Per-trade maximum adverse / favorable excursion — turns into stop and target guidance. · was §8.2">📐 MAE / MFE</span>
         <span class="p p-live" data-info="LIVE (v44.1). Feature attribution for the ML gate, shown as a bar panel on the gate before/after card — which entry inputs drive KEEP vs SKIP, and in which direction. Tree gates (RF/XGBoost) use REAL SHAP (shap 0.52 · TreeExplainer mean|value|); logistic falls back to permutation importance (Δ log-loss when an input is shuffled). First result (ORB+RF): keys on momentum + range-position, not time-of-day. Per-trade local SHAP ('why THIS trade') is a further step. Pairs with MI/PPS (screen) and PDP (shape). · was §8.3">🔍 SHAP</span>
+        <span class="p p-live" data-info="LIVE (v45.6). How well does the ML gate separate winners from losers? (ml_gate.gate_calibration → discrimination) ROC-AUC (threshold-free, out-of-fold) + the confusion matrix / precision-recall at your GATE CUT-OFF, shown on the gate card. First run (ORB 3.1 + RF gate): AUC 0.61 (modest), at the 50% cut-off precision 43% (kept-win vs 38% base) / recall 71% — keeps most winners but lets many losers through, consistent with the gate's limited edge on ORB. Carl master §11 (false positives / negatives / discrimination threshold).">🎚️ gate discrimination</span>
       </div>
       <div class="info"></div>
     </div>

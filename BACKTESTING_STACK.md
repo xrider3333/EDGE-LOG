@@ -4,8 +4,8 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-04
-- **Web VERSION:** 45.5 · **Stack board (`method_stack.html`):** v3.9
-- **Board tally:** 41 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every research/method pill is LIVE.**
+- **Web VERSION:** 45.6 · **Stack board (`method_stack.html`):** v4.0
+- **Board tally:** 43 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every research/method pill is LIVE** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
 > EDGELOG terms the first time it appears. Don't assume the reader knows the jargon.
@@ -101,8 +101,8 @@ table of contents has **14 sections** — far more than the sub-links first sent
 | 7 | Ensemble | ✅ ensemble top-K · ✅ **stacking/CCMP** |
 | 8 | Explainability | ✅ SHAP · regime report card · ✅ **VIF/collinearity** |
 | 9 | Causality | ✅ causal check (randomization). Double-ML / Causal Forests **deferred** (EconML dep) |
-| 10 | Statistics | ~ Deflated Sharpe (significance, multiple-testing-aware). Plain t-test/power **deferred** (DSR supersedes) |
-| 11 | Didactic | n/a — teaching notebooks; overfitting is handled by plateau/DSR/lockbox |
+| 10 | Statistics | ✅ Deflated Sharpe · ✅ **edge significance** (t-test + bootstrap CI on mean PnL) |
+| 11 | Didactic | mostly n/a (teaching); but ✅ **gate discrimination** (ROC / confusion / discrimination threshold) built from here |
 | 12 | Generative AI | ~ AI-evolve (Claude). StableDiffusion/Gemma **n/a** to trading |
 | 13 | Miscellaneous | mostly n/a; the finance notebooks (returns Normal-vs-Cauchy fit) = a low-priority §1 EDA add |
 | 14 | Meta-Kaggle | n/a |
@@ -278,7 +278,7 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 - **Time-series decomposition / seasonality** — could feed seasonality features; low priority.
 
 **Cheap — promotable to planned any time:**
-- **Hypothesis test** (t-test / power) on trade PnL — DSR already supersedes the multiple-testing-aware version.
+- ✅ **Hypothesis test** (t-test + bootstrap CI) — BUILT as **edge significance** (§4). Confusion-matrix / discrimination-threshold (Carl §11) BUILT as **gate discrimination** (§5).
 - **Return fat-tail fit** (Normal vs Cauchy / Student-t) — a §1 EDA add.
 - **t-SNE / UMAP** of the gate's entry-feature space — visualize win/loss separability.
 
@@ -287,6 +287,12 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-04** — **Two more from Carl's TOC + pill icons.** Iconified all 43 board pills
+  (matching the card icons). Built **edge significance** (§4 · `analytics.edge_significance` —
+  t-stat + p-value + bootstrap CI on mean trade PnL; ORB 3.1: mean +6.05 pts/trade, t 5.89, p≈0,
+  bootstrap 100% profitable → significant; Carl §10) and **gate discrimination** (§5 ·
+  `gate_calibration`→discrimination — ROC-AUC + confusion/precision-recall at the cut-off; ORB 3.1
+  + RF: AUC 0.61, precision 43% vs 38% base, recall 71%; Carl §11). Board **43 live / 1 planned**, v4.0.
 - **2026-07-04** — **Stacking / CCMP shipped — the LAST research pill** (board §6 → LIVE, web
   v45.5, stack v3.9; board 41 live / 1 planned). `analytics.ensemble_ccmp`: greedy hill-climb
   (Caruana ensemble selection) of config weights on a train split, tested on a held-out split

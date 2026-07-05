@@ -548,7 +548,8 @@ def adversarial_validation(arrays, lb_start, model="rf", max_per_class=4000, see
 
 
 # ── gate CALIBRATION: is the gate's P(win) a trustworthy probability? (board 3A) ─
-def gate_calibration(arrays, trades, model="rf", min_history=30, seed=42, nbins=10):
+def gate_calibration(arrays, trades, model="rf", min_history=30, seed=42, nbins=10,
+                     threshold=0.5):
     """Out-of-fold reliability of the gate's P(win): K-fold the completed trades, predict
     each trade's win-odds from a model fit on the OTHER folds (|PnL|-weighted, exactly like
     the live gate), then bin the predictions and compare predicted-P to the ACTUAL win rate.
@@ -630,11 +631,31 @@ def gate_calibration(arrays, trades, model="rf", min_history=30, seed=42, nbins=
     except Exception:
         pass
 
+    # ── discrimination (board §5, Carl §11): ROC-AUC (threshold-free) + the confusion
+    #    matrix / precision-recall at the ACTUAL cut-off — how well does the gate separate
+    #    winners from losers, and what does the cut-off do?
+    try:
+        from sklearn.metrics import roc_auc_score
+        auc = float(roc_auc_score(oy, op))
+    except Exception:
+        auc = None
+    thr = float(threshold)
+    kept = op >= thr
+    tp = int((kept & (oy == 1)).sum()); fp = int((kept & (oy == 0)).sum())
+    fn = int((~kept & (oy == 1)).sum()); tn = int((~kept & (oy == 0)).sum())
+    prec = (tp / (tp + fp)) if (tp + fp) else None
+    rec = (tp / (tp + fn)) if (tp + fn) else None
+    disc = {"auc": (round(auc, 3) if auc is not None else None), "threshold": round(thr, 2),
+            "tp": tp, "fp": fp, "fn": fn, "tn": tn,
+            "precision": (round(prec, 3) if prec is not None else None),
+            "recall": (round(rec, 3) if rec is not None else None),
+            "kept_win_rate": (round(prec, 3) if prec is not None else None)}
+
     return {"model": str(model), "n": int(n), "base_rate": round(float(oy.mean()), 3),
             "ece": round(float(ece), 3), "ece_isotonic": ece_iso, "brier": round(brier, 3),
             "expectancy_spearman": (round(sp, 2) if sp is not None else None),
             "expectancy_monotone": bool(sp is not None and sp > 0.5),
-            "bins": rows,
+            "bins": rows, "discrimination": disc,
             "note": "gate trains |PnL|-weighted → tuned for expectancy, not win-frequency"}
 
 
