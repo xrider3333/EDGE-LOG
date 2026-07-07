@@ -354,7 +354,7 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 .stackbar-track>div{box-shadow:inset -2px 0 0 var(--bg2)}
 .stackbar-legend{display:flex;flex-wrap:wrap;gap:7px 14px;padding:12px 14px 14px}
 .stackbar-legend .li{display:flex;align-items:center;gap:6px}
-.stackbar-legend .sw{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.stackbar-legend .sw{width:8px;height:8px;border-radius:2px;flex-shrink:0}.ov-cc-grid{display:grid;grid-template-columns:1fr 360px;gap:12px;margin-bottom:12px;align-items:start}.ov-cc-grid>.section{min-width:0}.ov-cc-grid .cum-pl-chart svg{height:auto}.ov-rail .rail-kpi{cursor:pointer;border-radius:6px;margin-left:-6px;margin-right:-6px;padding-left:6px;padding-right:6px;transition:background .12s}.ov-rail .rail-kpi:hover{background:rgba(255,255,255,0.05)}
 </style>
 </head>
 <body>
@@ -395,7 +395,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='45.9';
+const VERSION='46.0';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -633,7 +633,7 @@ function stackBar(title, rows){
     `<div class="li">
        <span class="sw" style="background:${s.color}"></span>
        <span style="font-family:'Bebas Neue',monospace;font-size:12px;letter-spacing:.3px;color:var(--text2)">${s.label}</span>
-       <span style="font-size:10px;color:var(--text4)">${fmt(s.pnl)}</span>
+       <span style="font-size:10px;color:var(--text4)">${fmt(s.pnl)} · ${s.count}t · ${s.count?Math.round(s.wins/s.count*100):0}%</span>
      </div>`
   ).join('');
   return `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:11px 14px 10px">
@@ -3199,16 +3199,16 @@ function renderApp(){
     content.innerHTML=`
     <div class="ov-shell">
       <aside class="ov-rail">
-        <div class="rail-grp" style="margin-top:0">NET P&L · ${tfLabel}</div>
+        <div class="rail-kpi" style="position:relative;overflow:hidden" onclick="expandKPI('NET P&L','NET P&L')" title="Click for a detailed breakdown">${(_running.net&&_running.net.length>1)?sparkline(_running.net, tfS.net>=0?'#00e5a0':'#ff3d5a', 232, 34):''}<div style="position:relative;z-index:1"><div class="rail-grp" style="margin-top:0">NET P&L · ${tfLabel}</div>
         <div class="rail-net" style="color:${tfS.net>=0?'var(--green)':'var(--red)'}">${fmt(tfS.net)}</div>
-        <div style="font-size:9px;color:var(--text5);margin-top:3px">${tfTrades.length} trade${tfTrades.length!==1?'s':''}${accountEquity>0?' · '+((tfS.net/accountEquity)*100).toFixed(1)+'% of acct':''}</div>
+        <div style="font-size:9px;color:var(--text5);margin-top:3px">${tfTrades.length} trade${tfTrades.length!==1?'s':''}${accountEquity>0?' · '+((tfS.net/accountEquity)*100).toFixed(1)+'% of acct':''}</div></div></div>
 
         <div class="rail-grp">RATIOS</div>
-        <div class="rail-row"><span style="color:var(--text4)">WIN RATE</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.wr>=0.5?'var(--green)':tfS.wr>=0.4?'var(--yellow)':'var(--red)'}">${(tfS.wr*100).toFixed(0)}%</span></div>
+        <div class="rail-row rail-kpi" onclick="expandKPI('WIN RATE','WIN RATE')" title="Click for a detailed breakdown"><span style="color:var(--text4)">WIN RATE</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.wr>=0.5?'var(--green)':tfS.wr>=0.4?'var(--yellow)':'var(--red)'}">${(tfS.wr*100).toFixed(0)}%</span></div>
         <div class="rail-bar"><div style="width:${Math.min(100,tfS.wr*100)}%;background:${tfS.wr>=0.5?'var(--green)':tfS.wr>=0.4?'var(--yellow)':'var(--red)'}"></div></div>
-        <div class="rail-row" style="margin-top:9px"><span style="color:var(--text4)">PROFIT FACTOR</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.pf>=1.5?'var(--green)':tfS.pf>=1?'var(--yellow)':'var(--red)'}">${tfS.pf>=99?'∞':tfS.pf.toFixed(2)}</span></div>
+        <div class="rail-row rail-kpi" style="margin-top:9px" onclick="expandKPI('PROFIT FACTOR','PROFIT FACTOR')" title="Click for a detailed breakdown"><span style="color:var(--text4)">PROFIT FACTOR</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.pf>=1.5?'var(--green)':tfS.pf>=1?'var(--yellow)':'var(--red)'}">${tfS.pf>=99?'∞':tfS.pf.toFixed(2)}</span></div>
         <div class="rail-bar"><div style="width:${Math.min(100,tfS.pf/3*100)}%;background:${tfS.pf>=1.5?'var(--green)':tfS.pf>=1?'var(--yellow)':'var(--red)'}"></div></div>
-        <div class="rail-row" style="margin-top:9px"><span style="color:var(--text4)">EXP VALUE</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.ev>0?'var(--green)':'var(--red)'}">$${tfS.ev.toFixed(2)}</span></div>
+        <div class="rail-row rail-kpi" style="margin-top:9px" onclick="expandKPI('EXP VALUE','EXP VALUE')" title="Click for a detailed breakdown"><span style="color:var(--text4)">EXP VALUE</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.ev>0?'var(--green)':'var(--red)'}">$${tfS.ev.toFixed(2)}</span></div>
         <div class="rail-bar"><div style="width:${tfS.ev>0?Math.min(100,tfS.ev/50*100):0}%;background:${tfS.ev>0?'var(--green)':'var(--red)'}"></div></div>
 
         <div class="rail-grp">PERFORMANCE</div>
@@ -3240,7 +3240,7 @@ function renderApp(){
         </div>
 
         <!-- chart + calendar side by side -->
-        <div style="display:grid;grid-template-columns:1fr 384px;gap:12px;margin-bottom:12px;align-items:stretch">
+        <div class="ov-cc-grid">
     <div class="section" style="margin-bottom:12px">
       <div class="sec-hd" style="flex-wrap:wrap;gap:8px">
         <span>${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}${modeLabel}</span>
