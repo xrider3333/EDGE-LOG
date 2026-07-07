@@ -340,6 +340,21 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 .toggle-pill{display:inline-flex;background:var(--bg2);border:1px solid var(--border);border-radius:0;overflow:hidden}
 .toggle-pill button{background:none;border:none;color:var(--text4);padding:4px 12px;font-size:var(--fsxs);letter-spacing:1px;transition:all .15s}
 .toggle-pill button.on{background:color-mix(in srgb,var(--green) 15%,transparent);color:var(--green)}
+/* ── Overview v2 (Rail) — behind ?overview or localStorage.overviewV2==='1' ── */
+.ov-shell{display:grid;grid-template-columns:264px 1fr;align-items:start;gap:0}
+.ov-rail{position:sticky;top:56px;align-self:start;padding:18px 16px;background:rgba(255,255,255,0.02);border-right:1px solid var(--border)}
+.ov-rail .rail-net{font-family:'Bebas Neue',monospace;font-size:42px;line-height:1;color:var(--green)}
+.ov-rail .rail-grp{font-size:8px;letter-spacing:2px;color:var(--text4);margin:16px 0 9px;text-transform:uppercase}
+.ov-rail .rail-row{display:flex;justify-content:space-between;font-size:10px;margin-bottom:9px}
+.ov-rail .rail-bar{height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden;margin-top:5px}
+.ov-rail .rail-bar>div{height:100%;background:var(--green)}
+.ov-work{padding:16px 18px;min-width:0}
+/* stacked breakdown bar */
+.stackbar-track{display:flex;height:16px;margin:0 14px;border-radius:5px;overflow:hidden;background:var(--bg2)}
+.stackbar-track>div{box-shadow:inset -2px 0 0 var(--bg2)}
+.stackbar-legend{display:flex;flex-wrap:wrap;gap:7px 14px;padding:12px 14px 14px}
+.stackbar-legend .li{display:flex;align-items:center;gap:6px}
+.stackbar-legend .sw{width:8px;height:8px;border-radius:2px;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -599,6 +614,35 @@ const el=id=>document.getElementById(id);
 const gc=n=>n>=0?'var(--green)':'var(--red)';
 const gch=n=>n>=0?'#00e5a0':'#ff3d5a';
 const fmt=n=>(n>=0?'+':'')+n.toFixed(2);
+
+// One stacked P&L bar for a breakdown dimension (Overview v2).
+// rows: [{ label, count, wins, pnl }] -> header total + composition bar + legend
+function stackBar(title, rows){
+  const greens = ['#00e5a0','#1fc793','#2ba883','#368b71','#3c6d5c'];
+  const pos = rows.filter(r => r.pnl >= 0).sort((a,b) => b.pnl - a.pnl);
+  const neg = rows.filter(r => r.pnl <  0).sort((a,b) => b.pnl - a.pnl);
+  const sumAbs = rows.reduce((s,r) => s + Math.abs(r.pnl), 0) || 1;
+  const net    = rows.reduce((s,r) => s + r.pnl, 0);
+  const segs = [];
+  pos.forEach((r,i) => segs.push({ ...r, color: greens[Math.min(i, greens.length-1)] }));
+  neg.forEach(r     => segs.push({ ...r, color: 'var(--red)' }));
+  const bar = segs.map(s =>
+    `<div style="width:${(Math.abs(s.pnl)/sumAbs*100)}%;background:${s.color}" title="${s.label}: ${fmt(s.pnl)} · ${s.count} tr · ${s.count?Math.round(s.wins/s.count*100):0}% WR"></div>`
+  ).join('');
+  const legend = segs.map(s =>
+    `<div class="li">
+       <span class="sw" style="background:${s.color}"></span>
+       <span style="font-family:'Bebas Neue',monospace;font-size:12px;letter-spacing:.3px;color:var(--text2)">${s.label}</span>
+       <span style="font-size:10px;color:var(--text4)">${fmt(s.pnl)}</span>
+     </div>`
+  ).join('');
+  return `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:11px 14px 10px">
+      <span class="stat-lbl">${title}</span>
+      <span style="font-family:'Bebas Neue',monospace;font-size:15px;color:${gch(net)}">${fmt(net)}</span>
+    </div>
+    <div class="stackbar-track">${segs.length?bar:''}</div>
+    <div class="stackbar-legend">${legend}</div>`;
+}
 const pct=n=>(n*100).toFixed(1)+'%';
 const isFut=sym=>!!PRESETS[sym];
 const getBase=s=>(s||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase()||'';
@@ -3146,6 +3190,217 @@ function renderApp(){
       <div style="padding:8px;display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells}</div>`;
     })();
 
+    // ── Overview v2 (Rail): behind ?overview in the URL, or localStorage.overviewV2==='1' ──
+    const OVERVIEW_V2 =
+      new URLSearchParams(location.search).has('overview') ||
+      localStorage.getItem('overviewV2')==='1';
+
+    if(OVERVIEW_V2){
+    content.innerHTML=`
+    <div class="ov-shell">
+      <aside class="ov-rail">
+        <div class="rail-grp" style="margin-top:0">NET P&L · ${tfLabel}</div>
+        <div class="rail-net" style="color:${tfS.net>=0?'var(--green)':'var(--red)'}">${fmt(tfS.net)}</div>
+        <div style="font-size:9px;color:var(--text5);margin-top:3px">${tfTrades.length} trade${tfTrades.length!==1?'s':''}${accountEquity>0?' · '+((tfS.net/accountEquity)*100).toFixed(1)+'% of acct':''}</div>
+
+        <div class="rail-grp">RATIOS</div>
+        <div class="rail-row"><span style="color:var(--text4)">WIN RATE</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.wr>=0.5?'var(--green)':tfS.wr>=0.4?'var(--yellow)':'var(--red)'}">${(tfS.wr*100).toFixed(0)}%</span></div>
+        <div class="rail-bar"><div style="width:${Math.min(100,tfS.wr*100)}%;background:${tfS.wr>=0.5?'var(--green)':tfS.wr>=0.4?'var(--yellow)':'var(--red)'}"></div></div>
+        <div class="rail-row" style="margin-top:9px"><span style="color:var(--text4)">PROFIT FACTOR</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.pf>=1.5?'var(--green)':tfS.pf>=1?'var(--yellow)':'var(--red)'}">${tfS.pf>=99?'∞':tfS.pf.toFixed(2)}</span></div>
+        <div class="rail-bar"><div style="width:${Math.min(100,tfS.pf/3*100)}%;background:${tfS.pf>=1.5?'var(--green)':tfS.pf>=1?'var(--yellow)':'var(--red)'}"></div></div>
+        <div class="rail-row" style="margin-top:9px"><span style="color:var(--text4)">EXP VALUE</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.ev>0?'var(--green)':'var(--red)'}">$${tfS.ev.toFixed(2)}</span></div>
+        <div class="rail-bar"><div style="width:${tfS.ev>0?Math.min(100,tfS.ev/50*100):0}%;background:${tfS.ev>0?'var(--green)':'var(--red)'}"></div></div>
+
+        <div class="rail-grp">PERFORMANCE</div>
+        <div class="rail-row"><span style="color:var(--text4)">AVG WIN</span><span style="font-family:'Bebas Neue',monospace;color:var(--green)">+$${tfS.avgW.toFixed(0)}</span></div>
+        <div class="rail-row"><span style="color:var(--text4)">AVG LOSS</span><span style="font-family:'Bebas Neue',monospace;color:var(--red)">-$${tfS.avgL.toFixed(0)}</span></div>
+        <div class="rail-row"><span style="color:var(--text4)">R:R</span><span style="font-family:'Bebas Neue',monospace;color:${S.rr>=1.5?'var(--green)':S.rr>=1?'var(--yellow)':'var(--red)'}">${S.rr.toFixed(2)}R</span></div>
+        <div class="rail-row"><span style="color:var(--text4)">STREAK</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.sdir>0?'var(--green)':'var(--red)'}">${tfS.sdir>0?'+':'-'}${tfS.streak}${tfS.sdir>0?'W':'L'}</span></div>
+
+        <div class="rail-grp">RISK</div>
+        <div class="rail-row"><span style="color:var(--text4)">MAX DD</span><span style="font-family:'Bebas Neue',monospace;color:var(--red)">-$${tfS.maxDD.toFixed(0)}</span></div>
+        <div class="rail-row"><span style="color:var(--text4)">SHARPE</span><span style="font-family:'Bebas Neue',monospace;color:${S.sharpe>=1?'var(--green)':S.sharpe>=0?'var(--yellow)':'var(--red)'}">${S.sharpe.toFixed(2)}</span></div>
+        <div class="rail-row"><span style="color:var(--text4)">RECOVERY</span><span style="font-family:'Bebas Neue',monospace;color:${S.recovery>=2?'var(--green)':S.recovery>=1?'var(--yellow)':'var(--red)'}">${S.recovery.toFixed(2)}×</span></div>
+
+        <div class="rail-grp">BOOK</div>
+        <div class="rail-row"><span style="color:var(--text4)">LONGS</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.longPnl>=0?'var(--green)':'var(--red)'}">$${tfS.longPnl.toFixed(0)} · ${(tfS.longWR*100).toFixed(0)}%</span></div>
+        <div class="rail-row"><span style="color:var(--text4)">SHORTS</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.shortPnl>=0?'var(--green)':'var(--red)'}">$${tfS.shortPnl.toFixed(0)} · ${(tfS.shortWR*100).toFixed(0)}%</span></div>
+        <div class="rail-row"><span style="color:var(--text4)">GROSS</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.grossNet>=0?'var(--green)':'var(--red)'}">$${tfS.grossNet.toFixed(0)}</span></div>
+        <div class="rail-row"><span style="color:var(--text4)">TOTAL FEES</span><span style="font-family:'Bebas Neue',monospace;color:var(--yellow)">-$${tfS.totalFees.toFixed(0)}</span></div>
+      </aside>
+
+      <div class="ov-work">
+        <!-- timeframe selector -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:2px 2px">
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="font-size:var(--fsxs);color:var(--text4);letter-spacing:2px;margin-right:4px">TIMEFRAME</span>
+            ${['7D','30D','90D','YTD','ALL'].map(tf=>`<button onclick="chartTF='${tf.toLowerCase()}';renderApp()" style="background:${chartTF===tf.toLowerCase()?'var(--green)':'var(--bg3)'};color:${chartTF===tf.toLowerCase()?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:5px 13px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1px;cursor:pointer;transition:all 0.1s">${tf}</button>`).join('')}
+          </div>
+          <div style="font-size:var(--fsxs);color:var(--text4);letter-spacing:1px">${tfTrades.length} trade${tfTrades.length!==1?'s':''} · ${chartTF==='all'?'all time':chartTF.toUpperCase()}</div>
+        </div>
+
+        <!-- chart + calendar side by side -->
+        <div style="display:grid;grid-template-columns:1fr 384px;gap:12px;margin-bottom:12px;align-items:stretch">
+    <div class="section" style="margin-bottom:12px">
+      <div class="sec-hd" style="flex-wrap:wrap;gap:8px">
+        <span>${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}${modeLabel}</span>
+        <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+          <!-- PNL/EQUITY toggle -->
+          <div style="display:flex;border:1px solid var(--border);margin-right:8px">
+            <button onclick="chartMode='pnl';renderApp()" style="background:${chartMode==='pnl'?'var(--green)':'var(--bg3)'};color:${chartMode==='pnl'?'var(--bg)':'var(--text3)'};border:none;padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">P&L</button>
+            <button onclick="chartMode='equity';renderApp()" style="background:${chartMode==='equity'?'var(--blue)':'var(--bg3)'};color:${chartMode==='equity'?'var(--bg)':'var(--text3)'};border:none;border-left:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">EQUITY</button>
+          </div>
+          
+          <button onclick="chartPctMode=!chartPctMode;window.chartPctMode=chartPctMode;renderApp()" style="background:${chartPctMode?'var(--blue)':'var(--bg3)'};color:${chartPctMode?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer;margin-left:8px">${chartPctMode?'%':'\$'}</button>
+            <button onclick="spyOverlay=!spyOverlay;renderApp()" style="background:${spyOverlay?'var(--yellow)':'var(--bg3)'};color:${spyOverlay?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">vs SPY</button>
+            <button class="btn-d" style="font-size:var(--fsxs);padding:4px 10px;margin-left:8px" onclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', document.querySelector('.cum-pl-chart').innerHTML)">⛶ EXPAND</button>
+        </div>
+      </div>
+      <div class="cum-pl-chart" style="padding:8px 10px 4px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%)">
+        ${(()=>{
+          const now=new Date();
+          let cutoff=null;
+          if(chartTF==='7d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-7);}
+          else if(chartTF==='30d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-30);}
+          else if(chartTF==='90d'){cutoff=new Date(now);cutoff.setDate(now.getDate()-90);}
+          else if(chartTF==='ytd'){cutoff=new Date(now.getFullYear(),0,1);}
+          const cutStr=cutoff?cutoff.toISOString().slice(0,10):null;
+          const filtTr=cutStr?bScope(trades).filter(t=>t.date>=cutStr):bScope(trades);
+          if(!filtTr.length){return '<div style="padding:120px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px">NO TRADES IN '+chartTF.toUpperCase()+'</div>';}
+          ensureSPYData();
+          // EQUITY MODE: track actual account value over time, applying deposits as they happen
+          const chartColor=chartMode==='equity'?'#4a9eff':'#00e5a0';
+          if(chartMode==='equity'){
+            // Build ledger map by date
+            const _ledgerByDate={};
+            (scopedLedger()||[]).forEach(e=>{_ledgerByDate[e.date]=(_ledgerByDate[e.date]||0)+e.amount;});
+            // Sort filtered trades by date (already sorted but ensure)
+            const sortedTr=[...filtTr].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+            // Find any deposits that happen BEFORE first filtered trade — use as starting balance
+            let bal=brokerStartEquity();
+            const _appliedDates=new Set();
+            const firstTradeDate=sortedTr[0]?.date;
+            if(firstTradeDate){
+              // Add any deposits dated on or before the first trade as starting balance
+              Object.keys(_ledgerByDate).filter(d=>d<firstTradeDate).forEach(d=>{
+                bal+=_ledgerByDate[d];
+                _appliedDates.add(d);
+              });
+            }
+            const startPt={y:+bal.toFixed(2),pnl:0,id:null,date:null,symbol:null};
+            const points=sortedTr.map(t=>{
+              // Apply any deposits on this trade's date BEFORE the trade pnl
+              if(_ledgerByDate[t.date]&&!_appliedDates.has(t.date)){
+                bal+=_ledgerByDate[t.date];
+                _appliedDates.add(t.date);
+              }
+              bal=+(bal+t.pnl).toFixed(2);
+              return {y:bal,pnl:t.pnl,id:t.id,date:t.date,symbol:t.symbol,type:t.type};
+            });
+            return svgLineLabeled([startPt,...points], chartColor,1400,380,true);
+          }
+          // PNL MODE: pure cumulative trade P&L
+          let c=0,pk=0;
+          if(chartPctMode){
+            // % MODE: show account % return based on starting balance
+            const startB=brokerStartEquity()||(scopedLedger()||[]).filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0)||1000;
+            const startPoint={y:0,pnl:0,id:null,date:null,symbol:null};
+            let bal=startB;
+            const points=filtTr.map(t=>{bal=bal+t.pnl;const pct=((bal-startB)/startB)*100;return{y:pct,pnl:t.pnl,id:t.id,date:t.date,symbol:t.symbol,type:t.type};});
+            // Add SPY overlay points if enabled
+            if(spyOverlay&&filtTr.length){
+              const startDate=filtTr[0].date;
+              const spyDataKey=trades[0]?.date+'_'+trades[trades.length-1]?.date;
+              const spyData=_spyCache[spyDataKey];
+              const spyPts=filtTr.map(t=>({y:spyReturnReal(startDate,t.date,spyData)*100}));
+              return svgLineLabeled([startPoint,...points], chartColor,1400,380,true, [{y:0},...spyPts]);
+            }
+            return svgLineLabeled([startPoint,...points], chartColor,1400,380,true);
+          }
+          const startPoint={y:0,pnl:0,id:null,date:null,symbol:null};
+          return svgLineLabeled([startPoint,...filtTr.map(t=>{c=+(c+t.pnl).toFixed(2);if(c>pk)pk=c;return{y:c,pnl:t.pnl,id:t.id,date:t.date,symbol:t.symbol,type:t.type};})], chartColor,1400,380,true);
+        })()}
+      </div>
+      <div style="padding:8px 16px 10px;display:flex;gap:18px;font-size:var(--fsxs);border-top:1px solid var(--border);justify-content:space-around;flex-wrap:wrap">
+        <span style="color:var(--text4)">MAX DD <span style="color:var(--red);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">-$${S.maxDD.toFixed(0)}</span></span>
+        ${(()=>{
+          if(!tfTrades.length)return '';
+          const startB=brokerStartEquity()||(scopedLedger()||[]).filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0)||1000;
+          const acctPct=startB>0?(tfS.net/startB)*100:0;
+          const startD=tfTrades[0].date;
+          const endD=tfTrades[tfTrades.length-1].date;
+          const spyDataKey=trades[0]?.date+'_'+trades[trades.length-1]?.date;
+          const spyData=_spyCache[spyDataKey];
+          const spyPct=(spyData?spyReturnReal(startD,endD,spyData):spyReturnBetweenDates(startD,endD))*100;
+          const alpha=acctPct-spyPct;
+          return `<span style="color:var(--text4)">vs SPY <span style="color:${alpha>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Alpha = your return - SPY return for same period">${alpha>=0?'+':''}${alpha.toFixed(1)}% α</span></span>`;
+        })()}
+        <span style="color:var(--text4)">TOTAL FEES <span style="color:var(--yellow);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">-$${S.totalFees.toFixed(0)}</span></span>
+        <span style="color:var(--text4)">R:R <span style="color:${S.rr>=1.5?'var(--green)':S.rr>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.rr.toFixed(2)}R</span></span>
+        <span style="color:var(--text4)">RECOVERY <span style="color:${S.recovery>=2?'var(--green)':S.recovery>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.recovery.toFixed(2)}×</span></span>
+        <span style="color:var(--text4)">SHARPE <span style="color:${S.sharpe>=1?'var(--green)':S.sharpe>=0?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.sharpe.toFixed(2)}</span></span>
+        ${accountEquity>0?`<span style="color:var(--text4)">BALANCE <span style="color:var(--blue);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Starting balance + cumulative net P&L (live)">$${liveBalance().toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></span>`:''}${reconBadge()}
+      </div>
+    </div>
+          <div class="section">${calHTML}</div>
+        </div>
+
+        <!-- breakdowns: one stacked P&L bar each -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+          <div class="section">${stackBar('MONTHLY', Object.entries(S.monthly).sort(([a],[b])=>b>a?1:-1).slice(0,8).map(([m,d])=>({label:m,count:d.trades,wins:d.wins,pnl:d.pnl})))}</div>
+          <div class="section">${stackBar('BY SYMBOL', Object.entries(S.syms).sort(([,a],[,b])=>b.pnl-a.pnl).map(([sym,s])=>({label:sym,count:s.count,wins:s.wins,pnl:s.pnl})))}</div>
+          <div class="section">${stackBar('BY TIMEFRAME', Object.entries(S.byTF).sort(([,a],[,b])=>b.pnl-a.pnl).slice(0,8).map(([tf,d])=>({label:tf,count:d.count,wins:d.wins,pnl:d.pnl})))}</div>
+          <div class="section">${stackBar('BY SETUP', Object.entries(S.setups).sort(([,a],[,b])=>b.pnl-a.pnl).slice(0,8).map(([s,d])=>({label:s,count:d.count,wins:d.wins,pnl:d.pnl})))}</div>
+          <div class="section">${stackBar('BY DURATION', (()=>{const buckets={'<1m':[],'1-5m':[],'5-15m':[],'15-30m':[],'30-60m':[],'1h+':[],'unknown':[]};trades.forEach(t=>{const d=t.durationMins;if(d==null||d===0)buckets['unknown'].push(t);else if(d<1)buckets['<1m'].push(t);else if(d<5)buckets['1-5m'].push(t);else if(d<15)buckets['5-15m'].push(t);else if(d<30)buckets['15-30m'].push(t);else if(d<60)buckets['30-60m'].push(t);else buckets['1h+'].push(t);});return Object.entries(buckets).filter(([,arr])=>arr.length>0).map(([range,arr])=>({label:range,count:arr.length,wins:arr.filter(t=>t.pnl>0).length,pnl:arr.reduce((s,t)=>s+t.pnl,0)}));})())}</div>
+          <div class="section">${stackBar('BY GRADE', (()=>{const order={A:1,B:2,C:3,D:4,F:5,'—':6};return Object.entries(S.byGrade).sort(([a],[b])=>(order[a]||9)-(order[b]||9)).map(([g,d])=>({label:g,count:d.count,wins:d.wins,pnl:d.pnl}));})())}</div>
+        </div>
+
+    <div class="section" style="margin-bottom:12px">
+      <div class="sec-hd" style="flex-wrap:wrap;gap:8px">
+        <span>P&L DISTRIBUTION</span>
+        <div style="display:flex;gap:14px;font-size:var(--fsxs);align-items:center">
+          <span style="color:var(--text4)">MEAN <span style="color:${_mean>=0?'var(--green)':'var(--red)'}">${_mean>=0?'+':''}$${_mean.toFixed(2)}</span></span>
+          <span style="color:var(--text4)">STD DEV <span style="color:var(--yellow)">$${_std.toFixed(2)}</span></span>
+          <span style="color:var(--text4)">−1σ <span style="color:var(--yellow)">$${(_mean-_std).toFixed(0)}</span></span>
+          <span style="color:var(--text4)">+1σ <span style="color:var(--yellow)">+$${(_mean+_std).toFixed(0)}</span></span>
+          <button class="btn-d" style="font-size:var(--fsxs);padding:3px 10px" onclick="expandChart('P&L DISTRIBUTION', document.querySelector('.dist-chart').innerHTML)">⛶ EXPAND</button>
+        </div>
+      </div>
+      <div class="dist-chart" style="padding:14px 12px">
+        <svg viewBox="0 0 1400 240" width="100%" style="display:block">
+          <line x1="0" y1="210" x2="1400" y2="210" stroke="var(--border)" stroke-width="1"/>
+          ${_min<0&&_max>0?(()=>{const zx=((0-_min)/(_max-_min))*1400;return `<line x1="${zx}" y1="0" x2="${zx}" y2="210" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2,3"/><text x="${zx+4}" y="14" fill="var(--text5)" font-size="12">$0</text>`})():''}
+          ${(()=>{const mx=((_mean-_min)/(_max-_min))*1400;return `<line x1="${mx}" y1="0" x2="${mx}" y2="210" stroke="#f5c842" stroke-width="1.5" stroke-dasharray="3,3" opacity=".7"/><text x="${mx+4}" y="32" fill="#f5c842" font-size="13">μ mean</text>`})()}
+          ${_std>0?(()=>{const lx=((_mean-_std-_min)/(_max-_min))*1400,rx=((_mean+_std-_min)/(_max-_min))*1400;return `<rect x="${lx}" y="0" width="${rx-lx}" height="210" fill="#f5c842" opacity=".07"/><text x="${lx+4}" y="48" fill="#f5c842" font-size="11" opacity=".8">−1σ</text><text x="${rx-30}" y="48" fill="#f5c842" font-size="11" opacity=".8">+1σ</text>`})():''}
+          ${_bins.map((cnt,i)=>{
+            const bx=(i/_binCount)*1400;
+            const bw=1400/_binCount-3;
+            const bh=(cnt/_maxBin)*185;
+            const by=210-bh;
+            const binMid=_min+(i+0.5)*_binSize;
+            const color=binMid>=0?'#00e5a0':'#ff3d5a';
+            return `<rect x="${bx+1.5}" y="${by}" width="${bw}" height="${bh}" fill="${color}" opacity=".75"><title>$${(_min+i*_binSize).toFixed(0)} to $${(_min+(i+1)*_binSize).toFixed(0)}: ${cnt} trade${cnt!==1?'s':''}</title></rect>${cnt>0?`<text x="${bx+bw/2+1.5}" y="${by-4}" fill="var(--text3)" font-size="11" text-anchor="middle">${cnt}</text>`:''}`;
+          }).join('')}
+          <text x="4" y="230" fill="var(--text4)" font-size="11">$${_min.toFixed(0)}</text>
+          <text x="700" y="230" fill="var(--text4)" font-size="11" text-anchor="middle">$${((_min+_max)/2).toFixed(0)}</text>
+          <text x="1396" y="230" fill="var(--text4)" font-size="11" text-anchor="end">$${_max.toFixed(0)}</text>
+        </svg>
+      </div>
+    </div>
+
+        <!-- AI assessment (full width) -->
+        <div class="section" style="margin-top:12px">
+          <div class="sec-hd">
+            <span>🤖 AI ASSESSMENT</span>
+            <button class="btn-d" style="font-size:var(--fsxs);padding:3px 10px" onclick="runOverviewAI()">REFRESH</button>
+          </div>
+          <div id="overview-ai-output" style="padding:12px;font-size:var(--fsxs);color:var(--text3);line-height:1.7;max-height:560px;overflow-y:auto">
+            <div style="color:var(--text5);text-align:center;padding:20px">Loading insights...</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+    } else {
     content.innerHTML=`
     <!-- ROW 0: TIMEFRAME SELECTOR -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:6px 4px">
@@ -3433,6 +3688,7 @@ function renderApp(){
         </svg>
       </div>
     </div>`;
+    }
     setTimeout(()=>{if(document.getElementById('overview-ai-output'))runOverviewAI();},100);
   }
 
