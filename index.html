@@ -3190,10 +3190,10 @@ function renderApp(){
       <div style="padding:8px;display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells}</div>`;
     })();
 
-    // ── Overview v2 (Rail): behind ?overview in the URL, or localStorage.overviewV2==='1' ──
+    // ── Overview v2 (Rail) is the DEFAULT. Show the OLD Overview with ?classic in the URL, or localStorage.overviewV2==='0'. ──
     const OVERVIEW_V2 =
-      new URLSearchParams(location.search).has('overview') ||
-      localStorage.getItem('overviewV2')==='1';
+      !(new URLSearchParams(location.search).has('classic') ||
+      localStorage.getItem('overviewV2')==='0');
 
     if(OVERVIEW_V2){
     content.innerHTML=`
