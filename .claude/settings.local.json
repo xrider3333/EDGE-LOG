@@ -18,7 +18,10 @@
       "Bash(findstr /i \"strategy\\\\|library\\\\|download\\\\|pine\\\\|\\\\.py\\\\|backtest\" C:/Users/xride/OneDrive/Desktop/EDGE-LOG/index.html)",
       "Bash(findstr /i \"edge\\\\|log\\\\|trade\\\\|tracker\" C:/Users/xride/OneDrive/Desktop/EDGE-LOG/index.html)",
       "WebFetch(domain:docs.anthropic.com)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(git fetch:*)",
+      "mcp__github",
+      "mcp__Claude_Code_Remote"
     ]
   }
 }

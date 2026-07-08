@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='47.0';
+const VERSION='47.1';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5620,12 +5620,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       'ex-work':['grid','ai','evolve'],'ex-rounds':['ai','evolve','validate'],'ex-prov':['ai','evolve','validate'],
       'ex-trials':['auto','walkforward'],'ex-folds':['walkforward'],
       'ex-wfmode':['walkforward'],'ex-vscope':['validate'],'ex-xfer':['validate'],'ex-discover':['validate'],
-      'ex-pills':['auto','walkforward'],
+      'ex-pills':['auto','walkforward'],'ex-mlf':['single'],
       'ex-mint':['grid','auto','walkforward','ai','evolve']};
+    // EXPERT VIEW: when on, every field is shown at once (the legacy dense layout) and the
+    // MODE picker + SEARCH×VALIDATION×AI axes appear. Persisted so it survives reruns.
+    let _exExpert=!!(APREF&&APREF.expert);
     // sibling instrument for the default cross-instrument transfer test
     const SIB={NQ:'ES',ES:'NQ',MNQ:'MES',MES:'MNQ',RTY:'M2K',M2K:'RTY',YM:'MYM',MYM:'YM',CL:'MCL',MCL:'CL',GC:'MGC',MGC:'GC'};
     // hide (not just dim) the fields the current mode ignores — no confusing inert controls.
-    const applyExMode=m=>{Object.keys(EXFIELDS).forEach(id=>{const e=el(id);if(!e)return;const on=EXFIELDS[id].indexOf(m)>=0;e.disabled=!on;const w=e.closest('div');if(w)w.style.display=on?'':'none';});};
+    const applyExMode=m=>{Object.keys(EXFIELDS).forEach(id=>{const e=el(id);if(!e)return;const on=_exExpert||EXFIELDS[id].indexOf(m)>=0;e.disabled=!on;const w=e.closest('div');if(w)w.style.display=on?'':'none';});};
     const instColor=i=>INSTC[String(i||'').toUpperCase().trim()]||'hsl('+_hashHue(String(i||''))+',45%,62%)';
     const instTag=i=>'<span style="color:'+instColor(i)+';font-weight:600">'+(i||'')+'</span>';
     const AICON={runs:'▦',exec:'▸',lib:'◫',cmp:'◧',rank:'▤',ref:'◈',research:'◎',set:'◆'};
@@ -6247,7 +6250,40 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'.ex-cal-day:disabled{opacity:.22;cursor:default}'
         +'.ex-cal-ft{display:flex;justify-content:space-between;margin-top:9px}'
         +'.ex-cal-ft button{width:auto;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text3);cursor:pointer;padding:5px 13px;font-size:var(--fsxs)}'
-        +'.ex-cal-ft button:hover{color:var(--text);border-color:var(--text5)}</style>';
+        +'.ex-cal-ft button:hover{color:var(--text);border-color:var(--text5)}'
+        // ── guided build flow: numbered steps → goal ladder → tune → run summary ──
+        +'.ex-step{border-top:1px solid var(--border);padding-top:10px;margin-top:10px}'
+        +'.ex-step:first-child{border-top:0;padding-top:0;margin-top:0}'
+        +'.ex-steplbl{font-size:var(--fsxs);letter-spacing:2px;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}'
+        +'.ex-steplbl .ex-n{display:inline-grid;place-items:center;width:19px;height:19px;border:1px solid var(--border);border-radius:99px;color:var(--text3);font-size:9px}'
+        +'.ex-steplbl .ex-hint{color:var(--text5);letter-spacing:1px;font-weight:400;text-transform:none}'
+        +'.ex-goals{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}'
+        +'.ex-goal{text-align:left;cursor:pointer;border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:10px 11px 11px;color:var(--text);font-family:inherit;transition:border-color .15s,background .15s,transform .12s}'
+        +'.ex-goal:hover{border-color:var(--text5);transform:translateY(-1px)}'
+        +'.ex-goal .gic{font-size:16px;display:block;margin-bottom:7px;line-height:1;font-variant-emoji:text}'
+        +'.ex-goal .gnm{font-size:var(--fsm);letter-spacing:1.5px;color:var(--text2);display:block}'
+        +'.ex-goal .gds{font-size:var(--fsxs);color:var(--text5);margin-top:5px;display:block;line-height:1.45}'
+        +'.ex-goal.sel{border-color:color-mix(in srgb,var(--green) 55%,transparent);background:color-mix(in srgb,var(--green) 7%,var(--bg2));box-shadow:0 6px 20px -14px var(--green)}'
+        +'.ex-goal.sel .gnm{color:var(--green)}'
+        +'#ex-expert-controls{display:none}'
+        +'.ex-build.expert #ex-goals-wrap{display:none}'
+        +'.ex-build.expert #ex-expert-controls{display:block}'
+        +'.ex-tgl{display:flex;align-items:center;gap:7px;font-size:var(--fsxs);color:var(--text3);cursor:pointer;letter-spacing:1px}'
+        +'.ex-tgl input{width:auto;cursor:pointer}'
+        +'.ex-adv{margin-top:8px}'
+        +'.ex-adv>summary{list-style:none;cursor:pointer;font-size:var(--fsxs);letter-spacing:2px;color:var(--text5);padding:7px 0}'
+        +'.ex-adv>summary::-webkit-details-marker{display:none}'
+        +'.ex-adv>summary::before{content:"\\25B8  ";color:var(--text5)}'
+        +'.ex-adv[open]>summary::before{content:"\\25BE  "}'
+        +'.ex-adv>summary:hover{color:var(--text3)}'
+        +'.ex-runbar{border:1px solid color-mix(in srgb,var(--green) 22%,var(--border));border-radius:13px;padding:12px 14px;margin:15px 0 6px;background:linear-gradient(color-mix(in srgb,var(--green) 5%,transparent),transparent)}'
+        +'.ex-cap{font-size:var(--fsxs);letter-spacing:2px;color:var(--text5);margin-bottom:7px}'
+        +'.ex-summary{font-size:var(--fsm);line-height:1.8;color:var(--text2)}'
+        +'.ex-summary .k{color:var(--text);background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:1px 7px;white-space:nowrap;font-variant-numeric:tabular-nums}'
+        +'.ex-summary .k.g{color:var(--green);border-color:color-mix(in srgb,var(--green) 35%,transparent)}'
+        +'.ex-summary .k.b{color:var(--blue);border-color:color-mix(in srgb,var(--blue) 30%,transparent)}'
+        +'.ex-summary .k.p{color:var(--purple);border-color:color-mix(in srgb,var(--purple) 30%,transparent)}'
+        +'.ex-runrow{display:flex;align-items:center;gap:14px;margin-top:8px;border-top:1px solid var(--border);padding-top:12px}</style>';
       // CUSTOM scope editor: per-parameter min/max/step rows from the synced spec.
       const cparams=(cur&&cur.params)||[];
       const cuRows=cparams.length?cparams.map(p=>'<div style="display:flex;gap:8px;align-items:flex-end;flex:0 1 330px;width:330px;background:var(--bg1);border-radius:10px;padding:8px 10px">'
@@ -6262,11 +6298,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _drLbl=(APREF.date_from||APREF.date_to)?((APREF.date_from?_exFmtD(APREF.date_from):'start')+' → '+(APREF.date_to?_exFmtD(APREF.date_to):'end')):'All dates';
       const c_dates='<div style="position:relative"><button type="button" id="ex-dr-btn" class="ex-pill">'+_drLbl+'</button><div id="ex-dr-pop" class="ex-pop" style="display:none"></div>'
         +'<input id="ex-from" type="hidden" value="'+(APREF.date_from||'')+'"/><input id="ex-to" type="hidden" value="'+(APREF.date_to||'')+'"/></div>';
-      // Field cells defined once, then grouped by purpose across the two rows: the
-      //   data-window controls (incl. VALIDATE SCOPE + TRANSFER TO, which define WHAT data a
-      //   validate run uses) sit together on the DATA row next to CSV / DATE RANGE; the mode
-      //   axes lead the HOW-TO-RUN row and the AI fields (DISCOVER WITH · AI ROUNDS · AI
-      //   PROVIDER) cluster right after AI ASSIST; then search-sizing, then walk-forward. ──
+      // Field cells defined once here, then placed by the guided flow below: STEP 1 (data),
+      //   STEP 3 tune row (goal-relevant knobs, gated by applyExMode), and the ADVANCED
+      //   expander (workers / walk-forward / costs). The MODE picker + SEARCH×VALIDATION×AI
+      //   axes only surface in EXPERT view; in guided view the goal ladder drives them. ──
       // MODE quick-picker: one dropdown for all 8 named modes; picking one snaps the
       //   SEARCH × VALIDATION × AI axes (+ ML FILTER for the gate bake-off) to match. The
       //   axes stay visible as the detail — set either the mode OR the axes.
@@ -6287,20 +6322,46 @@ namespace NinjaTrader.NinjaScript.Strategies {
         _fFolds=fld('WF FOLDS','<input id="ex-folds" type="number" value="0"/>',90),
         _fWftype=fld('WF TYPE','<select id="ex-wfmode"><option value="anchored"'+(APREF.wf_mode==='rolling'?'':' selected')+'>Anchored (expanding)</option><option value="rolling"'+(APREF.wf_mode==='rolling'?' selected':'')+'>Rolling (fixed window)</option></select>',160),
         _fPills=fld('ALL PILLS','<label title="Run the full diagnostic-pill set (adversarial-free): ACF · tail-fit · seasonality · VIF · conformal · causal · synthetic · feature-select · edge-sig · lead-lag — the same informational checks Auto-Validate runs. Adds runtime (conformal/causal/synthetic each run ~800–1000 sims). Uncheck for a faster search." style="display:flex;align-items:center;gap:6px;height:37px;font-size:var(--fsxs);color:var(--text3);cursor:pointer"><input id="ex-pills" type="checkbox"'+(APREF.pills===false?'':' checked')+' style="width:auto;cursor:pointer"/> run all</label>',110);
-      body=exStyle+'<div class="section ex-build">'
-        +'<div class="lbl" style="margin-bottom:10px">DATA &amp; STRATEGY · DURATION</div>'
-        +exrow(_fStrat+_fInst+_fTf+_fSess+_fCsv+_fDates+_fVscope+_fXfer)
-        +'<div id="ex-dataspan" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 8px">—</div>'
-        +grpH('HOW TO RUN — PICK A MODE, OR SET SEARCH × VALIDATION × AI')
-        +exrow(_fQmode+_fSearch+_fValid+_fAi+_fMlf+_fMlth+_fDiscover+_fRounds+_fProv+_fScope+_fTrials+_fWork+_fMint+_fFolds+_fWftype+_fPills)
-        +'<div id="ex-modenote" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 10px">—</div>'
+      // ── GUIDED FACE: a goal ladder + per-goal variant controls that all drive the SAME
+      //   hidden #ex-mode (through the mode-quick picker), so the runner/submit path is
+      //   unchanged. Expert view flips back to the dense picker+axes layout with all fields. ──
+      const _goalCard=(g,ic,nm,ds)=>'<button type="button" class="ex-goal" data-goal="'+g+'"><span class="gic">'+ic+'</span><span class="gnm">'+nm+'</span><span class="gds">'+ds+'</span></button>';
+      const _goalsHtml='<div id="ex-goals-wrap"><div class="ex-goals">'
+        +_goalCard('backtest','▶','BACKTEST','Run one config as-is. Fastest look.')
+        +_goalCard('optimize','◎','OPTIMIZE','Search many settings, keep the best.')
+        +_goalCard('validate','🧭','VALIDATE','Optimize, then prove it holds out-of-sample.')
+        +_goalCard('ai','🧠','AI','Let Claude propose ranges or rewrite code.')
+        +'</div></div>';
+      const _expertHtml='<div id="ex-expert-controls">'+grpH('EXPERT — MODE + SEARCH × VALIDATION × AI (all fields shown)')+exrow(_fQmode+_fSearch+_fValid+_fAi)+'</div>';
+      const _gvSearch=fld('SEARCH','<select id="gv-search"><option value="bayes">Bayesian · smart search</option><option value="grid">Grid · every combo</option><option value="custom">◆ Custom ranges</option></select>',210);
+      const _gvDepth=fld('DEPTH','<select id="gv-depth"><option value="wf">Walk-forward folds</option><option value="full">Full · WF + gates + 🔒 lockbox</option></select>',230);
+      const _gvBake=fld('ML GATE BAKE-OFF','<label class="ex-tgl" style="height:37px" title="Run the strategy once, then try all three ML gates (logistic · forest · XGBoost) across cut-offs, rank by recovery factor — only the winner sees the lockbox."><input id="gv-bakeoff" type="checkbox"/> all 3 gates 🚪🌲⚡</label>',210);
+      const _gvAkind=fld('AI MODE','<select id="gv-akind"><option value="propose">🧠 Propose ranges</option><option value="rewrite">🧬 Rewrite code</option></select>',185);
+      const _expertToggle='<label class="ex-tgl" style="margin-left:auto"><input id="ex-expert" type="checkbox"'+(_exExpert?' checked':'')+'/> expert view · show everything</label>';
+      const _fComm=fld('COMMISSION $/RT','<input id="ex-comm" type="number" step="0.01" value="'+(APREF.comm_usd!=null?APREF.comm_usd:5.66)+'"/>',140);
+      const _fSlip=fld('SLIPPAGE pts/RT','<input id="ex-slip" type="number" step="0.25" value="'+(APREF.slip_pts!=null?APREF.slip_pts:0)+'"/>',140);
+      body=exStyle+'<div class="section ex-build'+(_exExpert?' expert':'')+'">'
+        // STEP 1 — WHAT
+        +'<div class="ex-step"><div class="ex-steplbl"><span class="ex-n">1</span>WHAT ARE YOU TESTING?<span class="ex-hint">strategy &amp; data</span></div>'
+        +exrow(_fStrat+_fInst+_fTf+_fSess+_fCsv+_fDates)
+        +'<div id="ex-dataspan" style="font-size:var(--fsxs);color:var(--text5);margin:2px 0 0">—</div></div>'
+        // STEP 2 — GOAL
+        +'<div class="ex-step"><div class="ex-steplbl"><span class="ex-n">2</span>HOW HARD DO YOU WANT TO GO?<span class="ex-hint">pick one — go deeper anytime</span>'+_expertToggle+'</div>'
+        +_goalsHtml+_expertHtml+'</div>'
+        // STEP 3 — TUNE (only the goal's knobs show; the rest sit in Advanced)
+        +'<div class="ex-step"><div class="ex-steplbl"><span class="ex-n">3</span>TUNE<span class="ex-hint">only what this goal needs</span></div>'
+        +exrow(_gvSearch+_gvDepth+_gvBake+_gvAkind+_fMlf+_fMlth+_fScope+_fVscope+_fTrials+_fRounds+_fProv+_fDiscover+_fXfer+_fPills)
+        +'<div id="ex-modenote" style="font-size:var(--fsxs);color:var(--text5);margin:2px 0 0">—</div>'
         +customTile
-        +grpH('COSTS')
-        +exrow(fld('COMMISSION $/RT','<input id="ex-comm" type="number" step="0.01" value="'+(APREF.comm_usd!=null?APREF.comm_usd:5.66)+'"/>',140)+fld('SLIPPAGE pts/RT','<input id="ex-slip" type="number" step="0.25" value="'+(APREF.slip_pts!=null?APREF.slip_pts:0)+'"/>',140))
-        +'<div id="ex-lockbox-group">'+grpH('LOCKBOX · FINAL PRE-DEPLOY GATE')
+        +'<details class="ex-adv" id="ex-adv"'+(_exExpert?' open':'')+'><summary>ADVANCED · workers, walk-forward, costs</summary>'
+        +exrow(_fWork+_fMint+_fFolds+_fWftype+_fComm+_fSlip)+'</details></div>'
+        // LOCKBOX · final pre-deploy gate (hidden by exSyncMode for validate/gate-validate)
+        +'<div id="ex-lockbox-group" class="ex-step">'+grpH('LOCKBOX · FINAL PRE-DEPLOY GATE')
         +exrow(fld('RESERVE SINCE','<input id="ex-lockbox" type="date" value="'+(APREF.lockbox||'')+'"/>',150)+'<div style="flex:0 1 auto;display:flex;align-items:flex-end"><button class="btn-ghost" id="ex-lockbox-test" style="padding:9px 16px;border:1px solid var(--border);border-radius:10px;font-size:var(--fsxs)">🔒 TEST LAST WINNER ON LOCKBOX</button></div>')
-        +'<div style="font-size:8px;color:var(--text5);margin:-4px 0 8px;max-width:640px">Data on/after this date is reserved — every optimization mode caps its window before it, so it\'s never seen during the search. Once you\'ve settled on a config, test it <b>once</b> here on the untouched slice. A pass it didn\'t earn means it was overfit. You only get to look once.</div></div>'
-        +'<div style="display:flex;align-items:center;gap:14px;margin-top:6px;border-top:1px solid var(--border);padding-top:12px"><button class="btn-ghost active" id="ex-run" style="flex:0 0 auto;padding:9px 30px">▶ RUN ON MY PC</button><span style="color:var(--text5);font-size:var(--fsxs)">Runs on your PC; progress + results stream into Results history.</span></div>'
+        +'<div style="font-size:8px;color:var(--text5);margin:2px 0 0;max-width:640px">Data on/after this date is reserved — every optimization mode caps its window before it, so it\'s never seen during the search. Once you\'ve settled on a config, test it <b>once</b> here on the untouched slice. A pass it didn\'t earn means it was overfit. You only get to look once.</div></div>'
+        // RUN SUMMARY sentence + button
+        +'<div class="ex-runbar"><div class="ex-cap">THIS IS WHAT “RUN” WILL DO</div><div class="ex-summary" id="ex-summary">—</div></div>'
+        +'<div class="ex-runrow"><button class="btn-ghost active" id="ex-run" style="flex:0 0 auto;padding:9px 30px">▶ RUN ON MY PC</button><span style="color:var(--text5);font-size:var(--fsxs)">Runs on your PC; progress + results stream into Results history.</span></div>'
         +'</div>'
         +(gvHtml?tile(gvHtml):'')
         +(gateHtml?tile(gateHtml):'')
@@ -6704,7 +6765,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
         // would trap the sticky checklist-pills row (sticky breaks under any non-visible
         // overflow ancestor). Inline beats the class so the pinned pills work on every theme.
-        const detailTile='<div id="res-detail" class="hero-card" style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:13px;padding:14px 16px;overflow:visible">'+runDetail(d)+'</div>';
+        // Resilient detail: a single malformed / legacy run doc must not take down the whole
+        //   Results tab (one bad field would throw out of the RENDER: augur wrapper and blank
+        //   the page). Isolate the throw to this card, show the message, keep the list usable.
+        let _detailInner;
+        try{_detailInner=runDetail(d);}
+        catch(_de){console.error('runDetail failed for run',d&&d.id,_de);
+          _detailInner='<div style="padding:22px 18px;font-size:var(--fsm)"><div style="color:var(--red);margin-bottom:6px">⚠ This run\'s detail couldn\'t render</div>'
+            +'<div style="color:var(--text4);font-size:var(--fsxs);margin-bottom:8px">Likely a legacy or partial record. The other runs are unaffected — pick another from the list.</div>'
+            +'<div style="color:var(--text5);font-size:var(--fsxs);font-family:monospace;word-break:break-word">'+String((_de&&_de.message)||_de).replace(/</g,'&lt;')+'</div></div>';}
+        const detailTile='<div id="res-detail" class="hero-card" style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:13px;padding:14px 16px;overflow:visible">'+_detailInner+'</div>';
         // Results-view header removed per request (redundant — the PAST RUNS tile title
         //   already carries the run count, and the empty-state copy explains selection).
         const viewHeader='';
@@ -6833,7 +6903,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         let a=APREF.date_from||'',b=APREF.date_to||'',anchor=null,lo='',hi='',view=new Date();
         const ymd=(y,m,d)=>y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
         const label=()=>(a||b)?((a?_exFmtD(a):'start')+' → '+(b?_exFmtD(b):'end')):'All dates';
-        const setRange=(na,nb)=>{a=na;b=nb;savePref('date_from',na||'');savePref('date_to',nb||'');el('ex-from').value=na||'';el('ex-to').value=nb||'';btn.textContent=label();exUpdateDataSpan();};
+        const setRange=(na,nb)=>{a=na;b=nb;savePref('date_from',na||'');savePref('date_to',nb||'');el('ex-from').value=na||'';el('ex-to').value=nb||'';btn.textContent=label();exUpdateDataSpan();if(window._exSummaryRefresh)window._exSummaryRefresh();};
         const onDay=ds=>{if(anchor===null){anchor=ds;setRange(ds,ds);}else{let x=anchor,z=ds;if(x>z){const t=x;x=z;z=t;}anchor=null;setRange(x,z);}draw();};
         const MON=['January','February','March','April','May','June','July','August','September','October','November','December'];
         function draw(){const y=view.getFullYear(),m=view.getMonth(),sd=new Date(y,m,1).getDay(),nd=new Date(y,m+1,0).getDate();
@@ -6864,16 +6934,57 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // MODE (derived from the 3 axes) drives which fields apply — hide the rest.
       const em=el('ex-mode');if(em){
         const MODENOTE={single:'1 · Single backtest — one config, one pass',grid:'2 · Grid sweep — every combo in scope, in-sample only',auto:'3 · Auto-Optimize — Bayesian sampler, in-sample (+ diagnostic pills if ALL PILLS is on)',walkforward:'4 · Walk-Forward — Bayesian re-tuned per fold, tested on the next unseen window (+ pills if on)',ai:'5 · AI optimize — Claude proposes ranges each round · validates on a built-in 75/25 split',evolve:'6 · AI evolve — Claude rewrites the code each round · built-in 75/25 split',validate:'7 · 🧭 Auto-Validate — Bayesian → WF folds → gates → 🔒 lockbox → PASS/WEAK/FAIL',gate_validate:'8 · 🚪🧭 Gate-validate — strategy runs once; ALL gates × cut-offs ranked on PRE-lockbox data only (recovery factor); the winner gets ONE look at the 🔒 lockbox'};
+        // ── GUIDED summary + goal sync: reflect the derived #ex-mode back into the goal
+        //   ladder, show only that goal's variant controls, and spell the run out in English. ──
+        const _modeGoal=m=>({single:'backtest',grid:'optimize',auto:'optimize',walkforward:'validate',validate:'validate',gate_validate:'validate',ai:'ai',evolve:'ai'}[m]||'backtest');
+        const exBuildSummary=m=>{const K=(t,c)=>'<span class="k'+(c?' '+c:'')+'">'+t+'</span>';const g=v=>{const e=el(v);return e?e.value:'';};
+          const _fd=x=>x?(_exFmtD(x)||x):x;
+          const inst=g('ex-inst')||'NQ',tf=g('ex-tf')||'5m',sess=(g('ex-sess')||'rth').toUpperCase();
+          const on=' on '+K(inst+' '+tf+' '+sess,'b');
+          const df=g('ex-from'),dt=g('ex-to');const win='· '+K((df||dt)?((df?_fd(df):'start')+'→'+(dt?_fd(dt):'end')):'all data');
+          const ml=g('ex-mlf'),mlLbl={logistic:'🚪 logistic gate',rf:'🌲 forest gate',xgb:'⚡ XGBoost gate'}[ml];
+          const allPills='· '+K('all pills','g');
+          const trials=g('ex-trials')||'200',rounds=g('ex-rounds')||'4';
+          // lockbox holdout truncates the search window for every optimizing mode except validate
+          //   (which reserves its own) — surface it so the summary matches what actually runs.
+          const lb=g('ex-lockbox'),lbNote=lb?'· 🔒 '+K('holdout reserved'):'';
+          const pills=el('ex-pills')&&el('ex-pills').checked?allPills:'';
+          const provSel=el('ex-prov'),prov=provSel&&provSel.selectedOptions[0]?provSel.selectedOptions[0].text.replace(/ ·.*/,''):'';
+          let p=[];
+          if(m==='single'){p=[K('Single backtest','g'),on,win];if(mlLbl)p.push('· gated by '+K(mlLbl,'p'));}
+          else if(m==='grid'){p=[K('Grid sweep','g'),'· '+K(g('ex-preset')||'scope'),on,win,lbNote];}
+          else if(m==='auto'){p=[K('Bayesian search','g'),'· '+K(trials+' trials'),on,win,lbNote,pills];}
+          else if(m==='walkforward'){p=[K('Walk-forward','g'),'· '+K(trials+' trials'),'· re-tuned per fold',on,lbNote,pills];}
+          else if(m==='validate'){p=[K('Auto-Validate','g'),'· '+K(g('ex-vscope')||'medium'),on,'· '+K('WF + gates','g'),'· 🔒 '+K('lockbox'),allPills];}
+          else if(m==='gate_validate'){p=[K('Gate bake-off','g'),'· '+K('all 3 ML gates 🚪🌲⚡','p'),on,'· ranked by recovery · 🔒 '+K('one lockbox look')];}
+          else if(m==='ai'){p=[K('AI optimize','g'),'· '+K(rounds+' rounds'),prov?'· '+K(prov):'',on];}
+          else if(m==='evolve'){p=[K('AI evolve','g'),'· rewrites code · '+K(rounds+' rounds'),prov?'· '+K(prov):'',on];}
+          if(!p.length)p=[K(m||'run','g'),on];
+          return p.filter(Boolean).join(' ');};
+        const exRenderGuided=()=>{const m=em.value,gg=_modeGoal(m);
+          content.querySelectorAll('.ex-goal').forEach(c=>c.classList.toggle('sel',c.dataset.goal===gg));
+          const showV=(id,on)=>{const e=el(id);if(e){const w=e.closest('div');if(w)w.style.display=(on&&!_exExpert)?'':'none';}};
+          showV('gv-search',gg==='optimize');showV('gv-depth',gg==='validate'&&m!=='gate_validate');showV('gv-bakeoff',gg==='validate');showV('gv-akind',gg==='ai');
+          const gs=el('gv-search');if(gs)gs.value=(m==='grid'?((el('ex-preset')&&el('ex-preset').value==='CUSTOM')?'custom':'grid'):'bayes');
+          const gd=el('gv-depth');if(gd&&m!=='gate_validate')gd.value=(m==='walkforward'?'wf':'full');
+          const gb=el('gv-bakeoff');if(gb)gb.checked=(m==='gate_validate');
+          const ga=el('gv-akind');if(ga)ga.value=(m==='evolve'?'rewrite':'propose');
+          const su=el('ex-summary');if(su)su.innerHTML=exBuildSummary(m);};
+        // Summary-only refresh (does NOT re-sync/overwrite the goal + variant controls) —
+        //   safe to call from bubbled input/change events without reverting a control the
+        //   user is mid-change, and from the date picker which fires no DOM events.
+        const exRenderSummary=()=>{const su=el('ex-summary');if(su)su.innerHTML=exBuildSummary(em.value);};
+        window._exSummaryRefresh=exRenderSummary;
         const exSyncMode=()=>{const _qm=el('ex-mode-quick');if(_qm&&_qm.value!==em.value)_qm.value=em.value;applyExMode(em.value);exApplyCustom();const lg=el('ex-lockbox-group');if(lg)lg.style.display=(em.value==='validate'||em.value==='gate_validate')?'none':'';
           // ML gate rides Single (one gated run) or Gate-validate (the bake-off).
           const mf=el('ex-mlf'),mth=el('ex-mlth');
           if(mf&&mf.value!=='none'&&em.value!=='single'&&em.value!=='gate_validate'){mf.value='none';savePref('mlf','none');}
           // cut-off input only applies to the SINGLE gated run — gate-validate sweeps all cut-offs
-          if(mth){const w=mth.closest('div');if(w)w.style.display=(mf&&mf.value!=='none'&&em.value==='single')?'':'none';}
+          if(mth){const w=mth.closest('div');if(w)w.style.display=(_exExpert||(mf&&mf.value!=='none'&&em.value==='single'))?'':'none';}
           const nt=el('ex-modenote');if(nt){let s=MODENOTE[em.value]||em.value;
             if(mf&&mf.value!=='none'&&em.value==='single')s+=' · 🚪 gated: '+mf.value+' reviews each trade, cut-off '+((mth&&mth.value)||50)+'%';
             nt.innerHTML='→ runs: '+s;}
-          exUpdateDataSpan();};
+          exRenderGuided();exUpdateDataSpan();};
         // 3-axis → job-type wiring: an axis change snaps the OTHER axes to the nearest
         // ENGINE-SUPPORTED combo (folds/lockbox ride the Bayesian search; the AI modes
         // bring their own 75/25 split), then derives the job type into #ex-mode.
@@ -6910,6 +7021,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
           }
           savePref('mode',em.value);exSyncMode();};}
         const mth0=el('ex-mlth');if(mth0)mth0.addEventListener('input',()=>{savePref('mlth',parseInt(mth0.value)||50);exSyncMode();});
+        // ── GUIDED goal cards + variant controls: each just steers the mode-quick picker
+        //   (the single source of truth), so every derivation still runs in one place. ──
+        const _goalDefault={backtest:'single',optimize:'auto',validate:'validate',ai:'ai'};
+        const _goalModes={backtest:['single'],optimize:['auto','grid'],validate:['walkforward','validate','gate_validate'],ai:['ai','evolve']};
+        const _setMode=mm=>{const q=el('ex-mode-quick');if(q&&q.onchange){q.value=mm;q.onchange();}};
+        // Clicking a goal keeps the current sub-mode if it already belongs to that goal, else
+        //   drops to the goal's default. If the target equals the current mode, DON'T re-run the
+        //   QMODE snap (it would reset ML FILTER to none) — just re-sync the highlight.
+        content.querySelectorAll('.ex-goal').forEach(c=>c.onclick=()=>{const g=c.dataset.goal;const cur=em.value;const tgt=(_goalModes[g]||[]).indexOf(cur)>=0?cur:_goalDefault[g];if(tgt===em.value){exRenderGuided();return;}_setMode(tgt);});
+        const gsel=el('gv-search');if(gsel)gsel.onchange=()=>{if(gsel.value==='custom'){_setMode('grid');const epx=el('ex-preset');if(epx){const co=[].find.call(epx.options,o=>o.value==='CUSTOM');if(co){co.disabled=false;epx.value='CUSTOM';savePref('scope_tier','CUSTOM');}}exApplyCustom();exSyncMode();}else{if(gsel.value==='grid'){const ep=el('ex-preset');if(ep&&ep.value==='CUSTOM'){ep.selectedIndex=0;savePref('scope_tier',scopeTier(ep.value));}}_setMode(gsel.value==='grid'?'grid':'auto');}};
+        const gdep=el('gv-depth');if(gdep)gdep.onchange=()=>{if(el('gv-bakeoff')&&el('gv-bakeoff').checked)return;_setMode(gdep.value==='wf'?'walkforward':'validate');};
+        const gbk=el('gv-bakeoff');if(gbk)gbk.onchange=()=>{if(gbk.checked)_setMode('gate_validate');else{const gd2=el('gv-depth');_setMode(gd2&&gd2.value==='wf'?'walkforward':'validate');}};
+        const gak=el('gv-akind');if(gak)gak.onchange=()=>_setMode(gak.value==='rewrite'?'evolve':'ai');
+        // EXPERT view: reveal the mode picker + axes and un-gate every field at once.
+        const xt=el('ex-expert');if(xt)xt.onchange=()=>{_exExpert=xt.checked;savePref('expert',_exExpert);const bw=content.querySelector('.ex-build');if(bw)bw.classList.toggle('expert',_exExpert);const dt=el('ex-adv');if(dt&&_exExpert)dt.open=true;exSyncMode();};
+        // keep the plain-English run summary live as any knob changes
+        const _bw=content.querySelector('.ex-build');if(_bw){const _rs=()=>exRenderSummary();_bw.addEventListener('change',_rs);_bw.addEventListener('input',_rs);}
       }
       // LOCKBOX test: run the most recent winning config as ONE backtest over only the
       // reserved slice (date_from = reserve-since). One look — the final overfit check.
