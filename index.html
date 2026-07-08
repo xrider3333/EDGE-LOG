@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='47.4';
+const VERSION='47.5';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5828,8 +5828,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let eqHtml='';
       if(d.equity&&d.equity.cum&&d.equity.cum.length>1){const cum=d.equity.cum,n=cum.length;let mn=Math.min.apply(null,cum),mx=Math.max.apply(null,cum);if(mx<=mn)mx=mn+1;const W=640,Hh=140;const pts=cum.map((v,i)=>(Math.round(i/(n-1)*W*100)/100)+','+(Math.round((Hh-((v-mn)/(mx-mn))*Hh)*100)/100)).join(' ');const col=(d.equity.final||0)>=0?'#1D9E75':'#E24B4A';const zero=(mn<0&&mx>0)?(Hh-((0-mn)/(mx-mn))*Hh):null;
         const nt=d.equity.n||n,midUsd=Math.round(((mx+mn)/2)*mlt);
-        eqHtml='<div class="lbl" style="margin:4px 0 6px">EQUITY CURVE · best config · 1 contract · whole run, every trade</div>'
-          +'<div style="background:var(--bg2);border-radius:8px;padding:10px 12px 6px;margin-bottom:16px">'
+        eqHtml='<div style="background:var(--bg2);border-radius:8px;padding:10px 12px 6px;margin-bottom:6px">'
           +'<div style="display:flex;gap:7px"><div style="display:flex;flex-direction:column;justify-content:space-between;font-size:8px;color:var(--text5);text-align:right;min-width:46px;padding:1px 0">'
           +'<span>'+fmtUsd(Math.round(mx*mlt))+'</span><span>'+fmtUsd(midUsd)+'</span><span>'+fmtUsd(Math.round(mn*mlt))+'</span></div>'
           +'<svg viewBox="0 0 '+W+' '+Hh+'" width="100%" height="120" preserveAspectRatio="none" style="flex:1">'
@@ -5980,6 +5979,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // chart identifier+name in the WALK-FORWARD title style (all-caps), e.g. "1A · CHAMPION
       //   EQUITY". Optional hover tooltip on the header carries the matrix explanation.
       const _numHdr=(tag,label,tip,sub)=>'<div'+(tip?' title="'+tip+'"':'')+' style="margin:0 0 10px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px'+(tip?';cursor:help':'')+'">'+tag+' · '+label+(sub?' <span style="font-weight:400;color:var(--text4);font-size:8px">· '+sub+'</span>':'')+(tip?' <span style="font-weight:400;color:var(--text5)">ⓘ</span>':'')+'</div>';
+      // Universal-layout placeholder: every run type renders the SAME tile skeleton (Auto-Validate
+      //   is the superset). When a tile's data doesn't apply to this run type we show an "n/a" card
+      //   in its slot instead of dropping it, so switching between runs never moves the layout.
+      const _naTile=(tag,label,why)=>'<div style="opacity:.6">'
+        +'<div style="margin:0 0 8px;font-weight:700;font-size:9px;color:var(--text3);letter-spacing:.5px">'+(tag?tag+' · ':'')+label+'</div>'
+        +'<div style="background:var(--bg1);border:1px dashed color-mix(in srgb,var(--border) 65%,transparent);border-radius:9px;padding:16px 12px;text-align:center"><span style="font-size:12px;font-weight:800;letter-spacing:2px;color:var(--text5)">N/A</span>'+(why?'<div style="font-size:8px;margin-top:4px;color:var(--text5);line-height:1.4">'+why+'</div>':'')+'</div></div>';
       let _panelEquity='',_panelMatrix='',_panelRegime='',_panelMae='',_panelTD='',_distTile='';
       if(d.validate){const _V=d.validate,_lb=_V.lockbox||{};
         // 1D/1G/1I show WHOLE-RUN champion behaviour on new runs (engine full-window pass); older runs fall back to the in-sample slice.
@@ -6030,7 +6035,36 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 +'<div style="font-size:8px;color:var(--text5);margin-top:5px;line-height:1.5">Re-runs the champion with stop × target swept around your winners\' reach : heat ≈ <b style="color:var(--text3)">'+R.toFixed(1)+' : 1</b> ('+Math.round(f50)+'p reach vs '+Math.round(s50)+'p heat). <b>In-sample</b> sweep — validate the winner to confirm out-of-sample.</div></div>';
             }}
         }catch(_e){}
-        _distTile=(_td||_mae)?'<div style="'+_card+';height:100%;box-sizing:border-box">'+_td+((_td&&_mae)?'<div style="margin:11px 0;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)"></div>':'')+_mae+((dsrHtml&&dsrHtml.replace(/\s/g,''))?_dsrBlock:'')+_exitBtn+'</div>':'';}
+        _distTile=(_td||_mae)?'<div style="'+_card+';height:100%;box-sizing:border-box">'+_td+((_td&&_mae)?'<div style="margin:11px 0;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)"></div>':'')+_mae+((dsrHtml&&dsrHtml.replace(/\s/g,''))?_dsrBlock:'')+_exitBtn+'</div>':'';
+      }else{
+        // NON-Auto-Validate runs (grid / auto / walk-forward / single) render the SAME three-column
+        //   §1 skeleton as run 137 — populating each tile where the run has the data and dropping an
+        //   n/a card into the slot where it doesn't (e.g. no walk-forward folds on a grid sweep), so
+        //   switching between run types never moves the layout. §2/§4/§8 fold in here (nulled below).
+        const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px';
+        const _sc='in-sample';
+        const _spy=(d.date_from&&d.date_to)?'<div id="det-spy" data-spy-from="'+d.date_from+'" data-spy-to="'+d.date_to+'" style="font-size:var(--fsxs);color:var(--text5);margin:5px 0 0"></div>':'';
+        const _mcNote=(d.mc&&d.mc.p95!=null)?'<div style="font-size:var(--fsxs);color:var(--text3);margin-top:7px">P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round((d.mc.p95||0)*mlt))+'</b> — size your account to survive this (Monte-Carlo worst case).</div>':'';
+        const _bt='margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)';
+        // Col A — 1A champion equity (+ SPY benchmark + worst-case drawdown, folded from §8) · 1B monthly · 1C walk-forward · 1I stress
+        _panelEquity='<div style="'+_card+';height:100%;box-sizing:border-box">'
+          +'<div id="res-step-8" style="scroll-margin-top:64px">'+(eqHtml?(_numHdr('1A','CHAMPION EQUITY',null,'best config · 1 contract · whole run')+eqHtml+_spy+_mcNote):_naTile('1A','CHAMPION EQUITY','no equity series saved for this run'))+'</div>'
+          +'<div style="'+_bt+'">'+(monthlyPnlHtml(d.regime,mlt)||_naTile('1B','MONTHLY P&L','not enough monthly data to chart'))+'</div>'
+          +'<div style="'+_bt+'"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+(isOosFoldsHtml(d,mlt)||_naTile('1C','WALK-FORWARD','only walk-forward / Auto-Validate runs test in rolling out-of-sample folds'))+'</div>'
+          +'<div style="'+_bt+'"><div id="res-step-4" style="scroll-margin-top:64px"></div>'+(stressPanelHtml(d.stress,mlt,'1I',_sc)||_naTile('1I','STRESS','no stress buckets saved for this run'))+'</div>'
+          +'</div>';
+        // Col B — 1E KPI matrix (75/25 in-sample vs out-of-sample where saved) · 1F regime report card
+        const _mtx=splitOosHtml(d,mlt);
+        _panelMatrix='<div style="'+_card+';height:100%;box-sizing:border-box">'
+          +(_mtx?(_numHdr('1E','KPI MATRIX')+_mtx):_naTile('1E','KPI MATRIX','no in-sample / out-of-sample split saved — grid &amp; single runs report one in-sample column (see the CHAMPION cards above)'))
+          +'<div style="margin-top:14px;padding-top:13px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)">'+((regHtml&&regHtml.replace(/\s/g,''))?regHtml:_naTile('1F','REGIME REPORT CARD','no regime / volatility breakdown saved for this run'))+'</div>'
+          +'</div>';
+        // Col C — 1D trade-PnL distribution · 1G MAE/MFE · 1H deflated Sharpe
+        const _td=tradeDistPanelHtml(d.win_dist,mlt,'1D',_sc),_mae=maeMfePanelHtml(d.mae_mfe,mlt,'1G',_sc);
+        const _dsrBlk=(dsrHtml&&dsrHtml.replace(/\s/g,''))?('<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1H · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml):_naTile('1H','DEFLATED SHARPE','no deflated-Sharpe computed (needs a multi-config search)');
+        const _div='<div style="margin:12px 0;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)"></div>';
+        _distTile='<div style="'+_card+';height:100%;box-sizing:border-box">'+(_td||_naTile('1D','TRADE-PNL DISTRIBUTION','no per-trade P&L distribution saved for this run'))+_div+(_mae||_naTile('1G','MAE / MFE','no MAE / MFE (max adverse / favourable excursion) saved for this run'))+_div+_dsrBlk+'</div>';
+      }
       const _noteEsc=String(d.note||'').replace(/"/g,'&quot;'),_hasNote=!!(d.note&&String(d.note).trim());
       // shared style so the note / relabel / delete controls read as one consistent button group.
       //   Fixed height + box-sizing makes the <select> match the <button>s (selects size differently);
@@ -6072,13 +6106,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Champion metrics now live in the §1 RUN SUMMARY panel (consolidated, de-duplicated).
       // §2 keeps only the trade-level behaviour. Whole-run champion equity shows ONLY for grid/auto
       //   runs — validate/WF runs already plot it (with fold bands + lockbox) as chart 1 in §1.
-      const _sec2=_secOf(2,[(d.validate?'':(eqHtml?(eqHtml+_spyDiv):'')), (d.validate?'':tradeDistPanelHtml(d.win_dist,mlt)), (d.validate?'':maeMfePanelHtml(d.mae_mfe,mlt))]);
+      const _sec2='';   // §2 content (equity+SPY, trade-dist, MAE/MFE) is folded into §1 (1A/1D/1G) for EVERY run type now — matches run 137.
       // §2 Configuration Analysis (was §3 Plateau) — the searched config space. Layout:
       //   tile 1 = 2a TOP CONFIGS PNL | 2b CONFIG DISTRIBUTION (row) then 2c PARALLEL COORDINATES
       //   (full width); then 2d TOP CONFIGS table, 2e NEIGHBOURS, 2f DEFLATED SHARPE; tile last =
       //   2h HEATMAP · 2g SCATTER · 2i PARAM CORRELATION (three across). The 2a "configs" slider sets
       //   the overlay curve count & 2b bins. Display number is 2 on validate runs (empty §2 drops), else 3.
-      const _cfgN=d.validate?2:3, _strN=d.validate?3:4;
+      const _cfgN=2, _strN=3;   // §2 folds into §1 for all run types, so Configuration Analysis is always the 2nd visible section (uniform tag: 2A, 2B…).
       const _card2='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:12px 14px';
       const _eq=((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt,_cfgN+'A'):'');
       const _dist=distPanelHtml(d.dist,mlt,_cfgN+'B');
@@ -6101,8 +6135,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _sec3=_cfgTile+_paramTile+_topTile+_nbTile+_dsrTile;
       // regHtml (regime report card + monthly P&L) moved into §1 (under the WF folds) per request.
       // Stress = the champion's profit spread across time → it lives in §1 (1I) for validate runs; keep the standalone §3/§4 only for non-validate sweeps.
-      const _strStress=d.validate?'':stressPanelHtml(d.stress,mlt,_strN+'A');
-      const _sec4=_strStress?'<div style="'+_card2+';max-width:600px;margin-bottom:14px">'+_strStress+'</div>':'';
+      const _sec4='';   // stress is folded into §1 (1I) for EVERY run type now — matches run 137.
       // Walk-forward folds (was its own §5) now live INSIDE §1 — they ARE the out-of-sample
       //   detail behind chart 1's WF bands. The res-step-5 anchor keeps pill 5 jumping here.
       // Only emit the WF-folds subsection (with its res-step-5 jump anchor) when there ARE folds —
@@ -6110,7 +6143,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _wfInner=isOosFoldsHtml(d,mlt);
       const _wfFolds=_wfInner?('<div id="res-step-5" style="scroll-margin-top:64px"></div>'+_wfInner):'';
       // 8 Drawdown = worst-case equity-path sizing (Monte-Carlo P95).
-      const _sec8=d.validate?'':_secOf(8,[mcHtml]);   // validate runs show MC + the underwater drawdown inside the 1a tile
+      const _sec8='';   // Monte-Carlo drawdown is folded into §1 (1A) for EVERY run type now — matches run 137.
       // ── ROBUSTNESS & DIAGNOSTICS — the shared method-pill panel (adversarial / conformal /
       //    causal / synthetic / lead-lag / ACF / VIF / feature-select / edge-sig / tail-fit /
       //    seasonality), the config-selection cards (ensemble top-K + CCMP · plateau pick) and
@@ -6123,12 +6156,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _dofV=(d.validate&&d.validate.trades_per_param!=null)?d.validate.trades_per_param:((_dofNP>0&&_dofNT>0)?(_dofNT/_dofNP):null);
       const _dofHtml=(_dofV!=null)?('<div style="font-size:var(--fsxs);color:var(--text3)" title="Trades per optimized parameter — the overfitting governor. Under 10 = high risk; aim for 30+.">📐 SAMPLE ADEQUACY (DOF) · §4 — <b style="color:'+(_dofV>=30?'var(--green)':_dofV>=10?'var(--yellow)':'var(--red)')+'">'+Math.round(_dofV)+' trades / param</b> <span style="color:var(--text5)">· '+_dofNT.toLocaleString()+' trades'+(_dofNP?' across '+_dofNP+' params':'')+'</span></div>'):'';
       const _diagParts=[_dofHtml,pillsHtml(_pillSrc,mlt),ensembleCardHtml(d.ensemble,mlt),plateauCardHtml(d.plateau_pick,d.best_params,mlt),(d.gate_validate?gvTableHtml(d.gate_validate,stratTag(d.strategy),mlt):''),(d.ml_gate?gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt):'')].filter(x=>x&&x.replace(/\s/g,''));
-      const _diagSec=_diagParts.length?('<div id="res-step-diag" class="lbl" style="margin:22px 0 8px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:23px;height:23px;border-radius:50%;background:var(--bg1);border:1px solid var(--border);font-size:11px">🔬</span><span style="font-weight:800;font-size:15px;color:var(--text);letter-spacing:0;text-transform:none">Robustness &amp; Diagnostics</span><span style="font-weight:400;color:var(--text4);font-size:9px">informational — distribution-free checks · ensemble · ML gate</span></div><div style="'+_card2+';margin-bottom:14px">'+_diagParts.join('<div style="margin:12px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)"></div>')+'</div>'):'';
+      // Fixed slot for EVERY run type (universal layout): render the header always, with an n/a card when this run saved no diagnostics.
+      const _diagHd='<div id="res-step-diag" class="lbl" style="margin:22px 0 8px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:23px;height:23px;border-radius:50%;background:var(--bg1);border:1px solid var(--border);font-size:11px">🔬</span><span style="font-weight:800;font-size:15px;color:var(--text);letter-spacing:0;text-transform:none">Robustness &amp; Diagnostics</span><span style="font-weight:400;color:var(--text4);font-size:9px">informational — distribution-free checks · ensemble · ML gate</span></div>';
+      const _diagSec=_diagHd+'<div style="'+_card2+';margin-bottom:14px">'+(_diagParts.length?_diagParts.join('<div style="margin:12px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)"></div>'):_naTile('','ROBUSTNESS &amp; DIAGNOSTICS','no distribution-free checks, ensemble or ML-gate saved for this run'))+'</div>';
       return hdrHtml
         +valBannerHtml(d)
-        +_sec('1','Feasibility & walk-forward','',(d.validate?(_summaryPanel+'<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:1.7 1 360px;min-width:0">'+_panelEquity+'</div><div style="flex:1 1 280px;min-width:0">'+(_panelMatrix||_secOf(1,[[splitOosHtml(d,mlt),'KPI matrix']],1))+_panelRegime+'</div>'+(_distTile?'<div style="flex:1.1 1 300px;min-width:0">'+_distTile+'</div>':'')+'</div>'):_secOf(1,[_summaryPanel,monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml])))
+        // §1 renders the SAME three-column skeleton for EVERY run type — both branches above populate
+        //   _panelEquity / _panelMatrix / _distTile (with n/a cards where a tile doesn't apply).
+        +_sec('1','Feasibility & walk-forward','',_summaryPanel+'<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:1.7 1 360px;min-width:0">'+_panelEquity+'</div><div style="flex:1 1 280px;min-width:0">'+_panelMatrix+_panelRegime+'</div><div style="flex:1.1 1 300px;min-width:0">'+_distTile+'</div></div>')
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
-        +_sec('3','Configuration Analysis','robust params — a cluster, not a lonely spike',_sec3,_cfgN)
+        // §3 is a fixed slot too (universal layout): show an n/a card when the run swept no config grid.
+        +_sec('3','Configuration Analysis','robust params — a cluster, not a lonely spike',((_sec3&&_sec3.replace(/\s/g,''))?_sec3:('<div style="'+_card2+';margin-bottom:14px">'+_naTile('2A','CONFIG SEARCH','this run type did not sweep a parameter grid — no config landscape, top-configs table or robustness map to show')+'</div>')),_cfgN)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4,_strN)
         +_sec('8','Drawdown','size for the worst-case equity path',_sec8)
         +_diagSec
