@@ -79,7 +79,7 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 cost_pts=float(job.get("cost_pts", 0) or 0),
                 min_trades=int(job.get("min_trades", 30)), top_n=int(job.get("top_n", 10)),
                 workers=int(job.get("workers", 1)), progress_cb=progress_cb,
-                compute_dsr=bool(job.get("dsr", False)), mc_sims=int(job.get("mc_sims", 0)),
+                compute_dsr=bool(job.get("dsr", True)), mc_sims=int(job.get("mc_sims", 2000)),
                 compute_regime=bool(job.get("regime", True)),
                 compute_neighbors=bool(job.get("neighbors", True)),
                 compute_ensemble=bool(job.get("ensemble", True)),
@@ -96,7 +96,7 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 cost_pts=float(job.get("cost_pts", 0) or 0),
                 min_trades=int(job.get("min_trades", 30)), top_n=int(job.get("top_n", 10)),
                 progress_cb=progress_cb,
-                compute_dsr=bool(job.get("dsr", False)), mc_sims=int(job.get("mc_sims", 0)),
+                compute_dsr=bool(job.get("dsr", True)), mc_sims=int(job.get("mc_sims", 2000)),
                 compute_regime=bool(job.get("regime", True)),
                 compute_neighbors=bool(job.get("neighbors", True)),
                 compute_pills=bool(job.get("pills", False)))

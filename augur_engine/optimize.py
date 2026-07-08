@@ -249,8 +249,12 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 if nb:
                     out["neighborhood"] = nb
 
-    # Phase-4 analytics on the winner (opt-in): Monte-Carlo drawdown + Deflated Sharpe.
-    if best and (compute_dsr or mc_sims):
+    # Champion analytics on the winner. The cheap ones (champion equity, per-trade win
+    # distribution, MAE/MFE, top-config equity overlay, chronological stress) are derived
+    # from a single winner backtest, so we compute them for EVERY run — a grid sweep gets the
+    # same 1A/1D/1G/1I tiles a validate run does. Monte-Carlo drawdown (mc) and Deflated
+    # Sharpe (dsr) stay opt-in (they re-run extra backtests) via their own guards below.
+    if best:
         if years is None:
             try:
                 idx = arrays.get("index")
