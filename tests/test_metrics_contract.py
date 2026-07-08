@@ -127,27 +127,21 @@ def test_stats_matches_apply_costs_when_not_underwater(trades_from_pnls, name, p
     _assert_metrics_equal(costed, stats, approx=True)
 
 
-def test_stats_agrees_on_everything_but_drawdown_when_underwater(trades_from_pnls):
-    """For an underwater-from-start series, _stats agrees on all metrics EXCEPT
-    max_drawdown — the one documented divergence."""
+def test_stats_agrees_with_apply_costs_when_underwater(trades_from_pnls):
+    """After the issue #7 fix, _stats seeds its drawdown peak at flat starting equity
+    (0.0) like _apply_costs, so the two agree on EVERY metric even when the curve is
+    underwater from the first trade."""
     trades = trades_from_pnls([-5.0, -3.0])
     costed = engine_apply_costs({"trades": list(trades)}, 0.0)
     stats = _stats([t[2] for t in trades])
-    others = tuple(k for k in SHARED_KEYS if k != "max_drawdown")
-    _assert_metrics_equal(costed, stats, keys=others, approx=True)
+    _assert_metrics_equal(costed, stats, approx=True)
 
 
-def test_documented_drawdown_divergence(trades_from_pnls):
-    """KNOWN DISCREPANCY (pinned, not endorsed): for a curve that is underwater from
-    the first trade, _apply_costs measures drawdown from flat starting equity
-    (peak seeded at 0.0) while ml_gate._stats measures it from the first cumulative
-    value (peak seeded at cum[0]). So _stats under-reports the drawdown.
-
-    If you unify these, update this test — and be aware it changes the drawdown the
-    ML-gate reports for gated runs, so it's a deliberate analytics change, not a
-    silent refactor."""
+def test_underwater_drawdown_measured_from_flat_equity(trades_from_pnls):
+    """A curve that is underwater from the first trade reports its true drawdown
+    (measured from flat starting equity) in both helpers — the fix for issue #7."""
     trades = trades_from_pnls([-5.0, -3.0])
     costed = engine_apply_costs({"trades": list(trades)}, 0.0)
     stats = _stats([t[2] for t in trades])
-    assert costed["max_drawdown"] == -8.0      # from flat starting equity
-    assert stats["max_drawdown"] == -3.0       # from the first cumulative point
+    assert costed["max_drawdown"] == -8.0
+    assert stats["max_drawdown"] == -8.0
