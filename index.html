@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='46.7';
+const VERSION='46.8';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -1818,6 +1818,7 @@ function sparkline(data,color,w,h,showAxis){
 function svgLineLabeled(pts,color,W,H,showTradeAmounts,spyPts,yUnit){
   // Same as svgLine but adds P&L amount labels at each dot
   if(!pts||pts.length<2)return'<p style="padding:20px;color:var(--text5);font-size:11px;text-align:center">Add at least 2 trades</p>';
+  const isPct=(yUnit==='%'||!!window.chartPctMode); // % mode: y values (and labels) are percent, not $
   const PAD={t:18,r:22,b:30,l:62};const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
   const ys=pts.map(p=>p.y);
   // Adaptive Y range — don't anchor to 0 if all points are positive/negative
@@ -1841,20 +1842,21 @@ function svgLineLabeled(pts,color,W,H,showTradeAmounts,spyPts,yUnit){
     const dotSvg=`<circle class="chart-trade-dot" data-date="${p.date||''}" cx="${cx}" cy="${cyv}" r="2.5" fill="${isWin?'#00e5a0':'#ff3d5a'}" stroke="var(--bg)" stroke-width="1.5"/>`;
     let labelSvg='';
     if(showTradeAmounts&&i%labelStep===0&&p.pnl!==undefined){
-      const lbl=(p.pnl>=0?'+':'')+p.pnl.toFixed(0);
-      const labelY=(parseFloat(cyv)-6).toFixed(1);
-      labelSvg=`<text x="${cx}" y="${labelY}" text-anchor="middle" fill="${isWin?'#00e5a0':'#ff3d5a'}" font-size="11" font-family="JetBrains Mono,monospace" opacity=".85">${lbl}</text>`;
+      const _d=i>0?(p.y-pts[i-1].y):0; // per-trade move in y units (% in pct mode)
+      const lbl=isPct?((_d>=0?'+':'')+_d.toFixed(2)+'%'):((p.pnl>=0?'+':'')+p.pnl.toFixed(0));
+      const labelY=(parseFloat(cyv)-8).toFixed(1);
+      labelSvg=`<text x="${cx}" y="${labelY}" text-anchor="middle" fill="${isWin?'#00e5a0':'#ff3d5a'}" font-size="17" font-family="JetBrains Mono,monospace" opacity=".9">${lbl}</text>`;
     }
     return dotSvg+labelSvg;
   }).join('');
   // Equity value at current end
   const lastVal=pts[pts.length-1].y,lastX=sx(pts.length-1),lastY=sy(lastVal);
-  const endLabel=`<text x="${(lastX+4).toFixed(1)}" y="${lastY.toFixed(1)}" fill="${lastVal>=0?'#00e5a0':'#ff3d5a'}" font-size="12" font-family="JetBrains Mono,monospace" font-weight="bold">${lastVal>=0?'+':''}${lastVal.toFixed(0)}</text>`;
+  const endLabel=`<text x="${(lastX+4).toFixed(1)}" y="${lastY.toFixed(1)}" fill="${lastVal>=0?'#00e5a0':'#ff3d5a'}" font-size="16" font-family="JetBrains Mono,monospace" font-weight="bold">${lastVal>=0?'+':''}${isPct?lastVal.toFixed(1)+'%':lastVal.toFixed(0)}</text>`;
   // High/low labels
   const maxPt=pts.reduce((a,b)=>b.y>a.y?b:a),minPt=pts.reduce((a,b)=>b.y<a.y?b:a);
   const maxIdx=pts.indexOf(maxPt),minIdx=pts.indexOf(minPt);
-  const highLabel=`<text x="${sx(maxIdx).toFixed(1)}" y="${(sy(maxPt.y)-6).toFixed(1)}" text-anchor="middle" fill="#00e5a0" font-size="16" font-family="JetBrains Mono,monospace" opacity=".9" font-weight="600">$${maxPt.y.toFixed(0)}</text>`;
-  const lowLabel=minPt.y<0?`<text x="${sx(minIdx).toFixed(1)}" y="${(sy(minPt.y)+14).toFixed(1)}" text-anchor="middle" fill="#ff3d5a" font-size="16" font-family="JetBrains Mono,monospace" opacity=".9" font-weight="600">$${minPt.y.toFixed(0)}</text>`:'';
+  const highLabel=`<text x="${sx(maxIdx).toFixed(1)}" y="${(sy(maxPt.y)-6).toFixed(1)}" text-anchor="middle" fill="#00e5a0" font-size="18" font-family="JetBrains Mono,monospace" opacity=".9" font-weight="600">${isPct?maxPt.y.toFixed(1)+'%':'$'+maxPt.y.toFixed(0)}</text>`;
+  const lowLabel=minPt.y<0?`<text x="${sx(minIdx).toFixed(1)}" y="${(sy(minPt.y)+14).toFixed(1)}" text-anchor="middle" fill="#ff3d5a" font-size="18" font-family="JetBrains Mono,monospace" opacity=".9" font-weight="600">${isPct?minPt.y.toFixed(1)+'%':'$'+minPt.y.toFixed(0)}</text>`:'';
   let yg='',yt='';
   for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" opacity="0.22"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="17" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}
   let xt='';const step=Math.max(1,Math.floor(pts.length/8));for(let i=0;i<pts.length;i+=step)xt+=`<text x="${sx(i).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text2)" font-size="15" font-family="JetBrains Mono,monospace" font-weight="500">${i+1}</text>`;
@@ -1877,12 +1879,14 @@ function svgLineLabeled(pts,color,W,H,showTradeAmounts,spyPts,yUnit){
   const tooltipHTML=`<g class="chart-tooltip" id="${uniqueId}_tip" style="display:none;pointer-events:none">
     <line class="chart-xhair" x1="0" y1="${PAD.t}" x2="0" y2="${PAD.t+ch}" stroke="var(--text4)" stroke-width="1" stroke-dasharray="3,3"/>
     <circle class="chart-dot-h" cx="0" cy="0" r="5" fill="var(--bg)" stroke="${color}" stroke-width="2"/>
-    <rect class="chart-tip-bg" x="0" y="0" width="200" height="92" fill="var(--bg)" stroke="${color}" stroke-width="1" rx="3"/>
-    <text class="chart-tip-trade" x="0" y="0" fill="var(--text)" font-size="11" font-family="JetBrains Mono,monospace" font-weight="bold">Trade #1</text>
-    <text class="chart-tip-sym" x="0" y="0" fill="var(--text3)" font-size="10" font-family="JetBrains Mono,monospace"></text>
-    <text class="chart-tip-pnl" x="0" y="0" fill="${color}" font-size="11" font-family="JetBrains Mono,monospace">P&amp;L: +$0</text>
-    <text class="chart-tip-cum" x="0" y="0" fill="var(--text3)" font-size="11" font-family="JetBrains Mono,monospace">Cum: $0</text>
-    <text class="chart-tip-hint" x="0" y="0" fill="var(--blue)" font-size="9" font-family="JetBrains Mono,monospace">▸ click to view trade</text>
+    <rect class="chart-tip-datebg" x="0" y="${(PAD.t+ch+3).toFixed(1)}" width="124" height="24" fill="var(--bg)" stroke="var(--text4)" rx="3"/>
+    <text class="chart-tip-date" x="0" y="${(PAD.t+ch+20).toFixed(1)}" fill="var(--text)" font-size="15" font-family="JetBrains Mono,monospace" text-anchor="middle"></text>
+    <rect class="chart-tip-bg" x="0" y="0" width="320" height="140" fill="var(--bg)" stroke="${color}" stroke-width="1" rx="3"/>
+    <text class="chart-tip-trade" x="0" y="0" fill="var(--text)" font-size="20" font-family="JetBrains Mono,monospace" font-weight="bold">Trade #1</text>
+    <text class="chart-tip-sym" x="0" y="0" fill="var(--text3)" font-size="16" font-family="JetBrains Mono,monospace"></text>
+    <text class="chart-tip-pnl" x="0" y="0" fill="${color}" font-size="18" font-family="JetBrains Mono,monospace">P&amp;L: +$0</text>
+    <text class="chart-tip-cum" x="0" y="0" fill="var(--text3)" font-size="18" font-family="JetBrains Mono,monospace">Cum: $0</text>
+    <text class="chart-tip-hint" x="0" y="0" fill="var(--blue)" font-size="13" font-family="JetBrains Mono,monospace">▸ click to view trade</text>
   </g>`;
   // After-render JS: attach handlers (we use setTimeout because the SVG is rendered via innerHTML)
   setTimeout(()=>{
@@ -1897,6 +1901,8 @@ function svgLineLabeled(pts,color,W,H,showTradeAmounts,spyPts,yUnit){
     const tipCum=tip.querySelector('.chart-tip-cum');
     const tipSym=svg.querySelector('.chart-tip-sym');
     const tipHint=svg.querySelector('.chart-tip-hint');
+    const tipDate=svg.querySelector('.chart-tip-date');
+    const tipDateBg=svg.querySelector('.chart-tip-datebg');
     svg.querySelectorAll('.chart-hover-zone').forEach(z=>{
       z.addEventListener('mouseenter',()=>{
         const x=parseFloat(z.dataset.x);
@@ -1911,32 +1917,39 @@ function svgLineLabeled(pts,color,W,H,showTradeAmounts,spyPts,yUnit){
         // Position elements
         xhair.setAttribute('x1',x);xhair.setAttribute('x2',x);
         dotH.setAttribute('cx',x);dotH.setAttribute('cy',y);
-        const tipW=200,tipH=92;
+        const tipW=320,tipH=140;
         let tx=x+10;
         if(tx+tipW>W-10)tx=x-tipW-10;
         let ty=y-tipH-12;
         if(ty<PAD.t)ty=y+12;
         tipBg.setAttribute('x',tx);tipBg.setAttribute('y',ty);
-        tipBg.setAttribute('height',tid?tipH:62);
-        tipTrade.setAttribute('x',tx+10);tipTrade.setAttribute('y',ty+18);
-        tipSym.setAttribute('x',tx+10);tipSym.setAttribute('y',ty+34);
-        tipPnl.setAttribute('x',tx+10);tipPnl.setAttribute('y',ty+52);
-        tipCum.setAttribute('x',tx+10);tipCum.setAttribute('y',ty+68);
-        tipHint.setAttribute('x',tx+10);tipHint.setAttribute('y',ty+84);
+        tipBg.setAttribute('height',tid?tipH:114);
+        tipTrade.setAttribute('x',tx+12);tipTrade.setAttribute('y',ty+28);
+        tipSym.setAttribute('x',tx+12);tipSym.setAttribute('y',ty+54);
+        tipPnl.setAttribute('x',tx+12);tipPnl.setAttribute('y',ty+80);
+        tipCum.setAttribute('x',tx+12);tipCum.setAttribute('y',ty+106);
+        tipHint.setAttribute('x',tx+12);tipHint.setAttribute('y',ty+130);
+        // Date chip pinned to the x-axis under the crosshair
+        if(date){
+          const dbx=Math.max(PAD.l,Math.min(W-PAD.r-124,x-62));
+          tipDateBg.setAttribute('x',dbx);tipDate.setAttribute('x',dbx+62);
+          tipDate.textContent=date;
+          tipDate.style.display='';tipDateBg.style.display='';
+        }else{tipDate.style.display='none';tipDateBg.style.display='none';}
         // Content
         tipTrade.textContent=idx===0?'Start':('Trade #'+idx);
         if(idx===0){
           tipSym.textContent='';
           tipPnl.textContent='Starting balance';
           tipPnl.setAttribute('fill','var(--text4)');
-          tipCum.textContent='Cum: $0';
+          tipCum.textContent=window.chartPctMode?'Cum: 0%':'Cum: $0';
           tipHint.style.display='none';
-          tipBg.setAttribute('height',62);
+          tipBg.setAttribute('height',114);
         } else {
           tipSym.textContent=(sym||'')+(type?' · '+type:'')+(date?'  '+date:'');
           tipPnl.textContent=(pnl>=0?'P&L: +$':'P&L: -$')+Math.abs(pnl).toFixed(2);
           tipPnl.setAttribute('fill',pnl>=0?'#00e5a0':'#ff3d5a');
-          tipCum.textContent='Cum: '+(cum>=0?'+$':'-$')+Math.abs(cum).toFixed(2);
+          tipCum.textContent=window.chartPctMode?('Cum: '+(cum>=0?'+':'-')+Math.abs(cum).toFixed(2)+'%'):('Cum: '+(cum>=0?'+$':'-$')+Math.abs(cum).toFixed(2));
           tipHint.style.display=tid?'':'none';
         }
         tip.style.display='block';
@@ -2463,7 +2476,8 @@ async function fetchSPYData(startDate,endDate){
   const key=startDate+'_'+endDate;
   if(_spyCache[key])return _spyCache[key];
   const p1=Math.floor(new Date(startDate).getTime()/1000);
-  const p2=Math.floor(new Date(endDate).getTime()/1000)+86400;
+  // extend the window to "now" so late trades never fall past the data and flatten the overlay
+  const p2=Math.max(Math.floor(new Date(endDate).getTime()/1000)+86400,Math.floor(Date.now()/1000));
   const yahoo=`https://query1.finance.yahoo.com/v8/finance/chart/SPY?period1=${p1}&period2=${p2}&interval=1d`;
   // Yahoo's chart API is CORS-blocked in the browser, so route it through a CORS proxy first,
   // then try direct (works in non-browser contexts). Both return the same JSON shape.
@@ -2498,10 +2512,18 @@ function spyReturnReal(startDate,endDate,spyData){
   if(!sPx||!ePx)return 0;
   return (ePx-sPx)/sPx;
 }
+// True min/max trade dates (the trades array is not guaranteed date-ascending —
+// using [0]/[len-1] used to truncate the SPY fetch range and flatten the overlay tail).
+function _spyAllRange(){
+  if(!trades.length)return null;
+  let mn=trades[0].date,mx=trades[0].date;
+  trades.forEach(t=>{if(t.date){if(t.date<mn)mn=t.date;if(t.date>mx)mx=t.date;}});
+  return [mn,mx];
+}
 // Trigger SPY fetch when overlay enabled and we have trades
 function ensureSPYData(){
   if(!spyOverlay||!trades.length)return;
-  const startD=trades[0].date,endD=trades[trades.length-1].date;
+  const [startD,endD]=_spyAllRange();
   const key=startD+'_'+endD;
   if(_spyCache[key]||_spyCache._loading===key)return;
   _spyCache._loading=key;
@@ -3223,7 +3245,7 @@ function renderApp(){
         <div class="rail-row"><span style="color:var(--text4)">SHARPE</span><span style="font-family:'Bebas Neue',monospace;color:${S.sharpe>=0?'var(--green)':'var(--red)'}">${S.sharpe.toFixed(2)}</span></div>
         <div class="rail-row"><span style="color:var(--text4)">RECOVERY</span><span style="font-family:'Bebas Neue',monospace;color:${S.recovery>=1?'var(--green)':'var(--red)'}">${S.recovery.toFixed(2)}×</span></div>
         <div class="rail-row"><span style="color:var(--text4)">R:R</span><span style="font-family:'Bebas Neue',monospace;color:${S.rr>=1?'var(--green)':'var(--red)'}">${S.rr.toFixed(2)}R</span></div>
-        ${(()=>{ if(!tfTrades.length||brokerStartEquity()<=0)return ''; const sB=brokerStartEquity(); const aP=(tfS.net/sB)*100; const sD=tfTrades[0].date,eD=tfTrades[tfTrades.length-1].date; const sd=_spyCache[trades[0].date+'_'+trades[trades.length-1].date]; const sP=(sd?spyReturnReal(sD,eD,sd):spyReturnBetweenDates(sD,eD))*100; const a=aP-sP; return `<div class="rail-row"><span style="color:var(--text4)">vs SPY</span><span style="font-family:'Bebas Neue',monospace;color:${a>=0?'var(--green)':'var(--red)'}">${a>=0?'+':''}${a.toFixed(1)}% α</span></div>`; })()}
+        ${(()=>{ if(!tfTrades.length||brokerStartEquity()<=0)return ''; const sB=brokerStartEquity(); const aP=(tfS.net/sB)*100; const sD=tfTrades[0].date,eD=tfTrades[tfTrades.length-1].date; const sd=_spyCache[(_spyAllRange()||[]).join('_')]; const sP=(sd?spyReturnReal(sD,eD,sd):spyReturnBetweenDates(sD,eD))*100; const a=aP-sP; return `<div class="rail-row"><span style="color:var(--text4)">vs SPY</span><span style="font-family:'Bebas Neue',monospace;color:${a>=0?'var(--green)':'var(--red)'}">${a>=0?'+':''}${a.toFixed(1)}% α</span></div>`; })()}
 
         <div class="rail-grp">BOOK</div>
         <div class="rail-row"><span style="color:var(--text4)">LONGS</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.longPnl>=0?'var(--green)':'var(--red)'}">$${tfS.longPnl.toFixed(0)}</span></div>
@@ -3310,7 +3332,7 @@ function renderApp(){
             // Add SPY overlay points if enabled
             if(spyOverlay&&filtTr.length){
               const startDate=filtTr[0].date;
-              const spyDataKey=trades[0]?.date+'_'+trades[trades.length-1]?.date;
+              const spyDataKey=(_spyAllRange()||[]).join('_');
               const spyData=_spyCache[spyDataKey];
               const spyPts=filtTr.map(t=>({y:spyReturnReal(startDate,t.date,spyData)*100}));
               return svgLineLabeled([startPoint,...points], chartColor,1400,380,true, [{y:0},...spyPts]);
@@ -3329,7 +3351,7 @@ function renderApp(){
           const acctPct=startB>0?(tfS.net/startB)*100:0;
           const startD=tfTrades[0].date;
           const endD=tfTrades[tfTrades.length-1].date;
-          const spyDataKey=trades[0]?.date+'_'+trades[trades.length-1]?.date;
+          const spyDataKey=(_spyAllRange()||[]).join('_');
           const spyData=_spyCache[spyDataKey];
           const spyPct=(spyData?spyReturnReal(startD,endD,spyData):spyReturnBetweenDates(startD,endD))*100;
           const alpha=acctPct-spyPct;
@@ -3504,7 +3526,7 @@ function renderApp(){
             // Add SPY overlay points if enabled
             if(spyOverlay&&filtTr.length){
               const startDate=filtTr[0].date;
-              const spyDataKey=trades[0]?.date+'_'+trades[trades.length-1]?.date;
+              const spyDataKey=(_spyAllRange()||[]).join('_');
               const spyData=_spyCache[spyDataKey];
               const spyPts=filtTr.map(t=>({y:spyReturnReal(startDate,t.date,spyData)*100}));
               return svgLineLabeled([startPoint,...points], chartColor,1400,380,true, [{y:0},...spyPts]);
@@ -3523,7 +3545,7 @@ function renderApp(){
           const acctPct=startB>0?(tfS.net/startB)*100:0;
           const startD=tfTrades[0].date;
           const endD=tfTrades[tfTrades.length-1].date;
-          const spyDataKey=trades[0]?.date+'_'+trades[trades.length-1]?.date;
+          const spyDataKey=(_spyAllRange()||[]).join('_');
           const spyData=_spyCache[spyDataKey];
           const spyPct=(spyData?spyReturnReal(startD,endD,spyData):spyReturnBetweenDates(startD,endD))*100;
           const alpha=acctPct-spyPct;
@@ -3689,7 +3711,7 @@ function renderApp(){
       </div>
     </div>`;
     }
-    if(trades.length){const _spk=trades[0].date+'_'+trades[trades.length-1].date;if(!_spyCache[_spk]&&_spyCache._ovload!==_spk){_spyCache._ovload=_spk;fetchSPYData(trades[0].date,trades[trades.length-1].date).then(d=>{_spyCache._ovload=null;if(d&&activeTab==='overview')renderApp();});}}
+    if(trades.length){const _spr=_spyAllRange(),_spk=_spr.join('_');if(!_spyCache[_spk]&&_spyCache._ovload!==_spk){_spyCache._ovload=_spk;fetchSPYData(_spr[0],_spr[1]).then(d=>{_spyCache._ovload=null;if(d&&activeTab==='overview')renderApp();});}}
     setTimeout(()=>{if(document.getElementById('overview-ai-output'))runOverviewAI();},100);
   }
 
