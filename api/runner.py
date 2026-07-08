@@ -116,6 +116,7 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 transfer_to=job.get("transfer_to"),
                 discover=_disc, provider=_prov, api_key=_key,
                 ai_rounds=int(job.get("n_rounds", 4)),
+                equity_points=int(job.get("equity_points", 400) or 400),
                 thresholds=job.get("thresholds"), progress_cb=progress_cb)
         elif jtype == "gate_validate":
             r = ae.run_gate_validate(

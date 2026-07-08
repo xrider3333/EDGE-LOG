@@ -52,7 +52,7 @@ def _avg_wl(trades, cost):
 def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", source=None,
                  cost_pts=0.0, min_trades=30, n_trials=200, wf_folds=0, seed=42,
                  lockbox_months=12, date_from=None, date_to=None, progress_cb=None,
-                 thresholds=None, transfer_to=None,
+                 thresholds=None, transfer_to=None, equity_points=400,
                  discover="auto", provider="ollama", api_key=None, ai_rounds=4, save_dir=None):
     th = {"trades_per_param": 30, "wfe": 0.5, "fold_frac": 0.66, "dsr": 0.8}
     th.update(thresholds or {})
@@ -193,6 +193,27 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
             total_trades = int(full.get("num_trades", 0) or 0)
             total_dd = float(full.get("max_drawdown", 0) or 0)
             total_aw, total_al = _avg_wl(full.get("trades"), cost_pts)   # honest avg win/loss (points)
+
+            # ── Rebuild the 1A equity curve at a SINGLE UNIFORM resolution from the whole-window
+            #    champion trades. Fixes the pre-lockbox-smooth / lockbox-jagged seam: the old curve
+            #    spliced a 160-pt DECIMATED optimize segment (each dot = dozens of trades) onto a
+            #    PER-TRADE lockbox segment, so the same variation looked flat pre-lockbox and choppy
+            #    after. `full` spans the whole window and its trades are already NET, so accumulate
+            #    directly (the old lockbox extension double-charged cost_pts). `equity_points` = the
+            #    display-detail knob: same trades-per-dot everywhere, so both halves read consistently.
+            _ft = full.get("trades") or []
+            if _ft:
+                _cum = []; _s = 0.0
+                for _t in _ft:
+                    _s += float(_t[2]); _cum.append(_s)
+                _bnd = max(0, len(_cum) - int(lb_trades or 0))   # lockbox = the chronological tail
+                _N = max(40, int(equity_points or 400))
+                if len(_cum) > _N:
+                    _stp = len(_cum) / _N
+                    lb_idx = int(_bnd / _stp)
+                    equity = [round(_cum[int(_i * _stp)], 1) for _i in range(_N)]
+                else:
+                    equity = [round(x, 1) for x in _cum]; lb_idx = _bnd
 
     # ── OVERALL champion behaviour for the distribution charts (1D trade-PnL, 1G MAE/MFE, 1I stress).
     #    Stage A's win_dist / mae_mfe / stress cover only the 75% in-sample tune slice; re-run the ONE
