@@ -5,4 +5,5 @@ numpy
 pandas
 scipy
 scikit-learn      # ml_gate / analytics relationship-scores paths
+requests          # augur_engine.ai imports it at package-init time
 pytest
