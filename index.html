@@ -395,7 +395,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='46.1';
+const VERSION='46.2';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -6228,12 +6228,33 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _drLbl=(APREF.date_from||APREF.date_to)?((APREF.date_from?_exFmtD(APREF.date_from):'start')+' → '+(APREF.date_to?_exFmtD(APREF.date_to):'end')):'All dates';
       const c_dates='<div style="position:relative"><button type="button" id="ex-dr-btn" class="ex-pill">'+_drLbl+'</button><div id="ex-dr-pop" class="ex-pop" style="display:none"></div>'
         +'<input id="ex-from" type="hidden" value="'+(APREF.date_from||'')+'"/><input id="ex-to" type="hidden" value="'+(APREF.date_to||'')+'"/></div>';
+      // Field cells defined once, then grouped by purpose across the two rows: the
+      //   data-window controls (incl. VALIDATE SCOPE + TRANSFER TO, which define WHAT data a
+      //   validate run uses) sit together on the DATA row next to CSV / DATE RANGE; the mode
+      //   axes lead the HOW-TO-RUN row and the AI fields (DISCOVER WITH · AI ROUNDS · AI
+      //   PROVIDER) cluster right after AI ASSIST; then search-sizing, then walk-forward. ──
+      const _fStrat=fld('STRATEGY',c_strat,190),_fMlf=fld('ML FILTER',c_mlf,185),_fMlth=fld('GATE CUT-OFF %',c_mlth,115),
+        _fInst=fld('INSTRUMENT',c_inst,110),_fTf=fld('TIMEFRAME',c_tf,100),_fSess=fld('SESSION',c_sess,100),
+        _fCsv=fld('CSV FILE',c_master,200),_fDates=fld('DATE RANGE',c_dates,230),
+        _fVscope=fld('VALIDATE SCOPE','<select id="ex-vscope">'+[['short','Short · ~3yr · 80 trials · 6mo lock'],['medium','Medium · ~6yr · 120 trials · 12mo lock'],['long','Long · ~12yr · 200 trials · 12mo lock'],['xl','XL · all data · 300 trials · 18mo lock']].map(o=>'<option value="'+o[0]+'"'+(o[0]===(APREF.vscope||'medium')?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>',300),
+        _fXfer=(function(){const _xd=(APREF.xfer!=null?APREF.xfer:(SIB[APREF.instrument||'NQ']||''));return fld('TRANSFER TO','<select id="ex-xfer"><option value="">— none —</option>'+INSTORD.map(k=>'<option value="'+k+'"'+(k===_xd?' selected':'')+'>'+k+'</option>').join('')+'</select>',120);})(),
+        _fSearch=fld('SEARCH',c_search,185),_fValid=fld('VALIDATION',c_valid,190),_fAi=fld('AI ASSIST',c_ai,155),
+        _fDiscover=fld('DISCOVER WITH','<select id="ex-discover"><option value="auto"'+(APREF.discover==='evolve'?'':' selected')+'>Statistical (fast · free)</option><option value="evolve"'+(APREF.discover==='evolve'?' selected':'')+'>AI-evolve (rewrite code → judge)</option></select>',230),
+        _fRounds=fld('AI ROUNDS','<input id="ex-rounds" type="number" value="'+(APREF.rounds||4)+'"/>',90),
+        _fProv=fld('AI PROVIDER',c_prov,170),
+        _fScope=fld('SCOPE',c_preset,190),
+        _fTrials=fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||200)+'"/>',90),
+        _fWork=fld('WORKERS','<input id="ex-work" type="number" value="'+(APREF.workers||4)+'"/>',90),
+        _fMint=fld('MIN TRADES','<input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/>',100),
+        _fFolds=fld('WF FOLDS','<input id="ex-folds" type="number" value="0"/>',90),
+        _fWftype=fld('WF TYPE','<select id="ex-wfmode"><option value="anchored"'+(APREF.wf_mode==='rolling'?'':' selected')+'>Anchored (expanding)</option><option value="rolling"'+(APREF.wf_mode==='rolling'?' selected':'')+'>Rolling (fixed window)</option></select>',160),
+        _fPills=fld('ALL PILLS','<label title="Run the full diagnostic-pill set (adversarial-free): ACF · tail-fit · seasonality · VIF · conformal · causal · synthetic · feature-select · edge-sig · lead-lag — the same informational checks Auto-Validate runs. Adds runtime (conformal/causal/synthetic each run ~800–1000 sims). Uncheck for a faster search." style="display:flex;align-items:center;gap:6px;height:37px;font-size:var(--fsxs);color:var(--text3);cursor:pointer"><input id="ex-pills" type="checkbox"'+(APREF.pills===false?'':' checked')+' style="width:auto;cursor:pointer"/> run all</label>',110);
       body=exStyle+'<div class="section ex-build">'
-        +'<div class="lbl" style="margin-bottom:10px">DATA &amp; STRATEGY</div>'
-        +exrow(fld('STRATEGY',c_strat,190)+fld('ML FILTER',c_mlf,185)+fld('GATE CUT-OFF %',c_mlth,115)+fld('INSTRUMENT',c_inst,110)+fld('TIMEFRAME',c_tf,100)+fld('SESSION',c_sess,100)+fld('CSV FILE',c_master,200)+fld('DATE RANGE',c_dates,230))
+        +'<div class="lbl" style="margin-bottom:10px">DATA &amp; STRATEGY · DURATION</div>'
+        +exrow(_fStrat+_fMlf+_fMlth+_fInst+_fTf+_fSess+_fCsv+_fDates+_fVscope+_fXfer)
         +'<div id="ex-dataspan" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 8px">—</div>'
         +grpH('HOW TO RUN — SEARCH × VALIDATION × AI')
-        +exrow(fld('SEARCH',c_search,185)+fld('VALIDATION',c_valid,190)+fld('AI ASSIST',c_ai,155)+fld('SCOPE',c_preset,190)+fld('MIN TRADES','<input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/>',100)+fld('WORKERS','<input id="ex-work" type="number" value="'+(APREF.workers||4)+'"/>',90)+fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||200)+'"/>',90)+fld('WF FOLDS','<input id="ex-folds" type="number" value="0"/>',90)+fld('WF TYPE','<select id="ex-wfmode"><option value="anchored"'+(APREF.wf_mode==='rolling'?'':' selected')+'>Anchored (expanding)</option><option value="rolling"'+(APREF.wf_mode==='rolling'?' selected':'')+'>Rolling (fixed window)</option></select>',160)+fld('ALL PILLS','<label title="Run the full diagnostic-pill set (adversarial-free): ACF · tail-fit · seasonality · VIF · conformal · causal · synthetic · feature-select · edge-sig · lead-lag — the same informational checks Auto-Validate runs. Adds runtime (conformal/causal/synthetic each run ~800–1000 sims). Uncheck for a faster search." style="display:flex;align-items:center;gap:6px;height:37px;font-size:var(--fsxs);color:var(--text3);cursor:pointer"><input id="ex-pills" type="checkbox"'+(APREF.pills===false?'':' checked')+' style="width:auto;cursor:pointer"/> run all</label>',110)+fld('AI ROUNDS','<input id="ex-rounds" type="number" value="'+(APREF.rounds||4)+'"/>',90)+fld('DISCOVER WITH','<select id="ex-discover"><option value="auto"'+(APREF.discover==='evolve'?'':' selected')+'>Statistical (fast · free)</option><option value="evolve"'+(APREF.discover==='evolve'?' selected':'')+'>AI-evolve (rewrite code → judge)</option></select>',230)+fld('VALIDATE SCOPE','<select id="ex-vscope">'+[['short','Short · ~3yr · 80 trials · 6mo lock'],['medium','Medium · ~6yr · 120 trials · 12mo lock'],['long','Long · ~12yr · 200 trials · 12mo lock'],['xl','XL · all data · 300 trials · 18mo lock']].map(o=>'<option value="'+o[0]+'"'+(o[0]===(APREF.vscope||'medium')?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>',300)+(function(){const _xd=(APREF.xfer!=null?APREF.xfer:(SIB[APREF.instrument||'NQ']||''));return fld('TRANSFER TO','<select id="ex-xfer"><option value="">— none —</option>'+INSTORD.map(k=>'<option value="'+k+'"'+(k===_xd?' selected':'')+'>'+k+'</option>').join('')+'</select>',120);})()+fld('AI PROVIDER',c_prov,170))
+        +exrow(_fSearch+_fValid+_fAi+_fDiscover+_fRounds+_fProv+_fScope+_fTrials+_fWork+_fMint+_fFolds+_fWftype+_fPills)
         +'<div id="ex-modenote" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 10px">—</div>'
         +customTile
         +grpH('COSTS')
