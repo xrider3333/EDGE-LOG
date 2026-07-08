@@ -27,6 +27,8 @@ import time
 import hashlib
 from datetime import datetime, timedelta, timezone
 
+from .nt_sync import _split_crossings   # shared position-flip splitter (close + new open)
+
 try:
     from zoneinfo import ZoneInfo
     _NY = ZoneInfo("America/New_York")
@@ -378,6 +380,7 @@ def build_trades(fills):
     trades = []
     for (account, symbol), grp in groups.items():
         grp.sort(key=lambda f: (f["dt"], f["_i"]))
+        grp = _split_crossings(grp)          # split position flips into close + new open
         pos = 0.0
         entry_qty = entry_notional = exit_qty = exit_notional = 0.0
         entry_dt = exit_dt = None
