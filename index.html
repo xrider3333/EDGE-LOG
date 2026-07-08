@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='47.2';
+const VERSION='47.3';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5798,7 +5798,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(!d)return '<div style="color:var(--text5);font-size:var(--fsxs);padding:48px 20px;text-align:center;border:1px dashed var(--border);border-radius:10px">select a run on the left to load its report card</div>';
       const _champNetTip=d.validate?'the single best parameter set, measured across the WHOLE tune period (one config, all dates). The matrix below instead splits the timeline into 3 sections — its IN-SAMPLE column is only the first (un-shaded) section, so that is a smaller number than this.':'';
       const _champDdTip=d.validate?'realized in-sample max drawdown (champion over the optimize window). This is NOT the Monte-Carlo P95 drawdown — that simulated worst-case (larger) is the "size to this" figure in §8 / the lockbox strip.':'';
-      const cards=[['NET P&L',fmtUsd(d.best_pnl_usd),((d.best_pnl_usd||0)>=0?'var(--green)':'var(--red)'),_champNetTip],['PF',(d.best_pf||0).toFixed(2),'var(--text)'],['WIN %',Math.round(d.best_win_rate||0)+'%','var(--text)'],['TRADES',(d.best_trades||0),'var(--text)'],['MAX DD',fmtUsd(d.best_dd_usd||0),'var(--red)',_champDdTip],['MAR',(function(){var dd=Math.abs(+d.best_dd_usd||0);return dd>1e-9?((+d.best_pnl_usd||0)/dd).toFixed(1):'—';})(),'var(--text)','Recovery factor (MAR) — net PnL ÷ max drawdown. Dollars earned per $1 of worst-case drawdown; higher = better risk-adjusted return, the metric you size on.'],['$/DAY',fmtUsd(d.best_pnl_per_day||0),'var(--text)']];
+      // Unified headline tiles: every run type fills the SAME 7 tiles. If a run didn't save
+      //   top-level best_* (older runner, or gate-validate / ai result shapes), derive them
+      //   from the richest block it DID save (gate bake-off winner / lockbox / champion) so the
+      //   card looks like a Grid/Auto run instead of $0. A value that's truly absent shows —.
+      const _mlt0=d.multiplier||20;
+      const _fbSrc=(d.best_pnl_usd==null&&d.best_pf==null)?(function(){
+        var gv=d.gate_validate;if(gv){var c=(gv.lockbox&&gv.lockbox.gated)||(gv.chosen&&gv.chosen.pre)||gv.ungated_pre;if(c)return c;}
+        var v=d.validate;if(v){var c2=(v.lockbox&&v.lockbox.gated)||v.champion||v.is;if(c2)return c2;}
+        return null;})():null;
+      const _bPnlUsd=(d.best_pnl_usd!=null)?d.best_pnl_usd:(_fbSrc&&_fbSrc.total_pnl!=null?_fbSrc.total_pnl*_mlt0:null);
+      const _bPf=(d.best_pf!=null)?d.best_pf:(_fbSrc?_fbSrc.profit_factor:null);
+      const _bWr=(d.best_win_rate!=null)?d.best_win_rate:(_fbSrc?_fbSrc.win_rate:null);
+      const _bTrd=(d.best_trades!=null)?d.best_trades:(_fbSrc?_fbSrc.num_trades:null);
+      const _bDd=(d.best_dd_usd!=null)?d.best_dd_usd:(_fbSrc&&_fbSrc.max_drawdown!=null?_fbSrc.max_drawdown*_mlt0:null);
+      const _bDay=(d.best_pnl_per_day!=null)?d.best_pnl_per_day:null;
+      const _u='—';
+      const cards=[['NET P&L',_bPnlUsd==null?_u:fmtUsd(_bPnlUsd),((_bPnlUsd||0)>=0?'var(--green)':'var(--red)'),_champNetTip],['PF',_bPf==null?_u:(+_bPf||0).toFixed(2),'var(--text)'],['WIN %',_bWr==null?_u:Math.round(_bWr)+'%','var(--text)'],['TRADES',_bTrd==null?_u:_bTrd,'var(--text)'],['MAX DD',_bDd==null?_u:fmtUsd(_bDd),'var(--red)',_champDdTip],['MAR',(function(){var dd=Math.abs(+_bDd||0);return (dd>1e-9&&_bPnlUsd!=null)?((+_bPnlUsd||0)/dd).toFixed(1):_u;})(),'var(--text)','Recovery factor (MAR) — net PnL ÷ max drawdown. Dollars earned per $1 of worst-case drawdown; higher = better risk-adjusted return, the metric you size on.'],['$/DAY',_bDay==null?_u:fmtUsd(_bDay),'var(--text)']];
       const cardHtml=cards.map(c=>'<div'+(c[3]?' title="'+c[3]+'" style="cursor:help;background:var(--bg2);border-radius:8px;padding:10px 12px"':' style="background:var(--bg2);border-radius:8px;padding:10px 12px"')+'><div style="font-size:var(--fsxs);color:var(--text5)">'+c[0]+(c[3]?' <span style="opacity:.5">ⓘ</span>':'')+'</div><div style="font-size:18px;color:'+c[2]+'">'+c[1]+'</div></div>').join('');
       const t10=Array.isArray(d.top10_results)?d.top10_results:[];
       const pkeys=t10.length?Object.keys(t10[0]).filter(k=>['total_pnl','num_trades','win_rate','profit_factor','wins','losses','avg_pnl','max_drawdown'].indexOf(k)<0):[];
@@ -6110,7 +6126,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _diagSec=_diagParts.length?('<div id="res-step-diag" class="lbl" style="margin:22px 0 8px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:23px;height:23px;border-radius:50%;background:var(--bg1);border:1px solid var(--border);font-size:11px">🔬</span><span style="font-weight:800;font-size:15px;color:var(--text);letter-spacing:0;text-transform:none">Robustness &amp; Diagnostics</span><span style="font-weight:400;color:var(--text4);font-size:9px">informational — distribution-free checks · ensemble · ML gate</span></div><div style="'+_card2+';margin-bottom:14px">'+_diagParts.join('<div style="margin:12px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)"></div>')+'</div>'):'';
       return hdrHtml
         +valBannerHtml(d)
-        +_sec('1','Feasibility & walk-forward','',(d.validate?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:1.7 1 360px;min-width:0">'+_panelEquity+'</div><div style="flex:1 1 280px;min-width:0">'+(_panelMatrix||_secOf(1,[[splitOosHtml(d,mlt),'KPI matrix']],1))+_panelRegime+'</div>'+(_distTile?'<div style="flex:1.1 1 300px;min-width:0">'+_distTile+'</div>':'')+'</div>'):_secOf(1,[_summaryPanel,monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml])))
+        +_sec('1','Feasibility & walk-forward','',(d.validate?(_summaryPanel+'<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:1.7 1 360px;min-width:0">'+_panelEquity+'</div><div style="flex:1 1 280px;min-width:0">'+(_panelMatrix||_secOf(1,[[splitOosHtml(d,mlt),'KPI matrix']],1))+_panelRegime+'</div>'+(_distTile?'<div style="flex:1.1 1 300px;min-width:0">'+_distTile+'</div>':'')+'</div>'):_secOf(1,[_summaryPanel,monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml])))
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         +_sec('3','Configuration Analysis','robust params — a cluster, not a lonely spike',_sec3,_cfgN)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4,_strN)
