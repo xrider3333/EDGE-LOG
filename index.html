@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='47.6';
+const VERSION='47.7';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -4833,6 +4833,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       {re:/^orb[_\s]*3/i,abbr:'ORB',full:'Opening Range Breakout · 3.0',desc:'Low-DOF deployable ORB — the deploy candidate'},
       {re:/^(orb|opening)/i,abbr:'ORB',full:'Opening Range Breakout',desc:'Trades the breakout of the session opening range'},
       {re:/^overnight/i,abbr:'OVN',full:'Overnight Hold',desc:'Close-to-open trend-gated overnight hold'},
+      {re:/^enguq[_\s]*15m/i,abbr:'ENGU-Q 15m',full:'Engulfing-Quant · 15-min · trendline break',desc:'ENGU-Q branched for 15-minute bars: descending-trendline break, long-only'},
+      {re:/^enguq[_\s]*5m/i,abbr:'ENGU-Q 5m',full:'Engulfing-Quant · 5-min · trendline break',desc:'ENGU-Q branched for 5-minute bars: descending-trendline break, long-only'},
+      {re:/^enguq[_\s]*1m/i,abbr:'ENGU-Q 1m',full:'Engulfing-Quant · 1-min · trendline break',desc:'ENGU-Q branched for 1-minute bars: descending-trendline break, long-only (validated · PASS)'},
       {re:/^enguq/i,abbr:'ENGU-Q',full:'Engulfing-Quant · trendline break',desc:'Data-derived ENGU rebuild: descending-trendline break, long-only'},
       {re:/^engu/i,abbr:'ENGU',full:'Engulfing Reversal',desc:'Engulfing-candle reversal entries'},
       {re:/^supertrend/i,abbr:'ST',full:'SuperTrend',desc:'ATR SuperTrend trend follower'},
@@ -6004,7 +6007,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // real per-section + TOTAL accounting; this panel just draws the curve.
         _panelEquity='<div style="'+_card+';height:100%;box-sizing:border-box">'
           +_numHdr('1A','CHAMPION EQUITY')
-          +'<div id="res-step-8" style="scroll-margin-top:64px">'+championEquityHtml(_V,mlt,d.top10_results,1)+'</div>'
+          +'<div id="res-step-8" style="scroll-margin-top:64px">'+championEquityHtml(_V,mlt,d.top10_results,1)+'<div style="display:flex;align-items:center;gap:8px;font-size:8px;color:var(--text5);margin:1px 0 8px;padding-right:44px"><span style="letter-spacing:.5px">GRAPH DETAIL</span><input type="range" min="10" max="100" step="5" value="'+Math.round((window._eqDetail||1)*100)+'" onchange="window._eqDetail=+this.value/100;renderApp()" style="flex:1;max-width:200px;accent-color:var(--blue)"><span>'+Math.round((window._eqDetail||1)*100)+'%</span></div></div>'
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
           +((wf=>wf?'<div style="margin-top:9px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
           +((st=>st?'<div style="margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+st+'</div>':'')(stressPanelHtml(d.stress,mlt,'1I',_dscope)))
@@ -6053,7 +6056,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _bt='margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)';
         // Col A — 1A champion equity (+ SPY benchmark + worst-case drawdown, folded from §8) · 1B monthly · 1C walk-forward · 1I stress
         _panelEquity='<div style="'+_card+';height:100%;box-sizing:border-box">'
-          +'<div id="res-step-8" style="scroll-margin-top:64px">'+(eqHtml?(_numHdr('1A','CHAMPION EQUITY',null,'best config · 1 contract · whole run')+eqHtml+'<div style="display:flex;align-items:center;gap:8px;font-size:8px;color:var(--text5);margin:1px 0 8px;padding-right:44px"><span style="letter-spacing:.5px">GRAPH DETAIL</span><input type="range" min="10" max="100" step="5" value="'+Math.round((window._eqDetail||1)*100)+'" onchange="window._eqDetail=+this.value/100;renderApp()" style="flex:1;max-width:200px;accent-color:var(--blue)"><span>'+Math.round((window._eqDetail||1)*100)+'%</span></div>'+_spy+_mcNote):_naTile('1A','CHAMPION EQUITY','no equity series saved for this run'))+'</div>'
+          +'<div id="res-step-8" style="scroll-margin-top:64px">'+(eqHtml?(_numHdr('1A','CHAMPION EQUITY',null,'best config · 1 contract · whole run')+eqHtml+_spy+_mcNote):_naTile('1A','CHAMPION EQUITY','no equity series saved for this run'))+'</div>'
           +'<div style="'+_bt+'">'+(monthlyPnlHtml(d.regime,mlt)||_naTile('1B','MONTHLY P&L','not enough monthly data to chart'))+'</div>'
           +'<div style="'+_bt+'"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+(isOosFoldsHtml(d,mlt)||_naTile('1C','WALK-FORWARD','only walk-forward / Auto-Validate runs test in rolling out-of-sample folds'))+'</div>'
           +'<div style="'+_bt+'"><div id="res-step-4" style="scroll-margin-top:64px"></div>'+(stressPanelHtml(d.stress,mlt,'1I',_sc)||_naTile('1I','STRESS','no stress buckets saved for this run'))+'</div>'
