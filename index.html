@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='47.3';
+const VERSION='47.4';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -6331,6 +6331,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         _fSearch=fld('SEARCH',c_search,185),_fValid=fld('VALIDATION',c_valid,190),_fAi=fld('AI ASSIST',c_ai,155),
         _fDiscover=fld('DISCOVER WITH','<select id="ex-discover"><option value="auto"'+(APREF.discover==='evolve'?'':' selected')+'>Statistical (fast · free)</option><option value="evolve"'+(APREF.discover==='evolve'?' selected':'')+'>AI-evolve (rewrite code → judge)</option></select>',230),
         _fRounds=fld('AI ROUNDS','<input id="ex-rounds" type="number" value="'+(APREF.rounds||4)+'"/>',90),
+        _fEqPts=fld('GRAPH DETAIL','<input id="ex-eqpts" type="number" min="80" max="1200" step="40" value="'+(APREF.equity_points||400)+'"/>',120),
         _fProv=fld('AI PROVIDER',c_prov,170),
         _fScope=fld('SCOPE',c_preset,190),
         _fTrials=fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||200)+'"/>',90),
@@ -6367,7 +6368,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +_goalsHtml+_expertHtml+'</div>'
         // STEP 3 — TUNE (only the goal's knobs show; the rest sit in Advanced)
         +'<div class="ex-step"><div class="ex-steplbl"><span class="ex-n">3</span>TUNE<span class="ex-hint">only what this goal needs</span></div>'
-        +exrow(_gvSearch+_gvDepth+_gvBake+_gvAkind+_fMlf+_fMlth+_fScope+_fVscope+_fTrials+_fRounds+_fProv+_fDiscover+_fXfer+_fPills)
+        +exrow(_gvSearch+_gvDepth+_gvBake+_gvAkind+_fMlf+_fMlth+_fScope+_fVscope+_fEqPts+_fTrials+_fRounds+_fProv+_fDiscover+_fXfer+_fPills)
         +'<div id="ex-modenote" style="font-size:var(--fsxs);color:var(--text5);margin:2px 0 0">—</div>'
         +customTile
         +'<details class="ex-adv" id="ex-adv"'+(_exExpert?' open':'')+'><summary>ADVANCED · workers, walk-forward, costs</summary>'
@@ -7088,11 +7089,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(useCustom&&Object.keys(customGrid).length===0){alert('CUSTOM scope: set a valid min/max/step on at least one parameter.');xb.disabled=false;xb.textContent='▶ RUN ON MY PC';return;}
       // Auto-Validate SCOPE → data window (years back from the data end) + trials + lockbox months.
       let vFrom='',vTrials=200,vLockMo=12;
-      if(mode==='validate'){const vs=el('ex-vscope')?el('ex-vscope').value:'medium';const VMAP={short:[3,80,6],medium:[6,120,12],long:[12,200,12],xl:[40,300,18]};const mp=VMAP[vs]||VMAP.medium;vTrials=mp[1];vLockMo=mp[2];savePref('vscope',vs);if(el('ex-xfer'))savePref('xfer',el('ex-xfer').value);if(el('ex-discover'))savePref('discover',el('ex-discover').value);
+      if(mode==='validate'){const vs=el('ex-vscope')?el('ex-vscope').value:'medium';const VMAP={short:[3,80,6],medium:[6,120,12],long:[12,200,12],xl:[40,300,18]};const mp=VMAP[vs]||VMAP.medium;vTrials=mp[1];vLockMo=mp[2];savePref('vscope',vs);if(el('ex-xfer'))savePref('xfer',el('ex-xfer').value);if(el('ex-discover'))savePref('discover',el('ex-discover').value);if(el('ex-eqpts'))savePref('equity_points',parseInt(el('ex-eqpts').value)||400);
         const mm2=mSel||(metaMasters||[]).find(m=>String(m.instrument)===inst&&String(m.timeframe)===tf);
         if(mm2&&mm2.date_to){const e=new Date(String(mm2.date_to).slice(0,10)+'T00:00');e.setFullYear(e.getFullYear()-mp[0]);vFrom=e.toISOString().slice(0,10);const ms=mm2.date_from?String(mm2.date_from).slice(0,10):'';if(ms&&vFrom<ms)vFrom=ms;}}
       savePref('mode',mode);savePref('instrument',el('ex-inst').value);savePref('session',el('ex-sess').value);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);if(el('ex-wfmode'))savePref('wf_mode',el('ex-wfmode').value);if(el('ex-pills'))savePref('pills',el('ex-pills').checked);savePref('comm_usd',commU);savePref('slip_pts',slipP);savePref('date_from',dFrom);savePref('date_to',dTo);savePref('lockbox',lockbox);if(el('ex-lockmo'))savePref('lockbox_months',parseInt(el('ex-lockmo').value)||12);
-      const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:effTo,preset:scopeVal,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};if(useCustom)base.grid=customGrid;const job=(mode==='validate')?Object.assign({},base,{type:'validate',date_from:vFrom,date_to:'',n_trials:vTrials,wf_folds:0,lockbox_months:vLockMo,transfer_to:(el('ex-xfer')&&el('ex-xfer').value)||null,discover:(el('ex-discover')&&el('ex-discover').value)||'auto',provider:el('ex-prov')?el('ex-prov').value:'ollama',n_rounds:parseInt(el('ex-rounds').value)||4,dsr:true}):(mode==='gate_validate')?Object.assign({},base,{type:'gate_validate',params:{},lockbox_months:12,ml_filter:(el('ex-mlf')&&el('ex-mlf').value)||'xgb'})
+      const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:effTo,preset:scopeVal,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};if(useCustom)base.grid=customGrid;const job=(mode==='validate')?Object.assign({},base,{type:'validate',date_from:vFrom,date_to:'',n_trials:vTrials,wf_folds:0,lockbox_months:vLockMo,transfer_to:(el('ex-xfer')&&el('ex-xfer').value)||null,discover:(el('ex-discover')&&el('ex-discover').value)||'auto',provider:el('ex-prov')?el('ex-prov').value:'ollama',n_rounds:parseInt(el('ex-rounds').value)||4,equity_points:parseInt(el('ex-eqpts')&&el('ex-eqpts').value)||400,dsr:true}):(mode==='gate_validate')?Object.assign({},base,{type:'gate_validate',params:{},lockbox_months:12,ml_filter:(el('ex-mlf')&&el('ex-mlf').value)||'xgb'})
       :(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000},(el('ex-mlf')&&el('ex-mlf').value!=='none')?{ml_filter:el('ex-mlf').value,ml_threshold:(parseInt(el('ex-mlth')&&el('ex-mlth').value)||50)/100}:{}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,wf_mode:(el('ex-wfmode')?el('ex-wfmode').value:'anchored'),top_n:10,dsr:true,mc_sims:500,pills:!(el('ex-pills')&&!el('ex-pills').checked)}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='cmp'){
       const _cur=()=>{const rs=runHistory.slice().sort((a,b)=>b.id-a.id);let ids=(APREF.cmpIds||[]).map(String).filter(id=>rs.some(r=>String(r.id)===id));if(ids.length<2)ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));return ids;};
