@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='46.7';
+const VERSION='46.8';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -6218,15 +6218,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'.ex-cal-ft button{width:auto;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text3);cursor:pointer;padding:5px 13px;font-size:var(--fsxs)}'
         +'.ex-cal-ft button:hover{color:var(--text);border-color:var(--text5)}'
         // ── guided build flow: numbered steps → goal ladder → tune → run summary ──
-        +'.ex-step{border-top:1px solid var(--border);padding-top:12px;margin-top:13px}'
+        +'.ex-step{border-top:1px solid var(--border);padding-top:10px;margin-top:10px}'
         +'.ex-step:first-child{border-top:0;padding-top:0;margin-top:0}'
         +'.ex-steplbl{font-size:var(--fsxs);letter-spacing:2px;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}'
         +'.ex-steplbl .ex-n{display:inline-grid;place-items:center;width:19px;height:19px;border:1px solid var(--border);border-radius:99px;color:var(--text3);font-size:9px}'
         +'.ex-steplbl .ex-hint{color:var(--text5);letter-spacing:1px;font-weight:400;text-transform:none}'
-        +'.ex-goals{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}'
-        +'.ex-goal{text-align:left;cursor:pointer;border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:12px 12px 13px;color:var(--text);font-family:inherit;transition:border-color .15s,background .15s,transform .12s}'
+        +'.ex-goals{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}'
+        +'.ex-goal{text-align:left;cursor:pointer;border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:10px 11px 11px;color:var(--text);font-family:inherit;transition:border-color .15s,background .15s,transform .12s}'
         +'.ex-goal:hover{border-color:var(--text5);transform:translateY(-1px)}'
-        +'.ex-goal .gic{font-size:16px;display:block;margin-bottom:7px;line-height:1}'
+        +'.ex-goal .gic{font-size:16px;display:block;margin-bottom:7px;line-height:1;font-variant-emoji:text}'
         +'.ex-goal .gnm{font-size:var(--fsm);letter-spacing:1.5px;color:var(--text2);display:block}'
         +'.ex-goal .gds{font-size:var(--fsxs);color:var(--text5);margin-top:5px;display:block;line-height:1.45}'
         +'.ex-goal.sel{border-color:color-mix(in srgb,var(--green) 55%,transparent);background:color-mix(in srgb,var(--green) 7%,var(--bg2));box-shadow:0 6px 20px -14px var(--green)}'
@@ -6869,7 +6869,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         let a=APREF.date_from||'',b=APREF.date_to||'',anchor=null,lo='',hi='',view=new Date();
         const ymd=(y,m,d)=>y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
         const label=()=>(a||b)?((a?_exFmtD(a):'start')+' → '+(b?_exFmtD(b):'end')):'All dates';
-        const setRange=(na,nb)=>{a=na;b=nb;savePref('date_from',na||'');savePref('date_to',nb||'');el('ex-from').value=na||'';el('ex-to').value=nb||'';btn.textContent=label();exUpdateDataSpan();};
+        const setRange=(na,nb)=>{a=na;b=nb;savePref('date_from',na||'');savePref('date_to',nb||'');el('ex-from').value=na||'';el('ex-to').value=nb||'';btn.textContent=label();exUpdateDataSpan();if(window._exSummaryRefresh)window._exSummaryRefresh();};
         const onDay=ds=>{if(anchor===null){anchor=ds;setRange(ds,ds);}else{let x=anchor,z=ds;if(x>z){const t=x;x=z;z=t;}anchor=null;setRange(x,z);}draw();};
         const MON=['January','February','March','April','May','June','July','August','September','October','November','December'];
         function draw(){const y=view.getFullYear(),m=view.getMonth(),sd=new Date(y,m,1).getDay(),nd=new Date(y,m+1,0).getDate();
@@ -6903,33 +6903,44 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // ── GUIDED summary + goal sync: reflect the derived #ex-mode back into the goal
         //   ladder, show only that goal's variant controls, and spell the run out in English. ──
         const _modeGoal=m=>({single:'backtest',grid:'optimize',auto:'optimize',walkforward:'validate',validate:'validate',gate_validate:'validate',ai:'ai',evolve:'ai'}[m]||'backtest');
-        const exBuildSummary=m=>{const K=(t,c)=>'<span class="k'+(c?' '+c:'')+'">'+t+'</span>';const g=v=>el(v)?el(v).value:'';
+        const exBuildSummary=m=>{const K=(t,c)=>'<span class="k'+(c?' '+c:'')+'">'+t+'</span>';const g=v=>{const e=el(v);return e?e.value:'';};
+          const _fd=x=>x?(_exFmtD(x)||x):x;
           const inst=g('ex-inst')||'NQ',tf=g('ex-tf')||'5m',sess=(g('ex-sess')||'rth').toUpperCase();
           const on=' on '+K(inst+' '+tf+' '+sess,'b');
-          const df=g('ex-from'),dt=g('ex-to');const win='· '+K((df||dt)?((df||'start')+'→'+(dt||'end')):'all data');
+          const df=g('ex-from'),dt=g('ex-to');const win='· '+K((df||dt)?((df?_fd(df):'start')+'→'+(dt?_fd(dt):'end')):'all data');
           const ml=g('ex-mlf'),mlLbl={logistic:'🚪 logistic gate',rf:'🌲 forest gate',xgb:'⚡ XGBoost gate'}[ml];
-          const pills=el('ex-pills')&&el('ex-pills').checked?'· '+K('all pills','g'):'';
-          const trials=g('ex-trials')||'?',rounds=g('ex-rounds')||'4';
+          const allPills='· '+K('all pills','g');
+          const trials=g('ex-trials')||'200',rounds=g('ex-rounds')||'4';
+          // lockbox holdout truncates the search window for every optimizing mode except validate
+          //   (which reserves its own) — surface it so the summary matches what actually runs.
+          const lb=g('ex-lockbox'),lbNote=lb?'· 🔒 '+K('holdout reserved'):'';
+          const pills=el('ex-pills')&&el('ex-pills').checked?allPills:'';
           const provSel=el('ex-prov'),prov=provSel&&provSel.selectedOptions[0]?provSel.selectedOptions[0].text.replace(/ ·.*/,''):'';
           let p=[];
           if(m==='single'){p=[K('Single backtest','g'),on,win];if(mlLbl)p.push('· gated by '+K(mlLbl,'p'));}
-          else if(m==='grid'){p=[K('Grid sweep','g'),'· '+K(g('ex-preset')||'scope'),on,win,pills];}
-          else if(m==='auto'){p=[K('Bayesian search','g'),'· '+K(trials+' trials'),on,win,pills];}
-          else if(m==='walkforward'){p=[K('Walk-forward','g'),'· '+K(trials+' trials'),'· re-tuned per fold',on,pills];}
-          else if(m==='validate'){p=[K('Auto-Validate','g'),'· '+K(g('ex-vscope')||'medium'),on,'· '+K('WF + gates','g'),'· 🔒 '+K('lockbox'),pills];}
+          else if(m==='grid'){p=[K('Grid sweep','g'),'· '+K(g('ex-preset')||'scope'),on,win,lbNote];}
+          else if(m==='auto'){p=[K('Bayesian search','g'),'· '+K(trials+' trials'),on,win,lbNote,pills];}
+          else if(m==='walkforward'){p=[K('Walk-forward','g'),'· '+K(trials+' trials'),'· re-tuned per fold',on,lbNote,pills];}
+          else if(m==='validate'){p=[K('Auto-Validate','g'),'· '+K(g('ex-vscope')||'medium'),on,'· '+K('WF + gates','g'),'· 🔒 '+K('lockbox'),allPills];}
           else if(m==='gate_validate'){p=[K('Gate bake-off','g'),'· '+K('all 3 ML gates 🚪🌲⚡','p'),on,'· ranked by recovery · 🔒 '+K('one lockbox look')];}
           else if(m==='ai'){p=[K('AI optimize','g'),'· '+K(rounds+' rounds'),prov?'· '+K(prov):'',on];}
           else if(m==='evolve'){p=[K('AI evolve','g'),'· rewrites code · '+K(rounds+' rounds'),prov?'· '+K(prov):'',on];}
+          if(!p.length)p=[K(m||'run','g'),on];
           return p.filter(Boolean).join(' ');};
         const exRenderGuided=()=>{const m=em.value,gg=_modeGoal(m);
           content.querySelectorAll('.ex-goal').forEach(c=>c.classList.toggle('sel',c.dataset.goal===gg));
           const showV=(id,on)=>{const e=el(id);if(e){const w=e.closest('div');if(w)w.style.display=(on&&!_exExpert)?'':'none';}};
-          showV('gv-search',gg==='optimize');showV('gv-depth',gg==='validate'&&!(el('gv-bakeoff')&&el('gv-bakeoff').checked));showV('gv-bakeoff',gg==='validate');showV('gv-akind',gg==='ai');
+          showV('gv-search',gg==='optimize');showV('gv-depth',gg==='validate'&&m!=='gate_validate');showV('gv-bakeoff',gg==='validate');showV('gv-akind',gg==='ai');
           const gs=el('gv-search');if(gs)gs.value=(m==='grid'?((el('ex-preset')&&el('ex-preset').value==='CUSTOM')?'custom':'grid'):'bayes');
           const gd=el('gv-depth');if(gd&&m!=='gate_validate')gd.value=(m==='walkforward'?'wf':'full');
           const gb=el('gv-bakeoff');if(gb)gb.checked=(m==='gate_validate');
           const ga=el('gv-akind');if(ga)ga.value=(m==='evolve'?'rewrite':'propose');
           const su=el('ex-summary');if(su)su.innerHTML=exBuildSummary(m);};
+        // Summary-only refresh (does NOT re-sync/overwrite the goal + variant controls) —
+        //   safe to call from bubbled input/change events without reverting a control the
+        //   user is mid-change, and from the date picker which fires no DOM events.
+        const exRenderSummary=()=>{const su=el('ex-summary');if(su)su.innerHTML=exBuildSummary(em.value);};
+        window._exSummaryRefresh=exRenderSummary;
         const exSyncMode=()=>{const _qm=el('ex-mode-quick');if(_qm&&_qm.value!==em.value)_qm.value=em.value;applyExMode(em.value);exApplyCustom();const lg=el('ex-lockbox-group');if(lg)lg.style.display=(!_exExpert&&(em.value==='validate'||em.value==='gate_validate'))?'none':'';
           // ML gate rides Single (one gated run) or Gate-validate (the bake-off).
           const mf=el('ex-mlf'),mth=el('ex-mlth');
@@ -6981,15 +6992,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _goalDefault={backtest:'single',optimize:'auto',validate:'validate',ai:'ai'};
         const _goalModes={backtest:['single'],optimize:['auto','grid'],validate:['walkforward','validate','gate_validate'],ai:['ai','evolve']};
         const _setMode=mm=>{const q=el('ex-mode-quick');if(q&&q.onchange){q.value=mm;q.onchange();}};
-        content.querySelectorAll('.ex-goal').forEach(c=>c.onclick=()=>{const g=c.dataset.goal;const cur=em.value;_setMode((_goalModes[g]||[]).indexOf(cur)>=0?cur:_goalDefault[g]);});
-        const gsel=el('gv-search');if(gsel)gsel.onchange=()=>{if(gsel.value==='custom'){_setMode('grid');const epx=el('ex-preset');if(epx){const co=[].find.call(epx.options,o=>o.value==='CUSTOM');if(co){co.disabled=false;epx.value='CUSTOM';savePref('scope_tier','CUSTOM');}}exApplyCustom();exSyncMode();}else _setMode(gsel.value==='grid'?'grid':'auto');};
+        // Clicking a goal keeps the current sub-mode if it already belongs to that goal, else
+        //   drops to the goal's default. If the target equals the current mode, DON'T re-run the
+        //   QMODE snap (it would reset ML FILTER to none) — just re-sync the highlight.
+        content.querySelectorAll('.ex-goal').forEach(c=>c.onclick=()=>{const g=c.dataset.goal;const cur=em.value;const tgt=(_goalModes[g]||[]).indexOf(cur)>=0?cur:_goalDefault[g];if(tgt===em.value){exRenderGuided();return;}_setMode(tgt);});
+        const gsel=el('gv-search');if(gsel)gsel.onchange=()=>{if(gsel.value==='custom'){_setMode('grid');const epx=el('ex-preset');if(epx){const co=[].find.call(epx.options,o=>o.value==='CUSTOM');if(co){co.disabled=false;epx.value='CUSTOM';savePref('scope_tier','CUSTOM');}}exApplyCustom();exSyncMode();}else{if(gsel.value==='grid'){const ep=el('ex-preset');if(ep&&ep.value==='CUSTOM'){ep.selectedIndex=0;savePref('scope_tier',scopeTier(ep.value));}}_setMode(gsel.value==='grid'?'grid':'auto');}};
         const gdep=el('gv-depth');if(gdep)gdep.onchange=()=>{if(el('gv-bakeoff')&&el('gv-bakeoff').checked)return;_setMode(gdep.value==='wf'?'walkforward':'validate');};
         const gbk=el('gv-bakeoff');if(gbk)gbk.onchange=()=>{if(gbk.checked)_setMode('gate_validate');else{const gd2=el('gv-depth');_setMode(gd2&&gd2.value==='wf'?'walkforward':'validate');}};
         const gak=el('gv-akind');if(gak)gak.onchange=()=>_setMode(gak.value==='rewrite'?'evolve':'ai');
         // EXPERT view: reveal the mode picker + axes and un-gate every field at once.
         const xt=el('ex-expert');if(xt)xt.onchange=()=>{_exExpert=xt.checked;savePref('expert',_exExpert);const bw=content.querySelector('.ex-build');if(bw)bw.classList.toggle('expert',_exExpert);const dt=el('ex-adv');if(dt&&_exExpert)dt.open=true;exSyncMode();};
         // keep the plain-English run summary live as any knob changes
-        const _bw=content.querySelector('.ex-build');if(_bw){const _rs=()=>exRenderGuided();_bw.addEventListener('change',_rs);_bw.addEventListener('input',_rs);}
+        const _bw=content.querySelector('.ex-build');if(_bw){const _rs=()=>exRenderSummary();_bw.addEventListener('change',_rs);_bw.addEventListener('input',_rs);}
       }
       // LOCKBOX test: run the most recent winning config as ONE backtest over only the
       // reserved slice (date_from = reserve-since). One look — the final overfit check.
