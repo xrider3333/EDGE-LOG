@@ -888,3 +888,86 @@ def seasonality(arrays):
             "best_ret_hour": (besth["hour"] if besth else None),
             "verdict": (f"vol peaks {peakh['hour']:02d}:00 ET · best avg return {besth['hour']:02d}:00"
                         if (peakh and besth) else "")}
+
+
+def run_pills(arrays, *, champ_trades=None, cost_pts=0.0,
+              instrument=None, timeframe="5m", session="rth", source=None,
+              lb_start=None, sibling=None):
+    """Shared 'method pill' bundle — the distribution-free robustness + diagnostic
+    checks that Auto-Validate layers on top of a search, so Auto-Optimize can run the
+    SAME set (board §1/§2/§4/§6/§7/§8). Every entry is INFORMATIONAL — none is a gate.
+
+    `arrays`      the loaded optimize-window master arrays (open/high/low/close/index…).
+    `champ_trades` the champion config's whole-window trades (rich tuples); enables the
+                  trade-level pills (conformal / causal / synthetic / feature-select / edge-sig).
+    `lb_start`    lockbox boundary — enables the lockbox-vs-history adversarial check.
+                  Pass None (Auto-Optimize has no lockbox) to skip it.
+    `sibling`     a cross-instrument sibling ticker for the lead-lag / Granger check.
+
+    Each pill is wrapped in its own try/except so one failure never suppresses the rest.
+    Returns a dict of the keys that succeeded (matches the validate.py report shape):
+    adversarial · acf · tailfit · seasonality · vif · conformal · causal · synthetic ·
+    feature_select · edge_sig · lead_lag."""
+    out = {}
+    try:
+        from .data import load_master_arrays, find_master
+        from .ml_gate import adversarial_validation, entry_features, gate_feature_select
+    except Exception:
+        return out
+    # ── whole-array diagnostics (cheap; no champion trades required) ──
+    try:
+        out["acf"] = serial_dependence(arrays)          # §1 momentum vs mean-revert
+    except Exception:
+        pass
+    try:
+        out["tailfit"] = return_tailfit(arrays)         # §1 fat-tail fit
+    except Exception:
+        pass
+    try:
+        out["seasonality"] = seasonality(arrays)        # §6 intraday/weekly seasonality
+    except Exception:
+        pass
+    try:
+        _Xf, _nf = entry_features(arrays)
+        out["vif"] = vif_collinearity(_Xf, _nf)         # §2 collinearity of inputs
+    except Exception:
+        pass
+    # ── lockbox-vs-history regime drift (Auto-Validate only) ──
+    if lb_start is not None:
+        try:
+            out["adversarial"] = adversarial_validation(arrays, lb_start)
+        except Exception:
+            pass
+    # ── champion trade-level robustness ──
+    if champ_trades:
+        try:
+            out["conformal"] = conformal_pnl_band([t[2] for t in champ_trades])   # §4
+        except Exception:
+            pass
+        try:
+            out["causal"] = causal_entry_test(champ_trades, arrays.get("close"),
+                                              cost_pts=cost_pts)                   # §7
+        except Exception:
+            pass
+        try:
+            out["synthetic"] = synthetic_day_bootstrap(champ_trades, arrays.get("index"))  # §8
+        except Exception:
+            pass
+        try:
+            out["feature_select"] = gate_feature_select(arrays, champ_trades)     # §2
+        except Exception:
+            pass
+        try:
+            out["edge_sig"] = edge_significance([t[2] for t in champ_trades])     # §4
+        except Exception:
+            pass
+    # ── cross-instrument lead-lag / Granger (§7) ──
+    if sibling and str(sibling).upper() != str(instrument or "").upper():
+        try:
+            _sm = find_master(sibling, timeframe, session, source)
+            if _sm:
+                out["lead_lag"] = lead_lag(arrays, load_master_arrays(_sm),
+                                           name_a=str(instrument), name_b=str(sibling))
+        except Exception:
+            pass
+    return out

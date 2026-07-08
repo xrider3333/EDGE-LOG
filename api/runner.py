@@ -98,7 +98,8 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 progress_cb=progress_cb,
                 compute_dsr=bool(job.get("dsr", False)), mc_sims=int(job.get("mc_sims", 0)),
                 compute_regime=bool(job.get("regime", True)),
-                compute_neighbors=bool(job.get("neighbors", True)))
+                compute_neighbors=bool(job.get("neighbors", True)),
+                compute_pills=bool(job.get("pills", False)))
         elif jtype == "validate":
             _disc = job.get("discover", "auto")
             _prov = job.get("provider", "ollama")
@@ -460,6 +461,12 @@ class FirestoreQueue:
         shaped like the app's synced runs so the Runs tab renders it identically."""
         mult = float(job.get("mult", 20) or 20)
         best = result.get("best") or {}
+        # gate-validate has no swept "best" config — headline off the chosen gate so the
+        # Past-Runs row shows real numbers (lockbox gated if opened, else pre-lockbox).
+        if not best and result.get("gate_validate"):
+            _gv = result["gate_validate"]
+            best = (((_gv.get("lockbox") or {}).get("gated"))
+                    or ((_gv.get("chosen") or {}).get("pre")) or {})
         rid = self._next_run_id(uid)
         mm = self._master_of(job)
         df, dt, days = self._run_window(job, result, mm)
@@ -473,7 +480,7 @@ class FirestoreQueue:
             "timeframe": job.get("timeframe", ""),
             "scope": ({"ai_optimize": "AI optimize", "ai_evolve": "AI evolve",
                        "auto": "Auto-Optimize", "walkforward": "Walk-Forward",
-                       "validate": "🧭 Auto-Validate"}
+                       "validate": "🧭 Auto-Validate", "gate_validate": "🚪🧭 Gate-Validate"}
                       .get(job.get("type"), job.get("preset", "web sweep"))),
             # carry the validate report card into run history so Results/Library can show it
             "validate": result.get("validate"),
@@ -511,6 +518,21 @@ class FirestoreQueue:
             "dsr": result.get("dsr"), "mc": result.get("mc"),
             "regime": result.get("regime"), "neighborhood": result.get("neighborhood"),
             "relationship": result.get("relationship"),   # per-param Pearson / MI / PPS (#24)
+            # ── one-stop-shop report parity: carry the config-selection + gate cards + the
+            #    diagnostic 'pills' into run history so the saved RUN REPORT renders the same
+            #    rich view the Builder does (not just Auto-Validate runs). ──
+            "ensemble": result.get("ensemble"),        # §6 top-K blend + CCMP (grid sweeps)
+            "plateau_pick": result.get("plateau_pick"),  # 3C.1 broad-high-ground vs argmax
+            "ml_gate": result.get("ml_gate"),          # single-gate before/after + SHAP/calibration
+            "gate_validate": result.get("gate_validate"),  # 9-candidate model×cut-off bake-off
+            # diagnostic pills (top-level on Auto-Optimize runs; Auto-Validate keeps its own
+            # copies under `validate`). Omitted keys simply don't render.
+            "adversarial": result.get("adversarial"), "conformal": result.get("conformal"),
+            "causal": result.get("causal"), "synthetic": result.get("synthetic"),
+            "lead_lag": result.get("lead_lag"), "acf": result.get("acf"),
+            "vif": result.get("vif"), "feature_select": result.get("feature_select"),
+            "edge_sig": result.get("edge_sig"), "tailfit": result.get("tailfit"),
+            "seasonality": result.get("seasonality"),
             "source_web": True,
         })
         self.db.collection("users").document(uid).collection("runs").document(str(rid)).set(doc)
@@ -622,7 +644,7 @@ class FirestoreQueue:
                     ref.update(patch)
                     # A completed grid sweep also lands in the Runs history, so web
                     # sweeps appear alongside the app's runs in users/{uid}/runs.
-                    if job.get("type") in ("grid", "auto", "walkforward", "ai_optimize", "ai_evolve", "validate") and patch.get("status") == "done":
+                    if job.get("type") in ("grid", "auto", "walkforward", "ai_optimize", "ai_evolve", "validate", "gate_validate") and patch.get("status") == "done":
                         try:
                             self._persist_run(uid, job, patch.get("result") or {}, log, elapsed_s=_elapsed)
                         except Exception as _e:

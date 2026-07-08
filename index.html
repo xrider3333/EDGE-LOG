@@ -395,7 +395,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='46.0';
+const VERSION='46.1';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5586,6 +5586,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       'ex-work':['grid','ai','evolve'],'ex-rounds':['ai','evolve','validate'],'ex-prov':['ai','evolve','validate'],
       'ex-trials':['auto','walkforward'],'ex-folds':['walkforward'],
       'ex-wfmode':['walkforward'],'ex-vscope':['validate'],'ex-xfer':['validate'],'ex-discover':['validate'],
+      'ex-pills':['auto','walkforward'],
       'ex-mint':['grid','auto','walkforward','ai','evolve']};
     // sibling instrument for the default cross-instrument transfer test
     const SIB={NQ:'ES',ES:'NQ',MNQ:'MES',MES:'MNQ',RTY:'M2K',M2K:'RTY',YM:'MYM',MYM:'YM',CL:'MCL',MCL:'CL',GC:'MGC',MGC:'GC'};
@@ -5629,6 +5630,132 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(/short|medium|long|xxl|xl|custom|combo|grid/.test(s))return 2;
       return 1;
     };
+    // ── Shared "method pill" + gate renderers ─────────────────────────────────
+    // Extracted so the Builder's just-finished panel AND the saved RUN REPORT render
+    // the SAME cards (one-stop-shop parity). `P` is the source object holding the pill
+    // keys — d.validate for Auto-Validate runs, or the run/result itself for Auto-Optimize
+    // (pills land top-level there). Each returns '' when its data is absent.
+    const pillsHtml=(P,mlt)=>{P=P||{};let advHtml='';const AV=P.adversarial;
+        if(AV&&AV.auc!=null){const a=AV.auc,acol=a<0.55?'var(--green)':a<0.70?'var(--yellow)':a<0.85?'#f0997b':'var(--red)';
+          const drift=(AV.drift_features||[]).slice(0,3).map(d=>d.name+' ('+(d.shift>0?'+':'')+d.shift+'σ)').join(' · ');
+          advHtml+='<div class="lbl" style="margin:14px 0 4px" title="A classifier tries to tell the lockbox period apart from the training history using market-state features. AUC near 0.50 = indistinguishable (trust the lockbox); high AUC = the lockbox is a different regime, so its PASS/FAIL is weaker evidence.">🎭 ADVERSARIAL VALIDATION · §4 — is the lockbox a different regime?</div>'
+           +'<div style="font-size:var(--fsxs);color:'+acol+';margin-bottom:2px">AUC <b>'+a.toFixed(3)+'</b> — '+AV.verdict+'</div>'
+           +(drift?'<div style="font-size:var(--fsxs);color:var(--text4)">most-shifted inputs: '+drift+' <span style="color:var(--text5)">(lockbox vs history, in σ)</span></div>':'');}
+        const CF=P.conformal;
+        if(CF){const cfc=CF.calibrated?'var(--green)':'var(--yellow)';
+          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Split-conformal, distribution-free prediction interval for one trade\'s net PnL, with coverage MEASURED on a held-out split (the self-check: a valid 80% band should cover ~80%).">📏 CONFORMAL PnL BAND · §4 — per-trade risk interval</div>'
+           +'<div style="font-size:var(--fsxs);color:var(--text3)">'+Math.round((1-CF.alpha)*100)+'% of trades land in <b>'+fmtUsd(Math.round(CF.lo*mlt))+' … '+fmtUsd(Math.round(CF.hi*mlt))+'</b> (median '+fmtUsd(Math.round(CF.median*mlt))+') · measured coverage <b style="color:'+cfc+'">'+(CF.coverage_measured!=null?Math.round(CF.coverage_measured*100)+'%':'—')+'</b>'+(CF.calibrated?' ✓':'')+'</div>';}
+        const CU=P.causal;
+        if(CU){const cuc=CU.percentile>=95?'var(--green)':CU.percentile>=80?'var(--yellow)':'var(--red)';
+          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Randomization test: keep each trade\'s direction and holding length but move entries to random times (exit at close). High percentile = the entry rule carries real predictive content, not just market exposure. Caveat: random trades exit at close, not the strategy stop/target.">🎲 CAUSAL ENTRY TEST · §7 — is the entry rule real?</div>'
+           +'<div style="font-size:var(--fsxs);color:'+cuc+'">beats <b>'+CU.percentile.toFixed(0)+'%</b> of random-entry nulls — '+CU.verdict+' <span style="color:var(--text5)">(real '+fmtUsd(Math.round(CU.real_total_pts*mlt))+' vs null median '+fmtUsd(Math.round(CU.null_median_pts*mlt))+')</span></div>';}
+        const SY=P.synthetic;
+        if(SY){const syc=SY.prob_profit>=90?'var(--green)':SY.prob_profit>=70?'var(--yellow)':'var(--red)';
+          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Resamples whole trading days WITH REPLACEMENT to build alternate histories — changes which days happen, not just their order (distinct from the Monte-Carlo pill). Caveat: treats days as exchangeable.">🌀 SYNTHETIC SCENARIOS · §8 — alternate day-histories</div>'
+           +'<div style="font-size:var(--fsxs);color:'+syc+'">profitable in <b>'+SY.prob_profit.toFixed(0)+'%</b> of '+SY.n_sims+' histories · PnL '+fmtUsd(Math.round(SY.p05_total_pts*mlt))+' … '+fmtUsd(Math.round(SY.p95_total_pts*mlt))+' (p5–p95) · worst-5% DD '+fmtUsd(Math.round(SY.worst5_maxdd_pts*mlt))+'</div>';}
+        const LL=P.lead_lag;
+        if(LL&&LL.contemp_corr!=null){const llc=LL.tradeable?'var(--green)':'var(--text3)';
+          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Cross-instrument lead-lag: does one sibling (e.g. ES↔NQ) move before the other at the bar scale? Cross-correlation of returns at ±lags + a Granger F-test each way. At 5-min on efficient index futures the honest answer is usually contemporaneous — lead-lag lives at the tick scale.">🔗 LEAD-LAG / GRANGER · §7 — does '+LL.a+' or '+LL.b+' lead?</div>'
+           +'<div style="font-size:var(--fsxs);color:'+llc+'">'+LL.verdict+' <span style="color:var(--text5)">· contemporaneous r '+LL.contemp_corr+' · peak lag '+LL.peak_lag+' (r '+LL.peak_corr+')</span></div>'
+           +(LL.note?'<div style="font-size:8px;color:var(--text5)">'+LL.note+'</div>':'');}
+        const AC=P.acf;
+        if(AC&&AC.lag1_acf!=null){const acc=Math.abs(AC.lag1_acf)<AC.sig_band?'var(--text3)':(AC.lag1_acf>0?'var(--green)':'#f0997b');
+          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Serial dependence of bar returns: ACF at lag 1 + a variance-ratio test. Positive autocorrelation = momentum (breakouts have structural support), negative = mean-reverting (fades do), ~0 = random walk. Tells you which strategy family the data supports.">📈 SERIAL DEPENDENCE (ACF) · §1 — momentum or mean-reversion?</div>'
+           +'<div style="font-size:var(--fsxs);color:'+acc+'">'+AC.verdict+' <span style="color:var(--text5)">· lag-1 ACF '+AC.lag1_acf+' (band ±'+AC.sig_band+') · variance-ratio 5-bar '+AC.vr5+' / 10-bar '+AC.vr10+'</span></div>';}
+        const VF=P.vif;
+        if(VF&&VF.features&&VF.features.length){const vfc=VF.n_high?'var(--yellow)':'var(--green)';var v3=VF.features.slice(0,3).map(function(f){return f.name+' '+f.vif;}).join(' · ');
+          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Variance Inflation Factor per entry feature: VIF≥5 means that input is largely a linear combo of the others (redundant), which muddies gate importance + calibration.">🧮 VIF / COLLINEARITY · §2 — redundant entry inputs?</div>'
+           +'<div style="font-size:var(--fsxs);color:'+vfc+'">'+VF.verdict+' <span style="color:var(--text5)">· highest: '+v3+'</span></div>';}
+        const FS=P.feature_select;
+        if(FS&&FS.kept){advHtml+='<div class="lbl" style="margin:12px 0 2px" title="RFE-CV (recursive feature elimination, cross-validated) on the entry features vs win/loss — recursively drops the weakest input, keeps the subset that maximizes cross-validated AUC. The keep/drop decision behind the MI/PPS ranking.">✂️ FEATURE SELECTION · §2 — which inputs a gate would keep</div>'
+           +'<div style="font-size:var(--fsxs);color:var(--text3)">'+FS.verdict+' · <span style="color:var(--green)">keep: '+(FS.kept||[]).join(", ")+'</span></div>';}
+        const ES2=P.edge_sig;
+        if(ES2&&ES2.p_value!=null){const ec=ES2.significant?'var(--green)':'var(--yellow)';
+          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Is the edge statistically real? One-sample test on per-trade net PnL: t-stat, two-sided p-value, a 95% t-CI and a bootstrap CI on the mean. Complements the Deflated Sharpe (multiple-testing haircut) with a plain, direct read.">📛 EDGE SIGNIFICANCE · §4 — is the edge statistically real?</div>'
+           +'<div style="font-size:var(--fsxs);color:'+ec+'">'+ES2.verdict+' <span style="color:var(--text5)">· mean '+fmtUsd(Math.round(ES2.mean_pnl*mlt))+'/trade · t '+ES2.t_stat+' · 95% CI ['+fmtUsd(Math.round(ES2.ci95[0]*mlt))+', '+fmtUsd(Math.round(ES2.ci95[1]*mlt))+'] · bootstrap '+ES2.boot_prob_profit+'% profitable</span></div>';}
+        const TFa=P.tailfit;
+        if(TFa&&TFa.student_df!=null){const tc=TFa.student_df<4?'#f0997b':(TFa.student_df<8?'var(--yellow)':'var(--green)');
+          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Fat-tail fit of within-session returns: a Student-t is fit; lower degrees of freedom = fatter tails (df<4 = extreme). Fat tails mean the Monte-Carlo / tail-VaR sizing matters — the normal case understates shock risk.">🐟 RETURN TAIL-FIT · §1 — how fat are the tails?</div>'
+           +'<div style="font-size:var(--fsxs);color:'+tc+'">'+TFa.verdict+' <span style="color:var(--text5)">· excess kurtosis '+TFa.excess_kurtosis+' · 1% bar move '+TFa.tail_1pct_bp+'bp ('+TFa.vs_normal_1pct+'× a normal)</span></div>';}
+        const SZ=P.seasonality;
+        if(SZ&&SZ.verdict){advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Intraday + weekly seasonality of within-session returns: mean return and volatility by ET hour and day-of-week — where the action and the risk concentrate.">🕰️ SEASONALITY · §1 — when does the action happen?</div>'
+           +'<div style="font-size:var(--fsxs);color:var(--text3)">'+SZ.verdict+' <span style="color:var(--text5)">· weekday mean(bp): '+(SZ.by_dow||[]).map(function(x){return x.dow+' '+x.mean_bp;}).join(' · ')+'</span></div>';}
+        return advHtml;};
+    // §6 Ensemble top-K + stacking/CCMP (grid sweeps)
+    const ensembleCardHtml=(ENS,mlt)=>{if(!(ENS&&ENS.blend&&ENS.best))return '';const eb=ENS.blend,es=ENS.best,imp=ENS.improved,mE=v=>fmtUsd(Math.round((v||0)*mlt)),gc=imp?'var(--green)':'var(--text3)';
+        return '<div class="lbl" style="margin:14px 0 4px" title="Instead of deploying only the single best config, allocate 1/K to each of the top-K and blend them. The blend usually keeps most of the PnL with a shallower drawdown (the configs do not all dip at once). Verdict is on recovery = profit / drawdown.">🧩 ENSEMBLE TOP-'+ENS.k+' · §6 — blend vs the single best</div>'
+           +'<div style="overflow-x:auto"><table class="table"><thead><tr><th></th><th style="text-align:right">SINGLE BEST</th><th style="text-align:right">BLEND of top '+ENS.k+'</th></tr></thead><tbody>'
+           +'<tr><td style="color:var(--text4)">NET P&L</td><td style="text-align:right">'+mE(es.total_pnl)+'</td><td style="text-align:right">'+mE(eb.total_pnl)+(ENS.pnl_kept_pct!=null?' <span style="color:var(--text5);font-size:8px">'+ENS.pnl_kept_pct+'% kept</span>':'')+'</td></tr>'
+           +'<tr><td style="color:var(--text4)">MAX DRAWDOWN</td><td style="text-align:right">'+mE(es.max_drawdown)+'</td><td style="text-align:right;color:'+(Math.abs(eb.max_drawdown)<=Math.abs(es.max_drawdown)?'var(--green)':'var(--text2)')+'">'+mE(eb.max_drawdown)+'</td></tr>'
+           +'<tr><td style="color:var(--text4)">RECOVERY $/$dd</td><td style="text-align:right">'+(es.recovery||0).toFixed(2)+'</td><td style="text-align:right;color:'+gc+'">'+(eb.recovery||0).toFixed(2)+'</td></tr>'
+           +'</tbody></table></div>'
+           +'<div style="font-size:var(--fsxs);color:'+gc+';margin-top:6px">'+(imp
+             ?'Blend is more robust — recovery +'+(ENS.recovery_gain||0).toFixed(2)+' for '+(ENS.pnl_kept_pct!=null?ENS.pnl_kept_pct:100)+'% of the PnL (top-'+ENS.k+' avg corr '+(ENS.avg_corr!=null?ENS.avg_corr:'—')+').'
+             :'Single best wins — the top '+ENS.k+' configs are too correlated (avg corr '+(ENS.avg_corr!=null?ENS.avg_corr:'—')+') to diversify. Deploy the champion.')+'</div>'
+           +(ENS.ccmp?('<div class="lbl" style="margin:10px 0 2px" title="Stacking / CCMP (hillclimbers): weights fit by greedy hill-climb on a train split, then tested on a held-out split vs equal-weight. If it does not beat equal-weight OUT-OF-SAMPLE, the configs are too correlated to reweight.">🏗️ STACKING / CCMP · §6 — weighted vs equal-weight (OOS)</div>'
+             +'<div style="font-size:var(--fsxs);color:'+(ENS.ccmp.improved?'var(--green)':'var(--text3)')+'">'+ENS.ccmp.verdict+' <span style="color:var(--text5)">· weights ['+(ENS.ccmp.weights||[]).map(function(x){return x.toFixed(2);}).join(', ')+']</span></div>'):'');};
+    // 3C.1 PDP-plateau pick: broad-high-ground config vs the argmax champion
+    const plateauCardHtml=(PP,bpx,mlt)=>{if(!(PP&&PP.params))return '';bpx=bpx||{};
+        if(PP.same_as_best)return '<div style="font-size:var(--fsxs);color:var(--green);margin:10px 0 2px">🏔 PLATEAU PICK (3C.1) agrees with the champion — the argmax winner sits on broad high ground, not a spike.</div>';
+        const diffs=Object.keys(PP.params).filter(k=>String(PP.params[k])!==String(bpx[k]));const pm=PP.metrics||{};
+        return '<div class="lbl" style="margin:14px 0 4px">🏔 PLATEAU PICK · 3C.1 — broad high ground vs the champion spike</div>'
+             +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.7">'
+             +(diffs.length?diffs.map(k=>k+': <b>'+PP.params[k]+'</b> <span style="color:var(--text5)">(champion: '+bpx[k]+')</span>').join(' · '):'(differs only in tie-break)')
+             +'<br>plateau config: '+fmtUsd(Math.round(((pm.total_pnl||0))*mlt))+' · PF '+Math.min(pm.profit_factor||0,99).toFixed(2)+' · '+(pm.num_trades||0)+' trd · plateau score <b>'+Math.round(PP.score||0).toLocaleString()+'</b> vs the champion '+Math.round(PP.argmax_score||0).toLocaleString()
+             +' <span style="color:var(--text5)">— the smoothed param→PnL surface prefers this config; the champion may be a lucky spike. Surviving the plateau is the sturdier deploy.</span></div>';};
+    // §3A single ML-gate before/after card (+ SHAP / calibration / discrimination)
+    const gateCardHtml=(G,stratLbl,mlt2)=>{if(!G)return '';const u=G.ungated||{},ga=G.gated||{};
+        const money=v=>fmtUsd(Math.round((v||0)*mlt2));
+        const helped=(ga.total_pnl||0)>=(u.total_pnl||0);
+        const grow=(lbl,uv,gv,hl)=>'<tr><td style="color:var(--text4)">'+lbl+'</td><td style="text-align:right">'+uv+'</td><td style="text-align:right'+(hl?';color:'+(helped?'var(--green)':'var(--red)'):'')+'">'+gv+'</td></tr>';
+        return '<div class="lbl" style="margin:0 0 6px">🚪 ML GATE — '+String(G.model||'').toUpperCase()+' · CUT-OFF '+Math.round((G.threshold||0)*100)+'% · '+stratLbl+'</div>'
+          +'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+G.n_kept+' of '+G.n_total+' trades let through · '+G.n_skipped+' turned away · first '+G.warmup+' passed ungated (model still learning) · refit '+G.n_fits+'×</div>'
+          +'<div style="overflow-x:auto"><table class="table"><thead><tr><th></th><th style="text-align:right">UNGATED — every trade</th><th style="text-align:right">GATED — kept only</th></tr></thead><tbody>'
+          +grow('NET P&L',money(u.total_pnl),money(ga.total_pnl),1)
+          +grow('TRADES',u.num_trades||0,ga.num_trades||0)
+          +grow('WIN %',Math.round(u.win_rate||0)+'%',Math.round(ga.win_rate||0)+'%')
+          +grow('PROFIT FACTOR',Math.min(u.profit_factor||0,99).toFixed(2),Math.min(ga.profit_factor||0,99).toFixed(2))
+          +grow('AVG $/TRADE',money(u.avg_pnl),money(ga.avg_pnl))
+          +grow('MAX DRAWDOWN',money(u.max_drawdown),money(ga.max_drawdown))
+          +'</tbody></table></div>'
+          +((G.explain&&G.explain.features&&G.explain.features.length)?(
+             '<div class="lbl" style="margin:12px 0 4px" title="Global feature attribution for the ML gate: bars = permutation importance (how much the fit degrades when that entry input is shuffled). Direction = does a higher value push the gate toward KEEP or SKIP. Local per-trade SHAP lights up if the shap package is installed.">🔍 GATE FEATURE ATTRIBUTION · SHAP-style</div>'
+            +'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:6px">'+String(G.explain.method||'')+' · <span style="color:var(--green)">green ↑ keep</span> · <span style="color:var(--red)">red ↓ skip</span></div>'
+            +G.explain.features.map(function(f){var w=Math.max(2,Math.round((f.rel||0)*100));var col=f.dir>0?'var(--green)':(f.dir<0?'var(--red)':'var(--text4)');var ar=f.dir>0?'↑ keep':(f.dir<0?'↓ skip':'·');return '<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:var(--fsxs)"><span style="width:82px;color:var(--text3);text-align:right">'+f.name+'</span><div style="flex:1;background:var(--bg1);border-radius:4px;height:11px;overflow:hidden"><div style="width:'+w+'%;height:100%;background:'+col+';opacity:.72"></div></div><span style="width:46px;color:'+col+';font-size:8px">'+ar+'</span></div>';}).join('')
+           ):'')
+          +((G.calibration&&G.calibration.bins&&G.calibration.bins.length)?(function(){var K=G.calibration,mono=K.expectancy_monotone,mc=mono?'var(--green)':'var(--yellow)';
+             var rows=K.bins.map(function(b){return '<tr><td style="text-align:right">'+Math.round((b.p_pred||0)*100)+'%</td><td style="text-align:right">'+Math.round((b.win_rate||0)*100)+'%</td><td style="text-align:right;color:'+((b.mean_pnl||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round((b.mean_pnl||0)*mlt2))+'</td><td style="text-align:right;color:var(--text4)">'+b.n+'</td></tr>';}).join('');
+             return '<div class="lbl" style="margin:12px 0 4px" title="Out-of-fold reliability of the gate score. The gate trains |PnL|-weighted, so it targets EXPECTANCY not win-frequency — the column that matters is mean $/trade rising with the score. ECE = frequency calibration error; isotonic shows the headroom to make the % a literal win-probability.">🎯 GATE CALIBRATION · 3A — does a higher score mean higher expectancy?</div>'
+              +'<div style="font-size:var(--fsxs);color:'+mc+';margin-bottom:4px">'+(mono?'✓ monotone — higher gate score → higher expectancy (Spearman '+(K.expectancy_spearman!=null?K.expectancy_spearman:'—')+')':'⚠ not monotone — the score doesn\'t rank expectancy cleanly')+' · frequency ECE '+K.ece+(K.ece_isotonic!=null?' → '+K.ece_isotonic+' if isotonic-calibrated':'')+'</div>'
+              +'<div style="overflow-x:auto"><table class="table"><thead><tr><th style="text-align:right">GATE P</th><th style="text-align:right">ACTUAL WIN</th><th style="text-align:right">MEAN $/TRD</th><th style="text-align:right">N</th></tr></thead><tbody>'+rows+'</tbody></table></div>';})():'')
+          +((G.calibration&&G.calibration.discrimination)?(function(){var D=G.calibration.discrimination,ac=(D.auc||0)>=0.6?'var(--green)':((D.auc||0)>=0.55?'var(--yellow)':'var(--text3)');
+             return '<div class="lbl" style="margin:10px 0 2px" title="How well the gate separates winners from losers (ROC-AUC, threshold-free) and what the cut-off does: precision = share of KEPT trades that win; recall = share of winners kept. TP/FP/FN/TN at your cut-off.">🎚️ GATE DISCRIMINATION · §5 — ROC-AUC + confusion at the cut-off</div>'
+              +'<div style="font-size:var(--fsxs);color:'+ac+'">AUC <b>'+(D.auc!=null?D.auc:'—')+'</b> · at cut-off '+Math.round((D.threshold||0)*100)+'%: precision <b>'+(D.precision!=null?Math.round(D.precision*100)+'%':'—')+'</b> (kept-win vs '+Math.round((G.calibration.base_rate||0)*100)+'% base) · recall <b>'+(D.recall!=null?Math.round(D.recall*100)+'%':'—')+'</b> <span style="color:var(--text5)">· TP '+D.tp+' / FP '+D.fp+' / FN '+D.fn+' / TN '+D.tn+'</span></div>';})():'')
+          +'<div style="font-size:var(--fsxs);color:'+(helped?'var(--green)':'var(--yellow)')+';margin-top:6px">'+(helped
+            ?'Gate helped — the trades it kept beat taking everything.'
+            :'Gate did not help here — the trades it kept did worse than taking everything. Honest KISS-baseline result: the entry-time features (vol / trend / clock) carry little signal for this strategy; richer features (order-flow delta, ROADMAP #23) are the next lever.')+'</div>';};
+    // Board 4.10 gate-validate: every model × cut-off ranked on the PRE-lockbox slice
+    // (recovery factor); the winner gets ONE look at the lockbox. Shows ALL models' PnLs.
+    const gvTableHtml=(V,stratLbl,mlt3)=>{if(!V)return '';
+        const $=v=>fmtUsd(Math.round((v||0)*mlt3));
+        const ch=V.chosen,LB=V.lockbox;
+        const cands=(V.candidates||[]).slice().sort((a,b)=>b.pre_rec-a.pre_rec);
+        const crow=c=>{const isCh=ch&&c.model===ch.model&&c.threshold===ch.threshold;
+          return '<tr'+(isCh?' style="color:var(--green)"':'')+'><td>'+(isCh?'▸ ':'')+c.model+'</td><td style="text-align:right">'+Math.round(c.threshold*100)+'%</td><td style="text-align:right">'+c.kept_pre+'</td><td style="text-align:right">'+$(c.pre_pnl)+'</td><td style="text-align:right">'+Math.round(c.pre_wr||0)+'%</td><td style="text-align:right">'+Math.min(c.pre_pf,99).toFixed(2)+'</td><td style="text-align:right">'+c.pre_rec.toFixed(2)+'</td></tr>';};
+        const ungRow='<tr style="color:var(--text3)"><td>— ungated</td><td style="text-align:right">—</td><td style="text-align:right">'+(V.ungated_pre&&V.ungated_pre.num_trades||0)+'</td><td style="text-align:right">'+$(V.ungated_pre&&V.ungated_pre.total_pnl)+'</td><td style="text-align:right">'+Math.round((V.ungated_pre&&V.ungated_pre.win_rate)||0)+'%</td><td style="text-align:right">'+Math.min((V.ungated_pre&&V.ungated_pre.profit_factor)||0,99).toFixed(2)+'</td><td style="text-align:right">'+(V.ungated_pre_rec!=null?V.ungated_pre_rec.toFixed(2):'—')+'</td></tr>';
+        const consHtml=V.consistency?('<span>held <b>'+V.consistency.held+'/'+V.consistency.windows+'</b> pre-lockbox windows (PF ≥ ungated)</span>'):'';
+        let lbHtml='';
+        if(LB){lbHtml='<div class="lbl" style="margin:12px 0 6px">🔒 THE ONE LOOK — LOCKBOX SINCE '+(V.lockbox_from||'')+'</div>'
+          +'<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3)">'
+          +'<span>ungated: <b>'+$(LB.ungated.total_pnl)+'</b> · PF '+Math.min(LB.ungated.profit_factor,99).toFixed(2)+' · rec '+LB.ungated_rec.toFixed(2)+' · '+LB.ungated.num_trades+' trd</span>'
+          +'<span>gated: <b style="color:'+(LB.helped?'var(--green)':'var(--red)')+'">'+$(LB.gated.total_pnl)+'</b> · PF '+Math.min(LB.gated.profit_factor,99).toFixed(2)+' · rec '+LB.gated_rec.toFixed(2)+' · '+LB.gated.num_trades+' trd</span>'
+          +'<span style="color:'+(LB.helped?'var(--green)':'var(--red)')+';font-weight:600">'+(LB.helped?'HELD ✓':'FAILED ✕')+'</span></div>';}
+        return '<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>'
+          +'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+V.n_candidates+' candidates (model × cut-off) ranked on PRE-lockbox data only, by recovery factor ($ made per $ of drawdown — the equal-risk yardstick, since a gate always trades less). The winner gets exactly one look at the lockbox; losing candidates\' lockbox results are never computed — no shopping.</div>'
+          +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>GATE</th><th style="text-align:right">CUT-OFF</th><th style="text-align:right">KEPT</th><th style="text-align:right">PRE-LOCKBOX $</th><th style="text-align:right">WR</th><th style="text-align:right">PF</th><th style="text-align:right">REC</th></tr></thead><tbody>'+ungRow+cands.map(crow).join('')+'</tbody></table></div>'
+          +'<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3);margin-top:8px"><span>gate earns pre-lockbox: <b style="color:'+(V.gate_earns_pre?'var(--green)':'var(--yellow)')+'">'+(V.gate_earns_pre?'YES':'NO')+'</b></span>'+consHtml+'</div>'
+          +lbHtml
+          +'<div style="font-size:var(--fsxs);color:'+(LB?(LB.helped?'var(--green)':'var(--red)'):'var(--yellow)')+';margin-top:8px">'+(V.verdict||'')+'</div>';};
     const runDetail=(d)=>{
       if(!d)return '<div style="color:var(--text5);font-size:var(--fsxs);padding:48px 20px;text-align:center;border:1px dashed var(--border);border-radius:10px">select a run on the left to load its report card</div>';
       const _champNetTip=d.validate?'the single best parameter set, measured across the WHOLE tune period (one config, all dates). The matrix below instead splits the timeline into 3 sections — its IN-SAMPLE column is only the first (un-shaded) section, so that is a smaller number than this.':'';
@@ -5930,6 +6057,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _wfFolds=_wfInner?('<div id="res-step-5" style="scroll-margin-top:64px"></div>'+_wfInner):'';
       // 8 Drawdown = worst-case equity-path sizing (Monte-Carlo P95).
       const _sec8=d.validate?'':_secOf(8,[mcHtml]);   // validate runs show MC + the underwater drawdown inside the 1a tile
+      // ── ROBUSTNESS & DIAGNOSTICS — the shared method-pill panel (adversarial / conformal /
+      //    causal / synthetic / lead-lag / ACF / VIF / feature-select / edge-sig / tail-fit /
+      //    seasonality), the config-selection cards (ensemble top-K + CCMP · plateau pick) and
+      //    the ML-gate cards (single-gate before/after + SHAP, and the gate-validate all-models
+      //    bake-off). Makes the SAVED report the same one-stop-shop the Builder shows, for EVERY
+      //    run type — pills live under d.validate (Auto-Validate) or top-level (Auto-Optimize). ──
+      const _pillSrc=d.validate||d;
+      const _dofNP=(d.best_params&&typeof d.best_params==='object')?Object.keys(d.best_params).length:0;
+      const _dofNT=+d.best_trades||0;
+      const _dofV=(d.validate&&d.validate.trades_per_param!=null)?d.validate.trades_per_param:((_dofNP>0&&_dofNT>0)?(_dofNT/_dofNP):null);
+      const _dofHtml=(_dofV!=null)?('<div style="font-size:var(--fsxs);color:var(--text3)" title="Trades per optimized parameter — the overfitting governor. Under 10 = high risk; aim for 30+.">📐 SAMPLE ADEQUACY (DOF) · §4 — <b style="color:'+(_dofV>=30?'var(--green)':_dofV>=10?'var(--yellow)':'var(--red)')+'">'+Math.round(_dofV)+' trades / param</b> <span style="color:var(--text5)">· '+_dofNT.toLocaleString()+' trades'+(_dofNP?' across '+_dofNP+' params':'')+'</span></div>'):'';
+      const _diagParts=[_dofHtml,pillsHtml(_pillSrc,mlt),ensembleCardHtml(d.ensemble,mlt),plateauCardHtml(d.plateau_pick,d.best_params,mlt),(d.gate_validate?gvTableHtml(d.gate_validate,stratTag(d.strategy),mlt):''),(d.ml_gate?gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt):'')].filter(x=>x&&x.replace(/\s/g,''));
+      const _diagSec=_diagParts.length?('<div id="res-step-diag" class="lbl" style="margin:22px 0 8px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:23px;height:23px;border-radius:50%;background:var(--bg1);border:1px solid var(--border);font-size:11px">🔬</span><span style="font-weight:800;font-size:15px;color:var(--text);letter-spacing:0;text-transform:none">Robustness &amp; Diagnostics</span><span style="font-weight:400;color:var(--text4);font-size:9px">informational — distribution-free checks · ensemble · ML gate</span></div><div style="'+_card2+';margin-bottom:14px">'+_diagParts.join('<div style="margin:12px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)"></div>')+'</div>'):'';
       return hdrHtml
         +valBannerHtml(d)
         +_sec('1','Feasibility & walk-forward','',(d.validate?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:1.7 1 360px;min-width:0">'+_panelEquity+'</div><div style="flex:1 1 280px;min-width:0">'+(_panelMatrix||_secOf(1,[[splitOosHtml(d,mlt),'KPI matrix']],1))+_panelRegime+'</div>'+(_distTile?'<div style="flex:1.1 1 300px;min-width:0">'+_distTile+'</div>':'')+'</div>'):_secOf(1,[_summaryPanel,monthlyPnlHtml(d.regime,mlt),(_panelMatrix||splitOosHtml(d,mlt)),_wfFolds,regHtml])))
@@ -5937,6 +6077,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +_sec('3','Configuration Analysis','robust params — a cluster, not a lonely spike',_sec3,_cfgN)
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4,_strN)
         +_sec('8','Drawdown','size for the worst-case equity path',_sec8)
+        +_diagSec
         +runCodeHtml(d);
     };
     let body='';
@@ -5975,63 +6116,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    UNGATED = the strategy taking every trade; GATED = only the trades the
       //    model let through. Headline result of the run IS the gated column.
       const lastGated=grids.filter(b=>b.status==='done'&&b.result&&b.result.ml_gate)[0];
-      let gateHtml='';
-      if(lastGated){const G=lastGated.result.ml_gate,mlt2=lastGated.mult||20,u=G.ungated||{},ga=G.gated||{};
-        const money=v=>fmtUsd(Math.round((v||0)*mlt2));
-        const helped=(ga.total_pnl||0)>=(u.total_pnl||0);
-        const grow=(lbl,uv,gv,hl)=>'<tr><td style="color:var(--text4)">'+lbl+'</td><td style="text-align:right">'+uv+'</td><td style="text-align:right'+(hl?';color:'+(helped?'var(--green)':'var(--red)'):'')+'">'+gv+'</td></tr>';
-        gateHtml='<div class="lbl" style="margin:0 0 6px">🚪 ML GATE — '+String(G.model||'').toUpperCase()+' · CUT-OFF '+Math.round((G.threshold||0)*100)+'% · '+stratTag(lastGated.strategy)+'</div>'
-          +'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+G.n_kept+' of '+G.n_total+' trades let through · '+G.n_skipped+' turned away · first '+G.warmup+' passed ungated (model still learning) · refit '+G.n_fits+'×</div>'
-          +'<div style="overflow-x:auto"><table class="table"><thead><tr><th></th><th style="text-align:right">UNGATED — every trade</th><th style="text-align:right">GATED — kept only</th></tr></thead><tbody>'
-          +grow('NET P&L',money(u.total_pnl),money(ga.total_pnl),1)
-          +grow('TRADES',u.num_trades||0,ga.num_trades||0)
-          +grow('WIN %',Math.round(u.win_rate||0)+'%',Math.round(ga.win_rate||0)+'%')
-          +grow('PROFIT FACTOR',Math.min(u.profit_factor||0,99).toFixed(2),Math.min(ga.profit_factor||0,99).toFixed(2))
-          +grow('AVG $/TRADE',money(u.avg_pnl),money(ga.avg_pnl))
-          +grow('MAX DRAWDOWN',money(u.max_drawdown),money(ga.max_drawdown))
-          +'</tbody></table></div>'
-          +((G.explain&&G.explain.features&&G.explain.features.length)?(
-             '<div class="lbl" style="margin:12px 0 4px" title="Global feature attribution for the ML gate: bars = permutation importance (how much the fit degrades when that entry input is shuffled). Direction = does a higher value push the gate toward KEEP or SKIP. Local per-trade SHAP lights up if the shap package is installed.">🔍 GATE FEATURE ATTRIBUTION · SHAP-style</div>'
-            +'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:6px">'+String(G.explain.method||'')+' · <span style="color:var(--green)">green ↑ keep</span> · <span style="color:var(--red)">red ↓ skip</span></div>'
-            +G.explain.features.map(function(f){var w=Math.max(2,Math.round((f.rel||0)*100));var col=f.dir>0?'var(--green)':(f.dir<0?'var(--red)':'var(--text4)');var ar=f.dir>0?'↑ keep':(f.dir<0?'↓ skip':'·');return '<div style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:var(--fsxs)"><span style="width:82px;color:var(--text3);text-align:right">'+f.name+'</span><div style="flex:1;background:var(--bg1);border-radius:4px;height:11px;overflow:hidden"><div style="width:'+w+'%;height:100%;background:'+col+';opacity:.72"></div></div><span style="width:46px;color:'+col+';font-size:8px">'+ar+'</span></div>';}).join('')
-           ):'')
-          +((G.calibration&&G.calibration.bins&&G.calibration.bins.length)?(function(){var K=G.calibration,mono=K.expectancy_monotone,mc=mono?'var(--green)':'var(--yellow)';
-             var rows=K.bins.map(function(b){return '<tr><td style="text-align:right">'+Math.round((b.p_pred||0)*100)+'%</td><td style="text-align:right">'+Math.round((b.win_rate||0)*100)+'%</td><td style="text-align:right;color:'+((b.mean_pnl||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round((b.mean_pnl||0)*mlt2))+'</td><td style="text-align:right;color:var(--text4)">'+b.n+'</td></tr>';}).join('');
-             return '<div class="lbl" style="margin:12px 0 4px" title="Out-of-fold reliability of the gate score. The gate trains |PnL|-weighted, so it targets EXPECTANCY not win-frequency — the column that matters is mean $/trade rising with the score. ECE = frequency calibration error; isotonic shows the headroom to make the % a literal win-probability.">🎯 GATE CALIBRATION · 3A — does a higher score mean higher expectancy?</div>'
-              +'<div style="font-size:var(--fsxs);color:'+mc+';margin-bottom:4px">'+(mono?'✓ monotone — higher gate score → higher expectancy (Spearman '+(K.expectancy_spearman!=null?K.expectancy_spearman:'—')+')':'⚠ not monotone — the score doesn\'t rank expectancy cleanly')+' · frequency ECE '+K.ece+(K.ece_isotonic!=null?' → '+K.ece_isotonic+' if isotonic-calibrated':'')+'</div>'
-              +'<div style="overflow-x:auto"><table class="table"><thead><tr><th style="text-align:right">GATE P</th><th style="text-align:right">ACTUAL WIN</th><th style="text-align:right">MEAN $/TRD</th><th style="text-align:right">N</th></tr></thead><tbody>'+rows+'</tbody></table></div>';})():'')
-          +((G.calibration&&G.calibration.discrimination)?(function(){var D=G.calibration.discrimination,ac=(D.auc||0)>=0.6?'var(--green)':((D.auc||0)>=0.55?'var(--yellow)':'var(--text3)');
-             return '<div class="lbl" style="margin:10px 0 2px" title="How well the gate separates winners from losers (ROC-AUC, threshold-free) and what the cut-off does: precision = share of KEPT trades that win; recall = share of winners kept. TP/FP/FN/TN at your cut-off.">🎚️ GATE DISCRIMINATION · §5 — ROC-AUC + confusion at the cut-off</div>'
-              +'<div style="font-size:var(--fsxs);color:'+ac+'">AUC <b>'+(D.auc!=null?D.auc:'—')+'</b> · at cut-off '+Math.round((D.threshold||0)*100)+'%: precision <b>'+(D.precision!=null?Math.round(D.precision*100)+'%':'—')+'</b> (kept-win vs '+Math.round((G.calibration.base_rate||0)*100)+'% base) · recall <b>'+(D.recall!=null?Math.round(D.recall*100)+'%':'—')+'</b> <span style="color:var(--text5)">· TP '+D.tp+' / FP '+D.fp+' / FN '+D.fn+' / TN '+D.tn+'</span></div>';})():'')
-          +'<div style="font-size:var(--fsxs);color:'+(helped?'var(--green)':'var(--yellow)')+';margin-top:6px">'+(helped
-            ?'Gate helped — the trades it kept beat taking everything.'
-            :'Gate did not help here — the trades it kept did worse than taking everything. Honest KISS-baseline result: the entry-time features (vol / trend / clock) carry little signal for this strategy; richer features (order-flow delta, ROADMAP #23) are the next lever.')+'</div>';}
+      const gateHtml=lastGated?gateCardHtml(lastGated.result.ml_gate,stratTag(lastGated.strategy),lastGated.mult||20):'';
       // ── GATE VALIDATE card (board 4.10): every gate × cut-off ranked on the
       //    PRE-LOCKBOX slice only (recovery factor = $ per $ of drawdown); the
       //    winner gets ONE look at the lockbox. Losers' lockbox numbers are never
       //    computed into the result — lockbox-shopping is impossible by design.
       const lastGV=grids.filter(b=>b.status==='done'&&b.result&&b.result.gate_validate)[0];
-      let gvHtml='';
-      if(lastGV){const V=lastGV.result.gate_validate,mlt3=lastGV.mult||20;
-        const $=v=>fmtUsd(Math.round((v||0)*mlt3));
-        const ch=V.chosen,LB=V.lockbox;
-        const cands=(V.candidates||[]).slice().sort((a,b)=>b.pre_rec-a.pre_rec);
-        const crow=c=>{const isCh=ch&&c.model===ch.model&&c.threshold===ch.threshold;
-          return '<tr'+(isCh?' style="color:var(--green)"':'')+'><td>'+(isCh?'▸ ':'')+c.model+'</td><td style="text-align:right">'+Math.round(c.threshold*100)+'%</td><td style="text-align:right">'+c.kept_pre+'</td><td style="text-align:right">'+$(c.pre_pnl)+'</td><td style="text-align:right">'+Math.min(c.pre_pf,99).toFixed(2)+'</td><td style="text-align:right">'+c.pre_rec.toFixed(2)+'</td></tr>';};
-        const ungRow='<tr style="color:var(--text3)"><td>— ungated</td><td style="text-align:right">—</td><td style="text-align:right">'+(V.ungated_pre&&V.ungated_pre.num_trades||0)+'</td><td style="text-align:right">'+$(V.ungated_pre&&V.ungated_pre.total_pnl)+'</td><td style="text-align:right">'+Math.min((V.ungated_pre&&V.ungated_pre.profit_factor)||0,99).toFixed(2)+'</td><td style="text-align:right">'+(V.ungated_pre_rec!=null?V.ungated_pre_rec.toFixed(2):'—')+'</td></tr>';
-        const consHtml=V.consistency?('<span>held <b>'+V.consistency.held+'/'+V.consistency.windows+'</b> pre-lockbox windows (PF ≥ ungated)</span>'):'';
-        let lbHtml='';
-        if(LB){lbHtml='<div class="lbl" style="margin:12px 0 6px">🔒 THE ONE LOOK — LOCKBOX SINCE '+(V.lockbox_from||'')+'</div>'
-          +'<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3)">'
-          +'<span>ungated: <b>'+$(LB.ungated.total_pnl)+'</b> · PF '+Math.min(LB.ungated.profit_factor,99).toFixed(2)+' · rec '+LB.ungated_rec.toFixed(2)+' · '+LB.ungated.num_trades+' trd</span>'
-          +'<span>gated: <b style="color:'+(LB.helped?'var(--green)':'var(--red)')+'">'+$(LB.gated.total_pnl)+'</b> · PF '+Math.min(LB.gated.profit_factor,99).toFixed(2)+' · rec '+LB.gated_rec.toFixed(2)+' · '+LB.gated.num_trades+' trd</span>'
-          +'<span style="color:'+(LB.helped?'var(--green)':'var(--red)')+';font-weight:600">'+(LB.helped?'HELD ✓':'FAILED ✕')+'</span></div>';}
-        gvHtml='<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratTag(lastGV.strategy)+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>'
-          +'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+V.n_candidates+' candidates (model × cut-off) ranked on PRE-lockbox data only, by recovery factor ($ made per $ of drawdown — the equal-risk yardstick, since a gate always trades less). The winner gets exactly one look at the lockbox; losing candidates\' lockbox results are never computed — no shopping.</div>'
-          +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>GATE</th><th style="text-align:right">CUT-OFF</th><th style="text-align:right">KEPT</th><th style="text-align:right">PRE-LOCKBOX $</th><th style="text-align:right">PF</th><th style="text-align:right">REC</th></tr></thead><tbody>'+ungRow+cands.map(crow).join('')+'</tbody></table></div>'
-          +'<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3);margin-top:8px"><span>gate earns pre-lockbox: <b style="color:'+(V.gate_earns_pre?'var(--green)':'var(--yellow)')+'">'+(V.gate_earns_pre?'YES':'NO')+'</b></span>'+consHtml+'</div>'
-          +lbHtml
-          +'<div style="font-size:var(--fsxs);color:'+(LB?(LB.helped?'var(--green)':'var(--red)'):'var(--yellow)')+';margin-top:8px">'+(V.verdict||'')+'</div>';}
+      const gvHtml=lastGV?gvTableHtml(lastGV.result.gate_validate,stratTag(lastGV.strategy),lastGV.mult||20):'';
       let topHtml='';
       if(lastDone){const t=lastDone.result.top;const pk=t.length?Object.keys(t[0]).filter(k=>['total_pnl','num_trades','win_rate','profit_factor','max_drawdown','avg_pnl','wins','losses','oos_pnl','oos_trades','oos_pf','fold','test_bars','train_bars'].indexOf(k)<0):[];const hasOos=t.length&&t[0].oos_pnl!==undefined,isWf=t.length&&t[0].fold!==undefined;const R=lastDone.result,mlt=lastDone.mult||20;let val='';if(R.dsr){const dc=R.dsr.dsr>=0.95?'var(--green)':R.dsr.dsr>=0.8?'var(--yellow)':'var(--red)';val+='<span>Winner Sharpe <b>'+R.dsr.winner_sharpe.toFixed(2)+'</b></span><span>Luck bar / '+R.dsr.n_cfg+' <b>'+R.dsr.luck_bar.toFixed(2)+'</b></span><span>Deflated Sharpe <b style="color:'+dc+'">'+Math.round(R.dsr.dsr*100)+'%</b> · '+R.dsr.verdict+'</span>';}if(R.mc){val+='<span>P95 drawdown <b style="color:var(--red)">$'+Math.round((R.mc.p95||0)*mlt).toLocaleString()+'</b> (size to this)</span>';}
         // ── Walk-forward efficiency + fold consistency (the numbers a pro reads off WF) ──
@@ -6050,77 +6141,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // ── 3C.1 PDP-plateau pick: the broad-high-ground config, next to the argmax
         //    champion. Agreement = the champion is NOT a lucky spike; disagreement
         //    shows both so the deploy decision is explicit.
-        let platHtml='';
-        const PP=R.plateau_pick;
-        if(PP&&PP.params){
-          if(PP.same_as_best){platHtml='<div style="font-size:var(--fsxs);color:var(--green);margin:10px 0 2px">🏔 PLATEAU PICK (3C.1) agrees with the champion — the argmax winner sits on broad high ground, not a spike.</div>';}
-          else{const bpx=R.best_params||{};const diffs=Object.keys(PP.params).filter(k=>String(PP.params[k])!==String(bpx[k]));const pm=PP.metrics||{};
-            platHtml='<div class="lbl" style="margin:14px 0 4px">🏔 PLATEAU PICK · 3C.1 — broad high ground vs the champion spike</div>'
-             +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.7">'
-             +(diffs.length?diffs.map(k=>k+': <b>'+PP.params[k]+'</b> <span style="color:var(--text5)">(champion: '+bpx[k]+')</span>').join(' · '):'(differs only in tie-break)')
-             +'<br>plateau config: '+fmtUsd(Math.round(((pm.total_pnl||0))*mlt))+' · PF '+Math.min(pm.profit_factor||0,99).toFixed(2)+' · '+(pm.num_trades||0)+' trd · plateau score <b>'+Math.round(PP.score||0).toLocaleString()+'</b> vs the champion '+Math.round(PP.argmax_score||0).toLocaleString()
-             +' <span style="color:var(--text5)">— the smoothed param→PnL surface prefers this config; the champion may be a lucky spike. Surviving the plateau is the sturdier deploy.</span></div>';}}
-        // ── §6 Ensemble top-K: blend of the top configs vs the single best (grid sweeps) ──
-        const ENS=R.ensemble;let ensHtml='';
-        if(ENS&&ENS.blend&&ENS.best){const eb=ENS.blend,es=ENS.best,imp=ENS.improved,mE=v=>fmtUsd(Math.round((v||0)*mlt)),gc=imp?'var(--green)':'var(--text3)';
-          ensHtml='<div class="lbl" style="margin:14px 0 4px" title="Instead of deploying only the single best config, allocate 1/K to each of the top-K and blend them. The blend usually keeps most of the PnL with a shallower drawdown (the configs do not all dip at once). Verdict is on recovery = profit / drawdown.">🧩 ENSEMBLE TOP-'+ENS.k+' · §6 — blend vs the single best</div>'
-           +'<div style="overflow-x:auto"><table class="table"><thead><tr><th></th><th style="text-align:right">SINGLE BEST</th><th style="text-align:right">BLEND of top '+ENS.k+'</th></tr></thead><tbody>'
-           +'<tr><td style="color:var(--text4)">NET P&L</td><td style="text-align:right">'+mE(es.total_pnl)+'</td><td style="text-align:right">'+mE(eb.total_pnl)+(ENS.pnl_kept_pct!=null?' <span style="color:var(--text5);font-size:8px">'+ENS.pnl_kept_pct+'% kept</span>':'')+'</td></tr>'
-           +'<tr><td style="color:var(--text4)">MAX DRAWDOWN</td><td style="text-align:right">'+mE(es.max_drawdown)+'</td><td style="text-align:right;color:'+(Math.abs(eb.max_drawdown)<=Math.abs(es.max_drawdown)?'var(--green)':'var(--text2)')+'">'+mE(eb.max_drawdown)+'</td></tr>'
-           +'<tr><td style="color:var(--text4)">RECOVERY $/$dd</td><td style="text-align:right">'+(es.recovery||0).toFixed(2)+'</td><td style="text-align:right;color:'+gc+'">'+(eb.recovery||0).toFixed(2)+'</td></tr>'
-           +'</tbody></table></div>'
-           +'<div style="font-size:var(--fsxs);color:'+gc+';margin-top:6px">'+(imp
-             ?'Blend is more robust — recovery +'+(ENS.recovery_gain||0).toFixed(2)+' for '+(ENS.pnl_kept_pct!=null?ENS.pnl_kept_pct:100)+'% of the PnL (top-'+ENS.k+' avg corr '+(ENS.avg_corr!=null?ENS.avg_corr:'—')+').'
-             :'Single best wins — the top '+ENS.k+' configs are too correlated (avg corr '+(ENS.avg_corr!=null?ENS.avg_corr:'—')+') to diversify. Deploy the champion.')+'</div>'
-           +(ENS.ccmp?('<div class="lbl" style="margin:10px 0 2px" title="Stacking / CCMP (hillclimbers): weights fit by greedy hill-climb on a train split, then tested on a held-out split vs equal-weight. If it does not beat equal-weight OUT-OF-SAMPLE, the configs are too correlated to reweight.">🏗️ STACKING / CCMP · §6 — weighted vs equal-weight (OOS)</div>'
-             +'<div style="font-size:var(--fsxs);color:'+(ENS.ccmp.improved?'var(--green)':'var(--text3)')+'">'+ENS.ccmp.verdict+' <span style="color:var(--text5)">· weights ['+(ENS.ccmp.weights||[]).map(function(x){return x.toFixed(2);}).join(', ')+']</span></div>'):'');}
-        // ── §4 Adversarial validation: is the lockbox a different regime than the training history? ──
-        let advHtml='';const AV=(R.validate||{}).adversarial;
-        if(AV&&AV.auc!=null){const a=AV.auc,acol=a<0.55?'var(--green)':a<0.70?'var(--yellow)':a<0.85?'#f0997b':'var(--red)';
-          const drift=(AV.drift_features||[]).slice(0,3).map(d=>d.name+' ('+(d.shift>0?'+':'')+d.shift+'σ)').join(' · ');
-          advHtml+='<div class="lbl" style="margin:14px 0 4px" title="A classifier tries to tell the lockbox period apart from the training history using market-state features. AUC near 0.50 = indistinguishable (trust the lockbox); high AUC = the lockbox is a different regime, so its PASS/FAIL is weaker evidence.">🎭 ADVERSARIAL VALIDATION · §4 — is the lockbox a different regime?</div>'
-           +'<div style="font-size:var(--fsxs);color:'+acol+';margin-bottom:2px">AUC <b>'+a.toFixed(3)+'</b> — '+AV.verdict+'</div>'
-           +(drift?'<div style="font-size:var(--fsxs);color:var(--text4)">most-shifted inputs: '+drift+' <span style="color:var(--text5)">(lockbox vs history, in σ)</span></div>':'');}
-        // ── §4 Conformal PnL band · §7 Causal entry test · §8 Synthetic scenarios (all on the champion) ──
-        const CF=(R.validate||{}).conformal;
-        if(CF){const cfc=CF.calibrated?'var(--green)':'var(--yellow)';
-          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Split-conformal, distribution-free prediction interval for one trade\'s net PnL, with coverage MEASURED on a held-out split (the self-check: a valid 80% band should cover ~80%).">📏 CONFORMAL PnL BAND · §4 — per-trade risk interval</div>'
-           +'<div style="font-size:var(--fsxs);color:var(--text3)">'+Math.round((1-CF.alpha)*100)+'% of trades land in <b>'+fmtUsd(Math.round(CF.lo*mlt))+' … '+fmtUsd(Math.round(CF.hi*mlt))+'</b> (median '+fmtUsd(Math.round(CF.median*mlt))+') · measured coverage <b style="color:'+cfc+'">'+(CF.coverage_measured!=null?Math.round(CF.coverage_measured*100)+'%':'—')+'</b>'+(CF.calibrated?' ✓':'')+'</div>';}
-        const CU=(R.validate||{}).causal;
-        if(CU){const cuc=CU.percentile>=95?'var(--green)':CU.percentile>=80?'var(--yellow)':'var(--red)';
-          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Randomization test: keep each trade\'s direction and holding length but move entries to random times (exit at close). High percentile = the entry rule carries real predictive content, not just market exposure. Caveat: random trades exit at close, not the strategy stop/target.">🎲 CAUSAL ENTRY TEST · §7 — is the entry rule real?</div>'
-           +'<div style="font-size:var(--fsxs);color:'+cuc+'">beats <b>'+CU.percentile.toFixed(0)+'%</b> of random-entry nulls — '+CU.verdict+' <span style="color:var(--text5)">(real '+fmtUsd(Math.round(CU.real_total_pts*mlt))+' vs null median '+fmtUsd(Math.round(CU.null_median_pts*mlt))+')</span></div>';}
-        const SY=(R.validate||{}).synthetic;
-        if(SY){const syc=SY.prob_profit>=90?'var(--green)':SY.prob_profit>=70?'var(--yellow)':'var(--red)';
-          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Resamples whole trading days WITH REPLACEMENT to build alternate histories — changes which days happen, not just their order (distinct from the Monte-Carlo pill). Caveat: treats days as exchangeable.">🌀 SYNTHETIC SCENARIOS · §8 — alternate day-histories</div>'
-           +'<div style="font-size:var(--fsxs);color:'+syc+'">profitable in <b>'+SY.prob_profit.toFixed(0)+'%</b> of '+SY.n_sims+' histories · PnL '+fmtUsd(Math.round(SY.p05_total_pts*mlt))+' … '+fmtUsd(Math.round(SY.p95_total_pts*mlt))+' (p5–p95) · worst-5% DD '+fmtUsd(Math.round(SY.worst5_maxdd_pts*mlt))+'</div>';}
-        const LL=(R.validate||{}).lead_lag;
-        if(LL&&LL.contemp_corr!=null){const llc=LL.tradeable?'var(--green)':'var(--text3)';
-          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Cross-instrument lead-lag: does one sibling (e.g. ES↔NQ) move before the other at the bar scale? Cross-correlation of returns at ±lags + a Granger F-test each way. At 5-min on efficient index futures the honest answer is usually contemporaneous — lead-lag lives at the tick scale.">🔗 LEAD-LAG / GRANGER · §7 — does '+LL.a+' or '+LL.b+' lead?</div>'
-           +'<div style="font-size:var(--fsxs);color:'+llc+'">'+LL.verdict+' <span style="color:var(--text5)">· contemporaneous r '+LL.contemp_corr+' · peak lag '+LL.peak_lag+' (r '+LL.peak_corr+')</span></div>'
-           +(LL.note?'<div style="font-size:8px;color:var(--text5)">'+LL.note+'</div>':'');}
-        const AC=(R.validate||{}).acf;
-        if(AC&&AC.lag1_acf!=null){const acc=Math.abs(AC.lag1_acf)<AC.sig_band?'var(--text3)':(AC.lag1_acf>0?'var(--green)':'#f0997b');
-          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Serial dependence of bar returns: ACF at lag 1 + a variance-ratio test. Positive autocorrelation = momentum (breakouts have structural support), negative = mean-reverting (fades do), ~0 = random walk. Tells you which strategy family the data supports.">📈 SERIAL DEPENDENCE (ACF) · §1 — momentum or mean-reversion?</div>'
-           +'<div style="font-size:var(--fsxs);color:'+acc+'">'+AC.verdict+' <span style="color:var(--text5)">· lag-1 ACF '+AC.lag1_acf+' (band ±'+AC.sig_band+') · variance-ratio 5-bar '+AC.vr5+' / 10-bar '+AC.vr10+'</span></div>';}
-        const VF=(R.validate||{}).vif;
-        if(VF&&VF.features&&VF.features.length){const vfc=VF.n_high?'var(--yellow)':'var(--green)';var v3=VF.features.slice(0,3).map(function(f){return f.name+' '+f.vif;}).join(' · ');
-          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Variance Inflation Factor per entry feature: VIF≥5 means that input is largely a linear combo of the others (redundant), which muddies gate importance + calibration.">🧮 VIF / COLLINEARITY · §2 — redundant entry inputs?</div>'
-           +'<div style="font-size:var(--fsxs);color:'+vfc+'">'+VF.verdict+' <span style="color:var(--text5)">· highest: '+v3+'</span></div>';}
-        const FS=(R.validate||{}).feature_select;
-        if(FS&&FS.kept){advHtml+='<div class="lbl" style="margin:12px 0 2px" title="RFE-CV (recursive feature elimination, cross-validated) on the entry features vs win/loss — recursively drops the weakest input, keeps the subset that maximizes cross-validated AUC. The keep/drop decision behind the MI/PPS ranking.">✂️ FEATURE SELECTION · §2 — which inputs a gate would keep</div>'
-           +'<div style="font-size:var(--fsxs);color:var(--text3)">'+FS.verdict+' · <span style="color:var(--green)">keep: '+(FS.kept||[]).join(", ")+'</span></div>';}
-        const ES2=(R.validate||{}).edge_sig;
-        if(ES2&&ES2.p_value!=null){const ec=ES2.significant?'var(--green)':'var(--yellow)';
-          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Is the edge statistically real? One-sample test on per-trade net PnL: t-stat, two-sided p-value, a 95% t-CI and a bootstrap CI on the mean. Complements the Deflated Sharpe (multiple-testing haircut) with a plain, direct read.">📛 EDGE SIGNIFICANCE · §4 — is the edge statistically real?</div>'
-           +'<div style="font-size:var(--fsxs);color:'+ec+'">'+ES2.verdict+' <span style="color:var(--text5)">· mean '+fmtUsd(Math.round(ES2.mean_pnl*mlt))+'/trade · t '+ES2.t_stat+' · 95% CI ['+fmtUsd(Math.round(ES2.ci95[0]*mlt))+', '+fmtUsd(Math.round(ES2.ci95[1]*mlt))+'] · bootstrap '+ES2.boot_prob_profit+'% profitable</span></div>';}
-        const TFa=(R.validate||{}).tailfit;
-        if(TFa&&TFa.student_df!=null){const tc=TFa.student_df<4?'#f0997b':(TFa.student_df<8?'var(--yellow)':'var(--green)');
-          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Fat-tail fit of within-session returns: a Student-t is fit; lower degrees of freedom = fatter tails (df<4 = extreme). Fat tails mean the Monte-Carlo / tail-VaR sizing matters — the normal case understates shock risk.">🐟 RETURN TAIL-FIT · §1 — how fat are the tails?</div>'
-           +'<div style="font-size:var(--fsxs);color:'+tc+'">'+TFa.verdict+' <span style="color:var(--text5)">· excess kurtosis '+TFa.excess_kurtosis+' · 1% bar move '+TFa.tail_1pct_bp+'bp ('+TFa.vs_normal_1pct+'× a normal)</span></div>';}
-        const SZ=(R.validate||{}).seasonality;
-        if(SZ&&SZ.verdict){advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Intraday + weekly seasonality of within-session returns: mean return and volatility by ET hour and day-of-week — where the action and the risk concentrate.">🕰️ SEASONALITY · §1 — when does the action happen?</div>'
-           +'<div style="font-size:var(--fsxs);color:var(--text3)">'+SZ.verdict+' <span style="color:var(--text5)">· weekday mean(bp): '+(SZ.by_dow||[]).map(function(x){return x.dow+' '+x.mean_bp;}).join(' · ')+'</span></div>';}
+        const platHtml=plateauCardHtml(R.plateau_pick,R.best_params,mlt);
+        // ── §6 Ensemble top-K + stacking/CCMP: blend of the top configs vs the single best ──
+        const ensHtml=ensembleCardHtml(R.ensemble,mlt);
+        // ── §1/§2/§4/§6/§7/§8 diagnostic pills — adversarial · conformal · causal · synthetic ·
+        //    lead-lag · ACF · VIF · feature-select · edge-sig · tail-fit · seasonality. Shared
+        //    renderer; source is R.validate for Auto-Validate or R itself for Auto-Optimize. ──
+        const advHtml=pillsHtml(R.validate||R,mlt);
         topHtml=cardHtml+advHtml+valHtml+platHtml+ensHtml+'<div class="lbl" style="margin:16px 0 6px">'+(isWf?'WALK-FORWARD FOLDS · ':'TOP CONFIGS · ')+stratTag(lastDone.strategy)+(hasOos&&!isWf?' · IS vs OOS':'')+'</div><div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th>'+(isWf?'<th>FOLD</th>':'')+pk.map(k=>'<th>'+k+'</th>').join('')+'<th style="text-align:right">PnL pts</th><th style="text-align:right">TRD</th><th style="text-align:right">WR</th><th style="text-align:right">PF</th>'+(hasOos?'<th style="text-align:right">OOS $</th><th style="text-align:right">OOS PF</th>':'')+'</tr></thead><tbody>'+t.map((r,i)=>'<tr><td>'+(i+1)+'</td>'+(isWf?'<td>'+(r.fold||'')+'</td>':'')+pk.map(k=>'<td style="font-size:var(--fsxs)">'+r[k]+'</td>').join('')+'<td style="text-align:right">'+Math.round(r.total_pnl||0).toLocaleString()+'</td><td style="text-align:right">'+(r.num_trades||0)+'</td><td style="text-align:right">'+Math.round(r.win_rate||0)+'%</td><td style="text-align:right">'+Math.min(r.profit_factor||0,99).toFixed(2)+'</td>'+(hasOos?'<td style="text-align:right;color:'+((r.oos_pnl||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round((r.oos_pnl||0)*mlt))+'</td><td style="text-align:right">'+Math.min(r.oos_pf||0,99).toFixed(2)+'</td>':'')+'</tr>').join('')+'</tbody></table></div>';}
       // ── Horizontal, left-to-right build flow (like legacy AUGUR "Executions") ──
       // Each field is a flex cell that packs across the row and wraps as the window
@@ -6206,7 +6233,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +exrow(fld('STRATEGY',c_strat,190)+fld('ML FILTER',c_mlf,185)+fld('GATE CUT-OFF %',c_mlth,115)+fld('INSTRUMENT',c_inst,110)+fld('TIMEFRAME',c_tf,100)+fld('SESSION',c_sess,100)+fld('CSV FILE',c_master,200)+fld('DATE RANGE',c_dates,230))
         +'<div id="ex-dataspan" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 8px">—</div>'
         +grpH('HOW TO RUN — SEARCH × VALIDATION × AI')
-        +exrow(fld('SEARCH',c_search,185)+fld('VALIDATION',c_valid,190)+fld('AI ASSIST',c_ai,155)+fld('SCOPE',c_preset,190)+fld('MIN TRADES','<input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/>',100)+fld('WORKERS','<input id="ex-work" type="number" value="'+(APREF.workers||4)+'"/>',90)+fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||200)+'"/>',90)+fld('WF FOLDS','<input id="ex-folds" type="number" value="0"/>',90)+fld('WF TYPE','<select id="ex-wfmode"><option value="anchored"'+(APREF.wf_mode==='rolling'?'':' selected')+'>Anchored (expanding)</option><option value="rolling"'+(APREF.wf_mode==='rolling'?' selected':'')+'>Rolling (fixed window)</option></select>',160)+fld('AI ROUNDS','<input id="ex-rounds" type="number" value="'+(APREF.rounds||4)+'"/>',90)+fld('DISCOVER WITH','<select id="ex-discover"><option value="auto"'+(APREF.discover==='evolve'?'':' selected')+'>Statistical (fast · free)</option><option value="evolve"'+(APREF.discover==='evolve'?' selected':'')+'>AI-evolve (rewrite code → judge)</option></select>',230)+fld('VALIDATE SCOPE','<select id="ex-vscope">'+[['short','Short · ~3yr · 80 trials · 6mo lock'],['medium','Medium · ~6yr · 120 trials · 12mo lock'],['long','Long · ~12yr · 200 trials · 12mo lock'],['xl','XL · all data · 300 trials · 18mo lock']].map(o=>'<option value="'+o[0]+'"'+(o[0]===(APREF.vscope||'medium')?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>',300)+(function(){const _xd=(APREF.xfer!=null?APREF.xfer:(SIB[APREF.instrument||'NQ']||''));return fld('TRANSFER TO','<select id="ex-xfer"><option value="">— none —</option>'+INSTORD.map(k=>'<option value="'+k+'"'+(k===_xd?' selected':'')+'>'+k+'</option>').join('')+'</select>',120);})()+fld('AI PROVIDER',c_prov,170))
+        +exrow(fld('SEARCH',c_search,185)+fld('VALIDATION',c_valid,190)+fld('AI ASSIST',c_ai,155)+fld('SCOPE',c_preset,190)+fld('MIN TRADES','<input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/>',100)+fld('WORKERS','<input id="ex-work" type="number" value="'+(APREF.workers||4)+'"/>',90)+fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||200)+'"/>',90)+fld('WF FOLDS','<input id="ex-folds" type="number" value="0"/>',90)+fld('WF TYPE','<select id="ex-wfmode"><option value="anchored"'+(APREF.wf_mode==='rolling'?'':' selected')+'>Anchored (expanding)</option><option value="rolling"'+(APREF.wf_mode==='rolling'?' selected':'')+'>Rolling (fixed window)</option></select>',160)+fld('ALL PILLS','<label title="Run the full diagnostic-pill set (adversarial-free): ACF · tail-fit · seasonality · VIF · conformal · causal · synthetic · feature-select · edge-sig · lead-lag — the same informational checks Auto-Validate runs. Adds runtime (conformal/causal/synthetic each run ~800–1000 sims). Uncheck for a faster search." style="display:flex;align-items:center;gap:6px;height:37px;font-size:var(--fsxs);color:var(--text3);cursor:pointer"><input id="ex-pills" type="checkbox"'+(APREF.pills===false?'':' checked')+' style="width:auto;cursor:pointer"/> run all</label>',110)+fld('AI ROUNDS','<input id="ex-rounds" type="number" value="'+(APREF.rounds||4)+'"/>',90)+fld('DISCOVER WITH','<select id="ex-discover"><option value="auto"'+(APREF.discover==='evolve'?'':' selected')+'>Statistical (fast · free)</option><option value="evolve"'+(APREF.discover==='evolve'?' selected':'')+'>AI-evolve (rewrite code → judge)</option></select>',230)+fld('VALIDATE SCOPE','<select id="ex-vscope">'+[['short','Short · ~3yr · 80 trials · 6mo lock'],['medium','Medium · ~6yr · 120 trials · 12mo lock'],['long','Long · ~12yr · 200 trials · 12mo lock'],['xl','XL · all data · 300 trials · 18mo lock']].map(o=>'<option value="'+o[0]+'"'+(o[0]===(APREF.vscope||'medium')?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>',300)+(function(){const _xd=(APREF.xfer!=null?APREF.xfer:(SIB[APREF.instrument||'NQ']||''));return fld('TRANSFER TO','<select id="ex-xfer"><option value="">— none —</option>'+INSTORD.map(k=>'<option value="'+k+'"'+(k===_xd?' selected':'')+'>'+k+'</option>').join('')+'</select>',120);})()+fld('AI PROVIDER',c_prov,170))
         +'<div id="ex-modenote" style="font-size:var(--fsxs);color:var(--text5);margin:-6px 0 10px">—</div>'
         +customTile
         +grpH('COSTS')
@@ -6777,7 +6804,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       ['ex-trials','ex-work'].forEach(id=>{const e=el(id);if(e)e.addEventListener('input',exUpdateDataSpan);});
       // MODE (derived from the 3 axes) drives which fields apply — hide the rest.
       const em=el('ex-mode');if(em){
-        const MODENOTE={single:'1 · Single backtest — one config, one pass',grid:'2 · Grid sweep — every combo in scope, in-sample only',auto:'3 · Auto-Optimize — Bayesian sampler, in-sample only',walkforward:'4 · Walk-Forward — Bayesian re-tuned per fold, tested on the next unseen window',ai:'5 · AI optimize — Claude proposes ranges each round · validates on a built-in 75/25 split',evolve:'6 · AI evolve — Claude rewrites the code each round · built-in 75/25 split',validate:'7 · 🧭 Auto-Validate — Bayesian → WF folds → gates → 🔒 lockbox → PASS/WEAK/FAIL',gate_validate:'8 · 🚪🧭 Gate-validate — strategy runs once; ALL gates × cut-offs ranked on PRE-lockbox data only (recovery factor); the winner gets ONE look at the 🔒 lockbox'};
+        const MODENOTE={single:'1 · Single backtest — one config, one pass',grid:'2 · Grid sweep — every combo in scope, in-sample only',auto:'3 · Auto-Optimize — Bayesian sampler, in-sample (+ diagnostic pills if ALL PILLS is on)',walkforward:'4 · Walk-Forward — Bayesian re-tuned per fold, tested on the next unseen window (+ pills if on)',ai:'5 · AI optimize — Claude proposes ranges each round · validates on a built-in 75/25 split',evolve:'6 · AI evolve — Claude rewrites the code each round · built-in 75/25 split',validate:'7 · 🧭 Auto-Validate — Bayesian → WF folds → gates → 🔒 lockbox → PASS/WEAK/FAIL',gate_validate:'8 · 🚪🧭 Gate-validate — strategy runs once; ALL gates × cut-offs ranked on PRE-lockbox data only (recovery factor); the winner gets ONE look at the 🔒 lockbox'};
         const exSyncMode=()=>{applyExMode(em.value);exApplyCustom();const lg=el('ex-lockbox-group');if(lg)lg.style.display=(em.value==='validate'||em.value==='gate_validate')?'none':'';
           // ML gate rides Single (one gated run) or Gate-validate (the bake-off).
           const mf=el('ex-mlf'),mth=el('ex-mlth');
@@ -6857,9 +6884,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(mode==='validate'){const vs=el('ex-vscope')?el('ex-vscope').value:'medium';const VMAP={short:[3,80,6],medium:[6,120,12],long:[12,200,12],xl:[40,300,18]};const mp=VMAP[vs]||VMAP.medium;vTrials=mp[1];vLockMo=mp[2];savePref('vscope',vs);if(el('ex-xfer'))savePref('xfer',el('ex-xfer').value);if(el('ex-discover'))savePref('discover',el('ex-discover').value);
         const mm2=mSel||(metaMasters||[]).find(m=>String(m.instrument)===inst&&String(m.timeframe)===tf);
         if(mm2&&mm2.date_to){const e=new Date(String(mm2.date_to).slice(0,10)+'T00:00');e.setFullYear(e.getFullYear()-mp[0]);vFrom=e.toISOString().slice(0,10);const ms=mm2.date_from?String(mm2.date_from).slice(0,10):'';if(ms&&vFrom<ms)vFrom=ms;}}
-      savePref('mode',mode);savePref('instrument',el('ex-inst').value);savePref('session',el('ex-sess').value);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);if(el('ex-wfmode'))savePref('wf_mode',el('ex-wfmode').value);savePref('comm_usd',commU);savePref('slip_pts',slipP);savePref('date_from',dFrom);savePref('date_to',dTo);savePref('lockbox',lockbox);if(el('ex-lockmo'))savePref('lockbox_months',parseInt(el('ex-lockmo').value)||12);
+      savePref('mode',mode);savePref('instrument',el('ex-inst').value);savePref('session',el('ex-sess').value);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);if(el('ex-wfmode'))savePref('wf_mode',el('ex-wfmode').value);if(el('ex-pills'))savePref('pills',el('ex-pills').checked);savePref('comm_usd',commU);savePref('slip_pts',slipP);savePref('date_from',dFrom);savePref('date_to',dTo);savePref('lockbox',lockbox);if(el('ex-lockmo'))savePref('lockbox_months',parseInt(el('ex-lockmo').value)||12);
       const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:effTo,preset:scopeVal,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};if(useCustom)base.grid=customGrid;const job=(mode==='validate')?Object.assign({},base,{type:'validate',date_from:vFrom,date_to:'',n_trials:vTrials,wf_folds:0,lockbox_months:vLockMo,transfer_to:(el('ex-xfer')&&el('ex-xfer').value)||null,discover:(el('ex-discover')&&el('ex-discover').value)||'auto',provider:el('ex-prov')?el('ex-prov').value:'ollama',n_rounds:parseInt(el('ex-rounds').value)||4,dsr:true}):(mode==='gate_validate')?Object.assign({},base,{type:'gate_validate',params:{},lockbox_months:12,ml_filter:(el('ex-mlf')&&el('ex-mlf').value)||'xgb'})
-      :(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000},(el('ex-mlf')&&el('ex-mlf').value!=='none')?{ml_filter:el('ex-mlf').value,ml_threshold:(parseInt(el('ex-mlth')&&el('ex-mlth').value)||50)/100}:{}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,wf_mode:(el('ex-wfmode')?el('ex-wfmode').value:'anchored'),top_n:10,dsr:true,mc_sims:500}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
+      :(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000},(el('ex-mlf')&&el('ex-mlf').value!=='none')?{ml_filter:el('ex-mlf').value,ml_threshold:(parseInt(el('ex-mlth')&&el('ex-mlth').value)||50)/100}:{}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,wf_mode:(el('ex-wfmode')?el('ex-wfmode').value:'anchored'),top_n:10,dsr:true,mc_sims:500,pills:!(el('ex-pills')&&!el('ex-pills').checked)}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='cmp'){
       const _cur=()=>{const rs=runHistory.slice().sort((a,b)=>b.id-a.id);let ids=(APREF.cmpIds||[]).map(String).filter(id=>rs.some(r=>String(r.id)===id));if(ids.length<2)ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));return ids;};
       const add=el('cmp-add');if(add)add.onchange=()=>{if(!add.value)return;const ids=_cur();if(ids.indexOf(add.value)<0)ids.push(add.value);savePref('cmpIds',ids);renderApp();};

@@ -115,7 +115,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
              master=None, arrays=None, cost_pts=0.0, min_trades=30, n_trials=200,
              top_n=10, method="single", oos=True, wf_folds=0, seed=42,
              compute_dsr=False, mc_sims=0, progress_cb=None, years=None,
-             compute_regime=False, compute_neighbors=False,
+             compute_regime=False, compute_neighbors=False, compute_pills=False,
              date_from=None, date_to=None, wf_mode="anchored"):
     """Smart search. Returns the same shape as run_grid plus OOS columns.
 
@@ -446,6 +446,37 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 _mm = mae_mfe(_wm["trades"], H, L)
                 if _mm:
                     out["mae_mfe"] = _mm
+        except Exception:
+            pass
+
+    # ── Diagnostic 'pills' (opt-in) — the same informational robustness checks
+    #    Auto-Validate runs, MINUS the lockbox-specific adversarial gate (Auto-Optimize
+    #    has no lockbox). Attached as top-level result keys so the report renders them
+    #    exactly like a validate run. Each pill self-guards; the block never fails a run. ──
+    if compute_pills and best:
+        try:
+            from .analytics import run_pills
+            _cbp = {k: best.get(k) for k in pkeys if k in best}
+            _cexf = {}
+            if pass_vol:
+                _cexf["volumes"] = V
+            if pass_day:
+                _cexf["day_id"] = did
+            _ctrades = None
+            try:
+                _cwm = fn(O, H, L, C, return_trades=True, **_cexf, **_cbp)
+                _ctrades = _cwm.get("trades") if _cwm else None
+            except Exception:
+                _ctrades = None
+            _sib = {"NQ": "ES", "ES": "NQ", "MNQ": "MES", "MES": "MNQ",
+                    "RTY": "M2K", "M2K": "RTY", "YM": "MYM", "MYM": "YM"}.get(
+                        str(instrument or "").upper())
+            _pill = run_pills(arrays, champ_trades=_ctrades, cost_pts=cost_pts,
+                              instrument=instrument, timeframe=timeframe, session=session,
+                              source=source, lb_start=None, sibling=_sib)
+            for _pk, _pv in (_pill or {}).items():
+                if _pv is not None:
+                    out[_pk] = _pv
         except Exception:
             pass
     return out
