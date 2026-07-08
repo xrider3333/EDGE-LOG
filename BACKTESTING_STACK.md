@@ -3,8 +3,8 @@
 **Single source of truth for where the backtesting engine stands.** Update this
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
-- **Last updated:** 2026-07-04
-- **Web VERSION:** 45.7 · **Stack board (`method_stack.html`):** v4.1
+- **Last updated:** 2026-07-08
+- **Web VERSION:** 46.1 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
@@ -287,6 +287,23 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-08** — **Run-report parity + Auto-Optimize pills (web v46.1).** The saved RUN
+  REPORT (Results → pick a run) is now the same one-stop-shop the Builder panel shows — a new
+  **Robustness & Diagnostics** section renders every pill the run has: the 11 informational
+  pills (adversarial · conformal · causal · synthetic · lead-lag/Granger · serial-dep ACF ·
+  VIF · feature-select · edge-sig · tail-fit · seasonality), ensemble top-K + CCMP, plateau
+  pick (3C.1), the ML-gate before/after card (SHAP/calibration/discrimination), the
+  gate-validate **all-models bake-off table** (now with a WR column) and the previously
+  invisible **sample-adequacy / DOF** value. Previously these lived ONLY in the Builder's
+  transient last-run panel and ONLY for Auto-Validate runs. Renderers were extracted to shared
+  functions (`pillsHtml`/`gateCardHtml`/`gvTableHtml`/`ensembleCardHtml`/`plateauCardHtml`) so
+  Builder + Report stay identical. **Auto-Optimize (mode 3) + Walk-Forward (mode 4) now run the
+  full pill set** via a new `analytics.run_pills` helper (shared with `run_validate`), gated by
+  an **ALL PILLS** toggle in the Builder (default on; adversarial is skipped — it needs a
+  lockbox). Persistence: `_persist_run` now carries `ensemble/plateau_pick/ml_gate/gate_validate`
+  + the top-level pill keys, and gate-validate runs are saved to Runs history. Files:
+  `augur_engine/analytics.py` (run_pills), `augur_engine/auto.py` (compute_pills),
+  `api/runner.py` (flag + persist), `index.html` (shared renderers + report section + toggle).
 - **2026-07-04** — **Two more no-dep diagnostics: return tail-fit (§1) + seasonality (§1)**
   (web v45.7, stack v4.1; board 45 live / 1 planned). `analytics.return_tailfit` — Student-t fit
   of **within-session** returns (drops overnight jumps that fake extreme tails). NQ 5m: df 2.6,
