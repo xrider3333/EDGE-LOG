@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='47.8';
+const VERSION='47.9';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5095,6 +5095,131 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +c2Txt(10,_hr(ymx))+c2Txt((S/2+3).toFixed(1),ymid)+c2Txt(S-2,_hr(ymn))+c2YTitle(S,_pp(yk))+'</svg>'
         +c2XRow(_hr(xmn),'<b style="color:var(--text2)">'+_pp(xk)+'</b> (x)',_hr(xmx))+'</div>';
     };
+    // 2J 3-D PARAM SURFACE — the SAME two params as the 2H heatmap (its dropdowns drive
+    //   both), drawn as an isometric height map: floor position = the two parameter
+    //   values, height + colour = avg net $ of the tested configs in that cell. The 2H
+    //   heatmap is this surface seen from straight above; here you SEE the plateau vs the
+    //   spike. Pure SVG painter's algorithm — no chart library. Cells never tested are
+    //   interpolated from neighbours and drawn faded. Renders retroactively on any stored
+    //   run that carries `points`.
+    const surface3dPanelHtml=(points,mult,tag,bpx)=>{
+      if(!points||points.length<8)return '';
+      const keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&typeof points[0][k]==='number');
+      if(keys.length<2)return '';
+      const xk=keys.indexOf(APREF.hmX)>=0?APREF.hmX:keys[0];
+      let yk=keys.indexOf(APREF.hmY)>=0?APREF.hmY:keys[1];if(yk===xk)yk=keys.find(k=>k!==xk)||keys[1];
+      const uniq=k=>[...new Set(points.map(p=>p[k]))].sort((a,b)=>a-b);
+      const bins=k=>{const u=uniq(k);if(u.length<=12)return u;const mn=u[0],mx=u[u.length-1],NB=9,bw=(mx-mn)/NB||1;return Array.from({length:NB},(_,b)=>+(mn+(b+0.5)*bw).toFixed(3));};
+      const xv=bins(xk),yv=bins(yk);
+      if(xv.length<2||yv.length<2)return '';
+      const near=(arr,v)=>{let bi=0,bd=1e18;arr.forEach((a,i)=>{const d2=Math.abs(a-v);if(d2<bd){bd=d2;bi=i;}});return bi;};
+      const nx=xv.length,ny=yv.length;
+      const sum=Array.from({length:nx},()=>new Array(ny).fill(0)),cnt=Array.from({length:nx},()=>new Array(ny).fill(0));
+      points.forEach(p=>{const i=near(xv,p[xk]),j=near(yv,p[yk]);sum[i][j]+=p.pnl*mult;cnt[i][j]++;});
+      const Z=Array.from({length:nx},()=>new Array(ny).fill(null)),interp=Array.from({length:nx},()=>new Array(ny).fill(false));
+      for(let i=0;i<nx;i++)for(let j=0;j<ny;j++)if(cnt[i][j])Z[i][j]=sum[i][j]/cnt[i][j];
+      for(let pass=0;pass<nx+ny;pass++){let miss=0;
+        for(let i=0;i<nx;i++)for(let j=0;j<ny;j++)if(Z[i][j]===null){
+          const nb=[];[[1,0],[-1,0],[0,1],[0,-1]].forEach(d2=>{const a=i+d2[0],b=j+d2[1];if(a>=0&&a<nx&&b>=0&&b<ny&&Z[a][b]!==null)nb.push(Z[a][b]);});
+          if(nb.length){Z[i][j]=nb.reduce((s,x)=>s+x,0)/nb.length;interp[i][j]=true;}else miss++;}
+        if(!miss)break;}
+      let zmn=1e18,zmx=-1e18;for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){if(Z[i][j]===null){Z[i][j]=0;interp[i][j]=true;}if(Z[i][j]<zmn)zmn=Z[i][j];if(Z[i][j]>zmx)zmx=Z[i][j];}
+      const zsp=(zmx-zmn)||1,zn=(i,j)=>(Z[i][j]-zmn)/zsp;
+      // diverging colour anchored at $0 (matches the 2H heatmap): red = losing zone,
+      // green = paying zone, brighter = bigger; dim slate around zero.
+      const rampC=v=>{const m=Math.max(Math.abs(zmn),Math.abs(zmx))||1,t=Math.max(-1,Math.min(1,v/m));
+        const neg=[226,75,74],pos=[31,186,124],mid=[56,63,76],c=t>=0?pos:neg,a=Math.abs(t);
+        return [mid[0]+(c[0]-mid[0])*a,mid[1]+(c[1]-mid[1])*a,mid[2]+(c[2]-mid[2])*a];};
+      const W=560,zh=92,padT=24;
+      const cw2=(W-96)/((nx-1)+(ny-1)),ch2=cw2*0.5;
+      const ox=48+(ny-1)*cw2,oy=padT+zh;
+      const PX=(i,j)=>ox+(i-j)*cw2,PY=(i,j,z)=>oy+(i+j)*ch2-z*zh;
+      const H=Math.round(oy+((nx-1)+(ny-1))*ch2+30);
+      const _hr=v=>Number.isInteger(v)?v:(+v).toFixed(2);
+      // floor rhombus + corner posts ground the surface in space
+      const fl=[[0,0],[nx-1,0],[nx-1,ny-1],[0,ny-1]];
+      let svg='<polygon points="'+fl.map(c=>PX(c[0],c[1]).toFixed(1)+','+PY(c[0],c[1],0).toFixed(1)).join(' ')+'" fill="none" stroke="var(--border)" stroke-width="0.7" opacity="0.55"/>';
+      fl.forEach(c=>{svg+='<line x1="'+PX(c[0],c[1]).toFixed(1)+'" y1="'+PY(c[0],c[1],0).toFixed(1)+'" x2="'+PX(c[0],c[1]).toFixed(1)+'" y2="'+PY(c[0],c[1],zn(c[0],c[1])).toFixed(1)+'" stroke="var(--border)" stroke-width="0.6" opacity="0.45" stroke-dasharray="2,2"/>';});
+      // painter's algorithm: back (small i+j) to front
+      const order=[];for(let i=0;i<nx-1;i++)for(let j=0;j<ny-1;j++)order.push([i,j]);
+      order.sort((a,b)=>(a[0]+a[1])-(b[0]+b[1]));
+      order.forEach(q=>{const i=q[0],j=q[1];
+        const z00=zn(i,j),z10=zn(i+1,j),z11=zn(i+1,j+1),z01=zn(i,j+1);
+        const avg=(Z[i][j]+Z[i+1][j]+Z[i+1][j+1]+Z[i][j+1])/4;
+        const rgb=rampC(avg);
+        const sh=Math.max(0.55,Math.min(1.25,0.86+0.55*(((z00+z10)/2)-((z01+z11)/2))));
+        const fill='rgb('+Math.round(rgb[0]*sh)+','+Math.round(rgb[1]*sh)+','+Math.round(rgb[2]*sh)+')';
+        const isInt=interp[i][j]||interp[i+1][j]||interp[i+1][j+1]||interp[i][j+1];
+        const n2=cnt[i][j]+cnt[i+1][j]+cnt[i+1][j+1]+cnt[i][j+1];
+        const tip=_pp(xk)+' '+_hr(xv[i])+'–'+_hr(xv[i+1])+'<br>'+_pp(yk)+' '+_hr(yv[j])+'–'+_hr(yv[j+1])+'<br>avg net <b>'+fmtUsd(Math.round(avg))+'</b>'+(isInt?'<br><i>partly interpolated — combo not fully tested</i>':' · '+n2+' configs');
+        svg+='<polygon points="'+PX(i,j).toFixed(1)+','+PY(i,j,z00).toFixed(1)+' '+PX(i+1,j).toFixed(1)+','+PY(i+1,j,z10).toFixed(1)+' '+PX(i+1,j+1).toFixed(1)+','+PY(i+1,j+1,z11).toFixed(1)+' '+PX(i,j+1).toFixed(1)+','+PY(i,j+1,z01).toFixed(1)+'" fill="'+fill+'" opacity="'+(isInt?0.5:0.96)+'" stroke="rgba(10,14,20,0.5)" stroke-width="0.5" style="cursor:pointer" data-tip="'+tip+'"/>';});
+      // peak flag + champion stem (drawn on top)
+      let mi=0,mj=0;for(let i=0;i<nx;i++)for(let j=0;j<ny;j++)if(Z[i][j]>Z[mi][mj]){mi=i;mj=j;}
+      const pxk=PX(mi,mj).toFixed(1),pyk=PY(mi,mj,zn(mi,mj)).toFixed(1);
+      svg+='<circle cx="'+pxk+'" cy="'+pyk+'" r="2.6" fill="#27c08a"/><text x="'+pxk+'" y="'+(+pyk-5)+'" text-anchor="middle" font-size="7.5" font-weight="700" fill="#27c08a">peak '+fmtUsd(Math.round(zmx))+'</text>';
+      if(bpx&&typeof bpx[xk]==='number'&&typeof bpx[yk]==='number'){
+        const ci=near(xv,bpx[xk]),cj=near(yv,bpx[yk]);
+        if(ci!==mi||cj!==mj){const cx2=PX(ci,cj).toFixed(1),cy2=PY(ci,cj,zn(ci,cj)).toFixed(1);
+          svg+='<line x1="'+cx2+'" y1="'+cy2+'" x2="'+cx2+'" y2="'+(+cy2-14)+'" stroke="var(--yellow)" stroke-width="1" stroke-dasharray="2,2"/><circle cx="'+cx2+'" cy="'+cy2+'" r="2.4" fill="var(--yellow)"/><text x="'+cx2+'" y="'+(+cy2-17)+'" text-anchor="middle" font-size="7" font-weight="700" fill="var(--yellow)">champion</text>';}}
+      // axis labels along the two front floor edges
+      const xm=[PX((nx-1)/2,ny-1),PY((nx-1)/2,ny-1,0)],ym=[PX(nx-1,(ny-1)/2),PY(nx-1,(ny-1)/2,0)];
+      svg+='<text x="'+(xm[0]-8).toFixed(1)+'" y="'+(xm[1]+14).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="700" fill="var(--text3)">'+_pp(xk)+' '+_hr(xv[0])+' → '+_hr(xv[nx-1])+'</text>';
+      svg+='<text x="'+(ym[0]+8).toFixed(1)+'" y="'+(ym[1]+14).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="700" fill="var(--text3)">'+_pp(yk)+' '+_hr(yv[0])+' → '+_hr(yv[ny-1])+'</text>';
+      // height legend
+      svg+='<rect x="10" y="'+padT+'" width="6" height="54" rx="2" fill="url(#p3g)"/><text x="20" y="'+(padT+6)+'" font-size="7" fill="var(--text3)">'+fmtUsd(Math.round(zmx))+'</text><text x="20" y="'+(padT+54)+'" font-size="7" fill="var(--text3)">'+fmtUsd(Math.round(zmn))+'</text>';
+      const g1=rampC(zmx),g2=rampC(0),g3=rampC(zmn);
+      const defs='<defs><linearGradient id="p3g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgb('+g1.map(Math.round).join(',')+')"/><stop offset="0.5" stop-color="rgb('+g2.map(Math.round).join(',')+')"/><stop offset="1" stop-color="rgb('+g3.map(Math.round).join(',')+')"/></linearGradient></defs>';
+      return '<div title="The param→PnL surface in 3-D: floor position = the two parameters chosen in the 2H HEATMAP dropdowns (they drive this chart too), height AND colour = the average net $ of every tested config in that cell (green = paying, red = losing). The 2H heatmap is this exact surface seen from straight above. What to look for: a broad green RIDGE or table-top = a robust zone (deploy inside it, anywhere on it works); a single sharp green NEEDLE = one lucky setting (fragile — likely luck). Faded cells were never tested and are estimated from their neighbours. Hover any tile for exact values." style="cursor:help;margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · PARAM SURFACE 3-D <span style="font-weight:400;color:var(--text5);font-size:8px">· '+_pp(xk)+' × '+_pp(yk)+' → avg net $ · same pair as the 2H dropdowns · plateau = broad ridge, spike = luck ⓘ</span></div>'
+        +'<div style="background:var(--bg1);border-radius:8px;padding:10px;flex:1;min-height:0">'
+        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+defs+svg+'</svg></div>';
+    };
+    // 2K PDP — 1-D partial dependence: avg net $ of every tested config grouped by each
+    //   parameter's value (all OTHER params averaged out), lightly smoothed with the same
+    //   1-2-1 kernel the server-side 3C.1 plateau pick uses. The green dot = where that
+    //   knob TOPS OUT. Uses the exact server curves saved with plateau_pick when present;
+    //   otherwise recomputes from `points`, so it renders retroactively on any stored run.
+    const pdpCurvesPanelHtml=(points,mult,tag,pp)=>{
+      if(!points||points.length<8)return '';
+      const keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&typeof points[0][k]==='number');
+      const srv=(pp&&pp.curves)||{};
+      const curves=[];
+      keys.forEach(k=>{
+        let c=null;
+        if(srv[k]&&srv[k].length>1&&typeof srv[k][0].v==='number'){c=srv[k].map(r=>({v:r.v,m:(+r.smooth)*mult,n:null}));}
+        else{
+          const vals=[...new Set(points.map(p=>p[k]))].sort((a,b)=>a-b);
+          if(vals.length<2)return;
+          let groups;
+          if(vals.length<=12){groups=vals.map(v=>({v:v,a:points.filter(p=>p[k]===v).map(p=>p.pnl*mult)}));}
+          else{const mn=vals[0],mx=vals[vals.length-1],NB=10,bw=(mx-mn)/NB||1;groups=[];for(let b=0;b<NB;b++){const lo=mn+b*bw,hi2=(b===NB-1)?mx+1e-9:mn+(b+1)*bw,a=points.filter(p=>p[k]>=lo&&p[k]<hi2).map(p=>p.pnl*mult);if(a.length)groups.push({v:+(lo+bw/2).toFixed(3),a:a});}}
+          if(groups.length<2)return;
+          const means=groups.map(g=>g.a.reduce((s,x)=>s+x,0)/g.a.length),sm=means.slice();
+          if(means.length>=3){for(let i=1;i<means.length-1;i++)sm[i]=0.25*means[i-1]+0.5*means[i]+0.25*means[i+1];sm[0]=0.6*means[0]+0.4*means[1];sm[sm.length-1]=0.6*means[means.length-1]+0.4*means[means.length-2];}
+          c=groups.map((g,i)=>({v:g.v,m:sm[i],n:g.a.length}));
+        }
+        if(!c||c.length<2)return;
+        const ys=c.map(r=>r.m),hi=Math.max.apply(null,ys),lo=Math.min.apply(null,ys);
+        curves.push({k:k,c:c,infl:hi-lo,peak:c[ys.indexOf(hi)]});
+      });
+      if(!curves.length)return '';
+      curves.sort((a,b)=>b.infl-a.infl);
+      const maxInfl=curves[0].infl||1,show=curves.slice(0,8);
+      const cw=170,chh=64,pl=6,pr=6,pt2=10,pb=14;
+      const cells=show.map(cv=>{
+        const ys=cv.c.map(r=>r.m),mn=Math.min.apply(null,ys),mx=Math.max.apply(null,ys),span=(mx-mn)||1;
+        const X=i=>pl+(cw-pl-pr)*i/(cv.c.length-1),Y=v=>pt2+(chh-pt2-pb)*(1-(v-mn)/span);
+        const pts2=cv.c.map((r,i)=>X(i).toFixed(1)+','+Y(r.m).toFixed(1)).join(' ');
+        const pk=ys.indexOf(mx);
+        const dots=cv.c.map((r,i)=>'<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(r.m).toFixed(1)+'" r="'+(i===pk?3.2:1.7)+'" fill="'+(i===pk?'var(--green)':'var(--text4)')+'" style="cursor:pointer" data-tip="'+_pp(cv.k)+' <b>'+r.v+'</b><br>avg net <b>'+fmtUsd(Math.round(r.m))+'</b>'+(r.n?'<br>across '+r.n+' configs':'')+'"/>').join('');
+        const flat=cv.infl<0.12*maxInfl;
+        return '<div style="background:var(--bg1);border-radius:8px;padding:7px 8px 5px"><div style="display:flex;justify-content:space-between;gap:4px;font-size:8px;margin-bottom:1px"><span style="color:var(--text3);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_pp(cv.k)+'</span><span style="color:'+(flat?'var(--text5)':'var(--green)')+';white-space:nowrap">'+(flat?'barely matters':'tops out @ <b>'+cv.peak.v+'</b>')+'</span></div>'
+          +'<svg viewBox="0 0 '+cw+' '+chh+'" width="100%" style="display:block;height:auto"><polyline points="'+pts2+'" fill="none" stroke="#3a9bdc" stroke-width="1.6" stroke-linejoin="round" opacity="0.9"/>'+dots
+          +'<text x="'+pl+'" y="'+(chh-3)+'" font-size="7" fill="var(--text5)">'+cv.c[0].v+'</text><text x="'+(cw-pr)+'" y="'+(chh-3)+'" text-anchor="end" font-size="7" fill="var(--text5)">'+cv.c[cv.c.length-1].v+'</text></svg></div>';
+      }).join('');
+      const src=(pp&&pp.curves)?'server curves (3C.1)':'recomputed from this run\'s stored configs';
+      return '<div title="PARTIAL DEPENDENCE (1-D): one mini-chart per parameter. The line = the AVERAGE net $ of every tested config at each value of that parameter, with all the OTHER parameters averaged out, then lightly smoothed. The green dot marks where the knob TOPS OUT — pushing it further stops paying. A flat line = the knob barely matters, so don\'t spend optimisation budget on it. Charts are sorted by influence (how much $ the knob swings). NOTE: the 3C.1 plateau pick maximises the SUM of these smoothed curves — deliberately NOT the raw best config, because a lone spike gets dragged down by its weak neighbours." style="cursor:help;margin:12px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · PDP — WHERE EACH KNOB TOPS OUT <span style="font-weight:400;color:var(--text5);font-size:8px">· smoothed avg $ per value, other params averaged out · sorted by influence · '+src+' ⓘ</span></div>'
+        +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">'+cells+'</div>';
+    };
     // MAE / MFE — per-trade heat (max adverse) vs reach (max favorable), turned into
     // data-driven stop & target guidance from your own winning trades.
     const maeMfePanelHtml=(mm,mult,tag,scope)=>{
@@ -6128,6 +6253,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _corr=corrPanelHtml(d.points,_cfgN+'I',d.relationship);
       const _hm=heatmapPanelHtml(d.points,mlt,_cfgN+'H');
       const _sc=scatterPanelHtml(d.points,mlt,_cfgN+'G');
+      // 2J 3-D surface (same param pair as 2H) + 2K 1-D PDP top-out curves. Both read the
+      //   stored `points`, so they render retroactively on any saved run (e.g. run 137).
+      const _p3d=surface3dPanelHtml(d.points,mlt,_cfgN+'J',d.best_params);
+      const _pdp=pdpCurvesPanelHtml(d.points,mlt,_cfgN+'K',d.plateau_pick);
       // lay non-empty panels in a row (1, 2 or 3 across); single panel = full-width. stretch=true makes
       //   the cards equal-height (good for similar charts); otherwise they top-align at natural height.
       const _wrap=(arr,stretch)=>{const xs=arr.filter(x=>x&&x.replace(/\s/g,''));if(!xs.length)return '';const inner=(xs.length>1)?'<div style="display:flex;gap:12px;align-items:'+(stretch?'stretch':'flex-start')+';flex-wrap:wrap">'+xs.map(x=>'<div style="flex:1 1 260px;min-width:0;display:flex;flex-direction:column">'+x+'</div>').join('')+'</div>':xs[0];return '<div style="margin-bottom:12px">'+inner+'</div>';};
@@ -6139,7 +6268,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _dsrTile=(!d.validate&&dsrHtml&&dsrHtml.replace(/\s/g,''))?'<div style="'+_card2+';margin-bottom:14px"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'F · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>':'';
       // Tile 2 (parameter-relationship group): 2c PARALLEL COORDINATES full-width, with
       //   2h HEATMAP · 2g SCATTER · 2i PARAM CORRELATION three-across directly beneath it.
-      const _paramTile=(_hm||_sc||_corr)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_hm,_sc,_corr])+'</div>':'';
+      const _paramTile=(_hm||_p3d||_sc||_corr||_pdp)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_hm,_p3d],true)+_wrap([_sc,_corr])+_pdp+'</div>':'';
       const _sec3=_cfgTile+_paramTile+_topTile+_nbTile+_dsrTile;
       // regHtml (regime report card + monthly P&L) moved into §1 (under the WF folds) per request.
       // Stress = the champion's profit spread across time → it lives in §1 (1I) for validate runs; keep the standalone §3/§4 only for non-validate sweeps.

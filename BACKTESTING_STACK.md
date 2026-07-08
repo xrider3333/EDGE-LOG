@@ -287,6 +287,21 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-08** — **PDP top-out curves + 3-D param surface in the run report (web v47.9).**
+  Two new panels in §2 of every saved RUN REPORT, next to the 2H heatmap: **2J PARAM
+  SURFACE 3-D** — the param→PnL surface as an isometric height map (floor = the two params
+  chosen by the 2H dropdowns, which drive both charts; height + colour = avg net $ per
+  cell; peak flagged in green, the argmax champion staked in yellow; never-tested cells
+  interpolated from neighbours and drawn faded) — a broad ridge = robust plateau, a lone
+  needle = luck. **2K PDP — WHERE EACH KNOB TOPS OUT** — 1-D partial-dependence
+  mini-curves per parameter (avg net $ at each value, other params averaged out, 1-2-1
+  smoothed — the same maths as the 3C.1 plateau pick), sorted by influence, green dot =
+  the top-out value, "barely matters" flag for dead knobs. Both are pure SVG (no chart
+  libs) and read the stored `points`, so they render **retroactively on every saved run**
+  (verified on run 137's 300 stored configs: stop_frac tops out @ 0.75 — matching the
+  validated ORB stop — and or_bars @ 1); the 1-D curves prefer the exact server curves
+  saved with `plateau_pick` when present. Clarified in the ⓘ tooltips: the plateau pick
+  maximises the SUM of the smoothed curves — deliberately NOT the raw argmax peak.
 - **2026-07-08** — **Run-report parity + Auto-Optimize pills (web v46.1).** The saved RUN
   REPORT (Results → pick a run) is now the same one-stop-shop the Builder panel shows — a new
   **Robustness & Diagnostics** section renders every pill the run has: the 11 informational
