@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='46.6';
+const VERSION='46.7';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -6731,7 +6731,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
         // would trap the sticky checklist-pills row (sticky breaks under any non-visible
         // overflow ancestor). Inline beats the class so the pinned pills work on every theme.
-        const detailTile='<div id="res-detail" class="hero-card" style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:13px;padding:14px 16px;overflow:visible">'+runDetail(d)+'</div>';
+        // Resilient detail: a single malformed / legacy run doc must not take down the whole
+        //   Results tab (one bad field would throw out of the RENDER: augur wrapper and blank
+        //   the page). Isolate the throw to this card, show the message, keep the list usable.
+        let _detailInner;
+        try{_detailInner=runDetail(d);}
+        catch(_de){console.error('runDetail failed for run',d&&d.id,_de);
+          _detailInner='<div style="padding:22px 18px;font-size:var(--fsm)"><div style="color:var(--red);margin-bottom:6px">⚠ This run\'s detail couldn\'t render</div>'
+            +'<div style="color:var(--text4);font-size:var(--fsxs);margin-bottom:8px">Likely a legacy or partial record. The other runs are unaffected — pick another from the list.</div>'
+            +'<div style="color:var(--text5);font-size:var(--fsxs);font-family:monospace;word-break:break-word">'+String((_de&&_de.message)||_de).replace(/</g,'&lt;')+'</div></div>';}
+        const detailTile='<div id="res-detail" class="hero-card" style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:13px;padding:14px 16px;overflow:visible">'+_detailInner+'</div>';
         // Results-view header removed per request (redundant — the PAST RUNS tile title
         //   already carries the run count, and the empty-state copy explains selection).
         const viewHeader='';
