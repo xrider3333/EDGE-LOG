@@ -342,11 +342,11 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 .toggle-pill button.on{background:color-mix(in srgb,var(--green) 15%,transparent);color:var(--green)}
 /* ── Overview v2 (Rail) — behind ?overview or localStorage.overviewV2==='1' ── */
 .ov-shell{display:grid;grid-template-columns:264px 1fr;align-items:start;gap:0}
-.ov-rail{position:sticky;top:56px;align-self:start;padding:18px 16px;background:rgba(255,255,255,0.02);border-right:1px solid var(--border)}
+.ov-rail{position:sticky;top:56px;align-self:start;padding:18px 16px 24px;background:rgba(0,0,0,0.18);border-right:1px solid var(--border)}
 .ov-rail .rail-net{font-family:'Bebas Neue',monospace;font-size:42px;line-height:1;color:var(--green)}
-.ov-rail .rail-grp{font-size:10px;letter-spacing:2px;color:var(--text4);margin:17px 0 9px;text-transform:uppercase}
-.ov-rail .rail-row{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:10px}
-.ov-rail .rail-row>span:last-child{font-size:14px;letter-spacing:.3px}
+.ov-rail .rail-grp{font-size:var(--fss);letter-spacing:2px;color:var(--text4);margin:17px 0 9px;text-transform:uppercase}
+.ov-rail .rail-row{display:flex;justify-content:space-between;align-items:baseline;font-size:var(--fsm);margin-bottom:10px}
+.ov-rail .rail-row>span:last-child{font-size:calc(var(--fs) + 1px);letter-spacing:.3px}
 .ov-rail .rail-bar{height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden;margin-top:5px}
 .ov-rail .rail-bar>div{height:100%;background:var(--green)}
 .ov-work{padding:16px 18px;min-width:0}
@@ -355,7 +355,7 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 .stackbar-track>div{box-shadow:inset -2px 0 0 var(--bg2)}
 .stackbar-legend{display:flex;flex-wrap:wrap;gap:7px 14px;padding:12px 14px 14px}
 .stackbar-legend .li{display:flex;align-items:center;gap:6px}
-.stackbar-legend .sw{width:8px;height:8px;border-radius:2px;flex-shrink:0}.ov-cc-grid{display:grid;grid-template-columns:1fr 360px;gap:12px;margin-bottom:12px;align-items:stretch}.ov-cc-grid>.section{min-width:0;display:flex;flex-direction:column;margin-bottom:0!important}.ov-cc-grid .cum-pl-chart{flex:1;display:flex;flex-direction:column;justify-content:center}.ov-cc-grid .cum-pl-chart svg{height:auto}.ov-rail .rail-kpi{cursor:pointer;border-radius:6px;transition:background .12s}.ov-rail .rail-kpi:hover{background:rgba(255,255,255,0.05)}
+.stackbar-legend .sw{width:8px;height:8px;border-radius:2px;flex-shrink:0}.ov-cc-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:12px}.ov-cc-grid>.section{min-width:0;display:flex;flex-direction:column;margin-bottom:0!important}.ov-cc-grid .cum-pl-chart{flex:1;display:flex;flex-direction:column;justify-content:center}.ov-cc-grid .cum-pl-chart svg{height:auto}.ov-rail .rail-kpi{cursor:pointer;border-radius:6px;transition:background .12s}.ov-rail .rail-kpi:hover{background:rgba(255,255,255,0.05)}
 </style>
 </head>
 <body>
@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='46.4';
+const VERSION='46.5';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -3186,7 +3186,7 @@ function renderApp(){
           <button class="btn-d" style="padding:3px 8px;font-size:var(--fsxs)" onclick="changeCalMonth(1)">▶</button>
           <button class="btn-d" style="padding:3px 8px;font-size:var(--fsxs)" onclick="resetCalMonth()">TODAY</button>
         </div>
-        <span style="font-size:var(--fsxs);color:${gch(moPnl)};font-family:'Bebas Neue',monospace">${fmt(moPnl)} · ${(moWR*100).toFixed(0)}% WR · ${moT.length} trades</span>
+        <span style="font-size:var(--fsm);color:${gch(moPnl)};font-family:'Bebas Neue',monospace">${fmt(moPnl)} · ${(moWR*100).toFixed(0)}% WR · ${moT.length} trades</span>
       </div>
       <div style="padding:8px;display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells}</div>`;
     })();
@@ -3198,15 +3198,11 @@ function renderApp(){
 
     if(OVERVIEW_V2){
     content.innerHTML=`
-    <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;padding:2px 2px">
-      <span style="font-size:var(--fsxs);color:var(--text4);letter-spacing:2px;margin-right:4px">TIMEFRAME</span>
-      ${['7D','30D','90D','YTD','ALL'].map(tf=>`<button onclick="chartTF='${tf.toLowerCase()}';renderApp()" style="background:${chartTF===tf.toLowerCase()?'var(--green)':'var(--bg3)'};color:${chartTF===tf.toLowerCase()?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:5px 13px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1px;cursor:pointer;transition:all 0.1s">${tf}</button>`).join('')}
-    </div>
     <div class="ov-shell">
       <aside class="ov-rail">
         <div class="rail-kpi" style="position:relative;overflow:hidden" onclick="expandKPI('NET P&L','NET P&L')" title="Click for a detailed breakdown">${(_running.net&&_running.net.length>1)?sparkline(_running.net, tfS.net>=0?'#00e5a0':'#ff3d5a', 232, 34):''}<div style="position:relative;z-index:1"><div class="rail-grp" style="margin-top:0">NET P&L · ${tfLabel}</div>
         <div class="rail-net" style="color:${tfS.net>=0?'var(--green)':'var(--red)'}">${fmt(tfS.net)}</div>
-        <div style="font-size:10px;color:var(--text5);margin-top:3px">${tfTrades.length} trade${tfTrades.length!==1?'s':''}${brokerStartEquity()>0?' · '+((tfS.net/brokerStartEquity())*100).toFixed(1)+'% of acct':''}</div></div></div>
+        <div style="font-size:var(--fss);color:var(--text3);margin-top:4px;letter-spacing:.3px">${brokerStartEquity()>0?`<span style="color:${tfS.net>=0?'var(--green)':'var(--red)'};font-weight:600">${tfS.net>=0?'▲':'▼'} ${((tfS.net/brokerStartEquity())*100).toFixed(1)}%</span> · `:''}${tfTrades.length} trades</div></div></div>
 
         <div class="rail-grp">RATIOS</div>
         <div class="rail-row rail-kpi" onclick="expandKPI('WIN RATE','WIN RATE')" title="Click for a detailed breakdown"><span style="color:var(--text4)">WIN RATE</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.wr>=0.5?'var(--green)':tfS.wr>=0.4?'var(--yellow)':'var(--red)'}">${(tfS.wr*100).toFixed(0)}%</span></div>
@@ -3219,23 +3215,24 @@ function renderApp(){
         <div class="rail-grp">PERFORMANCE</div>
         <div class="rail-row"><span style="color:var(--text4)">AVG WIN</span><span style="font-family:'Bebas Neue',monospace;color:var(--green)">+$${tfS.avgW.toFixed(0)}</span></div>
         <div class="rail-row"><span style="color:var(--text4)">AVG LOSS</span><span style="font-family:'Bebas Neue',monospace;color:var(--red)">-$${tfS.avgL.toFixed(0)}</span></div>
-        <div class="rail-row"><span style="color:var(--text4)">R:R</span><span style="font-family:'Bebas Neue',monospace;color:${S.rr>=1.5?'var(--green)':S.rr>=1?'var(--yellow)':'var(--red)'}">${S.rr.toFixed(2)}R</span></div>
         <div class="rail-row"><span style="color:var(--text4)">STREAK</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.sdir>0?'var(--green)':'var(--red)'}">${tfS.sdir>0?'+':'-'}${tfS.streak}${tfS.sdir>0?'W':'L'}</span></div>
+        <div class="rail-row"><span style="color:var(--text4)">GROSS</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.grossNet>=0?'var(--green)':'var(--red)'}">$${tfS.grossNet.toFixed(0)}</span></div>
 
         <div class="rail-grp">RISK</div>
         <div class="rail-row"><span style="color:var(--text4)">MAX DD</span><span style="font-family:'Bebas Neue',monospace;color:var(--red)">-$${tfS.maxDD.toFixed(0)}</span></div>
         <div class="rail-row"><span style="color:var(--text4)">SHARPE</span><span style="font-family:'Bebas Neue',monospace;color:${S.sharpe>=1?'var(--green)':S.sharpe>=0?'var(--yellow)':'var(--red)'}">${S.sharpe.toFixed(2)}</span></div>
         <div class="rail-row"><span style="color:var(--text4)">RECOVERY</span><span style="font-family:'Bebas Neue',monospace;color:${S.recovery>=2?'var(--green)':S.recovery>=1?'var(--yellow)':'var(--red)'}">${S.recovery.toFixed(2)}×</span></div>
+        <div class="rail-row"><span style="color:var(--text4)">R:R</span><span style="font-family:'Bebas Neue',monospace;color:${S.rr>=1.5?'var(--green)':S.rr>=1?'var(--yellow)':'var(--red)'}">${S.rr.toFixed(2)}R</span></div>
+        ${(()=>{ if(!tfTrades.length||brokerStartEquity()<=0)return ''; const sB=brokerStartEquity(); const aP=(tfS.net/sB)*100; const sD=tfTrades[0].date,eD=tfTrades[tfTrades.length-1].date; const sd=_spyCache[trades[0].date+'_'+trades[trades.length-1].date]; const sP=(sd?spyReturnReal(sD,eD,sd):spyReturnBetweenDates(sD,eD))*100; const a=aP-sP; return `<div class="rail-row"><span style="color:var(--text4)">vs SPY</span><span style="font-family:'Bebas Neue',monospace;color:${a>=0?'var(--green)':'var(--red)'}">${a>=0?'+':''}${a.toFixed(1)}% α</span></div>`; })()}
 
         <div class="rail-grp">BOOK</div>
-        <div class="rail-row"><span style="color:var(--text4)">LONGS</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.longPnl>=0?'var(--green)':'var(--red)'}">$${tfS.longPnl.toFixed(0)} · ${(tfS.longWR*100).toFixed(0)}%</span></div>
-        <div class="rail-row"><span style="color:var(--text4)">SHORTS</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.shortPnl>=0?'var(--green)':'var(--red)'}">$${tfS.shortPnl.toFixed(0)} · ${(tfS.shortWR*100).toFixed(0)}%</span></div>
-        <div class="rail-row"><span style="color:var(--text4)">GROSS</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.grossNet>=0?'var(--green)':'var(--red)'}">$${tfS.grossNet.toFixed(0)}</span></div>
+        <div class="rail-row"><span style="color:var(--text4)">LONGS</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.longPnl>=0?'var(--green)':'var(--red)'}">$${tfS.longPnl.toFixed(0)}</span></div>
+        <div class="rail-row"><span style="color:var(--text4)">SHORTS</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.shortPnl>=0?'var(--green)':'var(--red)'}">$${tfS.shortPnl.toFixed(0)}</span></div>
         <div class="rail-row"><span style="color:var(--text4)">TOTAL FEES</span><span style="font-family:'Bebas Neue',monospace;color:var(--yellow)">-$${tfS.totalFees.toFixed(0)}</span></div>
-        <div class="rail-grp">ACCOUNT</div>
         <div class="rail-row"><span style="color:var(--text4)">ACCT EQUITY</span><span style="font-family:'Bebas Neue',monospace;color:var(--blue)">${brokerStartEquity()>0?'$'+liveBalance().toLocaleString(undefined,{maximumFractionDigits:0}):'—'}</span></div>
-        <div class="rail-row" style="margin-bottom:5px"><span style="color:var(--text4)">WIN / LOSS</span><span style="font-family:'Bebas Neue',monospace"><span style="color:var(--green)">${tfS.wins}W</span> <span style="color:var(--text5)">/</span> <span style="color:var(--red)">${tfS.losses}L</span></span></div>
-        <div class="rail-bar" style="height:6px;background:var(--red)" title="${tfS.wins} wins / ${tfS.losses} losses"><div style="width:${(tfS.wins+tfS.losses)>0?(tfS.wins/(tfS.wins+tfS.losses)*100):0}%;height:100%;background:var(--green)"></div></div>
+        <div class="rail-grp">WIN / LOSS</div>
+        <div class="rail-bar" style="height:7px;background:var(--red)" title="${tfS.wins} wins / ${tfS.losses} losses"><div style="width:${(tfS.wins+tfS.losses)>0?(tfS.wins/(tfS.wins+tfS.losses)*100):0}%;height:100%;background:var(--green)"></div></div>
+        <div style="display:flex;justify-content:space-between;margin-top:6px;font-family:'Bebas Neue',monospace;font-size:var(--fsm)"><span style="color:var(--green)">${tfS.wins} W</span><span style="color:var(--red)">${tfS.losses} L</span></div>
       </aside>
 
       <div class="ov-work">
@@ -3246,6 +3243,8 @@ function renderApp(){
       <div class="sec-hd" style="flex-wrap:wrap;gap:8px">
         <span>${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}${modeLabel}</span>
         <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+          ${['7D','30D','90D','YTD','ALL'].map(tf=>`<button onclick="chartTF='${tf.toLowerCase()}';renderApp()" style="background:${chartTF===tf.toLowerCase()?'var(--green)':'var(--bg3)'};color:${chartTF===tf.toLowerCase()?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">${tf}</button>`).join('')}
+          <span style="width:1px;height:16px;background:var(--border);margin:0 3px"></span>
           <!-- PNL/EQUITY toggle -->
           <div style="display:flex;border:1px solid var(--border);margin-right:8px">
             <button onclick="chartMode='pnl';renderApp()" style="background:${chartMode==='pnl'?'var(--green)':'var(--bg3)'};color:${chartMode==='pnl'?'var(--bg)':'var(--text3)'};border:none;padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">P&L</button>
