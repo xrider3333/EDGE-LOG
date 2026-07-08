@@ -1,0 +1,9 @@
+# Test/dev dependencies for the streamlit-free engine layer (augur_engine/, api/,
+# augur_mp_worker.py). The Streamlit app itself is NOT needed to run these tests.
+# Install:  pip install -r requirements-dev.txt   (add --break-system-packages if needed)
+numpy
+pandas
+scipy
+scikit-learn      # ml_gate / analytics relationship-scores paths
+requests          # augur_engine.ai imports it at package-init time
+pytest
