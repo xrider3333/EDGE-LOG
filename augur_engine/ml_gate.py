@@ -78,7 +78,9 @@ def _stats(pnls):
     wins = pnls[pnls > 0]; losses = pnls[pnls < 0]
     gw = float(wins.sum()); gl = float(-losses.sum())
     cum = np.cumsum(pnls) if n else np.array([0.0])
-    peak = np.maximum.accumulate(cum)
+    # Seed the running peak at flat starting equity (0.0) so a curve that is underwater
+    # from trade 1 reports its true drawdown — matches engine/mp_worker _apply_costs.
+    peak = np.maximum.accumulate(np.concatenate([[0.0], cum]))[1:]
     return {
         "total_pnl": float(pnls.sum()), "num_trades": int(n),
         "win_rate": float(100.0 * len(wins) / n) if n else 0.0,

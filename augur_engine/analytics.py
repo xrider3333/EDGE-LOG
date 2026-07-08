@@ -67,7 +67,7 @@ def annualized_sr(pnls, years):
     """{sr, n, tpy, skew, kurt} annualized Sharpe of a per-trade PnL series (None if
     too few trades / zero variance). Same formula as optimizer._ann_sr."""
     p = np.asarray(pnls, float)
-    if len(p) < 3:
+    if len(p) < 3 or not years or years <= 0:
         return None
     sd = p.std(ddof=1)
     if sd <= 0:
@@ -113,7 +113,9 @@ def deflated_sharpe(winner, sample_srs, n_cfg, years):
     winner: an annualized_sr() dict; sample_srs: annualized SRs across sampled configs;
     n_cfg: total configs searched. Returns {winner_sharpe, luck_bar, dsr, verdict}."""
     srs = [s for s in sample_srs if s is not None]
-    if winner is None or len(srs) < 8:
+    # n_cfg < 2 makes the luck bar norm.ppf(1 - 1/n_cfg) degenerate (-inf at n_cfg=1),
+    # so any strategy trivially "beats" it — a one-config search can't be deflated.
+    if winner is None or len(srs) < 8 or not n_cfg or n_cfg < 2:
         return None
     vsr = float(np.var(srs, ddof=1))
     sr0 = (math.sqrt(vsr) * ((1 - _GAMMA) * _sst.norm.ppf(1 - 1.0 / n_cfg)

@@ -55,12 +55,11 @@ def test_annualized_sr_uses_sample_std_ddof1():
     assert r["n"] == len(pnls)
 
 
-def test_annualized_sr_years_zero_raises_unguarded():
-    """KNOWN LANDMINE (pinned, not endorsed): years=0 divides by zero. Direct callers
-    that don't clamp `years` (the engine passes max(0.1, ...)) will crash. If you add a
-    guard that returns None, update this test."""
-    with pytest.raises(ZeroDivisionError):
-        A.annualized_sr([1.0, 2.0, -1.0, 3.0], 0.0)
+def test_annualized_sr_non_positive_years_returns_none():
+    """years <= 0 has no annualization factor, so return None instead of dividing by
+    zero (fix for issue #7)."""
+    assert A.annualized_sr([1.0, 2.0, -1.0, 3.0], 0.0) is None
+    assert A.annualized_sr([1.0, 2.0, -1.0, 3.0], -1.0) is None
 
 
 # ── monte_carlo_drawdown ────────────────────────────────────────────────────────
@@ -108,16 +107,11 @@ def test_deflated_sharpe_normal_case():
     assert ds["luck_bar"] > ds["winner_sharpe"] or ds["dsr"] < 1.0   # luck bar is meaningful
 
 
-def test_deflated_sharpe_single_config_luck_bar_degenerates():
-    """KNOWN LANDMINE (pinned, not endorsed): with n_cfg=1 the luck bar is
-    norm.ppf(0) = -inf, so ANY strategy "beats" it and dsr collapses to 1.0. A
-    one-config search can't be deflated — callers should require n_cfg >= 2. Pinned
-    so the misleading pass stays visible."""
+def test_deflated_sharpe_single_config_returns_none():
+    """A one-config search can't be deflated (the luck bar norm.ppf(0) = -inf would make
+    any strategy trivially "beat" it), so n_cfg < 2 returns None (fix for issue #7)."""
     srs = [0.1, 0.2, -0.1, 0.15, 0.05, -0.05, 0.12, 0.3, 0.0, 0.22]
-    ds = A.deflated_sharpe(_winner(), srs, 1, 1.0)
-    assert ds["luck_bar"] == float("-inf")
-    assert ds["dsr"] == 1.0
-    assert ds["verdict"] == "beats the luck bar"
+    assert A.deflated_sharpe(_winner(), srs, 1, 1.0) is None
 
 
 # ── mae_mfe ─────────────────────────────────────────────────────────────────────
