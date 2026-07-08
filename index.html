@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='46.8';
+const VERSION='46.9';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -6941,7 +6941,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   user is mid-change, and from the date picker which fires no DOM events.
         const exRenderSummary=()=>{const su=el('ex-summary');if(su)su.innerHTML=exBuildSummary(em.value);};
         window._exSummaryRefresh=exRenderSummary;
-        const exSyncMode=()=>{const _qm=el('ex-mode-quick');if(_qm&&_qm.value!==em.value)_qm.value=em.value;applyExMode(em.value);exApplyCustom();const lg=el('ex-lockbox-group');if(lg)lg.style.display=(!_exExpert&&(em.value==='validate'||em.value==='gate_validate'))?'none':'';
+        const exSyncMode=()=>{const _qm=el('ex-mode-quick');if(_qm&&_qm.value!==em.value)_qm.value=em.value;applyExMode(em.value);exApplyCustom();const lg=el('ex-lockbox-group');if(lg)lg.style.display=(em.value==='validate'||em.value==='gate_validate')?'none':'';
           // ML gate rides Single (one gated run) or Gate-validate (the bake-off).
           const mf=el('ex-mlf'),mth=el('ex-mlth');
           if(mf&&mf.value!=='none'&&em.value!=='single'&&em.value!=='gate_validate'){mf.value='none';savePref('mlf','none');}
