@@ -341,21 +341,21 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 .toggle-pill button{background:none;border:none;color:var(--text4);padding:4px 12px;font-size:var(--fsxs);letter-spacing:1px;transition:all .15s}
 .toggle-pill button.on{background:color-mix(in srgb,var(--green) 15%,transparent);color:var(--green)}
 /* ── Overview v2 (Rail) — behind ?overview or localStorage.overviewV2==='1' ── */
-.ov-shell{display:grid;grid-template-columns:264px 1fr;align-items:start;gap:0}
-.ov-rail{position:sticky;top:56px;align-self:start;padding:18px 16px 24px;background:rgba(0,0,0,0.18);border-right:1px solid var(--border)}
+.ov-shell{display:grid;grid-template-columns:264px 1fr;align-items:stretch;gap:0;margin:calc(var(--pad)*-1.5) calc(var(--pad)*-1.75) 0}
+.ov-rail{padding:18px 16px 24px;background:rgba(0,0,0,0.18);border-right:1px solid var(--border)}
 .ov-rail .rail-net{font-family:'Bebas Neue',monospace;font-size:42px;line-height:1;color:var(--green)}
 .ov-rail .rail-grp{font-size:var(--fss);letter-spacing:2px;color:var(--text4);margin:17px 0 9px;text-transform:uppercase}
 .ov-rail .rail-row{display:flex;justify-content:space-between;align-items:baseline;font-size:var(--fsm);margin-bottom:10px}
 .ov-rail .rail-row>span:last-child{font-size:calc(var(--fs) + 1px);letter-spacing:.3px}
 .ov-rail .rail-bar{height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden;margin-top:5px}
 .ov-rail .rail-bar>div{height:100%;background:var(--green)}
-.ov-work{padding:16px 18px;min-width:0}
+.ov-work{padding:18px 26px 24px 22px;min-width:0}
 /* stacked breakdown bar */
 .stackbar-track{display:flex;height:16px;margin:0 14px;border-radius:5px;overflow:hidden;background:var(--bg2)}
 .stackbar-track>div{box-shadow:inset -2px 0 0 var(--bg2)}
 .stackbar-legend{display:flex;flex-wrap:wrap;gap:7px 14px;padding:12px 14px 14px}
 .stackbar-legend .li{display:flex;align-items:center;gap:6px}
-.stackbar-legend .sw{width:8px;height:8px;border-radius:2px;flex-shrink:0}.ov-cc-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:12px}.ov-cc-grid>.section{min-width:0;display:flex;flex-direction:column;margin-bottom:0!important}.ov-cc-grid .cum-pl-chart{flex:1;display:flex;flex-direction:column;justify-content:center}.ov-cc-grid .cum-pl-chart svg{height:auto}.ov-rail .rail-kpi{cursor:pointer;border-radius:6px;transition:background .12s}.ov-rail .rail-kpi:hover{background:rgba(255,255,255,0.05)}
+.stackbar-legend .sw{width:8px;height:8px;border-radius:2px;flex-shrink:0}.ov-cc-grid{display:grid;grid-template-columns:320px 1fr;gap:12px;margin-bottom:12px;align-items:stretch}.ov-cc-grid .ov-cal{order:-1}.ov-cc-grid>.section{min-width:0;display:flex;flex-direction:column;margin-bottom:0!important}.ov-cc-grid .cum-pl-chart{flex:1;display:flex;flex-direction:column;justify-content:center}.ov-cc-grid .cum-pl-chart svg{height:auto}.ov-rail .rail-kpi{cursor:pointer;border-radius:6px;transition:background .12s}.ov-rail .rail-kpi:hover{background:rgba(255,255,255,0.05)}
 </style>
 </head>
 <body>
@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='46.6';
+const VERSION='46.7';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -1843,22 +1843,22 @@ function svgLineLabeled(pts,color,W,H,showTradeAmounts,spyPts,yUnit){
     if(showTradeAmounts&&i%labelStep===0&&p.pnl!==undefined){
       const lbl=(p.pnl>=0?'+':'')+p.pnl.toFixed(0);
       const labelY=(parseFloat(cyv)-6).toFixed(1);
-      labelSvg=`<text x="${cx}" y="${labelY}" text-anchor="middle" fill="${isWin?'#00e5a0':'#ff3d5a'}" font-size="8" font-family="JetBrains Mono,monospace" opacity=".8">${lbl}</text>`;
+      labelSvg=`<text x="${cx}" y="${labelY}" text-anchor="middle" fill="${isWin?'#00e5a0':'#ff3d5a'}" font-size="11" font-family="JetBrains Mono,monospace" opacity=".85">${lbl}</text>`;
     }
     return dotSvg+labelSvg;
   }).join('');
   // Equity value at current end
   const lastVal=pts[pts.length-1].y,lastX=sx(pts.length-1),lastY=sy(lastVal);
-  const endLabel=`<text x="${(lastX+4).toFixed(1)}" y="${lastY.toFixed(1)}" fill="${lastVal>=0?'#00e5a0':'#ff3d5a'}" font-size="9" font-family="JetBrains Mono,monospace" font-weight="bold">${lastVal>=0?'+':''}${lastVal.toFixed(0)}</text>`;
+  const endLabel=`<text x="${(lastX+4).toFixed(1)}" y="${lastY.toFixed(1)}" fill="${lastVal>=0?'#00e5a0':'#ff3d5a'}" font-size="12" font-family="JetBrains Mono,monospace" font-weight="bold">${lastVal>=0?'+':''}${lastVal.toFixed(0)}</text>`;
   // High/low labels
   const maxPt=pts.reduce((a,b)=>b.y>a.y?b:a),minPt=pts.reduce((a,b)=>b.y<a.y?b:a);
   const maxIdx=pts.indexOf(maxPt),minIdx=pts.indexOf(minPt);
-  const highLabel=`<text x="${sx(maxIdx).toFixed(1)}" y="${(sy(maxPt.y)-6).toFixed(1)}" text-anchor="middle" fill="#00e5a0" font-size="13" font-family="JetBrains Mono,monospace" opacity=".85" font-weight="600">$${maxPt.y.toFixed(0)}</text>`;
-  const lowLabel=minPt.y<0?`<text x="${sx(minIdx).toFixed(1)}" y="${(sy(minPt.y)+12).toFixed(1)}" text-anchor="middle" fill="#ff3d5a" font-size="13" font-family="JetBrains Mono,monospace" opacity=".85" font-weight="600">$${minPt.y.toFixed(0)}</text>`:'';
+  const highLabel=`<text x="${sx(maxIdx).toFixed(1)}" y="${(sy(maxPt.y)-6).toFixed(1)}" text-anchor="middle" fill="#00e5a0" font-size="16" font-family="JetBrains Mono,monospace" opacity=".9" font-weight="600">$${maxPt.y.toFixed(0)}</text>`;
+  const lowLabel=minPt.y<0?`<text x="${sx(minIdx).toFixed(1)}" y="${(sy(minPt.y)+14).toFixed(1)}" text-anchor="middle" fill="#ff3d5a" font-size="16" font-family="JetBrains Mono,monospace" opacity=".9" font-weight="600">$${minPt.y.toFixed(0)}</text>`:'';
   let yg='',yt='';
-  for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="13" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}
-  let xt='';const step=Math.max(1,Math.floor(pts.length/8));for(let i=0;i<pts.length;i+=step)xt+=`<text x="${sx(i).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text2)" font-size="13" font-family="JetBrains Mono,monospace" font-weight="500">${i+1}</text>`;
-  const zero=minY<=0&&maxY>=0?`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`:'';
+  for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" opacity="0.22"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="17" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}
+  let xt='';const step=Math.max(1,Math.floor(pts.length/8));for(let i=0;i<pts.length;i+=step)xt+=`<text x="${sx(i).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text2)" font-size="15" font-family="JetBrains Mono,monospace" font-weight="500">${i+1}</text>`;
+  const zero=minY<=0&&maxY>=0?`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" opacity="0.55"/>`:'';
 
   // === INTERACTIVE OVERLAY: invisible hit-zones + crosshair + tooltip ===
   const uniqueId='chart_'+Math.random().toString(36).slice(2,9);
@@ -2005,7 +2005,7 @@ function svgLine(pts,color,W,H){
   const fill='M'+sx(0)+','+baseline.toFixed(1)+' L'+pts.map((p,i)=>sx(i).toFixed(1)+','+sy(p.y).toFixed(1)).join(' L')+' L'+sx(pts.length-1)+','+baseline.toFixed(1)+' Z';
   const dots=pts.map((p,i)=>`<circle cx="${sx(i).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="2.5" fill="${p.pnl>=0?'#00e5a0':'#ff3d5a'}" stroke="var(--bg)" stroke-width="1.5"/>`).join('');
   let yg='',yt='';for(let i=0;i<=4;i++){const v=minY+rY*i/4,y=sy(v);yg+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="var(--text5)" stroke-dasharray="2,6"/>`;yt+=`<text x="${PAD.l-6}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="var(--text2)" font-size="13" font-family="JetBrains Mono,monospace" font-weight="500">${(yUnit==="%"||window.chartPctMode)?v.toFixed(1)+"%":"$"+v.toFixed(0)}</text>`;}
-  let xt='';const step=Math.max(1,Math.floor(pts.length/8));for(let i=0;i<pts.length;i+=step)xt+=`<text x="${sx(i).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text2)" font-size="13" font-family="JetBrains Mono,monospace" font-weight="500">${i+1}</text>`;
+  let xt='';const step=Math.max(1,Math.floor(pts.length/8));for(let i=0;i<pts.length;i+=step)xt+=`<text x="${sx(i).toFixed(1)}" y="${H-5}" text-anchor="middle" fill="var(--text2)" font-size="15" font-family="JetBrains Mono,monospace" font-weight="500">${i+1}</text>`;
   const zero=minY<=0&&maxY>=0?`<line x1="${PAD.l}" y1="${y0.toFixed(1)}" x2="${W-PAD.r}" y2="${y0.toFixed(1)}" stroke="var(--text4)" stroke-dasharray="4,4"/>`:'' ;
   return`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${yg}${zero}<defs>
     <linearGradient id="${uniqueId}_gradPos" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#34d399" stop-opacity="0.4"/><stop offset="50%" stop-color="#34d399" stop-opacity="0.15"/><stop offset="100%" stop-color="#34d399" stop-opacity="0"/></linearGradient>
@@ -2462,28 +2462,28 @@ let _spyCache={};
 async function fetchSPYData(startDate,endDate){
   const key=startDate+'_'+endDate;
   if(_spyCache[key])return _spyCache[key];
-  try{
-    const p1=Math.floor(new Date(startDate).getTime()/1000);
-    const p2=Math.floor(new Date(endDate).getTime()/1000)+86400;
-    const url=`https://query1.finance.yahoo.com/v8/finance/chart/SPY?period1=${p1}&period2=${p2}&interval=1d`;
-    const res=await fetch(url);
-    if(!res.ok)throw new Error('SPY fetch failed: '+res.status);
-    const j=await res.json();
-    const r=j?.chart?.result?.[0];
-    if(!r)throw new Error('No result');
-    const ts=r.timestamp||[];
-    const closes=r.indicators?.quote?.[0]?.close||[];
-    const data={};
-    ts.forEach((t,i)=>{
-      const dt=new Date(t*1000).toISOString().slice(0,10);
-      if(closes[i]!=null)data[dt]=closes[i];
-    });
-    _spyCache[key]=data;
-    return data;
-  }catch(e){
-    console.warn('SPY fetch failed, using approximation:',e.message);
-    return null;
+  const p1=Math.floor(new Date(startDate).getTime()/1000);
+  const p2=Math.floor(new Date(endDate).getTime()/1000)+86400;
+  const yahoo=`https://query1.finance.yahoo.com/v8/finance/chart/SPY?period1=${p1}&period2=${p2}&interval=1d`;
+  // Yahoo's chart API is CORS-blocked in the browser, so route it through a CORS proxy first,
+  // then try direct (works in non-browser contexts). Both return the same JSON shape.
+  const urls=[`https://corsproxy.io/?url=${encodeURIComponent(yahoo)}`, yahoo];
+  for(const url of urls){
+    try{
+      const res=await fetch(url);
+      if(!res.ok)continue;
+      const j=await res.json();
+      const r=j&&j.chart&&j.chart.result&&j.chart.result[0];
+      if(!r)continue;
+      const ts=r.timestamp||[];
+      const closes=(r.indicators&&r.indicators.quote&&r.indicators.quote[0]&&r.indicators.quote[0].close)||[];
+      const data={};
+      ts.forEach((t,i)=>{const dt=new Date(t*1000).toISOString().slice(0,10);if(closes[i]!=null)data[dt]=closes[i];});
+      if(Object.keys(data).length){_spyCache[key]=data;return data;}
+    }catch(e){/* try next source */}
   }
+  console.warn('SPY fetch failed (CORS/network) — using approximation');
+  return null;
 }
 // Calculate SPY return % between two dates using real data (if cached) or approx
 function spyReturnReal(startDate,endDate,spyData){
@@ -3205,10 +3205,10 @@ function renderApp(){
         <div style="font-size:var(--fss);color:var(--text3);margin-top:4px;letter-spacing:.3px">${brokerStartEquity()>0?`<span style="color:${tfS.net>=0?'var(--green)':'var(--red)'};font-weight:600">${tfS.net>=0?'▲':'▼'} ${((tfS.net/brokerStartEquity())*100).toFixed(1)}%</span> · `:''}${tfTrades.length} trades</div></div></div>
 
         <div class="rail-grp">RATIOS</div>
-        <div class="rail-row rail-kpi" onclick="expandKPI('WIN RATE','WIN RATE')" title="Click for a detailed breakdown"><span style="color:var(--text4)">WIN RATE</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.wr>=0.5?'var(--green)':tfS.wr>=0.4?'var(--yellow)':'var(--red)'}">${(tfS.wr*100).toFixed(0)}%</span></div>
-        <div class="rail-bar"><div style="width:${Math.min(100,tfS.wr*100)}%;background:${tfS.wr>=0.5?'var(--green)':tfS.wr>=0.4?'var(--yellow)':'var(--red)'}"></div></div>
-        <div class="rail-row rail-kpi" style="margin-top:9px" onclick="expandKPI('PROFIT FACTOR','PROFIT FACTOR')" title="Click for a detailed breakdown"><span style="color:var(--text4)">PROFIT FACTOR</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.pf>=1.5?'var(--green)':tfS.pf>=1?'var(--yellow)':'var(--red)'}">${tfS.pf>=99?'∞':tfS.pf.toFixed(2)}</span></div>
-        <div class="rail-bar"><div style="width:${Math.min(100,tfS.pf/3*100)}%;background:${tfS.pf>=1.5?'var(--green)':tfS.pf>=1?'var(--yellow)':'var(--red)'}"></div></div>
+        <div class="rail-row rail-kpi" onclick="expandKPI('WIN RATE','WIN RATE')" title="Click for a detailed breakdown"><span style="color:var(--text4)">WIN RATE</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.wr>=0.5?'var(--green)':'var(--red)'}">${(tfS.wr*100).toFixed(0)}%</span></div>
+        <div class="rail-bar"><div style="width:${Math.min(100,tfS.wr*100)}%;background:${tfS.wr>=0.5?'var(--green)':'var(--red)'}"></div></div>
+        <div class="rail-row rail-kpi" style="margin-top:9px" onclick="expandKPI('PROFIT FACTOR','PROFIT FACTOR')" title="Click for a detailed breakdown"><span style="color:var(--text4)">PROFIT FACTOR</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.pf>=1?'var(--green)':'var(--red)'}">${tfS.pf>=99?'∞':tfS.pf.toFixed(2)}</span></div>
+        <div class="rail-bar"><div style="width:${Math.min(100,tfS.pf/3*100)}%;background:${tfS.pf>=1?'var(--green)':'var(--red)'}"></div></div>
         <div class="rail-row rail-kpi" style="margin-top:9px" onclick="expandKPI('EXP VALUE','EXP VALUE')" title="Click for a detailed breakdown"><span style="color:var(--text4)">EXP VALUE</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.ev>0?'var(--green)':'var(--red)'}">$${tfS.ev.toFixed(2)}</span></div>
         <div class="rail-bar"><div style="width:${tfS.ev>0?Math.min(100,tfS.ev/50*100):0}%;background:${tfS.ev>0?'var(--green)':'var(--red)'}"></div></div>
 
@@ -3220,9 +3220,9 @@ function renderApp(){
 
         <div class="rail-grp">RISK</div>
         <div class="rail-row"><span style="color:var(--text4)">MAX DD</span><span style="font-family:'Bebas Neue',monospace;color:var(--red)">-$${tfS.maxDD.toFixed(0)}</span></div>
-        <div class="rail-row"><span style="color:var(--text4)">SHARPE</span><span style="font-family:'Bebas Neue',monospace;color:${S.sharpe>=1?'var(--green)':S.sharpe>=0?'var(--yellow)':'var(--red)'}">${S.sharpe.toFixed(2)}</span></div>
-        <div class="rail-row"><span style="color:var(--text4)">RECOVERY</span><span style="font-family:'Bebas Neue',monospace;color:${S.recovery>=2?'var(--green)':S.recovery>=1?'var(--yellow)':'var(--red)'}">${S.recovery.toFixed(2)}×</span></div>
-        <div class="rail-row"><span style="color:var(--text4)">R:R</span><span style="font-family:'Bebas Neue',monospace;color:${S.rr>=1.5?'var(--green)':S.rr>=1?'var(--yellow)':'var(--red)'}">${S.rr.toFixed(2)}R</span></div>
+        <div class="rail-row"><span style="color:var(--text4)">SHARPE</span><span style="font-family:'Bebas Neue',monospace;color:${S.sharpe>=0?'var(--green)':'var(--red)'}">${S.sharpe.toFixed(2)}</span></div>
+        <div class="rail-row"><span style="color:var(--text4)">RECOVERY</span><span style="font-family:'Bebas Neue',monospace;color:${S.recovery>=1?'var(--green)':'var(--red)'}">${S.recovery.toFixed(2)}×</span></div>
+        <div class="rail-row"><span style="color:var(--text4)">R:R</span><span style="font-family:'Bebas Neue',monospace;color:${S.rr>=1?'var(--green)':'var(--red)'}">${S.rr.toFixed(2)}R</span></div>
         ${(()=>{ if(!tfTrades.length||brokerStartEquity()<=0)return ''; const sB=brokerStartEquity(); const aP=(tfS.net/sB)*100; const sD=tfTrades[0].date,eD=tfTrades[tfTrades.length-1].date; const sd=_spyCache[trades[0].date+'_'+trades[trades.length-1].date]; const sP=(sd?spyReturnReal(sD,eD,sd):spyReturnBetweenDates(sD,eD))*100; const a=aP-sP; return `<div class="rail-row"><span style="color:var(--text4)">vs SPY</span><span style="font-family:'Bebas Neue',monospace;color:${a>=0?'var(--green)':'var(--red)'}">${a>=0?'+':''}${a.toFixed(1)}% α</span></div>`; })()}
 
         <div class="rail-grp">BOOK</div>
@@ -3336,13 +3336,13 @@ function renderApp(){
           return `<span style="color:var(--text4)">vs SPY <span style="color:${alpha>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Alpha = your return - SPY return for same period">${alpha>=0?'+':''}${alpha.toFixed(1)}% α</span></span>`;
         })()}
         <span style="color:var(--text4)">TOTAL FEES <span style="color:var(--yellow);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">-$${S.totalFees.toFixed(0)}</span></span>
-        <span style="color:var(--text4)">R:R <span style="color:${S.rr>=1.5?'var(--green)':S.rr>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.rr.toFixed(2)}R</span></span>
-        <span style="color:var(--text4)">RECOVERY <span style="color:${S.recovery>=2?'var(--green)':S.recovery>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.recovery.toFixed(2)}×</span></span>
-        <span style="color:var(--text4)">SHARPE <span style="color:${S.sharpe>=1?'var(--green)':S.sharpe>=0?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.sharpe.toFixed(2)}</span></span>
+        <span style="color:var(--text4)">R:R <span style="color:${S.rr>=1?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.rr.toFixed(2)}R</span></span>
+        <span style="color:var(--text4)">RECOVERY <span style="color:${S.recovery>=1?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.recovery.toFixed(2)}×</span></span>
+        <span style="color:var(--text4)">SHARPE <span style="color:${S.sharpe>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.sharpe.toFixed(2)}</span></span>
         ${accountEquity>0?`<span style="color:var(--text4)">BALANCE <span style="color:var(--blue);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Starting balance + cumulative net P&L (live)">$${liveBalance().toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></span>`:''}${reconBadge()}
       </div>
     </div>
-          <div class="section">${calHTML}</div>
+          <div class="section ov-cal">${calHTML}</div>
         </div>
 
         <!-- breakdowns: one stacked P&L bar each -->
@@ -3530,9 +3530,9 @@ function renderApp(){
           return `<span style="color:var(--text4)">vs SPY <span style="color:${alpha>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Alpha = your return - SPY return for same period">${alpha>=0?'+':''}${alpha.toFixed(1)}% α</span></span>`;
         })()}
         <span style="color:var(--text4)">TOTAL FEES <span style="color:var(--yellow);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">-$${S.totalFees.toFixed(0)}</span></span>
-        <span style="color:var(--text4)">R:R <span style="color:${S.rr>=1.5?'var(--green)':S.rr>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.rr.toFixed(2)}R</span></span>
-        <span style="color:var(--text4)">RECOVERY <span style="color:${S.recovery>=2?'var(--green)':S.recovery>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.recovery.toFixed(2)}×</span></span>
-        <span style="color:var(--text4)">SHARPE <span style="color:${S.sharpe>=1?'var(--green)':S.sharpe>=0?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.sharpe.toFixed(2)}</span></span>
+        <span style="color:var(--text4)">R:R <span style="color:${S.rr>=1?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.rr.toFixed(2)}R</span></span>
+        <span style="color:var(--text4)">RECOVERY <span style="color:${S.recovery>=1?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.recovery.toFixed(2)}×</span></span>
+        <span style="color:var(--text4)">SHARPE <span style="color:${S.sharpe>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.sharpe.toFixed(2)}</span></span>
         ${accountEquity>0?`<span style="color:var(--text4)">BALANCE <span style="color:var(--blue);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Starting balance + cumulative net P&L (live)">$${liveBalance().toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></span>`:''}${reconBadge()}
       </div>
     </div>
@@ -3689,6 +3689,7 @@ function renderApp(){
       </div>
     </div>`;
     }
+    if(trades.length){const _spk=trades[0].date+'_'+trades[trades.length-1].date;if(!_spyCache[_spk]&&_spyCache._ovload!==_spk){_spyCache._ovload=_spk;fetchSPYData(trades[0].date,trades[trades.length-1].date).then(d=>{_spyCache._ovload=null;if(d&&activeTab==='overview')renderApp();});}}
     setTimeout(()=>{if(document.getElementById('overview-ai-output'))runOverviewAI();},100);
   }
 
