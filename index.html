@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='47.7';
+const VERSION='47.8';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -6795,6 +6795,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<td style="text-align:right;color:var(--text3);font-variant-numeric:tabular-nums">'+r.id+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+_dtmini(r.timestamp)+'</td>'
             +'<td style="white-space:nowrap">'+stratTag(r.strategy)+(vd?' <span style="font-size:8px;color:'+(vd==='PASS'?'var(--green)':vd==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vd+'</span>':'')+'</td>'
+            +'<td style="text-align:right;font-variant-numeric:tabular-nums;color:var(--text2)" title="total trades in this run">'+(T.trades||0).toLocaleString()+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text4);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="mode '+_modeNum(r)+' · '+(_modeName[_modeNum(r)]||'')+' — '+String(r.scope||'').replace(/"/g,'')+'"><b style="color:var(--text2)">'+_modeNum(r)+'</b> · '+(r.scope||'')+'</td>'
             +'<td style="white-space:nowrap">'+(ik?instTag(ik):'—')+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text4)">'+(r.timeframe||'')+'</td>'
@@ -6806,7 +6807,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<td title="'+(T.validated?(shp!=null&&!isNaN(+shp)?'whole-run Sharpe — champion measured over the full window':'whole-run Sharpe needs a re-run that saves per-trade data (this older run did not). Out-of-sample Sharpe '+(T.sharpeOOS!=null?(+T.sharpeOOS).toFixed(2):'—')+' — see the report matrix'):'risk-adjusted return')+'" style="text-align:right'+(T.validated?';cursor:help':'')+'">'+(shp!=null&&!isNaN(+shp)?(+shp).toFixed(2):'—')+'</td>'
             +'<td title="'+(T.validated?(T.wr!=null?'whole-run win% — champion over the full window':'whole-run win% needs a re-run that saves per-trade data (this older run did not)'+(T.isWr!=null?' (in-sample was '+Math.round(T.isWr)+'%)':'')):'win rate')+'" style="text-align:right'+(T.validated?';cursor:help':'')+'">'+(T.wr!=null?Math.round(T.wr)+'%':'—')+'</td>'
             +'<td style="text-align:center;font-size:var(--fsxs);color:'+(wf?'var(--text3)':'var(--text5)')+'">'+(wf||'—')+'</td>'
-            +'<td style="text-align:right">'+(T.trades||0).toLocaleString()+'</td>'
             +'<td style="text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)')+'">'+sc+'</td>'
             +'<td style="text-align:right;font-size:var(--fsxs);color:var(--text4);white-space:nowrap">'+_dur(r.elapsed_s)+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text5);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+src.replace(/"/g,'')+'">'+(src||'—')+'</td>'
@@ -6822,8 +6822,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'.fhsel option{background:var(--bg2);color:var(--text);letter-spacing:normal;font-weight:400}</style>'
           +'<div id="res-listscroll" style="overflow:auto;max-height:'+(rv==='side'?'68vh':rVH+'px')+'">'
           +'<table class="table" style="font-size:var(--fsxs)"><thead><tr><th style="text-align:center;vertical-align:bottom" title="show starred only"><span data-rfstar style="cursor:pointer;user-select:none;font-size:12px;color:'+(fStar?'var(--yellow)':'var(--text5)')+'">'+(fStar?'★':'☆')+'</span></th>'
-          +sh('id','RUN','right')+sh('date','DATE','left')+fh('STRATEGY','rfStrat',fStrat,_strats.map(f=>[f,stratInfo(f).label]))+fh('MODE',(_scopes.length>1?'rfScope':''),fScope,_scopes.map(s=>[s,s.slice(0,16)]))+fh('MARKET',(_insts.length>1?'rfInst':''),fInst,_insts.map(i=>[i,i]))+fh('TF',(_tfs.length>1?'rfTf':''),fTf,_tfs.map(t=>[t,t]))+'<th style="text-align:center;vertical-align:bottom">EQUITY</th>'
-          +sh('pnl','NET $','right')+sh('perday','$/DAY','right')+sh('maxdd','MAX DD','right')+sh('pf','PF','right')+sh('sharpe','SHARPE','right')+sh('wr','WR','right')+'<th style="text-align:center;vertical-align:bottom" title="walk-forward folds that held out-of-sample">WF</th>'+sh('trd','TRD','right')+sh('score','SCORE','right')+sh('took','TOOK','right')+'<th style="vertical-align:bottom">SRC</th>'+'<th style="vertical-align:bottom">RANGE</th>'+sh('days','DAYS','right')
+          +sh('id','RUN','right')+sh('date','DATE','left')+fh('STRATEGY','rfStrat',fStrat,_strats.map(f=>[f,stratInfo(f).label]))+sh('trd','TRD','right')+fh('MODE',(_scopes.length>1?'rfScope':''),fScope,_scopes.map(s=>[s,s.slice(0,16)]))+fh('MARKET',(_insts.length>1?'rfInst':''),fInst,_insts.map(i=>[i,i]))+fh('TF',(_tfs.length>1?'rfTf':''),fTf,_tfs.map(t=>[t,t]))+'<th style="text-align:center;vertical-align:bottom">EQUITY</th>'
+          +sh('pnl','NET $','right')+sh('perday','$/DAY','right')+sh('maxdd','MAX DD','right')+sh('pf','PF','right')+sh('sharpe','SHARPE','right')+sh('wr','WR','right')+'<th style="text-align:center;vertical-align:bottom" title="walk-forward folds that held out-of-sample">WF</th>'+sh('score','SCORE','right')+sh('took','TOOK','right')+'<th style="vertical-align:bottom">SRC</th>'+'<th style="vertical-align:bottom">RANGE</th>'+sh('days','DAYS','right')
           +'</tr></thead><tbody>'+trows+'</tbody></table></div>';
         const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span>'+(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">✕ clear filters</span>':'')+'</div>'+tbl);
         // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
