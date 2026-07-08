@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='47.5';
+const VERSION='47.6';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5460,7 +5460,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //   share ONE chart. Returns '' when there's no stored equity series.
     const championEquityHtml=(V,mlt,folds,bare)=>{
       const lb=V.lockbox||{},W=V.windows||{optimize:['','']};
-      const eq=(V.equity||[]).map(x=>x*mlt),li=V.lb_idx||eq.length,EW=600,EH=130,pd=6;
+      // 1A DETAIL knob (report-side, visual only): down-sample a COPY of the curve for the line —
+      //   never mutates V.equity, so the IN-SAMPLE/WF/LOCKBOX section-total math (runTotals) is untouched.
+      const _det=Math.max(0.05,Math.min(1,window._eqDetail||1)),_er=(V.equity||[]).map(x=>x*mlt),_lr=V.lb_idx||_er.length;
+      let eq=_er,li=_lr;
+      if(_det<1&&_er.length>40){const _m=Math.max(20,Math.round(_er.length*_det)),_s=_er.length/_m;eq=Array.from({length:_m},(_,i)=>_er[Math.min(_er.length-1,Math.round(i*_s))]);li=Math.round(_lr/_s);}
+      const EW=600,EH=130,pd=6;
       if(eq.length<=2)return '';
       const mn=Math.min(0,...eq),mx=Math.max(0,...eq),rg=(mx-mn)||1;
       const _of=(W.optimize&&W.optimize[0])||'',_ot=(W.optimize&&W.optimize[1])||'';
@@ -6048,7 +6053,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _bt='margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)';
         // Col A — 1A champion equity (+ SPY benchmark + worst-case drawdown, folded from §8) · 1B monthly · 1C walk-forward · 1I stress
         _panelEquity='<div style="'+_card+';height:100%;box-sizing:border-box">'
-          +'<div id="res-step-8" style="scroll-margin-top:64px">'+(eqHtml?(_numHdr('1A','CHAMPION EQUITY',null,'best config · 1 contract · whole run')+eqHtml+_spy+_mcNote):_naTile('1A','CHAMPION EQUITY','no equity series saved for this run'))+'</div>'
+          +'<div id="res-step-8" style="scroll-margin-top:64px">'+(eqHtml?(_numHdr('1A','CHAMPION EQUITY',null,'best config · 1 contract · whole run')+eqHtml+'<div style="display:flex;align-items:center;gap:8px;font-size:8px;color:var(--text5);margin:1px 0 8px;padding-right:44px"><span style="letter-spacing:.5px">GRAPH DETAIL</span><input type="range" min="10" max="100" step="5" value="'+Math.round((window._eqDetail||1)*100)+'" onchange="window._eqDetail=+this.value/100;renderApp()" style="flex:1;max-width:200px;accent-color:var(--blue)"><span>'+Math.round((window._eqDetail||1)*100)+'%</span></div>'+_spy+_mcNote):_naTile('1A','CHAMPION EQUITY','no equity series saved for this run'))+'</div>'
           +'<div style="'+_bt+'">'+(monthlyPnlHtml(d.regime,mlt)||_naTile('1B','MONTHLY P&L','not enough monthly data to chart'))+'</div>'
           +'<div style="'+_bt+'"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+(isOosFoldsHtml(d,mlt)||_naTile('1C','WALK-FORWARD','only walk-forward / Auto-Validate runs test in rolling out-of-sample folds'))+'</div>'
           +'<div style="'+_bt+'"><div id="res-step-4" style="scroll-margin-top:64px"></div>'+(stressPanelHtml(d.stress,mlt,'1I',_sc)||_naTile('1I','STRESS','no stress buckets saved for this run'))+'</div>'
