@@ -344,8 +344,9 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 .ov-shell{display:grid;grid-template-columns:264px 1fr;align-items:start;gap:0}
 .ov-rail{position:sticky;top:56px;align-self:start;padding:18px 16px;background:rgba(255,255,255,0.02);border-right:1px solid var(--border)}
 .ov-rail .rail-net{font-family:'Bebas Neue',monospace;font-size:42px;line-height:1;color:var(--green)}
-.ov-rail .rail-grp{font-size:8px;letter-spacing:2px;color:var(--text4);margin:16px 0 9px;text-transform:uppercase}
-.ov-rail .rail-row{display:flex;justify-content:space-between;font-size:10px;margin-bottom:9px}
+.ov-rail .rail-grp{font-size:10px;letter-spacing:2px;color:var(--text4);margin:17px 0 9px;text-transform:uppercase}
+.ov-rail .rail-row{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:10px}
+.ov-rail .rail-row>span:last-child{font-size:14px;letter-spacing:.3px}
 .ov-rail .rail-bar{height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden;margin-top:5px}
 .ov-rail .rail-bar>div{height:100%;background:var(--green)}
 .ov-work{padding:16px 18px;min-width:0}
@@ -354,7 +355,7 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 .stackbar-track>div{box-shadow:inset -2px 0 0 var(--bg2)}
 .stackbar-legend{display:flex;flex-wrap:wrap;gap:7px 14px;padding:12px 14px 14px}
 .stackbar-legend .li{display:flex;align-items:center;gap:6px}
-.stackbar-legend .sw{width:8px;height:8px;border-radius:2px;flex-shrink:0}.ov-cc-grid{display:grid;grid-template-columns:1fr 360px;gap:12px;margin-bottom:12px;align-items:start}.ov-cc-grid>.section{min-width:0}.ov-cc-grid .cum-pl-chart svg{height:auto}.ov-rail .rail-kpi{cursor:pointer;border-radius:6px;margin-left:-6px;margin-right:-6px;padding-left:6px;padding-right:6px;transition:background .12s}.ov-rail .rail-kpi:hover{background:rgba(255,255,255,0.05)}
+.stackbar-legend .sw{width:8px;height:8px;border-radius:2px;flex-shrink:0}.ov-cc-grid{display:grid;grid-template-columns:1fr 360px;gap:12px;margin-bottom:12px;align-items:stretch}.ov-cc-grid>.section{min-width:0;display:flex;flex-direction:column;margin-bottom:0!important}.ov-cc-grid .cum-pl-chart{flex:1;display:flex;flex-direction:column;justify-content:center}.ov-cc-grid .cum-pl-chart svg{height:auto}.ov-rail .rail-kpi{cursor:pointer;border-radius:6px;transition:background .12s}.ov-rail .rail-kpi:hover{background:rgba(255,255,255,0.05)}
 </style>
 </head>
 <body>
@@ -395,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='46.3';
+const VERSION='46.4';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -632,8 +633,8 @@ function stackBar(title, rows){
   const legend = segs.map(s =>
     `<div class="li">
        <span class="sw" style="background:${s.color}"></span>
-       <span style="font-family:'Bebas Neue',monospace;font-size:12px;letter-spacing:.3px;color:var(--text2)">${s.label}</span>
-       <span style="font-size:10px;color:var(--text4)">${fmt(s.pnl)} · ${s.count}t · ${s.count?Math.round(s.wins/s.count*100):0}%</span>
+       <span style="font-family:'Bebas Neue',monospace;font-size:13px;letter-spacing:.3px;color:var(--text2)">${s.label}</span>
+       <span style="font-size:12px;color:var(--text4)">${fmt(s.pnl)}</span>
      </div>`
   ).join('');
   return `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:11px 14px 10px">
@@ -3197,11 +3198,15 @@ function renderApp(){
 
     if(OVERVIEW_V2){
     content.innerHTML=`
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;padding:2px 2px">
+      <span style="font-size:var(--fsxs);color:var(--text4);letter-spacing:2px;margin-right:4px">TIMEFRAME</span>
+      ${['7D','30D','90D','YTD','ALL'].map(tf=>`<button onclick="chartTF='${tf.toLowerCase()}';renderApp()" style="background:${chartTF===tf.toLowerCase()?'var(--green)':'var(--bg3)'};color:${chartTF===tf.toLowerCase()?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:5px 13px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1px;cursor:pointer;transition:all 0.1s">${tf}</button>`).join('')}
+    </div>
     <div class="ov-shell">
       <aside class="ov-rail">
         <div class="rail-kpi" style="position:relative;overflow:hidden" onclick="expandKPI('NET P&L','NET P&L')" title="Click for a detailed breakdown">${(_running.net&&_running.net.length>1)?sparkline(_running.net, tfS.net>=0?'#00e5a0':'#ff3d5a', 232, 34):''}<div style="position:relative;z-index:1"><div class="rail-grp" style="margin-top:0">NET P&L · ${tfLabel}</div>
         <div class="rail-net" style="color:${tfS.net>=0?'var(--green)':'var(--red)'}">${fmt(tfS.net)}</div>
-        <div style="font-size:9px;color:var(--text5);margin-top:3px">${tfTrades.length} trade${tfTrades.length!==1?'s':''}${accountEquity>0?' · '+((tfS.net/accountEquity)*100).toFixed(1)+'% of acct':''}</div></div></div>
+        <div style="font-size:10px;color:var(--text5);margin-top:3px">${tfTrades.length} trade${tfTrades.length!==1?'s':''}${brokerStartEquity()>0?' · '+((tfS.net/brokerStartEquity())*100).toFixed(1)+'% of acct':''}</div></div></div>
 
         <div class="rail-grp">RATIOS</div>
         <div class="rail-row rail-kpi" onclick="expandKPI('WIN RATE','WIN RATE')" title="Click for a detailed breakdown"><span style="color:var(--text4)">WIN RATE</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.wr>=0.5?'var(--green)':tfS.wr>=0.4?'var(--yellow)':'var(--red)'}">${(tfS.wr*100).toFixed(0)}%</span></div>
@@ -3227,17 +3232,13 @@ function renderApp(){
         <div class="rail-row"><span style="color:var(--text4)">SHORTS</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.shortPnl>=0?'var(--green)':'var(--red)'}">$${tfS.shortPnl.toFixed(0)} · ${(tfS.shortWR*100).toFixed(0)}%</span></div>
         <div class="rail-row"><span style="color:var(--text4)">GROSS</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.grossNet>=0?'var(--green)':'var(--red)'}">$${tfS.grossNet.toFixed(0)}</span></div>
         <div class="rail-row"><span style="color:var(--text4)">TOTAL FEES</span><span style="font-family:'Bebas Neue',monospace;color:var(--yellow)">-$${tfS.totalFees.toFixed(0)}</span></div>
+        <div class="rail-grp">ACCOUNT</div>
+        <div class="rail-row"><span style="color:var(--text4)">ACCT EQUITY</span><span style="font-family:'Bebas Neue',monospace;color:var(--blue)">${brokerStartEquity()>0?'$'+liveBalance().toLocaleString(undefined,{maximumFractionDigits:0}):'—'}</span></div>
+        <div class="rail-row" style="margin-bottom:5px"><span style="color:var(--text4)">WIN / LOSS</span><span style="font-family:'Bebas Neue',monospace"><span style="color:var(--green)">${tfS.wins}W</span> <span style="color:var(--text5)">/</span> <span style="color:var(--red)">${tfS.losses}L</span></span></div>
+        <div class="rail-bar" style="height:6px;background:var(--red)" title="${tfS.wins} wins / ${tfS.losses} losses"><div style="width:${(tfS.wins+tfS.losses)>0?(tfS.wins/(tfS.wins+tfS.losses)*100):0}%;height:100%;background:var(--green)"></div></div>
       </aside>
 
       <div class="ov-work">
-        <!-- timeframe selector -->
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:2px 2px">
-          <div style="display:flex;gap:6px;align-items:center">
-            <span style="font-size:var(--fsxs);color:var(--text4);letter-spacing:2px;margin-right:4px">TIMEFRAME</span>
-            ${['7D','30D','90D','YTD','ALL'].map(tf=>`<button onclick="chartTF='${tf.toLowerCase()}';renderApp()" style="background:${chartTF===tf.toLowerCase()?'var(--green)':'var(--bg3)'};color:${chartTF===tf.toLowerCase()?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:5px 13px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1px;cursor:pointer;transition:all 0.1s">${tf}</button>`).join('')}
-          </div>
-          <div style="font-size:var(--fsxs);color:var(--text4);letter-spacing:1px">${tfTrades.length} trade${tfTrades.length!==1?'s':''} · ${chartTF==='all'?'all time':chartTF.toUpperCase()}</div>
-        </div>
 
         <!-- chart + calendar side by side -->
         <div class="ov-cc-grid">
@@ -3347,7 +3348,7 @@ function renderApp(){
 
         <!-- breakdowns: one stacked P&L bar each -->
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
-          <div class="section">${stackBar('MONTHLY', Object.entries(S.monthly).sort(([a],[b])=>b>a?1:-1).slice(0,8).map(([m,d])=>({label:m,count:d.trades,wins:d.wins,pnl:d.pnl})))}</div>
+          <div class="section">${stackBar('MONTHLY', Object.entries(S.monthly).sort(([a],[b])=>b>a?1:-1).slice(0,8).map(([m,d])=>({label:new Date(m+'-01T12:00:00').toLocaleString('en',{month:'short'}).toUpperCase(),count:d.trades,wins:d.wins,pnl:d.pnl})))}</div>
           <div class="section">${stackBar('BY SYMBOL', Object.entries(S.syms).sort(([,a],[,b])=>b.pnl-a.pnl).map(([sym,s])=>({label:sym,count:s.count,wins:s.wins,pnl:s.pnl})))}</div>
           <div class="section">${stackBar('BY TIMEFRAME', Object.entries(S.byTF).sort(([,a],[,b])=>b.pnl-a.pnl).slice(0,8).map(([tf,d])=>({label:tf,count:d.count,wins:d.wins,pnl:d.pnl})))}</div>
           <div class="section">${stackBar('BY SETUP', Object.entries(S.setups).sort(([,a],[,b])=>b.pnl-a.pnl).slice(0,8).map(([s,d])=>({label:s,count:d.count,wins:d.wins,pnl:d.pnl})))}</div>
