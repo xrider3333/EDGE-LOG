@@ -69,14 +69,12 @@ def test_get_base_normal(raw, base):
     assert N.get_base(raw) == base
 
 
-def test_get_base_drops_digits_from_root_known_limitation():
-    """KNOWN LIMITATION (pinned, not endorsed): get_base strips ALL non-letters, so a
-    root containing a digit loses it. 'M2K' -> 'MK', which is not in PRESETS/FEE_PER_SIDE,
-    so Micro Russell trades get stock P&L and miss their fee schedule. Fixing get_base
-    (or keying instruments differently) is a follow-up — index.html has the same bug."""
-    assert N.get_base("M2K 03-26") == "MK"
-    assert "MK" not in N.PRESETS
-    assert "M2K" in N.FEE_PER_SIDE       # the fee entry exists but is unreachable via get_base
+def test_get_base_keeps_digits_in_root():
+    """Fix for issue #7: the root is the first token, so a digit-bearing root like
+    Micro Russell 'M2K' survives and matches PRESETS / FEE_PER_SIDE."""
+    assert N.get_base("M2K 03-26") == "M2K"
+    assert N.get_base("M2K") in N.FEE_PER_SIDE
+    assert N.get_base("") == ""
 
 
 # ── build_trades: correct round-trip pairing ────────────────────────────────────
@@ -144,19 +142,37 @@ def test_positions_grouped_by_account_and_instrument():
     assert {(t["symbol"], t["type"]) for t in trades} == {("MNQ", "LONG"), ("MES", "SHORT")}
 
 
-def test_position_flip_is_mispaired_known_limitation():
-    """KNOWN LIMITATION (pinned, not endorsed): a round-trip only closes on an EXACT
-    return to flat. A single fill that overshoots zero (long 1, then SELL 2) does not
-    close the long and leaves stale entry state; the later cover-buy is then averaged
-    into the 'exit'. Result: ONE mangled trade (exit 115 = mean of the 110 sell and the
-    120 cover) and the short leg is lost. Flipping position in one fill should be split
-    into a close + a new open — index.html has the same gap. Pinned so it stays visible."""
+def test_position_flip_splits_into_close_and_new_open():
+    """Fix for issue #7: a single fill that overshoots flat (long 1, then SELL 2) closes
+    the long at the crossing and opens a short for the remainder. The later cover-buy
+    then closes the short — two clean round-trips, not one mangled trade."""
     trades = N.build_trades([_fill(0, "BUY", 1, 100, T0),
                              _fill(1, "SELL", 2, 110, T1),
                              _fill(2, "BUY", 1, 120, T2)])
+    assert len(trades) == 2
+    long_t, short_t = trades
+    assert (long_t["type"], long_t["entry"], long_t["exit"], long_t["size"]) == \
+           ("LONG", 100.0, 110.0, 1)
+    assert (short_t["type"], short_t["entry"], short_t["exit"], short_t["size"]) == \
+           ("SHORT", 110.0, 120.0, 1)
+
+
+def test_larger_flip_closes_full_position_then_opens_remainder():
+    # long 2 -> SELL 3 (close 2, open short 1) -> BUY 1 (close short)
+    trades = N.build_trades([_fill(0, "BUY", 2, 100, T0),
+                             _fill(1, "SELL", 3, 110, T1),
+                             _fill(2, "BUY", 1, 120, T2)])
+    assert len(trades) == 2
+    assert (trades[0]["type"], trades[0]["size"], trades[0]["exit"]) == ("LONG", 2, 110.0)
+    assert (trades[1]["type"], trades[1]["size"], trades[1]["entry"]) == ("SHORT", 1, 110.0)
+
+
+def test_flip_that_never_returns_flat_emits_only_the_closed_leg():
+    # long 1 -> SELL 2 : closes the long, opens a short that stays open (no second trade)
+    trades = N.build_trades([_fill(0, "BUY", 1, 100, T0),
+                             _fill(1, "SELL", 2, 110, T1)])
     assert len(trades) == 1
-    t = trades[0]
-    assert (t["type"], t["entry"], t["exit"], t["size"]) == ("LONG", 100.0, 115.0, 1)
+    assert (trades[0]["type"], trades[0]["entry"], trades[0]["exit"]) == ("LONG", 100.0, 110.0)
 
 
 # ── _parse_dt ───────────────────────────────────────────────────────────────────

@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='46.5';
+const VERSION='46.6';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -646,7 +646,7 @@ function stackBar(title, rows){
 }
 const pct=n=>(n*100).toFixed(1)+'%';
 const isFut=sym=>!!PRESETS[sym];
-const getBase=s=>(s||'').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase()||'';
+const getBase=s=>((s||'').trim().split(/\s+/)[0]||'').toUpperCase();  // contract root = first token (keeps digits, e.g. M2K)
 const gradeClass=g=>({'+':'grade-A','A':'grade-A','B':'grade-B','C':'grade-C','D':'grade-D','F':'grade-F'}[g?.slice(-1)]||'grade-x');
 function fmtDur(m){if(!m||m<0)return'—';if(m<60)return m+'m';return Math.floor(m/60)+'h'+(m%60>0?' '+m%60+'m':'');}
 // Seconds-aware duration for the trades table: prefer t.durationSecs (exact), else fall
