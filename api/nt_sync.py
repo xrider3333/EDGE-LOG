@@ -114,9 +114,11 @@ def _state_path(fills_path):
 
 
 def get_base(sym):
-    """'ES 03-26' -> 'ES'. Strip non-letters, take first 3, uppercase."""
-    letters = "".join(c for c in (sym or "") if c.isalpha())
-    return letters[:3].upper()
+    """'ES 03-26' -> 'ES', 'M2K 03-26' -> 'M2K'. The contract root is the first
+    whitespace-delimited token (digits kept, so micros like M2K/M6E survive and match
+    PRESETS / FEE_PER_SIDE)."""
+    tok = str(sym or "").strip().split()
+    return tok[0].upper() if tok else ""
 
 
 def is_fut(sym):
@@ -186,6 +188,30 @@ def parse_fills(path):
     return fills
 
 
+def _split_crossings(grp):
+    """Split any fill that crosses through flat into two fills — one that closes the
+    open position to exactly flat, and one that opens the remainder in the new
+    direction — so a single overshooting fill (a position FLIP) becomes a clean
+    close + new open. The commission rides with the closing half; the opening half
+    gets 0 so it isn't double-counted. Fills that don't cross flat pass through
+    unchanged. Assumes grp is already time-sorted."""
+    out = []
+    pos = 0
+    for f in grp:
+        delta = f["qty"] if f["action"] == "BUY" else -f["qty"]
+        crosses = pos != 0 and (delta > 0) != (pos > 0) and abs(delta) > abs(pos)
+        if crosses:
+            close_qty = abs(pos)
+            open_qty = abs(delta) - close_qty
+            out.append({**f, "qty": close_qty})
+            out.append({**f, "qty": open_qty, "commission": 0.0, "fee": 0.0,
+                        "exec_id": (f.get("exec_id") or "") + "_flip"})
+        else:
+            out.append(f)
+        pos += delta
+    return out
+
+
 def build_trades(fills):
     """FIFO position tracking → round-trip trades, per (account, instrument).
     Mirrors the scale-in / scale-out pairing in index.html's importPDF.
@@ -198,6 +224,7 @@ def build_trades(fills):
     trades = []
     for (account, instrument), grp in groups.items():
         grp.sort(key=lambda f: (f["dt"], f["_i"]))
+        grp = _split_crossings(grp)
         sym = get_base(instrument)
         pos = 0
         entry_qty = entry_notional = 0.0
