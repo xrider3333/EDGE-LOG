@@ -25,8 +25,19 @@
 //      targetR × initial risk. Flat at session close. ONE entry per session.
 //
 //  Fidelity notes:
-//    • process_orders_on_close=true + stop entry orders reproduce the engine's
-//      touch-fill prices exactly (incl. gap-through opens).
+//    • ENTRY FILL — known gap vs the engine (measured by tools/reconcile.py, 2026-07):
+//      with process_orders_on_close=true a stop entry armed on the breakout bar fills at
+//      THAT BAR'S CLOSE, not at the range level — on a fast breakout that's ~35-70 pts
+//      worse (proven on 2026-05-08: engine 28998.00 = OR high, TV 29066.25 = the 09:45
+//      close). This trims winners AND raises the stop, so TV gets stopped on a few days the
+//      engine rides to close — it accounts for essentially the whole net-$ gap. This is a
+//      Pine execution-model LIMITATION, not a bug we can cleanly fix: entries want
+//      process_orders_on_close=OFF (fill at the level) but the flat-EOD / ride-to-close exit
+//      wants it ON (fill at the session-close bar), and you can't set it per-order. The
+//      engine's level-fill is the more realistic side (a resting stop fills at ~your price,
+//      not 70 pts past it). To make TV fill closer to the level, enable **Bar Magnifier** in
+//      the strategy Properties (TV Premium+) — it fills orders on intrabar data. Treat the
+//      ENGINE as authoritative on fills; TV is pessimistic here.
 //    • VOLUME FILTER: the engine checks volume BEFORE entering (skips thin bars,
 //      retries later in the session at zero cost). Pine can't do this with
 //      resting stop orders — it enters first, then ejects at bar close if thin.
