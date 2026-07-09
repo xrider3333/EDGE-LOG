@@ -542,6 +542,22 @@ class FirestoreQueue:
         })
         self.db.collection("users").document(uid).collection("runs").document(str(rid)).set(doc)
         log(f"    -> saved to Runs history (#{rid})")
+        # best-effort: save a per-trade blotter CSV next to the run (blotters/) so every
+        # Auto-Validate / grid run has a downloadable trade-by-trade record. Never fail the
+        # run on this — a bad master or 0-trade config just skips it.
+        try:
+            from api.blotter import champion_blotter, write_csv
+            _bp = result.get("best_params") or (job.get("params") or {})
+            if _bp and job.get("strategy") and job.get("instrument"):
+                _rows = champion_blotter(job.get("strategy"), job.get("instrument"),
+                                         job.get("timeframe", "5m"), job.get("session", "rth"),
+                                         _bp, job.get("cost_pts", 0), mult)
+                _out = os.path.join(ROOT, "blotters",
+                                    f"run{rid}_{job.get('instrument')}_{job.get('timeframe','5m')}.csv")
+                if write_csv(_rows, _out):
+                    log(f"    -> saved trade blotter ({len(_rows)} trades) -> {_out}")
+        except Exception as _e:
+            log(f"    -> blotter skipped: {type(_e).__name__}: {_e}")
 
     def run_commands(self, log=print) -> int:
         """Poll users/{uid}/commands for queued Library file-op commands (download /
