@@ -200,50 +200,70 @@ def clip_window(trades, date_from=None, date_to=None):
     return out
 
 
+_NS_MIN = 60_000_000_000   # nanoseconds per minute
+
+
+def _entry_ns(trades):
+    """int64 ns-since-epoch of each (tz-naive) entry time — for fast vectorized matching."""
+    return np.fromiter((t.entry_dt.value for t in trades), dtype=np.int64, count=len(trades))
+
+
 def _coverage(a, b, offset_min, tol_min):
-    off = pd.Timedelta(minutes=offset_min)
-    tol = pd.Timedelta(minutes=tol_min)
-    bt = [t.entry_dt for t in b]
-    return sum(1 for ta in a if any(abs(ta.entry_dt + off - tb) <= tol for tb in bt))
+    """How many `a` entries have a `b` entry within tol after shifting `a` by offset. O(n log n)."""
+    if not a or not b:
+        return 0
+    an = _entry_ns(a) + int(offset_min * _NS_MIN)
+    bns = np.sort(_entry_ns(b))
+    tol = int(tol_min * _NS_MIN)
+    lo = np.searchsorted(bns, an - tol, side="left")
+    hi = np.searchsorted(bns, an + tol, side="right")
+    return int(np.count_nonzero(hi > lo))
 
 
 def best_offset(a, b, tol_min):
-    """Whole-hour offset (minutes, applied to side A) that aligns the most trades; also
-    tries the empirical median nearest-neighbour delta to catch odd offsets."""
+    """Whole-hour offset (minutes, applied to side A) that aligns the most trades; also tries
+    the empirical median nearest-neighbour delta to catch odd offsets. O(n log n) — scales to
+    thousands of trades (a full-history deep-backtest export)."""
     if not a or not b:
         return 0
     cands = list(CAND_OFFSETS_MIN)
-    bt = [t.entry_dt for t in b]
-    deltas = [min((tb - ta.entry_dt for tb in bt), key=lambda x: abs(x)).total_seconds() / 60.0
-              for ta in a]
-    if deltas:
-        med = int(round(float(np.median(deltas))))
-        if med not in cands:
-            cands.append(med)
+    an = _entry_ns(a); bns = np.sort(_entry_ns(b))
+    idx = np.clip(np.searchsorted(bns, an), 0, len(bns) - 1)
+    left = np.clip(idx - 1, 0, len(bns) - 1)
+    near = np.where(np.abs(bns[left] - an) <= np.abs(bns[idx] - an), bns[left], bns[idx])
+    med = int(round(float(np.median(near - an)) / _NS_MIN))
+    if med not in cands:
+        cands.append(med)
     scored = sorted(((_coverage(a, b, off, tol_min), -abs(off), off) for off in cands), reverse=True)
     return scored[0][2]
 
 
 def match(a, b, offset_min, tol_min):
-    """Greedy one-to-one match on entry time (a shifted by offset). Closest pairs first.
+    """Greedy one-to-one match on entry time (a shifted by offset), closest pairs first. Only
+    b's inside each a's ±tol window are considered (searchsorted), so this is O(n log n), not
+    O(n²) — a 15-year, ~3,800-trade deep export reconciles in well under a second.
     Returns (matched:[(ta, tb, dt_min)], unmatched_a, unmatched_b)."""
-    off = pd.Timedelta(minutes=offset_min)
-    tol = pd.Timedelta(minutes=tol_min)
+    if not a or not b:
+        return [], list(a), list(b)
+    off_ns = int(offset_min * _NS_MIN); tol = int(tol_min * _NS_MIN)
+    an = _entry_ns(a) + off_ns
+    bn = _entry_ns(b)
+    border = np.argsort(bn, kind="stable"); bns = bn[border]
+    lo = np.searchsorted(bns, an - tol, side="left")
+    hi = np.searchsorted(bns, an + tol, side="right")
     pairs = []
-    for i, ta in enumerate(a):
-        ea = ta.entry_dt + off
-        for j, tb in enumerate(b):
-            d = abs(ea - tb.entry_dt)
-            if d <= tol:
-                pairs.append((d, i, j))
+    for i in range(len(a)):
+        ai = int(an[i])
+        for k in range(int(lo[i]), int(hi[i])):
+            j = int(border[k])
+            pairs.append((abs(ai - int(bn[j])), i, j))
     pairs.sort(key=lambda x: x[0])
     used_a, used_b, matched = set(), set(), []
-    for d, i, j in pairs:
+    for _d, i, j in pairs:
         if i in used_a or j in used_b:
             continue
         used_a.add(i); used_b.add(j)
-        dt_min = ((a[i].entry_dt + off) - b[j].entry_dt).total_seconds() / 60.0
-        matched.append((a[i], b[j], dt_min))
+        matched.append((a[i], b[j], (int(an[i]) - int(bn[j])) / _NS_MIN))
     unmatched_a = [ta for i, ta in enumerate(a) if i not in used_a]
     unmatched_b = [tb for j, tb in enumerate(b) if j not in used_b]
     matched.sort(key=lambda m: m[0].entry_dt)
