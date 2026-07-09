@@ -37,6 +37,20 @@ def _sharpe_from_trades(trades, cost, years):
     return (mean / sd) * ((n / years) ** 0.5)
 
 
+def _sortino_from_trades(trades, cost, years):
+    """Annualized Sortino — like Sharpe but the denominator counts only DOWNSIDE (below-zero)
+    dispersion, so a fat-right-tail strategy isn't penalised for its big winners."""
+    pnls = [float(t[2]) - cost for t in (trades or [])]
+    n = len(pnls)
+    if n < 3 or not years or years <= 0:
+        return None
+    mean = sum(pnls) / n
+    dd = (sum(min(0.0, p) ** 2 for p in pnls) / n) ** 0.5
+    if dd <= 0:
+        return None
+    return (mean / dd) * ((n / years) ** 0.5)
+
+
 def _avg_wl(trades, cost):
     """Avg win / avg loss in POINTS (fees included) from a per-trade NET-PnL series
     (trade tuple's t[2] is gross points). avg_loss is a POSITIVE magnitude. Returns
@@ -176,9 +190,11 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     lb_wr = (float(lb.get("win_rate", 0) or 0) if lb else None)
     lb_sharpe = _sharpe_from_trades((lb or {}).get("trades"), cost_pts,
                                     max(0.05, lockbox_months / 12.0))
+    lb_sortino = _sortino_from_trades((lb or {}).get("trades"), cost_pts,
+                                      max(0.05, lockbox_months / 12.0))
     lb_aw, lb_al = _avg_wl((lb or {}).get("trades"), cost_pts)   # honest avg win/loss (points)
     lb_dd = abs(float((lb or {}).get("max_drawdown", 0) or 0))   # lockbox max drawdown magnitude (points) → MAR
-    total_wr = total_sharpe = total_trades = total_dd = None
+    total_wr = total_sharpe = total_trades = total_dd = total_sortino = None
     total_aw = total_al = None
     if champ:
         try:
@@ -190,6 +206,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         if full:
             _yrs = max(0.1, ((full_hi - (full_lo or full_hi)).days) / 365.25)
             total_sharpe = _sharpe_from_trades(full.get("trades"), cost_pts, _yrs)
+            total_sortino = _sortino_from_trades(full.get("trades"), cost_pts, _yrs)
             total_wr = float(full.get("win_rate", 0) or 0)
             total_trades = int(full.get("num_trades", 0) or 0)
             total_dd = float(full.get("max_drawdown", 0) or 0)
@@ -323,11 +340,11 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "is_sharpe": (dsr.get("winner_sharpe") if dsr else None),
         "mc_p95": ((OV.get("mc") or mc or {}).get("p95")),   # whole-run Monte-Carlo P95 drawdown (sizing floor)
         "equity": equity, "lb_idx": lb_idx,   # PnL curve (points); lb_idx = lockbox boundary
-        "total_sharpe": total_sharpe, "total_win_rate": total_wr,
+        "total_sharpe": total_sharpe, "total_sortino": total_sortino, "total_win_rate": total_wr,
         "total_trades": total_trades, "total_dd": total_dd,   # whole-run champion (incl. lockbox)
         "total_avg_win": total_aw, "total_avg_loss": total_al,   # measured (points), not derived
         "lockbox": {"pnl": lb_pnl, "pf": lb_pf, "trades": lb_trades, "pass": lb_pass,
-                    "win_rate": lb_wr, "sharpe": lb_sharpe, "dd": lb_dd,
+                    "win_rate": lb_wr, "sharpe": lb_sharpe, "sortino": lb_sortino, "dd": lb_dd,
 
                     "avg_win": lb_aw, "avg_loss": lb_al,   # measured from lockbox trades (points)
                     "from": lb_from, "to": full_hi.isoformat()},

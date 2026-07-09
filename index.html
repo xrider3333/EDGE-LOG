@@ -396,10 +396,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='48.5';
+const VERSION='48.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'48.6', date:'2026-07-09', notes:['KPI matrix: added SORTINO (downside-only risk — does not punish big winners) and a true MAR (ann.) on a $100k account.','The dollar net÷drawdown ratio is now labelled RECOVERY (factor), distinct from true MAR.']},
   {v:'48.5', date:'2026-07-09', notes:['Past Runs: filter by MULTIPLE strategies at once (pick several, removable chips).','Past Runs: table header stays fixed while you scroll.','Settings: new CHANGELOG sub-tab (this list).']},
   {v:'48.4', date:'2026-07-09', notes:['Archive a run (◫) to hide it from Past Runs without deleting — reversible; "show N archived" toggle brings them back.','Runner sync now preserves the archived flag across restarts.']},
   {v:'48.3', date:'2026-07-09', notes:['MAR / MAX DD use drawdown magnitude (max_drawdown is stored negative) so risk-adjusted numbers read correctly.']},
@@ -5442,9 +5443,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           tip:'IN-SAMPLE = the knob-tuning start of the graph. NET here is the RESIDUAL (TOTAL − WALK-FORWARD − LOCKBOX) so the three sections reconcile to the whole-run total. PF / Win% / Trades are its in-sample backtest; DAYS read off the curve.'},
         folds.length?{sh_:'WALK-FORWARD', sub:'blue bands', col:C_WF, dr:_dr(isEndMs,optE), days:_days(isEndMs,optE), bars:wfBars||null, net:nWF, dd:ddWF, pf:oosPf, wr:oosWr, aw:awWF.aw, al:awWF.al, sh:foldSharpe(), tr:oosTr,
           tip:'WALK-FORWARD = the blue test bands — data held back while tuning, then tested forward ('+folds.length+' folds). NET P&L & DAYS are that slice of the curve; PF / Win% / Sharpe / Trades are the pooled out-of-sample results.'}:null,
-        (lb.pnl!=null)?{sh_:'LOCKBOX', sub:'purple', col:C_LB, dr:_dr(lbS,lbE), days:_days(lbS,lbE), bars:(lb.bars!=null?+lb.bars:null), net:nLB, dd:ddLB, pf:(lb.pf!=null?+lb.pf:null), wr:(lb.win_rate!=null?+lb.win_rate:null), aw:(lb.avg_win!=null?(+lb.avg_win)*mult:awLB.aw), al:(lb.avg_loss!=null?(+lb.avg_loss)*mult:awLB.al), sh:(lb.sharpe!=null?+lb.sharpe:null), tr:(lb.trades!=null?+lb.trades:null),
+        (lb.pnl!=null)?{sh_:'LOCKBOX', sub:'purple', col:C_LB, dr:_dr(lbS,lbE), days:_days(lbS,lbE), bars:(lb.bars!=null?+lb.bars:null), net:nLB, dd:ddLB, pf:(lb.pf!=null?+lb.pf:null), wr:(lb.win_rate!=null?+lb.win_rate:null), aw:(lb.avg_win!=null?(+lb.avg_win)*mult:awLB.aw), al:(lb.avg_loss!=null?(+lb.avg_loss)*mult:awLB.al), sh:(lb.sharpe!=null?+lb.sharpe:null), sortino:(lb.sortino!=null?+lb.sortino:null), tr:(lb.trades!=null?+lb.trades:null),
           tip:'LOCKBOX = the purple holdout — never tuned or browsed, the final untouched test. NET P&L is the lockbox\'s own backtest (the 🔒 strip figure). Win% & Sharpe are from the lockbox trades.'}:null,
-        {sh_:'TOTAL', total:true, col:'var(--green)', dr:_dr(optS,lbE), days:_days(optS,lbE), bars:totBars, net:nTOT, dd:ddTOT, pf:totPf, wr:(V.total_win_rate!=null?+V.total_win_rate:null), aw:(V.total_avg_win!=null?(+V.total_avg_win)*mult:awTOT.aw), al:(V.total_avg_loss!=null?(+V.total_avg_loss)*mult:awTOT.al), sh:(V.total_sharpe!=null?+V.total_sharpe:null), tr:totTr,
+        {sh_:'TOTAL', total:true, col:'var(--green)', dr:_dr(optS,lbE), days:_days(optS,lbE), bars:totBars, net:nTOT, dd:ddTOT, pf:totPf, wr:(V.total_win_rate!=null?+V.total_win_rate:null), aw:(V.total_avg_win!=null?(+V.total_avg_win)*mult:awTOT.aw), al:(V.total_avg_loss!=null?(+V.total_avg_loss)*mult:awTOT.al), sh:(V.total_sharpe!=null?+V.total_sharpe:null), sortino:(V.total_sortino!=null?+V.total_sortino:null), tr:totTr,
           tip:'TOTAL = the whole backtest = IN-SAMPLE + WALK-FORWARD + LOCKBOX. NET P&L is the equity curve\'s endpoint — the three sections add up to it. Win% & Sharpe are the champion measured over the whole window.'}
       ].filter(Boolean);
       const _pf=v=>(v==null||!isFinite(v)||v<=0)?'—':Math.min(v,99).toFixed(2);
@@ -5454,9 +5455,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {lbl:'NET P&L', top:true, cell:p=>'<span style="font-weight:700;color:'+((p.net||0)>=0?'#1d9e75':'#e24b4a')+'">'+(p.net!=null?fmtUsd(Math.round(p.net)):'—')+'</span>'},
         {lbl:'$ / DAY', cell:p=>{const v=(p.net!=null&&p.days)?p.net/p.days:null;return '<span style="color:var(--text2)">'+(v!=null?fmtUsd(Math.round(v)):'—')+'</span>';}},
         {lbl:'MAX DD', cell:p=>'<span style="color:#e24b4a" title="Worst peak-to-trough equity loss in this section ($). Engine value where available, else from the equity curve.">'+(p.dd!=null&&isFinite(p.dd)&&p.dd>0?'-'+fmtUsd(Math.round(p.dd)):'—')+'</span>'},
-        {lbl:'MAR', cell:p=>{const v=(p.net!=null&&p.net>0&&p.dd&&p.dd>0)?p.net/p.dd:null;return '<span title="Recovery factor (MAR) = net P&amp;L ÷ max drawdown. Dollars earned per $1 of worst-case peak-to-trough loss; higher = better risk-adjusted return. Walk-forward re-optimizes each fold so it has no single drawdown → curve estimate." style="color:'+(v!=null&&v>=2?'var(--green)':'var(--text2)')+';font-weight:'+(v!=null&&v>=2?'700':'400')+'">'+(v!=null?v.toFixed(1)+'×':'—')+'</span>';}},
+        {lbl:'RECOVERY', cell:p=>{const v=(p.net!=null&&p.net>0&&p.dd&&p.dd>0)?p.net/p.dd:null;return '<span title="Recovery factor = net P&amp;L ÷ max drawdown ($). Dollars earned per $1 of worst peak-to-trough loss. NOT annualized (grows with track-record length). Walk-forward = curve estimate." style="color:'+(v!=null&&v>=2?'var(--green)':'var(--text2)')+';font-weight:'+(v!=null&&v>=2?'700':'400')+'">'+(v!=null?v.toFixed(1)+'×':'—')+'</span>';}},
+        {lbl:'MAR (ann.)', cell:p=>{const A=100000,yr=p.days?p.days/365.25:null;if(p.net==null||!yr||yr<=0||!p.dd||p.dd<=0||(A+p.net)<=0)return '<span style="color:var(--text2)">—</span>';const cagr=Math.pow((A+p.net)/A,1/yr)-1,ddp=p.dd/(A+Math.max(0,p.net)),mar=(ddp>0)?cagr/ddp:null;return '<span title="True MAR = CAGR ÷ max-drawdown-%, on an assumed $100k account. Annualized, so it is fair across strategies of any length. (The RECOVERY row above is the same idea in raw dollars, not annualized.)" style="color:var(--text2)">'+(mar!=null&&isFinite(mar)?mar.toFixed(2):'—')+'</span>';}},
         {lbl:'PF', cell:p=>'<span style="color:'+((p.pf!=null&&p.pf>=1)?'var(--text)':'var(--red)')+'">'+_pf(p.pf)+'</span>'},
         {lbl:'SHARPE', cell:p=>'<span style="color:var(--text2)">'+_sh(p.sh)+'</span>'},
+        {lbl:'SORTINO', cell:p=>'<span title="Like Sharpe but only DOWNSIDE volatility in the denominator — it does not penalise big winners, so it reads higher than Sharpe for fat-tailed strategies like this one. (Lockbox + total only; sections with no saved trade series show —.)" style="color:var(--text2)">'+_sh(p.sortino)+'</span>'},
         {lbl:'WIN %', cell:p=>'<span style="color:var(--text2)">'+_wr(p.wr)+'</span>'},
         {lbl:'AVG WIN', cell:p=>'<span style="color:#1d9e75">'+(p.aw!=null&&isFinite(p.aw)?fmtUsd(Math.round(p.aw)):'—')+'</span>'},
         {lbl:'AVG LOSS', cell:p=>'<span style="color:#e24b4a">'+(p.al!=null&&isFinite(p.al)?'-'+fmtUsd(Math.round(p.al)):'—')+'</span>'},
