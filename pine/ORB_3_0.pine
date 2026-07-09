@@ -7,6 +7,12 @@
 //          the validated edge). All inputs now match the paper-trading config:
 //          OR=3, Both, stop 0.75, vol 1.5, buf 0, target 0, flat-EOD. For an exact
 //          engine cross-check set volFilter=0 + TV Back-adjustment OFF on both sides.
+//  v1.3 — 2026-07-08: default flipped to the EXACT CROSS-CHECK cut (volFilter 0) so
+//          the file pastes-and-runs against tools/reconcile.py with ZERO input changes
+//          (OR=3, Both, stop 0.75, vol 0, buf 0, target 0, flat-EOD). Also fixed a
+//          tooltip that broke compilation — Pine v5 has no adjacent-string concat, so
+//          a multi-line "a" "b" tooltip is a syntax error (use one string or +).
+//          FOR LIVE TRADING set volFilter back to 1.5 (the validated edge).
 //
 //  Logic (faithful to the AUGUR engine):
 //    • Opening range = high/low of the first `orBars` bars of each RTH session.
@@ -36,7 +42,7 @@
 //  Deployable defaults = the WF-validated simple family (NQ/ES 5m RTH).
 //  RESEARCH / paper-trading tool. Validate before risking money.
 // =============================================================================
-strategy("AUGUR ORB 3.0 v1.1 — opening range breakout", overlay=true,
+strategy("AUGUR ORB 3.0 v1.3 — opening range breakout", overlay=true,
      default_qty_type=strategy.fixed, default_qty_value=1, pyramiding=0,
      commission_type=strategy.commission.cash_per_order, commission_value=2.83,
      slippage=0, calc_on_every_tick=false, process_orders_on_close=true)
@@ -48,12 +54,8 @@ orBars    = input.int(3,    "Opening range (bars)",      minval=1, maxval=12,  g
 tradeMode = input.string("Both", "Direction", group=gP,
      options=["Both","First-candle dir","Long Only","Short Only"])
 stopFrac  = input.float(0.75, "Stop (x range width)",     minval=0.5, maxval=2.0, step=0.25, group=gP)
-volFilter = input.float(1.5,  "Volume filter (x session avg, 0=off)", minval=0.0, maxval=3.0, step=0.25, group=gP,
-     tooltip="DEPLOYABLE default 1.5 — this IS the edge (fragility test: lifts PF ~1.1->1.5 "
-             "and makes the aggregate nearly feed-noise-immune). Engine checks the breakout "
-             "bar's OWN volume before entering; this port enters then ejects thin bars as tiny "
-             "scratch trades (see header). For an EXACT trade-for-trade match vs the engine "
-             "cross-check, set this to 0 on BOTH sides; for real trading, keep 1.5.")
+volFilter = input.float(0.0,  "Volume filter (x session avg, 0=off)", minval=0.0, maxval=3.0, step=0.25, group=gP,
+     tooltip="0 = OFF, the default here so this pastes-and-runs as an EXACT engine cross-check. The engine checks the breakout bar's own volume BEFORE entering; this port can only enter then eject thin bars as tiny scratch trades, so keep 0 for a clean trade-for-trade match. For LIVE trading set 1.5 (the validated edge that lifts PF ~1.1 to 1.5).")
 brkBuf    = input.float(0.0,  "Breakout buffer (x range)", minval=0.0, maxval=0.5, step=0.05, group=gP)
 targetR   = input.float(0.0,  "Target (x risk, 0=EOD only)", minval=0.0, maxval=6.0, step=0.5, group=gP)
 flatEod   = input.bool(true,  "Flat by session close", group=gP)
