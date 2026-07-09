@@ -574,6 +574,27 @@ class FirestoreQueue:
                                 "result": json_safe(res), "finishedAt": time.time()})
                     n += 1
                     continue
+                # Blotter reconciliation (compute, not a file-op) — run the engine on the
+                # same config+window and diff it against the pasted TV/NT export text.
+                if action == "reconcile":
+                    from augur_engine.reconcile import run_reconcile
+                    p = doc.get("payload") or {}
+                    try:
+                        rec = run_reconcile(
+                            p.get("strategy"), instrument=p.get("instrument"),
+                            timeframe=p.get("timeframe", "5m"), session=p.get("session", "rth"),
+                            params=p.get("params") or {},
+                            date_from=p.get("date_from") or None, date_to=p.get("date_to") or None,
+                            cost_pts=float(p.get("cost_pts", 0) or 0),
+                            tv_text=p.get("tv_csv"), nt_text=p.get("nt_csv"),
+                            tol_min=float(p.get("tol_min", 10) or 10))
+                        res = {"ok": True, **rec}
+                    except Exception as e:
+                        res = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+                    ref.update({"status": "done" if res.get("ok") else "error",
+                                "result": json_safe(res), "finishedAt": time.time()})
+                    n += 1
+                    continue
                 res = process_command(action, doc.get("payload") or doc, log)
                 ref.update({"status": "done" if res.get("ok") else "error",
                             "result": json_safe(res), "finishedAt": time.time()})

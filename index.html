@@ -396,10 +396,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='48.8';
+const VERSION='48.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'48.9', date:'2026-07-09', notes:['NEW: Backtest ⇄ TradingView / NinjaTrader reconciler (Settings ▸ GENERAL ▸ OPEN RECONCILER). Paste an exported trade list and the runner reruns the same strategy on your master and diffs it trade-for-trade — matched %, total-PnL Δ, and an auto-diagnosis (tz/DST offset, fees, ETH-vs-RTH, contract rolls, entry-fill model, side flips). Distinct from the Webull fills badge — this is backtest-vs-platform parity.']},
   {v:'48.8', date:'2026-07-09', notes:['Past Runs strategy filter moved into the header as a "▦ strategy ▾" pill picker — it no longer opens a dropdown that covered the run list. Pills sit above the table, stay open for multi-select, and the table filters live.']},
   {v:'48.7', date:'2026-07-09', notes:['Past Runs strategy filter: the picker now STAYS OPEN so you can select several strategies in one go (it used to collapse after each click).']},
   {v:'48.6', date:'2026-07-09', notes:['KPI matrix: added SORTINO (downside-only risk — does not punish big winners) and a true MAR (ann.) on a $100k account.','The dollar net÷drawdown ratio is now labelled RECOVERY (factor), distinct from true MAR.']},
@@ -922,6 +923,90 @@ function _showMasterModal(m,r){
   document.body.appendChild(ov);
   const x=document.getElementById('mv-x');if(x)x.onclick=()=>ov.remove();
   const dl=document.getElementById('mv-dl');if(dl)dl.onclick=()=>masterDownload(m,dl);
+}
+// ── Backtest ⇄ TradingView / NinjaTrader reconciler ──────────────────────────
+// Paste an exported trade list; the runner reruns the SAME strategy on the master and
+// diffs it trade-for-trade (matched %, total-PnL Δ, auto-diagnosis). Distinct from the
+// Webull fills badge — this is backtest-vs-platform PARITY. Core: augur_engine/reconcile.py.
+function _rcParams(s){const o={};(s||'').split(',').forEach(kv=>{kv=kv.trim();if(!kv||kv.indexOf('=')<0)return;let p=kv.split('=');let k=p[0].trim(),v=p[1].trim();if(/^(true|false)$/i.test(v))o[k]=/^true$/i.test(v);else if(/^-?\d+$/.test(v))o[k]=parseInt(v,10);else if(/^-?\d*\.\d+$/.test(v))o[k]=parseFloat(v);else o[k]=v;});return o;}
+function openReconcile(){
+  const old=document.getElementById('rc-overlay');if(old)old.remove();
+  const ov=document.createElement('div');ov.id='rc-overlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow:auto';
+  ov.onclick=(e)=>{if(e.target===ov)ov.remove();};
+  const fld=(l,inner)=>'<div><label class="lbl">'+l+'</label>'+inner+'</div>';
+  const _ap=(typeof APREF!=='undefined'&&APREF)||{};const inst=_ap.instrument||'NQ',tf=_ap.timeframe||'5m',sess=_ap.session||'rth';
+  const opt=(v,cur)=>'<option'+(String(v)===String(cur)?' selected':'')+'>'+v+'</option>';
+  ov.innerHTML='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;max-width:980px;width:100%;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.5)">'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="font-size:14px;font-weight:700;color:var(--text)">⇄ Reconcile backtest vs TradingView / NinjaTrader</span><span style="flex:1"></span><button id="rc-x" class="btn-ghost" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px">✕</button></div>'
+    +'<div style="font-size:var(--fsxs);color:var(--text4);line-height:1.6;margin-bottom:12px">Export the trade list (TradingView → Strategy Tester → List of Trades → download · or NinjaTrader → Strategy Analyzer → Trades → export), paste it below, and the runner reruns the same strategy on your master and diffs it trade-for-trade. For an exact ORB match: RTH, matching timeframe, Back-adjustment OFF, volume filter 0.</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">'
+      +fld('STRATEGY','<input id="rc-strat" value="ORB_3_0.py"/>')
+      +fld('INSTRUMENT','<select id="rc-inst">'+opt('NQ',inst)+opt('ES',inst)+opt('MES',inst)+opt('MNQ',inst)+'</select>')
+      +fld('TIMEFRAME','<select id="rc-tf">'+opt('5m',tf)+opt('1m',tf)+opt('15m',tf)+'</select>')
+      +fld('SESSION','<select id="rc-sess">'+opt('rth',sess)+opt('eth',sess)+'</select>')
+      +fld('FROM (YYYY-MM-DD)','<input id="rc-from" placeholder="2026-05-01"/>')
+      +fld('TO (YYYY-MM-DD)','<input id="rc-to" placeholder="2026-05-29"/>')
+      +fld('COST PTS (round-turn)','<input id="rc-cost" value="0.283"/>')
+      +fld('PLATFORM','<select id="rc-plat"><option value="tv">TradingView</option><option value="nt">NinjaTrader</option></select>')
+      +fld('MATCH TOL (min)','<input id="rc-tol" value="10"/>')
+    +'</div>'
+    +fld('PARAMS (k=v, comma-sep)','<input id="rc-params" value="or_bars=3,trade_mode=Both,stop_frac=0.75,vol_filter=0,breakout_buf=0,target_R=0,flat_eod=True" style="width:100%"/>')
+    +'<div style="margin-top:10px"><label class="lbl">PASTE THE EXPORTED CSV</label><textarea id="rc-csv" rows="6" placeholder="Trade number,Type,Date and time,Price USD,Size (qty),Net PnL USD,..." style="width:100%;font-family:monospace;font-size:11px"></textarea></div>'
+    +'<div style="display:flex;align-items:center;gap:12px;margin-top:10px"><button id="rc-run" class="btn-ghost active" style="padding:7px 16px">RECONCILE</button><span id="rc-msg" style="font-size:var(--fsxs);color:var(--text4)"></span></div>'
+    +'<div id="rc-out" style="margin-top:14px"></div>'
+    +'</div>';
+  document.body.appendChild(ov);
+  document.getElementById('rc-x').onclick=()=>ov.remove();
+  document.getElementById('rc-run').onclick=runReconcile;
+}
+async function runReconcile(){
+  const g=id=>{const e=document.getElementById(id);return e?String(e.value||'').trim():'';};
+  const msg=document.getElementById('rc-msg'),out=document.getElementById('rc-out');
+  const csv=document.getElementById('rc-csv').value;
+  if(!csv||!csv.trim()){msg.textContent='paste a CSV first';return;}
+  const plat=g('rc-plat');
+  const payload={strategy:g('rc-strat'),instrument:g('rc-inst'),timeframe:g('rc-tf'),session:g('rc-sess'),
+    date_from:g('rc-from')||null,date_to:g('rc-to')||null,cost_pts:parseFloat(g('rc-cost'))||0,
+    params:_rcParams(g('rc-params')),tol_min:parseFloat(g('rc-tol'))||10};
+  payload[plat==='nt'?'nt_csv':'tv_csv']=csv;
+  msg.textContent='⏳ running on your runner (needs EdgeLog.bat)…';out.innerHTML='';
+  document.getElementById('rc-run').disabled=true;
+  try{const r=await _runCmd('reconcile',payload);msg.textContent='✓ done';out.innerHTML=_rcRender(r,plat);}
+  catch(e){msg.textContent='✖ '+e.message;}
+  finally{const b=document.getElementById('rc-run');if(b)b.disabled=false;}
+}
+function _rcRender(r,plat){
+  const key=plat==='nt'?'ninjatrader':'tradingview';
+  const P=((r&&r.platforms)||{})[key];
+  if(!P)return '<div style="color:var(--yellow);font-size:var(--fsxs)">No result — 0 trades in the window, or the CSV didn\'t parse. Check the dates and that you pasted the List-of-Trades export.</div>';
+  const s=P.summary||{};
+  const usd=v=>v==null?'—':(v<0?'-$':'$')+Math.abs(+v).toLocaleString(undefined,{maximumFractionDigits:0});
+  const num=v=>v==null?'':(+v).toLocaleString(undefined,{maximumFractionDigits:2});
+  const pct=s.a_trades?Math.round(100*s.matched/s.a_trades):0;
+  const stat=(l,v,c)=>'<div><div class="lbl">'+l+'</div><div style="font-size:18px'+(c?';color:'+c:'')+'">'+v+'</div></div>';
+  let h='<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px">'
+    +stat('MATCHED',s.matched+' / '+s.a_trades+' <span style="font-size:11px;color:var(--text4)">('+pct+'%)</span>','var(--green)')
+    +stat('EDGELOG PnL',usd(s.total_a))
+    +stat((P.b_source||'TV')+' PnL',usd(s.total_b))
+    +stat('Δ TOTAL',usd(s.total_delta),'var(--yellow)')
+    +stat('MEDIAN Δ/TRADE',s.median_dpnl==null?'—':'$'+(+s.median_dpnl).toFixed(2))
+    +(s.offset_min?stat('TZ OFFSET',(s.offset_min/60)+'h','var(--yellow)'):'')
+    +'</div>';
+  h+='<div class="lbl" style="margin-bottom:4px">DIAGNOSIS</div>';
+  h+=((P.diagnosis||[]).map(d=>'<div style="font-size:var(--fsxs);color:var(--text3);margin-bottom:3px;line-height:1.5"><b style="color:var(--blue)">['+d.tag+']</b> '+d.msg+'</div>').join(''))||'<div style="color:var(--text5);font-size:var(--fsxs)">—</div>';
+  const rows=P.matched||[];
+  if(rows.length){
+    h+='<div class="lbl" style="margin:12px 0 4px">MATCHED TRADES ('+(P.matched_total||rows.length)+(P.matched_total>rows.length?' · showing first '+rows.length:'')+')</div>';
+    const th=c=>'<th style="position:sticky;top:0;background:var(--bg1);padding:3px 8px;text-align:right;color:var(--text4);border-bottom:1px solid var(--border);white-space:nowrap">'+c+'</th>';
+    h+='<div style="overflow:auto;max-height:42vh;border:1px solid var(--border);border-radius:8px"><table style="border-collapse:collapse;width:100%;font-size:var(--fsxs)"><tr>'
+      +['#','entry','side','EDGELOG $',(P.b_source||'TV')+' $','Δt(m)','Δpnl $','Δpx'].map(th).join('')+'</tr>'
+      +rows.map(x=>{const cells=[x.n,x.entry,(x.side+(x.flip?' ⚠':'')),usd(x.a_pnl),usd(x.b_pnl),(x.dt_min==null?'':(+x.dt_min).toFixed(0)),num(x.dpnl),(x.dpx==null?'':(+x.dpx).toFixed(2))];
+        return '<tr>'+cells.map((v,ci)=>'<td style="text-align:'+(ci===1?'left':'right')+';padding:2px 8px;color:'+(x.flip&&ci===2?'var(--yellow)':'var(--text3)')+';white-space:nowrap">'+v+'</td>').join('')+'</tr>';}).join('')
+      +'</table></div>';
+  }
+  h+='<div style="font-size:var(--fsxs);color:var(--text5);margin-top:8px">Unmatched: EDGELOG '+s.unmatched_a+' · '+(P.b_source||'TV')+' '+s.unmatched_b+'. On breakout fills TV is pessimistic (fills at the bar close); the engine is the realistic side — see ORB.md.</div>';
+  return h;
 }
 async function libCmd(action,payload,verb){
   if(!cmdRef){augurLibMsg='⚠ sign in first';renderApp();return;}
@@ -6902,6 +6987,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'</div><button class="btn-ghost active" id="set-save" style="margin-top:12px">SAVE DEFAULTS</button><span id="set-saved" style="margin-left:10px;font-size:var(--fsxs);color:var(--green)"></span>')
         +'<div class="lbl" style="margin-bottom:6px">RUNNER</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7;margin-bottom:14px">Backtests, sweeps and AI runs execute on YOUR PC via the local runner. Start it with <code>EdgeLog.bat</code> (it watches Firestore and syncs run history + library). Only one runner should watch at a time.</div>'
+        +'<div class="lbl" style="margin-bottom:6px">RECONCILE vs TRADINGVIEW / NINJATRADER</div>'
+        +'<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7;margin-bottom:14px">Paste a TradingView or NinjaTrader trade export and diff it against your engine backtest — matched %, total-PnL Δ, and an auto-diagnosis (tz offset, fees, ETH-vs-RTH, contract rolls, fill model). Runs on your local runner. <button class="btn-ghost active" onclick="openReconcile()" style="margin-left:8px;padding:5px 14px">OPEN RECONCILER</button></div>'
         +'<div class="lbl" style="margin-bottom:6px">AI PROVIDERS</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7;margin-bottom:14px"><b>Ollama · qwen3.6</b> — free, local. <b>Claude CLI</b> — your Claude subscription, fastest/sharpest. <b>Anthropic API</b> — pay-per-token (key read from local augur_config.json, never the browser).</div>'
         +'<div class="lbl" style="margin-bottom:6px">AUTO-PULL / DATA SYNC</div>'
