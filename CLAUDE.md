@@ -108,9 +108,11 @@ Update `ROADMAP.md` as work ships; keep this file for durable context/convention
 - **Runner command channel** only processes commands behind a uid allowlist
   (`--allow-uid`); jobs from other uids are ignored.
 - **Git (standing authorization — granted by owner 2026-06-27):** AUTO-COMMIT AND PUSH. After
-  any change, bump the website version by 0.1 (`const VERSION` in `index.html`), commit, and
-  push to `main` WITHOUT asking — GitHub serves the live site, so the push IS the deploy, and a
-  change that isn't pushed is invisible to the owner. Always state the version you pushed. You
+  any change, bump the website version by 0.1 (`const VERSION` in `index.html`) AND prepend a
+  short `{v,date,notes:[...]}` entry to the `CHANGELOG` array immediately below `const VERSION`
+  (it renders in **Settings ▸ CHANGELOG**; keep notes user-facing and terse — one line each),
+  commit, and push to `main` WITHOUT asking — GitHub serves the live site, so the push IS the
+  deploy, and a change that isn't pushed is invisible to the owner. Always state the version you pushed. You
   have full standing permission to edit ANY file and to start/restart `EdgeLog.bat`. (Only true
   history-rewrites — force-push to `main`, branch deletion — still warrant a quick heads-up.)
   **Before bumping VERSION: `git fetch` + read the CURRENT `const VERSION` from `index.html`
