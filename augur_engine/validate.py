@@ -24,10 +24,11 @@ def _parse(d):
         return None
 
 
-def _sharpe_from_trades(trades, cost, years):
-    """Annualized Sharpe from a per-trade NET-PnL series (trade tuple's t[2] is gross points).
-    Returns None when there aren't enough trades / no time span — so the caller can show '—'."""
-    pnls = [float(t[2]) - cost for t in (trades or [])]
+def _sharpe_from_trades(trades, years):
+    """Annualized Sharpe from a per-trade NET-PnL series. The trades come from run_backtest,
+    which has ALREADY subtracted cost_pts (t[2] is net) — do NOT subtract cost again here, or
+    Sharpe double-counts fees. Returns None when there aren't enough trades / no span."""
+    pnls = [float(t[2]) for t in (trades or [])]
     n = len(pnls)
     if n < 3 or not years or years <= 0:
         return None
@@ -38,10 +39,10 @@ def _sharpe_from_trades(trades, cost, years):
     return (mean / sd) * ((n / years) ** 0.5)
 
 
-def _sortino_from_trades(trades, cost, years):
+def _sortino_from_trades(trades, years):
     """Annualized Sortino — like Sharpe but the denominator counts only DOWNSIDE (below-zero)
-    dispersion, so a fat-right-tail strategy isn't penalised for its big winners."""
-    pnls = [float(t[2]) - cost for t in (trades or [])]
+    dispersion. Trades are already net of cost (run_backtest applied cost_pts) — no re-subtract."""
+    pnls = [float(t[2]) for t in (trades or [])]
     n = len(pnls)
     if n < 3 or not years or years <= 0:
         return None
@@ -52,11 +53,11 @@ def _sortino_from_trades(trades, cost, years):
     return (mean / dd) * ((n / years) ** 0.5)
 
 
-def _avg_wl(trades, cost):
-    """Avg win / avg loss in POINTS (fees included) from a per-trade NET-PnL series
-    (trade tuple's t[2] is gross points). avg_loss is a POSITIVE magnitude. Returns
-    (None, None) when there are no wins / losses — so the report shows '—' or falls back."""
-    pnls = [float(t[2]) - cost for t in (trades or [])]
+def _avg_wl(trades):
+    """Avg win / avg loss in POINTS (net of cost) from a per-trade NET-PnL series. Trades are
+    already net (run_backtest applied cost_pts) — do NOT subtract cost again. avg_loss is a
+    POSITIVE magnitude. Returns (None, None) when there are no wins / losses."""
+    pnls = [float(t[2]) for t in (trades or [])]
     wins = [p for p in pnls if p > 0]
     losses = [-p for p in pnls if p < 0]
     aw = (sum(wins) / len(wins)) if wins else None
@@ -209,11 +210,11 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     #    Lockbox stats come from the lockbox trades we already have; the WHOLE-RUN totals come
     #    from ONE champion backtest over the full window (incl. lockbox) with trades. ──
     lb_wr = (float(lb.get("win_rate", 0) or 0) if lb else None)
-    lb_sharpe = _sharpe_from_trades((lb or {}).get("trades"), cost_pts,
+    lb_sharpe = _sharpe_from_trades((lb or {}).get("trades"),
                                     max(0.05, lockbox_months / 12.0))
-    lb_sortino = _sortino_from_trades((lb or {}).get("trades"), cost_pts,
+    lb_sortino = _sortino_from_trades((lb or {}).get("trades"),
                                       max(0.05, lockbox_months / 12.0))
-    lb_aw, lb_al = _avg_wl((lb or {}).get("trades"), cost_pts)   # honest avg win/loss (points)
+    lb_aw, lb_al = _avg_wl((lb or {}).get("trades"))   # honest avg win/loss (points, net)
     lb_dd = abs(float((lb or {}).get("max_drawdown", 0) or 0))   # lockbox max drawdown magnitude (points) → MAR
     total_wr = total_sharpe = total_trades = total_dd = total_sortino = None
     total_aw = total_al = None
@@ -226,12 +227,12 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
             full = None
         if full:
             _yrs = max(0.1, ((full_hi - (full_lo or full_hi)).days) / 365.25)
-            total_sharpe = _sharpe_from_trades(full.get("trades"), cost_pts, _yrs)
-            total_sortino = _sortino_from_trades(full.get("trades"), cost_pts, _yrs)
+            total_sharpe = _sharpe_from_trades(full.get("trades"), _yrs)
+            total_sortino = _sortino_from_trades(full.get("trades"), _yrs)
             total_wr = float(full.get("win_rate", 0) or 0)
             total_trades = int(full.get("num_trades", 0) or 0)
             total_dd = float(full.get("max_drawdown", 0) or 0)
-            total_aw, total_al = _avg_wl(full.get("trades"), cost_pts)   # honest avg win/loss (points)
+            total_aw, total_al = _avg_wl(full.get("trades"))   # honest avg win/loss (points, net)
 
             # ── Rebuild the 1A equity curve at a SINGLE UNIFORM resolution from the whole-window
             #    champion trades. Fixes the pre-lockbox-smooth / lockbox-jagged seam: the old curve

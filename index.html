@@ -396,10 +396,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='49.3';
+const VERSION='49.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'49.4', date:'2026-07-09', notes:['Fix: Auto-Validate lockbox & whole-run Sharpe / Sortino / avg-win / avg-loss were double-counting fees (the trades were already net of cost, then cost was subtracted again). These now read correctly on NEW / re-run validates — expect slightly higher Sharpe and avg-win, slightly smaller avg-loss. The equity curve, PnL, PF and drawdown were already correct.']},
   {v:'49.3', date:'2026-07-09', notes:['Auto-Validate is now more comprehensive (applies to NEW / re-run validates once the runner restarts): (1) 4-WAY ML GATE BAKE-OFF — it runs the champion ungated + logistic / Random-Forest / XGBoost gates × cut-offs, ranks them pre-lockbox and gives the winner one lockbox look; the report tells you which it chose and whether it held. (2) WALK-FORWARD now runs BOTH anchored (expanding window) and rolling (fixed window); the stronger scheme drives the verdict and a badge on the fold chart shows which won. (3) NEW overfit gate — PBO (Probability of Backtest Overfitting, CSCV): how often the in-sample-best config lands below the out-of-sample median; complements the Deflated Sharpe. (4) Adversarial regime-drift + VIF collinearity surfaced as explicit checks.']},
   {v:'49.2', date:'2026-07-09', notes:['Past Runs: clicking the STRATEGY header now opens a proper dropdown BELOW it (color-coded to each strategy) — it no longer covers the run list. The dropdown does both: a "sort by strategy" row AND per-strategy show/hide checkboxes. Other columns still sort on click.']},
   {v:'49.1', date:'2026-07-09', notes:['Auto-Validate KPI matrix: rows grouped into sections (return · drawdown · reward÷risk · edge · sample) for easier reading.','Added a CALMAR pill (CAGR ÷ max-drawdown-%, last 3 yrs, $100k account) next to the DSR pill.']},
