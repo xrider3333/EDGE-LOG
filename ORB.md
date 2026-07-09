@@ -259,6 +259,34 @@ Split the deployable's trades by side (net of fees, size 1):
   it's stark, OOS-confirmed, and cross-instrument). A regime flip could revive longs / punish shorts —
   size the tilt, keep some long, and re-check per regime.
 
+### 4.12 Auto-Validate vs the deployable — the PF objective goes short-only (2026-07-09)
+Reconciliation ask: compare 3.0 (137) vs 3.1 side-by-side, all auto-validated the same way. Two findings:
+
+**(a) Auto-Validate on `ORB_3_1.py` does NOT reproduce 125 (run #150).** Same pipeline as 137 (NQ 5m RTH
+no-adj, cost 0.533, discover=auto, 300 trials, 12mo lockbox). It PASSED but discovered a **short-only**
+champion — `or1/stop1.75/trail6/target4.0R/partial1.5/atr0.6` — because Auto-Validate ranks by PF/robustness,
+so it re-finds the §4.11 short edge and drops the near-break-even longs. *"Auto-validate the strategy" ≠
+"validate 125"; to stamp the deployable you must PIN its params* — see `augur_strategies/ORB_3_1_125.py`
+(deploy-lock: search space collapsed to the single 125 config → run #~151).
+
+**(b) 4-way head-to-head** — each config's EXACT params on identical no-adj data (cost 0.533, full 2010–2026;
+ALL 6/6 folds net-positive + lockbox-positive → *none overfit*), `tools/…/compare_configs.py`:
+
+| config | net $ | max DD | PF | trades | **MAR** | LB PF |
+|---|--:|--:|--:|--:|--:|--:|
+| 136 · 3.0 grid argmax (or3/stop.75/ride, Both) | $561k | $26.5k | 1.40 | 4,060 | 21.1 | 1.29 |
+| 137 · 3.0 auto-validate (or1/stop1.75/4.5R, Both) | **$567k** | $40.2k | 1.47 | 3,951 | 14.1 | 1.51 |
+| **125 · 3.1 deployable** (or1/stop.75/trail5, Both) | $361k | **$9.4k** | 1.61 | 4,064 | **38.6** | 1.63 |
+| 150 · 3.1 auto-validate (**short-only**) | $385k | $27.9k | 1.57 | 2,291 | 13.8 | **1.70** |
+
+- **125 stays the risk-adjusted king** (MAR 38.6, DD $9.4k) — the trail's DD magic only appears in the
+  Both / tight-stop / ride+trail form; the PF-maximizing search never reaches it.
+- **137** = highest PnL + best "Both" lockbox, at 4× 125's drawdown. **136** is genuinely robust, just
+  Pareto-dominated (137 on PF/lockbox, 125 on DD) → fine to keep archived. **150 short-only** has the best
+  *recent* edge (LB PF 1.70) but 3× 125's DD — a research signal (§4.11), not the deployable.
+- **Lever if you don't want short-only:** pin `trade_mode=Both`, or rank discovery by **MAR not PF**
+  (why MAR-ranked 125 stays two-sided). Runs 126–133/135 archived (dups of 137 / dominated).
+
 ---
 
 ## 5. What a pro would actually do here (principles)
