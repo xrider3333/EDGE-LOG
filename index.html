@@ -396,10 +396,12 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='49.0';
+const VERSION='49.2';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'49.2', date:'2026-07-09', notes:['Past Runs: clicking the STRATEGY header now opens a proper dropdown BELOW it (color-coded to each strategy) — it no longer covers the run list. The dropdown does both: a "sort by strategy" row AND per-strategy show/hide checkboxes. Other columns still sort on click.']},
+  {v:'49.1', date:'2026-07-09', notes:['Auto-Validate KPI matrix: rows grouped into sections (return · drawdown · reward÷risk · edge · sample) for easier reading.','Added a CALMAR pill (CAGR ÷ max-drawdown-%, last 3 yrs, $100k account) next to the DSR pill.']},
   {v:'49.0', date:'2026-07-09', notes:['Past Runs: click the STRATEGY column header to open the multi-select filter (pills appear above the list, stay open, toggle which strategies are shown). Other column headers still sort as before.']},
   {v:'48.9', date:'2026-07-09', notes:['NEW: Backtest ⇄ TradingView / NinjaTrader reconciler (Settings ▸ GENERAL ▸ OPEN RECONCILER). Paste an exported trade list and the runner reruns the same strategy on your master and diffs it trade-for-trade — matched %, total-PnL Δ, and an auto-diagnosis (tz/DST offset, fees, ETH-vs-RTH, contract rolls, entry-fill model, side flips). Distinct from the Webull fills badge — this is backtest-vs-platform parity.']},
   {v:'48.8', date:'2026-07-09', notes:['Past Runs strategy filter moved into the header as a "▦ strategy ▾" pill picker — it no longer opens a dropdown that covered the run list. Pills sit above the table, stay open for multi-select, and the table filters live.']},
@@ -5554,9 +5556,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {lbl:'MAX DD', cell:p=>'<span style="color:#e24b4a" title="Worst peak-to-trough equity loss in this section ($). Engine value where available, else from the equity curve.">'+(p.dd!=null&&isFinite(p.dd)&&p.dd>0?'-'+fmtUsd(Math.round(p.dd)):'—')+'</span>'},
         {lbl:'RECOVERY', cell:p=>{const v=(p.net!=null&&p.net>0&&p.dd&&p.dd>0)?p.net/p.dd:null;return '<span title="Recovery factor = net P&amp;L ÷ max drawdown ($). Dollars earned per $1 of worst peak-to-trough loss. NOT annualized (grows with track-record length). Walk-forward = curve estimate." style="color:'+(v!=null&&v>=2?'var(--green)':'var(--text2)')+';font-weight:'+(v!=null&&v>=2?'700':'400')+'">'+(v!=null?v.toFixed(1)+'×':'—')+'</span>';}},
         {lbl:'MAR (ann.)', cell:p=>{const A=100000,yr=p.days?p.days/365.25:null;if(p.net==null||!yr||yr<=0||!p.dd||p.dd<=0||(A+p.net)<=0)return '<span style="color:var(--text2)">—</span>';const cagr=Math.pow((A+p.net)/A,1/yr)-1,ddp=p.dd/(A+Math.max(0,p.net)),mar=(ddp>0)?cagr/ddp:null;return '<span title="True MAR = CAGR ÷ max-drawdown-%, on an assumed $100k account. Annualized, so it is fair across strategies of any length. (The RECOVERY row above is the same idea in raw dollars, not annualized.)" style="color:var(--text2)">'+(mar!=null&&isFinite(mar)?mar.toFixed(2):'—')+'</span>';}},
-        {lbl:'PF', cell:p=>'<span style="color:'+((p.pf!=null&&p.pf>=1)?'var(--text)':'var(--red)')+'">'+_pf(p.pf)+'</span>'},
         {lbl:'SHARPE', cell:p=>'<span style="color:var(--text2)">'+_sh(p.sh)+'</span>'},
         {lbl:'SORTINO', cell:p=>'<span title="Like Sharpe but only DOWNSIDE volatility in the denominator — it does not penalise big winners, so it reads higher than Sharpe for fat-tailed strategies like this one. (Lockbox + total only; sections with no saved trade series show —.)" style="color:var(--text2)">'+_sh(p.sortino)+'</span>'},
+        {lbl:'PF', cell:p=>'<span style="color:'+((p.pf!=null&&p.pf>=1)?'var(--text)':'var(--red)')+'">'+_pf(p.pf)+'</span>'},
         {lbl:'WIN %', cell:p=>'<span style="color:var(--text2)">'+_wr(p.wr)+'</span>'},
         {lbl:'AVG WIN', cell:p=>'<span style="color:#1d9e75">'+(p.aw!=null&&isFinite(p.aw)?fmtUsd(Math.round(p.aw)):'—')+'</span>'},
         {lbl:'AVG LOSS', cell:p=>'<span style="color:#e24b4a">'+(p.al!=null&&isFinite(p.al)?'-'+fmtUsd(Math.round(p.al)):'—')+'</span>'},
@@ -5568,15 +5570,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   walk-forward = blue wash, lockbox = purple wash, total = green wash, in-sample = neutral.
       const _ovl=p=>p.total?';border-left:2px solid color-mix(in srgb,var(--green) 55%,transparent);background:color-mix(in srgb,var(--green) 9%,transparent)':(p.col&&p.col[0]==='#'?';background:color-mix(in srgb,'+p.col+' 12%,transparent)':'');
       const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:4px 6px;vertical-align:bottom">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:4px 6px;white-space:nowrap;cursor:help;vertical-align:bottom;color:'+p.col+(p.total?';font-weight:800':';font-weight:700')+_ovl(p)+'">'+p.sh_+(p.dr?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+p.dr+'</div>':'')+'</th>').join('')+'</tr>';
-      const body=metrics.map(m=>'<tr style="border-top:1px solid color-mix(in srgb,var(--border) '+(m.top?'70%':'40%')+',transparent)'+(m.top?';background:color-mix(in srgb,var(--border) 10%,transparent)':'')+'">'
+      // group the rows into sections (return / drawdown / reward÷risk / edge / sample) — a small
+      //   uppercase header row precedes the first metric of each group so the eye reads them as blocks.
+      const _grpAt={'NET P&L':'return','MAX DD':'drawdown','RECOVERY':'reward ÷ risk','PF':'edge & profile','TRADES':'sample'},_ncol=phases.length+1;
+      const body=metrics.map(m=>(_grpAt[m.lbl]?'<tr><td colspan="'+_ncol+'" style="padding:9px 6px 2px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+_grpAt[m.lbl]+'</td></tr>':'')
+        +'<tr style="border-top:1px solid color-mix(in srgb,var(--border) '+(m.top?'70%':'40%')+',transparent)'+(m.top?';background:color-mix(in srgb,var(--border) 10%,transparent)':'')+'">'
         +'<td style="padding:5px 6px;font-size:var(--fsxs);color:var(--text2);font-weight:'+(m.top?'700':'400')+';white-space:nowrap">'+m.lbl+'</td>'
         +phases.map(p=>'<td style="padding:5px 6px;text-align:right;white-space:nowrap'+_ovl(p)+'">'+m.cell(p)+'</td>').join('')+'</tr>').join('');
+      // CALMAR = CAGR ÷ max-drawdown-%, over the LAST 3 YEARS, on a $100k account. A whole-run
+      //   recent-window number (not per-section), so it lives as a header pill next to DSR.
+      const _calmar=(function(){const acct=100000,totMs=(optS&&lbE)?(lbE-optS):null;if(!eq||eq.length<8||!totMs)return null;const totYr=totMs/(365.25*864e5);if(totYr<=0)return null;const win=Math.min(3,totYr),i0=Math.max(0,Math.round(eq.length*(1-win/totYr))),seg=eq.slice(i0);if(seg.length<4)return null;const v0=acct+seg[0],v1=acct+seg[seg.length-1];if(v0<=0||v1<=0)return null;const cagr=Math.pow(v1/v0,1/win)-1;let pk=-Infinity,md=0;for(const x of seg){const e=acct+x;if(e>pk)pk=e;const dd=(e-pk)/pk;if(dd<md)md=dd;}const ddp=Math.abs(md);return ddp>0?cagr/ddp:null;})();
       const _vc={PASS:'var(--green)',WEAK:'var(--yellow)',FAIL:'var(--red)'}[V.verdict]||'var(--text4)',_ng=V.n_gates||5;
       return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 6px">'
         +(hdr||'')
         +(V.verdict?'<span style="font-size:13px;font-weight:800;letter-spacing:.5px;color:'+_vc+'">'+V.verdict+'</span>':'')
         +(V.n_pass!=null?'<span style="font-size:8px;padding:2px 7px;border-radius:6px;background:var(--bg1);color:'+(V.n_pass>=_ng?'var(--green)':'var(--text2)')+'">GATES '+V.n_pass+'/'+_ng+'</span>':'')
         +(V.dsr!=null?'<span title="deflated Sharpe (selection-luck haircut)" style="font-size:8px;padding:2px 7px;border-radius:6px;background:var(--bg1);color:var(--text3);cursor:help">DSR '+(+V.dsr).toFixed(2)+'</span>':'')
+        +(_calmar!=null&&isFinite(_calmar)?'<span title="Calmar = CAGR ÷ max-drawdown-%, last 3 years, on a $100k account. Like MAR (ann.) but recent-only — flags a strategy decaying lately." style="font-size:8px;padding:2px 7px;border-radius:6px;background:var(--bg1);color:var(--text3);cursor:help">CALMAR '+_calmar.toFixed(2)+'</span>':'')
         +'</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 4px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
     };
@@ -7086,14 +7096,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   "▦ strategy ▾" toggle reveals an inline wrapping row of pills that STAYS OPEN while you
         //   toggle several strategies; window._stratMenuOpen persists the open state across renders.
         const _stratOpen=!!window._stratMenuOpen;
-        // the STRATEGY column header IS the filter trigger — click it to toggle the pill picker
-        //   (which renders above the list, so it never covers the rows). Styled like the sort
-        //   headers (plain, highlights when a filter is active) with a ▾/▴ affordance.
-        const _stratHdr='<span data-stratmenu title="filter the list by one or more strategies" style="cursor:pointer;user-select:none;white-space:nowrap;'+((fStratSet.size||_stratOpen)?'color:var(--text)':'')+'">STRATEGY'+(fStratSet.size?' ('+fStratSet.size+')':'')+' '+(_stratOpen?'▴':'▾')+'</span>';
-        const _stratPills=_stratOpen?('<div data-stratpanel style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'
-             +_strats.map(f=>{const on=fStratSet.has(f);return '<span data-stratopt="'+String(f).replace(/"/g,'&quot;')+'" style="cursor:pointer;user-select:none;font-size:9px;border-radius:11px;padding:3px 9px;white-space:nowrap;border:1px solid '+(on?'var(--green)':'var(--border)')+';background:'+(on?'color-mix(in srgb,var(--green) 16%,transparent)':'var(--bg2)')+';color:'+(on?'var(--text)':'var(--text4)')+'">'+(on?'✓ ':'')+stratInfo(f).label+'</span>';}).join('')
-             +(fStratSet.size?'<span data-stratclear style="cursor:pointer;user-select:none;font-size:9px;color:var(--text5);padding:3px 6px;text-decoration:underline">✕ clear</span>':'')
-             +'</div>'):'';
+        // the STRATEGY column header opens a color-coded dropdown BELOW it. The dropdown is built
+        //   in JS and appended to <body> as position:fixed (see the handler) so the list's overflow
+        //   / sticky header can't clip or collapse it. It does BOTH: a "sort by strategy" row +
+        //   per-strategy filter checkboxes. ▾ = has a menu; header highlights when sort/filter active.
+        const _stratHdr='<span data-stratmenu title="click to sort or filter by strategy" style="cursor:pointer;user-select:none;white-space:nowrap;'+((fStratSet.size||fSort==='strat'||_stratOpen)?'color:var(--text)':'')+'">STRATEGY'+(fStratSet.size?' ('+fStratSet.size+')':'')+' ▾</span>';
         const tbl='<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}'
           +'.fhsel{appearance:none;-webkit-appearance:none;background:transparent;border:none;cursor:pointer;font:inherit;color:inherit;letter-spacing:inherit;padding:6px 8px;max-width:118px;text-overflow:ellipsis}'
           +'.fhsel:hover{color:var(--text);text-decoration:underline}.fhsel.on{color:var(--text);text-decoration:underline}'
@@ -7104,8 +7111,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +sh('id','RUN','right')+sh('date','DATE','left')+'<th style="vertical-align:bottom;white-space:nowrap;cursor:pointer">'+_stratHdr+'</th>'+sh('trd','TRD','right')+fh('MODE',(_scopes.length>1?'rfScope':''),fScope,_scopes.map(s=>[s,s.slice(0,16)]))+fh('MARKET',(_insts.length>1?'rfInst':''),fInst,_insts.map(i=>[i,i]))+fh('TF',(_tfs.length>1?'rfTf':''),fTf,_tfs.map(t=>[t,t]))+'<th style="text-align:center;vertical-align:bottom">EQUITY</th>'
           +sh('pnl','NET $','right')+sh('perday','$/DAY','right')+sh('maxdd','MAX DD','right')+sh('pf','PF','right')+sh('sharpe','SHARPE','right')+sh('wr','WR','right')+'<th style="text-align:center;vertical-align:bottom" title="walk-forward folds that held out-of-sample">WF</th>'+sh('score','SCORE','right')+sh('took','TOOK','right')+'<th style="vertical-align:bottom">SRC</th>'+'<th style="vertical-align:bottom">RANGE</th>'+sh('days','DAYS','right')
           +'</tr></thead><tbody>'+trows+'</tbody></table></div>';
-        const _stratChips=fStratArr.map(f=>'<span data-stratrm="'+String(f).replace(/"/g,'&quot;')+'" title="remove strategy filter" style="cursor:pointer;font-size:9px;color:var(--text2);background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:2px 8px;white-space:nowrap">'+stratInfo(f).label+' ✕</span>').join('');
-        const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span>'+(_stratOpen?'':_stratChips)+'</span>'+'<span style="display:flex;gap:12px;align-items:center">'+(_nArch?'<span data-rfarch title="archived runs are hidden from this list by default" style="cursor:pointer;font-size:9px;color:'+(fArch?'var(--yellow)':'var(--text5)')+';text-decoration:underline">◫ '+(fArch?'hide':'show')+' '+_nArch+' archived</span>':'')+(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">'+'✕ clear filters</span>':'')+'</span></div>'+_stratPills+tbl);
+        const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span>'+'<span style="display:flex;gap:12px;align-items:center">'+(_nArch?'<span data-rfarch title="archived runs are hidden from this list by default" style="cursor:pointer;font-size:9px;color:'+(fArch?'var(--yellow)':'var(--text5)')+';text-decoration:underline">◫ '+(fArch?'hide':'show')+' '+_nArch+' archived</span>':'')+(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">'+'✕ clear filters</span>':'')+'</span></div>'+tbl);
         // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
         // would trap the sticky checklist-pills row (sticky breaks under any non-visible
         // overflow ancestor). Inline beats the class so the pinned pills work on every theme.
@@ -7500,11 +7506,34 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // filters / sort (persist + re-render)
       content.querySelectorAll('[data-rf]').forEach(s=>{s.onchange=()=>{savePref(s.dataset.rf,s.value);renderApp();};});
       // STRATEGY multi-select panel — stays open across picks (window._stratMenuOpen)
+      // STRATEGY dropdown: built here and appended to <body> as position:fixed anchored below the
+      //   column header, so the list's overflow / sticky header can't clip or collapse it. Does BOTH
+      //   a "sort by strategy" row and color-coded per-strategy filter checkboxes.
       const _toggleStrat=(v)=>{const cur=Array.isArray(APREF.rfStrat)?APREF.rfStrat.slice():(APREF.rfStrat?[String(APREF.rfStrat)]:[]);const i=cur.indexOf(v);if(i>=0)cur.splice(i,1);else cur.push(v);savePref('rfStrat',cur);};
-      const _sm=content.querySelector('[data-stratmenu]');if(_sm)_sm.onclick=(e)=>{e.stopPropagation();window._stratMenuOpen=!window._stratMenuOpen;renderApp();};
-      content.querySelectorAll('[data-stratopt]').forEach(o=>{o.onclick=(e)=>{e.stopPropagation();_toggleStrat(o.dataset.stratopt);window._stratMenuOpen=true;renderApp();};});
-      const _scl=content.querySelector('[data-stratclear]');if(_scl)_scl.onclick=(e)=>{e.stopPropagation();savePref('rfStrat',[]);window._stratMenuOpen=true;renderApp();};
-      content.querySelectorAll('[data-stratrm]').forEach(c=>{c.onclick=()=>{const v=c.dataset.stratrm;const cur=(Array.isArray(APREF.rfStrat)?APREF.rfStrat.slice():(APREF.rfStrat?[String(APREF.rfStrat)]:[])).filter(x=>x!==v);savePref('rfStrat',cur);renderApp();};});
+      if(window._stratCloseH){document.removeEventListener('mousedown',window._stratCloseH);window._stratCloseH=null;}
+      {const _old=document.getElementById('strat-dropdown');if(_old)_old.remove();}
+      const _smTrig=content.querySelector('[data-stratmenu]');
+      if(_smTrig)_smTrig.onclick=(e)=>{e.stopPropagation();window._stratMenuOpen=!window._stratMenuOpen;renderApp();};
+      if(window._stratMenuOpen&&_smTrig){
+        const _fSet=new Set(Array.isArray(APREF.rfStrat)?APREF.rfStrat:(APREF.rfStrat?[String(APREF.rfStrat)]:[]));
+        const _curSort=APREF.rfSort||'id';
+        const _stratsAll=[...new Set(runHistory.map(r=>{const m=_stratMatch(r.strategy);return m?m.file:r.strategy;}).filter(Boolean))].sort();
+        const _rc=_smTrig.getBoundingClientRect();
+        const _dd=document.createElement('div');_dd.id='strat-dropdown';
+        _dd.style.cssText='position:fixed;z-index:9999;top:'+Math.round(_rc.bottom+3)+'px;left:'+Math.round(_rc.left)+'px;min-width:190px;max-height:min(62vh,420px);overflow:auto;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:5px;box-shadow:0 12px 34px rgba(0,0,0,.55);letter-spacing:normal;font-weight:400';
+        let _h='<div data-stratsort title="sort the run list A→Z by strategy" style="cursor:pointer;padding:6px 9px;font-size:var(--fsxs);border-radius:5px;color:'+(_curSort==='strat'?'var(--text)':'var(--text3)')+'">⇅ sort by strategy'+(_curSort==='strat'?' ▾':'')+'</div>'
+          +'<div style="height:1px;background:var(--border);margin:4px 2px"></div>'
+          +'<div style="font-size:8px;letter-spacing:1px;color:var(--text5);padding:2px 9px 4px">SHOW (click to toggle)</div>';
+        _h+=_stratsAll.map(f=>{const on=_fSet.has(f);const ci=stratInfo(f);return '<div data-stratopt="'+String(f).replace(/"/g,'&quot;')+'" style="cursor:pointer;padding:5px 9px;border-radius:5px;font-size:var(--fsxs);white-space:nowrap;display:flex;align-items:center;gap:8px"><span style="width:12px;flex:0 0 auto;color:var(--green)">'+(on?'✓':'')+'</span><span style="width:8px;height:8px;border-radius:2px;flex:0 0 auto;background:'+ci.color+'"></span><span style="color:'+ci.color+';font-weight:600">'+ci.label+'</span></div>';}).join('');
+        if(_fSet.size)_h+='<div style="height:1px;background:var(--border);margin:4px 2px"></div><div data-stratclear style="cursor:pointer;padding:5px 9px;font-size:9px;color:var(--text5)">✕ clear filter (show all)</div>';
+        _dd.innerHTML=_h;document.body.appendChild(_dd);
+        const _ddr=_dd.getBoundingClientRect();if(_ddr.right>window.innerWidth-8)_dd.style.left=Math.max(8,window.innerWidth-8-_ddr.width)+'px';
+        _dd.querySelectorAll('[data-stratopt]').forEach(o=>{o.onmouseenter=()=>{o.style.background='var(--bg1)';};o.onmouseleave=()=>{o.style.background='';};o.onclick=(e)=>{e.stopPropagation();_toggleStrat(o.dataset.stratopt);renderApp();};});
+        const _dss=_dd.querySelector('[data-stratsort]');if(_dss){_dss.onmouseenter=()=>{_dss.style.background='var(--bg1)';};_dss.onmouseleave=()=>{_dss.style.background='';};_dss.onclick=(e)=>{e.stopPropagation();savePref('rfSort','strat');window._stratMenuOpen=false;renderApp();};}
+        const _dsc=_dd.querySelector('[data-stratclear]');if(_dsc)_dsc.onclick=(e)=>{e.stopPropagation();savePref('rfStrat',[]);renderApp();};
+        window._stratCloseH=(ev)=>{if(!ev.target.closest('#strat-dropdown')&&!ev.target.closest('[data-stratmenu]')){window._stratMenuOpen=false;const p=document.getElementById('strat-dropdown');if(p)p.remove();document.removeEventListener('mousedown',window._stratCloseH);window._stratCloseH=null;renderApp();}};
+        setTimeout(()=>{if(window._stratMenuOpen)document.addEventListener('mousedown',window._stratCloseH);},0);
+      }
       content.querySelectorAll('[data-rsort]').forEach(h=>{h.onclick=()=>{savePref('rfSort',h.dataset.rsort);renderApp();};});
       const _star=content.querySelector('[data-rfstar]');if(_star)_star.onclick=()=>{savePref('rfStar',!APREF.rfStar);renderApp();};
       const _rfa=content.querySelector('[data-rfarch]');if(_rfa)_rfa.onclick=()=>{savePref('rfArch',!APREF.rfArch);renderApp();};
