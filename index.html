@@ -940,47 +940,56 @@ function openReconcile(){
   const opt=(v,cur)=>'<option'+(String(v)===String(cur)?' selected':'')+'>'+v+'</option>';
   ov.innerHTML='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;max-width:980px;width:100%;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.5)">'
     +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="font-size:14px;font-weight:700;color:var(--text)">⇄ Reconcile backtest vs TradingView / NinjaTrader</span><span style="flex:1"></span><button id="rc-x" class="btn-ghost" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px">✕</button></div>'
-    +'<div style="font-size:var(--fsxs);color:var(--text4);line-height:1.6;margin-bottom:12px">Export the trade list (TradingView → Strategy Tester → List of Trades → download · or NinjaTrader → Strategy Analyzer → Trades → export), paste it below, and the runner reruns the same strategy on your master and diffs it trade-for-trade. For an exact ORB match: RTH, matching timeframe, Back-adjustment OFF, volume filter 0.</div>'
-    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">'
+    +'<div style="font-size:var(--fsxs);color:var(--text4);line-height:1.6;margin-bottom:12px">Paste your TradingView or NinjaTrader trade export below — it auto-detects the platform and the date range, reruns this strategy on your master, and diffs it trade-for-trade.</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
       +fld('STRATEGY','<input id="rc-strat" value="ORB_3_0.py"/>')
       +fld('INSTRUMENT','<select id="rc-inst">'+opt('NQ',inst)+opt('ES',inst)+opt('MES',inst)+opt('MNQ',inst)+'</select>')
-      +fld('TIMEFRAME','<select id="rc-tf">'+opt('5m',tf)+opt('1m',tf)+opt('15m',tf)+'</select>')
-      +fld('SESSION','<select id="rc-sess">'+opt('rth',sess)+opt('eth',sess)+'</select>')
-      +fld('FROM (YYYY-MM-DD)','<input id="rc-from" placeholder="2026-05-01"/>')
-      +fld('TO (YYYY-MM-DD)','<input id="rc-to" placeholder="2026-05-29"/>')
-      +fld('COST PTS (round-turn)','<input id="rc-cost" value="0.283"/>')
-      +fld('PLATFORM','<select id="rc-plat"><option value="tv">TradingView</option><option value="nt">NinjaTrader</option></select>')
-      +fld('MATCH TOL (min)','<input id="rc-tol" value="10"/>')
     +'</div>'
-    +fld('PARAMS (k=v, comma-sep)','<input id="rc-params" value="or_bars=3,trade_mode=Both,stop_frac=0.75,vol_filter=0,breakout_buf=0,target_R=0,flat_eod=True" style="width:100%"/>')
-    +'<div style="margin-top:10px"><label class="lbl">PASTE THE EXPORTED CSV</label><textarea id="rc-csv" rows="6" placeholder="Trade number,Type,Date and time,Price USD,Size (qty),Net PnL USD,..." style="width:100%;font-family:monospace;font-size:11px"></textarea></div>'
-    +'<div style="display:flex;align-items:center;gap:12px;margin-top:10px"><button id="rc-run" class="btn-ghost active" style="padding:7px 16px">RECONCILE</button><span id="rc-msg" style="font-size:var(--fsxs);color:var(--text4)"></span></div>'
+    +'<div style="margin-top:2px"><label class="lbl">PASTE THE EXPORT (TradingView List of Trades · or NinjaTrader Trades)</label><textarea id="rc-csv" rows="7" placeholder="Trade number,Type,Date and time,Price USD,Size (qty),Net PnL USD,…" style="width:100%;font-family:monospace;font-size:11px"></textarea></div>'
+    +'<div style="display:flex;align-items:center;gap:14px;margin-top:10px"><button id="rc-run" class="btn-ghost active" style="padding:7px 16px">RECONCILE</button><span id="rc-msg" style="font-size:var(--fsxs);color:var(--text4)"></span><span style="flex:1"></span><span id="rc-advt" style="cursor:pointer;font-size:var(--fsxs);color:var(--text4);user-select:none">⚙ Advanced ▾</span></div>'
+    +'<div id="rc-adv" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px">'
+      +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:8px">'
+        +fld('TIMEFRAME','<select id="rc-tf">'+opt('5m',tf)+opt('1m',tf)+opt('15m',tf)+'</select>')
+        +fld('SESSION','<select id="rc-sess">'+opt('rth',sess)+opt('eth',sess)+'</select>')
+        +fld('COST PTS','<input id="rc-cost" value="0.283"/>')
+        +fld('MATCH TOL (min)','<input id="rc-tol" value="10"/>')
+      +'</div>'
+      +fld('PARAMS (k=v — must match what you ran in TV)','<input id="rc-params" value="or_bars=3,trade_mode=Both,stop_frac=0.75,vol_filter=0,breakout_buf=0,target_R=0,flat_eod=True" style="width:100%"/>')
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">'
+        +fld('FROM (blank = auto from export)','<input id="rc-from" placeholder="auto"/>')
+        +fld('TO (blank = auto from export)','<input id="rc-to" placeholder="auto"/>')
+      +'</div>'
+    +'</div>'
     +'<div id="rc-out" style="margin-top:14px"></div>'
     +'</div>';
   document.body.appendChild(ov);
   document.getElementById('rc-x').onclick=()=>ov.remove();
   document.getElementById('rc-run').onclick=runReconcile;
+  document.getElementById('rc-advt').onclick=function(){const a=document.getElementById('rc-adv');const open=a.style.display==='none';a.style.display=open?'block':'none';this.textContent=open?'⚙ Advanced ▴':'⚙ Advanced ▾';};
 }
 async function runReconcile(){
   const g=id=>{const e=document.getElementById(id);return e?String(e.value||'').trim():'';};
   const msg=document.getElementById('rc-msg'),out=document.getElementById('rc-out');
   const csv=document.getElementById('rc-csv').value;
-  if(!csv||!csv.trim()){msg.textContent='paste a CSV first';return;}
-  const plat=g('rc-plat');
-  const payload={strategy:g('rc-strat'),instrument:g('rc-inst'),timeframe:g('rc-tf'),session:g('rc-sess'),
+  if(!csv||!csv.trim()){msg.textContent='paste your export first';return;}
+  const h0=(csv.split('\n')[0]||'').toLowerCase();               // auto-detect platform from the header
+  const isNT=h0.indexOf('market pos')>=0||(h0.indexOf('entry time')>=0&&h0.indexOf('exit time')>=0);
+  const payload={strategy:g('rc-strat')||'ORB_3_0.py',instrument:g('rc-inst')||'NQ',
+    timeframe:g('rc-tf')||'5m',session:g('rc-sess')||'rth',
     date_from:g('rc-from')||null,date_to:g('rc-to')||null,cost_pts:parseFloat(g('rc-cost'))||0,
     params:_rcParams(g('rc-params')),tol_min:parseFloat(g('rc-tol'))||10};
-  payload[plat==='nt'?'nt_csv':'tv_csv']=csv;
-  msg.textContent='⏳ running on your runner (needs EdgeLog.bat)…';out.innerHTML='';
-  document.getElementById('rc-run').disabled=true;
-  try{const r=await _runCmd('reconcile',payload);msg.textContent='✓ done';out.innerHTML=_rcRender(r,plat);}
+  payload[isNT?'nt_csv':'tv_csv']=csv;
+  msg.textContent='⏳ running on your runner…';out.innerHTML='';
+  const btn=document.getElementById('rc-run');btn.disabled=true;
+  try{const r=await _runCmd('reconcile',payload);
+    const w=(r&&r.auto_window)||{};msg.textContent='✓ '+(isNT?'NinjaTrader':'TradingView')+(w.from?' · '+w.from+' → '+w.to:'');
+    out.innerHTML=_rcRender(r);}
   catch(e){msg.textContent='✖ '+e.message;}
-  finally{const b=document.getElementById('rc-run');if(b)b.disabled=false;}
+  finally{btn.disabled=false;}
 }
-function _rcRender(r,plat){
-  const key=plat==='nt'?'ninjatrader':'tradingview';
-  const P=((r&&r.platforms)||{})[key];
-  if(!P)return '<div style="color:var(--yellow);font-size:var(--fsxs)">No result — 0 trades in the window, or the CSV didn\'t parse. Check the dates and that you pasted the List-of-Trades export.</div>';
+function _rcRender(r){
+  const pl=(r&&r.platforms)||{};const P=pl.tradingview||pl.ninjatrader;   // whichever was pasted
+  if(!P)return '<div style="color:var(--yellow);font-size:var(--fsxs)">No result — 0 trades in the export\'s window, or the CSV didn\'t parse. Make sure you pasted the List-of-Trades / Trades export (with its header row).</div>';
   const s=P.summary||{};
   const usd=v=>v==null?'—':(v<0?'-$':'$')+Math.abs(+v).toLocaleString(undefined,{maximumFractionDigits:0});
   const num=v=>v==null?'':(+v).toLocaleString(undefined,{maximumFractionDigits:2});

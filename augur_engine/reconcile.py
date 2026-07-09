@@ -405,15 +405,24 @@ def run_reconcile(strategy, *, instrument, timeframe="5m", session="rth", params
     """High-level entry for the runner: run the engine, parse the pasted TV/NT export
     text, and return a JSON-safe result per platform. Windows both sides to date_from/to."""
     mult = mult if mult is not None else MULT.get(str(instrument).upper(), 1)
+    # Parse the pasted export(s) FIRST, so we can auto-window the engine to their own date
+    # span — the UI never has to ask for dates.
+    parsed = {}
+    for key, text, parser in (("tradingview", tv_text, parse_tv_text),
+                              ("ninjatrader", nt_text, parse_nt_text)):
+        if text and str(text).strip():
+            parsed[key] = parser(text, mult)
+    if not (date_from or date_to) and parsed:
+        allt = [t for (b, _m) in parsed.values() for t in b if t.entry_dt is not None]
+        if allt:
+            date_from = min(t.entry_dt for t in allt).strftime("%Y-%m-%d")
+            date_to = max(t.entry_dt for t in allt).strftime("%Y-%m-%d")
     a, a_meta = edgelog_blotter(strategy, instrument, timeframe, session, params or {},
                                 date_from=date_from, date_to=date_to, cost_pts=cost_pts, mult=mult)
     out = {"edgelog": {"num_trades": len(a), "master": a_meta.get("master"),
-                       "window": a_meta.get("window")}, "platforms": {}}
-    for key, text, parser in (("tradingview", tv_text, parse_tv_text),
-                              ("ninjatrader", nt_text, parse_nt_text)):
-        if not text or not str(text).strip():
-            continue
-        b, b_meta = parser(text, mult)
+                       "window": a_meta.get("window")},
+           "auto_window": {"from": date_from, "to": date_to}, "platforms": {}}
+    for key, (b, b_meta) in parsed.items():
         b = clip_window(b, date_from, date_to)
         b_meta["num_trades"] = len(b)
         off = best_offset(a, b, tol_min)
