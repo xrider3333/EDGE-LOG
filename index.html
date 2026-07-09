@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='48.2';
+const VERSION='48.3';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5425,7 +5425,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   slice (a touch optimistic on the ~400-pt curve) so it also shows on older runs. Walk-
       //   forward has no engine DD (folds re-optimize) → curve slice only.
       const _segDD=(a,b)=>{let pk=-Infinity,md=0;for(let i=Math.max(0,a);i<b&&i<eq.length;i++){if(eq[i]>pk)pk=eq[i];const x=eq[i]-pk;if(x<md)md=x;}return Math.abs(md);};
-      const _ddOf=(eng,a,b)=>{if(eng!=null&&+eng>0)return (+eng)*mult;const c=(eq.length>2)?_segDD(a,b):0;return c>0?c:null;};
+      const _ddOf=(eng,a,b)=>{if(eng!=null&&Math.abs(+eng)>0)return Math.abs(+eng)*mult;const c=(eq.length>2)?_segDD(a,b):0;return c>0?c:null;};
       const ddIS=_ddOf(V.is_dd,0,wEnd+1),ddWF=_ddOf(null,wEnd,li),ddLB=_ddOf(lb.dd,Math.max(0,li-1),eq.length),ddTOT=_ddOf(V.total_dd,0,eq.length);
       const phases=[
         {sh_:'IN-SAMPLE', sub:'no shading', col:'var(--text2)', dr:_dr(optS,isEndMs), days:_days(optS,isEndMs), bars:tr0||null, net:nIS, dd:ddIS, pf:(f1.profit_factor!=null?+f1.profit_factor:null), wr:(f1.win_rate!=null?+f1.win_rate:null), aw:awIS.aw, al:awIS.al, sh:V.is_sharpe, tr:(f1.num_trades!=null?+f1.num_trades:null),
