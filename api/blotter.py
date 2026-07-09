@@ -45,3 +45,46 @@ def write_csv(rows, path):
         w.writeheader()
         w.writerows(rows)
     return path
+
+
+def load_blotter_rows(root, payload, log=print):
+    """Serve a run's blotter to the web (get_blotter runner command).
+
+    Search order: {root}/blotters/run{id}_{inst}_{tf}.csv (the runner's auto-saves), then
+    ../Trading/ENGUQ_DB/blotters/ (the ENGU research runs). If neither exists and the
+    payload carries the champion config (strategy/params/window), regenerate the blotter
+    on the spot and cache it under {root}/blotters for next time. Returns a json-safe
+    {ok, rows, n, source|regenerated} dict — rows use the FIELDS schema.
+    """
+    import csv
+    rid = payload.get("run_id")
+    inst = payload.get("instrument") or ""
+    tf = payload.get("timeframe") or "5m"
+    name = f"run{rid}_{inst}_{tf}.csv"
+    cands = [os.path.join(root, "blotters", name),
+             os.path.join(os.path.dirname(root), "Trading", "ENGUQ_DB", "blotters", name)]
+    for pth in cands:
+        if os.path.isfile(pth):
+            with open(pth, newline="", encoding="utf-8") as f:
+                rows = [dict(r) for r in csv.DictReader(f)]
+            if rows:
+                log(f"    -> blotter served from {pth} ({len(rows)} trades)")
+                return {"ok": True, "rows": rows, "n": len(rows),
+                        "source": os.path.basename(os.path.dirname(pth)) + "/" + name}
+    params = payload.get("params") or {}
+    if not payload.get("strategy") or not params:
+        return {"ok": False,
+                "error": f"no saved blotter ({name}) and the run carries no champion config to regenerate one"}
+    rows = champion_blotter(payload["strategy"], inst, tf,
+                            session=payload.get("session") or "rth", params=params,
+                            cost_pts=float(payload.get("cost_pts") or 0),
+                            mult=float(payload.get("mult") or 20),
+                            date_from=payload.get("date_from"), date_to=payload.get("date_to"))
+    if not rows:
+        return {"ok": False, "error": "champion re-run produced no trades"}
+    try:
+        write_csv(rows, os.path.join(root, "blotters", name))   # cache for next time
+    except Exception:
+        pass
+    log(f"    -> blotter regenerated ({len(rows)} trades) for run {rid}")
+    return {"ok": True, "rows": rows, "n": len(rows), "regenerated": True}

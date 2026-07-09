@@ -611,6 +611,19 @@ class FirestoreQueue:
                                 "result": json_safe(res), "finishedAt": time.time()})
                     n += 1
                     continue
+                # Trade-blotter fetch for the web's expanded 1A chart: serve the saved
+                # CSV (or regenerate the champion's trades) — compute/file-read, not a
+                # Library file-op, so it's handled here like sync_trades/reconcile.
+                if action == "get_blotter":
+                    from api.blotter import load_blotter_rows
+                    try:
+                        res = load_blotter_rows(ROOT, doc.get("payload") or {}, log)
+                    except Exception as e:
+                        res = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+                    ref.update({"status": "done" if res.get("ok") else "error",
+                                "result": json_safe(res), "finishedAt": time.time()})
+                    n += 1
+                    continue
                 res = process_command(action, doc.get("payload") or doc, log)
                 ref.update({"status": "done" if res.get("ok") else "error",
                             "result": json_safe(res), "finishedAt": time.time()})
