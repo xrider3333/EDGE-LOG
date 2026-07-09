@@ -248,15 +248,21 @@ not saved to the runs DB — so they carry no run id.*
 - `augur_engine/optimize.py` + `auto.py` — wire `plateau_pick` alongside argmax `best`.
 - `augur_engine/data_quality.py` — gap/coverage/data-health checks (§1).
 - `augur_strategies/ORB_3_0.py` — the deployable ORB (formerly ORB_SIMPLE_1_0.py).
-- `tools/reconcile.py` — **automated backtest↔platform reconciler.** Runs the engine → a
-  normalized blotter and diffs it against a TradingView "List of Trades" CSV *and/or* a
-  NinjaTrader Strategy Analyzer trades export: auto-detects a tz/DST offset, matches trades
-  on entry time, and *diagnoses* any gap (fees ≈ $5.66, ETH-vs-RTH extras, contract-roll price
-  offset, 1-bar entry shift, side flips). `--tv auto` grabs the newest CSV from Downloads (the
-  Chrome-export flow); `--self-test` proves the machinery with no external file. Tests:
-  `tests/test_reconcile.py`. The automation of the manual `tools/xcheck_orb.py` eyeball check.
-  **NOTE — this is backtest-vs-platform PARITY** (does the Python port reproduce TV/NT), which
-  is *distinct* from the §7 "fills reconciliation" open item (live broker fills missing the DB).
+- `augur_engine/reconcile.py` — **backtest↔platform reconciler core** (importable). Turns an
+  engine run into a normalized blotter and diffs it against a TradingView "List of Trades" *or*
+  a NinjaTrader Strategy Analyzer export: tolerant CSV parsing (file *or* text), auto tz/DST
+  offset detection, entry-time matching, and a diagnosis engine (fees, ETH-vs-RTH extras,
+  contract-roll price offset, 1-bar entry-fill shift, side flips). `run_reconcile(...)` is the
+  high-level entry. `tools/reconcile.py` is the thin CLI over it (`--tv/--nt auto` = newest
+  Downloads CSV, `--from/--to` windows both sides, `--self-test`). **Live in the web app (v48.9):**
+  Settings ▸ GENERAL ▸ OPEN RECONCILER — paste a TV/NT export → the runner `reconcile` command
+  reruns the strategy and renders matched %, total-PnL Δ, diagnosis + the matched-trade table.
+  Tests: `tests/test_reconcile.py`. **NOTE — backtest-vs-platform PARITY**, distinct from the §7
+  "fills reconciliation" open item (live broker fills missing the DB).
+  **Key finding (2026-07):** the ORB Pine port fills entries at the breakout bar's *close* (~35-70pt
+  worse than the range level on fast moves) — a Pine `process_orders_on_close` limitation, not
+  fixable cleanly; the ENGINE is authoritative on fills (use TV Bar Magnifier to close it). Full-year
+  NQ 5m reconcile: 218/248 matched (88%), median Δ $1.87/trade.
 - `method_stack.html` — the stack board (the visual of this doc).
 - `index.html` — the deployed web app; `const VERSION` = deploy version.
 - Deploy = push to `main` (GitHub Pages, ~10 min CDN). Runner executes queued jobs.
@@ -296,6 +302,16 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-09** — **Reconciler is a web feature + validated on a live TradingView run (web v48.9).**
+  Moved the reconcile core to `augur_engine/reconcile.py` (importable; adds text-CSV parsing +
+  `run_reconcile()` + structured `build_result`); `tools/reconcile.py` is now a thin CLI. Added a
+  runner `reconcile` command and the **Settings ▸ GENERAL ▸ OPEN RECONCILER** web UI. Ran it against a
+  real TradingView export of `ORB_3_0` (via the Chrome extension: added the strategy, fixed the chart to
+  RTH/5m, exported). **The tool caught two silent setup errors** (chart was on ETH → 18% WR; strategy was
+  on the 15-min pane not 5-min → entries 45 min late) and, once fixed, matched **218/248 (88%) over a
+  full year, median Δ $1.87/trade**. Root-caused the residual $ gap to the Pine port's breakout-bar
+  *close* fills (a `process_orders_on_close` limitation — engine is authoritative; corrected the pine's
+  false fidelity note, recommended Bar Magnifier). See [[edgelog-reconcile-tool]].
 - **2026-07-08** — **Automated backtest↔platform reconciliation (`tools/reconcile.py`).** New
   tool that automates the old manual `xcheck_orb.py` eyeball step: runs the EDGELOG engine into a
   normalized blotter (entry/exit time, side, price, PnL) and lines it up trade-for-trade against a
