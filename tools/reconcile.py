@@ -128,6 +128,21 @@ def _read_csv_flexible(path):
     return pd.read_csv(path)  # last resort — let the error surface
 
 
+def _find_pnl(cols):
+    """The net-$ PnL column, tolerant of how each platform spells it. TradingView writes
+    'Net PnL USD' (no ampersand), older TV wrote 'Profit USD', NinjaTrader writes 'Profit'.
+    Prefer the USD/$ variant; never the % or cumulative column."""
+    for needle in ("pnl", "p&l", "profit"):
+        c = _find_col(cols, needle, "usd", avoid=("%", "cum")) or _find_col(cols, needle, "$", avoid=("%", "cum"))
+        if c:
+            return c
+    for needle in ("pnl", "p&l", "profit"):
+        c = _find_col(cols, needle, avoid=("%", "cum"))
+        if c:
+            return c
+    return None
+
+
 # ────────────────────────────────────────────────────────────────────────────
 # Source adapters
 # ────────────────────────────────────────────────────────────────────────────
@@ -182,11 +197,8 @@ def parse_tv(path, mult):
     c_px = _find_col(cols, "price")
     c_qty = (_find_col(cols, "position", "size") or _find_col(cols, "contract")
              or _find_col(cols, "qty") or _find_col(cols, "quantity"))
-    # net P&L in $ (prefer USD, never the % column, never the cumulative one)
-    c_pnl = (_find_col(cols, "p&l", "usd", avoid=("%", "cum")) or
-             _find_col(cols, "profit", "usd", avoid=("%", "cum")) or
-             _find_col(cols, "p&l", avoid=("%", "cum")) or
-             _find_col(cols, "profit", avoid=("%", "cum")))
+    # net PnL in $ (TV: 'Net PnL USD'; older TV: 'Profit USD') — never %, never cumulative
+    c_pnl = _find_pnl(cols)
     if c_type is None or c_dt is None:
         raise SystemExit(f"TV parse: could not find Type/Date columns in {cols}")
 
@@ -239,7 +251,7 @@ def parse_nt(path, mult):
     c_xpx = _find_col(cols, "exit", "price")
     c_edt = _find_col(cols, "entry", "time") or _find_col(cols, "entry", "date")
     c_xdt = _find_col(cols, "exit", "time") or _find_col(cols, "exit", "date")
-    c_pnl = _find_col(cols, "profit", avoid=("cum", "%")) or _find_col(cols, "p&l", avoid=("cum", "%"))
+    c_pnl = _find_pnl(cols)
     if c_edt is None:
         raise SystemExit(f"NT parse: could not find an Entry time column in {cols}")
 

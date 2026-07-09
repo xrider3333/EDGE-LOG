@@ -17,15 +17,18 @@ import reconcile as R  # noqa: E402
 
 
 # ── Realistic export fixtures ────────────────────────────────────────────────
+# Real TradingView "List of Trades" export header (verified against an actual export):
+# 'Net PnL USD' (no ampersand), 'Date and time', 'Size (qty)', newest-first, 2 rows/trade,
+# PnL repeated on both legs, UTF-8 BOM on the header.
 TV_CSV = (
-    "Trade #,Type,Date/Time,Signal,Price USD,Position size (qty),"
-    "Net P&L USD,Net P&L %,Cumulative P&L USD,Cumulative P&L %\n"
-    "3,Exit short,2026-05-05 15:55,Close,27912.50,1,\"1,029.34\",3.62,\"858.02\",3.0\n"
-    "3,Entry short,2026-05-05 09:45,Short,27963.75,1,,,,\n"
-    "2,Exit long,2026-05-04 11:20,Stop,27502.00,1,\"(1,201.91)\",-4.2,\"(171.32)\",-0.6\n"
-    "2,Entry long,2026-05-04 09:45,Long,27562.00,1,,,,\n"
-    "1,Exit long,2026-05-01 10:00,Close,27837.25,1,839.34,3.04,\"1,030.59\",3.7\n"
-    "1,Entry long,2026-05-01 09:50,Long,27795.00,1,,,,\n"
+    "﻿Trade number,Type,Date and time,Signal,Price USD,Size (qty),Size (value),"
+    "Net PnL USD,Net PnL %,Cumulative PnL USD,Cumulative PnL %\n"
+    "3,Exit short,2026-05-05 15:55,eod,27912.50,1,558250,\"1,029.34\",0.18,\"858.02\",0.08\n"
+    "3,Entry short,2026-05-05 09:45,S,27963.75,1,558250,\"1,029.34\",0.18,\"858.02\",0.08\n"
+    "2,Exit long,2026-05-04 11:20,Lx,27502.00,1,550040,\"(1,201.91)\",-0.22,\"(171.32)\",-0.02\n"
+    "2,Entry long,2026-05-04 09:45,L,27562.00,1,550040,\"(1,201.91)\",-0.22,\"(171.32)\",-0.02\n"
+    "1,Exit long,2026-05-01 10:00,eod,27837.25,1,556740,839.34,0.15,\"1,030.59\",0.09\n"
+    "1,Entry long,2026-05-01 09:50,L,27795.00,1,556740,839.34,0.15,\"1,030.59\",0.09\n"
 )
 
 NT_CSV = (
