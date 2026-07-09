@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='48.1';
+const VERSION='48.2';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5420,14 +5420,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const awLB=_awl((lb.pnl!=null?+lb.pnl:null),(lb.pf!=null?+lb.pf:null),lbNw,(lb.trades!=null&&lbNw!=null)?(lb.trades-lbNw):null);
       const _totNet=(+f1.total_pnl||0)+oosNet+(+lb.pnl||0),_totNw=(+f1.wins||0)+oosWins+(lbNw||0);
       const awTOT=_awl(_totNet,totPf,_totNw,totTr-_totNw);
+      // per-section MAX DRAWDOWN → MAR (recovery factor = net ÷ maxDD). Prefer the engine's
+      //   accurate whole-trade DD (is_dd / lockbox.dd / total_dd); fall back to the equity-curve
+      //   slice (a touch optimistic on the ~400-pt curve) so it also shows on older runs. Walk-
+      //   forward has no engine DD (folds re-optimize) → curve slice only.
+      const _segDD=(a,b)=>{let pk=-Infinity,md=0;for(let i=Math.max(0,a);i<b&&i<eq.length;i++){if(eq[i]>pk)pk=eq[i];const x=eq[i]-pk;if(x<md)md=x;}return Math.abs(md);};
+      const _ddOf=(eng,a,b)=>{if(eng!=null&&+eng>0)return (+eng)*mult;const c=(eq.length>2)?_segDD(a,b):0;return c>0?c:null;};
+      const ddIS=_ddOf(V.is_dd,0,wEnd+1),ddWF=_ddOf(null,wEnd,li),ddLB=_ddOf(lb.dd,Math.max(0,li-1),eq.length),ddTOT=_ddOf(V.total_dd,0,eq.length);
       const phases=[
-        {sh_:'IN-SAMPLE', sub:'no shading', col:'var(--text2)', dr:_dr(optS,isEndMs), days:_days(optS,isEndMs), bars:tr0||null, net:nIS, pf:(f1.profit_factor!=null?+f1.profit_factor:null), wr:(f1.win_rate!=null?+f1.win_rate:null), aw:awIS.aw, al:awIS.al, sh:V.is_sharpe, tr:(f1.num_trades!=null?+f1.num_trades:null),
+        {sh_:'IN-SAMPLE', sub:'no shading', col:'var(--text2)', dr:_dr(optS,isEndMs), days:_days(optS,isEndMs), bars:tr0||null, net:nIS, dd:ddIS, pf:(f1.profit_factor!=null?+f1.profit_factor:null), wr:(f1.win_rate!=null?+f1.win_rate:null), aw:awIS.aw, al:awIS.al, sh:V.is_sharpe, tr:(f1.num_trades!=null?+f1.num_trades:null),
           tip:'IN-SAMPLE = the knob-tuning start of the graph. NET here is the RESIDUAL (TOTAL − WALK-FORWARD − LOCKBOX) so the three sections reconcile to the whole-run total. PF / Win% / Trades are its in-sample backtest; DAYS read off the curve.'},
-        folds.length?{sh_:'WALK-FORWARD', sub:'blue bands', col:C_WF, dr:_dr(isEndMs,optE), days:_days(isEndMs,optE), bars:wfBars||null, net:nWF, pf:oosPf, wr:oosWr, aw:awWF.aw, al:awWF.al, sh:foldSharpe(), tr:oosTr,
+        folds.length?{sh_:'WALK-FORWARD', sub:'blue bands', col:C_WF, dr:_dr(isEndMs,optE), days:_days(isEndMs,optE), bars:wfBars||null, net:nWF, dd:ddWF, pf:oosPf, wr:oosWr, aw:awWF.aw, al:awWF.al, sh:foldSharpe(), tr:oosTr,
           tip:'WALK-FORWARD = the blue test bands — data held back while tuning, then tested forward ('+folds.length+' folds). NET P&L & DAYS are that slice of the curve; PF / Win% / Sharpe / Trades are the pooled out-of-sample results.'}:null,
-        (lb.pnl!=null)?{sh_:'LOCKBOX', sub:'purple', col:C_LB, dr:_dr(lbS,lbE), days:_days(lbS,lbE), bars:(lb.bars!=null?+lb.bars:null), net:nLB, pf:(lb.pf!=null?+lb.pf:null), wr:(lb.win_rate!=null?+lb.win_rate:null), aw:(lb.avg_win!=null?(+lb.avg_win)*mult:awLB.aw), al:(lb.avg_loss!=null?(+lb.avg_loss)*mult:awLB.al), sh:(lb.sharpe!=null?+lb.sharpe:null), tr:(lb.trades!=null?+lb.trades:null),
+        (lb.pnl!=null)?{sh_:'LOCKBOX', sub:'purple', col:C_LB, dr:_dr(lbS,lbE), days:_days(lbS,lbE), bars:(lb.bars!=null?+lb.bars:null), net:nLB, dd:ddLB, pf:(lb.pf!=null?+lb.pf:null), wr:(lb.win_rate!=null?+lb.win_rate:null), aw:(lb.avg_win!=null?(+lb.avg_win)*mult:awLB.aw), al:(lb.avg_loss!=null?(+lb.avg_loss)*mult:awLB.al), sh:(lb.sharpe!=null?+lb.sharpe:null), tr:(lb.trades!=null?+lb.trades:null),
           tip:'LOCKBOX = the purple holdout — never tuned or browsed, the final untouched test. NET P&L is the lockbox\'s own backtest (the 🔒 strip figure). Win% & Sharpe are from the lockbox trades.'}:null,
-        {sh_:'TOTAL', total:true, col:'var(--green)', dr:_dr(optS,lbE), days:_days(optS,lbE), bars:totBars, net:nTOT, pf:totPf, wr:(V.total_win_rate!=null?+V.total_win_rate:null), aw:(V.total_avg_win!=null?(+V.total_avg_win)*mult:awTOT.aw), al:(V.total_avg_loss!=null?(+V.total_avg_loss)*mult:awTOT.al), sh:(V.total_sharpe!=null?+V.total_sharpe:null), tr:totTr,
+        {sh_:'TOTAL', total:true, col:'var(--green)', dr:_dr(optS,lbE), days:_days(optS,lbE), bars:totBars, net:nTOT, dd:ddTOT, pf:totPf, wr:(V.total_win_rate!=null?+V.total_win_rate:null), aw:(V.total_avg_win!=null?(+V.total_avg_win)*mult:awTOT.aw), al:(V.total_avg_loss!=null?(+V.total_avg_loss)*mult:awTOT.al), sh:(V.total_sharpe!=null?+V.total_sharpe:null), tr:totTr,
           tip:'TOTAL = the whole backtest = IN-SAMPLE + WALK-FORWARD + LOCKBOX. NET P&L is the equity curve\'s endpoint — the three sections add up to it. Win% & Sharpe are the champion measured over the whole window.'}
       ].filter(Boolean);
       const _pf=v=>(v==null||!isFinite(v)||v<=0)?'—':Math.min(v,99).toFixed(2);
@@ -5436,6 +5443,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const metrics=[
         {lbl:'NET P&L', top:true, cell:p=>'<span style="font-weight:700;color:'+((p.net||0)>=0?'#1d9e75':'#e24b4a')+'">'+(p.net!=null?fmtUsd(Math.round(p.net)):'—')+'</span>'},
         {lbl:'$ / DAY', cell:p=>{const v=(p.net!=null&&p.days)?p.net/p.days:null;return '<span style="color:var(--text2)">'+(v!=null?fmtUsd(Math.round(v)):'—')+'</span>';}},
+        {lbl:'MAX DD', cell:p=>'<span style="color:#e24b4a" title="Worst peak-to-trough equity loss in this section ($). Engine value where available, else from the equity curve.">'+(p.dd!=null&&isFinite(p.dd)&&p.dd>0?'-'+fmtUsd(Math.round(p.dd)):'—')+'</span>'},
+        {lbl:'MAR', cell:p=>{const v=(p.net!=null&&p.net>0&&p.dd&&p.dd>0)?p.net/p.dd:null;return '<span title="Recovery factor (MAR) = net P&amp;L ÷ max drawdown. Dollars earned per $1 of worst-case peak-to-trough loss; higher = better risk-adjusted return. Walk-forward re-optimizes each fold so it has no single drawdown → curve estimate." style="color:'+(v!=null&&v>=2?'var(--green)':'var(--text2)')+';font-weight:'+(v!=null&&v>=2?'700':'400')+'">'+(v!=null?v.toFixed(1)+'×':'—')+'</span>';}},
         {lbl:'PF', cell:p=>'<span style="color:'+((p.pf!=null&&p.pf>=1)?'var(--text)':'var(--red)')+'">'+_pf(p.pf)+'</span>'},
         {lbl:'SHARPE', cell:p=>'<span style="color:var(--text2)">'+_sh(p.sh)+'</span>'},
         {lbl:'WIN %', cell:p=>'<span style="color:var(--text2)">'+_wr(p.wr)+'</span>'},

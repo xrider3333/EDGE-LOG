@@ -177,6 +177,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     lb_sharpe = _sharpe_from_trades((lb or {}).get("trades"), cost_pts,
                                     max(0.05, lockbox_months / 12.0))
     lb_aw, lb_al = _avg_wl((lb or {}).get("trades"), cost_pts)   # honest avg win/loss (points)
+    lb_dd = float((lb or {}).get("max_drawdown", 0) or 0)   # lockbox max drawdown (points) → MAR
     total_wr = total_sharpe = total_trades = total_dd = None
     total_aw = total_al = None
     if champ:
@@ -318,6 +319,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "transfer": transfer,
         "dsr": (dsr.get("dsr") if dsr else None),
         "is_pf": float(bestA.get("profit_factor", 0) or 0),
+        "is_dd": float((bestA or {}).get("max_drawdown", 0) or 0),   # in-sample champion max DD (points) → MAR
         "is_sharpe": (dsr.get("winner_sharpe") if dsr else None),
         "mc_p95": ((OV.get("mc") or mc or {}).get("p95")),   # whole-run Monte-Carlo P95 drawdown (sizing floor)
         "equity": equity, "lb_idx": lb_idx,   # PnL curve (points); lb_idx = lockbox boundary
@@ -325,7 +327,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "total_trades": total_trades, "total_dd": total_dd,   # whole-run champion (incl. lockbox)
         "total_avg_win": total_aw, "total_avg_loss": total_al,   # measured (points), not derived
         "lockbox": {"pnl": lb_pnl, "pf": lb_pf, "trades": lb_trades, "pass": lb_pass,
-                    "win_rate": lb_wr, "sharpe": lb_sharpe,
+                    "win_rate": lb_wr, "sharpe": lb_sharpe, "dd": lb_dd,
+
                     "avg_win": lb_aw, "avg_loss": lb_al,   # measured from lockbox trades (points)
                     "from": lb_from, "to": full_hi.isoformat()},
         "windows": {"optimize": [opt_from, opt_to], "lockbox": [lb_from, full_hi.isoformat()],
