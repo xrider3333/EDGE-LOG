@@ -248,6 +248,15 @@ not saved to the runs DB — so they carry no run id.*
 - `augur_engine/optimize.py` + `auto.py` — wire `plateau_pick` alongside argmax `best`.
 - `augur_engine/data_quality.py` — gap/coverage/data-health checks (§1).
 - `augur_strategies/ORB_3_0.py` — the deployable ORB (formerly ORB_SIMPLE_1_0.py).
+- `tools/reconcile.py` — **automated backtest↔platform reconciler.** Runs the engine → a
+  normalized blotter and diffs it against a TradingView "List of Trades" CSV *and/or* a
+  NinjaTrader Strategy Analyzer trades export: auto-detects a tz/DST offset, matches trades
+  on entry time, and *diagnoses* any gap (fees ≈ $5.66, ETH-vs-RTH extras, contract-roll price
+  offset, 1-bar entry shift, side flips). `--tv auto` grabs the newest CSV from Downloads (the
+  Chrome-export flow); `--self-test` proves the machinery with no external file. Tests:
+  `tests/test_reconcile.py`. The automation of the manual `tools/xcheck_orb.py` eyeball check.
+  **NOTE — this is backtest-vs-platform PARITY** (does the Python port reproduce TV/NT), which
+  is *distinct* from the §7 "fills reconciliation" open item (live broker fills missing the DB).
 - `method_stack.html` — the stack board (the visual of this doc).
 - `index.html` — the deployed web app; `const VERSION` = deploy version.
 - Deploy = push to `main` (GitHub Pages, ~10 min CDN). Runner executes queued jobs.
@@ -287,6 +296,20 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-08** — **Automated backtest↔platform reconciliation (`tools/reconcile.py`).** New
+  tool that automates the old manual `xcheck_orb.py` eyeball step: runs the EDGELOG engine into a
+  normalized blotter (entry/exit time, side, price, PnL) and lines it up trade-for-trade against a
+  **TradingView** "List of Trades" CSV and/or a **NinjaTrader** Strategy Analyzer trades export.
+  Tolerant parsers (fuzzy header detection handle TV's two-rows-per-trade and NT's semicolon/
+  currency/AM-PM quirks), **automatic tz/DST offset detection** (an ET-vs-UTC shift no longer reads
+  as "every trade mismatched"), one-to-one entry-time matching, and a **diagnosis engine** that names
+  the systematic cause of a gap from the ORB.md §7-8 rap sheet: tz offset, the ~$5.66 commission gap,
+  ETH-vs-RTH extra trades, contract-roll price offset, 1-bar entry-convention shift, side flips.
+  `--tv auto`/`--nt auto` grab the newest CSV from Downloads (the Chrome-export flow); `--self-test`
+  forges a TV export from the real ORB blotter (+4h tz, −$5.66 fee) and confirms both are recovered.
+  14 tests in `tests/test_reconcile.py` (full suite 235 pass). *Backtest-vs-platform PARITY — distinct
+  from the §7 live-fills reconciliation item.* Next: drive TV's export via the Chrome extension for a
+  live ORB/NQ run.
 - **2026-07-08** — **PDP top-out curves + 3-D param surface in the run report (web v47.9).**
   Two new panels in §2 of every saved RUN REPORT, next to the 2H heatmap: **2J PARAM
   SURFACE 3-D** — the param→PnL surface as an isometric height map (floor = the two params
