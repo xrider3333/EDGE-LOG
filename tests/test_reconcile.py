@@ -145,6 +145,14 @@ def test_diagnose_flags_eth_extra():
 
 
 # ── Diagnosis: identical blotters report CLEAN ───────────────────────────────
+def test_clip_window_bounds_both_ends():
+    ts = [_mk("2026-04-30 09:45", 1, 10.0), _mk("2026-05-01 09:45", 1, 10.0),
+          _mk("2026-05-29 09:45", 1, 10.0), _mk("2026-05-30 09:45", 1, 10.0)]
+    kept = R.clip_window(ts, "2026-05-01", "2026-05-29")
+    got = [t.entry_dt.date().isoformat() for t in kept]
+    assert got == ["2026-05-01", "2026-05-29"]   # date_to inclusive, out-of-range dropped
+
+
 def test_diagnose_clean_when_identical():
     a = [_mk("2026-05-01 09:45", 1, 100.0, 27795.0), _mk("2026-05-02 09:45", -1, -50.0, 27800.0)]
     b = [R.Trade(entry_dt=t.entry_dt, exit_dt=None, side=t.side,

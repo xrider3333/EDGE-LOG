@@ -500,6 +500,27 @@ def render(a, a_meta, b, b_meta, offset_min, tol_min):
 # ────────────────────────────────────────────────────────────────────────────
 # Param parsing + CLI
 # ────────────────────────────────────────────────────────────────────────────
+def clip_window(trades, date_from=None, date_to=None):
+    """Keep only trades whose ENTRY falls in [date_from, date_to] (ET wall-clock, date_to
+    inclusive). Applied to the TV/NT side so a --from/--to window clips BOTH blotters — a
+    single mid-cycle month reconciles cleanly, without the other months showing as unmatched."""
+    if not (date_from or date_to):
+        return trades
+    lo = pd.Timestamp(date_from) if date_from else None
+    hi = (pd.Timestamp(date_to) + pd.Timedelta(days=1)) if date_to else None
+    out = []
+    for t in trades:
+        e = t.entry_dt
+        if e is None:
+            continue
+        if lo is not None and e < lo:
+            continue
+        if hi is not None and e >= hi:
+            continue
+        out.append(t)
+    return out
+
+
 def _downloads_dir():
     return os.path.join(os.path.expanduser("~"), "Downloads")
 
@@ -631,6 +652,8 @@ def main(argv=None):
         if not os.path.exists(path):
             print(f"!! file not found: {path}"); continue
         b, b_meta = parser(path, mult)
+        b = clip_window(b, args.date_from, args.date_to)   # same window as the EDGELOG side
+        b_meta["num_trades"] = len(b)
         off = best_offset(a, b, args.tol_min)
         report, _ = render(a, a_meta, b, b_meta, off, args.tol_min)
         print(report); print("\n" + "=" * 78 + "\n")
