@@ -296,7 +296,11 @@ class FirestoreQueue:
                 doc = json_safe(doc)
                 if len(_json.dumps(doc, default=str)) > 900_000:
                     doc.pop("full_results", None); doc.pop("equity", None)
-                batch.set(col.document(str(r["id"])), doc)
+                # merge=True so web-only fields that never exist in the local SQLite doc
+                # (e.g. `archived`, set from the browser to hide a run from Past Runs) are
+                # PRESERVED across re-sync. A plain .set() is a full-doc overwrite and would
+                # silently drop them on every runner restart.
+                batch.set(col.document(str(r["id"])), doc, merge=True)
                 pending += 1; total += 1
                 if pending >= 400:          # Firestore batch cap is 500
                     batch.commit(); batch = self.db.batch(); pending = 0

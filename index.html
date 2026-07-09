@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='48.3';
+const VERSION='48.4';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -6224,6 +6224,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center;flex:0 0 auto;padding-left:8px">'
           +'<button id="det-note" data-note-id="'+d.id+'" data-note-val="'+_noteEsc+'" title="'+(_hasNote?_noteEsc:'add a note')+'" style="'+_ctlBtn+';border:1px solid '+(_hasNote?'var(--green)':'var(--border)')+';background:'+(_hasNote?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+';color:'+(_hasNote?'var(--green)':'var(--text3)')+'">✎</button>'
           +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="'+_ctlBase+';width:24px;min-width:24px;padding:0;text-align:center;text-align-last:center;-webkit-appearance:none;-moz-appearance:none;appearance:none;border:1px solid var(--border);background:var(--bg2);color:var(--text3)"><option value="">≡</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
+          +'<button id="det-arch" data-arch-id="'+d.id+'" title="'+(d.archived?'un-archive — show this run in Past Runs again':'archive — hide this run from Past Runs (keeps the data, reversible)')+'" style="'+_ctlBtn+';border:1px solid '+(d.archived?'var(--yellow)':'var(--border)')+';background:'+(d.archived?'color-mix(in srgb,var(--yellow) 14%,transparent)':'var(--bg2)')+';color:'+(d.archived?'var(--yellow)':'var(--text3)')+'">◫</button>'
           +'<button id="det-del" data-del-id="'+d.id+'" title="delete run" style="'+_ctlBtn+';border:1px solid var(--red);background:var(--bg2);color:var(--red)">🗑</button>'
         +'</span>'
         +'</div>'
@@ -6888,13 +6889,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(!allRuns.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUN HISTORY YET — run the runner with --sync-runs</div>';}
       else{
         // ── filters + sort over Past Runs (full-width table, legacy-AUGUR style) ──
-        const fStrat=APREF.rfStrat||'',fInst=APREF.rfInst||'',fTf=APREF.rfTf||'',fScope=APREF.rfScope||'',fStar=!!APREF.rfStar,fSort=APREF.rfSort||'id';
+        const fStrat=APREF.rfStrat||'',fInst=APREF.rfInst||'',fTf=APREF.rfTf||'',fScope=APREF.rfScope||'',fStar=!!APREF.rfStar,fArch=!!APREF.rfArch,fSort=APREF.rfSort||'id';
+        const _nArch=allRuns.filter(r=>r.archived).length;   // count of archived (hidden) runs
         const _fileOf=r=>{const m=_stratMatch(r.strategy);return m?m.file:r.strategy;};
         const _strats=[...new Set(allRuns.map(_fileOf).filter(Boolean))].sort();
         const _insts=[...new Set(allRuns.map(r=>String(r.instrument||'').trim()).filter(Boolean))].sort();
         const _tfs=[...new Set(allRuns.map(r=>String(r.timeframe||'').trim()).filter(Boolean))].sort();
         const _scopes=[...new Set(allRuns.map(r=>String(r.scope||'').trim()).filter(Boolean))].sort();
-        let sorted=allRuns.filter(r=>{if(fStar&&!r.starred)return false;if(fInst&&String(r.instrument||'').trim()!==fInst)return false;if(fStrat&&_fileOf(r)!==fStrat)return false;if(fTf&&String(r.timeframe||'').trim()!==fTf)return false;if(fScope&&String(r.scope||'').trim()!==fScope)return false;return true;});
+        let sorted=allRuns.filter(r=>{if(!fArch&&r.archived)return false;if(fStar&&!r.starred)return false;if(fInst&&String(r.instrument||'').trim()!==fInst)return false;if(fStrat&&_fileOf(r)!==fStrat)return false;if(fTf&&String(r.timeframe||'').trim()!==fTf)return false;if(fScope&&String(r.scope||'').trim()!==fScope)return false;return true;});
         const _num=r=>{const n=stratInfo(r.strategy).num;return n==null?9999:n;};
         // Whole-run totals per run (NET = equity-curve endpoint, pooled PF / total trades / days),
         // memoized so the tile cells AND the column sorts use the SAME numbers as the report's
@@ -6965,7 +6967,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +sh('id','RUN','right')+sh('date','DATE','left')+fh('STRATEGY','rfStrat',fStrat,_strats.map(f=>[f,stratInfo(f).label]))+sh('trd','TRD','right')+fh('MODE',(_scopes.length>1?'rfScope':''),fScope,_scopes.map(s=>[s,s.slice(0,16)]))+fh('MARKET',(_insts.length>1?'rfInst':''),fInst,_insts.map(i=>[i,i]))+fh('TF',(_tfs.length>1?'rfTf':''),fTf,_tfs.map(t=>[t,t]))+'<th style="text-align:center;vertical-align:bottom">EQUITY</th>'
           +sh('pnl','NET $','right')+sh('perday','$/DAY','right')+sh('maxdd','MAX DD','right')+sh('pf','PF','right')+sh('sharpe','SHARPE','right')+sh('wr','WR','right')+'<th style="text-align:center;vertical-align:bottom" title="walk-forward folds that held out-of-sample">WF</th>'+sh('score','SCORE','right')+sh('took','TOOK','right')+'<th style="vertical-align:bottom">SRC</th>'+'<th style="vertical-align:bottom">RANGE</th>'+sh('days','DAYS','right')
           +'</tr></thead><tbody>'+trows+'</tbody></table></div>';
-        const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span>'+(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">✕ clear filters</span>':'')+'</div>'+tbl);
+        const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span>'+'<span style="display:flex;gap:12px;align-items:center">'+(_nArch?'<span data-rfarch title="archived runs are hidden from this list by default" style="cursor:pointer;font-size:9px;color:'+(fArch?'var(--yellow)':'var(--text5)')+';text-decoration:underline">◫ '+(fArch?'hide':'show')+' '+_nArch+' archived</span>':'')+(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">'+'✕ clear filters</span>':'')+'</span></div>'+tbl);
         // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
         // would trap the sticky checklist-pills row (sticky breaks under any non-visible
         // overflow ancestor). Inline beats the class so the pinned pills work on every theme.
@@ -7361,11 +7363,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-rf]').forEach(s=>{s.onchange=()=>{savePref(s.dataset.rf,s.value);renderApp();};});
       content.querySelectorAll('[data-rsort]').forEach(h=>{h.onclick=()=>{savePref('rfSort',h.dataset.rsort);renderApp();};});
       const _star=content.querySelector('[data-rfstar]');if(_star)_star.onclick=()=>{savePref('rfStar',!APREF.rfStar);renderApp();};
+      const _rfa=content.querySelector('[data-rfarch]');if(_rfa)_rfa.onclick=()=>{savePref('rfArch',!APREF.rfArch);renderApp();};
       const _rfc=content.querySelector('[data-rfclear]');if(_rfc)_rfc.onclick=()=>{['rfStrat','rfInst','rfTf','rfScope'].forEach(k=>savePref(k,''));savePref('rfStar',false);renderApp();};
       // star a run (write-back to Firestore; snapshot re-renders). stopPropagation so the row doesn't also select.
       const _toggleStar=(id)=>{const r=runHistory.find(x=>String(x.id)===String(id));if(!r||!runsRef)return;runsRef.doc(String(id)).update({starred:r.starred?0:1}).catch(e=>alert('star failed: '+e.message));};
       content.querySelectorAll('[data-star]').forEach(s=>{s.onclick=(e)=>{e.stopPropagation();_toggleStar(s.dataset.star);};});
       const _ds=content.querySelector('[data-detstar]');if(_ds)_ds.onclick=()=>_toggleStar(_ds.dataset.detstar);
+      // archive / un-archive a run: sets a web-only `archived` flag on the Firestore doc, which
+      //   the Past Runs filter hides by default (runner sync_runs uses merge=True so it survives).
+      const _toggleArch=(id)=>{const r=runHistory.find(x=>String(x.id)===String(id));if(!r||!runsRef)return;runsRef.doc(String(id)).update({archived:r.archived?0:1}).catch(e=>alert('archive failed: '+e.message));};
+      const _da=content.querySelector('[data-arch-id]');if(_da)_da.onclick=()=>_toggleArch(_da.dataset.archId);
       // CONFIG-FILTER brush: grey out config marks (.cfgmark, data-net=$) below the slider cut
       //   across the parallel-coords + scatter charts. Pure DOM — no re-render, no state save.
       const _brush=el('cfg-brush');
