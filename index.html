@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='47.9';
+const VERSION='48.0';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -6131,8 +6131,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // (1b), which was the single biggest source of confusion. The matrix carries the
         // real per-section + TOTAL accounting; this panel just draws the curve.
         _panelEquity='<div style="'+_card+';height:100%;box-sizing:border-box">'
-          +_numHdr('1A','CHAMPION EQUITY')
-          +'<div id="res-step-8" style="scroll-margin-top:64px">'+championEquityHtml(_V,mlt,d.top10_results,1)+'<div style="display:flex;align-items:center;gap:8px;font-size:8px;color:var(--text5);margin:1px 0 8px;padding-right:44px"><span style="letter-spacing:.5px">GRAPH DETAIL</span><input type="range" min="10" max="100" step="5" value="'+Math.round((window._eqDetail||1)*100)+'" onchange="window._eqDetail=+this.value/100;renderApp()" style="flex:1;max-width:200px;accent-color:var(--blue)"><span>'+Math.round((window._eqDetail||1)*100)+'%</span></div></div>'
+          +'<div style="display:flex;align-items:center;gap:10px;margin:0 0 10px"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1A · CHAMPION EQUITY</span><span style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:8px;color:var(--text5)"><span style="letter-spacing:.5px">GRAPH DETAIL</span><input type="range" min="10" max="100" step="5" value="'+Math.round((window._eqDetail||1)*100)+'" onchange="window._eqDetail=+this.value/100;renderApp()" style="width:120px;accent-color:var(--blue)"><span>'+Math.round((window._eqDetail||1)*100)+'%</span></span></div>'
+          +'<div id="res-step-8" style="scroll-margin-top:64px">'+championEquityHtml(_V,mlt,d.top10_results,1)+'</div>'
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
           +((wf=>wf?'<div style="margin-top:9px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
           +((st=>st?'<div style="margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+st+'</div>':'')(stressPanelHtml(d.stress,mlt,'1I',_dscope)))
@@ -6268,8 +6268,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _dsrTile=(!d.validate&&dsrHtml&&dsrHtml.replace(/\s/g,''))?'<div style="'+_card2+';margin-bottom:14px"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'F · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>':'';
       // Tile 2 (parameter-relationship group): 2c PARALLEL COORDINATES full-width, with
       //   2h HEATMAP · 2g SCATTER · 2i PARAM CORRELATION three-across directly beneath it.
-      const _paramTile=(_hm||_p3d||_sc||_corr||_pdp)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_hm,_p3d],true)+_wrap([_sc,_corr])+_pdp+'</div>':'';
-      const _sec3=_cfgTile+_paramTile+_topTile+_nbTile+_dsrTile;
+      const _paramTile=(_hm||_p3d||_sc||_corr)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_hm,_corr],true)+_wrap([_sc,_p3d],true)+'</div>':'';
+      // 2K PDP sits on its own row directly under the 2A/2B/2C row (its own card).
+      const _pdpTile=(_pdp&&_pdp.replace(/\s/g,''))?'<div style="'+_card2+';margin-bottom:14px">'+_pdp+'</div>':'';
+      const _sec3=_cfgTile+_pdpTile+_paramTile+_topTile+_nbTile+_dsrTile;
       // regHtml (regime report card + monthly P&L) moved into §1 (under the WF folds) per request.
       // Stress = the champion's profit spread across time → it lives in §1 (1I) for validate runs; keep the standalone §3/§4 only for non-validate sweeps.
       const _sec4='';   // stress is folded into §1 (1I) for EVERY run type now — matches run 137.
@@ -6294,7 +6296,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _dofHtml=(_dofV!=null)?('<div style="font-size:var(--fsxs);color:var(--text3)" title="Trades per optimized parameter — the overfitting governor. Under 10 = high risk; aim for 30+.">📐 SAMPLE ADEQUACY (DOF) · §4 — <b style="color:'+(_dofV>=30?'var(--green)':_dofV>=10?'var(--yellow)':'var(--red)')+'">'+Math.round(_dofV)+' trades / param</b> <span style="color:var(--text5)">· '+_dofNT.toLocaleString()+' trades'+(_dofNP?' across '+_dofNP+' params':'')+'</span></div>'):'';
       const _diagParts=[_dofHtml,pillsHtml(_pillSrc,mlt),ensembleCardHtml(d.ensemble,mlt),plateauCardHtml(d.plateau_pick,d.best_params,mlt),(d.gate_validate?gvTableHtml(d.gate_validate,stratTag(d.strategy),mlt):''),(d.ml_gate?gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt):'')].filter(x=>x&&x.replace(/\s/g,''));
       // Fixed slot for EVERY run type (universal layout): render the header always, with an n/a card when this run saved no diagnostics.
-      const _diagHd='<div id="res-step-diag" class="lbl" style="margin:22px 0 8px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:23px;height:23px;border-radius:50%;background:var(--bg1);border:1px solid var(--border);font-size:11px">🔬</span><span style="font-weight:800;font-size:15px;color:var(--text);letter-spacing:0;text-transform:none">Robustness &amp; Diagnostics</span><span style="font-weight:400;color:var(--text4);font-size:9px">informational — distribution-free checks · ensemble · ML gate</span></div>';
+      const _diagHd='<div id="res-step-diag" class="lbl" style="margin:22px 0 8px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:23px;height:23px;border-radius:50%;background:var(--bg1);border:1px solid var(--border);font-size:12px;font-weight:800;color:var(--text2)">4</span><span style="font-weight:800;font-size:15px;color:var(--text);letter-spacing:0;text-transform:none">🔬 Robustness &amp; Diagnostics</span><span style="font-weight:400;color:var(--text4);font-size:9px">informational — distribution-free checks · ensemble · ML gate</span></div>';
       const _diagSec=_diagHd+'<div style="'+_card2+';margin-bottom:14px">'+(_diagParts.length?_diagParts.join('<div style="margin:12px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)"></div>'):_naTile('','ROBUSTNESS &amp; DIAGNOSTICS','no distribution-free checks, ensemble or ML-gate saved for this run'))+'</div>';
       return hdrHtml
         +valBannerHtml(d)
