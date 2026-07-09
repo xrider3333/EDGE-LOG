@@ -396,7 +396,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='48.0';
+const VERSION='48.1';
 // ── AUTO-UPDATE: poll the deployed index.html for a newer `const VERSION`.
 //   GitHub Pages caches ~10 min, so fetch no-store + cache-buster and read only the
 //   first 64KB (Range; VERSION sits at ~41KB). Newer version found: tab hidden →
@@ -5531,7 +5531,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         return '<rect class="pc-track" data-ax="'+i+'" x="'+(x-8).toFixed(1)+'" y="'+padT+'" width="16" height="'+((H-padB)-padT).toFixed(1)+'" fill="transparent" style="cursor:ns-resize"/>'
           +'<rect class="pc-brush" data-ax="'+i+'" x="'+(x-6).toFixed(1)+'" y="0" width="12" height="0" fill="var(--blue)" fill-opacity="0.2" stroke="var(--blue)" stroke-width="0.6" rx="2" style="display:none;pointer-events:none"/>';}).join('');
       const _pcTip='Every tested config drawn as one line across a vertical axis per parameter, ending on the NET $ axis — green lines made money, red lost. Lines that bunch through the same parameter values = the settings winners share. DRAG up/down on any axis to brush a range (lines outside grey out, and the scatter dots dim with them); click an axis to clear its brush.';
-      return (tag?'<div title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · PARALLEL COORDINATES <span style="font-weight:400;color:var(--text4);font-size:8px">· <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="color:var(--text4)">ⓘ</span></span></div>':'<div class="lbl" title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px">PARALLEL COORDINATES · <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="font-size:9px;color:var(--text4);font-weight:400">ⓘ</span></div>')
+      return (tag?'<div title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · PARALLEL COORDINATES <span style="font-weight:400;color:var(--text4);font-size:8px;flex-basis:100%">· <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="color:var(--text4)">ⓘ</span></span></div>':'<div class="lbl" title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px">PARALLEL COORDINATES · <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="font-size:9px;color:var(--text4);font-weight:400">ⓘ</span></div>')
         +(function(){const _pm=dom['pnl'],_mY=((padT+(H-padB))/2).toFixed(1);
           // NET $ scale labels live IN the svg's right gutter (shared §2 chrome) so the plot
           //   width lines up with 2a/2b above it.
