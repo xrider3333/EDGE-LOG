@@ -132,6 +132,73 @@ def deflated_sharpe(winner, sample_srs, n_cfg, years):
                          else "does NOT beat the luck bar"))
 
 
+def probability_backtest_overfitting(perf_matrix, s_blocks=10, metric="sharpe"):
+    """Probability of Backtest Overfitting via CSCV (Bailey, Borwein, Lopez de Prado,
+    Zhu 2017) — the complement to Deflated Sharpe.
+
+    perf_matrix: N candidate configs x T equal-length periods of performance (e.g. each
+    config's per-month net PnL over the pre-lockbox window). The method chops the T periods
+    into S disjoint blocks and, over EVERY way to pick S/2 blocks as in-sample (the rest
+    out-of-sample), asks: does the config that looked BEST in-sample land BELOW the median
+    out-of-sample? PBO = that failure rate. <0.5 = the winner you'd pick usually stays
+    above median on unseen periods; ->1.0 = your selection is picking overfit noise.
+
+    Returns a json-safe dict, or None when there isn't enough data (need >=2 configs and
+    enough periods for >=4 blocks).
+    """
+    import itertools
+    M = np.asarray(perf_matrix, dtype=float)
+    if M.ndim != 2:
+        return None
+    N, T = M.shape
+    S = int(s_blocks)
+    if S % 2:
+        S -= 1
+    S = min(S, T - (T % 2))                  # even, <= T
+    while S >= 4 and (T // S) < 1:
+        S -= 2
+    if N < 2 or S < 4 or T < S:
+        return None
+    bs = T // S
+    M = M[:, :S * bs]                        # drop the ragged tail
+    blocks = [list(range(i * bs, (i + 1) * bs)) for i in range(S)]
+
+    def _perf(cols):
+        sub = M[:, cols]                     # N x |cols|
+        mu = sub.mean(axis=1)
+        if metric == "sharpe":
+            sd = sub.std(axis=1)
+            return np.where(sd > 1e-12, mu / sd, mu)
+        return mu
+
+    lambdas = []
+    n_below = 0
+    for isb in itertools.combinations(range(S), S // 2):
+        is_cols = [c for b in isb for c in blocks[b]]
+        oos_cols = [c for b in range(S) if b not in isb for c in blocks[b]]
+        n_star = int(np.argmax(_perf(is_cols)))          # in-sample best config
+        oos = _perf(oos_cols)
+        rank = int(np.argsort(np.argsort(oos))[n_star]) + 1   # 1=worst .. N=best OOS
+        w = min(max(rank / (N + 1.0), 1e-6), 1 - 1e-6)        # relative OOS rank in (0,1)
+        lam = math.log(w / (1 - w))                           # logit; <0 => below OOS median
+        lambdas.append(lam)
+        n_below += int(lam < 0)
+    n_c = len(lambdas)
+    if not n_c:
+        return None
+    lam = np.asarray(lambdas)
+    hist, edges = np.histogram(np.clip(lam, -6.0, 6.0), bins=11, range=(-6.0, 6.0))
+    pbo = n_below / n_c
+    return {"pbo": round(float(pbo), 3), "n_configs": int(N), "n_blocks": int(S),
+            "n_splits": int(n_c), "lambda_median": round(float(np.median(lam)), 3),
+            "lambda_mean": round(float(lam.mean()), 3),
+            "hist": [int(x) for x in hist],
+            "hist_edges": [round(float(x), 1) for x in edges],
+            "verdict": ("robust selection" if pbo <= 0.3
+                        else "some overfit risk" if pbo <= 0.5
+                        else "likely overfit selection")}
+
+
 def _bucket(usd_by_group, order):
     """One regime table: [{bucket,n,pnl,pf,avg}] in `order`, pnl/avg in trade units."""
     out = []

@@ -10,10 +10,11 @@ Then a PASS / WEAK / FAIL verdict against professional thresholds.
 """
 import datetime as _dt
 
-from .data import find_master
+from .data import find_master, load_master_arrays
 from .engine import run_backtest
 from .auto import run_auto
 from .optimize import run_grid
+from .analytics import probability_backtest_overfitting
 
 
 def _parse(d):
@@ -115,7 +116,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     # ── Stage A — in-sample Auto-Optimize (single 75/25 split) ────────────────
     A = run_auto(strategy, instrument=instrument, timeframe=timeframe, session=session,
                  source=source, method="single", oos=True, n_trials=n_trials,
-                 cost_pts=cost_pts, min_trades=min_trades, top_n=10, seed=seed,
+                 cost_pts=cost_pts, min_trades=min_trades, top_n=24, seed=seed,
                  compute_dsr=True, compute_neighbors=True, compute_regime=True, mc_sims=500,
                  date_from=opt_from, date_to=opt_to, progress_cb=_stage(aS, aE)) or {}
     champ = A.get("best_params") or {}
@@ -128,23 +129,43 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     mc = A.get("mc") or {}                     # Monte-Carlo drawdown (sizing)
     eq_opt = list((A.get("equity") or {}).get("cum") or [])   # champion equity, optimize window (pts)
 
-    # ── Stage B — rolling walk-forward ────────────────────────────────────────
-    B = run_auto(strategy, instrument=instrument, timeframe=timeframe, session=session,
-                 source=source, method="walkforward", wf_mode="rolling", oos=True,
-                 wf_folds=wf_folds, n_trials=n_trials, cost_pts=cost_pts,
-                 min_trades=min_trades, top_n=20, seed=seed,
-                 date_from=opt_from, date_to=opt_to, progress_cb=_stage(bS, bE)) or {}
-    wf_ran = bool(B.get("wf"))
-    folds = B.get("top") or []
-    sOos = sTest = sIs = sTrain = held = 0.0
-    for r in folds:
-        sOos += float(r.get("oos_pnl", 0) or 0); sTest += float(r.get("test_bars", 0) or 0)
-        sIs += float(r.get("total_pnl", 0) or 0); sTrain += float(r.get("train_bars", 0) or 0)
-        if float(r.get("oos_pf", 0) or 0) > 1:
-            held += 1
-    wfe = ((sOos / sTest) / (sIs / sTrain)) if (wf_ran and sTest and sTrain and sIs) else 0.0
-    n_folds = len(folds) if wf_ran else 0
-    fold_frac = (held / n_folds) if n_folds else 0.0
+    # ── Stage B — walk-forward in BOTH windowing schemes ──────────────────────
+    #    ROLLING = fixed-length in-sample window (re-optimizes on a constant recent slice);
+    #    ANCHORED = expanding window (re-optimizes on ALL history up to each fold). We run
+    #    both, report each, and drive the gate off the STRONGER scheme (higher fold
+    #    consistency, then WFE) — the one you'd actually deploy. Ties -> rolling.
+    def _run_wf(mode, c0, c1):
+        Bm = run_auto(strategy, instrument=instrument, timeframe=timeframe, session=session,
+                      source=source, method="walkforward", wf_mode=mode, oos=True,
+                      wf_folds=wf_folds, n_trials=n_trials, cost_pts=cost_pts,
+                      min_trades=min_trades, top_n=20, seed=seed,
+                      date_from=opt_from, date_to=opt_to, progress_cb=_stage(c0, c1)) or {}
+        ran = bool(Bm.get("wf"))
+        fl = Bm.get("top") or []
+        so = st = si = strn = hd = 0.0
+        for r in fl:
+            so += float(r.get("oos_pnl", 0) or 0); st += float(r.get("test_bars", 0) or 0)
+            si += float(r.get("total_pnl", 0) or 0); strn += float(r.get("train_bars", 0) or 0)
+            if float(r.get("oos_pf", 0) or 0) > 1:
+                hd += 1
+        nf = len(fl) if ran else 0
+        return {"mode": mode, "ran": ran, "folds": fl, "n_folds": nf, "held": int(hd),
+                "oos_net": so,
+                "wfe": (((so / st) / (si / strn)) if (ran and st and strn and si) else 0.0),
+                "fold_frac": ((hd / nf) if nf else 0.0)}
+
+    _bmid = (bS + bE) // 2
+    wf_roll = _run_wf("rolling", bS, _bmid)
+    wf_anch = _run_wf("anchored", _bmid, bE)
+    # primary = the stronger scheme (fold consistency, then WFE); ties -> rolling
+    _prim = (wf_anch if (wf_anch["ran"] and
+                         (wf_anch["fold_frac"], wf_anch["wfe"]) > (wf_roll["fold_frac"], wf_roll["wfe"]))
+             else wf_roll)
+    wf_ran = _prim["ran"]; folds = _prim["folds"]; n_folds = _prim["n_folds"]
+    held = _prim["held"]; wfe = _prim["wfe"]; fold_frac = _prim["fold_frac"]; sOos = _prim["oos_net"]
+    _wf_compact = lambda w: {"mode": w["mode"], "ran": w["ran"], "wfe": round(w["wfe"], 3),
+                             "held": w["held"], "n_folds": w["n_folds"],
+                             "fold_frac": round(w["fold_frac"], 3), "oos_net": w["oos_net"]}
 
     # ── Gate ──────────────────────────────────────────────────────────────────
     plateau_ran = bool(nb)
@@ -273,6 +294,57 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     if champ and tlist:
         checks["transfer"] = any(t["pass"] for t in transfer)
 
+    # ── Gate bake-off + PBO — both re-run the champion / candidates on already-resolved data. ──
+    #    GATE BAKE-OFF: ungated (take every trade) + logistic / RF / XGB gates × cut-offs, ranked
+    #    on the pre-lockbox slice by recovery factor; the winner gets ONE lockbox look (losers'
+    #    lockbox numbers never leave gate_validate — no lockbox-shopping). Tells us which of the
+    #    four to deploy. PBO / CSCV: how often the in-sample-best of the top candidate configs
+    #    lands below the OUT-OF-SAMPLE median — the overfit-of-SELECTION governor (complements DSR).
+    gate_bakeoff = pbo = None
+    _full_arr = None
+    if champ:
+        try:
+            _full_arr = load_master_arrays(master, date_from=opt_from, date_to=None)
+        except Exception:
+            _full_arr = None
+        if _full_arr is not None and isinstance(full, dict) and full.get("trades"):
+            try:
+                from .ml_gate import gate_validate as _gate_bakeoff_fn
+                gate_bakeoff = _gate_bakeoff_fn(_full_arr, full["trades"],
+                                                lockbox_months=lockbox_months)
+            except Exception:
+                gate_bakeoff = None
+        try:
+            import pandas as _pd
+            from collections import defaultdict as _dd
+            _pre_arr = load_master_arrays(master, date_from=opt_from, date_to=opt_to)
+            _pidx = _pd.to_datetime(_pd.Series(_pre_arr.get("index")))
+            _pn = len(_pidx)
+            mats = []
+            for row in (A.get("top") or [])[:24]:
+                cfg = {k: row[k] for k in champ.keys() if k in row}
+                if not cfg:
+                    continue
+                try:
+                    _bt = run_backtest(strategy, arrays=_pre_arr, params=cfg,
+                                       cost_pts=cost_pts, return_trades=True)
+                except Exception:
+                    continue
+                mon = _dd(float)
+                for t in (_bt.get("trades") or []):
+                    ts = _pidx.iloc[min(int(t[0]), _pn - 1)]
+                    mon[(ts.year, ts.month)] += float(t[2])   # already net of cost
+                if mon:
+                    mats.append(mon)
+            allk = sorted(set().union(*[m.keys() for m in mats])) if mats else []
+            if len(mats) >= 2 and len(allk) >= 4:
+                perf = [[m.get(k, 0.0) for k in allk] for m in mats]
+                pbo = probability_backtest_overfitting(perf)
+        except Exception:
+            pbo = None
+    if pbo is not None:
+        checks["pbo"] = (float(pbo.get("pbo", 1.0)) <= 0.5)   # overfit-of-selection gate
+
     # ── Adversarial validation (board §4): is the reserved lockbox a DIFFERENT regime
     #    than the training history? Trains a classifier to tell lockbox bars from
     #    pre-lockbox bars on market-state features — high AUC = regime drift, so the
@@ -282,13 +354,13 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     #    trading-day bootstrap (§8). All INFORMATIONAL — none changes the verdict.
     adversarial = conformal = causal = synthetic = leadlag = acf = vif = featsel = edgesig = tailfit = season = None
     try:
-        from .data import load_master_arrays
         from .ml_gate import (adversarial_validation, entry_features, gate_feature_select)
         from .analytics import (conformal_pnl_band, causal_entry_test,
                                 synthetic_day_bootstrap, lead_lag, serial_dependence,
                                 vif_collinearity, edge_significance, return_tailfit,
                                 seasonality)
-        _avarr = load_master_arrays(master, date_from=opt_from, date_to=None)
+        _avarr = _full_arr if _full_arr is not None else load_master_arrays(
+            master, date_from=opt_from, date_to=None)
         adversarial = adversarial_validation(_avarr, lb_start)
         acf = serial_dependence(_avarr)                       # §1 momentum vs mean-revert
         tailfit = return_tailfit(_avarr)                      # §1 fat-tail fit
@@ -312,6 +384,25 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                                    name_a=str(instrument), name_b=str(_sib))
     except Exception:
         pass
+
+    # ── Advisory flags — shown in the checklist as context, but they do NOT hard-fail the
+    #    verdict (regime drift / collinearity are caveats, not kill-switches; a gate not helping
+    #    is fine — ungated is a valid deploy). The chosen gate + whether it held is headlined. ──
+    flags = {}
+    if gate_bakeoff is not None:
+        _ch = gate_bakeoff.get("chosen")
+        flags["gate"] = {
+            "chosen": ((_ch.get("model") + "@" + str(int(round(_ch.get("threshold", 0) * 100))) + "%")
+                       if _ch else "ungated"),
+            "helped": bool((gate_bakeoff.get("lockbox") or {}).get("helped")),
+            "earns_pre": bool(gate_bakeoff.get("gate_earns_pre")),
+            "verdict": gate_bakeoff.get("verdict")}
+    if isinstance(adversarial, dict) and adversarial.get("auc") is not None:
+        flags["adversarial"] = {"pass": bool(adversarial["auc"] < 0.75),
+                                "auc": adversarial["auc"], "verdict": adversarial.get("verdict")}
+    if isinstance(vif, dict) and vif.get("n_high") is not None:
+        flags["vif"] = {"pass": bool(vif["n_high"] == 0), "n_high": int(vif["n_high"]),
+                        "verdict": vif.get("verdict")}
 
     n_pass = sum(1 for v in checks.values() if v)
     n_gates = len(checks)
@@ -361,6 +452,11 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "edge_sig": edgesig,          # §4: is the edge statistically significant?
         "tailfit": tailfit,           # §1: fat-tail fit of returns (Student-t df)
         "seasonality": season,        # §6: intraday / weekly seasonality
+        "pbo": pbo,                   # CSCV Probability of Backtest Overfitting (selection risk)
+        "gate_bakeoff": gate_bakeoff, # ungated + logistic/RF/XGB × cut-off bake-off (one lockbox look)
+        "wf_rolling": _wf_compact(wf_roll), "wf_anchored": _wf_compact(wf_anch),
+        "wf_best_mode": _prim["mode"],   # which windowing scheme was stronger (drove the gate)
+        "flags": flags,               # advisory: gate choice · adversarial regime drift · VIF
         "champion": champ, "thresholds": th,
     }
     # Shape stays compatible with the Runs-history saver (best / top / dsr).
@@ -380,4 +476,6 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "mc": (OV.get("mc") or A.get("mc")), "regime": (OV.get("regime") or A.get("regime")),
         "neighborhood": A.get("neighborhood"),
         "relationship": A.get("relationship"),   # per-param Pearson / MI / PPS (#24)
+        # top-level so the existing Robustness card renders the gate bake-off with no new UI.
+        "gate_validate": gate_bakeoff,
     }

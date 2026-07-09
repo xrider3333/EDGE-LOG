@@ -23,7 +23,8 @@ from .history import list_runs, get_run
 from .optimize import run_grid, list_presets, expand_grid
 from .auto import run_auto
 from .validate import run_validate
-from .analytics import monte_carlo_drawdown, deflated_sharpe, annualized_sr
+from .analytics import (monte_carlo_drawdown, deflated_sharpe, annualized_sr,
+                        probability_backtest_overfitting)
 from .ai import ai_optimize, ai_evolve, validate_strategy_code, call_llm
 
 __all__ = ["list_strategies", "load_strategy", "strategy_params",
@@ -32,5 +33,6 @@ __all__ = ["list_strategies", "load_strategy", "strategy_params",
            "list_runs", "get_run", "run_grid", "run_auto", "run_validate",
            "list_presets", "expand_grid",
            "monte_carlo_drawdown", "deflated_sharpe", "annualized_sr",
+           "probability_backtest_overfitting",
            "ai_optimize", "ai_evolve", "validate_strategy_code", "call_llm"]
 __version__ = "0.1.0"
