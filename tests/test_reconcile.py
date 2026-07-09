@@ -153,6 +153,29 @@ def test_clip_window_bounds_both_ends():
     assert got == ["2026-05-01", "2026-05-29"]   # date_to inclusive, out-of-range dropped
 
 
+def _mkfw(side, or_hi, or_lo, entry_close):
+    return R.Trade(entry_dt=pd.Timestamp("2026-05-01 09:45"), exit_dt=None, side=side,
+                   raw={"or_hi": or_hi, "or_lo": or_lo, "entry_close": entry_close})
+
+
+def test_false_wick_classifier():
+    # long broke the OR high on a wick but closed back inside -> false wick
+    assert R.is_false_wick(_mkfw(1, 100.0, 90.0, 98.0)) is True
+    # long closed above the OR high -> close-confirmed, real break
+    assert R.is_false_wick(_mkfw(1, 100.0, 90.0, 101.0)) is False
+    # short broke the OR low on a wick but closed back inside -> false wick
+    assert R.is_false_wick(_mkfw(-1, 100.0, 90.0, 92.0)) is True
+    assert R.is_false_wick(_mkfw(-1, 100.0, 90.0, 89.0)) is False
+    # no OR info (non-ORB trade) -> not classifiable
+    assert R.is_false_wick(_mk("2026-05-01 09:45", 1, 10.0)) is False
+
+
+def test_diagnose_flags_false_wick_in_unmatched():
+    a = [_mkfw(1, 100.0, 90.0, 98.0), _mkfw(-1, 100.0, 90.0, 92.0)]   # both engine-only false wicks
+    tags = {tag for tag, _ in R.diagnose([], a, [], 0, "EDGELOG", "TradingView", 10)}
+    assert "FALSE-WICK" in tags
+
+
 def test_diagnose_clean_when_identical():
     a = [_mk("2026-05-01 09:45", 1, 100.0, 27795.0), _mk("2026-05-02 09:45", -1, -50.0, 27800.0)]
     b = [R.Trade(entry_dt=t.entry_dt, exit_dt=None, side=t.side,

@@ -31,7 +31,7 @@ from augur_engine.reconcile import (  # noqa: E402
     Trade, MULT, CAND_OFFSETS_MIN, _num, _to_dt, _find_col, _find_pnl,
     parse_tv_df, parse_nt_df, parse_tv_text, parse_nt_text, clip_window,
     best_offset, match, diagnose, _rth_flag, build_result, edgelog_blotter,
-    run_reconcile,
+    run_reconcile, is_false_wick,
 )
 
 # Default ORB config used by tools/xcheck_orb.py — so `--strategy ORB_3_0.py` just works.
@@ -111,8 +111,9 @@ def render(a, a_meta, b, b_meta, offset_min, tol_min):
             P("")
             P(f"## Unmatched in {label}")
             for u in res[key][:30]:
+                fw = "  ← false-wick (engine takes the intrabar touch; TV needs a close-confirm)" if u.get("false_wick") else ""
                 P(f"  {u['entry']}  side={u['side']:+d}  "
-                  f"pnl$={u['pnl'] if u['pnl'] is not None else float('nan'):,.2f}")
+                  f"pnl$={u['pnl'] if u['pnl'] is not None else float('nan'):,.2f}{fw}")
     return "\n".join(L), s
 
 

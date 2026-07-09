@@ -258,6 +258,20 @@ def _rth_flag(ts):
     return (t >= pd.Timestamp("09:30").time()) and (t <= pd.Timestamp("16:00").time())
 
 
+def is_false_wick(trade):
+    """True if this ORB entry's bar pierced the opening-range boundary with a WICK but CLOSED
+    back inside it (a false break). A real resting stop — and the engine — fills these on the
+    intrabar touch; a platform that evaluates orders at the bar close (TradingView with
+    process_orders_on_close) skips them, then enters later on a close-confirmed break. This is
+    the dominant source of engine-only 'unmatched' trades, and the engine is the realistic side.
+    Needs or_hi/or_lo/entry_close in trade.raw (attached for the ORB family in edgelog_blotter)."""
+    r = trade.raw or {}
+    oh, ol, cl = r.get("or_hi"), r.get("or_lo"), r.get("entry_close")
+    if oh is None or ol is None or cl is None or not trade.side:
+        return False
+    return (cl < oh) if trade.side > 0 else (cl > ol)
+
+
 # ── Diagnosis ───────────────────────────────────────────────────────────────────
 def diagnose(matched, unmatched_a, unmatched_b, offset_min, a_label, b_label, tol_min):
     out = []
@@ -303,6 +317,13 @@ def diagnose(matched, unmatched_a, unmatched_b, offset_min, a_label, b_label, to
             out.append(("PRICE-OFFSET", f"Entry prices sit a constant {md:+.2f} pts apart (σ={sd:.2f}) → the two "
                         f"feeds are on different contracts / back-adjustment (continuous vs a dated contract). "
                         f"Pick a window mid-cycle, away from a quarterly roll."))
+    fw = [t for t in unmatched_a if is_false_wick(t)]
+    if fw:
+        out.append(("FALSE-WICK", f"{len(fw)} of the {len(unmatched_a)} {a_label}-only trades are "
+                    f"FALSE-WICK breaks: the opening range was pierced by a wick that closed back inside, "
+                    f"so a real resting stop (and the engine) fills them on the touch, but {b_label}'s "
+                    f"close-based order model skips them and enters later. Not a bug — the engine is the "
+                    f"realistic side; these are legitimate real-world entries {b_label} can't model."))
     for extras, who, other in ((unmatched_a, a_label, b_label), (unmatched_b, b_label, a_label)):
         if not extras:
             continue
@@ -344,8 +365,9 @@ def build_result(a, a_meta, b, b_meta, offset_min, tol_min):
                      "flip": bool(ta.side and tb.side and ta.side != tb.side),
                      "a_pnl": ta.pnl_usd, "b_pnl": tb.pnl_usd,
                      "dpnl": dpnl, "dt_min": dt, "dpx": dpx})
-    def _un(lst):
-        return [{"entry": _fmt(t.entry_dt), "side": int(t.side), "pnl": t.pnl_usd} for t in lst[:60]]
+    def _un(lst, mark_fw=False):
+        return [{"entry": _fmt(t.entry_dt), "side": int(t.side), "pnl": t.pnl_usd,
+                 **({"false_wick": is_false_wick(t)} if mark_fw else {})} for t in lst[:60]]
     return {
         "a_source": a_label, "b_source": b_label,
         "summary": {
@@ -362,7 +384,8 @@ def build_result(a, a_meta, b, b_meta, offset_min, tol_min):
         # cap the row detail so a multi-thousand-trade run can't blow Firestore's 1 MB doc
         # limit; the summary counts above stay exact.
         "matched": rows[:500], "matched_total": len(rows),
-        "unmatched_a": _un(un_a), "unmatched_b": _un(un_b),
+        "unmatched_a": _un(un_a, mark_fw=True), "unmatched_b": _un(un_b),
+        "false_wick_a": sum(1 for t in un_a if is_false_wick(t)),
         "meta": {"a": a_meta, "b": b_meta, "tol_min": tol_min},
     }
 
@@ -379,18 +402,36 @@ def edgelog_blotter(strategy, instrument, timeframe, session, params, *,
         raise ValueError(f"No master CSV for {instrument} {timeframe} {session}.")
     arr = load_master_arrays(master, date_from=date_from, date_to=date_to)
     res = run_backtest(strategy, arrays=arr, params=params, cost_pts=cost_pts, return_trades=True)
-    idx, O = arr["index"], arr["open"]
+    idx, O, H, L, C = arr["index"], arr["open"], arr["high"], arr["low"], arr["close"]
+    # ORB family: precompute each session's opening range (first or_bars bars) + the session
+    # start per bar, so we can flag false-wick entries downstream (see is_false_wick).
+    or_bars = int(params.get("or_bars", 0) or 0)
+    did = arr.get("day_id")
+    sess_or, sess_start = {}, None
+    if or_bars and did is not None:
+        did = np.asarray(did); n = len(C); sess_start = np.zeros(n, dtype=int); i = 0
+        while i < n:
+            j = i
+            while j < n and did[j] == did[i]:
+                j += 1
+            k = min(or_bars, j - i)
+            sess_or[i] = (float(np.max(H[i:i + k])), float(np.min(L[i:i + k])))
+            sess_start[i:j] = i
+            i = j
     trades = []
     for t in ((res or {}).get("trades") or []):
         eb, xb, pnl_pts = int(t[0]), int(t[1]), float(t[2])
         side = int(t[3]) if len(t) >= 4 else 0
         entry_px = float(t[4]) if len(t) >= 5 else float(O[eb])
         exit_px = (entry_px + side * pnl_pts) if side else None
+        raw = {"entry_bar": eb, "exit_bar": xb, "pnl_pts": pnl_pts}
+        if sess_start is not None:
+            oh, ol = sess_or.get(int(sess_start[eb]), (None, None))
+            raw.update(or_hi=oh, or_lo=ol, entry_close=float(C[eb]))
         trades.append(Trade(entry_dt=pd.Timestamp(idx[eb]).tz_localize(None),
                             exit_dt=pd.Timestamp(idx[xb]).tz_localize(None),
                             side=side, qty=1.0, entry_px=entry_px, exit_px=exit_px,
-                            pnl_usd=pnl_pts * mult,
-                            raw={"entry_bar": eb, "exit_bar": xb, "pnl_pts": pnl_pts}))
+                            pnl_usd=pnl_pts * mult, raw=raw))
     meta = {"source": "EDGELOG", "strategy": str(strategy), "instrument": instrument,
             "timeframe": timeframe, "session": session, "mult": mult,
             "master": master["filename"], "bars": int(len(arr["close"])),
