@@ -162,6 +162,12 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     _prim = (wf_anch if (wf_anch["ran"] and
                          (wf_anch["fold_frac"], wf_anch["wfe"]) > (wf_roll["fold_frac"], wf_roll["wfe"]))
              else wf_roll)
+    # the NON-selected scheme's folds ride along (compact rows) so the web 1C chart can
+    # flip between the two windowing schemes for comparison.
+    _altw = wf_roll if _prim is wf_anch else wf_anch
+    _alt_folds = [{k: r.get(k) for k in ("fold", "total_pnl", "oos_pnl", "oos_pf",
+                                         "train_bars", "test_bars") if k in r}
+                  for r in (_altw.get("folds") or [])] if _altw.get("ran") else []
     wf_ran = _prim["ran"]; folds = _prim["folds"]; n_folds = _prim["n_folds"]
     held = _prim["held"]; wfe = _prim["wfe"]; fold_frac = _prim["fold_frac"]; sOos = _prim["oos_net"]
     _wf_compact = lambda w: {"mode": w["mode"], "ran": w["ran"], "wfe": round(w["wfe"], 3),
@@ -205,6 +211,20 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     lb_pf = float((lb or {}).get("profit_factor", 0) or 0)
     lb_trades = int((lb or {}).get("num_trades", 0) or 0)
     lb_pass = lb is not None and lb_pnl > 0 and lb_pf >= 1.0
+
+    # ── LOCKBOX-slice distributions for the 1D/1G report tiles (owner: those charts should
+    #    be viewable on the OUT-OF-SAMPLE slice, not just the whole run). win_dist = per-trade
+    #    net PnLs of the lockbox backtest; mae_mfe re-derived over the lockbox window arrays. ──
+    win_dist_lb = None
+    mae_mfe_lb = None
+    if lb and lb.get("trades"):
+        try:
+            win_dist_lb = [round(float(t[2]), 2) for t in lb["trades"]][:600]
+            from .analytics import mae_mfe as _mmfe
+            _lba = load_master_arrays(master, date_from=lb_from, date_to=None)
+            mae_mfe_lb = _mmfe(lb["trades"], _lba["high"], _lba["low"])
+        except Exception:
+            pass
 
     # ── Per-trade Win% / Sharpe so the report's KPI matrix + Past-runs columns aren't blank.
     #    Lockbox stats come from the lockbox trades we already have; the WHOLE-RUN totals come
@@ -473,6 +493,10 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "mae_mfe": (OV.get("mae_mfe") or A.get("mae_mfe")),
         "win_dist": (OV.get("win_dist") or A.get("win_dist")),
         "champ_dist_scope": ("overall" if OV.get("win_dist") else "in-sample"),
+        # lockbox-slice versions of 1D/1G (the report's scope dropdown flips between them)
+        "win_dist_lb": win_dist_lb, "mae_mfe_lb": mae_mfe_lb,
+        # the NON-selected walk-forward scheme's folds (1C comparison toggle)
+        "wf_alt_folds": _alt_folds, "wf_alt_mode": (_altw.get("mode") if _altw.get("ran") else None),
         # 1B monthly + 1F regime + §8 MC drawdown → whole-run champion when available, else in-sample.
         "mc": (OV.get("mc") or A.get("mc")), "regime": (OV.get("regime") or A.get("regime")),
         "neighborhood": A.get("neighborhood"),
