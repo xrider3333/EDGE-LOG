@@ -41,7 +41,14 @@ DEFAULT_PARAMS = {
     "breakout_buf": {"default": 0.0,  "min": 0.0,  "max": 0.0,  "step": 0.05, "type": "float", "label": "Breakout buffer"},
     "target_R":     {"default": 4.5,  "min": 4.5,  "max": 4.5,  "step": 0.5,  "type": "float", "label": "Target (× risk)"},
     "be_after_R": {
-        "default": 0.0, "min": 0.0, "max": 4.0, "step": 0.1, "type": "float",
+        # PINNED at 1.0 for the deploy-candidate report card. Run #153 proved the free
+        # 0-4 search picks a noise cell (2.6R, verdict WEAK, PBO gate fail) because the
+        # IS objective is PnL-based and BE is a DRAWDOWN lever. 1.0R = the center-left of
+        # the OOS-confirmed 0.9-1.3R plateau (best MAR 21.5, best full/LB drawdowns).
+        # Caveat: the plateau was confirmed using lockbox data, so the level choice is
+        # not fully lockbox-blind - the wide flat plateau is the anti-overfit defense.
+        # To re-run the open sweep, set min 0 / max 4 again (grid preset still sweeps).
+        "default": 1.0, "min": 1.0, "max": 1.0, "step": 0.1, "type": "float",
         "label": "Breakeven after (× risk, 0=off)",
         "tooltip": "Move the stop to ENTRY once unrealized profit reaches this multiple of "
                    "initial risk (entry-to-stop). Arms on the bar close, acts from the next "
