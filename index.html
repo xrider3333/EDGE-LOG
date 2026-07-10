@@ -396,10 +396,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='49.7';
+const VERSION='49.8';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'49.8', date:'2026-07-09', notes:['3-D param surfaces: 2H and 2J now sit SIDE-BY-SIDE, both 3-D by default, each on its own parameter pair (2J defaults to the 3rd × 4th knob and hides when a strategy has under 3 params — no duplicate views). ⛶ on either opens a DRAG-TO-ORBIT view: click-hold and turn the surface to see behind ridges, wheel = height exaggeration, double-click = reset.','2K PDP top-out curves moved directly under the 2C parallel-coordinates chart (same card) — the per-knob read of the config space 2C fans out. Hover any dot for the exact value / avg $ / config count.','Expanded 1A: date-axis labels were clipping off the bottom — fixed (plus a right axis spine). Blotter loads now work for OLD runs whose docs carry the strategy display name, and giant blotters cap at the most recent 6,000 trades (full CSV stays on your PC).']},
   {v:'49.7', date:'2026-07-09', notes:['1A CHAMPION EQUITY: the ⛶ expand now opens a full TradingView-style explorer — mouse-wheel zooms around the cursor, drag pans, double-click resets, the y-axis auto-fits the visible slice. Real date/$ tick axes, a crosshair with values pinned to both axes, and the drawdown pane below (red dashed = realised max DD, yellow dashed = Monte-Carlo P95) all ride along. Walk-forward bands + lockbox shading stay visible while zooming.','▦ TRADES (in the expanded 1A): loads the run\'s saved trade blotter off your PC (new get_blotter runner command; falls back to regenerating the champion\'s trades and caches the CSV). Trades appear as green/red dots on the curve and as a table under the chart — click a row to fly to that trade, click a dot to highlight its row. Restart the runner once to enable.','2H HEATMAP now has a ◱ 3D / ▦ 2D toggle — flip the same param landscape between the flat colour grid and the 3-D surface (2J stays).']},
   {v:'49.6', date:'2026-07-09', notes:['Run report cleanup: the CHAMPION metric strip at the top is gone — its 7 numbers live in tile 1E (KPI matrix on validate runs; a champion table on grid/single runs).','1I STRESS rebuilt in 1C\'s chart style: the $0 axis now floats to the data (sits on the bottom when every window is positive), nice-step $ gridlines, right $ gutter, per-window $ labels.','1G MAE/MFE: the suggested stop/target dashed lines are now actually visible (thicker, brighter, halo-backed labels, edge-clamped).','Charts: the drag-to-resize grips are replaced by a single ⛶ expand button (bottom-right of every chart, incl. 1A/1B). Expanded charts show a live crosshair readout of the exact date/$ (or fold/window/pts) under the mouse.']},
   {v:'49.5', date:'2026-07-09', notes:['Past Runs: EVERY column header now opens a Google-Sheets-style menu — Sort A→Z / Z→A plus a "filter by values" checklist where all values start CHECKED (all shown) and you uncheck to hide. Includes Select all / Clear, a search box, and colored strategy rows. Consistent across all columns; the menu drops below the header and no longer covers the list.']},
@@ -2456,7 +2457,7 @@ window.expandEquity=function(host){
   const svgEl=el2('eqx-svg'),chartEl=el2('eqx-chart'),read=el2('eqx-read');
   // ── view state: [a,b] fractions of the full x-domain ──
   let va=0,vb=1,blotRows=null,selTrade=null;
-  const GUT=68,XAX=20,DDF=0.24;   // right $ gutter px, bottom date-axis px, drawdown-pane share
+  const GUT=68,XAX=26,DDF=0.24;   // right $ gutter px, bottom date-axis px, drawdown-pane share
   const _niceStep=x=>{x=Math.abs(x)||1;const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
   const geo=()=>{const r=chartEl.getBoundingClientRect(),W=Math.max(200,r.width),H=Math.max(160,r.height);
     const pw=W-GUT,ah=H-XAX,ddh=Math.round(ah*DDF),eh=ah-ddh-8;
@@ -2487,11 +2488,14 @@ window.expandEquity=function(host){
     for(let L=Math.ceil(mn/step)*step;L<=mx;L+=step){const y=Y(L);
       s+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+g.pw+'" y2="'+y.toFixed(1)+'" stroke="var(--border)" stroke-width="'+(Math.abs(L)<1e-9?1:0.5)+'" opacity="'+(Math.abs(L)<1e-9?0.6:0.25)+'"/>'
         +'<text x="'+(g.pw+6)+'" y="'+(y+3.5).toFixed(1)+'" font-size="10" fill="'+(Math.abs(L)<1e-9?'var(--text4)':'var(--text5)')+'">'+fmt$(L)+'</text>';}
-    // time ticks (bottom axis)
+    // time ticks (bottom axis) — ticks + labels INSIDE the reserved XAX strip so nothing
+    //   clips at the viewBox edge (labels sit ~6px above the very bottom of the svg).
     const NT=Math.max(4,Math.min(9,Math.floor(g.pw/110)));
     for(let k=0;k<=NT;k++){const t=a+(b-a)*k/NT,x=X(g,t);
-      s+='<line x1="'+x.toFixed(1)+'" y1="'+(g.H-2)+'" x2="'+x.toFixed(1)+'" y2="'+(g.H-6)+'" stroke="var(--text5)" stroke-width="1"/>'
-        +'<text x="'+x.toFixed(1)+'" y="'+(g.H+13)+'" text-anchor="'+(k===0?'start':(k===NT?'end':'middle'))+'" font-size="10" fill="var(--text5)">'+fmtD(t)+'</text>';}
+      s+='<line x1="'+x.toFixed(1)+'" y1="'+(g.ddB+3).toFixed(1)+'" x2="'+x.toFixed(1)+'" y2="'+(g.ddB+7).toFixed(1)+'" stroke="var(--text5)" stroke-width="1"/>'
+        +'<text x="'+x.toFixed(1)+'" y="'+(g.H-6)+'" text-anchor="'+(k===0?'start':(k===NT?'end':'middle'))+'" font-size="10" fill="var(--text5)">'+fmtD(t)+'</text>';}
+    // right axis spine — a visual margin between the plot and the $ labels
+    s+='<line x1="'+g.pw+'" y1="0" x2="'+g.pw+'" y2="'+(g.H-XAX)+'" stroke="var(--border)" opacity="0.7"/>';
     // equity paths: green pre-lockbox, purple lockbox — split at index li
     const seg=(arr)=>arr.map((p,i2)=>((i2?'L':'M')+X(g,p.t).toFixed(1)+' '+Y(p.v).toFixed(1))).join(' ');
     const pre=pts.filter(p=>p.i<=li&&p.t>=a&&p.t<=b),post=pts.filter(p=>p.i>=li&&p.t>=a&&p.t<=b);
@@ -2577,7 +2581,7 @@ window.expandEquity=function(host){
       blotRows=rows;
       const th='<tr style="position:sticky;top:0;background:var(--bg1);color:var(--text5);font-size:9px;letter-spacing:1px"><th style="padding:6px 10px;text-align:left">#</th><th style="text-align:left;padding:6px 10px">ENTRY</th><th style="text-align:left;padding:6px 10px">EXIT</th><th style="text-align:right;padding:6px 10px">HOLD</th><th style="text-align:right;padding:6px 10px">ENTRY PX</th><th style="text-align:right;padding:6px 10px">EXIT PX</th><th style="text-align:right;padding:6px 10px">PTS</th><th style="text-align:right;padding:6px 10px">NET $</th><th style="text-align:right;padding:6px 10px">CUM $</th></tr>';
       const trs=rows.map(x=>'<tr data-blrow="'+x._no+'" style="cursor:pointer;border-top:1px solid var(--border2)" title="click to fly to this trade on the chart"><td style="padding:5px 10px;color:var(--text5)">'+x._no+'</td><td style="padding:5px 10px;font-size:10px">'+x._et+'</td><td style="padding:5px 10px;font-size:10px">'+x._xt2+'</td><td style="padding:5px 10px;text-align:right;color:var(--text4)">'+x._hold+'</td><td style="padding:5px 10px;text-align:right">'+x._ep+'</td><td style="padding:5px 10px;text-align:right">'+x._xp+'</td><td style="padding:5px 10px;text-align:right;color:'+(x._pts>=0?'var(--green)':'var(--red)')+'">'+x._pts+'</td><td style="padding:5px 10px;text-align:right;font-weight:700;color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x._usd)+'</td><td style="padding:5px 10px;text-align:right;color:'+(x._cum>=0?'var(--text2)':'var(--red)')+'">'+fmt$(x._cum)+'</td></tr>').join('');
-      wrap.innerHTML='<div style="padding:8px 12px 2px;font-size:9px;color:var(--text5);letter-spacing:1px">TRADE BLOTTER · '+rows.length+' trades'+(r.regenerated?' · regenerated on your PC':(r.source?' · '+r.source:''))+' · click a row to fly to it on the chart</div><table style="width:100%;border-collapse:collapse;font-size:11px">'+th+trs+'</table>';
+      wrap.innerHTML='<div style="padding:8px 12px 2px;font-size:9px;color:var(--text5);letter-spacing:1px">TRADE BLOTTER · '+rows.length+' trades'+(r.capped?' (most recent — '+r.capped+' older trades stay in the CSV on your PC)':'')+(r.regenerated?' · regenerated on your PC':(r.source?' · '+r.source:''))+' · click a row to fly to it on the chart</div><table style="width:100%;border-collapse:collapse;font-size:11px">'+th+trs+'</table>';
       wrap.style.display='block';
       blotBtn.textContent='▦ TRADES ('+rows.length+')';blotBtn.disabled=false;
       wrap.querySelectorAll('[data-blrow]').forEach(tr=>{tr.onclick=()=>{
@@ -2598,6 +2602,103 @@ window.expandEquity=function(host){
   document.addEventListener('keydown',esc);
   const close=()=>{window.removeEventListener('resize',onResize);document.removeEventListener('keydown',esc);modal.remove();};
   el2('eqx-close').onclick=close;
+  requestAnimationFrame(render);
+};
+
+// ── 3-D PARAM SURFACE ORBIT — the ⛶ on 2H/2J opens the same binned param→PnL surface in a
+//    modal you can TURN: click-drag rotates it (yaw + tilt) so you can see behind ridges,
+//    mouse-wheel exaggerates/flattens the height, double-click resets. Same colour ramp and
+//    hover tips as the inline tile; data rides in the svg's data-s3d payload.
+window.expandSurface3D=function(host){
+  let D=null;try{D=JSON.parse(decodeURIComponent(host.getAttribute('data-s3d')||''));}catch(_){}
+  if(!D||!D.Z||!D.Z.length||!D.Z[0].length)return;
+  const Z=D.Z,nx=Z.length,ny=Z[0].length,xv=D.xv||[],yv=D.yv||[];
+  let zmn=1e18,zmx=-1e18;for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){if(Z[i][j]<zmn)zmn=Z[i][j];if(Z[i][j]>zmx)zmx=Z[i][j];}
+  const zsp=(zmx-zmn)||1,zn=(i,j)=>(Z[i][j]-zmn)/zsp;
+  const rampC=v=>{const m=Math.max(Math.abs(zmn),Math.abs(zmx))||1,t=Math.max(-1,Math.min(1,v/m));
+    const neg=[226,75,74],pos=[31,186,124],mid=[56,63,76],c=t>=0?pos:neg,a=Math.abs(t);
+    return 'rgb('+Math.round(mid[0]+(c[0]-mid[0])*a)+','+Math.round(mid[1]+(c[1]-mid[1])*a)+','+Math.round(mid[2]+(c[2]-mid[2])*a)+')';};
+  const fmt$=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
+  const _hr=v=>Number.isInteger(+v)?v:(+v).toFixed(2);
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.93);z-index:9999;display:flex;flex-direction:column;padding:18px 22px';
+  modal.innerHTML='<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">'
+    +'<span style="font-family:\'Bebas Neue\',monospace;font-size:20px;letter-spacing:3px;color:var(--text)">'+(D.title||'PARAM SURFACE 3-D')+'</span>'
+    +'<span style="font-size:9px;color:var(--text5)">drag = rotate / tilt · wheel = height exaggeration · double-click = reset · hover a tile for values</span>'
+    +'<span style="margin-left:auto;display:flex;gap:8px">'
+    +'<button id="s3d-reset" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">↺ RESET</button>'
+    +'<button id="s3d-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:2px;border-radius:6px">CLOSE ✕</button></span></div>'
+    +'<div id="s3d-stage" style="flex:1;min-height:0;background:var(--bg2);border:1px solid var(--border);border-radius:12px;position:relative;cursor:grab;overflow:hidden">'
+    +'<svg id="s3d-svg" style="display:block;width:100%;height:100%"></svg></div>';
+  document.body.appendChild(modal);
+  const stage=modal.querySelector('#s3d-stage'),svgEl=modal.querySelector('#s3d-svg');
+  const YAW0=Math.PI/4,PITCH0=0.5,ZH0=0.34;
+  let yaw=YAW0,pitch=PITCH0,zhF=ZH0;   // zhF = height as a fraction of stage height
+  const ci=(nx-1)/2,cj=(ny-1)/2;
+  const render=()=>{
+    const r=stage.getBoundingClientRect(),W=Math.max(300,r.width),H=Math.max(240,r.height);
+    const cs=Math.cos(yaw),sn=Math.sin(yaw);
+    const U=(i,j)=>(i-ci)*cs-(j-cj)*sn, V=(i,j)=>((i-ci)*sn+(j-cj)*cs)*pitch;
+    // fit: scan corner extents (flat) + height so the surface always fits the stage
+    let umn=1e9,umx=-1e9,vmn=1e9,vmx=-1e9;
+    [[0,0],[nx-1,0],[nx-1,ny-1],[0,ny-1]].forEach(c=>{const u=U(c[0],c[1]),v=V(c[0],c[1]);if(u<umn)umn=u;if(u>umx)umx=u;if(v<vmn)vmn=v;if(v>vmx)vmx=v;});
+    const zh=H*zhF;
+    const S=Math.min((W*0.82)/((umx-umn)||1),(H*0.66)/((vmx-vmn)||1));
+    const ox=W/2-((umx+umn)/2)*S, oy=H/2+zh*0.42-((vmx+vmn)/2)*S;
+    const PX=(i,j)=>ox+U(i,j)*S, PY=(i,j,z)=>oy+V(i,j)*S-z*zh;
+    let s='';
+    // floor + posts
+    const fl=[[0,0],[nx-1,0],[nx-1,ny-1],[0,ny-1]];
+    s+='<polygon points="'+fl.map(c=>PX(c[0],c[1]).toFixed(1)+','+PY(c[0],c[1],0).toFixed(1)).join(' ')+'" fill="none" stroke="var(--border)" stroke-width="0.8" opacity="0.55"/>';
+    fl.forEach(c=>{s+='<line x1="'+PX(c[0],c[1]).toFixed(1)+'" y1="'+PY(c[0],c[1],0).toFixed(1)+'" x2="'+PX(c[0],c[1]).toFixed(1)+'" y2="'+PY(c[0],c[1],zn(c[0],c[1])).toFixed(1)+'" stroke="var(--border)" stroke-width="0.6" opacity="0.45" stroke-dasharray="2,2"/>';});
+    // painter's algorithm at the CURRENT yaw: back (small projected v) to front
+    const order=[];for(let i=0;i<nx-1;i++)for(let j=0;j<ny-1;j++)order.push([i,j,V(i+0.5,j+0.5)]);
+    order.sort((a,b)=>a[2]-b[2]);
+    order.forEach(q=>{const i=q[0],j=q[1];
+      const avg=(Z[i][j]+Z[i+1][j]+Z[i+1][j+1]+Z[i][j+1])/4;
+      const tip=(D.xl||'x')+' '+_hr(xv[i])+'–'+_hr(xv[i+1])+'<br>'+(D.yl||'y')+' '+_hr(yv[j])+'–'+_hr(yv[j+1])+'<br>avg net <b>'+fmt$(avg)+'</b>';
+      s+='<polygon points="'+PX(i,j).toFixed(1)+','+PY(i,j,zn(i,j)).toFixed(1)+' '+PX(i+1,j).toFixed(1)+','+PY(i+1,j,zn(i+1,j)).toFixed(1)+' '+PX(i+1,j+1).toFixed(1)+','+PY(i+1,j+1,zn(i+1,j+1)).toFixed(1)+' '+PX(i,j+1).toFixed(1)+','+PY(i,j+1,zn(i,j+1)).toFixed(1)+'" fill="'+rampC(avg)+'" opacity="0.95" stroke="rgba(10,14,20,0.55)" stroke-width="0.6" data-tip="'+tip+'"/>';});
+    // peak flag
+    let mi=0,mj=0;for(let i=0;i<nx;i++)for(let j=0;j<ny;j++)if(Z[i][j]>Z[mi][mj]){mi=i;mj=j;}
+    s+='<circle cx="'+PX(mi,mj).toFixed(1)+'" cy="'+PY(mi,mj,zn(mi,mj)).toFixed(1)+'" r="3.5" fill="#27c08a"/><text x="'+PX(mi,mj).toFixed(1)+'" y="'+(PY(mi,mj,zn(mi,mj))-8).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" fill="#27c08a" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">peak '+fmt$(zmx)+'</text>';
+    // rotating axis labels on the two floor edges adjacent to the FRONT corner
+    const xm=[ (PX((nx-1)/2,ny-1)),(PY((nx-1)/2,ny-1,0)) ],ym=[ (PX(nx-1,(ny-1)/2)),(PY(nx-1,(ny-1)/2,0)) ];
+    s+='<text x="'+xm[0].toFixed(1)+'" y="'+(xm[1]+16).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text3)" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">'+(D.xl||'x')+' '+_hr(xv[0])+' → '+_hr(xv[nx-1])+'</text>';
+    s+='<text x="'+ym[0].toFixed(1)+'" y="'+(ym[1]+16).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text3)" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">'+(D.yl||'y')+' '+_hr(yv[0])+' → '+_hr(yv[ny-1])+'</text>';
+    // $ legend
+    s+='<text x="12" y="20" font-size="10" fill="var(--text3)">'+fmt$(zmx)+' peak</text><text x="12" y="34" font-size="10" fill="var(--text4)">'+fmt$(zmn)+' trough</text>';
+    svgEl.setAttribute('viewBox','0 0 '+W+' '+H);
+    svgEl.innerHTML=s;
+  };
+  // drag = orbit; wheel = height exaggeration; dbl-click = reset
+  let drag=null;
+  stage.addEventListener('mousedown',e=>{drag={x:e.clientX,y:e.clientY,yaw:yaw,pitch:pitch};stage.style.cursor='grabbing';});
+  window.addEventListener('mousemove',e=>{if(!drag)return;
+    yaw=drag.yaw+(e.clientX-drag.x)*0.008;
+    pitch=Math.max(0.18,Math.min(0.95,drag.pitch+(e.clientY-drag.y)*0.003));
+    render();});
+  window.addEventListener('mouseup',()=>{drag=null;stage.style.cursor='grab';});
+  stage.addEventListener('wheel',e=>{e.preventDefault();zhF=Math.max(0.08,Math.min(0.8,zhF*(e.deltaY<0?1.12:0.89)));render();},{passive:false});
+  stage.addEventListener('dblclick',()=>{yaw=YAW0;pitch=PITCH0;zhF=ZH0;render();});
+  modal.querySelector('#s3d-reset').onclick=()=>{yaw=YAW0;pitch=PITCH0;zhF=ZH0;render();};
+  // hover tips — reuse the shared #chart-tip element
+  let tip=document.getElementById('chart-tip');
+  if(!tip){tip=document.createElement('div');tip.id='chart-tip';tip.style.cssText='position:fixed;z-index:9999;pointer-events:none;display:none;max-width:280px;padding:6px 9px;border-radius:8px;background:var(--bg1);border:1px solid var(--border);color:var(--text2);font-size:10px;line-height:1.55;box-shadow:0 6px 22px rgba(0,0,0,.45)';document.body.appendChild(tip);}
+  tip.style.zIndex='10001';
+  stage.addEventListener('mousemove',e=>{if(drag){tip.style.display='none';return;}
+    const t=e.target&&e.target.closest?e.target.closest('[data-tip]'):null;
+    if(!t){tip.style.display='none';return;}
+    tip.innerHTML=t.getAttribute('data-tip');tip.style.display='block';
+    let x=e.clientX+14,y=e.clientY+14;const tr=tip.getBoundingClientRect();
+    if(x+tr.width>innerWidth-8)x=e.clientX-tr.width-14;if(y+tr.height>innerHeight-8)y=e.clientY-tr.height-14;
+    tip.style.left=Math.max(4,x)+'px';tip.style.top=Math.max(4,y)+'px';});
+  stage.addEventListener('mouseleave',()=>{tip.style.display='none';});
+  const onResize=()=>render();
+  window.addEventListener('resize',onResize);
+  const esc=e=>{if(e.key==='Escape')close();};
+  document.addEventListener('keydown',esc);
+  const close=()=>{tip.style.display='none';tip.style.zIndex='9999';window.removeEventListener('resize',onResize);document.removeEventListener('keydown',esc);modal.remove();};
+  modal.querySelector('#s3d-close').onclick=close;
   requestAnimationFrame(render);
 };
 
@@ -5422,12 +5523,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //   spike. Pure SVG painter's algorithm — no chart library. Cells never tested are
     //   interpolated from neighbours and drawn faded. Renders retroactively on any stored
     //   run that carries `points`.
-    const surface3dPanelHtml=(points,mult,tag,bpx)=>{
+    const surface3dPanelHtml=(points,mult,tag,bpx,alt)=>{
       if(!points||points.length<8)return '';
       const keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&typeof points[0][k]==='number');
       if(keys.length<2)return '';
-      const xk=keys.indexOf(APREF.hmX)>=0?APREF.hmX:keys[0];
-      let yk=keys.indexOf(APREF.hmY)>=0?APREF.hmY:keys[1];if(yk===xk)yk=keys.find(k=>k!==xk)||keys[1];
+      // alt = the 2J instance: its OWN pair (hm2X × hm2Y, default 3rd × 4th knob) so it never
+      //   mirrors 2H; with fewer than 3 numeric params it hides (a duplicate would be redundant).
+      let xk,yk;
+      if(alt){
+        if(keys.length<3)return '';
+        xk=keys.indexOf(APREF.hm2X)>=0?APREF.hm2X:keys[2];
+        yk=keys.indexOf(APREF.hm2Y)>=0?APREF.hm2Y:(keys[3]||keys[0]);
+        if(yk===xk)yk=keys.find(k=>k!==xk)||keys[0];
+      }else{
+        xk=keys.indexOf(APREF.hmX)>=0?APREF.hmX:keys[0];
+        yk=keys.indexOf(APREF.hmY)>=0?APREF.hmY:keys[1];if(yk===xk)yk=keys.find(k=>k!==xk)||keys[1];
+      }
       const uniq=k=>[...new Set(points.map(p=>p[k]))].sort((a,b)=>a-b);
       const bins=k=>{const u=uniq(k);if(u.length<=12)return u;const mn=u[0],mx=u[u.length-1],NB=9,bw=(mx-mn)/NB||1;return Array.from({length:NB},(_,b)=>+(mn+(b+0.5)*bw).toFixed(3));};
       const xv=bins(xk),yv=bins(yk);
@@ -5486,17 +5597,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
       svg+='<text x="'+(xm[0]-8).toFixed(1)+'" y="'+(xm[1]+14).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="700" fill="var(--text3)">'+_pp(xk)+' '+_hr(xv[0])+' → '+_hr(xv[nx-1])+'</text>';
       svg+='<text x="'+(ym[0]+8).toFixed(1)+'" y="'+(ym[1]+14).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="700" fill="var(--text3)">'+_pp(yk)+' '+_hr(yv[0])+' → '+_hr(yv[ny-1])+'</text>';
       // height legend
-      svg+='<rect x="10" y="'+padT+'" width="6" height="54" rx="2" fill="url(#p3g)"/><text x="20" y="'+(padT+6)+'" font-size="7" fill="var(--text3)">'+fmtUsd(Math.round(zmx))+'</text><text x="20" y="'+(padT+54)+'" font-size="7" fill="var(--text3)">'+fmtUsd(Math.round(zmn))+'</text>';
+      const _gid='p3g'+String(tag||'').replace(/[^\w]/g,'');   // unique per tile — 2H + 2J can both render
+      svg+='<rect x="10" y="'+padT+'" width="6" height="54" rx="2" fill="url(#'+_gid+')"/><text x="20" y="'+(padT+6)+'" font-size="7" fill="var(--text3)">'+fmtUsd(Math.round(zmx))+'</text><text x="20" y="'+(padT+54)+'" font-size="7" fill="var(--text3)">'+fmtUsd(Math.round(zmn))+'</text>';
       const g1=rampC(zmx),g2=rampC(0),g3=rampC(zmn);
-      const defs='<defs><linearGradient id="p3g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgb('+g1.map(Math.round).join(',')+')"/><stop offset="0.5" stop-color="rgb('+g2.map(Math.round).join(',')+')"/><stop offset="1" stop-color="rgb('+g3.map(Math.round).join(',')+')"/></linearGradient></defs>';
+      const defs='<defs><linearGradient id="'+_gid+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgb('+g1.map(Math.round).join(',')+')"/><stop offset="0.5" stop-color="rgb('+g2.map(Math.round).join(',')+')"/><stop offset="1" stop-color="rgb('+g3.map(Math.round).join(',')+')"/></linearGradient></defs>';
+      // orbit payload for the ⛶ drag-to-rotate view (window.expandSurface3D): the binned Z grid
+      //   + axes — small (≤ ~12×12 numbers), so the modal can re-project it at any yaw/pitch.
+      const _s3d=encodeURIComponent(JSON.stringify({Z:Z.map(r=>r.map(v=>Math.round(v))),xv:xv,yv:yv,
+        xl:_pp(xk),yl:_pp(yk),title:(tag?tag+' · ':'')+'PARAM SURFACE 3-D · '+_pp(xk)+' × '+_pp(yk)}));
       // When this surface IS the 2H tile (hm3d toggle on), it carries the param pickers +
       //   a ▦ 2D chip so you can flip back — the standalone 2J keeps its lean header.
       const _isH=/H$/.test(tag||'');
       const _mk2=(a,dk)=>'<select data-'+dk+' style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs)">'+keys.map(k=>'<option value="'+k+'"'+(k===a?' selected':'')+'>'+_pp(k)+'</option>').join('')+'</select>';
-      const _hCtl=_isH?(_mk2(xk,'hmx')+'<span style="color:var(--text5)">×</span>'+_mk2(yk,'hmy')+'<span data-hm3d="0" title="switch this tile back to the flat 2-D heatmap" style="cursor:pointer;font-weight:700;font-size:8px;padding:2px 7px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);margin-left:2px">▦ 2D</span>'):'';
+      const _hCtl=_isH?(_mk2(xk,'hmx')+'<span style="color:var(--text5)">×</span>'+_mk2(yk,'hmy')+'<span data-hm3d="0" title="switch this tile back to the flat 2-D heatmap" style="cursor:pointer;font-weight:700;font-size:8px;padding:2px 7px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);margin-left:2px">▦ 2D</span>')
+        :(alt?(_mk2(xk,'hm2x')+'<span style="color:var(--text5)">×</span>'+_mk2(yk,'hm2y')):'');
       return '<div title="The param→PnL surface in 3-D: floor position = the two chosen parameters, height AND colour = the average net $ of every tested config in that cell (green = paying, red = losing). The 2H heatmap is this exact surface seen from straight above. What to look for: a broad green RIDGE or table-top = a robust zone (deploy inside it, anywhere on it works); a single sharp green NEEDLE = one lucky setting (fragile — likely luck). Faded cells were never tested and are estimated from their neighbours. Hover any tile for exact values." style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · PARAM SURFACE 3-D <span style="font-weight:400;color:var(--text5);font-size:8px">· '+(_isH?'':_pp(xk)+' × '+_pp(yk)+' · ')+'avg net $ as height · plateau = broad ridge, spike = luck ⓘ</span>'+_hCtl+'</div>'
         +'<div style="background:var(--bg1);border-radius:8px;padding:10px;flex:1;min-height:0">'
-        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+defs+svg+'</svg></div>';
+        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto" data-s3d="'+_s3d+'">'+defs+svg+'</svg></div>';
     };
     // 2K PDP — 1-D partial dependence: avg net $ of every tested config grouped by each
     //   parameter's value (all OTHER params averaged out), lightly smoothed with the same
@@ -6497,7 +6614,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           mcDD:((V&&V.mc_p95!=null)?Math.round(V.mc_p95*mlt):((d.mc&&d.mc.p95!=null)?Math.round(d.mc.p95*mlt):null)),
           title:'RUN #'+d.id+' · CHAMPION EQUITY · '+String(d.strategy||'')};
         const blot={run_id:d.id,instrument:d.instrument||'',timeframe:d.timeframe||'5m',session:d.session||'rth',
-          strategy:d.strategy||'',params:d.best_params||null,cost_pts:(d.cost_pts!=null?d.cost_pts:null),
+          strategy:d.strategy||'',params:d.best_params||null,cost_pts:(d.cost_pts!=null?d.cost_pts:5.66/mlt),
           mult:mlt,date_from:d.date_from||null,date_to:d.date_to||null};
         return ' data-eqx="'+encodeURIComponent(JSON.stringify(pay))+'" data-eqblot="'+encodeURIComponent(JSON.stringify(blot))+'"';
       }catch(_e){return '';}})();
@@ -6635,28 +6752,30 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _dist=distPanelHtml(d.dist,mlt,_cfgN+'B');
       const _parc=parallelCoordsHtml(d.points,mlt,_cfgN+'C');
       const _corr=corrPanelHtml(d.points,_cfgN+'I',d.relationship);
-      // 2H is view-toggleable (APREF.hm3d): flat heatmap ⇄ the SAME data as a 3-D surface.
-      const _hm=(APREF.hm3d?surface3dPanelHtml(d.points,mlt,_cfgN+'H',d.best_params):heatmapPanelHtml(d.points,mlt,_cfgN+'H'));
+      // 2H is view-toggleable (APREF.hm3d, DEFAULT 3-D per owner): flat heatmap ⇄ 3-D surface.
+      const _hm3dOn=(APREF.hm3d==null?1:+APREF.hm3d);
+      const _hm=(_hm3dOn?surface3dPanelHtml(d.points,mlt,_cfgN+'H',d.best_params):heatmapPanelHtml(d.points,mlt,_cfgN+'H'));
       const _sc=scatterPanelHtml(d.points,mlt,_cfgN+'G');
-      // 2J 3-D surface (same param pair as 2H) + 2K 1-D PDP top-out curves. Both read the
-      //   stored `points`, so they render retroactively on any saved run (e.g. run 137).
-      const _p3d=surface3dPanelHtml(d.points,mlt,_cfgN+'J',d.best_params);
+      // 2J 3-D surface on its OWN param pair (hm2X × hm2Y, defaults to the 3rd × 4th knob) so it
+      //   never duplicates 2H; hides itself when the strategy has fewer than 3 numeric params.
+      //   2K 1-D PDP top-out curves. Both read stored `points` → render retroactively (run 137).
+      const _p3d=surface3dPanelHtml(d.points,mlt,_cfgN+'J',d.best_params,1);
       const _pdp=pdpCurvesPanelHtml(d.points,mlt,_cfgN+'K',d.plateau_pick);
       // lay non-empty panels in a row (1, 2 or 3 across); single panel = full-width. stretch=true makes
       //   the cards equal-height (good for similar charts); otherwise they top-align at natural height.
       const _wrap=(arr,stretch)=>{const xs=arr.filter(x=>x&&x.replace(/\s/g,''));if(!xs.length)return '';const inner=(xs.length>1)?'<div style="display:flex;gap:12px;align-items:'+(stretch?'stretch':'flex-start')+';flex-wrap:wrap">'+xs.map(x=>'<div style="flex:1 1 260px;min-width:0;display:flex;flex-direction:column">'+x+'</div>').join('')+'</div>':xs[0];return '<div style="margin-bottom:12px">'+inner+'</div>';};
-      // Tile 1: 2a TOP CONFIGS PNL | 2b CONFIG DISTRIBUTION (how the top configs performed) — equal height.
-      const _cfgTile=(_eq||_dist||_parc)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_eq,_dist,_parc])+'</div>':'';
+      // Tile 1: 2a TOP CONFIGS PNL | 2b CONFIG DISTRIBUTION (row), then 2c PARALLEL COORDINATES
+      //   full-width with the 2K PDP top-out curves DIRECTLY beneath it (owner request — the PDP
+      //   mini-charts are the per-knob read of the same config space 2C fans out).
+      const _cfgTile=(_eq||_dist||_parc||_pdp)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_eq,_dist])+(_parc?'<div style="margin-bottom:12px">'+_parc+'</div>':'')+((_pdp&&_pdp.replace(/\s/g,''))?_pdp:'')+'</div>':'';
       const _topTile=(t10.length?'<div style="'+_card2+';margin-bottom:14px">'+_numHdr(_cfgN+'D','TOP CONFIGS')+'<style>.cfgtbl th,.cfgtbl td{padding:2px 5px!important;font-size:8px!important}.cfgtbl th{white-space:normal!important;max-width:52px;line-height:1.05;vertical-align:bottom;color:var(--text4);letter-spacing:0}</style><div style="overflow-x:auto"><table class="table cfgtbl" style="width:auto;white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div></div>':'');
       const _nbTile=(nbHtml&&nbHtml.replace(/\s/g,''))?'<div style="'+_card2+';margin-bottom:14px">'+_numHdr(_cfgN+'E','NEIGHBOUR ROBUSTNESS',nbTip,nbSub)+nbHtml+'</div>':'';
       // DSR (a champion/selection metric) lives in §1 (1H) for validate runs; show it here only for non-validate sweeps.
       const _dsrTile=(!d.validate&&dsrHtml&&dsrHtml.replace(/\s/g,''))?'<div style="'+_card2+';margin-bottom:14px"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'F · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>':'';
-      // Tile 2 (parameter-relationship group): 2c PARALLEL COORDINATES full-width, with
-      //   2h HEATMAP · 2g SCATTER · 2i PARAM CORRELATION three-across directly beneath it.
-      const _paramTile=(_hm||_p3d||_sc||_corr)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_hm,_corr],true)+_wrap([_sc,_p3d],true)+'</div>':'';
-      // 2K PDP sits on its own row directly under the 2A/2B/2C row (its own card).
-      const _pdpTile=(_pdp&&_pdp.replace(/\s/g,''))?'<div style="'+_card2+';margin-bottom:14px">'+_pdp+'</div>':'';
-      const _sec3=_cfgTile+_pdpTile+_paramTile+_topTile+_nbTile+_dsrTile;
+      // Tile 2 (parameter-relationship group): 2H and 2J SIDE-BY-SIDE (both 3-D by default, each
+      //   on its own param pair — ⛶ opens the drag-to-orbit view), then 2G SCATTER · 2I CORRELATION.
+      const _paramTile=(_hm||_p3d||_sc||_corr)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_hm,_p3d],true)+_wrap([_sc,_corr],true)+'</div>':'';
+      const _sec3=_cfgTile+_paramTile+_topTile+_nbTile+_dsrTile;
       // regHtml (regime report card + monthly P&L) moved into §1 (under the WF folds) per request.
       // Stress = the champion's profit spread across time → it lives in §1 (1I) for validate runs; keep the standalone §3/§4 only for non-validate sweeps.
       const _sec4='';   // stress is folded into §1 (1I) for EVERY run type now — matches run 137.
@@ -7439,6 +7558,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // (zoom/pan/crosshair/blotter) instead of the generic clone modal.
           const _eqxHost=svg.closest('[data-eqx]')||box.closest('[data-eqx]');
           if(_eqxHost&&window.expandEquity){window.expandEquity(_eqxHost);return;}
+          // 3-D param surfaces (2H in 3-D mode / 2J) open the drag-to-orbit modal instead.
+          if(svg.hasAttribute('data-s3d')&&window.expandSurface3D){window.expandSurface3D(svg);return;}
           // fresh lookups each time — renderApp rebuilds the report DOM, so cached nodes go stale
           const _boxes=()=>{const r=document.getElementById('res-detail');return r?[...r.querySelectorAll('.rschart-box')]:[];};
           const idx=_boxes().indexOf(box);
@@ -7915,7 +8036,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-sccmp-rm]').forEach(x=>{x.onclick=()=>{savePref('scCmp',(Array.isArray(APREF.scCmp)?APREF.scCmp:[]).filter(k=>k!==x.dataset.sccmpRm));renderApp();};});
       const _hx=content.querySelector('[data-hmx]');if(_hx)_hx.onchange=()=>{savePref('hmX',_hx.value);renderApp();};
       const _hy=content.querySelector('[data-hmy]');if(_hy)_hy.onchange=()=>{savePref('hmY',_hy.value);renderApp();};
-      const _h3=content.querySelector('[data-hm3d]');if(_h3)_h3.onclick=(e)=>{e.stopPropagation();savePref('hm3d',+_h3.dataset.hm3d);renderApp();};}
+      const _h3=content.querySelector('[data-hm3d]');if(_h3)_h3.onclick=(e)=>{e.stopPropagation();savePref('hm3d',+_h3.dataset.hm3d);renderApp();};
+      const _h2x=content.querySelector('[data-hm2x]');if(_h2x)_h2x.onchange=()=>{savePref('hm2X',_h2x.value);renderApp();};
+      const _h2y=content.querySelector('[data-hm2y]');if(_h2y)_h2y.onchange=()=>{savePref('hm2Y',_h2y.value);renderApp();};}
     return;
   }
   if(activeTab==='settings'){

@@ -47,6 +47,27 @@ def write_csv(rows, path):
     return path
 
 
+def _resolve_strategy(root, name):
+    """Run docs sometimes carry the strategy's display LABEL ('ORB 3.1 · low-DOF + …'),
+    not the plugin filename ('ORB_3_1.py'). Map a label back to its file by normalized
+    prefix match against augur_strategies/ (longest match wins). Filenames pass through."""
+    import re
+    import glob as _glob
+    base = os.path.join(root, "augur_strategies")
+    fn = name if str(name).endswith(".py") else str(name) + ".py"
+    if os.path.isfile(os.path.join(base, fn)):
+        return name
+    norm = lambda s: re.sub(r"[^a-z0-9]", "", str(s).lower())
+    nl = norm(name)
+    cands = []
+    for f in _glob.glob(os.path.join(base, "*.py")):
+        stem = os.path.splitext(os.path.basename(f))[0]
+        ns = norm(stem)
+        if ns and (nl.startswith(ns) or ns.startswith(nl)):
+            cands.append((len(ns), os.path.basename(f)))
+    return max(cands)[1] if cands else name
+
+
 def load_blotter_rows(root, payload, log=print):
     """Serve a run's blotter to the web (get_blotter runner command).
 
@@ -63,19 +84,31 @@ def load_blotter_rows(root, payload, log=print):
     name = f"run{rid}_{inst}_{tf}.csv"
     cands = [os.path.join(root, "blotters", name),
              os.path.join(os.path.dirname(root), "Trading", "ENGUQ_DB", "blotters", name)]
+    # Firestore caps a command doc at 1MB — a 10k-trade 1m blotter would burst it. Serve the
+    # most-recent MAXR trades and say so; the full CSV always stays on disk.
+    MAXR = 6000
+
+    def _cap(rows, extra):
+        out = {"ok": True, "n": len(rows), **extra}
+        if len(rows) > MAXR:
+            out["rows"] = rows[-MAXR:]
+            out["capped"] = len(rows) - MAXR
+        else:
+            out["rows"] = rows
+        return out
+
     for pth in cands:
         if os.path.isfile(pth):
             with open(pth, newline="", encoding="utf-8") as f:
                 rows = [dict(r) for r in csv.DictReader(f)]
             if rows:
                 log(f"    -> blotter served from {pth} ({len(rows)} trades)")
-                return {"ok": True, "rows": rows, "n": len(rows),
-                        "source": os.path.basename(os.path.dirname(pth)) + "/" + name}
+                return _cap(rows, {"source": os.path.basename(os.path.dirname(pth)) + "/" + name})
     params = payload.get("params") or {}
     if not payload.get("strategy") or not params:
         return {"ok": False,
                 "error": f"no saved blotter ({name}) and the run carries no champion config to regenerate one"}
-    rows = champion_blotter(payload["strategy"], inst, tf,
+    rows = champion_blotter(_resolve_strategy(root, payload["strategy"]), inst, tf,
                             session=payload.get("session") or "rth", params=params,
                             cost_pts=float(payload.get("cost_pts") or 0),
                             mult=float(payload.get("mult") or 20),
@@ -87,4 +120,4 @@ def load_blotter_rows(root, payload, log=print):
     except Exception:
         pass
     log(f"    -> blotter regenerated ({len(rows)} trades) for run {rid}")
-    return {"ok": True, "rows": rows, "n": len(rows), "regenerated": True}
+    return _cap(rows, {"regenerated": True})
