@@ -68,6 +68,45 @@ def _resolve_strategy(root, name):
     return max(cands)[1] if cands else name
 
 
+def _module_from_code(root, rid, code, log=print):
+    """Rebuild a run's strategy from its stored code snapshot (the exact source the run
+    executed). Used when the plugin file no longer exists (renamed/deleted, or the run was
+    pruned from the local DB but lives on in Firestore — the web sends d.code_snapshot).
+    Writes blotters/_snapshot_run{rid}.py and imports it; None if unusable."""
+    if not code or not isinstance(code, str) or len(code) < 100:
+        return None
+    try:
+        import importlib.util
+        snap = os.path.join(root, "blotters", f"_snapshot_run{rid}.py")
+        os.makedirs(os.path.dirname(snap), exist_ok=True)
+        with open(snap, "w", encoding="utf-8") as f:
+            f.write(code)
+        spec = importlib.util.spec_from_file_location(f"snap_run{rid}", snap)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        if hasattr(mod, "run_backtest"):
+            log(f"    -> strategy rebuilt from run {rid}'s code snapshot")
+            return mod
+    except Exception as e:
+        log(f"    -> snapshot rebuild failed: {type(e).__name__}: {e}")
+    return None
+
+
+def _snapshot_from_db(root, rid):
+    """Pull code_snapshot for a run id from the local history DB (may be pruned)."""
+    import sqlite3
+    db = os.path.join(root, "optimizer_history.db")
+    if not os.path.isfile(db):
+        return None
+    try:
+        con = sqlite3.connect(db)
+        row = con.execute("SELECT code_snapshot FROM runs WHERE id=?", (int(rid),)).fetchone()
+        con.close()
+        return row[0] if row and row[0] else None
+    except Exception:
+        return None
+
+
 def load_blotter_rows(root, payload, log=print):
     """Serve a run's blotter to the web (get_blotter runner command).
 
@@ -108,7 +147,19 @@ def load_blotter_rows(root, payload, log=print):
     if not payload.get("strategy") or not params:
         return {"ok": False,
                 "error": f"no saved blotter ({name}) and the run carries no champion config to regenerate one"}
-    rows = champion_blotter(_resolve_strategy(root, payload["strategy"]), inst, tf,
+    # Resolve the strategy: filename -> label match -> the run's own CODE SNAPSHOT (web doc
+    # or local DB) when the plugin file no longer exists on disk.
+    strat = _resolve_strategy(root, payload["strategy"])
+    fn = strat if str(strat).endswith(".py") else str(strat) + ".py"
+    if not os.path.isfile(os.path.join(root, "augur_strategies", fn)):
+        mod = (_module_from_code(root, rid, payload.get("code"), log)
+               or _module_from_code(root, rid, _snapshot_from_db(root, rid), log))
+        if mod is None:
+            return {"ok": False,
+                    "error": f"strategy '{payload['strategy']}' is gone from augur_strategies "
+                             f"and no code snapshot is available to rebuild it"}
+        strat = mod
+    rows = champion_blotter(strat, inst, tf,
                             session=payload.get("session") or "rth", params=params,
                             cost_pts=float(payload.get("cost_pts") or 0),
                             mult=float(payload.get("mult") or 20),

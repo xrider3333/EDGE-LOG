@@ -396,10 +396,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='49.8';
+const VERSION='49.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'49.9', date:'2026-07-09', notes:['Update alert: the green "new version" pill now shows a quick what-changed bullet list (pulled from this changelog) — not just the version number.','2G SCATTER is 3-D by default: every tested config as a dot in space (two params on the floor, its net $ as the height, dashed rhombus = the $0 plane, champion flagged). ⛶ opens the same drag-to-orbit view as 2H/2J; the ▦ 2D chip brings back the flat scatter with density contours + multi-compare.','2C parallel-coordinates axes now follow the 2K influence order (the knob that swings the most $ sits leftmost), and each 2K PDP mini-chart sits EXACTLY under its own 2C axis (with a NET $ column closing the row). 2I param correlation moved up to sit right under 2K.','Blotter fix (run 137): when a strategy file was renamed/deleted, the runner now rebuilds it from the run\'s stored code snapshot — the exact source that run executed — and regenerates the blotter from that.']},
   {v:'49.8', date:'2026-07-09', notes:['3-D param surfaces: 2H and 2J now sit SIDE-BY-SIDE, both 3-D by default, each on its own parameter pair (2J defaults to the 3rd × 4th knob and hides when a strategy has under 3 params — no duplicate views). ⛶ on either opens a DRAG-TO-ORBIT view: click-hold and turn the surface to see behind ridges, wheel = height exaggeration, double-click = reset.','2K PDP top-out curves moved directly under the 2C parallel-coordinates chart (same card) — the per-knob read of the config space 2C fans out. Hover any dot for the exact value / avg $ / config count.','Expanded 1A: date-axis labels were clipping off the bottom — fixed (plus a right axis spine). Blotter loads now work for OLD runs whose docs carry the strategy display name, and giant blotters cap at the most recent 6,000 trades (full CSV stays on your PC).']},
   {v:'49.7', date:'2026-07-09', notes:['1A CHAMPION EQUITY: the ⛶ expand now opens a full TradingView-style explorer — mouse-wheel zooms around the cursor, drag pans, double-click resets, the y-axis auto-fits the visible slice. Real date/$ tick axes, a crosshair with values pinned to both axes, and the drawdown pane below (red dashed = realised max DD, yellow dashed = Monte-Carlo P95) all ride along. Walk-forward bands + lockbox shading stay visible while zooming.','▦ TRADES (in the expanded 1A): loads the run\'s saved trade blotter off your PC (new get_blotter runner command; falls back to regenerating the champion\'s trades and caches the CSV). Trades appear as green/red dots on the curve and as a table under the chart — click a row to fly to that trade, click a dot to highlight its row. Restart the runner once to enable.','2H HEATMAP now has a ◱ 3D / ▦ 2D toggle — flip the same param landscape between the flat colour grid and the 3-D surface (2J stays).']},
   {v:'49.6', date:'2026-07-09', notes:['Run report cleanup: the CHAMPION metric strip at the top is gone — its 7 numbers live in tile 1E (KPI matrix on validate runs; a champion table on grid/single runs).','1I STRESS rebuilt in 1C\'s chart style: the $0 axis now floats to the data (sits on the bottom when every window is positive), nice-step $ gridlines, right $ gutter, per-window $ labels.','1G MAE/MFE: the suggested stop/target dashed lines are now actually visible (thicker, brighter, halo-backed labels, edge-clamped).','Charts: the drag-to-resize grips are replaced by a single ⛶ expand button (bottom-right of every chart, incl. 1A/1B). Expanded charts show a live crosshair readout of the exact date/$ (or fold/window/pts) under the mouse.']},
@@ -431,9 +432,29 @@ const CHANGELOG=[
   if(location.search.indexOf('v=')>=0){try{history.replaceState(null,'',location.pathname+location.hash);}catch(_e){}}
   var _remote='',_busy=false;
   function hardReload(){try{sessionStorage.setItem('_upd_done',_remote||'');}catch(_e){}location.replace(location.pathname+'?v='+Date.now()+location.hash);}
-  function showPill(v){if(document.getElementById('upd-pill'))return;var d=document.createElement('div');d.id='upd-pill';
-    d.style.cssText='position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99999;background:rgba(0,229,160,.16);border:1px solid rgba(0,229,160,.45);color:#00e5a0;backdrop-filter:blur(14px);border-radius:999px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.4px';
-    d.textContent='⬆ v'+v+' available — tap to update';d.onclick=hardReload;
+  // Pull the notes[...] bullets of version v's CHANGELOG entry out of the fetched source
+  // text (the CHANGELOG sits right below VERSION, inside the 64KB Range window). Tiny
+  // char-walk parser: respects \' escapes inside the single-quoted note strings.
+  function notesFor(t,v){
+    try{
+      var i=t.indexOf("{v:'"+v+"'");if(i<0)return [];
+      var j=t.indexOf('notes:[',i);if(j<0)return [];
+      j+=7;var out=[],cur='',ins=false,esc=false;
+      for(;j<t.length&&out.length<6;j++){var c=t[j];
+        if(ins){if(esc){cur+=c;esc=false;}else if(c==='\\'){esc=true;}else if(c==="'"){ins=false;out.push(cur);cur='';}else cur+=c;}
+        else{if(c==="'")ins=true;else if(c===']')break;}}
+      return out;
+    }catch(_e){return [];}
+  }
+  function showPill(v,notes){if(document.getElementById('upd-pill'))return;var d=document.createElement('div');d.id='upd-pill';
+    d.style.cssText='position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99999;background:rgba(10,26,20,.92);border:1px solid rgba(0,229,160,.45);color:#00e5a0;backdrop-filter:blur(14px);border-radius:14px;padding:9px 16px 10px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.4px;max-width:min(560px,92vw);box-shadow:0 10px 34px rgba(0,0,0,.5)';
+    var _esc=function(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+    // headline + a quick what-changed bullet list (first sentence of each note, max 4)
+    var lis=(notes||[]).slice(0,4).map(function(nt){var s=String(nt);var cut=s.indexOf('. ');if(cut>20&&cut<150)s=s.slice(0,cut+1);if(s.length>150)s=s.slice(0,147)+'…';
+      return '<li style="margin:2px 0;color:#bfe9d8;font-weight:400;font-size:11px;line-height:1.45">'+_esc(s)+'</li>';}).join('');
+    d.innerHTML='<div style="display:flex;align-items:center;gap:8px"><span>⬆ v'+_esc(v)+' available</span><span style="margin-left:auto;font-size:10px;color:#7fd9b8;font-weight:400">tap anywhere to update</span></div>'
+      +(lis?'<ul style="margin:6px 0 0;padding-left:16px;text-align:left">'+lis+'</ul>':'');
+    d.onclick=hardReload;
     if(document.body)document.body.appendChild(d);}
   function check(){
     if(_busy)return;_busy=true;
@@ -444,7 +465,7 @@ const CHANGELOG=[
         _remote=m[1];if(_remote===VERSION)return;
         var done='';try{done=sessionStorage.getItem('_upd_done')||'';}catch(_e){}
         if(document.hidden&&done!==_remote){hardReload();return;}
-        showPill(_remote);})
+        showPill(_remote,notesFor(t,_remote));})
       .catch(function(){_busy=false;});
   }
   setInterval(check,5*60*1000);
@@ -2611,9 +2632,12 @@ window.expandEquity=function(host){
 //    hover tips as the inline tile; data rides in the svg's data-s3d payload.
 window.expandSurface3D=function(host){
   let D=null;try{D=JSON.parse(decodeURIComponent(host.getAttribute('data-s3d')||''));}catch(_){}
-  if(!D||!D.Z||!D.Z.length||!D.Z[0].length)return;
-  const Z=D.Z,nx=Z.length,ny=Z[0].length,xv=D.xv||[],yv=D.yv||[];
-  let zmn=1e18,zmx=-1e18;for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){if(Z[i][j]<zmn)zmn=Z[i][j];if(Z[i][j]>zmx)zmx=Z[i][j];}
+  const isPts=!!(D&&Array.isArray(D.P)&&D.P.length>2);   // scatter payload (raw config dots)
+  if(!D||(!isPts&&(!D.Z||!D.Z.length||!D.Z[0].length)))return;
+  const Z=D.Z||[[0]],nx=isPts?2:Z.length,ny=isPts?2:Z[0].length,xv=D.xv||[],yv=D.yv||[];
+  let zmn=1e18,zmx=-1e18;
+  if(isPts){D.P.forEach(p=>{if(p[2]<zmn)zmn=p[2];if(p[2]>zmx)zmx=p[2];});zmn=Math.min(0,zmn);zmx=Math.max(0,zmx);}
+  else{for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){if(Z[i][j]<zmn)zmn=Z[i][j];if(Z[i][j]>zmx)zmx=Z[i][j];}}
   const zsp=(zmx-zmn)||1,zn=(i,j)=>(Z[i][j]-zmn)/zsp;
   const rampC=v=>{const m=Math.max(Math.abs(zmn),Math.abs(zmx))||1,t=Math.max(-1,Math.min(1,v/m));
     const neg=[226,75,74],pos=[31,186,124],mid=[56,63,76],c=t>=0?pos:neg,a=Math.abs(t);
@@ -2650,21 +2674,35 @@ window.expandSurface3D=function(host){
     // floor + posts
     const fl=[[0,0],[nx-1,0],[nx-1,ny-1],[0,ny-1]];
     s+='<polygon points="'+fl.map(c=>PX(c[0],c[1]).toFixed(1)+','+PY(c[0],c[1],0).toFixed(1)).join(' ')+'" fill="none" stroke="var(--border)" stroke-width="0.8" opacity="0.55"/>';
-    fl.forEach(c=>{s+='<line x1="'+PX(c[0],c[1]).toFixed(1)+'" y1="'+PY(c[0],c[1],0).toFixed(1)+'" x2="'+PX(c[0],c[1]).toFixed(1)+'" y2="'+PY(c[0],c[1],zn(c[0],c[1])).toFixed(1)+'" stroke="var(--border)" stroke-width="0.6" opacity="0.45" stroke-dasharray="2,2"/>';});
-    // painter's algorithm at the CURRENT yaw: back (small projected v) to front
-    const order=[];for(let i=0;i<nx-1;i++)for(let j=0;j<ny-1;j++)order.push([i,j,V(i+0.5,j+0.5)]);
-    order.sort((a,b)=>a[2]-b[2]);
-    order.forEach(q=>{const i=q[0],j=q[1];
-      const avg=(Z[i][j]+Z[i+1][j]+Z[i+1][j+1]+Z[i][j+1])/4;
-      const tip=(D.xl||'x')+' '+_hr(xv[i])+'–'+_hr(xv[i+1])+'<br>'+(D.yl||'y')+' '+_hr(yv[j])+'–'+_hr(yv[j+1])+'<br>avg net <b>'+fmt$(avg)+'</b>';
-      s+='<polygon points="'+PX(i,j).toFixed(1)+','+PY(i,j,zn(i,j)).toFixed(1)+' '+PX(i+1,j).toFixed(1)+','+PY(i+1,j,zn(i+1,j)).toFixed(1)+' '+PX(i+1,j+1).toFixed(1)+','+PY(i+1,j+1,zn(i+1,j+1)).toFixed(1)+' '+PX(i,j+1).toFixed(1)+','+PY(i,j+1,zn(i,j+1)).toFixed(1)+'" fill="'+rampC(avg)+'" opacity="0.95" stroke="rgba(10,14,20,0.55)" stroke-width="0.6" data-tip="'+tip+'"/>';});
-    // peak flag
-    let mi=0,mj=0;for(let i=0;i<nx;i++)for(let j=0;j<ny;j++)if(Z[i][j]>Z[mi][mj]){mi=i;mj=j;}
-    s+='<circle cx="'+PX(mi,mj).toFixed(1)+'" cy="'+PY(mi,mj,zn(mi,mj)).toFixed(1)+'" r="3.5" fill="#27c08a"/><text x="'+PX(mi,mj).toFixed(1)+'" y="'+(PY(mi,mj,zn(mi,mj))-8).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" fill="#27c08a" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">peak '+fmt$(zmx)+'</text>';
+    if(isPts){
+      // ── raw-config SCATTER mode: dots at (param1, param2, net $), depth-sorted; the dashed
+      //    rhombus is the $0 plane; the champion (if sent) gets a yellow flag. ──
+      const xr=(D.x1-D.x0)||1,yr=(D.y1-D.y0)||1,zZ=(0-zmn)/zsp;
+      s+='<polygon points="'+fl.map(c=>PX(c[0],c[1]).toFixed(1)+','+PY(c[0],c[1],zZ).toFixed(1)).join(' ')+'" fill="none" stroke="var(--text5)" stroke-width="0.8" stroke-dasharray="5,3" opacity="0.7"/>';
+      const dots=D.P.map(p=>({i:(p[0]-D.x0)/xr*(nx-1),j:(p[1]-D.y0)/yr*(ny-1),z:(p[2]-zmn)/zsp,pnl:p[2],x:p[0],y:p[1]}))
+        .sort((a,b)=>(V(a.i,a.j)-V(b.i,b.j))||(a.pnl-b.pnl));
+      dots.forEach(o=>{const col=o.pnl>=0?'#1d9e75':'#e24b4a';
+        s+='<circle cx="'+PX(o.i,o.j).toFixed(1)+'" cy="'+PY(o.i,o.j,o.z).toFixed(1)+'" r="3" fill="'+col+'" opacity="0.75" data-tip="'+(D.xl||'x')+' <b>'+_hr(o.x)+'</b> · '+(D.yl||'y')+' <b>'+_hr(o.y)+'</b><br>net <b>'+fmt$(o.pnl)+'</b>"/>';});
+      if(D.champ){const cu=(D.champ[0]-D.x0)/xr*(nx-1),cv2=(D.champ[1]-D.y0)/yr*(ny-1);
+        s+='<line x1="'+PX(cu,cv2).toFixed(1)+'" y1="'+PY(cu,cv2,0).toFixed(1)+'" x2="'+PX(cu,cv2).toFixed(1)+'" y2="'+(PY(cu,cv2,1)-10).toFixed(1)+'" stroke="var(--yellow)" stroke-width="1.1" stroke-dasharray="3,2" opacity="0.85"/><text x="'+PX(cu,cv2).toFixed(1)+'" y="'+(PY(cu,cv2,1)-14).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" fill="var(--yellow)" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">champion</text>';}
+    }else{
+      fl.forEach(c=>{s+='<line x1="'+PX(c[0],c[1]).toFixed(1)+'" y1="'+PY(c[0],c[1],0).toFixed(1)+'" x2="'+PX(c[0],c[1]).toFixed(1)+'" y2="'+PY(c[0],c[1],zn(c[0],c[1])).toFixed(1)+'" stroke="var(--border)" stroke-width="0.6" opacity="0.45" stroke-dasharray="2,2"/>';});
+      // painter's algorithm at the CURRENT yaw: back (small projected v) to front
+      const order=[];for(let i=0;i<nx-1;i++)for(let j=0;j<ny-1;j++)order.push([i,j,V(i+0.5,j+0.5)]);
+      order.sort((a,b)=>a[2]-b[2]);
+      order.forEach(q=>{const i=q[0],j=q[1];
+        const avg=(Z[i][j]+Z[i+1][j]+Z[i+1][j+1]+Z[i][j+1])/4;
+        const tip=(D.xl||'x')+' '+_hr(xv[i])+'–'+_hr(xv[i+1])+'<br>'+(D.yl||'y')+' '+_hr(yv[j])+'–'+_hr(yv[j+1])+'<br>avg net <b>'+fmt$(avg)+'</b>';
+        s+='<polygon points="'+PX(i,j).toFixed(1)+','+PY(i,j,zn(i,j)).toFixed(1)+' '+PX(i+1,j).toFixed(1)+','+PY(i+1,j,zn(i+1,j)).toFixed(1)+' '+PX(i+1,j+1).toFixed(1)+','+PY(i+1,j+1,zn(i+1,j+1)).toFixed(1)+' '+PX(i,j+1).toFixed(1)+','+PY(i,j+1,zn(i,j+1)).toFixed(1)+'" fill="'+rampC(avg)+'" opacity="0.95" stroke="rgba(10,14,20,0.55)" stroke-width="0.6" data-tip="'+tip+'"/>';});
+      // peak flag
+      let mi=0,mj=0;for(let i=0;i<nx;i++)for(let j=0;j<ny;j++)if(Z[i][j]>Z[mi][mj]){mi=i;mj=j;}
+      s+='<circle cx="'+PX(mi,mj).toFixed(1)+'" cy="'+PY(mi,mj,zn(mi,mj)).toFixed(1)+'" r="3.5" fill="#27c08a"/><text x="'+PX(mi,mj).toFixed(1)+'" y="'+(PY(mi,mj,zn(mi,mj))-8).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" fill="#27c08a" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">peak '+fmt$(zmx)+'</text>';
+    }
     // rotating axis labels on the two floor edges adjacent to the FRONT corner
+    const _xr0=isPts?D.x0:xv[0],_xr1=isPts?D.x1:xv[nx-1],_yr0=isPts?D.y0:yv[0],_yr1=isPts?D.y1:yv[ny-1];
     const xm=[ (PX((nx-1)/2,ny-1)),(PY((nx-1)/2,ny-1,0)) ],ym=[ (PX(nx-1,(ny-1)/2)),(PY(nx-1,(ny-1)/2,0)) ];
-    s+='<text x="'+xm[0].toFixed(1)+'" y="'+(xm[1]+16).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text3)" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">'+(D.xl||'x')+' '+_hr(xv[0])+' → '+_hr(xv[nx-1])+'</text>';
-    s+='<text x="'+ym[0].toFixed(1)+'" y="'+(ym[1]+16).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text3)" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">'+(D.yl||'y')+' '+_hr(yv[0])+' → '+_hr(yv[ny-1])+'</text>';
+    s+='<text x="'+xm[0].toFixed(1)+'" y="'+(xm[1]+16).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text3)" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">'+(D.xl||'x')+' '+_hr(_xr0)+' → '+_hr(_xr1)+'</text>';
+    s+='<text x="'+ym[0].toFixed(1)+'" y="'+(ym[1]+16).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text3)" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">'+(D.yl||'y')+' '+_hr(_yr0)+' → '+_hr(_yr1)+'</text>';
     // $ legend
     s+='<text x="12" y="20" font-size="10" fill="var(--text3)">'+fmt$(zmx)+' peak</text><text x="12" y="34" font-size="10" fill="var(--text4)">'+fmt$(zmn)+' trough</text>';
     svgEl.setAttribute('viewBox','0 0 '+W+' '+H);
@@ -5485,10 +5523,60 @@ namespace NinjaTrader.NinjaScript.Strategies {
         :c2XRow(_rnd(S[0].mn),'<b style="color:var(--text2)">'+_pp(xk)+'</b> (x)',_rnd(S[0].mx));
       const legend=multi?'<div style="text-align:center;font-size:8px;margin-top:1px">'+S.map(s=>'<span style="color:'+PAL[s.si%PAL.length]+'">● '+_pp(s.k)+'</span>').join(' · ')+'</div>':'';
       const _scTip='Each dot = one tested config: chosen parameter (x) vs its net $ (y). Contour rings trace config DENSITY (topographic style — denser toward the inner rings), so where results cluster reads even when dots pile up. A smooth slope of green = a robust edge; random speckle = noise. “+ compare” overlays more parameters against the same net-$ axis, each in its own colour with x as % of that param’s range.';
-      return (tag?'<div title="'+_scTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · SCATTER <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span>'+sel+addSel+chips+'</div>':'<div class="lbl" title="'+_scTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">SCATTER · PnL ($) vs'+sel+addSel+chips+'</div>')
+      const _to3d=(tag&&/G$/.test(tag))?'<span data-sc3d="1" title="switch this tile to the 3-D scatter (two params × net $ as height, orbit on expand)" style="cursor:pointer;font-weight:700;font-size:8px;padding:2px 7px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);margin-left:2px">◱ 3D</span>':'';
+      return (tag?'<div title="'+_scTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · SCATTER <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span>'+sel+addSel+chips+_to3d+'</div>':'<div class="lbl" title="'+_scTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">SCATTER · PnL ($) vs'+sel+addSel+chips+'</div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
         +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+(multi?'':' data-xh="'+encodeURIComponent(JSON.stringify({xt:'num',x0:S[0].mn,x1:S[0].mx,yt:'usd',y0:ymn,y1:ymx,px:pd,py:pd,pw:PW-2*pd,ph:H-2*pd,xl:_pp(xk),yl:'net'}))+'"')+'>'+grid+dots+contours+c2YTitle(H,'net $')+'</svg>'
         +xrow+legend+'</div>';
+    };
+    // 3-D SCATTER (2G's default view) — every tested config as ONE dot in space: two chosen
+    //   params on the floor, its NET $ as the height. The raw-config sibling of the 2H/2J
+    //   AVERAGED surfaces: you see each config, not cell means. ⛶ opens the drag-to-orbit view.
+    const scatter3dPanelHtml=(points,mult,tag,bpx)=>{
+      if(!points||points.length<6)return '';
+      const keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&typeof points[0][k]==='number');
+      if(keys.length<2)return '';
+      const xk=keys.indexOf(APREF.sc3X)>=0?APREF.sc3X:keys[0];
+      let yk=keys.indexOf(APREF.sc3Y)>=0?APREF.sc3Y:keys[1];if(yk===xk)yk=keys.find(k=>k!==xk)||keys[1];
+      const _hr=v=>Number.isInteger(v)?v:(+v).toFixed(2);
+      const xs=points.map(p=>p[xk]),ws=points.map(p=>p[yk]),zs=points.map(p=>p.pnl*mult);
+      const x0=Math.min.apply(null,xs),x1=Math.max.apply(null,xs),xr=(x1-x0)||1;
+      const y0=Math.min.apply(null,ws),y1=Math.max.apply(null,ws),yr=(y1-y0)||1;
+      const zmn=Math.min(0,Math.min.apply(null,zs)),zmx=Math.max(0,Math.max.apply(null,zs)),zsp=(zmx-zmn)||1;
+      // fixed isometric (45°) inline; the orbit modal re-projects freely
+      const W=560,zh=96,padT=26,cs=Math.SQRT1_2,sn=Math.SQRT1_2;
+      const U=(u,w)=>(u-0.5)*cs-(w-0.5)*sn, V=(u,w)=>((u-0.5)*sn+(w-0.5)*cs)*0.5;
+      const S=(W-110)/1.42, ox=W/2, oyT=padT+zh;
+      const PX=(u,w)=>ox+U(u,w)*S, PY=(u,w,z)=>oyT+V(u,w)*S-z*zh;
+      const H=Math.round(oyT+0.5*S*0.71+26);
+      let s='';
+      const fl=[[0,0],[1,0],[1,1],[0,1]];
+      s+='<polygon points="'+fl.map(c=>PX(c[0],c[1]).toFixed(1)+','+PY(c[0],c[1],0).toFixed(1)).join(' ')+'" fill="none" stroke="var(--border)" stroke-width="0.7" opacity="0.55"/>';
+      const zZ=(0-zmn)/zsp;   // the $0 plane
+      s+='<polygon points="'+fl.map(c=>PX(c[0],c[1]).toFixed(1)+','+PY(c[0],c[1],zZ).toFixed(1)).join(' ')+'" fill="none" stroke="var(--text5)" stroke-width="0.7" stroke-dasharray="4,3" opacity="0.65"/>';
+      // dots: losers first, winners on top; depth-sort within by projected v (painter)
+      const dots=points.map((p,i)=>({u:(p[xk]-x0)/xr,w:(p[yk]-y0)/yr,z:(p.pnl*mult-zmn)/zsp,pnl:p.pnl*mult,p:p,i:i}))
+        .sort((a,b)=>(V(a.u,a.w)-V(b.u,b.w))||(a.pnl-b.pnl));
+      dots.forEach(o=>{const col=o.pnl>=0?'#1d9e75':'#e24b4a';
+        const tip=_pp(xk)+' <b>'+_hr(o.p[xk])+'</b> · '+_pp(yk)+' <b>'+_hr(o.p[yk])+'</b><br>net <b style=&quot;color:'+col+'&quot;>'+fmtUsd(Math.round(o.pnl))+'</b>';
+        s+='<circle class="cfgmark" data-cfg="'+o.i+'" data-net="'+Math.round(o.pnl)+'" cx="'+PX(o.u,o.w).toFixed(1)+'" cy="'+PY(o.u,o.w,o.z).toFixed(1)+'" r="2.3" fill="'+col+'" opacity="0.72" style="cursor:pointer" data-tip="'+tip+'"/>';});
+      if(bpx&&typeof bpx[xk]==='number'&&typeof bpx[yk]==='number'){
+        const cu=(bpx[xk]-x0)/xr,cw2=(bpx[yk]-y0)/yr;
+        s+='<line x1="'+PX(cu,cw2).toFixed(1)+'" y1="'+PY(cu,cw2,0).toFixed(1)+'" x2="'+PX(cu,cw2).toFixed(1)+'" y2="'+(padT-2)+'" stroke="var(--yellow)" stroke-width="0.9" stroke-dasharray="2,2" opacity="0.8"/><text x="'+PX(cu,cw2).toFixed(1)+'" y="'+(padT-5)+'" text-anchor="middle" font-size="7.5" font-weight="700" fill="var(--yellow)">champion</text>';}
+      const xm=[PX(0.5,1),PY(0.5,1,0)],ym=[PX(1,0.5),PY(1,0.5,0)];
+      s+='<text x="'+(xm[0]-8).toFixed(1)+'" y="'+(xm[1]+14).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="700" fill="var(--text3)">'+_pp(xk)+' '+_hr(x0)+' → '+_hr(x1)+'</text>';
+      s+='<text x="'+(ym[0]+8).toFixed(1)+'" y="'+(ym[1]+14).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="700" fill="var(--text3)">'+_pp(yk)+' '+_hr(y0)+' → '+_hr(y1)+'</text>';
+      s+='<text x="10" y="'+(padT+4)+'" font-size="7" fill="var(--text3)">'+fmtUsd(Math.round(zmx))+'</text><text x="10" y="'+(padT+zh)+'" font-size="7" fill="var(--text3)">'+fmtUsd(Math.round(zmn))+'</text>';
+      const mk3=(a,dk)=>'<select data-'+dk+' style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs)">'+keys.map(k=>'<option value="'+k+'"'+(k===a?' selected':'')+'>'+_pp(k)+'</option>').join('')+'</select>';
+      // compact orbit payload: raw config dots (capped), the modal re-projects at any angle
+      const _cap=points.slice(0,1200).map(p=>[+p[xk],+p[yk],Math.round(p.pnl*mult)]);
+      const _s3d=encodeURIComponent(JSON.stringify({P:_cap,x0:x0,x1:x1,y0:y0,y1:y1,xl:_pp(xk),yl:_pp(yk),
+        champ:(bpx&&typeof bpx[xk]==='number'&&typeof bpx[yk]==='number')?[+bpx[xk],+bpx[yk]]:null,
+        title:(tag?tag+' · ':'')+'3-D SCATTER · '+_pp(xk)+' × '+_pp(yk)+' × net $'}));
+      return '<div title="Every tested config as ONE dot: the two chosen parameters place it on the floor, its net $ is the height (green up / red down; the dashed rhombus = the $0 plane). This is the RAW version of the 2H/2J averaged surfaces — clusters of green dots at altitude = a robust zone; scattered specks = noise. ⛶ opens the orbit view (drag to turn it)." style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · 3-D SCATTER <span style="font-weight:400;color:var(--text4);font-size:8px">· net $ as height ⓘ</span>'+mk3(xk,'sc3x')+'<span style="color:var(--text5)">×</span>'+mk3(yk,'sc3y')
+        +'<span data-sc3d="0" title="switch back to the flat 2-D scatter (param vs $, density contours, multi-compare)" style="cursor:pointer;font-weight:700;font-size:8px;padding:2px 7px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);margin-left:2px">▦ 2D</span></div>'
+        +'<div style="background:var(--bg1);border-radius:8px;padding:10px;flex:1;min-height:0">'
+        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto" data-s3d="'+_s3d+'">'+s+'</svg></div>';
     };
     // HEATMAP — bin two params into an 8×8 grid, colour each cell by avg PnL. Shows where
     // in parameter space the edge lives (a green region = robust; a lone green cell = fragile).
@@ -5620,8 +5708,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //   1-2-1 kernel the server-side 3C.1 plateau pick uses. The green dot = where that
     //   knob TOPS OUT. Uses the exact server curves saved with plateau_pick when present;
     //   otherwise recomputes from `points`, so it renders retroactively on any stored run.
-    const pdpCurvesPanelHtml=(points,mult,tag,pp)=>{
-      if(!points||points.length<8)return '';
+    // ── shared 2K math: the smoothed partial-dependence curve per param + its INFLUENCE
+    //    ($ swing = curve max − min), sorted most-influential first. Also drives the 2C
+    //    axis order, so the two charts always agree. ──
+    const pdpCurvesData=(points,mult,pp)=>{
+      if(!points||points.length<8)return [];
       const keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&typeof points[0][k]==='number');
       const srv=(pp&&pp.curves)||{};
       const curves=[];
@@ -5643,11 +5734,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const ys=c.map(r=>r.m),hi=Math.max.apply(null,ys),lo=Math.min.apply(null,ys);
         curves.push({k:k,c:c,infl:hi-lo,peak:c[ys.indexOf(hi)]});
       });
-      if(!curves.length)return '';
       curves.sort((a,b)=>b.infl-a.infl);
-      const maxInfl=curves[0].infl||1,show=curves.slice(0,8);
+      return curves;
+    };
+    const pdpCurvesPanelHtml=(points,mult,tag,pp,alignKeys)=>{
+      const curves=pdpCurvesData(points,mult,pp);
+      if(!curves.length)return '';
+      const byK={};curves.forEach(cv=>{byK[cv.k]=cv;});
+      const maxInfl=curves[0].infl||1;
+      // aligned mode: one column per 2C axis (params in the SAME order + the NET $ column),
+      // so every mini-chart sits exactly under its own axis. Otherwise the legacy free grid.
+      const show=(Array.isArray(alignKeys)&&alignKeys.length)?alignKeys.map(k=>byK[k]||{k:k,c:null}):curves.slice(0,8);
       const cw=170,chh=64,pl=6,pr=6,pt2=10,pb=14;
-      const cells=show.map(cv=>{
+      const cellOf=cv=>{
+        if(!cv.c)return '<div style="background:var(--bg1);border-radius:8px;padding:7px 8px 5px;opacity:.55;display:flex;align-items:center;justify-content:center;min-height:70px;height:100%;box-sizing:border-box"><span style="font-size:8px;color:var(--text5);text-align:center">'+_pp(cv.k)+'<br>flat / not sampled</span></div>';
         const ys=cv.c.map(r=>r.m),mn=Math.min.apply(null,ys),mx=Math.max.apply(null,ys),span=(mx-mn)||1;
         const X=i=>pl+(cw-pl-pr)*i/(cv.c.length-1),Y=v=>pt2+(chh-pt2-pb)*(1-(v-mn)/span);
         const pts2=cv.c.map((r,i)=>X(i).toFixed(1)+','+Y(r.m).toFixed(1)).join(' ');
@@ -5657,10 +5757,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
         return '<div style="background:var(--bg1);border-radius:8px;padding:7px 8px 5px"><div style="display:flex;justify-content:space-between;gap:4px;font-size:8px;margin-bottom:1px"><span style="color:var(--text3);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_pp(cv.k)+'</span><span style="color:'+(flat?'var(--text5)':'var(--green)')+';white-space:nowrap">'+(flat?'barely matters':'tops out @ <b>'+cv.peak.v+'</b>')+'</span></div>'
           +'<svg viewBox="0 0 '+cw+' '+chh+'" width="100%" style="display:block;height:auto"><polyline points="'+pts2+'" fill="none" stroke="#3a9bdc" stroke-width="1.6" stroke-linejoin="round" opacity="0.9"/>'+dots
           +'<text x="'+pl+'" y="'+(chh-3)+'" font-size="7" fill="var(--text5)">'+cv.c[0].v+'</text><text x="'+(cw-pr)+'" y="'+(chh-3)+'" text-anchor="end" font-size="7" fill="var(--text5)">'+cv.c[cv.c.length-1].v+'</text></svg></div>';
-      }).join('');
+      };
+      const cells=show.map(cellOf).join('');
       const src=(pp&&pp.curves)?'server curves (3C.1)':'recomputed from this run\'s stored configs';
-      return '<div title="PARTIAL DEPENDENCE (1-D): one mini-chart per parameter. The line = the AVERAGE net $ of every tested config at each value of that parameter, with all the OTHER parameters averaged out, then lightly smoothed. The green dot marks where the knob TOPS OUT — pushing it further stops paying. A flat line = the knob barely matters, so don\'t spend optimisation budget on it. Charts are sorted by influence (how much $ the knob swings). NOTE: the 3C.1 plateau pick maximises the SUM of these smoothed curves — deliberately NOT the raw best config, because a lone spike gets dragged down by its weak neighbours." style="cursor:help;margin:12px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · PDP — WHERE EACH KNOB TOPS OUT <span style="font-weight:400;color:var(--text5);font-size:8px">· smoothed avg $ per value, other params averaged out · sorted by influence · '+src+' ⓘ</span></div>'
-        +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">'+cells+'</div>';
+      const hdr='<div title="PARTIAL DEPENDENCE (1-D): one mini-chart per parameter. The line = the AVERAGE net $ of every tested config at each value of that parameter, with all the OTHER parameters averaged out, then lightly smoothed. The green dot marks where the knob TOPS OUT — pushing it further stops paying. A flat line = the knob barely matters, so don\'t spend optimisation budget on it. Charts are sorted by influence (how much $ the knob swings) and each sits under ITS OWN 2C axis. NOTE: the 3C.1 plateau pick maximises the SUM of these smoothed curves — deliberately NOT the raw best config, because a lone spike gets dragged down by its weak neighbours." style="cursor:help;margin:12px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · PDP — WHERE EACH KNOB TOPS OUT <span style="font-weight:400;color:var(--text5);font-size:8px">· smoothed avg $ per value, other params averaged out · sorted by influence'+(alignKeys?' · aligned under the 2C axes':'')+' · '+src+' ⓘ</span></div>';
+      if(Array.isArray(alignKeys)&&alignKeys.length){
+        // mirror 2C's geometry exactly: padX gutters + n equal columns over the C2P plot width
+        // (2C's axes are column-centred, so column i here = axis i there). Last column = NET $.
+        const padX=10,n=alignKeys.length+1,colPct=((C2P-2*padX)/n/C2W*100).toFixed(3),gutPct=(padX/C2W*100).toFixed(3);
+        return hdr+'<div style="display:flex;align-items:stretch">'
+          +'<div style="flex:0 0 '+gutPct+'%"></div>'
+          +show.map(cv=>'<div style="flex:0 0 '+colPct+'%;min-width:0;padding:0 2px;box-sizing:border-box">'+cellOf(cv)+'</div>').join('')
+          +'<div style="flex:0 0 '+colPct+'%;display:flex;align-items:center;justify-content:center"><span style="font-size:8px;color:var(--text4);font-weight:700;text-align:center">NET $<br><span style="font-weight:400;color:var(--text5)">← what each knob<br>does to it</span></span></div>'
+          +'</div>';
+      }
+      return hdr+'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">'+cells+'</div>';
     };
     // MAE / MFE — per-trade heat (max adverse) vs reach (max favorable), turned into
     // data-driven stop & target guidance from your own winning trades.
@@ -5973,13 +6084,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:7px"><span id="cfg-brush-cut" style="font-size:var(--fsxs);color:var(--text3)">cut ≥ '+fmtUsd(mn)+'</span><span id="cfg-brush-n" style="font-size:var(--fsxs);font-weight:700;color:var(--green)">'+points.length+' / '+points.length+' configs shown</span></div>'
         +'</div>';
     };
-    const parallelCoordsHtml=(points,mult,tag)=>{
+    const parallelCoordsHtml=(points,mult,tag,keyOrder)=>{
       if(!points||points.length<6)return '';
-      const keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&typeof points[0][k]==='number');
+      let keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&typeof points[0][k]==='number');
       if(keys.length<2)return '';
+      // axis order follows the 2K influence ranking when supplied (most-$-swing knob first);
+      // params 2K couldn't curve (constant / unsampled) append at the right, before NET $.
+      if(Array.isArray(keyOrder)&&keyOrder.length){const inO=keyOrder.filter(k=>keys.indexOf(k)>=0);keys=inO.concat(keys.filter(k=>inO.indexOf(k)<0));}
       const axes=keys.concat(['pnl']),dom={};
       axes.forEach(k=>{const vs=points.map(p=>k==='pnl'?p.pnl*mult:p[k]);dom[k]=[Math.min.apply(null,vs),Math.max.apply(null,vs)];});
-      const W=C2W,H=110,padT=13,padB=22,padX=10,n=axes.length,ax=i=>padX+(C2P-2*padX)*i/(n-1);
+      // COLUMN-CENTERED axis x (axis i sits at the centre of column i of n) — so the 2K PDP
+      // mini-charts can tile in the same n columns and land exactly under their own axis.
+      const W=C2W,H=110,padT=13,padB=22,padX=10,n=axes.length,ax=i=>padX+(C2P-2*padX)*(i+0.5)/n;
       const Y=(k,v)=>{const m=dom[k];return (H-padB)-((v-m[0])/((m[1]-m[0])||1))*((H-padB)-padT);};
       const pmx=Math.max.apply(null,points.map(p=>Math.abs(p.pnl)))||1;
       const rnd=v=>Number.isInteger(v)?v:(+v).toFixed(2);
@@ -6615,7 +6731,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           title:'RUN #'+d.id+' · CHAMPION EQUITY · '+String(d.strategy||'')};
         const blot={run_id:d.id,instrument:d.instrument||'',timeframe:d.timeframe||'5m',session:d.session||'rth',
           strategy:d.strategy||'',params:d.best_params||null,cost_pts:(d.cost_pts!=null?d.cost_pts:5.66/mlt),
-          mult:mlt,date_from:d.date_from||null,date_to:d.date_to||null};
+          mult:mlt,date_from:d.date_from||null,date_to:d.date_to||null,
+          // the run's exact source — lets the runner rebuild a blotter even when the strategy
+          // file has since been renamed/deleted (e.g. run 137's ORB_SIMPLE_1_0).
+          code:((typeof d.code_snapshot==='string'&&d.code_snapshot.length>100)?d.code_snapshot:null)};
         return ' data-eqx="'+encodeURIComponent(JSON.stringify(pay))+'" data-eqblot="'+encodeURIComponent(JSON.stringify(blot))+'"';
       }catch(_e){return '';}})();
       let _panelEquity='',_panelMatrix='',_panelRegime='',_panelMae='',_panelTD='',_distTile='';
@@ -6750,31 +6869,40 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _card2='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:12px 14px';
       const _eq=((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt,_cfgN+'A'):'');
       const _dist=distPanelHtml(d.dist,mlt,_cfgN+'B');
-      const _parc=parallelCoordsHtml(d.points,mlt,_cfgN+'C');
+      // ── 2K influence ranking drives BOTH the 2C axis order and the aligned 2K cells: the
+      //    most-$-swing knob sits leftmost, and each PDP mini-chart lands under its own axis. ──
+      const _pdpD=pdpCurvesData(d.points,mlt,d.plateau_pick);
+      const _allK=(d.points&&d.points.length)?Object.keys(d.points[0]).filter(k=>k!=='pnl'&&typeof d.points[0][k]==='number'):[];
+      const _kOrd=_pdpD.map(c=>c.k).concat(_allK.filter(k=>!_pdpD.some(c=>c.k===k)));
+      const _parc=parallelCoordsHtml(d.points,mlt,_cfgN+'C',_kOrd);
       const _corr=corrPanelHtml(d.points,_cfgN+'I',d.relationship);
       // 2H is view-toggleable (APREF.hm3d, DEFAULT 3-D per owner): flat heatmap ⇄ 3-D surface.
       const _hm3dOn=(APREF.hm3d==null?1:+APREF.hm3d);
       const _hm=(_hm3dOn?surface3dPanelHtml(d.points,mlt,_cfgN+'H',d.best_params):heatmapPanelHtml(d.points,mlt,_cfgN+'H'));
-      const _sc=scatterPanelHtml(d.points,mlt,_cfgN+'G');
+      // 2G is view-toggleable too (APREF.sc3d, DEFAULT 3-D per owner): raw config dots in space
+      //   (two params × net $ height) ⇄ the flat scatter with density contours + multi-compare.
+      const _sc3dOn=(APREF.sc3d==null?1:+APREF.sc3d);
+      const _sc=(_sc3dOn?scatter3dPanelHtml(d.points,mlt,_cfgN+'G',d.best_params):scatterPanelHtml(d.points,mlt,_cfgN+'G'));
       // 2J 3-D surface on its OWN param pair (hm2X × hm2Y, defaults to the 3rd × 4th knob) so it
       //   never duplicates 2H; hides itself when the strategy has fewer than 3 numeric params.
       //   2K 1-D PDP top-out curves. Both read stored `points` → render retroactively (run 137).
       const _p3d=surface3dPanelHtml(d.points,mlt,_cfgN+'J',d.best_params,1);
-      const _pdp=pdpCurvesPanelHtml(d.points,mlt,_cfgN+'K',d.plateau_pick);
+      const _pdp=pdpCurvesPanelHtml(d.points,mlt,_cfgN+'K',d.plateau_pick,(_parc?_kOrd:null));
       // lay non-empty panels in a row (1, 2 or 3 across); single panel = full-width. stretch=true makes
       //   the cards equal-height (good for similar charts); otherwise they top-align at natural height.
       const _wrap=(arr,stretch)=>{const xs=arr.filter(x=>x&&x.replace(/\s/g,''));if(!xs.length)return '';const inner=(xs.length>1)?'<div style="display:flex;gap:12px;align-items:'+(stretch?'stretch':'flex-start')+';flex-wrap:wrap">'+xs.map(x=>'<div style="flex:1 1 260px;min-width:0;display:flex;flex-direction:column">'+x+'</div>').join('')+'</div>':xs[0];return '<div style="margin-bottom:12px">'+inner+'</div>';};
       // Tile 1: 2a TOP CONFIGS PNL | 2b CONFIG DISTRIBUTION (row), then 2c PARALLEL COORDINATES
       //   full-width with the 2K PDP top-out curves DIRECTLY beneath it (owner request — the PDP
       //   mini-charts are the per-knob read of the same config space 2C fans out).
-      const _cfgTile=(_eq||_dist||_parc||_pdp)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_eq,_dist])+(_parc?'<div style="margin-bottom:12px">'+_parc+'</div>':'')+((_pdp&&_pdp.replace(/\s/g,''))?_pdp:'')+'</div>':'';
+      const _cfgTile=(_eq||_dist||_parc||_pdp)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_eq,_dist])+(_parc?'<div style="margin-bottom:12px">'+_parc+'</div>':'')+((_pdp&&_pdp.replace(/\s/g,''))?_pdp:'')+((_corr&&_corr.replace(/\s/g,''))?'<div style="margin-top:14px">'+_corr+'</div>':'')+'</div>':'';
       const _topTile=(t10.length?'<div style="'+_card2+';margin-bottom:14px">'+_numHdr(_cfgN+'D','TOP CONFIGS')+'<style>.cfgtbl th,.cfgtbl td{padding:2px 5px!important;font-size:8px!important}.cfgtbl th{white-space:normal!important;max-width:52px;line-height:1.05;vertical-align:bottom;color:var(--text4);letter-spacing:0}</style><div style="overflow-x:auto"><table class="table cfgtbl" style="width:auto;white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div></div>':'');
       const _nbTile=(nbHtml&&nbHtml.replace(/\s/g,''))?'<div style="'+_card2+';margin-bottom:14px">'+_numHdr(_cfgN+'E','NEIGHBOUR ROBUSTNESS',nbTip,nbSub)+nbHtml+'</div>':'';
       // DSR (a champion/selection metric) lives in §1 (1H) for validate runs; show it here only for non-validate sweeps.
       const _dsrTile=(!d.validate&&dsrHtml&&dsrHtml.replace(/\s/g,''))?'<div style="'+_card2+';margin-bottom:14px"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'F · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>':'';
       // Tile 2 (parameter-relationship group): 2H and 2J SIDE-BY-SIDE (both 3-D by default, each
-      //   on its own param pair — ⛶ opens the drag-to-orbit view), then 2G SCATTER · 2I CORRELATION.
-      const _paramTile=(_hm||_p3d||_sc||_corr)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_hm,_p3d],true)+_wrap([_sc,_corr],true)+'</div>':'';
+      //   on its own param pair — ⛶ opens the drag-to-orbit view), then the 2G scatter below
+      //   (3-D by default too; 2I correlation moved up under 2K per owner).
+      const _paramTile=(_hm||_p3d||_sc)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_hm,_p3d],true)+_wrap([_sc])+'</div>':'';
       const _sec3=_cfgTile+_paramTile+_topTile+_nbTile+_dsrTile;
       // regHtml (regime report card + monthly P&L) moved into §1 (under the WF folds) per request.
       // Stress = the champion's profit spread across time → it lives in §1 (1I) for validate runs; keep the standalone §3/§4 only for non-validate sweeps.
@@ -8038,7 +8166,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _hy=content.querySelector('[data-hmy]');if(_hy)_hy.onchange=()=>{savePref('hmY',_hy.value);renderApp();};
       const _h3=content.querySelector('[data-hm3d]');if(_h3)_h3.onclick=(e)=>{e.stopPropagation();savePref('hm3d',+_h3.dataset.hm3d);renderApp();};
       const _h2x=content.querySelector('[data-hm2x]');if(_h2x)_h2x.onchange=()=>{savePref('hm2X',_h2x.value);renderApp();};
-      const _h2y=content.querySelector('[data-hm2y]');if(_h2y)_h2y.onchange=()=>{savePref('hm2Y',_h2y.value);renderApp();};}
+      const _h2y=content.querySelector('[data-hm2y]');if(_h2y)_h2y.onchange=()=>{savePref('hm2Y',_h2y.value);renderApp();};
+      const _s3=content.querySelector('[data-sc3d]');if(_s3)_s3.onclick=(e)=>{e.stopPropagation();savePref('sc3d',+_s3.dataset.sc3d);renderApp();};
+      const _s3x=content.querySelector('[data-sc3x]');if(_s3x)_s3x.onchange=()=>{savePref('sc3X',_s3x.value);renderApp();};
+      const _s3y=content.querySelector('[data-sc3y]');if(_s3y)_s3y.onchange=()=>{savePref('sc3Y',_s3y.value);renderApp();};}
     return;
   }
   if(activeTab==='settings'){
