@@ -396,10 +396,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='50.0';
+const VERSION='50.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'50.1', date:'2026-07-09', notes:['1A inline: the IN-SAMPLE / WALK-FORWARD / LOCKBOX labels moved to their own strip ABOVE the plot (they were sitting on the curve\'s final rally — run 150), and the curve\'s FINAL $ is pinned on the y-axis as a coloured tag (TradingView last-price style).','1A expanded: drag the $ axis up/down to compress/stretch the y scale (double-click or ↺ resets to auto-fit); the DRAWDOWN pane now reads as its own pane (tinted strip + label); the title shows the strategy\'s display name.','Blotter: NEW FEE $ column (per-round-trip commission+slippage — PTS/NET are already after it) and a HOLD ⓘ tooltip (bars held, in the run\'s timeframe). Loading the blotter now also swaps the chart to the FULL per-trade line — zoomed in, the equity line connects dot-to-dot instead of the averaged ~400-point curve.','2G / orbit view: every dot gets a thin stem down to the $0 plane so height differences read at a glance.']},
   {v:'50.0', date:'2026-07-09', notes:['2C ⇄ 2K linked brushing: drag a range on any 2C parallel-coordinates axis and the SAME value range lights up as a blue band on that parameter\'s 2K PDP mini-chart below — see instantly whether the configs you kept sit on the paying part of the knob\'s curve. Clears when the brush clears.','Run 137 blotter fixed: ORB_SIMPLE was RENAMED to ORB 3.0 back at v44.0 (the file is unchanged since), so old run docs still pointing at ORB_SIMPLE_1_0.py now resolve to ORB_3_0.py automatically and the blotter regenerates.','(The 49.9 update pill arrived without bullets because the OLD page code drew it — from this update on, the what-changed list shows.)']},
   {v:'49.9', date:'2026-07-09', notes:['Update alert: the green "new version" pill now shows a quick what-changed bullet list (pulled from this changelog) — not just the version number.','2G SCATTER is 3-D by default: every tested config as a dot in space (two params on the floor, its net $ as the height, dashed rhombus = the $0 plane, champion flagged). ⛶ opens the same drag-to-orbit view as 2H/2J; the ▦ 2D chip brings back the flat scatter with density contours + multi-compare.','2C parallel-coordinates axes now follow the 2K influence order (the knob that swings the most $ sits leftmost), and each 2K PDP mini-chart sits EXACTLY under its own 2C axis (with a NET $ column closing the row). 2I param correlation moved up to sit right under 2K.','Blotter fix (run 137): when a strategy file was renamed/deleted, the runner now rebuilds it from the run\'s stored code snapshot — the exact source that run executed — and regenerates the blotter from that.']},
   {v:'49.8', date:'2026-07-09', notes:['3-D param surfaces: 2H and 2J now sit SIDE-BY-SIDE, both 3-D by default, each on its own parameter pair (2J defaults to the 3rd × 4th knob and hides when a strategy has under 3 params — no duplicate views). ⛶ on either opens a DRAG-TO-ORBIT view: click-hold and turn the surface to see behind ridges, wheel = height exaggeration, double-click = reset.','2K PDP top-out curves moved directly under the 2C parallel-coordinates chart (same card) — the per-knob read of the config space 2C fans out. Hover any dot for the exact value / avg $ / config count.','Expanded 1A: date-axis labels were clipping off the bottom — fixed (plus a right axis spine). Blotter loads now work for OLD runs whose docs carry the strategy display name, and giant blotters cap at the most recent 6,000 trades (full CSV stays on your PC).']},
@@ -2449,9 +2450,13 @@ window.expandEquity=function(host){
   const tAt=i=>{if(!timeOk)return i;
     if(i<li||!(lbS&&lbE)){const f=(li>1)?(i/(li-1)):0;return optS+f*(((lbS&&lbE)?optE:T1)-optS);}
     const k=(n-1-li);const f=(k>0)?((i-li)/k):0;return lbS+f*(lbE-lbS);};
-  const pts=eq.map((v,i)=>({t:tAt(i),v:v,i:i}));
-  let _pk=eq[0];const dd=eq.map(v=>{if(v>_pk)_pk=v;return v-_pk;});
-  const ddMin=Math.min.apply(null,dd)||-1,mcDD=(D.mcDD!=null&&isFinite(D.mcDD))?D.mcDD:null;
+  // series state is MUTABLE: loading the blotter swaps in the per-trade cum-$ series (full
+  // resolution + real trade times) in place of the run's ~400-pt downsampled curve, so a
+  // zoomed-in line passes exactly through the trade dots instead of averaging them out.
+  const _ddOf=arr=>{let pk2=-Infinity;return arr.map(p=>{if(p.v>pk2)pk2=p.v;return p.v-pk2;});};
+  let P=eq.map((v,i)=>({t:tAt(i),v:v,i:i}));
+  let LI=li,DD=_ddOf(P),DDMIN=Math.min.apply(null,DD)||-1;
+  const mcDD=(D.mcDD!=null&&isFinite(D.mcDD))?D.mcDD:null;
   const fmt$=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
   const fmtD=t=>timeOk?new Date(t).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'2-digit'}):('pt '+Math.round(t));
   // ── modal scaffold ──
@@ -2461,7 +2466,7 @@ window.expandEquity=function(host){
     +'<span style="font-family:\'Bebas Neue\',monospace;font-size:20px;letter-spacing:3px;color:var(--text)">'+(D.title||'CHAMPION EQUITY')+'</span>'
     +'<span id="eqx-read" style="font-size:11px;color:var(--text3)"></span>'
     +'<span style="margin-left:auto;display:flex;gap:8px;align-items:center">'
-    +'<span style="font-size:9px;color:var(--text5)">wheel = zoom · drag = pan · dbl-click = reset</span>'
+    +'<span style="font-size:9px;color:var(--text5)">wheel = zoom · drag = pan · drag the $ axis = scale y · dbl-click = reset</span>'
     +'<button id="eqx-reset" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">↺ RESET</button>'
     +(B?'<button id="eqx-blot" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">▦ TRADES</button>':'')
     +'<button id="eqx-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:2px;border-radius:6px">CLOSE ✕</button></span></div>'
@@ -2486,15 +2491,18 @@ window.expandEquity=function(host){
     return {W:W,H:H,pw:pw,eqT:4,eqB:4+eh,ddT:4+eh+8,ddB:4+eh+8+ddh-6};};
   const domA=()=>T0+(T1-T0)*va, domB=()=>T0+(T1-T0)*vb;
   const X=(g,t)=>(t-domA())/((domB()-domA())||1)*g.pw;
+  let yMan=null;   // manual equity y-range (drag the $ axis, TradingView-style); null = auto-fit
   const render=()=>{
     const g=geo(),a=domA(),b=domB();
-    const vis=pts.filter(p=>p.t>=a&&p.t<=b);
-    const vv=vis.length?vis:pts;
-    let mn=Math.min.apply(null,vv.map(p=>p.v)),mx=Math.max.apply(null,vv.map(p=>p.v));
-    if(mx<=mn)mx=mn+1;const pad=(mx-mn)*0.05;mn-=pad;mx+=pad;
+    const vis=P.filter(p=>p.t>=a&&p.t<=b);
+    const vv=vis.length?vis:P;
+    let mn,mx;
+    if(yMan){mn=yMan[0];mx=yMan[1];}
+    else{mn=Math.min.apply(null,vv.map(p=>p.v));mx=Math.max.apply(null,vv.map(p=>p.v));
+      if(mx<=mn)mx=mn+1;const pad=(mx-mn)*0.05;mn-=pad;mx+=pad;}
     const Y=v=>g.eqT+(mx-v)/((mx-mn)||1)*(g.eqB-g.eqT);
-    const ddVis=vis.length?vis.map(p=>dd[p.i]):dd;
-    let dmn=Math.min.apply(null,ddVis);dmn=Math.min(dmn,(mcDD!=null?mcDD:dmn),ddMin);if(dmn>=0)dmn=-1;
+    const ddVis=vis.length?vis.map(p=>DD[p.i]):DD;
+    let dmn=Math.min.apply(null,ddVis);dmn=Math.min(dmn,(mcDD!=null?mcDD:dmn),DDMIN);if(dmn>=0)dmn=-1;
     const Yd=v=>g.ddT+(0-v)/((0-dmn)||1)*(g.ddB-g.ddT);
     let s='';
     // WF fold bands + lockbox region (time-mapped, clipped to view)
@@ -2518,18 +2526,21 @@ window.expandEquity=function(host){
         +'<text x="'+x.toFixed(1)+'" y="'+(g.H-6)+'" text-anchor="'+(k===0?'start':(k===NT?'end':'middle'))+'" font-size="10" fill="var(--text5)">'+fmtD(t)+'</text>';}
     // right axis spine — a visual margin between the plot and the $ labels
     s+='<line x1="'+g.pw+'" y1="0" x2="'+g.pw+'" y2="'+(g.H-XAX)+'" stroke="var(--border)" opacity="0.7"/>';
-    // equity paths: green pre-lockbox, purple lockbox — split at index li
+    // equity paths: green pre-lockbox, purple lockbox — split at index LI
     const seg=(arr)=>arr.map((p,i2)=>((i2?'L':'M')+X(g,p.t).toFixed(1)+' '+Y(p.v).toFixed(1))).join(' ');
-    const pre=pts.filter(p=>p.i<=li&&p.t>=a&&p.t<=b),post=pts.filter(p=>p.i>=li&&p.t>=a&&p.t<=b);
+    const pre=P.filter(p=>p.i<=LI&&p.t>=a&&p.t<=b),post=P.filter(p=>p.i>=LI&&p.t>=a&&p.t<=b);
     if(pre.length>1)s+='<path d="'+seg(pre)+'" fill="none" stroke="var(--green)" stroke-width="1.8"/>';
     if(post.length>1)s+='<path d="'+seg(post)+'" fill="none" stroke="#a78bfa" stroke-width="1.8"/>';
-    // divider + drawdown pane
-    s+='<line x1="0" y1="'+(g.ddT-4)+'" x2="'+g.pw+'" y2="'+(g.ddT-4)+'" stroke="var(--border)" opacity="0.7"/>';
-    const dvis=pts.filter(p=>p.t>=a&&p.t<=b);
+    // DRAWDOWN pane — visually its OWN pane: tinted background strip + label + divider,
+    //   sharing only the x-axis with the equity pane above.
+    s+='<rect x="0" y="'+(g.ddT-4)+'" width="'+g.pw+'" height="'+(g.ddB-g.ddT+10).toFixed(1)+'" fill="var(--bg1)" opacity="0.5"/>'
+      +'<line x1="0" y1="'+(g.ddT-4)+'" x2="'+g.pw+'" y2="'+(g.ddT-4)+'" stroke="var(--border)" opacity="0.9"/>'
+      +'<text x="6" y="'+(g.ddT+7).toFixed(1)+'" font-size="9" font-weight="700" letter-spacing="1" fill="var(--text4)" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">DRAWDOWN</text>';
+    const dvis=P.filter(p=>p.t>=a&&p.t<=b);
     if(dvis.length>1){
-      s+='<path d="M '+X(g,dvis[0].t).toFixed(1)+' '+Yd(0).toFixed(1)+' '+dvis.map(p=>'L '+X(g,p.t).toFixed(1)+' '+Yd(dd[p.i]).toFixed(1)).join(' ')+' L '+X(g,dvis[dvis.length-1].t).toFixed(1)+' '+Yd(0).toFixed(1)+' Z" fill="rgba(193,66,106,0.45)" stroke="#d6557a" stroke-width="1"/>';
-      s+='<line x1="0" y1="'+Yd(ddMin).toFixed(1)+'" x2="'+g.pw+'" y2="'+Yd(ddMin).toFixed(1)+'" stroke="#d6557a" stroke-width="1.2" stroke-dasharray="5,3"/>'
-        +'<text x="'+(g.pw+6)+'" y="'+(Yd(ddMin)+3.5).toFixed(1)+'" font-size="10" fill="#d6557a">'+fmt$(ddMin)+'</text>';
+      s+='<path d="M '+X(g,dvis[0].t).toFixed(1)+' '+Yd(0).toFixed(1)+' '+dvis.map(p=>'L '+X(g,p.t).toFixed(1)+' '+Yd(DD[p.i]).toFixed(1)).join(' ')+' L '+X(g,dvis[dvis.length-1].t).toFixed(1)+' '+Yd(0).toFixed(1)+' Z" fill="rgba(193,66,106,0.45)" stroke="#d6557a" stroke-width="1"/>';
+      s+='<line x1="0" y1="'+Yd(DDMIN).toFixed(1)+'" x2="'+g.pw+'" y2="'+Yd(DDMIN).toFixed(1)+'" stroke="#d6557a" stroke-width="1.2" stroke-dasharray="5,3"/>'
+        +'<text x="'+(g.pw+6)+'" y="'+(Yd(DDMIN)+3.5).toFixed(1)+'" font-size="10" fill="#d6557a">'+fmt$(DDMIN)+'</text>';
       if(mcDD!=null){s+='<line x1="0" y1="'+Yd(mcDD).toFixed(1)+'" x2="'+g.pw+'" y2="'+Yd(mcDD).toFixed(1)+'" stroke="#f5c842" stroke-width="1.2" stroke-dasharray="5,3"/>'
         +'<text x="'+(g.pw+6)+'" y="'+(Yd(mcDD)+3.5).toFixed(1)+'" font-size="10" fill="#f5c842">'+fmt$(mcDD)+'</text>';}
       s+='<text x="'+(g.pw+6)+'" y="'+(Yd(0)+3.5).toFixed(1)+'" font-size="9" fill="var(--text5)">$0</text>';}
@@ -2544,7 +2555,7 @@ window.expandEquity=function(host){
     svgEl._g={g:g,a:a,b:b,mn:mn,mx:mx,dmn:dmn};
   };
   // ── interactions ──
-  const clampView=()=>{const span=vb-va,mnSpan=Math.max(3/(n-1),0.002);
+  const clampView=()=>{const span=vb-va,mnSpan=Math.max(3/Math.max(3,P.length-1),0.002);
     if(span<mnSpan){const c=(va+vb)/2;va=c-mnSpan/2;vb=c+mnSpan/2;}
     if(va<0){vb-=va;va=0;}if(vb>1){va-=(vb-1);vb=1;}va=Math.max(0,va);vb=Math.min(1,vb);};
   chartEl.addEventListener('wheel',e=>{e.preventDefault();
@@ -2552,15 +2563,25 @@ window.expandEquity=function(host){
     const fx=Math.max(0,Math.min(1,(e.clientX-r.left)/((gx.pw/gx.W)*r.width)));
     const c=va+(vb-va)*fx,k=(e.deltaY>0)?1.22:0.82;
     va=c-(c-va)*k;vb=c+(vb-c)*k;clampView();render();},{passive:false});
-  let drag=null;
-  chartEl.addEventListener('mousedown',e=>{drag={x:e.clientX,va:va,vb:vb,moved:false};});
-  window.addEventListener('mousemove',e=>{if(!drag)return;const r=chartEl.getBoundingClientRect(),gx=svgEl._g?svgEl._g.g:geo();
+  let drag=null,yDrag=null;
+  const _gutterAt=e=>{const st=svgEl._g;if(!st)return false;const r=chartEl.getBoundingClientRect();
+    if(!(r.width>0))return false;return ((e.clientX-r.left)/(r.width/st.g.W))>st.g.pw;};
+  chartEl.addEventListener('mousedown',e=>{
+    // TradingView-style $-axis drag: press on the right gutter and drag vertically to
+    //   compress/stretch the equity scale (auto-fit suspends until reset / double-click).
+    if(_gutterAt(e)){const st=svgEl._g;yDrag={y:e.clientY,mn:st.mn,mx:st.mx};return;}
+    drag={x:e.clientX,va:va,vb:vb,moved:false};});
+  window.addEventListener('mousemove',e=>{
+    if(yDrag){const k=Math.max(0.15,1+(e.clientY-yDrag.y)*0.004);   // drag DOWN = compress (wider range)
+      const c=(yDrag.mn+yDrag.mx)/2,half=(yDrag.mx-yDrag.mn)/2*k;
+      yMan=[c-half,c+half];render();return;}
+    if(!drag)return;const r=chartEl.getBoundingClientRect(),gx=svgEl._g?svgEl._g.g:geo();
     const dx=(e.clientX-drag.x)/((gx.pw/gx.W)*r.width)*(drag.vb-drag.va);
     if(Math.abs(e.clientX-drag.x)>3)drag.moved=true;
     va=drag.va-dx;vb=drag.vb-dx;clampView();render();});
-  window.addEventListener('mouseup',()=>{setTimeout(()=>{drag=null;},0);});
-  chartEl.addEventListener('dblclick',()=>{va=0;vb=1;render();});
-  el2('eqx-reset').onclick=()=>{va=0;vb=1;render();};
+  window.addEventListener('mouseup',()=>{setTimeout(()=>{drag=null;yDrag=null;},0);});
+  chartEl.addEventListener('dblclick',()=>{va=0;vb=1;yMan=null;render();});
+  el2('eqx-reset').onclick=()=>{va=0;vb=1;yMan=null;render();};
   // crosshair + axis-pinned chips + nearest-point readout
   const vln=el2('eqx-vln'),hln=el2('eqx-hln'),xchip=el2('eqx-xchip'),ychip=el2('eqx-ychip'),dot=el2('eqx-dot');
   chartEl.addEventListener('mousemove',e=>{
@@ -2579,10 +2600,11 @@ window.expandEquity=function(host){
     else{yv=0-(0-st.dmn)*((gy-st.g.ddT)/((st.g.ddB-st.g.ddT)||1));ylab='dd '+fmt$(Math.min(0,yv));}
     ychip.style.display='block';ychip.style.left=(st.g.pw*sx)+'px';ychip.style.top=(gy*sy)+'px';ychip.textContent=ylab;
     // nearest equity point → dot + readout
-    let bi=0,bd=1e18;pts.forEach(p=>{const d2=Math.abs(p.t-t);if(d2<bd){bd=d2;bi=p.i;}});
-    const p=pts[bi],px=(p.t-st.a)/((st.b-st.a)||1)*st.g.pw,py=st.g.eqT+(st.mx-p.v)/((st.mx-st.mn)||1)*(st.g.eqB-st.g.eqT);
-    if(px>=0&&px<=st.g.pw){dot.style.display='block';dot.style.left=(px*sx)+'px';dot.style.top=(py*sy)+'px';dot.style.background=(p.i>=li?'#a78bfa':'var(--green)');}else dot.style.display='none';
-    read.innerHTML=fmtD(p.t)+' · equity <b style="color:'+(p.v>=0?'var(--green)':'var(--red)')+'">'+fmt$(p.v)+'</b> · drawdown <b style="color:#d6557a">'+fmt$(dd[p.i])+'</b>'+(p.i>=li?' · <span style="color:#a78bfa">lockbox</span>':'');
+    let bi=0,bd=1e18;P.forEach(p=>{const d2=Math.abs(p.t-t);if(d2<bd){bd=d2;bi=p.i;}});
+    const p=P[bi],px=(p.t-st.a)/((st.b-st.a)||1)*st.g.pw,py=st.g.eqT+(st.mx-p.v)/((st.mx-st.mn)||1)*(st.g.eqB-st.g.eqT);
+    if(px>=0&&px<=st.g.pw){dot.style.display='block';dot.style.left=(px*sx)+'px';dot.style.top=(py*sy)+'px';dot.style.background=(p.i>=LI?'#a78bfa':'var(--green)');}else dot.style.display='none';
+    read.innerHTML=fmtD(p.t)+' · equity <b style="color:'+(p.v>=0?'var(--green)':'var(--red)')+'">'+fmt$(p.v)+'</b> · drawdown <b style="color:#d6557a">'+fmt$(DD[p.i])+'</b>'+(p.i>=LI?' · <span style="color:#a78bfa">lockbox</span>':'');
+    chartEl.style.cursor=_gutterAt(e)?'ns-resize':'crosshair';
   });
   chartEl.addEventListener('mouseleave',()=>{vln.style.display=hln.style.display=xchip.style.display=ychip.style.display=dot.style.display='none';read.textContent='';});
   // trade-marker click → highlight its blotter row
@@ -2601,8 +2623,16 @@ window.expandEquity=function(host){
       const rows=(r.rows||[]).map(x=>({_no:+x.trade_no,_t:_ms(x.entry_time),_tx:_ms(x.exit_time),_usd:+x.pnl_usd,_cum:+x.cum_usd,_pts:+x.pnl_pts,_hold:+x.hold_bars,_ep:+x.entry_px,_xp:+x.exit_px,_et:String(x.entry_time),_xt2:String(x.exit_time)}));
       if(!rows.length)throw new Error('blotter came back empty');
       blotRows=rows;
-      const th='<tr style="position:sticky;top:0;background:var(--bg1);color:var(--text5);font-size:9px;letter-spacing:1px"><th style="padding:6px 10px;text-align:left">#</th><th style="text-align:left;padding:6px 10px">ENTRY</th><th style="text-align:left;padding:6px 10px">EXIT</th><th style="text-align:right;padding:6px 10px">HOLD</th><th style="text-align:right;padding:6px 10px">ENTRY PX</th><th style="text-align:right;padding:6px 10px">EXIT PX</th><th style="text-align:right;padding:6px 10px">PTS</th><th style="text-align:right;padding:6px 10px">NET $</th><th style="text-align:right;padding:6px 10px">CUM $</th></tr>';
-      const trs=rows.map(x=>'<tr data-blrow="'+x._no+'" style="cursor:pointer;border-top:1px solid var(--border2)" title="click to fly to this trade on the chart"><td style="padding:5px 10px;color:var(--text5)">'+x._no+'</td><td style="padding:5px 10px;font-size:10px">'+x._et+'</td><td style="padding:5px 10px;font-size:10px">'+x._xt2+'</td><td style="padding:5px 10px;text-align:right;color:var(--text4)">'+x._hold+'</td><td style="padding:5px 10px;text-align:right">'+x._ep+'</td><td style="padding:5px 10px;text-align:right">'+x._xp+'</td><td style="padding:5px 10px;text-align:right;color:'+(x._pts>=0?'var(--green)':'var(--red)')+'">'+x._pts+'</td><td style="padding:5px 10px;text-align:right;font-weight:700;color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x._usd)+'</td><td style="padding:5px 10px;text-align:right;color:'+(x._cum>=0?'var(--text2)':'var(--red)')+'">'+fmt$(x._cum)+'</td></tr>').join('');
+      // ── swap in the FULL-RESOLUTION line: per-trade cum-$ at real trade times replaces the
+      //    run's downsampled curve, so zoomed-in the line connects dot-to-dot (TradingView feel). ──
+      if(timeOk&&rows.length>3){
+        const bp=rows.map(x2=>({t:(x2._tx||x2._t),v:x2._cum})).filter(p=>isFinite(p.t)&&isFinite(p.v)).sort((a2,b2)=>a2.t-b2.t).map((p,i2)=>({t:p.t,v:p.v,i:i2}));
+        if(bp.length>3){P=bp;DD=_ddOf(P);DDMIN=Math.min.apply(null,DD)||-1;
+          LI=lbS?P.findIndex(p=>p.t>=lbS):-1;if(LI<0)LI=P.length;}
+      }
+      const fee=(B&&B.cost_pts!=null&&B.mult)?(+B.cost_pts*+B.mult):null;
+      const th='<tr style="position:sticky;top:0;background:var(--bg1);color:var(--text5);font-size:9px;letter-spacing:1px"><th style="padding:6px 10px;text-align:left">#</th><th style="text-align:left;padding:6px 10px">ENTRY</th><th style="text-align:left;padding:6px 10px">EXIT</th><th style="text-align:right;padding:6px 10px;cursor:help" title="bars held between entry and exit, in the run\'s chart timeframe (e.g. 5m bars)">HOLD ⓘ</th><th style="text-align:right;padding:6px 10px">ENTRY PX</th><th style="text-align:right;padding:6px 10px">EXIT PX</th><th style="text-align:right;padding:6px 10px">PTS</th><th style="text-align:right;padding:6px 10px;cursor:help" title="commission + slippage charged per round trip — PTS and NET $ are already after this">FEE $ ⓘ</th><th style="text-align:right;padding:6px 10px">NET $</th><th style="text-align:right;padding:6px 10px">CUM $</th></tr>';
+      const trs=rows.map(x=>'<tr data-blrow="'+x._no+'" style="cursor:pointer;border-top:1px solid var(--border2)" title="click to fly to this trade on the chart"><td style="padding:5px 10px;color:var(--text5)">'+x._no+'</td><td style="padding:5px 10px;font-size:10px">'+x._et+'</td><td style="padding:5px 10px;font-size:10px">'+x._xt2+'</td><td style="padding:5px 10px;text-align:right;color:var(--text4)">'+x._hold+'</td><td style="padding:5px 10px;text-align:right">'+x._ep+'</td><td style="padding:5px 10px;text-align:right">'+x._xp+'</td><td style="padding:5px 10px;text-align:right;color:'+(x._pts>=0?'var(--green)':'var(--red)')+'">'+x._pts+'</td><td style="padding:5px 10px;text-align:right;color:var(--text4)">'+(fee!=null?('-'+fmt$(fee)):'—')+'</td><td style="padding:5px 10px;text-align:right;font-weight:700;color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x._usd)+'</td><td style="padding:5px 10px;text-align:right;color:'+(x._cum>=0?'var(--text2)':'var(--red)')+'">'+fmt$(x._cum)+'</td></tr>').join('');
       wrap.innerHTML='<div style="padding:8px 12px 2px;font-size:9px;color:var(--text5);letter-spacing:1px">TRADE BLOTTER · '+rows.length+' trades'+(r.capped?' (most recent — '+r.capped+' older trades stay in the CSV on your PC)':'')+(r.regenerated?' · regenerated on your PC':(r.source?' · '+r.source:''))+' · click a row to fly to it on the chart</div><table style="width:100%;border-collapse:collapse;font-size:11px">'+th+trs+'</table>';
       wrap.style.display='block';
       blotBtn.textContent='▦ TRADES ('+rows.length+')';blotBtn.disabled=false;
@@ -2683,7 +2713,8 @@ window.expandSurface3D=function(host){
       const dots=D.P.map(p=>({i:(p[0]-D.x0)/xr*(nx-1),j:(p[1]-D.y0)/yr*(ny-1),z:(p[2]-zmn)/zsp,pnl:p[2],x:p[0],y:p[1]}))
         .sort((a,b)=>(V(a.i,a.j)-V(b.i,b.j))||(a.pnl-b.pnl));
       dots.forEach(o=>{const col=o.pnl>=0?'#1d9e75':'#e24b4a';
-        s+='<circle cx="'+PX(o.i,o.j).toFixed(1)+'" cy="'+PY(o.i,o.j,o.z).toFixed(1)+'" r="3" fill="'+col+'" opacity="0.75" data-tip="'+(D.xl||'x')+' <b>'+_hr(o.x)+'</b> · '+(D.yl||'y')+' <b>'+_hr(o.y)+'</b><br>net <b>'+fmt$(o.pnl)+'</b>"/>';});
+        s+='<line x1="'+PX(o.i,o.j).toFixed(1)+'" y1="'+PY(o.i,o.j,zZ).toFixed(1)+'" x2="'+PX(o.i,o.j).toFixed(1)+'" y2="'+PY(o.i,o.j,o.z).toFixed(1)+'" stroke="'+col+'" stroke-width="0.7" opacity="0.3"/>'
+          +'<circle cx="'+PX(o.i,o.j).toFixed(1)+'" cy="'+PY(o.i,o.j,o.z).toFixed(1)+'" r="3" fill="'+col+'" opacity="0.78" data-tip="'+(D.xl||'x')+' <b>'+_hr(o.x)+'</b> · '+(D.yl||'y')+' <b>'+_hr(o.y)+'</b><br>net <b>'+fmt$(o.pnl)+'</b>"/>';});
       if(D.champ){const cu=(D.champ[0]-D.x0)/xr*(nx-1),cv2=(D.champ[1]-D.y0)/yr*(ny-1);
         s+='<line x1="'+PX(cu,cv2).toFixed(1)+'" y1="'+PY(cu,cv2,0).toFixed(1)+'" x2="'+PX(cu,cv2).toFixed(1)+'" y2="'+(PY(cu,cv2,1)-10).toFixed(1)+'" stroke="var(--yellow)" stroke-width="1.1" stroke-dasharray="3,2" opacity="0.85"/><text x="'+PX(cu,cv2).toFixed(1)+'" y="'+(PY(cu,cv2,1)-14).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" fill="var(--yellow)" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">champion</text>';}
     }else{
@@ -5560,7 +5591,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         .sort((a,b)=>(V(a.u,a.w)-V(b.u,b.w))||(a.pnl-b.pnl));
       dots.forEach(o=>{const col=o.pnl>=0?'#1d9e75':'#e24b4a';
         const tip=_pp(xk)+' <b>'+_hr(o.p[xk])+'</b> · '+_pp(yk)+' <b>'+_hr(o.p[yk])+'</b><br>net <b style=&quot;color:'+col+'&quot;>'+fmtUsd(Math.round(o.pnl))+'</b>';
-        s+='<circle class="cfgmark" data-cfg="'+o.i+'" data-net="'+Math.round(o.pnl)+'" cx="'+PX(o.u,o.w).toFixed(1)+'" cy="'+PY(o.u,o.w,o.z).toFixed(1)+'" r="2.3" fill="'+col+'" opacity="0.72" style="cursor:pointer" data-tip="'+tip+'"/>';});
+        // stem from the dot down/up to the $0 plane — the height differential reads at a glance
+        s+='<line x1="'+PX(o.u,o.w).toFixed(1)+'" y1="'+PY(o.u,o.w,zZ).toFixed(1)+'" x2="'+PX(o.u,o.w).toFixed(1)+'" y2="'+PY(o.u,o.w,o.z).toFixed(1)+'" stroke="'+col+'" stroke-width="0.6" opacity="0.3"/>'
+          +'<circle class="cfgmark" data-cfg="'+o.i+'" data-net="'+Math.round(o.pnl)+'" cx="'+PX(o.u,o.w).toFixed(1)+'" cy="'+PY(o.u,o.w,o.z).toFixed(1)+'" r="2.3" fill="'+col+'" opacity="0.72" style="cursor:pointer" data-tip="'+tip+'"/>';});
       if(bpx&&typeof bpx[xk]==='number'&&typeof bpx[yk]==='number'){
         const cu=(bpx[xk]-x0)/xr,cw2=(bpx[yk]-y0)/yr;
         s+='<line x1="'+PX(cu,cw2).toFixed(1)+'" y1="'+PY(cu,cw2,0).toFixed(1)+'" x2="'+PX(cu,cw2).toFixed(1)+'" y2="'+(padT-2)+'" stroke="var(--yellow)" stroke-width="0.9" stroke-dasharray="2,2" opacity="0.8"/><text x="'+PX(cu,cw2).toFixed(1)+'" y="'+(padT-5)+'" text-anchor="middle" font-size="7.5" font-weight="700" fill="var(--yellow)">champion</text>';}
@@ -6226,7 +6259,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _frac0=(_fs.length>=2)?((+_fs[0].train_bars||0)/((+_fs[0].train_bars||0)+_fs.reduce((s,x)=>s+(+x.test_bars||0),0))):0.4;
       const _xWarm=timeOk?xAt(optS+_frac0*(optE-optS)):(pd+(EW-2*pd)*_frac0);
       const _annoArr=[{x:(pd+_xWarm)/2,t:'IN-SAMPLE',c:'var(--text3)'},{x:(_xWarm+bx)/2,t:'WALK-FORWARD',c:'#60a5fa'},{x:(bx+EW)/2,t:'LOCKBOX <span style="color:'+(lb.pass?'#1d9e75':'#e24b4a')+'">'+(lb.pass?'✓ HELD':'✕ FAIL')+'</span>',c:'#a78bfa'}];
-      const anno='<div style="position:absolute;top:2px;left:0;right:0;height:11px;pointer-events:none;z-index:3;font-size:7px;font-weight:700;letter-spacing:.3px">'+_annoArr.map(a=>'<span style="position:absolute;left:'+(a.x/EW*100).toFixed(1)+'%;transform:translateX(-50%);color:'+a.c+';background:color-mix(in srgb,var(--bg1) 80%,transparent);padding:0 3px;border-radius:3px;white-space:nowrap">'+a.t+'</span>').join('')+'</div>';
+      // section labels live in their OWN 11px strip ABOVE the plot (they used to overlay the
+      //   top of the chart and could sit on the curve's final stretch — run 150's lockbox rally).
+      const anno='<div style="position:relative;flex:0 0 auto;height:11px;margin-bottom:2px;pointer-events:none;font-size:7px;font-weight:700;letter-spacing:.3px">'+_annoArr.map(a=>'<span style="position:absolute;left:'+(a.x/EW*100).toFixed(1)+'%;transform:translateX(-50%);color:'+a.c+';white-space:nowrap">'+a.t+'</span>').join('')+'</div>';
       // Y-AXIS gridlines + labels at nice round $ increments (≈5 lines). Lines live in the SVG;
       //   the matching $ labels are absolutely positioned in an HTML column on the RIGHT at the
       //   same pixel y (svg renders 1 viewBox-unit = 1px tall) so text isn't horizontally stretched.
@@ -6262,9 +6297,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const ddSvg='<svg width="100%" height="100%" viewBox="0 0 '+EW+' '+DDH+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%;border-radius:8px;background:var(--bg1)"><line x1="0" y1="2" x2="'+EW+'" y2="2" stroke="var(--border)" stroke-width="0.6"/><line x1="'+bx.toFixed(1)+'" y1="0" x2="'+bx.toFixed(1)+'" y2="'+DDH+'" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/><path d="'+ddArea+'" fill="rgba(193,66,106,0.5)" stroke="#d6557a" stroke-width="1"/>'+_ddHL(ddY(ddMin),'#d6557a')+mcLine+'</svg>';
       // y-axis ($ PnL) labels on the RIGHT, one per gridline. Positioned by PERCENT of the plot
       //   height (not px) so they stay aligned when the chart is dragged taller (see eq-rs resize).
+      // endpoint tag (TradingView last-price style): the curve's FINAL $ pinned at its exact y —
+      //   the nice-step gridline labels rarely land on the endpoint, so it gets its own chip.
+      const _eqEnd=eq[eq.length-1],_endCol=(lbS&&lbE)?'#a78bfa':'var(--green)';
       const yLabels='<div style="width:54px;min-width:54px;height:100%;display:flex;flex-direction:column;font-size:8px;color:var(--text5)">'
+        +'<div style="height:13px"></div>'
         +'<div style="position:relative;flex:3.2;min-height:0">'
         +_lvls.map(L=>'<span style="position:absolute;left:3px;top:calc('+(Y(L)/EH*100).toFixed(2)+'% - 5px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtUsd(Math.round(L))+'</span>').join('')
+        +'<span style="position:absolute;left:1px;top:calc('+(Y(_eqEnd)/EH*100).toFixed(2)+'% - 6px);white-space:nowrap;font-weight:800;color:#04130c;background:'+_endCol+';padding:0 4px;border-radius:4px;z-index:2">'+fmtUsd(Math.round(_eqEnd))+'</span>'
         +'</div>'
         +'<div style="height:5px"></div>'
         +'<div style="position:relative;flex:1;min-height:0;font-size:7px"><span style="position:absolute;left:3px;top:0">$0</span><span style="position:absolute;left:3px;top:calc('+(ddY(ddMin)/DDH*100).toFixed(1)+'% - 4px);color:#d6557a;white-space:nowrap">'+fmtUsd(Math.round(ddMin))+'</span>'+(mcDD!=null?'<span style="position:absolute;left:3px;top:calc('+(ddY(mcDD)/DDH*100).toFixed(1)+'% - 4px);color:#f5c842;white-space:nowrap">'+fmtUsd(Math.round(mcDD))+'</span>':'')+'</div>'
@@ -6735,7 +6775,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(span>0){let acc=tr0;fr=fl.map((f,i)=>{const a2=acc/span,b2=(acc+tb[i])/span;acc+=tb[i];return [+a2.toFixed(4),+b2.toFixed(4),f.fold];});}}
         const pay={eq:eqA,li:liA,optS:oS,optE:oE,lbS:lS,lbE:lE,folds:fr,
           mcDD:((V&&V.mc_p95!=null)?Math.round(V.mc_p95*mlt):((d.mc&&d.mc.p95!=null)?Math.round(d.mc.p95*mlt):null)),
-          title:'RUN #'+d.id+' · CHAMPION EQUITY · '+String(d.strategy||'')};
+          title:'RUN #'+d.id+' · CHAMPION EQUITY · '+((typeof stratInfo==='function'&&stratInfo(d.strategy)&&stratInfo(d.strategy).label)?stratInfo(d.strategy).label:String(d.strategy||''))};
         const blot={run_id:d.id,instrument:d.instrument||'',timeframe:d.timeframe||'5m',session:d.session||'rth',
           strategy:d.strategy||'',params:d.best_params||null,cost_pts:(d.cost_pts!=null?d.cost_pts:5.66/mlt),
           mult:mlt,date_from:d.date_from||null,date_to:d.date_to||null,
