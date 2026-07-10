@@ -287,6 +287,29 @@ ALL 6/6 folds net-positive + lockbox-positive → *none overfit*), `tools/…/co
 - **Lever if you don't want short-only:** pin `trade_mode=Both`, or rank discovery by **MAR not PF**
   (why MAR-ranked 125 stays two-sided). Runs 126–133/135 archived (dups of 137 / dominated).
 
+### 4.13 Anatomy of 137's −$40k drawdown + breakeven finding (2026-07-09)
+137's max DD (−$40,233) is **Apr 9 → Jul 11 2025**: the tariff-shock crash + V-recovery (NQ 17,276 → low
+17,202 → 22,955, +33%). 62 trades / 40 losers. **No session-time or direction filter dodges it — they
+INVERT it:** open-hour trades lost −$21.6k (vs the usual morning edge), shorts lost −$21.9k (vs the usual
+short edge). A macro shock flips ORB's average edges for a quarter. **Vol circuit-breaker (pause N sessions
+after a >X% range day) = REJECTED** — skips too many trades (80 days >4%/yr), costs $30–80k PnL, and makes
+the target window *worse* (skips recovery, not losers).
+
+- **Breakeven-after-1.5R = a validated WIN on 137** (BE re-simulator reproduces the engine to $0.00/trade):
+  move stop→entry once unrealized ≥ 1.5×risk. Full: **PnL $567k→$579k, max DD −$40.2k→−$30.8k (−24%),
+  PF 1.47→1.51**. **Lockbox OOS holds: DD −$16.8k→−$14.2k (−15%), PnL flat, PF 1.53→1.57.** BE-1.0R cuts DD
+  further (−$26.8k, PF 1.55) at slightly lower PnL. NOT overfit — improves IS *and* lockbox.
+- **Mechanism correction (anti-overfit):** the swan losers did NOT run to huge MFE then give it back —
+  median MFE of window losers **0.41R** ≈ all-history 0.39R; only 3/40 reached 2R. So an *extreme* 2R BE
+  barely helps; the win is the **moderate 1–1.5R** BE catching the common "wide-stop pokes ~1R then fails"
+  pattern across all 16y. It's a broad edge, not a swan patch. Next: add `be_after_R` to ORB_3_0/3_1 as a
+  param + Auto-Validate it (candidate deployable — cheapest DD reduction found so far).
+- **Time-of-day (full history):** edge is a *morning* phenomenon — 09:30–10:30 PF ~1.8 (+$307k of the total),
+  12:00–13:00 lunch chop PF 1.11. Confirms §4.9. (In the Apr-2025 window this inverted.)
+- **`close_confirm` (already coded in ORB_3_0.py) is HARMFUL on 137:** $567k→**$175k**, PF 1.47→1.14 —
+  entering at the bar CLOSE (vs the range edge) worsens the fill on every real break (~$100/trade × 3,900 ≈
+  the whole drop), dwarfing the false-wick savings. **Contradicts the reconcile "+$30k" claim → see §6 TODO.**
+
 ---
 
 ## 5. What a pro would actually do here (principles)
@@ -318,6 +341,8 @@ ALL 6/6 folds net-positive + lockbox-positive → *none overfit*), `tools/…/co
 
 | # | idea | expected payoff | status | result |
 |---|---|---|---|---|
+| **J** | **Candle-confirmation / close-confirm reconciliation** — `close_confirm` (enter on bar CLOSE beyond the range, skipping false-wick breaks) is ALREADY coded in `ORB_3_0.py`. `tools/reconcile.py` says TV's close-based model skipped 306 false wicks (−$149,562) and netted **+$30k** more than the engine over 15y. BUT tested on **137's config** `close_confirm=True` is **−$392k** ($567k→$175k, PF 1.47→1.14) because entering at the close worsens the fill on every real break. | **HIGH** (reconciles engine↔TV; possible new version) | ☐ TODO | **CONTRADICTION to resolve** — is TV's edge a *level-fill* skip (same entry price, just drop the fakes) vs the engine's *close-price* fill? Re-implement close_confirm as "confirm on close, fill at the range level next bar" and re-test; that may be the real TV-matching win. Config-dependent — wide-stop 137 hates it. |
+| **H** | **Breakeven-after-R** (`be_after_R` param on ORB_3_0/3_1) — move stop→entry once unrealized ≥ X·risk | **HIGH** | ◐ MEASURED (§4.13) | **WIN on 137, OOS-validated** — BE-1.5R: full DD −24% (−$40k→−$31k), PnL $567k→$579k, PF 1.47→1.51; **lockbox DD −15%, PF 1.53→1.57, PnL flat**. Cheapest DD reduction found. Next: add the param + Auto-Validate. NB: 1–1.5R (not extreme 2R — swan losers only reach 0.41R median MFE). |
 | E | **Ensemble** — 1 lot full-ride + 1 lot trailed → blended curve between MAR 15 and 33 (your original 2-contract idea, done right) | MED (smoothing, not new edge) | ☐ TODO | — |
 | — | Smarter trailing (chandelier / activate / breakeven) | — | ☑ DONE | chandelier overfits; activate hurts; breakeven wash. **Simple bar-trail wins.** |
 | A | **Vol-target (risk-parity) sizing** | HIGH | ☑ DONE | **WIN (modest, generalizes)** — lockbox MAR +29% (6.9→8.9), DD ~halved, PF→1.73, survives lockbox + 4/6 WF folds. Best = `rp-cap3` overlay (§4.7, deploy rule §5.6). |
