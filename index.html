@@ -260,6 +260,11 @@
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:var(--fs)}
 ::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-track{background:var(--bg1)}::-webkit-scrollbar-thumb{background:var(--text5)}
 input,select,textarea{background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:var(--fsm);padding:8px 10px;width:100%;outline:none;transition:border-color .15s}
+/* fully-filled range sliders (native accent fill stops at the thumb centre, leaving a fake gap
+   at 100%) — the JS keeps the gradient stop in sync with the value */
+input[type=range].fillrng{-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;border:none;padding:0;background:var(--bg1);outline:none}
+input[type=range].fillrng::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:11px;height:11px;border-radius:50%;background:var(--blue);border:0;cursor:pointer}
+input[type=range].fillrng::-moz-range-thumb{width:11px;height:11px;border-radius:50%;background:var(--blue);border:0;cursor:pointer}
 input:focus,select:focus,textarea:focus{border-color:color-mix(in srgb, var(--green) 40%, transparent)}
 select{-webkit-appearance:none;cursor:pointer}
 button{cursor:pointer;font-family:'JetBrains Mono',monospace;border:none;transition:all .15s}
@@ -396,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='50.4';
+const VERSION='50.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'50.5', date:'2026-07-09', notes:['Charts re-lettered in true reading order (top→bottom, left→right): §1 col A is now 1A/1B/1C/1D (stress), col B 1E/1F, col C 1G trade-dist / 1H MAE-MFE / 1I deflated Sharpe. §2: left stack 2A/2B parallel-coords/2C PDP · right stack 2D distribution/2E correlation · 2F top configs · 2G neighbours · 2H+2I surfaces · 2J 3-D scatter.','§2 restructured like §1: one master tile stacking 2A → 2B → 2C with minimal spacing, and a right column tile with 2D + 2E.','Resizing is back everywhere: drag the grip on any chart to shrink/grow it, and the §1/§2 tiles themselves resize vertically too.','Sliders now FILL to the end at 100% (custom track), 2J 3-D scatter back to solid green/red dots (no more grey wash) and width-capped so it fits on screen, 2I has clear column dividers between Pearson / MI / PPS, 2F (top-configs table) got column separators.']},
   {v:'50.4', date:'2026-07-09', notes:['2G 3-D scatter rebuilt to look like a real 3-D chart: shaded gridded floor, translucent back walls with $-gridlines, dots coloured on the red→green ramp and SIZED by |net $| with depth dimming, stems to the $0 plane — and the frame no longer crops the bottom. Same treatment in the orbit view.','§2 polish: 2A+2B boxes equal height; 2C $ labels sit next to the NET $ axis; 2K header slimmed (details on hover) and tucked under 2C; 2I got real column headers (PARAM · Pearson r · MI · PPS) and a sane width; 2E is a labelled table (−1 step · winner · +1 step per knob) with a how-to-read line; 2D headers truncate with hover for the full name; 2H subtext moved into ⓘ.','1E KPI header is ONE line with uniform readable pills (PASS/GATES/DSR/CALMAR).','Runs now store the top 50 config curves (was 24). 1D/1G show a "🔒 lockbox view · re-run to enable" hint on runs that predate slice data. Sliders share one style, and the expanded-1A chart/blotter split (orientation + size) persists as your default.']},
   {v:'50.3', date:'2026-07-09', notes:['1D / 1G: real x-axis tick values (per-trade $ / signed points), the axis caption text is gone, the mean line is labelled, and stop/target labels ride their dashed lines. NEW dropdown on the tile: 🔒 lockbox (out-of-sample) vs whole run — new/re-run validates DEFAULT to the lockbox view (older runs stay whole-run until re-run).','1C: new/re-run validates also save the NON-selected walk-forward scheme\'s folds — chips on the chart flip between ANCHORED and ROLLING for comparison (the verdict still uses the stronger one).','2A: runs now store the top 24 config curves (was 12); the slider spans exactly what\'s stored, defaults to 20 coloured, and de-selected curves grey out instead of vanishing. Title subtext moved into the hover ⓘ so the slider sits inline and 2A/2B line up.','2C: the config count sits inline after the title and the axis labels render at a sane size at full width. 1A GRAPH DETAIL slider: live % label and a finer 5% floor.']},
   {v:'50.2', date:'2026-07-09', notes:['Expanded 1A glitch fixed: the hover readout used to lengthen (…· lockbox) and wrap the header taller, resizing the chart under your cursor — the header is now fixed-height so the chart never jumps while you zoom/scroll.','Expanded 1A blotter: newest trades on top by default; click any header for a Past-Runs-style menu (sort ↑/↓, plus winners-only / losers-only on the $ columns). HOLD now shows a real duration (e.g. 11h 0m — bars × the run\'s timeframe, session time).','Expanded 1A layout: ⿰ SIDE / ⿱ STACK toggles the chart|blotter split (side-by-side or stacked), and the divider between them drags to give either tile more room.','2G 3-D scatter: the floor is now a shaded, gridded plane with a $ axis pole (peak · $0 · trough ticks) — same in the orbit view.']},
@@ -2780,8 +2786,8 @@ window.expandSurface3D=function(host){
       const dots=D.P.map(p=>({i:(p[0]-D.x0)/xr*(nx-1),j:(p[1]-D.y0)/yr*(ny-1),z:(p[2]-zmn)/zsp,pnl:p[2],x:p[0],y:p[1]}))
         .sort((a,b)=>(V(a.i,a.j)-V(b.i,b.j))||(a.pnl-b.pnl));
       const _maxA2=Math.max(Math.abs(zmn),Math.abs(zmx))||1;
-      dots.forEach(o=>{const col=rampC(o.pnl),vN=Math.max(0,Math.min(1,(V(o.i,o.j)/((nx-1)||1))+0.5));
-        const op=(0.45+0.4*vN).toFixed(2),r2=(2+2.4*Math.abs(o.pnl)/_maxA2).toFixed(1);
+      dots.forEach(o=>{const col=o.pnl>=0?'#1dbf84':'#e8564f',vN=Math.max(0,Math.min(1,(V(o.i,o.j)/((nx-1)||1))+0.5));
+        const op=(0.6+0.3*vN).toFixed(2),r2=(2+2.4*Math.abs(o.pnl)/_maxA2).toFixed(1);
         s+='<line x1="'+PX(o.i,o.j).toFixed(1)+'" y1="'+PY(o.i,o.j,zZ).toFixed(1)+'" x2="'+PX(o.i,o.j).toFixed(1)+'" y2="'+PY(o.i,o.j,o.z).toFixed(1)+'" stroke="'+col+'" stroke-width="0.7" opacity="0.22"/>'
           +'<circle cx="'+PX(o.i,o.j).toFixed(1)+'" cy="'+PY(o.i,o.j,o.z).toFixed(1)+'" r="'+r2+'" fill="'+col+'" opacity="'+op+'" stroke="rgba(0,0,0,.35)" stroke-width="0.5" data-tip="'+(D.xl||'x')+' <b>'+_hr(o.x)+'</b> · '+(D.yl||'y')+' <b>'+_hr(o.y)+'</b><br>net <b>'+fmt$(o.pnl)+'</b>"/>';});
       if(D.champ){const cu=(D.champ[0]-D.x0)/xr*(nx-1),cv2=(D.champ[1]-D.y0)/yr*(ny-1);
@@ -5567,7 +5573,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // NICE-step $ gridlines + right-gutter labels — shared §2 chrome.
       const grid=c2GridV(pt,H-pd,mn,mx);
       const sel='<select data-tpc style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin-left:6px"><option value="rank"'+(mode==='rank'?' selected':'')+'>by rank</option>'+pkeys.map(k=>'<option value="'+k+'"'+(mode===k?' selected':'')+'>by '+k.replace(/_/g,' ')+'</option>').join('')+'</select>';
-      const cfgSlider='<span title="how many curves get COLOUR (the rest stay as faint grey context) — also sets the config-distribution (2b) bin detail. The run stored the top '+etop.length+' curves." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" style="width:120px;height:14px;cursor:pointer;vertical-align:middle;accent-color:var(--blue)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+'</b></span>';
+      const cfgSlider='<span title="how many curves get COLOUR (the rest stay as faint grey context) — also sets the config-distribution (2b) bin detail. The run stored the top '+etop.length+' curves." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+'</b></span>';
       const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis — top '+etop.length+((d.date_from&&d.date_to)?' · '+_dnice(d.date_from)+' → '+_dnice(d.date_to):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
       return (tag?'<div title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' · TOP CONFIGS PNL <span style="font-weight:400;color:var(--text5);font-size:8px">ⓘ</span>'+sel+cfgSlider+'</div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+sel+'</div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
@@ -5637,7 +5643,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         :c2XRow(_rnd(S[0].mn),'<b style="color:var(--text2)">'+_pp(xk)+'</b> (x)',_rnd(S[0].mx));
       const legend=multi?'<div style="text-align:center;font-size:8px;margin-top:1px">'+S.map(s=>'<span style="color:'+PAL[s.si%PAL.length]+'">● '+_pp(s.k)+'</span>').join(' · ')+'</div>':'';
       const _scTip='Each dot = one tested config: chosen parameter (x) vs its net $ (y). Contour rings trace config DENSITY (topographic style — denser toward the inner rings), so where results cluster reads even when dots pile up. A smooth slope of green = a robust edge; random speckle = noise. “+ compare” overlays more parameters against the same net-$ axis, each in its own colour with x as % of that param’s range.';
-      const _to3d=(tag&&/G$/.test(tag))?'<span data-sc3d="1" title="switch this tile to the 3-D scatter (two params × net $ as height, orbit on expand)" style="cursor:pointer;font-weight:700;font-size:8px;padding:2px 7px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);margin-left:2px">◱ 3D</span>':'';
+      const _to3d=(tag&&/[GJ]$/.test(tag))?'<span data-sc3d="1" title="switch this tile to the 3-D scatter (two params × net $ as height, orbit on expand)" style="cursor:pointer;font-weight:700;font-size:8px;padding:2px 7px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);margin-left:2px">◱ 3D</span>':'';
       return (tag?'<div title="'+_scTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · SCATTER <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span>'+sel+addSel+chips+_to3d+'</div>':'<div class="lbl" title="'+_scTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">SCATTER · PnL ($) vs'+sel+addSel+chips+'</div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
         +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+(multi?'':' data-xh="'+encodeURIComponent(JSON.stringify({xt:'num',x0:S[0].mn,x1:S[0].mx,yt:'usd',y0:ymn,y1:ymx,px:pd,py:pd,pw:PW-2*pd,ph:H-2*pd,xl:_pp(xk),yl:'net'}))+'"')+'>'+grid+dots+contours+c2YTitle(H,'net $')+'</svg>'
@@ -5691,8 +5697,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const dots=points.map((p,i)=>({u:(p[xk]-x0)/xr,w:(p[yk]-y0)/yr,z:(p.pnl*mult-zmn)/zsp,pnl:p.pnl*mult,p:p,i:i}))
         .sort((a,b)=>(V(a.u,a.w)-V(b.u,b.w))||(a.pnl-b.pnl));
       const _maxA=Math.max(Math.abs(zmn),Math.abs(zmx))||1;
-      dots.forEach(o=>{const col=_ramp(o.pnl),vN=V(o.u,o.w)+0.5;
-        const op=(0.45+0.4*vN).toFixed(2),r2=(1.6+2.1*Math.abs(o.pnl)/_maxA).toFixed(1);
+      dots.forEach(o=>{const col=o.pnl>=0?'#1dbf84':'#e8564f',vN=V(o.u,o.w)+0.5;
+        const op=(0.6+0.3*vN).toFixed(2),r2=(1.8+2.2*Math.abs(o.pnl)/_maxA).toFixed(1);
         const tip=_pp(xk)+' <b>'+_hr(o.p[xk])+'</b> · '+_pp(yk)+' <b>'+_hr(o.p[yk])+'</b><br>net <b style=&quot;color:'+(o.pnl>=0?'#1d9e75':'#e24b4a')+'&quot;>'+fmtUsd(Math.round(o.pnl))+'</b>';
         s+='<line x1="'+PX(o.u,o.w).toFixed(1)+'" y1="'+PY(o.u,o.w,zZ).toFixed(1)+'" x2="'+PX(o.u,o.w).toFixed(1)+'" y2="'+PY(o.u,o.w,o.z).toFixed(1)+'" stroke="'+col+'" stroke-width="0.6" opacity="0.22"/>'
           +'<circle class="cfgmark" data-cfg="'+o.i+'" data-net="'+Math.round(o.pnl)+'" cx="'+PX(o.u,o.w).toFixed(1)+'" cy="'+PY(o.u,o.w,o.z).toFixed(1)+'" r="'+r2+'" fill="'+col+'" opacity="'+op+'" stroke="rgba(0,0,0,.35)" stroke-width="0.5" style="cursor:pointer" data-tip="'+tip+'"/>';});
@@ -5979,11 +5985,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const miMax=Math.max(0.001,...rows.map(o=>o.mi||0));
       const trk=tag?'var(--bg2)':'var(--bg1)';
       const meter=(v,mx,col)=>(v!=null?'<span style="flex:1;height:7px;background:'+trk+';border-radius:2px;position:relative;overflow:hidden"><span style="position:absolute;left:0;top:0;height:100%;width:'+Math.min(100,v/mx*100).toFixed(0)+'%;background:'+col+';opacity:.75"></span></span><span style="flex:0 0 22px;text-align:right;color:'+col+';font-weight:600">'+v.toFixed(2)+'</span>':'<span style="flex:1"></span><span style="flex:0 0 22px;text-align:right;color:var(--text5)">·</span>');
-      const bar=o=>'<div style="display:flex;align-items:center;gap:6px;padding:5px 0;font-size:var(--fsxs);border-top:1px solid color-mix(in srgb,var(--border) 40%,transparent)"><span style="flex:0 0 110px;color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_pp(o.k)+'">'+_pp(o.k)+'</span><span style="flex:1.4;position:relative;height:11px;background:'+trk+';border-radius:2px;min-width:0"><span style="position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--border)"></span><span style="position:absolute;'+(o.r>=0?'left:50%':'right:50%')+';top:1px;height:9px;width:'+(Math.abs(o.r)*50).toFixed(1)+'%;background:'+(o.r>=0?'var(--green)':'var(--red)')+';opacity:.7;border-radius:2px"></span></span><span style="flex:0 0 38px;text-align:right;font-weight:700;color:'+(o.r>=0?'var(--green)':'var(--red)')+'" title="Pearson r (signed, linear)">'+o.r.toFixed(2)+'</span>'+(hasMI?'<span style="flex:1;display:flex;align-items:center;gap:3px;margin-left:12px;min-width:0" title="Mutual Information — any dependency (KSG); bar scaled to the panel max">'+meter(o.mi,miMax,'var(--blue)')+'</span><span style="flex:1;display:flex;align-items:center;gap:3px;min-width:0" title="Predictive Power Score 0–1">'+meter(o.pps,1,'var(--purple)')+'</span>':'')+'</div>';
+      const bar=o=>'<div style="display:flex;align-items:center;gap:6px;padding:5px 0;font-size:var(--fsxs);border-top:1px solid color-mix(in srgb,var(--border) 40%,transparent)"><span style="flex:0 0 110px;color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_pp(o.k)+'">'+_pp(o.k)+'</span><span style="flex:1.4;position:relative;height:11px;background:'+trk+';border-radius:2px;min-width:0"><span style="position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--border)"></span><span style="position:absolute;'+(o.r>=0?'left:50%':'right:50%')+';top:1px;height:9px;width:'+(Math.abs(o.r)*50).toFixed(1)+'%;background:'+(o.r>=0?'var(--green)':'var(--red)')+';opacity:.7;border-radius:2px"></span></span><span style="flex:0 0 38px;text-align:right;font-weight:700;color:'+(o.r>=0?'var(--green)':'var(--red)')+'" title="Pearson r (signed, linear)">'+o.r.toFixed(2)+'</span>'+(hasMI?'<span style="flex:1;display:flex;align-items:center;gap:3px;margin-left:12px;min-width:0;border-left:1px solid var(--border);padding-left:12px;align-self:stretch" title="Mutual Information — any dependency (KSG); bar scaled to the panel max">'+meter(o.mi,miMax,'var(--blue)')+'</span><span style="flex:1;display:flex;align-items:center;gap:3px;min-width:0;border-left:1px solid var(--border);padding-left:12px;align-self:stretch" title="Predictive Power Score 0–1">'+meter(o.pps,1,'var(--purple)')+'</span>':'')+'</div>';
       const _ttl=hasMI?'PARAM RELATIONSHIP':'PARAM CORRELATION';
       const _note=hasMI?'r linear · MI any-dependency · PPS 0–1 · sorted by MI':'each param vs net $ (−1…+1)';
       // column headers ALWAYS shown (each column labels the number/bar beneath it)
-      const _hdr='<div style="display:flex;gap:6px;align-items:baseline;font-size:9px;font-weight:700;margin:2px 0 3px;color:var(--text4)"><span style="flex:0 0 110px">PARAM</span><span style="flex:1.4;text-align:center">Pearson r (− ← 0 → +)</span><span style="flex:0 0 38px;text-align:right">r</span>'+(hasMI?'<span style="flex:1;text-align:center;color:var(--blue);margin-left:12px">MI (strength)</span><span style="flex:1;text-align:center;color:var(--purple)">PPS (0–1)</span>':'')+'</div>';
+      const _hdr='<div style="display:flex;gap:6px;align-items:baseline;font-size:9px;font-weight:700;margin:2px 0 3px;color:var(--text4)"><span style="flex:0 0 110px">PARAM</span><span style="flex:1.4;text-align:center">Pearson r (− ← 0 → +)</span><span style="flex:0 0 38px;text-align:right">r</span>'+(hasMI?'<span style="flex:1;text-align:center;color:var(--blue);margin-left:12px;border-left:1px solid var(--border);padding-left:12px">MI (strength)</span><span style="flex:1;text-align:center;color:var(--purple);border-left:1px solid var(--border);padding-left:12px">PPS (0–1)</span>':'')+'</div>';
       const _expl='How to read this panel ('+_note+').&#10;&#10;Pearson r is DIRECTIONAL (−1 to +1): the sign = which way (a higher param value maps to higher or lower PnL), the size = strength of a LINEAR relationship.&#10;&#10;Mutual Information and PPS are STRENGTH-ONLY (always at least 0): how much a param relates to PnL in ANY shape (linear or not) — never the direction, so they cannot be negative.&#10;&#10;All three high = a strong, real driver. A big r with near-zero MI/PPS = a linear artifact (often a param confounded with another) that has no genuine standalone predictive power.';
       return (tag?'<div title="'+_expl+'" style="cursor:help;margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · '+_ttl+' <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span></div>':'<div class="lbl" title="'+_expl+'" style="cursor:help;margin:8px 0 6px">'+_ttl+' <span style="font-size:9px;color:var(--text4);font-weight:400">ⓘ</span></div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;max-width:820px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'+_hdr+rows.map(bar).join('')+'</div>';
@@ -6435,7 +6441,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   vertically), the date axis stays a fixed 12px strip at the bottom, and the y-labels scale
       //   by percent — so everything stays aligned at any height.
       return (bare?'':'<div style="margin:13px 0 5px"><div style="font-weight:700;font-size:11px;color:var(--text2)">Champion equity + drawdown <span style="font-weight:400;color:var(--text5);font-size:9px">· best config · 1 contract</span></div><div style="font-size:8px;color:var(--text5);margin-top:1px">chronological — <span style="color:var(--green)">in-sample</span> + walk-forward, then the <span style="color:#a78bfa">lockbox</span> holdout · <span style="color:#d6557a">underwater drawdown</span> below · ⛶ expands with live crosshair</div></div>')
-        +'<div id="eq-rs" style="display:flex;gap:7px;height:250px;overflow:hidden;padding-bottom:3px;position:relative">'
+        +'<div id="eq-rs" style="display:flex;gap:7px;height:250px;resize:vertical;min-height:120px;max-height:700px;overflow:hidden;padding-bottom:3px;position:relative">'
         +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;height:100%;position:relative">'
         +anno
         +'<div style="flex:3.2;min-height:0">'+svg+'</div>'
@@ -6475,7 +6481,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const yLab='<div style="width:54px;min-width:54px;height:100%;position:relative;font-size:8px;color:var(--text5)">'+gl.map(L=>'<span style="position:absolute;left:3px;top:calc('+(Y(L)/H*100).toFixed(2)+'% - 5px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+_k(L)+'</span>').join('')+'</div>';
       const tot=vals.reduce((s,v)=>s+v,0),pos=vals.filter(v=>v>0).length;
       return '<div style="margin:0 0 5px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1B · MONTHLY P&amp;L <span style="font-weight:400;color:var(--text4);font-size:8px">· '+pos+'/'+flat.length+' green</span></div>'
-        +'<div style="display:flex;gap:7px;height:56px;overflow:hidden"><div class="rschart-box" style="flex:1;min-width:0;background:var(--bg1);border-radius:8px;overflow:hidden">'+svg+'</div>'+yLab+'</div>';
+        +'<div style="display:flex;gap:7px;height:56px;resize:vertical;min-height:34px;max-height:220px;overflow:hidden"><div class="rschart-box" style="flex:1;min-width:0;background:var(--bg1);border-radius:8px;overflow:hidden">'+svg+'</div>'+yLab+'</div>';
     };
     // Shared Auto-Validate report card (verdict + 5 gates + equity curve + lockbox) —
     // used by both the Builder run panel and the Results/Past-Runs detail so they match.
@@ -6913,7 +6919,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(d.validate){const _V=d.validate,_lb=_V.lockbox||{};
         // 1D/1G/1I show WHOLE-RUN champion behaviour on new runs (engine full-window pass); older runs fall back to the in-sample slice.
         const _dscope=(d.champ_dist_scope==='overall')?'whole run':'in-sample';
-        const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px';
+        const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px;resize:vertical;overflow:auto';
         const _mtip='Three sections — in-sample, walk-forward and lockbox — run back-to-back and sum to TOTAL. WALK-FORWARD NET = the sum of the fold out-of-sample results (matches the WALK-FORWARD chart); LOCKBOX NET = the holdout backtest (matches the lock strip). IN-SAMPLE is the residual (TOTAL − WALK-FORWARD − LOCKBOX) so the three reconcile. AVG WIN / AVG LOSS are measured from the real trades for LOCKBOX and TOTAL, and derived from PF for IN-SAMPLE and WALK-FORWARD (re-run a validate to measure all). BARS: in-sample = initial train window, walk-forward = sum of test windows; lockbox bar-count is not saved.';
         // Section 1a leads with the equity graph + lockbox strip ONLY. The old
         // "BEST CONFIG" cards (single parameter set across ALL dates — the $195k NET P&L
@@ -6922,14 +6928,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // (1b), which was the single biggest source of confusion. The matrix carries the
         // real per-section + TOTAL accounting; this panel just draws the curve.
         _panelEquity='<div style="'+_card+';height:100%;box-sizing:border-box">'
-          +'<div style="display:flex;align-items:center;gap:10px;margin:0 0 10px"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1A · CHAMPION EQUITY</span><span style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:8px;color:var(--text5)"><span style="letter-spacing:.5px">GRAPH DETAIL</span><input type="range" min="5" max="100" step="5" value="'+Math.round((window._eqDetail||1)*100)+'" oninput="this.nextElementSibling.textContent=this.value+\'%\'" onchange="window._eqDetail=+this.value/100;renderApp()" style="width:120px;accent-color:var(--blue)"><span>'+Math.round((window._eqDetail||1)*100)+'%</span></span></div>'
+          +'<div style="display:flex;align-items:center;gap:10px;margin:0 0 10px"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1A · CHAMPION EQUITY</span><span style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:8px;color:var(--text5)"><span style="letter-spacing:.5px">GRAPH DETAIL</span><input type="range" class="fillrng" min="5" max="100" step="5" value="'+Math.round((window._eqDetail||1)*100)+'" oninput="this.nextElementSibling.textContent=this.value+\'%\';this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-5)/95*100)+\'%,var(--bg1) 0)\'" onchange="window._eqDetail=+this.value/100;renderApp()" style="width:120px;background:linear-gradient(90deg,var(--blue) '+(((Math.round((window._eqDetail||1)*100))-5)/95*100).toFixed(1)+'%,var(--bg1) 0)"><span>'+Math.round((window._eqDetail||1)*100)+'%</span></span></div>'
           +'<div id="res-step-8" style="scroll-margin-top:64px"'+_eqxA+'>'+championEquityHtml(_V,mlt,d.top10_results,1)+'</div>'
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
           +((wf=>wf?'<div style="margin-top:9px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
-          +((st=>st?'<div style="margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+st+'</div>':'')(stressPanelHtml(d.stress,mlt,'1I',_dscope)))
+          +((st=>st?'<div style="margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+st+'</div>':'')(stressPanelHtml(d.stress,mlt,'1D',_dscope)))
           +'</div>';
         // 1H header: title (description on hover) with the calculated stats pinned to the right — the standard chart-header pattern.
-        const _dsrBlock='<div style="margin-top:14px;padding-top:13px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1H · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>';
+        const _dsrBlock='<div style="margin-top:14px;padding-top:13px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1I · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>';
         // 1E matrix + 1F regime share ONE tile (a divider between them) instead of two stacked cards.
         // 1E title rides on the matrix's own verdict/gates/DSR row (one line) instead of a separate header above it.
         const _mHdr='<span title="'+_mtip+'" style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;cursor:help">1E · KPI MATRIX <span style="font-weight:400;color:var(--text5)">ⓘ</span></span>';
@@ -6945,8 +6951,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _scLbl=(_dSec==='lb')?'🔒 lockbox (out-of-sample)':_dscope;
         const _secSel=_hasLbD?'<div style="display:flex;justify-content:flex-end;margin:0 0 8px"><select data-distsec title="which slice of the run the 1D/1G distributions show" style="width:auto;padding:2px 6px;font-size:var(--fsxs)"><option value="lb"'+(_dSec==='lb'?' selected':'')+'>🔒 lockbox (out-of-sample)</option><option value="all"'+(_dSec==='all'?' selected':'')+'>whole run</option></select></div>'
           :'<div style="display:flex;justify-content:flex-end;margin:0 0 8px"><span title="this run predates the per-slice distributions — RE-RUN the validate (engine v50.3+) and 1D/1G will default to the 🔒 lockbox out-of-sample view with a slice dropdown" style="font-size:8px;color:var(--text5);border:1px dashed var(--border);border-radius:6px;padding:2px 7px;cursor:help">🔒 lockbox view · re-run to enable</span></div>';
-        const _mae=maeMfePanelHtml((_dSec==='lb'&&d.mae_mfe_lb)?d.mae_mfe_lb:d.mae_mfe,mlt,'1G',_scLbl),
-              _td=tradeDistPanelHtml((_dSec==='lb'&&d.win_dist_lb)?d.win_dist_lb:d.win_dist,mlt,'1D',_scLbl);
+        const _mae=maeMfePanelHtml((_dSec==='lb'&&d.mae_mfe_lb)?d.mae_mfe_lb:d.mae_mfe,mlt,'1H',_scLbl),
+              _td=tradeDistPanelHtml((_dSec==='lb'&&d.win_dist_lb)?d.win_dist_lb:d.win_dist,mlt,'1G',_scLbl);
         // ── ACTIONABLE MAE/MFE: a button that queues a focused GRID re-run — the champion config pinned,
         //    stop_mult × tp_mult swept around the winners' reach:heat ratio (scale-free, so no ATR needed).
         //    Only for a champion that exposes ATR stop/target mults (ENGU family). Wired in the handler below.
@@ -6973,7 +6979,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   §1 skeleton as run 137 — populating each tile where the run has the data and dropping an
         //   n/a card into the slot where it doesn't (e.g. no walk-forward folds on a grid sweep), so
         //   switching between run types never moves the layout. §2/§4/§8 fold in here (nulled below).
-        const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px';
+        const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px;resize:vertical;overflow:auto';
         const _sc='in-sample';
         const _spy=(d.date_from&&d.date_to)?'<div id="det-spy" data-spy-from="'+d.date_from+'" data-spy-to="'+d.date_to+'" style="font-size:var(--fsxs);color:var(--text5);margin:5px 0 0"></div>':'';
         const _mcNote=(d.mc&&d.mc.p95!=null)?'<div style="font-size:var(--fsxs);color:var(--text3);margin-top:7px">P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round((d.mc.p95||0)*mlt))+'</b> — size your account to survive this (Monte-Carlo worst case).</div>':'';
@@ -6983,7 +6989,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div id="res-step-8" style="scroll-margin-top:64px"'+_eqxA+'>'+(eqHtml?(_numHdr('1A','CHAMPION EQUITY',null,'best config · 1 contract · whole run')+eqHtml+_spy+_mcNote):_naTile('1A','CHAMPION EQUITY','no equity series saved for this run'))+'</div>'
           +'<div style="'+_bt+'">'+(monthlyPnlHtml(d.regime,mlt)||_naTile('1B','MONTHLY P&L','not enough monthly data to chart'))+'</div>'
           +'<div style="'+_bt+'"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+(isOosFoldsHtml(d,mlt)||_naTile('1C','WALK-FORWARD','only walk-forward / Auto-Validate runs test in rolling out-of-sample folds'))+'</div>'
-          +'<div style="'+_bt+'"><div id="res-step-4" style="scroll-margin-top:64px"></div>'+(stressPanelHtml(d.stress,mlt,'1I',_sc)||_naTile('1I','STRESS','no stress buckets saved for this run'))+'</div>'
+          +'<div style="'+_bt+'"><div id="res-step-4" style="scroll-margin-top:64px"></div>'+(stressPanelHtml(d.stress,mlt,'1D',_sc)||_naTile('1D','STRESS','no stress buckets saved for this run'))+'</div>'
           +'</div>';
         // Col B — 1E KPI matrix (75/25 in-sample vs out-of-sample where saved) · 1F regime report card
         const _mtx=splitOosHtml(d,mlt);
@@ -6992,10 +6998,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="margin-top:14px;padding-top:13px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)">'+((regHtml&&regHtml.replace(/\s/g,''))?regHtml:_naTile('1F','REGIME REPORT CARD','no regime / volatility breakdown saved for this run'))+'</div>'
           +'</div>';
         // Col C — 1D trade-PnL distribution · 1G MAE/MFE · 1H deflated Sharpe
-        const _td=tradeDistPanelHtml(d.win_dist,mlt,'1D',_sc),_mae=maeMfePanelHtml(d.mae_mfe,mlt,'1G',_sc);
-        const _dsrBlk=(dsrHtml&&dsrHtml.replace(/\s/g,''))?('<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1H · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml):_naTile('1H','DEFLATED SHARPE','no deflated-Sharpe computed (needs a multi-config search)');
+        const _td=tradeDistPanelHtml(d.win_dist,mlt,'1G',_sc),_mae=maeMfePanelHtml(d.mae_mfe,mlt,'1H',_sc);
+        const _dsrBlk=(dsrHtml&&dsrHtml.replace(/\s/g,''))?('<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1I · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml):_naTile('1I','DEFLATED SHARPE','no deflated-Sharpe computed (needs a multi-config search)');
         const _div='<div style="margin:12px 0;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)"></div>';
-        _distTile='<div style="'+_card+';height:100%;box-sizing:border-box">'+(_td||_naTile('1D','TRADE-PNL DISTRIBUTION','no per-trade P&L distribution saved for this run'))+_div+(_mae||_naTile('1G','MAE / MFE','no MAE / MFE (max adverse / favourable excursion) saved for this run'))+_div+_dsrBlk+'</div>';
+        _distTile='<div style="'+_card+';height:100%;box-sizing:border-box">'+(_td||_naTile('1G','TRADE-PNL DISTRIBUTION','no per-trade P&L distribution saved for this run'))+_div+(_mae||_naTile('1H','MAE / MFE','no MAE / MFE (max adverse / favourable excursion) saved for this run'))+_div+_dsrBlk+'</div>';
       }
       const _noteEsc=String(d.note||'').replace(/"/g,'&quot;'),_hasNote=!!(d.note&&String(d.note).trim());
       // shared style so the note / relabel / delete controls read as one consistent button group.
@@ -7046,43 +7052,54 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   2h HEATMAP · 2g SCATTER · 2i PARAM CORRELATION (three across). The 2a "configs" slider sets
       //   the overlay curve count & 2b bins. Display number is 2 on validate runs (empty §2 drops), else 3.
       const _cfgN=2, _strN=3;   // §2 folds into §1 for all run types, so Configuration Analysis is always the 2nd visible section (uniform tag: 2A, 2B…).
-      const _card2='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:12px 14px';
+      const _card2='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:12px 14px;resize:vertical;overflow:auto';
+      // ── §2 letters run TOP→BOTTOM, LEFT→RIGHT of the final layout (owner request):
+      //    left stack: A top-configs · B parallel coords · C PDP; right stack: D config
+      //    distribution · E correlation; then F top-configs table · G neighbours ·
+      //    H/I surfaces · J 3-D scatter (· K deflated Sharpe on non-validate runs). ──
       const _eq=((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt,_cfgN+'A'):'');
-      const _dist=distPanelHtml(d.dist,mlt,_cfgN+'B');
+      const _dist=distPanelHtml(d.dist,mlt,_cfgN+'D');
       // ── 2K influence ranking drives BOTH the 2C axis order and the aligned 2K cells: the
       //    most-$-swing knob sits leftmost, and each PDP mini-chart lands under its own axis. ──
       const _pdpD=pdpCurvesData(d.points,mlt,d.plateau_pick);
       const _allK=(d.points&&d.points.length)?Object.keys(d.points[0]).filter(k=>k!=='pnl'&&typeof d.points[0][k]==='number'):[];
       const _kOrd=_pdpD.map(c=>c.k).concat(_allK.filter(k=>!_pdpD.some(c=>c.k===k)));
-      const _parc=parallelCoordsHtml(d.points,mlt,_cfgN+'C',_kOrd);
-      const _corr=corrPanelHtml(d.points,_cfgN+'I',d.relationship);
+      const _parc=parallelCoordsHtml(d.points,mlt,_cfgN+'B',_kOrd);
+      const _corr=corrPanelHtml(d.points,_cfgN+'E',d.relationship);
       // 2H is view-toggleable (APREF.hm3d, DEFAULT 3-D per owner): flat heatmap ⇄ 3-D surface.
       const _hm3dOn=(APREF.hm3d==null?1:+APREF.hm3d);
       const _hm=(_hm3dOn?surface3dPanelHtml(d.points,mlt,_cfgN+'H',d.best_params):heatmapPanelHtml(d.points,mlt,_cfgN+'H'));
       // 2G is view-toggleable too (APREF.sc3d, DEFAULT 3-D per owner): raw config dots in space
       //   (two params × net $ height) ⇄ the flat scatter with density contours + multi-compare.
       const _sc3dOn=(APREF.sc3d==null?1:+APREF.sc3d);
-      const _sc=(_sc3dOn?scatter3dPanelHtml(d.points,mlt,_cfgN+'G',d.best_params):scatterPanelHtml(d.points,mlt,_cfgN+'G'));
+      const _sc=(_sc3dOn?scatter3dPanelHtml(d.points,mlt,_cfgN+'J',d.best_params):scatterPanelHtml(d.points,mlt,_cfgN+'J'));
       // 2J 3-D surface on its OWN param pair (hm2X × hm2Y, defaults to the 3rd × 4th knob) so it
       //   never duplicates 2H; hides itself when the strategy has fewer than 3 numeric params.
       //   2K 1-D PDP top-out curves. Both read stored `points` → render retroactively (run 137).
-      const _p3d=surface3dPanelHtml(d.points,mlt,_cfgN+'J',d.best_params,1);
-      const _pdp=pdpCurvesPanelHtml(d.points,mlt,_cfgN+'K',d.plateau_pick,(_parc?_kOrd:null));
+      const _p3d=surface3dPanelHtml(d.points,mlt,_cfgN+'I',d.best_params,1);
+      const _pdp=pdpCurvesPanelHtml(d.points,mlt,_cfgN+'C',d.plateau_pick,(_parc?_kOrd:null));
       // lay non-empty panels in a row (1, 2 or 3 across); single panel = full-width. stretch=true makes
       //   the cards equal-height (good for similar charts); otherwise they top-align at natural height.
       const _wrap=(arr,stretch)=>{const xs=arr.filter(x=>x&&x.replace(/\s/g,''));if(!xs.length)return '';const inner=(xs.length>1)?'<div style="display:flex;gap:12px;align-items:'+(stretch?'stretch':'flex-start')+';flex-wrap:wrap">'+xs.map(x=>'<div style="flex:1 1 260px;min-width:0;display:flex;flex-direction:column">'+x+'</div>').join('')+'</div>':xs[0];return '<div style="margin-bottom:12px">'+inner+'</div>';};
       // Tile 1: 2a TOP CONFIGS PNL | 2b CONFIG DISTRIBUTION (row), then 2c PARALLEL COORDINATES
       //   full-width with the 2K PDP top-out curves DIRECTLY beneath it (owner request — the PDP
       //   mini-charts are the per-knob read of the same config space 2C fans out).
-      const _cfgTile=(_eq||_dist||_parc||_pdp)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_eq,_dist],true)+(_parc?'<div style="margin-bottom:2px">'+_parc+'</div>':'')+((_pdp&&_pdp.replace(/\s/g,''))?_pdp:'')+((_corr&&_corr.replace(/\s/g,''))?'<div style="margin-top:14px">'+_corr+'</div>':'')+'</div>':'';
-      const _topTile=(t10.length?'<div style="'+_card2+';margin-bottom:14px">'+_numHdr(_cfgN+'D','TOP CONFIGS')+'<style>.cfgtbl th,.cfgtbl td{padding:2px 5px!important;font-size:8px!important}.cfgtbl th{white-space:nowrap!important;max-width:70px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;color:var(--text4);letter-spacing:0;cursor:help}</style><div style="overflow-x:auto"><table class="table cfgtbl" style="width:auto;white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div></div>':'');
-      const _nbTile=(nbHtml&&nbHtml.replace(/\s/g,''))?'<div style="'+_card2+';margin-bottom:14px">'+_numHdr(_cfgN+'E','NEIGHBOUR ROBUSTNESS',nbTip,nbSub)+nbHtml+'</div>':'';
-      // DSR (a champion/selection metric) lives in §1 (1H) for validate runs; show it here only for non-validate sweeps.
-      const _dsrTile=(!d.validate&&dsrHtml&&dsrHtml.replace(/\s/g,''))?'<div style="'+_card2+';margin-bottom:14px"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'F · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>':'';
-      // Tile 2 (parameter-relationship group): 2H and 2J SIDE-BY-SIDE (both 3-D by default, each
-      //   on its own param pair — ⛶ opens the drag-to-orbit view), then the 2G scatter below
-      //   (3-D by default too; 2I correlation moved up under 2K per owner).
-      const _paramTile=(_hm||_p3d||_sc)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_hm,_p3d],true)+_wrap([_sc])+'</div>':'';
+      // ── §2 mirrors §1's architecture: a LEFT master tile stacking 2A / 2B / 2C with minimal
+      //    spacing (§1-style border-top dividers), and a RIGHT column tile stacking 2D / 2E. ──
+      const _bt2='margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)';
+      const _stack=arr=>arr.filter(x=>x&&x.replace(/\s/g,'')).map((x,i)=>i?('<div style="'+_bt2+'">'+x+'</div>'):x).join('');
+      const _leftStack=_stack([_eq,_parc,_pdp]),_rightStack=_stack([_dist,_corr]);
+      const _cfgTile=(_leftStack||_rightStack)?'<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
+        +(_leftStack?'<div style="flex:1.8 1 420px;min-width:0"><div style="'+_card2+';box-sizing:border-box">'+_leftStack+'</div></div>':'')
+        +(_rightStack?'<div style="flex:1 1 300px;min-width:0"><div style="'+_card2+';box-sizing:border-box">'+_rightStack+'</div></div>':'')
+        +'</div>':'';
+      const _topTile=(t10.length?'<div style="'+_card2+';margin-bottom:14px">'+_numHdr(_cfgN+'F','TOP CONFIGS')+'<style>.cfgtbl th,.cfgtbl td{padding:2px 5px!important;font-size:8px!important;border-right:1px solid color-mix(in srgb,var(--border) 45%,transparent)}.cfgtbl th:last-child,.cfgtbl td:last-child{border-right:none}.cfgtbl th{white-space:nowrap!important;max-width:70px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;color:var(--text4);letter-spacing:0;cursor:help}</style><div style="overflow-x:auto"><table class="table cfgtbl" style="width:auto;white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div></div>':'');
+      const _nbTile=(nbHtml&&nbHtml.replace(/\s/g,''))?'<div style="'+_card2+';margin-bottom:14px">'+_numHdr(_cfgN+'G','NEIGHBOUR ROBUSTNESS',nbTip,nbSub)+nbHtml+'</div>':'';
+      // DSR (a champion/selection metric) lives in §1 (1I) for validate runs; show it here only for non-validate sweeps.
+      const _dsrTile=(!d.validate&&dsrHtml&&dsrHtml.replace(/\s/g,''))?'<div style="'+_card2+';margin-bottom:14px"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'K · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>':'';
+      // Tile 2 (parameter-relationship group): H and I surfaces SIDE-BY-SIDE (both 3-D, each on
+      //   its own param pair — ⛶ orbits), then the J 3-D scatter below (width-capped to stay on screen).
+      const _paramTile=(_hm||_p3d||_sc)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_hm,_p3d],true)+(_sc?'<div style="'+_bt2+'"><div style="max-width:880px">'+_sc+'</div></div>':'')+'</div>':'';
       const _sec3=_cfgTile+_paramTile+_topTile+_nbTile+_dsrTile;
       // regHtml (regime report card + monthly P&L) moved into §1 (under the WF folds) per request.
       // Stress = the champion's profit spread across time → it lives in §1 (1I) for validate runs; keep the standalone §3/§4 only for non-validate sweeps.
@@ -7852,7 +7869,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // Static default ≈ natural height (viewBoxes are authored at ~display width, so height≈vh);
           // the rAF below refines it from real clientWidth once layout is flushed.
           const h0=Math.max(130,Math.min(460,Math.round((vh||150)*1.05)));
-          box.style.cssText='overflow:hidden;height:'+h0+'px;max-width:100%;border-radius:6px;margin-bottom:6px;position:relative';
+          // resize:vertical = drag the bottom-right grip to shrink/grow THIS chart (no dashed
+          // border chrome this time); the ⛶ expander stays for the fullscreen view.
+          box.style.cssText='resize:vertical;overflow:hidden;height:'+h0+'px;min-height:60px;max-height:760px;max-width:100%;border-radius:6px;margin-bottom:6px;position:relative';
           svg.parentNode.insertBefore(box,svg);box.appendChild(svg);
           made.push({box,vw,vh});
         }
