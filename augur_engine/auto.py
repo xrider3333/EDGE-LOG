@@ -403,7 +403,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 pass
             if not is_wf:   # top-N equity overlay (robustness of the best configs)
                 etop = []
-                for r_ in ranked[:24]:   # top config equity curves for the TOP CONFIGS PNL overlay
+                for r_ in ranked[:50]:   # top config equity curves for the TOP CONFIGS PNL overlay
                     pp = {k: r_.get(k) for k in pkeys if k in r_}
                     pn = _net_pnls(pp)
                     if not pn:

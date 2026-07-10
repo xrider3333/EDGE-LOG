@@ -298,7 +298,7 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 pass
             # top-N equity overlay (robustness: do the best configs all climb alike?)
             etop = []
-            for (pp_, _m) in valid[:24]:   # top config equity curves for the TOP CONFIGS PNL overlay
+            for (pp_, _m) in valid[:50]:   # top config equity curves for the TOP CONFIGS PNL overlay
                 pn = _net_pnls(pp_)
                 if not pn:
                     continue
