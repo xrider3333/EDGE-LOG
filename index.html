@@ -396,10 +396,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='49.9';
+const VERSION='50.0';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'50.0', date:'2026-07-09', notes:['2C ⇄ 2K linked brushing: drag a range on any 2C parallel-coordinates axis and the SAME value range lights up as a blue band on that parameter\'s 2K PDP mini-chart below — see instantly whether the configs you kept sit on the paying part of the knob\'s curve. Clears when the brush clears.','Run 137 blotter fixed: ORB_SIMPLE was RENAMED to ORB 3.0 back at v44.0 (the file is unchanged since), so old run docs still pointing at ORB_SIMPLE_1_0.py now resolve to ORB_3_0.py automatically and the blotter regenerates.','(The 49.9 update pill arrived without bullets because the OLD page code drew it — from this update on, the what-changed list shows.)']},
   {v:'49.9', date:'2026-07-09', notes:['Update alert: the green "new version" pill now shows a quick what-changed bullet list (pulled from this changelog) — not just the version number.','2G SCATTER is 3-D by default: every tested config as a dot in space (two params on the floor, its net $ as the height, dashed rhombus = the $0 plane, champion flagged). ⛶ opens the same drag-to-orbit view as 2H/2J; the ▦ 2D chip brings back the flat scatter with density contours + multi-compare.','2C parallel-coordinates axes now follow the 2K influence order (the knob that swings the most $ sits leftmost), and each 2K PDP mini-chart sits EXACTLY under its own 2C axis (with a NET $ column closing the row). 2I param correlation moved up to sit right under 2K.','Blotter fix (run 137): when a strategy file was renamed/deleted, the runner now rebuilds it from the run\'s stored code snapshot — the exact source that run executed — and regenerates the blotter from that.']},
   {v:'49.8', date:'2026-07-09', notes:['3-D param surfaces: 2H and 2J now sit SIDE-BY-SIDE, both 3-D by default, each on its own parameter pair (2J defaults to the 3rd × 4th knob and hides when a strategy has under 3 params — no duplicate views). ⛶ on either opens a DRAG-TO-ORBIT view: click-hold and turn the surface to see behind ridges, wheel = height exaggeration, double-click = reset.','2K PDP top-out curves moved directly under the 2C parallel-coordinates chart (same card) — the per-knob read of the config space 2C fans out. Hover any dot for the exact value / avg $ / config count.','Expanded 1A: date-axis labels were clipping off the bottom — fixed (plus a right axis spine). Blotter loads now work for OLD runs whose docs carry the strategy display name, and giant blotters cap at the most recent 6,000 trades (full CSV stays on your PC).']},
   {v:'49.7', date:'2026-07-09', notes:['1A CHAMPION EQUITY: the ⛶ expand now opens a full TradingView-style explorer — mouse-wheel zooms around the cursor, drag pans, double-click resets, the y-axis auto-fits the visible slice. Real date/$ tick axes, a crosshair with values pinned to both axes, and the drawdown pane below (red dashed = realised max DD, yellow dashed = Monte-Carlo P95) all ride along. Walk-forward bands + lockbox shading stay visible while zooming.','▦ TRADES (in the expanded 1A): loads the run\'s saved trade blotter off your PC (new get_blotter runner command; falls back to regenerating the champion\'s trades and caches the CSV). Trades appear as green/red dots on the curve and as a table under the chart — click a row to fly to that trade, click a dot to highlight its row. Restart the runner once to enable.','2H HEATMAP now has a ◱ 3D / ▦ 2D toggle — flip the same param landscape between the flat colour grid and the 3-D surface (2J stays).']},
@@ -5755,8 +5756,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const dots=cv.c.map((r,i)=>'<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(r.m).toFixed(1)+'" r="'+(i===pk?3.2:1.7)+'" fill="'+(i===pk?'var(--green)':'var(--text4)')+'" style="cursor:pointer" data-tip="'+_pp(cv.k)+' <b>'+r.v+'</b><br>avg net <b>'+fmtUsd(Math.round(r.m))+'</b>'+(r.n?'<br>across '+r.n+' configs':'')+'"/>').join('');
         const flat=cv.infl<0.12*maxInfl;
         return '<div style="background:var(--bg1);border-radius:8px;padding:7px 8px 5px"><div style="display:flex;justify-content:space-between;gap:4px;font-size:8px;margin-bottom:1px"><span style="color:var(--text3);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_pp(cv.k)+'</span><span style="color:'+(flat?'var(--text5)':'var(--green)')+';white-space:nowrap">'+(flat?'barely matters':'tops out @ <b>'+cv.peak.v+'</b>')+'</span></div>'
+          // relative wrapper + hidden band: brushing this param's 2C axis lights up the SAME
+          // value range here (the brush handler positions .pdp-hl from data-vs).
+          +'<div style="position:relative" data-pdpk="'+cv.k+'" data-vs="'+cv.c.map(r=>r.v).join(',')+'">'
           +'<svg viewBox="0 0 '+cw+' '+chh+'" width="100%" style="display:block;height:auto"><polyline points="'+pts2+'" fill="none" stroke="#3a9bdc" stroke-width="1.6" stroke-linejoin="round" opacity="0.9"/>'+dots
-          +'<text x="'+pl+'" y="'+(chh-3)+'" font-size="7" fill="var(--text5)">'+cv.c[0].v+'</text><text x="'+(cw-pr)+'" y="'+(chh-3)+'" text-anchor="end" font-size="7" fill="var(--text5)">'+cv.c[cv.c.length-1].v+'</text></svg></div>';
+          +'<text x="'+pl+'" y="'+(chh-3)+'" font-size="7" fill="var(--text5)">'+cv.c[0].v+'</text><text x="'+(cw-pr)+'" y="'+(chh-3)+'" text-anchor="end" font-size="7" fill="var(--text5)">'+cv.c[cv.c.length-1].v+'</text></svg>'
+          +'<div class="pdp-hl" style="position:absolute;top:0;bottom:0;display:none;background:var(--blue);opacity:.16;border-left:1px solid var(--blue);border-right:1px solid var(--blue);pointer-events:none;border-radius:2px"></div></div></div>';
       };
       const cells=show.map(cellOf).join('');
       const src=(pp&&pp.curves)?'server curves (3C.1)':'recomputed from this run\'s stored configs';
@@ -6113,7 +6118,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   translucent selection rect the JS shows while you drag. Lines outside any axis brush
       //   grey out; multiple axis brushes AND together. Wired in the post-render handler below.
       const brush=axes.map((k,i)=>{const x=ax(i);
-        return '<rect class="pc-track" data-ax="'+i+'" x="'+(x-8).toFixed(1)+'" y="'+padT+'" width="16" height="'+((H-padB)-padT).toFixed(1)+'" fill="transparent" style="cursor:ns-resize"/>'
+        // data-key/mn/mx/ylo/yhi let the brush handler convert its pixel range back to VALUES —
+        // that drives the linked highlight band on this param's 2K PDP cell below.
+        return '<rect class="pc-track" data-ax="'+i+'" data-key="'+k+'" data-mn="'+dom[k][0]+'" data-mx="'+dom[k][1]+'" data-ylo="'+(H-padB)+'" data-yhi="'+padT+'" x="'+(x-8).toFixed(1)+'" y="'+padT+'" width="16" height="'+((H-padB)-padT).toFixed(1)+'" fill="transparent" style="cursor:ns-resize"/>'
           +'<rect class="pc-brush" data-ax="'+i+'" x="'+(x-6).toFixed(1)+'" y="0" width="12" height="0" fill="var(--blue)" fill-opacity="0.2" stroke="var(--blue)" stroke-width="0.6" rx="2" style="display:none;pointer-events:none"/>';}).join('');
       const _pcTip='Every tested config drawn as one line across a vertical axis per parameter, ending on the NET $ axis — green lines made money, red lost. Lines that bunch through the same parameter values = the settings winners share. DRAG up/down on any axis to brush a range (lines outside grey out, and the scatter dots dim with them); click an axis to clear its brush.';
       return (tag?'<div title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · PARALLEL COORDINATES <span style="font-weight:400;color:var(--text4);font-size:8px;flex-basis:100%">· <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="color:var(--text4)">ⓘ</span></span></div>':'<div class="lbl" title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px">PARALLEL COORDINATES · <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="font-size:9px;color:var(--text4);font-weight:400">ⓘ</span></div>')
@@ -8090,12 +8097,36 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   (.cfgmark[data-cfg]) so an axis brush dims BOTH charts together (legacy AUGUR).
         const dotMap={};content.querySelectorAll('.cfgmark[data-cfg]').forEach(d=>{const c=d.getAttribute('data-cfg');(dotMap[c]||(dotMap[c]=[])).push(d);});
         const vbY=cy=>{const ctm=svg.getScreenCTM();if(!ctm)return 0;const pt=svg.createSVGPoint();pt.x=0;pt.y=cy;return pt.matrixTransform(ctm.inverse()).y;};
+        // ── linked 2C→2K highlight: convert each axis brush (pixel range) back to VALUES via the
+        //    track's data-mn/mx + y-mapping, then band the SAME value range on that param's PDP
+        //    cell (its x runs point-index-linear, so values map through the cell's data-vs list). ──
+        const pdpHl=()=>{
+          const CW=170,PL=6,PR=6;   // must match the 2K cellOf geometry
+          content.querySelectorAll('[data-pdpk]').forEach(cell=>{
+            const hl=cell.querySelector('.pdp-hl');if(!hl)return;
+            const tr=svg.querySelector('.pc-track[data-key="'+cell.getAttribute('data-pdpk')+'"]');
+            const b=tr?brushes[tr.getAttribute('data-ax')]:null;
+            if(!b){hl.style.display='none';return;}
+            const mn=+tr.getAttribute('data-mn'),mx=+tr.getAttribute('data-mx'),
+                  ylo=+tr.getAttribute('data-ylo'),yhi=+tr.getAttribute('data-yhi');
+            const v=y=>mn+((ylo-y)/((ylo-yhi)||1))*(mx-mn);           // pixel y → axis value
+            const vLo=Math.min(v(b[0]),v(b[1])),vHi=Math.max(v(b[0]),v(b[1]));
+            const vs=(cell.getAttribute('data-vs')||'').split(',').map(Number);
+            if(vs.length<2){hl.style.display='none';return;}
+            const fi=val=>{if(val<=vs[0])return 0;if(val>=vs[vs.length-1])return vs.length-1;
+              for(let j=0;j<vs.length-1;j++)if(val>=vs[j]&&val<=vs[j+1])return j+(val-vs[j])/((vs[j+1]-vs[j])||1);
+              return vs.length-1;};
+            const xOf=f=>(PL+(CW-PL-PR)*f/(vs.length-1))/CW*100;      // value idx → % of cell width
+            const L=xOf(fi(vLo)),R=xOf(fi(vHi));
+            if(R-L<0.2){hl.style.display='none';return;}
+            hl.style.left=L.toFixed(2)+'%';hl.style.width=(R-L).toFixed(2)+'%';hl.style.display='block';});};
         const apply=()=>{const ks=Object.keys(brushes);let shown=0;
           lines.forEach(ln=>{const ys=(ln.getAttribute('data-ys')||'').split(',').map(Number);let ok=true;
             for(const k of ks){const b=brushes[k];if(!(ys[+k]>=b[0]&&ys[+k]<=b[1])){ok=false;break;}}
             ln.style.opacity=ok?'':'0.04';ln.style.pointerEvents=ok?'stroke':'none';if(ok)shown++;
             const dots=dotMap[ln.getAttribute('data-cfg')];if(dots)dots.forEach(dt=>{dt.style.opacity=ok?'':'0.05';dt.style.pointerEvents=ok?'':'none';});});
-          if(cnt)cnt.textContent=ks.length?(shown+' / '+total+' configs · brushed'):(total+' configs');};
+          if(cnt)cnt.textContent=ks.length?(shown+' / '+total+' configs · brushed'):(total+' configs');
+          pdpHl();};
         svg.querySelectorAll('.pc-track').forEach(tr=>{const axi=tr.getAttribute('data-ax'),br=svg.querySelector('.pc-brush[data-ax="'+axi+'"]');
           tr.addEventListener('pointerdown',e=>{e.preventDefault();const y0=vbY(e.clientY);let moved=false;
             const mv=ev=>{const y=vbY(ev.clientY),a=Math.min(y0,y),b=Math.max(y0,y);if(b-a>1)moved=true;brushes[axi]=[a,b];br.setAttribute('y',a.toFixed(1));br.setAttribute('height',(b-a).toFixed(1));br.style.display='';apply();};

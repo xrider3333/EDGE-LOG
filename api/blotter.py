@@ -47,16 +47,26 @@ def write_csv(rows, path):
     return path
 
 
+# Historical strategy-file renames (git history) — old run docs still carry the old name.
+# Normalized-key → current filename. ORB_SIMPLE→ORB_3_0: commit 4395bb6, file unchanged since,
+# so regenerating an old ORB_SIMPLE run with ORB_3_0.py is byte-exact.
+_RENAMES = {"orbsimple10": "ORB_3_0.py"}
+
+
 def _resolve_strategy(root, name):
     """Run docs sometimes carry the strategy's display LABEL ('ORB 3.1 · low-DOF + …'),
-    not the plugin filename ('ORB_3_1.py'). Map a label back to its file by normalized
-    prefix match against augur_strategies/ (longest match wins). Filenames pass through."""
+    not the plugin filename ('ORB_3_1.py') — and some carry a filename that has since been
+    RENAMED. Resolve: exact file → rename alias → normalized prefix match (longest wins)."""
     import re
     import glob as _glob
     base = os.path.join(root, "augur_strategies")
     fn = name if str(name).endswith(".py") else str(name) + ".py"
     if os.path.isfile(os.path.join(base, fn)):
         return name
+    _n = re.sub(r"[^a-z0-9]", "", str(name).lower().replace(".py", ""))
+    for old, new in _RENAMES.items():
+        if (_n.startswith(old) or old.startswith(_n)) and os.path.isfile(os.path.join(base, new)):
+            return new
     norm = lambda s: re.sub(r"[^a-z0-9]", "", str(s).lower())
     nl = norm(name)
     cands = []
