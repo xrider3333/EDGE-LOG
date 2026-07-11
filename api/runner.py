@@ -590,6 +590,22 @@ class FirestoreQueue:
                                 "result": json_safe(res), "finishedAt": time.time()})
                     n += 1
                     continue
+                # On-demand Webull pull (the "Sync Webull now" button) — force=True bypasses
+                # the once-per-NY-day gate so the user can see today's trades immediately.
+                if action == "sync_webull":
+                    if self.webull_keys:
+                        from api import webull_sync
+                        try:
+                            res = {"ok": True, **webull_sync.sync_trades(
+                                self.db, uid, self.webull_keys, log, force=True)}
+                        except Exception as e:
+                            res = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+                    else:
+                        res = {"ok": False, "error": "runner has no --webull-keys path configured"}
+                    ref.update({"status": "done" if res.get("ok") else "error",
+                                "result": json_safe(res), "finishedAt": time.time()})
+                    n += 1
+                    continue
                 # Blotter reconciliation (compute, not a file-op) — run the engine on the
                 # same config+window and diff it against the pasted TV/NT export text.
                 if action == "reconcile":
