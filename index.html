@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='50.6';
+const VERSION='50.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'50.7', date:'2026-07-10', notes:['Import/Export now has a WEBULL AUTO-SYNC panel next to NinjaTrader — last sync, trade count, live account balance, and a ✓ reconciled / ⚠ out-of-sync check against your broker positions.','New "Sync Webull now" button pulls today\'s trades on demand (the automatic pull runs once a day to protect the free Firestore quota).','NinjaTrader status now labels its count "in file" — round-trips in the rolling fills.csv on your PC, NOT your full journal total (older trades already synced are safe).']},
   {v:'50.6', date:'2026-07-10', notes:['1G / 1H distributions get a scope picker — walk-forward (out-of-sample) / lockbox / whole run — and now DEFAULT to out-of-sample. Re-run a validate to populate the new walk-forward + lockbox slices.','Gate-validate: added a bake-off graph (recovery factor by probability cut-off, one line per model) so the repeated rf / xgb / logistic rows read as ONE model swept across cut-offs; the chosen winner is ringed.','1C walk-forward: the ANCHORED / ROLLING badges are now the fold-chart toggle — click a scheme to draw its folds.','2A top-configs now lines up with 2B: RED = leftmost param axis, YELLOW = NET axis, plus gridlines through the chart and smaller $ labels. 2C PDP nests under 2B with condensed peak labels.','2J 3-D scatter no longer crops at the top / back. Chart heights you drag now persist as your default. The Past Runs list uses the full screen height (was capped at 520px).']},
   {v:'50.5', date:'2026-07-09', notes:['Charts re-lettered in true reading order (top→bottom, left→right): §1 col A is now 1A/1B/1C/1D (stress), col B 1E/1F, col C 1G trade-dist / 1H MAE-MFE / 1I deflated Sharpe. §2: left stack 2A/2B parallel-coords/2C PDP · right stack 2D distribution/2E correlation · 2F top configs · 2G neighbours · 2H+2I surfaces · 2J 3-D scatter.','§2 restructured like §1: one master tile stacking 2A → 2B → 2C with minimal spacing, and a right column tile with 2D + 2E.','Resizing is back everywhere: drag the grip on any chart to shrink/grow it, and the §1/§2 tiles themselves resize vertically too.','Sliders now FILL to the end at 100% (custom track), 2J 3-D scatter back to solid green/red dots (no more grey wash) and width-capped so it fits on screen, 2I has clear column dividers between Pearson / MI / PPS, 2F (top-configs table) got column separators.']},
   {v:'50.4', date:'2026-07-09', notes:['2G 3-D scatter rebuilt to look like a real 3-D chart: shaded gridded floor, translucent back walls with $-gridlines, dots coloured on the red→green ramp and SIZED by |net $| with depth dimming, stems to the $0 plane — and the frame no longer crops the bottom. Same treatment in the orbit view.','§2 polish: 2A+2B boxes equal height; 2C $ labels sit next to the NET $ axis; 2K header slimmed (details on hover) and tucked under 2C; 2I got real column headers (PARAM · Pearson r · MI · PPS) and a sane width; 2E is a labelled table (−1 step · winner · +1 step per knob) with a how-to-read line; 2D headers truncate with hover for the full name; 2H subtext moved into ⓘ.','1E KPI header is ONE line with uniform readable pills (PASS/GATES/DSR/CALMAR).','Runs now store the top 50 config curves (was 24). 1D/1G show a "🔒 lockbox view · re-run to enable" hint on runs that predate slice data. Sliders share one style, and the expanded-1A chart/blotter split (orientation + size) persists as your default.']},
@@ -526,7 +527,7 @@ let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyO
 let formOpen=false,showAllCols=false;
 let autoHandle=null,autoTimer=null,autoInterval=60;
 let ntSync=null,unsubNT=null,ntRefreshing=false; // NinjaTrader runner auto-sync status
-let wbSync=null,unsubWB=null; // Webull runner auto-sync status + live account balance
+let wbSync=null,unsubWB=null,wbRefreshing=false; // Webull runner auto-sync status + live account balance
 let useGross=false; // gross vs net toggle for KPI stats
 let filters={sym:'',dir:'',grade:'',setup:'',tf:'',dateFrom:'',dateTo:'',minPnl:'',maxPnl:''};
 let sortCol='date',sortDir=-1;
@@ -5076,7 +5077,7 @@ function renderApp(){
               <span style="width:9px;height:9px;border-radius:50%;background:${dot};box-shadow:0 0 8px ${dot};flex:none"></span>
               <div style="flex:1;font-size:var(--fsm);color:var(--text3)">${msg}</div>
               <div style="text-align:right;font-size:var(--fsxs);color:var(--text4);line-height:1.6">
-                ${ntSync?`last sync <b style="color:var(--text2)">${ago}</b> · ${ntSync.total_trades||0} trades${ntSync.open_positions?` · <span style="color:var(--yellow)">${ntSync.open_positions} open</span>`:''}`:'waiting for runner'}
+                ${ntSync?`last sync <b style="color:var(--text2)">${ago}</b> · ${ntSync.total_trades||0} <span title="Round-trips currently in the rolling fills.csv on your PC — NOT your full journal total. Older trades already synced live in the journal.">in file</span>${ntSync.open_positions?` · <span style="color:var(--yellow)">${ntSync.open_positions} open</span>`:''}`:'waiting for runner'}
               </div>
             </div>`;
           })()}
@@ -5092,6 +5093,33 @@ function renderApp(){
             <div style="margin-bottom:4px"><b style="color:var(--blue)">4.</b> Make sure <code style="color:var(--green)">EdgeLog.bat</code> is running (it watches the fills file and pushes trades here).</div>
             <div style="margin-bottom:4px"><b style="color:var(--blue)">5.</b> Place &amp; close a trade — it appears in your journal within ~20s. Captures manual <i>and</i> automated trades.</div>
             <div style="margin-top:8px;font-size:var(--fsxs);color:var(--text5)">Fills are logged to <code>C:\\EdgeLog\\fills.csv</code>. Re-syncing never duplicates trades (each fill has a unique id).</div>
+          </div>
+        </div>
+      </div>
+      <div class="section" style="margin-bottom:10px;border-color:color-mix(in srgb,var(--blue) 35%,transparent)">
+        <div class="sec-hd" style="display:flex;align-items:center;gap:8px">WEBULL AUTO-SYNC <span style="color:var(--blue);font-size:var(--fsxs);border:1px solid color-mix(in srgb,var(--blue) 40%,transparent);padding:1px 6px;border-radius:8px">STOCKS/ETFs · ONCE/DAY</span></div>
+        <div style="padding:14px">
+          <div style="font-size:var(--fsm);color:var(--text4);margin-bottom:12px;line-height:1.8">Your Webull stock/ETF trades import via Webull's <b style="color:var(--text2)">official API</b> — the same always-on EdgeLog runner pulls your filled orders, pairs them into trades, and pushes them here. To protect the free plan the auto-pull runs <b>once per day</b>; hit <b>Sync now</b> to pull today's trades on demand. (Futures on Webull are excluded — those come from NinjaTrader.)</div>
+          ${(()=>{
+            const has=wbSync&&wbSync.net_liq!=null;
+            const last=wbSync&&wbSync.last_sync?Math.max(0,Math.round(Date.now()/1000-wbSync.last_sync)):null;
+            const ago=last==null?'never':last<60?last+'s ago':last<3600?Math.round(last/60)+'m ago':last<86400?Math.round(last/3600)+'h ago':Math.round(last/86400)+'d ago';
+            const reauth=wbSync&&wbSync.reauth_needed;
+            const dot=reauth?'var(--red)':(wbSync?'var(--green)':'var(--text5)');
+            const r=wbSync&&wbSync.recon;
+            const reconTxt=r?(r.ok?`<span style="color:var(--green)">✓ reconciled${r.flat?' · flat':''}</span>`:`<span style="color:var(--yellow)" title="Broker holds a position your log doesn't reflect — a fill may be missing.">⚠ ${(r.mismatches||[]).length} out of sync</span>`):'';
+            const msg=!wbSync?'Runner has not pulled Webull yet — start EdgeLog.bat and add your API keys to C:\\EdgeLog\\webull_keys.json.':reauth?'Webull needs re-authorization — approve the connection in your Webull app, then Sync now.':'Connected — Webull trades sync automatically once a day.';
+            return `<div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border2);padding:11px 14px;margin-bottom:10px">
+              <span style="width:9px;height:9px;border-radius:50%;background:${dot};box-shadow:0 0 8px ${dot};flex:none"></span>
+              <div style="flex:1;font-size:var(--fsm);color:var(--text3)">${msg}</div>
+              <div style="text-align:right;font-size:var(--fsxs);color:var(--text4);line-height:1.6">
+                ${wbSync?`last sync <b style="color:var(--text2)">${ago}</b> · ${wbSync.total_trades||0} trades${has?` · bal <b style="color:var(--text2)">$${(+wbSync.net_liq).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</b>`:''}${reconTxt?`<br>${reconTxt}`:''}`:'waiting for runner'}
+              </div>
+            </div>`;
+          })()}
+          <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+            <button class="btn-g" id="wb-refresh-btn" ${wbRefreshing?'disabled':''}>${wbRefreshing?'⏳ SYNCING…':'↻ SYNC NOW'}</button>
+            <span style="color:var(--text5);font-size:var(--fsm)">Get keys once at webull.com → API Keys Management → paste into <code>C:\\EdgeLog\\webull_keys.json</code>.</span>
           </div>
         </div>
       </div>
@@ -5172,6 +5200,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
             const u=ref.onSnapshot(d=>{const x=d.data()||{};if(x.status!=='done'&&x.status!=='error')return;u();ntRefreshing=false;renderApp();});
             setTimeout(()=>{if(ntRefreshing){ntRefreshing=false;renderApp();}},20000);
           }catch(e){ntRefreshing=false;alert('Refresh failed: '+e.message);renderApp();}
+        };
+        const wbBtn=el('wb-refresh-btn');if(wbBtn)wbBtn.onclick=async()=>{
+          if(!cmdRef){alert('Sign in first.');return;}
+          wbRefreshing=true;renderApp();
+          try{
+            const ref=await cmdRef.add({action:'sync_webull',status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+            const u=ref.onSnapshot(d=>{const x=d.data()||{};if(x.status!=='done'&&x.status!=='error')return;u();wbRefreshing=false;if(x.status==='error')alert('Webull sync error: '+(x.result&&x.result.error||'unknown'));renderApp();});
+            setTimeout(()=>{if(wbRefreshing){wbRefreshing=false;renderApp();}},30000);
+          }catch(e){wbRefreshing=false;alert('Webull sync failed: '+e.message);renderApp();}
         };
         const ai=el('auto-interval');if(ai)ai.onchange=()=>{autoInterval=parseInt(ai.value)||60;};
         if(el('auto-start-btn'))el('auto-start-btn').onclick=startAutoImport;
