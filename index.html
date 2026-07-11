@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='50.8';
+const VERSION='50.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'50.9', date:'2026-07-10', notes:['FIX: Past Runs list could appear EMPTY — the v49.5 per-column filter menus persisted an exclusion list ("Clear" hid every value) in browser storage. Those menus are removed; the previous behavior is back (click a column header to sort; MODE/MARKET/TF dropdown filters; the color-coded STRATEGY dropdown with multi-select). Any stored filter state is wiped automatically — your runs were never deleted.']},
   {v:'50.8', date:'2026-07-10', notes:['Run report §2: new CHART METRIC toggle (NET $ / MAX DD / MAR ×100) above the parallel-coords — plots every param chart (2B·2C·2H·2I·2J) by drawdown or MAR instead of PnL, so risk levers like be_after_R become visible (they look flat on the PnL axis).','MAX DD view shows negative $ (greener = smaller drawdown); MAR is ×100 so the $ scales keep precision ($2,150 = MAR 21.5).','Needs per-config drawdown, recorded by the engine from this build — older runs show a "re-run to record it" note. Restart the local runner (EdgeLog) once so its jobs pick up the new engine.']},
   {v:'50.7', date:'2026-07-10', notes:['Import/Export now has a WEBULL AUTO-SYNC panel next to NinjaTrader — last sync, trade count, live account balance, and a ✓ reconciled / ⚠ out-of-sync check against your broker positions.','New "Sync Webull now" button pulls today\'s trades on demand (the automatic pull runs once a day to protect the free Firestore quota).','NinjaTrader status now labels its count "in file" — round-trips in the rolling fills.csv on your PC, NOT your full journal total (older trades already synced are safe).']},
   {v:'50.6', date:'2026-07-10', notes:['1G / 1H distributions get a scope picker — walk-forward (out-of-sample) / lockbox / whole run — and now DEFAULT to out-of-sample. Re-run a validate to populate the new walk-forward + lockbox slices.','Gate-validate: added a bake-off graph (recovery factor by probability cut-off, one line per model) so the repeated rf / xgb / logistic rows read as ONE model swept across cut-offs; the chosen winner is ringed.','1C walk-forward: the ANCHORED / ROLLING badges are now the fold-chart toggle — click a scheme to draw its folds.','2A top-configs now lines up with 2B: RED = leftmost param axis, YELLOW = NET axis, plus gridlines through the chart and smaller $ labels. 2C PDP nests under 2B with condensed peak labels.','2J 3-D scatter no longer crops at the top / back. Chart heights you drag now persist as your default. The Past Runs list uses the full screen height (was capped at 520px).']},
@@ -7840,57 +7841,42 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(!allRuns.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUN HISTORY YET — run the runner with --sync-runs</div>';}
       else{
         // ── filters + sort over Past Runs (full-width table, legacy-AUGUR style) ──
-        const fStar=!!APREF.rfStar,fArch=!!APREF.rfArch,fSort=APREF.rfSort||'id',fDir=APREF.rfSortDir||'desc';
+        if(APREF.hf){delete APREF.hf;try{localStorage.setItem('augurPrefs',JSON.stringify(APREF));}catch(e){}}   // purge the removed v49.5 exclusion-filter state (it could hide every run)
+        const fStratArr=Array.isArray(APREF.rfStrat)?APREF.rfStrat.slice():(APREF.rfStrat?[String(APREF.rfStrat)]:[]),fStratSet=new Set(fStratArr),fInst=APREF.rfInst||'',fTf=APREF.rfTf||'',fScope=APREF.rfScope||'',fStar=!!APREF.rfStar,fArch=!!APREF.rfArch,fSort=APREF.rfSort||'id';
         const _nArch=allRuns.filter(r=>r.archived).length;   // count of archived (hidden) runs
         const _fileOf=r=>{const m=_stratMatch(r.strategy);return m?m.file:r.strategy;};
+        const _strats=[...new Set(allRuns.map(_fileOf).filter(Boolean))].sort();
+        const _insts=[...new Set(allRuns.map(r=>String(r.instrument||'').trim()).filter(Boolean))].sort();
+        const _tfs=[...new Set(allRuns.map(r=>String(r.timeframe||'').trim()).filter(Boolean))].sort();
+        const _scopes=[...new Set(allRuns.map(r=>String(r.scope||'').trim()).filter(Boolean))].sort();
+        let sorted=allRuns.filter(r=>{if(!fArch&&r.archived)return false;if(fStar&&!r.starred)return false;if(fInst&&String(r.instrument||'').trim()!==fInst)return false;if(fStratSet.size&&!fStratSet.has(_fileOf(r)))return false;if(fTf&&String(r.timeframe||'').trim()!==fTf)return false;if(fScope&&String(r.scope||'').trim()!==fScope)return false;return true;});
+        const _num=r=>{const n=stratInfo(r.strategy).num;return n==null?9999:n;};
         // Whole-run totals per run (NET = equity-curve endpoint, pooled PF / total trades / days),
         // memoized so the tile cells AND the column sorts use the SAME numbers as the report's
         // matrix TOTAL column (1b). Plain sweeps fall back to their single-config best_* fields.
         const _TM={};allRuns.forEach(r=>{_TM[r.id]=runTotals(r,r.multiplier||20);});
         const _T=r=>_TM[r.id]||runTotals(r,r.multiplier||20);
-        // ── generic column value (for sort) + display (for the filter checklist). Every data
-        //   column is addressed by a key; the Google-Sheets-style header menu sorts & filters on
-        //   these. fmtUsd/scoreRun/stratInfo/_T/_fileOf are all in scope → no late-helper deps.
-        const _cv=(r,k)=>{const T=_T(r);switch(k){
-          case 'id':return r.id; case 'date':return (r.timestamp||'').slice(0,10);
-          case 'strat':return _fileOf(r); case 'trd':return T.trades||0;
-          case 'scope':return String(r.scope||''); case 'inst':return String(r.instrument||'').trim();
-          case 'tf':return String(r.timeframe||'').trim(); case 'net':return Math.round(T.net||0);
-          case 'perday':return T.perDay!=null?Math.round(T.perDay):null;
-          case 'maxdd':return T.dd?-Math.abs(Math.round(T.dd)):0; case 'pf':return +(T.pf||0).toFixed(2);
-          case 'sharpe':return (T.sharpe!=null&&!isNaN(+T.sharpe))?+(+T.sharpe).toFixed(2):null;
-          case 'wr':return T.wr!=null?Math.round(T.wr):null; case 'score':return scoreRun(r);
-          case 'took':return r.elapsed_s||0; case 'src':return String(r.source_name||r.data_source||'');
-          case 'days':return r.days_in_test||0; default:return '';}};
-        const _cvf=(k,v)=>{if(v==null||v==='')return '(blanks)';
-          if(k==='strat')return stratInfo(v).label;
-          if(k==='date')return (+String(v).slice(5,7))+'/'+(+String(v).slice(8,10));
-          if(k==='net'||k==='perday'||k==='maxdd')return fmtUsd(v);
-          if(k==='pf'||k==='sharpe')return (+v).toFixed(2);
-          if(k==='wr')return v+'%';
-          if(k==='took'){const s=+v;return s<60?s+'s':(s<3600?Math.round(s/60)+'m':(s/3600).toFixed(1)+'h');}
-          return String(v);};
-        window._runCv=_cv;window._runCvf=_cvf;   // hoist for the header-menu handler (separate scope)
-        const _HFK=new Set(['id','date','strat','trd','scope','inst','tf','net','perday','maxdd','pf','sharpe','wr','score','took','src','days']);
-        const fSortK=_HFK.has(fSort)?fSort:'id';
-        const _cmp=(k,dir)=>(a,b)=>{let va=_cv(a,k),vb=_cv(b,k),c;const na=(va==null||va===''),nb=(vb==null||vb==='');
-          if(na&&nb)c=0;else if(na)return 1;else if(nb)return -1;
-          else if(typeof va==='number'&&typeof vb==='number')c=va-vb;else c=String(va).localeCompare(String(vb),undefined,{numeric:true});
-          return dir==='desc'?-c:c;};
-        const _hf=APREF.hf||{};
-        let sorted=allRuns.filter(r=>{if(!fArch&&r.archived)return false;if(fStar&&!r.starred)return false;
-          for(const k in _hf){const ex=_hf[k];if(ex&&ex.length&&ex.indexOf(_cvf(k,_cv(r,k)))>=0)return false;}return true;});
-        sorted.sort(_cmp(fSortK,fDir));
-        const pickFrom=sorted.length?sorted:allRuns.slice().sort((a,b)=>b.id-a.id);
+        const SC={id:(a,b)=>b.id-a.id,date:(a,b)=>String(b.timestamp||'').localeCompare(String(a.timestamp||'')),num:(a,b)=>_num(a)-_num(b),score:(a,b)=>scoreRun(b)-scoreRun(a),pnl:(a,b)=>(_T(b).net||0)-(_T(a).net||0),pf:(a,b)=>(_T(b).pf||0)-(_T(a).pf||0),wr:(a,b)=>(b.best_win_rate||0)-(a.best_win_rate||0),trd:(a,b)=>(_T(b).trades||0)-(_T(a).trades||0),strat:(a,b)=>String(stratInfo(a.strategy).label).localeCompare(String(stratInfo(b.strategy).label)),maxdd:(a,b)=>(b.best_dd_usd||0)-(a.best_dd_usd||0),sharpe:(a,b)=>((_T(b).sharpe)||0)-((_T(a).sharpe)||0),perday:(a,b)=>((_T(b).perDay)||0)-((_T(a).perDay)||0),days:(a,b)=>(b.days_in_test||0)-(a.days_in_test||0),took:(a,b)=>(b.elapsed_s||0)-(a.elapsed_s||0)};
+        sorted.sort(SC[fSort]||SC.id);
+        const pickFrom=sorted.length?sorted:allRuns.slice().sort(SC.id);
         const selId=augurRunSel||pickFrom[0].id;
         let d=null;for(let i=0;i<allRuns.length;i++){if(String(allRuns[i].id)===String(selId))d=allRuns[i];}
         if(!d)d=pickFrom[0];
-        const _anyF=fStar||Object.keys(_hf).some(k=>(_hf[k]||[]).length);
-        // every data column header opens a Google-Sheets-style menu (Sort A→Z / Z→A + a
-        //   filter-by-values checklist, all values checked by default). One helper renders them
-        //   all; the menu is built in the handler and appended to <body> so overflow can't clip it.
-        const _hfOn=k=>{const ex=(APREF.hf||{})[k];return !!(ex&&ex.length);};
-        const hm=(k,lbl,al)=>'<th style="white-space:nowrap;vertical-align:bottom;'+(al?'text-align:'+al+';':'')+'"><span data-hmenu="'+k+'" title="sort / filter by '+lbl+'" style="cursor:pointer;user-select:none;color:'+(_hfOn(k)?'var(--green)':(fSortK===k?'var(--text)':''))+'">'+lbl+(fSortK===k?(fDir==='asc'?' ↑':' ↓'):'')+' ▾</span></th>';
+        const _anyF=fStratSet.size||fInst||fTf||fScope||fStar;
+        // sortable header — click the label to sort (▾ marks the active column).
+        const sh=(k,lbl,al)=>'<th data-rsort="'+k+'" title="sort by '+lbl+'" style="cursor:pointer;white-space:nowrap;user-select:none;vertical-align:bottom;'+(al?'text-align:'+al+';':'')+(fSort===k?'color:var(--text)':'')+'">'+lbl+(fSort===k?' ▾':'')+'</th>';
+        // pivot-style header: a clickable sort label stacked over a compact filter <select>,
+        //   so each column carries its own filter+sort (the old separate filter bar is gone).
+        //   data-rsort lives on the INNER label span, so clicking the dropdown never sorts.
+        const _fopt=(v,opts)=>opts.map(o=>'<option value="'+String(o[0]).replace(/"/g,'&quot;')+'"'+(String(o[0])===String(v)?' selected':'')+'>'+o[1]+'</option>').join('');
+        const fh=(lbl,filtK,filtV,filtOpts)=>{
+          // pivot-style header: a plain column label that IS the filter — it renders as the
+          //   header text with no dropdown chrome and opens the value list on click. The first
+          //   option is the column name itself, doubling as "all / clear". (Numeric columns
+          //   keep click-to-sort via sh; these categorical columns filter.)
+          if(!filtK)return '<th style="vertical-align:bottom;white-space:nowrap">'+lbl+'</th>';
+          return '<th style="vertical-align:bottom;white-space:nowrap;padding:0"><select data-rf="'+filtK+'" title="click to filter by '+lbl+'" class="fhsel'+(filtV?' on':'')+'">'+_fopt(filtV,[['',lbl]].concat(filtOpts))+'</select></th>';
+        };
         // compact column helpers (legacy-AUGUR parity): equity spark, run duration, mini
         // date, walk-forward folds-held. Render '—' wherever a run lacks the field.
         const _dur=s=>{s=+s||0;if(!s)return '—';if(s<60)return Math.round(s)+'s';if(s<3600){const m=Math.floor(s/60),x=Math.round(s%60);return m+'m'+(x?' '+x+'s':'');}return (s/3600).toFixed(1)+'h';};
@@ -7927,6 +7913,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // stack-mode list height caps to the VIEWPORT (was a flat 520px that left the lower half of a tall screen empty — owner: "screen can support it, still scrolls").
         const _vhCap=Math.max(520,Math.round((window.innerHeight||900)*0.82));
         const rVH=Math.min(_vhCap,Math.max(120,APREF.splitV||340));
+        // STRATEGY multi-select lives in the TILE HEADER (not the scrollable table header) so its
+        //   picker can't be clipped by the list's overflow / sticky header or cover the rows. The
+        //   "▦ strategy ▾" toggle reveals an inline wrapping row of pills that STAYS OPEN while you
+        //   toggle several strategies; window._stratMenuOpen persists the open state across renders.
+        const _stratOpen=!!window._stratMenuOpen;
+        // the STRATEGY column header opens a color-coded dropdown BELOW it. The dropdown is built
+        //   in JS and appended to <body> as position:fixed (see the handler) so the list's overflow
+        //   / sticky header can't clip or collapse it. It does BOTH: a "sort by strategy" row +
+        //   per-strategy filter checkboxes. ▾ = has a menu; header highlights when sort/filter active.
+        const _stratHdr='<span data-stratmenu title="click to sort or filter by strategy" style="cursor:pointer;user-select:none;white-space:nowrap;'+((fStratSet.size||fSort==='strat'||_stratOpen)?'color:var(--text)':'')+'">STRATEGY'+(fStratSet.size?' ('+fStratSet.size+')':'')+' ▾</span>';
         const tbl='<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}'
           +'.fhsel{appearance:none;-webkit-appearance:none;background:transparent;border:none;cursor:pointer;font:inherit;color:inherit;letter-spacing:inherit;padding:6px 8px;max-width:118px;text-overflow:ellipsis}'
           +'.fhsel:hover{color:var(--text);text-decoration:underline}.fhsel.on{color:var(--text);text-decoration:underline}'
@@ -7934,8 +7930,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'#res-listscroll thead th{position:sticky;top:0;z-index:5;background:var(--bg1);box-shadow:inset 0 -1px 0 var(--border)}</style>'
           +'<div id="res-listscroll" style="overflow:auto;max-height:'+(rv==='side'?'86vh':rVH+'px')+'">'
           +'<table class="table" style="font-size:var(--fsxs)"><thead><tr><th style="text-align:center;vertical-align:bottom" title="show starred only"><span data-rfstar style="cursor:pointer;user-select:none;font-size:12px;color:'+(fStar?'var(--yellow)':'var(--text5)')+'">'+(fStar?'★':'☆')+'</span></th>'
-          +hm('id','RUN','right')+hm('date','DATE','left')+hm('strat','STRATEGY')+hm('trd','TRD','right')+hm('scope','MODE')+hm('inst','MARKET')+hm('tf','TF')+'<th style="text-align:center;vertical-align:bottom">EQUITY</th>'
-          +hm('net','NET $','right')+hm('perday','$/DAY','right')+hm('maxdd','MAX DD','right')+hm('pf','PF','right')+hm('sharpe','SHARPE','right')+hm('wr','WR','right')+'<th style="text-align:center;vertical-align:bottom" title="walk-forward folds that held out-of-sample">WF</th>'+hm('score','SCORE','right')+hm('took','TOOK','right')+hm('src','SRC')+'<th style="vertical-align:bottom">RANGE</th>'+hm('days','DAYS','right')
+          +sh('id','RUN','right')+sh('date','DATE','left')+'<th style="vertical-align:bottom;white-space:nowrap;cursor:pointer">'+_stratHdr+'</th>'+sh('trd','TRD','right')+fh('MODE',(_scopes.length>1?'rfScope':''),fScope,_scopes.map(s=>[s,s.slice(0,16)]))+fh('MARKET',(_insts.length>1?'rfInst':''),fInst,_insts.map(i=>[i,i]))+fh('TF',(_tfs.length>1?'rfTf':''),fTf,_tfs.map(t=>[t,t]))+'<th style="text-align:center;vertical-align:bottom">EQUITY</th>'
+          +sh('pnl','NET $','right')+sh('perday','$/DAY','right')+sh('maxdd','MAX DD','right')+sh('pf','PF','right')+sh('sharpe','SHARPE','right')+sh('wr','WR','right')+'<th style="text-align:center;vertical-align:bottom" title="walk-forward folds that held out-of-sample">WF</th>'+sh('score','SCORE','right')+sh('took','TOOK','right')+'<th style="vertical-align:bottom">SRC</th>'+'<th style="vertical-align:bottom">RANGE</th>'+sh('days','DAYS','right')
           +'</tr></thead><tbody>'+trows+'</tbody></table></div>';
         const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span>'+'<span style="display:flex;gap:12px;align-items:center">'+(_nArch?'<span data-rfarch title="archived runs are hidden from this list by default" style="cursor:pointer;font-size:9px;color:'+(fArch?'var(--yellow)':'var(--text5)')+';text-decoration:underline">◫ '+(fArch?'hide':'show')+' '+_nArch+' archived</span>':'')+(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">'+'✕ clear filters</span>':'')+'</span></div>'+tbl);
         // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
@@ -8362,47 +8358,41 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // keep the list scroll position when selecting a run (don't jump to top)
       const _rls=el('res-listscroll');if(_rls){if(window._resScrollTop!=null)_rls.scrollTop=window._resScrollTop;_rls.addEventListener('scroll',()=>{window._resScrollTop=_rls.scrollTop;},{passive:true});}
       content.querySelectorAll('[data-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.run;renderApp();};});
-      // Every data column header opens a Google-Sheets-style menu (Sort A→Z / Z→A + a filter-by-
-      //   values checklist — all values CHECKED by default = shown; uncheck to hide). Built here and
-      //   appended to <body> as position:fixed so the list's overflow/sticky header can't clip it.
-      //   _runCv/_runCvf are hoisted from the render (this handler is a different scope).
-      const _CV=window._runCv,_CVF=window._runCvf;
-      if(window._hmCloseH){document.removeEventListener('mousedown',window._hmCloseH);window._hmCloseH=null;}
-      {const _o=document.getElementById('hdr-menu');if(_o)_o.remove();}
-      content.querySelectorAll('[data-hmenu]').forEach(h=>{h.onclick=(e)=>{e.stopPropagation();window._hmOpen=(window._hmOpen===h.dataset.hmenu)?null:h.dataset.hmenu;window._hmSearch='';renderApp();};});
-      if(window._hmOpen&&_CV&&_CVF){
-        const k=window._hmOpen,trig=content.querySelector('[data-hmenu="'+k+'"]');
-        if(trig){
-          const _fSort=APREF.rfSort||'id',_fDir=APREF.rfSortDir||'desc';
-          const _vals=[...new Set(runHistory.map(r=>_CVF(k,_CV(r,k))))].sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
-          const _ex=new Set(((APREF.hf||{})[k])||[]);const _shownN=_vals.length-_ex.size;
-          const _labColor={};if(k==='strat')runHistory.forEach(r=>{const ci=stratInfo(r.strategy);_labColor[ci.label]=ci.color;});
-          const _rc=trig.getBoundingClientRect();
-          const _dd=document.createElement('div');_dd.id='hdr-menu';
-          _dd.style.cssText='position:fixed;z-index:9999;top:'+Math.round(_rc.bottom+3)+'px;left:'+Math.round(_rc.left)+'px;width:230px;max-height:min(70vh,460px);overflow:auto;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px;box-shadow:0 12px 34px rgba(0,0,0,.55);letter-spacing:normal;font-weight:400;font-size:var(--fsxs)';
-          const _sA=(_fSort===k&&_fDir==='asc'),_sD=(_fSort===k&&_fDir==='desc');
-          let _h='<div data-hsort="asc" style="cursor:pointer;padding:6px 9px;border-radius:5px;color:'+(_sA?'var(--text)':'var(--text3)')+'">Sort A → Z'+(_sA?' ✓':'')+'</div>'
-            +'<div data-hsort="desc" style="cursor:pointer;padding:6px 9px;border-radius:5px;color:'+(_sD?'var(--text)':'var(--text3)')+'">Sort Z → A'+(_sD?' ✓':'')+'</div>'
-            +'<div style="height:1px;background:var(--border);margin:5px 2px"></div>'
-            +'<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 6px 5px"><span style="font-size:9px"><span data-hall style="color:var(--blue,#5b9bd5);cursor:pointer;text-decoration:underline">Select all</span> · <span data-hclear style="color:var(--blue,#5b9bd5);cursor:pointer;text-decoration:underline">Clear</span></span><span style="font-size:8px;color:var(--text5)">Showing '+_shownN+' / '+_vals.length+'</span></div>'
-            +'<input data-hsearch placeholder="Search…" style="width:100%;box-sizing:border-box;margin:0 0 5px;padding:5px 8px;background:var(--bg1);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:var(--fsxs)"/>'
-            +'<div data-hlist>'
-            +_vals.map(v=>{const on=!_ex.has(v);const col=(k==='strat')?_labColor[v]:null;return '<div data-hopt="'+encodeURIComponent(v)+'" style="cursor:pointer;padding:4px 8px;border-radius:5px;display:flex;align-items:center;gap:8px;white-space:nowrap"><span style="width:13px;flex:0 0 auto;color:var(--green)">'+(on?'✓':'')+'</span>'+(col?'<span style="width:8px;height:8px;border-radius:2px;flex:0 0 auto;background:'+col+'"></span>':'')+'<span style="overflow:hidden;text-overflow:ellipsis'+(col?';color:'+col+';font-weight:600':';color:var(--text2)')+'">'+String(v).replace(/</g,'&lt;')+'</span></div>';}).join('')
-            +'</div>';
-          _dd.innerHTML=_h;document.body.appendChild(_dd);
-          const _ddr=_dd.getBoundingClientRect();if(_ddr.right>window.innerWidth-8)_dd.style.left=Math.max(8,window.innerWidth-8-_ddr.width)+'px';
-          const _si=_dd.querySelector('[data-hsearch]');if(_si){_si.value=window._hmSearch||'';const _ap=()=>{const q=(_si.value||'').toLowerCase();_dd.querySelectorAll('[data-hopt]').forEach(o=>{o.style.display=decodeURIComponent(o.dataset.hopt).toLowerCase().indexOf(q)>=0?'':'none';});};_ap();_si.oninput=()=>{window._hmSearch=_si.value;_ap();};}
-          _dd.querySelectorAll('[data-hopt]').forEach(o=>{o.onmouseenter=()=>{o.style.background='var(--bg1)';};o.onmouseleave=()=>{o.style.background='';};o.onclick=(e)=>{e.stopPropagation();const v=decodeURIComponent(o.dataset.hopt);const hf2=Object.assign({},APREF.hf||{});const cur=new Set(hf2[k]||[]);if(cur.has(v))cur.delete(v);else cur.add(v);hf2[k]=[...cur];if(!hf2[k].length)delete hf2[k];savePref('hf',hf2);renderApp();};});
-          _dd.querySelectorAll('[data-hsort]').forEach(s=>{s.onmouseenter=()=>{s.style.background='var(--bg1)';};s.onmouseleave=()=>{s.style.background='';};s.onclick=(e)=>{e.stopPropagation();savePref('rfSort',k);savePref('rfSortDir',s.dataset.hsort);window._hmOpen=null;window._hmSearch='';renderApp();};});
-          const _ha=_dd.querySelector('[data-hall]');if(_ha)_ha.onclick=(e)=>{e.stopPropagation();const hf2=Object.assign({},APREF.hf||{});delete hf2[k];savePref('hf',hf2);renderApp();};
-          const _hc=_dd.querySelector('[data-hclear]');if(_hc)_hc.onclick=(e)=>{e.stopPropagation();const hf2=Object.assign({},APREF.hf||{});hf2[k]=_vals.slice();savePref('hf',hf2);renderApp();};
-          window._hmCloseH=(ev)=>{if(!ev.target.closest('#hdr-menu')&&!ev.target.closest('[data-hmenu]')){window._hmOpen=null;window._hmSearch='';const p=document.getElementById('hdr-menu');if(p)p.remove();document.removeEventListener('mousedown',window._hmCloseH);window._hmCloseH=null;renderApp();}};
-          setTimeout(()=>{if(window._hmOpen)document.addEventListener('mousedown',window._hmCloseH);},0);
-        }
+      // filters / sort (persist + re-render)
+      content.querySelectorAll('[data-rf]').forEach(s=>{s.onchange=()=>{savePref(s.dataset.rf,s.value);renderApp();};});
+      // STRATEGY multi-select panel — stays open across picks (window._stratMenuOpen)
+      // STRATEGY dropdown: built here and appended to <body> as position:fixed anchored below the
+      //   column header, so the list's overflow / sticky header can't clip or collapse it. Does BOTH
+      //   a "sort by strategy" row and color-coded per-strategy filter checkboxes.
+      const _toggleStrat=(v)=>{const cur=Array.isArray(APREF.rfStrat)?APREF.rfStrat.slice():(APREF.rfStrat?[String(APREF.rfStrat)]:[]);const i=cur.indexOf(v);if(i>=0)cur.splice(i,1);else cur.push(v);savePref('rfStrat',cur);};
+      if(window._stratCloseH){document.removeEventListener('mousedown',window._stratCloseH);window._stratCloseH=null;}
+      {const _old=document.getElementById('strat-dropdown');if(_old)_old.remove();}
+      const _smTrig=content.querySelector('[data-stratmenu]');
+      if(_smTrig)_smTrig.onclick=(e)=>{e.stopPropagation();window._stratMenuOpen=!window._stratMenuOpen;renderApp();};
+      if(window._stratMenuOpen&&_smTrig){
+        const _fSet=new Set(Array.isArray(APREF.rfStrat)?APREF.rfStrat:(APREF.rfStrat?[String(APREF.rfStrat)]:[]));
+        const _curSort=APREF.rfSort||'id';
+        const _stratsAll=[...new Set(runHistory.map(r=>{const m=_stratMatch(r.strategy);return m?m.file:r.strategy;}).filter(Boolean))].sort();
+        const _rc=_smTrig.getBoundingClientRect();
+        const _dd=document.createElement('div');_dd.id='strat-dropdown';
+        _dd.style.cssText='position:fixed;z-index:9999;top:'+Math.round(_rc.bottom+3)+'px;left:'+Math.round(_rc.left)+'px;min-width:190px;max-height:min(62vh,420px);overflow:auto;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:5px;box-shadow:0 12px 34px rgba(0,0,0,.55);letter-spacing:normal;font-weight:400';
+        let _h='<div data-stratsort title="sort the run list A→Z by strategy" style="cursor:pointer;padding:6px 9px;font-size:var(--fsxs);border-radius:5px;color:'+(_curSort==='strat'?'var(--text)':'var(--text3)')+'">⇅ sort by strategy'+(_curSort==='strat'?' ▾':'')+'</div>'
+          +'<div style="height:1px;background:var(--border);margin:4px 2px"></div>'
+          +'<div style="font-size:8px;letter-spacing:1px;color:var(--text5);padding:2px 9px 4px">SHOW (click to toggle)</div>';
+        _h+=_stratsAll.map(f=>{const on=_fSet.has(f);const ci=stratInfo(f);return '<div data-stratopt="'+String(f).replace(/"/g,'&quot;')+'" style="cursor:pointer;padding:5px 9px;border-radius:5px;font-size:var(--fsxs);white-space:nowrap;display:flex;align-items:center;gap:8px"><span style="width:12px;flex:0 0 auto;color:var(--green)">'+(on?'✓':'')+'</span><span style="width:8px;height:8px;border-radius:2px;flex:0 0 auto;background:'+ci.color+'"></span><span style="color:'+ci.color+';font-weight:600">'+ci.label+'</span></div>';}).join('');
+        if(_fSet.size)_h+='<div style="height:1px;background:var(--border);margin:4px 2px"></div><div data-stratclear style="cursor:pointer;padding:5px 9px;font-size:9px;color:var(--text5)">✕ clear filter (show all)</div>';
+        _dd.innerHTML=_h;document.body.appendChild(_dd);
+        const _ddr=_dd.getBoundingClientRect();if(_ddr.right>window.innerWidth-8)_dd.style.left=Math.max(8,window.innerWidth-8-_ddr.width)+'px';
+        _dd.querySelectorAll('[data-stratopt]').forEach(o=>{o.onmouseenter=()=>{o.style.background='var(--bg1)';};o.onmouseleave=()=>{o.style.background='';};o.onclick=(e)=>{e.stopPropagation();_toggleStrat(o.dataset.stratopt);renderApp();};});
+        const _dss=_dd.querySelector('[data-stratsort]');if(_dss){_dss.onmouseenter=()=>{_dss.style.background='var(--bg1)';};_dss.onmouseleave=()=>{_dss.style.background='';};_dss.onclick=(e)=>{e.stopPropagation();savePref('rfSort','strat');window._stratMenuOpen=false;renderApp();};}
+        const _dsc=_dd.querySelector('[data-stratclear]');if(_dsc)_dsc.onclick=(e)=>{e.stopPropagation();savePref('rfStrat',[]);renderApp();};
+        window._stratCloseH=(ev)=>{if(!ev.target.closest('#strat-dropdown')&&!ev.target.closest('[data-stratmenu]')){window._stratMenuOpen=false;const p=document.getElementById('strat-dropdown');if(p)p.remove();document.removeEventListener('mousedown',window._stratCloseH);window._stratCloseH=null;renderApp();}};
+        setTimeout(()=>{if(window._stratMenuOpen)document.addEventListener('mousedown',window._stratCloseH);},0);
       }
+      content.querySelectorAll('[data-rsort]').forEach(h=>{h.onclick=()=>{savePref('rfSort',h.dataset.rsort);renderApp();};});
       const _star=content.querySelector('[data-rfstar]');if(_star)_star.onclick=()=>{savePref('rfStar',!APREF.rfStar);renderApp();};
       const _rfa=content.querySelector('[data-rfarch]');if(_rfa)_rfa.onclick=()=>{savePref('rfArch',!APREF.rfArch);renderApp();};
-      const _rfc=content.querySelector('[data-rfclear]');if(_rfc)_rfc.onclick=()=>{savePref('hf',{});savePref('rfStar',false);renderApp();};
+      const _rfc=content.querySelector('[data-rfclear]');if(_rfc)_rfc.onclick=()=>{['rfStrat','rfInst','rfTf','rfScope'].forEach(k=>savePref(k,''));savePref('rfStar',false);renderApp();};
       // star a run (write-back to Firestore; snapshot re-renders). stopPropagation so the row doesn't also select.
       const _toggleStar=(id)=>{const r=runHistory.find(x=>String(x.id)===String(id));if(!r||!runsRef)return;runsRef.doc(String(id)).update({starred:r.starred?0:1}).catch(e=>alert('star failed: '+e.message));};
       content.querySelectorAll('[data-star]').forEach(s=>{s.onclick=(e)=>{e.stopPropagation();_toggleStar(s.dataset.star);};});
