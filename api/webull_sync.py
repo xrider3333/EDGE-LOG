@@ -510,9 +510,12 @@ def sync_trades(db, uid, keys_path=DEFAULT_KEYS, log=print, force=False):
         start = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
     else:
         start = (datetime.now() - timedelta(days=keys["backfill_days"])).strftime("%Y-%m-%d")
+    # get_order_history end_date is EXCLUSIVE (verified: end=today returns 0 of today's
+    # orders; end=tomorrow returns them) — so query through TOMORROW to include today's trades.
+    end = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
 
     try:
-        fills = fetch_fills(keys, start, today, log=log)
+        fills = fetch_fills(keys, start, end, log=log)
     except Exception as e:
         msg = f"{type(e).__name__}: {e}"
         u = msg.upper()
