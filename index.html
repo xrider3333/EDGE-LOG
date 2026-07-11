@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='50.9';
+const VERSION='51.0';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'51.0', date:'2026-07-10', notes:['FIX: opening a run report crashed with "plotR is not defined" for runs with top-config equity curves (e.g. #137) — a leftover variable from the v50.6 2A chart alignment. 2A renders again; its hover crosshair now maps to the aligned axis span.']},
   {v:'50.9', date:'2026-07-10', notes:['FIX: Past Runs list could appear EMPTY — the v49.5 per-column filter menus persisted an exclusion list ("Clear" hid every value) in browser storage. Those menus are removed; the previous behavior is back (click a column header to sort; MODE/MARKET/TF dropdown filters; the color-coded STRATEGY dropdown with multi-select). Any stored filter state is wiped automatically — your runs were never deleted.']},
   {v:'50.8', date:'2026-07-10', notes:['Run report §2: new CHART METRIC toggle (NET $ / MAX DD / MAR ×100) above the parallel-coords — plots every param chart (2B·2C·2H·2I·2J) by drawdown or MAR instead of PnL, so risk levers like be_after_R become visible (they look flat on the PnL axis).','MAX DD view shows negative $ (greener = smaller drawdown); MAR is ×100 so the $ scales keep precision ($2,150 = MAR 21.5).','Needs per-config drawdown, recorded by the engine from this build — older runs show a "re-run to record it" note. Restart the local runner (EdgeLog) once so its jobs pick up the new engine.']},
   {v:'50.7', date:'2026-07-10', notes:['Import/Export now has a WEBULL AUTO-SYNC panel next to NinjaTrader — last sync, trade count, live account balance, and a ✓ reconciled / ⚠ out-of-sync check against your broker positions.','New "Sync Webull now" button pulls today\'s trades on demand (the automatic pull runs once a day to protect the free Firestore quota).','NinjaTrader status now labels its count "in file" — round-trips in the rolling fills.csv on your PC, NOT your full journal total (older trades already synced are safe).']},
@@ -5633,9 +5634,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis — top '+etop.length+((d.date_from&&d.date_to)?' · '+_dnice(d.date_from)+' → '+_dnice(d.date_to):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
       return (tag?'<div title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' · TOP CONFIGS PNL <span style="font-weight:400;color:var(--text5);font-size:8px">ⓘ</span>'+sel+cfgSlider+'</div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+sel+'</div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
-        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+((d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:pd,py:pt,pw:plotR-pd,ph:H-pt-pd,yl:'equity'}))+'"':'')+'>'
+        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+((d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,yl:'equity'}))+'"':'')+'>'
         +grid
-        +'<line x1="0" y1="'+zeroY.toFixed(1)+'" x2="'+plotR+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--border)"/>'+lines+c2YTitle(H,'equity $')+'</svg></div>';
+        +'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--border)"/>'+lines+c2YTitle(H,'equity $')+'</svg></div>';
     };
     // SCATTER — each tested config as a dot: chosen param (X) vs net PnL (Y). Shows
     // whether the edge is a smooth slope (robust) or random noise.
