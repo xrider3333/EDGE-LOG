@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='51.1';
+const VERSION='51.2';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'51.2', date:'2026-07-10', notes:['2A equity overlay: y-axis $ labels shrunk + greyed to match 2B.','2B/2C now share one combined subtitle (they read as one config-space card).','Past Runs STRATEGY dropdown: new "contains" search box — type e.g. "orb" to filter the list, then "✓ select all shown" to add every match to the filter.']},
   {v:'51.1', date:'2026-07-11', notes:['NINJATRADER AUTO-SYNC panel now shows a capture heartbeat: "capture alive Xs ago" (green) when the NinjaTrader AddOn is running, or "capture stale/missing" (yellow dot) when it stopped reporting — so a silently dead fill capture (e.g. after a broker reconnect) is visible instead of hidden.','Pairs with AddOn v2 (tools/EdgeLogExport.cs): it re-subscribes after every reconnect and back-fills any missed fills from the current session within ~60s.']},
   {v:'51.0', date:'2026-07-10', notes:['FIX: opening a run report crashed with "plotR is not defined" for runs with top-config equity curves (e.g. #137) — a leftover variable from the v50.6 2A chart alignment. 2A renders again; its hover crosshair now maps to the aligned axis span.']},
   {v:'50.9', date:'2026-07-10', notes:['FIX: Past Runs list could appear EMPTY — the v49.5 per-column filter menus persisted an exclusion list ("Clear" hid every value) in browser storage. Those menus are removed; the previous behavior is back (click a column header to sort; MODE/MARKET/TF dropdown filters; the color-coded STRATEGY dropdown with multi-select). Any stored filter state is wiped automatically — your runs were never deleted.']},
@@ -5630,7 +5631,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _gs=_niceE((mx-mn)/5)||1;let grid='';
       for(let L=Math.ceil(mn/_gs)*_gs;L<=mx+1e-6;L+=_gs){const _z=Math.abs(L)<1e-6,gy=H-pd-(H-pt-pd)*(L-mn)/rg;
         grid+='<line x1="'+xL.toFixed(1)+'" y1="'+gy.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="'+(_z?0.9:0.5)+'" opacity="'+(_z?0.55:0.3)+'"/>'
-          +'<text x="'+(xR+4).toFixed(1)+'" y="'+(gy+2.5).toFixed(1)+'" font-size="7.5" fill="var(--text4)">'+fmtUsd(Math.round(L))+'</text>';}
+          +'<text x="'+(xR+4).toFixed(1)+'" y="'+(gy+2.5).toFixed(1)+'" font-size="4.6" fill="var(--text3)">'+fmtUsd(Math.round(L))+'</text>';}
       // RED = leftmost param axis · YELLOW = NET axis (register with 2B directly below)
       grid+='<line x1="'+xL.toFixed(1)+'" y1="'+pt+'" x2="'+xL.toFixed(1)+'" y2="'+(H-pd)+'" stroke="var(--red)" stroke-width="1" opacity="0.7"/>'
         +'<line x1="'+xR.toFixed(1)+'" y1="'+pt+'" x2="'+xR.toFixed(1)+'" y2="'+(H-pd)+'" stroke="var(--yellow)" stroke-width="1" opacity="0.85"/>';
@@ -5945,7 +5946,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       curves.sort((a,b)=>b.infl-a.infl);
       return curves;
     };
-    const pdpCurvesPanelHtml=(points,mult,tag,pp,alignKeys)=>{
+    const pdpCurvesPanelHtml=(points,mult,tag,pp,alignKeys,noHdr)=>{
       const curves=pdpCurvesData(points,mult,pp);
       if(!curves.length)return '';
       const byK={};curves.forEach(cv=>{byK[cv.k]=cv;});
@@ -5972,7 +5973,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       };
       const cells=show.map(cellOf).join('');
       const src=(pp&&pp.curves)?'server curves (3C.1)':'recomputed from this run\'s stored configs';
-      const hdr='<div title="PARTIAL DEPENDENCE (1-D): one mini-chart per parameter — smoothed avg $ per value with the other params averaged out, sorted by influence'+(alignKeys?', each aligned under its own 2C axis':'')+' ('+src+'). The line = the AVERAGE net $ of every tested config at each value of that parameter. The green dot marks where the knob TOPS OUT — pushing it further stops paying. A flat line = the knob barely matters, so don\'t spend optimisation budget on it. NOTE: the 3C.1 plateau pick maximises the SUM of these smoothed curves — deliberately NOT the raw best config, because a lone spike gets dragged down by its weak neighbours." style="cursor:help;margin:6px 0 4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · PDP — WHERE EACH KNOB TOPS OUT <span style="font-weight:400;color:var(--text5);font-size:8px">ⓘ</span></div>';
+      const hdr=noHdr?'':'<div title="PARTIAL DEPENDENCE (1-D): one mini-chart per parameter — smoothed avg $ per value with the other params averaged out, sorted by influence'+(alignKeys?', each aligned under its own 2C axis':'')+' ('+src+'). The line = the AVERAGE net $ of every tested config at each value of that parameter. The green dot marks where the knob TOPS OUT — pushing it further stops paying. A flat line = the knob barely matters, so don\'t spend optimisation budget on it. NOTE: the 3C.1 plateau pick maximises the SUM of these smoothed curves — deliberately NOT the raw best config, because a lone spike gets dragged down by its weak neighbours." style="cursor:help;margin:6px 0 4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · PDP — WHERE EACH KNOB TOPS OUT <span style="font-weight:400;color:var(--text5);font-size:8px">ⓘ</span></div>';
       if(Array.isArray(alignKeys)&&alignKeys.length){
         // mirror 2C's geometry exactly: padX gutters + n equal columns over the C2P plot width
         // (2C's axes are column-centred, so column i here = axis i there). Last column = NET $.
@@ -6339,8 +6340,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // that drives the linked highlight band on this param's 2K PDP cell below.
         return '<rect class="pc-track" data-ax="'+i+'" data-key="'+k+'" data-mn="'+dom[k][0]+'" data-mx="'+dom[k][1]+'" data-ylo="'+(H-padB)+'" data-yhi="'+padT+'" x="'+(x-8).toFixed(1)+'" y="'+padT+'" width="16" height="'+((H-padB)-padT).toFixed(1)+'" fill="transparent" style="cursor:ns-resize"/>'
           +'<rect class="pc-brush" data-ax="'+i+'" x="'+(x-6).toFixed(1)+'" y="0" width="12" height="0" fill="var(--blue)" fill-opacity="0.2" stroke="var(--blue)" stroke-width="0.6" rx="2" style="display:none;pointer-events:none"/>';}).join('');
-      const _pcTip='Every tested config drawn as one line across a vertical axis per parameter, ending on the NET $ axis — green lines made money, red lost. Lines that bunch through the same parameter values = the settings winners share. DRAG up/down on any axis to brush a range (lines outside grey out, and the scatter dots dim with them); click an axis to clear its brush.';
-      return (tag?'<div title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · PARALLEL COORDINATES <span style="font-weight:400;color:var(--text4);font-size:8px">· <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="color:var(--text4)">ⓘ</span></span></div>':'<div class="lbl" title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px">PARALLEL COORDINATES · <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="font-size:9px;color:var(--text4);font-weight:400">ⓘ</span></div>')
+      const _pcTip='Every tested config drawn as one line across a vertical axis per parameter, ending on the NET $ axis — green lines made money, red lost. Lines that bunch through the same parameter values = the settings winners share. DRAG up/down on any axis to brush a range (lines outside grey out, and the scatter dots dim with them); click an axis to clear its brush. Below: per-knob PDP curves — the smoothed avg $ each parameter produces on its own, sorted by influence.';
+      return (tag?'<div title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · CONFIG SPACE — parallel coordinates + per-knob PDP curves <span style="font-weight:400;color:var(--text4);font-size:8px">· <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="color:var(--text4)">ⓘ</span></span></div>':'<div class="lbl" title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px">PARALLEL COORDINATES · <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="font-size:9px;color:var(--text4);font-weight:400">ⓘ</span></div>')
         +(function(){const _pm=dom['pnl'],_mY=((padT+(H-padB))/2).toFixed(1);
           // NET $ scale labels live IN the svg's right gutter (shared §2 chrome) so the plot
           //   width lines up with 2a/2b above it.
@@ -7187,7 +7188,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _pdpD=pdpCurvesData(_PTS,mlt,(_pMet==='pnl'?d.plateau_pick:null));
       const _allK=(d.points&&d.points.length)?Object.keys(d.points[0]).filter(k=>k!=='pnl'&&k!=='dd'&&typeof d.points[0][k]==='number'):[];
       const _kOrd=_pdpD.map(c=>c.k).concat(_allK.filter(k=>!_pdpD.some(c=>c.k===k)));
-      const _parc=parallelCoordsHtml(_PTS,mlt,_cfgN+'B',_kOrd);
+      const _parc=parallelCoordsHtml(_PTS,mlt,_cfgN+'B·'+_cfgN+'C',_kOrd);
       const _corr=corrPanelHtml(d.points,_cfgN+'E',d.relationship);
       // 2H is view-toggleable (APREF.hm3d, DEFAULT 3-D per owner): flat heatmap ⇄ 3-D surface.
       const _hm3dOn=(APREF.hm3d==null?1:+APREF.hm3d);
@@ -7200,7 +7201,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   never duplicates 2H; hides itself when the strategy has fewer than 3 numeric params.
       //   2K 1-D PDP top-out curves. Both read stored `points` → render retroactively (run 137).
       const _p3d=surface3dPanelHtml(_PTS,mlt,_cfgN+'I',d.best_params,1);
-      const _pdp=pdpCurvesPanelHtml(_PTS,mlt,_cfgN+'C',(_pMet==='pnl'?d.plateau_pick:null),(_parc?_kOrd:null));
+      const _pdp=pdpCurvesPanelHtml(_PTS,mlt,_cfgN+'C',(_pMet==='pnl'?d.plateau_pick:null),(_parc?_kOrd:null),true);
       // lay non-empty panels in a row (1, 2 or 3 across); single panel = full-width. stretch=true makes
       //   the cards equal-height (good for similar charts); otherwise they top-align at natural height.
       const _wrap=(arr,stretch)=>{const xs=arr.filter(x=>x&&x.replace(/\s/g,''));if(!xs.length)return '';const inner=(xs.length>1)?'<div style="display:flex;gap:12px;align-items:'+(stretch?'stretch':'flex-start')+';flex-wrap:wrap">'+xs.map(x=>'<div style="flex:1 1 260px;min-width:0;display:flex;flex-direction:column">'+x+'</div>').join('')+'</div>':xs[0];return '<div style="margin-bottom:12px">'+inner+'</div>';};
@@ -8374,7 +8375,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(window._stratCloseH){document.removeEventListener('mousedown',window._stratCloseH);window._stratCloseH=null;}
       {const _old=document.getElementById('strat-dropdown');if(_old)_old.remove();}
       const _smTrig=content.querySelector('[data-stratmenu]');
-      if(_smTrig)_smTrig.onclick=(e)=>{e.stopPropagation();window._stratMenuOpen=!window._stratMenuOpen;renderApp();};
+      if(_smTrig)_smTrig.onclick=(e)=>{e.stopPropagation();window._stratMenuOpen=!window._stratMenuOpen;if(!window._stratMenuOpen)window._stratSearch='';renderApp();};
       if(window._stratMenuOpen&&_smTrig){
         const _fSet=new Set(Array.isArray(APREF.rfStrat)?APREF.rfStrat:(APREF.rfStrat?[String(APREF.rfStrat)]:[]));
         const _curSort=APREF.rfSort||'id';
@@ -8382,17 +8383,34 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _rc=_smTrig.getBoundingClientRect();
         const _dd=document.createElement('div');_dd.id='strat-dropdown';
         _dd.style.cssText='position:fixed;z-index:9999;top:'+Math.round(_rc.bottom+3)+'px;left:'+Math.round(_rc.left)+'px;min-width:190px;max-height:min(62vh,420px);overflow:auto;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:5px;box-shadow:0 12px 34px rgba(0,0,0,.55);letter-spacing:normal;font-weight:400';
-        let _h='<div data-stratsort title="sort the run list A→Z by strategy" style="cursor:pointer;padding:6px 9px;font-size:var(--fsxs);border-radius:5px;color:'+(_curSort==='strat'?'var(--text)':'var(--text3)')+'">⇅ sort by strategy'+(_curSort==='strat'?' ▾':'')+'</div>'
+        // "contains" search box (item 3): filters the SHOW rows below by label text, DOM-only
+        //   (no renderApp on keystroke) so it doesn't lose focus while typing. The search text is
+        //   stashed on window._stratSearch so it survives the renderApp() that "select all shown"
+        //   triggers, and is cleared when the dropdown closes (both close paths below).
+        let _h='<div style="padding:2px 2px 5px"><input data-stratsearch placeholder="contains… e.g. orb" value="'+(window._stratSearch?String(window._stratSearch).replace(/"/g,'&quot;'):'')+'" style="background:var(--bg1);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:var(--fsxs);padding:5px 8px;width:100%;box-sizing:border-box;margin-bottom:5px"><div data-stratall style="font-size:9px;color:var(--blue,#5b9bd5);cursor:pointer;padding:3px 8px">✓ select all shown</div></div>'
+          +'<div data-stratsort title="sort the run list A→Z by strategy" style="cursor:pointer;padding:6px 9px;font-size:var(--fsxs);border-radius:5px;color:'+(_curSort==='strat'?'var(--text)':'var(--text3)')+'">⇅ sort by strategy'+(_curSort==='strat'?' ▾':'')+'</div>'
           +'<div style="height:1px;background:var(--border);margin:4px 2px"></div>'
           +'<div style="font-size:8px;letter-spacing:1px;color:var(--text5);padding:2px 9px 4px">SHOW (click to toggle)</div>';
-        _h+=_stratsAll.map(f=>{const on=_fSet.has(f);const ci=stratInfo(f);return '<div data-stratopt="'+String(f).replace(/"/g,'&quot;')+'" style="cursor:pointer;padding:5px 9px;border-radius:5px;font-size:var(--fsxs);white-space:nowrap;display:flex;align-items:center;gap:8px"><span style="width:12px;flex:0 0 auto;color:var(--green)">'+(on?'✓':'')+'</span><span style="width:8px;height:8px;border-radius:2px;flex:0 0 auto;background:'+ci.color+'"></span><span style="color:'+ci.color+';font-weight:600">'+ci.label+'</span></div>';}).join('');
+        _h+=_stratsAll.map(f=>{const on=_fSet.has(f);const ci=stratInfo(f);return '<div data-stratopt="'+String(f).replace(/"/g,'&quot;')+'" data-stratlabel="'+String(ci.label).replace(/"/g,'&quot;')+'" style="cursor:pointer;padding:5px 9px;border-radius:5px;font-size:var(--fsxs);white-space:nowrap;display:flex;align-items:center;gap:8px"><span style="width:12px;flex:0 0 auto;color:var(--green)">'+(on?'✓':'')+'</span><span style="width:8px;height:8px;border-radius:2px;flex:0 0 auto;background:'+ci.color+'"></span><span style="color:'+ci.color+';font-weight:600">'+ci.label+'</span></div>';}).join('');
         if(_fSet.size)_h+='<div style="height:1px;background:var(--border);margin:4px 2px"></div><div data-stratclear style="cursor:pointer;padding:5px 9px;font-size:9px;color:var(--text5)">✕ clear filter (show all)</div>';
         _dd.innerHTML=_h;document.body.appendChild(_dd);
         const _ddr=_dd.getBoundingClientRect();if(_ddr.right>window.innerWidth-8)_dd.style.left=Math.max(8,window.innerWidth-8-_ddr.width)+'px';
+        const _applyStratSearch=q=>{const ql=String(q||'').trim().toLowerCase();_dd.querySelectorAll('[data-stratopt]').forEach(o=>{o.style.display=(!ql||String(o.dataset.stratlabel||'').toLowerCase().indexOf(ql)>=0)?'':'none';});};
+        _applyStratSearch(window._stratSearch);
         _dd.querySelectorAll('[data-stratopt]').forEach(o=>{o.onmouseenter=()=>{o.style.background='var(--bg1)';};o.onmouseleave=()=>{o.style.background='';};o.onclick=(e)=>{e.stopPropagation();_toggleStrat(o.dataset.stratopt);renderApp();};});
-        const _dss=_dd.querySelector('[data-stratsort]');if(_dss){_dss.onmouseenter=()=>{_dss.style.background='var(--bg1)';};_dss.onmouseleave=()=>{_dss.style.background='';};_dss.onclick=(e)=>{e.stopPropagation();savePref('rfSort','strat');window._stratMenuOpen=false;renderApp();};}
+        const _dss=_dd.querySelector('[data-stratsort]');if(_dss){_dss.onmouseenter=()=>{_dss.style.background='var(--bg1)';};_dss.onmouseleave=()=>{_dss.style.background='';};_dss.onclick=(e)=>{e.stopPropagation();savePref('rfSort','strat');window._stratMenuOpen=false;window._stratSearch='';renderApp();};}
         const _dsc=_dd.querySelector('[data-stratclear]');if(_dsc)_dsc.onclick=(e)=>{e.stopPropagation();savePref('rfStrat',[]);renderApp();};
-        window._stratCloseH=(ev)=>{if(!ev.target.closest('#strat-dropdown')&&!ev.target.closest('[data-stratmenu]')){window._stratMenuOpen=false;const p=document.getElementById('strat-dropdown');if(p)p.remove();document.removeEventListener('mousedown',window._stratCloseH);window._stratCloseH=null;renderApp();}};
+        const _dssrch=_dd.querySelector('[data-stratsearch]');
+        if(_dssrch){_dssrch.onclick=e=>e.stopPropagation();_dssrch.onkeydown=e=>e.stopPropagation();_dssrch.oninput=()=>{window._stratSearch=_dssrch.value;_applyStratSearch(_dssrch.value);};}
+        const _dsa=_dd.querySelector('[data-stratall]');
+        if(_dsa){_dsa.onmouseenter=()=>{_dsa.style.opacity='0.75';};_dsa.onmouseleave=()=>{_dsa.style.opacity='';};
+          _dsa.onclick=(e)=>{e.stopPropagation();
+            const cur=Array.isArray(APREF.rfStrat)?APREF.rfStrat.slice():(APREF.rfStrat?[String(APREF.rfStrat)]:[]);
+            const curSet=new Set(cur);
+            _dd.querySelectorAll('[data-stratopt]').forEach(o=>{if(o.style.display!=='none'){const v=o.dataset.stratopt;if(!curSet.has(v)){curSet.add(v);cur.push(v);}}});
+            savePref('rfStrat',cur);renderApp();
+          };}
+        window._stratCloseH=(ev)=>{if(!ev.target.closest('#strat-dropdown')&&!ev.target.closest('[data-stratmenu]')){window._stratMenuOpen=false;window._stratSearch='';const p=document.getElementById('strat-dropdown');if(p)p.remove();document.removeEventListener('mousedown',window._stratCloseH);window._stratCloseH=null;renderApp();}};
         setTimeout(()=>{if(window._stratMenuOpen)document.addEventListener('mousedown',window._stratCloseH);},0);
       }
       content.querySelectorAll('[data-rsort]').forEach(h=>{h.onclick=()=>{savePref('rfSort',h.dataset.rsort);renderApp();};});
