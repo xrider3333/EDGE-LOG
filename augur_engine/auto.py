@@ -146,8 +146,10 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
     pass_vol = V is not None and (has_kw or "volumes" in sp)
     pass_day = did is not None and (has_kw or "day_id" in sp)
 
-    def _ev(a, b, params):
-        """Evaluate params on the [a:b) window, slicing extras consistently."""
+    def _ev(a, b, params, keep_trades=False):
+        """Evaluate params on the [a:b) window, slicing extras consistently.
+        keep_trades=True retains the per-trade list on the result (for OOS
+        distributions); otherwise trades are dropped to keep results light."""
         ex = {}
         if pass_vol:
             ex["volumes"] = V[a:b]
@@ -158,9 +160,10 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 m = fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=True, **ex, **params)
                 if m:
                     m = _apply_costs(m, cost_pts)
-                    m.pop("trades", None)
+                    if not keep_trades:
+                        m.pop("trades", None)
                 return m
-            return fn(O[a:b], H[a:b], L[a:b], C[a:b], **ex, **params)
+            return fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=keep_trades, **ex, **params)
         except Exception:
             return None
 
@@ -198,7 +201,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
             gated = [r for r in recs if _is_real(r, tr_end - tr_start)]
             champ = max(gated or recs, key=lambda r: float(r.get("total_pnl", 0) or 0))
             pp = {k: champ[k] for k in pkeys if k in champ}
-            om = _ev(te_s, te_e, pp)
+            om = _ev(te_s, te_e, pp, keep_trades=True)
             row = {k: champ.get(k) for k in pkeys}
             row.update({k: champ.get(k) for k in _METRIC_KEYS})
             row["fold"] = f + 1
@@ -206,6 +209,24 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
             row["train_bars"] = tr_end - tr_start   # IS window length (for WFE)
             row["oos_pnl"] = float(om["total_pnl"]) if om else 0.0
             row["oos_trades"] = int(om["num_trades"]) if om else 0
+            # OOS per-trade net PnLs + heat/reach for the report's walk-forward distribution
+            # tiles (1G/1H WF scope). Best-effort — never let this break a fold.
+            row["_oos_pnls"] = []
+            row["_oos_mae"] = []
+            row["_oos_mfe"] = []
+            row["_oos_won"] = []
+            try:
+                _tr = (om or {}).get("trades") or []
+                if _tr:
+                    row["_oos_pnls"] = [round(float(t[2]) - cost_pts, 4) for t in _tr]
+                    from .analytics import mae_mfe as _mmfe_wf
+                    _mm = _mmfe_wf(_tr, H[te_s:te_e], L[te_s:te_e])
+                    if _mm and _mm.get("mae"):
+                        row["_oos_mae"] = [round(float(v), 4) for v in _mm["mae"]]
+                        row["_oos_mfe"] = [round(float(v), 4) for v in _mm["mfe"]]
+                        row["_oos_won"] = list(_mm.get("won") or [])
+            except Exception:
+                pass
             row["oos_pf"] = float(om.get("profit_factor", 0)) if om else 0.0
             row["oos_wins"] = int(om.get("wins", 0) or 0) if om else 0
             row["oos_win_rate"] = float(om.get("win_rate", 0) or 0) if om else 0.0
@@ -263,7 +284,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
         row = {k: r.get(k) for k in pkeys if k in r}
         row.update({k: r.get(k) for k in _METRIC_KEYS if k in r})
         for k in ("oos_pnl", "oos_trades", "oos_pf", "oos_wins", "oos_win_rate",
-                  "fold", "test_bars", "train_bars"):
+                  "fold", "test_bars", "train_bars",
+                  "_oos_pnls", "_oos_mae", "_oos_mfe", "_oos_won"):
             if k in r:
                 row[k] = r[k]
         top.append(row)
@@ -276,7 +298,10 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
            "wf": is_wf}
     if not is_wf:   # config-PnL spread + param points for distribution / scatter / heatmap
         out["dist"] = downsample_pnls([r.get("total_pnl", 0) for r in records])
-        _pts_full = [dict({k: r.get(k) for k in pkeys}, pnl=round(float(r.get("total_pnl", 0) or 0), 1))
+        # pnl AND dd per config (dd = drawdown magnitude, engine pts) so the web's param
+        # charts can plot risk metrics too (ORB.md item L); MAR derived client-side.
+        _pts_full = [dict({k: r.get(k) for k in pkeys}, pnl=round(float(r.get("total_pnl", 0) or 0), 1),
+                          dd=round(abs(float(r.get("max_drawdown", 0) or 0)), 1))
                      for r in records]
         out["points"] = downsample_points(_pts_full)
         _rel = relationship_scores(_pts_full)   # Pearson / MI / PPS per param vs PnL (ROADMAP #24)

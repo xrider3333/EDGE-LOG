@@ -226,6 +226,32 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         except Exception:
             pass
 
+    # ── WALK-FORWARD out-of-sample distributions (1G/1H WF scope): concatenate the
+    #    per-fold OOS trades of the PRIMARY (stronger) scheme — each fold's champion tested
+    #    on its unseen window, so this is genuinely out-of-sample, walk-forward flavoured.
+    #    Best-effort; then strip the heavy per-trade arrays off the fold rows we return so
+    #    the saved doc stays light.
+    win_dist_wf = None
+    mae_mfe_wf = None
+    try:
+        _wf_pnls, _wf_mae, _wf_mfe, _wf_won = [], [], [], []
+        for _fr in (folds or []):
+            _wf_pnls += list(_fr.get("_oos_pnls") or [])
+            _wf_mae += list(_fr.get("_oos_mae") or [])
+            _wf_mfe += list(_fr.get("_oos_mfe") or [])
+            _wf_won += list(_fr.get("_oos_won") or [])
+        if _wf_pnls:
+            win_dist_wf = [round(float(v), 2) for v in _wf_pnls][:600]
+        if _wf_mae and _wf_mfe and len(_wf_mae) == len(_wf_mfe):
+            mae_mfe_wf = {"mae": _wf_mae[:600], "mfe": _wf_mfe[:600],
+                          "won": (_wf_won[:600] if len(_wf_won) == len(_wf_mae) else [])}
+    except Exception:
+        pass
+    for _rowset in (folds, (_altw.get("folds") if isinstance(_altw, dict) else None)):
+        for _fr in (_rowset or []):
+            for _k in ("_oos_pnls", "_oos_mae", "_oos_mfe", "_oos_won"):
+                _fr.pop(_k, None)
+
     # ── Per-trade Win% / Sharpe so the report's KPI matrix + Past-runs columns aren't blank.
     #    Lockbox stats come from the lockbox trades we already have; the WHOLE-RUN totals come
     #    from ONE champion backtest over the full window (incl. lockbox) with trades. ──
@@ -495,6 +521,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "champ_dist_scope": ("overall" if OV.get("win_dist") else "in-sample"),
         # lockbox-slice versions of 1D/1G (the report's scope dropdown flips between them)
         "win_dist_lb": win_dist_lb, "mae_mfe_lb": mae_mfe_lb,
+        # walk-forward out-of-sample versions of 1G/1H (WF scope in the dropdown)
+        "win_dist_wf": win_dist_wf, "mae_mfe_wf": mae_mfe_wf,
         # the NON-selected walk-forward scheme's folds (1C comparison toggle)
         "wf_alt_folds": _alt_folds, "wf_alt_mode": (_altw.get("mode") if _altw.get("ran") else None),
         # 1B monthly + 1F regime + §8 MC drawdown → whole-run champion when available, else in-sample.
