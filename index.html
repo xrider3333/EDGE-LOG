@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='51.0';
+const VERSION='51.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'51.1', date:'2026-07-11', notes:['NINJATRADER AUTO-SYNC panel now shows a capture heartbeat: "capture alive Xs ago" (green) when the NinjaTrader AddOn is running, or "capture stale/missing" (yellow dot) when it stopped reporting — so a silently dead fill capture (e.g. after a broker reconnect) is visible instead of hidden.','Pairs with AddOn v2 (tools/EdgeLogExport.cs): it re-subscribes after every reconnect and back-fills any missed fills from the current session within ~60s.']},
   {v:'51.0', date:'2026-07-10', notes:['FIX: opening a run report crashed with "plotR is not defined" for runs with top-config equity curves (e.g. #137) — a leftover variable from the v50.6 2A chart alignment. 2A renders again; its hover crosshair now maps to the aligned axis span.']},
   {v:'50.9', date:'2026-07-10', notes:['FIX: Past Runs list could appear EMPTY — the v49.5 per-column filter menus persisted an exclusion list ("Clear" hid every value) in browser storage. Those menus are removed; the previous behavior is back (click a column header to sort; MODE/MARKET/TF dropdown filters; the color-coded STRATEGY dropdown with multi-select). Any stored filter state is wiped automatically — your runs were never deleted.']},
   {v:'50.8', date:'2026-07-10', notes:['Run report §2: new CHART METRIC toggle (NET $ / MAX DD / MAR ×100) above the parallel-coords — plots every param chart (2B·2C·2H·2I·2J) by drawdown or MAR instead of PnL, so risk levers like be_after_R become visible (they look flat on the PnL axis).','MAX DD view shows negative $ (greener = smaller drawdown); MAR is ×100 so the $ scales keep precision ($2,150 = MAR 21.5).','Needs per-config drawdown, recorded by the engine from this build — older runs show a "re-run to record it" note. Restart the local runner (EdgeLog) once so its jobs pick up the new engine.']},
@@ -5074,13 +5075,17 @@ function renderApp(){
             const present=ntSync&&ntSync.file_present;
             const last=ntSync&&ntSync.last_sync?Math.max(0,Math.round(Date.now()/1000-ntSync.last_sync)):null;
             const ago=last==null?'never':last<60?last+'s ago':last<3600?Math.round(last/60)+'m ago':Math.round(last/3600)+'h ago';
-            const dot=present?'var(--green)':(ntSync?'var(--yellow)':'var(--text5)');
+            const hb=ntSync&&ntSync.addon_alive_secs;   // AddOn v2 heartbeat age in secs (null/undefined = no heartbeat reported)
+            const hbAlive=hb!=null&&hb<180, hbStale=!!ntSync&&(hb==null||hb>=600);
+            const hbFmt=hb==null?'':hb<60?hb+'s':hb<3600?Math.round(hb/60)+'m':hb<86400?Math.round(hb/3600)+'h':Math.round(hb/86400)+'d';
+            const capture=hbAlive?` · capture <span style="color:var(--green)">alive ${hbFmt} ago</span>`:hbStale?` · capture <b style="color:var(--yellow)">${hb==null?'missing':'stale '+hbFmt}</b>`:'';
+            const dot=present&&!hbStale?'var(--green)':(ntSync?'var(--yellow)':'var(--text5)');
             const msg=!ntSync?'Runner has not reported yet — start EdgeLog.bat on your PC.':!present?'Runner is up, but the fills file is not there yet — install the AddOn (setup below), then place a trade.':'Connected — trades syncing automatically.';
             return `<div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border2);padding:11px 14px;margin-bottom:10px">
               <span style="width:9px;height:9px;border-radius:50%;background:${dot};box-shadow:0 0 8px ${dot};flex:none"></span>
               <div style="flex:1;font-size:var(--fsm);color:var(--text3)">${msg}</div>
               <div style="text-align:right;font-size:var(--fsxs);color:var(--text4);line-height:1.6">
-                ${ntSync?`last sync <b style="color:var(--text2)">${ago}</b> · ${ntSync.total_trades||0} <span title="Round-trips currently in the rolling fills.csv on your PC — NOT your full journal total. Older trades already synced live in the journal.">in file</span>${ntSync.open_positions?` · <span style="color:var(--yellow)">${ntSync.open_positions} open</span>`:''}`:'waiting for runner'}
+                ${ntSync?`last sync <b style="color:var(--text2)">${ago}</b> · ${ntSync.total_trades||0} <span title="Round-trips currently in the rolling fills.csv on your PC — NOT your full journal total. Older trades already synced live in the journal.">in file</span>${ntSync.open_positions?` · <span style="color:var(--yellow)">${ntSync.open_positions} open</span>`:''}${capture}`:'waiting for runner'}
               </div>
             </div>`;
           })()}
