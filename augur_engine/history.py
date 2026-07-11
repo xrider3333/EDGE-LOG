@@ -112,6 +112,8 @@ def get_run(run_id):
             row_ = {k: v for k, v in c.items()
                     if k not in _METRIC_KEYS and isinstance(v, (int, float))}
             row_["pnl"] = round(float(c.get("total_pnl", 0) or 0), 1)
+            # dd = per-config drawdown magnitude (item L) — lets the web plot risk metrics
+            row_["dd"] = round(abs(float(c.get("max_drawdown", 0) or 0)), 1)
             pts.append(row_)
         d["points"] = downsample_points(pts)
 

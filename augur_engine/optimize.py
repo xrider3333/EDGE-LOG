@@ -176,7 +176,11 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
         row.update({k: m.get(k) for k in _METRIC_KEYS})
         top.append(row)
     best = valid[0] if valid else None
-    _pts_full = [dict(p, pnl=round(float(m.get("total_pnl", 0) or 0), 1)) for p, m in valid]
+    # points rows carry pnl AND dd (drawdown magnitude, engine pts) so the web's param
+    # charts can plot risk metrics, not just PnL (ORB.md item L: a DD lever like
+    # be_after_R is invisible on a PnL axis). MAR is derived client-side as pnl/dd.
+    _pts_full = [dict(p, pnl=round(float(m.get("total_pnl", 0) or 0), 1),
+                      dd=round(abs(float(m.get("max_drawdown", 0) or 0)), 1)) for p, m in valid]
     out = {
         "n_combos": len(combos), "n_valid": len(valid), "top": top,
         "best_params": (best[0] if best else None),

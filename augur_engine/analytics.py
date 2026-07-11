@@ -351,7 +351,7 @@ def relationship_scores(points, target="pnl", max_rows=4000):
             pts = [pts[int(i * step)] for i in range(max_rows)]
         cols = {}
         for k in pts[0].keys():
-            if k == target:
+            if k == target or k == "dd":     # dd = per-config drawdown metric (item L), not a param
                 continue
             v0 = pts[0][k]
             if isinstance(v0, bool) or not isinstance(v0, (int, float)):
@@ -428,7 +428,7 @@ def pdp_plateau(points, pnl_key="pnl", min_points=12):
     if not points or len(points) < int(min_points):
         return None
     import numpy as np
-    keys = [k for k in points[0] if k != pnl_key]
+    keys = [k for k in points[0] if k != pnl_key and k != "dd"]   # dd = risk metric (item L), not a param
     vary = [k for k in keys if len({str(p.get(k)) for p in points}) > 1]
     if not vary:
         return None
