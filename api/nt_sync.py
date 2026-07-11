@@ -113,6 +113,31 @@ def _state_path(fills_path):
     return os.path.join(d, ".edgelog_sync_state.json")
 
 
+def _addon_heartbeat(fills_path):
+    """(age_secs, version) of the AddOn's heartbeat, (None, None) when absent/bad.
+
+    tools/EdgeLogExport.cs v2 overwrites addon_heartbeat.json (next to fills.csv)
+    every ~60s sweep with {"ts_utc","accounts","seen","version"}; ts_utc is UTC
+    "%Y-%m-%d %H:%M:%S". Its age tells the UI whether the NinjaTrader capture is
+    actually alive, independent of how quiet fills.csv is. Fully defensive: a
+    missing/garbled file must never break the trade sync."""
+    age = version = None
+    try:
+        p = os.path.join(os.path.dirname(fills_path) or ".", "addon_heartbeat.json")
+        if os.path.exists(p):
+            with open(p, encoding="utf-8") as fh:
+                hb = json.load(fh)
+            version = hb.get("version") or None
+            try:
+                ts = datetime.strptime(str(hb.get("ts_utc", "")), "%Y-%m-%d %H:%M:%S")
+                age = max(0, int(time.time() - ts.replace(tzinfo=timezone.utc).timestamp()))
+            except Exception:
+                age = None
+    except Exception:
+        age = version = None
+    return age, version
+
+
 def get_base(sym):
     """'ES 03-26' -> 'ES', 'M2K 03-26' -> 'M2K'. The contract root is the first
     whitespace-delimited token (digits kept, so micros like M2K/M6E survive and match
@@ -386,6 +411,8 @@ def sync_trades(db, uid, fills_path=DEFAULT_FILLS, log=print):
 
     # status doc the web subscribes to (meta/nt_sync) so the UI can show last-sync info
     if write_meta:
+        # AddOn v2 liveness (read here, not every 20s cycle — meta writes are throttled)
+        addon_alive_secs, addon_version = _addon_heartbeat(fills_path)
         try:
             db.collection("users").document(uid).collection("meta").document("nt_sync").set({
                 "last_sync": now,
@@ -396,6 +423,8 @@ def sync_trades(db, uid, fills_path=DEFAULT_FILLS, log=print):
                 "last_updated": updated,
                 "fills_path": fills_path,
                 "file_present": os.path.exists(fills_path),
+                "addon_alive_secs": addon_alive_secs,   # age of addon_heartbeat.json (None = missing)
+                "addon_version": addon_version,
             })
         except Exception as e:
             log(f"  [nt-sync] status write failed: {e}")
