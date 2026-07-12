@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='53.7';
+const VERSION='53.8';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'53.8', date:'2026-07-12', notes:['Regime report card (1F): each bar now shows the net $ on its wider buckets right on the segment (with the bucket name where there is room); removed the small caption line below the bars.']},
   {v:'53.7', date:'2026-07-12', notes:['Regime report card (1F) is now compact — each dimension (volatility, trend, day of week, time of day) is ONE bar whose segments are its buckets: width = share of trades, green / red = net $, hover for net / PF / trades. Far less room than the old stacked lists. Time of day shows n/a until a re-run records it (it will split net $ by ET hour, to gate WHEN time-sensitive setups like ORB may trade).','1G trade distribution: the in-sample / walk-forward / lockbox scope toggle now sits on the 1G title next to the BINS control. Slices that were not saved are greyed as n/a in the toggle (a re-run records them) instead of a separate re-run note.']},
   {v:'53.6', date:'2026-07-12', notes:['Library: click an already-open strategy to collapse its runs again (it was stuck open before).','Library: run rows under a strategy now open the report on DOUBLE-click (single click was too easy to trigger by accident).']},
   {v:'53.5', date:'2026-07-12', notes:['Run report header (the REPORT: row) now only appears once you scroll DOWN into the report — at the very top it stays out of the way (no bar, no gap), then slides in pinned as you scroll so the section tiles stay handy.','Config space: removed the empty gap between the 2B parallel-coordinates chart and the 2C PDP charts below — 2C now tucks right under the 2B axis labels.']},
