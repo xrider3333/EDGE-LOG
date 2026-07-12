@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='53.5';
+const VERSION='53.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'53.6', date:'2026-07-12', notes:['Library: click an already-open strategy to collapse its runs again (it was stuck open before).','Library: run rows under a strategy now open the report on DOUBLE-click (single click was too easy to trigger by accident).']},
   {v:'53.5', date:'2026-07-12', notes:['Run report header (the REPORT: row) now only appears once you scroll DOWN into the report — at the very top it stays out of the way (no bar, no gap), then slides in pinned as you scroll so the section tiles stay handy.','Config space: removed the empty gap between the 2B parallel-coordinates chart and the 2C PDP charts below — 2C now tucks right under the 2B axis labels.']},
   {v:'53.4', date:'2026-07-12', notes:['The on-chart expand button is gone from every chart — double-click any chart to open the fullscreen view (the dark backdrop still closes it).','Fix: the Overview account-equity and P&L-distribution charts briefly rendered blank after the button change (a dropped tag on the chart container); both render correctly again.']},
   {v:'53.3', date:'2026-07-12', notes:['Library: click a strategy to expand its runs right under the row (id, scope, date, net, PF — newest first); click any run to jump straight to its report.','Library descriptions rewritten to say how each file differs from its parent — the ORB variants (3.0, 3.0-2L, 3.0-2L·125, 3.0-BE, 3.0-TR, 3.0-TS) now read distinctly instead of sharing one family blurb; hover a description for the full detail.']},
@@ -7858,7 +7859,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _escH=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;');
       const runLine=r=>{const net=fmtUsd(r.best_pnl_usd||0);const pf=(r.best_pf!=null&&!isNaN(+r.best_pf))?(+r.best_pf).toFixed(2):'—';
         const dt=(''+(r.timestamp||'')).slice(0,10)||'—';const sc=_escH(r.scope||r.preset||'run');const pc=(r.best_pnl_usd||0)>=0?'var(--green)':'var(--red)';
-        return '<div class="librun" data-openrun="'+r.id+'" title="open run #'+r.id+' report" style="display:flex;gap:9px;align-items:center;padding:3px 7px;cursor:pointer;white-space:nowrap;overflow:hidden">'
+        return '<div class="librun" data-openrun="'+r.id+'" title="double-click to open run #'+r.id+' report" style="display:flex;gap:9px;align-items:center;padding:3px 7px;cursor:pointer;white-space:nowrap;overflow:hidden">'
           +'<span style="color:var(--text5);font-weight:700;min-width:42px">#'+r.id+'</span>'
           +'<span style="color:var(--text3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">'+sc+'</span>'
           +'<span style="color:var(--text5);min-width:72px;text-align:right">'+dt+'</span>'
@@ -7866,7 +7867,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<span style="color:var(--text4);min-width:54px;text-align:right">PF '+pf+'</span></div>';};
       const expOf=s=>{const rl=runsByFile[s.file]||[];
         if(!rl.length)return '<tr class="librunexp"><td colspan="7" style="padding:3px 12px 9px;background:var(--bg1);font-size:var(--fsxs);color:var(--text5)">No runs recorded yet for this strategy — run it from the Builder.</td></tr>';
-        const hd='<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text5);letter-spacing:.5px;margin:3px 4px 4px"><span>'+rl.length+' RUN'+(rl.length>1?'S':'')+' · click one to open its report</span><span>newest first</span></div>';
+        const hd='<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text5);letter-spacing:.5px;margin:3px 4px 4px"><span>'+rl.length+' RUN'+(rl.length>1?'S':'')+' · double-click a run to open its report</span><span>newest first</span></div>';
         return '<tr class="librunexp"><td colspan="7" style="padding:3px 12px 10px;background:var(--bg1)">'+hd+'<div style="max-height:230px;overflow:auto">'+rl.map(runLine).join('')+'</div></td></tr>';};
       const srows=rowsSorted.map(s=>{const si=stratInfo(s.file);const on=s.file===augurLibSel;const lr=lastRan[s.file];
         const _ti=String(si.diffLong||si.desc||si.full||'').replace(/"/g,'&quot;');
@@ -8702,9 +8703,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-sortk]').forEach(h=>{h.onclick=()=>{const k=h.dataset.sortk;if((APREF.libSort||'num')===k){savePref('libSortDir',APREF.libSortDir===-1?1:-1);}else{savePref('libSort',k);savePref('libSortDir',1);}renderApp();};});
       content.querySelectorAll('th[data-onlyk]').forEach(h=>{h.onclick=()=>{const k=h.dataset.onlyk;savePref('libOnly',(APREF.libOnly===k)?'':k);renderApp();};});
       const co=el('lib-clearonly');if(co)co.onclick=(e)=>{e.stopPropagation();savePref('libOnly','');renderApp();};
-      content.querySelectorAll('[data-strat]').forEach(r=>{r.onclick=()=>{augurLibSel=r.dataset.strat;augurLibMsg='';augurLibDel=false;augurMenu='';renderApp();};});
-      // click a populated run row (under the selected strategy) → open that run's report
-      content.querySelectorAll('[data-openrun]').forEach(x=>{x.onclick=(e)=>{e.stopPropagation();augurRunSel=String(x.dataset.openrun);augurSub='runs';augurMenu='';renderApp();};});
+      content.querySelectorAll('[data-strat]').forEach(r=>{r.onclick=()=>{augurLibSel=(augurLibSel===r.dataset.strat?null:r.dataset.strat);augurLibMsg='';augurLibDel=false;augurMenu='';renderApp();};});
+      // double-click a populated run row (under the selected strategy) → open that run's report
+      content.querySelectorAll('[data-openrun]').forEach(x=>{x.ondblclick=(e)=>{e.stopPropagation();augurRunSel=String(x.dataset.openrun);augurSub='runs';augurMenu='';renderApp();};});
       // Library file ops — executed on the user's PC by the runner command channel.
       const closeMenu=()=>{augurMenu='';};
       const add=el('lib-add');if(add)add.onclick=()=>{const inp=document.createElement('input');inp.type='file';inp.accept='.py';inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>libCmd('add',{name:f.name,content:String(rd.result||'')},'Add '+f.name);rd.readAsText(f);};inp.click();};
