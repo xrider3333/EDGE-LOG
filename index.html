@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='54.5';
+const VERSION='54.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'54.6', date:'2026-07-12', notes:['Expanded 1A: when you pan the chart vertically, the equity line and its trade dots now clip at the edge of their own pane instead of sliding down over the drawdown pane (each pane keeps its content, TradingView-style).']},
   {v:'54.5', date:'2026-07-12', notes:['Expanded champion equity (1A): the line no longer vanishes when you zoom into a stretch between two sparse trades — the path now always spans the whole view (it keeps one neighbour point beyond each edge), same for the drawdown pane.','Expanded 1A: TradingView-style vertical pan — click-and-hold now drags the chart UP and DOWN as well as left-right (a vertical drag shifts the $ window and suspends the auto-fit; double-click or RESET restores it). A pure left-right pan keeps the auto-fit as before.']},
   {v:'54.4', date:'2026-07-12', notes:['Expanded champion equity (1A): the trade blotter now SAVES once generated. Reopen the run later and the blotter (plus the full-resolution equity line) restores instantly from this browser — no more waiting on the PC runner. Since a finished run always produces the same trades the saved copy never goes stale; Shift+click TRADES if you ever want to regenerate it fresh.']},
   {v:'54.3', date:'2026-07-12', notes:['Trades table ACCT balance and ACCT % now follow the ACCOUNT pill: pick NinjaTrader or Webull and the running balance shows just that account equity curve (matching that broker own balance history); ALL shows the combined cumulative. The distribution POINTS metric now computes for stocks and ETFs too (it was blank).']},
@@ -2751,7 +2752,10 @@ window.expandEquity=function(host){
       const s2=Math.max(0,lo-1),e2=Math.min(n2-1,hi+1);
       return (e2>=s2)?arr.slice(s2,e2+1):[];};
     const seg=(arr)=>arr.map((p,i2)=>((i2?'L':'M')+X(g,p.t).toFixed(1)+' '+Y(p.v).toFixed(1))).join(' ');
-    s+='<clipPath id="eqx-clip"><rect x="0" y="0" width="'+g.pw+'" height="'+(g.H-XAX)+'"/></clipPath>';
+    // two clip regions: the equity line clips at ITS pane edge (so a vertical pan cannot drag it
+    //   into the drawdown pane), the drawdown fill clips at the full plot.
+    s+='<clipPath id="eqx-clip"><rect x="0" y="0" width="'+g.pw+'" height="'+(g.ddT-4)+'"/></clipPath>'
+      +'<clipPath id="eqx-clipd"><rect x="0" y="0" width="'+g.pw+'" height="'+(g.H-XAX)+'"/></clipPath>';
     const pre=_clipN(P.filter(p=>p.i<=LI)),post=_clipN(P.filter(p=>p.i>=LI));
     s+='<g clip-path="url(#eqx-clip)">';
     if(pre.length>1)s+='<path d="'+seg(pre)+'" fill="none" stroke="var(--green)" stroke-width="1.8"/>';
@@ -2764,7 +2768,7 @@ window.expandEquity=function(host){
       +'<text x="6" y="'+(g.ddT+7).toFixed(1)+'" font-size="9" font-weight="700" letter-spacing="1" fill="var(--text4)" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">DRAWDOWN</text>';
     const dvis=_clipN(P);   // same neighbour-keeping clip as the equity line — no empty dd pane between sparse trades
     if(dvis.length>1){
-      s+='<g clip-path="url(#eqx-clip)"><path d="M '+X(g,dvis[0].t).toFixed(1)+' '+Yd(0).toFixed(1)+' '+dvis.map(p=>'L '+X(g,p.t).toFixed(1)+' '+Yd(DD[p.i]).toFixed(1)).join(' ')+' L '+X(g,dvis[dvis.length-1].t).toFixed(1)+' '+Yd(0).toFixed(1)+' Z" fill="rgba(193,66,106,0.45)" stroke="#d6557a" stroke-width="1"/></g>';
+      s+='<g clip-path="url(#eqx-clipd)"><path d="M '+X(g,dvis[0].t).toFixed(1)+' '+Yd(0).toFixed(1)+' '+dvis.map(p=>'L '+X(g,p.t).toFixed(1)+' '+Yd(DD[p.i]).toFixed(1)).join(' ')+' L '+X(g,dvis[dvis.length-1].t).toFixed(1)+' '+Yd(0).toFixed(1)+' Z" fill="rgba(193,66,106,0.45)" stroke="#d6557a" stroke-width="1"/></g>';
       s+='<line x1="0" y1="'+Yd(DDMIN).toFixed(1)+'" x2="'+g.pw+'" y2="'+Yd(DDMIN).toFixed(1)+'" stroke="#d6557a" stroke-width="1.2" stroke-dasharray="5,3"/>'
         +'<text x="'+(g.pw+6)+'" y="'+(Yd(DDMIN)+3.5).toFixed(1)+'" font-size="10" fill="#d6557a">'+fmt$(DDMIN)+'</text>';
       if(mcDD!=null){s+='<line x1="0" y1="'+Yd(mcDD).toFixed(1)+'" x2="'+g.pw+'" y2="'+Yd(mcDD).toFixed(1)+'" stroke="#f5c842" stroke-width="1.2" stroke-dasharray="5,3"/>'
@@ -2775,10 +2779,10 @@ window.expandEquity=function(host){
     //   _tx), so a dot lands exactly ON the curve at every zoom. A larger transparent hit-circle
     //   makes each dot easy to click → it jumps to (and highlights) that trade's blotter row.
     if(blotRows&&timeOk){const _mt=r=>(r._tx||r._t),mvis=blotRows.filter(r=>_mt(r)>=a&&_mt(r)<=b);
-      if(mvis.length<=420)mvis.forEach(r=>{const x=X(g,_mt(r)),y=Y(r._cum);
+      if(mvis.length<=420)s+='<g clip-path="url(#eqx-clip)">',mvis.forEach(r=>{const x=X(g,_mt(r)),y=Y(r._cum);
         s+='<circle data-tr="'+r._no+'" cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="8" fill="transparent" style="cursor:pointer"/>'
           +'<circle data-tr="'+r._no+'" cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+(selTrade===r._no?5:3)+'" fill="'+(r._usd>=0?'#1d9e75':'#e24b4a')+'" stroke="'+(selTrade===r._no?'var(--text)':'rgba(0,0,0,.4)')+'" stroke-width="'+(selTrade===r._no?2:0.8)+'" style="pointer-events:none"/>'
-          +(selTrade===r._no?'<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="9" fill="none" stroke="var(--text)" stroke-width="1" opacity="0.6" style="pointer-events:none"/>':'');});
+          +(selTrade===r._no?'<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="9" fill="none" stroke="var(--text)" stroke-width="1" opacity="0.6" style="pointer-events:none"/>':'');}),s+='</g>';
       else s+='<text x="6" y="14" font-size="9" fill="var(--text5)">'+mvis.length+' trades in view — zoom in to see the markers</text>';}
     svgEl.setAttribute('viewBox','0 0 '+g.W+' '+g.H);
     svgEl.innerHTML=s;
