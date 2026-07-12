@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='51.7';
+const VERSION='51.8';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'51.8', date:'2026-07-11', notes:['Run report 1G (trade PnL distribution) and 1H (MAE/MFE): fixed the "one giant spike" look. A few outlier trades were setting the bin width, so almost every trade crushed into the first bar. Bars now cover the 2nd–98th percentile core with far more, evenly-sized bins (Freedman–Diaconis) so the real shape of the distribution is visible; the trimmed outliers pile into a flagged edge bar (a small note under the chart says how many, and the edge bar tooltip reads "≤"/"≥ · incl. N outliers").']},
   {v:'51.7', date:'2026-07-11', notes:['Past Runs: new "by strategy" view (▦ toggle, next to side / stacked). Each strategy folds into ONE tile led by its CHAMPION run plus a rollup (PASS / WEAK / FAIL, net, PF, max DD, WF, score). Click a tile to expand its runs (top 4, then show all); click a run to open it.','The grouped view also groups by MARKET or MODE, and a "keepers only" lens filters to deploy-ready runs (validated PASS with the lockbox or walk-forward held).']},
   {v:'51.6', date:'2026-07-11', notes:['§2 config space: the 2C PDP mini-charts now render INSIDE the 2B card, directly under the 2B x-axis labels (one sub-chart). The stray 2C in the 2B header is gone; each peak label sits BELOW its mini-chart; the 2C · per-knob PDP title sits below the row.']},
   {v:'51.5', date:'2026-07-11', notes:['§2 config space: the 2C PDP mini-charts nest directly under 2B again (one subtile, tucked under the axis labels) — the separate 2C header that split them apart is gone.','2B parallel-coordinates: while you drag a brush over a range on an axis, the exact sampled values inside your selection are now labelled right on that axis (e.g. 3, 4, 5), live as you drag — so you SEE the data points you are highlighting.']},
@@ -5635,6 +5636,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto" data-xh="'+encodeURIComponent(JSON.stringify({xt:'usd',x0:lo,x1:hi,yt:'int',y0:0,y1:bmax,px:0,py:14,pw:Wp,ph:H-14,xl:'net',yl:'configs'}))+'">'+grid+bars+sdMarks+meanLine+'<polyline points="'+bell.join(' ')+'" fill="none" stroke="var(--text)" stroke-width="1.5" opacity="0.9" stroke-dasharray="2,2"/>'+hits+c2YTitle(H,'configs')+'</svg>'
         +c2XRow(fmtUsd(Math.round(mn)),'','↑ best '+fmtUsd(Math.round(mx)))+'</div>';
     };
+    // ── ROBUST HISTOGRAM RANGE (shared by 1G/1H) — equal-width bins over the raw min→max let a
+    //    handful of outlier trades set the bin width, so ~all mass crushes into one bar (a false
+    //    "spike"). Clamp the axis to the p2–p98 core, size bin COUNT by Freedman–Diaconis (width ∝
+    //    IQR, outlier-resistant → more bars where the data lives), and pile the trimmed tail into a
+    //    flagged overflow edge bar so nothing is hidden. ──
+    const _pctl=(s,p)=>{const n=s.length;if(!n)return 0;const i=(n-1)*p,f=Math.floor(i);return s[f]+(s[Math.min(n-1,f+1)]-s[f])*(i-f);};
+    const _rHist=(arr,inc)=>{const s=arr.slice().sort((a,b)=>a-b),n=s.length;let lo=_pctl(s,0.02),hi=_pctl(s,0.98);if(inc!=null){lo=Math.min(lo,inc);hi=Math.max(hi,inc);}if(hi<=lo){lo=s[0];hi=s[n-1]||lo+1;}const q1=_pctl(s,0.25),q3=_pctl(s,0.75),fd=2*(q3-q1)/Math.cbrt(n);let nb=fd>0?Math.round((hi-lo)/fd):28;nb=Math.max(24,Math.min(60,nb||28));const loN=s.filter(x=>x<lo).length,hiN=s.filter(x=>x>hi).length;return {lo,hi,nb,loN,hiN};};
     // TRADE PNL DISTRIBUTION — histogram of the WINNER's per-trade PnLs with a fitted
     // normal (bell) curve overlaid. Shows the shape/spread of trade outcomes (fat tails,
     // skew) behind the headline numbers. Needs d.win_dist (winner per-trade PnLs).
@@ -5642,11 +5650,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(!Array.isArray(win)||win.length<12)return '';
       const v=win.map(x=>x*mult),n=v.length,mean=v.reduce((a,b)=>a+b,0)/n;
       const sd=Math.sqrt(v.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1;
-      const mn=Math.min.apply(null,v),mx=Math.max.apply(null,v),span=(mx-mn)||1;
-      const NB=28,bins=new Array(NB).fill(0);v.forEach(x=>{let b=Math.floor((x-mn)/span*NB);if(b<0)b=0;if(b>=NB)b=NB-1;bins[b]++;});
+      const _rh=_rHist(v,0),mn=_rh.lo,mx=_rh.hi,span=(mx-mn)||1,NB=_rh.nb;
+      const bins=new Array(NB).fill(0);v.forEach(x=>{let b=Math.floor((x-mn)/span*NB);if(b<0)b=0;if(b>=NB)b=NB-1;bins[b]++;});
       const bmax=Math.max.apply(null,bins)||1,W=560,H=130,padR=30,Wp=W-padR,bw=Wp/NB,binW=span/NB;
       let hits='';
-      const bars=bins.map((c,i)=>{const rawh=(c/bmax)*(H-16),h=c>0?Math.max(4,rawh):0,x=i*bw,bc=mn+span*(i+0.5)/NB,blo=mn+span*i/NB,bhi=mn+span*(i+1)/NB,col=bc>=0?'#1d9e75':'#e24b4a',op=(rawh<8?0.92:0.5);hits+='<rect x="'+x.toFixed(1)+'" y="0" width="'+bw.toFixed(1)+'" height="'+H+'" fill="transparent" style="cursor:pointer" data-tip="'+fmtUsd(Math.round(blo))+' to '+fmtUsd(Math.round(bhi))+'/trade<br><b>'+c+'</b> trade'+(c===1?'':'s')+'"/>';return c>0?'<rect x="'+(x+1).toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+(bw-2).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+col+'" opacity="'+op+'"/>'+(rawh<8?'<circle cx="'+(x+bw/2).toFixed(1)+'" cy="'+(H-h-2.2).toFixed(1)+'" r="2.4" fill="'+col+'"/>':''):'';}).join('');
+      const bars=bins.map((c,i)=>{const rawh=(c/bmax)*(H-16),h=c>0?Math.max(4,rawh):0,x=i*bw,bc=mn+span*(i+0.5)/NB,blo=mn+span*i/NB,bhi=mn+span*(i+1)/NB,col=bc>=0?'#1d9e75':'#e24b4a',op=(rawh<8?0.92:0.5);const _oL=(i===0&&_rh.loN),_oR=(i===NB-1&&_rh.hiN),_tip=_oL?('≤ '+fmtUsd(Math.round(bhi))+'/trade · incl. '+_rh.loN+' outlier'+(_rh.loN===1?'':'s')):_oR?('≥ '+fmtUsd(Math.round(blo))+'/trade · incl. '+_rh.hiN+' outlier'+(_rh.hiN===1?'':'s')):(fmtUsd(Math.round(blo))+' to '+fmtUsd(Math.round(bhi))+'/trade');hits+='<rect x="'+x.toFixed(1)+'" y="0" width="'+bw.toFixed(1)+'" height="'+H+'" fill="transparent" style="cursor:pointer" data-tip="'+_tip+'<br><b>'+c+'</b> trade'+(c===1?'':'s')+'"/>';return c>0?'<rect x="'+(x+1).toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+(bw-2).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+col+'" opacity="'+op+'"/>'+(rawh<8?'<circle cx="'+(x+bw/2).toFixed(1)+'" cy="'+(H-h-2.2).toFixed(1)+'" r="2.4" fill="'+col+'"/>':''):'';}).join('');
       const pdf=x=>Math.exp(-0.5*Math.pow((x-mean)/sd,2))/(sd*Math.sqrt(2*Math.PI));
       const pts=[];for(let i=0;i<=120;i++){const x=mn+span*i/120,y=pdf(x)*n*binW,px=(i/120)*Wp,py=H-(y/bmax)*(H-16);pts.push(px.toFixed(1)+','+Math.max(0,py).toFixed(1));}
       const meanX=((mean-mn)/span)*Wp,zeroX=(mn<0&&mx>0)?((0-mn)/span)*Wp:null,wins=v.filter(x=>x>0).length;
@@ -5668,6 +5676,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const st3=_n2(span/5)||1;let tk='';
           for(let L=Math.ceil(mn/st3)*st3;L<=mx;L+=st3){const fpc=((L-mn)/span)*(Wp/W)*100;tk+='<span style="position:absolute;left:'+fpc.toFixed(2)+'%;transform:translateX(-50%);color:'+(Math.abs(L)<1e-9?'var(--text4)':'var(--text5)')+'">'+fmtUsd(Math.round(L))+'</span>';}
           return '<div title="per-trade net $ (x) vs number of trades (y) · dotted bell = fitted normal" style="position:relative;height:11px;margin-top:2px;font-size:8px;color:var(--text5)">'+tk+'</div>';})()
+        +((_rh.loN||_rh.hiN)?'<div style="font-size:7.5px;color:var(--text5);text-align:center;margin-top:1px">'+(_rh.hiN?_rh.hiN+' trade'+(_rh.hiN===1?'':'s')+' &gt; '+fmtUsd(Math.round(mx)):'')+((_rh.loN&&_rh.hiN)?' · ':'')+(_rh.loN?_rh.loN+' trade'+(_rh.loN===1?'':'s')+' &lt; '+fmtUsd(Math.round(mn)):'')+' in edge bars · 2nd–98th pctile shown</div>':'')
         +'</div>';
     };
     // STRESS — winner PnL across 8 chronological windows. Profit SPREAD across windows is
@@ -6112,19 +6121,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const usd=v=>fmtUsd(Math.round(v*mult));
       // ONE two-sided distribution: adverse excursion (MAE) mirrored LEFT in red, favourable (MFE)
       //   RIGHT in green, sharing a points x-axis (0 = entry, middle) and a trade-count y-axis.
-      const maxMae=Math.max.apply(null,allMae)||1,maxMfe=Math.max.apply(null,allMfe)||1,span2=maxMae+maxMfe;
+      // clamp each side to its p98 so one giant excursion doesn't set the bin width (else all
+      //   mass crushes into the first bar); the trimmed tail piles into the outer bin, flagged below.
+      const _maeMx=Math.max.apply(null,allMae)||1,_mfeMx=Math.max.apply(null,allMfe)||1;
+      const maxMae=Math.max(pct(allMae,0.98),_maeMx*0.02)||1,maxMfe=Math.max(pct(allMfe,0.98),_mfeMx*0.02)||1;
+      const maeN=allMae.filter(v=>v>maxMae).length,mfeN=allMfe.filter(v=>v>maxMfe).length,span2=maxMae+maxMfe;
       // SHARED scale (faithful apples-to-apples): 1 point = the same pixels on both sides, so 0/entry sits
       //   where adverse meets favourable (not forced centre). W/padR MATCH 1D; bars sit on the chart BOTTOM
       //   like 1D (x-labels in the row below, no floating baseline line).
       const W=560,H=118,plotT=8,plotB=H,plotH=plotB-plotT,padR=30,Wp=W-padR,sc=Wp/span2,X0=maxMae*sc;
-      const binPx=Wp/28,nbMae=Math.max(1,Math.round(X0/binPx)),nbMfe=Math.max(1,Math.round((Wp-X0)/binPx)),maeBwP=X0/nbMae,mfeBwP=(Wp-X0)/nbMfe;
+      const binPx=Wp/36,nbMae=Math.max(1,Math.round(X0/binPx)),nbMfe=Math.max(1,Math.round((Wp-X0)/binPx)),maeBwP=X0/nbMae,mfeBwP=(Wp-X0)/nbMfe;
       const maeC=new Array(nbMae).fill(0),mfeC=new Array(nbMfe).fill(0);
       allMae.forEach(v=>{let b=Math.floor(v/maxMae*nbMae);if(b<0)b=0;if(b>=nbMae)b=nbMae-1;maeC[b]++;});
       allMfe.forEach(v=>{let b=Math.floor(v/maxMfe*nbMfe);if(b<0)b=0;if(b>=nbMfe)b=nbMfe-1;mfeC[b]++;});
       const cmax=Math.max(Math.max.apply(null,maeC),Math.max.apply(null,mfeC))||1;
       let bars='',hits='';
-      maeC.forEach((c,b)=>{const rawh=(c/cmax)*plotH,h=c>0?Math.max(4,rawh):0,x=X0-(b+1)*maeBwP,lo=b/nbMae*maxMae,hi=(b+1)/nbMae*maxMae,op=(rawh<8?0.92:0.6);if(c>0){bars+='<rect x="'+(x+0.4).toFixed(1)+'" y="'+(plotB-h).toFixed(1)+'" width="'+Math.max(0.6,maeBwP-0.8).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#e24b4a" opacity="'+op+'"/>'+(rawh<8?'<circle cx="'+(x+maeBwP/2).toFixed(1)+'" cy="'+(plotB-h-2.2).toFixed(1)+'" r="2.4" fill="#e24b4a"/>':'');}hits+='<rect x="'+x.toFixed(1)+'" y="'+plotT+'" width="'+maeBwP.toFixed(1)+'" height="'+plotH+'" fill="transparent" style="cursor:pointer" data-tip="adverse '+lo.toFixed(1)+'–'+hi.toFixed(1)+' pts<br><b>'+c+'</b> trade'+(c===1?'':'s')+'"/>';});
-      mfeC.forEach((c,b)=>{const rawh=(c/cmax)*plotH,h=c>0?Math.max(4,rawh):0,x=X0+b*mfeBwP,lo=b/nbMfe*maxMfe,hi=(b+1)/nbMfe*maxMfe,op=(rawh<8?0.92:0.6);if(c>0){bars+='<rect x="'+(x+0.4).toFixed(1)+'" y="'+(plotB-h).toFixed(1)+'" width="'+Math.max(0.6,mfeBwP-0.8).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#1d9e75" opacity="'+op+'"/>'+(rawh<8?'<circle cx="'+(x+mfeBwP/2).toFixed(1)+'" cy="'+(plotB-h-2.2).toFixed(1)+'" r="2.4" fill="#1d9e75"/>':'');}hits+='<rect x="'+x.toFixed(1)+'" y="'+plotT+'" width="'+mfeBwP.toFixed(1)+'" height="'+plotH+'" fill="transparent" style="cursor:pointer" data-tip="favourable '+lo.toFixed(1)+'–'+hi.toFixed(1)+' pts<br><b>'+c+'</b> trade'+(c===1?'':'s')+'"/>';});
+      maeC.forEach((c,b)=>{const rawh=(c/cmax)*plotH,h=c>0?Math.max(4,rawh):0,x=X0-(b+1)*maeBwP,lo=b/nbMae*maxMae,hi=(b+1)/nbMae*maxMae,op=(rawh<8?0.92:0.6);if(c>0){bars+='<rect x="'+(x+0.4).toFixed(1)+'" y="'+(plotB-h).toFixed(1)+'" width="'+Math.max(0.6,maeBwP-0.8).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#e24b4a" opacity="'+op+'"/>'+(rawh<8?'<circle cx="'+(x+maeBwP/2).toFixed(1)+'" cy="'+(plotB-h-2.2).toFixed(1)+'" r="2.4" fill="#e24b4a"/>':'');}hits+='<rect x="'+x.toFixed(1)+'" y="'+plotT+'" width="'+maeBwP.toFixed(1)+'" height="'+plotH+'" fill="transparent" style="cursor:pointer" data-tip="'+((b===nbMae-1&&maeN)?('adverse ≥ '+lo.toFixed(1)+' pts · incl. '+maeN+' outlier'+(maeN===1?'':'s')):('adverse '+lo.toFixed(1)+'–'+hi.toFixed(1)+' pts'))+'<br><b>'+c+'</b> trade'+(c===1?'':'s')+'"/>';});
+      mfeC.forEach((c,b)=>{const rawh=(c/cmax)*plotH,h=c>0?Math.max(4,rawh):0,x=X0+b*mfeBwP,lo=b/nbMfe*maxMfe,hi=(b+1)/nbMfe*maxMfe,op=(rawh<8?0.92:0.6);if(c>0){bars+='<rect x="'+(x+0.4).toFixed(1)+'" y="'+(plotB-h).toFixed(1)+'" width="'+Math.max(0.6,mfeBwP-0.8).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#1d9e75" opacity="'+op+'"/>'+(rawh<8?'<circle cx="'+(x+mfeBwP/2).toFixed(1)+'" cy="'+(plotB-h-2.2).toFixed(1)+'" r="2.4" fill="#1d9e75"/>':'');}hits+='<rect x="'+x.toFixed(1)+'" y="'+plotT+'" width="'+mfeBwP.toFixed(1)+'" height="'+plotH+'" fill="transparent" style="cursor:pointer" data-tip="'+((b===nbMfe-1&&mfeN)?('favourable ≥ '+lo.toFixed(1)+' pts · incl. '+mfeN+' outlier'+(mfeN===1?'':'s')):('favourable '+lo.toFixed(1)+'–'+hi.toFixed(1)+' pts'))+'<br><b>'+c+'</b> trade'+(c===1?'':'s')+'"/>';});
       // count gridlines + a right-side count axis (numbers brighter; "trades" rotated 90° to their right).
       const grid=[0.25,0.5,0.75,1].map(fr=>{const gy=plotB-fr*plotH,cv=Math.round(cmax*fr);return '<line x1="0" y1="'+gy.toFixed(1)+'" x2="'+Wp.toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4"/><text x="'+(W-9)+'" y="'+(gy+2.5).toFixed(1)+'" text-anchor="end" font-size="7" fill="var(--text3)">'+cv+'</text>';}).join('');
       // suggested STOP (adverse side, s90 = keeps ~90% of winners) & TARGET (favourable side, f75).
@@ -6154,7 +6167,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         return '<div title="excursion from entry in points: negative (red) = how far price went AGAINST the position, positive (green) = how far in its favour" style="position:relative;height:11px;margin-top:2px;font-size:8px">'+tk+'</div>';})();
       return (tag?'<div title="One distribution of every trade\'s excursion in points from entry (0 = entry, middle): how far price ran AGAINST you (MAE — adverse / heat) is mirrored LEFT in red, how far it ran IN YOUR FAVOUR (MFE — favourable / reach) is RIGHT in green. y = number of trades.&#10;&#10;STOP — heat winners endured: median '+s50+' pts, 90% within '+s90+' pts ('+usd(s90)+'). A stop tighter than ~'+s50+' pts cuts half your winners; ~'+s90+' keeps ~90%.&#10;TARGET — reach in favour: median '+f50+' pts, 75% reach '+f75+' pts ('+usd(f75)+'). A target below ~'+f50+' pts exits early." style="cursor:help;margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · MAE / MFE '+(scope?'<span style="font-weight:400;color:var(--text5);font-size:8px">· '+scope+' </span>':'')+'<span style="font-weight:400;font-size:8px"> · <span style="color:#e24b4a">◀ STOP '+s50+'p (90% ≤ '+s90+'p)</span> · <span style="color:#1d9e75">TARGET '+f50+'p (75% ≤ '+f75+'p) ▶</span> <span style="color:var(--text4)">ⓘ</span></span></div>':'<div class="lbl" style="margin:8px 0 6px">MAE / MFE · STOP &amp; TARGET GUIDANCE</div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:11px 12px;'+(tag?'':'margin-bottom:14px')+'">'
-        +svg+xrow+'</div>';
+        +svg+xrow+((maeN||mfeN)?'<div style="font-size:7.5px;color:var(--text5);text-align:center;margin-top:1px">'+(maeN?maeN+' adverse':'')+((maeN&&mfeN)?' · ':'')+(mfeN?mfeN+' favourable':'')+' outlier'+((maeN+mfeN)===1?'':'s')+' beyond p98 · in edge bars</div>':'')+'</div>';
     };
     // PARAM CORRELATION — Pearson r of each parameter vs net PnL across all configs.
     const corrPanelHtml=(points,tag,rel)=>{
