@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='53.9';
+const VERSION='54.0';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'54.0', date:'2026-07-12', notes:['Regime report card (1F): each bar now labels its buckets with their SHARE of the strategy net $ (a percentage) instead of the raw dollar figure — the raw net $ is still on hover.','Report header: it now STAYS visible at the very top and only grows a background once you scroll down, so it reads cleanly over the report sliding beneath it (before it hid itself at the top).','Engine: runs now record a time-of-day (ET session) regime breakdown, so the 1F time-of-day bar fills with real data on your next validate / sweep — restart the local runner so it picks up the engine update.']},
   {v:'53.9', date:'2026-07-12', notes:['Charts now show a zoom-in cursor when you hover them, as a quiet hint that you can double-click to open the fullscreen view (no on-screen text, per request).']},
   {v:'53.8', date:'2026-07-12', notes:['Regime report card (1F): each bar now shows the net $ on its wider buckets right on the segment (with the bucket name where there is room); removed the small caption line below the bars.']},
   {v:'53.7', date:'2026-07-12', notes:['Regime report card (1F) is now compact — each dimension (volatility, trend, day of week, time of day) is ONE bar whose segments are its buckets: width = share of trades, green / red = net $, hover for net / PF / trades. Far less room than the old stacked lists. Time of day shows n/a until a re-run records it (it will split net $ by ET hour, to gate WHEN time-sensitive setups like ORB may trade).','1G trade distribution: the in-sample / walk-forward / lockbox scope toggle now sits on the 1G title next to the BINS control. Slices that were not saved are greyed as n/a in the toggle (a re-run records them) instead of a separate re-run note.']},
@@ -7182,7 +7183,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   stays a placeholder until the engine records rg.tod (may gate time-sensitive setups, e.g. ORB).
         // compact $ label (e.g. +$12k / -$450) for the inline segment stats.
         const _kU=v=>{const s=v<0?'-':'';const a=Math.abs(Math.round(v));return s+'$'+(a>=1000?(a>=10000?Math.round(a/1000):(a/1000).toFixed(1))+'k':a);};
-        const _cbar=(arr,naMsg)=>{const a=(arr||[]).filter(b=>b);if(!a.length)return '<div style="flex:1;min-height:18px;border-radius:3px;background:color-mix(in srgb,var(--border) 16%,transparent);display:flex;align-items:center;padding:2px 8px"><span style="font-size:7px;color:var(--text5);line-height:1.35">'+(naMsg||'n/a')+'</span></div>';const totN=a.reduce((s,b)=>s+(b.n||0),0)||1,mxAbs=Math.max.apply(null,a.map(b=>Math.abs((b.pnl||0)*mlt)))||1;return '<div style="flex:1;display:flex;height:18px;border-radius:3px;overflow:hidden;background:color-mix(in srgb,var(--border) 16%,transparent)">'+a.map(b=>{const dol=(b.pnl||0)*mlt,pos=dol>=0,w=Math.max(1.5,(b.n||0)/totN*100),intp=Math.round(62+30*Math.abs(dol)/mxAbs),lab=w>=24?(String(b.bucket).slice(0,10)+' '+_kU(dol)):(w>=11?_kU(dol):'');return '<div title="'+b.bucket+' · '+b.n+' trades · net '+fmtUsd(Math.round(dol))+' · PF '+(b.pf||0).toFixed(2)+'" style="flex:0 0 '+w.toFixed(1)+'%;background:color-mix(in srgb,'+(pos?'#1d9e75':'#e24b4a')+' '+intp+'%,transparent);cursor:help;box-shadow:inset -1px 0 0 var(--bg2);display:flex;align-items:center;justify-content:center;overflow:hidden"><span style="font-size:7px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.55)">'+lab+'</span></div>';}).join('')+'</div>';};
+        const _cbar=(arr,naMsg)=>{const a=(arr||[]).filter(b=>b);if(!a.length)return '<div style="flex:1;min-height:18px;border-radius:3px;background:color-mix(in srgb,var(--border) 16%,transparent);display:flex;align-items:center;padding:2px 8px"><span style="font-size:7px;color:var(--text5);line-height:1.35">'+(naMsg||'n/a')+'</span></div>';const totN=a.reduce((s,b)=>s+(b.n||0),0)||1,mxAbs=Math.max.apply(null,a.map(b=>Math.abs((b.pnl||0)*mlt)))||1,totAbs=a.reduce((s,b)=>s+Math.abs((b.pnl||0)*mlt),0)||1;return '<div style="flex:1;display:flex;height:18px;border-radius:3px;overflow:hidden;background:color-mix(in srgb,var(--border) 16%,transparent)">'+a.map(b=>{const dol=(b.pnl||0)*mlt,pos=dol>=0,w=Math.max(1.5,(b.n||0)/totN*100),intp=Math.round(62+30*Math.abs(dol)/mxAbs),pct=Math.round(Math.abs(dol)/totAbs*100),lab=w>=24?(String(b.bucket).slice(0,10)+' '+pct+'%'):(w>=11?pct+'%':'');return '<div title="'+b.bucket+' · '+b.n+' trades · net '+fmtUsd(Math.round(dol))+' ('+pct+'% of net) · PF '+(b.pf||0).toFixed(2)+'" style="flex:0 0 '+w.toFixed(1)+'%;background:color-mix(in srgb,'+(pos?'#1d9e75':'#e24b4a')+' '+intp+'%,transparent);cursor:help;box-shadow:inset -1px 0 0 var(--bg2);display:flex;align-items:center;justify-content:center;overflow:hidden"><span style="font-size:7px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.55)">'+lab+'</span></div>';}).join('')+'</div>';};
         const _crow=(lbl,arr,naMsg)=>'<div style="display:flex;align-items:center;gap:9px;margin-bottom:5px"><span style="flex:0 0 74px;font-size:9px;color:var(--text5);text-align:right">'+lbl+'</span>'+_cbar(arr,naMsg)+'</div>';
         regHtml=(d.validate?'':'<div class="lbl" style="margin:8px 0 6px">REGIME REPORT CARD · weakest vol bucket: '+(rg.worst_vol||'—')+'</div>')
           +'<div style="margin-bottom:6px">'
@@ -8873,15 +8874,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // the title row (RUN REPORT · run# · strategy) scrolls away normally. Opaque --bg2
       // (= tile colour) so content slides cleanly under the one pinned row.
       const _tbEl=document.querySelector('.topbar'),_rpEl=el('res-head');
-      // res-head = the pinned REPORT row. Owner: it should only APPEAR once you scroll DOWN —
-      //   collapsed (no bar, no gap) at the very top, then revealed + pinned once the report has
-      //   scrolled up under the topbar. A window scroll listener toggles it (removed/re-added on
-      //   re-render so listeners don't stack).
-      if(_rpEl){const tbH=_tbEl?_tbEl.offsetHeight:64;_rpEl.style.position='sticky';_rpEl.style.top=(tbH-1)+'px';_rpEl.style.zIndex='6';_rpEl.style.transition='opacity .12s';
+      // res-head = the pinned REPORT row. Owner: it STAYS visible (including at the very top). Only
+      //   its BACKGROUND becomes evident once you scroll DOWN and it pins under the topbar —
+      //   transparent / blended at the top, opaque + soft shadow when pinned so content reads cleanly
+      //   sliding beneath it. A window scroll listener toggles the bg (removed/re-added on re-render).
+      if(_rpEl){const tbH=_tbEl?_tbEl.offsetHeight:64;_rpEl.style.position='sticky';_rpEl.style.top=(tbH-1)+'px';_rpEl.style.zIndex='6';_rpEl.style.transition='background .15s,box-shadow .15s';
         const _det=el('res-detail');
-        const _reveal=on=>{_rpEl.style.opacity=on?'1':'0';_rpEl.style.pointerEvents=on?'auto':'none';_rpEl.style.maxHeight=on?'none':'0';_rpEl.style.overflow=on?'visible':'hidden';_rpEl.style.paddingTop=on?'3px':'0';_rpEl.style.paddingBottom=on?'3px':'0';_rpEl.style.marginBottom=on?'10px':'0';};
+        const _reveal=on=>{_rpEl.style.background=on?'var(--bg2)':'transparent';_rpEl.style.boxShadow=on?'0 6px 14px -8px rgba(0,0,0,.55)':'none';};
         if(window._resHeadScroll)window.removeEventListener('scroll',window._resHeadScroll);
-        window._resHeadScroll=()=>{const dt=_det?_det.getBoundingClientRect().top:(tbH+99);_reveal(dt<tbH-4);};
+        window._resHeadScroll=()=>{const dt=_det?_det.getBoundingClientRect().top:(tbH+99);_reveal(dt<tbH-2);};
         window.addEventListener('scroll',window._resHeadScroll,{passive:true});window._resHeadScroll();}
       // Interactive chart tooltips: any [data-tip] element (incl. SVG shapes) shows a floating
       //   styled tooltip that follows the cursor. data-tip holds HTML. Reusable across all charts.

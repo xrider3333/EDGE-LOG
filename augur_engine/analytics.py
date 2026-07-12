@@ -240,7 +240,7 @@ def regime_report(trades, index, highs, lows, closes, cost_pts=0.0):
     q1, q2 = day["atr20"].quantile([1 / 3, 2 / 3])
     erm = float(day["er20"].median())
 
-    vol_g, trend_g, dow_g = {}, {}, {}
+    vol_g, trend_g, dow_g, tod_g = {}, {}, {}, {}
     monthly = {}   # (year, month) -> sum pnl
     n_used = 0
     for t in trades:   # trades may be 3- or 5-tuples (entry_i, exit_i, pnl[, side, entry_px])
@@ -261,6 +261,12 @@ def regime_report(trades, index, highs, lows, closes, cost_pts=0.0):
         vol_g.setdefault(vb, []).append(usd)
         trend_g.setdefault(tb, []).append(usd)
         dow_g.setdefault(db, []).append(usd)
+        # Time-of-day (1F): ET session bucket by entry hour (the index is treated as ET, same as by_hour).
+        #   Lets the report show WHEN the edge lives — gating time-sensitive setups (e.g. ORB at the open).
+        _hb = ts.hour + ts.minute / 60.0
+        _tob = ("Open" if 9.5 <= _hb < 10.5 else "Late AM" if 10.5 <= _hb < 12.0
+                else "Midday" if 12.0 <= _hb < 14.0 else "Close" if 14.0 <= _hb < 16.0 else "ETH")
+        tod_g.setdefault(_tob, []).append(usd)
         monthly[(ts.year, ts.month)] = monthly.get((ts.year, ts.month), 0.0) + usd
         n_used += 1
     if n_used == 0:
@@ -274,6 +280,7 @@ def regime_report(trades, index, highs, lows, closes, cost_pts=0.0):
     return {"vol": vol_t,
             "trend": _bucket(trend_g, ["Trend", "Chop"]),
             "dow": _bucket(dow_g, ["Mon", "Tue", "Wed", "Thu", "Fri"]),
+            "tod": _bucket(tod_g, ["Open", "Late AM", "Midday", "Close", "ETH"]),
             "monthly": {"years": years, "rows": mrows},
             "n_trades": int(n_used), "worst_vol": worst}
 
