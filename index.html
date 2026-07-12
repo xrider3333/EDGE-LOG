@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='53.4';
+const VERSION='53.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'53.5', date:'2026-07-12', notes:['Run report header (the REPORT: row) now only appears once you scroll DOWN into the report — at the very top it stays out of the way (no bar, no gap), then slides in pinned as you scroll so the section tiles stay handy.','Config space: removed the empty gap between the 2B parallel-coordinates chart and the 2C PDP charts below — 2C now tucks right under the 2B axis labels.']},
   {v:'53.4', date:'2026-07-12', notes:['The on-chart expand button is gone from every chart — double-click any chart to open the fullscreen view (the dark backdrop still closes it).','Fix: the Overview account-equity and P&L-distribution charts briefly rendered blank after the button change (a dropped tag on the chart container); both render correctly again.']},
   {v:'53.3', date:'2026-07-12', notes:['Library: click a strategy to expand its runs right under the row (id, scope, date, net, PF — newest first); click any run to jump straight to its report.','Library descriptions rewritten to say how each file differs from its parent — the ORB variants (3.0, 3.0-2L, 3.0-2L·125, 3.0-BE, 3.0-TR, 3.0-TS) now read distinctly instead of sharing one family blurb; hover a description for the full detail.']},
   {v:'53.2', date:'2026-07-12', notes:['The 3-D tiles (2H / 2I param surfaces and 2J scatter) are now rotatable IN PLACE: click and hold on the tile and drag to spin it (yaw + tilt), scroll to exaggerate the height. No need to open fullscreen just to look behind a ridge. Double-click still opens the fullscreen view.']},
@@ -6660,7 +6661,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // $ scale labels sit RIGHT NEXT to the NET $ axis (not out in the far-right gutter)
           const _pnlX=ax(axes.length-1)+5;
           const _sTxt=(y,s2)=>'<text x="'+_pnlX.toFixed(1)+'" y="'+y+'" text-anchor="start" font-size="4.6" fill="var(--text3)">'+s2+'</text>';
-          return '<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'"><svg class="pcoords-svg" viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+lines+axled+dots+brush
+          return '<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'"><svg class="pcoords-svg" viewBox="0 0 '+W+' '+(footerHtml?(H-11):H)+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+lines+axled+dots+brush
           +_sTxt((padT+2.5).toFixed(1),fmtUsd(Math.round(_pm[1])))+_sTxt(_mY,fmtUsd(Math.round((_pm[0]+_pm[1])/2)))+_sTxt((H-padB+2.5).toFixed(1),fmtUsd(Math.round(_pm[0])))+'</svg>'+(footerHtml||'')+'</div>';})();
     };
     // WALK-FORWARD IS vs OOS — grouped bars per fold: in-sample champion PnL vs out-of-sample.
@@ -8852,10 +8853,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // the title row (RUN REPORT · run# · strategy) scrolls away normally. Opaque --bg2
       // (= tile colour) so content slides cleanly under the one pinned row.
       const _tbEl=document.querySelector('.topbar'),_rpEl=el('res-head');
-      // markup already declares the full sticky (position/top/z/background/blur); here we only
-      // refine `top` to the ACTUAL topbar height. Do NOT set a solid background — it must stay
-      // transparent+backdrop-blur so it blends with the (glass) tile.
-      if(_rpEl){const tbH=_tbEl?_tbEl.offsetHeight:64;_rpEl.style.position='sticky';_rpEl.style.top=(tbH-1)+'px';_rpEl.style.zIndex='6';}
+      // res-head = the pinned REPORT row. Owner: it should only APPEAR once you scroll DOWN —
+      //   collapsed (no bar, no gap) at the very top, then revealed + pinned once the report has
+      //   scrolled up under the topbar. A window scroll listener toggles it (removed/re-added on
+      //   re-render so listeners don't stack).
+      if(_rpEl){const tbH=_tbEl?_tbEl.offsetHeight:64;_rpEl.style.position='sticky';_rpEl.style.top=(tbH-1)+'px';_rpEl.style.zIndex='6';_rpEl.style.transition='opacity .12s';
+        const _det=el('res-detail');
+        const _reveal=on=>{_rpEl.style.opacity=on?'1':'0';_rpEl.style.pointerEvents=on?'auto':'none';_rpEl.style.maxHeight=on?'none':'0';_rpEl.style.overflow=on?'visible':'hidden';_rpEl.style.paddingTop=on?'3px':'0';_rpEl.style.paddingBottom=on?'3px':'0';_rpEl.style.marginBottom=on?'10px':'0';};
+        if(window._resHeadScroll)window.removeEventListener('scroll',window._resHeadScroll);
+        window._resHeadScroll=()=>{const dt=_det?_det.getBoundingClientRect().top:(tbH+99);_reveal(dt<tbH-4);};
+        window.addEventListener('scroll',window._resHeadScroll,{passive:true});window._resHeadScroll();}
       // Interactive chart tooltips: any [data-tip] element (incl. SVG shapes) shows a floating
       //   styled tooltip that follows the cursor. data-tip holds HTML. Reusable across all charts.
       (function(){const _det=el('res-detail');if(!_det)return;let tip=document.getElementById('chart-tip');
