@@ -7,8 +7,11 @@ answer must visually stand out from it. Structure EVERY reply top-to-bottom as:
    **`✅ Pushed v52.1`** — if a deploy happened. If nothing was pushed, say so plainly
    (e.g. **`No deploy — <reason>`**). This is the line the owner looks for first.
 2. **A one/two-line summary** of what changed.
-3. **A numbered or bulleted list** of the changes / relevant info — numbers IN ORDER, and
-   matching the owner's own numbering when they numbered their request.
+3. **A numbered list** of the changes — each item is the NUMBER + the thing changed as its
+   OWN one-line headline (bold, terse). Put any expanded detail on the line(s) UNDERNEATH
+   that headline — never jam the explanation onto the headline row. So the owner can skim the
+   headlines and only drop down for detail when they want it. Numbers IN ORDER, and matching
+   the owner's own numbering when they numbered their request.
 4. Anything else (caveats, how-to-verify, follow-ups) UNDER that.
 Don't bury the version or the summary below paragraphs of reasoning. Terse, ordered,
 front-loaded. (Pairs with the verify-don't-assume rule below.)
