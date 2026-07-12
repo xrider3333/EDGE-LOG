@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='54.3';
+const VERSION='54.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'54.4', date:'2026-07-12', notes:['Expanded champion equity (1A): the trade blotter now SAVES once generated. Reopen the run later and the blotter (plus the full-resolution equity line) restores instantly from this browser — no more waiting on the PC runner. Since a finished run always produces the same trades the saved copy never goes stale; Shift+click TRADES if you ever want to regenerate it fresh.']},
   {v:'54.3', date:'2026-07-12', notes:['Trades table ACCT balance and ACCT % now follow the ACCOUNT pill: pick NinjaTrader or Webull and the running balance shows just that account equity curve (matching that broker own balance history); ALL shows the combined cumulative. The distribution POINTS metric now computes for stocks and ETFs too (it was blank).']},
   {v:'54.2', date:'2026-07-12', notes:['Expanded champion equity (1A): trade dots now sit exactly ON the equity line at every zoom level — they were drawn at the trade ENTRY time while the line steps at the EXIT time, so zoomed in they drifted apart. Each dot also has a bigger click target now: click one to jump to and highlight its row in the blotter below.']},
   {v:'54.1', date:'2026-07-12', notes:['Trades tab: the PTS column now computes for stocks and ETFs too (it was blank, only futures showed a value); the per-unit sub-line reads /sh for stocks, /c for futures.']},
@@ -2638,6 +2639,12 @@ window.expandConfigSpace=function(box){
 //    yellow dashed = Monte-Carlo P95). ▦ TRADES loads the run's saved blotter off the PC
 //    runner (get_blotter command) into a table under the chart — click a row to fly to that
 //    trade on the curve; click a trade marker to highlight its row.
+// ── blotter cache (IndexedDB, keyed by run id): once a blotter is generated on the PC runner it
+//    is SAVED in this browser, so reopening the run restores it instantly — no runner round-trip,
+//    no Firestore reads. The TRADES button then acts as a refresh (regenerate fresh on the PC). ──
+const _blotDB=()=>new Promise((res,rej)=>{const q=indexedDB.open('edgelog-blot',1);q.onupgradeneeded=()=>{q.result.createObjectStore('blot');};q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});
+const _blotGet=id=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.transaction('blot').objectStore('blot').get(String(id));t.onsuccess=()=>res(t.result||null);t.onerror=()=>rej(t.error);}));
+const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.transaction('blot','readwrite').objectStore('blot').put(val,String(id));t.onsuccess=()=>res();t.onerror=()=>rej(t.error);}));
 window.expandEquity=function(host){
   let D=null,B=null;
   try{D=JSON.parse(decodeURIComponent(host.getAttribute('data-eqx')||''));}catch(_){}
@@ -2888,28 +2895,45 @@ window.expandEquity=function(host){
       blotFrac=Math.max(0.15,Math.min(0.7,f0-(p-p0)/(tot||1)));wrap.style.flex='0 0 '+(blotFrac*100).toFixed(1)+'%';render();};
     const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);_sav('eqxFrac',blotFrac);};
     window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});
-  if(blotBtn)blotBtn.onclick=async()=>{
-    if(blotRows){wrap.style.display=(wrap.style.display==='none')?'block':'none';layoutMain();render();return;}
+  // shared apply path — used by a fresh runner fetch AND by the saved-copy restore. `cached`
+  //   marks the source in the meta line (a run's blotter is deterministic, so the saved copy
+  //   never goes stale; Shift+click the TRADES button to force a fresh regenerate anyway).
+  const _applyBlot=(r,cached)=>{
+    const rows=(r.rows||[]).map(x=>({_no:+x.trade_no,_t:_ms(x.entry_time),_tx:_ms(x.exit_time),_usd:+x.pnl_usd,_cum:+x.cum_usd,_pts:+x.pnl_pts,_hold:+x.hold_bars,_ep:+x.entry_px,_xp:+x.exit_px,_et:String(x.entry_time),_xt2:String(x.exit_time)}));
+    if(!rows.length)throw new Error('blotter came back empty');
+    blotRows=rows;
+    // ── swap in the FULL-RESOLUTION line: per-trade cum-$ at real trade times replaces the
+    //    run's downsampled curve, so zoomed-in the line connects dot-to-dot (TradingView feel). ──
+    if(timeOk&&rows.length>3){
+      const bp=rows.map(x2=>({t:(x2._tx||x2._t),v:x2._cum})).filter(p=>isFinite(p.t)&&isFinite(p.v)).sort((a2,b2)=>a2.t-b2.t).map((p,i2)=>({t:p.t,v:p.v,i:i2}));
+      if(bp.length>3){P=bp;DD=_ddOf(P);DDMIN=Math.min.apply(null,DD)||-1;
+        LI=lbS?P.findIndex(p=>p.t>=lbS):-1;if(LI<0)LI=P.length;}
+    }
+    blFee=(B&&B.cost_pts!=null&&B.mult)?(+B.cost_pts*+B.mult):null;
+    blMeta='TRADE BLOTTER · '+rows.length+' trades'+(r.capped?' (most recent — '+r.capped+' older stay in the CSV)':'')
+      +(cached?' · saved on this browser'+(r.ts?' '+new Date(r.ts).toLocaleDateString():'')+' — Shift+click TRADES to regenerate':(r.regenerated?' · regenerated on your PC':(r.source?' · '+r.source:'')))
+      +' · click a header to sort / filter · click a row to fly to it';
+    wrap.style.display='block';
+    blotBtn.textContent='▦ TRADES ('+rows.length+')';blotBtn.disabled=false;
+    blotBtn.title=cached?'restored from the saved copy on this browser · click = show/hide · Shift+click = regenerate fresh on your PC':'click = show/hide';
+    layoutMain();renderBlot();render();
+  };
+  const _fetchBlot=async()=>{
     blotBtn.textContent='⏳ LOADING…';blotBtn.disabled=true;
     try{
       const r=await _runCmd('get_blotter',B);
-      const rows=(r.rows||[]).map(x=>({_no:+x.trade_no,_t:_ms(x.entry_time),_tx:_ms(x.exit_time),_usd:+x.pnl_usd,_cum:+x.cum_usd,_pts:+x.pnl_pts,_hold:+x.hold_bars,_ep:+x.entry_px,_xp:+x.exit_px,_et:String(x.entry_time),_xt2:String(x.exit_time)}));
-      if(!rows.length)throw new Error('blotter came back empty');
-      blotRows=rows;
-      // ── swap in the FULL-RESOLUTION line: per-trade cum-$ at real trade times replaces the
-      //    run's downsampled curve, so zoomed-in the line connects dot-to-dot (TradingView feel). ──
-      if(timeOk&&rows.length>3){
-        const bp=rows.map(x2=>({t:(x2._tx||x2._t),v:x2._cum})).filter(p=>isFinite(p.t)&&isFinite(p.v)).sort((a2,b2)=>a2.t-b2.t).map((p,i2)=>({t:p.t,v:p.v,i:i2}));
-        if(bp.length>3){P=bp;DD=_ddOf(P);DDMIN=Math.min.apply(null,DD)||-1;
-          LI=lbS?P.findIndex(p=>p.t>=lbS):-1;if(LI<0)LI=P.length;}
-      }
-      blFee=(B&&B.cost_pts!=null&&B.mult)?(+B.cost_pts*+B.mult):null;
-      blMeta='TRADE BLOTTER · '+rows.length+' trades'+(r.capped?' (most recent — '+r.capped+' older stay in the CSV)':'')+(r.regenerated?' · regenerated on your PC':(r.source?' · '+r.source:''))+' · click a header to sort / filter · click a row to fly to it';
-      wrap.style.display='block';
-      blotBtn.textContent='▦ TRADES ('+rows.length+')';blotBtn.disabled=false;
-      layoutMain();renderBlot();render();
+      _applyBlot(r,false);
+      // SAVE for next time — reopening this run restores the blotter with no runner round-trip.
+      if(B&&B.run_id!=null)_blotPut(B.run_id,{rows:r.rows||[],capped:r.capped||null,source:r.source||null,ts:Date.now()}).catch(()=>{});
     }catch(err){blotBtn.textContent='▦ TRADES';blotBtn.disabled=false;alert('Blotter load failed: '+err.message);}
   };
+  if(blotBtn)blotBtn.onclick=async(e)=>{
+    if(e&&e.shiftKey){await _fetchBlot();return;}   // force-regenerate (bypasses the saved copy)
+    if(blotRows){wrap.style.display=(wrap.style.display==='none')?'block':'none';layoutMain();render();return;}
+    await _fetchBlot();
+  };
+  // auto-restore this run's saved blotter (if one was generated before) — instant, no runner needed.
+  if(blotBtn&&B&&B.run_id!=null)_blotGet(B.run_id).then(r=>{if(r&&r.rows&&r.rows.length&&!blotRows){try{_applyBlot(r,true);}catch(_e){}}}).catch(()=>{});
   // ── lifecycle ──
   const onResize=()=>render();
   window.addEventListener('resize',onResize);
