@@ -310,6 +310,34 @@ the target window *worse* (skips recovery, not losers).
   entering at the bar CLOSE (vs the range edge) worsens the fill on every real break (~$100/trade × 3,900 ≈
   the whole drop), dwarfing the false-wick savings. **Contradicts the reconcile "+$30k" claim → see §6 TODO.**
 
+### 4.14 BE sweep, gap-free 0.9→2.5 · in-sample vs lockbox (2026-07-11) — run #156
+
+Full `be_after_R` sweep in **0.1 steps, no gaps**, on the #137-lock (NQ 5m, or1/stop1.75/tgt4.5R/vol1.25/
+atr0.1/Both). Each level is an **independent** backtest of the optimize window AND the held-out last-12mo
+lockbox (own DD/PF), so the risk-adjusted read is honest. Anchor `be=0` reproduces #137 to the dollar
+(opt $481,605 + lockbox $85,692 = **$567,297**).
+
+| be_R | IS net | IS DD | IS MAR | LB net | LB DD | LB MAR | LB PF |
+|---|---|---|---|---|---|---|---|
+| 0.0 (no BE) | $481,605 | $38,730 | 12.4 | $85,692 | $16,779 | 5.1 | 1.51 |
+| 0.9 | $493,076 | $26,146 | 18.9 | $78,491 | $14,354 | 5.5 | 1.55 |
+| **1.0 ★** | $493,105 | **$23,826** | **20.7** | $81,072 | **$11,491** | **7.1** | 1.54 |
+| 1.1 | $493,875 | $25,486 | 19.4 | $79,577 | $12,070 | 6.6 | 1.53 |
+| 1.2 | $503,664 | $25,486 | 19.8 | $86,647 | $12,974 | 6.7 | 1.57 |
+| 1.3 | $500,149 | $25,486 | 19.6 | $86,352 | $13,914 | 6.2 | 1.56 |
+| 1.4–1.5 | ~$495k | $29,308 | ~16.9 | ~$86k | $14,239 | 6.0 | 1.55 |
+| 1.6–2.0 | ~$487k | $35–37k | ~13.5 | ~$85k | $14,239 | ~6.0 | ~1.53 |
+| 2.1–2.6 | ~$482k | $37–39k | ~12.8 | ~$87k | $16,779 | **5.1** | 1.53 |
+
+- **`be=1.0R` is the champion — best MAR in BOTH windows** (IS 20.7, LB 7.1); DD −38% IS ($38.7k→$23.8k),
+  −32% LB ($16.8k→$11.5k) for a trivial PnL give-up. Robust plateau **0.9–1.3R**. Full-window: $574,177,
+  DD −$26,763, PF 1.55, **MAR 21.5** (== run #154).
+- **Why #153's raw pick (2.6R) is hollow:** BE only ever *costs* a sliver of PnL, so a PnL-max objective
+  drifts to a high `be_after_R` that barely triggers ≈ plain #137 — by 2.1–2.6R the lockbox DD/MAR are back
+  to the no-BE baseline ($16.8k / 5.1). It's not doing BE's job (cutting DD); the gate rightly flagged it WEAK.
+  The right objective for a DD lever is **MAR, not PnL** (see §5.1, §5.5).
+- Tooling: `tools/orb_be_sweep.py` (re-runnable). Saved as **run #156** ("BE sweep 0.9-2.5 · 137-locked").
+
 ---
 
 ## 5. What a pro would actually do here (principles)
@@ -342,7 +370,7 @@ the target window *worse* (skips recovery, not losers).
 | # | idea | expected payoff | status | result |
 |---|---|---|---|---|
 | **J** | **Candle-confirmation / close-confirm reconciliation** — `close_confirm` (enter on bar CLOSE beyond the range, skipping false-wick breaks) is ALREADY coded in `ORB_3_0.py`. `tools/reconcile.py` says TV's close-based model skipped 306 false wicks (−$149,562) and netted **+$30k** more than the engine over 15y. BUT tested on **137's config** `close_confirm=True` is **−$392k** ($567k→$175k, PF 1.47→1.14) because entering at the close worsens the fill on every real break. | **HIGH** (reconciles engine↔TV; possible new version) | ☐ TODO | **CONTRADICTION to resolve** — is TV's edge a *level-fill* skip (same entry price, just drop the fakes) vs the engine's *close-price* fill? Re-implement close_confirm as "confirm on close, fill at the range level next bar" and re-test; that may be the real TV-matching win. Config-dependent — wide-stop 137 hates it. |
-| **H** | **Breakeven-after-R** (`be_after_R` param) — move stop→entry once unrealized ≥ X·risk | **HIGH** | ☑ DONE → **run #154 PASS** | **Fine sweep (0.1 steps, 0–4R; §4.13):** NOT monotonic — **0.1–0.5R is a trap** (lockbox PF collapses to 1.27–1.34); **0.9–1.3R = robust plateau** (full DD ~−30%, LB PF 1.55–1.59, MAR 20–21.5 vs 14.1); ≥1.6R fades to baseline. **Run #153** (free search): picked noise 2.6R → **WEAK/PBO-fail** — the IS PnL objective can't see a DD lever; gates caught it. **Run #154** (pinned **1.0R**, 137-lock): **PASS 5/5 applicable gates**, whole-run **DD −$40,233→−$26,763 (−33%)**, net $574k, PF 1.55, MAR 14.1→21.5, MC-P95 DD improved −$39.7k→−$36.9k; same 3,951 trades. File: `ORB_3_0_BE.py`. Caveat: the 1.0R level was picked on a sweep that saw the lockbox (defense: wide flat plateau). **BE-1.0R is the new best single-lot ORB 3.0 deploy candidate.** |
+| **H** | **Breakeven-after-R** (`be_after_R` param) — move stop→entry once unrealized ≥ X·risk | **HIGH** | ☑ DONE → **run #154 PASS** | **Fine sweep (0.1 steps, 0–4R; §4.13):** NOT monotonic — **0.1–0.5R is a trap** (lockbox PF collapses to 1.27–1.34); **0.9–1.3R = robust plateau** (full DD ~−30%, LB PF 1.55–1.59, MAR 20–21.5 vs 14.1); ≥1.6R fades to baseline. **Run #153** (free search): picked noise 2.6R → **WEAK/PBO-fail** — the IS PnL objective can't see a DD lever; gates caught it. **Run #154** (pinned **1.0R**, 137-lock): **PASS 5/5 applicable gates**, whole-run **DD −$40,233→−$26,763 (−33%)**, net $574k, PF 1.55, MAR 14.1→21.5, MC-P95 DD improved −$39.7k→−$36.9k; same 3,951 trades. File: `ORB_3_0_BE.py`. Caveat: the 1.0R level was picked on a sweep that saw the lockbox (defense: wide flat plateau). **BE-1.0R is the new best single-lot ORB 3.0 deploy candidate.** Gap-free 0.9→2.5 sweep with an independent lockbox split (**run #156**, §4.14) re-confirms 1.0R as the MAR champion in BOTH windows (IS 20.7, LB 7.1). |
 | **K** | **Dynamic / alternative breakeven triggers** — the R-multiple trigger (item H) is one of many possible "arm BE now" signals. Candidates: **time-based** (BE after N bars in trade), **ATR-based** (unrealized ≥ X × session ATR), **OR-width multiple** (price has traveled ≥ X × range width — decouples from stop_frac), **structure** (first higher-low / lower-high after entry), **vol-scaled R** (tighter arm on high-vol days). Owner idea 2026-07-10. | MED-HIGH (item H already banked −33% DD; this asks if a smarter trigger beats static 1.0R) | ☐ TODO | Test in the ORB_3_0_BE re-simulator first (fast), lockbox-check anything that wins; beware: 5 trigger families × thresholds = big selection surface, so demand a plateau + OOS hold like H did. |
 | **L** | **Param-vs-RISK charts in the run report** — the 2C/2E/2J/2K charts plot each config's **PnL** only, so a drawdown lever like `be_after_R` looks FLAT and its real effect (DD −33%) is invisible; #153's PDP "peak" at 2.6R was a ±2% PnL ripple. Fix: carry `dd`/`mar` per config in the saved `points` rows (engine `history.py`/`optimize.py`) + a metric toggle (PnL / MAX DD / MAR) on the 2C·2E·2J·2K charts. | **HIGH** (web+engine feature — makes risk levers visible & rankable in the report) | ☑ DONE (v50.8 web + engine; demo run #155) | **SHIPPED 2026-07-10.** Engine: every grid/auto/validate run stores per-config `dd` (drawdown magnitude) in the saved points. Web: CHART METRIC toggle (NET $ / MAX DD / MAR ×100) above 2B re-plots 2B·2C·2H·2I·2J. Proof = run **#155** (BE sweep, 137-locked): PnL view is flat (±2%) but MAX DD view shows the 0.9–1.3R valley ($26.8k vs $40.2k at be=0). Older runs show a "re-run to record it" note. NB: the v49.5 per-column VALUE-filter menus were a separate feature and were REVERTED (v50.9) after they could hide the whole runs list — do not confuse the two. |
 | E | **Ensemble** — 1 lot full-ride + 1 lot trailed → blended curve between MAR 15 and 33 (your original 2-contract idea, done right) | MED (smoothing, not new edge) | ☐ TODO | — |
