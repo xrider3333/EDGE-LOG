@@ -8,11 +8,17 @@ answer must visually stand out from it. Structure EVERY reply top-to-bottom as:
    (e.g. **`No deploy — <reason>`**). This is the line the owner looks for first.
 2. **A one/two-line summary** of what changed.
 3. **A numbered list** of the changes — each item is the NUMBER + the thing changed as its
-   OWN one-line headline (bold, terse). Put any expanded detail on the line(s) UNDERNEATH
-   that headline — never jam the explanation onto the headline row. So the owner can skim the
+   OWN one-line headline (bold, terse), and the number is DELINEATED with an emoji (e.g.
+   `1️⃣`, or a topical emoji per item). Put any expanded detail on the line(s) UNDERNEATH that
+   headline — never jam the explanation onto the headline row. So the owner can skim the
    headlines and only drop down for detail when they want it. Numbers IN ORDER, and matching
    the owner's own numbering when they numbered their request.
 4. Anything else (caveats, how-to-verify, follow-ups) UNDER that.
+
+**Chat status table (when asked, or at natural checkpoints):** give a NUMERICAL table of
+what has been done vs still open IN THIS CHAT, with an emoji per row to delineate status
+(✅ done, ⬜ / 🔲 open, 🚧 in progress). Model it on the owner's ORB-backlog table: `#`,
+`Item`, `Status`. This is separate from the per-reply numbered list of what you just did.
 Don't bury the version or the summary below paragraphs of reasoning. Terse, ordered,
 front-loaded. (Pairs with the verify-don't-assume rule below.)
 
