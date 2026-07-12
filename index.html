@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='53.1';
+const VERSION='53.2';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'53.2', date:'2026-07-12', notes:['The 3-D tiles (2H / 2I param surfaces and 2J scatter) are now rotatable IN PLACE: click and hold on the tile and drag to spin it (yaw + tilt), scroll to exaggerate the height. No need to open fullscreen just to look behind a ridge. Double-click still opens the fullscreen view.']},
   {v:'53.1', date:'2026-07-12', notes:['Double-click any chart to open the fullscreen view (as well as the ⛶ button); clicking the dark backdrop still closes it.','The ⛶ expand button is now see-through until you hover it, so it no longer hides the x-axis it sits over.','1G trade-count axis is now labelled on BOTH the left and right edges, so the scale stays visible in the expanded view whether you are looking at the bulk (left) or scrolled out to the tail (right).']},
   {v:'53.0', date:'2026-07-12', notes:['Run report header: removed the background behind the REPORT: row entirely — it now sits directly on the tile with no bar.','1F regime card: added a Time of day (ET) breakdown. No run records by-hour data yet, so it shows an annotated n/a placeholder for now (it will populate on future runs) — meant to gate WHEN time-sensitive setups like ORB may trade.','2C label: now matches the 2B title exactly (same size / weight / colour) and no longer gets covered by the PDP charts.']},
   {v:'52.9', date:'2026-07-12', notes:['Past Runs toolbar tidied: the LIST / STRATEGY view is now a single ▦ GROUP on/off toggle, sitting on the far right in a matching style with the group-by and keepers controls.','Run report header: the checklist tiles turn GREEN when a step passes (grey when not tested), the REPORT: id + strategy text is smaller, and the dark bar behind the row is gone — it now reads as frosted glass over the report.','Config space 2C: the label is just 2C PDP now, top-left and styled like the other tiles, with the PDP mini-charts sitting tighter under the 2B axis.','Config space: the 2J 3-D scatter now sits in one row of three, next to 2H and 2I.']},
@@ -2908,6 +2909,65 @@ window.expandEquity=function(host){
 //    modal you can TURN: click-drag rotates it (yaw + tilt) so you can see behind ridges,
 //    mouse-wheel exaggerates/flattens the height, double-click resets. Same colour ramp and
 //    hover tips as the inline tile; data rides in the svg's data-s3d payload.
+// ── INLINE drag-to-rotate for the 3-D surfaces/scatter (2H / 2I / 2J): click-and-hold on the
+//    tile itself rotates it in place (yaw + tilt), wheel exaggerates height, dbl-click resets —
+//    same projection as the ⛶ modal (window.expandSurface3D), just drawn into the tile's own svg.
+window._projSurf3D=function(D,W,H,yaw,pitch,zhF){
+  const isPts=!!(D&&Array.isArray(D.P)&&D.P.length>2);
+  const Z=D.Z||[[0]],nx=isPts?2:Z.length,ny=isPts?2:(Z[0]?Z[0].length:2),xv=D.xv||[],yv=D.yv||[];
+  let zmn=1e18,zmx=-1e18;
+  if(isPts){D.P.forEach(p=>{if(p[2]<zmn)zmn=p[2];if(p[2]>zmx)zmx=p[2];});zmn=Math.min(0,zmn);zmx=Math.max(0,zmx);}
+  else{for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){if(Z[i][j]<zmn)zmn=Z[i][j];if(Z[i][j]>zmx)zmx=Z[i][j];}}
+  const zsp=(zmx-zmn)||1,zn=(i,j)=>(Z[i][j]-zmn)/zsp;
+  const rampC=v=>{const m=Math.max(Math.abs(zmn),Math.abs(zmx))||1,t=Math.max(-1,Math.min(1,v/m));const neg=[226,75,74],pos=[31,186,124],mid=[56,63,76],c=t>=0?pos:neg,a=Math.abs(t);return 'rgb('+Math.round(mid[0]+(c[0]-mid[0])*a)+','+Math.round(mid[1]+(c[1]-mid[1])*a)+','+Math.round(mid[2]+(c[2]-mid[2])*a)+')';};
+  const fmt$=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
+  const _hr=v=>Number.isInteger(+v)?v:(+v).toFixed(2);
+  const cs=Math.cos(yaw),sn=Math.sin(yaw),ci=(nx-1)/2,cj=(ny-1)/2;
+  const U=(i,j)=>(i-ci)*cs-(j-cj)*sn,V=(i,j)=>((i-ci)*sn+(j-cj)*cs)*pitch;
+  let umn=1e9,umx=-1e9,vmn=1e9,vmx=-1e9;
+  [[0,0],[nx-1,0],[nx-1,ny-1],[0,ny-1]].forEach(c=>{const u=U(c[0],c[1]),v=V(c[0],c[1]);if(u<umn)umn=u;if(u>umx)umx=u;if(v<vmn)vmn=v;if(v>vmx)vmx=v;});
+  const zh=H*zhF,S=Math.min((W*0.82)/((umx-umn)||1),(H*0.6)/((vmx-vmn)||1));
+  const ox=W/2-((umx+umn)/2)*S,oy=H/2+zh*0.42-((vmx+vmn)/2)*S;
+  const PX=(i,j)=>ox+U(i,j)*S,PY=(i,j,z)=>oy+V(i,j)*S-z*zh;
+  const fl=[[0,0],[nx-1,0],[nx-1,ny-1],[0,ny-1]];
+  let s='<polygon points="'+fl.map(c=>PX(c[0],c[1]).toFixed(1)+','+PY(c[0],c[1],0).toFixed(1)).join(' ')+'" fill="none" stroke="var(--border)" stroke-width="0.7" opacity="0.5"/>';
+  if(isPts){
+    const xr=(D.x1-D.x0)||1,yr=(D.y1-D.y0)||1,zZ=(0-zmn)/zsp,_mA=Math.max(Math.abs(zmn),Math.abs(zmx))||1;
+    s+='<polygon points="'+fl.map(c=>PX(c[0],c[1]).toFixed(1)+','+PY(c[0],c[1],0).toFixed(1)).join(' ')+'" fill="color-mix(in srgb,var(--border) 28%,transparent)" opacity="0.9"/>';
+    s+='<polygon points="'+fl.map(c=>PX(c[0],c[1]).toFixed(1)+','+PY(c[0],c[1],zZ).toFixed(1)).join(' ')+'" fill="none" stroke="var(--text5)" stroke-width="0.7" stroke-dasharray="4,3" opacity="0.6"/>';
+    D.P.map(p=>({i:(p[0]-D.x0)/xr*(nx-1),j:(p[1]-D.y0)/yr*(ny-1),z:(p[2]-zmn)/zsp,pnl:p[2],x:p[0],y:p[1]})).sort((a,b)=>(V(a.i,a.j)-V(b.i,b.j))||(a.pnl-b.pnl)).forEach(o=>{const col=o.pnl>=0?'#1dbf84':'#e8564f',r2=(1.8+2.2*Math.abs(o.pnl)/_mA).toFixed(1);s+='<line x1="'+PX(o.i,o.j).toFixed(1)+'" y1="'+PY(o.i,o.j,zZ).toFixed(1)+'" x2="'+PX(o.i,o.j).toFixed(1)+'" y2="'+PY(o.i,o.j,o.z).toFixed(1)+'" stroke="'+col+'" stroke-width="0.6" opacity="0.2"/><circle cx="'+PX(o.i,o.j).toFixed(1)+'" cy="'+PY(o.i,o.j,o.z).toFixed(1)+'" r="'+r2+'" fill="'+col+'" opacity="0.82" stroke="rgba(0,0,0,.35)" stroke-width="0.4" data-tip="'+(D.xl||'x')+' <b>'+_hr(o.x)+'</b> · '+(D.yl||'y')+' <b>'+_hr(o.y)+'</b><br>net <b>'+fmt$(o.pnl)+'</b>"/>';});
+    if(D.champ){const cu=(D.champ[0]-D.x0)/xr*(nx-1),cv2=(D.champ[1]-D.y0)/yr*(ny-1);s+='<circle cx="'+PX(cu,cv2).toFixed(1)+'" cy="'+PY(cu,cv2,1).toFixed(1)+'" r="2.6" fill="var(--yellow)"/><text x="'+PX(cu,cv2).toFixed(1)+'" y="'+(PY(cu,cv2,1)-6).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="700" fill="var(--yellow)">champion</text>';}
+  }else{
+    fl.forEach(c=>{s+='<line x1="'+PX(c[0],c[1]).toFixed(1)+'" y1="'+PY(c[0],c[1],0).toFixed(1)+'" x2="'+PX(c[0],c[1]).toFixed(1)+'" y2="'+PY(c[0],c[1],zn(c[0],c[1])).toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4" stroke-dasharray="2,2"/>';});
+    const order=[];for(let i=0;i<nx-1;i++)for(let j=0;j<ny-1;j++)order.push([i,j,V(i+0.5,j+0.5)]);order.sort((a,b)=>a[2]-b[2]);
+    order.forEach(q=>{const i=q[0],j=q[1],avg=(Z[i][j]+Z[i+1][j]+Z[i+1][j+1]+Z[i][j+1])/4,tip=(D.xl||'x')+' '+_hr(xv[i])+'–'+_hr(xv[i+1])+'<br>'+(D.yl||'y')+' '+_hr(yv[j])+'–'+_hr(yv[j+1])+'<br>avg net <b>'+fmt$(avg)+'</b>';s+='<polygon points="'+PX(i,j).toFixed(1)+','+PY(i,j,zn(i,j)).toFixed(1)+' '+PX(i+1,j).toFixed(1)+','+PY(i+1,j,zn(i+1,j)).toFixed(1)+' '+PX(i+1,j+1).toFixed(1)+','+PY(i+1,j+1,zn(i+1,j+1)).toFixed(1)+' '+PX(i,j+1).toFixed(1)+','+PY(i,j+1,zn(i,j+1)).toFixed(1)+'" fill="'+rampC(avg)+'" opacity="0.95" stroke="rgba(10,14,20,0.5)" stroke-width="0.5" data-tip="'+tip+'"/>';});
+    let mi=0,mj=0;for(let i=0;i<nx;i++)for(let j=0;j<ny;j++)if(Z[i][j]>Z[mi][mj]){mi=i;mj=j;}
+    s+='<circle cx="'+PX(mi,mj).toFixed(1)+'" cy="'+PY(mi,mj,zn(mi,mj)).toFixed(1)+'" r="2.6" fill="#27c08a"/><text x="'+PX(mi,mj).toFixed(1)+'" y="'+(PY(mi,mj,zn(mi,mj))-6).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="700" fill="#27c08a">peak '+fmt$(zmx)+'</text>';
+  }
+  const _x0=isPts?D.x0:xv[0],_x1=isPts?D.x1:xv[nx-1],_y0=isPts?D.y0:yv[0],_y1=isPts?D.y1:yv[ny-1];
+  s+='<text x="'+PX((nx-1)/2,ny-1).toFixed(1)+'" y="'+(PY((nx-1)/2,ny-1,0)+13).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="700" fill="var(--text3)">'+(D.xl||'x')+' '+_hr(_x0)+' → '+_hr(_x1)+'</text>';
+  s+='<text x="'+PX(nx-1,(ny-1)/2).toFixed(1)+'" y="'+(PY(nx-1,(ny-1)/2,0)+13).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="700" fill="var(--text3)">'+(D.yl||'y')+' '+_hr(_y0)+' → '+_hr(_y1)+'</text>';
+  s+='<text x="8" y="13" font-size="8" fill="var(--text3)">'+fmt$(zmx)+' peak</text><text x="8" y="24" font-size="8" fill="var(--text4)">'+fmt$(zmn)+' trough</text>';
+  return s;
+};
+window._wireSurf3D=function(root){
+  (root||document).querySelectorAll('svg[data-s3d]').forEach(svg=>{
+    if(svg._orbWired)return;svg._orbWired=1;
+    let D=null;try{D=JSON.parse(decodeURIComponent(svg.getAttribute('data-s3d')||''));}catch(_){}
+    if(!D)return;
+    const vb=(svg.getAttribute('viewBox')||'0 0 560 300').split(/\s+/).map(Number),W=vb[2]||560,H=vb[3]||300;
+    const Y0=Math.PI/4,P0=0.5,ZH0=0.34;let yaw=Y0,pitch=P0,zhF=ZH0,drag=null;
+    const draw=()=>{svg.innerHTML=window._projSurf3D(D,W,H,yaw,pitch,zhF);};
+    svg.style.cursor='grab';svg.style.touchAction='none';
+    svg.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,yaw:yaw,pitch:pitch};svg.style.cursor='grabbing';try{svg.setPointerCapture(e.pointerId);}catch(_){}e.preventDefault();});
+    svg.addEventListener('pointermove',e=>{if(!drag)return;yaw=drag.yaw+(e.clientX-drag.x)*0.008;pitch=Math.max(0.18,Math.min(0.95,drag.pitch+(e.clientY-drag.y)*0.003));draw();});
+    const end=e=>{if(!drag)return;drag=null;svg.style.cursor='grab';try{svg.releasePointerCapture(e.pointerId);}catch(_){}};
+    svg.addEventListener('pointerup',end);svg.addEventListener('pointercancel',end);
+    // no dbl-click reset here — double-click is reserved for opening the fullscreen view (global);
+    //   the fullscreen modal has its own ↺ reset. Wheel still exaggerates the height inline.
+    svg.addEventListener('wheel',e=>{e.preventDefault();zhF=Math.max(0.08,Math.min(0.8,zhF*(e.deltaY<0?1.12:0.89)));draw();},{passive:false});
+  });
+};
 window.expandSurface3D=function(host){
   let D=null;try{D=JSON.parse(decodeURIComponent(host.getAttribute('data-s3d')||''));}catch(_){}
   const isPts=!!(D&&Array.isArray(D.P)&&D.P.length>2);   // scatter payload (raw config dots)
@@ -8752,6 +8812,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   to keep only the config-lines passing through it; brushes on multiple axes AND together;
       //   click an axis (no drag) clears it. Pure DOM — no re-render, no state save.
       window._wireParcoords&&window._wireParcoords(content);
+      // inline drag-to-rotate for the 2H / 2I / 2J 3-D tiles (click-hold on the tile spins it)
+      window._wireSurf3D&&window._wireSurf3D(content);
       // checklist pills <-> report sections. Scroll the WINDOW with an offset for the
       // sticky .topbar so the target heading isn't hidden behind it. Pills jump down to
       // a section; clicking a section heading jumps back up to the pills.
