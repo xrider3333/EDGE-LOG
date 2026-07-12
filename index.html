@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='54.4';
+const VERSION='54.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'54.5', date:'2026-07-12', notes:['Expanded champion equity (1A): the line no longer vanishes when you zoom into a stretch between two sparse trades — the path now always spans the whole view (it keeps one neighbour point beyond each edge), same for the drawdown pane.','Expanded 1A: TradingView-style vertical pan — click-and-hold now drags the chart UP and DOWN as well as left-right (a vertical drag shifts the $ window and suspends the auto-fit; double-click or RESET restores it). A pure left-right pan keeps the auto-fit as before.']},
   {v:'54.4', date:'2026-07-12', notes:['Expanded champion equity (1A): the trade blotter now SAVES once generated. Reopen the run later and the blotter (plus the full-resolution equity line) restores instantly from this browser — no more waiting on the PC runner. Since a finished run always produces the same trades the saved copy never goes stale; Shift+click TRADES if you ever want to regenerate it fresh.']},
   {v:'54.3', date:'2026-07-12', notes:['Trades table ACCT balance and ACCT % now follow the ACCOUNT pill: pick NinjaTrader or Webull and the running balance shows just that account equity curve (matching that broker own balance history); ALL shows the combined cumulative. The distribution POINTS metric now computes for stocks and ETFs too (it was blank).']},
   {v:'54.2', date:'2026-07-12', notes:['Expanded champion equity (1A): trade dots now sit exactly ON the equity line at every zoom level — they were drawn at the trade ENTRY time while the line steps at the EXIT time, so zoomed in they drifted apart. Each dot also has a bigger click target now: click one to jump to and highlight its row in the blotter below.']},
@@ -2740,19 +2741,30 @@ window.expandEquity=function(host){
         +'<text x="'+x.toFixed(1)+'" y="'+(g.H-6)+'" text-anchor="'+(k===0?'start':(k===NT?'end':'middle'))+'" font-size="10" fill="var(--text5)">'+fmtD(t)+'</text>';}
     // right axis spine — a visual margin between the plot and the $ labels
     s+='<line x1="'+g.pw+'" y1="0" x2="'+g.pw+'" y2="'+(g.H-XAX)+'" stroke="var(--border)" opacity="0.7"/>';
-    // equity paths: green pre-lockbox, purple lockbox — split at index LI
+    // equity paths: green pre-lockbox, purple lockbox — split at index LI.
+    // _clipN keeps ONE neighbour point beyond each edge of the window, so the line still spans
+    //   the whole view when the window falls between two sparse trades (owner: the line used to
+    //   vanish right of the last in-window trade). A clipPath pins the overdraw to the plot area.
+    const _clipN=(arr)=>{const n2=arr.length;if(n2<2)return [];
+      let lo=arr.findIndex(p=>p.t>=a);if(lo<0)lo=n2;
+      let hi=-1;for(let i2=n2-1;i2>=0;i2--){if(arr[i2].t<=b){hi=i2;break;}}
+      const s2=Math.max(0,lo-1),e2=Math.min(n2-1,hi+1);
+      return (e2>=s2)?arr.slice(s2,e2+1):[];};
     const seg=(arr)=>arr.map((p,i2)=>((i2?'L':'M')+X(g,p.t).toFixed(1)+' '+Y(p.v).toFixed(1))).join(' ');
-    const pre=P.filter(p=>p.i<=LI&&p.t>=a&&p.t<=b),post=P.filter(p=>p.i>=LI&&p.t>=a&&p.t<=b);
+    s+='<clipPath id="eqx-clip"><rect x="0" y="0" width="'+g.pw+'" height="'+(g.H-XAX)+'"/></clipPath>';
+    const pre=_clipN(P.filter(p=>p.i<=LI)),post=_clipN(P.filter(p=>p.i>=LI));
+    s+='<g clip-path="url(#eqx-clip)">';
     if(pre.length>1)s+='<path d="'+seg(pre)+'" fill="none" stroke="var(--green)" stroke-width="1.8"/>';
     if(post.length>1)s+='<path d="'+seg(post)+'" fill="none" stroke="#a78bfa" stroke-width="1.8"/>';
+    s+='</g>';
     // DRAWDOWN pane — visually its OWN pane: tinted background strip + label + divider,
     //   sharing only the x-axis with the equity pane above.
     s+='<rect x="0" y="'+(g.ddT-4)+'" width="'+g.pw+'" height="'+(g.ddB-g.ddT+10).toFixed(1)+'" fill="var(--bg1)" opacity="0.5"/>'
       +'<line x1="0" y1="'+(g.ddT-4)+'" x2="'+g.pw+'" y2="'+(g.ddT-4)+'" stroke="var(--border)" opacity="0.9"/>'
       +'<text x="6" y="'+(g.ddT+7).toFixed(1)+'" font-size="9" font-weight="700" letter-spacing="1" fill="var(--text4)" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">DRAWDOWN</text>';
-    const dvis=P.filter(p=>p.t>=a&&p.t<=b);
+    const dvis=_clipN(P);   // same neighbour-keeping clip as the equity line — no empty dd pane between sparse trades
     if(dvis.length>1){
-      s+='<path d="M '+X(g,dvis[0].t).toFixed(1)+' '+Yd(0).toFixed(1)+' '+dvis.map(p=>'L '+X(g,p.t).toFixed(1)+' '+Yd(DD[p.i]).toFixed(1)).join(' ')+' L '+X(g,dvis[dvis.length-1].t).toFixed(1)+' '+Yd(0).toFixed(1)+' Z" fill="rgba(193,66,106,0.45)" stroke="#d6557a" stroke-width="1"/>';
+      s+='<g clip-path="url(#eqx-clip)"><path d="M '+X(g,dvis[0].t).toFixed(1)+' '+Yd(0).toFixed(1)+' '+dvis.map(p=>'L '+X(g,p.t).toFixed(1)+' '+Yd(DD[p.i]).toFixed(1)).join(' ')+' L '+X(g,dvis[dvis.length-1].t).toFixed(1)+' '+Yd(0).toFixed(1)+' Z" fill="rgba(193,66,106,0.45)" stroke="#d6557a" stroke-width="1"/></g>';
       s+='<line x1="0" y1="'+Yd(DDMIN).toFixed(1)+'" x2="'+g.pw+'" y2="'+Yd(DDMIN).toFixed(1)+'" stroke="#d6557a" stroke-width="1.2" stroke-dasharray="5,3"/>'
         +'<text x="'+(g.pw+6)+'" y="'+(Yd(DDMIN)+3.5).toFixed(1)+'" font-size="10" fill="#d6557a">'+fmt$(DDMIN)+'</text>';
       if(mcDD!=null){s+='<line x1="0" y1="'+Yd(mcDD).toFixed(1)+'" x2="'+g.pw+'" y2="'+Yd(mcDD).toFixed(1)+'" stroke="#f5c842" stroke-width="1.2" stroke-dasharray="5,3"/>'
@@ -2788,14 +2800,21 @@ window.expandEquity=function(host){
     // TradingView-style $-axis drag: press on the right gutter and drag vertically to
     //   compress/stretch the equity scale (auto-fit suspends until reset / double-click).
     if(_gutterAt(e)){const st=svgEl._g;yDrag={y:e.clientY,mn:st.mn,mx:st.mx};return;}
-    drag={x:e.clientX,va:va,vb:vb,moved:false};});
+    drag={x:e.clientX,y:e.clientY,va:va,vb:vb,moved:false,st:svgEl._g,ypan:false};});
   window.addEventListener('mousemove',e=>{
     if(yDrag){const k=Math.max(0.15,1+(e.clientY-yDrag.y)*0.004);   // drag DOWN = compress (wider range)
       const c=(yDrag.mn+yDrag.mx)/2,half=(yDrag.mx-yDrag.mn)/2*k;
       yMan=[c-half,c+half];render();return;}
     if(!drag)return;const r=chartEl.getBoundingClientRect(),gx=svgEl._g?svgEl._g.g:geo();
     const dx=(e.clientX-drag.x)/((gx.pw/gx.W)*r.width)*(drag.vb-drag.va);
-    if(Math.abs(e.clientX-drag.x)>3)drag.moved=true;
+    if(Math.abs(e.clientX-drag.x)>3||Math.abs(e.clientY-drag.y)>3)drag.moved=true;
+    // TradingView-style 2-D pan (owner): a vertical drag shifts the $ window with the cursor.
+    //   Engages only once the drag is meaningfully vertical (>6px), so a pure left-right pan
+    //   keeps the y auto-fit; once engaged, y auto-fit suspends until double-click / RESET.
+    if(!drag.ypan&&Math.abs(e.clientY-drag.y)>6)drag.ypan=true;
+    if(drag.ypan&&drag.st&&r.height>0){const sy=r.height/drag.st.g.H,dyVB=(e.clientY-drag.y)/(sy||1);
+      const k2=(drag.st.mx-drag.st.mn)/(((drag.st.g.eqB-drag.st.g.eqT))||1);
+      yMan=[drag.st.mn+dyVB*k2,drag.st.mx+dyVB*k2];}
     va=drag.va-dx;vb=drag.vb-dx;clampView();render();});
   window.addEventListener('mouseup',()=>{setTimeout(()=>{drag=null;yDrag=null;},0);});
   chartEl.addEventListener('dblclick',()=>{va=0;vb=1;yMan=null;render();});
