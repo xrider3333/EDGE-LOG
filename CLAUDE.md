@@ -7,12 +7,14 @@ answer must visually stand out from it. Structure EVERY reply top-to-bottom as:
    **`✅ Pushed v52.1`** — if a deploy happened. If nothing was pushed, say so plainly
    (e.g. **`No deploy — <reason>`**). This is the line the owner looks for first.
 2. **A one/two-line summary** of what changed.
-3. **A numbered list** of the changes — each item is the NUMBER + the thing changed as its
-   OWN one-line headline (bold, terse), and the number is DELINEATED with an emoji (e.g.
-   `1️⃣`, or a topical emoji per item). Put any expanded detail on the line(s) UNDERNEATH that
-   headline — never jam the explanation onto the headline row. So the owner can skim the
-   headlines and only drop down for detail when they want it. Numbers IN ORDER, and matching
-   the owner's own numbering when they numbered their request.
+3. **A numbered list** of the changes — each item is an EMOJI-prefixed number + the thing changed
+   as its OWN one-line headline (bold, terse). **REQUIRED, not optional (the owner asked twice):**
+   ALWAYS lead every numbered item with an emoji — either the keycap number (1️⃣ 2️⃣ 3️⃣ …) or a
+   topical emoji that fits the change (✅ shipped · 🔧 fix · 🎨 UI · 📝 docs · 🔬 research · ⚠️ caveat).
+   A bare `1.` / `2.` is wrong. Put any expanded detail on the line(s) UNDERNEATH that headline —
+   never jam the explanation onto the headline row, so the owner can skim the headlines and only
+   drop down for detail when they want it. Numbers IN ORDER, and matching the owner's own numbering
+   when they numbered their request.
 4. Anything else (caveats, how-to-verify, follow-ups) UNDER that.
 
 **Chat status table (when asked, or at natural checkpoints):** give a NUMERICAL table of
