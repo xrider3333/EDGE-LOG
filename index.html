@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='51.6';
+const VERSION='51.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'51.7', date:'2026-07-11', notes:['Past Runs: new "by strategy" view (▦ toggle, next to side / stacked). Each strategy folds into ONE tile led by its CHAMPION run plus a rollup (PASS / WEAK / FAIL, net, PF, max DD, WF, score). Click a tile to expand its runs (top 4, then show all); click a run to open it.','The grouped view also groups by MARKET or MODE, and a "keepers only" lens filters to deploy-ready runs (validated PASS with the lockbox or walk-forward held).']},
   {v:'51.6', date:'2026-07-11', notes:['§2 config space: the 2C PDP mini-charts now render INSIDE the 2B card, directly under the 2B x-axis labels (one sub-chart). The stray 2C in the 2B header is gone; each peak label sits BELOW its mini-chart; the 2C · per-knob PDP title sits below the row.']},
   {v:'51.5', date:'2026-07-11', notes:['§2 config space: the 2C PDP mini-charts nest directly under 2B again (one subtile, tucked under the axis labels) — the separate 2C header that split them apart is gone.','2B parallel-coordinates: while you drag a brush over a range on an axis, the exact sampled values inside your selection are now labelled right on that axis (e.g. 3, 4, 5), live as you drag — so you SEE the data points you are highlighting.']},
   {v:'51.4', date:'2026-07-11', notes:['§2 config space: the "HIGHLIGHTING" text strip that sat between the 2B parallel-coordinates chart and the 2C PDP row is gone — they now read as one tight subtile, with the 2C · PDP header restored above its row and each peak label centred over its own mini-chart.','2B parallel-coordinates now draws the actual config DATA POINTS as dots on every axis: brush an axis and the in-range points light up while the rest dim, so you SEE which configs you are selecting (not just a highlight band). Works in the ⛶ expanded config-space view too.']},
@@ -3710,7 +3711,7 @@ function renderApp(){
   const _ap=(()=>{try{return JSON.parse(localStorage.getItem('augurPrefs')||'{}');}catch(e){return {};}})();
   const _spv=(id,gl,on,t)=>`<button class="btn-ghost" id="${id}" title="${t}" style="padding:3px 8px;font-size:12px;border-radius:6px;${on?'background:var(--bg2);color:var(--text)':'color:var(--text4)'}">${gl}</button>`;
   let _splitTog='';
-  if(activeTab==='augur'&&augurSub==='runs'){const rv=_ap.resView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('res-side','◧',rv==='side','Side-by-side split')}${_spv('res-stack','▤',rv==='stack','Stacked layout')}</span>`;}
+  if(activeTab==='augur'&&augurSub==='runs'){const rv=_ap.resView==='group'?'group':(_ap.resView==='stack'?'stack':'side');_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('res-group','▦',rv==='group','Group by strategy')}${_spv('res-side','◧',rv==='side','Side-by-side split')}${_spv('res-stack','▤',rv==='stack','Stacked layout')}</span>`;}
   else if(activeTab==='augur'&&augurSub==='lib'){const lv=_ap.libView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('lib-side','◧',lv==='side','Side-by-side split')}${_spv('lib-stack','▤',lv==='stack','Stacked layout')}</span>`;}
   else if(activeTab==='augur'&&augurSub==='research'){const sv=_ap.stackView==='side'?'side':'stack';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('stack-side','◧',sv==='side','Side-by-side split')}${_spv('stack-stack','▤',sv==='stack','Stacked layout')}</span>`;}
   // ── ACCOUNT scope pills (ALL / <broker> …) — trading-log side only, and only once at
@@ -8035,7 +8036,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+(r.date_from?_dnice(r.date_from)+'→'+_dnice(r.date_to):'—')+'</td>'
             +'<td style="text-align:right;font-size:var(--fsxs);color:var(--text4)">'+(r.days_in_test||'—')+'</td>'
             +'</tr>';}).join(''):'<tr><td colspan="21" style="color:var(--text5);font-size:var(--fsxs);padding:18px;text-align:center">no runs match the filter</td></tr>';
-        const rv=APREF.resView==='stack'?'stack':'side';
+        const rv=APREF.resView==='group'?'group':(APREF.resView==='stack'?'stack':'side');
         const rH=Math.min(.6,Math.max(.15,APREF.splitH||0.34));
         // stack-mode list height caps to the VIEWPORT (was a flat 520px that left the lower half of a tall screen empty — owner: "screen can support it, still scrolls").
         const _vhCap=Math.max(520,Math.round((window.innerHeight||900)*0.82));
@@ -8074,10 +8075,58 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<div style="color:var(--text4);font-size:var(--fsxs);margin-bottom:8px">Likely a legacy or partial record. The other runs are unaffected — pick another from the list.</div>'
             +'<div style="color:var(--text5);font-size:var(--fsxs);font-family:monospace;word-break:break-word">'+String((_de&&_de.message)||_de).replace(/</g,'&lt;')+'</div></div>';}
         const detailTile='<div id="res-detail" class="hero-card" style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:13px;padding:14px 16px;overflow:visible">'+_detailInner+'</div>';
+        // ── BY-STRATEGY grouped view (owner): one collapsible tile per strategy (or market / mode),
+        //    led by its CHAMPION run + a status rollup, expanding to its runs (top 4 + show all).
+        //    "Keepers" lens = deploy-ready only (validated PASS with lockbox / walk-forward held).
+        const _gGroupBy=(APREF.resGroupBy==='market'||APREF.resGroupBy==='mode')?APREF.resGroupBy:'strat';
+        const _gKeeps=!!APREF.resKeepers;
+        window._resGroupOpen=window._resGroupOpen||new Set();window._resGroupAll=window._resGroupAll||new Set();
+        const _gcard='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 60%,transparent);border-radius:11px;padding:11px 14px;margin-bottom:8px';
+        const _grpKeyOf=r=>_gGroupBy==='market'?(_instShort(r.instrument)||'—'):(_gGroupBy==='mode'?(_modeName[_modeNum(r)]||('mode '+_modeNum(r))):stratTag(r.strategy));
+        const _isKeeper=r=>{const v=r.validate&&r.validate.verdict;const lb=r.validate&&r.validate.lockbox&&r.validate.lockbox.pass;return v==='PASS'&&(lb||!!_wfHeld(r));};
+        const _gVerChip=r=>{const v=r.validate&&r.validate.verdict;if(!v)return '';const c=v==='PASS'?'var(--green)':(v==='WEAK'?'var(--yellow)':'var(--red)');return '<span style="font-size:9px;font-weight:700;color:'+c+';border:1px solid '+c+';border-radius:10px;padding:0 6px">'+v+'</span>';};
+        const _gAgo=ms=>{if(!ms)return '';const s=(Date.now()-ms)/1000;if(s<3600)return Math.round(s/60)+'m ago';if(s<86400)return Math.round(s/3600)+'h ago';return Math.round(s/86400)+'d ago';};
+        const _gSrc=_gKeeps?sorted.filter(_isKeeper):sorted;
+        const _gMap={};_gSrc.forEach(r=>{const k=_grpKeyOf(r);(_gMap[k]||(_gMap[k]=[])).push(r);});
+        const _groups=Object.keys(_gMap).map(k=>{const rs=_gMap[k].slice().sort((a,b)=>scoreRun(b)-scoreRun(a)||((_T(b).net||0)-(_T(a).net||0)));const champ=rs[0];return {k:k,rs:rs,champ:champ,cT:_T(champ),mkts:[...new Set(rs.map(r=>_instShort(r.instrument)).filter(Boolean))],tfs:[...new Set(rs.map(r=>r.timeframe).filter(Boolean))],last:Math.max.apply(null,rs.map(r=>+new Date(r.timestamp)||0))};});
+        _groups.sort((a,b)=>scoreRun(b.champ)-scoreRun(a.champ)||b.last-a.last);
+        const _gRow=(r,isCh)=>{const T=_T(r),sc=scoreRun(r),on=String(r.id)===String(d.id);
+          return '<div data-run="'+r.id+'" style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:var(--fsxs);'+(isCh?'background:color-mix(in srgb,var(--green) 9%,transparent);':'')+(on?'outline:1px solid var(--blue);':'')+'" title="open this run">'
+            +'<span style="width:12px;text-align:center;color:var(--green)">'+(isCh?'★':'')+'</span>'
+            +'<span style="width:34px;text-align:right;color:var(--text3)">#'+r.id+'</span>'
+            +'<span style="flex:0 0 92px;color:var(--text4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b style="color:var(--text2)">'+_modeNum(r)+'</b> · '+(_modeName[_modeNum(r)]||'').slice(0,12)+'</span>'
+            +'<span style="width:42px">'+_gVerChip(r)+'</span>'
+            +'<span style="flex:0 0 66px;text-align:right;color:'+((T.net||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(T.net||0)+'</span>'
+            +'<span style="width:44px;text-align:right;color:var(--text4)">'+(T.pf||0).toFixed(2)+'</span>'
+            +'<span style="width:54px;text-align:right;color:var(--red)">'+(T.dd?fmtUsd(-Math.abs(T.dd)):'—')+'</span>'
+            +'<span style="width:30px;text-align:center;color:var(--text4)">'+(_wfHeld(r)||'—')+'</span>'
+            +'<span style="margin-left:auto;width:40px;text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':(sc>=45?'var(--yellow)':'var(--red)'))+'">'+sc+'</span>'
+            +'</div>';};
+        const _grpTilesHtml=_groups.map(g=>{const open=window._resGroupOpen.has(g.k),showAll=window._resGroupAll.has(g.k),ch=g.champ,cT=g.cT,csc=scoreRun(ch);
+          const mktLbl=g.mkts.length<=1?((g.mkts[0]||'')+((g.tfs.length===1&&g.tfs[0])?' '+g.tfs[0]:'')):(g.mkts.length+' markets');
+          const head='<div data-grp="'+encodeURIComponent(g.k)+'" style="display:flex;align-items:center;gap:12px;cursor:pointer;flex-wrap:wrap">'
+            +'<span style="width:12px;font-size:13px;color:var(--text3)">'+(open?'▾':'▸')+'</span>'
+            +'<div style="min-width:150px"><div style="font-size:13px;font-weight:700;color:var(--text2)">'+g.k+'</div><div style="font-size:9px;color:var(--text5)">'+mktLbl+' · '+g.rs.length+' run'+(g.rs.length===1?'':'s')+(g.last?' · '+_gAgo(g.last):'')+'</div></div>'
+            +'<span>'+(_gVerChip(ch)||'<span style="font-size:9px;color:var(--text5)">best #'+ch.id+'</span>')+'</span>'
+            +'<div style="display:flex;gap:14px;margin-left:auto;font-size:var(--fsxs)">'
+              +'<span><span style="color:var(--text5)">net </span><b style="color:'+((cT.net||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(cT.net||0)+'</b></span>'
+              +'<span><span style="color:var(--text5)">pf </span>'+(cT.pf||0).toFixed(2)+'</span>'
+              +'<span><span style="color:var(--text5)">dd </span><span style="color:var(--red)">'+(cT.dd?fmtUsd(-Math.abs(cT.dd)):'—')+'</span></span>'
+              +'<span><span style="color:var(--text5)">wf </span>'+(_wfHeld(ch)||'—')+'</span>'
+              +'<span><span style="color:var(--text5)">score </span><b style="color:'+(csc>=70?'var(--green)':(csc>=45?'var(--yellow)':'var(--red)'))+'">'+csc+'</b></span>'
+            +'</div></div>';
+          let rows='';
+          if(open){const shown=showAll?g.rs:g.rs.slice(0,4);
+            rows='<div style="margin-top:8px;display:flex;flex-direction:column;gap:2px">'+shown.map((r,i)=>_gRow(r,i===0)).join('')+((g.rs.length>4&&!showAll)?'<div data-grpall="'+encodeURIComponent(g.k)+'" style="cursor:pointer;font-size:9px;color:var(--blue);padding:4px 8px">show all '+g.rs.length+' runs ▾</div>':'')+'</div>';}
+          return '<div style="'+_gcard+'">'+head+rows+'</div>';}).join('');
+        const _grpCtl='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · by '+(_gGroupBy==='market'?'market':(_gGroupBy==='mode'?'mode':'strategy'))+' · '+_groups.length+' group'+(_groups.length===1?'':'s')+'</span><span style="margin-left:auto;display:flex;gap:8px;align-items:center"><span style="font-size:9px;color:var(--text5)">group by</span><select data-resgroupby style="width:auto;padding:2px 6px;font-size:var(--fsxs)"><option value="strat"'+(_gGroupBy==='strat'?' selected':'')+'>strategy</option><option value="market"'+(_gGroupBy==='market'?' selected':'')+'>market</option><option value="mode"'+(_gGroupBy==='mode'?' selected':'')+'>mode</option></select><span data-reskeepers title="show only deploy-ready runs: validated PASS with the lockbox or walk-forward held" style="cursor:pointer;font-size:9px;padding:2px 8px;border-radius:10px;border:1px solid '+(_gKeeps?'var(--green)':'var(--border)')+';color:'+(_gKeeps?'var(--green)':'var(--text4)')+'">✓ keepers only</span></span></div>';
+        const groupedTile=_grpCtl+'<div style="overflow:auto;max-height:82vh">'+(_groups.length?_grpTilesHtml:'<div style="color:var(--text5);font-size:var(--fsxs);padding:18px;text-align:center">no runs match — clear the keepers filter</div>')+'</div>';
         // Results-view header removed per request (redundant — the PAST RUNS tile title
         //   already carries the run count, and the empty-state copy explains selection).
         const viewHeader='';
-        if(rv==='side'){
+        if(rv==='group'){
+          body=viewHeader+'<div id="res-top">'+tile(groupedTile)+'</div>'+detailTile;
+        }else if(rv==='side'){
           body=viewHeader+'<div id="res-wrap" style="display:flex;align-items:stretch">'
             +'<div id="res-left" style="flex:0 0 '+(rH*100)+'%;min-width:280px;overflow:auto">'+listTile+'</div>'
             +'<div id="res-gutter" title="drag to resize" style="flex:0 0 12px;cursor:col-resize;display:flex;align-items:center;justify-content:center"><div style="width:3px;height:46px;background:var(--border);border-radius:2px"></div></div>'
@@ -8480,6 +8529,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
     }
     else if(augurSub==='set'){content.querySelectorAll('[data-setsub]').forEach(t=>{t.onclick=()=>{savePref('setSub',t.dataset.setsub);renderApp();};});const sv=el('set-save');if(sv)sv.onclick=()=>{savePref('instrument',el('set-inst').value);savePref('session',el('set-sess').value);savePref('timeframe',el('set-tf').value);savePref('workers',parseInt(el('set-work').value)||4);savePref('rounds',parseInt(el('set-rounds').value)||4);savePref('trials',parseInt(el('set-trials').value)||200);savePref('min_trades',parseInt(el('set-mint').value)||30);savePref('provider',el('set-prov').value);const s=el('set-saved');if(s){s.textContent='✓ saved — Builder will use these';setTimeout(()=>{if(el('set-saved'))el('set-saved').textContent='';},2000);}};}
     else{const vs=el('res-side'),vk=el('res-stack');if(vs)vs.onclick=()=>{savePref('resView','side');renderApp();};if(vk)vk.onclick=()=>{savePref('resView','stack');renderApp();};
+      const vg=el('res-group');if(vg)vg.onclick=()=>{savePref('resView','group');renderApp();};
+      content.querySelectorAll('[data-grp]').forEach(h=>{h.onclick=()=>{const k=decodeURIComponent(h.dataset.grp);if(window._resGroupOpen.has(k))window._resGroupOpen.delete(k);else window._resGroupOpen.add(k);renderApp();};});
+      content.querySelectorAll('[data-grpall]').forEach(x=>{x.onclick=(e)=>{e.stopPropagation();window._resGroupAll.add(decodeURIComponent(x.dataset.grpall));renderApp();};});
+      const _rgb=content.querySelector('[data-resgroupby]');if(_rgb)_rgb.onchange=()=>{savePref('resGroupBy',_rgb.value);renderApp();};
+      const _rk=content.querySelector('[data-reskeepers]');if(_rk)_rk.onclick=()=>{savePref('resKeepers',!APREF.resKeepers);renderApp();};
       const gut=el('res-gutter');if(gut){const view=APREF.resView==='stack'?'stack':'side';gut.style.touchAction='none';gut.onpointerdown=(e)=>{e.preventDefault();try{gut.setPointerCapture(e.pointerId);}catch(_){}
         const move=(ev)=>{if(view==='side'){const w=el('res-wrap'),L=el('res-left');if(!w||!L)return;const rect=w.getBoundingClientRect();let r=(ev.clientX-rect.left)/rect.width;r=Math.min(.6,Math.max(.15,r));L.style.flexBasis=(r*100)+'%';APREF.splitH=r;}else{const top=el('res-top'),sc=el('res-listscroll');if(!top||!sc)return;const rect=top.getBoundingClientRect();let h=ev.clientY-rect.top-30;h=Math.min(Math.max(520,Math.round((window.innerHeight||900)*0.82)),Math.max(120,h));sc.style.maxHeight=h+'px';APREF.splitV=h;}};
         const up=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);savePref(view==='side'?'splitH':'splitV',view==='side'?APREF.splitH:APREF.splitV);};
