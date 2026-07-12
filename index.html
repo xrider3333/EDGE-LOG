@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='54.0';
+const VERSION='54.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'54.1', date:'2026-07-12', notes:['Trades tab: the PTS column now computes for stocks and ETFs too (it was blank, only futures showed a value); the per-unit sub-line reads /sh for stocks, /c for futures.']},
   {v:'54.0', date:'2026-07-12', notes:['Regime report card (1F): each bar now labels its buckets with their SHARE of the strategy net $ (a percentage) instead of the raw dollar figure — the raw net $ is still on hover.','Report header: it now STAYS visible at the very top and only grows a background once you scroll down, so it reads cleanly over the report sliding beneath it (before it hid itself at the top).','Engine: runs now record a time-of-day (ET session) regime breakdown, so the 1F time-of-day bar fills with real data on your next validate / sweep — restart the local runner so it picks up the engine update.']},
   {v:'53.9', date:'2026-07-12', notes:['Charts now show a zoom-in cursor when you hover them, as a quiet hint that you can double-click to open the fullscreen view (no on-screen text, per request).']},
   {v:'53.8', date:'2026-07-12', notes:['Regime report card (1F): each bar now shows the net $ on its wider buckets right on the segment (with the bucket name where there is room); removed the small caption line below the bars.']},
@@ -4760,7 +4761,7 @@ function renderApp(){
           <td style="color:${t.type==='LONG'?'var(--green)':'var(--blue)'}">${t.type}</td>
           <td>${t.entry}</td><td>${t.exit}</td>
           <td style="font-size:var(--fsxs);white-space:nowrap;text-align:right">
-            ${(()=>{const p=PRESETS[t.symbol];if(!p||!t.entry||!t.exit)return'<span style="color:var(--text5)">—</span>';const dir=t.type==='LONG'?1:-1;const ptsPerC=((t.exit-t.entry)*dir);const pts=ptsPerC*t.size;const perC=ptsPerC;return `<div style="color:${pts>=0?'#7dd3fc':'#fbbf24'};font-family:'Bebas Neue',monospace;font-size:13px">${pts>=0?'+':''}${pts.toFixed(2)}</div>${t.size>1?`<div style="font-size:8px;color:var(--text5)">${perC>=0?'+':''}${perC.toFixed(2)}/c</div>`:''}`})()}
+            ${(()=>{if(!t.entry||!t.exit)return'<span style="color:var(--text5)">—</span>';const dir=t.type==='LONG'?1:-1;const ptsPerC=((t.exit-t.entry)*dir);const pts=ptsPerC*t.size;const perC=ptsPerC;const _unit=isFut(t.symbol)?'/c':'/sh';return `<div style="color:${pts>=0?'#7dd3fc':'#fbbf24'};font-family:'Bebas Neue',monospace;font-size:13px">${pts>=0?'+':''}${pts.toFixed(2)}</div>${t.size>1?`<div style="font-size:8px;color:var(--text5)">${perC>=0?'+':''}${perC.toFixed(2)}${_unit}</div>`:''}`})()}
           </td>
           <td>${t.size}</td>
           <td style="color:${gch(t.grossPnl||t.pnl)};white-space:nowrap;font-family:'Bebas Neue',monospace;font-size:13px;opacity:.85">${fmt(t.grossPnl||t.pnl)}</td>
