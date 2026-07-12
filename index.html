@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='53.3';
+const VERSION='53.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'53.4', date:'2026-07-12', notes:['The on-chart expand button is gone from every chart — double-click any chart to open the fullscreen view (the dark backdrop still closes it).','Fix: the Overview account-equity and P&L-distribution charts briefly rendered blank after the button change (a dropped tag on the chart container); both render correctly again.']},
   {v:'53.3', date:'2026-07-12', notes:['Library: click a strategy to expand its runs right under the row (id, scope, date, net, PF — newest first); click any run to jump straight to its report.','Library descriptions rewritten to say how each file differs from its parent — the ORB variants (3.0, 3.0-2L, 3.0-2L·125, 3.0-BE, 3.0-TR, 3.0-TS) now read distinctly instead of sharing one family blurb; hover a description for the full detail.']},
   {v:'53.2', date:'2026-07-12', notes:['The 3-D tiles (2H / 2I param surfaces and 2J scatter) are now rotatable IN PLACE: click and hold on the tile and drag to spin it (yaw + tilt), scroll to exaggerate the height. No need to open fullscreen just to look behind a ridge. Double-click still opens the fullscreen view.']},
   {v:'53.1', date:'2026-07-12', notes:['Double-click any chart to open the fullscreen view (as well as the ⛶ button); clicking the dark backdrop still closes it.','The ⛶ expand button is now see-through until you hover it, so it no longer hides the x-axis it sits over.','1G trade-count axis is now labelled on BOTH the left and right edges, so the scale stays visible in the expanded view whether you are looking at the bulk (left) or scrolled out to the tail (right).']},
@@ -4086,7 +4087,7 @@ function renderApp(){
             <button onclick="spyOverlay=!spyOverlay;renderApp()" style="background:${spyOverlay?'var(--yellow)':'var(--bg3)'};color:${spyOverlay?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">vs SPY</button>
         </div>
       </div>
-      <div class="cum-pl-chart" style="padding:8px 10px 4px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%)" ondblclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', this.innerHTML)"
+      <div class="cum-pl-chart" style="padding:8px 10px 4px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%)" ondblclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', this.innerHTML)">
         ${(()=>{
           const now=new Date();
           let cutoff=null;
@@ -4195,7 +4196,7 @@ function renderApp(){
           <span style="color:var(--text4)">+1σ <span style="color:var(--yellow)">+$${(_mean+_std).toFixed(0)}</span></span>
         </div>
       </div>
-      <div class="dist-chart" style="padding:14px 12px" ondblclick="expandChart('P&L DISTRIBUTION', this.innerHTML)"
+      <div class="dist-chart" style="padding:14px 12px" ondblclick="expandChart('P&L DISTRIBUTION', this.innerHTML)">
         <svg viewBox="0 0 1400 240" width="100%" style="display:block">
           <line x1="0" y1="210" x2="1400" y2="210" stroke="var(--border)" stroke-width="1"/>
           ${_min<0&&_max>0?(()=>{const zx=((0-_min)/(_max-_min))*1400;return `<line x1="${zx}" y1="0" x2="${zx}" y2="210" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2,3"/><text x="${zx+4}" y="14" fill="var(--text5)" font-size="12">$0</text>`})():''}
@@ -4278,7 +4279,7 @@ function renderApp(){
             <button onclick="spyOverlay=!spyOverlay;renderApp()" style="background:${spyOverlay?'var(--yellow)':'var(--bg3)'};color:${spyOverlay?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">vs SPY</button>
         </div>
       </div>
-      <div class="cum-pl-chart" style="padding:8px 10px 4px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%)" ondblclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', this.innerHTML)"
+      <div class="cum-pl-chart" style="padding:8px 10px 4px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%)" ondblclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', this.innerHTML)">
         ${(()=>{
           const now=new Date();
           let cutoff=null;
@@ -4494,7 +4495,7 @@ function renderApp(){
           <span style="color:var(--text4)">+1σ <span style="color:var(--yellow)">+$${(_mean+_std).toFixed(0)}</span></span>
         </div>
       </div>
-      <div class="dist-chart" style="padding:14px 12px" ondblclick="expandChart('P&L DISTRIBUTION', this.innerHTML)"
+      <div class="dist-chart" style="padding:14px 12px" ondblclick="expandChart('P&L DISTRIBUTION', this.innerHTML)">
         <svg viewBox="0 0 1400 240" width="100%" style="display:block">
           <line x1="0" y1="210" x2="1400" y2="210" stroke="var(--border)" stroke-width="1"/>
           ${_min<0&&_max>0?(()=>{const zx=((0-_min)/(_max-_min))*1400;return `<line x1="${zx}" y1="0" x2="${zx}" y2="210" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2,3"/><text x="${zx+4}" y="14" fill="var(--text5)" font-size="12">$0</text>`})():''}
@@ -8382,8 +8383,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const vw=+vb[2]||0,vh=+vb[3]||0;if(vw<200)return;
         const pre=svg.closest('#eq-rs')||svg.closest('.rschart-box');
         let box;
-        if(pre){ // 1A / 1B carry their own sized box — no wrap, just the ⛶ (once per box)
-          box=pre;if(box.querySelector(':scope > .xpb'))return;
+        if(pre){ // 1A / 1B carry their own sized box — no wrap, just wire double-click (once per box)
+          box=pre;if(box.dataset.xpWired)return;box.dataset.xpWired='1';
           if(getComputedStyle(box).position==='static')box.style.position='relative';
           const _rk=_keyOf(box),_sv=_savedH(_rk);if(_sv)box.style.height=_sv+'px';_persistResize(box,_rk);
         }else if(svg.getAttribute('data-distscroll')){
