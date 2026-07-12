@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='52.5';
+const VERSION='52.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'52.6', date:'2026-07-12', notes:['Library now lists strategies in FAMILY-number order (1 ENGU, 2 RVT, … 7 ORB, 8 ENGU-Q, 9 REPLAY), so a family reads as one block instead of the old creation-order scatter where newer files had no number at all.','Every strategy now shows a description — the earlier families and the ones the name-parser used to miss (RFML, REPLAY) get a family blurb, so no row is left blank.']},
   {v:'52.5', date:'2026-07-12', notes:['Past Runs LIST / STRATEGY view toggle moved to the far right of the tile, so it no longer jumps around when the title width changes (switching views, or a different group count). It now stays put in the same spot in both the flat and grouped views.']},
   {v:'52.4', date:'2026-07-11', notes:['Run report 1G (trade PnL distribution) reworked so it reads as a real distribution: bars are now a fixed thin width and the chart grows as WIDE as the data needs and scrolls sideways (the bulk shows first, scroll right for the tail) instead of squashing everything into a few fat bars. Every outlier stays at its true linear position.','New BINS control on 1G (– / 1x / 2x / 3x, top-right of the chart): expand the bar count to read the distribution finer. The 1H MAE/MFE chart follows the same setting. Your choice is remembered.','1G fixes: the fitted bell curve is drawn BEHIND the bars (so a 1-trade sliver is no longer hidden by the curve) and is thinner and stays crisp when expanded; the mean line + label were invisible (rendered black) and are now blue.','Refresh also restores your scroll position on the page, not just the tab / open run.']},
   {v:'52.3', date:'2026-07-11', notes:['Strategy identity is now FAMILY-based: every ORB shares one number and one colour (same for ENGU, VWAP, and the rest), so a family reads as one lineage instead of scattered per-file numbers and colours. Version = generation.minor; a -branch suffix marks a structural variant that shares the base config.','ORB 3.1 now shows as ORB 3.0-2L (two-lot scale-out); the breakeven study as ORB 3.0-BE; ORB research forks as 3.0-TR / 3.0-TS. Every view (Past Runs list, by-strategy groups, run report, comparison, Library) uses the same family label and colour.','Display-only: no strategy files were renamed and no runs changed.']},
@@ -5591,9 +5592,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //    Version = generation.minor; a "-branch" suffix (2L/BE/…) marks a structural variant that
     //    shares the base config. DISPLAY layer only — no file renames, no DB change. ──
     const FAM={
-      ENGU:{abbr:'ENGU',n:1,hue:210}, RVT:{abbr:'RVT',n:2,hue:280}, VWAP:{abbr:'VWAP',n:3,hue:190},
-      RFML:{abbr:'RFML',n:4,hue:150}, ST:{abbr:'ST',n:5,hue:45}, OVN:{abbr:'OVN',n:6,hue:330},
-      ORB:{abbr:'ORB',n:7,hue:25}, 'ENGU-Q':{abbr:'ENGU-Q',n:8,hue:165}, REPLAY:{abbr:'REPLAY',n:9,hue:0}};
+      ENGU:{abbr:'ENGU',n:1,hue:210,full:'Engulfing Reversal',desc:'Engulfing-candle reversal entries'},
+      RVT:{abbr:'RVT',n:2,hue:280,full:'Mean Revert',desc:'Fades back to the session mean / value'},
+      VWAP:{abbr:'VWAP',n:3,hue:190,full:'VWAP Fade',desc:'Fades extreme stretches from session VWAP'},
+      RFML:{abbr:'RFML',n:4,hue:150,full:'Random-Forest ML',desc:'Random-forest signals on RSI / trend / momentum'},
+      ST:{abbr:'ST',n:5,hue:45,full:'SuperTrend',desc:'ATR SuperTrend trend follower'},
+      OVN:{abbr:'OVN',n:6,hue:330,full:'Overnight Hold',desc:'Close-to-open trend-gated overnight risk premium'},
+      ORB:{abbr:'ORB',n:7,hue:25,full:'Opening Range Breakout',desc:'Breaks the session opening range with a volume filter'},
+      'ENGU-Q':{abbr:'ENGU-Q',n:8,hue:165,full:'Engulfing-Quant',desc:'Data-derived ENGU rebuild: descending-trendline break, long-only'},
+      REPLAY:{abbr:'REPLAY',n:9,hue:0,full:'Discretionary Replay',desc:'Replays your discretionary trades for quant conversion'}};
     const _canonFam=s=>{const x=String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ');
       if(/enguq|engu q/.test(x))return 'ENGU-Q'; if(/replay/.test(x))return 'REPLAY'; return _famKey(s)||'';};
     // display ver+branch overrides for files whose token names read wrong (ORB 2-lot / BE / forks).
@@ -5631,7 +5638,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const abbr=fm?fm.abbr:(sfam?sfam.abbr:_abbrVer(src).abbr);
       const vb=_verBr(src),num=famNum(fam),color=stratColor(m?m.file:str);
       const label=(num!=null?num+' · ':'')+abbr+(vb.ver?' '+vb.ver:'')+(vb.br?'-'+vb.br:'');
-      return {num:num,abbr:abbr,ver:vb.ver,branch:vb.br,fam:fam,full:(sfam?sfam.full:abbr),desc:(sfam?sfam.desc:''),color:color,label:label};};
+      const rich=sfam||fm;
+      return {num:num,abbr:abbr,ver:vb.ver,branch:vb.br,fam:fam,full:(rich?rich.full:abbr),desc:(rich?rich.desc:''),color:color,label:label};};
     const stratTag=(str,sz)=>{const i=stratInfo(str);return '<span style="color:'+i.color+';font-weight:600'+(sz?';font-size:'+sz:'')+'">'+i.label+'</span>';};
     // ── Instrument color (CSV / masters), consistent everywhere ──────────────
     const INSTC={NQ:'#5b8def',MNQ:'#93b3f2',ES:'#27c08a',MES:'#79d6b1',YM:'#e0a341',MYM:'#ecc684',RTY:'#c77dd6',M2K:'#dba9e6',CL:'#d6694b',GC:'#d4b95e'};
@@ -7716,7 +7724,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const pineCell=s=>{if(!s.has_pine)return chip(false,'PINE');const v=VIA[s.pine_via]||['?','var(--text5)','unknown source'];return chip(true,'PINE')+'<sup title="Pine source: '+v[2]+'" style="font-size:8px;margin-left:2px;color:'+v[1]+';cursor:help">'+v[0]+'</sup>';};
       // clickable column headers: sort ("view by") + PY/PINE "show only missing" filter
       const sortk=APREF.libSort||'num', dir=APREF.libSortDir===-1?-1:1, only=APREF.libOnly||'';
-      const cmp={num:(a,b)=>((a.num==null)-(b.num==null))||((a.num||0)-(b.num||0))||a.file.localeCompare(b.file),
+      const cmp={num:(a,b)=>{const A=stratInfo(a.file),B=stratInfo(b.file);return ((A.num==null)-(B.num==null))||((A.num||0)-(B.num||0))||String(A.ver||'').localeCompare(String(B.ver||''),undefined,{numeric:true})||String(A.branch||'').localeCompare(String(B.branch||''))||a.file.localeCompare(b.file);},
         name:(a,b)=>a.file.localeCompare(b.file),
         added:(a,b)=>(a.added||0)-(b.added||0),
         ran:(a,b)=>String(lastRan[a.file]||'').localeCompare(String(lastRan[b.file]||'')),
