@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='53.2';
+const VERSION='53.3';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'53.3', date:'2026-07-12', notes:['Library: click a strategy to expand its runs right under the row (id, scope, date, net, PF — newest first); click any run to jump straight to its report.','Library descriptions rewritten to say how each file differs from its parent — the ORB variants (3.0, 3.0-2L, 3.0-2L·125, 3.0-BE, 3.0-TR, 3.0-TS) now read distinctly instead of sharing one family blurb; hover a description for the full detail.']},
   {v:'53.2', date:'2026-07-12', notes:['The 3-D tiles (2H / 2I param surfaces and 2J scatter) are now rotatable IN PLACE: click and hold on the tile and drag to spin it (yaw + tilt), scroll to exaggerate the height. No need to open fullscreen just to look behind a ridge. Double-click still opens the fullscreen view.']},
   {v:'53.1', date:'2026-07-12', notes:['Double-click any chart to open the fullscreen view (as well as the ⛶ button); clicking the dark backdrop still closes it.','The ⛶ expand button is now see-through until you hover it, so it no longer hides the x-axis it sits over.','1G trade-count axis is now labelled on BOTH the left and right edges, so the scale stays visible in the expanded view whether you are looking at the bulk (left) or scrolled out to the tail (right).']},
   {v:'53.0', date:'2026-07-12', notes:['Run report header: removed the background behind the REPORT: row entirely — it now sits directly on the tile with no bar.','1F regime card: added a Time of day (ET) breakdown. No run records by-hour data yet, so it shows an annotated n/a placeholder for now (it will populate on future runs) — meant to gate WHEN time-sensitive setups like ORB may trade.','2C label: now matches the 2B title exactly (same size / weight / colour) and no longer gets covered by the PDP charts.']},
@@ -4083,10 +4084,9 @@ function renderApp(){
           
           <button onclick="chartPctMode=!chartPctMode;window.chartPctMode=chartPctMode;renderApp()" style="background:${chartPctMode?'var(--blue)':'var(--bg3)'};color:${chartPctMode?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer;margin-left:8px">${chartPctMode?'%':'\$'}</button>
             <button onclick="spyOverlay=!spyOverlay;renderApp()" style="background:${spyOverlay?'var(--yellow)':'var(--bg3)'};color:${spyOverlay?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">vs SPY</button>
-            <button class="btn-d" style="font-size:var(--fsxs);padding:4px 10px;margin-left:8px" onclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', document.querySelector('.cum-pl-chart').innerHTML)">⛶ EXPAND</button>
         </div>
       </div>
-      <div class="cum-pl-chart" style="padding:8px 10px 4px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%)">
+      <div class="cum-pl-chart" style="padding:8px 10px 4px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%)" ondblclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', this.innerHTML)"
         ${(()=>{
           const now=new Date();
           let cutoff=null;
@@ -4193,10 +4193,9 @@ function renderApp(){
           <span style="color:var(--text4)">STD DEV <span style="color:var(--yellow)">$${_std.toFixed(2)}</span></span>
           <span style="color:var(--text4)">−1σ <span style="color:var(--yellow)">$${(_mean-_std).toFixed(0)}</span></span>
           <span style="color:var(--text4)">+1σ <span style="color:var(--yellow)">+$${(_mean+_std).toFixed(0)}</span></span>
-          <button class="btn-d" style="font-size:var(--fsxs);padding:3px 10px" onclick="expandChart('P&L DISTRIBUTION', document.querySelector('.dist-chart').innerHTML)">⛶ EXPAND</button>
         </div>
       </div>
-      <div class="dist-chart" style="padding:14px 12px">
+      <div class="dist-chart" style="padding:14px 12px" ondblclick="expandChart('P&L DISTRIBUTION', this.innerHTML)"
         <svg viewBox="0 0 1400 240" width="100%" style="display:block">
           <line x1="0" y1="210" x2="1400" y2="210" stroke="var(--border)" stroke-width="1"/>
           ${_min<0&&_max>0?(()=>{const zx=((0-_min)/(_max-_min))*1400;return `<line x1="${zx}" y1="0" x2="${zx}" y2="210" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2,3"/><text x="${zx+4}" y="14" fill="var(--text5)" font-size="12">$0</text>`})():''}
@@ -4277,10 +4276,9 @@ function renderApp(){
           
           <button onclick="chartPctMode=!chartPctMode;window.chartPctMode=chartPctMode;renderApp()" style="background:${chartPctMode?'var(--blue)':'var(--bg3)'};color:${chartPctMode?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer;margin-left:8px">${chartPctMode?'%':'\$'}</button>
             <button onclick="spyOverlay=!spyOverlay;renderApp()" style="background:${spyOverlay?'var(--yellow)':'var(--bg3)'};color:${spyOverlay?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">vs SPY</button>
-            <button class="btn-d" style="font-size:var(--fsxs);padding:4px 10px;margin-left:8px" onclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', document.querySelector('.cum-pl-chart').innerHTML)">⛶ EXPAND</button>
         </div>
       </div>
-      <div class="cum-pl-chart" style="padding:8px 10px 4px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%)">
+      <div class="cum-pl-chart" style="padding:8px 10px 4px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%)" ondblclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', this.innerHTML)"
         ${(()=>{
           const now=new Date();
           let cutoff=null;
@@ -4494,10 +4492,9 @@ function renderApp(){
           <span style="color:var(--text4)">STD DEV <span style="color:var(--yellow)">$${_std.toFixed(2)}</span></span>
           <span style="color:var(--text4)">−1σ <span style="color:var(--yellow)">$${(_mean-_std).toFixed(0)}</span></span>
           <span style="color:var(--text4)">+1σ <span style="color:var(--yellow)">+$${(_mean+_std).toFixed(0)}</span></span>
-          <button class="btn-d" style="font-size:var(--fsxs);padding:3px 10px" onclick="expandChart('P&L DISTRIBUTION', document.querySelector('.dist-chart').innerHTML)">⛶ EXPAND</button>
         </div>
       </div>
-      <div class="dist-chart" style="padding:14px 12px">
+      <div class="dist-chart" style="padding:14px 12px" ondblclick="expandChart('P&L DISTRIBUTION', this.innerHTML)"
         <svg viewBox="0 0 1400 240" width="100%" style="display:block">
           <line x1="0" y1="210" x2="1400" y2="210" stroke="var(--border)" stroke-width="1"/>
           ${_min<0&&_max>0?(()=>{const zx=((0-_min)/(_max-_min))*1400;return `<line x1="${zx}" y1="0" x2="${zx}" y2="210" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2,3"/><text x="${zx+4}" y="14" fill="var(--text5)" font-size="12">$0</text>`})():''}
@@ -5704,6 +5701,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // display ver+branch overrides for files whose token names read wrong (ORB 2-lot / BE / forks).
     const VARIANT={ORB_3_1:{ver:'3.0',br:'2L'}, ORB_3_1_125:{ver:'3.0',br:'2L·125'}, ORB_3_0_BE:{ver:'3.0',br:'BE'},
       ORB_3_2:{ver:'3.0',br:'TR'}, ORB_3_3:{ver:'3.0',br:'TS'}};
+    // ── Per-file DIFF-from-parent (owner 2026-07-12): the family desc is identical across a family's
+    //    versions, so within-family rows read the same. SDIFF gives each file a SHORT line (shown in the
+    //    Library DESCRIPTION column) saying how it differs from its PARENT + a LONGER line for the hover
+    //    title. Double-quoted values so apostrophes are safe; keep NO double-quote char inside them.
+    const SDIFF={
+      ORB_1_0:{s:"The original ORB: break the opening range, ride to EOD flat, one trade/session. Two-sided momentum (its best year = the 2022 bear).", l:"ORB 1.0 — the base momentum edge and root of the family. Opening range = high/low of the first N bars; enter on the break, stop = stop_frac × range width, exit on stop / optional target / session close. No trailing, no partial. Two-sided (long AND short); its best year on every config is 2022, the opposite of long-beta strategies."},
+      ORB_2_0:{s:"Adds three management levers over 1.0: partial-exit + N-bar trail, an ATR-normalized stop, and a volume filter.", l:"ORB 2.0 — same entry as 1.0 but adds (1) partial_exit_R + trail_bars scale-out, (2) an ATR-normalized stop for constant dollar risk across vol regimes, (3) a volume filter to skip thin-volume fake breakouts. The higher-DOF research superset that 3.0 was later stripped down from."},
+      ORB_3_0:{s:"2.0 stripped to 5 low-DOF knobs (no ATR / partial / trail) for a clean walk-forward — the validated #137 single-lot deploy base.", l:"ORB 3.0 — the deployable low-DOF cut of 2.0: only OR length, direction, stop, volume filter and buffer (plus optional target). ATR stop, partial and trail are deliberately removed so a walk-forward cannot wander into an overfit config. The #137 champion base and the parent of every 3.0-x variant."},
+      ORB_3_1:{s:"Adds a 2-lot scale-out onto 3.0: book lot 1 at partial_exit_R, trail lot 2 on an N-bar low/high. Research fork (both levers sweep).", l:"ORB 3.0-2L — 3.0's clean base plus exactly two runner levers: partial_exit_R (book the first lot at X × risk) and trail_bars (trail the second lot on the rolling N-bar low/high). Built to walk-forward the scale-out in isolation; no ATR stop, no sub-0.5 stop. The partial=0 / trail=0 corner reproduces single-lot 3.0."},
+      ORB_3_1_125:{s:"Same engine as 2L but PINNED to run #125's deployable config: trail the whole position on a 5-bar low/high, no partial — one fixed point.", l:"ORB 3.0-2L·125 — the 2L engine locked to run #125's single deployable config (or1 / stop 0.75 / trail 5 / Both, partial OFF, all else off). Trail-only (not book-and-trail), one fixed point, so Auto-Validate discovers ONLY this config and emits one report card comparable to #137 (3.0) and #150."},
+      ORB_3_0_BE:{s:"3.0's #137 config with ONE free knob — be_after_R (move stop to entry at X × R). Champion 1.0R cuts drawdown ~33% for a trivial PnL give-up.", l:"ORB 3.0-BE — run #137's champion fully pinned (or1 / stop 1.75 / target 4.5R / vol 1.25 / Both / skip-holidays) with be_after_R the only lever the search can move. The 0.9-1.3R plateau is a validated win (full DD -$40k to -$27k, PF 1.55, MAR 14 to 21.5, holds in the lockbox); under 0.7R fails. The best single-lot deploy candidate."},
+      ORB_3_2:{s:"3.0-2L entry + three smarter-trail levers (chandelier ATR trail, activate-threshold, breakeven ratchet). Research — lost to the simple bar-trail.", l:"ORB 3.0-TR — identical entry/stop to 2L plus three runner-management levers: a chandelier ATR trail, trail-activate-R (delay trailing), and a breakeven_R ratchet. A/B research on whether a smarter trail beats the fixed N-bar trail; verdict = chandelier overfits, activate hurts, breakeven washes, so the simple bar-trail wins. Not deployable."},
+      ORB_3_3:{s:"3.0-2L exits + two session-clock levers (entry-time cutoff, midday time-stop). Research: time-stop loses, but the entry-time cutoff = a real quality signal.", l:"ORB 3.0-TS — 2L's exits plus entry_cutoff_bars (only take breaks early in the session) and time_stop_bar (bail at an absolute midday bar). Research fork: the time-stop cuts winners, but the first-hour entry cutoff is a real quality signal (first-hour PF 2.2, lockbox 3.5, 6/6 WF folds), which spawned backlog item G."}};
+    const _sdiffKey=src=>String(src||"").replace(/\.py$/i,"");
     const _verBr=src=>{const key=String(src||'').replace(/\.py$/,''); if(VARIANT[key])return VARIANT[key];
       const av=_abbrVer(src); let br=''; const tf=key.match(/(?:^|[_\s])(\d+)m(?:[_\s]|$)/i);
       if(tf)br=tf[1]+'m'; else if(/_be$/i.test(key)||/breakeven/i.test(key))br='BE'; return {ver:av.ver,br:br};};
@@ -5736,8 +5747,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const abbr=fm?fm.abbr:(sfam?sfam.abbr:_abbrVer(src).abbr);
       const vb=_verBr(src),num=famNum(fam),color=stratColor(m?m.file:str);
       const label=(num!=null?num+' · ':'')+abbr+(vb.ver?' '+vb.ver:'')+(vb.br?'-'+vb.br:'');
-      const rich=sfam||fm;
-      return {num:num,abbr:abbr,ver:vb.ver,branch:vb.br,fam:fam,full:(rich?rich.full:abbr),desc:(rich?rich.desc:''),color:color,label:label};};
+      const rich=sfam||fm;const sd=SDIFF[_sdiffKey(src)];
+      return {num:num,abbr:abbr,ver:vb.ver,branch:vb.br,fam:fam,full:(rich?rich.full:abbr),desc:(rich?rich.desc:''),diff:(sd?sd.s:''),diffLong:(sd?sd.l:''),color:color,label:label};};
     const stratTag=(str,sz)=>{const i=stratInfo(str);return '<span style="color:'+i.color+';font-weight:600'+(sz?';font-size:'+sz:'')+'">'+i.label+'</span>';};
     // ── Instrument color (CSV / masters), consistent everywhere ──────────────
     const INSTC={NQ:'#5b8def',MNQ:'#93b3f2',ES:'#27c08a',MES:'#79d6b1',YM:'#e0a341',MYM:'#ecc684',RTY:'#c77dd6',M2K:'#dba9e6',CL:'#d6694b',GC:'#d4b95e'};
@@ -7838,14 +7849,35 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(only==='nopy')rows=rows.filter(s=>s.has_py===false);
       else if(only==='nopine')rows=rows.filter(s=>!s.has_pine);
       const rowsSorted=rows.sort((a,b)=>(cmp[sortk]||cmp.num)(a,b)*dir);
-      const srows=rowsSorted.map(s=>{const si=stratInfo(s.file);const on=s.file===augurLibSel;const lr=lastRan[s.file];return '<tr class="arow" data-strat="'+s.file+'" style="cursor:pointer;'+(on?'background:var(--bg1)':'')+'">'
+      // ── Runs-per-strategy (owner 2026-07-12): selecting a strategy expands its runs beneath the
+      //    row; click a run to open its report. Derived client-side from runHistory (no runner change).
+      const runsByFile={};(runHistory||[]).forEach(r=>{const mm=_stratMatch(r.strategy);if(!mm)return;(runsByFile[mm.file]||(runsByFile[mm.file]=[])).push(r);});
+      Object.keys(runsByFile).forEach(k=>runsByFile[k].sort((x,y)=>(y.id||0)-(x.id||0)));
+      const _escH=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+      const runLine=r=>{const net=fmtUsd(r.best_pnl_usd||0);const pf=(r.best_pf!=null&&!isNaN(+r.best_pf))?(+r.best_pf).toFixed(2):'—';
+        const dt=(''+(r.timestamp||'')).slice(0,10)||'—';const sc=_escH(r.scope||r.preset||'run');const pc=(r.best_pnl_usd||0)>=0?'var(--green)':'var(--red)';
+        return '<div class="librun" data-openrun="'+r.id+'" title="open run #'+r.id+' report" style="display:flex;gap:9px;align-items:center;padding:3px 7px;cursor:pointer;white-space:nowrap;overflow:hidden">'
+          +'<span style="color:var(--text5);font-weight:700;min-width:42px">#'+r.id+'</span>'
+          +'<span style="color:var(--text3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">'+sc+'</span>'
+          +'<span style="color:var(--text5);min-width:72px;text-align:right">'+dt+'</span>'
+          +'<span style="color:'+pc+';font-weight:600;min-width:72px;text-align:right">'+net+'</span>'
+          +'<span style="color:var(--text4);min-width:54px;text-align:right">PF '+pf+'</span></div>';};
+      const expOf=s=>{const rl=runsByFile[s.file]||[];
+        if(!rl.length)return '<tr class="librunexp"><td colspan="7" style="padding:3px 12px 9px;background:var(--bg1);font-size:var(--fsxs);color:var(--text5)">No runs recorded yet for this strategy — run it from the Builder.</td></tr>';
+        const hd='<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text5);letter-spacing:.5px;margin:3px 4px 4px"><span>'+rl.length+' RUN'+(rl.length>1?'S':'')+' · click one to open its report</span><span>newest first</span></div>';
+        return '<tr class="librunexp"><td colspan="7" style="padding:3px 12px 10px;background:var(--bg1)">'+hd+'<div style="max-height:230px;overflow:auto">'+rl.map(runLine).join('')+'</div></td></tr>';};
+      const srows=rowsSorted.map(s=>{const si=stratInfo(s.file);const on=s.file===augurLibSel;const lr=lastRan[s.file];
+        const _ti=String(si.diffLong||si.desc||si.full||'').replace(/"/g,'&quot;');
+        const _dtxt=si.diff?_escH(si.diff):((si.full||'')+(si.desc?' — '+si.desc:''));
+        const base='<tr class="arow" data-strat="'+s.file+'" style="cursor:pointer;'+(on?'background:var(--bg1)':'')+'">'
         +'<td style="font-size:var(--fsxs);white-space:nowrap">'+stratTag(s.file)+'</td>'
-        +'<td style="font-size:var(--fsxs);color:var(--text3);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(si.full||'')+(si.desc?' — '+si.desc:'')+'</td>'
+        +'<td title="'+_ti+'" style="font-size:var(--fsxs);color:var(--text3);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_dtxt+'</td>'
         +'<td style="text-align:center">'+chip(s.has_py!==false,'PY')+'</td>'
         +'<td style="text-align:center">'+pineCell(s)+'</td>'
         +'<td style="font-size:var(--fsxs);color:var(--text4);white-space:nowrap">'+fmtD(s.added)+'</td>'
         +'<td style="font-size:var(--fsxs);color:var(--text4);white-space:nowrap">'+(lr?(''+lr).slice(0,10):'—')+'</td>'
-        +'<td style="text-align:right;font-size:var(--fsxs);color:var(--text4)">'+((s.presets||[]).length)+'</td></tr>';}).join('');
+        +'<td style="text-align:right;font-size:var(--fsxs);color:var(--text4)">'+((s.presets||[]).length)+'</td></tr>';
+        return on?base+expOf(s):base;}).join('');
       // Friendly SOURCE label: the DB stores cryptic codes (nt_noadj_eth, db_noadj_rth,
       // yahoo, tv, merged). Show the provider name (color-coded) so it's obvious at a
       // glance which feed backs each master; raw code stays in the tooltip. Session (ETH/
@@ -8009,7 +8041,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const onlyNote=only?'<span style="font-size:9px;color:var(--red);letter-spacing:1px">SHOWING ONLY MISSING '+(only==='nopy'?'PY':'PINE')+' · '+rowsSorted.length+' <span id="lib-clearonly" style="cursor:pointer;text-decoration:underline">clear</span></span>':'';
         // tabindex makes the list focusable so arrow keys can walk the rows
         const listInner='<div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 6px;gap:8px"><span class="lbl">STRATEGIES · '+sl.length+'</span>'+onlyNote+'</div>'
-          +'<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}.table thead [data-sortk]:hover,.table thead th[data-onlyk]:hover{color:var(--text)}#lib-listscroll:focus{outline:1px solid var(--border)}</style>'
+          +'<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}.table thead [data-sortk]:hover,.table thead th[data-onlyk]:hover{color:var(--text)}#lib-listscroll:focus{outline:1px solid var(--border)}.librun{transition:background .1s;border-radius:5px}.librun:hover{background:color-mix(in srgb,var(--text) 9%,transparent)!important}.librunexp>td{border-bottom:1px solid var(--border)}</style>'
           +'<div id="lib-listscroll" tabindex="0" style="max-height:'+maxH+';overflow:auto;margin:-2px -4px 0;padding:2px 4px 0">'+stratTable+'</div>';
         const leftTile=tile(listInner,0);
         if(lv==='stack'){
@@ -8321,8 +8353,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       }
     }
     content.innerHTML=nav+body;
-    // Give EVERY report chart the ⛶ expand button (the old drag-to-resize grips are GONE —
-    // owner request: the expander replaces them; the modal has the live crosshair readout).
+    // Give EVERY report chart double-click-to-expand (the old drag-to-resize grips are GONE —
+    // owner request: double-click opens the modal with the live crosshair readout).
     // Generic post-render pass — avoids hand-editing ~9 chart builders. Wrapped charts render
     // at their natural aspect; pre-boxed charts (1A #eq-rs, 1B .rschart-box) keep their own
     // box and just get the button.
@@ -8379,13 +8411,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           made.push({box,vw,vh,rk:_rk,restored:!!_sv});
           _persistResize(box,_rk);
         }
-        // ⛶ fullscreen — sits bottom-right (where the old resize grip lived); opens the
-        // existing expandChart modal with a clean (undistorted) copy of the svg + crosshair.
-        const xb=document.createElement('div');xb.textContent='⛶';xb.title='expand fullscreen (or double-click the chart) · live crosshair';xb.className='xpb';
-        // see-through at rest so it never hides the x-axis underneath; solid chip only on hover.
-        xb.style.cssText='position:absolute;bottom:3px;right:5px;font-size:13px;line-height:1;color:var(--text4);cursor:pointer;z-index:5;opacity:.4;padding:2px 5px;border-radius:4px;background:transparent;transition:opacity .12s,background .12s';
-        xb.onmouseenter=()=>{xb.style.opacity='1';xb.style.background='color-mix(in srgb,var(--bg1) 82%,transparent)';};xb.onmouseleave=()=>{xb.style.opacity='.4';xb.style.background='transparent';};
-        // double-clicking anywhere on the chart also expands it (owner request).
+        // double-click anywhere on the chart to expand it — opens the existing expandChart
+        // modal with a clean (undistorted) copy of the svg + crosshair.
         const openExpand=e=>{if(e&&e.stopPropagation)e.stopPropagation();
           // 1A (or any chart carrying a data-eqx payload) opens the RICH equity explorer
           // (zoom/pan/crosshair/blotter) instead of the generic clone modal.
@@ -8424,9 +8451,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               else{cp.style.cursor='pointer';cp.onclick=()=>{if(src.onclick)src.onclick();refresh();};}
               api.ctl.appendChild(cp);});};
           wireCtl();};
-        xb.onclick=openExpand;
         box.addEventListener('dblclick',openExpand);
-        box.appendChild(xb);
       });
       // Set each wrapped chart's height to its natural aspect once layout is flushed (clientWidth
       // is 0 synchronously inside the flex panel) — so nothing looks stretched. Pre-boxed charts
@@ -8676,6 +8701,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('th[data-onlyk]').forEach(h=>{h.onclick=()=>{const k=h.dataset.onlyk;savePref('libOnly',(APREF.libOnly===k)?'':k);renderApp();};});
       const co=el('lib-clearonly');if(co)co.onclick=(e)=>{e.stopPropagation();savePref('libOnly','');renderApp();};
       content.querySelectorAll('[data-strat]').forEach(r=>{r.onclick=()=>{augurLibSel=r.dataset.strat;augurLibMsg='';augurLibDel=false;augurMenu='';renderApp();};});
+      // click a populated run row (under the selected strategy) → open that run's report
+      content.querySelectorAll('[data-openrun]').forEach(x=>{x.onclick=(e)=>{e.stopPropagation();augurRunSel=String(x.dataset.openrun);augurSub='runs';augurMenu='';renderApp();};});
       // Library file ops — executed on the user's PC by the runner command channel.
       const closeMenu=()=>{augurMenu='';};
       const add=el('lib-add');if(add)add.onclick=()=>{const inp=document.createElement('input');inp.type='file';inp.accept='.py';inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>libCmd('add',{name:f.name,content:String(rd.result||'')},'Add '+f.name);rd.readAsText(f);};inp.click();};
