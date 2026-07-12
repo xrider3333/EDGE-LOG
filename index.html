@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='51.5';
+const VERSION='51.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'51.6', date:'2026-07-11', notes:['§2 config space: the 2C PDP mini-charts now render INSIDE the 2B card, directly under 2B's x-axis labels (one sub-chart). The stray 2C in the 2B header is gone; each knob's peak label sits BELOW its mini-chart; the 2C · per-knob PDP title sits below the row.']},
   {v:'51.5', date:'2026-07-11', notes:['§2 config space: the 2C PDP mini-charts nest directly under 2B again (one subtile, tucked under the axis labels) — the separate 2C header that split them apart is gone.','2B parallel-coordinates: while you drag a brush over a range on an axis, the exact sampled values inside your selection are now labelled right on that axis (e.g. 3, 4, 5), live as you drag — so you SEE the data points you are highlighting.']},
   {v:'51.4', date:'2026-07-11', notes:['§2 config space: the "HIGHLIGHTING" text strip that sat between the 2B parallel-coordinates chart and the 2C PDP row is gone — they now read as one tight subtile, with the 2C · PDP header restored above its row and each peak label centred over its own mini-chart.','2B parallel-coordinates now draws the actual config DATA POINTS as dots on every axis: brush an axis and the in-range points light up while the rest dim, so you SEE which configs you are selecting (not just a highlight band). Works in the ⛶ expanded config-space view too.']},
   {v:'51.3', date:'2026-07-11', notes:['Run report §2 config-space widened — 2A/2B/2C now get more room; the 2C PDP mini-charts are taller and tucked up tight under 2B.','2C mini-charts no longer repeat each param name (the 2B axis above already labels the column); a small "2C" tag sits beside the row.','2A "top configs" chart: brighter/whiter gridlines, dropped the extra left guide line, single neutral NET axis.','2B parallel-coords: while you drag to brush an axis, a live HIGHLIGHTING readout lists each knob\'s selected range + the exact step values, so you can see what you\'re selecting.','⛶ on 2B now opens an EXPANDED config-space view (2B + the 2C PDP row together) that stays fully brushable — highlight axes right in the big view.']},
@@ -6073,13 +6074,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _hdrRow=bare
           ? '<div style="text-align:center;font-size:8px;margin-bottom:1px">'+_peakSpan+'</div>'
           : '<div style="display:flex;justify-content:space-between;gap:4px;font-size:8px;margin-bottom:1px"><span style="color:var(--text3);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_pp(cv.k)+'">'+_pp(cv.k)+'</span>'+_peakSpan+'</div>';
-        return '<div style="background:var(--bg1);border-radius:8px;padding:7px 8px 5px">'+_hdrRow
-          // relative wrapper + hidden band: brushing this param's 2C axis lights up the SAME
-          // value range here (the brush handler positions .pdp-hl from data-vs).
-          +'<div style="position:relative" data-pdpk="'+cv.k+'" data-vs="'+cv.c.map(r=>r.v).join(',')+'">'
+        const _chart='<div style="position:relative" data-pdpk="'+cv.k+'" data-vs="'+cv.c.map(r=>r.v).join(',')+'">'
           +'<svg viewBox="0 0 '+cw+' '+chh+'" width="100%" style="display:block;height:auto"><polyline points="'+pts2+'" fill="none" stroke="#3a9bdc" stroke-width="1.6" stroke-linejoin="round" opacity="0.9"/>'+dots
           +'<text x="'+pl+'" y="'+(chh-3)+'" font-size="7" fill="var(--text5)">'+cv.c[0].v+'</text><text x="'+(cw-pr)+'" y="'+(chh-3)+'" text-anchor="end" font-size="7" fill="var(--text5)">'+cv.c[cv.c.length-1].v+'</text></svg>'
-          +'<div class="pdp-hl" style="position:absolute;top:0;bottom:0;display:none;background:var(--blue);opacity:.16;border-left:1px solid var(--blue);border-right:1px solid var(--blue);pointer-events:none;border-radius:2px"></div></div></div>';
+          +'<div class="pdp-hl" style="position:absolute;top:0;bottom:0;display:none;background:var(--blue);opacity:.16;border-left:1px solid var(--blue);border-right:1px solid var(--blue);pointer-events:none;border-radius:2px"></div></div>';
+        return bare
+          ? '<div style="background:var(--bg1);border-radius:8px;padding:5px 8px 6px">'+_chart+_hdrRow+'</div>'
+          : '<div style="background:var(--bg1);border-radius:8px;padding:7px 8px 5px">'+_hdrRow+_chart+'</div>';
       };
       const cells=show.map(cv=>cellOf(cv,false)).join('');
       const src=(pp&&pp.curves)?'server curves (3C.1)':'recomputed from this run\'s stored configs';
@@ -6094,7 +6095,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="flex:0 0 '+gutPct+'%"></div>'
           +show.map(cv=>'<div style="flex:0 0 '+colPct+'%;min-width:0;padding:0 2px;box-sizing:border-box">'+cellOf(cv,true)+'</div>').join('')
           +'<div style="flex:0 0 '+colPct+'%;display:flex;align-items:center;justify-content:center"><span style="font-size:8px;color:var(--text4);font-weight:700;text-align:center">NET $<br><span style="font-weight:400;color:var(--text5)">← what each knob<br>does to it</span></span></div>'
-          +'</div>';
+          +'</div>'
+          +'<div style="text-align:center;font-size:8px;color:var(--text4);font-weight:700;letter-spacing:.5px;margin-top:5px">'+tag+' · per-knob PDP — where each knob tops out</div>';
       }
       return hdr+'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">'+cells+'</div>';
     };
@@ -6417,7 +6419,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:7px"><span id="cfg-brush-cut" style="font-size:var(--fsxs);color:var(--text3)">cut ≥ '+fmtUsd(mn)+'</span><span id="cfg-brush-n" style="font-size:var(--fsxs);font-weight:700;color:var(--green)">'+points.length+' / '+points.length+' configs shown</span></div>'
         +'</div>';
     };
-    const parallelCoordsHtml=(points,mult,tag,keyOrder)=>{
+    const parallelCoordsHtml=(points,mult,tag,keyOrder,footerHtml)=>{
       if(!points||points.length<6)return '';
       let keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&k!=='dd'&&typeof points[0][k]==='number');
       if(keys.length<2)return '';
@@ -6466,7 +6468,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _pnlX=ax(axes.length-1)+5;
           const _sTxt=(y,s2)=>'<text x="'+_pnlX.toFixed(1)+'" y="'+y+'" text-anchor="start" font-size="4.6" fill="var(--text3)">'+s2+'</text>';
           return '<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'"><svg class="pcoords-svg" viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+lines+axled+dots+brush
-          +_sTxt((padT+2.5).toFixed(1),fmtUsd(Math.round(_pm[1])))+_sTxt(_mY,fmtUsd(Math.round((_pm[0]+_pm[1])/2)))+_sTxt((H-padB+2.5).toFixed(1),fmtUsd(Math.round(_pm[0])))+'</svg></div>';})();
+          +_sTxt((padT+2.5).toFixed(1),fmtUsd(Math.round(_pm[1])))+_sTxt(_mY,fmtUsd(Math.round((_pm[0]+_pm[1])/2)))+_sTxt((H-padB+2.5).toFixed(1),fmtUsd(Math.round(_pm[0])))+'</svg>'+(footerHtml||'')+'</div>';})();
     };
     // WALK-FORWARD IS vs OOS — grouped bars per fold: in-sample champion PnL vs out-of-sample.
     const isOosFoldsHtml=(d,mult)=>{
@@ -7305,7 +7307,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _pdpD=pdpCurvesData(_PTS,mlt,(_pMet==='pnl'?d.plateau_pick:null));
       const _allK=(d.points&&d.points.length)?Object.keys(d.points[0]).filter(k=>k!=='pnl'&&k!=='dd'&&typeof d.points[0][k]==='number'):[];
       const _kOrd=_pdpD.map(c=>c.k).concat(_allK.filter(k=>!_pdpD.some(c=>c.k===k)));
-      const _parc=parallelCoordsHtml(_PTS,mlt,_cfgN+'B·'+_cfgN+'C',_kOrd);
+      const _pdp=pdpCurvesPanelHtml(_PTS,mlt,_cfgN+'C',(_pMet==='pnl'?d.plateau_pick:null),((_kOrd&&_kOrd.length>=2)?_kOrd:null),true);
+      const _parc=parallelCoordsHtml(_PTS,mlt,_cfgN+'B',_kOrd,_pdp);
       const _corr=corrPanelHtml(d.points,_cfgN+'E',d.relationship);
       // 2H is view-toggleable (APREF.hm3d, DEFAULT 3-D per owner): flat heatmap ⇄ 3-D surface.
       const _hm3dOn=(APREF.hm3d==null?1:+APREF.hm3d);
@@ -7318,7 +7321,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   never duplicates 2H; hides itself when the strategy has fewer than 3 numeric params.
       //   2K 1-D PDP top-out curves. Both read stored `points` → render retroactively (run 137).
       const _p3d=surface3dPanelHtml(_PTS,mlt,_cfgN+'I',d.best_params,1);
-      const _pdp=pdpCurvesPanelHtml(_PTS,mlt,_cfgN+'C',(_pMet==='pnl'?d.plateau_pick:null),(_parc?_kOrd:null),true);
+      // _pdp is computed above and rendered INSIDE 2B's card as its footer (owner: 2C = same sub-chart under 2B).
       // lay non-empty panels in a row (1, 2 or 3 across); single panel = full-width. stretch=true makes
       //   the cards equal-height (good for similar charts); otherwise they top-align at natural height.
       const _wrap=(arr,stretch)=>{const xs=arr.filter(x=>x&&x.replace(/\s/g,''));if(!xs.length)return '';const inner=(xs.length>1)?'<div style="display:flex;gap:12px;align-items:'+(stretch?'stretch':'flex-start')+';flex-wrap:wrap">'+xs.map(x=>'<div style="flex:1 1 260px;min-width:0;display:flex;flex-direction:column">'+x+'</div>').join('')+'</div>':xs[0];return '<div style="margin-bottom:12px">'+inner+'</div>';};
@@ -7332,7 +7335,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // 2C (PDP) nests directly UNDER 2B (parallel coords) inside the SAME stack block — no
       //   divider between them — so the per-knob PDP row reads as 2B's footer (they already
       //   share the column geometry). 2A stays its own block above.
-      const _leftStack=_stack([_eq,(_pmTog+_parc+_pdp)]),_rightStack=_stack([_dist,_corr]);
+      const _leftStack=_stack([_eq,(_pmTog+_parc)]),_rightStack=_stack([_dist,_corr]);
       const _cfgTile=(_leftStack||_rightStack)?'<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
         +(_leftStack?'<div style="flex:2.5 1 470px;min-width:0"><div style="'+_card2+';box-sizing:border-box">'+_leftStack+'</div></div>':'')
         +(_rightStack?'<div style="flex:1 1 250px;min-width:0"><div style="'+_card2+';box-sizing:border-box">'+_rightStack+'</div></div>':'')
