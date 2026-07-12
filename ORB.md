@@ -375,6 +375,36 @@ Each family's **lockbox champion** vs the R=1.0 control:
 
 ---
 
+### 4.16 Ensemble — 1-lot ride + 1-lot trail (2026-07-12) — item E ✅
+
+Run the #137 entries as a **2-contract book**: Leg A rides to 4.5R/EOD with the validated 1.0R
+breakeven (the deployable); Leg B keeps the same entry + 1.75 stop but **trails** the runner on an
+N-bar low/high. Blend 50/50 per trade (`tools/orb_ensemble.py`) — the 1-contract-equivalent, so
+MAR/DD compare on the same risk basis. in-sample + held-out lockbox.
+
+| window | config | net | DD | MAR | PF | WR |
+|---|---|---|---|---|---|---|
+| **LOCKBOX** | ride+BE (deploy) | $81,072 | $11,491 | 7.1 | 1.54 | 44% |
+| **LOCKBOX** | trail-5 | $53,560 | $10,067 | 5.3 | 1.61 | 40% |
+| **LOCKBOX** | **ENSEMBLE ride+trail-5** | $67,316 | **$7,321** | **9.2** | **1.61** | **48%** |
+| FULL | ride+BE | $574,177 | $26,763 | 21.5 | 1.55 | 43% |
+| FULL | trail-5 | $356,041 | $10,925 | 32.6 | 1.59 | 42% |
+| FULL | ENSEMBLE ride+trail-5 | $465,109 | $17,439 | 26.7 | 1.61 | 50% |
+
+- **WIN — the ensemble beats BOTH legs on lockbox MAR (9.2 vs ride 7.1 / trail 5.3) AND has the
+  lowest lockbox DD ($7,321 vs $11,491 / $10,067).** Genuine diversification, not just smoothing: the
+  ride's and trail's drawdowns don't coincide, so blending cuts tail risk *below either leg* and lifts
+  risk-adjusted return *above both*. Lockbox **MAR +30%** over the ride-only deploy, **DD −36%**.
+- **Robustness is the story.** Full-window, trail-*only* has the highest MAR (32.6) — but out-of-sample
+  its MAR (5.3) sinks BELOW the ride; the ensemble is the only config whose lockbox MAR beats the ride.
+  Best PF in every window (1.61) and the highest win rate (48–51% — the trail leg books more greens).
+- **trail-5 is the best runner** (trail-3/8 within noise); ride+trail-5 ≈ ride+trail-8.
+- **Caveat:** 2 contracts = **2× fees + 2× margin**; the blend is the 1-contract-equivalent (average).
+  Worth it only if you trade ≥2 lots. WF-folds + ES transfer of the ensemble are still TODO before deploy.
+- Tooling: `tools/orb_ensemble.py`. Item **E → DONE (WIN — ensemble beats both legs on lockbox MAR + DD).**
+
+---
+
 ## 5. What a pro would actually do here (principles)
 
 1. **Size on drawdown, not PnL.** Fixed max-DD risk budget → at −$9k DD you carry ~2.8× the
@@ -409,8 +439,9 @@ sequence, and nothing "starts at E": **A B C D F G H L are all DONE** — only *
 **Open priority (owner 2026-07-12; K closed 2026-07-12):**
 1. ~~**K — verify the breakeven trigger.**~~ ✅ **DONE (§4.15)** — swept time / ATR / OR-width / structure vs
    the R control; **nothing beats static `be_after_R=1.0`** on lockbox MAR+DD. 1.0R stands.
-2. **E — the 1-lot-ride + 1-lot-trail ensemble** (blend the MAR-15 and MAR-33 curves). ← **next**
-3. **J — close-confirm / candle-confirm reconciliation** (resolve the TV +$30k vs −$392k-on-137 clash).
+2. ~~**E — the 1-lot-ride + 1-lot-trail ensemble.**~~ ✅ **DONE (§4.16)** — **WIN**: ensemble beats both legs
+   on lockbox MAR (9.2 vs 7.1 / 5.3) with the lowest DD ($7.3k). Diversification, not just smoothing.
+3. **J — close-confirm / candle-confirm reconciliation** (resolve the TV +$30k vs −$392k-on-137 clash). ← **next**
 4. **Deploy — the live-web sizing toggle** (pure wiring; do last, when ready to take the stack live).
 
 | # | idea | expected payoff | status | result |
@@ -419,7 +450,7 @@ sequence, and nothing "starts at E": **A B C D F G H L are all DONE** — only *
 | **H** | **Breakeven-after-R** (`be_after_R` param) — move stop→entry once unrealized ≥ X·risk | **HIGH** | ☑ DONE → **run #154 PASS** | **Fine sweep (0.1 steps, 0–4R; §4.13):** NOT monotonic — **0.1–0.5R is a trap** (lockbox PF collapses to 1.27–1.34); **0.9–1.3R = robust plateau** (full DD ~−30%, LB PF 1.55–1.59, MAR 20–21.5 vs 14.1); ≥1.6R fades to baseline. **Run #153** (free search): picked noise 2.6R → **WEAK/PBO-fail** — the IS PnL objective can't see a DD lever; gates caught it. **Run #154** (pinned **1.0R**, 137-lock): **PASS 5/5 applicable gates**, whole-run **DD −$40,233→−$26,763 (−33%)**, net $574k, PF 1.55, MAR 14.1→21.5, MC-P95 DD improved −$39.7k→−$36.9k; same 3,951 trades. File: `ORB_3_0_BE.py`. Caveat: the 1.0R level was picked on a sweep that saw the lockbox (defense: wide flat plateau). **BE-1.0R is the new best single-lot ORB 3.0 deploy candidate.** Gap-free 0.9→2.5 sweep with an independent lockbox split (**run #156**, §4.14) re-confirms 1.0R as the MAR champion in BOTH windows (IS 20.7, LB 7.1). |
 | **K** | **Dynamic / alternative breakeven triggers** — the R-multiple trigger (item H) is one of many possible "arm BE now" signals. Candidates: **time-based** (BE after N bars in trade), **ATR-based** (unrealized ≥ X × session ATR), **OR-width multiple** (price has traveled ≥ X × range width — decouples from stop_frac), **structure** (first higher-low / lower-high after entry), **vol-scaled R** (tighter arm on high-vol days). Owner idea 2026-07-10. | MED-HIGH (item H already banked −33% DD; this asks if a smarter trigger beats static 1.0R) | ☑ DONE (§4.15) | **VERIFIED — no trigger beats static 1.0R.** Built `ORB_3_0_BET.py` (`be_mode` selector) + `tools/orb_be_triggers.py`; swept time / ATR / OR-width / structure in isolation, in-sample + lockbox, ranked by MAR/DD. Best-in-lockbox vs the R=1.0 control: **R 7.1 MAR / $11.5k DD** (champ); time 4.0 / $14.6k; ATR-0.4 6.5 / $13.9k (richer PnL+PF, worse DD); OR-width **≡ R** (1.75×OR = 1.0×risk with stop 1.75); structure 3.2 / $18.2k. Anchors reproduce #137 + BE-R=1.0 to the dollar. **Keep `be_after_R=1.0`.** |
 | **L** | **Param-vs-RISK charts in the run report** — the 2C/2E/2J/2K charts plot each config's **PnL** only, so a drawdown lever like `be_after_R` looks FLAT and its real effect (DD −33%) is invisible; #153's PDP "peak" at 2.6R was a ±2% PnL ripple. Fix: carry `dd`/`mar` per config in the saved `points` rows (engine `history.py`/`optimize.py`) + a metric toggle (PnL / MAX DD / MAR) on the 2C·2E·2J·2K charts. | **HIGH** (web+engine feature — makes risk levers visible & rankable in the report) | ☑ DONE (v50.8 web + engine; demo run #155) | **SHIPPED 2026-07-10.** Engine: every grid/auto/validate run stores per-config `dd` (drawdown magnitude) in the saved points. Web: CHART METRIC toggle (NET $ / MAX DD / MAR ×100) above 2B re-plots 2B·2C·2H·2I·2J. Proof = run **#155** (BE sweep, 137-locked): PnL view is flat (±2%) but MAX DD view shows the 0.9–1.3R valley ($26.8k vs $40.2k at be=0). Older runs show a "re-run to record it" note. NB: the v49.5 per-column VALUE-filter menus were a separate feature and were REVERTED (v50.9) after they could hide the whole runs list — do not confuse the two. |
-| E | **Ensemble** — 1 lot full-ride + 1 lot trailed → blended curve between MAR 15 and 33 (your original 2-contract idea, done right) | MED (smoothing, not new edge) | ☐ TODO | — |
+| **E** | **Ensemble** — 1 lot full-ride + 1 lot trailed → blended 2-contract book (your original idea, done right) | MED (expected: smoothing) | ☑ DONE (§4.16) | **WIN — better than expected.** Blend of the ride+BE deploy and a trail-5 runner (same entries) **beats BOTH legs on lockbox MAR** (9.2 vs ride 7.1 / trail 5.3) with the **lowest lockbox DD** ($7,321 vs $11.5k / $10.1k) — genuine diversification (drawdowns don't coincide), not just smoothing. LB MAR +30% / DD −36% vs ride-only; best PF (1.61) + WR (48%) in every window. Caveat: 2 lots = 2× fees/margin; WF + ES transfer still TODO. `tools/orb_ensemble.py`. |
 | — | Smarter trailing (chandelier / activate / breakeven) | — | ☑ DONE | chandelier overfits; activate hurts; breakeven wash. **Simple bar-trail wins.** |
 | A | **Vol-target (risk-parity) sizing** | HIGH | ☑ DONE | **WIN (modest, generalizes)** — lockbox MAR +29% (6.9→8.9), DD ~halved, PF→1.73, survives lockbox + 4/6 WF folds. Best = `rp-cap3` overlay (§4.7, deploy rule §5.6). |
 | B | **Regime skip** (`atr_filter`) | MED-HIGH | ☑ DONE | **NO help** (§4.8) — every filter>0 lowers MAR/PF/PnL, DD doesn't improve. The trail already neutralizes low-vol days (substitutes, not complements). Leave off. |
