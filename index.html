@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='52.6';
+const VERSION='52.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'52.7', date:'2026-07-11', notes:['Expanded (fullscreen) view of the 1G trade-PnL distribution is now TALL and scrolls sideways instead of being squished into a short strip: it opens at 60% of the screen height and you scroll right for the tail, so the shape is actually readable.','The BINS control (- / 1x / 2x / 3x) now appears in the expanded view too, so you can make the bars finer while zoomed in. The x-axis labels were moved inside the chart so they always line up, even while scrolling.']},
   {v:'52.6', date:'2026-07-12', notes:['Library now lists strategies in FAMILY-number order (1 ENGU, 2 RVT, … 7 ORB, 8 ENGU-Q, 9 REPLAY), so a family reads as one block instead of the old creation-order scatter where newer files had no number at all.','Every strategy now shows a description — the earlier families and the ones the name-parser used to miss (RFML, REPLAY) get a family blurb, so no row is left blank.']},
   {v:'52.5', date:'2026-07-12', notes:['Past Runs LIST / STRATEGY view toggle moved to the far right of the tile, so it no longer jumps around when the title width changes (switching views, or a different group count). It now stays put in the same spot in both the flat and grouped views.']},
   {v:'52.4', date:'2026-07-11', notes:['Run report 1G (trade PnL distribution) reworked so it reads as a real distribution: bars are now a fixed thin width and the chart grows as WIDE as the data needs and scrolls sideways (the bulk shows first, scroll right for the tail) instead of squashing everything into a few fat bars. Every outlier stays at its true linear position.','New BINS control on 1G (– / 1x / 2x / 3x, top-right of the chart): expand the bar count to read the distribution finer. The 1H MAE/MFE chart follows the same setting. Your choice is remembered.','1G fixes: the fitted bell curve is drawn BEHIND the bars (so a 1-trade sliver is no longer hidden by the curve) and is thinner and stays crisp when expanded; the mean line + label were invisible (rendered black) and are now blue.','Refresh also restores your scroll position on the page, not just the tab / open run.']},
@@ -5720,28 +5721,31 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _det=Math.max(0.5,Math.min(4,+APREF.distBins||1));
       let NB=Math.round(span/_fd*_det);NB=Math.max(30,Math.min(500,NB||40));
       const bins=new Array(NB).fill(0);v.forEach(x=>{let b=Math.floor((x-mn)/span*NB);if(b<0)b=0;if(b>=NB)b=NB-1;bins[b]++;});
-      const bmax=Math.max.apply(null,bins)||1,padL=34,padR=12,H=132,plotH=H-16,BPX=Math.max(6,540/NB),Wp=NB*BPX,W=padL+Wp+padR,binW=span/NB,Xv=x=>padL+((x-mn)/span)*Wp;
+      const bmax=Math.max.apply(null,bins)||1,padL=34,padR=12,tickH=13,plotTop=16,H=150,B=H-tickH,plotH=B-plotTop,BPX=Math.max(6,540/NB),Wp=NB*BPX,W=padL+Wp+padR,binW=span/NB,Xv=x=>padL+((x-mn)/span)*Wp;
       let hits='';
       // height ∝ count with a tiny 1.5px floor so a 1-trade bar is a visible sliver yet shorter than a 2-trade bar;
       //   uniform opacity + no dot/no small-bar darkening (bars read as one clean series).
-      const bars=bins.map((c,i)=>{const rawh=(c/bmax)*plotH,h=c>0?Math.max(1.5,rawh):0,x=padL+i*BPX,bc=mn+span*(i+0.5)/NB,blo=mn+span*i/NB,bhi=mn+span*(i+1)/NB,col=bc>=0?'#1d9e75':'#e24b4a';hits+='<rect x="'+x.toFixed(2)+'" y="0" width="'+BPX.toFixed(2)+'" height="'+H+'" fill="transparent" style="cursor:pointer" data-tip="'+fmtUsd(Math.round(blo))+' to '+fmtUsd(Math.round(bhi))+'/trade<br><b>'+c+'</b> trade'+(c===1?'':'s')+'"/>';return c>0?'<rect x="'+(x+0.3).toFixed(2)+'" y="'+(H-h).toFixed(1)+'" width="'+Math.max(0.9,BPX-0.6).toFixed(2)+'" height="'+h.toFixed(1)+'" fill="'+col+'" opacity="0.66"/>':'';}).join('');
+      const bars=bins.map((c,i)=>{const rawh=(c/bmax)*plotH,h=c>0?Math.max(1.5,rawh):0,x=padL+i*BPX,bc=mn+span*(i+0.5)/NB,blo=mn+span*i/NB,bhi=mn+span*(i+1)/NB,col=bc>=0?'#1d9e75':'#e24b4a';hits+='<rect x="'+x.toFixed(2)+'" y="0" width="'+BPX.toFixed(2)+'" height="'+B+'" fill="transparent" style="cursor:pointer" data-tip="'+fmtUsd(Math.round(blo))+' to '+fmtUsd(Math.round(bhi))+'/trade<br><b>'+c+'</b> trade'+(c===1?'':'s')+'"/>';return c>0?'<rect x="'+(x+0.3).toFixed(2)+'" y="'+(B-h).toFixed(1)+'" width="'+Math.max(0.9,BPX-0.6).toFixed(2)+'" height="'+h.toFixed(1)+'" fill="'+col+'" opacity="0.66"/>':'';}).join('');
       const pdf=x=>Math.exp(-0.5*Math.pow((x-mean)/sd,2))/(sd*Math.sqrt(2*Math.PI));
-      const pts=[];for(let i=0;i<=200;i++){const x=mn+span*i/200,y=pdf(x)*n*binW,px=Xv(x),py=H-(y/bmax)*plotH;pts.push(px.toFixed(1)+','+Math.max(0,py).toFixed(1));}
+      const pts=[];for(let i=0;i<=200;i++){const x=mn+span*i/200,y=pdf(x)*n*binW,px=Xv(x),py=B-(y/bmax)*plotH;pts.push(px.toFixed(1)+','+Math.max(0,py).toFixed(1));}
       const meanX=Xv(mean),zeroX=(mn<0&&mx>0)?Xv(0):null,wins=v.filter(x=>x>0).length;
       // count (y) axis in a LEFT gutter (stays visible in the default bulk view) + horizontal gridlines across the plot.
-      const grid=[0.25,0.5,0.75,1].map(fr=>{const gy=H-fr*plotH,cv=Math.round(bmax*fr);return '<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4"/><text x="'+(padL-5)+'" y="'+(gy+2.5).toFixed(1)+'" text-anchor="end" font-size="7" fill="var(--text3)">'+cv+'</text>';}).join('');
+      const grid=[0.25,0.5,0.75,1].map(fr=>{const gy=B-fr*plotH,cv=Math.round(bmax*fr);return '<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4"/><text x="'+(padL-5)+'" y="'+(gy+2.5).toFixed(1)+'" text-anchor="end" font-size="7" fill="var(--text3)">'+cv+'</text>';}).join('');
       const _dOpts=[['0.5','–'],['1','1×'],['2','2×'],['3','3×']];
       const detCtl='<span style="display:inline-flex;gap:2px;align-items:center;margin-left:6px" title="finer / coarser bins">'+_dOpts.map(function(o){return '<button data-distbins="'+o[0]+'" style="font-size:8px;padding:1px 5px;border:1px solid var(--border);border-radius:3px;cursor:pointer;background:'+(String(_det)===o[0]?'var(--blue)':'var(--bg3)')+';color:'+(String(_det)===o[0]?'#fff':'var(--text3)')+'">'+o[1]+'</button>';}).join('')+'</span>';
       // curve BEHIND the bars (so a 1-trade bar is never hidden by its thickness); thin non-scaling stroke so it stays crisp when the chart is expanded.
       const bellCurve='<polyline points="'+pts.join(' ')+'" fill="none" stroke="var(--yellow)" stroke-width="1" opacity="0.85" stroke-dasharray="3,2" vector-effect="non-scaling-stroke"/>';
-      const zeroMark=(zeroX!=null?'<line x1="'+zeroX.toFixed(1)+'" y1="0" x2="'+zeroX.toFixed(1)+'" y2="'+H+'" stroke="var(--border)" stroke-width="1"/>':'');
-      const meanMark='<line x1="'+meanX.toFixed(1)+'" y1="0" x2="'+meanX.toFixed(1)+'" y2="'+H+'" stroke="var(--blue)" stroke-width="1" stroke-dasharray="3,2" vector-effect="non-scaling-stroke"/><text x="'+meanX.toFixed(1)+'" y="8" text-anchor="middle" font-size="7.5" font-weight="700" fill="var(--blue)" style="paint-order:stroke;stroke:var(--bg1);stroke-width:2.5px">mean '+fmtUsd(Math.round(mean))+'</text>';
-      const niceGrid=(function(){const _n2=x2=>{x2=Math.abs(x2)||1;const e=Math.pow(10,Math.floor(Math.log10(x2)));const f=x2/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};const st3=_n2(span/8)||1;let g2='';for(let L=Math.ceil(mn/st3)*st3;L<=mx;L+=st3){const xx=Xv(L);g2+='<line x1="'+xx.toFixed(1)+'" y1="0" x2="'+xx.toFixed(1)+'" y2="'+H+'" stroke="var(--border)" stroke-width="0.4" opacity="0.16"/>';}return g2;})();
-      const yTitle='<text x="'+(padL-15)+'" y="'+((H/2).toFixed(1))+'" transform="rotate(-90 '+(padL-15)+' '+((H/2).toFixed(1))+')" text-anchor="middle" font-size="6" fill="var(--text4)">trades</text>';
-      const svg='<svg viewBox="0 0 '+W.toFixed(0)+' '+H+'" width="'+W.toFixed(0)+'" height="'+H+'" preserveAspectRatio="xMinYMid meet" style="display:block" data-xh="'+encodeURIComponent(JSON.stringify({xt:'usd',x0:mn,x1:mx,yt:'int',y0:0,y1:bmax,px:padL,py:16,pw:Wp,ph:plotH,xl:'per-trade',yl:'trades'}))+'">'+grid+niceGrid+bellCurve+bars+zeroMark+meanMark+yTitle+hits+'</svg>';
-      const xrow=(function(){const _n2=x2=>{x2=Math.abs(x2)||1;const e=Math.pow(10,Math.floor(Math.log10(x2)));const f=x2/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};const st3=_n2(span/8)||1;let tk='';for(let L=Math.ceil(mn/st3)*st3;L<=mx;L+=st3){const xx=Xv(L);tk+='<span style="position:absolute;left:'+xx.toFixed(1)+'px;transform:translateX(-50%);color:'+(Math.abs(L)<1e-9?'var(--text4)':'var(--text5)')+'">'+fmtUsd(Math.round(L))+'</span>';}return '<div title="per-trade net $ (x) vs number of trades (y) · dashed bell = fitted normal · scroll for the tail" style="position:relative;height:11px;margin-top:2px;font-size:8px;color:var(--text5);width:'+W.toFixed(0)+'px">'+tk+'</div>';})();
-      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;flex-wrap:wrap">'+tag+' · TRADE PNL DISTRIBUTION <span style="font-weight:400;color:var(--text4);font-size:8px;margin-left:4px">· '+(scope||'in-sample')+' · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins</span><span style="font-size:8px;color:var(--text5);margin-left:auto">'+NB+' bins</span>'+detCtl+'</div>':'<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TRADE PNL DISTRIBUTION · top config · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins <span style="margin-left:auto;font-size:8px;color:var(--text5)">'+NB+' bins</span>'+detCtl+'</div>')
-        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px 10px 8px;'+(tag?'':'margin-bottom:14px')+'"><div style="overflow-x:auto;overflow-y:hidden">'+svg+xrow+'</div></div>';
+      const zeroMark=(zeroX!=null?'<line x1="'+zeroX.toFixed(1)+'" y1="'+plotTop+'" x2="'+zeroX.toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-width="1"/>':'');
+      const meanMark='<line x1="'+meanX.toFixed(1)+'" y1="'+plotTop+'" x2="'+meanX.toFixed(1)+'" y2="'+B+'" stroke="var(--blue)" stroke-width="1" stroke-dasharray="3,2" vector-effect="non-scaling-stroke"/><text x="'+meanX.toFixed(1)+'" y="9" text-anchor="middle" font-size="7.5" font-weight="700" fill="var(--blue)" style="paint-order:stroke;stroke:var(--bg1);stroke-width:2.5px">mean '+fmtUsd(Math.round(mean))+'</text>';
+      const niceGrid=(function(){const _n2=x2=>{x2=Math.abs(x2)||1;const e=Math.pow(10,Math.floor(Math.log10(x2)));const f=x2/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};const st3=_n2(span/8)||1;let g2='';for(let L=Math.ceil(mn/st3)*st3;L<=mx;L+=st3){const xx=Xv(L);g2+='<line x1="'+xx.toFixed(1)+'" y1="'+plotTop+'" x2="'+xx.toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-width="0.4" opacity="0.16"/>';}return g2;})();
+      // x-axis ticks INSIDE the svg (below the baseline) so they scroll and scale WITH the bars — nice-step $ at true positions.
+      const axis='<line x1="'+padL+'" y1="'+B+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-width="0.6"/>'+(function(){const _n2=x2=>{x2=Math.abs(x2)||1;const e=Math.pow(10,Math.floor(Math.log10(x2)));const f=x2/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};const st3=_n2(span/8)||1;let t='';for(let L=Math.ceil(mn/st3)*st3;L<=mx;L+=st3){const xx=Xv(L);t+='<text x="'+xx.toFixed(1)+'" y="'+(B+9)+'" text-anchor="middle" font-size="7" fill="'+(Math.abs(L)<1e-9?'var(--text4)':'var(--text5)')+'">'+fmtUsd(Math.round(L))+'</text>';}return t;})();
+      const yTitle='<text x="'+(padL-15)+'" y="'+((plotTop+plotH/2).toFixed(1))+'" transform="rotate(-90 '+(padL-15)+' '+((plotTop+plotH/2).toFixed(1))+')" text-anchor="middle" font-size="6" fill="var(--text4)">trades</text>';
+      // self-contained svg at NATURAL width (data-distscroll → _rsCharts wraps it in a horizontal scroller
+      //   inline, and the ⛶ opens it tall + scrollable). x-ticks live inside so they always line up.
+      const svg='<svg viewBox="0 0 '+W.toFixed(0)+' '+H+'" width="'+W.toFixed(0)+'" height="'+H+'" preserveAspectRatio="xMinYMid meet" data-distscroll="1" style="display:block" data-xh="'+encodeURIComponent(JSON.stringify({xt:'usd',x0:mn,x1:mx,yt:'int',y0:0,y1:bmax,px:padL,py:plotTop,pw:Wp,ph:plotH,xl:'per-trade',yl:'trades'}))+'">'+grid+niceGrid+bellCurve+bars+zeroMark+meanMark+axis+yTitle+hits+'</svg>';
+      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;flex-wrap:wrap">'+tag+' · TRADE PNL DISTRIBUTION <span style="font-weight:400;color:var(--text4);font-size:8px;margin-left:4px">· '+(scope||'in-sample')+' · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins</span><span style="font-size:8px;color:var(--text5);margin-left:auto">'+NB+' bins · scroll →</span>'+detCtl+'</div>':'<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TRADE PNL DISTRIBUTION · top config · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins <span style="margin-left:auto;font-size:8px;color:var(--text5)">'+NB+' bins · scroll →</span>'+detCtl+'</div>')
+        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px 10px 8px;'+(tag?'':'margin-bottom:14px')+'">'+svg+'</div>';
     };
     // STRESS — winner PnL across 8 chronological windows. Profit SPREAD across windows is
     // robust; CONCENTRATED in one stretch is a red flag (one lucky regime carried it).
@@ -8251,6 +8255,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
           box=pre;if(box.querySelector(':scope > .xpb'))return;
           if(getComputedStyle(box).position==='static')box.style.position='relative';
           const _rk=_keyOf(box),_sv=_savedH(_rk);if(_sv)box.style.height=_sv+'px';_persistResize(box,_rk);
+        }else if(svg.getAttribute('data-distscroll')){
+          // wide scrollable distribution (1G): keep NATURAL width + horizontal scroll (no aspect
+          //   distortion), and don't vertically-resize/auto-fit it. The ⛶ opens it tall + scrollable.
+          //   box is a NON-scrolling wrapper (so the ⛶ stays pinned) with an inner horizontal scroller.
+          svg.style.width=vw+'px';svg.style.height=vh+'px';svg.style.display='block';
+          box=document.createElement('div');box.className='rschart-box';
+          box.style.cssText='position:relative;max-width:100%;height:'+(vh+6)+'px;border-radius:6px;margin-bottom:6px';
+          const _scr=document.createElement('div');_scr.style.cssText='overflow-x:auto;overflow-y:hidden;height:100%';
+          svg.parentNode.insertBefore(box,svg);_scr.appendChild(svg);box.appendChild(_scr);
         }else{
           svg.setAttribute('preserveAspectRatio','none');
           svg.style.height='100%';svg.style.width='100%';svg.style.display='block';
@@ -8292,7 +8305,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             const cl=h.cloneNode(true);cl.querySelectorAll('select,input,[data-sccmp-rm]').forEach(x=>x.remove());
             const parts=cl.textContent.replace(/\s+/g,' ').replace(/ⓘ/g,'').trim().split('·').map(s=>s.trim()).filter(Boolean);
             return {main:parts.slice(0,2).join(' · ')||'CHART',sub:parts.slice(2).join(' · ')};};
-          const cloneSvg=sv=>{const c=sv.cloneNode(true);c.setAttribute('preserveAspectRatio','xMidYMid meet');c.style.cssText='width:100%;height:68vh;display:block';return c.outerHTML;};
+          const cloneSvg=sv=>{const c=sv.cloneNode(true);if(sv.getAttribute('data-distscroll')){c.setAttribute('preserveAspectRatio','xMinYMid meet');c.style.cssText='height:60vh;width:auto;max-width:none;display:block';}else{c.setAttribute('preserveAspectRatio','xMidYMid meet');c.style.cssText='width:100%;height:68vh;display:block';}return c.outerHTML;};
           const hp=parseHdr(findHdr(box));
           const api=window.expandChart(hp.main,cloneSvg(svg),{sub:hp.sub});
           // FILTERS live in the modal too: clone the header's controls (param pickers, sliders,
@@ -8301,7 +8314,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // by box index (chart order is stable across re-renders).
           const wireCtl=()=>{if(!api||!api.ctl)return;api.ctl.innerHTML='';
             const bx=_boxes()[idx],hd=bx?findHdr(bx):null;if(!hd)return;
-            hd.querySelectorAll('select,input[type=range],[data-sccmp-rm]').forEach(src=>{
+            hd.querySelectorAll('select,input[type=range],[data-sccmp-rm],[data-distbins]').forEach(src=>{
               const cp=src.cloneNode(true);
               if(cp.tagName==='SELECT')cp.value=src.value;
               const refresh=()=>setTimeout(()=>{const nb=_boxes()[idx],ns=nb&&nb.querySelector('svg');
