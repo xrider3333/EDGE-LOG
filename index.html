@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='54.1';
+const VERSION='54.2';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'54.2', date:'2026-07-12', notes:['Expanded champion equity (1A): trade dots now sit exactly ON the equity line at every zoom level — they were drawn at the trade ENTRY time while the line steps at the EXIT time, so zoomed in they drifted apart. Each dot also has a bigger click target now: click one to jump to and highlight its row in the blotter below.']},
   {v:'54.1', date:'2026-07-12', notes:['Trades tab: the PTS column now computes for stocks and ETFs too (it was blank, only futures showed a value); the per-unit sub-line reads /sh for stocks, /c for futures.']},
   {v:'54.0', date:'2026-07-12', notes:['Regime report card (1F): each bar now labels its buckets with their SHARE of the strategy net $ (a percentage) instead of the raw dollar figure — the raw net $ is still on hover.','Report header: it now STAYS visible at the very top and only grows a background once you scroll down, so it reads cleanly over the report sliding beneath it (before it hid itself at the top).','Engine: runs now record a time-of-day (ET session) regime breakdown, so the 1F time-of-day bar fills with real data on your next validate / sweep — restart the local runner so it picks up the engine update.']},
   {v:'53.9', date:'2026-07-12', notes:['Charts now show a zoom-in cursor when you hover them, as a quiet hint that you can double-click to open the fullscreen view (no on-screen text, per request).']},
@@ -2749,11 +2750,15 @@ window.expandEquity=function(host){
       if(mcDD!=null){s+='<line x1="0" y1="'+Yd(mcDD).toFixed(1)+'" x2="'+g.pw+'" y2="'+Yd(mcDD).toFixed(1)+'" stroke="#f5c842" stroke-width="1.2" stroke-dasharray="5,3"/>'
         +'<text x="'+(g.pw+6)+'" y="'+(Yd(mcDD)+3.5).toFixed(1)+'" font-size="10" fill="#f5c842">'+fmt$(mcDD)+'</text>';}
       s+='<text x="'+(g.pw+6)+'" y="'+(Yd(0)+3.5).toFixed(1)+'" font-size="9" fill="var(--text5)">$0</text>';}
-    // blotter trade markers (when loaded & not too dense)
-    if(blotRows&&timeOk){const mvis=blotRows.filter(r=>r._t>=a&&r._t<=b);
-      if(mvis.length<=420)mvis.forEach(r=>{const x=X(g,r._t),y=Y(r._cum);
-        s+='<circle data-tr="'+r._no+'" cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+(selTrade===r._no?5:3)+'" fill="'+(r._usd>=0?'#1d9e75':'#e24b4a')+'" stroke="'+(selTrade===r._no?'var(--text)':'rgba(0,0,0,.4)')+'" stroke-width="'+(selTrade===r._no?2:0.8)+'" style="cursor:pointer"/>'
-          +(selTrade===r._no?'<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="9" fill="none" stroke="var(--text)" stroke-width="1" opacity="0.6"/>':'');});
+    // blotter trade markers (when loaded & not too dense). Each dot sits at the trade's EXIT time +
+    //   cum $ — the SAME point the line vertex uses (the blotter-load swap also keys the line off
+    //   _tx), so a dot lands exactly ON the curve at every zoom. A larger transparent hit-circle
+    //   makes each dot easy to click → it jumps to (and highlights) that trade's blotter row.
+    if(blotRows&&timeOk){const _mt=r=>(r._tx||r._t),mvis=blotRows.filter(r=>_mt(r)>=a&&_mt(r)<=b);
+      if(mvis.length<=420)mvis.forEach(r=>{const x=X(g,_mt(r)),y=Y(r._cum);
+        s+='<circle data-tr="'+r._no+'" cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="8" fill="transparent" style="cursor:pointer"/>'
+          +'<circle data-tr="'+r._no+'" cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+(selTrade===r._no?5:3)+'" fill="'+(r._usd>=0?'#1d9e75':'#e24b4a')+'" stroke="'+(selTrade===r._no?'var(--text)':'rgba(0,0,0,.4)')+'" stroke-width="'+(selTrade===r._no?2:0.8)+'" style="pointer-events:none"/>'
+          +(selTrade===r._no?'<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="9" fill="none" stroke="var(--text)" stroke-width="1" opacity="0.6" style="pointer-events:none"/>':'');});
       else s+='<text x="6" y="14" font-size="9" fill="var(--text5)">'+mvis.length+' trades in view — zoom in to see the markers</text>';}
     svgEl.setAttribute('viewBox','0 0 '+g.W+' '+g.H);
     svgEl.innerHTML=s;
