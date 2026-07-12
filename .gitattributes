@@ -1,0 +1,2 @@
+# Keep the git hook LF so its shebang works after checkout on Windows (autocrlf=true).
+tools/githooks/pre-push text eol=lf
