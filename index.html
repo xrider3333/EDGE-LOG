@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='51.3';
+const VERSION='51.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'51.4', date:'2026-07-11', notes:['§2 config space: the "HIGHLIGHTING" text strip that sat between the 2B parallel-coordinates chart and the 2C PDP row is gone — they now read as one tight subtile, with the 2C · PDP header restored above its row and each peak label centred over its own mini-chart.','2B parallel-coordinates now draws the actual config DATA POINTS as dots on every axis: brush an axis and the in-range points light up while the rest dim, so you SEE which configs you are selecting (not just a highlight band). Works in the ⛶ expanded config-space view too.']},
   {v:'51.3', date:'2026-07-11', notes:['Run report §2 config-space widened — 2A/2B/2C now get more room; the 2C PDP mini-charts are taller and tucked up tight under 2B.','2C mini-charts no longer repeat each param name (the 2B axis above already labels the column); a small "2C" tag sits beside the row.','2A "top configs" chart: brighter/whiter gridlines, dropped the extra left guide line, single neutral NET axis.','2B parallel-coords: while you drag to brush an axis, a live HIGHLIGHTING readout lists each knob\'s selected range + the exact step values, so you can see what you\'re selecting.','⛶ on 2B now opens an EXPANDED config-space view (2B + the 2C PDP row together) that stays fully brushable — highlight axes right in the big view.']},
   {v:'51.2', date:'2026-07-10', notes:['2A equity overlay: y-axis $ labels shrunk + greyed to match 2B.','2B/2C now share one combined subtitle (they read as one config-space card).','Past Runs STRATEGY dropdown: new "contains" search box — type e.g. "orb" to filter the list, then "✓ select all shown" to add every match to the filter.']},
   {v:'51.1', date:'2026-07-11', notes:['NINJATRADER AUTO-SYNC panel now shows a capture heartbeat: "capture alive Xs ago" (green) when the NinjaTrader AddOn is running, or "capture stale/missing" (yellow dot) when it stopped reporting — so a silently dead fill capture (e.g. after a broker reconnect) is visible instead of hidden.','Pairs with AddOn v2 (tools/EdgeLogExport.cs): it re-subscribes after every reconnect and back-fills any missed fills from the current session within ~60s.']},
@@ -2461,6 +2462,7 @@ window._wireParcoords=function(scope){
     if(svg._pcWired)return;svg._pcWired=true;   // idempotent per node
     const lines=[...svg.querySelectorAll('.pcline')],total=lines.length,cnt=scope.querySelector('.pc-count'),readout=scope.querySelector('.pc-readout'),brushes={};
     const dotMap={};scope.querySelectorAll('.cfgmark[data-cfg]').forEach(d=>{const c=d.getAttribute('data-cfg');(dotMap[c]||(dotMap[c]=[])).push(d);});
+    const pcdotMap={};svg.querySelectorAll('.pcdot[data-cfg]').forEach(d=>{const c=d.getAttribute('data-cfg');(pcdotMap[c]||(pcdotMap[c]=[])).push(d);});
     const vbY=cy=>{const ctm=svg.getScreenCTM();if(!ctm)return 0;const pt=svg.createSVGPoint();pt.x=0;pt.y=cy;return pt.matrixTransform(ctm.inverse()).y;};
     const valAt=(tr,y)=>{const mn=+tr.getAttribute('data-mn'),mx=+tr.getAttribute('data-mx'),ylo=+tr.getAttribute('data-ylo'),yhi=+tr.getAttribute('data-yhi');return mn+((ylo-y)/((ylo-yhi)||1))*(mx-mn);};
     // linked 2C→PDP highlight: brush pixel-range → axis VALUES → band the same range on that knob's cell.
@@ -2498,7 +2500,8 @@ window._wireParcoords=function(scope){
       lines.forEach(ln=>{const ys=(ln.getAttribute('data-ys')||'').split(',').map(Number);let ok=true;
         for(const k of ks){const b=brushes[k];if(!(ys[+k]>=b[0]&&ys[+k]<=b[1])){ok=false;break;}}
         ln.style.opacity=ok?'':'0.04';ln.style.pointerEvents=ok?'stroke':'none';if(ok)shown++;
-        const dots=dotMap[ln.getAttribute('data-cfg')];if(dots)dots.forEach(dt=>{dt.style.opacity=ok?'':'0.05';dt.style.pointerEvents=ok?'':'none';});});
+        const dots=dotMap[ln.getAttribute('data-cfg')];if(dots)dots.forEach(dt=>{dt.style.opacity=ok?'':'0.05';dt.style.pointerEvents=ok?'':'none';});
+        const pcd=pcdotMap[ln.getAttribute('data-cfg')];if(pcd)pcd.forEach(dt=>{dt.style.opacity=ks.length?(ok?'0.95':'0.05'):'0.5';});});
       if(cnt)cnt.textContent=ks.length?(shown+' / '+total+' configs · brushed'):(total+' configs');
       pdpHl();readoutUpd(shown);};
     svg.querySelectorAll('.pc-track').forEach(tr=>{const axi=tr.getAttribute('data-ax'),br=svg.querySelector('.pc-brush[data-ax="'+axi+'"]');
@@ -6050,7 +6053,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const flat=cv.infl<0.12*maxInfl;
         const _peakSpan='<span title="'+(flat?'this knob barely changes net $ — a flat partial-dependence curve':'net $ peaks at '+_pp(cv.k)+' = '+cv.peak.v)+'" style="color:'+(flat?'var(--text5)':'var(--green)')+';white-space:nowrap;cursor:help">'+(flat?'flat':'peak <b>'+cv.peak.v+'</b>')+'</span>';
         const _hdrRow=bare
-          ? '<div style="text-align:right;font-size:8px;margin-bottom:1px">'+_peakSpan+'</div>'
+          ? '<div style="text-align:center;font-size:8px;margin-bottom:1px">'+_peakSpan+'</div>'
           : '<div style="display:flex;justify-content:space-between;gap:4px;font-size:8px;margin-bottom:1px"><span style="color:var(--text3);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_pp(cv.k)+'">'+_pp(cv.k)+'</span>'+_peakSpan+'</div>';
         return '<div style="background:var(--bg1);border-radius:8px;padding:7px 8px 5px">'+_hdrRow
           // relative wrapper + hidden band: brushing this param's 2C axis lights up the SAME
@@ -6067,11 +6070,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // mirror 2C's geometry exactly: padX gutters + n equal columns over the C2P plot width
         // (2C's axes are column-centred, so column i here = axis i there). Last column = NET $.
         const padX=10,n=alignKeys.length+1,colPct=((C2P-2*padX)/n/C2W*100).toFixed(3),gutPct=(padX/C2W*100).toFixed(3);
-        // nestle the PDP row up tight under 2B (owner request: move charts up into 2B) and drop a
-        //   rotated "2C" tag into the leftmost gutter — labels the row without a header line and
-        //   without shifting the columns off their 2B axes.
+        // nestle the PDP row up tight under 2B (owner request); the "2C · PDP" header above labels
+        //   the row, and an empty gutter spacer keeps the columns aligned under their 2B axes.
         return hdr+'<div style="display:flex;align-items:stretch;margin-top:-3px">'
-          +'<div style="flex:0 0 '+gutPct+'%;position:relative"><span style="position:absolute;right:0;top:50%;transform:translateY(-50%) rotate(-90deg);transform-origin:right center;font-size:6.5px;font-weight:800;letter-spacing:1px;color:var(--text4);white-space:nowrap;pointer-events:none">2C</span></div>'
+          +'<div style="flex:0 0 '+gutPct+'%"></div>'
           +show.map(cv=>'<div style="flex:0 0 '+colPct+'%;min-width:0;padding:0 2px;box-sizing:border-box">'+cellOf(cv,true)+'</div>').join('')
           +'<div style="flex:0 0 '+colPct+'%;display:flex;align-items:center;justify-content:center"><span style="font-size:8px;color:var(--text4);font-weight:700;text-align:center">NET $<br><span style="font-weight:400;color:var(--text5)">← what each knob<br>does to it</span></span></div>'
           +'</div>';
@@ -6418,6 +6420,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const t=p.pnl/pmx,col=(p.pnl>=0?'rgba(29,158,117,':'rgba(226,75,74,'),op=Math.min(.72,Math.abs(t)*0.6+0.08);
         const tip='net <b style=&quot;color:'+(p.pnl>=0?'#1d9e75':'#e24b4a')+'&quot;>'+fmtUsd(Math.round(p.pnl*mult))+'</b><br>'+keys.map(k=>_pp(k)+' <b>'+rnd(p[k])+'</b>').join(' · ');
         return '<path class="pcline" data-cfg="'+_i+'" data-ys="'+ys.map(y=>y.toFixed(1)).join(',')+'" data-net="'+Math.round(p.pnl*mult)+'" d="'+dd+'" fill="none" stroke="'+col+op+')" stroke-width="1" style="pointer-events:stroke;transition:opacity .12s" data-tip="'+tip+'"/>';}).join('');
+      // DATA-POINT dots: one dot per config at its crossing on every axis, so brushing an axis
+      //   surfaces the actual sampled values as points (owner). Faint by default; the brush
+      //   handler brightens in-range dots (by data-cfg) and dims the rest.
+      const dots=pts.map(({p,_i})=>axes.map((k,i)=>{const y=Y(k,k==='pnl'?p.pnl*mult:p[k]);
+        return '<circle class="pcdot" data-cfg="'+_i+'" cx="'+ax(i).toFixed(1)+'" cy="'+y.toFixed(1)+'" r="1.3" fill="'+(p.pnl>=0?'#1d9e75':'#e24b4a')+'" opacity="0.5" style="transition:opacity .12s" pointer-events="none"/>';}).join('')).join('');
       // 2C spans the FULL card width now, so its 560-unit viewBox scales ~2× — text sizes are
       //   authored SMALL (≈4.6 units → ~10px on screen) so the labels don't render massive.
       const axled=axes.map((k,i)=>{const x=ax(i);const isP=k==='pnl';return '<line x1="'+x.toFixed(1)+'" y1="'+padT+'" x2="'+x.toFixed(1)+'" y2="'+(H-padB)+'" stroke="var(--border)" stroke-width="1"/>'
@@ -6440,11 +6447,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // $ scale labels sit RIGHT NEXT to the NET $ axis (not out in the far-right gutter)
           const _pnlX=ax(axes.length-1)+5;
           const _sTxt=(y,s2)=>'<text x="'+_pnlX.toFixed(1)+'" y="'+y+'" text-anchor="start" font-size="4.6" fill="var(--text3)">'+s2+'</text>';
-          return '<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'"><svg class="pcoords-svg" viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+lines+axled+brush
-          +_sTxt((padT+2.5).toFixed(1),fmtUsd(Math.round(_pm[1])))+_sTxt(_mY,fmtUsd(Math.round((_pm[0]+_pm[1])/2)))+_sTxt((H-padB+2.5).toFixed(1),fmtUsd(Math.round(_pm[0])))+'</svg></div>';})()
-        // BRUSH READOUT (owner request: "see the steps populate when I highlight 2B"): hidden until
-        //   a brush is active, then the handler lists each brushed knob's value range + step count.
-        +'<div class="pc-readout" style="display:none;font-size:8px;color:var(--text4);margin:4px 2px 0;line-height:1.55"></div>';
+          return '<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'"><svg class="pcoords-svg" viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+lines+axled+dots+brush
+          +_sTxt((padT+2.5).toFixed(1),fmtUsd(Math.round(_pm[1])))+_sTxt(_mY,fmtUsd(Math.round((_pm[0]+_pm[1])/2)))+_sTxt((H-padB+2.5).toFixed(1),fmtUsd(Math.round(_pm[0])))+'</svg></div>';})();
     };
     // WALK-FORWARD IS vs OOS — grouped bars per fold: in-sample champion PnL vs out-of-sample.
     const isOosFoldsHtml=(d,mult)=>{
@@ -7296,7 +7300,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   never duplicates 2H; hides itself when the strategy has fewer than 3 numeric params.
       //   2K 1-D PDP top-out curves. Both read stored `points` → render retroactively (run 137).
       const _p3d=surface3dPanelHtml(_PTS,mlt,_cfgN+'I',d.best_params,1);
-      const _pdp=pdpCurvesPanelHtml(_PTS,mlt,_cfgN+'C',(_pMet==='pnl'?d.plateau_pick:null),(_parc?_kOrd:null),true);
+      const _pdp=pdpCurvesPanelHtml(_PTS,mlt,_cfgN+'C',(_pMet==='pnl'?d.plateau_pick:null),(_parc?_kOrd:null));
       // lay non-empty panels in a row (1, 2 or 3 across); single panel = full-width. stretch=true makes
       //   the cards equal-height (good for similar charts); otherwise they top-align at natural height.
       const _wrap=(arr,stretch)=>{const xs=arr.filter(x=>x&&x.replace(/\s/g,''));if(!xs.length)return '';const inner=(xs.length>1)?'<div style="display:flex;gap:12px;align-items:'+(stretch?'stretch':'flex-start')+';flex-wrap:wrap">'+xs.map(x=>'<div style="flex:1 1 260px;min-width:0;display:flex;flex-direction:column">'+x+'</div>').join('')+'</div>':xs[0];return '<div style="margin-bottom:12px">'+inner+'</div>';};
