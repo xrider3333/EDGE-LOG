@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='53.8';
+const VERSION='53.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'53.9', date:'2026-07-12', notes:['Charts now show a zoom-in cursor when you hover them, as a quiet hint that you can double-click to open the fullscreen view (no on-screen text, per request).']},
   {v:'53.8', date:'2026-07-12', notes:['Regime report card (1F): each bar now shows the net $ on its wider buckets right on the segment (with the bucket name where there is room); removed the small caption line below the bars.']},
   {v:'53.7', date:'2026-07-12', notes:['Regime report card (1F) is now compact — each dimension (volatility, trend, day of week, time of day) is ONE bar whose segments are its buckets: width = share of trades, green / red = net $, hover for net / PF / trades. Far less room than the old stacked lists. Time of day shows n/a until a re-run records it (it will split net $ by ET hour, to gate WHEN time-sensitive setups like ORB may trade).','1G trade distribution: the in-sample / walk-forward / lockbox scope toggle now sits on the 1G title next to the BINS control. Slices that were not saved are greyed as n/a in the toggle (a re-run records them) instead of a separate re-run note.']},
   {v:'53.6', date:'2026-07-12', notes:['Library: click an already-open strategy to collapse its runs again (it was stuck open before).','Library: run rows under a strategy now open the report on DOUBLE-click (single click was too easy to trigger by accident).']},
@@ -4091,7 +4092,7 @@ function renderApp(){
             <button onclick="spyOverlay=!spyOverlay;renderApp()" style="background:${spyOverlay?'var(--yellow)':'var(--bg3)'};color:${spyOverlay?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">vs SPY</button>
         </div>
       </div>
-      <div class="cum-pl-chart" style="padding:8px 10px 4px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%)" ondblclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', this.innerHTML)">
+      <div class="cum-pl-chart" style="padding:8px 10px 4px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%);cursor:zoom-in" ondblclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', this.innerHTML)">
         ${(()=>{
           const now=new Date();
           let cutoff=null;
@@ -4200,7 +4201,7 @@ function renderApp(){
           <span style="color:var(--text4)">+1σ <span style="color:var(--yellow)">+$${(_mean+_std).toFixed(0)}</span></span>
         </div>
       </div>
-      <div class="dist-chart" style="padding:14px 12px" ondblclick="expandChart('P&L DISTRIBUTION', this.innerHTML)">
+      <div class="dist-chart" style="padding:14px 12px;cursor:zoom-in" ondblclick="expandChart('P&L DISTRIBUTION', this.innerHTML)">
         <svg viewBox="0 0 1400 240" width="100%" style="display:block">
           <line x1="0" y1="210" x2="1400" y2="210" stroke="var(--border)" stroke-width="1"/>
           ${_min<0&&_max>0?(()=>{const zx=((0-_min)/(_max-_min))*1400;return `<line x1="${zx}" y1="0" x2="${zx}" y2="210" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2,3"/><text x="${zx+4}" y="14" fill="var(--text5)" font-size="12">$0</text>`})():''}
@@ -4283,7 +4284,7 @@ function renderApp(){
             <button onclick="spyOverlay=!spyOverlay;renderApp()" style="background:${spyOverlay?'var(--yellow)':'var(--bg3)'};color:${spyOverlay?'var(--bg)':'var(--text3)'};border:1px solid var(--border);padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer">vs SPY</button>
         </div>
       </div>
-      <div class="cum-pl-chart" style="padding:8px 10px 4px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%)" ondblclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', this.innerHTML)">
+      <div class="cum-pl-chart" style="padding:8px 10px 4px;overflow-x:auto;background:linear-gradient(180deg, transparent 0%, var(--bg2) 100%);cursor:zoom-in" ondblclick="expandChart('${chartMode==='equity'?'ACCOUNT EQUITY':'CUMULATIVE P&L'}', this.innerHTML)">
         ${(()=>{
           const now=new Date();
           let cutoff=null;
@@ -4499,7 +4500,7 @@ function renderApp(){
           <span style="color:var(--text4)">+1σ <span style="color:var(--yellow)">+$${(_mean+_std).toFixed(0)}</span></span>
         </div>
       </div>
-      <div class="dist-chart" style="padding:14px 12px" ondblclick="expandChart('P&L DISTRIBUTION', this.innerHTML)">
+      <div class="dist-chart" style="padding:14px 12px;cursor:zoom-in" ondblclick="expandChart('P&L DISTRIBUTION', this.innerHTML)">
         <svg viewBox="0 0 1400 240" width="100%" style="display:block">
           <line x1="0" y1="210" x2="1400" y2="210" stroke="var(--border)" stroke-width="1"/>
           ${_min<0&&_max>0?(()=>{const zx=((0-_min)/(_max-_min))*1400;return `<line x1="${zx}" y1="0" x2="${zx}" y2="210" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2,3"/><text x="${zx+4}" y="14" fill="var(--text5)" font-size="12">$0</text>`})():''}
@@ -8472,6 +8473,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               api.ctl.appendChild(cp);});};
           wireCtl();};
         box.addEventListener('dblclick',openExpand);
+        box.style.cursor='zoom-in';
       });
       // Set each wrapped chart's height to its natural aspect once layout is flushed (clientWidth
       // is 0 synchronously inside the flex panel) — so nothing looks stretched. Pre-boxed charts
