@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='53.0';
+const VERSION='53.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'53.1', date:'2026-07-12', notes:['Double-click any chart to open the fullscreen view (as well as the ⛶ button); clicking the dark backdrop still closes it.','The ⛶ expand button is now see-through until you hover it, so it no longer hides the x-axis it sits over.','1G trade-count axis is now labelled on BOTH the left and right edges, so the scale stays visible in the expanded view whether you are looking at the bulk (left) or scrolled out to the tail (right).']},
   {v:'53.0', date:'2026-07-12', notes:['Run report header: removed the background behind the REPORT: row entirely — it now sits directly on the tile with no bar.','1F regime card: added a Time of day (ET) breakdown. No run records by-hour data yet, so it shows an annotated n/a placeholder for now (it will populate on future runs) — meant to gate WHEN time-sensitive setups like ORB may trade.','2C label: now matches the 2B title exactly (same size / weight / colour) and no longer gets covered by the PDP charts.']},
   {v:'52.9', date:'2026-07-12', notes:['Past Runs toolbar tidied: the LIST / STRATEGY view is now a single ▦ GROUP on/off toggle, sitting on the far right in a matching style with the group-by and keepers controls.','Run report header: the checklist tiles turn GREEN when a step passes (grey when not tested), the REPORT: id + strategy text is smaller, and the dark bar behind the row is gone — it now reads as frosted glass over the report.','Config space 2C: the label is just 2C PDP now, top-left and styled like the other tiles, with the PDP mini-charts sitting tighter under the 2B axis.','Config space: the 2J 3-D scatter now sits in one row of three, next to 2H and 2I.']},
   {v:'52.8', date:'2026-07-12', notes:['Distribution charts 1G and 1H: axis numbers are bigger and higher-contrast so they are actually readable. 1G trade-count axis moved to the RIGHT edge (matching 1H).','1H MAE/MFE: the points x-axis labels now live INSIDE the chart, so they show up in the fullscreen view too (before, they vanished when expanded).','Fullscreen (fill) view now has TradingView-style controls on EVERY chart: scroll to zoom (anchored to the cursor), drag to pan, and a -/+/fit toolbar at the bottom.','Each distribution chart now carries a small legend so the vertical lines are labelled: blue dashed = mean, grey = $0 break-even, yellow = fitted normal curve (1G); grey = entry/0, red/green dashed = suggested stop/target (1H).']},
@@ -5757,7 +5758,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _det=Math.max(0.5,Math.min(4,+APREF.distBins||1));
       let NB=Math.round(span/_fd*_det);NB=Math.max(30,Math.min(500,NB||40));
       const bins=new Array(NB).fill(0);v.forEach(x=>{let b=Math.floor((x-mn)/span*NB);if(b<0)b=0;if(b>=NB)b=NB-1;bins[b]++;});
-      const bmax=Math.max.apply(null,bins)||1,padL=12,padR=42,tickH=18,plotTop=16,H=156,B=H-tickH,plotH=B-plotTop,BPX=Math.max(6,540/NB),Wp=NB*BPX,W=padL+Wp+padR,binW=span/NB,Xv=x=>padL+((x-mn)/span)*Wp;
+      const bmax=Math.max.apply(null,bins)||1,padL=30,padR=42,tickH=18,plotTop=16,H=156,B=H-tickH,plotH=B-plotTop,BPX=Math.max(6,540/NB),Wp=NB*BPX,W=padL+Wp+padR,binW=span/NB,Xv=x=>padL+((x-mn)/span)*Wp;
       let hits='';
       // height ∝ count with a tiny 1.5px floor so a 1-trade bar is a visible sliver yet shorter than a 2-trade bar;
       //   uniform opacity + no dot/no small-bar darkening (bars read as one clean series).
@@ -5766,7 +5767,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const pts=[];for(let i=0;i<=200;i++){const x=mn+span*i/200,y=pdf(x)*n*binW,px=Xv(x),py=B-(y/bmax)*plotH;pts.push(px.toFixed(1)+','+Math.max(0,py).toFixed(1));}
       const meanX=Xv(mean),zeroX=(mn<0&&mx>0)?Xv(0):null,wins=v.filter(x=>x>0).length;
       // count (y) axis in a LEFT gutter (stays visible in the default bulk view) + horizontal gridlines across the plot.
-      const grid=[0.25,0.5,0.75,1].map(fr=>{const gy=B-fr*plotH,cv=Math.round(bmax*fr);return '<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4"/><text x="'+(padL+Wp+5).toFixed(1)+'" y="'+(gy+3).toFixed(1)+'" text-anchor="start" font-size="9" fill="var(--text2)">'+cv+'</text>';}).join('');
+      // count (y) axis labelled on BOTH edges — left stays visible in the default/zoomed-out view,
+      //   right stays visible when scrolled to the tail (the chart scrolls sideways).
+      const grid=[0.25,0.5,0.75,1].map(fr=>{const gy=B-fr*plotH,cv=Math.round(bmax*fr);return '<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4"/><text x="'+(padL-5).toFixed(1)+'" y="'+(gy+3).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--text2)">'+cv+'</text><text x="'+(padL+Wp+5).toFixed(1)+'" y="'+(gy+3).toFixed(1)+'" text-anchor="start" font-size="9" fill="var(--text2)">'+cv+'</text>';}).join('');
       const _dOpts=[['0.5','–'],['1','1×'],['2','2×'],['3','3×']];
       const detCtl='<span style="display:inline-flex;gap:2px;align-items:center;margin-left:6px" title="finer / coarser bins">'+_dOpts.map(function(o){return '<button data-distbins="'+o[0]+'" style="font-size:8px;padding:1px 5px;border:1px solid var(--border);border-radius:3px;cursor:pointer;background:'+(String(_det)===o[0]?'var(--blue)':'var(--bg3)')+';color:'+(String(_det)===o[0]?'#fff':'var(--text3)')+'">'+o[1]+'</button>';}).join('')+'</span>';
       // curve BEHIND the bars (so a 1-trade bar is never hidden by its thickness); thin non-scaling stroke so it stays crisp when the chart is expanded.
@@ -5776,7 +5779,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const niceGrid=(function(){const _n2=x2=>{x2=Math.abs(x2)||1;const e=Math.pow(10,Math.floor(Math.log10(x2)));const f=x2/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};const st3=_n2(span/8)||1;let g2='';for(let L=Math.ceil(mn/st3)*st3;L<=mx;L+=st3){const xx=Xv(L);g2+='<line x1="'+xx.toFixed(1)+'" y1="'+plotTop+'" x2="'+xx.toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-width="0.4" opacity="0.16"/>';}return g2;})();
       // x-axis ticks INSIDE the svg (below the baseline) so they scroll and scale WITH the bars — nice-step $ at true positions.
       const axis='<line x1="'+padL+'" y1="'+B+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-width="0.6"/>'+(function(){const _n2=x2=>{x2=Math.abs(x2)||1;const e=Math.pow(10,Math.floor(Math.log10(x2)));const f=x2/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};const st3=_n2(span/8)||1;let t='';for(let L=Math.ceil(mn/st3)*st3;L<=mx;L+=st3){const xx=Xv(L);t+='<text x="'+xx.toFixed(1)+'" y="'+(B+13)+'" text-anchor="middle" font-size="9" fill="'+(Math.abs(L)<1e-9?'var(--text2)':'var(--text3)')+'">'+fmtUsd(Math.round(L))+'</text>';}return t;})();
-      const yTitle=(function(){const _tx=(padL+Wp+30),_ty=(plotTop+plotH/2).toFixed(1);return '<text x="'+_tx+'" y="'+_ty+'" transform="rotate(-90 '+_tx+' '+_ty+')" text-anchor="middle" font-size="8" fill="var(--text3)">trades</text>';})();
+      const yTitle=(function(){const _ty=(plotTop+plotH/2).toFixed(1),_mk=_tx=>'<text x="'+_tx+'" y="'+_ty+'" transform="rotate(-90 '+_tx+' '+_ty+')" text-anchor="middle" font-size="8" fill="var(--text3)">trades</text>';return _mk(padL-18)+_mk(padL+Wp+30);})();
       // self-contained svg at NATURAL width (data-distscroll → _rsCharts wraps it in a horizontal scroller
       //   inline, and the ⛶ opens it tall + scrollable). x-ticks live inside so they always line up.
       const svg='<svg viewBox="0 0 '+W.toFixed(0)+' '+H+'" width="'+W.toFixed(0)+'" height="'+H+'" preserveAspectRatio="xMinYMid meet" data-distscroll="1" style="display:block" data-xh="'+encodeURIComponent(JSON.stringify({xt:'usd',x0:mn,x1:mx,yt:'int',y0:0,y1:bmax,px:padL,py:plotTop,pw:Wp,ph:plotH,xl:'per-trade',yl:'trades'}))+'">'+grid+niceGrid+bellCurve+bars+zeroMark+meanMark+axis+yTitle+hits+'</svg>';
@@ -8318,10 +8321,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         }
         // ⛶ fullscreen — sits bottom-right (where the old resize grip lived); opens the
         // existing expandChart modal with a clean (undistorted) copy of the svg + crosshair.
-        const xb=document.createElement('div');xb.textContent='⛶';xb.title='expand fullscreen · live crosshair';xb.className='xpb';
-        xb.style.cssText='position:absolute;bottom:3px;right:5px;font-size:13px;line-height:1;color:var(--text4);cursor:pointer;z-index:5;opacity:.45;padding:2px 5px;border-radius:4px;background:color-mix(in srgb,var(--bg1) 65%,transparent)';
-        xb.onmouseenter=()=>xb.style.opacity='1';xb.onmouseleave=()=>xb.style.opacity='.4';
-        xb.onclick=e=>{e.stopPropagation();
+        const xb=document.createElement('div');xb.textContent='⛶';xb.title='expand fullscreen (or double-click the chart) · live crosshair';xb.className='xpb';
+        // see-through at rest so it never hides the x-axis underneath; solid chip only on hover.
+        xb.style.cssText='position:absolute;bottom:3px;right:5px;font-size:13px;line-height:1;color:var(--text4);cursor:pointer;z-index:5;opacity:.4;padding:2px 5px;border-radius:4px;background:transparent;transition:opacity .12s,background .12s';
+        xb.onmouseenter=()=>{xb.style.opacity='1';xb.style.background='color-mix(in srgb,var(--bg1) 82%,transparent)';};xb.onmouseleave=()=>{xb.style.opacity='.4';xb.style.background='transparent';};
+        // double-clicking anywhere on the chart also expands it (owner request).
+        const openExpand=e=>{if(e&&e.stopPropagation)e.stopPropagation();
           // 1A (or any chart carrying a data-eqx payload) opens the RICH equity explorer
           // (zoom/pan/crosshair/blotter) instead of the generic clone modal.
           const _eqxHost=svg.closest('[data-eqx]')||box.closest('[data-eqx]');
@@ -8359,6 +8364,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
               else{cp.style.cursor='pointer';cp.onclick=()=>{if(src.onclick)src.onclick();refresh();};}
               api.ctl.appendChild(cp);});};
           wireCtl();};
+        xb.onclick=openExpand;
+        box.addEventListener('dblclick',openExpand);
         box.appendChild(xb);
       });
       // Set each wrapped chart's height to its natural aspect once layout is flushed (clientWidth
