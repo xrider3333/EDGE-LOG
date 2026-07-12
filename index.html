@@ -401,11 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='51.9';
+const VERSION='52.0';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-  {v:'51.9', date:'2026-07-11', notes:['Past Runs: the "by strategy" grouping is now an INDEPENDENT toggle (the ▦ button), separated from the side / stacked layout buttons by a divider. So you can keep your split-screen layout (list beside, or above, the run report) AND group the list by strategy at the same time — before, picking group replaced the split layout and pushed the report down.','Past Runs by strategy: the group tiles are far more compact — each collapses to a single line (strategy, market, run count, champion verdict, and the net / PF / DD / WF / score rollup all on one row) with much less height, so more strategies fit on screen and the run report is no longer pushed down.']},
+  {v:'52.0', date:'2026-07-11', notes:['Past Runs: the "by strategy" grouping is now an INDEPENDENT toggle (the ▦ button), separated from the side / stacked layout buttons by a divider. So you can keep your split-screen layout (list beside, or above, the run report) AND group the list by strategy at the same time — before, picking group replaced the split layout and pushed the report down.','Past Runs by strategy: the group tiles are far more compact — each collapses to a single line (strategy name, market, run count, champion verdict, and the net / PF / DD / WF / score rollup all on one row) with much less height, so more strategies fit on screen and the run report is no longer pushed down. In a narrow split the market / age text shortens first so the strategy name and the KPI rollup always stay readable.']},
   {v:'51.8', date:'2026-07-11', notes:['Run report 1G (trade PnL distribution) and 1H (MAE/MFE): fixed the "one giant spike" look. A few outlier trades were setting the bin width, so almost every trade crushed into the first bar. Bars now cover the 2nd–98th percentile core with far more, evenly-sized bins (Freedman–Diaconis) so the real shape of the distribution is visible; the trimmed outliers pile into a flagged edge bar (a small note under the chart says how many, and the edge bar tooltip reads "≤"/"≥ · incl. N outliers").']},
   {v:'51.7', date:'2026-07-11', notes:['Past Runs: new "by strategy" view (▦ toggle, next to side / stacked). Each strategy folds into ONE tile led by its CHAMPION run plus a rollup (PASS / WEAK / FAIL, net, PF, max DD, WF, score). Click a tile to expand its runs (top 4, then show all); click a run to open it.','The grouped view also groups by MARKET or MODE, and a "keepers only" lens filters to deploy-ready runs (validated PASS with the lockbox or walk-forward held).']},
   {v:'51.6', date:'2026-07-11', notes:['§2 config space: the 2C PDP mini-charts now render INSIDE the 2B card, directly under the 2B x-axis labels (one sub-chart). The stray 2C in the 2B header is gone; each peak label sits BELOW its mini-chart; the 2C · per-knob PDP title sits below the row.']},
@@ -8118,12 +8118,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'</div>';};
         const _grpTilesHtml=_groups.map(g=>{const open=window._resGroupOpen.has(g.k),showAll=window._resGroupAll.has(g.k),ch=g.champ,cT=g.cT,csc=scoreRun(ch);
           const mktLbl=g.mkts.length<=1?((g.mkts[0]||'')+((g.tfs.length===1&&g.tfs[0])?' '+g.tfs[0]:'')):(g.mkts.length+' markets');
-          const head='<div data-grp="'+encodeURIComponent(g.k)+'" style="display:flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap;overflow:hidden">'
+          const head='<div data-grp="'+encodeURIComponent(g.k)+'" style="display:flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap;overflow:hidden">'
             +'<span style="flex:0 0 11px;font-size:12px;color:var(--text3)">'+(open?'▾':'▸')+'</span>'
-            +'<span style="flex:0 1 auto;min-width:0;font-size:12px;font-weight:700;color:var(--text2);overflow:hidden;text-overflow:ellipsis">'+g.k+'</span>'
-            +'<span style="flex:0 0 auto;font-size:9px;color:var(--text5)">'+mktLbl+' · '+g.rs.length+'r'+(g.last?' · '+_gAgo(g.last):'')+'</span>'
+            +'<span style="flex:0 1 auto;min-width:52px;font-size:12px;font-weight:700;color:var(--text2);overflow:hidden;text-overflow:ellipsis">'+g.k+'</span>'
+            +'<span style="flex:0 8 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:9px;color:var(--text5)">'+mktLbl+' · '+g.rs.length+'r'+(g.last?' · '+_gAgo(g.last):'')+'</span>'
             +'<span style="flex:0 0 auto">'+(_gVerChip(ch)||'<span style="font-size:9px;color:var(--text5)">#'+ch.id+'</span>')+'</span>'
-            +'<div style="display:flex;gap:10px;margin-left:auto;flex:0 0 auto;font-size:var(--fsxs)">'
+            +'<div style="display:flex;gap:8px;margin-left:auto;flex:0 0 auto;font-size:var(--fsxs)">'
               +'<span><span style="color:var(--text5)">net </span><b style="color:'+((cT.net||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(cT.net||0)+'</b></span>'
               +'<span><span style="color:var(--text5)">pf </span>'+(cT.pf||0).toFixed(2)+'</span>'
               +'<span><span style="color:var(--text5)">dd </span><span style="color:var(--red)">'+(cT.dd?fmtUsd(-Math.abs(cT.dd)):'—')+'</span></span>'
