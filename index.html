@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='51.4';
+const VERSION='51.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'51.5', date:'2026-07-11', notes:['§2 config space: the 2C PDP mini-charts nest directly under 2B again (one subtile, tucked under the axis labels) — the separate 2C header that split them apart is gone.','2B parallel-coordinates: while you drag a brush over a range on an axis, the exact sampled values inside your selection are now labelled right on that axis (e.g. 3, 4, 5), live as you drag — so you SEE the data points you are highlighting.']},
   {v:'51.4', date:'2026-07-11', notes:['§2 config space: the "HIGHLIGHTING" text strip that sat between the 2B parallel-coordinates chart and the 2C PDP row is gone — they now read as one tight subtile, with the 2C · PDP header restored above its row and each peak label centred over its own mini-chart.','2B parallel-coordinates now draws the actual config DATA POINTS as dots on every axis: brush an axis and the in-range points light up while the rest dim, so you SEE which configs you are selecting (not just a highlight band). Works in the ⛶ expanded config-space view too.']},
   {v:'51.3', date:'2026-07-11', notes:['Run report §2 config-space widened — 2A/2B/2C now get more room; the 2C PDP mini-charts are taller and tucked up tight under 2B.','2C mini-charts no longer repeat each param name (the 2B axis above already labels the column); a small "2C" tag sits beside the row.','2A "top configs" chart: brighter/whiter gridlines, dropped the extra left guide line, single neutral NET axis.','2B parallel-coords: while you drag to brush an axis, a live HIGHLIGHTING readout lists each knob\'s selected range + the exact step values, so you can see what you\'re selecting.','⛶ on 2B now opens an EXPANDED config-space view (2B + the 2C PDP row together) that stays fully brushable — highlight axes right in the big view.']},
   {v:'51.2', date:'2026-07-10', notes:['2A equity overlay: y-axis $ labels shrunk + greyed to match 2B.','2B/2C now share one combined subtitle (they read as one config-space card).','Past Runs STRATEGY dropdown: new "contains" search box — type e.g. "orb" to filter the list, then "✓ select all shown" to add every match to the filter.']},
@@ -2463,6 +2464,23 @@ window._wireParcoords=function(scope){
     const lines=[...svg.querySelectorAll('.pcline')],total=lines.length,cnt=scope.querySelector('.pc-count'),readout=scope.querySelector('.pc-readout'),brushes={};
     const dotMap={};scope.querySelectorAll('.cfgmark[data-cfg]').forEach(d=>{const c=d.getAttribute('data-cfg');(dotMap[c]||(dotMap[c]=[])).push(d);});
     const pcdotMap={};svg.querySelectorAll('.pcdot[data-cfg]').forEach(d=>{const c=d.getAttribute('data-cfg');(pcdotMap[c]||(pcdotMap[c]=[])).push(d);});
+    const _NS='http://www.w3.org/2000/svg';
+    let vlab=svg.querySelector('.pc-vlab');if(!vlab){vlab=document.createElementNS(_NS,'g');vlab.setAttribute('class','pc-vlab');vlab.style.pointerEvents='none';svg.appendChild(vlab);}
+    const vlabUpd=()=>{while(vlab.firstChild)vlab.removeChild(vlab.firstChild);
+      Object.keys(brushes).forEach(axi=>{const tr=svg.querySelector('.pc-track[data-ax="'+axi+'"]');if(!tr)return;
+        const key=tr.getAttribute('data-key');if(key==='pnl')return;
+        const mn=+tr.getAttribute('data-mn'),mx=+tr.getAttribute('data-mx'),ylo=+tr.getAttribute('data-ylo'),yhi=+tr.getAttribute('data-yhi'),axx=(+tr.getAttribute('x'))+8;
+        const b=brushes[axi],vLo=Math.min(valAt(tr,b[0]),valAt(tr,b[1])),vHi=Math.max(valAt(tr,b[0]),valAt(tr,b[1]));
+        const cell=scope.querySelector('[data-pdpk="'+key+'"]');if(!cell)return;
+        let vs=(cell.getAttribute('data-vs')||'').split(',').map(Number).filter(v=>v>=vLo-1e-9&&v<=vHi+1e-9);
+        if(!vs.length)return;
+        if(vs.length>12){const st=Math.ceil(vs.length/12);vs=vs.filter((_,i)=>i%st===0);}
+        vs.forEach(v=>{const y=ylo-((v-mn)/((mx-mn)||1))*(ylo-yhi);
+          const t=document.createElementNS(_NS,'text');
+          t.setAttribute('x',(axx+5).toFixed(1));t.setAttribute('y',(y+1.7).toFixed(1));
+          t.setAttribute('font-size','5');t.setAttribute('font-weight','700');t.setAttribute('fill','var(--blue)');
+          t.setAttribute('style','paint-order:stroke;stroke:var(--bg1);stroke-width:1.6');
+          t.textContent=_rnd(v);vlab.appendChild(t);});});};
     const vbY=cy=>{const ctm=svg.getScreenCTM();if(!ctm)return 0;const pt=svg.createSVGPoint();pt.x=0;pt.y=cy;return pt.matrixTransform(ctm.inverse()).y;};
     const valAt=(tr,y)=>{const mn=+tr.getAttribute('data-mn'),mx=+tr.getAttribute('data-mx'),ylo=+tr.getAttribute('data-ylo'),yhi=+tr.getAttribute('data-yhi');return mn+((ylo-y)/((ylo-yhi)||1))*(mx-mn);};
     // linked 2C→PDP highlight: brush pixel-range → axis VALUES → band the same range on that knob's cell.
@@ -2503,7 +2521,7 @@ window._wireParcoords=function(scope){
         const dots=dotMap[ln.getAttribute('data-cfg')];if(dots)dots.forEach(dt=>{dt.style.opacity=ok?'':'0.05';dt.style.pointerEvents=ok?'':'none';});
         const pcd=pcdotMap[ln.getAttribute('data-cfg')];if(pcd)pcd.forEach(dt=>{dt.style.opacity=ks.length?(ok?'0.95':'0.05'):'0.5';});});
       if(cnt)cnt.textContent=ks.length?(shown+' / '+total+' configs · brushed'):(total+' configs');
-      pdpHl();readoutUpd(shown);};
+      pdpHl();readoutUpd(shown);vlabUpd();};
     svg.querySelectorAll('.pc-track').forEach(tr=>{const axi=tr.getAttribute('data-ax'),br=svg.querySelector('.pc-brush[data-ax="'+axi+'"]');
       tr.addEventListener('pointerdown',e=>{e.preventDefault();const y0=vbY(e.clientY);let moved=false;
         const mv=ev=>{const y=vbY(ev.clientY),a=Math.min(y0,y),b=Math.max(y0,y);if(b-a>1)moved=true;brushes[axi]=[a,b];br.setAttribute('y',a.toFixed(1));br.setAttribute('height',(b-a).toFixed(1));br.style.display='';apply();};
@@ -6070,8 +6088,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // mirror 2C's geometry exactly: padX gutters + n equal columns over the C2P plot width
         // (2C's axes are column-centred, so column i here = axis i there). Last column = NET $.
         const padX=10,n=alignKeys.length+1,colPct=((C2P-2*padX)/n/C2W*100).toFixed(3),gutPct=(padX/C2W*100).toFixed(3);
-        // nestle the PDP row up tight under 2B (owner request); the "2C · PDP" header above labels
-        //   the row, and an empty gutter spacer keeps the columns aligned under their 2B axes.
+        // nestle the PDP row up tight under 2B, same subtile — 2C sits directly under 2B's x-axis
+        //   labels with no separate header; an empty gutter spacer keeps the columns aligned.
         return hdr+'<div style="display:flex;align-items:stretch;margin-top:-3px">'
           +'<div style="flex:0 0 '+gutPct+'%"></div>'
           +show.map(cv=>'<div style="flex:0 0 '+colPct+'%;min-width:0;padding:0 2px;box-sizing:border-box">'+cellOf(cv,true)+'</div>').join('')
@@ -7300,7 +7318,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   never duplicates 2H; hides itself when the strategy has fewer than 3 numeric params.
       //   2K 1-D PDP top-out curves. Both read stored `points` → render retroactively (run 137).
       const _p3d=surface3dPanelHtml(_PTS,mlt,_cfgN+'I',d.best_params,1);
-      const _pdp=pdpCurvesPanelHtml(_PTS,mlt,_cfgN+'C',(_pMet==='pnl'?d.plateau_pick:null),(_parc?_kOrd:null));
+      const _pdp=pdpCurvesPanelHtml(_PTS,mlt,_cfgN+'C',(_pMet==='pnl'?d.plateau_pick:null),(_parc?_kOrd:null),true);
       // lay non-empty panels in a row (1, 2 or 3 across); single panel = full-width. stretch=true makes
       //   the cards equal-height (good for similar charts); otherwise they top-align at natural height.
       const _wrap=(arr,stretch)=>{const xs=arr.filter(x=>x&&x.replace(/\s/g,''));if(!xs.length)return '';const inner=(xs.length>1)?'<div style="display:flex;gap:12px;align-items:'+(stretch?'stretch':'flex-start')+';flex-wrap:wrap">'+xs.map(x=>'<div style="flex:1 1 260px;min-width:0;display:flex;flex-direction:column">'+x+'</div>').join('')+'</div>':xs[0];return '<div style="margin-bottom:12px">'+inner+'</div>';};
