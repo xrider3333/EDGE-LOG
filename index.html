@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='51.2';
+const VERSION='51.3';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'51.3', date:'2026-07-11', notes:['Run report §2 config-space widened — 2A/2B/2C now get more room; the 2C PDP mini-charts are taller and tucked up tight under 2B.','2C mini-charts no longer repeat each param name (the 2B axis above already labels the column); a small "2C" tag sits beside the row.','2A "top configs" chart: brighter/whiter gridlines, dropped the extra left guide line, single neutral NET axis.','2B parallel-coords: while you drag to brush an axis, a live HIGHLIGHTING readout lists each knob\'s selected range + the exact step values, so you can see what you\'re selecting.','⛶ on 2B now opens an EXPANDED config-space view (2B + the 2C PDP row together) that stays fully brushable — highlight axes right in the big view.']},
   {v:'51.2', date:'2026-07-10', notes:['2A equity overlay: y-axis $ labels shrunk + greyed to match 2B.','2B/2C now share one combined subtitle (they read as one config-space card).','Past Runs STRATEGY dropdown: new "contains" search box — type e.g. "orb" to filter the list, then "✓ select all shown" to add every match to the filter.']},
   {v:'51.1', date:'2026-07-11', notes:['NINJATRADER AUTO-SYNC panel now shows a capture heartbeat: "capture alive Xs ago" (green) when the NinjaTrader AddOn is running, or "capture stale/missing" (yellow dot) when it stopped reporting — so a silently dead fill capture (e.g. after a broker reconnect) is visible instead of hidden.','Pairs with AddOn v2 (tools/EdgeLogExport.cs): it re-subscribes after every reconnect and back-fills any missed fills from the current session within ~60s.']},
   {v:'51.0', date:'2026-07-10', notes:['FIX: opening a run report crashed with "plotR is not defined" for runs with top-config equity curves (e.g. #137) — a leftover variable from the v50.6 2A chart alignment. 2A renders again; its hover crosshair now maps to the aligned axis span.']},
@@ -2444,6 +2445,86 @@ window.expandChart=function(title,svgHTML,opts){
   return {modal,ctl,
     setSub:(s)=>{if(subEl)subEl.innerHTML=s||'';},
     setSvg:(html)=>{const old=body.querySelector('svg');const tmp=document.createElement('div');tmp.innerHTML=html;const ns=tmp.querySelector('svg');if(old&&ns){old.replaceWith(ns);svg=ns;_readXh();}}};
+};
+
+// ── PARALLEL-COORDINATES axis brushing (legacy-AUGUR parcoords), scoped to any root so the SAME
+//    wiring drives the inline §2 chart AND the expanded config-space modal. Drag a range on any
+//    axis to keep only the config-lines through it (brushes AND across axes; click clears one);
+//    the linked scatter dots + each param's 2C PDP band dim/light with it; and a live readout
+//    lists which knob value-ranges (and their discrete steps) are currently highlighted. ──
+window._wireParcoords=function(scope){
+  if(!scope)return;
+  const _ppr=k=>String(k).replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+  const _rnd=v=>Number.isInteger(v)?v:(+v).toFixed(2);
+  const _usd=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
+  scope.querySelectorAll('.pcoords-svg').forEach(svg=>{
+    if(svg._pcWired)return;svg._pcWired=true;   // idempotent per node
+    const lines=[...svg.querySelectorAll('.pcline')],total=lines.length,cnt=scope.querySelector('.pc-count'),readout=scope.querySelector('.pc-readout'),brushes={};
+    const dotMap={};scope.querySelectorAll('.cfgmark[data-cfg]').forEach(d=>{const c=d.getAttribute('data-cfg');(dotMap[c]||(dotMap[c]=[])).push(d);});
+    const vbY=cy=>{const ctm=svg.getScreenCTM();if(!ctm)return 0;const pt=svg.createSVGPoint();pt.x=0;pt.y=cy;return pt.matrixTransform(ctm.inverse()).y;};
+    const valAt=(tr,y)=>{const mn=+tr.getAttribute('data-mn'),mx=+tr.getAttribute('data-mx'),ylo=+tr.getAttribute('data-ylo'),yhi=+tr.getAttribute('data-yhi');return mn+((ylo-y)/((ylo-yhi)||1))*(mx-mn);};
+    // linked 2C→PDP highlight: brush pixel-range → axis VALUES → band the same range on that knob's cell.
+    const pdpHl=()=>{const CW=170,PL=6,PR=6;   // must match the 2C cellOf geometry
+      scope.querySelectorAll('[data-pdpk]').forEach(cell=>{
+        const hl=cell.querySelector('.pdp-hl');if(!hl)return;
+        const tr=svg.querySelector('.pc-track[data-key="'+cell.getAttribute('data-pdpk')+'"]');
+        const b=tr?brushes[tr.getAttribute('data-ax')]:null;
+        if(!b){hl.style.display='none';return;}
+        const vLo=Math.min(valAt(tr,b[0]),valAt(tr,b[1])),vHi=Math.max(valAt(tr,b[0]),valAt(tr,b[1]));
+        const vs=(cell.getAttribute('data-vs')||'').split(',').map(Number);
+        if(vs.length<2){hl.style.display='none';return;}
+        const fi=val=>{if(val<=vs[0])return 0;if(val>=vs[vs.length-1])return vs.length-1;
+          for(let j=0;j<vs.length-1;j++)if(val>=vs[j]&&val<=vs[j+1])return j+(val-vs[j])/((vs[j+1]-vs[j])||1);
+          return vs.length-1;};
+        const xOf=f=>(PL+(CW-PL-PR)*f/(vs.length-1))/CW*100;
+        const L=xOf(fi(vLo)),R=xOf(fi(vHi));
+        if(R-L<0.2){hl.style.display='none';return;}
+        hl.style.left=L.toFixed(2)+'%';hl.style.width=(R-L).toFixed(2)+'%';hl.style.display='block';});};
+    // live readout — what am I highlighting: one chip per brushed axis (knob · range · steps).
+    const readoutUpd=shown=>{if(!readout)return;const ks=Object.keys(brushes);
+      if(!ks.length){readout.style.display='none';readout.innerHTML='';return;}
+      const chips=ks.map(axi=>{const tr=svg.querySelector('.pc-track[data-ax="'+axi+'"]');if(!tr)return '';
+        const key=tr.getAttribute('data-key'),b=brushes[axi],isP=(key==='pnl');
+        const vLo=Math.min(valAt(tr,b[0]),valAt(tr,b[1])),vHi=Math.max(valAt(tr,b[0]),valAt(tr,b[1]));
+        let steps='';
+        if(!isP){const cell=scope.querySelector('[data-pdpk="'+key+'"]');
+          if(cell){const vs=(cell.getAttribute('data-vs')||'').split(',').map(Number).filter(v=>v>=vLo-1e-9&&v<=vHi+1e-9);
+            if(vs.length)steps=' <span style="color:var(--text5)">{'+vs.map(_rnd).join(', ')+'}</span>';}}
+        const rng=isP?(_usd(vLo)+' – '+_usd(vHi)):(_rnd(vLo)+' – '+_rnd(vHi));
+        return '<span style="display:inline-block;background:var(--bg1);border:1px solid color-mix(in srgb,var(--blue) 45%,var(--border));border-radius:6px;padding:1px 7px;margin:0 5px 3px 0"><b style="color:var(--text3)">'+(isP?'NET $':_ppr(key))+'</b> '+rng+steps+'</span>';}).join('');
+      readout.innerHTML='<b style="color:var(--blue);margin-right:5px">HIGHLIGHTING</b>'+chips+'<span style="color:var(--text5)">'+shown+' / '+total+' configs · click an axis to clear</span>';
+      readout.style.display='block';};
+    const apply=()=>{const ks=Object.keys(brushes);let shown=0;
+      lines.forEach(ln=>{const ys=(ln.getAttribute('data-ys')||'').split(',').map(Number);let ok=true;
+        for(const k of ks){const b=brushes[k];if(!(ys[+k]>=b[0]&&ys[+k]<=b[1])){ok=false;break;}}
+        ln.style.opacity=ok?'':'0.04';ln.style.pointerEvents=ok?'stroke':'none';if(ok)shown++;
+        const dots=dotMap[ln.getAttribute('data-cfg')];if(dots)dots.forEach(dt=>{dt.style.opacity=ok?'':'0.05';dt.style.pointerEvents=ok?'':'none';});});
+      if(cnt)cnt.textContent=ks.length?(shown+' / '+total+' configs · brushed'):(total+' configs');
+      pdpHl();readoutUpd(shown);};
+    svg.querySelectorAll('.pc-track').forEach(tr=>{const axi=tr.getAttribute('data-ax'),br=svg.querySelector('.pc-brush[data-ax="'+axi+'"]');
+      tr.addEventListener('pointerdown',e=>{e.preventDefault();const y0=vbY(e.clientY);let moved=false;
+        const mv=ev=>{const y=vbY(ev.clientY),a=Math.min(y0,y),b=Math.max(y0,y);if(b-a>1)moved=true;brushes[axi]=[a,b];br.setAttribute('y',a.toFixed(1));br.setAttribute('height',(b-a).toFixed(1));br.style.display='';apply();};
+        const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);if(!moved){delete brushes[axi];br.style.display='none';apply();}};
+        window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});});
+  });
+};
+
+// ── EXPAND CONFIG SPACE (2B parallel-coords + 2C PDP row together, still interactive). The generic
+//    ⛶ clones a static SVG — useless here since brushing is the whole point. Instead clone the 2B
+//    header + chart + readout + the 2C row into the modal at full size and re-wire the brush. ──
+window.expandConfigSpace=function(box){
+  if(!box)return;
+  const block=box.closest('div')&&box.parentElement?box.parentElement.parentElement:null;   // _bt2 stack block
+  if(!block){return;}
+  const clone=block.cloneNode(true);
+  // drop the metric-toggle row (its handlers don't survive cloning) and the ⛶/resize chrome.
+  clone.querySelectorAll('[data-pmet]').forEach(x=>{const row=x.closest('div');if(row&&row.parentElement===clone)row.remove();});
+  clone.querySelectorAll('.xpb').forEach(x=>x.remove());
+  clone.querySelectorAll('.rschart-box').forEach(bx=>{bx.style.height='auto';bx.style.maxHeight='none';bx.style.overflow='visible';bx.style.resize='none';});
+  clone.style.margin='0';
+  const _n=(block.querySelector('.pc-count')||{}).textContent||'configs';
+  const api=window.expandChart('2B · 2C · CONFIG SPACE','<div style="min-width:940px">'+clone.outerHTML+'</div>',{sub:_n+' · drag any axis to brush · ranges + PDP bands update live'});
+  if(api&&api.modal&&window._wireParcoords)window._wireParcoords(api.modal);
 };
 
 // ── RICH 1A EXPAND — TradingView-style champion-equity explorer (owner request).
@@ -5629,12 +5710,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   right of the NET (yellow) axis — denser (~5 steps) and smaller than the old shared chrome.
       const _niceE=v=>{v=Math.abs(v)||1;const e=Math.pow(10,Math.floor(Math.log10(v)));const f=v/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
       const _gs=_niceE((mx-mn)/5)||1;let grid='';
+      // brighter/whiter gridlines + labels (owner request: "make axis more white")
       for(let L=Math.ceil(mn/_gs)*_gs;L<=mx+1e-6;L+=_gs){const _z=Math.abs(L)<1e-6,gy=H-pd-(H-pt-pd)*(L-mn)/rg;
-        grid+='<line x1="'+xL.toFixed(1)+'" y1="'+gy.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="'+(_z?0.9:0.5)+'" opacity="'+(_z?0.55:0.3)+'"/>'
-          +'<text x="'+(xR+4).toFixed(1)+'" y="'+(gy+2.5).toFixed(1)+'" font-size="4.6" fill="var(--text3)">'+fmtUsd(Math.round(L))+'</text>';}
-      // RED = leftmost param axis · YELLOW = NET axis (register with 2B directly below)
-      grid+='<line x1="'+xL.toFixed(1)+'" y1="'+pt+'" x2="'+xL.toFixed(1)+'" y2="'+(H-pd)+'" stroke="var(--red)" stroke-width="1" opacity="0.7"/>'
-        +'<line x1="'+xR.toFixed(1)+'" y1="'+pt+'" x2="'+xR.toFixed(1)+'" y2="'+(H-pd)+'" stroke="var(--yellow)" stroke-width="1" opacity="0.85"/>';
+        grid+='<line x1="'+xL.toFixed(1)+'" y1="'+gy.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--text4)" stroke-width="'+(_z?0.9:0.5)+'" opacity="'+(_z?0.7:0.42)+'"/>'
+          +'<text x="'+(xR+4).toFixed(1)+'" y="'+(gy+2.5).toFixed(1)+'" font-size="4.6" fill="var(--text2)">'+fmtUsd(Math.round(L))+'</text>';}
+      // Single NET (y) axis on the RIGHT, drawn to MATCH the x-axis baseline styling (neutral white);
+      //   the old red LEFT guide is dropped — owner: "dont need y axis on the left".
+      grid+='<line x1="'+xR.toFixed(1)+'" y1="'+pt+'" x2="'+xR.toFixed(1)+'" y2="'+(H-pd)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>';
       const sel='<select data-tpc style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin-left:6px"><option value="rank"'+(mode==='rank'?' selected':'')+'>by rank</option>'+pkeys.map(k=>'<option value="'+k+'"'+(mode===k?' selected':'')+'>by '+k.replace(/_/g,' ')+'</option>').join('')+'</select>';
       const cfgSlider='<span title="how many curves get COLOUR (the rest stay as faint grey context) — also sets the config-distribution (2b) bin detail. The run stored the top '+etop.length+' curves." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+'</b></span>';
       const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis — top '+etop.length+((d.date_from&&d.date_to)?' · '+_dnice(d.date_from)+' → '+_dnice(d.date_to):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
@@ -5642,7 +5724,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
         +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+((d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,yl:'equity'}))+'"':'')+'>'
         +grid
-        +'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--border)"/>'+lines+c2YTitle(H,'equity $')+'</svg></div>';
+        +'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>'+lines+c2YTitle(H,'equity $')+'</svg></div>';
     };
     // SCATTER — each tested config as a dot: chosen param (X) vs net PnL (Y). Shows
     // whether the edge is a smooth slope (robust) or random noise.
@@ -5954,16 +6036,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // aligned mode: one column per 2C axis (params in the SAME order + the NET $ column),
       // so every mini-chart sits exactly under its own axis. Otherwise the legacy free grid.
       const show=(Array.isArray(alignKeys)&&alignKeys.length)?alignKeys.map(k=>byK[k]||{k:k,c:null}):curves.slice(0,8);
-      const cw=170,chh=64,pl=6,pr=6,pt2=10,pb=14;
-      const cellOf=cv=>{
-        if(!cv.c)return '<div style="background:var(--bg1);border-radius:8px;padding:7px 8px 5px;opacity:.55;display:flex;align-items:center;justify-content:center;min-height:70px;height:100%;box-sizing:border-box"><span style="font-size:8px;color:var(--text5);text-align:center">'+_pp(cv.k)+'<br>flat / not sampled</span></div>';
+      // taller/roomier cells (owner request — 2C a bit bigger, slightly more vertical)
+      const cw=170,chh=82,pl=6,pr=6,pt2=8,pb=16;
+      // `bare` (aligned mode) drops the per-cell param NAME — the 2B axis directly above already
+      //   labels the column, so repeating "OR bars" under it is redundant (owner request).
+      const cellOf=(cv,bare)=>{
+        if(!cv.c)return '<div style="background:var(--bg1);border-radius:8px;padding:7px 8px 5px;opacity:.55;display:flex;align-items:center;justify-content:center;min-height:86px;height:100%;box-sizing:border-box"><span style="font-size:8px;color:var(--text5);text-align:center">'+(bare?'':(_pp(cv.k)+'<br>'))+'flat / not sampled</span></div>';
         const ys=cv.c.map(r=>r.m),mn=Math.min.apply(null,ys),mx=Math.max.apply(null,ys),span=(mx-mn)||1;
         const X=i=>pl+(cw-pl-pr)*i/(cv.c.length-1),Y=v=>pt2+(chh-pt2-pb)*(1-(v-mn)/span);
         const pts2=cv.c.map((r,i)=>X(i).toFixed(1)+','+Y(r.m).toFixed(1)).join(' ');
         const pk=ys.indexOf(mx);
         const dots=cv.c.map((r,i)=>'<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(r.m).toFixed(1)+'" r="'+(i===pk?3.2:1.7)+'" fill="'+(i===pk?'var(--green)':'var(--text4)')+'" style="cursor:pointer" data-tip="'+_pp(cv.k)+' <b>'+r.v+'</b><br>avg net <b>'+fmtUsd(Math.round(r.m))+'</b>'+(r.n?'<br>across '+r.n+' configs':'')+'"/>').join('');
         const flat=cv.infl<0.12*maxInfl;
-        return '<div style="background:var(--bg1);border-radius:8px;padding:7px 8px 5px"><div style="display:flex;justify-content:space-between;gap:4px;font-size:8px;margin-bottom:1px"><span style="color:var(--text3);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_pp(cv.k)+'">'+_pp(cv.k)+'</span><span title="'+(flat?'this knob barely changes net $ — a flat partial-dependence curve':'net $ peaks at '+_pp(cv.k)+' = '+cv.peak.v)+'" style="color:'+(flat?'var(--text5)':'var(--green)')+';white-space:nowrap;cursor:help">'+(flat?'flat':'peak <b>'+cv.peak.v+'</b>')+'</span></div>'
+        const _peakSpan='<span title="'+(flat?'this knob barely changes net $ — a flat partial-dependence curve':'net $ peaks at '+_pp(cv.k)+' = '+cv.peak.v)+'" style="color:'+(flat?'var(--text5)':'var(--green)')+';white-space:nowrap;cursor:help">'+(flat?'flat':'peak <b>'+cv.peak.v+'</b>')+'</span>';
+        const _hdrRow=bare
+          ? '<div style="text-align:right;font-size:8px;margin-bottom:1px">'+_peakSpan+'</div>'
+          : '<div style="display:flex;justify-content:space-between;gap:4px;font-size:8px;margin-bottom:1px"><span style="color:var(--text3);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_pp(cv.k)+'">'+_pp(cv.k)+'</span>'+_peakSpan+'</div>';
+        return '<div style="background:var(--bg1);border-radius:8px;padding:7px 8px 5px">'+_hdrRow
           // relative wrapper + hidden band: brushing this param's 2C axis lights up the SAME
           // value range here (the brush handler positions .pdp-hl from data-vs).
           +'<div style="position:relative" data-pdpk="'+cv.k+'" data-vs="'+cv.c.map(r=>r.v).join(',')+'">'
@@ -5971,16 +6060,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<text x="'+pl+'" y="'+(chh-3)+'" font-size="7" fill="var(--text5)">'+cv.c[0].v+'</text><text x="'+(cw-pr)+'" y="'+(chh-3)+'" text-anchor="end" font-size="7" fill="var(--text5)">'+cv.c[cv.c.length-1].v+'</text></svg>'
           +'<div class="pdp-hl" style="position:absolute;top:0;bottom:0;display:none;background:var(--blue);opacity:.16;border-left:1px solid var(--blue);border-right:1px solid var(--blue);pointer-events:none;border-radius:2px"></div></div></div>';
       };
-      const cells=show.map(cellOf).join('');
+      const cells=show.map(cv=>cellOf(cv,false)).join('');
       const src=(pp&&pp.curves)?'server curves (3C.1)':'recomputed from this run\'s stored configs';
       const hdr=noHdr?'':'<div title="PARTIAL DEPENDENCE (1-D): one mini-chart per parameter — smoothed avg $ per value with the other params averaged out, sorted by influence'+(alignKeys?', each aligned under its own 2C axis':'')+' ('+src+'). The line = the AVERAGE net $ of every tested config at each value of that parameter. The green dot marks where the knob TOPS OUT — pushing it further stops paying. A flat line = the knob barely matters, so don\'t spend optimisation budget on it. NOTE: the 3C.1 plateau pick maximises the SUM of these smoothed curves — deliberately NOT the raw best config, because a lone spike gets dragged down by its weak neighbours." style="cursor:help;margin:6px 0 4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · PDP — WHERE EACH KNOB TOPS OUT <span style="font-weight:400;color:var(--text5);font-size:8px">ⓘ</span></div>';
       if(Array.isArray(alignKeys)&&alignKeys.length){
         // mirror 2C's geometry exactly: padX gutters + n equal columns over the C2P plot width
         // (2C's axes are column-centred, so column i here = axis i there). Last column = NET $.
         const padX=10,n=alignKeys.length+1,colPct=((C2P-2*padX)/n/C2W*100).toFixed(3),gutPct=(padX/C2W*100).toFixed(3);
-        return hdr+'<div style="display:flex;align-items:stretch">'
-          +'<div style="flex:0 0 '+gutPct+'%"></div>'
-          +show.map(cv=>'<div style="flex:0 0 '+colPct+'%;min-width:0;padding:0 2px;box-sizing:border-box">'+cellOf(cv)+'</div>').join('')
+        // nestle the PDP row up tight under 2B (owner request: move charts up into 2B) and drop a
+        //   rotated "2C" tag into the leftmost gutter — labels the row without a header line and
+        //   without shifting the columns off their 2B axes.
+        return hdr+'<div style="display:flex;align-items:stretch;margin-top:-3px">'
+          +'<div style="flex:0 0 '+gutPct+'%;position:relative"><span style="position:absolute;right:0;top:50%;transform:translateY(-50%) rotate(-90deg);transform-origin:right center;font-size:6.5px;font-weight:800;letter-spacing:1px;color:var(--text4);white-space:nowrap;pointer-events:none">2C</span></div>'
+          +show.map(cv=>'<div style="flex:0 0 '+colPct+'%;min-width:0;padding:0 2px;box-sizing:border-box">'+cellOf(cv,true)+'</div>').join('')
           +'<div style="flex:0 0 '+colPct+'%;display:flex;align-items:center;justify-content:center"><span style="font-size:8px;color:var(--text4);font-weight:700;text-align:center">NET $<br><span style="font-weight:400;color:var(--text5)">← what each knob<br>does to it</span></span></div>'
           +'</div>';
       }
@@ -6349,7 +6441,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _pnlX=ax(axes.length-1)+5;
           const _sTxt=(y,s2)=>'<text x="'+_pnlX.toFixed(1)+'" y="'+y+'" text-anchor="start" font-size="4.6" fill="var(--text3)">'+s2+'</text>';
           return '<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'"><svg class="pcoords-svg" viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+lines+axled+brush
-          +_sTxt((padT+2.5).toFixed(1),fmtUsd(Math.round(_pm[1])))+_sTxt(_mY,fmtUsd(Math.round((_pm[0]+_pm[1])/2)))+_sTxt((H-padB+2.5).toFixed(1),fmtUsd(Math.round(_pm[0])))+'</svg></div>';})();
+          +_sTxt((padT+2.5).toFixed(1),fmtUsd(Math.round(_pm[1])))+_sTxt(_mY,fmtUsd(Math.round((_pm[0]+_pm[1])/2)))+_sTxt((H-padB+2.5).toFixed(1),fmtUsd(Math.round(_pm[0])))+'</svg></div>';})()
+        // BRUSH READOUT (owner request: "see the steps populate when I highlight 2B"): hidden until
+        //   a brush is active, then the handler lists each brushed knob's value range + step count.
+        +'<div class="pc-readout" style="display:none;font-size:8px;color:var(--text4);margin:4px 2px 0;line-height:1.55"></div>';
     };
     // WALK-FORWARD IS vs OOS — grouped bars per fold: in-sample champion PnL vs out-of-sample.
     const isOosFoldsHtml=(d,mult)=>{
@@ -7217,8 +7312,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   share the column geometry). 2A stays its own block above.
       const _leftStack=_stack([_eq,(_pmTog+_parc+_pdp)]),_rightStack=_stack([_dist,_corr]);
       const _cfgTile=(_leftStack||_rightStack)?'<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
-        +(_leftStack?'<div style="flex:1.8 1 420px;min-width:0"><div style="'+_card2+';box-sizing:border-box">'+_leftStack+'</div></div>':'')
-        +(_rightStack?'<div style="flex:1 1 300px;min-width:0"><div style="'+_card2+';box-sizing:border-box">'+_rightStack+'</div></div>':'')
+        +(_leftStack?'<div style="flex:2.5 1 470px;min-width:0"><div style="'+_card2+';box-sizing:border-box">'+_leftStack+'</div></div>':'')
+        +(_rightStack?'<div style="flex:1 1 250px;min-width:0"><div style="'+_card2+';box-sizing:border-box">'+_rightStack+'</div></div>':'')
         +'</div>':'';
       const _topTile=(t10.length?'<div style="'+_card2+';margin-bottom:14px">'+_numHdr(_cfgN+'F','TOP CONFIGS')+'<style>.cfgtbl th,.cfgtbl td{padding:2px 5px!important;font-size:8px!important;border-right:1px solid color-mix(in srgb,var(--border) 45%,transparent)}.cfgtbl th:last-child,.cfgtbl td:last-child{border-right:none}.cfgtbl th{white-space:nowrap!important;max-width:70px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;color:var(--text4);letter-spacing:0;cursor:help}</style><div style="overflow-x:auto"><table class="table cfgtbl" style="width:auto;white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div></div>':'');
       const _nbTile=(nbHtml&&nbHtml.replace(/\s/g,''))?'<div style="'+_card2+';margin-bottom:14px">'+_numHdr(_cfgN+'G','NEIGHBOUR ROBUSTNESS',nbTip,nbSub)+nbHtml+'</div>':'';
@@ -8031,6 +8126,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(_eqxHost&&window.expandEquity){window.expandEquity(_eqxHost);return;}
           // 3-D param surfaces (2H in 3-D mode / 2J) open the drag-to-orbit modal instead.
           if(svg.hasAttribute('data-s3d')&&window.expandSurface3D){window.expandSurface3D(svg);return;}
+          // 2B parallel-coords opens the interactive config-space modal (2B+2C, still brushable).
+          if(svg.classList.contains('pcoords-svg')&&window.expandConfigSpace){window.expandConfigSpace(box);return;}
           // fresh lookups each time — renderApp rebuilds the report DOM, so cached nodes go stale
           const _boxes=()=>{const r=document.getElementById('res-detail');return r?[...r.querySelectorAll('.rschart-box')]:[];};
           const idx=_boxes().indexOf(box);
@@ -8440,48 +8537,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // PARALLEL-COORDINATES axis brushing (legacy-AUGUR parcoords): drag a range on any axis
       //   to keep only the config-lines passing through it; brushes on multiple axes AND together;
       //   click an axis (no drag) clears it. Pure DOM — no re-render, no state save.
-      content.querySelectorAll('.pcoords-svg').forEach(svg=>{
-        const lines=[...svg.querySelectorAll('.pcline')],total=lines.length,cnt=content.querySelector('.pc-count'),brushes={};
-        // linked brushing: same config index ties each parcoords line to its SCATTER dot
-        //   (.cfgmark[data-cfg]) so an axis brush dims BOTH charts together (legacy AUGUR).
-        const dotMap={};content.querySelectorAll('.cfgmark[data-cfg]').forEach(d=>{const c=d.getAttribute('data-cfg');(dotMap[c]||(dotMap[c]=[])).push(d);});
-        const vbY=cy=>{const ctm=svg.getScreenCTM();if(!ctm)return 0;const pt=svg.createSVGPoint();pt.x=0;pt.y=cy;return pt.matrixTransform(ctm.inverse()).y;};
-        // ── linked 2C→2K highlight: convert each axis brush (pixel range) back to VALUES via the
-        //    track's data-mn/mx + y-mapping, then band the SAME value range on that param's PDP
-        //    cell (its x runs point-index-linear, so values map through the cell's data-vs list). ──
-        const pdpHl=()=>{
-          const CW=170,PL=6,PR=6;   // must match the 2K cellOf geometry
-          content.querySelectorAll('[data-pdpk]').forEach(cell=>{
-            const hl=cell.querySelector('.pdp-hl');if(!hl)return;
-            const tr=svg.querySelector('.pc-track[data-key="'+cell.getAttribute('data-pdpk')+'"]');
-            const b=tr?brushes[tr.getAttribute('data-ax')]:null;
-            if(!b){hl.style.display='none';return;}
-            const mn=+tr.getAttribute('data-mn'),mx=+tr.getAttribute('data-mx'),
-                  ylo=+tr.getAttribute('data-ylo'),yhi=+tr.getAttribute('data-yhi');
-            const v=y=>mn+((ylo-y)/((ylo-yhi)||1))*(mx-mn);           // pixel y → axis value
-            const vLo=Math.min(v(b[0]),v(b[1])),vHi=Math.max(v(b[0]),v(b[1]));
-            const vs=(cell.getAttribute('data-vs')||'').split(',').map(Number);
-            if(vs.length<2){hl.style.display='none';return;}
-            const fi=val=>{if(val<=vs[0])return 0;if(val>=vs[vs.length-1])return vs.length-1;
-              for(let j=0;j<vs.length-1;j++)if(val>=vs[j]&&val<=vs[j+1])return j+(val-vs[j])/((vs[j+1]-vs[j])||1);
-              return vs.length-1;};
-            const xOf=f=>(PL+(CW-PL-PR)*f/(vs.length-1))/CW*100;      // value idx → % of cell width
-            const L=xOf(fi(vLo)),R=xOf(fi(vHi));
-            if(R-L<0.2){hl.style.display='none';return;}
-            hl.style.left=L.toFixed(2)+'%';hl.style.width=(R-L).toFixed(2)+'%';hl.style.display='block';});};
-        const apply=()=>{const ks=Object.keys(brushes);let shown=0;
-          lines.forEach(ln=>{const ys=(ln.getAttribute('data-ys')||'').split(',').map(Number);let ok=true;
-            for(const k of ks){const b=brushes[k];if(!(ys[+k]>=b[0]&&ys[+k]<=b[1])){ok=false;break;}}
-            ln.style.opacity=ok?'':'0.04';ln.style.pointerEvents=ok?'stroke':'none';if(ok)shown++;
-            const dots=dotMap[ln.getAttribute('data-cfg')];if(dots)dots.forEach(dt=>{dt.style.opacity=ok?'':'0.05';dt.style.pointerEvents=ok?'':'none';});});
-          if(cnt)cnt.textContent=ks.length?(shown+' / '+total+' configs · brushed'):(total+' configs');
-          pdpHl();};
-        svg.querySelectorAll('.pc-track').forEach(tr=>{const axi=tr.getAttribute('data-ax'),br=svg.querySelector('.pc-brush[data-ax="'+axi+'"]');
-          tr.addEventListener('pointerdown',e=>{e.preventDefault();const y0=vbY(e.clientY);let moved=false;
-            const mv=ev=>{const y=vbY(ev.clientY),a=Math.min(y0,y),b=Math.max(y0,y);if(b-a>1)moved=true;brushes[axi]=[a,b];br.setAttribute('y',a.toFixed(1));br.setAttribute('height',(b-a).toFixed(1));br.style.display='';apply();};
-            const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);if(!moved){delete brushes[axi];br.style.display='none';apply();}};
-            window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});});
-      });
+      window._wireParcoords&&window._wireParcoords(content);
       // checklist pills <-> report sections. Scroll the WINDOW with an offset for the
       // sticky .topbar so the target heading isn't hidden behind it. Pills jump down to
       // a section; clicking a section heading jumps back up to the pills.
