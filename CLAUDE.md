@@ -165,6 +165,23 @@ Update `ROADMAP.md` as work ships; keep this file for durable context/convention
   currently call the provider directly (qwen/claude-cli/anthropic) — this is the open
   exception tracked in `ROADMAP.md` §1.
 
+## Pre-push boot gate
+A `git push` in this repo (and future worktrees, since it is wired via `core.hooksPath`)
+automatically runs `tools/preflight_boot.py` first, via the hook at
+`tools/githooks/pre-push`. That script boots `index.html` in headless Chrome (a same-origin
+iframe probe served from a throwaway local `http.server`) and confirms it actually rendered
+(VERSION present, `renderApp` defined, no `loadError`, real body content) instead of white-
+screening. It also runs a tight static lint for the malformed-template-tag bug class that
+shipped in v53.3 (an opening HTML tag missing its closing `>` immediately followed by a
+`${...}` template-interpolation line).
+- Run it by hand any time: `python tools/preflight_boot.py` (prints `PREFLIGHT: PASS/FAIL/
+  INCONCLUSIVE` plus a reason).
+- Exit 1 (FAIL) blocks the push — the boot check failed or the malformed-tag lint hit.
+  Fix `index.html` and push again.
+- Exit 2 (INCONCLUSIVE) is a non-blocking tooling warning (e.g. Chrome not found, or the
+  headless dump timed out) — the push is allowed through with a warning printed.
+- Emergency override (only if the owner explicitly asks for it): `git push --no-verify`.
+
 ## Working style the user likes
 Iterative, version-bumped releases (`__version__`), each targeting specific bugs/features.
 Validate before shipping. Explain what changed and any honest caveats. Confirm before

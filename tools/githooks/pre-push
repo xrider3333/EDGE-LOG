@@ -1,0 +1,37 @@
+#!/bin/sh
+# EDGE-LOG pre-push boot gate.
+#
+# Runs tools/preflight_boot.py before every `git push` in this repo. That
+# script boots index.html in headless Chrome and checks it actually renders
+# (plus a static lint for the v53.3 malformed-template-tag bug class).
+#
+# Exit codes from preflight_boot.py:
+#   0 = PASS          -> allow the push
+#   1 = FAIL          -> definitely broken -> BLOCK the push
+#   2 = INCONCLUSIVE  -> tooling could not run (e.g. chrome missing/timeout)
+#                        -> non-blocking, allow the push with a warning
+#
+# Wired up via: git config core.hooksPath tools/githooks
+#
+# Emergency override (only if the owner asks for it): git push --no-verify
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+python "$repo_root/tools/preflight_boot.py"
+status=$?
+
+if [ "$status" -eq 1 ]; then
+  echo ""
+  echo "Boot gate FAILED -- refusing to push a broken index.html."
+  echo "Fix it, or override with: git push --no-verify"
+  echo ""
+  exit 1
+fi
+
+if [ "$status" -eq 2 ]; then
+  echo ""
+  echo "Boot gate INCONCLUSIVE -- could not verify index.html boots (tooling issue), allowing push anyway."
+  echo ""
+fi
+
+exit 0
