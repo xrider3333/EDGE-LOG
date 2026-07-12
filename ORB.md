@@ -340,6 +340,41 @@ lockbox (own DD/PF), so the risk-adjusted read is honest. Anchor `be=0` reproduc
 
 ---
 
+### 4.15 BE-TRIGGER bake-off — does a smarter arm-signal beat 1.0R? (2026-07-12) — item K
+
+Item H banked `be_after_R=1.0` (arm breakeven at 1.0×risk). **K asks whether a *different arming
+signal* protects better.** `augur_strategies/ORB_3_0_BET.py` adds a `be_mode` selector (R / time-bars /
+ATR / OR-width / structure) on the **frozen #137 base**; each trigger is swept **in isolation** (only the
+trigger moves), on the optimize window AND the held-out lockbox, ranked by **MAR/DD — not PnL**. Anchors
+reproduce #137 ($567,297) and BE-R=1.0 ($574,177 / DD −$26,763) **to the dollar**. Tool:
+`tools/orb_be_triggers.py`.
+
+Each family's **lockbox champion** vs the R=1.0 control:
+
+| trigger | best thresh | LB MAR | LB DD | LB PF | LB net | IS MAR | verdict |
+|---|---|---|---|---|---|---|---|
+| **R (control) ★** | 1.0×risk | **7.1** | **$11,491** | 1.54 | $81,072 | **20.7** | — |
+| time (bars) | 2 bars | 4.0 | $14,576 | 1.60 | $58,611 | 18.7 | **loses** |
+| ATR (×session) | 0.4 | 6.5 | $13,944 | 1.62 | $90,982 | 14.7 | richer, not safer |
+| OR-width | 1.75×OR | 7.1 | $11,491 | 1.54 | $81,072 | 20.7 | **≡ R** (identical) |
+| structure (1st HL/LH) | — | 3.2 | $18,162 | 1.47 | $58,971 | 16.6 | **loses** |
+
+- **Verdict: nothing beats static `be_after_R=1.0` on risk-adjusted terms.** It has the best lockbox MAR
+  (7.1) AND the lowest lockbox DD ($11.5k) AND the best in-sample MAR (20.7). **K confirms H — keep 1.0R.**
+- **OR-width ≡ R (identical row) — not a new lever here.** Because risk = `stop_frac`×OR = 1.75×OR, arming
+  at 1.0×risk *is* arming at 1.75×OR-width. OR-width only becomes distinct if `stop_frac` varies; with #137's
+  stop pinned it's the same trigger in different units. (Useful check: both code paths agree to the dollar.)
+- **ATR (0.4×session range) is the honest runner-up — but a different objective.** It arms *later* (larger
+  distance), so it books more upside (LB net $90,982 / PF 1.62 vs $81,072 / 1.54) at a *worse* drawdown
+  (LB $13.9k; IS DD $32.5k, IS MAR 14.7). A "let it breathe" variant that wins on PnL/PF, not DD — the
+  opposite of what a breakeven is for. (If we ever optimize for PnL not DD, revisit ATR.)
+- **Time and structure lose outright.** A pure time→BE arms regardless of price (wicks out / locks in
+  underwater); the first-higher-low fires too eagerly. Every step trails the R control in both windows.
+- **Takeaway:** the R-multiple is the right breakeven trigger and 1.0R stands. Item **K → DONE (verified —
+  no dynamic/alternative trigger beats static 1.0R).**
+
+---
+
 ## 5. What a pro would actually do here (principles)
 
 1. **Size on drawdown, not PnL.** Fixed max-DD risk budget → at −$9k DD you carry ~2.8× the
@@ -371,10 +406,10 @@ lockbox (own DD/PF), so the risk-adjusted read is honest. Anchor `be=0` reproduc
 was first raised (A–H early; J/K/L later; "I" skipped to avoid 1/I confusion). They do NOT imply
 sequence, and nothing "starts at E": **A B C D F G H L are all DONE** — only **E, J, K** remain open.
 
-**Open priority (owner 2026-07-12):**
-1. **K — verify the breakeven trigger.** Does static `be_after_R=1.0` really beat the alternatives
-   (time-based / ATR / OR-width / structure / vol-scaled arms)? Item H only tested the R-multiple family.
-2. **E — the 1-lot-ride + 1-lot-trail ensemble** (blend the MAR-15 and MAR-33 curves).
+**Open priority (owner 2026-07-12; K closed 2026-07-12):**
+1. ~~**K — verify the breakeven trigger.**~~ ✅ **DONE (§4.15)** — swept time / ATR / OR-width / structure vs
+   the R control; **nothing beats static `be_after_R=1.0`** on lockbox MAR+DD. 1.0R stands.
+2. **E — the 1-lot-ride + 1-lot-trail ensemble** (blend the MAR-15 and MAR-33 curves). ← **next**
 3. **J — close-confirm / candle-confirm reconciliation** (resolve the TV +$30k vs −$392k-on-137 clash).
 4. **Deploy — the live-web sizing toggle** (pure wiring; do last, when ready to take the stack live).
 
@@ -382,7 +417,7 @@ sequence, and nothing "starts at E": **A B C D F G H L are all DONE** — only *
 |---|---|---|---|---|
 | **J** | **Candle-confirmation / close-confirm reconciliation** — `close_confirm` (enter on bar CLOSE beyond the range, skipping false-wick breaks) is ALREADY coded in `ORB_3_0.py`. `tools/reconcile.py` says TV's close-based model skipped 306 false wicks (−$149,562) and netted **+$30k** more than the engine over 15y. BUT tested on **137's config** `close_confirm=True` is **−$392k** ($567k→$175k, PF 1.47→1.14) because entering at the close worsens the fill on every real break. | **HIGH** (reconciles engine↔TV; possible new version) | ☐ TODO | **CONTRADICTION to resolve** — is TV's edge a *level-fill* skip (same entry price, just drop the fakes) vs the engine's *close-price* fill? Re-implement close_confirm as "confirm on close, fill at the range level next bar" and re-test; that may be the real TV-matching win. Config-dependent — wide-stop 137 hates it. |
 | **H** | **Breakeven-after-R** (`be_after_R` param) — move stop→entry once unrealized ≥ X·risk | **HIGH** | ☑ DONE → **run #154 PASS** | **Fine sweep (0.1 steps, 0–4R; §4.13):** NOT monotonic — **0.1–0.5R is a trap** (lockbox PF collapses to 1.27–1.34); **0.9–1.3R = robust plateau** (full DD ~−30%, LB PF 1.55–1.59, MAR 20–21.5 vs 14.1); ≥1.6R fades to baseline. **Run #153** (free search): picked noise 2.6R → **WEAK/PBO-fail** — the IS PnL objective can't see a DD lever; gates caught it. **Run #154** (pinned **1.0R**, 137-lock): **PASS 5/5 applicable gates**, whole-run **DD −$40,233→−$26,763 (−33%)**, net $574k, PF 1.55, MAR 14.1→21.5, MC-P95 DD improved −$39.7k→−$36.9k; same 3,951 trades. File: `ORB_3_0_BE.py`. Caveat: the 1.0R level was picked on a sweep that saw the lockbox (defense: wide flat plateau). **BE-1.0R is the new best single-lot ORB 3.0 deploy candidate.** Gap-free 0.9→2.5 sweep with an independent lockbox split (**run #156**, §4.14) re-confirms 1.0R as the MAR champion in BOTH windows (IS 20.7, LB 7.1). |
-| **K** | **Dynamic / alternative breakeven triggers** — the R-multiple trigger (item H) is one of many possible "arm BE now" signals. Candidates: **time-based** (BE after N bars in trade), **ATR-based** (unrealized ≥ X × session ATR), **OR-width multiple** (price has traveled ≥ X × range width — decouples from stop_frac), **structure** (first higher-low / lower-high after entry), **vol-scaled R** (tighter arm on high-vol days). Owner idea 2026-07-10. | MED-HIGH (item H already banked −33% DD; this asks if a smarter trigger beats static 1.0R) | ☐ TODO | Test in the ORB_3_0_BE re-simulator first (fast), lockbox-check anything that wins; beware: 5 trigger families × thresholds = big selection surface, so demand a plateau + OOS hold like H did. |
+| **K** | **Dynamic / alternative breakeven triggers** — the R-multiple trigger (item H) is one of many possible "arm BE now" signals. Candidates: **time-based** (BE after N bars in trade), **ATR-based** (unrealized ≥ X × session ATR), **OR-width multiple** (price has traveled ≥ X × range width — decouples from stop_frac), **structure** (first higher-low / lower-high after entry), **vol-scaled R** (tighter arm on high-vol days). Owner idea 2026-07-10. | MED-HIGH (item H already banked −33% DD; this asks if a smarter trigger beats static 1.0R) | ☑ DONE (§4.15) | **VERIFIED — no trigger beats static 1.0R.** Built `ORB_3_0_BET.py` (`be_mode` selector) + `tools/orb_be_triggers.py`; swept time / ATR / OR-width / structure in isolation, in-sample + lockbox, ranked by MAR/DD. Best-in-lockbox vs the R=1.0 control: **R 7.1 MAR / $11.5k DD** (champ); time 4.0 / $14.6k; ATR-0.4 6.5 / $13.9k (richer PnL+PF, worse DD); OR-width **≡ R** (1.75×OR = 1.0×risk with stop 1.75); structure 3.2 / $18.2k. Anchors reproduce #137 + BE-R=1.0 to the dollar. **Keep `be_after_R=1.0`.** |
 | **L** | **Param-vs-RISK charts in the run report** — the 2C/2E/2J/2K charts plot each config's **PnL** only, so a drawdown lever like `be_after_R` looks FLAT and its real effect (DD −33%) is invisible; #153's PDP "peak" at 2.6R was a ±2% PnL ripple. Fix: carry `dd`/`mar` per config in the saved `points` rows (engine `history.py`/`optimize.py`) + a metric toggle (PnL / MAX DD / MAR) on the 2C·2E·2J·2K charts. | **HIGH** (web+engine feature — makes risk levers visible & rankable in the report) | ☑ DONE (v50.8 web + engine; demo run #155) | **SHIPPED 2026-07-10.** Engine: every grid/auto/validate run stores per-config `dd` (drawdown magnitude) in the saved points. Web: CHART METRIC toggle (NET $ / MAX DD / MAR ×100) above 2B re-plots 2B·2C·2H·2I·2J. Proof = run **#155** (BE sweep, 137-locked): PnL view is flat (±2%) but MAX DD view shows the 0.9–1.3R valley ($26.8k vs $40.2k at be=0). Older runs show a "re-run to record it" note. NB: the v49.5 per-column VALUE-filter menus were a separate feature and were REVERTED (v50.9) after they could hide the whole runs list — do not confuse the two. |
 | E | **Ensemble** — 1 lot full-ride + 1 lot trailed → blended curve between MAR 15 and 33 (your original 2-contract idea, done right) | MED (smoothing, not new edge) | ☐ TODO | — |
 | — | Smarter trailing (chandelier / activate / breakeven) | — | ☑ DONE | chandelier overfits; activate hurts; breakeven wash. **Simple bar-trail wins.** |
