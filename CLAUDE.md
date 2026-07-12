@@ -1,5 +1,27 @@
 # AUGUR — Strategy Optimizer (project context for Claude Code)
 
+## Response format (EVERY reply — the owner has asked for this repeatedly)
+Keep replies simple and skimmable. Your "thinking"/process text is noise to the owner — the
+answer must visually stand out from it. Structure EVERY reply top-to-bottom as:
+1. **Version pushed FIRST, made prominent** (bold, its own line at the very top), e.g.
+   **`✅ Pushed v52.1`** — if a deploy happened. If nothing was pushed, say so plainly
+   (e.g. **`No deploy — <reason>`**). This is the line the owner looks for first.
+2. **A one/two-line summary** of what changed.
+3. **A numbered or bulleted list** of the changes / relevant info — numbers IN ORDER, and
+   matching the owner's own numbering when they numbered their request.
+4. Anything else (caveats, how-to-verify, follow-ups) UNDER that.
+Don't bury the version or the summary below paragraphs of reasoning. Terse, ordered,
+front-loaded. (Pairs with the verify-don't-assume rule below.)
+
+## Verify, don't assume (hard rule)
+Never claim a UI change works from reading code alone. After every push, LOAD the deployed
+page (`https://xrider3333.github.io/EDGE-LOG/?fresh=<ts>` — that tab is logged in) and read
+the console for a clean boot (`[LOAD] SCRIPT START … RENDER`); a `SyntaxError` / `is not a
+function` = broken deploy, fix immediately. For a UI change, actually inspect the rendered
+result (screenshot / measure the DOM), don't guess. NEVER put a raw apostrophe inside a
+single-quoted JS string (e.g. a CHANGELOG note) — it terminates the string and white-screens
+the whole app; reword apostrophe-free.
+
 ## What this is
 Augur is a **Streamlit** desktop app (single file: `optimizer.py`, ~5300 lines) for
 **backtesting and optimizing trading strategies**. It runs pluggable Python "strategy

@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='52.1';
+const VERSION='52.2';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'52.2', date:'2026-07-11', notes:['Run report header is now a compact single row: "REPORT: id · strategy" + the numbered checklist tiles (moved up onto the header, they fill the middle) + the action buttons. The repeated run-meta line (market · configs · took · cost · ran-date) is gone — it already lives in Past Runs. The whole row pins to the top as you scroll.','Past Runs view selector (flat LIST vs by-STRATEGY) moved OUT of the top-right split-layout buttons and INTO the Past Runs tile, where it belongs — as a segmented control with a background. The split-layout buttons (side / stacked) keep their own spot, also on a background now.','Past Runs by-strategy view: you can now drag the divider to resize the grouped list (it was ignoring the drag), and it remembers your scroll position.']},
   {v:'52.1', date:'2026-07-11', notes:['Refresh now lands where you left off: a page reload returns to the same tab, the same backtester sub-tab and open run, and your analytics / chart selections (saved in your browser; scroll position is not restored yet).','Run report 1G (trade PnL) and 1H (MAE/MFE) distributions rebuilt per feedback: every outlier now sits at its TRUE position (no more lumping into a fat edge bar) and the range is sliced into many THIN bins so the slope of the curve reads and the tail trails out naturally.','Distribution bars: removed the dot + darker shading on short bars, and a 1-trade bar is now a visible sliver that is clearly SHORTER than a 2-trade bar (height scales with count).','The fitted bell curve is now YELLOW on every distribution chart (matches the analytics one), not white.']},
   {v:'52.0', date:'2026-07-11', notes:['Past Runs: the "by strategy" grouping is now an INDEPENDENT toggle (the ▦ button), separated from the side / stacked layout buttons by a divider. So you can keep your split-screen layout (list beside, or above, the run report) AND group the list by strategy at the same time — before, picking group replaced the split layout and pushed the report down.','Past Runs by strategy: the group tiles are far more compact — each collapses to a single line (strategy name, market, run count, champion verdict, and the net / PF / DD / WF / score rollup all on one row) with much less height, so more strategies fit on screen and the run report is no longer pushed down. In a narrow split the market / age text shortens first so the strategy name and the KPI rollup always stay readable.']},
   {v:'51.8', date:'2026-07-11', notes:['Run report 1G (trade PnL distribution) and 1H (MAE/MFE): fixed the "one giant spike" look. A few outlier trades were setting the bin width, so almost every trade crushed into the first bar. Bars now cover the 2nd–98th percentile core with far more, evenly-sized bins (Freedman–Diaconis) so the real shape of the distribution is visible; the trimmed outliers pile into a flagged edge bar (a small note under the chart says how many, and the edge bar tooltip reads "≤"/"≥ · incl. N outliers").']},
@@ -3731,7 +3732,7 @@ function renderApp(){
   const _ap=(()=>{try{return JSON.parse(localStorage.getItem('augurPrefs')||'{}');}catch(e){return {};}})();
   const _spv=(id,gl,on,t)=>`<button class="btn-ghost" id="${id}" title="${t}" style="padding:3px 8px;font-size:12px;border-radius:6px;${on?'background:var(--bg2);color:var(--text)':'color:var(--text4)'}">${gl}</button>`;
   let _splitTog='';
-  if(activeTab==='augur'&&augurSub==='runs'){const rv=_ap.resView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="list view + split layout">${_spv('res-group','▦',!!_ap.resGroup,'Group by strategy (toggle) — combines with either split layout')}<span style="width:1px;height:15px;background:var(--border);margin:0 3px"></span>${_spv('res-side','◧',rv==='side','Side-by-side split')}${_spv('res-stack','▤',rv==='stack','Stacked layout')}</span>`;}
+  if(activeTab==='augur'&&augurSub==='runs'){const rv=_ap.resView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:2px;align-items:center;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px" title="split layout">${_spv('res-side','◧',rv==='side','Side-by-side split')}${_spv('res-stack','▤',rv==='stack','Stacked layout')}</span>`;}
   else if(activeTab==='augur'&&augurSub==='lib'){const lv=_ap.libView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('lib-side','◧',lv==='side','Side-by-side split')}${_spv('lib-stack','▤',lv==='stack','Stacked layout')}</span>`;}
   else if(activeTab==='augur'&&augurSub==='research'){const sv=_ap.stackView==='side'?'side':'stack';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('stack-side','◧',sv==='side','Side-by-side split')}${_spv('stack-stack','▤',sv==='stack','Stacked layout')}</span>`;}
   // ── ACCOUNT scope pills (ALL / <broker> …) — trading-log side only, and only once at
@@ -7268,25 +7269,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   buttons flex-center their label inside that height.
       const _ctlBase='height:24px;box-sizing:border-box;padding:0 5px;font-size:12px;border-radius:6px;cursor:pointer;line-height:1;font-variant-emoji:text';
       const _ctlBtn=_ctlBase+';min-width:24px;display:inline-flex;align-items:center;justify-content:center';
-      const hdrHtml='<div id="res-head" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;white-space:nowrap;overflow-x:auto;padding-bottom:3px">'
+      // ── Compact report header (owner): ONE sticky row = REPORT: id + strategy + the checklist
+      //    "tiles" (numbered section pills, middle, fill) + the action buttons. The repeated run-meta
+      //    (instrument · configs · took · cost · ran-date) is DROPPED — it already lives in Past Runs.
+      const hdrHtml='<div id="res-head" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;white-space:nowrap;position:sticky;position:-webkit-sticky;top:47px;z-index:6;background:var(--bg2);padding:6px 0">'
         +'<span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:15px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span>'
-        +'<span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN REPORT</span>'
-        +'<span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">RUN #'+d.id+'</span>'
-        +'<span style="font-size:14px;font-weight:600;flex:0 0 auto">'+stratTag(d.strategy,'14px')+'</span>'
-        // run meta inline on the title row (instrument · mode · configs · ran-date); days/bars live
-        //   in the KPI matrix now. Fully shown — the row scrolls horizontally if it gets too wide.
-        +'<span style="font-size:var(--fsxs);color:var(--text4);white-space:nowrap;flex:0 0 auto">'+_metaBits.join(' · ')+'</span>'
-        +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center;flex:0 0 auto;padding-left:8px">'
+        +'<span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4);flex:0 0 auto">REPORT: '+d.id+'</span>'
+        +'<span style="font-size:14px;font-weight:600;flex:0 0 auto;padding-right:2px">'+stratTag(d.strategy,'14px')+'</span>'
+        // the numbered checklist "tiles" now live INLINE in the header (fill the middle, squish to fit)
+        +'<span id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex:1 1 auto;min-width:40px;overflow:hidden">'+segs+'</span>'
+        +'<span style="display:flex;gap:6px;align-items:center;flex:0 0 auto;padding-left:4px">'
           +'<button id="det-note" data-note-id="'+d.id+'" data-note-val="'+_noteEsc+'" title="'+(_hasNote?_noteEsc:'add a note')+'" style="'+_ctlBtn+';border:1px solid '+(_hasNote?'var(--green)':'var(--border)')+';background:'+(_hasNote?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+';color:'+(_hasNote?'var(--green)':'var(--text3)')+'">✎</button>'
           +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="'+_ctlBase+';width:24px;min-width:24px;padding:0;text-align:center;text-align-last:center;-webkit-appearance:none;-moz-appearance:none;appearance:none;border:1px solid var(--border);background:var(--bg2);color:var(--text3)"><option value="">≡</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
           +'<button id="det-arch" data-arch-id="'+d.id+'" title="'+(d.archived?'un-archive — show this run in Past Runs again':'archive — hide this run from Past Runs (keeps the data, reversible)')+'" style="'+_ctlBtn+';border:1px solid '+(d.archived?'var(--yellow)':'var(--border)')+';background:'+(d.archived?'color-mix(in srgb,var(--yellow) 14%,transparent)':'var(--bg2)')+';color:'+(d.archived?'var(--yellow)':'var(--text3)')+'">◫</button>'
           +'<button id="det-del" data-del-id="'+d.id+'" title="delete run" style="'+_ctlBtn+';border:1px solid var(--red);background:var(--bg2);color:var(--red)">🗑</button>'
         +'</span>'
-        +'</div>'
-        // pinned pills: FULLY transparent (no background, no backdrop-filter) so the row looks
-        //   identical at rest and while scrolling — the individual pill chips stay opaque so the
-        //   labels remain readable as content slides underneath.
-        +'<div id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex-wrap:nowrap;scroll-margin-top:8px;position:sticky;position:-webkit-sticky;top:47px;z-index:6;background:transparent;padding:5px 0;margin:0 0 10px">'+segs+'</div>';
+        +'</div>';
       // ── Numbered checklist sections: group each Results panel under its deploy step
       //    (2 In-sample · 3 Plateau · 4 Stress · 5 Out-of-sample · 8 Drawdown) so the
       //    report cross-references the validation checklist. Empty steps are omitted. ──
@@ -8069,6 +8067,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<td style="text-align:right;font-size:var(--fsxs);color:var(--text4)">'+(r.days_in_test||'—')+'</td>'
             +'</tr>';}).join(''):'<tr><td colspan="21" style="color:var(--text5);font-size:var(--fsxs);padding:18px;text-align:center">no runs match the filter</td></tr>';
         const rv=APREF.resView==='stack'?'stack':'side';const _grp=!!APREF.resGroup;
+        // PAST RUNS view selector (flat list ⟷ by-strategy). Lives INSIDE the Past Runs tile —
+        //   it switches the RUNS VIEW, not the split layout — as a segmented control with a background.
+        const _vsBtn=(on)=>'display:inline-flex;align-items:center;gap:4px;padding:2px 9px;font-size:9px;letter-spacing:1px;border:none;border-radius:6px;cursor:pointer;font-variant-emoji:text;background:'+(on?'var(--bg2)':'transparent')+';color:'+(on?'var(--text)':'var(--text4)');
+        const _viewSeg='<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px;flex:0 0 auto">'
+          +'<button data-resflat title="flat list of every run" style="'+_vsBtn(!_grp)+'">≣ LIST</button>'
+          +'<button data-resgrp title="group runs by strategy" style="'+_vsBtn(_grp)+'">▦ STRATEGY</button>'
+          +'</span>';
         const rH=Math.min(.6,Math.max(.15,APREF.splitH||0.34));
         // stack-mode list height caps to the VIEWPORT (was a flat 520px that left the lower half of a tall screen empty — owner: "screen can support it, still scrolls").
         const _vhCap=Math.max(520,Math.round((window.innerHeight||900)*0.82));
@@ -8093,7 +8098,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +sh('id','RUN','right')+sh('date','DATE','left')+'<th style="vertical-align:bottom;white-space:nowrap;cursor:pointer">'+_stratHdr+'</th>'+sh('trd','TRD','right')+fh('MODE',(_scopes.length>1?'rfScope':''),fScope,_scopes.map(s=>[s,s.slice(0,16)]))+fh('MARKET',(_insts.length>1?'rfInst':''),fInst,_insts.map(i=>[i,i]))+fh('TF',(_tfs.length>1?'rfTf':''),fTf,_tfs.map(t=>[t,t]))+'<th style="text-align:center;vertical-align:bottom">EQUITY</th>'
           +sh('pnl','NET $','right')+sh('perday','$/DAY','right')+sh('maxdd','MAX DD','right')+sh('pf','PF','right')+sh('sharpe','SHARPE','right')+sh('wr','WR','right')+'<th style="text-align:center;vertical-align:bottom" title="walk-forward folds that held out-of-sample">WF</th>'+sh('score','SCORE','right')+sh('took','TOOK','right')+'<th style="vertical-align:bottom">SRC</th>'+'<th style="vertical-align:bottom">RANGE</th>'+sh('days','DAYS','right')
           +'</tr></thead><tbody>'+trows+'</tbody></table></div>';
-        const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span>'+'<span style="display:flex;gap:12px;align-items:center">'+(_nArch?'<span data-rfarch title="archived runs are hidden from this list by default" style="cursor:pointer;font-size:9px;color:'+(fArch?'var(--yellow)':'var(--text5)')+';text-decoration:underline">◫ '+(fArch?'hide':'show')+' '+_nArch+' archived</span>':'')+(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">'+'✕ clear filters</span>':'')+'</span></div>'+tbl);
+        const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span style="display:flex;align-items:center;gap:10px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span>'+_viewSeg+'</span>'+'<span style="display:flex;gap:12px;align-items:center">'+(_nArch?'<span data-rfarch title="archived runs are hidden from this list by default" style="cursor:pointer;font-size:9px;color:'+(fArch?'var(--yellow)':'var(--text5)')+';text-decoration:underline">◫ '+(fArch?'hide':'show')+' '+_nArch+' archived</span>':'')+(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">'+'✕ clear filters</span>':'')+'</span></div>'+tbl);
         // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
         // would trap the sticky checklist-pills row (sticky breaks under any non-visible
         // overflow ancestor). Inline beats the class so the pinned pills work on every theme.
@@ -8152,8 +8157,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(open){const shown=showAll?g.rs:g.rs.slice(0,4);
             rows='<div style="margin-top:6px;display:flex;flex-direction:column;gap:2px">'+shown.map((r,i)=>_gRow(r,i===0)).join('')+((g.rs.length>4&&!showAll)?'<div data-grpall="'+encodeURIComponent(g.k)+'" style="cursor:pointer;font-size:9px;color:var(--blue);padding:4px 8px">show all '+g.rs.length+' runs ▾</div>':'')+'</div>';}
           return '<div style="'+_gcard+'">'+head+rows+'</div>';}).join('');
-        const _grpCtl='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · by '+(_gGroupBy==='market'?'market':(_gGroupBy==='mode'?'mode':'strategy'))+' · '+_groups.length+' group'+(_groups.length===1?'':'s')+'</span><span style="margin-left:auto;display:flex;gap:8px;align-items:center"><span style="font-size:9px;color:var(--text5)">group by</span><select data-resgroupby style="width:auto;padding:2px 6px;font-size:var(--fsxs)"><option value="strat"'+(_gGroupBy==='strat'?' selected':'')+'>strategy</option><option value="market"'+(_gGroupBy==='market'?' selected':'')+'>market</option><option value="mode"'+(_gGroupBy==='mode'?' selected':'')+'>mode</option></select><span data-reskeepers title="show only deploy-ready runs: validated PASS with the lockbox or walk-forward held" style="cursor:pointer;font-size:9px;padding:2px 8px;border-radius:10px;border:1px solid '+(_gKeeps?'var(--green)':'var(--border)')+';color:'+(_gKeeps?'var(--green)':'var(--text4)')+'">✓ keepers only</span></span></div>';
-        const groupedTile=_grpCtl+'<div style="overflow:auto;max-height:'+(rv==='side'?'86vh':rVH+'px')+'">'+(_groups.length?_grpTilesHtml:'<div style="color:var(--text5);font-size:var(--fsxs);padding:18px;text-align:center">no runs match — clear the keepers filter</div>')+'</div>';
+        const _grpCtl='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · by '+(_gGroupBy==='market'?'market':(_gGroupBy==='mode'?'mode':'strategy'))+' · '+_groups.length+' group'+(_groups.length===1?'':'s')+'</span>'+_viewSeg+'<span style="margin-left:auto;display:flex;gap:8px;align-items:center"><span style="font-size:9px;color:var(--text5)">group by</span><select data-resgroupby style="width:auto;padding:2px 6px;font-size:var(--fsxs)"><option value="strat"'+(_gGroupBy==='strat'?' selected':'')+'>strategy</option><option value="market"'+(_gGroupBy==='market'?' selected':'')+'>market</option><option value="mode"'+(_gGroupBy==='mode'?' selected':'')+'>mode</option></select><span data-reskeepers title="show only deploy-ready runs: validated PASS with the lockbox or walk-forward held" style="cursor:pointer;font-size:9px;padding:2px 8px;border-radius:10px;border:1px solid '+(_gKeeps?'var(--green)':'var(--border)')+';color:'+(_gKeeps?'var(--green)':'var(--text4)')+'">✓ keepers only</span></span></div>';
+        const groupedTile=_grpCtl+'<div id="res-listscroll" style="overflow:auto;max-height:'+(rv==='side'?'86vh':rVH+'px')+'">'+(_groups.length?_grpTilesHtml:'<div style="color:var(--text5);font-size:var(--fsxs);padding:18px;text-align:center">no runs match — clear the keepers filter</div>')+'</div>';
         // Results-view header removed per request (redundant — the PAST RUNS tile title
         //   already carries the run count, and the empty-state copy explains selection).
         const viewHeader='';
@@ -8561,7 +8566,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
     }
     else if(augurSub==='set'){content.querySelectorAll('[data-setsub]').forEach(t=>{t.onclick=()=>{savePref('setSub',t.dataset.setsub);renderApp();};});const sv=el('set-save');if(sv)sv.onclick=()=>{savePref('instrument',el('set-inst').value);savePref('session',el('set-sess').value);savePref('timeframe',el('set-tf').value);savePref('workers',parseInt(el('set-work').value)||4);savePref('rounds',parseInt(el('set-rounds').value)||4);savePref('trials',parseInt(el('set-trials').value)||200);savePref('min_trades',parseInt(el('set-mint').value)||30);savePref('provider',el('set-prov').value);const s=el('set-saved');if(s){s.textContent='✓ saved — Builder will use these';setTimeout(()=>{if(el('set-saved'))el('set-saved').textContent='';},2000);}};}
     else{const vs=el('res-side'),vk=el('res-stack');if(vs)vs.onclick=()=>{savePref('resView','side');renderApp();};if(vk)vk.onclick=()=>{savePref('resView','stack');renderApp();};
-      const vg=el('res-group');if(vg)vg.onclick=()=>{savePref('resGroup',!APREF.resGroup);renderApp();};
+      const _vf=content.querySelector('[data-resflat]');if(_vf)_vf.onclick=()=>{savePref('resGroup',false);renderApp();};
+      const _vgp=content.querySelector('[data-resgrp]');if(_vgp)_vgp.onclick=()=>{savePref('resGroup',true);renderApp();};
       content.querySelectorAll('[data-grp]').forEach(h=>{h.onclick=()=>{const k=decodeURIComponent(h.dataset.grp);if(window._resGroupOpen.has(k))window._resGroupOpen.delete(k);else window._resGroupOpen.add(k);renderApp();};});
       content.querySelectorAll('[data-grpall]').forEach(x=>{x.onclick=(e)=>{e.stopPropagation();window._resGroupAll.add(decodeURIComponent(x.dataset.grpall));renderApp();};});
       const _rgb=content.querySelector('[data-resgroupby]');if(_rgb)_rgb.onchange=()=>{savePref('resGroupBy',_rgb.value);renderApp();};
@@ -8658,7 +8664,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Freeze ONLY the thin checklist-pills row to the window (below the sticky topbar);
       // the title row (RUN REPORT · run# · strategy) scrolls away normally. Opaque --bg2
       // (= tile colour) so content slides cleanly under the one pinned row.
-      const _tbEl=document.querySelector('.topbar'),_rpEl=el('res-pills');
+      const _tbEl=document.querySelector('.topbar'),_rpEl=el('res-head');
       // markup already declares the full sticky (position/top/z/background/blur); here we only
       // refine `top` to the ACTUAL topbar height. Do NOT set a solid background — it must stay
       // transparent+backdrop-blur so it blends with the (glass) tile.
@@ -8670,7 +8676,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         _det.addEventListener('mousemove',e=>{const t=e.target&&e.target.closest?e.target.closest('[data-tip]'):null;if(!t){tip.style.display='none';return;}tip.innerHTML=t.getAttribute('data-tip');tip.style.display='block';const r=tip.getBoundingClientRect();let x=e.clientX+14,y=e.clientY+14;if(x+r.width>innerWidth-8)x=e.clientX-r.width-14;if(y+r.height>innerHeight-8)y=e.clientY-r.height-14;tip.style.left=Math.max(4,x)+'px';tip.style.top=Math.max(4,y)+'px';},{passive:true});
         _det.addEventListener('mouseleave',()=>{tip.style.display='none';},{passive:true});})();
       // jump the WINDOW so the target lands below the topbar + the frozen pills row.
-      const _scrollToId=(id)=>{const t=el(id);if(!t)return;const tb=document.querySelector('.topbar'),rp=el('res-pills');const off=(tb?tb.offsetHeight:0)+((rp&&id!=='res-pills'&&id!=='res-head')?rp.offsetHeight:0)+10;const y=t.getBoundingClientRect().top+window.scrollY-off;window.scrollTo({top:Math.max(0,y),behavior:'smooth'});};
+      const _scrollToId=(id)=>{const t=el(id);if(!t)return;const tb=document.querySelector('.topbar'),rp=el('res-head');const off=(tb?tb.offsetHeight:0)+((rp&&id!=='res-head')?rp.offsetHeight:0)+10;const y=t.getBoundingClientRect().top+window.scrollY-off;window.scrollTo({top:Math.max(0,y),behavior:'smooth'});};
       content.querySelectorAll('[data-vstep-go]').forEach(p=>{p.onclick=()=>_scrollToId('res-step-'+p.dataset.vstepGo);});
       content.querySelectorAll('[data-vstep-back]').forEach(h=>{h.onclick=()=>_scrollToId('res-head');});
       // note is now a single button: click → prompt to add/edit/clear; button turns green + shows
