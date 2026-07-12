@@ -365,7 +365,18 @@ lockbox (own DD/PF), so the risk-adjusted read is honest. Anchor `be=0` reproduc
 
 ---
 
-## 6. Backlog — investigation TODO (by expected payoff)
+## 6. Backlog — investigation TODO
+
+**Letters are a stable index, not a running order.** Each idea got the next free letter when it
+was first raised (A–H early; J/K/L later; "I" skipped to avoid 1/I confusion). They do NOT imply
+sequence, and nothing "starts at E": **A B C D F G H L are all DONE** — only **E, J, K** remain open.
+
+**Open priority (owner 2026-07-12):**
+1. **K — verify the breakeven trigger.** Does static `be_after_R=1.0` really beat the alternatives
+   (time-based / ATR / OR-width / structure / vol-scaled arms)? Item H only tested the R-multiple family.
+2. **E — the 1-lot-ride + 1-lot-trail ensemble** (blend the MAR-15 and MAR-33 curves).
+3. **J — close-confirm / candle-confirm reconciliation** (resolve the TV +$30k vs −$392k-on-137 clash).
+4. **Deploy — the live-web sizing toggle** (pure wiring; do last, when ready to take the stack live).
 
 | # | idea | expected payoff | status | result |
 |---|---|---|---|---|
@@ -384,12 +395,20 @@ lockbox (own DD/PF), so the risk-adjusted read is honest. Anchor `be=0` reproduc
 | — | ES transfer (base config + long/short + full sizing stack) | — | ☑ DONE | **PASS all three** — base ES lockbox PF 1.57; long/short asymmetry transfers; **full sizing stack transfers** (ES lockbox MAR 5.0→13.5 = +170%, PF→3.10). |
 | — | Walk-forward + lockbox of the scale-out | — | ☑ DONE | **PASS** (6/6 folds, lockbox PF 1.63) |
 
-**Recommended next:** edge-hunting is done; wins shipped/built where safe. The 3-lever sizing overlay
-is now a **first-class engine call** (`run_backtest(sizing=…)`, runnable via `tools/orb_sized_backtest.py`)
-and the **MAR column is live (v44.5)**. The overlay is *built but NOT deployed to the web* by request.
-The only remaining step is the **live web sizing toggle** (add a runner `sized_backtest` job + a UI button;
-edits `index.html`, so it's the deliberate "take it live" action — owner does it when ready). Everything
-else is minor (E: ride+trailed ensemble). Or just **deploy the §5.6 rule** at the execution layer.
+**Recommended next (revised 2026-07-12):** edge-hunting is done. The remaining research is a
+_verification_ question, not a hunt — item **K** asks whether the static 1.0R breakeven (item H)
+is actually the best arm-trigger, or whether a time / ATR / OR-width / structure / vol-scaled trigger
+beats it. Do K first (fast, in the `ORB_3_0_BE` re-simulator), then **E** (the ride+trailed ensemble),
+then **J** (close-confirm reconciliation). Everything else is shipped or built.
+
+**Deploy — the live-web sizing toggle (do last):** the 3-lever sizing overlay (risk-parity × time-tilt
+× short-tilt — items A/G/D stacked) is already a **first-class engine call** (`run_backtest(sizing=…)`,
+runnable via `tools/orb_sized_backtest.py`), the **MAR column is live (v44.5)**, and ORB run reports carry
+an on-demand **"▶ Compute exact overlay for this run" button (v44.8)**. What's NOT done is making the sized
+version a _standing_ mode: add a runner `sized_backtest` job type + a UI toggle so the site runs the sized
+stack as a first-class strategy instead of an after-the-fact overlay. It edits `index.html` + the runner,
+so it's the deliberate "take it live" action — owner does it when ready. Or just **deploy the §5.6 rule**
+at the execution layer without any web change.
 
 ---
 
