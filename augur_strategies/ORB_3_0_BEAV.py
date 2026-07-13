@@ -26,7 +26,9 @@ _AUGUR_PARENT = "ORB_3_0_BE.py"
 # param of this engine, so it is intentionally absent from the search.
 DEFAULT_PARAMS = {
     "or_bars":      {"default": 1,    "min": 1,    "max": 12,   "step": 1,    "type": "int",   "label": "Opening range (bars)"},
-    "trade_mode":   {"default": "Both", "type": "str", "options": ["Both", "First-candle dir", "Long Only", "Short Only"], "label": "Direction"},
+    # trade_mode PINNED to Both: §4.12 proved a free search on this space goes Short Only (the
+    # PF objective loves the short asymmetry) — the master must stay the two-sided deployable.
+    "trade_mode":   {"default": "Both", "type": "str", "options": ["Both"], "label": "Direction"},
     "stop_frac":    {"default": 1.75, "min": 0.5,  "max": 2.0,  "step": 0.25, "type": "float", "label": "Stop (× range width)"},
     "vol_filter":   {"default": 1.25, "min": 0.0,  "max": 3.0,  "step": 0.25, "type": "float", "label": "Volume filter (× session avg, 0=off)"},
     "atr_filter":   {"default": 0.1,  "min": 0.0,  "max": 1.5,  "step": 0.1,  "type": "float", "label": "Vol-regime filter (× trailing median, 0=off)"},
