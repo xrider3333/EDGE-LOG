@@ -526,6 +526,39 @@ V (order-flow delta — forward-test only, months of data).
 
 ---
 
+### 4.20 Owner-brainstorm round 2 — U · R · P tested; the sweep is complete (2026-07-12)
+
+**U — pyramid at +1R (add lot B when the trade proves itself) — ✗ crushed by the at-entry ensemble.**
+`ORB_3_0_PYR.py` (lot B = resting stop at entry ± pyramid_at_R × risk, stop at lot-A entry, N-bar
+trail; 2-contract-capital blend accounting identical to the ensemble). Every variant loses BOTH
+windows by a wide margin: best pyramid IS MAR 18.4 / LB 5.6 vs ensemble **27.0 / 9.2**. Adding at +R
+is buying the extension — lot B enters a full R worse than lot A and trails out on every pullback,
+while lot A's entry risk was already neutralized by the breakeven. **The at-entry ensemble stays.**
+Tool: `tools/orb_pyramid.py`.
+
+**R — failed-break fade — ✗ no standalone edge exists.**
+`ORB_FADE_1_0.py` (first pierce of an OR edge that closes back inside → trade AGAINST it; stop
+beyond the wick +0.15×rng; target far edge / R-multiples; vol-gated variant fades only the pokes the
+deploy ORB actually entered). **Every config is NET NEGATIVE in both windows** (PF 0.74–0.93,
+IS −$33k to −$63k). The −$149k the wicks cost ORB is NOT sitting there in reverse: a failed break
+leads to **chop, not reversal** — both directions lose on those days once fees are paid. Useful
+negative: don't try to monetize the trap from either side.
+
+**P — chop detector on the OR — ◐ hypothesis inverted; nothing new to build.**
+Diagnostics on the deploy trades (causal at entry): **wide-OR days are the BEST bucket** (OR >30% of
+the trailing 20-day range: PF 1.80, $259/trade, 53% WR) — not the chop hazard; no OR-width bucket is
+toxic. Break-delay buckets restate item C/G: mid-morning breaks (7–15 bars) are the cream (PF 2.33,
+$330), late breaks (16+ bars, 63% of trades) are the thin-edge bulk (PF 1.30, $82) — still positive,
+already handled by the §5.6 time-tilt. **Chop is not identifiable before entry; the sizing overlay
+already prices the identifiable part.**
+
+**Brainstorm scoreboard (10/10 addressed):** N ✗ · O ✗ · P ◐ · Q ✗ · R ✗ · S ◐ · T ◐ · U ✗ · V ⏳
+forward-test (needs delta history) · W ◐ (blocked on a full-window ENGU-Q). **Zero deploy changes out
+of ten ideas — the book (touch entry · BE 1.0R · at-entry ensemble · §5.6 sizing) survived every
+challenger. Banked upside: the gap/ON-context tilt map (§4.19) and the −0.03 ORB×ENGU-Q correlation.**
+
+---
+
 ## 5. What a pro would actually do here (principles)
 
 1. **Size on drawdown, not PnL.** Fixed max-DD risk budget → at −$9k DD you carry ~2.8× the
@@ -574,12 +607,12 @@ sequence, and nothing "starts at E": **A B C D F G H L are all DONE** — only *
 size or ADD trades, not filters that delete sessions:**
 - ☑ **N — DD-throttle sizing** — ✗ NO (§4.19): full MAR +22% but lockbox MAR falls in every variant.
 - ☑ **O — equity-curve gate** — ✗ NO (§4.19): same shape as N; throttles re-risk late in V-recoveries.
-- ☐ **P — chop detector on the OR:** size down "dirty" opens (OR re-crossings / OR-vs-prior-range).
+- ☑ **P — chop detector on the OR** — ◐ inverted (§4.20): wide-OR days are the BEST bucket; delay ≈ item G.
 - ☑ **Q — re-entry / stop-and-reverse** — ✗ NO (§4.19): all modes lose MAR both windows; flip = +18% LB net but +DD.
-- ☐ **R — failed-break fade:** trade the 306 false wicks (−$149k as breakouts) in reverse.
+- ☑ **R — failed-break fade** — ✗ NO EDGE (§4.20): every config net-negative both windows; failed breaks → chop, not reversal.
 - ☑ **S — overnight-range confluence** — ◐ diagnostic (§4.19): no toxic bucket; responsive shorts = cream.
 - ☑ **T — gap conditioning** — ◐ diagnostic (§4.19): shorts on gap-up days PF 2.47; longs-with-gap marginal.
-- ☐ **U — pyramid at +1R:** lot 2 enters when BE arms instead of at entry (vs the ensemble).
+- ☑ **U — pyramid at +1R** — ✗ NO (§4.20): buying the extension; ensemble beats it by 2× MAR in both windows.
 - ☐ **V — order-flow delta confirmation:** NT 10s delta on the breakout bar (months of data → forward-test).
 - ☑ **W — portfolio blend ORB × ENGU-Q** — ◐ (§4.19): correlation −0.03 (gold) but ENGU-Q defaults fail 16y (PF 1.08); revisit with a full-window ENGU-Q config.
 
