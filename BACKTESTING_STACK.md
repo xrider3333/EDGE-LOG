@@ -4,7 +4,7 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-13
-- **Web VERSION:** 55.1 · **Stack board (`method_stack.html`):** v4.1
+- **Web VERSION:** 55.2 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
@@ -276,6 +276,28 @@ Full running record: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`. **NQ 1m = champion (r
   ORB×ENGU-Q blend (net/DD 13.9, zero losing years in 17) — layers on the champions, not new entries.
 - Artifacts: session scratchpad round2_triage_report.md / round3_triage_report.md (+ results .json and drivers).
 
+**2026-07-13 — challenger round 4 (bar relaxed to "beats or nearly beats"): four more families; SWING 2.0 reached the lockbox — and FAILED it. The 2025→2026 holdout is now spent for the SWING family.**
+- **LDM deep-dive** (late-day momentum, incl. the academic gap-inclusive signal): best MAR 6.8; 2 of the top 3
+  configs REGIME-CONCENTRATED. Dead as a champion; thin diversifier at best.
+- **ES↔NQ spread reversion** (relative value — first RV family tried): 23/24 configs net-negative after
+  two-leg costs. Dead outright.
+- **Volume-ignition momentum** (volume as the signal, not a filter): best MAR 3.3. Dead.
+- **SWING 2.0** (N-day Donchian long-only refinement of round 3's diversifier): pre-lockbox MAR 12.3–15.0,
+  regime-OK, corr vs ORB ≈ 0. Validation battery: walk-forward 6/6 frozen folds PASS · trade bootstrap
+  P(net≤0)=0.0014 · BUT neighborhood = spike (neighbors keep only 20–38% of peak MAR), ES transfer weak/FAIL,
+  and rank-1-of-120 selection inflation (family median MAR 3.97). **Pre-registered lockbox one-shot**
+  (SECONDARY config N=55/touch/donch_20/cap3.0, NQ+ES combined, entries ≥ 2025-06-30): **FAIL — combined net
+  −$13,373 (NQ −$5.4k / ES −$8.0k) with blow-up losses on both markets** (worst NQ trade −$18.8k vs a $2.0k
+  median pre-lockbox loss). The neighborhood/selection-inflation warnings were correct.
+- **Lockbox accounting:** the one-shot burned the 2025-06-30→2026-06-30 holdout for the SWING family (one
+  look, used, failed). ORB/ENGU-Q lockbox standing unaffected.
+- **Program verdict after 4 rounds / 13 concept families / ~1,400 configs: no new strategy beats or honestly
+  nearly-beats the champions on this data.** The validated paths to a better book remain the §5.6 sizing
+  overlay and the ORB×ENGU-Q blend (see the 2026-07-13 Round-3 blend entry); genuinely new edges need new
+  DATA (order-flow delta, economic calendar, more instruments), not more configs on the same OHLCV.
+- Artifacts: session scratchpad round4_triage_report.md, swing_validation_report.md, swing_lockbox_oneshot.py
+  (+ results .json and drivers).
+
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
 |---|---|---|---|
@@ -410,6 +432,10 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-13** — **Challenger round 4: SWING 2.0 reached the lockbox and FAILED it (combined NQ+ES −$13.4k,
+  blow-ups both markets); LDM / ES↔NQ spread / volume-ignition all dead in triage.** The SWING-family lockbox
+  is now spent. Program verdict after 4 rounds / 13 families / ~1,400 configs: nothing beats or honestly
+  nearly-beats ORB 3.1 / ENGU-Q on this data; next edge requires new data. Detail in §3 (challenger section).
 - **2026-07-13** — **Challenger rounds 2–3: five more concept families vs the champions — none beats the bar; negatives banked.**
   ORB-on-1m (fill-artifact wall, best MAR 30.8 vs 32.8) · MIDDAY lunch breakout (dead) · PULLBACK continuation (dead) ·
   ORB HOLDOVER (overnight strictly subtracts → flat-EOD confirmed optimal) · SWING Donchian (MAR 6.79, corr 0.22 →
