@@ -4,7 +4,7 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-13
-- **Web VERSION:** 55.0 · **Stack board (`method_stack.html`):** v4.1
+- **Web VERSION:** 55.1 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
@@ -255,6 +255,27 @@ Full running record: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`. **NQ 1m = champion (r
   session scratchpad: triage_new_strats.py, drive_deep{.py,_report.md,_results.json}, drive_wf.py,
   drive_build_report.md.
 
+**2026-07-13 — challenger rounds 2–3 (same brief: beat ORB 3.1 / ENGU-Q). Five more concept families, ~160 configs — none clears a champion bar. All pre-lockbox; lockbox still unspent.**
+- **ORB 3.1 on 1-minute bars** (finer trail + sub-5-min opening ranges — the "different params" shot): best MAR 30.8
+  vs champion 32.8, and every competitive 1m config trips the fill-artifact rule (avg loss 5–6 pts vs the ~8-pt floor
+  the 0.25-pt slippage model can support). **The tighter-risk path to a higher MAR is physically closed by the fill model.**
+- **MIDDAY** (lunch-range continuation breakout, new anchor): best MAR 19.5 — artifact-flagged, thin sample (n=488),
+  profit 85% post-2021. Dead.
+- **PULLBACK** (first-pullback continuation after the OR break, structural stop): best MAR 2.2. Dead.
+- **ORB HOLDOVER** (hold winning ORB trades overnight on ETH bars, stop live on every Globex bar, roll-safe):
+  overnight holding strictly SUBTRACTS — best genuine variant (hold ≥2R, ride, 3-day cap) MAR 32.02 / $299.5k vs
+  flat-EOD 32.78 / $306.5k, and looser holds degrade monotonically to MAR 8. **Flat-EOD is confirmed optimal for ORB entries.**
+- **SWING** (multi-day Donchian trend-follow, chandelier/Donchian exits, ETH-managed, roll-flat rule): best MAR 6.79
+  ($206k, long-only, N=20, chandelier 3.5×ATR); every both-sides variant is worse (shorting the pattern loses outright);
+  daily-PnL corr vs ORB 0.22 → **banked as a potential 3rd portfolio leg**, not a champion.
+- **Roll-seam data finding (new):** the NOADJ stitcher rolls on volume dominance, so the ~77-pt quarterly price seam
+  lands a few days BEFORE roll-Wednesday; a roll-Wednesday flatten rule is a backstop, not a dodge — any future
+  multi-day strategy must detect the seam itself.
+- **Cumulative verdict after 3 rounds / 9 concept families / ~1,150 configs: no new strategy beats the champions on
+  honest fills.** The validated ways to raise the book remain the §5.6 sizing overlay (lockbox MAR 6.9→15) and the
+  ORB×ENGU-Q blend (net/DD 13.9, zero losing years in 17) — layers on the champions, not new entries.
+- Artifacts: session scratchpad round2_triage_report.md / round3_triage_report.md (+ results .json and drivers).
+
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
 |---|---|---|---|
@@ -389,6 +410,11 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-13** — **Challenger rounds 2–3: five more concept families vs the champions — none beats the bar; negatives banked.**
+  ORB-on-1m (fill-artifact wall, best MAR 30.8 vs 32.8) · MIDDAY lunch breakout (dead) · PULLBACK continuation (dead) ·
+  ORB HOLDOVER (overnight strictly subtracts → flat-EOD confirmed optimal) · SWING Donchian (MAR 6.79, corr 0.22 →
+  3rd-leg candidate). New data knowledge: the NOADJ quarterly roll seam (~77 pts) lands days before roll-Wednesday.
+  Lockbox untouched across all three rounds. Detail in §3 (DRIVE 1.0 / challenger section).
 - **2026-07-13** — **New-strategy challenge: DRIVE 1.0 (first-hour momentum) + 3 concepts triaged — champions hold.**
   Built and validated a from-scratch challenger on house rules (gap-honest fills, 0.533 pts costs, plateau
   pick, walk-forward, sealed lockbox). Triage: PDX (prior-day break) and NDAY (N-day break) DEAD, LDM

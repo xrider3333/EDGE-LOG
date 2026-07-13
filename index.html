@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='55.0';
+const VERSION='55.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'55.1', date:'2026-07-13', notes:['Challenger rounds 2-3: five more strategy families tested vs ORB/ENGU-Q (1m ORB, midday breakout, pullback, overnight holdover, swing Donchian) - none beats the champions; negatives + roll-seam finding banked in BACKTESTING_STACK section 3.']},
   {v:'55.0', date:'2026-07-13', notes:['DRIVE 1.0 research strategy added (first-hour momentum) - challenger attempt vs ORB/ENGU-Q; walk-forward failed (edge concentrated 2021+), kept research-only; lockbox not spent. See BACKTESTING_STACK section 3.']},
   {v:'54.9', date:'2026-07-13', notes:['Library: added strategy naming for ENGUD-Q 1m, the new short mirror of ENGU-Q (Engulfing Down - Quantitative): ascending trendline break, short-only, gap-honest fills.']},
   {v:'54.8', date:'2026-07-12', notes:['Past Runs group view: strategy groups now consolidate to FAMILY + VERSION — every ORB 3.0 variant (BE, ENSEMBLE, MASTER, 2L, TR, TS) files under ONE 7 · ORB 3.0 tile, with a small branch chip on each run row so you can still tell them apart.','Past Runs: one-click FAMILY chips (7 · ORB, 8 · ENGU-Q, …) in both the flat list and the group view — click to see only that family, click again for all. Clear filters resets it too.','The two-lot ensemble is now labelled ENSEMBLE (was ENS) everywhere.']},
