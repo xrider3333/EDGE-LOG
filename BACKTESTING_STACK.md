@@ -4,7 +4,7 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-13
-- **Web VERSION:** 46.1 · **Stack board (`method_stack.html`):** v4.1
+- **Web VERSION:** 55.0 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
@@ -230,6 +230,31 @@ Full running record: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`. **NQ 1m = champion (r
   - Artifacts: session scratchpad round2_mgmt_report.md, round3_blend_report.md, r2/r3 pkl +
     drivers.
 
+### DRIVE 1.0 (first-hour momentum) — `DRIVE_1_0.py` · 🔬 research only
+
+**2026-07-13 — new-strategy challenge (attempt to beat ORB 3.1 / ENGU-Q): NOT a challenger; kept as a research asset.**
+- **Concept** (new to the library): direction = sign of the first hour's move (12 bars on 5m); enter at the
+  next bar's open; stop = 0.75× first-hour range; ride to the session close; flat EOD; one trade/session.
+  3 effective knobs. Exits/fills ORB-identical (stop-first pessimism, gap-through fills at the open).
+- **Triage (pre-lockbox 2010→2025-06, NQ 5m RTH, 0.533 pts cost):** DRIVE beat 3 sibling concepts —
+  prior-day-extreme break (PDX), N-day-high/low break (NDAY), late-day momentum (LDM). PDX/NDAY are DEAD
+  (PF ≤ 1.14, MAR ≤ 2.6); LDM real but thin ($142k, MAR 6.0). Banked negatives.
+- **Deep sweep (810 configs):** wide plateau at dr_bars=12 / stop 0.5–1.0 / no trail; deploy candidate
+  n=3850 / **$295,437 / PF 1.18 / DD −$33,712 / MAR 8.8** pre-lockbox — net $ at ORB's level (ORB pre-lockbox
+  $306.5k) but with 3.6× the drawdown; daily-PnL corr vs ORB **0.23** (a real diversifier); gap-aligned days
+  PF 1.26 vs 1.08 opposed (tilt candidate); Friday strongest / Wednesday weakest.
+- **Walk-forward: FAIL.** Frozen config 3/6 folds OOS+ (gate is ≥4/6); re-tuned picks 5/6 but WFE 0.32–0.43
+  (< 0.5 gate) — essentially ALL profit sits in 2021–2025 (~$285k of $293k); 2010–2020 ≈ flat. Until proven
+  otherwise, the edge reads as a post-2021 vol-regime artifact.
+- **ES transfer: FAIL** (no re-fit: PF 1.04, MAR 0.8 — unlike ORB, the edge does not travel).
+- **Lockbox: NOT SPENT.** Pre-lockbox gates failed, so the one-shot holdout stays sealed for a future DRIVE 2.0.
+- **Verdict: champions unchanged** (ORB 3.1 MAR 38.6 · ENGU-Q net $474.7k). DRIVE 1.0 stays in the library
+  as a research strategy (same precedent as ORB FADE): the only new concept of 4 with a real, if thin, edge —
+  revisit if the 2021+ regime persists, or as a third portfolio-leg candidate after a regime-robust rework.
+- Artifacts: `augur_strategies/DRIVE_1_0.py` (parity-gated vs the research code, smoke test in `__main__`);
+  session scratchpad: triage_new_strats.py, drive_deep{.py,_report.md,_results.json}, drive_wf.py,
+  drive_build_report.md.
+
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
 |---|---|---|---|
@@ -364,6 +389,13 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-13** — **New-strategy challenge: DRIVE 1.0 (first-hour momentum) + 3 concepts triaged — champions hold.**
+  Built and validated a from-scratch challenger on house rules (gap-honest fills, 0.533 pts costs, plateau
+  pick, walk-forward, sealed lockbox). Triage: PDX (prior-day break) and NDAY (N-day break) DEAD, LDM
+  (late-day momentum) thin, DRIVE best of 4. Deep sweep (810 configs) → deploy candidate $295k / PF 1.18 /
+  MAR 8.8 pre-lockbox, corr 0.23 vs ORB. **Walk-forward FAIL** (frozen 3/6 folds; WFE 0.32–0.43; profit
+  concentrated 2021+) + **ES transfer FAIL** → 🔬 research only, **lockbox not spent**, ORB 3.1 / ENGU-Q
+  remain champions. New library file: `DRIVE_1_0.py`. Full detail in §3.
 - **2026-07-13** — **ENGU-Q Round 2 (mgmt sweep) + Round 3 (ORB blend).** Round 2: pyramid
   sizing (add 0.3 units at trail activation) is the sole baseline-beater of 16 variants (net
   +18%, lockbox $83.6k→$93.2k) but maxDD deepens and 82% of the gain sits in the top-10 fires —
