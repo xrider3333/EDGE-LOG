@@ -416,6 +416,38 @@ MAR/DD compare on the same risk basis. in-sample + held-out lockbox.
 
 ---
 
+### 4.17 Black-swan / regime filters — daily-trend structure + VIX (2026-07-12) — item M
+
+Owner idea: "biggest DD was COVID — filter black swans (daily lower-lows, VIX)". **Premise check
+came back the other way:** on the deploy config (BE 1.0R) the worst underwater episodes are
+**post-spike CHOP, not crashes** — #1 2025-04-09→07-11 (−$27.4k, tariff-chop; the window still *nets*
++$26.6k), #2 Sep–Dec 2021 (−$18.0k), #3 Feb–Jul 2023 low-vol grind (−$18.0k); **COVID is only #4**
+(−$16.2k) and Feb-15→Apr-30 2020 *nets +$4.1k*. ORB feeds on vol expansion (2022 = best year).
+
+Tested both filter families anyway (`tools/orb_regime_filters.py` — trade-list overlay, causal
+prior-day signals, ^VIX daily via yfinance). Deploy config, full window + lockbox:
+
+| filter (skip when…) | full net | full DD | full MAR | LB MAR | short PnL removed |
+|---|---|---|---|---|---|
+| **none (baseline) ★** | **$574,177** | $26,763 | **21.5** | **7.1** | — |
+| prior day lower-low | $321,277 | **$15,677** | 20.5 | 5.0 | −$161,165 |
+| 2 consecutive lower-lows | $432,476 | $20,943 | 20.6 | 6.0 | −$84,196 |
+| lower-high AND lower-low | $372,131 | $22,201 | 16.8 | 2.6 | −$118,595 |
+| close < SMA20 / SMA50 | $277k / $262k | ~$26k / $23k | 10.5 / 11.4 | 2.9 / 5.6 | −$187k / −$177k |
+| VIX > 20 / 25 | $353k / $432k | $21k / $27k | 16.8 / 16.2 | 5.0 / 5.6 | −$139k / −$60k |
+| VIX > 30 (least bad) | $520,598 | $25,699 | 20.3 | 6.7 | **+$11,760 (losers)** |
+| VIX > 40 | $523,309 | $30,951 | 16.9 | 7.1 | −$980 |
+
+- **Verdict: NO filter improves MAR in either window — keep the base unfiltered.** Down-regime
+  filters amputate the SHORT side, which carries ORB's edge (§4.11, short PF 2.74): the lower-low
+  skip cuts DD to $15.7k but burns $253k of net ($161k of it short wins) → MAR *falls*.
+- VIX>30 is the only near-wash (the trades it removes include net-losing shorts) — still no MAR gain.
+- **What actually addresses the DD:** the levers already banked — breakeven 1.0R (−33% DD), the
+  ensemble (#159, lockbox DD −36% vs ride), and the §5.6 risk-parity sizing (wide ranges → smaller
+  size, which *automatically* de-risks crisis vol without cutting the short edge).
+
+---
+
 ## 5. What a pro would actually do here (principles)
 
 1. **Size on drawdown, not PnL.** Fixed max-DD risk budget → at −$9k DD you carry ~2.8× the
@@ -454,9 +486,13 @@ sequence, and nothing "starts at E": **A B C D F G H L are all DONE** — only *
    on lockbox MAR (9.2 vs 7.1 / 5.3) with the lowest DD ($7.3k). Diversification, not just smoothing.
 3. **J — close-confirm / candle-confirm reconciliation** (resolve the TV +$30k vs −$392k-on-137 clash). ← **next**
 4. **Deploy — the live-web sizing toggle** (pure wiring; do last, when ready to take the stack live).
+5. ~~**M — black-swan / regime filters (daily lower-lows, VIX).**~~ ✅ **DONE (§4.17)** — premise inverted
+   (COVID nets +$4.1k; worst DD = 2025 post-spike chop) and **no filter improves MAR in either window**
+   (they amputate the short edge). Keep the base unfiltered; DD is handled by BE + ensemble + rp-sizing.
 
 | # | idea | expected payoff | status | result |
 |---|---|---|---|---|
+| **M** | **Black-swan / regime filters** — skip sessions after daily lower-lows / below SMA, or when VIX is elevated (owner idea 2026-07-12: "don't trade black swans") | MED (DD reduction hope) | ☑ DONE (§4.17) | **NO — every variant lowers MAR in BOTH windows.** Premise inverted: COVID Feb–Apr 2020 *nets +$4.1k* (only the #4 DD episode); the worst DDs are post-spike **chop** (2025 tariff-chop −$27.4k, 2021 top −$18k, 2023 grind −$18k). Down-regime skips cut the SHORT side that carries the edge (lower-low skip: DD $26.8k→$15.7k but −$253k net → MAR falls). VIX>30 = least bad (removes net-losing shorts), still no gain. Tool: `tools/orb_regime_filters.py`. Crisis de-risking comes free from §5.6 risk-parity sizing (wide range → small size). |
 | **J** | **Candle-confirmation / close-confirm reconciliation** — `close_confirm` (enter on bar CLOSE beyond the range, skipping false-wick breaks) is ALREADY coded in `ORB_3_0.py`. `tools/reconcile.py` says TV's close-based model skipped 306 false wicks (−$149,562) and netted **+$30k** more than the engine over 15y. BUT tested on **137's config** `close_confirm=True` is **−$392k** ($567k→$175k, PF 1.47→1.14) because entering at the close worsens the fill on every real break. | **HIGH** (reconciles engine↔TV; possible new version) | ☐ TODO | **CONTRADICTION to resolve** — is TV's edge a *level-fill* skip (same entry price, just drop the fakes) vs the engine's *close-price* fill? Re-implement close_confirm as "confirm on close, fill at the range level next bar" and re-test; that may be the real TV-matching win. Config-dependent — wide-stop 137 hates it. |
 | **H** | **Breakeven-after-R** (`be_after_R` param) — move stop→entry once unrealized ≥ X·risk | **HIGH** | ☑ DONE → **run #154 PASS** | **Fine sweep (0.1 steps, 0–4R; §4.13):** NOT monotonic — **0.1–0.5R is a trap** (lockbox PF collapses to 1.27–1.34); **0.9–1.3R = robust plateau** (full DD ~−30%, LB PF 1.55–1.59, MAR 20–21.5 vs 14.1); ≥1.6R fades to baseline. **Run #153** (free search): picked noise 2.6R → **WEAK/PBO-fail** — the IS PnL objective can't see a DD lever; gates caught it. **Run #154** (pinned **1.0R**, 137-lock): **PASS 5/5 applicable gates**, whole-run **DD −$40,233→−$26,763 (−33%)**, net $574k, PF 1.55, MAR 14.1→21.5, MC-P95 DD improved −$39.7k→−$36.9k; same 3,951 trades. File: `ORB_3_0_BE.py`. Caveat: the 1.0R level was picked on a sweep that saw the lockbox (defense: wide flat plateau). **BE-1.0R is the new best single-lot ORB 3.0 deploy candidate.** Gap-free 0.9→2.5 sweep with an independent lockbox split (**run #156**, §4.14) re-confirms 1.0R as the MAR champion in BOTH windows (IS 20.7, LB 7.1). |
 | **K** | **Dynamic / alternative breakeven triggers** — the R-multiple trigger (item H) is one of many possible "arm BE now" signals. Candidates: **time-based** (BE after N bars in trade), **ATR-based** (unrealized ≥ X × session ATR), **OR-width multiple** (price has traveled ≥ X × range width — decouples from stop_frac), **structure** (first higher-low / lower-high after entry), **vol-scaled R** (tighter arm on high-vol days). Owner idea 2026-07-10. | MED-HIGH (item H already banked −33% DD; this asks if a smarter trigger beats static 1.0R) | ☑ DONE (§4.15) | **VERIFIED — no trigger beats static 1.0R.** Built `ORB_3_0_BET.py` (`be_mode` selector) + `tools/orb_be_triggers.py`; swept time / ATR / OR-width / structure in isolation, in-sample + lockbox, ranked by MAR/DD. Best-in-lockbox vs the R=1.0 control: **R 7.1 MAR / $11.5k DD** (champ); time 4.0 / $14.6k; ATR-0.4 6.5 / $13.9k (richer PnL+PF, worse DD); OR-width **≡ R** (1.75×OR = 1.0×risk with stop 1.75); structure 3.2 / $18.2k. Anchors reproduce #137 + BE-R=1.0 to the dollar. **Keep `be_after_R=1.0`.** |
