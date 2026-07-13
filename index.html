@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='54.7';
+const VERSION='54.8';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'54.8', date:'2026-07-12', notes:['Past Runs group view: strategy groups now consolidate to FAMILY + VERSION — every ORB 3.0 variant (BE, ENSEMBLE, MASTER, 2L, TR, TS) files under ONE 7 · ORB 3.0 tile, with a small branch chip on each run row so you can still tell them apart.','Past Runs: one-click FAMILY chips (7 · ORB, 8 · ENGU-Q, …) in both the flat list and the group view — click to see only that family, click again for all. Clear filters resets it too.','The two-lot ensemble is now labelled ENSEMBLE (was ENS) everywhere.']},
   {v:'54.7', date:'2026-07-12', notes:['The three newest ORB research files now carry proper family identities, so runs #157 and #159 file under the ORB block in the group view and the Library instead of a bare ORB bucket: 3.0-MASTER (the run #157 config-space report), 3.0-ENS (the run #159 two-lot ensemble), 3.0-BE·TRIG (the breakeven-trigger study).','Each of the three gets a plain-language description in the Library — what it is, what it found, and which run to open.']},
   {v:'54.6', date:'2026-07-12', notes:['Expanded 1A: when you pan the chart vertically, the equity line and its trade dots now clip at the edge of their own pane instead of sliding down over the drawdown pane (each pane keeps its content, TradingView-style).']},
   {v:'54.5', date:'2026-07-12', notes:['Expanded champion equity (1A): the line no longer vanishes when you zoom into a stretch between two sparse trades — the path now always spans the whole view (it keeps one neighbour point beyond each edge), same for the drawdown pane.','Expanded 1A: TradingView-style vertical pan — click-and-hold now drags the chart UP and DOWN as well as left-right (a vertical drag shifts the $ window and suspends the auto-fit; double-click or RESET restores it). A pure left-right pan keeps the auto-fit as before.']},
@@ -5763,7 +5764,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // display ver+branch overrides for files whose token names read wrong (ORB 2-lot / BE / forks).
     const VARIANT={ORB_3_1:{ver:'3.0',br:'2L'}, ORB_3_1_125:{ver:'3.0',br:'2L·125'}, ORB_3_0_BE:{ver:'3.0',br:'BE'},
       ORB_3_2:{ver:'3.0',br:'TR'}, ORB_3_3:{ver:'3.0',br:'TS'},
-      ORB_3_0_BET:{ver:'3.0',br:'BE·TRIG'}, ORB_3_0_BEAV:{ver:'3.0',br:'MASTER'}, ORB_3_0_ENS:{ver:'3.0',br:'ENS'}};
+      ORB_3_0_BET:{ver:'3.0',br:'BE·TRIG'}, ORB_3_0_BEAV:{ver:'3.0',br:'MASTER'}, ORB_3_0_ENS:{ver:'3.0',br:'ENSEMBLE'}};
     // ── Per-file DIFF-from-parent (owner 2026-07-12): the family desc is identical across a family's
     //    versions, so within-family rows read the same. SDIFF gives each file a SHORT line (shown in the
     //    Library DESCRIPTION column) saying how it differs from its PARENT + a LONGER line for the hover
@@ -8260,14 +8261,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       else{
         // ── filters + sort over Past Runs (full-width table, legacy-AUGUR style) ──
         if(APREF.hf){delete APREF.hf;try{localStorage.setItem('augurPrefs',JSON.stringify(APREF));}catch(e){}}   // purge the removed v49.5 exclusion-filter state (it could hide every run)
-        const fStratArr=Array.isArray(APREF.rfStrat)?APREF.rfStrat.slice():(APREF.rfStrat?[String(APREF.rfStrat)]:[]),fStratSet=new Set(fStratArr),fInst=APREF.rfInst||'',fTf=APREF.rfTf||'',fScope=APREF.rfScope||'',fStar=!!APREF.rfStar,fArch=!!APREF.rfArch,fSort=APREF.rfSort||'id';
+        const fStratArr=Array.isArray(APREF.rfStrat)?APREF.rfStrat.slice():(APREF.rfStrat?[String(APREF.rfStrat)]:[]),fStratSet=new Set(fStratArr),fInst=APREF.rfInst||'',fTf=APREF.rfTf||'',fScope=APREF.rfScope||'',fStar=!!APREF.rfStar,fArch=!!APREF.rfArch,fSort=APREF.rfSort||'id',fFam=APREF.rfFam||'';
         const _nArch=allRuns.filter(r=>r.archived).length;   // count of archived (hidden) runs
         const _fileOf=r=>{const m=_stratMatch(r.strategy);return m?m.file:r.strategy;};
         const _strats=[...new Set(allRuns.map(_fileOf).filter(Boolean))].sort();
         const _insts=[...new Set(allRuns.map(r=>String(r.instrument||'').trim()).filter(Boolean))].sort();
         const _tfs=[...new Set(allRuns.map(r=>String(r.timeframe||'').trim()).filter(Boolean))].sort();
         const _scopes=[...new Set(allRuns.map(r=>String(r.scope||'').trim()).filter(Boolean))].sort();
-        let sorted=allRuns.filter(r=>{if(!fArch&&r.archived)return false;if(fStar&&!r.starred)return false;if(fInst&&String(r.instrument||'').trim()!==fInst)return false;if(fStratSet.size&&!fStratSet.has(_fileOf(r)))return false;if(fTf&&String(r.timeframe||'').trim()!==fTf)return false;if(fScope&&String(r.scope||'').trim()!==fScope)return false;return true;});
+        let sorted=allRuns.filter(r=>{if(!fArch&&r.archived)return false;if(fStar&&!r.starred)return false;if(fInst&&String(r.instrument||'').trim()!==fInst)return false;if(fStratSet.size&&!fStratSet.has(_fileOf(r)))return false;if(fFam&&_canonFam(_fileOf(r))!==fFam)return false;if(fTf&&String(r.timeframe||'').trim()!==fTf)return false;if(fScope&&String(r.scope||'').trim()!==fScope)return false;return true;});
+        // ── FAMILY quick-toggle chips (owner 2026-07-12): one click filters Past Runs (both the
+        //    flat list AND the group view) to a single strategy family; click again to clear. ──
+        const _famsAll=[...new Set(allRuns.filter(r=>!r.archived||fArch).map(r=>_canonFam(_fileOf(r))).filter(Boolean))].sort((a,b)=>(famNum(a)||99)-(famNum(b)||99));
+        const _famChips=_famsAll.length>1?('<span style="display:inline-flex;gap:5px;align-items:center;flex-wrap:wrap">'+_famsAll.map(f=>{const on=fFam===f;const col=stratColor(f);
+          return '<span data-rffam="'+f+'" title="'+(on?'click to show ALL families':'show only '+f+' runs')+'" style="cursor:pointer;font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 8px;border-radius:10px;border:1px solid '+(on?col:'var(--border)')+';color:'+(on?col:'var(--text4)')+';'+(on?'background:color-mix(in srgb,'+col+' 14%,transparent);':'')+'">'+(famNum(f)!=null?famNum(f)+' · ':'')+f+'</span>';}).join('')+'</span>'):'';
         const _num=r=>{const n=stratInfo(r.strategy).num;return n==null?9999:n;};
         // Whole-run totals per run (NET = equity-curve endpoint, pooled PF / total trades / days),
         // memoized so the tile cells AND the column sorts use the SAME numbers as the report's
@@ -8280,7 +8286,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const selId=augurRunSel||pickFrom[0].id;
         let d=null;for(let i=0;i<allRuns.length;i++){if(String(allRuns[i].id)===String(selId))d=allRuns[i];}
         if(!d)d=pickFrom[0];
-        const _anyF=fStratSet.size||fInst||fTf||fScope||fStar;
+        const _anyF=fStratSet.size||fInst||fTf||fScope||fStar||fFam;
         // sortable header — click the label to sort (▾ marks the active column).
         const sh=(k,lbl,al)=>'<th data-rsort="'+k+'" title="sort by '+lbl+'" style="cursor:pointer;white-space:nowrap;user-select:none;vertical-align:bottom;'+(al?'text-align:'+al+';':'')+(fSort===k?'color:var(--text)':'')+'">'+lbl+(fSort===k?' ▾':'')+'</th>';
         // pivot-style header: a clickable sort label stacked over a compact filter <select>,
@@ -8356,7 +8362,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +sh('id','RUN','right')+sh('date','DATE','left')+'<th style="vertical-align:bottom;white-space:nowrap;cursor:pointer">'+_stratHdr+'</th>'+sh('trd','TRD','right')+fh('MODE',(_scopes.length>1?'rfScope':''),fScope,_scopes.map(s=>[s,s.slice(0,16)]))+fh('MARKET',(_insts.length>1?'rfInst':''),fInst,_insts.map(i=>[i,i]))+fh('TF',(_tfs.length>1?'rfTf':''),fTf,_tfs.map(t=>[t,t]))+'<th style="text-align:center;vertical-align:bottom">EQUITY</th>'
           +sh('pnl','NET $','right')+sh('perday','$/DAY','right')+sh('maxdd','MAX DD','right')+sh('pf','PF','right')+sh('sharpe','SHARPE','right')+sh('wr','WR','right')+'<th style="text-align:center;vertical-align:bottom" title="walk-forward folds that held out-of-sample">WF</th>'+sh('score','SCORE','right')+sh('took','TOOK','right')+'<th style="vertical-align:bottom">SRC</th>'+'<th style="vertical-align:bottom">RANGE</th>'+sh('days','DAYS','right')
           +'</tr></thead><tbody>'+trows+'</tbody></table></div>';
-        const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span>'+'<span style="display:flex;gap:12px;align-items:center">'+(_nArch?'<span data-rfarch title="archived runs are hidden from this list by default" style="cursor:pointer;font-size:9px;color:'+(fArch?'var(--yellow)':'var(--text5)')+';text-decoration:underline">◫ '+(fArch?'hide':'show')+' '+_nArch+' archived</span>':'')+(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">'+'✕ clear filters</span>':'')+_viewSeg+'</span></div>'+tbl);
+        const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span>'+_famChips+'<span style="display:flex;gap:12px;align-items:center">'+(_nArch?'<span data-rfarch title="archived runs are hidden from this list by default" style="cursor:pointer;font-size:9px;color:'+(fArch?'var(--yellow)':'var(--text5)')+';text-decoration:underline">◫ '+(fArch?'hide':'show')+' '+_nArch+' archived</span>':'')+(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">'+'✕ clear filters</span>':'')+_viewSeg+'</span></div>'+tbl);
         // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
         // would trap the sticky checklist-pills row (sticky breaks under any non-visible
         // overflow ancestor). Inline beats the class so the pinned pills work on every theme.
@@ -8377,7 +8383,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _gKeeps=!!APREF.resKeepers;
         window._resGroupOpen=window._resGroupOpen||new Set();window._resGroupAll=window._resGroupAll||new Set();
         const _gcard='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 60%,transparent);border-radius:9px;padding:5px 12px;margin-bottom:4px';
-        const _grpKeyOf=r=>_gGroupBy==='market'?(_instShort(r.instrument)||'—'):(_gGroupBy==='mode'?(_modeName[_modeNum(r)]||('mode '+_modeNum(r))):stratTag(r.strategy));
+        // Strategy groups consolidate to FAMILY+VERSION (owner 2026-07-12: "too many branches") —
+        // all "7 · ORB 3.0-x" variants file under ONE "7 · ORB 3.0" tile; each run row carries its
+        // branch chip (BE / ENSEMBLE / MASTER / 2L…). Colour must be family-stable (not the per-file
+        // lightness shade) or the HTML keys would differ and split the group again.
+        const _grpTag=r=>{const i=stratInfo(r.strategy);const fm=FAM[i.fam];const col=fm?('hsl('+fm.hue+',56%,64%)'):i.color;
+          return '<span style="color:'+col+';font-weight:600">'+(i.num!=null?i.num+' · ':'')+i.abbr+(i.ver?' '+i.ver:'')+'</span>';};
+        const _grpKeyOf=r=>_gGroupBy==='market'?(_instShort(r.instrument)||'—'):(_gGroupBy==='mode'?(_modeName[_modeNum(r)]||('mode '+_modeNum(r))):_grpTag(r));
         const _isKeeper=r=>{const v=r.validate&&r.validate.verdict;const lb=r.validate&&r.validate.lockbox&&r.validate.lockbox.pass;return v==='PASS'&&(lb||!!_wfHeld(r));};
         const _gVerChip=r=>{const v=r.validate&&r.validate.verdict;if(!v)return '';const c=v==='PASS'?'var(--green)':(v==='WEAK'?'var(--yellow)':'var(--red)');return '<span style="font-size:9px;font-weight:700;color:'+c+';border:1px solid '+c+';border-radius:10px;padding:0 6px">'+v+'</span>';};
         const _gAgo=ms=>{if(!ms)return '';const s=(Date.now()-ms)/1000;if(s<3600)return Math.round(s/60)+'m ago';if(s<86400)return Math.round(s/3600)+'h ago';return Math.round(s/86400)+'d ago';};
@@ -8385,10 +8397,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _gMap={};_gSrc.forEach(r=>{const k=_grpKeyOf(r);(_gMap[k]||(_gMap[k]=[])).push(r);});
         const _groups=Object.keys(_gMap).map(k=>{const rs=_gMap[k].slice().sort((a,b)=>scoreRun(b)-scoreRun(a)||((_T(b).net||0)-(_T(a).net||0)));const champ=rs[0];return {k:k,rs:rs,champ:champ,cT:_T(champ),mkts:[...new Set(rs.map(r=>_instShort(r.instrument)).filter(Boolean))],tfs:[...new Set(rs.map(r=>r.timeframe).filter(Boolean))],last:Math.max.apply(null,rs.map(r=>+new Date(r.timestamp)||0))};});
         _groups.sort((a,b)=>scoreRun(b.champ)-scoreRun(a.champ)||b.last-a.last);
-        const _gRow=(r,isCh)=>{const T=_T(r),sc=scoreRun(r),on=String(r.id)===String(d.id);
+        const _gRow=(r,isCh)=>{const T=_T(r),sc=scoreRun(r),on=String(r.id)===String(d.id);const _bi=stratInfo(r.strategy);
           return '<div data-run="'+r.id+'" style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:var(--fsxs);'+(isCh?'background:color-mix(in srgb,var(--green) 9%,transparent);':'')+(on?'outline:1px solid var(--blue);':'')+'" title="open this run">'
             +'<span style="width:12px;text-align:center;color:var(--green)">'+(isCh?'★':'')+'</span>'
             +'<span style="width:34px;text-align:right;color:var(--text3)">#'+r.id+'</span>'
+            +'<span style="flex:0 0 62px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.5px;color:'+_bi.color+'" title="'+(_bi.label||'')+'">'+(_bi.branch||'')+'</span>'
             +'<span style="flex:0 0 92px;color:var(--text4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b style="color:var(--text2)">'+_modeNum(r)+'</b> · '+(_modeName[_modeNum(r)]||'').slice(0,12)+'</span>'
             +'<span style="width:42px">'+_gVerChip(r)+'</span>'
             +'<span style="flex:0 0 66px;text-align:right;color:'+((T.net||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(T.net||0)+'</span>'
@@ -8415,7 +8428,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(open){const shown=showAll?g.rs:g.rs.slice(0,4);
             rows='<div style="margin-top:6px;display:flex;flex-direction:column;gap:2px">'+shown.map((r,i)=>_gRow(r,i===0)).join('')+((g.rs.length>4&&!showAll)?'<div data-grpall="'+encodeURIComponent(g.k)+'" style="cursor:pointer;font-size:9px;color:var(--blue);padding:4px 8px">show all '+g.rs.length+' runs ▾</div>':'')+'</div>';}
           return '<div style="'+_gcard+'">'+head+rows+'</div>';}).join('');
-        const _grpCtl='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · by '+(_gGroupBy==='market'?'market':(_gGroupBy==='mode'?'mode':'strategy'))+' · '+_groups.length+' group'+(_groups.length===1?'':'s')+'</span><span style="margin-left:auto;display:flex;gap:8px;align-items:center"><select data-resgroupby style="'+_ctlUni+';-webkit-appearance:none;-moz-appearance:none;appearance:none;text-align-last:left"><option value="strat"'+(_gGroupBy==='strat'?' selected':'')+'>group: strategy</option><option value="market"'+(_gGroupBy==='market'?' selected':'')+'>group: market</option><option value="mode"'+(_gGroupBy==='mode'?' selected':'')+'>group: mode</option></select><span data-reskeepers title="show only deploy-ready runs: validated PASS with the lockbox or walk-forward held" style="'+_ctlUni+(_gKeeps?';background:color-mix(in srgb,#1d9e75 16%,var(--bg1));color:#1d9e75;border-color:#1d9e75':'')+'">✓ keepers only</span>'+_viewSeg+'</span></div>';
+        const _grpCtl='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · by '+(_gGroupBy==='market'?'market':(_gGroupBy==='mode'?'mode':'strategy'))+' · '+_groups.length+' group'+(_groups.length===1?'':'s')+'</span>'+_famChips+'<span style="margin-left:auto;display:flex;gap:8px;align-items:center"><select data-resgroupby style="'+_ctlUni+';-webkit-appearance:none;-moz-appearance:none;appearance:none;text-align-last:left"><option value="strat"'+(_gGroupBy==='strat'?' selected':'')+'>group: strategy</option><option value="market"'+(_gGroupBy==='market'?' selected':'')+'>group: market</option><option value="mode"'+(_gGroupBy==='mode'?' selected':'')+'>group: mode</option></select><span data-reskeepers title="show only deploy-ready runs: validated PASS with the lockbox or walk-forward held" style="'+_ctlUni+(_gKeeps?';background:color-mix(in srgb,#1d9e75 16%,var(--bg1));color:#1d9e75;border-color:#1d9e75':'')+'">✓ keepers only</span>'+_viewSeg+'</span></div>';
         const groupedTile=_grpCtl+'<div id="res-listscroll" style="overflow:auto;max-height:'+(rv==='side'?'86vh':rVH+'px')+'">'+(_groups.length?_grpTilesHtml:'<div style="color:var(--text5);font-size:var(--fsxs);padding:18px;text-align:center">no runs match — clear the keepers filter</div>')+'</div>';
         // Results-view header removed per request (redundant — the PAST RUNS tile title
         //   already carries the run count, and the empty-state copy explains selection).
@@ -8896,7 +8909,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-rsort]').forEach(h=>{h.onclick=()=>{savePref('rfSort',h.dataset.rsort);renderApp();};});
       const _star=content.querySelector('[data-rfstar]');if(_star)_star.onclick=()=>{savePref('rfStar',!APREF.rfStar);renderApp();};
       const _rfa=content.querySelector('[data-rfarch]');if(_rfa)_rfa.onclick=()=>{savePref('rfArch',!APREF.rfArch);renderApp();};
-      const _rfc=content.querySelector('[data-rfclear]');if(_rfc)_rfc.onclick=()=>{['rfStrat','rfInst','rfTf','rfScope'].forEach(k=>savePref(k,''));savePref('rfStar',false);renderApp();};
+      const _rfc=content.querySelector('[data-rfclear]');if(_rfc)_rfc.onclick=()=>{['rfStrat','rfInst','rfTf','rfScope','rfFam'].forEach(k=>savePref(k,''));savePref('rfStar',false);renderApp();};
+      // family quick-toggle chips (flat + grouped): click = filter to that family, click again = all
+      content.querySelectorAll('[data-rffam]').forEach(ch=>{ch.onclick=(e)=>{e.stopPropagation();const f=ch.dataset.rffam;savePref('rfFam',(APREF.rfFam===f)?'':f);renderApp();};});
       // star a run (write-back to Firestore; snapshot re-renders). stopPropagation so the row doesn't also select.
       const _toggleStar=(id)=>{const r=runHistory.find(x=>String(x.id)===String(id));if(!r||!runsRef)return;runsRef.doc(String(id)).update({starred:r.starred?0:1}).catch(e=>alert('star failed: '+e.message));};
       content.querySelectorAll('[data-star]').forEach(s=>{s.onclick=(e)=>{e.stopPropagation();_toggleStar(s.dataset.star);};});
