@@ -479,6 +479,53 @@ frozen #137+BE base; `tools/orb_close_confirm.py` runs all modes, IS + lockbox. 
 
 ---
 
+### 4.19 Owner-brainstorm round 1 — N · O · Q · S · T · W tested (2026-07-12)
+
+Six of the ten proposed levers, each with anchors + in-sample AND lockbox. **None earns a deploy
+change; two produced bankable knowledge.** Deploy config throughout (BE 1.0R).
+
+**N — DD-throttle sizing (half size while the book is >$X underwater) — ✗ fails the lockbox gate.**
+Full-window MAR jumps (21.5 → **26.2** at X=$15k/f=0.5; the throttle tames the long grind episodes)
+but lockbox MAR drops in EVERY variant (best 6.5 vs 7.1) — a throttle structurally re-risks late in a
+V-recovery, so it bleeds the rebound year. f=0 (full stop while underwater) is a catastrophe (92%
+halted, net ≈ $2k) — confirms the M lesson from the equity side. Tool: `tools/orb_meta_sizing.py`.
+
+**O — equity-curve gate (size down when equity < its rolling k-trade mean) — ✗ same shape.**
+Best full MAR 25.7 (k=20, f=0.5) but lockbox 5.2 vs 7.1. Same structural flaw as N.
+
+**Q — re-entry / stop-and-reverse (2nd trade after a stop-out) — ✗ all three modes lose.**
+`ORB_3_0_RE.py` (rebreak / flip / sar; anchor `none` == #154 to the dollar). IS MAR craters 20.7 →
+12–14 on all modes (extra trades add DD ~50% faster than net); `flip` adds +18% lockbox net
+($95.5k vs $81.1k) but still loses MAR in both windows; `sar` is clearly bad (LB MAR 3.7).
+Whipsaw days don't pay for a second shot. Tool: `tools/orb_reentry.py`.
+
+**S/T — context diagnostics (ON-range confluence · gap-vs-side) — ◐ no lever, good map.**
+`tools/orb_context_buckets.py`. **No toxic bucket exists** (every context is net-positive → nothing to
+filter — M holds). But expectancy is very lopsided, and both signals point the same way:
+| golden bucket | n | avg$/trade | PF |
+|---|---|---|---|
+| SHORT on a big **gap-up** day (against-gap) | 579 | **$319** | **2.47** |
+| SHORT inside the ON range | 1,060 | $271 | 2.24 |
+| LONG beyond the ON high (chasing) | 1,165 | $50 | 1.18 |
+| LONG with a big gap-up | 676 | $53 | 1.20 |
+This is the §4.11 short-edge seen through a finer lens: **responsive shorts against overnight
+strength are the cream; longs chasing overnight highs are marginal (but still positive).** Optional
+future refinement: a 4th tilt dimension for the §5.6 sizing overlay (gap/ON context) — deferred to
+avoid over-conditioning the overlay (already 3 factors).
+
+**W — portfolio blend ORB × ENGU-Q — ◐ mechanism confirmed, partner not ready.**
+`tools/orb_portfolio.py`. Daily-PnL correlation ORB(NQ 5m) × ENGU-Q(ES 1m, validated defaults):
+**−0.03 over 4,001 trading days** — genuinely uncorrelated, exactly what a portfolio wants. BUT the
+ENGU-Q defaults collapse over the full 16y (PF 1.08, MAR 1.6, DD $73k — its validation window was
+far shorter), so every blend dilutes ORB (blend MAR 9.1–16.8 vs ORB alone 21.5). **Bank the
+correlation; revisit W when ENGU-Q has a full-window-validated config.** (Also: #158's Auto-Validate
+verdict was FAIL 4/6 — the ENGU-Q free-search config is not blendable either.)
+
+**Still open from the brainstorm:** P (chop detector), R (failed-break fade), U (pyramid at +1R),
+V (order-flow delta — forward-test only, months of data).
+
+---
+
 ## 5. What a pro would actually do here (principles)
 
 1. **Size on drawdown, not PnL.** Fixed max-DD risk budget → at −$9k DD you carry ~2.8× the
@@ -522,6 +569,19 @@ sequence, and nothing "starts at E": **A B C D F G H L are all DONE** — only *
 5. ~~**M — black-swan / regime filters (daily lower-lows, VIX).**~~ ✅ **DONE (§4.17)** — premise inverted
    (COVID nets +$4.1k; worst DD = 2025 post-spike chop) and **no filter improves MAR in either window**
    (they amputate the short edge). Keep the base unfiltered; DD is handled by BE + ensemble + rp-sizing.
+
+**Proposed (owner brainstorm 2026-07-12) — lesson from B/M applied: levers that KEEP trading but change
+size or ADD trades, not filters that delete sessions:**
+- ☑ **N — DD-throttle sizing** — ✗ NO (§4.19): full MAR +22% but lockbox MAR falls in every variant.
+- ☑ **O — equity-curve gate** — ✗ NO (§4.19): same shape as N; throttles re-risk late in V-recoveries.
+- ☐ **P — chop detector on the OR:** size down "dirty" opens (OR re-crossings / OR-vs-prior-range).
+- ☑ **Q — re-entry / stop-and-reverse** — ✗ NO (§4.19): all modes lose MAR both windows; flip = +18% LB net but +DD.
+- ☐ **R — failed-break fade:** trade the 306 false wicks (−$149k as breakouts) in reverse.
+- ☑ **S — overnight-range confluence** — ◐ diagnostic (§4.19): no toxic bucket; responsive shorts = cream.
+- ☑ **T — gap conditioning** — ◐ diagnostic (§4.19): shorts on gap-up days PF 2.47; longs-with-gap marginal.
+- ☐ **U — pyramid at +1R:** lot 2 enters when BE arms instead of at entry (vs the ensemble).
+- ☐ **V — order-flow delta confirmation:** NT 10s delta on the breakout bar (months of data → forward-test).
+- ☑ **W — portfolio blend ORB × ENGU-Q** — ◐ (§4.19): correlation −0.03 (gold) but ENGU-Q defaults fail 16y (PF 1.08); revisit with a full-window ENGU-Q config.
 
 | # | idea | expected payoff | status | result |
 |---|---|---|---|---|
