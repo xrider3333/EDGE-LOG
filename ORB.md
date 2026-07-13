@@ -402,6 +402,17 @@ MAR/DD compare on the same risk basis. in-sample + held-out lockbox.
 - **Caveat:** 2 contracts = **2× fees + 2× margin**; the blend is the 1-contract-equivalent (average).
   Worth it only if you trade ≥2 lots. WF-folds + ES transfer of the ensemble are still TODO before deploy.
 - Tooling: `tools/orb_ensemble.py`. Item **E → DONE (WIN — ensemble beats both legs on lockbox MAR + DD).**
+- **Full Auto-Validate (2026-07-12): run #159 — PASS 6/6, 8/8 WF folds held, lockbox PF 1.61.** The
+  ensemble as one strategy (`ORB_3_0_ENS.py`, 50/50-blend accounting; anchor == the harness to the
+  dollar). Base pinned to #137; runner knobs open — discovery picked **target 4.0R / trail 12** (net
+  $181,431 / DD $10,611 / PF 1.57 in-window); §4.16's 4.5R/trail-5 sits on the same plateau (trail 3–12
+  all close). The most complete report card in the family: better PF and DD than the single-lot master.
+- **Master single-lot report re-run the same day: run #157** (`ORB_3_0_BEAV.py` — #137 base space OPEN,
+  `trade_mode` pinned Both after the first pass wandered Short Only per §4.12, BE 1.0R baked into every
+  config). **PASS 6/6, 8/8 folds, lockbox PF 1.49**, 200-config space on the tiles. NOTE: with BE baked
+  in, discovery's champion is **or3 / stop 1.25 / tgt 3.5R / atr 0.2** (net $174,480 / DD $14,001) — a
+  *milder* base than #137's or1/stop1.75/tgt4.5. The #137+BE exact config remains the reference deploy
+  (#154/#156 validated); #157's space shows the BE-on surface around it.
 
 ---
 
