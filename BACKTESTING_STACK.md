@@ -3,7 +3,7 @@
 **Single source of truth for where the backtesting engine stands.** Update this
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
-- **Last updated:** 2026-07-12
+- **Last updated:** 2026-07-13
 - **Web VERSION:** 46.1 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
@@ -193,6 +193,43 @@ Full running record: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`. **NQ 1m = champion (r
 - **✅ DEPLOY CONFIG = #149 params + breakeven_R 1.5** → lockbox **$83,580 / PF 1.39 / maxDD
   -$65,635, 151 tr**. Honest expectation ≈ $83.6k/yr; tolerate -$66k DD, worst single loss ~-$8.5k.
 
+**2026-07-13 — Round 2 (trade-management sweep) + Round 3 (ORB blend):**
+- **Round 2 — trade-management sweep** (NQ 1m deploy config: #149 params + breakeven_R 1.5,
+  gap-honest fills; baseline 2048 trades / $474,710.82 / maxDD −$65,635.22 / net-DD 7.23):
+  - **Scale-out (partial at R-target): DEAD.** All 5 variants below baseline net/DD (best 5.86 at
+    R=4.0/frac=0.33); negative by-year delta 16/17 years.
+  - **ATR chandelier trail: DEAD.** No variant beats baseline (best x5-gated 5.38); trade count
+    balloons 2.3-6x; deepens the current-DD segment to −$71.1k. Ungated (immediate) mode is
+    net-negative.
+  - **Pyramid (add 0.3 units at trail activation, act_R=2.5):** sole baseline-beater of 16
+    variants — net +18% ($562.0k), PF 1.407 to 1.461, lockbox $83.6k to $93.2k, positive delta
+    16/17 years incl 2022. BUT maxDD deepens to −$76.7k, net/DD flat (7.33 vs 7.23), and a
+    concentration check shows 82% of the benefit sits in the top-10 pyramided trades
+    (net-negative outside the baseline top-20 fat wins; loses on 360 of 611 fires). Verdict:
+    equivalent to a smarter +18% size knob, not new edge. **PARKED** as an optional sizing
+    decision — NOT adopted into the deploy config.
+- **Round 3 — ORB + ENGU-Q portfolio blend** (2010-06-07 to 2026-06-30, exit-date daily PnL,
+  both legs costed (pnl_pts − 0.533) × 20):
+  - Legs: ENGU-Q 1m deploy config (checksum-gated, exact) + ORB 3.1 champion p0/trail5 (run #125
+    config: or_bars=1, stop_frac=0.75, vol_filter=1.25, partial_exit_R=0, trail_bars=5;
+    reproduced n=4064 / $360,640.26 / PF 1.611 / maxDD −$9,351.60 exactly).
+  - Daily-PnL correlation ~ zero: Pearson +0.07 (daily, all sessions), +0.09 (both-traded days),
+    +0.01 monthly (p=0.84). Rolling 12-mo monthly correlation is unstable (−0.69 to +0.54) —
+    diversification comes from independence, not reliable hedging.
+  - **1:1 combo (1 NQ each): net $835,351.08, maxDD −$60,097.59** (SHALLOWER than ENGU-Q alone
+    at −$65,635.22), net/DD 13.90 vs 7.23 (ENGU-Q) / 38.6 (ORB). **ZERO losing years in 17** —
+    ORB's 2022 (+$50.3k) fully covers ENGU-Q's only losing year (−$44.8k). During ENGU-Q's
+    current DD (2025-12-12 to 2026-03-30) ORB netted +$7.3k; combo DD 8.4% shallower. Caveat:
+    one simultaneous-stress case — ORB's worst episode (2025-02-28 to 03-14) sits inside
+    ENGU-Q's #2 episode (2024-12-19 to 2025-04-21). Combo worst single day −$13,797 (2026-06-26,
+    both legs lost).
+  - Equal-DD weighting (w=7.02 on ORB) is analytic-only: net/DD 31.4 but requires ~7 NQ of ORB
+    per 1 NQ ENGU-Q (~70 micros) — granularity/size noted, no recommendation at that scale.
+  - Factual correction recorded: ORB 3.1 stop fills were confirmed already gap-honest in code
+    (fills at the open on gap-through) — same realism standard as ENGU-Q.
+  - Artifacts: session scratchpad round2_mgmt_report.md, round3_blend_report.md, r2/r3 pkl +
+    drivers.
+
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
 |---|---|---|---|
@@ -327,6 +364,14 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-13** — **ENGU-Q Round 2 (mgmt sweep) + Round 3 (ORB blend).** Round 2: pyramid
+  sizing (add 0.3 units at trail activation) is the sole baseline-beater of 16 variants (net
+  +18%, lockbox $83.6k→$93.2k) but maxDD deepens and 82% of the gain sits in the top-10 fires —
+  **PARKED**, not adopted; scale-out and ATR chandelier trail both **DEAD** (no variant beats
+  baseline net/DD). Round 3: ORB 3.1 + ENGU-Q 1m portfolio blend — daily-PnL correlation ~0
+  (Pearson +0.07); **1:1 combo nets $835,351.08, maxDD −$60,097.59** (shallower than ENGU-Q
+  alone), net/DD 13.90, **zero losing years in 17** (ORB's 2022 covers ENGU-Q's only losing
+  year). Full detail in `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`.
 - **2026-07-12** — **ENGUQ gap-honest fills + deploy config; ORB close_confirm.** All 3 ENGUQ TF
   files (`ENGUQ_1M/5M/15M_1_0.py`) now book gap-through stop fills at the bar's open (hardcoded,
   mirrors ORB 3.0) — prior ENGUQ results were ~35% optimistic; `breakeven_R` param added.
