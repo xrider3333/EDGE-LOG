@@ -448,6 +448,37 @@ prior-day signals, ^VIX daily via yfinance). Deploy config, full window + lockbo
 
 ---
 
+### 4.18 Entry-confirmation bake-off — close-confirm rejected in every flavor (2026-07-12) — item J
+
+The contradiction: reconcile said TV's close-based model (skip false wicks) netted **+$30k more**
+over 15y, but `close_confirm=True` on #137 was **−$392k**. Was the wick-skip good and only the
+close-price *fill* bad? `ORB_3_0_CC.py` separates confirmation from fill (`entry_mode`) on the
+frozen #137+BE base; `tools/orb_close_confirm.py` runs all modes, IS + lockbox. Anchors reproduce
+#137, #154 and the −$392k trap ($174,677) **to the dollar**.
+
+| entry mode (be=1.0) | IS net | IS MAR | LB net | LB MAR | LB n | verdict |
+|---|---|---|---|---|---|---|
+| **touch the level (deploy) ★** | **$493,105** | **20.7** | $81,072 | **7.1** | 242 | keep |
+| close-confirm, fill at close | $137,731 | 4.2 | $29,266 | 1.3 | 238 | ✗✗ |
+| close-confirm, fill next open | $131,317 | 4.0 | $29,549 | 1.3 | 219 | ✗✗ |
+| close-confirm, limit at level | $5,976 | 0.2 | $16,646 | 1.6 | 86 | ✗✗✗ |
+
+- **Verdict: the touch entry IS the strategy — item J → DONE (close-confirm rejected).** Every
+  confirmation flavor loses ~72–99% of the net, in both windows, long before fees.
+- **The decomposition kills the "it's just the fill" theory:** fill-at-close ≈ fill-at-next-open
+  (both ~$131–138k IS) — so the damage is the **confirmation delay itself**. On a 1-bar OR the real
+  breaks are momentum bars; waiting for the 5m close means chasing the move by most of a bar, which
+  wrecks the R-geometry on every winner. The 306 skipped false wicks (−$149k) are *cheap* next to that.
+- **The TV-style "limit back at the level" is the worst of all:** only 46% of sessions ever retrace
+  to fill (1,715 vs 3,709 IS) — the runaway breaks that never look back ARE the ORB edge, and this
+  entry structurally misses exactly those. IS net ≈ $6k. Case closed.
+- **Resolving the reconcile number:** TV's +$30k was a *fill-model artifact* on a different config
+  comparison, not harvestable alpha — implemented any realistic way on the deploy config, the
+  close-based entry destroys the edge. The engine's touch-fill stays; false wicks are the cost of
+  catching runaways.
+
+---
+
 ## 5. What a pro would actually do here (principles)
 
 1. **Size on drawdown, not PnL.** Fixed max-DD risk budget → at −$9k DD you carry ~2.8× the
@@ -484,8 +515,10 @@ sequence, and nothing "starts at E": **A B C D F G H L are all DONE** — only *
    the R control; **nothing beats static `be_after_R=1.0`** on lockbox MAR+DD. 1.0R stands.
 2. ~~**E — the 1-lot-ride + 1-lot-trail ensemble.**~~ ✅ **DONE (§4.16)** — **WIN**: ensemble beats both legs
    on lockbox MAR (9.2 vs 7.1 / 5.3) with the lowest DD ($7.3k). Diversification, not just smoothing.
-3. **J — close-confirm / candle-confirm reconciliation** (resolve the TV +$30k vs −$392k-on-137 clash). ← **next**
-4. **Deploy — the live-web sizing toggle** (pure wiring; do last, when ready to take the stack live).
+3. ~~**J — close-confirm / candle-confirm reconciliation.**~~ ✅ **DONE (§4.18)** — close-confirm rejected in
+   EVERY fill flavor (at-close / next-open / limit-at-level all lose 72–99% of net in both windows); the
+   damage is the confirmation *delay*, not the fill; TV's +$30k = fill-model artifact. **Touch entry stays.**
+4. **Deploy — the live-web sizing toggle** (pure wiring; the ONLY open item — do when ready to take the stack live).
 5. ~~**M — black-swan / regime filters (daily lower-lows, VIX).**~~ ✅ **DONE (§4.17)** — premise inverted
    (COVID nets +$4.1k; worst DD = 2025 post-spike chop) and **no filter improves MAR in either window**
    (they amputate the short edge). Keep the base unfiltered; DD is handled by BE + ensemble + rp-sizing.
@@ -493,7 +526,7 @@ sequence, and nothing "starts at E": **A B C D F G H L are all DONE** — only *
 | # | idea | expected payoff | status | result |
 |---|---|---|---|---|
 | **M** | **Black-swan / regime filters** — skip sessions after daily lower-lows / below SMA, or when VIX is elevated (owner idea 2026-07-12: "don't trade black swans") | MED (DD reduction hope) | ☑ DONE (§4.17) | **NO — every variant lowers MAR in BOTH windows.** Premise inverted: COVID Feb–Apr 2020 *nets +$4.1k* (only the #4 DD episode); the worst DDs are post-spike **chop** (2025 tariff-chop −$27.4k, 2021 top −$18k, 2023 grind −$18k). Down-regime skips cut the SHORT side that carries the edge (lower-low skip: DD $26.8k→$15.7k but −$253k net → MAR falls). VIX>30 = least bad (removes net-losing shorts), still no gain. Tool: `tools/orb_regime_filters.py`. Crisis de-risking comes free from §5.6 risk-parity sizing (wide range → small size). |
-| **J** | **Candle-confirmation / close-confirm reconciliation** — `close_confirm` (enter on bar CLOSE beyond the range, skipping false-wick breaks) is ALREADY coded in `ORB_3_0.py`. `tools/reconcile.py` says TV's close-based model skipped 306 false wicks (−$149,562) and netted **+$30k** more than the engine over 15y. BUT tested on **137's config** `close_confirm=True` is **−$392k** ($567k→$175k, PF 1.47→1.14) because entering at the close worsens the fill on every real break. | **HIGH** (reconciles engine↔TV; possible new version) | ☐ TODO | **CONTRADICTION to resolve** — is TV's edge a *level-fill* skip (same entry price, just drop the fakes) vs the engine's *close-price* fill? Re-implement close_confirm as "confirm on close, fill at the range level next bar" and re-test; that may be the real TV-matching win. Config-dependent — wide-stop 137 hates it. |
+| **J** | **Candle-confirmation / close-confirm reconciliation** — `close_confirm` (enter on bar CLOSE beyond the range, skipping false-wick breaks) is ALREADY coded in `ORB_3_0.py`. `tools/reconcile.py` says TV's close-based model skipped 306 false wicks (−$149,562) and netted **+$30k** more than the engine over 15y. BUT tested on **137's config** `close_confirm=True` is **−$392k** ($567k→$175k, PF 1.47→1.14) because entering at the close worsens the fill on every real break. | **HIGH** (reconciles engine↔TV; possible new version) | ☑ DONE (§4.18) | **RESOLVED — close-confirm rejected in every flavor.** `ORB_3_0_CC.py` (entry_mode: touch / close / close-next-open / close-limit-at-level) + `tools/orb_close_confirm.py`; anchors reproduce #137/#154/the −$392k trap to the dollar. Fill-at-close ≈ fill-at-next-open (~$131–138k IS vs touch $493k) → the damage is the confirmation DELAY (chasing a momentum bar wrecks R-geometry), not the fill price. The TV-style limit-back-at-the-level is worst (only 46% of sessions retrace → misses the runaways = the edge; IS net ≈ $6k). TV's +$30k = fill-model artifact. **Touch entry stays deploy.** |
 | **H** | **Breakeven-after-R** (`be_after_R` param) — move stop→entry once unrealized ≥ X·risk | **HIGH** | ☑ DONE → **run #154 PASS** | **Fine sweep (0.1 steps, 0–4R; §4.13):** NOT monotonic — **0.1–0.5R is a trap** (lockbox PF collapses to 1.27–1.34); **0.9–1.3R = robust plateau** (full DD ~−30%, LB PF 1.55–1.59, MAR 20–21.5 vs 14.1); ≥1.6R fades to baseline. **Run #153** (free search): picked noise 2.6R → **WEAK/PBO-fail** — the IS PnL objective can't see a DD lever; gates caught it. **Run #154** (pinned **1.0R**, 137-lock): **PASS 5/5 applicable gates**, whole-run **DD −$40,233→−$26,763 (−33%)**, net $574k, PF 1.55, MAR 14.1→21.5, MC-P95 DD improved −$39.7k→−$36.9k; same 3,951 trades. File: `ORB_3_0_BE.py`. Caveat: the 1.0R level was picked on a sweep that saw the lockbox (defense: wide flat plateau). **BE-1.0R is the new best single-lot ORB 3.0 deploy candidate.** Gap-free 0.9→2.5 sweep with an independent lockbox split (**run #156**, §4.14) re-confirms 1.0R as the MAR champion in BOTH windows (IS 20.7, LB 7.1). |
 | **K** | **Dynamic / alternative breakeven triggers** — the R-multiple trigger (item H) is one of many possible "arm BE now" signals. Candidates: **time-based** (BE after N bars in trade), **ATR-based** (unrealized ≥ X × session ATR), **OR-width multiple** (price has traveled ≥ X × range width — decouples from stop_frac), **structure** (first higher-low / lower-high after entry), **vol-scaled R** (tighter arm on high-vol days). Owner idea 2026-07-10. | MED-HIGH (item H already banked −33% DD; this asks if a smarter trigger beats static 1.0R) | ☑ DONE (§4.15) | **VERIFIED — no trigger beats static 1.0R.** Built `ORB_3_0_BET.py` (`be_mode` selector) + `tools/orb_be_triggers.py`; swept time / ATR / OR-width / structure in isolation, in-sample + lockbox, ranked by MAR/DD. Best-in-lockbox vs the R=1.0 control: **R 7.1 MAR / $11.5k DD** (champ); time 4.0 / $14.6k; ATR-0.4 6.5 / $13.9k (richer PnL+PF, worse DD); OR-width **≡ R** (1.75×OR = 1.0×risk with stop 1.75); structure 3.2 / $18.2k. Anchors reproduce #137 + BE-R=1.0 to the dollar. **Keep `be_after_R=1.0`.** |
 | **L** | **Param-vs-RISK charts in the run report** — the 2C/2E/2J/2K charts plot each config's **PnL** only, so a drawdown lever like `be_after_R` looks FLAT and its real effect (DD −33%) is invisible; #153's PDP "peak" at 2.6R was a ±2% PnL ripple. Fix: carry `dd`/`mar` per config in the saved `points` rows (engine `history.py`/`optimize.py`) + a metric toggle (PnL / MAX DD / MAR) on the 2C·2E·2J·2K charts. | **HIGH** (web+engine feature — makes risk levers visible & rankable in the report) | ☑ DONE (v50.8 web + engine; demo run #155) | **SHIPPED 2026-07-10.** Engine: every grid/auto/validate run stores per-config `dd` (drawdown magnitude) in the saved points. Web: CHART METRIC toggle (NET $ / MAX DD / MAR ×100) above 2B re-plots 2B·2C·2H·2I·2J. Proof = run **#155** (BE sweep, 137-locked): PnL view is flat (±2%) but MAX DD view shows the 0.9–1.3R valley ($26.8k vs $40.2k at be=0). Older runs show a "re-run to record it" note. NB: the v49.5 per-column VALUE-filter menus were a separate feature and were REVERTED (v50.9) after they could hide the whole runs list — do not confuse the two. |
