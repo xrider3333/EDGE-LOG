@@ -73,6 +73,17 @@ DEFAULT_PARAMS = {
         "tooltip": "Require price to clear the range edge by this fraction of the range width "
                    "before entering. 0 = trade the touch.",
     },
+    "close_confirm": {
+        "default": False, "type": "bool",
+        "label": "Close-confirmed entry (skip false wicks)",
+        "tooltip": "OFF (default) = enter the instant price TOUCHES the range edge — models a "
+                   "resting stop order; fills at the level. ON = only enter when a bar CLOSES "
+                   "beyond the edge, filling at that close. Skips 'false wick' breaks that pierce "
+                   "the range intrabar then close back inside (the reconcile tool found 306 of "
+                   "those on NQ 5m over 2011-2026, netting -$149,562). Costs a slightly worse fill "
+                   "on real breaks — a genuine tradeoff, not strictly 'more correct'. Validate on "
+                   "the lockbox before trusting it.",
+    },
     # ── The two re-added runner levers ────────────────────────────────────────
     "partial_exit_R": {
         "default": 0.0, "min": 0.0, "max": 6.0, "step": 0.5, "type": "float",
@@ -138,7 +149,7 @@ PARAM_GRID_PRESETS = {
     "Medium (base + scale-out)": {
         "or_bars": [1, 3], "trade_mode": ["Both"], "stop_frac": [0.5, 0.75],
         "vol_filter": [1.0, 1.25], "breakout_buf": [0.0], "atr_filter": [0.0],
-        "target_R": [0.0], "flat_eod": [True],
+        "target_R": [0.0], "flat_eod": [True], "close_confirm": [False, True],
         "partial_exit_R": [0.0, 1.5, 2.0, 3.0],
         "trail_bars":     [0, 3, 5, 8],
     },
@@ -149,7 +160,7 @@ PARAM_GRID_PRESETS = {
         "or_bars": [1, 3, 6], "trade_mode": ["Both", "First-candle dir"],
         "stop_frac": [0.5, 0.75, 1.0], "vol_filter": [1.0, 1.25, 1.5],
         "breakout_buf": [0.0], "atr_filter": [0.0, 0.8],
-        "target_R": [0.0, 3.0, 4.5], "flat_eod": [True],
+        "target_R": [0.0, 3.0, 4.5], "flat_eod": [True], "close_confirm": [False, True],
         "partial_exit_R": [0.0, 1.5, 2.0, 3.0],
         "trail_bars":     [0, 3, 5, 8],
     },
@@ -169,7 +180,7 @@ def run_backtest(
     volumes=None,
     or_bars: int = 1, trade_mode: str = "Both",
     stop_frac: float = 0.75, vol_filter: float = 1.25,
-    breakout_buf: float = 0.0,
+    breakout_buf: float = 0.0, close_confirm: bool = False,
     partial_exit_R: float = 0.0, trail_bars: int = 0,
     atr_filter: float = 0.0, target_R: float = 0.0,
     flat_eod: bool = True, skip_holidays: bool = False,
@@ -250,8 +261,16 @@ def run_backtest(
                 ptgt = 0.0; p_done = False; p_pnl = 0.0; ek = -1
                 for k in range(or_bars, m):
                     if pos == 0:
-                        up = sh[k] >= up_lvl
-                        dn = sl[k] <= dn_lvl
+                        # Entry trigger: TOUCH (high/low pierces the edge → fill at the edge,
+                        # models a resting stop) or CLOSE-CONFIRMED (bar CLOSES beyond the edge
+                        # → fill at that close, skipping false wicks that pierce then close back
+                        # inside). Mirrors ORB 3.0's close_confirm semantics exactly.
+                        if close_confirm:
+                            up = sc[k] >= up_lvl
+                            dn = sc[k] <= dn_lvl
+                        else:
+                            up = sh[k] >= up_lvl
+                            dn = sl[k] <= dn_lvl
                         if not (up or dn):
                             continue
                         # volume filter — skip thin-volume pokes
@@ -260,14 +279,14 @@ def run_backtest(
                             if mv > 0 and sv[k] < vol_filter * mv:
                                 continue
                         if long_ok and up:
-                            entry = max(up_lvl, so[k]) if so[k] > up_lvl else up_lvl
+                            entry = sc[k] if close_confirm else (max(up_lvl, so[k]) if so[k] > up_lvl else up_lvl)
                             risk  = stop_frac * rng
                             stop  = entry - risk
                             tgt   = entry + target_R * risk if target_R > 0 else np.inf
                             ptgt  = entry + partial_exit_R * risk if partial_exit_R > 0 else np.inf
                             pos = 1; ek = k; p_done = False; p_pnl = 0.0; continue
                         elif short_ok and dn:
-                            entry = min(dn_lvl, so[k]) if so[k] < dn_lvl else dn_lvl
+                            entry = sc[k] if close_confirm else (min(dn_lvl, so[k]) if so[k] < dn_lvl else dn_lvl)
                             risk  = stop_frac * rng
                             stop  = entry + risk
                             tgt   = entry - target_R * risk if target_R > 0 else -np.inf

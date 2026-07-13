@@ -3,7 +3,7 @@
 **Single source of truth for where the backtesting engine stands.** Update this
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
-- **Last updated:** 2026-07-08
+- **Last updated:** 2026-07-12
 - **Web VERSION:** 46.1 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
@@ -167,6 +167,31 @@ plateau (stop 0.75). Run 121 makes more money but rides a few big winners = risk
 - Run 121's headline came partly from an **inflated 0.25 stop** (below the 0.5 floor) — treat with caution.
 - `ORB_3_2.py` (trail research) + `ORB_3_3.py` (time-structure research) = A/B forks, invariant-verified
   == 3.1 when their levers are off; research only, not for deploy.
+- **`close_confirm` entry option (2026-07-12):** implemented + verified in **ORB_3_0 / ORB_3_1**
+  (default off; off = bit-identical to the old touch-entry behaviour). ON = only enter when a bar
+  *closes* beyond the range edge (skips false-wick pokes) instead of on the touch. **Hypothesis dead
+  at the validated config:** ON collapses net **$417k → $95k gross** (3.0 defaults, NQ 5m 16yr) —
+  the worse fill on every *real* break swamps the false-wick savings. In both files' Medium/Long
+  grid presets for future sweeps; not for deploy.
+
+### ENGU-Q family (descending-trendline break, TF-branched) — `ENGUQ_1M/5M/15M_1_0.py`
+Full running record: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`. **NQ 1m = champion (run #149).**
+
+**2026-07-12 — gap-honest fills restatement (status change):**
+- All 3 ENGUQ files now **book gap-through stop fills at the bar's open** (hardcoded, like ORB 3.0)
+  — prior numbers were **~35% optimistic** (full-history champion $688.5k → $448.6k net, maxDD
+  -$47.5k → -$71.0k). `breakeven_R` param added (0=off) + grid presets.
+- **#149 restated (lockbox, honest fills): $70,706 / PF 1.31 / DD -$70,959, 142 tr** (was
+  $128,644 / PF 1.73 optimistic). Worst-ever DD is INSIDE the lockbox window (Nov 2025 → Mar 2026,
+  recovered May 2026).
+- Loss-tail study: worst-20 losses are all -1R initial stop-outs (trail never activated), 12/20
+  entered 09:30–09:32; 2022 the only losing year. Only **breakeven 1.5R** survives honest fills
+  (+$12.9k lockbox net, DD -7.5%); trade-multiplying fixes (time stop, risk caps, tighter stops)
+  all fail — each overnight position costs ~$265 in gap slippage and they multiply position count.
+- Re-optimization on the honest engine (**run #158**) **FAILED OOS** (lockbox PF 1.08, $9.4k,
+  DSR 0.77 — overfit a sparse regime+breakeven config IS) → keep #149's params.
+- **✅ DEPLOY CONFIG = #149 params + breakeven_R 1.5** → lockbox **$83,580 / PF 1.39 / maxDD
+  -$65,635, 151 tr**. Honest expectation ≈ $83.6k/yr; tolerate -$66k DD, worst single loss ~-$8.5k.
 
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
@@ -302,6 +327,16 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-12** — **ENGUQ gap-honest fills + deploy config; ORB close_confirm.** All 3 ENGUQ TF
+  files (`ENGUQ_1M/5M/15M_1_0.py`) now book gap-through stop fills at the bar's open (hardcoded,
+  mirrors ORB 3.0) — prior ENGUQ results were ~35% optimistic; `breakeven_R` param added.
+  Champion #149 restated on the lockbox: $70.7k / PF 1.31 (was $128.6k / 1.73). Loss-tail study:
+  worst-20 all -1R stop-outs (12/20 at 09:30–09:32); only breakeven 1.5R survives honest fills;
+  re-opt on the honest engine (#158) FAILED OOS (lockbox PF 1.08, DSR 0.77) → keep #149 params.
+  **DEPLOY CONFIG = #149 params + breakeven_R 1.5 → lockbox $83.6k / PF 1.39 / DD -$65.6k.**
+  Also completed `close_confirm` in ORB_3_1 (entry logic was a silent no-op; now mirrors ORB_3_0,
+  off = bit-identical to before) — hypothesis dead at the validated config: ON collapses net
+  $417k → $95k gross. Run notes updated (#149/#152/#158); details in `ENGUQ_STRATEGY.md`.
 - **2026-07-09** — **Reconciler is a web feature + validated on a live TradingView run (web v48.9).**
   Moved the reconcile core to `augur_engine/reconcile.py` (importable; adds text-CSV parsing +
   `run_reconcile()` + structured `build_result`); `tools/reconcile.py` is now a thin CLI. Added a
