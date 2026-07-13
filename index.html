@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='54.8';
+const VERSION='54.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'54.9', date:'2026-07-13', notes:['Library: added strategy naming for ENGUD-Q 1m, the new short mirror of ENGU-Q (Engulfing Down - Quantitative): ascending trendline break, short-only, gap-honest fills.']},
   {v:'54.8', date:'2026-07-12', notes:['Past Runs group view: strategy groups now consolidate to FAMILY + VERSION — every ORB 3.0 variant (BE, ENSEMBLE, MASTER, 2L, TR, TS) files under ONE 7 · ORB 3.0 tile, with a small branch chip on each run row so you can still tell them apart.','Past Runs: one-click FAMILY chips (7 · ORB, 8 · ENGU-Q, …) in both the flat list and the group view — click to see only that family, click again for all. Clear filters resets it too.','The two-lot ensemble is now labelled ENSEMBLE (was ENS) everywhere.']},
   {v:'54.7', date:'2026-07-12', notes:['The three newest ORB research files now carry proper family identities, so runs #157 and #159 file under the ORB block in the group view and the Library instead of a bare ORB bucket: 3.0-MASTER (the run #157 config-space report), 3.0-ENS (the run #159 two-lot ensemble), 3.0-BE·TRIG (the breakeven-trigger study).','Each of the three gets a plain-language description in the Library — what it is, what it found, and which run to open.']},
   {v:'54.6', date:'2026-07-12', notes:['Expanded 1A: when you pan the chart vertically, the equity line and its trade dots now clip at the edge of their own pane instead of sliding down over the drawdown pane (each pane keeps its content, TradingView-style).']},
@@ -5733,6 +5734,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       {re:/^enguq[_\s]*5m/i,abbr:'ENGU-Q 5m',full:'Engulfing-Quant · 5-min · trendline break',desc:'ENGU-Q branched for 5-minute bars: descending-trendline break, long-only'},
       {re:/^enguq[_\s]*1m/i,abbr:'ENGU-Q 1m',full:'Engulfing-Quant · 1-min · trendline break',desc:'ENGU-Q branched for 1-minute bars: descending-trendline break, long-only (validated · PASS)'},
       {re:/^enguq/i,abbr:'ENGU-Q',full:'Engulfing-Quant · trendline break',desc:'Data-derived ENGU rebuild: descending-trendline break, long-only'},
+      {re:/^engudq[_\s]*1m/i,abbr:'ENGUD-Q 1m',full:'Engulfing-Down-Quant · 1-min · trendline break',desc:'Short mirror of ENGU-Q for 1-minute bars: ascending-trendline break, short-only'},
+      {re:/^engudq/i,abbr:'ENGUD-Q',full:'Engulfing-Down-Quant · trendline break',desc:'Short mirror of ENGU-Q: ascending-trendline break, short-only'},
       {re:/^engu/i,abbr:'ENGU',full:'Engulfing Reversal',desc:'Engulfing-candle reversal entries'},
       {re:/^supertrend/i,abbr:'ST',full:'SuperTrend',desc:'ATR SuperTrend trend follower'},
       {re:/^revert/i,abbr:'RVT',full:'Mean Revert',desc:'Reverts to session mean / value'},
