@@ -384,6 +384,36 @@ Full running record: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`. **NQ 1m = champion (r
   exactly (entry IBS, next-open fill, exit IBS, pnl−cost arithmetic); 0 of 442 trades cross a roll seam
   (48 seams detected, audited).
 
+**2026-07-14 — round 7 stage 2 (walk-forward + ES transfer + blend read): ALL GATES PASS. One blocker
+found — a pre-existing ENGU-Q reproducibility defect — before the lockbox should be spent.**
+- **Walk-forward (the DRIVE-killer): 6/6 frozen folds net-positive** (DRIVE was 3/6). Early folds are real
+  in POINTS/PF terms (fold-1 PF 1.68 / +586 pts, fold-2 PF 1.24 / +225 pts) — the dollar back-loading was
+  NQ's ~10× price level, not a missing early edge. Re-tuned WFE 1.99 (gate ≥0.5; DRIVE 0.32–0.43) — every
+  OOS fold beat its in-sample expectancy (partly era-inflated; the frozen 6/6 is the meaningful result).
+- **ES transfer, no re-fit: PASS** — PF 1.695, net $170,492, 13/16 years positive (ORB's passing bar was
+  PF 1.57; DRIVE failed at 1.04). 2022 profitable on BOTH instruments (ES +$30.6k, NQ +$20.7k).
+- **Statistics:** edge significance t=3.94 (p=0.0001), 100% of bootstrap resamples profitable; Deflated
+  Sharpe 0.96 vs the restricted 30-cell grid.
+- ⚠️ **ENGU-Q reproducibility defect (pre-existing — NOT a TTIBS problem):** the deploy config (#149 params
+  + breakeven_R 1.5) could NOT be rebuilt from the checked-in `ENGUQ_1M_1_0.py` — two independent attempts
+  landed at n=3618 / $276k / DD −$133k vs the documented n=2048 / $474.7k / DD −$65.6k, and the ground-truth
+  blotter (`Trading/ENGUQ_DB/blotters/run149_NQ_1m.csv`) opens with a trade the current file never
+  generates → entry-logic drift, not a param typo. **Until fixed, every ENGU-Q-relative number is
+  directional, not certified** (G5-real corr 0.254 — hold-cap-6 decorrelation confirmed directionally).
+  ORB's side IS certified: #125 reproduced bit-for-bit (n=4064 / $360,640.26 / PF 1.611 / DD −$9,351.60),
+  TTIBS↔ORB corr −0.103. Fix leads: #149's exact params are stored in `optimizer_history.db` (runs table),
+  and the 2026-07-14 Pine-port session reproduced #149 successfully — diff that session's invocation
+  against the file.
+- **Blend read (2010-06-07→2025-06-30, exit-date daily PnL, 1:1:1) — directional pending the ENGU-Q fix:**
+  2-leg baseline net $486,509 / DD −$117,070 / net-DD 4.16 / 3 losing yrs (baseline uses the BROKEN ENGU-Q
+  repro — hence far below the round-3 figures) → 3-leg with TTIBS: net $793,718 / DD −$124,751 / net-DD
+  **6.36** / **2 losing yrs**. TTIBS added +$27.7k during ENGU-Q's 2022 drawdown, −$7.7k during the
+  Apr-2025 episode; worst 3-leg day (2025-04-07, −$29.4k) was ~100% ENGU-Q, TTIBS flat.
+- **Status & order of operations: TTIBS standalone = fully validated pre-lockbox. (1) Fix the ENGU-Q
+  repro → (2) re-certify G5 + the blend on the true legs → (3) owner sign-off to spend the TTIBS lockbox
+  one-shot (2025-06-30→2026-06-30 — still sealed, never loaded).**
+- Artifacts: scratchpad ttibs/ ttibs_stage2_report.md + ttibs_wf_prereg.md + per-task drivers/JSONs.
+
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
 |---|---|---|---|
@@ -526,6 +556,12 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-14** — **Round 7 stage 2: TTIBS passes EVERYTHING — WF 6/6 frozen folds (WFE 1.99; the test
+  DRIVE failed at 3/6), ES transfer PF 1.695 no-refit, t=3.94, DSR 0.96 — and exposes a pre-existing
+  ENGU-Q reproducibility defect** (deploy config can't be rebuilt from `ENGUQ_1M_1_0.py`; even the run-149
+  blotter's first trade never generates; fix leads = runs DB params + today's Pine session). Blend read
+  directional until fixed: 3-leg net/DD 6.36 vs 4.16, losing years 3→2. TTIBS lockbox still sealed;
+  order = fix ENGU-Q → certify blend → owner sign-off. Detail §3 round 7 stage 2.
 - **2026-07-14** — **Challenger round 8: SWEEP (prior-day stop-run reversal) dead (best MAR 2.78, setup
   fires on 3–7% of sessions); LDM-0DTE probe ARTIFACT-CLOSED (placebo-controlled — the late-day edge was
   the 2020–22 COVID window, not 0DTE structure).** Tally 8 rounds / 21 families / ~1,700 configs; champions
