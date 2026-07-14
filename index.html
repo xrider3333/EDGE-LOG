@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='55.4';
+const VERSION='55.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'55.5', date:'2026-07-13', notes:['Challenger round 5: EXPAND volatility-breakout proved to be ORB-in-disguise (90 percent direction overlap) and trend-side VWAP is regime-concentrated - both dead in triage; champions stand after 5 rounds / 15 families / 1500 configs. See BACKTESTING_STACK section 3.']},
   {v:'55.4', date:'2026-07-13', notes:['ORB backlog item X resolved: 1-minute ORB fails the pre-registered slippage stress (best MAR 24.3 at 0.75-pt slip vs the 25 bar, while the 5m champion holds 28.3) - closed, 5m champion stands. ORB.md section 4.21 updated.']},
   {v:'55.3', date:'2026-07-13', notes:['ORB.md updated with the challenger-program findings: 1-minute granularity test recorded (blocked on fill realism; new open backlog item X = slippage stress-test) and overnight holdover recorded as rejected (flat-EOD confirmed optimal).']},
   {v:'55.2', date:'2026-07-13', notes:['Challenger round 4: SWING 2.0 Donchian challenger failed the pre-registered NQ+ES lockbox one-shot (-13.4k); LDM, ES-NQ spread and volume-ignition died in triage. Program verdict: champions stand; next edge needs new data. See BACKTESTING_STACK section 3.']},

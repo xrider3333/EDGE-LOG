@@ -4,7 +4,7 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-13
-- **Web VERSION:** 55.2 · **Stack board (`method_stack.html`):** v4.1
+- **Web VERSION:** 55.5 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
@@ -298,6 +298,23 @@ Full running record: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`. **NQ 1m = champion (r
 - Artifacts: session scratchpad round4_triage_report.md, swing_validation_report.md, swing_lockbox_oneshot.py
   (+ results .json and drivers).
 
+**2026-07-13 — challenger round 5 (owner: "find a new strategy and test"): the last two untried OHLCV families — both dead in triage.**
+- **EXPAND** (ATR range-expansion breakout from the open — the classic volatility-breakout anchor, 96 configs):
+  best MAR 16.9, regime-healthy, no fill-artifact flags — BUT the overlap diagnostic shows it is
+  **ORB in disguise**: on the 2,632 days both traded it picks the same direction 89.9% of the time
+  (shared-day PnL corr 0.40) and captures the same trend-day edge less efficiently. Dead as a new edge.
+- **VWAPT** (trend-side VWAP cross-and-hold — volume-weighted anchor, first non-fade VWAP test, 12 configs):
+  best MAR 6.7 and **REGIME-CONCENTRATED** (2010–2020 = only 11–16% of net; 2022 alone 29–36%). Dead.
+- Also this session: **ORB backlog item X resolved** (see ORB.md §4.21) — 1m ORB fails the pre-registered
+  slippage stress (best MAR 24.3 at 0.75-pt vs the ≥25 bar) while the **5m champion holds MAR 28.3 under
+  identical stress** (robust out to 1.0-pt slippage — a new robustness credential for the deployable).
+- **Program running total: 5 rounds / 15 concept families / ~1,500 configs — no new strategy beats or
+  honestly nearly-beats the champions on this data.** Every failure lands in one of three buckets: too thin
+  after costs, regime-concentrated (post-2021 artifact), or ORB-in-disguise. The forward paths remain
+  new DATA (order-flow delta, calendar, more instruments) or deploying the validated layers (§5.6 overlay,
+  ORB×ENGU-Q blend).
+- Artifacts: session scratchpad round5_triage_report.md (+ .json), itemX_slippage_report.md.
+
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
 |---|---|---|---|
@@ -432,6 +449,10 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-13** — **Challenger round 5: EXPAND (ATR expansion off the open) = ORB-in-disguise (89.9%
+  direction overlap, MAR 16.9); VWAPT (trend-side VWAP) regime-concentrated (MAR 6.7). Both dead in triage.**
+  ORB item X also resolved: 1m ORB slippage-fragile (closed), 5m champion proven robust to 1.0-pt slippage.
+  Running total 5 rounds / 15 families / ~1,500 configs: champions stand. Detail §3 (challenger section) + ORB.md §4.21.
 - **2026-07-13** — **Challenger round 4: SWING 2.0 reached the lockbox and FAILED it (combined NQ+ES −$13.4k,
   blow-ups both markets); LDM / ES↔NQ spread / volume-ignition all dead in triage.** The SWING-family lockbox
   is now spent. Program verdict after 4 rounds / 13 families / ~1,400 configs: nothing beats or honestly
