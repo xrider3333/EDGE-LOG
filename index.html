@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='55.5';
+const VERSION='55.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'55.6', date:'2026-07-14', notes:['Sizing overlay is now adjustable in the run report: toggle risk-parity / morning time-tilt / short side-tilt and set the contract cap, then compute - defaults reproduce the validated rp+time+short config (lockbox MAR 6.9 to 15.0).']},
   {v:'55.5', date:'2026-07-13', notes:['Challenger round 5: EXPAND volatility-breakout proved to be ORB-in-disguise (90 percent direction overlap) and trend-side VWAP is regime-concentrated - both dead in triage; champions stand after 5 rounds / 15 families / 1500 configs. See BACKTESTING_STACK section 3.']},
   {v:'55.4', date:'2026-07-13', notes:['ORB backlog item X resolved: 1-minute ORB fails the pre-registered slippage stress (best MAR 24.3 at 0.75-pt slip vs the 25 bar, while the 5m champion holds 28.3) - closed, 5m champion stands. ORB.md section 4.21 updated.']},
   {v:'55.3', date:'2026-07-13', notes:['ORB.md updated with the challenger-program findings: 1-minute granularity test recorded (blocked on fill realism; new open backlog item X = slippage stress-test) and overnight holdover recorded as rejected (flat-EOD confirmed optimal).']},
@@ -7361,6 +7362,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // CHAMPION card strip REMOVED (owner request): its 7 metrics live in 1E — the KPI matrix
       //   (validate), the 75/25 split table (auto), or the single-column champion table (grid).
       const _summaryPanel=((/\bORB\b/i.test(String(d.strategy||'')))?(function(){
+          // Persist the sizing-lever choices on window so they survive renderApp() reruns
+          // (the card is fully rebuilt every render — plain local state would reset each time).
+          window._sizingCfg=window._sizingCfg||{rp:true, tt:true, st:true, cap:3};
           var _rule='Bet bigger on higher-edge ORB signals — <b>tight stop</b> (risk-parity), <b>morning ×2</b>, <b>short ×1.5</b> (ORB longs are ~deadweight). <code style="color:var(--text2)">contracts = round( T·S·RISK$ ÷ (stop_pts·$/pt) )</code>, clamp&nbsp;[1,&nbsp;3×].';
           var _sj=(backtests||[]).filter(function(b){return b&&b.kind==='sizing'&&String(b.run_id)===String(d.id);}).sort(function(a,b){return ((b.createdAt&&b.createdAt.seconds)||0)-((a.createdAt&&a.createdAt.seconds)||0);})[0];
           var _sz=_sj&&_sj.result&&_sj.result.sizing, _body;
@@ -7371,7 +7375,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _body='<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.5">'+_rule+'</div><div style="font-size:var(--fsxs);color:var(--yellow);margin-top:8px">computing the exact overlay for this run on your PC…</div>';
           }else{
             var _e=(_sj&&_sj.status==='error')?'<div style="font-size:8px;color:var(--red);margin-top:4px">last attempt errored: '+String(_sj.error||'').replace(/[<>]/g,'').slice(0,90)+'</div>':'';
-            _body='<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.5">'+_rule+' Measured on the deployable: <b style="color:var(--green)">MAR 6.9 → 15.0</b> on the reserved year (+118%).</div><button data-sizing-run="'+d.id+'" style="margin-top:9px;padding:6px 12px;font-size:var(--fsxs);border:1px solid var(--border);background:var(--bg1);color:var(--text2);border-radius:7px;cursor:pointer">▶ Compute exact overlay for this run</button>'+_e;
+            var _cfg=window._sizingCfg;
+            var _ctrls='<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:8px 0;font-size:var(--fsxs);color:var(--text3)">'
+              +'<label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" data-sizing-cfg="rp"'+(_cfg.rp?' checked':'')+' onchange="window._sizingCfg.rp=this.checked" style="cursor:pointer">risk-parity (∝ 1/stop)</label>'
+              +'<label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" data-sizing-cfg="tt"'+(_cfg.tt?' checked':'')+' onchange="window._sizingCfg.tt=this.checked" style="cursor:pointer">morning ×2 (time-tilt)</label>'
+              +'<label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" data-sizing-cfg="st"'+(_cfg.st?' checked':'')+' onchange="window._sizingCfg.st=this.checked" style="cursor:pointer">short ×1.5 (side-tilt)</label>'
+              +'<label style="display:flex;align-items:center;gap:4px;cursor:pointer">cap × <input type="number" data-sizing-cfg="cap" min="1" max="10" step="0.5" value="'+(+_cfg.cap||3)+'" onchange="window._sizingCfg.cap=+this.value" style="width:46px;font-size:var(--fsxs);border:1px solid var(--border);background:var(--bg1);color:var(--text2);border-radius:5px;padding:2px 4px"></label>'
+              +'</div>';
+            _body='<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.5">'+_rule+' Measured on the deployable: <b style="color:var(--green)">MAR 6.9 → 15.0</b> on the reserved year (+118%).</div>'+_ctrls+'<button data-sizing-run="'+d.id+'" style="margin-top:9px;padding:6px 12px;font-size:var(--fsxs);border:1px solid var(--border);background:var(--bg1);color:var(--text2);border-radius:7px;cursor:pointer">▶ Compute exact overlay for this run</button>'+_e;
           }
           return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px"><div class="lbl" style="margin:0 0 6px;font-size:9px;color:var(--text5)">SIZING OVERLAY · execution-layer (all report figures are 1 contract)</div>'+_body+'</div>';
         })():'');
@@ -8994,7 +9005,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const comm=(run.commission_usd!=null?+run.commission_usd:5.66),slip=(run.slippage_pts!=null?+run.slippage_pts:0.25);
         const cost=(run.cost_pts!=null&&+run.cost_pts>0)?+run.cost_pts:(comm/mlt+slip);
         const sess=/eth/i.test(String(run.source_name||run.data_source||''))?'eth':'rth';
-        const sizing={risk_parity:true,time_tilt:true,long_w:0.5,short_w:1.5,cap_final:3,stop_frac:(+bp.stop_frac)||0.75,or_bars:(+bp.or_bars)||1,mult:mlt,fee_pts:cost};
+        const _sc=window._sizingCfg||{rp:true,tt:true,st:true,cap:3};
+        const sizing={risk_parity:!!_sc.rp, time_tilt:!!_sc.tt, long_w:(_sc.st?0.5:1.0), short_w:(_sc.st?1.5:1.0), cap_final:((+_sc.cap>0)?+_sc.cap:null), stop_frac:(+bp.stop_frac)||0.75, or_bars:(+bp.or_bars)||1, mult:mlt, fee_pts:cost};
         const job={type:'backtest',kind:'sizing',run_id:String(id),strategy:stratFile,instrument:run.instrument,timeframe:run.timeframe||'5m',session:sess,source:null,params:bp,date_from:run.date_from||'',date_to:run.date_to||'',cost_pts:cost,commission_usd:comm,slippage_pts:slip,mult:mlt,sizing:sizing,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};
         btn.textContent='QUEUED…';btn.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();
       };});
