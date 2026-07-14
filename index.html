@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='55.2';
+const VERSION='55.3';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'55.3', date:'2026-07-13', notes:['ORB.md updated with the challenger-program findings: 1-minute granularity test recorded (blocked on fill realism; new open backlog item X = slippage stress-test) and overnight holdover recorded as rejected (flat-EOD confirmed optimal).']},
   {v:'55.2', date:'2026-07-13', notes:['Challenger round 4: SWING 2.0 Donchian challenger failed the pre-registered NQ+ES lockbox one-shot (-13.4k); LDM, ES-NQ spread and volume-ignition died in triage. Program verdict: champions stand; next edge needs new data. See BACKTESTING_STACK section 3.']},
   {v:'55.1', date:'2026-07-13', notes:['Challenger rounds 2-3: five more strategy families tested vs ORB/ENGU-Q (1m ORB, midday breakout, pullback, overnight holdover, swing Donchian) - none beats the champions; negatives + roll-seam finding banked in BACKTESTING_STACK section 3.']},
   {v:'55.0', date:'2026-07-13', notes:['DRIVE 1.0 research strategy added (first-hour momentum) - challenger attempt vs ORB/ENGU-Q; walk-forward failed (edge concentrated 2021+), kept research-only; lockbox not spent. See BACKTESTING_STACK section 3.']},

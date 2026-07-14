@@ -1,6 +1,6 @@
 # ORB — Opening Range Breakout: status, results & backlog
 
-> Living handoff doc. **Last updated: 2026-07-03** (Claude Code).
+> Living handoff doc. **Last updated: 2026-07-13** (Claude Code).
 > Sibling of `ROADMAP.md`. Purpose: any human or Claude can pick ORB up cold from here.
 > All $ are **net of fees** unless flagged. Fees: commission $5.66 + slippage 0.25pt →
 > `cost_pts` = **0.533 (NQ, mult 20)**, **0.363 (ES, mult 50)**. Data: `NOADJ_NQ_5m_RTH.csv`
@@ -557,6 +557,36 @@ forward-test (needs delta history) · W ◐ (blocked on a full-window ENGU-Q). *
 of ten ideas — the book (touch entry · BE 1.0R · at-entry ensemble · §5.6 sizing) survived every
 challenger. Banked upside: the gap/ON-context tilt map (§4.19) and the −0.03 ORB×ENGU-Q correlation.**
 
+### 4.21 ORB 3.1 at 1-minute granularity (challenger round 2, 2026-07-13) — ◐ blocked on fill realism
+
+Ran the champion through the engine on the **NQ 1m RTH master** (pre-lockbox, cost 0.533): 68 configs —
+or_bars {1,2,3,5} × stop {0.75,1.0,1.5} × vol {0,1.25} × trail {10,20,30} + the 5m-analog row.
+- Best: **or_bars=1 (a 1-MINUTE opening range — impossible on 5m), stop 0.75, vol 1.25, trail 10** →
+  n=3,865, $257k, PF 1.87, DD −$8.4k, **MAR 30.8** vs the 5m champion's 32.8 on the same window.
+- BUT every competitive 1m config carries an avg loss of 5.4–6.2 pts — under the ~8-pt floor where the
+  exact-stop-fill + 0.25-pt slippage assumption stays honest (the §8 tight-stop artifact). The numbers
+  are optimistic as shown; do NOT deploy off them.
+- The 1m "analog" of the 5m champion (or=5, trail=25) scored only MAR 11.8 — a discrete 5-bar-5m trail
+  is NOT equivalent to a rolling 25-bar-1m trail; granularity changes the trail's character entirely.
+- **Open test → backlog item X (slippage stress-test):** rerun the 1m grid at 0.5 / 0.75 / 1.0-pt
+  slippage. If the or=1 family still clears MAR ~25+ at 0.75 pt, the 1-minute opening range becomes a
+  real deploy candidate; if it collapses, close the item. Reproduction: session scratchpad
+  round2_triage_report.md / shotA_orb1m.py (challenger program, BACKTESTING_STACK.md §3).
+
+### 4.22 Overnight holdover (challenger round 3, 2026-07-13) — ✗ flat-EOD is CONFIRMED optimal
+
+Grafted overnight holds onto the champion on the **ETH master** (stop live on every Globex bar,
+gap-honest fills, roll-Wednesday force-flat): hold_R {always, 0, 0.5, 1, 2} × {exit next open, ride
+with trail, 3/10-day caps} = 15 variants + the flat-EOD baseline.
+- **Every variant loses MAR.** Best (hold only ≥2R winners, ride, 3-day cap): 32.02 / $299.5k vs the
+  flat-EOD baseline's 32.78 / $306.5k — and it degrades monotonically to MAR 8.0 for
+  hold-always/next-open. Overnight adds gap + roll risk without adding edge on these entries.
+- Corollary banked for ANY future overnight variant: the NOADJ contract-roll seam (~77 pts/quarter)
+  lands a few days BEFORE roll-Wednesday (the stitcher rolls on volume dominance, not the calendar) —
+  a Wednesday flatten is only a backstop; an overnight strategy must detect the seam itself.
+- **CLOSED — do not revisit without new data.** Full record: BACKTESTING_STACK.md §3 (challenger
+  rounds 2–3), session scratchpad round3_triage_report.md / shotE_holdover.py.
+
 ---
 
 ## 5. What a pro would actually do here (principles)
@@ -615,6 +645,9 @@ size or ADD trades, not filters that delete sessions:**
 - ☑ **U — pyramid at +1R** — ✗ NO (§4.20): buying the extension; ensemble beats it by 2× MAR in both windows.
 - ☐ **V — order-flow delta confirmation:** NT 10s delta on the breakout bar (months of data → forward-test).
 - ☑ **W — portfolio blend ORB × ENGU-Q** — ◐ (§4.19): correlation −0.03 (gold) but ENGU-Q defaults fail 16y (PF 1.08); revisit with a full-window ENGU-Q config.
+- ⬜ **X — 1m slippage stress-test** (from §4.21, challenger program 2026-07-13): rerun the ORB-on-1m grid at
+  0.5/0.75/1.0-pt slippage; the or=1 (1-minute opening range) family is a deploy candidate iff it holds
+  MAR ~25+ at 0.75-pt slippage; otherwise close. **The only genuinely OPEN new-params lead ORB has.**
 
 | # | idea | expected payoff | status | result |
 |---|---|---|---|---|
