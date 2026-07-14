@@ -334,6 +334,41 @@ Full running record: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`. **NQ 1m = champion (r
   deployed layers (§5.6 overlay — now live-wired, see ORB.md item 4 — and the ORB×ENGU-Q blend).
 - Artifacts: session scratchpad round6_triage_report.md (+ .json, r6_*.py drivers).
 
+**2026-07-14 — challenger round 7: TTIBS 1.0 (daily buy-weakness mean reversion, from the owner's "proven strategies" web sweep) — FIRST family to SURVIVE triage since round 1. WF/lockbox still pending; champions unchanged.**
+- **Where it came from:** a sourced-rules sweep (quantifiedstrategies.com Turnaround-Tuesday variants — the
+  IBS article's own thresholds are paywalled, so thresholds were grid-searched, not copied). *IBS* = where
+  the day's close sits in the day's range: (close−low)/(high−low), 0 = closed on the low.
+- **Concept (LONG only, daily bars off the NQ 5m RTH master):** buy a weak close (IBS < threshold), exit the
+  first close with IBS > 0.80, capped at 6 trading days. New file: `augur_strategies/TTIBS_1_0.py`
+  (plugin-contract, gap-honest next-open fills, roll-seam flatten guard, __main__ smoke test).
+- **Pre-registered triage (2010→2025-06-30, 180 configs, 0.533 pts cost, next-open fills gate-deciding):**
+  representative cell `ibs_entry=0.20 / ibs_exit / hold_cap=6 / ma200=off` → **n=442, net $307,208, PF 1.82,
+  win 68.1%, maxDD −$25,054, MAR 12.26, avg $695/trade**. All 6 gates PASS (regime spread 46.4% post-2021;
+  avg loser 133 pts ≫ artifact floor; ORB corr −0.10; year-max 30.5%; **2022 = +$20,674** — the
+  mean-reversion thesis's own stress test, profitable exactly where ENGU-Q lost). 4 of 6 neighbour cells
+  (ibs_entry 0.20/0.30 × ma200 on/off) pass ALL gates — a broad shelf, not a spike.
+- **The one non-free knob: hold_cap MUST be 6.** hold 2/4 versions of the same trigger fail the
+  not-a-disguise gate vs ENGU-Q (corr up to 0.44) — short holds ride the same few-day NQ dip-bounce ENGU-Q
+  already owns; only the full-week IBS-recovery exit decorrelates it (r 0.25). The prettiest corner
+  (ibs 0.10: PF 2.89, MAR 20.5) is NOT deployable — n=283 < 300 floor, regime-concentrated, and the most
+  ENGU-Q-correlated cell.
+- **Honest caveats:** (1) G5's ENGU-Q daily-PnL series is a directional repro (its pre-lockbox net didn't
+  reconcile to the doc's headline — corr is shape-reliable, not certified; re-verify with a checksum-exact
+  repro at the blend stage). (2) Dollar profits are back-loaded (2010–2016 ≈ $25k of $307k) — partly
+  mechanical ($/pt fixed while NQ 10×'d); WF folds must show the early-era edge in PF terms. (3) No
+  stop-loss in v1.0: worst trade −$16.7k, max adverse excursion −$31k (Jan-2022) — tail must be priced
+  before any deploy talk. (4) Close-fill look-ahead haircut measured at 21.5% (published SPY family ~25%) —
+  the edge survives honest fills, it isn't a same-bar artifact.
+- **Status: 🔬 SURVIVED TRIAGE — same stage DRIVE reached before dying at walk-forward. Next: frozen-config
+  WF (≥4/6, WFE ≥0.5) + ES transfer + exact-repro G5 + pre-lockbox 3-leg blend read. Lockbox one-shot
+  (2025-06-30→2026-06-30) SEALED — never loaded during triage (loader hard-cutoff), spend only on owner
+  sign-off.** Round-6's "inventory fully claimed" verdict stands for *unconditioned* OHLCV patterns; TTIBS
+  is the first *calendar/position-in-range-conditioned* family tried, which is why it wasn't covered by
+  rounds 1–6.
+- Artifacts: session scratchpad ttibs/ (prereg, triage report + .json, drivers); 3 trades hand-verified
+  exactly (entry IBS, next-open fill, exit IBS, pnl−cost arithmetic); 0 of 442 trades cross a roll seam
+  (48 seams detected, audited).
+
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
 |---|---|---|---|
@@ -476,6 +511,12 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-14** — **Challenger round 7: TTIBS 1.0 (daily IBS buy-weakness, long-only, from the web
+  "proven strategies" sweep) SURVIVES its pre-registered triage — first family past that bar since round 1.**
+  n=442 / $307k / PF 1.82 / MAR 12.3 on next-open fills, all 6 gates pass on a 4-of-6-cell plateau
+  (ibs_entry 0.20–0.30, hold_cap must be 6 — shorter holds are ENGU-Q-in-disguise, corr 0.44). 2022
+  profitable (+$20.7k). WF + ES transfer + exact-repro corr + blend read queued; lockbox sealed. New file
+  `augur_strategies/TTIBS_1_0.py`. Champions unchanged until WF says otherwise. Detail §3 (round 7).
 - **2026-07-14** — **Challenger round 6 (final): GLOBEX overnight session (MAR 2.27, artifact+regime-flagged),
   WEEKLY ORB (3.82), and overnight RELAY (1.08) all dead — 0/156.** Program final tally 6 rounds / 18
   families / ~1,650 configs: the OHLCV edge inventory is fully claimed by ORB 3.1 / ENGU-Q; next edge
