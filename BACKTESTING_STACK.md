@@ -4,7 +4,7 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-13
-- **Web VERSION:** 55.9 · **Stack board (`method_stack.html`):** v4.1
+- **Web VERSION:** 56.0 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
@@ -334,6 +334,22 @@ Full running record: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`. **NQ 1m = champion (r
   deployed layers (§5.6 overlay — now live-wired, see ORB.md item 4 — and the ORB×ENGU-Q blend).
 - Artifacts: session scratchpad round6_triage_report.md (+ .json, r6_*.py drivers).
 
+**2026-07-14 — challenger round 7 ("something intraday"): SWEEP + the LDM-0DTE reframe — both dead, both with clean autopsies.**
+- **SWEEP** (stop-run reversal: intrabar sweep of the prior day's high/low + close-back reclaim → fade the
+  trap, stop under the sweep extreme): best MAR 2.78 ($15.9k, n=176) — 0/36 beat or nearly-beat, all top
+  configs REGIME-CONCENTRATED. The autopsy explains the starvation: ~25% of sessions gap through the
+  prior-day level overnight (setup void), ~2/3 of the rest never touch it — the pattern fires on only
+  3–7% of sessions. Prior-day stop-run reversal joins the fade family's graveyard.
+- **LDM-0DTE reframe** (probe, pre-registered wording): is late-day momentum a structural daily-0DTE-era
+  (2022-07+) effect? **ARTIFACT — CLOSED, 0/4.** No knob-free config clears PF ≥ 1.25 in the actual 0DTE
+  era; rolling 6-month windows show burst-driven not stable PnL; the placebo-cut (2018-07) control confirms
+  the failure is structural. Bonus finding: the late-day edge that killed LDM/DRIVE in earlier rounds
+  actually lives in the **2020–2022-06 COVID-vol window**, not the 0DTE era — the "regime concentration"
+  kill flags were correct for the right reason.
+- **Program tally: 7 rounds / 20 concept families / ~1,690 configs.** Verdict unchanged: the champions hold
+  every honest edge in the price data; the order-flow program (§7) is the only open new-edge path.
+- Artifacts: session scratchpad round7_report.md (+ .json, r7_*.py).
+
 **2026-07-14 — challenger round 7: TTIBS 1.0 (daily buy-weakness mean reversion, from the owner's "proven strategies" web sweep) — FIRST family to SURVIVE triage since round 1. WF/lockbox still pending; champions unchanged.**
 - **Where it came from:** a sourced-rules sweep (quantifiedstrategies.com Turnaround-Tuesday variants — the
   IBS article's own thresholds are paywalled, so thresholds were grid-searched, not copied). *IBS* = where
@@ -511,6 +527,10 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-14** — **Challenger round 7: SWEEP (prior-day stop-run reversal) dead (best MAR 2.78, setup
+  fires on 3–7% of sessions); LDM-0DTE probe ARTIFACT-CLOSED (placebo-controlled — the late-day edge was
+  the 2020–22 COVID window, not 0DTE structure).** Tally 7 rounds / 20 families / ~1,690 configs; champions
+  stand. Detail §3.
 - **2026-07-14** — **Challenger round 7: TTIBS 1.0 (daily IBS buy-weakness, long-only, from the web
   "proven strategies" sweep) SURVIVES its pre-registered triage — first family past that bar since round 1.**
   n=442 / $307k / PF 1.82 / MAR 12.3 on next-open fills, all 6 gates pass on a 4-of-6-cell plateau
