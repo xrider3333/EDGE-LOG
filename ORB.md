@@ -557,7 +557,7 @@ forward-test (needs delta history) · W ◐ (blocked on a full-window ENGU-Q). *
 of ten ideas — the book (touch entry · BE 1.0R · at-entry ensemble · §5.6 sizing) survived every
 challenger. Banked upside: the gap/ON-context tilt map (§4.19) and the −0.03 ORB×ENGU-Q correlation.**
 
-### 4.21 ORB 3.1 at 1-minute granularity (challenger round 2, 2026-07-13) — ◐ blocked on fill realism
+### 4.21 ORB 3.1 at 1-minute granularity (challenger round 2, 2026-07-13) — ✗ CLOSED by item X (slippage-fragile)
 
 Ran the champion through the engine on the **NQ 1m RTH master** (pre-lockbox, cost 0.533): 68 configs —
 or_bars {1,2,3,5} × stop {0.75,1.0,1.5} × vol {0,1.25} × trail {10,20,30} + the 5m-analog row.
@@ -572,6 +572,14 @@ or_bars {1,2,3,5} × stop {0.75,1.0,1.5} × vol {0,1.25} × trail {10,20,30} + t
   slippage. If the or=1 family still clears MAR ~25+ at 0.75 pt, the 1-minute opening range becomes a
   real deploy candidate; if it collapses, close the item. Reproduction: session scratchpad
   round2_triage_report.md / shotA_orb1m.py (challenger program, BACKTESTING_STACK.md §3).
+- **Item X RESULT (2026-07-13, run same session):** stress-tested at 0.25/0.5/0.75/1.0-pt slippage
+  (18 configs re-costed from gross trades, shortcut verified against a direct engine run to the dollar).
+  At the 0.75-pt test point the or=1 family's best = **MAR 24.3** (family median 21.2) — below the
+  pre-registered ≥25 bar — while the 5m champion holds **MAR 28.3 under identical stress** (still ≥25
+  out to 1.0-pt). The 1m family is genuinely more slippage-fragile (its 5–6-pt avg losses are the
+  mechanism), not a symmetric-cost effect; or=2 is uniformly worse than or=1 at every level.
+  **✗ CLOSED — the 5m champion stands; 1m ORB is not a deploy candidate.** Repro: session scratchpad
+  itemX_slippage_report.md / itemX_slippage.py.
 
 ### 4.22 Overnight holdover (challenger round 3, 2026-07-13) — ✗ flat-EOD is CONFIRMED optimal
 
@@ -645,9 +653,9 @@ size or ADD trades, not filters that delete sessions:**
 - ☑ **U — pyramid at +1R** — ✗ NO (§4.20): buying the extension; ensemble beats it by 2× MAR in both windows.
 - ☐ **V — order-flow delta confirmation:** NT 10s delta on the breakout bar (months of data → forward-test).
 - ☑ **W — portfolio blend ORB × ENGU-Q** — ◐ (§4.19): correlation −0.03 (gold) but ENGU-Q defaults fail 16y (PF 1.08); revisit with a full-window ENGU-Q config.
-- ⬜ **X — 1m slippage stress-test** (from §4.21, challenger program 2026-07-13): rerun the ORB-on-1m grid at
-  0.5/0.75/1.0-pt slippage; the or=1 (1-minute opening range) family is a deploy candidate iff it holds
-  MAR ~25+ at 0.75-pt slippage; otherwise close. **The only genuinely OPEN new-params lead ORB has.**
+- ☑ **X — 1m slippage stress-test** — ✗ **CLOSED (§4.21):** or=1 family best MAR 24.3 at 0.75-pt slip
+  (< the pre-registered 25 bar) vs the 5m champion's 28.3 under identical stress — the 1m opening range
+  is slippage-fragile, not a deploy candidate. No open new-params leads remain for ORB.
 
 | # | idea | expected payoff | status | result |
 |---|---|---|---|---|
