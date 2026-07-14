@@ -4,7 +4,7 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-13
-- **Web VERSION:** 56.0 · **Stack board (`method_stack.html`):** v4.1
+- **Web VERSION:** 56.1 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
@@ -334,7 +334,7 @@ Full running record: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`. **NQ 1m = champion (r
   deployed layers (§5.6 overlay — now live-wired, see ORB.md item 4 — and the ORB×ENGU-Q blend).
 - Artifacts: session scratchpad round6_triage_report.md (+ .json, r6_*.py drivers).
 
-**2026-07-14 — challenger round 7 ("something intraday"): SWEEP + the LDM-0DTE reframe — both dead, both with clean autopsies.**
+**2026-07-14 — challenger round 8 ("something intraday"): SWEEP + the LDM-0DTE reframe — both dead, both with clean autopsies.**
 - **SWEEP** (stop-run reversal: intrabar sweep of the prior day's high/low + close-back reclaim → fade the
   trap, stop under the sweep extreme): best MAR 2.78 ($15.9k, n=176) — 0/36 beat or nearly-beat, all top
   configs REGIME-CONCENTRATED. The autopsy explains the starvation: ~25% of sessions gap through the
@@ -346,8 +346,7 @@ Full running record: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`. **NQ 1m = champion (r
   the failure is structural. Bonus finding: the late-day edge that killed LDM/DRIVE in earlier rounds
   actually lives in the **2020–2022-06 COVID-vol window**, not the 0DTE era — the "regime concentration"
   kill flags were correct for the right reason.
-- **Program tally: 7 rounds / 20 concept families / ~1,690 configs.** Verdict unchanged: the champions hold
-  every honest edge in the price data; the order-flow program (§7) is the only open new-edge path.
+- **Program tally: 8 rounds / 21 concept families / ~1,700 configs.** Verdict unchanged for unconditioned price patterns: the champions hold every honest edge found so far. Open new-edge paths: the order-flow program (§7) and **TTIBS 1.0 (round 7, above) — the sole triage survivor, WF/lockbox still pending.**
 - Artifacts: session scratchpad round7_report.md (+ .json, r7_*.py).
 
 **2026-07-14 — challenger round 7: TTIBS 1.0 (daily buy-weakness mean reversion, from the owner's "proven strategies" web sweep) — FIRST family to SURVIVE triage since round 1. WF/lockbox still pending; champions unchanged.**
@@ -527,9 +526,9 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
-- **2026-07-14** — **Challenger round 7: SWEEP (prior-day stop-run reversal) dead (best MAR 2.78, setup
+- **2026-07-14** — **Challenger round 8: SWEEP (prior-day stop-run reversal) dead (best MAR 2.78, setup
   fires on 3–7% of sessions); LDM-0DTE probe ARTIFACT-CLOSED (placebo-controlled — the late-day edge was
-  the 2020–22 COVID window, not 0DTE structure).** Tally 7 rounds / 20 families / ~1,690 configs; champions
+  the 2020–22 COVID window, not 0DTE structure).** Tally 8 rounds / 21 families / ~1,700 configs; champions
   stand. Detail §3.
 - **2026-07-14** — **Challenger round 7: TTIBS 1.0 (daily IBS buy-weakness, long-only, from the web
   "proven strategies" sweep) SURVIVES its pre-registered triage — first family past that bar since round 1.**
