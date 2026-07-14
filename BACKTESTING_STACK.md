@@ -449,6 +449,19 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-14** — **ENGUQ Pine port + first TV reconciliation (`pine/ENGUQ_1M_1_0.pine`).** Pine v5
+  port of the 1m trendline-break strategy (defaults = run 149's config; `volMult` default 0 = the
+  cross-check setting — TV's volume feed ≠ Databento, so the gate is validated separately). Reconciled
+  vs a TV deep backtest (NQ1! 1m RTH, 2023-07-18→2026-06-30, vol off): **403 vs 400 trades, 317 matched,
+  84.5% of matched EXACT (|ΔPnL| ≤ $5)** — entries at bar close reproduce to the cent (validates the
+  `ta.linreg` trendline indexing + SMA-ATR + trailing exits). Matched-PnL Δ −$30.4k concentrates in ~36
+  monster-move days = the documented **1-bar trailing-stop timing gap** (engine ratchets+checks the stop
+  same-bar; Pine applies it next bar — e.g. 2025-04-09 engine +$589 vs TV +$26,284). Unmatched are
+  near-symmetric (86/83) and **67% cascade-explained** (multi-day positions desync after one divergent
+  exit — one side re-enters while the other still holds) + 4 warmup + feed knife-edges. Engine remains
+  authoritative on exits. Not yet TV-tested: `vol_mult=0.8` (the run-149 gate) and anything pre-2023
+  (TV has no older 1m data). Browser-automation note: blank TV charts in driven tabs = background-tab
+  paint suspension (`document.visibilityState`), fixable with a JS visibility spoof.
 - **2026-07-13** — **Challenger round 5: EXPAND (ATR expansion off the open) = ORB-in-disguise (89.9%
   direction overlap, MAR 16.9); VWAPT (trend-side VWAP) regime-concentrated (MAR 6.7). Both dead in triage.**
   ORB item X also resolved: 1m ORB slippage-fragile (closed), 5m champion proven robust to 1.0-pt slippage.

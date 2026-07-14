@@ -1,0 +1,215 @@
+//@version=5
+// =============================================================================
+//  AUGUR - ENGU-Q 1.0 - 1-minute descending-trendline break (long-only)
+//  Pine port of augur_strategies/ENGUQ_1M_1_0.py
+//  v1.0 - 2026-07-14: initial port. Defaults = run 149's winning config
+//          (tl_len 48, vol_mult 0.8, stop_mult 1.0, act_R 2.5, trail_frac 2.5,
+//          buf_atr 0.9, min_brk 1.3, ema_len 390, atr_len 30, regime_len 0,
+//          breakeven_R 0). Min/max/step ranges match augur_strategies'
+//          DEFAULT_PARAMS exactly; only the DEFAULT VALUES were swapped in.
+//  v1.0b - 2026-07-14: default volMult 0 (cross-check default; run-149 live value = 0.8).
+//
+//  Logic (faithful to the AUGUR engine, long-only). On each FLAT bar i:
+//    1. Green candle: close > open.
+//    2. Uptrend: close > EMA(close, emaLen). Engine seeds ema[0]=close[0] and
+//       smooths from there with k=2/(n+1) -- this is exactly ta.ema's own seed,
+//       so ta.ema(close, emaLen) matches (differs only in the first bar or two).
+//    3. Regime gate (optional, OFF by default when regimeLen=0): close must be
+//       above its N-day SMA (N*390 RTH 1m bars/day).
+//    4. Volume spike (optional, OFF when volMult<=0, and auto-off if the feed
+//       has no volume at all): volume >= volMult * SMA(volume, 20).
+//    5. Descending trendline: least-squares fit to the tlLen highs STRICTLY
+//       BEFORE the current bar (bars i-tlLen..i-1, i excluded). Slope must be
+//       < 0. tlNow = that fitted line extrapolated one bar forward, to the
+//       CURRENT bar i. See "TRENDLINE OFFSET" fidelity note below -- this is
+//       the single highest-risk place to diverge from the engine.
+//    6. ATR = SMA(TrueRange, atrLen) -- a plain SMA of true range. NOT ta.atr()
+//       (Wilder RMA) -- that smooths differently and will NOT match the engine.
+//    7. Break: close > tlNow + bufAtr*ATR  AND  close > high[1] (prior bar high).
+//    8. Decisive: (close - tlNow) / max(ATR, 0.25) >= minBrk.
+//    9. Risk: swingLow = lowest low over the tlLen+1 bars i-tlLen..i (current
+//       bar INCLUDED). risk = close - swingLow; must be >= 0.5 points (a fixed
+//       engine constant, not a tunable param -- see augur_strategies' literal
+//       `max(0.25, 0.5)`).
+//   10. Enter long at the bar's CLOSE. Initial stop = close - stopMult*risk.
+//       Store risk and entry price for the life of the trade.
+//
+//  Exit (while long), re-evaluated every bar using THAT bar's own high/low:
+//    - Activation: once high-entry >= actR*risk, the trailing stop switches on
+//      (stays on for the life of the trade -- it never switches back off).
+//    - While active: stop = max(stop, high - trailFrac*risk) -- ratchets up
+//      only, never loosens.
+//    - Breakeven (optional, OFF by default): once high-entry >= breakevenR*risk,
+//      stop = max(stop, entry).
+//    - Exit (long stop) when low <= stop. Fill = open if the bar gapped through
+//      (open < stop), else the stop price itself -- strategy.exit(stop=...)
+//      already fills this way natively, matching the engine's explicit
+//      gap-through fill logic.
+//    - No target, no EOD flatten -- the trade rides the trailing stop across
+//      sessions until stopped out.
+//
+//  Fidelity notes:
+//    - TRENDLINE OFFSET (verified against the Pine v5 reference formula
+//      `linreg = intercept + slope*(length-1-offset)`, confirmed against two
+//      independent sources describing ta.linreg's documented behavior):
+//        tlNow  = ta.linreg(high[1], tlLen, -1)
+//        tlLast = ta.linreg(high[1], tlLen, 0)
+//      Using source=high[1] shifts the fit window back one bar, so the window
+//      linreg sees is bars [i-tlLen, i-1] -- exactly the engine's
+//      hw = h[i-tlLen:i] (current bar i excluded). Within that window,
+//      offset=0 evaluates the fitted line at its OWN newest point (x=length-1,
+//      i.e. real bar i-1); offset=-1 evaluates at x=length (one step PAST the
+//      window's newest point), i.e. extrapolated forward to the CURRENT bar i
+//      -- that is tlNow. Because linreg is linear in offset by construction,
+//      tlNow - tlLast = ta.linreg(...,-1) - ta.linreg(...,0) collapses to
+//      exactly 1x the true OLS slope (consecutive offsets differ by exactly
+//      "slope" per step), so `(tlNow - tlLast) < 0` is precisely the engine's
+//      `slope < 0` descending check, not an approximation of it.
+//    - ATR: ta.sma(ta.tr(true), atrLen), with a raw-TR fallback while atrLen
+//      bars of history aren't yet available -- mirrors the engine's
+//      `atr = np.where(isnan(atr), tr, atr)` exactly.
+//    - TRAILING-STOP TIMING: the engine recomputes the stop from bar i's HIGH
+//      and checks it against bar i's own LOW in the SAME loop iteration
+//      (same-bar update-then-check). Pine's strategy.exit() can only act on an
+//      order armed during a PRIOR bar's script execution -- process_orders_
+//      on_close=true fills entries on the signal bar's own close (matches the
+//      engine exactly), but a stop level submitted this bar is only tested
+//      against price action starting NEXT bar. Entries should therefore match
+//      the engine bar-for-bar; expect any residual divergence, if present, on
+//      trailing-stop EXIT bars (~1 bar off). This is a known, documented Pine
+//      execution-model gap (same class as ORB 3.0's entry-fill note) -- treat
+//      the ENGINE as authoritative and cross-check with tools/reconcile.py
+//      before trusting this file's exits as ground truth.
+//    - VOLUME-DATA-PRESENT CHECK: the engine disables the volume filter
+//      entirely if the WHOLE dataset has no volume (a global, look-ahead
+//      np.nansum check). Pine can't look ahead, so haveVol here latches true
+//      the first time any bar reports volume > 0 and stays true for the rest
+//      of the chart -- functionally identical to the engine for any real
+//      futures feed (volume present from bar 1); it only differs from the
+//      engine on a theoretical feed where volume is 0 for a while and then
+//      turns on mid-chart (the engine would treat volume as "present" from
+//      bar 0 in that case; this port would not treat it as present until it
+//      first appears).
+//    - Everything else (EMA seed, regime SMA, TR, swing-low window, warmup
+//      threshold bar_index > tlLen matching the engine's `range(tl_len+1, n)`)
+//      reproduces the engine's arrays exactly -- see the inline comments at
+//      each block below.
+//
+//  RESEARCH / paper-trading tool. Validate against tools/reconcile.py before
+//  risking money.
+// =============================================================================
+strategy("AUGUR ENGU-Q 1.0 - 1m trendline break (long)", overlay=true,
+     default_qty_type=strategy.fixed, default_qty_value=1, pyramiding=0,
+     commission_type=strategy.commission.cash_per_order, commission_value=2.83,
+     slippage=0, calc_on_every_tick=false, process_orders_on_close=true)
+
+strategy.risk.allow_entry_in(strategy.direction.long)   // belt-and-suspenders: long-only
+
+// ---- Inputs (defaults = run 149's winning config; ranges = DEFAULT_PARAMS) --
+gS = "Setup"
+tlLen     = input.int(48, "Trendline Length (bars)", minval=15, maxval=80, group=gS,
+     tooltip="Bars of highs the descending trendline is fit to (must slope down), EXCLUDING the current bar. 1m: try ~30-70.")
+emaLen    = input.int(390, "Trend EMA Length", minval=20, maxval=400, step=10, group=gS,
+     tooltip="Only take longs with close above this EMA (uptrend filter).")
+regimeLen = input.int(0, "Regime SMA (days, 0=off)", minval=0, maxval=100, step=5, group=gS,
+     tooltip="Only go long when close is above its N-day simple average (390 RTH 1m bars/day) -- a longer-term trend gate on top of the EMA. 0=off.")
+
+gB = "Breakout"
+bufAtr  = input.float(0.9, "Breakout Buffer (x ATR)", minval=0.0, maxval=1.0, step=0.05, group=gB,
+     tooltip="Close must clear the trendline by this many ATR.")
+minBrk  = input.float(1.3, "Breakout Decisiveness (x ATR)", minval=0.0, maxval=3.0, step=0.1, group=gB,
+     tooltip="Close-minus-trendline must be at least this many ATR (a decisive break).")
+atrLen  = input.int(30, "ATR Length", minval=5, maxval=50, group=gB,
+     tooltip="Lookback for ATR (buffer/decisiveness). Plain SMA of true range, not Wilder RMA -- ta.atr() will not match.")
+volMult = input.float(0.0, "Volume Spike (x avg)", minval=0.0, maxval=5.0, step=0.1, group=gB,
+     tooltip="Breakout candle volume must exceed its 20-bar average x this. 0=off. Auto-off if the chart has no volume data. Run-149's live value is 0.8; 0 = OFF for an exact engine cross-check (TV's volume feed differs from the Databento master, so the volume gate fires differently on each side -- same lesson as ORB).")
+
+gR = "Risk / Exit"
+stopMult   = input.float(1.0, "Stop (x risk-to-swing-low)", minval=0.3, maxval=2.0, step=0.1, group=gR,
+     tooltip="Initial stop distance as a fraction of entry-to-swing-low.")
+actR       = input.float(2.5, "Trail Activation (R)", minval=0.0, maxval=3.0, step=0.5, group=gR,
+     tooltip="Start trailing once the trade is this many R in profit (R = initial risk).")
+trailFrac  = input.float(2.5, "Trail Width (x risk)", minval=0.5, maxval=4.0, step=0.5, group=gR,
+     tooltip="Trailing stop rides this far (in risk units) below the running high, once activated.")
+breakevenR = input.float(0.0, "Breakeven (R, 0=off)", minval=0.0, maxval=3.0, step=0.5, group=gR,
+     tooltip="Once the trade is this many R in profit (high vs entry), raise the stop to entry so it can never go negative. 0=off.")
+
+// ---- Core series (all evaluated unconditionally, every bar) -----------------
+// EMA: seed = source, alpha = 2/(len+1) -- identical formula/seed to the engine's _ema().
+emaC = ta.ema(close, emaLen)
+
+// Regime SMA: length is clamped to >=1 so ta.sma never gets called with 0 (Pine
+// runtime error) when regimeLen=0; regimeOk ignores the result in that case.
+regBarsSafe = math.max(regimeLen * 390, 1)
+regSma      = ta.sma(close, regBarsSafe)
+regimeOk    = regimeLen <= 0 or (not na(regSma) and close > regSma)
+
+// True range / ATR: plain SMA of TR, raw-TR fallback during warmup -- matches
+// the engine's np.where(isnan(atr), tr, atr) exactly. NEVER ta.atr() (RMA).
+trueRange = ta.tr(true)
+smaTR     = ta.sma(trueRange, atrLen)
+atrVal    = na(smaTR) ? trueRange : smaTR
+
+// Volume-present latch (see "VOLUME-DATA-PRESENT CHECK" fidelity note above).
+var bool haveVol = false
+if volume > 0
+    haveVol := true
+volAvg = ta.sma(volume, 20)
+volOk  = volMult <= 0 or not haveVol or (not na(volAvg) and volume >= volMult * volAvg)
+
+// Descending trendline fit to highs of bars [i-tlLen, i-1] (current bar excluded).
+// See the "TRENDLINE OFFSET" fidelity note in the header for the full derivation.
+tlNow      = ta.linreg(high[1], tlLen, -1)   // fitted line extrapolated to the CURRENT bar i
+tlLast     = ta.linreg(high[1], tlLen, 0)    // fitted value at the window's own last point (bar i-1)
+descending = (tlNow - tlLast) < 0            // == true OLS slope < 0 (see header proof)
+
+// Swing low over tlLen+1 bars INCLUDING the current bar -- matches l[i-tlLen:i+1].min().
+swingLow = ta.lowest(low, tlLen + 1)
+riskPts  = close - swingLow
+
+// Warmup: engine's loop starts at i = tl_len+1, i.e. bar_index >= tlLen+1.
+warmedUp = bar_index > tlLen
+
+// ---- Entry condition (long-only, evaluated only while flat) -----------------
+greenCandle = close > open
+uptrend     = close > emaC
+breakLevel  = tlNow + bufAtr * atrVal
+brokeOut    = close > breakLevel and close > high[1]
+decisive    = (close - tlNow) / math.max(atrVal, 0.25) >= minBrk
+riskOk      = riskPts >= 0.5   // engine literal: risk < max(0.25, 0.5) => skip
+
+longSignal = warmedUp and greenCandle and uptrend and regimeOk and volOk and
+             descending and brokeOut and decisive and riskOk
+
+// ---- Trade state (persists across bars for the life of one trade) -----------
+var float entryPx   = na
+var float posRisk   = na
+var float stopLevel = na
+var bool  activated = false
+
+if strategy.position_size == 0 and longSignal
+    strategy.entry("L", strategy.long)
+    // process_orders_on_close=true => this market entry fills at THIS bar's
+    // close, so close (already finalized for a closed historical bar) IS the
+    // fill price -- exactly ep = c[i] in the engine. No need to read back
+    // strategy.position_avg_price on a later bar (unlike ORB's stop-entry).
+    entryPx   := close
+    posRisk   := riskPts
+    stopLevel := close - stopMult * riskPts
+    activated := false
+
+// ---- Exit management (every bar while in the position) ----------------------
+// See "TRAILING-STOP TIMING" fidelity note: this recomputes the stop off THIS
+// bar's high, but Pine can only test it starting NEXT bar's price action.
+if strategy.position_size > 0
+    if (high - entryPx) >= actR * posRisk
+        activated := true
+    if activated
+        stopLevel := math.max(stopLevel, high - trailFrac * posRisk)
+    if breakevenR > 0 and (high - entryPx) >= breakevenR * posRisk
+        stopLevel := math.max(stopLevel, entryPx)
+    strategy.exit("X", from_entry="L", stop=stopLevel)
+
+// ---- Plots --------------------------------------------------------------------
+plot(tlNow, "Trendline (tl_now)", color.new(color.orange, 0), style=plot.style_line)
+plot(emaC, "Trend EMA", color.new(color.aqua, 0), style=plot.style_line)
