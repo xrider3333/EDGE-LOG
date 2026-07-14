@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='55.7';
+const VERSION='55.8';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'55.8', date:'2026-07-14', notes:['Docs: ORB backlog item 4 (sizing toggle) marked DONE and verified live; first order-flow delta probe recorded - real but tiny 10-30s mean-reversion signal, keep collecting data. See BACKTESTING_STACK section 7.']},
   {v:'55.7', date:'2026-07-13', notes:['Fix: the SIZING OVERLAY card (and its new lever toggles) now renders on modern ORB runs - the old ORB name check failed on filename-style strategies like ORB_3_0_BE.py, hiding the card everywhere except legacy runs.']},
   {v:'55.6', date:'2026-07-14', notes:['Sizing overlay is now adjustable in the run report: toggle risk-parity / morning time-tilt / short side-tilt and set the contract cap, then compute - defaults reproduce the validated rp+time+short config (lockbox MAR 6.9 to 15.0).']},
   {v:'55.5', date:'2026-07-13', notes:['Challenger round 5: EXPAND volatility-breakout proved to be ORB-in-disguise (90 percent direction overlap) and trend-side VWAP is regime-concentrated - both dead in triage; champions stand after 5 rounds / 15 families / 1500 configs. See BACKTESTING_STACK section 3.']},

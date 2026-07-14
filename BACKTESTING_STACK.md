@@ -4,7 +4,7 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-13
-- **Web VERSION:** 55.5 · **Stack board (`method_stack.html`):** v4.1
+- **Web VERSION:** 55.8 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
@@ -421,6 +421,14 @@ not saved to the runs DB — so they carry no run id.*
 🎉 **Every research/method pill is now LIVE** (41/41). The only remaining item is operational:
 1. **fills reconciliation** (§1) — reconcile web/mobile NinjaTrader (+ Webull) fills that skip
    the local DB. *Needs your live broker data — do this one WITH the owner present.*
+2. **Order-flow program (10s delta feed)** — accumulating since 2026-06-23 (`EdgeLogOHLCExport`). First
+   bar-level probe (2026-07-14, ~113k 10s bars/instrument): delta carries a REAL short-horizon signal but it
+   is **mean-reversion, not momentum** (aggressive buying → small negative next-bar return; strongest cell
+   ES/ETH trade-imbalance @10s, stride-Spearman −0.041 ≈ 6× the noise floor; decays to noise by ~3 min;
+   net-negative to trade directly at 10s costs). 21/96 tested cells clear the noise bar, all in one
+   economically coherent corner → not multiple-testing noise. **Verdict: keep collecting.** Future use =
+   entry-timing/fill improvement and gate features at longer horizons once months of data exist — not a
+   standalone strategy. Revisit with a real study at ~3–6 months of data.
 
 *(✅ SHAP · ensemble top-K · adversarial validation · conformal band · causal check ·
 synthetic scenarios all shipped 2026-07-04 — see Changelog.)*
@@ -449,6 +457,12 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-14** — **Sizing overlay live-wired (ORB.md item 4 DONE, web v55.6/v55.7) + first order-flow
+  probe (verdict: keep collecting).** Run-report SIZING OVERLAY card now has adjustable lever toggles
+  (rp / time-tilt / side-tilt + cap), defaults = the validated config; post-deploy verification caught a
+  pre-existing gate bug that had hidden the card on all filename-style ORB runs (fixed v55.7, verified
+  live on run 157). Order-flow delta probe on ~113k 10s bars: real but tiny short-horizon MEAN-REVERSION
+  signal (~6× noise floor at 10s, gone by 3 min, untradeable at cost) — data collection continues; see §7.
 - **2026-07-14** — **ENGUQ Pine port + first TV reconciliation (`pine/ENGUQ_1M_1_0.pine`).** Pine v5
   port of the 1m trendline-break strategy (defaults = run 149's config; `volMult` default 0 = the
   cross-check setting — TV's volume feed ≠ Databento, so the gate is validated separately). Reconciled

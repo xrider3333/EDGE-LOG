@@ -636,7 +636,14 @@ sequence, and nothing "starts at E": **A B C D F G H L are all DONE** — only *
 3. ~~**J — close-confirm / candle-confirm reconciliation.**~~ ✅ **DONE (§4.18)** — close-confirm rejected in
    EVERY fill flavor (at-close / next-open / limit-at-level all lose 72–99% of net in both windows); the
    damage is the confirmation *delay*, not the fill; TV's +$30k = fill-model artifact. **Touch entry stays.**
-4. **Deploy — the live-web sizing toggle** (pure wiring; the ONLY open item — do when ready to take the stack live).
+4. ~~**Deploy — the live-web sizing toggle**~~ ✅ **DONE (2026-07-14, web v55.6 + v55.7)** — the run-report
+   SIZING OVERLAY card now has live lever toggles (risk-parity / morning time-tilt / short side-tilt + a
+   contract-cap input) feeding the existing job→runner→`sizing.py` path; defaults reproduce the validated
+   rp+time+short+cap3 config (lockbox MAR 6.9→15.0). Post-deploy verification also caught and fixed a
+   PRE-EXISTING bug: the card gate `/\bORB\b/` never matched filename-style strategies (`ORB_3_0_*.py` —
+   underscore is a word char), so the card had been invisible on every modern ORB run; now
+   `/\bORB[\s_.\-]/i` (v55.7). Verified live: run 157 renders the card with correct defaults and
+   toggle-state persistence across re-renders.
 5. ~~**M — black-swan / regime filters (daily lower-lows, VIX).**~~ ✅ **DONE (§4.17)** — premise inverted
    (COVID nets +$4.1k; worst DD = 2025 post-spike chop) and **no filter improves MAR in either window**
    (they amputate the short edge). Keep the base unfiltered; DD is handled by BE + ensemble + rp-sizing.
