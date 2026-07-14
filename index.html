@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='55.6';
+const VERSION='55.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'55.7', date:'2026-07-13', notes:['Fix: the SIZING OVERLAY card (and its new lever toggles) now renders on modern ORB runs - the old ORB name check failed on filename-style strategies like ORB_3_0_BE.py, hiding the card everywhere except legacy runs.']},
   {v:'55.6', date:'2026-07-14', notes:['Sizing overlay is now adjustable in the run report: toggle risk-parity / morning time-tilt / short side-tilt and set the contract cap, then compute - defaults reproduce the validated rp+time+short config (lockbox MAR 6.9 to 15.0).']},
   {v:'55.5', date:'2026-07-13', notes:['Challenger round 5: EXPAND volatility-breakout proved to be ORB-in-disguise (90 percent direction overlap) and trend-side VWAP is regime-concentrated - both dead in triage; champions stand after 5 rounds / 15 families / 1500 configs. See BACKTESTING_STACK section 3.']},
   {v:'55.4', date:'2026-07-13', notes:['ORB backlog item X resolved: 1-minute ORB fails the pre-registered slippage stress (best MAR 24.3 at 0.75-pt slip vs the 25 bar, while the 5m champion holds 28.3) - closed, 5m champion stands. ORB.md section 4.21 updated.']},
@@ -7361,7 +7362,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         ].filter(Boolean);
       // CHAMPION card strip REMOVED (owner request): its 7 metrics live in 1E — the KPI matrix
       //   (validate), the 75/25 split table (auto), or the single-column champion table (grid).
-      const _summaryPanel=((/\bORB\b/i.test(String(d.strategy||'')))?(function(){
+      const _summaryPanel=((/\bORB[\s_.\-]/i.test(String(d.strategy||'')))?(function(){
           // Persist the sizing-lever choices on window so they survive renderApp() reruns
           // (the card is fully rebuilt every render — plain local state would reset each time).
           window._sizingCfg=window._sizingCfg||{rp:true, tt:true, st:true, cap:3};
