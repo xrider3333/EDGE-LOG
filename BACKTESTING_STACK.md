@@ -4,7 +4,7 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-13
-- **Web VERSION:** 55.8 · **Stack board (`method_stack.html`):** v4.1
+- **Web VERSION:** 55.9 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
@@ -315,6 +315,25 @@ Full running record: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`. **NQ 1m = champion (r
   ORB×ENGU-Q blend).
 - Artifacts: session scratchpad round5_triage_report.md (+ .json), itemX_slippage_report.md.
 
+**2026-07-14 — challenger round 6: the three never-opened rooms — overnight session, weekly anchor, overnight→open relay. All empty (0/156).**
+- **GLOBEX** (London-ORB + Asia-range break, traded inside the overnight session only, judged at a
+  pre-registered 0.5-pt slippage for the thinner Globex book): best MAR 2.27 ($54k) — REGIME-CONCENTRATED
+  *and* fill-artifact-flagged. **The NQ overnight session has no honestly-fillable edge at these costs.**
+- **WEEKLY ORB** (Monday-range breakout, Tue–Fri touch entry, one trade/week): best MAR 3.82 ($50k) —
+  REGIME-CONCENTRATED. The calendar-week anchor adds nothing over the daily one.
+- **RELAY** (09:30 entry in the overnight/London-drive direction, overnight-range stop): best MAR 1.08 —
+  REGIME-CONCENTRATED (2010-2020 subtotal negative). Overnight direction does not carry into the day at
+  tradeable strength.
+- All three are ~uncorrelated to ORB (0.01–0.14) — moot, since none clears any bar.
+- **Program final tally: 6 rounds / 18 concept families / ~1,650 configs.** Every session (RTH, Globex),
+  every anchor scale (1-minute to 55-day to calendar-week), every signal class (breakout, momentum,
+  reversion, RV, volume, VWAP, order-flow-free structure) has now been probed under identical honest-fill
+  rules. Every failure lands in the same three buckets: thin-after-costs · post-2021 regime artifact ·
+  ORB-in-disguise. **The OHLCV edge inventory of this dataset is fully claimed by the champions.**
+  Next-edge paths remain: the order-flow program (§7, revisit ~Oct 2026 at 3+ months of data) and the
+  deployed layers (§5.6 overlay — now live-wired, see ORB.md item 4 — and the ORB×ENGU-Q blend).
+- Artifacts: session scratchpad round6_triage_report.md (+ .json, r6_*.py drivers).
+
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
 |---|---|---|---|
@@ -457,6 +476,10 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-14** — **Challenger round 6 (final): GLOBEX overnight session (MAR 2.27, artifact+regime-flagged),
+  WEEKLY ORB (3.82), and overnight RELAY (1.08) all dead — 0/156.** Program final tally 6 rounds / 18
+  families / ~1,650 configs: the OHLCV edge inventory is fully claimed by ORB 3.1 / ENGU-Q; next edge
+  requires the order-flow data (§7). Detail in §3 (challenger section).
 - **2026-07-14** — **Sizing overlay live-wired (ORB.md item 4 DONE, web v55.6/v55.7) + first order-flow
   probe (verdict: keep collecting).** Run-report SIZING OVERLAY card now has adjustable lever toggles
   (rp / time-tilt / side-tilt + cap), defaults = the validated config; post-deploy verification caught a
