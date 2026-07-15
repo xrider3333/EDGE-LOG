@@ -414,6 +414,25 @@ found — a pre-existing ENGU-Q reproducibility defect — before the lockbox sh
   one-shot (2025-06-30→2026-06-30 — still sealed, never loaded).**
 - Artifacts: scratchpad ttibs/ ttibs_stage2_report.md + ttibs_wf_prereg.md + per-task drivers/JSONs.
 
+**2026-07-15 — round 7 lockbox one-shot (owner signed off): FAIL. TTIBS family CLOSED, lockbox spent.**
+- Pre-registered frozen config, plumbing dry-run-verified on a seen year first, then ONE run on signals
+  2025-07-01→2026-06-30: **n=16, net −$44,320.56, PF 0.44, WR 37.5%, worst trade −$20,710.66** (inside the
+  pre-registered −$25k no-blowup floor). FAIL on the net>0 condition. Not a tail/sizing disaster — the
+  pre-lockbox edge (6/6 WF folds, clean ES transfer) simply didn't show up in the held-out NQ year.
+- Two months carried the loss (Nov-2025 −$28.9k, Jun-2026 −$16.9k); Jan-2026 +$10.9k; no exits Apr/May.
+- **Report-only observations BANKED, not a re-tune license** (the year is spent — one look, same
+  accounting as SWING): (1) ES same-frozen-config was POSITIVE in the identical window (+$11,563,
+  PF 1.34, WR 72.7%) — NQ-specific failure, not a concept-wide one; (2) signal frequency halved
+  (16/yr vs the 15-yr ~29/yr average). Any TTIBS 2.0 must be motivated by new data or a structural
+  hypothesis, never by fitting this spent year.
+- TTIBS 1.0 remains in the library as 🔬 research (validated pre-lockbox, failed the holdout) — same
+  precedent as DRIVE/SWING. Champions and the blend unchanged.
+- Program consequence (owner directive: keep hunting / adjust): **GAPFADE — conditioned small-gap fade,
+  the #2 candidate from the web sweep — enters triage as round 9** with its own prereg, gates, and the
+  same one-look lockbox accounting.
+- Artifacts: scratchpad ttibs/ ttibs_lockbox_prereg.md, ttibs_lockbox_oneshot.py, ttibs_lockbox_report.md
+  (+ oneshot/dryrun results .json).
+
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
 |---|---|---|---|
@@ -556,6 +575,11 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-15** — **Round 7 lockbox one-shot: TTIBS FAIL — n=16, net −$44,320, PF 0.44 in the held-out
+  year (no blowup: worst −$20.7k inside the −$25k floor). Family closed, lockbox spent.** Banked notes
+  (not re-tune licenses): ES same-config was +$11.6k/PF 1.34 in the identical window; signal rate halved.
+  TTIBS 1.0 stays 🔬 research, champions unchanged. **GAPFADE enters triage as round 9** per the owner's
+  keep-hunting directive. Detail §3 round 7.
 - **2026-07-14** — **Round 7 stage 2: TTIBS passes EVERYTHING — WF 6/6 frozen folds (WFE 1.99; the test
   DRIVE failed at 3/6), ES transfer PF 1.695 no-refit, t=3.94, DSR 0.96 — and exposes a pre-existing
   ENGU-Q reproducibility defect** (deploy config can't be rebuilt from `ENGUQ_1M_1_0.py`; even the run-149
