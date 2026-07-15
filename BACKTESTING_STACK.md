@@ -498,6 +498,42 @@ via a different implementation: 0 of 36 plateau groups clear the pre-registered 
   Both web sweeps (owner shortlist + deep-dive) are now exhausted.
 - Artifacts: session scratchpad round10_report.md (+ .json, r10_*.py incl. the hand-verified sigma check).
 
+**2026-07-15 — round 11 (owner: "deep dive the web, beat ORB"): web sweep round 2 + an ORB
+external-conditioning diagnostic. Both come back empty — and the emptiness is now independently published.**
+- **Web round 2 (sources round 1 never opened):** Quantpedia free tier, Alvarez Quant, Quantifiable Edges,
+  Davey/Build Alpha, fresh 2023–26 SSRN/arXiv — nothing clears the bar (all graveyarded families,
+  cross-sectional stock universes, or ~15-occurrences-in-60-years breadth thrusts). Key find = independent
+  corroboration: a **May-2026 arXiv falsification series (Mesfin, 2605.04004 + two companions)** ran
+  essentially our program on MNQ 5m 2021–25 at honest costs — 14 OHLCV signal families, none pass; no ML
+  config beats the 51.8% base rate. Our graveyard conclusion is the published state of the art, not a
+  house quirk.
+- **ORB conditioning diagnostic** (§5-style slice study on the champion blotter, NO config search, window
+  2010→2025-06-30 with the final year held out; blotter reproduced exactly: n=3,815 / $306,331 / PF 1.607).
+  Sliced by VIX bins, VIX-vs-20dMA, VIX3M term structure, day-of-week, FOMC/CPI/NFP days, P/C quintiles —
+  era-stability + permutation tests + overlay double-count checks. **Pre-stated graduation bar: NONE
+  graduate.**
+  - VIX bins = the one clean monotonic pattern (PF 2.06 at VIX<13 → 1.31 at VIX>30, stable both eras) —
+    but mean stop-distance rises 3.5× across the same bins, so the deployed **§5.6 risk-parity overlay
+    (size ∝ 1/stop) is ALREADY harvesting exactly this effect** — independent external validation of the
+    overlay's rationale. A VIX tilt on raw ORB would double-count it.
+  - Day-of-week: Wednesday's apparent weakness is 86% FOMC/CPI contamination (108/125 FOMC days = Wed);
+    Wed-ex-event PF 1.61 = baseline → the gate RFE's original "dow uninformative" call CONFIRMED. Friday
+    PF 1.77 looks genuine but permutation p=0.485.
+  - Event days: **FOMC-day ORB PF 1.30 (era-1 net-losing, PF 0.86), direction stable both eras — but n=125,
+    permutation p=0.904 → banked as a WATCH item only**, not actionable.
+  - Every mean-shift delta fails permutation (p 0.25–0.90): the PF patterns are tail-shape effects the
+    5-bar trail already manages, not size-tilt fuel.
+  - Data notes: CBOE's free equity put/call feed is DEAD since 2019-10-04 (no free replacement found);
+    ALFRED `downloaddates` returns FOMC revision-dates not meeting-dates (scraped federalreserve.gov
+    instead); alfred/bls block plain urllib — browser fetch required.
+- **Round-11 verdict: "beats ORB" is not on the open web.** Remaining levers, in order: (1) **more
+  instruments** for the validated ORB recipe — needs new 5m history (YM/RTY/CL/GC), an owner
+  data-acquisition decision; (2) the **order-flow program** at 3+ months of accumulated data (~Oct 2026);
+  (3) **owner-originated ideas**. More configs or conditioning on the same public information is now
+  quadruple-confirmed dead money.
+- Artifacts: scratchpad orbcond/ (orbcond_report.md, results + followups .json, blotter csv, drivers);
+  round-2 research summaries in-session.
+
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
 |---|---|---|---|
@@ -640,6 +676,14 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-15** — **Round 11 (web deep-dive round 2 + ORB conditioning diagnostic): EMPTY, decisively.**
+  Untapped sources (Quantpedia/Alvarez/Quantifiable Edges/Davey/fresh SSRN-arXiv) yield nothing; a May-2026
+  arXiv falsification series independently replicates our graveyard on MNQ 5m (14 families, none pass).
+  ORB blotter sliced by VIX/term-structure/DOW/FOMC-CPI-NFP/put-call: **NONE graduate** — the clean VIX
+  pattern (PF 2.06→1.31) is ALREADY harvested by the §5.6 risk-parity overlay (stop distance rises 3.5×
+  with VIX); Wednesday weakness = 86% FOMC contamination (DOW-uninformative CONFIRMED); FOMC-day PF 1.30
+  banked as a watch item (p=0.904). Every mean-shift delta fails permutation. Remaining levers: more
+  instruments (owner data decision) · order-flow ~Oct 2026 · owner ideas. Detail §3 round 11.
 - **2026-07-15** — **Challenger round 10 (web deep-dive): NOISE (Zarattini intraday-momentum envelope) —
   real mechanism (54/54 net-positive, corr 0.22 vs ORB), wrong regime (all top-5 REGIME-CONCENTRATED,
   three negative 2010–17, replicating the paper's own caveat). Best MAR 6.90 — no bar cleared.** Web fully
