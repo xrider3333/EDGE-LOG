@@ -4,7 +4,7 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-07-13
-- **Web VERSION:** 56.1 · **Stack board (`method_stack.html`):** v4.1
+- **Web VERSION:** 56.2 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
@@ -433,6 +433,25 @@ found — a pre-existing ENGU-Q reproducibility defect — before the lockbox sh
 - Artifacts: scratchpad ttibs/ ttibs_lockbox_prereg.md, ttibs_lockbox_oneshot.py, ttibs_lockbox_report.md
   (+ oneshot/dryrun results .json).
 
+**2026-07-15 — challenger round 9: the last two web-shortlist entries (GAPFADE + CALENDAR) — both dead; the shortlist is fully dispatched.**
+- **GAPFADE** (fade the overnight gap toward prior close, ATR-banded, 54 configs): nets to noise (best MAR
+  0.11, $6.8k). The split is the story: **fading gap-DOWNS (buy-weakness) made +$32.8k; fading gap-UPS
+  (sell-strength) lost −$26k to −$33k** across the best configs. Clears no bar. Dead.
+- **CALENDAR** (turn-of-month long window + pre-holiday drift, 16 configs, roll-safe verified 0/1080):
+  the ToM drift is REAL (short mirror loses −$82.5k → genuine long seasonal, not noise) but tops out at
+  **MAR 2.19 / $78.7k** — a fact about the market, not a tradeable leg. Clears no bar. Dead.
+- **META-FINDING (confirmed across 4 independent families):** the only daily-scale structure that even
+  survives triage/WF in this data is **long-only buy-weakness** — TTIBS (round 7: passed WF + ES transfer,
+  failed the lockbox), GAPFADE's long leg, CALENDAR's long-only drift, SWING's long-only Donchian — while
+  every sell-strength / short-side mirror dies outright. This is an upward-drifting index; shorts only pay
+  intraday via ORB.
+- **Tally: 9 rounds / 23 concept families / ~1,770 configs · 2 lockboxes spent (SWING ✗, TTIBS ✗).** The
+  owner's web shortlist is now fully dispatched (IBS→TTIBS ✗ failed lockbox (round 7) · GAPFADE ✗ ·
+  calendar ✗ · delta gate — off-table, owner has no order-flow feed). **No live challengers remain.**
+  New candidates require new data or a new owner-sourced idea; the deployed book (ORB×ENGU-Q blend +
+  §5.6 overlay) is the working machine.
+- Artifacts: session scratchpad round9_report.md (+ .json, r9_*.py).
+
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
 |---|---|---|---|
@@ -575,6 +594,11 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-15** — **Challenger round 9: GAPFADE dead (MAR 0.11 — long leg +$33k, short leg gives it back);
+  CALENDAR turn-of-month drift real but tiny (MAR 2.19). Web shortlist fully dispatched; with TTIBS's
+  lockbox FAIL (round 7, same day) no live challengers remain.** Meta-finding confirmed 4 ways: daily-scale
+  edges here are long-only buy-weakness; all short-side mirrors die. Tally 9 rounds / 23 families / ~1,770
+  configs · 2 lockboxes spent. Detail §3.
 - **2026-07-15** — **Round 7 lockbox one-shot: TTIBS FAIL — n=16, net −$44,320, PF 0.44 in the held-out
   year (no blowup: worst −$20.7k inside the −$25k floor). Family closed, lockbox spent.** Banked notes
   (not re-tune licenses): ES same-config was +$11.6k/PF 1.34 in the identical window; signal rate halved.
