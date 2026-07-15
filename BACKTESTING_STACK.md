@@ -3,8 +3,8 @@
 **Single source of truth for where the backtesting engine stands.** Update this
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
-- **Last updated:** 2026-07-13
-- **Web VERSION:** 56.2 · **Stack board (`method_stack.html`):** v4.1
+- **Last updated:** 2026-07-15
+- **Web VERSION:** 56.3 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
@@ -478,6 +478,26 @@ via a different implementation: 0 of 36 plateau groups clear the pre-registered 
   §5.6 overlay) is the working machine.
 - Artifacts: session scratchpad round9_report.md (+ .json, r9_*.py).
 
+**2026-07-15 — challenger round 10 (owner: "deep dive the web"): NOISE — the Zarattini/Aziz/Barbon intraday-momentum envelope. Real mechanism, wrong regime. Dead as a challenger.**
+- Web deep-dive screening: the 2025–26 retail/quant literature is ~entirely our dead families renamed (ORB
+  variants, IBS buy-weakness, gap plays, VWAP fades). The ONE mechanically new candidate: **NOISE** — a
+  time-of-day-calibrated envelope around the open (mean |open→bar-t| move over N prior sessions, anchored
+  to max/min(open, prior close)); long above / short below, exit on band re-entry / VWAP trail, flat EOD.
+  Source: Quantitativo ES/NQ port of the "Beat the Market" paper (reported NQ Sharpe 1.67 at 8× vol-target).
+- Faithful port, 54 configs, NQ 5m RTH, house costs: **all 54 net-positive** (the mechanism is real),
+  best `LB=14 · band 1.25 · vwap-trail` = **MAR 6.90 / $253.8k / n=4,306** — clears NO bar (champion /
+  nearly-beat / third-leg all miss). Corr vs ORB only **0.21–0.25** (distinct engine, ~80% same-direction
+  on shared trend days); longs > shorts exactly as the paper reports; median 2.1 signals/session, fee drag
+  up to 48% of gross on high-turnover cells; `flip` verified a no-op (hand-traced, not a bug).
+- **Era verdict (the headline, pre-flagged from the authors' own caveat): all top-5 REGIME-CONCENTRATED —
+  three post NEGATIVE 2010–2017 subtotals.** The paper's "flat until 2018" weakness replicates exactly on
+  NQ. Same bucket as DRIVE/VWAPT: a post-2018 vol-regime harvest, not a durable edge.
+- Status: 🔬 research knowledge — revisit ONLY as a regime-conditional diversifier candidate if the
+  post-2018 regime is ever accepted as the trading assumption (it is not, per house rules).
+- **Tally: 10 rounds / 24 concept families / ~1,820 configs · 2 lockboxes spent · no live challengers.**
+  Both web sweeps (owner shortlist + deep-dive) are now exhausted.
+- Artifacts: session scratchpad round10_report.md (+ .json, r10_*.py incl. the hand-verified sigma check).
+
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
 |---|---|---|---|
@@ -620,6 +640,10 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-15** — **Challenger round 10 (web deep-dive): NOISE (Zarattini intraday-momentum envelope) —
+  real mechanism (54/54 net-positive, corr 0.22 vs ORB), wrong regime (all top-5 REGIME-CONCENTRATED,
+  three negative 2010–17, replicating the paper's own caveat). Best MAR 6.90 — no bar cleared.** Web fully
+  swept twice; tally 10 rounds / 24 families / ~1,820 configs; no live challengers. Detail §3.
 - **2026-07-15** — **Round 9 independent replication: a parallel 216-config fixed-band GAPFADE build reaches
   the same DEAD verdict (0/36 plateaus; wide bands fail regime-spread, IBS-conditioned cells fail
   year-concentration; best economics ~$1.8k/yr).** ⚠️ Side-split CONFLICTS with the ATR-banded run (this
