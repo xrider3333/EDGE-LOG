@@ -433,6 +433,32 @@ found — a pre-existing ENGU-Q reproducibility defect — before the lockbox sh
 - Artifacts: scratchpad ttibs/ ttibs_lockbox_prereg.md, ttibs_lockbox_oneshot.py, ttibs_lockbox_report.md
   (+ oneshot/dryrun results .json).
 
+**2026-07-15 — round 9 independent replication (parallel session): GAPFADE 1.0 built + triaged from
+scratch (216 configs, fixed-%-band + conditioning variant) — DEAD. Same verdict as round 9 below, reached
+via a different implementation: 0 of 36 plateau groups clear the pre-registered gates.**
+- **Concept:** fade an overnight gap of 0.15–0.6% back toward yesterday's RTH close at the 09:30 open,
+  intraday only, flat by close, roll-seam days skipped as fake gaps (48 seams detected; the guard rarely
+  bites — seams dwarf the band — but worked when it did). New file: `augur_strategies/GAPFADE_1_0.py`
+  (plugin-contract, research-only). 216 configs, 2010→2025-06-30, lockbox never touched.
+- **The kill, precisely:** wide-band cells pass PF (best plateau: n=673, $28.2k, PF 1.19) but FAIL G3
+  (post-2021 profit share 57.8–90%, regime-concentrated); the `yest_ibs_aligned` cells (the published-edge
+  conditioning) fix G3 but FAIL G6 (single-year 55–56%). No cell threads both — and even the "best" group's
+  economics are trivial (~$1.8k/yr). Confirms the published naive-ES-negative result extends to NQ even
+  with conditioning.
+- **Banked findings:** shorts (gap-UP fades) carried 83% of net (PF 1.23 vs longs 1.11) — the OPPOSITE of
+  the published claim that gap-down fades are the stronger side; ORB #125 reproduced exactly again
+  (n=3,815 / $306,331 / PF 1.61 pre-lockbox); GAPFADE↔ORB corr 0.118 with a 50/50 direction split (not a
+  disguise — just not an edge). GAPFADE's lockbox: NOT spent (triage kill = holdout stays sealed).
+- Artifacts: scratchpad gapfade/ (prereg, triage report + .json incl. the full 36-group gate scan, drivers);
+  3 trades hand-verified to the tick.
+- **⚠️ Cross-implementation reconciliation (matters for the round-9 META-FINDING below):** the two
+  independent GAPFADE runs agree on DEAD but *disagree on which side carried the residue* — this run
+  (fixed %-bands 0.15–0.6%, mirror-stop): shorts/gap-UP fades = 83% of net; the ATR-banded run below:
+  longs +$32.8k / shorts −$26k to −$33k. Likely cause: band definition + stop scheme select different gap
+  populations. Consequence: the meta-finding's citation of "GAPFADE's long leg" as buy-weakness evidence is
+  implementation-dependent — the other three families (TTIBS, CALENDAR, SWING) still support it; GAPFADE
+  should be treated as side-agnostic noise, not corroboration.
+
 **2026-07-15 — challenger round 9: the last two web-shortlist entries (GAPFADE + CALENDAR) — both dead; the shortlist is fully dispatched.**
 - **GAPFADE** (fade the overnight gap toward prior close, ATR-banded, 54 configs): nets to noise (best MAR
   0.11, $6.8k). The split is the story: **fading gap-DOWNS (buy-weakness) made +$32.8k; fading gap-UPS
@@ -594,6 +620,12 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-15** — **Round 9 independent replication: a parallel 216-config fixed-band GAPFADE build reaches
+  the same DEAD verdict (0/36 plateaus; wide bands fail regime-spread, IBS-conditioned cells fail
+  year-concentration; best economics ~$1.8k/yr).** ⚠️ Side-split CONFLICTS with the ATR-banded run (this
+  one: shorts carried 83%; that one: longs) → GAPFADE downgraded to side-agnostic noise in the
+  meta-finding; TTIBS/CALENDAR/SWING still support long-only-buy-weakness. New research file
+  `GAPFADE_1_0.py`; GAPFADE lockbox not spent. Detail §3 round 9 (replication entry).
 - **2026-07-15** — **Challenger round 9: GAPFADE dead (MAR 0.11 — long leg +$33k, short leg gives it back);
   CALENDAR turn-of-month drift real but tiny (MAR 2.19). Web shortlist fully dispatched; with TTIBS's
   lockbox FAIL (round 7, same day) no live challengers remain.** Meta-finding confirmed 4 ways: daily-scale
