@@ -669,6 +669,27 @@ size or ADD trades, not filters that delete sessions:**
   (< the pre-registered 25 bar) vs the 5m champion's 28.3 under identical stress — the 1m opening range
   is slippage-fragile, not a deploy candidate. No open new-params leads remain for ORB.
 
+**Round-3 candidates (web-scoured 2026-07-16; all NEW — nothing here duplicates the 16 tested).
+Test as SIZE TILTS / target variants first, never delete-filters (the B/M/N/O lesson):**
+
+*Tier 1 — strongest literature support, testable on our data now:*
+- ☐ **X1 — NR7 / NRn compression (Crabel):** prior daily range narrowest of last N → expansion odds up; size-up tilt.
+- ☐ **X2 — inside-day / ID+NR4 combo:** prior day engulfed by day-before → same compression family.
+- ☐ **X3 — relative volume (RVOL):** session-to-date volume vs same-time 14-day avg ≥ 1.0 → "in play" tilt (the Zarattini/Aziz stocks-in-play result, futures version).
+- ☐ **X4 — measured-move targets:** target = k × OR width (1.0/1.5/2.0×, Market-Profile IB-extension convention) instead of R-multiples (4.5R = 7.9 OR-widths — a very different geometry).
+- ☐ **X5 — prior-day VALUE AREA context:** open/break vs yesterday's 70%-volume band (computable from 5m volume); the 80%-rule as a separate overlay strategy.
+- ☐ **X6 — VWAP-side tilt:** size up breaks on the session-VWAP side (long above / short below).
+- ☐ **X7 — cross-market breadth:** ES and NQ breaking the same direction within N minutes → conviction tilt (both masters on disk).
+- ☐ **X8 — first-bar character:** OR-bar body% + break WITH vs AGAINST the OR bar's close, as a tilt (the filter version exists as trade_mode; the tilt is untested).
+
+*Tier 2 — calendar / session clock:*
+- ☐ **X9 — day-of-week tilt** · **X10 — OPEX (3rd Fri) / quarterly-roll week / month-end** · **X11 — FOMC-day behavior** (dates hardcodable) · **X12 — pre-holiday eve** · **X13 — lunch-hour trail tightening** · **X14 — session-age-scaled stop**.
+
+*Tier 3 — prior-day structure (diagnostics first):*
+- ☐ **X15 — prior-day close location** (top/bottom quartile of its range) · **X16 — gap-fill state pre-break** · **X17 — break into fresh air vs into yesterday's range** (prior-day H/L, cousin of S) · **X18 — consecutive up/down-day count** · **X19 — breakout-bar close-location-value**.
+
+*Tier 4 — needs data we don't have yet:* order-flow delta (=V, accruing) · TICK/ADD internals · VIX term structure · 0DTE gamma levels.
+
 | # | idea | expected payoff | status | result |
 |---|---|---|---|---|
 | **M** | **Black-swan / regime filters** — skip sessions after daily lower-lows / below SMA, or when VIX is elevated (owner idea 2026-07-12: "don't trade black swans") | MED (DD reduction hope) | ☑ DONE (§4.17) | **NO — every variant lowers MAR in BOTH windows.** Premise inverted: COVID Feb–Apr 2020 *nets +$4.1k* (only the #4 DD episode); the worst DDs are post-spike **chop** (2025 tariff-chop −$27.4k, 2021 top −$18k, 2023 grind −$18k). Down-regime skips cut the SHORT side that carries the edge (lower-low skip: DD $26.8k→$15.7k but −$253k net → MAR falls). VIX>30 = least bad (removes net-losing shorts), still no gain. Tool: `tools/orb_regime_filters.py`. Crisis de-risking comes free from §5.6 risk-parity sizing (wide range → small size). |
