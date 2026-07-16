@@ -139,12 +139,17 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
         arrays = load_master_arrays(master, date_from=date_from, date_to=date_to)
     O, H, L, C = arrays["open"], arrays["high"], arrays["low"], arrays["close"]
     V, did = arrays.get("volume"), arrays.get("day_id")
+    IDX = arrays.get("index")
 
     fn = mod.run_backtest
     sp = inspect.signature(fn).parameters
     has_kw = any(p.kind == p.VAR_KEYWORD for p in sp.values())
     pass_vol = V is not None and (has_kw or "volumes" in sp)
     pass_day = did is not None and (has_kw or "day_id" in sp)
+    # Bar timestamps — mirror engine.run_backtest: only strategies that declare
+    # `index` get it (TTIBS/REPLAY need real dates; without this they return None
+    # on every trial and the whole search degenerates to 0 valid configs).
+    pass_idx = IDX is not None and "index" in sp
 
     def _ev(a, b, params, keep_trades=False):
         """Evaluate params on the [a:b) window, slicing extras consistently.
@@ -155,6 +160,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
             ex["volumes"] = V[a:b]
         if pass_day:
             ex["day_id"] = did[a:b]
+        if pass_idx:
+            ex["index"] = IDX[a:b]
         try:
             if cost_pts > 0:
                 m = fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=True, **ex, **params)
@@ -331,6 +338,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 ex["volumes"] = V
             if pass_day:
                 ex["day_id"] = did
+            if pass_idx:
+                ex["index"] = IDX
             try:
                 if cost_pts > 0:
                     m = fn(O, H, L, C, return_trades=True, **ex, **pp)
@@ -389,6 +398,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 ex["volumes"] = V[a:b]
             if pass_day:
                 ex["day_id"] = did[a:b]
+            if pass_idx:
+                ex["index"] = IDX[a:b]
             try:
                 m = fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=True, **ex, **pp)
             except Exception:
@@ -419,6 +430,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                     _exf["volumes"] = V
                 if pass_day:
                     _exf["day_id"] = did
+                if pass_idx:
+                    _exf["index"] = IDX
                 _wm = fn(O, H, L, C, return_trades=True, **_exf, **bp)
                 if _wm and _wm.get("trades"):
                     _mm = mae_mfe(_wm["trades"], H, L)
@@ -466,6 +479,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 _exf["volumes"] = V
             if pass_day:
                 _exf["day_id"] = did
+            if pass_idx:
+                _exf["index"] = IDX
             _wm = fn(O, H, L, C, return_trades=True, **_exf, **_bp)
             if _wm and _wm.get("trades"):
                 _mm = mae_mfe(_wm["trades"], H, L)
@@ -487,6 +502,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 _cexf["volumes"] = V
             if pass_day:
                 _cexf["day_id"] = did
+            if pass_idx:
+                _cexf["index"] = IDX
             _ctrades = None
             try:
                 _cwm = fn(O, H, L, C, return_trades=True, **_cexf, **_cbp)
