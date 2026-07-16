@@ -432,6 +432,16 @@ found — a pre-existing ENGU-Q reproducibility defect — before the lockbox sh
   same one-look lockbox accounting.
 - Artifacts: scratchpad ttibs/ ttibs_lockbox_prereg.md, ttibs_lockbox_oneshot.py, ttibs_lockbox_report.md
   (+ oneshot/dryrun results .json).
+- **2026-07-16 addendum — web run #161 (owner asked to SEE a full Auto-Validate on TTIBS): PASS 7/7 —
+  but it does NOT reopen the family.** The run exposed and fixed a real engine bug first (see Changelog:
+  `run_auto` never passed `index`; broken run #160 = FAIL 2/5 / PF 0.00 / $0 is the bug artifact, kept in
+  history). The corrected #161 (XL, 300 trials, 18-mo lockbox 2024-12-30→2026-06-30): IS PF 1.97, lockbox
+  HELD +$86,301 / PF 1.55 / 59 tr, ES transfer holds (PF 1.57 / $250.8k / 666 tr). ⚠️ Why this coexists
+  with the round-7 FAIL: (1) its Bayesian champion FILLS AT THE CLOSE (blotter entries 15:55, exit next
+  close) — the look-ahead-flavored mode round 7 excluded from deploy (next-open haircut ~21.5%);
+  (2) different holdout (18 mo, includes the strong 2025-H1) and a config never taken through G3–G6
+  (regime spread / ENGU-Q-disguise / year concentration); (3) the pre-registered 12-mo next-open one-shot
+  FAILED and remains the binding verdict. #161 = visibility + engine-fix verification, not a deploy case.
 
 **2026-07-15 — round 9 independent replication (parallel session): GAPFADE 1.0 built + triaged from
 scratch (216 configs, fixed-%-band + conditioning variant) — DEAD. Same verdict as round 9 below, reached
@@ -533,6 +543,28 @@ external-conditioning diagnostic. Both come back empty — and the emptiness is 
   quadruple-confirmed dead money.
 - Artifacts: scratchpad orbcond/ (orbcond_report.md, results + followups .json, blotter csv, drivers);
   round-2 research summaries in-session.
+
+**2026-07-16 — challenger round 12 ("new params on the promising ones"): NOISE-2 became the program's strongest challenger — 4 of 5 battery gates — then FAILED ES transfer. No lockbox fired; family shelved with its holdout INTACT.**
+- This round's grid (108 configs): **wider symmetric bands (1.5× vs the paper's 1.0×) + VWAP exit turned NOISE
+  regime-healthy on NQ 5m** — the pre-registered question answered YES: LB14/1.5/1.5/vwap/both/all-day =
+  MAR 8.14, n=3,147, $254.4k, PF 1.31, DD −$31.2k, 2010–2017 **+$15.8k**, corr vs ORB 0.22. Long-only and
+  time-window cuts HURT this family (unlike everywhere else in the program); 1-minute execution kills it
+  (2010–17 flips negative) — the edge stands on 5m only. DRIVE closed permanently in the same round
+  (best-ever MAR 10.91 long-only + gap-align, still regime-concentrated at 20.8% pre-2021).
+- **Validation battery (pre-registered, all-five-or-nothing):** C1 walk-forward **PASS** (frozen 5/6 folds
+  OOS-positive; per-fold re-selection over the full grid doesn't crater but never beats the frozen config) ·
+  C2 neighborhood **PASS** (mean neighbor MAR 6.19 ≥ 4.89) · C3 family health **PASS** (median 5.91 ≥ 5) ·
+  C5 bootstrap **PASS** (P(net≤0)=0.0000, 5th-pct +$140.7k) · **C4 ES TRANSFER FAIL: PF 1.123 < 1.2**, ES
+  era table re-concentrates (2010–17 −$11.6k) and ES avg loss 5.9 pts = fill-artifact zone. **Verdict:
+  FAIL — the edge does not travel; working suspicion = NQ post-2018-regime specificity.** Precedent note:
+  TTIBS PASSED the ES gate and still died at its lockbox — 4/5 with the transfer gate failed earns no look.
+- Status: **NOISE-2 = 🔬 research shelf, strongest failed challenger of the program.** Its lockbox was
+  NEVER spent — honestly revisitable if a year of new data changes the regime picture. Banked autopsy for
+  any revival: the VWAP exit whipsaws in extreme vol (2020: −$91.7k on vwap-exits vs +$84.1k on EOD-flats)
+  → test a vol-conditional exit first.
+- **Tally: 12 rounds across both sessions · ~2,000 configs · 2 lockboxes spent · 0 beat ORB.**
+- Artifacts: session scratchpad round11_report.md, noise2_battery_report.md (+ per-condition .json,
+  r11_*.py, run_c1_walkforward.py, r11_verify_yes.py).
 
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
@@ -676,6 +708,15 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-16** — **Engine fix (web run #160 → #161): `run_auto` never passed bar timestamps (`index`)
+  to index-aware strategies** — TTIBS/REPLAY returned None on every trial, so Auto-Optimize/Auto-Validate
+  on them degenerated to 0 valid configs (#160: FAIL 2/5, IS PF 0.00, $0, empty top-configs). All six
+  evaluator sites in `augur_engine/auto.py` now mirror `engine.run_backtest`'s declare-and-pass pattern;
+  verified with an 8-trial run_auto (real champion returned); runner restarted. Corrected **run #161
+  Auto-Validate (XL, 18-mo lockbox): PASS 7/7, IS PF 1.97, lockbox HELD +$86.3k / PF 1.55** — read with
+  the round-7 addendum caveats (close-fill champion, different holdout, G3–G6 never applied): the
+  pre-registered round-7 one-shot FAIL remains the family verdict. Legacy `optimizer.py` has the same
+  missing-index pattern (line ~2117) — noted, not fixed (web pipeline is canonical).
 - **2026-07-15** — **Round 11 (web deep-dive round 2 + ORB conditioning diagnostic): EMPTY, decisively.**
   Untapped sources (Quantpedia/Alvarez/Quantifiable Edges/Davey/fresh SSRN-arXiv) yield nothing; a May-2026
   arXiv falsification series independently replicates our graveyard on MNQ 5m (14 families, none pass).
