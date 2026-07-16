@@ -3,8 +3,8 @@
 **Single source of truth for where the backtesting engine stands.** Update this
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
-- **Last updated:** 2026-07-15
-- **Web VERSION:** 56.3 · **Stack board (`method_stack.html`):** v4.1
+- **Last updated:** 2026-07-16
+- **Web VERSION:** 56.4 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
@@ -708,6 +708,11 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-16** — **Challenger round 12: NOISE-2 (wide-band Zarattini envelope) = the program's strongest
+  challenger — regime-healthy on NQ (MAR 8.14, 2010–17 positive, corr 0.22), passed 4/5 pre-registered
+  battery gates (WF 5/6 · neighborhood · family · bootstrap P=0.0000) — then FAILED ES transfer (PF 1.12).
+  No lockbox fired; shelved with holdout intact.** DRIVE closed permanently. Tally 12 rounds · ~2,000
+  configs · 0 beat ORB. Detail §3.
 - **2026-07-16** — **Engine fix (web run #160 → #161): `run_auto` never passed bar timestamps (`index`)
   to index-aware strategies** — TTIBS/REPLAY returned None on every trial, so Auto-Optimize/Auto-Validate
   on them degenerated to 0 valid configs (#160: FAIL 2/5, IS PF 0.00, $0, empty top-configs). All six

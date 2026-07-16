@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='56.3';
+const VERSION='56.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'56.4', date:'2026-07-16', notes:['Challenger round 12: the wide-band noise-envelope strategy became the strongest challenger yet - regime-healthy on NQ and 4 of 5 validation gates passed - but failed the ES transfer gate, so no lockbox was fired and it is shelved with its holdout intact. DRIVE is closed permanently. See BACKTESTING_STACK section 3.']},
   {v:'56.3', date:'2026-07-15', notes:['Challenger round 10 (web deep-dive): the Zarattini noise-envelope intraday momentum strategy is a real mechanism (all 54 configs net-positive, low ORB correlation) but regime-concentrated exactly as its own paper warns - flat-to-negative 2010-2017. No bar cleared; the web is fully swept. See BACKTESTING_STACK section 3.']},
   {v:'56.2', date:'2026-07-15', notes:['Challenger round 9: gap-fade and calendar (turn-of-month) both dead - the web shortlist is fully dispatched. Also recorded: TTIBS failed its lockbox one-shot (round 7) and is closed as research. No live challengers remain; meta-finding: daily-scale edges in this data are long-only buy-weakness. See BACKTESTING_STACK section 3.']},
   {v:'56.1', date:'2026-07-14', notes:['Docs reconciliation: two concurrent sessions both labeled their work challenger round 7 - TTIBS keeps round 7 (first to land, sole triage survivor, validation pending), the SWEEP/0DTE round is renumbered to round 8. Tallies corrected in BACKTESTING_STACK.']},
