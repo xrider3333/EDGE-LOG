@@ -203,51 +203,62 @@ def clip_window(trades, date_from=None, date_to=None):
 _NS_MIN = 60_000_000_000   # nanoseconds per minute
 
 
-def _entry_ns(trades):
-    """int64 ns-since-epoch of each (tz-naive) entry time — for fast vectorized matching."""
+def _entry_ns(trades, daily=False):
+    """int64 ns-since-epoch of each (tz-naive) entry time — for fast vectorized matching.
+    daily=True floors each entry to its calendar DATE (time-of-day dropped) — for
+    DAILY-bar blotters (e.g. TTIBS 1.0 fill_mode='close') where the engine's fill time-
+    of-day isn't constant (early-close/half sessions fill at 11:25/12:55/13:10 instead of
+    the usual 15:55), so a single global time-offset can't align every trade, but the
+    calendar DATE always matches a TV daily bar's own date regardless of session length."""
+    if daily:
+        return np.fromiter((pd.Timestamp(t.entry_dt.date()).value for t in trades),
+                           dtype=np.int64, count=len(trades))
     return np.fromiter((t.entry_dt.value for t in trades), dtype=np.int64, count=len(trades))
 
 
-def _coverage(a, b, offset_min, tol_min):
+def _coverage(a, b, offset_min, tol_min, daily=False):
     """How many `a` entries have a `b` entry within tol after shifting `a` by offset. O(n log n)."""
     if not a or not b:
         return 0
-    an = _entry_ns(a) + int(offset_min * _NS_MIN)
-    bns = np.sort(_entry_ns(b))
+    an = _entry_ns(a, daily) + int(offset_min * _NS_MIN)
+    bns = np.sort(_entry_ns(b, daily))
     tol = int(tol_min * _NS_MIN)
     lo = np.searchsorted(bns, an - tol, side="left")
     hi = np.searchsorted(bns, an + tol, side="right")
     return int(np.count_nonzero(hi > lo))
 
 
-def best_offset(a, b, tol_min):
+def best_offset(a, b, tol_min, daily=False):
     """Whole-hour offset (minutes, applied to side A) that aligns the most trades; also tries
     the empirical median nearest-neighbour delta to catch odd offsets. O(n log n) — scales to
-    thousands of trades (a full-history deep-backtest export)."""
+    thousands of trades (a full-history deep-backtest export). daily=True matches on calendar
+    date only (see _entry_ns) — pass for DAILY-bar strategies (e.g. TTIBS 1.0)."""
     if not a or not b:
         return 0
     cands = list(CAND_OFFSETS_MIN)
-    an = _entry_ns(a); bns = np.sort(_entry_ns(b))
+    an = _entry_ns(a, daily); bns = np.sort(_entry_ns(b, daily))
     idx = np.clip(np.searchsorted(bns, an), 0, len(bns) - 1)
     left = np.clip(idx - 1, 0, len(bns) - 1)
     near = np.where(np.abs(bns[left] - an) <= np.abs(bns[idx] - an), bns[left], bns[idx])
     med = int(round(float(np.median(near - an)) / _NS_MIN))
     if med not in cands:
         cands.append(med)
-    scored = sorted(((_coverage(a, b, off, tol_min), -abs(off), off) for off in cands), reverse=True)
+    scored = sorted(((_coverage(a, b, off, tol_min, daily), -abs(off), off) for off in cands), reverse=True)
     return scored[0][2]
 
 
-def match(a, b, offset_min, tol_min):
+def match(a, b, offset_min, tol_min, daily=False):
     """Greedy one-to-one match on entry time (a shifted by offset), closest pairs first. Only
     b's inside each a's ±tol window are considered (searchsorted), so this is O(n log n), not
     O(n²) — a 15-year, ~3,800-trade deep export reconciles in well under a second.
+    daily=True matches on calendar date only, ignoring fill time-of-day (see _entry_ns) — use
+    for DAILY-bar strategies where the engine's own fill time isn't constant (half sessions).
     Returns (matched:[(ta, tb, dt_min)], unmatched_a, unmatched_b)."""
     if not a or not b:
         return [], list(a), list(b)
     off_ns = int(offset_min * _NS_MIN); tol = int(tol_min * _NS_MIN)
-    an = _entry_ns(a) + off_ns
-    bn = _entry_ns(b)
+    an = _entry_ns(a, daily) + off_ns
+    bn = _entry_ns(b, daily)
     border = np.argsort(bn, kind="stable"); bns = bn[border]
     lo = np.searchsorted(bns, an - tol, side="left")
     hi = np.searchsorted(bns, an + tol, side="right")
@@ -368,9 +379,10 @@ def _fmt(ts):
     return ts.strftime("%Y-%m-%d %H:%M") if ts is not None else None
 
 
-def build_result(a, a_meta, b, b_meta, offset_min, tol_min):
-    """Diff two blotters → a JSON-safe dict (summary + diagnosis + per-trade rows)."""
-    matched, un_a, un_b = match(a, b, offset_min, tol_min)
+def build_result(a, a_meta, b, b_meta, offset_min, tol_min, daily=False):
+    """Diff two blotters → a JSON-safe dict (summary + diagnosis + per-trade rows).
+    daily=True matches on calendar date only — for DAILY-bar strategies (see match())."""
+    matched, un_a, un_b = match(a, b, offset_min, tol_min, daily=daily)
     a_label, b_label = a_meta.get("source", "A"), b_meta.get("source", "B")
     dts = [m[2] for m in matched]
     dpnls = [m[0].pnl_usd - m[1].pnl_usd for m in matched
@@ -462,9 +474,11 @@ def edgelog_blotter(strategy, instrument, timeframe, session, params, *,
 
 def run_reconcile(strategy, *, instrument, timeframe="5m", session="rth", params=None,
                   date_from=None, date_to=None, cost_pts=0.0, tv_text=None, nt_text=None,
-                  tol_min=10.0, mult=None):
+                  tol_min=10.0, mult=None, daily=False):
     """High-level entry for the runner: run the engine, parse the pasted TV/NT export
-    text, and return a JSON-safe result per platform. Windows both sides to date_from/to."""
+    text, and return a JSON-safe result per platform. Windows both sides to date_from/to.
+    daily=True matches on calendar date only — for DAILY-bar strategies (e.g. TTIBS 1.0)
+    whose engine fill time-of-day isn't constant (half-session early closes)."""
     mult = mult if mult is not None else MULT.get(str(instrument).upper(), 1)
     # Parse the pasted export(s) FIRST, so we can auto-window the engine to their own date
     # span — the UI never has to ask for dates.
@@ -486,6 +500,6 @@ def run_reconcile(strategy, *, instrument, timeframe="5m", session="rth", params
     for key, (b, b_meta) in parsed.items():
         b = clip_window(b, date_from, date_to)
         b_meta["num_trades"] = len(b)
-        off = best_offset(a, b, tol_min)
-        out["platforms"][key] = build_result(a, a_meta, b, b_meta, off, tol_min)
+        off = best_offset(a, b, tol_min, daily=daily)
+        out["platforms"][key] = build_result(a, a_meta, b, b_meta, off, tol_min, daily=daily)
     return out

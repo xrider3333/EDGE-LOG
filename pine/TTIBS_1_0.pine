@@ -1,0 +1,153 @@
+//@version=5
+// =============================================================================
+//  AUGUR · TTIBS 1.0 — Daily IBS mean reversion (long-only) — ENGINE PARITY PORT
+//  Pine port of augur_strategies/TTIBS_1_0.py, PINNED to the engine<->TradingView
+//  reconcile config: trigger='ibs', ibs_entry=0.20, exit_mode='ibs_exit', hold_cap=6,
+//  ma200=False, fill_mode='close'. Not the deploy config (deploy uses fill_mode=
+//  'next_open') — 'close' is used here ONLY because process_orders_on_close=true
+//  gives IDENTICAL close-fill semantics on both platforms, a clean apples-to-apples
+//  cross-check of the fill/exit bookkeeping, not a tradeable edge on its own.
+//  v1.0 — 2026-07-16: initial parity port for the engine<->TV blotter reconcile.
+//
+//  PURPOSE: prove the ENGINE's daily-bar backtest logic (IBS entry/exit, hold-cap,
+//  one-position-at-a-time bookkeeping, close-fills) against an independent platform,
+//  via tools/reconcile.py --daily. Per BACKTESTING_STACK.md, the TTIBS 1.0 family's
+//  lockbox already FAILED (2026-07-15, sealed one-shot) — this port is a PARITY / QA
+//  exercise on the engine's fills, not a re-validation of the strategy's edge, and
+//  does not reopen the family.
+//
+//  CHART REQUIREMENTS (must match or the reconcile shows spurious diffs):
+//    - Symbol: NQ1! (continuous front-month NQ futures)
+//    - Timeframe: D (Daily)
+//    - Chart Settings -> Symbol -> Session -> "Regular trading hours" (RTH) — the
+//      daily bar must aggregate ONLY the RTH session, matching the engine's daily
+//      bars (built by collapsing 5m RTH bars off the Databento NOADJ NQ master:
+//      day_open = first 5m open, day_high/low = session max/min, day_close = last
+//      5m bar's close).
+//    - TV's own chart TIMEZONE does not affect the strategy math (only which bars
+//      fall inside the RTH session does) — but note it when reading "Date and time"
+//      off the exported List of Trades. tools/reconcile.py's new `--daily` mode
+//      matches on calendar DATE only (see reconcile note below), so a chart-timezone
+//      offset that never rolls a bar across a calendar-date boundary is harmless.
+//
+//  PARAMS (parity config — pin these for the reconcile run, don't sweep):
+//    ibsEntry=0.20, ibsExit=0.80, holdCap=6 trading days. Trigger is always the
+//    plain "ibs" rule (the engine's mon1pct/mon_ibs day-of-week triggers are NOT
+//    ported — the parity config uses trigger='ibs' only). ma200 regime filter is
+//    OFF (parity config has ma200=False). No stop-loss (matches the .py's v1.0).
+//
+//  LOGIC (mirrors run_backtest()'s trigger='ibs' / fill_mode='close' /
+//  exit_mode='ibs_exit' branch bar-for-bar):
+//    1. IBS = (close-low)/(high-low) of THIS daily bar; 0.5 if the bar has zero
+//       range (matches the engine's `np.where(rng>1e-9, ..., 0.5)` exactly).
+//    2. Entry: while FLAT, if IBS < ibsEntry, enter long AT THIS BAR'S CLOSE.
+//       process_orders_on_close=true fills the market order at the signal bar's
+//       own close — exactly `entry_price = day_close[t]` in the engine, no
+//       approximation needed (unlike ORB's stop-entry, which DOES diverge under
+//       process_orders_on_close — see ORB_3_0.pine's fidelity notes; TTIBS has no
+//       such gap because both sides use a plain close-fill here).
+//    3. Exit: starting the NEXT bar after entry, exit at THAT bar's close on the
+//       FIRST of: (a) IBS > ibsExit, or (b) bars-since-entry reaches holdCap
+//       (force-exit regardless of IBS on the holdCap'th bar). One position at a
+//       time; no pyramiding, no stop-loss, no partial exits. Pine's execution
+//       model naturally matches the engine's `first_check = fill_day + 1` here:
+//       strategy.position_size does not reflect an entry() call's fill until the
+//       NEXT bar's script evaluation (process_orders_on_close=true fills the order
+//       at this bar's close, but the runtime only updates strategy.* state between
+//       bars) — so the exit-management block below is a no-op on the entry bar
+//       itself, exactly like the engine never checking cday==fill_day for an exit.
+//
+//  COMMISSION: cash_per_order 5.33 (= 0.533 pts/RT parity cost x $20/pt / 2 sides)
+//  so this file's own "Net PnL USD" is directly comparable to the engine blotter's
+//  pnl_usd when the engine side is ALSO run with --cost-pts 0.533 (the parity cost)
+//  — i.e. both sides carry the identical round-trip cost baked in, so a clean
+//  reconcile shows total_delta ~= $0, not a $10.66/trade constant fee gap. (If you
+//  instead want a raw GROSS cross-check, set commission_value=0 here and run the
+//  CLI with --cost-pts 0 — either convention works, just keep both sides matched.)
+//
+//  KNOWN / EXPECTED MISMATCH CLASSES (structural — do not chase these as bugs):
+//    - ROLL-SEAM GUARD (engine-only): the engine's NOADJ continuous-contract stitch
+//      has a real price discontinuity at each quarterly roll, and TTIBS_1_0.py
+//      force-exits any open position the day BEFORE a detected roll seam and blocks
+//      a new entry from filling that day (detect_roll_seams(), calibrated on
+//      48/64 quarters, offset median -2 days vs the 3rd Wednesday). TV's NQ1! rolls
+//      on ITS OWN volume/OI-based schedule with no equivalent guard, and — per the
+//      parity spec — this port deliberately does NOT replicate the seam logic.
+//      Expect a handful of near-roll trades to disagree (the engine skipping an
+//      entry/forcing an exit that TV takes normally, or timing offsets) purely from
+//      this cause; it is a documented engine-side guard, not a TV bug.
+//    - CONTINUOUS-CONTRACT CONSTRUCTION: Databento's NOADJ stitch and TV's NQ1! are
+//      built by different providers/rules (roll timing, back-adjustment policy) —
+//      expect a small, roll-period-clustered set of price-level (and occasionally
+//      IBS-sign, i.e. signal) disagreements even on non-seam-guarded days.
+//    - SESSION / EARLY-CLOSE EDGE CASES: the engine's daily close is whatever the
+//      NOADJ RTH master's last 5m bar of that session is — 15:55 ET on normal days,
+//      but EARLIER on half sessions (day before Thanksgiving, Jul 3, Christmas Eve:
+//      11:25/12:55/13:10 ET in the master). If TV's RTH session definition for NQ1!
+//      handles early closes differently, that day's IBS (and therefore the signal)
+//      can differ. This is exactly why tools/reconcile.py's new `--daily` mode
+//      matches on calendar DATE, not fill time-of-day, for this family — see the
+//      reconcile note below.
+//    - NO VOLUME / NO SEAM on the TV side (by design, per the parity spec) — this
+//      file is a faithful port of the PARITY cross-check config only, not the
+//      deploy config (which uses fill_mode='next_open').
+//
+//  RECONCILE: use `python tools/reconcile.py ... --daily` (not the default
+//  intraday matcher) — daily bars need calendar-date matching because the engine's
+//  own fill time-of-day is NOT constant (see the early-close note above); a single
+//  global time offset can't straddle both the normal-session and half-session
+//  populations at once. See RUNBOOK.md for the exact command.
+//
+//  RESEARCH / paper-trading tool. Cross-check with tools/reconcile.py --daily before
+//  trusting this file's fills as ground truth; the ENGINE (augur_strategies/
+//  TTIBS_1_0.py) is authoritative.
+// =============================================================================
+strategy("AUGUR TTIBS 1.0 - Daily IBS mean reversion (long) [PARITY]", overlay=true,
+     default_qty_type=strategy.fixed, default_qty_value=1, pyramiding=0,
+     initial_capital=5000000, currency=currency.USD,
+     commission_type=strategy.commission.cash_per_order, commission_value=5.33,
+     slippage=0, calc_on_every_tick=false, process_orders_on_close=true)
+
+strategy.risk.allow_entry_in(strategy.direction.long)   // belt-and-suspenders: long-only
+
+// ---- Inputs (parity config -- defaults pinned; ranges match DEFAULT_PARAMS) -----
+gS = "TTIBS"
+ibsEntry = input.float(0.20, "IBS Entry Threshold", minval=0.05, maxval=0.40, step=0.05, group=gS,
+     tooltip="Enter long when IBS = (close-low)/(high-low) of THIS daily bar is below this. Engine parity default: 0.20.")
+ibsExit  = input.float(0.80, "IBS Exit Threshold", minval=0.50, maxval=0.95, step=0.05, group=gS,
+     tooltip="Exit at the first close (checked starting the bar AFTER entry) with IBS above this. Engine parity default: 0.80.")
+holdCap  = input.int(6, "Max Hold (trading days)", minval=1, maxval=10, group=gS,
+     tooltip="Force-exit this many trading days after entry if no IBS exit has fired yet. Engine parity default: 6.")
+
+// ---- Core series ------------------------------------------------------------
+rng = high - low
+ibs = rng > 0.0 ? (close - low) / rng : 0.5   // matches engine's np.where(rng>1e-9, ..., 0.5)
+
+// ---- Trade state (persists across bars for the life of one trade) -----------
+var int barsSinceEntry = 0
+
+// ---- Entry (long-only, evaluated only while flat) ----------------------------
+longSignal = strategy.position_size == 0 and ibs < ibsEntry
+
+if longSignal
+    strategy.entry("L", strategy.long)
+    // process_orders_on_close=true => fills at THIS bar's close, matching the
+    // engine's fill_mode='close' entry_price = day_close[t] exactly.
+    barsSinceEntry := 0
+
+// ---- Exit management ----------------------------------------------------------
+// strategy.position_size only reflects the fill starting the bar AFTER entry()
+// was called (Pine's process_orders_on_close execution model), so this block is
+// naturally a no-op on the entry bar itself -- exactly like the engine's
+// first_check = fill_day + 1 (never checks an exit on the signal/fill day).
+if strategy.position_size > 0
+    barsSinceEntry := barsSinceEntry + 1
+    ibsExitHit  = ibs > ibsExit
+    capHit      = barsSinceEntry >= holdCap
+    if ibsExitHit or capHit
+        strategy.close("L", comment = ibsExitHit ? "ibs_exit" : "hold_cap")
+
+// ---- Plots --------------------------------------------------------------------
+plot(ibs, "IBS", color.new(color.orange, 0), style=plot.style_line)
+hline(ibsEntry, "IBS Entry", color.new(color.green, 50))
+hline(ibsExit, "IBS Exit", color.new(color.red, 50))

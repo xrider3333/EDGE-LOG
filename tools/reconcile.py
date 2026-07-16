@@ -68,9 +68,12 @@ def _fmt_dt(ts):
     return ts.strftime("%Y-%m-%d %H:%M") if ts is not None else "—"
 
 
-def render(a, a_meta, b, b_meta, offset_min, tol_min):
-    """Human-readable report for the CLI, plus the summary dict (for --self-test)."""
-    res = build_result(a, a_meta, b, b_meta, offset_min, tol_min)
+def render(a, a_meta, b, b_meta, offset_min, tol_min, daily=False):
+    """Human-readable report for the CLI, plus the summary dict (for --self-test).
+    daily=True matches on calendar date only (see augur_engine.reconcile.match) — pass
+    for DAILY-bar strategies (e.g. TTIBS 1.0) whose engine fill time-of-day isn't
+    constant (half-session early closes break a single global time offset)."""
+    res = build_result(a, a_meta, b, b_meta, offset_min, tol_min, daily=daily)
     s = res["summary"]
     a_label, b_label = res["a_source"], res["b_source"]
     L = []
@@ -198,6 +201,11 @@ def main(argv=None):
     ap.add_argument("--nt", default=None, help="NinjaTrader trades CSV, or 'auto' = newest in Downloads")
     ap.add_argument("--hint", default="", help="substring to bias the 'auto' Downloads pick")
     ap.add_argument("--tol-min", type=float, default=10.0)
+    ap.add_argument("--daily", action="store_true",
+                    help="match on calendar DATE only, ignoring fill time-of-day — for "
+                         "DAILY-bar strategies (e.g. TTIBS 1.0) whose engine entry/exit "
+                         "time isn't constant (half-session early closes break the "
+                         "usual fixed-minute-offset matcher).")
     ap.add_argument("--out", default=None)
     ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args(argv)
@@ -226,8 +234,8 @@ def main(argv=None):
         b, b_meta = parser(path, mult)
         b = clip_window(b, args.date_from, args.date_to)
         b_meta["num_trades"] = len(b)
-        off = best_offset(a, b, args.tol_min)
-        report, _ = render(a, a_meta, b, b_meta, off, args.tol_min)
+        off = best_offset(a, b, args.tol_min, daily=args.daily)
+        report, _ = render(a, a_meta, b, b_meta, off, args.tol_min, daily=args.daily)
         print(report); print("\n" + "=" * 78 + "\n")
         reports.append(report)
     if args.out and reports:
