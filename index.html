@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='57.0';
+const VERSION='57.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'57.1', date:'2026-07-16', notes:['Past Runs group view is now a full FAMILY LEDGER: expanding a strategy shows a labelled header row plus two new columns — MAR (net divided by max drawdown, the risk-adjusted score used to pick deploys) and LB PF (the held-out lockbox profit factor). With the existing NET / PF / MAX DD / gates / WF / SCORE columns, an expanded family reads as the complete run-history reference table for that strategy.']},
   {v:'57.0', date:'2026-07-16', notes:['Compare: new OVERALL / WALK-FORWARD / LOCKBOX scope toggle on the KPI table — compare the runs on their out-of-sample slices, not just the whole-run numbers (runs that did not run a slice show a dash). A note under the table explains that OVERALL for a plain sweep is the best IN-SAMPLE config (optimistic), which is why a sweep can show a far bigger net than validated champions.','Compare: new "Tests run" row — IS / WF / LB chips per run showing which checks each run actually has (lit = ran; WF / LB colour shows held or failed), so apples-to-oranges comparisons are visible at a glance.','Compare: the NET P&L chart is now clean horizontal bars (colour-keyed to the overlay legend, exact $ at the right) — the old stretched chart squished on wide screens.']},
   {v:'56.9', date:'2026-07-16', notes:['Grouped Compare / Rankings: finished the blank-name fix from 56.8 — the header check now looks at the VISIBLE text (not the markup), so the "(no strategy label)" fallback actually shows for the legacy empty-strategy group.']},
   {v:'56.8', date:'2026-07-16', notes:['Grouped views (Past Runs / Compare / Rankings): 21 legacy runs carry an EMPTY strategy field, which made one group render with a blank name — those now group under an explicit "(no strategy label)" tile everywhere.']},
@@ -8587,9 +8588,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<span style="flex:0 0 66px;text-align:right;color:'+((T.net||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(T.net||0)+'</span>'
             +'<span style="width:44px;text-align:right;color:var(--text4)">'+(T.pf||0).toFixed(2)+'</span>'
             +'<span style="width:54px;text-align:right;color:var(--red)">'+(T.dd?fmtUsd(-Math.abs(T.dd)):'—')+'</span>'
+            +'<span style="width:38px;text-align:right;color:var(--text2);font-weight:600" title="MAR = net ÷ max drawdown (risk-adjusted return)">'+((T.net&&T.dd)?(T.net/Math.abs(T.dd)).toFixed(1):'—')+'</span>'
+            +'<span style="width:40px;text-align:right;color:var(--text4)" title="lockbox (held-out) profit factor">'+((r.validate&&r.validate.lockbox&&r.validate.lockbox.pf)?(+r.validate.lockbox.pf).toFixed(2):'—')+'</span>'
             +'<span style="width:30px;text-align:center;color:var(--text4)">'+(_wfHeld(r)||'—')+'</span>'
             +'<span style="margin-left:auto;width:40px;text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':(sc>=45?'var(--yellow)':'var(--red)'))+'">'+sc+'</span>'
             +'</div>';};
+        // slim column-header line above a group's expanded run rows (the "family ledger")
+        const _gHdr='<div style="display:flex;align-items:center;gap:10px;padding:1px 8px 2px;font-size:8px;letter-spacing:.5px;color:var(--text5);user-select:none">'
+            +'<span style="width:12px"></span><span style="width:34px;text-align:right">RUN</span>'
+            +'<span style="flex:0 0 62px">BRANCH</span><span style="flex:0 0 92px">MODE</span>'
+            +'<span style="width:42px">GATES</span><span style="flex:0 0 66px;text-align:right">NET</span>'
+            +'<span style="width:44px;text-align:right">PF</span><span style="width:54px;text-align:right">MAX DD</span>'
+            +'<span style="width:38px;text-align:right">MAR</span><span style="width:40px;text-align:right">LB PF</span>'
+            +'<span style="width:30px;text-align:center">WF</span><span style="margin-left:auto;width:40px;text-align:right">SCORE</span></div>';
         const _grpTilesHtml=_groups.map(g=>{const open=window._resGroupOpen.has(g.k),showAll=window._resGroupAll.has(g.k),ch=g.champ,cT=g.cT,csc=scoreRun(ch);
           const mktLbl=g.mkts.length<=1?((g.mkts[0]||'')+((g.tfs.length===1&&g.tfs[0])?' '+g.tfs[0]:'')):(g.mkts.length+' markets');
           const head='<div data-grp="'+encodeURIComponent(g.k)+'" style="display:flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap;overflow:hidden">'
@@ -8606,7 +8617,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'</div></div>';
           let rows='';
           if(open){const shown=showAll?g.rs:g.rs.slice(0,4);
-            rows='<div style="margin-top:6px;display:flex;flex-direction:column;gap:2px">'+shown.map((r,i)=>_gRow(r,i===0)).join('')+((g.rs.length>4&&!showAll)?'<div data-grpall="'+encodeURIComponent(g.k)+'" style="cursor:pointer;font-size:9px;color:var(--blue);padding:4px 8px">show all '+g.rs.length+' runs ▾</div>':'')+'</div>';}
+            rows='<div style="margin-top:6px;display:flex;flex-direction:column;gap:2px">'+_gHdr+shown.map((r,i)=>_gRow(r,i===0)).join('')+((g.rs.length>4&&!showAll)?'<div data-grpall="'+encodeURIComponent(g.k)+'" style="cursor:pointer;font-size:9px;color:var(--blue);padding:4px 8px">show all '+g.rs.length+' runs ▾</div>':'')+'</div>';}
           return '<div style="'+_gcard+'">'+head+rows+'</div>';}).join('');
         const _grpCtl='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · by '+(_gGroupBy==='market'?'market':(_gGroupBy==='mode'?'mode':'strategy'))+' · '+_groups.length+' group'+(_groups.length===1?'':'s')+'</span>'+_famChips+'<span style="margin-left:auto;display:flex;gap:8px;align-items:center"><select data-resgroupby style="'+_ctlUni+';-webkit-appearance:none;-moz-appearance:none;appearance:none;text-align-last:left"><option value="strat"'+(_gGroupBy==='strat'?' selected':'')+'>group: strategy</option><option value="market"'+(_gGroupBy==='market'?' selected':'')+'>group: market</option><option value="mode"'+(_gGroupBy==='mode'?' selected':'')+'>group: mode</option></select><span data-reskeepers title="show only deploy-ready runs: validated PASS with the lockbox or walk-forward held" style="'+_ctlUni+(_gKeeps?';background:color-mix(in srgb,#1d9e75 16%,var(--bg1));color:#1d9e75;border-color:#1d9e75':'')+'">✓ keepers only</span>'+_viewSeg+'</span></div>';
         const groupedTile=_grpCtl+'<div id="res-listscroll" style="overflow:auto;max-height:'+(rv==='side'?'86vh':rVH+'px')+'">'+(_groups.length?_grpTilesHtml:'<div style="color:var(--text5);font-size:var(--fsxs);padding:18px;text-align:center">no runs match — clear the keepers filter</div>')+'</div>';
