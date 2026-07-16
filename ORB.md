@@ -407,6 +407,11 @@ MAR/DD compare on the same risk basis. in-sample + held-out lockbox.
   dollar). Base pinned to #137; runner knobs open — discovery picked **target 4.0R / trail 12** (net
   $181,431 / DD $10,611 / PF 1.57 in-window); §4.16's 4.5R/trail-5 sits on the same plateau (trail 3–12
   all close). The most complete report card in the family: better PF and DD than the single-lot master.
+- **ES transfer (2026-07-12) — PASS, no re-fit.** The NQ ensemble config dropped onto ES 5m RTH beats
+  the ES single-lot the same way it does on NQ: full MAR **22.8 vs 17.4** (tgt4.5/tr5), lockbox MAR
+  **3.4–3.9 vs 2.5**, LB PF 1.42–1.44 vs 1.33, DD −35% both windows. #159's champion (tgt4.0/tr12)
+  and the §4.16 book (tgt4.5/tr5) sit on the same plateau on ES too. **The ensemble structure is
+  instrument-independent — E is fully hardened (WF ✓ lockbox ✓ gates ✓ ES ✓).**
 - **Master single-lot report re-run the same day: run #157** (`ORB_3_0_BEAV.py` — #137 base space OPEN,
   `trade_mode` pinned Both after the first pass wandered Short Only per §4.12, BE 1.0R baked into every
   config). **PASS 6/6, 8/8 folds, lockbox PF 1.49**, 200-config space on the tiles. NOTE: with BE baked
