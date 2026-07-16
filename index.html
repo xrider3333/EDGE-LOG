@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='56.7';
+const VERSION='56.8';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'56.8', date:'2026-07-16', notes:['Grouped views (Past Runs / Compare / Rankings): 21 legacy runs carry an EMPTY strategy field, which made one group render with a blank name — those now group under an explicit "(no strategy label)" tile everywhere.']},
   {v:'56.7', date:'2026-07-16', notes:['Grouped Compare / Rankings: strategy groups whose runs use an unregistered strategy file no longer show a BLANK name — the header falls back to the raw strategy label.']},
   {v:'56.6', date:'2026-07-16', notes:['Compare: the PICK RUNS list has a ▦ GROUP toggle — the same by-strategy grouping as Past Runs (collapsible strategy tiles, champion first, with a selected-count per group); rows inside stay click-to-toggle checkboxes.','Rankings: same ▦ GROUP toggle — one header row per strategy (best score, best net, its global rank), click to expand that strategy runs; the # column keeps each run overall rank.','Compare equity overlay now marks the WHOLE validation story on every curve: soft thick sleeves = the walk-forward OUT-OF-SAMPLE fold windows (approximate, bar-time mapped like the 1A bands), a tick + dashed tail = the lockbox (unseen) slice.']},
   {v:'56.5', date:'2026-07-16', notes:['Rankings tab fixed — it crashed with "(r.timestamp || …).slice is not a function" when a run carried a non-text timestamp; run timestamps are now normalised on load so every tab is safe.','Compare tab redesigned: a PICK RUNS checklist on the left — click a row to add or remove it (up to 8, with a strategy filter and a reset) — instead of the old hidden dropdown. The KPI table keeps the best value per row in green.','Compare: new EQUITY OVERLAY — one coloured curve per selected run (x = progress through that run, dashed tail = its lockbox slice), with a colour-keyed legend; the net P&L bars now match those colours and label each run id.']},
@@ -8188,7 +8189,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // ── PICKER (owner: could not tell how to select runs — it was a small dropdown). A checkbox
         //    run list: CLICK A ROW to add / remove it from the comparison (max 8). Filter by strategy;
         //    the selection persists across visits (APREF.cmpIds). ──
-        const _labOf=r=>((typeof stratInfo==='function'&&stratInfo(r.strategy))?String(stratInfo(r.strategy).label||r.strategy):String(r.strategy||''));
+        const _labOf=r=>(((typeof stratInfo==='function'&&stratInfo(r.strategy))?String(stratInfo(r.strategy).label||r.strategy||''):String(r.strategy||'')).trim()||'(no strategy label)');
         const _cf=APREF.cmpStrat||'';
         const _strats=[];rs.forEach(r=>{const l=_labOf(r);if(_strats.indexOf(l)<0)_strats.push(l);});
         const _plist=(_cf?rs.filter(r=>_labOf(r)===_cf):rs).slice(0,200);
@@ -8311,7 +8312,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    keeps each run's GLOBAL rank so cross-strategy standing stays readable. ──
         const _rg=!!APREF.rankGroup;
         window._rankGrpOpen=window._rankGrpOpen||new Set();
-        const _rLab=r=>((typeof stratInfo==='function'&&stratInfo(r.strategy))?String(stratInfo(r.strategy).label||r.strategy):String(r.strategy||''));
+        const _rLab=r=>(((typeof stratInfo==='function'&&stratInfo(r.strategy))?String(stratInfo(r.strategy).label||r.strategy||''):String(r.strategy||'')).trim()||'(no strategy label)');
         let rows;
         if(_rg){const gm={};scored.forEach((o,i)=>{const l=_rLab(o.r);(gm[l]||(gm[l]=[])).push({o:o,gi:i});});
           const gs=Object.keys(gm).map(k=>({k:k,xs:gm[k]}));gs.sort((a,b)=>b.xs[0].o.s-a.xs[0].o.s);
@@ -8527,7 +8528,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // branch chip (BE / ENSEMBLE / MASTER / 2L…). Colour must be family-stable (not the per-file
         // lightness shade) or the HTML keys would differ and split the group again.
         const _grpTag=r=>{const i=stratInfo(r.strategy);const fm=FAM[i.fam];const col=fm?('hsl('+fm.hue+',56%,64%)'):i.color;
-          return '<span style="color:'+col+';font-weight:600">'+(i.num!=null?i.num+' · ':'')+i.abbr+(i.ver?' '+i.ver:'')+'</span>';};
+          const txt=(i.num!=null?i.num+' · ':'')+(i.abbr||'')+(i.ver?' '+i.ver:'');
+          if(!String(txt).trim())return '<span style="color:var(--text4);font-weight:600">(no strategy label)</span>';
+          return '<span style="color:'+col+';font-weight:600">'+txt+'</span>';};
         const _grpKeyOf=r=>_gGroupBy==='market'?(_instShort(r.instrument)||'—'):(_gGroupBy==='mode'?(_modeName[_modeNum(r)]||('mode '+_modeNum(r))):_grpTag(r));
         const _isKeeper=r=>{const v=r.validate&&r.validate.verdict;const lb=r.validate&&r.validate.lockbox&&r.validate.lockbox.pass;return v==='PASS'&&(lb||!!_wfHeld(r));};
         const _gVerChip=r=>{const v=r.validate&&r.validate.verdict;if(!v)return '';const c=v==='PASS'?'var(--green)':(v==='WEAK'?'var(--yellow)':'var(--red)');return '<span style="font-size:9px;font-weight:700;color:'+c+';border:1px solid '+c+';border-radius:10px;padding:0 6px">'+v+'</span>';};
