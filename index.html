@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='56.5';
+const VERSION='56.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'56.6', date:'2026-07-16', notes:['Compare: the PICK RUNS list has a ▦ GROUP toggle — the same by-strategy grouping as Past Runs (collapsible strategy tiles, champion first, with a selected-count per group); rows inside stay click-to-toggle checkboxes.','Rankings: same ▦ GROUP toggle — one header row per strategy (best score, best net, its global rank), click to expand that strategy runs; the # column keeps each run overall rank.','Compare equity overlay now marks the WHOLE validation story on every curve: soft thick sleeves = the walk-forward OUT-OF-SAMPLE fold windows (approximate, bar-time mapped like the 1A bands), a tick + dashed tail = the lockbox (unseen) slice.']},
   {v:'56.5', date:'2026-07-16', notes:['Rankings tab fixed — it crashed with "(r.timestamp || …).slice is not a function" when a run carried a non-text timestamp; run timestamps are now normalised on load so every tab is safe.','Compare tab redesigned: a PICK RUNS checklist on the left — click a row to add or remove it (up to 8, with a strategy filter and a reset) — instead of the old hidden dropdown. The KPI table keeps the best value per row in green.','Compare: new EQUITY OVERLAY — one coloured curve per selected run (x = progress through that run, dashed tail = its lockbox slice), with a colour-keyed legend; the net P&L bars now match those colours and label each run id.']},
   {v:'56.4', date:'2026-07-16', notes:['Challenger round 12: the wide-band noise-envelope strategy became the strongest challenger yet - regime-healthy on NQ and 4 of 5 validation gates passed - but failed the ES transfer gate, so no lockbox was fired and it is shelved with its holdout intact. DRIVE is closed permanently. See BACKTESTING_STACK section 3.']},
   {v:'56.3', date:'2026-07-15', notes:['Challenger round 10 (web deep-dive): the Zarattini noise-envelope intraday momentum strategy is a real mechanism (all 54 configs net-positive, low ORB correlation) but regime-concentrated exactly as its own paper warns - flat-to-negative 2010-2017. No bar cleared; the web is fully swept. See BACKTESTING_STACK section 3.']},
@@ -8190,7 +8191,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _cf=APREF.cmpStrat||'';
         const _strats=[];rs.forEach(r=>{const l=_labOf(r);if(_strats.indexOf(l)<0)_strats.push(l);});
         const _plist=(_cf?rs.filter(r=>_labOf(r)===_cf):rs).slice(0,200);
-        const pickRows=_plist.map(r=>{const on=ids.indexOf(String(r.id))>=0;const vv=r.validate?r.validate.verdict:'';const sc=scoreRun(r);
+        const _rowOf=r=>{const on=ids.indexOf(String(r.id))>=0;const vv=r.validate?r.validate.verdict:'';const sc=scoreRun(r);
           return '<div data-cmpk="'+r.id+'" style="display:flex;align-items:center;gap:7px;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:var(--fsxs);'+(on?'background:color-mix(in srgb,var(--blue) 13%,transparent);':'')+'" title="'+(on?'click to remove from the comparison':'click to add to the comparison')+'">'
             +'<span style="flex:0 0 13px;text-align:center;color:'+(on?'var(--blue)':'var(--text5)')+'">'+(on?'☑':'☐')+'</span>'
             +'<span style="flex:0 0 33px;text-align:right;color:var(--text3)">#'+r.id+'</span>'
@@ -8199,10 +8200,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<span style="flex:0 0 58px;text-align:right;color:'+((r.best_pnl_usd||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(r.best_pnl_usd||0))+'</span>'
             +'<span style="flex:0 0 28px;text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)')+'">'+sc+'</span>'
             +'<span style="flex:0 0 32px;font-size:8px;font-weight:700;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':'var(--red)')+'">'+(vv||'')+'</span>'
-            +'</div>';}).join('');
+            +'</div>';};
+        // ── ▦ GROUP view (owner: same by-strategy grouping as Past Runs) — collapsible strategy
+        //    tiles, champion first; the rows inside stay the same click-to-toggle checkboxes. ──
+        const _cg=!!APREF.cmpGroup;
+        window._cmpGrpOpen=window._cmpGrpOpen||new Set();
+        let pickBody;
+        if(_cg){const gm={};_plist.forEach(r=>{const l=_labOf(r);(gm[l]||(gm[l]=[])).push(r);});
+          const gs=Object.keys(gm).map(k=>({k:k,rs:gm[k].slice().sort((a,b)=>scoreRun(b)-scoreRun(a)||((b.best_pnl_usd||0)-(a.best_pnl_usd||0)))}));
+          gs.sort((a,b)=>scoreRun(b.rs[0])-scoreRun(a.rs[0]));
+          pickBody=gs.map(g=>{const open=window._cmpGrpOpen.has(g.k),ch=g.rs[0],nSel=g.rs.filter(r=>ids.indexOf(String(r.id))>=0).length;
+            return '<div style="margin-bottom:3px">'
+              +'<div data-cmpgrp="'+encodeURIComponent(g.k)+'" title="click to expand / collapse" style="display:flex;align-items:center;gap:7px;padding:4px 8px;border-radius:6px;cursor:pointer;background:color-mix(in srgb,var(--border) 22%,transparent);font-size:var(--fsxs)">'
+              +'<span style="flex:0 0 11px;color:var(--text3)">'+(open?'▾':'▸')+'</span>'
+              +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700">'+stratTag(ch.strategy)+'</span>'
+              +'<span style="flex:0 0 auto;font-size:8px;color:'+(nSel?'var(--blue)':'var(--text5)')+'">'+g.rs.length+' run'+(g.rs.length===1?'':'s')+(nSel?' · '+nSel+' ✓':'')+'</span>'
+              +'<span style="flex:0 0 auto;font-size:8px;color:'+((ch.best_pnl_usd||0)>=0?'var(--green)':'var(--red)')+'">best '+fmtUsd(Math.round(ch.best_pnl_usd||0))+'</span></div>'
+              +(open?g.rs.map(_rowOf).join(''):'')
+              +'</div>';}).join('');
+        }else pickBody=_plist.map(_rowOf).join('');
         const stratOpts='<option value="">all strategies</option>'+_strats.map(s=>'<option value="'+s.replace(/"/g,'')+'"'+(s===_cf?' selected':'')+'>'+s+'</option>').join('');
-        const pickerTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">PICK RUNS</span><span style="font-size:8px;color:var(--text5)">click a row to add / remove · max 8</span><span style="margin-left:auto;display:flex;gap:8px;align-items:center"><select data-cmpstrat style="width:auto;padding:2px 6px;font-size:var(--fsxs)">'+stratOpts+'</select><span data-cmpclear title="reset to the latest 3 runs" style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">reset</span></span></div>'
-          +'<div style="overflow:auto;max-height:74vh">'+(pickRows||'<div style="color:var(--text5);font-size:var(--fsxs);padding:14px;text-align:center">no runs match this strategy filter</div>')+'</div>');
+        const _grpBtn='<button data-cmpgroupbtn title="'+(_cg?'grouped by strategy — click for the flat list':'flat list — click to group by strategy')+'" style="height:21px;padding:0 8px;font-size:9px;border-radius:7px;border:1px solid '+(_cg?'color-mix(in srgb,var(--text4) 55%,var(--border))':'var(--border)')+';background:'+(_cg?'var(--bg2)':'var(--bg1)')+';color:'+(_cg?'var(--text)':'var(--text4)')+';cursor:pointer;font-variant-emoji:text">▦ GROUP</button>';
+        const pickerTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">PICK RUNS</span><span style="font-size:8px;color:var(--text5)">click a row to add / remove · max 8</span><span style="margin-left:auto;display:flex;gap:8px;align-items:center">'+_grpBtn+'<select data-cmpstrat style="width:auto;padding:2px 6px;font-size:var(--fsxs)">'+stratOpts+'</select><span data-cmpclear title="reset to the latest 3 runs" style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">reset</span></span></div>'
+          +'<div style="overflow:auto;max-height:74vh">'+(pickBody||'<div style="color:var(--text5);font-size:var(--fsxs);padding:14px;text-align:center">no runs match this strategy filter</div>')+'</div>');
         const M=[{l:'Strategy',f:x=>stratTag(x.strategy)},
           {l:'Market',f:x=>instTag(x.instrument)+' '+(x.timeframe||'')},
           {l:'Scope',f:x=>'<span style="font-size:var(--fsxs)">'+(x.scope||'')+'</span>'},
@@ -8226,7 +8246,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const curves=runs.map((r,i)=>{const mc=r.multiplier||instMult(r.instrument)||20;const V=r.validate;let eq=null,li=null;
           if(V&&Array.isArray(V.equity)&&V.equity.length>2){eq=V.equity.map(x=>x*mc);li=(V.lb_idx!=null)?Math.max(0,Math.min(+V.lb_idx,eq.length-1)):null;}
           else if(r.equity&&Array.isArray(r.equity.cum)&&r.equity.cum.length>2){eq=r.equity.cum.map(x=>x*mc);}
-          return {r:r,c:CLR[i%CLR.length],eq:eq,li:li};});
+          // WF fold TEST windows as fractions of the pre-lockbox span — same bar-fraction
+          //   mapping the 1A chart uses for its fold bands (approximate in trade space).
+          let wf=[];
+          const _fs=(Array.isArray(r.top10_results)?r.top10_results.filter(f2=>f2&&f2.fold!=null&&(+f2.test_bars>0)):[]).sort((a2,b2)=>a2.fold-b2.fold);
+          if(eq&&_fs.length>=2){const tr0=+_fs[0].train_bars||0,tb=_fs.map(f2=>+f2.test_bars||0),spn=tr0+tb.reduce((s2,x2)=>s2+x2,0);
+            if(spn>0){let acc=tr0;wf=_fs.map((f2,j)=>{const a2=acc/spn,b2=(acc+tb[j])/spn;acc+=tb[j];return [a2,b2];});}}
+          return {r:r,c:CLR[i%CLR.length],eq:eq,li:li,wf:wf};});
         const legend='<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px;font-size:9px">'+curves.map(c=>'<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:3px;background:'+c.c+';display:inline-block;border-radius:2px"></span>#'+c.r.id+' '+stratTag(c.r.strategy)+(c.eq?'':' <span style="color:var(--text5)">(no curve saved — re-run to record)</span>')+'</span>').join('')+'</div>';
         let ovl;
         const withEq=curves.filter(c=>c.eq);
@@ -8238,9 +8264,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _ns=x2=>{x2=Math.abs(x2)||1;const e2=Math.pow(10,Math.floor(Math.log10(x2)));const f2=x2/e2;return (f2<=1?1:f2<=2?2:f2<=2.5?2.5:f2<=5?5:10)*e2;};
           let g2='';const stp=_ns((emx-emn)/5)||1;
           for(let L=Math.ceil(emn/stp)*stp;L<=emx;L+=stp){const y=Yf(L);g2+='<line x1="'+pL+'" y1="'+y.toFixed(1)+'" x2="'+(pL+PW)+'" y2="'+y.toFixed(1)+'" stroke="var(--border)" stroke-width="'+(Math.abs(L)<1e-9?1:0.5)+'" opacity="'+(Math.abs(L)<1e-9?0.6:0.25)+'"/><text x="'+(pL+PW+6)+'" y="'+(y+3).toFixed(1)+'" font-size="9" fill="var(--text5)">'+fmtUsd(L)+'</text>';}
-          const paths=withEq.map(c=>{const n2=c.eq.length;const P2=c.eq.map((v,i2)=>Xf(i2/(n2-1)).toFixed(1)+','+Yf(v).toFixed(1));
-            if(c.li!=null&&c.li>1&&c.li<n2-1)return '<polyline points="'+P2.slice(0,c.li+1).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6"/><polyline points="'+P2.slice(c.li).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6" stroke-dasharray="4,3" opacity="0.85"/>';
-            return '<polyline points="'+P2.join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6"/>';}).join('');
+          const paths=withEq.map(c=>{const n2=c.eq.length,lim=(c.li!=null?c.li:n2-1);const P2=c.eq.map((v,i2)=>Xf(i2/(n2-1)).toFixed(1)+','+Yf(v).toFixed(1));
+            let s3='';
+            // WF sleeves: the fold TEST windows overdrawn as a soft thick stroke on the curve —
+            //   those stretches were traded OUT-OF-SAMPLE during the walk-forward.
+            (c.wf||[]).forEach(w2=>{const i0=Math.max(0,Math.min(lim,Math.round(w2[0]*lim))),i1=Math.max(i0+1,Math.min(lim,Math.round(w2[1]*lim)));
+              if(i1>i0)s3+='<polyline points="'+P2.slice(i0,i1+1).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="5.5" opacity="0.22" stroke-linecap="round"/>';});
+            if(c.li!=null&&c.li>1&&c.li<n2-1){
+              const bx=Xf(c.li/(n2-1)),by=Yf(c.eq[c.li]);
+              s3+='<polyline points="'+P2.slice(0,c.li+1).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6"/>'
+                +'<polyline points="'+P2.slice(c.li).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6" stroke-dasharray="4,3" opacity="0.85"/>'
+                +'<line x1="'+bx.toFixed(1)+'" y1="'+(by-7).toFixed(1)+'" x2="'+bx.toFixed(1)+'" y2="'+(by+7).toFixed(1)+'" stroke="'+c.c+'" stroke-width="1.4" opacity="0.9"/>';
+            }else s3+='<polyline points="'+P2.join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6"/>';
+            return s3;}).join('');
           const xt='<text x="'+pL+'" y="'+(H2-6)+'" font-size="8" fill="var(--text5)">start of run</text><text x="'+(pL+PW)+'" y="'+(H2-6)+'" text-anchor="end" font-size="8" fill="var(--text5)">end of run</text>';
           ovl='<svg viewBox="0 0 '+W2+' '+H2+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g2+paths+xt+'</svg>';
         }else ovl='<div style="font-size:var(--fsxs);color:var(--text5);padding:10px 0">none of the selected runs saved an equity curve — re-run them to record one</div>';
@@ -8251,14 +8287,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="flex:0 1 430px;min-width:310px">'+pickerTile+'</div>'
           +'<div style="flex:1 1 480px;min-width:0">'
             +tile('<div class="lbl" style="margin-bottom:6px">COMPARE · '+runs.length+' run'+(runs.length===1?'':'s')+' <span style="font-weight:400;color:var(--text5);font-size:8px">· green = best in row · ✕ removes a run</span></div><div style="overflow-x:auto"><table class="table"><thead>'+hdr+'</thead><tbody>'+mrows+'</tbody></table></div>')
-            +tile('<div class="lbl" style="margin-bottom:6px">EQUITY OVERLAY <span style="font-weight:400;color:var(--text5);font-size:8px">· x = progress through each run · dashed tail = that run lockbox (unseen) slice</span></div>'+legend+ovl)
+            +tile('<div class="lbl" style="margin-bottom:6px">EQUITY OVERLAY <span style="font-weight:400;color:var(--text5);font-size:8px">· x = progress through each run · soft thick sleeves = walk-forward OUT-OF-SAMPLE fold windows (approx, bar-time mapped) · tick + dashed tail = that run lockbox (unseen) slice</span></div>'+legend+ovl)
             +tile('<div class="lbl" style="margin-bottom:6px">NET P&L</div><svg viewBox="0 0 '+CW+' '+CH+'" width="100%" height="134" preserveAspectRatio="none"><line x1="0" y1="'+mid2+'" x2="'+CW+'" y2="'+mid2+'" stroke="var(--border)"/>'+cbars+'</svg>')
           +'</div></div>';
       }
     }else if(augurSub==='rank'){
       const scored=(runHistory||[]).map(r=>({r:r,s:scoreRun(r)})).sort((a,b)=>b.s-a.s);
       if(!scored.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUNS YET — RUN SOME BACKTESTS</div>';}
-      else{const rows=scored.map((o,i)=>{const r=o.r,sc=o.s,col=sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)';const vv=r.validate?r.validate.verdict:'';return '<tr class="arow" data-rank-run="'+r.id+'" style="cursor:pointer">'
+      else{const _rrow=(o,i)=>{const r=o.r,sc=o.s,col=sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)';const vv=r.validate?r.validate.verdict:'';return '<tr class="arow" data-rank-run="'+r.id+'" style="cursor:pointer">'
           +'<td style="color:var(--text5)">'+(i+1)+'</td>'
           +'<td><div style="display:flex;align-items:center;gap:8px"><span style="width:26px;text-align:right;font-weight:800;color:'+col+'">'+sc+'</span><span style="flex:1;height:5px;background:var(--bg1);border-radius:3px;overflow:hidden;min-width:54px;display:inline-block"><span style="display:block;height:100%;width:'+sc+'%;background:'+col+'"></span></span></div></td>'
           +'<td style="font-size:var(--fsxs)">'+stratTag(r.strategy)+(vv?' <span style="font-size:8px;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vv+'</span>':'')+'</td>'
@@ -8268,8 +8304,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<td style="text-align:right;font-size:var(--fsxs)">'+(r.dsr&&r.dsr.dsr!=null?Math.round(r.dsr.dsr*100)+'%':'—')+'</td>'
           +'<td style="text-align:right">'+(r.best_trades||0)+'</td>'
           +'<td style="text-align:right;color:'+((r.best_pnl_usd||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(r.best_pnl_usd||0)+'</td>'
-          +'<td style="font-size:var(--fsxs);color:var(--text5)">'+((r.timestamp||'').slice(0,10))+'</td></tr>';}).join('');
-        body=tile('<div class="lbl" style="margin-bottom:4px">▤ RANKINGS · '+scored.length+' runs by robustness score</div>'
+          +'<td style="font-size:var(--fsxs);color:var(--text5)">'+((r.timestamp||'').slice(0,10))+'</td></tr>';};
+        // ── ▦ GROUP view (owner: same by-strategy grouping as Past Runs / Compare). One header row
+        //    per strategy (champion score + best net rollup), expandable to its runs; the # column
+        //    keeps each run's GLOBAL rank so cross-strategy standing stays readable. ──
+        const _rg=!!APREF.rankGroup;
+        window._rankGrpOpen=window._rankGrpOpen||new Set();
+        const _rLab=r=>((typeof stratInfo==='function'&&stratInfo(r.strategy))?String(stratInfo(r.strategy).label||r.strategy):String(r.strategy||''));
+        let rows;
+        if(_rg){const gm={};scored.forEach((o,i)=>{const l=_rLab(o.r);(gm[l]||(gm[l]=[])).push({o:o,gi:i});});
+          const gs=Object.keys(gm).map(k=>({k:k,xs:gm[k]}));gs.sort((a,b)=>b.xs[0].o.s-a.xs[0].o.s);
+          rows=gs.map(g=>{const open=window._rankGrpOpen.has(g.k),ch=g.xs[0].o,col=ch.s>=70?'var(--green)':ch.s>=45?'var(--yellow)':'var(--red)';const vv=ch.r.validate?ch.r.validate.verdict:'';
+            return '<tr data-rankgrp="'+encodeURIComponent(g.k)+'" style="cursor:pointer;background:color-mix(in srgb,var(--border) 18%,transparent)"><td colspan="11" style="padding:6px 8px">'
+              +'<div style="display:flex;align-items:center;gap:10px;font-size:var(--fsxs);white-space:nowrap;overflow:hidden">'
+              +'<span style="flex:0 0 11px;color:var(--text3)">'+(open?'▾':'▸')+'</span>'
+              +'<span style="flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:700">'+stratTag(ch.r.strategy)+'</span>'
+              +'<span style="flex:0 0 auto;font-size:8px;color:var(--text5)">'+g.xs.length+' run'+(g.xs.length===1?'':'s')+'</span>'
+              +(vv?'<span style="flex:0 0 auto;font-size:8px;font-weight:700;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vv+'</span>':'')
+              +'<span style="margin-left:auto;flex:0 0 auto;font-size:9px;color:var(--text5)">best score <b style="color:'+col+'">'+ch.s+'</b> · net <b style="color:'+((ch.r.best_pnl_usd||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(ch.r.best_pnl_usd||0)+'</b> · rank #'+(g.xs[0].gi+1)+'</span>'
+              +'</div></td></tr>'
+              +(open?g.xs.map(x=>_rrow(x.o,x.gi)).join(''):'');}).join('');
+        }else rows=scored.map((o,i)=>_rrow(o,i)).join('');
+        const _rgBtn='<button data-rankgroupbtn title="'+(_rg?'grouped by strategy — click for the flat ranking':'flat ranking — click to group by strategy')+'" style="height:21px;padding:0 8px;font-size:9px;border-radius:7px;border:1px solid '+(_rg?'color-mix(in srgb,var(--text4) 55%,var(--border))':'var(--border)')+';background:'+(_rg?'var(--bg2)':'var(--bg1)')+';color:'+(_rg?'var(--text)':'var(--text4)')+';cursor:pointer;font-variant-emoji:text">▦ GROUP</button>';
+        body=tile('<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><span class="lbl">▤ RANKINGS · '+scored.length+' runs by robustness score</span><span style="margin-left:auto">'+_rgBtn+'</span></div>'
           +'<div style="font-size:8px;color:var(--text5);margin-bottom:9px;max-width:680px">0–100 blends out-of-sample strength (Deflated Sharpe, walk-forward folds held, lockbox), profit factor and sample size. Auto-Validate runs use their gate results. Click a row to open the run in Results.</div>'
           +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th><th style="min-width:90px">SCORE</th><th>STRATEGY</th><th>MARKET</th><th>SCOPE</th><th style="text-align:right">PF</th><th style="text-align:right" title="Recovery factor: net PnL / max drawdown">MAR</th><th style="text-align:right">DSR</th><th style="text-align:right">TRD</th><th style="text-align:right">$PNL</th><th>DATE</th></tr></thead><tbody>'+rows+'</tbody></table></div>');}
     }else if(augurSub==='ref'){
@@ -8864,8 +8921,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         savePref('cmpIds',ids);renderApp();};});
       const _cs=content.querySelector('[data-cmpstrat]');if(_cs)_cs.onchange=()=>{savePref('cmpStrat',_cs.value);renderApp();};
       const _cc=content.querySelector('[data-cmpclear]');if(_cc)_cc.onclick=()=>{savePref('cmpIds',[]);renderApp();};
+      const _cgb=content.querySelector('[data-cmpgroupbtn]');if(_cgb)_cgb.onclick=()=>{savePref('cmpGroup',!APREF.cmpGroup);renderApp();};
+      content.querySelectorAll('[data-cmpgrp]').forEach(h=>{h.onclick=()=>{const k=decodeURIComponent(h.dataset.cmpgrp);if(window._cmpGrpOpen.has(k))window._cmpGrpOpen.delete(k);else window._cmpGrpOpen.add(k);renderApp();};});
       content.querySelectorAll('[data-cmp-rm]').forEach(x=>{x.onclick=()=>{const ids=_cur().filter(id=>id!==String(x.dataset.cmpRm));if(ids.length>=1){savePref('cmpIds',ids);renderApp();}};});}
-    else if(augurSub==='rank'){content.querySelectorAll('[data-rank-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.rankRun;augurSub='runs';renderApp();};});}
+    else if(augurSub==='rank'){content.querySelectorAll('[data-rank-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.rankRun;augurSub='runs';renderApp();};});
+      const _rgb2=content.querySelector('[data-rankgroupbtn]');if(_rgb2)_rgb2.onclick=()=>{savePref('rankGroup',!APREF.rankGroup);renderApp();};
+      content.querySelectorAll('[data-rankgrp]').forEach(h=>{h.onclick=()=>{const k=decodeURIComponent(h.dataset.rankgrp);if(window._rankGrpOpen.has(k))window._rankGrpOpen.delete(k);else window._rankGrpOpen.add(k);renderApp();};});}
     else if(augurSub==='lib'){
       const ls0=el('lib-listscroll');
       if(ls0){
