@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='56.4';
+const VERSION='56.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'56.5', date:'2026-07-16', notes:['Rankings tab fixed — it crashed with "(r.timestamp || …).slice is not a function" when a run carried a non-text timestamp; run timestamps are now normalised on load so every tab is safe.','Compare tab redesigned: a PICK RUNS checklist on the left — click a row to add or remove it (up to 8, with a strategy filter and a reset) — instead of the old hidden dropdown. The KPI table keeps the best value per row in green.','Compare: new EQUITY OVERLAY — one coloured curve per selected run (x = progress through that run, dashed tail = its lockbox slice), with a colour-keyed legend; the net P&L bars now match those colours and label each run id.']},
   {v:'56.4', date:'2026-07-16', notes:['Challenger round 12: the wide-band noise-envelope strategy became the strongest challenger yet - regime-healthy on NQ and 4 of 5 validation gates passed - but failed the ES transfer gate, so no lockbox was fired and it is shelved with its holdout intact. DRIVE is closed permanently. See BACKTESTING_STACK section 3.']},
   {v:'56.3', date:'2026-07-15', notes:['Challenger round 10 (web deep-dive): the Zarattini noise-envelope intraday momentum strategy is a real mechanism (all 54 configs net-positive, low ORB correlation) but regime-concentrated exactly as its own paper warns - flat-to-negative 2010-2017. No bar cleared; the web is fully swept. See BACKTESTING_STACK section 3.']},
   {v:'56.2', date:'2026-07-15', notes:['Challenger round 9: gap-fade and calendar (turn-of-month) both dead - the web shortlist is fully dispatched. Also recorded: TTIBS failed its lockbox one-shot (round 7) and is closed as research. No live challengers remain; meta-finding: daily-scale edges in this data are long-only buy-weakness. See BACKTESTING_STACK section 3.']},
@@ -961,7 +962,11 @@ function subscribeAll(uid){
   // Cap the runs listener at the most-recent 300 (was reading the ENTIRE runs history on
   // every page load — a growing Firestore read cost). The runs/rank tabs re-sort locally,
   // so order is unaffected; older-than-300 runs just aren't pulled into that view.
-  unsubRuns=runsRef.orderBy('timestamp','desc').limit(300).onSnapshot(snap=>{runHistory=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='augur'&&(augurSub==='runs'||augurSub==='rank'))renderApp();});
+  // normalize timestamp to an ISO STRING on read — some docs carry a Firestore Timestamp
+  //   object instead (crashed Rankings: "(r.timestamp||'').slice is not a function").
+  unsubRuns=runsRef.orderBy('timestamp','desc').limit(300).onSnapshot(snap=>{runHistory=snap.docs.map(d=>{const x={id:d.id,...d.data()};const t=x.timestamp;
+    if(t&&typeof t!=='string'){try{const dt=(t.seconds!=null)?new Date(t.seconds*1000):new Date(t);if(!isNaN(+dt))x.timestamp=dt.toISOString();else x.timestamp='';}catch(_){x.timestamp='';}}
+    return x;});if(activeTab==='augur'&&(augurSub==='runs'||augurSub==='rank'))renderApp();});
   cmdRef=db.collection('users').doc(uid).collection('commands');
   metaRef=db.collection('users').doc(uid).collection('meta');
   if(unsubMeta)unsubMeta();
@@ -8176,8 +8181,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const find=id=>{for(let i=0;i<rs.length;i++)if(String(rs[i].id)===String(id))return rs[i];return null;};
         // N-way: persisted set of run ids (default to the most recent 3)
         let ids=(APREF.cmpIds||[]).map(String).filter(id=>find(id));
-        if(ids.length<2)ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));
+        if(!ids.length)ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));
         const runs=ids.map(find).filter(Boolean);
+        // ── PICKER (owner: could not tell how to select runs — it was a small dropdown). A checkbox
+        //    run list: CLICK A ROW to add / remove it from the comparison (max 8). Filter by strategy;
+        //    the selection persists across visits (APREF.cmpIds). ──
+        const _labOf=r=>((typeof stratInfo==='function'&&stratInfo(r.strategy))?String(stratInfo(r.strategy).label||r.strategy):String(r.strategy||''));
+        const _cf=APREF.cmpStrat||'';
+        const _strats=[];rs.forEach(r=>{const l=_labOf(r);if(_strats.indexOf(l)<0)_strats.push(l);});
+        const _plist=(_cf?rs.filter(r=>_labOf(r)===_cf):rs).slice(0,200);
+        const pickRows=_plist.map(r=>{const on=ids.indexOf(String(r.id))>=0;const vv=r.validate?r.validate.verdict:'';const sc=scoreRun(r);
+          return '<div data-cmpk="'+r.id+'" style="display:flex;align-items:center;gap:7px;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:var(--fsxs);'+(on?'background:color-mix(in srgb,var(--blue) 13%,transparent);':'')+'" title="'+(on?'click to remove from the comparison':'click to add to the comparison')+'">'
+            +'<span style="flex:0 0 13px;text-align:center;color:'+(on?'var(--blue)':'var(--text5)')+'">'+(on?'☑':'☐')+'</span>'
+            +'<span style="flex:0 0 33px;text-align:right;color:var(--text3)">#'+r.id+'</span>'
+            +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+stratTag(r.strategy)+'</span>'
+            +'<span style="flex:0 0 52px;font-size:8px;color:var(--text5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+instTag(r.instrument)+' '+(r.timeframe||'')+'</span>'
+            +'<span style="flex:0 0 58px;text-align:right;color:'+((r.best_pnl_usd||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(r.best_pnl_usd||0))+'</span>'
+            +'<span style="flex:0 0 28px;text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)')+'">'+sc+'</span>'
+            +'<span style="flex:0 0 32px;font-size:8px;font-weight:700;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':'var(--red)')+'">'+(vv||'')+'</span>'
+            +'</div>';}).join('');
+        const stratOpts='<option value="">all strategies</option>'+_strats.map(s=>'<option value="'+s.replace(/"/g,'')+'"'+(s===_cf?' selected':'')+'>'+s+'</option>').join('');
+        const pickerTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">PICK RUNS</span><span style="font-size:8px;color:var(--text5)">click a row to add / remove · max 8</span><span style="margin-left:auto;display:flex;gap:8px;align-items:center"><select data-cmpstrat style="width:auto;padding:2px 6px;font-size:var(--fsxs)">'+stratOpts+'</select><span data-cmpclear title="reset to the latest 3 runs" style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">reset</span></span></div>'
+          +'<div style="overflow:auto;max-height:74vh">'+(pickRows||'<div style="color:var(--text5);font-size:var(--fsxs);padding:14px;text-align:center">no runs match this strategy filter</div>')+'</div>');
         const M=[{l:'Strategy',f:x=>stratTag(x.strategy)},
           {l:'Market',f:x=>instTag(x.instrument)+' '+(x.timeframe||'')},
           {l:'Scope',f:x=>'<span style="font-size:var(--fsxs)">'+(x.scope||'')+'</span>'},
@@ -8194,13 +8219,41 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const hdr='<tr><th></th>'+runs.map(r=>'<th style="white-space:nowrap">#'+r.id+' '+stratTag(r.strategy)+' <span data-cmp-rm="'+r.id+'" title="remove" style="cursor:pointer;color:var(--text5)">✕</span></th>').join('')+'</tr>';
         const mrows=M.map(m=>{let bi=-1;if(m.v&&m.b){let bv=null;runs.forEach((r,i)=>{const val=m.v(r);if(bv===null||(m.b==='max'?val>bv:val<bv)){bv=val;bi=i;}});}
           return '<tr><td style="color:var(--text4);font-size:var(--fsxs)">'+m.l+'</td>'+runs.map((r,i)=>'<td'+(i===bi?' style="font-weight:700;color:var(--green)"':'')+'>'+m.f(r)+'</td>').join('')+'</tr>';}).join('');
-        // grouped Net P&L bar chart across the runs
-        const pnls=runs.map(r=>r.best_pnl_usd||0),amx=Math.max.apply(null,pnls.map(Math.abs))||1,CW=Math.max(360,runs.length*90),CH=120,bw=CW/runs.length,mid=CH/2;
-        const cbars=pnls.map((p,i)=>{const h=(Math.abs(p)/amx)*(mid-8),y=p>=0?mid-h:mid;return '<rect x="'+(i*bw+bw*0.2).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+(bw*0.6).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+(p>=0?'var(--green)':'var(--red)')+'" opacity="0.6"/><text x="'+(i*bw+bw/2).toFixed(1)+'" y="'+(p>=0?y-3:y+h+9).toFixed(1)+'" text-anchor="middle" font-size="8" fill="var(--text4)">'+fmtUsd(Math.round(p))+'</text>';}).join('');
-        const addOpts='<option value="">+ add run…</option>'+rs.filter(r=>ids.indexOf(String(r.id))<0).map(r=>'<option value="'+r.id+'">#'+r.id+' · '+stratInfo(r.strategy).label+' · '+(r.scope||'').slice(0,14)+'</option>').join('');
-        body='<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span class="lbl">COMPARE · '+runs.length+' runs</span><select id="cmp-add" style="width:auto;padding:5px 8px;font-size:var(--fsxs)">'+addOpts+'</select></div>'
-          +tile('<div style="overflow-x:auto"><table class="table"><thead>'+hdr+'</thead><tbody>'+mrows+'</tbody></table></div>')
-          +tile('<div class="lbl" style="margin-bottom:6px">NET P&L</div><svg viewBox="0 0 '+CW+' '+CH+'" width="100%" height="120" preserveAspectRatio="none"><line x1="0" y1="'+mid+'" x2="'+CW+'" y2="'+mid+'" stroke="var(--border)"/>'+cbars+'</svg>');
+        // ── EQUITY OVERLAY: one coloured curve per selected run (validate equity, else the stored
+        //    grid/auto curve), x = progress through THAT run, dashed tail = its lockbox slice.
+        //    The legend colour keys the net P&L bars below too. ──
+        const CLR=['#3a9bdc','#1d9e75','#e2a94b','#d6557a','#a78bfa','#5bc8c8','#c48fef','#7aa05a'];
+        const curves=runs.map((r,i)=>{const mc=r.multiplier||instMult(r.instrument)||20;const V=r.validate;let eq=null,li=null;
+          if(V&&Array.isArray(V.equity)&&V.equity.length>2){eq=V.equity.map(x=>x*mc);li=(V.lb_idx!=null)?Math.max(0,Math.min(+V.lb_idx,eq.length-1)):null;}
+          else if(r.equity&&Array.isArray(r.equity.cum)&&r.equity.cum.length>2){eq=r.equity.cum.map(x=>x*mc);}
+          return {r:r,c:CLR[i%CLR.length],eq:eq,li:li};});
+        const legend='<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px;font-size:9px">'+curves.map(c=>'<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:3px;background:'+c.c+';display:inline-block;border-radius:2px"></span>#'+c.r.id+' '+stratTag(c.r.strategy)+(c.eq?'':' <span style="color:var(--text5)">(no curve saved — re-run to record)</span>')+'</span>').join('')+'</div>';
+        let ovl;
+        const withEq=curves.filter(c=>c.eq);
+        if(withEq.length){
+          let emn=0,emx=0;withEq.forEach(c=>{c.eq.forEach(v=>{if(v<emn)emn=v;if(v>emx)emx=v;});});
+          if(emx<=emn)emx=emn+1;const epad=(emx-emn)*0.05;emn-=epad;emx+=epad;
+          const W2=760,H2=230,pL=6,pR=64,pT=8,pB=20,PW=W2-pL-pR,PH=H2-pT-pB;
+          const Xf=f=>pL+f*PW,Yf=v=>pT+(emx-v)/((emx-emn)||1)*PH;
+          const _ns=x2=>{x2=Math.abs(x2)||1;const e2=Math.pow(10,Math.floor(Math.log10(x2)));const f2=x2/e2;return (f2<=1?1:f2<=2?2:f2<=2.5?2.5:f2<=5?5:10)*e2;};
+          let g2='';const stp=_ns((emx-emn)/5)||1;
+          for(let L=Math.ceil(emn/stp)*stp;L<=emx;L+=stp){const y=Yf(L);g2+='<line x1="'+pL+'" y1="'+y.toFixed(1)+'" x2="'+(pL+PW)+'" y2="'+y.toFixed(1)+'" stroke="var(--border)" stroke-width="'+(Math.abs(L)<1e-9?1:0.5)+'" opacity="'+(Math.abs(L)<1e-9?0.6:0.25)+'"/><text x="'+(pL+PW+6)+'" y="'+(y+3).toFixed(1)+'" font-size="9" fill="var(--text5)">'+fmtUsd(L)+'</text>';}
+          const paths=withEq.map(c=>{const n2=c.eq.length;const P2=c.eq.map((v,i2)=>Xf(i2/(n2-1)).toFixed(1)+','+Yf(v).toFixed(1));
+            if(c.li!=null&&c.li>1&&c.li<n2-1)return '<polyline points="'+P2.slice(0,c.li+1).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6"/><polyline points="'+P2.slice(c.li).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6" stroke-dasharray="4,3" opacity="0.85"/>';
+            return '<polyline points="'+P2.join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6"/>';}).join('');
+          const xt='<text x="'+pL+'" y="'+(H2-6)+'" font-size="8" fill="var(--text5)">start of run</text><text x="'+(pL+PW)+'" y="'+(H2-6)+'" text-anchor="end" font-size="8" fill="var(--text5)">end of run</text>';
+          ovl='<svg viewBox="0 0 '+W2+' '+H2+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g2+paths+xt+'</svg>';
+        }else ovl='<div style="font-size:var(--fsxs);color:var(--text5);padding:10px 0">none of the selected runs saved an equity curve — re-run them to record one</div>';
+        // net P&L bars — coloured to match the overlay legend, run id under each bar
+        const pnls=runs.map(r=>r.best_pnl_usd||0),amx=Math.max.apply(null,pnls.map(Math.abs))||1,CW=Math.max(360,runs.length*90),CH=134,mid2=(CH-14)/2,bw=CW/runs.length;
+        const cbars=pnls.map((p,i)=>{const h=(Math.abs(p)/amx)*(mid2-9),y=p>=0?mid2-h:mid2;return '<rect x="'+(i*bw+bw*0.2).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+(bw*0.6).toFixed(1)+'" height="'+Math.max(1,h).toFixed(1)+'" fill="'+curves[i].c+'" opacity="0.75"/><text x="'+(i*bw+bw/2).toFixed(1)+'" y="'+(p>=0?y-3:y+h+9).toFixed(1)+'" text-anchor="middle" font-size="8" fill="'+(p>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(p))+'</text><text x="'+(i*bw+bw/2).toFixed(1)+'" y="'+(CH-3)+'" text-anchor="middle" font-size="8" fill="var(--text5)">#'+runs[i].id+'</text>';}).join('');
+        body='<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">'
+          +'<div style="flex:0 1 430px;min-width:310px">'+pickerTile+'</div>'
+          +'<div style="flex:1 1 480px;min-width:0">'
+            +tile('<div class="lbl" style="margin-bottom:6px">COMPARE · '+runs.length+' run'+(runs.length===1?'':'s')+' <span style="font-weight:400;color:var(--text5);font-size:8px">· green = best in row · ✕ removes a run</span></div><div style="overflow-x:auto"><table class="table"><thead>'+hdr+'</thead><tbody>'+mrows+'</tbody></table></div>')
+            +tile('<div class="lbl" style="margin-bottom:6px">EQUITY OVERLAY <span style="font-weight:400;color:var(--text5);font-size:8px">· x = progress through each run · dashed tail = that run lockbox (unseen) slice</span></div>'+legend+ovl)
+            +tile('<div class="lbl" style="margin-bottom:6px">NET P&L</div><svg viewBox="0 0 '+CW+' '+CH+'" width="100%" height="134" preserveAspectRatio="none"><line x1="0" y1="'+mid2+'" x2="'+CW+'" y2="'+mid2+'" stroke="var(--border)"/>'+cbars+'</svg>')
+          +'</div></div>';
       }
     }else if(augurSub==='rank'){
       const scored=(runHistory||[]).map(r=>({r:r,s:scoreRun(r)})).sort((a,b)=>b.s-a.s);
@@ -8804,8 +8857,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:effTo,preset:scopeVal,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};if(useCustom)base.grid=customGrid;const job=(mode==='validate')?Object.assign({},base,{type:'validate',date_from:vFrom,date_to:'',n_trials:vTrials,wf_folds:0,lockbox_months:vLockMo,transfer_to:(el('ex-xfer')&&el('ex-xfer').value)||null,discover:(el('ex-discover')&&el('ex-discover').value)||'auto',provider:el('ex-prov')?el('ex-prov').value:'ollama',n_rounds:parseInt(el('ex-rounds').value)||4,equity_points:parseInt(el('ex-eqpts')&&el('ex-eqpts').value)||400,dsr:true}):(mode==='gate_validate')?Object.assign({},base,{type:'gate_validate',params:{},lockbox_months:12,ml_filter:(el('ex-mlf')&&el('ex-mlf').value)||'xgb'})
       :(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000},(el('ex-mlf')&&el('ex-mlf').value!=='none')?{ml_filter:el('ex-mlf').value,ml_threshold:(parseInt(el('ex-mlth')&&el('ex-mlth').value)||50)/100}:{}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,wf_mode:(el('ex-wfmode')?el('ex-wfmode').value:'anchored'),top_n:10,dsr:true,mc_sims:500,pills:!(el('ex-pills')&&!el('ex-pills').checked)}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='cmp'){
-      const _cur=()=>{const rs=runHistory.slice().sort((a,b)=>b.id-a.id);let ids=(APREF.cmpIds||[]).map(String).filter(id=>rs.some(r=>String(r.id)===id));if(ids.length<2)ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));return ids;};
-      const add=el('cmp-add');if(add)add.onchange=()=>{if(!add.value)return;const ids=_cur();if(ids.indexOf(add.value)<0)ids.push(add.value);savePref('cmpIds',ids);renderApp();};
+      const _cur=()=>{const rs=runHistory.slice().sort((a,b)=>b.id-a.id);let ids=(APREF.cmpIds||[]).map(String).filter(id=>rs.some(r=>String(r.id)===id));if(!ids.length)ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));return ids;};
+      // picker rows: click toggles the run in / out of the comparison (cap 8)
+      content.querySelectorAll('[data-cmpk]').forEach(x=>{x.onclick=()=>{const id=String(x.dataset.cmpk);let ids=_cur();
+        if(ids.indexOf(id)>=0)ids=ids.filter(i2=>i2!==id);else{if(ids.length>=8)return;ids.push(id);}
+        savePref('cmpIds',ids);renderApp();};});
+      const _cs=content.querySelector('[data-cmpstrat]');if(_cs)_cs.onchange=()=>{savePref('cmpStrat',_cs.value);renderApp();};
+      const _cc=content.querySelector('[data-cmpclear]');if(_cc)_cc.onclick=()=>{savePref('cmpIds',[]);renderApp();};
       content.querySelectorAll('[data-cmp-rm]').forEach(x=>{x.onclick=()=>{const ids=_cur().filter(id=>id!==String(x.dataset.cmpRm));if(ids.length>=1){savePref('cmpIds',ids);renderApp();}};});}
     else if(augurSub==='rank'){content.querySelectorAll('[data-rank-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.rankRun;augurSub='runs';renderApp();};});}
     else if(augurSub==='lib'){
