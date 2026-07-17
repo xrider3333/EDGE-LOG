@@ -45,7 +45,14 @@ from augur_strategies import ORB_3_1 as _orb_mod                       # noqa: E
 
 # ── Config ───────────────────────────────────────────────────────────────────
 PAPER_START = "2026-07-16"
-REBASELINE_CUTOFF = "2026-07-01"   # parity re-check uses trades EXITING before this
+REBASELINE_CUTOFF = "2026-07-01"   # parity re-check uses trades EXITING before this (human-facing label)
+# The exact last bar of the pre-2026-07-17-backfill frozen masters that produced baseline_n/
+# baseline_net below (NQ 1m/5m RTH masters were frozen mid-session at this timestamp, then
+# extended through 2026-07-16 on 2026-07-17). A position still open exactly at this bar was
+# captured in the frozen baseline as a SYNTHETIC mark-to-close there (run_backtest's own
+# "still open at data end" fallback), not a real exit — see FREEZE-boundary handling in
+# process_leg() below.
+FREEZE_TS = pd.Timestamp("2026-06-30 10:50:00", tz="US/Eastern")
 GAP_PCT_RULE = 0.02                # ENGUQ deployment rule: skip entries on a >2% gap session
 COST_PTS = 0.533
 MULT = 20.0
@@ -260,25 +267,48 @@ def process_leg(leg_name, cfg, logged_at):
         parity_status = "OK"
         parity_detail = f"raw totals match baseline exactly (n={raw_n}, net=${raw_net:,.2f})."
     else:
-        cutoff_ts = pd.Timestamp(REBASELINE_CUTOFF, tz="US/Eastern")
-        pre_trades = [t for t in closed_trades if idx[t[1]] < cutoff_ts]
+        # Trades fully resolved strictly before FREEZE_TS are directly comparable to the
+        # frozen baseline. A trade STRADDLING that boundary (entry before FREEZE_TS, exit
+        # at/after it — i.e. it was still open when the old masters were frozen) was folded
+        # into baseline_n/baseline_net as a SYNTHETIC mark-to-close at the freeze bar, not a
+        # real exit. Reconstruct that same synthetic value from the (unchanged) historical
+        # close at FREEZE_TS so resolving that position with more data doesn't read as drift.
+        pre_trades = [t for t in closed_trades if idx[t[1]] < FREEZE_TS]
         pre_n = len(pre_trades)
-        pre_net = round(sum((t[2] - COST_PTS) * MULT for t in pre_trades), 2)
+        pre_net = sum((t[2] - COST_PTS) * MULT for t in pre_trades)
+
+        straddlers = [t for t in trades if idx[t[0]] < FREEZE_TS <= idx[t[1]]]
+        freeze_note = ""
+        if straddlers:
+            try:
+                freeze_pos = idx.get_loc(FREEZE_TS)
+                freeze_close = float(closes[freeze_pos])
+                for (entry_bar, _exit_bar, _pnl, side, entry_px) in straddlers:
+                    synth_pnl = (freeze_close - entry_px) if side > 0 else (entry_px - freeze_close)
+                    pre_n += 1
+                    pre_net += (synth_pnl - COST_PTS) * MULT
+                freeze_note = (f" ({len(straddlers)} trade(s) open exactly at the {FREEZE_TS} freeze "
+                                f"boundary reconstructed as the frozen baseline's synthetic mark-to-close.)")
+            except KeyError:
+                freeze_note = (f" (WARNING: {len(straddlers)} straddling trade(s) at the freeze boundary "
+                                f"but FREEZE_TS bar not found in current data — reconstruction skipped.)")
+        pre_net = round(pre_net, 2)
+
         if pre_n == cfg["baseline_n"] and abs(pre_net - cfg["baseline_net"]) < 0.01:
             parity_status = "ROLLED"
             parity_detail = (f"raw totals changed (master extended: n={raw_n}, net=${raw_net:,.2f}) "
-                              f"but the pre-existing trade set (exiting before {REBASELINE_CUTOFF}) is "
-                              f"UNCHANGED: n={pre_n}, net=${pre_net:,.2f} — matches frozen baseline "
-                              f"(n={cfg['baseline_n']}, net=${cfg['baseline_net']:,.2f}). Baseline rolled "
-                              f"forward cleanly; no drift in historical trades.")
+                              f"but the pre-existing trade set (resolved as of the {FREEZE_TS} freeze "
+                              f"boundary) is UNCHANGED: n={pre_n}, net=${pre_net:,.2f} — matches frozen "
+                              f"baseline (n={cfg['baseline_n']}, net=${cfg['baseline_net']:,.2f})."
+                              f"{freeze_note} Baseline rolled forward cleanly; no drift in historical trades.")
         else:
             parity_status = "FAIL"
             parity_detail = (f"PARITY FAILURE. Frozen baseline: n={cfg['baseline_n']}, "
                               f"net=${cfg['baseline_net']:,.2f}. Current raw: n={raw_n}, "
-                              f"net=${raw_net:,.2f}. Current pre-{REBASELINE_CUTOFF} subset: "
-                              f"n={pre_n}, net=${pre_net:,.2f}. Even the historical (pre-cutoff) "
-                              f"trades changed — this is NOT explained by simply extending the "
-                              f"master with new bars. Possible causes: master data was revised/"
+                              f"net=${raw_net:,.2f}. Current pre-freeze-boundary subset: "
+                              f"n={pre_n}, net=${pre_net:,.2f}.{freeze_note} Even the historical "
+                              f"(pre-freeze) trades changed — this is NOT explained by simply extending "
+                              f"the master with new bars. Possible causes: master data was revised/"
                               f"re-pulled, strategy file edited, or params drifted. Investigate "
                               f"before trusting this leg's paper log.")
 
