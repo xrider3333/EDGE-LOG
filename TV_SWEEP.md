@@ -74,12 +74,12 @@ verbatim — so the negative, if it comes, is definitive for this source too.
 | 4 | 17.6K | MACD Bull Crossover + RSI Oversold 5-ago, Long (Trebor_Namor) | long when MACD crosses signal AND RSI was <30 within 5 bars; exit on bear cross w/ hist>0 + RSI>70 5-ago; optional SL/TP | fresh (source protected on TV; author's own Python port on GitHub used) | `MACDRSI_1_0.py` | ❌ DEAD (0/16; MAR 1.36, 147-pt avg losers, edge pre-2021 only) |
 | 5 | 16.6K | PMax Explorer STRATEGY & SCREENER (KivancOzbilgic) | "Profit Maximizer": MA (8 types) vs ATR trailing line, flip on cross | SuperTrend-on-MA family | `PMAX_1_0.py` | ❌ DEAD (0/24; best long-only MAR 6.3) |
 | 6 | 14.2K | Hull Suite Strategy (DashTrader) | HMA(55) slope vs 2 bars ago; long-only default (long/flat), "all" = flip | fresh (HMA trend) | `HULL_1_0.py` | ❌ DEAD (0/24; best MAR 2.9) |
-| 7 | 13.5K | Buy&Sell AO+Stoch+RSI+ATR (SerdarYILMAZ) | RSI+Stoch oversold + AO turns positive → long w/ ATR SL/TP (author labels it educational) | fresh (oscillator confluence) | `AOSTOCH_1_0.py` | queued |
+| 7 | 13.5K | Buy&Sell AO+Stoch+RSI+ATR (SerdarYILMAZ) | RSI+Stoch oversold + AO turns positive → long w/ ATR SL/TP (author labels it educational) | fresh (oscillator confluence) | `AOSTOCH_1_0.py` | ❌ DEAD (0/24; negative on ALL 4 datasets as shipped) |
 | 8 | 10.9K | Golden Cross SMA 50/200, Long Only (ChartArt) | SMA50 crosses SMA200 → long; cross under → flat | fresh, but a daily-scale signal — expected G1 fail on intraday bars (few crosses) | `GOLDX_1_0.py` | ❌ DEAD (0/8; long = MAR 2.5 drift; daily-scale n=44) |
 | 9 | 10.8K | Flawless Victory 15m BTC "ML" (Trebor_Namor) | BB(20,1σ) + RSI bounds long strategy, 2 param versions + optional SL/TP; hyper-fit to 1yr of BTC | BBRSI cousin (1σ band) | `FLAWLESS_1_0.py` | ❌ DEAD (0/16; v1 MAR 1.7, best cell 2.7) |
 | 10 | 10.7K | BUY and SELL single EMA cross (Che_Trader) | EMA(10)/EMA(20) cross, always-in flip | the plainest momentum baseline | `EMAX_1_0.py` | ❌ DEAD (0/32; as-shipped −$98k NQ 5m, −$761k NQ 1m) |
 | 11 | 10.3K | Ichimoku + Daily-Candle_X + HULL-MA_X + MacD (SeaSide420) | 4-indicator confluence flip (Ichimoku cloud + daily-candle cross + HMA cross + HMA-MACD) | fresh (confluence) | `ICHIHULL_1_0.py` | ❌ DEAD (0/18; honest port kills the repaint edge) |
-| 12 | 9.8K | RSI Divergence Indicator strategy (eemani123) | RSI(5) bull/hidden-bull divergence → long (pyramiding 2); exit RSI>75 or bear div; optional ATR trail | fresh (divergence) | `RSIDIV_1_0.py` | queued |
+| 12 | 9.8K | RSI Divergence Indicator strategy (eemani123) | RSI(9) bull/hidden-bull divergence → long (pyramiding 2); exit RSI>80 or bear div; optional trail | fresh (divergence) | `RSIDIV_1_0.py` | ❌ DEAD (0/16; MAR ≤ 3.3, −$158k DD as shipped) |
 | — | 14.4K | 3Commas Bot (Bjorgum) | — | SKIPPED: bot-integration template, not a strategy (no rule-set to test) | — | n/a |
 | — | 12.1K | Ultimate Strategy Template (Daveatt) | — | SKIPPED: strategy TEMPLATE (framework for other people's signals), no edge claim | — | n/a |
 
@@ -272,4 +272,78 @@ unless stated) and TradingView House Rules respected — ports carry attribution
   numbers from v2-era scripts with `security()` calls cannot be trusted at face value.
 - Artifacts: `r13_ICHIHULL_1_0_results.json`.
 
-*(further sections appended as each strategy is tested)*
+### 13.7 AOSTOCH 1.0 — AO+Stoch+RSI+ATR Buy&Sell (TV #7, 13.5K boosts) — ❌ DEAD
+
+- **Port notes:** the port agent independently replayed all 792 smoke trades against a
+  from-scratch re-derivation — 791/792 exact, the 1 difference root-caused to the
+  roll-seam force-flat working as designed. Bracket fills (ATR stop/limit, stop-first
+  pessimism, gap-through at open) verified against real gap cases.
+- **Results (2026-07-17): 0 of 24 grid cells pass — the sweep's most decisive kill.**
+  As shipped (1×ATR symmetric bracket, both directions): NEGATIVE on all four
+  datasets — NQ 5m −$157.7k (PF 0.80), NQ 1m −$225.8k, ES 5m −$104.5k, ES 1m −$265.8k.
+  A ~51% win rate on a symmetric 1:1 bracket is a coin flip, and the 0.533-pt fee
+  eats it. Best refined cell (1:2 bracket, long-only): net +$3,955 over 15 years
+  (MAR 0.11). Nothing else is even positive.
+- **Reading:** the author's own disclaimer ("just for training, don't trade this")
+  is the only TV strategy description in this sweep whose backtest claim we could
+  fully confirm. 13.5K boosts anyway. Lockbox untouched.
+- Artifacts: `r13_AOSTOCH_1_0_results.json`.
+
+### 13.12 RSIDIV 1.0 — RSI Divergence strategy (TV #12, 9.8K boosts) — ❌ DEAD
+
+- **Port notes:** pivot-confirmed divergences (confirmation 3 bars after the pivot, no
+  look-ahead), pyramiding-2 with shared exits, hidden-bull included; the source's
+  `atrMultiplier` input is dead code (never referenced) — ported literally. Two trades
+  hand-traced through their pivot pairs (osc higher-low vs price lower-low, textbook).
+- **Results (2026-07-17): 0 of 16 grid cells pass.** As shipped: NQ 5m n=3,588,
+  WR 67.4%, PF 1.148, +$294.8k — against a **−$158.4k maxDD** (MAR 1.86); ES 1m
+  negative. Best cells are the 5%-trailing-stop variants: net $593k but −$178k DD
+  (MAR 3.33) on n=360 — month-long drift rides wearing a divergence costume. The
+  stop-less published mode is the familiar high-WR/huge-loser shape (avg loser 85 pts).
+- **Reading:** divergence timing adds nothing once fills are honest; the money comes
+  from holding long NQ for weeks. Lockbox untouched.
+- Artifacts: `r13_RSIDIV_1_0_results.json`.
+
+---
+
+## 4. ROUND-13 VERDICT (2026-07-17) — the sweep is complete: 0 of 12 survive triage
+
+**Every testable strategy on TradingView's all-time most-boosted list is dead on
+ES/NQ intraday data under honest fills and real costs.** ~250 pre-registered grid
+cells + 4 published-config datasets per strategy; not one cell passed the gate set;
+no family earned a walk-forward, and **all 12 lockboxes remain sealed** (nothing to
+spend them on).
+
+Cross-strategy findings (each visible in 3+ independent ports):
+
+1. **As-shipped configs are flat-to-badly-negative.** The most-boosted script of all
+   (BBRSI, 46.7K) loses −$171k on NQ 5m as published. Five of twelve are negative on
+   the deciding dataset as shipped; none exceeds MAR 2.5. Boosts measure chart
+   appeal, not edge — now measured, not asserted.
+2. **The short side is a universal money-loser.** In every both-direction system the
+   long-only cut dominates — the round-9 meta-finding (upward-drifting index; shorts
+   only pay intraday via ORB) reproduced 8 more times.
+3. **Every "best corner" converges to the same thing: long-only drift capture,**
+   MAR ~3–8, PF 1.2–1.6, corr vs ORB ≈ 0 — below the MAR ≥ 8 relevance bar and far
+   below ORB 3.1 (38.6). It's one shelf, rediscovered 12 times in 12 costumes.
+4. **1-minute execution is strictly worse than 5-minute** for every family — fee and
+   churn dominance, consistent with the round-2 fill-artifact wall.
+5. **High win rate = stop-less dip-holding** (MACDRSI 67% WR / 147-pt avg losers;
+   FLAWLESS 72% / 118 pts; RSIDIV 67% / 85 pts). The win rate is the drawdown.
+6. **TV strategy-report numbers are structurally untrustworthy for v2-era scripts:**
+   ICHIHULL's fame rests on a `security()` repaint (look-ahead) — removing it flips
+   the backtest to a coin-flip. The one honest description in the list (AOSTOCH's
+   "educational, don't trade this") was also the one claim we fully confirmed.
+
+**Program consequence:** the TV top-boosts source joins the two web sweeps as fully
+dispatched — that's now three exhausted public-strategy sources (owner shortlist,
+web deep-dive ×2, TV community top list). Champions unchanged: **ORB 3.1 (MAR 38.6)
+· ENGU-Q deploy · the 1:1 blend ($835k, 17-for-17 years, −$60.1k DD)**. Remaining
+edge paths are unchanged from round 11: more instruments (data buy), the order-flow
+program (~Oct 2026), or a new owner-originated idea.
+
+*Ports (12 files, `augur_strategies/`): BBRSI, MACD200, SUPERTREND_3_0, MACDRSI,
+PMAX, HULL, AOSTOCH, GOLDX, FLAWLESS, EMAX, ICHIHULL, RSIDIV — all `_1_0.py` (3_0 for
+SuperTrend), all plugin-contract, roll-seam-guarded, honest-fill, smoke-tested, and
+usable in AUGUR/EDGELOG grid sweeps at any time. Triage driver + per-strategy JSONs
+in the session scratchpad (`r13/`).*

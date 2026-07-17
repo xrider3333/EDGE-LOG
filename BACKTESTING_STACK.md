@@ -3,7 +3,7 @@
 **Single source of truth for where the backtesting engine stands.** Update this
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
-- **Last updated:** 2026-07-16
+- **Last updated:** 2026-07-17
 - **Web VERSION:** 56.4 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
@@ -574,13 +574,41 @@ external-conditioning diagnostic. Both come back empty — and the emptiness is 
 - Artifacts: session scratchpad round11_report.md, noise2_battery_report.md (+ per-condition .json,
   r11_*.py, run_c1_walkforward.py, r11_verify_yes.py).
 
+**2026-07-17 — challenger round 13 (owner: import + test TradingView's most-boosted community
+strategies): 12 verbatim Pine→Python ports, ~250 pre-registered cells — 0 of 12 survive triage.
+Full running record: [`TV_SWEEP.md`](TV_SWEEP.md).**
+- **The source:** the in-chart Community-scripts table sorted by boosts (BB+RSI Double 46.7K ·
+  MACD+SMA200 30.4K · SuperTrend 24.4K · MACD/RSI-oversold 17.6K · PMax 16.6K · Hull Suite 14.2K ·
+  AO+Stoch 13.5K · Golden Cross 10.9K · Flawless Victory 10.8K · EMA-cross 10.7K · Ichimoku-combo
+  10.3K · RSI-Divergence 9.8K; 3Commas Bot + Ultimate Strategy Template skipped as non-strategies).
+  Sources pulled verbatim (pine-facade; #4 from the author's GitHub — TV source protected); ported
+  to 12 plugin files with TV-parity fills (close-signal → next-open, real stop-order semantics),
+  roll-seam guards, and per-port hand/replay verification (ORB #125 anchor reproduced exactly in
+  every triage run).
+- **Kill summary (NQ 5m deciding, NQ/ES 1m+5m breadth):** as-shipped configs flat-to-negative
+  everywhere (BBRSI −$171k; EMAX −$98k/5m and −$761k/1m; AOSTOCH negative on all four datasets;
+  best published read anywhere = GOLDX MAR 2.45). Every family's best refined corner is the SAME
+  long-only drift shelf (MAR 3–7.8, PF 1.2–1.6, corr vs ORB ≈ 0) — below the MAR ≥ 8 bar; the
+  round-9 "long-only buy-weakness / shorts never pay" meta-finding reproduced 8 more times. High
+  win rates (67–72%) are all stop-less dip-holding with 85–150-pt average losers. ICHIHULL's
+  famous TV backtest is a `security()` repaint — the honest port is a coin-flip. **No family
+  reached walk-forward; all 12 lockboxes sealed/unspent.**
+- Notable side-settlement: **SUPERTREND 1.0/2.0's "not strongly validated" is now a measured
+  verdict** — the verbatim Kivanc port (`SUPERTREND_3_0.py`) has no honest edge (0/24; ES 5m and
+  both 1m feeds negative).
+- **Tally: 13 rounds · ~2,250 configs · 2 lockboxes spent · 0 beat ORB. Three public-strategy
+  sources now fully dispatched (web shortlist · web deep-dive ×2 · TV top-boosts).** Next-edge
+  paths unchanged: more instruments (owner data decision) · order-flow (~Oct 2026) · owner ideas.
+- Artifacts: `TV_SWEEP.md` (prereg + per-strategy records) · 12 committed ports in
+  `augur_strategies/` · session scratchpad r13/ (driver + per-strategy JSONs, tv_sweep/ pine pulls).
+
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
 |---|---|---|---|
 | 1–4, 9–12 | ENGU 1.1.20 / 1.1.21 / 1.2.1 / 1.3.1–1.3.5 | engulfing reversal | mostly WEAK/FAIL; 1.3.4 the least-bad (WEAK) |
 | 5–7 | REVERT 1.0 / 1.1 / 1.2 | mean reversion | FAIL |
 | 8, 16 | VWAP FADE 1.0 / 2.0 | fade stretch from VWAP | FAIL / weak |
-| 14, 15 | SUPERTREND 1.0 / 2.0 | ATR trend-follow | not strongly validated |
+| 14, 15 | SUPERTREND 1.0 / 2.0 | ATR trend-follow | ❌ settled by round 13: verbatim port (`SUPERTREND_3_0.py`) has no honest edge (0/24 cells) |
 | 17 | OVERNIGHT HOLD 1.0 | close→open risk premium | FAIL |
 | 13 | GAINZ RF 1.0 | random-forest signal strategy *(a strategy, not a gate)* | in library; not a validated deploy candidate |
 
@@ -716,6 +744,14 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-17** — **Challenger round 13 (owner-directed TV top-boosts sweep): 12 most-boosted
+  TradingView strategies pulled verbatim, ported (`augur_strategies/` — BBRSI, MACD200,
+  SUPERTREND_3_0, MACDRSI, PMAX, HULL, AOSTOCH, GOLDX, FLAWLESS, EMAX, ICHIHULL, RSIDIV), and
+  triaged across NQ/ES 1m+5m under house rules — 0 of 12 survive; all lockboxes sealed.**
+  As-shipped configs flat-to-negative (top-boosted BBRSI −$171k NQ 5m); every refined best-corner
+  = the same long-only drift shelf (MAR ≤ 7.8 < 8 bar); ICHIHULL's TV fame = `security()` repaint;
+  SUPERTREND family verdict settled (no honest edge). Boosts ≠ edge, now measured. New running
+  record: `TV_SWEEP.md`. Tally 13 rounds / ~2,250 configs / 0 beat ORB. Detail §3.
 - **2026-07-16** — **Paper-forward Phase 1: `tools/paper_forward.py` — dual-leg signal log + status page, VIX log column, gap-skip rule, stale-data guard.**
 - **2026-07-16** — **ENGU-Q Round 4 (Monte Carlo sizing, cost stress, 5m restate = size-knob not diversifier, w=1.0 DD-optimal, stop/overnight/cooldown/event descriptives — zero config changes).**
 - **2026-07-16** — **Challenger round 12: NOISE-2 (wide-band Zarattini envelope) = the program's strongest
