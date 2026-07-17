@@ -69,15 +69,15 @@ verbatim — so the negative, if it comes, is definitive for this source too.
 | # | Boosts | Script (author) | Rules in one line | Prior-art overlap | Port file | Status |
 |---|---|---|---|---|---|---|
 | 1 | 46.7K | Bollinger + RSI, Double Strategy (ChartArt) | RSI(16) crosses 45/55 AND close re-crosses the 2σ BB(20) band → stop-and-reverse, no stops/exits | REVERT family (FAIL) — different trigger, tested verbatim anyway | `BBRSI_1_0.py` | ❌ DEAD (0/54 gate-pass; as-shipped −$171k NQ) |
-| 2 | 30.4K | MACD + SMA 200 Strategy (ChartArt) | SMA-based MACD histogram zero-cross + macd>0 + close[26] vs SMA200 side filter → stop-and-reverse | fresh (regime-filtered momentum) | `MACD200_1_0.py` | queued |
+| 2 | 30.4K | MACD + SMA 200 Strategy (ChartArt) | SMA-based MACD histogram zero-cross + macd>0 + close[26] vs SMA200 side filter → stop-and-reverse | fresh (regime-filtered momentum) | `MACD200_1_0.py` | ❌ DEAD (0/16; as-shipped ≈ flat, MAR 0.27) |
 | 3 | 24.4K | SuperTrend STRATEGY (KivancOzbilgic) | ATR(10)×3.0 on hl2, flip on trend change, always-in | SUPERTREND 1.0/2.0 in library, "not strongly validated" | reuse + TV-exact config | queued |
 | 4 | 17.6K | MACD Bull Crossover + RSI Oversold 5-ago, Long (Trebor_Namor) | long when MACD crosses signal AND RSI was <30 within 5 bars; exit on bear cross w/ hist>0 + RSI>70 5-ago; optional SL/TP | fresh (source protected on TV; author's own Python port on GitHub used) | `MACDRSI_1_0.py` | queued |
 | 5 | 16.6K | PMax Explorer STRATEGY & SCREENER (KivancOzbilgic) | "Profit Maximizer": MA (8 types) vs ATR trailing line, flip on cross | SuperTrend-on-MA family | `PMAX_1_0.py` | queued |
-| 6 | 14.2K | Hull Suite Strategy (DashTrader) | HMA(55) slope vs 2 bars ago; long-only default (long/flat), "all" = flip | fresh (HMA trend) | `HULL_1_0.py` | queued |
+| 6 | 14.2K | Hull Suite Strategy (DashTrader) | HMA(55) slope vs 2 bars ago; long-only default (long/flat), "all" = flip | fresh (HMA trend) | `HULL_1_0.py` | ❌ DEAD (0/24; best MAR 2.9) |
 | 7 | 13.5K | Buy&Sell AO+Stoch+RSI+ATR (SerdarYILMAZ) | RSI+Stoch oversold + AO turns positive → long w/ ATR SL/TP (author labels it educational) | fresh (oscillator confluence) | `AOSTOCH_1_0.py` | queued |
-| 8 | 10.9K | Golden Cross SMA 50/200, Long Only (ChartArt) | SMA50 crosses SMA200 → long; cross under → flat | fresh, but a daily-scale signal — expected G1 fail on intraday bars (few crosses) | `GOLDX_1_0.py` | queued |
+| 8 | 10.9K | Golden Cross SMA 50/200, Long Only (ChartArt) | SMA50 crosses SMA200 → long; cross under → flat | fresh, but a daily-scale signal — expected G1 fail on intraday bars (few crosses) | `GOLDX_1_0.py` | ❌ DEAD (0/8; long = MAR 2.5 drift; daily-scale n=44) |
 | 9 | 10.8K | Flawless Victory 15m BTC "ML" (Trebor_Namor) | BB(20,1σ) + RSI bounds long strategy, 2 param versions + optional SL/TP; hyper-fit to 1yr of BTC | BBRSI cousin (1σ band) | `FLAWLESS_1_0.py` | queued |
-| 10 | 10.7K | BUY and SELL single EMA cross (Che_Trader) | EMA(10)/EMA(20) cross, always-in flip | the plainest momentum baseline | `EMAX_1_0.py` | queued |
+| 10 | 10.7K | BUY and SELL single EMA cross (Che_Trader) | EMA(10)/EMA(20) cross, always-in flip | the plainest momentum baseline | `EMAX_1_0.py` | ❌ DEAD (0/32; as-shipped −$98k NQ 5m, −$761k NQ 1m) |
 | 11 | 10.3K | Ichimoku + Daily-Candle_X + HULL-MA_X + MacD (SeaSide420) | 4-indicator confluence flip (Ichimoku cloud + daily-candle cross + HMA cross + HMA-MACD) | fresh (confluence) | `ICHIHULL_1_0.py` | queued |
 | 12 | 9.8K | RSI Divergence Indicator strategy (eemani123) | RSI(5) bull/hidden-bull divergence → long (pyramiding 2); exit RSI>75 or bear div; optional ATR trail | fresh (divergence) | `RSIDIV_1_0.py` | queued |
 | — | 14.4K | 3Commas Bot (Bjorgum) | — | SKIPPED: bot-integration template, not a strategy (no rule-set to test) | — | n/a |
@@ -130,4 +130,65 @@ unless stated) and TradingView House Rules respected — ports carry attribution
   - Artifacts: `scratchpad r13/r13_BBRSI_1_0_results.json` (54-cell grid + gate scan),
     `r13_triage.py` (driver, ORB-anchor-verified).
 
-*(sections 13.2+ appended as each strategy is tested)*
+### 13.2 MACD200 1.0 — MACD + SMA 200 (TV #2, 30.4K boosts) — ❌ DEAD
+
+- **Port notes:** the script's "MACD" is built from SIMPLE MAs (sma), not EMAs — ported
+  verbatim, plus its `close[26] > SMA200` side-filter quirk and persistent stop-entry
+  orders with the slowMA-vs-SMA200 cancel rule. Its 50%-equity intraday-loss halt is
+  meaningless at fixed 1-contract scale — omitted, documented.
+- **Results (2026-07-17): 0 of 16 grid cells pass.** As shipped (both directions):
+  NQ 5m n=776, PF 1.026, +$30.9k over 15 yrs with −$115k maxDD (MAR 0.27) — noise.
+  NQ 1m the best raw read (+$172k, PF 1.07, MAR 1.98) but 84.9% of net is post-2021.
+  ES 5m literally $23 net. Best refined cell (long-only, SMA100): MAR 3.84, PF 1.37 —
+  less than half the economics bar, and its own year-shape is 58.6% post-2021.
+- **Reading:** the SMA-MACD flip trades ~40-130 pts of churn per round trip and has no
+  timing edge beyond the index's upward drift; the long-only cut just rides drift with
+  deep give-backs. Nothing here threatens any champion. Lockbox untouched.
+- Artifacts: `r13_MACD200_1_0_results.json`.
+
+### 13.10 EMAX 1.0 — single EMA cross (TV #10, 10.7K boosts) — ❌ DEAD
+
+- **Results (2026-07-17): 0 of 32 valid grid cells pass.** As shipped (EMA 10/20 flip,
+  both directions): NQ 5m n=12,399, PF 0.977, **−$97.8k**; NQ 1m n=64,301, **−$760.8k**
+  (a fee-and-churn shredder — exactly what a 10/20 EMA cross on 1-minute bars should
+  do at real costs). ES both timeframes negative as well.
+- Best refined cell (EMA 20/100 long-only): MAR 7.82 / PF 1.27 / n=1,810 — under the
+  MAR ≥ 8 bar, and structurally the same drift-riding long-only cut as BBRSI/MACD200's
+  best corners (corr vs ORB 0.01 — unrelated to ORB, but also unrelated to any edge
+  beyond long index drift).
+- **Reading:** the plainest momentum baseline confirms the sweep's calibration: naive
+  always-in crosses lose after honest costs; long-only versions converge to ~MAR 6-8
+  drift capture. Lockbox untouched.
+- Artifacts: `r13_EMAX_1_0_results.json`.
+
+### 13.6 HULL 1.0 — Hull Suite Strategy (TV #6, 14.2K boosts) — ❌ DEAD
+
+- **Port notes:** HMA/EHMA/THMA implemented exactly (WMA kernel verified against the
+  textbook value in the smoke test); long-only default per the script's own
+  `strategy.risk.allow_entry_in`; "all" = always-in flip. Internal-consistency check
+  passed: flip-mode trade count = 2× long-only + 1, the exact structural relationship.
+- **Results (2026-07-17): 0 of 24 grid cells pass.** As shipped (HMA 55 long-only):
+  NQ 5m n=6,975, PF 1.043, +$100k over 15 yrs vs −$93k maxDD → MAR 1.08. On 1m the
+  slope flips churn it to death (NQ −$258k, ES −$594k). Best refined cell (EHMA,
+  length 89, long-only): MAR 2.89 / PF 1.11. Always-in "all" mode never beats its
+  own long-only cut.
+- **Reading:** a 55-bar MA slope on intraday bars flips far too often for a ~26-pt
+  average loser to survive 0.533-pt costs; at length 180 it's just slow drift capture.
+  The "Hull Suite" popularity is a chart-aesthetics phenomenon, not an edge. Lockbox
+  untouched.
+- Artifacts: `r13_HULL_1_0_results.json`.
+
+### 13.8 GOLDX 1.0 — Golden Cross SMA 50/200 long (TV #8, 10.9K boosts) — ❌ DEAD
+
+- **Results (2026-07-17): 0 of 8 valid grid cells pass.** As shipped on 5m bars
+  (50/200-bar SMAs, long/flat): NQ n=861, PF 1.249, +$204.7k / −$83.5k maxDD →
+  MAR 2.45; ES similar shape (MAR 2.6). Upscaled toward the daily-chart meaning of
+  "Golden Cross" (975/3900 bars ≈ 50/200 days) the quality rises (PF 2.48) but the
+  sample collapses to n=44 with 68.7% of net post-2021 — unusable, exactly the
+  pre-registered expectation. Every both-direction variant is worse (short leg loses
+  outright; 200/800-both is net-negative).
+- **Reading:** the famous cross is long index drift with a slow filter — real as a
+  fact about equities, useless as a futures leg at champion scale. Lockbox untouched.
+- Artifacts: `r13_GOLDX_1_0_results.json`.
+
+*(further sections appended as each strategy is tested)*
