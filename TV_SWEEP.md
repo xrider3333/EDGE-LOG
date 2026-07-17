@@ -70,15 +70,15 @@ verbatim — so the negative, if it comes, is definitive for this source too.
 |---|---|---|---|---|---|---|
 | 1 | 46.7K | Bollinger + RSI, Double Strategy (ChartArt) | RSI(16) crosses 45/55 AND close re-crosses the 2σ BB(20) band → stop-and-reverse, no stops/exits | REVERT family (FAIL) — different trigger, tested verbatim anyway | `BBRSI_1_0.py` | ❌ DEAD (0/54 gate-pass; as-shipped −$171k NQ) |
 | 2 | 30.4K | MACD + SMA 200 Strategy (ChartArt) | SMA-based MACD histogram zero-cross + macd>0 + close[26] vs SMA200 side filter → stop-and-reverse | fresh (regime-filtered momentum) | `MACD200_1_0.py` | ❌ DEAD (0/16; as-shipped ≈ flat, MAR 0.27) |
-| 3 | 24.4K | SuperTrend STRATEGY (KivancOzbilgic) | ATR(10)×3.0 on hl2, flip on trend change, always-in | SUPERTREND 1.0/2.0 in library, "not strongly validated" | reuse + TV-exact config | queued |
-| 4 | 17.6K | MACD Bull Crossover + RSI Oversold 5-ago, Long (Trebor_Namor) | long when MACD crosses signal AND RSI was <30 within 5 bars; exit on bear cross w/ hist>0 + RSI>70 5-ago; optional SL/TP | fresh (source protected on TV; author's own Python port on GitHub used) | `MACDRSI_1_0.py` | queued |
-| 5 | 16.6K | PMax Explorer STRATEGY & SCREENER (KivancOzbilgic) | "Profit Maximizer": MA (8 types) vs ATR trailing line, flip on cross | SuperTrend-on-MA family | `PMAX_1_0.py` | queued |
+| 3 | 24.4K | SuperTrend STRATEGY (KivancOzbilgic) | ATR(10)×3.0 on hl2, flip on trend change, always-in | SUPERTREND 1.0/2.0 in library, "not strongly validated" → family verdict now measured | `SUPERTREND_3_0.py` (verbatim) | ❌ DEAD (0/24; best long-only MAR 4.8) |
+| 4 | 17.6K | MACD Bull Crossover + RSI Oversold 5-ago, Long (Trebor_Namor) | long when MACD crosses signal AND RSI was <30 within 5 bars; exit on bear cross w/ hist>0 + RSI>70 5-ago; optional SL/TP | fresh (source protected on TV; author's own Python port on GitHub used) | `MACDRSI_1_0.py` | ❌ DEAD (0/16; MAR 1.36, 147-pt avg losers, edge pre-2021 only) |
+| 5 | 16.6K | PMax Explorer STRATEGY & SCREENER (KivancOzbilgic) | "Profit Maximizer": MA (8 types) vs ATR trailing line, flip on cross | SuperTrend-on-MA family | `PMAX_1_0.py` | ❌ DEAD (0/24; best long-only MAR 6.3) |
 | 6 | 14.2K | Hull Suite Strategy (DashTrader) | HMA(55) slope vs 2 bars ago; long-only default (long/flat), "all" = flip | fresh (HMA trend) | `HULL_1_0.py` | ❌ DEAD (0/24; best MAR 2.9) |
 | 7 | 13.5K | Buy&Sell AO+Stoch+RSI+ATR (SerdarYILMAZ) | RSI+Stoch oversold + AO turns positive → long w/ ATR SL/TP (author labels it educational) | fresh (oscillator confluence) | `AOSTOCH_1_0.py` | queued |
 | 8 | 10.9K | Golden Cross SMA 50/200, Long Only (ChartArt) | SMA50 crosses SMA200 → long; cross under → flat | fresh, but a daily-scale signal — expected G1 fail on intraday bars (few crosses) | `GOLDX_1_0.py` | ❌ DEAD (0/8; long = MAR 2.5 drift; daily-scale n=44) |
-| 9 | 10.8K | Flawless Victory 15m BTC "ML" (Trebor_Namor) | BB(20,1σ) + RSI bounds long strategy, 2 param versions + optional SL/TP; hyper-fit to 1yr of BTC | BBRSI cousin (1σ band) | `FLAWLESS_1_0.py` | queued |
+| 9 | 10.8K | Flawless Victory 15m BTC "ML" (Trebor_Namor) | BB(20,1σ) + RSI bounds long strategy, 2 param versions + optional SL/TP; hyper-fit to 1yr of BTC | BBRSI cousin (1σ band) | `FLAWLESS_1_0.py` | ❌ DEAD (0/16; v1 MAR 1.7, best cell 2.7) |
 | 10 | 10.7K | BUY and SELL single EMA cross (Che_Trader) | EMA(10)/EMA(20) cross, always-in flip | the plainest momentum baseline | `EMAX_1_0.py` | ❌ DEAD (0/32; as-shipped −$98k NQ 5m, −$761k NQ 1m) |
-| 11 | 10.3K | Ichimoku + Daily-Candle_X + HULL-MA_X + MacD (SeaSide420) | 4-indicator confluence flip (Ichimoku cloud + daily-candle cross + HMA cross + HMA-MACD) | fresh (confluence) | `ICHIHULL_1_0.py` | queued |
+| 11 | 10.3K | Ichimoku + Daily-Candle_X + HULL-MA_X + MacD (SeaSide420) | 4-indicator confluence flip (Ichimoku cloud + daily-candle cross + HMA cross + HMA-MACD) | fresh (confluence) | `ICHIHULL_1_0.py` | ❌ DEAD (0/18; honest port kills the repaint edge) |
 | 12 | 9.8K | RSI Divergence Indicator strategy (eemani123) | RSI(5) bull/hidden-bull divergence → long (pyramiding 2); exit RSI>75 or bear div; optional ATR trail | fresh (divergence) | `RSIDIV_1_0.py` | queued |
 | — | 14.4K | 3Commas Bot (Bjorgum) | — | SKIPPED: bot-integration template, not a strategy (no rule-set to test) | — | n/a |
 | — | 12.1K | Ultimate Strategy Template (Daveatt) | — | SKIPPED: strategy TEMPLATE (framework for other people's signals), no edge claim | — | n/a |
@@ -190,5 +190,86 @@ unless stated) and TradingView House Rules respected — ports carry attribution
 - **Reading:** the famous cross is long index drift with a slow filter — real as a
   fact about equities, useless as a futures leg at champion scale. Lockbox untouched.
 - Artifacts: `r13_GOLDX_1_0_results.json`.
+
+### 13.3 SUPERTREND 3.0 — SuperTrend STRATEGY verbatim (TV #3, 24.4K boosts) — ❌ DEAD
+
+- **Port notes:** new file rather than reusing `SUPERTREND_1_0/2_0.py` — those are older
+  loose adaptations (SMA-ATR, mult 3.5, EMA filter, non-house fills). 3.0 is the
+  Kivanc script exactly: hl2 source, Wilder-RMA ATR(10)×3.0, ratcheted-band flip,
+  always-in. Port cross-validated by an independent second implementation
+  (0 mismatches over 28k bars) and a buy/sell signal-symmetry check.
+- **Results (2026-07-17): 0 of 24 grid cells pass.** As shipped (both directions):
+  NQ 5m n=7,404, PF 1.039, +$140k / −$76k maxDD → MAR 1.85; ES 5m **negative**
+  (−$76k); both 1m feeds are churn shredders (NQ −$423k, ES −$721k). Best refined
+  cell (ATR 20 × 3.0, long-only): MAR 4.84 / PF 1.15 — drift capture again.
+- **Reading:** this measured verdict also SETTLES the library's old "SUPERTREND 1.0/2.0
+  not strongly validated" line — the family's published form has no honest edge on
+  ES/NQ intraday bars at real costs; its TV popularity rests on cosmetic trend
+  painting and zero-cost backtests. Lockbox untouched.
+- Artifacts: `r13_SUPERTREND_3_0_results.json`.
+
+### 13.4 MACDRSI 1.0 — MACD cross + RSI-oversold-recently long (TV #4, 17.6K boosts) — ❌ DEAD
+
+- **Port notes:** TV source is protected ("Closed by the author"); port built from the
+  author's published rule description + their own GitHub Python (`macd_rsi.py`). The
+  port agent proved the exit's "histogram above 0" clause is mathematically inert
+  (0 of 2,224 crossunder bars excluded — the crossunder itself forces it), which is
+  presumably why the author's own later Python dropped it. Defaults follow the TV
+  artifact (lookback 5); the GitHub lookback 10 is a grid cell.
+- **Results (2026-07-17): 0 of 16 grid cells pass.** As shipped (long-only): NQ 5m
+  n=749, WR 67.2%, PF 1.198, +$143.7k vs **−$105.8k maxDD** → MAR 1.36. The 67% win
+  rate is bought with stop-less dip-holding: average loser 147 pts (~$2,900). Both 1m
+  feeds negative. Unusual failure shape for this sweep: the money is PRE-2021 (post-21
+  share only 10.1%) — the dip-buy-without-stop trick worked in the QE decade and
+  stopped. Best cell (rsi_os 35, long): MAR 1.91.
+- **Reading:** a 71%-WR smoke on 3 cherry years dissolved over 15 — the exact
+  overfit-to-era failure the round screens for. SL/TP overlays only shrink both sides.
+  Lockbox untouched.
+- Artifacts: `r13_MACDRSI_1_0_results.json`.
+
+### 13.5 PMAX 1.0 — Profit Maximizer (TV #5, 16.6K boosts) — ❌ DEAD
+
+- **Port notes:** all 8 published MA types implemented (incl. Kivanc's VAR/VIDYA with
+  its hardcoded 9-bar CMO window — a source quirk kept verbatim); PMax recursion
+  cross-checked bit-identical against an independent SuperTrend-on-hl2 reference at
+  the degenerate MA=SMA(1) setting. Screener half of the script is display-only —
+  omitted.
+- **Results (2026-07-17): 0 of 24 grid cells pass.** As shipped (EMA 10, ATR 10×3.0,
+  both): NQ 5m n=3,453, PF 1.072, +$175k / −$93k → MAR 1.88; ES 5m and both 1m feeds
+  negative. Best refined (SMA 20 / mult 2.0 / long-only): MAR 6.29 / PF 1.22 — the
+  same long-only drift shelf as every other trend flip in this sweep (corr vs ORB
+  ≈ 0). VAR/EMA/SMA differences are cosmetic at 15-year scale.
+- **Reading:** smoothing the price before the ATR trail (PMax's whole pitch vs
+  SuperTrend) changes nothing that costs care about. Lockbox untouched.
+- Artifacts: `r13_PMAX_1_0_results.json`.
+
+### 13.9 FLAWLESS 1.0 — Flawless Victory (TV #9, 10.8K boosts) — ❌ DEAD
+
+- **Port notes:** v1/v2/v3 all ported (v3's MFI na-guard is dead code in the source —
+  ported as the literal bug, documented); v2/v3 percent brackets verified to fill at
+  exactly −6.604%/+2.328% etc. with correct gap-through handling.
+- **Results (2026-07-17): 0 of 16 grid cells pass.** As shipped (v1 long): NQ 5m
+  n=2,152, WR 72.3%, PF 1.134, +$190k / −$110k → MAR 1.73; NQ 1m the sweep's best 1m
+  read (+$225k, MAR 2.70) — still nowhere near any bar. High win rate, no stop, avg
+  loser 118 pts: the same buy-the-dip-and-hold shape as MACDRSI. Best cell (v1,
+  guard 50): MAR 2.71. The author's "hyper-optimized with machine learning on 1 year
+  of BTC" params transfer to index futures exactly as well as the prereg predicted.
+- Artifacts: `r13_FLAWLESS_1_0_results.json`.
+
+### 13.11 ICHIHULL 1.0 — Ichimoku + Daily-Candle + Hull + MACD (TV #11, 10.3K boosts) — ❌ DEAD
+
+- **Port notes (two documented honesty deviations):** the Pine's daily-close
+  "confidence" input uses `security('D', close)` which REPAINTS in Pine v2 (intraday
+  it reads the day's FINAL close = look-ahead) — our port uses only completed prior
+  sessions. Its `calc_on_every_tick` same-bar fills became next-open fills. Both
+  deviations make our numbers honest where the TV backtest is inflated.
+- **Results (2026-07-17): 0 of 18 grid cells pass.** As shipped (both directions):
+  NQ 5m n=2,491, PF 1.046, +$62.6k / −$92k → MAR 0.68, and the post-2021 share is
+  151% (pre-2021 subtotal NEGATIVE). ES and 1m all negative. Best refined cell
+  (long-only, dt 0.0025): MAR 5.83 but 62.4% post-2021 → G3 fail.
+- **Reading:** with the repaint removed and honest fills applied, the 4-indicator
+  confluence is a coin-flip with fees. A clean demonstration of why TV strategy-report
+  numbers from v2-era scripts with `security()` calls cannot be trusted at face value.
+- Artifacts: `r13_ICHIHULL_1_0_results.json`.
 
 *(further sections appended as each strategy is tested)*
