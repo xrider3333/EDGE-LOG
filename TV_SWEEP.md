@@ -314,6 +314,34 @@ cells + 4 published-config datasets per strategy; not one cell passed the gate s
 no family earned a walk-forward, and **all 12 lockboxes remain sealed** (nothing to
 spend them on).
 
+### 4.1 Comparison table
+
+*"As shipped" = the published defaults on the deciding dataset (NQ 5m RTH,
+2010-06-07 → 2025-06-30, 1 contract, 0.533 pts/RT costs included). MAR = net ÷ max
+drawdown. "Best corner" = the top author-knob grid cell — long-only in every single
+case. Grid = gate-passing cells / cells run.*
+
+| # | Strategy (boosts) | Concept | As shipped — NQ 5m, 15 yr | Best honest corner | Grid | Why it died |
+|---|---|---|---|---|---|---|
+| 1 | Bollinger+RSI Double (46.7K) | BB(20,2σ) + RSI(16) reversal, no stops | PF 0.88 · **−$171k** · MAR −0.7 | MAR 6.8 · PF 1.56 (RSI 16, band 50, 1.5σ, long) | 0/54 | short side torches it; long corner = buy-weakness drift, under the MAR-8 bar |
+| 2 | MACD+SMA200 (30.4K) | SMA-MACD zero-cross + SMA200 side filter | PF 1.03 · +$31k · MAR 0.3 | MAR 3.8 · PF 1.37 (SMA100, long) | 0/16 | no timing edge; 40–130 pts of churn per flip |
+| 3 | SuperTrend (24.4K) | ATR(10)×3 trailing flip, always-in | PF 1.04 · +$140k · MAR 1.9 | MAR 4.8 · PF 1.15 (ATR 20×3.0, long) | 0/24 | whipsaw at real costs; ES + both 1m feeds negative — settles the SUPERTREND 1.0/2.0 question |
+| 4 | MACD cross + RSI-oversold (17.6K) | long when MACD crosses up & RSI<30 recently | PF 1.20 · +$144k · MAR 1.4 | MAR 1.9 · PF 1.23 (RSI-os 35, long) | 0/16 | 67% WR bought with 147-pt stop-less losers; edge existed pre-2021 only |
+| 5 | PMax (16.6K) | SuperTrend applied to a moving average | PF 1.07 · +$175k · MAR 1.9 | MAR 6.3 · PF 1.22 (SMA 20, mult 2.0, long) | 0/24 | smoothing the input changes nothing that costs care about |
+| 6 | Hull Suite (14.2K) | HMA(55) slope, long/flat | PF 1.04 · +$100k · MAR 1.1 | MAR 2.9 · PF 1.11 (EHMA 89, long) | 0/24 | 55-bar slope flips far too often for ~26-pt losers |
+| 7 | AO+Stoch+RSI (13.5K) | oscillator confluence + 1×ATR bracket | PF 0.80 · **−$158k** · MAR −0.9 | MAR 0.1 (+$4k / 15 yr) | 0/24 | negative on ALL FOUR datasets; a coin-flip bracket minus fees. Author's own "educational only" disclaimer = accurate |
+| 8 | Golden Cross (10.9K) | SMA 50/200 cross, long/flat | PF 1.25 · +$205k · MAR 2.5 | MAR 4.3 · PF 2.48 but n=44 (daily-scale 975/3900) | 0/8 | best as-shipped of the list — still pure drift; the true daily-chart version has no sample |
+| 9 | Flawless Victory (10.8K) | BB(1σ)+RSI long, "ML-tuned" on 1 yr of BTC | PF 1.13 · +$190k · MAR 1.7 | MAR 2.7 · PF 1.24 (guard 50) | 0/16 | 72% WR / 118-pt losers; BTC-fitted params don't transfer |
+| 10 | EMA 10/20 cross (10.7K) | plain EMA flip | PF 0.98 · **−$98k** · MAR −0.7 (NQ 1m: −$761k) | **MAR 7.8** · PF 1.27 (EMA 20/100, long) — the sweep's best corner | 0/32 | fee shredder as shipped; even the best corner of 12 strategies misses the bar |
+| 11 | Ichimoku+Hull+MACD (10.3K) | 4-indicator confluence | PF 1.05 · +$63k · MAR 0.7 (pre-2021 subtotal NEGATIVE) | MAR 5.8 but 62% post-2021 → regime fail | 0/18 | its TV fame is a `security()` repaint (look-ahead); the honest port is a coin-flip |
+| 12 | RSI Divergence (9.8K) | RSI pivot divergences, long, pyramid 2 | PF 1.15 · +$295k · MAR 1.9 (maxDD −$158k) | MAR 3.3 (5% trail, n=360) | 0/16 | divergence timing adds nothing; the money is weeks-long drift rides |
+
+**Yardsticks, same window & costs:** ORB 3.1 #125 = PF 1.61 · +$306k · maxDD **−$9.4k**
+(MAR ≈ 33 pre-lockbox, 38.6 full-history) · ENGU-Q deploy = $474.7k full-history,
+net-DD 7.2 · 1:1 blend = $835k, −$60.1k DD, 17-for-17 years. The best TV corner (7.8)
+doesn't reach the book's WEAKER leg; ORB alone beats every as-shipped config on net
+dollars with 1/9th to 1/25th of the drawdown.
+
 Cross-strategy findings (each visible in 3+ independent ports):
 
 1. **As-shipped configs are flat-to-badly-negative.** The most-boosted script of all
