@@ -602,6 +602,33 @@ with trail, 3/10-day caps} = 15 variants + the flat-EOD baseline.
 
 ---
 
+### 4.21 Round-3 batch 1 — compression GRADUATES; calendar is flat (2026-07-16)
+
+`tools/orb_round3_batch1.py` (anchor reproduces #154 to the dollar). Deploy config, tilts not filters.
+
+**X1/X2 — Crabel compression: the first graduating add-on since the breakeven. ✅ (small but real)**
+Sessions after an NR7 day (prior daily range narrowest of 7) or an inside day carry a fatter edge
+(NR7 PF 1.63 vs 1.54; inside PF 1.64 / avg $187 vs $140), exactly as the literature claims. Sizing
+UP on those sessions passes the strict IS+LB gate — a robust plateau across two signals × three magnitudes:
+
+| tilt | IS MAR | LB MAR | verdict |
+|---|---|---|---|
+| baseline | 20.70 | 7.06 | — |
+| NR7 ×1.1 / ×1.25 | 20.82 / **20.98** | 7.26 / **7.56** | **PASS both** |
+| NR7 ×1.5 | 20.38 | 8.06 | fails IS (too big) |
+| inside ×1.1 / ×1.25 / ×1.5 | 20.80 / 20.95 / **21.20** | 7.28 / 7.62 / **8.03** | **PASS all three** |
+| union (NR7∪inside) ×1.25+ | 20.5 | 8.0+ | fails IS by a hair — use the individual signals |
+
+- **Deploy note:** this is a *sizing-overlay refinement*, not a config change — candidate 4th factor for the
+  §5.6 rule (`size ×1.25 on post-NR7 / post-inside sessions`). ID+NR4 (the web's "premium" combo) **inverted**
+  on NQ (PF 1.32, avg $90) — do NOT use the combo, use the two signals separately.
+- **X9/X10/X12 — calendar: flat.** Weekday spread mild (Mon PF 1.39 … Wed/Thu 1.66/1.68 — noted, not actioned:
+  post-hoc weekday weights = snooping); OPEX / month-end / pre-holiday ≈ baseline. Quarterly **roll week PF 1.84**
+  (n=378) is the only standout — worth a pre-registered follow-up, not an action today.
+- **X11 (FOMC)** pending a verified 2010–2026 meeting-dates file — not approximated on purpose.
+
+---
+
 ## 5. What a pro would actually do here (principles)
 
 1. **Size on drawdown, not PnL.** Fixed max-DD risk budget → at −$9k DD you carry ~2.8× the
