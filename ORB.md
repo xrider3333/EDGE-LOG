@@ -629,6 +629,41 @@ UP on those sessions passes the strict IS+LB gate — a robust plateau across tw
 
 ---
 
+### 4.22 Round-3 batches 2–4 — RVOL / VWAP / measured-move / breadth (2026-07-16)
+
+Three harnesses built by parallel subagents (all anchors reproduced #154 to the dollar), then
+**verified by hand before acceptance — and the verification overturned the headline result.**
+
+**X3 — relative volume (RVOL): ✗ does NOT graduate — the first-cut "pass" was look-ahead.**
+The subagent's version counted the ENTRY bar's full volume and graduated (LB MAR 7.4–7.5); but the
+breakout bar's volume spike *is* the break — circular for a sizing decision made at the touch. With
+**strictly-prior** volume (bars before entry only) the rvol≥1.0 tilts **fail the lockbox** (6.52/5.91
+vs 7.06); rvol≥1.2×1.25 passes by 0.02 MAR with both neighbors failing — a knife-edge, not a plateau.
+`tools/orb_round3_batch2.py` (committed strict-causal). **Banked:** the strict diagnostic is still
+cleanly monotone (avg $85→$365, PF 1.40→2.43 by RVOL bucket) — the info is real but arrives too late
+to size the entry; a possible future use is intra-trade (size the runner once realized RVOL is known).
+
+**X6 — VWAP-side: ✗ as a tilt; useful map.** Aligned trades PF 1.61 vs opposed 1.10 (avg $158 vs $29)
+— but 90% of ORB entries are VWAP-aligned *by construction*, so the tilt is a whole-book leverage bump
+(OPT MAR falls). The interesting tail is the opposed 10% (dead weight) — same family as the S/T maps.
+
+**X4 — measured-move targets (k × OR-width): ✗ FAILS.** `ORB_3_0_MM.py` verified geometry-identical
+to the deploy at 7.875 OR-widths (= 4.5R × 1.75; anchor to the dollar). The WR thesis works exactly as
+advertised — WR climbs to 66% at 1×OR — but never pays: OPT MAR peaks 26.3 at 2.5×OR yet **every**
+shorter target loses the lockbox (best LB 6.4 vs 7.1). The familiar IS-only mirage; **the wide 4.5R
+target stands.** Tool: `tools/orb_round3_batch3_mm.py`.
+
+**X7 — ES↔NQ breadth: ✗ FAILS cleanly.** With a 1-bar OR, ES breaks its range within minutes, so the
+"confirmation" is a coin-flip on ES's first wiggle: CONFIRMED trades (PF 1.54, avg $139) are actually
+*slightly worse* than OPPOSED (1.56, $155). All tilts fail both windows; nothing pre-registerable.
+Tool: `tools/orb_round3_batch4_breadth.py`.
+
+**Round-3 final: 1 graduate (compression ×1.25, §4.21) · everything else honest fails or maps.**
+The methodology note that matters: **two of round 3's "wins" died on verification** (RVOL look-ahead;
+the web's ID+NR4 combo inverted). Anchor + strict causality + both-windows MAR is what keeps the book real.
+
+---
+
 ## 5. What a pro would actually do here (principles)
 
 1. **Size on drawdown, not PnL.** Fixed max-DD risk budget → at −$9k DD you carry ~2.8× the
@@ -700,13 +735,13 @@ size or ADD trades, not filters that delete sessions:**
 Test as SIZE TILTS / target variants first, never delete-filters (the B/M/N/O lesson):**
 
 *Tier 1 — strongest literature support, testable on our data now:*
-- ☐ **X1 — NR7 / NRn compression (Crabel):** prior daily range narrowest of last N → expansion odds up; size-up tilt.
-- ☐ **X2 — inside-day / ID+NR4 combo:** prior day engulfed by day-before → same compression family.
-- ☐ **X3 — relative volume (RVOL):** session-to-date volume vs same-time 14-day avg ≥ 1.0 → "in play" tilt (the Zarattini/Aziz stocks-in-play result, futures version).
-- ☐ **X4 — measured-move targets:** target = k × OR width (1.0/1.5/2.0×, Market-Profile IB-extension convention) instead of R-multiples (4.5R = 7.9 OR-widths — a very different geometry).
+- ☑ **X1 — NR7 compression** — ✅ **GRADUATES ×1.25 (§4.21)** — first add-on to pass since BE.
+- ☑ **X2 — inside-day** — ✅ **GRADUATES ×1.1–1.5 (§4.21)**; ID+NR4 combo INVERTED — don't use it.
+- ☑ **X3 — relative volume (RVOL)** — ✗ NO (§4.22): first-cut pass was entry-bar look-ahead; strictly-causal fails the lockbox. Monotone diagnostic banked (PF 1.40→2.43).
+- ☑ **X4 — measured-move targets** — ✗ NO (§4.22): WR climbs to 66% as promised but every shorter target loses the lockbox; 4.5R stands.
 - ☐ **X5 — prior-day VALUE AREA context:** open/break vs yesterday's 70%-volume band (computable from 5m volume); the 80%-rule as a separate overlay strategy.
-- ☐ **X6 — VWAP-side tilt:** size up breaks on the session-VWAP side (long above / short below).
-- ☐ **X7 — cross-market breadth:** ES and NQ breaking the same direction within N minutes → conviction tilt (both masters on disk).
+- ☑ **X6 — VWAP-side tilt** — ✗ NO (§4.22): 90% of entries are VWAP-aligned by construction; opposed 10% = dead-weight map.
+- ☑ **X7 — cross-market breadth** — ✗ NO (§4.22): degenerate with a 1-bar OR (ES breaks in minutes); CONFIRMED ≈ OPPOSED.
 - ☐ **X8 — first-bar character:** OR-bar body% + break WITH vs AGAINST the OR bar's close, as a tilt (the filter version exists as trade_mode; the tilt is untested).
 
 *Tier 2 — calendar / session clock:*
