@@ -664,6 +664,46 @@ the web's ID+NR4 combo inverted). Anchor + strict causality + both-windows MAR i
 
 ---
 
+### 4.23 Round-3 wave 2 — X5 · X8 · X11 · X13–X19 (2026-07-17) — round 3 CLOSED
+
+Four subagent harnesses, all anchors to the cent, verified by hand. **Nothing new is adopted; two
+mechanical passes were rejected on inspection; the diagnostics converge on one factor.**
+
+**X8b — break WITH the OR bar's close, ×1.25: mechanical PASS on a real plateau — NO-ADOPT.**
+The two populations are economically identical (WITH avg $150 / PF 1.56 vs AGAINST $145 / 1.55): a
+tilt between twins can only "win" through drawdown-path luck (the lockbox DD stretch happens to be
+light on WITH trades). A pass without a per-trade edge is a coincidence, not a signal. Not promoted.
+
+**X13 — lunch-hour trail tightening: mechanical pass at lunch_trail=4 — NO-ADOPT.** OPT MAR 27.0→27.3,
+LB DD untouched ($7,321 in every cell), and lt=4 is one step from the off state — convergence to
+baseline, not an effect. **X14 — late-entry tighter stop: uniform kill** (6/6 cells fail; P2's late-break
+weakness is not fixable by resizing the stop — it's already priced by the G time-tilt).
+
+**X11 — FOMC days (131 verified dates from federalreserve.gov, spot-checked): tilt fails, map banked.**
+FOMC decision-day ORB trades are the worst bucket in the book over 16y — **128 trades, avg $19, WR 26%,
+PF 1.05** ≈ a coin-flip paying fees. Half-size passes OPT on a plateau but fails the lockbox (its 8
+FOMC trades happened to be positive; the LB DD path contains none) → no backtest tilt. Recorded as a
+**live-execution consideration** (expect nothing from FOMC-day entries), dates at `tools/data/fomc_dates.txt`.
+
+**X5 — prior-day value area: FAILS monotone, and the folklore inverted.** "Out of value" entries are
+the *weakest* bucket (avg $91, PF 1.33), not the strongest; the 80%-rule adds nothing. The rich cells
+are **counter-side traverses** (long from below VAL / short from above VAH: avg $340, PF 2.54) and
+**shorts after an open above VAH (avg $362, PF 3.07)** — the same fade-the-extended-open shape as ever.
+
+**X15–X19 maps — five more lenses, one factor.** Prior-close >0.75 → shorts PF 2.30 / longs *negative*
+(0.86); up-streak +1..+4 → shorts PF 2.0–3.0 / longs ≤1.28; fresh-air longs are the book's worst pocket
+(−$10,304 over 1,041 trades — X17's tilt hypothesis was backwards); unfilled-gap/against-gap PF 2.05;
+low-CLV OR bars → shorts PF 2.2–2.7. Every structural lens finds the same thing: **the edge concentrates
+in responsive shorts against overnight/prior-day strength; longs chasing strength are dead weight.**
+That factor is already partially harvested by the §5.6 short-tilt — a unified "context-tilt v2"
+(side × strength-context) is the one pre-registerable follow-up this round leaves on the table.
+
+**ROUND 3 FINAL: tested X1–X19 + V/W. Adopted: compression ×1.25 (§4.21) — nothing else.** Four
+mechanical passes were rejected under verification (RVOL look-ahead; OR-close twin-populations;
+lunch-trail nil; FOMC lockbox). The deploy book is unchanged and now battle-tested against ~30 ideas.
+
+---
+
 ## 5. What a pro would actually do here (principles)
 
 1. **Size on drawdown, not PnL.** Fixed max-DD risk budget → at −$9k DD you carry ~2.8× the
@@ -739,16 +779,16 @@ Test as SIZE TILTS / target variants first, never delete-filters (the B/M/N/O le
 - ☑ **X2 — inside-day** — ✅ **GRADUATES ×1.1–1.5 (§4.21)**; ID+NR4 combo INVERTED — don't use it.
 - ☑ **X3 — relative volume (RVOL)** — ✗ NO (§4.22): first-cut pass was entry-bar look-ahead; strictly-causal fails the lockbox. Monotone diagnostic banked (PF 1.40→2.43).
 - ☑ **X4 — measured-move targets** — ✗ NO (§4.22): WR climbs to 66% as promised but every shorter target loses the lockbox; 4.5R stands.
-- ☐ **X5 — prior-day VALUE AREA context:** open/break vs yesterday's 70%-volume band (computable from 5m volume); the 80%-rule as a separate overlay strategy.
+- ☑ **X5 — prior-day VALUE AREA** — ✗ NO (§4.23): out-of-value = weakest bucket (inverted); 80%-rule adds nothing; counter-side traverse (PF 2.54) noted post-hoc.
 - ☑ **X6 — VWAP-side tilt** — ✗ NO (§4.22): 90% of entries are VWAP-aligned by construction; opposed 10% = dead-weight map.
 - ☑ **X7 — cross-market breadth** — ✗ NO (§4.22): degenerate with a 1-bar OR (ES breaks in minutes); CONFIRMED ≈ OPPOSED.
-- ☐ **X8 — first-bar character:** OR-bar body% + break WITH vs AGAINST the OR bar's close, as a tilt (the filter version exists as trade_mode; the tilt is untested).
+- ☑ **X8 — first-bar character** — ✗ NO-ADOPT (§4.23): mechanical plateau pass but WITH/AGAINST populations are twins ($150/1.56 vs $145/1.55) → DD-path luck, not a signal.
 
 *Tier 2 — calendar / session clock:*
-- ☐ **X9 — day-of-week tilt** · **X10 — OPEX (3rd Fri) / quarterly-roll week / month-end** · **X11 — FOMC-day behavior** (dates hardcodable) · **X12 — pre-holiday eve** · **X13 — lunch-hour trail tightening** · **X14 — session-age-scaled stop**.
+- ☑ **X9/X10/X12** — ➖ flat (§4.21; roll-week PF 1.84 noted) · ☑ **X11 FOMC** — ✗ tilt fails LB but FOMC-day trades ≈ coin-flip over 16y (avg $19, PF 1.05) → live-execution note, verified dates in `tools/data/fomc_dates.txt` · ☑ **X13 lunch-trail** — ✗ NO-ADOPT (nil effect) · ☑ **X14 late-stop** — ✗ uniform kill (§4.23).
 
 *Tier 3 — prior-day structure (diagnostics first):*
-- ☐ **X15 — prior-day close location** (top/bottom quartile of its range) · **X16 — gap-fill state pre-break** · **X17 — break into fresh air vs into yesterday's range** (prior-day H/L, cousin of S) · **X18 — consecutive up/down-day count** · **X19 — breakout-bar close-location-value**.
+- ☑ **X15–X19** — ◐ maps (§4.23): five lenses, one factor — responsive shorts against strength are the cream; fresh-air longs are the book's worst pocket (−$10.3k). Pre-registerable follow-up: unified "context-tilt v2" (side × strength-context) for the §5.6 overlay.
 
 *Tier 4 — needs data we don't have yet:* order-flow delta (=V, accruing) · TICK/ADD internals · VIX term structure · 0DTE gamma levels.
 
