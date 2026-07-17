@@ -716,6 +716,7 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-16** — **Paper-forward Phase 1: `tools/paper_forward.py` — dual-leg signal log + status page, VIX log column, gap-skip rule, stale-data guard.**
 - **2026-07-16** — **ENGU-Q Round 4 (Monte Carlo sizing, cost stress, 5m restate = size-knob not diversifier, w=1.0 DD-optimal, stop/overnight/cooldown/event descriptives — zero config changes).**
 - **2026-07-16** — **Challenger round 12: NOISE-2 (wide-band Zarattini envelope) = the program's strongest
   challenger — regime-healthy on NQ (MAR 8.14, 2010–17 positive, corr 0.22), passed 4/5 pre-registered
