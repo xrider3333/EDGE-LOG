@@ -230,6 +230,14 @@ Full running record: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`. **NQ 1m = champion (r
   - Artifacts: session scratchpad round2_mgmt_report.md, round3_blend_report.md, r2/r3 pkl +
     drivers.
 
+**2026-07-16 — Round 4 (risk quantification + final descriptives). Four studies, all independently verified. ZERO config changes — deploy config + 1:1 ORB blend stand, now risk-quantified:**
+- Monte Carlo (10k paths, block bootstrap — the honest variant since losses cluster): the historical maxDD (−$65,635) is a MEDIAN outcome, not a worst case. 95th-percentile: ENGU-Q 16-yr −$114k; 1:1 blend 12-month −$44k with P(losing year)=8%. Account-sizing (P a 12-mo blend path draws down ≥33% / ≥50% of account): $75k → 35%/12%; $100k → 17%/2.6%; $150k → 2.8%/0.2%. Cost stress: ENGU-Q edge survives to 22.7x current costs, ORB to 9.3x; at 2x costs the blend still nets $766k with maxDD ~unchanged.
+- NQ 5m (#146) honest-fills restate: lockbox drops $109,184/PF 1.722 (optimistic) → $81,821/PF 1.463 (honest); best variant +breakeven_R 1.5: full $546,186/PF 1.672/maxDD −$90,837, lockbox $84,877/PF 1.496, 4 losing years (2022 −$74,993). SURVIVES as a strategy but is NOT a diversifier: 1m+5m combined maxDD −$130,426 (~additive) and combined 2022 −$119,789 — both legs are long NQ simultaneously 87.9% of sessions; the +0.10 daily correlation is an exit-date-attribution artifact. Adding 5m = a size decision, same class as the parked pyramid. (Noted: 5m netted +$103k during the 1m's Dec-25→Mar-26 DD — single episode, not load-bearing.)
+- ORB weight frontier (1×ENGUQ + w×ORB, w=0→4): w=1.0 is the drawdown-MINIMIZING weight (−$60,098); net/DD rises monotonically with w (no knee inside the grid) but higher w is just more size on one validated ORB config; 0 losing years at every w≥1.0.
+- Trade anatomy: the 1.0R stop is placed about right — every tighter hypothetical stop (0.5-0.9R) loses more in forfeited winners than it saves on losers (0.9R still −$23k net). Overnight holding supplies 46.6% of all net PnL and weekends are +$115,945 over 573 boundaries → weekend/overnight flattening DEAD. Losses are sequentially independent (runs test p=0.53) and expectancy after 3+ consecutive losses is the strategy's BEST ($381 vs $232 unconditional) → all cooldown/stand-aside ideas DEAD; post-gap-stop conditioning not significant (p=0.11).
+- Event days (FOMC 133 dates from Fed calendars incl 10 emergency; NFP 192 first-Friday+overrides; CPI honestly partial, 2024+ verified only): NO event type justifies a filter — union event days are 8.3% of sessions carrying 10.6% of losses (not significant), CPI±1 days average +$803 (the strategy likes event volatility), and the worst MTM day (2025-10-10, −$17,845) is not an event day.
+- Artifacts: session scratchpad round4a-d reports + pkls + independent verification scripts.
+
 ### DRIVE 1.0 (first-hour momentum) — `DRIVE_1_0.py` · 🔬 research only
 
 **2026-07-13 — new-strategy challenge (attempt to beat ORB 3.1 / ENGU-Q): NOT a challenger; kept as a research asset.**
@@ -708,6 +716,7 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-16** — **ENGU-Q Round 4 (Monte Carlo sizing, cost stress, 5m restate = size-knob not diversifier, w=1.0 DD-optimal, stop/overnight/cooldown/event descriptives — zero config changes).**
 - **2026-07-16** — **Challenger round 12: NOISE-2 (wide-band Zarattini envelope) = the program's strongest
   challenger — regime-healthy on NQ (MAR 8.14, 2010–17 positive, corr 0.22), passed 4/5 pre-registered
   battery gates (WF 5/6 · neighborhood · family · bootstrap P=0.0000) — then FAILED ES transfer (PF 1.12).
