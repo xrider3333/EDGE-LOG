@@ -704,6 +704,32 @@ lunch-trail nil; FOMC lockbox). The deploy book is unchanged and now battle-test
 
 ---
 
+### 4.24 Context-tilt v2 — the pre-registered follow-up FAILS its own bar (2026-07-17) — research CLOSED
+
+`tools/orb_context_tilt_v2.py`. Rule declared before running: *in stretched contexts, fade-side ×1.25 /
+chase-side ×0.75*, across three independent strength definitions (gap / prior-close location / streak)
++ their composite; bar = composite passes both windows at both magnitudes AND ≥2 of 3 singles pass.
+
+**Result: does NOT graduate.** Composite fails the lockbox at both magnitudes (LB MAR 6.27 / 6.70 vs
+7.06); singles 1/3 (only D2 prior-close-location passes — and selecting the one surviving definition
+after the fact is the multiple-comparisons trap the bar exists to catch). D1-gap fails LB decisively.
+The five-lens factor is real as a *map* but does not convert into a robust ex-ante sizing rule — the
+lockbox year pays the up-context fades at full size and punishes every reweighting of them.
+
+- Note for the §4.21 record: the "compression" row in this tool's stack test is the NR7∪inside UNION,
+  which fails IS (as §4.21 already found) — the adopted graduates remain the INDIVIDUAL signals
+  (NR7 ×1.25, inside ×1.25–1.5). The stacked curiosity (union × context passing) is built from two
+  failing components — not adoptable.
+- D2 (prior-close location) alone passed both magnitudes/windows — the only shape a FUTURE test could
+  pre-register, on data that doesn't exist yet. Parked.
+
+**RESEARCH PROGRAM CLOSED (2026-07-17).** Items A–M, X1–X19, context-v2: ~30 ideas, 4 overturned
+mechanical passes, one adoption (compression ×1.25 on the individual signals). The deploy book —
+touch entry · BE 1.0R · at-entry ensemble (#159) · §5.6 sizing (+ compression factor) — is final
+pending live data (V delta) or a full-window ENGU-Q (W). Next step is the deploy toggle, not more research.
+
+---
+
 ## 5. What a pro would actually do here (principles)
 
 1. **Size on drawdown, not PnL.** Fixed max-DD risk budget → at −$9k DD you carry ~2.8× the
@@ -788,7 +814,7 @@ Test as SIZE TILTS / target variants first, never delete-filters (the B/M/N/O le
 - ☑ **X9/X10/X12** — ➖ flat (§4.21; roll-week PF 1.84 noted) · ☑ **X11 FOMC** — ✗ tilt fails LB but FOMC-day trades ≈ coin-flip over 16y (avg $19, PF 1.05) → live-execution note, verified dates in `tools/data/fomc_dates.txt` · ☑ **X13 lunch-trail** — ✗ NO-ADOPT (nil effect) · ☑ **X14 late-stop** — ✗ uniform kill (§4.23).
 
 *Tier 3 — prior-day structure (diagnostics first):*
-- ☑ **X15–X19** — ◐ maps (§4.23): five lenses, one factor — responsive shorts against strength are the cream; fresh-air longs are the book's worst pocket (−$10.3k). Pre-registerable follow-up: unified "context-tilt v2" (side × strength-context) for the §5.6 overlay.
+- ☑ **X15–X19** — ◐ maps (§4.23): five lenses, one factor — responsive shorts against strength are the cream; fresh-air longs are the book's worst pocket (−$10.3k). Follow-up context-tilt v2 was run pre-registered and **failed its bar** (§4.24) — factor is a map, not a rule.
 
 *Tier 4 — needs data we don't have yet:* order-flow delta (=V, accruing) · TICK/ADD internals · VIX term structure · 0DTE gamma levels.
 
