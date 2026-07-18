@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='57.3';
+const VERSION='57.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'57.4', date:'2026-07-17', notes:['Compare · PICK RUNS: the best-run star is now ONE per strategy FAMILY (all ORB variants collapse to a single star, etc.) instead of one per file — far fewer stars; the star best of each button follows the same family grouping.','Compare · equity overlay: the walk-forward and lockbox styles were too alike — walk-forward is now clearly ROUND DOTS and the lockbox tail clearly LONG DASHES.','Compare · equity overlay: two runs of the same strategy now shade much further apart so their curves are easier to tell apart.']},
   {v:'57.3', date:'2026-07-17', notes:['Compare · equity overlay: each run curve is now drawn in its own STRATEGY colour (matching the PICK RUNS list and table headers) instead of a generic palette; two runs of the same strategy shade apart so they stay distinct.','Compare · equity overlay: the three slices now read as three distinct line styles — SOLID in-sample, DOTTED walk-forward (out-of-sample folds), DASHED lockbox tail — with a small legend key (the walk-forward dots were previously an invisible faint sleeve).','Compare · table: metric rows are grouped into the same sections as the Auto-Validate KPI matrix (return · drawdown · reward divided by risk · edge · sample) for easier reading.','Compare · PICK RUNS: the best run of each strategy is marked with a star, and a new star best of each button selects the top run of every strategy for a quick head-to-head.']},
   {v:'57.2', date:'2026-07-17', notes:['NinjaTrader recon badge: when the desktop AddOn (v2.1) reports realized day P&L that does not match the NT trades logged today - typical after trading on NT web or mobile, which cannot auto-sync - a warning appears next to BALANCE prompting a Position History CSV import. Requires recompiling the EdgeLog AddOn in NinjaTrader once.']},
   {v:'57.1', date:'2026-07-16', notes:['Past Runs group view is now a full FAMILY LEDGER: expanding a strategy shows a labelled header row plus two new columns — MAR (net divided by max drawdown, the risk-adjusted score used to pick deploys) and LB PF (the held-out lockbox profit factor). With the existing NET / PF / MAX DD / gates / WF / SCORE columns, an expanded family reads as the complete run-history reference table for that strategy.']},
@@ -8230,9 +8231,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    strategy family, the single highest scoreRun (tie-break: higher best_pnl_usd) gets a
         //    star in the row so it stands out in both the flat list and the grouped view. ──
         const _bestByFam={};
-        _plist.forEach(r=>{const l=_labOf(r),cur=_bestByFam[l];
+        _plist.forEach(r=>{const l=_canonFam(r.strategy)||_labOf(r),cur=_bestByFam[l];
           if(!cur||scoreRun(r)>scoreRun(cur)||(scoreRun(r)===scoreRun(cur)&&(r.best_pnl_usd||0)>(cur.best_pnl_usd||0)))_bestByFam[l]=r;});
-        const _isBest=r=>_bestByFam[_labOf(r)]===r;
+        const _isBest=r=>_bestByFam[_canonFam(r.strategy)||_labOf(r)]===r;
         const _rowOf=r=>{const on=ids.indexOf(String(r.id))>=0;const vv=r.validate?r.validate.verdict:'';const sc=scoreRun(r);const isBest=_isBest(r);
           return '<div data-cmpk="'+r.id+'" style="display:flex;align-items:center;gap:7px;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:var(--fsxs);'+(on?'background:color-mix(in srgb,var(--blue) 13%,transparent);':'')+'" title="'+(on?'click to remove from the comparison':'click to add to the comparison')+'">'
             +'<span style="flex:0 0 12px;text-align:center;color:var(--yellow)"'+(isBest?' title="best run of this strategy"':'')+'>'+(isBest?'★':'')+'</span>'
@@ -8330,7 +8331,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(!base)return CLR[i%CLR.length];
           const k=_cmpFamSeen[base]||0;_cmpFamSeen[base]=k+1;   // key by resolved colour so same-family variants shade apart
           if(k===0)return base;
-          const pct=Math.max(45,100-18*Math.ceil(k/2));
+          const pct=Math.max(38,100-40*Math.ceil(k/2));
           return (k%2===1)?('color-mix(in srgb, '+base+' '+pct+'%, white)'):('color-mix(in srgb, '+base+' '+pct+'%, black)');};
         const curves=runs.map((r,i)=>{const mc=r.multiplier||instMult(r.instrument)||20;const V=r.validate;let eq=null,li=null;
           if(V&&Array.isArray(V.equity)&&V.equity.length>2){eq=V.equity.map(x=>x*mc);li=(V.lb_idx!=null)?Math.max(0,Math.min(+V.lb_idx,eq.length-1)):null;}
@@ -8359,13 +8360,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
             if(c.li!=null&&c.li>1&&c.li<n2-1){
               const bx=Xf(c.li/(n2-1)),by=Yf(c.eq[c.li]);
               s3+='<polyline points="'+P2.slice(0,c.li+1).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6"/>'
-                +'<polyline points="'+P2.slice(c.li).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6" stroke-dasharray="4,3" opacity="0.85"/>'
+                +'<polyline points="'+P2.slice(c.li).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6" stroke-dasharray="12,7" opacity="0.85"/>'
                 +'<line x1="'+bx.toFixed(1)+'" y1="'+(by-7).toFixed(1)+'" x2="'+bx.toFixed(1)+'" y2="'+(by+7).toFixed(1)+'" stroke="'+c.c+'" stroke-width="1.4" opacity="0.9"/>';
             }else s3+='<polyline points="'+P2.join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6"/>';
             // WALK-FORWARD fold-test windows overdrawn as round DOTS ON TOP so the stretch reads
             //   clearly as dotted (out-of-sample) instead of hiding under the solid line.
             (c.wf||[]).forEach(w2=>{const i0=Math.max(0,Math.min(lim,Math.round(w2[0]*lim))),i1=Math.max(i0+1,Math.min(lim,Math.round(w2[1]*lim)));
-              if(i1>i0)s3+='<polyline points="'+P2.slice(i0,i1+1).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="2.6" stroke-dasharray="0.01,5" stroke-linecap="round" opacity="0.95"/>';});
+              if(i1>i0)s3+='<polyline points="'+P2.slice(i0,i1+1).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="3.2" stroke-dasharray="0.1,8" stroke-linecap="round" opacity="0.95"/>';});
             return s3;}).join('');
           const xt='<text x="'+pL+'" y="'+(H2-6)+'" font-size="8" fill="var(--text5)">start of run</text><text x="'+(pL+PW)+'" y="'+(H2-6)+'" text-anchor="end" font-size="8" fill="var(--text5)">end of run</text>';
           ovl='<svg viewBox="0 0 '+W2+' '+H2+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g2+paths+xt+'</svg>';
@@ -9037,7 +9038,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _cgb=content.querySelector('[data-cmpgroupbtn]');if(_cgb)_cgb.onclick=()=>{savePref('cmpGroup',!APREF.cmpGroup);renderApp();};
       const _cbe=content.querySelector('[data-cmpbestofeach]');if(_cbe)_cbe.onclick=()=>{
         const rs2=runHistory.slice().sort((a,b)=>b.id-a.id);
-        const _lab2=r=>(((typeof stratInfo==='function'&&stratInfo(r.strategy))?String(stratInfo(r.strategy).label||r.strategy||''):String(r.strategy||'')).trim()||'(no strategy label)');
+        const _lab2=r=>(_canonFam(r.strategy)||((typeof stratInfo==='function'&&stratInfo(r.strategy))?String(stratInfo(r.strategy).label||r.strategy||''):String(r.strategy||'')).trim()||'(no strategy label)');
         const gm2={};rs2.forEach(r=>{const l=_lab2(r),cur=gm2[l];
           if(!cur||scoreRun(r)>scoreRun(cur)||(scoreRun(r)===scoreRun(cur)&&(r.best_pnl_usd||0)>(cur.best_pnl_usd||0)))gm2[l]=r;});
         const fams=Object.keys(gm2).map(k=>gm2[k]).sort((a,b)=>scoreRun(b)-scoreRun(a)||(b.id-a.id));
