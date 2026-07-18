@@ -459,16 +459,28 @@ at first FAIL):**
 - **B5 owner sign-off → lockbox one-shot.** Pre-register the exact config + pass/fail
   conditions in this file before the look.
 
-### Pickup cards (ranked — recommendation first)
+### Pickup cards (sorted by best-version MAR — pickup priority, NOT boost rank)
 
-| Rank | Strategy · file | Pickup cell (exact) | Triage KPIs | Why this rank |
-|---|---|---|---|---|
-| 🥇 | **EMAX** · `EMAX_1_0.py` | `ema_fast=20, ema_slow=100, direction="long"` | MAR 7.82 · PF 1.27 · n=1,810 · $292.9k · DD −$37.4k · p21 41% | Closest miss of the sweep AND a real plateau, not a spike: every long cell on the slow-100 shelf holds up (20/100=7.82 · 50/100=6.82 · 5/100=6.76 · 10/100=6.33 · 9/100=6.12). Simplest logic in the list = fewest ways to fool ourselves. |
-| 🥈 | **BBRSI** · `BBRSI_1_0.py` | `rsi_len=16, rsi_band=50, bb_len=20, bb_mult=1.5, direction="long", entry_mode="stop"` | MAR 6.83 · PF 1.56 · n=550 · $327.5k · DD −$48.0k · p21 46% | The only non-trend-flip candidate (mean-reversion mechanism) → most different from EMAX if a diversifier is the goal. Note: the higher-MAR sibling (RSI 8/50/2.0σ, MAR 7.42) fails the n≥300 floor — do NOT pick it up instead. |
-| 🥉 | **PMAX** · `PMAX_1_0.py` | `ma_type="SMA", ma_length=20, mult=2.0, atr_period=10, change_atr=True, direction="long"` | MAR 6.29 · PF 1.22 · n=1,836 · $261.8k · DD −$41.6k · p21 35% | Best of the trend-flip family (dominates SUPERTREND 4.84 and HULL 2.89 — if you pick PMAX up, those two are covered; don't run them separately). |
-| — | SUPERTREND / HULL / ICHIHULL / GOLDX / MACD200 | see JSONs | MAR 2.9–5.8 | Dominated by PMAX/EMAX (same drift mechanism, worse numbers) or regime-failed (ICHIHULL 62% post-21, GOLDX n=44). Not worth individual sessions. |
-| — | MACDRSI / FLAWLESS / RSIDIV | see JSONs | MAR 1.9–3.3 | The stop-less dip-hold family: 85–150-pt average losers are structural (no stop = the win rate IS the drawdown). A pickup would have to invent a stop the authors didn't ship = a new strategy, not this one. |
-| — | AOSTOCH | — | MAR 0.11 | Nothing to pick up (best cell ≈ $0 over 15 years). |
+All 12 rows are each strategy's best-tuned long-only cell (as-shipped is worse; 5 of
+12 lose money). **All fail the MAR ≥ 8 economics bar** (ORB = 38.6). Pick up the top 3
+only — the rest are dominated or structurally broken.
+
+| Pickup | Strategy · file | Best cell (exact) | MAR | PF | Net | Max DD | n | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| 🥇 1 | **EMAX** · `EMAX_1_0.py` | `ema_fast=20, ema_slow=100, direction="long"` | **7.82** | 1.27 | $292.9k | −$37.4k | 1,810 | closest miss + real plateau (5 long cells on the slow-100 shelf hold MAR 6.1–7.8); simplest logic = fewest ways to fool ourselves |
+| 🥈 2 | **BBRSI** · `BBRSI_1_0.py` | `rsi_len=16, rsi_band=50, bb_len=20, bb_mult=1.5, direction="long", entry_mode="stop"` | 6.83 | 1.56 | $327.5k | −$48.0k | 550 | only mean-reversion candidate → most different from EMAX (diversifier). Its MAR-7.42 sibling fails n≥300 — do NOT substitute it |
+| 🥉 3 | **PMAX** · `PMAX_1_0.py` | `ma_type="SMA", ma_length=20, mult=2.0, atr_period=10, change_atr=True, direction="long"` | 6.29 | 1.22 | $261.8k | −$41.6k | 1,836 | best trend-flip — covers SUPERTREND + HULL (don't run those separately) |
+| — | ICHIHULL · `ICHIHULL_1_0.py` | `keh=14, dt=0.0025, direction="long"` | 5.83 | 1.35 | $193.0k | −$33.1k | 1,174 | regime-fail (62% post-2021) |
+| — | SUPERTREND · `SUPERTREND_3_0.py` | `atr_period=20, mult=3.0, direction="long"` | 4.84 | 1.15 | $274.5k | −$56.7k | 3,773 | dominated by PMAX (same mechanism) |
+| — | GOLDX · `GOLDX_1_0.py` | `sma_fast=975, sma_slow=3900, direction="long"` | 4.30 | 2.48 | $177.5k | −$41.3k | 44 | only 44 trades (sample floor) |
+| — | MACD200 · `MACD200_1_0.py` | `sma_len=100, direction="long"` | 3.84 | 1.37 | $234.5k | −$61.0k | 512 | dominated |
+| — | RSIDIV · `RSIDIV_1_0.py` | `rsi_len=5, tp_rsi_level=75, sl_type="PERC", max_pyramid=2` | 3.33 | 1.50 | $593.0k | −$178.0k | 360 | huge DD (no stop) |
+| — | HULL · `HULL_1_0.py` | `mode="Ehma", length=89, direction="long"` | 2.89 | 1.12 | $206.2k | −$71.3k | 4,553 | dominated |
+| — | FLAWLESS · `FLAWLESS_1_0.py` | `version="v1", rsi_buy_guard=50` | 2.71 | 1.24 | $109.6k | −$40.5k | 849 | dip-hold, 118-pt avg losers |
+| — | MACDRSI · `MACDRSI_1_0.py` | `rsi_os=35, lookback=5, direction="long"` | 1.91 | 1.23 | $214.3k | −$112.4k | 1,041 | dip-hold, 147-pt avg losers |
+| — | AOSTOCH · `AOSTOCH_1_0.py` | `atr_stop_mult=1.0, atr_tp_mult=2.0, direction="long"` | 0.11 | 1.01 | $4.0k | −$36.7k | 1,282 | ≈$0 over 15 yr — nothing there |
+
+Full param dict for any row = the top-MAR entry of its `tools/r13_results/r13_<NAME>_results.json`.
 
 **Honest expected value, before you spend a session:** the best candidate here (7.82)
 enters stage 2 WEAKER than TTIBS did (12.3) — and TTIBS passed 6/6 walk-forward folds
