@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='58.0';
+const VERSION='58.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'58.1', date:'2026-07-18', notes:['Compare fullscreen explorer: the drawdown pane is now resizable (drag the divider between the two panes) and each strategy drawdown is filled in its own colour, not just outlined.','Compare fullscreen explorer: click a legend chip to cycle that strategy full - greyed - hidden - full, so a crowded overlay can be thinned out without deselecting it from Compare.','Compare fullscreen explorer: the x-axis now shows real calendar dates under the percent ticks (once a blotter or run date range is available), the axis strip is drag-to-scale like TradingView, and hovering the $ axis, the pane divider, or the x-axis now shows the matching resize cursor.','Compare fullscreen explorer: the trade blotter panel scrolls as ONE piece instead of each column separately, columns default to a compact view (# / entry / $ / cum $) with a button to expand to all 7 columns, columns are drag-resizable, and each column plus the legend now shows its instrument and timeframe.','Compare fullscreen explorer: each strategy curve gets a dashed reference line at its final $ with a right-edge label, and the equity/drawdown panes read as more clearly separate panels.','Compare · best of each now opens a confirm step listing every pick and its net $ before touching your selection, with ADD (merge) and REPLACE (swap) instead of overwriting instantly.']},
   {v:'58.0', date:'2026-07-17', notes:['Compare equity lines were confusing because the walk-forward dashes were drawn ON TOP of a solid line of the same colour, so the gaps just showed solid underneath. Each curve is now drawn as three NON-OVERLAPPING segments — SOLID in-sample, DASHED walk-forward, DOTTED lockbox — so the styles actually read, with a real visual key (line samples, not a sentence).','Compare fullscreen explorer: added a DRAWDOWN pane under the equity pane (each strategy drawdown-from-peak in its own colour), and % ticks + gridlines on the x-axis so you can tell where you are.','Compare fullscreen explorer: click-drag now pans cleanly like TradingView (it no longer fights text selection), and the crosshair reads the drawdown value (labelled dd) when the cursor is in the lower pane.','Compare fullscreen explorer: the trade blotters now show ALL selected strategies SIDE BY SIDE (one column each) instead of one tab at a time; click any row to fly the chart to that trade.']},
   {v:'57.9', date:'2026-07-17', notes:['Compare line styles redone per owner: SOLID = in-sample, DASHED = walk-forward, DOTTED = lockbox — consistent across the overlay, its legend, and the fullscreen explorer, at sane line thicknesses.','Compare fullscreen explorer: once trades are loaded, win/loss trade dots now sit ON the curves (like the 1A chart) when zoomed in enough to read them — click a dot to jump to that trade in the blotter.','Blotter table cleanup: compact dates (MM/DD/YY HH:MM, and exits on the same day show just the time), HOLD column labelled in bars with the stray b suffix dropped, tighter columns so everything fits.','Compare table: the IS chip was lit but coloured so grey it read as OFF — now blue, clearly showing in-sample ran.']},
   {v:'57.8', date:'2026-07-17', notes:['Compare fullscreen explorer: new TRADES button loads every selected strategy trade blotter off your PC runner — one colour-keyed tab per strategy, click a row to fly the chart to that trade. Once loaded a blotter is SAVED on this browser (same cache as the 1A explorer) so it never needs re-running; Shift+click TRADES regenerates fresh.','Loading a blotter also swaps that curve to full per-trade resolution, so zoomed-in lines pass through the real trade values.','Compare equity overlay legend is now honest: it only lists the walk-forward / lockbox line styles when the selected runs actually saved those slices (the dotted walk-forward key was showing for runs with no fold data).']},
@@ -3050,14 +3051,17 @@ window.expandCompareEq=function(series){
   // compact blotter date formatting (owner: raw "2010-06-07 10:50" strings ate too much width) —
   //   ENTRY always shows MM/DD/YY HH:MM; EXIT drops the date part when it matches ENTRY's date.
   const _cptD=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(s||''));return m?{y:m[1],mo:m[2],d:m[3],h:m[4],mi:m[5]}:null;};
-  const _fmtEntry=s=>{const p=_cptD(s);return p?(p.mo+'/'+p.d+'/'+p.y.slice(2)+' '+p.h+':'+p.mi):String(s||'');};
+  // shared MM/DD/YY (no leading zeros) date-part formatter — blotter columns (item 13) AND the
+  //   x-axis real-date labels (item 17) both key off this.
+  const _mdyy=p=>(+p.mo)+'/'+(+p.d)+'/'+p.y.slice(2);
+  const _fmtEntry=s=>{const p=_cptD(s);return p?(_mdyy(p)+' '+p.h+':'+p.mi):String(s||'');};
   const _fmtExit=(es,xs)=>{const pe=_cptD(es),px=_cptD(xs);if(!px)return String(xs||'');
     if(pe&&pe.y===px.y&&pe.mo===px.mo&&pe.d===px.d)return px.h+':'+px.mi;
-    return px.mo+'/'+px.d+'/'+px.y.slice(2)+' '+px.h+':'+px.mi;};
+    return _mdyy(px)+' '+px.h+':'+px.mi;};
   // per-series point arrays: x = fractional progress through THAT run (0 = start, 1 = end)
   const PS=S.map(s=>{const n=s.eq.length,li=(s.li!=null)?Math.max(0,Math.min(+s.li,n-1)):null,
       wfi=(s.wfi!=null)?Math.max(0,Math.min(+s.wfi,n-1)):null;
-    return {id:s.id,label:String(s.label||('#'+s.id)),color:s.color||'#3a9bdc',li:li,wfi:wfi,blot:s.blot||null,
+    return {id:s.id,label:String(s.label||('#'+s.id)),color:s.color||'#3a9bdc',li:li,wfi:wfi,blot:s.blot||null,vis:'on',
       pts:s.eq.map((v,i)=>({x:(n>1?i/(n-1):0),v:v}))};});
   // ── modal scaffold (same fixed-height non-wrapping header as expandEquity — a growing
   //    readout used to resize the chart under the cursor, the "glitch" that pattern avoids) ──
@@ -3087,30 +3091,51 @@ window.expandCompareEq=function(series){
   const el2=id=>modal.querySelector('#'+id);
   const svgEl=el2('ceqx-svg'),chartEl=el2('ceqx-chart'),read=el2('ceqx-read'),legendEl=el2('ceqx-legend'),
     blotBtn=el2('ceqx-blot'),mainEl=el2('ceqx-main'),gut=el2('ceqx-gut'),wrap=el2('ceqx-blotwrap');
-  legendEl.innerHTML=PS.map(s=>'<span style="display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);background:color-mix(in srgb,var(--bg1) 65%,transparent);padding:2px 6px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="width:12px;height:3px;background:'+s.color+';display:inline-block;border-radius:2px;flex:0 0 auto"></span><span style="overflow:hidden;text-overflow:ellipsis">#'+s.id+' '+s.label+'</span></span>').join('');
   // legend KEY — same tiny inline-svg line samples as the inline overlay's key, stacked under
   //   the per-series legend (same #ceqx-legend flex column, so it inherits pointer-events:none
   //   and never grows the fixed-height header row).
   const _anyWfi=PS.some(s=>s.wfi!=null),_anyLi=PS.some(s=>s.li!=null);
   const _lkSamp2=(dash,round)=>'<svg width="18" height="6" style="vertical-align:middle" aria-hidden="true"><line x1="1" y1="3" x2="17" y2="3" stroke="var(--text3)" stroke-width="1.4"'+(dash?' stroke-dasharray="'+dash+'"':'')+(round?' stroke-linecap="round"':'')+'/></svg>';
-  legendEl.innerHTML+='<span style="display:inline-flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:8px;color:var(--text5);padding:2px 6px">'
-    +'<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2(null,false)+'in-sample</span>'
-    +(_anyWfi?('<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2('7,4',false)+'walk-forward</span>'):'')
-    +(_anyLi?('<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2('0.1,5',true)+'lockbox</span>'):'')
-    +'</span>';
+  // renderLegend (item 9) — each series row opts back into pointer-events (the legend container
+  //   itself stays pointer-events:none so it never steals chart drags) and cycles vis full ->
+  //   greyed -> hidden -> full on click; the muted instrument+timeframe suffix (item 14) rides
+  //   on the same row. Rebuilt on open and after every toggle since render() reads sr.vis.
+  const renderLegend=()=>{
+    legendEl.innerHTML=PS.map(s=>{
+      const op=s.vis==='dim'?0.45:(s.vis==='off'?0.3:1),td=s.vis==='off'?'line-through':'none',
+        instTf=s.blot?(' <span style="color:var(--text5)">&middot; '+String(s.blot.instrument||'').toUpperCase()+' '+(s.blot.timeframe||'')+'</span>'):'';
+      return '<span data-ceqx-vis="'+s.id+'" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);background:color-mix(in srgb,var(--bg1) 65%,transparent);padding:2px 6px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:'+op+'" title="click: full - greyed - hidden - full"><span style="width:12px;height:3px;background:'+s.color+';display:inline-block;border-radius:2px;flex:0 0 auto"></span><span style="overflow:hidden;text-overflow:ellipsis;text-decoration:'+td+'">#'+s.id+' '+s.label+'</span>'+instTf+'</span>';
+    }).join('');
+    legendEl.innerHTML+='<span style="display:inline-flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:8px;color:var(--text5);padding:2px 6px">'
+      +'<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2(null,false)+'in-sample</span>'
+      +(_anyWfi?('<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2('7,4',false)+'walk-forward</span>'):'')
+      +(_anyLi?('<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2('0.1,5',true)+'lockbox</span>'):'')
+      +'</span>';
+    legendEl.querySelectorAll('[data-ceqx-vis]').forEach(rowEl=>{rowEl.onclick=()=>{
+      const sid=+rowEl.dataset.ceqxVis,sr=PS.find(p=>p.id===sid);if(!sr)return;
+      sr.vis=sr.vis==='on'?'dim':(sr.vis==='dim'?'off':'on');
+      renderLegend();render();
+    };});
+  };
+  renderLegend();
   // ── view state: [va,vb] are fractions of the FULL 0..1 x-domain. The domain here IS already
   //    fractional progress (no dates), so unlike expandEquity there is no time mapping step. ──
-  let va=0,vb=1,yMan=null;
+  let va=0,vb=1,yMan=null,ddFrac=0.3;
   // blotMap/blotActive/etc are declared here (rather than down by the Phase-2 blotter code
   //   that reads/writes them) so render() — defined right below and referencing blotMap for
   //   the trade-dot overlay — never sees them in the temporal dead zone.
   let blotMap={},blotActive=null,blotLoaded=false,blotSel=null,blotFrac=0.34;
+  // per-column blotter width (item 15) and compact/full mode (item 16), keyed by series id.
+  const colW={},colMode={};
   const GUT=68;
   const _niceStep=x=>{x=Math.abs(x)||1;const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
   const geo=()=>{const r=chartEl.getBoundingClientRect(),W=Math.max(200,r.width),H=Math.max(160,r.height);
-    // EQUITY pane (top ~70%) + DRAWDOWN pane (bottom ~30%), sharing the x-axis, small 8px gap
-    //   between them, pB = the bottom x-label strip.
-    const pw=W-GUT,pB=22,ah=H-pB,ddh=Math.round(ah*0.3),eqh=ah-ddh-8;
+    // EQUITY pane (top, height set by ddFrac — item 7) + DRAWDOWN pane (bottom), sharing the
+    //   x-axis, small 8px gap between them, pB = the bottom x-label strip (two rows once real
+    //   dates are known — item 17 — so taller than the old single-row 22px).
+    const pw=W-GUT,pB=36,ah=H-pB;
+    let ddh=Math.round(ah*ddFrac);ddh=Math.max(40,Math.min(Math.max(40,ah-48),ddh));
+    const eqh=ah-ddh-8;
     return {W:W,H:H,pw:pw,eqT:4,eqB:4+eqh,ddT:4+eqh+8,ddB:4+eqh+8+ddh-6,pB:pB};};
   const X=(g,x)=>(x-va)/((vb-va)||1)*g.pw;
   // interpolate a series value at x-fraction cx (clamped to that curve's own [0,1] span)
@@ -3121,24 +3146,30 @@ window.expandCompareEq=function(series){
   const _ddArr=(pts)=>{let rm=-Infinity;return pts.map(p=>{if(p.v>rm)rm=p.v;return p.v-rm;});};
   const render=()=>{
     const g=geo();
-    // auto-fit Y to the visible x-slice ACROSS ALL curves, unless yMan (drag-the-$-axis) is set
+    // auto-fit Y to the visible x-slice ACROSS ALL curves, unless yMan (drag-the-$-axis) is set.
+    //   Hidden series ('off', item 9) are excluded from the fit; greyed ('dim') series stay IN
+    //   it. If every series ends up 'off' both loops leave mn null and the 0..1 fallback below
+    //   still kicks in — no crash.
     let mn=null,mx=null;
-    PS.forEach(s=>{s.pts.forEach(p=>{if(p.x>=va&&p.x<=vb){if(mn===null||p.v<mn)mn=p.v;if(mx===null||p.v>mx)mx=p.v;}});});
+    PS.forEach(s=>{if(s.vis==='off')return;s.pts.forEach(p=>{if(p.x>=va&&p.x<=vb){if(mn===null||p.v<mn)mn=p.v;if(mx===null||p.v>mx)mx=p.v;}});});
     if(mn===null){   // zoomed tighter than every point spacing on every curve — fall back to the interpolated view edges
-      PS.forEach(s=>{[interpAt(s,va),interpAt(s,vb)].forEach(v=>{if(mn===null||v<mn)mn=v;if(mx===null||v>mx)mx=v;});});}
+      PS.forEach(s=>{if(s.vis==='off')return;[interpAt(s,va),interpAt(s,vb)].forEach(v=>{if(mn===null||v<mn)mn=v;if(mx===null||v>mx)mx=v;});});}
     if(mn===null){mn=0;mx=1;}
     if(yMan){mn=yMan[0];mx=yMan[1];}
     else{if(mx<=mn)mx=mn+1;const pad=(mx-mn)*0.06;mn-=pad;mx+=pad;}
     const Y=v=>g.eqT+(mx-v)/((mx-mn)||1)*(g.eqB-g.eqT);
-    // per-series drawdown + auto-fit the DD pane to the most-negative VISIBLE dd across all curves
+    // per-series drawdown + auto-fit the DD pane to the most-negative VISIBLE dd across all
+    //   non-'off' curves (dd is still computed for every series, including 'off', so re-showing
+    //   one later needs no recompute).
     const ddMap={};let ddMin=0,ddSeen=false;
     PS.forEach(sr=>{const dd=_ddArr(sr.pts);ddMap[sr.id]=dd;
+      if(sr.vis==='off')return;
       sr.pts.forEach((p,i2)=>{if(p.x>=va&&p.x<=vb){ddSeen=true;if(dd[i2]<ddMin)ddMin=dd[i2];}});});
     if(!ddSeen){   // zoom window fell between points on every curve — fit to the interpolated edges (mirror the equity pane)
       const _ddAt=(sr,cx)=>{const p=sr.pts,dd=ddMap[sr.id],m=p.length;if(!m)return 0;if(cx<=p[0].x)return dd[0];if(cx>=p[m-1].x)return dd[m-1];
         let lo=0,hi=m-1;while(hi-lo>1){const mid=(lo+hi)>>1;if(p[mid].x<=cx)lo=mid;else hi=mid;}
         const f=(p[hi].x>p[lo].x)?(cx-p[lo].x)/(p[hi].x-p[lo].x):0;return dd[lo]+(dd[hi]-dd[lo])*f;};
-      PS.forEach(sr=>{[_ddAt(sr,va),_ddAt(sr,vb)].forEach(v=>{if(v<ddMin)ddMin=v;});});}
+      PS.forEach(sr=>{if(sr.vis==='off')return;[_ddAt(sr,va),_ddAt(sr,vb)].forEach(v=>{if(v<ddMin)ddMin=v;});});}
     if(ddMin>=0)ddMin=-1;
     const Yd=v=>g.ddT+(0-v)/((0-ddMin)||1)*(g.ddB-g.ddT);
     let s='';
@@ -3148,21 +3179,49 @@ window.expandCompareEq=function(series){
       s+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+g.pw+'" y2="'+y.toFixed(1)+'" stroke="var(--border)" stroke-width="'+(Math.abs(L)<1e-9?1:0.5)+'" opacity="'+(Math.abs(L)<1e-9?0.6:0.25)+'"/>'
         +'<text x="'+(g.pw+6)+'" y="'+(y+3.5).toFixed(1)+'" font-size="10" fill="'+(Math.abs(L)<1e-9?'var(--text4)':'var(--text5)')+'">'+fmt$(L)+'</text>';}
     s+='<line x1="'+g.pw+'" y1="0" x2="'+g.pw+'" y2="'+g.ddB.toFixed(1)+'" stroke="var(--border)" opacity="0.7"/>';
+    // x-axis reference series (item 17): pick a series to key real dates off — prefer one whose
+    //   blotter is loaded (exact per-trade timestamps), else fall back to its run date_from/
+    //   date_to span (approximate, marked with a leading ~). null = no usable series visible.
+    let ref=PS.find(s=>s.vis!=='off'&&blotMap[s.id]&&blotMap[s.id].rows&&blotMap[s.id].rows.length);
+    if(!ref)ref=PS.find(s=>s.vis!=='off'&&s.blot&&s.blot.date_from&&s.blot.date_to&&!isNaN(Date.parse(s.blot.date_from))&&!isNaN(Date.parse(s.blot.date_to)));
+    const _xDateStr=ref?(f=>{
+      f=Math.max(0,Math.min(1,f));
+      const bm=blotMap[ref.id];
+      if(bm&&bm.rows&&bm.rows.length){const row=bm.rows[Math.round(f*(bm.rows.length-1))],p=row?_cptD(row.et):null;return p?_mdyy(p):'';}
+      const t0=Date.parse(ref.blot.date_from),t1=Date.parse(ref.blot.date_to),dt=new Date(t0+(t1-t0)*f);
+      return '~'+(dt.getMonth()+1)+'/'+dt.getDate()+'/'+String(dt.getFullYear()).slice(2);
+    }):null;
     // x-axis % progress ticks — the domain is fractional 0..1 progress through each run (runs
-    //   have different lengths so there is no shared date axis), so label "NN%" instead of dates.
+    //   have different lengths so there is no shared date axis), so label "NN%" instead of dates,
+    //   plus a second real-date row underneath when a reference series is available (item 17).
     //   Pick a nice step so ~4-8 ticks show across the visible [va,vb] window; each tick draws a
-    //   faint vertical gridline spanning BOTH panes (equity top -> drawdown bottom) plus a
-    //   centered label at the bottom. Recomputed every render, so panning/zooming relabels live.
+    //   faint vertical gridline spanning BOTH panes (equity top -> drawdown bottom) plus the
+    //   label row(s) at the bottom. Recomputed every render, so panning/zooming relabels live.
     {const xSpanPct=(vb-va)*100,xStepsArr=[1,2,5,10,20,25,50];let xStep=50;
       for(let i2=0;i2<xStepsArr.length;i2++){if(xSpanPct/xStepsArr[i2]<=8){xStep=xStepsArr[i2];break;}}
       const xt0=Math.ceil((va*100-1e-6)/xStep)*xStep,nTk=Math.max(0,Math.floor((vb*100+1e-6-xt0)/xStep)+1);
       for(let k=0;k<nTk;k++){const xp=xt0+k*xStep,xf=xp/100,xPix=X(g,xf),edge=(Math.abs(xp)<1e-6||Math.abs(xp-100)<1e-6);
         s+='<line x1="'+xPix.toFixed(1)+'" y1="'+g.eqT+'" x2="'+xPix.toFixed(1)+'" y2="'+g.ddB.toFixed(1)+'" stroke="var(--border)" stroke-width="0.4" opacity="'+(edge?0.4:0.18)+'"/>'
-          +'<text x="'+xPix.toFixed(1)+'" y="'+(g.H-6)+'" text-anchor="middle" font-size="8" fill="var(--text5)">'+Math.round(xp)+'%</text>';}}
+          +'<text x="'+xPix.toFixed(1)+'" y="'+(g.H-24)+'" text-anchor="middle" font-size="8" fill="var(--text5)">'+Math.round(xp)+'%</text>'
+          +(ref?('<text x="'+xPix.toFixed(1)+'" y="'+(g.H-13)+'" text-anchor="middle" font-size="7.5" fill="var(--text5)">'+_xDateStr(xf)+'</text>'):'');}}
+    // item 18c: bottom axis line, plus (when a ref series is picked) a small note saying where
+    //   the real dates came from.
+    s+='<line x1="0" y1="'+(g.H-g.pB).toFixed(1)+'" x2="'+g.pw+'" y2="'+(g.H-g.pB).toFixed(1)+'" stroke="var(--border)" opacity="0.8"/>';
+    if(ref)s+='<text x="2" y="'+(g.H-3)+'" font-size="7" fill="var(--text5)" opacity="0.7">x dates: run #'+ref.id+'</text>';
+    // item 12: per-series ending-PnL dashed reference line + right-gutter $ label (equity pane).
+    //   Drawn after the gridlines/axis but before the curves so the curves sit on top of it.
+    PS.forEach(sr=>{if(sr.vis==='off')return;
+      const lastV=sr.pts[sr.pts.length-1].v,y=Y(lastV);
+      if(y<g.eqT||y>g.eqB)return;
+      const col=sr.vis==='dim'?'var(--text5)':sr.color;
+      s+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+g.pw+'" y2="'+y.toFixed(1)+'" stroke="'+col+'" stroke-width="1" stroke-dasharray="5,4" opacity="0.45"/>'
+        +'<text x="'+(g.pw+6)+'" y="'+(y+3).toFixed(1)+'" font-size="8" fill="'+col+'">'+fmt$(lastV)+'</text>';
+    });
     // equity paths — redrawn from data every render. 3 NON-OVERLAPPING segments per curve:
     //   SOLID (in-sample, to the walk-forward start) · DASHED (walk-forward folds) · DOTTED
     //   (lockbox tail) — same segmentation as the inline overlay, so the dashes actually show
-    //   instead of hiding under a same-colour solid line underneath.
+    //   instead of hiding under a same-colour solid line underneath. 'off' series (item 9) are
+    //   skipped entirely; 'dim' series draw in grey at reduced opacity.
     s+='<clipPath id="ceqx-clip"><rect x="0" y="0" width="'+g.pw+'" height="'+(g.ddT-4)+'"/></clipPath>'
       +'<clipPath id="ceqx-clipd"><rect x="0" y="0" width="'+g.pw+'" height="'+(g.H-g.pB)+'"/></clipPath>';
     const _clipN=(arr)=>{const n2=arr.length;if(n2<2)return [];
@@ -3172,35 +3231,49 @@ window.expandCompareEq=function(series){
       return (e2>=s2)?arr.slice(s2,e2+1):[];};
     const seg=(arr,vf)=>arr.map((p,i2)=>((i2?'L':'M')+X(g,p.x).toFixed(1)+' '+vf(p.v).toFixed(1))).join(' ');
     s+='<g clip-path="url(#ceqx-clip)">';
-    PS.forEach(sr=>{const pts=sr.pts,n3=pts.length,
+    PS.forEach(sr=>{if(sr.vis==='off')return;
+      const strokeCol=sr.vis==='dim'?'var(--text5)':sr.color,strokeOp=sr.vis==='dim'?0.45:1;
+      const pts=sr.pts,n3=pts.length,
         li=(sr.li!=null&&sr.li>=0&&sr.li<n3-1)?sr.li:null,
         wfi=(sr.wfi!=null)?Math.max(0,Math.min(sr.wfi,(li!=null?li:n3-1))):null,
         solidEnd=wfi!=null?wfi:(li!=null?li:n3-1);
-      const solid=_clipN(pts.slice(0,solidEnd+1));if(solid.length>1)s+='<path d="'+seg(solid,Y)+'" fill="none" stroke="'+sr.color+'" stroke-width="1.6"/>';
+      const solid=_clipN(pts.slice(0,solidEnd+1));if(solid.length>1)s+='<path d="'+seg(solid,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.6" opacity="'+strokeOp+'"/>';
       if(wfi!=null){const wfEnd=(li!=null?li:n3-1),dash=_clipN(pts.slice(solidEnd,wfEnd+1));
-        if(dash.length>1)s+='<path d="'+seg(dash,Y)+'" fill="none" stroke="'+sr.color+'" stroke-width="1.6" stroke-dasharray="7,4"/>';}
-      if(li!=null){const dot=_clipN(pts.slice(li));if(dot.length>1)s+='<path d="'+seg(dot,Y)+'" fill="none" stroke="'+sr.color+'" stroke-width="1.6" stroke-dasharray="0.1,5" stroke-linecap="round" opacity="0.9"/>';}
+        if(dash.length>1)s+='<path d="'+seg(dash,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.6" stroke-dasharray="7,4" opacity="'+strokeOp+'"/>';}
+      if(li!=null){const dot=_clipN(pts.slice(li));if(dot.length>1)s+='<path d="'+seg(dot,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.6" stroke-dasharray="0.1,5" stroke-linecap="round" opacity="'+(strokeOp*0.9)+'"/>';}
     });
     s+='</g>';
-    // DRAWDOWN pane — its own pane below the equity one: divider, "DRAWDOWN" label, a faint $0
-    //   line, a right-gutter ddMin label, then each curve's dd drawn SOLID in its own colour.
-    s+='<line x1="0" y1="'+(g.ddT-4).toFixed(1)+'" x2="'+g.pw+'" y2="'+(g.ddT-4).toFixed(1)+'" stroke="var(--border)" opacity="0.8"/>'
+    // DRAWDOWN pane — its own pane below the equity one: subtle bg (item 18b, drawn first so
+    //   everything else in this pane sits on top), a stronger divider (item 18a), "DRAWDOWN"
+    //   label, a faint $0 line, a right-gutter ddMin label, then each curve's dd area FILL
+    //   (item 8, skipped for 'dim' and 'off') + SOLID stroke in its own colour ('off' skipped
+    //   entirely, 'dim' greyed — item 9).
+    s+='<rect x="0" y="'+(g.ddT-4).toFixed(1)+'" width="'+g.pw+'" height="'+(g.ddB-(g.ddT-4)).toFixed(1)+'" fill="color-mix(in srgb,var(--bg1) 45%,transparent)"/>'
+      +'<line x1="0" y1="'+(g.ddT-4).toFixed(1)+'" x2="'+g.pw+'" y2="'+(g.ddT-4).toFixed(1)+'" stroke="var(--text4)" stroke-width="1" opacity="0.55"/>'
       +'<text x="0" y="'+(g.ddT+7).toFixed(1)+'" font-size="9" font-weight="700" letter-spacing="1" fill="var(--text4)" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">DRAWDOWN</text>'
       +'<line x1="0" y1="'+Yd(0).toFixed(1)+'" x2="'+g.pw+'" y2="'+Yd(0).toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.3"/>'
       +'<text x="'+(g.pw+6)+'" y="'+(Yd(0)+3.5).toFixed(1)+'" font-size="9" fill="var(--text5)">$0</text>'
       +'<line x1="0" y1="'+Yd(ddMin).toFixed(1)+'" x2="'+g.pw+'" y2="'+Yd(ddMin).toFixed(1)+'" stroke="var(--text5)" stroke-width="1" stroke-dasharray="5,3" opacity="0.45"/>'
       +'<text x="'+(g.pw+6)+'" y="'+(Yd(ddMin)+3.5).toFixed(1)+'" font-size="9" fill="var(--text5)">'+fmt$(ddMin)+'</text>';
     s+='<g clip-path="url(#ceqx-clipd)">';
-    PS.forEach(sr=>{const dd=ddMap[sr.id],ddPts=sr.pts.map((p,i2)=>({x:p.x,v:dd[i2]})),dvis=_clipN(ddPts);
-      if(dvis.length>1)s+='<path d="'+seg(dvis,Yd)+'" fill="none" stroke="'+sr.color+'" stroke-width="1.3" opacity="0.9"/>';});
+    PS.forEach(sr=>{if(sr.vis==='off'||sr.vis==='dim')return;const dd=ddMap[sr.id],ddPts=sr.pts.map((p,i2)=>({x:p.x,v:dd[i2]})),dvis=_clipN(ddPts);
+      if(dvis.length<2)return;
+      s+='<path d="M '+X(g,dvis[0].x).toFixed(1)+' '+Yd(0).toFixed(1)+' '+dvis.map(p=>'L '+X(g,p.x).toFixed(1)+' '+Yd(p.v).toFixed(1)).join(' ')+' L '+X(g,dvis[dvis.length-1].x).toFixed(1)+' '+Yd(0).toFixed(1)+' Z" fill="'+sr.color+'" opacity="0.10" stroke="none"/>';
+    });
+    PS.forEach(sr=>{if(sr.vis==='off')return;const dd=ddMap[sr.id],ddPts=sr.pts.map((p,i2)=>({x:p.x,v:dd[i2]})),dvis=_clipN(ddPts);
+      if(dvis.length<2)return;
+      const strokeCol=sr.vis==='dim'?'var(--text5)':sr.color,strokeOp=sr.vis==='dim'?0.45:0.9;
+      s+='<path d="'+seg(dvis,Yd)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.3" opacity="'+strokeOp+'"/>';
+    });
     s+='</g>';
     // trade dots (mirrors 1A): once a series' blotter has loaded, pts[i] IS trade i (the
     //   Phase-2 full-resolution swap keys the curve off per-trade cum-$), so a dot lands
     //   exactly on the curve. Density-guarded per series like 1A so a busy multi-curve view
     //   doesn't turn into confetti; a transparent larger hit-circle makes each dot clickable.
     //   Clipped to the EQUITY pane only (#ceqx-clip) — trade dots never spill into the DD pane.
+    //   Only fully-visible ('on') series show dots — 'dim' and 'off' both suppress them (item 9).
     s+='<g clip-path="url(#ceqx-clip)">';
-    PS.forEach(sr=>{const bm=blotMap[sr.id];if(!bm||!bm.rows||!bm.rows.length)return;
+    PS.forEach(sr=>{if(sr.vis!=='on')return;const bm=blotMap[sr.id];if(!bm||!bm.rows||!bm.rows.length)return;
       const rows=bm.rows,pts=sr.pts,nRows=Math.min(rows.length,pts.length);
       let vis=[];for(let i2=0;i2<nRows;i2++){if(pts[i2].x>=va&&pts[i2].x<=vb)vis.push(i2);}
       if(!vis.length||vis.length>400)return;
@@ -3210,7 +3283,7 @@ window.expandCompareEq=function(series){
     s+='</g>';
     svgEl.setAttribute('viewBox','0 0 '+g.W+' '+g.H);
     svgEl.innerHTML=s;
-    svgEl._g={g:g,mn:mn,mx:mx,ddMin:ddMin};
+    svgEl._g={g:g,mn:mn,mx:mx,ddMin:ddMin,xd:_xDateStr};
   };
   // trade-dot clicks: svgEl's innerHTML is rebuilt every render(), so the listener lives on
   //   svgEl itself (delegated via closest()) rather than being re-bound to each circle.
@@ -3235,15 +3308,29 @@ window.expandCompareEq=function(series){
     const fx=Math.max(0,Math.min(1,(e.clientX-r.left)/((gx.pw/gx.W)*r.width)));
     const c=va+(vb-va)*fx,k=(e.deltaY>0)?1.22:0.82;
     va=c-(c-va)*k;vb=c+(vb-c)*k;clampView();render();},{passive:false});
-  let drag=null,yDrag=null;
+  let drag=null,yDrag=null,ddDrag=null,xDrag=null;
   const _gutterAt=e=>{const st=svgEl._g;if(!st)return false;const r=chartEl.getBoundingClientRect();
     if(!(r.width>0))return false;return ((e.clientX-r.left)/(r.width/st.g.W))>st.g.pw;};
+  // mDown priority (item 7 / item 11): y-gutter (scale $) -> dd-divider (resize the drawdown
+  //   pane) -> bottom x-strip (scale time) -> pan. Each zone is checked in SVG coordinate space
+  //   using the same rect math as the crosshair mousemove handler below.
   const mDown=e=>{
     e.preventDefault();
     if(_gutterAt(e)){const st=svgEl._g;yDrag={y:e.clientY,mn:st.mn,mx:st.mx};return;}
+    const st2=svgEl._g,r=chartEl.getBoundingClientRect();
+    if(st2&&r.width>0&&r.height>0){
+      const sx=r.width/st2.g.W,sy=r.height/st2.g.H;
+      const gx=(e.clientX-r.left)/sx,gy=(e.clientY-r.top)/sy;
+      if(gx<=st2.g.pw&&Math.abs(gy-(st2.g.ddT-4))<=5){ddDrag={y0:e.clientY,f0:ddFrac};return;}
+      if(gx<=st2.g.pw&&gy>=st2.g.H-st2.g.pB){xDrag={x0:e.clientX,va0:va,vb0:vb};return;}
+    }
     drag={x:e.clientX,va:va,vb:vb,moved:false,st:svgEl._g};
     chartEl.style.cursor='grabbing';};
   const mMove=e=>{
+    if(ddDrag){const r=chartEl.getBoundingClientRect();
+      ddFrac=Math.max(0.12,Math.min(0.6,ddDrag.f0-(e.clientY-ddDrag.y0)/(r.height||1)));render();return;}
+    if(xDrag){const k=Math.exp(-(e.clientX-xDrag.x0)*0.005),c=(xDrag.va0+xDrag.vb0)/2,half=(xDrag.vb0-xDrag.va0)/2*k;
+      va=c-half;vb=c+half;clampView();render();return;}
     if(yDrag){const k=Math.max(0.15,1+(e.clientY-yDrag.y)*0.004);   // drag DOWN = compress (wider $ range)
       const c=(yDrag.mn+yDrag.mx)/2,half=(yDrag.mx-yDrag.mn)/2*k;
       yMan=[c-half,c+half];render();return;}
@@ -3252,7 +3339,7 @@ window.expandCompareEq=function(series){
     const dx=(e.clientX-drag.x)/((gx.pw/gx.W)*r.width)*(drag.vb-drag.va);
     if(Math.abs(e.clientX-drag.x)>3)drag.moved=true;
     va=drag.va-dx;vb=drag.vb-dx;clampView();render();};
-  const mUp=()=>{setTimeout(()=>{drag=null;yDrag=null;chartEl.style.cursor='crosshair';},0);};
+  const mUp=()=>{setTimeout(()=>{drag=null;yDrag=null;ddDrag=null;xDrag=null;chartEl.style.cursor='crosshair';},0);};
   chartEl.addEventListener('mousedown',mDown);
   window.addEventListener('mousemove',mMove);
   window.addEventListener('mouseup',mUp);
@@ -3266,21 +3353,31 @@ window.expandCompareEq=function(series){
     if(!(r.width>0&&r.height>0))return;
     const sx=r.width/st.g.W,sy=r.height/st.g.H;
     const gx=(e.clientX-r.left)/sx,gy=(e.clientY-r.top)/sy;
+    // item 11: cursor per zone — computed BEFORE the crosshair-hide early-return below, since
+    //   the y-gutter and x-strip zones fall outside that return's plot-area bounds.
+    if(!drag&&!yDrag&&!ddDrag&&!xDrag){
+      if(gx>st.g.pw)chartEl.style.cursor='ns-resize';
+      else if(Math.abs(gy-(st.g.ddT-4))<=5)chartEl.style.cursor='row-resize';
+      else if(gy>=st.g.H-st.g.pB)chartEl.style.cursor='ew-resize';
+      else chartEl.style.cursor='crosshair';
+    }
     if(gx<0||gx>st.g.pw||gy<0||gy>st.g.H-st.g.pB){vln.style.display=hln.style.display=xchip.style.display=ychip.style.display='none';read.textContent='';return;}
     vln.style.display=hln.style.display='block';
     // crosshair vertical spans BOTH panes (equity top edge → drawdown bottom edge)
     vln.style.left=(gx*sx)+'px';vln.style.top=(st.g.eqT*sy)+'px';vln.style.height=((st.g.ddB-st.g.eqT)*sy)+'px';
     hln.style.top=(gy*sy)+'px';hln.style.width=(st.g.pw*sx)+'px';
     const cx=va+(vb-va)*(gx/st.g.pw),pct=Math.round(Math.max(0,Math.min(1,cx))*100);
-    xchip.style.display='block';xchip.style.left=(gx*sx)+'px';xchip.style.top=((st.g.H-st.g.pB)*sy)+'px';xchip.textContent=pct+'%';
+    // item 17: append the real date (when a reference series is available) next to the % chip
+    xchip.style.display='block';xchip.style.left=(gx*sx)+'px';xchip.style.top=((st.g.H-st.g.pB)*sy)+'px';
+    xchip.textContent=st.xd?(pct+'% · '+st.xd(cx)):(pct+'%');
     // y-chip: EQUITY $ when over the equity pane, DRAWDOWN $ (labelled) when over the DD pane
     let ychipTxt;
     if(gy<=st.g.eqB){ychipTxt=fmt$(st.mx-(st.mx-st.mn)*((gy-st.g.eqT)/((st.g.eqB-st.g.eqT)||1)));}
     else{const _dv=0-(0-st.ddMin)*((gy-st.g.ddT)/((st.g.ddB-st.g.ddT)||1));ychipTxt='dd '+fmt$(Math.min(0,_dv));}
     ychip.style.display='block';ychip.style.left=(st.g.pw*sx)+'px';ychip.style.top=(gy*sy)+'px';ychip.textContent=ychipTxt;
-    read.innerHTML=pct+'% through run'+PS.map(s=>{const v=interpAt(s,cx);
-      return ' &middot; <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:'+s.color+';display:inline-block"></span>'+s.label+' <b style="color:'+(v>=0?'var(--green)':'var(--red)')+'">'+fmt$(v)+'</b></span>';}).join('');
-    if(!drag&&!yDrag)chartEl.style.cursor=_gutterAt(e)?'ns-resize':'crosshair';
+    // item 9: 'off' series drop out of the readout entirely; 'dim' series read out greyed.
+    read.innerHTML=pct+'% through run'+PS.filter(s=>s.vis!=='off').map(s=>{const v=interpAt(s,cx),isDim=s.vis==='dim',swCol=isDim?'var(--text5)':s.color;
+      return ' &middot; <span style="display:inline-flex;align-items:center;gap:3px;opacity:'+(isDim?0.55:1)+'"><span style="width:8px;height:8px;border-radius:2px;background:'+swCol+';display:inline-block"></span>'+s.label+' <b style="color:'+(isDim?'var(--text5)':(v>=0?'var(--green)':'var(--red)'))+'">'+fmt$(v)+'</b></span>';}).join('');
   });
   chartEl.addEventListener('mouseleave',()=>{vln.style.display=hln.style.display=xchip.style.display=ychip.style.display='none';read.textContent='';});
   // ── PHASE 2 TRADE BLOTTER: one tab per selected strategy, loaded off the PC runner
@@ -3292,17 +3389,27 @@ window.expandCompareEq=function(series){
   //    exactly through the trade values instead of the run's downsampled curve. ──
   const layoutMain=()=>{const on=wrap.style.display!=='none';gut.style.display=on?'flex':'none';wrap.style.flex='0 0 '+(blotFrac*100).toFixed(1)+'%';};
   const _totalBlotRows=()=>PS.reduce((s2,p)=>s2+((blotMap[p.id]&&blotMap[p.id].rows)?blotMap[p.id].rows.length:0),0);
-  // renderBlotPanel — SIDE-BY-SIDE columns, one per series with a loaded (or loading) blotter,
-  //   instead of a tab strip + single active table. Each column has its own sticky header
-  //   (swatch + id/label + status) and its own vertical scroll region; the outer row lets `wrap`
-  //   (already overflow:auto from the modal scaffold) scroll horizontally when columns overflow.
+  // renderBlotPanel — SIDE-BY-SIDE columns, one per series with a loaded (or loading) blotter.
+  //   Item 10: the OUTER `wrap` (overflow:auto from the modal scaffold) is the ONLY vertical
+  //   scroller — columns no longer scroll independently, they flow at natural table height and
+  //   their header divs stick to the top of `wrap` as it scrolls, so every column's header stays
+  //   pinned together. HEADER_H is the exact px height of the sticky header row (built below with
+  //   a fixed height so the table thead — also sticky, offset by HEADER_H — sits flush under it).
+  const HEADER_H=28;
   const renderBlotPanel=()=>{
+    // rebuilding wrap.innerHTML resets its scroll — save/restore so a row-click, compact/full
+    //   toggle, or column-resize does not bounce the whole panel back to the top-left.
+    const _sT=wrap.scrollTop,_sL=wrap.scrollLeft;
     const withBlot=PS.filter(p=>p.blot);
     const cols=withBlot.map(p=>{
       const st=blotMap[p.id];
+      const mode=colMode[p.id]||'compact',full=mode==='full';
+      const w=colW[p.id]||(full?330:200);
       let tag='<span style="color:var(--text5)">…</span>';
       if(st&&st.err)tag='<span style="color:var(--red)">runner offline</span>';
       else if(st&&st.rows)tag='<span style="color:var(--text5)">'+st.rows.length+' trades'+(st.cached?' · saved':'')+'</span>';
+      // item 14: muted instrument+timeframe suffix, same string shape as the legend row
+      const instTf=p.blot?(' <span style="color:var(--text5);font-size:9px">&middot; '+String(p.blot.instrument||'').toUpperCase()+' '+(p.blot.timeframe||'')+'</span>'):'';
       let body2;
       if(!st){
         body2='<div style="padding:22px;text-align:center;color:var(--text5);font-size:10px">…</div>';
@@ -3310,26 +3417,46 @@ window.expandCompareEq=function(series){
         body2='<div style="padding:22px;text-align:center;color:var(--text5);font-size:10px">'+(st.err?('trades did not load for this strategy ('+st.err+')'):'no trades')+'</div>';
       }else{
         const rows=st.rows;
-        const trs=rows.map((x,i)=>'<tr data-blot-sid="'+p.id+'" data-blot-row="'+i+'" style="cursor:pointer;border-top:1px solid var(--border2)'+((blotSel&&blotSel.sid===p.id&&blotSel.i===i)?';background:color-mix(in srgb,var(--blue) 16%,transparent)':'')+'" title="click to fly to this trade on the chart">'
-          +'<td style="padding:3px 6px;color:var(--text5)">'+x.no+'</td>'
-          +'<td style="padding:3px 6px;white-space:nowrap">'+_fmtEntry(x.et)+'</td>'
-          +'<td style="padding:3px 6px;white-space:nowrap">'+_fmtExit(x.et,x.xt)+'</td>'
-          +'<td style="padding:3px 6px;text-align:right;color:'+(x.pts>=0?'var(--green)':'var(--red)')+'">'+x.pts+'</td>'
-          +'<td style="padding:3px 6px;text-align:right;font-weight:700;color:'+(x.usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x.usd)+'</td>'
-          +'<td style="padding:3px 6px;text-align:right;color:'+(x.cum>=0?'var(--text2)':'var(--red)')+'">'+fmt$(x.cum)+'</td>'
-          +'<td style="padding:3px 6px;text-align:right;color:var(--text4)">'+x.hold+'</td></tr>').join('');
-        body2='<table style="width:100%;table-layout:auto;border-collapse:collapse;font-size:10px"><thead><tr style="position:sticky;top:0;background:var(--bg2);color:var(--text5);font-size:9px;letter-spacing:1px">'
-          +'<th style="padding:3px 6px;text-align:left;width:1%;white-space:nowrap">#</th><th style="padding:3px 6px;text-align:left">ENTRY</th><th style="padding:3px 6px;text-align:left">EXIT</th>'
-          +'<th style="padding:3px 6px;text-align:right">PTS</th><th style="padding:3px 6px;text-align:right">$</th><th style="padding:3px 6px;text-align:right">CUM $</th><th style="padding:3px 6px;text-align:right;width:1%;white-space:nowrap" title="how many price bars the trade was held">HOLD (bars)</th></tr></thead><tbody>'+trs+'</tbody></table>';
+        // item 16: compact shows # / ENTRY / $ / CUM $ only; full keeps all 7 columns
+        const trs=rows.map((x,i)=>{
+          const sel=(blotSel&&blotSel.sid===p.id&&blotSel.i===i);
+          const open='<tr data-blot-sid="'+p.id+'" data-blot-row="'+i+'" style="cursor:pointer;border-top:1px solid var(--border2)'+(sel?';background:color-mix(in srgb,var(--blue) 16%,transparent)':'')+'" title="click to fly to this trade on the chart">';
+          const common='<td style="padding:3px 6px;color:var(--text5)">'+x.no+'</td>'
+            +'<td style="padding:3px 6px;white-space:nowrap">'+_fmtEntry(x.et)+'</td>';
+          if(full)return open+common
+            +'<td style="padding:3px 6px;white-space:nowrap">'+_fmtExit(x.et,x.xt)+'</td>'
+            +'<td style="padding:3px 6px;text-align:right;color:'+(x.pts>=0?'var(--green)':'var(--red)')+'">'+x.pts+'</td>'
+            +'<td style="padding:3px 6px;text-align:right;font-weight:700;color:'+(x.usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x.usd)+'</td>'
+            +'<td style="padding:3px 6px;text-align:right;color:'+(x.cum>=0?'var(--text2)':'var(--red)')+'">'+fmt$(x.cum)+'</td>'
+            +'<td style="padding:3px 6px;text-align:right;color:var(--text4)">'+x.hold+'</td></tr>';
+          return open+common
+            +'<td style="padding:3px 6px;text-align:right;font-weight:700;color:'+(x.usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x.usd)+'</td>'
+            +'<td style="padding:3px 6px;text-align:right;color:'+(x.cum>=0?'var(--text2)':'var(--red)')+'">'+fmt$(x.cum)+'</td></tr>';
+        }).join('');
+        const heads=full
+          ?'<th style="padding:3px 6px;text-align:left;width:1%;white-space:nowrap">#</th><th style="padding:3px 6px;text-align:left">ENTRY</th><th style="padding:3px 6px;text-align:left">EXIT</th><th style="padding:3px 6px;text-align:right">PTS</th><th style="padding:3px 6px;text-align:right">$</th><th style="padding:3px 6px;text-align:right">CUM $</th><th style="padding:3px 6px;text-align:right;width:1%;white-space:nowrap" title="how many price bars the trade was held">HOLD (bars)</th>'
+          :'<th style="padding:3px 6px;text-align:left;width:1%;white-space:nowrap">#</th><th style="padding:3px 6px;text-align:left">ENTRY</th><th style="padding:3px 6px;text-align:right">$</th><th style="padding:3px 6px;text-align:right">CUM $</th>';
+        body2='<table style="width:100%;table-layout:auto;border-collapse:collapse;font-size:10px"><thead><tr style="position:sticky;top:'+HEADER_H+'px;background:var(--bg2);color:var(--text5);font-size:9px;letter-spacing:1px">'
+          +heads+'</tr></thead><tbody>'+trs+'</tbody></table>';
       }
-      return '<div style="flex:1 1 330px;min-width:330px;display:flex;flex-direction:column;height:100%;min-height:0;border-right:1px solid var(--border)">'
-        +'<div style="flex:0 0 auto;display:flex;align-items:center;gap:5px;padding:6px 8px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:10px;white-space:nowrap">'
+      // item 16: the ⤢/⤡ button toggles compact <-> full (clearing any dragged width so the
+      //   new mode's default width applies); item 15: the column reads its width off colW[sid]
+      //   with the mode default as fallback, and no longer stretches to fill (flex:0 0 <w>px).
+      return '<div data-blot-col="'+p.id+'" style="flex:0 0 '+w+'px;min-width:'+w+'px;display:flex;flex-direction:column">'
+        +'<div style="position:sticky;top:0;z-index:2;height:'+HEADER_H+'px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:10px;white-space:nowrap;overflow:hidden">'
         +'<span style="width:10px;height:10px;border-radius:3px;background:'+p.color+';flex:0 0 auto"></span>'
-        +'<span style="max-width:170px;overflow:hidden;text-overflow:ellipsis;color:var(--text2)">#'+p.id+' '+p.label+'</span>'+tag+'</div>'
-        +'<div style="flex:1 1 auto;min-height:0;overflow:auto">'+body2+'</div></div>';
-    }).join('');
-    wrap.innerHTML='<div style="display:flex;height:100%;min-height:0">'
-      +(cols||'<div style="padding:22px;text-align:center;color:var(--text5);font-size:10px">no strategy in this selection has trades loaded</div>')+'</div>';
+        +'<span style="max-width:140px;overflow:hidden;text-overflow:ellipsis;color:var(--text2)">#'+p.id+' '+p.label+'</span>'+instTf+tag
+        +'<button data-blot-toggle="'+p.id+'" title="toggle compact / full columns" style="margin-left:auto;flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text4);width:16px;height:16px;line-height:1;font-size:9px;cursor:pointer;border-radius:4px;padding:0">'+(full?'⤡':'⤢')+'</button>'
+        +'</div>'+body2+'</div>';
+    });
+    // item 15: a thin drag handle between adjacent columns — dragging resizes the column to ITS
+    //   LEFT (handle[i] belongs to withBlot[i]). Item 10: align-items:flex-start + min-height:100%
+    //   on the row so short columns do not stretch, and the panel still fills `wrap` when empty.
+    let rowHtml='';
+    cols.forEach((c,i)=>{rowHtml+=c;if(i<cols.length-1)rowHtml+='<div data-blot-handle="'+withBlot[i].id+'" style="flex:0 0 5px;align-self:stretch;cursor:col-resize;background:var(--border);opacity:0.35"></div>';});
+    wrap.innerHTML='<div style="display:flex;align-items:flex-start;min-height:100%">'
+      +(rowHtml||'<div style="padding:22px;text-align:center;color:var(--text5);font-size:10px">no strategy in this selection has trades loaded</div>')+'</div>';
+    wrap.scrollTop=_sT;wrap.scrollLeft=_sL;
     wrap.querySelectorAll('[data-blot-row]').forEach(tr=>{tr.onclick=()=>{
       const sid=+tr.dataset.blotSid,i=+tr.dataset.blotRow,cur=blotMap[sid];if(!cur||!cur.rows||!cur.rows[i])return;
       blotSel={sid:sid,i:i};
@@ -3338,6 +3465,23 @@ window.expandCompareEq=function(series){
         va=Math.max(0,cx-span/2);vb=Math.min(1,cx+span/2);clampView();render();}
       renderBlotPanel();
     };});
+    wrap.querySelectorAll('[data-blot-toggle]').forEach(btn=>{btn.onclick=e=>{
+      e.stopPropagation();const sid=+btn.dataset.blotToggle;
+      colMode[sid]=(colMode[sid]||'compact')==='compact'?'full':'compact';
+      delete colW[sid];renderBlotPanel();
+    };});
+    wrap.querySelectorAll('[data-blot-handle]').forEach(h=>{
+      h.onmouseover=()=>{h.style.opacity='1';};
+      h.onmouseout=()=>{h.style.opacity='0.35';};
+      h.onpointerdown=e=>{
+        e.preventDefault();
+        const sid=+h.dataset.blotHandle,colEl=wrap.querySelector('[data-blot-col="'+sid+'"]');if(!colEl)return;
+        const startW=colEl.getBoundingClientRect().width,x0=e.clientX;
+        const mv=ev=>{const w2=Math.max(150,Math.round(startW+(ev.clientX-x0)));colW[sid]=w2;colEl.style.flex='0 0 '+w2+'px';colEl.style.minWidth=w2+'px';};
+        const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);renderBlotPanel();};
+        window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);
+      };
+    });
   };
   const loadAllBlotters=async(force)=>{
     const targets=PS.filter(p=>p.blot&&p.blot.run_id!=null);
@@ -9481,8 +9625,40 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _lab2=r=>(_canonFam(r.strategy)||((typeof stratInfo==='function'&&stratInfo(r.strategy))?String(stratInfo(r.strategy).label||r.strategy||''):String(r.strategy||'')).trim()||'(no strategy label)');
         const gm2={};rs2.forEach(r=>{const l=_lab2(r),cur=gm2[l];
           if(!cur||scoreRun(r)>scoreRun(cur)||(scoreRun(r)===scoreRun(cur)&&(r.best_pnl_usd||0)>(cur.best_pnl_usd||0)))gm2[l]=r;});
-        const fams=Object.keys(gm2).map(k=>gm2[k]).sort((a,b)=>scoreRun(b)-scoreRun(a)||(b.id-a.id));
-        savePref('cmpIds',fams.slice(0,8).map(r=>String(r.id)));renderApp();
+        const fams=Object.keys(gm2).map(k=>gm2[k]).sort((a,b)=>scoreRun(b)-scoreRun(a)||(b.id-a.id)).slice(0,8);
+        // item 19: confirm before clobbering the current picks — a small overlay lists each
+        //   family best-run with a checkbox, then ADD (merge into the current selection) or
+        //   REPLACE (swap it out) applies the choice. Cancel / backdrop-click just closes it.
+        const ov=document.createElement('div');
+        ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:center;justify-content:center';
+        const rowsHtml=fams.map(r=>{
+          const v=r.best_pnl_usd||0,vs=(typeof fmtUsd==='function')?fmtUsd(v):((v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString());
+          return '<label style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-top:1px solid var(--border2);font-size:11px;cursor:pointer">'
+            +'<input type="checkbox" data-bocheck value="'+r.id+'" checked style="flex:0 0 auto">'
+            +'<span style="flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">'+_lab2(r)+' <span style="color:var(--text5)">#'+r.id+'</span></span>'
+            +'<b style="flex:0 0 auto;color:'+(v>=0?'var(--green)':'var(--red)')+'">'+vs+'</b></label>';
+        }).join('');
+        ov.innerHTML='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;max-width:460px;width:90%;max-height:70vh;overflow:auto">'
+          +'<div style="font-family:\'Bebas Neue\',monospace;font-size:16px;letter-spacing:2px;color:var(--text);margin-bottom:6px">★ BEST OF EACH — CONFIRM</div>'
+          +'<div style="font-size:10px;color:var(--text4);margin-bottom:10px;line-height:1.5">Pick which runs to load into Compare. REPLACE swaps out your current selection; ADD merges into it (max 8).</div>'
+          +'<div>'+rowsHtml+'</div>'
+          +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">'
+          +'<button data-bocancel style="background:none;border:1px solid var(--border);color:var(--text3);padding:6px 14px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:7px">CANCEL</button>'
+          +'<button data-boadd style="background:none;border:1px solid var(--border);color:var(--text3);padding:6px 14px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:7px">ADD</button>'
+          +'<button data-boreplace style="background:var(--blue);border:1px solid var(--blue);color:#fff;padding:6px 14px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:7px;font-weight:700">REPLACE</button>'
+          +'</div></div>';
+        document.body.appendChild(ov);
+        ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+        ov.querySelector('[data-bocancel]').onclick=()=>ov.remove();
+        const _checkedIds=()=>Array.from(ov.querySelectorAll('[data-bocheck]:checked')).map(cb=>cb.value);
+        ov.querySelector('[data-boadd]').onclick=()=>{
+          const picked=_checkedIds();let ids=_cur().slice();
+          picked.forEach(id=>{if(ids.indexOf(id)<0)ids.push(id);});
+          savePref('cmpIds',ids.slice(0,8));renderApp();ov.remove();
+        };
+        ov.querySelector('[data-boreplace]').onclick=()=>{
+          savePref('cmpIds',_checkedIds().slice(0,8));renderApp();ov.remove();
+        };
       };
       content.querySelectorAll('[data-cmpscope]').forEach(b=>{b.onclick=()=>{savePref('cmpScope',b.dataset.cmpscope);renderApp();};});
       content.querySelectorAll('[data-cmpgrp]').forEach(h=>{h.onclick=()=>{const k=decodeURIComponent(h.dataset.cmpgrp);if(window._cmpGrpOpen.has(k))window._cmpGrpOpen.delete(k);else window._cmpGrpOpen.add(k);renderApp();};});
