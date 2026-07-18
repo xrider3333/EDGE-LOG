@@ -412,6 +412,14 @@ def relationship_scores(points, target="pnl", max_rows=4000):
         return None
 
 
+# 3C.1b — boundary-peak detector threshold: an edge-pinned PDP optimum is only
+# flagged as a TRUNCATED search when the last smoothed step toward that edge is at
+# least this fraction of the curve's mean level. Below this, a "rising" edge is
+# just noise on an effectively flat plateau — not a truncated search — so we say
+# nothing rather than false-positive on every grid.
+PDP_EDGE_SLOPE_MIN = 0.02
+
+
 def pdp_plateau(points, pnl_key="pnl", min_points=12):
     """3C.1 — PDP-plateau winner pick (ROADMAP #24a; board 3C.1).
 
@@ -431,6 +439,13 @@ def pdp_plateau(points, pnl_key="pnl", min_points=12):
              config (grid combos or auto samples). Returns None when the
              surface is too thin to say anything (< min_points or no varying
              numeric/categorical params).
+
+    Also returns (3C.1b) `boundary_flags` — a possibly-empty list flagging any
+    NUMERIC param whose smoothed curve peaks at the first/last TESTED value while
+    still sloping toward that edge, i.e. the search range was too narrow and the
+    real optimum likely lies outside it (see `_pdp_boundary_flags`), plus a
+    top-level `search_truncated` bool for a quick check. Both are pure additions —
+    every previously-returned key is unchanged.
     """
     if not points or len(points) < int(min_points):
         return None
@@ -443,12 +458,14 @@ def pdp_plateau(points, pnl_key="pnl", min_points=12):
     mu = float(pnls.mean())
     contrib = np.zeros(len(points))
     curves = {}
+    numeric_of = {}
     for k in vary:
         groups = {}
         for p, y in zip(points, pnls):
             groups.setdefault(p.get(k), []).append(y)
         numeric = all(isinstance(v, (int, float)) and not isinstance(v, bool)
                       for v in groups)
+        numeric_of[k] = numeric
         order = sorted(groups) if numeric else sorted(groups, key=str)
         means = np.array([float(np.mean(groups[v])) for v in order])
         sm = means.copy()
@@ -463,12 +480,81 @@ def pdp_plateau(points, pnl_key="pnl", min_points=12):
         contrib += np.array([curve[p.get(k)] - mu for p in points])
     score = mu + contrib
     i = int(np.argmax(score))
+    boundary_flags = _pdp_boundary_flags(curves, numeric_of)
     return {"index": i,
             "params": {k: points[i][k] for k in keys},
             "score": round(float(score[i]), 1),
             "argmax_index": int(np.argmax(pnls)),
             "argmax_score": round(float(score[int(np.argmax(pnls))]), 1),
-            "curves": curves}
+            "curves": curves,
+            "boundary_flags": boundary_flags,
+            "search_truncated": len(boundary_flags) > 0}
+
+
+def _pdp_fmt(x):
+    """Compact display string for a PDP param value in a boundary-flag message:
+    10.0 -> '10' (whole-number floats read as ints), 0.4 -> '0.4', else str(x)."""
+    if isinstance(x, float):
+        return str(int(x)) if x == int(x) else f"{x:g}"
+    return str(x)
+
+
+def _pdp_boundary_flags(curves, numeric_of):
+    """3C.1b — boundary-peak detector (ROADMAP #24a follow-up; the owner's concern:
+    a truncated param search silently picks the edge of the tested range instead of
+    being flagged).
+
+    For every NUMERIC varying param with >=3 distinct tested values, check whether
+    the SMOOTHED PDP curve (built in `pdp_plateau`, just above) peaks at the first
+    or last TESTED value while still sloping toward that edge. If so, the true
+    optimum likely sits OUTSIDE the tested range — the grid/auto search stopped at
+    its own boundary rather than at a real optimum — so we flag it instead of
+    silently reporting the edge value as "the" answer. No flag when: the peak is
+    interior; an edge peak has already turned over (flat or falling one step in,
+    i.e. properly captured); or the edge slope is too small to matter (see
+    PDP_EDGE_SLOPE_MIN). Categorical params are never flagged — there's no ordered
+    edge for them to be pinned against.
+
+    Returns a list of dicts (possibly empty):
+        {param, edge:'max'|'min', value, rel_slope, tested_min, tested_max,
+         n_values, msg}
+    `rel_slope` is the last smoothed step toward the edge, normalized by the
+    curve's own mean level (so it reads as "% of mean" and is comparable across
+    params with very different PnL scales).
+    """
+    flags = []
+    for k, curve in curves.items():
+        if not numeric_of.get(k) or len(curve) < 3:
+            continue                                     # categorical, or too few tested values
+        smooth = [float(d["smooth"]) for d in curve]
+        values = [d["v"] for d in curve]
+        argmax_idx = int(np.argmax(smooth))
+        mean_level = float(np.mean(smooth))
+        if argmax_idx == len(smooth) - 1 and smooth[-1] > smooth[-2]:
+            edge, delta = "max", smooth[-1] - smooth[-2]
+        elif argmax_idx == 0 and smooth[0] > smooth[1]:
+            edge, delta = "min", smooth[0] - smooth[1]
+        else:
+            continue                                     # interior peak, or edge already turned over
+        rel_slope = delta / (abs(mean_level) + 1e-9)
+        if rel_slope <= PDP_EDGE_SLOPE_MIN:
+            continue                                     # dead-flat edge — not a truncation signal
+        v_star = values[argmax_idx]
+        v_str = _pdp_fmt(v_star)
+        pct = round(rel_slope * 100)
+        if edge == "max":
+            msg = (f"{k} peaked at the range edge {v_str} and is still climbing "
+                   f"(slope +{pct}% of mean) — the search was truncated; "
+                   f"widen {k} above {v_str} to find the true peak.")
+        else:
+            msg = (f"{k} peaked at the range edge {v_str} (the lowest tested value) "
+                   f"and is still climbing toward lower values (slope +{pct}% of mean) "
+                   f"— the search was truncated; widen {k} below {v_str} to find the true peak.")
+        flags.append({"param": k, "edge": edge, "value": v_star,
+                      "rel_slope": round(float(rel_slope), 3),
+                      "tested_min": values[0], "tested_max": values[-1],
+                      "n_values": len(values), "msg": msg})
+    return flags
 
 
 def ensemble_blend(bar_pnls, buckets=50):

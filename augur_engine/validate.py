@@ -529,6 +529,9 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "mc": (OV.get("mc") or A.get("mc")), "regime": (OV.get("regime") or A.get("regime")),
         "neighborhood": A.get("neighborhood"),
         "relationship": A.get("relationship"),   # per-param Pearson / MI / PPS (#24)
+        # plateau pick + boundary-peak flags (3C.1b): forwarded from Stage A so Auto-Validate
+        # run docs also carry the truncated-search detection (was previously dropped here).
+        "plateau_pick": A.get("plateau_pick"),
         # top-level so the existing Robustness card renders the gate bake-off with no new UI.
         "gate_validate": gate_bakeoff,
     }

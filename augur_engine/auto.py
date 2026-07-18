@@ -325,6 +325,10 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 "metrics": {k: _prow.get(k) for k in _METRIC_KEYS if k in _prow},
                 "score": _pp["score"], "argmax_score": _pp["argmax_score"],
                 "curves": _pp["curves"],
+                # boundary-peak detector (3C.1b): flags knobs whose optimum is pinned
+                # at the tested-range edge and still rising → search was truncated.
+                "boundary_flags": _pp["boundary_flags"],
+                "search_truncated": _pp["search_truncated"],
                 "same_as_best": bool({k: _prow.get(k) for k in pkeys} == _bp),
             }
 

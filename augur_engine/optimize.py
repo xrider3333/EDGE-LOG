@@ -205,6 +205,10 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
             "metrics": {k: _ppm.get(k) for k in _METRIC_KEYS},
             "score": _pp["score"], "argmax_score": _pp["argmax_score"],
             "curves": _pp["curves"],
+            # boundary-peak detector (3C.1b): flags knobs whose optimum is pinned at
+            # the tested-range edge and still rising → the search was truncated.
+            "boundary_flags": _pp["boundary_flags"],
+            "search_truncated": _pp["search_truncated"],
             "same_as_best": bool(best and valid[_pi][0] == best[0]),
         }
 
