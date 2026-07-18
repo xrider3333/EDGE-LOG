@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='57.5';
+const VERSION='57.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'57.6', date:'2026-07-17', notes:['Library: 8 dead strategy lineages (16 files) are now pre-archived by default - GROK ENGU 1.1.20/1.1.21/1.2.1, CLAUDE ENGU 1.3.1 through 1.3.5, REVERT 1.0/1.1/1.2, VWAP FADE 1.0, SuperTrend v1, Strict SuperTrend v2, Opening Range Breakout v2, and the ENGUD-Q 1m short mirror. They hide behind the same show N archived toggle as manually archived strategies - nothing deleted, one click to unhide any of them.']},
   {v:'57.5', date:'2026-07-17', notes:['Library: strategies can now be ARCHIVED (select a row, click ARCHIVE) — archived files hide behind a "show N archived" link, exactly like archived runs. Fully reversible, syncs across your devices, and the runner never overwrites it.','Library: a STAR button marks THE strategy you are forward-testing — the starred row shows a gold star. One star at a time; click again to unstar.','Pre-loaded: the 14 closed ORB research forks are archived, so the ORB family shows just its story — 3.0 (base), 3.0-BE (single-lot deploy), and starred 3.0-ENSEMBLE (the two-lot book, run #159). Unarchive any of them anytime.']},
   {v:'57.4', date:'2026-07-17', notes:['Compare · PICK RUNS: the best-run star is now ONE per strategy FAMILY (all ORB variants collapse to a single star, etc.) instead of one per file — far fewer stars; the star best of each button follows the same family grouping.','Compare · equity overlay: the walk-forward and lockbox styles were too alike — walk-forward is now clearly ROUND DOTS and the lockbox tail clearly LONG DASHES.','Compare · equity overlay: two runs of the same strategy now shade much further apart so their curves are easier to tell apart.']},
   {v:'57.3', date:'2026-07-17', notes:['Compare · equity overlay: each run curve is now drawn in its own STRATEGY colour (matching the PICK RUNS list and table headers) instead of a generic palette; two runs of the same strategy shade apart so they stay distinct.','Compare · equity overlay: the three slices now read as three distinct line styles — SOLID in-sample, DOTTED walk-forward (out-of-sample folds), DASHED lockbox tail — with a small legend key (the walk-forward dots were previously an invisible faint sleeve).','Compare · table: metric rows are grouped into the same sections as the Auto-Validate KPI matrix (return · drawdown · reward divided by risk · edge · sample) for easier reading.','Compare · PICK RUNS: the best run of each strategy is marked with a star, and a new star best of each button selects the top run of every strategy for a quick head-to-head.']},
@@ -5787,6 +5788,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const _norm=s=>String(s||'').toLowerCase().replace(/\.py$/,'').replace(/[^a-z0-9]/g,'');
     const _hashHue=s=>{let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h%360;};
     // Known families → fixed abbreviation, spelled-out name, one-line description.
+    // ── Hardcoded legacy-lineage archive (owner 2026-07-17): early prototype / dead-fork
+    //    strategy files that clutter the Library. Nothing here is deleted or hidden from history -
+    //    these files just start ARCHIVED by default, same as a manual ARCHIVE click, and layer
+    //    UNDER the per-file archived/unarchived toggle below (metaStratPrefs) so the owner can
+    //    still unarchive any one of them. Matched by EXACT filename only (no fuzzy/family regex)
+    //    so this can never accidentally catch ORB_3_x / ORB_1_0 / ENGUQ_* / anything active.
+    const ARCHIVED_STRATS=[
+      'ENGU_1_1_20','ENGU_1_1_21','ENGU_1_2_1',            // GROK ENGU v20 lineage
+      'ENGU_1_3_1','ENGU_1_3_2','ENGU_1_3_3','ENGU_1_3_4','ENGU_1_3_5',  // CLAUDE ENGU lineage (incl ENGU 3)
+      'REVERT_1_0','REVERT_1_1','REVERT_1_2',              // mean-revert prototypes
+      'VWAP_FADE_1_0',                                     // superseded by VWAP FADE 2.0
+      'SUPERTREND_1_0','SUPERTREND_2_0',                   // superseded by SUPERTREND 3.0
+      'ORB_2_0',                                            // Opening Range Breakout v2 - superseded by ORB 3.x
+      'ENGUDQ_1M_1_0'];                                     // dead short mirror of ENGUQ_1M_1_0
+    const _hardArchived=new Set(ARCHIVED_STRATS.map(x=>String(x).toUpperCase()));
+    const _isHardArchived=file=>_hardArchived.has(String(file||'').replace(/\.py$/i,'').toUpperCase());
     const STRAT_FAM=[
       {re:/^orb[_\s]*3/i,abbr:'ORB',full:'Opening Range Breakout · 3.0',desc:'Low-DOF deployable ORB — the deploy candidate'},
       {re:/^(orb|opening)/i,abbr:'ORB',full:'Opening Range Breakout',desc:'Trades the breakout of the session opening range'},
@@ -8002,9 +8019,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         ran:(a,b)=>String(lastRan[a.file]||'').localeCompare(String(lastRan[b.file]||'')),
         scopes:(a,b)=>((a.presets||[]).length)-((b.presets||[]).length)};
       // ── Library archive + forward-test star (owner 2026-07-17): stored in the web-owned
-      //    meta/strategyPrefs doc {archived:[files], starred:file} — syncs across devices,
-      //    never touched by the runner. Archived rows hide behind a "show N archived" toggle.
-      const _archSet=new Set(metaStratPrefs.archived||[]);
+      //    meta/strategyPrefs doc {archived:[files], starred:file, unarchived:[files]} — syncs
+      //    across devices, never touched by the runner. Archived rows hide behind a "show N
+      //    archived" toggle. "archived" = manually-archived files; "unarchived" is the override
+      //    list for un-hiding a file that is hardcoded-archived (ARCHIVED_STRATS above) — without
+      //    it, ARCHIVE/UNARCHIVE on a pre-archived file would have nothing to remove from.
+      const _manArch=new Set(metaStratPrefs.archived||[]);
+      const _manUnarch=new Set(metaStratPrefs.unarchived||[]);
+      const _archSet=new Set(sl.filter(s=>(_isHardArchived(s.file)||_manArch.has(s.file))&&!_manUnarch.has(s.file)).map(s=>s.file));
       const _starFile=metaStratPrefs.starred||'';
       const _nArchS=sl.filter(s=>_archSet.has(s.file)).length;
       let rows=sl.slice();
@@ -9090,7 +9112,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // star (forward-test pick) + archive — persisted in meta/strategyPrefs (web-owned, merge writes)
       const _spDoc=()=>metaRef?metaRef.doc('strategyPrefs'):null;
       const stBtn=el('lib-star');if(stBtn)stBtn.onclick=async()=>{const rf=_spDoc();if(!rf||!augurLibSel)return;const cur=metaStratPrefs.starred||'';try{await rf.set({starred:(cur===augurLibSel?'':augurLibSel)},{merge:true});}catch(e){alert('star save failed: '+e.message);}};
-      const arBtn=el('lib-arch');if(arBtn)arBtn.onclick=async()=>{const rf=_spDoc();if(!rf||!augurLibSel)return;const cur=(metaStratPrefs.archived||[]).slice();const ix=cur.indexOf(augurLibSel);if(ix>=0)cur.splice(ix,1);else cur.push(augurLibSel);try{await rf.set({archived:cur},{merge:true});}catch(e){alert('archive save failed: '+e.message);return;}if(ix<0&&!APREF.libShowArch){augurLibSel=null;renderApp();}};
+      const arBtn=el('lib-arch');if(arBtn)arBtn.onclick=async()=>{const rf=_spDoc();if(!rf||!augurLibSel)return;
+        const file=augurLibSel,wasArch=(_isHardArchived(file)||(metaStratPrefs.archived||[]).includes(file))&&!(metaStratPrefs.unarchived||[]).includes(file);
+        const addCur=(metaStratPrefs.archived||[]).slice(),undoCur=(metaStratPrefs.unarchived||[]).slice();
+        const ai=addCur.indexOf(file),ui=undoCur.indexOf(file);
+        if(wasArch){ // UNARCHIVE: drop any manual add, and override a hardcoded pre-archive
+          if(ai>=0)addCur.splice(ai,1);
+          if(_isHardArchived(file)&&ui<0)undoCur.push(file);
+        }else{ // ARCHIVE: drop any unarchive-override, add a manual archive unless already hardcoded
+          if(ui>=0)undoCur.splice(ui,1);
+          if(!_isHardArchived(file)&&ai<0)addCur.push(file);
+        }
+        try{await rf.set({archived:addCur,unarchived:undoCur},{merge:true});}catch(e){alert('archive save failed: '+e.message);return;}
+        if(!wasArch&&!APREF.libShowArch){augurLibSel=null;renderApp();}};
       content.querySelectorAll('[data-libarch]').forEach(x=>{x.onclick=(e)=>{e.stopPropagation();savePref('libShowArch',!APREF.libShowArch);renderApp();};});
       content.querySelectorAll('[data-rmchk]').forEach(c=>{c.onclick=()=>{if(!augurLibSel)return;const ck=APREF.checklist||{};const row=ck[augurLibSel]||(ck[augurLibSel]={});const k=c.dataset.rmchk;row[k]=!row[k];savePref('checklist',ck);renderApp();};});
       // dropdown toggles
