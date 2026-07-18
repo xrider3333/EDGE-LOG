@@ -465,20 +465,20 @@ All 12 rows are each strategy's best-tuned long-only cell (as-shipped is worse; 
 12 lose money). **All fail the MAR ≥ 8 economics bar** (ORB = 38.6). Pick up the top 3
 only — the rest are dominated or structurally broken.
 
-| Pickup | Strategy · file | Best cell (exact) | MAR | PF | Net | Max DD | n | Verdict |
+| # | Strategy · file | Best cell (exact) | MAR | PF | Net | Max DD | n | Verdict |
 |---|---|---|---|---|---|---|---|---|
-| 🥇 1 | **EMAX** · `EMAX_1_0.py` | `ema_fast=20, ema_slow=100, direction="long"` | **7.82** | 1.27 | $292.9k | −$37.4k | 1,810 | closest miss + real plateau (5 long cells on the slow-100 shelf hold MAR 6.1–7.8); simplest logic = fewest ways to fool ourselves |
-| 🥈 2 | **BBRSI** · `BBRSI_1_0.py` | `rsi_len=16, rsi_band=50, bb_len=20, bb_mult=1.5, direction="long", entry_mode="stop"` | 6.83 | 1.56 | $327.5k | −$48.0k | 550 | only mean-reversion candidate → most different from EMAX (diversifier). Its MAR-7.42 sibling fails n≥300 — do NOT substitute it |
-| 🥉 3 | **PMAX** · `PMAX_1_0.py` | `ma_type="SMA", ma_length=20, mult=2.0, atr_period=10, change_atr=True, direction="long"` | 6.29 | 1.22 | $261.8k | −$41.6k | 1,836 | best trend-flip — covers SUPERTREND + HULL (don't run those separately) |
-| — | ICHIHULL · `ICHIHULL_1_0.py` | `keh=14, dt=0.0025, direction="long"` | 5.83 | 1.35 | $193.0k | −$33.1k | 1,174 | regime-fail (62% post-2021) |
-| — | SUPERTREND · `SUPERTREND_3_0.py` | `atr_period=20, mult=3.0, direction="long"` | 4.84 | 1.15 | $274.5k | −$56.7k | 3,773 | dominated by PMAX (same mechanism) |
-| — | GOLDX · `GOLDX_1_0.py` | `sma_fast=975, sma_slow=3900, direction="long"` | 4.30 | 2.48 | $177.5k | −$41.3k | 44 | only 44 trades (sample floor) |
-| — | MACD200 · `MACD200_1_0.py` | `sma_len=100, direction="long"` | 3.84 | 1.37 | $234.5k | −$61.0k | 512 | dominated |
-| — | RSIDIV · `RSIDIV_1_0.py` | `rsi_len=5, tp_rsi_level=75, sl_type="PERC", max_pyramid=2` | 3.33 | 1.50 | $593.0k | −$178.0k | 360 | huge DD (no stop) |
-| — | HULL · `HULL_1_0.py` | `mode="Ehma", length=89, direction="long"` | 2.89 | 1.12 | $206.2k | −$71.3k | 4,553 | dominated |
-| — | FLAWLESS · `FLAWLESS_1_0.py` | `version="v1", rsi_buy_guard=50` | 2.71 | 1.24 | $109.6k | −$40.5k | 849 | dip-hold, 118-pt avg losers |
-| — | MACDRSI · `MACDRSI_1_0.py` | `rsi_os=35, lookback=5, direction="long"` | 1.91 | 1.23 | $214.3k | −$112.4k | 1,041 | dip-hold, 147-pt avg losers |
-| — | AOSTOCH · `AOSTOCH_1_0.py` | `atr_stop_mult=1.0, atr_tp_mult=2.0, direction="long"` | 0.11 | 1.01 | $4.0k | −$36.7k | 1,282 | ≈$0 over 15 yr — nothing there |
+| 1 🥇 | **EMAX** · `EMAX_1_0.py` | `ema_fast=20, ema_slow=100, direction="long"` | **7.82** | 1.27 | $292.9k | −$37.4k | 1,810 | closest miss + real plateau (5 long cells on the slow-100 shelf hold MAR 6.1–7.8); simplest logic = fewest ways to fool ourselves |
+| 2 🥈 | **BBRSI** · `BBRSI_1_0.py` | `rsi_len=16, rsi_band=50, bb_len=20, bb_mult=1.5, direction="long", entry_mode="stop"` | 6.83 | 1.56 | $327.5k | −$48.0k | 550 | only mean-reversion candidate → most different from EMAX (diversifier). Its MAR-7.42 sibling fails n≥300 — do NOT substitute it |
+| 3 🥉 | **PMAX** · `PMAX_1_0.py` | `ma_type="SMA", ma_length=20, mult=2.0, atr_period=10, change_atr=True, direction="long"` | 6.29 | 1.22 | $261.8k | −$41.6k | 1,836 | best trend-flip — covers SUPERTREND + HULL (don't run those separately) |
+| 4 | ICHIHULL · `ICHIHULL_1_0.py` | `keh=14, dt=0.0025, direction="long"` | 5.83 | 1.35 | $193.0k | −$33.1k | 1,174 | regime-fail (62% post-2021) |
+| 5 | SUPERTREND · `SUPERTREND_3_0.py` | `atr_period=20, mult=3.0, direction="long"` | 4.84 | 1.15 | $274.5k | −$56.7k | 3,773 | dominated by PMAX (same mechanism) |
+| 6 | GOLDX · `GOLDX_1_0.py` | `sma_fast=975, sma_slow=3900, direction="long"` | 4.30 | 2.48 | $177.5k | −$41.3k | 44 | only 44 trades (sample floor) |
+| 7 | MACD200 · `MACD200_1_0.py` | `sma_len=100, direction="long"` | 3.84 | 1.37 | $234.5k | −$61.0k | 512 | dominated |
+| 8 | RSIDIV · `RSIDIV_1_0.py` | `rsi_len=5, tp_rsi_level=75, sl_type="PERC", max_pyramid=2` | 3.33 | 1.50 | $593.0k | −$178.0k | 360 | huge DD (no stop) |
+| 9 | HULL · `HULL_1_0.py` | `mode="Ehma", length=89, direction="long"` | 2.89 | 1.12 | $206.2k | −$71.3k | 4,553 | dominated |
+| 10 | FLAWLESS · `FLAWLESS_1_0.py` | `version="v1", rsi_buy_guard=50` | 2.71 | 1.24 | $109.6k | −$40.5k | 849 | dip-hold, 118-pt avg losers |
+| 11 | MACDRSI · `MACDRSI_1_0.py` | `rsi_os=35, lookback=5, direction="long"` | 1.91 | 1.23 | $214.3k | −$112.4k | 1,041 | dip-hold, 147-pt avg losers |
+| 12 | AOSTOCH · `AOSTOCH_1_0.py` | `atr_stop_mult=1.0, atr_tp_mult=2.0, direction="long"` | 0.11 | 1.01 | $4.0k | −$36.7k | 1,282 | ≈$0 over 15 yr — nothing there |
 
 Full param dict for any row = the top-MAR entry of its `tools/r13_results/r13_<NAME>_results.json`.
 
