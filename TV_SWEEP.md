@@ -363,23 +363,25 @@ dollars with 1/9th to 1/25th of the drawdown.
 | 11 | ICHIHULL | 2,491 | 26% | 1.05 | +$62.6k | −$92.1k | 0.68 | +$25 | 37 | 151 | pre-2021 subtotal NEGATIVE |
 | 12 | RSIDIV | 3,588 | 67% | 1.15 | +$294.8k | −$158.4k | 1.86 | +$82 | 85 | 42 | biggest net, 2nd-worst DD |
 
-**Table B — BEST REFINED CORNER** (top author-knob grid cell by MAR; **long-only in
-all 12 cases**). `Fails` = which pre-registered gates still fail (MAR bar = 8).
+**Table B — BEST REFINED VERSION OF EACH STRATEGY** — same 12 strategies, same row
+numbers as Table A. For each one: the single best cell from ITS OWN author-knob grid
+(ranked by MAR; **long-only won in all 12 cases**). `Fails` = which pre-registered
+gates that best version still fails (economics bar = MAR ≥ 8).
 
-| # | Corner config | Trades | Win% | PF | Net | Max DD | MAR | p21% | corr ORB | Fails |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | RSI 8 / band 50 / 2.0σ | 184 | 64% | 2.55 | $346.9k | −$46.8k | 7.42 | 48 | −0.03 | MAR, n<300 *(n=550 sibling: MAR 6.83, fails MAR only)* |
-| 2 | 12/26 + SMA100 | 512 | 48% | 1.37 | $234.5k | −$61.0k | 3.84 | 59 | +0.02 | MAR, G3 |
-| 3 | ATR 20 × 3.0 RMA | 3,773 | 39% | 1.15 | $274.5k | −$56.7k | 4.84 | 50 | −0.04 | MAR |
-| 4 | RSI-os 35, lb 5 | 1,041 | 68% | 1.23 | $214.3k | −$112.4k | 1.91 | 19 | −0.01 | MAR |
-| 5 | SMA 20 × mult 2.0 | 1,836 | 42% | 1.22 | $261.8k | −$41.6k | 6.29 | 35 | −0.01 | MAR |
-| 6 | EHMA 89 | 4,553 | 32% | 1.12 | $206.2k | −$71.3k | 2.89 | 28 | −0.03 | MAR |
-| 7 | 1:2 ATR bracket | 1,282 | 40% | 1.01 | $4.0k | −$36.7k | 0.11 | n/a | −0.08 | everything economic |
-| 8 | SMA 975/3900 (≈daily 50/200) | 44 | 57% | 2.48 | $177.5k | −$41.3k | 4.30 | 69 | +0.01 | MAR, n, G3 |
-| 9 | v1, RSI guard 50 | 849 | 75% | 1.24 | $109.6k | −$40.5k | 2.71 | 46 | −0.02 | MAR |
-| 10 | EMA 20/100 | 1,810 | 31% | 1.27 | $292.9k | −$37.4k | **7.82** | 41 | +0.01 | MAR — the sweep's closest miss |
-| 11 | keh 14, dt 0.0025 | 1,174 | 34% | 1.35 | $193.0k | −$33.1k | 5.83 | 62 | 0.00 | MAR, G3 |
-| 12 | RSI 5 + 5% trail | 360 | 48% | 1.50 | $593.0k | −$178.0k | 3.33 | 45 | −0.03 | MAR (DD-heavy) |
+| # | Strategy | Best settings found | Trades | Win% | PF | Net | Max DD | MAR | p21% | corr ORB | Fails |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | BBRSI | RSI 8 / band 50 / 2.0σ, long | 184 | 64% | 2.55 | $346.9k | −$46.8k | 7.42 | 48 | −0.03 | MAR, n<300 *(n=550 sibling: MAR 6.83, fails MAR only)* |
+| 2 | MACD200 | 12/26 + SMA100, long | 512 | 48% | 1.37 | $234.5k | −$61.0k | 3.84 | 59 | +0.02 | MAR, regime |
+| 3 | SUPERTREND 3.0 | ATR 20 × 3.0 RMA, long | 3,773 | 39% | 1.15 | $274.5k | −$56.7k | 4.84 | 50 | −0.04 | MAR |
+| 4 | MACDRSI | RSI-os 35, lookback 5, long | 1,041 | 68% | 1.23 | $214.3k | −$112.4k | 1.91 | 19 | −0.01 | MAR |
+| 5 | PMAX | SMA 20 × mult 2.0, long | 1,836 | 42% | 1.22 | $261.8k | −$41.6k | 6.29 | 35 | −0.01 | MAR |
+| 6 | HULL | EHMA 89, long | 4,553 | 32% | 1.12 | $206.2k | −$71.3k | 2.89 | 28 | −0.03 | MAR |
+| 7 | AOSTOCH | 1:2 ATR bracket, long | 1,282 | 40% | 1.01 | $4.0k | −$36.7k | 0.11 | n/a | −0.08 | everything economic |
+| 8 | GOLDX | SMA 975/3900 (≈daily 50/200), long | 44 | 57% | 2.48 | $177.5k | −$41.3k | 4.30 | 69 | +0.01 | MAR, n, regime |
+| 9 | FLAWLESS | v1, RSI guard 50 (long by design) | 849 | 75% | 1.24 | $109.6k | −$40.5k | 2.71 | 46 | −0.02 | MAR |
+| 10 | EMAX | EMA 20/100, long | 1,810 | 31% | 1.27 | $292.9k | −$37.4k | **7.82** | 41 | +0.01 | MAR — the sweep's closest miss |
+| 11 | ICHIHULL | keh 14, dt 0.0025, long | 1,174 | 34% | 1.35 | $193.0k | −$33.1k | 5.83 | 62 | 0.00 | MAR, regime |
+| 12 | RSIDIV | RSI 5 + 5% trail (long by design) | 360 | 48% | 1.50 | $593.0k | −$178.0k | 3.33 | 45 | −0.03 | MAR (DD-heavy) |
 
 **Table C — the book, for scale:**
 
