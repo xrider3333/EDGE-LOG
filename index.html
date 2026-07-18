@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='57.6';
+const VERSION='57.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'57.7', date:'2026-07-17', notes:['Compare · equity overlay is now expandable to a fullscreen multi-curve explorer (⛶ button on the tile, or double-click the chart) — all selected strategies on one canvas. Navigate it TradingView-style: wheel or +/- to zoom, drag or arrow keys to pan, drag the $ axis to scale it, double-click or 0 to reset, Esc to close. A live crosshair reads out every strategy $ at the cursor. (Per-strategy trade blotter in the expanded view is the next step.)']},
   {v:'57.6', date:'2026-07-17', notes:['Library: 8 dead strategy lineages (16 files) are now pre-archived by default - GROK ENGU 1.1.20/1.1.21/1.2.1, CLAUDE ENGU 1.3.1 through 1.3.5, REVERT 1.0/1.1/1.2, VWAP FADE 1.0, SuperTrend v1, Strict SuperTrend v2, Opening Range Breakout v2, and the ENGUD-Q 1m short mirror. They hide behind the same show N archived toggle as manually archived strategies - nothing deleted, one click to unhide any of them.']},
   {v:'57.5', date:'2026-07-17', notes:['Library: strategies can now be ARCHIVED (select a row, click ARCHIVE) — archived files hide behind a "show N archived" link, exactly like archived runs. Fully reversible, syncs across your devices, and the runner never overwrites it.','Library: a STAR button marks THE strategy you are forward-testing — the starred row shows a gold star. One star at a time; click again to unstar.','Pre-loaded: the 14 closed ORB research forks are archived, so the ORB family shows just its story — 3.0 (base), 3.0-BE (single-lot deploy), and starred 3.0-ENSEMBLE (the two-lot book, run #159). Unarchive any of them anytime.']},
   {v:'57.4', date:'2026-07-17', notes:['Compare · PICK RUNS: the best-run star is now ONE per strategy FAMILY (all ORB variants collapse to a single star, etc.) instead of one per file — far fewer stars; the star best of each button follows the same family grouping.','Compare · equity overlay: the walk-forward and lockbox styles were too alike — walk-forward is now clearly ROUND DOTS and the lockbox tail clearly LONG DASHES.','Compare · equity overlay: two runs of the same strategy now shade much further apart so their curves are easier to tell apart.']},
@@ -3029,6 +3030,177 @@ window.expandEquity=function(host){
   document.addEventListener('keydown',esc);
   const close=()=>{if(blMenu){blMenu.remove();blMenu=null;}window.removeEventListener('resize',onResize);document.removeEventListener('keydown',esc);modal.remove();};
   el2('eqx-close').onclick=close;
+  requestAnimationFrame(render);
+};
+
+// ── window.expandCompareEq — fullscreen TradingView-style MULTI-curve explorer for the Compare
+//    tab's equity overlay tile. Mirrors expandEquity's modal/zoom/pan/scale-y interaction model
+//    (same wheel=zoom, drag=pan, drag-$-axis=scale-y, dbl-click=reset conventions) but simpler:
+//    the x-axis is FRACTIONAL PROGRESS 0..1 through each run (not a date axis — different runs
+//    have different lengths), so there is no time mapping and no drawdown pane, just N equity
+//    lines sharing one $ scale. Also adds keyboard navigation (arrows/+-/0/esc) per owner ask. ──
+window.expandCompareEq=function(series){
+  if(!series||!series.length)return;
+  const S=series.filter(s=>s&&Array.isArray(s.eq)&&s.eq.length>=2);
+  if(!S.length)return;
+  const fmt$=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
+  // per-series point arrays: x = fractional progress through THAT run (0 = start, 1 = end)
+  const PS=S.map(s=>{const n=s.eq.length,li=(s.li!=null)?Math.max(0,Math.min(+s.li,n-1)):null;
+    return {id:s.id,label:String(s.label||('#'+s.id)),color:s.color||'#3a9bdc',li:li,
+      pts:s.eq.map((v,i)=>({x:(n>1?i/(n-1):0),v:v}))};});
+  // ── modal scaffold (same fixed-height non-wrapping header as expandEquity — a growing
+  //    readout used to resize the chart under the cursor, the "glitch" that pattern avoids) ──
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.93);z-index:9999;display:flex;flex-direction:column;padding:18px 22px';
+  modal.innerHTML='<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:nowrap;height:30px;flex:0 0 auto;overflow:hidden">'
+    +'<span style="font-family:\'Bebas Neue\',monospace;font-size:20px;letter-spacing:3px;color:var(--text);white-space:nowrap;flex:0 0 auto">EQUITY COMPARE</span>'
+    +'<span id="ceqx-read" style="font-size:11px;color:var(--text3);flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>'
+    +'<span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex:0 0 auto">'
+    +'<span title="wheel/+-=zoom . drag/arrows=pan . drag $ axis=scale y . dbl-click/0=reset . esc=close" style="font-size:11px;color:var(--text5);cursor:help">controls ⓘ</span>'
+    +'<button id="ceqx-reset" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">↺ RESET</button>'
+    +'<button id="ceqx-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:2px;border-radius:6px">CLOSE ✕</button></span></div>'
+    +'<div id="ceqx-wrap" style="flex:1 1 auto;min-height:0;min-width:0;display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px;position:relative">'
+      +'<div id="ceqx-legend" style="position:absolute;top:16px;left:16px;z-index:3;display:flex;flex-direction:column;gap:3px;pointer-events:none;max-width:56%"></div>'
+      +'<div id="ceqx-chart" style="flex:1;min-height:0;position:relative;cursor:crosshair"><svg id="ceqx-svg" style="display:block;width:100%;height:100%"></svg>'
+      +'<div id="ceqx-vln" style="position:absolute;top:0;width:0;border-left:1px dashed var(--text4);opacity:.7;pointer-events:none;display:none"></div>'
+      +'<div id="ceqx-hln" style="position:absolute;left:0;height:0;border-top:1px dashed var(--text4);opacity:.7;pointer-events:none;display:none"></div>'
+      +'<div id="ceqx-xchip" style="position:absolute;pointer-events:none;display:none;background:var(--text2);color:var(--bg1);font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;transform:translateX(-50%)"></div>'
+      +'<div id="ceqx-ychip" style="position:absolute;pointer-events:none;display:none;background:var(--text2);color:var(--bg1);font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;transform:translateY(-50%)"></div></div>'
+    +'</div>';
+  document.body.appendChild(modal);
+  const el2=id=>modal.querySelector('#'+id);
+  const svgEl=el2('ceqx-svg'),chartEl=el2('ceqx-chart'),read=el2('ceqx-read'),legendEl=el2('ceqx-legend');
+  legendEl.innerHTML=PS.map(s=>'<span style="display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);background:color-mix(in srgb,var(--bg1) 65%,transparent);padding:2px 6px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="width:12px;height:3px;background:'+s.color+';display:inline-block;border-radius:2px;flex:0 0 auto"></span><span style="overflow:hidden;text-overflow:ellipsis">#'+s.id+' '+s.label+'</span></span>').join('');
+  // ── view state: [va,vb] are fractions of the FULL 0..1 x-domain. The domain here IS already
+  //    fractional progress (no dates), so unlike expandEquity there is no time mapping step. ──
+  let va=0,vb=1,yMan=null;
+  const GUT=68;
+  const _niceStep=x=>{x=Math.abs(x)||1;const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
+  const geo=()=>{const r=chartEl.getBoundingClientRect(),W=Math.max(200,r.width),H=Math.max(160,r.height);
+    return {W:W,H:H,pw:W-GUT,pT:6,pB:22};};
+  const X=(g,x)=>(x-va)/((vb-va)||1)*g.pw;
+  // interpolate a series value at x-fraction cx (clamped to that curve's own [0,1] span)
+  const interpAt=(s,cx)=>{const p=s.pts,m=p.length;if(cx<=p[0].x)return p[0].v;if(cx>=p[m-1].x)return p[m-1].v;
+    let lo=0,hi=m-1;while(hi-lo>1){const mid=(lo+hi)>>1;if(p[mid].x<=cx)lo=mid;else hi=mid;}
+    const a=p[lo],b=p[hi],f=(b.x>a.x)?(cx-a.x)/(b.x-a.x):0;return a.v+(b.v-a.v)*f;};
+  const render=()=>{
+    const g=geo();
+    // auto-fit Y to the visible x-slice ACROSS ALL curves, unless yMan (drag-the-$-axis) is set
+    let mn=null,mx=null;
+    PS.forEach(s=>{s.pts.forEach(p=>{if(p.x>=va&&p.x<=vb){if(mn===null||p.v<mn)mn=p.v;if(mx===null||p.v>mx)mx=p.v;}});});
+    if(mn===null){   // zoomed tighter than every point spacing on every curve — fall back to the interpolated view edges
+      PS.forEach(s=>{[interpAt(s,va),interpAt(s,vb)].forEach(v=>{if(mn===null||v<mn)mn=v;if(mx===null||v>mx)mx=v;});});}
+    if(mn===null){mn=0;mx=1;}
+    if(yMan){mn=yMan[0];mx=yMan[1];}
+    else{if(mx<=mn)mx=mn+1;const pad=(mx-mn)*0.06;mn-=pad;mx+=pad;}
+    const Y=v=>g.pT+(mx-v)/((mx-mn)||1)*(g.H-g.pB-g.pT);
+    let s='';
+    // $ gridlines + right labels
+    const step=_niceStep((mx-mn)/5)||1;
+    for(let L=Math.ceil(mn/step)*step;L<=mx;L+=step){const y=Y(L);
+      s+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+g.pw+'" y2="'+y.toFixed(1)+'" stroke="var(--border)" stroke-width="'+(Math.abs(L)<1e-9?1:0.5)+'" opacity="'+(Math.abs(L)<1e-9?0.6:0.25)+'"/>'
+        +'<text x="'+(g.pw+6)+'" y="'+(y+3.5).toFixed(1)+'" font-size="10" fill="'+(Math.abs(L)<1e-9?'var(--text4)':'var(--text5)')+'">'+fmt$(L)+'</text>';}
+    s+='<line x1="'+g.pw+'" y1="0" x2="'+g.pw+'" y2="'+(g.H-g.pB)+'" stroke="var(--border)" opacity="0.7"/>';
+    s+='<text x="4" y="'+(g.H-6)+'" font-size="9" fill="var(--text5)">start of run</text>'
+      +'<text x="'+(g.pw-4)+'" y="'+(g.H-6)+'" text-anchor="end" font-size="9" fill="var(--text5)">end of run</text>';
+    // equity paths — redrawn from data every render (clean given we re-render on every zoom/pan
+    //   anyway), solid up to each curve's own lockbox split, dashed for the lockbox tail after it.
+    s+='<clipPath id="ceqx-clip"><rect x="0" y="0" width="'+g.pw+'" height="'+(g.H-g.pB)+'"/></clipPath>';
+    const _clipN=(arr)=>{const n2=arr.length;if(n2<2)return [];
+      let lo=arr.findIndex(p=>p.x>=va);if(lo<0)lo=n2;
+      let hi=-1;for(let i2=n2-1;i2>=0;i2--){if(arr[i2].x<=vb){hi=i2;break;}}
+      const s2=Math.max(0,lo-1),e2=Math.min(n2-1,hi+1);
+      return (e2>=s2)?arr.slice(s2,e2+1):[];};
+    const seg=(arr)=>arr.map((p,i2)=>((i2?'L':'M')+X(g,p.x).toFixed(1)+' '+Y(p.v).toFixed(1))).join(' ');
+    s+='<g clip-path="url(#ceqx-clip)">';
+    PS.forEach(sr=>{const pts=sr.pts,li=sr.li;
+      if(li!=null&&li>=0&&li<pts.length-1){
+        if(li>0){const pre=_clipN(pts.slice(0,li+1));if(pre.length>1)s+='<path d="'+seg(pre)+'" fill="none" stroke="'+sr.color+'" stroke-width="1.6"/>';}
+        const post=_clipN(pts.slice(li));if(post.length>1)s+='<path d="'+seg(post)+'" fill="none" stroke="'+sr.color+'" stroke-width="1.6" stroke-dasharray="12,7" opacity="0.85"/>';
+      }else{const all=_clipN(pts);if(all.length>1)s+='<path d="'+seg(all)+'" fill="none" stroke="'+sr.color+'" stroke-width="1.6"/>';}});
+    s+='</g>';
+    svgEl.setAttribute('viewBox','0 0 '+g.W+' '+g.H);
+    svgEl.innerHTML=s;
+    svgEl._g={g:g,mn:mn,mx:mx};
+  };
+  // ── interactions: wheel=zoom anchored at cursor, drag=pan, drag the $ gutter=scale y,
+  //    double-click=reset. Same math shape as expandEquity, simplified to the 0..1 domain. ──
+  const clampView=()=>{const span=vb-va,mnSpan=0.02;
+    if(span<mnSpan){const c=(va+vb)/2;va=c-mnSpan/2;vb=c+mnSpan/2;}
+    if(va<0){vb-=va;va=0;}if(vb>1){va-=(vb-1);vb=1;}va=Math.max(0,va);vb=Math.min(1,vb);};
+  const zoomBy=k=>{const c=(va+vb)/2;va=c-(c-va)*k;vb=c+(vb-c)*k;clampView();render();};
+  const panBy=f=>{const d=(vb-va)*f;va+=d;vb+=d;clampView();render();};
+  const resetView=()=>{va=0;vb=1;yMan=null;render();};
+  chartEl.addEventListener('wheel',e=>{e.preventDefault();
+    const r=chartEl.getBoundingClientRect(),gx=svgEl._g?svgEl._g.g:geo();
+    if(!(r.width>0))return;
+    const fx=Math.max(0,Math.min(1,(e.clientX-r.left)/((gx.pw/gx.W)*r.width)));
+    const c=va+(vb-va)*fx,k=(e.deltaY>0)?1.22:0.82;
+    va=c-(c-va)*k;vb=c+(vb-c)*k;clampView();render();},{passive:false});
+  let drag=null,yDrag=null;
+  const _gutterAt=e=>{const st=svgEl._g;if(!st)return false;const r=chartEl.getBoundingClientRect();
+    if(!(r.width>0))return false;return ((e.clientX-r.left)/(r.width/st.g.W))>st.g.pw;};
+  const mDown=e=>{
+    if(_gutterAt(e)){const st=svgEl._g;yDrag={y:e.clientY,mn:st.mn,mx:st.mx};return;}
+    drag={x:e.clientX,va:va,vb:vb,moved:false,st:svgEl._g};};
+  const mMove=e=>{
+    if(yDrag){const k=Math.max(0.15,1+(e.clientY-yDrag.y)*0.004);   // drag DOWN = compress (wider $ range)
+      const c=(yDrag.mn+yDrag.mx)/2,half=(yDrag.mx-yDrag.mn)/2*k;
+      yMan=[c-half,c+half];render();return;}
+    if(!drag)return;const r=chartEl.getBoundingClientRect(),gx=svgEl._g?svgEl._g.g:geo();
+    if(!(r.width>0))return;
+    const dx=(e.clientX-drag.x)/((gx.pw/gx.W)*r.width)*(drag.vb-drag.va);
+    if(Math.abs(e.clientX-drag.x)>3)drag.moved=true;
+    va=drag.va-dx;vb=drag.vb-dx;clampView();render();};
+  const mUp=()=>{setTimeout(()=>{drag=null;yDrag=null;},0);};
+  chartEl.addEventListener('mousedown',mDown);
+  window.addEventListener('mousemove',mMove);
+  window.addEventListener('mouseup',mUp);
+  chartEl.addEventListener('dblclick',resetView);
+  el2('ceqx-reset').onclick=resetView;
+  // multi-series crosshair: vertical hairline + a readout listing EVERY series interpolated
+  //   at the cursor's x-fraction, plus x shown as "NN% through run".
+  const vln=el2('ceqx-vln'),hln=el2('ceqx-hln'),xchip=el2('ceqx-xchip'),ychip=el2('ceqx-ychip');
+  chartEl.addEventListener('mousemove',e=>{
+    const st=svgEl._g;if(!st)return;const r=chartEl.getBoundingClientRect();
+    if(!(r.width>0&&r.height>0))return;
+    const sx=r.width/st.g.W,sy=r.height/st.g.H;
+    const gx=(e.clientX-r.left)/sx,gy=(e.clientY-r.top)/sy;
+    if(gx<0||gx>st.g.pw||gy<0||gy>st.g.H-st.g.pB){vln.style.display=hln.style.display=xchip.style.display=ychip.style.display='none';read.textContent='';return;}
+    vln.style.display=hln.style.display='block';
+    vln.style.left=(gx*sx)+'px';vln.style.height=((st.g.H-st.g.pB)*sy)+'px';
+    hln.style.top=(gy*sy)+'px';hln.style.width=(st.g.pw*sx)+'px';
+    const cx=va+(vb-va)*(gx/st.g.pw),pct=Math.round(Math.max(0,Math.min(1,cx))*100);
+    xchip.style.display='block';xchip.style.left=(gx*sx)+'px';xchip.style.top=((st.g.H-st.g.pB)*sy)+'px';xchip.textContent=pct+'%';
+    const yv=st.mx-(st.mx-st.mn)*((gy-st.g.pT)/((st.g.H-st.g.pB-st.g.pT)||1));
+    ychip.style.display='block';ychip.style.left=(st.g.pw*sx)+'px';ychip.style.top=(gy*sy)+'px';ychip.textContent=fmt$(yv);
+    read.innerHTML=pct+'% through run'+PS.map(s=>{const v=interpAt(s,cx);
+      return ' &middot; <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:'+s.color+';display:inline-block"></span>'+s.label+' <b style="color:'+(v>=0?'var(--green)':'var(--red)')+'">'+fmt$(v)+'</b></span>';}).join('');
+    chartEl.style.cursor=_gutterAt(e)?'ns-resize':'crosshair';
+  });
+  chartEl.addEventListener('mouseleave',()=>{vln.style.display=hln.style.display=xchip.style.display=ychip.style.display='none';read.textContent='';});
+  // ── keyboard nav (owner-requested): arrows pan, +/-/arrows zoom, 0/Home/R reset, Esc closes.
+  //    Bound only while this modal is open, removed on close (mirrors expandEquity's Esc). ──
+  const keyHandler=e=>{
+    if(e.key==='Escape'){close();return;}
+    if(e.key==='ArrowLeft'){panBy(-0.08);e.preventDefault();return;}
+    if(e.key==='ArrowRight'){panBy(0.08);e.preventDefault();return;}
+    if(e.key==='+'||e.key==='='){zoomBy(0.85);e.preventDefault();return;}
+    if(e.key==='-'||e.key==='_'){zoomBy(1.18);e.preventDefault();return;}
+    if(e.key==='ArrowUp'){zoomBy(0.85);e.preventDefault();return;}
+    if(e.key==='ArrowDown'){zoomBy(1.18);e.preventDefault();return;}
+    if(e.key==='0'||e.key==='Home'||e.key==='r'||e.key==='R'){resetView();e.preventDefault();return;}};
+  document.addEventListener('keydown',keyHandler);
+  // ── lifecycle ──
+  const onResize=()=>render();
+  window.addEventListener('resize',onResize);
+  const close=()=>{
+    window.removeEventListener('mousemove',mMove);
+    window.removeEventListener('mouseup',mUp);
+    window.removeEventListener('resize',onResize);
+    document.removeEventListener('keydown',keyHandler);
+    modal.remove();};
+  el2('ceqx-close').onclick=close;
   requestAnimationFrame(render);
 };
 
@@ -8382,6 +8554,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const legend='<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px;font-size:9px">'+curves.map(c=>'<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:3px;background:'+c.c+';display:inline-block;border-radius:2px"></span>#'+c.r.id+' '+stratTag(c.r.strategy)+(c.eq?'':' <span style="color:var(--text5)">(no curve saved — re-run to record)</span>')+'</span>').join('')+'</div>';
         let ovl;
         const withEq=curves.filter(c=>c.eq);
+        // stash a serialisable payload for the fullscreen multi-curve explorer (⛶ button /
+        //   dbl-click on the overlay below) — window.expandCompareEq reads this global.
+        window._cmpEqxSeries=withEq.map(c=>({id:c.r.id,label:(stratTag(c.r.strategy)||'').replace(/<[^>]*>/g,'').trim()||('#'+c.r.id),color:c.c,eq:c.eq,li:c.li}));
         if(withEq.length){
           let emn=0,emx=0;withEq.forEach(c=>{c.eq.forEach(v=>{if(v<emn)emn=v;if(v>emx)emx=v;});});
           if(emx<=emn)emx=emn+1;const epad=(emx-emn)*0.05;emn-=epad;emx+=epad;
@@ -8405,7 +8580,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               if(i1>i0)s3+='<polyline points="'+P2.slice(i0,i1+1).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="3.2" stroke-dasharray="0.1,8" stroke-linecap="round" opacity="0.95"/>';});
             return s3;}).join('');
           const xt='<text x="'+pL+'" y="'+(H2-6)+'" font-size="8" fill="var(--text5)">start of run</text><text x="'+(pL+PW)+'" y="'+(H2-6)+'" text-anchor="end" font-size="8" fill="var(--text5)">end of run</text>';
-          ovl='<svg viewBox="0 0 '+W2+' '+H2+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g2+paths+xt+'</svg>';
+          ovl='<svg viewBox="0 0 '+W2+' '+H2+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" ondblclick="window.expandCompareEq(window._cmpEqxSeries)" title="double-click for the fullscreen multi-curve explorer">'+g2+paths+xt+'</svg>';
         }else ovl='<div style="font-size:var(--fsxs);color:var(--text5);padding:10px 0">none of the selected runs saved an equity curve — re-run them to record one</div>';
         // net P&L — horizontal HTML bars (the old stretched SVG squished text on wide screens);
         //   colour keyed to the overlay legend, exact $ at the right.
@@ -8425,7 +8600,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="flex:0 1 430px;min-width:310px">'+pickerTile+'</div>'
           +'<div style="flex:1 1 480px;min-width:0">'
             +tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px">COMPARE · '+runs.length+' run'+(runs.length===1?'':'s')+' <span style="font-weight:400;color:var(--text5);font-size:8px">· green = best in row · ✕ removes a run</span>'+scopeSeg+'</div><div style="overflow-x:auto"><table class="table"><thead>'+hdr+'</thead><tbody>'+mrows+'</tbody></table></div>'+_scNote)
-            +tile('<div class="lbl" style="margin-bottom:6px">EQUITY OVERLAY <span style="font-weight:400;color:var(--text5);font-size:8px">· x = progress through each run · ── in-sample&nbsp;&nbsp;&nbsp;·&nbsp;·&nbsp;· walk-forward (out-of-sample folds, approx bar-time mapped)&nbsp;&nbsp;&nbsp;– – lockbox (unseen tail)</span></div>'+legend+ovl)
+            +tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px">EQUITY OVERLAY <span style="font-weight:400;color:var(--text5);font-size:8px">· x = progress through each run · ── in-sample&nbsp;&nbsp;&nbsp;·&nbsp;·&nbsp;· walk-forward (out-of-sample folds, approx bar-time mapped)&nbsp;&nbsp;&nbsp;– – lockbox (unseen tail)</span><button data-cmpexpand title="open the fullscreen multi-curve explorer" style="margin-left:auto;flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></div>'+legend+ovl)
             +tile('<div class="lbl" style="margin-bottom:6px">NET P&L <span style="font-weight:400;color:var(--text5);font-size:8px">· whole-run best-config $ (see the OVERALL note above)</span></div>'+pnlBars)
           +'</div></div>';
       }
@@ -9082,7 +9257,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       };
       content.querySelectorAll('[data-cmpscope]').forEach(b=>{b.onclick=()=>{savePref('cmpScope',b.dataset.cmpscope);renderApp();};});
       content.querySelectorAll('[data-cmpgrp]').forEach(h=>{h.onclick=()=>{const k=decodeURIComponent(h.dataset.cmpgrp);if(window._cmpGrpOpen.has(k))window._cmpGrpOpen.delete(k);else window._cmpGrpOpen.add(k);renderApp();};});
-      content.querySelectorAll('[data-cmp-rm]').forEach(x=>{x.onclick=()=>{const ids=_cur().filter(id=>id!==String(x.dataset.cmpRm));if(ids.length>=1){savePref('cmpIds',ids);renderApp();}};});}
+      content.querySelectorAll('[data-cmp-rm]').forEach(x=>{x.onclick=()=>{const ids=_cur().filter(id=>id!==String(x.dataset.cmpRm));if(ids.length>=1){savePref('cmpIds',ids);renderApp();}};});
+      const _cex=content.querySelector('[data-cmpexpand]');if(_cex)_cex.onclick=()=>window.expandCompareEq(window._cmpEqxSeries);}
     else if(augurSub==='rank'){content.querySelectorAll('[data-rank-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.rankRun;augurSub='runs';renderApp();};});
       const _rgb2=content.querySelector('[data-rankgroupbtn]');if(_rgb2)_rgb2.onclick=()=>{savePref('rankGroup',!APREF.rankGroup);renderApp();};
       content.querySelectorAll('[data-rankgrp]').forEach(h=>{h.onclick=()=>{const k=decodeURIComponent(h.dataset.rankgrp);if(window._rankGrpOpen.has(k))window._rankGrpOpen.delete(k);else window._rankGrpOpen.add(k);renderApp();};});}
