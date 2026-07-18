@@ -82,6 +82,10 @@ DEFAULT_PARAMS = {
     },
     "mon_drop": {
         "default": 0.01, "min": 0.0, "max": 0.05, "step": 0.0025, "type": "float",
+        # hard_min/hard_max = the LOGICAL domain for auto-expand (#29): a Monday selloff
+        # deeper than ~10% is essentially never observed, so widening past it just samples
+        # an empty region. Auto-expand may widen up to here, never beyond.
+        "hard_min": 0.0, "hard_max": 0.10,
         "label": "Monday drop threshold (fraction)",
         "tooltip": "Only used by trigger=mon1pct: today's close must be <= prior "
                    "close x (1 - mon_drop). 0.01 = a 1% Monday selloff.",
@@ -89,6 +93,12 @@ DEFAULT_PARAMS = {
     },
     "ibs_entry": {
         "default": 0.20, "min": 0.05, "max": 0.40, "step": 0.05, "type": "float",
+        # hard_max 0.5 = the STRATEGY-IDENTITY boundary for auto-expand (#29): IBS is a
+        # ratio in [0,1]; below 0.5 the close sits in the lower half of the day = "buy
+        # weakness" (this strategy). At/above 0.5 it flips to buying strength — a
+        # different (momentum) strategy, not a wider TTIBS. Cap here to keep discovery
+        # inside this strategy's meaning. (Raise to 1.0 only if you WANT to let it morph.)
+        "hard_min": 0.0, "hard_max": 0.5,
         "label": "IBS entry threshold",
         "tooltip": "Only used by trigger=ibs: enter when IBS = (close-low)/(high-low) "
                    "is below this. Lower = closer to the day's low = deeper weakness.",
@@ -115,6 +125,11 @@ DEFAULT_PARAMS = {
     },
     "hold_cap": {
         "default": 6, "min": 1, "max": 10, "step": 1, "type": "int",
+        # hard_max 20 = the STRATEGY-IDENTITY boundary for auto-expand (#29): a short-term
+        # mean-reversion bounce held beyond ~20 trading days stops being a bounce trade and
+        # becomes a multi-week position — a different strategy. Let discovery explore longer
+        # holds than the current 10, but stop at 20.
+        "hard_min": 1, "hard_max": 20,
         "label": "Max hold (trading days)",
         "tooltip": "Force-exit at this day's close if no exit signal has fired yet. "
                    "6 is the triage-validated default (see exit_mode tooltip); 2/4 "
