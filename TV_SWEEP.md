@@ -342,6 +342,53 @@ net-DD 7.2 · 1:1 blend = $835k, −$60.1k DD, 17-for-17 years. The best TV corn
 doesn't reach the book's WEAKER leg; ORB alone beats every as-shipped config on net
 dollars with 1/9th to 1/25th of the drawdown.
 
+### 4.2 KPI matrix (house run-report format)
+
+**Table A — AS SHIPPED** (published defaults · NQ 5m RTH · 2010-06-07→2025-06-30 ·
+1 contract · 0.533 pts/RT included). `$/tr` = net ÷ trades. On negative-net rows,
+`p21%` reads as "share of the LOSS that is post-2021".
+
+| # | Strategy | Trades | Win% | PF | Net | Max DD | MAR | $/tr | AvgLoss (pts) | p21% | Read |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | BBRSI (BB+RSI Double) | 1,105 | 47% | 0.88 | **−$171.4k** | −$239.7k | −0.71 | −$155 | 120 | 96 | loses as shipped |
+| 2 | MACD200 | 776 | 41% | 1.03 | +$30.9k | −$115.3k | 0.27 | +$40 | 128 | 65 | flat noise |
+| 3 | SUPERTREND 3.0 | 7,404 | 36% | 1.04 | +$140.5k | −$75.9k | 1.85 | +$19 | 38 | 60 | churny drift |
+| 4 | MACDRSI | 749 | 67% | 1.20 | +$143.7k | −$105.8k | 1.36 | +$192 | 147 | 10 | no-stop dip-hold, pre-21 edge |
+| 5 | PMAX | 3,453 | 36% | 1.07 | +$175.3k | −$93.2k | 1.88 | +$51 | 55 | 33 | drift |
+| 6 | HULL | 6,975 | 36% | 1.04 | +$100.2k | −$92.6k | 1.08 | +$14 | 26 | 47 | flat churn |
+| 7 | AOSTOCH | 4,047 | 51% | 0.80 | **−$157.7k** | −$176.2k | −0.89 | −$39 | 20 | 52 | worst — negative on all 4 datasets |
+| 8 | GOLDX (Golden Cross) | 861 | 41% | 1.25 | +$204.7k | −$83.5k | **2.45** | +$238 | 81 | 41 | best as-shipped — still drift |
+| 9 | FLAWLESS | 2,152 | 72% | 1.13 | +$189.6k | −$109.7k | 1.73 | +$88 | 119 | 26 | no-stop dip-hold |
+| 10 | EMAX (EMA 10/20) | 12,399 | 28% | 0.98 | **−$97.8k** | −$133.6k | −0.73 | −$8 | 23 | 47 | fee shredder (1m: −$761k) |
+| 11 | ICHIHULL | 2,491 | 26% | 1.05 | +$62.6k | −$92.1k | 0.68 | +$25 | 37 | 151 | pre-2021 subtotal NEGATIVE |
+| 12 | RSIDIV | 3,588 | 67% | 1.15 | +$294.8k | −$158.4k | 1.86 | +$82 | 85 | 42 | biggest net, 2nd-worst DD |
+
+**Table B — BEST REFINED CORNER** (top author-knob grid cell by MAR; **long-only in
+all 12 cases**). `Fails` = which pre-registered gates still fail (MAR bar = 8).
+
+| # | Corner config | Trades | Win% | PF | Net | Max DD | MAR | p21% | corr ORB | Fails |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | RSI 8 / band 50 / 2.0σ | 184 | 64% | 2.55 | $346.9k | −$46.8k | 7.42 | 48 | −0.03 | MAR, n<300 *(n=550 sibling: MAR 6.83, fails MAR only)* |
+| 2 | 12/26 + SMA100 | 512 | 48% | 1.37 | $234.5k | −$61.0k | 3.84 | 59 | +0.02 | MAR, G3 |
+| 3 | ATR 20 × 3.0 RMA | 3,773 | 39% | 1.15 | $274.5k | −$56.7k | 4.84 | 50 | −0.04 | MAR |
+| 4 | RSI-os 35, lb 5 | 1,041 | 68% | 1.23 | $214.3k | −$112.4k | 1.91 | 19 | −0.01 | MAR |
+| 5 | SMA 20 × mult 2.0 | 1,836 | 42% | 1.22 | $261.8k | −$41.6k | 6.29 | 35 | −0.01 | MAR |
+| 6 | EHMA 89 | 4,553 | 32% | 1.12 | $206.2k | −$71.3k | 2.89 | 28 | −0.03 | MAR |
+| 7 | 1:2 ATR bracket | 1,282 | 40% | 1.01 | $4.0k | −$36.7k | 0.11 | n/a | −0.08 | everything economic |
+| 8 | SMA 975/3900 (≈daily 50/200) | 44 | 57% | 2.48 | $177.5k | −$41.3k | 4.30 | 69 | +0.01 | MAR, n, G3 |
+| 9 | v1, RSI guard 50 | 849 | 75% | 1.24 | $109.6k | −$40.5k | 2.71 | 46 | −0.02 | MAR |
+| 10 | EMA 20/100 | 1,810 | 31% | 1.27 | $292.9k | −$37.4k | **7.82** | 41 | +0.01 | MAR — the sweep's closest miss |
+| 11 | keh 14, dt 0.0025 | 1,174 | 34% | 1.35 | $193.0k | −$33.1k | 5.83 | 62 | 0.00 | MAR, G3 |
+| 12 | RSI 5 + 5% trail | 360 | 48% | 1.50 | $593.0k | −$178.0k | 3.33 | 45 | −0.03 | MAR (DD-heavy) |
+
+**Table C — the book, for scale:**
+
+| Leg | Trades | Win% | PF | Net | Max DD | MAR / net-DD | Status |
+|---|---|---|---|---|---|---|---|
+| ORB 3.1 #125 (16 yr) | 4,064 | 41% | 1.61 | +$360.6k | **−$9.4k** | **38.6** | deployable (WF+lockbox+ES all PASS); triage-window repro exact: 3,815 / +$306.3k / 1.607 |
+| ENGU-Q deploy (16 yr, honest fills) | 2,048 | — | ~1.4 | +$474.7k | −$65.6k | 7.2 | deployed leg (file-repro defect still open) |
+| 1:1 ORB×ENGU-Q blend (17 yr) | — | — | — | +$835.4k | −$60.1k | 13.9 | the book baseline — 17-for-17 years |
+
 Cross-strategy findings (each visible in 3+ independent ports):
 
 1. **As-shipped configs are flat-to-badly-negative.** The most-boosted script of all
