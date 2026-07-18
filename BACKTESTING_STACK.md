@@ -756,6 +756,14 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
   `tools/r13_triage.py` + all grid/gate JSONs in `tools/r13_results/`; `TV_SWEEP.md` §4.2 KPI
   matrix + §5 pickup guide (ranked: EMAX 20/100-long → BBRSI 16/50-long → PMAX SMA20×2-long;
   stage-2 battery pre-registered incl. a new mandatory always-long drift baseline B0).
+  *Deep-tune addendum (item 18, `tools/r13_deeptune.py`):* owner asked whether the promising
+  ones were tuned with our BEST tooling, not just as-shipped + small grid. Ran the real
+  Auto-Optimize search (`augur_engine.auto` sampler over full param ranges, 400 trials) on the
+  **top 3 × all core-4 (NQ/ES × 1m/5m)**, lockbox HELD, champion selected on TRAIN(75%) then
+  scored on honest OOS(25%). **0 of 12 pass** — the optimizer hits MAR 8.8–15.2 in-sample and
+  every one collapses to OOS MAR ~0.4–3.5 (best = EMAX NQ 5m 3.54, still < half the bar). Textbook
+  overfit; the grid had already found the honest ceiling. Verdict holds under best tooling;
+  **round-13 lockboxes closed unspent.** Detail: TV_SWEEP.md §4.3.
 - **2026-07-16** — **Paper-forward Phase 1: `tools/paper_forward.py` — dual-leg signal log + status page, VIX log column, gap-skip rule, stale-data guard.**
 - **2026-07-16** — **ENGU-Q Round 4 (Monte Carlo sizing, cost stress, 5m restate = size-knob not diversifier, w=1.0 DD-optimal, stop/overnight/cooldown/event descriptives — zero config changes).**
 - **2026-07-16** — **Challenger round 12: NOISE-2 (wide-band Zarattini envelope) = the program's strongest

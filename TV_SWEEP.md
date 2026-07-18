@@ -444,6 +444,54 @@ gate scan, committed 2026-07-17).*
 
 ---
 
+### 4.3 Deep-tune under the REAL optimizer (item 18, 2026-07-17) — confirms DEAD across core-4
+
+Owner's fair challenge: the §2–5 verdicts came from as-shipped params + a *small* grid;
+were the promising ones tuned with our **best** capability? This ran the actual
+Auto-Optimize search (`augur_engine.auto` seeded sampler over each strategy's FULL
+`DEFAULT_PARAMS` ranges — the app's 🤖 AUTO-OPTIMIZE scope, 400 trials) on the **top 3
+(EMAX/BBRSI/PMAX) across all four core datasets**, lockbox **held** (loaded `date_to`
+2025-06-30; the 2025-06→2026-06 year never touched — reversible, no holdout spent).
+Protocol: select the champion on TRAIN (first 75%), then score it on the honest OOS
+(held-out last 25%). Driver `tools/r13_deeptune.py`; results
+`tools/r13_results/r13_deeptune_EMAX_BBRSI_PMAX.json`.
+
+| Strategy | Dataset | TRAIN MAR (tuned in-sample) | **OOS MAR (honest)** | OOS PF | full-IS MAR | WF | Pass |
+|---|---|---|---|---|---|---|---|
+| EMAX | NQ 5m | 10.66 | **3.54** | 1.27 | 7.87 | 6/6 | ✗ |
+| EMAX | NQ 1m | 4.33 | 2.02 | 1.13 | 4.56 | 6/6 | ✗ |
+| EMAX | ES 5m | 10.53 | 0.50 | 1.07 | 3.11 | 6/6 | ✗ |
+| EMAX | ES 1m | 2.37 | 1.34 | 1.08 | 3.53 | 6/6 | ✗ |
+| BBRSI | NQ 5m | 11.28 | 1.11 | 1.45 | 3.06 | 6/6 | ✗ |
+| BBRSI | NQ 1m | 9.76 | 0.83 | 1.09 | 3.45 | 6/6 | ✗ |
+| BBRSI | ES 5m | 10.51 | 0.40 | 1.10 | 2.76 | 5/6 | ✗ |
+| BBRSI | ES 1m | 11.23 | **−0.53** | 0.90 | 1.97 | 5/6 | ✗ |
+| PMAX | NQ 5m | 15.16 | 1.07 | 1.14 | 3.38 | 6/6 | ✗ |
+| PMAX | NQ 1m | 8.80 | 2.16 | 1.18 | 5.44 | 6/6 | ✗ |
+| PMAX | ES 5m | 8.77 | 1.47 | 1.26 | 3.46 | 6/6 | ✗ |
+| PMAX | ES 1m | 4.60 | 2.15 | 1.14 | 4.44 | 6/6 | ✗ |
+
+**Findings:**
+1. **0 of 12 pass** — no tuned champion clears OOS MAR ≥ 8 on any core dataset; the best
+   honest out-of-sample number in the whole matrix is **EMAX NQ 5m = 3.54** (under half
+   the bar, under ENGU-Q's 7.2).
+2. **Textbook overfitting, shown directly.** The optimizer hits MAR 8.8–15.2 in-sample on
+   6 of 12 runs, and every one collapses ~3–20× on the held-out 25%. The in-sample MAR is
+   selection noise; the honest read is ~1–3.5 everywhere.
+3. **The grid wasn't leaving money on the table** — the deep search's full-IS MAR
+   (3.0–7.9) brackets the grid's corners (§5), so §5 already found the honest ceiling. More
+   search bought a bigger in-sample number and a *worse* overfit, not a better strategy.
+4. PMAX's optimizer reached for exotic smoothers (ZLEMA/VAR/WWMA/TMA) to fit the training
+   noise — MAR 15.2 in-sample → 1.07 OOS, the sharpest collapse in the set.
+5. WF is 6/6 for most, but that's the frozen champ across the same IS it was selected on —
+   not a clean OOS signal; the held-out 25% is the honest test and it fails everywhere.
+
+**Consequence:** the round-13 verdict holds **under our best tooling, across the full
+core-4**, not just as-shipped. Item 19 (lockbox one-shot) is **closed unspent** — there is
+no OOS survivor worth spending a sealed year on. Champions unchanged.
+
+---
+
 ## 5. Individual pickup guide (for a future session)
 
 Everything a cold-start session needs to take ONE of these further, without this
@@ -452,6 +500,10 @@ conversation.
 **Ground rules (non-negotiable, they are the house discipline):**
 1. **All 12 lockboxes are SEALED** (2025-06-30 → 2026-06-30 never loaded). One look
    per family, owner sign-off first. Load data with `date_to="2025-06-30"` until then.
+   **NOTE (2026-07-17): the top 3 (EMAX/BBRSI/PMAX) were deep-tuned with the real
+   Auto-Optimize search across all core-4 — see §4.3. All 12 dataset-runs failed the
+   honest OOS bar (best OOS MAR 3.54); a pickup that just re-tunes these three is
+   re-litigating a settled result. New motivation required, not a wider search.**
 2. Rerun the exact cell first: `python tools/r13_triage.py <FILE> "<grid preset>"`
    — the driver checks the ORB #125 anchor (n=3,815 / $306,331 / PF 1.607) and
    aborts on mismatch; a pickup must reproduce the JSON numbers exactly before any

@@ -1,0 +1,824 @@
+{
+ "EMAX_1_0.py": {
+  "NQ_5m": {
+   "dataset": "NQ_5m",
+   "n_valid": 296,
+   "champion_params": {
+    "ema_fast": 8,
+    "ema_slow": 155,
+    "direction": "long"
+   },
+   "train_75": {
+    "n": 1597,
+    "pf": 1.442,
+    "wr": 26.5,
+    "net": 197526,
+    "dd": -18525,
+    "mar": 10.66
+   },
+   "oos_25": {
+    "n": 492,
+    "pf": 1.274,
+    "wr": 25.4,
+    "net": 151405,
+    "dd": -42749,
+    "mar": 3.54
+   },
+   "full_is": {
+    "n": 2094,
+    "pf": 1.334,
+    "wr": 26.2,
+    "net": 336278,
+    "dd": -42749,
+    "mar": 7.87,
+    "post21_share": 44.5
+   },
+   "wf_folds_pos": "6/6",
+   "wf_fold_nets": [
+    10632,
+    20930,
+    14330,
+    71896,
+    99809,
+    94835
+   ],
+   "gates": {
+    "OOS PF>=1.25": true,
+    "OOS MAR>=8": false,
+    "OOS n>=75": true,
+    "full post21<=50%": true,
+    "WF>=4/6": true
+   },
+   "_pass": false,
+   "pnl_champion_train": {
+    "params": {
+     "ema_fast": 7,
+     "ema_slow": 167,
+     "direction": "long"
+    },
+    "n": 1599,
+    "pf": 1.473,
+    "wr": 25.6,
+    "net": 206485,
+    "dd": -19682,
+    "mar": 10.49
+   }
+  },
+  "NQ_1m": {
+   "dataset": "NQ_1m",
+   "n_valid": 286,
+   "champion_params": {
+    "ema_fast": 52,
+    "ema_slow": 177,
+    "direction": "long"
+   },
+   "train_75": {
+    "n": 3303,
+    "pf": 1.216,
+    "wr": 29.8,
+    "net": 161370,
+    "dd": -37270,
+    "mar": 4.33
+   },
+   "oos_25": {
+    "n": 1079,
+    "pf": 1.125,
+    "wr": 30.0,
+    "net": 114603,
+    "dd": -56620,
+    "mar": 2.02
+   },
+   "full_is": {
+    "n": 4386,
+    "pf": 1.154,
+    "wr": 29.8,
+    "net": 257970,
+    "dd": -56620,
+    "mar": 4.56,
+    "post21_share": 47.8
+   },
+   "wf_folds_pos": "6/6",
+   "wf_fold_nets": [
+    5191,
+    16122,
+    18886,
+    42197,
+    67881,
+    102597
+   ],
+   "gates": {
+    "OOS PF>=1.25": false,
+    "OOS MAR>=8": false,
+    "OOS n>=75": true,
+    "full post21<=50%": true,
+    "WF>=4/6": true
+   },
+   "_pass": false,
+   "pnl_champion_train": {
+    "params": {
+     "ema_fast": 55,
+     "ema_slow": 166,
+     "direction": "long"
+    },
+    "n": 3325,
+    "pf": 1.214,
+    "wr": 30.3,
+    "net": 161670,
+    "dd": -41273,
+    "mar": 3.92
+   }
+  },
+  "ES_5m": {
+   "dataset": "ES_5m",
+   "n_valid": 297,
+   "champion_params": {
+    "ema_fast": 24,
+    "ema_slow": 189,
+    "direction": "long"
+   },
+   "train_75": {
+    "n": 895,
+    "pf": 1.359,
+    "wr": 32.7,
+    "net": 104618,
+    "dd": -9934,
+    "mar": 10.53
+   },
+   "oos_25": {
+    "n": 294,
+    "pf": 1.073,
+    "wr": 28.2,
+    "net": 20114,
+    "dd": -40120,
+    "mar": 0.5
+   },
+   "full_is": {
+    "n": 1192,
+    "pf": 1.218,
+    "wr": 31.6,
+    "net": 124903,
+    "dd": -40119,
+    "mar": 3.11,
+    "post21_share": 29.5
+   },
+   "wf_folds_pos": "6/6",
+   "wf_fold_nets": [
+    8247,
+    19315,
+    1424,
+    31543,
+    42628,
+    13267
+   ],
+   "gates": {
+    "OOS PF>=1.25": false,
+    "OOS MAR>=8": false,
+    "OOS n>=75": true,
+    "full post21<=50%": true,
+    "WF>=4/6": true
+   },
+   "_pass": false,
+   "pnl_champion_train": {
+    "params": {
+     "ema_fast": 33,
+     "ema_slow": 59,
+     "direction": "long"
+    },
+    "n": 1414,
+    "pf": 1.325,
+    "wr": 34.4,
+    "net": 126011,
+    "dd": -18387,
+    "mar": 6.85
+   }
+  },
+  "ES_1m": {
+   "dataset": "ES_1m",
+   "n_valid": 284,
+   "champion_params": {
+    "ema_fast": 48,
+    "ema_slow": 187,
+    "direction": "long"
+   },
+   "train_75": {
+    "n": 3341,
+    "pf": 1.126,
+    "wr": 28.3,
+    "net": 78373,
+    "dd": -33052,
+    "mar": 2.37
+   },
+   "oos_25": {
+    "n": 1111,
+    "pf": 1.078,
+    "wr": 27.9,
+    "net": 41348,
+    "dd": -30854,
+    "mar": 1.34
+   },
+   "full_is": {
+    "n": 4456,
+    "pf": 1.101,
+    "wr": 28.2,
+    "net": 116649,
+    "dd": -33052,
+    "mar": 3.53,
+    "post21_share": 54.1
+   },
+   "wf_folds_pos": "6/6",
+   "wf_fold_nets": [
+    227,
+    6627,
+    8664,
+    15309,
+    46280,
+    34619
+   ],
+   "gates": {
+    "OOS PF>=1.25": false,
+    "OOS MAR>=8": false,
+    "OOS n>=75": true,
+    "full post21<=50%": false,
+    "WF>=4/6": true
+   },
+   "_pass": false,
+   "pnl_champion_train": {
+    "params": {
+     "ema_fast": 48,
+     "ema_slow": 187,
+     "direction": "long"
+    },
+    "n": 3341,
+    "pf": 1.126,
+    "wr": 28.3,
+    "net": 78373,
+    "dd": -33052,
+    "mar": 2.37
+   }
+  }
+ },
+ "BBRSI_1_0.py": {
+  "NQ_5m": {
+   "dataset": "NQ_5m",
+   "n_valid": 133,
+   "champion_params": {
+    "rsi_len": 28,
+    "rsi_band": 39,
+    "bb_len": 38,
+    "bb_mult": 1.5,
+    "direction": "long",
+    "entry_mode": "next_open"
+   },
+   "train_75": {
+    "n": 424,
+    "pf": 2.128,
+    "wr": 72.4,
+    "net": 244315,
+    "dd": -21654,
+    "mar": 11.28
+   },
+   "oos_25": {
+    "n": 146,
+    "pf": 1.448,
+    "wr": 67.8,
+    "net": 133464,
+    "dd": -120139,
+    "mar": 1.11
+   },
+   "full_is": {
+    "n": 572,
+    "pf": 1.711,
+    "wr": 71.0,
+    "net": 370672,
+    "dd": -121251,
+    "mar": 3.06,
+    "post21_share": 48.1
+   },
+   "wf_folds_pos": "6/6",
+   "wf_fold_nets": [
+    8136,
+    13646,
+    31355,
+    67058,
+    49701,
+    189086
+   ],
+   "gates": {
+    "OOS PF>=1.25": true,
+    "OOS MAR>=8": false,
+    "OOS n>=75": true,
+    "full post21<=50%": true,
+    "WF>=4/6": true
+   },
+   "_pass": false,
+   "pnl_champion_train": {
+    "params": {
+     "rsi_len": 28,
+     "rsi_band": 39,
+     "bb_len": 38,
+     "bb_mult": 1.5,
+     "direction": "long",
+     "entry_mode": "next_open"
+    },
+    "n": 424,
+    "pf": 2.128,
+    "wr": 72.4,
+    "net": 244315,
+    "dd": -21654,
+    "mar": 11.28
+   }
+  },
+  "NQ_1m": {
+   "dataset": "NQ_1m",
+   "n_valid": 197,
+   "champion_params": {
+    "rsi_len": 16,
+    "rsi_band": 46,
+    "bb_len": 34,
+    "bb_mult": 1.75,
+    "direction": "long",
+    "entry_mode": "stop"
+   },
+   "train_75": {
+    "n": 1567,
+    "pf": 1.424,
+    "wr": 56.7,
+    "net": 191146,
+    "dd": -19589,
+    "mar": 9.76
+   },
+   "oos_25": {
+    "n": 567,
+    "pf": 1.092,
+    "wr": 55.7,
+    "net": 60531,
+    "dd": -72902,
+    "mar": 0.83
+   },
+   "full_is": {
+    "n": 2135,
+    "pf": 1.227,
+    "wr": 56.4,
+    "net": 251291,
+    "dd": -72902,
+    "mar": 3.45,
+    "post21_share": 38.6
+   },
+   "wf_folds_pos": "6/6",
+   "wf_fold_nets": [
+    9578,
+    20979,
+    31359,
+    62911,
+    30195,
+    93471
+   ],
+   "gates": {
+    "OOS PF>=1.25": false,
+    "OOS MAR>=8": false,
+    "OOS n>=75": true,
+    "full post21<=50%": true,
+    "WF>=4/6": true
+   },
+   "_pass": false,
+   "pnl_champion_train": {
+    "params": {
+     "rsi_len": 31,
+     "rsi_band": 48,
+     "bb_len": 42,
+     "bb_mult": 2.0,
+     "direction": "long",
+     "entry_mode": "stop"
+    },
+    "n": 557,
+    "pf": 1.83,
+    "wr": 56.4,
+    "net": 222998,
+    "dd": -23561,
+    "mar": 9.46
+   }
+  },
+  "ES_5m": {
+   "dataset": "ES_5m",
+   "n_valid": 134,
+   "champion_params": {
+    "rsi_len": 16,
+    "rsi_band": 46,
+    "bb_len": 34,
+    "bb_mult": 1.75,
+    "direction": "long",
+    "entry_mode": "stop"
+   },
+   "train_75": {
+    "n": 407,
+    "pf": 1.721,
+    "wr": 60.4,
+    "net": 140108,
+    "dd": -13329,
+    "mar": 10.51
+   },
+   "oos_25": {
+    "n": 129,
+    "pf": 1.101,
+    "wr": 51.9,
+    "net": 21229,
+    "dd": -53547,
+    "mar": 0.4
+   },
+   "full_is": {
+    "n": 537,
+    "pf": 1.386,
+    "wr": 58.3,
+    "net": 155994,
+    "dd": -56456,
+    "mar": 2.76,
+    "post21_share": 22.0
+   },
+   "wf_folds_pos": "5/6",
+   "wf_fold_nets": [
+    9614,
+    20678,
+    33012,
+    37891,
+    -15081,
+    62482
+   ],
+   "gates": {
+    "OOS PF>=1.25": false,
+    "OOS MAR>=8": false,
+    "OOS n>=75": true,
+    "full post21<=50%": true,
+    "WF>=4/6": true
+   },
+   "_pass": false,
+   "pnl_champion_train": {
+    "params": {
+     "rsi_len": 31,
+     "rsi_band": 39,
+     "bb_len": 37,
+     "bb_mult": 0.75,
+     "direction": "long",
+     "entry_mode": "stop"
+    },
+    "n": 226,
+    "pf": 2.351,
+    "wr": 75.2,
+    "net": 146177,
+    "dd": -24680,
+    "mar": 5.92
+   }
+  },
+  "ES_1m": {
+   "dataset": "ES_1m",
+   "n_valid": 191,
+   "champion_params": {
+    "rsi_len": 40,
+    "rsi_band": 40,
+    "bb_len": 45,
+    "bb_mult": 2.75,
+    "direction": "long",
+    "entry_mode": "next_open"
+   },
+   "train_75": {
+    "n": 543,
+    "pf": 1.645,
+    "wr": 65.2,
+    "net": 141095,
+    "dd": -12567,
+    "mar": 11.23
+   },
+   "oos_25": {
+    "n": 160,
+    "pf": 0.9,
+    "wr": 57.5,
+    "net": -25792,
+    "dd": -48717,
+    "mar": -0.53
+   },
+   "full_is": {
+    "n": 705,
+    "pf": 1.221,
+    "wr": 63.3,
+    "net": 106879,
+    "dd": -54362,
+    "mar": 1.97,
+    "post21_share": -7.4
+   },
+   "wf_folds_pos": "5/6",
+   "wf_fold_nets": [
+    12214,
+    26616,
+    15082,
+    29023,
+    25233,
+    -5167
+   ],
+   "gates": {
+    "OOS PF>=1.25": false,
+    "OOS MAR>=8": false,
+    "OOS n>=75": true,
+    "full post21<=50%": true,
+    "WF>=4/6": true
+   },
+   "_pass": false,
+   "pnl_champion_train": {
+    "params": {
+     "rsi_len": 40,
+     "rsi_band": 40,
+     "bb_len": 45,
+     "bb_mult": 2.75,
+     "direction": "long",
+     "entry_mode": "next_open"
+    },
+    "n": 543,
+    "pf": 1.645,
+    "wr": 65.2,
+    "net": 141095,
+    "dd": -12567,
+    "mar": 11.23
+   }
+  }
+ },
+ "PMAX_1_0.py": {
+  "NQ_5m": {
+   "dataset": "NQ_5m",
+   "n_valid": 369,
+   "champion_params": {
+    "atr_period": 41,
+    "mult": 3.3,
+    "ma_type": "ZLEMA",
+    "ma_length": 29,
+    "change_atr": false,
+    "direction": "long"
+   },
+   "train_75": {
+    "n": 1495,
+    "pf": 1.456,
+    "wr": 43.1,
+    "net": 238228,
+    "dd": -15719,
+    "mar": 15.16
+   },
+   "oos_25": {
+    "n": 498,
+    "pf": 1.14,
+    "wr": 39.2,
+    "net": 101426,
+    "dd": -94603,
+    "mar": 1.07
+   },
+   "full_is": {
+    "n": 1996,
+    "pf": 1.254,
+    "wr": 42.0,
+    "net": 319368,
+    "dd": -94603,
+    "mar": 3.38,
+    "post21_share": 35.6
+   },
+   "wf_folds_pos": "6/6",
+   "wf_fold_nets": [
+    5823,
+    37069,
+    22348,
+    82582,
+    24449,
+    139124
+   ],
+   "gates": {
+    "OOS PF>=1.25": false,
+    "OOS MAR>=8": false,
+    "OOS n>=75": true,
+    "full post21<=50%": true,
+    "WF>=4/6": true
+   },
+   "_pass": false,
+   "pnl_champion_train": {
+    "params": {
+     "atr_period": 41,
+     "mult": 3.3,
+     "ma_type": "ZLEMA",
+     "ma_length": 29,
+     "change_atr": false,
+     "direction": "long"
+    },
+    "n": 1495,
+    "pf": 1.456,
+    "wr": 43.1,
+    "net": 238228,
+    "dd": -15719,
+    "mar": 15.16
+   }
+  },
+  "NQ_1m": {
+   "dataset": "NQ_1m",
+   "n_valid": 368,
+   "champion_params": {
+    "atr_period": 14,
+    "mult": 3.9,
+    "ma_type": "VAR",
+    "ma_length": 59,
+    "change_atr": false,
+    "direction": "long"
+   },
+   "train_75": {
+    "n": 1291,
+    "pf": 1.363,
+    "wr": 42.7,
+    "net": 179943,
+    "dd": -20455,
+    "mar": 8.8
+   },
+   "oos_25": {
+    "n": 425,
+    "pf": 1.178,
+    "wr": 38.4,
+    "net": 108970,
+    "dd": -50468,
+    "mar": 2.16
+   },
+   "full_is": {
+    "n": 1716,
+    "pf": 1.247,
+    "wr": 41.6,
+    "net": 274562,
+    "dd": -50468,
+    "mar": 5.44,
+    "post21_share": 37.0
+   },
+   "wf_folds_pos": "6/6",
+   "wf_fold_nets": [
+    3828,
+    30456,
+    21485,
+    64099,
+    49590,
+    97668
+   ],
+   "gates": {
+    "OOS PF>=1.25": false,
+    "OOS MAR>=8": false,
+    "OOS n>=75": true,
+    "full post21<=50%": true,
+    "WF>=4/6": true
+   },
+   "_pass": false,
+   "pnl_champion_train": {
+    "params": {
+     "atr_period": 22,
+     "mult": 4.1,
+     "ma_type": "TMA",
+     "ma_length": 45,
+     "change_atr": false,
+     "direction": "long"
+    },
+    "n": 3071,
+    "pf": 1.232,
+    "wr": 39.6,
+    "net": 180938,
+    "dd": -27839,
+    "mar": 6.5
+   }
+  },
+  "ES_5m": {
+   "dataset": "ES_5m",
+   "n_valid": 369,
+   "champion_params": {
+    "atr_period": 9,
+    "mult": 2.5,
+    "ma_type": "WWMA",
+    "ma_length": 27,
+    "change_atr": false,
+    "direction": "long"
+   },
+   "train_75": {
+    "n": 675,
+    "pf": 1.323,
+    "wr": 43.7,
+    "net": 93474,
+    "dd": -10660,
+    "mar": 8.77
+   },
+   "oos_25": {
+    "n": 220,
+    "pf": 1.258,
+    "wr": 41.8,
+    "net": 65045,
+    "dd": -44209,
+    "mar": 1.47
+   },
+   "full_is": {
+    "n": 894,
+    "pf": 1.283,
+    "wr": 43.2,
+    "net": 153099,
+    "dd": -44209,
+    "mar": 3.46,
+    "post21_share": 46.0
+   },
+   "wf_folds_pos": "6/6",
+   "wf_fold_nets": [
+    10757,
+    17589,
+    9532,
+    31226,
+    26436,
+    46263
+   ],
+   "gates": {
+    "OOS PF>=1.25": true,
+    "OOS MAR>=8": false,
+    "OOS n>=75": true,
+    "full post21<=50%": true,
+    "WF>=4/6": true
+   },
+   "_pass": false,
+   "pnl_champion_train": {
+    "params": {
+     "atr_period": 38,
+     "mult": 2.5,
+     "ma_type": "ZLEMA",
+     "ma_length": 42,
+     "change_atr": false,
+     "direction": "long"
+    },
+    "n": 1518,
+    "pf": 1.313,
+    "wr": 42.8,
+    "net": 140548,
+    "dd": -23061,
+    "mar": 6.09
+   }
+  },
+  "ES_1m": {
+   "dataset": "ES_1m",
+   "n_valid": 372,
+   "champion_params": {
+    "atr_period": 35,
+    "mult": 1.9,
+    "ma_type": "TMA",
+    "ma_length": 58,
+    "change_atr": false,
+    "direction": "long"
+   },
+   "train_75": {
+    "n": 4065,
+    "pf": 1.129,
+    "wr": 39.5,
+    "net": 91108,
+    "dd": -19805,
+    "mar": 4.6
+   },
+   "oos_25": {
+    "n": 1392,
+    "pf": 1.139,
+    "wr": 41.5,
+    "net": 84960,
+    "dd": -39520,
+    "mar": 2.15
+   },
+   "full_is": {
+    "n": 5459,
+    "pf": 1.133,
+    "wr": 40.0,
+    "net": 175369,
+    "dd": -39519,
+    "mar": 4.44,
+    "post21_share": 59.5
+   },
+   "wf_folds_pos": "6/6",
+   "wf_fold_nets": [
+    11110,
+    10499,
+    10048,
+    10433,
+    75200,
+    52429
+   ],
+   "gates": {
+    "OOS PF>=1.25": false,
+    "OOS MAR>=8": false,
+    "OOS n>=75": true,
+    "full post21<=50%": false,
+    "WF>=4/6": true
+   },
+   "_pass": false,
+   "pnl_champion_train": {
+    "params": {
+     "atr_period": 13,
+     "mult": 2.5,
+     "ma_type": "WWMA",
+     "ma_length": 60,
+     "change_atr": true,
+     "direction": "long"
+    },
+    "n": 1628,
+    "pf": 1.255,
+    "wr": 40.7,
+    "net": 117277,
+    "dd": -33282,
+    "mar": 3.52
+   }
+  }
+ }
+}
