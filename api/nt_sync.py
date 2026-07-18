@@ -114,28 +114,30 @@ def _state_path(fills_path):
 
 
 def _addon_heartbeat(fills_path):
-    """(age_secs, version) of the AddOn's heartbeat, (None, None) when absent/bad.
+    """(age_secs, version, accts) of the AddOn's heartbeat, (None, None, None) when absent/bad.
 
-    tools/EdgeLogExport.cs v2 overwrites addon_heartbeat.json (next to fills.csv)
-    every ~60s sweep with {"ts_utc","accounts","seen","version"}; ts_utc is UTC
-    "%Y-%m-%d %H:%M:%S". Its age tells the UI whether the NinjaTrader capture is
-    actually alive, independent of how quiet fills.csv is. Fully defensive: a
+    tools/EdgeLogExport.cs v2.1 overwrites addon_heartbeat.json (next to fills.csv)
+    every ~60s sweep with {"ts_utc","accounts","seen","version","accts":{name:{cash,realized}}};
+    ts_utc is UTC "%Y-%m-%d %H:%M:%S". Its age tells the UI whether the NinjaTrader capture is
+    actually alive, independent of how quiet fills.csv is; accts carries each account's cash
+    balance and realized day P&L for web/mobile-fill reconciliation. Fully defensive: a
     missing/garbled file must never break the trade sync."""
-    age = version = None
+    age = version = accts = None
     try:
         p = os.path.join(os.path.dirname(fills_path) or ".", "addon_heartbeat.json")
         if os.path.exists(p):
             with open(p, encoding="utf-8") as fh:
                 hb = json.load(fh)
             version = hb.get("version") or None
+            accts = hb.get("accts") if isinstance(hb.get("accts"), dict) else None
             try:
                 ts = datetime.strptime(str(hb.get("ts_utc", "")), "%Y-%m-%d %H:%M:%S")
                 age = max(0, int(time.time() - ts.replace(tzinfo=timezone.utc).timestamp()))
             except Exception:
                 age = None
     except Exception:
-        age = version = None
-    return age, version
+        age = version = accts = None
+    return age, version, accts
 
 
 def get_base(sym):
@@ -411,8 +413,8 @@ def sync_trades(db, uid, fills_path=DEFAULT_FILLS, log=print):
 
     # status doc the web subscribes to (meta/nt_sync) so the UI can show last-sync info
     if write_meta:
-        # AddOn v2 liveness (read here, not every 20s cycle — meta writes are throttled)
-        addon_alive_secs, addon_version = _addon_heartbeat(fills_path)
+        # AddOn v2.1 liveness (read here, not every 20s cycle — meta writes are throttled)
+        addon_alive_secs, addon_version, addon_accts = _addon_heartbeat(fills_path)
         try:
             db.collection("users").document(uid).collection("meta").document("nt_sync").set({
                 "last_sync": now,
@@ -425,6 +427,7 @@ def sync_trades(db, uid, fills_path=DEFAULT_FILLS, log=print):
                 "file_present": os.path.exists(fills_path),
                 "addon_alive_secs": addon_alive_secs,   # age of addon_heartbeat.json (None = missing)
                 "addon_version": addon_version,
+                "addon_accounts": addon_accts,   # {account: {cash, realized}} for web/mobile-fill recon
             })
         except Exception as e:
             log(f"  [nt-sync] status write failed: {e}")

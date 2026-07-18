@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='57.1';
+const VERSION='57.2';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'57.2', date:'2026-07-17', notes:['NinjaTrader recon badge: when the desktop AddOn (v2.1) reports realized day P&L that does not match the NT trades logged today - typical after trading on NT web or mobile, which cannot auto-sync - a warning appears next to BALANCE prompting a Position History CSV import. Requires recompiling the EdgeLog AddOn in NinjaTrader once.']},
   {v:'57.1', date:'2026-07-16', notes:['Past Runs group view is now a full FAMILY LEDGER: expanding a strategy shows a labelled header row plus two new columns — MAR (net divided by max drawdown, the risk-adjusted score used to pick deploys) and LB PF (the held-out lockbox profit factor). With the existing NET / PF / MAX DD / gates / WF / SCORE columns, an expanded family reads as the complete run-history reference table for that strategy.']},
   {v:'57.0', date:'2026-07-16', notes:['Compare: new OVERALL / WALK-FORWARD / LOCKBOX scope toggle on the KPI table — compare the runs on their out-of-sample slices, not just the whole-run numbers (runs that did not run a slice show a dash). A note under the table explains that OVERALL for a plain sweep is the best IN-SAMPLE config (optimistic), which is why a sweep can show a far bigger net than validated champions.','Compare: new "Tests run" row — IS / WF / LB chips per run showing which checks each run actually has (lit = ran; WF / LB colour shows held or failed), so apples-to-oranges comparisons are visible at a glance.','Compare: the NET P&L chart is now clean horizontal bars (colour-keyed to the overlay legend, exact $ at the right) — the old stretched chart squished on wide screens.']},
   {v:'56.9', date:'2026-07-16', notes:['Grouped Compare / Rankings: finished the blank-name fix from 56.8 — the header check now looks at the VISIBLE text (not the markup), so the "(no strategy label)" fallback actually shows for the legacy empty-strategy group.']},
@@ -875,6 +876,34 @@ function reconBadge(){
   return `<span title="Webull holds a position your log doesn't reflect (or vice-versa) — a fill may not have synced. ${m}" style="color:var(--yellow);font-size:var(--fsxs);margin-left:8px">⚠ Webull out of sync (${(r.mismatches||[]).length})</span>`;
 }
 
+// NT recon badge — the desktop AddOn (v2.1+) reports each account's realized day P&L in
+// its heartbeat; if NinjaTrader says money was made/lost today but the day's logged NT
+// trades do not add up to it (or are absent), fills likely happened on NT web/mobile —
+// which NEVER reach the desktop AddOn — so prompt a Position History CSV import.
+function ntReconBadge(){
+  if(!ntSync||!ntSync.addon_accounts)return '';
+  if(activeBroker&&activeBroker!=='NinjaTrader')return '';
+  const metaAge=ntSync.last_sync?(Date.now()/1000-ntSync.last_sync):Infinity;
+  if(metaAge>900||ntSync.addon_alive_secs==null||ntSync.addon_alive_secs>600)return '';
+  const SIM=/^(sim|backtest|playback|demo)/i;
+  const names=Object.keys(ntSync.addon_accounts).filter(n=>!SIM.test(n));
+  if(!names.length)return '';
+  const tradeAccts=new Set(trades.filter(t=>(t.broker||'NinjaTrader')==='NinjaTrader'&&t.account).map(t=>String(t.account)));
+  const acct=names.find(n=>tradeAccts.has(String(n)))||names[0];
+  const rec=ntSync.addon_accounts[acct]||{};
+  const realized=(rec.realized!=null)?+rec.realized:null;
+  if(realized==null)return '';
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+  const dayTr=trades.filter(t=>(t.broker||'NinjaTrader')==='NinjaTrader'&&t.date===today);
+  const net=+dayTr.reduce((s,t)=>s+(t.pnl||0),0).toFixed(2);
+  const gross=+dayTr.reduce((s,t)=>s+(t.grossPnl||t.pnl||0),0).toFixed(2);
+  const diff=Math.min(Math.abs(realized-net),Math.abs(realized-gross));
+  const missedAll=Math.abs(realized)>0.005&&!dayTr.length;
+  if(!missedAll&&diff<=2.5)return '';
+  const f=x=>(x<0?'-$':'$')+Math.abs(x).toFixed(2);
+  return `<span title="NinjaTrader account ${acct} reports ${f(realized)} realized today, but the ${dayTr.length} NT trade(s) logged today total ${f(net)} net (${f(gross)} gross). Fills placed on NT web or mobile never reach the desktop AddOn — download todays Position History CSV from NT web and drop it on the IMPORT tab." style="color:var(--yellow);font-size:var(--fsxs);margin-left:8px;cursor:pointer" onclick="activeTab='import_export';window._dataSubTab='import';renderApp()">⚠ NT day P&amp;L ${f(realized)} vs logged ${f(net)} — import Position History</span>`;
+}
+
 // pnlVal = which value to use for win/loss decisions
 function pnlVal(t){return useGross?(t.grossPnl||t.pnl):t.pnl;}
 
@@ -980,7 +1009,7 @@ function subscribeAll(uid){
   if(unsubMM)unsubMM();
   unsubMM=metaRef.doc('masters').onSnapshot(d=>{const x=d.data();metaMasters=(x&&x.list)||[];metaPull=(x&&x.status)||{};if(activeTab==='augur'&&(augurSub==='lib'||augurSub==='set'))renderApp();});
   if(unsubNT)unsubNT();
-  unsubNT=metaRef.doc('nt_sync').onSnapshot(d=>{ntSync=d.data()||null;if(activeTab==='import_export'&&(window._dataSubTab||'import')==='import')renderApp();});
+  unsubNT=metaRef.doc('nt_sync').onSnapshot(d=>{ntSync=d.data()||null;if((activeTab==='import_export'&&(window._dataSubTab||'import')==='import')||activeTab==='trades')renderApp();});
   if(unsubWB)unsubWB();
   unsubWB=metaRef.doc('webull_sync').onSnapshot(d=>{wbSync=d.data()||null;renderApp();}); // net_liq drives Webull's per-account balance
 }
@@ -4259,7 +4288,7 @@ function renderApp(){
         <span style="color:var(--text4)">R:R <span style="color:${S.rr>=1?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.rr.toFixed(2)}R</span></span>
         <span style="color:var(--text4)">RECOVERY <span style="color:${S.recovery>=1?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.recovery.toFixed(2)}×</span></span>
         <span style="color:var(--text4)">SHARPE <span style="color:${S.sharpe>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.sharpe.toFixed(2)}</span></span>
-        ${accountEquity>0?`<span style="color:var(--text4)">BALANCE <span style="color:var(--blue);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Starting balance + cumulative net P&L (live)">$${liveBalance().toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></span>`:''}${reconBadge()}
+        ${accountEquity>0?`<span style="color:var(--text4)">BALANCE <span style="color:var(--blue);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Starting balance + cumulative net P&L (live)">$${liveBalance().toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></span>`:''}${reconBadge()}${ntReconBadge()}
       </div>
     </div>
           <div class="section ov-cal">${calHTML}</div>
@@ -4451,7 +4480,7 @@ function renderApp(){
         <span style="color:var(--text4)">R:R <span style="color:${S.rr>=1?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.rr.toFixed(2)}R</span></span>
         <span style="color:var(--text4)">RECOVERY <span style="color:${S.recovery>=1?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.recovery.toFixed(2)}×</span></span>
         <span style="color:var(--text4)">SHARPE <span style="color:${S.sharpe>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">${S.sharpe.toFixed(2)}</span></span>
-        ${accountEquity>0?`<span style="color:var(--text4)">BALANCE <span style="color:var(--blue);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Starting balance + cumulative net P&L (live)">$${liveBalance().toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></span>`:''}${reconBadge()}
+        ${accountEquity>0?`<span style="color:var(--text4)">BALANCE <span style="color:var(--blue);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Starting balance + cumulative net P&L (live)">$${liveBalance().toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></span>`:''}${reconBadge()}${ntReconBadge()}
       </div>
     </div>
 

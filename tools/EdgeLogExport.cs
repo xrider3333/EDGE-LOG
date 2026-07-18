@@ -20,6 +20,10 @@
 //    • HEARTBEAT — every sweep overwrites C:\EdgeLog\addon_heartbeat.json with
 //      {"ts_utc","accounts","seen","version"} so the EDGELOG pipeline/UI can flag
 //      a dead capture even when no fills are expected.
+//    • v2.1 (2026-07-17) — the heartbeat now also carries each account's cash
+//      balance and realized day P&L (accts:{name:{cash,realized}}), so the web
+//      app can reconcile NinjaTrader web/mobile fills that never reach this
+//      desktop AddOn.
 //    • LOGGING — startup/shutdown, connection changes, (re)subscribes, sweep
 //      additions and EVERY exception append to C:\EdgeLog\addon.log (UTC
 //      timestamps). No silent catches. Routine no-op sweeps are not logged.
@@ -51,7 +55,7 @@ namespace NinjaTrader.NinjaScript.AddOns
 {
     public class EdgeLogExport : NinjaTrader.NinjaScript.AddOnBase
     {
-        private const string Version = "2.0";
+        private const string Version = "2.1";
 
         // Change this path if you keep EdgeLog elsewhere — keep it in sync with the
         // runner's --nt-fills argument (default C:\EdgeLog\fills.csv).
@@ -247,7 +251,7 @@ namespace NinjaTrader.NinjaScript.AddOns
                     Log("sweep[" + reason + "]: appended " + added + " missed execution(s)");
                 // (no log line for a routine no-op sweep — keeps addon.log small)
 
-                WriteHeartbeat(accounts.Count);
+                WriteHeartbeat(accounts);
             }
             catch (Exception ex) { Log("ERROR sweep [" + reason + "]: " + ex.Message); }
             finally { System.Threading.Interlocked.Exchange(ref _sweeping, 0); }
@@ -307,19 +311,47 @@ namespace NinjaTrader.NinjaScript.AddOns
             return true;
         }
 
-        private void WriteHeartbeat(int accounts)
+        // accounts: the same List<Account> Sweep() already collected this pass — reused here
+        // (not re-queried) so the heartbeat's account count and per-account detail agree.
+        private void WriteHeartbeat(List<Account> accounts)
         {
             try
             {
                 int seen;
                 lock (_ioLock) seen = _seen.Count;
+
+                StringBuilder accts = new StringBuilder();
+                foreach (Account a in accounts)
+                {
+                    try
+                    {
+                        double cash = a.Get(AccountItem.CashValue, Currency.UsDollar);
+                        double realized = a.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar);
+                        if (accts.Length > 0) accts.Append(",");
+                        accts.Append(string.Format(CultureInfo.InvariantCulture,
+                            "\"{0}\":{{\"cash\":{1},\"realized\":{2}}}",
+                            JsonStr(a.Name),
+                            cash.ToString("0.##", CultureInfo.InvariantCulture),
+                            realized.ToString("0.##", CultureInfo.InvariantCulture)));
+                    }
+                    catch (Exception exAcct)
+                    { Log("ERROR heartbeat account '" + a.Name + "': " + exAcct.Message); }
+                }
+
                 string json = string.Format(CultureInfo.InvariantCulture,
-                    "{{\"ts_utc\":\"{0}\",\"accounts\":{1},\"seen\":{2},\"version\":\"{3}\"}}",
+                    "{{\"ts_utc\":\"{0}\",\"accounts\":{1},\"seen\":{2},\"version\":\"{3}\",\"accts\":{{{4}}}}}",
                     DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
-                    accounts, seen, Version);
+                    accounts.Count, seen, Version, accts.ToString());
                 lock (_ioLock) File.WriteAllText(HeartbeatPath, json);
             }
             catch (Exception ex) { Log("ERROR heartbeat write: " + ex.Message); }
+        }
+
+        // Minimal JSON string escaping for account names (normally alphanumeric).
+        private static string JsonStr(string s)
+        {
+            if (s == null) return "";
+            return s.Replace("\\", "\\\\").Replace("\"", "\\\"");
         }
 
         // ---- plumbing ----------------------------------------------------------
