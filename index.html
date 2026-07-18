@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='57.4';
+const VERSION='57.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'57.5', date:'2026-07-17', notes:['Library: strategies can now be ARCHIVED (select a row, click ARCHIVE) — archived files hide behind a "show N archived" link, exactly like archived runs. Fully reversible, syncs across your devices, and the runner never overwrites it.','Library: a STAR button marks THE strategy you are forward-testing — the starred row shows a gold star. One star at a time; click again to unstar.','Pre-loaded: the 14 closed ORB research forks are archived, so the ORB family shows just its story — 3.0 (base), 3.0-BE (single-lot deploy), and starred 3.0-ENSEMBLE (the two-lot book, run #159). Unarchive any of them anytime.']},
   {v:'57.4', date:'2026-07-17', notes:['Compare · PICK RUNS: the best-run star is now ONE per strategy FAMILY (all ORB variants collapse to a single star, etc.) instead of one per file — far fewer stars; the star best of each button follows the same family grouping.','Compare · equity overlay: the walk-forward and lockbox styles were too alike — walk-forward is now clearly ROUND DOTS and the lockbox tail clearly LONG DASHES.','Compare · equity overlay: two runs of the same strategy now shade much further apart so their curves are easier to tell apart.']},
   {v:'57.3', date:'2026-07-17', notes:['Compare · equity overlay: each run curve is now drawn in its own STRATEGY colour (matching the PICK RUNS list and table headers) instead of a generic palette; two runs of the same strategy shade apart so they stay distinct.','Compare · equity overlay: the three slices now read as three distinct line styles — SOLID in-sample, DOTTED walk-forward (out-of-sample folds), DASHED lockbox tail — with a small legend key (the walk-forward dots were previously an invisible faint sleeve).','Compare · table: metric rows are grouped into the same sections as the Auto-Validate KPI matrix (return · drawdown · reward divided by risk · edge · sample) for easier reading.','Compare · PICK RUNS: the best run of each strategy is marked with a star, and a new star best of each button selects the top run of every strategy for a quick head-to-head.']},
   {v:'57.2', date:'2026-07-17', notes:['NinjaTrader recon badge: when the desktop AddOn (v2.1) reports realized day P&L that does not match the NT trades logged today - typical after trading on NT web or mobile, which cannot auto-sync - a warning appears next to BALANCE prompting a Position History CSV import. Requires recompiling the EdgeLog AddOn in NinjaTrader once.']},
@@ -590,7 +591,7 @@ function applyTheme(){document.documentElement.setAttribute('data-theme',prefs.t
 applyTheme();
 
 // State
-let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,cmdRef=null,augurCmdId=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],metaPull={},augurSub='runs',augurRunSel=null,augurExecStrat='',augurCmpA=null,augurCmpB=null,augurLibSel=null,augurLibDel=false,augurLibMsg='',augurReviewPine='',augurReviewFor='',augurMenu='',metaEta=null,metaWorkers=null;
+let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,cmdRef=null,augurCmdId=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],metaPull={},augurSub='runs',augurRunSel=null,augurExecStrat='',augurCmpA=null,augurCmpB=null,augurLibSel=null,augurLibDel=false,augurLibMsg='',augurReviewPine='',augurReviewFor='',augurMenu='',metaEta=null,metaWorkers=null,metaStratPrefs={},unsubSP=null;
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
 let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyOverlay=false,chartPctMode=false;window.chartPctMode=false;
 let formOpen=false,showAllCols=false;
@@ -1008,6 +1009,9 @@ function subscribeAll(uid){
   metaRef=db.collection('users').doc(uid).collection('meta');
   if(unsubMeta)unsubMeta();
   unsubMeta=metaRef.doc('strategies').onSnapshot(d=>{const x=d.data();metaStrats=(x&&x.list)||[];metaEta=(x&&x.eta_calib)||null;metaWorkers=(x&&x.workers)||null;if(activeTab==='augur'&&(augurSub==='exec'||augurSub==='lib'))renderApp();});
+  // strategyPrefs: web-owned Library prefs (archived files + the forward-test star). The runner
+  // never writes this doc, so it survives every strategies re-sync.
+  unsubSP=metaRef.doc('strategyPrefs').onSnapshot(d=>{metaStratPrefs=d.data()||{};if(activeTab==='augur'&&augurSub==='lib')renderApp();});
   if(unsubMM)unsubMM();
   unsubMM=metaRef.doc('masters').onSnapshot(d=>{const x=d.data();metaMasters=(x&&x.list)||[];metaPull=(x&&x.status)||{};if(activeTab==='augur'&&(augurSub==='lib'||augurSub==='set'))renderApp();});
   if(unsubNT)unsubNT();
@@ -7997,7 +8001,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         added:(a,b)=>(a.added||0)-(b.added||0),
         ran:(a,b)=>String(lastRan[a.file]||'').localeCompare(String(lastRan[b.file]||'')),
         scopes:(a,b)=>((a.presets||[]).length)-((b.presets||[]).length)};
+      // ── Library archive + forward-test star (owner 2026-07-17): stored in the web-owned
+      //    meta/strategyPrefs doc {archived:[files], starred:file} — syncs across devices,
+      //    never touched by the runner. Archived rows hide behind a "show N archived" toggle.
+      const _archSet=new Set(metaStratPrefs.archived||[]);
+      const _starFile=metaStratPrefs.starred||'';
+      const _nArchS=sl.filter(s=>_archSet.has(s.file)).length;
       let rows=sl.slice();
+      if(!APREF.libShowArch)rows=rows.filter(s=>!_archSet.has(s.file));
       if(only==='nopy')rows=rows.filter(s=>s.has_py===false);
       else if(only==='nopine')rows=rows.filter(s=>!s.has_pine);
       const rowsSorted=rows.sort((a,b)=>(cmp[sortk]||cmp.num)(a,b)*dir);
@@ -8021,8 +8032,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const srows=rowsSorted.map(s=>{const si=stratInfo(s.file);const on=s.file===augurLibSel;const lr=lastRan[s.file];
         const _ti=String(si.diffLong||si.desc||si.full||'').replace(/"/g,'&quot;');
         const _dtxt=si.diff?_escH(si.diff):((si.full||'')+(si.desc?' — '+si.desc:''));
-        const base='<tr class="arow" data-strat="'+s.file+'" style="cursor:pointer;'+(on?'background:var(--bg1)':'')+'">'
-        +'<td style="font-size:var(--fsxs);white-space:nowrap">'+stratTag(s.file)+'</td>'
+        const base='<tr class="arow" data-strat="'+s.file+'" style="cursor:pointer;'+(on?'background:var(--bg1)':'')+(_archSet.has(s.file)?'opacity:.55;':'')+'">'
+        +'<td style="font-size:var(--fsxs);white-space:nowrap">'+(s.file===_starFile?'<span title="starred — the forward-test pick" style="color:var(--yellow)">★ </span>':'')+stratTag(s.file)+(_archSet.has(s.file)?' <span style="font-size:8px;color:var(--text5)">◫ archived</span>':'')+'</td>'
         +'<td title="'+_ti+'" style="font-size:var(--fsxs);color:var(--text3);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_dtxt+'</td>'
         +'<td style="text-align:center">'+chip(s.has_py!==false,'PY')+'</td>'
         +'<td style="text-align:center">'+pineCell(s)+'</td>'
@@ -8145,6 +8156,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<span style="font-size:9px;color:var(--text5);letter-spacing:1px">SELECTED</span>'+selLabel
         +'<span style="flex:1"></span>'
         +(selS?aBtn('lib-use','▸ USE IN BUILDER',true):'')
+        +(selS?aBtn('lib-star',(_starFile===selS.file?'★ UNSTAR':'☆ STAR'),true):'')
+        +(selS?aBtn('lib-arch',(_archSet.has(selS.file)?'◫ UNARCHIVE':'◫ ARCHIVE'),true):'')
         +(selS?menu('lib-aimenu','⚙ AI',augurMenu==='ai',aiItems):'')
         +(selS?menu('lib-dlmenu','▼ DOWNLOAD',augurMenu==='dl',dlItems):'')
         +'<button class="btn-ghost active" id="lib-add" style="padding:5px 12px;font-size:var(--fsxs);border-radius:6px">+ ADD STRATEGY</button>'
@@ -8192,7 +8205,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const stratTable='<table class="table"><thead><tr>'+stratHdr+'<th>DESCRIPTION</th>'+fh('nopy','PY')+fh('nopine','PINE')+sh('added','ADDED')+sh('ran','LAST RAN')+sh('scopes','SCOPES','right')+'</tr></thead><tbody>'+srows+'</tbody></table>';
         const onlyNote=only?'<span style="font-size:9px;color:var(--red);letter-spacing:1px">SHOWING ONLY MISSING '+(only==='nopy'?'PY':'PINE')+' · '+rowsSorted.length+' <span id="lib-clearonly" style="cursor:pointer;text-decoration:underline">clear</span></span>':'';
         // tabindex makes the list focusable so arrow keys can walk the rows
-        const listInner='<div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 6px;gap:8px"><span class="lbl">STRATEGIES · '+sl.length+'</span>'+onlyNote+'</div>'
+        const archNote=_nArchS?'<span data-libarch title="archived strategies are hidden from this list; click to toggle" style="cursor:pointer;font-size:9px;color:'+(APREF.libShowArch?'var(--yellow)':'var(--text5)')+';text-decoration:underline">◫ '+(APREF.libShowArch?'hide':'show')+' '+_nArchS+' archived</span>':'';
+        const listInner='<div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 6px;gap:8px"><span class="lbl">STRATEGIES · '+rowsSorted.length+(_nArchS&&!APREF.libShowArch?' <span style="font-size:9px;color:var(--text5)">(+'+_nArchS+' archived)</span>':'')+'</span>'+archNote+onlyNote+'</div>'
           +'<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}.table thead [data-sortk]:hover,.table thead th[data-onlyk]:hover{color:var(--text)}#lib-listscroll:focus{outline:1px solid var(--border)}.librun{transition:background .1s;border-radius:5px}.librun:hover{background:color-mix(in srgb,var(--text) 9%,transparent)!important}.librunexp>td{border-bottom:1px solid var(--border)}</style>'
           +'<div id="lib-listscroll" tabindex="0" style="max-height:'+maxH+';overflow:auto;margin:-2px -4px 0;padding:2px 4px 0">'+stratTable+'</div>';
         const leftTile=tile(listInner,0);
@@ -9073,6 +9087,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const add=el('lib-add');if(add)add.onclick=()=>{const inp=document.createElement('input');inp.type='file';inp.accept='.py';inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>libCmd('add',{name:f.name,content:String(rd.result||'')},'Add '+f.name);rd.readAsText(f);};inp.click();};
       // active strategy + quick-launch into Builder
       const useBtn=el('lib-use');if(useBtn)useBtn.onclick=()=>{if(augurLibSel){augurExecStrat=augurLibSel;augurSub='exec';augurMenu='';renderApp();}};
+      // star (forward-test pick) + archive — persisted in meta/strategyPrefs (web-owned, merge writes)
+      const _spDoc=()=>metaRef?metaRef.doc('strategyPrefs'):null;
+      const stBtn=el('lib-star');if(stBtn)stBtn.onclick=async()=>{const rf=_spDoc();if(!rf||!augurLibSel)return;const cur=metaStratPrefs.starred||'';try{await rf.set({starred:(cur===augurLibSel?'':augurLibSel)},{merge:true});}catch(e){alert('star save failed: '+e.message);}};
+      const arBtn=el('lib-arch');if(arBtn)arBtn.onclick=async()=>{const rf=_spDoc();if(!rf||!augurLibSel)return;const cur=(metaStratPrefs.archived||[]).slice();const ix=cur.indexOf(augurLibSel);if(ix>=0)cur.splice(ix,1);else cur.push(augurLibSel);try{await rf.set({archived:cur},{merge:true});}catch(e){alert('archive save failed: '+e.message);return;}if(ix<0&&!APREF.libShowArch){augurLibSel=null;renderApp();}};
+      content.querySelectorAll('[data-libarch]').forEach(x=>{x.onclick=(e)=>{e.stopPropagation();savePref('libShowArch',!APREF.libShowArch);renderApp();};});
       content.querySelectorAll('[data-rmchk]').forEach(c=>{c.onclick=()=>{if(!augurLibSel)return;const ck=APREF.checklist||{};const row=ck[augurLibSel]||(ck[augurLibSel]={});const k=c.dataset.rmchk;row[k]=!row[k];savePref('checklist',ck);renderApp();};});
       // dropdown toggles
       const dlm=el('lib-dlmenu');if(dlm)dlm.onclick=(e)=>{e.stopPropagation();augurMenu=augurMenu==='dl'?'':'dl';renderApp();};
