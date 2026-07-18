@@ -38,6 +38,18 @@ MAX_TRADE_RATE = 0.015
 MAX_PF = 6.0
 OOS_SPLIT = 0.75
 
+# AUTO-EXPAND-AND-RESAMPLE (owner request 2026-07-18: "if adjusting a knob continues
+# to help, push the knob further") — the follow-through on the boundary-peak detector
+# (commit 5df5a76, analytics._pdp_boundary_flags): a NUMERIC knob pinned at its
+# tested-range edge and still rising gets its range WIDENED and re-sampled, instead of
+# just flagged. See _auto_expand_search / _expand_range below.
+AUTO_EXPAND_SPAN_FRAC = 0.5   # each round extends the flagged edge by +50% of the
+                              # ORIGINAL tested width (at least one `step`)
+AUTO_EXPAND_WIDTH_CAP = 2.0   # ...but the final width (measured from the ORIGINAL
+                              # bounds) may never exceed this multiple of the original
+                              # width, even if still rising when the cap is hit — the
+                              # fallback guard when a param declares no hard_min/hard_max
+
 _METRIC_KEYS = ("total_pnl", "num_trades", "win_rate", "profit_factor",
                 "max_drawdown", "avg_pnl", "wins", "losses")
 
@@ -111,17 +123,200 @@ def _is_real(r, nbars):
             and float(r.get("profit_factor", 0) or 0) <= MAX_PF)
 
 
+def _snap_to_step(value, step, kind, anchor):
+    """Snap `value` onto the step-grid anchored at `anchor` (e.g. a param's ORIGINAL
+    min/max), so a widened range stays aligned to the knob's declared step — hold_cap
+    stays a whole number of days, ibs_entry stays a multiple of 0.05, etc. No-op when
+    step is 0/None (a continuous float param)."""
+    if not step:
+        return value
+    k = round((value - anchor) / step)
+    snapped = anchor + k * step
+    return int(round(snapped)) if kind == "int" else round(float(snapped), 6)
+
+
+def _expand_range(lo, hi, step, kind, edge, orig_lo, orig_hi, hard_min=None, hard_max=None):
+    """One AUTO-EXPAND round's outward push of a single param's range.
+
+    Extends the FLAGGED edge outward by `expand_span = max(step, AUTO_EXPAND_SPAN_FRAC
+    * (orig_hi - orig_lo))` — at least one step, else +50% of the ORIGINAL tested width
+    — keeping the OTHER edge fixed at its current (possibly already-widened) value.
+
+    HARD SAFETY BOUNDS (never crossed — the guardrail against pushing a param into a
+    meaningless regime):
+      - an optional per-param `hard_min`/`hard_max` (a NEW opt-in DEFAULT_PARAMS key;
+        most strategies — TTIBS included — don't declare one yet, so this is None and
+        only the fallback below applies);
+      - else the fallback: total width measured from the ORIGINAL bounds may never
+        exceed AUTO_EXPAND_WIDTH_CAP (2x) the original width. With the default
+        auto_expand_max_rounds=2 and a 50%-per-round span, two un-capped rounds land
+        EXACTLY on this cap (2 x 50% = +100% = 2x width) — the cap mainly guards
+        oddball cases: a tiny original range where `step` forces a bigger-than-50%
+        jump, or a hard bound biting before the round budget runs out.
+
+    Returns the new (lo, hi) — unchanged (a no-op) if there is no room left to expand
+    (already at a hard/fallback bound), so the caller can detect "stuck" params.
+    """
+    width0 = max(1e-9, orig_hi - orig_lo)
+    span = max(step or 0, AUTO_EXPAND_SPAN_FRAC * width0)
+    if edge == "max":
+        new_hi = hi + span
+        if hard_max is not None:
+            new_hi = min(new_hi, hard_max)
+        new_hi = min(new_hi, orig_lo + AUTO_EXPAND_WIDTH_CAP * width0)
+        new_hi = max(new_hi, hi)                     # never shrink
+        return lo, _snap_to_step(new_hi, step, kind, orig_lo)
+    else:
+        new_lo = lo - span
+        if hard_min is not None:
+            new_lo = max(new_lo, hard_min)
+        new_lo = max(new_lo, orig_hi - AUTO_EXPAND_WIDTH_CAP * width0)
+        new_lo = min(new_lo, lo)                     # never shrink
+        return _snap_to_step(new_lo, step, kind, orig_hi), hi
+
+
+def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trades,
+                        seed, n_trials, boundary_flags, max_rounds=2):
+    """AUTO-EXPAND-AND-RESAMPLE (ROADMAP: owner's "if adjusting a knob continues to
+    help, push the knob further"). The follow-through on the boundary-peak detector
+    (commit 5df5a76): instead of only FLAGGING a knob pinned at its tested-range edge
+    and still rising, widen that knob's range and sample more — iterating until the
+    PDP curve tapers to an interior peak or a safety cap trips (see _expand_range).
+
+    Scoped deliberately narrow: operates on PRIVATE copies of `records`/`seen` and
+    returns its own merged list — it never mutates the caller's `records`, so
+    run_auto's champion/top-N/DSR/MC/regime/neighbors/pills all keep using the
+    ORIGINAL (unexpanded) sample. Only the plateau/boundary surface this function
+    returns is expanded; the caller substitutes it into `out["plateau_pick"]` alone.
+
+    Params mirror run_auto's own locals at the call site: `ev_fn` is its `_ev`
+    in-sample evaluator closure, `ksplit`/`min_trades` its IS-window bound and trade
+    floor, `space`/`dp` the search-space + DEFAULT_PARAMS dicts, `pkeys` the ordered
+    param-name list, `seed`/`n_trials` the run's own (so expansion seeds/budgets stay
+    deterministic and proportional). `boundary_flags` is the INITIAL pdp_plateau's
+    flag list (numeric params only — analytics._pdp_boundary_flags never flags a
+    categorical/bool param).
+
+    Returns (pp, log, merged_records):
+      pp             — the LAST pdp_plateau(...) computed on the merged (original +
+                       all accepted expansion) records, or None if nothing expanded.
+      log            — the out["auto_expand"] entries (see run_auto's docstring for
+                       the schema); one dict per originally-flagged param, appended
+                       the round it either tapers (interior optimum found) or gives
+                       up (still rising at max_rounds / a hard or fallback bound).
+                       Empty when no numeric param was in `boundary_flags`.
+      merged_records — the list `pp["index"]` refers into (== the input `records`
+                       unchanged when `log` is empty).
+    """
+    recs = list(records)
+    seen2 = set(seen)
+    cur_bounds = dict(space)
+    active = {}
+    for f in (boundary_flags or []):
+        pname = f.get("param")
+        spec = space.get(pname)
+        if not spec or spec[0] not in ("int", "float"):
+            continue                                  # categorical/unknown — not expandable
+        _, lo, hi, step = spec
+        meta = dp.get(pname)
+        meta = meta if isinstance(meta, dict) else {}
+        active[pname] = {"kind": spec[0], "orig_lo": lo, "orig_hi": hi, "step": step,
+                         "cur_lo": lo, "cur_hi": hi, "edge": f["edge"], "rounds": 0,
+                         "hard_min": meta.get("hard_min"), "hard_max": meta.get("hard_max")}
+
+    log = []
+    pp = None
+    round_no = 0
+    while active and round_no < max_rounds:
+        round_no += 1
+        for pname in list(active):                    # push each still-active param's edge
+            st = active[pname]
+            new_lo, new_hi = _expand_range(st["cur_lo"], st["cur_hi"], st["step"],
+                                           st["kind"], st["edge"], st["orig_lo"],
+                                           st["orig_hi"], st["hard_min"], st["hard_max"])
+            if (new_lo, new_hi) == (st["cur_lo"], st["cur_hi"]):
+                # already at a hard/fallback bound on round 1 — no point resampling
+                del active[pname]
+                log.append({"param": pname, "orig_range": [st["orig_lo"], st["orig_hi"]],
+                           "final_range": [st["cur_lo"], st["cur_hi"]], "rounds": st["rounds"],
+                           "tapered": False,
+                           "final_peak_value": st["cur_hi"] if st["edge"] == "max" else st["cur_lo"],
+                           "note": "hit a hard_min/hard_max bound with no room left to "
+                                   "expand -- still rising at the bound."})
+                continue
+            st["cur_lo"], st["cur_hi"] = new_lo, new_hi
+            cur_bounds[pname] = (st["kind"], new_lo, new_hi, st["step"])
+        if not active:
+            continue                                   # every flagged param was already capped
+
+        samp = _RandomSampler(cur_bounds, seed=int(seed) + round_no)   # deterministic offset
+        budget = max(1, n_trials // 2)                  # proportional cost per expansion round
+        for _ in range(budget):
+            pe = _collapse(samp.ask(), dp)
+            m = ev_fn(0, ksplit, pe)
+            if m and m.get("num_trades", 0) >= min_trades:
+                sig = tuple(sorted(pe.items()))
+                if sig not in seen2:                    # dedupe identical param combos
+                    seen2.add(sig)
+                    recs.append({**pe, **m})
+
+        _pts = [dict({k: r.get(k) for k in pkeys},
+                     pnl=round(float(r.get("total_pnl", 0) or 0), 1),
+                     dd=round(abs(float(r.get("max_drawdown", 0) or 0)), 1))
+                for r in recs]
+        pp = pdp_plateau(_pts) or pp
+        flagged_now = {f["param"]: f for f in ((pp or {}).get("boundary_flags") or [])}
+
+        for pname in list(active):
+            st = active[pname]
+            st["rounds"] += 1
+            width0 = st["orig_hi"] - st["orig_lo"]
+            width_now = st["cur_hi"] - st["cur_lo"]
+            hit_cap = width_now >= AUTO_EXPAND_WIDTH_CAP * width0 - 1e-9
+            still_flagged = pname in flagged_now and flagged_now[pname]["edge"] == st["edge"]
+            if still_flagged and st["rounds"] < max_rounds and not hit_cap:
+                continue                               # keep expanding this param next round
+            del active[pname]
+            tapered = not still_flagged
+            if tapered:
+                note = "search widened until the curve tapered to an interior optimum."
+                peak_val = (pp or {}).get("params", {}).get(pname)
+            else:
+                why = "hit the 2x-width safety cap" if hit_cap else "hit auto_expand_max_rounds"
+                note = (f"still rising at the expanded edge ({why}) -- true optimum may "
+                        f"be even further out; widen DEFAULT_PARAMS manually.")
+                peak_val = flagged_now[pname]["value"]
+            log.append({"param": pname, "orig_range": [st["orig_lo"], st["orig_hi"]],
+                       "final_range": [st["cur_lo"], st["cur_hi"]], "rounds": st["rounds"],
+                       "tapered": tapered, "final_peak_value": peak_val, "note": note})
+
+    return pp, log, recs
+
+
 def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source=None,
              master=None, arrays=None, cost_pts=0.0, min_trades=30, n_trials=200,
              top_n=10, method="single", oos=True, wf_folds=0, seed=42,
              compute_dsr=False, mc_sims=0, progress_cb=None, years=None,
              compute_regime=False, compute_neighbors=False, compute_pills=False,
-             date_from=None, date_to=None, wf_mode="anchored"):
+             date_from=None, date_to=None, wf_mode="anchored",
+             auto_expand=True, auto_expand_max_rounds=2):
     """Smart search. Returns the same shape as run_grid plus OOS columns.
 
     method="single" or "walkforward". Returns {mode,n_combos,n_valid,top[...],
     best_params,best,bars,master,(equity/mc/dsr)} where each top row carries
     oos_pnl/oos_trades/oos_pf (single) or fold/test_bars/oos_* (walkforward).
+
+    auto_expand (default True, non-WF runs only): AUTO-EXPAND-AND-RESAMPLE — when the
+    boundary-peak detector (analytics._pdp_boundary_flags, via plateau_pick) finds a
+    NUMERIC knob pinned at its tested-range edge and still rising, widen that knob's
+    range and sample more, repeating up to `auto_expand_max_rounds` times (default 2)
+    until the curve tapers to an interior peak or a safety cap trips (see
+    _auto_expand_search / _expand_range). Fully additive + scoped to plateau_pick only
+    — best/top/DSR/MC/regime/neighbors/pills always key off the ORIGINAL sample.
+    Set auto_expand=False to reproduce the pre-expansion behavior byte-for-byte.
+    When it fires, `out["auto_expand"]` lists one entry per originally-flagged param:
+    {param, orig_range:[min,max], final_range:[min,max], rounds, tapered:bool,
+    final_peak_value, note}.
     """
     path = _resolve(strategy) if isinstance(strategy, str) else None
     mod = load_strategy(strategy) if isinstance(strategy, str) else strategy
@@ -316,9 +511,24 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
             out["relationship"] = _rel
         # 3C.1 PDP-plateau pick on the sampler's evaluated configs (ROADMAP #24a)
         _pp = pdp_plateau(_pts_full)
+        _plateau_records = records
         if _pp:
+            # AUTO-EXPAND-AND-RESAMPLE: a truncated search (edge-pinned + still rising
+            # NUMERIC knob) gets its range widened and re-sampled instead of just
+            # flagged. Scoped to plateau_pick alone — see _auto_expand_search's
+            # docstring for why best/top/DSR/MC/etc. never see the expansion records.
+            if auto_expand and _pp.get("search_truncated"):
+                _epp, _elog, _emerged = _auto_expand_search(
+                    records, seen, pkeys, space, dp, _ev, ksplit, min_trades,
+                    seed, n_trials, _pp["boundary_flags"],
+                    max_rounds=auto_expand_max_rounds)
+                if _elog:
+                    out["auto_expand"] = _elog
+                    if _epp:
+                        _pp = _epp
+                        _plateau_records = _emerged
             _pi = _pp.pop("index")
-            _prow = records[_pi]
+            _prow = _plateau_records[_pi]
             _bp = {k: best.get(k) for k in pkeys if k in best}
             out["plateau_pick"] = {
                 "params": {k: _prow.get(k) for k in pkeys},
@@ -327,6 +537,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 "curves": _pp["curves"],
                 # boundary-peak detector (3C.1b): flags knobs whose optimum is pinned
                 # at the tested-range edge and still rising → search was truncated.
+                # Reflects the FINAL (post-expansion) surface when auto_expand fired.
                 "boundary_flags": _pp["boundary_flags"],
                 "search_truncated": _pp["search_truncated"],
                 "same_as_best": bool({k: _prow.get(k) for k in pkeys} == _bp),
