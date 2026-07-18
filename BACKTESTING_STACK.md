@@ -752,6 +752,10 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
   = the same long-only drift shelf (MAR ≤ 7.8 < 8 bar); ICHIHULL's TV fame = `security()` repaint;
   SUPERTREND family verdict settled (no honest edge). Boosts ≠ edge, now measured. New running
   record: `TV_SWEEP.md`. Tally 13 rounds / ~2,250 configs / 0 beat ORB. Detail §3.
+  *Addendum (same day):* round-13 artifacts made durable for individual pickups — driver
+  `tools/r13_triage.py` + all grid/gate JSONs in `tools/r13_results/`; `TV_SWEEP.md` §4.2 KPI
+  matrix + §5 pickup guide (ranked: EMAX 20/100-long → BBRSI 16/50-long → PMAX SMA20×2-long;
+  stage-2 battery pre-registered incl. a new mandatory always-long drift baseline B0).
 - **2026-07-16** — **Paper-forward Phase 1: `tools/paper_forward.py` — dual-leg signal log + status page, VIX log column, gap-skip rule, stale-data guard.**
 - **2026-07-16** — **ENGU-Q Round 4 (Monte Carlo sizing, cost stress, 5m restate = size-knob not diversifier, w=1.0 DD-optimal, stop/overnight/cooldown/event descriptives — zero config changes).**
 - **2026-07-16** — **Challenger round 12: NOISE-2 (wide-band Zarattini envelope) = the program's strongest

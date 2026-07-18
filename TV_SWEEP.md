@@ -422,5 +422,61 @@ program (~Oct 2026), or a new owner-originated idea.
 *Ports (12 files, `augur_strategies/`): BBRSI, MACD200, SUPERTREND_3_0, MACDRSI,
 PMAX, HULL, AOSTOCH, GOLDX, FLAWLESS, EMAX, ICHIHULL, RSIDIV — all `_1_0.py` (3_0 for
 SuperTrend), all plugin-contract, roll-seam-guarded, honest-fill, smoke-tested, and
-usable in AUGUR/EDGELOG grid sweeps at any time. Triage driver + per-strategy JSONs
-in the session scratchpad (`r13/`).*
+usable in AUGUR/EDGELOG grid sweeps at any time. Durable artifacts:
+`tools/r13_triage.py` (the driver) + `tools/r13_results/*.json` (every grid cell +
+gate scan, committed 2026-07-17).*
+
+---
+
+## 5. Individual pickup guide (for a future session)
+
+Everything a cold-start session needs to take ONE of these further, without this
+conversation.
+
+**Ground rules (non-negotiable, they are the house discipline):**
+1. **All 12 lockboxes are SEALED** (2025-06-30 → 2026-06-30 never loaded). One look
+   per family, owner sign-off first. Load data with `date_to="2025-06-30"` until then.
+2. Rerun the exact cell first: `python tools/r13_triage.py <FILE> "<grid preset>"`
+   — the driver checks the ORB #125 anchor (n=3,815 / $306,331 / PF 1.607) and
+   aborts on mismatch; a pickup must reproduce the JSON numbers exactly before any
+   new work (deterministic engine, no seeds).
+3. **No new knobs, no wider grids without a fresh pre-registration written into this
+   file BEFORE running.** A near-miss is not a re-tune license (TTIBS/SWING precedent).
+4. The full winning param dict for each strategy = the top-MAR row of
+   `tools/r13_results/r13_<NAME>_results.json` (`grid`, sorted by `mar`).
+
+**Stage-2 battery (the pre-registered menu for any pickup — run in this order, stop
+at first FAIL):**
+- **B0 drift baseline (NEW, mandatory):** compare vs "always-long, RTH only, 1
+  contract, same window/costs" on MAR and PF. Rationale: every round-13 corner is
+  long-only; if it can't beat brainless long exposure it is a worse version of
+  nothing. Pre-registered bar: beat the baseline on BOTH metrics.
+- **B1 plateau:** all first-neighbor cells ≥ 50% of the peak cell's MAR.
+- **B2 frozen walk-forward:** 6 folds, ≥ 4/6 OOS-positive, WFE ≥ 0.5.
+- **B3 ES transfer, no re-fit:** PF ≥ 1.2.
+- **B4 stats:** trade bootstrap P(net ≤ 0) ≤ 0.01; Deflated Sharpe vs the family's
+  full search size (count EVERY cell ever run on the family, incl. round 13's).
+- **B5 owner sign-off → lockbox one-shot.** Pre-register the exact config + pass/fail
+  conditions in this file before the look.
+
+### Pickup cards (ranked — recommendation first)
+
+| Rank | Strategy · file | Pickup cell (exact) | Triage KPIs | Why this rank |
+|---|---|---|---|---|
+| 🥇 | **EMAX** · `EMAX_1_0.py` | `ema_fast=20, ema_slow=100, direction="long"` | MAR 7.82 · PF 1.27 · n=1,810 · $292.9k · DD −$37.4k · p21 41% | Closest miss of the sweep AND a real plateau, not a spike: every long cell on the slow-100 shelf holds up (20/100=7.82 · 50/100=6.82 · 5/100=6.76 · 10/100=6.33 · 9/100=6.12). Simplest logic in the list = fewest ways to fool ourselves. |
+| 🥈 | **BBRSI** · `BBRSI_1_0.py` | `rsi_len=16, rsi_band=50, bb_len=20, bb_mult=1.5, direction="long", entry_mode="stop"` | MAR 6.83 · PF 1.56 · n=550 · $327.5k · DD −$48.0k · p21 46% | The only non-trend-flip candidate (mean-reversion mechanism) → most different from EMAX if a diversifier is the goal. Note: the higher-MAR sibling (RSI 8/50/2.0σ, MAR 7.42) fails the n≥300 floor — do NOT pick it up instead. |
+| 🥉 | **PMAX** · `PMAX_1_0.py` | `ma_type="SMA", ma_length=20, mult=2.0, atr_period=10, change_atr=True, direction="long"` | MAR 6.29 · PF 1.22 · n=1,836 · $261.8k · DD −$41.6k · p21 35% | Best of the trend-flip family (dominates SUPERTREND 4.84 and HULL 2.89 — if you pick PMAX up, those two are covered; don't run them separately). |
+| — | SUPERTREND / HULL / ICHIHULL / GOLDX / MACD200 | see JSONs | MAR 2.9–5.8 | Dominated by PMAX/EMAX (same drift mechanism, worse numbers) or regime-failed (ICHIHULL 62% post-21, GOLDX n=44). Not worth individual sessions. |
+| — | MACDRSI / FLAWLESS / RSIDIV | see JSONs | MAR 1.9–3.3 | The stop-less dip-hold family: 85–150-pt average losers are structural (no stop = the win rate IS the drawdown). A pickup would have to invent a stop the authors didn't ship = a new strategy, not this one. |
+| — | AOSTOCH | — | MAR 0.11 | Nothing to pick up (best cell ≈ $0 over 15 years). |
+
+**Honest expected value, before you spend a session:** the best candidate here (7.82)
+enters stage 2 WEAKER than TTIBS did (12.3) — and TTIBS passed 6/6 walk-forward folds
+plus a clean ES transfer and still lost −$44k in its lockbox year. NOISE-2 (round 12)
+passed 4 of 5 battery gates and died on ES transfer. Program base rate at this bar:
+0-for-25 families. If the session budget is one evening, the higher-EV uses remain:
+(1) **fix the ENGU-Q file-repro defect** (known bug, certifies the blend + every
+ENGU-relative number — leads are in BACKTESTING_STACK.md 2026-07-14 entry);
+(2) the **more-instruments data decision** (YM/RTY/CL/GC 5m history for the already-
+validated ORB recipe); (3) let the order-flow dataset keep accumulating (~Oct 2026).
+Picking up EMAX-20/100-long is legitimate research — just size the expectation.
