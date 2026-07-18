@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='58.3';
+const VERSION='58.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'58.4', date:'2026-07-18', notes:['Config Analysis (2C PDP curves): a tuning knob whose best value is pinned at the edge of its tested range while the curve is still rising now shows an amber warning marker and a panel banner — it means the search stopped at its own boundary, so the true best value is likely further out and the range should be widened. Renders on existing saved runs too (computed in the browser when the run did not store it).']},
   {v:'58.3', date:'2026-07-18', notes:['Compare fullscreen explorer: the x-axis is now ONE shared calendar timeline across every strategy instead of each curve using its own 0-100% progress through its own run — every curve sits at its real dates, and a strategy that started later correctly shows no line before it began.','Compare fullscreen explorer: the drawdown pane now shows a dashed line and dollar label for EACH strategy at its own worst drawdown, in its own colour, instead of one shared grey worst-drawdown line for the whole chart.','Compare fullscreen explorer: the drawdown pane now leaves a small gap above the bottom axis instead of the deepest line sitting flush against it, and the pane can be dragged noticeably smaller.','Compare fullscreen explorer: once trades are loaded, the chart now sits at a fixed height you can drag to resize, the trade blotter flows below it at its full natural height, and the WHOLE explorer scrolls as one page instead of the blotter having its own inner scrollbar.','Compare fullscreen explorer: fixed the trade blotter column header so a narrow column no longer crops the expand button, and widened the compact columns so entry date, dollar amount and running total no longer run together.']},
   {v:'58.2', date:'2026-07-18', notes:['Fix: the best of each confirm dialog rows rendered as bare checkboxes (the app-wide input width stretched each checkbox across the whole row, shoving the run name and $ out of the card) — checkboxes are now fixed-size so every row reads name, run number and net $.']},
   {v:'58.1', date:'2026-07-18', notes:['Compare fullscreen explorer: the drawdown pane is now resizable (drag the divider between the two panes) and each strategy drawdown is filled in its own colour, not just outlined.','Compare fullscreen explorer: click a legend chip to cycle that strategy full - greyed - hidden - full, so a crowded overlay can be thinned out without deselecting it from Compare.','Compare fullscreen explorer: the x-axis now shows real calendar dates under the percent ticks (once a blotter or run date range is available), the axis strip is drag-to-scale like TradingView, and hovering the $ axis, the pane divider, or the x-axis now shows the matching resize cursor.','Compare fullscreen explorer: the trade blotter panel scrolls as ONE piece instead of each column separately, columns default to a compact view (# / entry / $ / cum $) with a button to expand to all 7 columns, columns are drag-resizable, and each column plus the legend now shows its instrument and timeframe.','Compare fullscreen explorer: each strategy curve gets a dashed reference line at its final $ with a right-edge label, and the equity/drawdown panes read as more clearly separate panels.','Compare · best of each now opens a confirm step listing every pick and its net $ before touching your selection, with ADD (merge) and REPLACE (swap) instead of overwriting instantly.']},
@@ -7022,6 +7023,35 @@ namespace NinjaTrader.NinjaScript.Strategies {
       curves.sort((a,b)=>b.infl-a.infl);
       return curves;
     };
+    // 3C.1b — boundary-peak detector (client-side mirror of the backend's
+    //   `_pdp_boundary_flags` in augur_engine/analytics.py, commit 5df5a76): flags a
+    //   numeric knob whose SMOOTHED PDP curve peaks at the first/last TESTED value while
+    //   still sloping toward that edge — the tested range was too narrow, so the "peak"
+    //   drawn is really just where the sweep stopped, not a true optimum. `curve` = a
+    //   pdpCurvesData `cv.c` array (already value-sorted): [{v,m,n}]. Used as a FALLBACK
+    //   in pdpCurvesPanelHtml below when the server didn't save a `plateau_pick.
+    //   boundary_flags` entry for this param (older runs, e.g. pre-5df5a76) — same
+    //   2%-of-mean threshold as the backend's PDP_EDGE_SLOPE_MIN, applied to the SAME
+    //   smoothed curve already drawn for this knob (never recomputed differently).
+    const PDP_EDGE_SLOPE_MIN=0.02;
+    const pdpBoundaryFlag=(curve,key)=>{
+      if(!curve||curve.length<3)return null;
+      const smooth=curve.map(r=>r.m);
+      let am=0,hi=smooth[0];
+      for(let i=1;i<smooth.length;i++)if(smooth[i]>hi){hi=smooth[i];am=i;}
+      const meanLevel=smooth.reduce((s,x)=>s+x,0)/smooth.length;
+      let edge,delta;
+      if(am===smooth.length-1&&smooth[am]>smooth[am-1]){edge='max';delta=smooth[am]-smooth[am-1];}
+      else if(am===0&&smooth[0]>smooth[1]){edge='min';delta=smooth[0]-smooth[1];}
+      else return null;
+      const relSlope=delta/(Math.abs(meanLevel)+1e-9);
+      if(relSlope<=PDP_EDGE_SLOPE_MIN)return null;
+      const vStar=curve[am].v,pct=Math.round(relSlope*100);
+      const msg=(edge==='max')
+        ?(key+' peaked at the range edge '+vStar+' and is still climbing (slope +'+pct+'% of mean) — the search was truncated; widen '+key+' above '+vStar+' to find the true peak.')
+        :(key+' peaked at the range edge '+vStar+' (the lowest tested value) and is still climbing toward lower values (slope +'+pct+'% of mean) — the search was truncated; widen '+key+' below '+vStar+' to find the true peak.');
+      return {edge:edge,value:vStar,relSlope:relSlope,msg:msg};
+    };
     const pdpCurvesPanelHtml=(points,mult,tag,pp,alignKeys,noHdr)=>{
       const curves=pdpCurvesData(points,mult,pp);
       if(!curves.length)return '';
@@ -7030,6 +7060,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // aligned mode: one column per 2C axis (params in the SAME order + the NET $ column),
       // so every mini-chart sits exactly under its own axis. Otherwise the legacy free grid.
       const show=(Array.isArray(alignKeys)&&alignKeys.length)?alignKeys.map(k=>byK[k]||{k:k,c:null}):curves.slice(0,8);
+      // 3C.1b boundary-peak flags for every rendered knob: PREFER the server's exact
+      //   plateau_pick.boundary_flags entry for that param; else fall back to pdpBoundaryFlag()
+      //   on the same curve above (older runs with no boundary_flags, e.g. #161/#162). Purely
+      //   additive — never changes which curve/peak is drawn, only annotates it.
+      const srvFlags={};
+      if(pp&&Array.isArray(pp.boundary_flags))pp.boundary_flags.forEach(f=>{if(f&&f.param!=null)srvFlags[f.param]=f;});
+      show.forEach(cv=>{if(cv.c)cv.bflag=srvFlags[cv.k]?{edge:srvFlags[cv.k].edge,value:srvFlags[cv.k].value,msg:srvFlags[cv.k].msg}:pdpBoundaryFlag(cv.c,cv.k);});
+      const flaggedList=show.filter(cv=>cv.bflag);
+      const boundaryNote=flaggedList.length?('<div style="font-size:8px;color:var(--yellow);margin:0 0 4px;display:flex;align-items:center;gap:3px;cursor:help" title="'+flaggedList.map(cv=>cv.bflag.msg).join('&#10;&#10;').replace(/"/g,'&quot;')+'">⚠ '+flaggedList.length+' knob'+(flaggedList.length>1?'s are':' is')+' pinned at the tested-range edge — search may be truncated (see below)</div>'):'';
       // taller/roomier cells (owner request — 2C a bit bigger, slightly more vertical)
       const cw=170,chh=82,pl=6,pr=6,pt2=8,pb=16;
       // `bare` (aligned mode) drops the per-cell param NAME — the 2B axis directly above already
@@ -7040,9 +7079,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const X=i=>pl+(cw-pl-pr)*i/(cv.c.length-1),Y=v=>pt2+(chh-pt2-pb)*(1-(v-mn)/span);
         const pts2=cv.c.map((r,i)=>X(i).toFixed(1)+','+Y(r.m).toFixed(1)).join(' ');
         const pk=ys.indexOf(mx);
-        const dots=cv.c.map((r,i)=>'<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(r.m).toFixed(1)+'" r="'+(i===pk?3.2:1.7)+'" fill="'+(i===pk?'var(--green)':'var(--text4)')+'" style="cursor:pointer" data-tip="'+_pp(cv.k)+' <b>'+r.v+'</b><br>avg net <b>'+fmtUsd(Math.round(r.m))+'</b>'+(r.n?'<br>across '+r.n+' configs':'')+'"/>').join('');
+        const _bf=cv.bflag;
+        const dots=cv.c.map((r,i)=>{const isPk=i===pk,warnDot=isPk&&_bf;return '<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(r.m).toFixed(1)+'" r="'+(isPk?3.2:1.7)+'" fill="'+(warnDot?'var(--yellow)':(isPk?'var(--green)':'var(--text4)'))+'" style="cursor:pointer" data-tip="'+_pp(cv.k)+' <b>'+r.v+'</b><br>avg net <b>'+fmtUsd(Math.round(r.m))+'</b>'+(r.n?'<br>across '+r.n+' configs':'')+(warnDot?'<br><span style=&quot;color:var(--yellow)&quot;>⚠ '+_bf.msg.replace(/"/g,'&quot;')+'</span>':'')+'"/>';}).join('');
         const flat=cv.infl<0.12*maxInfl;
-        const _peakSpan='<span title="'+(flat?'this knob barely changes net $ — a flat partial-dependence curve':'net $ peaks at '+_pp(cv.k)+' = '+cv.peak.v)+'" style="color:'+(flat?'var(--text5)':'var(--green)')+';white-space:nowrap;cursor:help">'+(flat?'flat':'peak <b>'+cv.peak.v+'</b>')+'</span>';
+        const _peakSpan='<span title="'+(flat?'this knob barely changes net $ — a flat partial-dependence curve':'net $ peaks at '+_pp(cv.k)+' = '+cv.peak.v)+'" style="color:'+(flat?'var(--text5)':'var(--green)')+';white-space:nowrap;cursor:help">'+(flat?'flat':'peak <b>'+cv.peak.v+'</b>')+'</span>'
+          +(_bf?'<span title="'+_bf.msg.replace(/"/g,'&quot;')+'" style="color:var(--yellow);white-space:nowrap;cursor:help;margin-left:3px">⚠</span>':'');
         const _hdrRow=bare
           ? '<div style="text-align:center;font-size:8px;margin-bottom:1px">'+_peakSpan+'</div>'
           : '<div style="display:flex;justify-content:space-between;gap:4px;font-size:8px;margin-bottom:1px"><span style="color:var(--text3);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_pp(cv.k)+'">'+_pp(cv.k)+'</span>'+_peakSpan+'</div>';
@@ -7064,13 +7105,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // nestle the PDP row up tight under 2B, same subtile — 2C sits directly under 2B's x-axis
         //   labels with no separate header; an empty gutter spacer keeps the columns aligned.
         return '<div style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;margin:3px 0 2px">'+tag+' PDP</div>'
+          +boundaryNote
           +'<div style="display:flex;align-items:stretch;margin-top:0">'
           +'<div style="flex:0 0 '+gutPct+'%"></div>'
           +show.map(cv=>'<div style="flex:0 0 '+colPct+'%;min-width:0;padding:0 2px;box-sizing:border-box">'+cellOf(cv,true)+'</div>').join('')
           +'<div style="flex:0 0 '+colPct+'%;display:flex;align-items:center;justify-content:center"><span style="font-size:8px;color:var(--text4);font-weight:700;text-align:center">NET $<br><span style="font-weight:400;color:var(--text5)">← what each knob<br>does to it</span></span></div>'
           +'</div>';
       }
-      return hdr+'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">'+cells+'</div>';
+      return hdr+boundaryNote+'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">'+cells+'</div>';
     };
     // MAE / MFE — per-trade heat (max adverse) vs reach (max favorable), turned into
     // data-driven stop & target guidance from your own winning trades.
