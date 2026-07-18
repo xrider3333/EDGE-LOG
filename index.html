@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='58.4';
+const VERSION='58.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'58.5', date:'2026-07-18', notes:['Compare fullscreen explorer: click-dragging the chart now pans in BOTH directions like TradingView — a vertical drag slides the dollar scale too, instead of only panning left and right.','Compare fullscreen explorer: you can now drag the drawdown pane right-edge axis to scale or compress it, the same way the equity axis already worked.','Compare equity overlay (the non-expanded tile): now shows a drawdown pane beneath the equity curves too, each strategy filled in its own colour, without needing to open the fullscreen explorer.']},
   {v:'58.4', date:'2026-07-18', notes:['Config Analysis (2C PDP curves): a tuning knob whose best value is pinned at the edge of its tested range while the curve is still rising now shows an amber warning marker and a panel banner — it means the search stopped at its own boundary, so the true best value is likely further out and the range should be widened. Renders on existing saved runs too (computed in the browser when the run did not store it).']},
   {v:'58.3', date:'2026-07-18', notes:['Compare fullscreen explorer: the x-axis is now ONE shared calendar timeline across every strategy instead of each curve using its own 0-100% progress through its own run — every curve sits at its real dates, and a strategy that started later correctly shows no line before it began.','Compare fullscreen explorer: the drawdown pane now shows a dashed line and dollar label for EACH strategy at its own worst drawdown, in its own colour, instead of one shared grey worst-drawdown line for the whole chart.','Compare fullscreen explorer: the drawdown pane now leaves a small gap above the bottom axis instead of the deepest line sitting flush against it, and the pane can be dragged noticeably smaller.','Compare fullscreen explorer: once trades are loaded, the chart now sits at a fixed height you can drag to resize, the trade blotter flows below it at its full natural height, and the WHOLE explorer scrolls as one page instead of the blotter having its own inner scrollbar.','Compare fullscreen explorer: fixed the trade blotter column header so a narrow column no longer crops the expand button, and widened the compact columns so entry date, dollar amount and running total no longer run together.']},
   {v:'58.2', date:'2026-07-18', notes:['Fix: the best of each confirm dialog rows rendered as bare checkboxes (the app-wide input width stretched each checkbox across the whole row, shoving the run name and $ out of the card) — checkboxes are now fixed-size so every row reads name, run number and net $.']},
@@ -3161,7 +3162,7 @@ window.expandCompareEq=function(series){
   //    curve's own independent progress, so identical va/vb means the same real dates for every
   //    series. chartFrac (item 23) is the chart's share of the main-panel height once the
   //    blotter is open — drag the gut divider to resize it. ──
-  let va=0,vb=1,yMan=null,ddFrac=0.3,chartFrac=0.6;
+  let va=0,vb=1,yMan=null,ddMan=null,ddFrac=0.3,chartFrac=0.6;
   // per-column blotter width (item 15) and compact/full mode (item 16), keyed by series id.
   const colW={},colMode={};
   const GUT=68;
@@ -3212,7 +3213,7 @@ window.expandCompareEq=function(series){
     if(ddMin>=0)ddMin=-1;
     // item 21a: pad the scale floor 12% past ddMin so the deepest line/point leaves a gap above
     //   the x-axis strip instead of landing exactly on g.ddB (crammed against it).
-    const ddFloor=ddMin*1.12;
+    const ddFloor=(ddMan!=null)?ddMan:ddMin*1.12;
     const Yd=v=>g.ddT+(0-v)/((0-ddFloor)||1)*(g.ddB-g.ddT);
     let s='';
     // $ gridlines + right labels (equity pane)
@@ -3331,7 +3332,7 @@ window.expandCompareEq=function(series){
     s+='</g>';
     svgEl.setAttribute('viewBox','0 0 '+g.W+' '+g.H);
     svgEl.innerHTML=s;
-    svgEl._g={g:g,mn:mn,mx:mx,ddMin:ddMin,xd:_xDateStr};
+    svgEl._g={g:g,mn:mn,mx:mx,ddMin:ddMin,ddFloor:ddFloor,xd:_xDateStr};
   };
   // trade-dot clicks: svgEl's innerHTML is rebuilt every render(), so the listener lives on
   //   svgEl itself (delegated via closest()) rather than being re-bound to each circle.
@@ -3349,14 +3350,14 @@ window.expandCompareEq=function(series){
     if(va<0){vb-=va;va=0;}if(vb>1){va-=(vb-1);vb=1;}va=Math.max(0,va);vb=Math.min(1,vb);};
   const zoomBy=k=>{const c=(va+vb)/2;va=c-(c-va)*k;vb=c+(vb-c)*k;clampView();render();};
   const panBy=f=>{const d=(vb-va)*f;va+=d;vb+=d;clampView();render();};
-  const resetView=()=>{va=0;vb=1;yMan=null;render();};
+  const resetView=()=>{va=0;vb=1;yMan=null;ddMan=null;render();};
   chartEl.addEventListener('wheel',e=>{e.preventDefault();
     const r=chartEl.getBoundingClientRect(),gx=svgEl._g?svgEl._g.g:geo();
     if(!(r.width>0))return;
     const fx=Math.max(0,Math.min(1,(e.clientX-r.left)/((gx.pw/gx.W)*r.width)));
     const c=va+(vb-va)*fx,k=(e.deltaY>0)?1.22:0.82;
     va=c-(c-va)*k;vb=c+(vb-c)*k;clampView();render();},{passive:false});
-  let drag=null,yDrag=null,ddDrag=null,xDrag=null;
+  let drag=null,yDrag=null,ddDrag=null,xDrag=null,ddYDrag=null;
   const _gutterAt=e=>{const st=svgEl._g;if(!st)return false;const r=chartEl.getBoundingClientRect();
     if(!(r.width>0))return false;return ((e.clientX-r.left)/(r.width/st.g.W))>st.g.pw;};
   // mDown priority (item 7 / item 11): y-gutter (scale $) -> dd-divider (resize the drawdown
@@ -3364,15 +3365,17 @@ window.expandCompareEq=function(series){
   //   using the same rect math as the crosshair mousemove handler below.
   const mDown=e=>{
     e.preventDefault();
-    if(_gutterAt(e)){const st=svgEl._g;yDrag={y:e.clientY,mn:st.mn,mx:st.mx};return;}
     const st2=svgEl._g,r=chartEl.getBoundingClientRect();
     if(st2&&r.width>0&&r.height>0){
       const sx=r.width/st2.g.W,sy=r.height/st2.g.H;
       const gx=(e.clientX-r.left)/sx,gy=(e.clientY-r.top)/sy;
+      // item 25: gutter drag now splits by pane — beside the DD pane starts a DD-scale drag,
+      //   beside the equity pane keeps the old $-axis scale drag.
+      if(gx>st2.g.pw){if(gy>=st2.g.ddT-4)ddYDrag={y:e.clientY,floor:st2.ddFloor};else yDrag={y:e.clientY,mn:st2.mn,mx:st2.mx};return;}
       if(gx<=st2.g.pw&&Math.abs(gy-(st2.g.ddT-4))<=5){ddDrag={y0:e.clientY,f0:ddFrac};return;}
       if(gx<=st2.g.pw&&gy>=st2.g.H-st2.g.pB){xDrag={x0:e.clientX,va0:va,vb0:vb};return;}
     }
-    drag={x:e.clientX,va:va,vb:vb,moved:false,st:svgEl._g};
+    drag={x:e.clientX,y:e.clientY,va:va,vb:vb,moved:false,ypan:false,st:svgEl._g};
     chartEl.style.cursor='grabbing';};
   const mMove=e=>{
     if(ddDrag){const r=chartEl.getBoundingClientRect();
@@ -3381,15 +3384,23 @@ window.expandCompareEq=function(series){
       ddFrac=Math.max(0.08,Math.min(0.6,ddDrag.f0-(e.clientY-ddDrag.y0)/(r.height||1)));render();return;}
     if(xDrag){const k=Math.exp(-(e.clientX-xDrag.x0)*0.005),c=(xDrag.va0+xDrag.vb0)/2,half=(xDrag.vb0-xDrag.va0)/2*k;
       va=c-half;vb=c+half;clampView();render();return;}
+    if(ddYDrag){const k=Math.max(0.15,1+(e.clientY-ddYDrag.y)*0.004);ddMan=Math.min(-1,ddYDrag.floor*k);render();return;}
     if(yDrag){const k=Math.max(0.15,1+(e.clientY-yDrag.y)*0.004);   // drag DOWN = compress (wider $ range)
       const c=(yDrag.mn+yDrag.mx)/2,half=(yDrag.mx-yDrag.mn)/2*k;
       yMan=[c-half,c+half];render();return;}
     if(!drag)return;const r=chartEl.getBoundingClientRect(),gx=svgEl._g?svgEl._g.g:geo();
     if(!(r.width>0))return;
     const dx=(e.clientX-drag.x)/((gx.pw/gx.W)*r.width)*(drag.vb-drag.va);
-    if(Math.abs(e.clientX-drag.x)>3)drag.moved=true;
+    if(Math.abs(e.clientX-drag.x)>3||Math.abs(e.clientY-drag.y)>3)drag.moved=true;
+    // item 27: TradingView-style 2-D pan — once the drag turns meaningfully vertical (>6px) it
+    //   also slides the equity $-window (yMan) with the cursor; a pure horizontal pan keeps the
+    //   y auto-fit. yMan sticks until double-click / RESET, same as the gutter scale drag.
+    if(!drag.ypan&&Math.abs(e.clientY-drag.y)>6)drag.ypan=true;
+    if(drag.ypan&&drag.st&&r.height>0){const sy=r.height/drag.st.g.H,dyVB=(e.clientY-drag.y)/(sy||1);
+      const k2=(drag.st.mx-drag.st.mn)/(((drag.st.g.eqB-drag.st.g.eqT))||1);
+      yMan=[drag.st.mn+dyVB*k2,drag.st.mx+dyVB*k2];}
     va=drag.va-dx;vb=drag.vb-dx;clampView();render();};
-  const mUp=()=>{setTimeout(()=>{drag=null;yDrag=null;ddDrag=null;xDrag=null;chartEl.style.cursor='crosshair';},0);};
+  const mUp=()=>{setTimeout(()=>{drag=null;yDrag=null;ddDrag=null;xDrag=null;ddYDrag=null;chartEl.style.cursor='crosshair';},0);};
   chartEl.addEventListener('mousedown',mDown);
   window.addEventListener('mousemove',mMove);
   window.addEventListener('mouseup',mUp);
@@ -3426,7 +3437,7 @@ window.expandCompareEq=function(series){
     // y-chip: EQUITY $ when over the equity pane, DRAWDOWN $ (labelled) when over the DD pane
     let ychipTxt;
     if(gy<=st.g.eqB){ychipTxt=fmt$(st.mx-(st.mx-st.mn)*((gy-st.g.eqT)/((st.g.eqB-st.g.eqT)||1)));}
-    else{const _dv=0-(0-st.ddMin)*((gy-st.g.ddT)/((st.g.ddB-st.g.ddT)||1));ychipTxt='dd '+fmt$(Math.min(0,_dv));}
+    else{const _dv=0-(0-st.ddFloor)*((gy-st.g.ddT)/((st.g.ddB-st.g.ddT)||1));ychipTxt='dd '+fmt$(Math.min(0,_dv));}
     ychip.style.display='block';ychip.style.left=(st.g.pw*sx)+'px';ychip.style.top=(gy*sy)+'px';ychip.textContent=ychipTxt;
     // item 9: 'off' series drop out of the readout entirely; 'dim' series read out greyed.
     // item 24: a series outside its own real date span (had not started yet, or had already
@@ -9085,8 +9096,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(withEq.length){
           let emn=0,emx=0;withEq.forEach(c=>{c.eq.forEach(v=>{if(v<emn)emn=v;if(v>emx)emx=v;});});
           if(emx<=emn)emx=emn+1;const epad=(emx-emn)*0.05;emn-=epad;emx+=epad;
-          const W2=760,H2=230,pL=6,pR=64,pT=8,pB=20,PW=W2-pL-pR,PH=H2-pT-pB;
-          const Xf=f=>pL+f*PW,Yf=v=>pT+(emx-v)/((emx-emn)||1)*PH;
+          const W2=760,H2=300,pL=6,pR=64,pT=8,pB=20,PW=W2-pL-pR;
+          // item 26: the tile is now split into a top EQUITY pane and a bottom DRAWDOWN pane
+          //   (mirrors the fullscreen explorer look) — eqPH/ddPH are each pane inner height, gap
+          //   the small divider gap between them.
+          const ddPH=64,gap=12,eqPH=H2-pT-pB-gap-ddPH;
+          const Xf=f=>pL+f*PW,Yf=v=>pT+(emx-v)/((emx-emn)||1)*eqPH;
           const _ns=x2=>{x2=Math.abs(x2)||1;const e2=Math.pow(10,Math.floor(Math.log10(x2)));const f2=x2/e2;return (f2<=1?1:f2<=2?2:f2<=2.5?2.5:f2<=5?5:10)*e2;};
           let g2='';const stp=_ns((emx-emn)/5)||1;
           for(let L=Math.ceil(emn/stp)*stp;L<=emx;L+=stp){const y=Yf(L);g2+='<line x1="'+pL+'" y1="'+y.toFixed(1)+'" x2="'+(pL+PW)+'" y2="'+y.toFixed(1)+'" stroke="var(--border)" stroke-width="'+(Math.abs(L)<1e-9?1:0.5)+'" opacity="'+(Math.abs(L)<1e-9?0.6:0.25)+'"/><text x="'+(pL+PW+6)+'" y="'+(y+3).toFixed(1)+'" font-size="9" fill="var(--text5)">'+fmtUsd(L)+'</text>';}
@@ -9105,8 +9120,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
               s3+='<polyline points="'+P2.slice(li).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6" stroke-dasharray="0.1,5" stroke-linecap="round" opacity="0.9"/>'
                 +'<line x1="'+bx.toFixed(1)+'" y1="'+(by-7).toFixed(1)+'" x2="'+bx.toFixed(1)+'" y2="'+(by+7).toFixed(1)+'" stroke="'+c.c+'" stroke-width="1.4" opacity="0.9"/>';}
             return s3;}).join('');
+          // item 26: per-series drawdown-from-peak filled in its own colour, drawn in the pane
+          //   below — recomputed locally (this inline tile stays per-run fractional x, unlike the
+          //   fullscreen explorer shared-calendar axis, so _ddArr there is not reusable here).
+          const _ddOf=eq=>{let rm=-Infinity;return eq.map(v=>{if(v>rm)rm=v;return v-rm;});};
+          const ddSer=withEq.map(c=>({c:c,dd:_ddOf(c.eq)}));
+          let ddmn=0;ddSer.forEach(s2=>s2.dd.forEach(v=>{if(v<ddmn)ddmn=v;}));
+          const ddFloorI=Math.min(-1,ddmn*1.12);
+          const ddTop=pT+eqPH+gap,ddBot=ddTop+ddPH;
+          const Yd=v=>ddTop+(0-v)/((0-ddFloorI)||1)*ddPH;
+          let ddSvg='<line x1="'+pL+'" y1="'+(ddTop-6)+'" x2="'+(pL+PW)+'" y2="'+(ddTop-6)+'" stroke="var(--border)" opacity="0.55"/>'
+            +'<text x="'+pL+'" y="'+(ddTop+4)+'" font-size="7" letter-spacing="1" fill="var(--text5)">DRAWDOWN</text>'
+            +'<line x1="'+pL+'" y1="'+Yd(0).toFixed(1)+'" x2="'+(pL+PW)+'" y2="'+Yd(0).toFixed(1)+'" stroke="var(--border)" opacity="0.3"/>'
+            +'<text x="'+(pL+PW+6)+'" y="'+(Yd(0)+3).toFixed(1)+'" font-size="8" fill="var(--text5)">$0</text>'
+            +'<text x="'+(pL+PW+6)+'" y="'+(Yd(ddFloorI)+3).toFixed(1)+'" font-size="8" fill="var(--text5)">'+fmtUsd(ddFloorI)+'</text>';
+          ddSer.forEach(s2=>{const c=s2.c,dd=s2.dd,n2=dd.length,y0=Yd(0).toFixed(1);
+            const Pd=dd.map((v,i2)=>Xf(i2/(n2-1)).toFixed(1)+','+Yd(v).toFixed(1));
+            ddSvg+='<path d="M '+Xf(0).toFixed(1)+' '+y0+' L '+Pd.join(' L ')+' L '+Xf(1).toFixed(1)+' '+y0+' Z" fill="'+c.c+'" opacity="0.10" stroke="none"/>'
+              +'<polyline points="'+Pd.join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.2" opacity="0.9"/>';});
           const xt='<text x="'+pL+'" y="'+(H2-6)+'" font-size="8" fill="var(--text5)">start of run</text><text x="'+(pL+PW)+'" y="'+(H2-6)+'" text-anchor="end" font-size="8" fill="var(--text5)">end of run</text>';
-          ovl='<svg viewBox="0 0 '+W2+' '+H2+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" ondblclick="window.expandCompareEq(window._cmpEqxSeries)" title="double-click for the fullscreen multi-curve explorer">'+g2+paths+xt+'</svg>';
+          ovl='<svg viewBox="0 0 '+W2+' '+H2+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" ondblclick="window.expandCompareEq(window._cmpEqxSeries)" title="double-click for the fullscreen multi-curve explorer">'+g2+paths+ddSvg+xt+'</svg>';
         }else ovl='<div style="font-size:var(--fsxs);color:var(--text5);padding:10px 0">none of the selected runs saved an equity curve — re-run them to record one</div>';
         // net P&L — horizontal HTML bars (the old stretched SVG squished text on wide screens);
         //   colour keyed to the overlay legend, exact $ at the right.
