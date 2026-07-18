@@ -459,28 +459,43 @@ at first FAIL):**
 - **B5 owner sign-off → lockbox one-shot.** Pre-register the exact config + pass/fail
   conditions in this file before the look.
 
-### Pickup cards (sorted by best-version MAR — pickup priority, NOT boost rank)
+### Pickup cards (sorted by best-version MAR — pickup priority)
 
-All 12 rows are each strategy's best-tuned long-only cell (as-shipped is worse; 5 of
-12 lose money). **All fail the MAR ≥ 8 economics bar** (ORB = 38.6). Pick up the top 3
-only — the rest are dominated or structurally broken.
+**Every number is IS / triage** (in-sample: full 2010-06-07→2025-06-30, NQ 5m, each
+strategy's best long-only cell). **WF = not run and LB = sealed for all 12** — nothing
+passed triage, so none earned a walk-forward and all 12 lockboxes
+(2025-06-30→2026-06-30) are untouched. All fail the MAR ≥ 8 bar (ORB = 38.6); pick up
+the top 3 only.
 
-| # | Strategy · file | Best cell (exact) | MAR | PF | Net | Max DD | n | Verdict |
-|---|---|---|---|---|---|---|---|---|
-| 1 🥇 | **EMAX** · `EMAX_1_0.py` | `ema_fast=20, ema_slow=100, direction="long"` | **7.82** | 1.27 | $292.9k | −$37.4k | 1,810 | closest miss + real plateau (5 long cells on the slow-100 shelf hold MAR 6.1–7.8); simplest logic = fewest ways to fool ourselves |
-| 2 🥈 | **BBRSI** · `BBRSI_1_0.py` | `rsi_len=16, rsi_band=50, bb_len=20, bb_mult=1.5, direction="long", entry_mode="stop"` | 6.83 | 1.56 | $327.5k | −$48.0k | 550 | only mean-reversion candidate → most different from EMAX (diversifier). Its MAR-7.42 sibling fails n≥300 — do NOT substitute it |
-| 3 🥉 | **PMAX** · `PMAX_1_0.py` | `ma_type="SMA", ma_length=20, mult=2.0, atr_period=10, change_atr=True, direction="long"` | 6.29 | 1.22 | $261.8k | −$41.6k | 1,836 | best trend-flip — covers SUPERTREND + HULL (don't run those separately) |
-| 4 | ICHIHULL · `ICHIHULL_1_0.py` | `keh=14, dt=0.0025, direction="long"` | 5.83 | 1.35 | $193.0k | −$33.1k | 1,174 | regime-fail (62% post-2021) |
-| 5 | SUPERTREND · `SUPERTREND_3_0.py` | `atr_period=20, mult=3.0, direction="long"` | 4.84 | 1.15 | $274.5k | −$56.7k | 3,773 | dominated by PMAX (same mechanism) |
-| 6 | GOLDX · `GOLDX_1_0.py` | `sma_fast=975, sma_slow=3900, direction="long"` | 4.30 | 2.48 | $177.5k | −$41.3k | 44 | only 44 trades (sample floor) |
-| 7 | MACD200 · `MACD200_1_0.py` | `sma_len=100, direction="long"` | 3.84 | 1.37 | $234.5k | −$61.0k | 512 | dominated |
-| 8 | RSIDIV · `RSIDIV_1_0.py` | `rsi_len=5, tp_rsi_level=75, sl_type="PERC", max_pyramid=2` | 3.33 | 1.50 | $593.0k | −$178.0k | 360 | huge DD (no stop) |
-| 9 | HULL · `HULL_1_0.py` | `mode="Ehma", length=89, direction="long"` | 2.89 | 1.12 | $206.2k | −$71.3k | 4,553 | dominated |
-| 10 | FLAWLESS · `FLAWLESS_1_0.py` | `version="v1", rsi_buy_guard=50` | 2.71 | 1.24 | $109.6k | −$40.5k | 849 | dip-hold, 118-pt avg losers |
-| 11 | MACDRSI · `MACDRSI_1_0.py` | `rsi_os=35, lookback=5, direction="long"` | 1.91 | 1.23 | $214.3k | −$112.4k | 1,041 | dip-hold, 147-pt avg losers |
-| 12 | AOSTOCH · `AOSTOCH_1_0.py` | `atr_stop_mult=1.0, atr_tp_mult=2.0, direction="long"` | 0.11 | 1.01 | $4.0k | −$36.7k | 1,282 | ≈$0 over 15 yr — nothing there |
+| # | Strategy · file | Type — mechanism (indicators) | Best cell (long-only) | IS PF | IS MAR | IS Net | IS MaxDD | n | Note |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 🥇 | **EMAX** · `EMAX_1_0.py` | Trend — dual-MA crossover (EMA) | `ema_fast=20, ema_slow=100` | 1.27 | **7.82** | $292.9k | −$37.4k | 1,810 | closest miss; real plateau (5 long cells MAR 6.1–7.8) |
+| 2 🥈 | **BBRSI** · `BBRSI_1_0.py` | Mean-rev — band + oscillator (Bollinger + RSI) | `rsi_len=16, rsi_band=50, bb_mult=1.5` | 1.56 | 6.83 | $327.5k | −$48.0k | 550 | only mean-rev candidate (diversifier); MAR-7.42 sibling fails n≥300 |
+| 3 🥉 | **PMAX** · `PMAX_1_0.py` | Trend — ATR-trail on an MA (SuperTrend-on-MA) | `ma_type="SMA", ma_length=20, mult=2.0` | 1.22 | 6.29 | $261.8k | −$41.6k | 1,836 | best trend-flip; covers SUPERTREND + HULL |
+| 4 | ICHIHULL · `ICHIHULL_1_0.py` | Trend/confluence — Ichimoku + Hull MA + MACD | `keh=14, dt=0.0025` | 1.35 | 5.83 | $193.0k | −$33.1k | 1,174 | regime-fail (62% post-2021) |
+| 5 | SUPERTREND · `SUPERTREND_3_0.py` | Trend — ATR trailing-stop flip | `atr_period=20, mult=3.0` | 1.15 | 4.84 | $274.5k | −$56.7k | 3,773 | dominated by PMAX |
+| 6 | GOLDX · `GOLDX_1_0.py` | Trend — SMA 50/200 golden cross | `sma_fast=975, sma_slow=3900` | 2.48 | 4.30 | $177.5k | −$41.3k | 44 | only 44 trades (sample floor) |
+| 7 | MACD200 · `MACD200_1_0.py` | Momentum — MACD + SMA200 filter | `sma_len=100` | 1.37 | 3.84 | $234.5k | −$61.0k | 512 | dominated |
+| 8 | RSIDIV · `RSIDIV_1_0.py` | Reversal — RSI divergence (oscillator) | `rsi_len=5, tp_rsi_level=75, sl_type="PERC"` | 1.50 | 3.33 | $593.0k | −$178.0k | 360 | huge DD (no fixed stop) |
+| 9 | HULL · `HULL_1_0.py` | Trend — Hull MA slope | `mode="Ehma", length=89` | 1.12 | 2.89 | $206.2k | −$71.3k | 4,553 | dominated |
+| 10 | FLAWLESS · `FLAWLESS_1_0.py` | Mean-rev — band + oscillator (Bollinger 1σ + RSI) | `version="v1", rsi_buy_guard=50` | 1.24 | 2.71 | $109.6k | −$40.5k | 849 | dip-hold, 118-pt losers |
+| 11 | MACDRSI · `MACDRSI_1_0.py` | Pullback — MACD cross + RSI-oversold | `rsi_os=35, lookback=5` | 1.23 | 1.91 | $214.3k | −$112.4k | 1,041 | dip-hold, 147-pt losers |
+| 12 | AOSTOCH · `AOSTOCH_1_0.py` | Mean-rev — osc confluence + ATR bracket (AO+Stoch+RSI) | `atr_stop_mult=1.0, atr_tp_mult=2.0` | 1.01 | 0.11 | $4.0k | −$36.7k | 1,282 | ≈$0 over 15 yr |
 
-Full param dict for any row = the top-MAR entry of its `tools/r13_results/r13_<NAME>_results.json`.
+All best cells are `direction="long"`. Full param dict = top-MAR entry of
+`tools/r13_results/r13_<NAME>_results.json`.
+
+**Core-4 coverage:** the PUBLISHED defaults ran on ALL four core datasets (NQ/ES ×
+1m/5m) — in each JSON's `published` block. The TUNED corners above are **NQ 5m only**
+(the grid dataset); re-running them on ES + NQ 1m is a pickup step. As-shipped core-4
+for the top 3 (net / MAR; note these are the published *both*-direction configs, hence
+worse than the long-only corners above):
+
+| Strategy (as shipped) | NQ 5m | NQ 1m | ES 5m | ES 1m |
+|---|---|---|---|---|
+| EMAX (EMA 10/20, both) | −$97.8k / −0.7 | −$760.8k / −0.9 | −$73.0k / −0.5 | −$1.32M / −1.0 |
+| BBRSI (RSI 16/45/2σ, both) | −$171.4k / −0.7 | +$22.0k / 0.1 | +$92.9k / 1.2 | −$114.8k / −0.7 |
+| PMAX (EMA 10, ATR 10×3, both) | +$175.3k / 1.9 | −$7.0k / −0.0 | −$16.7k / −0.3 | −$103.2k / −0.6 |
 
 **Honest expected value, before you spend a session:** the best candidate here (7.82)
 enters stage 2 WEAKER than TTIBS did (12.3) — and TTIBS passed 6/6 walk-forward folds
