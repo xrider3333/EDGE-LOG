@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='58.2';
+const VERSION='58.3';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'58.3', date:'2026-07-18', notes:['Compare fullscreen explorer: the x-axis is now ONE shared calendar timeline across every strategy instead of each curve using its own 0-100% progress through its own run — every curve sits at its real dates, and a strategy that started later correctly shows no line before it began.','Compare fullscreen explorer: the drawdown pane now shows a dashed line and dollar label for EACH strategy at its own worst drawdown, in its own colour, instead of one shared grey worst-drawdown line for the whole chart.','Compare fullscreen explorer: the drawdown pane now leaves a small gap above the bottom axis instead of the deepest line sitting flush against it, and the pane can be dragged noticeably smaller.','Compare fullscreen explorer: once trades are loaded, the chart now sits at a fixed height you can drag to resize, the trade blotter flows below it at its full natural height, and the WHOLE explorer scrolls as one page instead of the blotter having its own inner scrollbar.','Compare fullscreen explorer: fixed the trade blotter column header so a narrow column no longer crops the expand button, and widened the compact columns so entry date, dollar amount and running total no longer run together.']},
   {v:'58.2', date:'2026-07-18', notes:['Fix: the best of each confirm dialog rows rendered as bare checkboxes (the app-wide input width stretched each checkbox across the whole row, shoving the run name and $ out of the card) — checkboxes are now fixed-size so every row reads name, run number and net $.']},
   {v:'58.1', date:'2026-07-18', notes:['Compare fullscreen explorer: the drawdown pane is now resizable (drag the divider between the two panes) and each strategy drawdown is filled in its own colour, not just outlined.','Compare fullscreen explorer: click a legend chip to cycle that strategy full - greyed - hidden - full, so a crowded overlay can be thinned out without deselecting it from Compare.','Compare fullscreen explorer: the x-axis now shows real calendar dates under the percent ticks (once a blotter or run date range is available), the axis strip is drag-to-scale like TradingView, and hovering the $ axis, the pane divider, or the x-axis now shows the matching resize cursor.','Compare fullscreen explorer: the trade blotter panel scrolls as ONE piece instead of each column separately, columns default to a compact view (# / entry / $ / cum $) with a button to expand to all 7 columns, columns are drag-resizable, and each column plus the legend now shows its instrument and timeframe.','Compare fullscreen explorer: each strategy curve gets a dashed reference line at its final $ with a right-edge label, and the equity/drawdown panes read as more clearly separate panels.','Compare · best of each now opens a confirm step listing every pick and its net $ before touching your selection, with ADD (merge) and REPLACE (swap) instead of overwriting instantly.']},
   {v:'58.0', date:'2026-07-17', notes:['Compare equity lines were confusing because the walk-forward dashes were drawn ON TOP of a solid line of the same colour, so the gaps just showed solid underneath. Each curve is now drawn as three NON-OVERLAPPING segments — SOLID in-sample, DASHED walk-forward, DOTTED lockbox — so the styles actually read, with a real visual key (line samples, not a sentence).','Compare fullscreen explorer: added a DRAWDOWN pane under the equity pane (each strategy drawdown-from-peak in its own colour), and % ticks + gridlines on the x-axis so you can tell where you are.','Compare fullscreen explorer: click-drag now pans cleanly like TradingView (it no longer fights text selection), and the crosshair reads the drawdown value (labelled dd) when the cursor is in the lower pane.','Compare fullscreen explorer: the trade blotters now show ALL selected strategies SIDE BY SIDE (one column each) instead of one tab at a time; click any row to fly the chart to that trade.']},
@@ -3040,10 +3041,12 @@ window.expandEquity=function(host){
 
 // ── window.expandCompareEq — fullscreen TradingView-style MULTI-curve explorer for the Compare
 //    tab's equity overlay tile. Mirrors expandEquity's modal/zoom/pan/scale-y interaction model
-//    (same wheel=zoom, drag=pan, drag-$-axis=scale-y, dbl-click=reset conventions) but simpler:
-//    the x-axis is FRACTIONAL PROGRESS 0..1 through each run (not a date axis — different runs
-//    have different lengths), so there is no time mapping and no drawdown pane, just N equity
-//    lines sharing one $ scale. Also adds keyboard navigation (arrows/+-/0/esc) per owner ask. ──
+//    (same wheel=zoom, drag=pan, drag-$-axis=scale-y, dbl-click=reset conventions), plus its own
+//    DRAWDOWN pane below the equity one. Since item 24 the x-axis is a SHARED CALENDAR-TIME span
+//    baked once by rebakeDomain() from every series real or approximate date range (falling back
+//    to old-style independent 0..1 per-run progress only if no series has any usable date info),
+//    so identical x means the same real date on every curve, and a later-starting strategy draws
+//    no line before it began. Also adds keyboard navigation (arrows/+-/0/esc) per owner ask. ──
 window.expandCompareEq=function(series){
   if(!series||!series.length)return;
   const S=series.filter(s=>s&&Array.isArray(s.eq)&&s.eq.length>=2);
@@ -3059,11 +3062,44 @@ window.expandCompareEq=function(series){
   const _fmtExit=(es,xs)=>{const pe=_cptD(es),px=_cptD(xs);if(!px)return String(xs||'');
     if(pe&&pe.y===px.y&&pe.mo===px.mo&&pe.d===px.d)return px.h+':'+px.mi;
     return _mdyy(px)+' '+px.h+':'+px.mi;};
-  // per-series point arrays: x = fractional progress through THAT run (0 = start, 1 = end)
+  // ── shared calendar x-axis state (item 24) + the blotter cache it reads — declared here,
+  //    BEFORE the PS build and rebakeDomain right below (rather than down by the Phase-2 blotter
+  //    code that reads/writes blotMap), so rebakeDomain — called once immediately below, and
+  //    again after every blotter load — never sees any of them in the temporal dead zone. ──
+  let tMin=null,tMax=null,timeMode=false;
+  let blotMap={},blotActive=null,blotLoaded=false,blotSel=null;
+  // per-series point arrays: x is now a SHARED CALENDAR-TIME fraction across every curve (item
+  //   24 — used to be fractional progress through THAT run, which made identical x mean different
+  //   real dates per run and let a later-starting strategy draw a line before it even began).
+  //   tr = this series own [date_from,date_to] run span in ms, when its run record carries one.
+  const _trOf=s=>{if(s.blot&&s.blot.date_from&&s.blot.date_to){const a=Date.parse(s.blot.date_from),b=Date.parse(s.blot.date_to);if(!isNaN(a)&&!isNaN(b)&&b>a)return [a,b];}return null;};
   const PS=S.map(s=>{const n=s.eq.length,li=(s.li!=null)?Math.max(0,Math.min(+s.li,n-1)):null,
       wfi=(s.wfi!=null)?Math.max(0,Math.min(+s.wfi,n-1)):null;
     return {id:s.id,label:String(s.label||('#'+s.id)),color:s.color||'#3a9bdc',li:li,wfi:wfi,blot:s.blot||null,vis:'on',
-      pts:s.eq.map((v,i)=>({x:(n>1?i/(n-1):0),v:v}))};});
+      tr:_trOf(s),pts:s.eq.map((v,i)=>({x:0,v:v,t:0}))};});
+  // rebakeDomain (item 24): bakes ONE shared tMin..tMax calendar span from every series real
+  //   (blotter-loaded, exact per-trade) or approximate (run date_from/date_to) date range, then
+  //   re-derives every point x-fraction (and .t) against that SAME span, so identical x always
+  //   means the same real date across every curve, and a series with no points yet at some x
+  //   honestly has no line there. Falls back to the old per-series 0..1 progress (timeMode=false)
+  //   only if NOT ONE series has any usable date info. Called once now (initial bake) and again
+  //   after loadAllBlotters swaps in exact per-trade timestamps.
+  const rebakeDomain=()=>{
+    let tmn=Infinity,tmx=-Infinity,any=false;
+    PS.forEach(sr=>{let a=null,b=null;const bm=blotMap[sr.id];
+      if(bm&&bm.rows&&bm.rows.length){const pa=Date.parse(bm.rows[0].et),pb=Date.parse(bm.rows[bm.rows.length-1].et);if(!isNaN(pa)&&!isNaN(pb)&&pb>=pa){a=pa;b=pb;}}
+      if(a==null&&sr.tr){a=sr.tr[0];b=sr.tr[1];}
+      sr._t0=a;sr._t1=b;if(a!=null&&b!=null){if(a<tmn)tmn=a;if(b>tmx)tmx=b;any=true;}});
+    timeMode=any&&tmx>tmn;
+    if(timeMode){tMin=tmn;tMax=tmx;
+      PS.forEach(sr=>{const bm=blotMap[sr.id],n=sr.pts.length;let t0=sr._t0,t1=sr._t1;if(t0==null){t0=tMin;t1=tMax;}if(t1<=t0)t1=t0+1;
+        sr.pts.forEach((p,i)=>{let t;
+          if(bm&&bm.rows&&bm.rows.length===n){const pv=Date.parse(bm.rows[i].et);t=isNaN(pv)?(t0+(n>1?i/(n-1):0)*(t1-t0)):pv;}
+          else t=t0+(n>1?i/(n-1):0)*(t1-t0);
+          p.t=t;p.x=(t-tMin)/((tMax-tMin)||1);});});
+    }else{tMin=tMax=null;PS.forEach(sr=>{const n=sr.pts.length;sr.pts.forEach((p,i)=>{p.x=(n>1?i/(n-1):0);p.t=null;});});}
+  };
+  rebakeDomain();
   // ── modal scaffold (same fixed-height non-wrapping header as expandEquity — a growing
   //    readout used to resize the chart under the cursor, the "glitch" that pattern avoids) ──
   const modal=document.createElement('div');
@@ -3077,7 +3113,7 @@ window.expandCompareEq=function(series){
     +'<button id="ceqx-blot" title="load each strategy trade blotter off your PC runner · Shift+click = regenerate fresh" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">▦ TRADES</button>'
     +'<button id="ceqx-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:2px;border-radius:6px">CLOSE ✕</button></span></div>'
     +'<div id="ceqx-main" style="flex:1;min-height:0;display:flex;flex-direction:column">'
-    +'<div id="ceqx-wrap" style="flex:1 1 auto;min-height:0;min-width:0;display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px;position:relative">'
+    +'<div id="ceqx-wrap" style="flex:1 1 auto;min-height:0;min-width:0;display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px;position:sticky;left:0">'
       +'<div id="ceqx-legend" style="position:absolute;top:16px;left:16px;z-index:3;display:flex;flex-direction:column;gap:3px;pointer-events:none;max-width:56%"></div>'
       +'<div id="ceqx-chart" style="flex:1;min-height:0;position:relative;cursor:crosshair"><svg id="ceqx-svg" style="display:block;width:100%;height:100%"></svg>'
       +'<div id="ceqx-vln" style="position:absolute;top:0;width:0;border-left:1px dashed var(--text4);opacity:.7;pointer-events:none;display:none"></div>'
@@ -3086,12 +3122,12 @@ window.expandCompareEq=function(series){
       +'<div id="ceqx-ychip" style="position:absolute;pointer-events:none;display:none;background:var(--text2);color:var(--bg1);font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;transform:translateY(-50%)"></div></div>'
     +'</div>'
     +'<div id="ceqx-gut" title="drag to resize the chart / trades split" style="display:none;flex:0 0 10px;align-items:center;justify-content:center;cursor:row-resize"><div style="background:var(--border);border-radius:2px;width:54px;height:3px"></div></div>'
-    +'<div id="ceqx-blotwrap" style="display:none;flex:0 0 34%;min-height:0;min-width:0;background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:auto"></div>'
+    +'<div id="ceqx-blotwrap" style="display:none;flex:0 0 auto;min-height:0;min-width:0;background:var(--bg2);border:1px solid var(--border);border-radius:12px"></div>'
     +'</div>';
   document.body.appendChild(modal);
   const el2=id=>modal.querySelector('#'+id);
   const svgEl=el2('ceqx-svg'),chartEl=el2('ceqx-chart'),read=el2('ceqx-read'),legendEl=el2('ceqx-legend'),
-    blotBtn=el2('ceqx-blot'),mainEl=el2('ceqx-main'),gut=el2('ceqx-gut'),wrap=el2('ceqx-blotwrap');
+    blotBtn=el2('ceqx-blot'),mainEl=el2('ceqx-main'),gut=el2('ceqx-gut'),wrap=el2('ceqx-blotwrap'),wrapEl=el2('ceqx-wrap');
   // legend KEY — same tiny inline-svg line samples as the inline overlay's key, stacked under
   //   the per-series legend (same #ceqx-legend flex column, so it inherits pointer-events:none
   //   and never grows the fixed-height header row).
@@ -3119,13 +3155,12 @@ window.expandCompareEq=function(series){
     };});
   };
   renderLegend();
-  // ── view state: [va,vb] are fractions of the FULL 0..1 x-domain. The domain here IS already
-  //    fractional progress (no dates), so unlike expandEquity there is no time mapping step. ──
-  let va=0,vb=1,yMan=null,ddFrac=0.3;
-  // blotMap/blotActive/etc are declared here (rather than down by the Phase-2 blotter code
-  //   that reads/writes them) so render() — defined right below and referencing blotMap for
-  //   the trade-dot overlay — never sees them in the temporal dead zone.
-  let blotMap={},blotActive=null,blotLoaded=false,blotSel=null,blotFrac=0.34;
+  // ── view state: [va,vb] are fractions of the FULL 0..1 x-domain. Since item 24 that domain is
+  //    a SHARED calendar-time span (tMin..tMax, baked by rebakeDomain above) instead of each
+  //    curve's own independent progress, so identical va/vb means the same real dates for every
+  //    series. chartFrac (item 23) is the chart's share of the main-panel height once the
+  //    blotter is open — drag the gut divider to resize it. ──
+  let va=0,vb=1,yMan=null,ddFrac=0.3,chartFrac=0.6;
   // per-column blotter width (item 15) and compact/full mode (item 16), keyed by series id.
   const colW={},colMode={};
   const GUT=68;
@@ -3135,7 +3170,9 @@ window.expandCompareEq=function(series){
     //   x-axis, small 8px gap between them, pB = the bottom x-label strip (two rows once real
     //   dates are known — item 17 — so taller than the old single-row 22px).
     const pw=W-GUT,pB=36,ah=H-pB;
-    let ddh=Math.round(ah*ddFrac);ddh=Math.max(40,Math.min(Math.max(40,ah-48),ddh));
+    // item 21b: floor lowered 40->32 so the DD pane can compress noticeably smaller when dragged;
+    //   the inner Math.max(40,ah-48) is a separate ceiling safeguard for tiny ah and stays as is.
+    let ddh=Math.round(ah*ddFrac);ddh=Math.max(32,Math.min(Math.max(40,ah-48),ddh));
     const eqh=ah-ddh-8;
     return {W:W,H:H,pw:pw,eqT:4,eqB:4+eqh,ddT:4+eqh+8,ddB:4+eqh+8+ddh-6,pB:pB};};
   const X=(g,x)=>(x-va)/((vb-va)||1)*g.pw;
@@ -3172,7 +3209,10 @@ window.expandCompareEq=function(series){
         const f=(p[hi].x>p[lo].x)?(cx-p[lo].x)/(p[hi].x-p[lo].x):0;return dd[lo]+(dd[hi]-dd[lo])*f;};
       PS.forEach(sr=>{if(sr.vis==='off')return;[_ddAt(sr,va),_ddAt(sr,vb)].forEach(v=>{if(v<ddMin)ddMin=v;});});}
     if(ddMin>=0)ddMin=-1;
-    const Yd=v=>g.ddT+(0-v)/((0-ddMin)||1)*(g.ddB-g.ddT);
+    // item 21a: pad the scale floor 12% past ddMin so the deepest line/point leaves a gap above
+    //   the x-axis strip instead of landing exactly on g.ddB (crammed against it).
+    const ddFloor=ddMin*1.12;
+    const Yd=v=>g.ddT+(0-v)/((0-ddFloor)||1)*(g.ddB-g.ddT);
     let s='';
     // $ gridlines + right labels (equity pane)
     const step=_niceStep((mx-mn)/5)||1;
@@ -3180,35 +3220,28 @@ window.expandCompareEq=function(series){
       s+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+g.pw+'" y2="'+y.toFixed(1)+'" stroke="var(--border)" stroke-width="'+(Math.abs(L)<1e-9?1:0.5)+'" opacity="'+(Math.abs(L)<1e-9?0.6:0.25)+'"/>'
         +'<text x="'+(g.pw+6)+'" y="'+(y+3.5).toFixed(1)+'" font-size="10" fill="'+(Math.abs(L)<1e-9?'var(--text4)':'var(--text5)')+'">'+fmt$(L)+'</text>';}
     s+='<line x1="'+g.pw+'" y1="0" x2="'+g.pw+'" y2="'+g.ddB.toFixed(1)+'" stroke="var(--border)" opacity="0.7"/>';
-    // x-axis reference series (item 17): pick a series to key real dates off — prefer one whose
-    //   blotter is loaded (exact per-trade timestamps), else fall back to its run date_from/
-    //   date_to span (approximate, marked with a leading ~). null = no usable series visible.
-    let ref=PS.find(s=>s.vis!=='off'&&blotMap[s.id]&&blotMap[s.id].rows&&blotMap[s.id].rows.length);
-    if(!ref)ref=PS.find(s=>s.vis!=='off'&&s.blot&&s.blot.date_from&&s.blot.date_to&&!isNaN(Date.parse(s.blot.date_from))&&!isNaN(Date.parse(s.blot.date_to)));
-    const _xDateStr=ref?(f=>{
-      f=Math.max(0,Math.min(1,f));
-      const bm=blotMap[ref.id];
-      if(bm&&bm.rows&&bm.rows.length){const row=bm.rows[Math.round(f*(bm.rows.length-1))],p=row?_cptD(row.et):null;return p?_mdyy(p):'';}
-      const t0=Date.parse(ref.blot.date_from),t1=Date.parse(ref.blot.date_to),dt=new Date(t0+(t1-t0)*f);
-      return '~'+(dt.getMonth()+1)+'/'+dt.getDate()+'/'+String(dt.getFullYear()).slice(2);
-    }):null;
-    // x-axis % progress ticks — the domain is fractional 0..1 progress through each run (runs
-    //   have different lengths so there is no shared date axis), so label "NN%" instead of dates,
-    //   plus a second real-date row underneath when a reference series is available (item 17).
-    //   Pick a nice step so ~4-8 ticks show across the visible [va,vb] window; each tick draws a
-    //   faint vertical gridline spanning BOTH panes (equity top -> drawdown bottom) plus the
-    //   label row(s) at the bottom. Recomputed every render, so panning/zooming relabels live.
+    // x-axis date labels (item 24): x is now a shared calendar-time fraction across ALL series
+    //   (rebakeDomain bakes tMin/tMax once from every series real or approximate date range), so
+    //   ONE date string function covers every tick/crosshair position — no more picking a single
+    //   reference series to key dates off.
+    const _xDateStr=timeMode?(f=>{f=Math.max(0,Math.min(1,f));const dt=new Date(tMin+f*(tMax-tMin));return (dt.getMonth()+1)+'/'+dt.getDate()+'/'+String(dt.getFullYear()).slice(2);}):null;
+    // x-axis ticks — va/vb are still fractions of the FULL domain, but since item 24 that domain
+    //   is a SHARED calendar span (when timeMode is on) instead of raw per-run progress, so every
+    //   "NN%" tick gets a second real-date row underneath it for free. Pick a nice step so ~4-8
+    //   ticks show across the visible [va,vb] window; each tick draws a faint vertical gridline
+    //   spanning BOTH panes (equity top -> drawdown bottom) plus the label row(s) at the bottom.
+    //   Recomputed every render, so panning/zooming relabels live.
     {const xSpanPct=(vb-va)*100,xStepsArr=[1,2,5,10,20,25,50];let xStep=50;
       for(let i2=0;i2<xStepsArr.length;i2++){if(xSpanPct/xStepsArr[i2]<=8){xStep=xStepsArr[i2];break;}}
       const xt0=Math.ceil((va*100-1e-6)/xStep)*xStep,nTk=Math.max(0,Math.floor((vb*100+1e-6-xt0)/xStep)+1);
       for(let k=0;k<nTk;k++){const xp=xt0+k*xStep,xf=xp/100,xPix=X(g,xf),edge=(Math.abs(xp)<1e-6||Math.abs(xp-100)<1e-6);
         s+='<line x1="'+xPix.toFixed(1)+'" y1="'+g.eqT+'" x2="'+xPix.toFixed(1)+'" y2="'+g.ddB.toFixed(1)+'" stroke="var(--border)" stroke-width="0.4" opacity="'+(edge?0.4:0.18)+'"/>'
           +'<text x="'+xPix.toFixed(1)+'" y="'+(g.H-24)+'" text-anchor="middle" font-size="8" fill="var(--text5)">'+Math.round(xp)+'%</text>'
-          +(ref?('<text x="'+xPix.toFixed(1)+'" y="'+(g.H-13)+'" text-anchor="middle" font-size="7.5" fill="var(--text5)">'+_xDateStr(xf)+'</text>'):'');}}
-    // item 18c: bottom axis line, plus (when a ref series is picked) a small note saying where
-    //   the real dates came from.
+          +(_xDateStr?('<text x="'+xPix.toFixed(1)+'" y="'+(g.H-13)+'" text-anchor="middle" font-size="7.5" fill="var(--text5)">'+_xDateStr(xf)+'</text>'):'');}}
+    // item 18c: bottom axis line, plus (when timeMode is on) a small note that the x-axis is a
+    //   shared calendar span rather than per-run progress.
     s+='<line x1="0" y1="'+(g.H-g.pB).toFixed(1)+'" x2="'+g.pw+'" y2="'+(g.H-g.pB).toFixed(1)+'" stroke="var(--border)" opacity="0.8"/>';
-    if(ref)s+='<text x="2" y="'+(g.H-3)+'" font-size="7" fill="var(--text5)" opacity="0.7">x dates: run #'+ref.id+'</text>';
+    if(timeMode)s+='<text x="2" y="'+(g.H-3)+'" font-size="7" fill="var(--text5)" opacity="0.7">x = calendar time (shared)</text>';
     // item 12: per-series ending-PnL dashed reference line + right-gutter $ label (equity pane).
     //   Drawn after the gridlines/axis but before the curves so the curves sit on top of it.
     PS.forEach(sr=>{if(sr.vis==='off')return;
@@ -3246,16 +3279,14 @@ window.expandCompareEq=function(series){
     s+='</g>';
     // DRAWDOWN pane — its own pane below the equity one: subtle bg (item 18b, drawn first so
     //   everything else in this pane sits on top), a stronger divider (item 18a), "DRAWDOWN"
-    //   label, a faint $0 line, a right-gutter ddMin label, then each curve's dd area FILL
-    //   (item 8, skipped for 'dim' and 'off') + SOLID stroke in its own colour ('off' skipped
-    //   entirely, 'dim' greyed — item 9).
+    //   label, a faint $0 line, then each curve's dd area FILL (item 8, skipped for 'dim' and
+    //   'off') + SOLID stroke in its own colour ('off' skipped entirely, 'dim' greyed — item 9).
+    //   Per-series worst-dd dashed lines + labels (item 20) are drawn LAST, below.
     s+='<rect x="0" y="'+(g.ddT-4).toFixed(1)+'" width="'+g.pw+'" height="'+(g.ddB-(g.ddT-4)).toFixed(1)+'" fill="color-mix(in srgb,var(--bg1) 45%,transparent)"/>'
       +'<line x1="0" y1="'+(g.ddT-4).toFixed(1)+'" x2="'+g.pw+'" y2="'+(g.ddT-4).toFixed(1)+'" stroke="var(--text4)" stroke-width="1" opacity="0.55"/>'
       +'<text x="0" y="'+(g.ddT+7).toFixed(1)+'" font-size="9" font-weight="700" letter-spacing="1" fill="var(--text4)" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">DRAWDOWN</text>'
       +'<line x1="0" y1="'+Yd(0).toFixed(1)+'" x2="'+g.pw+'" y2="'+Yd(0).toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.3"/>'
-      +'<text x="'+(g.pw+6)+'" y="'+(Yd(0)+3.5).toFixed(1)+'" font-size="9" fill="var(--text5)">$0</text>'
-      +'<line x1="0" y1="'+Yd(ddMin).toFixed(1)+'" x2="'+g.pw+'" y2="'+Yd(ddMin).toFixed(1)+'" stroke="var(--text5)" stroke-width="1" stroke-dasharray="5,3" opacity="0.45"/>'
-      +'<text x="'+(g.pw+6)+'" y="'+(Yd(ddMin)+3.5).toFixed(1)+'" font-size="9" fill="var(--text5)">'+fmt$(ddMin)+'</text>';
+      +'<text x="'+(g.pw+6)+'" y="'+(Yd(0)+3.5).toFixed(1)+'" font-size="9" fill="var(--text5)">$0</text>';
     s+='<g clip-path="url(#ceqx-clipd)">';
     PS.forEach(sr=>{if(sr.vis==='off'||sr.vis==='dim')return;const dd=ddMap[sr.id],ddPts=sr.pts.map((p,i2)=>({x:p.x,v:dd[i2]})),dvis=_clipN(ddPts);
       if(dvis.length<2)return;
@@ -3267,6 +3298,21 @@ window.expandCompareEq=function(series){
       s+='<path d="'+seg(dvis,Yd)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.3" opacity="'+strokeOp+'"/>';
     });
     s+='</g>';
+    // item 20: per-series worst-drawdown dashed line + right-gutter $ label — ONE per non-off
+    //   series, at THAT series own deepest drawdown across its WHOLE history (not just the
+    //   visible window, so the line does not jump around while panning/zooming), replacing the
+    //   old single aggregate ddMin line. Drawn LAST (outside the ceqx-clipd group, same as the
+    //   $0 line and the item-12 equity lines) so the x=g.pw+6 labels are not clipped away and sit
+    //   on top of the fills/strokes. Skipped when the mapped y falls past the pane — a series
+    //   whose all-time worst dd is deeper than what the CURRENT zoom scaled the pane to (its
+    //   line would otherwise draw into the x-axis label strip).
+    PS.forEach(sr=>{if(sr.vis==='off')return;
+      const dd=ddMap[sr.id],mDD=Math.min(0,Math.min.apply(null,dd)),y=Yd(mDD);
+      if(y>g.ddB)return;
+      const col=sr.vis==='dim'?'var(--text5)':sr.color;
+      s+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+g.pw+'" y2="'+y.toFixed(1)+'" stroke="'+col+'" stroke-width="1" stroke-dasharray="5,4" opacity="0.5"/>'
+        +'<text x="'+(g.pw+6)+'" y="'+(y+3).toFixed(1)+'" font-size="9" fill="'+col+'">'+fmt$(mDD)+'</text>';
+    });
     // trade dots (mirrors 1A): once a series' blotter has loaded, pts[i] IS trade i (the
     //   Phase-2 full-resolution swap keys the curve off per-trade cum-$), so a dot lands
     //   exactly on the curve. Density-guarded per series like 1A so a busy multi-curve view
@@ -3329,7 +3375,9 @@ window.expandCompareEq=function(series){
     chartEl.style.cursor='grabbing';};
   const mMove=e=>{
     if(ddDrag){const r=chartEl.getBoundingClientRect();
-      ddFrac=Math.max(0.12,Math.min(0.6,ddDrag.f0-(e.clientY-ddDrag.y0)/(r.height||1)));render();return;}
+      // item 21b: min lowered 0.12->0.08 (paired with the geo() ddh floor 40->32 above) so the
+      //   DD pane can be dragged noticeably smaller.
+      ddFrac=Math.max(0.08,Math.min(0.6,ddDrag.f0-(e.clientY-ddDrag.y0)/(r.height||1)));render();return;}
     if(xDrag){const k=Math.exp(-(e.clientX-xDrag.x0)*0.005),c=(xDrag.va0+xDrag.vb0)/2,half=(xDrag.vb0-xDrag.va0)/2*k;
       va=c-half;vb=c+half;clampView();render();return;}
     if(yDrag){const k=Math.max(0.15,1+(e.clientY-yDrag.y)*0.004);   // drag DOWN = compress (wider $ range)
@@ -3347,7 +3395,7 @@ window.expandCompareEq=function(series){
   chartEl.addEventListener('dblclick',resetView);
   el2('ceqx-reset').onclick=resetView;
   // multi-series crosshair: vertical hairline + a readout listing EVERY series interpolated
-  //   at the cursor's x-fraction, plus x shown as "NN% through run".
+  //   at the cursor's x-fraction, x led by the real date when timeMode is on (else "NN%").
   const vln=el2('ceqx-vln'),hln=el2('ceqx-hln'),xchip=el2('ceqx-xchip'),ychip=el2('ceqx-ychip');
   chartEl.addEventListener('mousemove',e=>{
     const st=svgEl._g;if(!st)return;const r=chartEl.getBoundingClientRect();
@@ -3368,17 +3416,26 @@ window.expandCompareEq=function(series){
     vln.style.left=(gx*sx)+'px';vln.style.top=(st.g.eqT*sy)+'px';vln.style.height=((st.g.ddB-st.g.eqT)*sy)+'px';
     hln.style.top=(gy*sy)+'px';hln.style.width=(st.g.pw*sx)+'px';
     const cx=va+(vb-va)*(gx/st.g.pw),pct=Math.round(Math.max(0,Math.min(1,cx))*100);
-    // item 17: append the real date (when a reference series is available) next to the % chip
+    // item 24: honest shared calendar x — the chip and readout lead with the real date once
+    //   timeMode is on (the old "NN% through run" framing no longer makes sense once every curve
+    //   shares ONE real-time axis instead of its own 0..1 progress through a run).
+    const dstr=st.xd?st.xd(cx):null;
     xchip.style.display='block';xchip.style.left=(gx*sx)+'px';xchip.style.top=((st.g.H-st.g.pB)*sy)+'px';
-    xchip.textContent=st.xd?(pct+'% · '+st.xd(cx)):(pct+'%');
+    xchip.textContent=dstr?dstr:(pct+'%');
     // y-chip: EQUITY $ when over the equity pane, DRAWDOWN $ (labelled) when over the DD pane
     let ychipTxt;
     if(gy<=st.g.eqB){ychipTxt=fmt$(st.mx-(st.mx-st.mn)*((gy-st.g.eqT)/((st.g.eqB-st.g.eqT)||1)));}
     else{const _dv=0-(0-st.ddMin)*((gy-st.g.ddT)/((st.g.ddB-st.g.ddT)||1));ychipTxt='dd '+fmt$(Math.min(0,_dv));}
     ychip.style.display='block';ychip.style.left=(st.g.pw*sx)+'px';ychip.style.top=(gy*sy)+'px';ychip.textContent=ychipTxt;
     // item 9: 'off' series drop out of the readout entirely; 'dim' series read out greyed.
-    read.innerHTML=pct+'% through run'+PS.filter(s=>s.vis!=='off').map(s=>{const v=interpAt(s,cx),isDim=s.vis==='dim',swCol=isDim?'var(--text5)':s.color;
-      return ' &middot; <span style="display:inline-flex;align-items:center;gap:3px;opacity:'+(isDim?0.55:1)+'"><span style="width:8px;height:8px;border-radius:2px;background:'+swCol+';display:inline-block"></span>'+s.label+' <b style="color:'+(isDim?'var(--text5)':(v>=0?'var(--green)':'var(--red)'))+'">'+fmt$(v)+'</b></span>';}).join('');
+    // item 24: a series outside its own real date span (had not started yet, or had already
+    //   ended — honest now that every curve shares one calendar axis) reads an em-dash instead
+    //   of interpAt's clamped edge value.
+    read.innerHTML=(dstr?dstr:(pct+'%'))+PS.filter(s=>s.vis!=='off').map(s=>{
+      const v=interpAt(s,cx),isDim=s.vis==='dim',swCol=isDim?'var(--text5)':s.color,
+        outOfSpan=(cx<s.pts[0].x-1e-9)||(cx>s.pts[s.pts.length-1].x+1e-9),
+        valHtml=outOfSpan?'<b style="color:var(--text5)">&mdash;</b>':('<b style="color:'+(isDim?'var(--text5)':(v>=0?'var(--green)':'var(--red)'))+'">'+fmt$(v)+'</b>');
+      return ' &middot; <span style="display:inline-flex;align-items:center;gap:3px;opacity:'+(isDim?0.55:1)+'"><span style="width:8px;height:8px;border-radius:2px;background:'+swCol+';display:inline-block"></span>'+s.label+' '+valHtml+'</span>';}).join('');
   });
   chartEl.addEventListener('mouseleave',()=>{vln.style.display=hln.style.display=xchip.style.display=ychip.style.display='none';read.textContent='';});
   // ── PHASE 2 TRADE BLOTTER: one tab per selected strategy, loaded off the PC runner
@@ -3388,24 +3445,56 @@ window.expandCompareEq=function(series){
   //    only if EVERY series fails). A successful load also swaps that series' point array to
   //    the full-resolution per-trade cum-$ series (mirrors 1A) so a zoomed-in line passes
   //    exactly through the trade values instead of the run's downsampled curve. ──
-  const layoutMain=()=>{const on=wrap.style.display!=='none';gut.style.display=on?'flex':'none';wrap.style.flex='0 0 '+(blotFrac*100).toFixed(1)+'%';};
+  // layoutMain (item 23): when the blotter is open, the CHART sits at a fixed (drag-resizable)
+  //   height on top and the blotter flows at its full natural height below, with `mainEl` as the
+  //   ONE scroller for the whole explorer — both axes: vertical so the page scrolls past the
+  //   chart into the blotter, horizontal so wide blotter columns can scroll into view. `wrap`
+  //   (blotwrap) itself is left fully 'visible' on purpose, NOT given its own overflow-x — CSS
+  //   forces overflow-x/overflow-y to travel together (setting one axis to anything but visible
+  //   silently promotes the other from visible to auto too), so giving blotwrap its own
+  //   horizontal scroll would make IT the nearest scroll container and the column headers'
+  //   position:sticky (renderBlotPanel) would pin to blotwrap — which never itself scrolls, since
+  //   its height is content-sized — instead of to mainEl, breaking the pin (verified against a
+  //   standalone test page before landing this). Letting the oversized column row bleed through
+  //   blotwrap (visible) up to mainEl (auto) keeps mainEl as the one true scroller, so both the
+  //   header stick-to-top below AND the chart's own stick-to-left (`#ceqx-wrap` is
+  //   position:sticky;left:0, set in the modal scaffold) anchor to the same element.
+  const layoutMain=()=>{
+    const on=wrap.style.display!=='none';
+    gut.style.display=on?'flex':'none';
+    if(on){
+      mainEl.style.overflowY='auto';mainEl.style.overflowX='auto';
+      const mh=mainEl.clientHeight||600;
+      wrapEl.style.flex='0 0 auto';wrapEl.style.height=Math.round(mh*chartFrac)+'px';
+      wrap.style.flex='0 0 auto';wrap.style.height='auto';wrap.style.overflowY='visible';wrap.style.overflowX='visible';
+    }else{
+      mainEl.style.overflowY='hidden';mainEl.style.overflowX='hidden';
+      wrapEl.style.flex='1 1 auto';wrapEl.style.height='auto';
+    }
+  };
   const _totalBlotRows=()=>PS.reduce((s2,p)=>s2+((blotMap[p.id]&&blotMap[p.id].rows)?blotMap[p.id].rows.length:0),0);
   // renderBlotPanel — SIDE-BY-SIDE columns, one per series with a loaded (or loading) blotter.
-  //   Item 10: the OUTER `wrap` (overflow:auto from the modal scaffold) is the ONLY vertical
-  //   scroller — columns no longer scroll independently, they flow at natural table height and
-  //   their header divs stick to the top of `wrap` as it scrolls, so every column's header stays
-  //   pinned together. HEADER_H is the exact px height of the sticky header row (built below with
-  //   a fixed height so the table thead — also sticky, offset by HEADER_H — sits flush under it).
+  //   Item 10: columns no longer scroll independently, they flow at natural table height. Since
+  //   item 23 `mainEl` (not `wrap`) is the one true scroller once the blotter is open (see
+  //   layoutMain above), so the header divs stick to the top of `mainEl` as it scrolls, keeping
+  //   every column's header pinned together. HEADER_H is the exact px height of the sticky header
+  //   row (built below with a fixed height so the table thead — also sticky, offset by HEADER_H —
+  //   sits flush under it).
   const HEADER_H=28;
   const renderBlotPanel=()=>{
     // rebuilding wrap.innerHTML resets its scroll — save/restore so a row-click, compact/full
-    //   toggle, or column-resize does not bounce the whole panel back to the top-left.
-    const _sT=wrap.scrollTop,_sL=wrap.scrollLeft;
+    //   toggle, or column-resize does not bounce the whole panel back to the top-left. Item 23:
+    //   wrap itself no longer scrolls when the blotter is open (mainEl does), so wrap.scrollTop/
+    //   scrollLeft are normally 0 either way — mainEl's are the pair that actually matter now,
+    //   saved/restored alongside wrap's own (harmless when wrap is the scroller, e.g. before the
+    //   panel has ever been laid out) so a rebuild never jumps the page.
+    const _sT=wrap.scrollTop,_sL=wrap.scrollLeft,_mT=mainEl.scrollTop,_mL=mainEl.scrollLeft;
     const withBlot=PS.filter(p=>p.blot);
     const cols=withBlot.map(p=>{
       const st=blotMap[p.id];
       const mode=colMode[p.id]||'compact',full=mode==='full';
-      const w=colW[p.id]||(full?330:200);
+      // item 22: compact default widened 200->240 so # / ENTRY / $ / CUM $ have room to breathe.
+      const w=colW[p.id]||(full?330:240);
       let tag='<span style="color:var(--text5)">…</span>';
       if(st&&st.err)tag='<span style="color:var(--red)">runner offline</span>';
       else if(st&&st.rows)tag='<span style="color:var(--text5)">'+st.rows.length+' trades'+(st.cached?' · saved':'')+'</span>';
@@ -3422,7 +3511,10 @@ window.expandCompareEq=function(series){
         const trs=rows.map((x,i)=>{
           const sel=(blotSel&&blotSel.sid===p.id&&blotSel.i===i);
           const open='<tr data-blot-sid="'+p.id+'" data-blot-row="'+i+'" style="cursor:pointer;border-top:1px solid var(--border2)'+(sel?';background:color-mix(in srgb,var(--blue) 16%,transparent)':'')+'" title="click to fly to this trade on the chart">';
-          const common='<td style="padding:3px 6px;color:var(--text5)">'+x.no+'</td>'
+          // item 22: # gets a fixed narrow width (was just a width:1% hint) and every compact
+          //   value cell is explicitly white-space:nowrap, so digits never end up touching at the
+          //   200(now 240)px compact column width — the reported "16/9/10 10:46-$226-$226" bug.
+          const common='<td style="padding:3px 6px;width:20px;white-space:nowrap;color:var(--text5)">'+x.no+'</td>'
             +'<td style="padding:3px 6px;white-space:nowrap">'+_fmtEntry(x.et)+'</td>';
           if(full)return open+common
             +'<td style="padding:3px 6px;white-space:nowrap">'+_fmtExit(x.et,x.xt)+'</td>'
@@ -3431,23 +3523,30 @@ window.expandCompareEq=function(series){
             +'<td style="padding:3px 6px;text-align:right;color:'+(x.cum>=0?'var(--text2)':'var(--red)')+'">'+fmt$(x.cum)+'</td>'
             +'<td style="padding:3px 6px;text-align:right;color:var(--text4)">'+x.hold+'</td></tr>';
           return open+common
-            +'<td style="padding:3px 6px;text-align:right;font-weight:700;color:'+(x.usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x.usd)+'</td>'
-            +'<td style="padding:3px 6px;text-align:right;color:'+(x.cum>=0?'var(--text2)':'var(--red)')+'">'+fmt$(x.cum)+'</td></tr>';
+            +'<td style="padding:3px 6px;text-align:right;white-space:nowrap;font-weight:700;color:'+(x.usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x.usd)+'</td>'
+            +'<td style="padding:3px 6px;text-align:right;white-space:nowrap;color:'+(x.cum>=0?'var(--text2)':'var(--red)')+'">'+fmt$(x.cum)+'</td></tr>';
         }).join('');
         const heads=full
           ?'<th style="padding:3px 6px;text-align:left;width:1%;white-space:nowrap">#</th><th style="padding:3px 6px;text-align:left">ENTRY</th><th style="padding:3px 6px;text-align:left">EXIT</th><th style="padding:3px 6px;text-align:right">PTS</th><th style="padding:3px 6px;text-align:right">$</th><th style="padding:3px 6px;text-align:right">CUM $</th><th style="padding:3px 6px;text-align:right;width:1%;white-space:nowrap" title="how many price bars the trade was held">HOLD (bars)</th>'
-          :'<th style="padding:3px 6px;text-align:left;width:1%;white-space:nowrap">#</th><th style="padding:3px 6px;text-align:left">ENTRY</th><th style="padding:3px 6px;text-align:right">$</th><th style="padding:3px 6px;text-align:right">CUM $</th>';
+          :'<th style="padding:3px 6px;text-align:left;width:20px;white-space:nowrap">#</th><th style="padding:3px 6px;text-align:left;white-space:nowrap">ENTRY</th><th style="padding:3px 6px;text-align:right;white-space:nowrap">$</th><th style="padding:3px 6px;text-align:right;white-space:nowrap">CUM $</th>';
         body2='<table style="width:100%;table-layout:auto;border-collapse:collapse;font-size:10px"><thead><tr style="position:sticky;top:'+HEADER_H+'px;background:var(--bg2);color:var(--text5);font-size:9px;letter-spacing:1px">'
           +heads+'</tr></thead><tbody>'+trs+'</tbody></table>';
       }
       // item 16: the ⤢/⤡ button toggles compact <-> full (clearing any dragged width so the
       //   new mode's default width applies); item 15: the column reads its width off colW[sid]
       //   with the mode default as fallback, and no longer stretches to fill (flex:0 0 <w>px).
+      // item 22: header rebuilt so the identity text (label + muted instrument/timeframe) is the
+      //   ONE flexible/shrinking piece (flex:1 1 auto;min-width:0, own ellipsis) — the swatch,
+      //   the trades/saved tag and the ⤢/⤡ toggle are all flex:0 0 auto so they keep their
+      //   natural size and are NEVER pushed off / cropped by a narrow column (the old bug: a
+      //   fixed max-width label plus un-shrinkable siblings could overflow the row, and
+      //   overflow:hidden cropped whatever sat furthest right — usually the toggle button).
       return '<div data-blot-col="'+p.id+'" style="flex:0 0 '+w+'px;min-width:'+w+'px;display:flex;flex-direction:column">'
-        +'<div style="position:sticky;top:0;z-index:2;height:'+HEADER_H+'px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:10px;white-space:nowrap;overflow:hidden">'
+        +'<div style="position:sticky;top:0;z-index:2;height:'+HEADER_H+'px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:10px;overflow:hidden">'
         +'<span style="width:10px;height:10px;border-radius:3px;background:'+p.color+';flex:0 0 auto"></span>'
-        +'<span style="max-width:140px;overflow:hidden;text-overflow:ellipsis;color:var(--text2)">#'+p.id+' '+p.label+'</span>'+instTf+tag
-        +'<button data-blot-toggle="'+p.id+'" title="toggle compact / full columns" style="margin-left:auto;flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text4);width:16px;height:16px;line-height:1;font-size:9px;cursor:pointer;border-radius:4px;padding:0">'+(full?'⤡':'⤢')+'</button>'
+        +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)" title="#'+p.id+' '+p.label+'">#'+p.id+' '+p.label+instTf+'</span>'
+        +'<span style="flex:0 0 auto;white-space:nowrap">'+tag+'</span>'
+        +'<button data-blot-toggle="'+p.id+'" title="toggle compact / full columns" style="flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text4);width:16px;height:16px;line-height:1;font-size:9px;cursor:pointer;border-radius:4px;padding:0">'+(full?'⤡':'⤢')+'</button>'
         +'</div>'+body2+'</div>';
     });
     // item 15: a thin drag handle between adjacent columns — dragging resizes the column to ITS
@@ -3457,12 +3556,15 @@ window.expandCompareEq=function(series){
     cols.forEach((c,i)=>{rowHtml+=c;if(i<cols.length-1)rowHtml+='<div data-blot-handle="'+withBlot[i].id+'" style="flex:0 0 5px;align-self:stretch;cursor:col-resize;background:var(--border);opacity:0.35"></div>';});
     wrap.innerHTML='<div style="display:flex;align-items:flex-start;min-height:100%">'
       +(rowHtml||'<div style="padding:22px;text-align:center;color:var(--text5);font-size:10px">no strategy in this selection has trades loaded</div>')+'</div>';
-    wrap.scrollTop=_sT;wrap.scrollLeft=_sL;
+    wrap.scrollTop=_sT;wrap.scrollLeft=_sL;mainEl.scrollTop=_mT;mainEl.scrollLeft=_mL;
     wrap.querySelectorAll('[data-blot-row]').forEach(tr=>{tr.onclick=()=>{
       const sid=+tr.dataset.blotSid,i=+tr.dataset.blotRow,cur=blotMap[sid];if(!cur||!cur.rows||!cur.rows[i])return;
       blotSel={sid:sid,i:i};
       const sr=PS.find(p=>p.id===sid);
-      if(sr){const n=sr.pts.length,cx=(n>1?i/(n-1):0),span=0.02;
+      // item 24: fly to THIS point's own baked x (calendar-time fraction, not an evenly-spaced
+      //   i/(n-1) guess — trades are not evenly spaced in real time) so the chart actually zooms
+      //   to when the trade happened instead of an unrelated stretch of the shared timeline.
+      if(sr&&sr.pts[i]){const cx=sr.pts[i].x,span=0.02;
         va=Math.max(0,cx-span/2);vb=Math.min(1,cx+span/2);clampView();render();}
       renderBlotPanel();
     };});
@@ -3503,12 +3605,15 @@ window.expandCompareEq=function(series){
         if(rows.length>2){
           const oldN=p.pts.length,oldLiFrac=(p.li!=null&&oldN>1)?(p.li/(oldN-1)):null,
             oldWfiFrac=(p.wfi!=null&&oldN>1)?(p.wfi/(oldN-1)):null;
-          p.pts=rows.map((x,i2)=>({x:(rows.length>1?i2/(rows.length-1):0),v:x.cum}));
+          p.pts=rows.map(x=>({x:0,v:x.cum,t:0}));
           p.li=(oldLiFrac!=null)?Math.round(oldLiFrac*(rows.length-1)):p.li;
           p.wfi=(oldWfiFrac!=null)?Math.round(oldWfiFrac*(rows.length-1)):p.wfi;
         }
       }catch(err){blotMap[p.id]={rows:null,err:(err&&err.message)||'failed'};}
     }));
+    // item 24: re-bake the shared calendar domain now that some series may carry exact per-trade
+    //   timestamps (loaded series) alongside others still on their approximate run date span.
+    rebakeDomain();
     blotLoaded=true;
     const total=_totalBlotRows();
     if(total>0){
@@ -3525,10 +3630,12 @@ window.expandCompareEq=function(series){
     if(blotLoaded&&!force){wrap.style.display=(wrap.style.display==='none')?'block':'none';layoutMain();render();return;}
     await loadAllBlotters(force);
   };
+  // item 23: the gut divider now resizes chartFrac (the chart's share of mainEl height) instead
+  //   of the old blotFrac — drag DOWN makes the chart TALLER (chartFrac grows with clientY).
   let _gutMv=null,_gutUp=null;
   gut.addEventListener('pointerdown',e=>{e.preventDefault();
-    const mr=mainEl.getBoundingClientRect(),f0=blotFrac,p0=e.clientY;
-    _gutMv=ev=>{const tot=mr.height;blotFrac=Math.max(0.15,Math.min(0.7,f0-(ev.clientY-p0)/(tot||1)));wrap.style.flex='0 0 '+(blotFrac*100).toFixed(1)+'%';render();};
+    const mr=mainEl.getBoundingClientRect(),f0=chartFrac,p0=e.clientY;
+    _gutMv=ev=>{chartFrac=Math.max(0.3,Math.min(0.85,f0+(ev.clientY-p0)/(mr.height||1)));layoutMain();render();};
     _gutUp=()=>{window.removeEventListener('pointermove',_gutMv);window.removeEventListener('pointerup',_gutUp);_gutMv=null;_gutUp=null;};
     window.addEventListener('pointermove',_gutMv);window.addEventListener('pointerup',_gutUp);});
   // ── keyboard nav (owner-requested): arrows pan, +/-/arrows zoom, 0/Home/R reset, Esc closes.
@@ -3544,7 +3651,10 @@ window.expandCompareEq=function(series){
     if(e.key==='0'||e.key==='Home'||e.key==='r'||e.key==='R'){resetView();e.preventDefault();return;}};
   document.addEventListener('keydown',keyHandler);
   // ── lifecycle ──
-  const onResize=()=>render();
+  // item 23: a window resize can change mainEl's own box height, which chartFrac's px height is
+  //   derived from — re-run layoutMain first (while the blotter is open) so the chart height gets
+  //   re-computed off the fresh mainEl.clientHeight before render() re-reads geo().
+  const onResize=()=>{if(wrap.style.display!=='none')layoutMain();render();};
   window.addEventListener('resize',onResize);
   const close=()=>{
     if(_gutMv){window.removeEventListener('pointermove',_gutMv);window.removeEventListener('pointerup',_gutUp);_gutMv=null;_gutUp=null;}
