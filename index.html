@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='58.5';
+const VERSION='58.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'58.6', date:'2026-07-18', notes:['Strategy identity: RSIDIV and TTIBS are now recognised families with their own Library numbers (RSIDIV #11, TTIBS #10) and correct names, so they show properly in Past Runs and the Library instead of RSIDIV rendering as AUGUR 1.0.']},
   {v:'58.5', date:'2026-07-18', notes:['Compare fullscreen explorer: click-dragging the chart now pans in BOTH directions like TradingView — a vertical drag slides the dollar scale too, instead of only panning left and right.','Compare fullscreen explorer: you can now drag the drawdown pane right-edge axis to scale or compress it, the same way the equity axis already worked.','Compare equity overlay (the non-expanded tile): now shows a drawdown pane beneath the equity curves too, each strategy filled in its own colour, without needing to open the fullscreen explorer.']},
   {v:'58.4', date:'2026-07-18', notes:['Config Analysis (2C PDP curves): a tuning knob whose best value is pinned at the edge of its tested range while the curve is still rising now shows an amber warning marker and a panel banner — it means the search stopped at its own boundary, so the true best value is likely further out and the range should be widened. Renders on existing saved runs too (computed in the browser when the run did not store it).']},
   {v:'58.3', date:'2026-07-18', notes:['Compare fullscreen explorer: the x-axis is now ONE shared calendar timeline across every strategy instead of each curve using its own 0-100% progress through its own run — every curve sits at its real dates, and a strategy that started later correctly shows no line before it began.','Compare fullscreen explorer: the drawdown pane now shows a dashed line and dollar label for EACH strategy at its own worst drawdown, in its own colour, instead of one shared grey worst-drawdown line for the whole chart.','Compare fullscreen explorer: the drawdown pane now leaves a small gap above the bottom axis instead of the deepest line sitting flush against it, and the pane can be dragged noticeably smaller.','Compare fullscreen explorer: once trades are loaded, the chart now sits at a fixed height you can drag to resize, the trade blotter flows below it at its full natural height, and the WHOLE explorer scrolls as one page instead of the blotter having its own inner scrollbar.','Compare fullscreen explorer: fixed the trade blotter column header so a narrow column no longer crops the expand button, and widened the compact columns so entry date, dollar amount and running total no longer run together.']},
@@ -6470,7 +6471,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const _abbrVer=base=>{const toks=String(base||'').replace(/\.py$/,'').split(/[_\s]+/).filter(Boolean);const isNum=t=>/^\d+(\.\d+)*$/.test(t);let k=toks.length;while(k>0&&isNum(toks[k-1]))k--;const nameT=toks.slice(0,k).filter(t=>!isNum(t));const verT=toks.slice(k);let abbr=(nameT[0]||base||'').toUpperCase();if(abbr.length<3&&nameT[1])abbr=(nameT[0]+nameT[1]).toUpperCase();return {abbr:abbr.slice(0,5),ver:verT.join('.')};};
     // Family keyword, searched ANYWHERE in the string (legacy run names often led with
     // the version, e.g. "1.3.1 ENGU 3 (CLAUDE)"); underscores/punctuation → spaces.
-    const _FAMRE=[[/opening|orb/,'ORB'],[/overnight/,'OVN'],[/engu/,'ENGU'],[/supertrend/,'ST'],[/revert/,'RVT'],[/vwap/,'VWAP'],[/randomforest|rfml|\brf\b/,'RFML']];
+    const _FAMRE=[[/opening|orb/,'ORB'],[/overnight/,'OVN'],[/engu/,'ENGU'],[/supertrend/,'ST'],[/revert/,'RVT'],[/vwap/,'VWAP'],[/randomforest|rfml|\brf\b/,'RFML'],[/rsidiv/,'RSIDIV'],[/ttibs/,'TTIBS']];
     const _famKey=s=>{const x=String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ');for(const fr of _FAMRE)if(fr[0].test(x))return fr[1];return '';};
     // ── FAMILY IDENTITY (owner 2026-07-11): a stable FAMILY number (birth order of the family,
     //    NOT the per-file creation rowid that scattered ORB across #18/#19/#20/None) + a fixed
@@ -6486,7 +6487,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       OVN:{abbr:'OVN',n:6,hue:330,full:'Overnight Hold',desc:'Close-to-open trend-gated overnight risk premium'},
       ORB:{abbr:'ORB',n:7,hue:25,full:'Opening Range Breakout',desc:'Breaks the session opening range with a volume filter'},
       'ENGU-Q':{abbr:'ENGU-Q',n:8,hue:165,full:'Engulfing-Quant',desc:'Data-derived ENGU rebuild: descending-trendline break, long-only'},
-      REPLAY:{abbr:'REPLAY',n:9,hue:0,full:'Discretionary Replay',desc:'Replays your discretionary trades for quant conversion'}};
+      REPLAY:{abbr:'REPLAY',n:9,hue:0,full:'Discretionary Replay',desc:'Replays your discretionary trades for quant conversion'},
+      TTIBS:{abbr:'TTIBS',n:10,hue:255,full:'Turnaround-Tuesday / IBS',desc:'Turnaround-Tuesday plus IBS mean-reversion (long)'},
+      RSIDIV:{abbr:'RSIDIV',n:11,hue:120,full:'RSI Divergence',desc:'RSI pivot-divergence long entries (TV round-13 port)'}};
     const _canonFam=s=>{const x=String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ');
       if(/enguq|engu q/.test(x))return 'ENGU-Q'; if(/replay/.test(x))return 'REPLAY'; return _famKey(s)||'';};
     // display ver+branch overrides for files whose token names read wrong (ORB 2-lot / BE / forks).
