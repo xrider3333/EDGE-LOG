@@ -302,7 +302,23 @@ unless stated) and TradingView House Rules respected — ports carry attribution
   stop-less published mode is the familiar high-WR/huge-loser shape (avg loser 85 pts).
 - **Reading:** divergence timing adds nothing once fills are honest; the money comes
   from holding long NQ for weeks. Lockbox untouched.
-- Artifacts: `r13_RSIDIV_1_0_results.json`.
+- **Pickup (2026-07-18) — Auto-Validate + DD-fix probe:** ran the app's Auto-Validate
+  (free-optimize · NQ 5m RTH · cost 0.533 · 200 trials · 12-mo lockbox · ES-transfer),
+  saved as **run #163**. **Verdict: FAIL (5/7 gates)** — ❌ sample (14.5 trades/param)
+  and ❌ PBO (0.60, "likely overfit selection"); passes plateau, WFE 1.74, consistency
+  6/8, DSR 0.89, ES-transfer (+$23k · PF 2.85). The PnL-ranked optimizer chased an
+  overfit corner (rsi 10 · lb 5/10 · PERC 12.5% stop · pyramid 4); in-sample PF 4.98;
+  lockbox reads huge (+$542k · PF 8.96) but on only **12 trades** — a mirage. Contrast
+  ENGU-Q #149 deploy: lockbox PF 1.39 on 142 trades (believable).
+- **DD-fix probe (frozen OOS):** the shipped no-stop mode is the DD cause; an **ATR
+  trailing stop** is the real DD lever. In-sample it looks great (as-shipped MAR 1.86 →
+  ATR×4 pyr2 MAR ~5.6; DD −$158k → −$84k), but on the sealed holdout (2025-07→2026-07)
+  ATR×4 pyr2 = **−$25.5k** (PF 0.94) — it LOSES, vs as-shipped +$28.4k. Only gentler
+  ATR×3 pyr2 (+$12.9k · DD −$47k) and ATR×4 pyr1 (+$8.7k · DD −$57k) stay marginally
+  green. **Reading:** the ATR stop's drawdown control generalizes, the underlying edge
+  does not — the in-sample DD "fix" is a curve-fit. RSIDIV stays ❌ DEAD (confirms §4).
+- Artifacts: `r13_RSIDIV_1_0_results.json`; `rsidiv_validate_result.json`,
+  `rsidiv_dd_grid.py`, `rsidiv_frozen_oos.py` (scratchpad); Auto-Validate **run #163**.
 
 ---
 
