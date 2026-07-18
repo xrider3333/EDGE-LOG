@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='57.8';
+const VERSION='57.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'57.9', date:'2026-07-17', notes:['Compare line styles redone per owner: SOLID = in-sample, DASHED = walk-forward, DOTTED = lockbox — consistent across the overlay, its legend, and the fullscreen explorer, at sane line thicknesses.','Compare fullscreen explorer: once trades are loaded, win/loss trade dots now sit ON the curves (like the 1A chart) when zoomed in enough to read them — click a dot to jump to that trade in the blotter.','Blotter table cleanup: compact dates (MM/DD/YY HH:MM, and exits on the same day show just the time), HOLD column labelled in bars with the stray b suffix dropped, tighter columns so everything fits.','Compare table: the IS chip was lit but coloured so grey it read as OFF — now blue, clearly showing in-sample ran.']},
   {v:'57.8', date:'2026-07-17', notes:['Compare fullscreen explorer: new TRADES button loads every selected strategy trade blotter off your PC runner — one colour-keyed tab per strategy, click a row to fly the chart to that trade. Once loaded a blotter is SAVED on this browser (same cache as the 1A explorer) so it never needs re-running; Shift+click TRADES regenerates fresh.','Loading a blotter also swaps that curve to full per-trade resolution, so zoomed-in lines pass through the real trade values.','Compare equity overlay legend is now honest: it only lists the walk-forward / lockbox line styles when the selected runs actually saved those slices (the dotted walk-forward key was showing for runs with no fold data).']},
   {v:'57.7', date:'2026-07-17', notes:['Compare · equity overlay is now expandable to a fullscreen multi-curve explorer (⛶ button on the tile, or double-click the chart) — all selected strategies on one canvas. Navigate it TradingView-style: wheel or +/- to zoom, drag or arrow keys to pan, drag the $ axis to scale it, double-click or 0 to reset, Esc to close. A live crosshair reads out every strategy $ at the cursor. (Per-strategy trade blotter in the expanded view is the next step.)']},
   {v:'57.6', date:'2026-07-17', notes:['Library: 8 dead strategy lineages (16 files) are now pre-archived by default - GROK ENGU 1.1.20/1.1.21/1.2.1, CLAUDE ENGU 1.3.1 through 1.3.5, REVERT 1.0/1.1/1.2, VWAP FADE 1.0, SuperTrend v1, Strict SuperTrend v2, Opening Range Breakout v2, and the ENGUD-Q 1m short mirror. They hide behind the same show N archived toggle as manually archived strategies - nothing deleted, one click to unhide any of them.']},
@@ -3045,6 +3046,13 @@ window.expandCompareEq=function(series){
   const S=series.filter(s=>s&&Array.isArray(s.eq)&&s.eq.length>=2);
   if(!S.length)return;
   const fmt$=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
+  // compact blotter date formatting (owner: raw "2010-06-07 10:50" strings ate too much width) —
+  //   ENTRY always shows MM/DD/YY HH:MM; EXIT drops the date part when it matches ENTRY's date.
+  const _cptD=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(s||''));return m?{y:m[1],mo:m[2],d:m[3],h:m[4],mi:m[5]}:null;};
+  const _fmtEntry=s=>{const p=_cptD(s);return p?(p.mo+'/'+p.d+'/'+p.y.slice(2)+' '+p.h+':'+p.mi):String(s||'');};
+  const _fmtExit=(es,xs)=>{const pe=_cptD(es),px=_cptD(xs);if(!px)return String(xs||'');
+    if(pe&&pe.y===px.y&&pe.mo===px.mo&&pe.d===px.d)return px.h+':'+px.mi;
+    return px.mo+'/'+px.d+'/'+px.y.slice(2)+' '+px.h+':'+px.mi;};
   // per-series point arrays: x = fractional progress through THAT run (0 = start, 1 = end)
   const PS=S.map(s=>{const n=s.eq.length,li=(s.li!=null)?Math.max(0,Math.min(+s.li,n-1)):null;
     return {id:s.id,label:String(s.label||('#'+s.id)),color:s.color||'#3a9bdc',li:li,blot:s.blot||null,
@@ -3081,6 +3089,10 @@ window.expandCompareEq=function(series){
   // ── view state: [va,vb] are fractions of the FULL 0..1 x-domain. The domain here IS already
   //    fractional progress (no dates), so unlike expandEquity there is no time mapping step. ──
   let va=0,vb=1,yMan=null;
+  // blotMap/blotActive/etc are declared here (rather than down by the Phase-2 blotter code
+  //   that reads/writes them) so render() — defined right below and referencing blotMap for
+  //   the trade-dot overlay — never sees them in the temporal dead zone.
+  let blotMap={},blotActive=null,blotLoaded=false,blotSel=null,blotFrac=0.34;
   const GUT=68;
   const _niceStep=x=>{x=Math.abs(x)||1;const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
   const geo=()=>{const r=chartEl.getBoundingClientRect(),W=Math.max(200,r.width),H=Math.max(160,r.height);
@@ -3111,7 +3123,7 @@ window.expandCompareEq=function(series){
     s+='<text x="4" y="'+(g.H-6)+'" font-size="9" fill="var(--text5)">start of run</text>'
       +'<text x="'+(g.pw-4)+'" y="'+(g.H-6)+'" text-anchor="end" font-size="9" fill="var(--text5)">end of run</text>';
     // equity paths — redrawn from data every render (clean given we re-render on every zoom/pan
-    //   anyway), solid up to each curve's own lockbox split, dashed for the lockbox tail after it.
+    //   anyway), solid up to each curve's own lockbox split, dotted for the lockbox tail after it.
     s+='<clipPath id="ceqx-clip"><rect x="0" y="0" width="'+g.pw+'" height="'+(g.H-g.pB)+'"/></clipPath>';
     const _clipN=(arr)=>{const n2=arr.length;if(n2<2)return [];
       let lo=arr.findIndex(p=>p.x>=va);if(lo<0)lo=n2;
@@ -3123,13 +3135,35 @@ window.expandCompareEq=function(series){
     PS.forEach(sr=>{const pts=sr.pts,li=sr.li;
       if(li!=null&&li>=0&&li<pts.length-1){
         if(li>0){const pre=_clipN(pts.slice(0,li+1));if(pre.length>1)s+='<path d="'+seg(pre)+'" fill="none" stroke="'+sr.color+'" stroke-width="1.6"/>';}
-        const post=_clipN(pts.slice(li));if(post.length>1)s+='<path d="'+seg(post)+'" fill="none" stroke="'+sr.color+'" stroke-width="1.6" stroke-dasharray="12,7" opacity="0.85"/>';
+        const post=_clipN(pts.slice(li));if(post.length>1)s+='<path d="'+seg(post)+'" fill="none" stroke="'+sr.color+'" stroke-width="2.2" stroke-dasharray="0.1,5" stroke-linecap="round" opacity="0.85"/>';
       }else{const all=_clipN(pts);if(all.length>1)s+='<path d="'+seg(all)+'" fill="none" stroke="'+sr.color+'" stroke-width="1.6"/>';}});
+    s+='</g>';
+    // trade dots (mirrors 1A): once a series' blotter has loaded, pts[i] IS trade i (the
+    //   Phase-2 full-resolution swap keys the curve off per-trade cum-$), so a dot lands
+    //   exactly on the curve. Density-guarded per series like 1A so a busy multi-curve view
+    //   doesn't turn into confetti; a transparent larger hit-circle makes each dot clickable.
+    s+='<g clip-path="url(#ceqx-clip)">';
+    PS.forEach(sr=>{const bm=blotMap[sr.id];if(!bm||!bm.rows||!bm.rows.length)return;
+      const rows=bm.rows,pts=sr.pts,nRows=Math.min(rows.length,pts.length);
+      let vis=[];for(let i2=0;i2<nRows;i2++){if(pts[i2].x>=va&&pts[i2].x<=vb)vis.push(i2);}
+      if(!vis.length||vis.length>400)return;
+      vis.forEach(i2=>{const x=X(g,pts[i2].x),y=Y(pts[i2].v),row=rows[i2];
+        s+='<circle data-ctd="'+sr.id+':'+i2+'" cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="7" fill="transparent" style="cursor:pointer"/>'
+          +'<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="2.6" fill="'+(row.usd>=0?'#1d9e75':'#e24b4a')+'" stroke="'+sr.color+'" stroke-width="1" style="pointer-events:none"/>';});});
     s+='</g>';
     svgEl.setAttribute('viewBox','0 0 '+g.W+' '+g.H);
     svgEl.innerHTML=s;
     svgEl._g={g:g,mn:mn,mx:mx};
   };
+  // trade-dot clicks: svgEl's innerHTML is rebuilt every render(), so the listener lives on
+  //   svgEl itself (delegated via closest()) rather than being re-bound to each circle.
+  svgEl.addEventListener('click',e=>{
+    const t=e.target.closest('[data-ctd]');if(!t)return;
+    const parts=t.dataset.ctd.split(':'),sid=+parts[0],i2=+parts[1];
+    blotSel={sid:sid,i:i2};blotActive=sid;
+    wrap.style.display='block';layoutMain();renderBlotPanel();
+    const el3=wrap.querySelector('[data-blot-row="'+i2+'"]');if(el3)el3.scrollIntoView({block:'center'});
+  });
   // ── interactions: wheel=zoom anchored at cursor, drag=pan, drag the $ gutter=scale y,
   //    double-click=reset. Same math shape as expandEquity, simplified to the 0..1 domain. ──
   const clampView=()=>{const span=vb-va,mnSpan=0.02;
@@ -3193,7 +3227,6 @@ window.expandCompareEq=function(series){
   //    only if EVERY series fails). A successful load also swaps that series' point array to
   //    the full-resolution per-trade cum-$ series (mirrors 1A) so a zoomed-in line passes
   //    exactly through the trade values instead of the run's downsampled curve. ──
-  let blotMap={},blotActive=null,blotLoaded=false,blotSel=null,blotFrac=0.34;
   const layoutMain=()=>{const on=wrap.style.display!=='none';gut.style.display=on?'flex':'none';wrap.style.flex='0 0 '+(blotFrac*100).toFixed(1)+'%';};
   const _totalBlotRows=()=>PS.reduce((s2,p)=>s2+((blotMap[p.id]&&blotMap[p.id].rows)?blotMap[p.id].rows.length:0),0);
   const renderBlotPanel=()=>{
@@ -3214,16 +3247,16 @@ window.expandCompareEq=function(series){
     }else{
       const rows=st.rows;
       const trs=rows.map((x,i)=>'<tr data-blot-row="'+i+'" style="cursor:pointer;border-top:1px solid var(--border2)'+((blotSel&&blotSel.sid===blotActive&&blotSel.i===i)?';background:color-mix(in srgb,var(--blue) 16%,transparent)':'')+'" title="click to fly to this trade on the chart">'
-        +'<td style="padding:4px 8px;color:var(--text5)">'+x.no+'</td>'
-        +'<td style="padding:4px 8px;font-size:10px;white-space:nowrap">'+x.et+'</td>'
-        +'<td style="padding:4px 8px;font-size:10px;white-space:nowrap">'+x.xt+'</td>'
-        +'<td style="padding:4px 8px;text-align:right;color:'+(x.pts>=0?'var(--green)':'var(--red)')+'">'+x.pts+'</td>'
-        +'<td style="padding:4px 8px;text-align:right;font-weight:700;color:'+(x.usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x.usd)+'</td>'
-        +'<td style="padding:4px 8px;text-align:right;color:'+(x.cum>=0?'var(--text2)':'var(--red)')+'">'+fmt$(x.cum)+'</td>'
-        +'<td style="padding:4px 8px;text-align:right;color:var(--text4)">'+x.hold+'b</td></tr>').join('');
-      body2='<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="position:sticky;top:29px;background:var(--bg2);color:var(--text5);font-size:9px;letter-spacing:1px">'
-        +'<th style="padding:5px 8px;text-align:left">#</th><th style="padding:5px 8px;text-align:left">ENTRY</th><th style="padding:5px 8px;text-align:left">EXIT</th>'
-        +'<th style="padding:5px 8px;text-align:right">PTS</th><th style="padding:5px 8px;text-align:right">$</th><th style="padding:5px 8px;text-align:right">CUM $</th><th style="padding:5px 8px;text-align:right">HOLD</th></tr></thead><tbody>'+trs+'</tbody></table>';
+        +'<td style="padding:3px 6px;color:var(--text5)">'+x.no+'</td>'
+        +'<td style="padding:3px 6px;white-space:nowrap">'+_fmtEntry(x.et)+'</td>'
+        +'<td style="padding:3px 6px;white-space:nowrap">'+_fmtExit(x.et,x.xt)+'</td>'
+        +'<td style="padding:3px 6px;text-align:right;color:'+(x.pts>=0?'var(--green)':'var(--red)')+'">'+x.pts+'</td>'
+        +'<td style="padding:3px 6px;text-align:right;font-weight:700;color:'+(x.usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x.usd)+'</td>'
+        +'<td style="padding:3px 6px;text-align:right;color:'+(x.cum>=0?'var(--text2)':'var(--red)')+'">'+fmt$(x.cum)+'</td>'
+        +'<td style="padding:3px 6px;text-align:right;color:var(--text4)">'+x.hold+'</td></tr>').join('');
+      body2='<table style="width:100%;table-layout:auto;border-collapse:collapse;font-size:10px"><thead><tr style="position:sticky;top:29px;background:var(--bg2);color:var(--text5);font-size:9px;letter-spacing:1px">'
+        +'<th style="padding:3px 6px;text-align:left;width:1%;white-space:nowrap">#</th><th style="padding:3px 6px;text-align:left">ENTRY</th><th style="padding:3px 6px;text-align:left">EXIT</th>'
+        +'<th style="padding:3px 6px;text-align:right">PTS</th><th style="padding:3px 6px;text-align:right">$</th><th style="padding:3px 6px;text-align:right">CUM $</th><th style="padding:3px 6px;text-align:right;width:1%;white-space:nowrap" title="how many price bars the trade was held">HOLD (bars)</th></tr></thead><tbody>'+trs+'</tbody></table>';
     }
     wrap.innerHTML='<div style="display:flex;gap:4px;flex-wrap:wrap;padding:8px 8px 4px;position:sticky;top:0;background:var(--bg2);z-index:2;border-bottom:1px solid var(--border)">'+tabs+'</div>'+body2;
     wrap.querySelectorAll('[data-blot-tab]').forEach(t=>{t.onclick=()=>{blotActive=+t.dataset.blotTab;renderBlotPanel();};});
@@ -8595,7 +8628,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           {l:'Market',f:x=>instTag(x.instrument)+' '+(x.timeframe||'')},
           {l:'Scope',f:x=>'<span style="font-size:var(--fsxs)">'+(x.scope||'')+'</span>'},
           {l:'Tests run',f:x=>{const a=_wfA(x),lb=x.validate&&x.validate.lockbox;
-            return _chip('IS',true,'var(--text3)','in-sample — every run optimizes on this window')
+            return _chip('IS',true,'var(--blue)','in-sample — every run optimizes on this window')
               +_chip('WF',!!a,(a&&a.held>=a.n/2)?'var(--green)':'var(--yellow)','walk-forward out-of-sample folds'+(a?(' · '+a.held+'/'+a.n+' held'):' — NOT run (numbers are in-sample only)'))
               +_chip('LB',!!lb,(lb&&lb.pass)?'var(--green)':'var(--red)','lockbox holdout'+(lb?(lb.pass?' · HELD':' · FAILED'):' — NOT run (numbers are in-sample only)'));}}];
         // Rows below are ordered into the SAME five sections as the Auto-Validate KPI matrix
@@ -8631,7 +8664,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(m.sec)_lastSec=m.sec;
           return secRow+'<tr><td style="color:var(--text4);font-size:var(--fsxs)">'+m.l+'</td>'+runs.map((r,i)=>'<td'+(i===bi?' style="font-weight:700;color:var(--green)"':'')+'>'+m.f(r)+'</td>').join('')+'</tr>';}).join('');
         // ── EQUITY OVERLAY: one coloured curve per selected run (validate equity, else the stored
-        //    grid/auto curve), x = progress through THAT run, dashed tail = its lockbox slice.
+        //    grid/auto curve), x = progress through THAT run, dotted tail = its lockbox slice.
         //    The legend colour keys the net P&L bars below too. ──
         const CLR=['#3a9bdc','#1d9e75','#e2a94b','#d6557a','#a78bfa','#5bc8c8','#c48fef','#7aa05a'];
         // Curve colour = the run's STRATEGY colour (stratColor), so the overlay hue matches the
@@ -8663,8 +8696,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _hasWf=withEq.some(c=>c.wf&&c.wf.length);
         const _hasLb=withEq.some(c=>c.li!=null&&c.li>1);
         const _ovlSub='· x = progress through each run · ── in-sample'
-          +(_hasWf?'&nbsp;&nbsp;&nbsp;·&nbsp;·&nbsp;· walk-forward (out-of-sample folds, approx bar-time mapped)':'')
-          +(_hasLb?'&nbsp;&nbsp;&nbsp;– – lockbox (unseen tail)':'')
+          +(_hasWf?'&nbsp;&nbsp;&nbsp;– – walk-forward (out-of-sample folds, approx bar-time mapped)':'')
+          +(_hasLb?'&nbsp;&nbsp;&nbsp;·&nbsp;·&nbsp;· lockbox (unseen tail)':'')
           +((!_hasWf&&!_hasLb)?'&nbsp;&nbsp;&nbsp;(this selection saved no walk-forward or lockbox slices)':'');
         // stash a serialisable payload for the fullscreen multi-curve explorer (⛶ button /
         //   dbl-click on the overlay below) — window.expandCompareEq reads this global. Each
@@ -8686,17 +8719,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
           for(let L=Math.ceil(emn/stp)*stp;L<=emx;L+=stp){const y=Yf(L);g2+='<line x1="'+pL+'" y1="'+y.toFixed(1)+'" x2="'+(pL+PW)+'" y2="'+y.toFixed(1)+'" stroke="var(--border)" stroke-width="'+(Math.abs(L)<1e-9?1:0.5)+'" opacity="'+(Math.abs(L)<1e-9?0.6:0.25)+'"/><text x="'+(pL+PW+6)+'" y="'+(y+3).toFixed(1)+'" font-size="9" fill="var(--text5)">'+fmtUsd(L)+'</text>';}
           const paths=withEq.map(c=>{const n2=c.eq.length,lim=(c.li!=null?c.li:n2-1);const P2=c.eq.map((v,i2)=>Xf(i2/(n2-1)).toFixed(1)+','+Yf(v).toFixed(1));
             let s3='';
-            // main curve FIRST — SOLID = in-sample up to the lockbox tick, DASHED = lockbox tail.
+            // main curve FIRST — SOLID = in-sample up to the lockbox tick, DOTTED = lockbox tail.
             if(c.li!=null&&c.li>1&&c.li<n2-1){
               const bx=Xf(c.li/(n2-1)),by=Yf(c.eq[c.li]);
               s3+='<polyline points="'+P2.slice(0,c.li+1).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6"/>'
-                +'<polyline points="'+P2.slice(c.li).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6" stroke-dasharray="12,7" opacity="0.85"/>'
+                +'<polyline points="'+P2.slice(c.li).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="2.2" stroke-dasharray="0.1,5" stroke-linecap="round" opacity="0.85"/>'
                 +'<line x1="'+bx.toFixed(1)+'" y1="'+(by-7).toFixed(1)+'" x2="'+bx.toFixed(1)+'" y2="'+(by+7).toFixed(1)+'" stroke="'+c.c+'" stroke-width="1.4" opacity="0.9"/>';
             }else s3+='<polyline points="'+P2.join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6"/>';
-            // WALK-FORWARD fold-test windows overdrawn as round DOTS ON TOP so the stretch reads
-            //   clearly as dotted (out-of-sample) instead of hiding under the solid line.
+            // WALK-FORWARD fold-test windows overdrawn DASHED ON TOP so the stretch reads
+            //   clearly as walk-forward (out-of-sample) instead of hiding under the solid line.
             (c.wf||[]).forEach(w2=>{const i0=Math.max(0,Math.min(lim,Math.round(w2[0]*lim))),i1=Math.max(i0+1,Math.min(lim,Math.round(w2[1]*lim)));
-              if(i1>i0)s3+='<polyline points="'+P2.slice(i0,i1+1).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="3.2" stroke-dasharray="0.1,8" stroke-linecap="round" opacity="0.95"/>';});
+              if(i1>i0)s3+='<polyline points="'+P2.slice(i0,i1+1).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="2" stroke-dasharray="7,4" opacity="0.95"/>';});
             return s3;}).join('');
           const xt='<text x="'+pL+'" y="'+(H2-6)+'" font-size="8" fill="var(--text5)">start of run</text><text x="'+(pL+PW)+'" y="'+(H2-6)+'" text-anchor="end" font-size="8" fill="var(--text5)">end of run</text>';
           ovl='<svg viewBox="0 0 '+W2+' '+H2+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" ondblclick="window.expandCompareEq(window._cmpEqxSeries)" title="double-click for the fullscreen multi-curve explorer">'+g2+paths+xt+'</svg>';
