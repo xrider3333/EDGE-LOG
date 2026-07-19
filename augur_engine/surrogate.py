@@ -36,6 +36,7 @@ OPTIONAL — if it's not importable the `gam` card degrades to a `skipped`
 string instead of raising.
 """
 import itertools
+import random as _random
 
 import numpy as np
 
@@ -72,7 +73,7 @@ except Exception:
     _gam_l = None
     HAS_PYGAM = False
 
-__all__ = ["surrogate_bakeoff", "HAS_XGBOOST", "HAS_SHAP", "HAS_PYGAM"]
+__all__ = ["surrogate_bakeoff", "propose_candidates", "HAS_XGBOOST", "HAS_SHAP", "HAS_PYGAM"]
 
 # ── guardrail thresholds (documented, not vibes) ───────────────────────────────
 MIN_POINTS = 40                 # below this the surface is too thin to fit anything honest
@@ -87,6 +88,10 @@ GP_HIGH_UNCERTAINTY_MULT = 1.5  # GP optimum flagged HIGH-uncertainty if its std
 PROBE_N_REPEATS = 10            # sklearn.inspection.permutation_importance repeats (both the main perm VOTE
                                 # and the noise-probe's own perm lens use this -- same count, same seed, so
                                 # a knob and the probe are read off strictly comparable measurements)
+
+# ── P2 steering knobs (#36, docs/SURROGATE_DISCOVERY_DESIGN.md §5/§7) ──────────
+STEER_MIN_POINTS = MIN_POINTS   # same "surface too thin" floor as the bake-off itself
+KAPPA_UCB = 1.6                 # Upper-Confidence-Bound acquisition weight: mu + kappa*sigma
 
 
 def _native(v):
@@ -209,6 +214,41 @@ class _Encoder:
         for j, fname in enumerate(self.feature_names):
             groups.setdefault(self.feature_param[fname], []).append(j)
         return groups
+
+
+class _PoolSampler:
+    """Deterministic legal-grid sampler for the STEERING candidate pool (#36) —
+    a duplicate of auto.py's `_RandomSampler` (same reason `_collapse_conditional`
+    above is a local duplicate rather than an import: this module must stay
+    import-clean of auto.py, which is the one that imports THIS module for the
+    surrogate integration; see that function's docstring). Draws directly from
+    `space` (run_auto's own `_auto_space_from_params(dp)` output), so every
+    candidate lands exactly on the same step-grid the main random loop itself
+    samples from -- never an off-grid / illegal value the strategy wasn't tuned on."""
+
+    def __init__(self, space, seed):
+        self.space = space
+        self._rng = _random.Random(seed)
+
+    def ask(self):
+        p = {}
+        for name, spec in self.space.items():
+            kind = spec[0]
+            if kind == "cat":
+                p[name] = self._rng.choice(spec[1])
+            elif kind == "int":
+                _, lo, hi, step = spec
+                step = max(1, int(step))
+                n = (hi - lo) // step
+                p[name] = lo + step * self._rng.randint(0, max(0, n))
+            else:
+                _, lo, hi, step = spec
+                if step and step > 0:
+                    n = int(round((hi - lo) / step))
+                    p[name] = round(lo + step * self._rng.randint(0, max(0, n)), 6)
+                else:
+                    p[name] = round(self._rng.uniform(lo, hi), 6)
+        return p
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1019,3 +1059,132 @@ def surrogate_bakeoff(points, pkeys, dp, ground_truth_fn=None, top_pairs=3, seed
            "sampled_best_pnl": sampled_best_pnl, "best_model": best_name,
            "models": cards, "consensus": consensus, "knob_screen": knob_screen,
            "knob_screen_probe": knob_screen_probe}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# P2 STEERING (#36, docs/SURROGATE_DISCOVERY_DESIGN.md §5) -- the acquisition
+# step the module docstring above says this file deliberately does NOT
+# implement (P1 was read-out only). `propose_candidates` is the one new piece:
+# fit a cheap GP to whatever has been evaluated so far, then pick the next
+# batch of LEGAL configs the GP thinks are worth actually backtesting (mu +
+# kappa*sigma, i.e. Upper-Confidence-Bound -- exploit high predicted PnL AND
+# explore where the GP is still uncertain). It never runs a backtest itself
+# and never touches the lockbox -- the caller (auto.py's run_auto) is the one
+# that ground-truths every proposal with the SAME `_ev(0, ksplit, ...)`
+# evaluator every random trial already goes through (§6 IS-only guardrail).
+# ─────────────────────────────────────────────────────────────────────────────
+def propose_candidates(records, pkeys, dp, space, n_propose, seed, pool_size=2000):
+    """Propose up to `n_propose` distinct, LEGAL (on-grid, depends_on-collapsed)
+    param configs the GP surrogate predicts are worth backtesting next, using an
+    Upper-Confidence-Bound acquisition (mu + KAPPA_UCB*sigma) over a random pool
+    of candidates. This is the P2 "aim the search" piece (docs §5/§7) -- the
+    caller decides what to DO with the proposals (run them for real, same as any
+    random trial); this function only ranks configs, it never runs a backtest.
+
+    records   : the run_auto SEARCH LOOP's own evaluated-record list -- each
+                {**params, **metrics} (e.g. total_pnl, num_trades, ...), the
+                EXACT shape the single-split loop already builds (NOT the bake-
+                off's `_pts_full`/pnl-dd shape -- this function does that
+                renaming itself, so the caller can hand it `records` straight
+                from run_auto's own local variable of the same name). Also
+                doubles as the "already evaluated" set: a candidate whose full
+                param signature already appears in `records` is dropped from
+                the pool (the same identical-combo dedupe the random sampler
+                itself already performs via its own `seen` set).
+    pkeys     : ordered tunable-param name list (run_auto's own `pkeys`).
+    dp        : the strategy's DEFAULT_PARAMS (types/min/max/step/hard_min/
+                hard_max/depends_on) -- used for `_collapse_conditional` so every
+                candidate has its inactive conditional params reset to default,
+                exactly like every trial the main loop itself evaluates.
+    space     : run_auto's own `_auto_space_from_params(dp)` search space -- the
+                candidate pool is drawn from this (via `_PoolSampler`, a local
+                duplicate of auto.py's own `_RandomSampler`), so every candidate
+                sits on the SAME step-grid / bounds / categorical-option-set the
+                random sampler itself draws from -- never an off-grid or
+                out-of-range value.
+    n_propose : how many distinct configs to return (<= pool_size).
+    seed      : determinism knob for BOTH the GP-tractability subsample (if the
+                point count exceeds GP_MAX_POINTS, same cap/convention as the
+                bake-off) and the candidate-pool sampler. The GP fit itself is
+                already pinned to random_state=0 inside `_StdYGP`/sklearn's own
+                optimizer restarts (n_restarts_optimizer=0), so the whole
+                pipeline is bit-for-bit reproducible under a given `seed`.
+    pool_size : how many random legal candidates to draw before scoring/ranking
+                (default 2000) -- cheap (GP `.predict` calls only, no real
+                backtest), just the search space the acquisition picks from.
+
+    Returns [] -- NEVER raises -- whenever there isn't enough signal to fit an
+    honest GP (<STEER_MIN_POINTS evaluated records, or fewer than one varying
+    param), the GP fit itself errors, or no legal unseen candidate survives the
+    pool draw. The caller MUST treat an empty list as "fall back to random for
+    this batch" (docs §6 guardrail: a steering failure must never kill a run).
+    """
+    try:
+        pts = [dict({k: r.get(k) for k in pkeys}, pnl=float(r.get("total_pnl", 0) or 0))
+               for r in (records or []) if isinstance(r, dict)]
+        if len(pts) < STEER_MIN_POINTS:
+            return []
+        vary = [k for k in pkeys if len({str(p.get(k)) for p in pts}) > 1]
+        if not vary:
+            return []
+
+        enc = _Encoder(pkeys, dp, pts)
+        X = enc.transform(pts)
+        y = np.array([float(p.get("pnl", 0) or 0) for p in pts], dtype=float)
+        n = len(pts)
+        y_mean, y_std = float(y.mean()), float(y.std() or 1.0)
+
+        gp_X, gp_y = X, y
+        if n > GP_MAX_POINTS:
+            rng = np.random.RandomState(int(seed))
+            idx = sorted(rng.choice(n, size=GP_MAX_POINTS, replace=False).tolist())
+            gp_X, gp_y = X[idx], y[idx]
+
+        gp = _StdYGP(kernel=None, y_mean=y_mean, y_std=(y_std or 1.0))
+        gp.fit(gp_X, gp_y)
+    except Exception:
+        return []
+
+    # "seen" signatures straight off the records handed in -- the exact same
+    # dedupe key run_auto's own search loop uses (tuple(sorted(pe.items())),
+    # restricted to pkeys since that IS pe's own key set).
+    seen_sigs = set()
+    for r in (records or []):
+        if not isinstance(r, dict):
+            continue
+        seen_sigs.add(tuple(sorted((k, r.get(k)) for k in pkeys)))
+
+    samp = _PoolSampler(space, seed=int(seed))
+    cand_rows = []
+    cand_sigs = set()
+    pool_target = max(1, int(pool_size))
+    max_tries = max(pool_target * 5, pool_target + 50)
+    tries = 0
+    while len(cand_rows) < pool_target and tries < max_tries:
+        tries += 1
+        pe = _collapse_conditional(samp.ask(), dp)
+        # every categorical/bool value must be one this run's _Encoder actually
+        # knows how to one-hot -- otherwise it silently encodes as "none of the
+        # observed categories" (see _Encoder docstring), which would make the
+        # GP score it off a degenerate all-zero column for that param.
+        if any(pe.get(k) not in enc.cat_values.get(k, []) for k in enc.cat_params):
+            continue
+        sig = tuple(sorted((k, pe.get(k)) for k in pkeys))
+        if sig in seen_sigs or sig in cand_sigs:
+            continue
+        cand_sigs.add(sig)
+        cand_rows.append(pe)
+
+    if not cand_rows:
+        return []
+
+    try:
+        Xc = enc.transform(cand_rows)
+        mu, sd = gp.predict(Xc, return_std=True)
+    except Exception:
+        return []
+
+    scores = np.asarray(mu, dtype=float) + KAPPA_UCB * np.asarray(sd, dtype=float)
+    order = np.argsort(-scores, kind="stable")
+    n_take = max(0, min(int(n_propose), len(cand_rows)))
+    return [cand_rows[int(i)] for i in order[:n_take]]

@@ -1,7 +1,12 @@
 # Surrogate-Model Param Discovery (#31) — design proposal
 
-**Status:** design only (not built). Companion to the shipped boundary-peak detector (#25),
-auto-expand (#26), and iterative joint expansion (#30). This is the "true 2-D searcher."
+**Status:** P1 (read-out bake-off) SHIPPED 2026-07-18 (`augur_engine/surrogate.py`, 2L panel;
+5 models incl. pyGAM since #35). P2 (steering) SHIPPED 2026-07-19 behind the off-by-default
+`auto_steer` flag (#36): `propose_candidates` (GP + Upper-Confidence-Bound over a legal-grid
+candidate pool) + the seed→steer loop in `run_auto`. Acceptance A/B (TTIBS NQ, 150 trials,
+seed 42, lockbox held out): random best IS 19,738 pts (found at trial 28, then flat) vs
+steered 21,440 pts (+8.6%, still improving at trial 107); 0 GP-fit fallbacks. One strategy /
+one seed — steering stays off by default until it repeats on another family. P3 still open.
 
 **Plain-language rule:** every term is defined on first use.
 

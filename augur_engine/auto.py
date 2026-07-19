@@ -20,6 +20,7 @@ Determinism: seeded random sampler (seed=42), no optuna dependency, so results a
 reproducible across machines — matching the app's _HAS_OPTUNA=False fallback path.
 """
 import inspect
+import math
 import random as _random
 
 from .strategies import load_strategy, _resolve, strategy_params
@@ -431,7 +432,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
              compute_regime=False, compute_neighbors=False, compute_pills=False,
              date_from=None, date_to=None, wf_mode="anchored",
              auto_expand=True, auto_expand_max_rounds=2, auto_expand_max_global_rounds=6,
-             compute_surrogate=False):
+             compute_surrogate=False,
+             auto_steer=False, steer_seed_frac=0.4, steer_batch_frac=0.15):
     """Smart search. Returns the same shape as run_grid plus OOS columns.
 
     method="single" or "walkforward". Returns {mode,n_combos,n_valid,top[...],
@@ -470,6 +472,32 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
     steering (P2) — the sampler above is completely untouched either way. Attaches
     `out["surrogate"]` (see augur_engine.surrogate.surrogate_bakeoff's docstring for
     the schema) or `{"error": ...}` if the bake-off itself failed — never raises.
+
+    auto_steer (default False, non-WF runs only): P2 STEERING (#36,
+    docs/SURROGATE_DISCOVERY_DESIGN.md §5/§7) — makes the ML surrogate AIM the
+    search instead of only reading it out afterward (P1/`compute_surrogate` above).
+    Off by default; the plain `_RandomSampler` loop above is what runs otherwise,
+    byte-identical to before. When True, the single-split search loop spends its
+    budget in two phases instead of one:
+      1. SEED   — the first `steer_seed_frac` (default 0.4) of `n_trials`, sampled
+                  and evaluated EXACTLY as the always-random path does.
+      2. STEER  — repeat: fit `augur_engine.surrogate.propose_candidates` on every
+                  record evaluated so far (seed + prior steered batches) and ask it
+                  for a batch of `ceil(steer_batch_frac * n_trials)` (default 0.15)
+                  GP-proposed configs (Upper-Confidence-Bound acquisition — exploit
+                  predicted-high-PnL regions AND explore where the GP is still
+                  uncertain); evaluate each with the SAME `_ev(0, ksplit, ...)` +
+                  min_trades + seen-dedupe gate every random trial goes through, and
+                  append to `records` just like any other point. If `propose_candidates`
+                  returns nothing (too few points yet, or the GP fit itself failed —
+                  wrapped in try/except so a steering failure can never kill the run),
+                  that batch falls back to plain random sampling instead. Repeats
+                  until `n_trials` total evaluations (seed + steered + fallback) have
+                  been spent — same total trial budget as the non-steered path.
+    Steered/fallback records are ORDINARY records — ranking, plateau/auto-expand,
+    the surrogate P1 read-out, and every downstream analytic work on them unchanged.
+    When `auto_steer` is True, `out["steering"] = {"used": True, "seed_trials": int,
+    "steered_trials": int, "fallback_random": int}` is attached; absent when False.
     """
     path = _resolve(strategy) if isinstance(strategy, str) else None
     mod = load_strategy(strategy) if isinstance(strategy, str) else strategy
@@ -525,6 +553,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
     n = len(C)
     oos_on = bool(oos) and n >= 200
     records = []   # each: {**params, **metrics, oos_*...}
+    steer_info = None   # set only by the non-WF branch when auto_steer=True (#36)
 
     if method == "walkforward" and oos_on and n >= 4000:
         # ── Walk-forward: anchored (expanding IS from 0) or rolling (fixed-length
@@ -594,16 +623,75 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
         samp = _RandomSampler(space, seed=seed)
         ksplit = int(n * OOS_SPLIT) if oos_on else n
         seen = set()
-        for i in range(n_trials):
-            pe = _collapse(samp.ask(), dp)
+
+        def _eval_one(pe):
+            """Evaluate one config on the IS window; append+dedupe into
+            records/seen exactly like the plain random loop always has. Shared
+            by both the always-random path and the P2 steering path below so
+            the two can never drift apart in gating/dedupe semantics."""
             m = _ev(0, ksplit, pe)
             if m and m.get("num_trades", 0) >= min_trades:
                 sig = tuple(sorted(pe.items()))
                 if sig not in seen:
                     seen.add(sig)
                     records.append({**pe, **m})
-            if progress_cb and (i % 10 == 0 or i + 1 == n_trials):
-                progress_cb(i + 1, n_trials)
+
+        if auto_steer:
+            # P2 STEERING (#36, docs/SURROGATE_DISCOVERY_DESIGN.md §5/§7) — spend
+            # the first `steer_seed_frac` of the budget exactly as random search
+            # always has, then let the GP surrogate (augur_engine.surrogate.
+            # propose_candidates) AIM the remaining batches via UCB acquisition,
+            # falling back to random whenever it has nothing to propose. Total
+            # evaluations spent == n_trials, same budget as the non-steered path.
+            n_seed = max(1, min(n_trials, int(round(steer_seed_frac * n_trials))))
+            batch_n = max(1, int(math.ceil(steer_batch_frac * n_trials)))
+            fallback_random = 0
+            done = 0
+            for _ in range(n_seed):
+                pe = _collapse(samp.ask(), dp)
+                _eval_one(pe)
+                done += 1
+                if progress_cb and (done % 10 == 0 or done == n_trials):
+                    progress_cb(done, n_trials)
+            while done < n_trials:
+                batch = min(batch_n, n_trials - done)
+                proposals = []
+                try:
+                    from .surrogate import propose_candidates
+                    proposals = propose_candidates(records, pkeys, dp, space,
+                                                   n_propose=batch, seed=int(seed) + done)
+                except Exception:
+                    proposals = []
+                if not proposals:
+                    # nothing proposed (too few points yet, GP fit failed, or the
+                    # pool was exhausted) — fall back to plain random for this
+                    # whole batch, exactly the guardrail the design doc requires
+                    # (a steering failure must never kill/shrink a run's budget).
+                    fallback_random += batch
+                    for _ in range(batch):
+                        pe = _collapse(samp.ask(), dp)
+                        _eval_one(pe)
+                        done += 1
+                        if progress_cb and (done % 10 == 0 or done == n_trials):
+                            progress_cb(done, n_trials)
+                else:
+                    for pe0 in proposals:
+                        pe = _collapse(dict(pe0), dp)
+                        _eval_one(pe)
+                        done += 1
+                        if progress_cb and (done % 10 == 0 or done == n_trials):
+                            progress_cb(done, n_trials)
+                        if done >= n_trials:
+                            break
+            steer_info = {"used": True, "seed_trials": n_seed,
+                         "steered_trials": max(0, n_trials - n_seed - fallback_random),
+                         "fallback_random": fallback_random}
+        else:
+            for i in range(n_trials):
+                pe = _collapse(samp.ask(), dp)
+                _eval_one(pe)
+                if progress_cb and (i % 10 == 0 or i + 1 == n_trials):
+                    progress_cb(i + 1, n_trials)
         if oos_on:
             for rec in records:
                 pp = {k: rec[k] for k in pkeys if k in rec}
@@ -616,10 +704,13 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
         is_wf = False
 
     if not records:
-        return {"mode": method, "n_combos": n_trials * (1 if not is_wf else 1),
+        _out0 = {"mode": method, "n_combos": n_trials * (1 if not is_wf else 1),
                 "n_valid": 0, "top": [], "best_params": None, "best": None,
                 "bars": int(n), "master": (arrays.get("meta") or {}).get("name"),
                 "no_results": True}
+        if steer_info is not None:
+            _out0["steering"] = steer_info
+        return _out0
 
     # ── Rank ────────────────────────────────────────────────────────────────
     if is_wf:
@@ -651,6 +742,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
            "best": {k: best.get(k) for k in _METRIC_KEYS if k in best},
            "bars": int(n), "master": (arrays.get("meta") or {}).get("name"),
            "wf": is_wf}
+    if steer_info is not None:   # P2 steering (#36) — only ever set by the non-WF branch
+        out["steering"] = steer_info
     if not is_wf:   # config-PnL spread + param points for distribution / scatter / heatmap
         out["dist"] = downsample_pnls([r.get("total_pnl", 0) for r in records])
         # pnl AND dd per config (dd = drawdown magnitude, engine pts) so the web's param
