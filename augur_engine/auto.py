@@ -430,7 +430,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
              compute_dsr=False, mc_sims=0, progress_cb=None, years=None,
              compute_regime=False, compute_neighbors=False, compute_pills=False,
              date_from=None, date_to=None, wf_mode="anchored",
-             auto_expand=True, auto_expand_max_rounds=2, auto_expand_max_global_rounds=6):
+             auto_expand=True, auto_expand_max_rounds=2, auto_expand_max_global_rounds=6,
+             compute_surrogate=False):
     """Smart search. Returns the same shape as run_grid plus OOS columns.
 
     method="single" or "walkforward". Returns {mode,n_combos,n_valid,top[...],
@@ -459,6 +460,16 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
     note}, and `out["auto_expand_summary"]` carries {global_rounds_used,
     n_params_expanded, n_emerged, converged:bool} — converged is True iff the joint
     surface fully stabilized (nothing left rising) before max_global_rounds.
+
+    compute_surrogate (default False, non-WF runs only): opt-in MULTI-SURROGATE
+    BAKE-OFF READ-OUT (#31 P1, docs/SURROGATE_DISCOVERY_DESIGN.md) — fits several
+    models (quadratic response surface, Random Forest, XGBoost, Gaussian Process)
+    to the SAME configs the random sampler already evaluated, cross-validates each,
+    reads the best one's joint optimum + 2-way interactions, and ground-truths every
+    model's proposed optimum with a real backtest on this run's own IS window. NO
+    steering (P2) — the sampler above is completely untouched either way. Attaches
+    `out["surrogate"]` (see augur_engine.surrogate.surrogate_bakeoff's docstring for
+    the schema) or `{"error": ...}` if the bake-off itself failed — never raises.
     """
     path = _resolve(strategy) if isinstance(strategy, str) else None
     mod = load_strategy(strategy) if isinstance(strategy, str) else strategy
@@ -686,6 +697,27 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 "search_truncated": _pp["search_truncated"],
                 "same_as_best": bool({k: _prow.get(k) for k in pkeys} == _bp),
             }
+
+        # Multi-surrogate bake-off READ-OUT (#31 P1, docs/SURROGATE_DISCOVERY_DESIGN.md).
+        # Opt-in (default False) until reviewed. Fits the bake-off to the SAME configs
+        # the random sampler already evaluated (`_pts_full`, pre-auto-expand) — no
+        # steering (P2), the sampler itself is untouched. `ground_truth_fn` reuses the
+        # exact IS evaluator every sampled point already went through (_ev(0, ksplit,
+        # ...), same costs applied) — never a new/different backtest path. A surrogate
+        # failure must never kill the run, hence the blanket try/except.
+        if compute_surrogate:
+            try:
+                from .surrogate import surrogate_bakeoff
+
+                def _surrogate_ground_truth(params):
+                    return _ev(0, ksplit, params)
+
+                _surr = surrogate_bakeoff(_pts_full, pkeys, dp,
+                                         ground_truth_fn=_surrogate_ground_truth)
+                if _surr is not None:
+                    out["surrogate"] = _surr
+            except Exception as _surr_e:
+                out["surrogate"] = {"error": str(_surr_e)}
 
     # ── Regime report card + neighborhood robustness on the winner (opt-in) ──
     if (compute_regime or compute_neighbors) and best:
