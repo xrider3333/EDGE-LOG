@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='59.6';
+const VERSION='59.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'59.7', date:'2026-07-19', notes:['2L: the redesign is now THE panel — one-line winner verdict, uniform model scorecards (R² / predicted / real bars), the sorted KNOBS vs NOISE-PROBE bar chart (hover a bar for the full LASSO / SHAP / permutation / probe scores), and the strongest knob-pair surface with the rest behind ＋ more. The old wide table and pill row are gone; the FLAT / 3-D chips moved into the panel header.','FIX: expanding ＋ more knob-pairs in 3-D no longer opens vertically-squashed tiles — the surfaces now carry an explicit height, so hidden-then-expanded charts keep their aspect.']},
   {v:'59.6', date:'2026-07-19', notes:['FIX: 2L could render squeezed — saved card sizes were keyed by POSITION in the report, so when the card list changed between versions an old width landed on the wrong card. Cards are now keyed by a stable name and all old positional sizes are cleared once (drag again to re-save; your layouts were the casualty of the fix, apologies).','2L REDESIGN PREVIEW: a second, cleaned-up layout of the same bake-off data now renders UNDERNEATH the current 2L (yellow dashed divider) — one-line winner verdict, uniform model scorecards with R² / predicted / real bars, a sorted KNOBS vs NOISE-PROBE bar chart (red line = the fake random knob), and only the strongest knob-pair surface shown with the rest behind a ＋ more expander. Compare the two and pick; the losing layout gets deleted.']},
   {v:'59.5', date:'2026-07-19', notes:['LIBRARY: the PARAM LIBRARY now lives IN the app — every strategy knob with its plain-language definition, tested range, champion value and evidence verdict, rendered straight from PARAM_LIBRARY.md into collapsible sections (per strategy, transferable ideas, brainstorm, glossary). Click a section to expand; open/closed state is remembered.','LIBRARY: the STRATEGIES and DATA/CSV MASTERS blocks (and MODES) are collapsible too, and remember their state.','COMPARE moved next to RESULTS in the tab bar.','2H/2I/2J: the row now defaults to the compressed width the owner dragged it to (~70% on a wide screen) — still resizable.','Card-layout fix: saved sizes could fail to re-apply after a same-tick re-render, and a one-axis drag could wipe the other axis size — both fixed.','REFERENCE: the param-library link card is gone (superseded by the in-app LIBRARY section).']},
   {v:'59.4', date:'2026-07-18', notes:['2H/2I/2J: the per-subtile resize handles are GONE (owner: too many toggles) — the row fills the card again and the single card corner resizes everything, in any direction.','Thinner curve lines on 2A TOP CONFIGS, the 2B parallel coordinates and the COMPARE equity + drawdown overlay, so dense charts read cleaner.','COMPARE: new TABS row — open several live comparisons side by side with ＋ and switch instantly, no saving required (each tab keeps its own selection); the SETS row below still saves named keepers.','REFERENCE: new PARAM LIBRARY card linking the cross-strategy parameter reference doc (PARAM_LIBRARY.md).']},
@@ -8006,34 +8007,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _esS=s=>(s==null?'':String(s)).replace(/</g,'&lt;');
       const $=v=>(v==null?'—':fmtUsd(Math.round(v*mlt)));
       const r2Col=v=>(v>=0.5?'var(--green)':v>=0.2?'var(--yellow)':'var(--red)');
-      const interTxt=m=>{const ti=(m.top_interactions||[])[0];return ti?(_esS(ti.param_a)+' × '+_esS(ti.param_b)+' <span style="color:var(--text5)">('+(ti.strength||0).toFixed(2)+')</span>'):'—';};
-      const rows=models.map(m=>{
-        const isBest=m.model===surr.best_model;
-        if(m.cv_r2==null)return '<tr style="color:var(--text5)"><td>'+_esS(m.model)+'</td><td colspan="5" style="font-size:8px">skipped'+(m.skipped?' — '+_esS(m.skipped):'')+'</td></tr>';
-        const beat=m.beat_sampled_best===true;
-        return '<tr'+(isBest?' style="color:var(--green);font-weight:600"':'')+'><td>'+(isBest?'▸ ':'')+_esS(m.model)+'</td>'
-          +'<td style="text-align:right;color:'+r2Col(m.cv_r2)+'">'+m.cv_r2.toFixed(3)+'</td>'
-          +'<td style="text-align:right">'+$(m.predicted_best_pnl)+'</td>'
-          +'<td style="text-align:right;color:'+(beat?'var(--green)':'var(--text)')+'">'+$(m.ground_truth_pnl)+'</td>'
-          +'<td style="text-align:center">'+(beat?'✓':'—')+'</td>'
-          +'<td style="font-size:8px">'+interTxt(m)+'</td></tr>';
-      }).join('');
-      const r2Tip='Out-of-fold score: measured on points this model never trained on (5-fold cross-validation), not the ones it fit to. 1.0 = perfect, 0 = no better than the average, negative = worse than the average. Low = this model cannot map the surface here — treat its whole card skeptically.';
-      const table='<div style="overflow-x:auto"><table class="table"><thead><tr><th>MODEL</th><th style="text-align:right;cursor:help" title="'+r2Tip+'">CV R² <span style="color:var(--text5)">ⓘ</span></th><th style="text-align:right">PREDICTED BEST $</th><th style="text-align:right">GROUND-TRUTHED $</th><th style="text-align:center">BEAT SAMPLED BEST?</th><th>TOP INTERACTION</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
-      const sampLine='<div style="font-size:8px;color:var(--text4);margin:6px 0 2px">sampled best '+$(surr.sampled_best_pnl)+' · ground-truthing = every model pick re-run as a REAL backtest, never trusted on prediction</div>';
+      // (v59.7: the old wide table / pill knob-screen / all-3-interaction layout is GONE —
+      //  the owner picked the redesigned layout below as the permanent 2L.)
       const ksKeys=Object.keys(surr.knob_screen||{});
-      const chip=(k,info)=>{
-        const v=(info&&info.verdict)||'weak';
-        const vc=(v==='drives PnL')?{bd:'var(--green)',bg:'color-mix(in srgb,var(--green) 14%,transparent)',tx:'var(--text)'}
-          :(v==='dead')?{bd:'color-mix(in srgb,var(--red) 45%,var(--border))',bg:'color-mix(in srgb,var(--red) 10%,transparent)',tx:'var(--text4)'}
-          :{bd:'var(--border)',bg:'var(--bg2)',tx:'var(--text4)'};
-        const tip='lasso |coef| '+(info&&info.lasso!=null?info.lasso:'—')+' · shap/importance '+(info&&info.shap_or_imp!=null?info.shap_or_imp:'—')+((info&&info.shap_source)?' ('+_esS(info.shap_source)+')':'')
+      const _fullTip=info=>('lasso |coef| '+(info&&info.lasso!=null?info.lasso:'—')+' · shap/importance '+(info&&info.shap_or_imp!=null?info.shap_or_imp:'—')+((info&&info.shap_source)?' ('+_esS(info.shap_source)+')':'')
           +(info&&info.perm!=null?' · permutation '+info.perm:'')
           +(info&&info.probe_margin!=null?' · vs noise probe '+(info.probe_margin>0?'+':'')+info.probe_margin+' (above 0 = beats a random knob)':'')
-          +(info&&info.verdict_note?' — '+_esS(info.verdict_note):'');
-        return '<span title="'+tip+'" style="cursor:help;display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border-radius:9px;font-size:9px;border:1px solid '+vc.bd+';color:'+vc.tx+';background:'+vc.bg+'">'+_esS(k)+' · '+v+'</span>';
-      };
-      const knobHtml=ksKeys.length?('<div style="margin:12px 0 4px"><div style="font-size:8px;letter-spacing:1px;color:var(--text5);margin-bottom:6px">KNOB SCREEN — which params actually move PnL <span style="letter-spacing:0">(LASSO + SHAP + permutation votes, each checked against a random-noise probe — hover a chip for its scores)</span></div><div>'+ksKeys.map(k=>chip(k,surr.knob_screen[k])).join('')+'</div></div>'):'';
+          +(info&&info.verdict_note?' — '+_esS(info.verdict_note):''));
       const bestCard=models.find(m=>m.model===surr.best_model)||null;
       const inters=(bestCard&&Array.isArray(bestCard.top_interactions))?bestCard.top_interactions.filter(it=>it&&Array.isArray(it.a_values)&&Array.isArray(it.b_values)&&Array.isArray(it.pd_grid)).slice(0,3):[];
       const heat=inter=>{
@@ -8089,26 +8069,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const g1=rampA(mx),g2=rampA(0),g3=rampA(mn);
         s+='<rect x="8" y="'+padT+'" width="5" height="46" rx="2" fill="url(#'+gid+')"/><text x="16" y="'+(padT+6)+'" font-size="6.5" fill="var(--text3)">'+fmtUsd(Math.round(mx*mlt))+'</text><text x="16" y="'+(padT+46)+'" font-size="6.5" fill="var(--text3)">'+fmtUsd(Math.round(mn*mlt))+'</text>';
         const defs='<defs><linearGradient id="'+gid+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgb('+g1.map(Math.round).join(',')+')"/><stop offset="0.5" stop-color="rgb('+g2.map(Math.round).join(',')+')"/><stop offset="1" stop-color="rgb('+g3.map(Math.round).join(',')+')"/></linearGradient></defs>';
-        return '<div style="display:inline-block;vertical-align:top;margin:0 14px 10px 0;text-align:center"><svg viewBox="0 0 '+W+' '+H+'" width="300" style="display:block;margin:0 auto;max-width:100%">'+defs+s+'</svg>'
+        // explicit height attr: an svg with only width + viewBox inside a CLOSED expander can
+        //   open at the wrong aspect (owner: pairs 2/3 compressed vertically) — lock it.
+        return '<div style="display:inline-block;vertical-align:top;margin:0 14px 10px 0;text-align:center"><svg viewBox="0 0 '+W+' '+H+'" width="300" height="'+Math.round(300*H/W)+'" style="display:block;margin:0 auto;max-width:100%">'+defs+s+'</svg>'
           +'<div style="font-size:8px;color:var(--text3);margin-top:2px">'+_esS(inter.param_a)+' × '+_esS(inter.param_b)+' · strength '+(inter.strength||0).toFixed(2)+' · height + colour = predicted $</div></div>';};
       const _use3d=(+APREF.surr3d===1);
       const _s3chip=(v,lab,on)=>'<span data-surr3d="'+v+'" title="'+(v==='1'?'render the model surfaces as 3-D relief (like 2H) — height and colour = predicted $':'render the model surfaces as flat heatmaps')+'" style="cursor:pointer;font-size:8px;font-weight:700;padding:1px 7px;border-radius:6px;border:1px solid '+(on?'var(--blue)':'var(--border)')+';background:'+(on?'color-mix(in srgb,var(--blue) 14%,transparent)':'var(--bg2)')+';color:'+(on?'var(--blue)':'var(--text3)')+'">'+lab+'</span>';
-      const interHtml=inters.length?('<div style="margin:12px 0 4px"><div style="font-size:8px;letter-spacing:1px;color:var(--text5);margin-bottom:2px;display:flex;align-items:center;gap:6px">TOP INTERACTIONS — 2-way partial dependence '+_s3chip('0','▦ FLAT',!_use3d)+_s3chip('1','⬛ 3-D',_use3d)+'</div><div style="font-size:8px;color:var(--text5);margin-bottom:6px">how PnL depends on the two knobs JOINTLY (read from the best model — a smoothed MODEL surface, unlike 2H which plots the raw sampled configs)</div><div>'+inters.map(_use3d?iso:heat).join('')+'</div></div>'):'';
       const gpCard=models.find(m=>m.model==='gp')||null;
       const consNote=(surr.consensus&&surr.consensus.note)?_esS(surr.consensus.note):'';
       const uncNote=(gpCard&&gpCard.uncertainty_note)?_esS(gpCard.uncertainty_note):'';
-      const consLine=consNote?('<div style="font-size:8px;color:var(--text4);margin-top:10px">'+consNote+(uncNote?' <span style="color:var(--text5)">— '+uncNote+'</span>':'')+'</div>'):'';
-      const hdr='<div style="margin:0 0 10px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px" title="Each row is a machine-learning model fit to the SAME sampled configs, learning params → PnL. They are called surrogate models because each stands in for the expensive real backtest — a fast approximate map of the surface. Best cross-validated model leads (▸).">'+tag+' · ML MODEL BAKE-OFF <span style="font-weight:400;color:var(--text5)">(surrogates)</span> — '+models.length+' machine-learning models fit to the search points · #31 P1</div>';
-      // ── REDESIGN PREVIEW (owner 2026-07-19): the SAME data re-laid-out per the cleanup
-      //    proposal, rendered UNDERNEATH the current layout so the owner can compare —
-      //    verdict headline → uniform model scorecards → knob-vs-noise bar chart →
-      //    strongest interaction + expander. The losing layout gets deleted after the pick.
+      const hdr='<div style="margin:0 0 10px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap" title="Machine-learning models fit to the SAME sampled configs, learning params → PnL. They are called surrogate models because each stands in for the expensive real backtest — a fast approximate map of the surface. Every model pick is re-run as a REAL backtest (ground-truthing) — never trusted on prediction alone. Best cross-validated model leads (▸).">'+tag+' · ML MODEL BAKE-OFF <span style="font-weight:400;color:var(--text5)">(surrogates) — '+models.length+' models · #31 P1 ⓘ</span><span style="margin-left:auto"></span>'+_s3chip('0','▦ FLAT',!_use3d)+_s3chip('1','⬛ 3-D',_use3d)+'</div>';
+      // ── THE panel body (owner picked the redesign 2026-07-19): verdict headline →
+      //    uniform model scorecards → knob-vs-noise bar chart → strongest interaction
+      //    + expander for the rest. ──
       const v2=(function(){
         const okM=models.filter(m=>m.cv_r2!=null);
         if(!okM.length)return '';
         const bm=models.find(m=>m.model===surr.best_model)||okM[0];
         const agree=consNote&&/agree/i.test(consNote);
-        const statusIc=consNote?(agree?'<span title="'+consNote.replace(/"/g,'&quot;')+'" style="cursor:help;color:var(--green);font-size:9px;font-weight:700">✓ models agree</span>':'<span title="'+consNote.replace(/"/g,'&quot;')+'" style="cursor:help;color:var(--yellow);font-size:9px;font-weight:700">⚠ models diverge</span>'):'';
+        const _st=(consNote+(uncNote?' — '+uncNote:'')).replace(/"/g,'&quot;');
+        const statusIc=consNote?(agree?'<span title="'+_st+'" style="cursor:help;color:var(--green);font-size:9px;font-weight:700">✓ models agree</span>':'<span title="'+_st+'" style="cursor:help;color:var(--yellow);font-size:9px;font-weight:700">⚠ models diverge</span>'):'';
         const head='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;padding:8px 10px;background:var(--bg1);border-radius:8px">'
           +'<span style="font-size:11px;font-weight:800;color:var(--text)">▸ '+_esS(String(bm.model||'').toUpperCase())+' wins</span>'
           +'<span style="font-size:9px;color:'+r2Col(bm.cv_r2)+';font-weight:700">CV R² '+(+bm.cv_r2).toFixed(3)+'</span>'
@@ -8128,7 +8108,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +bar(gw,'#1d9e75','real',$(m.ground_truth_pnl))
             +'</div>';};
         const cardsRow='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+models.map(card).join('')+'</div>';
-        const ks2=ksKeys.map(k=>({k:k,m:(surr.knob_screen[k]&&surr.knob_screen[k].probe_margin!=null)?+surr.knob_screen[k].probe_margin:null,v:(surr.knob_screen[k]&&surr.knob_screen[k].verdict)||'weak',note:(surr.knob_screen[k]&&surr.knob_screen[k].verdict_note)||''})).filter(x=>x.m!=null).sort((a,b)=>b.m-a.m);
+        const ks2=ksKeys.map(k=>({k:k,m:(surr.knob_screen[k]&&surr.knob_screen[k].probe_margin!=null)?+surr.knob_screen[k].probe_margin:null,v:(surr.knob_screen[k]&&surr.knob_screen[k].verdict)||'weak',note:_fullTip(surr.knob_screen[k])})).filter(x=>x.m!=null).sort((a,b)=>b.m-a.m);
         let knob2='';
         if(ks2.length){const mmax=Math.max.apply(null,ks2.map(x=>Math.abs(x.m)).concat([0.05]));
           knob2='<div style="margin:2px 0 10px"><div style="font-size:8px;letter-spacing:1px;color:var(--text5);margin-bottom:5px" title="bar length = how far above the planted RANDOM FAKE KNOB (the noise probe) each param scores across the three votes (LASSO + SHAP + permutation). At or below the red line = indistinguishable from noise.">KNOBS vs THE NOISE PROBE <span style="letter-spacing:0">(longer bar = more real PnL influence · red line = a fake random knob)</span></div>'
@@ -8142,11 +8122,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const rest=inters.slice(1).map((it,ix)=>(_use3d?iso:heat)(it,ix+1)).join('');
           inter2='<div><div style="font-size:8px;letter-spacing:1px;color:var(--text5);margin-bottom:5px">STRONGEST KNOB-PAIR (model surface'+(_use3d?' · 3-D':'')+')</div>'+first
             +(rest?'<details style="display:inline-block;vertical-align:top"><summary style="cursor:pointer;font-size:9px;color:#3a9bdc;padding:6px 4px">＋ '+(inters.length-1)+' more pair'+(inters.length>2?'s':'')+'</summary>'+rest+'</details>':'')+'</div>';}
-        return '<div style="margin-top:14px;padding-top:12px;border-top:1px dashed color-mix(in srgb,var(--yellow) 55%,var(--border))">'
-          +'<div style="margin:0 0 8px;font-weight:700;font-size:9px;color:var(--yellow);letter-spacing:.5px" title="the SAME data as the panel above, re-laid-out per the cleanup proposal — compare and pick; the losing layout gets deleted">'+tag+'·B — REDESIGN PREVIEW '+_s3chip('0','▦ FLAT',!_use3d)+_s3chip('1','⬛ 3-D',_use3d)+'</div>'
-          +head+cardsRow+knob2+inter2+'</div>';
+        return head+cardsRow+knob2+inter2;
       })();
-      return hdr+table+sampLine+knobHtml+interHtml+consLine+v2;
+      return hdr+v2;
     };
     const runDetail=(d)=>{
       if(!d)return '<div style="color:var(--text5);font-size:var(--fsxs);padding:48px 20px;text-align:center;border:1px dashed var(--border);border-radius:10px">select a run on the left to load its report card</div>';
@@ -10334,7 +10312,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _fitSvgs=(c,natH,newH)=>{const svgs=[...c.querySelectorAll('svg')];
           if(!newH||!natH||newH>=natH){svgs.forEach(s=>{if(s._elNat!=null)s.style.height='';});return;}
           const f=Math.max(0.2,(newH-20)/(natH-20));
-          svgs.forEach(s=>{if(s._elNat==null)s._elNat=s.getBoundingClientRect().height;
+          svgs.forEach(s=>{if(s._elNat==null){const bh=s.getBoundingClientRect().height;if(bh>0)s._elNat=bh;}
             if(s._elNat>40)s.style.height=Math.max(28,Math.round(s._elNat*f))+'px';});};
         cards.forEach((c,i)=>{const _ck=c.dataset.ck||('u'+i);const s=saved[_ck],nat=c.offsetHeight;
           if(s&&s.w)c.style.width=s.w+'px';
