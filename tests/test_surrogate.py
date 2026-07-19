@@ -111,6 +111,101 @@ def test_lasso_screen_ranks_live_knob_over_dead_noise_knob():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# (#39) permutation-importance vote + random-noise-probe upgrade
+# ─────────────────────────────────────────────────────────────────────────────
+def _live_vs_noise_points():
+    """Same construction as the LASSO test above (one PURE-linear knob, one knob
+    that never enters the PnL formula at all) -- reused for the probe tests
+    since it's the cleanest ground truth for "this knob really is noise"."""
+    dp = {
+        "live": {"type": "float", "min": 0.0, "max": 10.0, "step": 0.25, "default": 5.0},
+        "noise": {"type": "float", "min": 0.0, "max": 10.0, "step": 0.25, "default": 5.0},
+    }
+    rng = np.random.RandomState(SEED)
+    axes = {k: np.arange(m["min"], m["max"] + m["step"] / 2, m["step"]) for k, m in dp.items()}
+    pts = []
+    for _ in range(N):
+        live = float(rng.choice(axes["live"]))
+        noise = float(rng.choice(axes["noise"]))
+        pts.append({"live": live, "noise": noise, "pnl": round(live * 50.0, 2)})
+    return pts, ["live", "noise"], dp
+
+
+def test_a_pure_noise_knob_scores_at_or_below_the_probe_and_verdicts_dead():
+    pts, keys, dp = _live_vs_noise_points()
+    out = surrogate_bakeoff(pts, keys, dp, seed=SEED)
+    assert out is not None
+    noise = out["knob_screen"]["noise"]
+    assert noise["perm"] is not None
+    assert noise["probe_margin"] is not None
+    assert noise["probe_margin"] <= 0.05             # at/below the probe (small numerical slack, not a hard 0)
+    assert noise["verdict"] == "dead"
+    assert "noise probe" in noise["verdict_note"]
+
+
+def test_b_a_strong_knob_scores_clearly_above_the_probe_and_keeps_drives_pnl():
+    pts, keys, dp = _live_vs_noise_points()
+    out = surrogate_bakeoff(pts, keys, dp, seed=SEED)
+    assert out is not None
+    live = out["knob_screen"]["live"]
+    noise = out["knob_screen"]["noise"]
+    assert live["perm"] is not None and live["perm"] > 0
+    assert live["probe_margin"] is not None
+    assert live["probe_margin"] > 0.5                # clearly, not marginally, above the probe
+    assert live["probe_margin"] > noise["probe_margin"]
+    assert live["verdict"] == "drives PnL"
+    assert "above noise probe" in live["verdict_note"]
+
+
+def test_c_probe_and_perm_fields_are_deterministic():
+    pts, keys, dp = _make_bakeoff_points()
+    out1 = surrogate_bakeoff(pts, keys, dp, seed=SEED)
+    out2 = surrogate_bakeoff(pts, keys, dp, seed=SEED)
+    assert out1["knob_screen"] == out2["knob_screen"]
+    assert out1["knob_screen_probe"] == out2["knob_screen_probe"]
+    assert out1 == out2                              # whole-payload determinism, unchanged contract
+
+
+def test_d_backward_compat_knob_screen_keys_and_legal_verdict_strings():
+    pts, keys, dp = _make_bakeoff_points()
+    out = surrogate_bakeoff(pts, keys, dp, seed=SEED)
+    assert out is not None
+    for k in keys:
+        entry = out["knob_screen"][k]
+        # the v58.7 web panel reads exactly these three keys -- must still be there,
+        # and `verdict` must be EXACTLY one of the three strings the panel chip-colors
+        # on (index.html surrogatePanelHtml's chip() does an EXACT match, not a prefix
+        # test -- checked directly -- so the probe's explanation lives in the new
+        # `verdict_note` field instead of a 4th verdict string).
+        assert {"lasso", "shap_or_imp", "verdict"} <= set(entry)
+        assert entry["verdict"] in ("drives PnL", "weak", "dead")
+        # additive-only new fields
+        assert "perm" in entry and "probe_margin" in entry and "verdict_note" in entry
+    # the probe summary is a SIBLING top-level key, never nested inside knob_screen
+    # (nesting it there would make index.html's per-key chip loop render a bogus chip)
+    assert "knob_screen_probe" in out
+    assert "knob_screen_probe" not in out["knob_screen"]
+    probe = out["knob_screen_probe"]
+    assert {"lasso", "shap_or_imp", "perm", "source_model", "note"} <= set(probe)
+
+
+def test_e_probe_never_leaks_into_predicted_best_params_interactions_or_cards():
+    pts, keys, dp = _make_bakeoff_points()
+    out = surrogate_bakeoff(pts, keys, dp, seed=SEED)
+    assert out is not None
+    for c in out["models"]:
+        if c.get("skipped"):
+            continue
+        # predicted_best_params has exactly the real knobs -- no extra probe column
+        assert set(c["predicted_best_params"]) == set(keys)
+        for it in c.get("top_interactions", []):
+            assert it["param_a"] in keys and it["param_b"] in keys
+        assert not any("probe" in str(kk).lower() for kk in c)
+    assert set(out["knob_screen"]) == set(keys)      # no bogus "_probe" entry among the per-knob chips
+    assert not any("probe" in str(kk).lower() for kk in out["knob_screen"])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # (c) cards well-formed for every available model; xgboost/shap absence degrades
 # ─────────────────────────────────────────────────────────────────────────────
 def _make_bakeoff_points():

@@ -40,6 +40,7 @@ from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import ConstantKernel, Matern, RBF, WhiteKernel
+from sklearn.inspection import permutation_importance
 from sklearn.linear_model import LassoCV, Ridge
 from sklearn.model_selection import GridSearchCV, KFold
 from sklearn.pipeline import Pipeline
@@ -69,8 +70,11 @@ GP_MAX_POINTS = 1000            # GaussianProcessRegressor is O(n^3); subsample 
 INTERACTION_GRID_N = 8          # <=8x8 2-D PD grid per pair (design §3/§4)
 INTERACTION_BG_N = 50           # background rows for the marginal/joint PD average (deterministic subsample)
 DEAD_LASSO_EPS = 1e-6           # LassoCV coefficient at/under this = "linearly dead" (L1 truly zeroed it)
-WEAK_NORM_THRESH = 0.10         # combined normalized (lasso, shap/importance) score below this = "weak"
+WEAK_NORM_THRESH = 0.10         # combined normalized (lasso, shap/importance, perm) score below this = "weak"
 GP_HIGH_UNCERTAINTY_MULT = 1.5  # GP optimum flagged HIGH-uncertainty if its std > this x the typical in-sample std
+PROBE_N_REPEATS = 10            # sklearn.inspection.permutation_importance repeats (both the main perm VOTE
+                                # and the noise-probe's own perm lens use this -- same count, same seed, so
+                                # a knob and the probe are read off strictly comparable measurements)
 
 
 def _native(v):
@@ -431,11 +435,21 @@ def _pair_card(a, b, s, a_vals, b_vals, pd2d, with_grid):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Knob screen — LASSO (linear-dead check) + SHAP/impurity (nonlinear check)
-# NOTE: full Boruta-SHAP (shadow features, iterative significance testing) is
-# deliberately deferred -- overkill at the 5-9 knobs these strategies expose;
-# upgrade path is to swap the SHAP block below for a boruta_shap.BorutaShap
-# run if a strategy ever grows enough knobs to need it.
+# Knob screen — LASSO (linear-dead check) + SHAP/impurity (nonlinear check) +
+# PERMUTATION IMPORTANCE (model-agnostic 3rd vote, on the BEST fitted model) +
+# a RANDOM NOISE PROBE (Carl McBride-Ellis's feature-selection-notebook trick:
+# add one synthetic pure-noise column, see what score IT gets under each lens,
+# and treat any real knob that fails to clearly beat it as statistically dead).
+#
+# NOTE (#39): full Boruta-SHAP (shadow features, iterative significance testing
+# across many resampled iterations) is still deliberately deferred -- overkill
+# at the 5-9 knobs these strategies expose. The noise probe below is the
+# LIGHTWEIGHT stand-in: a single deterministic shadow column instead of Boruta's
+# many, one screening-only fit instead of Boruta's iterative resampling loop,
+# but the same core idea (a knob's importance means nothing in isolation --
+# only "importance vs. a column that is definitionally useless" is a real
+# signal). Upgrade path is unchanged: swap this block for a boruta_shap.BorutaShap
+# run if a strategy ever grows enough knobs to need the fuller test.
 # ─────────────────────────────────────────────────────────────────────────────
 def _knob_screen(X, y, enc, pkeys, folds, seed):
     groups = enc.group_columns()
@@ -454,6 +468,33 @@ def _knob_screen(X, y, enc, pkeys, folds, seed):
         pass
 
     return lasso_mag, groups
+
+
+def _permutation_importance_screen(pkeys, groups, estimator, X, y, seed, n_repeats=PROBE_N_REPEATS):
+    """3rd VOTE (#39): model-agnostic permutation importance on the BEST
+    (CV-winner) fitted model, scored over the FULL point set (not whatever
+    subsample that model happened to train on -- e.g. GP's tractability
+    subsample, §3 -- permutation_importance only ever calls .predict/.score,
+    it never refits, so evaluating on the full set is both valid and gives
+    every model the same yardstick). scoring='r2' matches the bake-off's own
+    CV metric. A shuffle can occasionally *raise* R² for a truly uninformative
+    column by chance -- that's noise, not negative importance -- so each
+    column's importances_mean is clipped at 0 before aggregating (same
+    sum-per-one-hot-group convention as the SHAP/impurity screen below, not
+    LASSO's L2 -- permutation/impurity scores are already non-negative
+    per-feature contributions, unlike signed linear coefficients)."""
+    mag = {k: None for k in pkeys}
+    try:
+        r = permutation_importance(estimator, X, y, n_repeats=int(n_repeats),
+                                   random_state=int(seed), scoring="r2", n_jobs=1)
+        imp = np.clip(r.importances_mean, 0.0, None)
+        for k in pkeys:
+            cols = groups.get(k)
+            if cols:
+                mag[k] = float(np.sum(imp[cols]))
+    except Exception:
+        pass
+    return mag
 
 
 def _tree_importance_screen(pkeys, groups, tree_est, tree_name, X):
@@ -490,24 +531,178 @@ def _tree_importance_screen(pkeys, groups, tree_est, tree_name, X):
     return shap_mag, source
 
 
-def _verdict(lasso_mag, shap_mag):
+def _noise_probe_screen(X, y, folds, seed, tree_name, tree_hyperparams, n_repeats=PROBE_N_REPEATS):
+    """RANDOM NOISE PROBE (#39) -- the lightweight deferred-Boruta stand-in.
+
+    Appends ONE deterministic standard-normal column to the model matrix (last
+    column, index = X.shape[1]) and fits SCREENING-ONLY copies of the models
+    used for the other two nonlinear/linear votes, purely to read off what
+    IMPORTANCE A COLUMN OF PURE NOISE GETS under each lens:
+      - lasso lens: a fresh LassoCV refit on the extended (scaled) matrix.
+      - shap_or_imp lens: a fresh tree fit -- the SAME family+hyperparams as
+        whichever tree `_tree_importance_screen` used for the real knobs
+        (`tree_name`/`tree_hyperparams`, so the probe and the real knobs are
+        read off architecturally-identical models), or an untuned
+        RandomForestRegressor if no tree fit was available at all (GP/
+        quadratic won best AND random_forest itself failed to fit -- the
+        documented fallback, since GP/quadratic expose neither SHAP nor
+        impurity importances).
+      - perm lens: permutation_importance on that SAME screening tree fit,
+        same n_repeats/seed/scoring as the main perm vote.
+
+    LEAK GUARD (verified by construction + asserted in tests): every estimator
+    fit in here is LOCAL to this function -- never assigned into the caller's
+    `fitted` dict, never used for the candidate-grid argmax, never used for
+    interactions/PD surfaces, never stored in a model card. Only four plain
+    floats (+ a couple of strings) escape this function.
+    """
+    n = X.shape[0]
+    probe_col = X.shape[1]
+    noise_col = np.random.RandomState(int(seed)).standard_normal(n).reshape(-1, 1)
+    X_noise = np.hstack([X, noise_col])
+
+    out = {"seed": int(seed), "n_repeats": int(n_repeats), "source_model": None,
+          "lasso": None, "shap_or_imp": None, "shap_source": None, "perm": None}
+
+    try:
+        Xs = StandardScaler().fit_transform(X_noise)
+        cv = KFold(n_splits=folds, shuffle=True, random_state=int(seed))
+        lcv = LassoCV(cv=cv, random_state=int(seed), n_jobs=1, max_iter=20000).fit(Xs, y)
+        out["lasso"] = float(abs(lcv.coef_[probe_col]))
+    except Exception:
+        pass
+
+    tree = None
+    try:
+        if tree_name == "xgboost" and HAS_XGBOOST:
+            hp = {k: v for k, v in (tree_hyperparams or {}).items() if k in ("max_depth", "learning_rate")}
+            tree = XGBRegressor(n_estimators=200, random_state=int(seed), n_jobs=1,
+                                tree_method="hist", verbosity=0, **hp)
+            tree.fit(X_noise, y)
+            out["source_model"] = "xgboost(best)"
+        elif tree_name == "random_forest":
+            hp = {k: v for k, v in (tree_hyperparams or {}).items() if k in ("max_depth", "min_samples_leaf")}
+            tree = RandomForestRegressor(n_estimators=200, random_state=int(seed), n_jobs=1, **hp)
+            tree.fit(X_noise, y)
+            out["source_model"] = "random_forest(best)"
+        else:
+            tree = RandomForestRegressor(n_estimators=200, random_state=int(seed), n_jobs=1)
+            tree.fit(X_noise, y)
+            out["source_model"] = "random_forest(fallback)"
+    except Exception:
+        tree = None
+
+    if tree is not None:
+        if HAS_SHAP:
+            try:
+                explainer = _shap.TreeExplainer(tree)
+                sv = np.asarray(explainer.shap_values(X_noise), dtype=float)
+                if sv.ndim == 3:
+                    sv = sv[:, :, 0]
+                out["shap_or_imp"] = float(np.mean(np.abs(sv), axis=0)[probe_col])
+                out["shap_source"] = f"shap:{out['source_model']}"
+            except Exception:
+                out["shap_or_imp"] = None
+        if out["shap_or_imp"] is None:
+            try:
+                out["shap_or_imp"] = float(np.asarray(tree.feature_importances_, dtype=float)[probe_col])
+                out["shap_source"] = f"rf_importance:{out['source_model']}"
+            except Exception:
+                pass
+        try:
+            r = permutation_importance(tree, X_noise, y, n_repeats=int(n_repeats),
+                                       random_state=int(seed), scoring="r2", n_jobs=1)
+            out["perm"] = float(max(0.0, r.importances_mean[probe_col]))
+        except Exception:
+            pass
+
+    return out
+
+
+def _verdict(lasso_mag, shap_mag, perm_mag, probe):
+    """Final verdict from FOUR votes (#39): lasso, shap_or_imp, perm, and the
+    random noise probe.
+
+    PANEL-COMPAT DECISION: `verdict` stays EXACTLY one of the three legacy
+    strings ('drives PnL' / 'weak' / 'dead'). Checked index.html's
+    surrogatePanelHtml -> chip(): it colors on an EXACT match
+    (`v==='drives PnL'`, `v==='dead'`, else the neutral/weak style) not a
+    prefix test, so a 4th string or a 'dead (...)' suffix would silently fall
+    through to the grey 'weak' styling. The probe's explanation instead goes
+    in a new `verdict_note` string (a sibling field the panel doesn't read
+    today but doesn't choke on either -- it only reads .verdict/.lasso/
+    .shap_or_imp/.shap_source).
+
+    PROBE VOTE: for each of (lasso, shap_or_imp, perm) where BOTH the knob's
+    and the probe's raw magnitude are available, the knob "beats" the probe
+    if its raw magnitude is strictly greater than the probe's. A knob at-or-
+    below the probe on a STRICT MAJORITY of its available lenses (more than
+    half -- 1/1, 2/2, or >=2/3) verdicts 'dead', with `verdict_note` naming it
+    "below noise probe on X/Y lenses" -- this is the statistical grounding
+    the noise probe exists to give, replacing a bare threshold with "scored no
+    better than pure noise" (documented in module docstring + the knob-screen
+    section header above).
+
+    The original LassoCV-zeroed check (|coef| < DEAD_LASSO_EPS -- L1 truly
+    zeroed a coefficient) still independently triggers 'dead' too; either
+    reason (or both) can fire, and verdict_note names whichever did.
+
+    `probe_margin`: one normalized float per knob (informational, NOT itself
+    used by the verdict branch above, which works off raw per-lens
+    beats-probe comparisons) -- the mean, across whichever lenses have both a
+    real value and a probe value, of (knob/denom - probe/denom) where denom =
+    max(every real knob's raw value for that lens, the probe's own raw value)
+    -- so each lens contributes a comparable, boundedly-scaled term regardless
+    of its native units (lasso |coef| vs. R² drop vs. SHAP/impurity). Positive
+    = the knob clears the probe on average; negative = the probe wins on
+    average; None if no lens had both values to compare.
+    """
     vals_l = [v for v in lasso_mag.values() if v is not None]
     vals_s = [v for v in shap_mag.values() if v is not None]
+    vals_p = [v for v in perm_mag.values() if v is not None]
     max_l = max(vals_l) if vals_l else 0.0
     max_s = max(vals_s) if vals_s else 0.0
+    max_p = max(vals_p) if vals_p else 0.0
+    probe_l, probe_s, probe_p = (probe or {}).get("lasso"), (probe or {}).get("shap_or_imp"), (probe or {}).get("perm")
+
     out = {}
     for k in lasso_mag:
-        lm, sm = lasso_mag.get(k), shap_mag.get(k)
+        lm, sm, pm = lasso_mag.get(k), shap_mag.get(k), perm_mag.get(k)
         norm_l = (lm / max_l) if (lm is not None and max_l > 0) else (0.0 if lm is not None else None)
         norm_s = (sm / max_s) if (sm is not None and max_s > 0) else (0.0 if sm is not None else None)
-        combined = max([v for v in (norm_l, norm_s) if v is not None] or [0.0])
-        if lm is not None and lm < DEAD_LASSO_EPS:
+        norm_p = (pm / max_p) if (pm is not None and max_p > 0) else (0.0 if pm is not None else None)
+        combined = max([v for v in (norm_l, norm_s, norm_p) if v is not None] or [0.0])
+
+        below_count, avail_count, margins = 0, 0, []
+        for kv, pv, mx in ((lm, probe_l, max_l), (sm, probe_s, max_s), (pm, probe_p, max_p)):
+            if kv is None or pv is None:
+                continue
+            avail_count += 1
+            denom = max(mx, pv, 1e-12)
+            margins.append((kv / denom) - (pv / denom))
+            if kv <= pv:
+                below_count += 1
+        probe_margin = round(float(sum(margins) / len(margins)), 4) if margins else None
+        below_probe_majority = avail_count > 0 and below_count > avail_count / 2.0
+
+        lasso_zeroed = lm is not None and lm < DEAD_LASSO_EPS
+        if lasso_zeroed or below_probe_majority:
             verdict = "dead"
-        elif combined < WEAK_NORM_THRESH:
-            verdict = "weak"
+            reasons = []
+            if lasso_zeroed:
+                reasons.append(f"lasso coefficient zeroed (|coef| < {DEAD_LASSO_EPS:g})")
+            if below_probe_majority:
+                m = f" (margin {probe_margin:+.3f})" if probe_margin is not None else ""
+                reasons.append(f"below noise probe on {below_count}/{avail_count} lenses{m}")
+            note = "; ".join(reasons)
         else:
-            verdict = "drives PnL"
-        out[k] = verdict
+            verdict = "weak" if combined < WEAK_NORM_THRESH else "drives PnL"
+            if avail_count:
+                above = avail_count - below_count
+                note = f"above noise probe on {above}/{avail_count} lenses (margin {probe_margin:+.3f})"
+            else:
+                note = "noise probe unavailable for this knob"
+        out[k] = {"verdict": verdict, "verdict_note": note, "probe_margin": probe_margin}
     return out
 
 
@@ -679,18 +874,53 @@ def surrogate_bakeoff(points, pkeys, dp, ground_truth_fn=None, top_pairs=3, seed
         for card in fit_cards:
             card["top_interactions"] = []
 
-    # ── knob screen (LASSO + SHAP/impurity) ─────────────────────────────────
+    # ── knob screen (LASSO + SHAP/impurity + permutation + noise probe, #39) ──
     lasso_mag, groups = _knob_screen(X, y, enc, pkeys, folds, seed)
     tree_name = best_name if best_name in ("random_forest", "xgboost") else (
         "random_forest" if "random_forest" in fitted else None)
     tree_est = fitted.get(tree_name) if tree_name else None
     shap_mag, shap_source = _tree_importance_screen(pkeys, groups, tree_est, tree_name, X)
-    verdicts = _verdict(lasso_mag, shap_mag)
+
+    # 3rd vote: permutation importance on the BEST (CV-winner) fitted model,
+    # scored over the FULL point set (§ _permutation_importance_screen docstring).
+    perm_mag = _permutation_importance_screen(pkeys, groups, fitted[best_name], X, y, seed)
+
+    # Random noise probe: a screening-only refit of the SAME tree family+
+    # hyperparams already used for shap_mag above (or an untuned RF fallback),
+    # with one extra deterministic pure-noise column -- never touches `fitted`,
+    # the candidate grid, interactions, or any model card (§ _noise_probe_screen
+    # docstring; verified by construction + asserted in tests/test_surrogate.py).
+    tree_card = next((c for c in fit_cards if c["model"] == tree_name), None) if tree_name else None
+    tree_hyperparams = (tree_card or {}).get("best_hyperparams")
+    probe = _noise_probe_screen(X, y, folds, seed, tree_name, tree_hyperparams)
+
+    verdicts = _verdict(lasso_mag, shap_mag, perm_mag, probe)
     knob_screen = {
         k: {"lasso": (round(lasso_mag[k], 4) if lasso_mag[k] is not None else None),
             "shap_or_imp": (round(shap_mag[k], 4) if shap_mag[k] is not None else None),
-            "shap_source": shap_source, "verdict": verdicts[k]}
+            "shap_source": shap_source,
+            "perm": (round(perm_mag[k], 4) if perm_mag[k] is not None else None),
+            "verdict": verdicts[k]["verdict"],
+            "verdict_note": verdicts[k]["verdict_note"],
+            "probe_margin": verdicts[k]["probe_margin"]}
         for k in pkeys
+    }
+    # Sibling TOP-LEVEL key (NOT nested inside knob_screen -- index.html's
+    # surrogatePanelHtml renders one chip per `Object.keys(surr.knob_screen)`
+    # entry, so a key inside knob_screen itself would render a bogus extra
+    # chip; a sibling key on the returned dict cannot collide with a real
+    # param name and the (unmodified) panel simply never reads it).
+    knob_screen_probe = {
+        "seed": int(seed), "n_repeats": PROBE_N_REPEATS, "source_model": probe.get("source_model"),
+        "lasso": (round(probe["lasso"], 4) if probe.get("lasso") is not None else None),
+        "shap_or_imp": (round(probe["shap_or_imp"], 4) if probe.get("shap_or_imp") is not None else None),
+        "shap_source": probe.get("shap_source"),
+        "perm": (round(probe["perm"], 4) if probe.get("perm") is not None else None),
+        "note": ("deferred-Boruta lightweight replacement (#39): one deterministic "
+                "standard-normal column, screened via a separate fit that never "
+                "leaks into predicted_best_params/interactions/model cards; a knob "
+                "scoring at-or-below this row on a MAJORITY of its available lenses "
+                "verdicts 'dead' (see knob_screen[param].verdict_note)."),
     }
 
     consensus = _consensus(fit_cards, enc, dp)
@@ -719,4 +949,5 @@ def surrogate_bakeoff(points, pkeys, dp, ground_truth_fn=None, top_pairs=3, seed
 
     return {"n_points": n, "cv_folds": folds, "seed": int(seed),
            "sampled_best_pnl": sampled_best_pnl, "best_model": best_name,
-           "models": cards, "consensus": consensus, "knob_screen": knob_screen}
+           "models": cards, "consensus": consensus, "knob_screen": knob_screen,
+           "knob_screen_probe": knob_screen_probe}
