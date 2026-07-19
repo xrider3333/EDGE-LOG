@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='58.7';
+const VERSION='58.8';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'58.8', date:'2026-07-18', notes:['GATE VALIDATE bake-off chart: moved out of the Builder tab — it now lives only in RESULTS inside the saved run report (every completed gate-validate is saved as a run instantly, so nothing is lost; the Builder shows a one-line pointer instead).','GATE VALIDATE chart: added axis labels so the chart reads on its own — y axis RECOVERY FACTOR ($ won per $ of drawdown), x axis GATE PROBABILITY CUT-OFF (min win-probability to take the trade), and the dashed line is now labeled as the no-gate baseline.']},
   {v:'58.7', date:'2026-07-18', notes:['New 2L SURROGATE BAKE-OFF panel in the run report (Auto-Validate and Auto-Optimize runs from today onward): several ML models are each fit to the configs the search sampled, scored for out-of-fold accuracy, and their proposed best config is re-run as a REAL backtest — the panel shows each model, its accuracy, its pick and the ground-truthed dollars, which knobs drive PnL vs are dead weight, the strongest knob-PAIR interactions as small heatmaps, and whether the models agree. Older saved runs do not carry this data and render unchanged.']},
   {v:'58.6', date:'2026-07-18', notes:['Strategy identity: RSIDIV and TTIBS are now recognised families with their own Library numbers (RSIDIV #11, TTIBS #10) and correct names, so they show properly in Past Runs and the Library instead of RSIDIV rendering as AUGUR 1.0.']},
   {v:'58.5', date:'2026-07-18', notes:['Compare fullscreen explorer: click-dragging the chart now pans in BOTH directions like TradingView — a vertical drag slides the dollar scale too, instead of only panning left and right.','Compare fullscreen explorer: you can now drag the drawdown pane right-edge axis to scale or compress it, the same way the equity axis already worked.','Compare equity overlay (the non-expanded tile): now shows a drawdown pane beneath the equity curves too, each strategy filled in its own colour, without needing to open the fullscreen explorer.']},
@@ -7923,16 +7924,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const W=520,H=150,pl=8,pr=54,pt=12,pb=22,pw=W-pl-pr,ph=H-pt-pb,tmn=ths[0],tmx=ths[ths.length-1],trg=(tmx-tmn)||1;
           const X=t=>pl+(trg?pw*((t-tmn)/trg):pw/2),Y=r=>pt+ph*(1-(r-rmn)/((rmx-rmn)||1));
           let g='';for(let i=0;i<=4;i++){const r=rmn+(rmx-rmn)*i/4,gy=Y(r);g+='<line x1="'+pl+'" y1="'+gy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.3"/><text x="'+(pl+pw+4)+'" y="'+(gy+3).toFixed(1)+'" font-size="8" fill="var(--text4)">'+r.toFixed(1)+'</text>';}
-          const uy=Y(ub);g+='<line x1="'+pl+'" y1="'+uy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+uy.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" stroke-dasharray="4,3" opacity="0.85"/><text x="'+(pl+2)+'" y="'+(uy-3).toFixed(1)+'" font-size="8" fill="var(--text4)">ungated '+ub.toFixed(2)+'</text>';
+          const uy=Y(ub);g+='<line x1="'+pl+'" y1="'+uy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+uy.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" stroke-dasharray="4,3" opacity="0.85"/><text x="'+(pl+2)+'" y="'+(uy-3).toFixed(1)+'" font-size="8" fill="var(--text4)">ungated '+ub.toFixed(2)+' = no gate baseline</text>';
           models.forEach(m=>{const mc=_mc(m),pmt=cs2.filter(c=>c.model===m).sort((a,b)=>a.threshold-b.threshold);
             if(pmt.length>1)g+='<path d="'+pmt.map((c,i)=>(i?'L':'M')+X(c.threshold).toFixed(1)+' '+Y(c.pre_rec).toFixed(1)).join(' ')+'" fill="none" stroke="'+mc+'" stroke-width="1.6" opacity="0.85"/>';
             pmt.forEach(c=>{const isCh=ch&&c.model===ch.model&&Math.abs(c.threshold-ch.threshold)<1e-6,elg=c.eligible!==false;
               g+='<circle cx="'+X(c.threshold).toFixed(1)+'" cy="'+Y(c.pre_rec).toFixed(1)+'" r="'+(isCh?4.6:3)+'" fill="'+mc+'" opacity="'+(elg?1:0.32)+'"'+(isCh?' stroke="var(--text)" stroke-width="1.6"':'')+'><title>'+c.model+' @ '+Math.round(c.threshold*100)+'% · recovery '+c.pre_rec.toFixed(2)+' · '+c.kept_pre+' trades kept'+(elg?'':' · ineligible (too few kept)')+(isCh?' · CHOSEN':'')+'</title></circle>';});});
           let xl='';ths.forEach(t=>{xl+='<text x="'+X(t).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8" fill="var(--text4)">'+Math.round(t*100)+'%</text>';});
           const legend=models.map(m=>'<span style="color:'+_mc(m)+';font-weight:700">● '+m+'</span>').join(' &nbsp; ');
-          return '<div style="margin:2px 0 10px"><div style="font-size:8px;color:var(--text4);margin-bottom:3px">Recovery factor (y) by probability cut-off (x) — each model is swept across '+ths.length+' cut-offs, so a model appears once per cut-off. The ⬤ ringed point is the chosen winner; the dashed line is ungated. Higher = more $ per $ of drawdown.</div>'
+          return '<div style="margin:2px 0 10px">'
+            +'<div style="font-size:8px;font-weight:700;letter-spacing:1.5px;color:var(--text3)">RECOVERY FACTOR <span style="font-weight:400;letter-spacing:0;color:var(--text5)">($ won per $ of drawdown)</span></div>'
+            +'<div style="font-size:8px;color:var(--text4);margin:2px 0 3px">Recovery factor (y) by probability cut-off (x) — each model is swept across '+ths.length+' cut-offs, so a model appears once per cut-off. The ⬤ ringed point is the chosen winner; the dashed line is ungated. Higher = more $ per $ of drawdown.</div>'
             +'<div style="background:var(--bg1);border-radius:8px;padding:8px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+xl+'</svg></div>'
-            +'<div style="text-align:center;font-size:8px;margin-top:3px">'+legend+' &nbsp;·&nbsp; x = probability cut-off</div></div>';})();
+            +'<div style="text-align:center;font-size:8px;margin-top:3px">'+legend+'</div>'
+            +'<div style="text-align:center;font-size:8px;font-weight:700;letter-spacing:1px;color:var(--text3);margin-top:2px">GATE PROBABILITY CUT-OFF <span style="font-weight:400;letter-spacing:0;color:var(--text5)">(min win-probability to take the trade)</span></div>'
+            +'</div>';})();
         return '<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>'
           +'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+V.n_candidates+' candidates (model × cut-off) ranked on PRE-lockbox data only, by recovery factor ($ made per $ of drawdown — the equal-risk yardstick, since a gate always trades less). The winner gets exactly one look at the lockbox; losing candidates\' lockbox results are never computed — no shopping.</div>'
           +_bakeGraph
@@ -8557,12 +8562,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    model let through. Headline result of the run IS the gated column.
       const lastGated=grids.filter(b=>b.status==='done'&&b.result&&b.result.ml_gate)[0];
       const gateHtml=lastGated?gateCardHtml(lastGated.result.ml_gate,stratTag(lastGated.strategy),lastGated.mult||20):'';
-      // ── GATE VALIDATE card (board 4.10): every gate × cut-off ranked on the
-      //    PRE-LOCKBOX slice only (recovery factor = $ per $ of drawdown); the
-      //    winner gets ONE look at the lockbox. Losers' lockbox numbers are never
-      //    computed into the result — lockbox-shopping is impossible by design.
+      // ── GATE VALIDATE (board 4.10, #38 2026-07-18): every completed gate-validate job is
+      //    persisted into run history the moment it finishes (api/runner.py _persist_run) and
+      //    renders this SAME gvTableHtml bake-off chart inside the saved run report (RESULTS,
+      //    section 4 Diagnostics). Rendering the full chart again here duplicated it exactly,
+      //    so this panel now leaves a one-line pointer to RESULTS instead of the full card.
       const lastGV=grids.filter(b=>b.status==='done'&&b.result&&b.result.gate_validate)[0];
-      const gvHtml=lastGV?gvTableHtml(lastGV.result.gate_validate,stratTag(lastGV.strategy),lastGV.mult||20):'';
+      const gvHtml=lastGV?('<div style="font-size:8px;color:var(--text5);margin-bottom:2px">🚪🧭 GATE VALIDATE — the bake-off chart for run #'+lastGV.id+' now renders in RESULTS (open that run to see it).</div>'):'';
       let topHtml='';
       if(lastDone){const t=lastDone.result.top;const pk=t.length?Object.keys(t[0]).filter(k=>['total_pnl','num_trades','win_rate','profit_factor','max_drawdown','avg_pnl','wins','losses','oos_pnl','oos_trades','oos_pf','fold','test_bars','train_bars'].indexOf(k)<0):[];const hasOos=t.length&&t[0].oos_pnl!==undefined,isWf=t.length&&t[0].fold!==undefined;const R=lastDone.result,mlt=lastDone.mult||20;let val='';if(R.dsr){const dc=R.dsr.dsr>=0.95?'var(--green)':R.dsr.dsr>=0.8?'var(--yellow)':'var(--red)';val+='<span>Winner Sharpe <b>'+R.dsr.winner_sharpe.toFixed(2)+'</b></span><span>Luck bar / '+R.dsr.n_cfg+' <b>'+R.dsr.luck_bar.toFixed(2)+'</b></span><span>Deflated Sharpe <b style="color:'+dc+'">'+Math.round(R.dsr.dsr*100)+'%</b> · '+R.dsr.verdict+'</span>';}if(R.mc){val+='<span>P95 drawdown <b style="color:var(--red)">$'+Math.round((R.mc.p95||0)*mlt).toLocaleString()+'</b> (size to this)</span>';}
         // ── Walk-forward efficiency + fold consistency (the numbers a pro reads off WF) ──
@@ -8767,7 +8773,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div class="ex-runbar"><div class="ex-cap">THIS IS WHAT “RUN” WILL DO</div><div class="ex-summary" id="ex-summary">—</div></div>'
         +'<div class="ex-runrow"><button class="btn-ghost active" id="ex-run" style="flex:0 0 auto;padding:9px 30px">▶ RUN ON MY PC</button><span style="color:var(--text5);font-size:var(--fsxs)">Runs on your PC; progress + results stream into Results history.</span></div>'
         +'</div>'
-        +(gvHtml?tile(gvHtml):'')
+        +gvHtml
         +(gateHtml?tile(gateHtml):'')
         +'<div class="lbl" style="margin-bottom:8px">RUNS</div>'
         +(grids.length?tile('<table class="table"><thead><tr><th>STATUS</th><th>STRATEGY</th><th>SCOPE</th><th style="text-align:right">SIZE</th><th style="text-align:right">PF</th><th style="text-align:right">BEST $</th><th style="text-align:right">CONTROL</th></tr></thead><tbody>'+grows+'</tbody></table>'):'<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO SWEEPS YET — RUN ONE</div>')
