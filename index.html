@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='58.6';
+const VERSION='58.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'58.7', date:'2026-07-18', notes:['New 2L SURROGATE BAKE-OFF panel in the run report (Auto-Validate and Auto-Optimize runs from today onward): several ML models are each fit to the configs the search sampled, scored for out-of-fold accuracy, and their proposed best config is re-run as a REAL backtest — the panel shows each model, its accuracy, its pick and the ground-truthed dollars, which knobs drive PnL vs are dead weight, the strongest knob-PAIR interactions as small heatmaps, and whether the models agree. Older saved runs do not carry this data and render unchanged.']},
   {v:'58.6', date:'2026-07-18', notes:['Strategy identity: RSIDIV and TTIBS are now recognised families with their own Library numbers (RSIDIV #11, TTIBS #10) and correct names, so they show properly in Past Runs and the Library instead of RSIDIV rendering as AUGUR 1.0.']},
   {v:'58.5', date:'2026-07-18', notes:['Compare fullscreen explorer: click-dragging the chart now pans in BOTH directions like TradingView — a vertical drag slides the dollar scale too, instead of only panning left and right.','Compare fullscreen explorer: you can now drag the drawdown pane right-edge axis to scale or compress it, the same way the equity axis already worked.','Compare equity overlay (the non-expanded tile): now shows a drawdown pane beneath the equity curves too, each strategy filled in its own colour, without needing to open the fullscreen explorer.']},
   {v:'58.4', date:'2026-07-18', notes:['Config Analysis (2C PDP curves): a tuning knob whose best value is pinned at the edge of its tested range while the curve is still rising now shows an amber warning marker and a panel banner — it means the search stopped at its own boundary, so the true best value is likely further out and the range should be widened. Renders on existing saved runs too (computed in the browser when the run did not store it).']},
@@ -7939,6 +7940,77 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3);margin-top:8px"><span>gate earns pre-lockbox: <b style="color:'+(V.gate_earns_pre?'var(--green)':'var(--yellow)')+'">'+(V.gate_earns_pre?'YES':'NO')+'</b></span>'+consHtml+'</div>'
           +lbHtml
           +'<div style="font-size:var(--fsxs);color:'+(LB?(LB.helped?'var(--green)':'var(--red)'):'var(--yellow)')+';margin-top:8px">'+(V.verdict||'')+'</div>';};
+    // ── 2L SURROGATE BAKE-OFF (#31 P1, docs/SURROGATE_DISCOVERY_DESIGN.md) — renders
+    //    d.surrogate: several models (quadratic / random forest / xgboost / gaussian
+    //    process) fit to the SAME configs the search already sampled, cross-validated
+    //    out-of-fold, then every model predicted optimum re-run as a REAL backtest
+    //    (ground_truth_pnl) before it is trusted. d.surrogate is undefined on every run
+    //    saved before this backend shipped (4dbbeb1/da8a725) — every field access below
+    //    is guarded so old runs render byte-identical (no header, no empty box). A failed
+    //    bake-off comes back as {error:...} (auto.py never lets it kill the run) — the
+    //    call site renders a one-line muted note for that case instead of calling this.
+    //    Field names mirror augur_engine/surrogate.py's surrogate_bakeoff() return exactly
+    //    (models[].beat_sampled_best, models[].top_interactions[].param_a/param_b/pd_grid
+    //    — there is NO top-level d.surrogate.interactions array in the shipped payload).
+    const surrogatePanelHtml=(surr,mlt,tag)=>{
+      if(!surr||surr.error)return '';
+      const models=Array.isArray(surr.models)?surr.models:[];
+      if(!models.length)return '';
+      const _esS=s=>(s==null?'':String(s)).replace(/</g,'&lt;');
+      const $=v=>(v==null?'—':fmtUsd(Math.round(v*mlt)));
+      const r2Col=v=>(v>=0.5?'var(--green)':v>=0.2?'var(--yellow)':'var(--red)');
+      const interTxt=m=>{const ti=(m.top_interactions||[])[0];return ti?(_esS(ti.param_a)+' × '+_esS(ti.param_b)+' <span style="color:var(--text5)">('+(ti.strength||0).toFixed(2)+')</span>'):'—';};
+      const rows=models.map(m=>{
+        const isBest=m.model===surr.best_model;
+        if(m.cv_r2==null)return '<tr style="color:var(--text5)"><td>'+_esS(m.model)+'</td><td colspan="5" style="font-size:8px">skipped'+(m.skipped?' — '+_esS(m.skipped):'')+'</td></tr>';
+        const beat=m.beat_sampled_best===true;
+        return '<tr'+(isBest?' style="color:var(--green);font-weight:600"':'')+'><td>'+(isBest?'▸ ':'')+_esS(m.model)+'</td>'
+          +'<td style="text-align:right;color:'+r2Col(m.cv_r2)+'">'+m.cv_r2.toFixed(3)+'</td>'
+          +'<td style="text-align:right">'+$(m.predicted_best_pnl)+'</td>'
+          +'<td style="text-align:right;color:'+(beat?'var(--green)':'var(--text)')+'">'+$(m.ground_truth_pnl)+'</td>'
+          +'<td style="text-align:center">'+(beat?'✓':'—')+'</td>'
+          +'<td style="font-size:8px">'+interTxt(m)+'</td></tr>';
+      }).join('');
+      const r2Tip='Out-of-fold score: measured on points this model never trained on (5-fold cross-validation), not the ones it fit to. 1.0 = perfect, 0 = no better than the average, negative = worse than the average. Low = this model cannot map the surface here — treat its whole card skeptically.';
+      const table='<div style="overflow-x:auto"><table class="table"><thead><tr><th>MODEL</th><th style="text-align:right;cursor:help" title="'+r2Tip+'">CV R² <span style="color:var(--text5)">ⓘ</span></th><th style="text-align:right">PREDICTED BEST $</th><th style="text-align:right">GROUND-TRUTHED $</th><th style="text-align:center">BEAT SAMPLED BEST?</th><th>TOP INTERACTION</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+      const sampLine='<div style="font-size:8px;color:var(--text4);margin:6px 0 2px">sampled best '+$(surr.sampled_best_pnl)+' · ground-truthing = every model pick re-run as a REAL backtest, never trusted on prediction</div>';
+      const ksKeys=Object.keys(surr.knob_screen||{});
+      const chip=(k,info)=>{
+        const v=(info&&info.verdict)||'weak';
+        const vc=(v==='drives PnL')?{bd:'var(--green)',bg:'color-mix(in srgb,var(--green) 14%,transparent)',tx:'var(--text)'}
+          :(v==='dead')?{bd:'color-mix(in srgb,var(--red) 45%,var(--border))',bg:'color-mix(in srgb,var(--red) 10%,transparent)',tx:'var(--text4)'}
+          :{bd:'var(--border)',bg:'var(--bg2)',tx:'var(--text4)'};
+        const tip='lasso |coef| '+(info&&info.lasso!=null?info.lasso:'—')+' · shap/importance '+(info&&info.shap_or_imp!=null?info.shap_or_imp:'—')+((info&&info.shap_source)?' ('+_esS(info.shap_source)+')':'');
+        return '<span title="'+tip+'" style="cursor:help;display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border-radius:9px;font-size:9px;border:1px solid '+vc.bd+';color:'+vc.tx+';background:'+vc.bg+'">'+_esS(k)+' · '+v+'</span>';
+      };
+      const knobHtml=ksKeys.length?('<div style="margin:12px 0 4px"><div style="font-size:8px;letter-spacing:1px;color:var(--text5);margin-bottom:6px">KNOB SCREEN — which params actually move PnL</div><div>'+ksKeys.map(k=>chip(k,surr.knob_screen[k])).join('')+'</div></div>'):'';
+      const bestCard=models.find(m=>m.model===surr.best_model)||null;
+      const inters=(bestCard&&Array.isArray(bestCard.top_interactions))?bestCard.top_interactions.filter(it=>it&&Array.isArray(it.a_values)&&Array.isArray(it.b_values)&&Array.isArray(it.pd_grid)).slice(0,3):[];
+      const heat=inter=>{
+        const av=inter.a_values,bv=inter.b_values,grid=inter.pd_grid,na=av.length,nb=bv.length;
+        if(!na||!nb)return '';
+        let vmax=0;grid.forEach(r=>(r.row||[]).forEach(v=>{if(Math.abs(v)>vmax)vmax=Math.abs(v);}));vmax=vmax||1;
+        const neg=[226,75,74],pos=[31,186,124],mid=[70,78,92];
+        const ramp=v=>{const t=Math.max(-1,Math.min(1,v/vmax)),c=(t>=0?pos:neg),a=Math.abs(t);
+          return 'rgb('+Math.round(mid[0]+(c[0]-mid[0])*a)+','+Math.round(mid[1]+(c[1]-mid[1])*a)+','+Math.round(mid[2]+(c[2]-mid[2])*a)+')';};
+        const cs=20,W=nb*cs,H=na*cs;
+        let s='';
+        for(let i=0;i<na;i++){const row=(grid[i]&&grid[i].row)||[];
+          for(let j=0;j<nb;j++){const v=(row[j]==null?0:row[j]);
+            s+='<rect x="'+(j*cs)+'" y="'+(i*cs)+'" width="'+(cs-1)+'" height="'+(cs-1)+'" fill="'+ramp(v)+'"><title>'+_esS(inter.param_a)+'='+_esS(av[i])+' · '+_esS(inter.param_b)+'='+_esS(bv[j])+' · predicted '+fmtUsd(Math.round(v*mlt))+'</title></rect>';
+          }
+        }
+        return '<div style="display:inline-block;vertical-align:top;margin:0 14px 10px 0;text-align:center"><svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" style="display:block;border-radius:3px;overflow:hidden">'+s+'</svg>'
+          +'<div style="font-size:8px;color:var(--text3);margin-top:4px">'+_esS(inter.param_a)+' × '+_esS(inter.param_b)+' · strength '+(inter.strength||0).toFixed(2)+'</div></div>';
+      };
+      const interHtml=inters.length?('<div style="margin:12px 0 4px"><div style="font-size:8px;letter-spacing:1px;color:var(--text5);margin-bottom:2px">TOP INTERACTIONS — 2-way partial dependence</div><div style="font-size:8px;color:var(--text5);margin-bottom:6px">how PnL depends on the two knobs JOINTLY (read from the best model)</div><div>'+inters.map(heat).join('')+'</div></div>'):'';
+      const gpCard=models.find(m=>m.model==='gp')||null;
+      const consNote=(surr.consensus&&surr.consensus.note)?_esS(surr.consensus.note):'';
+      const uncNote=(gpCard&&gpCard.uncertainty_note)?_esS(gpCard.uncertainty_note):'';
+      const consLine=consNote?('<div style="font-size:8px;color:var(--text4);margin-top:10px">'+consNote+(uncNote?' <span style="color:var(--text5)">— '+uncNote+'</span>':'')+'</div>'):'';
+      const hdr='<div style="margin:0 0 10px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · SURROGATE BAKE-OFF — models fit to the search points · #31 P1</div>';
+      return hdr+table+sampLine+knobHtml+interHtml+consLine;
+    };
     const runDetail=(d)=>{
       if(!d)return '<div style="color:var(--text5);font-size:var(--fsxs);padding:48px 20px;text-align:center;border:1px dashed var(--border);border-radius:10px">select a run on the left to load its report card</div>';
       const _champNetTip=d.validate?'the single best parameter set, measured across the WHOLE tune period (one config, all dates). The matrix below instead splits the timeline into 3 sections — its IN-SAMPLE column is only the first (un-shaded) section, so that is a smaller number than this.':'';
@@ -8400,7 +8472,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Tile 2 (parameter-relationship group): H, I and J across in ONE row of 3 (owner) — each a
       //   3-D panel on its own param pair (⛶ orbits), equal-height, wrapping on a narrow screen.
       const _paramTile=(_hm||_p3d||_sc)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_hm,_p3d,_sc],true)+'</div>':'';
-      const _sec3=_cfgTile+_paramTile+_topTile+_nbTile+_dsrTile;
+      // 2L SURROGATE BAKE-OFF (#31 P1): d.surrogate is undefined on every run saved before
+      //   this backend shipped — surrogatePanelHtml itself returns '' for absent/undefined,
+      //   so old runs render byte-identical (no header, no empty box). A failed bake-off
+      //   comes back as d.surrogate={error:...} (auto.py never lets it kill the run) — show
+      //   a one-line muted note in that case instead of the panel.
+      const _surrHtml=surrogatePanelHtml(d.surrogate,mlt,_cfgN+'L');
+      const _surrTile=(_surrHtml&&_surrHtml.replace(/\s/g,''))?'<div style="'+_card2+';margin-bottom:14px">'+_surrHtml+'</div>':'';
+      const _surrErr=(d.surrogate&&d.surrogate.error)?'<div style="font-size:8px;color:var(--text5);margin-bottom:8px">'+_cfgN+'L · SURROGATE BAKE-OFF — skipped: '+String(d.surrogate.error).replace(/</g,'&lt;')+'</div>':'';
+      const _sec3=_cfgTile+_paramTile+_topTile+_nbTile+_dsrTile+_surrTile+_surrErr;
       // regHtml (regime report card + monthly P&L) moved into §1 (under the WF folds) per request.
       // Stress = the champion's profit spread across time → it lives in §1 (1I) for validate runs; keep the standalone §3/§4 only for non-validate sweeps.
       const _sec4='';   // stress is folded into §1 (1I) for EVERY run type now — matches run 137.
