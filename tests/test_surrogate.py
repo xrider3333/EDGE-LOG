@@ -219,7 +219,7 @@ def test_cards_well_formed_when_everything_available():
     out = surrogate_bakeoff(pts, keys, dp, seed=SEED)
     assert out is not None
     names = {c["model"] for c in out["models"]}
-    assert names == {"quadratic", "random_forest", "xgboost", "gp"}
+    assert names == {"quadratic", "random_forest", "xgboost", "gp", "gam"}
     for c in out["models"]:
         if c.get("skipped"):
             continue
@@ -241,14 +241,50 @@ def test_xgboost_and_shap_absence_degrade_gracefully(monkeypatch):
     assert out is not None
     xgb_card = next(c for c in out["models"] if c["model"] == "xgboost")
     assert xgb_card.get("skipped") == "xgboost not installed"
-    # every other model still fits fine
+    # every other model still fits fine (gam unaffected -- only xgboost/shap disabled here)
     fit_names = {c["model"] for c in out["models"] if "cv_r2" in c}
-    assert fit_names == {"quadratic", "random_forest", "gp"}
+    expected = {"quadratic", "random_forest", "gp"} | ({"gam"} if S.HAS_PYGAM else set())
+    assert fit_names == expected
     # knob screen falls back to RF impurity importances, never crashes, never
     # silently claims a `shap:` source it didn't actually compute
     for k in keys:
         src = out["knob_screen"][k]["shap_source"]
         assert src is None or src.startswith("rf_importance:")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# (#35) pyGAM adapter — 5th roster entry; finite CV-R2 card when installed,
+# graceful skip (never an exception, bake-off still returns) when it isn't.
+# ─────────────────────────────────────────────────────────────────────────────
+def test_gam_card_appears_with_finite_cv_r2_when_pygam_installed():
+    pytest.importorskip("pygam")
+    pts, keys, dp = _make_bakeoff_points()
+    out = surrogate_bakeoff(pts, keys, dp, seed=SEED)
+    assert out is not None
+    gam_card = next(c for c in out["models"] if c["model"] == "gam")
+    assert not gam_card.get("skipped")
+    assert isinstance(gam_card["cv_r2"], float) and np.isfinite(gam_card["cv_r2"])
+    assert isinstance(gam_card["cv_rmse"], float) and np.isfinite(gam_card["cv_rmse"])
+    assert isinstance(gam_card["best_hyperparams"], dict) and gam_card["best_hyperparams"]
+    assert "predicted_best_params" in gam_card and set(gam_card["predicted_best_params"]) == set(keys)
+    assert isinstance(gam_card["predicted_best_pnl"], float)
+    assert "top_interactions" in gam_card       # generic PD-based path, same as every other model
+
+
+def test_bakeoff_still_picks_a_best_model_when_pygam_absent(monkeypatch):
+    """Simulates pygam-not-installed by monkeypatching the module's own HAS_PYGAM
+    flag (same pattern the file already uses for HAS_XGBOOST/HAS_SHAP above) --
+    the bake-off must degrade the `gam` card to `skipped` and keep going,
+    never raise, and still pick a best model from whatever else fit."""
+    pts, keys, dp = _make_bakeoff_points()
+    monkeypatch.setattr(S, "HAS_PYGAM", False)
+    out = surrogate_bakeoff(pts, keys, dp, seed=SEED)
+    assert out is not None
+    gam_card = next(c for c in out["models"] if c["model"] == "gam")
+    assert gam_card.get("skipped") == "pygam not installed"
+    fit_names = {c["model"] for c in out["models"] if "cv_r2" in c}
+    assert fit_names == {"quadratic", "random_forest", "xgboost", "gp"}
+    assert out["best_model"] in fit_names
 
 
 # ─────────────────────────────────────────────────────────────────────────────

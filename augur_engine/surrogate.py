@@ -26,11 +26,14 @@ missing, the corresponding roster entry / knob-screen feature is skipped with a
 surrogate model couldn't be built (auto.py's integration wraps the whole call
 in try/except too, per the design's guardrail).
 
-ROSTER — a small adapter registry, so a future model (e.g. pyGAM) is ONE new
-entry: `_build_roster()` returns a list of {name, kind, estimator, grid} (or
-{name, skipped: reason}). Adding pyGAM later means adding one more `try:
-import pygam ... roster.append({...})` block; nothing else in this file
-changes (the fit/score/predict/interaction/knob-screen code is roster-generic).
+ROSTER — a small adapter registry, so a future model is ONE new entry:
+`_build_roster()` returns a list of {name, kind, estimator, grid} (or {name,
+skipped: reason}). pyGAM (#35) is the roster's 5th entry and the template for
+adding more: one more `try: import pygam ... roster.append({...})` block (see
+HAS_PYGAM below); nothing else in this file changes (the fit/score/predict/
+interaction/knob-screen code is roster-generic). Like xgboost/shap, pygam is
+OPTIONAL — if it's not importable the `gam` card degrades to a `skipped`
+string instead of raising.
 """
 import itertools
 
@@ -60,7 +63,16 @@ except Exception:
     _shap = None
     HAS_SHAP = False
 
-__all__ = ["surrogate_bakeoff", "HAS_XGBOOST", "HAS_SHAP"]
+try:
+    from pygam import LinearGAM, s as _gam_s, l as _gam_l
+    HAS_PYGAM = True
+except Exception:
+    LinearGAM = None
+    _gam_s = None
+    _gam_l = None
+    HAS_PYGAM = False
+
+__all__ = ["surrogate_bakeoff", "HAS_XGBOOST", "HAS_SHAP", "HAS_PYGAM"]
 
 # ── guardrail thresholds (documented, not vibes) ───────────────────────────────
 MIN_POINTS = 40                 # below this the surface is too thin to fit anything honest
@@ -231,11 +243,57 @@ class _StdYGP(BaseEstimator, RegressorMixin):
         return self.gp_.predict(Xs) * (self.y_std or 1.0) + self.y_mean
 
 
-def _build_roster(seed, y_mean, y_std):
+# ─────────────────────────────────────────────────────────────────────────────
+# GAM adapter (#35): smooth spline term s(i) per continuous (numeric) column,
+# linear term l(i) per one-hot dummy column -- columns 0..n_numeric-1 are the
+# _Encoder's numeric_params in order, n_numeric..n_features-1 are the one-hot
+# categorical dummies (see _Encoder.transform), so a plain column-index split
+# is all "which term kind" needs. Wrapped as a sklearn BaseEstimator/
+# RegressorMixin (same reason as _StdYGP above: the shared _fit_and_score
+# GridSearchCV harness needs a normal sklearn-shaped estimator) so the SAME
+# out-of-fold CV harness scores it exactly like every other roster model --
+# this deliberately does NOT use pygam's own LinearGAM.gridsearch(), which
+# optimizes against training-set GCV/deviance, not the bake-off's shared
+# held-out CV-R^2 metric every card is compared on.
+# ─────────────────────────────────────────────────────────────────────────────
+class _LinearGAMAdapter(BaseEstimator, RegressorMixin):
+    def __init__(self, n_numeric=0, n_features=0, n_splines=12, lam=1.0):
+        self.n_numeric = n_numeric
+        self.n_features = n_features
+        self.n_splines = n_splines
+        self.lam = lam
+
+    def _build_terms(self):
+        terms = None
+        for i in range(self.n_numeric):
+            t = _gam_s(i, n_splines=int(self.n_splines), lam=float(self.lam))
+            terms = t if terms is None else terms + t
+        for i in range(self.n_numeric, self.n_features):
+            t = _gam_l(i, lam=float(self.lam))
+            terms = t if terms is None else terms + t
+        if terms is None:                     # degenerate: no declared features at all
+            terms = _gam_l(0)
+        return terms
+
+    def fit(self, X, y):
+        self.gam_ = LinearGAM(terms=self._build_terms(), fit_intercept=True)
+        self.gam_.fit(X, y)
+        return self
+
+    def predict(self, X):
+        return np.asarray(self.gam_.predict(X), dtype=float)
+
+
+def _build_roster(seed, y_mean, y_std, enc):
     """The pluggable adapter registry (§3). Each entry: {name, kind, estimator,
     grid} ready for GridSearchCV, or {name, skipped: reason}. To add a new
-    model (e.g. pyGAM), append one more try/except block here — nothing else
-    in this file needs to change."""
+    model, append one more try/except block here — nothing else in this file
+    needs to change (pyGAM/`gam` below, #35, is exactly that pattern).
+
+    `enc` (the already-built _Encoder) is only needed by the `gam` entry, to
+    know how many leading columns are numeric (get an `s()` smooth term) vs.
+    trailing one-hot dummy columns (get an `l()` linear term); every other
+    adapter ignores it."""
     roster = []
 
     try:
@@ -275,6 +333,16 @@ def _build_roster(seed, y_mean, y_std):
                        "grid": {"kernel": kernels}})
     except Exception as e:
         roster.append({"name": "gp", "skipped": f"unavailable: {e}"})
+
+    if HAS_PYGAM:
+        try:
+            est = _LinearGAMAdapter(n_numeric=len(enc.numeric_params), n_features=enc.n_features)
+            roster.append({"name": "gam", "kind": "gam", "estimator": est,
+                           "grid": {"n_splines": [8, 12], "lam": [0.1, 1.0, 10.0]}})
+        except Exception as e:
+            roster.append({"name": "gam", "skipped": f"unavailable: {e}"})
+    else:
+        roster.append({"name": "gam", "skipped": "pygam not installed"})
 
     return roster
 
@@ -784,7 +852,7 @@ def surrogate_bakeoff(points, pkeys, dp, ground_truth_fn=None, top_pairs=3, seed
         gp_X, gp_y = X[idx], y[idx]
         gp_note = f"subsampled {GP_MAX_POINTS}/{n} points (seed {seed}) for O(n^3) tractability."
 
-    roster = _build_roster(seed, y_mean, y_std)
+    roster = _build_roster(seed, y_mean, y_std, enc)
     cards = []
     fitted = {}
     fit_points = {}       # model name -> the (possibly GP-subsampled) points/X it was fit on
