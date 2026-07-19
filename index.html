@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='58.9';
+const VERSION='59.0';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'59.0', date:'2026-07-18', notes:['2A TOP CONFIGS: the winner final $ now sits ON the right axis as a green tick (not floating over the plot), and the x axis carries start/end dates. The tooltip explains why a lower-ranked curve can END higher: ranking is locked to the in-sample slice — the tail of the window is out-of-sample for selection, and peeking at it would be look-ahead bias.','2B: the NET $ axis is now sub-labeled in-sample $ (scoring slice) so it no longer reads as a mismatch against the full-window equity in 2A — same configs, different measuring window.','2A / 2C: winner labels, peak dots and pick rings now use fixed green/blue colors that stay visible on themes whose accent colors are muted.','Report cards resize in BOTH directions now (drag the bottom-right corner) and the layout STICKS across reruns and reloads. Double-click a card edge to reset that card to automatic size.']},
   {v:'58.9', date:'2026-07-18', notes:['2A TOP CONFIGS: the winner curve endpoint now carries a green dollar label, so the top config PnL reads straight off the chart.','2C PDP mini-charts: a blue RING now marks where the plateau pick actually SET each knob (the green dot stays the raw curve max — the two deliberately differ), plus a new one-line note under the charts spelling out what the auto range-widener did per knob (widened to what, tapered where, or pinned at a logical limit).','Engine: when the search auto-widens a knob range, the widened samples now flow into the saved chart points too — so 2B/2C actually DRAW the taper past the old edge instead of stopping at it (runs from today onward; older runs show the note only).','2L renamed to ML MODEL BAKE-OFF (they are ML models used as surrogates — stand-ins for the slow real backtest); knob-screen chips now show the permutation vote and the random-noise-probe margin on hover.','MAR tooltips in Rankings and the family ledger now say WHICH window the number comes from (the tuned in-sample stretch) and why the run-report LB MAR is much smaller (lockbox-only slice).']},
   {v:'58.8', date:'2026-07-18', notes:['GATE VALIDATE bake-off chart: moved out of the Builder tab — it now lives only in RESULTS inside the saved run report (every completed gate-validate is saved as a run instantly, so nothing is lost; the Builder shows a one-line pointer instead).','GATE VALIDATE chart: added axis labels so the chart reads on its own — y axis RECOVERY FACTOR ($ won per $ of drawdown), x axis GATE PROBABILITY CUT-OFF (min win-probability to take the trade), and the dashed line is now labeled as the no-gate baseline.']},
   {v:'58.7', date:'2026-07-18', notes:['New 2L SURROGATE BAKE-OFF panel in the run report (Auto-Validate and Auto-Optimize runs from today onward): several ML models are each fit to the configs the search sampled, scored for out-of-fold accuracy, and their proposed best config is re-run as a REAL backtest — the panel shows each model, its accuracy, its pick and the ground-truthed dollars, which knobs drive PnL vs are dead weight, the strongest knob-PAIR interactions as small heatmaps, and whether the models agree. Older saved runs do not carry this data and render unchanged.']},
@@ -6729,16 +6730,24 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Single NET (y) axis on the RIGHT, drawn to MATCH the x-axis baseline styling (neutral white);
       //   the old red LEFT guide is dropped — owner: "dont need y axis on the left".
       grid+='<line x1="'+xR.toFixed(1)+'" y1="'+pt+'" x2="'+xR.toFixed(1)+'" y2="'+(H-pd)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>';
-      // label the WINNER curve endpoint with its final $ — the gridline labels alone never
-      //   land exactly on the top config, so its PnL was unreadable off the axis (owner).
+      // label the WINNER curve endpoint with its final $ AS AN AXIS TICK (owner: like 1A,
+      //   not floating over the plot) — green tick + $ in the same right gutter as the
+      //   gridline labels, at the winner exact y. Fixed hex green: theme vars can be muted.
       let winTag='';
       const _w0=series[0]||[],_fin=_w0.length?_w0[_w0.length-1]:null;
-      if(_fin!=null){const wy=H-pd-(H-pt-pd)*(_fin-mn)/rg,ty=Math.max(pt+5,wy-3.5);
-        winTag='<circle cx="'+xR.toFixed(1)+'" cy="'+wy.toFixed(1)+'" r="2.4" fill="var(--green)"/>'
-          +'<text x="'+(xR-4).toFixed(1)+'" y="'+ty.toFixed(1)+'" text-anchor="end" font-size="5.4" font-weight="700" fill="var(--green)" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.2">top config '+fmtUsd(Math.round(_fin))+'</text>';}
+      if(_fin!=null){const wy=H-pd-(H-pt-pd)*(_fin-mn)/rg;
+        winTag='<circle cx="'+xR.toFixed(1)+'" cy="'+wy.toFixed(1)+'" r="2.4" fill="#1d9e75"/>'
+          +'<line x1="'+(xR-2.6).toFixed(1)+'" y1="'+wy.toFixed(1)+'" x2="'+(xR+2.6).toFixed(1)+'" y2="'+wy.toFixed(1)+'" stroke="#1d9e75" stroke-width="1.1"/>'
+          +'<text x="'+(xR+4).toFixed(1)+'" y="'+(wy+2.2).toFixed(1)+'" font-size="4.8" font-weight="700" fill="#1d9e75" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.4">'+fmtUsd(Math.round(_fin))+' ◂ top</text>';}
+      // x-axis date labels (owner request). Use the OPTIMIZE window when this is a validate
+      //   run — these curves stop at the lockbox door, so date_to would over-claim.
+      const _xw=(d.validate&&d.validate.windows&&d.validate.windows.optimize)||null;
+      const _xd0=(_xw&&_xw[0])||d.date_from,_xd1=(_xw&&_xw[1])||d.date_to;
+      if(_xd0&&_xd1){grid+='<text x="'+xL.toFixed(1)+'" y="'+(H-0.5)+'" font-size="4.6" fill="var(--text3)">'+_dnice(_xd0)+'</text>'
+        +'<text x="'+xR.toFixed(1)+'" y="'+(H-0.5)+'" text-anchor="end" font-size="4.6" fill="var(--text3)">'+_dnice(_xd1)+'</text>';}
       const sel='<select data-tpc style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin-left:6px"><option value="rank"'+(mode==='rank'?' selected':'')+'>by rank</option>'+pkeys.map(k=>'<option value="'+k+'"'+(mode===k?' selected':'')+'>by '+k.replace(/_/g,' ')+'</option>').join('')+'</select>';
       const cfgSlider='<span title="how many curves get COLOUR (the rest stay as faint grey context) — also sets the config-distribution (2b) bin detail. The run stored the top '+etop.length+' curves." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+'</b></span>';
-      const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis — top '+etop.length+((d.date_from&&d.date_to)?' · '+_dnice(d.date_from)+' → '+_dnice(d.date_to):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
+      const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis — top '+etop.length+((_xd0&&_xd1)?' · '+_dnice(_xd0)+' → '+_dnice(_xd1):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. RANKING: locked to the pre-registered IN-SAMPLE slice (the first ~75% of this window) — a lower-ranked curve can END higher because the tail is out-of-sample for selection, and peeking at it to pick the winner would be look-ahead bias. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
       return (tag?'<div title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' · TOP CONFIGS PNL <span style="font-weight:400;color:var(--text5);font-size:8px">ⓘ</span>'+sel+cfgSlider+'</div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+sel+'</div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
         +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+((d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,yl:'equity'}))+'"':'')+'>'
@@ -7114,17 +7123,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const pts2=cv.c.map((r,i)=>X(i).toFixed(1)+','+Y(r.m).toFixed(1)).join(' ');
         const pk=ys.indexOf(mx);
         const _bf=cv.bflag;
-        const dots=cv.c.map((r,i)=>{const isPk=i===pk,warnDot=isPk&&_bf;return '<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(r.m).toFixed(1)+'" r="'+(isPk?3.2:1.7)+'" fill="'+(warnDot?'var(--yellow)':(isPk?'var(--green)':'var(--text4)'))+'" style="cursor:pointer" data-tip="'+_pp(cv.k)+' <b>'+r.v+'</b><br>avg net <b>'+fmtUsd(Math.round(r.m))+'</b>'+(r.n?'<br>across '+r.n+' configs':'')+(warnDot?'<br><span style=&quot;color:var(--yellow)&quot;>⚠ '+_bf.msg.replace(/"/g,'&quot;')+'</span>':'')+'"/>';}).join('');
+        const dots=cv.c.map((r,i)=>{const isPk=i===pk,warnDot=isPk&&_bf;return '<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(r.m).toFixed(1)+'" r="'+(isPk?3.2:1.7)+'" fill="'+(warnDot?'#e2b93b':(isPk?'#1d9e75':'var(--text4)'))+'" style="cursor:pointer" data-tip="'+_pp(cv.k)+' <b>'+r.v+'</b><br>avg net <b>'+fmtUsd(Math.round(r.m))+'</b>'+(r.n?'<br>across '+r.n+' configs':'')+(warnDot?'<br><span style=&quot;color:var(--yellow)&quot;>⚠ '+_bf.msg.replace(/"/g,'&quot;')+'</span>':'')+'"/>';}).join('');
         // PICKED-value ring (blue): where the plateau pick actually SET this knob — the
         //   green dot is the raw curve max, and the two deliberately differ (broad high
         //   ground beats a lone spike). Owner: the found param was not visible on the chart.
         const _pkv=(pp&&pp.params&&typeof pp.params[cv.k]==='number')?pp.params[cv.k]:null;
         let pickMark='';
         if(_pkv!=null&&cv.c.length>1){let bi=-1,bd=Infinity;cv.c.forEach((r,i)=>{const d2=Math.abs((+r.v)-_pkv);if(d2<bd){bd=d2;bi=i;}});
-          if(bi>=0&&bi!==pk){pickMark='<circle cx="'+X(bi).toFixed(1)+'" cy="'+Y(cv.c[bi].m).toFixed(1)+'" r="4.6" fill="none" stroke="var(--blue)" stroke-width="1.4" style="cursor:pointer" data-tip="PICKED '+_pp(cv.k)+' = <b>'+_pkv+'</b><br>the plateau pick — broad high ground, deliberately not always the raw max (green dot)"/>';}}
+          if(bi>=0&&bi!==pk){pickMark='<circle cx="'+X(bi).toFixed(1)+'" cy="'+Y(cv.c[bi].m).toFixed(1)+'" r="4.6" fill="none" stroke="#3a9bdc" stroke-width="1.4" style="cursor:pointer" data-tip="PICKED '+_pp(cv.k)+' = <b>'+_pkv+'</b><br>the plateau pick — broad high ground, deliberately not always the raw max (green dot)"/>';}}
         const flat=cv.infl<0.12*maxInfl;
-        const _peakSpan='<span title="'+(flat?'this knob barely changes net $ — a flat partial-dependence curve':'net $ peaks at '+_pp(cv.k)+' = '+cv.peak.v)+'" style="color:'+(flat?'var(--text5)':'var(--green)')+';white-space:nowrap;cursor:help">'+(flat?'flat':'peak <b>'+cv.peak.v+'</b>')+'</span>'
-          +((_pkv!=null&&_pkv!==cv.peak.v)?'<span title="the plateau pick set this knob to '+_pkv+' — broad high ground, deliberately not always the raw max" style="color:var(--blue);white-space:nowrap;cursor:help;margin-left:3px">pick <b>'+_pkv+'</b></span>':'')
+        const _peakSpan='<span title="'+(flat?'this knob barely changes net $ — a flat partial-dependence curve':'net $ peaks at '+_pp(cv.k)+' = '+cv.peak.v)+'" style="color:'+(flat?'var(--text5)':'#1d9e75')+';white-space:nowrap;cursor:help">'+(flat?'flat':'peak <b>'+cv.peak.v+'</b>')+'</span>'
+          +((_pkv!=null&&_pkv!==cv.peak.v)?'<span title="the plateau pick set this knob to '+_pkv+' — broad high ground, deliberately not always the raw max" style="color:#3a9bdc;white-space:nowrap;cursor:help;margin-left:3px">pick <b>'+_pkv+'</b></span>':'')
           +(_bf?'<span title="'+_bf.msg.replace(/"/g,'&quot;')+'" style="color:var(--yellow);white-space:nowrap;cursor:help;margin-left:3px">⚠</span>':'');
         const _hdrRow=bare
           ? '<div style="text-align:center;font-size:8px;margin-bottom:1px">'+_peakSpan+'</div>'
@@ -7508,6 +7517,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   authored SMALL (≈4.6 units → ~10px on screen) so the labels don't render massive.
       const axled=axes.map((k,i)=>{const x=ax(i);const isP=k==='pnl';return '<line x1="'+x.toFixed(1)+'" y1="'+padT+'" x2="'+x.toFixed(1)+'" y2="'+(H-padB)+'" stroke="var(--border)" stroke-width="1"/>'
         +'<text x="'+x.toFixed(1)+'" y="'+(H-padB+8)+'" text-anchor="middle" font-size="4.6" font-weight="'+(isP?'700':'600')+'" fill="'+(isP?'var(--text2)':'var(--text3)')+'">'+(isP?'NET $':_pp(k))+'</text>'
+        +(isP?'<text x="'+x.toFixed(1)+'" y="'+(H-padB+13.5)+'" text-anchor="middle" font-size="3.8" fill="var(--text4)">in-sample $ (scoring slice) — 2A curves run the full window</text>':'')
         +(isP?'':'<text x="'+x.toFixed(1)+'" y="'+(padT-2)+'" text-anchor="middle" font-size="4.2" fill="var(--text3)">'+rnd(dom[k][1])+'</text>'
         +'<text x="'+x.toFixed(1)+'" y="'+(H-padB-2)+'" text-anchor="middle" font-size="4.2" fill="var(--text3)">'+rnd(dom[k][0])+'</text>');}).join('');
       // BRUSH layer (legacy-AUGUR parcoords): an invisible drag-track over each axis + a
@@ -8437,7 +8447,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   2h HEATMAP · 2g SCATTER · 2i PARAM CORRELATION (three across). The 2a "configs" slider sets
       //   the overlay curve count & 2b bins. Display number is 2 on validate runs (empty §2 drops), else 3.
       const _cfgN=2, _strN=3;   // §2 folds into §1 for all run types, so Configuration Analysis is always the 2nd visible section (uniform tag: 2A, 2B…).
-      const _card2='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:12px 14px;resize:vertical;overflow:auto';
+      const _card2='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:12px 14px;resize:both;overflow:auto';
       // ── §2 letters run TOP→BOTTOM, LEFT→RIGHT of the final layout (owner request):
       //    left stack: A top-configs · B parallel coords · C PDP; right stack: D config
       //    distribution · E correlation; then F top-configs table · G neighbours ·
@@ -10130,6 +10140,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _da=content.querySelector('[data-arch-id]');if(_da)_da.onclick=()=>_toggleArch(_da.dataset.archId);
       // CHART METRIC toggle (item L): re-render the §2 param charts on NET $ / MAX DD / MAR
       content.querySelectorAll('[data-pmet]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('pMetric',b.dataset.pmet);renderApp();};});
+      // CARD LAYOUT (owner): report cards resize BOTH directions (drag the corner) and the
+      //   layout STICKS — sizes save per card position (localStorage) and re-apply on every
+      //   render/reload. Double-click a card edge (not a chart) to reset that card.
+      (function(){const cards=[...content.querySelectorAll('div[style*="resize:both"]')];if(!cards.length)return;
+        let saved={};try{saved=JSON.parse(localStorage.getItem('elCardLayout')||'{}');}catch(_e){saved={};}
+        const _save=()=>{try{localStorage.setItem('elCardLayout',JSON.stringify(saved));}catch(_e2){}};
+        cards.forEach((c,i)=>{const s=saved['c'+i];
+          if(s&&s.w)c.style.width=s.w+'px';
+          if(s&&s.h)c.style.height=s.h+'px';
+          c.addEventListener('mouseup',()=>setTimeout(()=>{const w=parseInt(c.style.width)||0,h=parseInt(c.style.height)||0;
+            if(w||h){saved['c'+i]={w:w,h:h};_save();}},80));
+          c.addEventListener('dblclick',e=>{if(e.target!==c)return;delete saved['c'+i];c.style.width='';c.style.height='';_save();});});
+      })();
       // CONFIG-FILTER brush: grey out config marks (.cfgmark, data-net=$) below the slider cut
       //   across the parallel-coords + scatter charts. Pure DOM — no re-render, no state save.
       const _brush=el('cfg-brush');

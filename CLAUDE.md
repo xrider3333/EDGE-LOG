@@ -33,6 +33,15 @@ result (screenshot / measure the DOM), don't guess. NEVER put a raw apostrophe i
 single-quoted JS string (e.g. a CHANGELOG note) — it terminates the string and white-screens
 the whole app; reword apostrophe-free.
 
+## Comparison reruns PIN the data window (hard rule — owner got burned 2026-07-18)
+A rerun meant to be compared against an earlier run MUST use that run's exact
+date_from/date_to. Never leave date_to blank on a comparison rerun — the master
+auto-syncs new bars, so a blank window silently slides forward and reads as a
+performance change (#162 $429k vs #164 $409k was the SAME champion config on a
+window slid ~2.5 weeks; the owner read it as the strategy getting worse). If fresher
+data would genuinely help, ASK the owner first, and state any window change loudly
+in the reply. When comparing two runs, always print each run's date window.
+
 ## What this is
 Augur is a **Streamlit** desktop app (single file: `optimizer.py`, ~5300 lines) for
 **backtesting and optimizing trading strategies**. It runs pluggable Python "strategy
