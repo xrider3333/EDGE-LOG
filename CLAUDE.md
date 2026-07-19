@@ -33,14 +33,18 @@ result (screenshot / measure the DOM), don't guess. NEVER put a raw apostrophe i
 single-quoted JS string (e.g. a CHANGELOG note) — it terminates the string and white-screens
 the whole app; reword apostrophe-free.
 
-## Comparison reruns PIN the data window (hard rule — owner got burned 2026-07-18)
+## Comparison reruns PIN the data window AND the master (hard rule — owner burned 2026-07-18, twice)
 A rerun meant to be compared against an earlier run MUST use that run's exact
-date_from/date_to. Never leave date_to blank on a comparison rerun — the master
-auto-syncs new bars, so a blank window silently slides forward and reads as a
-performance change (#162 $429k vs #164 $409k was the SAME champion config on a
-window slid ~2.5 weeks; the owner read it as the strategy getting worse). If fresher
-data would genuinely help, ASK the owner first, and state any window change loudly
-in the reply. When comparing two runs, always print each run's date window.
+date_from/date_to AND its exact master/source. Never leave date_to blank on a
+comparison rerun — the master auto-syncs new bars, so a blank window silently
+slides forward and reads as a performance change (#162 $429k vs #164 $409k was
+the SAME champion config on a window slid ~2.5 weeks). And the Builder launches
+each job with whatever master happens to be selected — TTIBS runs silently mixed
+`db_noadj_rth` (#161/#164/#165, raw Databento no-adjust) with `tv` (#162,
+back-adjusted): same champion both ways (source-robust, good), but it made runs
+look comparable that were not. If fresher data or a different source would help,
+ASK the owner first and state the change loudly. When comparing two runs, always
+print each run's date window AND master.
 
 ## What this is
 Augur is a **Streamlit** desktop app (single file: `optimizer.py`, ~5300 lines) for

@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='59.3';
+const VERSION='59.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'59.4', date:'2026-07-18', notes:['2H/2I/2J: the per-subtile resize handles are GONE (owner: too many toggles) — the row fills the card again and the single card corner resizes everything, in any direction.','Thinner curve lines on 2A TOP CONFIGS, the 2B parallel coordinates and the COMPARE equity + drawdown overlay, so dense charts read cleaner.','COMPARE: new TABS row — open several live comparisons side by side with ＋ and switch instantly, no saving required (each tab keeps its own selection); the SETS row below still saves named keepers.','REFERENCE: new PARAM LIBRARY card linking the cross-strategy parameter reference doc (PARAM_LIBRARY.md).']},
   {v:'59.3', date:'2026-07-18', notes:['Engine: pyGAM joins the ML MODEL BAKE-OFF as a 5th model (#35) — a Generalized Additive Model that fits one smooth readable curve per knob and adds them up; scored by the same held-out cross-validation as the other four and ground-truthed the same way. Runs from now on carry a gam row in 2L (older runs are unchanged).','2L header now states the actual model count dynamically instead of a hard-coded 4.']},
   {v:'59.2', date:'2026-07-18', notes:['2L 3-D surfaces rebuilt to full 2H quality: floor outline, corner posts, slope shading, a green PEAK flag with its $ value, param axis labels along the floor edges (name + range) and a $ height legend on the left.','2H / 2I / 2J subtiles are now INDIVIDUALLY resizable — drag any subtile corner in any direction (dashed border marks the handle area); they start at the same size as the 2L 3-D charts and their sizes save with the rest of the layout.','COMPARE: new SETS row — save the current selection as a named comparison set and switch between saved sets with one click (e.g. an ORB set vs a TTIBS set); ✕ deletes a set without touching the runs.']},
   {v:'59.1', date:'2026-07-18', notes:['Card resizing FIXED for the vertical direction: charts are aspect-locked to their width, so a vertical drag used to change nothing — now every chart inside a card scales down to the dragged height (aspect kept). Vertical, horizontal and diagonal drags all work, sizes still save, double-click a card edge to reset.','2L TOP INTERACTIONS: new FLAT / 3-D toggle — the model surfaces can now render as isometric 3-D relief like 2H (height and colour = predicted $). The caption also states the key difference: 2L is the smoothed MODEL surface, 2H is the raw sampled configs.']},
@@ -6721,7 +6722,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const path=(s,col,wd,op)=>{const n=s.length;if(n<2)return '';return '<path d="'+s.map((v,i)=>((i?'L':'M')+(xL+(xR-xL)*i/(n-1)).toFixed(1)+' '+(H-pd-(H-pt-pd)*(v-mn)/rg).toFixed(1))).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'"/>';};
       // draw worst→best so the winner sits on top
       const order=series.map((s,i)=>i).sort((a,b)=>b-a);
-      const lines=order.map(i=>(i<_cfgShow?path(series[i],colOf(i),i===0?2.2:1.2,i===0?1:0.72):path(series[i],'var(--text5)',0.8,0.15))).join(''),zeroY=H-pd-(H-pt-pd)*(0-mn)/rg;
+      const lines=order.map(i=>(i<_cfgShow?path(series[i],colOf(i),i===0?1.4:0.8,i===0?1:0.72):path(series[i],'var(--text5)',0.55,0.15))).join(''),zeroY=H-pd-(H-pt-pd)*(0-mn)/rg;
       // visible horizontal $ gridlines running THROUGH the plot (xL→xR) + compact $ labels just
       //   right of the NET (yellow) axis — denser (~5 steps) and smaller than the old shared chrome.
       const _niceE=v=>{v=Math.abs(v)||1;const e=Math.pow(10,Math.floor(Math.log10(v)));const f=v/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
@@ -7510,7 +7511,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const dd=ys.map((y,i)=>(i?'L':'M')+ax(i).toFixed(1)+' '+y.toFixed(1)).join(' ');
         const t=p.pnl/pmx,col=(p.pnl>=0?'rgba(29,158,117,':'rgba(226,75,74,'),op=Math.min(.72,Math.abs(t)*0.6+0.08);
         const tip='net <b style=&quot;color:'+(p.pnl>=0?'#1d9e75':'#e24b4a')+'&quot;>'+fmtUsd(Math.round(p.pnl*mult))+'</b><br>'+keys.map(k=>_pp(k)+' <b>'+rnd(p[k])+'</b>').join(' · ');
-        return '<path class="pcline" data-cfg="'+_i+'" data-ys="'+ys.map(y=>y.toFixed(1)).join(',')+'" data-net="'+Math.round(p.pnl*mult)+'" d="'+dd+'" fill="none" stroke="'+col+op+')" stroke-width="1" style="pointer-events:stroke;transition:opacity .12s" data-tip="'+tip+'"/>';}).join('');
+        return '<path class="pcline" data-cfg="'+_i+'" data-ys="'+ys.map(y=>y.toFixed(1)).join(',')+'" data-net="'+Math.round(p.pnl*mult)+'" d="'+dd+'" fill="none" stroke="'+col+op+')" stroke-width="0.6" style="pointer-events:stroke;transition:opacity .12s" data-tip="'+tip+'"/>';}).join('');
       // DATA-POINT dots: one dot per config at its crossing on every axis, so brushing an axis
       //   surfaces the actual sampled values as points (owner). Faint by default; the brush
       //   handler brightens in-range dots (by data-cfg) and dims the rest.
@@ -8536,10 +8537,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // _pdp is computed above and rendered INSIDE 2B's card as its footer (owner: 2C = same sub-chart under 2B).
       // lay non-empty panels in a row (1, 2 or 3 across); single panel = full-width. stretch=true makes
       //   the cards equal-height (good for similar charts); otherwise they top-align at natural height.
-      // stretch mode (the 2H/2I/2J row): each subtile starts at ~the 2L 3-D chart size and is
-      //   INDIVIDUALLY resizable — drag its bottom-right corner in any direction (owner). The
-      //   subtiles ride the same saved-layout wiring as the cards (style contains resize:both).
-      const _wrap=(arr,stretch)=>{const xs=arr.filter(x=>x&&x.replace(/\s/g,''));if(!xs.length)return '';const _kid=stretch?'flex:0 1 330px;min-width:235px;display:flex;flex-direction:column;resize:both;overflow:auto;border:1px dashed color-mix(in srgb,var(--border) 60%,transparent);border-radius:10px;padding:2px 4px':'flex:1 1 260px;min-width:0;display:flex;flex-direction:column';const inner=(xs.length>1)?'<div style="display:flex;gap:12px;align-items:'+(stretch?'stretch':'flex-start')+';flex-wrap:wrap">'+xs.map(x=>'<div style="'+_kid+'">'+x+'</div>').join('')+'</div>':xs[0];return '<div style="margin-bottom:12px">'+inner+'</div>';};
+      // (owner 2026-07-18: individual subtile resize handles were "too many toggles" — reverted.
+      //  The row fills the card again; the ONE outer card corner resizes everything, all directions.)
+      const _wrap=(arr,stretch)=>{const xs=arr.filter(x=>x&&x.replace(/\s/g,''));if(!xs.length)return '';const inner=(xs.length>1)?'<div style="display:flex;gap:12px;align-items:'+(stretch?'stretch':'flex-start')+';flex-wrap:wrap">'+xs.map(x=>'<div style="flex:1 1 260px;min-width:0;display:flex;flex-direction:column">'+x+'</div>').join('')+'</div>':xs[0];return '<div style="margin-bottom:12px">'+inner+'</div>';};
       // Tile 1: 2a TOP CONFIGS PNL | 2b CONFIG DISTRIBUTION (row), then 2c PARALLEL COORDINATES
       //   full-width with the 2K PDP top-out curves DIRECTLY beneath it (owner request — the PDP
       //   mini-charts are the per-knob read of the same config space 2C fans out).
@@ -9164,13 +9164,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const stratOpts='<option value="">all strategies</option>'+_strats.map(s=>'<option value="'+s.replace(/"/g,'')+'"'+(s===_cf?' selected':'')+'>'+s+'</option>').join('');
         const _grpBtn='<button data-cmpgroupbtn title="'+(_cg?'grouped by strategy — click for the flat list':'flat list — click to group by strategy')+'" style="height:21px;padding:0 8px;font-size:9px;border-radius:7px;border:1px solid '+(_cg?'color-mix(in srgb,var(--text4) 55%,var(--border))':'var(--border)')+';background:'+(_cg?'var(--bg2)':'var(--bg1)')+';color:'+(_cg?'var(--text)':'var(--text4)')+';cursor:pointer;font-variant-emoji:text">▦ GROUP</button>';
         const _bestBtn='<button data-cmpbestofeach title="select the best run of every strategy (up to 8)" style="height:21px;padding:0 8px;font-size:9px;border-radius:7px;border:1px solid var(--border);background:var(--bg1);color:var(--text4);cursor:pointer">★ best of each</button>';
+        // ── quick comparison TABS (owner): several live comparisons side-by-side with NO
+        //    saving required — each tab keeps its own selection, ＋ opens a fresh one.
+        //    SETS below stays for the named keepers.
+        let _tabs=Array.isArray(APREF.cmpTabs)?APREF.cmpTabs.map(t2=>Array.isArray(t2)?t2:[]):null;
+        if(!_tabs||!_tabs.length)_tabs=[ids.slice()];
+        const _tabN=Math.min(Math.max(0,+APREF.cmpTabN||0),_tabs.length-1);
+        _tabs[_tabN]=ids.slice();
+        const _tabChips=_tabs.map((t2,ti)=>{const on=ti===_tabN;
+          return '<span data-cmptab="'+ti+'" title="comparison tab '+(ti+1)+': '+(t2.length?t2.map(x2=>'#'+x2).join(' · '):'empty — defaults to the latest 3')+'" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:9px;font-size:9px;font-weight:700;border:1px solid '+(on?'var(--blue)':'var(--border)')+';background:'+(on?'color-mix(in srgb,var(--blue) 12%,transparent)':'var(--bg1)')+';color:'+(on?'var(--blue)':'var(--text3)')+'">'+(ti+1)+' <span style="font-weight:400;color:var(--text5)">'+t2.length+'</span>'+(_tabs.length>1?'<b data-cmptabdel="'+ti+'" title="close this tab (does not touch runs or saved sets)" style="color:var(--text5);font-weight:400;cursor:pointer;margin-left:2px">✕</b>':'')+'</span>';}).join('');
+        const _tabsRow='<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:-2px 0 6px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5)" title="each tab is its own live comparison — switch freely, nothing needs saving">TABS</span>'+_tabChips+'<span data-cmptabnew title="open a NEW empty comparison tab and start picking runs immediately" style="cursor:pointer;font-size:10px;font-weight:700;padding:2px 9px;border-radius:9px;border:1px dashed var(--border);color:var(--text4)">＋</span></div>';
         // ── #47 SAVED COMPARISON SETS: name the current selection, switch between saved
         //    comparisons with one click (e.g. an ORB set vs a TTIBS set). Chips persist.
         const _sets=Array.isArray(APREF.cmpSets)?APREF.cmpSets:[];
         const _setChips=_sets.map((s2,si)=>'<span data-cmpset="'+si+'" title="load this comparison: '+(s2.ids||[]).map(x2=>'#'+x2).join(' · ').replace(/"/g,'')+'" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:9px;font-size:9px;border:1px solid var(--border);background:var(--bg1);color:var(--text2)">'+String(s2.name||('set '+(si+1))).replace(/</g,'&lt;')+' <b style="color:var(--text5);font-weight:400">'+(s2.ids||[]).length+'</b><b data-cmpsetdel="'+si+'" title="delete this saved set (does not touch the runs)" style="color:var(--text5);font-weight:400;cursor:pointer;margin-left:2px">✕</b></span>').join('');
         const _setsRow='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-2px 0 8px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5)" title="saved comparison sets — save the current selection under a name, then switch between comparisons with one click">SETS</span>'+_setChips+'<span data-cmpsetsave title="save the CURRENT selection as a named set you can switch back to any time" style="cursor:pointer;font-size:9px;padding:2px 9px;border-radius:9px;border:1px dashed var(--border);color:var(--text4)">＋ save current</span></div>';
         const pickerTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">PICK RUNS</span><span style="font-size:8px;color:var(--text5)">click a row to add / remove · max 8</span><span style="margin-left:auto;display:flex;gap:8px;align-items:center">'+_grpBtn+_bestBtn+'<select data-cmpstrat style="width:auto;padding:2px 6px;font-size:var(--fsxs)">'+stratOpts+'</select><span data-cmpclear title="reset to the latest 3 runs" style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">reset</span></span></div>'
-          +_setsRow
+          +_tabsRow+_setsRow
           +'<div style="overflow:auto;max-height:74vh">'+(pickBody||'<div style="color:var(--text5);font-size:var(--fsxs);padding:14px;text-align:center">no runs match this strategy filter</div>')+'</div>');
         // ── per-run WF / LB aggregates for the scoped comparison ──
         const _mcOf=x=>x.multiplier||instMult(x.instrument)||20;
@@ -9293,11 +9303,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
             //   which used to hide the walk-forward gaps under a same-colour solid underneath):
             //   SOLID = in-sample up to the walk-forward start · DASHED = the walk-forward folds
             //   (contiguous) · DOTTED = the lockbox tail.
-            let s3='<polyline points="'+P2.slice(0,solidEnd+1).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6"/>';
+            let s3='<polyline points="'+P2.slice(0,solidEnd+1).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.0"/>';
             if(_wfi!=null){const wfEnd=(li!=null?li:n2-1);
-              s3+='<polyline points="'+P2.slice(solidEnd,wfEnd+1).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6" stroke-dasharray="7,4"/>';}
+              s3+='<polyline points="'+P2.slice(solidEnd,wfEnd+1).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.0" stroke-dasharray="7,4"/>';}
             if(li!=null){const bx=Xf(li/(n2-1)),by=Yf(c.eq[li]);
-              s3+='<polyline points="'+P2.slice(li).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.6" stroke-dasharray="0.1,5" stroke-linecap="round" opacity="0.9"/>'
+              s3+='<polyline points="'+P2.slice(li).join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.0" stroke-dasharray="0.1,5" stroke-linecap="round" opacity="0.9"/>'
                 +'<line x1="'+bx.toFixed(1)+'" y1="'+(by-7).toFixed(1)+'" x2="'+bx.toFixed(1)+'" y2="'+(by+7).toFixed(1)+'" stroke="'+c.c+'" stroke-width="1.4" opacity="0.9"/>';}
             return s3;}).join('');
           // item 26: per-series drawdown-from-peak filled in its own colour, drawn in the pane
@@ -9317,7 +9327,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           ddSer.forEach(s2=>{const c=s2.c,dd=s2.dd,n2=dd.length,y0=Yd(0).toFixed(1);
             const Pd=dd.map((v,i2)=>Xf(i2/(n2-1)).toFixed(1)+','+Yd(v).toFixed(1));
             ddSvg+='<path d="M '+Xf(0).toFixed(1)+' '+y0+' L '+Pd.join(' L ')+' L '+Xf(1).toFixed(1)+' '+y0+' Z" fill="'+c.c+'" opacity="0.10" stroke="none"/>'
-              +'<polyline points="'+Pd.join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="1.2" opacity="0.9"/>';});
+              +'<polyline points="'+Pd.join(' ')+'" fill="none" stroke="'+c.c+'" stroke-width="0.8" opacity="0.9"/>';});
           const xt='<text x="'+pL+'" y="'+(H2-6)+'" font-size="8" fill="var(--text5)">start of run</text><text x="'+(pL+PW)+'" y="'+(H2-6)+'" text-anchor="end" font-size="8" fill="var(--text5)">end of run</text>';
           ovl='<svg viewBox="0 0 '+W2+' '+H2+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" ondblclick="window.expandCompareEq(window._cmpEqxSeries)" title="double-click for the fullscreen multi-curve explorer">'+g2+paths+ddSvg+xt+'</svg>';
         }else ovl='<div style="font-size:var(--fsxs);color:var(--text5);padding:10px 0">none of the selected runs saved an equity curve — re-run them to record one</div>';
@@ -9400,6 +9410,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const vrows=vmeth.map(i=>'<div style="background:var(--bg2);border-radius:8px;padding:12px 14px;margin-bottom:10px"><div style="font-size:14px;margin-bottom:3px">'+i[0]+'</div><div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6">'+i[1]+'</div></div>').join('');
       body='<div class="lbl" style="margin-bottom:6px">INSTRUMENTS</div>'+tile('<table class="table"><thead><tr><th>SYMBOL</th><th>NAME</th><th style="text-align:right">MULTIPLIER</th></tr></thead><tbody>'+irows+'</tbody></table>')
         +'<div style="font-size:var(--fsxs);color:var(--text5);margin:6px 2px 0;line-height:1.6">Only ES and NQ have imported price history (Databento, 2010→present). Other minis (YM · RTY · CL · GC) appear in the Builder for multiplier math but need data imported before they can be backtested.</div>'
+        +'<div class="lbl" style="margin:18px 0 6px">PARAM LIBRARY</div><div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">Cross-strategy parameter reference (#46): every knob in every strategy with a plain-language definition, tested range, champion value and evidence verdict — plus 13 transferable ideas and a brainstorm list for new strategies. <a href="https://github.com/xrider3333/EDGE-LOG/blob/main/PARAM_LIBRARY.md" target="_blank" style="color:var(--blue);text-decoration:none;font-weight:700">OPEN PARAM_LIBRARY.md ↗</a></div>'
         +'<div class="lbl" style="margin:18px 0 6px">COST MODEL</div><div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">Round-turn commission $2.83/order x 2 = $5.66 (about 0.28 NQ pts / 0.11 ES pts), applied per trade. PNL = shares x (exit - entry) x multiplier, net of cost.</div>'
         +'<div class="lbl" style="margin:18px 0 6px">SESSIONS</div><div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">RTH = 09:30-16:00 ET cash session (last 5m bar 15:55). ETH = full 24h. Masters are keyed per instrument + timeframe + session + source.</div>'
         +'<div class="lbl" style="margin:18px 0 6px">VALIDATION METHODOLOGY</div>'+vrows;
@@ -9985,6 +9996,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
         savePref('cmpIds',ids);renderApp();};});
       const _cs=content.querySelector('[data-cmpstrat]');if(_cs)_cs.onchange=()=>{savePref('cmpStrat',_cs.value);renderApp();};
       const _cc=content.querySelector('[data-cmpclear]');if(_cc)_cc.onclick=()=>{savePref('cmpIds',[]);renderApp();};
+      // quick comparison TABS: switch / close / new (each tab = its own live selection)
+      content.querySelectorAll('[data-cmptab]').forEach(ch=>{ch.onclick=(e)=>{if(e.target&&e.target.getAttribute&&e.target.getAttribute('data-cmptabdel')!=null)return;
+        const j=+ch.dataset.cmptab;let tabs=(APREF.cmpTabs||[]).map(t2=>Array.isArray(t2)?t2:[]);if(!tabs.length)tabs=[(APREF.cmpIds||[]).slice()];
+        const cur=Math.min(Math.max(0,+APREF.cmpTabN||0),tabs.length-1);
+        if(j===cur)return;tabs[cur]=(APREF.cmpIds||[]).slice();
+        savePref('cmpTabs',tabs);savePref('cmpTabN',j);savePref('cmpIds',(tabs[j]||[]).slice(0,8));renderApp();};});
+      content.querySelectorAll('[data-cmptabdel]').forEach(x=>{x.onclick=(e)=>{e.stopPropagation();
+        let tabs=(APREF.cmpTabs||[]).map(t2=>Array.isArray(t2)?t2:[]);const j=+x.dataset.cmptabdel;if(tabs.length<2)return;
+        let cur=Math.min(Math.max(0,+APREF.cmpTabN||0),tabs.length-1);
+        tabs.splice(j,1);if(cur>=tabs.length)cur=tabs.length-1;else if(j<cur)cur=cur-1;
+        savePref('cmpTabs',tabs);savePref('cmpTabN',cur);savePref('cmpIds',(tabs[cur]||[]).slice(0,8));renderApp();};});
+      const _ctnew=content.querySelector('[data-cmptabnew]');if(_ctnew)_ctnew.onclick=()=>{
+        let tabs=(APREF.cmpTabs||[]).map(t2=>Array.isArray(t2)?t2:[]);if(!tabs.length)tabs=[(APREF.cmpIds||[]).slice()];
+        const cur=Math.min(Math.max(0,+APREF.cmpTabN||0),tabs.length-1);tabs[cur]=(APREF.cmpIds||[]).slice();
+        tabs.push([]);savePref('cmpTabs',tabs);savePref('cmpTabN',tabs.length-1);savePref('cmpIds',[]);renderApp();};
       // #47 saved comparison sets: load / delete / save-current
       content.querySelectorAll('[data-cmpset]').forEach(ch=>{ch.onclick=(e)=>{if(e.target&&e.target.getAttribute&&e.target.getAttribute('data-cmpsetdel')!=null)return;
         const st=(APREF.cmpSets||[])[+ch.dataset.cmpset];if(st&&st.ids&&st.ids.length){savePref('cmpIds',st.ids.map(String).slice(0,8));renderApp();}};});
