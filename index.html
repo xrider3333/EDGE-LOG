@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='58.8';
+const VERSION='58.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'58.9', date:'2026-07-18', notes:['2A TOP CONFIGS: the winner curve endpoint now carries a green dollar label, so the top config PnL reads straight off the chart.','2C PDP mini-charts: a blue RING now marks where the plateau pick actually SET each knob (the green dot stays the raw curve max — the two deliberately differ), plus a new one-line note under the charts spelling out what the auto range-widener did per knob (widened to what, tapered where, or pinned at a logical limit).','Engine: when the search auto-widens a knob range, the widened samples now flow into the saved chart points too — so 2B/2C actually DRAW the taper past the old edge instead of stopping at it (runs from today onward; older runs show the note only).','2L renamed to ML MODEL BAKE-OFF (they are ML models used as surrogates — stand-ins for the slow real backtest); knob-screen chips now show the permutation vote and the random-noise-probe margin on hover.','MAR tooltips in Rankings and the family ledger now say WHICH window the number comes from (the tuned in-sample stretch) and why the run-report LB MAR is much smaller (lockbox-only slice).']},
   {v:'58.8', date:'2026-07-18', notes:['GATE VALIDATE bake-off chart: moved out of the Builder tab — it now lives only in RESULTS inside the saved run report (every completed gate-validate is saved as a run instantly, so nothing is lost; the Builder shows a one-line pointer instead).','GATE VALIDATE chart: added axis labels so the chart reads on its own — y axis RECOVERY FACTOR ($ won per $ of drawdown), x axis GATE PROBABILITY CUT-OFF (min win-probability to take the trade), and the dashed line is now labeled as the no-gate baseline.']},
   {v:'58.7', date:'2026-07-18', notes:['New 2L SURROGATE BAKE-OFF panel in the run report (Auto-Validate and Auto-Optimize runs from today onward): several ML models are each fit to the configs the search sampled, scored for out-of-fold accuracy, and their proposed best config is re-run as a REAL backtest — the panel shows each model, its accuracy, its pick and the ground-truthed dollars, which knobs drive PnL vs are dead weight, the strongest knob-PAIR interactions as small heatmaps, and whether the models agree. Older saved runs do not carry this data and render unchanged.']},
   {v:'58.6', date:'2026-07-18', notes:['Strategy identity: RSIDIV and TTIBS are now recognised families with their own Library numbers (RSIDIV #11, TTIBS #10) and correct names, so they show properly in Past Runs and the Library instead of RSIDIV rendering as AUGUR 1.0.']},
@@ -6728,6 +6729,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Single NET (y) axis on the RIGHT, drawn to MATCH the x-axis baseline styling (neutral white);
       //   the old red LEFT guide is dropped — owner: "dont need y axis on the left".
       grid+='<line x1="'+xR.toFixed(1)+'" y1="'+pt+'" x2="'+xR.toFixed(1)+'" y2="'+(H-pd)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>';
+      // label the WINNER curve endpoint with its final $ — the gridline labels alone never
+      //   land exactly on the top config, so its PnL was unreadable off the axis (owner).
+      let winTag='';
+      const _w0=series[0]||[],_fin=_w0.length?_w0[_w0.length-1]:null;
+      if(_fin!=null){const wy=H-pd-(H-pt-pd)*(_fin-mn)/rg,ty=Math.max(pt+5,wy-3.5);
+        winTag='<circle cx="'+xR.toFixed(1)+'" cy="'+wy.toFixed(1)+'" r="2.4" fill="var(--green)"/>'
+          +'<text x="'+(xR-4).toFixed(1)+'" y="'+ty.toFixed(1)+'" text-anchor="end" font-size="5.4" font-weight="700" fill="var(--green)" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.2">top config '+fmtUsd(Math.round(_fin))+'</text>';}
       const sel='<select data-tpc style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin-left:6px"><option value="rank"'+(mode==='rank'?' selected':'')+'>by rank</option>'+pkeys.map(k=>'<option value="'+k+'"'+(mode===k?' selected':'')+'>by '+k.replace(/_/g,' ')+'</option>').join('')+'</select>';
       const cfgSlider='<span title="how many curves get COLOUR (the rest stay as faint grey context) — also sets the config-distribution (2b) bin detail. The run stored the top '+etop.length+' curves." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+'</b></span>';
       const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis — top '+etop.length+((d.date_from&&d.date_to)?' · '+_dnice(d.date_from)+' → '+_dnice(d.date_to):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
@@ -6735,7 +6743,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
         +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+((d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,yl:'equity'}))+'"':'')+'>'
         +grid
-        +'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>'+lines+c2YTitle(H,'equity $')+'</svg></div>';
+        +'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>'+lines+winTag+c2YTitle(H,'equity $')+'</svg></div>';
     };
     // SCATTER — each tested config as a dot: chosen param (X) vs net PnL (Y). Shows
     // whether the edge is a smooth slope (robust) or random noise.
@@ -7068,7 +7076,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         :(key+' peaked at the range edge '+vStar+' (the lowest tested value) and is still climbing toward lower values (slope +'+pct+'% of mean) — the search was truncated; widen '+key+' below '+vStar+' to find the true peak.');
       return {edge:edge,value:vStar,relSlope:relSlope,msg:msg};
     };
-    const pdpCurvesPanelHtml=(points,mult,tag,pp,alignKeys,noHdr)=>{
+    const pdpCurvesPanelHtml=(points,mult,tag,pp,alignKeys,noHdr,aeLog)=>{
       const curves=pdpCurvesData(points,mult,pp);
       if(!curves.length)return '';
       const byK={};curves.forEach(cv=>{byK[cv.k]=cv;});
@@ -7085,6 +7093,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       show.forEach(cv=>{if(cv.c)cv.bflag=srvFlags[cv.k]?{edge:srvFlags[cv.k].edge,value:srvFlags[cv.k].value,msg:srvFlags[cv.k].msg}:pdpBoundaryFlag(cv.c,cv.k);});
       const flaggedList=show.filter(cv=>cv.bflag);
       const boundaryNote=flaggedList.length?('<div style="font-size:8px;color:var(--yellow);margin:0 0 4px;display:flex;align-items:center;gap:3px;cursor:help" title="'+flaggedList.map(cv=>cv.bflag.msg).join('&#10;&#10;').replace(/"/g,'&quot;')+'">⚠ '+flaggedList.length+' knob'+(flaggedList.length>1?'s are':' is')+' pinned at the tested-range edge — search may be truncated (see below)</div>'):'';
+      // AUTO-EXPAND note (#26/#30): what the range-widener actually did per knob, so the
+      //   curves above read in context. On runs saved BEFORE the points-merge fix the chart
+      //   still ends at the original range — this line is then the only record of the taper.
+      const aeNote=(Array.isArray(aeLog)&&aeLog.length)?('<div style="font-size:8px;color:var(--text4);margin:0 0 4px;display:flex;flex-wrap:wrap;gap:2px 12px">'
+        +aeLog.map(e=>{const rng=r=>Array.isArray(r)?(r[0]+'–'+r[1]):'';
+          const wide=(e.final_range&&e.orig_range&&(e.final_range[0]!==e.orig_range[0]||e.final_range[1]!==e.orig_range[1]));
+          const txt=wide?('⤢ '+_pp(e.param)+' widened '+rng(e.orig_range)+' → '+rng(e.final_range)+(e.tapered?' · tapered (interior peak '+e.final_peak_value+')':' · still rising at the cap'))
+            :('⛔ '+_pp(e.param)+' at its logical limit '+rng(e.final_range)+' — no room to widen');
+          return '<span title="'+String(e.note||'').replace(/"/g,'&quot;')+'" style="cursor:help;white-space:nowrap">'+txt+'</span>';}).join('')
+        +'</div>'):'';
       // taller/roomier cells (owner request — 2C a bit bigger, slightly more vertical)
       const cw=170,chh=82,pl=6,pr=6,pt2=8,pb=16;
       // `bare` (aligned mode) drops the per-cell param NAME — the 2B axis directly above already
@@ -7097,14 +7115,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const pk=ys.indexOf(mx);
         const _bf=cv.bflag;
         const dots=cv.c.map((r,i)=>{const isPk=i===pk,warnDot=isPk&&_bf;return '<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(r.m).toFixed(1)+'" r="'+(isPk?3.2:1.7)+'" fill="'+(warnDot?'var(--yellow)':(isPk?'var(--green)':'var(--text4)'))+'" style="cursor:pointer" data-tip="'+_pp(cv.k)+' <b>'+r.v+'</b><br>avg net <b>'+fmtUsd(Math.round(r.m))+'</b>'+(r.n?'<br>across '+r.n+' configs':'')+(warnDot?'<br><span style=&quot;color:var(--yellow)&quot;>⚠ '+_bf.msg.replace(/"/g,'&quot;')+'</span>':'')+'"/>';}).join('');
+        // PICKED-value ring (blue): where the plateau pick actually SET this knob — the
+        //   green dot is the raw curve max, and the two deliberately differ (broad high
+        //   ground beats a lone spike). Owner: the found param was not visible on the chart.
+        const _pkv=(pp&&pp.params&&typeof pp.params[cv.k]==='number')?pp.params[cv.k]:null;
+        let pickMark='';
+        if(_pkv!=null&&cv.c.length>1){let bi=-1,bd=Infinity;cv.c.forEach((r,i)=>{const d2=Math.abs((+r.v)-_pkv);if(d2<bd){bd=d2;bi=i;}});
+          if(bi>=0&&bi!==pk){pickMark='<circle cx="'+X(bi).toFixed(1)+'" cy="'+Y(cv.c[bi].m).toFixed(1)+'" r="4.6" fill="none" stroke="var(--blue)" stroke-width="1.4" style="cursor:pointer" data-tip="PICKED '+_pp(cv.k)+' = <b>'+_pkv+'</b><br>the plateau pick — broad high ground, deliberately not always the raw max (green dot)"/>';}}
         const flat=cv.infl<0.12*maxInfl;
         const _peakSpan='<span title="'+(flat?'this knob barely changes net $ — a flat partial-dependence curve':'net $ peaks at '+_pp(cv.k)+' = '+cv.peak.v)+'" style="color:'+(flat?'var(--text5)':'var(--green)')+';white-space:nowrap;cursor:help">'+(flat?'flat':'peak <b>'+cv.peak.v+'</b>')+'</span>'
+          +((_pkv!=null&&_pkv!==cv.peak.v)?'<span title="the plateau pick set this knob to '+_pkv+' — broad high ground, deliberately not always the raw max" style="color:var(--blue);white-space:nowrap;cursor:help;margin-left:3px">pick <b>'+_pkv+'</b></span>':'')
           +(_bf?'<span title="'+_bf.msg.replace(/"/g,'&quot;')+'" style="color:var(--yellow);white-space:nowrap;cursor:help;margin-left:3px">⚠</span>':'');
         const _hdrRow=bare
           ? '<div style="text-align:center;font-size:8px;margin-bottom:1px">'+_peakSpan+'</div>'
           : '<div style="display:flex;justify-content:space-between;gap:4px;font-size:8px;margin-bottom:1px"><span style="color:var(--text3);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_pp(cv.k)+'">'+_pp(cv.k)+'</span>'+_peakSpan+'</div>';
         const _chart='<div style="position:relative" data-pdpk="'+cv.k+'" data-vs="'+cv.c.map(r=>r.v).join(',')+'">'
-          +'<svg viewBox="0 0 '+cw+' '+chh+'" width="100%" style="display:block;height:auto"><polyline points="'+pts2+'" fill="none" stroke="#3a9bdc" stroke-width="1.6" stroke-linejoin="round" opacity="0.9"/>'+dots
+          +'<svg viewBox="0 0 '+cw+' '+chh+'" width="100%" style="display:block;height:auto"><polyline points="'+pts2+'" fill="none" stroke="#3a9bdc" stroke-width="1.6" stroke-linejoin="round" opacity="0.9"/>'+dots+pickMark
           +'<text x="'+pl+'" y="'+(chh-3)+'" font-size="7" fill="var(--text5)">'+cv.c[0].v+'</text><text x="'+(cw-pr)+'" y="'+(chh-3)+'" text-anchor="end" font-size="7" fill="var(--text5)">'+cv.c[cv.c.length-1].v+'</text></svg>'
           +'<div class="pdp-hl" style="position:absolute;top:0;bottom:0;display:none;background:var(--blue);opacity:.16;border-left:1px solid var(--blue);border-right:1px solid var(--blue);pointer-events:none;border-radius:2px"></div></div>';
         return bare
@@ -7121,14 +7147,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // nestle the PDP row up tight under 2B, same subtile — 2C sits directly under 2B's x-axis
         //   labels with no separate header; an empty gutter spacer keeps the columns aligned.
         return '<div style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;margin:3px 0 2px">'+tag+' PDP</div>'
-          +boundaryNote
+          +boundaryNote+aeNote
           +'<div style="display:flex;align-items:stretch;margin-top:0">'
           +'<div style="flex:0 0 '+gutPct+'%"></div>'
           +show.map(cv=>'<div style="flex:0 0 '+colPct+'%;min-width:0;padding:0 2px;box-sizing:border-box">'+cellOf(cv,true)+'</div>').join('')
           +'<div style="flex:0 0 '+colPct+'%;display:flex;align-items:center;justify-content:center"><span style="font-size:8px;color:var(--text4);font-weight:700;text-align:center">NET $<br><span style="font-weight:400;color:var(--text5)">← what each knob<br>does to it</span></span></div>'
           +'</div>';
       }
-      return hdr+boundaryNote+'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">'+cells+'</div>';
+      return hdr+boundaryNote+aeNote+'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">'+cells+'</div>';
     };
     // MAE / MFE — per-trade heat (max adverse) vs reach (max favorable), turned into
     // data-driven stop & target guidance from your own winning trades.
@@ -7985,10 +8011,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const vc=(v==='drives PnL')?{bd:'var(--green)',bg:'color-mix(in srgb,var(--green) 14%,transparent)',tx:'var(--text)'}
           :(v==='dead')?{bd:'color-mix(in srgb,var(--red) 45%,var(--border))',bg:'color-mix(in srgb,var(--red) 10%,transparent)',tx:'var(--text4)'}
           :{bd:'var(--border)',bg:'var(--bg2)',tx:'var(--text4)'};
-        const tip='lasso |coef| '+(info&&info.lasso!=null?info.lasso:'—')+' · shap/importance '+(info&&info.shap_or_imp!=null?info.shap_or_imp:'—')+((info&&info.shap_source)?' ('+_esS(info.shap_source)+')':'');
+        const tip='lasso |coef| '+(info&&info.lasso!=null?info.lasso:'—')+' · shap/importance '+(info&&info.shap_or_imp!=null?info.shap_or_imp:'—')+((info&&info.shap_source)?' ('+_esS(info.shap_source)+')':'')
+          +(info&&info.perm!=null?' · permutation '+info.perm:'')
+          +(info&&info.probe_margin!=null?' · vs noise probe '+(info.probe_margin>0?'+':'')+info.probe_margin+' (above 0 = beats a random knob)':'')
+          +(info&&info.verdict_note?' — '+_esS(info.verdict_note):'');
         return '<span title="'+tip+'" style="cursor:help;display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border-radius:9px;font-size:9px;border:1px solid '+vc.bd+';color:'+vc.tx+';background:'+vc.bg+'">'+_esS(k)+' · '+v+'</span>';
       };
-      const knobHtml=ksKeys.length?('<div style="margin:12px 0 4px"><div style="font-size:8px;letter-spacing:1px;color:var(--text5);margin-bottom:6px">KNOB SCREEN — which params actually move PnL</div><div>'+ksKeys.map(k=>chip(k,surr.knob_screen[k])).join('')+'</div></div>'):'';
+      const knobHtml=ksKeys.length?('<div style="margin:12px 0 4px"><div style="font-size:8px;letter-spacing:1px;color:var(--text5);margin-bottom:6px">KNOB SCREEN — which params actually move PnL <span style="letter-spacing:0">(LASSO + SHAP + permutation votes, each checked against a random-noise probe — hover a chip for its scores)</span></div><div>'+ksKeys.map(k=>chip(k,surr.knob_screen[k])).join('')+'</div></div>'):'';
       const bestCard=models.find(m=>m.model===surr.best_model)||null;
       const inters=(bestCard&&Array.isArray(bestCard.top_interactions))?bestCard.top_interactions.filter(it=>it&&Array.isArray(it.a_values)&&Array.isArray(it.b_values)&&Array.isArray(it.pd_grid)).slice(0,3):[];
       const heat=inter=>{
@@ -8013,7 +8042,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const consNote=(surr.consensus&&surr.consensus.note)?_esS(surr.consensus.note):'';
       const uncNote=(gpCard&&gpCard.uncertainty_note)?_esS(gpCard.uncertainty_note):'';
       const consLine=consNote?('<div style="font-size:8px;color:var(--text4);margin-top:10px">'+consNote+(uncNote?' <span style="color:var(--text5)">— '+uncNote+'</span>':'')+'</div>'):'';
-      const hdr='<div style="margin:0 0 10px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · SURROGATE BAKE-OFF — models fit to the search points · #31 P1</div>';
+      const hdr='<div style="margin:0 0 10px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px" title="Each row is a machine-learning model fit to the SAME sampled configs, learning params → PnL. They are called surrogate models because each stands in for the expensive real backtest — a fast approximate map of the surface. Best cross-validated model leads (▸).">'+tag+' · ML MODEL BAKE-OFF <span style="font-weight:400;color:var(--text5)">(surrogates)</span> — 4 machine-learning models fit to the search points · #31 P1</div>';
       return hdr+table+sampLine+knobHtml+interHtml+consLine;
     };
     const runDetail=(d)=>{
@@ -8437,7 +8466,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _pdpD=pdpCurvesData(_PTS,mlt,(_pMet==='pnl'?d.plateau_pick:null));
       const _allK=(d.points&&d.points.length)?Object.keys(d.points[0]).filter(k=>k!=='pnl'&&k!=='dd'&&typeof d.points[0][k]==='number'):[];
       const _kOrd=_pdpD.map(c=>c.k).concat(_allK.filter(k=>!_pdpD.some(c=>c.k===k)));
-      const _pdp=pdpCurvesPanelHtml(_PTS,mlt,_cfgN+'C',(_pMet==='pnl'?d.plateau_pick:null),((_kOrd&&_kOrd.length>=2)?_kOrd:null),true);
+      const _pdp=pdpCurvesPanelHtml(_PTS,mlt,_cfgN+'C',(_pMet==='pnl'?d.plateau_pick:null),((_kOrd&&_kOrd.length>=2)?_kOrd:null),true,(_pMet==='pnl'?d.auto_expand:null));
       const _parc=parallelCoordsHtml(_PTS,mlt,_cfgN+'B',_kOrd,_pdp);
       const _corr=corrPanelHtml(d.points,_cfgN+'E',d.relationship);
       // 2H is view-toggleable (APREF.hm3d, DEFAULT 3-D per owner): flat heatmap ⇄ 3-D surface.
@@ -8484,7 +8513,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   a one-line muted note in that case instead of the panel.
       const _surrHtml=surrogatePanelHtml(d.surrogate,mlt,_cfgN+'L');
       const _surrTile=(_surrHtml&&_surrHtml.replace(/\s/g,''))?'<div style="'+_card2+';margin-bottom:14px">'+_surrHtml+'</div>':'';
-      const _surrErr=(d.surrogate&&d.surrogate.error)?'<div style="font-size:8px;color:var(--text5);margin-bottom:8px">'+_cfgN+'L · SURROGATE BAKE-OFF — skipped: '+String(d.surrogate.error).replace(/</g,'&lt;')+'</div>':'';
+      const _surrErr=(d.surrogate&&d.surrogate.error)?'<div style="font-size:8px;color:var(--text5);margin-bottom:8px">'+_cfgN+'L · ML MODEL BAKE-OFF — skipped: '+String(d.surrogate.error).replace(/</g,'&lt;')+'</div>':'';
       const _sec3=_cfgTile+_paramTile+_topTile+_nbTile+_dsrTile+_surrTile+_surrErr;
       // regHtml (regime report card + monthly P&L) moved into §1 (under the WF folds) per request.
       // Stress = the champion's profit spread across time → it lives in §1 (1I) for validate runs; keep the standalone §3/§4 only for non-validate sweeps.
@@ -9289,7 +9318,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _rgBtn='<button data-rankgroupbtn title="'+(_rg?'grouped by strategy — click for the flat ranking':'flat ranking — click to group by strategy')+'" style="height:21px;padding:0 8px;font-size:9px;border-radius:7px;border:1px solid '+(_rg?'color-mix(in srgb,var(--text4) 55%,var(--border))':'var(--border)')+';background:'+(_rg?'var(--bg2)':'var(--bg1)')+';color:'+(_rg?'var(--text)':'var(--text4)')+';cursor:pointer;font-variant-emoji:text">▦ GROUP</button>';
         body=tile('<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><span class="lbl">▤ RANKINGS · '+scored.length+' runs by robustness score</span><span style="margin-left:auto">'+_rgBtn+'</span></div>'
           +'<div style="font-size:8px;color:var(--text5);margin-bottom:9px;max-width:680px">0–100 blends out-of-sample strength (Deflated Sharpe, walk-forward folds held, lockbox), profit factor and sample size. Auto-Validate runs use their gate results. Click a row to open the run in Results.</div>'
-          +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th><th style="min-width:90px">SCORE</th><th>STRATEGY</th><th>MARKET</th><th>SCOPE</th><th style="text-align:right">PF</th><th style="text-align:right" title="Recovery factor: net PnL / max drawdown">MAR</th><th style="text-align:right">DSR</th><th style="text-align:right">TRD</th><th style="text-align:right">$PNL</th><th>DATE</th></tr></thead><tbody>'+rows+'</tbody></table></div>');}
+          +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th><th style="min-width:90px">SCORE</th><th>STRATEGY</th><th>MARKET</th><th>SCOPE</th><th style="text-align:right">PF</th><th style="text-align:right" title="Net PnL ÷ max drawdown of the OPTIMIZE (in-sample) window — the tuned stretch, so this reads big. Same formula as the LB MAR in the run report, but that one uses ONLY the held-out lockbox slice — always compare like with like.">MAR</th><th style="text-align:right">DSR</th><th style="text-align:right">TRD</th><th style="text-align:right">$PNL</th><th>DATE</th></tr></thead><tbody>'+rows+'</tbody></table></div>');}
     }else if(augurSub==='ref'){
       const inst=[['ES','E-mini S&P 500','$50 / pt'],['NQ','E-mini Nasdaq-100','$20 / pt']];
       const irows=inst.map(i=>'<tr><td><b>'+i[0]+'</b></td><td style="color:var(--text3)">'+i[1]+'</td><td style="text-align:right">'+i[2]+'</td></tr>').join('');
@@ -9508,7 +9537,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<span style="flex:0 0 66px;text-align:right;color:'+((T.net||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(T.net||0)+'</span>'
             +'<span style="width:44px;text-align:right;color:var(--text4)">'+(T.pf||0).toFixed(2)+'</span>'
             +'<span style="width:54px;text-align:right;color:var(--red)">'+(T.dd?fmtUsd(-Math.abs(T.dd)):'—')+'</span>'
-            +'<span style="width:38px;text-align:right;color:var(--text2);font-weight:600" title="MAR = net ÷ max drawdown (risk-adjusted return)">'+((T.net&&T.dd)?(T.net/Math.abs(T.dd)).toFixed(1):'—')+'</span>'
+            +'<span style="width:38px;text-align:right;color:var(--text2);font-weight:600" title="MAR = net ÷ max drawdown, measured on the OPTIMIZE (in-sample) window — the tuned stretch, so it reads big. The LB MAR in a run report uses ONLY the held-out lockbox slice; same formula, different window.">'+((T.net&&T.dd)?(T.net/Math.abs(T.dd)).toFixed(1):'—')+'</span>'
             +'<span style="width:40px;text-align:right;color:var(--text4)" title="lockbox (held-out) profit factor">'+((r.validate&&r.validate.lockbox&&r.validate.lockbox.pf)?(+r.validate.lockbox.pf).toFixed(2):'—')+'</span>'
             +'<span style="width:30px;text-align:center;color:var(--text4)">'+(_wfHeld(r)||'—')+'</span>'
             +'<span style="margin-left:auto;width:40px;text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':(sc>=45?'var(--yellow)':'var(--red)'))+'">'+sc+'</span>'

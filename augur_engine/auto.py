@@ -682,6 +682,19 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                     if _epp:
                         _pp = _epp
                         _plateau_records = _erecs
+                        # The CHARTS must show the widened search too: rebuild the
+                        # per-config points (2B/2C/2H/2I/2J) and the param-relationship
+                        # scores from the merged records, so the taper past the original
+                        # range is actually drawn instead of ending at the old edge.
+                        # Selection outputs (best/top/DSR/MC) still never see these.
+                        _pts_full = [dict({k: r.get(k) for k in pkeys},
+                                          pnl=round(float(r.get("total_pnl", 0) or 0), 1),
+                                          dd=round(abs(float(r.get("max_drawdown", 0) or 0)), 1))
+                                     for r in _plateau_records]
+                        out["points"] = downsample_points(_pts_full)
+                        _rel2 = relationship_scores(_pts_full)
+                        if _rel2:
+                            out["relationship"] = _rel2
             _pi = _pp.pop("index")
             _prow = _plateau_records[_pi]
             _bp = {k: best.get(k) for k in pkeys if k in best}
@@ -700,7 +713,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
 
         # Multi-surrogate bake-off READ-OUT (#31 P1, docs/SURROGATE_DISCOVERY_DESIGN.md).
         # Opt-in (default False) until reviewed. Fits the bake-off to the SAME configs
-        # the random sampler already evaluated (`_pts_full`, pre-auto-expand) — no
+        # the search already evaluated (`_pts_full` — includes auto-expand resamples
+        # when the range was widened, so the models see the full explored space) — no
         # steering (P2), the sampler itself is untouched. `ground_truth_fn` reuses the
         # exact IS evaluator every sampled point already went through (_ev(0, ksplit,
         # ...), same costs applied) — never a new/different backtest path. A surrogate
