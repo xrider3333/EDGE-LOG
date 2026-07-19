@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='59.0';
+const VERSION='59.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'59.1', date:'2026-07-18', notes:['Card resizing FIXED for the vertical direction: charts are aspect-locked to their width, so a vertical drag used to change nothing — now every chart inside a card scales down to the dragged height (aspect kept). Vertical, horizontal and diagonal drags all work, sizes still save, double-click a card edge to reset.','2L TOP INTERACTIONS: new FLAT / 3-D toggle — the model surfaces can now render as isometric 3-D relief like 2H (height and colour = predicted $). The caption also states the key difference: 2L is the smoothed MODEL surface, 2H is the raw sampled configs.']},
   {v:'59.0', date:'2026-07-18', notes:['2A TOP CONFIGS: the winner final $ now sits ON the right axis as a green tick (not floating over the plot), and the x axis carries start/end dates. The tooltip explains why a lower-ranked curve can END higher: ranking is locked to the in-sample slice — the tail of the window is out-of-sample for selection, and peeking at it would be look-ahead bias.','2B: the NET $ axis is now sub-labeled in-sample $ (scoring slice) so it no longer reads as a mismatch against the full-window equity in 2A — same configs, different measuring window.','2A / 2C: winner labels, peak dots and pick rings now use fixed green/blue colors that stay visible on themes whose accent colors are muted.','Report cards resize in BOTH directions now (drag the bottom-right corner) and the layout STICKS across reruns and reloads. Double-click a card edge to reset that card to automatic size.']},
   {v:'58.9', date:'2026-07-18', notes:['2A TOP CONFIGS: the winner curve endpoint now carries a green dollar label, so the top config PnL reads straight off the chart.','2C PDP mini-charts: a blue RING now marks where the plateau pick actually SET each knob (the green dot stays the raw curve max — the two deliberately differ), plus a new one-line note under the charts spelling out what the auto range-widener did per knob (widened to what, tapered where, or pinned at a logical limit).','Engine: when the search auto-widens a knob range, the widened samples now flow into the saved chart points too — so 2B/2C actually DRAW the taper past the old edge instead of stopping at it (runs from today onward; older runs show the note only).','2L renamed to ML MODEL BAKE-OFF (they are ML models used as surrogates — stand-ins for the slow real backtest); knob-screen chips now show the permutation vote and the random-noise-probe margin on hover.','MAR tooltips in Rankings and the family ledger now say WHICH window the number comes from (the tuned in-sample stretch) and why the run-report LB MAR is much smaller (lockbox-only slice).']},
   {v:'58.8', date:'2026-07-18', notes:['GATE VALIDATE bake-off chart: moved out of the Builder tab — it now lives only in RESULTS inside the saved run report (every completed gate-validate is saved as a run instantly, so nothing is lost; the Builder shows a one-line pointer instead).','GATE VALIDATE chart: added axis labels so the chart reads on its own — y axis RECOVERY FACTOR ($ won per $ of drawdown), x axis GATE PROBABILITY CUT-OFF (min win-probability to take the trade), and the dashed line is now labeled as the no-gate baseline.']},
@@ -8047,7 +8048,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
         return '<div style="display:inline-block;vertical-align:top;margin:0 14px 10px 0;text-align:center"><svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" style="display:block;border-radius:3px;overflow:hidden">'+s+'</svg>'
           +'<div style="font-size:8px;color:var(--text3);margin-top:4px">'+_esS(inter.param_a)+' × '+_esS(inter.param_b)+' · strength '+(inter.strength||0).toFixed(2)+'</div></div>';
       };
-      const interHtml=inters.length?('<div style="margin:12px 0 4px"><div style="font-size:8px;letter-spacing:1px;color:var(--text5);margin-bottom:2px">TOP INTERACTIONS — 2-way partial dependence</div><div style="font-size:8px;color:var(--text5);margin-bottom:6px">how PnL depends on the two knobs JOINTLY (read from the best model)</div><div>'+inters.map(heat).join('')+'</div></div>'):'';
+      // #54: the same model surface as an isometric 3-D relief (like 2H, static view) —
+      //   toggle chips flip every interaction tile between flat heatmap and 3-D.
+      const iso=inter=>{
+        const av=inter.a_values,bv=inter.b_values,g=inter.pd_grid,na=av.length,nb=bv.length;
+        if(na<2||nb<2)return '';
+        const Z=[];let mn=1e18,mx=-1e18;
+        for(let i=0;i<na;i++){const row=(g[i]&&g[i].row)||[];Z.push(bv.map((_,j)=>{const v=(row[j]==null?0:row[j]);if(v<mn)mn=v;if(v>mx)mx=v;return v;}));}
+        const sp=(mx-mn)||1,zn2=(i,j)=>(Z[i][j]-mn)/sp;
+        const cw=14,ch=7,zh=34,padT=40;
+        const ox=8+(nb-1)*cw,W=ox+(na-1)*cw+16,H=padT+zh+((na-1)+(nb-1))*ch+26;
+        const PXi=(i,j)=>ox+(i-j)*cw,PYi=(i,j,z)=>padT+zh+(i+j)*ch-z*zh;
+        const m=Math.max(Math.abs(mn),Math.abs(mx))||1;
+        const neg=[226,75,74],pos=[31,186,124],mid=[56,63,76];
+        const ramp2=v=>{const t=Math.max(-1,Math.min(1,v/m)),c=t>=0?pos:neg,a=Math.abs(t);return 'rgb('+Math.round(mid[0]+(c[0]-mid[0])*a)+','+Math.round(mid[1]+(c[1]-mid[1])*a)+','+Math.round(mid[2]+(c[2]-mid[2])*a)+')';};
+        let s='';const ord=[];for(let i=0;i<na-1;i++)for(let j=0;j<nb-1;j++)ord.push([i,j]);
+        ord.sort((a,b)=>(a[0]+a[1])-(b[0]+b[1]));
+        ord.forEach(q=>{const i=q[0],j=q[1];const avg=(Z[i][j]+Z[i+1][j]+Z[i][j+1]+Z[i+1][j+1])/4;
+          s+='<polygon points="'+PXi(i,j).toFixed(1)+','+PYi(i,j,zn2(i,j)).toFixed(1)+' '+PXi(i+1,j).toFixed(1)+','+PYi(i+1,j,zn2(i+1,j)).toFixed(1)+' '+PXi(i+1,j+1).toFixed(1)+','+PYi(i+1,j+1,zn2(i+1,j+1)).toFixed(1)+' '+PXi(i,j+1).toFixed(1)+','+PYi(i,j+1,zn2(i,j+1)).toFixed(1)+'" fill="'+ramp2(avg)+'" opacity="0.95" stroke="rgba(10,14,20,0.5)" stroke-width="0.4"><title>'+_esS(inter.param_a)+' '+_esS(av[i])+'–'+_esS(av[i+1])+' · '+_esS(inter.param_b)+' '+_esS(bv[j])+'–'+_esS(bv[j+1])+' · predicted '+fmtUsd(Math.round(avg*mlt))+'</title></polygon>';});
+        return '<div style="display:inline-block;vertical-align:top;margin:0 14px 10px 0;text-align:center"><svg viewBox="0 0 '+W+' '+H+'" width="'+Math.min(250,W*1.15)+'" style="display:block;margin:0 auto">'+s+'</svg>'
+          +'<div style="font-size:8px;color:var(--text3);margin-top:2px">'+_esS(inter.param_a)+' × '+_esS(inter.param_b)+' · strength '+(inter.strength||0).toFixed(2)+' · height = predicted $</div></div>';};
+      const _use3d=(+APREF.surr3d===1);
+      const _s3chip=(v,lab,on)=>'<span data-surr3d="'+v+'" title="'+(v==='1'?'render the model surfaces as 3-D relief (like 2H) — height and colour = predicted $':'render the model surfaces as flat heatmaps')+'" style="cursor:pointer;font-size:8px;font-weight:700;padding:1px 7px;border-radius:6px;border:1px solid '+(on?'var(--blue)':'var(--border)')+';background:'+(on?'color-mix(in srgb,var(--blue) 14%,transparent)':'var(--bg2)')+';color:'+(on?'var(--blue)':'var(--text3)')+'">'+lab+'</span>';
+      const interHtml=inters.length?('<div style="margin:12px 0 4px"><div style="font-size:8px;letter-spacing:1px;color:var(--text5);margin-bottom:2px;display:flex;align-items:center;gap:6px">TOP INTERACTIONS — 2-way partial dependence '+_s3chip('0','▦ FLAT',!_use3d)+_s3chip('1','⬛ 3-D',_use3d)+'</div><div style="font-size:8px;color:var(--text5);margin-bottom:6px">how PnL depends on the two knobs JOINTLY (read from the best model — a smoothed MODEL surface, unlike 2H which plots the raw sampled configs)</div><div>'+inters.map(_use3d?iso:heat).join('')+'</div></div>'):'';
       const gpCard=models.find(m=>m.model==='gp')||null;
       const consNote=(surr.consensus&&surr.consensus.note)?_esS(surr.consensus.note):'';
       const uncNote=(gpCard&&gpCard.uncertainty_note)?_esS(gpCard.uncertainty_note):'';
@@ -10140,18 +10163,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _da=content.querySelector('[data-arch-id]');if(_da)_da.onclick=()=>_toggleArch(_da.dataset.archId);
       // CHART METRIC toggle (item L): re-render the §2 param charts on NET $ / MAX DD / MAR
       content.querySelectorAll('[data-pmet]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('pMetric',b.dataset.pmet);renderApp();};});
+      // 2L TOP INTERACTIONS flat ⇄ 3-D toggle (#54)
+      content.querySelectorAll('[data-surr3d]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('surr3d',+b.dataset.surr3d);renderApp();};});
       // CARD LAYOUT (owner): report cards resize BOTH directions (drag the corner) and the
       //   layout STICKS — sizes save per card position (localStorage) and re-apply on every
       //   render/reload. Double-click a card edge (not a chart) to reset that card.
+      // Charts are SVGs whose height follows their width (aspect-locked), so a vertical drag
+      //   alone changed nothing — _fitSvgs scales every chart height to the dragged card
+      //   height (letterboxed, aspect kept), making vertical/diagonal drags actually work.
       (function(){const cards=[...content.querySelectorAll('div[style*="resize:both"]')];if(!cards.length)return;
         let saved={};try{saved=JSON.parse(localStorage.getItem('elCardLayout')||'{}');}catch(_e){saved={};}
         const _save=()=>{try{localStorage.setItem('elCardLayout',JSON.stringify(saved));}catch(_e2){}};
-        cards.forEach((c,i)=>{const s=saved['c'+i];
+        const _fitSvgs=(c,natH,newH)=>{const svgs=[...c.querySelectorAll('svg')];
+          if(!newH||!natH||newH>=natH){svgs.forEach(s=>{if(s._elNat!=null)s.style.height='';});return;}
+          const f=Math.max(0.2,(newH-20)/(natH-20));
+          svgs.forEach(s=>{if(s._elNat==null)s._elNat=s.getBoundingClientRect().height;
+            if(s._elNat>40)s.style.height=Math.max(28,Math.round(s._elNat*f))+'px';});};
+        cards.forEach((c,i)=>{const s=saved['c'+i],nat=c.offsetHeight;
           if(s&&s.w)c.style.width=s.w+'px';
-          if(s&&s.h)c.style.height=s.h+'px';
+          if(s&&s.h){c.style.height=s.h+'px';_fitSvgs(c,nat,s.h);}
           c.addEventListener('mouseup',()=>setTimeout(()=>{const w=parseInt(c.style.width)||0,h=parseInt(c.style.height)||0;
-            if(w||h){saved['c'+i]={w:w,h:h};_save();}},80));
-          c.addEventListener('dblclick',e=>{if(e.target!==c)return;delete saved['c'+i];c.style.width='';c.style.height='';_save();});});
+            if(w||h){saved['c'+i]={w:w,h:h};_save();_fitSvgs(c,nat,h);}},80));
+          c.addEventListener('dblclick',e=>{if(e.target!==c)return;delete saved['c'+i];c.style.width='';c.style.height='';_fitSvgs(c,nat,0);_save();});});
       })();
       // CONFIG-FILTER brush: grey out config marks (.cfgmark, data-net=$) below the slider cut
       //   across the parallel-coords + scatter charts. Pure DOM — no re-render, no state save.
