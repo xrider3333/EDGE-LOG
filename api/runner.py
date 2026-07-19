@@ -528,6 +528,9 @@ class FirestoreQueue:
             #    rich view the Builder does (not just Auto-Validate runs). ──
             "ensemble": result.get("ensemble"),        # §6 top-K blend + CCMP (grid sweeps)
             "plateau_pick": result.get("plateau_pick"),  # 3C.1 broad-high-ground vs argmax
+            "surrogate": result.get("surrogate"),      # #31 P1 multi-surrogate bake-off cards (2L panel)
+            "auto_expand": result.get("auto_expand"),  # #26/#30 range-widening log
+            "auto_expand_summary": result.get("auto_expand_summary"),  # #30 convergence summary
             "ml_gate": result.get("ml_gate"),          # single-gate before/after + SHAP/calibration
             "gate_validate": result.get("gate_validate"),  # 9-candidate model×cut-off bake-off
             # diagnostic pills (top-level on Auto-Optimize runs; Auto-Validate keeps its own
