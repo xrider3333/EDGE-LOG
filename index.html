@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='59.1';
+const VERSION='59.2';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'59.2', date:'2026-07-18', notes:['2L 3-D surfaces rebuilt to full 2H quality: floor outline, corner posts, slope shading, a green PEAK flag with its $ value, param axis labels along the floor edges (name + range) and a $ height legend on the left.','2H / 2I / 2J subtiles are now INDIVIDUALLY resizable — drag any subtile corner in any direction (dashed border marks the handle area); they start at the same size as the 2L 3-D charts and their sizes save with the rest of the layout.','COMPARE: new SETS row — save the current selection as a named comparison set and switch between saved sets with one click (e.g. an ORB set vs a TTIBS set); ✕ deletes a set without touching the runs.']},
   {v:'59.1', date:'2026-07-18', notes:['Card resizing FIXED for the vertical direction: charts are aspect-locked to their width, so a vertical drag used to change nothing — now every chart inside a card scales down to the dragged height (aspect kept). Vertical, horizontal and diagonal drags all work, sizes still save, double-click a card edge to reset.','2L TOP INTERACTIONS: new FLAT / 3-D toggle — the model surfaces can now render as isometric 3-D relief like 2H (height and colour = predicted $). The caption also states the key difference: 2L is the smoothed MODEL surface, 2H is the raw sampled configs.']},
   {v:'59.0', date:'2026-07-18', notes:['2A TOP CONFIGS: the winner final $ now sits ON the right axis as a green tick (not floating over the plot), and the x axis carries start/end dates. The tooltip explains why a lower-ranked curve can END higher: ranking is locked to the in-sample slice — the tail of the window is out-of-sample for selection, and peeking at it would be look-ahead bias.','2B: the NET $ axis is now sub-labeled in-sample $ (scoring slice) so it no longer reads as a mismatch against the full-window equity in 2A — same configs, different measuring window.','2A / 2C: winner labels, peak dots and pick rings now use fixed green/blue colors that stay visible on themes whose accent colors are muted.','Report cards resize in BOTH directions now (drag the bottom-right corner) and the layout STICKS across reruns and reloads. Double-click a card edge to reset that card to automatic size.']},
   {v:'58.9', date:'2026-07-18', notes:['2A TOP CONFIGS: the winner curve endpoint now carries a green dollar label, so the top config PnL reads straight off the chart.','2C PDP mini-charts: a blue RING now marks where the plateau pick actually SET each knob (the green dot stays the raw curve max — the two deliberately differ), plus a new one-line note under the charts spelling out what the auto range-widener did per knob (widened to what, tapered where, or pinned at a logical limit).','Engine: when the search auto-widens a knob range, the widened samples now flow into the saved chart points too — so 2B/2C actually DRAW the taper past the old edge instead of stopping at it (runs from today onward; older runs show the note only).','2L renamed to ML MODEL BAKE-OFF (they are ML models used as surrogates — stand-ins for the slow real backtest); knob-screen chips now show the permutation vote and the random-noise-probe margin on hover.','MAR tooltips in Rankings and the family ledger now say WHICH window the number comes from (the tuned in-sample stretch) and why the run-report LB MAR is much smaller (lockbox-only slice).']},
@@ -8050,24 +8051,42 @@ namespace NinjaTrader.NinjaScript.Strategies {
       };
       // #54: the same model surface as an isometric 3-D relief (like 2H, static view) —
       //   toggle chips flip every interaction tile between flat heatmap and 3-D.
-      const iso=inter=>{
+      const iso=(inter,ii)=>{
         const av=inter.a_values,bv=inter.b_values,g=inter.pd_grid,na=av.length,nb=bv.length;
         if(na<2||nb<2)return '';
         const Z=[];let mn=1e18,mx=-1e18;
         for(let i=0;i<na;i++){const row=(g[i]&&g[i].row)||[];Z.push(bv.map((_,j)=>{const v=(row[j]==null?0:row[j]);if(v<mn)mn=v;if(v>mx)mx=v;return v;}));}
         const sp=(mx-mn)||1,zn2=(i,j)=>(Z[i][j]-mn)/sp;
-        const cw=14,ch=7,zh=34,padT=40;
-        const ox=8+(nb-1)*cw,W=ox+(na-1)*cw+16,H=padT+zh+((na-1)+(nb-1))*ch+26;
-        const PXi=(i,j)=>ox+(i-j)*cw,PYi=(i,j,z)=>padT+zh+(i+j)*ch-z*zh;
+        const W=340,zh=60,padT=22;
+        const cw=(W-96)/((na-1)+(nb-1)),ch=cw*0.5;
+        const ox=48+(nb-1)*cw,oy=padT+zh;
+        const PXi=(i,j)=>ox+(i-j)*cw,PYi=(i,j,z)=>oy+(i+j)*ch-z*zh;
+        const H=Math.round(oy+((na-1)+(nb-1))*ch+30);
         const m=Math.max(Math.abs(mn),Math.abs(mx))||1;
         const neg=[226,75,74],pos=[31,186,124],mid=[56,63,76];
-        const ramp2=v=>{const t=Math.max(-1,Math.min(1,v/m)),c=t>=0?pos:neg,a=Math.abs(t);return 'rgb('+Math.round(mid[0]+(c[0]-mid[0])*a)+','+Math.round(mid[1]+(c[1]-mid[1])*a)+','+Math.round(mid[2]+(c[2]-mid[2])*a)+')';};
-        let s='';const ord=[];for(let i=0;i<na-1;i++)for(let j=0;j<nb-1;j++)ord.push([i,j]);
+        const rampA=v=>{const t=Math.max(-1,Math.min(1,v/m)),c=t>=0?pos:neg,a=Math.abs(t);return [mid[0]+(c[0]-mid[0])*a,mid[1]+(c[1]-mid[1])*a,mid[2]+(c[2]-mid[2])*a];};
+        const _hr2=v=>{const n2=+v;return isNaN(n2)?String(v):(Number.isInteger(n2)?n2:(+n2).toFixed(2));};
+        const fl=[[0,0],[na-1,0],[na-1,nb-1],[0,nb-1]];
+        let s='<polygon points="'+fl.map(c=>PXi(c[0],c[1]).toFixed(1)+','+PYi(c[0],c[1],0).toFixed(1)).join(' ')+'" fill="none" stroke="var(--border)" stroke-width="0.7" opacity="0.55"/>';
+        fl.forEach(c=>{s+='<line x1="'+PXi(c[0],c[1]).toFixed(1)+'" y1="'+PYi(c[0],c[1],0).toFixed(1)+'" x2="'+PXi(c[0],c[1]).toFixed(1)+'" y2="'+PYi(c[0],c[1],zn2(c[0],c[1])).toFixed(1)+'" stroke="var(--border)" stroke-width="0.6" opacity="0.45" stroke-dasharray="2,2"/>';});
+        const ord=[];for(let i=0;i<na-1;i++)for(let j=0;j<nb-1;j++)ord.push([i,j]);
         ord.sort((a,b)=>(a[0]+a[1])-(b[0]+b[1]));
         ord.forEach(q=>{const i=q[0],j=q[1];const avg=(Z[i][j]+Z[i+1][j]+Z[i][j+1]+Z[i+1][j+1])/4;
-          s+='<polygon points="'+PXi(i,j).toFixed(1)+','+PYi(i,j,zn2(i,j)).toFixed(1)+' '+PXi(i+1,j).toFixed(1)+','+PYi(i+1,j,zn2(i+1,j)).toFixed(1)+' '+PXi(i+1,j+1).toFixed(1)+','+PYi(i+1,j+1,zn2(i+1,j+1)).toFixed(1)+' '+PXi(i,j+1).toFixed(1)+','+PYi(i,j+1,zn2(i,j+1)).toFixed(1)+'" fill="'+ramp2(avg)+'" opacity="0.95" stroke="rgba(10,14,20,0.5)" stroke-width="0.4"><title>'+_esS(inter.param_a)+' '+_esS(av[i])+'–'+_esS(av[i+1])+' · '+_esS(inter.param_b)+' '+_esS(bv[j])+'–'+_esS(bv[j+1])+' · predicted '+fmtUsd(Math.round(avg*mlt))+'</title></polygon>';});
-        return '<div style="display:inline-block;vertical-align:top;margin:0 14px 10px 0;text-align:center"><svg viewBox="0 0 '+W+' '+H+'" width="'+Math.min(250,W*1.15)+'" style="display:block;margin:0 auto">'+s+'</svg>'
-          +'<div style="font-size:8px;color:var(--text3);margin-top:2px">'+_esS(inter.param_a)+' × '+_esS(inter.param_b)+' · strength '+(inter.strength||0).toFixed(2)+' · height = predicted $</div></div>';};
+          const sh=Math.max(0.55,Math.min(1.25,0.86+0.55*(((zn2(i,j)+zn2(i+1,j))/2)-((zn2(i,j+1)+zn2(i+1,j+1))/2))));
+          const rgb=rampA(avg);
+          s+='<polygon points="'+PXi(i,j).toFixed(1)+','+PYi(i,j,zn2(i,j)).toFixed(1)+' '+PXi(i+1,j).toFixed(1)+','+PYi(i+1,j,zn2(i+1,j)).toFixed(1)+' '+PXi(i+1,j+1).toFixed(1)+','+PYi(i+1,j+1,zn2(i+1,j+1)).toFixed(1)+' '+PXi(i,j+1).toFixed(1)+','+PYi(i,j+1,zn2(i,j+1)).toFixed(1)+'" fill="rgb('+Math.round(rgb[0]*sh)+','+Math.round(rgb[1]*sh)+','+Math.round(rgb[2]*sh)+')" opacity="0.95" stroke="rgba(10,14,20,0.5)" stroke-width="0.45"><title>'+_esS(inter.param_a)+' '+_hr2(av[i])+'–'+_hr2(av[i+1])+' · '+_esS(inter.param_b)+' '+_hr2(bv[j])+'–'+_hr2(bv[j+1])+' · predicted '+fmtUsd(Math.round(avg*mlt))+'</title></polygon>';});
+        let mi=0,mj=0;for(let i=0;i<na;i++)for(let j=0;j<nb;j++)if(Z[i][j]>Z[mi][mj]){mi=i;mj=j;}
+        const pxx=PXi(mi,mj).toFixed(1),pyy=PYi(mi,mj,zn2(mi,mj)).toFixed(1);
+        s+='<circle cx="'+pxx+'" cy="'+pyy+'" r="2.4" fill="#27c08a"/><text x="'+pxx+'" y="'+(+pyy-5)+'" text-anchor="middle" font-size="7.5" font-weight="700" fill="#27c08a">peak '+fmtUsd(Math.round(mx*mlt))+'</text>';
+        const xm=[PXi((na-1)/2,nb-1),PYi((na-1)/2,nb-1,0)],ym=[PXi(na-1,(nb-1)/2),PYi(na-1,(nb-1)/2,0)];
+        s+='<text x="'+(xm[0]-6).toFixed(1)+'" y="'+(xm[1]+13).toFixed(1)+'" text-anchor="middle" font-size="7.5" font-weight="700" fill="var(--text3)">'+_esS(inter.param_a)+' '+_hr2(av[0])+' → '+_hr2(av[na-1])+'</text>';
+        s+='<text x="'+(ym[0]+6).toFixed(1)+'" y="'+(ym[1]+13).toFixed(1)+'" text-anchor="middle" font-size="7.5" font-weight="700" fill="var(--text3)">'+_esS(inter.param_b)+' '+_hr2(bv[0])+' → '+_hr2(bv[nb-1])+'</text>';
+        const gid='srg'+ii;
+        const g1=rampA(mx),g2=rampA(0),g3=rampA(mn);
+        s+='<rect x="8" y="'+padT+'" width="5" height="46" rx="2" fill="url(#'+gid+')"/><text x="16" y="'+(padT+6)+'" font-size="6.5" fill="var(--text3)">'+fmtUsd(Math.round(mx*mlt))+'</text><text x="16" y="'+(padT+46)+'" font-size="6.5" fill="var(--text3)">'+fmtUsd(Math.round(mn*mlt))+'</text>';
+        const defs='<defs><linearGradient id="'+gid+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgb('+g1.map(Math.round).join(',')+')"/><stop offset="0.5" stop-color="rgb('+g2.map(Math.round).join(',')+')"/><stop offset="1" stop-color="rgb('+g3.map(Math.round).join(',')+')"/></linearGradient></defs>';
+        return '<div style="display:inline-block;vertical-align:top;margin:0 14px 10px 0;text-align:center"><svg viewBox="0 0 '+W+' '+H+'" width="300" style="display:block;margin:0 auto;max-width:100%">'+defs+s+'</svg>'
+          +'<div style="font-size:8px;color:var(--text3);margin-top:2px">'+_esS(inter.param_a)+' × '+_esS(inter.param_b)+' · strength '+(inter.strength||0).toFixed(2)+' · height + colour = predicted $</div></div>';};
       const _use3d=(+APREF.surr3d===1);
       const _s3chip=(v,lab,on)=>'<span data-surr3d="'+v+'" title="'+(v==='1'?'render the model surfaces as 3-D relief (like 2H) — height and colour = predicted $':'render the model surfaces as flat heatmaps')+'" style="cursor:pointer;font-size:8px;font-weight:700;padding:1px 7px;border-radius:6px;border:1px solid '+(on?'var(--blue)':'var(--border)')+';background:'+(on?'color-mix(in srgb,var(--blue) 14%,transparent)':'var(--bg2)')+';color:'+(on?'var(--blue)':'var(--text3)')+'">'+lab+'</span>';
       const interHtml=inters.length?('<div style="margin:12px 0 4px"><div style="font-size:8px;letter-spacing:1px;color:var(--text5);margin-bottom:2px;display:flex;align-items:center;gap:6px">TOP INTERACTIONS — 2-way partial dependence '+_s3chip('0','▦ FLAT',!_use3d)+_s3chip('1','⬛ 3-D',_use3d)+'</div><div style="font-size:8px;color:var(--text5);margin-bottom:6px">how PnL depends on the two knobs JOINTLY (read from the best model — a smoothed MODEL surface, unlike 2H which plots the raw sampled configs)</div><div>'+inters.map(_use3d?iso:heat).join('')+'</div></div>'):'';
@@ -8516,7 +8535,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // _pdp is computed above and rendered INSIDE 2B's card as its footer (owner: 2C = same sub-chart under 2B).
       // lay non-empty panels in a row (1, 2 or 3 across); single panel = full-width. stretch=true makes
       //   the cards equal-height (good for similar charts); otherwise they top-align at natural height.
-      const _wrap=(arr,stretch)=>{const xs=arr.filter(x=>x&&x.replace(/\s/g,''));if(!xs.length)return '';const inner=(xs.length>1)?'<div style="display:flex;gap:12px;align-items:'+(stretch?'stretch':'flex-start')+';flex-wrap:wrap">'+xs.map(x=>'<div style="flex:1 1 260px;min-width:0;display:flex;flex-direction:column">'+x+'</div>').join('')+'</div>':xs[0];return '<div style="margin-bottom:12px">'+inner+'</div>';};
+      // stretch mode (the 2H/2I/2J row): each subtile starts at ~the 2L 3-D chart size and is
+      //   INDIVIDUALLY resizable — drag its bottom-right corner in any direction (owner). The
+      //   subtiles ride the same saved-layout wiring as the cards (style contains resize:both).
+      const _wrap=(arr,stretch)=>{const xs=arr.filter(x=>x&&x.replace(/\s/g,''));if(!xs.length)return '';const _kid=stretch?'flex:0 1 330px;min-width:235px;display:flex;flex-direction:column;resize:both;overflow:auto;border:1px dashed color-mix(in srgb,var(--border) 60%,transparent);border-radius:10px;padding:2px 4px':'flex:1 1 260px;min-width:0;display:flex;flex-direction:column';const inner=(xs.length>1)?'<div style="display:flex;gap:12px;align-items:'+(stretch?'stretch':'flex-start')+';flex-wrap:wrap">'+xs.map(x=>'<div style="'+_kid+'">'+x+'</div>').join('')+'</div>':xs[0];return '<div style="margin-bottom:12px">'+inner+'</div>';};
       // Tile 1: 2a TOP CONFIGS PNL | 2b CONFIG DISTRIBUTION (row), then 2c PARALLEL COORDINATES
       //   full-width with the 2K PDP top-out curves DIRECTLY beneath it (owner request — the PDP
       //   mini-charts are the per-knob read of the same config space 2C fans out).
@@ -9141,7 +9163,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const stratOpts='<option value="">all strategies</option>'+_strats.map(s=>'<option value="'+s.replace(/"/g,'')+'"'+(s===_cf?' selected':'')+'>'+s+'</option>').join('');
         const _grpBtn='<button data-cmpgroupbtn title="'+(_cg?'grouped by strategy — click for the flat list':'flat list — click to group by strategy')+'" style="height:21px;padding:0 8px;font-size:9px;border-radius:7px;border:1px solid '+(_cg?'color-mix(in srgb,var(--text4) 55%,var(--border))':'var(--border)')+';background:'+(_cg?'var(--bg2)':'var(--bg1)')+';color:'+(_cg?'var(--text)':'var(--text4)')+';cursor:pointer;font-variant-emoji:text">▦ GROUP</button>';
         const _bestBtn='<button data-cmpbestofeach title="select the best run of every strategy (up to 8)" style="height:21px;padding:0 8px;font-size:9px;border-radius:7px;border:1px solid var(--border);background:var(--bg1);color:var(--text4);cursor:pointer">★ best of each</button>';
+        // ── #47 SAVED COMPARISON SETS: name the current selection, switch between saved
+        //    comparisons with one click (e.g. an ORB set vs a TTIBS set). Chips persist.
+        const _sets=Array.isArray(APREF.cmpSets)?APREF.cmpSets:[];
+        const _setChips=_sets.map((s2,si)=>'<span data-cmpset="'+si+'" title="load this comparison: '+(s2.ids||[]).map(x2=>'#'+x2).join(' · ').replace(/"/g,'')+'" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:9px;font-size:9px;border:1px solid var(--border);background:var(--bg1);color:var(--text2)">'+String(s2.name||('set '+(si+1))).replace(/</g,'&lt;')+' <b style="color:var(--text5);font-weight:400">'+(s2.ids||[]).length+'</b><b data-cmpsetdel="'+si+'" title="delete this saved set (does not touch the runs)" style="color:var(--text5);font-weight:400;cursor:pointer;margin-left:2px">✕</b></span>').join('');
+        const _setsRow='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-2px 0 8px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5)" title="saved comparison sets — save the current selection under a name, then switch between comparisons with one click">SETS</span>'+_setChips+'<span data-cmpsetsave title="save the CURRENT selection as a named set you can switch back to any time" style="cursor:pointer;font-size:9px;padding:2px 9px;border-radius:9px;border:1px dashed var(--border);color:var(--text4)">＋ save current</span></div>';
         const pickerTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">PICK RUNS</span><span style="font-size:8px;color:var(--text5)">click a row to add / remove · max 8</span><span style="margin-left:auto;display:flex;gap:8px;align-items:center">'+_grpBtn+_bestBtn+'<select data-cmpstrat style="width:auto;padding:2px 6px;font-size:var(--fsxs)">'+stratOpts+'</select><span data-cmpclear title="reset to the latest 3 runs" style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">reset</span></span></div>'
+          +_setsRow
           +'<div style="overflow:auto;max-height:74vh">'+(pickBody||'<div style="color:var(--text5);font-size:var(--fsxs);padding:14px;text-align:center">no runs match this strategy filter</div>')+'</div>');
         // ── per-run WF / LB aggregates for the scoped comparison ──
         const _mcOf=x=>x.multiplier||instMult(x.instrument)||20;
@@ -9956,6 +9984,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         savePref('cmpIds',ids);renderApp();};});
       const _cs=content.querySelector('[data-cmpstrat]');if(_cs)_cs.onchange=()=>{savePref('cmpStrat',_cs.value);renderApp();};
       const _cc=content.querySelector('[data-cmpclear]');if(_cc)_cc.onclick=()=>{savePref('cmpIds',[]);renderApp();};
+      // #47 saved comparison sets: load / delete / save-current
+      content.querySelectorAll('[data-cmpset]').forEach(ch=>{ch.onclick=(e)=>{if(e.target&&e.target.getAttribute&&e.target.getAttribute('data-cmpsetdel')!=null)return;
+        const st=(APREF.cmpSets||[])[+ch.dataset.cmpset];if(st&&st.ids&&st.ids.length){savePref('cmpIds',st.ids.map(String).slice(0,8));renderApp();}};});
+      content.querySelectorAll('[data-cmpsetdel]').forEach(x=>{x.onclick=(e)=>{e.stopPropagation();
+        const arr=(APREF.cmpSets||[]).slice();arr.splice(+x.dataset.cmpsetdel,1);savePref('cmpSets',arr);renderApp();};});
+      const _csave=content.querySelector('[data-cmpsetsave]');if(_csave)_csave.onclick=()=>{
+        const cur=(APREF.cmpIds||[]).map(String);if(!cur.length){alert('nothing selected to save — pick some runs first');return;}
+        const nm=window.prompt('Name this comparison set:','');if(!nm)return;
+        const arr=(APREF.cmpSets||[]).slice();arr.push({name:String(nm).slice(0,28),ids:cur});savePref('cmpSets',arr);renderApp();};
       const _cgb=content.querySelector('[data-cmpgroupbtn]');if(_cgb)_cgb.onclick=()=>{savePref('cmpGroup',!APREF.cmpGroup);renderApp();};
       const _cbe=content.querySelector('[data-cmpbestofeach]');if(_cbe)_cbe.onclick=()=>{
         const rs2=runHistory.slice().sort((a,b)=>b.id-a.id);
