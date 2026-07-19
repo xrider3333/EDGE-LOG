@@ -21,6 +21,7 @@ import types
 import numpy as np
 import pytest
 
+import augur_engine.auto as auto_mod
 from augur_engine.auto import (run_auto, _expand_range, _snap_to_step,
                                 AUTO_EXPAND_WIDTH_CAP, AUTO_EXPAND_SPAN_FRAC)
 
@@ -190,6 +191,13 @@ def test_ever_rising_knob_taper_stops_early_when_peak_lands_just_inside_round1()
     assert entry["final_range"][1] > 20.0                # widened at least once
     assert out["plateau_pick"]["search_truncated"] is False   # fixed by expansion
 
+    # (c) convergence: nothing left flagged when the loop stopped -> converged=True,
+    # and it stopped well before the (default 6) global-round budget.
+    assert entry["emerged"] is False                    # was in the initial flags, not chased-in
+    summ = out["auto_expand_summary"]
+    assert summ == {"global_rounds_used": 1, "n_params_expanded": 1,
+                    "n_emerged": 0, "converged": True}
+
 
 # (c): an interior optimum from the start triggers NO expansion ───────────────────
 
@@ -269,3 +277,170 @@ def test_walkforward_runs_never_build_auto_expand():
     assert out["wf"] is True                           # sanity: actually took the WF branch
     assert "plateau_pick" not in out
     assert "auto_expand" not in out
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ITERATIVE COORDINATE-DESCENT (owner request #30, 2026-07-18) — every round
+# re-checks ALL params, not just the ones flagged in the very first pdp_plateau
+# call, so a param that only becomes edge-pinned AFTER another param's range is
+# widened (an "unlock") gets chased too, instead of silently dropped (the bug
+# observed live on TTIBS's `hold_cap`).
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _make_strategy_2knob(pnl_of_ab, pmin=0.0, pmax=20.0, pstep=1.0):
+    """Two-numeric-knob fake strategy (mirrors `_make_strategy` above, just with
+    an extra param) so an INTERACTION between two knobs can be expressed."""
+    mod = types.ModuleType("fake_synthetic_strategy_2knob")
+    mod.STRATEGY_NAME = "SYNTHETIC 2-KNOB (test only)"
+    meta = {"type": "float", "min": pmin, "max": pmax, "step": pstep,
+            "default": (pmin + pmax) / 2.0}
+    mod.DEFAULT_PARAMS = {"a": dict(meta), "b": dict(meta)}
+
+    def run_backtest(opens, highs, lows, closes, a=None, b=None, return_trades=False,
+                     **_ignore):
+        pnl = float(pnl_of_ab(a, b))
+        out = {"total_pnl": pnl, "num_trades": 50, "win_rate": 60.0,
+               "profit_factor": 1.5, "max_drawdown": -100.0, "avg_pnl": pnl / 50.0,
+               "wins": 30, "losses": 20}
+        if return_trades:
+            out["trades"] = []
+        return out
+
+    mod.run_backtest = run_backtest
+    return mod
+
+
+# (b) THE KEY NEW TEST — an "unlock": b's optimum is interior against a's ORIGINAL
+# [0,20] range (so the OLD single-pass expander would never have touched it), but
+# the joint surface has b*a interaction strong enough that once a's range widens
+# past 20 and gets re-sampled, b's own marginal curve tips over into edge-pinned.
+# PnL(a, b) = 5a - 0.5(b-5)^2 + 5ab -- for a<=20 the interaction term is modest next
+# to the -0.5(b-5)^2 anchor (interior optimum near b=5); once a>20 (only reachable
+# after a's own range is widened) the 5ab term dominates and pulls b's aggregate
+# curve toward its tested-max edge. n_trials=300 (still a sub-second synthetic
+# backtest -- PnL is a closed-form function, no real OHLC work) so the interaction
+# signal clears noise robustly; smaller counts made this flaky against the exact
+# grid the seeded sampler happens to draw.
+def _unlock_pnl(a, b):
+    return 5.0 * a - 0.5 * (b - 5.0) ** 2 + 5.0 * a * b
+
+
+def test_interaction_unlocks_previously_interior_param_and_new_search_chases_it():
+    mod = _make_strategy_2knob(_unlock_pnl)
+
+    # (a) OLD single-pass behavior, reproduced via auto_expand=False: this is
+    # EXACTLY the initial (unexpanded) boundary_flags the single-pass expander
+    # would have seeded `active` from -- 'a' is edge-pinned (still rising), 'b' is
+    # NOT -- so the pre-#30 code would never have chased 'b' at all.
+    out_old = run_auto(mod, arrays=_make_arrays(), oos=False, method="single",
+                        n_trials=300, min_trades=1, seed=SEED, auto_expand=False)
+    pp_old = out_old["plateau_pick"]
+    old_flags = {f["param"]: f["edge"] for f in pp_old["boundary_flags"]}
+    assert old_flags == {"a": "max"}                    # only 'a' -- 'b' NOT flagged initially
+    assert pp_old["search_truncated"] is True
+
+    # (b) NEW iterative coordinate-descent: run the same fixture with auto_expand
+    # on. 'b' must show up in out["auto_expand"] with emerged=True -- proof the
+    # new loop re-checked ALL params after widening 'a' and caught the unlock.
+    out_new = run_auto(mod, arrays=_make_arrays(), oos=False, method="single",
+                        n_trials=300, min_trades=1, seed=SEED, auto_expand=True)
+    log = out_new["auto_expand"]
+    by_param = {e["param"]: e for e in log}
+    assert "b" in by_param
+    b_entry = by_param["b"]
+    assert b_entry["emerged"] is True
+    assert "emerged mid-run after widening" in b_entry["note"]
+    assert "a" in b_entry["note"]                       # names the param that unlocked it
+
+    # 'a' itself was in the INITIAL flags, not chased-in.
+    assert by_param["a"]["emerged"] is False
+
+    summ = out_new["auto_expand_summary"]
+    assert summ["n_emerged"] >= 1
+    assert summ["n_params_expanded"] == len(log)
+    assert summ["global_rounds_used"] >= 2               # 'b' can't emerge before round 2
+
+    # determinism: re-running with the same seed reproduces the exact same log +
+    # summary (no stray randomness leaks into the iterative loop).
+    out_new2 = run_auto(mod, arrays=_make_arrays(), oos=False, method="single",
+                         n_trials=300, min_trades=1, seed=SEED, auto_expand=True)
+    assert out_new2["auto_expand"] == log
+    assert out_new2["auto_expand_summary"] == summ
+
+
+# (d) max_global_rounds caps a pathological always-rising synthetic, INDEPENDENT
+# of the per-param cap -- set auto_expand_max_rounds huge (so it would never bind
+# on its own) and auto_expand_max_global_rounds tiny, and confirm the OUTER cap is
+# what stops the loop (not a taper, not the per-param round cap, not the 2x-width
+# fallback -- which only trips on round 2 with the default 50%-span, one round
+# later than the global cap used here).
+def test_max_global_rounds_caps_runaway_search_independent_of_per_param_cap():
+    mod = _make_strategy(lambda k: k * 100.0)            # never tapers, no hard bounds
+    out = _run(mod, auto_expand=True, auto_expand_max_rounds=50,
+               auto_expand_max_global_rounds=1)
+
+    log = out["auto_expand"]
+    assert len(log) == 1
+    entry = log[0]
+    assert entry["rounds"] == 1                          # only ONE round happened at all
+    assert entry["tapered"] is False
+    assert "auto_expand_max_global_rounds" in entry["note"]
+    # NOT the width-cap or per-param-cap language (those didn't fire -- the outer
+    # cap got there first):
+    assert "2x-width" not in entry["note"]
+    assert "hit auto_expand_max_rounds" not in entry["note"]
+
+    summ = out["auto_expand_summary"]
+    assert summ == {"global_rounds_used": 1, "n_params_expanded": 1,
+                    "n_emerged": 0, "converged": False}   # hit the cap -- did NOT converge
+
+
+# (e) no-re-add policy: once a param is finalized it must NEVER be re-chased, even
+# if a later round's pdp_plateau claims it's flagged again -- this is the guard
+# against A-unlocks-B-unlocks-A-forever oscillation. Proven deterministically by
+# monkeypatching pdp_plateau itself (independent of any real sampler noise): 'a'
+# is flagged only on the very first call (mimicking the initial boundary_flags),
+# then EVERY subsequent call claims BOTH 'a' and 'b' are edge-pinned FOREVER --
+# exactly the condition that would re-add 'a' to `active` on every later round
+# without the no-re-add guard. auto_expand_max_rounds=1 so both params finalize
+# quickly (capped, still "rising" per the mock) and the test proves 'a' shows up
+# in the log EXACTLY once despite the mock's endless claim.
+def test_no_re_add_policy_prevents_oscillation(monkeypatch):
+    def _flag(pname):
+        return {"param": pname, "edge": "max", "value": 20.0, "rel_slope": 0.5,
+                "tested_min": 0.0, "tested_max": 20.0, "n_values": 5, "msg": "x"}
+
+    calls = {"n": 0}
+
+    def fake_pdp_plateau(points, pnl_key="pnl", min_points=12):
+        calls["n"] += 1
+        flags = [_flag("a")] if calls["n"] == 1 else [_flag("a"), _flag("b")]
+        return {"index": 0, "params": {"a": 20.0, "b": 20.0}, "score": 0.0,
+                "argmax_score": 0.0, "argmax_index": 0, "curves": {},
+                "boundary_flags": flags, "search_truncated": True}
+
+    monkeypatch.setattr(auto_mod, "pdp_plateau", fake_pdp_plateau)
+
+    mod = _make_strategy_2knob(lambda a, b: 5.0 * a + 5.0 * b)
+    out = run_auto(mod, arrays=_make_arrays(), oos=False, method="single",
+                    n_trials=N_TRIALS, min_trades=1, seed=SEED, auto_expand=True,
+                    auto_expand_max_rounds=1, auto_expand_max_global_rounds=6)
+
+    assert calls["n"] >= 3                               # the mock really was called repeatedly
+    log = out["auto_expand"]
+    names = [e["param"] for e in log]
+    assert names.count("a") == 1                          # NOT re-chased despite endless "still flagged"
+    assert names.count("b") == 1
+    by_param = {e["param"]: e for e in log}
+    assert by_param["a"]["emerged"] is False               # 'a' was in the initial flags
+    assert by_param["b"]["emerged"] is True                # 'b' emerged after 'a' widened
+
+    # loop terminated well inside the (generous) global-round budget, proving the
+    # finalized-set guard -- not the outer cap -- is what stopped the chase.
+    summ = out["auto_expand_summary"]
+    assert summ["global_rounds_used"] < 6
+    assert summ["converged"] is True                       # OUR tracked set drained on its own
+    # ...even though the mocked surface never stopped claiming truncation --
+    # exactly the documented nuance (no-re-add can leave pp["search_truncated"]
+    # True while our own bookkeeping is done chasing).
+    assert out["plateau_pick"]["search_truncated"] is True

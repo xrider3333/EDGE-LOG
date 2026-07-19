@@ -43,6 +43,16 @@ OOS_SPLIT = 0.75
 # (commit 5df5a76, analytics._pdp_boundary_flags): a NUMERIC knob pinned at its
 # tested-range edge and still rising gets its range WIDENED and re-sampled, instead of
 # just flagged. See _auto_expand_search / _expand_range below.
+#
+# ITERATIVE COORDINATE-DESCENT UPGRADE (owner request #30, 2026-07-18: "once a
+# plateau is found, go back and re-check whether previously-settled params are
+# still plateaus, since widening one param can unlock a higher peak in another").
+# commit b6261de's expander was single-pass: `active` was seeded ONLY from the
+# INITIAL boundary_flags, so a param that only became edge-pinned AFTER another
+# param's range widened (an "unlock") was silently dropped -- observed live on
+# TTIBS, where `hold_cap` emerged mid-run and was never chased. See
+# _auto_expand_search's docstring for the outer coordinate-descent loop and the
+# re-emergence/no-re-add policy.
 AUTO_EXPAND_SPAN_FRAC = 0.5   # each round extends the flagged edge by +50% of the
                               # ORIGINAL tested width (at least one `step`)
 AUTO_EXPAND_WIDTH_CAP = 2.0   # ...but the final width (measured from the ORIGINAL
@@ -175,19 +185,77 @@ def _expand_range(lo, hi, step, kind, edge, orig_lo, orig_hi, hard_min=None, har
         return _snap_to_step(new_lo, step, kind, orig_hi), hi
 
 
-def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trades,
-                        seed, n_trials, boundary_flags, max_rounds=2):
-    """AUTO-EXPAND-AND-RESAMPLE (ROADMAP: owner's "if adjusting a knob continues to
-    help, push the knob further"). The follow-through on the boundary-peak detector
-    (commit 5df5a76): instead of only FLAGGING a knob pinned at its tested-range edge
-    and still rising, widen that knob's range and sample more — iterating until the
-    PDP curve tapers to an interior peak or a safety cap trips (see _expand_range).
+def _emerge_suffix(emerged, cause):
+    """Note suffix appended to a log entry when the param was chased only because
+    it EMERGED mid-run (i.e. it was not in the initial boundary_flags) -- names the
+    param(s) whose expansion preceded it, per _auto_expand_search's docstring. No
+    exact causal proof is attempted (that would require a counterfactual re-run) --
+    this is a "here's what changed right before this showed up" breadcrumb."""
+    if not emerged:
+        return ""
+    who = ", ".join(cause) if cause else "another param"
+    return f" (emerged mid-run after widening {who}.)"
 
-    Scoped deliberately narrow: operates on PRIVATE copies of `records`/`seen` and
-    returns its own merged list — it never mutates the caller's `records`, so
-    run_auto's champion/top-N/DSR/MC/regime/neighbors/pills all keep using the
-    ORIGINAL (unexpanded) sample. Only the plateau/boundary surface this function
-    returns is expanded; the caller substitutes it into `out["plateau_pick"]` alone.
+
+def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trades,
+                        seed, n_trials, boundary_flags, max_rounds=2,
+                        max_global_rounds=6):
+    """AUTO-EXPAND-AND-RESAMPLE — ITERATIVE COORDINATE-DESCENT (owner request #30,
+    2026-07-18: "once a plateau is found, go back and re-check whether previously-
+    settled params are still plateaus, since widening one param can unlock a higher
+    peak in another"). Builds on the single-pass expander (commit b6261de): that
+    version seeded `active` ONLY from the INITIAL pdp_plateau's boundary_flags, so a
+    knob that only became edge-pinned AFTER another knob's range was widened (a
+    joint-surface "unlock") was silently never chased (observed live: TTIBS's
+    `hold_cap` emerged mid-run and was dropped by the old single-pass code).
+
+    ALGORITHM — an outer coordinate-descent loop, `global_round` in
+    [1..max_global_rounds], each round:
+      a. expand every param CURRENTLY in `active` one step outward (as the
+         single-pass version did — honors hard_min/hard_max + the 2x-width
+         fallback cap; a param with no room left finalizes immediately as
+         "capped", no resample wasted on it).
+      b. resample (seed offset by `global_round`, deterministic) + merge/dedupe
+         into the running record set.
+      c. recompute pdp_plateau on the FULL merged surface so far -> `flagged_now`.
+      d. NEW — for every param in `flagged_now` that is NOT currently active and
+         has NOT already been finalized this run, ADD it to `active` (seeded from
+         its ORIGINAL search-space bounds, rounds=0, marked `emerged=True`). It
+         starts expanding on the NEXT global round, same as any freshly-flagged
+         param.
+      e. for each param that WAS active at the top of THIS round: increment its
+         own per-param `rounds` counter; if it tapered (no longer flagged) or hit
+         its own `max_rounds` / a hard/width cap, FINALIZE it (tapered or capped)
+         and drop it from `active`.
+      f. keep going while `active` is non-empty AND global_round < max_global_rounds.
+
+    Two separate caps, deliberately decoupled:
+      `max_rounds`        — how many times a SINGLE param may be widened (its own
+                             per-param counter; unchanged meaning from the
+                             single-pass version, default 2).
+      `max_global_rounds` — the OUTER loop's safety cap on how many coordinate-
+                             descent rounds run in total, regardless of which
+                             params are active in each — the guard against
+                             runaway when params keep unlocking each other
+                             (default 6).
+
+    RE-EMERGENCE / NO-RE-ADD POLICY (the safe default the owner asked to pick):
+    once a param is finalized — tapered OR capped — it is NEVER re-added to
+    `active` again this run, even if a LATER round's pdp_plateau shows it flagged
+    again. That re-flagging is a real possibility: `cur_bounds` keeps sampling a
+    finalized param from its last (possibly already-widened) range every
+    subsequent round (the sampler draws every space key each round, active or
+    not), and enough fresh draws can occasionally tip its marginal curve back over
+    the edge-pinned threshold. Chasing it again risks an oscillation — A unlocks
+    B, B's expansion makes A look edge-pinned again, A's re-expansion re-unlocks
+    B, forever. A permanent `finalized` set (checked before EVERY add, initial or
+    emerged) rules this out by construction: since a param can only move
+    active -> finalized (never back), and `active` can only gain members that
+    aren't already finalized, the tracked set is strictly monotonic in
+    "finalized" and the loop provably terminates by max_global_rounds even on a
+    pathological always-rising joint surface. (A bounded single-controlled-reopen
+    was considered as a bonus but skipped — it would break that monotonicity
+    argument for a benefit that hasn't been needed in practice.)
 
     Params mirror run_auto's own locals at the call site: `ev_fn` is its `_ev`
     in-sample evaluator closure, `ksplit`/`min_trades` its IS-window bound and trade
@@ -197,59 +265,88 @@ def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trad
     flag list (numeric params only — analytics._pdp_boundary_flags never flags a
     categorical/bool param).
 
-    Returns (pp, log, merged_records):
+    Returns (pp, log, merged_records, summary):
       pp             — the LAST pdp_plateau(...) computed on the merged (original +
-                       all accepted expansion) records, or None if nothing expanded.
+                       every accepted expansion round's) records, or None if
+                       nothing ever expanded.
       log            — the out["auto_expand"] entries (see run_auto's docstring for
-                       the schema); one dict per originally-flagged param, appended
-                       the round it either tapers (interior optimum found) or gives
-                       up (still rising at max_rounds / a hard or fallback bound).
-                       Empty when no numeric param was in `boundary_flags`.
+                       the schema); one dict per param that EVER entered `active`
+                       (initial-flag OR emerged), appended the round it finalizes
+                       (tapers, hits a hard/width cap, or the whole search hits
+                       max_global_rounds while it was still active). Adds
+                       `emerged: bool` — True iff this param was NOT in the initial
+                       `boundary_flags` (i.e. it was only chased because another
+                       param's widening unlocked it); its `note` then also names
+                       the param(s) being widened the round it first showed up.
+                       Empty when no numeric param was ever flagged.
       merged_records — the list `pp["index"]` refers into (== the input `records`
                        unchanged when `log` is empty).
+      summary        — {global_rounds_used, n_params_expanded, n_emerged,
+                       converged}. `converged` is True iff the loop ended with
+                       `active` empty on its own (nothing left in OUR tracked set
+                       still rising) — False iff it stopped because global_round
+                       hit max_global_rounds while something was still active.
+                       This is about the tracked set, not a claim that the FINAL
+                       pp["search_truncated"] is False — under the no-re-add
+                       policy a finalized param can in principle still show up in
+                       the final surface's boundary_flags; that stays visible via
+                       pp["search_truncated"] rather than being papered over here.
     """
     recs = list(records)
     seen2 = set(seen)
     cur_bounds = dict(space)
     active = {}
-    for f in (boundary_flags or []):
-        pname = f.get("param")
+    finalized = set()
+    log = []
+    n_emerged = 0
+
+    def _activate(pname, edge, emerged, cause=None):
         spec = space.get(pname)
         if not spec or spec[0] not in ("int", "float"):
-            continue                                  # categorical/unknown — not expandable
+            return False                              # categorical/unknown — not expandable
         _, lo, hi, step = spec
         meta = dp.get(pname)
         meta = meta if isinstance(meta, dict) else {}
         active[pname] = {"kind": spec[0], "orig_lo": lo, "orig_hi": hi, "step": step,
-                         "cur_lo": lo, "cur_hi": hi, "edge": f["edge"], "rounds": 0,
-                         "hard_min": meta.get("hard_min"), "hard_max": meta.get("hard_max")}
+                         "cur_lo": lo, "cur_hi": hi, "edge": edge, "rounds": 0,
+                         "hard_min": meta.get("hard_min"), "hard_max": meta.get("hard_max"),
+                         "emerged": emerged, "cause": list(cause or [])}
+        return True
 
-    log = []
+    for f in (boundary_flags or []):
+        _activate(f.get("param"), f["edge"], emerged=False)
+
     pp = None
-    round_no = 0
-    while active and round_no < max_rounds:
-        round_no += 1
-        for pname in list(active):                    # push each still-active param's edge
+    flagged_now = {}
+    global_round = 0
+    while active and global_round < max_global_rounds:
+        global_round += 1
+        round_pnames = list(active)                    # snapshot -- params pushed THIS round
+        pushed = []
+        for pname in round_pnames:
             st = active[pname]
             new_lo, new_hi = _expand_range(st["cur_lo"], st["cur_hi"], st["step"],
                                            st["kind"], st["edge"], st["orig_lo"],
                                            st["orig_hi"], st["hard_min"], st["hard_max"])
             if (new_lo, new_hi) == (st["cur_lo"], st["cur_hi"]):
-                # already at a hard/fallback bound on round 1 — no point resampling
-                del active[pname]
+                # already at a hard/fallback bound -- no point resampling
+                finalized.add(pname)
                 log.append({"param": pname, "orig_range": [st["orig_lo"], st["orig_hi"]],
                            "final_range": [st["cur_lo"], st["cur_hi"]], "rounds": st["rounds"],
-                           "tapered": False,
+                           "tapered": False, "emerged": st["emerged"],
                            "final_peak_value": st["cur_hi"] if st["edge"] == "max" else st["cur_lo"],
                            "note": "hit a hard_min/hard_max bound with no room left to "
-                                   "expand -- still rising at the bound."})
+                                   "expand -- still rising at the bound."
+                                   + _emerge_suffix(st["emerged"], st["cause"])})
+                del active[pname]
                 continue
             st["cur_lo"], st["cur_hi"] = new_lo, new_hi
             cur_bounds[pname] = (st["kind"], new_lo, new_hi, st["step"])
-        if not active:
-            continue                                   # every flagged param was already capped
+            pushed.append(pname)
+        if not pushed:
+            continue                                   # every active param was already capped
 
-        samp = _RandomSampler(cur_bounds, seed=int(seed) + round_no)   # deterministic offset
+        samp = _RandomSampler(cur_bounds, seed=int(seed) + global_round)   # deterministic offset
         budget = max(1, n_trials // 2)                  # proportional cost per expansion round
         for _ in range(budget):
             pe = _collapse(samp.ask(), dp)
@@ -267,7 +364,7 @@ def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trad
         pp = pdp_plateau(_pts) or pp
         flagged_now = {f["param"]: f for f in ((pp or {}).get("boundary_flags") or [])}
 
-        for pname in list(active):
+        for pname in pushed:                            # finalize-check -- only params WE pushed
             st = active[pname]
             st["rounds"] += 1
             width0 = st["orig_hi"] - st["orig_lo"]
@@ -276,6 +373,7 @@ def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trad
             still_flagged = pname in flagged_now and flagged_now[pname]["edge"] == st["edge"]
             if still_flagged and st["rounds"] < max_rounds and not hit_cap:
                 continue                               # keep expanding this param next round
+            finalized.add(pname)
             del active[pname]
             tapered = not still_flagged
             if tapered:
@@ -288,9 +386,42 @@ def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trad
                 peak_val = flagged_now[pname]["value"]
             log.append({"param": pname, "orig_range": [st["orig_lo"], st["orig_hi"]],
                        "final_range": [st["cur_lo"], st["cur_hi"]], "rounds": st["rounds"],
-                       "tapered": tapered, "final_peak_value": peak_val, "note": note})
+                       "tapered": tapered, "emerged": st["emerged"],
+                       "final_peak_value": peak_val,
+                       "note": note + _emerge_suffix(st["emerged"], st["cause"])})
 
-    return pp, log, recs
+        # NEW -- chase any param that only just showed up in flagged_now, seeded
+        # from the ORIGINAL search-space bounds (not `cur_bounds`, which may
+        # already carry a stale widened range for it from nowhere -- an emerged
+        # param has never been touched, so its true starting point is `space`).
+        for pname, f in flagged_now.items():
+            if pname in active or pname in finalized:
+                continue                               # already tracked, or permanently retired
+            if _activate(pname, f["edge"], emerged=True, cause=pushed):
+                n_emerged += 1
+
+    # Loop ended -- either `active` drained naturally (converged) or global_round
+    # hit the cap with something still legitimately active. Finalize any leftovers
+    # so every ever-tracked param gets exactly one log entry either way.
+    converged = not active
+    for pname in list(active):
+        st = active[pname]
+        finalized.add(pname)
+        peak_val = (flagged_now.get(pname) or {}).get(
+            "value", st["cur_hi"] if st["edge"] == "max" else st["cur_lo"])
+        note = ("hit auto_expand_max_global_rounds while still rising -- the joint "
+                "search did not fully stabilize; raise auto_expand_max_global_rounds "
+                "or widen DEFAULT_PARAMS manually."
+                + _emerge_suffix(st["emerged"], st["cause"]))
+        log.append({"param": pname, "orig_range": [st["orig_lo"], st["orig_hi"]],
+                   "final_range": [st["cur_lo"], st["cur_hi"]], "rounds": st["rounds"],
+                   "tapered": False, "emerged": st["emerged"],
+                   "final_peak_value": peak_val, "note": note})
+        del active[pname]
+
+    summary = {"global_rounds_used": global_round, "n_params_expanded": len(log),
+              "n_emerged": n_emerged, "converged": converged}
+    return pp, log, recs, summary
 
 
 def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source=None,
@@ -299,7 +430,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
              compute_dsr=False, mc_sims=0, progress_cb=None, years=None,
              compute_regime=False, compute_neighbors=False, compute_pills=False,
              date_from=None, date_to=None, wf_mode="anchored",
-             auto_expand=True, auto_expand_max_rounds=2):
+             auto_expand=True, auto_expand_max_rounds=2, auto_expand_max_global_rounds=6):
     """Smart search. Returns the same shape as run_grid plus OOS columns.
 
     method="single" or "walkforward". Returns {mode,n_combos,n_valid,top[...],
@@ -309,14 +440,25 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
     auto_expand (default True, non-WF runs only): AUTO-EXPAND-AND-RESAMPLE — when the
     boundary-peak detector (analytics._pdp_boundary_flags, via plateau_pick) finds a
     NUMERIC knob pinned at its tested-range edge and still rising, widen that knob's
-    range and sample more, repeating up to `auto_expand_max_rounds` times (default 2)
-    until the curve tapers to an interior peak or a safety cap trips (see
-    _auto_expand_search / _expand_range). Fully additive + scoped to plateau_pick only
-    — best/top/DSR/MC/regime/neighbors/pills always key off the ORIGINAL sample.
+    range and sample more, repeating until the curve tapers to an interior peak or a
+    safety cap trips (see _auto_expand_search / _expand_range). ITERATIVE coordinate-
+    descent (owner request #30): every round re-checks ALL params, not just the
+    initially-flagged ones — a param that only becomes edge-pinned AFTER another
+    param's range is widened (an "unlock") is picked up and chased too, as
+    `emerged=True`. Two caps bound the search: `auto_expand_max_rounds` (default 2)
+    — how many times any ONE param may be widened — and `auto_expand_max_global_rounds`
+    (default 6) — the outer loop's cap on total coordinate-descent rounds (guards
+    against params unlocking each other forever). Once a param finalizes (tapers or
+    caps out) it is never re-chased again this run (see _auto_expand_search's
+    no-re-add policy). Fully additive + scoped to plateau_pick only — best/top/DSR/
+    MC/regime/neighbors/pills always key off the ORIGINAL (unexpanded) sample.
     Set auto_expand=False to reproduce the pre-expansion behavior byte-for-byte.
-    When it fires, `out["auto_expand"]` lists one entry per originally-flagged param:
-    {param, orig_range:[min,max], final_range:[min,max], rounds, tapered:bool,
-    final_peak_value, note}.
+    When it fires, `out["auto_expand"]` lists one entry per every param that ever
+    entered the chase (initial-flag or emerged): {param, orig_range:[min,max],
+    final_range:[min,max], rounds, tapered:bool, emerged:bool, final_peak_value,
+    note}, and `out["auto_expand_summary"]` carries {global_rounds_used,
+    n_params_expanded, n_emerged, converged:bool} — converged is True iff the joint
+    surface fully stabilized (nothing left rising) before max_global_rounds.
     """
     path = _resolve(strategy) if isinstance(strategy, str) else None
     mod = load_strategy(strategy) if isinstance(strategy, str) else strategy
@@ -518,15 +660,17 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
             # flagged. Scoped to plateau_pick alone — see _auto_expand_search's
             # docstring for why best/top/DSR/MC/etc. never see the expansion records.
             if auto_expand and _pp.get("search_truncated"):
-                _epp, _elog, _emerged = _auto_expand_search(
+                _epp, _elog, _erecs, _esummary = _auto_expand_search(
                     records, seen, pkeys, space, dp, _ev, ksplit, min_trades,
                     seed, n_trials, _pp["boundary_flags"],
-                    max_rounds=auto_expand_max_rounds)
+                    max_rounds=auto_expand_max_rounds,
+                    max_global_rounds=auto_expand_max_global_rounds)
                 if _elog:
                     out["auto_expand"] = _elog
+                    out["auto_expand_summary"] = _esummary
                     if _epp:
                         _pp = _epp
-                        _plateau_records = _emerged
+                        _plateau_records = _erecs
             _pi = _pp.pop("index")
             _prow = _plateau_records[_pi]
             _bp = {k: best.get(k) for k in pkeys if k in best}
