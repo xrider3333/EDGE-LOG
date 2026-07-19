@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='59.4';
+const VERSION='59.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'59.5', date:'2026-07-19', notes:['LIBRARY: the PARAM LIBRARY now lives IN the app — every strategy knob with its plain-language definition, tested range, champion value and evidence verdict, rendered straight from PARAM_LIBRARY.md into collapsible sections (per strategy, transferable ideas, brainstorm, glossary). Click a section to expand; open/closed state is remembered.','LIBRARY: the STRATEGIES and DATA/CSV MASTERS blocks (and MODES) are collapsible too, and remember their state.','COMPARE moved next to RESULTS in the tab bar.','2H/2I/2J: the row now defaults to the compressed width the owner dragged it to (~70% on a wide screen) — still resizable.','Card-layout fix: saved sizes could fail to re-apply after a same-tick re-render, and a one-axis drag could wipe the other axis size — both fixed.','REFERENCE: the param-library link card is gone (superseded by the in-app LIBRARY section).']},
   {v:'59.4', date:'2026-07-18', notes:['2H/2I/2J: the per-subtile resize handles are GONE (owner: too many toggles) — the row fills the card again and the single card corner resizes everything, in any direction.','Thinner curve lines on 2A TOP CONFIGS, the 2B parallel coordinates and the COMPARE equity + drawdown overlay, so dense charts read cleaner.','COMPARE: new TABS row — open several live comparisons side by side with ＋ and switch instantly, no saving required (each tab keeps its own selection); the SETS row below still saves named keepers.','REFERENCE: new PARAM LIBRARY card linking the cross-strategy parameter reference doc (PARAM_LIBRARY.md).']},
   {v:'59.3', date:'2026-07-18', notes:['Engine: pyGAM joins the ML MODEL BAKE-OFF as a 5th model (#35) — a Generalized Additive Model that fits one smooth readable curve per knob and adds them up; scored by the same held-out cross-validation as the other four and ground-truthed the same way. Runs from now on carry a gam row in 2L (older runs are unchanged).','2L header now states the actual model count dynamically instead of a hard-coded 4.']},
   {v:'59.2', date:'2026-07-18', notes:['2L 3-D surfaces rebuilt to full 2H quality: floor outline, corner posts, slope shading, a green PEAK flag with its $ value, param axis labels along the floor edges (name + range) and a $ height legend on the left.','2H / 2I / 2J subtiles are now INDIVIDUALLY resizable — drag any subtile corner in any direction (dashed border marks the handle area); they start at the same size as the 2L 3-D charts and their sizes save with the rest of the layout.','COMPARE: new SETS row — save the current selection as a named comparison set and switch between saved sets with one click (e.g. an ORB set vs a TTIBS set); ✕ deletes a set without touching the runs.']},
@@ -582,7 +583,7 @@ const TABS=['overview','trades','analytics','import_export','journal','augur','s
 // Two master sections: TRADING LOG (the tracker) and BACKTESTER (augur). Each shows its
 // own subtabs underneath. 'augur' is the single activeTab behind the Backtester master.
 const LOG_TABS=['overview','trades','analytics','import_export','journal','settings'];
-const ASUBS=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['rank','RANKINGS'],['cmp','COMPARE'],['ref','REFERENCE'],['research','RESEARCH'],['set','SETTINGS']];
+const ASUBS=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['rank','RANKINGS'],['ref','REFERENCE'],['research','RESEARCH'],['set','SETTINGS']];
 const ASUB_ICON={lib:'◫',exec:'▸',runs:'▦',rank:'▤',cmp:'◧',ref:'◈',research:'◎',set:'◆'};
 const DEFAULT_SETUPS=['—','Breakout','Pullback','Reversal','Trend','Gap Fill','VWAP','S/D Zone','Momentum','ICT','Order Block','FVG'];
 const KPI_INFO={
@@ -7792,7 +7793,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const instColor=i=>INSTC[String(i||'').toUpperCase().trim()]||'hsl('+_hashHue(String(i||''))+',45%,62%)';
     const instTag=i=>'<span style="color:'+instColor(i)+';font-weight:600">'+(i||'')+'</span>';
     const AICON={runs:'▦',exec:'▸',lib:'◫',cmp:'◧',rank:'▤',ref:'◈',research:'◎',set:'◆'};
-    const asubs=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['rank','RANKINGS'],['cmp','COMPARE'],['ref','REFERENCE'],['research','RESEARCH'],['set','SETTINGS']];
+    const asubs=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['rank','RANKINGS'],['ref','REFERENCE'],['research','RESEARCH'],['set','SETTINGS']];
     // 0–100 robustness score: blends OOS strength (DSR, walk-forward, lockbox), PF, sample.
     const scoreRun=(r)=>{
       if(r.validate){const V=r.validate;let s=(V.n_pass/(V.n_gates||5))*60;if(V.lockbox&&V.lockbox.pass)s+=20;s+=Math.max(0,Math.min(1,V.wfe||0))*10;if(V.dsr!=null)s+=Math.max(0,Math.min(1,V.dsr))*10;return Math.round(Math.max(0,Math.min(100,s)));}
@@ -8561,7 +8562,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _dsrTile=(!d.validate&&dsrHtml&&dsrHtml.replace(/\s/g,''))?'<div style="'+_card2+';margin-bottom:14px"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'K · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>':'';
       // Tile 2 (parameter-relationship group): H, I and J across in ONE row of 3 (owner) — each a
       //   3-D panel on its own param pair (⛶ orbits), equal-height, wrapping on a narrow screen.
-      const _paramTile=(_hm||_p3d||_sc)?'<div style="'+_card2+';margin-bottom:14px">'+_wrap([_hm,_p3d,_sc],true)+'</div>':'';
+      // max-width 1360px = the owner's own compressed-2H drag (2026-07-19) baked in as the
+      //   default — the row reads fine at ~70% width on a wide monitor; still resizable.
+      const _paramTile=(_hm||_p3d||_sc)?'<div style="'+_card2+';margin-bottom:14px;max-width:1360px">'+_wrap([_hm,_p3d,_sc],true)+'</div>':'';
       // 2L SURROGATE BAKE-OFF (#31 P1): d.surrogate is undefined on every run saved before
       //   this backend shipped — surrogatePanelHtml itself returns '' for absent/undefined,
       //   so old runs render byte-identical (no header, no empty box). A failed bake-off
@@ -9094,21 +9097,55 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<style>.arow{transition:background .12s}.arow:hover{background:var(--bg1)!important}.table thead [data-sortk]:hover,.table thead th[data-onlyk]:hover{color:var(--text)}#lib-listscroll:focus{outline:1px solid var(--border)}.librun{transition:background .1s;border-radius:5px}.librun:hover{background:color-mix(in srgb,var(--text) 9%,transparent)!important}.librunexp>td{border-bottom:1px solid var(--border)}</style>'
           +'<div id="lib-listscroll" tabindex="0" style="max-height:'+maxH+';overflow:auto;margin:-2px -4px 0;padding:2px 4px 0">'+stratTable+'</div>';
         const leftTile=tile(listInner,0);
+        // ── collapsible Library sections (owner): every big block folds behind a summary
+        //    header; open/closed state persists across re-renders + reloads (APREF.libDets). ──
+        window._libDets=(key,t,inner,defOpen)=>{const m=APREF.libDets||{};const open=(m[key]!=null)?(m[key]===1):(defOpen!==false);
+          return '<details data-ldk="'+key+'"'+(open?' open':'')+' style="margin-bottom:10px"><summary style="cursor:pointer;font-size:11px;letter-spacing:2px;color:var(--text3);padding:7px 2px;user-select:none;font-weight:700">'+t+'</summary>'+inner+'</details>';};
+        const _dets=window._libDets;
         if(lv==='stack'){
-          body=actionTile+'<div id="lib-wrap">'+'<div id="lib-top">'+leftTile+'</div>'
+          body=actionTile+'<div id="lib-wrap">'+_dets('libStrats','◆ STRATEGIES','<div id="lib-top">'+leftTile+'</div>')
             +'<div id="lib-gutter" style="height:12px;cursor:row-resize;display:flex;align-items:center;justify-content:center;margin:2px 0"><div style="height:3px;width:54px;background:var(--border);border-radius:2px"></div></div>'
-            +'<div id="lib-bottom">'+mastersTitled()+'</div></div>'
+            +_dets('libCsv','▦ DATA · CSV MASTERS','<div id="lib-bottom">'+mastersTitled()+'</div>')+'</div>'
             +'<div style="margin-top:10px">'+rmTile+'</div>';
         }else{
-          body=actionTile+'<div id="lib-wrap" style="display:flex;align-items:stretch">'
+          body=actionTile+_dets('libSide','◆ STRATEGIES · ▦ DATA / CSV MASTERS','<div id="lib-wrap" style="display:flex;align-items:stretch">'
             +'<div id="lib-left" style="flex:0 0 '+(lH*100)+'%;min-width:200px;overflow:hidden">'+leftTile+'</div>'
             +'<div id="lib-gutter" style="flex:0 0 12px;cursor:col-resize;display:flex;align-items:center;justify-content:center"><div style="width:3px;height:46px;background:var(--border);border-radius:2px"></div></div>'
-            +'<div id="lib-right" style="flex:1 1 0;min-width:0;overflow:hidden">'+mastersTitled(maxH)+'</div></div>'
+            +'<div id="lib-right" style="flex:1 1 0;min-width:0;overflow:hidden">'+mastersTitled(maxH)+'</div></div>')
             +'<div id="lib-vgutter" style="height:14px;cursor:row-resize;display:flex;align-items:center;justify-content:center;margin:1px 0" title="drag to resize both panes"><div style="height:3px;width:80px;background:var(--border);border-radius:2px"></div></div>'
             +'<div style="margin-top:6px">'+rmTile+'</div>';
         }
       }
-      body+='<div style="margin-top:18px">'+modesTile+'</div>';
+      // ── PARAM LIBRARY in the app (owner): render PARAM_LIBRARY.md natively, one
+      //    collapsible section per heading. Single-sourced from the deployed repo file —
+      //    doc updates appear here automatically. Minimal renderer: ## sections,
+      //    ### subheads, | tables, - bullets, **bold**, `code`.
+      if(window._plibMd==null&&!window._plibFetching){window._plibFetching=1;
+        fetch('PARAM_LIBRARY.md?v='+VERSION).then(r=>r.ok?r.text():Promise.reject('HTTP '+r.status)).then(t=>{window._plibMd=t;renderApp();}).catch(e=>{window._plibMd='';window._plibErr=String(e);renderApp();});}
+      const _mdEsc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const _mdInline=s=>_mdEsc(s).replace(/\*\*([^*]+)\*\*/g,'<b style="color:var(--text2)">$1</b>').replace(/`([^`]+)`/g,'<code style="background:var(--bg1);padding:0 4px;border-radius:4px;font-size:0.95em">$1</code>');
+      const _mdSecs=md=>{const secs=[];let cur=null,tbl=null,list=null;
+        const flushT=()=>{if(tbl&&cur&&tbl.length){const hd=tbl[0],rows=tbl.slice(1);cur.h+='<div style="overflow-x:auto;margin:6px 0"><table class="table" style="width:auto"><thead><tr>'+hd.map(c=>'<th>'+_mdInline(c)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(c=>'<td style="font-size:var(--fsxs);color:var(--text3);max-width:430px;line-height:1.6">'+_mdInline(c)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';}tbl=null;};
+        const flushL=()=>{if(list&&cur){cur.h+='<ul style="margin:4px 0;padding-left:18px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">'+list.map(x=>'<li>'+_mdInline(x)+'</li>').join('')+'</ul>';}list=null;};
+        String(md||'').split(/\r?\n/).forEach(ln=>{
+          if(/^##\s/.test(ln)){flushT();flushL();cur={t:ln.replace(/^##\s*/,''),h:''};secs.push(cur);return;}
+          if(/^#\s/.test(ln))return;
+          if(!cur)return;
+          if(/^\|/.test(ln)){flushL();if(/^[-:\s]+$/.test(ln.replace(/\|/g,'')))return;(tbl||(tbl=[])).push(ln.replace(/^\|/,'').replace(/\|\s*$/,'').split('|').map(c=>c.trim()));return;}
+          flushT();
+          if(/^###\s/.test(ln)){flushL();cur.h+='<div style="font-size:12px;font-weight:700;color:var(--text2);margin:10px 0 3px">'+_mdInline(ln.replace(/^###\s*/,''))+'</div>';return;}
+          if(/^[-*]\s/.test(ln)){(list||(list=[])).push(ln.replace(/^[-*]\s*/,''));return;}
+          flushL();
+          if(ln.trim())cur.h+='<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.7;margin:3px 0">'+_mdInline(ln)+'</div>';});
+        flushT();flushL();return secs;};
+      const _detsP=window._libDets||((k,t,inner)=>'<details style="margin-bottom:10px"><summary style="cursor:pointer;font-size:11px;letter-spacing:2px;color:var(--text3);padding:7px 2px;font-weight:700">'+t+'</summary>'+inner+'</details>');
+      let _plibInner;
+      if(window._plibMd==null)_plibInner='<div style="color:var(--text5);font-size:var(--fsxs);padding:10px">loading PARAM_LIBRARY.md…</div>';
+      else if(!window._plibMd)_plibInner='<div style="color:var(--text5);font-size:var(--fsxs);padding:10px">could not load PARAM_LIBRARY.md'+(window._plibErr?' — '+_mdEsc(window._plibErr):'')+' (it appears once the doc is deployed with the site)</div>';
+      else _plibInner=_mdSecs(window._plibMd).map((s2,si)=>_detsP('plib'+si,s2.t,'<div style="padding:2px 6px 8px">'+s2.h+'</div>',false)).join('');
+      const plibTile=tile('<div class="lbl" style="margin:0 0 8px">◫ PARAM LIBRARY · every knob in every strategy, plain language · click a section to expand</div>'+_plibInner,0);
+      body+='<div style="margin-top:18px">'+_detsP('libParams','◫ PARAM LIBRARY',plibTile)+'</div>';
+      body+='<div style="margin-top:14px">'+_detsP('libModes','◎ MODES',modesTile)+'</div>';
     }else if(augurSub==='cmp'){
       const rs=runHistory.slice().sort((a,b)=>b.id-a.id);
       if(!rs.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUNS TO COMPARE YET</div>';}
@@ -9410,7 +9447,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const vrows=vmeth.map(i=>'<div style="background:var(--bg2);border-radius:8px;padding:12px 14px;margin-bottom:10px"><div style="font-size:14px;margin-bottom:3px">'+i[0]+'</div><div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6">'+i[1]+'</div></div>').join('');
       body='<div class="lbl" style="margin-bottom:6px">INSTRUMENTS</div>'+tile('<table class="table"><thead><tr><th>SYMBOL</th><th>NAME</th><th style="text-align:right">MULTIPLIER</th></tr></thead><tbody>'+irows+'</tbody></table>')
         +'<div style="font-size:var(--fsxs);color:var(--text5);margin:6px 2px 0;line-height:1.6">Only ES and NQ have imported price history (Databento, 2010→present). Other minis (YM · RTY · CL · GC) appear in the Builder for multiplier math but need data imported before they can be backtested.</div>'
-        +'<div class="lbl" style="margin:18px 0 6px">PARAM LIBRARY</div><div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">Cross-strategy parameter reference (#46): every knob in every strategy with a plain-language definition, tested range, champion value and evidence verdict — plus 13 transferable ideas and a brainstorm list for new strategies. <a href="https://github.com/xrider3333/EDGE-LOG/blob/main/PARAM_LIBRARY.md" target="_blank" style="color:var(--blue);text-decoration:none;font-weight:700">OPEN PARAM_LIBRARY.md ↗</a></div>'
         +'<div class="lbl" style="margin:18px 0 6px">COST MODEL</div><div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">Round-turn commission $2.83/order x 2 = $5.66 (about 0.28 NQ pts / 0.11 ES pts), applied per trade. PNL = shares x (exit - entry) x multiplier, net of cost.</div>'
         +'<div class="lbl" style="margin:18px 0 6px">SESSIONS</div><div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">RTH = 09:30-16:00 ET cash session (last 5m bar 15:55). ETH = full 24h. Masters are keyed per instrument + timeframe + session + source.</div>'
         +'<div class="lbl" style="margin:18px 0 6px">VALIDATION METHODOLOGY</div>'+vrows;
@@ -9996,6 +10032,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         savePref('cmpIds',ids);renderApp();};});
       const _cs=content.querySelector('[data-cmpstrat]');if(_cs)_cs.onchange=()=>{savePref('cmpStrat',_cs.value);renderApp();};
       const _cc=content.querySelector('[data-cmpclear]');if(_cc)_cc.onclick=()=>{savePref('cmpIds',[]);renderApp();};
+      // collapsible Library sections: remember open/closed per section across renders + reloads
+      content.querySelectorAll('details[data-ldk]').forEach(d=>{d.addEventListener('toggle',()=>{
+        const m=Object.assign({},APREF.libDets||{});const v=d.open?1:0;
+        if(m[d.dataset.ldk]===v)return;m[d.dataset.ldk]=v;savePref('libDets',m);});});
       // quick comparison TABS: switch / close / new (each tab = its own live selection)
       content.querySelectorAll('[data-cmptab]').forEach(ch=>{ch.onclick=(e)=>{if(e.target&&e.target.getAttribute&&e.target.getAttribute('data-cmptabdel')!=null)return;
         const j=+ch.dataset.cmptab;let tabs=(APREF.cmpTabs||[]).map(t2=>Array.isArray(t2)?t2:[]);if(!tabs.length)tabs=[(APREF.cmpIds||[]).slice()];
@@ -10247,8 +10287,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(s&&s.w)c.style.width=s.w+'px';
           if(s&&s.h){c.style.height=s.h+'px';_fitSvgs(c,nat,s.h);}
           c.addEventListener('mouseup',()=>setTimeout(()=>{const w=parseInt(c.style.width)||0,h=parseInt(c.style.height)||0;
-            if(w||h){saved['c'+i]={w:w,h:h};_save();_fitSvgs(c,nat,h);}},80));
+            // guard: never clobber a saved dimension with 0 just because only one axis was dragged
+            if(w||h){const pr=saved['c'+i]||{};saved['c'+i]={w:(w||pr.w||0),h:(h||pr.h||0)};_save();_fitSvgs(c,nat,h||pr.h||0);}},80));
           c.addEventListener('dblclick',e=>{if(e.target!==c)return;delete saved['c'+i];c.style.width='';c.style.height='';_fitSvgs(c,nat,0);_save();});});
+        // second apply pass on the next frame — a same-tick re-render can rebuild the cards
+        //   after the first pass ran, which left saved sizes silently unapplied (owner hit this).
+        requestAnimationFrame(()=>{cards.forEach((c,i)=>{const s=saved['c'+i];if(!s||!c.isConnected)return;
+          if(s.w&&!c.style.width)c.style.width=s.w+'px';
+          if(s.h&&!c.style.height)c.style.height=s.h+'px';});});
       })();
       // CONFIG-FILTER brush: grey out config marks (.cfgmark, data-net=$) below the slider cut
       //   across the parallel-coords + scatter charts. Pure DOM — no re-render, no state save.
