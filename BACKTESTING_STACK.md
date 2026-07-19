@@ -744,6 +744,24 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-18** — **Param-discovery pipeline upgrade (#25–#30, owner-driven from the TTIBS 2C PDP
+  observation that knobs peaked at their tested-range edges still rising):** (1) **boundary-peak
+  detector** in `pdp_plateau` (5df5a76) — any numeric knob whose smoothed optimum is pinned at the
+  min/max tested value and still rising is flagged `search_truncated`, stored on grid/auto/validate
+  runs (validate previously DROPPED `plateau_pick` — also fixed); (2) **2C panel badge** (web v58.4,
+  4736cbe) — amber ⚠ per-knob + panel banner, with a client-side fallback so it renders on older
+  saved runs (live-verified on TTIBS #161: 3 knobs flagged); (3) **auto-expand-and-resample**
+  (b6261de) — a flagged knob's range auto-widens (+50%/round) and re-samples until the curve tapers;
+  (4) **logical `hard_min`/`hard_max`** DEFAULT_PARAMS convention (817698d, TTIBS first: ibs_entry
+  ≤0.5 = strategy-identity line, mon_drop ≤0.10, hold_cap ≤20) so expansion roams the meaningful
+  domain, not an arbitrary cap; (5) **iterative joint expansion** (5efd98f) — coordinate-descent
+  re-flags ALL params each round, chasing knobs UNLOCKED by another's widening (proven on TTIBS:
+  hold_cap emerged mid-run, tapered interior at 10; converged in 2 rounds), bounded by a permanent
+  no-re-add set + global-round cap. All IS-only — the lockbox deploy gate is unchanged. NOTE: the
+  plateau model remains ADDITIVE 1-D (no true interactions); the proposed fix is
+  `docs/SURROGATE_DISCOVERY_DESIGN.md` (#31, 8d1b62e) — multi-surrogate bake-off (quadratic/RF/
+  XGBoost/GP, CV-scored, per-model cards, ground-truthed picks) — awaiting owner go on roster/deps/
+  phasing.
 - **2026-07-17** — **Challenger round 13 (owner-directed TV top-boosts sweep): 12 most-boosted
   TradingView strategies pulled verbatim, ported (`augur_strategies/` — BBRSI, MACD200,
   SUPERTREND_3_0, MACDRSI, PMAX, HULL, AOSTOCH, GOLDX, FLAWLESS, EMAX, ICHIHULL, RSIDIV), and
