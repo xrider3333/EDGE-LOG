@@ -119,6 +119,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                  source=source, method="single", oos=True, n_trials=n_trials,
                  cost_pts=cost_pts, min_trades=min_trades, top_n=24, seed=seed,
                  compute_dsr=True, compute_neighbors=True, compute_regime=True, mc_sims=500,
+                 compute_surrogate=True,   # #31 P1: multi-surrogate bake-off on the sampled configs
                  date_from=opt_from, date_to=opt_to, progress_cb=_stage(aS, aE)) or {}
     champ = A.get("best_params") or {}
     bestA = A.get("best") or {}
@@ -532,6 +533,10 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         # plateau pick + boundary-peak flags (3C.1b): forwarded from Stage A so Auto-Validate
         # run docs also carry the truncated-search detection (was previously dropped here).
         "plateau_pick": A.get("plateau_pick"),
+        # #31 P1 surrogate bake-off cards (per-model CV accuracy, ground-truthed picks,
+        # interactions, knob screen) — forwarded from Stage A, IS-only by construction.
+        "surrogate": A.get("surrogate"),
+        "auto_expand": A.get("auto_expand"), "auto_expand_summary": A.get("auto_expand_summary"),
         # top-level so the existing Robustness card renders the gate bake-off with no new UI.
         "gate_validate": gate_bakeoff,
     }
