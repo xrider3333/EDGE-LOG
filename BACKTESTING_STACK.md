@@ -716,7 +716,15 @@ not saved to the runs DB — so they carry no run id.*
    economically coherent corner → not multiple-testing noise. **Verdict: keep collecting.** Future use =
    entry-timing/fill improvement and gate features at longer horizons once months of data exist — not a
    standalone strategy. Revisit with a real study at ~3–6 months of data.
-3. **⬜ TODO — steered Auto-Validate rerun, ORB 3.1** (added 2026-07-19): model-steered search is ON
+3. **⬜ PROPOSED (owner question 2026-07-20) — OOS-checked champion selection (train/validate/test)**:
+   today the champion = best realism-gated IN-SAMPLE config (plateau-informed); a stronger search
+   sharpens IS optima and widens the IS-to-OOS gap (winner's curse — exactly what run #167's PBO
+   gate caught). Proposal: take the top-K (~5) plateau-distinct IS configs, score EACH across the
+   walk-forward folds (legitimately usable for selection), crown the best FOLD-OOS performer, and
+   only the crowned config gets the single lockbox look. Selection on the LOCKBOX top-5 would be
+   the trap (spends the holdout, 5 looks instead of 1) — WF folds are the correct middle tier.
+   Report shows the K-way IS-vs-WF-OOS candidate table so IS-max vs OOS-best is visible.
+4. **⬜ TODO — steered Auto-Validate rerun, ORB 3.1** (added 2026-07-19): model-steered search is ON
    for every Auto-Validate; the ORB A/B found an in-sample region random never reached (+66%, an
    aggressive 6R corner). Rerun ORB 3.1 through the full gauntlet with steering. Brief: `ORB.md` §10.
 4. **⬜ TODO — steered Auto-Validate rerun, ENGU-Q 1m** (added 2026-07-19): same rationale — rich
