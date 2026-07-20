@@ -5,8 +5,11 @@
 `auto_steer` flag (#36): `propose_candidates` (GP + Upper-Confidence-Bound over a legal-grid
 candidate pool) + the seed→steer loop in `run_auto`. Acceptance A/B (TTIBS NQ, 150 trials,
 seed 42, lockbox held out): random best IS 19,738 pts (found at trial 28, then flat) vs
-steered 21,440 pts (+8.6%, still improving at trial 107); 0 GP-fit fallbacks. One strategy /
-one seed — steering stays off by default until it repeats on another family. P3 still open.
+steered 21,440 pts (+8.6%, still improving at trial 107); 0 GP-fit fallbacks. Second-family
+A/B (ORB 3.1, 12 knobs, intraday 5m — as different a surface as the book owns) PASSED the
+same day: random 14,418 pts vs steered 24,002 pts (+66%) at equal budget/seed, 0 fallbacks.
+2-for-2 → steering is ON for Auto-Validate (validate.py Stage A passes auto_steer=True);
+run_auto's own default stays False. P3 (interaction-aware expansion) still open.
 
 **Plain-language rule:** every term is defined on first use.
 

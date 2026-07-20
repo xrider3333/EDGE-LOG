@@ -120,6 +120,12 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                  cost_pts=cost_pts, min_trades=min_trades, top_n=24, seed=seed,
                  compute_dsr=True, compute_neighbors=True, compute_regime=True, mc_sims=500,
                  compute_surrogate=True,   # #31 P1: multi-surrogate bake-off on the sampled configs
+                 # #36 P2: GP-steered sampling ON for Auto-Validate — the pre-registered
+                 # 2-family acceptance bar was met 2026-07-19: TTIBS A/B steered found a
+                 # +8.6% better IS optimum at equal budget, ORB 3.1 A/B +66% (both 150
+                 # trials, seed 42, lockbox held out, 0 GP fallbacks). run_auto's own
+                 # default stays False (library neutrality); this call site is the opt-in.
+                 auto_steer=True,
                  date_from=opt_from, date_to=opt_to, progress_cb=_stage(aS, aE)) or {}
     champ = A.get("best_params") or {}
     bestA = A.get("best") or {}
