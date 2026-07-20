@@ -149,7 +149,7 @@ def _run_random_loop(dp, pkeys, space, ev_fn, n_trials, seed):
 
 
 def _run_steered_loop(dp, pkeys, space, ev_fn, n_trials, seed,
-                      seed_frac=0.4, batch_frac=0.15):
+                      seed_frac=0.4, batch_frac=0.15, proposer=None):
     """Mirrors augur_engine.auto.run_auto's single-split `auto_steer=True` branch
     exactly (seed phase -> repeat fit-and-propose batches -> fallback to random
     on an empty proposal), but calls `ev_fn` directly instead of `_ev(0,
@@ -172,8 +172,8 @@ def _run_steered_loop(dp, pkeys, space, ev_fn, n_trials, seed,
         done += 1
     while done < n_trials:
         batch = min(batch_n, n_trials - done)
-        proposals = propose_candidates(records, pkeys, dp, space, n_propose=batch,
-                                       seed=int(seed) + done)
+        proposals = (proposer or propose_candidates)(records, pkeys, dp, space,
+                                                     n_propose=batch, seed=int(seed) + done)
         if not proposals:
             for _ in range(batch):
                 _eval_one(_collapse(samp.ask(), dp))
@@ -278,3 +278,58 @@ def test_run_auto_walkforward_never_sees_auto_steer():
                    n_trials=40, min_trades=1, seed=42, auto_steer=True)
     assert out["wf"] is True
     assert "steering" not in out
+
+
+# ── #79 TPE proposer — same contract as the GP proposer, different brain ──────
+
+def test_tpe_proposals_legal_on_grid_deterministic_and_unseen():
+    from augur_engine.surrogate import propose_candidates_tpe
+    dp = _dp_3num()
+    pkeys = list(dp)
+    space = _auto_space_from_params(dp)
+    recs = _make_records(dp, pkeys, _surface, 60, seed=7)
+    a = propose_candidates_tpe(recs, pkeys, dp, space, n_propose=10, seed=11)
+    b = propose_candidates_tpe(recs, pkeys, dp, space, n_propose=10, seed=11)
+    assert a == b                        # deterministic under seed
+    assert 0 < len(a) <= 10
+    seen = {tuple(sorted((k, str(r.get(k))) for k in pkeys)) for r in recs}
+    for cand in a:
+        assert tuple(sorted((k, str(cand.get(k))) for k in pkeys)) not in seen
+        for k, meta in dp.items():
+            _on_grid(cand[k], meta)
+
+
+def test_tpe_returns_empty_on_thin_or_malformed_data():
+    from augur_engine.surrogate import propose_candidates_tpe
+    from augur_engine.auto import _auto_space_from_params
+    dp = _dp_3num()
+    pkeys = list(dp)
+    space = _auto_space_from_params(dp)
+    assert propose_candidates_tpe([], pkeys, dp, space, 5, seed=1) == []
+    assert propose_candidates_tpe([{"total_pnl": "junk"}, None, 42], pkeys, dp, space, 5, seed=1) == []
+
+
+def test_tpe_steered_loop_at_least_matches_random_on_synthetic_surface():
+    from augur_engine.surrogate import propose_candidates_tpe
+    from augur_engine.auto import _auto_space_from_params
+    dp = _dp_3num()
+    pkeys = list(dp)
+    space = _auto_space_from_params(dp)
+    rand_records = _run_random_loop(dp, pkeys, space, _surface, 60, 42)
+    tpe_records = _run_steered_loop(dp, pkeys, space, _surface, 60, 42,
+                                    proposer=propose_candidates_tpe)
+    best_rand = max(r["total_pnl"] for r in rand_records)
+    best_tpe = max(r["total_pnl"] for r in tpe_records)
+    assert best_tpe >= best_rand - 1e-9
+
+
+def test_run_auto_steer_method_tpe_smoke():
+    from augur_engine.auto import run_auto
+    mod = _make_two_knob_strategy()
+    arrays = _make_arrays()
+    out = run_auto(mod, arrays=arrays, n_trials=50, method="single", oos=False,
+                   seed=42, min_trades=1, auto_expand=False,
+                   auto_steer=True, steer_method="tpe")
+    st = out.get("steering") or {}
+    assert st.get("used") is True and st.get("method") == "tpe"
+    assert out.get("best_params")

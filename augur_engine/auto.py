@@ -521,7 +521,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
              date_from=None, date_to=None, wf_mode="anchored",
              auto_expand=True, auto_expand_max_rounds=2, auto_expand_max_global_rounds=6,
              compute_surrogate=False,
-             auto_steer=False, steer_seed_frac=0.4, steer_batch_frac=0.15):
+             auto_steer=False, steer_seed_frac=0.4, steer_batch_frac=0.15,
+             steer_method="gp"):
     """Smart search. Returns the same shape as run_grid plus OOS columns.
 
     method="single" or "walkforward". Returns {mode,n_combos,n_valid,top[...],
@@ -765,9 +766,13 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 batch = min(batch_n, n_trials - done)
                 proposals = []
                 try:
-                    from .surrogate import propose_candidates
-                    proposals = propose_candidates(records, pkeys, dp, space,
-                                                   n_propose=batch, seed=int(seed) + done)
+                    # steer_method (#79): 'gp' = GP + Upper-Confidence-Bound (the 2-family
+                    # A/B champion, default); 'tpe' = the dependency-free TPE-lite
+                    # (good-vs-rest density ratio) — same contract, same fallback.
+                    from .surrogate import propose_candidates, propose_candidates_tpe
+                    _proposer = propose_candidates_tpe if steer_method == "tpe" else propose_candidates
+                    proposals = _proposer(records, pkeys, dp, space,
+                                          n_propose=batch, seed=int(seed) + done)
                 except Exception:
                     proposals = []
                 if not proposals:
@@ -791,7 +796,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                             progress_cb(done, n_trials)
                         if done >= n_trials:
                             break
-            steer_info = {"used": True, "seed_trials": n_seed,
+            steer_info = {"used": True, "method": steer_method, "seed_trials": n_seed,
                          "steered_trials": max(0, n_trials - n_seed - fallback_random),
                          "fallback_random": fallback_random}
         else:
@@ -924,12 +929,54 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
             try:
                 from .surrogate import surrogate_bakeoff
 
+                # #80: build the IN-SAMPLE equity curve for a config the SAME way the winner
+                #   curve (out["equity"]) is built — direct fn call on [0:ksplit], per-trade
+                #   net pts cumulated, downsampled to <=80 pts. Lets 2L overlay each model
+                #   pick as its own curve (the models were scored on this same window).
+                def _is_curve(params, cap=80):
+                    ex = {}
+                    if pass_vol:
+                        ex["volumes"] = V[0:ksplit]
+                    if pass_day:
+                        ex["day_id"] = did[0:ksplit]
+                    if pass_idx:
+                        ex["index"] = IDX[0:ksplit]
+                    try:
+                        mm = fn(O[0:ksplit], H[0:ksplit], L[0:ksplit], C[0:ksplit],
+                                return_trades=True, **ex, **params)
+                    except Exception:
+                        return None
+                    if not mm or not mm.get("trades"):
+                        return None
+                    _pn = [t[2] - cost_pts for t in mm["trades"]]
+                    _cum, _s = [], 0.0
+                    for _x in _pn:
+                        _s += _x; _cum.append(_s)
+                    if len(_cum) > cap:
+                        _stp = len(_cum) / cap
+                        _cum = [_cum[int(_i * _stp)] for _i in range(cap)]
+                    return [round(float(_x), 1) for _x in _cum]
+
                 def _surrogate_ground_truth(params):
-                    return _ev(0, ksplit, params)
+                    _m = _ev(0, ksplit, params)
+                    if isinstance(_m, dict):
+                        _c = _is_curve(params)
+                        if _c:
+                            _m = dict(_m); _m["curve"] = _c
+                    return _m
 
                 _surr = surrogate_bakeoff(_pts_full, pkeys, dp,
                                          ground_truth_fn=_surrogate_ground_truth)
                 if _surr is not None:
+                    # search-best reference curve (the brute-force winner every model pick
+                    #   is trying to beat), same window + builder as the model-pick curves.
+                    try:
+                        if best:
+                            _sbc = _is_curve({k: best.get(k) for k in pkeys if k in best})
+                            if _sbc:
+                                _surr["sampled_best_curve"] = _sbc
+                    except Exception:
+                        pass
                     out["surrogate"] = _surr
             except Exception as _surr_e:
                 out["surrogate"] = {"error": str(_surr_e)}

@@ -36,6 +36,7 @@ OPTIONAL — if it's not importable the `gam` card degrades to a `skipped`
 string instead of raising.
 """
 import itertools
+import math
 import random as _random
 
 import numpy as np
@@ -1047,9 +1048,14 @@ def surrogate_bakeoff(points, pkeys, dp, ground_truth_fn=None, top_pairs=3, seed
                     m = ground_truth_fn(dict(pp))
                 except Exception:
                     m = None
-                cache[sig] = float(m["total_pnl"]) if (m and "total_pnl" in m) else None
-            gt = cache[sig]
+                _gt = float(m["total_pnl"]) if (m and "total_pnl" in m) else None
+                # #80: keep each pick's in-sample equity curve (if the evaluator returned one)
+                #   so the 2L panel can overlay the model picks as curves, not just numbers.
+                _cv = (m.get("curve") if isinstance(m, dict) else None)
+                cache[sig] = (_gt, _cv)
+            gt, cv = cache[sig]
             card["ground_truth_pnl"] = round(gt, 1) if gt is not None else None
+            card["ground_truth_curve"] = cv
             card["beat_sampled_best"] = bool(gt is not None and gt > sampled_best_pnl)
 
     for c in cards:
@@ -1188,3 +1194,108 @@ def propose_candidates(records, pkeys, dp, space, n_propose, seed, pool_size=200
     order = np.argsort(-scores, kind="stable")
     n_take = max(0, min(int(n_propose), len(cand_rows)))
     return [cand_rows[int(i)] for i in order[:n_take]]
+
+
+def propose_candidates_tpe(records, pkeys, dp, space, n_propose, seed, pool_size=2000,
+                           gamma=0.25):
+    """TPE-flavoured alternative to `propose_candidates` (#79) — same contract,
+    same guardrails, different brain. Instead of fitting a surface that PREDICTS
+    each candidate's PnL (the GP), TPE (Tree-structured Parzen Estimator, the
+    idea behind optuna's default sampler) models what GOOD configs look like vs
+    what the REST look like and samples where the good/rest odds are highest:
+
+      1. split the evaluated records at the (1-gamma) PnL quantile: the top
+         ~25% are "good", everything else is "rest";
+      2. per param, estimate two 1-D densities — P(value | good) and
+         P(value | rest): a small gaussian kernel estimate for numeric params,
+         Laplace-smoothed category frequencies for categorical/bool params;
+      3. score each legal pool candidate by sum_k log P_good(v_k) - log P_rest(v_k)
+         and return the top `n_propose` distinct unseen configs.
+
+    Dependency-free (numpy only — deliberately NOT an optuna dep) and cheap
+    (no O(n^3) math), and it handles categorical knobs natively where the GP
+    must one-hot them. Same honesty rule as the GP path: this only RANKS
+    candidates; the caller backtests every proposal for real. Returns [] (never
+    raises) on any failure or thin data — caller falls back to random.
+    """
+    try:
+        pts = [dict({k: r.get(k) for k in pkeys}, pnl=float(r.get("total_pnl", 0) or 0))
+               for r in (records or []) if isinstance(r, dict)]
+        if len(pts) < STEER_MIN_POINTS:
+            return []
+        vary = [k for k in pkeys if len({str(p.get(k)) for p in pts}) > 1]
+        if not vary:
+            return []
+        pnls = np.array([p["pnl"] for p in pts], dtype=float)
+        cut = float(np.quantile(pnls, 1.0 - gamma))
+        good = [p for p in pts if p["pnl"] >= cut]
+        rest = [p for p in pts if p["pnl"] < cut]
+        if len(good) < 5 or len(rest) < 5:
+            return []
+
+        def _dens_builders(param):
+            gv = [p.get(param) for p in good if p.get(param) is not None]
+            rv = [p.get(param) for p in rest if p.get(param) is not None]
+            if not gv or not rv:
+                return None
+            numeric = all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                          for v in gv + rv)
+            if numeric:
+                ga, ra = np.array(gv, dtype=float), np.array(rv, dtype=float)
+                rng = max(1e-9, float(max(ga.max(), ra.max()) - min(ga.min(), ra.min())))
+                def bw(a):
+                    s = float(np.std(a))
+                    return max(rng / 20.0, 1.06 * s * len(a) ** -0.2) if s > 0 else rng / 20.0
+                gb, rb = bw(ga), bw(ra)
+                def dens(a, b):
+                    def f(v):
+                        z = (float(v) - a) / b
+                        return float(np.mean(np.exp(-0.5 * z * z))) / b + 1e-12
+                    return f
+                return dens(ga, gb), dens(ra, rb)
+            # categorical / bool: Laplace-smoothed frequencies over the union of seen values
+            cats = sorted({str(v) for v in gv + rv})
+            K = max(1, len(cats))
+            def freq(vals):
+                counts = {c: 1.0 for c in cats}          # +1 Laplace
+                for v in vals:
+                    counts[str(v)] = counts.get(str(v), 1.0) + 1.0
+                tot = sum(counts.values())
+                return lambda v, _c=counts, _t=tot: _c.get(str(v), 1.0) / _t
+            return freq(gv), freq(rv)
+
+        dens = {}
+        for k in vary:
+            d2 = _dens_builders(k)
+            if d2 is not None:
+                dens[k] = d2
+        if not dens:
+            return []
+
+        seen_sigs = {tuple(sorted((k, str(p.get(k))) for k in pkeys)) for p in pts}
+        sampler = _PoolSampler(space, seed=int(seed))
+        scored = []
+        picked_sigs = set()
+        for _ in range(int(pool_size)):
+            cand = _collapse_conditional(sampler.ask(), dp)
+            sig = tuple(sorted((k, str(cand.get(k))) for k in pkeys))
+            if sig in seen_sigs or sig in picked_sigs:
+                continue
+            s = 0.0
+            for k, (dg, dr) in dens.items():
+                s += math.log(dg(cand.get(k)) + 1e-12) - math.log(dr(cand.get(k)) + 1e-12)
+            scored.append((s, sig, cand))
+        if not scored:
+            return []
+        scored.sort(key=lambda t: -t[0])
+        out = []
+        for s, sig, cand in scored:
+            if sig in picked_sigs:
+                continue
+            picked_sigs.add(sig)
+            out.append(cand)
+            if len(out) >= int(n_propose):
+                break
+        return out
+    except Exception:
+        return []
