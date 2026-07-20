@@ -749,7 +749,10 @@ synthetic scenarios all shipped 2026-07-04 — see Changelog.)*
 Confirmed: Carl has NO optuna/TPE/Bayesian-optimization notebook — his tuning coverage is
 GridSearchCV + "Automatic tuning of XGBoost with XGBTune" (our per-model mini-GridSearchCV in
 the bake-off is the equivalent). New candidates ranked by param-discovery value:
-- **Quantile Regression Forests (QRF)** (his §4 prediction-intervals notebook) — HIGH: a
+- **Quantile Regression Forests (QRF)** — ✅ BUILT 2026-07-19 (owner go): 6th bake-off roster
+  model (`quantile-forest` dep) AND 3rd steering brain (`steer_method='qrf'`, median + UCB on
+  tree-native quantile spread). Real-data A/B arms queued behind the in-flight 500-trial run.
+  Original note: a
   map-maker with NATIVE uncertainty (quantiles) — tree-based so it handles categoricals and is
   cheap; could join the bake-off roster AND become a 3rd steering brain (UCB needs an
   uncertainty estimate; QRF provides it without the GP's O(n³)).

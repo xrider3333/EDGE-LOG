@@ -74,7 +74,15 @@ except Exception:
     _gam_l = None
     HAS_PYGAM = False
 
-__all__ = ["surrogate_bakeoff", "propose_candidates", "HAS_XGBOOST", "HAS_SHAP", "HAS_PYGAM"]
+try:
+    from quantile_forest import RandomForestQuantileRegressor as _QRF
+    HAS_QRF = True
+except Exception:
+    _QRF = None
+    HAS_QRF = False
+
+__all__ = ["surrogate_bakeoff", "propose_candidates", "propose_candidates_tpe",
+           "propose_candidates_qrf", "HAS_XGBOOST", "HAS_SHAP", "HAS_PYGAM", "HAS_QRF"]
 
 # ── guardrail thresholds (documented, not vibes) ───────────────────────────────
 MIN_POINTS = 40                 # below this the surface is too thin to fit anything honest
@@ -384,6 +392,22 @@ def _build_roster(seed, y_mean, y_std, enc):
             roster.append({"name": "gam", "skipped": f"unavailable: {e}"})
     else:
         roster.append({"name": "gam", "skipped": "pygam not installed"})
+
+    # QRF (Carl §4 "Prediction intervals: Quantile Regression Forests", owner-approved
+    # 2026-07-19): a random forest whose leaves keep the full response DISTRIBUTION, so it
+    # predicts quantiles — a tree model with native uncertainty. Its default .predict() is
+    # the median (quantile 0.5), a normal sklearn point prediction, so the shared
+    # fit/score/interaction machinery treats it like any other roster model; the quantile
+    # trick is exploited by the 'qrf' STEERING brain (propose_candidates_qrf below).
+    if HAS_QRF:
+        try:
+            roster.append({"name": "qrf", "kind": "tree",
+                           "estimator": _QRF(random_state=seed),
+                           "grid": {"n_estimators": [200], "min_samples_leaf": [2, 4]}})
+        except Exception as e:
+            roster.append({"name": "qrf", "skipped": f"unavailable: {e}"})
+    else:
+        roster.append({"name": "qrf", "skipped": "quantile-forest not installed"})
 
     return roster
 
@@ -1294,6 +1318,65 @@ def propose_candidates_tpe(records, pkeys, dp, space, n_propose, seed, pool_size
                 continue
             picked_sigs.add(sig)
             out.append(cand)
+            if len(out) >= int(n_propose):
+                break
+        return out
+    except Exception:
+        return []
+
+
+def propose_candidates_qrf(records, pkeys, dp, space, n_propose, seed, pool_size=2000):
+    """QRF steering brain (Carl §4, owner-approved 2026-07-19) — same contract as
+    `propose_candidates` (GP) and `propose_candidates_tpe`, third interchangeable
+    engine. A Quantile Regression Forest keeps the full response distribution in
+    its leaves, so for every candidate it can report BOTH a central estimate
+    (median, q50) and a spread (q84 - q16) — i.e. tree-model uncertainty without
+    the GP's O(n^3) math and with native handling of stepped/categorical knobs.
+    Scores the legal candidate pool with the same Upper-Confidence-Bound shape
+    the GP path uses: median + KAPPA_UCB * sigma, sigma = (q84 - q16) / 2.
+    Returns [] (never raises) on thin data / missing dep / fit failure — caller
+    falls back to random.
+    """
+    if not HAS_QRF:
+        return []
+    try:
+        pts = [dict({k: r.get(k) for k in pkeys}, pnl=float(r.get("total_pnl", 0) or 0))
+               for r in (records or []) if isinstance(r, dict)]
+        if len(pts) < STEER_MIN_POINTS:
+            return []
+        vary = [k for k in pkeys if len({str(p.get(k)) for p in pts}) > 1]
+        if not vary:
+            return []
+        enc = _Encoder(pkeys, dp, pts)
+        X = enc.transform(pts)
+        y = np.array([float(p.get("pnl", 0) or 0) for p in pts], dtype=float)
+        model = _QRF(n_estimators=200, min_samples_leaf=2, random_state=int(seed))
+        model.fit(X, y)
+
+        seen_sigs = {tuple(sorted((k, str(p.get(k))) for k in pkeys)) for p in pts}
+        sampler = _PoolSampler(space, seed=int(seed))
+        cands, sigs = [], []
+        for _ in range(int(pool_size)):
+            cand = _collapse_conditional(sampler.ask(), dp)
+            sig = tuple(sorted((k, str(cand.get(k))) for k in pkeys))
+            if sig in seen_sigs:
+                continue
+            cands.append(cand)
+            sigs.append(sig)
+        if not cands:
+            return []
+        Xc = enc.transform(cands)
+        Q = model.predict(Xc, quantiles=[0.16, 0.5, 0.84])
+        mu = Q[:, 1]
+        sigma = np.maximum(0.0, (Q[:, 2] - Q[:, 0]) / 2.0)
+        score = mu + KAPPA_UCB * sigma
+        order = np.argsort(-score)
+        out, picked = [], set()
+        for i in order:
+            if sigs[i] in picked:
+                continue
+            picked.add(sigs[i])
+            out.append(cands[i])
             if len(out) >= int(n_propose):
                 break
         return out

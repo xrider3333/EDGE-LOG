@@ -219,7 +219,7 @@ def test_cards_well_formed_when_everything_available():
     out = surrogate_bakeoff(pts, keys, dp, seed=SEED)
     assert out is not None
     names = {c["model"] for c in out["models"]}
-    assert names == {"quadratic", "random_forest", "xgboost", "gp", "gam"}
+    assert names == {"quadratic", "random_forest", "xgboost", "gp", "gam"} | ({"qrf"} if S.HAS_QRF else set())
     for c in out["models"]:
         if c.get("skipped"):
             continue
@@ -243,7 +243,8 @@ def test_xgboost_and_shap_absence_degrade_gracefully(monkeypatch):
     assert xgb_card.get("skipped") == "xgboost not installed"
     # every other model still fits fine (gam unaffected -- only xgboost/shap disabled here)
     fit_names = {c["model"] for c in out["models"] if "cv_r2" in c}
-    expected = {"quadratic", "random_forest", "gp"} | ({"gam"} if S.HAS_PYGAM else set())
+    expected = ({"quadratic", "random_forest", "gp"} | ({"gam"} if S.HAS_PYGAM else set())
+               | ({"qrf"} if S.HAS_QRF else set()))
     assert fit_names == expected
     # knob screen falls back to RF impurity importances, never crashes, never
     # silently claims a `shap:` source it didn't actually compute
@@ -283,7 +284,7 @@ def test_bakeoff_still_picks_a_best_model_when_pygam_absent(monkeypatch):
     gam_card = next(c for c in out["models"] if c["model"] == "gam")
     assert gam_card.get("skipped") == "pygam not installed"
     fit_names = {c["model"] for c in out["models"] if "cv_r2" in c}
-    assert fit_names == {"quadratic", "random_forest", "xgboost", "gp"}
+    assert fit_names == {"quadratic", "random_forest", "xgboost", "gp"} | ({"qrf"} if S.HAS_QRF else set())
     assert out["best_model"] in fit_names
 
 

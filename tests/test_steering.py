@@ -333,3 +333,64 @@ def test_run_auto_steer_method_tpe_smoke():
     st = out.get("steering") or {}
     assert st.get("used") is True and st.get("method") == "tpe"
     assert out.get("best_params")
+
+
+# ── QRF steering brain (Carl §4, owner-approved) — 3rd interchangeable engine ─
+
+def test_qrf_proposals_legal_deterministic_and_unseen():
+    import pytest
+    pytest.importorskip("quantile_forest")
+    from augur_engine.surrogate import propose_candidates_qrf
+    dp = _dp_3num()
+    pkeys = list(dp)
+    space = _auto_space_from_params(dp)
+    recs = _make_records(dp, pkeys, _surface, 60, seed=7)
+    a = propose_candidates_qrf(recs, pkeys, dp, space, n_propose=10, seed=11)
+    b = propose_candidates_qrf(recs, pkeys, dp, space, n_propose=10, seed=11)
+    assert a == b
+    assert 0 < len(a) <= 10
+    seen = {tuple(sorted((k, str(r.get(k))) for k in pkeys)) for r in recs}
+    for cand in a:
+        assert tuple(sorted((k, str(cand.get(k))) for k in pkeys)) not in seen
+        for k, meta in dp.items():
+            _on_grid(cand[k], meta)
+
+
+def test_qrf_steered_loop_at_least_matches_random_on_synthetic_surface():
+    import pytest
+    pytest.importorskip("quantile_forest")
+    from augur_engine.surrogate import propose_candidates_qrf
+    dp = _dp_3num()
+    pkeys = list(dp)
+    space = _auto_space_from_params(dp)
+    rand_records = _run_random_loop(dp, pkeys, space, _surface, 60, 42)
+    qrf_records = _run_steered_loop(dp, pkeys, space, _surface, 60, 42,
+                                    proposer=propose_candidates_qrf)
+    best_rand = max(r["total_pnl"] for r in rand_records)
+    best_qrf = max(r["total_pnl"] for r in qrf_records)
+    assert best_qrf >= best_rand - 1e-9
+
+
+def test_run_auto_steer_method_qrf_smoke():
+    import pytest
+    pytest.importorskip("quantile_forest")
+    from augur_engine.auto import run_auto
+    mod = _make_two_knob_strategy()
+    arrays = _make_arrays()
+    out = run_auto(mod, arrays=arrays, n_trials=50, method="single", oos=False,
+                   seed=42, min_trades=1, auto_expand=False,
+                   auto_steer=True, steer_method="qrf")
+    st = out.get("steering") or {}
+    assert st.get("used") is True and st.get("method") == "qrf"
+    assert out.get("best_params")
+
+
+def test_qrf_absent_returns_empty(monkeypatch):
+    import augur_engine.surrogate as S
+    monkeypatch.setattr(S, "HAS_QRF", False)
+    from augur_engine.auto import _auto_space_from_params
+    dp = _dp_3num()
+    pkeys = list(dp)
+    space = _auto_space_from_params(dp)
+    recs = _make_records(dp, pkeys, _surface, 60, seed=7)
+    assert S.propose_candidates_qrf(recs, pkeys, dp, space, 5, seed=1) == []

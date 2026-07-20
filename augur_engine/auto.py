@@ -768,9 +768,13 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 try:
                     # steer_method (#79): 'gp' = GP + Upper-Confidence-Bound (the 2-family
                     # A/B champion, default); 'tpe' = the dependency-free TPE-lite
-                    # (good-vs-rest density ratio) — same contract, same fallback.
-                    from .surrogate import propose_candidates, propose_candidates_tpe
-                    _proposer = propose_candidates_tpe if steer_method == "tpe" else propose_candidates
+                    # (good-vs-rest density ratio); 'qrf' = Quantile Regression Forest
+                    # (tree-native quantile uncertainty, same UCB shape as the GP).
+                    # Same contract, same random fallback for all three.
+                    from .surrogate import (propose_candidates, propose_candidates_tpe,
+                                            propose_candidates_qrf)
+                    _proposer = {"tpe": propose_candidates_tpe,
+                                 "qrf": propose_candidates_qrf}.get(steer_method, propose_candidates)
                     proposals = _proposer(records, pkeys, dp, space,
                                           n_propose=batch, seed=int(seed) + done)
                 except Exception:
