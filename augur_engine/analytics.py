@@ -63,6 +63,24 @@ def downsample_points(points, cap=400):
     return list(points)
 
 
+def equity_curve_from_pnls(pnls, cap=160):
+    """Cumulative equity curve from a per-trade NET-PnL series, downsampled to <=cap
+    points — the same accumulate-then-index-stride pattern already used ad hoc in a
+    few places (run_auto's winner equity / top-config overlays, validate.py's champion
+    curve). Factored out for #88 (OOS-topK candidate selection) so every candidate's
+    optimize-window equity curve is built identically instead of yet another inline
+    copy. Returns {"cum": [...], "final": pts} — {"cum": [], "final": 0.0} for an
+    empty series."""
+    cum, s = [], 0.0
+    for x in (pnls or []):
+        s += float(x)
+        cum.append(s)
+    if len(cum) > cap:
+        step = len(cum) / cap
+        cum = [cum[int(i * step)] for i in range(cap)]
+    return {"cum": [round(float(x), 1) for x in cum], "final": round(float(s), 1)}
+
+
 def annualized_sr(pnls, years):
     """{sr, n, tpy, skew, kurt} annualized Sharpe of a per-trade PnL series (None if
     too few trades / zero variance). Same formula as optimizer._ann_sr."""

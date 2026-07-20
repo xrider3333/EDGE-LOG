@@ -66,6 +66,89 @@ _METRIC_KEYS = ("total_pnl", "num_trades", "win_rate", "profit_factor",
                 "max_drawdown", "avg_pnl", "wins", "losses")
 
 
+def make_slice_evaluator(strategy, arrays, cost_pts=0.0):
+    """Factored out of run_auto's per-trial `_ev` closure (#88, OOS-checked champion
+    selection) so a FIXED param set can be evaluated on an arbitrary bar-index slice
+    via the EXACT kwarg-detection (volumes/day_id/index) + cost-application path every
+    trial/fold in the search already goes through -- run_auto's own `_ev` below is now
+    a thin call to this, and validate.py's #88 selection stage (`score_candidates_on_
+    folds`) uses the identical function, so the two can never drift out of sync on how
+    a slice gets evaluated.
+
+    `strategy` may be a path/filename (loaded via `load_strategy`) or an already-loaded
+    module. Returns a callable `ev(a, b, params, keep_trades=False) -> metrics dict |
+    None` — None on any backtest exception (never raises)."""
+    mod = load_strategy(strategy) if isinstance(strategy, str) else strategy
+    fn = mod.run_backtest
+    sp = inspect.signature(fn).parameters
+    has_kw = any(p.kind == p.VAR_KEYWORD for p in sp.values())
+    O, H, L, C = arrays["open"], arrays["high"], arrays["low"], arrays["close"]
+    V, did = arrays.get("volume"), arrays.get("day_id")
+    IDX = arrays.get("index")
+    pass_vol = V is not None and (has_kw or "volumes" in sp)
+    pass_day = did is not None and (has_kw or "day_id" in sp)
+    pass_idx = IDX is not None and "index" in sp
+
+    def ev(a, b, params, keep_trades=False):
+        ex = {}
+        if pass_vol:
+            ex["volumes"] = V[a:b]
+        if pass_day:
+            ex["day_id"] = did[a:b]
+        if pass_idx:
+            ex["index"] = IDX[a:b]
+        try:
+            if cost_pts > 0:
+                m = fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=True, **ex, **params)
+                if m:
+                    m = _apply_costs(m, cost_pts)
+                    if not keep_trades:
+                        m.pop("trades", None)
+                return m
+            return fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=keep_trades, **ex, **params)
+        except Exception:
+            return None
+    return ev
+
+
+def score_candidates_on_folds(strategy, arrays, candidates, fold_bounds, cost_pts=0.0):
+    """#88 (OOS-checked champion selection) -- score each candidate's FIXED params on
+    the SAME walk-forward test slices the champion normally runs. Reuses
+    `make_slice_evaluator` (the identical kwarg-detection + cost-apply path every
+    trial/fold already goes through), so a candidate's OOS number is computed exactly
+    the way a fold champion's own OOS leg already is. This is NOT a re-optimization:
+    every candidate is tested on every fold's test slice with its OWN fixed params (no
+    per-fold parameter search) -- the point is to see how a FIXED config would have
+    performed walking forward, not to re-tune per fold.
+
+    `candidates`  -- list of param dicts (one per candidate).
+    `fold_bounds` -- list of (test_start, test_end) bar-index tuples -- e.g. the
+                     ANCHORED walk-forward fold test slices (test_start == that fold's
+                     train_bars, since anchored mode's train window always starts at
+                     bar 0 -- see validate.py's selection stage for how these are
+                     derived from a walk-forward run's own fold rows).
+
+    Returns a list (one entry per candidate, same order/length as `candidates`) of
+    lists (one row per fold, same order/length as `fold_bounds`):
+      [{"oos_pnl": pts, "oos_pf": pf, "oos_trades": n, "held": bool(oos_pf > 1)}, ...]
+    A fold the strategy fails on (exception / no trades / empty slice) still gets a
+    zeroed row rather than shortening the list, so callers can always zip positionally."""
+    n = len(arrays["close"])
+    ev = make_slice_evaluator(strategy, arrays, cost_pts)
+    out = []
+    for params in candidates:
+        rows = []
+        for (a, b) in fold_bounds:
+            a = max(0, int(a)); b = min(n, int(b))
+            m = ev(a, b, params) if b > a else None
+            pnl = float(m.get("total_pnl", 0) or 0) if m else 0.0
+            pf = float(m.get("profit_factor", 0) or 0) if m else 0.0
+            tr = int(m.get("num_trades", 0) or 0) if m else 0
+            rows.append({"oos_pnl": pnl, "oos_pf": pf, "oos_trades": tr, "held": bool(pf > 1)})
+        out.append(rows)
+    return out
+
+
 def _auto_space_from_params(default_params: dict) -> dict:
     """DEFAULT_PARAMS -> search space: name -> ('float'|'int', lo, hi, step) | ('cat', [..])."""
     space = {}
@@ -636,28 +719,12 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
     # on every trial and the whole search degenerates to 0 valid configs).
     pass_idx = IDX is not None and "index" in sp
 
-    def _ev(a, b, params, keep_trades=False):
-        """Evaluate params on the [a:b) window, slicing extras consistently.
-        keep_trades=True retains the per-trade list on the result (for OOS
-        distributions); otherwise trades are dropped to keep results light."""
-        ex = {}
-        if pass_vol:
-            ex["volumes"] = V[a:b]
-        if pass_day:
-            ex["day_id"] = did[a:b]
-        if pass_idx:
-            ex["index"] = IDX[a:b]
-        try:
-            if cost_pts > 0:
-                m = fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=True, **ex, **params)
-                if m:
-                    m = _apply_costs(m, cost_pts)
-                    if not keep_trades:
-                        m.pop("trades", None)
-                return m
-            return fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=keep_trades, **ex, **params)
-        except Exception:
-            return None
+    # Factored into module-level `make_slice_evaluator` (#88) so validate.py's OOS-topK
+    # candidate selection can score arbitrary fixed configs via the IDENTICAL kwarg-
+    # detection + cost-apply path this search loop already goes through. keep_trades=True
+    # retains the per-trade list on the result (for OOS distributions); otherwise trades
+    # are dropped to keep results light.
+    _ev = make_slice_evaluator(mod, arrays, cost_pts)
 
     n = len(C)
     oos_on = bool(oos) and n >= 200

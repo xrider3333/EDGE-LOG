@@ -117,7 +117,18 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 discover=_disc, provider=_prov, api_key=_key,
                 ai_rounds=int(job.get("n_rounds", 4)),
                 equity_points=int(job.get("equity_points", 400) or 400),
-                thresholds=job.get("thresholds"), progress_cb=progress_cb)
+                thresholds=job.get("thresholds"),
+                # #88 (owner-approved 2026-07-20): OOS-checked champion selection — the
+                # production Auto-Validate path opts in HERE (run_validate's own
+                # signature default stays 0/OFF for library neutrality / tests).
+                # Motivating evidence: run #167 crowned the sharpest realism-gated
+                # IN-SAMPLE config (IS $257,873) which collapsed to a $35,083 lockbox
+                # (PBO gate fired, verdict WEAK), while run #165's WEAKER-IS champion
+                # had DOUBLE the lockbox PnL. Re-scores the top-5 IS candidates by
+                # walk-forward fold OOS PnL and crowns the steadiest one instead of
+                # the raw IS-max (augur_engine/validate.py's Stage A.5).
+                select_oos_topk=int(job.get("select_oos_topk", 5) or 0),
+                progress_cb=progress_cb)
         elif jtype == "gate_validate":
             r = ae.run_gate_validate(
                 job["strategy"], instrument=job.get("instrument"),
@@ -534,6 +545,7 @@ class FirestoreQueue:
             "steering": result.get("steering"),        # #36 P2 steered-search trial counts
             "ml_gate": result.get("ml_gate"),          # single-gate before/after + SHAP/calibration
             "gate_validate": result.get("gate_validate"),  # 9-candidate model×cut-off bake-off
+            "selection": result.get("selection"),      # #88 OOS-checked champion selection evidence
             # diagnostic pills (top-level on Auto-Optimize runs; Auto-Validate keeps its own
             # copies under `validate`). Omitted keys simply don't render.
             "adversarial": result.get("adversarial"), "conformal": result.get("conformal"),

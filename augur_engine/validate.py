@@ -5,16 +5,20 @@ run_auto / run_backtest engine calls (no new backtest logic).
 Sequence (all on data BEFORE the reserved lockbox, so the holdout is never seen):
   A. In-sample Auto-Optimize (single 75/25 split)  -> champion params, trades/param, DSR.
   B. Rolling walk-forward                           -> walk-forward efficiency + consistency.
-  C. Lockbox one-shot                               -> champion re-tested on the reserved slice.
+  A.5 (opt-in, #88) OOS-checked champion selection  -> re-crown the IS-max champion by
+      walk-forward-fold OOS PnL among the top-K IS candidates, when select_oos_topk>=2.
+  C. Lockbox one-shot                               -> (crowned) champion re-tested on the
+      reserved slice.
 Then a PASS / WEAK / FAIL verdict against professional thresholds.
 """
 import datetime as _dt
 
 from .data import find_master, load_master_arrays
 from .engine import run_backtest
-from .auto import run_auto
+from .auto import (run_auto, _is_real as _sel_is_real, _METRIC_KEYS as _SEL_METRIC_KEYS,
+                   make_slice_evaluator, score_candidates_on_folds)
 from .optimize import run_grid
-from .analytics import probability_backtest_overfitting
+from .analytics import probability_backtest_overfitting, equity_curve_from_pnls
 
 
 def _parse(d):
@@ -65,11 +69,142 @@ def _avg_wl(trades):
     return aw, al
 
 
+def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.0, k=5):
+    """#88 OOS-checked champion selection (owner-approved 2026-07-20). Motivating
+    evidence: run #167 crowned the sharpest realism-gated IN-SAMPLE config (IS
+    $257,873) which then collapsed on the lockbox ($35,083, PBO gate fired, verdict
+    WEAK) -- while run #165's WEAKER-IS champion had DOUBLE the lockbox PnL. A
+    stronger search (steering / auto-expand) sharpens the IS optimum and widens the
+    IS -> OOS gap; picking purely on IS PnL rewards exactly that overfit.
+
+    Builds a candidate set of up to `k` distinct configs -- the realism-gated top of
+    `A["top"]` (deduped by full param signature) plus `A["plateau_pick"]["params"]`
+    when it's a distinct config (a reserved slot, backfilled from the ranked list if
+    the plateau pick turns out to duplicate one already included) -- then scores each
+    candidate's FIXED params on the SAME anchored walk-forward fold test slices
+    `wf_anch` already ran (`score_candidates_on_folds`/`make_slice_evaluator` -- no
+    re-optimization per fold, no duplicated kwarg-detection logic). The candidate with
+    the highest summed fold-OOS PnL is crowned (ties: more folds held OOS-PF>1, then
+    higher IS PnL) -- it becomes the new champion for everything downstream in
+    validate.py (lockbox, transfer, KPIs, verdict); the lockbox itself is untouched
+    here and still gets exactly ONE look, at whichever config this function returns.
+
+    `arrays` MUST be the OPTIMIZE-WINDOW arrays (opt_from..opt_to, the same window
+    Stage A/B already searched) -- fold bar-indices line up against it, and each
+    candidate's equity curve is built ONLY over this window (never the lockbox slice).
+    `wf_anch` is a walk-forward run_auto() result (method="walkforward", wf_mode=
+    "anchored") -- its fold rows carry train_bars/test_bars, from which the anchored
+    test-slice bounds are derived (test_start == train_bars, since anchored mode's
+    train window always starts at bar 0).
+
+    Returns (champ, bestA, selection) -- `champ`/`bestA` are the ORIGINAL inputs,
+    UNCHANGED, whenever there is nothing to select from (no realism-gated candidates,
+    or no anchored walk-forward folds available) or when the IS-max candidate itself
+    wins the race; `selection` is always a dict:
+      {"mode": "wf_oos_topk", "k": int, "is_max_crowned": bool,
+       "candidates": [{"params", "is_pnl", "wf_oos_pnl", "folds_held", "crowned",
+                       "equity": {"cum": [...], "final": pts}}, ...],
+       "error": str}   (# "error" present only on the empty/no-fold no-op path)
+    This function does not itself guard against a genuine backtest/strategy failure
+    escaping make_slice_evaluator/run_backtest (those already swallow their own
+    exceptions) -- an unexpected exception here is a real bug and is left to
+    propagate; run_validate's own call site wraps this in a try/except and falls back
+    to the untouched IS-max champion with `selection["error"]` set, per #88's hard
+    rule that a selection-stage failure must never break Auto-Validate."""
+    pkeys = list(champ.keys())
+
+    def _sig(p):
+        return tuple(sorted((kk, p.get(kk)) for kk in pkeys))
+
+    top_rows = A.get("top") or []
+    nb_bars = int(A.get("bars") or 0) or 10 ** 9
+    gated_rows = [r for r in top_rows if _sel_is_real(r, nb_bars)] or list(top_rows)
+
+    ppick = A.get("plateau_pick") or {}
+    pp_params = ({kk: ppick["params"].get(kk) for kk in pkeys} if ppick.get("params") else None)
+    pp_metrics = ({kk: ppick["metrics"].get(kk) for kk in _SEL_METRIC_KEYS if kk in ppick["metrics"]}
+                  if ppick.get("metrics") else {})
+
+    cands = []
+    sigs = set()
+    budget = (int(k) - 1) if pp_params else int(k)
+
+    def _add(row_params, row_metrics, is_pnl):
+        sig = _sig(row_params)
+        if sig in sigs:
+            return
+        sigs.add(sig)
+        cands.append({"params": row_params, "is_pnl": float(is_pnl or 0), "metrics": row_metrics})
+
+    for row in gated_rows:
+        if len(cands) >= budget:
+            break
+        _add({kk: row.get(kk) for kk in pkeys},
+             {kk: row.get(kk) for kk in _SEL_METRIC_KEYS if kk in row},
+             row.get("total_pnl", 0))
+    if pp_params and len(cands) < int(k):
+        _add(pp_params, pp_metrics, pp_metrics.get("total_pnl", 0))
+    if len(cands) < int(k):   # plateau pick was a dup (or absent) -- backfill from the ranked list
+        for row in gated_rows:
+            if len(cands) >= int(k):
+                break
+            _add({kk: row.get(kk) for kk in pkeys},
+                 {kk: row.get(kk) for kk in _SEL_METRIC_KEYS if kk in row},
+                 row.get("total_pnl", 0))
+
+    fold_bounds = []
+    if wf_anch and wf_anch.get("ran"):
+        for fr in (wf_anch.get("folds") or []):
+            tb = int(fr.get("train_bars") or 0)
+            te = int(fr.get("test_bars") or 0)
+            if te > 0:
+                fold_bounds.append((tb, tb + te))
+
+    if not cands or not fold_bounds:
+        return champ, bestA, {
+            "mode": "wf_oos_topk", "k": int(k), "candidates": [], "is_max_crowned": True,
+            "error": ("no realism-gated candidates" if not cands
+                      else "no anchored walk-forward folds available"),
+        }
+
+    fold_scores = score_candidates_on_folds(strategy, arrays, [c["params"] for c in cands],
+                                            fold_bounds, cost_pts=cost_pts)
+    for c, rows in zip(cands, fold_scores):
+        c["wf_oos_pnl"] = sum(r["oos_pnl"] for r in rows)
+        c["folds_held"] = sum(1 for r in rows if r["held"])
+
+    n_bars = len(arrays["close"])
+    ev = make_slice_evaluator(strategy, arrays, cost_pts)
+    for c in cands:
+        m = ev(0, n_bars, c["params"], keep_trades=True)
+        pnls = [float(t[2]) for t in (m.get("trades") or [])] if m else []
+        c["equity"] = equity_curve_from_pnls(pnls, cap=160)
+
+    orig_sig = _sig(champ)
+    winner = max(cands, key=lambda c: (c.get("wf_oos_pnl", 0.0), c.get("folds_held", 0),
+                                       c.get("is_pnl", 0.0)))
+    is_max_crowned = (_sig(winner["params"]) == orig_sig)
+    for c in cands:
+        c["crowned"] = (c is winner)
+
+    selection = {
+        "mode": "wf_oos_topk", "k": int(k),
+        "candidates": [{"params": dict(c["params"]), "is_pnl": round(float(c["is_pnl"]), 1),
+                        "wf_oos_pnl": round(float(c.get("wf_oos_pnl", 0.0)), 1),
+                        "folds_held": int(c.get("folds_held", 0)),
+                        "crowned": bool(c.get("crowned", False)),
+                        "equity": c.get("equity")} for c in cands],
+        "is_max_crowned": is_max_crowned,
+    }
+    return dict(winner["params"]), dict(winner.get("metrics") or {}), selection
+
+
 def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", source=None,
                  cost_pts=0.0, min_trades=30, n_trials=200, wf_folds=0, seed=42,
                  lockbox_months=12, date_from=None, date_to=None, progress_cb=None,
                  thresholds=None, transfer_to=None, equity_points=400,
-                 discover="auto", provider="ollama", api_key=None, ai_rounds=4, save_dir=None):
+                 discover="auto", provider="ollama", api_key=None, ai_rounds=4, save_dir=None,
+                 select_oos_topk=0):
     th = {"trades_per_param": 30, "wfe": 0.5, "fold_frac": 0.66, "dsr": 0.8}
     th.update(thresholds or {})
 
@@ -127,6 +262,15 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                  # default stays False (library neutrality); this call site is the opt-in.
                  auto_steer=True,
                  date_from=opt_from, date_to=opt_to, progress_cb=_stage(aS, aE)) or {}
+    # #88 (2026-07-20): the SAME "library default off, production opts in at its one
+    # call site" pattern as auto_steer above applies to `select_oos_topk` — this
+    # run_validate signature's own default is 0/OFF (library neutrality, and what
+    # the tests exercise directly); the production Auto-Validate job path
+    # (api/runner.py's jtype=="validate" branch) is the one call site that passes
+    # select_oos_topk=5, because run #167's IS-max champion (IS $257,873) collapsed
+    # to a $35,083 lockbox (PBO gate fired, WEAK) while run #165's weaker-IS champion
+    # had DOUBLE the lockbox PnL — see _select_oos_champion below (Stage A.5) for the
+    # actual selection logic, which runs after Stage B once wf_anch's fold rows exist.
     champ = A.get("best_params") or {}
     bestA = A.get("best") or {}
     nparam = len(champ)
@@ -180,6 +324,43 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     _wf_compact = lambda w: {"mode": w["mode"], "ran": w["ran"], "wfe": round(w["wfe"], 3),
                              "held": w["held"], "n_folds": w["n_folds"],
                              "fold_frac": round(w["fold_frac"], 3), "oos_net": w["oos_net"]}
+
+    # ── Stage A.5 — OOS-checked champion selection (#88, opt-in via select_oos_topk)
+    #    Motivating evidence: run #167 crowned the sharpest realism-gated IN-SAMPLE
+    #    config (IS $257,873) which collapsed on the lockbox ($35,083, PBO gate fired,
+    #    verdict WEAK), while run #165's WEAKER-IS champion had DOUBLE the lockbox
+    #    PnL. Re-crowns `champ`/`bestA` (used by EVERYTHING below — lockbox, transfer,
+    #    full-window KPIs, gate bake-off, adversarial checks, verdict) by walk-forward
+    #    fold OOS PnL among the top-K IS candidates, instead of the raw IS-max. The
+    #    lockbox below still gets exactly ONE look, at whichever config comes out of
+    #    this. `select_oos_topk` in (0, 1) skips this block entirely (today's
+    #    behavior, byte-identical) — see _select_oos_champion's docstring for the
+    #    candidate-set/scoring/crowning rules. Any failure here (bad fixture, a
+    #    strategy that raises somewhere unexpected) is caught and falls back to the
+    #    untouched IS-max champion, with the failure logged in selection["error"]
+    #    rather than breaking the run — a selection-stage bug must never sink
+    #    Auto-Validate. NOTE (known scope limit, flagged honestly): `dsr`/`nb`
+    #    (deflated-Sharpe / neighborhood-plateau, both computed above from the
+    #    ORIGINAL IS-max winner) are NOT re-run for the crowned candidate when it
+    #    differs from IS-max — checks["plateau"]/checks["luck"]/is_sharpe describe the
+    #    SEARCH's own robustness/luck profile, not literally the crowned config's own
+    #    neighborhood/Sharpe. Every KPI that comes from a FRESH backtest on `champ`
+    #    (lockbox, transfer, total_sharpe/win_rate/dd, gate_bakeoff, adversarial,
+    #    conformal, causal, synthetic) automatically reflects the crowned candidate,
+    #    since those calls all run AFTER this block reassigns `champ`.
+    selection = None
+    _select_k = int(select_oos_topk or 0)
+    if _select_k >= 2 and champ:
+        try:
+            _arr_sel = load_master_arrays(master, date_from=opt_from, date_to=opt_to)
+            champ, bestA, selection = _select_oos_champion(
+                strategy, _arr_sel, champ, bestA, A, wf_anch, cost_pts=cost_pts, k=_select_k)
+            is_trades = int(bestA.get("num_trades", 0) or 0)
+            tpp = (is_trades / nparam) if nparam else 0.0
+        except Exception as _sel_e:
+            selection = {"mode": "wf_oos_topk", "k": _select_k, "candidates": [],
+                        "is_max_crowned": True,
+                        "error": f"{type(_sel_e).__name__}: {_sel_e}"}
 
     # ── Gate ──────────────────────────────────────────────────────────────────
     plateau_ran = bool(nb)
@@ -546,4 +727,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "steering": A.get("steering"),   # #36 P2: seed/steered/fallback trial counts (badge in 2L)
         # top-level so the existing Robustness card renders the gate bake-off with no new UI.
         "gate_validate": gate_bakeoff,
+        # #88: OOS-checked champion selection evidence trail — None when select_oos_topk
+        # disabled (0/1); see _select_oos_champion's docstring for the schema.
+        "selection": selection,
     }
