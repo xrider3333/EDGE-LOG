@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='60.0';
+const VERSION='60.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'60.1', date:'2026-07-19', notes:['REPORT REDESIGN step 1 of 3 — section 4 Robustness and Diagnostics is now a VERDICT-CHIP GRID: every check is one compact chip (icon, name, colour dot, one headline number) instead of a 30-line text wall. Click a chip to expand its full readout, click again to close. The section header now leads with the tally (N pass, N warn, N flag, N info) and an info icon explains the dots.','The OLD diagnostics wall is NOT deleted — it moved to a LEGACY LAYOUT block at the report bottom (yellow dashed divider) so the two can be compared; the losing layout gets deleted once the owner picks.','New chips beyond the method checks: SAMPLE (DOF), ENSEMBLE, PLATEAU PICK, GATE VALIDATE (lockbox held or failed at a glance) and ML GATE.']},
   {v:'60.0', date:'2026-07-19', notes:['PAST RUNS: new MAR column in the flat list (net divided by max drawdown — the risk-adjusted deploy score), sortable, sitting right of MAX DD. Hover it for how it differs from the LB MAR inside a run report.','PAST RUNS: the MODE / MARKET / TF filter columns no longer hog width — the header dropdown used to reserve room for its longest option text, stretching those columns to ~170px of mostly air. They now shrink to fit; the open dropdown still shows full option names.']},
   {v:'59.9', date:'2026-07-19', notes:['2L: model prediction accuracy now shows as a PERCENT (94.7% instead of R-squared 0.947) in the verdict line and every scorecard — same number, friendlier unit.','2L: runs whose search was model-steered (#36, on by default for Auto-Validate since today) carry a 🎯 MODEL-STEERED SEARCH badge showing the random-seed vs GP-aimed trial split and any fallbacks. Runs saved before today have no badge — their searches were plain random.','ORB.md section 10: the steering background + the ORB 3.1 A/B evidence (+66% in-sample at equal budget) written up as a cold-start brief for the next dedicated ORB session, including the pin-the-window-and-master rule and how to judge the aggressive steered find.']},
   {v:'59.8', date:'2026-07-19', notes:['2L: the ＋ more expander is gone — all knob-pair surfaces render side by side (it was throwing the row off-center).','2L in plain language: the verdict line now reads "its best-config pick, verified by a real backtest" (each model proposes its best config, and the app runs that config through ONE real backtest — the shown dollars are real, not the model guess), "sampled best" is renamed "search best" (the bar every model tries to beat), and every scorecard bar explains itself on hover — R² = prediction accuracy graded on configs the model never saw; pred = the model guess; real = the verified backtest of that same pick.']},
@@ -7838,56 +7839,75 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // the SAME cards (one-stop-shop parity). `P` is the source object holding the pill
     // keys — d.validate for Auto-Validate runs, or the run/result itself for Auto-Optimize
     // (pills land top-level there). Each returns '' when its data is absent.
-    const pillsHtml=(P,mlt)=>{P=P||{};let advHtml='';const AV=P.adversarial;
+    // ── §4 method checks as a LIST — one entry per check {k,ic,nm,q,st,cc,chip,html}, so the
+    //    NEW verdict-chip grid and the LEGACY pill wall render from the SAME data. st = ok /
+    //    warn / bad (counted in the section verdict) or info (context, not pass/fail).
+    const pillsList=(P,mlt)=>{P=P||{};const L=[];
+        const _stOf=c=>c==='var(--green)'?'ok':(c==='var(--yellow)'||c==='#f0997b')?'warn':(c==='var(--red)'?'bad':'info');
+        const AV=P.adversarial;
         if(AV&&AV.auc!=null){const a=AV.auc,acol=a<0.55?'var(--green)':a<0.70?'var(--yellow)':a<0.85?'#f0997b':'var(--red)';
           const drift=(AV.drift_features||[]).slice(0,3).map(d=>d.name+' ('+(d.shift>0?'+':'')+d.shift+'σ)').join(' · ');
-          advHtml+='<div class="lbl" style="margin:14px 0 4px" title="A classifier tries to tell the lockbox period apart from the training history using market-state features. AUC near 0.50 = indistinguishable (trust the lockbox); high AUC = the lockbox is a different regime, so its PASS/FAIL is weaker evidence.">🎭 ADVERSARIAL VALIDATION · §4 — is the lockbox a different regime?</div>'
+          L.push({k:'adv',ic:'🎭',nm:'ADVERSARIAL',q:'is the lockbox a different regime?',st:_stOf(acol),cc:acol,chip:'AUC '+a.toFixed(2),
+           html:'<div class="lbl" style="margin:14px 0 4px" title="A classifier tries to tell the lockbox period apart from the training history using market-state features. AUC near 0.50 = indistinguishable (trust the lockbox); high AUC = the lockbox is a different regime, so its PASS/FAIL is weaker evidence.">🎭 ADVERSARIAL VALIDATION · §4 — is the lockbox a different regime?</div>'
            +'<div style="font-size:var(--fsxs);color:'+acol+';margin-bottom:2px">AUC <b>'+a.toFixed(3)+'</b> — '+AV.verdict+'</div>'
-           +(drift?'<div style="font-size:var(--fsxs);color:var(--text4)">most-shifted inputs: '+drift+' <span style="color:var(--text5)">(lockbox vs history, in σ)</span></div>':'');}
+           +(drift?'<div style="font-size:var(--fsxs);color:var(--text4)">most-shifted inputs: '+drift+' <span style="color:var(--text5)">(lockbox vs history, in σ)</span></div>':'')});}
         const PB=P.pbo;
         if(PB&&PB.pbo!=null){const p=PB.pbo,pc=p<=0.3?'var(--green)':p<=0.5?'var(--yellow)':'var(--red)';
-          advHtml+='<div class="lbl" style="margin:14px 0 4px" title="Probability of Backtest Overfitting (CSCV — Bailey, Borwein, López de Prado, Zhu). Across every way of splitting the timeline into in-sample / out-of-sample halves, how often does the config that looked BEST in-sample land BELOW the median out-of-sample. Low = the winner you would pick generally holds up on unseen periods; high = the search is selecting noise. Complements the Deflated Sharpe (which haircuts for how many configs were tried).">🎯 PBO · OVERFIT OF SELECTION (CSCV) · §4 — is the config-pick overfit?</div>'
-           +'<div style="font-size:var(--fsxs);color:'+pc+'">PBO <b>'+Math.round(p*100)+'%</b> — '+PB.verdict+' <span style="color:var(--text5)">· '+PB.n_configs+' configs · '+PB.n_splits+' CSCV splits · median logit '+PB.lambda_median+'</span></div>';}
+          L.push({k:'pbo',ic:'🎯',nm:'PBO / CSCV',q:'is the config-pick overfit?',st:_stOf(pc),cc:pc,chip:'PBO '+Math.round(p*100)+'%',
+           html:'<div class="lbl" style="margin:14px 0 4px" title="Probability of Backtest Overfitting (CSCV — Bailey, Borwein, López de Prado, Zhu). Across every way of splitting the timeline into in-sample / out-of-sample halves, how often does the config that looked BEST in-sample land BELOW the median out-of-sample. Low = the winner you would pick generally holds up on unseen periods; high = the search is selecting noise. Complements the Deflated Sharpe (which haircuts for how many configs were tried).">🎯 PBO · OVERFIT OF SELECTION (CSCV) · §4 — is the config-pick overfit?</div>'
+           +'<div style="font-size:var(--fsxs);color:'+pc+'">PBO <b>'+Math.round(p*100)+'%</b> — '+PB.verdict+' <span style="color:var(--text5)">· '+PB.n_configs+' configs · '+PB.n_splits+' CSCV splits · median logit '+PB.lambda_median+'</span></div>'});}
         const CF=P.conformal;
         if(CF){const cfc=CF.calibrated?'var(--green)':'var(--yellow)';
-          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Split-conformal, distribution-free prediction interval for one trade\'s net PnL, with coverage MEASURED on a held-out split (the self-check: a valid 80% band should cover ~80%).">📏 CONFORMAL PnL BAND · §4 — per-trade risk interval</div>'
-           +'<div style="font-size:var(--fsxs);color:var(--text3)">'+Math.round((1-CF.alpha)*100)+'% of trades land in <b>'+fmtUsd(Math.round(CF.lo*mlt))+' … '+fmtUsd(Math.round(CF.hi*mlt))+'</b> (median '+fmtUsd(Math.round(CF.median*mlt))+') · measured coverage <b style="color:'+cfc+'">'+(CF.coverage_measured!=null?Math.round(CF.coverage_measured*100)+'%':'—')+'</b>'+(CF.calibrated?' ✓':'')+'</div>';}
+          L.push({k:'conf',ic:'📏',nm:'CONFORMAL BAND',q:'per-trade risk interval',st:_stOf(cfc),cc:cfc,chip:'cov '+(CF.coverage_measured!=null?Math.round(CF.coverage_measured*100)+'%':'—'),
+           html:'<div class="lbl" style="margin:12px 0 2px" title="Split-conformal, distribution-free prediction interval for one trade\'s net PnL, with coverage MEASURED on a held-out split (the self-check: a valid 80% band should cover ~80%).">📏 CONFORMAL PnL BAND · §4 — per-trade risk interval</div>'
+           +'<div style="font-size:var(--fsxs);color:var(--text3)">'+Math.round((1-CF.alpha)*100)+'% of trades land in <b>'+fmtUsd(Math.round(CF.lo*mlt))+' … '+fmtUsd(Math.round(CF.hi*mlt))+'</b> (median '+fmtUsd(Math.round(CF.median*mlt))+') · measured coverage <b style="color:'+cfc+'">'+(CF.coverage_measured!=null?Math.round(CF.coverage_measured*100)+'%':'—')+'</b>'+(CF.calibrated?' ✓':'')+'</div>'});}
         const CU=P.causal;
         if(CU){const cuc=CU.percentile>=95?'var(--green)':CU.percentile>=80?'var(--yellow)':'var(--red)';
-          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Randomization test: keep each trade\'s direction and holding length but move entries to random times (exit at close). High percentile = the entry rule carries real predictive content, not just market exposure. Caveat: random trades exit at close, not the strategy stop/target.">🎲 CAUSAL ENTRY TEST · §7 — is the entry rule real?</div>'
-           +'<div style="font-size:var(--fsxs);color:'+cuc+'">beats <b>'+CU.percentile.toFixed(0)+'%</b> of random-entry nulls — '+CU.verdict+' <span style="color:var(--text5)">(real '+fmtUsd(Math.round(CU.real_total_pts*mlt))+' vs null median '+fmtUsd(Math.round(CU.null_median_pts*mlt))+')</span></div>';}
+          L.push({k:'causal',ic:'🎲',nm:'CAUSAL ENTRY',q:'is the entry rule real?',st:_stOf(cuc),cc:cuc,chip:'beats '+CU.percentile.toFixed(0)+'%',
+           html:'<div class="lbl" style="margin:12px 0 2px" title="Randomization test: keep each trade\'s direction and holding length but move entries to random times (exit at close). High percentile = the entry rule carries real predictive content, not just market exposure. Caveat: random trades exit at close, not the strategy stop/target.">🎲 CAUSAL ENTRY TEST · §7 — is the entry rule real?</div>'
+           +'<div style="font-size:var(--fsxs);color:'+cuc+'">beats <b>'+CU.percentile.toFixed(0)+'%</b> of random-entry nulls — '+CU.verdict+' <span style="color:var(--text5)">(real '+fmtUsd(Math.round(CU.real_total_pts*mlt))+' vs null median '+fmtUsd(Math.round(CU.null_median_pts*mlt))+')</span></div>'});}
         const SY=P.synthetic;
         if(SY){const syc=SY.prob_profit>=90?'var(--green)':SY.prob_profit>=70?'var(--yellow)':'var(--red)';
-          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Resamples whole trading days WITH REPLACEMENT to build alternate histories — changes which days happen, not just their order (distinct from the Monte-Carlo pill). Caveat: treats days as exchangeable.">🌀 SYNTHETIC SCENARIOS · §8 — alternate day-histories</div>'
-           +'<div style="font-size:var(--fsxs);color:'+syc+'">profitable in <b>'+SY.prob_profit.toFixed(0)+'%</b> of '+SY.n_sims+' histories · PnL '+fmtUsd(Math.round(SY.p05_total_pts*mlt))+' … '+fmtUsd(Math.round(SY.p95_total_pts*mlt))+' (p5–p95) · worst-5% DD '+fmtUsd(Math.round(SY.worst5_maxdd_pts*mlt))+'</div>';}
+          L.push({k:'synth',ic:'🌀',nm:'SYNTHETIC',q:'alternate day-histories',st:_stOf(syc),cc:syc,chip:SY.prob_profit.toFixed(0)+'% profitable',
+           html:'<div class="lbl" style="margin:12px 0 2px" title="Resamples whole trading days WITH REPLACEMENT to build alternate histories — changes which days happen, not just their order (distinct from the Monte-Carlo pill). Caveat: treats days as exchangeable.">🌀 SYNTHETIC SCENARIOS · §8 — alternate day-histories</div>'
+           +'<div style="font-size:var(--fsxs);color:'+syc+'">profitable in <b>'+SY.prob_profit.toFixed(0)+'%</b> of '+SY.n_sims+' histories · PnL '+fmtUsd(Math.round(SY.p05_total_pts*mlt))+' … '+fmtUsd(Math.round(SY.p95_total_pts*mlt))+' (p5–p95) · worst-5% DD '+fmtUsd(Math.round(SY.worst5_maxdd_pts*mlt))+'</div>'});}
         const LL=P.lead_lag;
         if(LL&&LL.contemp_corr!=null){const llc=LL.tradeable?'var(--green)':'var(--text3)';
-          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Cross-instrument lead-lag: does one sibling (e.g. ES↔NQ) move before the other at the bar scale? Cross-correlation of returns at ±lags + a Granger F-test each way. At 5-min on efficient index futures the honest answer is usually contemporaneous — lead-lag lives at the tick scale.">🔗 LEAD-LAG / GRANGER · §7 — does '+LL.a+' or '+LL.b+' lead?</div>'
+          L.push({k:'leadlag',ic:'🔗',nm:'LEAD-LAG',q:'does '+LL.a+' or '+LL.b+' lead?',st:_stOf(llc),cc:llc,chip:'r '+LL.contemp_corr,
+           html:'<div class="lbl" style="margin:12px 0 2px" title="Cross-instrument lead-lag: does one sibling (e.g. ES↔NQ) move before the other at the bar scale? Cross-correlation of returns at ±lags + a Granger F-test each way. At 5-min on efficient index futures the honest answer is usually contemporaneous — lead-lag lives at the tick scale.">🔗 LEAD-LAG / GRANGER · §7 — does '+LL.a+' or '+LL.b+' lead?</div>'
            +'<div style="font-size:var(--fsxs);color:'+llc+'">'+LL.verdict+' <span style="color:var(--text5)">· contemporaneous r '+LL.contemp_corr+' · peak lag '+LL.peak_lag+' (r '+LL.peak_corr+')</span></div>'
-           +(LL.note?'<div style="font-size:8px;color:var(--text5)">'+LL.note+'</div>':'');}
+           +(LL.note?'<div style="font-size:8px;color:var(--text5)">'+LL.note+'</div>':'')});}
         const AC=P.acf;
         if(AC&&AC.lag1_acf!=null){const acc=Math.abs(AC.lag1_acf)<AC.sig_band?'var(--text3)':(AC.lag1_acf>0?'var(--green)':'#f0997b');
-          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Serial dependence of bar returns: ACF at lag 1 + a variance-ratio test. Positive autocorrelation = momentum (breakouts have structural support), negative = mean-reverting (fades do), ~0 = random walk. Tells you which strategy family the data supports.">📈 SERIAL DEPENDENCE (ACF) · §1 — momentum or mean-reversion?</div>'
-           +'<div style="font-size:var(--fsxs);color:'+acc+'">'+AC.verdict+' <span style="color:var(--text5)">· lag-1 ACF '+AC.lag1_acf+' (band ±'+AC.sig_band+') · variance-ratio 5-bar '+AC.vr5+' / 10-bar '+AC.vr10+'</span></div>';}
+          L.push({k:'acf',ic:'📈',nm:'SERIAL (ACF)',q:'momentum or mean-reversion?',st:'info',cc:acc,chip:'ACF '+AC.lag1_acf,
+           html:'<div class="lbl" style="margin:12px 0 2px" title="Serial dependence of bar returns: ACF at lag 1 + a variance-ratio test. Positive autocorrelation = momentum (breakouts have structural support), negative = mean-reverting (fades do), ~0 = random walk. Tells you which strategy family the data supports.">📈 SERIAL DEPENDENCE (ACF) · §1 — momentum or mean-reversion?</div>'
+           +'<div style="font-size:var(--fsxs);color:'+acc+'">'+AC.verdict+' <span style="color:var(--text5)">· lag-1 ACF '+AC.lag1_acf+' (band ±'+AC.sig_band+') · variance-ratio 5-bar '+AC.vr5+' / 10-bar '+AC.vr10+'</span></div>'});}
         const VF=P.vif;
         if(VF&&VF.features&&VF.features.length){const vfc=VF.n_high?'var(--yellow)':'var(--green)';var v3=VF.features.slice(0,3).map(function(f){return f.name+' '+f.vif;}).join(' · ');
-          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Variance Inflation Factor per entry feature: VIF≥5 means that input is largely a linear combo of the others (redundant), which muddies gate importance + calibration.">🧮 VIF / COLLINEARITY · §2 — redundant entry inputs?</div>'
-           +'<div style="font-size:var(--fsxs);color:'+vfc+'">'+VF.verdict+' <span style="color:var(--text5)">· highest: '+v3+'</span></div>';}
+          L.push({k:'vif',ic:'🧮',nm:'VIF',q:'redundant entry inputs?',st:_stOf(vfc),cc:vfc,chip:(VF.n_high||0)+' collinear',
+           html:'<div class="lbl" style="margin:12px 0 2px" title="Variance Inflation Factor per entry feature: VIF≥5 means that input is largely a linear combo of the others (redundant), which muddies gate importance + calibration.">🧮 VIF / COLLINEARITY · §2 — redundant entry inputs?</div>'
+           +'<div style="font-size:var(--fsxs);color:'+vfc+'">'+VF.verdict+' <span style="color:var(--text5)">· highest: '+v3+'</span></div>'});}
         const FS=P.feature_select;
-        if(FS&&FS.kept){advHtml+='<div class="lbl" style="margin:12px 0 2px" title="RFE-CV (recursive feature elimination, cross-validated) on the entry features vs win/loss — recursively drops the weakest input, keeps the subset that maximizes cross-validated AUC. The keep/drop decision behind the MI/PPS ranking.">✂️ FEATURE SELECTION · §2 — which inputs a gate would keep</div>'
-           +'<div style="font-size:var(--fsxs);color:var(--text3)">'+FS.verdict+' · <span style="color:var(--green)">keep: '+(FS.kept||[]).join(", ")+'</span></div>';}
+        if(FS&&FS.kept){const _fsTot=(FS.kept||[]).length+((FS.dropped&&FS.dropped.length)||0);
+          L.push({k:'fsel',ic:'✂️',nm:'FEATURE SELECT',q:'which inputs a gate would keep',st:'info',cc:'var(--text3)',chip:(FS.kept||[]).length+(_fsTot>(FS.kept||[]).length?'/'+_fsTot:'')+' keep',
+           html:'<div class="lbl" style="margin:12px 0 2px" title="RFE-CV (recursive feature elimination, cross-validated) on the entry features vs win/loss — recursively drops the weakest input, keeps the subset that maximizes cross-validated AUC. The keep/drop decision behind the MI/PPS ranking.">✂️ FEATURE SELECTION · §2 — which inputs a gate would keep</div>'
+           +'<div style="font-size:var(--fsxs);color:var(--text3)">'+FS.verdict+' · <span style="color:var(--green)">keep: '+(FS.kept||[]).join(", ")+'</span></div>'});}
         const ES2=P.edge_sig;
         if(ES2&&ES2.p_value!=null){const ec=ES2.significant?'var(--green)':'var(--yellow)';
-          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Is the edge statistically real? One-sample test on per-trade net PnL: t-stat, two-sided p-value, a 95% t-CI and a bootstrap CI on the mean. Complements the Deflated Sharpe (multiple-testing haircut) with a plain, direct read.">📛 EDGE SIGNIFICANCE · §4 — is the edge statistically real?</div>'
-           +'<div style="font-size:var(--fsxs);color:'+ec+'">'+ES2.verdict+' <span style="color:var(--text5)">· mean '+fmtUsd(Math.round(ES2.mean_pnl*mlt))+'/trade · t '+ES2.t_stat+' · 95% CI ['+fmtUsd(Math.round(ES2.ci95[0]*mlt))+', '+fmtUsd(Math.round(ES2.ci95[1]*mlt))+'] · bootstrap '+ES2.boot_prob_profit+'% profitable</span></div>';}
+          L.push({k:'edgesig',ic:'📛',nm:'EDGE SIG.',q:'is the edge statistically real?',st:_stOf(ec),cc:ec,chip:'p '+ES2.p_value,
+           html:'<div class="lbl" style="margin:12px 0 2px" title="Is the edge statistically real? One-sample test on per-trade net PnL: t-stat, two-sided p-value, a 95% t-CI and a bootstrap CI on the mean. Complements the Deflated Sharpe (multiple-testing haircut) with a plain, direct read.">📛 EDGE SIGNIFICANCE · §4 — is the edge statistically real?</div>'
+           +'<div style="font-size:var(--fsxs);color:'+ec+'">'+ES2.verdict+' <span style="color:var(--text5)">· mean '+fmtUsd(Math.round(ES2.mean_pnl*mlt))+'/trade · t '+ES2.t_stat+' · 95% CI ['+fmtUsd(Math.round(ES2.ci95[0]*mlt))+', '+fmtUsd(Math.round(ES2.ci95[1]*mlt))+'] · bootstrap '+ES2.boot_prob_profit+'% profitable</span></div>'});}
         const TFa=P.tailfit;
         if(TFa&&TFa.student_df!=null){const tc=TFa.student_df<4?'#f0997b':(TFa.student_df<8?'var(--yellow)':'var(--green)');
-          advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Fat-tail fit of within-session returns: a Student-t is fit; lower degrees of freedom = fatter tails (df<4 = extreme). Fat tails mean the Monte-Carlo / tail-VaR sizing matters — the normal case understates shock risk.">🐟 RETURN TAIL-FIT · §1 — how fat are the tails?</div>'
-           +'<div style="font-size:var(--fsxs);color:'+tc+'">'+TFa.verdict+' <span style="color:var(--text5)">· excess kurtosis '+TFa.excess_kurtosis+' · 1% bar move '+TFa.tail_1pct_bp+'bp ('+TFa.vs_normal_1pct+'× a normal)</span></div>';}
+          L.push({k:'tail',ic:'🐟',nm:'TAIL-FIT',q:'how fat are the tails?',st:_stOf(tc),cc:tc,chip:'df '+TFa.student_df,
+           html:'<div class="lbl" style="margin:12px 0 2px" title="Fat-tail fit of within-session returns: a Student-t is fit; lower degrees of freedom = fatter tails (df<4 = extreme). Fat tails mean the Monte-Carlo / tail-VaR sizing matters — the normal case understates shock risk.">🐟 RETURN TAIL-FIT · §1 — how fat are the tails?</div>'
+           +'<div style="font-size:var(--fsxs);color:'+tc+'">'+TFa.verdict+' <span style="color:var(--text5)">· excess kurtosis '+TFa.excess_kurtosis+' · 1% bar move '+TFa.tail_1pct_bp+'bp ('+TFa.vs_normal_1pct+'× a normal)</span></div>'});}
         const SZ=P.seasonality;
-        if(SZ&&SZ.verdict){advHtml+='<div class="lbl" style="margin:12px 0 2px" title="Intraday + weekly seasonality of within-session returns: mean return and volatility by ET hour and day-of-week — where the action and the risk concentrate.">🕰️ SEASONALITY · §1 — when does the action happen?</div>'
-           +'<div style="font-size:var(--fsxs);color:var(--text3)">'+SZ.verdict+' <span style="color:var(--text5)">· weekday mean(bp): '+(SZ.by_dow||[]).map(function(x){return x.dow+' '+x.mean_bp;}).join(' · ')+'</span></div>';}
-        return advHtml;};
+        if(SZ&&SZ.verdict){L.push({k:'season',ic:'🕰️',nm:'SEASONALITY',q:'when does the action happen?',st:'info',cc:'var(--text3)',chip:String(SZ.verdict||'').split('·')[0].trim().slice(0,16),
+           html:'<div class="lbl" style="margin:12px 0 2px" title="Intraday + weekly seasonality of within-session returns: mean return and volatility by ET hour and day-of-week — where the action and the risk concentrate.">🕰️ SEASONALITY · §1 — when does the action happen?</div>'
+           +'<div style="font-size:var(--fsxs);color:var(--text3)">'+SZ.verdict+' <span style="color:var(--text5)">· weekday mean(bp): '+(SZ.by_dow||[]).map(function(x){return x.dow+' '+x.mean_bp;}).join(' · ')+'</span></div>'});}
+        return L;};
+    const pillsHtml=(P,mlt)=>pillsList(P,mlt).map(function(x){return x.html;}).join('');
     // §6 Ensemble top-K + stacking/CCMP (grid sweeps)
     const ensembleCardHtml=(ENS,mlt)=>{if(!(ENS&&ENS.blend&&ENS.best))return '';const eb=ENS.blend,es=ENS.best,imp=ENS.improved,mE=v=>fmtUsd(Math.round((v||0)*mlt)),gc=imp?'var(--green)':'var(--text3)';
         return '<div class="lbl" style="margin:14px 0 4px" title="Instead of deploying only the single best config, allocate 1/K to each of the top-K and blend them. The blend usually keeps most of the PnL with a shallower drawdown (the configs do not all dip at once). Verdict is on recovery = profit / drawdown.">🧩 ENSEMBLE TOP-'+ENS.k+' · §6 — blend vs the single best</div>'
@@ -8626,10 +8646,42 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _dofNT=+d.best_trades||0;
       const _dofV=(d.validate&&d.validate.trades_per_param!=null)?d.validate.trades_per_param:((_dofNP>0&&_dofNT>0)?(_dofNT/_dofNP):null);
       const _dofHtml=(_dofV!=null)?('<div style="font-size:var(--fsxs);color:var(--text3)" title="Trades per optimized parameter — the overfitting governor. Under 10 = high risk; aim for 30+.">📐 SAMPLE ADEQUACY (DOF) · §4 — <b style="color:'+(_dofV>=30?'var(--green)':_dofV>=10?'var(--yellow)':'var(--red)')+'">'+Math.round(_dofV)+' trades / param</b> <span style="color:var(--text5)">· '+_dofNT.toLocaleString()+' trades'+(_dofNP?' across '+_dofNP+' params':'')+'</span></div>'):'';
-      const _diagParts=[_dofHtml,pillsHtml(_pillSrc,mlt),ensembleCardHtml(d.ensemble,mlt),plateauCardHtml(d.plateau_pick,d.best_params,mlt),((d.gate_validate||(d.validate&&d.validate.gate_bakeoff))?gvTableHtml(d.gate_validate||d.validate.gate_bakeoff,stratTag(d.strategy),mlt):''),(d.ml_gate?gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt):'')].filter(x=>x&&x.replace(/\s/g,''));
+      const _gvD=d.gate_validate||(d.validate&&d.validate.gate_bakeoff);
+      const _diagParts=[_dofHtml,pillsHtml(_pillSrc,mlt),ensembleCardHtml(d.ensemble,mlt),plateauCardHtml(d.plateau_pick,d.best_params,mlt),(_gvD?gvTableHtml(_gvD,stratTag(d.strategy),mlt):''),(d.ml_gate?gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt):'')].filter(x=>x&&x.replace(/\s/g,''));
+      // ── NEW §4 (redesign #27): verdict-CHIP grid — every check is one compact chip (icon +
+      //    name + status dot + one number); click a chip to expand its full readout below the
+      //    grid. The old pill wall is preserved untouched in the LEGACY block at the report
+      //    bottom until the owner picks a winner. ──
+      const _chips=pillsList(_pillSrc,mlt);
+      if(_dofV!=null)_chips.unshift({k:'dof',ic:'📐',nm:'SAMPLE (DOF)',q:'trades per optimized parameter — the overfitting governor',st:(_dofV>=30?'ok':_dofV>=10?'warn':'bad'),cc:(_dofV>=30?'var(--green)':_dofV>=10?'var(--yellow)':'var(--red)'),chip:Math.round(_dofV)+' trd/param',html:_dofHtml});
+      const _ensH=ensembleCardHtml(d.ensemble,mlt);
+      if(_ensH&&_ensH.replace(/\s/g,''))_chips.push({k:'ens',ic:'🧩',nm:'ENSEMBLE',q:'blend of top-K vs the single best config',st:(d.ensemble&&d.ensemble.improved)?'ok':'info',cc:(d.ensemble&&d.ensemble.improved)?'var(--green)':'var(--text3)',chip:(d.ensemble&&d.ensemble.improved)?'blend wins':'single best',html:_ensH});
+      const _plH=plateauCardHtml(d.plateau_pick,d.best_params,mlt);
+      if(_plH&&_plH.replace(/\s/g,''))_chips.push({k:'plat',ic:'🏔',nm:'PLATEAU PICK',q:'broad high ground vs the champion spike',st:(d.plateau_pick&&d.plateau_pick.same_as_best)?'ok':'info',cc:(d.plateau_pick&&d.plateau_pick.same_as_best)?'var(--green)':'var(--text3)',chip:(d.plateau_pick&&d.plateau_pick.same_as_best)?'agrees':'differs',html:_plH});
+      if(_gvD){const _gLB=_gvD.lockbox;
+        _chips.push({k:'gval',ic:'🚪',nm:'GATE VALIDATE',q:'model-and-cut-off bake-off, winner gets one lockbox look',st:_gLB?(_gLB.helped?'ok':'bad'):'info',cc:_gLB?(_gLB.helped?'var(--green)':'var(--red)'):'var(--text3)',chip:_gLB?('LB '+(_gLB.helped?'HELD':'FAILED')):'pre-LB only',html:gvTableHtml(_gvD,stratTag(d.strategy),mlt)});}
+      if(d.ml_gate){const _gu=d.ml_gate.ungated||{},_gg=d.ml_gate.gated||{};const _gHelp=(_gg.total_pnl||0)>=(_gu.total_pnl||0);
+        _chips.push({k:'mlg',ic:'🚪',nm:'ML GATE',q:'trades the model kept vs taking everything',st:_gHelp?'ok':'warn',cc:_gHelp?'var(--green)':'var(--yellow)',chip:_gHelp?'gate helps':'no help',html:gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt)});}
+      const _nOk=_chips.filter(c=>c.st==='ok').length,_nWr=_chips.filter(c=>c.st==='warn').length,_nBd=_chips.filter(c=>c.st==='bad').length,_nIn=_chips.filter(c=>c.st==='info').length;
+      const _dVerd=_chips.length?('<span style="font-weight:700;font-size:10px">'+(_nOk?'<span style="color:var(--green)">'+_nOk+' pass</span>':'')+(_nWr?' · <span style="color:var(--yellow)">'+_nWr+' warn</span>':'')+(_nBd?' · <span style="color:var(--red)">'+_nBd+' flag</span>':'')+(_nIn?' · <span style="color:var(--text4)">'+_nIn+' info</span>':'')+'</span>'):'';
+      const _dcDot=c=>({ok:'var(--green)',warn:'var(--yellow)',bad:'var(--red)',info:'var(--text4)'}[c.st]||'var(--text4)');
+      const _chipHtml=c=>{const dot=_dcDot(c);const open=window._diagOpenKey===c.k;
+        return '<div data-diagchip="'+c.k+'" title="'+String(c.q||'').replace(/"/g,'&quot;')+' — click to expand" style="cursor:pointer;border:1px solid '+(open?dot:'var(--border)')+';border-left:3px solid '+dot+';border-radius:8px;padding:5px 9px;background:'+(open?'var(--bg1)':'transparent')+';user-select:none">'
+        +'<div style="display:flex;align-items:center;gap:5px;font-size:8px;letter-spacing:.5px;color:var(--text4)"><span style="font-variant-emoji:text">'+c.ic+'</span><span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+c.nm+'</span><span style="margin-left:auto;flex:0 0 6px;width:6px;height:6px;border-radius:50%;background:'+dot+'"></span></div>'
+        +'<div style="font-size:11px;font-weight:700;color:'+(c.cc||dot)+';margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+c.chip+'</div></div>';};
+      const _openChip=_chips.filter(c=>c.k===window._diagOpenKey)[0];
       // Fixed slot for EVERY run type (universal layout): render the header always, with an n/a card when this run saved no diagnostics.
-      const _diagHd='<div id="res-step-diag" class="lbl" style="margin:22px 0 8px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:23px;height:23px;border-radius:50%;background:var(--bg1);border:1px solid var(--border);font-size:12px;font-weight:800;color:var(--text2)">4</span><span style="font-weight:800;font-size:15px;color:var(--text);letter-spacing:0;text-transform:none">🔬 Robustness &amp; Diagnostics</span><span style="font-weight:400;color:var(--text4);font-size:9px">informational — distribution-free checks · ensemble · ML gate</span></div>';
-      const _diagSec=_diagHd+'<div data-ck="diag" style="'+_card2+';margin-bottom:14px">'+(_diagParts.length?_diagParts.join('<div style="margin:12px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)"></div>'):_naTile('','ROBUSTNESS &amp; DIAGNOSTICS','no distribution-free checks, ensemble or ML-gate saved for this run'))+'</div>';
+      const _diagHd='<div id="res-step-diag" class="lbl" style="margin:22px 0 8px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:23px;height:23px;border-radius:50%;background:var(--bg1);border:1px solid var(--border);font-size:12px;font-weight:800;color:var(--text2)">4</span><span style="font-weight:800;font-size:15px;color:var(--text);letter-spacing:0;text-transform:none">🔬 Robustness &amp; Diagnostics</span>'+(_dVerd||'<span style="font-weight:400;color:var(--text4);font-size:9px">informational — distribution-free checks · ensemble · ML gate</span>')+'<span style="font-weight:400;color:var(--text5);font-size:9px;cursor:help" title="Each chip is one independent robustness check — the dot is its verdict (green pass, yellow warn, red flag, grey = context only, no pass/fail). Click a chip for the full readout with methodology. These are informational: they do not gate the checklist.">ⓘ</span></div>';
+      const _diagSec=_diagHd+'<div data-ck="diag" style="'+_card2+';margin-bottom:14px">'+(_chips.length
+        ?('<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px">'+_chips.map(_chipHtml).join('')+'</div>'
+          +(_openChip?('<div style="margin-top:6px;padding:0 4px 4px;border:1px dashed color-mix(in srgb,'+_dcDot(_openChip)+' 45%,var(--border));border-radius:8px">'+_openChip.html+'</div>'):'<div style="font-size:8px;color:var(--text5);margin-top:6px">click a chip for its full readout</div>'))
+        :_naTile('','ROBUSTNESS &amp; DIAGNOSTICS','no distribution-free checks, ensemble or ML-gate saved for this run'))+'</div>';
+      // ── LEGACY block (redesign transition): the ORIGINAL diagnostics wall, untouched, at the
+      //    report bottom so old and new can be compared side by side. Deleted once one wins. ──
+      const _legacyParts=[];
+      if(_diagParts.length)_legacyParts.push('<div class="lbl" style="margin:0 0 8px;font-size:11px;color:var(--text4)">🗄 LEGACY · Robustness &amp; Diagnostics (old pill wall)</div>'
+        +'<div style="'+_card2+'">'+_diagParts.join('<div style="margin:12px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)"></div>')+'</div>');
+      const _legacyBlock=_legacyParts.length?('<div style="margin:26px 0 14px;border-top:2px dashed var(--yellow);padding-top:10px"><div style="font-size:9px;color:var(--yellow);letter-spacing:1px;margin-bottom:10px">🗄 LEGACY LAYOUT — kept for comparison with the redesigned sections above; the losing layout gets deleted once you pick</div>'+_legacyParts.join('<div style="height:14px"></div>')+'</div>'):'';
       return hdrHtml
         +valBannerHtml(d)
         // §1 renders the SAME three-column skeleton for EVERY run type — both branches above populate
@@ -8641,6 +8693,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4,_strN)
         +_sec('8','Drawdown','size for the worst-case equity path',_sec8)
         +_diagSec
+        +_legacyBlock
         +runCodeHtml(d);
     };
     let body='';
@@ -10425,6 +10478,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _s3x=content.querySelector('[data-sc3x]');if(_s3x)_s3x.onchange=()=>{savePref('sc3X',_s3x.value);renderApp();};
       const _s3y=content.querySelector('[data-sc3y]');if(_s3y)_s3y.onchange=()=>{savePref('sc3Y',_s3y.value);renderApp();};
       const _dsc2=content.querySelector('[data-distsec]');if(_dsc2)_dsc2.onchange=()=>{savePref('distSec',_dsc2.value);renderApp();};
+      // §4 verdict chips (redesign #27): click toggles that check's full readout open/closed
+      content.querySelectorAll('[data-diagchip]').forEach(b=>{b.onclick=()=>{window._diagOpenKey=(window._diagOpenKey===b.dataset.diagchip)?null:b.dataset.diagchip;renderApp();};});
       const _wfv=content.querySelectorAll('[data-wfview]');_wfv.forEach(ch=>{ch.onclick=(e)=>{e.stopPropagation();savePref('wfView',ch.dataset.wfview);renderApp();};});}
     return;
   }
