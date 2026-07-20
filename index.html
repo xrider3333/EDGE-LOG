@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='61.4';
+const VERSION='61.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'61.5', date:'2026-07-20', notes:['FIX (the real one): section-2 columns 2 and 3 were still truncating — the chart-resize handler matches cards by the text "resize:both" in their style, so it kept grabbing the columns and pinning them to a stale saved height (column 2 stuck at 100px over its charts). The columns now use a style without that text, so the handler leaves them alone and they grow to fit every chart. Nothing is cut off.']},
   {v:'61.4', date:'2026-07-20', notes:['FIX: section-2 columns 2 and 3 were truncating their charts — the equal-height stretch plus overflow:auto was resolving the column heights wrong and clipping content (column 2 rendered 100px tall over 575px of charts). Columns now grow to fit ALL their content and top-align, so nothing is cut off. Trade-off: the three columns are no longer forced to identical height (column 3 is genuinely the tallest); if you want them evened up I can rebalance which charts sit in each column.']},
   {v:'61.3', date:'2026-07-20', notes:['SECTION 3 ML GATE redesigned to lead with the DECISION (owner). Order is now: verdict banner (held / failed, in plain words) → a BEFORE → AFTER row of stat cards (net P&L, profit factor, recovery, trades kept — every trade vs only the trades the gate kept, so "does it help?" is answered at a glance) → the chosen model and cut-off on one line → the sweep chart and candidates table folded behind a "how it was chosen" toggle (evidence, not the headline).','The recovery-vs-cut-off sweep chart is no longer the first thing you see — it is the WHY, available on click.','Placeholder noted for the ungated-vs-gated equity-curve overlay (lands with a small engine curve-save, like the 2L overlay).','Legacy diagnostics block at the report bottom still carries the old full gate readout for comparison.']},
   {v:'61.2', date:'2026-07-20', notes:['FIX: dragging a section-2 column shorter permanently squished the 3-D charts inside it — the whole-column resize handle was scaling every chart down and saving that. Columns are no longer resized as a whole; resize the individual chart you want with its own handle instead (the 3-D charts render at full size again).','2E param-relationship moved to sit UNDER 2C in column 1 (the widest column), so its bars stop squishing. The r value now sits right after the parameter name (it was stranded far to the right, past the bar), the param column is tighter, and the wordy Pearson-arrow header was dropped — the green/red bar already shows direction.','2C: the boundary / auto-expand notes moved BELOW the PDP mini-charts — they were opening a gap between the 2B parallel-coordinates chart and the 2C curves.']},
@@ -8659,11 +8660,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // resize:none on the COLUMN card (overrides _card2's resize:both) — a column is a STACK of
       //   charts, and the whole-card resize handler squished every SVG (3-D surfaces stuck
       //   permanently distorted). Each chart inside keeps its OWN resize handle instead.
-      // overflow:visible + natural height (NOT height:100% + overflow:auto): the equal-height
-      //   stretch was resolving column heights wrong and clipping the taller/shorter columns'
-      //   content (col2 rendered 100px tall over 575px of content). Columns now grow to fit all
-      //   their charts; the row top-aligns (align-items:flex-start below).
-      const _colCard=(inner,ck,fx)=>(inner&&inner.replace(/\s/g,''))?('<div style="flex:'+fx+';min-width:0"><div data-ck="'+ck+'" style="'+_card2+';box-sizing:border-box;resize:none;overflow:visible">'+inner+'</div></div>'):'';
+      // Column cards use a style with NO "resize:both" substring — the card-layout resize
+      //   handler selects cards via [style*="resize:both"] and was matching these columns
+      //   (the string still contained it even under resize:none), then applying a stale saved
+      //   height + squishing the SVGs (col2 pinned to 100px over 575px of charts). Building the
+      //   style without that substring keeps the handler off them: columns grow to fit ALL their
+      //   charts, top-aligned (align-items:flex-start), nothing clipped. Charts resize individually.
+      const _colStyle='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:12px 14px;box-sizing:border-box;overflow:visible';
+      const _colCard=(inner,ck,fx)=>(inner&&inner.replace(/\s/g,''))?('<div style="flex:'+fx+';min-width:0"><div data-ck="'+ck+'" style="'+_colStyle+'">'+inner+'</div></div>'):'';
       const _nbInner=(nbHtml&&nbHtml.replace(/\s/g,''))?(_numHdr(_cfgN+'G','NEIGHBOUR ROBUSTNESS',nbTip,nbSub)+nbHtml):'';
       // 3-D EXPLORER inner (2H/2I/2J via chips) — content only, no per-tile card (it stacks in col 3).
       const _p3opts=[['h','2H SURFACE',_hm],['i','2I SURFACE',_p3d],['j','2J SCATTER',_sc]].filter(o=>o[2]&&o[2].replace(/\s/g,''));
