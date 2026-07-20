@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='61.2';
+const VERSION='61.3';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'61.3', date:'2026-07-20', notes:['SECTION 3 ML GATE redesigned to lead with the DECISION (owner). Order is now: verdict banner (held / failed, in plain words) → a BEFORE → AFTER row of stat cards (net P&L, profit factor, recovery, trades kept — every trade vs only the trades the gate kept, so "does it help?" is answered at a glance) → the chosen model and cut-off on one line → the sweep chart and candidates table folded behind a "how it was chosen" toggle (evidence, not the headline).','The recovery-vs-cut-off sweep chart is no longer the first thing you see — it is the WHY, available on click.','Placeholder noted for the ungated-vs-gated equity-curve overlay (lands with a small engine curve-save, like the 2L overlay).','Legacy diagnostics block at the report bottom still carries the old full gate readout for comparison.']},
   {v:'61.2', date:'2026-07-20', notes:['FIX: dragging a section-2 column shorter permanently squished the 3-D charts inside it — the whole-column resize handle was scaling every chart down and saving that. Columns are no longer resized as a whole; resize the individual chart you want with its own handle instead (the 3-D charts render at full size again).','2E param-relationship moved to sit UNDER 2C in column 1 (the widest column), so its bars stop squishing. The r value now sits right after the parameter name (it was stranded far to the right, past the bar), the param column is tighter, and the wordy Pearson-arrow header was dropped — the green/red bar already shows direction.','2C: the boundary / auto-expand notes moved BELOW the PDP mini-charts — they were opening a gap between the 2B parallel-coordinates chart and the 2C curves.']},
   {v:'61.1', date:'2026-07-20', notes:['SECTION 2 rebuilt into THREE columns, mirroring section 1 (owner request). Column 1 = CONFIG LANDSCAPE: 2A top-config equities, then 2B parallel coordinates with the 2C PDP curves beneath it — stacked in one tile like 1A-1D, and 2B/2C keep full height (not compressed). Column 2 = CLUSTER CHECK: 2D config distribution, 2G neighbour robustness, 2E param relationships. Column 3 = SURFACES + ML: the 3-D explorer (2H/2I/2J), the 2L model bake-off (with the new equity overlay), and the 2F top-configs table strip. All three columns are equal height, exactly like section 1.','The legacy section-2 arrangement stays untouched in the LEGACY block at the report bottom for comparison.']},
   {v:'61.0', date:'2026-07-20', notes:['§3 ML GATE sweep chart now has proper AXIS LABELS on the chart itself: the y-axis reads "RECOVERY FACTOR ($ per $ drawdown)" (rotated on the left) and the x-axis reads "GATE CUT-OFF % — min win-probability to take a trade" (under the ticks), instead of the titles floating as detached text above and below. The verbose caption was trimmed to one line.']},
@@ -8782,30 +8783,48 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _gvP=_gvD?gvParts(_gvD,stratTag(d.strategy),mlt):null;
       let _gateSec='';
       if(_gvP||d.ml_gate){
-        const _g$=v=>fmtUsd(Math.round((v||0)*mlt));
+        const _g$=v=>fmtUsd(Math.round((v||0)*mlt));const _pff=v=>Math.min(v||0,99).toFixed(2);
+        // ── VERDICT banner (qualitative — the numbers live in the before→after cards below) ──
         let _gbc='var(--yellow)',_gbTxt='';
         if(_gvP&&_gvP.LB){const LB=_gvP.LB;_gbc=LB.helped?'var(--green)':'var(--red)';
-          _gbTxt='<b style="color:'+_gbc+'">LOCKBOX '+(LB.helped?'HELD ✓':'FAILED ✕')+'</b> — gated <b style="color:'+_gbc+'">'+_g$(LB.gated.total_pnl)+'</b> vs ungated '+_g$(LB.ungated.total_pnl)+' <span style="color:var(--text5)">· PF '+Math.min(LB.gated.profit_factor,99).toFixed(2)+' vs '+Math.min(LB.ungated.profit_factor,99).toFixed(2)+' · rec '+LB.gated_rec.toFixed(2)+' vs '+LB.ungated_rec.toFixed(2)+' · the gate '+(LB.helped?'beat':'lost to')+' no-gate on the untouched slice</span>';}
-        else if(_gvP){_gbc=_gvP.V.gate_earns_pre?'var(--green)':'var(--yellow)';_gbTxt='<b style="color:'+_gbc+'">PRE-LOCKBOX '+(_gvP.V.gate_earns_pre?'EARNS':'DOES NOT EARN')+'</b> — no lockbox look saved for this run';}
+          _gbTxt='<b style="color:'+_gbc+'">LOCKBOX '+(LB.helped?'HELD ✓':'FAILED ✕')+'</b> — the gate '+(LB.helped?'beat':'lost to')+' no-gate on the held-out slice it never saw';}
+        else if(_gvP){_gbc=_gvP.V.gate_earns_pre?'var(--green)':'var(--yellow)';_gbTxt='<b style="color:'+_gbc+'">PRE-LOCKBOX '+(_gvP.V.gate_earns_pre?'EARNS':'DOES NOT EARN')+'</b> — no held-out lockbox look was saved for this run';}
         else{const _u2=d.ml_gate.ungated||{},_q2=d.ml_gate.gated||{};const _h2=(_q2.total_pnl||0)>=(_u2.total_pnl||0);_gbc=_h2?'var(--green)':'var(--yellow)';
-          _gbTxt='<b style="color:'+_gbc+'">GATE '+(_h2?'HELPED':'DID NOT HELP')+'</b> — gated '+_g$(_q2.total_pnl)+' vs ungated '+_g$(_u2.total_pnl);}
+          _gbTxt='<b style="color:'+_gbc+'">GATE '+(_h2?'HELPS':'DOES NOT HELP')+'</b> — the trades it kept '+(_h2?'beat':'did worse than')+' taking every trade (in-sample)';}
         const _gHd='<div class="lbl" style="margin:22px 0 8px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:23px;height:23px;border-radius:50%;background:var(--bg1);border:1px solid var(--border);font-size:12px;font-weight:800;color:var(--text2)">3</span><span style="font-weight:800;font-size:15px;color:var(--text);letter-spacing:0;text-transform:none">🚪 ML Gate</span><span style="font-weight:400;color:var(--text4);font-size:9px">does a trade-filter model earn its keep?</span><span style="font-weight:400;color:var(--text5);font-size:9px;cursor:help" title="A GATE is an ML model that scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. GATE VALIDATE sweeps several models across several cut-offs on PRE-lockbox data, picks ONE winner by recovery factor, and gives only that winner a single look at the held-out lockbox — no cherry-picking.">ⓘ</span></div>';
+        // ── HERO: before → after stat cards — the decision, up front (redesign, owner option A) ──
+        const _statCard=(lab,bef,aft,better)=>'<div style="background:var(--bg1);border-radius:8px;padding:7px 9px;flex:1 1 92px;min-width:82px"><div style="font-size:8px;color:var(--text5);letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+lab+'</div><div style="font-size:12px;margin-top:2px;white-space:nowrap"><span style="color:var(--text5)">'+bef+'</span> <span style="color:var(--text5)">→</span> <b style="color:'+(better===true?'var(--green)':(better===false?'var(--red)':'var(--text2)'))+'">'+aft+'</b></div></div>';
+        const _hc=[];let _slice='';
+        if(_gvP&&_gvP.LB){const LB=_gvP.LB;_slice='lockbox — the held-out slice';
+          _hc.push(_statCard('NET P&L',_g$(LB.ungated.total_pnl),_g$(LB.gated.total_pnl),(LB.gated.total_pnl||0)>=(LB.ungated.total_pnl||0)));
+          _hc.push(_statCard('PROFIT FACTOR',_pff(LB.ungated.profit_factor),_pff(LB.gated.profit_factor),(LB.gated.profit_factor||0)>=(LB.ungated.profit_factor||0)));
+          _hc.push(_statCard('RECOVERY',(LB.ungated_rec||0).toFixed(2),(LB.gated_rec||0).toFixed(2),(LB.gated_rec||0)>=(LB.ungated_rec||0)));
+          _hc.push(_statCard('TRADES KEPT',(LB.ungated.num_trades||0),(LB.gated.num_trades||0)+' ('+Math.round((LB.gated.num_trades||0)/((LB.ungated.num_trades)||1)*100)+'%)',null));
+        }else if(_gvP&&_gvP.ch){const V=_gvP.V,ch=_gvP.ch,U=V.ungated_pre||{};_slice='pre-lockbox — the tuning slice';
+          _hc.push(_statCard('NET P&L',_g$(U.total_pnl),_g$(ch.pre_pnl),(ch.pre_pnl||0)>=(U.total_pnl||0)));
+          _hc.push(_statCard('PROFIT FACTOR',_pff(U.profit_factor),_pff(ch.pre_pf),(ch.pre_pf||0)>=(U.profit_factor||0)));
+          if(V.ungated_pre_rec!=null)_hc.push(_statCard('RECOVERY',(V.ungated_pre_rec||0).toFixed(2),(ch.pre_rec||0).toFixed(2),(ch.pre_rec||0)>=(V.ungated_pre_rec||0)));
+          _hc.push(_statCard('TRADES KEPT',(U.num_trades||0),(ch.kept_pre||0)+' ('+Math.round((ch.kept_pre||0)/((U.num_trades)||1)*100)+'%)',null));
+        }else if(d.ml_gate){const U=d.ml_gate.ungated||{},G=d.ml_gate.gated||{};_slice='in-sample';
+          _hc.push(_statCard('NET P&L',_g$(U.total_pnl),_g$(G.total_pnl),(G.total_pnl||0)>=(U.total_pnl||0)));
+          _hc.push(_statCard('PROFIT FACTOR',_pff(U.profit_factor),_pff(G.profit_factor),(G.profit_factor||0)>=(U.profit_factor||0)));
+          _hc.push(_statCard('MAX DRAWDOWN',_g$(U.max_drawdown),_g$(G.max_drawdown),Math.abs(G.max_drawdown||0)<=Math.abs(U.max_drawdown||0)));
+          _hc.push(_statCard('WIN %',Math.round(U.win_rate||0)+'%',Math.round(G.win_rate||0)+'%',(G.win_rate||0)>=(U.win_rate||0)));
+          _hc.push(_statCard('TRADES KEPT',(U.num_trades||0),(G.num_trades||0)+' ('+Math.round((G.num_trades||0)/((U.num_trades)||1)*100)+'%)',null));
+        }
+        const _hero=_hc.length?('<div style="font-size:8px;color:var(--text5);letter-spacing:.5px;margin:0 0 5px">BEFORE → AFTER'+(_slice?' · '+_slice:'')+' — every trade (before) vs only the trades the gate kept (after)</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+_hc.join('')+'</div>'):'';
+        const _ovlNote='<div style="display:flex;align-items:center;gap:8px;background:var(--bg1);border-radius:8px;padding:6px 10px;margin-bottom:12px;font-size:8px;color:var(--text5)"><span style="font-size:11px;font-variant-emoji:text">📈</span><span>ungated vs gated equity curves, overlaid on one chart — coming once the engine saves both curves (same add as the 2L overlay).</span></div>';
+        // ── the pick + collapsed EVIDENCE (sweep chart + candidates table / full gate detail) ──
+        const _evOpen=!!window._gvEvOpen;
         let _gBody;
         if(_gvP){
-          // #30 compact: the sweep chart caps at ~2A size, the candidates table collapses
-          //   behind an expander, and the method paragraph lives only in the ⓘ tooltips —
-          //   the whole section reads banner → small chart → chips in ~one screen-strip.
-          const _tOpen=!!window._gvTblOpen;
-          const _chos='<span style="font-size:var(--fsxs);color:var(--text3)">chosen: <b style="color:var(--green)">'+(_gvP.ch?('▸ '+_gvP.ch.model+' @ '+Math.round(_gvP.ch.threshold*100)+'%'):'—')+'</b></span>';
-          _gBody='<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">'
-            +'<div data-r3graph style="flex:0 1 440px;min-width:300px;max-width:460px"><style>[data-r3graph] .rschart-box{height:152px!important;resize:none}</style>'+_gvP.graph+'</div>'
-            +'<div style="flex:1 1 320px;min-width:0">'
-              +'<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:4px">'+_chos+_gvP.earns.replace('margin-top:8px','margin-top:0')+'</div>'
-              +'<div data-gvtbl title="'+String(_gvP.V.n_candidates||'')+' candidates (model × cut-off) ranked on PRE-lockbox data only, by recovery factor ($ made per $ of drawdown — the equal-risk yardstick). Only the winner ever sees the lockbox — no shopping. Click to '+(_tOpen?'collapse':'open')+' the full table." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px;padding:5px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent);margin-top:6px">'+(_tOpen?'▴ hide the candidates table':'▾ '+(_gvP.V.n_candidates||'')+' candidates — full table ⓘ')+'</div>'
-              +(_tOpen?_gvP.table:'')
-              +_gvP.verdict
-            +'</div></div>';
-        }else{_gBody=gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt);}
+          const _pickLine='<div style="font-size:var(--fsxs);color:var(--text3);margin-bottom:4px">chosen: <b style="color:var(--green)">'+(_gvP.ch?('▸ '+_gvP.ch.model+' @ '+Math.round(_gvP.ch.threshold*100)+'%'):'—')+'</b> <span style="color:var(--text5)">— best recovery of '+(_gvP.V.n_candidates||'')+' model × cut-off candidates</span></div>';
+          const _evTog='<div data-r3ev title="the recovery-vs-cut-off sweep chart and the full candidates table — how the winner was picked on pre-lockbox data. Click to '+(_evOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px;padding:5px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)">'+(_evOpen?'▴ hide how it was chosen':'▾ how it was chosen — sweep chart + candidates ⓘ')+'</div>';
+          _gBody=_hero+_ovlNote+_pickLine+_gvP.earns+_evTog+(_evOpen?('<div data-r3graph style="max-width:540px;margin-top:8px"><style>[data-r3graph] .rschart-box{height:174px!important;resize:none}</style>'+_gvP.graph+'</div>'+_gvP.table):'')+_gvP.verdict;
+        }else{
+          const _evTog='<div data-r3ev title="the full gate report — before/after table, feature attribution (SHAP), calibration and discrimination. Click to '+(_evOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px;padding:5px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)">'+(_evOpen?'▴ hide the full gate detail':'▾ full gate detail — feature attribution · calibration ⓘ')+'</div>';
+          _gBody=_hero+_ovlNote+_evTog+(_evOpen?gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt):'');
+        }
         _gateSec=_gHd+'<div style="'+_card2+';margin-bottom:14px"><div style="border:1px solid color-mix(in srgb,'+_gbc+' 45%,var(--border));background:color-mix(in srgb,'+_gbc+' 7%,transparent);border-radius:9px;padding:7px 12px;margin-bottom:12px;font-size:var(--fsm)">'+_gbTxt+'</div>'+_gBody+'</div>';
       }
       return hdrHtml
@@ -10624,7 +10643,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-p3view]').forEach(b=>{b.onclick=()=>{savePref('p3view',b.dataset.p3view);renderApp();};});
       // compact-pass expanders (#29/#30/#32): 2F table · §3 candidates table · 2L charts
       content.querySelectorAll('[data-cfgtbl]').forEach(b=>{b.onclick=()=>{savePref('cfgTblOpen',APREF.cfgTblOpen?0:1);renderApp();};});
-      content.querySelectorAll('[data-gvtbl]').forEach(b=>{b.onclick=()=>{window._gvTblOpen=!window._gvTblOpen;renderApp();};});
+      content.querySelectorAll('[data-r3ev]').forEach(b=>{b.onclick=()=>{window._gvEvOpen=!window._gvEvOpen;renderApp();};});
       content.querySelectorAll('[data-surrcharts]').forEach(b=>{b.onclick=()=>{savePref('surrCharts',APREF.surrCharts?0:1);renderApp();};});
       const _wfv=content.querySelectorAll('[data-wfview]');_wfv.forEach(ch=>{ch.onclick=(e)=>{e.stopPropagation();savePref('wfView',ch.dataset.wfview);renderApp();};});}
     return;
