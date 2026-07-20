@@ -744,6 +744,15 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-19** — **ML-surface discovery completed and TURNED ON (#31 P1 → #35 → #39 → #36 P2):**
+  the 2L bake-off now runs 5 models (pyGAM added, `c12ad0d`); the knob screen adds a permutation
+  vote + a planted random-noise probe with per-knob margins (`12224a1`); and **P2 GP-steered
+  sampling is ON for Auto-Validate** (`fadd227`, validate.py Stage A) after passing the
+  pre-registered 2-family acceptance A/B at equal budget/seed with the lockbox held out —
+  TTIBS: steered found a +8.6% better IS optimum (21,440 vs 19,738 pts); ORB 3.1 (12-knob
+  intraday surface): +66% (24,002 vs 14,418 pts); 0 GP-fit fallbacks in either. Steering
+  changes how well the search maps the surface, never what passes — WF/lockbox gates unchanged.
+  Full design + evidence: docs/SURROGATE_DISCOVERY_DESIGN.md.
 - **2026-07-18** — **Param-discovery pipeline upgrade (#25–#30, owner-driven from the TTIBS 2C PDP
   observation that knobs peaked at their tested-range edges still rising):** (1) **boundary-peak
   detector** in `pdp_plateau` (5df5a76) — any numeric knob whose smoothed optimum is pinned at the
