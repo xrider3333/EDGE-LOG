@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='61.0';
+const VERSION='61.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'61.1', date:'2026-07-20', notes:['SECTION 2 rebuilt into THREE columns, mirroring section 1 (owner request). Column 1 = CONFIG LANDSCAPE: 2A top-config equities, then 2B parallel coordinates with the 2C PDP curves beneath it — stacked in one tile like 1A-1D, and 2B/2C keep full height (not compressed). Column 2 = CLUSTER CHECK: 2D config distribution, 2G neighbour robustness, 2E param relationships. Column 3 = SURFACES + ML: the 3-D explorer (2H/2I/2J), the 2L model bake-off (with the new equity overlay), and the 2F top-configs table strip. All three columns are equal height, exactly like section 1.','The legacy section-2 arrangement stays untouched in the LEGACY block at the report bottom for comparison.']},
   {v:'61.0', date:'2026-07-20', notes:['§3 ML GATE sweep chart now has proper AXIS LABELS on the chart itself: the y-axis reads "RECOVERY FACTOR ($ per $ drawdown)" (rotated on the left) and the x-axis reads "GATE CUT-OFF % — min win-probability to take a trade" (under the ticks), instead of the titles floating as detached text above and below. The verbose caption was trimmed to one line.']},
   {v:'60.9', date:'2026-07-19', notes:['2L NEW — MODEL-PICK EQUITY OVERLAY (#80, your idea): the ML models each proposed one config; that config gets its in-sample equity curve drawn, and they are overlaid on ONE chart (best model bold, dashed line = the brute-force search best they are trying to beat) — so you compare their SHAPES and drawdowns, not just the end dollars, like the strategy comparison chart.','This is the UI half. It lights up after the matching engine change (which saves each pick\'s curve) lands and you run a fresh Auto-Validate — until then, and on all older runs (incl. 165), the panel shows a short re-run note where the chart will be, since only each pick\'s end-dollar was stored.']},
   {v:'60.8', date:'2026-07-19', notes:['FIX: the 2B/2C + 3-D explorer pairing from 60.7 was NOT sitting side by side — a card WIDTH auto-saved on the old full-width layout (861px) was overriding the new width cap and forcing the row to wrap. That stale size is cleared once, and the two paired cards now follow their wrapper width (still vertically resizable), so a future drag can not break the layout again.']},
@@ -8641,61 +8642,42 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    spacing (§1-style border-top dividers), and a RIGHT column tile stacking 2D / 2E. ──
       const _bt2='margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)';
       const _stack=arr=>arr.filter(x=>x&&x.replace(/\s/g,'')).map((x,i)=>i?('<div style="'+_bt2+'">'+x+'</div>'):x).join('');
-      // ── NEW §2 (redesign #22): a row of THREE equal cards answers the section question
-      //    ("cluster, not a spike?") at a glance — 2A top-configs · 2D distribution · 2G
-      //    neighbours — §1-style columns, no dead voids. Letters KEEP their historic values
-      //    during the legacy-compare phase; re-lettering to reading order happens in the
-      //    renumber pass once the legacy block is deleted. ──
-      const _col3=(inner,ck,fx)=>(inner&&inner.replace(/\s/g,''))?('<div style="flex:'+fx+';min-width:0"><div data-ck="'+ck+'" style="'+_card2+';box-sizing:border-box;height:100%">'+inner+'</div></div>'):'';
+      // ── §2 THREE-COLUMN LAYOUT (owner: mirror §1's 1A-1D column). Three equal-height column
+      //    cards, each stacking its charts with §1-style border-top dividers:
+      //      col1 CONFIG LANDSCAPE — 2A top-config equities · 2B parallel coords (+2C PDP footer)
+      //                              [2B/2C keep full height, not compressed]
+      //      col2 CLUSTER CHECK     — 2D distribution · 2G neighbours · 2E relationships
+      //      col3 SURFACES + ML     — 3-D explorer (2H/2I/2J) · 2L bake-off · 2F top-configs · 2K DSR
+      const _colCard=(inner,ck,fx)=>(inner&&inner.replace(/\s/g,''))?('<div style="flex:'+fx+';min-width:0"><div data-ck="'+ck+'" style="'+_card2+';box-sizing:border-box;height:100%">'+inner+'</div></div>'):'';
       const _nbInner=(nbHtml&&nbHtml.replace(/\s/g,''))?(_numHdr(_cfgN+'G','NEIGHBOUR ROBUSTNESS',nbTip,nbSub)+nbHtml):'';
-      const _cfgTile=(_eq||_dist||_nbInner)?('<div style="display:flex;gap:14px;align-items:stretch;flex-wrap:wrap;margin-bottom:14px">'
-        +_col3(_eq,'r2a','1.25 1 360px')+_col3(_dist,'r2d','1 1 300px')+_col3(_nbInner,'r2g','1 1 300px')+'</div>'):'';
-      // #23: the 2B/2C card (retained layout — owner favourite) now also absorbs 2E as its
-      //   footer: parallel coords → per-knob PDP curves → per-knob relationship table, so
-      //   every per-knob view lives under one roof with the shared subtitle geometry.
-      // #34: 2B/2C obeys the size-ceiling rule (max-width cap, like the 3-D explorer / sweep
-      //   chart) so it stops stretching into a full-width ribbon, and pairs BESIDE the 3-D
-      //   explorer in one row (they wrap to stacked on a narrow screen).
-      // resize:vertical + width:100% (overrides _card2's resize:both): width follows the paired
-      //   wrapper's cap so a dragged/auto-saved WIDTH can't break the side-by-side layout again.
-      const _bcTile=((_parc&&_parc.replace(/\s/g,''))||(_corr&&_corr.replace(/\s/g,'')))?('<div data-ck="r2bc" style="'+_card2+';box-sizing:border-box;resize:vertical;width:100%">'+_stack([(_pmTog+_parc),_corr])+'</div>'):'';
-      // #29: 2F is a reference table the owner rarely reads — one-line strip by default,
-      //   click to open the full table (state remembered via cfgTblOpen).
-      const _tfOpen=!!APREF.cfgTblOpen;
-      const _topTile=(t10.length?('<div data-ck="top" style="'+_card2+';margin-bottom:14px'+(_tfOpen?'':';padding:7px 14px')+'">'
-        +'<div data-cfgtbl title="the numeric detail behind the 2A curves — every top config with its full parameter set and stats. Click to '+(_tfOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'F · TOP CONFIGS <span style="font-weight:400;color:var(--text4);font-size:8px">· '+t10.length+' configs ⓘ</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+(_tfOpen?'▴ hide':'▾ show')+'</span></div>'
-        +(_tfOpen?('<div style="margin-top:8px"><style>.cfgtbl th,.cfgtbl td{padding:2px 5px!important;font-size:8px!important;border-right:1px solid color-mix(in srgb,var(--border) 45%,transparent)}.cfgtbl th:last-child,.cfgtbl td:last-child{border-right:none}.cfgtbl th{white-space:nowrap!important;max-width:70px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;color:var(--text4);letter-spacing:0;cursor:help}</style><div style="overflow-x:auto"><table class="table cfgtbl" style="width:auto;white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div></div>'):'')
-        +'</div>'):'');
-      // (2G neighbours moved INTO the row-of-three above — redesign #22; its standalone tile is gone.)
-      // DSR (a champion/selection metric) lives in §1 (1I) for validate runs; show it here only for non-validate sweeps.
-      const _dsrTile=(!d.validate&&dsrHtml&&dsrHtml.replace(/\s/g,''))?'<div data-ck="dsr" style="'+_card2+';margin-bottom:14px"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'K · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>':'';
-      // #24: ONE 3-D EXPLORER tile — chips pick 2H surface / 2I surface / 2J scatter. They
-      //   were a row of three showing all views at once and filling half the screen; the
-      //   chosen view persists (APREF.p3view). Chips only list views this run can render.
+      // 3-D EXPLORER inner (2H/2I/2J via chips) — content only, no per-tile card (it stacks in col 3).
       const _p3opts=[['h','2H SURFACE',_hm],['i','2I SURFACE',_p3d],['j','2J SCATTER',_sc]].filter(o=>o[2]&&o[2].replace(/\s/g,''));
       const _p3v=(function(){const w=APREF.p3view;return _p3opts.some(o=>o[0]===w)?w:(_p3opts.length?_p3opts[0][0]:null);})();
       const _p3cur=(_p3opts.filter(o=>o[0]===_p3v)[0]||[])[2]||'';
       const _p3chips=_p3opts.length>1?_p3opts.map(o=>'<span data-p3view="'+o[0]+'" style="cursor:pointer;padding:3px 10px;border-radius:9px;font-size:9px;user-select:none;white-space:nowrap;border:1px solid '+(_p3v===o[0]?'var(--green)':'var(--border)')+';color:'+(_p3v===o[0]?'var(--text)':'var(--text4)')+';background:'+(_p3v===o[0]?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+'">'+o[1]+'</span>').join(''):'';
-      const _paramTile=_p3cur?('<div data-ck="r2p3" style="'+_card2+';box-sizing:border-box;resize:vertical;width:100%"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5);cursor:help" title="the same config space in 3-D — height and colour = the chart metric. 2H = the strongest param pair, 2I = the next pair, 2J = every sampled config as a dot. Click-hold to spin, scroll to exaggerate, double-click for fullscreen orbit.">3-D EXPLORER ⓘ</span>'+_p3chips+'</div>'+_p3cur+'</div>'):'';
-      // 2L SURROGATE BAKE-OFF (#31 P1): d.surrogate is undefined on every run saved before
-      //   this backend shipped — surrogatePanelHtml itself returns '' for absent/undefined,
-      //   so old runs render byte-identical (no header, no empty box). A failed bake-off
-      //   comes back as d.surrogate={error:...} (auto.py never lets it kill the run) — show
-      //   a one-line muted note in that case instead of the panel.
+      const _p3inner=_p3cur?('<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5);cursor:help" title="the same config space in 3-D — height and colour = the chart metric. 2H = the strongest param pair, 2I = the next pair, 2J = every sampled config as a dot. Click-hold to spin, scroll to exaggerate, double-click for fullscreen orbit.">3-D EXPLORER ⓘ</span>'+_p3chips+'</div>'+_p3cur):'';
+      // 2L SURROGATE BAKE-OFF inner (#31 P1): surrogatePanelHtml returns '' for absent/undefined
+      //   (old runs render byte-identical); {error:...} → a one-line muted note via _surrErr.
       const _surrHtml=surrogatePanelHtml(d.surrogate,mlt,_cfgN+'L');
-      // #36: 🎯 badge — was THIS run's search model-steered? (runs saved before the flip,
-      //   or with steering off, simply have no d.steering and show nothing)
+      // #36: 🎯 badge — was THIS run's search model-steered?
       const _steerBadge=(d.steering&&d.steering.used)?('<div style="display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:9px;color:#3a9bdc;font-weight:700" title="P2 steered search (#36): the first batch of configs was sampled at random, then a Gaussian-Process model was re-fit on every result so far and CHOSE each next batch (predicted-high-PnL regions plus regions it was still unsure about). Every proposed config was still evaluated by the same real backtest as always.">🎯 MODEL-STEERED SEARCH <span style="font-weight:400;color:var(--text4)">'+(d.steering.seed_trials||0)+' random seed + '+(d.steering.steered_trials||0)+' GP-aimed trials'+((d.steering.fallback_random||0)>0?' · '+d.steering.fallback_random+' fell back to random':' · 0 fallbacks')+'</span></div>'):'';
-      const _surrTile=(_surrHtml&&_surrHtml.replace(/\s/g,''))?'<div data-ck="surr" style="'+_card2+';margin-bottom:14px">'+_steerBadge+_surrHtml+'</div>':'';
+      const _surrInner=(_surrHtml&&_surrHtml.replace(/\s/g,''))?(_steerBadge+_surrHtml):'';
       const _surrErr=(d.surrogate&&d.surrogate.error)?'<div style="font-size:8px;color:var(--text5);margin-bottom:8px">'+_cfgN+'L · ML MODEL BAKE-OFF — skipped: '+String(d.surrogate.error).replace(/</g,'&lt;')+'</div>':'';
-      // #34: 2B/2C (flex 1.15) sits beside the 3-D explorer (flex 1) in one row; each caps at
-      //   ~760/720px so neither stretches, and they wrap to stacked below ~900px.
-      const _bcPair=((_bcTile&&_bcTile.replace(/\s/g,''))||(_paramTile&&_paramTile.replace(/\s/g,'')))
-        ?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
-          +(_bcTile?'<div style="flex:1.15 1 440px;min-width:0;max-width:760px">'+_bcTile+'</div>':'')
-          +(_paramTile?'<div style="flex:1 1 400px;min-width:0;max-width:720px">'+_paramTile+'</div>':'')
-          +'</div>'):'';
-      const _sec3=_cfgTile+_bcPair+_topTile+_dsrTile+_surrTile+_surrErr;
+      // #29: 2F is a reference table the owner rarely reads — one-line strip, click to expand (cfgTblOpen).
+      const _tfOpen=!!APREF.cfgTblOpen;
+      const _topInner=(t10.length?('<div data-cfgtbl title="the numeric detail behind the 2A curves — every top config with its full parameter set and stats. Click to '+(_tfOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'F · TOP CONFIGS <span style="font-weight:400;color:var(--text4);font-size:8px">· '+t10.length+' configs ⓘ</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+(_tfOpen?'▴ hide':'▾ show')+'</span></div>'
+        +(_tfOpen?('<div style="margin-top:8px"><style>.cfgtbl th,.cfgtbl td{padding:2px 5px!important;font-size:8px!important;border-right:1px solid color-mix(in srgb,var(--border) 45%,transparent)}.cfgtbl th:last-child,.cfgtbl td:last-child{border-right:none}.cfgtbl th{white-space:nowrap!important;max-width:70px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;color:var(--text4);letter-spacing:0;cursor:help}</style><div style="overflow-x:auto"><table class="table cfgtbl" style="width:auto;white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div></div>'):'')):'');
+      // 2K DEFLATED SHARPE inner — non-validate sweeps only (validate runs show it in §1/1I).
+      const _dsrInner=(!d.validate&&dsrHtml&&dsrHtml.replace(/\s/g,''))?('<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'K · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml):'';
+      // stack each column with §1-style dividers, then wrap in one equal-height card
+      const _col1=_stack([_eq,((_parc&&_parc.replace(/\s/g,''))?(_pmTog+_parc):'')]);
+      const _col2=_stack([_dist,_nbInner,_corr]);
+      const _col3=_stack([_p3inner,_surrInner,_topInner,_dsrInner]);
+      const _sec3=((_col1+_col2+_col3).replace(/\s/g,'')?('<div style="display:flex;gap:14px;align-items:stretch;flex-wrap:wrap;margin-bottom:14px">'
+        +_colCard(_col1,'c2col1','1.6 1 360px')
+        +_colCard(_col2,'c2col2','1 1 280px')
+        +_colCard(_col3,'c2col3','1.1 1 300px')
+        +'</div>'):'')+_surrErr;
       // §2 header verdict line (redesign #22): the cluster question answered up front —
       //   neighbours held / plateau agreement / PBO, colored, before any chart is read.
       const _pboR=(d.validate&&d.validate.pbo&&d.validate.pbo.pbo!=null)?d.validate.pbo.pbo:((d.pbo&&d.pbo.pbo!=null)?d.pbo.pbo:null);
