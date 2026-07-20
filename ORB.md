@@ -916,7 +916,11 @@ with confidence." *(Not yet run.)*
 
 ---
 
-## 10. Model-steered search is ON for Auto-Validate (2026-07-19) — brief for the next ORB session
+## 10. TODO (OPEN): steered Auto-Validate rerun — brief for the next ORB session
+
+**⬜ TODO:** run a fresh 🧭 Auto-Validate on `ORB_3_1.py` (model-steered search is ON by default
+since 2026-07-19) and judge the steered find — especially the aggressive 6R corner below —
+through the full WF + lockbox gauntlet. Details follow.
 
 **What changed in the engine (nothing in the strategy files):** every 🧭 Auto-Validate run now
 searches the param space with **P2 steering** (#36): the first ~40% of the trial budget is sampled

@@ -716,6 +716,21 @@ not saved to the runs DB — so they carry no run id.*
    economically coherent corner → not multiple-testing noise. **Verdict: keep collecting.** Future use =
    entry-timing/fill improvement and gate features at longer horizons once months of data exist — not a
    standalone strategy. Revisit with a real study at ~3–6 months of data.
+3. **⬜ TODO — steered Auto-Validate rerun, ORB 3.1** (added 2026-07-19): model-steered search is ON
+   for every Auto-Validate; the ORB A/B found an in-sample region random never reached (+66%, an
+   aggressive 6R corner). Rerun ORB 3.1 through the full gauntlet with steering. Brief: `ORB.md` §10.
+4. **⬜ TODO — steered Auto-Validate rerun, ENGU-Q 1m** (added 2026-07-19): same rationale — rich
+   param space, steering benefits scale with knob count; 1m data = slower trials, budget accordingly.
+   Brief: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md` (TODO section at the end).
+5. **⬜ Backlog — P3 interaction-aware expansion**: let the 2L knob-pair interaction map inform which
+   ranges the auto-widener grows jointly (`docs/SURROGATE_DISCOVERY_DESIGN.md` §7 P3). Low priority.
+
+**Current Auto-Validate pipeline (as of 2026-07-19, for orientation):** 🎯 steered search (random
+seed ~40% of trials → GP-aimed batches, #36) → auto-expand of edge-pinned rising knobs (#26/#30)
+→ plateau pick (broad high ground, not argmax) → 2L ML bake-off read-out (5 models incl. pyGAM,
+CV-graded as a %, every pick verified by one real backtest, #31/#35) → knob screen vs a planted
+noise probe (#39) → realism gates → walk-forward (anchored+rolling) → one-look lockbox → report.
+Discovery maximizes in-sample by design; ONLY the lockbox decides deployability.
 
 *(✅ SHAP · ensemble top-K · adversarial validation · conformal band · causal check ·
 synthetic scenarios all shipped 2026-07-04 — see Changelog.)*

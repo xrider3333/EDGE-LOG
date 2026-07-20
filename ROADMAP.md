@@ -84,6 +84,12 @@ app reaches parity, then is retired. Ship tab-by-tab, version-bumped 0.1 each ch
 New backtesting capabilities for `optimizer.py` / `augur_engine`, drawn from Pardo, Bandy,
 Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render in Results
 (DSR, Monte-Carlo, regime, neighborhood) — those are noted.
+- [ ] **TODO (2026-07-19) — steered Auto-Validate reruns**: P2 model-steered search is ON for
+      every Auto-Validate (EDGE-LOG #36; A/B evidence TTIBS +8.6% / ORB 3.1 +66% in-sample at
+      equal budget). (a) ORB 3.1 rerun — brief in `ORB.md` §10; (b) ENGU-Q 1m rerun — brief at
+      the end of `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`. Judge steered finds via WF + lockbox.
+- [ ] **Backlog — P3 interaction-aware expansion**: the 2L knob-pair map informs which ranges the
+      auto-widener grows jointly (`docs/SURROGATE_DISCOVERY_DESIGN.md` §7 P3).
 - [~] **#11 Deflated Sharpe / multiple-testing haircut** — DSR computed (analytics.py) &
       shown; extend to a "best-of-N luck bar" next to every grid winner.
 - [~] **#12 Neighborhood robustness table** — computed & shown; tie to the PLATEAU verdict.
