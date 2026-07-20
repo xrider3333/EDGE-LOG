@@ -91,6 +91,8 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 - [ ] **NEXT UP (owner-flagged 2026-07-19) — P3 interaction-aware expansion**: the 2L knob-pair map
       informs which ranges the auto-widener grows JOINTLY — the 2-D upgrade of the owner's own #30
       re-check-the-plateaus idea (`docs/SURROGATE_DISCOVERY_DESIGN.md` §7 P3). *(build in progress)*
+- [ ] **TODO (owner-approved 2026-07-19) — TabPFN as a 6th bake-off model** (torch dep; the
+      transformer-for-tiny-tabular that fits the ~300-config bake-off habitat).
 - [ ] **TODO (owner idea 2026-07-19) — 2L model-picks equity overlay**: each ML model's verified
       best-pick charted as its own equity curve on one 2A-style overlay (one colour per model,
       search-best as reference). Prereq: ground-truth backtests must save downsampled equity

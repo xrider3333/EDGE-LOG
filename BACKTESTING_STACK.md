@@ -725,7 +725,11 @@ not saved to the runs DB — so they carry no run id.*
 5. **⬜ NEXT UP (owner-flagged 2026-07-19) — P3 interaction-aware expansion**: let the 2L knob-pair
    map inform which ranges the auto-widener grows JOINTLY — the 2-D upgrade of the owner's own #30
    re-check-the-plateaus idea (`docs/SURROGATE_DISCOVERY_DESIGN.md` §7 P3). *(build in progress)*
-6. **⬜ TODO (owner idea 2026-07-19) — 2L model-picks equity overlay**: chart each ML model's
+6. **⬜ TODO (owner-approved 2026-07-19) — TabPFN as a 6th bake-off model**: a transformer
+   pre-trained for TINY tabular datasets — the ~300-config bake-off is exactly its habitat, the
+   one Carl §3 model that is genuinely new vs the five families already in the roster. Needs the
+   `torch` dependency (owner has approved adding it to the TODO; install happens at build time).
+7. **⬜ TODO (owner idea 2026-07-19) — 2L model-picks equity overlay**: chart each ML model's
    verified best-pick as its own equity curve on ONE chart (2A-style overlay, one colour per model,
    the search-best config as reference) so the five models compare visually, not just as scorecards.
    Needs engine support first: the ground-truth backtest of each model pick must SAVE its
