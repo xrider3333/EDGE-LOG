@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='60.9';
+const VERSION='61.0';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'61.0', date:'2026-07-20', notes:['§3 ML GATE sweep chart now has proper AXIS LABELS on the chart itself: the y-axis reads "RECOVERY FACTOR ($ per $ drawdown)" (rotated on the left) and the x-axis reads "GATE CUT-OFF % — min win-probability to take a trade" (under the ticks), instead of the titles floating as detached text above and below. The verbose caption was trimmed to one line.']},
   {v:'60.9', date:'2026-07-19', notes:['2L NEW — MODEL-PICK EQUITY OVERLAY (#80, your idea): the ML models each proposed one config; that config gets its in-sample equity curve drawn, and they are overlaid on ONE chart (best model bold, dashed line = the brute-force search best they are trying to beat) — so you compare their SHAPES and drawdowns, not just the end dollars, like the strategy comparison chart.','This is the UI half. It lights up after the matching engine change (which saves each pick\'s curve) lands and you run a fresh Auto-Validate — until then, and on all older runs (incl. 165), the panel shows a short re-run note where the chart will be, since only each pick\'s end-dollar was stored.']},
   {v:'60.8', date:'2026-07-19', notes:['FIX: the 2B/2C + 3-D explorer pairing from 60.7 was NOT sitting side by side — a card WIDTH auto-saved on the old full-width layout (861px) was overriding the new width cap and forcing the row to wrap. That stale size is cleared once, and the two paired cards now follow their wrapper width (still vertically resizable), so a future drag can not break the layout again.']},
   {v:'60.7', date:'2026-07-19', notes:['SECTION 2 layout: the 2B/2C config-space card (parallel coordinates + PDP + relationship table) no longer stretches full width — it now obeys the same max-width rule as the other charts and sits BESIDE the 3-D EXPLORER in one row (they stack on a narrow screen). That reclaims a whole vertical band in section 2.']},
@@ -7997,22 +7998,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const ths=[];cs2.forEach(c=>{if(ths.indexOf(c.threshold)<0)ths.push(c.threshold);});ths.sort((a,b)=>a-b);
           const ub=(V.ungated_pre_rec!=null?V.ungated_pre_rec:0);
           const recs=cs2.map(c=>c.pre_rec).concat([ub]);let rmn=Math.min.apply(null,recs),rmx=Math.max.apply(null,recs);if(rmn===rmx){rmn-=1;rmx+=1;}const pd2=(rmx-rmn)*0.12||1;rmn-=pd2;rmx+=pd2;
-          const W=520,H=150,pl=8,pr=54,pt=12,pb=22,pw=W-pl-pr,ph=H-pt-pb,tmn=ths[0],tmx=ths[ths.length-1],trg=(tmx-tmn)||1;
+          // pl/pb widened to seat the inline axis TITLES (owner: chart read as unlabeled —
+          //   the titles were detached HTML above/below; now they live on the axes).
+          const W=520,H=162,pl=24,pr=54,pt=12,pb=34,pw=W-pl-pr,ph=H-pt-pb,tmn=ths[0],tmx=ths[ths.length-1],trg=(tmx-tmn)||1;
           const X=t=>pl+(trg?pw*((t-tmn)/trg):pw/2),Y=r=>pt+ph*(1-(r-rmn)/((rmx-rmn)||1));
           let g='';for(let i=0;i<=4;i++){const r=rmn+(rmx-rmn)*i/4,gy=Y(r);g+='<line x1="'+pl+'" y1="'+gy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.3"/><text x="'+(pl+pw+4)+'" y="'+(gy+3).toFixed(1)+'" font-size="8" fill="var(--text4)">'+r.toFixed(1)+'</text>';}
           const uy=Y(ub);g+='<line x1="'+pl+'" y1="'+uy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+uy.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" stroke-dasharray="4,3" opacity="0.85"/><text x="'+(pl+2)+'" y="'+(uy-3).toFixed(1)+'" font-size="8" fill="var(--text4)">ungated '+ub.toFixed(2)+' = no gate baseline</text>';
+          // inline axis titles: rotated y (recovery factor) on the left, x (cut-off) below the ticks
+          const _yc=(pt+ph/2).toFixed(1);
+          g+='<text x="10" y="'+_yc+'" transform="rotate(-90 10 '+_yc+')" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">RECOVERY FACTOR ($ per $ drawdown) →</text>';
+          g+='<text x="'+(pl+pw/2).toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">GATE CUT-OFF %  —  min win-probability to take a trade  →</text>';
           models.forEach(m=>{const mc=_mc(m),pmt=cs2.filter(c=>c.model===m).sort((a,b)=>a.threshold-b.threshold);
             if(pmt.length>1)g+='<path d="'+pmt.map((c,i)=>(i?'L':'M')+X(c.threshold).toFixed(1)+' '+Y(c.pre_rec).toFixed(1)).join(' ')+'" fill="none" stroke="'+mc+'" stroke-width="1.6" opacity="0.85"/>';
             pmt.forEach(c=>{const isCh=ch&&c.model===ch.model&&Math.abs(c.threshold-ch.threshold)<1e-6,elg=c.eligible!==false;
               g+='<circle cx="'+X(c.threshold).toFixed(1)+'" cy="'+Y(c.pre_rec).toFixed(1)+'" r="'+(isCh?4.6:3)+'" fill="'+mc+'" opacity="'+(elg?1:0.32)+'"'+(isCh?' stroke="var(--text)" stroke-width="1.6"':'')+'><title>'+c.model+' @ '+Math.round(c.threshold*100)+'% · recovery '+c.pre_rec.toFixed(2)+' · '+c.kept_pre+' trades kept'+(elg?'':' · ineligible (too few kept)')+(isCh?' · CHOSEN':'')+'</title></circle>';});});
-          let xl='';ths.forEach(t=>{xl+='<text x="'+X(t).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8" fill="var(--text4)">'+Math.round(t*100)+'%</text>';});
+          let xl='';ths.forEach(t=>{xl+='<text x="'+X(t).toFixed(1)+'" y="'+(pt+ph+11).toFixed(1)+'" text-anchor="middle" font-size="8" fill="var(--text4)">'+Math.round(t*100)+'%</text>';});
           const legend=models.map(m=>'<span style="color:'+_mc(m)+';font-weight:700">● '+m+'</span>').join(' &nbsp; ');
           return '<div style="margin:2px 0 10px">'
-            +'<div style="font-size:8px;font-weight:700;letter-spacing:1.5px;color:var(--text3)">RECOVERY FACTOR <span style="font-weight:400;letter-spacing:0;color:var(--text5)">($ won per $ of drawdown)</span></div>'
-            +'<div style="font-size:8px;color:var(--text4);margin:2px 0 3px">Recovery factor (y) by probability cut-off (x) — each model is swept across '+ths.length+' cut-offs, so a model appears once per cut-off. The ⬤ ringed point is the chosen winner; the dashed line is ungated. Higher = more $ per $ of drawdown.</div>'
+            +'<div style="font-size:8px;color:var(--text4);margin:0 0 3px">Each model swept across '+ths.length+' cut-offs (one dot per cut-off) · ⬤ ringed = chosen winner · dashed = ungated baseline · higher = more $ per $ of drawdown.</div>'
             +'<div style="background:var(--bg1);border-radius:8px;padding:8px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+xl+'</svg></div>'
             +'<div style="text-align:center;font-size:8px;margin-top:3px">'+legend+'</div>'
-            +'<div style="text-align:center;font-size:8px;font-weight:700;letter-spacing:1px;color:var(--text3);margin-top:2px">GATE PROBABILITY CUT-OFF <span style="font-weight:400;letter-spacing:0;color:var(--text5)">(min win-probability to take the trade)</span></div>'
             +'</div>';})();
         return {V:V,LB:LB,ch:ch,
           head:'<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>',
