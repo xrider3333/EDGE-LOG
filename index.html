@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='60.7';
+const VERSION='60.8';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'60.8', date:'2026-07-19', notes:['FIX: the 2B/2C + 3-D explorer pairing from 60.7 was NOT sitting side by side — a card WIDTH auto-saved on the old full-width layout (861px) was overriding the new width cap and forcing the row to wrap. That stale size is cleared once, and the two paired cards now follow their wrapper width (still vertically resizable), so a future drag can not break the layout again.']},
   {v:'60.7', date:'2026-07-19', notes:['SECTION 2 layout: the 2B/2C config-space card (parallel coordinates + PDP + relationship table) no longer stretches full width — it now obeys the same max-width rule as the other charts and sits BESIDE the 3-D EXPLORER in one row (they stack on a narrow screen). That reclaims a whole vertical band in section 2.']},
   {v:'60.6', date:'2026-07-19', notes:['FIX: the section-3 sweep chart was still rendering ~3× too tall — a chart height auto-saved while it lived FULL-WIDTH in the old diagnostics section was being re-applied to the new narrow column and stretching it. The chart is now pinned to its true aspect in section 3 and the stale saved height is cleared once.']},
   {v:'60.5', date:'2026-07-19', notes:['COMPACT PASS (owner size-ceiling rule: nothing renders bigger than the 1A / 2A charts): section 3 ML Gate shrank to roughly a third — the sweep chart caps at 2A size, the candidates table collapses behind a "N candidates" expander, and the method paragraph now lives only in the info icons.','2F TOP CONFIGS collapses to a one-line strip by default (owner: rarely used) — click to open the full table; your choice is remembered.','2L ML MODEL BAKE-OFF: the verdict and model scorecards stay visible, the knobs-vs-noise chart and knob-pair surfaces fold behind a "charts" expander — the panel drops from ~1,100px to ~a third.','FIX: the 2B caption under the NET $ axis (in-sample $, scoring slice) was CROPPED mid-line by the chart viewport whenever the PDP row rendered below — the viewport now leaves room and the caption moved up a hair.','One-time cleanup: card sizes you dragged on the OLD layout no longer apply to the reshaped cards (they were leaving tall empty boxes — the phantom gaps under 2L). Sizes dragged from now on stick as usual.','Legacy comparison block at the report bottom: untouched.']},
@@ -8625,7 +8626,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // #34: 2B/2C obeys the size-ceiling rule (max-width cap, like the 3-D explorer / sweep
       //   chart) so it stops stretching into a full-width ribbon, and pairs BESIDE the 3-D
       //   explorer in one row (they wrap to stacked on a narrow screen).
-      const _bcTile=((_parc&&_parc.replace(/\s/g,''))||(_corr&&_corr.replace(/\s/g,'')))?('<div data-ck="r2bc" style="'+_card2+';box-sizing:border-box">'+_stack([(_pmTog+_parc),_corr])+'</div>'):'';
+      // resize:vertical + width:100% (overrides _card2's resize:both): width follows the paired
+      //   wrapper's cap so a dragged/auto-saved WIDTH can't break the side-by-side layout again.
+      const _bcTile=((_parc&&_parc.replace(/\s/g,''))||(_corr&&_corr.replace(/\s/g,'')))?('<div data-ck="r2bc" style="'+_card2+';box-sizing:border-box;resize:vertical;width:100%">'+_stack([(_pmTog+_parc),_corr])+'</div>'):'';
       // #29: 2F is a reference table the owner rarely reads — one-line strip by default,
       //   click to open the full table (state remembered via cfgTblOpen).
       const _tfOpen=!!APREF.cfgTblOpen;
@@ -8643,7 +8646,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _p3v=(function(){const w=APREF.p3view;return _p3opts.some(o=>o[0]===w)?w:(_p3opts.length?_p3opts[0][0]:null);})();
       const _p3cur=(_p3opts.filter(o=>o[0]===_p3v)[0]||[])[2]||'';
       const _p3chips=_p3opts.length>1?_p3opts.map(o=>'<span data-p3view="'+o[0]+'" style="cursor:pointer;padding:3px 10px;border-radius:9px;font-size:9px;user-select:none;white-space:nowrap;border:1px solid '+(_p3v===o[0]?'var(--green)':'var(--border)')+';color:'+(_p3v===o[0]?'var(--text)':'var(--text4)')+';background:'+(_p3v===o[0]?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+'">'+o[1]+'</span>').join(''):'';
-      const _paramTile=_p3cur?('<div data-ck="r2p3" style="'+_card2+';box-sizing:border-box"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5);cursor:help" title="the same config space in 3-D — height and colour = the chart metric. 2H = the strongest param pair, 2I = the next pair, 2J = every sampled config as a dot. Click-hold to spin, scroll to exaggerate, double-click for fullscreen orbit.">3-D EXPLORER ⓘ</span>'+_p3chips+'</div>'+_p3cur+'</div>'):'';
+      const _paramTile=_p3cur?('<div data-ck="r2p3" style="'+_card2+';box-sizing:border-box;resize:vertical;width:100%"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5);cursor:help" title="the same config space in 3-D — height and colour = the chart metric. 2H = the strongest param pair, 2I = the next pair, 2J = every sampled config as a dot. Click-hold to spin, scroll to exaggerate, double-click for fullscreen orbit.">3-D EXPLORER ⓘ</span>'+_p3chips+'</div>'+_p3cur+'</div>'):'';
       // 2L SURROGATE BAKE-OFF (#31 P1): d.surrogate is undefined on every run saved before
       //   this backend shipped — surrogatePanelHtml itself returns '' for absent/undefined,
       //   so old runs render byte-identical (no header, no empty box). A failed bake-off
@@ -10471,6 +10474,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   mostly empty (the owner's phantom gaps under 2L). Marker key stops re-purging,
         //   so a size you drag on the NEW cards sticks.
         if(!saved._v604){['surf','cfgL','cfgR','nb','top','surr'].forEach(k=>{if(saved[k]){delete saved[k];}});saved._v604=1;_purged=true;}
+        // v60.8: 2B/2C (r2bc) is now width-capped + paired — a WIDTH saved on the old
+        //   full-width layout (861px) was overriding the cap and forcing the pair to wrap.
+        //   Purge it (and the stale unnamed u9) once; width is wrapper-controlled from here.
+        if(!saved._v608){delete saved.r2bc;delete saved.u9;saved._v608=1;_purged=true;}
         const _save=()=>{try{localStorage.setItem('elCardLayout',JSON.stringify(saved));}catch(_e2){}};
         if(_purged)_save();
         // one-time purge #3 (v60.6): the gate sweep chart auto-saved a FULL-WIDTH height under
