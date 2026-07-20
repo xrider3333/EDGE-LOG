@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='59.7';
+const VERSION='59.8';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'59.8', date:'2026-07-19', notes:['2L: the ＋ more expander is gone — all knob-pair surfaces render side by side (it was throwing the row off-center).','2L in plain language: the verdict line now reads "its best-config pick, verified by a real backtest" (each model proposes its best config, and the app runs that config through ONE real backtest — the shown dollars are real, not the model guess), "sampled best" is renamed "search best" (the bar every model tries to beat), and every scorecard bar explains itself on hover — R² = prediction accuracy graded on configs the model never saw; pred = the model guess; real = the verified backtest of that same pick.']},
   {v:'59.7', date:'2026-07-19', notes:['2L: the redesign is now THE panel — one-line winner verdict, uniform model scorecards (R² / predicted / real bars), the sorted KNOBS vs NOISE-PROBE bar chart (hover a bar for the full LASSO / SHAP / permutation / probe scores), and the strongest knob-pair surface with the rest behind ＋ more. The old wide table and pill row are gone; the FLAT / 3-D chips moved into the panel header.','FIX: expanding ＋ more knob-pairs in 3-D no longer opens vertically-squashed tiles — the surfaces now carry an explicit height, so hidden-then-expanded charts keep their aspect.']},
   {v:'59.6', date:'2026-07-19', notes:['FIX: 2L could render squeezed — saved card sizes were keyed by POSITION in the report, so when the card list changed between versions an old width landed on the wrong card. Cards are now keyed by a stable name and all old positional sizes are cleared once (drag again to re-save; your layouts were the casualty of the fix, apologies).','2L REDESIGN PREVIEW: a second, cleaned-up layout of the same bake-off data now renders UNDERNEATH the current 2L (yellow dashed divider) — one-line winner verdict, uniform model scorecards with R² / predicted / real bars, a sorted KNOBS vs NOISE-PROBE bar chart (red line = the fake random knob), and only the strongest knob-pair surface shown with the rest behind a ＋ more expander. Compare the two and pick; the losing layout gets deleted.']},
   {v:'59.5', date:'2026-07-19', notes:['LIBRARY: the PARAM LIBRARY now lives IN the app — every strategy knob with its plain-language definition, tested range, champion value and evidence verdict, rendered straight from PARAM_LIBRARY.md into collapsible sections (per strategy, transferable ideas, brainstorm, glossary). Click a section to expand; open/closed state is remembered.','LIBRARY: the STRATEGIES and DATA/CSV MASTERS blocks (and MODES) are collapsible too, and remember their state.','COMPARE moved next to RESULTS in the tab bar.','2H/2I/2J: the row now defaults to the compressed width the owner dragged it to (~70% on a wide screen) — still resizable.','Card-layout fix: saved sizes could fail to re-apply after a same-tick re-render, and a one-axis drag could wipe the other axis size — both fixed.','REFERENCE: the param-library link card is gone (superseded by the in-app LIBRARY section).']},
@@ -8092,20 +8093,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const head='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;padding:8px 10px;background:var(--bg1);border-radius:8px">'
           +'<span style="font-size:11px;font-weight:800;color:var(--text)">▸ '+_esS(String(bm.model||'').toUpperCase())+' wins</span>'
           +'<span style="font-size:9px;color:'+r2Col(bm.cv_r2)+';font-weight:700">CV R² '+(+bm.cv_r2).toFixed(3)+'</span>'
-          +'<span style="font-size:9px;color:var(--text3)">its pick, re-run for real: <b style="color:#1d9e75">'+$(bm.ground_truth_pnl)+'</b></span>'
-          +'<span style="font-size:9px;color:var(--text4)">sampled best '+$(surr.sampled_best_pnl)+'</span>'
+          +'<span style="font-size:9px;color:var(--text3);cursor:help" title="each model was asked: which config do you think is THE best? That answer is only a PREDICTION — so the app took the config and ran it through ONE real backtest. This is that real-dollar result, not the guess.">its best-config pick, verified by a real backtest: <b style="color:#1d9e75">'+$(bm.ground_truth_pnl)+'</b> ⓘ</span>'
+          +'<span style="font-size:9px;color:var(--text4);cursor:help" title="the best config the search itself had already found by brute-force testing — the bar every model pick is trying to beat">search best '+$(surr.sampled_best_pnl)+'</span>'
           +'<span style="margin-left:auto"></span>'+statusIc+'</div>';
         const gmax=Math.max.apply(null,okM.map(m=>Math.max(Math.abs(m.predicted_best_pnl||0),Math.abs(m.ground_truth_pnl||0))).concat([Math.abs(surr.sampled_best_pnl||0),1]));
         const card=m=>{const best=m.model===surr.best_model;
           if(m.cv_r2==null)return '<div style="flex:1 1 150px;min-width:140px;background:var(--bg1);border-radius:8px;padding:8px 10px;opacity:.5"><div style="font-size:9px;font-weight:700;color:var(--text4)">'+_esS(m.model)+'</div><div style="font-size:8px;color:var(--text5)">skipped'+(m.skipped?' — '+_esS(m.skipped):'')+'</div></div>';
           const r2w=Math.max(2,Math.min(100,(m.cv_r2||0)*100));
           const pw=Math.max(2,Math.abs(m.predicted_best_pnl||0)/gmax*100),gw=Math.max(2,Math.abs(m.ground_truth_pnl||0)/gmax*100);
-          const bar=(w,col,lab,val)=>'<div style="display:flex;align-items:center;gap:6px;margin-top:3px"><span style="flex:0 0 28px;font-size:7px;color:var(--text5);text-align:right">'+lab+'</span><div style="flex:1;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden"><div style="width:'+w.toFixed(0)+'%;height:100%;background:'+col+'"></div></div><span style="flex:0 0 52px;font-size:7.5px;color:var(--text3)">'+val+'</span></div>';
+          const bar=(w,col,lab,val,tip)=>'<div style="display:flex;align-items:center;gap:6px;margin-top:3px;cursor:help" title="'+(tip||'').replace(/"/g,'&quot;')+'"><span style="flex:0 0 28px;font-size:7px;color:var(--text5);text-align:right">'+lab+'</span><div style="flex:1;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden"><div style="width:'+w.toFixed(0)+'%;height:100%;background:'+col+'"></div></div><span style="flex:0 0 52px;font-size:7.5px;color:var(--text3)">'+val+'</span></div>';
           return '<div style="flex:1 1 150px;min-width:140px;background:var(--bg1);border-radius:8px;padding:8px 10px'+(best?';border:1px solid #1d9e75':'')+'">'
-            +'<div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;font-weight:800;color:'+(best?'#1d9e75':'var(--text2)')+'">'+(best?'▸ ':'')+_esS(m.model)+'</span><span style="margin-left:auto;font-size:8px;color:'+(m.beat_sampled_best===true?'#1d9e75':'var(--text5)')+'" title="did the REAL backtest of this model pick beat the best config the random search had found?">'+(m.beat_sampled_best===true?'✓ beat sampled':'—')+'</span></div>'
-            +bar(r2w,r2Col(m.cv_r2),'R²',(+m.cv_r2).toFixed(3))
-            +bar(pw,'#3a9bdc','pred',$(m.predicted_best_pnl))
-            +bar(gw,'#1d9e75','real',$(m.ground_truth_pnl))
+            +'<div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;font-weight:800;color:'+(best?'#1d9e75':'var(--text2)')+'">'+(best?'▸ ':'')+_esS(m.model)+'</span><span style="margin-left:auto;font-size:8px;color:'+(m.beat_sampled_best===true?'#1d9e75':'var(--text5)')+'" title="did the REAL backtest of this model pick beat the best config the search had already found by brute force?">'+(m.beat_sampled_best===true?'✓ beat sampled':'—')+'</span></div>'
+            +bar(r2w,r2Col(m.cv_r2),'R²','' + (+m.cv_r2).toFixed(3),'PREDICTION ACCURACY. The model is shown most of the tested configs, then asked to predict the PnL of the held-back rest — R² grades its guesses against the REAL backtest results it never saw. 1.0 = perfect predictions, 0 = no better than always guessing the average, negative = worse than that.')
+            +bar(pw,'#3a9bdc','pred',$(m.predicted_best_pnl),'the PnL this model PREDICTS for its own best-config pick — a guess from its learned map, not a backtest')
+            +bar(gw,'#1d9e75','real',$(m.ground_truth_pnl),'that same pick actually run through ONE real backtest — real dollars. If real lands close to pred, the model map is trustworthy.')
             +'</div>';};
         const cardsRow='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+models.map(card).join('')+'</div>';
         const ks2=ksKeys.map(k=>({k:k,m:(surr.knob_screen[k]&&surr.knob_screen[k].probe_margin!=null)?+surr.knob_screen[k].probe_margin:null,v:(surr.knob_screen[k]&&surr.knob_screen[k].verdict)||'weak',note:_fullTip(surr.knob_screen[k])})).filter(x=>x.m!=null).sort((a,b)=>b.m-a.m);
@@ -8118,10 +8119,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 +'<span style="flex:0 0 44px;font-size:8px;color:var(--text3)">'+(x.m>0?'+':'')+(+x.m).toFixed(3)+'</span></div>';}).join('')
             +'</div>';}
         let inter2='';
-        if(inters.length){const first=(_use3d?iso:heat)(inters[0],0);
-          const rest=inters.slice(1).map((it,ix)=>(_use3d?iso:heat)(it,ix+1)).join('');
-          inter2='<div><div style="font-size:8px;letter-spacing:1px;color:var(--text5);margin-bottom:5px">STRONGEST KNOB-PAIR (model surface'+(_use3d?' · 3-D':'')+')</div>'+first
-            +(rest?'<details style="display:inline-block;vertical-align:top"><summary style="cursor:pointer;font-size:9px;color:#3a9bdc;padding:6px 4px">＋ '+(inters.length-1)+' more pair'+(inters.length>2?'s':'')+'</summary>'+rest+'</details>':'')+'</div>';}
+        if(inters.length){const tiles=inters.map((it,ix)=>(_use3d?iso:heat)(it,ix)).join('');
+          inter2='<div><div style="font-size:8px;letter-spacing:1px;color:var(--text5);margin-bottom:5px" title="how PnL depends on two knobs JOINTLY, read from the best model (a smoothed MODEL surface — unlike 2H, which plots the raw sampled configs). Strongest pair first.">KNOB-PAIR SURFACES'+(_use3d?' · 3-D':'')+' — strongest first ⓘ</div><div style="display:flex;flex-wrap:wrap;align-items:flex-start">'+tiles+'</div></div>';}
         return head+cardsRow+knob2+inter2;
       })();
       return hdr+v2;
