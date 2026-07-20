@@ -33,6 +33,15 @@ result (screenshot / measure the DOM), don't guess. NEVER put a raw apostrophe i
 single-quoted JS string (e.g. a CHANGELOG note) — it terminates the string and white-screens
 the whole app; reword apostrophe-free.
 
+## Runner restarts: check for a mid-flight job FIRST (multi-session hard rule, 2026-07-19)
+Restarting the runner KILLS any backtest job mid-flight, and the killed job's doc stays
+stuck on status='running' — the fresh runner only polls status=='queued', so the job is
+silently orphaned (a 500-trial validate died this way when another session restarted the
+runner for its own deploy). Before restarting: `tail C:\EdgeLog\runner.log` — if the last
+"running <jobid>…" has no "saved to Runs history" after it, a job is in flight: WAIT for it
+(validates can run 30-90 min), or if you must restart, requeue the orphan afterwards
+(Firestore users/{uid}/backtests/<jobid> status 'running' → 'queued') and say so.
+
 ## Comparison reruns PIN the data window AND the master (hard rule — owner burned 2026-07-18, twice)
 A rerun meant to be compared against an earlier run MUST use that run's exact
 date_from/date_to AND its exact master/source. Never leave date_to blank on a
