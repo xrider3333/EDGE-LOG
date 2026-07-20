@@ -724,7 +724,12 @@ not saved to the runs DB — so they carry no run id.*
    Brief: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md` (TODO section at the end).
 5. **⬜ NEXT UP (owner-flagged 2026-07-19) — P3 interaction-aware expansion**: let the 2L knob-pair
    map inform which ranges the auto-widener grows JOINTLY — the 2-D upgrade of the owner's own #30
-   re-check-the-plateaus idea (`docs/SURROGATE_DISCOVERY_DESIGN.md` §7 P3).
+   re-check-the-plateaus idea (`docs/SURROGATE_DISCOVERY_DESIGN.md` §7 P3). *(build in progress)*
+6. **⬜ TODO (owner idea 2026-07-19) — 2L model-picks equity overlay**: chart each ML model's
+   verified best-pick as its own equity curve on ONE chart (2A-style overlay, one colour per model,
+   the search-best config as reference) so the five models compare visually, not just as scorecards.
+   Needs engine support first: the ground-truth backtest of each model pick must SAVE its
+   (downsampled) equity curve into the surrogate block — currently only the metrics are kept.
 
 **Current Auto-Validate pipeline (as of 2026-07-19, for orientation):** 🎯 steered search (random
 seed ~40% of trials → GP-aimed batches, #36) → auto-expand of edge-pinned rising knobs (#26/#30)
