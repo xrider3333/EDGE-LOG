@@ -722,8 +722,9 @@ not saved to the runs DB — so they carry no run id.*
 4. **⬜ TODO — steered Auto-Validate rerun, ENGU-Q 1m** (added 2026-07-19): same rationale — rich
    param space, steering benefits scale with knob count; 1m data = slower trials, budget accordingly.
    Brief: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md` (TODO section at the end).
-5. **⬜ Backlog — P3 interaction-aware expansion**: let the 2L knob-pair interaction map inform which
-   ranges the auto-widener grows jointly (`docs/SURROGATE_DISCOVERY_DESIGN.md` §7 P3). Low priority.
+5. **⬜ NEXT UP (owner-flagged 2026-07-19) — P3 interaction-aware expansion**: let the 2L knob-pair
+   map inform which ranges the auto-widener grows JOINTLY — the 2-D upgrade of the owner's own #30
+   re-check-the-plateaus idea (`docs/SURROGATE_DISCOVERY_DESIGN.md` §7 P3).
 
 **Current Auto-Validate pipeline (as of 2026-07-19, for orientation):** 🎯 steered search (random
 seed ~40% of trials → GP-aimed batches, #36) → auto-expand of edge-pinned rising knobs (#26/#30)

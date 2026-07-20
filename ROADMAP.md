@@ -88,8 +88,9 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       every Auto-Validate (EDGE-LOG #36; A/B evidence TTIBS +8.6% / ORB 3.1 +66% in-sample at
       equal budget). (a) ORB 3.1 rerun — brief in `ORB.md` §10; (b) ENGU-Q 1m rerun — brief at
       the end of `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`. Judge steered finds via WF + lockbox.
-- [ ] **Backlog — P3 interaction-aware expansion**: the 2L knob-pair map informs which ranges the
-      auto-widener grows jointly (`docs/SURROGATE_DISCOVERY_DESIGN.md` §7 P3).
+- [ ] **NEXT UP (owner-flagged 2026-07-19) — P3 interaction-aware expansion**: the 2L knob-pair map
+      informs which ranges the auto-widener grows JOINTLY — the 2-D upgrade of the owner's own #30
+      re-check-the-plateaus idea (`docs/SURROGATE_DISCOVERY_DESIGN.md` §7 P3).
 - [~] **#11 Deflated Sharpe / multiple-testing haircut** — DSR computed (analytics.py) &
       shown; extend to a "best-of-N luck bar" next to every grid winner.
 - [~] **#12 Neighborhood robustness table** — computed & shown; tie to the PLATEAU verdict.
