@@ -745,6 +745,26 @@ Discovery maximizes in-sample by design; ONLY the lockbox decides deployability.
 *(✅ SHAP · ensemble top-K · adversarial validation · conformal band · causal check ·
 synthetic scenarios all shipped 2026-07-04 — see Changelog.)*
 
+### Carl master-notebook FULL re-read (2026-07-19, live page) — discovery-relevant finds
+Confirmed: Carl has NO optuna/TPE/Bayesian-optimization notebook — his tuning coverage is
+GridSearchCV + "Automatic tuning of XGBoost with XGBTune" (our per-model mini-GridSearchCV in
+the bake-off is the equivalent). New candidates ranked by param-discovery value:
+- **Quantile Regression Forests (QRF)** (his §4 prediction-intervals notebook) — HIGH: a
+  map-maker with NATIVE uncertainty (quantiles) — tree-based so it handles categoricals and is
+  cheap; could join the bake-off roster AND become a 3rd steering brain (UCB needs an
+  uncertainty estimate; QRF provides it without the GP's O(n³)).
+- **Extrapolation guard** (his §11 "Do not stray out of the forest!") — MEDIUM-HIGH and directly
+  about OUR pipeline: tree models cannot extrapolate beyond their training range, so RF/XGBoost
+  surrogate predictions inside auto-expand-WIDENED ranges are untrustworthy until sampled.
+  Ground-truthing already protects the headline; a cheap flag ("this model pick sits outside the
+  sampled hull") would make the 2L cards honest about it.
+- **MAPIE conformal intervals on surrogate predictions** (§4) — MEDIUM: put honest error bars on
+  the 2L predicted-best ("predicted $261k, 90% interval $210k–$310k").
+- **Venn-ABERS calibration** (§4, his prize-winner) — MEDIUM (gate-side): stronger probability
+  calibration than the current isotonic headroom check.
+- **Statistical POWER of the edge test** (§10 t-test/p-value/power) — MEDIUM: report whether the
+  lockbox sample was even big enough to detect the claimed edge (pairs with the DOF gauge).
+
 ### Deferred candidates — full backlog (nothing lost)
 Applicable in principle; deferred for the reason shown. Promote any to a pill on request.
 
