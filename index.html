@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='60.8';
+const VERSION='60.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'60.9', date:'2026-07-19', notes:['2L NEW — MODEL-PICK EQUITY OVERLAY (#80, your idea): the ML models each proposed one config; that config gets its in-sample equity curve drawn, and they are overlaid on ONE chart (best model bold, dashed line = the brute-force search best they are trying to beat) — so you compare their SHAPES and drawdowns, not just the end dollars, like the strategy comparison chart.','This is the UI half. It lights up after the matching engine change (which saves each pick\'s curve) lands and you run a fresh Auto-Validate — until then, and on all older runs (incl. 165), the panel shows a short re-run note where the chart will be, since only each pick\'s end-dollar was stored.']},
   {v:'60.8', date:'2026-07-19', notes:['FIX: the 2B/2C + 3-D explorer pairing from 60.7 was NOT sitting side by side — a card WIDTH auto-saved on the old full-width layout (861px) was overriding the new width cap and forcing the row to wrap. That stale size is cleared once, and the two paired cards now follow their wrapper width (still vertically resizable), so a future drag can not break the layout again.']},
   {v:'60.7', date:'2026-07-19', notes:['SECTION 2 layout: the 2B/2C config-space card (parallel coordinates + PDP + relationship table) no longer stretches full width — it now obeys the same max-width rule as the other charts and sits BESIDE the 3-D EXPLORER in one row (they stack on a narrow screen). That reclaims a whole vertical band in section 2.']},
   {v:'60.6', date:'2026-07-19', notes:['FIX: the section-3 sweep chart was still rendering ~3× too tall — a chart height auto-saved while it lived FULL-WIDTH in the old diagnostics section was being re-applied to the new narrow column and stretching it. The chart is now pinned to its true aspect in section 3 and the stale saved height is cleared once.']},
@@ -8159,7 +8160,31 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   they were most of the panel's ~1,100px.
         const _chOpen=!!APREF.surrCharts;
         const _chBlk=((knob2&&knob2.replace(/\s/g,''))||(inter2&&inter2.replace(/\s/g,'')))?('<div data-surrcharts title="the knob-influence bar chart (each param vs a planted fake random knob) and the model knob-pair surfaces. Click to '+(_chOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px;padding:5px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)">'+(_chOpen?'▴ hide the charts':'▾ charts — knobs vs the noise probe · knob-pair surfaces ⓘ')+'</div>'+(_chOpen?(knob2+inter2):'')):'';
-        return head+cardsRow+_chBlk;
+        // #80: MODEL-PICK EQUITY OVERLAY — each model proposed one config; that config's
+        //   in-sample equity curve (saved by the engine, v60.9+) is overlaid so the picks
+        //   compare by SHAPE / drawdown, not just end $. Dashed = the brute-force search
+        //   best. Runs saved before the engine change have no curves → a re-run note.
+        const _ovl=(function(){
+          const wc=models.filter(m=>Array.isArray(m.ground_truth_curve)&&m.ground_truth_curve.length>1);
+          const ref=(Array.isArray(surr.sampled_best_curve)&&surr.sampled_best_curve.length>1)?surr.sampled_best_curve:null;
+          const _lbl='<div class="lbl" style="margin:12px 0 4px" title="Each model proposed its single best config; that config was run through ONE real backtest. Here each pick\'s in-sample equity curve is overlaid so you can compare their SHAPES and drawdowns, not only the end dollars. Dashed line = the brute-force search best (the bar every pick is trying to beat).">📈 MODEL-PICK EQUITY OVERLAY — the picks on one chart ⓘ</div>';
+          if(!wc.length)return _lbl+'<div style="font-size:8px;color:var(--text5);padding:6px 4px">Curves populate on the next Auto-Validate run — this run was saved before the overlay shipped, so only each pick\'s end-dollar was stored.</div>';
+          const MC={logistic:'#3a9bdc',logit:'#3a9bdc',lr:'#3a9bdc',random_forest:'#1d9e75',rf:'#1d9e75',xgboost:'#a879e6',xgb:'#a879e6',boosted:'#a879e6',gp:'#e0a04b',quadratic:'#e6c84b'};
+          const _mcl=m=>MC[m]||'#8aa0b0';
+          const ser=wc.map(m=>({name:m.model,col:_mcl(m.model),cum:m.ground_truth_curve,best:m.model===surr.best_model}));
+          let mn=Infinity,mx=-Infinity;
+          ser.map(s=>s.cum).concat(ref?[ref]:[]).forEach(c=>c.forEach(v=>{const y=v*mlt;if(y<mn)mn=y;if(y>mx)mx=y;}));
+          if(!isFinite(mn)){mn=0;mx=1;}if(mx<=mn)mx=mn+1;const pd=(mx-mn)*0.08||1;mn-=pd;mx+=pd;
+          const W=560,H=150,pl=6,pr=58,pt=10,pb=8,pw=W-pl-pr,ph=H-pt-pb;
+          const X=(i,n)=>pl+(n>1?pw*i/(n-1):pw/2),Y=v=>pt+ph*(1-((v*mlt)-mn)/((mx-mn)||1));
+          let g='';
+          for(let k=0;k<=3;k++){const val=mn+(mx-mn)*k/3,gy=pt+ph*(1-k/3);g+='<line x1="'+pl+'" y1="'+gy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.25"/><text x="'+(pl+pw+4)+'" y="'+(gy+3).toFixed(1)+'" font-size="7" fill="var(--text4)">'+fmtUsd(Math.round(val))+'</text>';}
+          if(ref)g+='<path d="'+ref.map((v,i)=>(i?'L':'M')+X(i,ref.length).toFixed(1)+' '+Y(v).toFixed(1)).join(' ')+'" fill="none" stroke="var(--text4)" stroke-width="1" stroke-dasharray="4,3" opacity="0.85"/>';
+          ser.forEach(s=>{g+='<path d="'+s.cum.map((v,i)=>(i?'L':'M')+X(i,s.cum.length).toFixed(1)+' '+Y(v).toFixed(1)).join(' ')+'" fill="none" stroke="'+s.col+'" stroke-width="'+(s.best?2.2:1.3)+'" opacity="'+(s.best?1:0.8)+'"><title>'+_esS(s.name)+' — ends '+$(s.cum[s.cum.length-1])+(s.best?' (best model)':'')+'</title></path>';});
+          const legend=ser.map(s=>'<span style="color:'+s.col+';font-weight:'+(s.best?'800':'600')+'">'+(s.best?'▸ ':'')+_esS(s.name)+' '+$(s.cum[s.cum.length-1])+'</span>').join(' &nbsp; ')+(ref?' &nbsp; <span style="color:var(--text4)">- - search best '+$(ref[ref.length-1])+'</span>':'');
+          return _lbl+'<div style="max-width:600px"><div style="background:var(--bg1);border-radius:8px;padding:8px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+'</svg></div><div style="font-size:8px;color:var(--text4);margin-top:3px;line-height:1.7">'+legend+'</div></div>';
+        })();
+        return head+cardsRow+_ovl+_chBlk;
       })();
       return hdr+v2;
     };
