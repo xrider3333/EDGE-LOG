@@ -41,6 +41,9 @@ runner for its own deploy). Before restarting: `tail C:\EdgeLog\runner.log` — 
 "running <jobid>…" has no "saved to Runs history" after it, a job is in flight: WAIT for it
 (validates can run 30-90 min), or if you must restart, requeue the orphan afterwards
 (Firestore users/{uid}/backtests/<jobid> status 'running' → 'queued') and say so.
+ALSO: launching EdgeLogRunner.vbs does NOT kill the old instance — it STACKS a second
+runner (observed 2026-07-20: a stacked pair double-executed one job → identical runs
+#166/#167). Always Stop-Process existing api.runner pythons BEFORE relaunching the VBS.
 
 ## Comparison reruns PIN the data window AND the master (hard rule — owner burned 2026-07-18, twice)
 A rerun meant to be compared against an earlier run MUST use that run's exact
