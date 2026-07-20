@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='60.2';
+const VERSION='60.3';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'60.3', date:'2026-07-19', notes:['REPORT REDESIGN step 3 of 3 — section 2 Configuration Analysis rebuilt: a row of THREE equal cards leads (2A top-configs · 2D distribution · 2G neighbour robustness — the "cluster, not a spike?" question answered side by side, no more dead space), the section header now carries a verdict line (neighbours held · plateau agrees/differs · PBO), and the 2B/2C card keeps its layout but absorbs 2E as a footer so every per-knob view lives under one roof.','2H / 2I / 2J merged into ONE 3-D EXPLORER tile — chips (2H SURFACE / 2I SURFACE / 2J SCATTER) switch the view, your pick is remembered; the old row of three showing everything at once is retired to the legacy block.','The ENTIRE old section-2 arrangement is preserved in the LEGACY LAYOUT block at the report bottom (charts re-tagged L2x so they cannot fight the live copies) — compare and pick; the loser gets deleted.']},
   {v:'60.2', date:'2026-07-19', notes:['REPORT REDESIGN step 2 of 3 — the ML GATE is now its OWN section 3 (it was buried at the bottom of the diagnostics wall): the headline verdict banner leads (LOCKBOX HELD or FAILED, gated vs ungated dollars, PF and recovery side by side), then the cut-off sweep chart, the candidates table and a decision rail (chosen model, pre-lockbox earns, the one lockbox look) sit in three columns like section 1. An info icon on the header explains what a gate is in plain language.','Runs with only a single ML-gate (no bake-off) show the before/after gate card in section 3 instead.','FIX: the Past Runs MARKET / TF columns over-shrank in 60.0 (the header labels were clipped to 26px) — the filter headers now hold a fixed 70px.']},
   {v:'60.1', date:'2026-07-19', notes:['REPORT REDESIGN step 1 of 3 — section 4 Robustness and Diagnostics is now a VERDICT-CHIP GRID: every check is one compact chip (icon, name, colour dot, one headline number) instead of a 30-line text wall. Click a chip to expand its full readout, click again to close. The section header now leads with the tally (N pass, N warn, N flag, N info) and an info icon explains the dots.','The OLD diagnostics wall is NOT deleted — it moved to a LEGACY LAYOUT block at the report bottom (yellow dashed divider) so the two can be compared; the losing layout gets deleted once the owner picks.','New chips beyond the method checks: SAMPLE (DOF), ENSEMBLE, PLATEAU PICK, GATE VALIDATE (lockbox held or failed at a glance) and ML GATE.']},
   {v:'60.0', date:'2026-07-19', notes:['PAST RUNS: new MAR column in the flat list (net divided by max drawdown — the risk-adjusted deploy score), sortable, sitting right of MAX DD. Hover it for how it differs from the LB MAR inside a run report.','PAST RUNS: the MODE / MARKET / TF filter columns no longer hog width — the header dropdown used to reserve room for its longest option text, stretching those columns to ~170px of mostly air. They now shrink to fit; the open dropdown still shows full option names.']},
@@ -8600,23 +8601,31 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    spacing (§1-style border-top dividers), and a RIGHT column tile stacking 2D / 2E. ──
       const _bt2='margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)';
       const _stack=arr=>arr.filter(x=>x&&x.replace(/\s/g,'')).map((x,i)=>i?('<div style="'+_bt2+'">'+x+'</div>'):x).join('');
-      // 2C (PDP) nests directly UNDER 2B (parallel coords) inside the SAME stack block — no
-      //   divider between them — so the per-knob PDP row reads as 2B's footer (they already
-      //   share the column geometry). 2A stays its own block above.
-      const _leftStack=_stack([_eq,(_pmTog+_parc)]),_rightStack=_stack([_dist,_corr]);
-      const _cfgTile=(_leftStack||_rightStack)?'<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
-        +(_leftStack?'<div style="flex:2.5 1 470px;min-width:0"><div data-ck="cfgL" style="'+_card2+';box-sizing:border-box">'+_leftStack+'</div></div>':'')
-        +(_rightStack?'<div style="flex:1 1 250px;min-width:0"><div data-ck="cfgR" style="'+_card2+';box-sizing:border-box">'+_rightStack+'</div></div>':'')
-        +'</div>':'';
+      // ── NEW §2 (redesign #22): a row of THREE equal cards answers the section question
+      //    ("cluster, not a spike?") at a glance — 2A top-configs · 2D distribution · 2G
+      //    neighbours — §1-style columns, no dead voids. Letters KEEP their historic values
+      //    during the legacy-compare phase; re-lettering to reading order happens in the
+      //    renumber pass once the legacy block is deleted. ──
+      const _col3=(inner,ck,fx)=>(inner&&inner.replace(/\s/g,''))?('<div style="flex:'+fx+';min-width:0"><div data-ck="'+ck+'" style="'+_card2+';box-sizing:border-box;height:100%">'+inner+'</div></div>'):'';
+      const _nbInner=(nbHtml&&nbHtml.replace(/\s/g,''))?(_numHdr(_cfgN+'G','NEIGHBOUR ROBUSTNESS',nbTip,nbSub)+nbHtml):'';
+      const _cfgTile=(_eq||_dist||_nbInner)?('<div style="display:flex;gap:14px;align-items:stretch;flex-wrap:wrap;margin-bottom:14px">'
+        +_col3(_eq,'r2a','1.25 1 360px')+_col3(_dist,'r2d','1 1 300px')+_col3(_nbInner,'r2g','1 1 300px')+'</div>'):'';
+      // #23: the 2B/2C card (retained layout — owner favourite) now also absorbs 2E as its
+      //   footer: parallel coords → per-knob PDP curves → per-knob relationship table, so
+      //   every per-knob view lives under one roof with the shared subtitle geometry.
+      const _bcTile=((_parc&&_parc.replace(/\s/g,''))||(_corr&&_corr.replace(/\s/g,'')))?('<div data-ck="r2bc" style="'+_card2+';margin-bottom:14px">'+_stack([(_pmTog+_parc),_corr])+'</div>'):'';
       const _topTile=(t10.length?'<div data-ck="top" style="'+_card2+';margin-bottom:14px">'+_numHdr(_cfgN+'F','TOP CONFIGS')+'<style>.cfgtbl th,.cfgtbl td{padding:2px 5px!important;font-size:8px!important;border-right:1px solid color-mix(in srgb,var(--border) 45%,transparent)}.cfgtbl th:last-child,.cfgtbl td:last-child{border-right:none}.cfgtbl th{white-space:nowrap!important;max-width:70px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;color:var(--text4);letter-spacing:0;cursor:help}</style><div style="overflow-x:auto"><table class="table cfgtbl" style="width:auto;white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div></div>':'');
-      const _nbTile=(nbHtml&&nbHtml.replace(/\s/g,''))?'<div data-ck="nb" style="'+_card2+';margin-bottom:14px">'+_numHdr(_cfgN+'G','NEIGHBOUR ROBUSTNESS',nbTip,nbSub)+nbHtml+'</div>':'';
+      // (2G neighbours moved INTO the row-of-three above — redesign #22; its standalone tile is gone.)
       // DSR (a champion/selection metric) lives in §1 (1I) for validate runs; show it here only for non-validate sweeps.
       const _dsrTile=(!d.validate&&dsrHtml&&dsrHtml.replace(/\s/g,''))?'<div data-ck="dsr" style="'+_card2+';margin-bottom:14px"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'K · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>':'';
-      // Tile 2 (parameter-relationship group): H, I and J across in ONE row of 3 (owner) — each a
-      //   3-D panel on its own param pair (⛶ orbits), equal-height, wrapping on a narrow screen.
-      // max-width 1360px = the owner's own compressed-2H drag (2026-07-19) baked in as the
-      //   default — the row reads fine at ~70% width on a wide monitor; still resizable.
-      const _paramTile=(_hm||_p3d||_sc)?'<div data-ck="surf" style="'+_card2+';margin-bottom:14px;max-width:1360px">'+_wrap([_hm,_p3d,_sc],true)+'</div>':'';
+      // #24: ONE 3-D EXPLORER tile — chips pick 2H surface / 2I surface / 2J scatter. They
+      //   were a row of three showing all views at once and filling half the screen; the
+      //   chosen view persists (APREF.p3view). Chips only list views this run can render.
+      const _p3opts=[['h','2H SURFACE',_hm],['i','2I SURFACE',_p3d],['j','2J SCATTER',_sc]].filter(o=>o[2]&&o[2].replace(/\s/g,''));
+      const _p3v=(function(){const w=APREF.p3view;return _p3opts.some(o=>o[0]===w)?w:(_p3opts.length?_p3opts[0][0]:null);})();
+      const _p3cur=(_p3opts.filter(o=>o[0]===_p3v)[0]||[])[2]||'';
+      const _p3chips=_p3opts.length>1?_p3opts.map(o=>'<span data-p3view="'+o[0]+'" style="cursor:pointer;padding:3px 10px;border-radius:9px;font-size:9px;user-select:none;white-space:nowrap;border:1px solid '+(_p3v===o[0]?'var(--green)':'var(--border)')+';color:'+(_p3v===o[0]?'var(--text)':'var(--text4)')+';background:'+(_p3v===o[0]?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+'">'+o[1]+'</span>').join(''):'';
+      const _paramTile=_p3cur?('<div data-ck="r2p3" style="'+_card2+';margin-bottom:14px;max-width:780px"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5);cursor:help" title="the same config space in 3-D — height and colour = the chart metric. 2H = the strongest param pair, 2I = the next pair, 2J = every sampled config as a dot. Click-hold to spin, scroll to exaggerate, double-click for fullscreen orbit.">3-D EXPLORER ⓘ</span>'+_p3chips+'</div>'+_p3cur+'</div>'):'';
       // 2L SURROGATE BAKE-OFF (#31 P1): d.surrogate is undefined on every run saved before
       //   this backend shipped — surrogatePanelHtml itself returns '' for absent/undefined,
       //   so old runs render byte-identical (no header, no empty box). A failed bake-off
@@ -8628,7 +8637,35 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _steerBadge=(d.steering&&d.steering.used)?('<div style="display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:9px;color:#3a9bdc;font-weight:700" title="P2 steered search (#36): the first batch of configs was sampled at random, then a Gaussian-Process model was re-fit on every result so far and CHOSE each next batch (predicted-high-PnL regions plus regions it was still unsure about). Every proposed config was still evaluated by the same real backtest as always.">🎯 MODEL-STEERED SEARCH <span style="font-weight:400;color:var(--text4)">'+(d.steering.seed_trials||0)+' random seed + '+(d.steering.steered_trials||0)+' GP-aimed trials'+((d.steering.fallback_random||0)>0?' · '+d.steering.fallback_random+' fell back to random':' · 0 fallbacks')+'</span></div>'):'';
       const _surrTile=(_surrHtml&&_surrHtml.replace(/\s/g,''))?'<div data-ck="surr" style="'+_card2+';margin-bottom:14px">'+_steerBadge+_surrHtml+'</div>':'';
       const _surrErr=(d.surrogate&&d.surrogate.error)?'<div style="font-size:8px;color:var(--text5);margin-bottom:8px">'+_cfgN+'L · ML MODEL BAKE-OFF — skipped: '+String(d.surrogate.error).replace(/</g,'&lt;')+'</div>':'';
-      const _sec3=_cfgTile+_paramTile+_topTile+_nbTile+_dsrTile+_surrTile+_surrErr;
+      const _sec3=_cfgTile+_bcTile+_paramTile+_topTile+_dsrTile+_surrTile+_surrErr;
+      // §2 header verdict line (redesign #22): the cluster question answered up front —
+      //   neighbours held / plateau agreement / PBO, colored, before any chart is read.
+      const _pboR=(d.validate&&d.validate.pbo&&d.validate.pbo.pbo!=null)?d.validate.pbo.pbo:((d.pbo&&d.pbo.pbo!=null)?d.pbo.pbo:null);
+      const _s2Verd=[(nbSub?('<b style="color:var(--green)">'+nbSub+'</b>'):''),
+        (d.plateau_pick?('plateau '+(d.plateau_pick.same_as_best?'<b style="color:var(--green)">agrees</b>':'<b style="color:var(--text3)">differs</b>')):''),
+        (_pboR!=null?('PBO <b style="color:'+(_pboR<=0.3?'var(--green)':_pboR<=0.5?'var(--yellow)':'var(--red)')+'">'+Math.round(_pboR*100)+'%</b>'):'')].filter(function(x){return x;}).join(' <span style="color:var(--text5)">·</span> ');
+      // ── LEGACY §2 (redesign transition): the ORIGINAL arrangement, every chart re-tagged
+      //    L2x so element ids never collide with the live copies above. Rendered in the
+      //    LEGACY block at the report bottom; deleted once the owner picks a winner. ──
+      let _sec3Legacy='';
+      try{
+        const _Lq=((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt,'L2A'):'');
+        const _Ldist=distPanelHtml(d.dist,mlt,'L2D');
+        const _Lpdp=pdpCurvesPanelHtml(_PTS,mlt,'L2C',(_pMet==='pnl'?d.plateau_pick:null),((_kOrd&&_kOrd.length>=2)?_kOrd:null),true,(_pMet==='pnl'?d.auto_expand:null));
+        const _Lparc=parallelCoordsHtml(_PTS,mlt,'L2B',_kOrd,_Lpdp);
+        const _Lcorr=corrPanelHtml(d.points,'L2E',d.relationship);
+        const _Lhm=(_hm3dOn?surface3dPanelHtml(_PTS,mlt,'L2H',d.best_params):heatmapPanelHtml(_PTS,mlt,'L2H'));
+        const _Lp3d=surface3dPanelHtml(_PTS,mlt,'L2I',d.best_params,1);
+        const _Lsc=(_sc3dOn?scatter3dPanelHtml(_PTS,mlt,'L2J',d.best_params):scatterPanelHtml(_PTS,mlt,'L2J'));
+        const _LL=_stack([_Lq,_Lparc]),_LR=_stack([_Ldist,_Lcorr]);
+        const _Lcfg=(_LL||_LR)?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
+          +(_LL?'<div style="flex:2.5 1 470px;min-width:0"><div style="'+_card2+';box-sizing:border-box">'+_LL+'</div></div>':'')
+          +(_LR?'<div style="flex:1 1 250px;min-width:0"><div style="'+_card2+';box-sizing:border-box">'+_LR+'</div></div>':'')
+          +'</div>'):'';
+        const _Lsurf=(_Lhm||_Lp3d||_Lsc)?('<div style="'+_card2+';margin-bottom:14px;max-width:1360px">'+_wrap([_Lhm,_Lp3d,_Lsc],true)+'</div>'):'';
+        const _Lnb=_nbInner?('<div style="'+_card2+';margin-bottom:14px">'+_nbInner.replace(_cfgN+'G','L2G')+'</div>'):'';
+        _sec3Legacy=_Lcfg+_Lsurf+_Lnb;
+      }catch(_le){console.warn('legacy §2 copy failed',_le);_sec3Legacy='';}
       // regHtml (regime report card + monthly P&L) moved into §1 (under the WF folds) per request.
       // Stress = the champion's profit spread across time → it lives in §1 (1I) for validate runs; keep the standalone §3/§4 only for non-validate sweeps.
       const _sec4='';   // stress is folded into §1 (1I) for EVERY run type now — matches run 137.
@@ -8684,6 +8721,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // ── LEGACY block (redesign transition): the ORIGINAL diagnostics wall, untouched, at the
       //    report bottom so old and new can be compared side by side. Deleted once one wins. ──
       const _legacyParts=[];
+      if(_sec3Legacy&&_sec3Legacy.replace(/\s/g,''))_legacyParts.push('<div class="lbl" style="margin:0 0 8px;font-size:11px;color:var(--text4)">🗄 LEGACY · Configuration Analysis (old §2 arrangement — charts re-tagged L2x)</div>'+_sec3Legacy);
       if(_diagParts.length)_legacyParts.push('<div class="lbl" style="margin:0 0 8px;font-size:11px;color:var(--text4)">🗄 LEGACY · Robustness &amp; Diagnostics (old pill wall)</div>'
         +'<div style="'+_card2+'">'+_diagParts.join('<div style="margin:12px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)"></div>')+'</div>');
       const _legacyBlock=_legacyParts.length?('<div style="margin:26px 0 14px;border-top:2px dashed var(--yellow);padding-top:10px"><div style="font-size:9px;color:var(--yellow);letter-spacing:1px;margin-bottom:10px">🗄 LEGACY LAYOUT — kept for comparison with the redesigned sections above; the losing layout gets deleted once you pick</div>'+_legacyParts.join('<div style="height:14px"></div>')+'</div>'):'';
@@ -8718,7 +8756,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +_sec('1','Feasibility & walk-forward','',_summaryPanel+'<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:1.7 1 360px;min-width:0">'+_panelEquity+'</div><div style="flex:1 1 280px;min-width:0">'+_panelMatrix+_panelRegime+'</div><div style="flex:1.1 1 300px;min-width:0">'+_distTile+'</div></div>')
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         // §3 is a fixed slot too (universal layout): show an n/a card when the run swept no config grid.
-        +_sec('3','Configuration Analysis','robust params — a cluster, not a lonely spike',((_sec3&&_sec3.replace(/\s/g,''))?_sec3:('<div style="'+_card2+';margin-bottom:14px">'+_naTile('2A','CONFIG SEARCH','this run type did not sweep a parameter grid — no config landscape, top-configs table or robustness map to show')+'</div>')),_cfgN)
+        +_sec('3','Configuration Analysis',(_s2Verd||'robust params — a cluster, not a lonely spike'),((_sec3&&_sec3.replace(/\s/g,''))?_sec3:('<div style="'+_card2+';margin-bottom:14px">'+_naTile('2A','CONFIG SEARCH','this run type did not sweep a parameter grid — no config landscape, top-configs table or robustness map to show')+'</div>')),_cfgN)
         +_gateSec
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4,_strN)
         +_sec('8','Drawdown','size for the worst-case equity path',_sec8)
@@ -10510,6 +10548,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _dsc2=content.querySelector('[data-distsec]');if(_dsc2)_dsc2.onchange=()=>{savePref('distSec',_dsc2.value);renderApp();};
       // §4 verdict chips (redesign #27): click toggles that check's full readout open/closed
       content.querySelectorAll('[data-diagchip]').forEach(b=>{b.onclick=()=>{window._diagOpenKey=(window._diagOpenKey===b.dataset.diagchip)?null:b.dataset.diagchip;renderApp();};});
+      // §2 3-D explorer chips (redesign #24): pick which 3-D view the single tile renders
+      content.querySelectorAll('[data-p3view]').forEach(b=>{b.onclick=()=>{savePref('p3view',b.dataset.p3view);renderApp();};});
       const _wfv=content.querySelectorAll('[data-wfview]');_wfv.forEach(ch=>{ch.onclick=(e)=>{e.stopPropagation();savePref('wfView',ch.dataset.wfview);renderApp();};});}
     return;
   }
