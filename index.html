@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='61.8';
+const VERSION='61.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'61.9', date:'2026-07-20', notes:['2L: the "xgboost wins" verdict line above the equity chart is gone — the winner is now HIGHLIGHTED in the model rows instead (a coloured left-accent, a tinted background and a ▸), which saves the vertical space.','2L model rows: each bar now also carries a grey DASHED line marking the SEARCH BEST (the brute-force bar every pick is trying to beat), alongside the green REAL line.','2L model rows: the actual numbers are shown beside each bar now — predicted $ → real $ — plus R² accuracy and the beat-search tick (the models-agree / diverge status moved to the subtile header).']},
   {v:'61.8', date:'2026-07-20', notes:['2L: the equity overlay now sits ON TOP of the model rows (chart first, then the numbers).','2L: the model scorecards are now ONE combined subtile — a row per model with the name in its equity-graph colour, a bar showing the PREDICTED $ with a green line marking where the REAL (verified) $ landed (the gap = model error), plus R² accuracy and the beat-search tick.','2L overlay visibility: model curves that overlap the winner are now drawn as thin DASHED lines OVER the solid best curve, so an overlapping pick (e.g. quadratic sitting on top of xgboost) shows through instead of being hidden; colours are also a touch brighter and the model names on the cards match the curve colours exactly.']},
   {v:'61.7', date:'2026-07-20', notes:['2L MODEL-PICK EQUITY OVERLAY: thinner curves (less ink) and the legend now lives INSIDE the chart, top-left (with a halo so it reads over any line) instead of a separate row below.','2L MODEL SCORECARDS: each model card had three bars (accuracy, predicted $, real $) — collapsed to ONE bar (prediction accuracy), with the predicted → real dollars as a compact text line beneath. The real-dollar picks already show as curves in the overlay, so the card focuses on accuracy.','2L VERDICT: the "xgboost wins" headline is now one tidy line — winner · accuracy · verified pick (vs search best) · agree/diverge — instead of four separate chips.']},
   {v:'61.6', date:'2026-07-20', notes:['2A TOP CONFIGS: the green axis label now says CHAMPION (IS pick) instead of the misleading "top" — it marks the config the run actually crowned (rank 1 on the pre-registered in-sample slice), not the highest-ending curve. When a DIFFERENT config ends higher (it did better in the out-of-sample tail — crowning it for that would be look-ahead), that endpoint now gets its own blue marker labeled "highest end (rank N)" so the gap between picked and highest is visible instead of confusing.']},
@@ -8154,30 +8155,30 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const agree=consNote&&/agree/i.test(consNote);
         const _st=(consNote+(uncNote?' — '+uncNote:'')).replace(/"/g,'&quot;');
         const statusIc=consNote?(agree?'<span title="'+_st+'" style="cursor:help;color:var(--green);font-size:9px;font-weight:700">✓ models agree</span>':'<span title="'+_st+'" style="cursor:help;color:var(--yellow);font-size:9px;font-weight:700">⚠ models diverge</span>'):'';
-        // one-line verdict (owner): winner · accuracy · verified pick (beats search best) · status
-        const head='<div style="display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;margin:0 0 10px;padding:7px 10px;background:var(--bg1);border-radius:8px;font-size:9px">'
-          +'<span style="font-size:11px;font-weight:800;color:var(--text)">▸ '+_esS(String(bm.model||'').toUpperCase())+' wins</span>'
-          +'<span style="color:'+r2Col(bm.cv_r2)+';font-weight:700;cursor:help" title="prediction accuracy (CV R²): what fraction of the config-to-config PnL differences this model explains, graded on configs it never saw. 100% = perfect predictions, 0% = no better than always guessing the average.">'+(bm.cv_r2*100).toFixed(1)+'% accuracy</span>'
-          +'<span style="color:var(--text5)">·</span>'
-          +'<span style="color:var(--text3);cursor:help" title="the model proposed its single best config; that config was run through ONE real backtest. This is that real-dollar result (not the guess), and the number in brackets is the best config the brute-force search had already found — the bar to beat.">verified pick <b style="color:#1d9e75">'+$(bm.ground_truth_pnl)+'</b> <span style="color:var(--text5)">(vs search best '+$(surr.sampled_best_pnl)+')</span></span>'
-          +'<span style="margin-left:auto"></span>'+statusIc+'</div>';
+        // the winner is now highlighted in the scorecard rows below (▸ + row tint), not in a verdict
+        //   line above the equity chart — saves the vertical space (owner).
+        const head='';
         const gmax=Math.max.apply(null,okM.map(m=>Math.max(Math.abs(m.predicted_best_pnl||0),Math.abs(m.ground_truth_pnl||0))).concat([Math.abs(surr.sampled_best_pnl||0),1]));
-        // owner: combine the per-model cards into ONE subtile — a row per model with the name
-        //   in its equity-graph colour, a $-bar (fill = PREDICTED, green line = where REAL landed),
-        //   R² accuracy and the beat-search tick.
+        // owner: ONE combined subtile — the WINNER is highlighted HERE (row tint + ▸) instead of a
+        //   verdict line above the equity chart; each bar shows PREDICTED $ (fill), a green line at
+        //   the REAL (verified) $ and a grey dashed line at the SEARCH BEST (the bar to beat); the
+        //   pred/real numbers sit beside the bar, with R² accuracy and the beat-search tick.
+        const _sbw=Math.min(100,Math.abs(surr.sampled_best_pnl||0)/gmax*100);
         const _scRow=m=>{const best=m.model===surr.best_model,col=_mcl(m.model);
-          if(m.cv_r2==null)return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:8px;color:var(--text5);opacity:.6;border-top:1px solid color-mix(in srgb,var(--border) 35%,transparent)"><span style="flex:0 0 82px;font-weight:700;color:'+col+'">'+_esS(m.model)+'</span><span style="flex:1">skipped'+(m.skipped?' — '+_esS(m.skipped):'')+'</span></div>';
+          if(m.cv_r2==null)return '<div style="display:flex;align-items:center;gap:7px;padding:4px 6px;font-size:8px;color:var(--text5);opacity:.6;border-top:1px solid color-mix(in srgb,var(--border) 35%,transparent)"><span style="flex:0 0 84px;font-weight:700;color:'+col+'">'+_esS(m.model)+'</span><span style="flex:1">skipped'+(m.skipped?' — '+_esS(m.skipped):'')+'</span></div>';
           const pw=Math.min(100,Math.abs(m.predicted_best_pnl||0)/gmax*100),rw=Math.min(100,Math.abs(m.ground_truth_pnl||0)/gmax*100);
-          return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:8px;border-top:1px solid color-mix(in srgb,var(--border) 35%,transparent)">'
-            +'<span style="flex:0 0 82px;font-weight:'+(best?'800':'700')+';color:'+col+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_esS(m.model)+'">'+(best?'▸ ':'')+_esS(m.model)+'</span>'
-            +'<span style="flex:1;position:relative;height:12px;background:var(--bg2);border-radius:3px;min-width:34px;cursor:help" title="'+_esS(m.model)+' — bar = PREDICTED '+$(m.predicted_best_pnl)+'; the green line marks the REAL (verified backtest) '+$(m.ground_truth_pnl)+'. The gap = how far the model map was off.">'
+          return '<div style="display:flex;align-items:center;gap:7px;padding:4px 6px;font-size:8px;border-top:1px solid color-mix(in srgb,var(--border) 35%,transparent)'+(best?';background:color-mix(in srgb,'+col+' 13%,transparent);border-left:3px solid '+col:'')+'">'
+            +'<span style="flex:0 0 84px;font-weight:'+(best?'800':'700')+';color:'+col+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_esS(m.model)+(best?' — winner (best cross-validated model)':'')+'">'+(best?'▸ ':'')+_esS(m.model)+'</span>'
+            +'<span style="flex:1;position:relative;height:12px;background:var(--bg2);border-radius:3px;min-width:40px;cursor:help" title="'+_esS(m.model)+' — bar = PREDICTED '+$(m.predicted_best_pnl)+'; green line = REAL (verified backtest) '+$(m.ground_truth_pnl)+'; grey dashed = SEARCH BEST '+$(surr.sampled_best_pnl)+' (the bar to beat).">'
               +'<span style="position:absolute;left:0;top:0;height:100%;width:'+pw.toFixed(1)+'%;background:'+col+';opacity:.5;border-radius:3px"></span>'
+              +'<span style="position:absolute;left:calc('+_sbw.toFixed(1)+'% - 0.5px);top:-2px;height:16px;border-left:1px dashed var(--text4)"></span>'
               +'<span style="position:absolute;left:calc('+rw.toFixed(1)+'% - 1px);top:-1px;height:14px;width:2px;background:#1d9e75"></span></span>'
-            +'<span style="flex:0 0 44px;text-align:right;color:'+r2Col(m.cv_r2)+';font-weight:700" title="prediction accuracy (CV R²): fraction of the config-to-config PnL differences this model explains on configs it never saw.">'+(m.cv_r2*100).toFixed(1)+'%</span>'
+            +'<span style="flex:0 0 94px;text-align:right;color:var(--text4);white-space:nowrap">'+$(m.predicted_best_pnl)+' <span style="color:var(--text5)">→</span> <b style="color:#1d9e75">'+$(m.ground_truth_pnl)+'</b></span>'
+            +'<span style="flex:0 0 36px;text-align:right;color:'+r2Col(m.cv_r2)+';font-weight:700" title="prediction accuracy (CV R²)">'+(m.cv_r2*100).toFixed(1)+'%</span>'
             +'<span style="flex:0 0 16px;text-align:center;color:'+(m.beat_sampled_best===true?'#1d9e75':'var(--text5)')+'" title="did the REAL backtest of this pick beat the brute-force search best?">'+(m.beat_sampled_best===true?'✓':'·')+'</span>'
             +'</div>';};
-        const _scHdr='<div style="display:flex;align-items:center;gap:8px;font-size:7px;letter-spacing:.5px;color:var(--text5);padding:0 0 1px"><span style="flex:0 0 82px">MODEL</span><span style="flex:1">predicted $ (bar) · real $ (▏ green line)</span><span style="flex:0 0 44px;text-align:right">R²</span><span style="flex:0 0 16px;text-align:center">beat</span></div>';
-        const cardsRow='<div style="background:var(--bg1);border-radius:8px;padding:8px 10px;margin-bottom:10px">'+_scHdr+models.map(_scRow).join('')+'</div>';
+        const _scHdr='<div style="display:flex;align-items:center;gap:7px;font-size:7px;letter-spacing:.5px;color:var(--text5);padding:0 0 2px"><span style="flex:0 0 84px">MODEL</span><span style="flex:1">pred $ (bar) · real ▏green · search ┊grey</span><span style="flex:0 0 94px;text-align:right">pred → real</span><span style="flex:0 0 36px;text-align:right">R²</span><span style="flex:0 0 16px;text-align:center">beat</span></div>';
+        const cardsRow='<div style="background:var(--bg1);border-radius:8px;padding:8px 10px;margin-bottom:10px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--text3)">MODEL PICKS <span style="font-weight:400;color:var(--text5)">— ▸ highlighted = winner</span></span><span style="margin-left:auto"></span>'+statusIc+'</div>'+_scHdr+models.map(_scRow).join('')+'</div>';
         const ks2=ksKeys.map(k=>({k:k,m:(surr.knob_screen[k]&&surr.knob_screen[k].probe_margin!=null)?+surr.knob_screen[k].probe_margin:null,v:(surr.knob_screen[k]&&surr.knob_screen[k].verdict)||'weak',note:_fullTip(surr.knob_screen[k])})).filter(x=>x.m!=null).sort((a,b)=>b.m-a.m);
         let knob2='';
         if(ks2.length){const mmax=Math.max.apply(null,ks2.map(x=>Math.abs(x.m)).concat([0.05]));
