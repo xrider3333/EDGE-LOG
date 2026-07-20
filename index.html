@@ -401,7 +401,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='60.3';
+const VERSION='60.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -8965,7 +8965,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         _fEqPts=fld('GRAPH DETAIL','<input id="ex-eqpts" type="number" min="80" max="1200" step="40" value="'+(APREF.equity_points||400)+'"/>',120),
         _fProv=fld('AI PROVIDER',c_prov,170),
         _fScope=fld('SCOPE',c_preset,190),
-        _fTrials=fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||200)+'"/>',90),
+        _fTrials=fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||500)+'"/>',90),
         _fWork=fld('WORKERS','<input id="ex-work" type="number" value="'+(APREF.workers||4)+'"/>',90),
         _fMint=fld('MIN TRADES','<input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/>',100),
         _fFolds=fld('WF FOLDS','<input id="ex-folds" type="number" value="0"/>',90),
@@ -9627,7 +9627,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div><label class="lbl">TIMEFRAME</label>'+sel('set-tf',['5m','1m'],APREF.timeframe||'5m')+'</div>'
           +'<div><label class="lbl">WORKERS</label><input id="set-work" type="number" value="'+(APREF.workers||4)+'"/></div>'
           +'<div><label class="lbl">AI ROUNDS</label><input id="set-rounds" type="number" value="'+(APREF.rounds||4)+'"/></div>'
-          +'<div><label class="lbl">TRIALS (auto/WF)</label><input id="set-trials" type="number" value="'+(APREF.trials||200)+'"/></div>'
+          +'<div><label class="lbl">TRIALS (auto/WF)</label><input id="set-trials" type="number" value="'+(APREF.trials||500)+'"/></div>'
           +'<div><label class="lbl">MIN TRADES</label><input id="set-mint" type="number" value="'+(APREF.min_trades||30)+'"/></div>'
           +'<div style="grid-column:span 2"><label class="lbl">AI PROVIDER</label>'+sel('set-prov',['ollama','claude-cli','anthropic'],APREF.provider||'ollama')+'</div>'
           +'</div><button class="btn-ghost active" id="set-save" style="margin-top:12px">SAVE DEFAULTS</button><span id="set-saved" style="margin-left:10px;font-size:var(--fsxs);color:var(--green)"></span>')
