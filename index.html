@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='62.2';
+const VERSION='62.3';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'62.3', date:'2026-07-20', notes:['NEW: FUNNEL β report layout — a REPORT LAYOUT toggle (CLASSIC / FUNNEL β) now sits at the top of every run report. FUNNEL regroups the SAME panels into five questions read top-to-bottom like a deploy decision: 1 Performance and Validation (equity, matrix, distributions, the In-sample block) → 2 Config Robustness (2A, 2B/2C, 2D, 2G, 2F — plus the PBO and plateau chips, which are about whether the config PICK is overfit) → 3 What Drives the Edge (knob importance, 3-D explorer, the 2L model bake-off) → 4 Enhancements (the ML gate and the ensemble chip — things that improve a result, not trust checks) → 5 Is the Edge Real (the remaining robustness chips only).','CLASSIC is untouched and stays the default — the toggle is remembered, flip back any time. The legacy comparison block renders only under CLASSIC.']},
   {v:'62.2', date:'2026-07-20', notes:['FIX: KNOB IMPORTANCE (2E) was showing fewer knobs than the old knobs-vs-noise chart — it only listed the NUMERIC swept params, so categorical knobs (modes / booleans like fill_mode, trigger, exit_mode) got dropped even though the surrogate had screened them against noise. Those knobs are back now: they show their vs-noise score and verdict, with — in the r / MI / PPS columns (those need a numeric axis) and a · for the direction glyph.']},
   {v:'62.1', date:'2026-07-20', notes:['EXTRAPOLATION GUARD (#91): 2L model rows gain a "terr" column — ⚠ means that model picked a config OUTSIDE the territory the search actually sampled (tree models can not predict out there, so the predicted $ is a guess; the REAL verified $ still stands), ◌ means the pick sits in THIN territory with few sampled configs nearby. The steering brain also stops giving out-of-territory configs an exploration bonus from the QRF model. New runs only.','VERDICT POWER (#94): the run report gains a 📏 line under the lockbox — given how few trades the lockbox holds and how noisy they are, it shows the SMALLEST per-trade edge that holdout could reliably detect, next to the edge the champion actually claims. If the claim is below the detectable floor the verdict is stamped UNDERPOWERED: a pass or a fail there is weak evidence either way. New runs only.']},
   {v:'62.0', date:'2026-07-20', notes:['2E is now KNOB IMPORTANCE — it merges the old param-relationship panel (Pearson r · MI · PPS) with the surrogate knobs-vs-noise screen into one view. DEFAULT is COMPACT: one 0→1 importance bar per knob (the mean of MI, PPS and how far it beats a planted fake random knob), a + / − glyph for Pearson direction, and a verdict (driver / moderate / weak / noise). A "▤ detail" toggle in the header expands it back to the separate r / MI / PPS / vs-noise columns for finer reading.','2L: the standalone knobs-vs-noise bar chart is retired — that information now lives in the KNOB IMPORTANCE panel, so 2L\'s charts expander is just the knob-pair surfaces.']},
@@ -8855,7 +8856,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    (lockbox held or failed, gated vs ungated $) leads, then sweep chart | candidates
       //    table | decision rail in §1-style columns. The legacy copy stays in the bottom block. ──
       const _gvP=_gvD?gvParts(_gvD,stratTag(d.strategy),mlt):null;
-      let _gateSec='';
+      let _gateSec='',_gateCard='';
       if(_gvP||d.ml_gate){
         const _g$=v=>fmtUsd(Math.round((v||0)*mlt));const _pff=v=>Math.min(v||0,99).toFixed(2);
         // ── VERDICT banner (qualitative — the numbers live in the before→after cards below) ──
@@ -8899,10 +8900,54 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _evTog='<div data-r3ev title="the full gate report — before/after table, feature attribution (SHAP), calibration and discrimination. Click to '+(_evOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px;padding:5px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)">'+(_evOpen?'▴ hide the full gate detail':'▾ full gate detail — feature attribution · calibration ⓘ')+'</div>';
           _gBody=_hero+_ovlNote+_evTog+(_evOpen?gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt):'');
         }
-        _gateSec=_gHd+'<div style="'+_card2+';margin-bottom:14px"><div style="border:1px solid color-mix(in srgb,'+_gbc+' 45%,var(--border));background:color-mix(in srgb,'+_gbc+' 7%,transparent);border-radius:9px;padding:7px 12px;margin-bottom:12px;font-size:var(--fsm)">'+_gbTxt+'</div>'+_gBody+'</div>';
+        _gateCard='<div style="'+_card2+';margin-bottom:14px"><div style="border:1px solid color-mix(in srgb,'+_gbc+' 45%,var(--border));background:color-mix(in srgb,'+_gbc+' 7%,transparent);border-radius:9px;padding:7px 12px;margin-bottom:12px;font-size:var(--fsm)">'+_gbTxt+'</div>'+_gBody+'</div>';
+        _gateSec=_gHd+_gateCard;
       }
+      // ── REPORT LAYOUT toggle (owner 2026-07-20): CLASSIC = the numbered sections below,
+      //    untouched. FUNNEL β = the SAME panels regrouped into 5 questions (performance →
+      //    config robustness → what drives it → enhancements → is it real) — a preview
+      //    layout for comparison; only one layout renders at a time, so no id collisions. ──
+      const _repLay=(APREF.repLayout==='funnel')?'funnel':'classic';
+      const _layBtn=(v,lab,tip)=>'<span data-replay="'+v+'" title="'+tip+'" style="cursor:pointer;padding:3px 10px;border-radius:9px;font-size:9px;user-select:none;white-space:nowrap;border:1px solid '+(_repLay===v?'var(--green)':'var(--border)')+';color:'+(_repLay===v?'var(--text)':'var(--text4)')+';background:'+(_repLay===v?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+'">'+lab+'</span>';
+      const _layTog='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 4px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5)">REPORT LAYOUT</span>'
+        +_layBtn('classic','CLASSIC','the numbered-section layout you know — unchanged')
+        +_layBtn('funnel','FUNNEL β','PREVIEW — the same panels regrouped into 5 questions: performance and validation → config robustness → what drives the edge → enhancements → is the edge real. Nothing is deleted; flip back any time.')+'</div>';
+      let _funnel='';
+      if(_repLay==='funnel'){
+        const _fHd=(n,col,label,q)=>'<div class="lbl" style="margin:20px 0 8px;padding-top:14px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:23px;height:23px;border-radius:50%;background:'+col+';font-size:12px;font-weight:800;color:#fff">'+n+'</span><span style="font-weight:800;font-size:15px;color:var(--text);letter-spacing:0;text-transform:none">'+label+'</span><span style="font-weight:400;color:var(--text4);font-size:9px">'+q+'</span></div>';
+        const _chipsOf=ks=>_chips.filter(c=>ks.indexOf(c.k)>=0);
+        const _grid=list=>list.length?('<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px">'+list.map(_chipHtml).join('')+'</div>'+((_openChip&&list.some(c=>c.k===_openChip.k))?('<div style="margin-top:6px;padding:0 4px 4px;border:1px dashed color-mix(in srgb,'+_dcDot(_openChip)+' 45%,var(--border));border-radius:8px">'+_openChip.html+'</div>'):'')):'';
+        const _F2c=_chipsOf(['pbo','plat']),_F4c=_chipsOf(['ens']),_F5c=_chips.filter(c=>['pbo','plat','ens','gval','mlg'].indexOf(c.k)<0);
+        // F2 CONFIG ROBUSTNESS: 2A + 2B/2C | 2D + 2G + 2F, plus the config-overfit chips (PBO · plateau)
+        const _f2='<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
+          +(((_eq||'')+(_parc||'')).replace(/\s/g,'')?('<div style="flex:1.6 1 380px;min-width:0"><div style="'+_colStyle+'">'+_stack([_eq,((_parc&&_parc.replace(/\s/g,''))?(_pmTog+_parc):'')])+'</div></div>'):'')
+          +(((_dist||'')+(_nbInner||'')+(_topInner||'')).replace(/\s/g,'')?('<div style="flex:1 1 300px;min-width:0"><div style="'+_colStyle+'">'+_stack([_dist,_nbInner,_topInner])+'</div></div>'):'')
+          +'</div>'
+          +(_F2c.length?('<div data-ck="fF2chips" style="'+_card2+';margin-bottom:14px">'+_grid(_F2c)+'</div>'):'');
+        // F3 WHAT DRIVES: knob importance | 3-D explorer, then the 2L surrogate
+        const _f3='<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
+          +((_corr&&_corr.replace(/\s/g,''))?('<div style="flex:1 1 380px;min-width:0"><div style="'+_colStyle+'">'+_corr+'</div></div>'):'')
+          +(_p3inner?('<div style="flex:1 1 360px;min-width:0;max-width:760px"><div style="'+_colStyle+'">'+_p3inner+'</div></div>'):'')
+          +'</div>'
+          +((_surrInner&&_surrInner.replace(/\s/g,''))?('<div style="'+_colStyle+';margin-bottom:14px">'+_surrInner+'</div>'):'');
+        const _f4Body=(_gateCard||'')+(_F4c.length?('<div data-ck="fF4chips" style="'+_card2+';margin-bottom:14px">'+_grid(_F4c)+'</div>'):'');
+        const _f5Body=_F5c.length?('<div data-ck="fF5chips" style="'+_card2+';margin-bottom:14px">'+_grid(_F5c)+'</div>'):('<div style="'+_card2+';margin-bottom:14px">'+_naTile('','TRUST CHECKS','no distribution-free checks saved for this run')+'</div>');
+        _funnel=_fHd('1','#1d9e75','Performance &amp; Validation','does it make money, and does it hold on unseen data?')
+          +_summaryPanel+'<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px"><div style="flex:1.7 1 360px;min-width:0">'+_panelEquity+'</div><div style="flex:1 1 280px;min-width:0">'+_panelMatrix+_panelRegime+'</div><div style="flex:1.1 1 300px;min-width:0">'+_distTile+'</div></div>'
+          +((_sec2&&_sec2.replace(/\s/g,''))?_sec2:'')
+          +_fHd('2','#7f77dd','Config Robustness',(_s2Verd||'is the winning config a cluster, not a lucky spike?'))
+          +(((_f2||'').replace(/\s/g,''))?_f2:('<div style="'+_card2+';margin-bottom:14px">'+_naTile('','CONFIG SEARCH','this run type did not sweep a parameter grid')+'</div>'))
+          +_fHd('3','#d85a30','What Drives the Edge','which knobs matter, and can a model map the space?')
+          +(((_f3||'').replace(/\s/g,''))?_f3:('<div style="'+_card2+';margin-bottom:14px">'+_naTile('','KNOB ANALYSIS','no per-knob data saved for this run')+'</div>'))
+          +_fHd('4','#378add','Enhancements','can a filter or blend improve the deployed result?')
+          +((_f4Body.replace(/\s/g,''))?_f4Body:('<div style="'+_card2+';margin-bottom:14px">'+_naTile('','ENHANCEMENTS','no ML gate or ensemble saved for this run')+'</div>'))
+          +_fHd('5','#888780','Is the Edge Real','overfit / noise / significance checks — informational, they do not gate the checklist')
+          +_f5Body;
+      }
+      if(_repLay==='funnel')return hdrHtml+valBannerHtml(d)+_layTog+_funnel+runCodeHtml(d);
       return hdrHtml
         +valBannerHtml(d)
+        +_layTog
         // §1 renders the SAME three-column skeleton for EVERY run type — both branches above populate
         //   _panelEquity / _panelMatrix / _distTile (with n/a cards where a tile doesn't apply).
         +_sec('1','Feasibility & walk-forward','',_summaryPanel+'<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:1.7 1 360px;min-width:0">'+_panelEquity+'</div><div style="flex:1 1 280px;min-width:0">'+_panelMatrix+_panelRegime+'</div><div style="flex:1.1 1 300px;min-width:0">'+_distTile+'</div></div>')
@@ -10718,6 +10763,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // compact-pass expanders (#29/#30/#32): 2F table · §3 candidates table · 2L charts
       content.querySelectorAll('[data-cfgtbl]').forEach(b=>{b.onclick=()=>{savePref('cfgTblOpen',APREF.cfgTblOpen?0:1);renderApp();};});
       content.querySelectorAll('[data-r3ev]').forEach(b=>{b.onclick=()=>{window._gvEvOpen=!window._gvEvOpen;renderApp();};});
+      // report layout toggle (funnel preview): CLASSIC ⇄ FUNNEL β
+      content.querySelectorAll('[data-replay]').forEach(b=>{b.onclick=()=>{savePref('repLayout',b.dataset.replay);renderApp();};});
       content.querySelectorAll('[data-surrcharts]').forEach(b=>{b.onclick=()=>{savePref('surrCharts',APREF.surrCharts?0:1);renderApp();};});
       // KNOB IMPORTANCE (2E) compact ⇄ detail toggle
       content.querySelectorAll('[data-knobdetail]').forEach(b=>{b.onclick=()=>{savePref('knobDetail',APREF.knobDetail?0:1);renderApp();};});
