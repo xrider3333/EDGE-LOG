@@ -28,7 +28,8 @@ from .data import find_master, load_master_arrays
 from .engine import _apply_costs
 from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
                         regime_report, neighborhood, downsample_pnls, downsample_points,
-                        mae_mfe, relationship_scores, pdp_plateau)
+                        mae_mfe, relationship_scores, pdp_plateau,
+                        interaction_pairs, conditional_boundary_flags)
 
 # Realism gates — identical to optimizer.py (WF_MIN_SIDE / MAX_TRADE_RATE / MAX_PF).
 # A champion/headline config must take at least this many WINNING and LOSING trades
@@ -186,14 +187,24 @@ def _expand_range(lo, hi, step, kind, edge, orig_lo, orig_hi, hard_min=None, har
         return _snap_to_step(new_lo, step, kind, orig_hi), hi
 
 
-def _emerge_suffix(emerged, cause):
+def _emerge_suffix(emerged, cause, via=None, partner=None, slice_=None):
     """Note suffix appended to a log entry when the param was chased only because
     it EMERGED mid-run (i.e. it was not in the initial boundary_flags) -- names the
     param(s) whose expansion preceded it, per _auto_expand_search's docstring. No
     exact causal proof is attempted (that would require a counterfactual re-run) --
-    this is a "here's what changed right before this showed up" breadcrumb."""
+    this is a "here's what changed right before this showed up" breadcrumb.
+
+    P3 (docs/SURROGATE_DISCOVERY_DESIGN.md §7): when `via == "interaction"`, this
+    param wasn't unlocked by another param's WIDENING at all -- it was flagged by
+    `analytics.conditional_boundary_flags` off the JOINT surface with `partner`
+    (its own unconditional/marginal curve never tripped the plain 1-D detector).
+    Names the pair in plain language instead of the generic "emerged" phrasing."""
     if not emerged:
         return ""
+    if via == "interaction" and partner:
+        level = "high" if slice_ == "high" else "low"
+        return (f" (widened because the joint surface with {partner} shows the optimum "
+                f"escaping this range when {partner} is {level}.)")
     who = ", ".join(cause) if cause else "another param"
     return f" (emerged mid-run after widening {who}.)"
 
@@ -229,6 +240,38 @@ def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trad
          its own `max_rounds` / a hard/width cap, FINALIZE it (tapered or capped)
          and drop it from `active`.
       f. keep going while `active` is non-empty AND global_round < max_global_rounds.
+
+    P3 -- INTERACTION-AWARE EXPANSION (docs/SURROGATE_DISCOVERY_DESIGN.md §7 P3,
+    owner-approved 2026-07-19): step (d) above only ever catches a param whose
+    OWN marginal curve becomes edge-pinned. That misses a real case: a knob Y
+    whose marginal curve looks perfectly fine (averaged over everything else)
+    can still have its true optimum escape the tested range for a SUBSET of a
+    strong partner knob X's values -- the marginal just hides it. So step (d)
+    is extended: after the ordinary `flagged_now` re-emergence check, ALSO fit
+    `analytics.interaction_pairs` (a small RandomForestRegressor + the same
+    Friedman-H-style pair-strength statistic `surrogate.py`'s bake-off already
+    uses) on the merged records-so-far, and run `analytics.
+    conditional_boundary_flags` on the resulting strong pairs -- for each pair
+    (X, Y), restrict to the TOP/BOTTOM tercile of X's observed values and
+    re-check Y's curve WITHIN that slice with the identical edge-pinned-and-
+    rising rule. Any param this flags that is not already `active` or
+    `finalized` joins `active` exactly like an ordinary emerged param (rounds=0,
+    seeded from its ORIGINAL space bounds), but tagged `via="interaction"` +
+    `partner`/`slice` so its log entry names the pair in plain language instead
+    of the generic "emerged mid-run" phrasing. The ORDINARY re-emergence check
+    always runs FIRST and claims a param before P3 gets a chance to (the
+    `_activate` guard is "already active or finalized -> skip"), so on any
+    surface where the plain 1-D detector ALSO eventually catches a param (as it
+    already did pre-P3), P3 is a complete no-op for it -- P3 only ever adds
+    params the 1-D detector's own marginal view was hiding. Both `interaction_
+    pairs`/`conditional_boundary_flags` are wrapped in a blanket try/except
+    (see their own docstrings) and degrade to doing nothing -- an interaction-
+    scan failure can never stop the plain 1-D expander from running its normal
+    course. NOTE: like step (d)'s ordinary emerged params, an interaction
+    unlock can only ever add a param STARTING the round after some OTHER param
+    was already active (the outer `while active and ...` loop itself never
+    starts from a fully empty `active` -- P3 rides on top of an already-
+    running expansion, it doesn't independently trigger one).
 
     Two separate caps, deliberately decoupled:
       `max_rounds`        — how many times a SINGLE param may be widened (its own
@@ -283,7 +326,13 @@ def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trad
       merged_records — the list `pp["index"]` refers into (== the input `records`
                        unchanged when `log` is empty).
       summary        — {global_rounds_used, n_params_expanded, n_emerged,
-                       converged}. `converged` is True iff the loop ended with
+                       n_interaction_unlocks, converged}. `n_interaction_unlocks`
+                       (P3) is how many of the log entries were activated via
+                       the interaction-conditional check rather than the plain
+                       1-D re-emergence path (0 when no pair ever cleared the
+                       strength bar, or when only ordinary re-emergence fired —
+                       it's a SUBSET count of `n_emerged`, never double-counted
+                       against it). `converged` is True iff the loop ended with
                        `active` empty on its own (nothing left in OUR tracked set
                        still rising) — False iff it stopped because global_round
                        hit max_global_rounds while something was still active.
@@ -300,8 +349,9 @@ def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trad
     finalized = set()
     log = []
     n_emerged = 0
+    n_interaction_unlocks = 0
 
-    def _activate(pname, edge, emerged, cause=None):
+    def _activate(pname, edge, emerged, cause=None, via=None, partner=None, slice_=None):
         spec = space.get(pname)
         if not spec or spec[0] not in ("int", "float"):
             return False                              # categorical/unknown — not expandable
@@ -311,8 +361,22 @@ def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trad
         active[pname] = {"kind": spec[0], "orig_lo": lo, "orig_hi": hi, "step": step,
                          "cur_lo": lo, "cur_hi": hi, "edge": edge, "rounds": 0,
                          "hard_min": meta.get("hard_min"), "hard_max": meta.get("hard_max"),
-                         "emerged": emerged, "cause": list(cause or [])}
+                         "emerged": emerged, "cause": list(cause or []),
+                         "via": via, "partner": partner, "slice": slice_}
         return True
+
+    def _interaction_unlocks(current_records):
+        """P3 — wraps analytics.interaction_pairs/conditional_boundary_flags with
+        an EXTRA guard on top of their own (never omit the "an interaction-scan
+        failure must never kill a round" contract, even against a future bug in
+        either function)."""
+        try:
+            pairs = interaction_pairs(current_records, pkeys, dp)
+            if not pairs:
+                return []
+            return conditional_boundary_flags(current_records, pkeys, dp, pairs)
+        except Exception:
+            return []
 
     for f in (boundary_flags or []):
         _activate(f.get("param"), f["edge"], emerged=False)
@@ -335,10 +399,12 @@ def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trad
                 log.append({"param": pname, "orig_range": [st["orig_lo"], st["orig_hi"]],
                            "final_range": [st["cur_lo"], st["cur_hi"]], "rounds": st["rounds"],
                            "tapered": False, "emerged": st["emerged"],
+                           "via": st["via"], "partner": st["partner"], "slice": st["slice"],
                            "final_peak_value": st["cur_hi"] if st["edge"] == "max" else st["cur_lo"],
                            "note": "hit a hard_min/hard_max bound with no room left to "
                                    "expand -- still rising at the bound."
-                                   + _emerge_suffix(st["emerged"], st["cause"])})
+                                   + _emerge_suffix(st["emerged"], st["cause"],
+                                                    st["via"], st["partner"], st["slice"])})
                 del active[pname]
                 continue
             st["cur_lo"], st["cur_hi"] = new_lo, new_hi
@@ -388,18 +454,38 @@ def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trad
             log.append({"param": pname, "orig_range": [st["orig_lo"], st["orig_hi"]],
                        "final_range": [st["cur_lo"], st["cur_hi"]], "rounds": st["rounds"],
                        "tapered": tapered, "emerged": st["emerged"],
+                       "via": st["via"], "partner": st["partner"], "slice": st["slice"],
                        "final_peak_value": peak_val,
-                       "note": note + _emerge_suffix(st["emerged"], st["cause"])})
+                       "note": note + _emerge_suffix(st["emerged"], st["cause"],
+                                                     st["via"], st["partner"], st["slice"])})
 
-        # NEW -- chase any param that only just showed up in flagged_now, seeded
-        # from the ORIGINAL search-space bounds (not `cur_bounds`, which may
-        # already carry a stale widened range for it from nowhere -- an emerged
-        # param has never been touched, so its true starting point is `space`).
+        # ordinary re-emergence -- chase any param that only just showed up in
+        # flagged_now, seeded from the ORIGINAL search-space bounds (not
+        # `cur_bounds`, which may already carry a stale widened range for it
+        # from nowhere -- an emerged param has never been touched, so its true
+        # starting point is `space`).
         for pname, f in flagged_now.items():
             if pname in active or pname in finalized:
                 continue                               # already tracked, or permanently retired
             if _activate(pname, f["edge"], emerged=True, cause=pushed):
                 n_emerged += 1
+
+        # P3 -- interaction-conditional re-check on the MERGED records-so-far
+        # (`recs`, which by this point in the round already includes this
+        # round's fresh resample). Runs AFTER the ordinary re-emergence check
+        # above, so on any surface where the plain 1-D detector ALSO eventually
+        # catches a param, the `_activate` "already active/finalized" guard
+        # makes this a complete no-op for it -- P3 only ever adds params the
+        # 1-D detector's own marginal view was hiding (see this function's
+        # docstring, P3 section).
+        for cf in _interaction_unlocks(recs):
+            pname = cf["param"]
+            if pname in active or pname in finalized:
+                continue
+            if _activate(pname, cf["edge"], emerged=True, cause=[cf["partner"]],
+                        via="interaction", partner=cf["partner"], slice_=cf["slice"]):
+                n_emerged += 1
+                n_interaction_unlocks += 1
 
     # Loop ended -- either `active` drained naturally (converged) or global_round
     # hit the cap with something still legitimately active. Finalize any leftovers
@@ -413,15 +499,17 @@ def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trad
         note = ("hit auto_expand_max_global_rounds while still rising -- the joint "
                 "search did not fully stabilize; raise auto_expand_max_global_rounds "
                 "or widen DEFAULT_PARAMS manually."
-                + _emerge_suffix(st["emerged"], st["cause"]))
+                + _emerge_suffix(st["emerged"], st["cause"], st["via"], st["partner"], st["slice"]))
         log.append({"param": pname, "orig_range": [st["orig_lo"], st["orig_hi"]],
                    "final_range": [st["cur_lo"], st["cur_hi"]], "rounds": st["rounds"],
                    "tapered": False, "emerged": st["emerged"],
+                   "via": st["via"], "partner": st["partner"], "slice": st["slice"],
                    "final_peak_value": peak_val, "note": note})
         del active[pname]
 
     summary = {"global_rounds_used": global_round, "n_params_expanded": len(log),
-              "n_emerged": n_emerged, "converged": converged}
+              "n_emerged": n_emerged, "n_interaction_unlocks": n_interaction_unlocks,
+              "converged": converged}
     return pp, log, recs, summary
 
 
@@ -456,12 +544,32 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
     no-re-add policy). Fully additive + scoped to plateau_pick only — best/top/DSR/
     MC/regime/neighbors/pills always key off the ORIGINAL (unexpanded) sample.
     Set auto_expand=False to reproduce the pre-expansion behavior byte-for-byte.
+    INTERACTION-AWARE EXPANSION (P3, docs/SURROGATE_DISCOVERY_DESIGN.md §7,
+    owner-approved 2026-07-19): every round ALSO fits a small RandomForest +
+    Friedman-H-style pair-strength scan (analytics.interaction_pairs) over the
+    merged records-so-far and, for any strong pair (X, Y), checks Y's curve
+    CONDITIONAL on the top/bottom tercile of X's values (analytics.
+    conditional_boundary_flags) — so a knob whose own 1-D/marginal curve looks
+    perfectly fine still gets widened when the JOINT surface shows its optimum
+    escaping the tested range at extreme values of a strong partner knob. Such
+    params carry `emerged=True` too (P3 unlocks ride the same "starts expanding
+    next round" mechanics as an ordinary emerged param) plus `via="interaction"`,
+    `partner`, `slice:'high'|'low'` on their log entry. The ordinary 1-D
+    re-emergence check always runs first each round, so P3 is a no-op whenever
+    the plain detector would have caught the param anyway — it only ever adds
+    knobs the marginal view was hiding. Both P3 helpers are wrapped in their own
+    try/except (never raise) — an interaction-scan failure degrades to nothing
+    happening, never to a broken run.
     When it fires, `out["auto_expand"]` lists one entry per every param that ever
     entered the chase (initial-flag or emerged): {param, orig_range:[min,max],
-    final_range:[min,max], rounds, tapered:bool, emerged:bool, final_peak_value,
-    note}, and `out["auto_expand_summary"]` carries {global_rounds_used,
-    n_params_expanded, n_emerged, converged:bool} — converged is True iff the joint
-    surface fully stabilized (nothing left rising) before max_global_rounds.
+    final_range:[min,max], rounds, tapered:bool, emerged:bool, via, partner,
+    slice, final_peak_value, note} — `via`/`partner`/`slice` are None except on a
+    P3 interaction unlock. `out["auto_expand_summary"]` carries
+    {global_rounds_used, n_params_expanded, n_emerged, n_interaction_unlocks,
+    converged:bool} — converged is True iff the joint surface fully stabilized
+    (nothing left rising) before max_global_rounds; n_interaction_unlocks (P3) is
+    the subset of n_emerged activated via the interaction-conditional check
+    (0 when no pair ever cleared the strength bar).
 
     compute_surrogate (default False, non-WF runs only): opt-in MULTI-SURROGATE
     BAKE-OFF READ-OUT (#31 P1, docs/SURROGATE_DISCOVERY_DESIGN.md) — fits several

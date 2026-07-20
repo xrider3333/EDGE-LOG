@@ -557,6 +557,215 @@ def _pdp_boundary_flags(curves, numeric_of):
     return flags
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# P3 — INTERACTION-AWARE EXPANSION (docs/SURROGATE_DISCOVERY_DESIGN.md §7 P3,
+# owner-approved 2026-07-19). The plain boundary-peak detector above
+# (_pdp_boundary_flags/pdp_plateau) only ever looks at a param's OWN marginal
+# (averaged-over-everything-else) curve. That can hide a real edge problem: a
+# knob Y whose marginal curve looks perfectly interior can still have its TRUE
+# optimum escape the tested range for a SUBSET of a strong partner knob X's
+# values — the marginal just averages that subset's pull away with the rest of
+# the sample. `interaction_pairs` finds which knob-pairs have a strong enough
+# joint (non-additive) effect to be worth checking this way; `conditional_
+# boundary_flags` does the actual conditional check — restrict to the TOP and
+# BOTTOM terciles of X's observed values and re-run the SAME edge-pinned-and-
+# rising test (_pdp_boundary_flags) on Y's curve within each slice. Both are
+# pure additions: neither is called anywhere except auto.py's
+# `_auto_expand_search`, and both degrade to `[]` on any failure — an
+# interaction-scan hiccup must never keep the plain 1-D expander from running.
+# ─────────────────────────────────────────────────────────────────────────────
+INTERACTION_MIN_POINTS = 30      # below this the joint surface is too thin to fit an honest RF
+INTERACTION_STRENGTH_MIN = 0.10  # Friedman-H-style strength floor -- below this, "interaction"
+                                  # is noise, not signal (matches surrogate.py's own WEAK_NORM_THRESH
+                                  # order of magnitude, kept as its own constant since this is a
+                                  # DIFFERENT statistic — pair strength, not a knob-vs-noise-probe verdict)
+MIN_SLICE_RECORDS = 12           # a conditional slice (tercile) needs at least this many DISTINCT
+                                  # sampled configs before its own PDP curve means anything
+MIN_SLICE_Y_VALUES = 3           # ...and Y must vary across at least this many distinct values
+                                  # within the slice (same floor _pdp_boundary_flags itself uses)
+
+
+def _curve_for_param(records, param, pnl_key):
+    """Build ONE param's smoothed PDP-style curve (mean PnL per observed value,
+    1-2-1-kernel smoothed) over an arbitrary subset of records — the exact same
+    construction `pdp_plateau` uses per-param, factored out here so P3 can build
+    the identical curve on a conditional SLICE of records (a tercile) without
+    duplicating pdp_plateau's own (already-tested) per-param loop inline.
+
+    Returns (curve, is_numeric) — `curve` in the same `[{"v","mean","smooth"},...]`
+    shape pdp_plateau/`_pdp_boundary_flags` use — or (None, None) if `param`
+    doesn't vary across at least 3 distinct values in `records` (too thin to
+    judge an edge either way)."""
+    groups = {}
+    for r in records:
+        v = r.get(param)
+        y = r.get(pnl_key)
+        if v is None or y is None:
+            continue
+        groups.setdefault(v, []).append(float(y))
+    if len(groups) < 3:
+        return None, None
+    numeric = all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in groups)
+    order = sorted(groups) if numeric else sorted(groups, key=str)
+    means = np.array([float(np.mean(groups[v])) for v in order])
+    sm = means.copy()
+    if numeric and len(order) >= 3:
+        sm[1:-1] = 0.25 * means[:-2] + 0.5 * means[1:-1] + 0.25 * means[2:]
+        sm[0] = 0.6 * means[0] + 0.4 * means[1]
+        sm[-1] = 0.6 * means[-1] + 0.4 * means[-2]
+    curve = [{"v": v, "mean": round(float(m), 1), "smooth": round(float(s), 1)}
+             for v, m, s in zip(order, means, sm)]
+    return curve, numeric
+
+
+def _edge_flag_for_curve(param, curve):
+    """One-param convenience wrapper over `_pdp_boundary_flags` (reuses its
+    exact PDP_EDGE_SLOPE_MIN threshold/logic — no threshold duplicated here) —
+    returns that single param's flag dict, or None if it isn't edge-pinned-and-
+    rising."""
+    flags = _pdp_boundary_flags({param: curve}, {param: True})
+    return flags[0] if flags else None
+
+
+def interaction_pairs(records, pkeys, dp, top_k=4, seed=42, pnl_key="total_pnl"):
+    """P3 pair selection — fit ONE small RandomForestRegressor on the encoded
+    `records` and score every numeric-param pair with the SAME Friedman-H-style
+    2-way-PD-variance-ratio statistic `augur_engine.surrogate` already computes
+    for its own bake-off `top_interactions` cards (`_all_pair_strengths` /
+    `_pair_strength`) — reused here rather than re-derived, so P3's notion of
+    "strong pair" is identical to the one the surrogate bake-off (#31) already
+    shows the owner. `surrogate.py` never imports this module, so importing it
+    here (lazily, inside the try/except) is not circular.
+
+    Returns up to `top_k` pairs `{param_a, param_b, strength}` with
+    strength >= INTERACTION_STRENGTH_MIN, strongest first, or `[]` whenever
+    there isn't enough signal (< INTERACTION_MIN_POINTS usable records, or
+    fewer than 2 varying numeric params) or the fit itself fails for ANY
+    reason — wrapped in a blanket try/except by design: an interaction-scan
+    failure must never keep the plain 1-D auto-expand round from running.
+    """
+    try:
+        from .surrogate import _Encoder, _all_pair_strengths
+        from sklearn.ensemble import RandomForestRegressor
+
+        recs = [r for r in (records or []) if isinstance(r, dict) and r.get(pnl_key) is not None]
+        if len(recs) < INTERACTION_MIN_POINTS:
+            return []
+        numeric_pkeys = [k for k in pkeys
+                        if isinstance(dp.get(k), dict) and dp[k].get("type") in ("int", "float")]
+        varying = [k for k in numeric_pkeys if len({r.get(k) for r in recs}) > 1]
+        if len(varying) < 2:
+            return []
+
+        pts = [dict(r, pnl=float(r.get(pnl_key, 0) or 0)) for r in recs]
+        enc = _Encoder(pkeys, dp, pts)
+        X = enc.transform(pts)
+        y = np.array([p["pnl"] for p in pts], dtype=float)
+
+        rf = RandomForestRegressor(n_estimators=100, max_depth=5, random_state=int(seed), n_jobs=1)
+        rf.fit(X, y)
+
+        ranked = _all_pair_strengths(rf, varying, pts, enc, seed)
+        out = [{"param_a": a, "param_b": b, "strength": round(float(s), 3)}
+               for (a, b, s, _av, _bv, _pd2d) in ranked if s >= INTERACTION_STRENGTH_MIN]
+        return out[:max(0, int(top_k))]
+    except Exception:
+        return []
+
+
+def conditional_boundary_flags(records, pkeys, dp, pairs, pnl_key="total_pnl"):
+    """P3 — interaction-aware conditional boundary flags (docs/
+    SURROGATE_DISCOVERY_DESIGN.md §7 P3): the follow-through on `interaction_pairs`
+    above. For each strong pair (X, Y) (tried in BOTH directions — either knob
+    can be the one whose range is truncated), restrict `records` to the TOP and
+    BOTTOM terciles of X's observed values (sorted by X, top/bottom third of
+    the ROWS, not distinct values) and, within EACH slice, build Y's smoothed
+    1-D curve (`_curve_for_param`, the identical construction `pdp_plateau`
+    itself uses) and test it with the SAME edge-pinned-and-rising rule
+    `_pdp_boundary_flags` applies everywhere else (includes its >=2%-of-mean
+    "still rising" floor and its own >=3-distinct-value floor).
+
+    A flag is only emitted for Y when:
+      - Y is numeric (a categorical/bool knob is never "widened"), AND
+      - Y's UNCONDITIONAL curve (over ALL of `records`, not just the slice) is
+        NOT already flagged — if it is, the plain 1-D boundary detector already
+        owns that param; P3 only adds knobs the 1-D detector's own marginal
+        view is hiding, AND
+      - the slice clears both size guards (>= MIN_SLICE_RECORDS DISTINCT
+        param-signature rows, >= MIN_SLICE_Y_VALUES distinct Y values), AND
+      - Y is edge-pinned-and-rising in EITHER the high or the low slice (if
+        both are, the slice with the larger `rel_slope` wins — one flag per
+        (X, Y) direction, not two).
+
+    Each param Y is flagged AT MOST ONCE overall (first — i.e. strongest-pair —
+    hit wins; `pairs` is expected pre-sorted strongest-first, e.g.
+    `interaction_pairs`'s own output), so the caller never has to reconcile two
+    different partners' conflicting claims about the same knob.
+
+    Returns a list of dicts (possibly empty):
+        {param, partner, slice:'high'|'low', edge:'max'|'min', value,
+         rel_slope, msg}
+    `msg` names the pair in plain language, e.g. "y widened because the joint
+    surface with x shows the optimum escaping this range when x is high — ...".
+    Wrapped in a blanket try/except returning `[]` — same "never kill a round"
+    contract as `interaction_pairs`.
+    """
+    try:
+        recs = [r for r in (records or []) if isinstance(r, dict) and r.get(pnl_key) is not None]
+        if not recs:
+            return []
+        numeric_pkeys = {k for k in pkeys
+                         if isinstance(dp.get(k), dict) and dp[k].get("type") in ("int", "float")}
+
+        out = []
+        seen_targets = set()
+        for pair in (pairs or []):
+            a, b = pair.get("param_a"), pair.get("param_b")
+            if a not in numeric_pkeys or b not in numeric_pkeys:
+                continue
+            for X, Y in ((a, b), (b, a)):
+                if Y in seen_targets:
+                    continue
+                uncurve, unum = _curve_for_param(recs, Y, pnl_key)
+                if uncurve is None or not unum:
+                    continue
+                if _edge_flag_for_curve(Y, uncurve):
+                    continue          # already caught by the plain 1-D detector -- P3 stays out of its way
+                try:
+                    xs = sorted(recs, key=lambda r: float(r.get(X)))
+                except (TypeError, ValueError):
+                    continue
+                n = len(xs)
+                tercile = n // 3
+                if tercile < 1:
+                    continue
+                slices = {"low": xs[:tercile], "high": xs[-tercile:]}
+                candidates = []
+                for slice_name, slice_recs in slices.items():
+                    sig_set = {tuple(sorted((k, r.get(k)) for k in pkeys)) for r in slice_recs}
+                    if len(sig_set) < MIN_SLICE_RECORDS:
+                        continue
+                    ycurve, ynum = _curve_for_param(slice_recs, Y, pnl_key)
+                    if ycurve is None or not ynum or len(ycurve) < MIN_SLICE_Y_VALUES:
+                        continue
+                    flag = _edge_flag_for_curve(Y, ycurve)
+                    if flag:
+                        candidates.append((slice_name, flag, slice_recs))
+                if not candidates:
+                    continue
+                slice_name, flag, slice_recs = max(candidates, key=lambda c: c[1]["rel_slope"])
+                seen_targets.add(Y)
+                level = "high" if slice_name == "high" else "low"
+                msg = (f"{Y} widened because the joint surface with {X} shows the optimum "
+                       f"escaping this range when {X} is {level} — {flag['msg']}")
+                out.append({"param": Y, "partner": X, "slice": slice_name,
+                            "edge": flag["edge"], "value": flag["value"],
+                            "rel_slope": flag["rel_slope"], "msg": msg})
+        return out
+    except Exception:
+        return []
+
+
 def ensemble_blend(bar_pnls, buckets=50):
     """Equal-weight top-K ensemble (board §6 · Carl §7.1).
 

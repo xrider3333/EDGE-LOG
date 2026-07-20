@@ -196,7 +196,7 @@ def test_ever_rising_knob_taper_stops_early_when_peak_lands_just_inside_round1()
     assert entry["emerged"] is False                    # was in the initial flags, not chased-in
     summ = out["auto_expand_summary"]
     assert summ == {"global_rounds_used": 1, "n_params_expanded": 1,
-                    "n_emerged": 0, "converged": True}
+                    "n_emerged": 0, "n_interaction_unlocks": 0, "converged": True}
 
 
 # (c): an interior optimum from the start triggers NO expansion ───────────────────
@@ -392,7 +392,8 @@ def test_max_global_rounds_caps_runaway_search_independent_of_per_param_cap():
 
     summ = out["auto_expand_summary"]
     assert summ == {"global_rounds_used": 1, "n_params_expanded": 1,
-                    "n_emerged": 0, "converged": False}   # hit the cap -- did NOT converge
+                    "n_emerged": 0, "n_interaction_unlocks": 0,
+                    "converged": False}   # hit the cap -- did NOT converge
 
 
 # (e) no-re-add policy: once a param is finalized it must NEVER be re-chased, even

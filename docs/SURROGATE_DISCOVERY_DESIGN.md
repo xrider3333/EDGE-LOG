@@ -9,7 +9,7 @@ steered 21,440 pts (+8.6%, still improving at trial 107); 0 GP-fit fallbacks. Se
 A/B (ORB 3.1, 12 knobs, intraday 5m — as different a surface as the book owns) PASSED the
 same day: random 14,418 pts vs steered 24,002 pts (+66%) at equal budget/seed, 0 fallbacks.
 2-for-2 → steering is ON for Auto-Validate (validate.py Stage A passes auto_steer=True);
-run_auto's own default stays False. P3 (interaction-aware expansion) still open.
+run_auto's own default stays False. P3 SHIPPED 2026-07-19 (owner-approved): the widener now also runs a CONDITIONAL boundary check on strong knob-pairs (same Friedman-H pair statistic as the bake-off; same edge-pinned-and-rising rule applied within the partner's top/bottom terciles) — a knob whose marginal curve hides a joint escape gets widened, tagged via=interaction in the auto_expand log. Real-data probe (TTIBS, 80 trials): 1 interaction unlock (ibs_entry via hold_cap), converged.
 
 **Plain-language rule:** every term is defined on first use.
 
