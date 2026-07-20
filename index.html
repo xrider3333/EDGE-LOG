@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='60.5';
+const VERSION='60.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'60.6', date:'2026-07-19', notes:['FIX: the section-3 sweep chart was still rendering ~3× too tall — a chart height auto-saved while it lived FULL-WIDTH in the old diagnostics section was being re-applied to the new narrow column and stretching it. The chart is now pinned to its true aspect in section 3 and the stale saved height is cleared once.']},
   {v:'60.5', date:'2026-07-19', notes:['COMPACT PASS (owner size-ceiling rule: nothing renders bigger than the 1A / 2A charts): section 3 ML Gate shrank to roughly a third — the sweep chart caps at 2A size, the candidates table collapses behind a "N candidates" expander, and the method paragraph now lives only in the info icons.','2F TOP CONFIGS collapses to a one-line strip by default (owner: rarely used) — click to open the full table; your choice is remembered.','2L ML MODEL BAKE-OFF: the verdict and model scorecards stay visible, the knobs-vs-noise chart and knob-pair surfaces fold behind a "charts" expander — the panel drops from ~1,100px to ~a third.','FIX: the 2B caption under the NET $ axis (in-sample $, scoring slice) was CROPPED mid-line by the chart viewport whenever the PDP row rendered below — the viewport now leaves room and the caption moved up a hair.','One-time cleanup: card sizes you dragged on the OLD layout no longer apply to the reshaped cards (they were leaving tall empty boxes — the phantom gaps under 2L). Sizes dragged from now on stick as usual.','Legacy comparison block at the report bottom: untouched.']},
   {v:'60.4', date:'2026-07-19', notes:['Default TRIALS for auto / walk-forward / validate searches raised 200 to 500 (owner call: spend the spare compute where it pays — the model-steered search benefits directly from a bigger trial budget). A TRIALS value you type in the Builder or Settings still wins; only the default changed.']},
   {v:'60.3', date:'2026-07-19', notes:['REPORT REDESIGN step 3 of 3 — section 2 Configuration Analysis rebuilt: a row of THREE equal cards leads (2A top-configs · 2D distribution · 2G neighbour robustness — the "cluster, not a spike?" question answered side by side, no more dead space), the section header now carries a verdict line (neighbours held · plateau agrees/differs · PBO), and the 2B/2C card keeps its layout but absorbs 2E as a footer so every per-knob view lives under one roof.','2H / 2I / 2J merged into ONE 3-D EXPLORER tile — chips (2H SURFACE / 2I SURFACE / 2J SCATTER) switch the view, your pick is remembered; the old row of three showing everything at once is retired to the legacy block.','The ENTIRE old section-2 arrangement is preserved in the LEGACY LAYOUT block at the report bottom (charts re-tagged L2x so they cannot fight the live copies) — compare and pick; the loser gets deleted.']},
@@ -8760,7 +8761,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _tOpen=!!window._gvTblOpen;
           const _chos='<span style="font-size:var(--fsxs);color:var(--text3)">chosen: <b style="color:var(--green)">'+(_gvP.ch?('▸ '+_gvP.ch.model+' @ '+Math.round(_gvP.ch.threshold*100)+'%'):'—')+'</b></span>';
           _gBody='<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">'
-            +'<div style="flex:0 1 440px;min-width:300px;max-width:460px">'+_gvP.graph+'</div>'
+            +'<div data-r3graph style="flex:0 1 440px;min-width:300px;max-width:460px"><style>[data-r3graph] .rschart-box{height:152px!important;resize:none}</style>'+_gvP.graph+'</div>'
             +'<div style="flex:1 1 320px;min-width:0">'
               +'<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:4px">'+_chos+_gvP.earns.replace('margin-top:8px','margin-top:0')+'</div>'
               +'<div data-gvtbl title="'+String(_gvP.V.n_candidates||'')+' candidates (model × cut-off) ranked on PRE-lockbox data only, by recovery factor ($ made per $ of drawdown — the equal-risk yardstick). Only the winner ever sees the lockbox — no shopping. Click to '+(_tOpen?'collapse':'open')+' the full table." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px;padding:5px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent);margin-top:6px">'+(_tOpen?'▴ hide the candidates table':'▾ '+(_gvP.V.n_candidates||'')+' candidates — full table ⓘ')+'</div>'
@@ -10461,6 +10462,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(!saved._v604){['surf','cfgL','cfgR','nb','top','surr'].forEach(k=>{if(saved[k]){delete saved[k];}});saved._v604=1;_purged=true;}
         const _save=()=>{try{localStorage.setItem('elCardLayout',JSON.stringify(saved));}catch(_e2){}};
         if(_purged)_save();
+        // one-time purge #3 (v60.6): the gate sweep chart auto-saved a FULL-WIDTH height under
+        //   rsz_RECOVERY while it lived in old §4 (the auto-fit itself pinged the ResizeObserver)
+        //   — that tall height was stretching the now-narrow §3 copy to ~3× its aspect.
+        if(!((APREF.rszH||{})._v605)){const _m2=Object.assign({},APREF.rszH||{});delete _m2.rsz_RECOVERY;_m2._v605=1;savePref('rszH',_m2);}
         const _fitSvgs=(c,natH,newH)=>{const svgs=[...c.querySelectorAll('svg')];
           if(!newH||!natH||newH>=natH){svgs.forEach(s=>{if(s._elNat!=null)s.style.height='';});return;}
           const f=Math.max(0.2,(newH-20)/(natH-20));
