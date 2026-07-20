@@ -913,3 +913,41 @@ risk-off spikes? If the short PF is positive in most years it's structural and s
 crash years carrying the rest, the tilt is a bet on volatility returning. This is cheap (reuse the deployable
 trade log, group by year/VIX-regime) and it's the last thing standing between "measured edge" and "deployable
 with confidence." *(Not yet run.)*
+
+---
+
+## 10. Model-steered search is ON for Auto-Validate (2026-07-19) — brief for the next ORB session
+
+**What changed in the engine (nothing in the strategy files):** every 🧭 Auto-Validate run now
+searches the param space with **P2 steering** (#36): the first ~40% of the trial budget is sampled
+at random exactly as before, then a Gaussian-Process model is re-fit on every real result so far
+and CHOOSES each next batch of configs — regions it predicts pay well plus regions it is still
+unsure about (Upper-Confidence-Bound acquisition). Every proposed config is still evaluated by the
+same real backtester, the same realism gates, the same plateau pick — and walk-forward + the
+lockbox are completely untouched. If the GP cannot fit, the batch silently falls back to random.
+Full design + evidence: `docs/SURROGATE_DISCOVERY_DESIGN.md`.
+
+**Why this matters for ORB specifically:** in the 2-family acceptance A/B (150 trials, seed 42,
+lockbox held out), steering merely refined TTIBS's small 7-knob space (+8.6%) — but on **ORB 3.1's
+12-knob space it found an in-sample region the random search never reached at all: best IS
+24,002 pts vs random's 14,418 (+66%)**. The steered find was an aggressive corner (or_bars 2,
+trade_mode Both, stop_frac 1.75, partial 6R / target 6R, trail 19, no flat_eod) — treat it as a
+LEAD, not a result: it is in-sample only and exactly the kind of find the validation gates exist
+to interrogate.
+
+**What the next ORB session should do:**
+1. Run a fresh 🧭 Auto-Validate on `ORB_3_1.py` from the Builder (steering is on by default now;
+   the run report shows a 🎯 MODEL-STEERED SEARCH badge over panel 2L when it was active).
+2. PIN the window and master when comparing to any earlier run — blank date_to floats to the
+   newest synced bars and the Builder launches with whatever master is selected (see the
+   "Comparison reruns PIN the data window AND the master" rule in CLAUDE.md; earlier TTIBS runs
+   silently mixed `db_noadj_rth` and `tv` masters).
+3. Judge the steered champion the same way as ever: plateau not spike (§2B/2C), WF folds, and the
+   lockbox verdict — and specifically check whether the aggressive 6R corner survives out-of-sample
+   or collapses (the A/B could not answer that; it never opened the lockbox).
+4. Read panel 2L for the ML read-out: 5 models (quadratic / random-forest / XGBoost / Gaussian
+   Process / pyGAM), prediction accuracy shown as a %, each model's best pick verified by one real
+   backtest, the knob-vs-noise-probe bar chart, and the knob-pair surfaces.
+
+*(Note: there is no ORBQ.md — this file is the ORB family's single doc; the ENGU-Q family's
+equivalent context lives with its own project docs.)*

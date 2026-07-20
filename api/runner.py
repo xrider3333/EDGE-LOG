@@ -531,6 +531,7 @@ class FirestoreQueue:
             "surrogate": result.get("surrogate"),      # #31 P1 multi-surrogate bake-off cards (2L panel)
             "auto_expand": result.get("auto_expand"),  # #26/#30 range-widening log
             "auto_expand_summary": result.get("auto_expand_summary"),  # #30 convergence summary
+            "steering": result.get("steering"),        # #36 P2 steered-search trial counts
             "ml_gate": result.get("ml_gate"),          # single-gate before/after + SHAP/calibration
             "gate_validate": result.get("gate_validate"),  # 9-candidate model×cut-off bake-off
             # diagnostic pills (top-level on Auto-Optimize runs; Auto-Validate keeps its own

@@ -543,6 +543,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         # interactions, knob screen) — forwarded from Stage A, IS-only by construction.
         "surrogate": A.get("surrogate"),
         "auto_expand": A.get("auto_expand"), "auto_expand_summary": A.get("auto_expand_summary"),
+        "steering": A.get("steering"),   # #36 P2: seed/steered/fallback trial counts (badge in 2L)
         # top-level so the existing Robustness card renders the gate bake-off with no new UI.
         "gate_validate": gate_bakeoff,
     }
