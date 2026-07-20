@@ -751,8 +751,7 @@ GridSearchCV + "Automatic tuning of XGBoost with XGBTune" (our per-model mini-Gr
 the bake-off is the equivalent). New candidates ranked by param-discovery value:
 - **Quantile Regression Forests (QRF)** — ✅ BUILT 2026-07-19 (owner go): 6th bake-off roster
   model (`quantile-forest` dep) AND 3rd steering brain (`steer_method='qrf'`, median + UCB on
-  tree-native quantile spread). Real-data A/B arms queued behind the in-flight 500-trial run.
-  Original note: a
+  tree-native quantile spread). Real-data A/B complete (150 trials, seed 42, lockbox held out) — FULL 4-WAY: TTIBS random 19,738 / GP 21,440 / TPE 21,205 / QRF 21,205 pts; ORB 3.1 random 14,418 / GP 24,002 / TPE 25,215 / QRF 24,989 pts. All three steering brains within ~1-5% of each other, all crush random; GP stays default. Original note: a
   map-maker with NATIVE uncertainty (quantiles) — tree-based so it handles categoricals and is
   cheap; could join the bake-off roster AND become a 3rd steering brain (UCB needs an
   uncertainty estimate; QRF provides it without the GP's O(n³)).
