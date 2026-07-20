@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='61.7';
+const VERSION='61.8';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'61.8', date:'2026-07-20', notes:['2L: the equity overlay now sits ON TOP of the model rows (chart first, then the numbers).','2L: the model scorecards are now ONE combined subtile — a row per model with the name in its equity-graph colour, a bar showing the PREDICTED $ with a green line marking where the REAL (verified) $ landed (the gap = model error), plus R² accuracy and the beat-search tick.','2L overlay visibility: model curves that overlap the winner are now drawn as thin DASHED lines OVER the solid best curve, so an overlapping pick (e.g. quadratic sitting on top of xgboost) shows through instead of being hidden; colours are also a touch brighter and the model names on the cards match the curve colours exactly.']},
   {v:'61.7', date:'2026-07-20', notes:['2L MODEL-PICK EQUITY OVERLAY: thinner curves (less ink) and the legend now lives INSIDE the chart, top-left (with a halo so it reads over any line) instead of a separate row below.','2L MODEL SCORECARDS: each model card had three bars (accuracy, predicted $, real $) — collapsed to ONE bar (prediction accuracy), with the predicted → real dollars as a compact text line beneath. The real-dollar picks already show as curves in the overlay, so the card focuses on accuracy.','2L VERDICT: the "xgboost wins" headline is now one tidy line — winner · accuracy · verified pick (vs search best) · agree/diverge — instead of four separate chips.']},
   {v:'61.6', date:'2026-07-20', notes:['2A TOP CONFIGS: the green axis label now says CHAMPION (IS pick) instead of the misleading "top" — it marks the config the run actually crowned (rank 1 on the pre-registered in-sample slice), not the highest-ending curve. When a DIFFERENT config ends higher (it did better in the out-of-sample tail — crowning it for that would be look-ahead), that endpoint now gets its own blue marker labeled "highest end (rank N)" so the gap between picked and highest is visible instead of confusing.']},
   {v:'61.5', date:'2026-07-20', notes:['FIX (the real one): section-2 columns 2 and 3 were still truncating — the chart-resize handler matches cards by the text "resize:both" in their style, so it kept grabbing the columns and pinning them to a stale saved height (column 2 stuck at 100px over its charts). The columns now use a style without that text, so the handler leaves them alone and they grow to fit every chart. Nothing is cut off.']},
@@ -8147,6 +8148,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const okM=models.filter(m=>m.cv_r2!=null);
         if(!okM.length)return '';
         const bm=models.find(m=>m.model===surr.best_model)||okM[0];
+        // model colours — the SAME palette the equity overlay uses (owner: match the graph)
+        const MC={logistic:'#3a9bdc',logit:'#3a9bdc',lr:'#3a9bdc',random_forest:'#1d9e75',rf:'#1d9e75',xgboost:'#a879e6',xgb:'#a879e6',boosted:'#a879e6',gp:'#e0a04b',quadratic:'#e6c84b',gam:'#4fc9c9'};
+        const _mcl=m=>MC[m]||'#8aa0b0';
         const agree=consNote&&/agree/i.test(consNote);
         const _st=(consNote+(uncNote?' — '+uncNote:'')).replace(/"/g,'&quot;');
         const statusIc=consNote?(agree?'<span title="'+_st+'" style="cursor:help;color:var(--green);font-size:9px;font-weight:700">✓ models agree</span>':'<span title="'+_st+'" style="cursor:help;color:var(--yellow);font-size:9px;font-weight:700">⚠ models diverge</span>'):'';
@@ -8158,19 +8162,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<span style="color:var(--text3);cursor:help" title="the model proposed its single best config; that config was run through ONE real backtest. This is that real-dollar result (not the guess), and the number in brackets is the best config the brute-force search had already found — the bar to beat.">verified pick <b style="color:#1d9e75">'+$(bm.ground_truth_pnl)+'</b> <span style="color:var(--text5)">(vs search best '+$(surr.sampled_best_pnl)+')</span></span>'
           +'<span style="margin-left:auto"></span>'+statusIc+'</div>';
         const gmax=Math.max.apply(null,okM.map(m=>Math.max(Math.abs(m.predicted_best_pnl||0),Math.abs(m.ground_truth_pnl||0))).concat([Math.abs(surr.sampled_best_pnl||0),1]));
-        // owner: collapse the 3 bars (R²/pred/real) into ONE bar = prediction accuracy (R²);
-        //   the real-$ pick lives in the equity overlay below, so here pred→real is compact text.
-        const card=m=>{const best=m.model===surr.best_model;
-          if(m.cv_r2==null)return '<div style="flex:1 1 140px;min-width:132px;background:var(--bg1);border-radius:8px;padding:8px 10px;opacity:.5"><div style="font-size:9px;font-weight:700;color:var(--text4)">'+_esS(m.model)+'</div><div style="font-size:8px;color:var(--text5)">skipped'+(m.skipped?' — '+_esS(m.skipped):'')+'</div></div>';
-          const r2w=Math.max(2,Math.min(100,(m.cv_r2||0)*100));
-          return '<div style="flex:1 1 140px;min-width:132px;background:var(--bg1);border-radius:8px;padding:8px 10px'+(best?';border:1px solid #1d9e75':'')+'">'
-            +'<div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;font-weight:800;color:'+(best?'#1d9e75':'var(--text2)')+'">'+(best?'▸ ':'')+_esS(m.model)+'</span><span style="margin-left:auto;font-size:8px;color:'+(m.beat_sampled_best===true?'#1d9e75':'var(--text5)')+'" title="did the REAL backtest of this model pick beat the best config the search had already found by brute force?">'+(m.beat_sampled_best===true?'✓ beat sampled':'—')+'</span></div>'
-            +'<div style="display:flex;align-items:center;gap:6px;margin-top:5px;cursor:help" title="PREDICTION ACCURACY (CV R²). The model is shown most of the tested configs, then asked to predict the PnL of the held-back rest — R² grades its guesses against the REAL backtest results it never saw. 100% = perfect predictions, 0% = no better than always guessing the average, negative = worse.">'
-              +'<div style="flex:1;height:7px;background:var(--bg2);border-radius:3px;overflow:hidden"><div style="width:'+r2w.toFixed(0)+'%;height:100%;background:'+r2Col(m.cv_r2)+'"></div></div>'
-              +'<span style="flex:0 0 54px;font-size:8px;font-weight:700;color:'+r2Col(m.cv_r2)+';text-align:right">'+(m.cv_r2*100).toFixed(1)+'% acc</span></div>'
-            +'<div style="font-size:7.5px;color:var(--text4);margin-top:4px;cursor:help" title="pred = the PnL this model PREDICTS for its own pick (a guess from its learned map); real = that same pick run through ONE real backtest. Close together = the model map is trustworthy.">pred '+$(m.predicted_best_pnl)+' → real <b style="color:#1d9e75">'+$(m.ground_truth_pnl)+'</b></div>'
+        // owner: combine the per-model cards into ONE subtile — a row per model with the name
+        //   in its equity-graph colour, a $-bar (fill = PREDICTED, green line = where REAL landed),
+        //   R² accuracy and the beat-search tick.
+        const _scRow=m=>{const best=m.model===surr.best_model,col=_mcl(m.model);
+          if(m.cv_r2==null)return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:8px;color:var(--text5);opacity:.6;border-top:1px solid color-mix(in srgb,var(--border) 35%,transparent)"><span style="flex:0 0 82px;font-weight:700;color:'+col+'">'+_esS(m.model)+'</span><span style="flex:1">skipped'+(m.skipped?' — '+_esS(m.skipped):'')+'</span></div>';
+          const pw=Math.min(100,Math.abs(m.predicted_best_pnl||0)/gmax*100),rw=Math.min(100,Math.abs(m.ground_truth_pnl||0)/gmax*100);
+          return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:8px;border-top:1px solid color-mix(in srgb,var(--border) 35%,transparent)">'
+            +'<span style="flex:0 0 82px;font-weight:'+(best?'800':'700')+';color:'+col+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_esS(m.model)+'">'+(best?'▸ ':'')+_esS(m.model)+'</span>'
+            +'<span style="flex:1;position:relative;height:12px;background:var(--bg2);border-radius:3px;min-width:34px;cursor:help" title="'+_esS(m.model)+' — bar = PREDICTED '+$(m.predicted_best_pnl)+'; the green line marks the REAL (verified backtest) '+$(m.ground_truth_pnl)+'. The gap = how far the model map was off.">'
+              +'<span style="position:absolute;left:0;top:0;height:100%;width:'+pw.toFixed(1)+'%;background:'+col+';opacity:.5;border-radius:3px"></span>'
+              +'<span style="position:absolute;left:calc('+rw.toFixed(1)+'% - 1px);top:-1px;height:14px;width:2px;background:#1d9e75"></span></span>'
+            +'<span style="flex:0 0 44px;text-align:right;color:'+r2Col(m.cv_r2)+';font-weight:700" title="prediction accuracy (CV R²): fraction of the config-to-config PnL differences this model explains on configs it never saw.">'+(m.cv_r2*100).toFixed(1)+'%</span>'
+            +'<span style="flex:0 0 16px;text-align:center;color:'+(m.beat_sampled_best===true?'#1d9e75':'var(--text5)')+'" title="did the REAL backtest of this pick beat the brute-force search best?">'+(m.beat_sampled_best===true?'✓':'·')+'</span>'
             +'</div>';};
-        const cardsRow='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+models.map(card).join('')+'</div>';
+        const _scHdr='<div style="display:flex;align-items:center;gap:8px;font-size:7px;letter-spacing:.5px;color:var(--text5);padding:0 0 1px"><span style="flex:0 0 82px">MODEL</span><span style="flex:1">predicted $ (bar) · real $ (▏ green line)</span><span style="flex:0 0 44px;text-align:right">R²</span><span style="flex:0 0 16px;text-align:center">beat</span></div>';
+        const cardsRow='<div style="background:var(--bg1);border-radius:8px;padding:8px 10px;margin-bottom:10px">'+_scHdr+models.map(_scRow).join('')+'</div>';
         const ks2=ksKeys.map(k=>({k:k,m:(surr.knob_screen[k]&&surr.knob_screen[k].probe_margin!=null)?+surr.knob_screen[k].probe_margin:null,v:(surr.knob_screen[k]&&surr.knob_screen[k].verdict)||'weak',note:_fullTip(surr.knob_screen[k])})).filter(x=>x.m!=null).sort((a,b)=>b.m-a.m);
         let knob2='';
         if(ks2.length){const mmax=Math.max.apply(null,ks2.map(x=>Math.abs(x.m)).concat([0.05]));
@@ -8197,8 +8204,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const ref=(Array.isArray(surr.sampled_best_curve)&&surr.sampled_best_curve.length>1)?surr.sampled_best_curve:null;
           const _lbl='<div class="lbl" style="margin:12px 0 4px" title="Each model proposed its single best config; that config was run through ONE real backtest. Here each pick\'s in-sample equity curve is overlaid so you can compare their SHAPES and drawdowns, not only the end dollars. Dashed line = the brute-force search best (the bar every pick is trying to beat).">📈 MODEL-PICK EQUITY OVERLAY — the picks on one chart ⓘ</div>';
           if(!wc.length)return _lbl+'<div style="font-size:8px;color:var(--text5);padding:6px 4px">Curves populate on the next Auto-Validate run — this run was saved before the overlay shipped, so only each pick\'s end-dollar was stored.</div>';
-          const MC={logistic:'#3a9bdc',logit:'#3a9bdc',lr:'#3a9bdc',random_forest:'#1d9e75',rf:'#1d9e75',xgboost:'#a879e6',xgb:'#a879e6',boosted:'#a879e6',gp:'#e0a04b',quadratic:'#e6c84b'};
-          const _mcl=m=>MC[m]||'#8aa0b0';
           const ser=wc.map(m=>({name:m.model,col:_mcl(m.model),cum:m.ground_truth_curve,best:m.model===surr.best_model}));
           let mn=Infinity,mx=-Infinity;
           ser.map(s=>s.cum).concat(ref?[ref]:[]).forEach(c=>c.forEach(v=>{const y=v*mlt;if(y<mn)mn=y;if(y>mx)mx=y;}));
@@ -8208,14 +8213,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
           let g='';
           for(let k=0;k<=3;k++){const val=mn+(mx-mn)*k/3,gy=pt+ph*(1-k/3);g+='<line x1="'+pl+'" y1="'+gy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.25"/><text x="'+(pl+pw+4)+'" y="'+(gy+3).toFixed(1)+'" font-size="7" fill="var(--text4)">'+fmtUsd(Math.round(val))+'</text>';}
           if(ref)g+='<path d="'+ref.map((v,i)=>(i?'L':'M')+X(i,ref.length).toFixed(1)+' '+Y(v).toFixed(1)).join(' ')+'" fill="none" stroke="var(--text4)" stroke-width="1" stroke-dasharray="4,3" opacity="0.85"/>';
-          ser.forEach(s=>{g+='<path d="'+s.cum.map((v,i)=>(i?'L':'M')+X(i,s.cum.length).toFixed(1)+' '+Y(v).toFixed(1)).join(' ')+'" fill="none" stroke="'+s.col+'" stroke-width="'+(s.best?1.6:1)+'" opacity="'+(s.best?1:0.85)+'"><title>'+_esS(s.name)+' — ends '+$(s.cum[s.cum.length-1])+(s.best?' (best model)':'')+'</title></path>';});
+          // draw the BEST curve first (solid, thick); the others OVER it as thin DASHED lines,
+          //   so where a pick overlaps the best you still see both (best shows through the gaps).
+          const _draw=ser.slice().sort((a,b)=>(b.best?1:0)-(a.best?1:0));
+          _draw.forEach(s=>{g+='<path d="'+s.cum.map((v,i)=>(i?'L':'M')+X(i,s.cum.length).toFixed(1)+' '+Y(v).toFixed(1)).join(' ')+'" fill="none" stroke="'+s.col+'" stroke-width="'+(s.best?1.8:1.2)+'" opacity="'+(s.best?1:0.95)+'"'+(s.best?'':' stroke-dasharray="4,2"')+'><title>'+_esS(s.name)+' — ends '+$(s.cum[s.cum.length-1])+(s.best?' (best model)':'')+'</title></path>';});
           // in-graph legend (top-left) with a bg-coloured halo so labels read over any line — no separate legend row (owner)
           let leg='',_ly=pt+7;const _hl='stroke="var(--bg1)" stroke-width="2.6" paint-order="stroke" stroke-linejoin="round"';
           ser.forEach(s=>{leg+='<text x="'+(pl+3)+'" y="'+_ly.toFixed(1)+'" font-size="7.5" font-weight="'+(s.best?'800':'600')+'" fill="'+s.col+'" '+_hl+'>'+(s.best?'▸ ':'')+_esS(s.name)+' '+$(s.cum[s.cum.length-1])+'</text>';_ly+=9;});
           if(ref)leg+='<text x="'+(pl+3)+'" y="'+_ly.toFixed(1)+'" font-size="7.5" fill="var(--text4)" '+_hl+'>– – search best '+$(ref[ref.length-1])+'</text>';
           return _lbl+'<div style="max-width:600px"><div style="background:var(--bg1);border-radius:8px;padding:8px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+leg+'</svg></div></div>';
         })();
-        return head+cardsRow+_ovl+_chBlk;
+        return head+_ovl+cardsRow+_chBlk;
       })();
       return hdr+v2;
     };
