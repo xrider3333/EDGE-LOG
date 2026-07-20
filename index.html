@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='61.5';
+const VERSION='61.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'61.6', date:'2026-07-20', notes:['2A TOP CONFIGS: the green axis label now says CHAMPION (IS pick) instead of the misleading "top" — it marks the config the run actually crowned (rank 1 on the pre-registered in-sample slice), not the highest-ending curve. When a DIFFERENT config ends higher (it did better in the out-of-sample tail — crowning it for that would be look-ahead), that endpoint now gets its own blue marker labeled "highest end (rank N)" so the gap between picked and highest is visible instead of confusing.']},
   {v:'61.5', date:'2026-07-20', notes:['FIX (the real one): section-2 columns 2 and 3 were still truncating — the chart-resize handler matches cards by the text "resize:both" in their style, so it kept grabbing the columns and pinning them to a stale saved height (column 2 stuck at 100px over its charts). The columns now use a style without that text, so the handler leaves them alone and they grow to fit every chart. Nothing is cut off.']},
   {v:'61.4', date:'2026-07-20', notes:['FIX: section-2 columns 2 and 3 were truncating their charts — the equal-height stretch plus overflow:auto was resolving the column heights wrong and clipping content (column 2 rendered 100px tall over 575px of charts). Columns now grow to fit ALL their content and top-align, so nothing is cut off. Trade-off: the three columns are no longer forced to identical height (column 3 is genuinely the tallest); if you want them evened up I can rebalance which charts sit in each column.']},
   {v:'61.3', date:'2026-07-20', notes:['SECTION 3 ML GATE redesigned to lead with the DECISION (owner). Order is now: verdict banner (held / failed, in plain words) → a BEFORE → AFTER row of stat cards (net P&L, profit factor, recovery, trades kept — every trade vs only the trades the gate kept, so "does it help?" is answered at a glance) → the chosen model and cut-off on one line → the sweep chart and candidates table folded behind a "how it was chosen" toggle (evidence, not the headline).','The recovery-vs-cut-off sweep chart is no longer the first thing you see — it is the WHY, available on click.','Placeholder noted for the ungated-vs-gated equity-curve overlay (lands with a small engine curve-save, like the 2L overlay).','Legacy diagnostics block at the report bottom still carries the old full gate readout for comparison.']},
@@ -6758,12 +6759,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // label the WINNER curve endpoint with its final $ AS AN AXIS TICK (owner: like 1A,
       //   not floating over the plot) — green tick + $ in the same right gutter as the
       //   gridline labels, at the winner exact y. Fixed hex green: theme vars can be muted.
+      // "◂ top" was misleading (owner, run #167): the marked curve is the CHAMPION — the
+      //   rank-1 config by the pre-registered IN-SAMPLE slice — and a lower-ranked curve can
+      //   legitimately END higher (it did better in the out-of-sample tail; picking it for
+      //   that would be look-ahead). Mark BOTH: green = champion (IS pick), blue = the
+      //   highest-ending curve when it is a different config.
       let winTag='';
       const _w0=series[0]||[],_fin=_w0.length?_w0[_w0.length-1]:null;
       if(_fin!=null){const wy=H-pd-(H-pt-pd)*(_fin-mn)/rg;
         winTag='<circle cx="'+xR.toFixed(1)+'" cy="'+wy.toFixed(1)+'" r="2.4" fill="#1d9e75"/>'
           +'<line x1="'+(xR-2.6).toFixed(1)+'" y1="'+wy.toFixed(1)+'" x2="'+(xR+2.6).toFixed(1)+'" y2="'+wy.toFixed(1)+'" stroke="#1d9e75" stroke-width="1.1"/>'
-          +'<text x="'+(xR+4).toFixed(1)+'" y="'+(wy+2.2).toFixed(1)+'" font-size="4.8" font-weight="700" fill="#1d9e75" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.4">'+fmtUsd(Math.round(_fin))+' ◂ top</text>';}
+          +'<text x="'+(xR+4).toFixed(1)+'" y="'+(wy+2.2).toFixed(1)+'" font-size="4.8" font-weight="700" fill="#1d9e75" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.4">'+fmtUsd(Math.round(_fin))+' ◂ champion (IS pick)</text>';
+        let _hiI=0,_hiV=-Infinity;series.forEach((s2,i2)=>{const v2=s2.length?s2[s2.length-1]:-Infinity;if(v2>_hiV){_hiV=v2;_hiI=i2;}});
+        if(_hiI!==0&&isFinite(_hiV)){const hy=H-pd-(H-pt-pd)*(_hiV-mn)/rg;
+          winTag+='<circle cx="'+xR.toFixed(1)+'" cy="'+hy.toFixed(1)+'" r="2" fill="#3a9bdc"><title>the HIGHEST-ending curve — rank '+(_hiI+1)+' by in-sample. It ended above the champion because it did better in the out-of-sample tail; crowning it for that would be look-ahead bias (see the panel info).</title></circle>'
+            +(Math.abs(hy-wy)>7?'<text x="'+(xR+4).toFixed(1)+'" y="'+(hy+2.2).toFixed(1)+'" font-size="4.4" fill="#3a9bdc" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.2">'+fmtUsd(Math.round(_hiV))+' ◂ highest end (rank '+(_hiI+1)+')</text>':'');}}
       // x-axis date labels (owner request). Use the OPTIMIZE window when this is a validate
       //   run — these curves stop at the lockbox door, so date_to would over-claim.
       const _xw=(d.validate&&d.validate.windows&&d.validate.windows.optimize)||null;
