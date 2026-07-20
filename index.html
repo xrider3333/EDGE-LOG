@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='61.9';
+const VERSION='62.0';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'62.0', date:'2026-07-20', notes:['2E is now KNOB IMPORTANCE — it merges the old param-relationship panel (Pearson r · MI · PPS) with the surrogate knobs-vs-noise screen into one view. DEFAULT is COMPACT: one 0→1 importance bar per knob (the mean of MI, PPS and how far it beats a planted fake random knob), a + / − glyph for Pearson direction, and a verdict (driver / moderate / weak / noise). A "▤ detail" toggle in the header expands it back to the separate r / MI / PPS / vs-noise columns for finer reading.','2L: the standalone knobs-vs-noise bar chart is retired — that information now lives in the KNOB IMPORTANCE panel, so 2L\'s charts expander is just the knob-pair surfaces.']},
   {v:'61.9', date:'2026-07-20', notes:['2L: the "xgboost wins" verdict line above the equity chart is gone — the winner is now HIGHLIGHTED in the model rows instead (a coloured left-accent, a tinted background and a ▸), which saves the vertical space.','2L model rows: each bar now also carries a grey DASHED line marking the SEARCH BEST (the brute-force bar every pick is trying to beat), alongside the green REAL line.','2L model rows: the actual numbers are shown beside each bar now — predicted $ → real $ — plus R² accuracy and the beat-search tick (the models-agree / diverge status moved to the subtile header).']},
   {v:'61.8', date:'2026-07-20', notes:['2L: the equity overlay now sits ON TOP of the model rows (chart first, then the numbers).','2L: the model scorecards are now ONE combined subtile — a row per model with the name in its equity-graph colour, a bar showing the PREDICTED $ with a green line marking where the REAL (verified) $ landed (the gap = model error), plus R² accuracy and the beat-search tick.','2L overlay visibility: model curves that overlap the winner are now drawn as thin DASHED lines OVER the solid best curve, so an overlapping pick (e.g. quadratic sitting on top of xgboost) shows through instead of being hidden; colours are also a touch brighter and the model names on the cards match the curve colours exactly.']},
   {v:'61.7', date:'2026-07-20', notes:['2L MODEL-PICK EQUITY OVERLAY: thinner curves (less ink) and the legend now lives INSIDE the chart, top-left (with a halo so it reads over any line) instead of a separate row below.','2L MODEL SCORECARDS: each model card had three bars (accuracy, predicted $, real $) — collapsed to ONE bar (prediction accuracy), with the predicted → real dollars as a compact text line beneath. The real-dollar picks already show as curves in the overlay, so the card focuses on accuracy.','2L VERDICT: the "xgboost wins" headline is now one tidy line — winner · accuracy · verified pick (vs search best) · agree/diverge — instead of four separate chips.']},
@@ -7264,28 +7265,41 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +svg+'</div>';
     };
     // PARAM CORRELATION — Pearson r of each parameter vs net PnL across all configs.
-    const corrPanelHtml=(points,tag,rel)=>{
+    // KNOB IMPORTANCE — merges the old 2E param-relationship (Pearson r · MI · PPS from the sampled
+    //   configs) with the surrogate's knobs-vs-noise probe into ONE panel. COMPACT (default): one
+    //   0→1 importance bar per knob + a +/- direction glyph + a verdict. DETAIL (toggle): the
+    //   separate r / MI / PPS / vs-noise columns. `knobScreen` = d.surrogate.knob_screen (optional).
+    const corrPanelHtml=(points,tag,rel,knobScreen)=>{
       if(!points||points.length<8)return '';
       const keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&k!=='dd'&&typeof points[0][k]==='number');
       if(!keys.length)return '';
       const ys=points.map(p=>p.pnl),ym=ys.reduce((s,x)=>s+x,0)/ys.length;
       const corr=k=>{const xs=points.map(p=>p[k]),xm=xs.reduce((s,x)=>s+x,0)/xs.length;let sxy=0,sxx=0,syy=0;for(let i=0;i<xs.length;i++){const dx=xs[i]-xm,dy=ys[i]-ym;sxy+=dx*dy;sxx+=dx*dx;syy+=dy*dy;}const den=Math.sqrt(sxx*syy);return den?sxy/den:0;};
       const R={};(rel||[]).forEach(o=>{if(o&&o.param!=null)R[o.param]=o;});const hasMI=!!(rel&&rel.length);
-      const rows=keys.map(k=>({k:k,r:corr(k),mi:(R[k]?R[k].mi:null),pps:(R[k]?R[k].pps:null)})).sort((a,b)=>hasMI?(((b.mi||0)-(a.mi||0))||(Math.abs(b.r)-Math.abs(a.r))):(Math.abs(b.r)-Math.abs(a.r)));
-      const miMax=Math.max(0.001,...rows.map(o=>o.mi||0));
+      const KS=knobScreen||{};const hasNoise=keys.some(k=>KS[k]&&KS[k].probe_margin!=null);
+      const merged=hasMI||hasNoise;
+      const rows=keys.map(k=>({k:k,r:corr(k),mi:(R[k]?R[k].mi:null),pps:(R[k]?R[k].pps:null),noise:(KS[k]&&KS[k].probe_margin!=null)?+KS[k].probe_margin:null}));
+      rows.forEach(o=>{const a=[o.mi,o.pps,(o.noise!=null?Math.max(0,o.noise):null)].filter(x=>x!=null);o._s=a.length?a.reduce((s,x)=>s+x,0)/a.length:Math.abs(o.r);});
+      rows.sort((a,b)=>merged?(b._s-a._s):(Math.abs(b.r)-Math.abs(a.r)));
+      const miMax=Math.max(0.001,...rows.map(o=>o.mi||0)),noiseMax=Math.max(0.05,...rows.map(o=>o.noise!=null?Math.abs(o.noise):0));
       const trk=tag?'var(--bg2)':'var(--bg1)';
+      const detail=!!APREF.knobDetail;
+      const _vd=o=>{if(o.noise!=null&&o.noise<=0)return {t:'noise',c:'var(--text5)'};if(o._s>=0.45)return {t:'driver',c:'var(--green)'};if(o._s>=0.2)return {t:'moderate',c:'var(--yellow)'};return {t:'weak',c:'var(--text5)'};};
       const meter=(v,mx,col)=>(v!=null?'<span style="flex:1;height:7px;background:'+trk+';border-radius:2px;position:relative;overflow:hidden"><span style="position:absolute;left:0;top:0;height:100%;width:'+Math.min(100,v/mx*100).toFixed(0)+'%;background:'+col+';opacity:.75"></span></span><span style="flex:0 0 22px;text-align:right;color:'+col+';font-weight:600">'+v.toFixed(2)+'</span>':'<span style="flex:1"></span><span style="flex:0 0 22px;text-align:right;color:var(--text5)">·</span>');
-      // owner: the r VALUE now sits right after the PARAM name (was far right, past the bar),
-      //   the param column is tighter (was a wide fixed gap), and the verbose arrow header text
-      //   is dropped — the green/red diverging bar already shows direction.
-      const bar=o=>'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:var(--fsxs);border-top:1px solid color-mix(in srgb,var(--border) 40%,transparent)"><span style="flex:0 0 84px;color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_pp(o.k)+'">'+_pp(o.k)+'</span><span style="flex:0 0 38px;text-align:right;font-weight:700;color:'+(o.r>=0?'var(--green)':'var(--red)')+'" title="Pearson r (signed, linear)">'+o.r.toFixed(2)+'</span><span style="flex:1.4;position:relative;height:11px;background:'+trk+';border-radius:2px;min-width:0"><span style="position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--border)"></span><span style="position:absolute;'+(o.r>=0?'left:50%':'right:50%')+';top:1px;height:9px;width:'+(Math.abs(o.r)*50).toFixed(1)+'%;background:'+(o.r>=0?'var(--green)':'var(--red)')+';opacity:.7;border-radius:2px"></span></span>'+(hasMI?'<span style="flex:1;display:flex;align-items:center;gap:3px;margin-left:12px;min-width:0;border-left:1px solid var(--border);padding-left:12px;align-self:stretch" title="Mutual Information — any dependency (KSG); bar scaled to the panel max">'+meter(o.mi,miMax,'var(--blue)')+'</span><span style="flex:1;display:flex;align-items:center;gap:3px;min-width:0;border-left:1px solid var(--border);padding-left:12px;align-self:stretch" title="Predictive Power Score 0–1">'+meter(o.pps,1,'var(--purple)')+'</span>':'')+'</div>';
-      const _ttl=hasMI?'PARAM RELATIONSHIP':'PARAM CORRELATION';
-      const _note=hasMI?'r linear · MI any-dependency · PPS 0–1 · sorted by MI':'each param vs net $ (−1…+1)';
-      // column headers ALWAYS shown (each column labels the number/bar beneath it)
-      const _hdr='<div style="display:flex;gap:8px;align-items:baseline;font-size:9px;font-weight:700;margin:2px 0 3px;color:var(--text4)"><span style="flex:0 0 84px">PARAM</span><span style="flex:0 0 38px;text-align:right">r</span><span style="flex:1.4;text-align:center">direction (− / +)</span>'+(hasMI?'<span style="flex:1;text-align:center;color:var(--blue);margin-left:12px;border-left:1px solid var(--border);padding-left:12px">MI (strength)</span><span style="flex:1;text-align:center;color:var(--purple);border-left:1px solid var(--border);padding-left:12px">PPS (0–1)</span>':'')+'</div>';
-      const _expl='How to read this panel ('+_note+').&#10;&#10;Pearson r is DIRECTIONAL (−1 to +1): the sign = which way (a higher param value maps to higher or lower PnL), the size = strength of a LINEAR relationship.&#10;&#10;Mutual Information and PPS are STRENGTH-ONLY (always at least 0): how much a param relates to PnL in ANY shape (linear or not) — never the direction, so they cannot be negative.&#10;&#10;All three high = a strong, real driver. A big r with near-zero MI/PPS = a linear artifact (often a param confounded with another) that has no genuine standalone predictive power.';
-      return (tag?'<div title="'+_expl+'" style="cursor:help;margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · '+_ttl+' <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span></div>':'<div class="lbl" title="'+_expl+'" style="cursor:help;margin:8px 0 6px">'+_ttl+' <span style="font-size:9px;color:var(--text4);font-weight:400">ⓘ</span></div>')
-        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;max-width:820px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'+_hdr+rows.map(bar).join('')+'</div>';
+      // ── DETAIL row (Option A): Pearson r + direction bar + MI + PPS + vs-noise columns ──
+      const barA=o=>'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:var(--fsxs);border-top:1px solid color-mix(in srgb,var(--border) 40%,transparent)"><span style="flex:0 0 84px;color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_pp(o.k)+'">'+_pp(o.k)+'</span><span style="flex:0 0 38px;text-align:right;font-weight:700;color:'+(o.r>=0?'var(--green)':'var(--red)')+'" title="Pearson r (signed, linear)">'+o.r.toFixed(2)+'</span><span style="flex:1.4;position:relative;height:11px;background:'+trk+';border-radius:2px;min-width:0"><span style="position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--border)"></span><span style="position:absolute;'+(o.r>=0?'left:50%':'right:50%')+';top:1px;height:9px;width:'+(Math.abs(o.r)*50).toFixed(1)+'%;background:'+(o.r>=0?'var(--green)':'var(--red)')+';opacity:.7;border-radius:2px"></span></span>'+(hasMI?'<span style="flex:1;display:flex;align-items:center;gap:3px;margin-left:12px;min-width:0;border-left:1px solid var(--border);padding-left:12px;align-self:stretch" title="Mutual Information — any dependency (KSG); bar scaled to the panel max">'+meter(o.mi,miMax,'var(--blue)')+'</span><span style="flex:1;display:flex;align-items:center;gap:3px;min-width:0;border-left:1px solid var(--border);padding-left:12px;align-self:stretch" title="Predictive Power Score 0–1">'+meter(o.pps,1,'var(--purple)')+'</span>':'')+(hasNoise?'<span style="flex:1;display:flex;align-items:center;gap:3px;min-width:0;border-left:1px solid var(--border);padding-left:12px;align-self:stretch" title="vs the noise probe: how far this knob scores above a planted FAKE random knob (0 or below = indistinguishable from noise)">'+meter(o.noise!=null?Math.max(0,o.noise):null,noiseMax,'#e0a04b')+'</span>':'')+'</div>';
+      // ── COMPACT row (Option B, default): +/- direction glyph, ONE importance bar, verdict ──
+      const barB=o=>{const vd=_vd(o),w=Math.round(Math.max(0,Math.min(1,o._s))*100);
+        return '<div style="display:flex;align-items:center;gap:9px;padding:5px 0;font-size:var(--fsxs);border-top:1px solid color-mix(in srgb,var(--border) 40%,transparent)"><span style="flex:0 0 12px;text-align:center;font-weight:800;color:'+(o.r>=0?'var(--green)':'var(--red)')+'" title="Pearson r '+o.r.toFixed(2)+' — direction: + higher value makes more $, − makes less">'+(o.r>=0?'+':'−')+'</span><span style="flex:0 0 92px;color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_pp(o.k)+'">'+_pp(o.k)+'</span><span style="flex:1;height:9px;background:'+trk+';border-radius:2px;overflow:hidden;min-width:0"><span style="display:block;height:100%;width:'+w+'%;background:'+vd.c+';opacity:.8"></span></span><span style="flex:0 0 30px;text-align:right;color:var(--text3);font-weight:600" title="combined importance — mean of MI, PPS and the vs-noise margin (0→1)">'+o._s.toFixed(2)+'</span><span style="flex:0 0 58px;text-align:right;font-weight:700;color:'+vd.c+'">'+vd.t+'</span></div>';};
+      const _tog=merged?'<span data-knobdetail style="cursor:pointer;font-size:8px;font-weight:700;padding:1px 7px;border-radius:6px;border:1px solid '+(detail?'var(--text4)':'var(--border)')+';color:'+(detail?'var(--text2)':'var(--text4)')+';margin-left:8px" title="'+(detail?'switch to the compact view — one importance bar per knob':'switch to the detail view — Pearson direction + MI + PPS + vs-noise columns')+'">'+(detail?'▤ detail':'▦ compact')+'</span>':'';
+      const _ttl=merged?'KNOB IMPORTANCE':(hasMI?'PARAM RELATIONSHIP':'PARAM CORRELATION');
+      const _note=merged?'one bar per knob — how much it drives PnL (MI · PPS · vs-noise) + Pearson direction':'each param vs net $ (−1…+1)';
+      const _expl='How to read this ('+_note+').&#10;&#10;COMPACT (default): one importance bar per knob = the mean of the strength metrics on 0→1 (MI, PPS and how far it beats a planted fake random knob). The + / − is Pearson DIRECTION — does a higher value make more or less money. Verdict: driver / moderate / weak / noise (at or below the fake knob).&#10;&#10;DETAIL splits it back out: Pearson r (directional −1…+1), MI and PPS (any-shape strength) and the vs-noise margin.';
+      const _hdrA='<div style="display:flex;gap:8px;align-items:baseline;font-size:9px;font-weight:700;margin:2px 0 3px;color:var(--text4)"><span style="flex:0 0 84px">KNOB</span><span style="flex:0 0 38px;text-align:right">r</span><span style="flex:1.4;text-align:center">direction (− / +)</span>'+(hasMI?'<span style="flex:1;text-align:center;color:var(--blue);margin-left:12px;border-left:1px solid var(--border);padding-left:12px">MI</span><span style="flex:1;text-align:center;color:var(--purple);border-left:1px solid var(--border);padding-left:12px">PPS</span>':'')+(hasNoise?'<span style="flex:1;text-align:center;color:#e0a04b;border-left:1px solid var(--border);padding-left:12px">vs noise</span>':'')+'</div>';
+      const _hdrB='<div style="display:flex;gap:9px;align-items:baseline;font-size:8px;font-weight:700;margin:2px 0 3px;color:var(--text4)"><span style="flex:0 0 12px">±</span><span style="flex:0 0 92px">KNOB</span><span style="flex:1;text-align:center">importance (0→1)</span><span style="flex:0 0 30px;text-align:right">score</span><span style="flex:0 0 58px;text-align:right">verdict</span></div>';
+      const body=merged?(detail?(_hdrA+rows.map(barA).join('')):(_hdrB+rows.map(barB).join(''))):(_hdrA+rows.map(barA).join(''));
+      return (tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px"><span title="'+_expl+'" style="cursor:help">'+tag+' · '+_ttl+' <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span></span>'+_tog+'</div>':'<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap"><span title="'+_expl+'" style="cursor:help">'+_ttl+' <span style="font-size:9px;color:var(--text4);font-weight:400">ⓘ</span></span>'+_tog+'</div>')
+        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;max-width:820px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'+body+'</div>';
     };
     // PARALLEL COORDINATES — every config as a line across one vertical axis per parameter plus a
     // final NET $ axis (legacy Augur style). Lines coloured by PnL; hover a line for its config.
@@ -8195,7 +8209,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   chart and the knob-pair surfaces collapse behind an expander (surrCharts pref) —
         //   they were most of the panel's ~1,100px.
         const _chOpen=!!APREF.surrCharts;
-        const _chBlk=((knob2&&knob2.replace(/\s/g,''))||(inter2&&inter2.replace(/\s/g,'')))?('<div data-surrcharts title="the knob-influence bar chart (each param vs a planted fake random knob) and the model knob-pair surfaces. Click to '+(_chOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px;padding:5px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)">'+(_chOpen?'▴ hide the charts':'▾ charts — knobs vs the noise probe · knob-pair surfaces ⓘ')+'</div>'+(_chOpen?(knob2+inter2):'')):'';
+        const _chBlk=(inter2&&inter2.replace(/\s/g,''))?('<div data-surrcharts title="the model knob-pair surfaces — how PnL depends on two knobs jointly (the knobs-vs-noise screen now lives in the KNOB IMPORTANCE panel). Click to '+(_chOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px;padding:5px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)">'+(_chOpen?'▴ hide the surfaces':'▾ knob-pair surfaces ⓘ')+'</div>'+(_chOpen?inter2:'')):'';
         // #80: MODEL-PICK EQUITY OVERLAY — each model proposed one config; that config's
         //   in-sample equity curve (saved by the engine, v60.9+) is overlaid so the picks
         //   compare by SHAPE / drawdown, not just end $. Dashed = the brute-force search
@@ -8651,7 +8665,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _kOrd=_pdpD.map(c=>c.k).concat(_allK.filter(k=>!_pdpD.some(c=>c.k===k)));
       const _pdp=pdpCurvesPanelHtml(_PTS,mlt,_cfgN+'C',(_pMet==='pnl'?d.plateau_pick:null),((_kOrd&&_kOrd.length>=2)?_kOrd:null),true,(_pMet==='pnl'?d.auto_expand:null));
       const _parc=parallelCoordsHtml(_PTS,mlt,_cfgN+'B',_kOrd,_pdp);
-      const _corr=corrPanelHtml(d.points,_cfgN+'E',d.relationship);
+      const _corr=corrPanelHtml(d.points,_cfgN+'E',d.relationship,(d.surrogate&&d.surrogate.knob_screen));
       // 2H is view-toggleable (APREF.hm3d, DEFAULT 3-D per owner): flat heatmap ⇄ 3-D surface.
       const _hm3dOn=(APREF.hm3d==null?1:+APREF.hm3d);
       const _hm=(_hm3dOn?surface3dPanelHtml(_PTS,mlt,_cfgN+'H',d.best_params):heatmapPanelHtml(_PTS,mlt,_cfgN+'H'));
@@ -8739,7 +8753,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _Ldist=distPanelHtml(d.dist,mlt,'L2D');
         const _Lpdp=pdpCurvesPanelHtml(_PTS,mlt,'L2C',(_pMet==='pnl'?d.plateau_pick:null),((_kOrd&&_kOrd.length>=2)?_kOrd:null),true,(_pMet==='pnl'?d.auto_expand:null));
         const _Lparc=parallelCoordsHtml(_PTS,mlt,'L2B',_kOrd,_Lpdp);
-        const _Lcorr=corrPanelHtml(d.points,'L2E',d.relationship);
+        const _Lcorr=corrPanelHtml(d.points,'L2E',d.relationship,(d.surrogate&&d.surrogate.knob_screen));
         const _Lhm=(_hm3dOn?surface3dPanelHtml(_PTS,mlt,'L2H',d.best_params):heatmapPanelHtml(_PTS,mlt,'L2H'));
         const _Lp3d=surface3dPanelHtml(_PTS,mlt,'L2I',d.best_params,1);
         const _Lsc=(_sc3dOn?scatter3dPanelHtml(_PTS,mlt,'L2J',d.best_params):scatterPanelHtml(_PTS,mlt,'L2J'));
@@ -10679,6 +10693,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-cfgtbl]').forEach(b=>{b.onclick=()=>{savePref('cfgTblOpen',APREF.cfgTblOpen?0:1);renderApp();};});
       content.querySelectorAll('[data-r3ev]').forEach(b=>{b.onclick=()=>{window._gvEvOpen=!window._gvEvOpen;renderApp();};});
       content.querySelectorAll('[data-surrcharts]').forEach(b=>{b.onclick=()=>{savePref('surrCharts',APREF.surrCharts?0:1);renderApp();};});
+      // KNOB IMPORTANCE (2E) compact ⇄ detail toggle
+      content.querySelectorAll('[data-knobdetail]').forEach(b=>{b.onclick=()=>{savePref('knobDetail',APREF.knobDetail?0:1);renderApp();};});
       const _wfv=content.querySelectorAll('[data-wfview]');_wfv.forEach(ch=>{ch.onclick=(e)=>{e.stopPropagation();savePref('wfView',ch.dataset.wfview);renderApp();};});}
     return;
   }
