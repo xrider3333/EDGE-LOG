@@ -1190,6 +1190,68 @@ def edge_significance(pnls, n_boot=1000, seed=42):
                          else "mean per-trade PnL is negative"))}
 
 
+def power_stats(pnls, claimed_per_trade=None, alpha=0.05, target_power=0.80):
+    """#94 statistical power for the lockbox verdict — is the lockbox big enough to
+    actually DETECT the edge the strategy claims, or could a real (small) edge simply
+    have gone unnoticed at this sample size? A lockbox that PASSES (PnL>0, PF>=1) can
+    still be underpowered -- complements edge_significance (which asks "is THIS edge
+    significant") by asking "how big an edge could this many trades even detect".
+
+    pnls              : per-trade PnLs from the lockbox. Units: same as everywhere
+                        else in this module -- points, or the caller's own scale.
+    claimed_per_trade : the edge under test (e.g. the SAME champion's mean per-trade
+                        PnL over the optimize/in-sample window, in the SAME units as
+                        `pnls`) -- optional; when given, computes achieved_power/
+                        powered for THIS claim at THIS lockbox's sample size.
+    alpha / target_power : labels the returned significance/power bar (default
+                        one-sided 0.05 / 80% power) -- the z-values used below
+                        (z_alpha=1.6449, z_power=0.8416) are the fixed one-sided
+                        critical values for exactly those defaults (see module-level
+                        note below); they are not recomputed from these two args.
+
+    n < 3 or zero-variance PnLs -> {"error": "insufficient lockbox trades", "n": n}
+    (can't estimate a standard error at all).
+
+    mde_per_trade  : the minimum per-trade edge this lockbox's sample size COULD
+                     detect at `target_power` power / `alpha` significance (one-sided
+                     z-approximation: (z_alpha + z_power) * se) -- an edge smaller
+                     than this would likely go undetected even if it were real.
+    achieved_power : power (one-sided z-test) to detect `claimed_per_trade` at THIS
+                     lockbox's se, via the normal CDF Phi(x) = 0.5*(1+erf(x/sqrt(2)))
+                     -- math.erf only, no scipy.
+    powered        : achieved_power >= target_power.
+
+    Pure stdlib math (no scipy, no numpy) -- deliberately dependency-light so a
+    validate.py call site can compute this with zero new imports.
+    """
+    n = len(pnls or [])
+    if n < 3:
+        return {"error": "insufficient lockbox trades", "n": int(n)}
+    vals = [float(x) for x in pnls]
+    mean = sum(vals) / n
+    var = sum((x - mean) ** 2 for x in vals) / (n - 1)   # sample variance, ddof=1
+    sd = math.sqrt(var)
+    if sd == 0:
+        return {"error": "insufficient lockbox trades", "n": int(n)}
+    se = sd / math.sqrt(n)
+    # One-sided critical values for the DEFAULT alpha=0.05 / target_power=0.80 (no
+    # scipy/inverse-normal solver available -- see docstring: these are fixed
+    # constants, not a function of the `alpha`/`target_power` arguments above).
+    z_alpha = 1.6449
+    z_power = 0.8416
+    mde = (z_alpha + z_power) * se
+    out = {"n": int(n), "sd": round(sd, 4), "se": round(se, 4),
+           "mde_per_trade": round(mde, 4), "claimed_per_trade": claimed_per_trade,
+           "achieved_power": None, "powered": None,
+           "alpha": alpha, "target_power": target_power}
+    if claimed_per_trade is not None:
+        z = float(claimed_per_trade) / se - z_alpha
+        phi = 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
+        out["achieved_power"] = round(phi, 4)
+        out["powered"] = bool(phi >= target_power)
+    return out
+
+
 def _within_session_mask(arrays, m):
     """Boolean mask (length m = #returns) keeping only WITHIN-session returns — drops the
     overnight / session-boundary jump between the last bar of one day and the first of the

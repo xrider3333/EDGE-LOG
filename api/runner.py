@@ -546,6 +546,7 @@ class FirestoreQueue:
             "ml_gate": result.get("ml_gate"),          # single-gate before/after + SHAP/calibration
             "gate_validate": result.get("gate_validate"),  # 9-candidate model×cut-off bake-off
             "selection": result.get("selection"),      # #88 OOS-checked champion selection evidence
+            "power": result.get("power"),              # #94 statistical power for the lockbox verdict
             # diagnostic pills (top-level on Auto-Optimize runs; Auto-Validate keeps its own
             # copies under `validate`). Omitted keys simply don't render.
             "adversarial": result.get("adversarial"), "conformal": result.get("conformal"),

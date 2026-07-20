@@ -743,12 +743,16 @@ not saved to the runs DB — so they carry no run id.*
    Needs engine support first: the ground-truth backtest of each model pick must SAVE its
    (downsampled) equity curve into the surrogate block — currently only the metrics are kept.
 
-**Current Auto-Validate pipeline (as of 2026-07-19, for orientation):** 🎯 steered search (random
-seed ~40% of trials → GP-aimed batches, #36) → auto-expand of edge-pinned rising knobs (#26/#30)
-→ plateau pick (broad high ground, not argmax) → 2L ML bake-off read-out (5 models incl. pyGAM,
-CV-graded as a %, every pick verified by one real backtest, #31/#35) → knob screen vs a planted
-noise probe (#39) → realism gates → walk-forward (anchored+rolling) → one-look lockbox → report.
-Discovery maximizes in-sample by design; ONLY the lockbox decides deployability.
+**Current Auto-Validate pipeline (as of 2026-07-20, for orientation):** 🎯 steered search (random
+seed ~40% of trials → GP-aimed batches, #36; TPE and QRF brains available) → auto-expand of
+edge-pinned rising knobs (#26/#30) + interaction-aware expansion (#72 P3) → plateau pick (broad
+high ground, not argmax) → 2L ML bake-off read-out (6 models incl. pyGAM + QRF, CV-graded as a %,
+every pick verified by one real backtest, #31/#35; each pick graded vs sampled territory, #91)
+→ knob screen vs a planted noise probe (#39) → realism gates → #88 OOS-checked selection (top-5
+IS candidates arbitrated on anchored WF fold slices; the crown goes to summed fold-OOS PnL, not
+IS argmax) → walk-forward (anchored+rolling) → one-look lockbox + #94 verdict power (could this
+few trades even detect the claimed edge?). Discovery maximizes in-sample by design; the WF folds
+arbitrate the crown; ONLY the lockbox decides deployability.
 
 *(✅ SHAP · ensemble top-K · adversarial validation · conformal band · causal check ·
 synthetic scenarios all shipped 2026-07-04 — see Changelog.)*
@@ -763,17 +767,28 @@ the bake-off is the equivalent). New candidates ranked by param-discovery value:
   map-maker with NATIVE uncertainty (quantiles) — tree-based so it handles categoricals and is
   cheap; could join the bake-off roster AND become a 3rd steering brain (UCB needs an
   uncertainty estimate; QRF provides it without the GP's O(n³)).
-- **Extrapolation guard** (his §11 "Do not stray out of the forest!") — MEDIUM-HIGH and directly
-  about OUR pipeline: tree models cannot extrapolate beyond their training range, so RF/XGBoost
-  surrogate predictions inside auto-expand-WIDENED ranges are untrustworthy until sampled.
-  Ground-truthing already protects the headline; a cheap flag ("this model pick sits outside the
-  sampled hull") would make the 2L cards honest about it.
+- **Extrapolation guard** (his §11 "Do not stray out of the forest!") — ✅ BUILT 2026-07-20
+  (#91, owner go): `extrapolation_check` in `surrogate.py` grades every bake-off model pick
+  against the ACTUALLY-SAMPLED records (never the auto-expand-widened bounds) — "extrapolated"
+  (outside the sampled per-param range), "thin" (< 5 sampled neighbours within a normalized
+  L∞ 0.25 ball), or clean. 2L rows show it as a `terr` column (⚠ / ◌, v62.1). The QRF steering
+  brain also zeroes the exploration bonus (σ→0) for out-of-range candidates — a tree's spread
+  out there is an artifact, not honest uncertainty (GP/TPE untouched by design). New runs only.
+  Original rationale: tree models cannot extrapolate beyond their training range, so RF/XGBoost
+  surrogate predictions inside auto-expand-WIDENED ranges are untrustworthy until sampled;
+  ground-truthing already protects the headline, this makes the 2L cards honest about the rest.
 - **MAPIE conformal intervals on surrogate predictions** (§4) — MEDIUM: put honest error bars on
   the 2L predicted-best ("predicted $261k, 90% interval $210k–$310k").
 - **Venn-ABERS calibration** (§4, his prize-winner) — MEDIUM (gate-side): stronger probability
   calibration than the current isotonic headroom check.
-- **Statistical POWER of the edge test** (§10 t-test/p-value/power) — MEDIUM: report whether the
-  lockbox sample was even big enough to detect the claimed edge (pairs with the DOF gauge).
+- **Statistical POWER of the edge test** (§10 t-test/p-value/power) — ✅ BUILT 2026-07-20
+  (#94, owner go): `power_stats` in `analytics.py` (pure stdlib) computes the lockbox's
+  minimum detectable per-trade edge (MDE at one-sided α=0.05 / 80% power) and the achieved
+  power at the champion's own claim (its optimize-window mean per-trade net PnL, points,
+  from a fresh window-clipped backtest so the claim never touches lockbox trades). Persisted
+  as `power`, rendered as the 📏 Verdict-power line under the lockbox (POWERED /
+  UNDERPOWERED, v62.1). Pairs with the DOF gauge: DOF = was the SEARCH sample adequate;
+  power = was the VERDICT sample adequate. New runs only.
 
 ### Deferred candidates — full backlog (nothing lost)
 Applicable in principle; deferred for the reason shown. Promote any to a pill on request.
@@ -799,7 +814,21 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
-- **2026-07-19** — **ML-surface discovery completed and TURNED ON (#31 P1 → #35 → #39 → #36 P2):**
+- **2026-07-20** — **#91 extrapolation guard + #94 verdict power SHIPPED (engine + web v62.1):**
+  every 2L model pick is now graded against the ACTUALLY-SAMPLED territory (`terr` column:
+  ⚠ extrapolated / ◌ thin / blank = solid; tree models cannot predict beyond what they saw), and
+  the QRF steering brain gives out-of-range candidates NO exploration bonus (σ→0). The run report
+  gains a 📏 verdict-power line under the lockbox: minimum detectable per-trade edge (one-sided
+  α=0.05, 80% power) vs the champion's own optimize-window claim → POWERED / UNDERPOWERED.
+  Full suite 453 passed. Both are new-runs-only (old reports render unchanged).
+- **2026-07-20** — **#88 OOS-checked selection DEMONSTRATED (run #168):** the #167 job re-run
+  (500 steered trials, pinned window 2010-06-07 → 2026-07-16, `select_oos_topk=5`). The IS-max
+  candidate — ibs_entry 0.3 / hold_cap 6, the very config #167 crowned — was DETHRONED
+  (`is_max_crowned=False`): anchored-fold OOS arbitration crowned 0.4 / hold_cap 8 instead, and
+  the one-look lockbox paid **$87,936 PF 1.56 (59 trades) vs #167's $35,083 PF 1.21** — ~$7.5k of
+  in-sample given up for +$52.9k of holdout. Top-5 candidates + downsampled equities persisted
+  (feeds the future 1A-style overlay, #88b). TTIBS itself stays CLOSED — this run tested the
+  machinery, not the strategy.
   the 2L bake-off now runs 5 models (pyGAM added, `c12ad0d`); the knob screen adds a permutation
   vote + a planted random-noise probe with per-knob margins (`12224a1`); and **P2 GP-steered
   sampling is ON for Auto-Validate** (`fadd227`, validate.py Stage A) after passing the

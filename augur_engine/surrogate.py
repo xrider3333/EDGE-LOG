@@ -82,7 +82,8 @@ except Exception:
     HAS_QRF = False
 
 __all__ = ["surrogate_bakeoff", "propose_candidates", "propose_candidates_tpe",
-           "propose_candidates_qrf", "HAS_XGBOOST", "HAS_SHAP", "HAS_PYGAM", "HAS_QRF"]
+           "propose_candidates_qrf", "extrapolation_check",
+           "HAS_XGBOOST", "HAS_SHAP", "HAS_PYGAM", "HAS_QRF"]
 
 # ── guardrail thresholds (documented, not vibes) ───────────────────────────────
 MIN_POINTS = 40                 # below this the surface is too thin to fit anything honest
@@ -97,6 +98,11 @@ GP_HIGH_UNCERTAINTY_MULT = 1.5  # GP optimum flagged HIGH-uncertainty if its std
 PROBE_N_REPEATS = 10            # sklearn.inspection.permutation_importance repeats (both the main perm VOTE
                                 # and the noise-probe's own perm lens use this -- same count, same seed, so
                                 # a knob and the probe are read off strictly comparable measurements)
+
+# ── #91 extrapolation guard thresholds ─────────────────────────────────────────
+EXTRAP_L_INF_RADIUS = 0.25      # normalized L-infinity neighbor radius (each numeric param scaled
+                                # by ITS OWN sampled (max-min) range; categorical mismatch = 1.0)
+EXTRAP_MIN_NEIGHBORS = 5        # fewer sampled neighbors within the radius above => "thin" flag
 
 # ── P2 steering knobs (#36, docs/SURROGATE_DISCOVERY_DESIGN.md §5/§7) ──────────
 STEER_MIN_POINTS = MIN_POINTS   # same "surface too thin" floor as the bake-off itself
@@ -157,6 +163,141 @@ def _json_safe_row(row, pkeys, dp):
         else:
             out[k] = v
     return out
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# #91 extrapolation guard — tree models (RF/XGB/QRF) cannot extrapolate honestly
+# beyond sampled territory; after auto-expand widens a param's legal range, a
+# model's argmax pick over `_build_candidate_grid`'s (wider) bounds can land in
+# thin or entirely un-sampled territory and look like a real optimum when it's
+# actually an unconstrained-extrapolation artifact. `extrapolation_check` flags
+# any pick (a model card's predicted_best_params, or a steering candidate)
+# against the ACTUALLY-EVALUATED `sampled_records` -- real backtested configs,
+# never the widened candidate-grid bounds themselves.
+# ─────────────────────────────────────────────────────────────────────────────
+def _sampled_ranges(sampled_records, pkeys, dp):
+    """Per-param sampled min/max (numeric) or seen-value set (categorical) across
+    `sampled_records` -- the shared range computation `extrapolation_check` and the
+    QRF steering de-bias guard (propose_candidates_qrf) both build on."""
+    dp = dp or {}
+    recs = [r for r in (sampled_records or []) if isinstance(r, dict)]
+    numeric_range, cat_seen = {}, {}
+    for k in pkeys:
+        meta = dp.get(k) or {}
+        typ = meta.get("type", "float")
+        vals = [r.get(k) for r in recs if r.get(k) is not None]
+        if typ in ("int", "float"):
+            nums = []
+            for v in vals:
+                try:
+                    nums.append(float(v))
+                except (TypeError, ValueError):
+                    pass
+            if nums:
+                numeric_range[k] = (min(nums), max(nums))
+        else:
+            cat_seen[k] = {v for v in vals}
+    return numeric_range, cat_seen
+
+
+def _outside_params(params, numeric_range, cat_seen, pkeys, dp):
+    """Param names where `params`' value falls outside the sampled territory
+    (`numeric_range`/`cat_seen`, from `_sampled_ranges`): a numeric value strictly
+    below the sampled min or above the sampled max, or a categorical value never
+    observed in the sampled records at all. A param with no sampled observations at
+    all (never in `numeric_range`/`cat_seen`) can't be judged and is skipped."""
+    dp = dp or {}
+    params = params or {}
+    outside = []
+    for k in pkeys:
+        meta = dp.get(k) or {}
+        typ = meta.get("type", "float")
+        v = params.get(k)
+        if v is None:
+            continue
+        if typ in ("int", "float"):
+            rng = numeric_range.get(k)
+            if rng is None:
+                continue
+            lo, hi = rng
+            try:
+                vf = float(v)
+            except (TypeError, ValueError):
+                continue
+            if vf < lo or vf > hi:
+                outside.append(k)
+        else:
+            seen = cat_seen.get(k)
+            if seen and v not in seen:
+                outside.append(k)
+    return outside
+
+
+def extrapolation_check(params, sampled_records, pkeys, dp):
+    """Is `params` (one model's/steering candidate's pick) sitting in sampled
+    territory, or is it an extrapolation/thin-neighborhood artifact?
+
+    params          : the pick's param dict (e.g. a model card's predicted_best_params).
+    sampled_records : the ACTUALLY-EVALUATED records to compare against -- same
+                      {param: value, ...} shape as this module's `pts`/`records`
+                      (the bake-off's own already-sampled configs, never the widened
+                      candidate-grid bounds).
+    pkeys           : ordered tunable-param name list.
+    dp              : DEFAULT_PARAMS (only each param's `type` is read here).
+
+    Returns {"outside": [...], "neighbors": int, "thin": bool, "flag": str|None}:
+      outside   -- param names where the pick's numeric value is < sampled min or >
+                   sampled max across `sampled_records` (categorical: a value never
+                   seen in the samples at all).
+      neighbors -- count of `sampled_records` within normalized L-infinity distance
+                   EXTRAP_L_INF_RADIUS of the pick: each numeric param's |pick-rec|
+                   is scaled by THAT param's own sampled (max-min) range (a param
+                   with zero sampled range contributes 0 distance -- it can't be why
+                   a record is or isn't a neighbor); a categorical mismatch
+                   contributes distance 1.0. A record counts as a neighbor only if
+                   EVERY param clears the radius (a true L-infinity ball).
+      thin      -- neighbors < EXTRAP_MIN_NEIGHBORS.
+      flag      -- "extrapolated" if `outside` is non-empty (a pick outside the
+                   sampled range at all is a stronger warning than merely thin),
+                   else "thin" if `thin`, else None (comfortably inside dense
+                   sampled territory).
+    """
+    numeric_range, cat_seen = _sampled_ranges(sampled_records, pkeys, dp)
+    outside = _outside_params(params, numeric_range, cat_seen, pkeys, dp)
+
+    recs = [r for r in (sampled_records or []) if isinstance(r, dict)]
+    params = params or {}
+    dp = dp or {}
+    neighbors = 0
+    for r in recs:
+        within = True
+        for k in pkeys:
+            meta = dp.get(k) or {}
+            typ = meta.get("type", "float")
+            pv, rv = params.get(k), r.get(k)
+            if pv is None or rv is None:
+                continue          # can't be judged on this param -- doesn't disqualify
+            if typ in ("int", "float"):
+                rng = numeric_range.get(k)
+                span = (rng[1] - rng[0]) if rng else 0.0
+                if span <= 0:
+                    dist = 0.0
+                else:
+                    try:
+                        dist = abs(float(pv) - float(rv)) / span
+                    except (TypeError, ValueError):
+                        dist = 0.0
+            else:
+                dist = 0.0 if pv == rv else 1.0
+            if dist > EXTRAP_L_INF_RADIUS:
+                within = False
+                break
+        if within:
+            neighbors += 1
+
+    thin = neighbors < EXTRAP_MIN_NEIGHBORS
+    flag = "extrapolated" if outside else ("thin" if thin else None)
+    return {"outside": outside, "neighbors": int(neighbors), "thin": bool(thin), "flag": flag}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -968,6 +1109,11 @@ def surrogate_bakeoff(points, pkeys, dp, ground_truth_fn=None, top_pairs=3, seed
         card["predicted_best_pnl"] = round(float(preds[bi]), 1)
         card["ground_truth_pnl"] = None
         card["uncertainty_note"] = None
+        # #91: is this pick sitting in sampled territory, or is it a tree-model
+        # extrapolation/thin-neighborhood artifact? Checked against `pts` -- the
+        # ACTUALLY-EVALUATED configs, never the (possibly auto-expand-widened)
+        # candidate-grid bounds `dedup_rows` was built from.
+        card["extrap"] = extrapolation_check(card["predicted_best_params"], pts, pkeys, dp)
         card["_best_row_idx"] = bi
 
     if "gp" in fitted:
@@ -1369,6 +1515,16 @@ def propose_candidates_qrf(records, pkeys, dp, space, n_propose, seed, pool_size
         Q = model.predict(Xc, quantiles=[0.16, 0.5, 0.84])
         mu = Q[:, 1]
         sigma = np.maximum(0.0, (Q[:, 2] - Q[:, 0]) / 2.0)
+        # #91 QRF extrapolation guard: a candidate outside this run's per-param
+        # SAMPLED min/max (`pts` -- the already-evaluated records, not the wider
+        # legal `space`) gets NO exploration bonus -- a tree model's spread out
+        # there is an extrapolation artifact, not honest uncertainty worth
+        # chasing, so its score collapses to mu-only (GP/TPE are untouched: GP
+        # sigma legitimately grows off-data, TPE densities already fade there).
+        numeric_range, cat_seen = _sampled_ranges(pts, pkeys, dp)
+        for i, cand in enumerate(cands):
+            if _outside_params(cand, numeric_range, cat_seen, pkeys, dp):
+                sigma[i] = 0.0
         score = mu + KAPPA_UCB * sigma
         order = np.argsort(-score)
         out, picked = [], set()

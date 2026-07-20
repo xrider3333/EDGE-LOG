@@ -18,7 +18,7 @@ from .engine import run_backtest
 from .auto import (run_auto, _is_real as _sel_is_real, _METRIC_KEYS as _SEL_METRIC_KEYS,
                    make_slice_evaluator, score_candidates_on_folds)
 from .optimize import run_grid
-from .analytics import probability_backtest_overfitting, equity_curve_from_pnls
+from .analytics import probability_backtest_overfitting, equity_curve_from_pnls, power_stats
 
 
 def _parse(d):
@@ -414,6 +414,33 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         except Exception:
             pass
 
+    # ── #94 statistical power for the lockbox verdict (owner-approved 2026-07-20):
+    #    is the lockbox big enough to actually DETECT the edge the strategy claims,
+    #    or could a real (small) edge simply have gone unnoticed at this trade count?
+    #    claimed_per_trade = the SAME champion's mean per-trade NET PnL over the
+    #    optimize (non-lockbox) window [opt_from, opt_to] -- a fresh, explicit
+    #    backtest bounded to that window (mirrors the `full`/`OV` re-backtests below,
+    #    just window-clipped before the lockbox instead of spanning through it), so
+    #    the "claim" is never contaminated by lockbox trades. Units: points (same as
+    #    lb_pnl/lb's trades above) -- both PnL series are run_backtest's own t[2],
+    #    already net of cost_pts. Only runs when the lockbox stage actually produced
+    #    trades; any failure degrades to {"error": ...} and never breaks validation. ──
+    power = None
+    if lb and lb.get("trades"):
+        try:
+            lb_pnls_all = [float(t[2]) for t in lb["trades"]]
+            claimed_per_trade = None
+            opt_bt = run_backtest(strategy, instrument=instrument, timeframe=timeframe,
+                                  session=session, source=source, params=champ,
+                                  cost_pts=cost_pts, date_from=opt_from, date_to=opt_to,
+                                  return_trades=True)
+            opt_pnls = [float(t[2]) for t in (opt_bt or {}).get("trades") or []]
+            if opt_pnls:
+                claimed_per_trade = sum(opt_pnls) / len(opt_pnls)
+            power = power_stats(lb_pnls_all, claimed_per_trade)
+        except Exception as _pow_e:
+            power = {"error": f"{type(_pow_e).__name__}: {_pow_e}"}
+
     # ── WALK-FORWARD out-of-sample distributions (1G/1H WF scope): concatenate the
     #    per-fold OOS trades of the PRIMARY (stronger) scheme — each fold's champion tested
     #    on its unseen window, so this is genuinely out-of-sample, walk-forward flavoured.
@@ -730,4 +757,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         # #88: OOS-checked champion selection evidence trail — None when select_oos_topk
         # disabled (0/1); see _select_oos_champion's docstring for the schema.
         "selection": selection,
+        # #94: statistical power for the lockbox verdict (MDE / achieved power vs the
+        # champion's own optimize-window claim) — None when the lockbox stage didn't
+        # run at all; {"error": ...} if power_stats/the optimize-window backtest failed.
+        "power": power,
     }
