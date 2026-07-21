@@ -170,6 +170,34 @@ def get(key):
         return None
 
 
+def _json_default(o):
+    """json.dumps `default` hook for put(): coerce a value json can't natively
+    serialize into the SAME native value a fresh compute would hand back -- never a
+    silent str() of it. numpy.float64 already subclasses float (json serializes it
+    as a number without ever calling this), but numpy.int64/bool_ do NOT subclass
+    int/bool, so json routes them here -> .item() returns the python scalar ->
+    serialized as a number -> a cache HIT round-trips to the SAME python int/bool a
+    cache MISS (fresh compute) compares against. numpy arrays -> .tolist(). Anything
+    still unserializable RAISES, which propagates out of put() to the wiring site's
+    try/except, which then just skips caching that one entry (fail-open to a
+    recompute) -- so an exotic un-JSON-able metric is a MISS, never a wrong/typed-
+    differently HIT. Duck-typed (getattr, not isinstance) so this module never has
+    to import numpy/pandas -- it stays as light as the mp-worker needs."""
+    item = getattr(o, "item", None)
+    if callable(item):
+        try:
+            return o.item()          # numpy.int64 / bool_ / 0-d array scalar -> python scalar
+        except Exception:
+            pass
+    tolist = getattr(o, "tolist", None)
+    if callable(tolist):
+        try:
+            return o.tolist()        # numpy.ndarray -> list
+        except Exception:
+            pass
+    raise TypeError(f"trial_cache: value not JSON-serializable: {type(o).__name__}")
+
+
 def put(key, value: dict, *, strategy_file_sha, master_id, engine_epoch) -> None:
     """INSERT OR REPLACE the (already-computed, complete) scalar-metrics dict.
     Idempotent -- safe against two writers racing the same key (WAL + INSERT OR
@@ -182,7 +210,7 @@ def put(key, value: dict, *, strategy_file_sha, master_id, engine_epoch) -> None
     value_json serialization, a DB error) -- wrap the call at the wiring site if a
     write failure must never surface as a computation error (every current call
     site does)."""
-    payload = json.dumps(value, default=str)
+    payload = json.dumps(value, default=_json_default)
     conn = _conn()
     try:
         conn.execute(

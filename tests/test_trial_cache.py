@@ -18,6 +18,7 @@ import time
 import types
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from augur_engine import trial_cache as TC
@@ -531,6 +532,127 @@ def test_golden_equality_run_backtest_three_ways(tmp_path, monkeypatch):
 
     for k in ("total_pnl", "num_trades", "win_rate", "profit_factor", "max_drawdown",
               "avg_pnl", "wins", "losses"):
+        assert r0[k] == r1[k] == r2[k], k
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Gate-1 + Gate-2 hardening (added on supervisor review): a strategy that returns
+# NUMPY-typed metrics (the case the old put()'s json.dumps(default=str) would have
+# silently stringified into a wrong hit), and a REAL plugin (ORB_1_0) through the
+# cache -- so golden-equality is proven beyond the synthetic test double.
+# ─────────────────────────────────────────────────────────────────────────────
+
+_NUMPY_METRICS_STRATEGY_SRC = '''
+import numpy as np
+STRATEGY_NAME = "SYN NUMPY METRICS"
+DEFAULT_PARAMS = {"knob": {"type": "float", "min": 0.0, "max": 10.0, "step": 0.5, "default": 5.0}}
+PARAM_GRID_PRESETS = {"Short test": {"knob": [1.0, 3.0, 5.0]}}
+
+def run_backtest(opens, highs, lows, closes, knob=5.0, return_trades=False, **kw):
+    n = len(closes)
+    if n == 0:
+        return None
+    marker = float(closes[0])
+    per = (knob * 10.0) - ((knob - 4.0) ** 2) * 3.0 + marker * 0.01
+    trades_n = np.int64(12)          # numpy int -- json.dumps(default=str) would make this "12"
+    wins = np.int64(7)
+    total = np.float64(per) * trades_n
+    out = {
+        "total_pnl": np.float64(total), "num_trades": trades_n,
+        "win_rate": np.float64(100.0 * 7 / 12), "profit_factor": np.float64(1.8),
+        "max_drawdown": np.float64(-abs(total) * 0.2 - 1.0), "avg_pnl": np.float64(total / 12),
+        "wins": wins, "losses": np.int64(5),
+    }
+    if return_trades:
+        out["trades"] = [(i, i + 1, float(per)) for i in range(int(trades_n))]
+    return out
+'''
+
+
+def _real_arrays(n_days=10, per_day=78, instrument="ES", source="test"):
+    """Seeded random-walk (mirrors test_strategy_contract.py's _make_arrays) but WITH
+    a master identity (instrument/timeframe/source) + a fingerprint, so build_ctx
+    treats it as cacheable -- for driving a REAL plugin through the cache."""
+    rng = np.random.default_rng(7)
+    n = n_days * per_day
+    close = 15000 + rng.normal(0, 1, n).cumsum()
+    high = close + np.abs(rng.normal(0, 2, n))
+    low = close - np.abs(rng.normal(0, 2, n))
+    openp = close + rng.normal(0, 1, n)
+    vol = np.abs(rng.normal(1000, 200, n))
+    day_id = np.repeat(np.arange(n_days), per_day).astype("int64")
+    idx = pd.date_range("2026-03-02 09:30", periods=n, freq="5min", tz="US/Eastern")
+    return {"open": openp, "high": high, "low": low, "close": close, "volume": vol,
+            "day_id": day_id, "index": idx,
+            "meta": {"name": "SYN_REAL", "instrument": instrument, "timeframe": "5m",
+                     "source": source},
+            "fingerprint": "realfp" + "0" * 34}
+
+
+def test_golden_equality_numpy_typed_metrics_run_grid(tmp_path, monkeypatch):
+    """GATE-1 PROOF: a strategy returning NUMPY-typed metrics (np.int64/np.float64) --
+    the exact case the OLD put()'s json.dumps(default=str) would have STRINGIFIED
+    (a cached hit would come back "12", != a fresh compute's 12). Golden-equality
+    must hold across off/on-empty/on-populated, AND a hit must round-trip to NATIVE
+    python numbers. This test FAILS on the pre-hardening put() and passes after it."""
+    p = tmp_path / "syn_numpy.py"
+    p.write_text(_NUMPY_METRICS_STRATEGY_SRC, encoding="utf-8")
+    strat_path = str(p)
+    grid = {"knob": [1.0, 3.0, 5.0]}
+
+    def _run():
+        return run_grid(strat_path, arrays=_syn_arrays(), grid=grid, cost_pts=0.0,
+                        min_trades=1, top_n=5, workers=1, session="rth")
+
+    monkeypatch.delenv("AUGUR_TRIAL_CACHE", raising=False)
+    r0 = _run()
+    monkeypatch.setenv("AUGUR_TRIAL_CACHE", "1")
+    TC.reset_stats()
+    r1 = _run()
+    assert TC.get_stats() == {"hits": 0, "misses": 3}
+    TC.reset_stats()
+    r2 = _run()
+    assert TC.get_stats() == {"hits": 3, "misses": 0}
+
+    for a, b, label in ((r0, r1, "off vs on-empty"), (r1, r2, "on-empty vs on-populated")):
+        assert a["best_params"] == b["best_params"], label
+        for k in ("total_pnl", "num_trades", "win_rate", "profit_factor", "max_drawdown"):
+            assert a["best"][k] == b["best"][k], f"{label}: {k}"
+    # The fix itself: a HIT round-trips to a native python int, never the "12" string
+    # json.dumps(default=str) would have produced.
+    hit_nt = r2["best"]["num_trades"]
+    assert isinstance(hit_nt, int) and not isinstance(hit_nt, bool)
+    assert hit_nt == 12
+
+
+def test_golden_equality_real_strategy_run_backtest(tmp_path, monkeypatch):
+    """GATE-2: a REAL plugin (ORB_1_0, ~10 trades on this synthetic walk) through the
+    engine.run_backtest cache path three ways -- proving the cache round-trips a real
+    strategy's actual return shape identically, not only the synthetic test double."""
+    from augur_engine.strategies import strategy_params
+    arrays = _real_arrays()
+    mod = load_strategy("ORB_1_0.py")
+    params = {k: v.get("default") for k, v in strategy_params(mod).items()
+              if isinstance(v, dict) and "default" in v}
+
+    def _run():
+        return run_backtest("ORB_1_0.py", arrays=arrays, params=params,
+                            cost_pts=0.0, session="rth")
+
+    monkeypatch.delenv("AUGUR_TRIAL_CACHE", raising=False)
+    r0 = _run()
+    assert r0 is not None and r0["num_trades"] > 0
+
+    monkeypatch.setenv("AUGUR_TRIAL_CACHE", "1")
+    TC.reset_stats()
+    r1 = _run()
+    assert TC.get_stats()["misses"] == 1
+    TC.reset_stats()
+    r2 = _run()
+    assert TC.get_stats() == {"hits": 1, "misses": 0}
+
+    for k in ("total_pnl", "num_trades", "win_rate", "profit_factor",
+              "max_drawdown", "avg_pnl", "wins", "losses"):
         assert r0[k] == r1[k] == r2[k], k
 
 
