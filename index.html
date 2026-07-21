@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='62.5';
+const VERSION='62.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'62.6', date:'2026-07-21', notes:['👑 WF-CHECKED SELECTION chart (#88b, owner ask): Auto-Validate reports now draw the top-5 in-sample candidates as ONE 1A-style equity overlay directly under the 1C walk-forward block — green = the CROWNED config (won the fold arbitration), blue dashed = the IS MAX (the raw search pick) when the folds dethroned it, grey = the rest — plus a table per candidate: the config knobs that differ, search $, walk-forward fold $, folds held, full-window $. First run carrying the data: #168. Curves cover the optimize window only (the lockbox is never drawn).','📏 The verdict-power line (#94) now ALSO renders under the 1E KPI matrix — the redesigned report no longer shows the old feasibility card, so the power read-out would have been invisible in saved reports.']},
   {v:'62.5', date:'2026-07-21', notes:['FIX (supervisor self-audit of the v62.4 groundwork): the GAUGES β SIGNAL KNOBS gauge now counts a knob as signal exactly like the 2E panel it expands into — strictly a positive vs-noise probe margin, counted over the knobs the probe actually screened. Before it also pattern-matched the engine verdict wording, which could over-count. All other audited field names, data shapes and zone conventions checked out correct.']},
   {v:'62.4', date:'2026-07-21', notes:['NEW: GAUGES β — a third REPORT LAYOUT (CLASSIC / FUNNEL β / GAUGES β): the car-dashboard read. Every KPI renders as a compact gauge — red/yellow/green zone bands with tick marks, a needle on the value, the number below (0-1 metrics show as simple percentages) — grouped into 4 sections: strategy performance, strategy robustness, param influence, param robustness. Section headers roll up their gauge statuses as colored dot counts.','Tap any gauge to unfold the FULL panel behind it (equity, KPI matrix, neighbours, knob importance, bake-off…) under that section — nothing is recomputed or deleted, flip layouts any time. Zone edges, per-gauge scales and open owner questions: docs/RESULTS_GAUGE_DASHBOARD.md.','ROADMAP #26 filed (build later): incremental backtest reuse — skip recomputing configs a past run already backtested when the stack + data window match.']},
   {v:'62.3', date:'2026-07-20', notes:['NEW: FUNNEL β report layout — a REPORT LAYOUT toggle (CLASSIC / FUNNEL β) now sits at the top of every run report. FUNNEL regroups the SAME panels into five questions read top-to-bottom like a deploy decision: 1 Performance and Validation (equity, matrix, distributions, the In-sample block) → 2 Config Robustness (2A, 2B/2C, 2D, 2G, 2F — plus the PBO and plateau chips, which are about whether the config PICK is overfit) → 3 What Drives the Edge (knob importance, 3-D explorer, the 2L model bake-off) → 4 Enhancements (the ML gate and the ensemble chip — things that improve a result, not trust checks) → 5 Is the Edge Real (the remaining robustness chips only).','CLASSIC is untouched and stays the default — the toggle is remembered, flip back any time. The legacy comparison block renders only under CLASSIC.']},
@@ -7812,6 +7813,64 @@ namespace NinjaTrader.NinjaScript.Strategies {
       return '<div style="margin:0 0 5px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1B · MONTHLY P&amp;L <span style="font-weight:400;color:var(--text4);font-size:8px">· '+pos+'/'+flat.length+' green</span></div>'
         +'<div style="display:flex;gap:7px;height:56px;resize:vertical;min-height:34px;max-height:220px;overflow:hidden"><div class="rschart-box" style="flex:1;min-width:0;background:var(--bg1);border-radius:8px;overflow:hidden">'+svg+'</div>'+yLab+'</div>';
     };
+    // ── #94 verdict POWER line (shared): could this lockbox even DETECT the claimed edge?
+    //    Engine saves V.power (per-trade values in POINTS, same units as lb.pnl → ×mlt here).
+    //    Old runs have no V.power → renders ''. Used by the Builder card AND the 1E matrix panel.
+    const verdictPowerHtml=(V,mlt)=>{
+      const p=(V&&V.power)||null;
+      if(!p||p.error||p.mde_per_trade==null)return '';
+      const und=p.powered===false;
+      const col=und?'var(--yellow)':'var(--green)';
+      const tip='statistical power (#94): with only '+p.n+' lockbox trades and their volatility, the smallest per-trade edge this holdout can reliably detect (at 80% power) is the DETECT number shown. If the champion claimed edge (its optimize-window average per trade) is below that, the lockbox verdict is UNDERPOWERED - a pass or a fail there is weak evidence either way, not proof.';
+      return '<div style="margin-top:6px;padding:7px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs);cursor:help" title="'+tip+'">📏 Verdict power: <b style="color:'+col+'">'+(und?'UNDERPOWERED':'POWERED')+'</b> · '+p.n+' lockbox trades can detect edges ≥ <b>'+fmtUsd(Math.round((p.mde_per_trade||0)*mlt))+'</b>/trade · champion claims <b>'+fmtUsd(Math.round((p.claimed_per_trade||0)*mlt))+'</b>/trade'+(p.achieved_power!=null?' · power at the claimed edge <b style="color:'+col+'">'+Math.round(p.achieved_power*100)+'%</b>':'')+'</div>';};
+    // ── #88b: WF-CHECKED SELECTION overlay — the top-K in-sample candidates drawn as ONE
+    //    2A-style equity chart (x = trade sequence across the optimize window; each curve is
+    //    that candidate config backtested over the whole optimize window) + a K-way table.
+    //    Green = the CROWNED config (won the walk-forward fold arbitration); blue dashed =
+    //    the IS MAX (the raw search pick) when the folds dethroned it. Renders '' for runs
+    //    saved before the #88 engine (no selection block) — old reports unchanged. ──
+    const selectionOverlayHtml=(sel,mlt,V)=>{
+      if(!sel||!Array.isArray(sel.candidates)||!sel.candidates.length)return '';
+      const cs=sel.candidates.map((c,i)=>({c:c,i:i})).filter(o=>o.c&&o.c.equity&&Array.isArray(o.c.equity.cum)&&o.c.equity.cum.length>1);
+      if(!cs.length)return '';
+      let isMaxI=0;sel.candidates.forEach((c,i)=>{if((c.is_pnl||0)>(sel.candidates[isMaxI].is_pnl||0))isMaxI=i;});
+      const W=((V&&V.windows)||{}).optimize||['',''];
+      const w=860,h=240,padL=8,padR=150,padT=10,padB=18;
+      let lo=0,hi=1;cs.forEach(o=>o.c.equity.cum.forEach(v=>{if(v<lo)lo=v;if(v>hi)hi=v;}));
+      const X=(j,n)=>padL+(w-padL-padR)*(n<=1?1:j/(n-1));
+      const Y=v=>padT+(h-padT-padB)*(1-(v-lo)/((hi-lo)||1));
+      const CROWN='#1d9e75',ISC='#3a9bdc',GREY='#8aa0b0';
+      const rank=o=>(o.c.crowned?2:(o.i===isMaxI?1:0));
+      const lines=cs.slice().sort((a,b)=>rank(a)-rank(b)).map(o=>{
+        const n=o.c.equity.cum.length,crowned=!!o.c.crowned,ismax=(o.i===isMaxI);
+        const pts=o.c.equity.cum.map((v,j)=>X(j,n).toFixed(1)+','+Y(v).toFixed(1)).join(' ');
+        return '<polyline points="'+pts+'" fill="none" stroke="'+(crowned?CROWN:(ismax?ISC:GREY))+'" stroke-width="'+(crowned?1.8:(ismax?1.2:0.8))+'" opacity="'+(crowned?'1':(ismax?'.95':'.5'))+'"'+((ismax&&!crowned)?' stroke-dasharray="5 3"':'')+'/>';}).join('');
+      const labs=[];
+      cs.forEach(o=>{const crowned=!!o.c.crowned,ismax=(o.i===isMaxI);if(!crowned&&!ismax)return;
+        const cum=o.c.equity.cum,v=cum[cum.length-1];
+        labs.push({y:Y(v),col:crowned?CROWN:ISC,pri:crowned?1:0,
+          txt:fmtUsd(Math.round(v*mlt))+' ◂ '+(crowned?(ismax?'crowned (also the IS max)':'crowned (WF pick)'):'IS max (search pick)')});});
+      labs.sort((a,b)=>a.y-b.y);
+      for(let li=1;li<labs.length;li++)if(labs[li].y-labs[li-1].y<11)labs[li].y=labs[li-1].y+11;
+      const labSvg=labs.map(L=>'<text x="'+(w-padR+5)+'" y="'+(L.y+3).toFixed(1)+'" font-size="9" fill="'+L.col+'" font-weight="700">'+L.txt+'</text>').join('');
+      const zero=(lo<0)?('<line x1="'+padL+'" y1="'+Y(0).toFixed(1)+'" x2="'+(w-padR)+'" y2="'+Y(0).toFixed(1)+'" stroke="var(--border)" stroke-width="0.6" stroke-dasharray="3 3"/>'):'';
+      const ax='<text x="'+padL+'" y="'+(h-4)+'" font-size="8" fill="var(--text5)">'+(W[0]||'start')+'</text><text x="'+((w-padR)/2)+'" y="'+(h-4)+'" font-size="8" fill="var(--text5)" text-anchor="middle">trade sequence → (optimize window only — the lockbox is NOT in these curves)</text><text x="'+(w-padR)+'" y="'+(h-4)+'" font-size="8" fill="var(--text5)" text-anchor="end">'+(W[1]||'')+'</text>';
+      const svg='<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:auto;background:var(--bg1);border-radius:8px" xmlns="http://www.w3.org/2000/svg">'+zero+lines+labSvg+ax+'</svg>';
+      const pk=Object.keys(sel.candidates[0].params||{});
+      const vary=pk.filter(k2=>{const s=new Set(sel.candidates.map(c=>String((c.params||{})[k2])));return s.size>1;});
+      const rows=sel.candidates.map((c,i)=>{const crowned=!!c.crowned,ismax=(i===isMaxI);
+        const cfg=(vary.length?vary:pk.slice(0,3)).map(k2=>k2+' <b>'+String((c.params||{})[k2])+'</b>').join(' · ');
+        return '<div style="display:flex;gap:8px;align-items:center;padding:3px 6px;font-size:8.5px;border-top:1px solid color-mix(in srgb,var(--border) 35%,transparent)'+(crowned?';background:color-mix(in srgb,#1d9e75 12%,transparent);border-left:3px solid #1d9e75':'')+'">'
+          +'<span style="flex:0 0 86px;font-weight:700;color:'+(crowned?CROWN:(ismax?ISC:'var(--text4)'))+'">'+(crowned?'👑 crowned':(ismax?'IS max':('rank '+(i+1))))+'</span>'
+          +'<span style="flex:1;color:var(--text3)">'+cfg+'</span>'
+          +'<span style="flex:0 0 78px;text-align:right" title="what the SEARCH scored this config in-sample (its scoring window)">'+fmtUsd(Math.round((c.is_pnl||0)*mlt))+'</span>'
+          +'<span style="flex:0 0 78px;text-align:right;font-weight:700;color:'+CROWN+'" title="summed PnL across the anchored walk-forward folds UNSEEN slices - the number that decides the crown">'+fmtUsd(Math.round((c.wf_oos_pnl||0)*mlt))+'</span>'
+          +'<span style="flex:0 0 40px;text-align:center" title="how many walk-forward folds this config held (profitable) in">'+(c.folds_held!=null?c.folds_held:'—')+'</span>'
+          +'<span style="flex:0 0 78px;text-align:right;color:var(--text3)" title="full optimize-window equity of this config (the curve drawn above)">'+((c.equity&&c.equity.final!=null)?fmtUsd(Math.round(c.equity.final*mlt)):'—')+'</span></div>';}).join('');
+      const hdr='<div style="display:flex;gap:8px;font-size:7px;letter-spacing:.5px;color:var(--text5);padding:0 6px 2px"><span style="flex:0 0 86px"></span><span style="flex:1">config (knobs that differ)</span><span style="flex:0 0 78px;text-align:right">IS (search $)</span><span style="flex:0 0 78px;text-align:right">WF folds $</span><span style="flex:0 0 40px;text-align:center">folds</span><span style="flex:0 0 78px;text-align:right">full-window $</span></div>';
+      const note=(sel.is_max_crowned===false)?'<div style="font-size:8.5px;color:var(--yellow);margin:4px 0 2px">⚖️ the in-sample MAX was NOT crowned — the walk-forward folds preferred a steadier config (this is #88 doing its job).</div>':'<div style="font-size:8.5px;color:var(--text4);margin:4px 0 2px">✓ the in-sample max ALSO won the walk-forward arbitration — search pick and OOS evidence agree.</div>';
+      return '<div class="lbl" style="margin:0 0 6px" title="#88 OOS-CHECKED SELECTION: the search proposes its top-'+(sel.k||sel.candidates.length)+' in-sample candidates (plus the plateau pick); each is re-scored on the anchored walk-forward folds UNSEEN slices, and the crown goes to the config with the best summed fold PnL - NOT the in-sample max. The lockbox stays one-look: it is spent on the crowned config only.">👑 WF-CHECKED SELECTION <span style="font-weight:400;color:var(--text5)">· top-'+(sel.k||sel.candidates.length)+' candidates on the walk-forward folds ⓘ</span></div>'
+        +svg+note+hdr+rows;};
     // Shared Auto-Validate report card (verdict + 5 gates + equity curve + lockbox) —
     // used by both the Builder run panel and the Results/Past-Runs detail so they match.
     const validateCardHtml=(V,mlt,stratLabel,folds)=>{
@@ -7822,16 +7881,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   pulls every supporting number into its own titled chip so nothing reads as clutter).
       const _chip=(lbl,val,col)=>'<span style="display:inline-flex;flex-direction:column;gap:1px;padding:4px 9px;border-radius:7px;background:var(--bg1)"><span style="font-size:7px;letter-spacing:.6px;color:var(--text5)">'+lbl+'</span><span style="font-size:var(--fsxs);font-weight:700;color:'+(col||'var(--text2)')+';white-space:nowrap">'+val+'</span></span>';
       const _evNote=V.discover==='evolve'?(V.evolved_file?'<span style="color:#a78bfa;font-size:var(--fsxs)">🧬 AI-evolved → '+V.evolved_file+'</span>':'<span style="color:var(--red);font-size:var(--fsxs)">🧬 evolve failed'+(V.discover_err?' ('+V.discover_err+')':'')+'</span>'):'';
-      // #94: verdict POWER line — could this lockbox even DETECT the claimed edge? Engine
-      //   saves V.power (per-trade values in POINTS, same units as lb.pnl → ×mlt here).
-      //   Old runs have no V.power → renders nothing.
-      const _pw2=V.power||null;
-      const _pwrLine=(_pw2&&!_pw2.error&&_pw2.mde_per_trade!=null)?(function(){
-        const und=_pw2.powered===false;
-        const col=und?'var(--yellow)':'var(--green)';
-        const tip='statistical power (#94): with only '+_pw2.n+' lockbox trades and their volatility, the smallest per-trade edge this holdout can reliably detect (at 80% power) is the DETECT number shown. If the champion claimed edge (its optimize-window average per trade) is below that, the lockbox verdict is UNDERPOWERED - a pass or a fail there is weak evidence either way, not proof.';
-        return '<div style="margin-top:6px;padding:7px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs);cursor:help" title="'+tip+'">📏 Verdict power: <b style="color:'+col+'">'+(und?'UNDERPOWERED':'POWERED')+'</b> · '+_pw2.n+' lockbox trades can detect edges ≥ <b>'+fmtUsd(Math.round((_pw2.mde_per_trade||0)*mlt))+'</b>/trade · champion claims <b>'+fmtUsd(Math.round((_pw2.claimed_per_trade||0)*mlt))+'</b>/trade'+(_pw2.achieved_power!=null?' · power at the claimed edge <b style="color:'+col+'">'+Math.round(_pw2.achieved_power*100)+'%</b>':'')+'</div>';
-      })():'';
+      // #94: verdict POWER line — shared builder (also rendered on the 1E matrix panel,
+      //   since the saved-run report no longer shows this card since the §1 redesign).
+      const _pwrLine=verdictPowerHtml(V,mlt);
       return '<div class="lbl" style="margin:2px 0 9px;font-size:11px;letter-spacing:1px">FEASIBILITY · AUTO-VALIDATE</div>'
         +'<div style="display:flex;gap:13px;flex-wrap:wrap;align-items:center;margin-bottom:10px">'
         +'<div style="font-size:26px;font-weight:800;color:'+vc+';letter-spacing:1px">'+V.verdict+'</div>'
@@ -8603,12 +8655,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div id="res-step-8" style="scroll-margin-top:64px"'+_eqxA+'>'+(eqHtml?(_numHdr('1A','CHAMPION EQUITY',null,'best config · 1 contract · whole run')+eqHtml+_spy+_mcNote):_naTile('1A','CHAMPION EQUITY','no equity series saved for this run'))+'</div>'
           +'<div style="'+_bt+'">'+(monthlyPnlHtml(d.regime,mlt)||_naTile('1B','MONTHLY P&L','not enough monthly data to chart'))+'</div>'
           +'<div style="'+_bt+'"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+(isOosFoldsHtml(d,mlt)||_naTile('1C','WALK-FORWARD','only walk-forward / Auto-Validate runs test in rolling out-of-sample folds'))+'</div>'
+          +(function(){const s=selectionOverlayHtml(d.selection,mlt,d.validate);return s?('<div style="'+_bt+'">'+s+'</div>'):'';})()
           +'<div style="'+_bt+'"><div id="res-step-4" style="scroll-margin-top:64px"></div>'+(stressPanelHtml(d.stress,mlt,'1D',_sc)||_naTile('1D','STRESS','no stress buckets saved for this run'))+'</div>'
           +'</div>';
         // Col B — 1E KPI matrix (75/25 in-sample vs out-of-sample where saved) · 1F regime report card
         const _mtx=splitOosHtml(d,mlt);
         _panelMatrix='<div style="'+_card+';height:100%;box-sizing:border-box">'
           +(_mtx?(_numHdr('1E','KPI MATRIX')+_mtx):(_numHdr('1E','KPI MATRIX')+_champTbl))
+          +verdictPowerHtml(d.validate||{},mlt)
           +'<div style="margin-top:14px;padding-top:13px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)">'+((regHtml&&regHtml.replace(/\s/g,''))?regHtml:_naTile('1F','REGIME REPORT CARD','no regime / volatility breakdown saved for this run'))+'</div>'
           +'</div>';
         // Col C — 1D trade-PnL distribution · 1G MAE/MFE · 1H deflated Sharpe
