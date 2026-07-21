@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='62.6';
+const VERSION='62.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'62.7', date:'2026-07-21', notes:['FIX: the 👑 WF-CHECKED SELECTION chart and the 📏 verdict-power line now render on AUTO-VALIDATE reports too — v62.6 wired them into the generic §1 layout only, and validate runs (the only runs that HAVE the data, e.g. #168) build §1 through their own branch. Verified live on run #168.']},
   {v:'62.6', date:'2026-07-21', notes:['👑 WF-CHECKED SELECTION chart (#88b, owner ask): Auto-Validate reports now draw the top-5 in-sample candidates as ONE 1A-style equity overlay directly under the 1C walk-forward block — green = the CROWNED config (won the fold arbitration), blue dashed = the IS MAX (the raw search pick) when the folds dethroned it, grey = the rest — plus a table per candidate: the config knobs that differ, search $, walk-forward fold $, folds held, full-window $. First run carrying the data: #168. Curves cover the optimize window only (the lockbox is never drawn).','📏 The verdict-power line (#94) now ALSO renders under the 1E KPI matrix — the redesigned report no longer shows the old feasibility card, so the power read-out would have been invisible in saved reports.']},
   {v:'62.5', date:'2026-07-21', notes:['FIX (supervisor self-audit of the v62.4 groundwork): the GAUGES β SIGNAL KNOBS gauge now counts a knob as signal exactly like the 2E panel it expands into — strictly a positive vs-noise probe margin, counted over the knobs the probe actually screened. Before it also pattern-matched the engine verdict wording, which could over-count. All other audited field names, data shapes and zone conventions checked out correct.']},
   {v:'62.4', date:'2026-07-21', notes:['NEW: GAUGES β — a third REPORT LAYOUT (CLASSIC / FUNNEL β / GAUGES β): the car-dashboard read. Every KPI renders as a compact gauge — red/yellow/green zone bands with tick marks, a needle on the value, the number below (0-1 metrics show as simple percentages) — grouped into 4 sections: strategy performance, strategy robustness, param influence, param robustness. Section headers roll up their gauge statuses as colored dot counts.','Tap any gauge to unfold the FULL panel behind it (equity, KPI matrix, neighbours, knob importance, bake-off…) under that section — nothing is recomputed or deleted, flip layouts any time. Zone edges, per-gauge scales and open owner questions: docs/RESULTS_GAUGE_DASHBOARD.md.','ROADMAP #26 filed (build later): incremental backtest reuse — skip recomputing configs a past run already backtested when the stack + data window match.']},
@@ -8588,6 +8589,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div id="res-step-8" style="scroll-margin-top:64px"'+_eqxA+'>'+championEquityHtml(_V,mlt,d.top10_results,1)+'</div>'
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
           +((wf=>wf?'<div style="margin-top:9px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
+          +((sl=>sl?'<div style="margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+sl+'</div>':'')(selectionOverlayHtml(d.selection,mlt,_V)))
           +((st=>st?'<div style="margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+st+'</div>':'')(stressPanelHtml(d.stress,mlt,'1D',_dscope)))
           +'</div>';
         // 1H header: title (description on hover) with the calculated stats pinned to the right — the standard chart-header pattern.
@@ -8596,6 +8598,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // 1E title rides on the matrix's own verdict/gates/DSR row (one line) instead of a separate header above it.
         const _mHdr='<span title="'+_mtip+'" style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;cursor:help">1E · KPI MATRIX <span style="font-weight:400;color:var(--text5)">ⓘ</span></span>';
         _panelMatrix='<div style="'+_card+';height:100%;box-sizing:border-box">'+kpiMatrixHtml(d,mlt,1,_mHdr)
+          +verdictPowerHtml(_V,mlt)
           +((regHtml&&regHtml.replace(/\s/g,''))?'<div style="margin-top:14px;padding-top:13px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)">'+_numHdr('1F','REGIME REPORT CARD',null,_dscope+' · weakest vol bucket: '+((d.regime&&d.regime.worst_vol)||'—'))+regHtml+'</div>':'')
           +'</div>';
         _panelRegime='';
