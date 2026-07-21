@@ -1,28 +1,36 @@
 # AUGUR — Strategy Optimizer (project context for Claude Code)
 
-## Response format (EVERY reply — the owner has asked for this repeatedly)
-Keep replies simple and skimmable. Your "thinking"/process text is noise to the owner — the
-answer must visually stand out from it. Structure EVERY reply top-to-bottom as:
-1. **Version pushed FIRST, made prominent** (bold, its own line at the very top), e.g.
-   **`✅ Pushed v52.1`** — if a deploy happened. If nothing was pushed, say so plainly
-   (e.g. **`No deploy — <reason>`**). This is the line the owner looks for first.
-2. **A one/two-line summary** of what changed.
-3. **A numbered list** of the changes — each item is an EMOJI-prefixed number + the thing changed
-   as its OWN one-line headline (bold, terse). **REQUIRED, not optional (the owner asked twice):**
-   ALWAYS lead every numbered item with an emoji — either the keycap number (1️⃣ 2️⃣ 3️⃣ …) or a
-   topical emoji that fits the change (✅ shipped · 🔧 fix · 🎨 UI · 📝 docs · 🔬 research · ⚠️ caveat).
-   A bare `1.` / `2.` is wrong. Put any expanded detail on the line(s) UNDERNEATH that headline —
-   never jam the explanation onto the headline row, so the owner can skim the headlines and only
-   drop down for detail when they want it. Numbers IN ORDER, and matching the owner's own numbering
-   when they numbered their request.
-4. Anything else (caveats, how-to-verify, follow-ups) UNDER that.
+## Response format (EVERY reply — the owner has stated this repeatedly; HARD rule)
+Owner's exact instruction (2026-07-21, said multiple times): "when your internal calculations are
+complete, begin the section I need to read from you with (emoji)/model pushed/completed and
+underneath speak to me in numbered tables … number. the thing. description. done / just done / to
+be done. all one table not broken up. Every time. can have info with it and other relevant details
+underneath."
 
-**Chat status table (when asked, or at natural checkpoints):** give a NUMERICAL table of
-what has been done vs still open IN THIS CHAT, with an emoji per row to delineate status
-(✅ done, ⬜ / 🔲 open, 🚧 in progress). Model it on the owner's ORB-backlog table: `#`,
-`Item`, `Status`. This is separate from the per-reply numbered list of what you just did.
-Don't bury the version or the summary below paragraphs of reasoning. Terse, ordered,
-front-loaded. (Pairs with the verify-don't-assume rule below.)
+Structure EVERY substantive reply top-to-bottom as:
+1. **First line = the status header the owner reads first:** `(emoji) <model> · <Pushed vX.Y |
+   Completed | No deploy — reason>`. Examples: `✅ Opus 4.8 · Pushed v64.0` · `✅ Opus 4.8 ·
+   Completed` · `⚠️ Opus 4.8 · No deploy — waiting on X`. Nothing above it. A one-line summary may
+   follow directly under it.
+2. **Then ONE numbered table — NEVER split into separate done / not-done / to-do tables.** Columns:
+   `# | Thing | Description | Status`. **Status** is one of: **done** (already done before this
+   reply), **just done** (finished in THIS reply), **to be done** (still pending). Use a status
+   emoji per row: ✅ done · 🆕 just done · 🔲 to be done. Keep ONE CONTINUOUS item counter across
+   replies in a chat — don't restart at 1 each reply; pick up where the last reply left off.
+3. **Details / caveats / how-to-verify / numbers go UNDERNEATH the table** — the owner skims the
+   table, then drops down for detail. Keep prose terse; process/"thinking" text is noise.
+4. For strategy-run rows, include the rich columns the owner tracks: strategy TYPE (mechanism +
+   indicators) and PnL split by stage — **IS** (in-sample) vs **WF** (walk-forward) vs **LB**
+   (lockbox); if a stage was not run, SAY so ("WF not run · LB sealed") rather than omitting.
+
+## Delegate execution to Sonnet; you stay the supervisor (owner ask, 2026-07-21)
+Owner: "spawn the top sonnet agent for simpler tasks to save tokens (simple executions, codes etc)
+and you remain the supervisor. if anything is off or not good enough feel free to then take it over
+and do yourself." So: spawn the **Sonnet** subagent (Agent tool, `model: "sonnet"`) for the SIMPLER
+executions — mechanical edits, boilerplate/scripts, data pulls — to save tokens. The lead model
+PLANS, SPECIFIES precisely, and REVIEWS the subagent's output before accepting. Coordinate-critical
+or design-sensitive work the owner has corrected repeatedly (e.g. the 2A funnel chart) is a fair
+case to keep in-house — say when you did. (Pairs with [[fable-advisor-sonnet-executor]].)
 
 ## Verify, don't assume (hard rule)
 Never claim a UI change works from reading code alone. After every push, LOAD the deployed
