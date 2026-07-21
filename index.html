@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='62.9';
+const VERSION='63.0';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'63.0', date:'2026-07-21', notes:['🔬 ROOT-CAUSED the run-equity vs blotter mismatch (#161-#168). Two engine bugs: (a) the saved equity curve subtracted fees a SECOND time from already-net trades (~197 pts low on a 695-trade TTIBS run), and (b) every equity chart stopped ~4-5 trades short of the end, so the plotted endpoint missed the final trades (run #164 plotted +1,426 pts above its true finish — the May-Jul 2026 give-back never showed). Both fixed; run docs #161-#168 equity repaired in place. The blotter CSV totals were CORRECT all along.','▦ TRADES blotters now pin the run WINDOW and MASTER (the repo rule): run #162 (tv master) had silently been served run #161 blotter from the db_noadj master. #162 blotter regenerated from the right master; the blotter strip now names which master served it. Shift+click TRADES on old runs to refresh a stale saved copy.']},
   {v:'62.9', date:'2026-07-21', notes:['👑 WF-CHECKED SELECTION moved to §2, directly UNDER 2A TOP CONFIGS (owner: it belongs on 2A, next to the other multi-config equity chart — not in §1).','2A TOP CONFIGS now SHADES the out-of-sample / walk-forward tail (blue band on the right): ranking is locked to the in-sample scoring slice, and the shaded tail is the section the walk-forward folds judge on — so every config curve shows its out-of-sample behaviour in place. Validate runs only; the split comes from the saved fold bounds when present, else the ~75% default.']},
   {v:'62.8', date:'2026-07-21', notes:['👑 WF-CHECKED SELECTION axis fixes (owner): the end dates now read 6/7/10 → 1/14/25 like 1A (the ISO label 2025-01-14 was being misread as 2014), and the axis note says plainly that each curve spans the WHOLE optimize window, not just the walk-forward slice.','Engine + chart: candidate curves now save their trade EXIT DATES, and when a run carries them the chart places every curve on the REAL calendar axis — the same date axis as 1A — instead of even trade spacing. Runs made before tonight (incl. #168) fall back to trade-sequence spacing with a re-run note; the next Auto-Validate gets the calendar axis automatically.']},
   {v:'62.7', date:'2026-07-21', notes:['FIX: the 👑 WF-CHECKED SELECTION chart and the 📏 verdict-power line now render on AUTO-VALIDATE reports too — v62.6 wired them into the generic §1 layout only, and validate runs (the only runs that HAVE the data, e.g. #168) build §1 through their own branch. Verified live on run #168.']},
@@ -3053,6 +3054,7 @@ window.expandEquity=function(host){
     blFee=(B&&B.cost_pts!=null&&B.mult)?(+B.cost_pts*+B.mult):null;
     blMeta='TRADE BLOTTER · '+rows.length+' trades'+(r.capped?' (most recent — '+r.capped+' older stay in the CSV)':'')
       +(cached?' · saved on this browser'+(r.ts?' '+new Date(r.ts).toLocaleDateString():'')+' — Shift+click TRADES to regenerate':(r.regenerated?' · regenerated on your PC':(r.source?' · '+r.source:'')))
+      +(r.master?' · master: '+r.master:'')
       +' · click a header to sort / filter · click a row to fly to it';
     wrap.style.display='block';
     blotBtn.textContent='▦ TRADES ('+rows.length+')';blotBtn.disabled=false;
@@ -3065,7 +3067,7 @@ window.expandEquity=function(host){
       const r=await _runCmd('get_blotter',B);
       _applyBlot(r,false);
       // SAVE for next time — reopening this run restores the blotter with no runner round-trip.
-      if(B&&B.run_id!=null)_blotPut(B.run_id,{rows:r.rows||[],capped:r.capped||null,source:r.source||null,ts:Date.now()}).catch(()=>{});
+      if(B&&B.run_id!=null)_blotPut(B.run_id,{rows:r.rows||[],capped:r.capped||null,source:r.source||null,master:r.master||null,ts:Date.now()}).catch(()=>{});
     }catch(err){blotBtn.textContent='▦ TRADES';blotBtn.disabled=false;alert('Blotter load failed: '+err.message);}
   };
   if(blotBtn)blotBtn.onclick=async(e)=>{
@@ -3651,7 +3653,7 @@ window.expandCompareEq=function(series){
         let r=null,cached=false;
         if(!force){try{const c=await _blotGet(p.blot.run_id);if(c&&c.rows&&c.rows.length){r=c;cached=true;}}catch(_e){}}
         if(!r){r=await _runCmd('get_blotter',p.blot);
-          _blotPut(p.blot.run_id,{rows:r.rows||[],capped:r.capped||null,source:r.source||null,ts:Date.now()}).catch(()=>{});}
+          _blotPut(p.blot.run_id,{rows:r.rows||[],capped:r.capped||null,source:r.source||null,master:r.master||null,ts:Date.now()}).catch(()=>{});}
         const rows=(r.rows||[]).map(x=>({no:+x.trade_no,et:String(x.entry_time),xt:String(x.exit_time),usd:+x.pnl_usd,cum:+x.cum_usd,pts:+x.pnl_pts,hold:+x.hold_bars}));
         if(!rows.length)throw new Error('empty blotter');
         blotMap[p.id]={rows:rows,cached:cached,err:null};
@@ -8593,6 +8595,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const blot={run_id:d.id,instrument:d.instrument||'',timeframe:d.timeframe||'5m',session:d.session||'rth',
           strategy:d.strategy||'',params:d.best_params||null,cost_pts:(d.cost_pts!=null?d.cost_pts:5.66/mlt),
           mult:mlt,date_from:d.date_from||null,date_to:d.date_to||null,
+          // pin the run's MASTER too (repo rule: window AND master) — without it a
+          // regenerated blotter comes from whatever master the registry lists first
+          // (run #162, a tv-master run, got a db_noadj blotter that way).
+          source:d.data_source||null,
           // the run's exact source — lets the runner rebuild a blotter even when the strategy
           // file has since been renamed/deleted (e.g. run 137's ORB_SIMPLE_1_0).
           code:((typeof d.code_snapshot==='string'&&d.code_snapshot.length>100)?d.code_snapshot:null)};
@@ -9864,6 +9870,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             blot:{run_id:c.r.id,instrument:c.r.instrument||'',timeframe:c.r.timeframe||'5m',session:c.r.session||'rth',
               strategy:c.r.strategy||'',params:c.r.best_params||null,cost_pts:(c.r.cost_pts!=null?c.r.cost_pts:5.66/_mc),
               mult:_mc,date_from:c.r.date_from||null,date_to:c.r.date_to||null,
+              source:c.r.data_source||null,   // pin the run's master (window AND master rule)
               code:((typeof c.r.code_snapshot==='string'&&c.r.code_snapshot.length>100)?c.r.code_snapshot:null)}};});
         if(withEq.length){
           let emn=0,emx=0;withEq.forEach(c=>{c.eq.forEach(v=>{if(v<emn)emn=v;if(v>emx)emx=v;});});
