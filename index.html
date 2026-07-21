@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='62.3';
+const VERSION='62.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'62.4', date:'2026-07-21', notes:['NEW: GAUGES β — a third REPORT LAYOUT (CLASSIC / FUNNEL β / GAUGES β): the car-dashboard read. Every KPI renders as a compact gauge — red/yellow/green zone bands with tick marks, a needle on the value, the number below (0-1 metrics show as simple percentages) — grouped into 4 sections: strategy performance, strategy robustness, param influence, param robustness. Section headers roll up their gauge statuses as colored dot counts.','Tap any gauge to unfold the FULL panel behind it (equity, KPI matrix, neighbours, knob importance, bake-off…) under that section — nothing is recomputed or deleted, flip layouts any time. Zone edges, per-gauge scales and open owner questions: docs/RESULTS_GAUGE_DASHBOARD.md.','ROADMAP #26 filed (build later): incremental backtest reuse — skip recomputing configs a past run already backtested when the stack + data window match.']},
   {v:'62.3', date:'2026-07-20', notes:['NEW: FUNNEL β report layout — a REPORT LAYOUT toggle (CLASSIC / FUNNEL β) now sits at the top of every run report. FUNNEL regroups the SAME panels into five questions read top-to-bottom like a deploy decision: 1 Performance and Validation (equity, matrix, distributions, the In-sample block) → 2 Config Robustness (2A, 2B/2C, 2D, 2G, 2F — plus the PBO and plateau chips, which are about whether the config PICK is overfit) → 3 What Drives the Edge (knob importance, 3-D explorer, the 2L model bake-off) → 4 Enhancements (the ML gate and the ensemble chip — things that improve a result, not trust checks) → 5 Is the Edge Real (the remaining robustness chips only).','CLASSIC is untouched and stays the default — the toggle is remembered, flip back any time. The legacy comparison block renders only under CLASSIC.']},
   {v:'62.2', date:'2026-07-20', notes:['FIX: KNOB IMPORTANCE (2E) was showing fewer knobs than the old knobs-vs-noise chart — it only listed the NUMERIC swept params, so categorical knobs (modes / booleans like fill_mode, trigger, exit_mode) got dropped even though the surrogate had screened them against noise. Those knobs are back now: they show their vs-noise score and verdict, with — in the r / MI / PPS columns (those need a numeric axis) and a · for the direction glyph.']},
   {v:'62.1', date:'2026-07-20', notes:['EXTRAPOLATION GUARD (#91): 2L model rows gain a "terr" column — ⚠ means that model picked a config OUTSIDE the territory the search actually sampled (tree models can not predict out there, so the predicted $ is a guess; the REAL verified $ still stands), ◌ means the pick sits in THIN territory with few sampled configs nearby. The steering brain also stops giving out-of-territory configs an exploration bonus from the QRF model. New runs only.','VERDICT POWER (#94): the run report gains a 📏 line under the lockbox — given how few trades the lockbox holds and how noisy they are, it shows the SMALLEST per-trade edge that holdout could reliably detect, next to the edge the champion actually claims. If the claim is below the detectable floor the verdict is stamped UNDERPOWERED: a pass or a fail there is weak evidence either way. New runs only.']},
@@ -8907,11 +8908,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    untouched. FUNNEL β = the SAME panels regrouped into 5 questions (performance →
       //    config robustness → what drives it → enhancements → is it real) — a preview
       //    layout for comparison; only one layout renders at a time, so no id collisions. ──
-      const _repLay=(APREF.repLayout==='funnel')?'funnel':'classic';
+      const _repLay=(APREF.repLayout==='funnel')?'funnel':((APREF.repLayout==='gauges')?'gauges':'classic');
       const _layBtn=(v,lab,tip)=>'<span data-replay="'+v+'" title="'+tip+'" style="cursor:pointer;padding:3px 10px;border-radius:9px;font-size:9px;user-select:none;white-space:nowrap;border:1px solid '+(_repLay===v?'var(--green)':'var(--border)')+';color:'+(_repLay===v?'var(--text)':'var(--text4)')+';background:'+(_repLay===v?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+'">'+lab+'</span>';
       const _layTog='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 4px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5)">REPORT LAYOUT</span>'
         +_layBtn('classic','CLASSIC','the numbered-section layout you know — unchanged')
-        +_layBtn('funnel','FUNNEL β','PREVIEW — the same panels regrouped into 5 questions: performance and validation → config robustness → what drives the edge → enhancements → is the edge real. Nothing is deleted; flip back any time.')+'</div>';
+        +_layBtn('funnel','FUNNEL β','PREVIEW — the same panels regrouped into 5 questions: performance and validation → config robustness → what drives the edge → enhancements → is the edge real. Nothing is deleted; flip back any time.')
+        +_layBtn('gauges','GAUGES β','PREVIEW — the car-dashboard read: every KPI as a compact gauge (red / yellow / green zones, needle on the value, number underneath) in 4 sections: strategy performance · strategy robustness · param influence · param robustness. Tap a gauge to unfold its full chart. Nothing is deleted; flip back any time.')+'</div>';
       let _funnel='';
       if(_repLay==='funnel'){
         const _fHd=(n,col,label,q)=>'<div class="lbl" style="margin:20px 0 8px;padding-top:14px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:23px;height:23px;border-radius:50%;background:'+col+';font-size:12px;font-weight:800;color:#fff">'+n+'</span><span style="font-weight:800;font-size:15px;color:var(--text);letter-spacing:0;text-transform:none">'+label+'</span><span style="font-weight:400;color:var(--text4);font-size:9px">'+q+'</span></div>';
@@ -8944,6 +8946,111 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +_fHd('5','#888780','Is the Edge Real','overfit / noise / significance checks — informational, they do not gate the checklist')
           +_f5Body;
       }
+      // ── GAUGES β build (owner 2026-07-21): the car-dashboard layout. Every KPI as a compact
+      //    semicircle gauge — muted red/yellow/green ZONE bands with tick slits at the edges,
+      //    a needle on the value, the number (percent where the metric is naturally 0-1) below.
+      //    4 sections = the owner taxonomy: strategy performance · strategy robustness ·
+      //    param influence · param robustness. Tap a gauge → the SAME panel CLASSIC/FUNNEL
+      //    render unfolds under that section (no new math, a re-skin of the same data).
+      //    Zone edges + design rationale: docs/RESULTS_GAUGE_DASHBOARD.md. ──
+      let _gaug='';
+      if(_repLay==='gauges'){
+        const GRN='var(--green)',YLW='var(--yellow)',RED='var(--red)';
+        const _ggC=(x,a,b)=>Math.max(a,Math.min(b,x));
+        const _ggArc=(cx,cy,rr,f)=>{const a=Math.PI*(1-f);return [cx+rr*Math.cos(a),cy-rr*Math.sin(a)];};
+        const _ggStat=g=>{let sc=g.zn[g.zn.length-1][1];for(var zi=0;zi<g.zn.length;zi++){if(g.pos<=g.zn[zi][0]){sc=g.zn[zi][1];break;}}return sc;};
+        const _ggSvg=(t,zn,noNeedle)=>{const W=112,H=68,cx=W/2,cy=H-6,r=W/2-9,sw=8;
+          const seg=(f0,f1,col)=>{const p0=_ggArc(cx,cy,r,f0),p1=_ggArc(cx,cy,r,f1);
+            return '<path d="M'+p0[0].toFixed(1)+' '+p0[1].toFixed(1)+' A'+r+' '+r+' 0 0 1 '+p1[0].toFixed(1)+' '+p1[1].toFixed(1)+'" fill="none" stroke="color-mix(in srgb,'+col+' 30%,transparent)" stroke-width="'+sw+'"/>';};
+          let sc=zn[zn.length-1][1];for(var zi=0;zi<zn.length;zi++){if(t<=zn[zi][0]){sc=zn[zi][1];break;}}
+          let s='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" style="display:block;margin:0 auto">',f0=0;
+          for(var i2=0;i2<zn.length;i2++){s+=seg(f0,zn[i2][0],zn[i2][1]);f0=zn[i2][0];}
+          for(var i3=0;i3<zn.length-1;i3++){const fb=zn[i3][0],pa=_ggArc(cx,cy,r-sw/2-1,fb),pb=_ggArc(cx,cy,r+sw/2+2,fb);
+            s+='<line x1="'+pa[0].toFixed(1)+'" y1="'+pa[1].toFixed(1)+'" x2="'+pb[0].toFixed(1)+'" y2="'+pb[1].toFixed(1)+'" stroke="var(--bg2)" stroke-width="2"/>';}
+          if(!noNeedle){const np=_ggArc(cx,cy,r-sw/2-3,_ggC(t,0,1));
+            s+='<line x1="'+cx+'" y1="'+cy+'" x2="'+np[0].toFixed(1)+'" y2="'+np[1].toFixed(1)+'" stroke="'+sc+'" stroke-width="2.5" stroke-linecap="round"/><circle cx="'+cx+'" cy="'+cy+'" r="3.4" fill="'+sc+'"/><circle cx="'+cx+'" cy="'+cy+'" r="1.5" fill="var(--bg2)"/>';}
+          s+='</svg>';return {svg:s,sc:sc};};
+        // value plumbing (all defensive — a missing block dims its gauge, never fakes a status)
+        const _V2=d.validate||null,_lbx=(_V2&&_V2.lockbox)||null;
+        const _ggNet=(_bPnlUsd!=null)?+_bPnlUsd:null,_ggDd=(_bDd!=null)?Math.abs(+_bDd):null;
+        const _ggMar=(_ggNet!=null&&_ggDd>1e-9)?(_ggNet/_ggDd):null;
+        const _ggPf=(_bPf!=null)?+_bPf:null,_ggWr=(_bWr!=null)?+_bWr:null,_ggTrd=(_bTrd!=null)?+_bTrd:null;
+        const _ggExp=(_ggNet!=null&&_ggTrd>0)?(_ggNet/_ggTrd):null;
+        const _ggCost=((+d.commission_usd||0)+((+d.slippage_pts||0)*mlt))||0;
+        const _ggAw=(_V2&&(+_V2.total_avg_win||0)>0)?+_V2.total_avg_win:null;
+        const _ggAl=(_V2&&(+_V2.total_avg_loss||0)<0)?Math.abs(+_V2.total_avg_loss):null;
+        const _ggBe=(_ggAw&&_ggAl)?(100/(1+_ggAw/_ggAl)):null;
+        const _ggDsr=(_V2&&_V2.dsr!=null)?+_V2.dsr:((d.dsr&&d.dsr.dsr!=null)?+d.dsr.dsr:null);
+        const _ggWfe=(_V2&&_V2.wfe!=null)?+_V2.wfe:null;
+        const _flds=(Array.isArray(d.top10_results)?d.top10_results.filter(x=>x&&x.fold!=null):[]);
+        const _fldIds=_flds.map(x=>x.fold).filter((v,i,a)=>a.indexOf(v)===i);
+        const _fldHeld=_fldIds.filter(fd=>_flds.filter(x=>x.fold===fd).some(x=>((+x.oos_pf||0)>1)||((x.oos_pf==null)&&((+x.oos_pnl||0)>0)))).length;
+        const _ggMc=(_V2&&_V2.mc_p95!=null)?+_V2.mc_p95:((d.mc&&d.mc.p95!=null)?+d.mc.p95:null);
+        const _ggMcUsd=(_ggMc!=null)?Math.abs(_ggMc*mlt):null;
+        const _ggMcR=(_ggMcUsd!=null&&_ggDd>1e-9)?(_ggMcUsd/_ggDd):null;
+        let _rgTot=0,_rgPos=0;
+        if(d.regime)[d.regime.vol,d.regime.trend,d.regime.dow,d.regime.tod||d.regime.hour].forEach(a=>{if(Array.isArray(a))a.forEach(x=>{const v=(x&&typeof x==='object')?(Array.isArray(x)?+x[1]:+x.pnl):+x;if(typeof v==='number'&&!isNaN(v)){_rgTot++;if(v>0)_rgPos++;}});});
+        const _ksO=(d.surrogate&&d.surrogate.knob_screen)||null,_ksK=_ksO?Object.keys(_ksO):[];
+        const _ksSig=_ksK.filter(k=>{const v=_ksO[k]||{};return /signal|keep|real/i.test(String(v.verdict||''))||(+v.probe_margin||0)>0;}).length;
+        const _relA=Array.isArray(d.relationship)?d.relationship.filter(x=>x&&x.pps!=null):[];
+        const _relBest=_relA.length?_relA.slice().sort((a,b)=>(+b.pps||0)-(+a.pps||0))[0]:null;
+        const _smA=(d.surrogate&&Array.isArray(d.surrogate.models))?d.surrogate.models.filter(m=>m&&m.cv_r2!=null&&!m.skipped):[];
+        const _smB=_smA.length?_smA.slice().sort((a,b)=>(+b.cv_r2||0)-(+a.cv_r2||0))[0]:null;
+        const _nbO=(d.neighborhood&&+d.neighborhood.tot>0)?d.neighborhood:null;
+        const _ppO=d.plateau_pick||null,_ppEdge=!!(_ppO&&Array.isArray(_ppO.boundary_flags)&&_ppO.boundary_flags.length);
+        const _ggTpp=(_V2&&_V2.trades_per_param!=null)?+_V2.trades_per_param:((_ggTrd&&_dofNP)?(_ggTrd/_dofNP):null);
+        const _chipDet=k=>((_chips.filter(c=>c.k===k)[0]||{}).html||'');
+        const _hbz=(a,b)=>[[a,RED],[b,YLW],[1,GRN]],_lbz=(a,b)=>[[a,GRN],[b,YLW],[1,RED]];
+        const _wrGauge=(function(){const has=_ggWr!=null,be=_ggBe;let pos,zn,sub;
+          if(has&&be!=null){const m=_ggWr-be;pos=_ggC((m+15)/40,0,1);zn=[[15/40,RED],[23/40,YLW],[1,GRN]];sub='breakeven '+Math.round(be)+'% from avg win / loss';}
+          else{pos=has?_ggC(_ggWr/100,0,1):0;zn=[[0.25,RED],[0.35,YLW],[0.65,GRN],[0.8,YLW],[1,RED]];sub=has?'plain scale — avg win / loss not saved':'';}
+          return {k:'wr',cat:'p',lb:'WIN RATE',ok:has,pos:pos,zn:zn,val:has?(Math.round(_ggWr)+'%'):'—',sub:sub,tip:'Win rate graded against the breakeven rate its own avg win / avg loss requires: green = comfortably above breakeven, red = below it. Falls back to a sweet-spot band (green 35-65%) when avg win / loss was not saved.',det:_panelMatrix};})();
+        const _ggAll=[
+          {k:'net',cat:'p',lb:'NET P&L',ok:_ggNet!=null,pos:(_ggNet==null)?0:(_ggNet<=0?0.04:(_ggMar==null?0.55:_ggC(_ggMar/6,0,1))),zn:_hbz(1/6,0.5),val:(_ggNet==null?'—':fmtUsd(_ggNet)),sub:(_ggMar!=null?('recovery '+_ggMar.toFixed(1)+'× max DD'):''),tip:'Champion net PnL. Needle = recovery factor (net ÷ max drawdown) on a 0-6× scale: red below 1×, yellow 1-3×, green above 3×. Negative net pins red.',det:_panelEquity},
+          {k:'pf',cat:'p',lb:'PROFIT FACTOR',ok:_ggPf!=null,pos:_ggPf==null?0:_ggC(_ggPf/3,0,1),zn:_hbz(1.15/3,1.4/3),val:_ggPf==null?'—':(+_ggPf).toFixed(2),sub:'gross win ÷ gross loss · scale 0-3',tip:'Profit factor on a 0-3 scale: red below 1.15 (thin edge), yellow 1.15-1.40, green 1.40 and up.',det:_panelMatrix},
+          _wrGauge,
+          {k:'exp',cat:'p',lb:'EXPECTANCY',ok:_ggExp!=null,pos:_ggExp==null?0:(_ggCost>0?_ggC(_ggExp/(4*_ggCost),0,1):_ggC((_ggExp+20)/80,0,1)),zn:(_ggCost>0?_hbz(0.25,0.5):_hbz(0.25,0.45)),val:_ggExp==null?'—':(fmtUsd(_ggExp)+'/tr'),sub:(_ggCost>0?('round-trip cost '+fmtUsd(_ggCost)):'per-trade average'),tip:'Average net PnL per trade. When the run saved a cost model the scale is cost-relative: red below 1× the round-trip cost, yellow 1-2×, green above 2× — an edge that only just covers its costs is fragile.',det:_distTile},
+          {k:'dd',cat:'p',lb:'MAX DRAWDOWN',ok:_ggDd!=null,pos:(_ggDd==null)?0:((_ggNet!=null&&_ggNet>0)?_ggC((_ggDd/_ggNet)/1.2,0,1):0.97),zn:_lbz(0.35/1.2,0.7/1.2),val:_ggDd==null?'—':fmtUsd(-_ggDd),sub:((_ggNet!=null&&_ggNet>0)?(Math.round(_ggDd/_ggNet*100)+'% of net'):'net ≤ 0'),tip:'Worst peak-to-trough equity drop, judged relative to what the run earned: green under 35% of net, yellow 35-70%, red above 70% (or negative net).',det:_panelEquity},
+          {k:'trd',cat:'p',lb:'TRADES',ok:_ggTrd!=null,pos:_ggTrd==null?0:_ggC(_ggTrd/400,0,1),zn:_hbz(0.25,0.75),val:_ggTrd==null?'—':_ggTrd,sub:'sample size',tip:'Trade count = statistical fuel. Red under 100 trades, yellow 100-300, green 300 plus — small samples make every other gauge less trustworthy.',det:_panelMatrix},
+          {k:'gates',cat:'r',lb:'VALIDATION GATES',ok:!!(_V2&&+_V2.n_gates),pos:(_V2&&+_V2.n_gates)?(+_V2.n_pass||0)/(+_V2.n_gates):0,zn:[[0.599,RED],[0.999,YLW],[1,GRN]],val:(_V2&&+_V2.n_gates)?((+_V2.n_pass||0)+'/'+(+_V2.n_gates)):'—',sub:(_V2&&_V2.verdict)?String(_V2.verdict):'',tip:'How many of the validation gates the run passed. Green only at 100% — a strategy is deployable when EVERY gate holds, yellow means close, red means the checks disagree with the backtest.',det:_panelMatrix},
+          {k:'dsr',cat:'r',lb:'DEFLATED SHARPE',ok:_ggDsr!=null,pos:_ggDsr==null?0:_ggC(_ggDsr,0,1),zn:_hbz(0.8,0.95),val:_ggDsr==null?'—':(Math.round(_ggDsr*100)+'%'),sub:'luck-adjusted — best of many configs',tip:'Deflated Sharpe — the chance the edge is real rather than the luckiest of all configs searched. Same zones as the 1I card: red under 80%, yellow 80-95%, green 95% plus.',det:(d.validate?_distTile:_dsrInner),wrap:(d.validate?0:1)},
+          {k:'wfe',cat:'r',lb:'WALK-FWD EFF',ok:_ggWfe!=null,pos:_ggWfe==null?0:_ggC(_ggWfe/1.2,0,1),zn:_hbz(0.3/1.2,0.5/1.2),val:_ggWfe==null?'—':(Math.round(_ggWfe*100)+'%'),sub:'OOS ÷ IS, per bar',tip:'Walk-forward efficiency — out-of-sample PnL rate as a share of the in-sample rate. Red under 30%, yellow 30-50%, green 50% plus (100% = held up perfectly on unseen data).',det:_panelEquity},
+          {k:'folds',cat:'r',lb:'WF FOLDS HELD',ok:_fldIds.length>=2,pos:_fldIds.length?(_fldHeld/_fldIds.length):0,zn:_hbz(0.5,0.75),val:_fldIds.length>=2?(_fldHeld+'/'+_fldIds.length):'—',sub:'folds profitable out-of-sample',tip:'Of the walk-forward folds, how many made money on their unseen test slice. Red under half, yellow to 75%, green above.',det:_panelEquity},
+          {k:'lbx',cat:'r',lb:'LOCKBOX',ok:!!(_lbx&&_lbx.pnl!=null),pos:(_lbx&&_lbx.pass)?0.85:0.12,zn:[[0.5,RED],[1,GRN]],val:(_lbx&&_lbx.pnl!=null)?(_lbx.pass?'HELD':'FAIL'):'—',sub:(_lbx&&_lbx.pnl!=null)?(fmtUsd(Math.round(_lbx.pnl*mlt))+' on the reserved slice'):'',tip:'The one-look holdout: data reserved before any optimization, tested once. Binary — it held or it did not.',det:_panelEquity},
+          {k:'mc',cat:'r',lb:'MC P95 DD',ok:_ggMcUsd!=null,pos:(_ggMcR==null)?0.5:_ggC(_ggMcR/3,0,1),zn:_lbz(1.4/3,2/3),val:_ggMcUsd==null?'—':fmtUsd(Math.round(_ggMcUsd)),sub:(_ggMcR!=null?(_ggMcR.toFixed(1)+'× the seen max DD'):'simulated worst case'),tip:'Monte-Carlo 95th-percentile drawdown — the worst case to size the account for. Judged as a multiple of the realized max DD: green to 1.4×, yellow to 2×, red beyond (path luck is hiding risk).',det:_panelEquity},
+          {k:'reg',cat:'r',lb:'REGIME SPREAD',ok:_rgTot>=3,pos:_rgTot?(_rgPos/_rgTot):0,zn:_hbz(0.4,0.7),val:_rgTot>=3?(Math.round(_rgPos/_rgTot*100)+'%'):'—',sub:_rgTot>=3?(_rgPos+'/'+_rgTot+' slices profitable'):'',tip:'Share of regime buckets (volatility, trend, day-of-week, time-of-day) that end profitable. Red under 40%, yellow 40-70%, green 70% plus — a real edge should not live in one regime only.',det:_panelMatrix},
+          {k:'knobs',cat:'i',lb:'SIGNAL KNOBS',ok:_ksK.length>0,pos:_ksK.length?(_ksSig/_ksK.length):0,zn:_hbz(0.25,0.5),val:_ksK.length?(_ksSig+'/'+_ksK.length):'—',sub:'beat the noise probe',tip:'How many tuned knobs carry real signal — they beat a pure-noise probe in the surrogate screen. Red under a quarter, yellow to half, green above half.',det:_corr,wrap:1},
+          {k:'topk',cat:'i',lb:'TOP KNOB',ok:!!_relBest,pos:_relBest?_ggC(+_relBest.pps||0,0,1):0,zn:_hbz(0.15,0.35),val:_relBest?(+_relBest.pps||0).toFixed(2):'—',sub:_relBest?(String(_relBest.param||'').replace(/_/g,' ')+' · PPS'):'',tip:'The strongest single knob-to-PnL relationship (predictive power score, 0-1). Red under 0.15 = no knob really matters, yellow to 0.35, green above.',det:_corr,wrap:1},
+          {k:'surr',cat:'i',lb:'SURROGATE FIT',ok:!!_smB,pos:_smB?_ggC(+_smB.cv_r2||0,0,1):0,zn:_hbz(0.3,0.6),val:_smB?(Math.round((+_smB.cv_r2||0)*100)+'%'):'—',sub:_smB?(String(_smB.model||'')+' · CV R²'):'',tip:'Best bake-off model cross-validated R² — can ANY model map knob settings to PnL? Red under 30% (the space is mostly noise), yellow to 60%, green above.',det:_surrInner,wrap:1},
+          {k:'nb',cat:'q',lb:'NEIGHBORHOOD',ok:!!_nbO,pos:_nbO?((+_nbO.good||0)/(+_nbO.tot)):0,zn:_hbz(0.5,0.75),val:_nbO?((+_nbO.good||0)+'/'+(+_nbO.tot)):'—',sub:'neighbours hold PF ≥ 1',tip:'Nudge every knob one grid step from the champion — how many neighbours stay profitable. Red under half, yellow to 75%, green above: a real config sits on a plateau, not a needle.',det:_nbInner,wrap:1},
+          {k:'plat',cat:'q',lb:'PLATEAU PICK',ok:!!_ppO,pos:_ppO?(_ppO.same_as_best?0.85:(_ppEdge?0.15:0.45)):0,zn:[[0.3,RED],[0.6,YLW],[1,GRN]],val:_ppO?(_ppO.same_as_best?'AGREE':'DIFFERS'):'—',sub:_ppO?(_ppO.same_as_best?'plateau pick = champion':(_ppEdge?'differs · at a range edge':'broad high ground elsewhere')):'',tip:'Does the smoothed-landscape pick (broad high ground) agree with the raw argmax champion? Agreement = the champion is not a lucky spike. Differs at a range edge is the red case — the true optimum may sit outside the searched range.',det:_chipDet('plat'),wrap:1},
+          {k:'pbo',cat:'q',lb:'PBO',ok:_pboR!=null,pos:_pboR==null?0:_ggC(+_pboR,0,1),zn:_lbz(0.3,0.5),val:_pboR==null?'—':(Math.round(_pboR*100)+'%'),sub:'probability of backtest overfit',tip:'CSCV probability that the config selection overfit the sample. Green under 30%, yellow to 50%, red above — same coloring as the §2 verdict line.',det:_chipDet('pbo'),wrap:1},
+          {k:'dof',cat:'q',lb:'TRADES / KNOB',ok:_ggTpp!=null,pos:_ggTpp==null?0:_ggC(_ggTpp/60,0,1),zn:_hbz(10/60,30/60),val:_ggTpp==null?'—':Math.round(_ggTpp),sub:(_dofNP?(_dofNP+' tuned knobs'):''),tip:'Degrees-of-freedom check: trades available per tuned knob. Red under 10, yellow 10-30, green 30 plus — few trades spread over many knobs is how overfitting sneaks in.',det:'<div style="font-size:9px;color:var(--text3);line-height:1.6">'+(_ggTrd!=null?_ggTrd:'?')+' trades ÷ '+(_dofNP||'?')+' tuned knobs = <b style="color:var(--text2)">'+(_ggTpp!=null?Math.round(_ggTpp):'—')+'</b> per knob. Rule of thumb: 30+ per knob before trusting a tuned result.</div>',wrap:1}
+        ];
+        const _ggCats=[['p','1','#1d9e75','Strategy Performance','does the champion make money?'],
+          ['r','2','#378add','Strategy Robustness','does the edge survive unseen data and luck checks?'],
+          ['i','3','#d85a30','Param Influence','which knobs actually drive the edge?'],
+          ['q','4','#7f77dd','Param Robustness','is the winning config a plateau, not a lucky spike?']];
+        const _ggCard=g=>{const t=(g.tip||'').replace(/"/g,'&quot;');
+          if(!g.ok){const gs=_ggSvg(0,g.zn,1);return '<div title="'+t+'" style="background:var(--bg2);border:1px dashed color-mix(in srgb,var(--border) 65%,transparent);border-radius:12px;padding:9px 6px 7px;text-align:center;opacity:.42">'+gs.svg+'<div style="font-size:16px;font-weight:800;color:var(--text5);line-height:1.15">—</div><div style="font-size:8px;color:var(--text5);margin-top:1px;min-height:9px">not saved for this run</div><div style="font-size:8px;letter-spacing:.8px;color:var(--text5);margin-top:3px">'+g.lb+'</div></div>';}
+          const gs=_ggSvg(g.pos,g.zn),op=window._gaugeKey===g.k;
+          return '<div data-gexp="'+g.k+'" title="'+t+'" style="background:var(--bg2);border:1px solid '+(op?('color-mix(in srgb,'+gs.sc+' 55%,var(--border))'):'color-mix(in srgb,var(--border) 75%,transparent)')+';border-radius:12px;padding:9px 6px 7px;text-align:center;cursor:pointer;user-select:none">'+gs.svg
+            +'<div style="font-size:17px;font-weight:800;color:'+gs.sc+';line-height:1.15">'+g.val+'</div>'
+            +'<div style="font-size:8px;color:var(--text5);margin-top:1px;min-height:9px">'+(g.sub||'')+'</div>'
+            +'<div style="font-size:8px;letter-spacing:.8px;color:var(--text4);margin-top:3px">'+g.lb+' <span style="color:var(--text5)">'+(op?'▴':'▾')+'</span></div></div>';};
+        _gaug='<div style="font-size:8px;color:var(--text5);margin:2px 0 4px">the dashboard read — needle on the value, ticks mark where bad / concerning / acceptable start. Tap any gauge for the full chart behind it.</div>';
+        _ggCats.forEach(c=>{const gl=_ggAll.filter(g=>g.cat===c[0]);if(!gl.length)return;
+          const okG=gl.filter(g=>g.ok);
+          const dots=[GRN,YLW,RED].map(col=>{const n=okG.filter(g=>_ggStat(g)===col).length;return n?('<span style="display:inline-flex;align-items:center;gap:3px;margin-left:8px"><span style="width:7px;height:7px;border-radius:50%;background:'+col+';display:inline-block"></span><b style="font-size:9px;color:var(--text3)">'+n+'</b></span>'):'';}).join('');
+          _gaug+='<div class="lbl" style="margin:16px 0 8px;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:23px;height:23px;border-radius:50%;background:'+c[2]+';font-size:12px;font-weight:800;color:#fff">'+c[1]+'</span><span style="font-weight:800;font-size:15px;color:var(--text);letter-spacing:0;text-transform:none">'+c[3]+'</span><span style="font-weight:400;color:var(--text4);font-size:9px">'+c[4]+'</span>'+dots+'</div>';
+          _gaug+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:7px">'+gl.map(_ggCard).join('')+'</div>';
+          const opG=gl.filter(g=>g.ok&&window._gaugeKey===g.k)[0];
+          if(opG){const dh=opG.det||'';const inner=opG.wrap?((dh&&dh.replace(/\s/g,''))?('<div style="'+_colStyle+'">'+dh+'</div>'):''):dh;
+            if(inner&&inner.replace(/\s/g,''))_gaug+='<div style="margin-top:7px;padding:3px;border:1px dashed color-mix(in srgb,'+_ggStat(opG)+' 40%,var(--border));border-radius:11px">'+inner+'</div>';}
+        });
+      }
+      // ── end GAUGES β ──
+      if(_repLay==='gauges')return hdrHtml+valBannerHtml(d)+_layTog+_gaug+runCodeHtml(d);
       if(_repLay==='funnel')return hdrHtml+valBannerHtml(d)+_layTog+_funnel+runCodeHtml(d);
       return hdrHtml
         +valBannerHtml(d)
@@ -10763,8 +10870,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // compact-pass expanders (#29/#30/#32): 2F table · §3 candidates table · 2L charts
       content.querySelectorAll('[data-cfgtbl]').forEach(b=>{b.onclick=()=>{savePref('cfgTblOpen',APREF.cfgTblOpen?0:1);renderApp();};});
       content.querySelectorAll('[data-r3ev]').forEach(b=>{b.onclick=()=>{window._gvEvOpen=!window._gvEvOpen;renderApp();};});
-      // report layout toggle (funnel preview): CLASSIC ⇄ FUNNEL β
+      // report layout toggle: CLASSIC ⇄ FUNNEL β ⇄ GAUGES β (value-generic)
       content.querySelectorAll('[data-replay]').forEach(b=>{b.onclick=()=>{savePref('repLayout',b.dataset.replay);renderApp();};});
+      // GAUGES β: tap a gauge ⇄ unfold its full panel under that section
+      content.querySelectorAll('[data-gexp]').forEach(b=>{b.onclick=()=>{window._gaugeKey=(window._gaugeKey===b.dataset.gexp)?null:b.dataset.gexp;renderApp();};});
       content.querySelectorAll('[data-surrcharts]').forEach(b=>{b.onclick=()=>{savePref('surrCharts',APREF.surrCharts?0:1);renderApp();};});
       // KNOB IMPORTANCE (2E) compact ⇄ detail toggle
       content.querySelectorAll('[data-knobdetail]').forEach(b=>{b.onclick=()=>{savePref('knobDetail',APREF.knobDetail?0:1);renderApp();};});

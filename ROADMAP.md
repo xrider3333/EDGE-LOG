@@ -153,6 +153,21 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       unprompted) synced as `m.profile` and rendered as an EDA strip in the master modal;
       `tools/profile_report.py` = one-call native HTML auto-EDA report per master. Remaining
       in section 2: **2.5 fills reconciliation** (blocked on a sample NT Position-History CSV).
+- [ ] **#26 Incremental backtest reuse (owner idea 2026-07-21)** — stop paying for full engine
+      reruns when most of the work was already done in a past run (e.g. same stack, window
+      extended two weeks, or one knob range widened). Design sketch: (a) **trial-level result
+      memoization** — key = hash(strategy-file SHA, canonical params, master id, date window,
+      cost model, engine version); the runner keeps a local SQLite cache of per-config results
+      and auto-validate/grid loops skip exact hits (typical rerun shares 60–95% of configs);
+      (b) **window-superset slicing** — a cached result whose window CONTAINS the requested one
+      cannot be reused blindly (indicator warm-up, day-boundary state), but the master arrays
+      already slice cheaply, so only the backtest loop reruns — cache the loaded/health-checked
+      data prep; (c) LATER/research: window-extension deltas (append new bars, recompute only
+      trades after the last flat point) — only safe for stateless-at-EOD strategies (ORB-style
+      EOD-flat qualifies; document per-strategy). Cache invalidation is the hard part: any
+      strategy-file or engine change MUST miss (hence file SHA + engine version in the key).
+      Compare-rerun rule stays untouched — a pinned rerun is an exact-hit reuse by definition.
+      Bigger scope, build separately from the web UI work.
 - [~] **#25 Plug-and-play ML gate (Strategy × Model matrix)** — decouple Carl's
       classification/regression MODELS from the rule strategies so any strategy pairs with
       any model WITHOUT a combinatorial strategy list (owner spec 2026-07-02: "select ENGU
