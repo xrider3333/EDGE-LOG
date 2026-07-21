@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='63.3';
+const VERSION='63.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'63.4', date:'2026-07-21', notes:['👑 WF-CHECKED SELECTION now lives ON the 2A chart itself (you wanted one chart, not a block beneath it). 2A keeps its many-config equity spread as faint grey context; the WF-crowned config is drawn solid green and the in-sample MAX blue-dashed; and the TOP-3 by walk-forward now EXTRAPOLATE FORWARD through the lockbox, past a purple "lockbox door" line, so you see how the relevant configs carry into the holdout on the same axis. The crown-pool table now sits inside the same 2A card. The separate selection block is gone.','Honesty kept: the lockbox continuation is drawn AFTER the crown was decided and is never used to re-pick the champion (the champion still lives on 1A). Non-validate / grid / auto / legacy runs render 2A exactly as before; #168 (pre-lockbox engine) shows the crowned overlay + table with a re-run note for the forward lockbox extension.']},
   {v:'63.3', date:'2026-07-21', notes:['GAUGES β owner-review round: (1) NEW top section ◈ AT A GLANCE — one composite 0-100 score per category plus an OVERALL, each the mean of its gauges (green/amber/red). (2) NEW §5 ENHANCEMENTS gauges — GATE EDGE (gated vs ungated PF lift), GATE % KEPT and ENSEMBLE LIFT, so the ML-gate / top-K-blend results get their own section. (3) A compact CHAMPION EQUITY strip now stays visible at the top of the gauge view. (4) Added a PARAM STABILITY gauge slot (shows N/A until the engine emits IS→OOS re-optimized-param drift).','Confirmed the rule for scale-less metrics: PF, recovery, $ and counts show the RAW NUMBER (only genuinely 0-1 metrics render as %). Grid/auto runs already show their applicable gauges and N/A the validate-only ones without moving the layout. New hand-off spec docs/INCREMENTAL_BACKTEST_REUSE.md scopes the reuse-past-runs idea (ROADMAP #26).']},
   {v:'63.2', date:'2026-07-21', notes:['👑 WF-CHECKED SELECTION (under 2A) rebuilt as the robustness-vs-OOS view you asked for: the whole top config set is drawn through walk-forward as a robustness SPREAD (crown-pool candidates in colour, up to ~5 more top configs in grey as context — how tightly the good-config neighbourhood holds), and only the TOP-3 by walk-forward continue THROUGH the lockbox past a purple "lockbox door" line, for a limited peek at true-future performance. The lockbox curves are shown AFTER the crown was set and are NEVER used to re-pick the champion (that would be look-ahead) — the champion itself still lives on 1A.','Engine: Auto-Validate now saves a wider robustness set (top ~10 IS configs) plus a lockbox continuation for the top-3, with trade dates for the calendar axis. New validate runs get the full picture; older runs (incl. #168) show the robustness spread with a re-run note for the lockbox extension.']},
   {v:'63.1', date:'2026-07-21', notes:['2A TOP CONFIGS: removed the shaded out-of-sample tail band added in v62.9 — it wrongly implied ALL of 2As many in-sample config curves were walk-forward tested, when only the handful of top configs are. 2A is back to plain in-sample equity curves; the walk-forward-checked candidates stay in their own chart directly below it.']},
@@ -6735,12 +6736,59 @@ namespace NinjaTrader.NinjaScript.Strategies {
     };
     // TOP-N EQUITY OVERLAY — the best configs' equity curves on one axis. If they all
     // climb alike the edge is robust; if only the winner climbs it's a fragile outlier.
+    // #88b table+notes helper: the crown-pool rows + honesty notes that stack in the 2A card
+    //   directly under the overlay (extracted so topEqOverlayHtml renders it in-place).
+    const selectionTableHtml=(sel,mlt)=>{
+      if(!sel||!Array.isArray(sel.candidates)||!sel.candidates.length)return '';
+      const cand=sel.candidates, robust=Array.isArray(sel.robust)?sel.robust:[];
+      const CROWN='#1d9e75',ISC='#3a9bdc';
+      let isMaxI=0;cand.forEach((c,i)=>{if((c.is_pnl||0)>(cand[isMaxI].is_pnl||0))isMaxI=i;});
+      const pk=Object.keys(cand[0].params||{});
+      const vary=pk.filter(k2=>{const s=new Set(cand.map(c=>String((c.params||{})[k2])));return s.size>1;});
+      const rows=cand.map((c,i)=>{const crowned=!!c.crowned,ismax=(i===isMaxI);
+        const cfg=(vary.length?vary:pk.slice(0,3)).map(k2=>k2+' <b>'+String((c.params||{})[k2])+'</b>').join(' · ');
+        return '<div style="display:flex;gap:8px;align-items:center;padding:3px 6px;font-size:8.5px;border-top:1px solid color-mix(in srgb,var(--border) 35%,transparent)'+(crowned?';background:color-mix(in srgb,#1d9e75 12%,transparent);border-left:3px solid #1d9e75':'')+'">'
+          +'<span style="flex:0 0 86px;font-weight:700;color:'+(crowned?CROWN:(ismax?ISC:'var(--text4)'))+'">'+(crowned?'👑 crowned':(ismax?'IS max':('rank '+(i+1))))+'</span>'
+          +'<span style="flex:1;color:var(--text3)">'+cfg+'</span>'
+          +'<span style="flex:0 0 78px;text-align:right" title="what the SEARCH scored this config in-sample (its scoring window)">'+fmtUsd(Math.round((c.is_pnl||0)*mlt))+'</span>'
+          +'<span style="flex:0 0 78px;text-align:right;font-weight:700;color:'+CROWN+'" title="summed PnL across the anchored walk-forward folds UNSEEN slices - the number that decides the crown">'+fmtUsd(Math.round((c.wf_oos_pnl||0)*mlt))+'</span>'
+          +'<span style="flex:0 0 40px;text-align:center" title="how many walk-forward folds this config held (profitable) in">'+(c.folds_held!=null?c.folds_held:'—')+'</span>'
+          +'<span style="flex:0 0 82px;text-align:right;color:'+((c.lb_equity&&c.lb_equity.final!=null)?ISC:'var(--text5)')+'" title="this config carried forward THROUGH the lockbox (top-3 only) - shown after the crown was set, never used to pick it">'+((c.lb_equity&&c.lb_equity.final!=null)?fmtUsd(Math.round(c.lb_equity.final*mlt)):'—')+'</span></div>';}).join('');
+      const hdr='<div style="display:flex;gap:8px;font-size:7px;letter-spacing:.5px;color:var(--text5);padding:0 6px 2px"><span style="flex:0 0 86px"></span><span style="flex:1">config (knobs that differ)</span><span style="flex:0 0 78px;text-align:right">IS (search $)</span><span style="flex:0 0 78px;text-align:right">WF folds $</span><span style="flex:0 0 40px;text-align:center">folds</span><span style="flex:0 0 82px;text-align:right">lockbox end $</span></div>';
+      const note=(sel.is_max_crowned===false)?'<div style="font-size:8.5px;color:var(--yellow);margin:4px 0 2px">⚖️ the in-sample MAX was NOT crowned — the walk-forward folds preferred a steadier config (this is #88 doing its job).</div>':'<div style="font-size:8.5px;color:var(--text4);margin:4px 0 2px">✓ the in-sample max ALSO won the walk-forward arbitration — search pick and OOS evidence agree.</div>';
+      const robNote='<div style="font-size:8px;color:var(--text5);margin:1px 0 2px">grey = the other top configs, drawn to the lockbox door as walk-forward CONTEXT (how tightly the good-config neighbourhood holds).</div>';
+      const hasLB=cand.some(c=>c.lb_equity&&c.lb_equity.final!=null);
+      const lbNote=hasLB?'<div style="font-size:8px;color:var(--text5);margin:1px 0 3px">🚪 past the lockbox door: only the top-3 by walk-forward are carried through the holdout — shown AFTER the crown was set, never used to pick the champion.</div>':'<div style="font-size:8px;color:var(--text5);margin:1px 0 3px">re-run this validate (engine 2026-07-21+) to draw the top-3 forward THROUGH the lockbox.</div>';
+      return note+robNote+lbNote+hdr+rows;};
     const topEqOverlayHtml=(d,mult,tag)=>{
       const etop=d&&d.equity_top;if(!etop||etop.length<2)return '';
+      const isL=/^L/.test(tag||'');
+      // ── #88b (owner 2026-07-21, "put it ON the 2a chart"): on a validate run with a
+      //    WF-checked selection, 2A stays the many-config IS overlay, but the top-3 by
+      //    walk-forward EXTRAPOLATE FORWARD through the lockbox (past a purple door line) and
+      //    the WF-crowned config is coloured (green) with the in-sample MAX as a blue dashed
+      //    line. The crown-pool table + honesty notes stack in the SAME 2A card (no separate
+      //    block). Non-validate / older / legacy(L2A) runs render exactly as before. ──
+      const SELN=d&&d.selection, VV=d&&d.validate;
+      const _okEqS=c=>c&&c.equity&&Array.isArray(c.equity.cum)&&c.equity.cum.length>1;
+      const selMode=!isL&&SELN&&Array.isArray(SELN.candidates)&&SELN.candidates.some(_okEqS);
+      let crownedC=null,isMaxC=null,lbCs=[],t0=NaN,tDoor=NaN,tEnd=NaN,hasLB=false,Wopt=['',''],Wlb=null;const extYs=[];
+      if(selMode){const cand=SELN.candidates;
+        crownedC=cand.find(c=>c.crowned&&_okEqS(c))||null;
+        let mm=-Infinity;cand.forEach(c=>{if(_okEqS(c)&&(c.is_pnl||0)>mm){mm=c.is_pnl||0;isMaxC=c;}});
+        Wopt=((VV&&VV.windows)||{}).optimize||['',''];Wlb=((VV&&VV.windows)||{}).lockbox||null;
+        t0=Date.parse(Wopt[0]);tDoor=Date.parse(Wopt[1]);
+        lbCs=cand.filter(c=>_okEqS(c)&&c.lb_equity&&Array.isArray(c.lb_equity.cum)&&c.lb_equity.cum.length&&Array.isArray(c.lb_equity.t)&&c.lb_equity.t.length===c.lb_equity.cum.length&&c.equity.final!=null&&c.lb_equity.base!=null);
+        if(lbCs.length){let m=tDoor;lbCs.forEach(c=>c.lb_equity.t.forEach(s=>{const p=Date.parse(s);if(isFinite(p)&&p>m)m=p;}));const we=Wlb&&Date.parse(Wlb[1]);tEnd=(isFinite(we)&&we>m)?we:m;}
+        hasLB=lbCs.length>0&&isFinite(t0)&&isFinite(tDoor)&&isFinite(tEnd)&&tEnd>tDoor;
+        // values that may exceed the etop range (×mult, to match `series`) so mn/mx cover them
+        [crownedC,isMaxC].forEach(c=>{if(c)c.equity.cum.forEach(v=>extYs.push(v*mult));});
+        if(hasLB)lbCs.forEach(c=>{const anchor=c.equity.final,base=c.lb_equity.base;c.lb_equity.cum.forEach(v=>extYs.push((anchor+(v-base))*mult));});
+      }
       // draw ALL stored curves; the slider picks how many get COLOUR — the rest stay as faint
       //   grey context lines (owner request) instead of disappearing. Slider max = stored curves.
       const _cfgPts=Math.max(2,Math.min(etop.length,(+APREF.cfgPts)||20)),_cfgShow=Math.min(_cfgPts,etop.length);
-      const series=etop.map(o=>((o&&o.cum)?o.cum:o).map(x=>x*mult));let mn=0,mx=0;series.forEach(s=>s.forEach(v=>{if(v<mn)mn=v;if(v>mx)mx=v;}));const rg=(mx-mn)||1;
+      const series=etop.map(o=>((o&&o.cum)?o.cum:o).map(x=>x*mult));let mn=0,mx=0;series.forEach(s=>s.forEach(v=>{if(v<mn)mn=v;if(v>mx)mx=v;}));extYs.forEach(v=>{if(v<mn)mn=v;if(v>mx)mx=v;});const rg=(mx-mn)||1;
       // colour the curves: by RANK (winner brightest) or by a chosen PARAM value (mapped to
       // each curve by index — equity_top is rank-ordered like top10_results).
       const tops=Array.isArray(d.top10_results)?d.top10_results:[];
@@ -6753,37 +6801,35 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   pr right gap (so the curves stop short of the y-axis numbers in the gutter).
       const W=C2W,H=140,pd=6,pt=13,pr=16,PW=C2P;
       // ── align 2A's plot to 2B's parallel-coords axes: the curves span the LEFTMOST param
-      //    axis → the NET axis, with a RED guide on the left axis and a YELLOW guide on the
-      //    NET axis. 2A and 2B share a 560-wide viewBox at the same on-screen width, so these
-      //    x's register 1:1 — you can trace a config straight down from 2A into 2B. ──
+      //    axis → the NET axis. selMode instead repurposes the wide right gutter for lockbox /
+      //    crown $ labels (that x-registration is replaced by the optimize→lockbox time axis). ──
       const _pk2=(d.points&&d.points.length)?Object.keys(d.points[0]).filter(k=>k!=='pnl'&&k!=='dd'&&typeof d.points[0][k]==='number'):[];
       const _nAx=_pk2.length+1,_padX=10,_axAt=i=>_padX+(C2P-2*_padX)*(i+0.5)/_nAx;
-      const xL=(_pk2.length>=1)?_axAt(0):pd, xR=(_pk2.length>=1)?_axAt(_nAx-1):(PW-pr);
-      const path=(s,col,wd,op)=>{const n=s.length;if(n<2)return '';return '<path d="'+s.map((v,i)=>((i?'L':'M')+(xL+(xR-xL)*i/(n-1)).toFixed(1)+' '+(H-pd-(H-pt-pd)*(v-mn)/rg).toFixed(1))).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'"/>';};
-      // draw worst→best so the winner sits on top
+      let xL=(_pk2.length>=1)?_axAt(0):pd, xR=(_pk2.length>=1)?_axAt(_nAx-1):(PW-pr);
+      if(selMode)xR=PW-70;
+      // etop curves + the optimize-window overlays stop at the door; the lockbox runs door→xR
+      const _fr=(selMode&&hasLB)?Math.max(0.5,Math.min(0.88,(tDoor-t0)/((tEnd-t0)||1))):1;
+      const xDoor=xL+(xR-xL)*_fr;
+      const Yv=v=>H-pd-(H-pt-pd)*(v-mn)/rg;
+      const path=(s,col,wd,op)=>{const n=s.length;if(n<2)return '';return '<path d="'+s.map((v,i)=>((i?'L':'M')+(xL+(xDoor-xL)*i/(n-1)).toFixed(1)+' '+Yv(v).toFixed(1))).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'"/>';};
+      // draw worst→best so the winner sits on top; in selMode every etop curve is faint grey
+      //   CONTEXT (colour comes only from the crown-pool overlay below).
       const order=series.map((s,i)=>i).sort((a,b)=>b-a);
-      const lines=order.map(i=>(i<_cfgShow?path(series[i],colOf(i),i===0?1.4:0.8,i===0?1:0.72):path(series[i],'var(--text5)',0.55,0.15))).join(''),zeroY=H-pd-(H-pt-pd)*(0-mn)/rg;
+      const lines=order.map(i=>selMode?path(series[i],'var(--text5)',0.55,0.16):(i<_cfgShow?path(series[i],colOf(i),i===0?1.4:0.8,i===0?1:0.72):path(series[i],'var(--text5)',0.55,0.15))).join(''),zeroY=Yv(0);
       // visible horizontal $ gridlines running THROUGH the plot (xL→xR) + compact $ labels just
       //   right of the NET (yellow) axis — denser (~5 steps) and smaller than the old shared chrome.
       const _niceE=v=>{v=Math.abs(v)||1;const e=Math.pow(10,Math.floor(Math.log10(v)));const f=v/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
       const _gs=_niceE((mx-mn)/5)||1;let grid='';
       // brighter/whiter gridlines + labels (owner request: "make axis more white")
-      for(let L=Math.ceil(mn/_gs)*_gs;L<=mx+1e-6;L+=_gs){const _z=Math.abs(L)<1e-6,gy=H-pd-(H-pt-pd)*(L-mn)/rg;
+      for(let L=Math.ceil(mn/_gs)*_gs;L<=mx+1e-6;L+=_gs){const _z=Math.abs(L)<1e-6,gy=Yv(L);
         grid+='<line x1="'+xL.toFixed(1)+'" y1="'+gy.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--text4)" stroke-width="'+(_z?0.9:0.5)+'" opacity="'+(_z?0.7:0.42)+'"/>'
           +'<text x="'+(xR+4).toFixed(1)+'" y="'+(gy+2.5).toFixed(1)+'" font-size="4.6" fill="var(--text2)">'+fmtUsd(Math.round(L))+'</text>';}
       // Single NET (y) axis on the RIGHT, drawn to MATCH the x-axis baseline styling (neutral white);
       //   the old red LEFT guide is dropped — owner: "dont need y axis on the left".
       grid+='<line x1="'+xR.toFixed(1)+'" y1="'+pt+'" x2="'+xR.toFixed(1)+'" y2="'+(H-pd)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>';
-      // label the WINNER curve endpoint with its final $ AS AN AXIS TICK (owner: like 1A,
-      //   not floating over the plot) — green tick + $ in the same right gutter as the
-      //   gridline labels, at the winner exact y. Fixed hex green: theme vars can be muted.
-      // "◂ top" was misleading (owner, run #167): the marked curve is the CHAMPION — the
-      //   rank-1 config by the pre-registered IN-SAMPLE slice — and a lower-ranked curve can
-      //   legitimately END higher (it did better in the out-of-sample tail; picking it for
-      //   that would be look-ahead). Mark BOTH: green = champion (IS pick), blue = the
-      //   highest-ending curve when it is a different config.
+      // BASE-PATH champion / highest-end markers — skipped in selMode (crown markers drawn below).
       let winTag='';
-      const _w0=series[0]||[],_fin=_w0.length?_w0[_w0.length-1]:null;
+      if(!selMode){const _w0=series[0]||[],_fin=_w0.length?_w0[_w0.length-1]:null;
       if(_fin!=null){const wy=H-pd-(H-pt-pd)*(_fin-mn)/rg;
         winTag='<circle cx="'+xR.toFixed(1)+'" cy="'+wy.toFixed(1)+'" r="2.4" fill="#1d9e75"/>'
           +'<line x1="'+(xR-2.6).toFixed(1)+'" y1="'+wy.toFixed(1)+'" x2="'+(xR+2.6).toFixed(1)+'" y2="'+wy.toFixed(1)+'" stroke="#1d9e75" stroke-width="1.1"/>'
@@ -6791,21 +6837,49 @@ namespace NinjaTrader.NinjaScript.Strategies {
         let _hiI=0,_hiV=-Infinity;series.forEach((s2,i2)=>{const v2=s2.length?s2[s2.length-1]:-Infinity;if(v2>_hiV){_hiV=v2;_hiI=i2;}});
         if(_hiI!==0&&isFinite(_hiV)){const hy=H-pd-(H-pt-pd)*(_hiV-mn)/rg;
           winTag+='<circle cx="'+xR.toFixed(1)+'" cy="'+hy.toFixed(1)+'" r="2" fill="#3a9bdc"><title>the HIGHEST-ending curve — rank '+(_hiI+1)+' by in-sample. It ended above the champion because it did better in the out-of-sample tail; crowning it for that would be look-ahead bias (see the panel info).</title></circle>'
-            +(Math.abs(hy-wy)>7?'<text x="'+(xR+4).toFixed(1)+'" y="'+(hy+2.2).toFixed(1)+'" font-size="4.4" fill="#3a9bdc" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.2">'+fmtUsd(Math.round(_hiV))+' ◂ highest end (rank '+(_hiI+1)+')</text>':'');}}
+            +(Math.abs(hy-wy)>7?'<text x="'+(xR+4).toFixed(1)+'" y="'+(hy+2.2).toFixed(1)+'" font-size="4.4" fill="#3a9bdc" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.2">'+fmtUsd(Math.round(_hiV))+' ◂ highest end (rank '+(_hiI+1)+')</text>':'');}}}
+      // selMode overlays: crowned + IS-max optimize-window curves (coloured), the top-3 lockbox
+      //   continuations, the purple door line, and compact right-gutter $ labels.
+      let selSvg='';
+      if(selMode){const _P=s=>Date.parse(s);
+        const _kUsd=v=>{v=Math.round(v);const a=Math.abs(v);return (v<0?'-$':'$')+(a>=1000?(a/1000).toFixed(a>=10000?0:1)+'k':a);};
+        const optPts=c=>{const cum=c.equity.cum,n=cum.length,t=(Array.isArray(c.equity.t)&&c.equity.t.length===n)?c.equity.t:null;
+          return cum.map((v,j)=>{const fr=t?Math.max(0,Math.min(1,(_P(t[j])-t0)/((tDoor-t0)||1))):(n<=1?1:j/(n-1));return (xL+(xDoor-xL)*fr).toFixed(1)+' '+Yv(v*mult).toFixed(1);}).join(' ');};
+        const lbPts=c=>{const cum=c.lb_equity.cum,t=c.lb_equity.t,base=c.lb_equity.base,anchor=c.equity.final;
+          return xDoor.toFixed(1)+' '+Yv(anchor*mult).toFixed(1)+' '+cum.map((v,j)=>{const fr=Math.max(0,Math.min(1,(_P(t[j])-tDoor)/((tEnd-tDoor)||1)));return (xDoor+(xR-xDoor)*fr).toFixed(1)+' '+Yv((anchor+(v-base))*mult).toFixed(1);}).join(' ');};
+        let ov='';
+        if(crownedC)ov+='<polyline points="'+optPts(crownedC)+'" fill="none" stroke="#1d9e75" stroke-width="1.7" opacity="1"/>';
+        if(isMaxC&&isMaxC!==crownedC)ov+='<polyline points="'+optPts(isMaxC)+'" fill="none" stroke="#3a9bdc" stroke-width="1.1" opacity="0.95" stroke-dasharray="5 3"/>';
+        const LBALT=['#e0a04b','#a879e6'];let alt=0;const labs=[];let lb='';
+        if(hasLB)lbCs.forEach(c=>{const cr=!!c.crowned,col=cr?'#1d9e75':LBALT[(alt++)%2];
+          lb+='<polyline points="'+lbPts(c)+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?1.6:1.0)+'" opacity="0.92" stroke-dasharray="2.5 2"/>';
+          const fv=c.equity.final+(c.lb_equity.cum[c.lb_equity.cum.length-1]-c.lb_equity.base);
+          labs.push({y:Yv(fv*mult),col,txt:_kUsd(fv*mult)+(cr?' 🔒crown':' 🔒')});});
+        if(crownedC){const fv=crownedC.equity.cum[crownedC.equity.cum.length-1];labs.push({y:Yv(fv*mult),col:'#1d9e75',txt:_kUsd(fv*mult)+' 👑'});}
+        if(isMaxC&&isMaxC!==crownedC){const fv=isMaxC.equity.cum[isMaxC.equity.cum.length-1];labs.push({y:Yv(fv*mult),col:'#3a9bdc',txt:_kUsd(fv*mult)+' IS'});}
+        labs.sort((a,b)=>a.y-b.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<5)labs[i].y=labs[i-1].y+5;
+        const labSvg=labs.map(L=>'<text x="'+(xR+3).toFixed(1)+'" y="'+(L.y+2).toFixed(1)+'" font-size="4.7" font-weight="700" fill="'+L.col+'" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.2">'+L.txt+'</text>').join('');
+        const door=hasLB?('<line x1="'+xDoor.toFixed(1)+'" y1="'+pt+'" x2="'+xDoor.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#a78bfa" stroke-width="0.7" stroke-dasharray="3 2" opacity="0.85"/><text x="'+(xDoor-1.5).toFixed(1)+'" y="'+(pt+5)+'" font-size="4.4" fill="#a78bfa" text-anchor="end">lockbox door →</text>'):'';
+        selSvg=door+ov+lb+labSvg;}
       // x-axis date labels (owner request). Use the OPTIMIZE window when this is a validate
-      //   run — these curves stop at the lockbox door, so date_to would over-claim.
+      //   run; selMode+lockbox pushes the right label out to the holdout end.
       const _xw=(d.validate&&d.validate.windows&&d.validate.windows.optimize)||null;
-      const _xd0=(_xw&&_xw[0])||d.date_from,_xd1=(_xw&&_xw[1])||d.date_to;
+      let _xd0=(_xw&&_xw[0])||d.date_from,_xd1=(_xw&&_xw[1])||d.date_to;
+      if(selMode&&hasLB&&Wlb&&Wlb[1])_xd1=Wlb[1];
       if(_xd0&&_xd1){grid+='<text x="'+xL.toFixed(1)+'" y="'+(H-0.5)+'" font-size="4.6" fill="var(--text3)">'+_dnice(_xd0)+'</text>'
         +'<text x="'+xR.toFixed(1)+'" y="'+(H-0.5)+'" text-anchor="end" font-size="4.6" fill="var(--text3)">'+_dnice(_xd1)+'</text>';}
-      const sel='<select data-tpc style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin-left:6px"><option value="rank"'+(mode==='rank'?' selected':'')+'>by rank</option>'+pkeys.map(k=>'<option value="'+k+'"'+(mode===k?' selected':'')+'>by '+k.replace(/_/g,' ')+'</option>').join('')+'</select>';
-      const cfgSlider='<span title="how many curves get COLOUR (the rest stay as faint grey context) — also sets the config-distribution (2b) bin detail. The run stored the top '+etop.length+' curves." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+'</b></span>';
+      const selDrop='<select data-tpc style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin-left:6px"><option value="rank"'+(mode==='rank'?' selected':'')+'>by rank</option>'+pkeys.map(k=>'<option value="'+k+'"'+(mode===k?' selected':'')+'>by '+k.replace(/_/g,' ')+'</option>').join('')+'</select>';
+      const cfgSlider='<span title="how many curves show as faint grey context — the run stored the top '+etop.length+' curves." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+'</b></span>';
       const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis — top '+etop.length+((_xd0&&_xd1)?' · '+_dnice(_xd0)+' → '+_dnice(_xd1):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. RANKING: locked to the pre-registered IN-SAMPLE slice (the first ~75% of this window) — a lower-ranked curve can END higher because the tail is out-of-sample for selection, and peeking at it to pick the winner would be look-ahead bias. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
-      return (tag?'<div title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' · TOP CONFIGS PNL <span style="font-weight:400;color:var(--text5);font-size:8px">ⓘ</span>'+sel+cfgSlider+'</div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+sel+'</div>')
-        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
-        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+((d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,yl:'equity'}))+'"':'')+'>'
+      const _selTip='WF-CHECKED SELECTION (#88 / #88b) ON THE 2A CHART: the faint curves are the top configs over the optimize window (robustness spread); the WF-crowned config is green, the in-sample MAX is the blue dashed line. Past the purple lockbox door, only the top-3 by walk-forward continue THROUGH the holdout — shown for information, never used to pick the champion.';
+      const _hdr=selMode
+        ?(tag?'<div title="'+_selTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' · TOP CONFIGS → LOCKBOX <span style="font-weight:400;color:var(--text5);font-size:8px">· 👑 WF-crowned · robustness spread · top-3 through the holdout ⓘ</span>'+cfgSlider+'</div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
+        :(tag?'<div title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' · TOP CONFIGS PNL <span style="font-weight:400;color:var(--text5);font-size:8px">ⓘ</span>'+selDrop+cfgSlider+'</div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
+      const _body='<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
+        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+((!selMode&&d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,yl:'equity'}))+'"':'')+'>'
         +grid
-        +'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>'+lines+winTag+c2YTitle(H,'equity $')+'</svg></div>';
+        +'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>'+lines+selSvg+winTag+c2YTitle(H,'equity $')+'</svg></div>';
+      return _hdr+_body+(selMode?('<div style="margin-top:9px">'+selectionTableHtml(SELN,mult)+'</div>'):'');
     };
     // SCATTER — each tested config as a dot: chosen param (X) vs net PnL (Y). Shows
     // whether the edge is a smooth slope (robust) or random noise.
@@ -7831,90 +7905,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const col=und?'var(--yellow)':'var(--green)';
       const tip='statistical power (#94): with only '+p.n+' lockbox trades and their volatility, the smallest per-trade edge this holdout can reliably detect (at 80% power) is the DETECT number shown. If the champion claimed edge (its optimize-window average per trade) is below that, the lockbox verdict is UNDERPOWERED - a pass or a fail there is weak evidence either way, not proof.';
       return '<div style="margin-top:6px;padding:7px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs);cursor:help" title="'+tip+'">📏 Verdict power: <b style="color:'+col+'">'+(und?'UNDERPOWERED':'POWERED')+'</b> · '+p.n+' lockbox trades can detect edges ≥ <b>'+fmtUsd(Math.round((p.mde_per_trade||0)*mlt))+'</b>/trade · champion claims <b>'+fmtUsd(Math.round((p.claimed_per_trade||0)*mlt))+'</b>/trade'+(p.achieved_power!=null?' · power at the claimed edge <b style="color:'+col+'">'+Math.round(p.achieved_power*100)+'%</b>':'')+'</div>';};
-    // ── #88b: WF-CHECKED SELECTION overlay — the top-K in-sample candidates drawn as ONE
-    //    2A-style equity chart (x = trade sequence across the optimize window; each curve is
-    //    that candidate config backtested over the whole optimize window) + a K-way table.
-    //    Green = the CROWNED config (won the walk-forward fold arbitration); blue dashed =
-    //    the IS MAX (the raw search pick) when the folds dethroned it. Renders '' for runs
-    //    saved before the #88 engine (no selection block) — old reports unchanged. ──
-    const selectionOverlayHtml=(sel,mlt,V)=>{
-      if(!sel||!Array.isArray(sel.candidates)||!sel.candidates.length)return '';
-      const cand=sel.candidates, robust=Array.isArray(sel.robust)?sel.robust:[];
-      const okEq=c=>c&&c.equity&&Array.isArray(c.equity.cum)&&c.equity.cum.length>1;
-      const poolCs=cand.filter(okEq), robCs=robust.filter(okEq);
-      if(!poolCs.length&&!robCs.length)return '';
-      // IS MAX among the crown pool = the raw search pick (before WF arbitration).
-      let isMaxI=0;cand.forEach((c,i)=>{if((c.is_pnl||0)>(cand[isMaxI].is_pnl||0))isMaxI=i;});
-      const isMaxKey=cand[isMaxI]?JSON.stringify(cand[isMaxI].params):null;
-      const _d2=s=>{const m2=String(s||'').match(/^(\d{4})-(\d\d)-(\d\d)/);return m2?((+m2[2])+'/'+(+m2[3])+'/'+m2[1].slice(2)):String(s||'');};
-      const Wopt=((V&&V.windows)||{}).optimize||['',''];
-      const Wlb=((V&&V.windows)||{}).lockbox||null;
-      const w=860,h=252,padL=8,padR=172,padT=12,padB=22;
-      const CROWN='#1d9e75',ISC='#3a9bdc',GREY='#7f8c99',LBALT=['#e0a04b','#a879e6'];
-      const isCrowned=c=>!!c.crowned, isIsMax=c=>isMaxKey&&JSON.stringify(c.params)===isMaxKey;
-      // ── TIME axis (owner 2026-07-21 robustness-vs-OOS view): all configs run to the
-      //    LOCKBOX DOOR (end of optimize window); the top-3 by WF then continue THROUGH the
-      //    lockbox. Needs real dates (engine saves equity.t / lb_equity.t); older runs with
-      //    no dates fall back to sequence spacing and draw no lockbox continuation. ──
-      const hasT=[].concat(poolCs,robCs).every(c=>Array.isArray(c.equity.t)&&c.equity.t.length===c.equity.cum.length);
-      const lbCs=cand.filter(c=>okEq(c)&&c.lb_equity&&Array.isArray(c.lb_equity.cum)&&c.lb_equity.cum.length&&Array.isArray(c.lb_equity.t)&&c.lb_equity.t.length===c.lb_equity.cum.length);
-      const hasLB=hasT&&lbCs.length>0;
-      const allT=[];[].concat(poolCs,robCs).forEach(c=>c.equity.t&&c.equity.t.forEach(s=>allT.push(Date.parse(s))));
-      let t0=Date.parse(Wopt[0]||''),tDoor=Date.parse(Wopt[1]||'');
-      if(hasT){const fin=allT.filter(isFinite);if(fin.length){if(!isFinite(t0))t0=Math.min.apply(null,fin);if(!isFinite(tDoor))tDoor=Math.max.apply(null,fin);}}
-      let tEnd=tDoor;
-      if(hasLB){let m=tDoor;lbCs.forEach(c=>c.lb_equity.t.forEach(s=>{const p=Date.parse(s);if(isFinite(p)&&p>m)m=p;}));const we=Wlb&&Date.parse(Wlb[1]||'');tEnd=(isFinite(we)&&we>m)?we:m;}
-      const spanOK=hasT&&isFinite(t0)&&isFinite(tEnd)&&tEnd>t0;
-      const plotW=w-padL-padR;
-      const XT=s=>{const p=Date.parse(s);const f=(spanOK&&isFinite(p))?Math.max(0,Math.min(1,(p-t0)/(tEnd-t0))):0;return padL+plotW*f;};
-      const Xi=(j,n)=>padL+plotW*(n<=1?1:j/(n-1));
-      let lo=0,hi=1;const eat=arr=>arr.forEach(v=>{if(v<lo)lo=v;if(v>hi)hi=v;});
-      [].concat(poolCs,robCs).forEach(c=>eat(c.equity.cum));if(hasLB)lbCs.forEach(c=>eat(c.lb_equity.cum));
-      const Y=v=>padT+(h-padT-padB)*(1-(v-lo)/((hi-lo)||1));
-      const optPts=c=>{const cum=c.equity.cum,n=cum.length,t=c.equity.t;return cum.map((v,j)=>((spanOK&&t)?XT(t[j]):Xi(j,n)).toFixed(1)+','+Y(v).toFixed(1)).join(' ');};
-      // robustness spread (grey context) BEHIND the crown pool
-      const robLines=robCs.map(c=>'<polyline points="'+optPts(c)+'" fill="none" stroke="'+GREY+'" stroke-width="0.6" opacity="0.3"/>').join('');
-      const poolOrder=poolCs.slice().sort((a,b)=>((isCrowned(a)?2:isIsMax(a)?1:0)-(isCrowned(b)?2:isIsMax(b)?1:0)));
-      const poolLines=poolOrder.map(c=>{const cr=isCrowned(c),im=isIsMax(c);
-        return '<polyline points="'+optPts(c)+'" fill="none" stroke="'+(cr?CROWN:(im?ISC:'#5f7686'))+'" stroke-width="'+(cr?1.9:(im?1.2:0.75))+'" opacity="'+(cr?1:(im?0.95:0.6))+'"'+((im&&!cr)?' stroke-dasharray="5 3"':'')+'/>';}).join('');
-      // lockbox continuations (top-3 by WF), each prepended with the door point for continuity
-      let lbLines='';const lbLabs=[];
-      if(hasLB){let alt=0;lbCs.forEach(c=>{const cr=isCrowned(c),col=cr?CROWN:LBALT[(alt++)%2];
-        const cum=c.lb_equity.cum,t=c.lb_equity.t,base=c.lb_equity.base;
-        const head=(base!=null&&isFinite(Date.parse(Wopt[1]||t[0])))?(XT(Wopt[1]||t[0]).toFixed(1)+','+Y(base).toFixed(1)+' '):'';
-        lbLines+='<polyline points="'+head+cum.map((v,j)=>XT(t[j]).toFixed(1)+','+Y(v).toFixed(1)).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?1.7:1.1)+'" opacity="0.92" stroke-dasharray="2.5 2"/>';
-        lbLabs.push({y:Y(cum[cum.length-1]),col,txt:fmtUsd(Math.round(cum[cum.length-1]*mlt))+' ◂ '+(cr?'crowned · lockbox':'lockbox')});});}
-      // lockbox DOOR marker
-      const doorX=spanOK?XT(Wopt[1]||''):(w-padR);
-      const door=hasLB?('<line x1="'+doorX.toFixed(1)+'" y1="'+padT+'" x2="'+doorX.toFixed(1)+'" y2="'+(h-padB).toFixed(1)+'" stroke="#a78bfa" stroke-width="0.7" stroke-dasharray="3 2" opacity="0.75"/><text x="'+(doorX-2).toFixed(1)+'" y="'+(padT+7)+'" font-size="7.5" fill="#a78bfa" text-anchor="end">lockbox door →</text>'):'';
-      // right-edge labels: crowned/IS-max opt-end + the lockbox ends
-      const labs=[];
-      poolCs.forEach(c=>{if(!isCrowned(c)&&!isIsMax(c))return;const v=c.equity.cum[c.equity.cum.length-1];
-        labs.push({y:Y(v),col:isCrowned(c)?CROWN:ISC,txt:fmtUsd(Math.round(v*mlt))+' ◂ '+(isCrowned(c)?'crowned (opt end)':'IS max')});});
-      const allLabs=labs.concat(lbLabs).sort((a,b)=>a.y-b.y);
-      for(let i=1;i<allLabs.length;i++)if(allLabs[i].y-allLabs[i-1].y<10)allLabs[i].y=allLabs[i-1].y+10;
-      const labSvg=allLabs.map(L=>'<text x="'+(w-padR+5)+'" y="'+(L.y+3).toFixed(1)+'" font-size="8.5" fill="'+L.col+'" font-weight="700">'+L.txt+'</text>').join('');
-      const zero=(lo<0)?('<line x1="'+padL+'" y1="'+Y(0).toFixed(1)+'" x2="'+(w-padR)+'" y2="'+Y(0).toFixed(1)+'" stroke="var(--border)" stroke-width="0.6" stroke-dasharray="3 3"/>'):'';
-      const axMid=hasLB?'robustness spread (all configs) up to the lockbox door · then only the top-3 continue THROUGH the lockbox':(spanOK?'calendar time — optimize window (re-run to add the forward lockbox continuation)':'trade sequence (re-run for dates + the lockbox continuation)');
-      const ax='<text x="'+padL+'" y="'+(h-5)+'" font-size="8" fill="var(--text5)">'+(_d2(Wopt[0])||'start')+'</text><text x="'+((w-padR)/2)+'" y="'+(h-5)+'" font-size="7.4" fill="var(--text5)" text-anchor="middle">'+axMid+'</text><text x="'+(w-padR)+'" y="'+(h-5)+'" font-size="8" fill="var(--text5)" text-anchor="end">'+_d2(hasLB?((Wlb&&Wlb[1])||Wopt[1]):Wopt[1])+'</text>';
-      const svg='<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:auto;background:var(--bg1);border-radius:8px" xmlns="http://www.w3.org/2000/svg">'+zero+door+robLines+poolLines+lbLines+labSvg+ax+'</svg>';
-      const pk=Object.keys(cand[0].params||{});
-      const vary=pk.filter(k2=>{const s=new Set(cand.map(c=>String((c.params||{})[k2])));return s.size>1;});
-      const rows=cand.map((c,i)=>{const crowned=!!c.crowned,ismax=(i===isMaxI);
-        const cfg=(vary.length?vary:pk.slice(0,3)).map(k2=>k2+' <b>'+String((c.params||{})[k2])+'</b>').join(' · ');
-        return '<div style="display:flex;gap:8px;align-items:center;padding:3px 6px;font-size:8.5px;border-top:1px solid color-mix(in srgb,var(--border) 35%,transparent)'+(crowned?';background:color-mix(in srgb,#1d9e75 12%,transparent);border-left:3px solid #1d9e75':'')+'">'
-          +'<span style="flex:0 0 86px;font-weight:700;color:'+(crowned?CROWN:(ismax?ISC:'var(--text4)'))+'">'+(crowned?'👑 crowned':(ismax?'IS max':('rank '+(i+1))))+'</span>'
-          +'<span style="flex:1;color:var(--text3)">'+cfg+'</span>'
-          +'<span style="flex:0 0 78px;text-align:right" title="what the SEARCH scored this config in-sample (its scoring window)">'+fmtUsd(Math.round((c.is_pnl||0)*mlt))+'</span>'
-          +'<span style="flex:0 0 78px;text-align:right;font-weight:700;color:'+CROWN+'" title="summed PnL across the anchored walk-forward folds UNSEEN slices - the number that decides the crown">'+fmtUsd(Math.round((c.wf_oos_pnl||0)*mlt))+'</span>'
-          +'<span style="flex:0 0 40px;text-align:center" title="how many walk-forward folds this config held (profitable) in">'+(c.folds_held!=null?c.folds_held:'—')+'</span>'
-          +'<span style="flex:0 0 82px;text-align:right;color:'+((c.lb_equity&&c.lb_equity.final!=null)?ISC:'var(--text5)')+'" title="this config carried forward THROUGH the lockbox (top-3 only) — shown after the crown was set, never used to pick it">'+((c.lb_equity&&c.lb_equity.final!=null)?fmtUsd(Math.round(c.lb_equity.final*mlt)):'—')+'</span></div>';}).join('');
-      const hdr='<div style="display:flex;gap:8px;font-size:7px;letter-spacing:.5px;color:var(--text5);padding:0 6px 2px"><span style="flex:0 0 86px"></span><span style="flex:1">config (knobs that differ)</span><span style="flex:0 0 78px;text-align:right">IS (search $)</span><span style="flex:0 0 78px;text-align:right">WF folds $</span><span style="flex:0 0 40px;text-align:center">folds</span><span style="flex:0 0 82px;text-align:right">lockbox end $</span></div>';
-      const note=(sel.is_max_crowned===false)?'<div style="font-size:8.5px;color:var(--yellow);margin:4px 0 2px">⚖️ the in-sample MAX was NOT crowned — the walk-forward folds preferred a steadier config (this is #88 doing its job).</div>':'<div style="font-size:8.5px;color:var(--text4);margin:4px 0 2px">✓ the in-sample max ALSO won the walk-forward arbitration — search pick and OOS evidence agree.</div>';
-      const robNote=robCs.length?('<div style="font-size:8px;color:var(--text5);margin:1px 0 2px">grey = '+robCs.length+' more top configs shown as walk-forward CONTEXT (how tightly the good-config neighbourhood holds) — not eligible to be crowned.</div>'):'';
-      const lbNote=hasLB?('<div style="font-size:8px;color:var(--text5);margin:1px 0 3px">🚪 past the lockbox door: only the top-3 by walk-forward are carried through the holdout — shown AFTER the crown was set, never used to pick the champion.</div>'):'<div style="font-size:8px;color:var(--text5);margin:1px 0 3px">re-run this validate (engine 2026-07-21+) to draw the top-3 forward THROUGH the lockbox.</div>';
-      return '<div class="lbl" style="margin:0 0 6px" title="WF-CHECKED SELECTION (#88 / #88b): the search proposes its top in-sample candidates (plus the plateau pick); each is re-scored on the anchored walk-forward folds UNSEEN slices, and the crown goes to the best summed-fold config, NOT the in-sample max. The whole top set is drawn through walk-forward (robustness); only the top-3 continue through the one-look lockbox, and only for information — the lockbox never re-picks the champion.">👑 WF-CHECKED SELECTION <span style="font-weight:400;color:var(--text5)">· robustness through walk-forward · top-3 through the lockbox ⓘ</span></div>'
-        +svg+robNote+note+lbNote+hdr+rows;};
+    // ── #88b WF-CHECKED SELECTION: folded INTO the 2A chart (topEqOverlayHtml selMode) per
+    //    owner "put it ON the 2a chart" — the crowned/IS-max overlay, the top-3 lockbox
+    //    continuation past the door, and the crown-pool table (selectionTableHtml) all render
+    //    inside the 2A card now, so there is no standalone overlay function here. ──
     // Shared Auto-Validate report card (verdict + 5 gates + equity curve + lockbox) —
     // used by both the Builder run panel and the Results/Past-Runs detail so they match.
     const validateCardHtml=(V,mlt,stratLabel,folds)=>{
@@ -8704,7 +8698,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div id="res-step-8" style="scroll-margin-top:64px"'+_eqxA+'>'+(eqHtml?(_numHdr('1A','CHAMPION EQUITY',null,'best config · 1 contract · whole run')+eqHtml+_spy+_mcNote):_naTile('1A','CHAMPION EQUITY','no equity series saved for this run'))+'</div>'
           +'<div style="'+_bt+'">'+(monthlyPnlHtml(d.regime,mlt)||_naTile('1B','MONTHLY P&L','not enough monthly data to chart'))+'</div>'
           +'<div style="'+_bt+'"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+(isOosFoldsHtml(d,mlt)||_naTile('1C','WALK-FORWARD','only walk-forward / Auto-Validate runs test in rolling out-of-sample folds'))+'</div>'
-          +(function(){const s=selectionOverlayHtml(d.selection,mlt,d.validate);return s?('<div style="'+_bt+'">'+s+'</div>'):'';})()
           +'<div style="'+_bt+'"><div id="res-step-4" style="scroll-margin-top:64px"></div>'+(stressPanelHtml(d.stress,mlt,'1D',_sc)||_naTile('1D','STRESS','no stress buckets saved for this run'))+'</div>'
           +'</div>';
         // Col B — 1E KPI matrix (75/25 in-sample vs out-of-sample where saved) · 1F regime report card
@@ -8862,11 +8855,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // stack each column with §1-style dividers, then wrap in one equal-height card
       // 2E (param relationships) moved UNDER 2C in col1 (owner) — it's a per-knob view like 2C,
       //   and col1 is the widest column so its bars stop squishing.
-      // 2A companion (#88b, owner: put it ON 2A): the WF-CHECKED SELECTION — the top-K
-      //   candidates re-scored on the walk-forward folds — stacks directly under the 2A
-      //   top-config overlay, since both are multi-config equity views over the same window.
-      const _selBlock=selectionOverlayHtml(d.selection,mlt,d.validate);
-      const _col1=_stack([_eq,_selBlock,((_parc&&_parc.replace(/\s/g,''))?(_pmTog+_parc):''),_corr]);
+      // 2A now carries the WF-CHECKED SELECTION itself (#88b, owner "put it ON the 2a chart"):
+      //   topEqOverlayHtml folds the crowned/IS-max overlay + top-3 lockbox continuation + the
+      //   crown-pool table into the 2A card, so there is no separate block to stack here.
+      const _col1=_stack([_eq,((_parc&&_parc.replace(/\s/g,''))?(_pmTog+_parc):''),_corr]);
       const _col2=_stack([_dist,_nbInner]);
       const _col3=_stack([_p3inner,_surrInner,_topInner,_dsrInner]);
       const _sec3=((_col1+_col2+_col3).replace(/\s/g,'')?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
