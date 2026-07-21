@@ -896,6 +896,16 @@ def main(argv=None):
         q = LocalQueue()
         print(f"EDGELOG runner v{_web_version()}: local queue at {JOBS_DIR}")
 
+    # Trial-cache state on boot (docs/INCREMENTAL_BACKTEST_REUSE.md §3: "the runner
+    # should log its epoch on boot"). Makes "is the cache actually on?" answerable
+    # from runner.log alone rather than by guessing at the launcher's env.
+    try:
+        print(f"trial cache: {'ON' if TC.is_enabled() else 'OFF'} "
+              f"(env AUGUR_TRIAL_CACHE={os.environ.get('AUGUR_TRIAL_CACHE','') or '(unset)'}, "
+              f"epoch {ae.ENGINE_CACHE_EPOCH})")
+    except Exception:
+        pass
+
     if a.watch:
         # Auto-refresh data on start and on a timer — hands-free, like the desktop
         # app does on open. Runs in the same loop (infrequent + bounded), so it
