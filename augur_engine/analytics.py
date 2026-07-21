@@ -63,22 +63,33 @@ def downsample_points(points, cap=400):
     return list(points)
 
 
-def equity_curve_from_pnls(pnls, cap=160):
+def equity_curve_from_pnls(pnls, cap=160, times=None):
     """Cumulative equity curve from a per-trade NET-PnL series, downsampled to <=cap
     points — the same accumulate-then-index-stride pattern already used ad hoc in a
     few places (run_auto's winner equity / top-config overlays, validate.py's champion
     curve). Factored out for #88 (OOS-topK candidate selection) so every candidate's
     optimize-window equity curve is built identically instead of yet another inline
-    copy. Returns {"cum": [...], "final": pts} — {"cum": [], "final": 0.0} for an
-    empty series."""
+    copy. `times` (optional, same length as pnls — trade EXIT timestamps, matching the
+    1A/blotter convention that the curve steps at exit): when given, the SAME sampled
+    indices also return "t": ["YYYY-MM-DD", ...] so the web can place the curve on a
+    real calendar axis (owner ask 2026-07-21: align the selection overlay with 1A).
+    Returns {"cum": [...], "final": pts[, "t": [...]]} — empty-series → {"cum": [],
+    "final": 0.0}."""
     cum, s = [], 0.0
     for x in (pnls or []):
         s += float(x)
         cum.append(s)
+    ts = [str(t)[:10] for t in times] if (times is not None and len(times) == len(cum)) else None
     if len(cum) > cap:
         step = len(cum) / cap
-        cum = [cum[int(i * step)] for i in range(cap)]
-    return {"cum": [round(float(x), 1) for x in cum], "final": round(float(s), 1)}
+        idx = [int(i * step) for i in range(cap)]
+        cum = [cum[i] for i in idx]
+        if ts is not None:
+            ts = [ts[i] for i in idx]
+    out = {"cum": [round(float(x), 1) for x in cum], "final": round(float(s), 1)}
+    if ts is not None:
+        out["t"] = ts
+    return out
 
 
 def annualized_sr(pnls, years):

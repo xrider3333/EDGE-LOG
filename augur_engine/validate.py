@@ -177,8 +177,11 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
     ev = make_slice_evaluator(strategy, arrays, cost_pts)
     for c in cands:
         m = ev(0, n_bars, c["params"], keep_trades=True)
-        pnls = [float(t[2]) for t in (m.get("trades") or [])] if m else []
-        c["equity"] = equity_curve_from_pnls(pnls, cap=160)
+        _tr = (m.get("trades") or []) if m else []
+        pnls = [float(t[2]) for t in _tr]
+        # exit timestamps ride along so the web can draw the candidate curves on the
+        # SAME calendar axis as 1A (t[1] = exit time — the point the 1A line steps at).
+        c["equity"] = equity_curve_from_pnls(pnls, cap=160, times=[t[1] for t in _tr])
 
     orig_sig = _sig(champ)
     winner = max(cands, key=lambda c: (c.get("wf_oos_pnl", 0.0), c.get("folds_held", 0),
