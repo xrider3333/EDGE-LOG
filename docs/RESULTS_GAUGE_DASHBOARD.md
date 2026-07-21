@@ -30,6 +30,13 @@ below. Toggle: CLASSIC · FUNNEL β · GAUGES β.
 
 Every number an auto-validate run produces is sorted into the owner's four buckets:
 
+Section order (owner, 2026-07-21): **Strategy Performance → Param Performance → Strategy
+Robustness → Param Robustness → Enhancements** (param performance is 2nd, strategy robustness
+3rd). "Param Influence" was renamed **Param Performance**. The 1A CHAMPION EQUITY chart leads
+the Strategy Performance section. Gauge status colors are hardcoded (`#1d9e75`/`#f5c842`/
+`#e24b4a` — the deploy-checklist tile colors) so they stay vivid on the desaturated themes
+(Mercury/Mono/Obsidian) where `var(--green)` is a grey.
+
 | # | Category | Question it answers | Header |
 |---|----------|--------------------|--------|
 | 1 | **Strategy performance** | does the champion config make money? | 🏁 STRATEGY PERFORMANCE |
