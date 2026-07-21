@@ -285,9 +285,9 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
             _s = 0.0
             for _x in win_pnls:
                 _s += _x; cum.append(_s)
-            if len(cum) > 160:
-                _st = len(cum) / 160
-                cum = [cum[int(i * _st)] for i in range(160)]
+            if len(cum) > 160:   # endpoint-pinned: last sample = the true final
+                _st = (len(cum) - 1) / 159
+                cum = [cum[round(i * _st)] for i in range(160)]
             out["equity"] = {"cum": [round(float(x), 1) for x in cum],
                              "final": round(float(_s), 1), "n": len(win_pnls)}
             # Winner's per-trade PnL sample (downsampled) for the trade-PnL distribution curve.

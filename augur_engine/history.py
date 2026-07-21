@@ -33,11 +33,14 @@ def _maybe_gzip_json(v):
 
 
 def _downsample_equity(cum, final, n=160):
-    """Cumulative-PnL list -> a compact equity series (~n points) for the web chart."""
+    """Cumulative-PnL list -> a compact equity series (~n points) for the web chart.
+    Endpoint-pinned: the last sample is ALWAYS cum[-1]. The old int(i*step) stride
+    stopped ~full/n trades short, so the chart's last plotted point could sit far from
+    the true final (run #164: +1,426 pts — its last 4 trades were a give-back the
+    curve never showed)."""
     full = len(cum)
     if full > n:
-        step = full / n
-        cum = [cum[int(i * step)] for i in range(n)]
+        cum = [cum[round(i * (full - 1) / (n - 1))] for i in range(n)]
     return {"cum": [round(float(x), 1) for x in cum], "final": final, "n": full}
 
 # Columns for the browse list — everything useful EXCEPT the big blobs

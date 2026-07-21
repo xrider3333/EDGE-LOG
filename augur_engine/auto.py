@@ -1023,9 +1023,9 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                     _cum, _s = [], 0.0
                     for _x in _pn:
                         _s += _x; _cum.append(_s)
-                    if len(_cum) > cap:
-                        _stp = len(_cum) / cap
-                        _cum = [_cum[int(_i * _stp)] for _i in range(cap)]
+                    if len(_cum) > cap:   # endpoint-pinned: last sample = the true final
+                        _stp = (len(_cum) - 1) / (cap - 1)
+                        _cum = [_cum[round(_i * _stp)] for _i in range(cap)]
                     return [round(float(_x), 1) for _x in _cum]
 
                 def _surrogate_ground_truth(params):
@@ -1137,9 +1137,9 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
             cum, s = [], 0.0
             for x in win_pnls:
                 s += x; cum.append(s)
-            if len(cum) > 160:
-                st = len(cum) / 160
-                cum = [cum[int(i * st)] for i in range(160)]
+            if len(cum) > 160:   # endpoint-pinned: last sample = the true final
+                st = (len(cum) - 1) / 159
+                cum = [cum[round(i * st)] for i in range(160)]
             out["equity"] = {"cum": [round(float(x), 1) for x in cum],
                              "final": round(float(s), 1), "n": len(win_pnls)}
             # Winner's per-trade PnL sample (downsampled) for the trade-PnL distribution curve.

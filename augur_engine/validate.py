@@ -382,7 +382,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         try:
             lb = run_backtest(strategy, instrument=instrument, timeframe=timeframe,
                               session=session, source=source, params=champ,
-                              cost_pts=cost_pts, date_from=lb_from, date_to=None,
+                              cost_pts=cost_pts, date_from=lb_from, date_to=date_to,
                               return_trades=True)
         except Exception:
             lb = None
@@ -392,12 +392,12 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     if lb and lb.get("trades"):
         s = eq_opt[-1] if eq_opt else 0.0
         for t in lb["trades"]:
-            s += (float(t[2]) - cost_pts)
+            s += float(t[2])   # lockbox trades are already NET of cost_pts (engine _apply_costs)
             equity.append(s)
-    if len(equity) > 240:   # downsample for transport/plot
-        step = len(equity) / 240.0
+    if len(equity) > 240:   # downsample for transport/plot (endpoint-pinned: keep the true final)
+        step = (len(equity) - 1) / 239.0
         lb_idx = int(lb_idx / step)
-        equity = [equity[int(i * step)] for i in range(240)]
+        equity = [equity[round(i * step)] for i in range(240)]
     lb_pnl = float((lb or {}).get("total_pnl", 0) or 0)
     lb_pf = float((lb or {}).get("profit_factor", 0) or 0)
     lb_trades = int((lb or {}).get("num_trades", 0) or 0)
@@ -412,7 +412,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         try:
             win_dist_lb = [round(float(t[2]), 2) for t in lb["trades"]][:600]
             from .analytics import mae_mfe as _mmfe
-            _lba = load_master_arrays(master, date_from=lb_from, date_to=None)
+            _lba = load_master_arrays(master, date_from=lb_from, date_to=date_to)
             mae_mfe_lb = _mmfe(lb["trades"], _lba["high"], _lba["low"])
         except Exception:
             pass
@@ -486,7 +486,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         try:
             full = run_backtest(strategy, instrument=instrument, timeframe=timeframe,
                                 session=session, source=source, params=champ, cost_pts=cost_pts,
-                                date_from=opt_from, date_to=None, return_trades=True)
+                                date_from=opt_from, date_to=date_to, return_trades=True)
         except Exception:
             full = None
         if full:
@@ -513,9 +513,11 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                 _bnd = max(0, len(_cum) - int(lb_trades or 0))   # lockbox = the chronological tail
                 _N = max(40, int(equity_points or 400))
                 if len(_cum) > _N:
-                    _stp = len(_cum) / _N
+                    # endpoint-pinned stride — the last sample is the TRUE final, so the
+                    # curve's plotted endpoint always matches the run's net total.
+                    _stp = (len(_cum) - 1) / (_N - 1)
                     lb_idx = int(_bnd / _stp)
-                    equity = [round(_cum[int(_i * _stp)], 1) for _i in range(_N)]
+                    equity = [round(_cum[round(_i * _stp)], 1) for _i in range(_N)]
                 else:
                     equity = [round(x, 1) for x in _cum]; lb_idx = _bnd
 
@@ -531,7 +533,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                           source=source, grid={k: [v] for k, v in champ.items()},
                           cost_pts=cost_pts, min_trades=1, top_n=1,
                           compute_dsr=False, mc_sims=500, compute_regime=True,
-                          date_from=opt_from, date_to=None) or {}
+                          date_from=opt_from, date_to=date_to) or {}
         except Exception:
             OV = {}
 
@@ -547,7 +549,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         try:
             tb = run_backtest(strategy, instrument=ti, timeframe=timeframe, session=session,
                               source=source, params=champ, cost_pts=cost_pts,
-                              date_from=opt_from, date_to=None)
+                              date_from=opt_from, date_to=date_to)
         except Exception:
             tb = None
         if tb:
@@ -569,7 +571,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     _full_arr = None
     if champ:
         try:
-            _full_arr = load_master_arrays(master, date_from=opt_from, date_to=None)
+            _full_arr = load_master_arrays(master, date_from=opt_from, date_to=date_to)
         except Exception:
             _full_arr = None
         if _full_arr is not None and isinstance(full, dict) and full.get("trades"):
@@ -625,7 +627,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                                 vif_collinearity, edge_significance, return_tailfit,
                                 seasonality)
         _avarr = _full_arr if _full_arr is not None else load_master_arrays(
-            master, date_from=opt_from, date_to=None)
+            master, date_from=opt_from, date_to=date_to)
         adversarial = adversarial_validation(_avarr, lb_start)
         acf = serial_dependence(_avarr)                       # §1 momentum vs mean-revert
         tailfit = return_tailfit(_avarr)                      # §1 fat-tail fit

@@ -11,17 +11,31 @@ FIELDS = ["trade_no", "entry_time", "exit_time", "hold_bars",
 
 
 def champion_blotter(strategy, instrument, timeframe, session="rth", params=None,
-                     cost_pts=0.0, mult=20.0, date_from=None, date_to=None):
-    """Run the champion once (return_trades) and return a list of per-trade dict rows.
-    Empty list if the config produces no trades or the master is missing."""
-    m = find_master(instrument, timeframe, session) or find_master(instrument, timeframe)
+                     cost_pts=0.0, mult=20.0, date_from=None, date_to=None, source=None):
+    """Run the champion once (return_trades) and return (rows, meta): a list of per-trade
+    dict rows plus {"master", "source", ...} naming the master that actually served the
+    run — the caller surfaces it so a fallback resolution is never silent. Empty rows if
+    the config produces no trades or the master is missing.
+
+    `source` pins the master the run was made on (repo rule: comparison reruns pin the
+    data window AND the master). Without it, resolution falls back to the registry's
+    first instrument+timeframe(+session) match — which is source-ORDERED, so a tv-master
+    run would silently get its blotter from the db_noadj master (run #162 did)."""
+    m = ((find_master(instrument, timeframe, session, source) if source else None)
+         or find_master(instrument, timeframe, session) or find_master(instrument, timeframe))
     if not m:
-        return []
-    a = load_master_arrays(m)
+        return [], {}
+    meta = {"master": m.get("name"), "source": m.get("source"),
+            "requested_source": source or None,
+            "date_from": date_from or None, "date_to": date_to or None}
+    # Slice with the SAME window the backtest runs on — trade tuples carry bar indices
+    # into the sliced arrays, so an unsliced index here would shift every timestamp/price
+    # by the number of pre-window bars.
+    a = load_master_arrays(m, date_from=date_from, date_to=date_to)
     idx, close = a["index"], a["close"]
     bt = ae.run_backtest(strategy, instrument=instrument, timeframe=timeframe, session=session,
-                         params=params or {}, cost_pts=float(cost_pts or 0),
-                         date_from=date_from, date_to=date_to, return_trades=True)
+                         arrays=a, params=params or {}, cost_pts=float(cost_pts or 0),
+                         return_trades=True)
     rows, cum = [], 0.0
     for i, t in enumerate((bt or {}).get("trades") or [], 1):
         eb, xb, pnl = int(t[0]), int(t[1]), float(t[2])
@@ -31,11 +45,13 @@ def champion_blotter(strategy, instrument, timeframe, session="rth", params=None
         rows.append({"trade_no": i, "entry_time": str(idx[eb])[:16], "exit_time": str(idx[xb])[:16],
                      "hold_bars": xb - eb, "entry_px": round(ep, 2), "exit_px": round(float(close[xb]), 2),
                      "pnl_pts": round(pnl, 2), "pnl_usd": round(usd, 2), "cum_usd": round(cum, 0)})
-    return rows
+    return rows, meta
 
 
-def write_csv(rows, path):
-    """Write blotter rows to a CSV at `path` (creates parent dirs). Returns path or None."""
+def write_csv(rows, path, meta=None):
+    """Write blotter rows to a CSV at `path` (creates parent dirs). Returns path or None.
+    `meta` (which master/window built these rows) goes to a `<path>.meta.json` sidecar so
+    a cached CSV can still say which master served it."""
     if not rows:
         return None
     import csv
@@ -44,6 +60,14 @@ def write_csv(rows, path):
         w = csv.DictWriter(f, fieldnames=FIELDS)
         w.writeheader()
         w.writerows(rows)
+    if meta:
+        try:
+            import json
+            import time
+            with open(path + ".meta.json", "w", encoding="utf-8") as f:
+                json.dump({**meta, "generated_at": time.strftime("%Y-%m-%d %H:%M")}, f)
+        except Exception:
+            pass
     return path
 
 
@@ -152,7 +176,14 @@ def load_blotter_rows(root, payload, log=print):
                 rows = [dict(r) for r in csv.DictReader(f)]
             if rows:
                 log(f"    -> blotter served from {pth} ({len(rows)} trades)")
-                return _cap(rows, {"source": os.path.basename(os.path.dirname(pth)) + "/" + name})
+                extra = {"source": os.path.basename(os.path.dirname(pth)) + "/" + name}
+                try:   # sidecar meta (which master/window built this CSV) rides along
+                    import json
+                    with open(pth + ".meta.json", encoding="utf-8") as f:
+                        extra["master"] = (json.load(f) or {}).get("master")
+                except Exception:
+                    pass
+                return _cap(rows, extra)
     params = payload.get("params") or {}
     if not payload.get("strategy") or not params:
         return {"ok": False,
@@ -169,16 +200,18 @@ def load_blotter_rows(root, payload, log=print):
                     "error": f"strategy '{payload['strategy']}' is gone from augur_strategies "
                              f"and no code snapshot is available to rebuild it"}
         strat = mod
-    rows = champion_blotter(strat, inst, tf,
-                            session=payload.get("session") or "rth", params=params,
-                            cost_pts=float(payload.get("cost_pts") or 0),
-                            mult=float(payload.get("mult") or 20),
-                            date_from=payload.get("date_from"), date_to=payload.get("date_to"))
+    rows, bmeta = champion_blotter(strat, inst, tf,
+                                   session=payload.get("session") or "rth", params=params,
+                                   cost_pts=float(payload.get("cost_pts") or 0),
+                                   mult=float(payload.get("mult") or 20),
+                                   date_from=payload.get("date_from"), date_to=payload.get("date_to"),
+                                   source=payload.get("source"))
     if not rows:
         return {"ok": False, "error": "champion re-run produced no trades"}
     try:
-        write_csv(rows, os.path.join(root, "blotters", name))   # cache for next time
+        write_csv(rows, os.path.join(root, "blotters", name), meta=bmeta)   # cache for next time
     except Exception:
         pass
-    log(f"    -> blotter regenerated ({len(rows)} trades) for run {rid}")
-    return _cap(rows, {"regenerated": True})
+    log(f"    -> blotter regenerated ({len(rows)} trades) for run {rid} "
+        f"from master '{bmeta.get('master')}'")
+    return _cap(rows, {"regenerated": True, "master": bmeta.get("master")})

@@ -464,9 +464,12 @@ class FirestoreQueue:
                 date_from=job.get("date_from") or None, date_to=job.get("date_to") or None,
                 return_trades=True)
             trades = (bt or {}).get("trades") or []
+            # trades from run_backtest(cost_pts>0) are already NET of cost (engine
+            # _apply_costs) — subtracting cost again here double-charged ~n·cost_pts
+            # (≈197 pts on a 695-trade TTIBS run; runs #161-#168 all carried it).
             cum, c = [], 0.0
             for t in trades:
-                c += (t[2] if isinstance(t, (list, tuple)) and len(t) > 2 else 0) - cost
+                c += (t[2] if isinstance(t, (list, tuple)) and len(t) > 2 else 0)
                 cum.append(c)
             return _H._downsample_equity(cum, c) if cum else None
         except Exception:
@@ -566,13 +569,20 @@ class FirestoreQueue:
             from api.blotter import champion_blotter, write_csv
             _bp = result.get("best_params") or (job.get("params") or {})
             if _bp and job.get("strategy") and job.get("instrument"):
-                _rows = champion_blotter(job.get("strategy"), job.get("instrument"),
-                                         job.get("timeframe", "5m"), job.get("session", "rth"),
-                                         _bp, job.get("cost_pts", 0), mult)
+                # pin the run's exact window AND master source — an unpinned blotter
+                # covers whatever the registry's first master happens to span (run #162,
+                # made on the tv master, got a db_noadj blotter this way).
+                _rows, _bm = champion_blotter(job.get("strategy"), job.get("instrument"),
+                                              job.get("timeframe", "5m"), job.get("session", "rth"),
+                                              _bp, job.get("cost_pts", 0), mult,
+                                              date_from=job.get("date_from") or None,
+                                              date_to=job.get("date_to") or None,
+                                              source=job.get("source") or None)
                 _out = os.path.join(ROOT, "blotters",
                                     f"run{rid}_{job.get('instrument')}_{job.get('timeframe','5m')}.csv")
-                if write_csv(_rows, _out):
-                    log(f"    -> saved trade blotter ({len(_rows)} trades) -> {_out}")
+                if write_csv(_rows, _out, meta=_bm):
+                    log(f"    -> saved trade blotter ({len(_rows)} trades, "
+                        f"master '{_bm.get('master')}') -> {_out}")
         except Exception as _e:
             log(f"    -> blotter skipped: {type(_e).__name__}: {_e}")
 
