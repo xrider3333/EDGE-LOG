@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='63.5';
+const VERSION='63.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'63.6', date:'2026-07-21', notes:['👑 The 2A selection view is now a proper FUNNEL with two doors (you said all the lines ran to the end — fixed). The faint grey CLOUD = every top config, drawn only to the IN-SAMPLE door (~75% of the optimize window). Past it only the top-K by walk-forward keep going to the LOCKBOX door (optimize end). Past that only the top-3 continue THROUGH the lockbox to the right edge. So the picture narrows many → top-K → 3, left to right, on one chart.','The WF-crowned config is the solid green line and the in-sample MAX is the blue dashed line, both traced full-length so you can follow the eventual winner through the cloud. Right-gutter labels show each survivor’s ending $. #168 (pre-lockbox engine) shows the cloud → top-K narrowing with the re-run note for the top-3 lockbox tail.']},
   {v:'63.5', date:'2026-07-21', notes:['GAUGES β polish (owner): (1) FIX — gauge greens/reds were washing out to grey on the Mercury / Mono / Obsidian themes (those themes deliberately desaturate --green); the gauges now use the SAME hardcoded green/red as the deploy-checklist tiles (#1d9e75 / #e24b4a), so they read vivid on every theme. (2) Renamed PARAM INFLUENCE → PARAM PERFORMANCE. (3) Reordered the sections: Strategy Performance → Param Performance → Strategy Robustness → Param Robustness → Enhancements (param performance is now 2nd, strategy robustness 3rd). (4) The 1A CHAMPION EQUITY chart now leads the Strategy Performance section instead of sitting as a separate top banner. AT A GLANCE composites reordered to match.']},
   {v:'63.4', date:'2026-07-21', notes:['👑 WF-CHECKED SELECTION now lives ON the 2A chart itself (you wanted one chart, not a block beneath it). 2A keeps its many-config equity spread as faint grey context; the WF-crowned config is drawn solid green and the in-sample MAX blue-dashed; and the TOP-3 by walk-forward now EXTRAPOLATE FORWARD through the lockbox, past a purple "lockbox door" line, so you see how the relevant configs carry into the holdout on the same axis. The crown-pool table now sits inside the same 2A card. The separate selection block is gone.','Honesty kept: the lockbox continuation is drawn AFTER the crown was decided and is never used to re-pick the champion (the champion still lives on 1A). Non-validate / grid / auto / legacy runs render 2A exactly as before; #168 (pre-lockbox engine) shows the crowned overlay + table with a re-run note for the forward lockbox extension.']},
   {v:'63.3', date:'2026-07-21', notes:['GAUGES β owner-review round: (1) NEW top section ◈ AT A GLANCE — one composite 0-100 score per category plus an OVERALL, each the mean of its gauges (green/amber/red). (2) NEW §5 ENHANCEMENTS gauges — GATE EDGE (gated vs ungated PF lift), GATE % KEPT and ENSEMBLE LIFT, so the ML-gate / top-K-blend results get their own section. (3) A compact CHAMPION EQUITY strip now stays visible at the top of the gauge view. (4) Added a PARAM STABILITY gauge slot (shows N/A until the engine emits IS→OOS re-optimized-param drift).','Confirmed the rule for scale-less metrics: PF, recovery, $ and counts show the RAW NUMBER (only genuinely 0-1 metrics render as %). Grid/auto runs already show their applicable gauges and N/A the validate-only ones without moving the layout. New hand-off spec docs/INCREMENTAL_BACKTEST_REUSE.md scopes the reuse-past-runs idea (ROADMAP #26).']},
@@ -6757,7 +6758,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<span style="flex:0 0 82px;text-align:right;color:'+((c.lb_equity&&c.lb_equity.final!=null)?ISC:'var(--text5)')+'" title="this config carried forward THROUGH the lockbox (top-3 only) - shown after the crown was set, never used to pick it">'+((c.lb_equity&&c.lb_equity.final!=null)?fmtUsd(Math.round(c.lb_equity.final*mlt)):'—')+'</span></div>';}).join('');
       const hdr='<div style="display:flex;gap:8px;font-size:7px;letter-spacing:.5px;color:var(--text5);padding:0 6px 2px"><span style="flex:0 0 86px"></span><span style="flex:1">config (knobs that differ)</span><span style="flex:0 0 78px;text-align:right">IS (search $)</span><span style="flex:0 0 78px;text-align:right">WF folds $</span><span style="flex:0 0 40px;text-align:center">folds</span><span style="flex:0 0 82px;text-align:right">lockbox end $</span></div>';
       const note=(sel.is_max_crowned===false)?'<div style="font-size:8.5px;color:var(--yellow);margin:4px 0 2px">⚖️ the in-sample MAX was NOT crowned — the walk-forward folds preferred a steadier config (this is #88 doing its job).</div>':'<div style="font-size:8.5px;color:var(--text4);margin:4px 0 2px">✓ the in-sample max ALSO won the walk-forward arbitration — search pick and OOS evidence agree.</div>';
-      const robNote='<div style="font-size:8px;color:var(--text5);margin:1px 0 2px">grey = the other top configs, drawn to the lockbox door as walk-forward CONTEXT (how tightly the good-config neighbourhood holds).</div>';
+      const robNote='<div style="font-size:8px;color:var(--text5);margin:1px 0 2px">the grey CLOUD = every top config, drawn only to the in-sample door (~75%); past it only the top configs that warranted walk-forward testing continue — green = crowned, blue dashed = in-sample max.</div>';
       const hasLB=cand.some(c=>c.lb_equity&&c.lb_equity.final!=null);
       const lbNote=hasLB?'<div style="font-size:8px;color:var(--text5);margin:1px 0 3px">🚪 past the lockbox door: only the top-3 by walk-forward are carried through the holdout — shown AFTER the crown was set, never used to pick the champion.</div>':'<div style="font-size:8px;color:var(--text5);margin:1px 0 3px">re-run this validate (engine 2026-07-21+) to draw the top-3 forward THROUGH the lockbox.</div>';
       return note+robNote+lbNote+hdr+rows;};
@@ -6773,17 +6774,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const SELN=d&&d.selection, VV=d&&d.validate;
       const _okEqS=c=>c&&c.equity&&Array.isArray(c.equity.cum)&&c.equity.cum.length>1;
       const selMode=!isL&&SELN&&Array.isArray(SELN.candidates)&&SELN.candidates.some(_okEqS);
-      let crownedC=null,isMaxC=null,lbCs=[],t0=NaN,tDoor=NaN,tEnd=NaN,hasLB=false,Wopt=['',''],Wlb=null;const extYs=[];
+      let crownedC=null,isMaxC=null,lbCs=[],poolAll=[],hasLB=false,Wopt=['',''],Wlb=null;const extYs=[];
       if(selMode){const cand=SELN.candidates;
+        // poolAll = the top-K WALK-FORWARD set (crown pool + display-only robust extras) — the
+        //   configs that "warranted WF testing"; these continue past the in-sample door.
+        poolAll=cand.concat(Array.isArray(SELN.robust)?SELN.robust:[]).filter(_okEqS);
         crownedC=cand.find(c=>c.crowned&&_okEqS(c))||null;
         let mm=-Infinity;cand.forEach(c=>{if(_okEqS(c)&&(c.is_pnl||0)>mm){mm=c.is_pnl||0;isMaxC=c;}});
         Wopt=((VV&&VV.windows)||{}).optimize||['',''];Wlb=((VV&&VV.windows)||{}).lockbox||null;
-        t0=Date.parse(Wopt[0]);tDoor=Date.parse(Wopt[1]);
-        lbCs=cand.filter(c=>_okEqS(c)&&c.lb_equity&&Array.isArray(c.lb_equity.cum)&&c.lb_equity.cum.length&&Array.isArray(c.lb_equity.t)&&c.lb_equity.t.length===c.lb_equity.cum.length&&c.equity.final!=null&&c.lb_equity.base!=null);
-        if(lbCs.length){let m=tDoor;lbCs.forEach(c=>c.lb_equity.t.forEach(s=>{const p=Date.parse(s);if(isFinite(p)&&p>m)m=p;}));const we=Wlb&&Date.parse(Wlb[1]);tEnd=(isFinite(we)&&we>m)?we:m;}
-        hasLB=lbCs.length>0&&isFinite(t0)&&isFinite(tDoor)&&isFinite(tEnd)&&tEnd>tDoor;
-        // values that may exceed the etop range (×mult, to match `series`) so mn/mx cover them
-        [crownedC,isMaxC].forEach(c=>{if(c)c.equity.cum.forEach(v=>extYs.push(v*mult));});
+        // lbCs = the top-3 that carry THROUGH the lockbox (index-mapped now, so dates optional).
+        lbCs=cand.filter(c=>_okEqS(c)&&c.lb_equity&&Array.isArray(c.lb_equity.cum)&&c.lb_equity.cum.length&&c.equity.final!=null&&c.lb_equity.base!=null);
+        hasLB=lbCs.length>0;
+        // fold every drawn value into mn/mx so nothing clips (×mult, matching `series`)
+        poolAll.forEach(c=>c.equity.cum.forEach(v=>extYs.push(v*mult)));
         if(hasLB)lbCs.forEach(c=>{const anchor=c.equity.final,base=c.lb_equity.base;c.lb_equity.cum.forEach(v=>extYs.push((anchor+(v-base))*mult));});
       }
       // draw ALL stored curves; the slider picks how many get COLOUR — the rest stay as faint
@@ -6808,15 +6811,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _nAx=_pk2.length+1,_padX=10,_axAt=i=>_padX+(C2P-2*_padX)*(i+0.5)/_nAx;
       let xL=(_pk2.length>=1)?_axAt(0):pd, xR=(_pk2.length>=1)?_axAt(_nAx-1):(PW-pr);
       if(selMode)xR=PW-70;
-      // etop curves + the optimize-window overlays stop at the door; the lockbox runs door→xR
-      const _fr=(selMode&&hasLB)?Math.max(0.5,Math.min(0.88,(tDoor-t0)/((tEnd-t0)||1))):1;
-      const xDoor=xL+(xR-xL)*_fr;
+      // ── #88b FUNNEL (owner 2026-07-21): the x-axis has TWO doors. ALL configs (the cloud)
+      //    run only to the IN-SAMPLE door (~75% of the optimize window). From there only the
+      //    top-K by walk-forward continue to the LOCKBOX door (optimize end). From there only
+      //    the top-3 continue THROUGH the lockbox to the right edge. Everything is mapped by
+      //    index-fraction so each curve's 75% point lands on one clean vertical door line. ──
+      const fIS=0.75;
+      const xFull=(selMode&&hasLB)?(xL+(xR-xL)*0.84):xR;   // optimize-window end = lockbox door
+      const xIS=xL+(xFull-xL)*fIS;                          // in-sample door
       const Yv=v=>H-pd-(H-pt-pd)*(v-mn)/rg;
-      const path=(s,col,wd,op)=>{const n=s.length;if(n<2)return '';return '<path d="'+s.map((v,i)=>((i?'L':'M')+(xL+(xDoor-xL)*i/(n-1)).toFixed(1)+' '+Yv(v).toFixed(1))).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'"/>';};
-      // draw worst→best so the winner sits on top; in selMode every etop curve is faint grey
-      //   CONTEXT (colour comes only from the crown-pool overlay below).
+      const OXf=f=>xL+(xFull-xL)*f;                         // optimize-window x for index-fraction f∈[0,1]
+      const _vAt=(a,f)=>{const n=a.length;if(n<=1)return a[0]||0;const x=f*(n-1),i0=Math.floor(x),i1=Math.min(n-1,i0+1);return a[i0]+(a[i1]-a[i0])*(x-i0);};
+      // polyline points for the index-fraction span [f0,f1] of a ×mult value array (interpolated
+      //   at the exact boundaries so clipped segments meet cleanly on a door line)
+      const _seg=(a,f0,f1)=>{const n=a.length,p=[OXf(f0).toFixed(1)+' '+Yv(_vAt(a,f0)).toFixed(1)];for(let j=0;j<n;j++){const f=n<=1?1:j/(n-1);if(f>f0+1e-9&&f<f1-1e-9)p.push(OXf(f).toFixed(1)+' '+Yv(a[j]).toFixed(1));}p.push(OXf(f1).toFixed(1)+' '+Yv(_vAt(a,f1)).toFixed(1));return p.join(' ');};
+      const path=(s,col,wd,op)=>{const n=s.length;if(n<2)return '';return '<path d="'+s.map((v,i)=>((i?'L':'M')+(xL+(xR-xL)*i/(n-1)).toFixed(1)+' '+Yv(v).toFixed(1))).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'"/>';};
       const order=series.map((s,i)=>i).sort((a,b)=>b-a);
-      const lines=order.map(i=>selMode?path(series[i],'var(--text5)',0.55,0.16):(i<_cfgShow?path(series[i],colOf(i),i===0?1.4:0.8,i===0?1:0.72):path(series[i],'var(--text5)',0.55,0.15))).join(''),zeroY=Yv(0);
+      // selMode: the CLOUD = every stored config, drawn only to the in-sample door (faint grey);
+      //   it drops out there and the top-K walk-forward lines carry on (drawn in selSvg below).
+      const lines=selMode
+        ? series.map(s=>'<polyline points="'+_seg(s,0,fIS)+'" fill="none" stroke="var(--text5)" stroke-width="0.5" opacity="0.16"/>').join('')
+        : order.map(i=>(i<_cfgShow?path(series[i],colOf(i),i===0?1.4:0.8,i===0?1:0.72):path(series[i],'var(--text5)',0.55,0.15))).join('');
+      const zeroY=Yv(0);
       // visible horizontal $ gridlines running THROUGH the plot (xL→xR) + compact $ labels just
       //   right of the NET (yellow) axis — denser (~5 steps) and smaller than the old shared chrome.
       const _niceE=v=>{v=Math.abs(v)||1;const e=Math.pow(10,Math.floor(Math.log10(v)));const f=v/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
@@ -6839,42 +6855,51 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(_hiI!==0&&isFinite(_hiV)){const hy=H-pd-(H-pt-pd)*(_hiV-mn)/rg;
           winTag+='<circle cx="'+xR.toFixed(1)+'" cy="'+hy.toFixed(1)+'" r="2" fill="#3a9bdc"><title>the HIGHEST-ending curve — rank '+(_hiI+1)+' by in-sample. It ended above the champion because it did better in the out-of-sample tail; crowning it for that would be look-ahead bias (see the panel info).</title></circle>'
             +(Math.abs(hy-wy)>7?'<text x="'+(xR+4).toFixed(1)+'" y="'+(hy+2.2).toFixed(1)+'" font-size="4.4" fill="#3a9bdc" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.2">'+fmtUsd(Math.round(_hiV))+' ◂ highest end (rank '+(_hiI+1)+')</text>':'');}}}
-      // selMode overlays: crowned + IS-max optimize-window curves (coloured), the top-3 lockbox
-      //   continuations, the purple door line, and compact right-gutter $ labels.
+      // selMode funnel: the two doors, the top-K walk-forward continuation, the crowned/IS-max
+      //   full-length traces, the top-3 lockbox continuation, and compact right-gutter $ labels.
       let selSvg='';
-      if(selMode){const _P=s=>Date.parse(s);
+      if(selMode){
         const _kUsd=v=>{v=Math.round(v);const a=Math.abs(v);return (v<0?'-$':'$')+(a>=1000?(a/1000).toFixed(a>=10000?0:1)+'k':a);};
-        const optPts=c=>{const cum=c.equity.cum,n=cum.length,t=(Array.isArray(c.equity.t)&&c.equity.t.length===n)?c.equity.t:null;
-          return cum.map((v,j)=>{const fr=t?Math.max(0,Math.min(1,(_P(t[j])-t0)/((tDoor-t0)||1))):(n<=1?1:j/(n-1));return (xL+(xDoor-xL)*fr).toFixed(1)+' '+Yv(v*mult).toFixed(1);}).join(' ');};
-        const lbPts=c=>{const cum=c.lb_equity.cum,t=c.lb_equity.t,base=c.lb_equity.base,anchor=c.equity.final;
-          return xDoor.toFixed(1)+' '+Yv(anchor*mult).toFixed(1)+' '+cum.map((v,j)=>{const fr=Math.max(0,Math.min(1,(_P(t[j])-tDoor)/((tEnd-tDoor)||1)));return (xDoor+(xR-xDoor)*fr).toFixed(1)+' '+Yv((anchor+(v-base))*mult).toFixed(1);}).join(' ');};
+        // top-K continuation [in-sample door → lockbox door] — every WF config EXCEPT the two
+        //   highlighted ones (crowned/IS-max get full-length coloured traces below)
+        let wf='';
+        poolAll.forEach(c=>{if(c===crownedC||c===isMaxC)return;const vals=c.equity.cum.map(v=>v*mult);
+          wf+='<polyline points="'+_seg(vals,fIS,1)+'" fill="none" stroke="#5f7686" stroke-width="0.8" opacity="0.6"/>';});
+        // crowned (green, solid) + IS-max (blue, dashed) traced FULL length so the eye follows
+        //   the eventual winner through the cloud and out the far side
         let ov='';
-        if(crownedC)ov+='<polyline points="'+optPts(crownedC)+'" fill="none" stroke="#1d9e75" stroke-width="1.7" opacity="1"/>';
-        if(isMaxC&&isMaxC!==crownedC)ov+='<polyline points="'+optPts(isMaxC)+'" fill="none" stroke="#3a9bdc" stroke-width="1.1" opacity="0.95" stroke-dasharray="5 3"/>';
+        if(isMaxC&&isMaxC!==crownedC){const vals=isMaxC.equity.cum.map(v=>v*mult);ov+='<polyline points="'+_seg(vals,0,1)+'" fill="none" stroke="#3a9bdc" stroke-width="1.1" opacity="0.95" stroke-dasharray="5 3"/>';}
+        if(crownedC){const vals=crownedC.equity.cum.map(v=>v*mult);ov+='<polyline points="'+_seg(vals,0,1)+'" fill="none" stroke="#1d9e75" stroke-width="1.7" opacity="1"/>';}
+        // top-3 lockbox continuation [lockbox door → right edge], anchored to each config's opt-end $
         const LBALT=['#e0a04b','#a879e6'];let alt=0;const labs=[];let lb='';
         if(hasLB)lbCs.forEach(c=>{const cr=!!c.crowned,col=cr?'#1d9e75':LBALT[(alt++)%2];
-          lb+='<polyline points="'+lbPts(c)+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?1.6:1.0)+'" opacity="0.92" stroke-dasharray="2.5 2"/>';
-          const fv=c.equity.final+(c.lb_equity.cum[c.lb_equity.cum.length-1]-c.lb_equity.base);
-          labs.push({y:Yv(fv*mult),col,txt:_kUsd(fv*mult)+(cr?' 🔒crown':' 🔒')});});
+          const cum=c.lb_equity.cum,base=c.lb_equity.base,anchor=c.equity.final,n=cum.length;
+          const pts=[xFull.toFixed(1)+' '+Yv(anchor*mult).toFixed(1)];
+          for(let j=0;j<n;j++){const f=n<=1?1:j/(n-1);pts.push((xFull+(xR-xFull)*f).toFixed(1)+' '+Yv((anchor+(cum[j]-base))*mult).toFixed(1));}
+          lb+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?1.6:1.0)+'" opacity="0.92" stroke-dasharray="2.5 2"/>';
+          const fv=anchor+(cum[n-1]-base);labs.push({y:Yv(fv*mult),col,txt:_kUsd(fv*mult)+(cr?' 🔒crown':' 🔒')});});
         if(crownedC){const fv=crownedC.equity.cum[crownedC.equity.cum.length-1];labs.push({y:Yv(fv*mult),col:'#1d9e75',txt:_kUsd(fv*mult)+' 👑'});}
         if(isMaxC&&isMaxC!==crownedC){const fv=isMaxC.equity.cum[isMaxC.equity.cum.length-1];labs.push({y:Yv(fv*mult),col:'#3a9bdc',txt:_kUsd(fv*mult)+' IS'});}
         labs.sort((a,b)=>a.y-b.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<5)labs[i].y=labs[i-1].y+5;
         const labSvg=labs.map(L=>'<text x="'+(xR+3).toFixed(1)+'" y="'+(L.y+2).toFixed(1)+'" font-size="4.7" font-weight="700" fill="'+L.col+'" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.2">'+L.txt+'</text>').join('');
-        const door=hasLB?('<line x1="'+xDoor.toFixed(1)+'" y1="'+pt+'" x2="'+xDoor.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#a78bfa" stroke-width="0.7" stroke-dasharray="3 2" opacity="0.85"/><text x="'+(xDoor-1.5).toFixed(1)+'" y="'+(pt+5)+'" font-size="4.4" fill="#a78bfa" text-anchor="end">lockbox door →</text>'):'';
-        selSvg=door+ov+lb+labSvg;}
+        // DOOR 1 (in-sample, slate) — the cloud narrows to the top-K here. DOOR 2 (lockbox, purple).
+        const isDoor='<line x1="'+xIS.toFixed(1)+'" y1="'+pt+'" x2="'+xIS.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#7f8c99" stroke-width="0.6" stroke-dasharray="2 2" opacity="0.7"/><text x="'+(xIS-1.5).toFixed(1)+'" y="'+(pt+5)+'" font-size="4.2" fill="#8a97a5" text-anchor="end">in-sample ▸</text>';
+        const lbDoor=hasLB?('<line x1="'+xFull.toFixed(1)+'" y1="'+pt+'" x2="'+xFull.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#a78bfa" stroke-width="0.7" stroke-dasharray="3 2" opacity="0.85"/><text x="'+(xFull-1.5).toFixed(1)+'" y="'+(pt+5)+'" font-size="4.2" fill="#a78bfa" text-anchor="end">lockbox door →</text>'):'';
+        selSvg=isDoor+lbDoor+wf+ov+lb+labSvg;}
       // x-axis date labels (owner request). Use the OPTIMIZE window when this is a validate
       //   run; selMode+lockbox pushes the right label out to the holdout end.
       const _xw=(d.validate&&d.validate.windows&&d.validate.windows.optimize)||null;
       let _xd0=(_xw&&_xw[0])||d.date_from,_xd1=(_xw&&_xw[1])||d.date_to;
       if(selMode&&hasLB&&Wlb&&Wlb[1])_xd1=Wlb[1];
       if(_xd0&&_xd1){grid+='<text x="'+xL.toFixed(1)+'" y="'+(H-0.5)+'" font-size="4.6" fill="var(--text3)">'+_dnice(_xd0)+'</text>'
-        +'<text x="'+xR.toFixed(1)+'" y="'+(H-0.5)+'" text-anchor="end" font-size="4.6" fill="var(--text3)">'+_dnice(_xd1)+'</text>';}
+        +'<text x="'+xR.toFixed(1)+'" y="'+(H-0.5)+'" text-anchor="end" font-size="4.6" fill="var(--text3)">'+_dnice(_xd1)+'</text>'
+        +((selMode&&hasLB&&Wopt[1])?('<text x="'+xFull.toFixed(1)+'" y="'+(H-0.5)+'" text-anchor="middle" font-size="4.2" fill="var(--text4)">'+_dnice(Wopt[1])+'</text>'):'');}
       const selDrop='<select data-tpc style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin-left:6px"><option value="rank"'+(mode==='rank'?' selected':'')+'>by rank</option>'+pkeys.map(k=>'<option value="'+k+'"'+(mode===k?' selected':'')+'>by '+k.replace(/_/g,' ')+'</option>').join('')+'</select>';
       const cfgSlider='<span title="how many curves show as faint grey context — the run stored the top '+etop.length+' curves." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+'</b></span>';
       const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis — top '+etop.length+((_xd0&&_xd1)?' · '+_dnice(_xd0)+' → '+_dnice(_xd1):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. RANKING: locked to the pre-registered IN-SAMPLE slice (the first ~75% of this window) — a lower-ranked curve can END higher because the tail is out-of-sample for selection, and peeking at it to pick the winner would be look-ahead bias. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
-      const _selTip='WF-CHECKED SELECTION (#88 / #88b) ON THE 2A CHART: the faint curves are the top configs over the optimize window (robustness spread); the WF-crowned config is green, the in-sample MAX is the blue dashed line. Past the purple lockbox door, only the top-3 by walk-forward continue THROUGH the holdout — shown for information, never used to pick the champion.';
+      const _selTip='WF-CHECKED SELECTION (#88 / #88b) ON THE 2A CHART — a funnel with two doors. The grey CLOUD is every top config, drawn only to the IN-SAMPLE door (~75% of the optimize window). From there only the top-K by walk-forward continue to the LOCKBOX door (optimize end). From there only the top-3 continue THROUGH the lockbox to the right edge. Green = WF-crowned, blue dashed = in-sample MAX. The lockbox tail is shown AFTER the crown was set, never used to pick the champion.';
       const _hdr=selMode
-        ?(tag?'<div title="'+_selTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' · TOP CONFIGS → LOCKBOX <span style="font-weight:400;color:var(--text5);font-size:8px">· 👑 WF-crowned · robustness spread · top-3 through the holdout ⓘ</span>'+cfgSlider+'</div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
+        ?(tag?'<div title="'+_selTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' · CONFIG FUNNEL <span style="font-weight:400;color:var(--text5);font-size:8px">· all configs → in-sample door → top-K walk-forward → top-3 lockbox ⓘ</span>'+cfgSlider+'</div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
         :(tag?'<div title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' · TOP CONFIGS PNL <span style="font-weight:400;color:var(--text5);font-size:8px">ⓘ</span>'+selDrop+cfgSlider+'</div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
       const _body='<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
         +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+((!selMode&&d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,yl:'equity'}))+'"':'')+'>'
