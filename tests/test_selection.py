@@ -233,6 +233,33 @@ def test_candidate_set_includes_distinct_plateau_pick_when_not_a_duplicate():
     assert knobs == {1.0, 2.0, 7.0}                              # plateau pick's own reserved slot
 
 
+# (c2) robustness split (#88b): CROWN pool stays == k, extra top-IS configs land in
+#      `robust` (display-only, never crowned), display_k caps the combined set ─────────
+def test_robustness_split_crown_pool_capped_at_k_extras_go_to_robust():
+    mod = _linear_strategy()
+    n = 300
+    arrays = _make_arrays(n)
+    # 12 distinct configs, descending IS PnL -> IS-max = knob 12
+    rows = [_metric_row(float(kb), float(kb) * 100.0) for kb in range(12, 0, -1)]
+    champ = {"knob": 12.0}
+    bestA = _metric_row(12.0, 1200.0)
+    A = {"top": rows, "bars": n, "plateau_pick": {}}
+    wf_anch = {"ran": True, "folds": [{"train_bars": 100, "test_bars": 100},
+                                      {"train_bars": 200, "test_bars": 100}]}
+
+    _, _, sel = _select_oos_champion(mod, arrays, champ, bestA, A, wf_anch, cost_pts=0.0, k=5)
+
+    assert sel["display_k"] == 10                                 # max(k, 10)
+    assert len(sel["candidates"]) == 5                            # crown pool == k exactly
+    assert "robust" in sel and len(sel["robust"]) == 5           # widened to display_k total (5+5)
+    # crown pool = the 5 highest-IS configs (knobs 12..8); robust = the next 5 (7..3)
+    assert {c["params"]["knob"] for c in sel["candidates"]} == {12.0, 11.0, 10.0, 9.0, 8.0}
+    assert {c["params"]["knob"] for c in sel["robust"]} == {7.0, 6.0, 5.0, 4.0, 3.0}
+    # exactly one crowned, and it is one of the crown-pool candidates (never a robust extra)
+    assert sum(1 for c in sel["candidates"] if c["crowned"]) == 1
+    assert all("equity" in c and c["equity"]["cum"] for c in sel["candidates"] + sel["robust"])
+
+
 # (d) graceful no-op paths — never raises, always returns a well-formed selection dict
 
 def test_no_candidates_returns_untouched_champion_with_error():

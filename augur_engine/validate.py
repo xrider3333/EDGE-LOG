@@ -125,32 +125,50 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
     pp_metrics = ({kk: ppick["metrics"].get(kk) for kk in _SEL_METRIC_KEYS if kk in ppick["metrics"]}
                   if ppick.get("metrics") else {})
 
+    # ── candidate set (owner 2026-07-21, robustness-vs-OOS view): CROWN among the
+    #    small pool (top-k IS gated + plateau) as before — a small pool keeps the WF-fold
+    #    arbitration from itself overfitting — but SAVE a broader display set of up to
+    #    `disp_k` (default 10) top IS-gated configs so 2A's companion chart can show how
+    #    tightly the whole good-config neighbourhood holds through walk-forward (robustness).
+    #    Only the crown-pool entries are `crownable`; the extras are display-only context. ──
+    disp_k = max(int(k), 10)
     cands = []
     sigs = set()
+    crown_sigs = set()
     budget = (int(k) - 1) if pp_params else int(k)
 
     def _add(row_params, row_metrics, is_pnl):
         sig = _sig(row_params)
         if sig in sigs:
-            return
+            return False
         sigs.add(sig)
         cands.append({"params": row_params, "is_pnl": float(is_pnl or 0), "metrics": row_metrics})
+        return True
 
+    # crown pool first (these are the ONLY configs eligible to be crowned)
     for row in gated_rows:
         if len(cands) >= budget:
+            break
+        p = {kk: row.get(kk) for kk in pkeys}
+        if _add(p, {kk: row.get(kk) for kk in _SEL_METRIC_KEYS if kk in row}, row.get("total_pnl", 0)):
+            crown_sigs.add(_sig(p))
+    if pp_params and len(crown_sigs) < int(k):
+        if _add(pp_params, pp_metrics, pp_metrics.get("total_pnl", 0)):
+            crown_sigs.add(_sig(pp_params))
+    if len(crown_sigs) < int(k):   # plateau pick was a dup (or absent) -- backfill the crown pool
+        for row in gated_rows:
+            if len(crown_sigs) >= int(k):
+                break
+            p = {kk: row.get(kk) for kk in pkeys}
+            if _add(p, {kk: row.get(kk) for kk in _SEL_METRIC_KEYS if kk in row}, row.get("total_pnl", 0)):
+                crown_sigs.add(_sig(p))
+    # then widen to disp_k with display-only robustness context (NOT crownable)
+    for row in gated_rows:
+        if len(cands) >= disp_k:
             break
         _add({kk: row.get(kk) for kk in pkeys},
              {kk: row.get(kk) for kk in _SEL_METRIC_KEYS if kk in row},
              row.get("total_pnl", 0))
-    if pp_params and len(cands) < int(k):
-        _add(pp_params, pp_metrics, pp_metrics.get("total_pnl", 0))
-    if len(cands) < int(k):   # plateau pick was a dup (or absent) -- backfill from the ranked list
-        for row in gated_rows:
-            if len(cands) >= int(k):
-                break
-            _add({kk: row.get(kk) for kk in pkeys},
-                 {kk: row.get(kk) for kk in _SEL_METRIC_KEYS if kk in row},
-                 row.get("total_pnl", 0))
 
     fold_bounds = []
     if wf_anch and wf_anch.get("ran"):
@@ -172,6 +190,7 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
     for c, rows in zip(cands, fold_scores):
         c["wf_oos_pnl"] = sum(r["oos_pnl"] for r in rows)
         c["folds_held"] = sum(1 for r in rows if r["held"])
+        c["crownable"] = (_sig(c["params"]) in crown_sigs)
 
     n_bars = len(arrays["close"])
     ev = make_slice_evaluator(strategy, arrays, cost_pts)
@@ -184,19 +203,29 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
         c["equity"] = equity_curve_from_pnls(pnls, cap=160, times=[t[1] for t in _tr])
 
     orig_sig = _sig(champ)
-    winner = max(cands, key=lambda c: (c.get("wf_oos_pnl", 0.0), c.get("folds_held", 0),
-                                       c.get("is_pnl", 0.0)))
+    # crown ONLY among the crown-pool (the display-only robustness extras never win)
+    crown_pool = [c for c in cands if c.get("crownable")] or cands
+    winner = max(crown_pool, key=lambda c: (c.get("wf_oos_pnl", 0.0), c.get("folds_held", 0),
+                                            c.get("is_pnl", 0.0)))
     is_max_crowned = (_sig(winner["params"]) == orig_sig)
     for c in cands:
         c["crowned"] = (c is winner)
 
+    def _out(c):
+        return {"params": dict(c["params"]), "is_pnl": round(float(c["is_pnl"]), 1),
+                "wf_oos_pnl": round(float(c.get("wf_oos_pnl", 0.0)), 1),
+                "folds_held": int(c.get("folds_held", 0)),
+                "crowned": bool(c.get("crowned", False)),
+                "equity": c.get("equity")}
+
+    # `candidates` = the CROWN POOL (the configs eligible to win — unchanged shape), and
+    # `robust` = the extra top-IS configs shown only as walk-forward context (owner's
+    # robustness spread). Splitting keeps the crown-pool contract (candidates == top-k)
+    # while giving the companion chart up to `display_k` curves to draw.
     selection = {
-        "mode": "wf_oos_topk", "k": int(k),
-        "candidates": [{"params": dict(c["params"]), "is_pnl": round(float(c["is_pnl"]), 1),
-                        "wf_oos_pnl": round(float(c.get("wf_oos_pnl", 0.0)), 1),
-                        "folds_held": int(c.get("folds_held", 0)),
-                        "crowned": bool(c.get("crowned", False)),
-                        "equity": c.get("equity")} for c in cands],
+        "mode": "wf_oos_topk", "k": int(k), "display_k": disp_k,
+        "candidates": [_out(c) for c in cands if c.get("crownable")],
+        "robust": [_out(c) for c in cands if not c.get("crownable")],
         "is_max_crowned": is_max_crowned,
     }
     return dict(winner["params"]), dict(winner.get("metrics") or {}), selection
@@ -402,6 +431,48 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     lb_pf = float((lb or {}).get("profit_factor", 0) or 0)
     lb_trades = int((lb or {}).get("num_trades", 0) or 0)
     lb_pass = lb is not None and lb_pnl > 0 and lb_pf >= 1.0
+
+    # ── #88b forward LOCKBOX continuation for the TOP-3 WF-checked candidates (owner
+    #    2026-07-21, robustness-vs-OOS view): the companion chart under 2A shows the whole
+    #    top-K candidate set through walk-forward (robustness), and extends ONLY the best 3
+    #    (by walk-forward-fold OOS PnL) forward through the lockbox for a limited peek at
+    #    true-future behaviour. This is drawn AFTER the crown was already decided on the WF
+    #    folds — it is NEVER used to pick the champion (that would be the exact look-ahead
+    #    #88 exists to prevent). Only 3 configs touch the holdout; the champion's own lockbox
+    #    backtest (`lb` above) is reused so it is not re-run. Each `lb_equity` continues the
+    #    candidate's optimize-window equity (its `equity.final`) through the lockbox slice,
+    #    in POINTS, downsampled with exit dates for the calendar axis. Any failure is
+    #    swallowed — a visualization extra must never break validation. ──
+    if selection and selection.get("candidates"):
+        try:
+            champ_sig = tuple(sorted((kk, champ.get(kk)) for kk in champ))
+            top3 = sorted(selection["candidates"],
+                          key=lambda c: -(c.get("wf_oos_pnl") or 0))[:3]
+            for c in top3:
+                base = float(((c.get("equity") or {}).get("final")) or 0.0)
+                c_sig = tuple(sorted((kk, (c.get("params") or {}).get(kk)) for kk in (c.get("params") or {})))
+                _cbt = lb if (c_sig == champ_sig and lb) else run_backtest(
+                    strategy, instrument=instrument, timeframe=timeframe, session=session,
+                    source=source, params=c["params"], cost_pts=cost_pts,
+                    date_from=lb_from, date_to=date_to, return_trades=True)
+                _ctr = (_cbt or {}).get("trades") or []
+                cum, s = [], base
+                for t in _ctr:
+                    s += float(t[2])   # lockbox trades already net of cost
+                    cum.append(s)
+                times = [str(t[1])[:10] for t in _ctr]   # same length as cum (one per trade)
+                cap = 80
+                if len(cum) > cap:
+                    stp = len(cum) / cap
+                    idx = [int(i * stp) for i in range(cap)]
+                    cum = [cum[i] for i in idx]
+                    times = [times[i] for i in idx]
+                c["lb_equity"] = {"cum": [round(float(x), 1) for x in cum],
+                                  "final": round(float(s), 1),
+                                  "base": round(base, 1),
+                                  "t": times}
+        except Exception:
+            pass
 
     # ── LOCKBOX-slice distributions for the 1D/1G report tiles (owner: those charts should
     #    be viewable on the OUT-OF-SAMPLE slice, not just the whole run). win_dist = per-trade

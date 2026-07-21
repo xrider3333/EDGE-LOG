@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='63.1';
+const VERSION='63.2';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'63.2', date:'2026-07-21', notes:['👑 WF-CHECKED SELECTION (under 2A) rebuilt as the robustness-vs-OOS view you asked for: the whole top config set is drawn through walk-forward as a robustness SPREAD (crown-pool candidates in colour, up to ~5 more top configs in grey as context — how tightly the good-config neighbourhood holds), and only the TOP-3 by walk-forward continue THROUGH the lockbox past a purple "lockbox door" line, for a limited peek at true-future performance. The lockbox curves are shown AFTER the crown was set and are NEVER used to re-pick the champion (that would be look-ahead) — the champion itself still lives on 1A.','Engine: Auto-Validate now saves a wider robustness set (top ~10 IS configs) plus a lockbox continuation for the top-3, with trade dates for the calendar axis. New validate runs get the full picture; older runs (incl. #168) show the robustness spread with a re-run note for the lockbox extension.']},
   {v:'63.1', date:'2026-07-21', notes:['2A TOP CONFIGS: removed the shaded out-of-sample tail band added in v62.9 — it wrongly implied ALL of 2As many in-sample config curves were walk-forward tested, when only the handful of top configs are. 2A is back to plain in-sample equity curves; the walk-forward-checked candidates stay in their own chart directly below it.']},
   {v:'63.0', date:'2026-07-21', notes:['🔬 ROOT-CAUSED the run-equity vs blotter mismatch (#161-#168). Two engine bugs: (a) the saved equity curve subtracted fees a SECOND time from already-net trades (~197 pts low on a 695-trade TTIBS run), and (b) every equity chart stopped ~4-5 trades short of the end, so the plotted endpoint missed the final trades (run #164 plotted +1,426 pts above its true finish — the May-Jul 2026 give-back never showed). Both fixed; run docs #161-#168 equity repaired in place. The blotter CSV totals were CORRECT all along.','▦ TRADES blotters now pin the run WINDOW and MASTER (the repo rule): run #162 (tv master) had silently been served run #161 blotter from the db_noadj master. #162 blotter regenerated from the right master; the blotter strip now names which master served it. Shift+click TRADES on old runs to refresh a stale saved copy.']},
   {v:'62.9', date:'2026-07-21', notes:['👑 WF-CHECKED SELECTION moved to §2, directly UNDER 2A TOP CONFIGS (owner: it belongs on 2A, next to the other multi-config equity chart — not in §1).','2A TOP CONFIGS now SHADES the out-of-sample / walk-forward tail (blue band on the right): ranking is locked to the in-sample scoring slice, and the shaded tail is the section the walk-forward folds judge on — so every config curve shows its out-of-sample behaviour in place. Validate runs only; the split comes from the saved fold bounds when present, else the ~75% default.']},
@@ -7837,43 +7838,68 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //    saved before the #88 engine (no selection block) — old reports unchanged. ──
     const selectionOverlayHtml=(sel,mlt,V)=>{
       if(!sel||!Array.isArray(sel.candidates)||!sel.candidates.length)return '';
-      const cs=sel.candidates.map((c,i)=>({c:c,i:i})).filter(o=>o.c&&o.c.equity&&Array.isArray(o.c.equity.cum)&&o.c.equity.cum.length>1);
-      if(!cs.length)return '';
-      let isMaxI=0;sel.candidates.forEach((c,i)=>{if((c.is_pnl||0)>(sel.candidates[isMaxI].is_pnl||0))isMaxI=i;});
-      const W=((V&&V.windows)||{}).optimize||['',''];
-      const w=860,h=240,padL=8,padR=150,padT=10,padB=18;
-      let lo=0,hi=1;cs.forEach(o=>o.c.equity.cum.forEach(v=>{if(v<lo)lo=v;if(v>hi)hi=v;}));
-      // dates: m/d/yy like 1A (the ISO right label read as "2014" — owner 2026-07-21).
+      const cand=sel.candidates, robust=Array.isArray(sel.robust)?sel.robust:[];
+      const okEq=c=>c&&c.equity&&Array.isArray(c.equity.cum)&&c.equity.cum.length>1;
+      const poolCs=cand.filter(okEq), robCs=robust.filter(okEq);
+      if(!poolCs.length&&!robCs.length)return '';
+      // IS MAX among the crown pool = the raw search pick (before WF arbitration).
+      let isMaxI=0;cand.forEach((c,i)=>{if((c.is_pnl||0)>(cand[isMaxI].is_pnl||0))isMaxI=i;});
+      const isMaxKey=cand[isMaxI]?JSON.stringify(cand[isMaxI].params):null;
       const _d2=s=>{const m2=String(s||'').match(/^(\d{4})-(\d\d)-(\d\d)/);return m2?((+m2[2])+'/'+(+m2[3])+'/'+m2[1].slice(2)):String(s||'');};
-      // time-aligned x when the engine saved exit dates along the curves (equity.t,
-      // engine 2026-07-21+): curves then sit on the SAME calendar axis as 1A. Older
-      // runs (no dates) fall back to trade-sequence spacing.
-      const hasT=cs.every(o=>Array.isArray(o.c.equity.t)&&o.c.equity.t.length===o.c.equity.cum.length);
-      let t0=Date.parse(W[0]||''),t1=Date.parse(W[1]||'');
-      if(hasT&&(!isFinite(t0)||!isFinite(t1)||t1<=t0)){t0=Infinity;t1=-Infinity;cs.forEach(o=>o.c.equity.t.forEach(s2=>{const p2=Date.parse(s2);if(isFinite(p2)){if(p2<t0)t0=p2;if(p2>t1)t1=p2;}}));}
-      const XT=s2=>{const p2=Date.parse(s2);const f=(isFinite(p2)&&t1>t0)?Math.max(0,Math.min(1,(p2-t0)/(t1-t0))):0;return padL+(w-padL-padR)*f;};
-      const X=(j,n)=>padL+(w-padL-padR)*(n<=1?1:j/(n-1));
+      const Wopt=((V&&V.windows)||{}).optimize||['',''];
+      const Wlb=((V&&V.windows)||{}).lockbox||null;
+      const w=860,h=252,padL=8,padR=172,padT=12,padB=22;
+      const CROWN='#1d9e75',ISC='#3a9bdc',GREY='#7f8c99',LBALT=['#e0a04b','#a879e6'];
+      const isCrowned=c=>!!c.crowned, isIsMax=c=>isMaxKey&&JSON.stringify(c.params)===isMaxKey;
+      // ── TIME axis (owner 2026-07-21 robustness-vs-OOS view): all configs run to the
+      //    LOCKBOX DOOR (end of optimize window); the top-3 by WF then continue THROUGH the
+      //    lockbox. Needs real dates (engine saves equity.t / lb_equity.t); older runs with
+      //    no dates fall back to sequence spacing and draw no lockbox continuation. ──
+      const hasT=[].concat(poolCs,robCs).every(c=>Array.isArray(c.equity.t)&&c.equity.t.length===c.equity.cum.length);
+      const lbCs=cand.filter(c=>okEq(c)&&c.lb_equity&&Array.isArray(c.lb_equity.cum)&&c.lb_equity.cum.length&&Array.isArray(c.lb_equity.t)&&c.lb_equity.t.length===c.lb_equity.cum.length);
+      const hasLB=hasT&&lbCs.length>0;
+      const allT=[];[].concat(poolCs,robCs).forEach(c=>c.equity.t&&c.equity.t.forEach(s=>allT.push(Date.parse(s))));
+      let t0=Date.parse(Wopt[0]||''),tDoor=Date.parse(Wopt[1]||'');
+      if(hasT){const fin=allT.filter(isFinite);if(fin.length){if(!isFinite(t0))t0=Math.min.apply(null,fin);if(!isFinite(tDoor))tDoor=Math.max.apply(null,fin);}}
+      let tEnd=tDoor;
+      if(hasLB){let m=tDoor;lbCs.forEach(c=>c.lb_equity.t.forEach(s=>{const p=Date.parse(s);if(isFinite(p)&&p>m)m=p;}));const we=Wlb&&Date.parse(Wlb[1]||'');tEnd=(isFinite(we)&&we>m)?we:m;}
+      const spanOK=hasT&&isFinite(t0)&&isFinite(tEnd)&&tEnd>t0;
+      const plotW=w-padL-padR;
+      const XT=s=>{const p=Date.parse(s);const f=(spanOK&&isFinite(p))?Math.max(0,Math.min(1,(p-t0)/(tEnd-t0))):0;return padL+plotW*f;};
+      const Xi=(j,n)=>padL+plotW*(n<=1?1:j/(n-1));
+      let lo=0,hi=1;const eat=arr=>arr.forEach(v=>{if(v<lo)lo=v;if(v>hi)hi=v;});
+      [].concat(poolCs,robCs).forEach(c=>eat(c.equity.cum));if(hasLB)lbCs.forEach(c=>eat(c.lb_equity.cum));
       const Y=v=>padT+(h-padT-padB)*(1-(v-lo)/((hi-lo)||1));
-      const CROWN='#1d9e75',ISC='#3a9bdc',GREY='#8aa0b0';
-      const rank=o=>(o.c.crowned?2:(o.i===isMaxI?1:0));
-      const lines=cs.slice().sort((a,b)=>rank(a)-rank(b)).map(o=>{
-        const n=o.c.equity.cum.length,crowned=!!o.c.crowned,ismax=(o.i===isMaxI);
-        const pts=o.c.equity.cum.map((v,j)=>(hasT?XT(o.c.equity.t[j]):X(j,n)).toFixed(1)+','+Y(v).toFixed(1)).join(' ');
-        return '<polyline points="'+pts+'" fill="none" stroke="'+(crowned?CROWN:(ismax?ISC:GREY))+'" stroke-width="'+(crowned?1.8:(ismax?1.2:0.8))+'" opacity="'+(crowned?'1':(ismax?'.95':'.5'))+'"'+((ismax&&!crowned)?' stroke-dasharray="5 3"':'')+'/>';}).join('');
+      const optPts=c=>{const cum=c.equity.cum,n=cum.length,t=c.equity.t;return cum.map((v,j)=>((spanOK&&t)?XT(t[j]):Xi(j,n)).toFixed(1)+','+Y(v).toFixed(1)).join(' ');};
+      // robustness spread (grey context) BEHIND the crown pool
+      const robLines=robCs.map(c=>'<polyline points="'+optPts(c)+'" fill="none" stroke="'+GREY+'" stroke-width="0.6" opacity="0.3"/>').join('');
+      const poolOrder=poolCs.slice().sort((a,b)=>((isCrowned(a)?2:isIsMax(a)?1:0)-(isCrowned(b)?2:isIsMax(b)?1:0)));
+      const poolLines=poolOrder.map(c=>{const cr=isCrowned(c),im=isIsMax(c);
+        return '<polyline points="'+optPts(c)+'" fill="none" stroke="'+(cr?CROWN:(im?ISC:'#5f7686'))+'" stroke-width="'+(cr?1.9:(im?1.2:0.75))+'" opacity="'+(cr?1:(im?0.95:0.6))+'"'+((im&&!cr)?' stroke-dasharray="5 3"':'')+'/>';}).join('');
+      // lockbox continuations (top-3 by WF), each prepended with the door point for continuity
+      let lbLines='';const lbLabs=[];
+      if(hasLB){let alt=0;lbCs.forEach(c=>{const cr=isCrowned(c),col=cr?CROWN:LBALT[(alt++)%2];
+        const cum=c.lb_equity.cum,t=c.lb_equity.t,base=c.lb_equity.base;
+        const head=(base!=null&&isFinite(Date.parse(Wopt[1]||t[0])))?(XT(Wopt[1]||t[0]).toFixed(1)+','+Y(base).toFixed(1)+' '):'';
+        lbLines+='<polyline points="'+head+cum.map((v,j)=>XT(t[j]).toFixed(1)+','+Y(v).toFixed(1)).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?1.7:1.1)+'" opacity="0.92" stroke-dasharray="2.5 2"/>';
+        lbLabs.push({y:Y(cum[cum.length-1]),col,txt:fmtUsd(Math.round(cum[cum.length-1]*mlt))+' ◂ '+(cr?'crowned · lockbox':'lockbox')});});}
+      // lockbox DOOR marker
+      const doorX=spanOK?XT(Wopt[1]||''):(w-padR);
+      const door=hasLB?('<line x1="'+doorX.toFixed(1)+'" y1="'+padT+'" x2="'+doorX.toFixed(1)+'" y2="'+(h-padB).toFixed(1)+'" stroke="#a78bfa" stroke-width="0.7" stroke-dasharray="3 2" opacity="0.75"/><text x="'+(doorX-2).toFixed(1)+'" y="'+(padT+7)+'" font-size="7.5" fill="#a78bfa" text-anchor="end">lockbox door →</text>'):'';
+      // right-edge labels: crowned/IS-max opt-end + the lockbox ends
       const labs=[];
-      cs.forEach(o=>{const crowned=!!o.c.crowned,ismax=(o.i===isMaxI);if(!crowned&&!ismax)return;
-        const cum=o.c.equity.cum,v=cum[cum.length-1];
-        labs.push({y:Y(v),col:crowned?CROWN:ISC,pri:crowned?1:0,
-          txt:fmtUsd(Math.round(v*mlt))+' ◂ '+(crowned?(ismax?'crowned (also the IS max)':'crowned (WF pick)'):'IS max (search pick)')});});
-      labs.sort((a,b)=>a.y-b.y);
-      for(let li=1;li<labs.length;li++)if(labs[li].y-labs[li-1].y<11)labs[li].y=labs[li-1].y+11;
-      const labSvg=labs.map(L=>'<text x="'+(w-padR+5)+'" y="'+(L.y+3).toFixed(1)+'" font-size="9" fill="'+L.col+'" font-weight="700">'+L.txt+'</text>').join('');
+      poolCs.forEach(c=>{if(!isCrowned(c)&&!isIsMax(c))return;const v=c.equity.cum[c.equity.cum.length-1];
+        labs.push({y:Y(v),col:isCrowned(c)?CROWN:ISC,txt:fmtUsd(Math.round(v*mlt))+' ◂ '+(isCrowned(c)?'crowned (opt end)':'IS max')});});
+      const allLabs=labs.concat(lbLabs).sort((a,b)=>a.y-b.y);
+      for(let i=1;i<allLabs.length;i++)if(allLabs[i].y-allLabs[i-1].y<10)allLabs[i].y=allLabs[i-1].y+10;
+      const labSvg=allLabs.map(L=>'<text x="'+(w-padR+5)+'" y="'+(L.y+3).toFixed(1)+'" font-size="8.5" fill="'+L.col+'" font-weight="700">'+L.txt+'</text>').join('');
       const zero=(lo<0)?('<line x1="'+padL+'" y1="'+Y(0).toFixed(1)+'" x2="'+(w-padR)+'" y2="'+Y(0).toFixed(1)+'" stroke="var(--border)" stroke-width="0.6" stroke-dasharray="3 3"/>'):'';
-      const ax='<text x="'+padL+'" y="'+(h-4)+'" font-size="8" fill="var(--text5)">'+(_d2(W[0])||'start')+'</text><text x="'+((w-padR)/2)+'" y="'+(h-4)+'" font-size="8" fill="var(--text5)" text-anchor="middle">'+(hasT?'calendar time — whole optimize window, same date axis as 1A (the lockbox is NOT in these curves)':'trade sequence → (whole optimize window — the lockbox is NOT in these curves; re-run to get real dates on this axis)')+'</text><text x="'+(w-padR)+'" y="'+(h-4)+'" font-size="8" fill="var(--text5)" text-anchor="end">'+_d2(W[1])+'</text>';
-      const svg='<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:auto;background:var(--bg1);border-radius:8px" xmlns="http://www.w3.org/2000/svg">'+zero+lines+labSvg+ax+'</svg>';
-      const pk=Object.keys(sel.candidates[0].params||{});
-      const vary=pk.filter(k2=>{const s=new Set(sel.candidates.map(c=>String((c.params||{})[k2])));return s.size>1;});
-      const rows=sel.candidates.map((c,i)=>{const crowned=!!c.crowned,ismax=(i===isMaxI);
+      const axMid=hasLB?'robustness spread (all configs) up to the lockbox door · then only the top-3 continue THROUGH the lockbox':(spanOK?'calendar time — optimize window (re-run to add the forward lockbox continuation)':'trade sequence (re-run for dates + the lockbox continuation)');
+      const ax='<text x="'+padL+'" y="'+(h-5)+'" font-size="8" fill="var(--text5)">'+(_d2(Wopt[0])||'start')+'</text><text x="'+((w-padR)/2)+'" y="'+(h-5)+'" font-size="7.4" fill="var(--text5)" text-anchor="middle">'+axMid+'</text><text x="'+(w-padR)+'" y="'+(h-5)+'" font-size="8" fill="var(--text5)" text-anchor="end">'+_d2(hasLB?((Wlb&&Wlb[1])||Wopt[1]):Wopt[1])+'</text>';
+      const svg='<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:auto;background:var(--bg1);border-radius:8px" xmlns="http://www.w3.org/2000/svg">'+zero+door+robLines+poolLines+lbLines+labSvg+ax+'</svg>';
+      const pk=Object.keys(cand[0].params||{});
+      const vary=pk.filter(k2=>{const s=new Set(cand.map(c=>String((c.params||{})[k2])));return s.size>1;});
+      const rows=cand.map((c,i)=>{const crowned=!!c.crowned,ismax=(i===isMaxI);
         const cfg=(vary.length?vary:pk.slice(0,3)).map(k2=>k2+' <b>'+String((c.params||{})[k2])+'</b>').join(' · ');
         return '<div style="display:flex;gap:8px;align-items:center;padding:3px 6px;font-size:8.5px;border-top:1px solid color-mix(in srgb,var(--border) 35%,transparent)'+(crowned?';background:color-mix(in srgb,#1d9e75 12%,transparent);border-left:3px solid #1d9e75':'')+'">'
           +'<span style="flex:0 0 86px;font-weight:700;color:'+(crowned?CROWN:(ismax?ISC:'var(--text4)'))+'">'+(crowned?'👑 crowned':(ismax?'IS max':('rank '+(i+1))))+'</span>'
@@ -7881,11 +7907,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<span style="flex:0 0 78px;text-align:right" title="what the SEARCH scored this config in-sample (its scoring window)">'+fmtUsd(Math.round((c.is_pnl||0)*mlt))+'</span>'
           +'<span style="flex:0 0 78px;text-align:right;font-weight:700;color:'+CROWN+'" title="summed PnL across the anchored walk-forward folds UNSEEN slices - the number that decides the crown">'+fmtUsd(Math.round((c.wf_oos_pnl||0)*mlt))+'</span>'
           +'<span style="flex:0 0 40px;text-align:center" title="how many walk-forward folds this config held (profitable) in">'+(c.folds_held!=null?c.folds_held:'—')+'</span>'
-          +'<span style="flex:0 0 78px;text-align:right;color:var(--text3)" title="full optimize-window equity of this config (the curve drawn above)">'+((c.equity&&c.equity.final!=null)?fmtUsd(Math.round(c.equity.final*mlt)):'—')+'</span></div>';}).join('');
-      const hdr='<div style="display:flex;gap:8px;font-size:7px;letter-spacing:.5px;color:var(--text5);padding:0 6px 2px"><span style="flex:0 0 86px"></span><span style="flex:1">config (knobs that differ)</span><span style="flex:0 0 78px;text-align:right">IS (search $)</span><span style="flex:0 0 78px;text-align:right">WF folds $</span><span style="flex:0 0 40px;text-align:center">folds</span><span style="flex:0 0 78px;text-align:right">full-window $</span></div>';
+          +'<span style="flex:0 0 82px;text-align:right;color:'+((c.lb_equity&&c.lb_equity.final!=null)?ISC:'var(--text5)')+'" title="this config carried forward THROUGH the lockbox (top-3 only) — shown after the crown was set, never used to pick it">'+((c.lb_equity&&c.lb_equity.final!=null)?fmtUsd(Math.round(c.lb_equity.final*mlt)):'—')+'</span></div>';}).join('');
+      const hdr='<div style="display:flex;gap:8px;font-size:7px;letter-spacing:.5px;color:var(--text5);padding:0 6px 2px"><span style="flex:0 0 86px"></span><span style="flex:1">config (knobs that differ)</span><span style="flex:0 0 78px;text-align:right">IS (search $)</span><span style="flex:0 0 78px;text-align:right">WF folds $</span><span style="flex:0 0 40px;text-align:center">folds</span><span style="flex:0 0 82px;text-align:right">lockbox end $</span></div>';
       const note=(sel.is_max_crowned===false)?'<div style="font-size:8.5px;color:var(--yellow);margin:4px 0 2px">⚖️ the in-sample MAX was NOT crowned — the walk-forward folds preferred a steadier config (this is #88 doing its job).</div>':'<div style="font-size:8.5px;color:var(--text4);margin:4px 0 2px">✓ the in-sample max ALSO won the walk-forward arbitration — search pick and OOS evidence agree.</div>';
-      return '<div class="lbl" style="margin:0 0 6px" title="#88 OOS-CHECKED SELECTION: the search proposes its top-'+(sel.k||sel.candidates.length)+' in-sample candidates (plus the plateau pick); each is re-scored on the anchored walk-forward folds UNSEEN slices, and the crown goes to the config with the best summed fold PnL - NOT the in-sample max. The lockbox stays one-look: it is spent on the crowned config only.">👑 WF-CHECKED SELECTION <span style="font-weight:400;color:var(--text5)">· top-'+(sel.k||sel.candidates.length)+' candidates on the walk-forward folds ⓘ</span></div>'
-        +svg+note+hdr+rows;};
+      const robNote=robCs.length?('<div style="font-size:8px;color:var(--text5);margin:1px 0 2px">grey = '+robCs.length+' more top configs shown as walk-forward CONTEXT (how tightly the good-config neighbourhood holds) — not eligible to be crowned.</div>'):'';
+      const lbNote=hasLB?('<div style="font-size:8px;color:var(--text5);margin:1px 0 3px">🚪 past the lockbox door: only the top-3 by walk-forward are carried through the holdout — shown AFTER the crown was set, never used to pick the champion.</div>'):'<div style="font-size:8px;color:var(--text5);margin:1px 0 3px">re-run this validate (engine 2026-07-21+) to draw the top-3 forward THROUGH the lockbox.</div>';
+      return '<div class="lbl" style="margin:0 0 6px" title="WF-CHECKED SELECTION (#88 / #88b): the search proposes its top in-sample candidates (plus the plateau pick); each is re-scored on the anchored walk-forward folds UNSEEN slices, and the crown goes to the best summed-fold config, NOT the in-sample max. The whole top set is drawn through walk-forward (robustness); only the top-3 continue through the one-look lockbox, and only for information — the lockbox never re-picks the champion.">👑 WF-CHECKED SELECTION <span style="font-weight:400;color:var(--text5)">· robustness through walk-forward · top-3 through the lockbox ⓘ</span></div>'
+        +svg+robNote+note+lbNote+hdr+rows;};
     // Shared Auto-Validate report card (verdict + 5 gates + equity curve + lockbox) —
     // used by both the Builder run panel and the Results/Past-Runs detail so they match.
     const validateCardHtml=(V,mlt,stratLabel,folds)=>{
