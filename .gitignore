@@ -37,6 +37,7 @@ augur_watch/_ingested/
 *.db
 augur_config.json
 optimizer_history.db
+trial_cache.db*
 
 # === Claude settings (local only) ===
 .claude/settings.local.json

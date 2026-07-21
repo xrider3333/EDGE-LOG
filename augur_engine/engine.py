@@ -13,6 +13,7 @@ import inspect
 from .strategies import load_strategy
 from .data import find_master, load_master_arrays
 from .analytics import monte_carlo_drawdown
+from . import trial_cache as TC
 
 
 def _apply_costs(m, cost_pts):
@@ -94,6 +95,36 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
 
     _gate_on = bool(ml_filter) and str(ml_filter).lower() not in ("", "none")
     want_trades = bool(return_trades or cost_pts > 0 or mc_sims > 0 or _gate_on or sizing)
+
+    # ── Trial-level result cache read-through (PR1, docs/INCREMENTAL_BACKTEST_
+    #    REUSE.md) — CONSERVATIVE gate: only the plain path (no ML gate, no sizing
+    #    overlay, no Monte-Carlo, caller doesn't want trades back) is eligible.
+    #    Those overlays are lower-volume and/or harder to source a clean ctx for
+    #    (a MC result is literally random — never cacheable), so per "when in
+    #    doubt, miss" this just recomputes them every time, byte-identical to
+    #    today. Off entirely unless AUGUR_TRIAL_CACHE is set. ──
+    _cache_key = None
+    _cache_ctx = None
+    if (TC.is_enabled() and not return_trades and mc_sims == 0
+            and not sizing and not _gate_on):
+        _cache_ctx = TC.build_ctx(mod, arrays, cost_pts=cost_pts, session=session,
+                                  date_from=date_from, date_to=date_to,
+                                  ml_filter=ml_filter, ml_threshold=ml_threshold,
+                                  ml_min_history=ml_min_history,
+                                  ml_refit_every=ml_refit_every,
+                                  sizing=sizing, master=master)
+        if _cache_ctx is not None:
+            try:
+                _cache_key = TC.make_key(_cache_ctx, params)
+                _hit = TC.get(_cache_key)
+            except Exception:
+                _cache_key, _hit = None, None
+            if _hit is not None:
+                TC.record_hit()
+                return _hit
+            if _cache_key is not None:
+                TC.record_miss()
+
     res = fn(O, H, L, C, **extras, **params, return_trades=want_trades)
 
     if res and cost_pts > 0:
@@ -179,6 +210,16 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
             "bars": int(len(C)),
             "cost_pts": float(cost_pts),
         }
+        # `res` is trades-free here whenever _cache_key was set (that branch only
+        # ever fires when not return_trades, and the pop() two lines up already
+        # ran) — safe to store as-is; a write failure never surfaces as a
+        # computation error (the backtest itself already succeeded).
+        if _cache_key is not None and _cache_ctx is not None:
+            try:
+                TC.put(_cache_key, res, strategy_file_sha=_cache_ctx["strategy_file_sha"],
+                      master_id=_cache_ctx["master_id"], engine_epoch=_cache_ctx["engine_epoch"])
+            except Exception:
+                pass
     return res
 
 

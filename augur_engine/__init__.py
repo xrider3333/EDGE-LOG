@@ -36,3 +36,11 @@ __all__ = ["list_strategies", "load_strategy", "strategy_params",
            "probability_backtest_overfitting",
            "ai_optimize", "ai_evolve", "validate_strategy_code", "call_llm"]
 __version__ = "0.1.0"
+# Trial-level backtest result cache (docs/INCREMENTAL_BACKTEST_REUSE.md, PR1).
+# Bump whenever the backtest MATH changes (any edit that could change a strategy's
+# computed metrics for the same inputs) so every cached row from before the bump
+# becomes a guaranteed miss instead of a stale hit. Read by augur_engine.trial_cache
+# via a DEFERRED import (see that module's build_ctx) to avoid a circular import --
+# this line must stay textually AFTER the `from .xxx import ...` block above, since
+# those submodules are what a deferred import waits for.
+ENGINE_CACHE_EPOCH = 1

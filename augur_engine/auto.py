@@ -30,6 +30,7 @@ from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
                         regime_report, neighborhood, downsample_pnls, downsample_points,
                         mae_mfe, relationship_scores, pdp_plateau,
                         interaction_pairs, conditional_boundary_flags)
+from . import trial_cache as TC
 
 # Realism gates — identical to optimizer.py (WF_MIN_SIDE / MAX_TRADE_RATE / MAX_PF).
 # A champion/headline config must take at least this many WINNING and LOSING trades
@@ -66,7 +67,7 @@ _METRIC_KEYS = ("total_pnl", "num_trades", "win_rate", "profit_factor",
                 "max_drawdown", "avg_pnl", "wins", "losses")
 
 
-def make_slice_evaluator(strategy, arrays, cost_pts=0.0):
+def make_slice_evaluator(strategy, arrays, cost_pts=0.0, cache_ctx=None):
     """Factored out of run_auto's per-trial `_ev` closure (#88, OOS-checked champion
     selection) so a FIXED param set can be evaluated on an arbitrary bar-index slice
     via the EXACT kwarg-detection (volumes/day_id/index) + cost-application path every
@@ -77,7 +78,16 @@ def make_slice_evaluator(strategy, arrays, cost_pts=0.0):
 
     `strategy` may be a path/filename (loaded via `load_strategy`) or an already-loaded
     module. Returns a callable `ev(a, b, params, keep_trades=False) -> metrics dict |
-    None` — None on any backtest exception (never raises)."""
+    None` — None on any backtest exception (never raises).
+
+    `cache_ctx` (docs/INCREMENTAL_BACKTEST_REUSE.md, PR1) — optional, per-job constant
+    key material from trial_cache.build_ctx. None (the default) means "don't cache" —
+    every existing caller that doesn't pass it (e.g. validate.py's _select_oos_champion)
+    is unaffected. When set, `ev` reads-through the cache keyed on (cache_ctx, params,
+    a, b) — the (a, b) slice bounds are part of the key precisely because this same
+    function serves BOTH the IS-window evaluator and every walk-forward fold's
+    differently-bounded test slice, so two different slices must never collide.
+    NEVER cached when keep_trades=True (the trades-bypass guard, docs' hard rule)."""
     mod = load_strategy(strategy) if isinstance(strategy, str) else strategy
     fn = mod.run_backtest
     sp = inspect.signature(fn).parameters
@@ -90,6 +100,18 @@ def make_slice_evaluator(strategy, arrays, cost_pts=0.0):
     pass_idx = IDX is not None and "index" in sp
 
     def ev(a, b, params, keep_trades=False):
+        key = None
+        if cache_ctx is not None and not keep_trades:
+            try:
+                if TC.is_enabled():
+                    key = TC.make_key(cache_ctx, params, a, b)
+                    cached = TC.get(key)
+                    if cached is not None:
+                        TC.record_hit()
+                        return cached
+                    TC.record_miss()
+            except Exception:
+                key = None   # cache machinery failed -- fall through to a normal compute
         ex = {}
         if pass_vol:
             ex["volumes"] = V[a:b]
@@ -104,10 +126,17 @@ def make_slice_evaluator(strategy, arrays, cost_pts=0.0):
                     m = _apply_costs(m, cost_pts)
                     if not keep_trades:
                         m.pop("trades", None)
-                return m
-            return fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=keep_trades, **ex, **params)
+            else:
+                m = fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=keep_trades, **ex, **params)
         except Exception:
             return None
+        if key is not None and m is not None:
+            try:
+                TC.put(key, m, strategy_file_sha=cache_ctx["strategy_file_sha"],
+                      master_id=cache_ctx["master_id"], engine_epoch=cache_ctx["engine_epoch"])
+            except Exception:
+                pass
+        return m
     return ev
 
 
@@ -134,7 +163,13 @@ def score_candidates_on_folds(strategy, arrays, candidates, fold_bounds, cost_pt
     A fold the strategy fails on (exception / no trades / empty slice) still gets a
     zeroed row rather than shortening the list, so callers can always zip positionally."""
     n = len(arrays["close"])
-    ev = make_slice_evaluator(strategy, arrays, cost_pts)
+    mod = load_strategy(strategy) if isinstance(strategy, str) else strategy
+    # PR1 (docs/INCREMENTAL_BACKTEST_REUSE.md): only cost_pts is cleanly available
+    # in this scope (session/date_from/date_to/ml/sizing aren't passed to this
+    # function) -- build_ctx correctly leaves those None, consistent with every
+    # other ctx built for a path that has no such concept in scope.
+    cache_ctx = TC.build_ctx(mod, arrays, cost_pts=cost_pts) if TC.is_enabled() else None
+    ev = make_slice_evaluator(mod, arrays, cost_pts, cache_ctx=cache_ctx)
     out = []
     for params in candidates:
         rows = []
@@ -724,7 +759,15 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
     # detection + cost-apply path this search loop already goes through. keep_trades=True
     # retains the per-trade list on the result (for OOS distributions); otherwise trades
     # are dropped to keep results light.
-    _ev = make_slice_evaluator(mod, arrays, cost_pts)
+    # PR1 trial cache (docs/INCREMENTAL_BACKTEST_REUSE.md): ctx built ONCE here covers
+    # every use of `_ev` below — single-split, walk-forward folds, auto-expand
+    # resamples, and P2 steering all call this SAME closure, so wiring it once here
+    # is sufficient (no separate wiring needed at any of those call sites).
+    _cache_ctx = None
+    if TC.is_enabled():
+        _cache_ctx = TC.build_ctx(mod, arrays, cost_pts=cost_pts, session=session,
+                                  date_from=date_from, date_to=date_to, master=master)
+    _ev = make_slice_evaluator(mod, arrays, cost_pts, cache_ctx=_cache_ctx)
 
     n = len(C)
     oos_on = bool(oos) and n >= 200

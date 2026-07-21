@@ -16,6 +16,7 @@ from .engine import _apply_costs
 from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
                         regime_report, neighborhood, downsample_pnls, downsample_points,
                         mae_mfe, relationship_scores, pdp_plateau)
+from . import trial_cache as TC
 
 _METRIC_KEYS = ("total_pnl", "num_trades", "win_rate", "profit_factor",
                 "max_drawdown", "avg_pnl")
@@ -116,6 +117,16 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
 
     results = []   # (params, metrics)
 
+    # ── Trial-level result cache (PR1, docs/INCREMENTAL_BACKTEST_REUSE.md) ──
+    # Built ONCE per job (not per config); a None ctx (flag off, or a required
+    # field couldn't be cleanly sourced -- e.g. arrays supplied directly with no
+    # master/fingerprint) is the universal "don't cache this job" signal every
+    # read-through below checks.
+    cache_ctx = None
+    if TC.is_enabled():
+        cache_ctx = TC.build_ctx(mod, arrays, cost_pts=cost_pts, session=session,
+                                 date_from=date_from, date_to=date_to, master=master)
+
     if workers and workers > 1 and path:
         import augur_mp_worker as W
         from concurrent.futures import ProcessPoolExecutor
@@ -125,7 +136,8 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
         chunks = [tasks[i:i + size] for i in range(0, len(tasks), size)]
         done = 0
         with ProcessPoolExecutor(max_workers=workers, initializer=W.init_worker,
-                                 initargs=(path, O, H, L, C, V, did, cost_pts)) as ex:
+                                 initargs=(path, O, H, L, C, V, did, cost_pts,
+                                          cache_ctx)) as ex:
             try:
                 for out in ex.map(W.eval_chunk, chunks):
                     for idx, m, _err in out:
@@ -142,6 +154,21 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 raise
     else:
         for i, params in enumerate(combos):
+            key = None
+            if cache_ctx is not None:
+                try:
+                    if TC.is_enabled():
+                        key = TC.make_key(cache_ctx, params, a=0, b=len(O))
+                        cached = TC.get(key)
+                        if cached is not None:
+                            TC.record_hit()
+                            results.append((params, cached))
+                            if progress_cb and (i % 25 == 0 or i + 1 == len(combos)):
+                                progress_cb(i + 1, len(combos))
+                            continue
+                        TC.record_miss()
+                except Exception:
+                    key = None   # cache machinery failed -- fall through to a normal compute
             try:
                 if cost_pts > 0:
                     m = fn(O, H, L, C, return_trades=True, **extras, **params)
@@ -154,6 +181,13 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 m = None
             if m:
                 results.append((params, m))
+                if key is not None:
+                    try:
+                        TC.put(key, m, strategy_file_sha=cache_ctx["strategy_file_sha"],
+                              master_id=cache_ctx["master_id"],
+                              engine_epoch=cache_ctx["engine_epoch"])
+                    except Exception:
+                        pass
             if progress_cb and (i % 25 == 0 or i + 1 == len(combos)):
                 progress_cb(i + 1, len(combos))
 

@@ -26,7 +26,8 @@ import os
 
 # Per-process state, set once by init_worker.
 _G = {"fn": None, "extras": {}, "cost_pts": 0.0,
-      "O": None, "H": None, "L": None, "C": None}
+      "O": None, "H": None, "L": None, "C": None,
+      "cache_ctx": None, "tc": None}
 
 
 def _apply_costs(m, cost_pts):
@@ -63,8 +64,12 @@ def _apply_costs(m, cost_pts):
     return out
 
 
-def init_worker(strategy_path, O, H, L, C, volumes, day_id, cost_pts):
-    """Pool initializer — runs once per worker process."""
+def init_worker(strategy_path, O, H, L, C, volumes, day_id, cost_pts, cache_ctx=None):
+    """Pool initializer — runs once per worker process. `cache_ctx` is a new,
+    OPTIONAL trailing initarg (docs/INCREMENTAL_BACKTEST_REUSE.md, PR1) — existing
+    8-positional-arg callers (optimizer.py's Streamlit app, tools/test_mp_worker.py)
+    are unaffected; they simply never pass it and get cache_ctx=None (caching off
+    for that worker, byte-identical to before this change)."""
     spec = importlib.util.spec_from_file_location(
         "augur_mp_strategy_" + os.path.basename(strategy_path).replace(".", "_"),
         strategy_path)
@@ -85,15 +90,52 @@ def init_worker(strategy_path, O, H, L, C, volumes, day_id, cost_pts):
     _G["cost_pts"] = float(cost_pts or 0.0)
     _G["O"], _G["H"], _G["L"], _G["C"] = O, H, L, C
 
+    # Trial-level result cache: only imported when the PARENT (augur_engine.
+    # optimize.run_grid) already confirmed AUGUR_TRIAL_CACHE is on AND could source
+    # a full ctx for this job. This keeps a cache-disabled (the default) worker
+    # exactly as lightweight as it was before this change — no augur_engine
+    # package import at all — which matters here specifically: this module's
+    # whole reason to exist (see the module docstring) is that workers stay
+    # numpy/stdlib-only so a Windows spawn-mode worker starts fast and clean.
+    _G["cache_ctx"] = cache_ctx
+    _G["tc"] = None
+    if cache_ctx is not None:
+        try:
+            from augur_engine import trial_cache as _tc
+            _G["tc"] = _tc
+        except Exception:
+            _G["tc"] = None   # fail-open — this worker just never hits the cache
+
 
 def eval_chunk(chunk):
-    """Evaluate a list of (idx, params) → list of (idx, metrics|None, err|None)."""
+    """Evaluate a list of (idx, params) → list of (idx, metrics|None, err|None).
+    Trial-cache read-through (PR1): a cache HIT skips the backtest call entirely;
+    a MISS computes exactly as before, then writes the cache entry. Cache-machinery
+    failures (a bad key, a locked/corrupt DB) degrade to a normal uncached compute
+    for that one config — they are kept in a SEPARATE try/except from the backtest
+    call itself, so a cache bug can never be misreported as a backtest error, and a
+    genuine backtest error is reported EXACTLY as before this change."""
     fn      = _G["fn"]
     extras  = _G["extras"]
     cost    = _G["cost_pts"]
     O, H, L, C = _G["O"], _G["H"], _G["L"], _G["C"]
+    ctx = _G.get("cache_ctx")
+    tc = _G.get("tc")
     out = []
     for idx, p in chunk:
+        key = None
+        if ctx is not None and tc is not None:
+            try:
+                if tc.is_enabled():
+                    key = tc.make_key(ctx, p, a=0, b=len(O))
+                    cached = tc.get(key)
+                    if cached is not None:
+                        tc.record_hit()
+                        out.append((idx, cached, None))
+                        continue
+                    tc.record_miss()
+            except Exception:
+                key = None   # cache machinery failed -- fall through to a normal compute
         try:
             if cost > 0:
                 m = fn(O, H, L, C, return_trades=True, **extras, **p)
@@ -105,4 +147,11 @@ def eval_chunk(chunk):
             out.append((idx, m, None))
         except Exception as e:
             out.append((idx, None, f"{type(e).__name__}: {e}"))
+            continue
+        if key is not None and m is not None:
+            try:
+                tc.put(key, m, strategy_file_sha=ctx.get("strategy_file_sha"),
+                      master_id=ctx.get("master_id"), engine_epoch=ctx.get("engine_epoch"))
+            except Exception:
+                pass
     return out

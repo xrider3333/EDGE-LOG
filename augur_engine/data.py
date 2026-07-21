@@ -6,6 +6,7 @@ the same CSV files (augur_uploads/) the Streamlit app uses, and returns OHLCV ar
 """
 import os
 import sqlite3
+import hashlib
 
 import numpy as np
 import pandas as pd
@@ -54,6 +55,18 @@ def load_master_arrays(master, date_from=None, date_to=None):
         # inclusive of the whole `date_to` calendar day
         df = df[df.index < pd.Timestamp(date_to, tz="US/Eastern") + pd.Timedelta(days=1)]
     day_id = pd.factorize(pd.Series(df.index).dt.date)[0].astype("int64")
+    # Data fingerprint (docs/INCREMENTAL_BACKTEST_REUSE.md): a sha1 of the SLICED
+    # window's first/last bar timestamp + bar count. This is what makes a "silent
+    # window slide" (master auto-synced new bars under a blank date_to -- the exact
+    # #162-vs-#164 bug CLAUDE.md's hard rule warns about) a cache MISS rather than a
+    # false hit: same date_from/date_to string can still resolve to a different set
+    # of actual bars once new data lands, and this fingerprint changes when that
+    # happens even though date_from/date_to themselves didn't. Non-breaking: purely
+    # an ADDED top-level key, every existing key is untouched.
+    n_bars = len(df.index)
+    _first_ts = str(df.index[0]) if n_bars else ""
+    _last_ts = str(df.index[-1]) if n_bars else ""
+    fingerprint = hashlib.sha1(f"{_first_ts}|{_last_ts}|{n_bars}".encode()).hexdigest()
     return {
         "open":  df["open"].values.astype(float),
         "high":  df["high"].values.astype(float),
@@ -63,4 +76,5 @@ def load_master_arrays(master, date_from=None, date_to=None):
         "day_id": day_id,
         "index": df.index,
         "meta": master,
+        "fingerprint": fingerprint,
     }

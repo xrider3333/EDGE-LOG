@@ -8,11 +8,15 @@ and the Library #s from augur_config.json's strat_nums.
 import os
 import re
 import json
+import hashlib
 import importlib.util
 
 from .paths import STRAT_DIR, PINE_DIR, CONFIG
 
 _CACHE = {}   # path -> (mtime, module)
+_SHA_CACHE = {}   # path -> (mtime, sha256 hexdigest) -- separate dict, mirrors _CACHE's
+                  # (path, mtime) memoization style but keyed to content-hash, not the
+                  # loaded module (see strategy_file_sha).
 
 
 def _resolve(name_or_path: str) -> str:
@@ -41,6 +45,29 @@ def load_strategy(name_or_path):
         raise AttributeError(f"{os.path.basename(path)} has no run_backtest()")
     _CACHE[path] = (mt, mod)
     return mod
+
+
+def strategy_file_sha(path) -> str:
+    """SHA-256 of the strategy file's raw BYTES (content, not mtime) -- the trial
+    cache's key (docs/INCREMENTAL_BACKTEST_REUSE.md) needs a content hash so a
+    same-mtime-different-content edit (e.g. a git checkout) still misses, and a
+    same-content-different-mtime file (e.g. a touch with no edit) still hits.
+    Memoized by (path, mtime) in a dict SEPARATE from `_CACHE` (the loaded-module
+    cache) so this can be called for a strategy that hasn't been loaded/won't be
+    loaded via `load_strategy` (e.g. a bare path string).
+
+    Fail-open by design: raises (FileNotFoundError/OSError) if `path` can't be
+    read, same as any other bare `open()` call -- callers building a cache key
+    must treat that as "cannot source this field, do not cache," never guess or
+    fall back to a stale hash."""
+    mt = os.path.getmtime(path)
+    hit = _SHA_CACHE.get(path)
+    if hit and hit[0] == mt:
+        return hit[1]
+    with open(path, "rb") as f:
+        digest = hashlib.sha256(f.read()).hexdigest()
+    _SHA_CACHE[path] = (mt, digest)
+    return digest
 
 
 def strategy_params(mod):
