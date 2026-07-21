@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='62.8';
+const VERSION='62.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'62.9', date:'2026-07-21', notes:['👑 WF-CHECKED SELECTION moved to §2, directly UNDER 2A TOP CONFIGS (owner: it belongs on 2A, next to the other multi-config equity chart — not in §1).','2A TOP CONFIGS now SHADES the out-of-sample / walk-forward tail (blue band on the right): ranking is locked to the in-sample scoring slice, and the shaded tail is the section the walk-forward folds judge on — so every config curve shows its out-of-sample behaviour in place. Validate runs only; the split comes from the saved fold bounds when present, else the ~75% default.']},
   {v:'62.8', date:'2026-07-21', notes:['👑 WF-CHECKED SELECTION axis fixes (owner): the end dates now read 6/7/10 → 1/14/25 like 1A (the ISO label 2025-01-14 was being misread as 2014), and the axis note says plainly that each curve spans the WHOLE optimize window, not just the walk-forward slice.','Engine + chart: candidate curves now save their trade EXIT DATES, and when a run carries them the chart places every curve on the REAL calendar axis — the same date axis as 1A — instead of even trade spacing. Runs made before tonight (incl. #168) fall back to trade-sequence spacing with a re-run note; the next Auto-Validate gets the calendar axis automatically.']},
   {v:'62.7', date:'2026-07-21', notes:['FIX: the 👑 WF-CHECKED SELECTION chart and the 📏 verdict-power line now render on AUTO-VALIDATE reports too — v62.6 wired them into the generic §1 layout only, and validate runs (the only runs that HAVE the data, e.g. #168) build §1 through their own branch. Verified live on run #168.']},
   {v:'62.6', date:'2026-07-21', notes:['👑 WF-CHECKED SELECTION chart (#88b, owner ask): Auto-Validate reports now draw the top-5 in-sample candidates as ONE 1A-style equity overlay directly under the 1C walk-forward block — green = the CROWNED config (won the fold arbitration), blue dashed = the IS MAX (the raw search pick) when the folds dethroned it, grey = the rest — plus a table per candidate: the config knobs that differ, search $, walk-forward fold $, folds held, full-window $. First run carrying the data: #168. Curves cover the optimize window only (the lockbox is never drawn).','📏 The verdict-power line (#94) now ALSO renders under the 1E KPI matrix — the redesigned report no longer shows the old feasibility card, so the power read-out would have been invisible in saved reports.']},
@@ -6792,12 +6793,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _xd0=(_xw&&_xw[0])||d.date_from,_xd1=(_xw&&_xw[1])||d.date_to;
       if(_xd0&&_xd1){grid+='<text x="'+xL.toFixed(1)+'" y="'+(H-0.5)+'" font-size="4.6" fill="var(--text3)">'+_dnice(_xd0)+'</text>'
         +'<text x="'+xR.toFixed(1)+'" y="'+(H-0.5)+'" text-anchor="end" font-size="4.6" fill="var(--text3)">'+_dnice(_xd1)+'</text>';}
+      // #88b/#99 (owner: show the WF section ON 2A): shade the out-of-sample TAIL so each
+      //   config curve's OOS behaviour reads in place. Ranking is locked to the in-sample
+      //   scoring slice (this panel's tooltip: "first ~75%"); the tail beyond it is what the
+      //   walk-forward folds judge on. Validate runs only (they have the IS/OOS split); the
+      //   fraction comes from the saved WF fold bounds when present, else the ~75% default.
+      let _oosBand='';
+      if(d.validate){let _isFrac=0.75;
+        const _fr=(Array.isArray(d.top10_results)?d.top10_results:[]).filter(x=>x&&x.fold!=null&&x.train_bars!=null&&x.test_bars!=null);
+        if(_fr.length){let _tb=0,_te=0;_fr.forEach(x=>{_tb=Math.max(_tb,+x.train_bars||0);_te+=(+x.test_bars||0);});
+          const _tot=_tb+_te; if(_tot>0)_isFrac=Math.max(0.4,Math.min(0.92,_tb/_tot));}
+        const _bx=xL+(xR-xL)*_isFrac;
+        _oosBand='<rect x="'+_bx.toFixed(1)+'" y="'+pt+'" width="'+(xR-_bx).toFixed(1)+'" height="'+(H-pd-pt).toFixed(1)+'" fill="#3a9bdc" opacity="0.08"/>'
+          +'<line x1="'+_bx.toFixed(1)+'" y1="'+pt+'" x2="'+_bx.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#3a9bdc" stroke-width="0.5" opacity="0.55" stroke-dasharray="2 2"/>'
+          +'<text x="'+(_bx+2).toFixed(1)+'" y="'+(pt+4.5).toFixed(1)+'" font-size="4.2" fill="#3a9bdc" opacity="0.85">walk-forward / out-of-sample tail →</text>';}
       const sel='<select data-tpc style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin-left:6px"><option value="rank"'+(mode==='rank'?' selected':'')+'>by rank</option>'+pkeys.map(k=>'<option value="'+k+'"'+(mode===k?' selected':'')+'>by '+k.replace(/_/g,' ')+'</option>').join('')+'</select>';
       const cfgSlider='<span title="how many curves get COLOUR (the rest stay as faint grey context) — also sets the config-distribution (2b) bin detail. The run stored the top '+etop.length+' curves." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+'</b></span>';
       const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis — top '+etop.length+((_xd0&&_xd1)?' · '+_dnice(_xd0)+' → '+_dnice(_xd1):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. RANKING: locked to the pre-registered IN-SAMPLE slice (the first ~75% of this window) — a lower-ranked curve can END higher because the tail is out-of-sample for selection, and peeking at it to pick the winner would be look-ahead bias. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
       return (tag?'<div title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' · TOP CONFIGS PNL <span style="font-weight:400;color:var(--text5);font-size:8px">ⓘ</span>'+sel+cfgSlider+'</div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+sel+'</div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
         +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+((d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,yl:'equity'}))+'"':'')+'>'
+        +_oosBand
         +grid
         +'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>'+lines+winTag+c2YTitle(H,'equity $')+'</svg></div>';
     };
@@ -8599,7 +8615,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div id="res-step-8" style="scroll-margin-top:64px"'+_eqxA+'>'+championEquityHtml(_V,mlt,d.top10_results,1)+'</div>'
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
           +((wf=>wf?'<div style="margin-top:9px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
-          +((sl=>sl?'<div style="margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+sl+'</div>':'')(selectionOverlayHtml(d.selection,mlt,_V)))
           +((st=>st?'<div style="margin-top:11px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+st+'</div>':'')(stressPanelHtml(d.stress,mlt,'1D',_dscope)))
           +'</div>';
         // 1H header: title (description on hover) with the calculated stats pinned to the right — the standard chart-header pattern.
@@ -8826,7 +8841,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // stack each column with §1-style dividers, then wrap in one equal-height card
       // 2E (param relationships) moved UNDER 2C in col1 (owner) — it's a per-knob view like 2C,
       //   and col1 is the widest column so its bars stop squishing.
-      const _col1=_stack([_eq,((_parc&&_parc.replace(/\s/g,''))?(_pmTog+_parc):''),_corr]);
+      // 2A companion (#88b, owner: put it ON 2A): the WF-CHECKED SELECTION — the top-K
+      //   candidates re-scored on the walk-forward folds — stacks directly under the 2A
+      //   top-config overlay, since both are multi-config equity views over the same window.
+      const _selBlock=selectionOverlayHtml(d.selection,mlt,d.validate);
+      const _col1=_stack([_eq,_selBlock,((_parc&&_parc.replace(/\s/g,''))?(_pmTog+_parc):''),_corr]);
       const _col2=_stack([_dist,_nbInner]);
       const _col3=_stack([_p3inner,_surrInner,_topInner,_dsrInner]);
       const _sec3=((_col1+_col2+_col3).replace(/\s/g,'')?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
