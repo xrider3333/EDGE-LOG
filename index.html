@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='62.4';
+const VERSION='62.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'62.5', date:'2026-07-21', notes:['FIX (supervisor self-audit of the v62.4 groundwork): the GAUGES β SIGNAL KNOBS gauge now counts a knob as signal exactly like the 2E panel it expands into — strictly a positive vs-noise probe margin, counted over the knobs the probe actually screened. Before it also pattern-matched the engine verdict wording, which could over-count. All other audited field names, data shapes and zone conventions checked out correct.']},
   {v:'62.4', date:'2026-07-21', notes:['NEW: GAUGES β — a third REPORT LAYOUT (CLASSIC / FUNNEL β / GAUGES β): the car-dashboard read. Every KPI renders as a compact gauge — red/yellow/green zone bands with tick marks, a needle on the value, the number below (0-1 metrics show as simple percentages) — grouped into 4 sections: strategy performance, strategy robustness, param influence, param robustness. Section headers roll up their gauge statuses as colored dot counts.','Tap any gauge to unfold the FULL panel behind it (equity, KPI matrix, neighbours, knob importance, bake-off…) under that section — nothing is recomputed or deleted, flip layouts any time. Zone edges, per-gauge scales and open owner questions: docs/RESULTS_GAUGE_DASHBOARD.md.','ROADMAP #26 filed (build later): incremental backtest reuse — skip recomputing configs a past run already backtested when the stack + data window match.']},
   {v:'62.3', date:'2026-07-20', notes:['NEW: FUNNEL β report layout — a REPORT LAYOUT toggle (CLASSIC / FUNNEL β) now sits at the top of every run report. FUNNEL regroups the SAME panels into five questions read top-to-bottom like a deploy decision: 1 Performance and Validation (equity, matrix, distributions, the In-sample block) → 2 Config Robustness (2A, 2B/2C, 2D, 2G, 2F — plus the PBO and plateau chips, which are about whether the config PICK is overfit) → 3 What Drives the Edge (knob importance, 3-D explorer, the 2L model bake-off) → 4 Enhancements (the ML gate and the ensemble chip — things that improve a result, not trust checks) → 5 Is the Edge Real (the remaining robustness chips only).','CLASSIC is untouched and stays the default — the toggle is remembered, flip back any time. The legacy comparison block renders only under CLASSIC.']},
   {v:'62.2', date:'2026-07-20', notes:['FIX: KNOB IMPORTANCE (2E) was showing fewer knobs than the old knobs-vs-noise chart — it only listed the NUMERIC swept params, so categorical knobs (modes / booleans like fill_mode, trigger, exit_mode) got dropped even though the surrogate had screened them against noise. Those knobs are back now: they show their vs-noise score and verdict, with — in the r / MI / PPS columns (those need a numeric axis) and a · for the direction glyph.']},
@@ -8990,8 +8991,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _ggMcR=(_ggMcUsd!=null&&_ggDd>1e-9)?(_ggMcUsd/_ggDd):null;
         let _rgTot=0,_rgPos=0;
         if(d.regime)[d.regime.vol,d.regime.trend,d.regime.dow,d.regime.tod||d.regime.hour].forEach(a=>{if(Array.isArray(a))a.forEach(x=>{const v=(x&&typeof x==='object')?(Array.isArray(x)?+x[1]:+x.pnl):+x;if(typeof v==='number'&&!isNaN(v)){_rgTot++;if(v>0)_rgPos++;}});});
-        const _ksO=(d.surrogate&&d.surrogate.knob_screen)||null,_ksK=_ksO?Object.keys(_ksO):[];
-        const _ksSig=_ksK.filter(k=>{const v=_ksO[k]||{};return /signal|keep|real/i.test(String(v.verdict||''))||(+v.probe_margin||0)>0;}).length;
+        // signal = strictly probe_margin > 0 over probe-screened knobs — the EXACT convention
+        //   the 2E panel uses (its noise verdict is margin <= 0), so gauge and panel agree.
+        const _ksO=(d.surrogate&&d.surrogate.knob_screen)||null;
+        const _ksK=_ksO?Object.keys(_ksO).filter(k=>_ksO[k]&&_ksO[k].probe_margin!=null):[];
+        const _ksSig=_ksK.filter(k=>(+_ksO[k].probe_margin||0)>0).length;
         const _relA=Array.isArray(d.relationship)?d.relationship.filter(x=>x&&x.pps!=null):[];
         const _relBest=_relA.length?_relA.slice().sort((a,b)=>(+b.pps||0)-(+a.pps||0))[0]:null;
         const _smA=(d.surrogate&&Array.isArray(d.surrogate.models))?d.surrogate.models.filter(m=>m&&m.cv_r2!=null&&!m.skipped):[];
