@@ -167,7 +167,9 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       EOD-flat qualifies; document per-strategy). Cache invalidation is the hard part: any
       strategy-file or engine change MUST miss (hence file SHA + engine version in the key).
       Compare-rerun rule stays untouched — a pinned rerun is an exact-hit reuse by definition.
-      Bigger scope, build separately from the web UI work.
+      Bigger scope, build separately from the web UI work. **Full scoping / hand-off spec (key
+      design, invalidation rules, correctness harness, build order):
+      `docs/INCREMENTAL_BACKTEST_REUSE.md`** — point a fresh session at that file.
 - [~] **#25 Plug-and-play ML gate (Strategy × Model matrix)** — decouple Carl's
       classification/regression MODELS from the rule strategies so any strategy pairs with
       any model WITHOUT a combinatorial strategy list (owner spec 2026-07-02: "select ENGU

@@ -5,8 +5,24 @@ dashboard — every KPI a compact gauge with red/yellow/green zones, needle on t
 percentage underneath; detail stays one tap away. This doc is the strategy the owner asked
 for in point 7 (design first, then build), and the phone-readable pickup doc (point 6).
 
-Status: **v62.4 shipped the first cut** (GAUGES β as a third REPORT LAYOUT toggle:
-CLASSIC · FUNNEL β · GAUGES β). Open items + owner questions at the bottom (§7/§8).
+Status: **v63.3** — GAUGES β shipped (v62.4), audit fix (v62.5), then the owner-review round
+(v63.3 — version jumped because a concurrent session shipped v62.9–63.2) added the pieces
+below. Toggle: CLASSIC · FUNNEL β · GAUGES β.
+
+**Owner review answers (2026-07-21) — now built:**
+- **Verified it renders** on a real run (§7 item ticked).
+- **Q1 → yes, a section:** ML-gate + ensemble now have their own **§5 ENHANCEMENTS** gauges
+  (GATE EDGE / GATE % KEPT / ENSEMBLE LIFT). With the new AT-A-GLANCE section that makes 6
+  sections total (glance + 4 categories + enhancements).
+- **Q2 → yes:** a compact always-visible **CHAMPION EQUITY strip** sits at the very top.
+- **Q5 → yes:** an **AT A GLANCE** section of composite 0–100 scores — one per category plus an
+  OVERALL (each = mean of its gauges' green=1 / amber=0.5 / red status).
+- **Q4 (win-rate breakeven band):** owner "idk where that is" → it's the WIN RATE gauge in §1;
+  kept as-is (graded vs its own breakeven rate). Explained, no change.
+- **Point 5 (no natural scale → raw number):** confirmed — every unbounded gauge (PF, recovery,
+  $, counts) already shows the **raw number** as its readout; only the needle uses a scale, and
+  none are faked into a percentage. This is now the documented rule (see §2).
+- **#26 incremental reuse:** full hand-off spec written → `docs/INCREMENTAL_BACKTEST_REUSE.md`.
 
 ---
 
@@ -44,6 +60,11 @@ Prototype validated 2026-07-21 (semicircle math + zones + needle screenshot-chec
 - **Value underneath** in the status color: percentages for everything that is naturally
   0–1 or 0–100 (owner point 2: 0–1 items become simple %), native units for $ / ratios /
   counts (a "62%" profit factor would lie — PF shows `1.62`, drawdown shows `$8.4k`).
+  **Rule (owner, point 5): if a metric has no natural 0–1 scale, the readout is the RAW
+  NUMBER, never a faked percentage.** The needle still uses an internal scale for position,
+  but the number shown is always the real value (PF `1.62`, net `$41k`, trades `978`,
+  recovery `4.9×`). Only genuinely bounded metrics (DSR, WFE, PBO, win rate, neighborhood…)
+  render as `%`.
   One-line gray subnote under the value for context (e.g. `OOS/IS retention`, `BE 41%`).
 - Label (uppercase, tiny) at the bottom; whole card is tappable → expands the detail panel.
 - Colors are the app's theme tokens (`var(--green/--yellow/--red)`), NOT hardcoded hex, so
@@ -89,11 +110,19 @@ The single source of truth is the `_ggAll` defs array in `index.html` (search
 | PLATEAU PICK | 4 | plateau_pick.same_as_best (+ boundary flags) | categorical | differs-at-range-edge / differs / agrees | AGREE / DIFFERS |
 | PBO | 4 | (V.)pbo.pbo | 0–100% | ≥50 / 30–50 / <30% (matches §2 verdict) | % |
 | TRADES / KNOB | 4 | V.trades_per_param (or trades ÷ tuned knobs) | 0–60 | <10 / 10–30 / ≥30 | per-knob count |
+| PARAM STABILITY | 4 | V.param_stability (engine field, not yet emitted) | 0–100% | <40 / 40–70 / ≥70% | % — **N/A until engine saves it** |
+| GATE EDGE | 5 | ml_gate gated−ungated PF (or gate_validate earns-pre) | lift −0.2…+0.4 | worse / flat / better | ±PF or HELPS/NO |
+| GATE % KEPT | 5 | ml_gate n_kept / n_total | 0–100%, sweet-spot band | ~100% or <30% yellow, mid green | % |
+| ENSEMBLE LIFT | 5 | ensemble.improved + recovery_gain | improved? | no / — / improved | ±rec or IMPROVED/NO |
 
-Dropped from the plan for now: PARAM STABILITY (IS→OOS re-opt drift) — the engine does
-not save it yet (see §7). Exact field fallbacks live in the code next to each def; a
-gauge with no data renders as a dim `—` card (never a fake green), consistent with the
-n/a-tile convention the report already uses.
+**AT A GLANCE composites (§ top):** OVERALL + one per category = mean of that category's
+gauges scored green=1 / amber=0.5 / red=0.08, shown 0–100 (zones <45 / 45–70 / ≥70). Summary
+only, not tappable; N/A when a category has no gauge with data.
+
+Exact field fallbacks live in the code next to each def; a gauge with no data renders as a
+dim `—` card (never a fake green), consistent with the n/a-tile convention the report already
+uses — so grid/auto runs show their applicable gauges and N/A the validate-only ones without
+moving the layout.
 
 ## 4. Layout & interaction (owner points 5, 7)
 
@@ -130,9 +159,16 @@ depends on it.
 - [x] Strategy doc (this file) — categories, zones, anatomy agreed with prototype
 - [x] v62.4: gauge component + defs + GAUGES β toggle + 4 sections + tap-to-expand
       panels + header status roll-ups (screenshot-verified on a mock auto-validate doc)
-- [ ] Zone-edge tuning pass with the owner after a week of real use (§8 Q3)
-- [ ] PARAM STABILITY gauge — needs engine to save IS→OOS re-opt drift (currently rare)
-- [ ] Gauge wall for non-validate run types (grid/auto get the subset that applies)
+- [x] Owner confirmed it renders on a real run (2026-07-21)
+- [x] v63.3: §5 ENHANCEMENTS gauges (Q1), top CHAMPION EQUITY strip (Q2), AT A GLANCE
+      composites (Q5), PARAM STABILITY N/A placeholder gauge, raw-number rule (point 5)
+- [x] Grid/auto coverage — handled by the N/A-card design (owner point 7): applicable
+      gauges render, validate-only ones show N/A, layout never moves
+- [ ] Zone-edge tuning pass with the owner after a week of real use (§8 Q3) — still open
+- [ ] PARAM STABILITY: wire real data once the engine emits `V.param_stability`
+      (IS→OOS re-opt drift) — gauge slot already in place, shows N/A until then
+- [ ] Composite-vs-per-header roll-up: shipped composites as a top AT-A-GLANCE section;
+      owner Q5 also mused "maybe composite as well" — confirm this placement is what they meant
 
 ## 8. 📱 Owner pickup — answer whenever, not at PC
 
