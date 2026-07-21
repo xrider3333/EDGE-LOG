@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='63.6';
+const VERSION='63.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'63.7', date:'2026-07-21', notes:['🎨 1G TRADE PNL DISTRIBUTION now fits its column like the 1D / 1H charts instead of overflowing into a sideways scroller. The old wide-scroll layout only showed the left tail (few trades, short bars) while the tall middle of the distribution was scrolled off-screen — so 1G looked half-empty next to the other charts. It now draws the WHOLE distribution at once at the same scale as its neighbours; use the bins control for finer detail.','🎛 2A CONFIG FUNNEL: the selection detail beneath the chart (the crown-pool rank table + the honesty notes) is now COLLAPSED by default behind a SELECTION DETAIL · ▾ show toggle, so 2B CONFIG SPACE sits directly under the 2A funnel chart. Click the toggle to drop the detail back down; your choice is remembered.']},
   {v:'63.6', date:'2026-07-21', notes:['👑 The 2A selection view is now a proper FUNNEL with two doors (you said all the lines ran to the end — fixed). The faint grey CLOUD = every top config, drawn only to the IN-SAMPLE door (~75% of the optimize window). Past it only the top-K by walk-forward keep going to the LOCKBOX door (optimize end). Past that only the top-3 continue THROUGH the lockbox to the right edge. So the picture narrows many → top-K → 3, left to right, on one chart.','The WF-crowned config is the solid green line and the in-sample MAX is the blue dashed line, both traced full-length so you can follow the eventual winner through the cloud. Right-gutter labels show each survivor’s ending $. #168 (pre-lockbox engine) shows the cloud → top-K narrowing with the re-run note for the top-3 lockbox tail.']},
   {v:'63.5', date:'2026-07-21', notes:['GAUGES β polish (owner): (1) FIX — gauge greens/reds were washing out to grey on the Mercury / Mono / Obsidian themes (those themes deliberately desaturate --green); the gauges now use the SAME hardcoded green/red as the deploy-checklist tiles (#1d9e75 / #e24b4a), so they read vivid on every theme. (2) Renamed PARAM INFLUENCE → PARAM PERFORMANCE. (3) Reordered the sections: Strategy Performance → Param Performance → Strategy Robustness → Param Robustness → Enhancements (param performance is now 2nd, strategy robustness 3rd). (4) The 1A CHAMPION EQUITY chart now leads the Strategy Performance section instead of sitting as a separate top banner. AT A GLANCE composites reordered to match.']},
   {v:'63.4', date:'2026-07-21', notes:['👑 WF-CHECKED SELECTION now lives ON the 2A chart itself (you wanted one chart, not a block beneath it). 2A keeps its many-config equity spread as faint grey context; the WF-crowned config is drawn solid green and the in-sample MAX blue-dashed; and the TOP-3 by walk-forward now EXTRAPOLATE FORWARD through the lockbox, past a purple "lockbox door" line, so you see how the relevant configs carry into the holdout on the same axis. The crown-pool table now sits inside the same 2A card. The separate selection block is gone.','Honesty kept: the lockbox continuation is drawn AFTER the crown was decided and is never used to re-pick the champion (the champion still lives on 1A). Non-validate / grid / auto / legacy runs render 2A exactly as before; #168 (pre-lockbox engine) shows the crowned overlay + table with a re-run note for the forward lockbox extension.']},
@@ -6678,7 +6679,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _det=Math.max(0.5,Math.min(4,+APREF.distBins||1));
       let NB=Math.round(span/_fd*_det);NB=Math.max(30,Math.min(500,NB||40));
       const bins=new Array(NB).fill(0);v.forEach(x=>{let b=Math.floor((x-mn)/span*NB);if(b<0)b=0;if(b>=NB)b=NB-1;bins[b]++;});
-      const bmax=Math.max.apply(null,bins)||1,padL=30,padR=42,tickH=18,plotTop=16,H=156,B=H-tickH,plotH=B-plotTop,BPX=Math.max(6,540/NB),Wp=NB*BPX,W=padL+Wp+padR,binW=span/NB,Xv=x=>padL+((x-mn)/span)*Wp;
+      const bmax=Math.max.apply(null,bins)||1,padL=30,padR=42,tickH=18,plotTop=16,H=156,B=H-tickH,plotH=B-plotTop,W=560,Wp=W-padL-padR,BPX=Wp/NB,binW=span/NB,Xv=x=>padL+((x-mn)/span)*Wp;
       let hits='';
       // height ∝ count with a tiny 1.5px floor so a 1-trade bar is a visible sliver yet shorter than a 2-trade bar;
       //   uniform opacity + no dot/no small-bar darkening (bars read as one clean series).
@@ -6700,10 +6701,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // x-axis ticks INSIDE the svg (below the baseline) so they scroll and scale WITH the bars — nice-step $ at true positions.
       const axis='<line x1="'+padL+'" y1="'+B+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-width="0.6"/>'+(function(){const _n2=x2=>{x2=Math.abs(x2)||1;const e=Math.pow(10,Math.floor(Math.log10(x2)));const f=x2/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};const st3=_n2(span/8)||1;let t='';for(let L=Math.ceil(mn/st3)*st3;L<=mx;L+=st3){const xx=Xv(L);t+='<text x="'+xx.toFixed(1)+'" y="'+(B+13)+'" text-anchor="middle" font-size="9" fill="'+(Math.abs(L)<1e-9?'var(--text2)':'var(--text3)')+'">'+fmtUsd(Math.round(L))+'</text>';}return t;})();
       const yTitle=(function(){const _ty=(plotTop+plotH/2).toFixed(1),_mk=_tx=>'<text x="'+_tx+'" y="'+_ty+'" transform="rotate(-90 '+_tx+' '+_ty+')" text-anchor="middle" font-size="8" fill="var(--text3)">trades</text>';return _mk(padL-18)+_mk(padL+Wp+30);})();
-      // self-contained svg at NATURAL width (data-distscroll → _rsCharts wraps it in a horizontal scroller
-      //   inline, and the ⛶ opens it tall + scrollable). x-ticks live inside so they always line up.
-      const svg='<svg viewBox="0 0 '+W.toFixed(0)+' '+H+'" width="'+W.toFixed(0)+'" height="'+H+'" preserveAspectRatio="xMinYMid meet" data-distscroll="1" style="display:block" data-xh="'+encodeURIComponent(JSON.stringify({xt:'usd',x0:mn,x1:mx,yt:'int',y0:0,y1:bmax,px:padL,py:plotTop,pw:Wp,ph:plotH,xl:'per-trade',yl:'trades'}))+'">'+grid+niceGrid+bellCurve+bars+zeroMark+meanMark+axis+yTitle+hits+'</svg>';
-      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;flex-wrap:wrap">'+tag+' · TRADE PNL DISTRIBUTION <span style="font-weight:400;color:var(--text4);font-size:8px;margin-left:4px">· '+(scope||'in-sample')+' · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins</span><span style="font-size:8px;color:var(--text5);margin-left:auto">'+NB+' bins · scroll →</span>'+(scopeCtl||'')+detCtl+'</div>':'<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TRADE PNL DISTRIBUTION · top config · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins <span style="margin-left:auto;font-size:8px;color:var(--text5)">'+NB+' bins · scroll →</span>'+detCtl+'</div>')
+      // self-contained svg that FITS its column width (width:100%, fixed 560 viewBox) — same scale as
+      //   1D / 1H / 1I so the whole distribution shows at once (no sideways scroll that hid the mode).
+      //   x-ticks live inside so they always line up; finer bins via the detail control below.
+      const svg='<svg viewBox="0 0 '+W.toFixed(0)+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto" data-xh="'+encodeURIComponent(JSON.stringify({xt:'usd',x0:mn,x1:mx,yt:'int',y0:0,y1:bmax,px:padL,py:plotTop,pw:Wp,ph:plotH,xl:'per-trade',yl:'trades'}))+'">'+grid+niceGrid+bellCurve+bars+zeroMark+meanMark+axis+yTitle+hits+'</svg>';
+      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;flex-wrap:wrap">'+tag+' · TRADE PNL DISTRIBUTION <span style="font-weight:400;color:var(--text4);font-size:8px;margin-left:4px">· '+(scope||'in-sample')+' · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins</span><span style="font-size:8px;color:var(--text5);margin-left:auto">'+NB+' bins</span>'+(scopeCtl||'')+detCtl+'</div>':'<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TRADE PNL DISTRIBUTION · top config · mean '+fmtUsd(Math.round(mean))+'/trade · σ '+fmtUsd(Math.round(sd))+' · '+Math.round(wins/n*100)+'% wins <span style="margin-left:auto;font-size:8px;color:var(--text5)">'+NB+' bins</span>'+detCtl+'</div>')
         +'<div style="font-size:8px;color:var(--text5);margin:0 0 3px;display:flex;gap:12px;flex-wrap:wrap"><span style="color:var(--blue)">▚ mean</span><span style="color:var(--text3)">▏ $0 break-even</span><span style="color:var(--yellow)">⋯ fitted normal</span></div>'
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px 10px 8px;'+(tag?'':'margin-bottom:14px')+'">'+svg+'</div>';
     };
@@ -6905,7 +6907,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+((!selMode&&d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,yl:'equity'}))+'"':'')+'>'
         +grid
         +'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>'+lines+selSvg+winTag+c2YTitle(H,'equity $')+'</svg></div>';
-      return _hdr+_body+(selMode?('<div style="margin-top:9px">'+selectionTableHtml(SELN,mult)+'</div>'):'');
+      if(!selMode)return _hdr+_body;
+      // ── selection detail (crown-pool table + honesty notes) COLLAPSED by default (owner: keep
+      //    the 2A chart, tuck the info beneath it so 2B is next; click to drop it down). ──
+      const _selOpen=!!APREF.selDetail;
+      const _selHd='<div data-seldetail title="the funnel selection detail — crown-pool table + honesty notes. Click to '+(_selOpen?'collapse':'expand')+'." style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;margin-top:9px;font-weight:700;font-size:8.5px;color:var(--text3);letter-spacing:.3px">SELECTION DETAIL <span style="font-weight:400;color:var(--text5);font-size:8px">· crown pool + notes</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+(_selOpen?'▴ hide':'▾ show')+'</span></div>';
+      return _hdr+_body+_selHd+(_selOpen?('<div style="margin-top:6px">'+selectionTableHtml(SELN,mult)+'</div>'):'');
     };
     // SCATTER — each tested config as a dot: chosen param (X) vs net PnL (Y). Shows
     // whether the edge is a smooth slope (robust) or random noise.
@@ -11034,6 +11041,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-p3view]').forEach(b=>{b.onclick=()=>{savePref('p3view',b.dataset.p3view);renderApp();};});
       // compact-pass expanders (#29/#30/#32): 2F table · §3 candidates table · 2L charts
       content.querySelectorAll('[data-cfgtbl]').forEach(b=>{b.onclick=()=>{savePref('cfgTblOpen',APREF.cfgTblOpen?0:1);renderApp();};});
+      content.querySelectorAll('[data-seldetail]').forEach(b=>{b.onclick=()=>{savePref('selDetail',APREF.selDetail?0:1);renderApp();};});
       content.querySelectorAll('[data-r3ev]').forEach(b=>{b.onclick=()=>{window._gvEvOpen=!window._gvEvOpen;renderApp();};});
       // report layout toggle: CLASSIC ⇄ FUNNEL β ⇄ GAUGES β (value-generic)
       content.querySelectorAll('[data-replay]').forEach(b=>{b.onclick=()=>{savePref('repLayout',b.dataset.replay);renderApp();};});
