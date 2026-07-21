@@ -5,9 +5,20 @@ dashboard — every KPI a compact gauge with red/yellow/green zones, needle on t
 percentage underneath; detail stays one tap away. This doc is the strategy the owner asked
 for in point 7 (design first, then build), and the phone-readable pickup doc (point 6).
 
-Status: **v63.3** — GAUGES β shipped (v62.4), audit fix (v62.5), then the owner-review round
-(v63.3 — version jumped because a concurrent session shipped v62.9–63.2) added the pieces
-below. Toggle: CLASSIC · FUNNEL β · GAUGES β.
+Status: **v63.8** — GAUGES β shipped (v62.4), audit fix (v62.5), owner-review round (v63.3–63.5:
+enhancements/composites/equity-strip, then mercury-green fix + section reorder + Param
+Performance rename + equity into §1), then **PILLS β (v63.8)** — a 4th layout. Toggle:
+CLASSIC · FUNNEL β · GAUGES β · PILLS β.
+
+**PILLS β (owner 2026-07-21):** same 5-section breakdown, but each 0-1 / $ metric is a
+HORIZONTAL pill gauged to 100% (red/yellow/green zone bands + a value tick) instead of a
+semicircle. Reuses the exact `_ggAll` defs / zones / hardcoded status colors as GAUGES β
+(search `PILLS β` in index.html). Per owner, based on the CLASSIC view: the 1A-1D charts, the
+1E matrix and the 1G/1H distributions are LEFT AS GRAPHS (rendered under Strategy Performance
+via `_panelEquity` | `_panelMatrix`+`_panelRegime` | `_distTile`) — only the scalar KPIs
+become pills. Performance / robustness pills are non-expandable (their detail is those §1
+graphs); param / enhancement pills tap to expand their config / gate charts. No AT-A-GLANCE
+composite in pills (kept classic-lean); easy to add if wanted.
 
 **Owner review answers (2026-07-21) — now built:**
 - **Verified it renders** on a real run (§7 item ticked).
