@@ -28,6 +28,7 @@ import glob
 import argparse
 
 import augur_engine as ae
+from augur_engine import trial_cache as TC
 from .util import json_safe
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -69,8 +70,31 @@ def process_job(job: dict, progress_cb=None) -> dict:
     # optional date-range window (YYYY-MM-DD); blank/missing => full master.
     df_from = job.get("date_from") or None
     df_to = job.get("date_to") or None
+
+    # ── Trial-cache per-JOB reuse accounting (PR2, docs/INCREMENTAL_BACKTEST_REUSE.md
+    # #7.2). process_job is the one clean accounting point: the runner is one process,
+    # one job at a time, so a reset-right-before/read-right-after around the single
+    # dispatch below cleanly scopes trial_cache's in-process _STATS counters to THIS
+    # job only. Every stats touch is try/except-wrapped (both here and at the bottom)
+    # so a stats hiccup can NEVER fail a real backtest -- the module's own
+    # fail-toward-MISS principle extended to accounting/logging. Entirely inert
+    # (no-op) when the cache is off, so behavior stays byte-identical to pre-PR2.
+    _grid_parallel = False   # set True below only for a grid job with workers>1
+    if TC.is_enabled():
+        try:
+            TC.reset_stats()
+        except Exception:
+            pass
     try:
         if jtype == "grid":
+            # workers>1 spawns a ProcessPoolExecutor (augur_mp_worker.eval_chunk runs
+            # in SEPARATE OS processes, each with its OWN trial_cache._STATS) -- those
+            # workers' record_hit/record_miss calls never reach this parent process's
+            # counters, so the accounting below would under-report a parallel grid
+            # job's real reuse. Captured once here (rather than re-parsed again later)
+            # so the dispatch call and the honesty check after it can never disagree.
+            _grid_workers = int(job.get("workers", 1))
+            _grid_parallel = _grid_workers > 1
             r = ae.run_grid(
                 job["strategy"], instrument=job.get("instrument"),
                 timeframe=job.get("timeframe", "5m"), session=job.get("session", "rth"),
@@ -78,7 +102,7 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 date_from=df_from, date_to=df_to,
                 cost_pts=float(job.get("cost_pts", 0) or 0),
                 min_trades=int(job.get("min_trades", 30)), top_n=int(job.get("top_n", 10)),
-                workers=int(job.get("workers", 1)), progress_cb=progress_cb,
+                workers=_grid_workers, progress_cb=progress_cb,
                 compute_dsr=bool(job.get("dsr", True)), mc_sims=int(job.get("mc_sims", 2000)),
                 compute_regime=bool(job.get("regime", True)),
                 compute_neighbors=bool(job.get("neighbors", True)),
@@ -188,6 +212,20 @@ def process_job(job: dict, progress_cb=None) -> dict:
     if r is None:
         return {"status": "error", "error": "no result (0 trades or invalid window)",
                 "finishedAt": time.time()}
+    if TC.is_enabled():
+        try:
+            summary = TC.job_reuse_summary()
+            note = ""
+            if _grid_parallel:
+                # HONESTY CAVEAT: don't silently print/attach a low parent-only count
+                # as if it were the complete picture -- label it explicitly instead.
+                summary["note"] = "parallel-grid counts not aggregated (workers>1 -- parent-process only)"
+                note = " [parent-process only; workers>1]"
+            r["cache_reuse"] = summary
+            print(f"    -> cache: reused {summary['hits']}/{summary['total']} configs "
+                  f"({summary['pct_reused']}%){note}")
+        except Exception:
+            pass
     return {"status": "done", "result": json_safe(r), "finishedAt": time.time()}
 
 

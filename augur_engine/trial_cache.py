@@ -240,6 +240,23 @@ def reset_stats():
     _STATS["misses"] = 0
 
 
+def job_reuse_summary() -> dict:
+    """Snapshot _STATS as the per-JOB reuse summary (PR2, docs/INCREMENTAL_BACKTEST_
+    REUSE.md #7.2 "per-job reuse logging"). A pure readout -- does NOT reset/mutate
+    _STATS itself, so calling this twice in a row returns the same numbers; the
+    runner (api/runner.py process_job) is what scopes these counts to a single job,
+    by calling reset_stats() right before it dispatches to the engine and reading
+    this right after. hits+misses==0 (cache off, or a job that never reached a
+    cacheable eval path) reports pct_reused=0.0 rather than raising
+    ZeroDivisionError -- consistent with this module's fail-toward-honest-zero
+    stance rather than fail-toward-exception."""
+    h = _STATS["hits"]
+    m = _STATS["misses"]
+    total = h + m
+    return {"hits": h, "misses": m, "total": total,
+            "pct_reused": round(100.0 * h / total, 1) if total else 0.0}
+
+
 def build_ctx(mod, arrays, *, cost_pts=0.0, session=None, date_from=None, date_to=None,
               ml_filter=None, ml_threshold=None, ml_min_history=None, ml_refit_every=None,
               sizing=None, master=None):
