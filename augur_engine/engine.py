@@ -14,6 +14,7 @@ from .strategies import load_strategy
 from .data import find_master, load_master_arrays
 from .analytics import monte_carlo_drawdown
 from . import trial_cache as TC
+from . import window_delta as WD
 
 
 def _apply_costs(m, cost_pts):
@@ -102,11 +103,14 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
     #    Those overlays are lower-volume and/or harder to source a clean ctx for
     #    (a MC result is literally random — never cacheable), so per "when in
     #    doubt, miss" this just recomputes them every time, byte-identical to
-    #    today. Off entirely unless AUGUR_TRIAL_CACHE is set. ──
+    #    today. Off entirely unless AUGUR_TRIAL_CACHE is set. This SAME
+    #    conservative gate also bounds PR4 (window_delta) below — a delta is
+    #    never attempted for a request the scalar cache itself wouldn't touch. ──
     _cache_key = None
     _cache_ctx = None
-    if (TC.is_enabled() and not return_trades and mc_sims == 0
-            and not sizing and not _gate_on):
+    _pr4_gate = (TC.is_enabled() and not return_trades and mc_sims == 0
+                and not sizing and not _gate_on)
+    if _pr4_gate:
         _cache_ctx = TC.build_ctx(mod, arrays, cost_pts=cost_pts, session=session,
                                   date_from=date_from, date_to=date_to,
                                   ml_filter=ml_filter, ml_threshold=ml_threshold,
@@ -125,10 +129,39 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
             if _cache_key is not None:
                 TC.record_miss()
 
-    res = fn(O, H, L, C, **extras, **params, return_trades=want_trades)
+    # ── Window-extension delta (PR4, docs/INCREMENTAL_BACKTEST_REUSE.md §2(c))
+    #    — only ever attempted after a PR1 scalar-cache MISS (an exact hit
+    #    above already returned) and under the SAME conservative `_pr4_gate`,
+    #    PLUS window_delta's own stricter internal gate (strategy's
+    #    STATELESS_AT_EOD opt-in, cost_pts > 0 — see that module's docstring
+    #    for why). try_extend() never raises and returns None the instant any
+    #    precondition isn't cleanly met, so this is a pure no-op — byte-
+    #    identical to today — for every strategy that hasn't opted in (i.e.
+    #    every real strategy shipped so far). ──
+    _gross_trades = None
+    _delta_trades = None
+    if _pr4_gate:
+        try:
+            _delta_trades = WD.try_extend(mod, arrays, params, cost_pts=cost_pts,
+                                          session=session, date_from=date_from,
+                                          date_to=date_to, master=master,
+                                          ml_filter=ml_filter, ml_threshold=ml_threshold,
+                                          ml_min_history=ml_min_history,
+                                          ml_refit_every=ml_refit_every, sizing=sizing)
+        except Exception:
+            _delta_trades = None
 
-    if res and cost_pts > 0:
-        res = _apply_costs(res, cost_pts)
+    if _delta_trades is not None:
+        # Same aggregation `_apply_costs` always uses — see this module's
+        # docstring for why this makes delta-vs-full equality PROVABLE rather
+        # than merely likely.
+        res = _apply_costs({"trades": _delta_trades}, cost_pts)
+        _gross_trades = _delta_trades
+    else:
+        res = fn(O, H, L, C, **extras, **params, return_trades=want_trades)
+        _gross_trades = res.get("trades") if isinstance(res, dict) else None
+        if res and cost_pts > 0:
+            res = _apply_costs(res, cost_pts)
 
     # ── ML trade gate (board 3A.2 / ROADMAP #25): gate AFTER costs (the model
     #    learns net wins), BEFORE Monte-Carlo (MC sizes the gated equity curve).
@@ -218,6 +251,23 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
             try:
                 TC.put(_cache_key, res, strategy_file_sha=_cache_ctx["strategy_file_sha"],
                       master_id=_cache_ctx["master_id"], engine_epoch=_cache_ctx["engine_epoch"])
+            except Exception:
+                pass
+        # PR4 (window_delta): persist this FULL window's gross trades — whether
+        # they came from a from-scratch compute or were just built by a delta
+        # extension — so a LATER, larger date_to can extend from THIS window.
+        # Uses `_gross_trades` (captured before `_apply_costs` ran / the trades
+        # a successful delta already assembled), never `res["trades"]` (already
+        # popped above whenever not return_trades). Best-effort, gated
+        # identically to the read side (window_delta._eligible) — a genuine
+        # no-op for every strategy that hasn't opted into STATELESS_AT_EOD.
+        if _pr4_gate and _gross_trades:
+            try:
+                WD.record_full(mod, arrays, params, cost_pts=cost_pts, session=session,
+                               date_from=date_from, date_to=date_to, master=master,
+                               ml_filter=ml_filter, ml_threshold=ml_threshold,
+                               ml_min_history=ml_min_history, ml_refit_every=ml_refit_every,
+                               sizing=sizing, gross_trades=_gross_trades)
             except Exception:
                 pass
     return res
