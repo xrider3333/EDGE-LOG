@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.23';
+const VERSION='64.24';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.24', date:'2026-07-22', notes:['Hotfix: v64.22 broke the run report detail (the could-not-render card with a _dOpts error) — the new bins menu referenced an option list an earlier edit had removed. Restored; reports render again.']},
   {v:'64.23', date:'2026-07-22', notes:['RESULTS section 3: NEW CHART 3B GATE EQUITY, under the before/after cards — the champion taking every trade (grey) vs the same champion with the ML gate skipping trades (coloured, stepping flat where a trade was skipped), running $ gap tinted between the two lines, endpoint totals labelled inside the plot. Uses the curve data the engine started saving in v64.13 — first live doc is run 173; older gate runs show a one-line re-run-to-populate note instead.']},
   {v:'64.22', date:'2026-07-22', notes:['1G controls collapse to just the active choice with a ▼ cue — click the pill to open the options (scope WF / LB / TOTAL and bin fineness).','1F REGIME REPORT CARD: each row is ONE pill again and the segments split it by the SAME percentage the label shows (Low vol 12% occupies 12% of the pill); the subtext after the title moved into the ⓘ.','Chart resize handle rows now sit OUTSIDE the chart panel (under it, like 1A-1D) instead of inside the plot background — report-wide, sections 2-4 included.','1I DEFLATED SHARPE info box now shows the actual math: why the winner Sharpe is the in-sample one on purpose, the expected-maximum formula behind the luck bar, and the full DSR formula that turns the Sharpe-vs-luck-bar gap over T trades into the percent.']},
   {v:'64.21', date:'2026-07-22', notes:['1F / 1D scope honesty: runs saved before the 2026-07-22 runner fix never recorded WHICH slice their regime / stress data covers, and the report wrongly labelled them all in-sample (run 173 for example actually holds whole-run data). Untagged runs now say "scope tag not saved on this run" instead of claiming in-sample; runs made from now on are labelled correctly.']},
@@ -6733,7 +6734,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const grid=[0.25,0.5,0.75,1].map(fr=>{const gy=B-fr*plotH,cv=Math.round(bmax*fr);return '<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4"/><text x="'+(padL+Wp+5).toFixed(1)+'" y="'+(gy+3.5).toFixed(1)+'" text-anchor="start" font-size="11" fill="var(--text5)">'+cv+'</text>';}).join('');
       // v64.22 (owner): the pill shows ONLY the active choice with a ▼ cue; clicking opens the
       //   options underneath (styled menu, no native chrome). Options use the existing
-      //   data-distbins wiring.
+      //   data-distbins wiring. (v64.23: _dOpts def restored — the v64.20 cycle-pill rewrite
+      //   dropped it and every run report threw "_dOpts is not defined".)
+      const _dOpts=[['3','3×'],['2','2×'],['1','1×'],['0.5','–']];
       const detCtl='<span style="position:relative;display:inline-flex;margin-left:6px">'
         +'<span data-binscur title="bin fineness — click to choose (3× is the default)" style="cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border);border-radius:7px;background:var(--bg1);padding:2px 8px;font-size:8px;font-weight:700;color:var(--blue);white-space:nowrap">'+(String(_det)==='0.5'?'–':String(_det)+'×')+' <span style="font-size:6px;color:var(--text4)">▼</span></span>'
         +'<span data-binsopts style="display:none;position:absolute;top:calc(100% + 3px);right:0;z-index:60;background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.4)">'+_dOpts.map(function(o){return '<span data-distbins="'+o[0]+'" style="display:block;cursor:pointer;padding:4px 12px;font-size:8px;font-weight:700;white-space:nowrap;background:'+(String(_det)===o[0]?'color-mix(in srgb,var(--blue) 16%,transparent)':'transparent')+';color:'+(String(_det)===o[0]?'var(--blue)':'var(--text3)')+'">'+o[1]+'</span>';}).join('')+'</span></span>';
