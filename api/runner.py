@@ -564,6 +564,13 @@ class FirestoreQueue:
             "stress": result.get("stress"),   # PnL across chronological windows
             "mae_mfe": result.get("mae_mfe"),   # per-trade adverse/favorable excursion
             "win_dist": result.get("win_dist"),   # winner's per-trade PnLs for the distribution curve
+            # 1G/1H scope slices + scope tag: the walk-forward and lockbox versions of the trade
+            # distribution and MAE/MFE, plus which scope the base copies cover. The engine returns
+            # these but they were dropped here (same bug family as wf_alt_folds) - which is why
+            # the 1G scope dropdown showed WF/LB greyed out on every saved run.
+            "win_dist_wf": result.get("win_dist_wf"), "win_dist_lb": result.get("win_dist_lb"),
+            "mae_mfe_wf": result.get("mae_mfe_wf"), "mae_mfe_lb": result.get("mae_mfe_lb"),
+            "champ_dist_scope": result.get("champ_dist_scope"),
             "wf_mode": job.get("wf_mode"),   # rolling | anchored (walk-forward runs)
             # 1C comparison toggle: the NON-selected walk-forward scheme's folds ride along so
             # the saved run can chart BOTH schemes. The engine returns these at the result top
