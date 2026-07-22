@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.22';
+const VERSION='64.23';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.23', date:'2026-07-22', notes:['RESULTS section 3: NEW CHART 3B GATE EQUITY, under the before/after cards — the champion taking every trade (grey) vs the same champion with the ML gate skipping trades (coloured, stepping flat where a trade was skipped), running $ gap tinted between the two lines, endpoint totals labelled inside the plot. Uses the curve data the engine started saving in v64.13 — first live doc is run 173; older gate runs show a one-line re-run-to-populate note instead.']},
   {v:'64.22', date:'2026-07-22', notes:['1G controls collapse to just the active choice with a ▼ cue — click the pill to open the options (scope WF / LB / TOTAL and bin fineness).','1F REGIME REPORT CARD: each row is ONE pill again and the segments split it by the SAME percentage the label shows (Low vol 12% occupies 12% of the pill); the subtext after the title moved into the ⓘ.','Chart resize handle rows now sit OUTSIDE the chart panel (under it, like 1A-1D) instead of inside the plot background — report-wide, sections 2-4 included.','1I DEFLATED SHARPE info box now shows the actual math: why the winner Sharpe is the in-sample one on purpose, the expected-maximum formula behind the luck bar, and the full DSR formula that turns the Sharpe-vs-luck-bar gap over T trades into the percent.']},
   {v:'64.21', date:'2026-07-22', notes:['1F / 1D scope honesty: runs saved before the 2026-07-22 runner fix never recorded WHICH slice their regime / stress data covers, and the report wrongly labelled them all in-sample (run 173 for example actually holds whole-run data). Untagged runs now say "scope tag not saved on this run" instead of claiming in-sample; runs made from now on are labelled correctly.']},
   {v:'64.20', date:'2026-07-22', notes:['No more border lines between stacked charts — the handle rows ARE the separators now (1G / 1H / 1I and every section-2 column), matching how 1A-1D read.','1G and 1H gained standard-deviation lines: -1σ / +1σ around the mean on the trade distribution, and a 1σ heat / reach marker on each side of MAE / MFE. Their in-chart axis text is also sized to render like the 1A-1D gutters.','The 1G controls are modern pills now: the scope is a segmented WF / LB / TOTAL toggle (like the 1C ANCH / ROLL pill, unavailable slices greyed) and the bin fineness is one pill that cycles 3× → 2× → 1× → coarse on click.','1F REGIME REPORT CARD: every regime segment is its own rounded pill with gaps instead of one fused bar.']},
@@ -8327,6 +8328,47 @@ namespace NinjaTrader.NinjaScript.Strategies {
           lockbox:lbHtml,
           verdict:'<div style="font-size:var(--fsxs);color:'+(LB?(LB.helped?'var(--green)':'var(--red)'):'var(--yellow)')+';margin-top:8px">'+(V.verdict||'')+'</div>'};};
     const gvTableHtml=(V,stratLbl,mlt3)=>{const p=gvParts(V,stratLbl,mlt3);return p?(p.head+p.intro+p.graph+p.table+p.earns+p.lockbox+p.verdict):'';};
+    // ── 3B GATE EQUITY (redesign item 18 / stack §7.8) — the champion taking EVERY trade vs
+    //    the SAME champion with the gate skipping trades, overlaid on one chart. Both curves
+    //    ride the same trade-sequence grid (engine ml_gate.py: the gated curve steps FLAT on
+    //    skipped trades), so x is trade # not time. Doc values are POINTS ×mult → $. Data
+    //    eq={cum_ungated,cum_gated,n} is saved by the engine since v64.13 (first production
+    //    doc: run #173); the call site renders a re-run note for older runs instead.
+    const gateEquityHtml=(eq,mlt4,gcol)=>{
+      const U=(eq&&eq.cum_ungated)||[],G=(eq&&eq.cum_gated)||[];
+      if(U.length<2||G.length<2)return '';
+      const NT=eq.n||Math.max(U.length,G.length);
+      const W=520,H=150,pl=24,pr=46,pt=10,pb=30,pw=W-pl-pr,ph=H-pt-pb;
+      let mn=0,mx=0;for(let i=0;i<U.length;i++){const v=U[i]*mlt4;if(v<mn)mn=v;if(v>mx)mx=v;}
+      for(let i=0;i<G.length;i++){const v=G[i]*mlt4;if(v<mn)mn=v;if(v>mx)mx=v;}
+      if(mn===mx){mn-=1;mx+=1;}const pd3=(mx-mn)*0.08;mn-=pd3;mx+=pd3;
+      const X=(i,len)=>pl+pw*(len>1?i/(len-1):0),Y=v=>pt+ph*(1-(v-mn)/((mx-mn)||1));
+      const path=arr=>arr.map((v,i)=>(i?'L':'M')+X(i,arr.length).toFixed(1)+' '+Y(v*mlt4).toFixed(1)).join(' ');
+      let g='';
+      for(let i=0;i<=4;i++){const v=mn+(mx-mn)*i/4,gy=Y(v);g+='<line x1="'+pl+'" y1="'+gy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.3"/><text x="'+(pl+pw+4)+'" y="'+(gy+3).toFixed(1)+'" font-size="8" fill="var(--text4)">'+fmtAx(v,1)+'</text>';}
+      if(mn<0&&mx>0){const zy=Y(0);g+='<line x1="'+pl+'" y1="'+zy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+zy.toFixed(1)+'" stroke="var(--text4)" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.5"/>';}
+      // tinted band between the curves = the running $ gap the gate opened, trade by trade
+      let band='M'+X(0,U.length).toFixed(1)+' '+Y(U[0]*mlt4).toFixed(1);
+      for(let i=1;i<U.length;i++)band+='L'+X(i,U.length).toFixed(1)+' '+Y(U[i]*mlt4).toFixed(1);
+      for(let i=G.length-1;i>=0;i--)band+='L'+X(i,G.length).toFixed(1)+' '+Y(G[i]*mlt4).toFixed(1);
+      g+='<path d="'+band+'Z" fill="'+gcol+'" opacity="0.07"/>';
+      g+='<path d="'+path(U)+'" fill="none" stroke="var(--text3)" stroke-width="1.3" opacity="0.75"/>';
+      g+='<path d="'+path(G)+'" fill="none" stroke="'+gcol+'" stroke-width="1.8"/>';
+      // endpoint totals INSIDE the plot (1A convention) — nudged apart when the finals land close
+      const uf=U[U.length-1]*mlt4,gf=G[G.length-1]*mlt4;
+      let ly1=Math.max(pt+8,Math.min(pt+ph-2,Y(uf)-3)),ly2=Math.max(pt+8,Math.min(pt+ph-2,Y(gf)-3));
+      if(Math.abs(ly1-ly2)<11){const c=(ly1+ly2)/2,s=(ly1<=ly2?1:-1);ly1=c-5.5*s;ly2=c+5.5*s;}
+      g+='<text x="'+(pl+pw-4)+'" y="'+ly1.toFixed(1)+'" text-anchor="end" font-size="8" font-weight="700" fill="var(--text3)">NO GATE '+fmtAx(uf,1)+'</text>';
+      g+='<text x="'+(pl+pw-4)+'" y="'+ly2.toFixed(1)+'" text-anchor="end" font-size="8" font-weight="700" fill="'+gcol+'">GATED '+fmtAx(gf,1)+'</text>';
+      [[0,'0'],[0.5,Math.round(NT/2)+''],[1,NT+'']].forEach(t=>{g+='<text x="'+(pl+pw*t[0]).toFixed(1)+'" y="'+(pt+ph+11)+'" text-anchor="'+(t[0]===0?'start':(t[0]===1?'end':'middle'))+'" font-size="8" fill="var(--text4)">'+t[1]+'</text>';});
+      g+='<text x="'+(pl+pw/2).toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">TRADE #  —  time order  →</text>';
+      const _yc2=(pt+ph/2).toFixed(1);
+      g+='<text x="10" y="'+_yc2+'" transform="rotate(-90 10 '+_yc2+')" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">CUMULATIVE $ →</text>';
+      return '<div style="margin:2px 0 12px">'
+        +'<div class="lbl" style="margin:0 0 3px">📈 3B GATE EQUITY — every trade vs gated <span style="font-weight:400;color:var(--text5);font-size:9px;cursor:help" title="Both curves share one x axis: trade number in time order. The gated curve moves only on the trades the gate kept, so it goes flat where trades were skipped — the tinted band is the running $ gap. A gap that widens steadily across the whole span = a real filter; a gap made in one short stretch = luck (same read as chart 1D). Full span including the lockbox tail. Curves are saved by the engine on gate runs from v64.13 on — first live doc is run 173.">ⓘ</span></div>'
+        +'<div style="font-size:8px;color:var(--text4);margin:0 0 3px">grey = every trade taken · coloured = gate kept only · flat steps = skipped trades · band = running $ gap · '+NT+' trades, lockbox tail included</div>'
+        +'<div style="background:var(--bg1);border-radius:8px;padding:8px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+'</svg></div>'
+        +'</div>';};
     // ── 2L SURROGATE BAKE-OFF (#31 P1, docs/SURROGATE_DISCOVERY_DESIGN.md) — renders
     //    d.surrogate: several models (quadratic / random forest / xgboost / gaussian
     //    process) fit to the SAME configs the search already sampled, cross-validated
@@ -9137,7 +9179,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
           _hc.push(_statCard('TRADES KEPT',(U.num_trades||0),(G.num_trades||0)+' ('+Math.round((G.num_trades||0)/((U.num_trades)||1)*100)+'%)',null));
         }
         const _hero=_hc.length?('<div style="font-size:8px;color:var(--text5);letter-spacing:.5px;margin:0 0 5px">BEFORE → AFTER'+(_slice?' · '+_slice:'')+' — every trade (before) vs only the trades the gate kept (after)</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+_hc.join('')+'</div>'):'';
-        const _ovlNote='<div style="display:flex;align-items:center;gap:8px;background:var(--bg1);border-radius:8px;padding:6px 10px;margin-bottom:12px;font-size:8px;color:var(--text5)"><span style="font-size:11px;font-variant-emoji:text">📈</span><span>ungated vs gated equity curves, overlaid on one chart — coming once the engine saves both curves (same add as the 2L overlay).</span></div>';
+        // 3B: the real overlay when the doc carries curves (engine saves them since v64.13 —
+        // gate_validate.equity for bake-off runs, ml_gate.equity for single-gate runs);
+        // otherwise a one-line re-run note (same graceful pattern as the 2H/2L overlays).
+        const _geq=(_gvD&&_gvD.equity)||(d.gate_validate&&d.gate_validate.equity)||(d.ml_gate&&d.ml_gate.equity)||null;
+        const _ovlNote=(_geq?gateEquityHtml(_geq,mlt,_gbc):'')||'<div style="display:flex;align-items:center;gap:8px;background:var(--bg1);border-radius:8px;padding:6px 10px;margin-bottom:12px;font-size:8px;color:var(--text5)"><span style="font-size:11px;font-variant-emoji:text">📈</span><span>3B GATE EQUITY — no saved curves on this run: the engine saves them on gate runs made from v64.13 on (first live doc: run 173). Re-run this config to populate the chart.</span></div>';
         // ── the pick + collapsed EVIDENCE (sweep chart + candidates table / full gate detail) ──
         const _evOpen=!!window._gvEvOpen;
         let _gBody;
