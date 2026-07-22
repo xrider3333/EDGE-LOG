@@ -782,6 +782,32 @@ not saved to the runs DB — so they carry no run id.*
    - **UI half**: the EDGE-LOG UI session draws chart 3B once the data exists (report redesign
      ledger item 18). Existing runs (incl. #170) will never have the curves — only runs made
      after the engine change can draw the overlay.
+9. **⬜ TODO (owner-approved 2026-07-22) — per-section REGIME buckets (report chart 1F,
+   ledger item 66)**. *Self-contained brief — buildable cold by an engine session.*
+   - **What**: the engine currently saves ONE regime table per run (`regime`: vol / trend /
+     day-of-week / time-of-day buckets of the champion trades — whole-run when the
+     full-window champion pass ran, else the in-sample slice). Compute and save the SAME
+     bucket tables for each validation section so the report 1F card can switch slices:
+     `regime_is` (in-sample slice), `regime_wf` (concatenated walk-forward out-of-sample
+     trades), `regime_lb` (lockbox trades). Keep the existing `regime` field as-is (it is the
+     TOTAL / whole-run table and stays the default fallback for old-run rendering).
+   - **Why**: "the strategy makes its money in high-vol trend regimes" is only trustworthy if
+     it also holds on UNSEEN data — the whole-run table is dominated by the in-sample years.
+     A WF-slice regime card shows whether the regime profile SURVIVES out-of-sample, the same
+     honesty upgrade 1G/1H already have via their WF/LB slices.
+   - **Where**: the regime bucketing already exists as a function (it produces `rg.vol` /
+     `rg.trend` / `rg.dow` / `rg.tod` rows with n / pnl / pf per bucket) — call it on the
+     per-section trade lists that the validate pipeline already has (the same slices used for
+     `win_dist_wf` / `win_dist_lb` / the in-sample stats). Wire the three new keys through
+     `augur_engine/validate.py`'s return dict AND `api/runner.py`'s run-doc saver (the saver
+     already carries `win_dist_wf/lb`, `mae_mfe_wf/lb`, `champ_dist_scope` since 2026-07-22 —
+     add the three regime keys next to them; do NOT forget the runner half, three save-layer
+     omissions have burned us already).
+   - **Watch**: lockbox trade counts are small (run #173: 38) — buckets with n under ~5 are
+     noise; save them anyway, the UI greys thin buckets.
+   - **UI half** (EDGE-LOG session, after data exists): 1F joins the 1G/1H scope switch (one
+     control drives 1F/1G/1H), gains a TOTAL option backed by the existing `regime` field;
+     default stays the 1G logic (strongest OOS slice present, i.e. WF when saved).
 
 **Current Auto-Validate pipeline (as of 2026-07-20, for orientation):** 🎯 steered search (random
 seed ~40% of trials → GP-aimed batches, #36; TPE and QRF brains available) → auto-expand of
@@ -854,6 +880,10 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-22** — **§7 open item 9 ADDED (owner-approved): per-section regime buckets**
+  (`regime_is` / `regime_wf` / `regime_lb` alongside the existing whole-run `regime`) so the
+  report 1F card can show whether the regime profile survives out-of-sample. Engine + runner
+  halves specified in the brief; UI half waits on the data.
 - **2026-07-22** — **§7 item 8 DATA LIVE IN PRODUCTION: run #173 carries the gate curves.**
   Same-window+master rerun of #170 (pinned 2010-06-07→2026-07-16, `NQ 5m RTH - no-adj`) queued via
   the backtests channel and completed in 9.5 min (♻ 97.2% trial reuse vs #170's 22.5 min cold —
