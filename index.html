@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.20';
+const VERSION='64.21';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.21', date:'2026-07-22', notes:['1F / 1D scope honesty: runs saved before the 2026-07-22 runner fix never recorded WHICH slice their regime / stress data covers, and the report wrongly labelled them all in-sample (run 173 for example actually holds whole-run data). Untagged runs now say "scope tag not saved on this run" instead of claiming in-sample; runs made from now on are labelled correctly.']},
   {v:'64.20', date:'2026-07-22', notes:['No more border lines between stacked charts — the handle rows ARE the separators now (1G / 1H / 1I and every section-2 column), matching how 1A-1D read.','1G and 1H gained standard-deviation lines: -1σ / +1σ around the mean on the trade distribution, and a 1σ heat / reach marker on each side of MAE / MFE. Their in-chart axis text is also sized to render like the 1A-1D gutters.','The 1G controls are modern pills now: the scope is a segmented WF / LB / TOTAL toggle (like the 1C ANCH / ROLL pill, unavailable slices greyed) and the bin fineness is one pill that cycles 3× → 2× → 1× → coarse on click.','1F REGIME REPORT CARD: every regime segment is its own rounded pill with gaps instead of one fused bar.']},
   {v:'64.19', date:'2026-07-22', notes:['Section 2 (Configuration Analysis) now separates exactly like section 1: vertical splitter bars trade width between its three column tiles (double-click = reset) and each tile has a bottom handle row for its height. And EVERY chart box in the report now resizes from a slim handle row under it instead of the tiny native corner grip.','1G TRADE PNL DISTRIBUTION: count axis on the right only (the left copy was a duplicate), axis text matched to the 1A style, x labels in the shared k-format, the legend row is gone (BE now labels the break-even line inside the chart, the mean label was already inside), 3x bins is the default and the fineness options live in one compact dropdown. The scope box is smaller: WF (OOS) / LB (OOS) / TOTAL.','1H MAE / MFE: header slimmed to STOP and TARGET medians only — the 90 / 75 percent lines carry their percentages inside the chart now; the legend row and the duplicate scope subtext are gone (the 1G scope dropdown drives both charts).','Fixed (runner): the run saver was ALSO dropping the walk-forward and lockbox slices of the 1G / 1H distributions plus the whole-run-vs-in-sample tag — same bug family as the ROLLING folds. New validates save them; the 1G dropdown then offers WF and LB.','Separators between 1E/1F and 1G/1H/1I are full-strength lines now (they were nearly invisible).']},
   {v:'64.18', date:'2026-07-22', notes:['The tile-height grabber is back — as a handle row at the very BOTTOM of each section-1 tile (same slim drag bar as the charts and splitters). Drag it to make the whole tile taller or shorter (content scrolls inside), the height sticks per tile, and double-click returns the tile to automatic height. This replaces the old corner grabber the splitter rework removed.']},
@@ -8766,7 +8767,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let _panelEquity='',_panelMatrix='',_panelRegime='',_panelMae='',_panelTD='',_distTile='';
       if(d.validate){const _V=d.validate,_lb=_V.lockbox||{};
         // 1D/1G/1I show WHOLE-RUN champion behaviour on new runs (engine full-window pass); older runs fall back to the in-sample slice.
-        const _dscope=(d.champ_dist_scope==='overall')?'whole run':'in-sample';
+        // v64.21: runs saved BEFORE the 2026-07-22 runner fix never carried the scope tag —
+        //   calling them "in-sample" was often WRONG (e.g. run 173: 1F regime covers 662 trades,
+        //   the whole run, not the 226-trade in-sample slice). Absent tag → say so honestly.
+        const _dscope=(d.champ_dist_scope==='overall')?'whole run':(d.champ_dist_scope?'in-sample':'scope tag not saved on this run — likely whole run; re-run to label');
         // v64.16 (owner): width is traded between tiles via the [data-vsplit] splitter bars —
         //   the per-tile native resize grabber (tiny corner dot) is gone.
         const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 6px 14px 16px;min-width:260px;overflow:auto';
