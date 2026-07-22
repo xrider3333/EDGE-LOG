@@ -811,9 +811,10 @@ not saved to the runs DB — so they carry no run id.*
      omissions have burned us already).
    - **Watch**: lockbox trade counts are small (run #173: 38) — buckets with n under ~5 are
      noise; save them anyway, the UI greys thin buckets.
-   - **UI half** (EDGE-LOG session, after data exists): 1F joins the 1G/1H scope switch (one
-     control drives 1F/1G/1H), gains a TOTAL option backed by the existing `regime` field;
-     default stays the 1G logic (strongest OOS slice present, i.e. WF when saved).
+   - **UI half** (EDGE-LOG session, after data exists): 1F gets its OWN scope toggle (owner
+     2026-07-22 — NOT shared with the 1G/1H switch), options IS / WF / LB / TOTAL, with TOTAL
+     backed by the existing `regime` field and the DEFAULT. (WF here = ALL the walk-forward
+     out-of-sample trades concatenated across the folds, not a single fold.)
 
 **Current Auto-Validate pipeline (as of 2026-07-20, for orientation):** 🎯 steered search (random
 seed ~40% of trials → GP-aimed batches, #36; TPE and QRF brains available) → auto-expand of

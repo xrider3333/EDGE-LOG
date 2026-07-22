@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.24';
+const VERSION='64.25';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.25', date:'2026-07-22', notes:['1I DEFLATED SHARPE: the headline stat is now honestly labelled IS Sharpe (it is the in-sample Sharpe on purpose — the winner was picked on that window, so pick-luck is tested there), the info box explanation is rewritten from scratch in plain language (what the luck bar is, where the percent comes from, what the 80 / 95 ticks mean), the tick numerals came off the gauge strip, and the gauge sits in its own subtile like 1G / 1H.','2A: the info icon sits right after the 2A tag (1A pattern) and holds the funnel-path caption; the configs slider is right-aligned on the title row; the region labels are IS / WF / LB; a compact colour KEY sits in the upper-left of the plot; the $ axis uses the shared k-format; SELECTION DETAIL is its own expandable subtile instead of floating text.','2B: renamed PARALLEL COORDS, info icon right after the tag, and the NET $ / MAX DD / MAR chart-metric buttons moved onto its title row.','A hair more breathing room between every resize handle row and the chart or tile above it.']},
   {v:'64.24', date:'2026-07-22', notes:['Hotfix: v64.22 broke the run report detail (the could-not-render card with a _dOpts error) — the new bins menu referenced an option list an earlier edit had removed. Restored; reports render again.']},
   {v:'64.23', date:'2026-07-22', notes:['RESULTS section 3: NEW CHART 3B GATE EQUITY, under the before/after cards — the champion taking every trade (grey) vs the same champion with the ML gate skipping trades (coloured, stepping flat where a trade was skipped), running $ gap tinted between the two lines, endpoint totals labelled inside the plot. Uses the curve data the engine started saving in v64.13 — first live doc is run 173; older gate runs show a one-line re-run-to-populate note instead.']},
   {v:'64.22', date:'2026-07-22', notes:['1G controls collapse to just the active choice with a ▼ cue — click the pill to open the options (scope WF / LB / TOTAL and bin fineness).','1F REGIME REPORT CARD: each row is ONE pill again and the segments split it by the SAME percentage the label shows (Low vol 12% occupies 12% of the pill); the subtext after the title moved into the ⓘ.','Chart resize handle rows now sit OUTSIDE the chart panel (under it, like 1A-1D) instead of inside the plot background — report-wide, sections 2-4 included.','1I DEFLATED SHARPE info box now shows the actual math: why the winner Sharpe is the in-sample one on purpose, the expected-maximum formula behind the luck bar, and the full DSR formula that turns the Sharpe-vs-luck-bar gap over T trades into the percent.']},
@@ -6517,7 +6518,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // v64.13 (owner): section-1 charts resize from a dedicated slim HANDLE ROW under the chart
     //   (a centred drag bar — its own row, not the native corner grip that sat on the axis).
     //   Wired by _rsCharts ([data-rsrow] drags the previous sibling row; heights still persist).
-    const rsRow='<div data-rsrow title="drag up / down to resize" style="height:8px;margin:1px 0 3px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div></div>';
+    const rsRow='<div data-rsrow title="drag up / down to resize" style="height:8px;margin:4px 0 3px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div></div>';
     const _fmtSecs=s=>{s=Math.round(+s||0);if(s<1)return '<1s';if(s<60)return s+'s';if(s<3600)return Math.floor(s/60)+'m '+(s%60)+'s';return (s/3600).toFixed(1)+'h';};
     // iOS-glass tile matching the overview hero/KPI cards: hero-card class (theme glass
     // adds blur/gradient) + rounded + subtle 40%-border like the hero tiles.
@@ -6924,7 +6925,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // brighter/whiter gridlines + labels (owner request: "make axis more white")
       for(let L=Math.ceil(mn/_gs)*_gs;L<=mx+1e-6;L+=_gs){const _z=Math.abs(L)<1e-6,gy=Yv(L);
         grid+='<line x1="'+xL.toFixed(1)+'" y1="'+gy.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--text4)" stroke-width="'+(_z?0.9:0.5)+'" opacity="'+(_z?0.7:0.42)+'"/>'
-          +'<text x="'+(xR+4).toFixed(1)+'" y="'+(gy+2.5).toFixed(1)+'" font-size="4.6" fill="var(--text2)">'+fmtUsd(Math.round(L))+'</text>';}
+          +'<text x="'+(xR+4).toFixed(1)+'" y="'+(gy+2.5).toFixed(1)+'" font-size="4.6" fill="var(--text2)">'+fmtAx(L,1)+'</text>';}
       // Single NET (y) axis on the RIGHT, drawn to MATCH the x-axis baseline styling (neutral white);
       //   the old red LEFT guide is dropped — owner: "dont need y axis on the left".
       grid+='<line x1="'+xR.toFixed(1)+'" y1="'+pt+'" x2="'+xR.toFixed(1)+'" y2="'+(H-pd)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>';
@@ -6979,10 +6980,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _yT=pt-1,_hB=(H-pd)-_yT;
         selBands='<rect x="'+xIS.toFixed(1)+'" y="'+_yT.toFixed(1)+'" width="'+Math.max(0,xFull-xIS).toFixed(1)+'" height="'+_hB.toFixed(1)+'" fill="rgba(96,165,250,.13)"/>'
           +(hasLB?('<rect x="'+xFull.toFixed(1)+'" y="'+_yT.toFixed(1)+'" width="'+Math.max(0,xR-xFull).toFixed(1)+'" height="'+_hB.toFixed(1)+'" fill="rgba(167,139,250,.16)"/>'):'')
-          +'<text x="'+((xL+xIS)/2).toFixed(1)+'" y="'+(pt-1.5).toFixed(1)+'" text-anchor="middle" font-size="4" font-weight="700" fill="var(--text4)">IN-SAMPLE</text>'
-          +'<text x="'+((xIS+xFull)/2).toFixed(1)+'" y="'+(pt-1.5).toFixed(1)+'" text-anchor="middle" font-size="4" font-weight="700" fill="#60a5fa">WALK-FORWARD</text>'
-          +(hasLB?('<text x="'+((xFull+xR)/2).toFixed(1)+'" y="'+(pt-1.5).toFixed(1)+'" text-anchor="middle" font-size="4" font-weight="700" fill="#a78bfa">LOCKBOX</text>'):'');
-        selSvg=isDoor+lbDoor+wf+ov+lb+labSvg;}
+          +'<text x="'+((xL+xIS)/2).toFixed(1)+'" y="'+(pt-1.5).toFixed(1)+'" text-anchor="middle" font-size="4.6" font-weight="700" fill="var(--text4)">IS</text>'
+          +'<text x="'+((xIS+xFull)/2).toFixed(1)+'" y="'+(pt-1.5).toFixed(1)+'" text-anchor="middle" font-size="4.6" font-weight="700" fill="#60a5fa">WF</text>'
+          +(hasLB?('<text x="'+((xFull+xR)/2).toFixed(1)+'" y="'+(pt-1.5).toFixed(1)+'" text-anchor="middle" font-size="4.6" font-weight="700" fill="#a78bfa">LB</text>'):'');
+        // v64.25 (owner): compact KEY in the upper-left of the plot.
+        const keySvg='<g font-size="4.3" font-weight="700" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.2">'
+          +'<text x="'+(xL+3).toFixed(1)+'" y="'+(pt+6)+'" fill="#1d9e75">— crowned 👑</text>'
+          +'<text x="'+(xL+3).toFixed(1)+'" y="'+(pt+12)+'" fill="#3a9bdc">┅ IS max</text>'
+          +'<text x="'+(xL+3).toFixed(1)+'" y="'+(pt+18)+'" fill="#d5deea">— top-K WF</text>'
+          +'<text x="'+(xL+3).toFixed(1)+'" y="'+(pt+24)+'" fill="var(--text4)">— all configs (cloud)</text></g>';
+        selSvg=isDoor+lbDoor+wf+ov+lb+labSvg+keySvg;}
       // x-axis date labels (owner request). Use the OPTIMIZE window when this is a validate
       //   run; selMode+lockbox pushes the right label out to the holdout end.
       const _xw=(d.validate&&d.validate.windows&&d.validate.windows.optimize)||null;
@@ -6995,9 +7002,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const cfgSlider='<span title="how many curves show as faint grey context — the run stored the top '+etop.length+' curves." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+'</b></span>';
       const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis — top '+etop.length+((_xd0&&_xd1)?' · '+_dnice(_xd0)+' → '+_dnice(_xd1):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. RANKING: locked to the pre-registered IN-SAMPLE slice (the first ~75% of this window) — a lower-ranked curve can END higher because the tail is out-of-sample for selection, and peeking at it to pick the winner would be look-ahead bias. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
       const _selTip='WF-CHECKED SELECTION (#88 / #88b) ON THE 2A CHART — a funnel with two doors. The grey CLOUD is every top config, drawn only to the IN-SAMPLE door (~75% of the optimize window). From there only the top-K by walk-forward continue to the LOCKBOX door (optimize end). From there only the top-3 continue THROUGH the lockbox to the right edge. Green = WF-crowned, blue dashed = in-sample MAX. The lockbox tail is shown AFTER the crown was set, never used to pick the champion.';
+      // v64.25 (owner): ⓘ right after the tag (1A pattern), the funnel-path caption lives in the
+      //   info box, and the configs slider is right-aligned on the title row.
       const _hdr=selMode
-        ?(tag?'<div title="'+_selTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' CONFIG FUNNEL <span style="font-weight:400;color:var(--text5);font-size:8px">· all configs → in-sample door → top-K walk-forward → top-3 lockbox ⓘ</span>'+cfgSlider+'</div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
-        :(tag?'<div title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' TOP CONFIGS PNL <span style="font-weight:400;color:var(--text5);font-size:8px">ⓘ</span>'+selDrop+cfgSlider+'</div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
+        ?(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_selTip+'<br><br>Path: all configs → IS door → top-K walk-forward → top-3 lockbox.</div>')+' CONFIG FUNNEL <span style="margin-left:auto;display:inline-flex">'+cfgSlider+'</span></div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
+        :(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_eqTip+'</div>')+' TOP CONFIGS PNL'+selDrop+'<span style="margin-left:auto;display:inline-flex">'+cfgSlider+'</span></div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
       const _body='<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
         +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+((!selMode&&d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,yl:'equity'}))+'"':'')+'>'
         +selBands
@@ -7007,8 +7016,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // ── selection detail (crown-pool table + honesty notes) COLLAPSED by default (owner: keep
       //    the 2A chart, tuck the info beneath it so 2B is next; click to drop it down). ──
       const _selOpen=!!APREF.selDetail;
-      const _selHd='<div data-seldetail title="the funnel selection detail — crown-pool table + honesty notes. Click to '+(_selOpen?'collapse':'expand')+'." style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;margin-top:9px;font-weight:700;font-size:8.5px;color:var(--text3);letter-spacing:.3px">SELECTION DETAIL <span style="font-weight:400;color:var(--text5);font-size:8px">· crown pool + notes</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+(_selOpen?'▴ hide':'▾ show')+'</span></div>';
-      return _hdr+_body+_selHd+(_selOpen?('<div style="margin-top:6px">'+selectionTableHtml(SELN,mult)+'</div>'):'');
+      // v64.25 (owner): the selection detail lives in its OWN subtile (was floating on the card).
+      const _selHd='<div data-seldetail title="the funnel selection detail — crown-pool table + honesty notes. Click to '+(_selOpen?'collapse':'expand')+'." style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;font-weight:700;font-size:8.5px;color:var(--text3);letter-spacing:.3px">SELECTION DETAIL <span style="font-weight:400;color:var(--text5);font-size:8px">· crown pool + notes</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+(_selOpen?'▴ hide':'▾ show')+'</span></div>';
+      return _hdr+_body+'<div style="background:var(--bg1);border-radius:8px;padding:8px 11px;margin-top:9px">'+_selHd+(_selOpen?('<div style="margin-top:6px">'+selectionTableHtml(SELN,mult)+'</div>'):'')+'</div>';
     };
     // SCATTER — each tested config as a dot: chosen param (X) vs net PnL (Y). Shows
     // whether the edge is a smooth slope (robust) or random noise.
@@ -7773,7 +7783,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:7px"><span id="cfg-brush-cut" style="font-size:var(--fsxs);color:var(--text3)">cut ≥ '+fmtUsd(mn)+'</span><span id="cfg-brush-n" style="font-size:var(--fsxs);font-weight:700;color:var(--green)">'+points.length+' / '+points.length+' configs shown</span></div>'
         +'</div>';
     };
-    const parallelCoordsHtml=(points,mult,tag,keyOrder,footerHtml)=>{
+    const parallelCoordsHtml=(points,mult,tag,keyOrder,footerHtml,hdrCtl)=>{
       if(!points||points.length<6)return '';
       let keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&k!=='dd'&&typeof points[0][k]==='number');
       if(keys.length<2)return '';
@@ -7815,7 +7825,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         return '<rect class="pc-track" data-ax="'+i+'" data-key="'+k+'" data-mn="'+dom[k][0]+'" data-mx="'+dom[k][1]+'" data-ylo="'+(H-padB)+'" data-yhi="'+padT+'" x="'+(x-8).toFixed(1)+'" y="'+padT+'" width="16" height="'+((H-padB)-padT).toFixed(1)+'" fill="transparent" style="cursor:ns-resize"/>'
           +'<rect class="pc-brush" data-ax="'+i+'" x="'+(x-6).toFixed(1)+'" y="0" width="12" height="0" fill="var(--blue)" fill-opacity="0.2" stroke="var(--blue)" stroke-width="0.6" rx="2" style="display:none;pointer-events:none"/>';}).join('');
       const _pcTip='Every tested config drawn as one line across a vertical axis per parameter, ending on the NET $ axis — green lines made money, red lost. Lines that bunch through the same parameter values = the settings winners share. DRAG up/down on any axis to brush a range (lines outside grey out, and the scatter dots dim with them); click an axis to clear its brush. Below: per-knob PDP curves — the smoothed avg $ each parameter produces on its own, sorted by influence.';
-      return (tag?'<div title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' CONFIG SPACE — parallel coordinates + per-knob PDP curves <span style="font-weight:400;color:var(--text4);font-size:8px">· <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="color:var(--text4)">ⓘ</span></span></div>':'<div class="lbl" title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px">PARALLEL COORDINATES · <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="font-size:9px;color:var(--text4);font-weight:400">ⓘ</span></div>')
+      return (tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_pcTip+'</div>')+' PARALLEL COORDS <span style="font-weight:400;color:var(--text4);font-size:8px">· <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span></span>'+(hdrCtl?'<span style="margin-left:auto;display:inline-flex;gap:5px;align-items:center">'+hdrCtl+'</span>':'')+'</div>':'<div class="lbl" title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px">PARALLEL COORDS · <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="font-size:9px;color:var(--text4);font-weight:400">ⓘ</span></div>')
         +(function(){const _pm=dom['pnl'],_mY=((padT+(H-padB))/2).toFixed(1);
           // NET $ scale labels live IN the svg's right gutter (shared §2 chrome) so the plot
           //   width lines up with 2a/2b above it.
@@ -8611,8 +8621,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(d.dsr){const _ds=Math.max(0,Math.min(1,d.dsr.dsr||0)),dpct=Math.round(_ds*100);const dc=_ds>=0.95?'var(--green)':_ds>=0.8?'var(--yellow)':'var(--red)';
         // Description → title hover; calculated stats → right of the title; only the gauge + % stay in the body.
         // v64.22 (owner asked for the math): full derivation in the info box, plain terms.
-        dsrTip='The chance the champion edge is REAL rather than it merely being the luckiest of the '+d.dsr.n_cfg+' configs searched. WINNER SHARPE ('+(d.dsr.winner_sharpe||0).toFixed(2)+') = the champion annualized Sharpe on the SEARCH window — in-sample ON PURPOSE: the luck test must run on the same data the winner was picked on (so yes, it matches the 1E IS Sharpe, not TOTAL). LUCK BAR ('+(d.dsr.luck_bar||0).toFixed(2)+') = the Sharpe the single LUCKIEST of '+d.dsr.n_cfg+' no-edge configs would be EXPECTED to show, from the expected-maximum formula: spread of the sampled config Sharpes (sqrt of their variance) times [(1−γ)·z(1−1/N) + γ·z(1−1/(N·e))], N = configs, z = normal quantile, γ = 0.5772 (Euler constant). THE PERCENT = the probability the winner beats that luck bar for real: both Sharpes are converted to per-trade units (divide by sqrt of trades-per-year), the gap is scaled by sqrt(T−1) over the trade count T, adjusted for the trade distribution skew and fat tails — DSR = Φ( (SR−SR0)·sqrt(T−1) / sqrt(1 − skew·SR + ((kurt−1)/4)·SR²) ) — and read through the normal CDF Φ. That is how '+(d.dsr.winner_sharpe||0).toFixed(2)+' vs a '+(d.dsr.luck_bar||0).toFixed(2)+' bar over hundreds of trades becomes '+Math.round((d.dsr.dsr||0)*100)+'%: the gap is small per year but very consistent per trade. ≥95% = solid, 80–95% = borderline, <80% = likely selection luck.';
-        dsrStats='Winner Sharpe <b style="color:var(--text2)">'+(d.dsr.winner_sharpe||0).toFixed(2)+'</b> · Luck bar <b style="color:var(--text2)">'+(d.dsr.luck_bar||0).toFixed(2)+'</b>';
+        dsrTip='Start here: you searched '+d.dsr.n_cfg+' configs and kept the best one. Even '+d.dsr.n_cfg+' coin-flip strategies with NO edge would produce one lucky winner that looks good - this panel asks ONE question: is your winner better than that lucky one would be? IS SHARPE ('+(d.dsr.winner_sharpe||0).toFixed(2)+') = the champion reward-per-risk on the IN-SAMPLE window. It is in-sample on purpose and labelled so: the winner was PICKED on that window, so pick-luck must be tested there (this is the same number as the 1E IS SHARPE cell). LUCK BAR ('+(d.dsr.luck_bar||0).toFixed(2)+') = the Sharpe the LUCKIEST of your '+d.dsr.n_cfg+' configs would be expected to show if NONE had any real edge. It comes from your own search: take the spread of Sharpes across all the configs tried - statistics says the best of N no-edge tries lands near that spread times the z-score of (1 - 1/N). More configs tried = a higher bar to clear. THE BIG PERCENT = the confidence that the gap between the IS Sharpe and the luck bar is real skill: the gap is measured per trade, grows with the square root of the trade count (more trades = more certainty), gets a haircut for fat-tailed trade distributions, and is converted to a probability. THE GAUGE: 0 = pure luck, 100 = certainly real. The two tick marks are the grading lines - yellow at 80 (below it: likely luck) and green at 95 (above it: solid).';
+        dsrStats='IS Sharpe <b style="color:var(--text2)">'+(d.dsr.winner_sharpe||0).toFixed(2)+'</b> · Luck bar <b style="color:var(--text2)">'+(d.dsr.luck_bar||0).toFixed(2)+'</b>';
         const _gauge='<div style="position:relative;height:14px;border-radius:7px;overflow:hidden;background:var(--bg1);margin:3px 0 3px">'
           +'<div style="position:absolute;left:0;top:0;height:100%;width:80%;background:color-mix(in srgb,var(--red) 20%,transparent)"></div>'
           +'<div style="position:absolute;left:80%;top:0;height:100%;width:15%;background:color-mix(in srgb,var(--yellow) 20%,transparent)"></div>'
@@ -8622,7 +8632,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         dsrHtml='<div style="font-size:var(--fsxs);color:var(--text3)">'
           +'<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:1px;flex-wrap:wrap"><span style="font-size:20px;font-weight:800;color:'+dc+'">'+dpct+'%</span><span style="font-weight:700;color:'+dc+'">'+d.dsr.verdict+'</span></div>'
           +_gauge
-          +'<div style="position:relative;height:10px;font-size:8px;color:var(--text5)"><span style="position:absolute;left:0">0% · luck</span><span style="position:absolute;left:80%;transform:translateX(-50%);color:var(--yellow)">80</span><span style="position:absolute;left:95%;transform:translateX(-50%);color:var(--green)">95</span><span style="position:absolute;right:0">100% · real</span></div></div>';}
+          +'<div title="the yellow tick = 80 (borderline threshold), the green tick = 95 (solid threshold)" style="position:relative;height:10px;font-size:8px;color:var(--text5)"><span style="position:absolute;left:0">0% · luck</span><span style="position:absolute;right:0">100% · real</span></div></div>';
+        // v64.25 (owner): the gauge sits in its own subtile like 1G / 1H.
+        dsrHtml='<div style="background:var(--bg1);border-radius:8px;padding:10px 12px 8px">'+dsrHtml+'</div>';}
       let mcHtml='';
       if(d.mc){mcHtml=_vrow('<span>P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round((d.mc.p95||0)*mlt))+'</b> (size your account to survive this)</span>');}
       let regHtml='';
@@ -8990,12 +9002,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _pMet=(_pmAvail&&(APREF.pMetric==='dd'||APREF.pMetric==='mar'))?APREF.pMetric:'pnl';
       const _PTS=(_pMet==='pnl')?d.points:(d.points||[]).map(p=>{const q={};for(const k in p){if(k!=='pnl'&&k!=='dd')q[k]=p[k];}q.pnl=(_pMet==='dd')?-Math.abs(p.dd||0):+((((p.dd>1e-9)?(p.pnl/p.dd):0)*100)/mlt).toFixed(3);return q;});
       const _pmBtn=(v,lab,tip)=>'<span data-pmet="'+v+'" title="'+tip.replace(/"/g,'&quot;')+'" style="cursor:pointer;padding:3px 10px;border-radius:9px;font-size:9px;user-select:none;white-space:nowrap;border:1px solid '+(_pMet===v?'var(--green)':'var(--border)')+';color:'+(_pMet===v?'var(--text)':'var(--text4)')+';background:'+(_pMet===v?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+'">'+lab+'</span>';
-      const _pmTog=(_pmAvail&&d.points.length>1)?('<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:9px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5)">CHART METRIC</span>'
-        +_pmBtn('pnl','NET $','each config colored / ranked by its net PnL (the original view)')
+      // v64.25 (owner): the metric buttons ride the 2B title row (hdrCtl) in classic; _pmTog
+      //   stays for the other layouts that still stack it as its own row.
+      const _pmBtns=(_pmAvail&&d.points.length>1)?(_pmBtn('pnl','NET $','each config colored / ranked by its net PnL (the original view)')
         +_pmBtn('dd','MAX DD','each config by its max drawdown, shown as NEGATIVE $ — higher / greener = smaller drawdown. Risk levers (e.g. be_after_R) that look flat on the PnL view become visible here.')
         +_pmBtn('mar','MAR ×100','net PnL ÷ max drawdown, ×100 so the $ scales keep precision ($2,150 = MAR 21.5). Higher = better risk-adjusted.')
-        +((_pMet!=='pnl')?'<span style="font-size:8px;color:var(--text5)">2B · 2C · 2E · 2F · 2G now plot '+(_pMet==='dd'?'−MAX DD $':'MAR ×100')+'</span>':'')
-        +'</div>')
+        +((_pMet!=='pnl')?'<span style="font-size:8px;color:var(--text5)">plotting '+(_pMet==='dd'?'−MAX DD $':'MAR ×100')+'</span>':'')):'';
+      const _pmTog=_pmBtns?('<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:9px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5)">CHART METRIC</span>'+_pmBtns+'</div>')
         :((d.points&&d.points.length>1)?'<div style="font-size:8px;color:var(--text5);margin-bottom:9px">chart-metric toggle (NET / MAX DD / MAR) needs per-config drawdown — re-run this sweep to record it</div>':'');
       // ── 2K influence ranking drives BOTH the 2C axis order and the aligned 2K cells: the
       //    most-$-swing knob sits leftmost, and each PDP mini-chart lands under its own axis. ──
@@ -9003,7 +9016,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _allK=(d.points&&d.points.length)?Object.keys(d.points[0]).filter(k=>k!=='pnl'&&k!=='dd'&&typeof d.points[0][k]==='number'):[];
       const _kOrd=_pdpD.map(c=>c.k).concat(_allK.filter(k=>!_pdpD.some(c=>c.k===k)));
       const _pdp=pdpCurvesPanelHtml(_PTS,mlt,_cfgN+'C',(_pMet==='pnl'?d.plateau_pick:null),((_kOrd&&_kOrd.length>=2)?_kOrd:null),true,(_pMet==='pnl'?d.auto_expand:null));
-      const _parc=parallelCoordsHtml(_PTS,mlt,_cfgN+'B',_kOrd,_pdp);
+      const _parc=parallelCoordsHtml(_PTS,mlt,_cfgN+'B',_kOrd,_pdp,_pmBtns);
       const _corr=corrPanelHtml(d.points,_cfgN+'D',d.relationship,(d.surrogate&&d.surrogate.knob_screen));
       // 2E is view-toggleable (APREF.hm3d, DEFAULT 3-D per owner): flat heatmap ⇄ 3-D surface.
       const _hm3dOn=(APREF.hm3d==null?1:+APREF.hm3d);
@@ -9073,7 +9086,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // 2A now carries the WF-CHECKED SELECTION itself (#88b, owner "put it ON the 2a chart"):
       //   topEqOverlayHtml folds the crowned/IS-max overlay + top-3 lockbox continuation + the
       //   crown-pool table into the 2A card, so there is no separate block to stack here.
-      const _col1=_stack([_eq,((_parc&&_parc.replace(/\s/g,''))?(_pmTog+_parc):''),_corr]);
+      // classic: the metric buttons live in the 2B header (hdrCtl) — only stack the fallback note.
+      const _col1=_stack([_eq,((_parc&&_parc.replace(/\s/g,''))?((_pmBtns?'':_pmTog)+_parc):''),_corr]);
       const _col2=_stack([_dist,_nbInner]);
       const _col3=_stack([_p3inner,_surrInner,_topInner,_dsrInner]);
       const _sec3=(function(){
@@ -9084,7 +9098,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(!_colsIn.length)return _surrErr;
         const _g2=(Array.isArray(APREF.s2cols)&&APREF.s2cols.length===_colsIn.length)?APREF.s2cols.map(x=>Math.max(260,+x||260)):null;
         const _sp2='<div data-vsplit title="drag left / right — width moves between the two tiles · double-click = reset the widths" style="flex:0 0 10px;align-self:stretch;cursor:ew-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:3px;height:46px;border-radius:2px;background:var(--border)"></div></div>';
-        const _th2=i=>'<div data-tilerow="c'+i+'" title="drag to resize this tile height · double-click = back to auto" style="height:8px;margin:2px 0 0;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div></div>';
+        const _th2=i=>'<div data-tilerow="c'+i+'" title="drag to resize this tile height · double-click = back to auto" style="height:8px;margin:5px 0 0;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div></div>';
         return '<div data-colskey="s2cols" style="display:flex;gap:2px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
           +_colsIn.map((c,i)=>'<div data-s1col="'+i+'" style="'+(_g2?('flex:'+_g2[i]+' 1 0px'):('flex:'+c[2]))+';min-width:260px;overflow:hidden"><div data-ck="'+c[1]+'" style="'+_colStyle+'">'+c[0]+'</div>'+_th2(i)+'</div>').join(_sp2)
           +'</div>'+_surrErr;})();
@@ -9472,7 +9486,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           var _sp='<div data-vsplit title="drag left / right — width moves between the two tiles · double-click = reset the widths" style="flex:0 0 10px;align-self:stretch;cursor:ew-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:3px;height:46px;border-radius:2px;background:var(--border)"></div></div>';
           // v64.18 (owner): each tile also gets a handle row at its very BOTTOM — the tile-height
           //   drag the old corner grabber used to provide (per-tile, persists, dblclick = auto).
-          var _th=function(i){return '<div data-tilerow="'+i+'" title="drag to resize this tile height · double-click = back to auto" style="height:8px;margin:2px 0 0;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div></div>';};
+          var _th=function(i){return '<div data-tilerow="'+i+'" title="drag to resize this tile height · double-click = back to auto" style="height:8px;margin:5px 0 0;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div></div>';};
           return '<div data-colskey="s1cols" style="display:flex;gap:2px;align-items:flex-start;flex-wrap:wrap">'+_w(0,'1.7 1 360px')+_panelEquity+_th(0)+'</div>'+_sp+_w(1,'1 1 280px')+_panelMatrix+_panelRegime+_th(1)+'</div>'+_sp+_w(2,'1.1 1 300px')+_distTile+_th(2)+'</div></div>';})())
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         // §3 is a fixed slot too (universal layout): show an n/a card when the run swept no config grid.
@@ -10635,7 +10649,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           box.style.cssText='overflow:hidden;height:'+h0+'px;min-height:60px;max-height:760px;max-width:100%;border-radius:6px;margin-bottom:2px;position:relative';
           svg.parentNode.insertBefore(box,svg);box.appendChild(svg);
           const _grip=document.createElement('div');_grip.setAttribute('data-rsrow','');_grip.title='drag up / down to resize';
-          _grip.style.cssText='height:8px;margin:0 0 4px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none';
+          _grip.style.cssText='height:8px;margin:3px 0 4px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none';
           _grip.innerHTML='<div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div>';
           // v64.22 (owner): the handle row sits OUTSIDE the chart panel (like 1A-1D), not inside
           //   it — when the svg lived alone inside a padded background div, hop out one level.
