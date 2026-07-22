@@ -747,8 +747,16 @@ not saved to the runs DB — so they carry no run id.*
    the search-best config as reference) so the five models compare visually, not just as scorecards.
    Needs engine support first: the ground-truth backtest of each model pick must SAVE its
    (downsampled) equity curve into the surrogate block — currently only the metrics are kept.
-8. **⬜ TODO (owner-approved 2026-07-22) — ML-gate before/after equity curves (report chart 3B)**.
-   *Self-contained brief — buildable cold by an engine session.*
+8. **🟨 ENGINE HALF SHIPPED 2026-07-22 (web v64.13) — ML-gate before/after equity curves (report chart 3B)**.
+   Engine done: `gate_trades` saves `summary.equity = {cum_ungated, cum_gated, n}` (both curves on the
+   SAME trade-sequence grid — the gated line steps flat where the bouncer skipped — POINTS, ≤300 pts
+   each via the new shared `analytics.downsample_curve`, which open item 7 should reuse) and
+   `gate_validate` attaches the same block at `out.equity` for the CHOSEN candidate over the full
+   span incl. lockbox (attached even on the "ungated wins" verdict). Verified end-to-end on NQ
+   2022+: single-gate finals match totals (10,426.6 / 6,502.0 pts, 300 pts); bake-off path populated
+   on the ungated-wins branch. Runner restarted, so runs from now on carry the curves; older runs
+   (incl. #170) never will. **⬜ REMAINING: the UI half — draw chart 3B** (redesign ledger item 18,
+   EDGE-LOG UI session). *Original brief kept below for the UI session's reference.*
    - **What**: the report's §3 ML GATE shows only summary NUMBERS for gated vs ungated (net $, PF,
      max DD). Make the engine also save the two **equity curves** — the champion taking EVERY
      trade, and the same champion with the gate skipping trades — so the report can overlay them
@@ -841,6 +849,15 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-22** — **§7 item 8 ENGINE HALF SHIPPED (web v64.13): gate equity curves saved.**
+  New shared `analytics.downsample_curve` (≤300 pts, last point exact, flat lists — Firestore-safe;
+  built shared so §7 item 7's model-picks overlay reuses it). `ml_gate.gate_trades` now emits
+  `summary.equity {cum_ungated, cum_gated, n}` on the shared trade-sequence grid (gated steps flat
+  on skipped trades); `gate_validate` attaches the same at `out.equity` for the chosen candidate,
+  full span incl. lockbox, even on the "ungated wins" verdict. No runner change (blocks copied
+  wholesale). Verified: NQ 2022+ single-gate finals ≡ totals; bake-off branch populated; 41 sibling
+  contract tests pass. Runner restarted → curves on all NEW gate runs. UI half (chart 3B) = redesign
+  ledger item 18, pending. *(Implementation by Sonnet subagent, supervisor-reviewed.)*
 - **2026-07-22** — **§7 open item 8 ADDED (owner-approved): ML-gate before/after equity curves.**
   Engine brief for saving downsampled gated + ungated champion equity curves out of
   `ml_gate.py _summ` so the run report can draw the gate-value overlay (chart 3B). Also of note

@@ -63,6 +63,23 @@ def downsample_points(points, cap=400):
     return list(points)
 
 
+def downsample_curve(cum, cap=300, ndp=1):
+    """Downsample a cumulative curve to <= cap points for Firestore-safe storage.
+    ALWAYS keeps the last point (the final total). Returns a flat list of rounded
+    floats — never nested (Firestore rejects nested arrays). Shared by the gate
+    equity overlay (stack §7 item 8) and the model-picks overlay (§7 item 7)."""
+    xs = [float(x) for x in (cum if cum is not None else [])]
+    n = len(xs)
+    if n == 0:
+        return []
+    if n <= int(cap):
+        return [round(x, ndp) for x in xs]
+    st = n / float(cap)
+    out = [xs[int(i * st)] for i in range(int(cap))]
+    out[-1] = xs[-1]
+    return [round(x, ndp) for x in out]
+
+
 def equity_curve_from_pnls(pnls, cap=160, times=None):
     """Cumulative equity curve from a per-trade NET-PnL series, downsampled to <=cap
     points — the same accumulate-then-index-stride pattern already used ad hoc in a

@@ -194,9 +194,16 @@ def gate_trades(arrays, trades, model="logistic", threshold=0.50,
     kept = [T[i] for i in range(n) if keep[i]]
     skipped_pnls = P[~keep]
     before = _stats(P); after = _stats([t[2] for t in kept])
+    # 3B equity overlay (stack §7 item 8): both curves on the SAME trade-sequence
+    # grid — the gated curve steps flat where the bouncer skipped — so the report
+    # can overlay them directly. POINTS, not $; the web layer applies the multiplier.
+    from .analytics import downsample_curve
+    cum_u = np.cumsum(P)
+    cum_g = np.cumsum(np.where(keep, P, 0.0))
     return {
         "trades": kept,
         "stats": after,
+        "keep": keep.copy(),          # top level only — never persisted, unlike summary
         "summary": {
             "model": str(model),
             "model_impl": getattr(mdl, "_gate_impl", str(model)),
@@ -210,6 +217,9 @@ def gate_trades(arrays, trades, model="logistic", threshold=0.50,
             "skipped_wr": (float(100.0 * (skipped_pnls > 0).sum() / len(skipped_pnls))
                            if len(skipped_pnls) else None),
             "ungated": before, "gated": after,
+            "equity": {"cum_ungated": downsample_curve(cum_u),
+                       "cum_gated": downsample_curve(cum_g),
+                       "n": int(n)},
         },
     }
 
@@ -280,7 +290,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
             k_p = np.array([t[2] for t in kept], float)
             pre = _slice_stats(k_ts, k_p, None, lb_start)
             key = f"{m}@{th:.2f}"
-            lb_secret[key] = (_slice_stats(k_ts, k_p, lb_start, None), k_ts, k_p)
+            lb_secret[key] = (_slice_stats(k_ts, k_p, lb_start, None), k_ts, k_p, g.get("keep"))
             cands.append({"model": str(m), "threshold": float(th),
                           "impl": g["summary"].get("model_impl", str(m)),
                           "kept_pre": int(pre["num_trades"]),
@@ -314,9 +324,17 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
         out["verdict"] = "NO ELIGIBLE GATE (all kept too few pre-lockbox trades)"
         return out
     key = f"{chosen['model']}@{chosen['threshold']:.2f}"
-    ch_lb, ch_ts, ch_p = lb_secret[key]
+    ch_lb, ch_ts, ch_p, ch_keep = lb_secret[key]
     out["chosen"] = {"model": chosen["model"], "threshold": chosen["threshold"],
                      "impl": chosen["impl"], "pre": chosen["pre"]}
+    # 3B equity overlay for the chosen candidate — full span (pre + lockbox), same
+    # shared grid as gate_trades. UI shades the lockbox using out["lockbox_from"].
+    from .analytics import downsample_curve
+    if ch_keep is not None and len(ch_keep) == len(pnls_all):
+        _ku = np.asarray(ch_keep, bool)
+        out["equity"] = {"cum_ungated": downsample_curve(np.cumsum(pnls_all)),
+                         "cum_gated": downsample_curve(np.cumsum(np.where(_ku, pnls_all, 0.0))),
+                         "n": int(len(pnls_all))}
     if not gate_earns:
         out["verdict"] = "UNGATED WINS PRE-LOCKBOX — no gate earns its keep; lockbox not opened"
         return out
