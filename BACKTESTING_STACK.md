@@ -747,7 +747,7 @@ not saved to the runs DB — so they carry no run id.*
    the search-best config as reference) so the five models compare visually, not just as scorecards.
    Needs engine support first: the ground-truth backtest of each model pick must SAVE its
    (downsampled) equity curve into the surrogate block — currently only the metrics are kept.
-8. **🟨 ENGINE HALF SHIPPED 2026-07-22 (web v64.13) — ML-gate before/after equity curves (report chart 3B)**.
+8. **✅ SHIPPED IN FULL 2026-07-22 (engine v64.13 · chart v64.23) — ML-gate before/after equity curves (report chart 3B)**.
    Engine done: `gate_trades` saves `summary.equity = {cum_ungated, cum_gated, n}` (both curves on the
    SAME trade-sequence grid — the gated line steps flat where the bouncer skipped — POINTS, ≤300 pts
    each via the new shared `analytics.downsample_curve`, which open item 7 should reuse) and
@@ -760,8 +760,14 @@ not saved to the runs DB — so they carry no run id.*
    #170 — pin rule held): `gate_validate.equity` n=692 trades, 300 pts/curve, ungated final 21,333.2
    pts vs gated 18,440.0 (logistic@0.55, verdict "LOCKBOX FAILED — gate lost to ungated OOS"), PLUS
    `wf_alt_folds` ×8 (rolling) for the 1C ANCH/ROLL toggle. ♻ trial cache reused 97.2% (2,776/2,856)
-   — 9.5 min vs #170's 22.5. **⬜ REMAINING: the UI half — draw chart 3B from run #173**
-   (redesign ledger item 18, EDGE-LOG UI session). *Original brief kept below for reference.*
+   — 9.5 min vs #170's 22.5. **✅ UI half shipped v64.23**: `gateEquityHtml` draws chart **3B GATE
+   EQUITY** in RESULTS §3 directly under the before/after cards — grey = every trade, coloured (by
+   the verdict colour) = gated stepping flat on skipped trades, tinted band = running $ gap,
+   endpoint totals inside the plot (1A convention), fmtAx axes, x = trade # in time order. Runs
+   without saved curves show a one-line re-run-to-populate note (2H/2L pattern). Verified by
+   extracting the served v64.23 function and rendering it against run #173's real curves in the
+   deployed page (endpoint labels NO GATE $427k / GATED $369k ≡ doc finals; 3 paths; label
+   anti-collision 12px). *Original brief kept below for reference.*
    - **What**: the report's §3 ML GATE shows only summary NUMBERS for gated vs ungated (net $, PF,
      max DD). Make the engine also save the two **equity curves** — the champion taking EVERY
      trade, and the same champion with the gate skipping trades — so the report can overlay them
@@ -880,6 +886,12 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-22** — **§7 item 8 COMPLETE (v64.23): chart 3B GATE EQUITY shipped — item CLOSED.**
+  New `gateEquityHtml` in index.html renders the overlay in RESULTS §3 under the before/after
+  cards, replacing the "coming once the engine saves both curves" placeholder; graceful re-run
+  note on curve-less runs. Verified against run #173 by running the served function on the real
+  doc curves in the deployed page (finals ≡ Firestore; geometry asserted). Engine v64.13 +
+  production data (#173) + chart v64.23 = the full ledger-item-18 pipeline done.
 - **2026-07-22** — **§7 open item 9 ADDED (owner-approved): per-section regime buckets**
   (`regime_is` / `regime_wf` / `regime_lb` alongside the existing whole-run `regime`) so the
   report 1F card can show whether the regime profile survives out-of-sample. Engine + runner
