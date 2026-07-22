@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.25';
+const VERSION='64.26';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.26', date:'2026-07-22', notes:['Fix: dragging the handle row under 1G / 1H (and other wrapped charts) resized the grey panel instead of the chart inside it, so the two fought and the layout broke — the handle now drags the chart box itself and the panel follows.','Fix: handle rows that were still rendering INSIDE a grey subtile (4B for example) now climb out and sit under the whole subtile, separating it from the next chart title — the 1A-1D pattern everywhere.']},
   {v:'64.25', date:'2026-07-22', notes:['1I DEFLATED SHARPE: the headline stat is now honestly labelled IS Sharpe (it is the in-sample Sharpe on purpose — the winner was picked on that window, so pick-luck is tested there), the info box explanation is rewritten from scratch in plain language (what the luck bar is, where the percent comes from, what the 80 / 95 ticks mean), the tick numerals came off the gauge strip, and the gauge sits in its own subtile like 1G / 1H.','2A: the info icon sits right after the 2A tag (1A pattern) and holds the funnel-path caption; the configs slider is right-aligned on the title row; the region labels are IS / WF / LB; a compact colour KEY sits in the upper-left of the plot; the $ axis uses the shared k-format; SELECTION DETAIL is its own expandable subtile instead of floating text.','2B: renamed PARALLEL COORDS, info icon right after the tag, and the NET $ / MAX DD / MAR chart-metric buttons moved onto its title row.','A hair more breathing room between every resize handle row and the chart or tile above it.']},
   {v:'64.24', date:'2026-07-22', notes:['Hotfix: v64.22 broke the run report detail (the could-not-render card with a _dOpts error) — the new bins menu referenced an option list an earlier edit had removed. Restored; reports render again.']},
   {v:'64.23', date:'2026-07-22', notes:['RESULTS section 3: NEW CHART 3B GATE EQUITY, under the before/after cards — the champion taking every trade (grey) vs the same champion with the ML gate skipping trades (coloured, stepping flat where a trade was skipped), running $ gap tinted between the two lines, endpoint totals labelled inside the plot. Uses the curve data the engine started saving in v64.13 — first live doc is run 173; older gate runs show a one-line re-run-to-populate note instead.']},
@@ -10651,9 +10652,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _grip=document.createElement('div');_grip.setAttribute('data-rsrow','');_grip.title='drag up / down to resize';
           _grip.style.cssText='height:8px;margin:3px 0 4px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none';
           _grip.innerHTML='<div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div>';
-          // v64.22 (owner): the handle row sits OUTSIDE the chart panel (like 1A-1D), not inside
-          //   it — when the svg lived alone inside a padded background div, hop out one level.
-          const _host=(box.parentElement&&box.parentElement!==root&&box.parentElement.children.length===1&&/background/.test(box.parentElement.getAttribute('style')||''))?box.parentElement:box;
+          // v64.26 (owner): the handle row sits OUTSIDE the grey subtile — climb out of any
+          //   bg1-background wrapper(s) so the grip lands under the WHOLE panel, and remember
+          //   the real drag target (the box) since the grip's prev sibling is now the panel.
+          let _host=box;
+          for(let _u=0;_u<2;_u++){const _p2=_host.parentElement;
+            if(_p2&&_p2!==root&&/background:var\(--bg1\)/.test(_p2.getAttribute('style')||''))_host=_p2;else break;}
+          _grip._rsTarget=box;
           _host.parentNode.insertBefore(_grip,_host.nextSibling);
           // restore a previously-dragged height (skips the aspect rAF below); else auto-fit.
           const _rk=_dK(_keyOf(box)),_sv=_savedH(_rk);if(_sv)box.style.height=_sv+'px';
@@ -10711,7 +10716,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   bar resizes the chart row directly above it (heights persist via the ResizeObserver
       //   already watching that row). Replaces the native corner grip that sat on the y axis.
       root.querySelectorAll('[data-rsrow]').forEach(g=>{if(g.dataset.gw)return;g.dataset.gw='1';
-        const row=g.previousElementSibling;if(!row)return;
+        // drag target: the chart BOX (stashed at creation) — falling back to the previous
+        //   sibling for the pre-boxed §1 rows. Dragging the outer panel instead of the box
+        //   was the v64.25 "adjusting messes things up" bug (the box kept its fixed height).
+        const row=g._rsTarget||g.previousElementSibling;if(!row)return;
         const px=s=>{const m=/([0-9.]+)px/.exec(s||'');return m?+m[1]:null;};
         g.addEventListener('pointerdown',e=>{e.preventDefault();
           const y0=e.clientY,h0=row.offsetHeight;
