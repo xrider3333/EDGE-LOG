@@ -17,6 +17,9 @@ Structure EVERY substantive reply top-to-bottom as:
    reply), **just done** (finished in THIS reply), **to be done** (still pending). Use a status
    emoji per row: ✅ done · 🆕 just done · 🔲 to be done. Keep ONE CONTINUOUS item counter across
    replies in a chat — don't restart at 1 each reply; pick up where the last reply left off.
+   **Rows appear in ASCENDING numeric order — never reordered by status** (owner correction
+   2026-07-22: "dont give me table number out of order"). New work gets NEW numbers appended at
+   the bottom; an old item that progressed keeps its number and just changes status in place.
 3. **Details / caveats / how-to-verify / numbers go UNDERNEATH the table** — the owner skims the
    table, then drops down for detail. Keep prose terse; process/"thinking" text is noise.
 4. For strategy-run rows, include the rich columns the owner tracks: strategy TYPE (mechanism +
