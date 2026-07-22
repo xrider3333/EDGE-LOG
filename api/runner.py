@@ -565,6 +565,12 @@ class FirestoreQueue:
             "mae_mfe": result.get("mae_mfe"),   # per-trade adverse/favorable excursion
             "win_dist": result.get("win_dist"),   # winner's per-trade PnLs for the distribution curve
             "wf_mode": job.get("wf_mode"),   # rolling | anchored (walk-forward runs)
+            # 1C comparison toggle: the NON-selected walk-forward scheme's folds ride along so
+            # the saved run can chart BOTH schemes. The engine returns these at the result top
+            # level - they were previously dropped here, which is why saved validates (e.g.
+            # run #170) could never toggle their ROLLING/ANCHORED comparison side.
+            "wf_alt_folds": result.get("wf_alt_folds"),
+            "wf_alt_mode": result.get("wf_alt_mode"),
             "equity": equity,
             "multiplier": mult,
             # cost realism + date window so Results/roadmap can show & auto-derive them

@@ -20,6 +20,11 @@ Structure EVERY substantive reply top-to-bottom as:
    **Rows appear in ASCENDING numeric order — never reordered by status** (owner correction
    2026-07-22: "dont give me table number out of order"). New work gets NEW numbers appended at
    the bottom; an old item that progressed keeps its number and just changes status in place.
+   **Every row states WHERE the thing lives** (owner correction 2026-07-22: "you need to
+   reference locations. idk where 18 would go"): the UI location in view ▸ section ▸ chart
+   terms (e.g. "RESULTS ▸ §3 ML Gate, under the gate pills" or "chart 1C title line"), or the
+   file/layer for non-UI work (e.g. "runner save layer, api/runner.py"). Put it in the
+   Description (or a Location column) — a row without a location is incomplete.
 3. **Details / caveats / how-to-verify / numbers go UNDERNEATH the table** — the owner skims the
    table, then drops down for detail. Keep prose terse; process/"thinking" text is noise.
 4. For strategy-run rows, include the rich columns the owner tracks: strategy TYPE (mechanism +
