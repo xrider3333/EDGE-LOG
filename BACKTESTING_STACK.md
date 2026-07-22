@@ -755,8 +755,13 @@ not saved to the runs DB — so they carry no run id.*
    span incl. lockbox (attached even on the "ungated wins" verdict). Verified end-to-end on NQ
    2022+: single-gate finals match totals (10,426.6 / 6,502.0 pts, 300 pts); bake-off path populated
    on the ungated-wins branch. Runner restarted, so runs from now on carry the curves; older runs
-   (incl. #170) never will. **⬜ REMAINING: the UI half — draw chart 3B** (redesign ledger item 18,
-   EDGE-LOG UI session). *Original brief kept below for the UI session's reference.*
+   (incl. #170) never will. **First PRODUCTION doc: run #173** (2026-07-22, same-window+master rerun
+   of #170, pinned 2010-06-07→2026-07-16 on `NQ 5m RTH - no-adj`; champion params/PnL IDENTICAL to
+   #170 — pin rule held): `gate_validate.equity` n=692 trades, 300 pts/curve, ungated final 21,333.2
+   pts vs gated 18,440.0 (logistic@0.55, verdict "LOCKBOX FAILED — gate lost to ungated OOS"), PLUS
+   `wf_alt_folds` ×8 (rolling) for the 1C ANCH/ROLL toggle. ♻ trial cache reused 97.2% (2,776/2,856)
+   — 9.5 min vs #170's 22.5. **⬜ REMAINING: the UI half — draw chart 3B from run #173**
+   (redesign ledger item 18, EDGE-LOG UI session). *Original brief kept below for reference.*
    - **What**: the report's §3 ML GATE shows only summary NUMBERS for gated vs ungated (net $, PF,
      max DD). Make the engine also save the two **equity curves** — the champion taking EVERY
      trade, and the same champion with the gate skipping trades — so the report can overlay them
@@ -849,6 +854,13 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-22** — **§7 item 8 DATA LIVE IN PRODUCTION: run #173 carries the gate curves.**
+  Same-window+master rerun of #170 (pinned 2010-06-07→2026-07-16, `NQ 5m RTH - no-adj`) queued via
+  the backtests channel and completed in 9.5 min (♻ 97.2% trial reuse vs #170's 22.5 min cold —
+  first big validate-rerun win for the §5 trial cache). Champion params + headline PnL IDENTICAL to
+  #170 (window-pin rule held; engine changes proven purely additive). Doc now has BOTH missing
+  blocks: `gate_validate.equity` (n=692, 300 pts/curve) and `wf_alt_folds` ×8 rolling (1C toggle).
+  Chart 3B + the 1C ANCH/ROLL toggle can now be built against run #173.
 - **2026-07-22** — **§7 item 8 ENGINE HALF SHIPPED (web v64.13): gate equity curves saved.**
   New shared `analytics.downsample_curve` (≤300 pts, last point exact, flat lists — Firestore-safe;
   built shared so §7 item 7's model-picks overlay reuses it). `ml_gate.gate_trades` now emits
