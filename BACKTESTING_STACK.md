@@ -747,6 +747,28 @@ not saved to the runs DB — so they carry no run id.*
    the search-best config as reference) so the five models compare visually, not just as scorecards.
    Needs engine support first: the ground-truth backtest of each model pick must SAVE its
    (downsampled) equity curve into the surrogate block — currently only the metrics are kept.
+8. **⬜ TODO (owner-approved 2026-07-22) — ML-gate before/after equity curves (report chart 3B)**.
+   *Self-contained brief — buildable cold by an engine session.*
+   - **What**: the report's §3 ML GATE shows only summary NUMBERS for gated vs ungated (net $, PF,
+     max DD). Make the engine also save the two **equity curves** — the champion taking EVERY
+     trade, and the same champion with the gate skipping trades — so the report can overlay them
+     as a new chart **3B** under the gate's before/after numbers.
+   - **Why**: the totals say the gate helped by $X but not WHEN. The overlay shows where the two
+     lines separate: gap from dodging ONE bad stretch = luck (do not trust the gate live); gap
+     widening steadily across years = a real filter. Same spread-vs-concentrated logic as report
+     chart 1D, applied to the gate's value-add.
+   - **Where**: `augur_engine/ml_gate.py` — `_summ` (~line 80) already computes cum PnL and
+     max-drawdown from the per-trade `pnls` list, then discards the running curve. Save a
+     **downsampled** cumulative curve (cap ~300 points, mirroring how `V.equity` is kept) into
+     BOTH the gated and ungated summary blocks, for the single-gate (`ml_gate`) path AND each
+     chosen candidate of the `gate_validate` bake-off path. Watch the Firestore 1 MiB run-doc
+     limit — downsampling is mandatory, and open item 7 above needs the same
+     save-a-downsampled-curve helper, so build it shared.
+   - **No runner change needed**: `api/runner.py` already copies the whole `ml_gate` /
+     `gate_validate` blocks into the run doc, so curves riding inside them arrive for free.
+   - **UI half**: the EDGE-LOG UI session draws chart 3B once the data exists (report redesign
+     ledger item 18). Existing runs (incl. #170) will never have the curves — only runs made
+     after the engine change can draw the overlay.
 
 **Current Auto-Validate pipeline (as of 2026-07-20, for orientation):** 🎯 steered search (random
 seed ~40% of trials → GP-aimed batches, #36; TPE and QRF brains available) → auto-expand of
@@ -819,6 +841,13 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-22** — **§7 open item 8 ADDED (owner-approved): ML-gate before/after equity curves.**
+  Engine brief for saving downsampled gated + ungated champion equity curves out of
+  `ml_gate.py _summ` so the run report can draw the gate-value overlay (chart 3B). Also of note
+  (shipped same day, runner side): `api/runner.py` was silently dropping the engine's
+  `wf_alt_folds`/`wf_alt_mode` (the comparison walk-forward scheme's per-fold rows) when saving
+  runs — fixed, runner restarted; saved validates made before 2026-07-22 (incl. #170) need a
+  same-window re-run to backfill their 1C anchored/rolling toggle.
 - **2026-07-20** — **#91 extrapolation guard + #94 verdict power SHIPPED (engine + web v62.1):**
   every 2L model pick is now graded against the ACTUALLY-SAMPLED territory (`terr` column:
   ⚠ extrapolated / ◌ thin / blank = solid; tree models cannot predict beyond what they saw), and

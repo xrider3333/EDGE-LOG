@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.10';
+const VERSION='64.11';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.11', date:'2026-07-22', notes:['1A: the drawdown and Monte-Carlo floor labels now truncate to k as well (-$46k style) — the axis rule the owner asked for is applied to every number in the 1A label column.','Every section-1 chart y-axis now tops out with the same highlighted TOTAL pill as the 1A final-equity number: 1B total monthly $, 1C total out-of-sample $, 1D total across the windows — green when positive, red when negative, hover for what it sums.','The big section-1 tiles can now be dragged NARROWER too — the corner grip resizes both directions, not just taller/shorter.','The EDGE LOG logo in the top bar no longer shrinks when the window (or tab) gets narrow.','The ML-gate before/after equity overlay (ledger item 18) is written up as an engine work order in BACKTESTING_STACK.md section 7 item 8 — point an engine session at it.']},
   {v:'64.10', date:'2026-07-22', notes:['1A: the final-equity pill and the drawdown / Monte-Carlo floor labels use the same k-truncated $ format as the axes, the label column slimmed to fit (all four section-1 axis gutters slimmed with it), and the equity curve now leaves headroom at the top of the plot so the IS / WF / LB section labels never sit on the line. The 1A tile can also be dragged much taller (cap raised 700 to 1400px).','1C: the ANCHORED / ROLLING pill is more compact (tighter padding, the WFE word dropped — the info box explains each side reads folds held / total · WFE percent) so it fits on the title line next to 1C.']},
   {v:'64.9', date:'2026-07-22', notes:['1A CHAMPION EQUITY: the section labels are abbreviated to IS / WF / LB (in-sample, walk-forward, lockbox — spelled out in the 1A info box) and drawn INSIDE the top of the chart over their sections, so the chart now starts right under its title with no dead strip between.','1C WALK-FORWARD: the merged ANCHORED / ROLLING pill moved up onto the title line (the old single-scheme badge there was duplicate info and is gone).','Fixed: the run SAVER was dropping the comparison walk-forward scheme per-fold rows the engine computes, so no saved validate — including recent ones like run 170 — could ever chart its second scheme. New validates save both sides; re-run an old validate on the SAME window to backfill it.','All section-1 money axes now share ONE format: full dollars below $100k, truncated to k above (the 1C style) — 1B / 1C / 1D also match the 1A axis font size and gutter width.','1D STRESS ACROSS TIME: the bars are numbered 1, 2, 3... instead of w1, w2 (the w read as walk-forward — these are calendar slices of the SAME trades as 1A, not folds).']},
   {v:'64.8', date:'2026-07-22', notes:['The backtest-cache reuse chip now shows where you actually look: the BUILDER recent-jobs table. A finished job that reused cached results gets a small recycle chip next to its strategy name, e.g. 122/137 = 122 of 137 configs came from the cache instead of being recomputed; hover it for the percent of compute saved. Hidden when nothing was reused; a ~ marks parallel grid jobs where only the main process is counted. (v64.3 had placed it on a legacy screen that is not in the nav.)']},
@@ -4642,7 +4643,7 @@ function renderApp(){
   // TOPBAR
   const tb=document.createElement('div');tb.className='topbar';
   tb.innerHTML=`
-    <div style="display:flex;align-items:center;gap:10px;padding:6px 14px 6px 0;border-right:1px solid var(--border);margin-right:2px;cursor:pointer" id="logo-area">
+    <div style="display:flex;align-items:center;gap:10px;padding:6px 14px 6px 0;border-right:1px solid var(--border);margin-right:2px;cursor:pointer;flex-shrink:0" id="logo-area">
       ${userLogo?`<img src="${userLogo}" style="height:28px;max-width:70px;object-fit:contain" title="Click to change logo"/>`:``}
       <div>
         <div style="font-family:'Bebas Neue',monospace;font-size:${userLogo?'13':'18'}px;letter-spacing:3px;color:var(--green);line-height:1">EDGE LOG</div>
@@ -6493,7 +6494,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const fmtUsd=v=>((v||0)<0?'-$':'$')+Math.abs(Math.round(v||0)).toLocaleString();
     // shared $ AXIS format (owner v64.8): every section-1 vertical axis reads like 1A —
     //   full $ below $100k, truncated to Nk at $100k and above (the 1C style).
-    const fmtAx=v=>{const a=Math.abs(v||0);return a>=100000?((v<0?'-$':'$')+Math.round(a/1000)+'k'):fmtUsd(Math.round(v||0));};
+    // second arg forces k-truncation from $1k up (used by the 1A drawdown / Monte-Carlo labels
+    //   and the axis TOTAL pills, where space is tight — owner v64.11).
+    const fmtAx=(v,k)=>{const a=Math.abs(v||0);return (a>=100000||(k&&a>=1000))?((v<0?'-$':'$')+(a>=10000?Math.round(a/1000):(a/1000).toFixed(1))+'k'):fmtUsd(Math.round(v||0));};
     const _fmtSecs=s=>{s=Math.round(+s||0);if(s<1)return '<1s';if(s<60)return s+'s';if(s<3600)return Math.floor(s/60)+'m '+(s%60)+'s';return (s/3600).toFixed(1)+'h';};
     // iOS-glass tile matching the overview hero/KPI cards: hero-card class (theme glass
     // adds blur/gradient) + rounded + subtle 40%-border like the hero tiles.
@@ -6772,7 +6775,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _niceW=x=>{x=Math.abs(x)||1;const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
       const _stepW=_niceW((_vmax-_vmin)/2.5)||1;let _gl=[];for(let L=Math.ceil(_vmin/_stepW)*_stepW;L<=_vmax+1e-6;L+=_stepW)_gl.push(L);
       const _grid=_gl.map(L=>{const _z=Math.abs(L)<1e-6;return '<line x1="0" y1="'+Yf(L).toFixed(1)+'" x2="'+W+'" y2="'+Yf(L).toFixed(1)+'" stroke="var(--border)" stroke-width="'+(_z?'0.8':'0.4')+'" opacity="'+(_z?'0.5':'0.22')+'"/>';}).join('');
-      const _yLab='<div style="width:44px;min-width:44px;position:relative;font-size:8px;color:var(--text5)">'+_gl.map(L=>'<span style="position:absolute;left:3px;top:calc('+(Yf(L)/H*100).toFixed(1)+'% - 4px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L)+'</span>').join('')+'</div>';
+      const _yLab='<div style="width:44px;min-width:44px;position:relative;font-size:8px;color:var(--text5)">'
+        +'<span title="total across the '+v.length+' time windows" style="position:absolute;left:1px;top:1px;white-space:nowrap;font-weight:800;color:#04130c;background:'+(tot>=0?'var(--green)':'#e24b4a')+';padding:0 4px;border-radius:4px;z-index:2">'+fmtAx(tot,1)+'</span>'
+        +_gl.map(L=>'<span style="position:absolute;left:3px;top:calc('+(Yf(L)/H*100).toFixed(1)+'% - 4px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L)+'</span>').join('')+'</div>';
       const vc=concentrated?'var(--yellow)':'var(--green)';
       const _icST=_ipAB('Splits the champion ENTIRE trade history into '+v.length+' equal time slices (oldest → newest) and plots the net $ of each slice. The 1…'+v.length+' labels under the bars number those slices — the SAME trades as the 1A equity curve (each bar = 1/'+v.length+' of them, 1 oldest on the left, '+v.length+' newest on the right), just cut into time buckets to test consistency — NOT a different dataset, and NOT walk-forward folds (those are chart 1C). Profit SPREAD across the bars = a durable edge; CONCENTRATED in one bar = one lucky stretch carried the whole result.',(scope?scope+' · ':'')+pos+' of '+v.length+' windows green · total '+fmtUsd(Math.round(tot)));
       const hdr=(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' '+_infoIc(_icST)+' · STRESS ACROSS TIME <span style="font-weight:700;color:'+vc+';font-size:9px">'+(concentrated?'CONCENTRATED':'SPREAD')+'</span></div>':'<div class="lbl" style="margin:8px 0 6px">STRESS ACROSS TIME · <span style="color:'+vc+'">'+(concentrated?'CONCENTRATED':'SPREAD')+'</span> · '+pos+'/'+v.length+' windows green</div>');
@@ -7831,7 +7836,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _niceW=x=>{x=Math.abs(x)||1;const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
       const _stepW=_niceW((_vmax-_vmin)/2.5)||1;let _glW=[];for(let L=Math.ceil(_vmin/_stepW)*_stepW;L<=_vmax+1e-6;L+=_stepW)_glW.push(L);
       const _gridW=_glW.map(L=>{const _z=Math.abs(L)<1e-6;return '<line x1="0" y1="'+Yf(L).toFixed(1)+'" x2="'+W+'" y2="'+Yf(L).toFixed(1)+'" stroke="var(--border)" stroke-width="'+(_z?'0.8':'0.4')+'" opacity="'+(_z?'0.5':'0.22')+'"/>';}).join('');
-      const _yLabW='<div style="width:44px;min-width:44px;position:relative;font-size:8px;color:var(--text5)">'+_glW.map(L=>'<span style="position:absolute;left:3px;top:calc('+(Yf(L)/H*100).toFixed(1)+'% - 4px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L)+'</span>').join('')+'</div>';
+      const _yLabW='<div style="width:44px;min-width:44px;position:relative;font-size:8px;color:var(--text5)">'
+        +'<span title="total out-of-sample $ across the folds" style="position:absolute;left:1px;top:1px;white-space:nowrap;font-weight:800;color:#04130c;background:'+(sOos>=0?'var(--green)':'#e24b4a')+';padding:0 4px;border-radius:4px;z-index:2">'+fmtAx(sOos,1)+'</span>'
+        +_glW.map(L=>'<span style="position:absolute;left:3px;top:calc('+(Yf(L)/H*100).toFixed(1)+'% - 4px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L)+'</span>').join('')+'</div>';
       // ── v64.7 (owner): ONE merged ANCHORED / ROLLING pill is the fold-chart toggle; the held /
       //    efficiency readout and the how-to text live in the 1C info popover (A background, B calculated).
       const _hasBoth=!!(d.validate&&d.validate.wf_rolling&&d.validate.wf_anchored);
@@ -7953,7 +7960,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<span style="position:absolute;left:1px;top:calc('+(Y(_eqEnd)/EH*100).toFixed(2)+'% - 6px);white-space:nowrap;font-weight:800;color:#04130c;background:'+_endCol+';padding:0 4px;border-radius:4px;z-index:2">'+fmtAx(_eqEnd)+'</span>'
         +'</div>'
         +'<div style="height:5px"></div>'
-        +'<div style="position:relative;flex:1;min-height:0;font-size:8px"><span style="position:absolute;left:3px;top:0">$0</span><span style="position:absolute;left:3px;top:calc('+(ddY(ddMin)/DDH*100).toFixed(1)+'% - 4px);color:#d6557a;white-space:nowrap">'+fmtAx(ddMin)+'</span>'+(mcDD!=null?'<span style="position:absolute;left:3px;top:calc('+(ddY(mcDD)/DDH*100).toFixed(1)+'% - 4px);color:#f5c842;white-space:nowrap">'+fmtAx(mcDD)+'</span>':'')+'</div>'
+        +'<div style="position:relative;flex:1;min-height:0;font-size:8px"><span style="position:absolute;left:3px;top:0">$0</span><span style="position:absolute;left:3px;top:calc('+(ddY(ddMin)/DDH*100).toFixed(1)+'% - 4px);color:#d6557a;white-space:nowrap">'+fmtAx(ddMin,1)+'</span>'+(mcDD!=null?'<span style="position:absolute;left:3px;top:calc('+(ddY(mcDD)/DDH*100).toFixed(1)+'% - 4px);color:#f5c842;white-space:nowrap">'+fmtAx(mcDD,1)+'</span>':'')+'</div>'
         +'<div style="height:12px"></div></div>';
       // RESIZE: the chart sits in a vertically-resizable box (drag the grip at its lower edge to
       //   make it taller). The SVG fills the box (preserveAspectRatio=none → gridlines & curve scale
@@ -7996,9 +8003,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const bars=flat.map((f,i)=>{const cx=timeOk?X(f.t):X(i),h=Math.abs(f.v)/rg*plotH,col=f.v>=0?'#21c179':'#e24b4a',by=f.v>=0?z-h:z;
         return '<rect x="'+(cx-bw/2).toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+col+'" opacity="0.9" style="cursor:pointer" data-tip="'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][f.m]+' '+f.y+' · <b style=&quot;color:'+col+'&quot;>'+_k(f.v)+'</b>"/>';}).join('');
       const svg='<svg viewBox="0 0 '+EW+' '+H+'" preserveAspectRatio="none" style="display:block;width:100%;height:100%" data-xh="'+encodeURIComponent(JSON.stringify(timeOk?{xt:'date',x0:T0,x1:T1,yt:'usd',y0:mn,y1:mx,px:pd,py:padT,pw:EW-2*pd,ph:plotH,yl:'month P&L'}:{xt:'int',x0:1,x1:flat.length,yt:'usd',y0:mn,y1:mx,px:pd,py:padT,pw:EW-2*pd,ph:plotH,xl:'month #',yl:'month P&L'}))+'">'+grid+bars+'</svg>';
-      // y-gutter labels use fmtAx — the SAME shared $ axis format as 1A/1C/1D (owner v64.8).
-      const yLab='<div style="width:44px;min-width:44px;height:100%;position:relative;font-size:8px;color:var(--text5)">'+gl.map(L=>'<span style="position:absolute;left:3px;top:calc('+(Y(L)/H*100).toFixed(2)+'% - 5px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L)+'</span>').join('')+'</div>';
+      // y-gutter labels use fmtAx — the SAME shared $ axis format as 1A/1C/1D (owner v64.8);
+      //   v64.11: gutter tops out with a highlighted TOTAL pill (the 1A endpoint treatment).
       const tot=vals.reduce((s,v)=>s+v,0),pos=vals.filter(v=>v>0).length;
+      const yLab='<div style="width:44px;min-width:44px;height:100%;position:relative;font-size:8px;color:var(--text5)">'
+        +'<span title="total across all months — same as the whole-run net" style="position:absolute;left:1px;top:1px;white-space:nowrap;font-weight:800;color:#04130c;background:'+(tot>=0?'var(--green)':'#e24b4a')+';padding:0 4px;border-radius:4px;z-index:2">'+fmtAx(tot,1)+'</span>'
+        +gl.map(L=>'<span style="position:absolute;left:3px;top:calc('+(Y(L)/H*100).toFixed(2)+'% - 5px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L)+'</span>').join('')+'</div>';
       return '<div style="margin:0 0 5px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1B '+_infoIc(_ipAB('Net $ per calendar month, derived from the SAME champion equity curve as 1A — it spans in-sample, walk-forward AND lockbox, so the bars sum to the KPI-matrix TOTAL. Bars are placed on the same time axis as 1A.',pos+'/'+flat.length+' months green · total '+fmtUsd(Math.round(tot))))+' · MONTHLY P&amp;L <span style="font-weight:400;color:var(--text4);font-size:8px">· '+pos+'/'+flat.length+' green</span></div>'
         +'<div style="display:flex;gap:7px;height:56px;resize:vertical;min-height:34px;max-height:220px;overflow:hidden"><div class="rschart-box" style="flex:1;min-width:0;background:var(--bg1);border-radius:8px;overflow:hidden">'+svg+'</div>'+yLab+'</div>';
     };
@@ -8725,7 +8735,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(d.validate){const _V=d.validate,_lb=_V.lockbox||{};
         // 1D/1G/1I show WHOLE-RUN champion behaviour on new runs (engine full-window pass); older runs fall back to the in-sample slice.
         const _dscope=(d.champ_dist_scope==='overall')?'whole run':'in-sample';
-        const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px;resize:vertical;overflow:auto';
+        const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px;resize:both;min-width:260px;overflow:auto';
         const _mtip='Three sections — in-sample, walk-forward and lockbox — run back-to-back and sum to TOTAL. WALK-FORWARD NET = the sum of the fold out-of-sample results (matches the WALK-FORWARD chart); LOCKBOX NET = the holdout backtest (matches the lock strip). IN-SAMPLE is the residual (TOTAL − WALK-FORWARD − LOCKBOX) so the three reconcile. AVG WIN / AVG LOSS are measured from the real trades for LOCKBOX and TOTAL, and derived from PF for IN-SAMPLE and WALK-FORWARD (re-run a validate to measure all). BARS: in-sample = initial train window, walk-forward = sum of test windows; lockbox bar-count is not saved.';
         // Section 1a leads with the equity graph + lockbox strip ONLY. The old
         // "BEST CONFIG" cards (single parameter set across ALL dates — the $195k NET P&L
@@ -8796,7 +8806,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   §1 skeleton as run 137 — populating each tile where the run has the data and dropping an
         //   n/a card into the slot where it doesn't (e.g. no walk-forward folds on a grid sweep), so
         //   switching between run types never moves the layout. §2/§4/§8 fold in here (nulled below).
-        const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px;resize:vertical;overflow:auto';
+        const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px;resize:both;min-width:260px;overflow:auto';
         const _sc='in-sample';
         const _spy=(d.date_from&&d.date_to)?'<div id="det-spy" data-spy-from="'+d.date_from+'" data-spy-to="'+d.date_to+'" style="font-size:var(--fsxs);color:var(--text5);margin:5px 0 0"></div>':'';
         const _mcNote=(d.mc&&d.mc.p95!=null)?'<div style="font-size:var(--fsxs);color:var(--text3);margin-top:7px">P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round((d.mc.p95||0)*mlt))+'</b> — size your account to survive this (Monte-Carlo worst case).</div>':'';
