@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.26';
+const VERSION='64.27';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.27', date:'2026-07-22', notes:['2A CONFIG FUNNEL redraw per the owner line procedure: every line is SOLID through in-sample, DASHED through walk-forward and DOTTED through the lockbox; the top-K walk-forward survivors each get their own colour (the lines that matter) while the non-survivors stay light grey; all strokes thinned right down.','2A: the crowned / IS-max / lockbox endpoint $ figures moved ONTO the y axis at their exact heights (the 1A endpoint treatment) — the second label column outside the plot is gone, leaving the one key in the upper-left.','2A: date ticks now run through the in-sample stretch too (mid-IS and the IS door), and the configs slider DEFAULTS to every stored curve with an honest readout — e.g. 50/50 saved · 2,856 tested (the engine stores the top 50 curves per run; the slider spans all of them).']},
   {v:'64.26', date:'2026-07-22', notes:['Fix: dragging the handle row under 1G / 1H (and other wrapped charts) resized the grey panel instead of the chart inside it, so the two fought and the layout broke — the handle now drags the chart box itself and the panel follows.','Fix: handle rows that were still rendering INSIDE a grey subtile (4B for example) now climb out and sit under the whole subtile, separating it from the next chart title — the 1A-1D pattern everywhere.']},
   {v:'64.25', date:'2026-07-22', notes:['1I DEFLATED SHARPE: the headline stat is now honestly labelled IS Sharpe (it is the in-sample Sharpe on purpose — the winner was picked on that window, so pick-luck is tested there), the info box explanation is rewritten from scratch in plain language (what the luck bar is, where the percent comes from, what the 80 / 95 ticks mean), the tick numerals came off the gauge strip, and the gauge sits in its own subtile like 1G / 1H.','2A: the info icon sits right after the 2A tag (1A pattern) and holds the funnel-path caption; the configs slider is right-aligned on the title row; the region labels are IS / WF / LB; a compact colour KEY sits in the upper-left of the plot; the $ axis uses the shared k-format; SELECTION DETAIL is its own expandable subtile instead of floating text.','2B: renamed PARALLEL COORDS, info icon right after the tag, and the NET $ / MAX DD / MAR chart-metric buttons moved onto its title row.','A hair more breathing room between every resize handle row and the chart or tile above it.']},
   {v:'64.24', date:'2026-07-22', notes:['Hotfix: v64.22 broke the run report detail (the could-not-render card with a _dOpts error) — the new bins menu referenced an option list an earlier edit had removed. Restored; reports render again.']},
@@ -6874,7 +6875,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       }
       // draw ALL stored curves; the slider picks how many get COLOUR — the rest stay as faint
       //   grey context lines (owner request) instead of disappearing. Slider max = stored curves.
-      const _cfgPts=Math.max(2,Math.min(etop.length,(+APREF.cfgPts)||20)),_cfgShow=Math.min(_cfgPts,etop.length);
+      // v64.27 (owner): DEFAULT = every stored curve (the slider already spans them all).
+      const _cfgPts=Math.max(2,Math.min(etop.length,(+APREF.cfgPts)||etop.length)),_cfgShow=Math.min(_cfgPts,etop.length);
       const series=etop.map(o=>((o&&o.cum)?o.cum:o).map(x=>x*mult));let mn=0,mx=0;series.forEach(s=>s.forEach(v=>{if(v<mn)mn=v;if(v>mx)mx=v;}));extYs.forEach(v=>{if(v<mn)mn=v;if(v>mx)mx=v;});const rg=(mx-mn)||1;
       // colour the curves: by RANK (winner brightest) or by a chosen PARAM value (mapped to
       // each curve by index — equity_top is rank-ordered like top10_results).
@@ -6951,28 +6953,32 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   so you can trace them back through the in-sample section too (owner: "the lines that
         //   continue arent highlighted in the in-sample section"); the faint cloud is the configs
         //   that DON'T survive, which stop at the in-sample door.
-        let wf='';
-        poolAll.forEach(c=>{if(c===crownedC||c===isMaxC)return;const vals=c.equity.cum.map(v=>v*mult);
-          wf+='<polyline points="'+_seg(vals,0,1)+'" fill="none" stroke="#d5deea" stroke-width="1" opacity="0.9"/>';});
-        // crowned (green, solid) + IS-max (blue, dashed) traced FULL length so the eye follows
-        //   the eventual winner through the cloud and out the far side
+        // v64.27 (owner LINE PROCEDURE): in-sample segment SOLID · walk-forward segment DASHED ·
+        //   lockbox continuation DOTTED. Survivors are COLOURED (one hue each — the lines we
+        //   care about), the cloud stays light grey, every stroke as thin as legible.
+        const _huePal=['#e0a04b','#a879e6','#4bc0c0','#e06b9a','#8fbf4d','#5b8dee','#d9c34a','#c86b4b'];
+        const _proc=(vals,col,wd,op)=>'<polyline points="'+_seg(vals,0,fIS)+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'"/>'
+          +'<polyline points="'+_seg(vals,fIS,1)+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'" stroke-dasharray="2.2 1.6"/>';
+        let wf='';let _hueI=0;
+        poolAll.forEach(c=>{if(c===crownedC||c===isMaxC)return;
+          wf+=_proc(c.equity.cum.map(v=>v*mult),_huePal[(_hueI++)%_huePal.length],0.6,0.85);});
         let ov='';
-        if(isMaxC&&isMaxC!==crownedC){const vals=isMaxC.equity.cum.map(v=>v*mult);ov+='<polyline points="'+_seg(vals,0,1)+'" fill="none" stroke="#3a9bdc" stroke-width="1.1" opacity="0.95" stroke-dasharray="5 3"/>';}
-        if(crownedC){const vals=crownedC.equity.cum.map(v=>v*mult);ov+='<polyline points="'+_seg(vals,0,1)+'" fill="none" stroke="#1d9e75" stroke-width="1.7" opacity="1"/>';}
-        // top-3 lockbox continuation [lockbox door → right edge], anchored to each config's opt-end $
+        if(isMaxC&&isMaxC!==crownedC)ov+=_proc(isMaxC.equity.cum.map(v=>v*mult),'#3a9bdc',0.7,0.95);
+        if(crownedC)ov+=_proc(crownedC.equity.cum.map(v=>v*mult),'#1d9e75',0.9,1);
+        // top-3 lockbox continuation [lockbox door → right edge] — DOTTED per the procedure
         const LBALT=['#e0a04b','#a879e6'];let alt=0;const labs=[];let lb='';
         if(hasLB)lbCs.forEach(c=>{const cr=!!c.crowned,col=cr?'#1d9e75':LBALT[(alt++)%2];
           const cum=c.lb_equity.cum,base=c.lb_equity.base,anchor=c.equity.final,n=cum.length;
           const pts=[xFull.toFixed(1)+' '+Yv(anchor*mult).toFixed(1)];
-          for(let j=0;j<n;j++){const f=n<=1?1:j/(n-1);pts.push((xFull+(xR-xFull)*f).toFixed(1)+' '+Yv((anchor+(cum[j]-base))*mult).toFixed(1));}
-          lb+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?1.6:1.0)+'" opacity="0.92" stroke-dasharray="2.5 2"/>';
+          for(let j=0;j<n;j++){const f=n<=1?1:j/(n-1);pts.push((xFull+(xR-xFull)*f).toFixed(1)+' '+Yv((anchor+(cum[j]-base))*mult).toFixed(1))}
+          lb+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?0.9:0.6)+'" opacity="0.95" stroke-dasharray="0.5 1.6" stroke-linecap="round"/>';
           const fv=anchor+(cum[n-1]-base);labs.push({y:Yv(fv*mult),col,txt:_kUsd(fv*mult)+(cr?' 🔒crown':' 🔒')});});
         if(crownedC){const fv=crownedC.equity.cum[crownedC.equity.cum.length-1];labs.push({y:Yv(fv*mult),col:'#1d9e75',txt:_kUsd(fv*mult)+' 👑'});}
         if(isMaxC&&isMaxC!==crownedC){const fv=isMaxC.equity.cum[isMaxC.equity.cum.length-1];labs.push({y:Yv(fv*mult),col:'#3a9bdc',txt:_kUsd(fv*mult)+' IS'});}
         labs.sort((a,b)=>a.y-b.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<5)labs[i].y=labs[i-1].y+5;
-        // lane 2 (xR+40): endpoint $ labels sit RIGHT of the generic $ gridline scale (lane 1 at
-        //   xR+4) so the two no longer overlap (owner: labels were breaking up the axis labels).
-        const labSvg=labs.map(L=>'<text x="'+(xR+40).toFixed(1)+'" y="'+(L.y+2).toFixed(1)+'" font-size="4.7" font-weight="700" fill="'+L.col+'" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.2">'+L.txt+'</text>').join('');
+        // v64.27 (owner): endpoint $ labels sit ON the y axis at their exact height — the 1A
+        //   endpoint treatment — with a halo so they win over the gridline scale beneath.
+        const labSvg=labs.map(L=>'<text x="'+(xR+4).toFixed(1)+'" y="'+(L.y+2).toFixed(1)+'" font-size="4.7" font-weight="700" fill="'+L.col+'" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.6">'+L.txt+'</text>').join('');
         // DOOR lines (in-sample slate · lockbox purple) — labels moved to the region labels below.
         const isDoor='<line x1="'+xIS.toFixed(1)+'" y1="'+pt+'" x2="'+xIS.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#7f8c99" stroke-width="0.6" stroke-dasharray="2 2" opacity="0.7"/>';
         const lbDoor=hasLB?('<line x1="'+xFull.toFixed(1)+'" y1="'+pt+'" x2="'+xFull.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#a78bfa" stroke-width="0.7" stroke-dasharray="3 2" opacity="0.85"/>'):'';
@@ -6984,12 +6990,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<text x="'+((xL+xIS)/2).toFixed(1)+'" y="'+(pt-1.5).toFixed(1)+'" text-anchor="middle" font-size="4.6" font-weight="700" fill="var(--text4)">IS</text>'
           +'<text x="'+((xIS+xFull)/2).toFixed(1)+'" y="'+(pt-1.5).toFixed(1)+'" text-anchor="middle" font-size="4.6" font-weight="700" fill="#60a5fa">WF</text>'
           +(hasLB?('<text x="'+((xFull+xR)/2).toFixed(1)+'" y="'+(pt-1.5).toFixed(1)+'" text-anchor="middle" font-size="4.6" font-weight="700" fill="#a78bfa">LB</text>'):'');
-        // v64.25 (owner): compact KEY in the upper-left of the plot.
+        // v64.25/64.27 (owner): the ONE key, upper-left INSIDE the plot.
         const keySvg='<g font-size="4.3" font-weight="700" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.2">'
-          +'<text x="'+(xL+3).toFixed(1)+'" y="'+(pt+6)+'" fill="#1d9e75">— crowned 👑</text>'
-          +'<text x="'+(xL+3).toFixed(1)+'" y="'+(pt+12)+'" fill="#3a9bdc">┅ IS max</text>'
-          +'<text x="'+(xL+3).toFixed(1)+'" y="'+(pt+18)+'" fill="#d5deea">— top-K WF</text>'
-          +'<text x="'+(xL+3).toFixed(1)+'" y="'+(pt+24)+'" fill="var(--text4)">— all configs (cloud)</text></g>';
+          +'<text x="'+(xL+3).toFixed(1)+'" y="'+(pt+6)+'" fill="#1d9e75">crowned 👑</text>'
+          +'<text x="'+(xL+3).toFixed(1)+'" y="'+(pt+12)+'" fill="#3a9bdc">IS max</text>'
+          +'<text x="'+(xL+3).toFixed(1)+'" y="'+(pt+18)+'" fill="#e0a04b">coloured = top-K WF</text>'
+          +'<text x="'+(xL+3).toFixed(1)+'" y="'+(pt+24)+'" fill="var(--text4)">grey = other configs</text>'
+          +'<text x="'+(xL+3).toFixed(1)+'" y="'+(pt+30)+'" fill="var(--text3)">solid IS · dashed WF · dotted LB</text></g>';
         selSvg=isDoor+lbDoor+wf+ov+lb+labSvg+keySvg;}
       // x-axis date labels (owner request). Use the OPTIMIZE window when this is a validate
       //   run; selMode+lockbox pushes the right label out to the holdout end.
@@ -6998,11 +7005,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(selMode&&hasLB&&Wlb&&Wlb[1])_xd1=Wlb[1];
       if(_xd0&&_xd1){grid+='<text x="'+xL.toFixed(1)+'" y="'+(H-0.5)+'" font-size="4.6" fill="var(--text3)">'+_dnice(_xd0)+'</text>'
         +'<text x="'+xR.toFixed(1)+'" y="'+(H-0.5)+'" text-anchor="end" font-size="4.6" fill="var(--text3)">'+_dnice(_xd1)+'</text>'
-        +((selMode&&hasLB&&Wopt[1])?('<text x="'+xFull.toFixed(1)+'" y="'+(H-0.5)+'" text-anchor="middle" font-size="4.2" fill="var(--text4)">'+_dnice(Wopt[1])+'</text>'):'');}
+        +((selMode&&hasLB&&Wopt[1])?('<text x="'+xFull.toFixed(1)+'" y="'+(H-0.5)+'" text-anchor="middle" font-size="4.2" fill="var(--text4)">'+_dnice(Wopt[1])+'</text>'):'')
+        // v64.27 (owner): date ticks INSIDE the in-sample stretch too (mid-IS and the IS door).
+        +((selMode&&Wopt&&Wopt[0]&&Wopt[1])?(function(){const _a3=+new Date(Wopt[0]),_b3=+new Date(Wopt[1]);const _dF=f=>_dnice(new Date(_a3+(_b3-_a3)*f).toISOString().slice(0,10));
+          return '<text x="'+((xL+xIS)/2).toFixed(1)+'" y="'+(H-0.5)+'" text-anchor="middle" font-size="4.2" fill="var(--text4)">'+_dF(0.375)+'</text>'
+            +'<text x="'+xIS.toFixed(1)+'" y="'+(H-0.5)+'" text-anchor="middle" font-size="4.2" fill="var(--text4)">'+_dF(0.75)+'</text>';})():'');}
       const selDrop='<select data-tpc style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin-left:6px"><option value="rank"'+(mode==='rank'?' selected':'')+'>by rank</option>'+pkeys.map(k=>'<option value="'+k+'"'+(mode===k?' selected':'')+'>by '+k.replace(/_/g,' ')+'</option>').join('')+'</select>';
-      const cfgSlider='<span title="how many curves show as faint grey context — the run stored the top '+etop.length+' curves." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+'</b></span>';
+      const cfgSlider='<span title="how many of the stored curves to draw. The engine saves the TOP '+etop.length+' equity curves per run'+(d.n_combos?' (of '+(+d.n_combos).toLocaleString()+' configs tested — storing every curve would blow the run-doc size limit)':'')+'; the slider spans all of them." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+' saved'+(d.n_combos?' · '+(+d.n_combos).toLocaleString()+' tested':'')+'</b></span>';
       const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis — top '+etop.length+((_xd0&&_xd1)?' · '+_dnice(_xd0)+' → '+_dnice(_xd1):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. RANKING: locked to the pre-registered IN-SAMPLE slice (the first ~75% of this window) — a lower-ranked curve can END higher because the tail is out-of-sample for selection, and peeking at it to pick the winner would be look-ahead bias. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
-      const _selTip='WF-CHECKED SELECTION (#88 / #88b) ON THE 2A CHART — a funnel with two doors. The grey CLOUD is every top config, drawn only to the IN-SAMPLE door (~75% of the optimize window). From there only the top-K by walk-forward continue to the LOCKBOX door (optimize end). From there only the top-3 continue THROUGH the lockbox to the right edge. Green = WF-crowned, blue dashed = in-sample MAX. The lockbox tail is shown AFTER the crown was set, never used to pick the champion.';
+      const _selTip='WF-CHECKED SELECTION (#88 / #88b) ON THE 2A CHART — a funnel with two doors. The grey CLOUD is every top config, drawn only to the IN-SAMPLE door (~75% of the optimize window). From there only the top-K by walk-forward continue to the LOCKBOX door (optimize end). From there only the top-3 continue THROUGH the lockbox to the right edge. LINE PROCEDURE: the in-sample stretch of every line is SOLID, the walk-forward stretch is DASHED, and the lockbox continuation is DOTTED. Green = WF-crowned, blue = in-sample MAX, each other top-K survivor gets its own colour, light grey = the configs that did not survive the in-sample door. The lockbox tail is shown AFTER the crown was set, never used to pick the champion.';
       // v64.25 (owner): ⓘ right after the tag (1A pattern), the funnel-path caption lives in the
       //   info box, and the configs slider is right-aligned on the title row.
       const _hdr=selMode
