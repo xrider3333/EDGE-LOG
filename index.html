@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.16';
+const VERSION='64.17';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.17', date:'2026-07-22', notes:['Fix: dragging a section-1 splitter far could squeeze a column below the tile minimum width, letting that tile paint OVER its neighbour (overlapping axes and pills). The splitter now stops at the tile floor (260px), a squeezed column clips instead of overlapping, and saved widths are floored on load.','Double-click any splitter bar to reset the three tile widths to their defaults.']},
   {v:'64.16', date:'2026-07-22', notes:['Section-1 tiles now share ONE width budget: slim vertical splitter bars sit between the three tiles — drag a bar and width moves OUT of one tile INTO its neighbour, so resizing never opens a gap. The tiles stay separate; the ratio you set persists. The old per-tile corner grabber (the tiny dot that was hard to grip) is gone — width is the splitters job now, chart heights still drag from their handle rows.','The bright grey vertical line that appeared when a tile got narrow was the tile scrollbar track — inside the report it is now invisible (the thumb only shows, border-toned, when content actually overflows).']},
   {v:'64.15', date:'2026-07-22', notes:['1E KPI MATRIX: column headers abbreviated to IS / WF / LB (matching the labels inside the 1A chart — date ranges stay underneath, full names on hover), and the title-row chips (verdict, GATES, DSR, CALMAR) are smaller with no wrapping so the matrix is never pushed down.','Section-1 tiles: the blank column between each chart y axis and the tile right edge is about a third slimmer (tile right padding cut).']},
   {v:'64.14', date:'2026-07-22', notes:['Section-1 charts resize from a slim HANDLE ROW under each chart (a centred drag bar on its own row, spanning left of the axis) instead of the native corner grip that overlapped the y-axis numbers — 1A, 1B, 1C and 1D all drag the same way now, and dragged heights still stick.','Chart titles are shorter: the dot between the chart number and its name is gone everywhere (1A CHAMPION EQUITY, 1C WALK-FORWARD, 2B CONFIG SPACE, ...).']},
@@ -9380,9 +9381,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // v64.16 (owner): the three S1 tiles share ONE width budget — slim vertical splitter
           //   bars between them (the chart handle-row idea, rotated) drag width OUT of one tile
           //   INTO its neighbour so no gap ever opens. Tiles stay separate; ratios persist.
-          var _g=(Array.isArray(APREF.s1cols)&&APREF.s1cols.length===3)?APREF.s1cols:null;
-          var _w=function(i,def){return '<div data-s1col="'+i+'" style="'+(_g?('flex:'+_g[i]+' 1 0px'):('flex:'+def))+';min-width:200px">';};
-          var _sp='<div data-vsplit title="drag left / right — width moves between the two tiles" style="flex:0 0 10px;align-self:stretch;cursor:ew-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:3px;height:46px;border-radius:2px;background:var(--border)"></div></div>';
+          var _g=(Array.isArray(APREF.s1cols)&&APREF.s1cols.length===3)?APREF.s1cols.map(function(x){return Math.max(260,+x||260);}):null;
+          // column floor MUST match the _card min-width (260px) — a smaller floor let a squeezed
+          //   column force its card to overflow and paint OVER the neighbouring tile (owner hit it).
+          var _w=function(i,def){return '<div data-s1col="'+i+'" style="'+(_g?('flex:'+_g[i]+' 1 0px'):('flex:'+def))+';min-width:260px;overflow:hidden">';};
+          var _sp='<div data-vsplit title="drag left / right — width moves between the two tiles · double-click = reset the widths" style="flex:0 0 10px;align-self:stretch;cursor:ew-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:3px;height:46px;border-radius:2px;background:var(--border)"></div></div>';
           return '<div style="display:flex;gap:2px;align-items:flex-start;flex-wrap:wrap">'+_w(0,'1.7 1 360px')+_panelEquity+'</div>'+_sp+_w(1,'1 1 280px')+_panelMatrix+_panelRegime+'</div>'+_sp+_w(2,'1.1 1 300px')+_distTile+'</div></div>';})())
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         // §3 is a fixed slot too (universal layout): show an n/a card when the run swept no config grid.
@@ -10615,10 +10618,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const cols=[...sp.parentElement.querySelectorAll(':scope > [data-s1col]')];
           cols.forEach(c=>{c.style.flex=c.offsetWidth+' 1 0px';});
           const x0=e.clientX,wL=L.offsetWidth,wR=R.offsetWidth;
-          const mv=ev=>{const dx=ev.clientX-x0;L.style.flex=Math.max(200,wL+dx)+' 1 0px';R.style.flex=Math.max(200,wR-dx)+' 1 0px';};
+          const mv=ev=>{const dx=ev.clientX-x0;L.style.flex=Math.max(260,wL+dx)+' 1 0px';R.style.flex=Math.max(260,wR-dx)+' 1 0px';};
           const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);
             savePref('s1cols',cols.map(c=>Math.round(c.offsetWidth)));};
-          window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});});
+          window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});
+        // double-click a splitter = reset all three widths to the defaults
+        sp.addEventListener('dblclick',()=>{savePref('s1cols',null);renderApp();});});
     })();
     content.querySelectorAll('[data-asub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.asub;augurRunSel=null;augurLibSel=null;augurLibDel=false;augurLibMsg='';renderApp();};});
     if(augurSub==='launch'){const rb=el('au-run');if(rb)rb.onclick=async()=>{const inst=el('au-inst').value,sess=el('au-sess').value;const job={strategy:el('au-strat').value,instrument:inst,timeframe:el('au-tf').value,session:sess,source:sess==='rth'?'tv':null,params:{vol_filter:parseFloat(el('au-vol').value)||0},cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,mc_sims:1000,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};rb.textContent='QUEUED…';rb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
