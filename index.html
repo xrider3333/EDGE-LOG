@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.14';
+const VERSION='64.15';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.15', date:'2026-07-22', notes:['1E KPI MATRIX: column headers abbreviated to IS / WF / LB (matching the labels inside the 1A chart — date ranges stay underneath, full names on hover), and the title-row chips (verdict, GATES, DSR, CALMAR) are smaller with no wrapping so the matrix is never pushed down.','Section-1 tiles: the blank column between each chart y axis and the tile right edge is about a third slimmer (tile right padding cut).']},
   {v:'64.14', date:'2026-07-22', notes:['Section-1 charts resize from a slim HANDLE ROW under each chart (a centred drag bar on its own row, spanning left of the axis) instead of the native corner grip that overlapped the y-axis numbers — 1A, 1B, 1C and 1D all drag the same way now, and dragged heights still stick.','Chart titles are shorter: the dot between the chart number and its name is gone everywhere (1A CHAMPION EQUITY, 1C WALK-FORWARD, 2B CONFIG SPACE, ...).']},
   {v:'64.13', date:'2026-07-22', notes:['Engine: ML-gate runs now SAVE the before/after equity curves — the champion taking every trade vs the same champion with the gate skipping trades — into the run doc (both the single-gate path and the gate-validate bake-off winner, capped at 300 points each). This is the data half of ledger item 18; the report draws it as chart 3B next. Only runs made from now on carry the curves — old runs (incl. 170) cannot backfill.']},
   {v:'64.12', date:'2026-07-22', notes:['1A: the max-drawdown and Monte-Carlo floor numbers are now highlighted pills like the final-equity number (pink and yellow, matching their reference lines). The TOTAL pills v64.11 briefly put on top of the 1B / 1C / 1D axes are gone — that was a misread of the request.','Consistent resize across section 1: 1B / 1C / 1D now resize exactly like 1A — the drag grip sits at bottom-right UNDER the y axis (the whole chart-plus-axis row resizes as one) and dragged heights still stick per chart.','1C: the scheme pill is tighter — ANCH / ROLL abbreviations (full names on hover and in the info box) so the tile can be shrunk narrower.']},
@@ -7647,11 +7648,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _ddOf=(eng,a,b)=>{if(eng!=null&&Math.abs(+eng)>0)return Math.abs(+eng)*mult;const c=(eq.length>2)?_segDD(a,b):0;return c>0?c:null;};
       const ddIS=_ddOf(V.is_dd,0,wEnd+1),ddWF=_ddOf(null,wEnd,li),ddLB=_ddOf(lb.dd,Math.max(0,li-1),eq.length),ddTOT=_ddOf(V.total_dd,0,eq.length);
       const phases=[
-        {sh_:'IN-SAMPLE', sub:'no shading', col:'var(--text2)', dr:_dr(optS,isEndMs), days:_days(optS,isEndMs), bars:tr0||null, net:nIS, dd:ddIS, pf:(f1.profit_factor!=null?+f1.profit_factor:null), wr:(f1.win_rate!=null?+f1.win_rate:null), aw:awIS.aw, al:awIS.al, sh:V.is_sharpe, tr:(f1.num_trades!=null?+f1.num_trades:null),
+        {sh_:'IS', sub:'no shading', col:'var(--text2)', dr:_dr(optS,isEndMs), days:_days(optS,isEndMs), bars:tr0||null, net:nIS, dd:ddIS, pf:(f1.profit_factor!=null?+f1.profit_factor:null), wr:(f1.win_rate!=null?+f1.win_rate:null), aw:awIS.aw, al:awIS.al, sh:V.is_sharpe, tr:(f1.num_trades!=null?+f1.num_trades:null),
           tip:'IN-SAMPLE = the knob-tuning start of the graph. NET here is the RESIDUAL (TOTAL − WALK-FORWARD − LOCKBOX) so the three sections reconcile to the whole-run total. PF / Win% / Trades are its in-sample backtest; DAYS read off the curve.'},
-        folds.length?{sh_:'WALK-FORWARD', sub:'blue bands', col:C_WF, dr:_dr(isEndMs,optE), days:_days(isEndMs,optE), bars:wfBars||null, net:nWF, dd:ddWF, pf:oosPf, wr:oosWr, aw:awWF.aw, al:awWF.al, sh:foldSharpe(), tr:oosTr,
+        folds.length?{sh_:'WF', sub:'blue bands', col:C_WF, dr:_dr(isEndMs,optE), days:_days(isEndMs,optE), bars:wfBars||null, net:nWF, dd:ddWF, pf:oosPf, wr:oosWr, aw:awWF.aw, al:awWF.al, sh:foldSharpe(), tr:oosTr,
           tip:'WALK-FORWARD = the blue test bands — data held back while tuning, then tested forward ('+folds.length+' folds). NET P&L & DAYS are that slice of the curve; PF / Win% / Sharpe / Trades are the pooled out-of-sample results.'}:null,
-        (lb.pnl!=null)?{sh_:'LOCKBOX', sub:'purple', col:C_LB, dr:_dr(lbS,lbE), days:_days(lbS,lbE), bars:(lb.bars!=null?+lb.bars:null), net:nLB, dd:ddLB, pf:(lb.pf!=null?+lb.pf:null), wr:(lb.win_rate!=null?+lb.win_rate:null), aw:(lb.avg_win!=null?(+lb.avg_win)*mult:awLB.aw), al:(lb.avg_loss!=null?(+lb.avg_loss)*mult:awLB.al), sh:(lb.sharpe!=null?+lb.sharpe:null), sortino:(lb.sortino!=null?+lb.sortino:null), tr:(lb.trades!=null?+lb.trades:null),
+        (lb.pnl!=null)?{sh_:'LB', sub:'purple', col:C_LB, dr:_dr(lbS,lbE), days:_days(lbS,lbE), bars:(lb.bars!=null?+lb.bars:null), net:nLB, dd:ddLB, pf:(lb.pf!=null?+lb.pf:null), wr:(lb.win_rate!=null?+lb.win_rate:null), aw:(lb.avg_win!=null?(+lb.avg_win)*mult:awLB.aw), al:(lb.avg_loss!=null?(+lb.avg_loss)*mult:awLB.al), sh:(lb.sharpe!=null?+lb.sharpe:null), sortino:(lb.sortino!=null?+lb.sortino:null), tr:(lb.trades!=null?+lb.trades:null),
           tip:'LOCKBOX = the purple holdout — never tuned or browsed, the final untouched test. NET P&L is the lockbox\'s own backtest (the 🔒 strip figure). Win% & Sharpe are from the lockbox trades.'}:null,
         {sh_:'TOTAL', total:true, col:'var(--green)', dr:_dr(optS,lbE), days:_days(optS,lbE), bars:totBars, net:nTOT, dd:ddTOT, pf:totPf, wr:(V.total_win_rate!=null?+V.total_win_rate:null), aw:(V.total_avg_win!=null?(+V.total_avg_win)*mult:awTOT.aw), al:(V.total_avg_loss!=null?(+V.total_avg_loss)*mult:awTOT.al), sh:(V.total_sharpe!=null?+V.total_sharpe:null), sortino:(V.total_sortino!=null?+V.total_sortino:null), tr:totTr,
           tip:'TOTAL = the whole backtest = IN-SAMPLE + WALK-FORWARD + LOCKBOX. NET P&L is the equity curve\'s endpoint — the three sections add up to it. Win% & Sharpe are the champion measured over the whole window.'}
@@ -7691,10 +7692,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _calmar=(function(){const acct=100000,totMs=(optS&&lbE)?(lbE-optS):null;if(!eq||eq.length<8||!totMs)return null;const totYr=totMs/(365.25*864e5);if(totYr<=0)return null;const win=Math.min(3,totYr),i0=Math.max(0,Math.round(eq.length*(1-win/totYr))),seg=eq.slice(i0);if(seg.length<4)return null;const v0=acct+seg[0],v1=acct+seg[seg.length-1];if(v0<=0||v1<=0)return null;const cagr=Math.pow(v1/v0,1/win)-1;let pk=-Infinity,md=0;for(const x of seg){const e=acct+x;if(e>pk)pk=e;const dd=(e-pk)/pk;if(dd<md)md=dd;}const ddp=Math.abs(md);return ddp>0?cagr/ddp:null;})();
       const _vc={PASS:'var(--green)',WEAK:'var(--yellow)',FAIL:'var(--red)'}[V.verdict]||'var(--text4)',_ng=V.n_gates||5;
       // ONE non-wrapping line, uniform 9px chips (verdict included), readable text colours.
-      const _pill=(lbl,val,col,tip)=>'<span'+(tip?' title="'+tip+'"':'')+' style="font-size:9px;padding:2px 7px;border-radius:6px;background:var(--bg1);color:var(--text2);white-space:nowrap'+(tip?';cursor:help':'')+'">'+lbl+' <b style="color:'+(col||'var(--text)')+'">'+val+'</b></span>';
-      return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:hidden;margin:0 0 6px;min-height:20px">'
+      // v64.15 (owner): smaller chips + nowrap so the 1E title row stays ONE line and never
+      //   pushes the matrix down.
+      const _pill=(lbl,val,col,tip)=>'<span'+(tip?' title="'+tip+'"':'')+' style="font-size:8px;padding:1px 5px;border-radius:6px;background:var(--bg1);color:var(--text2);white-space:nowrap'+(tip?';cursor:help':'')+'">'+lbl+' <b style="color:'+(col||'var(--text)')+'">'+val+'</b></span>';
+      return '<div style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap;overflow:hidden;margin:0 0 6px;min-height:20px">'
         +(hdr||'')
-        +(V.verdict?'<span style="font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 8px;border-radius:6px;background:color-mix(in srgb,'+_vc+' 18%,transparent);color:'+_vc+';white-space:nowrap">'+V.verdict+'</span>':'')
+        +(V.verdict?'<span style="font-size:8px;font-weight:800;letter-spacing:.5px;padding:1px 6px;border-radius:6px;background:color-mix(in srgb,'+_vc+' 18%,transparent);color:'+_vc+';white-space:nowrap">'+V.verdict+'</span>':'')
         +(V.n_pass!=null?_pill('GATES',V.n_pass+'/'+_ng,(V.n_pass>=_ng?'var(--green)':'var(--yellow)')):'')
         +(V.dsr!=null?_pill('DSR',(+V.dsr).toFixed(2),((+V.dsr)>=0.95?'var(--green)':(+V.dsr)>=0.8?'var(--yellow)':'var(--red)'),'deflated Sharpe (selection-luck haircut) — ≥0.95 solid'):'')
         +(_calmar!=null&&isFinite(_calmar)?_pill('CALMAR',_calmar.toFixed(2),'var(--text)','Calmar = CAGR ÷ max-drawdown-%, last 3 years, on a $100k account. Like MAR (ann.) but recent-only — flags a strategy decaying lately.'):'')
@@ -8744,7 +8747,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(d.validate){const _V=d.validate,_lb=_V.lockbox||{};
         // 1D/1G/1I show WHOLE-RUN champion behaviour on new runs (engine full-window pass); older runs fall back to the in-sample slice.
         const _dscope=(d.champ_dist_scope==='overall')?'whole run':'in-sample';
-        const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px;resize:both;min-width:260px;overflow:auto';
+        const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 6px 14px 16px;resize:both;min-width:260px;overflow:auto';
         const _mtip='Three sections — in-sample, walk-forward and lockbox — run back-to-back and sum to TOTAL. WALK-FORWARD NET = the sum of the fold out-of-sample results (matches the WALK-FORWARD chart); LOCKBOX NET = the holdout backtest (matches the lock strip). IN-SAMPLE is the residual (TOTAL − WALK-FORWARD − LOCKBOX) so the three reconcile. AVG WIN / AVG LOSS are measured from the real trades for LOCKBOX and TOTAL, and derived from PF for IN-SAMPLE and WALK-FORWARD (re-run a validate to measure all). BARS: in-sample = initial train window, walk-forward = sum of test windows; lockbox bar-count is not saved.';
         // Section 1a leads with the equity graph + lockbox strip ONLY. The old
         // "BEST CONFIG" cards (single parameter set across ALL dates — the $195k NET P&L
@@ -8763,7 +8766,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _dsrBlock='<div style="margin-top:14px;padding-top:13px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1I '+_infoIc(_ipAB(dsrTip,dsrStats))+' DEFLATED SHARPE</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>';
         // 1E matrix + 1F regime share ONE tile (a divider between them) instead of two stacked cards.
         // 1E title rides on the matrix's own verdict/gates/DSR row (one line) instead of a separate header above it.
-        const _mHdr='<span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1E '+_infoIc('<div style="color:var(--text2)">'+_mtip+'</div>')+' KPI MATRIX</span>';
+        const _mHdr='<span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;white-space:nowrap">1E '+_infoIc('<div style="color:var(--text2)">'+_mtip+'</div>')+' KPI MATRIX</span>';
         _panelMatrix='<div style="'+_card+';height:100%;box-sizing:border-box">'+kpiMatrixHtml(d,mlt,1,_mHdr)
           +verdictPowerHtml(_V,mlt)
           +((regHtml&&regHtml.replace(/\s/g,''))?'<div style="margin-top:14px;padding-top:13px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)">'+_numHdr('1F','REGIME REPORT CARD',null,_dscope+' · weakest vol bucket: '+((d.regime&&d.regime.worst_vol)||'—'))+regHtml+'</div>':'')
@@ -8815,7 +8818,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   §1 skeleton as run 137 — populating each tile where the run has the data and dropping an
         //   n/a card into the slot where it doesn't (e.g. no walk-forward folds on a grid sweep), so
         //   switching between run types never moves the layout. §2/§4/§8 fold in here (nulled below).
-        const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 16px;resize:both;min-width:260px;overflow:auto';
+        const _card='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:14px 6px 14px 16px;resize:both;min-width:260px;overflow:auto';
         const _sc='in-sample';
         const _spy=(d.date_from&&d.date_to)?'<div id="det-spy" data-spy-from="'+d.date_from+'" data-spy-to="'+d.date_to+'" style="font-size:var(--fsxs);color:var(--text5);margin:5px 0 0"></div>':'';
         const _mcNote=(d.mc&&d.mc.p95!=null)?'<div style="font-size:var(--fsxs);color:var(--text3);margin-top:7px">P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round((d.mc.p95||0)*mlt))+'</b> — size your account to survive this (Monte-Carlo worst case).</div>':'';
