@@ -401,10 +401,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.3';
+const VERSION='64.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.4', date:'2026-07-21', notes:['New DASHBOARD report layout is now the default — the run reorganized into 4 compact sections (Strategy Performance, Param Performance, Strategy Robustness, Param Robustness) with every chart shrunk into a dense grid so the whole run reads at a glance. The old numbered view is one click away under CLASSIC (REPORT LAYOUT toggle at the top). The yellow LEGACY-LAYOUT compare block at the report bottom has been retired.']},
   {v:'64.3', date:'2026-07-21', notes:['Builder RUNS row now shows a ♻ reuse chip on each finished job when the backtest result cache was used. ♻ 812/900 means 812 of 900 configs were reused from cache instead of recomputed; hover it for the percent of compute saved. Parallel grid jobs show a ~ since only the main process is counted, and the chip is hidden when nothing was reused.']},
   {v:'64.2', date:'2026-07-21', notes:['1H MAE / MFE chart box is now pinned to the same 190px height as 1G / 1D / 2D — it was missed in v64.1, so 1G and 1H did not match. Now every one of those four charts reads at the same size.']},
   {v:'64.1', date:'2026-07-21', notes:['1G TRADE PNL DISTRIBUTION and 1D STRESS ACROSS TIME chart boxes are now pinned to the same 190px height as 2D CONFIG DISTRIBUTION, so all three read at a consistent size instead of 1G/1D looking squashed next to 2D.','1G, 1D and 2C header subtext (scope, mean/sigma, win %, windows-green count, PDP auto-expand detail) moved behind a small ⓘ next to each title instead of running as visible text underneath — hover the icon for the full detail. Live alerts (e.g. the 2C range-truncated warning) stay visible as before.']},
@@ -9065,10 +9066,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    untouched. FUNNEL β = the SAME panels regrouped into 5 questions (performance →
       //    config robustness → what drives it → enhancements → is it real) — a preview
       //    layout for comparison; only one layout renders at a time, so no id collisions. ──
-      const _repLay=(APREF.repLayout==='funnel')?'funnel':((APREF.repLayout==='gauges')?'gauges':((APREF.repLayout==='pills')?'pills':'classic'));
+      const _repLay=(APREF.repLayout==='funnel')?'funnel':((APREF.repLayout==='gauges')?'gauges':((APREF.repLayout==='pills')?'pills':((APREF.repLayout==='classic')?'classic':'dense')));
       const _layBtn=(v,lab,tip)=>'<span data-replay="'+v+'" title="'+tip+'" style="cursor:pointer;padding:3px 10px;border-radius:9px;font-size:9px;user-select:none;white-space:nowrap;border:1px solid '+(_repLay===v?'var(--green)':'var(--border)')+';color:'+(_repLay===v?'var(--text)':'var(--text4)')+';background:'+(_repLay===v?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+'">'+lab+'</span>';
       const _layTog='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 4px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5)">REPORT LAYOUT</span>'
-        +_layBtn('classic','CLASSIC','the numbered-section layout you know — unchanged')
+        +_layBtn('dense','DASHBOARD','the compact 4-section read — Strategy Performance · Param Performance · Strategy Robustness · Param Robustness — every chart shrunk into a dense grid so the whole run fits at a glance. The new default.')
+        +_layBtn('classic','CLASSIC','the numbered-section layout — now the detailed drill-down; every chart full size')
         +_layBtn('funnel','FUNNEL β','PREVIEW — the same panels regrouped into 5 questions: performance and validation → config robustness → what drives the edge → enhancements → is the edge real. Nothing is deleted; flip back any time.')
         +_layBtn('gauges','GAUGES β','PREVIEW — the car-dashboard read: every KPI as a compact gauge (red / yellow / green zones, needle on the value, number underneath) in 4 sections: strategy performance · strategy robustness · param influence · param robustness. Tap a gauge to unfold its full chart. Nothing is deleted; flip back any time.')
         +_layBtn('pills','PILLS β','PREVIEW — same section breakdown, but each 0-1 / $ metric is a horizontal PILL gauged to 100% (zone bands + a value tick) instead of a dial. The 1A-1D charts, the 1E matrix and the 1G/1H distributions stay as real graphs under Strategy Performance. Based on the classic view; flip back any time.')+'</div>';
@@ -9279,6 +9281,36 @@ namespace NinjaTrader.NinjaScript.Strategies {
         }
       }
       // ── end GAUGES β ──
+      // ── DASHBOARD build (owner 2026-07-21): the numbered sections reorganized into the 4-part
+      //    taxonomy (Strategy Performance · Param Performance · Strategy Robustness · Param
+      //    Robustness), every chart shrunk into a dense 2-up grid so the whole run reads at a
+      //    glance. Same panels as CLASSIC, ONE copy only (layouts are mutually exclusive, so no
+      //    duplicate-id collisions). This is the new default; it replaced the retired LEGACY block.
+      //    Columns use _colStyle (no resize:both substring) so the card-resize handler skips them,
+      //    and a scoped [data-dense] style pins every chart-box to 160px (beats persisted rszH). ──
+      let _dense='';
+      if(_repLay==='dense'){
+        const _dHd=(n,col,label,q)=>'<div class="lbl" style="margin:16px 0 7px;padding-top:11px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:21px;border-radius:50%;background:'+col+';font-size:11px;font-weight:800;color:#fff">'+n+'</span><span style="font-weight:800;font-size:14px;color:var(--text);letter-spacing:0;text-transform:none">'+label+'</span><span style="font-weight:400;color:var(--text4);font-size:9px">'+q+'</span></div>';
+        const _dCell=(h,basis)=>((h&&h.replace(/\s/g,''))?('<div style="flex:'+(basis||'1 1 340px')+';min-width:0"><div style="'+_colStyle+'">'+h+'</div></div>'):'');
+        const _dRow=cells=>{const c=cells.filter(x=>x&&x.replace(/\s/g,''));return c.length?('<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px">'+c.join('')+'</div>'):'';};
+        const _dChips=_chips.length?('<div data-ck="ddiag" style="'+_card2+';margin-bottom:10px"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px">'+_chips.map(_chipHtml).join('')+'</div>'+(_openChip?('<div style="margin-top:6px;padding:0 4px 4px;border:1px dashed color-mix(in srgb,'+_dcDot(_openChip)+' 45%,var(--border));border-radius:8px">'+_openChip.html+'</div>'):'')+'</div>'):'';
+        const _d1=_dHd('1','#1d9e75','Strategy Performance','does the champion make money?')
+          +((_summaryPanel&&_summaryPanel.replace(/\s/g,''))?_summaryPanel:'')
+          +_dRow([_dCell(_panelEquity,'1.6 1 380px'),_dCell(_panelMatrix+_panelRegime,'1 1 300px'),_dCell(_distTile,'1.1 1 300px')])
+          +((_sec2&&_sec2.replace(/\s/g,''))?_sec2:'');
+        const _d2=_dHd('2','#d85a30','Param Performance','which knobs actually drive the edge?')
+          +_dRow([_dCell(_stack([_eq,((_parc&&_parc.replace(/\s/g,''))?(_pmTog+_parc):'')]),'1.6 1 380px'),_dCell(_corr,'1 1 300px')])
+          +_dRow([_dCell(_p3inner,'1.3 1 360px'),_dCell(_surrInner,'1 1 320px')])
+          +((_topInner&&_topInner.replace(/\s/g,''))?('<div style="'+_colStyle+';margin-bottom:10px">'+_topInner+'</div>'):'');
+        const _d3=_dHd('3','#378add','Strategy Robustness','does the edge survive unseen data and luck checks?')
+          +((_gateCard&&_gateCard.replace(/\s/g,''))?_gateCard:'')
+          +((_dsrInner&&_dsrInner.replace(/\s/g,''))?('<div style="'+_colStyle+';margin-bottom:10px">'+_dsrInner+'</div>'):'')
+          +_dChips;
+        const _d4=_dHd('4','#7f77dd','Param Robustness','is the winning config a plateau, not a lucky spike?')
+          +_dRow([_dCell(_nbInner,'1 1 320px'),_dCell(_dist,'1 1 320px')]);
+        _dense='<style>[data-dense] .rschart-box{height:160px!important;max-height:160px!important;resize:none!important}[data-dense] [data-fixh] .rschart-box{height:160px!important;max-height:160px!important}</style><div data-dense>'+_d1+_d2+_d3+_d4+'</div>';
+      }
+      if(_repLay==='dense')return hdrHtml+valBannerHtml(d)+_layTog+_dense+runCodeHtml(d);
       if(_repLay==='gauges'||_repLay==='pills')return hdrHtml+valBannerHtml(d)+_layTog+_gaug+runCodeHtml(d);
       if(_repLay==='funnel')return hdrHtml+valBannerHtml(d)+_layTog+_funnel+runCodeHtml(d);
       return hdrHtml
@@ -9294,7 +9326,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4,_strN)
         +_sec('8','Drawdown','size for the worst-case equity path',_sec8)
         +_diagSec
-        +_legacyBlock
         +runCodeHtml(d);
     };
     let body='';
