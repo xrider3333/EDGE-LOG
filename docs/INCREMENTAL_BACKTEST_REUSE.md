@@ -1,7 +1,14 @@
 # Incremental Backtest Reuse — scoping doc (ROADMAP §3 #26)
 
-**Status:** proposed, not started. This is a hand-off spec so another Claude session can pick
-it up cold. Owner idea (2026-07-21): *"a way for auto-validate to compile/use similar past
+**Status: SHIPPED — all four layers (2026-07-21→22).** (a) trial cache PR1 `e75f227` +
+numpy-safe hardening `69b24aa`; per-job reuse logging PR2 `b5692f5` + Builder `♻` chip v64.3;
+(b) data-prep memo + (c) EOD-flat window delta `6101556` — the delta is DORMANT until a
+strategy opts in with `STATELESS_AT_EOD = True` (none do yet), additionally requires
+`cost_pts > 0` (so delta and full both route through the identical `_apply_costs`
+aggregation → provable equality) and a prefix OHLCV content-hash (an in-place data revision
+declines the delta). Cache is ON in the production runner (boot log prints
+`trial cache: ON (env AUGUR_TRIAL_CACHE=1, epoch 1)`). Originally a hand-off spec so another
+Claude session could pick it up cold. Owner idea (2026-07-21): *"a way for auto-validate to compile/use similar past
 runs to speed up backtesting — if we add/change a small section or add dates, it shouldn't
 need a whole engine rerun to recalc something already computed."*
 

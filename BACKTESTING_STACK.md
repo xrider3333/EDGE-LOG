@@ -681,6 +681,11 @@ not saved to the runs DB — so they carry no run id.*
 - `augur_engine/engine.py` — `run_backtest` (ml_filter/ml_threshold kwargs), `run_gate_validate`.
 - `augur_engine/optimize.py` + `auto.py` — wire `plateau_pick` alongside argmax `best`.
 - `augur_engine/data_quality.py` — gap/coverage/data-health checks (§1).
+- `augur_engine/trial_cache.py` + `window_delta.py` — **#26 incremental reuse (SHIPPED
+  2026-07-22)**: exact-hit per-config result cache (env `AUGUR_TRIAL_CACHE`, ON in the
+  runner; `♻` chip on Builder launch rows) + data-prep memo + EOD-flat window-extension
+  delta (dormant until a strategy sets `STATELESS_AT_EOD=True`). Spec + status:
+  `docs/INCREMENTAL_BACKTEST_REUSE.md`.
 - `augur_strategies/ORB_3_0.py` — the deployable ORB (formerly ORB_SIMPLE_1_0.py).
 - `augur_engine/reconcile.py` — **backtest↔platform reconciler core** (importable). Turns an
   engine run into a normalized blotter and diffs it against a TradingView "List of Trades" *or*

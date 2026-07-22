@@ -153,7 +153,11 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
       unprompted) synced as `m.profile` and rendered as an EDA strip in the master modal;
       `tools/profile_report.py` = one-call native HTML auto-EDA report per master. Remaining
       in section 2: **2.5 fills reconciliation** (blocked on a sample NT Position-History CSV).
-- [ ] **#26 Incremental backtest reuse (owner idea 2026-07-21)** — stop paying for full engine
+- [x] **#26 Incremental backtest reuse (owner idea 2026-07-21)** — **SHIPPED 2026-07-22**
+      (PR1–PR4 + `♻` chip v64.3: exact-hit trial cache + per-job reuse logging + data-prep
+      memo + EOD-flat window delta; cache ON in the runner via `AUGUR_TRIAL_CACHE=1`, boot-
+      logged; window delta dormant pending per-strategy `STATELESS_AT_EOD` opt-in). Original
+      brief: stop paying for full engine
       reruns when most of the work was already done in a past run (e.g. same stack, window
       extended two weeks, or one knob range widened). Design sketch: (a) **trial-level result
       memoization** — key = hash(strategy-file SHA, canonical params, master id, date window,
