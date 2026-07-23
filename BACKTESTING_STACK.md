@@ -843,7 +843,7 @@ not saved to the runs DB — so they carry no run id.*
     - **UI half**: none needed — the 2A slider already spans every stored curve and reads
       "N/N saved · M tested"; 4B bins follow the sample size. Both grow automatically.
 11. **⬜ TODO (found 2026-07-23 on run #174) — NEIGHBOUR ROBUSTNESS must nudge on the
-    POST-auto-expand grid (report chart 4A, ledger item 104)**. *Self-contained brief.*
+    POST-auto-expand grid (report chart 4A, ledger item 109)**. *Self-contained brief.*
     - **What**: `run_auto`'s neighbour builder (`augur_engine/auto.py` ~line 1143) derives each
       param's ±1-step candidates clamped at the **DECLARED** `DEFAULT_PARAMS min/max` — it
       ignores any range auto-expand widened mid-run. On #174, `ibs_entry` winner 0.4 = the
