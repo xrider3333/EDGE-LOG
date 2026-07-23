@@ -842,6 +842,23 @@ not saved to the runs DB — so they carry no run id.*
       `api/runner.py` passes the fields through unchanged if the names stay.
     - **UI half**: none needed — the 2A slider already spans every stored curve and reads
       "N/N saved · M tested"; 4B bins follow the sample size. Both grow automatically.
+11. **⬜ TODO (found 2026-07-23 on run #174) — NEIGHBOUR ROBUSTNESS must nudge on the
+    POST-auto-expand grid (report chart 4A, ledger item 104)**. *Self-contained brief.*
+    - **What**: `run_auto`'s neighbour builder (`augur_engine/auto.py` ~line 1143) derives each
+      param's ±1-step candidates clamped at the **DECLARED** `DEFAULT_PARAMS min/max` — it
+      ignores any range auto-expand widened mid-run. On #174, `ibs_entry` winner 0.4 = the
+      declared max, so the +1 cell came back None ("no step above") even though auto-expand
+      had already TESTED 0.45 and 0.50 (they are in `points`). Clamp the candidates at the
+      **post-expansion** range instead (fall back to `hard_min`/`hard_max`, then the declared
+      bounds when no expansion ran). Old docs cannot backfill; the UI already renders a
+      missing cell honestly as "edge" (web v64.35).
+    - **Also noticed (smaller)**: the expander's per-round taper verdict and the FINAL
+      full-population PDP boundary flag can disagree — #174 logged `ibs_entry` "tapered,
+      interior peak 0.35" yet the final curve argmaxes at the 0.5 edge (+15% slope ⚠). With
+      round budget left (1 of 2 used), a cheap fix: re-check the taper verdict against the
+      final curve and spend the remaining round if it still flags (hard_max still binds —
+      0.5 is TTIBS's declared strategy-identity cap, so ibs_entry specifically can never go
+      further by design).
 
 **Current Auto-Validate pipeline (as of 2026-07-20, for orientation):** 🎯 steered search (random
 seed ~40% of trials → GP-aimed batches, #36; TPE and QRF brains available) → auto-expand of
