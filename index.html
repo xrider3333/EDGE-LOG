@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.47';
+const VERSION='64.48';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.48', date:'2026-07-23', notes:['Expanded-chart crosshair: the equity-$ pill now snaps to the RIGHT edge (the $ axis side), not the left.']},
   {v:'64.47', date:'2026-07-23', notes:['Expanded-chart crosshair now shows its value ON THE AXES — a date pill on the x axis and an equity-$ pill on the y axis that track the cursor — instead of a floating tooltip (applies to 2A and every chart with an axis domain).']},
   {v:'64.46', date:'2026-07-23', notes:['Renamed 2I to ML CONFIG BUILDER and 2J to ML TRADE FILTER — plain names for what each does (2I builds the parameter config, 2J filters the chosen config trades).','2A expanded now shows a date + equity-$ crosshair readout under the cursor, like 1A.']},
   {v:'64.45', date:'2026-07-23', notes:['2I model-pick overlay: a caption now says how many model picks there are, their end-$ range, whether they overlap (the models agreeing on ~the same config is why you may see only a couple of lines), and whether any model beat the search best.']},
@@ -2680,8 +2681,10 @@ window.expandChart=function(title,svgHTML,opts){
           const yv=+xh.y1-(+xh.y1-+xh.y0)*fy;
           xlab.textContent=_fmtv(xh.xt,xv);xlab.style.display='block';
           xlab.style.left=(e.clientX-br.left)+'px';xlab.style.top=(sr.bottom-br.top+3)+'px';xlab.style.transform='translateX(-50%)';
+          // v64.48 (owner): the equity-$ pill snaps to the RIGHT edge — that is the $ axis side
+          //   (the gutter lives on the right in the 1A model), not the left.
           ylab.textContent=_fmtv(xh.yt,yv);ylab.style.display='block';
-          ylab.style.top=(e.clientY-br.top)+'px';ylab.style.left=(sr.left-br.left+3)+'px';ylab.style.transform='translateY(-50%)';
+          ylab.style.top=(e.clientY-br.top)+'px';ylab.style.left=(sr.right-br.left-3)+'px';ylab.style.transform='translate(-100%,-50%)';
           axShown=true;
         }}}
     if(!axShown){xlab.style.display=ylab.style.display='none';}
