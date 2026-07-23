@@ -8721,8 +8721,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   apart if their ends land close.
           const _bestS=ser.find(s=>s.best)||ser[0];
           const _pins=[];
-          if(_bestS)_pins.push({y:Y(_bestS.cum[_bestS.cum.length-1]),bg:_bestS.col,txt:$( _bestS.cum[_bestS.cum.length-1])});
-          if(ref)_pins.push({y:Y(ref[ref.length-1]),bg:'var(--text4)',txt:$(ref[ref.length-1])});
+          // k-abbreviated (1A style) so the pill fits the 44px gutter — full $ would clip.
+          if(_bestS)_pins.push({y:Y(_bestS.cum[_bestS.cum.length-1]),bg:_bestS.col,txt:fmtAx(_bestS.cum[_bestS.cum.length-1]*mlt,1)});
+          if(ref)_pins.push({y:Y(ref[ref.length-1]),bg:'var(--text4)',txt:fmtAx(ref[ref.length-1]*mlt,1)});
           _pins.sort((a,b)=>a.y-b.y);for(let i=1;i<_pins.length;i++)if(_pins[i].y-_pins[i-1].y<11)_pins[i].y=_pins[i-1].y+11;
           const _pinHtml=_pins.map(p=>'<span style="position:absolute;top:calc('+(p.y/H*100).toFixed(2)+'% - 7px);left:1px;font-size:8px;font-weight:800;color:#04130c;background:'+p.bg+';padding:0 4px;border-radius:4px;white-space:nowrap;z-index:2">'+p.txt+'</span>').join('');
           const gut='<div style="flex:0 0 44px;min-width:44px;position:relative">'+_gl.map(o=>'<span style="position:absolute;top:calc('+o.p.toFixed(2)+'% - 5px);left:5px;font-size:8px;color:var(--text5)">'+fmtAx(o.v,1)+'</span>').join('')+_pinHtml+'</div>';
