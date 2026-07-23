@@ -9353,9 +9353,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _gvP=_gvD?gvParts(_gvD,stratTag(d.strategy),mlt):null;
       let _gateSec='',_gateCard='';
       if(_gvP||d.ml_gate){
-        // v64.43 (owner): abbreviate ($427k) in the before→after cards so the NET P&L value stops
-        //   getting cut off in the narrow col-3 tile. fmtAx = k-format at ≥$100k, full below.
-        const _g$=v=>fmtAx((v||0)*mlt);const _pff=v=>Math.min(v||0,99).toFixed(2);
+        // v64.43 (owner): abbreviate to k ($427k / $27k) in the before→after cards so the NET P&L
+        //   value stops getting cut off in the narrow col-3 tile — force-k (2nd arg) so even
+        //   sub-$100k lockbox values compact instead of showing "$27,270".
+        const _g$=v=>fmtAx((v||0)*mlt,1);const _pff=v=>Math.min(v||0,99).toFixed(2);
         // ── VERDICT banner (qualitative — the numbers live in the before→after cards below) ──
         let _gbc='var(--yellow)',_gbTxt='';
         if(_gvP&&_gvP.LB){const LB=_gvP.LB;_gbc=LB.helped?'var(--green)':'var(--red)';
