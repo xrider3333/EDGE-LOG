@@ -859,6 +859,14 @@ not saved to the runs DB — so they carry no run id.*
       final curve and spend the remaining round if it still flags (hard_max still binds —
       0.5 is TTIBS's declared strategy-identity cap, so ibs_entry specifically can never go
       further by design).
+    - **Anchor mismatch (same fix batch)**: 4A's `neighborhood` anchors on run_auto's raw
+      in-sample $ champion (`bp0` = Stage A `best`, #174: hold_cap **6**), but the report
+      headline champion is the Stage A.5 `_select_oos_champion` re-pick (#88 — top-5 IS
+      configs re-ranked by their walk-forward OOS results; #174: hold_cap **8**, and
+      plateau_pick says 9). Either re-run the nudge test on the FINAL champion after A.5,
+      or keep the current anchor and let the UI note stand (web v64.36 already labels the
+      winner column "raw in-sample $ champion at nudge time"). Re-anchoring is the honest
+      fix — 4A claims robustness for a config the report does not headline.
 
 **Current Auto-Validate pipeline (as of 2026-07-20, for orientation):** 🎯 steered search (random
 seed ~40% of trials → GP-aimed batches, #36; TPE and QRF brains available) → auto-expand of

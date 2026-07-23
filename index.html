@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.35';
+const VERSION='64.36';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.36', date:'2026-07-23', notes:['4B breathes like a bell curve — the x-axis extends past the data to mean plus/minus 3 sigma, so the tails taper into open space instead of cropping at the edges.','4A cells now show the VALUE each nudge tried before its PF (e.g. 7 to 1.65) — no hovering needed; the info note also explains the winner column is the raw in-sample champion at nudge time, which can differ from the walk-forward-checked headline champion.']},
   {v:'64.35', date:'2026-07-23', notes:['4B rebuilt on the 1A model: fixed-size HTML axes (44px count gutter + $ strip) so nothing stretches at full width, the header shows HOW MANY configs are plotted, and the expand modal carries the axes along.','4B bins pill fixed — the old floor of 60 swallowed every setting (1x/2x/3x all looked identical); the floor now scales with the pill and the 3x default is about twice as fine. The dash option is now labelled half-x (the coarsest setting).','2C: the PEAK and PICKED values now print ON each mini-chart at their dots (the pick ring also draws when the pick lands on the peak).','4A: the two nudges are directional triangles (left = minus 1 step, right = plus 1 step) and a missing nudge reads EDGE — the winner sits at the end of the tested grid on that side.']},
   {v:'64.34', date:'2026-07-23', notes:['Expanded view: zooming a chart that carries its own $ scale and endpoint pills (1A-1D style rows, 2A) now scales the WHOLE unit — the axis and pills stay glued to the chart at every zoom level instead of dropping off.','4B bins run twice as fine as before at the same setting (floor raised too) — thin spikes across the whole range so the config distribution reads in detail.']},
   {v:'64.33', date:'2026-07-23', notes:['Section 1 rearranged per the owner: 1F REGIME REPORT CARD now sits UNDER 1I in the distributions column, and the middle / right columns switched — 1G-1I (+1F) stack in the middle, the 1E KPI matrix on the right.','Expanded view: charts with an HTML y-axis (1A-1D style rows, incl. 2A) now expand as the whole row — chart plus $ scale and endpoint pills — sized to the modal; wide charts fit the width so the full picture shows first (wheel to zoom in). Nothing opens over-zoomed.','Fix: the 4B bins pill menu was opening underneath the header clip — it shows now.']},
@@ -6702,7 +6703,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v64.29 (owner): 4B uses the LITERAL 1G recipe — Freedman-Diaconis bins scaled by the
       //   SAME bins pref as 1G/1H (default 3×), thin bars across the entire data range, the
       //   Gaussian + σ marks over them. 560 viewBox, counts right at font 11, k-format ticks.
-      const lo=Math.min(0,mn),hi=Math.max(0,mx),span=(hi-lo)||1;
+      let lo=Math.min(0,mn),hi=Math.max(0,mx);
+      // v64.36 (owner): 4B breathes like a bell curve — the x-domain extends to mean±3σ
+      //   (plus 4% padding) so the tails taper into open space instead of cropping at the
+      //   exact data edges. Tag mode (4B) only; 1G-style callers keep the tight domain.
+      if(tag){const _pd4=(hi-lo)*0.04;lo=Math.min(lo,mean-3*sd)-_pd4;hi=Math.max(hi,mean+3*sd)+_pd4;}
+      const span=(hi-lo)||1;
       const _sv2=v.slice().sort((a,b)=>a-b),_q12=_pctl(_sv2,0.25),_q32=_pctl(_sv2,0.75),_fd2=2*(_q32-_q12)/Math.cbrt(n)||span/50;
       const _det2=Math.max(0.5,Math.min(4,+APREF.distBins||3));
       // v64.35 (owner): the bin FLOOR scales with the pill (40 per x) — the old fixed floor of 60
@@ -8761,7 +8767,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let nbHtml='',nbSub='',nbTip='';
       if(d.neighborhood){const nb=d.neighborhood;const pfcol=p=>p>=1?'#1d9e75':'#e24b4a';
         nbSub=nb.verdict+' · '+nb.good+'/'+nb.tot+' neighbours hold PF ≥ 1';
-        nbTip='Each parameter is nudged one grid-step up and down — every nudge is a "neighbour" config that gets re-tested. If the neighbours stay profitable (PF ≥ 1) the winner sits on a PLATEAU (robust); if they collapse below 1 while only the winner is high, it is a lucky SPIKE (overfit).';
+        nbTip='Each parameter is nudged one grid-step up and down — every nudge is a "neighbour" config that gets re-tested. If the neighbours stay profitable (PF ≥ 1) the winner sits on a PLATEAU (robust); if they collapse below 1 while only the winner is high, it is a lucky SPIKE (overfit). NOTE: the winner column here is the raw in-sample $ champion at the time of the nudge test — the report headline champion can differ, because it is re-picked from the top configs by their walk-forward (out-of-sample) results.';
         // 2e in 1F's bar format: a small PF dot-strip, then one bar per parameter (winner PF) with
         //   −1/+1 step neighbours as dots and a PF=1 break-even line. Same text size/format as 1F.
         const allPf=[];(nb.rows||[]).forEach(r=>{[r.minus,r.plus].forEach(c=>{if(c&&isFinite(c.pf))allPf.push(c.pf);});});
@@ -8781,11 +8787,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   thin line = PF 1 break-even) | then the three PFs as their own labelled columns.
         // v64.35 (owner): the two nudges are now DIRECTIONAL triangles — ◀ points left for the
         //   −1-step nudge, ▶ points right for the +1-step nudge (same green/red hold/break colour).
-        const oneP=(1/maxPf*100).toFixed(1),_dotM=(c,side)=>(c&&isFinite(c.pf))?'<span title="'+(side<0?'−1 step':'+1 step')+' · '+(c.pf>=1?'holds':'breaks')+' · PF '+c.pf.toFixed(2)+'" style="position:absolute;left:'+(Math.min(c.pf,maxPf)/maxPf*100).toFixed(1)+'%;top:50%;transform:translate(-50%,-50%);width:0;height:0;border-top:4px solid transparent;border-bottom:4px solid transparent;'+(side<0?'border-right:7px solid '+pfcol(c.pf):'border-left:7px solid '+pfcol(c.pf))+';filter:drop-shadow(0 0 1px rgba(0,0,0,.5))"></span>':'';
+        //   v64.36: tooltips carry the tried VALUE too.
+        const _rv=x=>(x!=null&&isFinite(+x))?+(+x).toFixed(4):x;
+        const oneP=(1/maxPf*100).toFixed(1),_dotM=(c,side)=>(c&&isFinite(c.pf))?'<span title="'+(side<0?'−1 step':'+1 step')+(c.val!=null?' (tried '+_rv(c.val)+')':'')+' · '+(c.pf>=1?'holds':'breaks')+' · PF '+c.pf.toFixed(2)+'" style="position:absolute;left:'+(Math.min(c.pf,maxPf)/maxPf*100).toFixed(1)+'%;top:50%;transform:translate(-50%,-50%);width:0;height:0;border-top:4px solid transparent;border-bottom:4px solid transparent;'+(side<0?'border-right:7px solid '+pfcol(c.pf):'border-left:7px solid '+pfcol(c.pf))+';filter:drop-shadow(0 0 1px rgba(0,0,0,.5))"></span>':'';
         // v64.35 (owner): a MISSING nudge shows "edge" (not a dash) — the winner sits at the end
         //   of the tested grid on that side, so no step exists to test.
-        const _pfTd=(v,bold,edge)=>'<span style="flex:0 0 44px;text-align:right;font-weight:'+(bold?'800':'600')+';color:'+(v!=null&&isFinite(v)?pfcol(v):'var(--text5)')+'">'+((v!=null&&isFinite(v))?v.toFixed(2):(edge?'<span title="'+edge+'" style="cursor:help;color:var(--yellow);font-size:8px;font-weight:700">edge</span>':'—'))+'</span>';
-        const _nbHead='<div style="display:flex;align-items:center;gap:8px;font-size:9px;font-weight:700;color:var(--text4);margin:2px 0 3px"><span style="flex:0 0 110px">PARAM</span><span style="flex:1;text-align:center">PF landscape (line = break-even 1.0)</span><span style="flex:0 0 44px;text-align:right">−1 step</span><span style="flex:0 0 44px;text-align:right">winner</span><span style="flex:0 0 44px;text-align:right">+1 step</span></div>';
+        // v64.36 (owner): each cell shows the VALUE it tried, muted, before the PF — "7 → 1.65"
+        //   answers "what param step was it trying" without hovering.
+        const _pfTd=(c,bold,edge)=>{const v=(c&&isFinite(c.pf))?c.pf:null,vl=(c&&c.val!=null)?_rv(c.val):null;
+          return '<span style="flex:0 0 64px;text-align:right;font-weight:'+(bold?'800':'600')+';color:'+(v!=null?pfcol(v):'var(--text5)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(v!=null?((vl!=null?'<span style="font-weight:400;color:var(--text5)">'+vl+' → </span>':'')+v.toFixed(2)):(edge?'<span title="'+edge+'" style="cursor:help;color:var(--yellow);font-size:8px;font-weight:700">edge</span>':'—'))+'</span>';};
+        const _nbHead='<div style="display:flex;align-items:center;gap:8px;font-size:9px;font-weight:700;color:var(--text4);margin:2px 0 3px"><span style="flex:0 0 110px">PARAM</span><span style="flex:1;text-align:center">PF landscape (line = break-even 1.0)</span><span style="flex:0 0 64px;text-align:right" title="the value one grid-step BELOW the winner and its PF">−1 step</span><span style="flex:0 0 64px;text-align:right" title="the winner value and its PF (raw in-sample $ champion at nudge time)">winner</span><span style="flex:0 0 64px;text-align:right" title="the value one grid-step ABOVE the winner and its PF">+1 step</span></div>';
         const rows2=(nb.rows||[]).map(r=>{const w=(r.winner&&isFinite(r.winner.pf))?r.winner.pf:0,wp=(Math.min(w,maxPf)/maxPf*100).toFixed(1);
           return '<div title="'+r.param.replace(/_/g,' ')+' nudged one grid step each way · −1 PF '+(r.minus?r.minus.pf.toFixed(2):'none (grid edge)')+' · winner '+w.toFixed(2)+' · +1 PF '+(r.plus?r.plus.pf.toFixed(2):'none (grid edge)')+'" style="display:flex;align-items:center;gap:8px;font-size:10px;padding:4px 0;border-top:1px solid color-mix(in srgb,var(--border) 40%,transparent);cursor:help">'
             +'<span style="flex:0 0 110px;color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+r.param.replace(/_/g,' ')+'</span>'
@@ -8793,7 +8804,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +'<span style="position:absolute;left:0;top:0;height:100%;width:'+wp+'%;background:'+pfcol(w)+';opacity:.55;border-radius:3px"></span>'
               +'<span style="position:absolute;left:'+oneP+'%;top:-1px;width:1.5px;height:calc(100% + 2px);background:var(--text3)"></span>'
               +_dotM(r.minus,-1)+_dotM(r.plus,1)+'</span>'
-            +_pfTd(r.minus?r.minus.pf:null,0,(!r.minus?'no tested value BELOW the winner — it sits at the bottom edge of the tested grid':''))+_pfTd(w,1)+_pfTd(r.plus?r.plus.pf:null,0,(!r.plus?'no tested value ABOVE the winner — it sits at the top edge of the tested grid (e.g. a declared range cap). See the 2C ⚠ if flagged.':''))+'</div>';}).join('');
+            +_pfTd(r.minus,0,(!r.minus?'no tested value BELOW the winner — it sits at the bottom edge of the tested grid':''))+_pfTd(r.winner||{val:null,pf:w},1)+_pfTd(r.plus,0,(!r.plus?'no tested value ABOVE the winner — it sits at the top edge of the tested grid (e.g. a declared range cap). See the 2C ⚠ if flagged.':''))+'</div>';}).join('');
         nbHtml='<div style="max-width:780px">'+strip+_nbHead+rows2
           +'<div style="font-size:8px;color:var(--text5);margin-top:6px">how to read: each row nudges ONE parameter one grid-step down (−1) and up (+1) from the winner and re-tests. Bar = winner PF · ◀ = the −1-step nudge · ▶ = the +1-step nudge · vertical line = PF 1.0 break-even · <b style="color:#1d9e75">green ≥ 1</b> holds (plateau) · <b style="color:#e24b4a">red &lt; 1</b> collapses (lucky spike) · <b style="color:var(--yellow)">edge</b> = no step exists on that side (winner at the end of the tested grid)</div></div>';}
       const valdCard=d.validate?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'+validateCardHtml(d.validate,(d.multiplier||20),stratTag(d.strategy),d.top10_results)+'</div>':'';
