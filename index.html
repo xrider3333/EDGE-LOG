@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.39';
+const VERSION='64.40';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.40', date:'2026-07-23', notes:['2A + 2B titles stay ONE row on compression (the subtext shrinks instead of wrapping).','3-D explorer: the separate label row is gone — the 2E/2F/2G view chips + the explorer info now ride the active chart title, the tile moved UNDER 4B, and the 2E param pickers are BACK (a re-letter had silently dropped them).','2H: the model-steered badge sits under the chart title, and the MODEL-PICK EQUITY OVERLAY wears the 1A axis model (fixed-px $ gutter + a start-to-end x strip + fixed-px legend).','ML GATE stacked under 2H inside the section-2 card (no standalone section); TOP CONFIGS moved under 4A.']},
   {v:'64.39', date:'2026-07-23', notes:['Section 2 rearranged: 4B CONFIG DISTRIBUTION now sits directly UNDER 2A in the wide column; 2B/2C and 2D moved to the middle column above 4A.','4B: the crown label moved to the bottom row of the chart — the sigma marks were printing over it.','4A: the full how-to-read (row markers, the strip, and the fact the strip has NO y axis — vertical scatter is spacing only) now lives in the info icon; the footer line under the rows is gone.']},
   {v:'64.38', date:'2026-07-23', notes:['4B: the 4B/4A pane handle is back (it went missing in the v64.35 rebuild), and the chart now marks WHERE the champion sits — blue dashed = IS max (top in-sample config), green dashed = the crowned walk-forward-checked champion, same colors as 2A.','4A: the nudge triangles wear direction hues — blue points left for the minus-1 step, orange points right for the plus-1 step — in the rows AND the top strip; strip marks now name their param + tried value on hover (they were anonymous dots).']},
   {v:'64.37', date:'2026-07-23', notes:['4B top breathing room — the count axis tops out about 15 percent above the tallest bar (raised y-max, bars stay honest), so nothing touches the rim.','4A cells no longer truncate: each shows the tried VALUE on its own line above the PF (the one-line form got cut off in the narrow column).']},
@@ -7116,7 +7117,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v64.25 (owner): ⓘ right after the tag (1A pattern), the funnel-path caption lives in the
       //   info box, and the configs slider is right-aligned on the title row.
       const _hdr=selMode
-        ?(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_selTip+'<br><br>Path: all configs → IS door → top-K walk-forward → top-3 lockbox.</div>')+' CONFIG FUNNEL <span style="margin-left:auto;display:inline-flex">'+cfgSlider+'</span></div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
+        ?(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_selTip+'<br><br>Path: all configs → IS door → top-K walk-forward → top-3 lockbox.</div>')+' CONFIG FUNNEL <span style="margin-left:auto;display:inline-flex;flex-shrink:1;min-width:0;overflow:hidden;white-space:nowrap">'+cfgSlider+'</span></div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
         :(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_eqTip+'</div>')+' TOP CONFIGS PNL'+selDrop+'<span style="margin-left:auto;display:inline-flex">'+cfgSlider+'</span></div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
       const _svgStr='<svg viewBox="0 0 '+W+' '+H+'" '+(selMode?'preserveAspectRatio="none" style="display:block;width:100%;height:100%"':'width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"')+((!selMode&&d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,yl:'equity'}))+'"':'')+'>'
         +selBands
@@ -7297,7 +7298,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       for(let cy=0;cy<NB;cy++)for(let cx=0;cx<NB;cx++){const a=grid[cx+','+cy];if(!a)continue;const av=a.reduce((s,x)=>s+x,0)/a.length,t=av/maxAbs,col=(t>=0?'rgba(39,192,138,':'rgba(226,75,74,'),op=Math.min(0.85,Math.abs(t)*0.8+0.12);const xa=xmn+cx*(xmx-xmn)/NB,xb=xmn+(cx+1)*(xmx-xmn)/NB,ya=ymn+cy*(ymx-ymn)/NB,yb=ymn+(cy+1)*(ymx-ymn)/NB;const tip=_pp(xk)+' '+_hr(xa)+'–'+_hr(xb)+'<br>'+_pp(yk)+' '+_hr(ya)+'–'+_hr(yb)+'<br>avg net <b>'+fmtUsd(Math.round(av))+'</b> · '+a.length+' config'+(a.length===1?'':'s');cells+='<rect x="'+(cx*cwx).toFixed(1)+'" y="'+(S-(cy+1)*cwy).toFixed(1)+'" width="'+cwx.toFixed(1)+'" height="'+cwy.toFixed(1)+'" fill="'+col+op+')" style="cursor:pointer" data-tip="'+tip+'"/>';}
       const mk=(a,dk)=>'<select data-'+dk+' style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs)">'+keys.map(k=>'<option value="'+k+'"'+(k===a?' selected':'')+'>'+_pp(k)+'</option>').join('')+'</select>';
       const ymid=_hr((ymn+ymx)/2);
-      return (tag?'<div title="Each square is a region of the two chosen parameters (x across, y up). Its colour = the AVERAGE net $ of every tested config that landed in that square — green = profit, red = loss, brighter = bigger. A large green block means the edge holds across a whole zone of settings (robust); a lone green square means it only worked at one exact setting (fragile). Pick which two params to compare with the dropdowns." style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' HEATMAP <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span>'+mk(xk,'hmx')+'<span style="color:var(--text5)">×</span>'+mk(yk,'hmy')+(/H$/.test(tag||'')?'<span data-hm3d="1" title="switch this tile to the 3-D surface view (same data — height instead of colour)" style="cursor:pointer;font-weight:700;font-size:8px;padding:2px 7px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);margin-left:2px">◱ 3D</span>':'')+'</div>':'<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">HEATMAP · '+mk(xk,'hmx')+' × '+mk(yk,'hmy')+' → avg PnL ($)</div>')
+      return (tag?'<div title="Each square is a region of the two chosen parameters (x across, y up). Its colour = the AVERAGE net $ of every tested config that landed in that square — green = profit, red = loss, brighter = bigger. A large green block means the edge holds across a whole zone of settings (robust); a lone green square means it only worked at one exact setting (fragile). Pick which two params to compare with the dropdowns." style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' HEATMAP <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span>'+mk(xk,'hmx')+'<span style="color:var(--text5)">×</span>'+mk(yk,'hmy')+(/[HE]$/.test(tag||'')?'<span data-hm3d="1" title="switch this tile to the 3-D surface view (same data — height instead of colour)" style="cursor:pointer;font-weight:700;font-size:8px;padding:2px 7px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);margin-left:2px">◱ 3D</span>':'')+'</div>':'<div class="lbl" style="margin:8px 0 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">HEATMAP · '+mk(xk,'hmx')+' × '+mk(yk,'hmy')+' → avg PnL ($)</div>')
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
         +'<svg viewBox="0 0 '+C2W+' '+S+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'
         +' data-xh="'+encodeURIComponent(JSON.stringify({xt:'num',x0:xmn,x1:xmx,yt:'num',y0:ymn,y1:ymx,px:0,py:0,pw:C2P,ph:S,xl:_pp(xk),yl:_pp(yk)}))+'">'+cells
@@ -7395,7 +7396,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         xl:_pp(xk),yl:_pp(yk),title:(tag?tag+' ':'')+'PARAM SURFACE 3-D · '+_pp(xk)+' × '+_pp(yk)}));
       // When this surface IS the 2H tile (hm3d toggle on), it carries the param pickers +
       //   a ▦ 2D chip so you can flip back — the standalone 2J keeps its lean header.
-      const _isH=/H$/.test(tag||'');
+      // v64.40 (owner): /H$/ dated from the pre-v64.5 lettering (this tile was 2H) — the
+      //   re-letter to 2E silently dropped the param pickers. Match both.
+      const _isH=/[HE]$/.test(tag||'');
       const _mk2=(a,dk)=>'<select data-'+dk+' style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs)">'+keys.map(k=>'<option value="'+k+'"'+(k===a?' selected':'')+'>'+_pp(k)+'</option>').join('')+'</select>';
       const _hCtl=_isH?(_mk2(xk,'hmx')+'<span style="color:var(--text5)">×</span>'+_mk2(yk,'hmy')+'<span data-hm3d="0" title="switch this tile back to the flat 2-D heatmap" style="cursor:pointer;font-weight:700;font-size:8px;padding:2px 7px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);margin-left:2px">▦ 2D</span>')
         :(alt?(_mk2(xk,'hm2x')+'<span style="color:var(--text5)">×</span>'+_mk2(yk,'hm2y')):'');
@@ -7947,7 +7950,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         return '<rect class="pc-track" data-ax="'+i+'" data-key="'+k+'" data-mn="'+dom[k][0]+'" data-mx="'+dom[k][1]+'" data-ylo="'+(H-padB)+'" data-yhi="'+padT+'" x="'+(x-8).toFixed(1)+'" y="'+padT+'" width="16" height="'+((H-padB)-padT).toFixed(1)+'" fill="transparent" style="cursor:ns-resize"/>'
           +'<rect class="pc-brush" data-ax="'+i+'" x="'+(x-6).toFixed(1)+'" y="0" width="12" height="0" fill="var(--blue)" fill-opacity="0.2" stroke="var(--blue)" stroke-width="0.6" rx="2" style="display:none;pointer-events:none"/>';}).join('');
       const _pcTip='Every tested config drawn as one line across a vertical axis per parameter, ending on the NET $ axis — green lines made money, red lost. Lines that bunch through the same parameter values = the settings winners share. DRAG up/down on any axis to brush a range (lines outside grey out, and the scatter dots dim with them); click an axis to clear its brush. Below: per-knob PDP curves — the smoothed avg $ each parameter produces on its own, sorted by influence.';
-      return (tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_pcTip+'</div>')+' PARALLEL COORDS <span style="font-weight:400;color:var(--text4);font-size:8px">· <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span></span>'+(hdrCtl?'<span style="margin-left:auto;display:inline-flex;gap:5px;align-items:center">'+hdrCtl+'</span>':'')+'</div>':'<div class="lbl" title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px">PARALLEL COORDS · <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="font-size:9px;color:var(--text4);font-weight:400">ⓘ</span></div>')
+      return (tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_pcTip+'</div>')+' PARALLEL COORDS <span style="font-weight:400;color:var(--text4);font-size:8px;flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">· <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span></span>'+(hdrCtl?'<span style="margin-left:auto;display:inline-flex;gap:5px;align-items:center;flex-shrink:0">'+hdrCtl+'</span>':'')+'</div>':'<div class="lbl" title="'+_pcTip+'" style="cursor:help;margin:8px 0 6px">PARALLEL COORDS · <span class="pc-count" data-total="'+points.length+'">'+points.length+' configs</span> <span style="font-size:9px;color:var(--text4);font-weight:400">ⓘ</span></div>')
         +(function(){const _pm=dom['pnl'],_mY=((padT+(H-padB))/2).toFixed(1);
           // NET $ scale labels live IN the svg's right gutter (shared §2 chrome) so the plot
           //   width lines up with 2a/2b above it.
@@ -8516,7 +8519,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //    Field names mirror augur_engine/surrogate.py's surrogate_bakeoff() return exactly
     //    (models[].beat_sampled_best, models[].top_interactions[].param_a/param_b/pd_grid
     //    — there is NO top-level d.surrogate.interactions array in the shipped payload).
-    const surrogatePanelHtml=(surr,mlt,tag)=>{
+    const surrogatePanelHtml=(surr,mlt,tag,sub)=>{
       if(!surr||surr.error)return '';
       const models=Array.isArray(surr.models)?surr.models:[];
       if(!models.length)return '';
@@ -8670,24 +8673,33 @@ namespace NinjaTrader.NinjaScript.Strategies {
           let mn=Infinity,mx=-Infinity;
           ser.map(s=>s.cum).concat(ref?[ref]:[]).forEach(c=>c.forEach(v=>{const y=v*mlt;if(y<mn)mn=y;if(y>mx)mx=y;}));
           if(!isFinite(mn)){mn=0;mx=1;}if(mx<=mn)mx=mn+1;const pd=(mx-mn)*0.08||1;mn-=pd;mx+=pd;
-          const W=560,H=150,pl=6,pr=58,pt=10,pb=8,pw=W-pl-pr,ph=H-pt-pb;
-          const X=(i,n)=>pl+(n>1?pw*i/(n-1):pw/2),Y=v=>pt+ph*(1-((v*mlt)-mn)/((mx-mn)||1));
-          let g='';
-          for(let k=0;k<=3;k++){const val=mn+(mx-mn)*k/3,gy=pt+ph*(1-k/3);g+='<line x1="'+pl+'" y1="'+gy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.25"/><text x="'+(pl+pw+4)+'" y="'+(gy+3).toFixed(1)+'" font-size="7" fill="var(--text4)">'+fmtUsd(Math.round(val))+'</text>';}
-          if(ref)g+='<path d="'+ref.map((v,i)=>(i?'L':'M')+X(i,ref.length).toFixed(1)+' '+Y(v).toFixed(1)).join(' ')+'" fill="none" stroke="var(--text4)" stroke-width="1" stroke-dasharray="4,3" opacity="0.85"/>';
+          // v64.40 (owner): the overlay wears the 1A model — geometry-only svg (preserveAspectRatio
+          //   none, non-scaling strokes), a 44px fixed-px HTML $ gutter (fmtAx k-format), an HTML
+          //   x strip (progress through the optimize window — the curves carry no dates), and the
+          //   legend as fixed-px HTML so nothing stretches. rschart-box row = modal/zoom carry it whole.
+          const W=560,H=150,pt=8,pb=4,pw=W,ph=H-pt-pb;
+          const X=(i,n)=>(n>1?pw*i/(n-1):pw/2),Y=v=>pt+ph*(1-((v*mlt)-mn)/((mx-mn)||1));
+          let g='';const _gl=[];
+          for(let k=0;k<=3;k++){const val=mn+(mx-mn)*k/3,gy=pt+ph*(1-k/3);_gl.push({p:(gy/H*100),v:val});g+='<line x1="0" y1="'+gy.toFixed(1)+'" x2="'+pw+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.25" vector-effect="non-scaling-stroke"/>';}
+          if(ref)g+='<path d="'+ref.map((v,i)=>(i?'L':'M')+X(i,ref.length).toFixed(1)+' '+Y(v).toFixed(1)).join(' ')+'" fill="none" stroke="var(--text4)" stroke-width="1" stroke-dasharray="4,3" opacity="0.85" vector-effect="non-scaling-stroke"/>';
           // draw the BEST curve first (solid, thick); the others OVER it as thin DASHED lines,
           //   so where a pick overlaps the best you still see both (best shows through the gaps).
           const _draw=ser.slice().sort((a,b)=>(b.best?1:0)-(a.best?1:0));
-          _draw.forEach(s=>{g+='<path d="'+s.cum.map((v,i)=>(i?'L':'M')+X(i,s.cum.length).toFixed(1)+' '+Y(v).toFixed(1)).join(' ')+'" fill="none" stroke="'+s.col+'" stroke-width="'+(s.best?1.8:1.2)+'" opacity="'+(s.best?1:0.95)+'"'+(s.best?'':' stroke-dasharray="4,2"')+'><title>'+_esS(s.name)+' — ends '+$(s.cum[s.cum.length-1])+(s.best?' (best model)':'')+'</title></path>';});
-          // in-graph legend (top-left) with a bg-coloured halo so labels read over any line — no separate legend row (owner)
-          let leg='',_ly=pt+7;const _hl='stroke="var(--bg1)" stroke-width="2.6" paint-order="stroke" stroke-linejoin="round"';
-          ser.forEach(s=>{leg+='<text x="'+(pl+3)+'" y="'+_ly.toFixed(1)+'" font-size="7.5" font-weight="'+(s.best?'800':'600')+'" fill="'+s.col+'" '+_hl+'>'+(s.best?'▸ ':'')+_esS(s.name)+' '+$(s.cum[s.cum.length-1])+'</text>';_ly+=9;});
-          if(ref)leg+='<text x="'+(pl+3)+'" y="'+_ly.toFixed(1)+'" font-size="7.5" fill="var(--text4)" '+_hl+'>– – search best '+$(ref[ref.length-1])+'</text>';
-          return _lbl+'<div style="max-width:600px"><div style="background:var(--bg1);border-radius:8px;padding:8px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+leg+'</svg></div></div>';
+          _draw.forEach(s=>{g+='<path d="'+s.cum.map((v,i)=>(i?'L':'M')+X(i,s.cum.length).toFixed(1)+' '+Y(v).toFixed(1)).join(' ')+'" fill="none" stroke="'+s.col+'" stroke-width="'+(s.best?1.8:1.2)+'" opacity="'+(s.best?1:0.95)+'"'+(s.best?'':' stroke-dasharray="4,2"')+' vector-effect="non-scaling-stroke"><title>'+_esS(s.name)+' — ends '+$(s.cum[s.cum.length-1])+(s.best?' (best model)':'')+'</title></path>';});
+          let leg='';ser.forEach(s=>{leg+='<span style="display:block;font-size:8px;font-weight:'+(s.best?'800':'600')+';color:'+s.col+';text-shadow:0 1px 2px rgba(0,0,0,.65);white-space:nowrap">'+(s.best?'▸ ':'')+_esS(s.name)+' '+$(s.cum[s.cum.length-1])+'</span>';});
+          if(ref)leg+='<span style="display:block;font-size:8px;color:var(--text4);text-shadow:0 1px 2px rgba(0,0,0,.65);white-space:nowrap">– – search best '+$(ref[ref.length-1])+'</span>';
+          const gut='<div style="flex:0 0 44px;position:relative">'+_gl.map(o=>'<span style="position:absolute;top:calc('+o.p.toFixed(2)+'% - 5px);left:5px;font-size:8px;color:var(--text5)">'+fmtAx(o.v,1)+'</span>').join('')+'</div>';
+          const xstrip='<div title="x axis = progress through the OPTIMIZE window (bar order, not calendar dates — the saved curves carry no timestamps)" style="position:relative;height:12px;margin-top:2px;flex:0 0 auto;cursor:help">'+[0,25,50,75,100].map(p=>'<span style="position:absolute;left:'+p+'%;transform:translateX(-'+(p===0?'0%':(p===100?'100%':'50%'))+');font-size:8px;color:var(--text5)">'+(p===0?'start':(p===100?'end':p+'%'))+'</span>').join('')+'</div>';
+          return _lbl+'<div class="rschart-box" style="display:flex;gap:6px;height:150px;min-height:60px;max-height:500px;overflow:hidden;margin-bottom:8px">'
+            +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">'
+              +'<div style="flex:1;position:relative;min-height:0;background:var(--bg1);border-radius:8px;overflow:hidden"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100%" preserveAspectRatio="none" style="display:block">'+g+'</svg><div style="position:absolute;left:6px;top:4px;pointer-events:none">'+leg+'</div></div>'
+              +xstrip
+            +'</div>'+gut+'</div>';
         })();
         return head+_ovl+cardsRow+_chBlk;
       })();
-      return hdr+v2;
+      // v64.40 (owner): `sub` (the 🎯 model-steered badge) renders UNDER the chart title.
+      return hdr+(sub||'')+v2;
     };
     const runDetail=(d)=>{
       if(!d)return '<div style="color:var(--text5);font-size:var(--fsxs);padding:48px 20px;text-align:center;border:1px dashed var(--border);border-radius:10px">select a run on the left to load its report card</div>';
@@ -9220,13 +9232,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _p3v=(function(){const w=APREF.p3view;return _p3opts.some(o=>o[0]===w)?w:(_p3opts.length?_p3opts[0][0]:null);})();
       const _p3cur=(_p3opts.filter(o=>o[0]===_p3v)[0]||[])[2]||'';
       const _p3chips=_p3opts.length>1?_p3opts.map(o=>'<span data-p3view="'+o[0]+'" style="cursor:pointer;padding:3px 10px;border-radius:9px;font-size:9px;user-select:none;white-space:nowrap;border:1px solid '+(_p3v===o[0]?'var(--green)':'var(--border)')+';color:'+(_p3v===o[0]?'var(--text)':'var(--text4)')+';background:'+(_p3v===o[0]?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+'">'+o[1]+'</span>').join(''):'';
-      const _p3inner=_p3cur?('<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5);cursor:help" title="the same config space in 3-D — height and colour = the chart metric. 2E = the strongest param pair, 2F = the next pair, 2G = every sampled config as a dot. Click-hold to spin, scroll to exaggerate, double-click for fullscreen orbit.">3-D EXPLORER ⓘ</span>'+_p3chips+'</div>'+_p3cur):'';
+      // v64.40 (owner): the separate 3-D EXPLORER label row is GONE — the view chips + the
+      //   explorer info ride the ACTIVE panel's own title row (spliced into its first header
+      //   div, which is single-level for all three panels).
+      const _p3ex='the same config space in 3-D — height and colour = the chart metric. 2E = the strongest param pair, 2F = the next pair, 2G = every sampled config as a dot. Click-hold to spin, scroll to exaggerate, double-click for fullscreen orbit.';
+      const _p3inner=_p3cur?_p3cur.replace('</div>','<span style="margin-left:auto;display:inline-flex;gap:4px;align-items:center;flex-shrink:0">'+_infoIc('<div style="color:var(--text2)">'+_p3ex+'</div>')+_p3chips+'</span></div>'):'';
       // 2H SURROGATE BAKE-OFF inner (#31 P1): surrogatePanelHtml returns '' for absent/undefined
       //   (old runs render byte-identical); {error:...} → a one-line muted note via _surrErr.
-      const _surrHtml=surrogatePanelHtml(d.surrogate,mlt,_cfgN+'H');
-      // #36: 🎯 badge — was THIS run's search model-steered?
+      // #36: 🎯 badge — was THIS run's search model-steered? v64.40 (owner): rides UNDER the
+      //   2H chart title (passed into the panel), not above the whole panel.
       const _steerBadge=(d.steering&&d.steering.used)?('<div style="display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:9px;color:#3a9bdc;font-weight:700" title="P2 steered search (#36): the first batch of configs was sampled at random, then a Gaussian-Process model was re-fit on every result so far and CHOSE each next batch (predicted-high-PnL regions plus regions it was still unsure about). Every proposed config was still evaluated by the same real backtest as always.">🎯 MODEL-STEERED SEARCH <span style="font-weight:400;color:var(--text4)">'+(d.steering.seed_trials||0)+' random seed + '+(d.steering.steered_trials||0)+' GP-aimed trials'+((d.steering.fallback_random||0)>0?' · '+d.steering.fallback_random+' fell back to random':' · 0 fallbacks')+'</span></div>'):'';
-      const _surrInner=(_surrHtml&&_surrHtml.replace(/\s/g,''))?(_steerBadge+_surrHtml):'';
+      const _surrHtml=surrogatePanelHtml(d.surrogate,mlt,_cfgN+'H',_steerBadge);
+      const _surrInner=(_surrHtml&&_surrHtml.replace(/\s/g,''))?_surrHtml:'';
       const _surrErr=(d.surrogate&&d.surrogate.error)?'<div style="font-size:8px;color:var(--text5);margin-bottom:8px">'+_cfgN+'H · ML MODEL BAKE-OFF — skipped: '+String(d.surrogate.error).replace(/</g,'&lt;')+'</div>':'';
       // #29: 2I is a reference table the owner rarely reads — one-line strip, click to expand (cfgTblOpen).
       const _tfOpen=!!APREF.cfgTblOpen;
@@ -9241,23 +9258,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   topEqOverlayHtml folds the crowned/IS-max overlay + top-3 lockbox continuation + the
       //   crown-pool table into the 2A card, so there is no separate block to stack here.
       // classic: the metric buttons live in the 2B header (hdrCtl) — only stack the fallback note.
-      // v64.39 (owner): 4B moved UNDER 2A (col 1 = the two config-family $ charts share the
-      //   wide column); 2B/2C + 2D take 4B's old slot above 4A in col 2.
-      const _col1=_stack([_eq,_dist]);
-      const _col2=_stack([((_parc&&_parc.replace(/\s/g,''))?((_pmBtns?'':_pmTog)+_parc):''),_corr,_nbInner]);
-      const _col3=_stack([_p3inner,_surrInner,_topInner,_dsrInner]);
-      const _sec3=(function(){
-        // v64.19 (owner): §2 gets the SAME separation model as §1 — vertical splitter bars
-        //   trade width between the column tiles (ratios persist in APREF.s2cols, dblclick =
-        //   reset) and each tile gets a bottom handle row for its height (APREF.s1th c-slots).
-        const _colsIn=[[_col1,'c2col1','1.6 1 360px'],[_col2,'c2col2','1 1 280px'],[_col3,'c2col3','1.1 1 300px']].filter(c=>c[0]&&c[0].replace(/\s/g,''));
-        if(!_colsIn.length)return _surrErr;
-        const _g2=(Array.isArray(APREF.s2cols)&&APREF.s2cols.length===_colsIn.length)?APREF.s2cols.map(x=>Math.max(260,+x||260)):null;
-        const _sp2='<div data-vsplit title="drag left / right — width moves between the two tiles · double-click = reset the widths" style="flex:0 0 10px;align-self:stretch;cursor:ew-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:3px;height:46px;border-radius:2px;background:var(--border)"></div></div>';
-        const _th2=i=>'<div data-tilerow="c'+i+'" title="drag to resize this tile height · double-click = back to auto" style="height:8px;margin:5px 0 0;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div></div>';
-        return '<div data-colskey="s2cols" style="display:flex;gap:2px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
-          +_colsIn.map((c,i)=>'<div data-s1col="'+i+'" style="'+(_g2?('flex:'+_g2[i]+' 1 0px'):('flex:'+c[2]))+';min-width:260px;overflow:hidden"><div data-ck="'+c[1]+'" style="'+_colStyle+'">'+c[0]+'</div>'+_th2(i)+'</div>').join(_sp2)
-          +'</div>'+_surrErr;})();
+      // v64.39 (owner): 4B moved UNDER 2A. v64.40 (owner): the 3-D explorer follows under 4B
+      //   (col 1); TOP CONFIGS moves under 4A (col 2); col 3 = 2H + the ML gate + DSR — built
+      //   BELOW the gate block (the gate content must exist first), see _sec3 there.
+      const _col1=_stack([_eq,_dist,_p3inner]);
+      const _col2=_stack([((_parc&&_parc.replace(/\s/g,''))?((_pmBtns?'':_pmTog)+_parc):''),_corr,_nbInner,_topInner]);
       // §2 header verdict line (redesign #22): the cluster question answered up front —
       //   neighbours held / plateau agreement / PBO, colored, before any chart is read.
       const _pboR=(d.validate&&d.validate.pbo&&d.validate.pbo.pbo!=null)?d.validate.pbo.pbo:((d.pbo&&d.pbo.pbo!=null)?d.pbo.pbo:null);
@@ -9368,9 +9373,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _evTog='<div data-r3ev title="the full gate report — before/after table, feature attribution (SHAP), calibration and discrimination. Click to '+(_evOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px;padding:5px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)">'+(_evOpen?'▴ hide the full gate detail':'▾ full gate detail — feature attribution · calibration ⓘ')+'</div>';
           _gBody=_hero+_ovlNote+_evTog+(_evOpen?gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt):'');
         }
-        _gateCard='<div style="'+_card2+';margin-bottom:14px"><div style="border:1px solid color-mix(in srgb,'+_gbc+' 45%,var(--border));background:color-mix(in srgb,'+_gbc+' 7%,transparent);border-radius:9px;padding:7px 12px;margin-bottom:12px;font-size:var(--fsm)">'+_gbTxt+'</div>'+_gBody+'</div>';
-        _gateSec=_gHd+_gateCard;
+        // v64.40 (owner): the gate lives INSIDE the §2 card, stacked under 2H — compact tag
+        //   header (the old §3 banner text moved into its info icon) + the same verdict
+        //   banner + body. The standalone numbered section is gone (see assembly).
+        _gateCard='<div style="border:1px solid color-mix(in srgb,'+_gbc+' 45%,var(--border));background:color-mix(in srgb,'+_gbc+' 7%,transparent);border-radius:9px;padding:7px 12px;margin-bottom:12px;font-size:var(--fsm)">'+_gbTxt+'</div>'+_gBody;
+        _gateSec='<div style="margin:0 0 8px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px">3 🚪 ML GATE '+_infoIc('<div style="color:var(--text2)">A GATE is an ML model that scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. GATE VALIDATE sweeps several models across several cut-offs on PRE-lockbox data, picks ONE winner by recovery factor, and gives only that winner a single look at the held-out lockbox — no cherry-picking.</div>')+'<span style="font-weight:400;color:var(--text4);font-size:8px">does a trade-filter model earn its keep?</span></div>'+_gateCard;
       }
+      // v64.40 (owner): §2 col 3 = 2H (steer badge under its title) + the ML gate + DSR;
+      //   TOP CONFIGS moved to col 2, the 3-D explorer to col 1.
+      const _col3=_stack([_surrInner,_gateSec,_dsrInner]);
+      const _sec3=(function(){
+        // v64.19 (owner): §2 gets the SAME separation model as §1 — vertical splitter bars
+        //   trade width between the column tiles (ratios persist in APREF.s2cols, dblclick =
+        //   reset) and each tile gets a bottom handle row for its height (APREF.s1th c-slots).
+        const _colsIn=[[_col1,'c2col1','1.6 1 360px'],[_col2,'c2col2','1 1 280px'],[_col3,'c2col3','1.1 1 300px']].filter(c=>c[0]&&c[0].replace(/\s/g,''));
+        if(!_colsIn.length)return _surrErr;
+        const _g2=(Array.isArray(APREF.s2cols)&&APREF.s2cols.length===_colsIn.length)?APREF.s2cols.map(x=>Math.max(260,+x||260)):null;
+        const _sp2='<div data-vsplit title="drag left / right — width moves between the two tiles · double-click = reset the widths" style="flex:0 0 10px;align-self:stretch;cursor:ew-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:3px;height:46px;border-radius:2px;background:var(--border)"></div></div>';
+        const _th2=i=>'<div data-tilerow="c'+i+'" title="drag to resize this tile height · double-click = back to auto" style="height:8px;margin:5px 0 0;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div></div>';
+        return '<div data-colskey="s2cols" style="display:flex;gap:2px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
+          +_colsIn.map((c,i)=>'<div data-s1col="'+i+'" style="'+(_g2?('flex:'+_g2[i]+' 1 0px'):('flex:'+c[2]))+';min-width:260px;overflow:hidden"><div data-ck="'+c[1]+'" style="'+_colStyle+'">'+c[0]+'</div>'+_th2(i)+'</div>').join(_sp2)
+          +'</div>'+_surrErr;})();
       // ── REPORT LAYOUT toggle (owner 2026-07-20): CLASSIC = the numbered sections below,
       //    untouched. FUNNEL β = the SAME panels regrouped into 5 questions (performance →
       //    config robustness → what drives it → enhancements → is it real) — a preview
@@ -9649,7 +9672,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         // §3 is a fixed slot too (universal layout): show an n/a card when the run swept no config grid.
         +_sec('3','Configuration Analysis',(_s2Verd||'robust params — a cluster, not a lonely spike'),((_sec3&&_sec3.replace(/\s/g,''))?_sec3:('<div style="'+_card2+';margin-bottom:14px">'+_naTile('2A','CONFIG SEARCH','this run type did not sweep a parameter grid — no config landscape, top-configs table or robustness map to show')+'</div>')),_cfgN)
-        +_gateSec
+        // v64.40 (owner): the ML gate is stacked INSIDE the §2 card (col 3, under 2H) now — no standalone section.
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4,_strN)
         +_sec('8','Drawdown','size for the worst-case equity path',_sec8)
         +_diagSec
