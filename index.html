@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.49';
+const VERSION='64.50';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.50', date:'2026-07-23', notes:['Firestore OFFLINE CACHE (multi-tab) is now ON — the app keeps a local copy of your trades, runs and backtests, so reloading the page no longer re-reads all of them from the server. This is the fix for the free-plan READ quota running out mid-afternoon (what broke the Webull "Sync now" button and froze last-sync at "9h ago"). No data is hidden; the first load of the day reads normally, every reload after is served from the local cache.']},
   {v:'64.49', date:'2026-07-23', notes:['2A funnel can now overlay the ML TRADE FILTER (2J) gated equity curve — the crowned line is the ungated champion, the pink line is the same champion with the filter skipping trades, spanning in-sample + walk-forward + lockbox. A "🚪 gated" toggle on the 2A title turns it off; it is ON by default (only on runs that have gate curves).']},
   {v:'64.48', date:'2026-07-23', notes:['Expanded-chart crosshair: the equity-$ pill now snaps to the RIGHT edge (the $ axis side), not the left.']},
   {v:'64.47', date:'2026-07-23', notes:['Expanded-chart crosshair now shows its value ON THE AXES — a date pill on the x axis and an equity-$ pill on the y axis that track the cursor — instead of a floating tooltip (applies to 2A and every chart with an axis domain).']},
@@ -1102,7 +1103,7 @@ function calcStats(tds){
 }
 
 // Firebase
-function initFB(){if(firebase.apps.length)return true;try{firebase.initializeApp({apiKey:"AIzaSyD0Q3ms5xZJ5SFl7aHh3oYIkGJJAUiRRBI",authDomain:"edge-tracker-b55af.firebaseapp.com",projectId:"edge-tracker-b55af",storageBucket:"edge-tracker-b55af.firebasestorage.app",messagingSenderId:"351905859153",appId:"1:351905859153:web:9657ca100cf3463ca89a70"});auth=firebase.auth();db=firebase.firestore();return true;}catch(e){console.error(e);return false;}}
+function initFB(){if(firebase.apps.length)return true;try{firebase.initializeApp({apiKey:"AIzaSyD0Q3ms5xZJ5SFl7aHh3oYIkGJJAUiRRBI",authDomain:"edge-tracker-b55af.firebaseapp.com",projectId:"edge-tracker-b55af",storageBucket:"edge-tracker-b55af.firebasestorage.app",messagingSenderId:"351905859153",appId:"1:351905859153:web:9657ca100cf3463ca89a70"});auth=firebase.auth();db=firebase.firestore();try{db.settings({cacheSizeBytes:firebase.firestore.CACHE_SIZE_UNLIMITED});}catch(_p){}try{db.enablePersistence({synchronizeTabs:true}).catch(function(){});}catch(_p){}return true;}catch(e){console.error(e);return false;}}
 function subscribeAll(uid){
   colRef=db.collection('users').doc(uid).collection('trades');
   lessonRef=db.collection('users').doc(uid).collection('lessons');
