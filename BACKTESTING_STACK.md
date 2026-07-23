@@ -815,8 +815,18 @@ not saved to the runs DB — so they carry no run id.*
      2026-07-22 — NOT shared with the 1G/1H switch), options IS / WF / LB / TOTAL, with TOTAL
      backed by the existing `regime` field and the DEFAULT. (WF here = ALL the walk-forward
      out-of-sample trades concatenated across the folds, not a single fold.)
-10. **⬜ TODO (owner-approved 2026-07-22) — save the FULL config population for the report
-    (ledger item 78)**. *Self-contained brief — buildable cold by an engine session.*
+10. **✅ SHIPPED 2026-07-23 (web v64.30, commit 02fd1d7) — save the FULL config population for
+    the report (ledger item 78)**. Engine: a curve per RECORDED config (search + auto-expand
+    probes; int-rounded via `downsample_curve(ndp=None)`, ≤110 pts, `_ETOP_MAX=400` work cap +
+    400 KB byte guard), `dist` REBUILT from the post-expansion record set (it was left at the
+    pre-expansion sample — why 4B saw 73 of 171 on #173), caps raised (dist 400→4000, points
+    400→1200), honest counts `equity_top_cap {saved, tested}` + `n_evaluated` (NOTE: `n_combos`
+    is `n_trials×2` — an ESTIMATE, not a count; the UI should switch "M tested" to
+    `n_evaluated`). DSR loop reuses the curve backtests (40 fewer). 537/537 tests pass.
+    **First production doc: run #174** (pinned #170-window rerun, champion bit-identical again):
+    171/171 curves (was 50), dist ≡ points ≡ n_evaluated = 171, doc 245 KB = 23.4% of cap,
+    all item-18 + v64.19 fields intact — #174 supersedes #173 as the fully-loaded test doc.
+    *Original brief below.*
     - **What**: the report can only draw what the run doc stores, and today that is SAMPLES:
       top-50 equity curves (`equity_top` — chart 2A), ~171 param points (`points` — 2B/2C),
       ~73 config PnLs + Sharpes (`dist` + the DSR sample — 4B and 1I). The owner wants 2A and
@@ -904,6 +914,13 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-23** — **§7 item 10 SHIPPED (v64.30) + run #174 = the new fully-loaded test doc.**
+  Full config population saved: curve per recorded config (int, ≤110 pts, 400-curve work cap,
+  400 KB byte guard), dist rebuilt post-expansion (fixes the 73-vs-171 divergence 4B showed),
+  `equity_top_cap`+`n_evaluated` honest counts (n_combos = trials×2 = estimate). Run #174
+  (third pinned #170-window rerun, champion bit-identical, ♻ 97.2% reuse, ≤9.5 min): 171/171
+  curves, dist≡points≡n_evaluated=171, 245 KB doc, item-18 gate curves + wf_alt_folds + the
+  v64.19 WF/LB slice fields all present — supersedes #173 for UI verification.
 - **2026-07-22** — **§7 open item 10 ADDED (owner-approved): save the FULL config population**
   (equity curves for every tested combo + full dist / points, int-rounded + downsampled to
   respect the 1 MiB run-doc cap) so report charts 2A / 4B can show every tested config
