@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.31';
+const VERSION='64.32';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.32', date:'2026-07-23', notes:['1C / 1D: the drag handle row moved BELOW the fold / window label strip (it used to sit between the chart and its x labels); dragging still resizes the chart itself.','2A: the gap between the plot and the y axis is gone (the plot now spans the full chart area) and the configs slider actually thins the grey cloud as you drag it.','4B gained the same bins pill as 1G — one shared fineness setting drives 1G, 1H and 4B, so your 3x shows the fine-grained field everywhere.']},
   {v:'64.31', date:'2026-07-23', notes:['2A is now built EXACTLY like the 1A-1D charts: the plot fills a resizable row, the $ scale and the endpoint pills live in a real 44px HTML gutter with the same 8px font and pill styling as 1A, and the in-chart dead space on the right is gone (the plot runs to the edge). Handle row underneath, height persists.','2A slider readout now uses the honest count the engine saves since v64.30 — configs EVALUATED (unique configs the search actually ran) instead of the old planning estimate that over-counted.','4B histograms the LARGEST population the run saved: on older docs that is the 171-config parameter sample instead of the old 73-config slice; on new runs (engine v64.30+) it is every evaluated config.']},
   {v:'64.30', date:'2026-07-23', notes:['Engine (stack 7.10): run docs now save the FULL config population — an equity curve for EVERY recorded config (was a top-50 sample; whole-dollar values, up to 400 curves, size-guarded well under the Firestore doc cap), the complete config PnL list for chart 4B (it previously missed the auto-expand probe configs — 4B showed 73 of 171 on run 173), and honest counts: new equity_top_cap {saved, tested} + n_evaluated = the REAL number of recorded configs (the old n_combos figure is trials x 2, an estimate, not a count).','Charts 2A and 4B grow on runs made from now on; older runs keep their saved samples.']},
   {v:'64.29', date:'2026-07-22', notes:['2A: right-side dead space slimmed (the old label lane reserved twice what the axis pills need) and the generic y-axis $ labels use the 1A k-format and tone.','Expanded chart view rebuilt on the 1A idea: the chart renders at its NATURAL shape scaled to fill the modal height — no more stretched or letterboxed distortion — and you navigate it like 1A: drag to pan, mouse-wheel or the bottom toolbar to zoom, crosshair readout included.','4B now uses the literal 1G recipe: fine Freedman-Diaconis bins driven by the SAME bin-fineness setting as 1G/1H (your 3x applies here too), thin bars across the entire data range, with the Gaussian fit and sigma marks over them.']},
@@ -6712,8 +6713,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const bestMark='<line x1="'+bestX.toFixed(1)+'" y1="'+plotTop+'" x2="'+bestX.toFixed(1)+'" y2="'+B+'" stroke="#1d9e75" stroke-width="1" stroke-dasharray="4,3" vector-effect="non-scaling-stroke"/><text x="'+(bestX-2).toFixed(1)+'" y="'+(plotTop+10)+'" text-anchor="end" font-size="10" font-weight="700" fill="#1d9e75" style="paint-order:stroke;stroke:var(--bg1);stroke-width:2.5px">best '+fmtAx(mx,1)+'</text>';
       const axis='<line x1="'+padL+'" y1="'+B+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-width="0.6"/>'+(function(){const _n2=x2=>{x2=Math.abs(x2)||1;const e=Math.pow(10,Math.floor(Math.log10(x2)));const f=x2/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};const st3=_n2(span/8)||1;let t='';for(let L=Math.ceil(lo/st3)*st3;L<=hi;L+=st3){const xx=Xv(L);t+='<text x="'+xx.toFixed(1)+'" y="'+(B+14)+'" text-anchor="middle" font-size="11" fill="'+(Math.abs(L)<1e-9?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</text>';}return t;})();
       const yTitle='<text x="'+(padL+Wp+32)+'" y="'+(plotTop+plotH/2).toFixed(1)+'" transform="rotate(-90 '+(padL+Wp+32)+' '+(plotTop+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="10" fill="var(--text5)">configs</text>';
-      const _cdTip='Histogram of the SAVED config net $ results (one bar = configs landing in that $ range). This run saved '+n+' of the tested configs — the sample the engine keeps for this chart. A PLATEAU (many configs near the best) = a robust edge; an isolated spike = likely overfit. Yellow dashed = fitted normal · blue dashed = mean · grey dashed = 1 and 2 standard deviations either side · green dashed = the best config · BE = break-even.';
-      return (tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc(_ipAB(_cdTip,near+' of '+n+' saved configs land within 80% of the best · mean '+fmtUsd(Math.round(mean))+' · σ '+fmtUsd(Math.round(sd))))+' CONFIG DISTRIBUTION <span style="font-weight:400;color:'+vc+';font-size:8px;white-space:nowrap">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit)')+'</span></div>':'<div class="lbl" title="'+_cdTip+'" style="cursor:help;margin:8px 0 6px">CONFIG DISTRIBUTION · <span style="color:'+vc+'">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit risk)')+'</span> · '+near+'/'+n+' within 80% of best</div>')
+      const _cdTip='Histogram of the SAVED config net $ results (one bar = configs landing in that $ range). This run saved '+n+' of the tested configs — the sample the engine keeps for this chart. A PLATEAU (many configs near the best) = a robust edge; an isolated spike = likely overfit. Yellow dashed = fitted normal · blue dashed = mean · grey dashed = 1 and 2 standard deviations either side · green dashed = the best config · BE = break-even. The bins pill (shared with 1G / 1H) re-bins finer or coarser.';
+      // v64.32 (owner): the same collapsed bins pill as 1G — one shared fineness setting.
+      const _dO4=[['3','3×'],['2','2×'],['1','1×'],['0.5','–']];
+      const det4=(tag?'<span style="position:relative;display:inline-flex;margin-left:auto">'
+        +'<span data-binscur title="bin fineness — click to choose (shared with 1G / 1H)" style="cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border);border-radius:7px;background:var(--bg1);padding:2px 8px;font-size:8px;font-weight:700;color:var(--blue);white-space:nowrap">'+(String(_det2)==='0.5'?'–':String(_det2)+'×')+' <span style="font-size:6px;color:var(--text4)">▼</span></span>'
+        +'<span data-binsopts style="display:none;position:absolute;top:calc(100% + 3px);right:0;z-index:60;background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.4)">'+_dO4.map(function(o){return '<span data-distbins="'+o[0]+'" style="display:block;cursor:pointer;padding:4px 12px;font-size:8px;font-weight:700;white-space:nowrap;background:'+(String(_det2)===o[0]?'color-mix(in srgb,var(--blue) 16%,transparent)':'transparent')+';color:'+(String(_det2)===o[0]?'var(--blue)':'var(--text3)')+'">'+o[1]+'</span>';}).join('')+'</span></span>':'');
+      return (tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc(_ipAB(_cdTip,near+' of '+n+' saved configs land within 80% of the best · mean '+fmtUsd(Math.round(mean))+' · σ '+fmtUsd(Math.round(sd))))+' CONFIG DISTRIBUTION <span style="font-weight:400;color:'+vc+';font-size:8px;white-space:nowrap">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit)')+'</span>'+det4+'</div>':'<div class="lbl" title="'+_cdTip+'" style="cursor:help;margin:8px 0 6px">CONFIG DISTRIBUTION · <span style="color:'+vc+'">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit risk)')+'</span> · '+near+'/'+n+' within 80% of best</div>')
         +'<div data-fixh style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto" data-xh="'+encodeURIComponent(JSON.stringify({xt:'usd',x0:lo,x1:hi,yt:'int',y0:0,y1:bmax,px:padL,py:plotTop,pw:Wp,ph:plotH,xl:'net',yl:'configs'}))+'">'+grid+bars+zeroMark+sdMarks+bestMark+meanLine+'<polyline points="'+bell.join(' ')+'" fill="none" stroke="var(--yellow)" stroke-width="1" opacity="0.85" stroke-dasharray="3,2" vector-effect="non-scaling-stroke"/>'+axis+yTitle+hits+'</svg></div>';
     };
     // linear-interpolated percentile of a SORTED array — used to size histogram bins by IQR
@@ -6830,8 +6836,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       return hdr
         // v64.12 (owner): pre-boxed row (grip under the y axis) — replaces the data-fixh wrap;
         //   190px default preserves the v64.1 uniform look.
-        +'<div class="rschart-box" style="display:flex;gap:6px;height:190px;min-height:34px;max-height:500px;overflow:hidden"><div style="flex:1;min-width:0;background:var(--bg1);border-radius:8px;padding:5px 0;box-sizing:border-box"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="none" style="display:block;width:100%;height:100%" data-xh="'+_xh+'">'+_grid+'<line x1="0" y1="'+baseY.toFixed(1)+'" x2="'+W+'" y2="'+baseY.toFixed(1)+'" stroke="var(--border)"/>'+bars+hits+'</svg></div>'+_yLab+'</div>'+rsRow
-        +'<div style="display:flex;margin:0;padding-right:50px">'+v.map((x,i)=>'<div style="flex:1;text-align:center;font-size:8px;line-height:1.3;overflow:hidden"><div style="color:'+(x>=0?'#1d9e75':'#e24b4a')+';white-space:nowrap">'+_kw(x)+'</div><div style="color:var(--text5)">'+(i+1)+'</div></div>').join('')+'</div>';
+        +'<div class="rschart-box" style="display:flex;gap:6px;height:190px;min-height:34px;max-height:500px;overflow:hidden"><div style="flex:1;min-width:0;background:var(--bg1);border-radius:8px;padding:5px 0;box-sizing:border-box"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="none" style="display:block;width:100%;height:100%" data-xh="'+_xh+'">'+_grid+'<line x1="0" y1="'+baseY.toFixed(1)+'" x2="'+W+'" y2="'+baseY.toFixed(1)+'" stroke="var(--border)"/>'+bars+hits+'</svg></div>'+_yLab+'</div>'
+        +'<div style="display:flex;margin:2px 0 0;padding-right:50px">'+v.map((x,i)=>'<div style="flex:1;text-align:center;font-size:8px;line-height:1.3;overflow:hidden"><div style="color:'+(x>=0?'#1d9e75':'#e24b4a')+';white-space:nowrap">'+_kw(x)+'</div><div style="color:var(--text5)">'+(i+1)+'</div></div>').join('')+'</div>'+rsRow;
     };
     // TOP-N EQUITY OVERLAY — the best configs' equity curves on one axis. If they all
     // climb alike the edge is robust; if only the winner climbs it's a fragile outlier.
@@ -6912,8 +6918,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   lanes — the generic $ gridline scale (lane 1, at the axis) and the per-line endpoint $
       //   labels (lane 2, further right) so they stop colliding (owner).
       // v64.31 (owner): NO in-svg gutter at all — the y axis moved to a real HTML gutter
-      //   (1A-identical fonts + pills), so the plot runs to the right edge.
-      if(selMode){xL=pd;xR=PW-8;}
+      //   (1A-identical fonts + pills), so the plot runs to the right edge. v64.32: to the edge
+      //   of the FULL viewBox (W), not the shared plot width — PW left a 40px hole before the axis.
+      if(selMode){xL=pd;xR=W-8;}
       // ── #88b FUNNEL (owner 2026-07-21): the x-axis has TWO doors. ALL configs (the cloud)
       //    run only to the IN-SAMPLE door (~75% of the optimize window). From there only the
       //    top-K by walk-forward continue to the LOCKBOX door (optimize end). From there only
@@ -6933,7 +6940,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // selMode: the CLOUD = every stored config, drawn only to the in-sample door (faint grey);
       //   it drops out there and the top-K walk-forward lines carry on (drawn in selSvg below).
       const lines=selMode
-        ? series.map(s=>'<polyline points="'+_seg(s,0,fIS)+'" fill="none" stroke="var(--text5)" stroke-width="0.5" opacity="0.16"/>').join('')
+        ? series.slice(0,_cfgShow).map(s=>'<polyline points="'+_seg(s,0,fIS)+'" fill="none" stroke="var(--text5)" stroke-width="0.5" opacity="0.16"/>').join('')
         : order.map(i=>(i<_cfgShow?path(series[i],colOf(i),i===0?1.4:0.8,i===0?1:0.72):path(series[i],'var(--text5)',0.55,0.15))).join('');
       const zeroY=Yv(0);
       // visible horizontal $ gridlines running THROUGH the plot (xL→xR) + compact $ labels just
@@ -7947,8 +7954,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       return '<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1C '+_infoIc(_icWF)+' WALK-FORWARD'+_pill+(_useAlt?'<span style="font-weight:400;font-size:8px;color:var(--yellow)">comparison view — the verdict used '+(_V3.wf_best_mode||'the other scheme')+'</span>':'')+'</div>'
         // v64.12 (owner): pre-boxed like 1A/1B — the resize row wraps chart + gutter, so the
         //   drag grip sits at bottom-right UNDER the y axis on every section-1 chart.
-        +'<div class="rschart-box" style="display:flex;gap:6px;height:130px;min-height:34px;max-height:500px;overflow:hidden"><div style="flex:1;min-width:0;background:var(--bg1);border-radius:8px;padding:5px 0;box-sizing:border-box"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="none" style="display:block;width:100%;height:100%" data-xh="'+encodeURIComponent(JSON.stringify({xt:'int',x0:0.5,x1:fs.length+0.5,yt:'usd',y0:_vmin,y1:_vmax,px:0,py:_top,pw:W,ph:_plotH,xl:'fold',yl:'PnL'}))+'">'+_gridW+'<line x1="0" y1="'+baseY.toFixed(1)+'" x2="'+W+'" y2="'+baseY.toFixed(1)+'" stroke="var(--border)"/>'+bars+hits+'</svg></div>'+_yLabW+'</div>'+rsRow
-        +'<div style="display:flex;margin:0 0 14px;padding-right:50px">'+fs.map(f=>'<div style="flex:1;text-align:center;font-size:8px;line-height:1.3"><div style="color:'+(f.pf>1?_G:_R)+'">PF '+f.pf.toFixed(2)+'</div><div style="color:var(--text5)">f'+f.fold+'</div></div>').join('')+'</div>';
+        +'<div class="rschart-box" style="display:flex;gap:6px;height:130px;min-height:34px;max-height:500px;overflow:hidden"><div style="flex:1;min-width:0;background:var(--bg1);border-radius:8px;padding:5px 0;box-sizing:border-box"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="none" style="display:block;width:100%;height:100%" data-xh="'+encodeURIComponent(JSON.stringify({xt:'int',x0:0.5,x1:fs.length+0.5,yt:'usd',y0:_vmin,y1:_vmax,px:0,py:_top,pw:W,ph:_plotH,xl:'fold',yl:'PnL'}))+'">'+_gridW+'<line x1="0" y1="'+baseY.toFixed(1)+'" x2="'+W+'" y2="'+baseY.toFixed(1)+'" stroke="var(--border)"/>'+bars+hits+'</svg></div>'+_yLabW+'</div>'
+        +'<div style="display:flex;margin:2px 0 0;padding-right:50px">'+fs.map(f=>'<div style="flex:1;text-align:center;font-size:8px;line-height:1.3"><div style="color:'+(f.pf>1?_G:_R)+'">PF '+f.pf.toFixed(2)+'</div><div style="color:var(--text5)">f'+f.fold+'</div></div>').join('')+'</div>'+rsRow;
     };
     // Champion equity curve (walk-forward in-sample → lockbox holdout), with WF test-window
     //   bands + a lockbox region. Extracted so the MASTER panel and the Builder's validate card
@@ -10776,7 +10783,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // drag target: the chart BOX (stashed at creation) — falling back to the previous
         //   sibling for the pre-boxed §1 rows. Dragging the outer panel instead of the box
         //   was the v64.25 "adjusting messes things up" bug (the box kept its fixed height).
-        const row=g._rsTarget||g.previousElementSibling;if(!row)return;
+        let row=g._rsTarget||g.previousElementSibling;
+        // v64.32 (owner): §1 grips sit BELOW the x-label strip now — if the previous sibling
+        //   is the label strip, step back one more to the chart row.
+        if(row&&!(row.classList&&row.classList.contains('rschart-box'))&&row.id!=='eq-rs'){
+          const _p3=row.previousElementSibling;
+          if(_p3&&((_p3.classList&&_p3.classList.contains('rschart-box'))||_p3.id==='eq-rs'))row=_p3;}
+        if(!row)return;
         const px=s=>{const m=/([0-9.]+)px/.exec(s||'');return m?+m[1]:null;};
         g.addEventListener('pointerdown',e=>{e.preventDefault();
           const y0=e.clientY,h0=row.offsetHeight;
