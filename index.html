@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.28';
+const VERSION='64.29';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.29', date:'2026-07-22', notes:['2A: right-side dead space slimmed (the old label lane reserved twice what the axis pills need) and the generic y-axis $ labels use the 1A k-format and tone.','Expanded chart view rebuilt on the 1A idea: the chart renders at its NATURAL shape scaled to fill the modal height — no more stretched or letterboxed distortion — and you navigate it like 1A: drag to pan, mouse-wheel or the bottom toolbar to zoom, crosshair readout included.','4B now uses the literal 1G recipe: fine Freedman-Diaconis bins driven by the SAME bin-fineness setting as 1G/1H (your 3x applies here too), thin bars across the entire data range, with the Gaussian fit and sigma marks over them.']},
   {v:'64.28', date:'2026-07-22', notes:['2A: the lockbox endpoint $ figures are now coloured PILLS on the y axis (the 1A endpoint look) — and only the three lines that actually reach the right edge get one; the crowned and IS-max optimize-window totals label their own line ends at the lockbox door instead, so five numbers next to three lines no longer confuses.','2A: the floating rotated equity-$ title in the far-right space is gone.','4B CONFIG DISTRIBUTION reformatted to the 1G look: 560-wide plot, counts on the right, k-format $ ticks, mean / best / BE / sigma marks with readable labels, and its bin count no longer accidentally follows the 2A configs slider. The ⓘ explains the saved-sample counts (e.g. 20 of 73: 73 = configs the engine sampled into this chart, 20 = those within 80% of the best — the plateau test).','Expanded chart view: the plot now FILLS the modal height instead of letterboxing a squished strip, cloned sliders keep their labels, and slider captions no longer leak into the modal title.']},
   {v:'64.27', date:'2026-07-22', notes:['2A CONFIG FUNNEL redraw per the owner line procedure: every line is SOLID through in-sample, DASHED through walk-forward and DOTTED through the lockbox; the top-K walk-forward survivors each get their own colour (the lines that matter) while the non-survivors stay light grey; all strokes thinned right down.','2A: the crowned / IS-max / lockbox endpoint $ figures moved ONTO the y axis at their exact heights (the 1A endpoint treatment) — the second label column outside the plot is gone, leaving the one key in the upper-left.','2A: date ticks now run through the in-sample stretch too (mid-IS and the IS door), and the configs slider DEFAULTS to every stored curve with an honest readout — e.g. 50/50 saved · 2,856 tested (the engine stores the top 50 curves per run; the slider spans all of them).']},
   {v:'64.26', date:'2026-07-22', notes:['Fix: dragging the handle row under 1G / 1H (and other wrapped charts) resized the grey panel instead of the chart inside it, so the two fought and the layout broke — the handle now drags the chart box itself and the panel follows.','Fix: handle rows that were still rendering INSIDE a grey subtile (4B for example) now climb out and sit under the whole subtile, separating it from the next chart title — the 1A-1D pattern everywhere.']},
@@ -2668,7 +2669,7 @@ window.expandChart=function(title,svgHTML,opts){
     zoom=z;svg.style.width=(baseW*z).toFixed(1)+'px';svg.style.height=(baseH*z).toFixed(1)+'px';
     const r2=svg.getBoundingClientRect();scroller.scrollLeft+=(r2.left+fx*r2.width)-ax;scroller.scrollTop+=(r2.top+fy*r2.height)-ay;
     if(zlab)zlab.textContent=Math.round(zoom*100)+'%';};
-  const _fit=()=>{zoom=1;baseW=baseH=0;if(svg){const d=svg.getAttribute('data-distscroll');svg.style.cssText=(d?'height:60vh;width:auto':'width:100%;height:68vh')+';max-width:none;display:block';}
+  const _fit=()=>{zoom=1;baseW=baseH=0;if(svg){const d=svg.getAttribute('data-distscroll');svg.style.cssText=(d?'height:60vh;width:auto':'height:64vh;width:auto')+';max-width:none;display:block';}
     scroller.scrollLeft=scroller.scrollTop=0;if(zlab)zlab.textContent='100%';setTimeout(_measure,40);};
   setTimeout(_measure,60);
   scroller.addEventListener('wheel',(e)=>{if(!svg||!body.contains(e.target))return;e.preventDefault();_applyZoom(zoom*(e.deltaY<0?1.2:1/1.2),e.clientX,e.clientY);},{passive:false});
@@ -6686,14 +6687,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const v=dist.map(x=>x*mult),mx=Math.max.apply(null,v),mn=Math.min.apply(null,v),n=v.length;
       const mean=v.reduce((a,b)=>a+b,0)/n,sd=Math.sqrt(v.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1;
       const near=v.filter(x=>x>=0.8*mx).length,plateau=(near/n)>=0.12;
-      // v64.28 (owner): 4B reformatted to the 1G geometry — 560 viewBox, counts on the right at
-      //   font 11, k-format $ ticks inside the svg, mean / BE / best / ±σ marks like 1G. Bin
-      //   count follows the SAVED sample size (no longer tied to the 2A slider pref).
-      const nb=Math.max(10,Math.min(50,Math.round(n/3)||18)),lo=Math.min(0,mn),hi=Math.max(0,mx),span=(hi-lo)||1,binW=span/nb,bins=new Array(nb).fill(0);
+      // v64.29 (owner): 4B uses the LITERAL 1G recipe — Freedman-Diaconis bins scaled by the
+      //   SAME bins pref as 1G/1H (default 3×), thin bars across the entire data range, the
+      //   Gaussian + σ marks over them. 560 viewBox, counts right at font 11, k-format ticks.
+      const lo=Math.min(0,mn),hi=Math.max(0,mx),span=(hi-lo)||1;
+      const _sv2=v.slice().sort((a,b)=>a-b),_q12=_pctl(_sv2,0.25),_q32=_pctl(_sv2,0.75),_fd2=2*(_q32-_q12)/Math.cbrt(n)||span/50;
+      const _det2=Math.max(0.5,Math.min(4,+APREF.distBins||3));
+      let nb=Math.round(span/_fd2*_det2);nb=Math.max(30,Math.min(400,nb||40));
+      const binW=span/nb,bins=new Array(nb).fill(0);
       v.forEach(x=>{let b=Math.floor((x-lo)/span*nb);if(b<0)b=0;if(b>=nb)b=nb-1;bins[b]++;});
       const bmax=Math.max.apply(null,bins)||1,padL=8,padR=42,tickH=18,plotTop=16,H=156,B=H-tickH,plotH=B-plotTop,W=560,Wp=W-padL-padR,bw=Wp/nb,Xv=x=>padL+((x-lo)/span)*Wp;
       let hits='';
-      const bars=bins.map((c,i)=>{const h=c>0?Math.max(1.5,(c/bmax)*plotH):0,x=padL+i*bw,blo=lo+span*i/nb,bhi=lo+span*(i+1)/nb,col=blo>=0?'#1d9e75':'#e24b4a';hits+='<rect x="'+x.toFixed(1)+'" y="0" width="'+bw.toFixed(1)+'" height="'+B+'" fill="transparent" style="cursor:pointer" data-tip="'+fmtUsd(Math.round(blo))+' to '+fmtUsd(Math.round(bhi))+' net<br><b>'+c+'</b> config'+(c===1?'':'s')+'"/>';return c>0?'<rect x="'+(x+0.6).toFixed(1)+'" y="'+(B-h).toFixed(1)+'" width="'+Math.max(0.9,bw-1.2).toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+col+'" opacity="0.66"/>':'';}).join('');
+      const bars=bins.map((c,i)=>{const h=c>0?Math.max(1.5,(c/bmax)*plotH):0,x=padL+i*bw,blo=lo+span*i/nb,bhi=lo+span*(i+1)/nb,bc=lo+span*(i+0.5)/nb,col=bc>=0?'#1d9e75':'#e24b4a';hits+='<rect x="'+x.toFixed(2)+'" y="0" width="'+bw.toFixed(2)+'" height="'+B+'" fill="transparent" style="cursor:pointer" data-tip="'+fmtUsd(Math.round(blo))+' to '+fmtUsd(Math.round(bhi))+' net<br><b>'+c+'</b> config'+(c===1?'':'s')+'"/>';return c>0?'<rect x="'+(x+0.3).toFixed(2)+'" y="'+(B-h).toFixed(1)+'" width="'+Math.max(0.9,bw-0.6).toFixed(2)+'" height="'+h.toFixed(1)+'" fill="'+col+'" opacity="0.66"/>':'';}).join('');
       const vc=plateau?'var(--green)':'var(--yellow)';
       const grid=[0.25,0.5,0.75,1].map(fr=>{const gy=B-fr*plotH,cv=Math.round(bmax*fr);return '<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4"/><text x="'+(padL+Wp+5).toFixed(1)+'" y="'+(gy+3.5).toFixed(1)+'" text-anchor="start" font-size="11" fill="var(--text5)">'+cv+'</text>';}).join('');
       const pdf=x=>Math.exp(-0.5*Math.pow((x-mean)/sd,2))/(sd*Math.sqrt(2*Math.PI));
@@ -6904,7 +6909,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // selMode: start the plot at the left edge and reserve a WIDE right gutter for TWO label
       //   lanes — the generic $ gridline scale (lane 1, at the axis) and the per-line endpoint $
       //   labels (lane 2, further right) so they stop colliding (owner).
-      if(selMode){xL=pd;xR=PW-96;}
+      // v64.29 (owner): right gutter slimmed — the axis pills need ~40px, not the 96px the old
+      //   two-lane labels reserved (the dead space on the right).
+      if(selMode){xL=pd;xR=PW-52;}
       // ── #88b FUNNEL (owner 2026-07-21): the x-axis has TWO doors. ALL configs (the cloud)
       //    run only to the IN-SAMPLE door (~75% of the optimize window). From there only the
       //    top-K by walk-forward continue to the LOCKBOX door (optimize end). From there only
@@ -6934,7 +6941,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // brighter/whiter gridlines + labels (owner request: "make axis more white")
       for(let L=Math.ceil(mn/_gs)*_gs;L<=mx+1e-6;L+=_gs){const _z=Math.abs(L)<1e-6,gy=Yv(L);
         grid+='<line x1="'+xL.toFixed(1)+'" y1="'+gy.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--text4)" stroke-width="'+(_z?0.9:0.5)+'" opacity="'+(_z?0.7:0.42)+'"/>'
-          +'<text x="'+(xR+4).toFixed(1)+'" y="'+(gy+2.5).toFixed(1)+'" font-size="4.6" fill="var(--text2)">'+fmtAx(L,1)+'</text>';}
+          +'<text x="'+(xR+4).toFixed(1)+'" y="'+(gy+2.5).toFixed(1)+'" font-size="5" fill="var(--text5)">'+fmtAx(L,1)+'</text>';}
       // Single NET (y) axis on the RIGHT, drawn to MATCH the x-axis baseline styling (neutral white);
       //   the old red LEFT guide is dropped — owner: "dont need y axis on the left".
       grid+='<line x1="'+xR.toFixed(1)+'" y1="'+pt+'" x2="'+xR.toFixed(1)+'" y2="'+(H-pd)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>';
@@ -10712,7 +10719,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
             return {main:parts.slice(0,2).join(' · ')||'CHART',sub:parts.slice(2).join(' · ')};};
           // v64.28: expanded charts FILL the modal height (preserveAspectRatio none, like the
           //   inline panels) instead of letterboxing a squished strip in the middle.
-          const cloneSvg=sv=>{const c=sv.cloneNode(true);if(sv.getAttribute('data-distscroll')){c.setAttribute('preserveAspectRatio','xMinYMid meet');c.style.cssText='height:60vh;width:auto;max-width:none;display:block';}else{c.setAttribute('preserveAspectRatio','none');c.style.cssText='width:100%;height:68vh;display:block';}return c.outerHTML;};
+          // v64.29 (owner, 1A-style expand): render at NATURAL aspect scaled to fill the modal
+          //   height — big and wide, navigated with the modal pan (drag) + zoom (wheel / toolbar).
+          //   No stretch distortion, no letterboxed strip.
+          const cloneSvg=sv=>{const c=sv.cloneNode(true);if(sv.getAttribute('data-distscroll')){c.setAttribute('preserveAspectRatio','xMinYMid meet');c.style.cssText='height:60vh;width:auto;max-width:none;display:block';}else{c.setAttribute('preserveAspectRatio','xMidYMid meet');c.style.cssText='height:64vh;width:auto;max-width:none;display:block';}return c.outerHTML;};
           const hp=parseHdr(findHdr(box));
           const api=window.expandChart(hp.main,cloneSvg(svg),{sub:hp.sub});
           // FILTERS live in the modal too: clone the header's controls (param pickers, sliders,
