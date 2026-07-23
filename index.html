@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.32';
+const VERSION='64.33';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.33', date:'2026-07-23', notes:['Section 1 rearranged per the owner: 1F REGIME REPORT CARD now sits UNDER 1I in the distributions column, and the middle / right columns switched — 1G-1I (+1F) stack in the middle, the 1E KPI matrix on the right.','Expanded view: charts with an HTML y-axis (1A-1D style rows, incl. 2A) now expand as the whole row — chart plus $ scale and endpoint pills — sized to the modal; wide charts fit the width so the full picture shows first (wheel to zoom in). Nothing opens over-zoomed.','Fix: the 4B bins pill menu was opening underneath the header clip — it shows now.']},
   {v:'64.32', date:'2026-07-23', notes:['1C / 1D: the drag handle row moved BELOW the fold / window label strip (it used to sit between the chart and its x labels); dragging still resizes the chart itself.','2A: the gap between the plot and the y axis is gone (the plot now spans the full chart area) and the configs slider actually thins the grey cloud as you drag it.','4B gained the same bins pill as 1G — one shared fineness setting drives 1G, 1H and 4B, so your 3x shows the fine-grained field everywhere.']},
   {v:'64.31', date:'2026-07-23', notes:['2A is now built EXACTLY like the 1A-1D charts: the plot fills a resizable row, the $ scale and the endpoint pills live in a real 44px HTML gutter with the same 8px font and pill styling as 1A, and the in-chart dead space on the right is gone (the plot runs to the edge). Handle row underneath, height persists.','2A slider readout now uses the honest count the engine saves since v64.30 — configs EVALUATED (unique configs the search actually ran) instead of the old planning estimate that over-counted.','4B histograms the LARGEST population the run saved: on older docs that is the 171-config parameter sample instead of the old 73-config slice; on new runs (engine v64.30+) it is every evaluated config.']},
   {v:'64.30', date:'2026-07-23', notes:['Engine (stack 7.10): run docs now save the FULL config population — an equity curve for EVERY recorded config (was a top-50 sample; whole-dollar values, up to 400 curves, size-guarded well under the Firestore doc cap), the complete config PnL list for chart 4B (it previously missed the auto-expand probe configs — 4B showed 73 of 171 on run 173), and honest counts: new equity_top_cap {saved, tested} + n_evaluated = the REAL number of recorded configs (the old n_combos figure is trials x 2, an estimate, not a count).','Charts 2A and 4B grow on runs made from now on; older runs keep their saved samples.']},
@@ -2672,7 +2673,10 @@ window.expandChart=function(title,svgHTML,opts){
     zoom=z;svg.style.width=(baseW*z).toFixed(1)+'px';svg.style.height=(baseH*z).toFixed(1)+'px';
     const r2=svg.getBoundingClientRect();scroller.scrollLeft+=(r2.left+fx*r2.width)-ax;scroller.scrollTop+=(r2.top+fy*r2.height)-ay;
     if(zlab)zlab.textContent=Math.round(zoom*100)+'%';};
-  const _fit=()=>{zoom=1;baseW=baseH=0;if(svg){const d=svg.getAttribute('data-distscroll');svg.style.cssText=(d?'height:60vh;width:auto':'height:64vh;width:auto')+';max-width:none;display:block';}
+  const _fit=()=>{zoom=1;baseW=baseH=0;
+    // v64.33: pre-boxed ROW clones keep their own flex layout — never restyle their inner svg.
+    if(svg&&!svg.closest('.rschart-box')){const d=svg.getAttribute('data-distscroll');const _vb2=(svg.getAttribute('viewBox')||'0 0 1 1').split(/\s+/),_ar2=(+_vb2[2]||1)/((+_vb2[3])||1);
+      svg.style.cssText=(d?'height:60vh;width:auto':(_ar2>2.2?'width:96%;height:auto;margin:0 auto':'height:64vh;width:auto'))+';max-width:none;display:block';}
     scroller.scrollLeft=scroller.scrollTop=0;if(zlab)zlab.textContent='100%';setTimeout(_measure,40);};
   setTimeout(_measure,60);
   scroller.addEventListener('wheel',(e)=>{if(!svg||!body.contains(e.target))return;e.preventDefault();_applyZoom(zoom*(e.deltaY<0?1.2:1/1.2),e.clientX,e.clientY);},{passive:false});
@@ -6719,7 +6723,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const det4=(tag?'<span style="position:relative;display:inline-flex;margin-left:auto">'
         +'<span data-binscur title="bin fineness — click to choose (shared with 1G / 1H)" style="cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border);border-radius:7px;background:var(--bg1);padding:2px 8px;font-size:8px;font-weight:700;color:var(--blue);white-space:nowrap">'+(String(_det2)==='0.5'?'–':String(_det2)+'×')+' <span style="font-size:6px;color:var(--text4)">▼</span></span>'
         +'<span data-binsopts style="display:none;position:absolute;top:calc(100% + 3px);right:0;z-index:60;background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.4)">'+_dO4.map(function(o){return '<span data-distbins="'+o[0]+'" style="display:block;cursor:pointer;padding:4px 12px;font-size:8px;font-weight:700;white-space:nowrap;background:'+(String(_det2)===o[0]?'color-mix(in srgb,var(--blue) 16%,transparent)':'transparent')+';color:'+(String(_det2)===o[0]?'var(--blue)':'var(--text3)')+'">'+o[1]+'</span>';}).join('')+'</span></span>':'');
-      return (tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc(_ipAB(_cdTip,near+' of '+n+' saved configs land within 80% of the best · mean '+fmtUsd(Math.round(mean))+' · σ '+fmtUsd(Math.round(sd))))+' CONFIG DISTRIBUTION <span style="font-weight:400;color:'+vc+';font-size:8px;white-space:nowrap">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit)')+'</span>'+det4+'</div>':'<div class="lbl" title="'+_cdTip+'" style="cursor:help;margin:8px 0 6px">CONFIG DISTRIBUTION · <span style="color:'+vc+'">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit risk)')+'</span> · '+near+'/'+n+' within 80% of best</div>')
+      return (tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc(_ipAB(_cdTip,near+' of '+n+' saved configs land within 80% of the best · mean '+fmtUsd(Math.round(mean))+' · σ '+fmtUsd(Math.round(sd))))+' CONFIG DISTRIBUTION <span style="font-weight:400;color:'+vc+';font-size:8px;white-space:nowrap">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit)')+'</span>'+det4+'</div>':'<div class="lbl" title="'+_cdTip+'" style="cursor:help;margin:8px 0 6px">CONFIG DISTRIBUTION · <span style="color:'+vc+'">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit risk)')+'</span> · '+near+'/'+n+' within 80% of best</div>')
         +'<div data-fixh style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto" data-xh="'+encodeURIComponent(JSON.stringify({xt:'usd',x0:lo,x1:hi,yt:'int',y0:0,y1:bmax,px:padL,py:plotTop,pw:Wp,ph:plotH,xl:'net',yl:'configs'}))+'">'+grid+bars+zeroMark+sdMarks+bestMark+meanLine+'<polyline points="'+bell.join(' ')+'" fill="none" stroke="var(--yellow)" stroke-width="1" opacity="0.85" stroke-dasharray="3,2" vector-effect="non-scaling-stroke"/>'+axis+yTitle+hits+'</svg></div>';
     };
     // linear-interpolated percentile of a SORTED array — used to size histogram bins by IQR
@@ -8904,9 +8908,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // 1E matrix + 1F regime share ONE tile (a divider between them) instead of two stacked cards.
         // 1E title rides on the matrix's own verdict/gates/DSR row (one line) instead of a separate header above it.
         const _mHdr='<span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;white-space:nowrap">1E '+_infoIc('<div style="color:var(--text2)">'+_mtip+'</div>')+' KPI MATRIX</span>';
+        // v64.33 (owner): 1F moved OUT of the matrix tile — it now lives under 1I in tile 3.
+        const _regBlock=((regHtml&&regHtml.replace(/\s/g,''))?'<div style="margin-top:14px;padding-top:13px;border-top:1px solid var(--border)">'+_numHdr('1F','REGIME REPORT CARD','Net $ split by market regime, one pill per dimension — segment width = that bucket share of the net $ (green made money, red lost; hover a segment for trades, net and PF). Scope: '+_dscope+'. Weakest vol bucket: '+((d.regime&&d.regime.worst_vol)||'—'))+regHtml+'</div>':'');
         _panelMatrix='<div style="'+_card+';height:100%;box-sizing:border-box">'+kpiMatrixHtml(d,mlt,1,_mHdr)
           +verdictPowerHtml(_V,mlt)
-          +((regHtml&&regHtml.replace(/\s/g,''))?'<div style="margin-top:14px;padding-top:13px;border-top:1px solid var(--border)">'+_numHdr('1F','REGIME REPORT CARD','Net $ split by market regime, one pill per dimension — segment width = that bucket share of the net $ (green made money, red lost; hover a segment for trades, net and PF). Scope: '+_dscope+'. Weakest vol bucket: '+((d.regime&&d.regime.worst_vol)||'—'))+regHtml+'</div>':'')
           +'</div>';
         _panelRegime='';
         // 1D + 1G (+ 1H Deflated Sharpe) stacked in ONE master tile (third column of §1's top row, beside 1E).
@@ -8953,7 +8958,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 +'<div style="font-size:8px;color:var(--text5);margin-top:5px;line-height:1.5">Re-runs the champion with stop × target swept around your winners\' reach : heat ≈ <b style="color:var(--text3)">'+R.toFixed(1)+' : 1</b> ('+Math.round(f50)+'p reach vs '+Math.round(s50)+'p heat). <b>In-sample</b> sweep — validate the winner to confirm out-of-sample.</div></div>';
             }}
         }catch(_e){}
-        _distTile=(_td||_mae)?'<div style="'+_card+';height:100%;box-sizing:border-box">'+_td+((_td&&_mae)?'<div style="height:10px"></div>':'')+_mae+((dsrHtml&&dsrHtml.replace(/\s/g,''))?_dsrBlock:'')+_exitBtn+'</div>':'';
+        _distTile=(_td||_mae)?'<div style="'+_card+';height:100%;box-sizing:border-box">'+_td+((_td&&_mae)?'<div style="height:10px"></div>':'')+_mae+((dsrHtml&&dsrHtml.replace(/\s/g,''))?_dsrBlock:'')+_regBlock+_exitBtn+'</div>':'';
       }else{
         // NON-Auto-Validate runs (grid / auto / walk-forward / single) render the SAME three-column
         //   §1 skeleton as run 137 — populating each tile where the run has the data and dropping an
@@ -9541,7 +9546,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // v64.18 (owner): each tile also gets a handle row at its very BOTTOM — the tile-height
           //   drag the old corner grabber used to provide (per-tile, persists, dblclick = auto).
           var _th=function(i){return '<div data-tilerow="'+i+'" title="drag to resize this tile height · double-click = back to auto" style="height:8px;margin:5px 0 0;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div></div>';};
-          return '<div data-colskey="s1cols" style="display:flex;gap:2px;align-items:flex-start;flex-wrap:wrap">'+_w(0,'1.7 1 360px')+_panelEquity+_th(0)+'</div>'+_sp+_w(1,'1 1 280px')+_panelMatrix+_panelRegime+_th(1)+'</div>'+_sp+_w(2,'1.1 1 300px')+_distTile+_th(2)+'</div></div>';})())
+          // v64.33 (owner column switch): middle column = the 1G-1I (+1F) stack, right column
+          //   = the 1E KPI matrix.
+          return '<div data-colskey="s1cols" style="display:flex;gap:2px;align-items:flex-start;flex-wrap:wrap">'+_w(0,'1.7 1 360px')+_panelEquity+_th(0)+'</div>'+_sp+_w(1,'1.1 1 300px')+_distTile+_th(1)+'</div>'+_sp+_w(2,'1 1 280px')+_panelMatrix+_panelRegime+_th(2)+'</div></div>';})())
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         // §3 is a fixed slot too (universal layout): show an n/a card when the run swept no config grid.
         +_sec('3','Configuration Analysis',(_s2Verd||'robust params — a cluster, not a lonely spike'),((_sec3&&_sec3.replace(/\s/g,''))?_sec3:('<div style="'+_card2+';margin-bottom:14px">'+_naTile('2A','CONFIG SEARCH','this run type did not sweep a parameter grid — no config landscape, top-configs table or robustness map to show')+'</div>')),_cfgN)
@@ -10744,10 +10751,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
             return {main:parts.slice(0,2).join(' · ')||'CHART',sub:parts.slice(2).join(' · ')};};
           // v64.28: expanded charts FILL the modal height (preserveAspectRatio none, like the
           //   inline panels) instead of letterboxing a squished strip in the middle.
-          // v64.29 (owner, 1A-style expand): render at NATURAL aspect scaled to fill the modal
-          //   height — big and wide, navigated with the modal pan (drag) + zoom (wheel / toolbar).
-          //   No stretch distortion, no letterboxed strip.
-          const cloneSvg=sv=>{const c=sv.cloneNode(true);if(sv.getAttribute('data-distscroll')){c.setAttribute('preserveAspectRatio','xMinYMid meet');c.style.cssText='height:60vh;width:auto;max-width:none;display:block';}else{c.setAttribute('preserveAspectRatio','xMidYMid meet');c.style.cssText='height:64vh;width:auto;max-width:none;display:block';}return c.outerHTML;};
+          // v64.33 (owner): three expand shapes — (1) pre-boxed rows (1A-1D style, incl 2A)
+          //   expand as the WHOLE row (chart + HTML $ gutter + endpoint pills) sized to the
+          //   modal; (2) wide charts fit the WIDTH (whole chart visible, wheel to zoom in);
+          //   (3) tall/square charts fill the height.
+          const cloneSvg=sv=>{const c=sv.cloneNode(true);
+            if(sv.getAttribute('data-distscroll')){c.setAttribute('preserveAspectRatio','xMinYMid meet');c.style.cssText='height:60vh;width:auto;max-width:none;display:block';return c.outerHTML;}
+            const _rowC=sv.closest('.rschart-box');
+            if(_rowC&&[..._rowC.children].some(ch=>ch.style&&ch.style.minWidth==='44px')){
+              const rc=_rowC.cloneNode(true);rc.style.height='60vh';rc.style.maxHeight='none';rc.style.minHeight='0';rc.style.width='auto';rc.style.resize='none';
+              return rc.outerHTML;}
+            const _vb=(sv.getAttribute('viewBox')||'0 0 1 1').split(/\s+/),_ar=(+_vb[2]||1)/((+_vb[3])||1);
+            c.setAttribute('preserveAspectRatio','xMidYMid meet');
+            c.style.cssText=(_ar>2.2?'width:96%;height:auto;margin:0 auto':'height:64vh;width:auto')+';max-width:none;display:block';
+            return c.outerHTML;};
           const hp=parseHdr(findHdr(box));
           const api=window.expandChart(hp.main,cloneSvg(svg),{sub:hp.sub});
           // FILTERS live in the modal too: clone the header's controls (param pickers, sliders,
