@@ -867,6 +867,17 @@ not saved to the runs DB — so they carry no run id.*
       or keep the current anchor and let the UI note stand (web v64.36 already labels the
       winner column "raw in-sample $ champion at nudge time"). Re-anchoring is the honest
       fix — 4A claims robustness for a config the report does not headline.
+12. **⬜ TODO (owner-requested 2026-07-23) — TTIBS buy-strength probe: test ibs_entry
+    ABOVE 0.5 (ledger item 121)**. The #174 PDP still climbs into the 0.5 identity cap
+    (+15% slope), and the owner wants the other side looked at. Above 0.5 the entry
+    flips meaning (close in the TOP half of the day = buying strength = a momentum
+    trade), so do NOT raise TTIBS_1_0.py's hard_max in place — make a VARIANT copy
+    (e.g. `TTIBS_STR_1_0.py`) with `ibs_entry` range widened (say 0.30-0.90, hard_max
+    1.0) and run it as its own Auto-Validate. **Pin the #170/#174 window**
+    (2010-06-07 → 2026-07-16, same master) so the comparison is apples-to-apples per
+    the rerun-pinning rule. Judge it as a NEW strategy probe (lockbox + WF gates),
+    not as a TTIBS improvement; also worth eyeballing whether the 0.5-0.6 shelf is
+    just the tail of the mean-reversion edge or a genuinely different regime.
 
 **Current Auto-Validate pipeline (as of 2026-07-20, for orientation):** 🎯 steered search (random
 seed ~40% of trials → GP-aimed batches, #36; TPE and QRF brains available) → auto-expand of

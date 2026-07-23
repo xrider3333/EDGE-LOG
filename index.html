@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.37';
+const VERSION='64.38';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.38', date:'2026-07-23', notes:['4B: the 4B/4A pane handle is back (it went missing in the v64.35 rebuild), and the chart now marks WHERE the champion sits — blue dashed = IS max (top in-sample config), green dashed = the crowned walk-forward-checked champion, same colors as 2A.','4A: the nudge triangles wear direction hues — blue points left for the minus-1 step, orange points right for the plus-1 step — in the rows AND the top strip; strip marks now name their param + tried value on hover (they were anonymous dots).']},
   {v:'64.37', date:'2026-07-23', notes:['4B top breathing room — the count axis tops out about 15 percent above the tallest bar (raised y-max, bars stay honest), so nothing touches the rim.','4A cells no longer truncate: each shows the tried VALUE on its own line above the PF (the one-line form got cut off in the narrow column).']},
   {v:'64.36', date:'2026-07-23', notes:['4B breathes like a bell curve — the x-axis extends past the data to mean plus/minus 3 sigma, so the tails taper into open space instead of cropping at the edges.','4A cells now show the VALUE each nudge tried before its PF (e.g. 7 to 1.65) — no hovering needed; the info note also explains the winner column is the raw in-sample champion at nudge time, which can differ from the walk-forward-checked headline champion.']},
   {v:'64.35', date:'2026-07-23', notes:['4B rebuilt on the 1A model: fixed-size HTML axes (44px count gutter + $ strip) so nothing stretches at full width, the header shows HOW MANY configs are plotted, and the expand modal carries the axes along.','4B bins pill fixed — the old floor of 60 swallowed every setting (1x/2x/3x all looked identical); the floor now scales with the pill and the 3x default is about twice as fine. The dash option is now labelled half-x (the coarsest setting).','2C: the PEAK and PICKED values now print ON each mini-chart at their dots (the pick ring also draws when the pick lands on the peak).','4A: the two nudges are directional triangles (left = minus 1 step, right = plus 1 step) and a missing nudge reads EDGE — the winner sits at the end of the tested grid on that side.']},
@@ -6696,7 +6697,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const c2YTitle=(H,s)=>{const yc=(H/2).toFixed(1);return '<text x="'+(C2W-1)+'" y="'+yc+'" transform="rotate(-90 '+(C2W-1)+' '+yc+')" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text3)">'+s+' (y)</text>';};
     // x-axis label row under a chart — right-padded by the gutter so its ends align with the plot
     const c2XRow=(l,m,r)=>'<div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--text3);margin-top:3px;padding-right:'+(C2R/C2W*100).toFixed(1)+'%"><span>'+l+'</span><span style="color:var(--text5)">'+(m||'')+'</span><span>'+r+'</span></div>';
-    const distPanelHtml=(dist,mult,tag)=>{
+    const distPanelHtml=(dist,mult,tag,xmarks)=>{
       if(!dist||dist.length<8)return '';
       const v=dist.map(x=>x*mult),mx=Math.max.apply(null,v),mn=Math.min.apply(null,v),n=v.length;
       const mean=v.reduce((a,b)=>a+b,0)/n,sd=Math.sqrt(v.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1;
@@ -6732,7 +6733,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const bestMark='<line x1="'+bestX.toFixed(1)+'" y1="'+plotTop+'" x2="'+bestX.toFixed(1)+'" y2="'+B+'" stroke="#1d9e75" stroke-width="1" stroke-dasharray="4,3" vector-effect="non-scaling-stroke"/><text x="'+(bestX-2).toFixed(1)+'" y="'+(plotTop+10)+'" text-anchor="end" font-size="10" font-weight="700" fill="#1d9e75" style="paint-order:stroke;stroke:var(--bg1);stroke-width:2.5px">best '+fmtAx(mx,1)+'</text>';
       const axis='<line x1="'+padL+'" y1="'+B+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-width="0.6"/>'+(function(){const _n2=x2=>{x2=Math.abs(x2)||1;const e=Math.pow(10,Math.floor(Math.log10(x2)));const f=x2/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};const st3=_n2(span/8)||1;let t='';for(let L=Math.ceil(lo/st3)*st3;L<=hi;L+=st3){const xx=Xv(L);t+='<text x="'+xx.toFixed(1)+'" y="'+(B+14)+'" text-anchor="middle" font-size="11" fill="'+(Math.abs(L)<1e-9?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</text>';}return t;})();
       const yTitle='<text x="'+(padL+Wp+32)+'" y="'+(plotTop+plotH/2).toFixed(1)+'" transform="rotate(-90 '+(padL+Wp+32)+' '+(plotTop+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="10" fill="var(--text5)">configs</text>';
-      const _cdTip='Histogram of config net $ results (one bar = configs landing in that $ range). '+n+' configs are plotted — on new runs this is EVERY config the search evaluated (the entire family); on older runs it is the sample the engine saved. A PLATEAU (many configs near the best) = a robust edge; an isolated spike = likely overfit. Yellow dashed = fitted normal · blue dashed = mean · grey dashed = 1 and 2 standard deviations either side · green dashed = the best config · BE = break-even. The bins pill (shared with 1G / 1H) re-bins finer or coarser — ½× is the coarsest.';
+      const _cdTip='Histogram of config net $ results (one bar = configs landing in that $ range). '+n+' configs are plotted — on new runs this is EVERY config the search evaluated (the entire family); on older runs it is the sample the engine saved. A PLATEAU (many configs near the best) = a robust edge; an isolated spike = likely overfit. Yellow dashed = fitted normal · blue dashed = mean · grey dashed = 1 and 2 standard deviations either side · BE = break-even. Same colors as 2A: blue dashed = IS max (the top in-sample config) · green dashed = 👑 crown (the walk-forward-checked champion). The bins pill (shared with 1G / 1H) re-bins finer or coarser — ½× is the coarsest.';
       // v64.32 (owner): the same collapsed bins pill as 1G — one shared fineness setting.
       const _dO4=[['3','3×'],['2','2×'],['1','1×'],['0.5','½×']];
       const det4=(tag?'<span style="position:relative;display:inline-flex;margin-left:auto">'
@@ -6753,11 +6754,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const tgrid=[0.25,0.5,0.75,1].map(fr=>'<line x1="0" y1="'+(TH-fr*TPH).toFixed(1)+'" x2="'+TW+'" y2="'+(TH-fr*TPH).toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4" vector-effect="non-scaling-stroke"/>').join('');
         let tbell=[];for(let i=0;i<=160;i++){const x=lo+span*i/160,y=pdf(x)*n*binW;tbell.push(TXv(x).toFixed(1)+','+Math.max(0,TH-(y/yMax)*TPH).toFixed(1));}
         const vlin=(xx,c2,dash)=>'<line x1="'+TXv(xx).toFixed(1)+'" y1="'+TT+'" x2="'+TXv(xx).toFixed(1)+'" y2="'+TH+'" stroke="'+c2+'" stroke-width="1"'+(dash?' stroke-dasharray="'+dash+'"':'')+' vector-effect="non-scaling-stroke"/>';
-        const tmarks=vlin(mean,'var(--blue)','3,2')+((lo<0&&hi>0)?vlin(0,'var(--border)',''):'')+vlin(mx,'#1d9e75','4,3')+[-2,-1,1,2].map(k=>{const xx=mean+k*sd;return (xx>lo&&xx<hi)?vlin(xx,'var(--text4)','2,3'):'';}).join('');
+        // v64.38 (owner): the SAME 2A annotations on the $ axis — IS max now wears 2A blue and
+        //   the 👑 crown (walk-forward-checked champion) gets its own green line when known.
+        let xm='';(Array.isArray(xmarks)?xmarks:[]).forEach(m=>{const xv=(+m.v)*mult;if(xv>lo&&xv<hi)xm+=vlin(xv,m.col,'4,3');});
+        const tmarks=vlin(mean,'var(--blue)','3,2')+((lo<0&&hi>0)?vlin(0,'var(--border)',''):'')+vlin(mx,'#3a9bdc','4,3')+xm+[-2,-1,1,2].map(k=>{const xx=mean+k*sd;return (xx>lo&&xx<hi)?vlin(xx,'var(--text4)','2,3'):'';}).join('');
         const pctX=x=>((x-lo)/span*100).toFixed(2);
         const tlbl=(x,st,txt)=>'<span style="position:absolute;pointer-events:none;white-space:nowrap;'+st+'left:'+pctX(x)+'%">'+txt+'</span>';
         const tover=tlbl(mean,'top:1px;transform:translateX(-50%);font-size:8px;font-weight:700;color:var(--blue);','mean '+fmtAx(mean,1))
-          +tlbl(mx,'top:1px;transform:translateX(calc(-100% - 3px));font-size:8px;font-weight:700;color:#1d9e75;','best '+fmtAx(mx,1))
+          +tlbl(mx,'top:1px;transform:translateX(calc(-100% - 3px));font-size:8px;font-weight:700;color:#3a9bdc;','IS max '+fmtAx(mx,1))
+          +(Array.isArray(xmarks)?xmarks.map(m=>{const xv=(+m.v)*mult;return (xv>lo&&xv<hi)?tlbl(xv,'top:12px;transform:translateX(calc(-100% - 3px));font-size:8px;font-weight:700;color:'+m.col+';',m.lab+' '+fmtAx(xv,1)):'';}).join(''):'')
           +[-2,-1,1,2].map(k=>{const xx=mean+k*sd;return (xx>lo&&xx<hi)?tlbl(xx,'top:12px;transform:translateX(-50%);font-size:7px;color:var(--text4);',(k>0?'+':'')+k+'σ'):'';}).join('')
           +((lo<0&&hi>0)?tlbl(0,'bottom:2px;transform:translateX(-50%);font-size:8px;font-weight:700;color:var(--text3);','BE'):'');
         const _n3=x2=>{x2=Math.abs(x2)||1;const e=Math.pow(10,Math.floor(Math.log10(x2)));const f=x2/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
@@ -6771,7 +6776,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +'<div style="position:relative;height:13px;margin-top:2px;flex:0 0 auto">'+txl+'</div>'
             +'</div>'
             +'<div style="flex:0 0 44px;position:relative" title="configs per bar (count axis)"><div style="position:absolute;top:0;left:0;right:0;bottom:15px">'+tyl+'</div></div>'
-          +'</div>';
+          +'</div>'
+          // v64.38 (owner): the 4B/4A separator went missing in the v64.35 rebuild — the old
+          //   auto-wrap carried a grip; the pre-boxed row needs its own handle row.
+          +rsRow;
       }
       return '<div class="lbl" title="'+_cdTip+'" style="cursor:help;margin:8px 0 6px">CONFIG DISTRIBUTION · <span style="color:'+vc+'">'+(plateau?'PLATEAU (robust)':'ISOLATED SPIKE (overfit risk)')+'</span> · '+near+'/'+n+' within 80% of best</div>'
         +'<div data-fixh style="background:var(--bg2);border-radius:8px;padding:10px;margin-bottom:14px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto" data-xh="'+encodeURIComponent(JSON.stringify({xt:'usd',x0:lo,x1:hi,yt:'int',y0:0,y1:bmax,px:padL,py:plotTop,pw:Wp,ph:plotH,xl:'net',yl:'configs'}))+'">'+grid+bars+zeroMark+sdMarks+bestMark+meanLine+'<polyline points="'+bell.join(' ')+'" fill="none" stroke="var(--yellow)" stroke-width="1" opacity="0.85" stroke-dasharray="3,2" vector-effect="non-scaling-stroke"/>'+axis+yTitle+hits+'</svg></div>';
@@ -8774,13 +8782,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
         nbTip='Each parameter is nudged one grid-step up and down — every nudge is a "neighbour" config that gets re-tested. If the neighbours stay profitable (PF ≥ 1) the winner sits on a PLATEAU (robust); if they collapse below 1 while only the winner is high, it is a lucky SPIKE (overfit). NOTE: the winner column here is the raw in-sample $ champion at the time of the nudge test — the report headline champion can differ, because it is re-picked from the top configs by their walk-forward (out-of-sample) results.';
         // 2e in 1F's bar format: a small PF dot-strip, then one bar per parameter (winner PF) with
         //   −1/+1 step neighbours as dots and a PF=1 break-even line. Same text size/format as 1F.
-        const allPf=[];(nb.rows||[]).forEach(r=>{[r.minus,r.plus].forEach(c=>{if(c&&isFinite(c.pf))allPf.push(c.pf);});});
+        // v64.38 (owner): the pooled marks carry IDENTITY now — {pf, side, param, val} — so the
+        //   strip can name the param and point the direction instead of anonymous dots.
+        const _rv=x=>(x!=null&&isFinite(+x))?+(+x).toFixed(4):x;
+        const allPf=[];(nb.rows||[]).forEach(r=>{[[r.minus,-1],[r.plus,1]].forEach(cs=>{const c=cs[0];if(c&&isFinite(c.pf))allPf.push({pf:c.pf,side:cs[1],param:r.param,val:c.val});});});
         const winPf=(nb.rows||[]).reduce((w,r)=>(w!=null?w:((r.winner&&isFinite(r.winner.pf))?r.winner.pf:null)),null);
-        const maxPf=Math.max(2,Math.ceil(winPf||0),Math.ceil(allPf.length?Math.max.apply(null,allPf):2));
+        const maxPf=Math.max(2,Math.ceil(winPf||0),Math.ceil(allPf.length?Math.max.apply(null,allPf.map(o=>o.pf)):2));
         let strip='';
         if(allPf.length>=2){const W=420,H=58,padX=22,X=p=>padX+(W-2*padX)*Math.min(p,maxPf)/maxPf,my=30,oneX=X(1);
           let ticks='';for(let t=0;t<=maxPf;t++){const tx=X(t);ticks+='<line x1="'+tx.toFixed(1)+'" y1="'+(my+5)+'" x2="'+tx.toFixed(1)+'" y2="'+(my+9)+'" stroke="var(--text5)" stroke-width="0.6"/><text x="'+tx.toFixed(1)+'" y="'+(H-2)+'" text-anchor="middle" font-size="8" fill="var(--text4)">'+t+'</text>';}
-          const dots=allPf.map((p,i)=>'<circle cx="'+X(p).toFixed(1)+'" cy="'+(my-7+((i*5)%15)).toFixed(1)+'" r="3.2" fill="'+pfcol(p)+'" opacity="0.6"/>').join('');
+          // v64.38 (owner): strip marks = DIRECTION triangles with their own hues (◀ blue = −1
+          //   step, ▶ orange = +1 step) and a hover naming the param + tried value.
+          const dots=allPf.map((o,i)=>{const x=X(o.pf),y=my-7+((i*5)%15);const p3=(o.side<0?((x-4).toFixed(1)+','+y+' '+(x+3.5).toFixed(1)+','+(y-4)+' '+(x+3.5).toFixed(1)+','+(y+4)):((x+4).toFixed(1)+','+y+' '+(x-3.5).toFixed(1)+','+(y-4)+' '+(x-3.5).toFixed(1)+','+(y+4)));
+            return '<polygon points="'+p3+'" fill="'+(o.side<0?'#3a9bdc':'#e0a04b')+'" opacity="0.85" style="cursor:pointer" data-tip="'+o.param.replace(/_/g,' ')+' '+(o.side<0?'−1 step':'+1 step')+' (tried '+_rv(o.val)+')<br>PF <b style=&quot;color:'+pfcol(o.pf)+'&quot;>'+o.pf.toFixed(2)+'</b>"/>';}).join('');
           const win=(winPf!=null)?'<line x1="'+X(winPf).toFixed(1)+'" y1="6" x2="'+X(winPf).toFixed(1)+'" y2="'+(my+5)+'" stroke="var(--accent)" stroke-width="1.5"/><text x="'+X(winPf).toFixed(1)+'" y="5" text-anchor="middle" font-size="8" font-weight="700" fill="var(--accent)">winner '+winPf.toFixed(2)+'</text>':'';
           strip='<div style="background:var(--bg1);border-radius:8px;padding:6px 8px;margin-bottom:8px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;max-width:460px">'
             +'<line x1="'+padX+'" y1="'+(my+5)+'" x2="'+(W-padX)+'" y2="'+(my+5)+'" stroke="var(--border)" stroke-width="0.6"/>'
@@ -8789,11 +8803,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +ticks+dots+win+'</svg></div>';}
         // explicit table read: PARAM | PF landscape (bar = winner, dots = the ±1-step nudges,
         //   thin line = PF 1 break-even) | then the three PFs as their own labelled columns.
-        // v64.35 (owner): the two nudges are now DIRECTIONAL triangles — ◀ points left for the
-        //   −1-step nudge, ▶ points right for the +1-step nudge (same green/red hold/break colour).
-        //   v64.36: tooltips carry the tried VALUE too.
-        const _rv=x=>(x!=null&&isFinite(+x))?+(+x).toFixed(4):x;
-        const oneP=(1/maxPf*100).toFixed(1),_dotM=(c,side)=>(c&&isFinite(c.pf))?'<span title="'+(side<0?'−1 step':'+1 step')+(c.val!=null?' (tried '+_rv(c.val)+')':'')+' · '+(c.pf>=1?'holds':'breaks')+' · PF '+c.pf.toFixed(2)+'" style="position:absolute;left:'+(Math.min(c.pf,maxPf)/maxPf*100).toFixed(1)+'%;top:50%;transform:translate(-50%,-50%);width:0;height:0;border-top:4px solid transparent;border-bottom:4px solid transparent;'+(side<0?'border-right:7px solid '+pfcol(c.pf):'border-left:7px solid '+pfcol(c.pf))+';filter:drop-shadow(0 0 1px rgba(0,0,0,.5))"></span>':'';
+        // v64.35 (owner): the two nudges are DIRECTIONAL triangles — ◀ points left for the
+        //   −1-step nudge, ▶ points right for the +1-step nudge. v64.36: tooltips carry the
+        //   tried VALUE. v64.38 (owner): each direction wears its OWN hue (◀ blue / ▶ orange)
+        //   — hold/break stays readable from the PF numbers and the PF-1.0 line.
+        const oneP=(1/maxPf*100).toFixed(1),_dotM=(c,side)=>(c&&isFinite(c.pf))?'<span title="'+(side<0?'−1 step':'+1 step')+(c.val!=null?' (tried '+_rv(c.val)+')':'')+' · '+(c.pf>=1?'holds':'breaks')+' · PF '+c.pf.toFixed(2)+'" style="position:absolute;left:'+(Math.min(c.pf,maxPf)/maxPf*100).toFixed(1)+'%;top:50%;transform:translate(-50%,-50%);width:0;height:0;border-top:4px solid transparent;border-bottom:4px solid transparent;'+(side<0?'border-right:7px solid #3a9bdc':'border-left:7px solid #e0a04b')+';filter:drop-shadow(0 0 1px rgba(0,0,0,.5))"></span>':'';
         // v64.35 (owner): a MISSING nudge shows "edge" (not a dash) — the winner sits at the end
         //   of the tested grid on that side, so no step exists to test.
         // v64.36 (owner): each cell shows the VALUE it tried plus the PF. v64.37: TWO LINES —
@@ -8814,7 +8828,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +_dotM(r.minus,-1)+_dotM(r.plus,1)+'</span>'
             +_pfTd(r.minus,0,(!r.minus?'no tested value BELOW the winner — it sits at the bottom edge of the tested grid':''))+_pfTd(r.winner||{val:null,pf:w},1)+_pfTd(r.plus,0,(!r.plus?'no tested value ABOVE the winner — it sits at the top edge of the tested grid (e.g. a declared range cap). See the 2C ⚠ if flagged.':''))+'</div>';}).join('');
         nbHtml='<div style="max-width:780px">'+strip+_nbHead+rows2
-          +'<div style="font-size:8px;color:var(--text5);margin-top:6px">how to read: each row nudges ONE parameter one grid-step down (−1) and up (+1) from the winner and re-tests. Bar = winner PF · ◀ = the −1-step nudge · ▶ = the +1-step nudge · vertical line = PF 1.0 break-even · <b style="color:#1d9e75">green ≥ 1</b> holds (plateau) · <b style="color:#e24b4a">red &lt; 1</b> collapses (lucky spike) · <b style="color:var(--yellow)">edge</b> = no step exists on that side (winner at the end of the tested grid)</div></div>';}
+          +'<div style="font-size:8px;color:var(--text5);margin-top:6px">how to read: each row nudges ONE parameter one grid-step down (−1) and up (+1) from the winner and re-tests. Bar = winner PF · <b style="color:#3a9bdc">◀ blue = the −1-step nudge</b> · <b style="color:#e0a04b">▶ orange = the +1-step nudge</b> · vertical line = PF 1.0 break-even (a PF number in <b style="color:#1d9e75">green ≥ 1</b> holds, <b style="color:#e24b4a">red &lt; 1</b> collapses) · <b style="color:var(--yellow)">edge</b> = no step exists on that side. The top strip pools EVERY nudge on one PF scale — hover a triangle for its param + tried value.</div></div>';}
       const valdCard=d.validate?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'+validateCardHtml(d.validate,(d.multiplier||20),stratTag(d.strategy),d.top10_results)+'</div>':'';
       // ── Per-run validation status: map THIS run's analytics onto the 10-step deploy
       //    checklist so the report card reads as the checklist. Steps 2/3/4/5/6/7/8
@@ -9120,7 +9134,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   points array (171 configs on #173) beats the old 73-config dist sample; on v64.30+
       //   docs dist already holds every evaluated config.
       const _distSrc=((d.points&&d.points.length>(d.dist||[]).length)?d.points.map(p=>p.pnl):d.dist);
-      const _dist=distPanelHtml(_distSrc,mlt,'4B');
+      // v64.38 (owner): 4B carries the 2A crown — the walk-forward-checked champion's IS net,
+      //   from the #88b crown pool when present, else the headline champion (best) itself.
+      const _crownV=(function(){const cs=(d.selection&&Array.isArray(d.selection.candidates))?d.selection.candidates:[];const cr=cs.filter(c=>c&&c.crowned&&c.is_pnl!=null)[0];if(cr)return +cr.is_pnl;return (d.best&&d.best.total_pnl!=null)?+d.best.total_pnl:null;})();
+      const _dist=distPanelHtml(_distSrc,mlt,'4B',(_crownV!=null?[{v:_crownV,lab:'👑 crown',col:'#1d9e75'}]:null));
       // ── CHART METRIC toggle (item L): the param charts (2B/2C/2H/2I/2J) historically plot
       //    each config's NET PNL only — a drawdown lever (e.g. be_after_R) is INVISIBLE on that
       //    axis (PnL flat ±2% while DD moves 33%). New `dd` per points row (engine ≥ this build)
