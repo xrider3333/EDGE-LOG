@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.44';
+const VERSION='64.45';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.45', date:'2026-07-23', notes:['2I model-pick overlay: a caption now says how many model picks there are, their end-$ range, whether they overlap (the models agreeing on ~the same config is why you may see only a couple of lines), and whether any model beat the search best.']},
   {v:'64.44', date:'2026-07-23', notes:['2I model bake-off: the equity overlay gets endpoint pills on the $ axis for the two lines that matter — the champion pick and the search best.','2J ML gate: a drag handle under the gate equity chart so it can be compressed.','Both info icons now spell out that 2I and 2J are different jobs — 2I picks the best PARAMETER CONFIG (a search helper), 2J filters which TRADES of the chosen config to take (an execution filter).']},
   {v:'64.43', date:'2026-07-23', notes:['2A funnel: the key is now the same bordered box as 2B — 👑 crowned and ▲ IS max with their $, then the line-style legend.','2G neighbours: the ±1 nudges are vertical lines (blue −1 / orange +1) like the break-even line instead of triangles, and the −1 / +1 number columns are coloured to match.','Knob-pair surfaces: the #number + params label sits ABOVE each tile now.','2I model bake-off: a drag handle between the equity graph and the MODEL PICKS cards so the graph can be shrunk.','2J ML gate: NET P&L abbreviated ($427k) so it no longer clips; the wordy before→after caption removed; the duplicate LOCKBOX-verdict line removed (it repeated the title chip); the pre-lockbox windows stat got a plain-language tooltip.']},
   {v:'64.42', date:'2026-07-23', notes:['2B expand fixed — it was cloning the bare chart with no axes; it now expands as the whole panel (bars + $ scale + count axis + marks). Each of the mean / IS-max / crown lines gets a marker at its top and a small KEY box lists them with their dollar amount, and the axes are labelled.','2G neighbours: the confusing pooled top strip is gone — each ROW is one parameter and carries its own bar + the blue ◀ / orange ▶ nudges (the info icon explains there is no y axis).','Knob-pair surfaces are numbered #1 #2 #3.','ML GATE renumbered 2J (it is part of section 2 now, so Robustness is section 3); its verdict sits as a short chip on the title row (full sentence on hover); the before/after cards no longer clip in the narrow column; a pane handle separates 2I and 2J.']},
@@ -8700,6 +8701,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const ser=wc.map(m=>({name:m.model,col:_mcl(m.model),cum:m.ground_truth_curve,best:m.model===surr.best_model}));
           let mn=Infinity,mx=-Infinity;
           ser.map(s=>s.cum).concat(ref?[ref]:[]).forEach(c=>c.forEach(v=>{const y=v*mlt;if(y<mn)mn=y;if(y>mx)mx=y;}));
+          // v64.45 (owner): a caption so it is clear WHY you may see only a couple of lines — when
+          //   the models pick near-identical configs their curves overlap. Also states whether any
+          //   model beat the search best (the whole point of the panel).
+          const _ends=ser.map(s=>s.cum[s.cum.length-1]*mlt),_emn=Math.min.apply(null,_ends),_emx=Math.max.apply(null,_ends);
+          const _refEnd=ref?ref[ref.length-1]*mlt:null,_nBeat=(_refEnd!=null)?ser.filter(s=>s.cum[s.cum.length-1]*mlt>_refEnd).length:null;
+          const _overlap=(_emx-_emn)<Math.max(1,(mx-mn))*0.06;
+          const _cap='<div style="font-size:8px;color:var(--text5);margin:0 0 5px">'+ser.length+' model picks · end $ '+fmtAx(_emn,1)+(_emx>_emn?'–'+fmtAx(_emx,1):'')
+            +(_overlap?' · <b style="color:var(--text4)">they overlap — the models agree on ~the same config</b>':'')
+            +(_refEnd!=null?(' · vs search best '+fmtAx(_refEnd,1)+' — <b style="color:'+(_nBeat>0?'#1d9e75':'var(--text4)')+'">'+(_nBeat===0?'none beat it (exhaustive search already optimal)':_nBeat+' beat it')+'</b>'):'')+'</div>';
           if(!isFinite(mn)){mn=0;mx=1;}if(mx<=mn)mx=mn+1;const pd=(mx-mn)*0.08||1;mn-=pd;mx+=pd;
           // v64.40 (owner): the overlay wears the 1A model — geometry-only svg (preserveAspectRatio
           //   none, non-scaling strokes), a 44px fixed-px HTML $ gutter (fmtAx k-format), an HTML
@@ -8728,7 +8738,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _pinHtml=_pins.map(p=>'<span style="position:absolute;top:calc('+(p.y/H*100).toFixed(2)+'% - 7px);left:1px;font-size:8px;font-weight:800;color:#04130c;background:'+p.bg+';padding:0 4px;border-radius:4px;white-space:nowrap;z-index:2">'+p.txt+'</span>').join('');
           const gut='<div style="flex:0 0 44px;min-width:44px;position:relative">'+_gl.map(o=>'<span style="position:absolute;top:calc('+o.p.toFixed(2)+'% - 5px);left:5px;font-size:8px;color:var(--text5)">'+fmtAx(o.v,1)+'</span>').join('')+_pinHtml+'</div>';
           const xstrip='<div title="x axis = progress through the OPTIMIZE window (bar order, not calendar dates — the saved curves carry no timestamps)" style="position:relative;height:12px;margin-top:2px;flex:0 0 auto;cursor:help">'+[0,25,50,75,100].map(p=>'<span style="position:absolute;left:'+p+'%;transform:translateX(-'+(p===0?'0%':(p===100?'100%':'50%'))+');font-size:8px;color:var(--text5)">'+(p===0?'start':(p===100?'end':p+'%'))+'</span>').join('')+'</div>';
-          return _lbl+'<div class="rschart-box" style="display:flex;gap:6px;height:150px;min-height:60px;max-height:500px;overflow:hidden;margin-bottom:8px">'
+          return _lbl+_cap+'<div class="rschart-box" style="display:flex;gap:6px;height:150px;min-height:60px;max-height:500px;overflow:hidden;margin-bottom:8px">'
             +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">'
               +'<div style="flex:1;position:relative;min-height:0;background:var(--bg1);border-radius:8px;overflow:hidden"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100%" preserveAspectRatio="none" style="display:block">'+g+'</svg><div style="position:absolute;left:6px;top:4px;pointer-events:none">'+leg+'</div></div>'
               +xstrip
