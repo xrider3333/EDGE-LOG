@@ -815,6 +815,23 @@ not saved to the runs DB — so they carry no run id.*
      2026-07-22 — NOT shared with the 1G/1H switch), options IS / WF / LB / TOTAL, with TOTAL
      backed by the existing `regime` field and the DEFAULT. (WF here = ALL the walk-forward
      out-of-sample trades concatenated across the folds, not a single fold.)
+10. **⬜ TODO (owner-approved 2026-07-22) — save the FULL config population for the report
+    (ledger item 78)**. *Self-contained brief — buildable cold by an engine session.*
+    - **What**: the report can only draw what the run doc stores, and today that is SAMPLES:
+      top-50 equity curves (`equity_top` — chart 2A), ~171 param points (`points` — 2B/2C),
+      ~73 config PnLs + Sharpes (`dist` + the DSR sample — 4B and 1I). The owner wants 2A and
+      4B to show ALL tested configs (all 300 on #173-class validates). Raise the caps: an
+      equity curve for EVERY tested combo, and the FULL `dist` / `points` arrays.
+    - **Size budget (why the caps exist)**: Firestore run docs hard-cap at 1 MiB. 300 curves
+      × ~110 downsampled points × int-rounded values ≈ 150-200 KB — feasible. Round to whole
+      points (no floats), downsample to ~110 pts/curve, and guard: if the doc would pass
+      ~800 KB, fall back to a proportional cap and save `equity_top_cap` so the UI can keep
+      saying "top N of M saved" honestly.
+    - **Where**: the equity_top / dist / points sampling in the search stage
+      (`augur_engine/auto.py` / optimize.py — wherever the top-N cut happens);
+      `api/runner.py` passes the fields through unchanged if the names stay.
+    - **UI half**: none needed — the 2A slider already spans every stored curve and reads
+      "N/N saved · M tested"; 4B bins follow the sample size. Both grow automatically.
 
 **Current Auto-Validate pipeline (as of 2026-07-20, for orientation):** 🎯 steered search (random
 seed ~40% of trials → GP-aimed batches, #36; TPE and QRF brains available) → auto-expand of
@@ -887,6 +904,10 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-22** — **§7 open item 10 ADDED (owner-approved): save the FULL config population**
+  (equity curves for every tested combo + full dist / points, int-rounded + downsampled to
+  respect the 1 MiB run-doc cap) so report charts 2A / 4B can show every tested config
+  instead of top-50 / 73-sample views.
 - **2026-07-22** — **§7 item 8 COMPLETE (v64.23): chart 3B GATE EQUITY shipped — item CLOSED.**
   New `gateEquityHtml` in index.html renders the overlay in RESULTS §3 under the before/after
   cards, replacing the "coming once the engine saves both curves" placeholder; graceful re-run
