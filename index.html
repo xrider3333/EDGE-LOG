@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.38';
+const VERSION='64.39';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.39', date:'2026-07-23', notes:['Section 2 rearranged: 4B CONFIG DISTRIBUTION now sits directly UNDER 2A in the wide column; 2B/2C and 2D moved to the middle column above 4A.','4B: the crown label moved to the bottom row of the chart — the sigma marks were printing over it.','4A: the full how-to-read (row markers, the strip, and the fact the strip has NO y axis — vertical scatter is spacing only) now lives in the info icon; the footer line under the rows is gone.']},
   {v:'64.38', date:'2026-07-23', notes:['4B: the 4B/4A pane handle is back (it went missing in the v64.35 rebuild), and the chart now marks WHERE the champion sits — blue dashed = IS max (top in-sample config), green dashed = the crowned walk-forward-checked champion, same colors as 2A.','4A: the nudge triangles wear direction hues — blue points left for the minus-1 step, orange points right for the plus-1 step — in the rows AND the top strip; strip marks now name their param + tried value on hover (they were anonymous dots).']},
   {v:'64.37', date:'2026-07-23', notes:['4B top breathing room — the count axis tops out about 15 percent above the tallest bar (raised y-max, bars stay honest), so nothing touches the rim.','4A cells no longer truncate: each shows the tried VALUE on its own line above the PF (the one-line form got cut off in the narrow column).']},
   {v:'64.36', date:'2026-07-23', notes:['4B breathes like a bell curve — the x-axis extends past the data to mean plus/minus 3 sigma, so the tails taper into open space instead of cropping at the edges.','4A cells now show the VALUE each nudge tried before its PF (e.g. 7 to 1.65) — no hovering needed; the info note also explains the winner column is the raw in-sample champion at nudge time, which can differ from the walk-forward-checked headline champion.']},
@@ -6762,7 +6763,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const tlbl=(x,st,txt)=>'<span style="position:absolute;pointer-events:none;white-space:nowrap;'+st+'left:'+pctX(x)+'%">'+txt+'</span>';
         const tover=tlbl(mean,'top:1px;transform:translateX(-50%);font-size:8px;font-weight:700;color:var(--blue);','mean '+fmtAx(mean,1))
           +tlbl(mx,'top:1px;transform:translateX(calc(-100% - 3px));font-size:8px;font-weight:700;color:#3a9bdc;','IS max '+fmtAx(mx,1))
-          +(Array.isArray(xmarks)?xmarks.map(m=>{const xv=(+m.v)*mult;return (xv>lo&&xv<hi)?tlbl(xv,'top:12px;transform:translateX(calc(-100% - 3px));font-size:8px;font-weight:700;color:'+m.col+';',m.lab+' '+fmtAx(xv,1)):'';}).join(''):'')
+          // v64.39 (owner): the crown label rides the BOTTOM row — at top:12px the ±σ labels
+          //   sat on top of it and made it unreadable.
+          +(Array.isArray(xmarks)?xmarks.map(m=>{const xv=(+m.v)*mult;return (xv>lo&&xv<hi)?tlbl(xv,'bottom:2px;transform:translateX(calc(-100% - 3px));font-size:8px;font-weight:700;color:'+m.col+';',m.lab+' '+fmtAx(xv,1)):'';}).join(''):'')
           +[-2,-1,1,2].map(k=>{const xx=mean+k*sd;return (xx>lo&&xx<hi)?tlbl(xx,'top:12px;transform:translateX(-50%);font-size:7px;color:var(--text4);',(k>0?'+':'')+k+'σ'):'';}).join('')
           +((lo<0&&hi>0)?tlbl(0,'bottom:2px;transform:translateX(-50%);font-size:8px;font-weight:700;color:var(--text3);','BE'):'');
         const _n3=x2=>{x2=Math.abs(x2)||1;const e=Math.pow(10,Math.floor(Math.log10(x2)));const f=x2/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
@@ -8779,7 +8782,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let nbHtml='',nbSub='',nbTip='';
       if(d.neighborhood){const nb=d.neighborhood;const pfcol=p=>p>=1?'#1d9e75':'#e24b4a';
         nbSub=nb.verdict+' · '+nb.good+'/'+nb.tot+' neighbours hold PF ≥ 1';
-        nbTip='Each parameter is nudged one grid-step up and down — every nudge is a "neighbour" config that gets re-tested. If the neighbours stay profitable (PF ≥ 1) the winner sits on a PLATEAU (robust); if they collapse below 1 while only the winner is high, it is a lucky SPIKE (overfit). NOTE: the winner column here is the raw in-sample $ champion at the time of the nudge test — the report headline champion can differ, because it is re-picked from the top configs by their walk-forward (out-of-sample) results.';
+        // v64.39 (owner): the full how-to-read lives HERE (the info icon) — the visible footer
+        //   line under the rows is gone. Includes the strip y-axis answer: it has none.
+        nbTip='Each parameter is nudged one grid-step up and down — every nudge is a "neighbour" config that gets re-tested. If the neighbours stay profitable (PF ≥ 1) the winner sits on a PLATEAU (robust); if they collapse below 1 while only the winner is high, it is a lucky SPIKE (overfit).'
+          +'<br><br>HOW TO READ THE ROWS: bar = winner PF · <b style="color:#3a9bdc">◀ blue = the −1-step nudge</b> · <b style="color:#e0a04b">▶ orange = the +1-step nudge</b> · vertical line = PF 1.0 break-even (a PF in <b style="color:#1d9e75">green ≥ 1</b> holds, <b style="color:#e24b4a">red &lt; 1</b> collapses) · <b style="color:#f5c842">edge</b> = no step exists on that side (the winner sits at the end of the tested grid). Each PF cell shows the value it tried above the PF it scored.'
+          +'<br><br>THE TOP STRIP: every nudge pooled onto ONE PF scale (x axis = PF). The y axis means NOTHING — the triangles are only scattered vertically so they do not overlap. Hover a triangle for its param + tried value.'
+          +'<br><br>NOTE: the winner column here is the raw in-sample $ champion at the time of the nudge test — the report headline champion can differ, because it is re-picked from the top configs by their walk-forward (out-of-sample) results.';
         // 2e in 1F's bar format: a small PF dot-strip, then one bar per parameter (winner PF) with
         //   −1/+1 step neighbours as dots and a PF=1 break-even line. Same text size/format as 1F.
         // v64.38 (owner): the pooled marks carry IDENTITY now — {pf, side, param, val} — so the
@@ -8828,7 +8836,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +_dotM(r.minus,-1)+_dotM(r.plus,1)+'</span>'
             +_pfTd(r.minus,0,(!r.minus?'no tested value BELOW the winner — it sits at the bottom edge of the tested grid':''))+_pfTd(r.winner||{val:null,pf:w},1)+_pfTd(r.plus,0,(!r.plus?'no tested value ABOVE the winner — it sits at the top edge of the tested grid (e.g. a declared range cap). See the 2C ⚠ if flagged.':''))+'</div>';}).join('');
         nbHtml='<div style="max-width:780px">'+strip+_nbHead+rows2
-          +'<div style="font-size:8px;color:var(--text5);margin-top:6px">how to read: each row nudges ONE parameter one grid-step down (−1) and up (+1) from the winner and re-tests. Bar = winner PF · <b style="color:#3a9bdc">◀ blue = the −1-step nudge</b> · <b style="color:#e0a04b">▶ orange = the +1-step nudge</b> · vertical line = PF 1.0 break-even (a PF number in <b style="color:#1d9e75">green ≥ 1</b> holds, <b style="color:#e24b4a">red &lt; 1</b> collapses) · <b style="color:var(--yellow)">edge</b> = no step exists on that side. The top strip pools EVERY nudge on one PF scale — hover a triangle for its param + tried value.</div></div>';}
+          +'</div>';}
       const valdCard=d.validate?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'+validateCardHtml(d.validate,(d.multiplier||20),stratTag(d.strategy),d.top10_results)+'</div>':'';
       // ── Per-run validation status: map THIS run's analytics onto the 10-step deploy
       //    checklist so the report card reads as the checklist. Steps 2/3/4/5/6/7/8
@@ -9233,8 +9241,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   topEqOverlayHtml folds the crowned/IS-max overlay + top-3 lockbox continuation + the
       //   crown-pool table into the 2A card, so there is no separate block to stack here.
       // classic: the metric buttons live in the 2B header (hdrCtl) — only stack the fallback note.
-      const _col1=_stack([_eq,((_parc&&_parc.replace(/\s/g,''))?((_pmBtns?'':_pmTog)+_parc):''),_corr]);
-      const _col2=_stack([_dist,_nbInner]);
+      // v64.39 (owner): 4B moved UNDER 2A (col 1 = the two config-family $ charts share the
+      //   wide column); 2B/2C + 2D take 4B's old slot above 4A in col 2.
+      const _col1=_stack([_eq,_dist]);
+      const _col2=_stack([((_parc&&_parc.replace(/\s/g,''))?((_pmBtns?'':_pmTog)+_parc):''),_corr,_nbInner]);
       const _col3=_stack([_p3inner,_surrInner,_topInner,_dsrInner]);
       const _sec3=(function(){
         // v64.19 (owner): §2 gets the SAME separation model as §1 — vertical splitter bars
