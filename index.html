@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.50';
+const VERSION='64.51';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.51', date:'2026-07-23', notes:['2A funnel: the crowned / IS-max / gated $ values no longer print on the chart itself (they were duplicated) — every endpoint value now lives only in the gutter, including the gate-filtered total and the IS-max total.','2A gutter: the $ scale sits against the y-axis and a scale number is dropped where an endpoint pill would cover it, so the axis stays readable (the pills were blocking it, especially when expanded).']},
   {v:'64.50', date:'2026-07-23', notes:['Firestore OFFLINE CACHE (multi-tab) is now ON — the app keeps a local copy of your trades, runs and backtests, so reloading the page no longer re-reads all of them from the server. This is the fix for the free-plan READ quota running out mid-afternoon (what broke the Webull "Sync now" button and froze last-sync at "9h ago"). No data is hidden; the first load of the day reads normally, every reload after is served from the local cache.']},
   {v:'64.49', date:'2026-07-23', notes:['2A funnel can now overlay the ML TRADE FILTER (2J) gated equity curve — the crowned line is the ungated champion, the pink line is the same champion with the filter skipping trades, spanning in-sample + walk-forward + lockbox. A "🚪 gated" toggle on the 2A title turns it off; it is ON by default (only on runs that have gate curves).']},
   {v:'64.48', date:'2026-07-23', notes:['Expanded-chart crosshair: the equity-$ pill now snaps to the RIGHT edge (the $ axis side), not the left.']},
@@ -7097,33 +7098,30 @@ namespace NinjaTrader.NinjaScript.Strategies {
           for(let j=0;j<n;j++){const f=n<=1?1:j/(n-1);pts.push((xFull+(xR-xFull)*f).toFixed(1)+' '+Yv((anchor+(cum[j]-base))*mult).toFixed(1))}
           lb+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?0.9:0.6)+'" opacity="0.95" stroke-dasharray="0.5 1.6" stroke-linecap="round"/>';
           const fv=anchor+(cum[n-1]-base);labs.push({y:Yv(fv*mult),col,txt:_kUsd(fv*mult)+(cr?' 🔒crown':' 🔒')});});
-        // v64.28 (owner): only the lines that actually END at the right edge (the top-3 lockbox
-        //   continuations) get AXIS PILLS — coloured pill + dark text, the 1A endpoint look.
-        //   The crowned / IS-max optimize-window totals label their own line ends AT the LB door.
-        const doorLabs=[];
-        if(crownedC){const fv=crownedC.equity.cum[crownedC.equity.cum.length-1];doorLabs.push({y:Yv(fv*mult),col:'#1d9e75',txt:_kUsd(fv*mult)+' 👑'});}
-        if(isMaxC&&isMaxC!==crownedC){const fv=isMaxC.equity.cum[isMaxC.equity.cum.length-1];doorLabs.push({y:Yv(fv*mult),col:'#3a9bdc',txt:_kUsd(fv*mult)+' IS'});}
-        labs.sort((a,b)=>a.y-b.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<8)labs[i].y=labs[i-1].y+8;
-        doorLabs.sort((a,b)=>a.y-b.y);for(let i=1;i<doorLabs.length;i++)if(doorLabs[i].y-doorLabs[i-1].y<6)doorLabs[i].y=doorLabs[i-1].y+6;
-        // v64.31 (owner): the endpoint pills + $ scale live in a REAL HTML gutter (1A-identical
-        //   8px font + pill styling); only the crowned/IS-max door labels stay in the svg.
-        _gutterHtml='<div style="width:44px;min-width:44px;position:relative;font-size:8px;color:var(--text5)">'
-          +_gls.map(L=>'<span style="position:absolute;left:3px;top:calc('+(Yv(L)/H*100).toFixed(2)+'% - 5px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</span>').join('')
-          +labs.map(L=>'<span style="position:absolute;left:1px;top:calc('+(L.y/H*100).toFixed(2)+'% - 6px);white-space:nowrap;font-weight:800;color:#04130c;background:'+L.col+';padding:0 4px;border-radius:4px;z-index:2">'+L.txt+'</span>').join('')
-          +'</div>';
-        const labSvg=doorLabs.map(L=>'<text x="'+(xFull-2).toFixed(1)+'" y="'+(L.y-2).toFixed(1)+'" text-anchor="end" font-size="4.4" font-weight="700" fill="'+L.col+'" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.4">'+L.txt+'</text>').join('');
-        // v64.49 (owner idea): overlay the ML TRADE FILTER (2J) gated curve on the funnel — same
-        //   champion, same date/$ axes, so the crowned line = the gate ungated and this pink line
-        //   = the same champion with the filter skipping trades. Toggle chip (default ON). The
-        //   gate curve spans IS+WF+LB across the full window, mapped xL→xR.
+        // v64.51 (owner): ALL endpoint values live in the GUTTER now — the crowned / IS-max /
+        //   gated numbers no longer print on the chart itself (they were duplicated). The gutter
+        //   carries: the 3 lockbox-continuation pills (crowned + 2), the IS-max total, and the
+        //   gate-filtered total. The gate overlay + its gutter pill are built here (before the
+        //   gutter) so the pink 🚪 value sits on the axis, not on the plot.
         const _gEq=(d.gate_validate&&d.gate_validate.equity)||(d.ml_gate&&d.ml_gate.equity)||null;
         const _hasGate=!!(_gEq&&Array.isArray(_gEq.cum_gated)&&_gEq.cum_gated.length>1);
         const _a2gate=(APREF.a2gate==null?1:+APREF.a2gate);
-        if(_hasGate&&_a2gate){const gc=_gEq.cum_gated,gn=gc.length;
+        if(_hasGate&&_a2gate){const gc=_gEq.cum_gated,gn=gc.length,_gf=gc[gn-1]*mult;
           const gp=gc.map((v,i)=>((xL+(xR-xL)*(gn<=1?1:i/(gn-1))).toFixed(1))+' '+Yv(v*mult).toFixed(1)).join(' ');
-          const _gf=gc[gn-1]*mult;
-          gateOv='<polyline points="'+gp+'" fill="none" stroke="#e05fa0" stroke-width="0.9" opacity="0.95" stroke-dasharray="1.6 1.3" stroke-linecap="round"/>'
-            +'<text x="'+(xR-2).toFixed(1)+'" y="'+(Math.max(pt+4,Yv(_gf)-2)).toFixed(1)+'" text-anchor="end" font-size="4.4" font-weight="700" fill="#e05fa0" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.4">'+_kUsd(_gf)+' 🚪gated</text>';}
+          gateOv='<polyline points="'+gp+'" fill="none" stroke="#e05fa0" stroke-width="0.9" opacity="0.95" stroke-dasharray="1.6 1.3" stroke-linecap="round"/>';
+          labs.push({y:Yv(_gf),col:'#e05fa0',txt:_kUsd(_gf)+' 🚪'});}
+        // IS-max total into the gutter (its in-chart door label is removed). Crowned already has a
+        //   lockbox pill; IS-max may not, so add it here.
+        if(isMaxC&&isMaxC!==crownedC){const _isf=isMaxC.equity.cum[isMaxC.equity.cum.length-1]*mult;labs.push({y:Yv(_isf),col:'#3a9bdc',txt:_kUsd(_isf)+' IS'});}
+        // de-collide the pills vertically now that gated + IS were added
+        labs.sort((a,b)=>a.y-b.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<8)labs[i].y=labs[i-1].y+8;
+        // GUTTER: the $ SCALE sits flush against the y-axis (left:2px); a scale number is DROPPED
+        //   where an endpoint pill would cover it (owner: pills were blocking the scale when
+        //   expanded), so the axis stays readable. Pills are the colored $ endpoints.
+        _gutterHtml='<div style="width:44px;min-width:44px;position:relative;font-size:8px;color:var(--text5)">'
+          +_gls.map(L=>{const ly=Yv(L);if(labs.some(p=>Math.abs(p.y-ly)<7))return '';return '<span style="position:absolute;left:2px;top:calc('+(ly/H*100).toFixed(2)+'% - 5px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</span>';}).join('')
+          +labs.map(L=>'<span style="position:absolute;left:1px;top:calc('+(L.y/H*100).toFixed(2)+'% - 6px);white-space:nowrap;font-weight:800;color:#04130c;background:'+L.col+';padding:0 4px;border-radius:4px;z-index:2">'+L.txt+'</span>').join('')
+          +'</div>';
         _gateChip=_hasGate?'<span data-a2gate="'+(_a2gate?0:1)+'" title="overlay the ML TRADE FILTER (2J) gated equity on this funnel — the SAME crowned champion with the filter skipping trades (the crowned line here is the ungated version). Spans in-sample + walk-forward + lockbox." style="cursor:pointer;font-size:8px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid '+(_a2gate?'#e05fa0':'var(--border)')+';background:'+(_a2gate?'color-mix(in srgb,#e05fa0 16%,transparent)':'var(--bg2)')+';color:'+(_a2gate?'#e05fa0':'var(--text3)')+'">🚪 gated</span>':'';
         // DOOR lines (in-sample slate · lockbox purple) — labels moved to the region labels below.
         const isDoor='<line x1="'+xIS.toFixed(1)+'" y1="'+pt+'" x2="'+xIS.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#7f8c99" stroke-width="0.6" stroke-dasharray="2 2" opacity="0.7"/>';
@@ -7150,7 +7148,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +((_hasGate&&_a2gate)?'<div style="white-space:nowrap;color:#e05fa0"><b>▬</b> 🚪 gate-filtered</div>':'')
           +'<div style="white-space:nowrap;color:var(--text3);font-size:7px">solid IS · dashed WF · dotted LB</div>'
           +'</div>';
-        selSvg=isDoor+lbDoor+wf+ov+lb+gateOv+labSvg;}
+        selSvg=isDoor+lbDoor+wf+ov+lb+gateOv;}
       // x-axis date labels (owner request). Use the OPTIMIZE window when this is a validate
       //   run; selMode+lockbox pushes the right label out to the holdout end.
       const _xw=(d.validate&&d.validate.windows&&d.validate.windows.optimize)||null;
