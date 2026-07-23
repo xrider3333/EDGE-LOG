@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.33';
+const VERSION='64.34';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.34', date:'2026-07-23', notes:['Expanded view: zooming a chart that carries its own $ scale and endpoint pills (1A-1D style rows, 2A) now scales the WHOLE unit — the axis and pills stay glued to the chart at every zoom level instead of dropping off.','4B bins run twice as fine as before at the same setting (floor raised too) — thin spikes across the whole range so the config distribution reads in detail.']},
   {v:'64.33', date:'2026-07-23', notes:['Section 1 rearranged per the owner: 1F REGIME REPORT CARD now sits UNDER 1I in the distributions column, and the middle / right columns switched — 1G-1I (+1F) stack in the middle, the 1E KPI matrix on the right.','Expanded view: charts with an HTML y-axis (1A-1D style rows, incl. 2A) now expand as the whole row — chart plus $ scale and endpoint pills — sized to the modal; wide charts fit the width so the full picture shows first (wheel to zoom in). Nothing opens over-zoomed.','Fix: the 4B bins pill menu was opening underneath the header clip — it shows now.']},
   {v:'64.32', date:'2026-07-23', notes:['1C / 1D: the drag handle row moved BELOW the fold / window label strip (it used to sit between the chart and its x labels); dragging still resizes the chart itself.','2A: the gap between the plot and the y axis is gone (the plot now spans the full chart area) and the configs slider actually thins the grey cloud as you drag it.','4B gained the same bins pill as 1G — one shared fineness setting drives 1G, 1H and 4B, so your 3x shows the fine-grained field everywhere.']},
   {v:'64.31', date:'2026-07-23', notes:['2A is now built EXACTLY like the 1A-1D charts: the plot fills a resizable row, the $ scale and the endpoint pills live in a real 44px HTML gutter with the same 8px font and pill styling as 1A, and the in-chart dead space on the right is gone (the plot runs to the edge). Handle row underneath, height persists.','2A slider readout now uses the honest count the engine saves since v64.30 — configs EVALUATED (unique configs the search actually ran) instead of the old planning estimate that over-counted.','4B histograms the LARGEST population the run saved: on older docs that is the 171-config parameter sample instead of the old 73-config slice; on new runs (engine v64.30+) it is every evaluated config.']},
@@ -2667,11 +2668,14 @@ window.expandChart=function(title,svgHTML,opts){
   //    drag to pan, and a −/label/+/fit toolbar. Generic to every expandChart chart; at 100% it
   //    is a no-op. `scroller` is the modal's own overflow:auto panel that already scrolls. ──
   const scroller=body.parentElement;scroller.style.cursor='grab';
-  const _measure=()=>{if(!svg)return;svg.style.maxWidth='none';const r=svg.getBoundingClientRect();if(r.width>0&&zoom>0){baseW=r.width/zoom;baseH=r.height/zoom;}};
-  const _applyZoom=(z,ax,ay)=>{if(!svg)return;z=Math.max(0.6,Math.min(12,z));if(!baseW)_measure();if(!baseW)return;
-    const r1=svg.getBoundingClientRect(),fx=(ax-r1.left)/(r1.width||1),fy=(ay-r1.top)/(r1.height||1);
-    zoom=z;svg.style.width=(baseW*z).toFixed(1)+'px';svg.style.height=(baseH*z).toFixed(1)+'px';
-    const r2=svg.getBoundingClientRect();scroller.scrollLeft+=(r2.left+fx*r2.width)-ax;scroller.scrollTop+=(r2.top+fy*r2.height)-ay;
+  // v64.34 (owner): row-clones (chart + HTML gutter/pills) zoom AS ONE UNIT — scaling only the
+  //   inner svg detached the $ scale and endpoint pills from the chart.
+  const _zt=()=>svg?(svg.closest('.rschart-box')||svg):null;
+  const _measure=()=>{const el=_zt();if(!el)return;el.style.maxWidth='none';const r=el.getBoundingClientRect();if(r.width>0&&zoom>0){baseW=r.width/zoom;baseH=r.height/zoom;}};
+  const _applyZoom=(z,ax,ay)=>{const el=_zt();if(!el)return;z=Math.max(0.6,Math.min(12,z));if(!baseW)_measure();if(!baseW)return;
+    const r1=el.getBoundingClientRect(),fx=(ax-r1.left)/(r1.width||1),fy=(ay-r1.top)/(r1.height||1);
+    zoom=z;el.style.width=(baseW*z).toFixed(1)+'px';el.style.height=(baseH*z).toFixed(1)+'px';
+    const r2=el.getBoundingClientRect();scroller.scrollLeft+=(r2.left+fx*r2.width)-ax;scroller.scrollTop+=(r2.top+fy*r2.height)-ay;
     if(zlab)zlab.textContent=Math.round(zoom*100)+'%';};
   const _fit=()=>{zoom=1;baseW=baseH=0;
     // v64.33: pre-boxed ROW clones keep their own flex layout — never restyle their inner svg.
@@ -6700,7 +6704,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const lo=Math.min(0,mn),hi=Math.max(0,mx),span=(hi-lo)||1;
       const _sv2=v.slice().sort((a,b)=>a-b),_q12=_pctl(_sv2,0.25),_q32=_pctl(_sv2,0.75),_fd2=2*(_q32-_q12)/Math.cbrt(n)||span/50;
       const _det2=Math.max(0.5,Math.min(4,+APREF.distBins||3));
-      let nb=Math.round(span/_fd2*_det2);nb=Math.max(30,Math.min(400,nb||40));
+      // v64.34 (owner): 4B bins run FINER than the FD default (2x the 1G density, floor 60) —
+      //   thin sparse spikes over the whole range instead of fat encapsulating bars.
+      let nb=Math.round(span/_fd2*_det2*2);nb=Math.max(60,Math.min(400,nb||60));
       const binW=span/nb,bins=new Array(nb).fill(0);
       v.forEach(x=>{let b=Math.floor((x-lo)/span*nb);if(b<0)b=0;if(b>=nb)b=nb-1;bins[b]++;});
       const bmax=Math.max.apply(null,bins)||1,padL=8,padR=42,tickH=18,plotTop=16,H=156,B=H-tickH,plotH=B-plotTop,W=560,Wp=W-padL-padR,bw=Wp/nb,Xv=x=>padL+((x-lo)/span)*Wp;
