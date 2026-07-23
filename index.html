@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.53';
+const VERSION='64.54';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.54', date:'2026-07-23', notes:['Fixed the big empty space under the 2J filter pill — it had inherited a stale fixed height from when it was a card in another column, so it now fits its content. Added slim drag-handle rows above and below it, matching the chart tiles; you can also drag its bottom edge to resize.']},
   {v:'64.53', date:'2026-07-23', notes:['The 2J ML TRADE FILTER pill under 2A now opens by default (collapsed-by-default looked empty). Its before/after numbers and evidence show right away; the header still collapses it.']},
   {v:'64.52', date:'2026-07-23', notes:['The 2J ML TRADE FILTER graph is gone — its equity curves now live on the 2A funnel (crowned = ungated, pink = gated). The rest of 2J (the before/after numbers + evidence) is a COLLAPSIBLE pill that sits directly under 2A; the verdict chip shows even when collapsed. Click the header to open it.']},
   {v:'64.51', date:'2026-07-23', notes:['2A funnel: the crowned / IS-max / gated $ values no longer print on the chart itself (they were duplicated) — every endpoint value now lives only in the gutter, including the gate-filtered total and the IS-max total.','2A gutter: the $ scale sits against the y-axis and a scale number is dropped where an endpoint pill would cover it, so the axis stays readable (the pills were blocking it, especially when expanded).']},
@@ -9485,14 +9486,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v64.53 (owner): DEFAULT OPEN — collapsed-by-default read as "empty / deleted"; the
         //   before/after cards + evidence show by default, the header still collapses it.
         const _g2Open=(APREF.gate2aOpen==null?1:+APREF.gate2aOpen);
-        _gateSec='<div style="'+_card2+';margin-bottom:0;resize:none">'
+        // v64.54 (owner): use _colStyle (NO "resize:both" substring) — _card2 was matched by the
+        //   card-resize handler and PINNED to a stale saved height (581px) from when 2J was a big
+        //   card in col3, leaving a huge empty box. This style fits the content; resize:vertical
+        //   lets it be dragged from the bottom edge.
+        _gateSec='<div style="'+_colStyle+';margin-bottom:0;resize:vertical;min-height:52px;max-height:900px">'
           +'<div data-gate2a style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden">2J 🚪 ML TRADE FILTER '+_infoIc('<div style="color:var(--text2)">DOES A TRADE-FILTER MODEL EARN ITS KEEP? A GATE is an ML model that scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. GATE VALIDATE sweeps several models across several cut-offs on PRE-lockbox data, picks ONE winner by recovery factor, and gives only that winner a single look at the held-out lockbox — no cherry-picking.<br><br>NOT the same as the 2I ML CONFIG BUILDER: 2I picks which PARAMETER CONFIG (knob settings) is best; this filter keeps the chosen config and only decides which individual TRADES to take. 2I = build the config, 2J = filter its trades.<br><br>THE GATE EQUITY is now shown on the 2A funnel above (the crowned line = every trade / ungated, the pink line = only the trades the gate kept). This pill holds the before/after numbers and the evidence.</div>')+'<span title="'+_gbFull.replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;border:1px solid color-mix(in srgb,'+_gbc+' 45%,var(--border));background:color-mix(in srgb,'+_gbc+' 10%,transparent);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help;flex-shrink:1;min-width:0">'+_gbShort+'</span><span style="margin-left:auto;font-size:8px;color:var(--text4);flex-shrink:0">'+(_g2Open?'▴ hide':'▾ show')+'</span></div>'
           +(_g2Open?('<div style="margin-top:9px">'+_gateCard+'</div>'):'')
           +'</div>';
       }
       // v64.52 (owner): 2A funnel + the collapsible 2J gate pill lead col 1 (the gate equity is
       //   now overlaid on the funnel); 2B distribution + 2C explorer follow. col 3 = 2I + DSR.
-      const _col1=_stack([_eq,_gateSec,_dist,_p3inner]);
+      // v64.54 (owner): slim drag-handle rows above AND below the 2J pill (like the chart tiles).
+      const _col1=_stack([_eq].concat(_gateSec?[rsRow,_gateSec,rsRow]:[]).concat([_dist,_p3inner]));
       const _col3=[_surrInner,_dsrInner].filter(x=>x&&x.replace(/\s/g,'')).join(rsRow);
       const _sec3=(function(){
         // v64.19 (owner): §2 gets the SAME separation model as §1 — vertical splitter bars
