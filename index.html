@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.46';
+const VERSION='64.47';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.47', date:'2026-07-23', notes:['Expanded-chart crosshair now shows its value ON THE AXES — a date pill on the x axis and an equity-$ pill on the y axis that track the cursor — instead of a floating tooltip (applies to 2A and every chart with an axis domain).']},
   {v:'64.46', date:'2026-07-23', notes:['Renamed 2I to ML CONFIG BUILDER and 2J to ML TRADE FILTER — plain names for what each does (2I builds the parameter config, 2J filters the chosen config trades).','2A expanded now shows a date + equity-$ crosshair readout under the cursor, like 1A.']},
   {v:'64.45', date:'2026-07-23', notes:['2I model-pick overlay: a caption now says how many model picks there are, their end-$ range, whether they overlap (the models agreeing on ~the same config is why you may see only a couple of lines), and whether any model beat the search best.']},
   {v:'64.44', date:'2026-07-23', notes:['2I model bake-off: the equity overlay gets endpoint pills on the $ axis for the two lines that matter — the champion pick and the search best.','2J ML gate: a drag handle under the gate equity chart so it can be compressed.','Both info icons now spell out that 2I and 2J are different jobs — 2I picks the best PARAMETER CONFIG (a search helper), 2J filters which TRADES of the chosen config to take (an execution filter).']},
@@ -2638,6 +2639,12 @@ window.expandChart=function(title,svgHTML,opts){
   vln.style.cssText='position:absolute;width:0;border-left:1px dashed var(--text4);opacity:.65;pointer-events:none;display:none;z-index:3';
   hln.style.cssText='position:absolute;height:0;border-top:1px dashed var(--text4);opacity:.65;pointer-events:none;display:none;z-index:3';
   body.appendChild(vln);body.appendChild(hln);
+  // v64.47 (owner): axis-anchored readout pills (1A style) — the value tracks the crosshair on
+  //   the Y axis (equity $) and the X axis (date), instead of a floating cursor tooltip.
+  const xlab=document.createElement('div'),ylab=document.createElement('div');
+  const _axCss='position:absolute;pointer-events:none;display:none;z-index:4;font-size:10px;font-weight:800;color:#04130c;background:var(--text3);padding:1px 6px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.45)';
+  xlab.style.cssText=_axCss;ylab.style.cssText=_axCss;
+  body.appendChild(xlab);body.appendChild(ylab);
   // pan/zoom state (wired below) — while dragging to pan, the crosshair/tooltip suppress.
   let panning=false,zoom=1,baseW=0,baseH=0,zlab=null;
   // shared floating tooltip element (same one the report uses)
@@ -2652,30 +2659,39 @@ window.expandChart=function(title,svgHTML,opts){
     :t==='int'?String(Math.round(v))
     :(Number.isInteger(+v)?String(v):(+v).toFixed(2));
   modal.addEventListener('mousemove',(e)=>{
-    if(panning){tip.style.display='none';vln.style.display=hln.style.display='none';return;}
-    if(svg&&document.body.contains(svg)){const sr=svg.getBoundingClientRect(),br=body.getBoundingClientRect();
-      const inside=e.clientX>=sr.left&&e.clientX<=sr.right&&e.clientY>=sr.top&&e.clientY<=sr.bottom;
+    if(panning){tip.style.display='none';vln.style.display=hln.style.display='none';xlab.style.display=ylab.style.display='none';return;}
+    let inside=false,sr=null;const br=body.getBoundingClientRect();
+    if(svg&&document.body.contains(svg)){sr=svg.getBoundingClientRect();
+      inside=e.clientX>=sr.left&&e.clientX<=sr.right&&e.clientY>=sr.top&&e.clientY<=sr.bottom;
       if(inside){vln.style.display=hln.style.display='block';
         vln.style.left=(e.clientX-br.left)+'px';vln.style.top=(sr.top-br.top)+'px';vln.style.height=sr.height+'px';
         hln.style.top=(e.clientY-br.top)+'px';hln.style.left=(sr.left-br.left)+'px';hln.style.width=sr.width+'px';}
       else{vln.style.display=hln.style.display='none';}}
     const t=e.target&&e.target.closest?e.target.closest('[data-tip]'):null;
     let html=t?t.getAttribute('data-tip'):'';
-    if(!html&&xh&&svg){const ctm=svg.getScreenCTM();
+    // v64.47 (owner): with no specific data-tip element, the crosshair value shows ON THE AXES
+    //   (date pill on the x axis, equity-$ pill on the y axis) — like 1A — not a floating tooltip.
+    let axShown=false;
+    if(!html&&xh&&svg&&inside){const ctm=svg.getScreenCTM();
       if(ctm){const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const v=pt.matrixTransform(ctm.inverse());
         const fx=(v.x-xh.px)/xh.pw,fy=(v.y-xh.py)/xh.ph;
         if(fx>=0&&fx<=1&&fy>=0&&fy<=1){
           const xv=(xh.xt==='date')?(+new Date(xh.x0)+(+new Date(xh.x1)-+new Date(xh.x0))*fx):(+xh.x0+(+xh.x1-+xh.x0)*fx);
           const yv=+xh.y1-(+xh.y1-+xh.y0)*fy;
-          html=(xh.xl?xh.xl+' ':'')+'<b>'+_fmtv(xh.xt,xv)+'</b> · '+(xh.yl?xh.yl+' ':'')+'<b>'+_fmtv(xh.yt,yv)+'</b>';
+          xlab.textContent=_fmtv(xh.xt,xv);xlab.style.display='block';
+          xlab.style.left=(e.clientX-br.left)+'px';xlab.style.top=(sr.bottom-br.top+3)+'px';xlab.style.transform='translateX(-50%)';
+          ylab.textContent=_fmtv(xh.yt,yv);ylab.style.display='block';
+          ylab.style.top=(e.clientY-br.top)+'px';ylab.style.left=(sr.left-br.left+3)+'px';ylab.style.transform='translateY(-50%)';
+          axShown=true;
         }}}
+    if(!axShown){xlab.style.display=ylab.style.display='none';}
     if(!html){tip.style.display='none';return;}
     tip.innerHTML=html;tip.style.display='block';
     const r=tip.getBoundingClientRect();let x=e.clientX+14,y=e.clientY+14;
     if(x+r.width>innerWidth-8)x=e.clientX-r.width-14;if(y+r.height>innerHeight-8)y=e.clientY-r.height-14;
     tip.style.left=Math.max(4,x)+'px';tip.style.top=Math.max(4,y)+'px';
   },{passive:true});
-  modal.addEventListener('mouseleave',()=>{tip.style.display='none';vln.style.display=hln.style.display='none';});
+  modal.addEventListener('mouseleave',()=>{tip.style.display='none';vln.style.display=hln.style.display='none';xlab.style.display=ylab.style.display='none';});
   // ── PAN / ZOOM (TradingView-style) — scroll wheel to zoom (anchored under the cursor),
   //    drag to pan, and a −/label/+/fit toolbar. Generic to every expandChart chart; at 100% it
   //    is a no-op. `scroller` is the modal's own overflow:auto panel that already scrolls. ──
