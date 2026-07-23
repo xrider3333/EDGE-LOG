@@ -15,7 +15,7 @@ from .data import find_master, load_master_arrays
 from .engine import _apply_costs
 from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
                         regime_report, neighborhood, downsample_pnls, downsample_points,
-                        mae_mfe, relationship_scores, pdp_plateau)
+                        downsample_curve, mae_mfe, relationship_scores, pdp_plateau)
 from . import trial_cache as TC
 
 _METRIC_KEYS = ("total_pnl", "num_trades", "win_rate", "profit_factor",
@@ -223,6 +223,7 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
         "master": (arrays.get("meta") or {}).get("name"),
         "dist": downsample_pnls([m.get("total_pnl", 0) for _, m in valid]),
         "points": downsample_points(_pts_full),
+        "n_evaluated": len(valid),   # §7.10: true recorded-config count (n_combos is an estimate)
     }
     _rel = relationship_scores(_pts_full)   # Pearson / MI / PPS per param vs PnL (ROADMAP #24)
     if _rel:
@@ -340,18 +341,25 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 pass
             # top-N equity overlay (robustness: do the best configs all climb alike?)
             etop = []
-            for (pp_, _m) in valid[:50]:   # top config equity curves for the TOP CONFIGS PNL overlay
+            _pn_cache = {}
+            # §7.10: FULL population up to the work cap — `valid` is already ranked (line
+            # ~206), so the top slice just got wider (was capped at 50, now _ETOP_MAX).
+            _ETOP_MAX = 400   # work cap — each curve costs one backtest; monster grids must not add hours
+            for _vi, (pp_, _m) in enumerate(valid[:_ETOP_MAX]):   # top config equity curves for the TOP CONFIGS PNL overlay
                 pn = _net_pnls(pp_)
                 if not pn:
                     continue
+                _pn_cache[_vi] = pn
                 cc, ss = [], 0.0
                 for x in pn:
                     ss += x; cc.append(ss)
-                if len(cc) > 80:
-                    st2 = len(cc) / 80
-                    cc = [cc[int(i * st2)] for i in range(80)]
-                etop.append({"cum": [round(float(x), 1) for x in cc]})   # map, not nested array
+                etop.append({"cum": downsample_curve(cc, cap=110, ndp=None)})   # map, not nested array
+            import json as _j
+            _sz = len(_j.dumps(etop))
+            if _sz > 400_000:
+                etop = etop[:max(50, int(len(etop) * 400_000 / _sz))]
             out["equity_top"] = etop
+            out["equity_top_cap"] = {"saved": len(etop), "tested": len(valid)}
             if len(win_pnls) >= 16:   # PnL across 8 chronological windows (concentration check)
                 N = 8; sz = len(win_pnls) // N
                 out["stress"] = [round(float(sum(win_pnls[i*sz:(len(win_pnls) if i == N-1 else (i+1)*sz)])), 1)
@@ -365,7 +373,7 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                         else sorted(_rnd.sample(range(len(valid)), 40)))
                 srs = []
                 for _k in idxs:
-                    pn = _net_pnls(valid[_k][0])
+                    pn = _pn_cache.get(_k) or _net_pnls(valid[_k][0])
                     r = annualized_sr(pn, years) if pn else None
                     if r:
                         srs.append(r["sr"])

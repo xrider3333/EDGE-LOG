@@ -28,7 +28,7 @@ from .data import find_master, load_master_arrays
 from .engine import _apply_costs
 from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
                         regime_report, neighborhood, downsample_pnls, downsample_points,
-                        mae_mfe, relationship_scores, pdp_plateau,
+                        downsample_curve, mae_mfe, relationship_scores, pdp_plateau,
                         interaction_pairs, conditional_boundary_flags)
 from . import trial_cache as TC
 
@@ -1012,6 +1012,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                                           dd=round(abs(float(r.get("max_drawdown", 0) or 0)), 1))
                                      for r in _plateau_records]
                         out["points"] = downsample_points(_pts_full)
+                        out["dist"] = downsample_pnls([r.get("total_pnl", 0) for r in _plateau_records])   # §7.10: dist follows the FINAL record set (was left at the pre-expansion sample)
                         _rel2 = relationship_scores(_pts_full)
                         if _rel2:
                             out["relationship"] = _rel2
@@ -1030,6 +1031,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 "search_truncated": _pp["search_truncated"],
                 "same_as_best": bool({k: _prow.get(k) for k in pkeys} == _bp),
             }
+        out["n_evaluated"] = len(_plateau_records)   # §7.10: true recorded-config count (n_combos is an estimate)
 
         # Multi-surrogate bake-off READ-OUT (#31 P1, docs/SURROGATE_DISCOVERY_DESIGN.md).
         # Opt-in (default False) until reviewed. Fits the bake-off to the SAME configs
@@ -1206,21 +1208,31 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                         out["mae_mfe"] = _mm
             except Exception:
                 pass
+            _pn_cache = {}   # §7.10: shared with the DSR loop below so it never re-backtests
             if not is_wf:   # top-N equity overlay (robustness of the best configs)
                 etop = []
-                for r_ in ranked[:50]:   # top config equity curves for the TOP CONFIGS PNL overlay
+                # §7.10: FULL population, not a top-50 sample — every RECORDED config
+                # (search + auto-expand probes) gets a curve, work-capped by _ETOP_MAX.
+                _pop = sorted(_plateau_records, key=lambda r: (1 if _is_real(r, n) else 0,
+                                                                float(r.get("total_pnl", 0) or 0)),
+                              reverse=True)
+                _ETOP_MAX = 400   # work cap — each curve costs one backtest; monster grids must not add hours
+                for r_ in _pop[:_ETOP_MAX]:   # top config equity curves for the TOP CONFIGS PNL overlay
                     pp = {k: r_.get(k) for k in pkeys if k in r_}
                     pn = _net_pnls(pp)
                     if not pn:
                         continue
+                    _pn_cache[id(r_)] = pn
                     cc, ss = [], 0.0
                     for x in pn:
                         ss += x; cc.append(ss)
-                    if len(cc) > 80:
-                        st2 = len(cc) / 80
-                        cc = [cc[int(i * st2)] for i in range(80)]
-                    etop.append({"cum": [round(float(x), 1) for x in cc]})   # map, not nested array
+                    etop.append({"cum": downsample_curve(cc, cap=110, ndp=None)})   # map, not nested array
+                import json as _j
+                _sz = len(_j.dumps(etop))
+                if _sz > 400_000:
+                    etop = etop[:max(50, int(len(etop) * 400_000 / _sz))]
                 out["equity_top"] = etop
+                out["equity_top_cap"] = {"saved": len(etop), "tested": len(_pop)}
                 if len(win_pnls) >= 16:   # PnL across 8 chronological windows
                     N = 8; sz = len(win_pnls) // N
                     out["stress"] = [round(float(sum(win_pnls[i*sz:(len(win_pnls) if i == N-1 else (i+1)*sz)])), 1)
@@ -1231,7 +1243,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 srs = []
                 for r in ranked[:40]:
                     pp = {k: r.get(k) for k in pkeys if k in r}
-                    pn = _net_pnls(pp)
+                    pn = _pn_cache.get(id(r)) or _net_pnls(pp)
                     sr = annualized_sr(pn, years) if pn else None
                     if sr:
                         srs.append(sr["sr"])

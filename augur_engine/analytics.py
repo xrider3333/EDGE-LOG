@@ -15,7 +15,7 @@ from scipy import stats as _sst
 _GAMMA = 0.5772156649   # Euler-Mascheroni
 
 
-def downsample_pnls(pnls, cap=400):
+def downsample_pnls(pnls, cap=4000):
     """Sorted (desc) list of config PnLs, downsampled to <=cap — feeds the web's
     PnL-distribution / plateau-vs-isolated-spike panel."""
     out = sorted((float(x or 0) for x in pnls), reverse=True)
@@ -54,7 +54,7 @@ def mae_mfe(trades, highs, lows, cap=600):
     return {"mae": mae, "mfe": mfe, "won": won}
 
 
-def downsample_points(points, cap=400):
+def downsample_points(points, cap=1200):
     """Stride-sample a list of per-config {param:..., pnl} dicts to <=cap — feeds the
     web's scatter (param vs PnL) and heatmap (param X×Y → PnL) panels."""
     if len(points) > cap:
@@ -67,17 +67,18 @@ def downsample_curve(cum, cap=300, ndp=1):
     """Downsample a cumulative curve to <= cap points for Firestore-safe storage.
     ALWAYS keeps the last point (the final total). Returns a flat list of rounded
     floats — never nested (Firestore rejects nested arrays). Shared by the gate
-    equity overlay (stack §7 item 8) and the model-picks overlay (§7 item 7)."""
+    equity overlay (stack §7 item 8) and the model-picks overlay (§7 item 7).
+    ndp=None -> whole-int values (full-population 2A curves, stack §7 item 10)."""
     xs = [float(x) for x in (cum if cum is not None else [])]
     n = len(xs)
     if n == 0:
         return []
     if n <= int(cap):
-        return [round(x, ndp) for x in xs]
+        return [int(round(x)) for x in xs] if ndp is None else [round(x, ndp) for x in xs]
     st = n / float(cap)
     out = [xs[int(i * st)] for i in range(int(cap))]
     out[-1] = xs[-1]
-    return [round(x, ndp) for x in out]
+    return [int(round(x)) for x in out] if ndp is None else [round(x, ndp) for x in out]
 
 
 def equity_curve_from_pnls(pnls, cap=160, times=None):

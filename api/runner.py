@@ -561,6 +561,8 @@ class FirestoreQueue:
             "dist": result.get("dist"),   # config-PnL spread for the distribution panel
             "points": result.get("points"),   # per-config param points for scatter / heatmap
             "equity_top": result.get("equity_top"),   # top-N equity curves (overlay)
+            "equity_top_cap": result.get("equity_top_cap"),  # §7.10: {saved, tested} so 2A stays honest
+            "n_evaluated": result.get("n_evaluated"),        # §7.10: true recorded-config count
             "stress": result.get("stress"),   # PnL across chronological windows
             "mae_mfe": result.get("mae_mfe"),   # per-trade adverse/favorable excursion
             "win_dist": result.get("win_dist"),   # winner's per-trade PnLs for the distribution curve

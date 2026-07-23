@@ -805,6 +805,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "bars": A.get("bars"), "wf": True, "best_oos_pnl": sOos, "evolved_file": evolved_file,
         "dist": A.get("dist"), "points": A.get("points"),   # config SEARCH space → stays in-sample
         "equity_top": A.get("equity_top"),
+        "equity_top_cap": A.get("equity_top_cap"), "n_evaluated": A.get("n_evaluated"),
         # 1D / 1G / 1I: whole-run champion behaviour when available, else the in-sample slice.
         "stress": (OV.get("stress") or A.get("stress")),
         "mae_mfe": (OV.get("mae_mfe") or A.get("mae_mfe")),
