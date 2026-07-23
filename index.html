@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.30';
+const VERSION='64.31';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.31', date:'2026-07-23', notes:['2A is now built EXACTLY like the 1A-1D charts: the plot fills a resizable row, the $ scale and the endpoint pills live in a real 44px HTML gutter with the same 8px font and pill styling as 1A, and the in-chart dead space on the right is gone (the plot runs to the edge). Handle row underneath, height persists.','2A slider readout now uses the honest count the engine saves since v64.30 — configs EVALUATED (unique configs the search actually ran) instead of the old planning estimate that over-counted.','4B histograms the LARGEST population the run saved: on older docs that is the 171-config parameter sample instead of the old 73-config slice; on new runs (engine v64.30+) it is every evaluated config.']},
   {v:'64.30', date:'2026-07-23', notes:['Engine (stack 7.10): run docs now save the FULL config population — an equity curve for EVERY recorded config (was a top-50 sample; whole-dollar values, up to 400 curves, size-guarded well under the Firestore doc cap), the complete config PnL list for chart 4B (it previously missed the auto-expand probe configs — 4B showed 73 of 171 on run 173), and honest counts: new equity_top_cap {saved, tested} + n_evaluated = the REAL number of recorded configs (the old n_combos figure is trials x 2, an estimate, not a count).','Charts 2A and 4B grow on runs made from now on; older runs keep their saved samples.']},
   {v:'64.29', date:'2026-07-22', notes:['2A: right-side dead space slimmed (the old label lane reserved twice what the axis pills need) and the generic y-axis $ labels use the 1A k-format and tone.','Expanded chart view rebuilt on the 1A idea: the chart renders at its NATURAL shape scaled to fill the modal height — no more stretched or letterboxed distortion — and you navigate it like 1A: drag to pan, mouse-wheel or the bottom toolbar to zoom, crosshair readout included.','4B now uses the literal 1G recipe: fine Freedman-Diaconis bins driven by the SAME bin-fineness setting as 1G/1H (your 3x applies here too), thin bars across the entire data range, with the Gaussian fit and sigma marks over them.']},
   {v:'64.28', date:'2026-07-22', notes:['2A: the lockbox endpoint $ figures are now coloured PILLS on the y axis (the 1A endpoint look) — and only the three lines that actually reach the right edge get one; the crowned and IS-max optimize-window totals label their own line ends at the lockbox door instead, so five numbers next to three lines no longer confuses.','2A: the floating rotated equity-$ title in the far-right space is gone.','4B CONFIG DISTRIBUTION reformatted to the 1G look: 560-wide plot, counts on the right, k-format $ ticks, mean / best / BE / sigma marks with readable labels, and its bin count no longer accidentally follows the 2A configs slider. The ⓘ explains the saved-sample counts (e.g. 20 of 73: 73 = configs the engine sampled into this chart, 20 = those within 80% of the best — the plateau test).','Expanded chart view: the plot now FILLS the modal height instead of letterboxing a squished strip, cloned sliders keep their labels, and slider captions no longer leak into the modal title.']},
@@ -6910,9 +6911,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // selMode: start the plot at the left edge and reserve a WIDE right gutter for TWO label
       //   lanes — the generic $ gridline scale (lane 1, at the axis) and the per-line endpoint $
       //   labels (lane 2, further right) so they stop colliding (owner).
-      // v64.29 (owner): right gutter slimmed — the axis pills need ~40px, not the 96px the old
-      //   two-lane labels reserved (the dead space on the right).
-      if(selMode){xL=pd;xR=PW-52;}
+      // v64.31 (owner): NO in-svg gutter at all — the y axis moved to a real HTML gutter
+      //   (1A-identical fonts + pills), so the plot runs to the right edge.
+      if(selMode){xL=pd;xR=PW-8;}
       // ── #88b FUNNEL (owner 2026-07-21): the x-axis has TWO doors. ALL configs (the cloud)
       //    run only to the IN-SAMPLE door (~75% of the optimize window). From there only the
       //    top-K by walk-forward continue to the LOCKBOX door (optimize end). From there only
@@ -6938,11 +6939,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // visible horizontal $ gridlines running THROUGH the plot (xL→xR) + compact $ labels just
       //   right of the NET (yellow) axis — denser (~5 steps) and smaller than the old shared chrome.
       const _niceE=v=>{v=Math.abs(v)||1;const e=Math.pow(10,Math.floor(Math.log10(v)));const f=v/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
-      const _gs=_niceE((mx-mn)/5)||1;let grid='';
-      // brighter/whiter gridlines + labels (owner request: "make axis more white")
-      for(let L=Math.ceil(mn/_gs)*_gs;L<=mx+1e-6;L+=_gs){const _z=Math.abs(L)<1e-6,gy=Yv(L);
+      const _gs=_niceE((mx-mn)/5)||1;let grid='';const _gls=[];
+      // brighter/whiter gridlines; selMode labels live in the HTML gutter instead (v64.31).
+      for(let L=Math.ceil(mn/_gs)*_gs;L<=mx+1e-6;L+=_gs){const _z=Math.abs(L)<1e-6,gy=Yv(L);_gls.push(L);
         grid+='<line x1="'+xL.toFixed(1)+'" y1="'+gy.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--text4)" stroke-width="'+(_z?0.9:0.5)+'" opacity="'+(_z?0.7:0.42)+'"/>'
-          +'<text x="'+(xR+4).toFixed(1)+'" y="'+(gy+2.5).toFixed(1)+'" font-size="5" fill="var(--text5)">'+fmtAx(L,1)+'</text>';}
+          +(selMode?'':'<text x="'+(xR+4).toFixed(1)+'" y="'+(gy+2.5).toFixed(1)+'" font-size="5" fill="var(--text5)">'+fmtAx(L,1)+'</text>');}
       // Single NET (y) axis on the RIGHT, drawn to MATCH the x-axis baseline styling (neutral white);
       //   the old red LEFT guide is dropped — owner: "dont need y axis on the left".
       grid+='<line x1="'+xR.toFixed(1)+'" y1="'+pt+'" x2="'+xR.toFixed(1)+'" y2="'+(H-pd)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>';
@@ -6959,7 +6960,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +(Math.abs(hy-wy)>7?'<text x="'+(xR+4).toFixed(1)+'" y="'+(hy+2.2).toFixed(1)+'" font-size="4.4" fill="#3a9bdc" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.2">'+fmtUsd(Math.round(_hiV))+' ◂ highest end (rank '+(_hiI+1)+')</text>':'');}}}
       // selMode funnel: the two doors, the top-K walk-forward continuation, the crowned/IS-max
       //   full-length traces, the top-3 lockbox continuation, and compact right-gutter $ labels.
-      let selSvg='',selBands='';
+      let selSvg='',selBands='',_gutterHtml='';
       if(selMode){
         const _kUsd=v=>{v=Math.round(v);const a=Math.abs(v);return (v<0?'-$':'$')+(a>=1000?(a/1000).toFixed(a>=10000?0:1)+'k':a);};
         // top-K SURVIVORS — every WF config EXCEPT the two highlighted ones (crowned/IS-max get
@@ -6995,8 +6996,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(isMaxC&&isMaxC!==crownedC){const fv=isMaxC.equity.cum[isMaxC.equity.cum.length-1];doorLabs.push({y:Yv(fv*mult),col:'#3a9bdc',txt:_kUsd(fv*mult)+' IS'});}
         labs.sort((a,b)=>a.y-b.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<8)labs[i].y=labs[i-1].y+8;
         doorLabs.sort((a,b)=>a.y-b.y);for(let i=1;i<doorLabs.length;i++)if(doorLabs[i].y-doorLabs[i-1].y<6)doorLabs[i].y=doorLabs[i-1].y+6;
-        const labSvg=labs.map(L=>{const w2=L.txt.length*2.6+4;return '<rect x="'+(xR+2).toFixed(1)+'" y="'+(L.y-3.4).toFixed(1)+'" width="'+w2.toFixed(1)+'" height="7" rx="1.8" fill="'+L.col+'"/><text x="'+(xR+4).toFixed(1)+'" y="'+(L.y+2).toFixed(1)+'" font-size="4.7" font-weight="800" fill="#04130c">'+L.txt+'</text>';}).join('')
-          +doorLabs.map(L=>'<text x="'+(xFull-2).toFixed(1)+'" y="'+(L.y-2).toFixed(1)+'" text-anchor="end" font-size="4.4" font-weight="700" fill="'+L.col+'" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.4">'+L.txt+'</text>').join('');
+        // v64.31 (owner): the endpoint pills + $ scale live in a REAL HTML gutter (1A-identical
+        //   8px font + pill styling); only the crowned/IS-max door labels stay in the svg.
+        _gutterHtml='<div style="width:44px;min-width:44px;position:relative;font-size:8px;color:var(--text5)">'
+          +_gls.map(L=>'<span style="position:absolute;left:3px;top:calc('+(Yv(L)/H*100).toFixed(2)+'% - 5px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</span>').join('')
+          +labs.map(L=>'<span style="position:absolute;left:1px;top:calc('+(L.y/H*100).toFixed(2)+'% - 6px);white-space:nowrap;font-weight:800;color:#04130c;background:'+L.col+';padding:0 4px;border-radius:4px;z-index:2">'+L.txt+'</span>').join('')
+          +'</div>';
+        const labSvg=doorLabs.map(L=>'<text x="'+(xFull-2).toFixed(1)+'" y="'+(L.y-2).toFixed(1)+'" text-anchor="end" font-size="4.4" font-weight="700" fill="'+L.col+'" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.4">'+L.txt+'</text>').join('');
         // DOOR lines (in-sample slate · lockbox purple) — labels moved to the region labels below.
         const isDoor='<line x1="'+xIS.toFixed(1)+'" y1="'+pt+'" x2="'+xIS.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#7f8c99" stroke-width="0.6" stroke-dasharray="2 2" opacity="0.7"/>';
         const lbDoor=hasLB?('<line x1="'+xFull.toFixed(1)+'" y1="'+pt+'" x2="'+xFull.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#a78bfa" stroke-width="0.7" stroke-dasharray="3 2" opacity="0.85"/>'):'';
@@ -7029,7 +7035,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           return '<text x="'+((xL+xIS)/2).toFixed(1)+'" y="'+(H-0.5)+'" text-anchor="middle" font-size="4.2" fill="var(--text4)">'+_dF(0.375)+'</text>'
             +'<text x="'+xIS.toFixed(1)+'" y="'+(H-0.5)+'" text-anchor="middle" font-size="4.2" fill="var(--text4)">'+_dF(0.75)+'</text>';})():'');}
       const selDrop='<select data-tpc style="width:auto;display:inline-block;padding:2px 6px;font-size:var(--fsxs);margin-left:6px"><option value="rank"'+(mode==='rank'?' selected':'')+'>by rank</option>'+pkeys.map(k=>'<option value="'+k+'"'+(mode===k?' selected':'')+'>by '+k.replace(/_/g,' ')+'</option>').join('')+'</select>';
-      const cfgSlider='<span title="how many of the stored curves to draw. The engine saves the TOP '+etop.length+' equity curves per run'+(d.n_combos?' (of '+(+d.n_combos).toLocaleString()+' configs tested — storing every curve would blow the run-doc size limit)':'')+'; the slider spans all of them." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+' saved'+(d.n_combos?' · '+(+d.n_combos).toLocaleString()+' tested':'')+'</b></span>';
+      // v64.31: honest counts — n_evaluated (unique configs the search actually ran, saved by
+      //   the v64.30 engine) beats n_combos (a trials×2 planning ESTIMATE that over-counted).
+      const _nEval=(d.n_evaluated!=null?+d.n_evaluated:(d.n_combos!=null?+d.n_combos:null));
+      const cfgSlider='<span title="how many of the stored curves to draw. This run stores '+etop.length+' equity curves'+(_nEval?' of the '+_nEval.toLocaleString()+' configs the search evaluated':'')+'; the slider spans all of them." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+' saved'+(_nEval?' · '+_nEval.toLocaleString()+' evaluated':'')+'</b></span>';
       const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis — top '+etop.length+((_xd0&&_xd1)?' · '+_dnice(_xd0)+' → '+_dnice(_xd1):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. RANKING: locked to the pre-registered IN-SAMPLE slice (the first ~75% of this window) — a lower-ranked curve can END higher because the tail is out-of-sample for selection, and peeking at it to pick the winner would be look-ahead bias. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
       const _selTip='WF-CHECKED SELECTION (#88 / #88b) ON THE 2A CHART — a funnel with two doors. The grey CLOUD is every top config, drawn only to the IN-SAMPLE door (~75% of the optimize window). From there only the top-K by walk-forward continue to the LOCKBOX door (optimize end). From there only the top-3 continue THROUGH the lockbox to the right edge. LINE PROCEDURE: the in-sample stretch of every line is SOLID, the walk-forward stretch is DASHED, and the lockbox continuation is DOTTED. Green = WF-crowned, blue = in-sample MAX, each other top-K survivor gets its own colour, light grey = the configs that did not survive the in-sample door. The lockbox tail is shown AFTER the crown was set, never used to pick the champion.';
       // v64.25 (owner): ⓘ right after the tag (1A pattern), the funnel-path caption lives in the
@@ -7037,11 +7046,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _hdr=selMode
         ?(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_selTip+'<br><br>Path: all configs → IS door → top-K walk-forward → top-3 lockbox.</div>')+' CONFIG FUNNEL <span style="margin-left:auto;display:inline-flex">'+cfgSlider+'</span></div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
         :(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_eqTip+'</div>')+' TOP CONFIGS PNL'+selDrop+'<span style="margin-left:auto;display:inline-flex">'+cfgSlider+'</span></div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
-      const _body='<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
-        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+((!selMode&&d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,yl:'equity'}))+'"':'')+'>'
+      const _svgStr='<svg viewBox="0 0 '+W+' '+H+'" '+(selMode?'preserveAspectRatio="none" style="display:block;width:100%;height:100%"':'width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"')+((!selMode&&d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,yl:'equity'}))+'"':'')+'>'
         +selBands
         +grid
-        +'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>'+lines+selSvg+winTag+(selMode?'':c2YTitle(H,'equity $'))+'</svg></div>';
+        +'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>'+lines+selSvg+winTag+(selMode?'':c2YTitle(H,'equity $'))+'</svg>';
+      // v64.31 (owner): selMode = PRE-BOXED row exactly like 1A-1D — chart fills the row, the
+      //   $ scale + endpoint pills live in the 44px HTML gutter, handle row underneath.
+      const _body=selMode
+        ?'<div class="rschart-box" style="display:flex;gap:6px;height:190px;min-height:60px;max-height:600px;overflow:hidden"><div style="flex:1;min-width:0;background:var(--bg1);border-radius:8px;padding:6px 4px;box-sizing:border-box">'+_svgStr+'</div>'+_gutterHtml+'</div>'+rsRow
+        :'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'+_svgStr+'</div>';
       if(!selMode)return _hdr+_body;
       // ── selection detail (crown-pool table + honesty notes) COLLAPSED by default (owner: keep
       //    the 2A chart, tuck the info beneath it so 2B is next; click to drop it down). ──
@@ -9021,7 +9034,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    4A neighbour robustness · 4B config-PnL distribution. (CLASSIC shows the same tags —
       //    they are dashboard coordinates, not classic section numbers.) ──
       const _eq=((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt,_cfgN+'A'):'');
-      const _dist=distPanelHtml(d.dist,mlt,'4B');
+      // v64.31 (owner): 4B histograms the LARGEST saved population — on pre-v64.30 docs the
+      //   points array (171 configs on #173) beats the old 73-config dist sample; on v64.30+
+      //   docs dist already holds every evaluated config.
+      const _distSrc=((d.points&&d.points.length>(d.dist||[]).length)?d.points.map(p=>p.pnl):d.dist);
+      const _dist=distPanelHtml(_distSrc,mlt,'4B');
       // ── CHART METRIC toggle (item L): the param charts (2B/2C/2H/2I/2J) historically plot
       //    each config's NET PNL only — a drawdown lever (e.g. be_after_R) is INVISIBLE on that
       //    axis (PnL flat ±2% while DD moves 33%). New `dd` per points row (engine ≥ this build)

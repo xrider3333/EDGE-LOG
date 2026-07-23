@@ -25,6 +25,8 @@ Structure EVERY substantive reply top-to-bottom as:
    terms (e.g. "RESULTS ▸ §3 ML Gate, under the gate pills" or "chart 1C title line"), or the
    file/layer for non-UI work (e.g. "runner save layer, api/runner.py"). Put it in the
    Description (or a Location column) — a row without a location is incomplete.
+   **Description cells are BULLETS, not prose** (owner 2026-07-23): short bullet lines inside
+   the cell (`•` separated by `<br>`), each one fact.
 3. **Details / caveats / how-to-verify / numbers go UNDERNEATH the table** — the owner skims the
    table, then drops down for detail. Keep prose terse; process/"thinking" text is noise.
 4. For strategy-run rows, include the rich columns the owner tracks: strategy TYPE (mechanism +
