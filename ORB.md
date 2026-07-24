@@ -402,6 +402,14 @@ MAR/DD compare on the same risk basis. in-sample + held-out lockbox.
 - **Caveat:** 2 contracts = **2× fees + 2× margin**; the blend is the 1-contract-equivalent (average).
   Worth it only if you trade ≥2 lots. WF-folds + ES transfer of the ensemble are still TODO before deploy.
 - Tooling: `tools/orb_ensemble.py`. Item **E → DONE (WIN — ensemble beats both legs on lockbox MAR + DD).**
+- **Engine-rerun replication (2026-07-24): run #175 — same window (pinned 2010-06-07→2026-06-30), same
+  knobs, TODAY's steered/OOS-selection engine.** The new machinery picks winners differently (GP-steered
+  search: 80 seed + 26 steered trials over 77 configs, then champion crowned by walk-forward steadiness,
+  not in-sample score) yet re-derived #159's champion EXACTLY: target 4.0R / trail 12, net $181,431 /
+  DD −$10,611 / PF 1.567 / 2787 trades, PASS 6/6, 8/8 folds, lockbox PF 1.594. Boundary detector raised
+  NO edge-pin flag on trail=12 (10/11/12 are a flat plateau). Two independent selection methods, same
+  answer = #159 is genuine high ground, not a selection artifact. (#175 saved during a Firestore-quota
+  outage under a timestamp id, then renumbered 1784848172→175.)
 - **Full Auto-Validate (2026-07-12): run #159 — PASS 6/6, 8/8 WF folds held, lockbox PF 1.61.** The
   ensemble as one strategy (`ORB_3_0_ENS.py`, 50/50-blend accounting; anchor == the harness to the
   dollar). Base pinned to #137; runner knobs open — discovery picked **target 4.0R / trail 12** (net
