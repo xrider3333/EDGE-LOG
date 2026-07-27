@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.55';
+const VERSION='64.56';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.56', date:'2026-07-23', notes:['COMPARE now has a real TOTAL scope — the whole run end to end (in-sample + walk-forward + lockbox), the same figure as the TOTAL column in a run report KPI matrix, with indented rows splitting it into the three stages.','The old "OVERALL" button was renamed IN-SAMPLE, because that is what it always showed: the champion measured on the window it was tuned on. The scopes now read IN-SAMPLE · WALK-FORWARD · LOCKBOX · TOTAL, matching the run report.']},
   {v:'64.55', date:'2026-07-23', notes:['COMPARE ▸ SETS: saved comparison sets can be RENAMED — click the ✎ on a set chip (or double-click the chip). Clicking the chip still loads the set, ✕ still deletes it.','COMPARE: "clicking a tab or set changes nothing" is now explainable — each TAB chip lists the run ids it holds (so two tabs carrying the same runs are obvious), the set already on screen is highlighted blue with a ▸, an empty tab says it is falling back to the latest 3, and saved runs that no longer exist are called out instead of being dropped silently.']},
   {v:'64.54', date:'2026-07-23', notes:['Fixed the big empty space under the 2J filter pill — it had inherited a stale fixed height from when it was a card in another column, so it now fits its content. Added slim drag-handle rows above and below it, matching the chart tiles; you can also drag its bottom edge to resize.']},
   {v:'64.53', date:'2026-07-23', notes:['The 2J ML TRADE FILTER pill under 2A now opens by default (collapsed-by-default looked empty). Its before/after numbers and evidence show right away; the header still collapses it.']},
@@ -10466,8 +10467,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
           {l:'Lockbox PF',v:x=>{const a=_lbA(x);return a?a.pf:-1e15;},f:x=>{const a=_lbA(x);return a?a.pf.toFixed(2):'—';},b:'max',sec:'edge'},
           {l:'Held?',f:x=>{const a=_lbA(x);return a?('<b style="color:'+(a.pass?'var(--green)':'var(--red)')+'">'+(a.pass?'HELD ✓':'FAILED ✕')+'</b>'):'—';},sec:'edge'},
           {l:'Lockbox trades',f:x=>{const a=_lbA(x);return a?a.tr:'—';},sec:'sample'}];
-        const _cSc=(APREF.cmpScope==='wf'||APREF.cmpScope==='lb')?APREF.cmpScope:'all';
-        const M=M_id.concat(_cSc==='wf'?M_wf:(_cSc==='lb'?M_lb:M_all));
+        // v64.56 (owner: "no overall section"): the old "OVERALL" scope was really the IN-SAMPLE
+        //   champion (best_pnl_usd = the optimize-window numbers), so there was no whole-run figure
+        //   anywhere in COMPARE. A real TOTAL scope now mirrors the Results KPI matrix TOTAL column:
+        //   net = the validate equity curve's ENDPOINT (IS + WF + LB), with the three-way split
+        //   underneath. IS is the residual (TOTAL − WF − LB), exactly as the matrix computes it.
+        const _totA=x=>{const m=_mcOf(x),V=x.validate,eq=(V&&Array.isArray(V.equity))?V.equity:null;
+          const wf=_wfA(x),lb=_lbA(x),wfN=wf?wf.net:0,lbN=lb?lb.net:0;
+          if(eq&&eq.length){const tot=(+eq[eq.length-1]||0)*m;return {net:tot,is:tot-wfN-lbN,wf:wfN,lb:lbN,whole:true};}
+          // no validate curve (plain sweep): the whole run IS the in-sample window
+          return {net:(+x.best_pnl_usd||0),is:(+x.best_pnl_usd||0),wf:wfN,lb:lbN,whole:false};};
+        const M_tot=[
+          {l:'Total net $ (whole run)',v:x=>{const a=_totA(x);return a?a.net:-1e15;},f:x=>{const a=_totA(x);if(!a)return '—';
+            return '<b>'+fmtUsd(Math.round(a.net))+'</b>'+(a.whole?'':'<span title="this run has no walk-forward / lockbox stages — its whole run IS the in-sample window, so this equals the in-sample figure" style="color:var(--yellow);font-size:8px"> IS only</span>');},b:'max',sec:'return'},
+          {l:'  ├ in-sample $',v:x=>{const a=_totA(x);return a?a.is:-1e15;},f:x=>{const a=_totA(x);return a?'<span style="color:var(--text4)">'+fmtUsd(Math.round(a.is))+'</span>':'—';},sec:'return'},
+          {l:'  ├ walk-forward $',v:x=>{const a=_wfA(x);return a?a.net:-1e15;},f:x=>{const a=_wfA(x);return a?'<span style="color:var(--text4)">'+fmtUsd(Math.round(a.net))+'</span>':'—';},sec:'return'},
+          {l:'  └ lockbox $',v:x=>{const a=_lbA(x);return a?a.net:-1e15;},f:x=>{const a=_lbA(x);return a?'<span style="color:var(--text4)">'+fmtUsd(Math.round(a.net))+'</span>':'—';},sec:'return'},
+          {l:'Max DD (in-sample)',v:x=>x.best_dd_usd||0,f:x=>fmtUsd(x.best_dd_usd||0),b:'max',sec:'drawdown'},
+          {l:'Robustness',v:x=>scoreRun(x),f:x=>scoreRun(x),b:'max',sec:'edge'},
+          {l:'Verdict',f:x=>x.validate?'<b style="color:'+(x.validate.verdict==='PASS'?'var(--green)':x.validate.verdict==='WEAK'?'var(--yellow)':'var(--red)')+'">'+x.validate.verdict+'</b>':'—'}];
+        const _cSc=(APREF.cmpScope==='wf'||APREF.cmpScope==='lb'||APREF.cmpScope==='tot')?APREF.cmpScope:'all';
+        const M=M_id.concat(_cSc==='wf'?M_wf:(_cSc==='lb'?M_lb:(_cSc==='tot'?M_tot:M_all)));
         const hdr='<tr><th></th>'+runs.map(r=>'<th style="white-space:nowrap">#'+r.id+' '+stratTag(r.strategy)+' <span data-cmp-rm="'+r.id+'" title="remove" style="cursor:pointer;color:var(--text5)">✕</span></th>').join('')+'</tr>';
         let _lastSec=null;
         const mrows=M.map(m=>{let bi=-1;if(m.v&&m.b){let bv=null;runs.forEach((r,i)=>{const val=m.v(r);if(bv===null||(m.b==='max'?val>bv:val<bv)){bv=val;bi=i;}});}
@@ -10586,8 +10606,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'</div>';}).join('')+'</div>';
         // scope toggle: OVERALL (whole-run best-config numbers) ⇄ WALK-FORWARD ⇄ LOCKBOX slices
         const _scBtn2=(k2,lab)=>'<button data-cmpscope="'+k2+'" style="height:20px;padding:0 8px;font-size:8px;letter-spacing:.5px;border-radius:6px;border:1px solid '+(_cSc===k2?'color-mix(in srgb,var(--text4) 55%,var(--border))':'var(--border)')+';background:'+(_cSc===k2?'var(--bg2)':'var(--bg1)')+';color:'+(_cSc===k2?'var(--text)':'var(--text4)')+';cursor:pointer">'+lab+'</button>';
-        const scopeSeg='<span style="margin-left:auto;display:inline-flex;gap:3px" title="which slice of each run the metric rows compare — OVERALL = whole-run best-config numbers (for a plain sweep that is IN-SAMPLE, no unseen test); WALK-FORWARD / LOCKBOX = out-of-sample only">'+_scBtn2('all','OVERALL')+_scBtn2('wf','WALK-FORWARD')+_scBtn2('lb','LOCKBOX')+'</span>';
-        const _scNote=(_cSc==='all')?'<div style="font-size:8px;color:var(--text5);margin-top:5px">OVERALL = each run best-config whole-run numbers. For Auto-Validate runs that is the validated champion; for a plain sweep (no WF / LB chips lit) it is the best IN-SAMPLE config — optimistic, tuned on everything it is measured on. Switch to WALK-FORWARD or LOCKBOX for unseen-data-only comparisons.</div>':'<div style="font-size:8px;color:var(--text5);margin-top:5px">Out-of-sample slice — runs that did not run this test show a dash.</div>';
+        // v64.56 (owner): four scopes matching the Results KPI matrix — IN-SAMPLE (what the old
+        //   "OVERALL" button actually showed) · WALK-FORWARD · LOCKBOX · TOTAL (the real whole run).
+        const scopeSeg='<span style="margin-left:auto;display:inline-flex;gap:3px" title="which slice of each run the metric rows compare — IN-SAMPLE = the tuned optimize window · WALK-FORWARD / LOCKBOX = unseen-data slices · TOTAL = the whole run (in-sample + walk-forward + lockbox), the same figure as the TOTAL column of a run report KPI matrix">'+_scBtn2('all','IN-SAMPLE')+_scBtn2('wf','WALK-FORWARD')+_scBtn2('lb','LOCKBOX')+_scBtn2('tot','TOTAL')+'</span>';
+        const _scNote=(_cSc==='all')?'<div style="font-size:8px;color:var(--text5);margin-top:5px">IN-SAMPLE = each run best config measured on the window it was TUNED on — optimistic by construction. Switch to WALK-FORWARD or LOCKBOX for unseen-data-only comparisons, or TOTAL for the whole-run figure.</div>'
+          :(_cSc==='tot'?'<div style="font-size:8px;color:var(--text5);margin-top:5px">TOTAL = the whole run end to end (in-sample + walk-forward + lockbox) read off the champion equity curve — the same number as the TOTAL column in a run report KPI matrix. The indented rows split it into the three stages; in-sample is the residual (TOTAL − walk-forward − lockbox) so the three always add up. A run with no walk-forward / lockbox stage is marked "IS only".</div>'
+          :'<div style="font-size:8px;color:var(--text5);margin-top:5px">Out-of-sample slice — runs that did not run this test show a dash.</div>');
         body='<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">'
           +'<div style="flex:0 1 430px;min-width:310px">'+pickerTile+'</div>'
           +'<div style="flex:1 1 480px;min-width:0">'
