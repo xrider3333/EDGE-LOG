@@ -405,11 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.58';
+const VERSION='64.59';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-  {v:'64.58', date:'2026-07-23', notes:['COMPARE ▸ PICK RUNS now has a "find run #" search — type a run number (or any text on the row: strategy, market, timeframe) and the list filters as you type. It searches every run, including ones inside collapsed strategy groups, and the group opens itself to show a match.']},
+  {v:'64.59', date:'2026-07-23', notes:['COMPARE ▸ PICK RUNS group view: opening a strategy now lists its runs by RUN NUMBER, newest at the top, so the most recent work is what you see first. The tile header still reports that strategy best run.','Removed the "find run #" search box added in 64.58 — not what was wanted.']},
   {v:'64.57', date:'2026-07-23', notes:['FIXED the real reason switching COMPARE tabs changed nothing: a tab opened with ＋ fell back to showing "the latest 3", and the first run you clicked was toggled against that fallback — so the new tab silently absorbed those 3 default runs. Every tab therefore ended up holding the same comparison. An empty tab now stays empty (it shows an EMPTY COMPARISON TAB panel) and picking a run adds only that run, so each tab keeps its own set.','COMPARE grouping now matches the Past Runs group view — grouped by strategy FAMILY + VERSION ("7 · ORB 3.0"), so all the ORB 3.0-x branches file under one tile instead of every variant file making its own group.']},
   {v:'64.56', date:'2026-07-23', notes:['COMPARE now has a real TOTAL scope — the whole run end to end (in-sample + walk-forward + lockbox), the same figure as the TOTAL column in a run report KPI matrix, with indented rows splitting it into the three stages.','The old "OVERALL" button was renamed IN-SAMPLE, because that is what it always showed: the champion measured on the window it was tuned on. The scopes now read IN-SAMPLE · WALK-FORWARD · LOCKBOX · TOTAL, matching the run report.']},
   {v:'64.55', date:'2026-07-23', notes:['COMPARE ▸ SETS: saved comparison sets can be RENAMED — click the ✎ on a set chip (or double-click the chip). Clicking the chip still loads the set, ✕ still deletes it.','COMPARE: "clicking a tab or set changes nothing" is now explainable — each TAB chip lists the run ids it holds (so two tabs carrying the same runs are obvious), the set already on screen is highlighted blue with a ▸, an empty tab says it is falling back to the latest 3, and saved runs that no longer exist are called out instead of being dropped silently.']},
@@ -10399,18 +10399,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
         window._cmpGrpOpen=window._cmpGrpOpen||new Set();
         let pickBody;
         if(_cg){const gm={};_plist.forEach(r=>{const l=_labOf(r);(gm[l]||(gm[l]=[])).push(r);});
-          const gs=Object.keys(gm).map(k=>({k:k,rs:gm[k].slice().sort((a,b)=>scoreRun(b)-scoreRun(a)||((b.best_pnl_usd||0)-(a.best_pnl_usd||0)))}));
-          gs.sort((a,b)=>scoreRun(b.rs[0])-scoreRun(a.rs[0]));
-          pickBody=gs.map(g=>{const open=window._cmpGrpOpen.has(g.k),ch=g.rs[0],nSel=g.rs.filter(r=>ids.indexOf(String(r.id))>=0).length;
+          // v64.59 (owner): the runs INSIDE a group list by RUN NUMBER, newest first — so opening a
+          //   strategy shows its most recent runs at the top. The group's champion (best score) is
+          //   tracked separately so the tile header still reports the best $ and orders the groups.
+          const gs=Object.keys(gm).map(k=>{const all=gm[k].slice();
+            const champ=all.slice().sort((a,b)=>scoreRun(b)-scoreRun(a)||((b.best_pnl_usd||0)-(a.best_pnl_usd||0)))[0];
+            return {k:k,rs:all.sort((a,b)=>(+b.id||0)-(+a.id||0)),champ:champ};});
+          gs.sort((a,b)=>scoreRun(b.champ)-scoreRun(a.champ));
+          pickBody=gs.map(g=>{const open=window._cmpGrpOpen.has(g.k),ch=g.champ,nSel=g.rs.filter(r=>ids.indexOf(String(r.id))>=0).length;
             return '<div style="margin-bottom:3px">'
               +'<div data-cmpgrp="'+encodeURIComponent(g.k)+'" title="click to expand / collapse" style="display:flex;align-items:center;gap:7px;padding:4px 8px;border-radius:6px;cursor:pointer;background:color-mix(in srgb,var(--border) 22%,transparent);font-size:var(--fsxs)">'
               +'<span style="flex:0 0 11px;color:var(--text3)">'+(open?'▾':'▸')+'</span>'
               +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700">'+((stratTag(ch.strategy)||'').replace(/<[^>]*>/g,'').replace(/\s/g,'')?stratTag(ch.strategy):('<span style="color:var(--text3)">'+g.k+'</span>'))+'</span>'
               +'<span style="flex:0 0 auto;font-size:8px;color:'+(nSel?'var(--blue)':'var(--text5)')+'">'+g.rs.length+' run'+(g.rs.length===1?'':'s')+(nSel?' · '+nSel+' ✓':'')+'</span>'
               +'<span style="flex:0 0 auto;font-size:8px;color:'+((ch.best_pnl_usd||0)>=0?'var(--green)':'var(--red)')+'">best '+fmtUsd(Math.round(ch.best_pnl_usd||0))+'</span></div>'
-              // v64.58: rows are ALWAYS rendered and hidden with CSS when the group is collapsed,
-              //   so the run-number search can reach runs inside collapsed groups.
-              +'<div data-cmpgrpbody data-open="'+(open?'1':'0')+'"'+(open?'':' style="display:none"')+'>'+g.rs.map(_rowOf).join('')+'</div>'
+              +(open?g.rs.map(_rowOf).join(''):'')
               +'</div>';}).join('');
         }else pickBody=_plist.map(_rowOf).join('');
         const stratOpts='<option value="">all strategies</option>'+_strats.map(s=>'<option value="'+s.replace(/"/g,'')+'"'+(s===_cf?' selected':'')+'>'+s+'</option>').join('');
@@ -10447,10 +10450,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
           return '<span data-cmpset="'+si+'" title="click to load this comparison: '+(s2.ids||[]).map(x2=>'#'+x2).join(' · ').replace(/"/g,'')+' · double-click to rename'+(on?' — ALREADY LOADED (this is the comparison on screen)':'')+'" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:9px;font-size:9px;border:1px solid '+(on?'var(--blue)':'var(--border)')+';background:'+(on?'color-mix(in srgb,var(--blue) 12%,transparent)':'var(--bg1)')+';color:'+(on?'var(--blue)':'var(--text2)')+'">'+(on?'▸ ':'')+String(s2.name||('set '+(si+1))).replace(/</g,'&lt;')+' <b style="color:var(--text5);font-weight:400">'+(s2.ids||[]).length+'</b><b data-cmpsetren="'+si+'" title="rename this set" style="color:var(--text5);font-weight:400;cursor:pointer;margin-left:2px">✎</b><b data-cmpsetdel="'+si+'" title="delete this saved set (does not touch the runs)" style="color:var(--text5);font-weight:400;cursor:pointer">✕</b></span>';}).join('');
         const _setsRow='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-2px 0 8px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5)" title="saved comparison sets — save the current selection under a name, then switch between comparisons with one click">SETS</span>'+_setChips+'<span data-cmpsetsave title="save the CURRENT selection as a named set you can switch back to any time" style="cursor:pointer;font-size:9px;padding:2px 9px;border-radius:9px;border:1px dashed var(--border);color:var(--text4)">＋ save current</span></div>';
         const pickerTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">PICK RUNS</span><span style="font-size:8px;color:var(--text5)">click a row to add / remove · max 8</span><span style="margin-left:auto;display:flex;gap:8px;align-items:center">'
-          // v64.58 (owner: "why cant i filter by run number"): a live search that matches the RUN
-          //   NUMBER (or any text on the row — strategy, market, timeframe). Filters in place
-          //   without re-rendering, and reaches runs inside collapsed groups.
-          +'<input data-cmpfind type="search" placeholder="find run # …" title="type a run number (e.g. 149) or any text from the row — strategy, market, timeframe. Searches every run, including ones inside collapsed groups." style="width:104px;padding:2px 7px;font-size:var(--fsxs)"/>'
           +_grpBtn+_bestBtn+'<select data-cmpstrat style="width:auto;padding:2px 6px;font-size:var(--fsxs)">'+stratOpts+'</select><span data-cmpclear title="reset to the latest 3 runs" style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">reset</span></span></div>'
           +_tabsRow+_setsRow
           +'<div style="overflow:auto;max-height:74vh">'+(pickBody||'<div style="color:var(--text5);font-size:var(--fsxs);padding:14px;text-align:center">no runs match this strategy filter</div>')+'</div>');
@@ -11416,30 +11415,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const cur=Math.min(Math.max(0,+APREF.cmpTabN||0),tabs.length-1);tabs[cur]=(APREF.cmpIds||[]).slice();
         tabs.push([]);savePref('cmpTabs',tabs);savePref('cmpTabN',tabs.length-1);savePref('cmpIds',[]);renderApp();};
       // #47 saved comparison sets: load / delete / save-current
-      // v64.58 (owner): live RUN-NUMBER search over the picker. Filters the DOM in place — no
-      //   renderApp — so typing never loses focus; the query is kept in window._cmpFindQ and
-      //   re-applied after any re-render (clicking a row re-renders the list).
-      const _cfind=content.querySelector('[data-cmpfind]');
-      if(_cfind){
-        const _applyFind=()=>{const q=String(_cfind.value||'').trim().toLowerCase();
-          window._cmpFindQ=q;
-          const rows=[...content.querySelectorAll('[data-cmpk]')];
-          const bodies=[...content.querySelectorAll('[data-cmpgrpbody]')];
-          if(!q){rows.forEach(r=>{r.style.display='';});
-            bodies.forEach(b=>{b.style.display=(b.dataset.open==='1')?'':'none';
-              const h=b.previousElementSibling;if(h&&h.hasAttribute('data-cmpgrp'))h.style.display='';});
-            return;}
-          rows.forEach(r=>{const id=String(r.dataset.cmpk||'');
-            const hit=id.indexOf(q)>=0||(r.textContent||'').toLowerCase().indexOf(q)>=0;
-            r.style.display=hit?'':'none';});
-          // a group opens itself when it holds a match, and hides entirely when it holds none
-          bodies.forEach(b=>{const any=[...b.querySelectorAll('[data-cmpk]')].some(r=>r.style.display!=='none');
-            b.style.display=any?'':'none';
-            const h=b.previousElementSibling;if(h&&h.hasAttribute('data-cmpgrp'))h.style.display=any?'':'none';});};
-        _cfind.value=window._cmpFindQ||'';
-        _cfind.oninput=_applyFind;
-        if(_cfind.value)_applyFind();
-      }
       // v64.55 (owner): a chip click LOADS the set, ✎ (or a double-click on the chip) RENAMES it,
       //   ✕ deletes it — the ren/del guards keep those clicks from also loading the set.
       const _cmpRen=si=>{const arr=(APREF.cmpSets||[]).slice();const st=arr[si];if(!st)return;
