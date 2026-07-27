@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.56';
+const VERSION='64.57';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.57', date:'2026-07-23', notes:['FIXED the real reason switching COMPARE tabs changed nothing: a tab opened with ＋ fell back to showing "the latest 3", and the first run you clicked was toggled against that fallback — so the new tab silently absorbed those 3 default runs. Every tab therefore ended up holding the same comparison. An empty tab now stays empty (it shows an EMPTY COMPARISON TAB panel) and picking a run adds only that run, so each tab keeps its own set.','COMPARE grouping now matches the Past Runs group view — grouped by strategy FAMILY + VERSION ("7 · ORB 3.0"), so all the ORB 3.0-x branches file under one tile instead of every variant file making its own group.']},
   {v:'64.56', date:'2026-07-23', notes:['COMPARE now has a real TOTAL scope — the whole run end to end (in-sample + walk-forward + lockbox), the same figure as the TOTAL column in a run report KPI matrix, with indented rows splitting it into the three stages.','The old "OVERALL" button was renamed IN-SAMPLE, because that is what it always showed: the champion measured on the window it was tuned on. The scopes now read IN-SAMPLE · WALK-FORWARD · LOCKBOX · TOTAL, matching the run report.']},
   {v:'64.55', date:'2026-07-23', notes:['COMPARE ▸ SETS: saved comparison sets can be RENAMED — click the ✎ on a set chip (or double-click the chip). Clicking the chip still loads the set, ✕ still deletes it.','COMPARE: "clicking a tab or set changes nothing" is now explainable — each TAB chip lists the run ids it holds (so two tabs carrying the same runs are obvious), the set already on screen is highlighted blue with a ▸, an empty tab says it is falling back to the latest 3, and saved runs that no longer exist are called out instead of being dropped silently.']},
   {v:'64.54', date:'2026-07-23', notes:['Fixed the big empty space under the 2J filter pill — it had inherited a stale fixed height from when it was a card in another column, so it now fits its content. Added slim drag-handle rows above and below it, matching the chart tiles; you can also drag its bottom edge to resize.']},
@@ -6579,6 +6580,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const tile=(inner,mb)=>'<div class="hero-card" style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:13px;padding:13px 15px;margin-bottom:'+(mb===undefined?14:mb)+'px;overflow-x:auto">'+inner+'</div>';
     const APREF=(()=>{try{return JSON.parse(localStorage.getItem('augurPrefs')||'{}');}catch(e){return {};}})();
     const savePref=(k,v)=>{APREF[k]=v;try{localStorage.setItem('augurPrefs',JSON.stringify(APREF));}catch(e){}};
+    // v64.57: is the ACTIVE compare tab deliberately empty (opened with ＋ and nothing picked yet)?
+    //   Shared by the COMPARE renderer and its click handlers so both agree: a deliberately empty
+    //   tab shows an empty state and starts picking from EMPTY, instead of silently inheriting the
+    //   "latest 3" fallback (which made every new tab converge on the same runs).
+    const cmpTabEmpty=()=>{const tabs=APREF.cmpTabs;
+      if(!Array.isArray(tabs)||!tabs.length)return false;
+      const n=Math.min(Math.max(0,+APREF.cmpTabN||0),tabs.length-1);
+      return Array.isArray(tabs[n])&&!tabs[n].length&&!((APREF.cmpIds||[]).length);};
     // ── Strategy identity: FAMILY number + family colour + "fam · ABBR ver-branch" label ──────
     const _norm=s=>String(s||'').toLowerCase().replace(/\.py$/,'').replace(/[^a-z0-9]/g,'');
     const _hashHue=s=>{let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h%360;};
@@ -10344,13 +10353,24 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   longer exist are reported instead of being dropped in silence.
         const _rawSel=(APREF.cmpIds||[]).map(String);
         const _missSel=_rawSel.filter(id=>!find(id));
-        const _usedDefault=!ids.length;
-        if(!ids.length)ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));
+        // v64.57 (owner: tabs/sets all show the same runs): a tab opened with ＋ is DELIBERATELY
+        //   empty and must stay empty. Before, an empty tab fell back to "the latest 3" for
+        //   display, and the row-click handler then toggled against that fallback — so the first
+        //   pick silently materialised the latest 3 INTO the new tab. Every tab therefore ended up
+        //   carrying the same default runs, which is why switching tabs changed nothing.
+        const _delibEmpty=cmpTabEmpty();
+        const _usedDefault=!ids.length&&!_delibEmpty;
+        if(_usedDefault)ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));
         const runs=ids.map(find).filter(Boolean);
         // ── PICKER (owner: could not tell how to select runs — it was a small dropdown). A checkbox
         //    run list: CLICK A ROW to add / remove it from the comparison (max 8). Filter by strategy;
         //    the selection persists across visits (APREF.cmpIds). ──
-        const _labOf=r=>(((typeof stratInfo==='function'&&stratInfo(r.strategy))?String(stratInfo(r.strategy).label||r.strategy||''):String(r.strategy||'')).trim()||'(no strategy label)');
+        // v64.57 (owner): group by the SAME key the Past Runs / RESULTS group view uses — family +
+        //   version ("7 · ORB 3.0"), so every ORB 3.0-x branch files under one tile instead of each
+        //   variant file becoming its own group. Was stratInfo().label (the raw per-file label).
+        const _labOf=r=>{const i=(typeof stratInfo==='function')?stratInfo(r.strategy):null;
+          if(i){const t=((i.num!=null?i.num+' · ':'')+(i.abbr||'')+(i.ver?' '+i.ver:'')).trim();if(t)return t;}
+          return String((i&&i.label)||r.strategy||'').trim()||'(no strategy label)';};
         const _cf=APREF.cmpStrat||'';
         const _strats=[];rs.forEach(r=>{const l=_labOf(r);if(_strats.indexOf(l)<0)_strats.push(l);});
         const _plist=(_cf?rs.filter(r=>_labOf(r)===_cf):rs).slice(0,200);
@@ -10407,7 +10427,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const lbl=t2.length?(t2.length<=4?t2.map(x2=>'#'+x2).join(' '):(t2.length+' runs')):'empty';
           return '<span data-cmptab="'+ti+'" title="comparison tab '+(ti+1)+': '+(t2.length?t2.map(x2=>'#'+x2).join(' · '):'empty — falls back to the latest 3')+'" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:9px;font-size:9px;font-weight:700;border:1px solid '+(on?'var(--blue)':'var(--border)')+';background:'+(on?'color-mix(in srgb,var(--blue) 12%,transparent)':'var(--bg1)')+';color:'+(on?'var(--blue)':'var(--text3)')+'">'+(ti+1)+' <span style="font-weight:400;color:var(--text5)">'+lbl+'</span>'+(_tabs.length>1?'<b data-cmptabdel="'+ti+'" title="close this tab (does not touch runs or saved sets)" style="color:var(--text5);font-weight:400;cursor:pointer;margin-left:2px">✕</b>':'')+'</span>';}).join('');
         // why-nothing-changed note: the empty-tab fallback and vanished run ids used to be silent.
-        const _selNote=(_usedDefault?'<span style="font-size:8px;color:var(--yellow)" title="this tab has no runs picked, so the comparison falls back to the most recent 3 runs — that is why it can look identical to another tab">⚠ empty tab — showing the latest '+ids.length+' by default</span>':'')
+        const _selNote=(_delibEmpty?'<span style="font-size:8px;color:var(--blue)" title="this tab is empty — pick runs in the list below and they stay in THIS tab only">this tab is empty — pick runs below</span>':'')
+          +(_usedDefault?'<span style="font-size:8px;color:var(--yellow)" title="no runs picked yet, so the comparison falls back to the most recent 3 runs">⚠ showing the latest '+ids.length+' by default</span>':'')
           +(_missSel.length?'<span style="font-size:8px;color:var(--yellow);margin-left:6px" title="these run ids were saved in this tab / set but are not in your run history any more">⚠ '+_missSel.length+' saved run'+(_missSel.length===1?'':'s')+' no longer exist ('+_missSel.map(x2=>'#'+x2).join(' ')+')</span>':'');
         const _tabsRow='<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:-2px 0 6px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5)" title="each tab is its own live comparison — switch freely, nothing needs saving">TABS</span>'+_tabChips+'<span data-cmptabnew title="open a NEW empty comparison tab and start picking runs immediately" style="cursor:pointer;font-size:10px;font-weight:700;padding:2px 9px;border-radius:9px;border:1px dashed var(--border);color:var(--text4)">＋</span>'+_selNote+'</div>';
         // ── #47 SAVED COMPARISON SETS: name the current selection, switch between saved
@@ -10612,13 +10633,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _scNote=(_cSc==='all')?'<div style="font-size:8px;color:var(--text5);margin-top:5px">IN-SAMPLE = each run best config measured on the window it was TUNED on — optimistic by construction. Switch to WALK-FORWARD or LOCKBOX for unseen-data-only comparisons, or TOTAL for the whole-run figure.</div>'
           :(_cSc==='tot'?'<div style="font-size:8px;color:var(--text5);margin-top:5px">TOTAL = the whole run end to end (in-sample + walk-forward + lockbox) read off the champion equity curve — the same number as the TOTAL column in a run report KPI matrix. The indented rows split it into the three stages; in-sample is the residual (TOTAL − walk-forward − lockbox) so the three always add up. A run with no walk-forward / lockbox stage is marked "IS only".</div>'
           :'<div style="font-size:8px;color:var(--text5);margin-top:5px">Out-of-sample slice — runs that did not run this test show a dash.</div>');
+        // v64.57: a deliberately empty tab renders an empty state instead of the comparison tiles
+        //   (there is nothing to compare) — the picker stays so you can fill this tab.
         body='<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">'
           +'<div style="flex:0 1 430px;min-width:310px">'+pickerTile+'</div>'
-          +'<div style="flex:1 1 480px;min-width:0">'
+          +(!runs.length?('<div style="flex:1 1 480px;min-width:0">'+tile('<div style="padding:40px 18px;text-align:center;color:var(--text5);font-size:var(--fsxs);line-height:2"><div style="font-size:12px;letter-spacing:3px;color:var(--text4);margin-bottom:6px">EMPTY COMPARISON TAB</div>Pick runs in the list on the left — they are added to <b style="color:var(--text3)">this tab only</b>, so each tab keeps its own comparison.</div>')+'</div>'):
+          ('<div style="flex:1 1 480px;min-width:0">'
             +tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px">COMPARE · '+runs.length+' run'+(runs.length===1?'':'s')+' <span style="font-weight:400;color:var(--text5);font-size:8px">· green = best in row · ✕ removes a run</span>'+scopeSeg+'</div><div style="overflow-x:auto"><table class="table"><thead>'+hdr+'</thead><tbody>'+mrows+'</tbody></table></div>'+_scNote)
             +tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px">EQUITY OVERLAY <span style="font-weight:400;color:var(--text5);font-size:8px">'+_ovlSub+'</span><button data-cmpexpand title="open the fullscreen multi-curve explorer" style="margin-left:auto;flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></div>'+legend+ovl)
-            +tile('<div class="lbl" style="margin-bottom:6px">NET P&L <span style="font-weight:400;color:var(--text5);font-size:8px">· whole-run best-config $ (see the OVERALL note above)</span></div>'+pnlBars)
-          +'</div></div>';
+            +tile('<div class="lbl" style="margin-bottom:6px">NET P&L <span style="font-weight:400;color:var(--text5);font-size:8px">· whole-run best-config $ (see the scope note above)</span></div>'+pnlBars)
+          +'</div>'))+'</div>';
       }
     }else if(augurSub==='rank'){
       const scored=(runHistory||[]).map(r=>({r:r,s:scoreRun(r)})).sort((a,b)=>b.s-a.s);
@@ -11355,7 +11379,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:effTo,preset:scopeVal,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};if(useCustom)base.grid=customGrid;const job=(mode==='validate')?Object.assign({},base,{type:'validate',date_from:vFrom,date_to:'',n_trials:vTrials,wf_folds:0,lockbox_months:vLockMo,transfer_to:(el('ex-xfer')&&el('ex-xfer').value)||null,discover:(el('ex-discover')&&el('ex-discover').value)||'auto',provider:el('ex-prov')?el('ex-prov').value:'ollama',n_rounds:parseInt(el('ex-rounds').value)||4,equity_points:parseInt(el('ex-eqpts')&&el('ex-eqpts').value)||400,dsr:true}):(mode==='gate_validate')?Object.assign({},base,{type:'gate_validate',params:{},lockbox_months:12,ml_filter:(el('ex-mlf')&&el('ex-mlf').value)||'xgb'})
       :(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000},(el('ex-mlf')&&el('ex-mlf').value!=='none')?{ml_filter:el('ex-mlf').value,ml_threshold:(parseInt(el('ex-mlth')&&el('ex-mlth').value)||50)/100}:{}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,wf_mode:(el('ex-wfmode')?el('ex-wfmode').value:'anchored'),top_n:10,dsr:true,mc_sims:500,pills:!(el('ex-pills')&&!el('ex-pills').checked)}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='cmp'){
-      const _cur=()=>{const rs=runHistory.slice().sort((a,b)=>b.id-a.id);let ids=(APREF.cmpIds||[]).map(String).filter(id=>rs.some(r=>String(r.id)===id));if(!ids.length)ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));return ids;};
+      // v64.57: mirrors the renderer — a deliberately empty tab starts from EMPTY, so picking a run
+      //   adds just that run instead of the "latest 3" fallback plus that run.
+      const _cur=()=>{const rs=runHistory.slice().sort((a,b)=>b.id-a.id);let ids=(APREF.cmpIds||[]).map(String).filter(id=>rs.some(r=>String(r.id)===id));if(!ids.length&&!cmpTabEmpty())ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));return ids;};
       // picker rows: click toggles the run in / out of the comparison (cap 8)
       content.querySelectorAll('[data-cmpk]').forEach(x=>{x.onclick=()=>{const id=String(x.dataset.cmpk);let ids=_cur();
         if(ids.indexOf(id)>=0)ids=ids.filter(i2=>i2!==id);else{if(ids.length>=8)return;ids.push(id);}
