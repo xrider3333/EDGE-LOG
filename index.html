@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.54';
+const VERSION='64.55';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.55', date:'2026-07-23', notes:['COMPARE ▸ SETS: saved comparison sets can be RENAMED — click the ✎ on a set chip (or double-click the chip). Clicking the chip still loads the set, ✕ still deletes it.','COMPARE: "clicking a tab or set changes nothing" is now explainable — each TAB chip lists the run ids it holds (so two tabs carrying the same runs are obvious), the set already on screen is highlighted blue with a ▸, an empty tab says it is falling back to the latest 3, and saved runs that no longer exist are called out instead of being dropped silently.']},
   {v:'64.54', date:'2026-07-23', notes:['Fixed the big empty space under the 2J filter pill — it had inherited a stale fixed height from when it was a card in another column, so it now fits its content. Added slim drag-handle rows above and below it, matching the chart tiles; you can also drag its bottom edge to resize.']},
   {v:'64.53', date:'2026-07-23', notes:['The 2J ML TRADE FILTER pill under 2A now opens by default (collapsed-by-default looked empty). Its before/after numbers and evidence show right away; the header still collapses it.']},
   {v:'64.52', date:'2026-07-23', notes:['The 2J ML TRADE FILTER graph is gone — its equity curves now live on the 2A funnel (crowned = ungated, pink = gated). The rest of 2J (the before/after numbers + evidence) is a COLLAPSIBLE pill that sits directly under 2A; the verdict chip shows even when collapsed. Click the header to open it.']},
@@ -10336,6 +10337,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const find=id=>{for(let i=0;i<rs.length;i++)if(String(rs[i].id)===String(id))return rs[i];return null;};
         // N-way: persisted set of run ids (default to the most recent 3)
         let ids=(APREF.cmpIds||[]).map(String).filter(id=>find(id));
+        // v64.55 (owner: "clicking a new set or tab doesnt change what i see"): remember WHY the
+        //   selection is what it is. An empty tab silently fell back to the latest 3, which looks
+        //   identical to the previous tab — so the fallback is now announced, and run ids that no
+        //   longer exist are reported instead of being dropped in silence.
+        const _rawSel=(APREF.cmpIds||[]).map(String);
+        const _missSel=_rawSel.filter(id=>!find(id));
+        const _usedDefault=!ids.length;
         if(!ids.length)ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));
         const runs=ids.map(find).filter(Boolean);
         // ── PICKER (owner: could not tell how to select runs — it was a small dropdown). A checkbox
@@ -10391,13 +10399,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(!_tabs||!_tabs.length)_tabs=[ids.slice()];
         const _tabN=Math.min(Math.max(0,+APREF.cmpTabN||0),_tabs.length-1);
         _tabs[_tabN]=ids.slice();
+        // v64.55 (owner): each chip shows the RUN IDS it holds (not just a count) — two tabs
+        //   carrying the same runs render the same comparison, and that is now visible at a glance
+        //   instead of looking like the click did nothing.
         const _tabChips=_tabs.map((t2,ti)=>{const on=ti===_tabN;
-          return '<span data-cmptab="'+ti+'" title="comparison tab '+(ti+1)+': '+(t2.length?t2.map(x2=>'#'+x2).join(' · '):'empty — defaults to the latest 3')+'" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:9px;font-size:9px;font-weight:700;border:1px solid '+(on?'var(--blue)':'var(--border)')+';background:'+(on?'color-mix(in srgb,var(--blue) 12%,transparent)':'var(--bg1)')+';color:'+(on?'var(--blue)':'var(--text3)')+'">'+(ti+1)+' <span style="font-weight:400;color:var(--text5)">'+t2.length+'</span>'+(_tabs.length>1?'<b data-cmptabdel="'+ti+'" title="close this tab (does not touch runs or saved sets)" style="color:var(--text5);font-weight:400;cursor:pointer;margin-left:2px">✕</b>':'')+'</span>';}).join('');
-        const _tabsRow='<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:-2px 0 6px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5)" title="each tab is its own live comparison — switch freely, nothing needs saving">TABS</span>'+_tabChips+'<span data-cmptabnew title="open a NEW empty comparison tab and start picking runs immediately" style="cursor:pointer;font-size:10px;font-weight:700;padding:2px 9px;border-radius:9px;border:1px dashed var(--border);color:var(--text4)">＋</span></div>';
+          const lbl=t2.length?(t2.length<=4?t2.map(x2=>'#'+x2).join(' '):(t2.length+' runs')):'empty';
+          return '<span data-cmptab="'+ti+'" title="comparison tab '+(ti+1)+': '+(t2.length?t2.map(x2=>'#'+x2).join(' · '):'empty — falls back to the latest 3')+'" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:9px;font-size:9px;font-weight:700;border:1px solid '+(on?'var(--blue)':'var(--border)')+';background:'+(on?'color-mix(in srgb,var(--blue) 12%,transparent)':'var(--bg1)')+';color:'+(on?'var(--blue)':'var(--text3)')+'">'+(ti+1)+' <span style="font-weight:400;color:var(--text5)">'+lbl+'</span>'+(_tabs.length>1?'<b data-cmptabdel="'+ti+'" title="close this tab (does not touch runs or saved sets)" style="color:var(--text5);font-weight:400;cursor:pointer;margin-left:2px">✕</b>':'')+'</span>';}).join('');
+        // why-nothing-changed note: the empty-tab fallback and vanished run ids used to be silent.
+        const _selNote=(_usedDefault?'<span style="font-size:8px;color:var(--yellow)" title="this tab has no runs picked, so the comparison falls back to the most recent 3 runs — that is why it can look identical to another tab">⚠ empty tab — showing the latest '+ids.length+' by default</span>':'')
+          +(_missSel.length?'<span style="font-size:8px;color:var(--yellow);margin-left:6px" title="these run ids were saved in this tab / set but are not in your run history any more">⚠ '+_missSel.length+' saved run'+(_missSel.length===1?'':'s')+' no longer exist ('+_missSel.map(x2=>'#'+x2).join(' ')+')</span>':'');
+        const _tabsRow='<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:-2px 0 6px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5)" title="each tab is its own live comparison — switch freely, nothing needs saving">TABS</span>'+_tabChips+'<span data-cmptabnew title="open a NEW empty comparison tab and start picking runs immediately" style="cursor:pointer;font-size:10px;font-weight:700;padding:2px 9px;border-radius:9px;border:1px dashed var(--border);color:var(--text4)">＋</span>'+_selNote+'</div>';
         // ── #47 SAVED COMPARISON SETS: name the current selection, switch between saved
         //    comparisons with one click (e.g. an ORB set vs a TTIBS set). Chips persist.
         const _sets=Array.isArray(APREF.cmpSets)?APREF.cmpSets:[];
-        const _setChips=_sets.map((s2,si)=>'<span data-cmpset="'+si+'" title="load this comparison: '+(s2.ids||[]).map(x2=>'#'+x2).join(' · ').replace(/"/g,'')+'" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:9px;font-size:9px;border:1px solid var(--border);background:var(--bg1);color:var(--text2)">'+String(s2.name||('set '+(si+1))).replace(/</g,'&lt;')+' <b style="color:var(--text5);font-weight:400">'+(s2.ids||[]).length+'</b><b data-cmpsetdel="'+si+'" title="delete this saved set (does not touch the runs)" style="color:var(--text5);font-weight:400;cursor:pointer;margin-left:2px">✕</b></span>').join('');
+        // v64.55 (owner): each chip carries a ✎ RENAME control (double-clicking the chip renames
+        //   too) alongside the ✕ delete — the name was fixed at save time before.
+        // v64.55 (owner): the set whose runs are ALREADY loaded is highlighted (blue, ▸) — clicking
+        //   it again correctly changes nothing, and now you can SEE that instead of guessing.
+        const _idKey=a=>(a||[]).map(String).slice().sort().join(',');
+        const _curKey=_idKey(ids);
+        const _setChips=_sets.map((s2,si)=>{const on=_idKey(s2.ids)===_curKey;
+          return '<span data-cmpset="'+si+'" title="click to load this comparison: '+(s2.ids||[]).map(x2=>'#'+x2).join(' · ').replace(/"/g,'')+' · double-click to rename'+(on?' — ALREADY LOADED (this is the comparison on screen)':'')+'" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:9px;font-size:9px;border:1px solid '+(on?'var(--blue)':'var(--border)')+';background:'+(on?'color-mix(in srgb,var(--blue) 12%,transparent)':'var(--bg1)')+';color:'+(on?'var(--blue)':'var(--text2)')+'">'+(on?'▸ ':'')+String(s2.name||('set '+(si+1))).replace(/</g,'&lt;')+' <b style="color:var(--text5);font-weight:400">'+(s2.ids||[]).length+'</b><b data-cmpsetren="'+si+'" title="rename this set" style="color:var(--text5);font-weight:400;cursor:pointer;margin-left:2px">✎</b><b data-cmpsetdel="'+si+'" title="delete this saved set (does not touch the runs)" style="color:var(--text5);font-weight:400;cursor:pointer">✕</b></span>';}).join('');
         const _setsRow='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-2px 0 8px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5)" title="saved comparison sets — save the current selection under a name, then switch between comparisons with one click">SETS</span>'+_setChips+'<span data-cmpsetsave title="save the CURRENT selection as a named set you can switch back to any time" style="cursor:pointer;font-size:9px;padding:2px 9px;border-radius:9px;border:1px dashed var(--border);color:var(--text4)">＋ save current</span></div>';
         const pickerTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">PICK RUNS</span><span style="font-size:8px;color:var(--text5)">click a row to add / remove · max 8</span><span style="margin-left:auto;display:flex;gap:8px;align-items:center">'+_grpBtn+_bestBtn+'<select data-cmpstrat style="width:auto;padding:2px 6px;font-size:var(--fsxs)">'+stratOpts+'</select><span data-cmpclear title="reset to the latest 3 runs" style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">reset</span></span></div>'
           +_tabsRow+_setsRow
@@ -11336,8 +11358,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const cur=Math.min(Math.max(0,+APREF.cmpTabN||0),tabs.length-1);tabs[cur]=(APREF.cmpIds||[]).slice();
         tabs.push([]);savePref('cmpTabs',tabs);savePref('cmpTabN',tabs.length-1);savePref('cmpIds',[]);renderApp();};
       // #47 saved comparison sets: load / delete / save-current
-      content.querySelectorAll('[data-cmpset]').forEach(ch=>{ch.onclick=(e)=>{if(e.target&&e.target.getAttribute&&e.target.getAttribute('data-cmpsetdel')!=null)return;
-        const st=(APREF.cmpSets||[])[+ch.dataset.cmpset];if(st&&st.ids&&st.ids.length){savePref('cmpIds',st.ids.map(String).slice(0,8));renderApp();}};});
+      // v64.55 (owner): a chip click LOADS the set, ✎ (or a double-click on the chip) RENAMES it,
+      //   ✕ deletes it — the ren/del guards keep those clicks from also loading the set.
+      const _cmpRen=si=>{const arr=(APREF.cmpSets||[]).slice();const st=arr[si];if(!st)return;
+        const nm=window.prompt('Rename this comparison set:',String(st.name||('set '+(si+1))));
+        if(nm==null)return;const t=String(nm).trim();if(!t)return;
+        arr[si]=Object.assign({},st,{name:t.slice(0,28)});savePref('cmpSets',arr);renderApp();};
+      content.querySelectorAll('[data-cmpset]').forEach(ch=>{ch.onclick=(e)=>{if(e.target&&e.target.getAttribute&&(e.target.getAttribute('data-cmpsetdel')!=null||e.target.getAttribute('data-cmpsetren')!=null))return;
+        const st=(APREF.cmpSets||[])[+ch.dataset.cmpset];if(st&&st.ids&&st.ids.length){savePref('cmpIds',st.ids.map(String).slice(0,8));renderApp();}};
+        ch.ondblclick=(e)=>{e.stopPropagation();e.preventDefault();_cmpRen(+ch.dataset.cmpset);};});
+      content.querySelectorAll('[data-cmpsetren]').forEach(x=>{x.onclick=(e)=>{e.stopPropagation();_cmpRen(+x.dataset.cmpsetren);};});
       content.querySelectorAll('[data-cmpsetdel]').forEach(x=>{x.onclick=(e)=>{e.stopPropagation();
         const arr=(APREF.cmpSets||[]).slice();arr.splice(+x.dataset.cmpsetdel,1);savePref('cmpSets',arr);renderApp();};});
       const _csave=content.querySelector('[data-cmpsetsave]');if(_csave)_csave.onclick=()=>{
