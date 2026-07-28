@@ -466,6 +466,48 @@ class FirestoreQueue:
             pass
         return int(time.time())
 
+    def _family_of(self, strategy) -> str:
+        """Coarse master family for a strategy (must match the web resolver + backfill), so every
+        ORB / TTIBS / ENGU-Q run gets one stable per-family number (ORB-1, ORB-2, ...)."""
+        import re
+        s0 = str(strategy or "").upper()
+        if "ORB_FADE" in s0 or "ORBFADE" in s0 or "ORB FADE" in s0: return "ORB-FADE"
+        if s0.startswith("ORB"): return "ORB"
+        if s0.startswith("ENGUQ"): return "ENGU-Q"
+        if s0.startswith("TTIBS") or s0.startswith("TBISS"): return "TTIBS"
+        if s0.startswith("REVERT"): return "REVERT"
+        if "SUPERTREND" in s0 or s0.startswith("STRICT"): return "SUPERTREND"
+        if s0.startswith("VWAP"): return "VWAP-FADE"
+        if s0.startswith("OVERNIGHT"): return "OVERNIGHT"
+        if s0.startswith("RSIDIV"): return "RSIDIV"
+        # new/unknown strategy -> derive a key from the leading name token (strip version/ext)
+        base = re.sub(r"\.PY$", "", s0)
+        m = re.match(r"[A-Z][A-Z0-9]*", base)
+        return m.group(0) if m else "MISC"
+
+    def _assign_family(self, uid, strategy):
+        """Next STABLE per-family number via a transaction on meta/familyCounters (concurrent-safe;
+        never renumbers, deleting a run leaves a gap). Returns (famKey, famSeq) or (None, None)."""
+        try:
+            from firebase_admin import firestore
+            famkey = self._family_of(strategy)
+            ref = (self.db.collection("users").document(uid)
+                   .collection("meta").document("familyCounters"))
+            txn = self.db.transaction()
+
+            @firestore.transactional
+            def _bump(t):
+                data = ref.get(transaction=t).to_dict() or {}
+                counters = dict(data.get("counters") or {})
+                nxt = int(counters.get(famkey, 0)) + 1
+                counters[famkey] = nxt
+                t.set(ref, {"counters": counters, "scheme": "stable-v1"}, merge=True)
+                return nxt
+
+            return famkey, _bump(txn)
+        except Exception:
+            return None, None
+
     def _master_of(self, job):
         try:
             return ae.find_master(job.get("instrument"), job.get("timeframe", "5m"),
@@ -525,6 +567,7 @@ class FirestoreQueue:
             best = (((_gv.get("lockbox") or {}).get("gated"))
                     or ((_gv.get("chosen") or {}).get("pre")) or {})
         rid = self._next_run_id(uid)
+        famkey, famseq = self._assign_family(uid, job.get("strategy", ""))
         mm = self._master_of(job)
         df, dt, days = self._run_window(job, result, mm)
         equity = result.get("equity") or self._winner_equity(job, result.get("best_params"))
@@ -613,8 +656,12 @@ class FirestoreQueue:
             "seasonality": result.get("seasonality"),
             "source_web": True,
         })
+        if famkey is not None:
+            doc["famKey"] = famkey
+            doc["famSeq"] = famseq
         self.db.collection("users").document(uid).collection("runs").document(str(rid)).set(doc)
-        log(f"    -> saved to Runs history (#{rid})")
+        log(f"    -> saved to Runs history (#{rid}"
+            + (f" · {famkey}-{famseq}" if famkey is not None else "") + ")")
         # best-effort: save a per-trade blotter CSV next to the run (blotters/) so every
         # Auto-Validate / grid run has a downloadable trade-by-trade record. Never fail the
         # run on this — a bad master or 0-trade config just skips it.
