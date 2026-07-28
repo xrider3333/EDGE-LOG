@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.60';
+const VERSION='64.61';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.61', date:'2026-07-28', notes:['FIXED: the pink GATE EQUITY curve was missing on ENSEMBLE runs (e.g. #175). The 2A funnel only overlays the gate curve when it renders as a walk-forward survivor FUNNEL; an ensemble has no survivor pool, so the overlay was silently dropped even though the 300-point curves are saved. The 2J ML TRADE FILTER pill now draws the FULL gate curve itself (every trade grey vs gate-kept pink) whenever the 2A funnel cannot host it — so the curve shows regardless. Normal validates are unchanged (curve stays on 2A, no duplicate).']},
   {v:'64.60', date:'2026-07-28', notes:['2J ML TRADE FILTER now shows a GATE EQUITY visual on EVERY gated run — including older ones. Runs made before v64.13 carry the gate numbers but not the saved equity CURVE, so the pink path could not draw on the 2A funnel; those runs now get a before/after ENDPOINT bar (every trade vs the trades the gate kept) drawn from the totals they DO carry, labelled "endpoints only" with a re-run note. Runs that carry the full curve are unchanged (pink path on 2A).']},
   {v:'64.59', date:'2026-07-23', notes:['COMPARE ▸ PICK RUNS group view: opening a strategy now lists its runs by RUN NUMBER, newest at the top, so the most recent work is what you see first. The tile header still reports that strategy best run.','Removed the "find run #" search box added in 64.58 — not what was wanted.']},
   {v:'64.57', date:'2026-07-23', notes:['FIXED the real reason switching COMPARE tabs changed nothing: a tab opened with ＋ fell back to showing "the latest 3", and the first run you clicked was toggled against that fallback — so the new tab silently absorbed those 3 default runs. Every tab therefore ended up holding the same comparison. An empty tab now stays empty (it shows an EMPTY COMPARISON TAB panel) and picking a run adds only that run, so each tab keeps its own set.','COMPARE grouping now matches the Past Runs group view — grouped by strategy FAMILY + VERSION ("7 · ORB 3.0"), so all the ORB 3.0-x branches file under one tile instead of every variant file making its own group.']},
@@ -9492,6 +9493,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +_bar('gate kept',gD,help?'var(--green)':'var(--red)')
             +'</div>';
         })();
+        // v64.61 (owner): the FULL gate curve, drawn here when the 2A funnel WON'T show it.
+        //   The 2A pink overlay only renders inside the survivor-FUNNEL branch (selMode) — a run
+        //   with real gate curves but NO walk-forward selection pool (an ENSEMBLE, e.g. #175) has
+        //   selMode=false, so 2A silently dropped the pink path even though the 300-pt cum_gated /
+        //   cum_ungated are saved. Detect that case and draw the real curve (gateEquityHtml) right
+        //   here, so it shows regardless; on normal validates 2A shows it and this stays '' (no dup).
+        const _gc2j=(function(){
+          if(!_geq)return '';   // no saved curve → _epViz endpoint bar already handled it
+          const _a2On=(APREF.a2gate==null?1:+APREF.a2gate);
+          const _selOk=!!(d.selection&&Array.isArray(d.selection.candidates)&&d.selection.candidates.some(c=>c&&c.equity&&Array.isArray(c.equity.cum)&&c.equity.cum.length>1));
+          const _shownOn2A=!!(_a2On&&_selOk&&Array.isArray(d.equity_top)&&d.equity_top.length>=2);
+          if(_shownOn2A)return '';   // 2A funnel is drawing the pink overlay — don't duplicate
+          const _cv=gateEquityHtml(_geq,mlt,'#e05fa0');
+          if(!_cv)return '';
+          return '<div style="margin:2px 0 10px"><div style="font-size:8px;color:var(--text5);margin-bottom:3px;display:flex;align-items:center;gap:5px"><span style="font-size:11px;font-variant-emoji:text">📈</span>GATE EQUITY — every trade (grey) vs the trades the gate kept (<span style="color:#e05fa0;font-weight:700">pink</span>)<span style="color:var(--text5);cursor:help" title="Shown here rather than on the 2A funnel because this run has no walk-forward survivor pool (e.g. an ensemble), so the funnel cannot host the overlay. Same 300-point gated / ungated curves, x = trade number in time order.">ⓘ</span></div>'+_cv+'</div>';
+        })();
         // ── the pick + collapsed EVIDENCE (sweep chart + candidates table / full gate detail) ──
         const _evOpen=!!window._gvEvOpen;
         let _gBody;
@@ -9504,10 +9521,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // v64.43 (owner): _gvP.verdict dropped here — it repeated the LOCKBOX-FAILED chip.
           // v64.52 (owner): the gate EQUITY graph (_ovlNote) is dropped here — it is now overlaid
           //   ON the 2A funnel (crowned = ungated, pink = gated), so a second copy is redundant.
-          _gBody=_hero+_epViz+_pickLine+_gvP.earns+_evTile(_evTog,_evOpen,('<div data-r3graph style="max-width:540px;margin-top:8px"><style>[data-r3graph] .rschart-box{height:174px!important;resize:none}</style>'+_gvP.graph+'</div>'+_gvP.table));
+          _gBody=_hero+_epViz+_gc2j+_pickLine+_gvP.earns+_evTile(_evTog,_evOpen,('<div data-r3graph style="max-width:540px;margin-top:8px"><style>[data-r3graph] .rschart-box{height:174px!important;resize:none}</style>'+_gvP.graph+'</div>'+_gvP.table));
         }else{
           const _evTog='<div data-r3ev title="the full gate report — before/after table, feature attribution (SHAP), calibration and discrimination. Click to '+(_evOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">'+(_evOpen?'▴ hide the full gate detail':'▾ FULL GATE DETAIL — feature attribution · calibration ⓘ')+'</div>';
-          _gBody=_hero+_epViz+_evTile(_evTog,_evOpen,('<div style="margin-top:8px">'+gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt)+'</div>'));
+          _gBody=_hero+_epViz+_gc2j+_evTile(_evTog,_evOpen,('<div style="margin-top:8px">'+gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt)+'</div>'));
         }
         // v64.42 (owner): the gate is tile 2J of section 2 (not a standalone "3"). The verdict
         //   rides the SAME row as the title as a short colored chip (full sentence on hover);
