@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.61';
+const VERSION='64.62';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.62', date:'2026-07-28', notes:['The pink GATE-KEPT equity line now overlays the 2A chart on ENSEMBLE runs too (e.g. #175) — before it only drew on the walk-forward FUNNEL, so ensembles (no survivor pool) never showed it on 2A. The "🚪 gated" toggle + a gate-kept endpoint label now appear on the TOP-CONFIGS chart as well. The gated curve is folded into the y-scale so it never clips.','NEW family run ids: every run now carries a stable per-family number alongside its run # — ORB-1..8, TTIBS-1..9, ENGU-Q-1..7, etc. Shown under the run number in Past Runs and next to REPORT: in the run header. It never renumbers (deleting a run leaves a gap); references stay put.']},
   {v:'64.61', date:'2026-07-28', notes:['FIXED: the pink GATE EQUITY curve was missing on ENSEMBLE runs (e.g. #175). The 2A funnel only overlays the gate curve when it renders as a walk-forward survivor FUNNEL; an ensemble has no survivor pool, so the overlay was silently dropped even though the 300-point curves are saved. The 2J ML TRADE FILTER pill now draws the FULL gate curve itself (every trade grey vs gate-kept pink) whenever the 2A funnel cannot host it — so the curve shows regardless. Normal validates are unchanged (curve stays on 2A, no duplicate).']},
   {v:'64.60', date:'2026-07-28', notes:['2J ML TRADE FILTER now shows a GATE EQUITY visual on EVERY gated run — including older ones. Runs made before v64.13 carry the gate numbers but not the saved equity CURVE, so the pink path could not draw on the 2A funnel; those runs now get a before/after ENDPOINT bar (every trade vs the trades the gate kept) drawn from the totals they DO carry, labelled "endpoints only" with a re-run note. Runs that carry the full curve are unchanged (pink path on 2A).']},
   {v:'64.59', date:'2026-07-23', notes:['COMPARE ▸ PICK RUNS group view: opening a strategy now lists its runs by RUN NUMBER, newest at the top, so the most recent work is what you see first. The tile header still reports that strategy best run.','Removed the "find run #" search box added in 64.58 — not what was wanted.']},
@@ -7012,6 +7013,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         poolAll.forEach(c=>c.equity.cum.forEach(v=>extYs.push(v*mult)));
         if(hasLB)lbCs.forEach(c=>{const anchor=c.equity.final,base=c.lb_equity.base;c.lb_equity.cum.forEach(v=>extYs.push((anchor+(v-base))*mult));});
       }
+      // v64.62 (owner): the ML gate overlay now draws in BOTH modes (was funnel-only, so an
+      //   ENSEMBLE with no survivor pool never showed the pink line on 2A). Compute it once here
+      //   and fold the gated curve into the y-scale so it can never clip off the top.
+      const _gEqO=(d.gate_validate&&d.gate_validate.equity)||(d.ml_gate&&d.ml_gate.equity)||null;
+      const _hasGateO=!!(_gEqO&&Array.isArray(_gEqO.cum_gated)&&_gEqO.cum_gated.length>1);
+      const _a2gateO=(APREF.a2gate==null?1:+APREF.a2gate);
+      if(_hasGateO&&_a2gateO)_gEqO.cum_gated.forEach(v=>extYs.push(v*mult));
       // draw ALL stored curves; the slider picks how many get COLOUR — the rest stay as faint
       //   grey context lines (owner request) instead of disappearing. Slider max = stored curves.
       // v64.27 (owner): DEFAULT = every stored curve (the slider already spans them all).
@@ -7063,6 +7071,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
         ? series.slice(0,_cfgShow).map(s=>'<polyline points="'+_seg(s,0,fIS)+'" fill="none" stroke="var(--text5)" stroke-width="0.5" opacity="0.16"/>').join('')
         : order.map(i=>(i<_cfgShow?path(series[i],colOf(i),i===0?1.4:0.8,i===0?1:0.72):path(series[i],'var(--text5)',0.55,0.15))).join('');
       const zeroY=Yv(0);
+      // v64.62 (owner): the pink gated curve for the NON-funnel path (selMode builds its own in
+      //   selSvg + a gutter pill). Same x/y as the chart; endpoint marked with an in-svg label.
+      let _gateOvNS='',_gateChipNS='';
+      if(_hasGateO){
+        if(_a2gateO){const gc=_gEqO.cum_gated,gn=gc.length,_gf=gc[gn-1]*mult,_gy=Yv(_gf);
+          const gp=gc.map((v,i)=>((xL+(xR-xL)*(gn<=1?1:i/(gn-1))).toFixed(1))+' '+Yv(v*mult).toFixed(1)).join(' ');
+          _gateOvNS='<polyline points="'+gp+'" fill="none" stroke="#e05fa0" stroke-width="0.9" opacity="0.95" stroke-dasharray="1.6 1.3" stroke-linecap="round"/>'
+            +'<circle cx="'+xR.toFixed(1)+'" cy="'+_gy.toFixed(1)+'" r="1.5" fill="#e05fa0"/>'
+            +'<text x="'+(xR-1).toFixed(1)+'" y="'+(_gy-2).toFixed(1)+'" text-anchor="end" font-size="4.6" font-weight="700" fill="#e05fa0" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.3">'+fmtAx(_gf,1)+' 🚪 gate-kept</text>';}
+        _gateChipNS='<span data-a2gate="'+(_a2gateO?0:1)+'" title="overlay the ML TRADE FILTER (2J) gated equity on this chart — the same trades with the filter skipping the ones it scores low. Pink = the trades the gate kept." style="cursor:pointer;font-size:8px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid '+(_a2gateO?'#e05fa0':'var(--border)')+';background:'+(_a2gateO?'color-mix(in srgb,#e05fa0 16%,transparent)':'var(--bg2)')+';color:'+(_a2gateO?'#e05fa0':'var(--text3)')+'">🚪 gated</span>';
+      }
       // visible horizontal $ gridlines running THROUGH the plot (xL→xR) + compact $ labels just
       //   right of the NET (yellow) axis — denser (~5 steps) and smaller than the old shared chrome.
       const _niceE=v=>{v=Math.abs(v)||1;const e=Math.pow(10,Math.floor(Math.log10(v)));const f=v/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
@@ -7189,7 +7208,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   info box, and the configs slider is right-aligned on the title row.
       const _hdr=selMode
         ?(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_selTip+'<br><br>Path: all configs → IS door → top-K walk-forward → top-3 lockbox.</div>')+' CONFIG FUNNEL <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex-shrink:1;min-width:0;overflow:hidden;white-space:nowrap">'+_gateChip+cfgSlider+'</span></div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
-        :(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_eqTip+'</div>')+' TOP CONFIGS PNL'+selDrop+'<span style="margin-left:auto;display:inline-flex">'+cfgSlider+'</span></div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
+        :(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_eqTip+'</div>')+' TOP CONFIGS PNL'+selDrop+'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px">'+_gateChipNS+cfgSlider+'</span></div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
       // v64.46 (owner): the funnel (selMode) now ALSO carries a data-xh descriptor, so the expand
       //   modal's crosshair shows date + equity $ under the cursor (same readout as 1A). x is a
       //   linear date interp across the whole window (optimize start → lockbox end) — approximate
@@ -7197,7 +7216,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _svgStr='<svg viewBox="0 0 '+W+' '+H+'" '+(selMode?'preserveAspectRatio="none" style="display:block;width:100%;height:100%"':'width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"')+((selMode&&_xd0&&_xd1)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:_xd0,x1:_xd1,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,xl:'',yl:'equity'}))+'"':((!selMode&&d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,yl:'equity'}))+'"':''))+'>'
         +selBands
         +grid
-        +'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>'+lines+selSvg+winTag+(selMode?'':c2YTitle(H,'equity $'))+'</svg>';
+        +'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>'+lines+selSvg+(selMode?'':_gateOvNS)+winTag+(selMode?'':c2YTitle(H,'equity $'))+'</svg>';
       // v64.31 (owner): selMode = PRE-BOXED row exactly like 1A-1D — chart fills the row, the
       //   $ scale + endpoint pills live in the 44px HTML gutter, handle row underneath.
       const _body=selMode
@@ -9206,7 +9225,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    (instrument · configs · took · cost · ran-date) is DROPPED — it already lives in Past Runs.
       const hdrHtml='<div id="res-head" style="display:flex;align-items:center;gap:7px;margin:0 0 10px;white-space:nowrap;position:sticky;position:-webkit-sticky;top:47px;z-index:6;background:transparent;padding:3px 0">'
         +'<span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:13px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span>'
-        +'<span class="lbl" style="font-size:11px;letter-spacing:1px;color:var(--text4);flex:0 0 auto">REPORT: '+d.id+'</span>'
+        +'<span class="lbl" style="font-size:11px;letter-spacing:1px;color:var(--text4);flex:0 0 auto">REPORT: '+d.id+((d.famKey&&d.famSeq!=null)?' <span title="family run id — chronological within '+d.famKey+', stable" style="color:var(--text3);font-weight:700">· '+d.famKey+'-'+d.famSeq+'</span>':'')+'</span>'
         +'<span style="font-size:12px;font-weight:600;flex:0 0 auto;padding-right:2px">'+stratTag(d.strategy,'12px')+'</span>'
         // the numbered checklist "tiles" now live INLINE in the header (fill the middle, squish to fit)
         +'<span id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex:1 1 auto;min-width:40px;overflow:hidden">'+segs+'</span>'
@@ -9501,10 +9520,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   here, so it shows regardless; on normal validates 2A shows it and this stays '' (no dup).
         const _gc2j=(function(){
           if(!_geq)return '';   // no saved curve → _epViz endpoint bar already handled it
-          const _a2On=(APREF.a2gate==null?1:+APREF.a2gate);
-          const _selOk=!!(d.selection&&Array.isArray(d.selection.candidates)&&d.selection.candidates.some(c=>c&&c.equity&&Array.isArray(c.equity.cum)&&c.equity.cum.length>1));
-          const _shownOn2A=!!(_a2On&&_selOk&&Array.isArray(d.equity_top)&&d.equity_top.length>=2);
-          if(_shownOn2A)return '';   // 2A funnel is drawing the pink overlay — don't duplicate
+          // v64.62: the 2A chart now hosts the gate overlay in BOTH modes (funnel + top-configs),
+          //   so it shows there whenever 2A can render at all (equity_top present). Only fall back
+          //   to drawing the full curve here when 2A structurally can't (no equity_top).
+          const _canShow2A=Array.isArray(d.equity_top)&&d.equity_top.length>=2;
+          if(_canShow2A)return '';   // 2A is hosting the pink overlay — don't duplicate
           const _cv=gateEquityHtml(_geq,mlt,'#e05fa0');
           if(!_cv)return '';
           return '<div style="margin:2px 0 10px"><div style="font-size:8px;color:var(--text5);margin-bottom:3px;display:flex;align-items:center;gap:5px"><span style="font-size:11px;font-variant-emoji:text">📈</span>GATE EQUITY — every trade (grey) vs the trades the gate kept (<span style="color:#e05fa0;font-weight:700">pink</span>)<span style="color:var(--text5);cursor:help" title="Shown here rather than on the 2A funnel because this run has no walk-forward survivor pool (e.g. an ensemble), so the funnel cannot host the overlay. Same 300-point gated / ungated curves, x = trade number in time order.">ⓘ</span></div>'+_cv+'</div>';
@@ -10848,7 +10868,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const trows=sorted.length?sorted.map(r=>{const on=String(r.id)===String(d.id);const T=_T(r);const pnl=T.net||0;const sc=scoreRun(r);const vd=r.validate?r.validate.verdict:'';const dd=T.dd||0;const shp=T.sharpe;const wf=_wfHeld(r);const src=r.source_name||r.data_source||'';const ik=_instShort(r.instrument);
           return '<tr class="arow" data-run="'+r.id+'" style="cursor:pointer;'+(on?'background:var(--bg1)':'')+'">'
             +'<td style="text-align:center"><span data-star="'+r.id+'" title="star" style="cursor:pointer;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span></td>'
-            +'<td style="text-align:right;color:var(--text3);font-variant-numeric:tabular-nums">'+r.id+'</td>'
+            +'<td style="text-align:right;color:var(--text3);font-variant-numeric:tabular-nums;white-space:nowrap">'+r.id+((r.famKey&&r.famSeq!=null)?'<div title="family run id — chronological within '+r.famKey+', stable (never renumbers)" style="margin-top:1px;font-size:7.5px;color:var(--text4);font-weight:700;letter-spacing:.2px">'+r.famKey+'-'+r.famSeq+'</div>':'')+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+_dtmini(r.timestamp)+'</td>'
             +'<td style="white-space:nowrap">'+stratTag(r.strategy)+(vd?' <span style="font-size:8px;color:'+(vd==='PASS'?'var(--green)':vd==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vd+'</span>':'')+'</td>'
             +'<td style="text-align:right;font-variant-numeric:tabular-nums;color:var(--text2)" title="total trades in this run">'+(T.trades||0).toLocaleString()+'</td>'
