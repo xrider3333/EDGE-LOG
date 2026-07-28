@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.62';
+const VERSION='64.63';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.63', date:'2026-07-28', notes:['Family run ids now also show in COMPARE (the run picker + each comparison column header) and in the Library run list — matching Past Runs and the run-report header. New runs get their family id stamped automatically by the PC runner from now on.']},
   {v:'64.62', date:'2026-07-28', notes:['The pink GATE-KEPT equity line now overlays the 2A chart on ENSEMBLE runs too (e.g. #175) — before it only drew on the walk-forward FUNNEL, so ensembles (no survivor pool) never showed it on 2A. The "🚪 gated" toggle + a gate-kept endpoint label now appear on the TOP-CONFIGS chart as well. The gated curve is folded into the y-scale so it never clips.','NEW family run ids: every run now carries a stable per-family number alongside its run # — ORB-1..8, TTIBS-1..9, ENGU-Q-1..7, etc. Shown under the run number in Past Runs and next to REPORT: in the run header. It never renumbers (deleting a run leaves a gap); references stay put.']},
   {v:'64.61', date:'2026-07-28', notes:['FIXED: the pink GATE EQUITY curve was missing on ENSEMBLE runs (e.g. #175). The 2A funnel only overlays the gate curve when it renders as a walk-forward survivor FUNNEL; an ensemble has no survivor pool, so the overlay was silently dropped even though the 300-point curves are saved. The 2J ML TRADE FILTER pill now draws the FULL gate curve itself (every trade grey vs gate-kept pink) whenever the 2A funnel cannot host it — so the curve shows regardless. Normal validates are unchanged (curve stays on 2A, no duplicate).']},
   {v:'64.60', date:'2026-07-28', notes:['2J ML TRADE FILTER now shows a GATE EQUITY visual on EVERY gated run — including older ones. Runs made before v64.13 carry the gate numbers but not the saved equity CURVE, so the pink path could not draw on the 2A funnel; those runs now get a before/after ENDPOINT bar (every trade vs the trades the gate kept) drawn from the totals they DO carry, labelled "endpoints only" with a re-run note. Runs that carry the full curve are unchanged (pink path on 2A).']},
@@ -10161,7 +10162,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const runLine=r=>{const net=fmtUsd(r.best_pnl_usd||0);const pf=(r.best_pf!=null&&!isNaN(+r.best_pf))?(+r.best_pf).toFixed(2):'—';
         const dt=(''+(r.timestamp||'')).slice(0,10)||'—';const sc=_escH(r.scope||r.preset||'run');const pc=(r.best_pnl_usd||0)>=0?'var(--green)':'var(--red)';
         return '<div class="librun" data-openrun="'+r.id+'" title="double-click to open run #'+r.id+' report" style="display:flex;gap:9px;align-items:center;padding:3px 7px;cursor:pointer;white-space:nowrap;overflow:hidden">'
-          +'<span style="color:var(--text5);font-weight:700;min-width:42px">#'+r.id+'</span>'
+          +'<span style="color:var(--text5);font-weight:700;min-width:66px">#'+r.id+((r.famKey&&r.famSeq!=null)?' <span style="color:var(--text4);font-size:8px" title="family run id — stable per-family number">'+r.famKey+'-'+r.famSeq+'</span>':'')+'</span>'
           +'<span style="color:var(--text3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">'+sc+'</span>'
           +'<span style="color:var(--text5);min-width:72px;text-align:right">'+dt+'</span>'
           +'<span style="color:'+pc+';font-weight:600;min-width:72px;text-align:right">'+net+'</span>'
@@ -10445,7 +10446,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           return '<div data-cmpk="'+r.id+'" style="display:flex;align-items:center;gap:7px;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:var(--fsxs);'+(on?'background:color-mix(in srgb,var(--blue) 13%,transparent);':'')+'" title="'+(on?'click to remove from the comparison':'click to add to the comparison')+'">'
             +'<span style="flex:0 0 12px;text-align:center;color:var(--yellow)"'+(isBest?' title="best run of this strategy"':'')+'>'+(isBest?'★':'')+'</span>'
             +'<span style="flex:0 0 13px;text-align:center;color:'+(on?'var(--blue)':'var(--text5)')+'">'+(on?'☑':'☐')+'</span>'
-            +'<span style="flex:0 0 33px;text-align:right;color:var(--text3)">#'+r.id+'</span>'
+            +'<span style="flex:0 0 33px;text-align:right;color:var(--text3)">#'+r.id+'</span>'+((r.famKey&&r.famSeq!=null)?'<span style="flex:0 0 auto;font-size:8px;font-weight:700;color:var(--text5)" title="family run id">'+r.famKey+'-'+r.famSeq+'</span>':'')
             +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+stratTag(r.strategy)+'</span>'
             +'<span style="flex:0 0 52px;font-size:8px;color:var(--text5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+instTag(r.instrument)+' '+(r.timeframe||'')+'</span>'
             +'<span style="flex:0 0 58px;text-align:right;color:'+((r.best_pnl_usd||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(r.best_pnl_usd||0))+'</span>'
@@ -10575,7 +10576,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           {l:'Verdict',f:x=>x.validate?'<b style="color:'+(x.validate.verdict==='PASS'?'var(--green)':x.validate.verdict==='WEAK'?'var(--yellow)':'var(--red)')+'">'+x.validate.verdict+'</b>':'—'}];
         const _cSc=(APREF.cmpScope==='wf'||APREF.cmpScope==='lb'||APREF.cmpScope==='tot')?APREF.cmpScope:'all';
         const M=M_id.concat(_cSc==='wf'?M_wf:(_cSc==='lb'?M_lb:(_cSc==='tot'?M_tot:M_all)));
-        const hdr='<tr><th></th>'+runs.map(r=>'<th style="white-space:nowrap">#'+r.id+' '+stratTag(r.strategy)+' <span data-cmp-rm="'+r.id+'" title="remove" style="cursor:pointer;color:var(--text5)">✕</span></th>').join('')+'</tr>';
+        const hdr='<tr><th></th>'+runs.map(r=>'<th style="white-space:nowrap">#'+r.id+((r.famKey&&r.famSeq!=null)?' <span style="font-size:8px;color:var(--text4);font-weight:700">'+r.famKey+'-'+r.famSeq+'</span>':'')+' '+stratTag(r.strategy)+' <span data-cmp-rm="'+r.id+'" title="remove" style="cursor:pointer;color:var(--text5)">✕</span></th>').join('')+'</tr>';
         let _lastSec=null;
         const mrows=M.map(m=>{let bi=-1;if(m.v&&m.b){let bv=null;runs.forEach((r,i)=>{const val=m.v(r);if(bv===null||(m.b==='max'?val>bv:val<bv)){bv=val;bi=i;}});}
           const secRow=(m.sec&&m.sec!==_lastSec)?('<tr><td colspan="'+(runs.length+1)+'" style="padding:9px 6px 2px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+m.sec+'</td></tr>'):'';
@@ -10960,7 +10961,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _gRow=(r,isCh)=>{const T=_T(r),sc=scoreRun(r),on=String(r.id)===String(d.id);const _bi=stratInfo(r.strategy);
           return '<div data-run="'+r.id+'" style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:var(--fsxs);'+(isCh?'background:color-mix(in srgb,var(--green) 9%,transparent);':'')+(on?'outline:1px solid var(--blue);':'')+'" title="open this run">'
             +'<span style="width:12px;text-align:center;color:var(--green)">'+(isCh?'★':'')+'</span>'
-            +'<span style="width:34px;text-align:right;color:var(--text3)">#'+r.id+'</span>'
+            +'<span style="width:34px;text-align:right;color:var(--text3)">#'+r.id+'</span>'+((r.famKey&&r.famSeq!=null)?'<span style="flex:0 0 auto;font-size:8px;font-weight:700;color:var(--text5)" title="family run id">'+r.famKey+'-'+r.famSeq+'</span>':'')
             +'<span style="flex:0 0 62px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.5px;color:'+_bi.color+'" title="'+(_bi.label||'')+'">'+(_bi.branch||'')+'</span>'
             +'<span style="flex:0 0 92px;color:var(--text4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b style="color:var(--text2)">'+_modeNum(r)+'</b> · '+(_modeName[_modeNum(r)]||'').slice(0,12)+'</span>'
             +'<span style="width:42px">'+_gVerChip(r)+'</span>'
