@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.64';
+const VERSION='64.65';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.65', date:'2026-07-23', notes:['2B marker honesty: the champion marker and key entry were hard-coded to say "crown", so a run with NO walk-forward crown pool still claimed a crown it never earned. The label now follows the data — 👑 crown when it really came from the crown pool, ★ champion when it is just the in-sample champion.']},
   {v:'64.64', date:'2026-07-23', notes:['2B CONFIG DISTRIBUTION now marks the champion on runs that have no walk-forward crown pool (ensemble / deploy-book runs like #175, which previously showed no marker at all). The fallback was reading a field that saved run docs never carry, so it could never fire. It is labelled honestly: "👑 crown" only when it really came from the crown pool, otherwise "◆ champion" for the in-sample champion.']},
   {v:'64.63', date:'2026-07-28', notes:['Family run ids now also show in COMPARE (the run picker + each comparison column header) and in the Library run list — matching Past Runs and the run-report header. New runs get their family id stamped automatically by the PC runner from now on.']},
   {v:'64.62', date:'2026-07-28', notes:['The pink GATE-KEPT equity line now overlays the 2A chart on ENSEMBLE runs too (e.g. #175) — before it only drew on the walk-forward FUNNEL, so ensembles (no survivor pool) never showed it on 2A. The "🚪 gated" toggle + a gate-kept endpoint label now appear on the TOP-CONFIGS chart as well. The gated curve is folded into the y-scale so it never clips.','NEW family run ids: every run now carries a stable per-family number alongside its run # — ORB-1..8, TTIBS-1..9, ENGU-Q-1..7, etc. Shown under the run number in Past Runs and next to REPORT: in the run header. It never renumbers (deleting a run leaves a gap); references stay put.']},
@@ -6815,10 +6816,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   and one KEY box (top-left, over the empty low-$ tail) lists them with their $ — same
         //   read as 1A's endpoint pills.
         const _mk=(x,em,col)=>tlbl(x,'top:-1px;transform:translate(-50%,0);font-size:9px;line-height:1;color:'+col+';',em);
+        // v64.65: the marker glyph + key text come from the CALLER's label now — they were
+        //   hardcoded to "👑 crown", so a run with NO walk-forward crown pool (an ensemble /
+        //   deploy-book run) still claimed a crown it never earned.
+        const _labOfM=m=>{const p=String(m.lab||'👑 crown').split(' ');return [p[0],p.slice(1).join(' ')||'crown'];};
         const _keyItems=[['◆','mean',mean,'var(--blue)'],['▲','IS max',mx,'#3a9bdc']];
-        (Array.isArray(xmarks)?xmarks:[]).forEach(m=>{const xv=(+m.v)*mult;_keyItems.push(['👑','crown',xv,m.col]);});
+        (Array.isArray(xmarks)?xmarks:[]).forEach(m=>{const xv=(+m.v)*mult,L=_labOfM(m);_keyItems.push([L[0],L[1],xv,m.col]);});
         const tover=_mk(mean,'◆','var(--blue)')+_mk(mx,'▲','#3a9bdc')
-          +(Array.isArray(xmarks)?xmarks.map(m=>{const xv=(+m.v)*mult;return (xv>lo&&xv<hi)?_mk(xv,'👑',m.col):'';}).join(''):'')
+          +(Array.isArray(xmarks)?xmarks.map(m=>{const xv=(+m.v)*mult;return (xv>lo&&xv<hi)?_mk(xv,_labOfM(m)[0],m.col):'';}).join(''):'')
           +[-2,-1,1,2].map(k=>{const xx=mean+k*sd;return (xx>lo&&xx<hi)?tlbl(xx,'top:11px;transform:translateX(-50%);font-size:7px;color:var(--text4);',(k>0?'+':'')+k+'σ'):'';}).join('')
           +((lo<0&&hi>0)?tlbl(0,'bottom:2px;transform:translateX(-50%);font-size:8px;font-weight:700;color:var(--text3);','BE'):'')
           +'<div style="position:absolute;top:3px;left:6px;background:color-mix(in srgb,var(--bg1) 82%,transparent);border:1px solid var(--border);border-radius:6px;padding:2px 6px;font-size:7.5px;line-height:1.55;pointer-events:none">'
@@ -9288,7 +9293,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const cr=cs.filter(c=>c&&c.crowned&&c.is_pnl!=null)[0];
         if(cr)return {v:+cr.is_pnl,lab:'👑 crown',col:'#1d9e75'};
         const usd=(d.best_pnl_usd!=null&&isFinite(+d.best_pnl_usd))?+d.best_pnl_usd:null;
-        if(usd!=null&&mlt)return {v:usd/mlt,lab:'◆ champion',col:'#1d9e75'};
+        if(usd!=null&&mlt)return {v:usd/mlt,lab:'★ champion',col:'#1d9e75'};
         return null;})();
       const _dist=distPanelHtml(_distSrc,mlt,'2B',(_crownM?[_crownM]:null));
       // ── CHART METRIC toggle (item L): the param charts (2B/2C/2H/2I/2J) historically plot
