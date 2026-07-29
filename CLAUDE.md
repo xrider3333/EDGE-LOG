@@ -29,6 +29,12 @@ Structure EVERY substantive reply top-to-bottom as:
    the cell (`•` separated by `<br>`), each one fact.
 3. **Details / caveats / how-to-verify / numbers go UNDERNEATH the table** — the owner skims the
    table, then drops down for detail. Keep prose terse; process/"thinking" text is noise.
+   **KEEP IT SHORT AND JARGON-FREE (owner 2026-07-23, stated twice): "make more concise and
+   shorter. to much technical jargon code. this goes for every responce."** Never put code
+   identifiers, file:line references or code snippets in a reply unless he asks to see code —
+   describe the EFFECT in EDGELOG-UI terms instead. Table cells = 1-2 short plain bullets.
+   Detail under the table = only what changes a decision. Deep investigation notes belong in
+   BACKTESTING_STACK.md / memory, not the reply.
 4. For strategy-run rows, include the rich columns the owner tracks: strategy TYPE (mechanism +
    indicators) and PnL split by stage — **IS** (in-sample) vs **WF** (walk-forward) vs **LB**
    (lockbox); if a stage was not run, SAY so ("WF not run · LB sealed") rather than omitting.
