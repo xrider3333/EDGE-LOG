@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.63';
+const VERSION='64.64';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.64', date:'2026-07-23', notes:['2B CONFIG DISTRIBUTION now marks the champion on runs that have no walk-forward crown pool (ensemble / deploy-book runs like #175, which previously showed no marker at all). The fallback was reading a field that saved run docs never carry, so it could never fire. It is labelled honestly: "👑 crown" only when it really came from the crown pool, otherwise "◆ champion" for the in-sample champion.']},
   {v:'64.63', date:'2026-07-28', notes:['Family run ids now also show in COMPARE (the run picker + each comparison column header) and in the Library run list — matching Past Runs and the run-report header. New runs get their family id stamped automatically by the PC runner from now on.']},
   {v:'64.62', date:'2026-07-28', notes:['The pink GATE-KEPT equity line now overlays the 2A chart on ENSEMBLE runs too (e.g. #175) — before it only drew on the walk-forward FUNNEL, so ensembles (no survivor pool) never showed it on 2A. The "🚪 gated" toggle + a gate-kept endpoint label now appear on the TOP-CONFIGS chart as well. The gated curve is folded into the y-scale so it never clips.','NEW family run ids: every run now carries a stable per-family number alongside its run # — ORB-1..8, TTIBS-1..9, ENGU-Q-1..7, etc. Shown under the run number in Past Runs and next to REPORT: in the run header. It never renumbers (deleting a run leaves a gap); references stay put.']},
   {v:'64.61', date:'2026-07-28', notes:['FIXED: the pink GATE EQUITY curve was missing on ENSEMBLE runs (e.g. #175). The 2A funnel only overlays the gate curve when it renders as a walk-forward survivor FUNNEL; an ensemble has no survivor pool, so the overlay was silently dropped even though the 300-point curves are saved. The 2J ML TRADE FILTER pill now draws the FULL gate curve itself (every trade grey vs gate-kept pink) whenever the 2A funnel cannot host it — so the curve shows regardless. Normal validates are unchanged (curve stays on 2A, no duplicate).']},
@@ -9275,8 +9276,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _distSrc=((d.points&&d.points.length>(d.dist||[]).length)?d.points.map(p=>p.pnl):d.dist);
       // v64.38 (owner): 4B carries the 2A crown — the walk-forward-checked champion's IS net,
       //   from the #88b crown pool when present, else the headline champion (best) itself.
-      const _crownV=(function(){const cs=(d.selection&&Array.isArray(d.selection.candidates))?d.selection.candidates:[];const cr=cs.filter(c=>c&&c.crowned&&c.is_pnl!=null)[0];if(cr)return +cr.is_pnl;return (d.best&&d.best.total_pnl!=null)?+d.best.total_pnl:null;})();
-      const _dist=distPanelHtml(_distSrc,mlt,'2B',(_crownV!=null?[{v:_crownV,lab:'👑 crown',col:'#1d9e75'}]:null));
+      // v64.64 (owner, run #175): the old fallback read `d.best.total_pnl` — but saved run docs
+      //   carry NO `best` object at all (the $ figure lives top-level as best_pnl_usd), so the
+      //   fallback was DEAD CODE and any run without a #88 crown pool (ensemble / deploy-book,
+      //   e.g. #175) drew no champion marker at all. Fall back to best_pnl_usd, converted from $
+      //   back to points because distPanelHtml multiplies the mark by `mult`. Labelled honestly:
+      //   "👑 crown" only when it really came from the walk-forward crown pool, else "◆ champion"
+      //   (the in-sample champion this run headlines).
+      const _crownM=(function(){
+        const cs=(d.selection&&Array.isArray(d.selection.candidates))?d.selection.candidates:[];
+        const cr=cs.filter(c=>c&&c.crowned&&c.is_pnl!=null)[0];
+        if(cr)return {v:+cr.is_pnl,lab:'👑 crown',col:'#1d9e75'};
+        const usd=(d.best_pnl_usd!=null&&isFinite(+d.best_pnl_usd))?+d.best_pnl_usd:null;
+        if(usd!=null&&mlt)return {v:usd/mlt,lab:'◆ champion',col:'#1d9e75'};
+        return null;})();
+      const _dist=distPanelHtml(_distSrc,mlt,'2B',(_crownM?[_crownM]:null));
       // ── CHART METRIC toggle (item L): the param charts (2B/2C/2H/2I/2J) historically plot
       //    each config's NET PNL only — a drawdown lever (e.g. be_after_R) is INVISIBLE on that
       //    axis (PnL flat ±2% while DD moves 33%). New `dd` per points row (engine ≥ this build)
