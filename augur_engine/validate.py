@@ -236,7 +236,18 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                  lockbox_months=12, date_from=None, date_to=None, progress_cb=None,
                  thresholds=None, transfer_to=None, equity_points=400,
                  discover="auto", provider="ollama", api_key=None, ai_rounds=4, save_dir=None,
-                 select_oos_topk=0):
+                 # #88 OOS-checked champion selection is ON BY DEFAULT (owner 2026-07-23, option A).
+                 # It used to default to 0/OFF "for library neutrality", so only api/runner.py's
+                 # jtype=="validate" branch (which passes 5) produced a `selection` block. Every
+                 # OTHER call site -- the ensemble / deploy-book path, _augur_screen.py, one-off
+                 # scripts -- silently ran Stage A.5 OFF, saved `selection: null`, and therefore lost
+                 # the whole crown pool downstream: run #175's report has no 👑 crown marker on 2B
+                 # and its 2A degrades from CONFIG FUNNEL to a plain top-configs overlay (no doors,
+                 # no crowned/IS-max traces, no lockbox endpoint pills, no gate overlay). Defaulting
+                 # ON makes the crown REAL on every path instead of faking one in the UI.
+                 # NOTE this also re-crowns the champion by walk-forward OOS on those paths (the
+                 # #88 rule itself) -- that is the intended behaviour, not just a reporting change.
+                 select_oos_topk=5):
     th = {"trades_per_param": 30, "wfe": 0.5, "fold_frac": 0.66, "dsr": 0.8}
     th.update(thresholds or {})
 
@@ -294,12 +305,13 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                  # default stays False (library neutrality); this call site is the opt-in.
                  auto_steer=True,
                  date_from=opt_from, date_to=opt_to, progress_cb=_stage(aS, aE)) or {}
-    # #88 (2026-07-20): the SAME "library default off, production opts in at its one
-    # call site" pattern as auto_steer above applies to `select_oos_topk` — this
-    # run_validate signature's own default is 0/OFF (library neutrality, and what
-    # the tests exercise directly); the production Auto-Validate job path
-    # (api/runner.py's jtype=="validate" branch) is the one call site that passes
-    # select_oos_topk=5, because run #167's IS-max champion (IS $257,873) collapsed
+    # #88 (2026-07-20): `select_oos_topk` USED to follow the same "library default off,
+    # production opts in at its one call site" pattern as auto_steer above. It no longer
+    # does — the signature default is now 5/ON (owner 2026-07-23, option A), because every
+    # call site that forgot to pass it (ensemble / deploy-book, _augur_screen.py) silently
+    # saved `selection: null` and lost the crown pool in the report. The tests still pin the
+    # behaviour explicitly (tests/test_selection.py passes k=0/1/3). Rationale unchanged:
+    # run #167's IS-max champion (IS $257,873) collapsed
     # to a $35,083 lockbox (PBO gate fired, WEAK) while run #165's weaker-IS champion
     # had DOUBLE the lockbox PnL — see _select_oos_champion below (Stage A.5) for the
     # actual selection logic, which runs after Stage B once wf_anch's fold rows exist.

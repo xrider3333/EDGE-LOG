@@ -879,6 +879,30 @@ not saved to the runs DB — so they carry no run id.*
     not as a TTIBS improvement; also worth eyeballing whether the 0.5-0.6 shelf is
     just the tail of the mean-reversion edge or a genuinely different regime.
 
+13. **✅ SHIPPED 2026-07-23 — `select_oos_topk` now defaults to 5/ON in `run_validate`
+    (owner "option A"; ledger item 191)**.
+    - **Symptom**: run #175 (ORB ENSEMBLE deploy book) rendered a 2B CONFIG DISTRIBUTION with
+      **no 👑 crown marker**, and its 2A degraded from CONFIG FUNNEL to the plain TOP CONFIGS
+      PNL overlay — losing the IS/WF/LB doors, the crowned/IS-max traces, the key box, the 3 🔒
+      lockbox endpoint pills and the 🚪 gate overlay. Run #174 (TTIBS) had all of it.
+    - **Root cause**: #175's doc carries `selection: null` (saved, but empty). Stage A.5 only
+      runs when `select_oos_topk >= 2`, and `run_validate`'s signature default was **0/OFF**
+      "for library neutrality" — so ONLY `api/runner.py`'s `jtype=="validate"` branch (which
+      passes 5) ever produced a crown pool. Any other call site — the ensemble / deploy-book
+      path, `_augur_screen.py`, one-off scripts — silently ran with selection OFF. The UI was
+      behaving correctly: it declines to draw a crown it has no data for.
+    - **Fix**: `augur_engine/validate.py` signature default `select_oos_topk=0` → **5**. Every
+      path now emits a REAL crown pool rather than the UI faking one. The stale "library
+      default off, production opts in" comment at the Stage A.5 call site was corrected too.
+    - **Behaviour note (intended, not just cosmetic)**: on those previously-OFF paths this also
+      re-crowns the champion by walk-forward OOS PnL among the top-5 IS candidates (the #88 rule
+      itself), instead of taking raw IS-max.
+    - **Verified**: `tests/test_selection.py` 10/10 (it pins k=0/1/3 explicitly, so it still
+      covers the OFF behaviour) and the full suite 537 passed / 20 skipped / 0 failed.
+    - **Still open**: #175 itself cannot backfill — its saved doc has `selection: null`. It needs
+      a **rerun pinned to its window (2010-06-07 → 2026-06-30) and master** to gain the crown
+      pool; until then its 2A/2B stay degraded.
+
 **Current Auto-Validate pipeline (as of 2026-07-20, for orientation):** 🎯 steered search (random
 seed ~40% of trials → GP-aimed batches, #36; TPE and QRF brains available) → auto-expand of
 edge-pinned rising knobs (#26/#30) + interaction-aware expansion (#72 P3) → plateau pick (broad
