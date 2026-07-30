@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.65';
+const VERSION='64.66';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.66', date:'2026-07-29', notes:['The 2A key now shows each line’s END value (carried through the lockbox), not its value at the walk-forward door — so the crowned line reads its true final $, matching where the line actually ends on the chart.']},
   {v:'64.65', date:'2026-07-23', notes:['2B marker honesty: the champion marker and key entry were hard-coded to say "crown", so a run with NO walk-forward crown pool still claimed a crown it never earned. The label now follows the data — 👑 crown when it really came from the crown pool, ★ champion when it is just the in-sample champion.']},
   {v:'64.64', date:'2026-07-23', notes:['2B CONFIG DISTRIBUTION now marks the champion on runs that have no walk-forward crown pool (ensemble / deploy-book runs like #175, which previously showed no marker at all). The fallback was reading a field that saved run docs never carry, so it could never fire. It is labelled honestly: "👑 crown" only when it really came from the crown pool, otherwise "◆ champion" for the in-sample champion.']},
   {v:'64.63', date:'2026-07-28', notes:['Family run ids now also show in COMPARE (the run picker + each comparison column header) and in the Library run list — matching Past Runs and the run-report header. New runs get their family id stamped automatically by the PC runner from now on.']},
@@ -7179,8 +7180,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +(hasLB?('<text x="'+((xFull+xR)/2).toFixed(1)+'" y="'+(pt-1.5).toFixed(1)+'" text-anchor="middle" font-size="4.6" font-weight="700" fill="#a78bfa">LB</text>'):'');
         // v64.43 (owner): the 2A key now uses the SAME HTML box format as 2B — marker + label +
         //   $ rows for the two named lines, then the line-style legend, in a bordered box.
-        const _crV=crownedC?crownedC.equity.cum[crownedC.equity.cum.length-1]*mult:null;
-        const _isV=(isMaxC&&isMaxC!==crownedC)?isMaxC.equity.cum[isMaxC.equity.cum.length-1]*mult:null;
+        // v64.66 (owner): the key showed each line's value at the WF/lockbox DOOR (optimize end);
+        //   the owner wants the true END. Use the lockbox-continuation endpoint when the line
+        //   carries through the lockbox, else its own last point.
+        const _endOf=c=>{if(!c)return null;const q=c.lb_equity;
+          if(q&&Array.isArray(q.cum)&&q.cum.length&&c.equity&&c.equity.final!=null&&q.base!=null)
+            return (c.equity.final+(q.cum[q.cum.length-1]-q.base))*mult;
+          return (c.equity&&c.equity.cum&&c.equity.cum.length)?c.equity.cum[c.equity.cum.length-1]*mult:null;};
+        const _crV=_endOf(crownedC);
+        const _isV=(isMaxC&&isMaxC!==crownedC)?_endOf(isMaxC):null;
         const _kRows=[];
         if(_crV!=null)_kRows.push(['👑','crowned',_kUsd(_crV),'#1d9e75']);
         if(_isV!=null)_kRows.push(['▲','IS max',_kUsd(_isV),'#3a9bdc']);
