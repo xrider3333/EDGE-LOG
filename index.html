@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.67';
+const VERSION='64.68';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.68', date:'2026-07-29', notes:['The 2J ML TRADE FILTER before/after cards now say WHICH slice they measure (e.g. "on the lockbox — the held-out slice"). The before number is that slice with every trade — so compare it to the SAME column in the 1E matrix (lockbox), not the in-sample column.']},
   {v:'64.67', date:'2026-07-29', notes:['2A now agrees with 1A on two things: (1) the walk-forward boundary sits at the REAL first walk-forward test start (same date as 1A’s first blue band), not a fixed 75% split; (2) the crowned line ends at the champion’s TRUE full-run total (the 1A number), instead of the slightly-overshooting saved lockbox curve. So the crowned $ on 2A now matches 1A.']},
   {v:'64.66', date:'2026-07-29', notes:['The 2A key now shows each line’s END value (carried through the lockbox), not its value at the walk-forward door — so the crowned line reads its true final $, matching where the line actually ends on the chart.']},
   {v:'64.65', date:'2026-07-23', notes:['2B marker honesty: the champion marker and key entry were hard-coded to say "crown", so a run with NO walk-forward crown pool still claimed a crown it never earned. The label now follows the data — 👑 crown when it really came from the crown pool, ★ champion when it is just the in-sample champion.']},
@@ -9525,7 +9526,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         }
         // v64.43 (owner): the wordy "BEFORE → AFTER · lockbox … every trade vs only the trades…"
         //   caption is gone — the cards themselves read "before → after" via the arrow.
-        const _hero=_hc.length?('<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+_hc.join('')+'</div>'):'';
+        const _hero=_hc.length?('<div style="font-size:8px;color:var(--text5);margin-bottom:4px">before → after on the <b style="color:var(--text4)">'+_slice+'</b> — so the BEFORE column matches that same slice in the 1E matrix (not the in-sample column)</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+_hc.join('')+'</div>'):'';
         // 3B: the real overlay when the doc carries curves (engine saves them since v64.13 —
         // gate_validate.equity for bake-off runs, ml_gate.equity for single-gate runs);
         // otherwise a one-line re-run note (same graceful pattern as the 2H/2L overlays).
