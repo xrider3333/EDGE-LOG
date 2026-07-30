@@ -247,7 +247,7 @@ def _rec(s):
 def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
                   thresholds=(0.50, 0.55, 0.60), lockbox_months=12,
                   min_kept=50, windows=4, min_history=30, refit_every=25,
-                  seed=42):
+                  seed=42, lb_from=None):
     """The honest way to pick a gate (board 4.10, ROADMAP #25).
 
     Discipline, by construction:
@@ -271,7 +271,11 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
     nb = len(idx)
     entry_ts = np.array([idx[min(t[0], nb - 1)] for t in T])
     pnls_all = np.array([t[2] for t in T], float)
-    lb_start = idx[-1] - pd.DateOffset(months=int(lockbox_months))
+    # v64.69 (owner): honour the matrix's exact lockbox cutoff (lb_from) when the validate pipeline
+    #   passes it, so the gate's lockbox uses the SAME boundary as the 1E matrix. Without it the
+    #   gate inherited the last bar's time-of-day and split the first lockbox day (2025-06-30) to
+    #   the wrong side — one boundary trade — making the gate's LB disagree with the matrix's.
+    lb_start = pd.Timestamp(lb_from) if lb_from else (idx[-1] - pd.DateOffset(months=int(lockbox_months)))
     t_first = entry_ts.min()
 
     feats = entry_features(arrays)[0]                      # compute once, reuse 9x

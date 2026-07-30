@@ -661,7 +661,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
             try:
                 from .ml_gate import gate_validate as _gate_bakeoff_fn
                 gate_bakeoff = _gate_bakeoff_fn(_full_arr, full["trades"],
-                                                lockbox_months=lockbox_months)
+                                                lockbox_months=lockbox_months, lb_from=lb_from)
             except Exception:
                 gate_bakeoff = None
         try:
