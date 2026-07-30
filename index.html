@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.66';
+const VERSION='64.67';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.67', date:'2026-07-29', notes:['2A now agrees with 1A on two things: (1) the walk-forward boundary sits at the REAL first walk-forward test start (same date as 1A’s first blue band), not a fixed 75% split; (2) the crowned line ends at the champion’s TRUE full-run total (the 1A number), instead of the slightly-overshooting saved lockbox curve. So the crowned $ on 2A now matches 1A.']},
   {v:'64.66', date:'2026-07-29', notes:['The 2A key now shows each line’s END value (carried through the lockbox), not its value at the walk-forward door — so the crowned line reads its true final $, matching where the line actually ends on the chart.']},
   {v:'64.65', date:'2026-07-23', notes:['2B marker honesty: the champion marker and key entry were hard-coded to say "crown", so a run with NO walk-forward crown pool still claimed a crown it never earned. The label now follows the data — 👑 crown when it really came from the crown pool, ★ champion when it is just the in-sample champion.']},
   {v:'64.64', date:'2026-07-23', notes:['2B CONFIG DISTRIBUTION now marks the champion on runs that have no walk-forward crown pool (ensemble / deploy-book runs like #175, which previously showed no marker at all). The fallback was reading a field that saved run docs never carry, so it could never fire. It is labelled honestly: "👑 crown" only when it really came from the crown pool, otherwise "◆ champion" for the in-sample champion.']},
@@ -6990,7 +6991,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<span style="flex:0 0 82px;text-align:right;color:'+((c.lb_equity&&c.lb_equity.final!=null)?ISC:'var(--text5)')+'" title="this config carried forward THROUGH the lockbox (top-3 only) - shown after the crown was set, never used to pick it">'+((c.lb_equity&&c.lb_equity.final!=null)?fmtUsd(Math.round(c.lb_equity.final*mlt)):'—')+'</span></div>';}).join('');
       const hdr='<div style="display:flex;gap:8px;font-size:7px;letter-spacing:.5px;color:var(--text5);padding:0 6px 2px"><span style="flex:0 0 86px"></span><span style="flex:1">config (knobs that differ)</span><span style="flex:0 0 78px;text-align:right">IS (search $)</span><span style="flex:0 0 78px;text-align:right">WF folds $</span><span style="flex:0 0 40px;text-align:center">folds</span><span style="flex:0 0 82px;text-align:right">lockbox end $</span></div>';
       const note=(sel.is_max_crowned===false)?'<div style="font-size:8.5px;color:var(--yellow);margin:4px 0 2px">⚖️ the in-sample MAX was NOT crowned — the walk-forward folds preferred a steadier config (this is #88 doing its job).</div>':'<div style="font-size:8.5px;color:var(--text4);margin:4px 0 2px">✓ the in-sample max ALSO won the walk-forward arbitration — search pick and OOS evidence agree.</div>';
-      const robNote='<div style="font-size:8px;color:var(--text5);margin:1px 0 2px">the grey CLOUD = every top config, drawn only to the in-sample door (~75%); past it only the top configs that warranted walk-forward testing continue — green = crowned, blue dashed = in-sample max.</div>';
+      const robNote='<div style="font-size:8px;color:var(--text5);margin:1px 0 2px">the grey CLOUD = every top config, drawn only to the in-sample door (the first walk-forward test start — same date 1A marks); past it only the top configs that warranted walk-forward testing continue — green = crowned, blue dashed = in-sample max.</div>';
       const hasLB=cand.some(c=>c.lb_equity&&c.lb_equity.final!=null);
       const lbNote=hasLB?'<div style="font-size:8px;color:var(--text5);margin:1px 0 3px">🚪 past the lockbox door: only the top-3 by walk-forward are carried through the holdout — shown AFTER the crown was set, never used to pick the champion.</div>':'<div style="font-size:8px;color:var(--text5);margin:1px 0 3px">re-run this validate (engine 2026-07-21+) to draw the top-3 forward THROUGH the lockbox.</div>';
       return note+robNote+lbNote+hdr+rows;};
@@ -7062,7 +7063,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    top-K by walk-forward continue to the LOCKBOX door (optimize end). From there only
       //    the top-3 continue THROUGH the lockbox to the right edge. Everything is mapped by
       //    index-fraction so each curve's 75% point lands on one clean vertical door line. ──
-      const fIS=0.75;
+      // v64.67 (owner): the IS/WF door now sits at the REAL first walk-forward test start (the same
+      //   boundary 1A marks with its first blue band), not a fixed 75% split, so the two charts
+      //   agree on when walk-forward begins. Falls back to 0.75 if fold bar-counts are absent.
+      const _fU=[],_fS={};(Array.isArray(d.top10_results)?d.top10_results:[]).forEach(f=>{if(f&&f.fold!=null&&f.test_bars!=null&&f.train_bars!=null&&!_fS[f.fold]){_fS[f.fold]=1;_fU.push(f);}});
+      _fU.sort((a,b)=>(+a.fold)-(+b.fold));
+      const _tr0=+((_fU[0]||{}).train_bars)||0,_spanB=_tr0+_fU.reduce((s,f)=>s+(+f.test_bars||0),0);
+      const fIS=(_spanB>0&&_tr0>0)?Math.max(0.05,Math.min(0.95,_tr0/_spanB)):0.75;
+      const _champTot=(d.equity&&Array.isArray(d.equity.cum)&&d.equity.cum.length)?d.equity.cum[d.equity.cum.length-1]:null;
       const xFull=(selMode&&hasLB)?(xL+(xR-xL)*0.84):xR;   // optimize-window end = lockbox door
       const xIS=xL+(xFull-xL)*fIS;                          // in-sample door
       const Yv=v=>H-pd-(H-pt-pd)*(v-mn)/rg;
@@ -7138,10 +7146,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const LBALT=['#e0a04b','#a879e6'];let alt=0;const labs=[];let lb='';
         if(hasLB)lbCs.forEach(c=>{const cr=!!c.crowned,col=cr?'#1d9e75':LBALT[(alt++)%2];
           const cum=c.lb_equity.cum,base=c.lb_equity.base,anchor=c.equity.final,n=cum.length;
+          // v64.67 (owner): the crowned line IS the 1A champion, so reconcile its lockbox tail to
+          //   the champion's TRUE full-run total (1A) — the saved LB curve slightly overshoots it.
+          const _rawEnd=cum[n-1]-base;
+          const _sc=(cr&&_champTot!=null&&_rawEnd!==0)?((_champTot-anchor)/_rawEnd):1;
           const pts=[xFull.toFixed(1)+' '+Yv(anchor*mult).toFixed(1)];
-          for(let j=0;j<n;j++){const f=n<=1?1:j/(n-1);pts.push((xFull+(xR-xFull)*f).toFixed(1)+' '+Yv((anchor+(cum[j]-base))*mult).toFixed(1))}
+          for(let j=0;j<n;j++){const f=n<=1?1:j/(n-1);pts.push((xFull+(xR-xFull)*f).toFixed(1)+' '+Yv((anchor+(cum[j]-base)*_sc)*mult).toFixed(1))}
           lb+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?0.9:0.6)+'" opacity="0.95" stroke-dasharray="0.5 1.6" stroke-linecap="round"/>';
-          const fv=anchor+(cum[n-1]-base);labs.push({y:Yv(fv*mult),col,txt:_kUsd(fv*mult)+(cr?' 🔒crown':' 🔒')});});
+          const fv=anchor+_rawEnd*_sc;labs.push({y:Yv(fv*mult),col,txt:_kUsd(fv*mult)+(cr?' 🔒crown':' 🔒')});});
         // v64.51 (owner): ALL endpoint values live in the GUTTER now — the crowned / IS-max /
         //   gated numbers no longer print on the chart itself (they were duplicated). The gutter
         //   carries: the 3 lockbox-continuation pills (crowned + 2), the IS-max total, and the
@@ -7187,7 +7199,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(q&&Array.isArray(q.cum)&&q.cum.length&&c.equity&&c.equity.final!=null&&q.base!=null)
             return (c.equity.final+(q.cum[q.cum.length-1]-q.base))*mult;
           return (c.equity&&c.equity.cum&&c.equity.cum.length)?c.equity.cum[c.equity.cum.length-1]*mult:null;};
-        const _crV=_endOf(crownedC);
+        const _crV=(crownedC&&_champTot!=null)?_champTot*mult:_endOf(crownedC);
         const _isV=(isMaxC&&isMaxC!==crownedC)?_endOf(isMaxC):null;
         const _kRows=[];
         if(_crV!=null)_kRows.push(['👑','crowned',_kUsd(_crV),'#1d9e75']);
@@ -7218,7 +7230,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _nEval=(d.n_evaluated!=null?+d.n_evaluated:(d.n_combos!=null?+d.n_combos:null));
       const cfgSlider='<span title="how many of the stored curves to draw. This run stores '+etop.length+' equity curves'+(_nEval?' of the '+_nEval.toLocaleString()+' configs the search evaluated':'')+'; the slider spans all of them." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+' saved'+(_nEval?' · '+_nEval.toLocaleString()+' evaluated':'')+'</b></span>';
       const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis — top '+etop.length+((_xd0&&_xd1)?' · '+_dnice(_xd0)+' → '+_dnice(_xd1):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. RANKING: locked to the pre-registered IN-SAMPLE slice (the first ~75% of this window) — a lower-ranked curve can END higher because the tail is out-of-sample for selection, and peeking at it to pick the winner would be look-ahead bias. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
-      const _selTip='WF-CHECKED SELECTION (#88 / #88b) ON THE 2A CHART — a funnel with two doors. The grey CLOUD is every top config, drawn only to the IN-SAMPLE door (~75% of the optimize window). From there only the top-K by walk-forward continue to the LOCKBOX door (optimize end). From there only the top-3 continue THROUGH the lockbox to the right edge. LINE PROCEDURE: the in-sample stretch of every line is SOLID, the walk-forward stretch is DASHED, and the lockbox continuation is DOTTED. Green = WF-crowned, blue = in-sample MAX, each other top-K survivor gets its own colour, light grey = the configs that did not survive the in-sample door. The lockbox tail is shown AFTER the crown was set, never used to pick the champion.';
+      const _selTip='WF-CHECKED SELECTION (#88 / #88b) ON THE 2A CHART — a funnel with two doors. The grey CLOUD is every top config, drawn only to the IN-SAMPLE door (the first walk-forward test start — the same date 1A marks with its first blue band). From there only the top-K by walk-forward continue to the LOCKBOX door (optimize end). From there only the top-3 continue THROUGH the lockbox to the right edge. LINE PROCEDURE: the in-sample stretch of every line is SOLID, the walk-forward stretch is DASHED, and the lockbox continuation is DOTTED. Green = WF-crowned, blue = in-sample MAX, each other top-K survivor gets its own colour, light grey = the configs that did not survive the in-sample door. The lockbox tail is shown AFTER the crown was set, never used to pick the champion.';
       // v64.25 (owner): ⓘ right after the tag (1A pattern), the funnel-path caption lives in the
       //   info box, and the configs slider is right-aligned on the title row.
       const _hdr=selMode
