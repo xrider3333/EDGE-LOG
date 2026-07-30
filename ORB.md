@@ -402,10 +402,12 @@ MAR/DD compare on the same risk basis. in-sample + held-out lockbox.
 - **Caveat:** 2 contracts = **2× fees + 2× margin**; the blend is the 1-contract-equivalent (average).
   Worth it only if you trade ≥2 lots. WF-folds + ES transfer of the ensemble are still TODO before deploy.
 - Tooling: `tools/orb_ensemble.py`. Item **E → DONE (WIN — ensemble beats both legs on lockbox MAR + DD).**
-- **Canonical ensemble run = #176 (ORB-9)** (2026-07-29; supersedes #175/ORB-8, now archived). #176 is the
-  SAME champion (target 4.0R · trail 12 · BE 1.0R, net $181,431 IS / lockbox PF 1.61, DD −$11k) re-run on the
-  current engine, so it carries the full 2A selection funnel + the gate equity curve #175 lacked. Lineage:
-  #159 (deleted) → #175 (archived) → #176. Prior notes that cite "#159" or "#175" refer to this same config.
+- **Canonical ensemble run = #178 (ORB-11)** (2026-07-29; supersedes #176/ORB-9, now archived). SAME champion
+  (target 4.0R · trail 12 · BE 1.0R, net $181,431 IS / lockbox PF 1.61, DD −$11k), re-run on the engine after
+  the gate-lockbox-cutoff fix: the 2J gate now uses the matrix's exact lockbox boundary, so gate LB ungated =
+  matrix LB = **243 trades / $67,493** (was 242 / $68,847 on #176 — one boundary trade, the 2025-06-30 13:55
+  −$1,354 loser, split to the wrong side by the gate's time-of-day cutoff). Lineage: #159 (del) → #175 (arch)
+  → #176 (arch) → #178. Prior notes citing #159/#175/#176 refer to this same config.
 - **Engine-rerun replication: run #175 — same window (pinned 2010-06-07→2026-06-30), same
   knobs, TODAY's steered/OOS-selection engine.** The new machinery picks winners differently (GP-steered
   search: 80 seed + 26 steered trials over 77 configs, then champion crowned by walk-forward steadiness,
