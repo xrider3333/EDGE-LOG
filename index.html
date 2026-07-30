@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.68';
+const VERSION='64.70';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.70', date:'2026-07-29', notes:['SECTION 2 re-lettered in reading order: the ML TRADE FILTER (the gate), which sits second, is now 2B (was 2J); the rest shift up one — config distribution 2C, explorer 2D, parallel-coords 2E, PDP 2F, knobs 2G, neighbour 2H, top configs 2I, ML config builder 2J.','The gate before/after now reads as a MATRIX (metric · before every trade · after gate kept), like the 1E KPI matrix, instead of arrow tiles.','2A: the other two lockbox survivor lines are now on the same TRUE-total footing as the crowned line, so the crowned no longer looks artificially lowest.']},
   {v:'64.68', date:'2026-07-29', notes:['The 2J ML TRADE FILTER before/after cards now say WHICH slice they measure (e.g. "on the lockbox — the held-out slice"). The before number is that slice with every trade — so compare it to the SAME column in the 1E matrix (lockbox), not the in-sample column.']},
   {v:'64.67', date:'2026-07-29', notes:['2A now agrees with 1A on two things: (1) the walk-forward boundary sits at the REAL first walk-forward test start (same date as 1A’s first blue band), not a fixed 75% split; (2) the crowned line ends at the champion’s TRUE full-run total (the 1A number), instead of the slightly-overshooting saved lockbox curve. So the crowned $ on 2A now matches 1A.']},
   {v:'64.66', date:'2026-07-29', notes:['The 2A key now shows each line’s END value (carried through the lockbox), not its value at the walk-forward door — so the crowned line reads its true final $, matching where the line actually ends on the chart.']},
@@ -7097,7 +7098,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           _gateOvNS='<polyline points="'+gp+'" fill="none" stroke="#e05fa0" stroke-width="0.9" opacity="0.95" stroke-dasharray="1.6 1.3" stroke-linecap="round"/>'
             +'<circle cx="'+xR.toFixed(1)+'" cy="'+_gy.toFixed(1)+'" r="1.5" fill="#e05fa0"/>'
             +'<text x="'+(xR-1).toFixed(1)+'" y="'+(_gy-2).toFixed(1)+'" text-anchor="end" font-size="4.6" font-weight="700" fill="#e05fa0" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.3">'+fmtAx(_gf,1)+' 🚪 gate-kept</text>';}
-        _gateChipNS='<span data-a2gate="'+(_a2gateO?0:1)+'" title="overlay the ML TRADE FILTER (2J) gated equity on this chart — the same trades with the filter skipping the ones it scores low. Pink = the trades the gate kept." style="cursor:pointer;font-size:8px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid '+(_a2gateO?'#e05fa0':'var(--border)')+';background:'+(_a2gateO?'color-mix(in srgb,#e05fa0 16%,transparent)':'var(--bg2)')+';color:'+(_a2gateO?'#e05fa0':'var(--text3)')+'">🚪 gated</span>';
+        _gateChipNS='<span data-a2gate="'+(_a2gateO?0:1)+'" title="overlay the ML TRADE FILTER (2B) gated equity on this chart — the same trades with the filter skipping the ones it scores low. Pink = the trades the gate kept." style="cursor:pointer;font-size:8px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid '+(_a2gateO?'#e05fa0':'var(--border)')+';background:'+(_a2gateO?'color-mix(in srgb,#e05fa0 16%,transparent)':'var(--bg2)')+';color:'+(_a2gateO?'#e05fa0':'var(--text3)')+'">🚪 gated</span>';
       }
       // visible horizontal $ gridlines running THROUGH the plot (xL→xR) + compact $ labels just
       //   right of the NET (yellow) axis — denser (~5 steps) and smaller than the old shared chrome.
@@ -7145,12 +7146,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(crownedC)ov+=_proc(crownedC.equity.cum.map(v=>v*mult),'#1d9e75',0.9,1);
         // top-3 lockbox continuation [lockbox door → right edge] — DOTTED per the procedure
         const LBALT=['#e0a04b','#a879e6'];let alt=0;const labs=[];let lb='';
+        // v64.70 (owner): the crowned line is reconciled to the champion's TRUE total (1A), but the
+        //   other top-3 survivors kept the saved-curve reconstruction, which overshoots — so the
+        //   crowned looked LOWER than them. Bring the survivors onto the same footing by the SAME
+        //   overshoot the crowned showed (crowned then ends highest, as it should). Approximation:
+        //   assumes a similar reconstruction overshoot across the top-3 on the same lockbox slice.
+        let _crownOver=0;
+        if(_champTot!=null){const _cc=lbCs.find(c=>c.crowned);
+          if(_cc&&_cc.lb_equity&&Array.isArray(_cc.lb_equity.cum)&&_cc.lb_equity.cum.length&&_cc.equity&&_cc.equity.final!=null&&_cc.lb_equity.base!=null){
+            const _lc=_cc.lb_equity.cum;_crownOver=(_cc.equity.final+(_lc[_lc.length-1]-_cc.lb_equity.base))-_champTot;}}
         if(hasLB)lbCs.forEach(c=>{const cr=!!c.crowned,col=cr?'#1d9e75':LBALT[(alt++)%2];
           const cum=c.lb_equity.cum,base=c.lb_equity.base,anchor=c.equity.final,n=cum.length;
-          // v64.67 (owner): the crowned line IS the 1A champion, so reconcile its lockbox tail to
-          //   the champion's TRUE full-run total (1A) — the saved LB curve slightly overshoots it.
           const _rawEnd=cum[n-1]-base;
-          const _sc=(cr&&_champTot!=null&&_rawEnd!==0)?((_champTot-anchor)/_rawEnd):1;
+          const _sc=cr
+            ?((_champTot!=null&&_rawEnd!==0)?((_champTot-anchor)/_rawEnd):1)
+            :((_crownOver&&_rawEnd!==0)?((_rawEnd-_crownOver)/_rawEnd):1);
           const pts=[xFull.toFixed(1)+' '+Yv(anchor*mult).toFixed(1)];
           for(let j=0;j<n;j++){const f=n<=1?1:j/(n-1);pts.push((xFull+(xR-xFull)*f).toFixed(1)+' '+Yv((anchor+(cum[j]-base)*_sc)*mult).toFixed(1))}
           lb+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?0.9:0.6)+'" opacity="0.95" stroke-dasharray="0.5 1.6" stroke-linecap="round"/>';
@@ -7179,7 +7189,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +_gls.map(L=>{const ly=Yv(L);if(labs.some(p=>Math.abs(p.y-ly)<7))return '';return '<span style="position:absolute;left:2px;top:calc('+(ly/H*100).toFixed(2)+'% - 5px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</span>';}).join('')
           +labs.map(L=>'<span style="position:absolute;left:1px;top:calc('+(L.y/H*100).toFixed(2)+'% - 6px);white-space:nowrap;font-weight:800;color:#04130c;background:'+L.col+';padding:0 4px;border-radius:4px;z-index:2">'+L.txt+'</span>').join('')
           +'</div>';
-        _gateChip=_hasGate?'<span data-a2gate="'+(_a2gate?0:1)+'" title="overlay the ML TRADE FILTER (2J) gated equity on this funnel — the SAME crowned champion with the filter skipping trades (the crowned line here is the ungated version). Spans in-sample + walk-forward + lockbox." style="cursor:pointer;font-size:8px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid '+(_a2gate?'#e05fa0':'var(--border)')+';background:'+(_a2gate?'color-mix(in srgb,#e05fa0 16%,transparent)':'var(--bg2)')+';color:'+(_a2gate?'#e05fa0':'var(--text3)')+'">🚪 gated</span>':'';
+        _gateChip=_hasGate?'<span data-a2gate="'+(_a2gate?0:1)+'" title="overlay the ML TRADE FILTER (2B) gated equity on this funnel — the SAME crowned champion with the filter skipping trades (the crowned line here is the ungated version). Spans in-sample + walk-forward + lockbox." style="cursor:pointer;font-size:8px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid '+(_a2gate?'#e05fa0':'var(--border)')+';background:'+(_a2gate?'color-mix(in srgb,#e05fa0 16%,transparent)':'var(--bg2)')+';color:'+(_a2gate?'#e05fa0':'var(--text3)')+'">🚪 gated</span>':'';
         // DOOR lines (in-sample slate · lockbox purple) — labels moved to the region labels below.
         const isDoor='<line x1="'+xIS.toFixed(1)+'" y1="'+pt+'" x2="'+xIS.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#7f8c99" stroke-width="0.6" stroke-dasharray="2 2" opacity="0.7"/>';
         const lbDoor=hasLB?('<line x1="'+xFull.toFixed(1)+'" y1="'+pt+'" x2="'+xFull.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#a78bfa" stroke-width="0.7" stroke-dasharray="3 2" opacity="0.85"/>'):'';
@@ -8726,7 +8736,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const gpCard=models.find(m=>m.model==='gp')||null;
       const consNote=(surr.consensus&&surr.consensus.note)?_esS(surr.consensus.note):'';
       const uncNote=(gpCard&&gpCard.uncertainty_note)?_esS(gpCard.uncertainty_note):'';
-      const hdr='<div style="margin:0 0 10px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap" title="Machine-learning models fit to the SAME sampled configs, learning params → PnL. They are called surrogate models because each stands in for the expensive real backtest — a fast approximate map of the surface. Every model pick is re-run as a REAL backtest (ground-truthing) — never trusted on prediction alone. Best cross-validated model leads (▸). NOT the same as the 2J ML TRADE FILTER: THIS panel picks which PARAMETER CONFIG (the knob settings) is best — a search / optimisation helper; the 2J filter instead decides which individual TRADES of the already-chosen config to take — an execution filter. Different job, both use ML.">'+tag+' · ML CONFIG BUILDER <span style="font-weight:400;color:var(--text5)">(surrogates) — '+models.length+' models · #31 P1 ⓘ</span><span style="margin-left:auto"></span>'+_s3chip('0','▦ FLAT',!_use3d)+_s3chip('1','⬛ 3-D',_use3d)+'</div>';
+      const hdr='<div style="margin:0 0 10px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap" title="Machine-learning models fit to the SAME sampled configs, learning params → PnL. They are called surrogate models because each stands in for the expensive real backtest — a fast approximate map of the surface. Every model pick is re-run as a REAL backtest (ground-truthing) — never trusted on prediction alone. Best cross-validated model leads (▸). NOT the same as the 2B ML TRADE FILTER: THIS panel picks which PARAMETER CONFIG (the knob settings) is best — a search / optimisation helper; the 2B filter instead decides which individual TRADES of the already-chosen config to take — an execution filter. Different job, both use ML.">'+tag+' · ML CONFIG BUILDER <span style="font-weight:400;color:var(--text5)">(surrogates) — '+models.length+' models · #31 P1 ⓘ</span><span style="margin-left:auto"></span>'+_s3chip('0','▦ FLAT',!_use3d)+_s3chip('1','⬛ 3-D',_use3d)+'</div>';
       // ── THE panel body (owner picked the redesign 2026-07-19): verdict headline →
       //    uniform model scorecards → knob-vs-noise bar chart → strongest interaction
       //    + expander for the rest. ──
@@ -9316,7 +9326,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const usd=(d.best_pnl_usd!=null&&isFinite(+d.best_pnl_usd))?+d.best_pnl_usd:null;
         if(usd!=null&&mlt)return {v:usd/mlt,lab:'★ champion',col:'#1d9e75'};
         return null;})();
-      const _dist=distPanelHtml(_distSrc,mlt,'2B',(_crownM?[_crownM]:null));
+      const _dist=distPanelHtml(_distSrc,mlt,'2C',(_crownM?[_crownM]:null));
       // ── CHART METRIC toggle (item L): the param charts (2B/2C/2H/2I/2J) historically plot
       //    each config's NET PNL only — a drawdown lever (e.g. be_after_R) is INVISIBLE on that
       //    axis (PnL flat ±2% while DD moves 33%). New `dd` per points row (engine ≥ this build)
@@ -9344,19 +9354,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   2A funnel · 2B config distribution · 2C the 3-D explorer (all views share the tag) ·
       //   2D parallel coords · 2E PDP · 2F knob importance · 2G neighbours · 2H top configs ·
       //   2I model bake-off. (Dragged sizes keyed by tag reset once on the rename.)
-      const _pdp=pdpCurvesPanelHtml(_PTS,mlt,_cfgN+'E',(_pMet==='pnl'?d.plateau_pick:null),((_kOrd&&_kOrd.length>=2)?_kOrd:null),true,(_pMet==='pnl'?d.auto_expand:null));
-      const _parc=parallelCoordsHtml(_PTS,mlt,_cfgN+'D',_kOrd,_pdp,_pmBtns);
-      const _corr=corrPanelHtml(d.points,_cfgN+'F',d.relationship,(d.surrogate&&d.surrogate.knob_screen));
+      const _pdp=pdpCurvesPanelHtml(_PTS,mlt,_cfgN+'F',(_pMet==='pnl'?d.plateau_pick:null),((_kOrd&&_kOrd.length>=2)?_kOrd:null),true,(_pMet==='pnl'?d.auto_expand:null));
+      const _parc=parallelCoordsHtml(_PTS,mlt,_cfgN+'E',_kOrd,_pdp,_pmBtns);
+      const _corr=corrPanelHtml(d.points,_cfgN+'G',d.relationship,(d.surrogate&&d.surrogate.knob_screen));
       // 2C is view-toggleable (APREF.hm3d, DEFAULT 3-D per owner): flat heatmap ⇄ 3-D surface.
       const _hm3dOn=(APREF.hm3d==null?1:+APREF.hm3d);
-      const _hm=(_hm3dOn?surface3dPanelHtml(_PTS,mlt,_cfgN+'C',d.best_params):heatmapPanelHtml(_PTS,mlt,_cfgN+'C'));
+      const _hm=(_hm3dOn?surface3dPanelHtml(_PTS,mlt,_cfgN+'D',d.best_params):heatmapPanelHtml(_PTS,mlt,_cfgN+'D'));
       // scatter is view-toggleable too (APREF.sc3d, DEFAULT 3-D per owner): raw config dots in
       //   space (two params × net $ height) ⇄ the flat scatter with density contours.
       const _sc3dOn=(APREF.sc3d==null?1:+APREF.sc3d);
-      const _sc=(_sc3dOn?scatter3dPanelHtml(_PTS,mlt,_cfgN+'C',d.best_params):scatterPanelHtml(_PTS,mlt,_cfgN+'C'));
+      const _sc=(_sc3dOn?scatter3dPanelHtml(_PTS,mlt,_cfgN+'D',d.best_params):scatterPanelHtml(_PTS,mlt,_cfgN+'D'));
       // second 3-D surface on its OWN param pair (hm2X × hm2Y, defaults to the 3rd × 4th knob)
       //   so it never duplicates the first; hides itself under 3 numeric params.
-      const _p3d=surface3dPanelHtml(_PTS,mlt,_cfgN+'C',d.best_params,1);
+      const _p3d=surface3dPanelHtml(_PTS,mlt,_cfgN+'D',d.best_params,1);
       // _pdp is computed above and rendered INSIDE 2B's card as its footer (owner: 2C = same sub-chart under 2B).
       // lay non-empty panels in a row (1, 2 or 3 across); single panel = full-width. stretch=true makes
       //   the cards equal-height (good for similar charts); otherwise they top-align at natural height.
@@ -9388,7 +9398,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   charts, top-aligned (align-items:flex-start), nothing clipped. Charts resize individually.
       const _colStyle='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:12px 14px;box-sizing:border-box;overflow:auto';
       const _colCard=(inner,ck,fx)=>(inner&&inner.replace(/\s/g,''))?('<div style="flex:'+fx+';min-width:0"><div data-ck="'+ck+'" style="'+_colStyle+'">'+inner+'</div></div>'):'';
-      const _nbInner=(nbHtml&&nbHtml.replace(/\s/g,''))?(_numHdr('2G','NEIGHBOUR ROBUSTNESS',nbTip,nbSub)+nbHtml):'';
+      const _nbInner=(nbHtml&&nbHtml.replace(/\s/g,''))?(_numHdr('2H','NEIGHBOUR ROBUSTNESS',nbTip,nbSub)+nbHtml):'';
       // 3-D EXPLORER inner (2E/2F/2G via chips) — content only, no per-tile card (it stacks in col 3).
       const _p3opts=[['h','⛰ SURFACE',_hm],['i','⛰ SURFACE 2',_p3d],['j','• SCATTER',_sc]].filter(o=>o[2]&&o[2].replace(/\s/g,''));
       const _p3v=(function(){const w=APREF.p3view;return _p3opts.some(o=>o[0]===w)?w:(_p3opts.length?_p3opts[0][0]:null);})();
@@ -9404,12 +9414,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // #36: 🎯 badge — was THIS run's search model-steered? v64.40 (owner): rides UNDER the
       //   2H chart title (passed into the panel), not above the whole panel.
       const _steerBadge=(d.steering&&d.steering.used)?('<div style="display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:9px;color:#3a9bdc;font-weight:700" title="P2 steered search (#36): the first batch of configs was sampled at random, then a Gaussian-Process model was re-fit on every result so far and CHOSE each next batch (predicted-high-PnL regions plus regions it was still unsure about). Every proposed config was still evaluated by the same real backtest as always.">🎯 MODEL-STEERED SEARCH <span style="font-weight:400;color:var(--text4)">'+(d.steering.seed_trials||0)+' random seed + '+(d.steering.steered_trials||0)+' GP-aimed trials'+((d.steering.fallback_random||0)>0?' · '+d.steering.fallback_random+' fell back to random':' · 0 fallbacks')+'</span></div>'):'';
-      const _surrHtml=surrogatePanelHtml(d.surrogate,mlt,_cfgN+'I',_steerBadge);
+      const _surrHtml=surrogatePanelHtml(d.surrogate,mlt,_cfgN+'J',_steerBadge);
       const _surrInner=(_surrHtml&&_surrHtml.replace(/\s/g,''))?_surrHtml:'';
-      const _surrErr=(d.surrogate&&d.surrogate.error)?'<div style="font-size:8px;color:var(--text5);margin-bottom:8px">'+_cfgN+'I · ML CONFIG BUILDER — skipped: '+String(d.surrogate.error).replace(/</g,'&lt;')+'</div>':'';
+      const _surrErr=(d.surrogate&&d.surrogate.error)?'<div style="font-size:8px;color:var(--text5);margin-bottom:8px">'+_cfgN+'J · ML CONFIG BUILDER — skipped: '+String(d.surrogate.error).replace(/</g,'&lt;')+'</div>':'';
       // #29: 2I is a reference table the owner rarely reads — one-line strip, click to expand (cfgTblOpen).
       const _tfOpen=!!APREF.cfgTblOpen;
-      const _topInner=(t10.length?('<div data-cfgtbl title="the numeric detail behind the 2A curves — every top config with its full parameter set and stats. Click to '+(_tfOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'H · TOP CONFIGS <span style="font-weight:400;color:var(--text4);font-size:8px">· '+t10.length+' configs ⓘ</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+(_tfOpen?'▴ hide':'▾ show')+'</span></div>'
+      const _topInner=(t10.length?('<div data-cfgtbl title="the numeric detail behind the 2A curves — every top config with its full parameter set and stats. Click to '+(_tfOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'I · TOP CONFIGS <span style="font-weight:400;color:var(--text4);font-size:8px">· '+t10.length+' configs ⓘ</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+(_tfOpen?'▴ hide':'▾ show')+'</span></div>'
         +(_tfOpen?('<div style="margin-top:8px"><style>.cfgtbl th,.cfgtbl td{padding:2px 5px!important;font-size:8px!important;border-right:1px solid color-mix(in srgb,var(--border) 45%,transparent)}.cfgtbl th:last-child,.cfgtbl td:last-child{border-right:none}.cfgtbl th{white-space:nowrap!important;max-width:70px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;color:var(--text4);letter-spacing:0;cursor:help}</style><div style="overflow-x:auto"><table class="table cfgtbl" style="width:auto;white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div></div>'):'')):'');
       // 3A DEFLATED SHARPE inner — non-validate sweeps only (validate runs show it in §1/1I).
       const _dsrInner=(!d.validate&&dsrHtml&&dsrHtml.replace(/\s/g,''))?('<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">3A '+_infoIc(_ipAB(dsrTip,dsrStats))+' DEFLATED SHARPE</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml):'';
@@ -9505,7 +9515,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // ── HERO: before → after stat cards — the decision, up front (redesign, owner option A) ──
         // v64.42 (owner): tighter cards (col 3 is narrow) so "NET P&L $427k → $369k" stops
         //   clipping — smaller value font + overflow guard so it never spills the card.
-        const _statCard=(lab,bef,aft,better)=>'<div style="background:var(--bg1);border-radius:8px;padding:6px 8px;flex:1 1 84px;min-width:72px;overflow:hidden"><div style="font-size:7.5px;color:var(--text5);letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+lab+'</div><div style="font-size:10.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:var(--text5)">'+bef+'</span> <span style="color:var(--text5)">→</span> <b style="color:'+(better===true?'var(--green)':(better===false?'var(--red)':'var(--text2)'))+'">'+aft+'</b></div></div>';
+        // v64.70 (owner): before/after as a MATRIX (rows) instead of arrow tiles — reads like the
+        //   1E KPI matrix: metric | before (every trade) | after (gate kept).
+        const _statCard=(lab,bef,aft,better)=>'<tr><td style="padding:2px 8px 2px 0;color:var(--text4);white-space:nowrap">'+lab+'</td><td style="padding:2px 10px;text-align:right;color:var(--text5);font-variant-numeric:tabular-nums;white-space:nowrap">'+bef+'</td><td style="padding:2px 0 2px 10px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;color:'+(better===true?'var(--green)':(better===false?'var(--red)':'var(--text2)'))+'">'+aft+'</td></tr>';
         const _hc=[];let _slice='';
         if(_gvP&&_gvP.LB){const LB=_gvP.LB;_slice='lockbox — the held-out slice';
           _hc.push(_statCard('NET P&L',_g$(LB.ungated.total_pnl),_g$(LB.gated.total_pnl),(LB.gated.total_pnl||0)>=(LB.ungated.total_pnl||0)));
@@ -9526,7 +9538,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         }
         // v64.43 (owner): the wordy "BEFORE → AFTER · lockbox … every trade vs only the trades…"
         //   caption is gone — the cards themselves read "before → after" via the arrow.
-        const _hero=_hc.length?('<div style="font-size:8px;color:var(--text5);margin-bottom:4px">before → after on the <b style="color:var(--text4)">'+_slice+'</b> — so the BEFORE column matches that same slice in the 1E matrix (not the in-sample column)</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+_hc.join('')+'</div>'):'';
+        const _hero=_hc.length?('<div style="font-size:8px;color:var(--text5);margin-bottom:5px">measured on the <b style="color:var(--text4)">'+_slice+'</b> — the BEFORE column matches that same slice in the 1E matrix (not in-sample)</div><div style="overflow-x:auto;margin-bottom:10px"><table style="border-collapse:collapse;font-size:10px"><thead><tr><th style="padding:2px 8px 4px 0;text-align:left;font-size:7.5px;letter-spacing:.5px;color:var(--text5)">METRIC</th><th style="padding:2px 10px 4px;text-align:right;font-size:7.5px;letter-spacing:.5px;color:var(--text5)">BEFORE<br><span style="font-weight:400">every trade</span></th><th style="padding:2px 0 4px 10px;text-align:right;font-size:7.5px;letter-spacing:.5px;color:var(--text5)">AFTER<br><span style="font-weight:400">gate kept</span></th></tr></thead><tbody>'+_hc.join('')+'</tbody></table></div>'):'';
         // 3B: the real overlay when the doc carries curves (engine saves them since v64.13 —
         // gate_validate.equity for bake-off runs, ml_gate.equity for single-gate runs);
         // otherwise a one-line re-run note (same graceful pattern as the 2H/2L overlays).
@@ -9603,7 +9615,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   card in col3, leaving a huge empty box. This style fits the content; resize:vertical
         //   lets it be dragged from the bottom edge.
         _gateSec='<div style="'+_colStyle+';margin-bottom:0;resize:vertical;min-height:52px;max-height:900px">'
-          +'<div data-gate2a style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden">2J 🚪 ML TRADE FILTER '+_infoIc('<div style="color:var(--text2)">DOES A TRADE-FILTER MODEL EARN ITS KEEP? A GATE is an ML model that scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. GATE VALIDATE sweeps several models across several cut-offs on PRE-lockbox data, picks ONE winner by recovery factor, and gives only that winner a single look at the held-out lockbox — no cherry-picking.<br><br>NOT the same as the 2I ML CONFIG BUILDER: 2I picks which PARAMETER CONFIG (knob settings) is best; this filter keeps the chosen config and only decides which individual TRADES to take. 2I = build the config, 2J = filter its trades.<br><br>THE GATE EQUITY is now shown on the 2A funnel above (the crowned line = every trade / ungated, the pink line = only the trades the gate kept). This pill holds the before/after numbers and the evidence.</div>')+'<span title="'+_gbFull.replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;border:1px solid color-mix(in srgb,'+_gbc+' 45%,var(--border));background:color-mix(in srgb,'+_gbc+' 10%,transparent);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help;flex-shrink:1;min-width:0">'+_gbShort+'</span><span style="margin-left:auto;font-size:8px;color:var(--text4);flex-shrink:0">'+(_g2Open?'▴ hide':'▾ show')+'</span></div>'
+          +'<div data-gate2a style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden">2B 🚪 ML TRADE FILTER '+_infoIc('<div style="color:var(--text2)">DOES A TRADE-FILTER MODEL EARN ITS KEEP? A GATE is an ML model that scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. GATE VALIDATE sweeps several models across several cut-offs on PRE-lockbox data, picks ONE winner by recovery factor, and gives only that winner a single look at the held-out lockbox — no cherry-picking.<br><br>NOT the same as the 2J ML CONFIG BUILDER: 2J picks which PARAMETER CONFIG (knob settings) is best; this filter keeps the chosen config and only decides which individual TRADES to take. 2J = build the config, 2B = filter its trades.<br><br>THE GATE EQUITY is now shown on the 2A funnel above (the crowned line = every trade / ungated, the pink line = only the trades the gate kept). This pill holds the before/after numbers and the evidence.</div>')+'<span title="'+_gbFull.replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;border:1px solid color-mix(in srgb,'+_gbc+' 45%,var(--border));background:color-mix(in srgb,'+_gbc+' 10%,transparent);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help;flex-shrink:1;min-width:0">'+_gbShort+'</span><span style="margin-left:auto;font-size:8px;color:var(--text4);flex-shrink:0">'+(_g2Open?'▴ hide':'▾ show')+'</span></div>'
           +(_g2Open?('<div style="margin-top:9px">'+_gateCard+'</div>'):'')
           +'</div>';
       }
