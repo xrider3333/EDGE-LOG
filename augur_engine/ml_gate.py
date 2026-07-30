@@ -275,7 +275,14 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
     #   passes it, so the gate's lockbox uses the SAME boundary as the 1E matrix. Without it the
     #   gate inherited the last bar's time-of-day and split the first lockbox day (2025-06-30) to
     #   the wrong side — one boundary trade — making the gate's LB disagree with the matrix's.
-    lb_start = pd.Timestamp(lb_from) if lb_from else (idx[-1] - pd.DateOffset(months=int(lockbox_months)))
+    if lb_from:
+        lb_start = pd.Timestamp(lb_from)
+        if lb_start.tzinfo is None:                                  # the data index is tz-aware
+            _tz = getattr(idx, "tz", None) or getattr(pd.Timestamp(idx[-1]), "tzinfo", None)
+            if _tz is not None:                                      # match it, else the >= throws
+                lb_start = lb_start.tz_localize(_tz)                 # and the whole gate is swallowed
+    else:
+        lb_start = idx[-1] - pd.DateOffset(months=int(lockbox_months))
     t_first = entry_ts.min()
 
     feats = entry_features(arrays)[0]                      # compute once, reuse 9x

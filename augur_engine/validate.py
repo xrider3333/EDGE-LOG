@@ -662,7 +662,9 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                 from .ml_gate import gate_validate as _gate_bakeoff_fn
                 gate_bakeoff = _gate_bakeoff_fn(_full_arr, full["trades"],
                                                 lockbox_months=lockbox_months, lb_from=lb_from)
-            except Exception:
+            except Exception as _ge:
+                import traceback as _gt
+                print("[validate] gate_validate FAILED:", repr(_ge)); _gt.print_exc()
                 gate_bakeoff = None
         try:
             import pandas as _pd
