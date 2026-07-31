@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.75';
+const VERSION='64.76';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.76', date:'2026-07-29', notes:['Fullscreen equity explorer: moving the cursor over the chart now shows each line’s value AT THAT POINT right next to its name in the key, not just in the readout at the top — easier to compare several lines at a glance. The numbers clear when the cursor leaves the chart, and a line with no data at that point (like a config that already stopped) shows a dash instead of a misleading number.']},
   {v:'64.75', date:'2026-07-29', notes:['Config lines in the expanded 2A view are now numbered by WALK-FORWARD rank (WF #1, WF #2, …) instead of an in-sample ordering. That was why the three configs carried through the lockbox showed up as crowned / rank 3 / rank 5 and looked wrong — they were always the correct top 3 by walk-forward, just mislabelled. They now read WF #1, #2, #3.']},
   {v:'64.74', date:'2026-07-29', notes:['Fixed a real accuracy bug in the fullscreen equity explorer: the lockbox boundary was being placed years off the true date because every line spread its points evenly across the whole date range instead of its own real calendar span — lines that legitimately stopped right at the lockbox door were being drawn as if they kept going through it.','The walk-forward and lockbox shaded bands in that same explorer now line up with the real calendar dates instead of an approximate position.','Brought back the faint grey cloud of every other tested config in the fullscreen explorer (previously only the surviving few showed), collapsed into one legend row so the legend does not flood with entries.','Fixed legend hovering in the fullscreen explorer: hovering a line in the legend now highlights exactly that line instead of jumping to whatever line happens to be nearby.','The RANGE and WINDOW jump-to controls are now small compact pills next to the other header buttons instead of two full-width bars.','Removed the horizontal dashed reference lines that were cluttering the equity pane.','Added a PARAMS button to the fullscreen explorer that opens a table comparing every visible config’s settings against the winning config, highlighting what differs.']},
   {v:'64.73', date:'2026-07-29', notes:['Fullscreen equity explorer: the walk-forward and lockbox stretches are now shaded on the chart itself (blue / purple bands with IS-WF-LB labels), matching the small 2A chart.','Added RANGE (all, last 1/3/5 years, custom dates) and WINDOW (all, in-sample, walk-forward, lockbox) dropdowns above the chart to jump straight to a stretch instead of hand-zooming.','Hovering the chart now thickens whichever line is closest to the cursor and fades the rest, with the matching legend entry outlined, so a crowded multi-line comparison is easier to read.','Removed the extra dashed reference lines that were cluttering the drawdown pane.','iPad/touch: one-finger drag pans, two-finger pinch zooms, dragging the $ axis scales it, and double-tap resets — the chart no longer fights the page scroll while you interact with it.','The 2A explorer legend no longer shows a meaningless "#" number in front of labels like "crowned" or "gate" — real run numbers (Compare tab) still show their #.']},
@@ -3362,6 +3363,12 @@ window.expandCompareEq=function(series,opts){
   // CHANGE 3 (v64.74): "other config" cloud series (isOther, from d.equity_top) collapse into
   //   ONE legend row — with up to hundreds of them, one row each would swamp the legend.
   const _mainPS=()=>PS.filter(s=>!s.isOther),_otherPS=()=>PS.filter(s=>s.isOther);
+  // v64.76 (owner): live per-series $ value AT THE CURSOR, next to each legend entry — a cached
+  //   id->element map so the crosshair mousemove handler below can write straight into these
+  //   nodes (no querySelector per pixel, no second hit-test — it reuses the SAME interpAt(s,cx)
+  //   loop that already built the top readout row). Rebuilt every renderLegend() call since
+  //   legendEl.innerHTML is rebuilt from scratch there.
+  let _legendValEls={};
   const renderLegend=()=>{
     legendEl.innerHTML=_mainPS().map(s=>{
       const op=s.vis==='dim'?0.45:(s.vis==='off'?0.3:1),td=s.vis==='off'?'line-through':'none',
@@ -3370,7 +3377,11 @@ window.expandCompareEq=function(series,opts){
       //   explorer uses word ids like crowned/rank2/gate) — a "#" in front of a word read as
       //   noise; the Compare tab's numeric run ids still get their #.
       const idTag=/^-?\d+$/.test(String(s.id))?('#'+s.id+' '):'';
-      return '<span data-ceqx-vis="'+s.id+'" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);background:color-mix(in srgb,var(--bg1) 65%,transparent);padding:2px 6px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:'+op+'" title="click: full - greyed - hidden - full"><span style="width:12px;height:3px;background:'+s.color+';display:inline-block;border-radius:2px;flex:0 0 auto"></span><span style="overflow:hidden;text-overflow:ellipsis;text-decoration:'+td+'">'+idTag+s.label+'</span>'+instTf+'</span>';
+      // v64.76: the live-value slot — empty until the first mousemove, right-aligned (the row
+      //   stretches to the legend's shared width so margin-left:auto reaches the true right
+      //   edge), mono/tabular-nums so it reads as a number distinct from the label text beside it.
+      const liveVal='<span data-ceqx-val="'+s.id+'" style="margin-left:auto;padding-left:8px;flex:0 0 auto;font-family:\'JetBrains Mono\',monospace;font-variant-numeric:tabular-nums;font-size:9px;font-weight:700;color:var(--text2)"></span>';
+      return '<span data-ceqx-vis="'+s.id+'" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);background:color-mix(in srgb,var(--bg1) 65%,transparent);padding:2px 6px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:'+op+'" title="click: full - greyed - hidden - full"><span style="width:12px;height:3px;background:'+s.color+';display:inline-block;border-radius:2px;flex:0 0 auto"></span><span style="overflow:hidden;text-overflow:ellipsis;text-decoration:'+td+'">'+idTag+s.label+'</span>'+instTf+liveVal+'</span>';
     }).join('');
     const _oth=_otherPS();
     if(_oth.length){
@@ -3382,6 +3393,10 @@ window.expandCompareEq=function(series,opts){
       +(_anyWfi?('<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2('7,4',false)+'walk-forward</span>'):'')
       +(_anyLi?('<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2('0.1,5',true)+'lockbox</span>'):'')
       +'</span>';
+    // v64.76: rebuild the id->element cache for the live legend values now that legendEl.innerHTML
+    //   was just replaced wholesale — the old nodes (and any cached refs to them) are gone.
+    _legendValEls={};
+    legendEl.querySelectorAll('[data-ceqx-val]').forEach(el=>{_legendValEls[el.getAttribute('data-ceqx-val')]=el;});
     legendEl.querySelectorAll('[data-ceqx-vis]').forEach(rowEl=>{
       // matched as STRINGS (not +sid) — a word id like "crowned" would coerce to NaN and never
       //   match, silently breaking the toggle for the 2A explorer's non-numeric series ids.
@@ -3838,7 +3853,7 @@ window.expandCompareEq=function(series,opts){
       else if(gy>=st.g.H-st.g.pB)chartEl.style.cursor='ew-resize';
       else chartEl.style.cursor='crosshair';
     }
-    if(gx<0||gx>st.g.pw||gy<0||gy>st.g.H-st.g.pB){vln.style.display=hln.style.display=xchip.style.display=ychip.style.display='none';read.textContent='';_applyHover(null);return;}
+    if(gx<0||gx>st.g.pw||gy<0||gy>st.g.H-st.g.pB){vln.style.display=hln.style.display=xchip.style.display=ychip.style.display='none';read.textContent='';_applyHover(null);_clearLegendVals();return;}
     vln.style.display=hln.style.display='block';
     // crosshair vertical spans BOTH panes (equity top edge → drawdown bottom edge)
     vln.style.left=(gx*sx)+'px';vln.style.top=(st.g.eqT*sy)+'px';vln.style.height=((st.g.ddB-st.g.eqT)*sy)+'px';
@@ -3876,13 +3891,29 @@ window.expandCompareEq=function(series,opts){
     //   of interpAt's clamped edge value.
     // CHANGE 3 (v64.74): the 'other config' cloud (isOther) is excluded from this readout too —
     //   same reasoning as its collapsed single legend row, up to hundreds of them would swamp it.
+    // v64.76 (owner): this SAME loop now also writes the live per-series $ value straight into
+    //   its cached legend DOM node (_legendValEls, built once per renderLegend()) — no extra
+    //   hit-test, it reuses the interpAt(s,cx)/outOfSpan this loop already computes for the top
+    //   readout row. The 'other config' cloud has no legend row of its own (collapsed into one
+    //   aggregate row) so it is skipped here exactly like the top readout already skips it.
+    const _seenVal={};
     read.innerHTML=(dstr?dstr:(pct+'%'))+PS.filter(s=>s.vis!=='off'&&!s.isOther).map(s=>{
       const v=interpAt(s,cx),isDim=s.vis==='dim',swCol=isDim?'var(--text5)':s.color,
         outOfSpan=(cx<s.pts[0].x-1e-9)||(cx>s.pts[s.pts.length-1].x+1e-9),
         valHtml=outOfSpan?'<b style="color:var(--text5)">&mdash;</b>':('<b style="color:'+(isDim?'var(--text5)':(v>=0?'var(--green)':'var(--red)'))+'">'+fmt$(v)+'</b>');
+      const _vEl=_legendValEls[s.id];
+      if(_vEl){_seenVal[s.id]=1;_vEl.textContent=outOfSpan?'—':fmt$(v);_vEl.style.color=outOfSpan?'var(--text5)':(isDim?'var(--text5)':(v>=0?'var(--green)':'var(--red)'));}
       return ' &middot; <span style="display:inline-flex;align-items:center;gap:3px;opacity:'+(isDim?0.55:1)+'"><span style="width:8px;height:8px;border-radius:2px;background:'+swCol+';display:inline-block"></span>'+s.label+' '+valHtml+'</span>';}).join('');
+    // any legend row NOT touched above (an 'off' series still has its row in the DOM, just
+    //   struck-through) keeps a blank live-value slot rather than a stale number from before it
+    //   was hidden.
+    Object.keys(_legendValEls).forEach(id=>{if(!_seenVal[id])_legendValEls[id].textContent='';});
   });
-  chartEl.addEventListener('mouseleave',()=>{vln.style.display=hln.style.display=xchip.style.display=ychip.style.display='none';read.textContent='';_applyHover(null);});
+  // v64.76: clears every live legend value alongside the crosshair/readout — called from both
+  //   the out-of-plot-bounds early-return above and the real mouseleave below, so no row is ever
+  //   left showing a stale number once the cursor is off the chart.
+  const _clearLegendVals=()=>{Object.keys(_legendValEls).forEach(id=>{_legendValEls[id].textContent='';});};
+  chartEl.addEventListener('mouseleave',()=>{vln.style.display=hln.style.display=xchip.style.display=ychip.style.display='none';read.textContent='';_applyHover(null);_clearLegendVals();});
   // ── PHASE 2 TRADE BLOTTER: one tab per selected strategy, loaded off the PC runner
   //    (get_blotter) through the SAME cache (_blotGet/_blotPut) and payload shape the 1A
   //    single-run explorer uses. All series load in parallel; a failure on one strategy shows
