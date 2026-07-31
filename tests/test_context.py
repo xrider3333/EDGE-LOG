@@ -15,6 +15,13 @@ Covers:
     must not artificially tighten the CI the way a naive per-trade bootstrap
     would).
   * fail-soft (external fetch raising, too few trades) and determinism.
+  * the ERA-AWARE GUARD (block bootstrap + within-era consistency): a feature
+    that only correlates with PnL because BOTH drift over years (no real
+    within-year relationship) must get caught (survives=False,
+    trend_confounded=True); a feature with a genuine, consistent within-year
+    relationship must still survive; the block-bootstrap CI must be wider than
+    the old day-only CI for a persistent feature; a fast/noisy feature must
+    NOT get flagged "slow" (and so isn't subject to the era gate at all).
 """
 import numpy as np
 import pandas as pd
@@ -228,6 +235,153 @@ def test_fetch_external_daily_merges_mocked_series(monkeypatch):
     # shifted +1 -> the first row of every external feature is NaN (no prior close yet)
     assert out.iloc[0].isna().all()
     assert out.iloc[5].notna().any()
+
+
+# ── era-aware guard: block bootstrap + within-era consistency ──────────────────
+
+def _calendar_year_eras(dates, n_years):
+    """Assign each date to an era EXACTLY the way ctx._era_ids will (calendar
+    year, 0-based) -- used to build synthetic features/pnl whose era structure
+    lines up with what the code under test will actually compute."""
+    years = np.array([d.year for d in dates])
+    uniq_years = np.unique(years)[:n_years]
+    keep = np.isin(years, uniq_years)
+    era = np.searchsorted(uniq_years, years[keep])
+    return keep, era
+
+
+def test_trend_artifact_survives_old_style_but_not_new_rule():
+    """The key test: a feature that STEPS to a new level each calendar year
+    (flat/noisy WITHIN a year -- like ^TNX or the yield curve sitting at one
+    level for a while) and PnL that ALSO steps up era by era, for a totally
+    UNRELATED reason -- no engineered within-year relationship at all. Pooled
+    over the whole history the two drift together and look strongly,
+    "significantly" related (q ~ 0, exactly what the old day-only pipeline
+    would call a survivor) -- but the new rule must reject it once the era
+    check sees there's no real relationship INSIDE any single year.
+    """
+    n_years = 6
+    dates_full = _daily_index(n_years * 260, start="2010-01-04")
+    keep, era = _calendar_year_eras(dates_full.date, n_years)
+    dates = dates_full[keep]
+    n = len(dates)
+
+    seed = 5
+    rng = np.random.default_rng(seed)
+    feat_level = np.arange(n_years, dtype=float)
+    feat = feat_level[era] + rng.normal(0, 0.3, n)          # ~flat within a year, steps across years
+    pnl_level = np.arange(n_years, dtype=float) * 6.0
+    pnl = pnl_level[era] + rng.normal(0, 8.0, n)            # independent noise -> no real within-year link
+
+    daily = pd.DataFrame({"drift_feat": feat}, index=dates.date)
+    trades = _trades_from_daily(pnl)
+
+    res = ctx.context_scores(trades, dates, daily, n_boot=300, seed=seed)
+    assert res is not None
+    f = res["features"][0]
+    assert f["name"] == "drift_feat"
+
+    # old-style: highly persistent AND "significant" by the (unchanged) FDR test --
+    # this is exactly what the pre-fix pipeline would have called a survivor.
+    assert f["slow"] is True
+    assert f["q"] < ctx.FDR_Q
+
+    # the era check catches it: no consistent within-year relationship.
+    assert f["era_pass"] is False
+    assert f["era_consistent"] < ctx.ERA_CONSISTENT_MIN
+
+    # the new rule kills it, and flags WHY rather than silently dropping it.
+    assert f["survives"] is False
+    assert f["trend_confounded"] is True
+
+
+def test_genuine_within_era_signal_survives():
+    """A feature that is itself PERSISTENT (autocorr >= SLOW_AUTOCORR, so it
+    IS subject to the era gate) but has a real, stable relationship to PnL
+    that holds the SAME WAY inside every single year (no drift confound) must
+    still survive: era_pass True, era_consistent high, survives True."""
+    n = 1512                                                  # ~6 years, 1 trade/day
+    dates = _daily_index(n, start="2010-01-04")
+    seed = 7
+    rng = np.random.default_rng(seed)
+    phi = 0.97                                                # AR(1), mean-reverting, no net drift
+    eps = rng.normal(0, 1.0, n)
+    x = np.empty(n)
+    x[0] = eps[0]
+    for i in range(1, n):
+        x[i] = phi * x[i - 1] + eps[i]
+    pnl = 4.0 * x + rng.normal(0, 10.0, n)                    # same stable link every single day
+
+    daily = pd.DataFrame({"persist_feat": x}, index=dates.date)
+    trades = _trades_from_daily(pnl)
+
+    res = ctx.context_scores(trades, dates, daily, n_boot=300, seed=seed)
+    assert res is not None
+    f = res["features"][0]
+    assert f["name"] == "persist_feat"
+
+    assert f["slow"] is True                                  # genuinely persistent -> era gate applies
+    assert f["n_eras"] >= 3
+    assert f["era_consistent"] >= 0.8
+    assert f["era_pass"] is True
+    assert f["survives"] is True
+    assert f["trend_confounded"] is False
+
+
+def test_block_ci_wider_than_day_ci_for_persistent_feature():
+    """The block bootstrap MUST report a wider CI than the plain day-clustered
+    bootstrap for a highly persistent (slow-moving) feature -- that's the
+    whole point of item 1: the day-only CI treats far-apart days as
+    exchangeable and comes out falsely tight for something that drifts over
+    months, the block version doesn't."""
+    seed = 1
+    n = 1000
+    phi = 0.98
+    rng = np.random.default_rng(seed)
+    eps = rng.normal(0, 1.0, n)
+    x = np.empty(n)
+    x[0] = eps[0]
+    for i in range(1, n):
+        x[i] = phi * x[i - 1] + eps[i]
+    y = 2.0 * x + rng.normal(0, 8.0, n)
+
+    rx, ry = ctx._rank(x), ctx._rank(y)
+    day_code = np.arange(n)                                  # one trade per day -> day_code == index
+    autocorr, persistence = ctx._autocorr_and_persistence(pd.Series(x))
+    assert autocorr >= ctx.SLOW_AUTOCORR                       # confirm this really is a "slow" feature
+    block_days = ctx._block_days_for(persistence)
+    assert block_days > ctx.BLOCK_DAYS_MIN                      # a highly persistent series adapts upward
+
+    lo_day, hi_day = ctx._clustered_bootstrap_ci(rx, ry, day_code, n, 1000, seed)
+    lo_block, hi_block = ctx._block_bootstrap_ci(rx, ry, day_code, n, block_days, 500, seed)
+
+    assert (hi_block - lo_block) > (hi_day - lo_day)
+
+
+def test_fast_feature_not_flagged_slow():
+    """A noisy, day-to-day feature (no persistence, e.g. vix_chg_5d/gap_pct-
+    style) must get slow=False and is NOT subject to the era gate -- it
+    survives on the plain FDR test alone, exactly like before this guard
+    existed."""
+    n = 400
+    dates = _daily_index(n)
+    seed = 3
+    rng = np.random.default_rng(seed)
+    x = rng.normal(0, 1, size=n)                              # white noise -> ~0 autocorrelation
+    pnl = 10.0 * x + rng.normal(0, 4.0, size=n)
+
+    daily = pd.DataFrame({"fast_feat": x}, index=dates.date)
+    trades = _trades_from_daily(pnl)
+
+    res = ctx.context_scores(trades, dates, daily, n_boot=300, seed=seed)
+    assert res is not None
+    f = res["features"][0]
+    assert f["name"] == "fast_feat"
+
+    assert abs(f["autocorr"]) < 0.5
+    assert f["slow"] is False
+    # survives regardless of era_pass, since slow=False bypasses the era gate
+    assert f["survives"] == bool(f["q"] < ctx.FDR_Q)
 
 
 # ── determinism ──────────────────────────────────────────────────────────────

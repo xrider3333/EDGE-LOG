@@ -4,11 +4,11 @@ Answers "which market features plausibly explain trade performance?": enrich eac
 backtest trade with what the market was doing at ENTRY (prior-day-close features,
 strictly causal — a trade entering on day D only ever sees information knowable
 before day D's session opens), then score feature -> per-trade-PnL relationships
-with Spearman/Pearson + a clustered-bootstrap CI + Benjamini-Hochberg FDR. The
-result is the JSON-safe `result["context"]` block (wired into optimize.py/auto.py
-next to `analytics.regime_report`) the web can later render as a bar panel, the
-same way `analytics.relationship_scores` feeds the existing PARAM RELATIONSHIP
-panel.
+with Spearman/Pearson + a block-bootstrap CI + Benjamini-Hochberg FDR + an
+ERA-AWARE consistency guard for slow-drifting features. The result is the
+JSON-safe `result["context"]` block (wired into optimize.py/auto.py next to
+`analytics.regime_report`) the web can later render as a bar panel, the same
+way `analytics.relationship_scores` feeds the existing PARAM RELATIONSHIP panel.
 
 Four pieces, same "never break a backtest" discipline as analytics.py:
   * build_internal_daily — daily features from the run's OWN bar arrays (no
@@ -16,9 +16,17 @@ Four pieces, same "never break a backtest" discipline as analytics.py:
   * fetch_external_daily — ^VIX/^VIX3M/^TNX/^IRX daily features from yfinance,
     CSV-cached in augur_uploads/_context/, fail-soft on ANY network hiccup.
   * context_scores       — the stats core: join trades -> entry-day features,
-    Spearman rho (primary) + Pearson r, a 95% CI from a bootstrap CLUSTERED by
-    entry day (trades on the same day share the same context row — a naive
-    per-trade bootstrap would be falsely tight), and BH-FDR across features.
+    Spearman rho (primary) + Pearson r, a 95% CI from a MOVING-BLOCK bootstrap
+    (contiguous runs of trading days, not independent days — day-clustering
+    alone still lets a feature that drifts over YEARS look falsely tight/
+    significant, since two slow-drifting series correlate whether or not one
+    causes the other), BH-FDR across features, and an ERA-AWARE guard: a
+    "slow" (persistent, autocorr>=0.95) feature only `survives` when its
+    relationship to PnL also holds WITHIN each era (calendar year), not just
+    across the whole history — see context_scores' docstring for the full
+    field list (rho_within/n_eras/era_consistent/era_pass/autocorr/slow/
+    trend_confounded). A plain `_clustered_bootstrap_ci` (day-only) is still
+    available for comparison/tests.
   * build_context        — the one-call wiring helper optimize.py/auto.py use:
     ties the three together and NEVER raises (returns None on any failure).
 """
@@ -43,6 +51,34 @@ MIN_TRADES = 30                # context_scores returns None below this many usa
 MIN_FEATURE_TRADES = 10        # a feature with fewer non-NaN observations is not scored
 MIN_FEATURE_DAYS = 2           # a feature needs >=2 distinct entry days to bootstrap-CI
 FDR_Q = 0.10                   # survives = Benjamini-Hochberg q-value < this
+
+# ── era-aware guard (BACKTESTING_STACK / context.py revamp) ────────────────────
+# Slow macro features (tnx, curve, and to a lesser degree vix/atr20_pctile) drift
+# over YEARS; strategy performance also varies by era. Two things that both
+# drift over a decade correlate whether or not one causes the other, and the
+# day-clustered bootstrap above only fixes SAME-DAY clustering -- it says
+# nothing about multi-year serial autocorrelation, so a persistent feature's CI
+# comes out falsely tight and its q falsely small. These constants back the
+# block bootstrap (wider, honest CI) and the within-era consistency check
+# (does the relationship actually hold INSIDE each era, or only ACROSS eras --
+# i.e. is it real or pure drift) that together gate `survives` for slow features.
+BLOCK_DAYS_MIN = 21            # ~1 trading month -- floor block length (moving-block bootstrap)
+BLOCK_DAYS_MAX = 126           # ~6 months -- ceiling so the bootstrap stays computable
+DEFAULT_BLOCK_N_BOOT = 500     # block draws are costlier than day draws (each covers a whole
+                                # block, not one row-weight lookup); 500 keeps runtime sane --
+                                # see context_scores docstring for the tradeoff.
+SLOW_AUTOCORR = 0.95           # lag-1 autocorr of the DAILY feature series >= this -> "slow"
+                                # (persistent) -> gated by era_pass. tnx/curve/vix LEVELS trip
+                                # this; day-to-day features (vix_chg_5d, gap_pct, prev_ret) don't.
+ERA_MIN_TRADES = 30            # an era needs >= this many usable trades to count toward n_eras
+ERA_MIN_ERAS = 3               # era_pass needs at least this many usable eras
+ERA_CONSISTENT_MIN = 0.6       # >=60% of usable eras must share the overall rho's sign
+ERA_T_MIN = 2.0                # |t| of the per-era rhos vs 0 (mean / SE across eras).
+                               # The REAL era test: a sign fraction alone is close to a
+                               # coin flip (11-of-17 eras sharing a sign is p~0.33, i.e.
+                               # no evidence), so a pooled correlation built from tiny
+                               # per-era rhos that scatter around zero — the signature of
+                               # a multi-year drift artifact — must also fail this.
 
 EXTERNAL_TICKERS = {"^VIX": "vix", "^VIX3M": "vix3m", "^TNX": "tnx", "^IRX": "irx"}
 EXTERNAL_FEATURES = ("vix", "vix_pctile_1y", "vix_chg_5d", "vix_term",
@@ -376,7 +412,167 @@ def _clustered_bootstrap_ci(rx, ry, day_code, n_days, n_boot, seed):
     return float(lo), float(hi)
 
 
-def context_scores(trades, index, daily_features, n_boot=1000, seed=42):
+def _block_bootstrap_ci(rx, ry, day_code, n_days, block_days, n_boot, seed):
+    """95% percentile CI for Spearman rho from a MOVING-BLOCK bootstrap: each
+    draw resamples CONTIGUOUS BLOCKS of `block_days` consecutive trading days
+    (circular -- a block starting near the end wraps around to the start, the
+    standard fix so every day gets equal coverage) instead of independent
+    single days. `_clustered_bootstrap_ci` above only protects against SAME-DAY
+    clustering (trades sharing a day share the same context row); it treats
+    each day as an otherwise-independent draw, which understates uncertainty
+    for a feature that drifts over months/years (see module docstring). This
+    is the fix: a bootstrap draw that grabs one 21-126 trading-day block at a
+    time only ever contributes CONSECUTIVE days, so slow multi-day/week/month
+    persistence in the underlying feature (and in whatever it happens to be
+    correlated with) shows up as genuinely wider uncertainty instead of being
+    averaged away by treating far-apart days as exchangeable.
+
+    Same vectorized weighted-rank trick as the day version: rather than
+    materializing n_boot duplicated trade arrays, this computes each draw's
+    per-DAY multiplicity (how many times that day was covered by one of the
+    draw's resampled blocks), broadcasts it to a per-ROW weight via day_code,
+    and applies the same weighted-Pearson-on-ranks formula.
+    """
+    rng = np.random.default_rng(int(seed))
+    n_boot = int(n_boot); n_days = int(n_days)
+    block_days = int(max(1, min(int(block_days), n_days)))
+    n_blocks = int(np.ceil(n_days / block_days))
+    starts = rng.integers(0, n_days, size=(n_boot, n_blocks))
+    offsets = np.arange(block_days)
+    idx = (starts[:, :, None] + offsets[None, None, :]) % n_days       # circular wrap
+    idx = idx.reshape(n_boot, n_blocks * block_days)[:, :n_days]        # trim to n_days/draw
+    mult = np.zeros((n_boot, n_days), dtype=np.int32)
+    rows = np.repeat(np.arange(n_boot), n_days)
+    np.add.at(mult, (rows, idx.ravel()), 1)
+    W = mult[:, day_code].astype(float)                    # (n_boot, n_obs)
+    sw = W.sum(axis=1, keepdims=True)
+    sw_safe = np.where(sw > 0, sw, 1.0)
+    mx = (W * rx).sum(axis=1, keepdims=True) / sw_safe
+    my = (W * ry).sum(axis=1, keepdims=True) / sw_safe
+    dx = rx[None, :] - mx; dy = ry[None, :] - my
+    cov = (W * dx * dy).sum(axis=1)
+    vx = (W * dx * dx).sum(axis=1); vy = (W * dy * dy).sum(axis=1)
+    den = np.sqrt(np.clip(vx * vy, 0, None))
+    rho_boot = np.divide(cov, den, out=np.zeros_like(cov), where=den > 1e-12)
+    lo, hi = np.percentile(rho_boot, [2.5, 97.5])
+    return float(lo), float(hi)
+
+
+def _autocorr_and_persistence(daily_series):
+    """Lag-1 autocorrelation of a DAILY feature series (the feature's own full
+    history -- NOT the trade-joined subset; persistence is a property of the
+    feature itself, independent of when trades happened to fire) + a rough
+    persistence length in trading days, via the AR(1) correlation-time closed
+    form `1/(1-ac1)`, clipped to [1, BLOCK_DAYS_MAX]. Fewer than 30 usable
+    (non-NaN) points -> (0.0, BLOCK_DAYS_MIN): too little history to call it
+    slow, defaults to the minimum block length. Never raises (NaN/undefined
+    autocorr, e.g. a constant series, also falls back to 0.0)."""
+    s = pd.Series(daily_series).dropna()
+    if len(s) < 30:
+        return 0.0, float(BLOCK_DAYS_MIN)
+    try:
+        ac1 = s.autocorr(lag=1)
+    except Exception:
+        ac1 = None
+    if ac1 is None or not np.isfinite(ac1):
+        ac1 = 0.0
+    ac1 = float(ac1)
+    ac1_capped = min(ac1, 0.999)                            # guard 1/(1-ac1) blow-up near 1
+    persistence = 1.0 / (1.0 - ac1_capped) if ac1_capped < 0.999 else float(BLOCK_DAYS_MAX)
+    persistence = float(np.clip(persistence, 1.0, BLOCK_DAYS_MAX))
+    return ac1, persistence
+
+
+def _block_days_for(persistence_days):
+    """Adaptive block length: `max(BLOCK_DAYS_MIN, round(persistence))`, capped
+    at BLOCK_DAYS_MAX so the bootstrap stays computable even for a near-random-
+    walk feature."""
+    return int(min(max(BLOCK_DAYS_MIN, round(persistence_days)), BLOCK_DAYS_MAX))
+
+
+def _era_ids(dates):
+    """Assign each row (by its `datetime.date`) to an ERA: calendar YEAR when
+    the sample spans >= 3 distinct years, else ~equal thirds by chronological
+    order (a short backtest window with <3 calendar years still gets a usable
+    era split). Returns (era_id array (int, 0-based), n_era_labels)."""
+    dates = np.asarray(dates)
+    years = np.array([d.year for d in dates])
+    uniq_years = np.unique(years)
+    if len(uniq_years) >= 3:
+        y2e = {y: i for i, y in enumerate(uniq_years)}
+        era = np.array([y2e[y] for y in years], dtype=int)
+        return era, int(len(uniq_years))
+    order = np.argsort(dates, kind="stable")
+    n = len(dates)
+    ranks = np.empty(n, dtype=int)
+    ranks[order] = np.arange(n)
+    era = np.minimum((ranks * 3) // max(n, 1), 2).astype(int)
+    return era, 3
+
+
+def _within_era_consistency(x, y, dates, rho_overall):
+    """Split (x, y) by ERA (see _era_ids) and compute Spearman rho INSIDE each
+    era with >= ERA_MIN_TRADES usable rows. A relationship that is real WITHIN
+    eras survives this; one that only exists ACROSS eras (pure multi-year
+    drift -- both series independently trending, no actual within-year link)
+    fails it -- that's the artifact this whole guard exists to catch.
+
+    Returns (rho_within, n_eras, era_consistent, era_pass, era_t):
+      rho_within     : mean of the per-era rhos, EQUAL WEIGHT per era (so one
+                       fat era can't dominate the average).
+      n_eras         : count of eras with >= ERA_MIN_TRADES usable rows.
+      era_consistent : fraction of those eras whose rho shares rho_overall's sign.
+      era_t          : one-sample t statistic of the per-era rhos against 0
+                       (mean / standard error ACROSS eras). This is the real
+                       test and the sign-fraction is only a readability aid:
+                       a sign fraction is nearly a coin flip at these counts
+                       (11 of 17 eras sharing a sign is p~0.33 — no evidence at
+                       all), whereas the t statistic asks the question that
+                       matters — is the WITHIN-era effect consistently non-zero
+                       relative to how much it scatters from era to era.
+      era_pass       : n_eras >= ERA_MIN_ERAS AND |era_t| >= ERA_T_MIN AND
+                       era_consistent >= ERA_CONSISTENT_MIN AND
+                       sign(rho_within) == sign(rho_overall) (and rho_overall != 0).
+    """
+    era, _n_labels = _era_ids(dates)
+    overall_sign = float(np.sign(rho_overall))
+    era_rhos = []
+    same_sign = 0
+    for e in np.unique(era):
+        m = era == e
+        if int(m.sum()) < ERA_MIN_TRADES:
+            continue
+        xe, ye = x[m], y[m]
+        if np.ptp(xe) <= 0 or np.ptp(ye) <= 0:
+            continue                                        # degenerate inside this era
+        re = _pearson(_rank(xe), _rank(ye))
+        era_rhos.append(re)
+        if overall_sign != 0 and np.sign(re) == overall_sign:
+            same_sign += 1
+
+    n_eras = len(era_rhos)
+    if n_eras == 0:
+        return 0.0, 0, 0.0, False, 0.0
+    rho_within = float(np.mean(era_rhos))
+    era_consistent = float(same_sign / n_eras)
+    # t statistic of the per-era rhos vs 0 — mean over the standard error ACROSS
+    # eras. A drift artifact produces tiny per-era rhos that scatter around zero,
+    # so the mean is small relative to that scatter and t stays near 0 no matter
+    # how many trades the pooled correlation had.
+    if n_eras >= 2:
+        sd = float(np.std(era_rhos, ddof=1))
+        se = sd / np.sqrt(n_eras) if sd > 1e-12 else 0.0
+        era_t = float(rho_within / se) if se > 1e-12 else 0.0
+    else:
+        era_t = 0.0
+    era_pass = bool(overall_sign != 0 and n_eras >= ERA_MIN_ERAS
+                    and abs(era_t) >= ERA_T_MIN
+                    and era_consistent >= ERA_CONSISTENT_MIN
+                    and np.sign(rho_within) == overall_sign)
+    return rho_within, n_eras, era_consistent, era_pass, era_t
+
+
+def context_scores(trades, index, daily_features, n_boot=DEFAULT_BLOCK_N_BOOT, seed=42):
     """The stats core: join each trade's ENTRY bar -> entry date -> that date's
     row in `daily_features` (already prior-day-shifted — see build_internal_daily
     / fetch_external_daily), then score every feature's relationship to
@@ -391,17 +587,41 @@ def context_scores(trades, index, daily_features, n_boot=1000, seed=42):
     daily_features : DataFrame indexed by date, columns = feature name -> value.
 
     Per feature: Spearman rho (primary, rank-robust) + Pearson r; a 95% CI from
-    a bootstrap CLUSTERED by entry day (trades sharing a day share the SAME
-    context row, so resampling individual trades would be falsely tight);
-    Benjamini-Hochberg FDR across every scored feature (q < FDR_Q -> `survives`).
-    A feature is dropped (not scored) when fewer than MIN_FEATURE_TRADES trades
-    have a non-NaN value for it, or fewer than MIN_FEATURE_DAYS distinct entry
-    days, or it has zero variation.
+    a MOVING-BLOCK bootstrap (see _block_bootstrap_ci) that resamples
+    contiguous blocks of consecutive trading days -- clustered by entry day
+    like before, but ALSO robust to multi-day/week/month persistence, which a
+    plain day-clustered bootstrap (still available as _clustered_bootstrap_ci)
+    does not protect against; Benjamini-Hochberg FDR across every scored
+    feature (q < FDR_Q). A feature is dropped (not scored) when fewer than
+    MIN_FEATURE_TRADES trades have a non-NaN value for it, or fewer than
+    MIN_FEATURE_DAYS distinct entry days, or it has zero variation.
 
-    Returns {"features": [{name, rho, r, ci_lo, ci_hi, n, p, q, survives}, ...]
-    sorted by |rho| desc, "n_trades", "n_days", "external_available"} — every
-    value a native python type (JSON-safe) — or None when fewer than MIN_TRADES
-    trades joined to a valid entry-date row.
+    ERA-AWARE GUARD (the point of this module's revamp): slow macro features
+    (tnx, curve, vix levels, ...) drift over YEARS, and strategy performance
+    varies by era too -- two things that both drift over a decade correlate
+    whether or not one causes the other, so a raw whole-history q-value can
+    "survive" on pure drift. Per feature this also computes:
+      autocorr       : lag-1 autocorrelation of the feature's own daily series.
+      slow           : bool, autocorr >= SLOW_AUTOCORR -- a persistent/macro-
+                       drifting feature, subject to the era gate below.
+      rho_within     : mean of the per-CALENDAR-YEAR-era Spearman rhos (equal
+                       weight per era; falls back to ~thirds if <3 years).
+      n_eras         : eras with >= ERA_MIN_TRADES usable trades.
+      era_consistent : fraction of those eras whose rho shares the overall
+                       rho's sign.
+      era_pass       : n_eras >= ERA_MIN_ERAS AND era_consistent >=
+                       ERA_CONSISTENT_MIN AND sign(rho_within) == sign(rho).
+    `survives` = q < FDR_Q AND (era_pass if slow else True) -- a slow feature
+    now has to show a relationship that holds INSIDE eras, not just across
+    them. `trend_confounded` = slow AND q < FDR_Q AND NOT era_pass: it looked
+    significant by the plain FDR test but failed the era check -- flagged
+    explicitly rather than silently dropped, so a caller can show it.
+
+    Returns {"features": [{name, rho, r, ci_lo, ci_hi, n, p, q, survives,
+    rho_within, n_eras, era_consistent, era_pass, autocorr, slow,
+    trend_confounded}, ...] sorted by |rho| desc, "n_trades", "n_days",
+    "external_available"} — every value a native python type (JSON-safe) — or
+    None when fewer than MIN_TRADES trades joined to a valid entry-date row.
     """
     if not trades or daily_features is None or not len(daily_features):
         return None
@@ -448,13 +668,31 @@ def context_scores(trades, index, daily_features, n_boot=1000, seed=42):
         rho = _pearson(rx, ry)
         r = _pearson(x, y)
         p, _method = _pvalue(x, y, rho, days, seed=seed)
-        ci_lo, ci_hi = _clustered_bootstrap_ci(rx, ry, day_code, len(uniq_days),
-                                               n_boot, seed)
+
+        # persistence / slow-feature flag -- from the feature's OWN full daily
+        # series (build_internal_daily/fetch_external_daily's column), not the
+        # trade-joined subset: drift is a property of the feature, independent
+        # of when trades happened to fire.
+        autocorr, persistence_days = _autocorr_and_persistence(daily_features[col])
+        slow = bool(autocorr >= SLOW_AUTOCORR)
+        block_days = _block_days_for(persistence_days)
+        ci_lo, ci_hi = _block_bootstrap_ci(rx, ry, day_code, len(uniq_days),
+                                           block_days, n_boot, seed)
+
+        rho_within, n_eras, era_consistent, era_pass, era_t = _within_era_consistency(
+            x, y, days, rho)
 
         out_rows.append({"name": col, "rho": round(float(rho), 4),
                          "r": round(float(r), 4), "ci_lo": round(ci_lo, 4),
                          "ci_hi": round(ci_hi, 4), "n": int(n),
-                         "p": round(float(p), 4)})
+                         "p": round(float(p), 4),
+                         "rho_within": round(rho_within, 4),
+                         "n_eras": int(n_eras),
+                         "era_consistent": round(era_consistent, 4),
+                         "era_pass": bool(era_pass),
+                         "era_t": round(float(era_t), 3),
+                         "autocorr": round(float(autocorr), 4),
+                         "slow": bool(slow)})
         pvals.append(float(p))
 
     if not out_rows:
@@ -464,7 +702,22 @@ def context_scores(trades, index, daily_features, n_boot=1000, seed=42):
     qvals = _bh_fdr(pvals)
     for row, q in zip(out_rows, qvals):
         row["q"] = round(float(q), 4)
-        row["survives"] = bool(q < FDR_Q)
+        # `q` comes from the NAIVE (day-level) p-value pipeline, which treats
+        # neighbouring days as independent — overconfident for a persistent
+        # feature. So it is NOT the survival test on its own: a feature must ALSO
+        # have a block-bootstrap CI (the honest one, computed from month-scale
+        # blocks above) that excludes zero. Keeping the naive q is what lets
+        # `trend_confounded` say "this LOOKED significant the naive way and then
+        # failed the honest checks" — the flag would never fire if the naive
+        # number were thrown away.
+        q_survives = bool(q < FDR_Q)
+        ci_excludes_zero = bool((row["ci_lo"] > 0 and row["ci_hi"] > 0)
+                                or (row["ci_lo"] < 0 and row["ci_hi"] < 0))
+        era_ok = bool(row["era_pass"] if row["slow"] else True)
+        row["ci_excludes_zero"] = ci_excludes_zero
+        row["survives"] = bool(q_survives and ci_excludes_zero and era_ok)
+        row["trend_confounded"] = bool(row["slow"] and q_survives
+                                       and not (ci_excludes_zero and era_ok))
 
     out_rows.sort(key=lambda row: abs(row["rho"]), reverse=True)
     return {"features": out_rows, "n_trades": n_trades, "n_days": n_days,
@@ -476,7 +729,7 @@ def context_scores(trades, index, daily_features, n_boot=1000, seed=42):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def build_context(trades, index, opens, highs, lows, closes, cost_pts=0.0,
-                  n_boot=1000, seed=42, external=True):
+                  n_boot=DEFAULT_BLOCK_N_BOOT, seed=42, external=True):
     """Wiring helper: builds the internal (+ external, best-effort) daily feature
     frame and scores it against `trades`. NEVER raises — any failure (bad data,
     network hiccup, too few trades) returns None so a backtest can never break
@@ -485,6 +738,12 @@ def build_context(trades, index, opens, highs, lows, closes, cost_pts=0.0,
 
     `cost_pts` matches `regime_report`'s own convention: each trade's pnl (t[2])
     is treated as GROSS and `pnl - cost_pts` is what actually gets scored.
+
+    `n_boot` now drives the MOVING-BLOCK bootstrap in context_scores (see its
+    docstring) -- default dropped from the old day-bootstrap's 1000 to 500
+    (DEFAULT_BLOCK_N_BOOT): each block draw is costlier than a single-day draw
+    (it covers a whole 21-126 trading-day block, not one row-weight lookup),
+    and 500 draws is already plenty for a stable 95% percentile estimate.
     """
     try:
         if not trades or index is None or len(index) == 0:
