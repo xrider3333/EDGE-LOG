@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.73';
+const VERSION='64.74';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.74', date:'2026-07-29', notes:['Fixed a real accuracy bug in the fullscreen equity explorer: the lockbox boundary was being placed years off the true date because every line spread its points evenly across the whole date range instead of its own real calendar span — lines that legitimately stopped right at the lockbox door were being drawn as if they kept going through it.','The walk-forward and lockbox shaded bands in that same explorer now line up with the real calendar dates instead of an approximate position.','Brought back the faint grey cloud of every other tested config in the fullscreen explorer (previously only the surviving few showed), collapsed into one legend row so the legend does not flood with entries.','Fixed legend hovering in the fullscreen explorer: hovering a line in the legend now highlights exactly that line instead of jumping to whatever line happens to be nearby.','The RANGE and WINDOW jump-to controls are now small compact pills next to the other header buttons instead of two full-width bars.','Removed the horizontal dashed reference lines that were cluttering the equity pane.','Added a PARAMS button to the fullscreen explorer that opens a table comparing every visible config’s settings against the winning config, highlighting what differs.']},
   {v:'64.73', date:'2026-07-29', notes:['Fullscreen equity explorer: the walk-forward and lockbox stretches are now shaded on the chart itself (blue / purple bands with IS-WF-LB labels), matching the small 2A chart.','Added RANGE (all, last 1/3/5 years, custom dates) and WINDOW (all, in-sample, walk-forward, lockbox) dropdowns above the chart to jump straight to a stretch instead of hand-zooming.','Hovering the chart now thickens whichever line is closest to the cursor and fades the rest, with the matching legend entry outlined, so a crowded multi-line comparison is easier to read.','Removed the extra dashed reference lines that were cluttering the drawdown pane.','iPad/touch: one-finger drag pans, two-finger pinch zooms, dragging the $ axis scales it, and double-tap resets — the chart no longer fights the page scroll while you interact with it.','The 2A explorer legend no longer shows a meaningless "#" number in front of labels like "crowned" or "gate" — real run numbers (Compare tab) still show their #.']},
   {v:'64.72', date:'2026-07-29', notes:['The expanded 2A explorer now plots against a REAL DATE x-axis instead of percent-of-progress — each config carries its own date span, so a config that stops at the lockbox door honestly draws no line past it.','Legend entries are named by what they mean: "👑 crowned · WF $x" and "rank 2 · WF $x" (the walk-forward $ each was judged on) instead of cfg1 / cfg2.']},
   {v:'64.71', date:'2026-07-29', notes:['Double-clicking the 2A config chart now opens the FULLSCREEN explorer (the same TradingView-style zoom / pan / drag-the-$-axis viewer the Compare tab uses) instead of a flat blow-up — every top config gets its own coloured, separable line, each carried through the lockbox, and the gate curve rides along too. That fixes the lines being unreadably overlaid when expanded.','The crowned lockbox pill now shows a 👑 instead of a third identical 🔒.','Dropped the "solid IS · dashed WF · dotted LB" line from the 2A key — it ate space; the same explanation is still in the title info icon.']},
@@ -3203,8 +3204,9 @@ window.expandEquity=function(host){
 //    to old-style independent 0..1 per-run progress only if no series has any usable date info),
 //    so identical x means the same real date on every curve, and a later-starting strategy draws
 //    no line before it began. Also adds keyboard navigation (arrows/+-/0/esc) per owner ask. ──
-window.expandCompareEq=function(series){
+window.expandCompareEq=function(series,opts){
   if(!series||!series.length)return;
+  opts=opts||{};
   const S=series.filter(s=>s&&Array.isArray(s.eq)&&s.eq.length>=2);
   if(!S.length)return;
   const fmt$=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
@@ -3230,8 +3232,14 @@ window.expandCompareEq=function(series){
   //   tr = this series own [date_from,date_to] run span in ms, when its run record carries one.
   const _trOf=s=>{if(s.blot&&s.blot.date_from&&s.blot.date_to){const a=Date.parse(s.blot.date_from),b=Date.parse(s.blot.date_to);if(!isNaN(a)&&!isNaN(b)&&b>a)return [a,b];}return null;};
   const PS=S.map(s=>{const n=s.eq.length,li=(s.li!=null)?Math.max(0,Math.min(+s.li,n-1)):null,
-      wfi=(s.wfi!=null)?Math.max(0,Math.min(+s.wfi,n-1)):null;
+      wfi=(s.wfi!=null)?Math.max(0,Math.min(+s.wfi,n-1)):null,
+      // BUG 1 fix (v64.74): an explicit per-point ts array (epoch ms), when the caller built one
+      //   PIECEWISE (2A's builder — see topEqOverlayHtml), overrides the old uniform
+      //   date_from->date_to spread below (see rebakeDomain). The Compare tab never sets one, so
+      //   its series fall straight through to the unchanged old behaviour.
+      ts=(Array.isArray(s.ts)&&s.ts.length===n)?s.ts:null;
     return {id:s.id,label:String(s.label||('#'+s.id)),color:s.color||'#3a9bdc',li:li,wfi:wfi,blot:s.blot||null,vis:'on',
+      ts:ts,isOther:!!s.dim,params:s.params||null,
       tr:_trOf(s),pts:s.eq.map((v,i)=>({x:0,v:v,t:0}))};});
   // rebakeDomain (item 24): bakes ONE shared tMin..tMax calendar span from every series real
   //   (blotter-loaded, exact per-trade) or approximate (run date_from/date_to) date range, then
@@ -3244,6 +3252,16 @@ window.expandCompareEq=function(series){
     let tmn=Infinity,tmx=-Infinity,any=false;
     PS.forEach(sr=>{let a=null,b=null;const bm=blotMap[sr.id];
       if(bm&&bm.rows&&bm.rows.length){const pa=Date.parse(bm.rows[0].et),pb=Date.parse(bm.rows[bm.rows.length-1].et);if(!isNaN(pa)&&!isNaN(pb)&&pb>=pa){a=pa;b=pb;}}
+      // BUG 1 fix (v64.74): a series carrying an explicit per-point ts array gives its OWN real
+      //   span here instead of the old assumption that every series spreads uniformly across one
+      //   date_from->date_to pair — that assumption silently misplaced a lockbox boundary by
+      //   YEARS whenever a short lockbox tail (say 1 year) was glued onto a much longer
+      //   optimize-window body (say 15 years), because it stretched the WHOLE span evenly across
+      //   every point regardless of how much real time each stretch actually covered.
+      if(a==null&&sr.ts){const n2=sr.ts.length;let i0=0,i1=n2-1;
+        while(i0<n2&&(sr.ts[i0]==null||isNaN(sr.ts[i0])))i0++;
+        while(i1>=0&&(sr.ts[i1]==null||isNaN(sr.ts[i1])))i1--;
+        if(i0<i1){a=sr.ts[i0];b=sr.ts[i1];}}
       if(a==null&&sr.tr){a=sr.tr[0];b=sr.tr[1];}
       sr._t0=a;sr._t1=b;if(a!=null&&b!=null){if(a<tmn)tmn=a;if(b>tmx)tmx=b;any=true;}});
     timeMode=any&&tmx>tmn;
@@ -3251,6 +3269,7 @@ window.expandCompareEq=function(series){
       PS.forEach(sr=>{const bm=blotMap[sr.id],n=sr.pts.length;let t0=sr._t0,t1=sr._t1;if(t0==null){t0=tMin;t1=tMax;}if(t1<=t0)t1=t0+1;
         sr.pts.forEach((p,i)=>{let t;
           if(bm&&bm.rows&&bm.rows.length===n){const pv=Date.parse(bm.rows[i].et);t=isNaN(pv)?(t0+(n>1?i/(n-1):0)*(t1-t0)):pv;}
+          else if(sr.ts&&sr.ts[i]!=null&&!isNaN(sr.ts[i])){t=sr.ts[i];}
           else t=t0+(n>1?i/(n-1):0)*(t1-t0);
           p.t=t;p.x=(t-tMin)/((tMax-tMin)||1);});});
     }else{tMin=tMax=null;PS.forEach(sr=>{const n=sr.pts.length;sr.pts.forEach((p,i)=>{p.x=(n>1?i/(n-1):0);p.t=null;});});}
@@ -3263,30 +3282,33 @@ window.expandCompareEq=function(series){
   modal.innerHTML='<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:nowrap;height:30px;flex:0 0 auto;overflow:hidden">'
     +'<span style="font-family:\'Bebas Neue\',monospace;font-size:20px;letter-spacing:3px;color:var(--text);white-space:nowrap;flex:0 0 auto">EQUITY COMPARE</span>'
     +'<span id="ceqx-read" style="font-size:11px;color:var(--text3);flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>'
-    +'<span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex:0 0 auto">'
+    // v64.74 (owner: the old RANGE/WINDOW rows were "huge full-width bars"): both view-jump
+    //   controls now live INLINE in this same fixed-height header row, next to RESET — small
+    //   pills (~110px max including their label) in the same visual language as the buttons
+    //   beside them, instead of two stacked full-width dropdown rows.
+    +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center;flex:0 0 auto;flex-wrap:nowrap">'
     +'<span title="wheel/+-=zoom . drag/arrows=pan . drag $ axis=scale y . dbl-click/0=reset . esc=close" style="font-size:11px;color:var(--text5);cursor:help">controls ⓘ</span>'
+    +'<span style="display:inline-flex;align-items:center;gap:3px" title="jump to a calendar range">'
+      +'<span style="color:var(--text5);font-size:8px;letter-spacing:.5px">RANGE</span>'
+      +'<select id="ceqx-range" style="width:auto;max-width:74px;background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:4px 5px;border-radius:6px;font-family:inherit;font-size:9px;letter-spacing:.3px">'
+        +'<option value="all">ALL</option><option value="1y">1Y</option><option value="3y">3Y</option><option value="5y">5Y</option><option value="custom">CUSTOM</option>'
+      +'</select>'
+    +'</span>'
+    +'<input id="ceqx-cfrom" type="date" style="display:none;width:auto;max-width:105px;background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:4px 5px;border-radius:6px;font-family:inherit;font-size:9px">'
+    +'<input id="ceqx-cto" type="date" style="display:none;width:auto;max-width:105px;background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:4px 5px;border-radius:6px;font-family:inherit;font-size:9px">'
+    +'<span style="display:inline-flex;align-items:center;gap:3px" title="jump to a funnel stage">'
+      +'<span style="color:var(--text5);font-size:8px;letter-spacing:.5px">WINDOW</span>'
+      +'<select id="ceqx-window" style="width:auto;max-width:80px;background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:4px 5px;border-radius:6px;font-family:inherit;font-size:9px;letter-spacing:.3px">'
+        +'<option value="all">ALL</option><option value="is">IS</option><option value="wf">WF</option><option value="lb">LB</option>'
+      +'</select>'
+    +'</span>'
+    +'<button id="ceqx-params" title="compare the parameters of every visible config against the crowned config" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">⚖ PARAMS</button>'
     +'<button id="ceqx-reset" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">↺ RESET</button>'
     +'<button id="ceqx-blot" title="load each strategy trade blotter off your PC runner · Shift+click = regenerate fresh" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">▦ TRADES</button>'
     +'<button id="ceqx-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:2px;border-radius:6px">CLOSE ✕</button></span></div>'
-    // v64.73: two fixed-height rows of view-jump controls (RANGE / WINDOW), same small-pill
-    //   look as the header buttons above — a FIXED size like the title row, never a growing
-    //   readout, so the chart below never resizes under the cursor.
-    +'<div id="ceqx-viewrows" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;flex:0 0 auto;font-size:9px">'
-      +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">'
-        +'<span style="color:var(--text5);letter-spacing:1px;width:44px;flex:0 0 auto">RANGE</span>'
-        +'<select id="ceqx-range" style="background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:3px 7px;border-radius:6px;font-family:inherit;font-size:9px;letter-spacing:.5px">'
-          +'<option value="all">ALL</option><option value="1y">LAST 1Y</option><option value="3y">LAST 3Y</option><option value="5y">LAST 5Y</option><option value="custom">CUSTOM…</option>'
-        +'</select>'
-        +'<input id="ceqx-cfrom" type="date" style="display:none;background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:3px 6px;border-radius:6px;font-family:inherit;font-size:9px">'
-        +'<input id="ceqx-cto" type="date" style="display:none;background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:3px 6px;border-radius:6px;font-family:inherit;font-size:9px">'
-      +'</div>'
-      +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">'
-        +'<span style="color:var(--text5);letter-spacing:1px;width:44px;flex:0 0 auto">WINDOW</span>'
-        +'<select id="ceqx-window" style="background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:3px 7px;border-radius:6px;font-family:inherit;font-size:9px;letter-spacing:.5px">'
-          +'<option value="all">ALL</option><option value="is">IN-SAMPLE</option><option value="wf">WALK-FORWARD</option><option value="lb">LOCKBOX</option>'
-        +'</select>'
-      +'</div>'
-    +'</div>'
+    // v64.74: PARAMS panel — absolutely positioned so it overlays the chart instead of pushing
+    //   it down (the fixed-height header rule this modal follows everywhere else).
+    +'<div id="ceqx-paramsbox" style="display:none;position:absolute;top:52px;left:22px;right:22px;max-height:55vh;overflow:auto;background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:10px 12px;z-index:20;box-shadow:0 10px 30px rgba(0,0,0,.55)"></div>'
     +'<div id="ceqx-main" style="flex:1;min-height:0;display:flex;flex-direction:column">'
     +'<div id="ceqx-wrap" style="flex:1 1 auto;min-height:0;min-width:0;display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px;position:sticky;left:0">'
       +'<div id="ceqx-legend" style="position:absolute;top:16px;left:16px;z-index:3;display:flex;flex-direction:column;gap:3px;pointer-events:none;max-width:56%"></div>'
@@ -3302,7 +3324,8 @@ window.expandCompareEq=function(series){
   document.body.appendChild(modal);
   const el2=id=>modal.querySelector('#'+id);
   const svgEl=el2('ceqx-svg'),chartEl=el2('ceqx-chart'),read=el2('ceqx-read'),legendEl=el2('ceqx-legend'),
-    blotBtn=el2('ceqx-blot'),mainEl=el2('ceqx-main'),gut=el2('ceqx-gut'),wrap=el2('ceqx-blotwrap'),wrapEl=el2('ceqx-wrap');
+    blotBtn=el2('ceqx-blot'),mainEl=el2('ceqx-main'),gut=el2('ceqx-gut'),wrap=el2('ceqx-blotwrap'),wrapEl=el2('ceqx-wrap'),
+    paramsBtn=el2('ceqx-params'),paramsBox=el2('ceqx-paramsbox');
   // legend KEY — same tiny inline-svg line samples as the inline overlay's key, stacked under
   //   the per-series legend (same #ceqx-legend flex column, so it inherits pointer-events:none
   //   and never grows the fixed-height header row).
@@ -3313,6 +3336,20 @@ window.expandCompareEq=function(series){
   //   curves and the WINDOW dropdown's jump-to-stage. Recomputed on demand (not cached) since a
   //   blotter load can reindex li/wfi after the modal opens.
   const _regionBounds=()=>{
+    // BUG 2 fix (v64.74): when the caller passes opts.bands (real calendar dates for the
+    //   walk-forward / lockbox door), use those directly instead of reading a point INDEX off
+    //   whichever series happens to carry wfi/li — an index-derived x assumes that series' own
+    //   point spacing lines up with the shared calendar domain, which BUG 1 above shows is not
+    //   reliable. Returned as a fraction of the FULL [0,1] domain, same convention as the old
+    //   index-derived path below, so every caller (band rects, the WINDOW dropdown) that maps it
+    //   through X(g,...) still gets the current zoom/pan applied automatically.
+    if(opts.bands&&timeMode&&tMin!=null&&tMax!=null){
+      const span=(tMax-tMin)||1;
+      const wf=(opts.bands.wfFrom!=null&&!isNaN(opts.bands.wfFrom))?Math.max(0,Math.min(1,(opts.bands.wfFrom-tMin)/span)):null;
+      const lb=(opts.bands.lbFrom!=null&&!isNaN(opts.bands.lbFrom))?Math.max(0,Math.min(1,(opts.bands.lbFrom-tMin)/span)):null;
+      if(wf!=null||lb!=null)return {wf:wf,lb:lb};
+    }
+    // fallback (Compare tab, or no bands supplied): unchanged index-derived behaviour.
     const wfSr=PS.find(s=>s.wfi!=null),lbSr=PS.find(s=>s.li!=null);
     return {wf:wfSr?wfSr.pts[wfSr.wfi].x:null, lb:lbSr?lbSr.pts[lbSr.li].x:null};
   };
@@ -3321,8 +3358,11 @@ window.expandCompareEq=function(series){
   //   itself stays pointer-events:none so it never steals chart drags) and cycles vis full ->
   //   greyed -> hidden -> full on click; the muted instrument+timeframe suffix (item 14) rides
   //   on the same row. Rebuilt on open and after every toggle since render() reads sr.vis.
+  // CHANGE 3 (v64.74): "other config" cloud series (isOther, from d.equity_top) collapse into
+  //   ONE legend row — with up to hundreds of them, one row each would swamp the legend.
+  const _mainPS=()=>PS.filter(s=>!s.isOther),_otherPS=()=>PS.filter(s=>s.isOther);
   const renderLegend=()=>{
-    legendEl.innerHTML=PS.map(s=>{
+    legendEl.innerHTML=_mainPS().map(s=>{
       const op=s.vis==='dim'?0.45:(s.vis==='off'?0.3:1),td=s.vis==='off'?'line-through':'none',
         instTf=s.blot?(' <span style="color:var(--text5)">&middot; '+String(s.blot.instrument||'').toUpperCase()+' '+(s.blot.timeframe||'')+'</span>'):'';
       // item (v64.73): drop the "#id" prefix when the id is not a real run number (the 2A
@@ -3331,18 +3371,38 @@ window.expandCompareEq=function(series){
       const idTag=/^-?\d+$/.test(String(s.id))?('#'+s.id+' '):'';
       return '<span data-ceqx-vis="'+s.id+'" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);background:color-mix(in srgb,var(--bg1) 65%,transparent);padding:2px 6px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:'+op+'" title="click: full - greyed - hidden - full"><span style="width:12px;height:3px;background:'+s.color+';display:inline-block;border-radius:2px;flex:0 0 auto"></span><span style="overflow:hidden;text-overflow:ellipsis;text-decoration:'+td+'">'+idTag+s.label+'</span>'+instTf+'</span>';
     }).join('');
+    const _oth=_otherPS();
+    if(_oth.length){
+      const anyOn=_oth.some(s=>s.vis!=='off'),op2=anyOn?1:0.3,td2=anyOn?'none':'line-through';
+      legendEl.innerHTML+='<span data-ceqx-vis-oth="1" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);background:color-mix(in srgb,var(--bg1) 65%,transparent);padding:2px 6px;border-radius:4px;white-space:nowrap;opacity:'+op2+'" title="click: show - hide the other tested configs together"><span style="width:12px;height:3px;background:var(--text5);display:inline-block;border-radius:2px;flex:0 0 auto"></span><span style="text-decoration:'+td2+'">other configs ('+_oth.length+')</span></span>';
+    }
     legendEl.innerHTML+='<span style="display:inline-flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:8px;color:var(--text5);padding:2px 6px">'
       +'<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2(null,false)+'in-sample</span>'
       +(_anyWfi?('<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2('7,4',false)+'walk-forward</span>'):'')
       +(_anyLi?('<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2('0.1,5',true)+'lockbox</span>'):'')
       +'</span>';
-    legendEl.querySelectorAll('[data-ceqx-vis]').forEach(rowEl=>{rowEl.onclick=()=>{
+    legendEl.querySelectorAll('[data-ceqx-vis]').forEach(rowEl=>{
       // matched as STRINGS (not +sid) — a word id like "crowned" would coerce to NaN and never
       //   match, silently breaking the toggle for the 2A explorer's non-numeric series ids.
       const sid=rowEl.dataset.ceqxVis,sr=PS.find(p=>String(p.id)===sid);if(!sr)return;
-      sr.vis=sr.vis==='on'?'dim':(sr.vis==='dim'?'off':'on');
-      renderLegend();render();
-    };});
+      rowEl.onclick=()=>{
+        sr.vis=sr.vis==='on'?'dim':(sr.vis==='dim'?'off':'on');
+        renderLegend();render();
+      };
+      // CHANGE 4 (v64.74): hovering a legend ROW highlights exactly that series — see _applyHover
+      //   (defined below, referenced here by closure — same forward-reference pattern render()
+      //   already used from this same click handler before this change).
+      rowEl.addEventListener('mouseenter',()=>_applyHover(sid));
+      rowEl.addEventListener('mouseleave',()=>_applyHover(null));
+    });
+    const othRow=legendEl.querySelector('[data-ceqx-vis-oth]');
+    if(othRow){
+      othRow.onclick=()=>{
+        const nv=_otherPS().some(s=>s.vis!=='off')?'off':'on';
+        _otherPS().forEach(s=>{s.vis=nv;});
+        renderLegend();render();
+      };
+    }
   };
   renderLegend();
   // ── view state: [va,vb] are fractions of the FULL 0..1 x-domain. Since item 24 that domain is
@@ -3407,14 +3467,17 @@ window.expandCompareEq=function(series){
     //   non-'off' curves (dd is still computed for every series, including 'off', so re-showing
     //   one later needs no recompute).
     const ddMap={};let ddMin=0,ddSeen=false;
-    PS.forEach(sr=>{const dd=_ddArr(sr.pts);ddMap[sr.id]=dd;
+    // CHANGE 3 (v64.74): the "other config" cloud (isOther) never draws in the DRAWDOWN pane —
+    //   hundreds of grey lines there would just be noise, and the inline 2A chart has no DD pane
+    //   for them to match either — so they are excluded from every dd computation/fit below too.
+    PS.forEach(sr=>{if(sr.isOther)return;const dd=_ddArr(sr.pts);ddMap[sr.id]=dd;
       if(sr.vis==='off')return;
       sr.pts.forEach((p,i2)=>{if(p.x>=va&&p.x<=vb){ddSeen=true;if(dd[i2]<ddMin)ddMin=dd[i2];}});});
     if(!ddSeen){   // zoom window fell between points on every curve — fit to the interpolated edges (mirror the equity pane)
       const _ddAt=(sr,cx)=>{const p=sr.pts,dd=ddMap[sr.id],m=p.length;if(!m)return 0;if(cx<=p[0].x)return dd[0];if(cx>=p[m-1].x)return dd[m-1];
         let lo=0,hi=m-1;while(hi-lo>1){const mid=(lo+hi)>>1;if(p[mid].x<=cx)lo=mid;else hi=mid;}
         const f=(p[hi].x>p[lo].x)?(cx-p[lo].x)/(p[hi].x-p[lo].x):0;return dd[lo]+(dd[hi]-dd[lo])*f;};
-      PS.forEach(sr=>{if(sr.vis==='off')return;[_ddAt(sr,va),_ddAt(sr,vb)].forEach(v=>{if(v<ddMin)ddMin=v;});});}
+      PS.forEach(sr=>{if(sr.isOther||sr.vis==='off')return;[_ddAt(sr,va),_ddAt(sr,vb)].forEach(v=>{if(v<ddMin)ddMin=v;});});}
     if(ddMin>=0)ddMin=-1;
     // item 21a: pad the scale floor 12% past ddMin so the deepest line/point leaves a gap above
     //   the x-axis strip instead of landing exactly on g.ddB (crammed against it).
@@ -3449,14 +3512,16 @@ window.expandCompareEq=function(series){
     //   shared calendar span rather than per-run progress.
     s+='<line x1="0" y1="'+(g.H-g.pB).toFixed(1)+'" x2="'+g.pw+'" y2="'+(g.H-g.pB).toFixed(1)+'" stroke="var(--border)" opacity="0.8"/>';
     if(timeMode)s+='<text x="2" y="'+(g.H-3)+'" font-size="7" fill="var(--text5)" opacity="0.7">x = calendar time (shared)</text>';
-    // item 12: per-series ending-PnL dashed reference line + right-gutter $ label (equity pane).
-    //   Drawn after the gridlines/axis but before the curves so the curves sit on top of it.
-    PS.forEach(sr=>{if(sr.vis==='off')return;
+    // CHANGE 6 (v64.74, owner): dropped the per-series ending-PnL dashed horizontal RULE that
+    //   used to be drawn across the WHOLE equity pane here — reported as clutter. The $ value
+    //   label in the right gutter, at the exact same height, still marks where each curve ends;
+    //   only the line across the chart is gone. 'other config' cloud series (CHANGE 3) never
+    //   get a label either — up to hundreds of them would swamp the gutter.
+    PS.forEach(sr=>{if(sr.vis==='off'||sr.isOther)return;
       const lastV=sr.pts[sr.pts.length-1].v,y=Y(lastV);
       if(y<g.eqT||y>g.eqB)return;
       const col=sr.vis==='dim'?'var(--text5)':sr.color;
-      s+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+g.pw+'" y2="'+y.toFixed(1)+'" stroke="'+col+'" stroke-width="1" stroke-dasharray="5,4" opacity="0.45"/>'
-        +'<text x="'+(g.pw+6)+'" y="'+(y+3).toFixed(1)+'" font-size="8" fill="'+col+'">'+fmt$(lastV)+'</text>';
+      s+='<text x="'+(g.pw+6)+'" y="'+(y+3).toFixed(1)+'" font-size="8" fill="'+col+'">'+fmt$(lastV)+'</text>';
     });
     // equity paths — redrawn from data every render. 3 NON-OVERLAPPING segments per curve:
     //   SOLID (in-sample, to the walk-forward start) · DASHED (walk-forward folds) · DOTTED
@@ -3472,18 +3537,23 @@ window.expandCompareEq=function(series){
       return (e2>=s2)?arr.slice(s2,e2+1):[];};
     const seg=(arr,vf)=>arr.map((p,i2)=>((i2?'L':'M')+X(g,p.x).toFixed(1)+' '+vf(p.v).toFixed(1))).join(' ');
     s+='<g clip-path="url(#ceqx-clip)">'+bandsHtml;
-    PS.forEach(sr=>{if(sr.vis==='off')return;
-      const strokeCol=sr.vis==='dim'?'var(--text5)':sr.color,strokeOp=sr.vis==='dim'?0.45:1;
+    // CHANGE 3 (v64.74): 'other config' cloud series draw FIRST — i.e. always BEHIND every other
+    //   series in paint order — regardless of where they sit in PS, by simply looping them ahead
+    //   of the rest here.
+    const _drawOrder=_otherPS().concat(_mainPS());
+    _drawOrder.forEach(sr=>{if(sr.vis==='off')return;
+      let strokeCol=sr.vis==='dim'?'var(--text5)':sr.color,strokeOp=sr.vis==='dim'?0.45:1,swMain=1.6,swWF=1.6,swLB=1.6;
+      if(sr.isOther){strokeCol='var(--text5)';strokeOp=0.18;swMain=swWF=swLB=0.6;}
       const pts=sr.pts,n3=pts.length,
         li=(sr.li!=null&&sr.li>=0&&sr.li<n3-1)?sr.li:null,
         wfi=(sr.wfi!=null)?Math.max(0,Math.min(sr.wfi,(li!=null?li:n3-1))):null,
         solidEnd=wfi!=null?wfi:(li!=null?li:n3-1);
       // data-sr (v64.73): identifies which series each path belongs to so the hover handler can
       //   thicken/dim curves in place — a direct DOM style tweak, no full re-render on mousemove.
-      const solid=_clipN(pts.slice(0,solidEnd+1));if(solid.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(solid,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.6" opacity="'+strokeOp+'"/>';
+      const solid=_clipN(pts.slice(0,solidEnd+1));if(solid.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(solid,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="'+swMain+'" opacity="'+strokeOp+'"/>';
       if(wfi!=null){const wfEnd=(li!=null?li:n3-1),dash=_clipN(pts.slice(solidEnd,wfEnd+1));
-        if(dash.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(dash,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.6" stroke-dasharray="7,4" opacity="'+strokeOp+'"/>';}
-      if(li!=null){const dot=_clipN(pts.slice(li));if(dot.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(dot,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.6" stroke-dasharray="0.1,5" stroke-linecap="round" opacity="'+(strokeOp*0.9)+'"/>';}
+        if(dash.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(dash,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="'+swWF+'" stroke-dasharray="7,4" opacity="'+strokeOp+'"/>';}
+      if(li!=null){const dot=_clipN(pts.slice(li));if(dot.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(dot,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="'+swLB+'" stroke-dasharray="0.1,5" stroke-linecap="round" opacity="'+(strokeOp*0.9)+'"/>';}
     });
     s+='</g>';
     // DRAWDOWN pane — its own pane below the equity one: subtle bg (item 18b, drawn first so
@@ -3496,11 +3566,11 @@ window.expandCompareEq=function(series){
       +'<line x1="0" y1="'+Yd(0).toFixed(1)+'" x2="'+g.pw+'" y2="'+Yd(0).toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.3"/>'
       +'<text x="'+(g.pw+6)+'" y="'+(Yd(0)+3.5).toFixed(1)+'" font-size="9" fill="var(--text5)">$0</text>';
     s+='<g clip-path="url(#ceqx-clipd)">';
-    PS.forEach(sr=>{if(sr.vis==='off'||sr.vis==='dim')return;const dd=ddMap[sr.id],ddPts=sr.pts.map((p,i2)=>({x:p.x,v:dd[i2]})),dvis=_clipN(ddPts);
+    PS.forEach(sr=>{if(sr.isOther||sr.vis==='off'||sr.vis==='dim')return;const dd=ddMap[sr.id],ddPts=sr.pts.map((p,i2)=>({x:p.x,v:dd[i2]})),dvis=_clipN(ddPts);
       if(dvis.length<2)return;
       s+='<path d="M '+X(g,dvis[0].x).toFixed(1)+' '+Yd(0).toFixed(1)+' '+dvis.map(p=>'L '+X(g,p.x).toFixed(1)+' '+Yd(p.v).toFixed(1)).join(' ')+' L '+X(g,dvis[dvis.length-1].x).toFixed(1)+' '+Yd(0).toFixed(1)+' Z" fill="'+sr.color+'" opacity="0.10" stroke="none"/>';
     });
-    PS.forEach(sr=>{if(sr.vis==='off')return;const dd=ddMap[sr.id],ddPts=sr.pts.map((p,i2)=>({x:p.x,v:dd[i2]})),dvis=_clipN(ddPts);
+    PS.forEach(sr=>{if(sr.isOther||sr.vis==='off')return;const dd=ddMap[sr.id],ddPts=sr.pts.map((p,i2)=>({x:p.x,v:dd[i2]})),dvis=_clipN(ddPts);
       if(dvis.length<2)return;
       const strokeCol=sr.vis==='dim'?'var(--text5)':sr.color,strokeOp=sr.vis==='dim'?0.45:0.9;
       s+='<path data-sr="'+sr.id+'" d="'+seg(dvis,Yd)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.3" opacity="'+strokeOp+'"/>';
@@ -3649,6 +3719,39 @@ window.expandCompareEq=function(series){
       if(rangeSel){rangeSel.value='all';cfromEl.style.display=ctoEl.style.display='none';}
     };
   }
+  // ── CHANGE 7 (v64.74): ⚖ PARAMS toggle — a compact table of every VISIBLE series that carries
+  //    a params object (the 2A survivors do; the Compare tab's series and the 'other config'
+  //    cloud do not, so it reads "no series in view carry parameter data" there instead of an
+  //    empty table). Any value that differs from the crowned series' value is highlighted;
+  //    identical values stay dim so the differences stand out. Same button closes it again. ──
+  if(paramsBtn&&paramsBox){
+    const _pmRows=()=>PS.filter(s=>s.vis!=='off'&&s.params&&Object.keys(s.params).length);
+    const renderParamsBox=()=>{
+      const rows=_pmRows();
+      if(!rows.length){paramsBox.innerHTML='<div style="font-size:10px;color:var(--text5);padding:6px 2px">no series currently in view carry parameter data.</div>';return;}
+      const crownRow=rows.find(s=>String(s.id)==='crowned')||rows[0];
+      const keys=[];const seen={};
+      rows.forEach(s=>Object.keys(s.params).forEach(k=>{if(!seen[k]){seen[k]=1;keys.push(k);}}));
+      const hdr='<tr><th style="text-align:left;padding:4px 10px 4px 2px;font-size:8px;color:var(--text5);position:sticky;left:0;background:var(--bg1);white-space:nowrap">SERIES</th>'
+        +keys.map(k=>'<th style="text-align:left;padding:4px 10px;font-size:8px;color:var(--text5);white-space:nowrap">'+String(k).replace(/_/g,' ')+'</th>').join('')+'</tr>';
+      const body=rows.map(s=>{
+        const cells=keys.map(k=>{
+          const v=(s.params[k]!==undefined&&s.params[k]!==null)?String(s.params[k]):'—',
+            cv=(crownRow.params[k]!==undefined&&crownRow.params[k]!==null)?String(crownRow.params[k]):'—',
+            differs=v!==cv;
+          return '<td style="padding:4px 10px;font-size:9px;white-space:nowrap;'+(differs?'color:var(--yellow);font-weight:700;background:color-mix(in srgb,var(--yellow) 12%,transparent)':'color:var(--text5)')+'">'+v+'</td>';
+        }).join('');
+        return '<tr style="border-top:1px solid var(--border2)"><td style="padding:4px 10px 4px 2px;font-size:9px;white-space:nowrap;font-weight:700;color:'+s.color+';position:sticky;left:0;background:var(--bg1)">'+s.label+'</td>'+cells+'</tr>';
+      }).join('');
+      paramsBox.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--text2)">PARAMETERS</span><span style="font-size:8px;color:var(--text5)">yellow = differs from the crowned config (<b style="color:'+crownRow.color+'">'+crownRow.label+'</b>) · grey = same everywhere</span></div>'
+        +'<div style="overflow:auto;max-width:100%"><table style="border-collapse:collapse;min-width:100%">'+hdr+body+'</table></div>';
+    };
+    paramsBtn.onclick=()=>{
+      const open=paramsBox.style.display!=='none';
+      if(open){paramsBox.style.display='none';return;}
+      renderParamsBox();paramsBox.style.display='block';
+    };
+  }
   // ── touch / iPad support (v64.73), modelled on TradingView — one-finger drag pans, two-
   //    finger pinch zooms about the pinch midpoint, a vertical drag on the $ axis strip scales
   //    y (mDown already zones that by position, so single-touch reuses it unchanged), and
@@ -3715,6 +3818,12 @@ window.expandCompareEq=function(series){
       row.style.outline=(mine&&sr2)?('1px solid '+sr2.color):'';
     });
   };
+  // CHANGE 4 (v64.74): is the cursor currently over the legend's own bounding box (a row, OR a
+  //   gap between rows — the legend container is pointer-events:none so gaps fall through to
+  //   chartEl underneath it, which used to run its OWN nearest-curve hover logic there and made
+  //   the highlight look like it "jumped to unrelated series" while moving down the legend).
+  const _overLegend=(cx,cy)=>{const lr=legendEl.getBoundingClientRect();
+    return cx>=lr.left&&cx<=lr.right&&cy>=lr.top&&cy<=lr.bottom;};
   chartEl.addEventListener('mousemove',e=>{
     const st=svgEl._g;if(!st)return;const r=chartEl.getBoundingClientRect();
     if(!(r.width>0&&r.height>0))return;
@@ -3736,13 +3845,19 @@ window.expandCompareEq=function(series){
     const cx=va+(vb-va)*(gx/st.g.pw),pct=Math.round(Math.max(0,Math.min(1,cx))*100);
     // nearest-series hover highlight — only meaningful over the equity pane, where the curves
     //   actually draw; compared in PIXEL space (not $) so it feels right at any y-scale.
-    if(gy>=st.g.eqT&&gy<=st.g.eqB){
-      let bestId=null,bestD=Infinity;
-      PS.forEach(s=>{if(s.vis==='off')return;
-        const py=st.g.eqT+(st.mx-interpAt(s,cx))/((st.mx-st.mn)||1)*(st.g.eqB-st.g.eqT),d2=Math.abs(py-gy);
-        if(d2<bestD){bestD=d2;bestId=s.id;}});
-      _applyHover(bestId);
-    }else _applyHover(null);
+    // CHANGE 4 (v64.74): suppressed entirely while the pointer is over the legend (a row, or a
+    //   gap between rows) — the legend's own row mouseenter/mouseleave (renderLegend) owns
+    //   _applyHover there instead; letting this proximity calc also run fought it and flipped the
+    //   highlight to whatever curve happened to pass under the cursor at that pixel.
+    if(!_overLegend(e.clientX,e.clientY)){
+      if(gy>=st.g.eqT&&gy<=st.g.eqB){
+        let bestId=null,bestD=Infinity;
+        PS.forEach(s=>{if(s.vis==='off')return;
+          const py=st.g.eqT+(st.mx-interpAt(s,cx))/((st.mx-st.mn)||1)*(st.g.eqB-st.g.eqT),d2=Math.abs(py-gy);
+          if(d2<bestD){bestD=d2;bestId=s.id;}});
+        _applyHover(bestId);
+      }else _applyHover(null);
+    }
     // item 24: honest shared calendar x — the chip and readout lead with the real date once
     //   timeMode is on (the old "NN% through run" framing no longer makes sense once every curve
     //   shares ONE real-time axis instead of its own 0..1 progress through a run).
@@ -3758,7 +3873,9 @@ window.expandCompareEq=function(series){
     // item 24: a series outside its own real date span (had not started yet, or had already
     //   ended — honest now that every curve shares one calendar axis) reads an em-dash instead
     //   of interpAt's clamped edge value.
-    read.innerHTML=(dstr?dstr:(pct+'%'))+PS.filter(s=>s.vis!=='off').map(s=>{
+    // CHANGE 3 (v64.74): the 'other config' cloud (isOther) is excluded from this readout too —
+    //   same reasoning as its collapsed single legend row, up to hundreds of them would swamp it.
+    read.innerHTML=(dstr?dstr:(pct+'%'))+PS.filter(s=>s.vis!=='off'&&!s.isOther).map(s=>{
       const v=interpAt(s,cx),isDim=s.vis==='dim',swCol=isDim?'var(--text5)':s.color,
         outOfSpan=(cx<s.pts[0].x-1e-9)||(cx>s.pts[s.pts.length-1].x+1e-9),
         valHtml=outOfSpan?'<b style="color:var(--text5)">&mdash;</b>':('<b style="color:'+(isDim?'var(--text5)':(v>=0?'var(--green)':'var(--red)'))+'">'+fmt$(v)+'</b>');
@@ -7339,6 +7456,32 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   percent-of-progress only when no series carries dates).
           const _dF=(Wopt&&Wopt[0])||d.date_from||null, _dOptEnd=(Wopt&&Wopt[1])||d.date_to||null;
           const _dEnd=(Wlb&&Wlb[1])||d.date_to||_dOptEnd;
+          // BUG 1 fix (v64.74): PIECEWISE per-point timestamps, instead of leaving the explorer's
+          //   rebakeDomain() to spread every point of a series UNIFORMLY across date_from..date_to.
+          //   That was wrong here: the champion series has ~160 pre-lockbox points covering the
+          //   full multi-year optimize window sitting next to ~80 lockbox points covering just the
+          //   1-year lockbox — a uniform spread put the lockbox boundary YEARS off and drew configs
+          //   that legitimately end AT the in-sample/lockbox door as if they kept running deep into
+          //   the lockbox. Fix: the pre-lockbox portion of each point array spreads across the
+          //   OPTIMIZE window only; the lockbox portion (series that carry one) spreads across the
+          //   LOCKBOX window only.
+          const _lbF=(Wlb&&Wlb[0])||_dOptEnd||d.date_from||null;
+          const optFromMs=Date.parse(_dF||''),optToMs=Date.parse(_dOptEnd||'');
+          const lbFromMs=Date.parse(_lbF||''),lbToMs=Date.parse(_dEnd||'');
+          const _mkTsSpan=(n,fromMs,toMs)=>{const ts=new Array(n);
+            const f=isNaN(fromMs)?null:fromMs,t=isNaN(toMs)?null:toMs;
+            for(let i=0;i<n;i++)ts[i]=(f!=null&&t!=null)?(n>1?f+(t-f)*i/(n-1):f):null;
+            return ts;};
+          const _mkTs=(n,li)=>{
+            const preN=(li!=null&&li>0&&li<n)?li:n,ts=_mkTsSpan(preN,optFromMs,optToMs);
+            if(li!=null&&li<n){const lbN=n-li,tail=_mkTsSpan(lbN,isNaN(lbFromMs)?optToMs:lbFromMs,lbToMs);
+              for(let k=0;k<lbN;k++)ts[li+k]=tail[k];}
+            return ts;};
+          // BUG 2 fix (v64.74): the walk-forward / lockbox door dates for the expanded explorer's
+          //   bands — the in-sample door is fIS's fraction across the OPTIMIZE window (same
+          //   boundary 1A marks), the lockbox door is the lockbox window's own start.
+          const _isDoorMs=(!isNaN(optFromMs)&&!isNaN(optToMs))?(optFromMs+fIS*(optToMs-optFromMs)):null;
+          window._a2Bands={wfFrom:_isDoorMs,lbFrom:isNaN(lbFromMs)?null:lbFromMs};
           const _mkSer=(c,col,lab,id)=>{const base=c.equity.cum.map(v=>v*mult);const q=c.lb_equity;
             let li=null,thru=false;
             if(q&&Array.isArray(q.cum)&&q.cum.length&&c.equity.final!=null&&q.base!=null){
@@ -7348,6 +7491,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
               li=base.length;thru=true;
               q.cum.forEach(v=>base.push((c.equity.final+(v-q.base)*_s2)*mult));}
             return {id:id,label:lab,color:col,eq:base,li:li,wfi:Math.round(fIS*(c.equity.cum.length||1)),
+                    // CHANGE 7 (v64.74): carry the candidate's own params through to the explorer's
+                    //   ⚖ PARAMS comparison table.
+                    ts:_mkTs(base.length,li),params:c.params||null,
                     blot:{date_from:_dF,date_to:(thru?_dEnd:_dOptEnd)}};};
           // label each survivor by its WALK-FORWARD rank + its walk-forward $ (the number it was
           //   actually crowned on) — "cfg3" alone said nothing.
@@ -7358,10 +7504,38 @@ namespace NinjaTrader.NinjaScript.Strategies {
           poolAll.forEach(c=>{if(c===crownedC||c===isMaxC)return;_rk++;
             _ser.push(_mkSer(c,_huePal[(_hi++)%_huePal.length],'rank '+_rk+_wf$(c),'rank'+_rk));});
           if(_hasGateO&&_gEqO&&Array.isArray(_gEqO.cum_gated)&&_gEqO.cum_gated.length>1)
+            // the gate curve is indexed by TRADE ORDER, not time, so there is no real per-point
+            // date to place it by — spreading it linearly across the FULL span (optimize start ->
+            // lockbox/holdout end) is the best available approximation. Flagged here in case a
+            // real per-trade timestamp becomes available later.
             _ser.push({id:'gate',label:'🚪 gate-kept',color:'#e05fa0',eq:_gEqO.cum_gated.map(v=>v*mult),li:null,wfi:null,
+                       ts:_mkTsSpan(_gEqO.cum_gated.length,optFromMs,lbToMs),
                        blot:{date_from:_dF,date_to:_dEnd}});
+          // CHANGE 3 (v64.74, owner: bring back the grey cloud): every OTHER tested config, from
+          //   d.equity_top, drawn faint and stopping at the in-sample door — mirrors the inline 2A
+          //   cloud (poolAll only has the top-K that survived to walk-forward testing). Deduped
+          //   against the survivors already pushed above by comparing each candidate's value AT
+          //   the in-sample door: equity_top and the WF candidate pool are two SEPARATE backend
+          //   passes with different downsample caps, so they cannot be matched by array identity —
+          //   a close value match at the same point in time is the best available signal, not a
+          //   guaranteed-exact one. No blot on these (unlike the survivors) so the TRADES blotter
+          //   panel never tries to open a column for one of the (up to hundreds of) cloud lines.
+          try{
+            const _survVals=_ser.map(s2=>{
+              const arr=s2.eq,idx=Math.max(0,Math.min(arr.length-1,(s2.wfi!=null?s2.wfi:arr.length-1)));
+              return arr[idx];}).filter(v=>v!=null&&!isNaN(v));
+            let _oi=0;
+            (Array.isArray(etop)?etop:[]).forEach(o=>{
+              const arr0=(o&&o.cum)?o.cum:o;
+              if(!Array.isArray(arr0)||arr0.length<2)return;
+              const arr=arr0.map(v=>v*mult),endV=arr[arr.length-1];
+              if(_survVals.some(v=>Math.abs(v-endV)<=Math.max(25,Math.abs(v)*0.003)))return;
+              _ser.push({id:'oth'+(_oi++),label:'other config',color:'var(--text5)',eq:arr,
+                         li:null,wfi:null,dim:true,ts:_mkTsSpan(arr.length,optFromMs,_isDoorMs)});
+            });
+          }catch(_a2ce){}
           window._a2EqSeries=_ser;
-        }catch(_a2e){window._a2EqSeries=null;}
+        }catch(_a2e){window._a2EqSeries=null;window._a2Bands=null;}
         // v64.51 (owner): ALL endpoint values live in the GUTTER now — the crowned / IS-max /
         //   gated numbers no longer print on the chart itself (they were duplicated). The gutter
         //   carries: the 3 lockbox-continuation pills (crowned + 2), the IS-max total, and the
@@ -11358,7 +11532,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // v64.71 (owner): 2A opens the TradingView-style multi-curve explorer (zoom / pan /
           //   scale-y / dbl-click reset) with every top config as its own line + the gate curve.
           const _a2Host=svg.closest('[data-a2eqx]')||box.closest('[data-a2eqx]');
-          if(_a2Host&&window.expandCompareEq&&window._a2EqSeries&&window._a2EqSeries.length){window.expandCompareEq(window._a2EqSeries);return;}
+          if(_a2Host&&window.expandCompareEq&&window._a2EqSeries&&window._a2EqSeries.length){window.expandCompareEq(window._a2EqSeries,{bands:window._a2Bands});return;}
           // 3-D param surfaces (2H in 3-D mode / 2J) open the drag-to-orbit modal instead.
           if(svg.hasAttribute('data-s3d')&&window.expandSurface3D){window.expandSurface3D(svg);return;}
           // 2B parallel-coords opens the interactive config-space modal (2B+2C, still brushable).
