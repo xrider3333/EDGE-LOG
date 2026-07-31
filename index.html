@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.78';
+const VERSION='64.79';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.79', date:'2026-07-29', notes:['Every line in the 2A key is now named by WHICH CONFIG it is in the run config list — "config 33", with the crowned one as "👑 config 43" — instead of invented rank words. The full set of tested configs is back too: the old duplicate-filter was quietly hiding about 21 of them, so the grey cloud now shows every remaining config, each keeping its own config number.']},
   {v:'64.78', date:'2026-07-29', notes:['Fixed a real accuracy bug in the fullscreen equity explorer: the faint grey cloud of other tested configs was squeezing its whole 15-year curve into the much shorter in-sample stretch, so those lines shot up to roughly the full backtest total right at the in-sample door instead of showing their true, much lower, in-sample value. The cloud now stops honestly at the door with the correct number.','Fixed the fullscreen explorer highlighting a random nearby line even when the cursor was nowhere close to any curve — it now only lights up a line when the cursor is genuinely near it.','Renamed the confusing legend labels in the fullscreen explorer: the winning config now reads "champion", the other configs that competed for the crown read "runner-up 2", "runner-up 3" and so on, and the extra context-only configs read "robustness line" with the "not in crown pool" text removed.','Fixed a stray floating dot left over in some fullscreen-explorer legend rows.','Added a small info icon at the top of the fullscreen explorer legend explaining what champion / runner-up / robustness line / other configs mean, in plain language.','The small 2A chart on the run report now draws its grey "other configs" cloud noticeably darker — it was there before but nearly invisible.','Fullscreen equity explorer: added the rest of the chart-viewer feel — arrow-key pan and zoom, a LOG button for a log dollar scale, a FIT Y toggle to lock or auto-fit the dollar range to what is on screen, and a small navigator strip under the chart for jumping around the whole timeline at a glance.']},
   {v:'64.77', date:'2026-07-29', notes:['Config numbering in the expanded 2A view is fixed again: lines are now ranked ONLY among the configs that actually competed for the crown, so the three carried through the lockbox read WF #1, #2 and #3. The extra robustness lines — shown for context but never crown-eligible, and never carried into the lockbox — are labelled "extra" instead of being given a misleading rank.']},
   {v:'64.76', date:'2026-07-29', notes:['Fullscreen equity explorer: moving the cursor over the chart now shows each line’s value AT THAT POINT right next to its name in the key, not just in the readout at the top — easier to compare several lines at a glance. The numbers clear when the cursor leaves the chart, and a line with no data at that point (like a config that already stopped) shows a dash instead of a misleading number.']},
@@ -7659,14 +7660,32 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   (still keeping its WF $ figure); every other crown-pool survivor reads "runner-up N"
           //   (N = its walk-forward rank, so the crowned "rank 1" never repeats); a robustness
           //   extra (never eligible for the crown) reads "robustness line" — no number, no tag.
-          const _ser=[];let _hi=0,_ex=0;
-          if(crownedC)_ser.push(_mkSer(crownedC,'#1d9e75','👑 champion'+_wf$(crownedC),'crowned'));
-          if(isMaxC&&isMaxC!==crownedC)_ser.push(_mkSer(isMaxC,'#3a9bdc','IS max'+_wf$(isMaxC),'ismax'));
-          poolAll.forEach(c=>{if(c===crownedC||c===isMaxC)return;const _r=_rkOf(c);
-            // in the crown pool -> "runner-up N" (N = walk-forward rank); otherwise a robustness
-            //   extra (not crown-eligible) -> "robustness line", no number.
-            const _lab=_r?('runner-up '+_r+_wf$(c)):('robustness line'+_wf$(c));
-            _ser.push(_mkSer(c,_huePal[(_hi++)%_huePal.length],_lab,(_r?('wf'+_r):('ext'+(++_ex)))));});
+          // v64.79 (owner, said several times): name every line by WHICH CONFIG IT IS in the run's
+          //   config list — "config 33", the crowned one "👑 config 43" — not by an invented rank
+          //   word. A survivor is matched to its config-list slot by its full-window ending value
+          //   (the survivor pool and the stored config curves are two separate backend passes, so
+          //   value-at-the-same-point is the join key). Matched slots are then EXCLUDED from the
+          //   grey cloud below, so every other config still draws — no fuzzy dedupe dropping lines.
+          const _etFin=(Array.isArray(etop)?etop:[]).map(o=>{const a=(o&&o.cum)?o.cum:o;
+            return (Array.isArray(a)&&a.length)?a[a.length-1]:null;});
+          const _usedIdx=new Set();
+          const _cfgNoOf=c=>{const a=c&&c.equity&&c.equity.cum;
+            if(!Array.isArray(a)||!a.length)return null;
+            const want=a[a.length-1];let best=-1,bestD=Infinity;
+            _etFin.forEach((v,i)=>{if(v==null||_usedIdx.has(i))return;
+              const dd=Math.abs(v-want);if(dd<bestD){bestD=dd;best=i;}});
+            if(best>=0&&bestD<=Math.max(1e-6,Math.abs(want)*0.005)){_usedIdx.add(best);return best+1;}
+            return null;};
+          const _ser=[];let _hi=0;
+          // order: crowned first, then the rest best-walk-forward-first
+          const _rest=poolAll.filter(c=>c!==crownedC&&c!==isMaxC)
+                             .sort((a,b)=>((b&&b.wf_oos_pnl)||0)-((a&&a.wf_oos_pnl)||0));
+          if(crownedC){const _n=_cfgNoOf(crownedC);
+            _ser.push(_mkSer(crownedC,'#1d9e75','👑 config '+(_n||'?')+_wf$(crownedC),'cfg'+(_n||'crown')));}
+          if(isMaxC&&isMaxC!==crownedC){const _n=_cfgNoOf(isMaxC);
+            _ser.push(_mkSer(isMaxC,'#3a9bdc','config '+(_n||'?')+' · in-sample best'+_wf$(isMaxC),'cfg'+(_n||'ismax')));}
+          _rest.forEach(c=>{const _n=_cfgNoOf(c);
+            _ser.push(_mkSer(c,_huePal[(_hi++)%_huePal.length],'config '+(_n||'?')+_wf$(c),'cfg'+(_n||('x'+_hi))));});
           if(_hasGateO&&_gEqO&&Array.isArray(_gEqO.cum_gated)&&_gEqO.cum_gated.length>1)
             // the gate curve is indexed by TRADE ORDER, not time, so there is no real per-point
             // date to place it by — spreading it linearly across the FULL span (optimize start ->
@@ -7685,11 +7704,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   guaranteed-exact one. No blot on these (unlike the survivors) so the TRADES blotter
           //   panel never tries to open a column for one of the (up to hundreds of) cloud lines.
           try{
-            const _survVals=_ser.map(s2=>{
-              const arr=s2.eq,idx=Math.max(0,Math.min(arr.length-1,(s2.wfi!=null?s2.wfi:arr.length-1)));
-              return arr[idx];}).filter(v=>v!=null&&!isNaN(v));
+            // v64.79 (owner: "i want the full 77 back"): the old value-based dedupe was dropping
+            //   ~21 legitimate configs whose value merely landed near a survivor's at the door.
+            //   Survivors are now matched to their config-list slot up front, so we exclude those
+            //   EXACT slots and every remaining config draws. Each grey line keeps its own config
+            //   number so it can be identified on hover.
             let _oi=0;
-            (Array.isArray(etop)?etop:[]).forEach(o=>{
+            (Array.isArray(etop)?etop:[]).forEach((o,_ei)=>{
+              if(_usedIdx.has(_ei))return;                 // already drawn as a coloured survivor
               const arr0=(o&&o.cum)?o.cum:o;
               if(!Array.isArray(arr0)||arr0.length<2)return;
               const arrFull=arr0.map(v=>v*mult);
@@ -7705,9 +7727,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
               //   truncated slice, so a grey line now ends at the door with the honest in-sample
               //   value the coloured survivors show there. The dedupe check below moves onto the
               //   truncated end too, so it compares like-for-like (both AT the in-sample door).
-              const arr=arrFull.slice(0,Math.max(2,Math.round(fIS*arrFull.length))),endV=arr[arr.length-1];
-              if(_survVals.some(v=>Math.abs(v-endV)<=Math.max(25,Math.abs(v)*0.003)))return;
-              _ser.push({id:'oth'+(_oi++),label:'other config',color:'var(--text5)',eq:arr,
+              const arr=arrFull.slice(0,Math.max(2,Math.round(fIS*arrFull.length)));
+              _oi++;
+              _ser.push({id:'oth'+_ei,label:'config '+(_ei+1),color:'var(--text5)',eq:arr,
                          li:null,wfi:null,dim:true,ts:_mkTsSpan(arr.length,optFromMs,_isDoorMs)});
             });
           }catch(_a2ce){}
