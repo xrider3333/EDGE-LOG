@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.70';
+const VERSION='64.71';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.71', date:'2026-07-29', notes:['Double-clicking the 2A config chart now opens the FULLSCREEN explorer (the same TradingView-style zoom / pan / drag-the-$-axis viewer the Compare tab uses) instead of a flat blow-up — every top config gets its own coloured, separable line, each carried through the lockbox, and the gate curve rides along too. That fixes the lines being unreadably overlaid when expanded.','The crowned lockbox pill now shows a 👑 instead of a third identical 🔒.','Dropped the "solid IS · dashed WF · dotted LB" line from the 2A key — it ate space; the same explanation is still in the title info icon.']},
   {v:'64.70', date:'2026-07-29', notes:['SECTION 2 re-lettered in reading order: the ML TRADE FILTER (the gate), which sits second, is now 2B (was 2J); the rest shift up one — config distribution 2C, explorer 2D, parallel-coords 2E, PDP 2F, knobs 2G, neighbour 2H, top configs 2I, ML config builder 2J.','The gate before/after now reads as a MATRIX (metric · before every trade · after gate kept), like the 1E KPI matrix, instead of arrow tiles.','2A: the other two lockbox survivor lines are now on the same TRUE-total footing as the crowned line, so the crowned no longer looks artificially lowest.']},
   {v:'64.68', date:'2026-07-29', notes:['The 2J ML TRADE FILTER before/after cards now say WHICH slice they measure (e.g. "on the lockbox — the held-out slice"). The before number is that slice with every trade — so compare it to the SAME column in the 1E matrix (lockbox), not the in-sample column.']},
   {v:'64.67', date:'2026-07-29', notes:['2A now agrees with 1A on two things: (1) the walk-forward boundary sits at the REAL first walk-forward test start (same date as 1A’s first blue band), not a fixed 75% split; (2) the crowned line ends at the champion’s TRUE full-run total (the 1A number), instead of the slightly-overshooting saved lockbox curve. So the crowned $ on 2A now matches 1A.']},
@@ -7164,7 +7165,31 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const pts=[xFull.toFixed(1)+' '+Yv(anchor*mult).toFixed(1)];
           for(let j=0;j<n;j++){const f=n<=1?1:j/(n-1);pts.push((xFull+(xR-xFull)*f).toFixed(1)+' '+Yv((anchor+(cum[j]-base)*_sc)*mult).toFixed(1))}
           lb+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?0.9:0.6)+'" opacity="0.95" stroke-dasharray="0.5 1.6" stroke-linecap="round"/>';
-          const fv=anchor+_rawEnd*_sc;labs.push({y:Yv(fv*mult),col,txt:_kUsd(fv*mult)+(cr?' 🔒crown':' 🔒')});});
+          // v64.71 (owner): the crowned lockbox pill gets the CROWN (all three showed the same 🔒).
+          const fv=anchor+_rawEnd*_sc;labs.push({y:Yv(fv*mult),col,txt:_kUsd(fv*mult)+(cr?' 👑':' 🔒')});});
+        // v64.71 (owner): build the SERIES for the fullscreen explorer — double-clicking 2A now
+        //   opens the same TradingView-style zoom/pan viewer the Compare tab uses, with each top
+        //   config as its OWN coloured, separable line PLUS the gate curve (they overlap badly in
+        //   the small tile). Each series carries its lockbox continuation + the WF/LB boundaries.
+        try{
+          const _mkSer=(c,col,lab,id)=>{const base=c.equity.cum.map(v=>v*mult);const q=c.lb_equity;
+            let li=null;
+            if(q&&Array.isArray(q.cum)&&q.cum.length&&c.equity.final!=null&&q.base!=null){
+              const _re=q.cum[q.cum.length-1]-q.base;
+              const _s2=(c===crownedC)?((_champTot!=null&&_re!==0)?((_champTot-c.equity.final)/_re):1)
+                                      :((_crownOver&&_re!==0)?((_re-_crownOver)/_re):1);
+              li=base.length;
+              q.cum.forEach(v=>base.push((c.equity.final+(v-q.base)*_s2)*mult));}
+            return {id:id,label:lab,color:col,eq:base,li:li,wfi:Math.round(fIS*(c.equity.cum.length||1))};};
+          const _ser=[];let _hi=0;
+          if(crownedC)_ser.push(_mkSer(crownedC,'#1d9e75','👑 crowned','crowned'));
+          if(isMaxC&&isMaxC!==crownedC)_ser.push(_mkSer(isMaxC,'#3a9bdc','IS max','ismax'));
+          poolAll.forEach((c,i)=>{if(c===crownedC||c===isMaxC)return;
+            _ser.push(_mkSer(c,_huePal[(_hi++)%_huePal.length],'config '+(i+1),'cfg'+i));});
+          if(_hasGateO&&_gEqO&&Array.isArray(_gEqO.cum_gated)&&_gEqO.cum_gated.length>1)
+            _ser.push({id:'gate',label:'🚪 gate-kept',color:'#e05fa0',eq:_gEqO.cum_gated.map(v=>v*mult),li:null,wfi:null});
+          window._a2EqSeries=_ser;
+        }catch(_a2e){window._a2EqSeries=null;}
         // v64.51 (owner): ALL endpoint values live in the GUTTER now — the crowned / IS-max /
         //   gated numbers no longer print on the chart itself (they were duplicated). The gutter
         //   carries: the 3 lockbox-continuation pills (crowned + 2), the IS-max total, and the
@@ -7220,7 +7245,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="white-space:nowrap;color:#e0a04b"><b>▬</b> top-K WF survivors</div>'
           +'<div style="white-space:nowrap;color:var(--text4)"><b>▬</b> other configs</div>'
           +((_hasGate&&_a2gate)?'<div style="white-space:nowrap;color:#e05fa0"><b>▬</b> 🚪 gate-filtered</div>':'')
-          +'<div style="white-space:nowrap;color:var(--text3);font-size:7px">solid IS · dashed WF · dotted LB</div>'
           +'</div>';
         selSvg=isDoor+lbDoor+wf+ov+lb+gateOv;}
       // x-axis date labels (owner request). Use the OPTIMIZE window when this is a validate
@@ -7258,7 +7282,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v64.31 (owner): selMode = PRE-BOXED row exactly like 1A-1D — chart fills the row, the
       //   $ scale + endpoint pills live in the 44px HTML gutter, handle row underneath.
       const _body=selMode
-        ?'<div class="rschart-box" style="display:flex;gap:6px;height:190px;min-height:60px;max-height:600px;overflow:hidden"><div style="flex:1;min-width:0;position:relative;background:var(--bg1);border-radius:8px;padding:6px 4px;box-sizing:border-box">'+_svgStr+_keyBox+'</div>'+_gutterHtml+'</div>'+rsRow
+        ?'<div class="rschart-box" data-a2eqx="1" title="double-click for the fullscreen explorer — zoom / pan, each config on its own line, gate curve included" style="display:flex;gap:6px;height:190px;min-height:60px;max-height:600px;overflow:hidden"><div style="flex:1;min-width:0;position:relative;background:var(--bg1);border-radius:8px;padding:6px 4px;box-sizing:border-box">'+_svgStr+_keyBox+'</div>'+_gutterHtml+'</div>'+rsRow
         :'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'+_svgStr+'</div>';
       if(!selMode)return _hdr+_body;
       // ── selection detail (crown-pool table + honesty notes) COLLAPSED by default (owner: keep
@@ -11159,6 +11183,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // (zoom/pan/crosshair/blotter) instead of the generic clone modal.
           const _eqxHost=svg.closest('[data-eqx]')||box.closest('[data-eqx]');
           if(_eqxHost&&window.expandEquity){window.expandEquity(_eqxHost);return;}
+          // v64.71 (owner): 2A opens the TradingView-style multi-curve explorer (zoom / pan /
+          //   scale-y / dbl-click reset) with every top config as its own line + the gate curve.
+          const _a2Host=svg.closest('[data-a2eqx]')||box.closest('[data-a2eqx]');
+          if(_a2Host&&window.expandCompareEq&&window._a2EqSeries&&window._a2EqSeries.length){window.expandCompareEq(window._a2EqSeries);return;}
           // 3-D param surfaces (2H in 3-D mode / 2J) open the drag-to-orbit modal instead.
           if(svg.hasAttribute('data-s3d')&&window.expandSurface3D){window.expandSurface3D(svg);return;}
           // 2B parallel-coords opens the interactive config-space modal (2B+2C, still brushable).
