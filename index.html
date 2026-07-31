@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.79';
+const VERSION='64.80';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.80', date:'2026-07-29', notes:['The crowned config and two others were showing as "config ?" in the 2A key — the stored config curves are rounded to whole dollars, so they never matched exactly. The matching now allows for that rounding, so every line names its real config number.']},
   {v:'64.79', date:'2026-07-29', notes:['Every line in the 2A key is now named by WHICH CONFIG it is in the run config list — "config 33", with the crowned one as "👑 config 43" — instead of invented rank words. The full set of tested configs is back too: the old duplicate-filter was quietly hiding about 21 of them, so the grey cloud now shows every remaining config, each keeping its own config number.']},
   {v:'64.78', date:'2026-07-29', notes:['Fixed a real accuracy bug in the fullscreen equity explorer: the faint grey cloud of other tested configs was squeezing its whole 15-year curve into the much shorter in-sample stretch, so those lines shot up to roughly the full backtest total right at the in-sample door instead of showing their true, much lower, in-sample value. The cloud now stops honestly at the door with the correct number.','Fixed the fullscreen explorer highlighting a random nearby line even when the cursor was nowhere close to any curve — it now only lights up a line when the cursor is genuinely near it.','Renamed the confusing legend labels in the fullscreen explorer: the winning config now reads "champion", the other configs that competed for the crown read "runner-up 2", "runner-up 3" and so on, and the extra context-only configs read "robustness line" with the "not in crown pool" text removed.','Fixed a stray floating dot left over in some fullscreen-explorer legend rows.','Added a small info icon at the top of the fullscreen explorer legend explaining what champion / runner-up / robustness line / other configs mean, in plain language.','The small 2A chart on the run report now draws its grey "other configs" cloud noticeably darker — it was there before but nearly invisible.','Fullscreen equity explorer: added the rest of the chart-viewer feel — arrow-key pan and zoom, a LOG button for a log dollar scale, a FIT Y toggle to lock or auto-fit the dollar range to what is on screen, and a small navigator strip under the chart for jumping around the whole timeline at a glance.']},
   {v:'64.77', date:'2026-07-29', notes:['Config numbering in the expanded 2A view is fixed again: lines are now ranked ONLY among the configs that actually competed for the crown, so the three carried through the lockbox read WF #1, #2 and #3. The extra robustness lines — shown for context but never crown-eligible, and never carried into the lockbox — are labelled "extra" instead of being given a misleading rank.']},
@@ -7674,7 +7675,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
             const want=a[a.length-1];let best=-1,bestD=Infinity;
             _etFin.forEach((v,i)=>{if(v==null||_usedIdx.has(i))return;
               const dd=Math.abs(v-want);if(dd<bestD){bestD=dd;best=i;}});
-            if(best>=0&&bestD<=Math.max(1e-6,Math.abs(want)*0.005)){_usedIdx.add(best);return best+1;}
+            // the stored config curves are rounded to whole dollars (and sampled at a different
+            //   resolution than the survivor curves), so an exact match never lands — the survivor
+            //   and its config-list twin sit ~1-2% apart. Take the nearest unused slot within 4%.
+            if(best>=0&&bestD<=Math.max(1e-6,Math.abs(want)*0.04)){_usedIdx.add(best);return best+1;}
             return null;};
           const _ser=[];let _hi=0;
           // order: crowned first, then the rest best-walk-forward-first
