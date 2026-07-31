@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.74';
+const VERSION='64.75';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.75', date:'2026-07-29', notes:['Config lines in the expanded 2A view are now numbered by WALK-FORWARD rank (WF #1, WF #2, …) instead of an in-sample ordering. That was why the three configs carried through the lockbox showed up as crowned / rank 3 / rank 5 and looked wrong — they were always the correct top 3 by walk-forward, just mislabelled. They now read WF #1, #2, #3.']},
   {v:'64.74', date:'2026-07-29', notes:['Fixed a real accuracy bug in the fullscreen equity explorer: the lockbox boundary was being placed years off the true date because every line spread its points evenly across the whole date range instead of its own real calendar span — lines that legitimately stopped right at the lockbox door were being drawn as if they kept going through it.','The walk-forward and lockbox shaded bands in that same explorer now line up with the real calendar dates instead of an approximate position.','Brought back the faint grey cloud of every other tested config in the fullscreen explorer (previously only the surviving few showed), collapsed into one legend row so the legend does not flood with entries.','Fixed legend hovering in the fullscreen explorer: hovering a line in the legend now highlights exactly that line instead of jumping to whatever line happens to be nearby.','The RANGE and WINDOW jump-to controls are now small compact pills next to the other header buttons instead of two full-width bars.','Removed the horizontal dashed reference lines that were cluttering the equity pane.','Added a PARAMS button to the fullscreen explorer that opens a table comparing every visible config’s settings against the winning config, highlighting what differs.']},
   {v:'64.73', date:'2026-07-29', notes:['Fullscreen equity explorer: the walk-forward and lockbox stretches are now shaded on the chart itself (blue / purple bands with IS-WF-LB labels), matching the small 2A chart.','Added RANGE (all, last 1/3/5 years, custom dates) and WINDOW (all, in-sample, walk-forward, lockbox) dropdowns above the chart to jump straight to a stretch instead of hand-zooming.','Hovering the chart now thickens whichever line is closest to the cursor and fades the rest, with the matching legend entry outlined, so a crowded multi-line comparison is easier to read.','Removed the extra dashed reference lines that were cluttering the drawdown pane.','iPad/touch: one-finger drag pans, two-finger pinch zooms, dragging the $ axis scales it, and double-tap resets — the chart no longer fights the page scroll while you interact with it.','The 2A explorer legend no longer shows a meaningless "#" number in front of labels like "crowned" or "gate" — real run numbers (Compare tab) still show their #.']},
   {v:'64.72', date:'2026-07-29', notes:['The expanded 2A explorer now plots against a REAL DATE x-axis instead of percent-of-progress — each config carries its own date span, so a config that stops at the lockbox door honestly draws no line past it.','Legend entries are named by what they mean: "👑 crowned · WF $x" and "rank 2 · WF $x" (the walk-forward $ each was judged on) instead of cfg1 / cfg2.']},
@@ -7498,11 +7499,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // label each survivor by its WALK-FORWARD rank + its walk-forward $ (the number it was
           //   actually crowned on) — "cfg3" alone said nothing.
           const _wf$=c=>{const v=(c&&c.wf_oos_pnl!=null)?c.wf_oos_pnl*mult:null;return v==null?'':(' · WF '+fmtAx(v,1));};
-          const _ser=[];let _hi=0,_rk=1;
-          if(crownedC)_ser.push(_mkSer(crownedC,'#1d9e75','👑 crowned'+_wf$(crownedC),'crowned'));
+          // v64.75 (owner caught this): the old "rank N" numbered configs by POOL ORDER (an
+          //   in-sample ordering), so the three carried through the lockbox came out as crowned /
+          //   rank 3 / rank 5 and looked wrong. The lockbox carry-through is the top-3 by
+          //   WALK-FORWARD, so number them by walk-forward rank — then the LB trio reads 1/2/3.
+          const _wfRank=new Map();
+          poolAll.slice().sort((a,b)=>((b&&b.wf_oos_pnl)||0)-((a&&a.wf_oos_pnl)||0))
+                 .forEach((c,i)=>_wfRank.set(c,i+1));
+          const _rkOf=c=>_wfRank.get(c)||null;
+          const _ser=[];let _hi=0;
+          if(crownedC)_ser.push(_mkSer(crownedC,'#1d9e75','👑 crowned · WF #'+(_rkOf(crownedC)||1)+_wf$(crownedC),'crowned'));
           if(isMaxC&&isMaxC!==crownedC)_ser.push(_mkSer(isMaxC,'#3a9bdc','IS max'+_wf$(isMaxC),'ismax'));
-          poolAll.forEach(c=>{if(c===crownedC||c===isMaxC)return;_rk++;
-            _ser.push(_mkSer(c,_huePal[(_hi++)%_huePal.length],'rank '+_rk+_wf$(c),'rank'+_rk));});
+          poolAll.forEach(c=>{if(c===crownedC||c===isMaxC)return;const _r=_rkOf(c);
+            _ser.push(_mkSer(c,_huePal[(_hi++)%_huePal.length],'WF #'+(_r||'?')+_wf$(c),'wf'+(_r||_hi)));});
           if(_hasGateO&&_gEqO&&Array.isArray(_gEqO.cum_gated)&&_gEqO.cum_gated.length>1)
             // the gate curve is indexed by TRADE ORDER, not time, so there is no real per-point
             // date to place it by — spreading it linearly across the FULL span (optimize start ->
