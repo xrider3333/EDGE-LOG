@@ -681,6 +681,18 @@ not saved to the runs DB — so they carry no run id.*
 - `augur_engine/engine.py` — `run_backtest` (ml_filter/ml_threshold kwargs), `run_gate_validate`.
 - `augur_engine/optimize.py` + `auto.py` — wire `plateau_pick` alongside argmax `best`.
 - `augur_engine/data_quality.py` — gap/coverage/data-health checks (§1).
+- `augur_engine/context.py` — **TRADE CONTEXT (owner idea 2026-07-23, stages 1+2 SHIPPED
+  `ab162a3`)**: per-trade market-context enrichment (prior-day causal: VIX level/pctile/
+  5d-change/term-slope, 10y yield + curve via cached yfinance offline-safe; internals from
+  the run's own bars — daily RSI14, MACD hist, ATR20 pctile, ER trend strength, gap %,
+  prev-day return, range pctile, streak) + `context_scores` (Spearman/Pearson per feature
+  vs trade PnL, 95% CI from a day-clustered bootstrap, BH-FDR across features). Attached
+  as `result["context"]` on grid/auto/validate jobs (runner on by default; engine default
+  OFF to keep tests offline). **First scan — ORB_3_0 NQ 5m RTH 2024→2026-06 (590 trades):
+  NOTHING survives FDR q<0.10**; range_pctile raw p=.036 = the false lead the correction
+  caught (consistent with the round-2 VIX-tilt failures — ORB's edge isn't daily-context
+  conditional). Web CI-bar panel pending (contested index.html). Next scans: ENGU-Q legs,
+  real trade log.
 - `augur_engine/trial_cache.py` + `window_delta.py` — **#26 incremental reuse (SHIPPED
   2026-07-22)**: exact-hit per-config result cache (env `AUGUR_TRIAL_CACHE`, ON in the
   runner; `♻` chip on Builder launch rows) + data-prep memo + EOD-flat window-extension
