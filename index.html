@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.80';
+const VERSION='64.81';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.81', date:'2026-07-29', notes:['The ML gate now saves an equity curve for every one of the 9 candidates it tests (each model type at each of the three cut-offs), not just the one it picks — the losing candidates still never reveal their sealed holdout numbers, only their curve.','The fullscreen 2A config explorer can now show all 9 of those ML-gate candidate lines, in a pink/magenta family of colours grouped by model — off by default so they do not clutter the chart, with a small "ML gates" button in the header to show or hide them all at once, and a collapsible legend row to reveal and toggle each one individually.','Added a compact slider to the fullscreen explorer header for how many of the faint grey "other tested config" lines are drawn, matching the same control already on the small in-page chart. Older runs made before this change simply will not show the new gate-candidate lines or button until re-run.']},
   {v:'64.80', date:'2026-07-29', notes:['The crowned config and two others were showing as "config ?" in the 2A key — the stored config curves are rounded to whole dollars, so they never matched exactly. The matching now allows for that rounding, so every line names its real config number.']},
   {v:'64.79', date:'2026-07-29', notes:['Every line in the 2A key is now named by WHICH CONFIG it is in the run config list — "config 33", with the crowned one as "👑 config 43" — instead of invented rank words. The full set of tested configs is back too: the old duplicate-filter was quietly hiding about 21 of them, so the grey cloud now shows every remaining config, each keeping its own config number.']},
   {v:'64.78', date:'2026-07-29', notes:['Fixed a real accuracy bug in the fullscreen equity explorer: the faint grey cloud of other tested configs was squeezing its whole 15-year curve into the much shorter in-sample stretch, so those lines shot up to roughly the full backtest total right at the in-sample door instead of showing their true, much lower, in-sample value. The cloud now stops honestly at the door with the correct number.','Fixed the fullscreen explorer highlighting a random nearby line even when the cursor was nowhere close to any curve — it now only lights up a line when the cursor is genuinely near it.','Renamed the confusing legend labels in the fullscreen explorer: the winning config now reads "champion", the other configs that competed for the crown read "runner-up 2", "runner-up 3" and so on, and the extra context-only configs read "robustness line" with the "not in crown pool" text removed.','Fixed a stray floating dot left over in some fullscreen-explorer legend rows.','Added a small info icon at the top of the fullscreen explorer legend explaining what champion / runner-up / robustness line / other configs mean, in plain language.','The small 2A chart on the run report now draws its grey "other configs" cloud noticeably darker — it was there before but nearly invisible.','Fullscreen equity explorer: added the rest of the chart-viewer feel — arrow-key pan and zoom, a LOG button for a log dollar scale, a FIT Y toggle to lock or auto-fit the dollar range to what is on screen, and a small navigator strip under the chart for jumping around the whole timeline at a glance.']},
@@ -3244,8 +3245,11 @@ window.expandCompareEq=function(series,opts){
       //   date_from->date_to spread below (see rebakeDomain). The Compare tab never sets one, so
       //   its series fall straight through to the unchanged old behaviour.
       ts=(Array.isArray(s.ts)&&s.ts.length===n)?s.ts:null;
-    return {id:s.id,label:String(s.label||('#'+s.id)),color:s.color||'#3a9bdc',li:li,wfi:wfi,blot:s.blot||null,vis:'on',
-      ts:ts,isOther:!!s.dim,params:s.params||null,
+    // v64.81 (owner): gateCand (2A's 9 ML-gate candidate lines) default HIDDEN — same as the
+    //   grey 'other configs' cloud stays visible-by-default while gate candidates start off, so
+    //   the chart is not cluttered with all 9 model x cutoff lines until asked for.
+    return {id:s.id,label:String(s.label||('#'+s.id)),color:s.color||'#3a9bdc',li:li,wfi:wfi,blot:s.blot||null,vis:(s.gateCand?'off':'on'),
+      ts:ts,isOther:!!s.dim,gateCand:!!s.gateCand,params:s.params||null,
       tr:_trOf(s),pts:s.eq.map((v,i)=>({x:0,v:v,t:0}))};});
   // rebakeDomain (item 24): bakes ONE shared tMin..tMax calendar span from every series real
   //   (blotter-loaded, exact per-trade) or approximate (run date_from/date_to) date range, then
@@ -3281,6 +3285,24 @@ window.expandCompareEq=function(series,opts){
     }else{tMin=tMax=null;PS.forEach(sr=>{const n=sr.pts.length;sr.pts.forEach((p,i)=>{p.x=(n>1?i/(n-1):0);p.t=null;});});}
   };
   rebakeDomain();
+  // v64.81 (owner, item 2/3): the fullscreen explorer gets two new compact header controls —
+  //   a config-count slider for the grey 'other config' cloud (mirrors the inline 2A chart's
+  //   own configs slider, but scoped to the explorer) and, only when this run actually carries
+  //   the new per-candidate ML-gate curves, an "ML GATES" show/hide-all toggle. Both are built
+  //   here (before the modal header string) since they read PS, which is only-just finished above.
+  const _otherAllInit=PS.filter(s=>s.isOther), _hasOtherSeries=_otherAllInit.length>0;
+  const _hasGateSeries=PS.some(s=>s.gateCand);
+  const _otherSliderHtml=_hasOtherSeries
+    ?('<span style="display:inline-flex;align-items:center;gap:5px" title="how many of the grey other-config lines to draw, 0 up to all '+_otherAllInit.length+'. Does not affect the coloured survivor lines or the ML-gate lines.">'
+      +'<span style="color:var(--text5);font-size:8px;letter-spacing:.5px">OTHER</span>'
+      +'<input id="ceqx-othcnt" class="fillrng" type="range" min="0" max="'+_otherAllInit.length+'" step="1" value="'+_otherAllInit.length+'" style="width:56px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) 100%,var(--bg1) 0)">'
+      +'<b id="ceqx-othcnt-lab" style="color:var(--text3);font-size:9px;min-width:34px;display:inline-block">'+_otherAllInit.length+'/'+_otherAllInit.length+'</b></span>')
+    :'';
+  // the toggle starts INACTIVE (candidates default hidden — see the PS.map vis above); the pink
+  //   accent matches the existing single gate-kept line so it reads as the same feature family.
+  const _gateBtnHtml=_hasGateSeries
+    ?'<button id="ceqx-gatebtn" title="show or hide all 9 ML-gate candidate lines (model x cutoff) at once. They start hidden so they do not clutter the chart; once shown, expand the ML gate candidates row in the legend to toggle them one at a time." style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">🚪 ML GATES</button>'
+    :'';
   // ── modal scaffold (same fixed-height non-wrapping header as expandEquity — a growing
   //    readout used to resize the chart under the cursor, the "glitch" that pattern avoids) ──
   const modal=document.createElement('div');
@@ -3310,6 +3332,7 @@ window.expandCompareEq=function(series,opts){
     +'</span>'
     +'<button id="ceqx-log" title="switch the dollar axis between a normal (linear) scale and a log scale — log keeps early small $ moves visible instead of them being flattened by later big ones" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">LOG</button>'
     +'<button id="ceqx-fity" title="FIT Y (on) rescales the dollar axis to whatever is visible in the current time window as you pan/zoom. Turn off to lock the axis to a fixed range." style="background:var(--bg2);border:1px solid var(--blue);color:var(--blue);padding:5px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">FIT Y</button>'
+    +_otherSliderHtml+_gateBtnHtml
     +'<button id="ceqx-params" title="compare the parameters of every visible config against the crowned config" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">⚖ PARAMS</button>'
     +'<button id="ceqx-reset" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">↺ RESET</button>'
     +'<button id="ceqx-blot" title="load each strategy trade blotter off your PC runner · Shift+click = regenerate fresh" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">▦ TRADES</button>'
@@ -3339,7 +3362,8 @@ window.expandCompareEq=function(series,opts){
   const svgEl=el2('ceqx-svg'),chartEl=el2('ceqx-chart'),read=el2('ceqx-read'),legendEl=el2('ceqx-legend'),
     blotBtn=el2('ceqx-blot'),mainEl=el2('ceqx-main'),gut=el2('ceqx-gut'),wrap=el2('ceqx-blotwrap'),wrapEl=el2('ceqx-wrap'),
     paramsBtn=el2('ceqx-params'),paramsBox=el2('ceqx-paramsbox'),
-    logBtn=el2('ceqx-log'),fitYBtn=el2('ceqx-fity'),navEl=el2('ceqx-nav'),navSvg=el2('ceqx-navsvg');
+    logBtn=el2('ceqx-log'),fitYBtn=el2('ceqx-fity'),navEl=el2('ceqx-nav'),navSvg=el2('ceqx-navsvg'),
+    gateBtn=el2('ceqx-gatebtn'),othCntEl=el2('ceqx-othcnt'),othCntLab=el2('ceqx-othcnt-lab');
   // legend KEY — same tiny inline-svg line samples as the inline overlay's key, stacked under
   //   the per-series legend (same #ceqx-legend flex column, so it inherits pointer-events:none
   //   and never grows the fixed-height header row).
@@ -3374,7 +3398,11 @@ window.expandCompareEq=function(series,opts){
   //   on the same row. Rebuilt on open and after every toggle since render() reads sr.vis.
   // CHANGE 3 (v64.74): "other config" cloud series (isOther, from d.equity_top) collapse into
   //   ONE legend row — with up to hundreds of them, one row each would swamp the legend.
-  const _mainPS=()=>PS.filter(s=>!s.isOther),_otherPS=()=>PS.filter(s=>s.isOther);
+  // v64.81: gateCand (the 9 ML-gate candidate lines) get their OWN collapsible legend group
+  //   (below), same idea as the other-config cloud but expandable to individual rows instead of
+  //   a single always-collapsed toggle — so excluded from _mainPS here too.
+  const _mainPS=()=>PS.filter(s=>!s.isOther&&!s.gateCand),_otherPS=()=>PS.filter(s=>s.isOther),_gatePS=()=>PS.filter(s=>s.gateCand);
+  let gateExpanded=false;
   // v64.76 (owner): live per-series $ value AT THE CURSOR, next to each legend entry — a cached
   //   id->element map so the crosshair mousemove handler below can write straight into these
   //   nodes (no querySelector per pixel, no second hit-test — it reuses the SAME interpAt(s,cx)
@@ -3409,6 +3437,24 @@ window.expandCompareEq=function(series,opts){
       const anyOn=_oth.some(s=>s.vis!=='off'),op2=anyOn?1:0.3,td2=anyOn?'none':'line-through';
       legendEl.innerHTML+='<span data-ceqx-vis-oth="1" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);background:color-mix(in srgb,var(--bg1) 65%,transparent);padding:2px 6px;border-radius:4px;white-space:nowrap;opacity:'+op2+'" title="click: show - hide the other tested configs together"><span style="width:12px;height:3px;background:var(--text5);display:inline-block;border-radius:2px;flex:0 0 auto"></span><span style="text-decoration:'+td2+'">other configs ('+_oth.length+')</span></span>';
     }
+    // v64.81 (item 2c): the 9 ML-gate candidates (model x cutoff) collapse into ONE expandable
+    //   group row — click to expand into individual, individually-toggleable rows (same vis
+    //   cycle as every other legend row, reusing the [data-ceqx-vis] wiring below), click the
+    //   group row again (now showing ▾) to collapse back to one line.
+    const _gc=_gatePS();
+    if(_gc.length){
+      if(!gateExpanded){
+        const anyOnG=_gc.some(s=>s.vis!=='off'),opG=anyOnG?1:0.3;
+        legendEl.innerHTML+='<span data-ceqx-gate-grp="1" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);background:color-mix(in srgb,var(--bg1) 65%,transparent);padding:2px 6px;border-radius:4px;white-space:nowrap;opacity:'+opG+'" title="click to expand into the 9 individual ML-gate candidate lines"><span style="width:12px;height:3px;background:#e05fa0;display:inline-block;border-radius:2px;flex:0 0 auto"></span><span>ML gate candidates ('+_gc.length+') ▸</span></span>';
+      }else{
+        legendEl.innerHTML+='<span data-ceqx-gate-grp="1" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);background:color-mix(in srgb,var(--bg1) 65%,transparent);padding:2px 6px;border-radius:4px;white-space:nowrap" title="click to collapse back to one row"><span style="width:12px;height:3px;background:#e05fa0;display:inline-block;border-radius:2px;flex:0 0 auto"></span><span>ML gate candidates ('+_gc.length+') ▾</span></span>'
+          +_gc.map(s=>{
+            const op=s.vis==='dim'?0.45:(s.vis==='off'?0.3:1),td=s.vis==='off'?'line-through':'none';
+            const liveVal='<span data-ceqx-val="'+s.id+'" style="margin-left:auto;padding-left:8px;flex:0 0 auto;font-family:\'JetBrains Mono\',monospace;font-variant-numeric:tabular-nums;font-size:9px;font-weight:700;color:var(--text2)"></span>';
+            return '<span data-ceqx-vis="'+s.id+'" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);background:color-mix(in srgb,var(--bg1) 65%,transparent);padding:2px 6px 2px 16px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:'+op+'" title="click: full - greyed - hidden - full"><span style="width:12px;height:3px;background:'+s.color+';display:inline-block;border-radius:2px;flex:0 0 auto"></span><span style="overflow:hidden;text-overflow:ellipsis;text-decoration:'+td+'">'+s.label+'</span>'+liveVal+'</span>';
+          }).join('');
+      }
+    }
     legendEl.innerHTML+='<span style="display:inline-flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:8px;color:var(--text5);padding:2px 6px">'
       +'<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2(null,false)+'in-sample</span>'
       +(_anyWfi?('<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2('7,4',false)+'walk-forward</span>'):'')
@@ -3440,6 +3486,13 @@ window.expandCompareEq=function(series,opts){
         renderLegend();render();
       };
     }
+    // v64.81: the ML-gate group row only toggles the EXPANDED/collapsed legend display — it
+    //   never touches sr.vis (that is the header's 🚪 ML GATES button, or the individual rows
+    //   once expanded), so no render() call here, just a legend rebuild.
+    const gateGrpRow=legendEl.querySelector('[data-ceqx-gate-grp]');
+    if(gateGrpRow){
+      gateGrpRow.onclick=()=>{gateExpanded=!gateExpanded;renderLegend();};
+    }
   };
   renderLegend();
   // ── view state: [va,vb] are fractions of the FULL 0..1 x-domain. Since item 24 that domain is
@@ -3468,6 +3521,40 @@ window.expandCompareEq=function(series,opts){
   if(logBtn)logBtn.onclick=()=>{logY=!logY;_syncToggleBtns();render();};
   if(fitYBtn)fitYBtn.onclick=()=>{fitY=!fitY;_syncToggleBtns();render();};
   _syncToggleBtns();
+  // v64.81 (item 3): OTHER slider — how many of the grey 'other config' lines actually draw
+  //   (0..all, default all). Purely a draw-count cap read by render() below; it never touches
+  //   sr.vis, so it cannot hide/show the coloured survivor lines or any ML-gate line.
+  let otherCount=_otherAllInit.length;
+  // recomputed at the top of every render() call; also read by the mousemove nearest-curve
+  //   hover check further down so a slider-hidden grey line can never be picked as "nearest"
+  //   (it has no drawn path, so highlighting it would just dim every visible line for nothing).
+  let _othSliderHidden=new Set();
+  if(othCntEl){
+    othCntEl.oninput=()=>{
+      otherCount=+othCntEl.value;
+      othCntEl.style.background='linear-gradient(90deg,var(--blue) '+((otherCount-0)/Math.max(1,_otherAllInit.length)*100).toFixed(1)+'%,var(--bg1) 0)';
+      if(othCntLab)othCntLab.textContent=otherCount+'/'+_otherAllInit.length;
+      render();
+    };
+  }
+  // v64.81 (item 2b): 🚪 ML GATES header button — one click shows/hides all 9 gate-candidate
+  //   lines together (same all-on/all-off pattern as the legend's other-configs row); the
+  //   single chosen gate-kept line ('gate' id, not gateCand) is untouched either way.
+  const _syncGateBtn=()=>{
+    if(!gateBtn)return;
+    const on=_gatePS().some(s=>s.vis!=='off');
+    gateBtn.style.background=on?'color-mix(in srgb,#e05fa0 16%,transparent)':'none';
+    gateBtn.style.borderColor=on?'#e05fa0':'var(--border)';
+    gateBtn.style.color=on?'#e05fa0':'var(--text3)';
+  };
+  if(gateBtn){
+    gateBtn.onclick=()=>{
+      const nv=_gatePS().some(s=>s.vis!=='off')?'off':'on';
+      _gatePS().forEach(s=>{s.vis=nv;});
+      _syncGateBtn();renderLegend();render();
+    };
+    _syncGateBtn();
+  }
   const _niceStep=x=>{x=Math.abs(x)||1;const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
   const geo=()=>{const r=chartEl.getBoundingClientRect(),W=Math.max(200,r.width),H=Math.max(160,r.height);
     // EQUITY pane (top, height set by ddFrac — item 7) + DRAWDOWN pane (bottom), sharing the
@@ -3538,6 +3625,11 @@ window.expandCompareEq=function(series,opts){
   }
   const render=()=>{
     const g=geo();
+    // v64.81 (item 3): which 'other config' grey lines the OTHER slider currently trims — the
+    //   first `otherCount` of _otherPS()'s stable order (same convention as the inline 2A
+    //   chart's own configs slider: slice(0,N), not a random subset). Only ever touches isOther
+    //   series; coloured survivor lines (_mainPS) and ML-gate lines (_gatePS) never consult this.
+    _othSliderHidden=new Set(_otherPS().slice(otherCount).map(s=>s.id));
     // WF/LB shaded bands (v64.73), computed here so they're ready before the curve-drawing
     //   block below inserts bandsHtml BEHIND the curves. No bands at all when nothing in the
     //   selection carries a walk-forward or lockbox split (e.g. the Compare tab pre-split).
@@ -3562,12 +3654,15 @@ window.expandCompareEq=function(series,opts){
     // item 5c: FIT Y off skips the [va,vb] window filter entirely and fits the WHOLE series
     //   instead — a fixed range that does not rescale as you pan/zoom, until FIT Y goes back on.
     let mn=null,mx=null;
+    // v64.81: a slider-trimmed 'other config' line is skipped here too (isOther-only check —
+    //   coloured survivor / gate lines never carry an _othSliderHidden id), so cutting the OTHER
+    //   count also stops those specific hidden lines stretching the y-axis for lines you cannot see.
     if(fitY){
-      PS.forEach(s=>{if(s.vis==='off')return;s.pts.forEach(p=>{if(p.x>=va&&p.x<=vb){if(mn===null||p.v<mn)mn=p.v;if(mx===null||p.v>mx)mx=p.v;}});});
+      PS.forEach(s=>{if(s.vis==='off'||_othSliderHidden.has(s.id))return;s.pts.forEach(p=>{if(p.x>=va&&p.x<=vb){if(mn===null||p.v<mn)mn=p.v;if(mx===null||p.v>mx)mx=p.v;}});});
       if(mn===null){   // zoomed tighter than every point spacing on every curve — fall back to the interpolated view edges
-        PS.forEach(s=>{if(s.vis==='off')return;[interpAt(s,va),interpAt(s,vb)].forEach(v=>{if(mn===null||v<mn)mn=v;if(mx===null||v>mx)mx=v;});});}
+        PS.forEach(s=>{if(s.vis==='off'||_othSliderHidden.has(s.id))return;[interpAt(s,va),interpAt(s,vb)].forEach(v=>{if(mn===null||v<mn)mn=v;if(mx===null||v>mx)mx=v;});});}
     }else{
-      PS.forEach(s=>{if(s.vis==='off')return;s.pts.forEach(p=>{if(mn===null||p.v<mn)mn=p.v;if(mx===null||p.v>mx)mx=p.v;});});
+      PS.forEach(s=>{if(s.vis==='off'||_othSliderHidden.has(s.id))return;s.pts.forEach(p=>{if(mn===null||p.v<mn)mn=p.v;if(mx===null||p.v>mx)mx=p.v;});});
     }
     if(mn===null){mn=0;mx=1;}
     if(yMan){mn=yMan[0];mx=yMan[1];}
@@ -3654,7 +3749,9 @@ window.expandCompareEq=function(series,opts){
     // CHANGE 3 (v64.74): 'other config' cloud series draw FIRST — i.e. always BEHIND every other
     //   series in paint order — regardless of where they sit in PS, by simply looping them ahead
     //   of the rest here.
-    const _drawOrder=_otherPS().concat(_mainPS());
+    // v64.81: the OTHER slider trims this list to its first `otherCount` (stable order); the ML
+    //   gate candidates (_gatePS, default vis 'off') paint last, on top, same as any survivor.
+    const _drawOrder=_otherPS().slice(0,otherCount).concat(_mainPS()).concat(_gatePS());
     _drawOrder.forEach(sr=>{if(sr.vis==='off')return;
       let strokeCol=sr.vis==='dim'?'var(--text5)':sr.color,strokeOp=sr.vis==='dim'?0.45:1,swMain=1.6,swWF=1.6,swLB=1.6;
       if(sr.isOther){strokeCol='var(--text5)';strokeOp=0.18;swMain=swWF=swLB=0.6;}
@@ -3967,7 +4064,7 @@ window.expandCompareEq=function(series,opts){
     if(!_overLegend(e.clientX,e.clientY)){
       if(gy>=st.g.eqT&&gy<=st.g.eqB){
         let bestId=null,bestD=Infinity;
-        PS.forEach(s=>{if(s.vis==='off')return;
+        PS.forEach(s=>{if(s.vis==='off'||_othSliderHidden.has(s.id))return;
           const py=st.g.eqT+(st.mxT-_tv(interpAt(s,cx)))/((st.mxT-st.mnT)||1)*(st.g.eqB-st.g.eqT),d2=Math.abs(py-gy);
           if(d2<bestD){bestD=d2;bestId=s.id;}});
         // BUG 2 fix (v64.78): the old code always picked SOME nearest curve, so the highlight kept
@@ -7698,6 +7795,33 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _ser.push({id:'gate',label:'🚪 gate-kept',color:'#e05fa0',eq:_gEqO.cum_gated.map(v=>v*mult),li:null,wfi:null,
                        ts:_mkTsSpan(_gEqO.cum_gated.length,optFromMs,lbToMs),
                        blot:{date_from:_dF,date_to:_dEnd}});
+          // v64.81 (owner, item 2): one extra series per ML-gate CANDIDATE (all 9 model x cutoff
+          //   combos the engine bakes off, not just the one it chose) — see augur_engine/ml_gate.py
+          //   gate_validate, which now saves a downsampled full-span gated equity curve on EVERY
+          //   candidate. Same trade-order-not-time approximation as the single gate-kept line just
+          //   above (there is no real per-point date for the gate's own trade grid either).
+          //   gateCand:true flags these for the explorer's default-hidden + collapsible-legend-
+          //   group + header-toggle handling; runs made before this engine change simply have no
+          //   d.gate_validate.candidates[].equity, so this loop pushes nothing and the explorer
+          //   renders neither the toggle nor the legend group (see expandCompareEq).
+          try{
+            const _gvCands=(d.gate_validate&&Array.isArray(d.gate_validate.candidates))?d.gate_validate.candidates
+                           :((d.ml_gate&&Array.isArray(d.ml_gate.candidates))?d.ml_gate.candidates:[]);
+            // one hue per MODEL (pink/magenta family) so the three CUT-OFFS of a model read as a
+            //   family by lightness — logistic/rf/xgb are the only model names the engine bakes.
+            const _gcHue={logistic:328,rf:302,xgb:352};
+            _gvCands.forEach(gc=>{
+              if(!gc||!gc.equity||!Array.isArray(gc.equity.cum)||gc.equity.cum.length<2)return;
+              const _gcTh=Math.round((gc.threshold||0)*100),_gcModel=String(gc.model||'');
+              const _gcTi=[50,55,60].indexOf(_gcTh),_gcLight=[40,55,70][_gcTi>=0?_gcTi:1];
+              const _gcHueV=(_gcHue[_gcModel.toLowerCase()]!=null)?_gcHue[_gcModel.toLowerCase()]:325;
+              _ser.push({id:'gc-'+_gcModel+'-'+_gcTh,label:'gate: '+_gcModel+' @ '+_gcTh+'%',
+                         color:'hsl('+_gcHueV+',70%,'+_gcLight+'%)',eq:gc.equity.cum.map(v=>v*mult),
+                         li:null,wfi:null,gateCand:true,
+                         ts:_mkTsSpan(gc.equity.cum.length,optFromMs,lbToMs),
+                         blot:{date_from:_dF,date_to:_dEnd}});
+            });
+          }catch(_gce){}
           // CHANGE 3 (v64.74, owner: bring back the grey cloud): every OTHER tested config, from
           //   d.equity_top, drawn faint and stopping at the in-sample door — mirrors the inline 2A
           //   cloud (poolAll only has the top-K that survived to walk-forward testing). Deduped

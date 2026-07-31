@@ -244,6 +244,23 @@ def _rec(s):
     return (p / dd) if dd > 1e-9 else (999.0 if p > 0 else 0.0)
 
 
+def _cand_out(c):
+    """Web-card shape for one gate_validate candidate: summary stats, plus (v64.81) its
+    downsampled full-span gated equity curve when one was built — so the UI can overlay
+    all 9 candidates, not just the chosen one. Equity is omitted, not an error, for a
+    candidate whose curve build failed (see the try/except in gate_validate)."""
+    d = {"model": c["model"], "threshold": c["threshold"],
+        "kept_pre": c["kept_pre"],
+        "pre_pnl": c["pre"]["total_pnl"],
+        "pre_pf": c["pre"]["profit_factor"],
+        "pre_wr": c["pre"]["win_rate"],
+        "pre_rec": round(_rec(c["pre"]), 2),
+        "eligible": c["eligible"]}
+    if "equity" in c:
+        d["equity"] = c["equity"]
+    return d
+
+
 def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
                   thresholds=(0.50, 0.55, 0.60), lockbox_months=12,
                   min_kept=50, windows=4, min_history=30, refit_every=25,
@@ -288,6 +305,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
     feats = entry_features(arrays)[0]                      # compute once, reuse 9x
     ung_pre = _slice_stats(entry_ts, pnls_all, None, lb_start)
     ung_lb = _slice_stats(entry_ts, pnls_all, lb_start, None)
+    from .analytics import downsample_curve                # shared w/ gate_trades' own curve
 
     cands = []
     lb_secret = {}                                         # lockbox stats stay HERE
@@ -301,11 +319,31 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
             k_p = np.array([t[2] for t in kept], float)
             pre = _slice_stats(k_ts, k_p, None, lb_start)
             key = f"{m}@{th:.2f}"
-            lb_secret[key] = (_slice_stats(k_ts, k_p, lb_start, None), k_ts, k_p, g.get("keep"))
-            cands.append({"model": str(m), "threshold": float(th),
-                          "impl": g["summary"].get("model_impl", str(m)),
-                          "kept_pre": int(pre["num_trades"]),
-                          "pre": pre, "eligible": pre["num_trades"] >= int(min_kept)})
+            cand_keep = g.get("keep")
+            lb_secret[key] = (_slice_stats(k_ts, k_p, lb_start, None), k_ts, k_p, cand_keep)
+            cand = {"model": str(m), "threshold": float(th),
+                    "impl": g["summary"].get("model_impl", str(m)),
+                    "kept_pre": int(pre["num_trades"]),
+                    "pre": pre, "eligible": pre["num_trades"] >= int(min_kept)}
+            # v64.81 (owner): downsampled gated equity curve for EVERY candidate (not just
+            #   the chosen one), full pre+lockbox span, same trade-order grid as the chosen
+            #   candidate's out["equity"] below — so the UI can overlay all 9. Additive only:
+            #   built from the trades already computed above (no new backtests), never
+            #   changes selection/verdict, and only the curve leaves this function — the
+            #   losing candidates' LOCKBOX STATS stay in lb_secret and are never exposed.
+            #   Whole-number points (same convention as the full-population 2A config
+            #   curves in optimize.py/auto.py) to keep the Firestore doc small.
+            try:
+                if cand_keep is not None and len(cand_keep) == len(pnls_all):
+                    _kc = np.asarray(cand_keep, bool)
+                    cand["equity"] = {
+                        "cum": downsample_curve(np.cumsum(np.where(_kc, pnls_all, 0.0)),
+                                                cap=300, ndp=None),
+                        "n": int(len(pnls_all)),
+                    }
+            except Exception:
+                pass                                        # defensive: never fail the gate
+            cands.append(cand)
 
     # ── selection: pre-lockbox RECOVERY FACTOR (pnl per point of drawdown) among
     #    eligible gated candidates — the equal-risk yardstick, not raw totals.
@@ -320,13 +358,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
         "span": [str(pd.Timestamp(t_first).date()), str(idx[-1].date())],
         "lockbox_from": str(pd.Timestamp(lb_start).date()),
         "ungated_pre": ung_pre, "ungated_lockbox": ung_lb,
-        "candidates": [{"model": c["model"], "threshold": c["threshold"],
-                        "kept_pre": c["kept_pre"],
-                        "pre_pnl": c["pre"]["total_pnl"],
-                        "pre_pf": c["pre"]["profit_factor"],
-                        "pre_wr": c["pre"]["win_rate"],
-                        "pre_rec": round(_rec(c["pre"]), 2),
-                        "eligible": c["eligible"]} for c in cands],
+        "candidates": [_cand_out(c) for c in cands],
         "ungated_pre_rec": round(_rec(ung_pre), 2),
         "gate_earns_pre": gate_earns,
         "chosen": None, "lockbox": None,
