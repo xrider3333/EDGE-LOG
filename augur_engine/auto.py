@@ -30,6 +30,7 @@ from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
                         regime_report, neighborhood, downsample_pnls, downsample_points,
                         downsample_curve, mae_mfe, relationship_scores, pdp_plateau,
                         interaction_pairs, conditional_boundary_flags)
+from .context import build_context
 from . import trial_cache as TC
 
 # Realism gates — identical to optimizer.py (WF_MIN_SIDE / MAX_TRADE_RATE / MAX_PF).
@@ -636,12 +637,17 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
              top_n=10, method="single", oos=True, wf_folds=0, seed=42,
              compute_dsr=False, mc_sims=0, progress_cb=None, years=None,
              compute_regime=False, compute_neighbors=False, compute_pills=False,
+             compute_context=False,
              date_from=None, date_to=None, wf_mode="anchored",
              auto_expand=True, auto_expand_max_rounds=2, auto_expand_max_global_rounds=6,
              compute_surrogate=False,
              auto_steer=False, steer_seed_frac=0.4, steer_batch_frac=0.15,
              steer_method="gp"):
     """Smart search. Returns the same shape as run_grid plus OOS columns.
+
+    compute_context (default True): TRADE CONTEXT (augur_engine.context) — see
+    run_grid's docstring; identical contract here, on the same winner trade list
+    regime_report uses.
 
     method="single" or "walkforward". Returns {mode,n_combos,n_valid,top[...],
     best_params,best,bars,master,(equity/mc/dsr)} where each top row carries
@@ -1150,6 +1156,30 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 nb = neighborhood(lambda pp: _eval_full(pp), bp0, vopts)
                 if nb:
                     out["neighborhood"] = nb
+
+    # ── TRADE CONTEXT (default ON, unlike compute_regime/compute_neighbors above):
+    #    which prior-day market features (this run's own bars + VIX/yield curve
+    #    when reachable) plausibly explain the winner's per-trade PnL —
+    #    augur_engine.context. Own winner-trade fetch (mirrors the regime block
+    #    just above) so it works even when compute_regime/compute_neighbors are
+    #    both off; wrapped so a context failure can NEVER break the search. ──
+    if best and compute_context:
+        try:
+            bp_ctx = {k: best.get(k) for k in pkeys if k in best}
+            ex = {}
+            if pass_vol:
+                ex["volumes"] = V
+            if pass_day:
+                ex["day_id"] = did
+            if pass_idx:
+                ex["index"] = IDX
+            wm_ctx = fn(O, H, L, C, return_trades=True, **ex, **bp_ctx)
+            idx = arrays.get("index")
+            if wm_ctx and wm_ctx.get("trades") and idx is not None:
+                out["context"] = build_context(wm_ctx["trades"], idx, O, H, L, C,
+                                               cost_pts=cost_pts)
+        except Exception:
+            out["context"] = None
 
     # ── Winner analytics (equity + MC + DSR), same as run_grid ──────────────
     if (compute_dsr or mc_sims) and best:

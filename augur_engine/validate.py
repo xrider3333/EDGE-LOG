@@ -296,7 +296,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     A = run_auto(strategy, instrument=instrument, timeframe=timeframe, session=session,
                  source=source, method="single", oos=True, n_trials=n_trials,
                  cost_pts=cost_pts, min_trades=min_trades, top_n=24, seed=seed,
-                 compute_dsr=True, compute_neighbors=True, compute_regime=True, mc_sims=500,
+                 compute_dsr=True, compute_neighbors=True, compute_regime=True,
+                 compute_context=True, mc_sims=500,
                  compute_surrogate=True,   # #31 P1: multi-surrogate bake-off on the sampled configs
                  # #36 P2: GP-steered sampling ON for Auto-Validate — the pre-registered
                  # 2-family acceptance bar was met 2026-07-19: TTIBS A/B steered found a
@@ -616,6 +617,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                           source=source, grid={k: [v] for k, v in champ.items()},
                           cost_pts=cost_pts, min_trades=1, top_n=1,
                           compute_dsr=False, mc_sims=500, compute_regime=True,
+                          compute_context=True,
                           date_from=opt_from, date_to=date_to) or {}
         except Exception:
             OV = {}
@@ -833,6 +835,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "wf_alt_folds": _alt_folds, "wf_alt_mode": (_altw.get("mode") if _altw.get("ran") else None),
         # 1B monthly + 1F regime + §8 MC drawdown → whole-run champion when available, else in-sample.
         "mc": (OV.get("mc") or A.get("mc")), "regime": (OV.get("regime") or A.get("regime")),
+        "context": (OV.get("context") or A.get("context")),   # TRADE CONTEXT (stages 1+2)
         "neighborhood": A.get("neighborhood"),
         "relationship": A.get("relationship"),   # per-param Pearson / MI / PPS (#24)
         # plateau pick + boundary-peak flags (3C.1b): forwarded from Stage A so Auto-Validate

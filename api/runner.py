@@ -107,7 +107,8 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 compute_regime=bool(job.get("regime", True)),
                 compute_neighbors=bool(job.get("neighbors", True)),
                 compute_ensemble=bool(job.get("ensemble", True)),
-                ensemble_k=int(job.get("ensemble_k", 5)))
+                ensemble_k=int(job.get("ensemble_k", 5)),
+                compute_context=bool(job.get("context", True)))
         elif jtype in ("auto", "walkforward"):
             r = ae.run_auto(
                 job["strategy"], instrument=job.get("instrument"),
@@ -123,7 +124,8 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 compute_dsr=bool(job.get("dsr", True)), mc_sims=int(job.get("mc_sims", 2000)),
                 compute_regime=bool(job.get("regime", True)),
                 compute_neighbors=bool(job.get("neighbors", True)),
-                compute_pills=bool(job.get("pills", False)))
+                compute_pills=bool(job.get("pills", False)),
+                compute_context=bool(job.get("context", True)))
         elif jtype == "validate":
             _disc = job.get("discover", "auto")
             _prov = job.get("provider", "ollama")
@@ -632,6 +634,7 @@ class FirestoreQueue:
             "date_from": df, "date_to": dt,
             "dsr": result.get("dsr"), "mc": result.get("mc"),
             "regime": result.get("regime"), "neighborhood": result.get("neighborhood"),
+            "context": result.get("context"),   # TRADE CONTEXT (stages 1+2): feature->PnL scores
             "relationship": result.get("relationship"),   # per-param Pearson / MI / PPS (#24)
             # ── one-stop-shop report parity: carry the config-selection + gate cards + the
             #    diagnostic 'pills' into run history so the saved RUN REPORT renders the same

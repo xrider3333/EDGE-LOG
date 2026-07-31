@@ -16,6 +16,7 @@ from .engine import _apply_costs
 from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
                         regime_report, neighborhood, downsample_pnls, downsample_points,
                         downsample_curve, mae_mfe, relationship_scores, pdp_plateau)
+from .context import build_context
 from . import trial_cache as TC
 
 _METRIC_KEYS = ("total_pnl", "num_trades", "win_rate", "profit_factor",
@@ -85,11 +86,19 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
              compute_dsr=False, mc_sims=0, years=None,
              compute_regime=False, compute_neighbors=False,
              compute_ensemble=False, ensemble_k=5,
+             compute_context=False,
              date_from=None, date_to=None):
     """Exhaustive grid sweep. Returns {n_combos,n_valid,top[...],best_params,best,bars,master}.
 
     Supply either `preset` (a PARAM_GRID_PRESETS label) or `grid` ({param:[values]}).
     Data resolves like run_backtest: arrays -> master row -> find_master(...).
+
+    compute_context (default True, unlike compute_regime/compute_neighbors which are
+    opt-in): TRADE CONTEXT (augur_engine.context) — scores which prior-day market
+    features (internal, from this run's own bars, + external VIX/yield curve when
+    reachable) plausibly explain the winner's per-trade PnL. Computed on the SAME
+    winner-trade fetch pattern regime_report uses, only when trades + the bar index
+    exist; wrapped so a context-computation failure can NEVER break the sweep itself.
     """
     path = _resolve(strategy) if isinstance(strategy, str) else None
     mod = load_strategy(strategy) if isinstance(strategy, str) else strategy
@@ -291,6 +300,22 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 nb = neighborhood(lambda pp: _eval_net(pp), bp, vopts)
                 if nb:
                     out["neighborhood"] = nb
+
+    # TRADE CONTEXT (default ON, unlike compute_regime/compute_neighbors above):
+    # which prior-day market features (this run's own bars + VIX/yield curve when
+    # reachable) plausibly explain the winner's per-trade PnL — augur_engine.context.
+    # Own winner-trade fetch (mirrors the regime block's pattern) so it works even
+    # when compute_regime/compute_neighbors are both off; wrapped so a context
+    # failure can NEVER break the sweep itself.
+    if best and compute_context:
+        try:
+            wm_ctx = fn(O, H, L, C, return_trades=True, **extras, **best[0])
+            idx = arrays.get("index")
+            if wm_ctx and wm_ctx.get("trades") and idx is not None:
+                out["context"] = build_context(wm_ctx["trades"], idx, O, H, L, C,
+                                               cost_pts=cost_pts)
+        except Exception:
+            out["context"] = None
 
     # Champion analytics on the winner. The cheap ones (champion equity, per-trade win
     # distribution, MAE/MFE, top-config equity overlay, chronological stress) are derived
