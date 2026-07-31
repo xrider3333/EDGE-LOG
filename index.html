@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.72';
+const VERSION='64.73';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.73', date:'2026-07-29', notes:['Fullscreen equity explorer: the walk-forward and lockbox stretches are now shaded on the chart itself (blue / purple bands with IS-WF-LB labels), matching the small 2A chart.','Added RANGE (all, last 1/3/5 years, custom dates) and WINDOW (all, in-sample, walk-forward, lockbox) dropdowns above the chart to jump straight to a stretch instead of hand-zooming.','Hovering the chart now thickens whichever line is closest to the cursor and fades the rest, with the matching legend entry outlined, so a crowded multi-line comparison is easier to read.','Removed the extra dashed reference lines that were cluttering the drawdown pane.','iPad/touch: one-finger drag pans, two-finger pinch zooms, dragging the $ axis scales it, and double-tap resets — the chart no longer fights the page scroll while you interact with it.','The 2A explorer legend no longer shows a meaningless "#" number in front of labels like "crowned" or "gate" — real run numbers (Compare tab) still show their #.']},
   {v:'64.72', date:'2026-07-29', notes:['The expanded 2A explorer now plots against a REAL DATE x-axis instead of percent-of-progress — each config carries its own date span, so a config that stops at the lockbox door honestly draws no line past it.','Legend entries are named by what they mean: "👑 crowned · WF $x" and "rank 2 · WF $x" (the walk-forward $ each was judged on) instead of cfg1 / cfg2.']},
   {v:'64.71', date:'2026-07-29', notes:['Double-clicking the 2A config chart now opens the FULLSCREEN explorer (the same TradingView-style zoom / pan / drag-the-$-axis viewer the Compare tab uses) instead of a flat blow-up — every top config gets its own coloured, separable line, each carried through the lockbox, and the gate curve rides along too. That fixes the lines being unreadably overlaid when expanded.','The crowned lockbox pill now shows a 👑 instead of a third identical 🔒.','Dropped the "solid IS · dashed WF · dotted LB" line from the 2A key — it ate space; the same explanation is still in the title info icon.']},
   {v:'64.70', date:'2026-07-29', notes:['SECTION 2 re-lettered in reading order: the ML TRADE FILTER (the gate), which sits second, is now 2B (was 2J); the rest shift up one — config distribution 2C, explorer 2D, parallel-coords 2E, PDP 2F, knobs 2G, neighbour 2H, top configs 2I, ML config builder 2J.','The gate before/after now reads as a MATRIX (metric · before every trade · after gate kept), like the 1E KPI matrix, instead of arrow tiles.','2A: the other two lockbox survivor lines are now on the same TRUE-total footing as the crowned line, so the crowned no longer looks artificially lowest.']},
@@ -3267,10 +3268,29 @@ window.expandCompareEq=function(series){
     +'<button id="ceqx-reset" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">↺ RESET</button>'
     +'<button id="ceqx-blot" title="load each strategy trade blotter off your PC runner · Shift+click = regenerate fresh" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">▦ TRADES</button>'
     +'<button id="ceqx-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:2px;border-radius:6px">CLOSE ✕</button></span></div>'
+    // v64.73: two fixed-height rows of view-jump controls (RANGE / WINDOW), same small-pill
+    //   look as the header buttons above — a FIXED size like the title row, never a growing
+    //   readout, so the chart below never resizes under the cursor.
+    +'<div id="ceqx-viewrows" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;flex:0 0 auto;font-size:9px">'
+      +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">'
+        +'<span style="color:var(--text5);letter-spacing:1px;width:44px;flex:0 0 auto">RANGE</span>'
+        +'<select id="ceqx-range" style="background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:3px 7px;border-radius:6px;font-family:inherit;font-size:9px;letter-spacing:.5px">'
+          +'<option value="all">ALL</option><option value="1y">LAST 1Y</option><option value="3y">LAST 3Y</option><option value="5y">LAST 5Y</option><option value="custom">CUSTOM…</option>'
+        +'</select>'
+        +'<input id="ceqx-cfrom" type="date" style="display:none;background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:3px 6px;border-radius:6px;font-family:inherit;font-size:9px">'
+        +'<input id="ceqx-cto" type="date" style="display:none;background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:3px 6px;border-radius:6px;font-family:inherit;font-size:9px">'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">'
+        +'<span style="color:var(--text5);letter-spacing:1px;width:44px;flex:0 0 auto">WINDOW</span>'
+        +'<select id="ceqx-window" style="background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:3px 7px;border-radius:6px;font-family:inherit;font-size:9px;letter-spacing:.5px">'
+          +'<option value="all">ALL</option><option value="is">IN-SAMPLE</option><option value="wf">WALK-FORWARD</option><option value="lb">LOCKBOX</option>'
+        +'</select>'
+      +'</div>'
+    +'</div>'
     +'<div id="ceqx-main" style="flex:1;min-height:0;display:flex;flex-direction:column">'
     +'<div id="ceqx-wrap" style="flex:1 1 auto;min-height:0;min-width:0;display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px;position:sticky;left:0">'
       +'<div id="ceqx-legend" style="position:absolute;top:16px;left:16px;z-index:3;display:flex;flex-direction:column;gap:3px;pointer-events:none;max-width:56%"></div>'
-      +'<div id="ceqx-chart" style="flex:1;min-height:0;position:relative;cursor:crosshair"><svg id="ceqx-svg" style="display:block;width:100%;height:100%"></svg>'
+      +'<div id="ceqx-chart" style="flex:1;min-height:0;position:relative;cursor:crosshair;touch-action:none"><svg id="ceqx-svg" style="display:block;width:100%;height:100%"></svg>'
       +'<div id="ceqx-vln" style="position:absolute;top:0;width:0;border-left:1px dashed var(--text4);opacity:.7;pointer-events:none;display:none"></div>'
       +'<div id="ceqx-hln" style="position:absolute;left:0;height:0;border-top:1px dashed var(--text4);opacity:.7;pointer-events:none;display:none"></div>'
       +'<div id="ceqx-xchip" style="position:absolute;pointer-events:none;display:none;background:var(--text2);color:var(--bg1);font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;transform:translateX(-50%)"></div>'
@@ -3287,6 +3307,15 @@ window.expandCompareEq=function(series){
   //   the per-series legend (same #ceqx-legend flex column, so it inherits pointer-events:none
   //   and never grows the fixed-height header row).
   const _anyWfi=PS.some(s=>s.wfi!=null),_anyLi=PS.some(s=>s.li!=null);
+  // _regionBounds (v64.73): the walk-forward / lockbox door positions on the SHARED x-domain,
+  //   read off the FIRST series that carries each one (its own baked x — never assumed to line
+  //   up with another series' point count). Feeds both the shaded WF/LB bands drawn behind the
+  //   curves and the WINDOW dropdown's jump-to-stage. Recomputed on demand (not cached) since a
+  //   blotter load can reindex li/wfi after the modal opens.
+  const _regionBounds=()=>{
+    const wfSr=PS.find(s=>s.wfi!=null),lbSr=PS.find(s=>s.li!=null);
+    return {wf:wfSr?wfSr.pts[wfSr.wfi].x:null, lb:lbSr?lbSr.pts[lbSr.li].x:null};
+  };
   const _lkSamp2=(dash,round)=>'<svg width="18" height="6" style="vertical-align:middle" aria-hidden="true"><line x1="1" y1="3" x2="17" y2="3" stroke="var(--text3)" stroke-width="1.4"'+(dash?' stroke-dasharray="'+dash+'"':'')+(round?' stroke-linecap="round"':'')+'/></svg>';
   // renderLegend (item 9) — each series row opts back into pointer-events (the legend container
   //   itself stays pointer-events:none so it never steals chart drags) and cycles vis full ->
@@ -3296,7 +3325,11 @@ window.expandCompareEq=function(series){
     legendEl.innerHTML=PS.map(s=>{
       const op=s.vis==='dim'?0.45:(s.vis==='off'?0.3:1),td=s.vis==='off'?'line-through':'none',
         instTf=s.blot?(' <span style="color:var(--text5)">&middot; '+String(s.blot.instrument||'').toUpperCase()+' '+(s.blot.timeframe||'')+'</span>'):'';
-      return '<span data-ceqx-vis="'+s.id+'" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);background:color-mix(in srgb,var(--bg1) 65%,transparent);padding:2px 6px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:'+op+'" title="click: full - greyed - hidden - full"><span style="width:12px;height:3px;background:'+s.color+';display:inline-block;border-radius:2px;flex:0 0 auto"></span><span style="overflow:hidden;text-overflow:ellipsis;text-decoration:'+td+'">#'+s.id+' '+s.label+'</span>'+instTf+'</span>';
+      // item (v64.73): drop the "#id" prefix when the id is not a real run number (the 2A
+      //   explorer uses word ids like crowned/rank2/gate) — a "#" in front of a word read as
+      //   noise; the Compare tab's numeric run ids still get their #.
+      const idTag=/^-?\d+$/.test(String(s.id))?('#'+s.id+' '):'';
+      return '<span data-ceqx-vis="'+s.id+'" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);background:color-mix(in srgb,var(--bg1) 65%,transparent);padding:2px 6px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:'+op+'" title="click: full - greyed - hidden - full"><span style="width:12px;height:3px;background:'+s.color+';display:inline-block;border-radius:2px;flex:0 0 auto"></span><span style="overflow:hidden;text-overflow:ellipsis;text-decoration:'+td+'">'+idTag+s.label+'</span>'+instTf+'</span>';
     }).join('');
     legendEl.innerHTML+='<span style="display:inline-flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:8px;color:var(--text5);padding:2px 6px">'
       +'<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2(null,false)+'in-sample</span>'
@@ -3304,7 +3337,9 @@ window.expandCompareEq=function(series){
       +(_anyLi?('<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2('0.1,5',true)+'lockbox</span>'):'')
       +'</span>';
     legendEl.querySelectorAll('[data-ceqx-vis]').forEach(rowEl=>{rowEl.onclick=()=>{
-      const sid=+rowEl.dataset.ceqxVis,sr=PS.find(p=>p.id===sid);if(!sr)return;
+      // matched as STRINGS (not +sid) — a word id like "crowned" would coerce to NaN and never
+      //   match, silently breaking the toggle for the 2A explorer's non-numeric series ids.
+      const sid=rowEl.dataset.ceqxVis,sr=PS.find(p=>String(p.id)===sid);if(!sr)return;
       sr.vis=sr.vis==='on'?'dim':(sr.vis==='dim'?'off':'on');
       renderLegend();render();
     };});
@@ -3339,6 +3374,23 @@ window.expandCompareEq=function(series){
   const _ddArr=(pts)=>{let rm=-Infinity;return pts.map(p=>{if(p.v>rm)rm=p.v;return p.v-rm;});};
   const render=()=>{
     const g=geo();
+    // WF/LB shaded bands (v64.73), computed here so they're ready before the curve-drawing
+    //   block below inserts bandsHtml BEHIND the curves. No bands at all when nothing in the
+    //   selection carries a walk-forward or lockbox split (e.g. the Compare tab pre-split).
+    let bandsHtml='';
+    {const _rb=_regionBounds(),wfX2=_rb.wf,lbX2=_rb.lb;
+      if(wfX2!=null||lbX2!=null){
+        const _bxWF=wfX2!=null?X(g,wfX2):null,_bxLB=lbX2!=null?X(g,lbX2):null,_bx0=X(g,0),_bxEnd=X(g,1);
+        const _lab=(xa,xb,txt,col)=>'<text x="'+((xa+xb)/2).toFixed(1)+'" y="'+(g.eqT+9).toFixed(1)+'" text-anchor="middle" font-size="9" fill="'+col+'">'+txt+'</text>';
+        const _isEndX=_bxWF!=null?_bxWF:(_bxLB!=null?_bxLB:_bxEnd);
+        bandsHtml+=_lab(_bx0,_isEndX,'IS','var(--text4)');
+        if(_bxWF!=null){const _wfEndX=_bxLB!=null?_bxLB:_bxEnd;
+          bandsHtml+='<rect x="'+Math.min(_bxWF,_wfEndX).toFixed(1)+'" y="'+g.eqT.toFixed(1)+'" width="'+Math.max(0,_wfEndX-_bxWF).toFixed(1)+'" height="'+(g.eqB-g.eqT).toFixed(1)+'" fill="rgba(96,165,250,.13)"/>'
+            +_lab(_bxWF,_wfEndX,'WF','#60a5fa');}
+        if(_bxLB!=null){
+          bandsHtml+='<rect x="'+Math.min(_bxLB,_bxEnd).toFixed(1)+'" y="'+g.eqT.toFixed(1)+'" width="'+Math.max(0,_bxEnd-_bxLB).toFixed(1)+'" height="'+(g.eqB-g.eqT).toFixed(1)+'" fill="rgba(167,139,250,.16)"/>'
+            +_lab(_bxLB,_bxEnd,'LB','#a78bfa');}
+      }}
     // auto-fit Y to the visible x-slice ACROSS ALL curves, unless yMan (drag-the-$-axis) is set.
     //   Hidden series ('off', item 9) are excluded from the fit; greyed ('dim') series stay IN
     //   it. If every series ends up 'off' both loops leave mn null and the 0..1 fallback below
@@ -3419,24 +3471,25 @@ window.expandCompareEq=function(series){
       const s2=Math.max(0,lo-1),e2=Math.min(n2-1,hi+1);
       return (e2>=s2)?arr.slice(s2,e2+1):[];};
     const seg=(arr,vf)=>arr.map((p,i2)=>((i2?'L':'M')+X(g,p.x).toFixed(1)+' '+vf(p.v).toFixed(1))).join(' ');
-    s+='<g clip-path="url(#ceqx-clip)">';
+    s+='<g clip-path="url(#ceqx-clip)">'+bandsHtml;
     PS.forEach(sr=>{if(sr.vis==='off')return;
       const strokeCol=sr.vis==='dim'?'var(--text5)':sr.color,strokeOp=sr.vis==='dim'?0.45:1;
       const pts=sr.pts,n3=pts.length,
         li=(sr.li!=null&&sr.li>=0&&sr.li<n3-1)?sr.li:null,
         wfi=(sr.wfi!=null)?Math.max(0,Math.min(sr.wfi,(li!=null?li:n3-1))):null,
         solidEnd=wfi!=null?wfi:(li!=null?li:n3-1);
-      const solid=_clipN(pts.slice(0,solidEnd+1));if(solid.length>1)s+='<path d="'+seg(solid,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.6" opacity="'+strokeOp+'"/>';
+      // data-sr (v64.73): identifies which series each path belongs to so the hover handler can
+      //   thicken/dim curves in place — a direct DOM style tweak, no full re-render on mousemove.
+      const solid=_clipN(pts.slice(0,solidEnd+1));if(solid.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(solid,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.6" opacity="'+strokeOp+'"/>';
       if(wfi!=null){const wfEnd=(li!=null?li:n3-1),dash=_clipN(pts.slice(solidEnd,wfEnd+1));
-        if(dash.length>1)s+='<path d="'+seg(dash,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.6" stroke-dasharray="7,4" opacity="'+strokeOp+'"/>';}
-      if(li!=null){const dot=_clipN(pts.slice(li));if(dot.length>1)s+='<path d="'+seg(dot,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.6" stroke-dasharray="0.1,5" stroke-linecap="round" opacity="'+(strokeOp*0.9)+'"/>';}
+        if(dash.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(dash,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.6" stroke-dasharray="7,4" opacity="'+strokeOp+'"/>';}
+      if(li!=null){const dot=_clipN(pts.slice(li));if(dot.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(dot,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.6" stroke-dasharray="0.1,5" stroke-linecap="round" opacity="'+(strokeOp*0.9)+'"/>';}
     });
     s+='</g>';
     // DRAWDOWN pane — its own pane below the equity one: subtle bg (item 18b, drawn first so
     //   everything else in this pane sits on top), a stronger divider (item 18a), "DRAWDOWN"
     //   label, a faint $0 line, then each curve's dd area FILL (item 8, skipped for 'dim' and
     //   'off') + SOLID stroke in its own colour ('off' skipped entirely, 'dim' greyed — item 9).
-    //   Per-series worst-dd dashed lines + labels (item 20) are drawn LAST, below.
     s+='<rect x="0" y="'+(g.ddT-4).toFixed(1)+'" width="'+g.pw+'" height="'+(g.ddB-(g.ddT-4)).toFixed(1)+'" fill="color-mix(in srgb,var(--bg1) 45%,transparent)"/>'
       +'<line x1="0" y1="'+(g.ddT-4).toFixed(1)+'" x2="'+g.pw+'" y2="'+(g.ddT-4).toFixed(1)+'" stroke="var(--text4)" stroke-width="1" opacity="0.55"/>'
       +'<text x="0" y="'+(g.ddT+7).toFixed(1)+'" font-size="9" font-weight="700" letter-spacing="1" fill="var(--text4)" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">DRAWDOWN</text>'
@@ -3450,24 +3503,12 @@ window.expandCompareEq=function(series){
     PS.forEach(sr=>{if(sr.vis==='off')return;const dd=ddMap[sr.id],ddPts=sr.pts.map((p,i2)=>({x:p.x,v:dd[i2]})),dvis=_clipN(ddPts);
       if(dvis.length<2)return;
       const strokeCol=sr.vis==='dim'?'var(--text5)':sr.color,strokeOp=sr.vis==='dim'?0.45:0.9;
-      s+='<path d="'+seg(dvis,Yd)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.3" opacity="'+strokeOp+'"/>';
+      s+='<path data-sr="'+sr.id+'" d="'+seg(dvis,Yd)+'" fill="none" stroke="'+strokeCol+'" stroke-width="1.3" opacity="'+strokeOp+'"/>';
     });
     s+='</g>';
-    // item 20: per-series worst-drawdown dashed line + right-gutter $ label — ONE per non-off
-    //   series, at THAT series own deepest drawdown across its WHOLE history (not just the
-    //   visible window, so the line does not jump around while panning/zooming), replacing the
-    //   old single aggregate ddMin line. Drawn LAST (outside the ceqx-clipd group, same as the
-    //   $0 line and the item-12 equity lines) so the x=g.pw+6 labels are not clipped away and sit
-    //   on top of the fills/strokes. Skipped when the mapped y falls past the pane — a series
-    //   whose all-time worst dd is deeper than what the CURRENT zoom scaled the pane to (its
-    //   line would otherwise draw into the x-axis label strip).
-    PS.forEach(sr=>{if(sr.vis==='off')return;
-      const dd=ddMap[sr.id],mDD=Math.min(0,Math.min.apply(null,dd)),y=Yd(mDD);
-      if(y>g.ddB)return;
-      const col=sr.vis==='dim'?'var(--text5)':sr.color;
-      s+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+g.pw+'" y2="'+y.toFixed(1)+'" stroke="'+col+'" stroke-width="1" stroke-dasharray="5,4" opacity="0.5"/>'
-        +'<text x="'+(g.pw+6)+'" y="'+(y+3).toFixed(1)+'" font-size="9" fill="'+col+'">'+fmt$(mDD)+'</text>';
-    });
+    // v64.73 (owner): dropped the old per-series worst-drawdown dashed reference line + $ label
+    //   that used to draw here — it cluttered the pane; the solid $0 line + normal gridlines
+    //   above are the only reference lines left in the drawdown pane now.
     // trade dots (mirrors 1A): once a series' blotter has loaded, pts[i] IS trade i (the
     //   Phase-2 full-resolution swap keys the curve off per-trade cum-$), so a dot lands
     //   exactly on the curve. Density-guarded per series like 1A so a busy multi-curve view
@@ -3503,7 +3544,13 @@ window.expandCompareEq=function(series){
     if(va<0){vb-=va;va=0;}if(vb>1){va-=(vb-1);vb=1;}va=Math.max(0,va);vb=Math.min(1,vb);};
   const zoomBy=k=>{const c=(va+vb)/2;va=c-(c-va)*k;vb=c+(vb-c)*k;clampView();render();};
   const panBy=f=>{const d=(vb-va)*f;va+=d;vb+=d;clampView();render();};
-  const resetView=()=>{va=0;vb=1;yMan=null;ddMan=null;render();};
+  const resetView=()=>{va=0;vb=1;yMan=null;ddMan=null;
+    // v64.73: RESET also snaps the RANGE/WINDOW dropdowns back to ALL and hides the custom
+    //   date inputs, so they never show a stale choice next to a chart that no longer matches it.
+    const _rs2=el2('ceqx-range'),_ws2=el2('ceqx-window'),_cf2=el2('ceqx-cfrom'),_ct2=el2('ceqx-cto');
+    if(_rs2)_rs2.value='all';if(_ws2)_ws2.value='all';
+    if(_cf2)_cf2.style.display='none';if(_ct2)_ct2.style.display='none';
+    render();};
   chartEl.addEventListener('wheel',e=>{e.preventDefault();
     const r=chartEl.getBoundingClientRect(),gx=svgEl._g?svgEl._g.g:geo();
     if(!(r.width>0))return;
@@ -3559,9 +3606,115 @@ window.expandCompareEq=function(series){
   window.addEventListener('mouseup',mUp);
   chartEl.addEventListener('dblclick',resetView);
   el2('ceqx-reset').onclick=resetView;
+  // ── RANGE / WINDOW view-jump dropdowns (v64.73) ──────────────────────────────────────────
+  const rangeSel=el2('ceqx-range'),cfromEl=el2('ceqx-cfrom'),ctoEl=el2('ceqx-cto'),winSel=el2('ceqx-window');
+  const _isoDate=ms=>{const d=new Date(ms);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+  const _applyCustom=()=>{
+    if(!timeMode||!cfromEl.value||!ctoEl.value)return;
+    const a=Date.parse(cfromEl.value),b=Date.parse(ctoEl.value);if(isNaN(a)||isNaN(b))return;
+    va=Math.max(0,Math.min(1,(a-tMin)/((tMax-tMin)||1)));vb=Math.max(0,Math.min(1,(b-tMin)/((tMax-tMin)||1)));
+    if(vb<=va)vb=va+0.001;
+    yMan=null;ddMan=null;clampView();render();};
+  if(rangeSel){
+    // RANGE only means anything once every point carries a real calendar date — disabled
+    //   outright on the old fractional-progress fallback (no series had usable dates).
+    rangeSel.disabled=!timeMode;
+    rangeSel.onchange=()=>{
+      const v=rangeSel.value;
+      cfromEl.style.display=ctoEl.style.display=(v==='custom')?'inline-block':'none';
+      if(v==='custom'){
+        if(timeMode){cfromEl.value=_isoDate(tMin+va*(tMax-tMin));ctoEl.value=_isoDate(tMin+vb*(tMax-tMin));}
+        if(winSel)winSel.value='all';
+        return;   // waits on a date input — no view change yet
+      }
+      if(v==='all'){va=0;vb=1;}
+      else{const yrs=v==='1y'?1:(v==='3y'?3:5),spanMs=yrs*365*86400000;
+        vb=1;va=timeMode?Math.max(0,1-spanMs/((tMax-tMin)||1)):0;}
+      yMan=null;ddMan=null;clampView();render();
+      if(winSel)winSel.value='all';
+    };
+  }
+  if(cfromEl)cfromEl.onchange=_applyCustom;
+  if(ctoEl)ctoEl.onchange=_applyCustom;
+  if(winSel){
+    // disabled outright when NOTHING in the selection carries a walk-forward or lockbox split
+    winSel.disabled=!(_anyWfi||_anyLi);
+    winSel.onchange=()=>{
+      const rb=_regionBounds(),v=winSel.value;
+      if(v==='all'){va=0;vb=1;}
+      else if(v==='is'){va=0;vb=(rb.wf!=null?rb.wf:(rb.lb!=null?rb.lb:1));}
+      else if(v==='wf'){if(rb.wf==null){winSel.value='all';return;}va=rb.wf;vb=(rb.lb!=null?rb.lb:1);}
+      else if(v==='lb'){if(rb.lb==null){winSel.value='all';return;}va=rb.lb;vb=1;}
+      yMan=null;ddMan=null;clampView();render();
+      if(rangeSel){rangeSel.value='all';cfromEl.style.display=ctoEl.style.display='none';}
+    };
+  }
+  // ── touch / iPad support (v64.73), modelled on TradingView — one-finger drag pans, two-
+  //    finger pinch zooms about the pinch midpoint, a vertical drag on the $ axis strip scales
+  //    y (mDown already zones that by position, so single-touch reuses it unchanged), and
+  //    double-tap resets. These are SEPARATE listeners layered on top of the existing mouse
+  //    ones (mDown/mMove/mUp untouched) so mouse behaviour cannot regress; passive:false +
+  //    touch-action:none on #ceqx-chart (set in the modal scaffold) stop the page from
+  //    scrolling/zooming underneath a chart gesture. ──
+  const _touchDist=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+  const _touchMid=t=>({x:(t[0].clientX+t[1].clientX)/2,y:(t[0].clientY+t[1].clientY)/2});
+  let touchPinch=null,lastTapT=0;
+  chartEl.addEventListener('touchstart',e=>{
+    if(e.touches.length===1){
+      touchPinch=null;const t=e.touches[0];
+      mDown({clientX:t.clientX,clientY:t.clientY,preventDefault:()=>e.preventDefault()});
+    }else if(e.touches.length===2){
+      drag=null;yDrag=null;ddDrag=null;xDrag=null;ddYDrag=null;
+      touchPinch={d0:_touchDist(e.touches),va0:va,vb0:vb};
+      e.preventDefault();
+    }
+  },{passive:false});
+  chartEl.addEventListener('touchmove',e=>{
+    if(e.touches.length===1&&!touchPinch){
+      const t=e.touches[0];mMove({clientX:t.clientX,clientY:t.clientY});e.preventDefault();
+    }else if(e.touches.length===2&&touchPinch){
+      const d=_touchDist(e.touches),mid=_touchMid(e.touches),r=chartEl.getBoundingClientRect(),gx2=svgEl._g?svgEl._g.g:geo();
+      if(r.width>0&&d>0){
+        const k=touchPinch.d0/d,fx=Math.max(0,Math.min(1,(mid.x-r.left)/((gx2.pw/gx2.W)*r.width)));
+        const c=touchPinch.va0+(touchPinch.vb0-touchPinch.va0)*fx;
+        va=c-(c-touchPinch.va0)*k;vb=c+(touchPinch.vb0-c)*k;clampView();render();
+      }
+      e.preventDefault();
+    }
+  },{passive:false});
+  const _touchEnd=e=>{
+    const wasTap=!!(drag&&!drag.moved)&&!touchPinch;
+    touchPinch=null;mUp();
+    if(e.touches.length===0&&wasTap){
+      const now=Date.now();
+      if(now-lastTapT<320){resetView();lastTapT=0;}else lastTapT=now;
+    }
+  };
+  chartEl.addEventListener('touchend',e=>{_touchEnd(e);e.preventDefault();},{passive:false});
+  chartEl.addEventListener('touchcancel',e=>{touchPinch=null;mUp();},{passive:false});
   // multi-series crosshair: vertical hairline + a readout listing EVERY series interpolated
   //   at the cursor's x-fraction, x led by the real date when timeMode is on (else "NN%").
   const vln=el2('ceqx-vln'),hln=el2('ceqx-hln'),xchip=el2('ceqx-xchip'),ychip=el2('ceqx-ychip');
+  // hover highlight (v64.73): whichever series' curve is pixel-nearest the cursor draws thicker
+  //   and full-opacity; every other visible series fades to ~0.25; the matching legend row gets
+  //   an outline. Applied as direct style tweaks on the already-rendered <path data-sr> elements
+  //   (see the curve-drawing block in render()) rather than a re-render, so it stays cheap on
+  //   every mousemove. hoverId dedupes repeat calls at the same target so idle mousemoves over
+  //   the same curve don't keep rewriting the DOM.
+  let hoverId=null;
+  const _applyHover=id=>{
+    if(id===hoverId)return;hoverId=id;
+    svgEl.querySelectorAll('[data-sr]').forEach(el=>{
+      if(id==null){el.style.opacity='';el.style.strokeWidth='';return;}
+      const mine=el.dataset.sr===String(id);
+      el.style.opacity=mine?'1':'0.25';
+      el.style.strokeWidth=mine?((parseFloat(el.getAttribute('stroke-width'))||1.6)*2)+'':'';
+    });
+    legendEl.querySelectorAll('[data-ceqx-vis]').forEach(row=>{
+      const mine=id!=null&&row.dataset.ceqxVis===String(id),sr2=mine?PS.find(p=>String(p.id)===String(id)):null;
+      row.style.outline=(mine&&sr2)?('1px solid '+sr2.color):'';
+    });
+  };
   chartEl.addEventListener('mousemove',e=>{
     const st=svgEl._g;if(!st)return;const r=chartEl.getBoundingClientRect();
     if(!(r.width>0&&r.height>0))return;
@@ -3575,12 +3728,21 @@ window.expandCompareEq=function(series){
       else if(gy>=st.g.H-st.g.pB)chartEl.style.cursor='ew-resize';
       else chartEl.style.cursor='crosshair';
     }
-    if(gx<0||gx>st.g.pw||gy<0||gy>st.g.H-st.g.pB){vln.style.display=hln.style.display=xchip.style.display=ychip.style.display='none';read.textContent='';return;}
+    if(gx<0||gx>st.g.pw||gy<0||gy>st.g.H-st.g.pB){vln.style.display=hln.style.display=xchip.style.display=ychip.style.display='none';read.textContent='';_applyHover(null);return;}
     vln.style.display=hln.style.display='block';
     // crosshair vertical spans BOTH panes (equity top edge → drawdown bottom edge)
     vln.style.left=(gx*sx)+'px';vln.style.top=(st.g.eqT*sy)+'px';vln.style.height=((st.g.ddB-st.g.eqT)*sy)+'px';
     hln.style.top=(gy*sy)+'px';hln.style.width=(st.g.pw*sx)+'px';
     const cx=va+(vb-va)*(gx/st.g.pw),pct=Math.round(Math.max(0,Math.min(1,cx))*100);
+    // nearest-series hover highlight — only meaningful over the equity pane, where the curves
+    //   actually draw; compared in PIXEL space (not $) so it feels right at any y-scale.
+    if(gy>=st.g.eqT&&gy<=st.g.eqB){
+      let bestId=null,bestD=Infinity;
+      PS.forEach(s=>{if(s.vis==='off')return;
+        const py=st.g.eqT+(st.mx-interpAt(s,cx))/((st.mx-st.mn)||1)*(st.g.eqB-st.g.eqT),d2=Math.abs(py-gy);
+        if(d2<bestD){bestD=d2;bestId=s.id;}});
+      _applyHover(bestId);
+    }else _applyHover(null);
     // item 24: honest shared calendar x — the chip and readout lead with the real date once
     //   timeMode is on (the old "NN% through run" framing no longer makes sense once every curve
     //   shares ONE real-time axis instead of its own 0..1 progress through a run).
@@ -3602,7 +3764,7 @@ window.expandCompareEq=function(series){
         valHtml=outOfSpan?'<b style="color:var(--text5)">&mdash;</b>':('<b style="color:'+(isDim?'var(--text5)':(v>=0?'var(--green)':'var(--red)'))+'">'+fmt$(v)+'</b>');
       return ' &middot; <span style="display:inline-flex;align-items:center;gap:3px;opacity:'+(isDim?0.55:1)+'"><span style="width:8px;height:8px;border-radius:2px;background:'+swCol+';display:inline-block"></span>'+s.label+' '+valHtml+'</span>';}).join('');
   });
-  chartEl.addEventListener('mouseleave',()=>{vln.style.display=hln.style.display=xchip.style.display=ychip.style.display='none';read.textContent='';});
+  chartEl.addEventListener('mouseleave',()=>{vln.style.display=hln.style.display=xchip.style.display=ychip.style.display='none';read.textContent='';_applyHover(null);});
   // ── PHASE 2 TRADE BLOTTER: one tab per selected strategy, loaded off the PC runner
   //    (get_blotter) through the SAME cache (_blotGet/_blotPut) and payload shape the 1A
   //    single-run explorer uses. All series load in parallel; a failure on one strategy shows
