@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.77';
+const VERSION='64.78';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.78', date:'2026-07-29', notes:['Fixed a real accuracy bug in the fullscreen equity explorer: the faint grey cloud of other tested configs was squeezing its whole 15-year curve into the much shorter in-sample stretch, so those lines shot up to roughly the full backtest total right at the in-sample door instead of showing their true, much lower, in-sample value. The cloud now stops honestly at the door with the correct number.','Fixed the fullscreen explorer highlighting a random nearby line even when the cursor was nowhere close to any curve — it now only lights up a line when the cursor is genuinely near it.','Renamed the confusing legend labels in the fullscreen explorer: the winning config now reads "champion", the other configs that competed for the crown read "runner-up 2", "runner-up 3" and so on, and the extra context-only configs read "robustness line" with the "not in crown pool" text removed.','Fixed a stray floating dot left over in some fullscreen-explorer legend rows.','Added a small info icon at the top of the fullscreen explorer legend explaining what champion / runner-up / robustness line / other configs mean, in plain language.','The small 2A chart on the run report now draws its grey "other configs" cloud noticeably darker — it was there before but nearly invisible.','Fullscreen equity explorer: added the rest of the chart-viewer feel — arrow-key pan and zoom, a LOG button for a log dollar scale, a FIT Y toggle to lock or auto-fit the dollar range to what is on screen, and a small navigator strip under the chart for jumping around the whole timeline at a glance.']},
   {v:'64.77', date:'2026-07-29', notes:['Config numbering in the expanded 2A view is fixed again: lines are now ranked ONLY among the configs that actually competed for the crown, so the three carried through the lockbox read WF #1, #2 and #3. The extra robustness lines — shown for context but never crown-eligible, and never carried into the lockbox — are labelled "extra" instead of being given a misleading rank.']},
   {v:'64.76', date:'2026-07-29', notes:['Fullscreen equity explorer: moving the cursor over the chart now shows each line’s value AT THAT POINT right next to its name in the key, not just in the readout at the top — easier to compare several lines at a glance. The numbers clear when the cursor leaves the chart, and a line with no data at that point (like a config that already stopped) shows a dash instead of a misleading number.']},
   {v:'64.75', date:'2026-07-29', notes:['Config lines in the expanded 2A view are now numbered by WALK-FORWARD rank (WF #1, WF #2, …) instead of an in-sample ordering. That was why the three configs carried through the lockbox showed up as crowned / rank 3 / rank 5 and looked wrong — they were always the correct top 3 by walk-forward, just mislabelled. They now read WF #1, #2, #3.']},
@@ -3305,6 +3306,8 @@ window.expandCompareEq=function(series,opts){
         +'<option value="all">ALL</option><option value="is">IS</option><option value="wf">WF</option><option value="lb">LB</option>'
       +'</select>'
     +'</span>'
+    +'<button id="ceqx-log" title="switch the dollar axis between a normal (linear) scale and a log scale — log keeps early small $ moves visible instead of them being flattened by later big ones" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">LOG</button>'
+    +'<button id="ceqx-fity" title="FIT Y (on) rescales the dollar axis to whatever is visible in the current time window as you pan/zoom. Turn off to lock the axis to a fixed range." style="background:var(--bg2);border:1px solid var(--blue);color:var(--blue);padding:5px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">FIT Y</button>'
     +'<button id="ceqx-params" title="compare the parameters of every visible config against the crowned config" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">⚖ PARAMS</button>'
     +'<button id="ceqx-reset" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">↺ RESET</button>'
     +'<button id="ceqx-blot" title="load each strategy trade blotter off your PC runner · Shift+click = regenerate fresh" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">▦ TRADES</button>'
@@ -3320,6 +3323,11 @@ window.expandCompareEq=function(series,opts){
       +'<div id="ceqx-hln" style="position:absolute;left:0;height:0;border-top:1px dashed var(--text4);opacity:.7;pointer-events:none;display:none"></div>'
       +'<div id="ceqx-xchip" style="position:absolute;pointer-events:none;display:none;background:var(--text2);color:var(--bg1);font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;transform:translateX(-50%)"></div>'
       +'<div id="ceqx-ychip" style="position:absolute;pointer-events:none;display:none;background:var(--text2);color:var(--bg1);font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;transform:translateY(-50%)"></div></div>'
+      // navigator / mini-map (item 5d, owner: TradingView-style mechanics) — a slim strip under
+      //   the drawdown pane showing the FULL span of the champion/first series as a tiny
+      //   sparkline, with a translucent rect for the current x window. touch-action:none so a
+      //   touch drag on it pans/resizes instead of scrolling the page underneath.
+      +'<div id="ceqx-nav" title="drag the shaded window to pan . drag its edges to zoom . click elsewhere to jump there" style="flex:0 0 34px;margin-top:6px;position:relative;cursor:pointer;touch-action:none"><svg id="ceqx-navsvg" style="display:block;width:100%;height:100%" preserveAspectRatio="none"></svg></div>'
     +'</div>'
     +'<div id="ceqx-gut" title="drag to resize the chart / trades split" style="display:none;flex:0 0 10px;align-items:center;justify-content:center;cursor:row-resize"><div style="background:var(--border);border-radius:2px;width:54px;height:3px"></div></div>'
     +'<div id="ceqx-blotwrap" style="display:none;flex:0 0 auto;min-height:0;min-width:0;background:var(--bg2);border:1px solid var(--border);border-radius:12px"></div>'
@@ -3328,7 +3336,8 @@ window.expandCompareEq=function(series,opts){
   const el2=id=>modal.querySelector('#'+id);
   const svgEl=el2('ceqx-svg'),chartEl=el2('ceqx-chart'),read=el2('ceqx-read'),legendEl=el2('ceqx-legend'),
     blotBtn=el2('ceqx-blot'),mainEl=el2('ceqx-main'),gut=el2('ceqx-gut'),wrap=el2('ceqx-blotwrap'),wrapEl=el2('ceqx-wrap'),
-    paramsBtn=el2('ceqx-params'),paramsBox=el2('ceqx-paramsbox');
+    paramsBtn=el2('ceqx-params'),paramsBox=el2('ceqx-paramsbox'),
+    logBtn=el2('ceqx-log'),fitYBtn=el2('ceqx-fity'),navEl=el2('ceqx-nav'),navSvg=el2('ceqx-navsvg');
   // legend KEY — same tiny inline-svg line samples as the inline overlay's key, stacked under
   //   the per-series legend (same #ceqx-legend flex column, so it inherits pointer-events:none
   //   and never grows the fixed-height header row).
@@ -3370,10 +3379,19 @@ window.expandCompareEq=function(series,opts){
   //   loop that already built the top readout row). Rebuilt every renderLegend() call since
   //   legendEl.innerHTML is rebuilt from scratch there.
   let _legendValEls={};
+  // CHANGE 3 (v64.78, owner: "remove the not in pool and the dot at the end") — the plain-English
+  //   legend guide, a native title tooltip (same pattern as the header's "controls" hint above)
+  //   so it needs no extra click-wiring: hover the ⓘ for what each legend group means.
+  const _legInfoTip='champion = the config crowned by the walk-forward test. runner-ups = the other configs that competed for the crown, numbered by walk-forward result. robustness lines = extra configs drawn for context that were never eligible for the crown. other configs = every remaining tested config, drawn only up to the in-sample door.';
   const renderLegend=()=>{
-    legendEl.innerHTML=_mainPS().map(s=>{
+    legendEl.innerHTML='<span style="pointer-events:auto;cursor:help;align-self:flex-start;font-size:9px;font-weight:700;color:var(--text5);padding:1px 2px 2px" title="'+_legInfoTip+'">ⓘ legend guide</span>'
+      +_mainPS().map(s=>{
       const op=s.vis==='dim'?0.45:(s.vis==='off'?0.3:1),td=s.vis==='off'?'line-through':'none',
-        instTf=s.blot?(' <span style="color:var(--text5)">&middot; '+String(s.blot.instrument||'').toUpperCase()+' '+(s.blot.timeframe||'')+'</span>'):'';
+        // CHANGE 3 fix (v64.78): only render the instrument/timeframe separator when there is
+        //   actually something to show after it — every 2A explorer series carries a `blot`
+        //   object (date_from/date_to only, no instrument/timeframe), so the old `s.blot ? ...`
+        //   check rendered a bare "&middot;" on every row with nothing following it.
+        instTf=(s.blot&&(s.blot.instrument||s.blot.timeframe))?(' <span style="color:var(--text5)">&middot; '+String(s.blot.instrument||'').toUpperCase()+' '+(s.blot.timeframe||'')+'</span>'):'';
       // item (v64.73): drop the "#id" prefix when the id is not a real run number (the 2A
       //   explorer uses word ids like crowned/rank2/gate) — a "#" in front of a word read as
       //   noise; the Compare tab's numeric run ids still get their #.
@@ -3431,6 +3449,23 @@ window.expandCompareEq=function(series,opts){
   // per-column blotter width (item 15) and compact/full mode (item 16), keyed by series id.
   const colW={},colMode={};
   const GUT=68;
+  // ── item 5b/5c (owner: remaining TradingView-style mechanics) — LOG scale + FIT Y toggles.
+  //    logY switches the equity pane's pixel mapping to a SIGNED-LOG transform (equity can be
+  //    zero/negative, so a plain log10 would break); the auto-fit / manual-drag Y bounds below
+  //    stay in real dollars the whole time — only the pixel math + gridline POSITIONS transform,
+  //    so every $ label on the axis still reads a real dollar amount. fitY (on by default)
+  //    rescales the equity pane to just the data visible in [va,vb]; off freezes it to the full
+  //    series range instead. Manual y-axis dragging (yMan) always wins over either, unchanged. ──
+  let logY=false,fitY=true;
+  const _tv=v=>logY?(Math.sign(v)*Math.log10(1+Math.abs(v))):v;
+  const _itv=t=>logY?(Math.sign(t)*(Math.pow(10,Math.abs(t))-1)):t;
+  const _syncToggleBtns=()=>{
+    if(logBtn){logBtn.style.background=logY?'var(--bg2)':'none';logBtn.style.borderColor=logY?'var(--blue)':'var(--border)';logBtn.style.color=logY?'var(--blue)':'var(--text3)';}
+    if(fitYBtn){fitYBtn.style.background=fitY?'var(--bg2)':'none';fitYBtn.style.borderColor=fitY?'var(--blue)':'var(--border)';fitYBtn.style.color=fitY?'var(--blue)':'var(--text3)';}
+  };
+  if(logBtn)logBtn.onclick=()=>{logY=!logY;_syncToggleBtns();render();};
+  if(fitYBtn)fitYBtn.onclick=()=>{fitY=!fitY;_syncToggleBtns();render();};
+  _syncToggleBtns();
   const _niceStep=x=>{x=Math.abs(x)||1;const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
   const geo=()=>{const r=chartEl.getBoundingClientRect(),W=Math.max(200,r.width),H=Math.max(160,r.height);
     // EQUITY pane (top, height set by ddFrac — item 7) + DRAWDOWN pane (bottom), sharing the
@@ -3449,6 +3484,56 @@ window.expandCompareEq=function(series,opts){
     const a=p[lo],b=p[hi],f=(b.x>a.x)?(cx-a.x)/(b.x-a.x):0;return a.v+(b.v-a.v)*f;};
   // running-drawdown array (each entry <=0, vs the running peak of that SAME series up to it)
   const _ddArr=(pts)=>{let rm=-Infinity;return pts.map(p=>{if(p.v>rm)rm=p.v;return p.v-rm;});};
+  // ── item 5d: navigator / mini-map strip. The sparkline is built ONCE (cheap redraw — render()
+  //    calls renderNav() every frame but that just repositions the window rect) off a fixed
+  //    0..100 x / 0..30 y viewBox, so its path never needs the real pixel width; only the
+  //    interaction handlers below convert real screen px -> the [0,1] va/vb domain. ──
+  const NAVH=30;
+  let _navSparkPath='';
+  if(navSvg){
+    navSvg.setAttribute('viewBox','0 0 100 '+NAVH);
+    const navSr=PS.find(s=>String(s.id)==='crowned')||_mainPS()[0]||PS[0];
+    if(navSr&&navSr.pts&&navSr.pts.length>1){
+      let nmn=Infinity,nmx=-Infinity;navSr.pts.forEach(p=>{if(p.v<nmn)nmn=p.v;if(p.v>nmx)nmx=p.v;});
+      if(nmx<=nmn)nmx=nmn+1;
+      const nY=v=>2+(NAVH-4)*(1-(v-nmn)/(nmx-nmn));
+      _navSparkPath=navSr.pts.map((p,i)=>((i?'L':'M')+(p.x*100).toFixed(2)+' '+nY(p.v).toFixed(2))).join(' ');
+    }
+  }
+  const renderNav=()=>{
+    if(!navSvg)return;
+    const wx0=(va*100),wx1=(vb*100),ww=Math.max(0.3,wx1-wx0);
+    navSvg.innerHTML=(_navSparkPath?('<path d="'+_navSparkPath+'" fill="none" stroke="var(--text4)" stroke-width="0.6" opacity="0.85" vector-effect="non-scaling-stroke"/>'):'')
+      +'<rect x="'+wx0.toFixed(2)+'" y="0" width="'+ww.toFixed(2)+'" height="'+NAVH+'" fill="var(--blue)" opacity="0.16" stroke="var(--blue)" stroke-width="0.8" vector-effect="non-scaling-stroke"/>';
+  };
+  // drag the window rect = pan, drag its edges = resize/zoom, click elsewhere = jump there. One
+  //   set of Pointer Events (not separate mouse/touch listeners) covers mouse AND touch alike.
+  let navDrag=null;
+  if(navEl){
+    navEl.addEventListener('pointerdown',e=>{
+      e.preventDefault();
+      const r=navEl.getBoundingClientRect();if(!(r.width>0))return;
+      const fx=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),pxX=e.clientX-r.left,pxVa=va*r.width,pxVb=vb*r.width,EDGE=8;
+      if(Math.abs(pxX-pxVa)<=EDGE)navDrag={mode:'edgeL'};
+      else if(Math.abs(pxX-pxVb)<=EDGE)navDrag={mode:'edgeR'};
+      else if(fx>=va&&fx<=vb)navDrag={mode:'pan',x0:fx,va0:va,vb0:vb};
+      else{const span=vb-va;va=Math.max(0,Math.min(1-span,fx-span/2));vb=va+span;clampView();render();
+        navDrag={mode:'pan',x0:fx,va0:va,vb0:vb};}
+      try{navEl.setPointerCapture(e.pointerId);}catch(_ne){}
+    });
+    navEl.addEventListener('pointermove',e=>{
+      if(!navDrag)return;
+      const r=navEl.getBoundingClientRect();if(!(r.width>0))return;
+      const fx=(e.clientX-r.left)/r.width;
+      if(navDrag.mode==='pan'){const d=fx-navDrag.x0;va=navDrag.va0+d;vb=navDrag.vb0+d;
+        if(va<0){vb-=va;va=0;}if(vb>1){va-=(vb-1);vb=1;}clampView();render();}
+      else if(navDrag.mode==='edgeL'){va=Math.max(0,Math.min(vb-0.01,fx));clampView();render();}
+      else if(navDrag.mode==='edgeR'){vb=Math.min(1,Math.max(va+0.01,fx));clampView();render();}
+    });
+    const navEnd=e=>{if(navDrag){navDrag=null;try{navEl.releasePointerCapture(e.pointerId);}catch(_ne){}}};
+    navEl.addEventListener('pointerup',navEnd);
+    navEl.addEventListener('pointercancel',navEnd);
+  }
   const render=()=>{
     const g=geo();
     // WF/LB shaded bands (v64.73), computed here so they're ready before the curve-drawing
@@ -3472,14 +3557,24 @@ window.expandCompareEq=function(series,opts){
     //   Hidden series ('off', item 9) are excluded from the fit; greyed ('dim') series stay IN
     //   it. If every series ends up 'off' both loops leave mn null and the 0..1 fallback below
     //   still kicks in — no crash.
+    // item 5c: FIT Y off skips the [va,vb] window filter entirely and fits the WHOLE series
+    //   instead — a fixed range that does not rescale as you pan/zoom, until FIT Y goes back on.
     let mn=null,mx=null;
-    PS.forEach(s=>{if(s.vis==='off')return;s.pts.forEach(p=>{if(p.x>=va&&p.x<=vb){if(mn===null||p.v<mn)mn=p.v;if(mx===null||p.v>mx)mx=p.v;}});});
-    if(mn===null){   // zoomed tighter than every point spacing on every curve — fall back to the interpolated view edges
-      PS.forEach(s=>{if(s.vis==='off')return;[interpAt(s,va),interpAt(s,vb)].forEach(v=>{if(mn===null||v<mn)mn=v;if(mx===null||v>mx)mx=v;});});}
+    if(fitY){
+      PS.forEach(s=>{if(s.vis==='off')return;s.pts.forEach(p=>{if(p.x>=va&&p.x<=vb){if(mn===null||p.v<mn)mn=p.v;if(mx===null||p.v>mx)mx=p.v;}});});
+      if(mn===null){   // zoomed tighter than every point spacing on every curve — fall back to the interpolated view edges
+        PS.forEach(s=>{if(s.vis==='off')return;[interpAt(s,va),interpAt(s,vb)].forEach(v=>{if(mn===null||v<mn)mn=v;if(mx===null||v>mx)mx=v;});});}
+    }else{
+      PS.forEach(s=>{if(s.vis==='off')return;s.pts.forEach(p=>{if(mn===null||p.v<mn)mn=p.v;if(mx===null||p.v>mx)mx=p.v;});});
+    }
     if(mn===null){mn=0;mx=1;}
     if(yMan){mn=yMan[0];mx=yMan[1];}
     else{if(mx<=mn)mx=mn+1;const pad=(mx-mn)*0.06;mn-=pad;mx+=pad;}
-    const Y=v=>g.eqT+(mx-v)/((mx-mn)||1)*(g.eqB-g.eqT);
+    // item 5b: the auto-fit / manual-drag bounds just above stay in real dollars — only the pixel
+    //   mapping transforms for LOG mode (sign(v)*log10(1+|v|), safe at zero/negative equity), so
+    //   $ gridline VALUES and every endpoint label drawn against Y() below stay real dollars.
+    const mnT=_tv(mn),mxT=_tv(mx);
+    const Y=v=>g.eqT+(mxT-_tv(v))/((mxT-mnT)||1)*(g.eqB-g.eqT);
     // per-series drawdown + auto-fit the DD pane to the most-negative VISIBLE dd across all
     //   non-'off' curves (dd is still computed for every series, including 'off', so re-showing
     //   one later needs no recompute).
@@ -3613,7 +3708,8 @@ window.expandCompareEq=function(series,opts){
     s+='</g>';
     svgEl.setAttribute('viewBox','0 0 '+g.W+' '+g.H);
     svgEl.innerHTML=s;
-    svgEl._g={g:g,mn:mn,mx:mx,ddMin:ddMin,ddFloor:ddFloor,xd:_xDateStr};
+    svgEl._g={g:g,mn:mn,mx:mx,mnT:mnT,mxT:mxT,ddMin:ddMin,ddFloor:ddFloor,xd:_xDateStr};
+    renderNav();
   };
   // trade-dot clicks: svgEl's innerHTML is rebuilt every render(), so the listener lives on
   //   svgEl itself (delegated via closest()) rather than being re-bound to each circle.
@@ -3870,9 +3966,13 @@ window.expandCompareEq=function(series,opts){
       if(gy>=st.g.eqT&&gy<=st.g.eqB){
         let bestId=null,bestD=Infinity;
         PS.forEach(s=>{if(s.vis==='off')return;
-          const py=st.g.eqT+(st.mx-interpAt(s,cx))/((st.mx-st.mn)||1)*(st.g.eqB-st.g.eqT),d2=Math.abs(py-gy);
+          const py=st.g.eqT+(st.mxT-_tv(interpAt(s,cx)))/((st.mxT-st.mnT)||1)*(st.g.eqB-st.g.eqT),d2=Math.abs(py-gy);
           if(d2<bestD){bestD=d2;bestId=s.id;}});
-        _applyHover(bestId);
+        // BUG 2 fix (v64.78): the old code always picked SOME nearest curve, so the highlight kept
+        //   jumping onto an unrelated line even far from the cursor. Only highlight within ~12 CSS
+        //   px of that curve's y at the cursor x (bestD is in svg-viewbox units — sy converts it
+        //   to real screen px, same scale factor the crosshair itself is placed with above).
+        _applyHover((bestId!=null&&bestD*sy<=12)?bestId:null);
       }else _applyHover(null);
     }
     // item 24: honest shared calendar x — the chip and readout lead with the real date once
@@ -3883,7 +3983,7 @@ window.expandCompareEq=function(series,opts){
     xchip.textContent=dstr?dstr:(pct+'%');
     // y-chip: EQUITY $ when over the equity pane, DRAWDOWN $ (labelled) when over the DD pane
     let ychipTxt;
-    if(gy<=st.g.eqB){ychipTxt=fmt$(st.mx-(st.mx-st.mn)*((gy-st.g.eqT)/((st.g.eqB-st.g.eqT)||1)));}
+    if(gy<=st.g.eqB){ychipTxt=fmt$(_itv(st.mxT-(st.mxT-st.mnT)*((gy-st.g.eqT)/((st.g.eqB-st.g.eqT)||1))));}
     else{const _dv=0-(0-st.ddFloor)*((gy-st.g.ddT)/((st.g.ddB-st.g.ddT)||1));ychipTxt='dd '+fmt$(Math.min(0,_dv));}
     ychip.style.display='block';ychip.style.left=(st.g.pw*sx)+'px';ychip.style.top=(gy*sy)+'px';ychip.textContent=ychipTxt;
     // item 9: 'off' series drop out of the readout entirely; 'dim' series read out greyed.
@@ -4115,12 +4215,17 @@ window.expandCompareEq=function(series,opts){
     _gutMv=ev=>{chartFrac=Math.max(0.3,Math.min(0.85,f0+(ev.clientY-p0)/(mr.height||1)));layoutMain();render();};
     _gutUp=()=>{window.removeEventListener('pointermove',_gutMv);window.removeEventListener('pointerup',_gutUp);_gutMv=null;_gutUp=null;};
     window.addEventListener('pointermove',_gutMv);window.addEventListener('pointerup',_gutUp);});
-  // ── keyboard nav (owner-requested): arrows pan, +/-/arrows zoom, 0/Home/R reset, Esc closes.
-  //    Bound only while this modal is open, removed on close (mirrors expandEquity's Esc). ──
+  // ── keyboard nav (owner-requested): arrows pan ~5% per press, +/-/arrows zoom, 0/Home/R reset,
+  //    Esc closes. Bound only while this modal is open, removed on close (mirrors expandEquity's
+  //    Esc). item 5a: while focus sits in one of this modal's OWN inputs/selects (RANGE, WINDOW,
+  //    the custom date pickers), every key is ignored here — otherwise e.g. the arrow keys meant
+  //    to move a focused dropdown's own selection would instead pan the chart underneath it. ──
   const keyHandler=e=>{
+    const _ae=document.activeElement,_atag=_ae&&_ae.tagName;
+    if(_atag==='INPUT'||_atag==='SELECT'||_atag==='TEXTAREA'||(_ae&&_ae.isContentEditable))return;
     if(e.key==='Escape'){close();return;}
-    if(e.key==='ArrowLeft'){panBy(-0.08);e.preventDefault();return;}
-    if(e.key==='ArrowRight'){panBy(0.08);e.preventDefault();return;}
+    if(e.key==='ArrowLeft'){panBy(-0.05);e.preventDefault();return;}
+    if(e.key==='ArrowRight'){panBy(0.05);e.preventDefault();return;}
     if(e.key==='+'||e.key==='='){zoomBy(0.85);e.preventDefault();return;}
     if(e.key==='-'||e.key==='_'){zoomBy(1.18);e.preventDefault();return;}
     if(e.key==='ArrowUp'){zoomBy(0.85);e.preventDefault();return;}
@@ -7399,8 +7504,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const order=series.map((s,i)=>i).sort((a,b)=>b-a);
       // selMode: the CLOUD = every stored config, drawn only to the in-sample door (faint grey);
       //   it drops out there and the top-K walk-forward lines carry on (drawn in selSvg below).
+      // CHANGE 4 (v64.78, owner: the cloud "is missing" at the old 0.5/0.16): raised so ~73 grey
+      //   lines clearly read as a cloud without outweighing the coloured survivor lines on top.
       const lines=selMode
-        ? series.slice(0,_cfgShow).map(s=>'<polyline points="'+_seg(s,0,fIS)+'" fill="none" stroke="var(--text5)" stroke-width="0.5" opacity="0.16"/>').join('')
+        ? series.slice(0,_cfgShow).map(s=>'<polyline points="'+_seg(s,0,fIS)+'" fill="none" stroke="var(--text5)" stroke-width="0.6" opacity="0.30"/>').join('')
         : order.map(i=>(i<_cfgShow?path(series[i],colOf(i),i===0?1.4:0.8,i===0?1:0.72):path(series[i],'var(--text5)',0.55,0.15))).join('');
       const zeroY=Yv(0);
       // v64.62 (owner): the pink gated curve for the NON-funnel path (selMode builds its own in
@@ -7545,13 +7652,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
           _crownPool.slice().sort((a,b)=>((b&&b.wf_oos_pnl)||0)-((a&&a.wf_oos_pnl)||0))
                  .forEach((c,i)=>_wfRank.set(c,i+1));
           const _rkOf=c=>_wfRank.get(c)||null;
+          // CHANGE 3 (v64.78, owner: "whats WF 5? what is extra? remove the not in pool and the
+          //   dot at the end") — plain-English legend labels. The crown/pool number was reading
+          //   as jargon ("WF #1", "WF #5"), and the robustness extras carried a redundant "not in
+          //   crown pool" tag with nothing useful past it. Now: the crowned config reads "champion"
+          //   (still keeping its WF $ figure); every other crown-pool survivor reads "runner-up N"
+          //   (N = its walk-forward rank, so the crowned "rank 1" never repeats); a robustness
+          //   extra (never eligible for the crown) reads "robustness line" — no number, no tag.
           const _ser=[];let _hi=0,_ex=0;
-          if(crownedC)_ser.push(_mkSer(crownedC,'#1d9e75','👑 crowned · WF #'+(_rkOf(crownedC)||1)+_wf$(crownedC),'crowned'));
+          if(crownedC)_ser.push(_mkSer(crownedC,'#1d9e75','👑 champion'+_wf$(crownedC),'crowned'));
           if(isMaxC&&isMaxC!==crownedC)_ser.push(_mkSer(isMaxC,'#3a9bdc','IS max'+_wf$(isMaxC),'ismax'));
           poolAll.forEach(c=>{if(c===crownedC||c===isMaxC)return;const _r=_rkOf(c);
-            // in the crown pool -> WF rank; otherwise a robustness extra (not crown-eligible)
-            const _lab=_r?('WF #'+_r+_wf$(c)):('extra '+(++_ex)+' · not in crown pool'+_wf$(c));
-            _ser.push(_mkSer(c,_huePal[(_hi++)%_huePal.length],_lab,(_r?('wf'+_r):('ext'+_ex))));});
+            // in the crown pool -> "runner-up N" (N = walk-forward rank); otherwise a robustness
+            //   extra (not crown-eligible) -> "robustness line", no number.
+            const _lab=_r?('runner-up '+_r+_wf$(c)):('robustness line'+_wf$(c));
+            _ser.push(_mkSer(c,_huePal[(_hi++)%_huePal.length],_lab,(_r?('wf'+_r):('ext'+(++_ex)))));});
           if(_hasGateO&&_gEqO&&Array.isArray(_gEqO.cum_gated)&&_gEqO.cum_gated.length>1)
             // the gate curve is indexed by TRADE ORDER, not time, so there is no real per-point
             // date to place it by — spreading it linearly across the FULL span (optimize start ->
@@ -7577,7 +7692,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
             (Array.isArray(etop)?etop:[]).forEach(o=>{
               const arr0=(o&&o.cum)?o.cum:o;
               if(!Array.isArray(arr0)||arr0.length<2)return;
-              const arr=arr0.map(v=>v*mult),endV=arr[arr.length-1];
+              const arrFull=arr0.map(v=>v*mult);
+              // BUG 1 fix (v64.78, owner: the grey cloud rockets to ~2.5x the survivors' value by
+              //   the in-sample door): each stored curve here spans the ENTIRE optimize window
+              //   (2010->2025, ~110 points, ending near the full ~$418k backtest total) but was
+              //   handed a `ts` spanning ONLY optimize-start -> the in-sample door (2010->2016) —
+              //   the old code stretched all ~110 points across that ~6-year slice instead of
+              //   stopping the curve where the door actually is, so a config's full 15-year total
+              //   landed AT the door instead of its true in-sample value (~$152k). Fix: truncate
+              //   the curve to its first fIS fraction of points FIRST — matching the inline 2A
+              //   overlay's own _seg(s,0,fIS) truncation above — THEN spread ts over that SAME
+              //   truncated slice, so a grey line now ends at the door with the honest in-sample
+              //   value the coloured survivors show there. The dedupe check below moves onto the
+              //   truncated end too, so it compares like-for-like (both AT the in-sample door).
+              const arr=arrFull.slice(0,Math.max(2,Math.round(fIS*arrFull.length))),endV=arr[arr.length-1];
               if(_survVals.some(v=>Math.abs(v-endV)<=Math.max(25,Math.abs(v)*0.003)))return;
               _ser.push({id:'oth'+(_oi++),label:'other config',color:'var(--text5)',eq:arr,
                          li:null,wfi:null,dim:true,ts:_mkTsSpan(arr.length,optFromMs,_isDoorMs)});
