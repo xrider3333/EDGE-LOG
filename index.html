@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.82';
+const VERSION='64.83';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.83', date:'2026-07-29', notes:['Removed the small navigator strip under the fullscreen equity explorer chart — it was too big and cluttered for what it did.','Removed the LOG axis-scale option from the fullscreen equity explorer — the dollar axis is plain and linear only now.','Combined the RANGE and WINDOW dropdowns in the fullscreen equity explorer into one VIEW dropdown, grouped into a date-range section (last 1/3/5 years, custom) and a stage section (in-sample, walk-forward, lockbox).']},
   {v:'64.82', date:'2026-07-29', notes:['NEW 1J TRADE CONTEXT panel, under 1F REGIME REPORT CARD: it asks which market conditions actually explain a strategy performance. Each feature (VIX level and term, 10-year yield and curve, daily RSI, MACD, volatility percentile, trend strength, overnight gap, prior-day return and range, up/down streak) is measured on the PRIOR day, so it was knowable before the trade, then scored against every trade net dollars. The bar is the correlation (green = trades did better when that feature ran high, red = worse), the faint band behind it is the 95% confidence range, and a feature only reads helps or hurts if it survives a false-lead check that accounts for testing many features at once. Most rows SHOULD say no signal — that is the check doing its job. Runs launched before this update have no panel; new Auto-Validate, Auto-Optimize and Grid runs carry it.']},
   {v:'64.81', date:'2026-07-29', notes:['The ML gate now saves an equity curve for every one of the 9 candidates it tests (each model type at each of the three cut-offs), not just the one it picks — the losing candidates still never reveal their sealed holdout numbers, only their curve.','The fullscreen 2A config explorer can now show all 9 of those ML-gate candidate lines, in a pink/magenta family of colours grouped by model — off by default so they do not clutter the chart, with a small "ML gates" button in the header to show or hide them all at once, and a collapsible legend row to reveal and toggle each one individually.','Added a compact slider to the fullscreen explorer header for how many of the faint grey "other tested config" lines are drawn, matching the same control already on the small in-page chart. Older runs made before this change simply will not show the new gate-candidate lines or button until re-run.']},
   {v:'64.80', date:'2026-07-29', notes:['The crowned config and two others were showing as "config ?" in the 2A key — the stored config curves are rounded to whole dollars, so they never matched exactly. The matching now allows for that rounding, so every line names its real config number.']},
@@ -3317,21 +3318,19 @@ window.expandCompareEq=function(series,opts){
     //   beside them, instead of two stacked full-width dropdown rows.
     +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center;flex:0 0 auto;flex-wrap:nowrap">'
     +'<span title="wheel/+-=zoom . drag/arrows=pan . drag $ axis=scale y . dbl-click/0=reset . esc=close" style="font-size:11px;color:var(--text5);cursor:help">controls ⓘ</span>'
-    +'<span style="display:inline-flex;align-items:center;gap:3px" title="jump to a calendar range">'
-      +'<span style="color:var(--text5);font-size:8px;letter-spacing:.5px">RANGE</span>'
-      +'<select id="ceqx-range" style="width:auto;max-width:74px;background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:4px 5px;border-radius:6px;font-family:inherit;font-size:9px;letter-spacing:.3px">'
-        +'<option value="all">ALL</option><option value="1y">1Y</option><option value="3y">3Y</option><option value="5y">5Y</option><option value="custom">CUSTOM</option>'
+    // v64.83 (owner: "combine the views for the date range and the sample selection into one
+    //   button/dropdown") — RANGE and WINDOW used to be two separate selects; merged into ONE
+    //   compact VIEW select with <optgroup> sections so it reads as one control instead of two.
+    +'<span style="display:inline-flex;align-items:center;gap:3px" title="jump to a calendar range or a funnel stage">'
+      +'<span style="color:var(--text5);font-size:8px;letter-spacing:.5px">VIEW</span>'
+      +'<select id="ceqx-view" style="width:auto;max-width:108px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:4px 5px;border-radius:6px;font-family:inherit;font-size:9px;letter-spacing:.3px">'
+        +'<option value="all">ALL</option>'
+        +'<optgroup id="ceqx-viewdate" label="DATE RANGE"><option value="1y">LAST 1Y</option><option value="3y">LAST 3Y</option><option value="5y">LAST 5Y</option><option value="custom">CUSTOM…</option></optgroup>'
+        +'<optgroup id="ceqx-viewstage" label="STAGE"><option value="is">IN-SAMPLE</option><option value="wf">WALK-FORWARD</option><option value="lb">LOCKBOX</option></optgroup>'
       +'</select>'
     +'</span>'
     +'<input id="ceqx-cfrom" type="date" style="display:none;width:auto;max-width:105px;background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:4px 5px;border-radius:6px;font-family:inherit;font-size:9px">'
     +'<input id="ceqx-cto" type="date" style="display:none;width:auto;max-width:105px;background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:4px 5px;border-radius:6px;font-family:inherit;font-size:9px">'
-    +'<span style="display:inline-flex;align-items:center;gap:3px" title="jump to a funnel stage">'
-      +'<span style="color:var(--text5);font-size:8px;letter-spacing:.5px">WINDOW</span>'
-      +'<select id="ceqx-window" style="width:auto;max-width:80px;background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:4px 5px;border-radius:6px;font-family:inherit;font-size:9px;letter-spacing:.3px">'
-        +'<option value="all">ALL</option><option value="is">IS</option><option value="wf">WF</option><option value="lb">LB</option>'
-      +'</select>'
-    +'</span>'
-    +'<button id="ceqx-log" title="switch the dollar axis between a normal (linear) scale and a log scale — log keeps early small $ moves visible instead of them being flattened by later big ones" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">LOG</button>'
     +'<button id="ceqx-fity" title="FIT Y (on) rescales the dollar axis to whatever is visible in the current time window as you pan/zoom. Turn off to lock the axis to a fixed range." style="background:var(--bg2);border:1px solid var(--blue);color:var(--blue);padding:5px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">FIT Y</button>'
     +_otherSliderHtml+_gateBtnHtml
     +'<button id="ceqx-params" title="compare the parameters of every visible config against the crowned config" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">⚖ PARAMS</button>'
@@ -3349,11 +3348,6 @@ window.expandCompareEq=function(series,opts){
       +'<div id="ceqx-hln" style="position:absolute;left:0;height:0;border-top:1px dashed var(--text4);opacity:.7;pointer-events:none;display:none"></div>'
       +'<div id="ceqx-xchip" style="position:absolute;pointer-events:none;display:none;background:var(--text2);color:var(--bg1);font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;transform:translateX(-50%)"></div>'
       +'<div id="ceqx-ychip" style="position:absolute;pointer-events:none;display:none;background:var(--text2);color:var(--bg1);font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;transform:translateY(-50%)"></div></div>'
-      // navigator / mini-map (item 5d, owner: TradingView-style mechanics) — a slim strip under
-      //   the drawdown pane showing the FULL span of the champion/first series as a tiny
-      //   sparkline, with a translucent rect for the current x window. touch-action:none so a
-      //   touch drag on it pans/resizes instead of scrolling the page underneath.
-      +'<div id="ceqx-nav" title="drag the shaded window to pan . drag its edges to zoom . click elsewhere to jump there" style="flex:0 0 34px;margin-top:6px;position:relative;cursor:pointer;touch-action:none"><svg id="ceqx-navsvg" style="display:block;width:100%;height:100%" preserveAspectRatio="none"></svg></div>'
     +'</div>'
     +'<div id="ceqx-gut" title="drag to resize the chart / trades split" style="display:none;flex:0 0 10px;align-items:center;justify-content:center;cursor:row-resize"><div style="background:var(--border);border-radius:2px;width:54px;height:3px"></div></div>'
     +'<div id="ceqx-blotwrap" style="display:none;flex:0 0 auto;min-height:0;min-width:0;background:var(--bg2);border:1px solid var(--border);border-radius:12px"></div>'
@@ -3363,7 +3357,7 @@ window.expandCompareEq=function(series,opts){
   const svgEl=el2('ceqx-svg'),chartEl=el2('ceqx-chart'),read=el2('ceqx-read'),legendEl=el2('ceqx-legend'),
     blotBtn=el2('ceqx-blot'),mainEl=el2('ceqx-main'),gut=el2('ceqx-gut'),wrap=el2('ceqx-blotwrap'),wrapEl=el2('ceqx-wrap'),
     paramsBtn=el2('ceqx-params'),paramsBox=el2('ceqx-paramsbox'),
-    logBtn=el2('ceqx-log'),fitYBtn=el2('ceqx-fity'),navEl=el2('ceqx-nav'),navSvg=el2('ceqx-navsvg'),
+    fitYBtn=el2('ceqx-fity'),
     gateBtn=el2('ceqx-gatebtn'),othCntEl=el2('ceqx-othcnt'),othCntLab=el2('ceqx-othcnt-lab');
   // legend KEY — same tiny inline-svg line samples as the inline overlay's key, stacked under
   //   the per-series legend (same #ceqx-legend flex column, so it inherits pointer-events:none
@@ -3505,21 +3499,15 @@ window.expandCompareEq=function(series,opts){
   // per-column blotter width (item 15) and compact/full mode (item 16), keyed by series id.
   const colW={},colMode={};
   const GUT=68;
-  // ── item 5b/5c (owner: remaining TradingView-style mechanics) — LOG scale + FIT Y toggles.
-  //    logY switches the equity pane's pixel mapping to a SIGNED-LOG transform (equity can be
-  //    zero/negative, so a plain log10 would break); the auto-fit / manual-drag Y bounds below
-  //    stay in real dollars the whole time — only the pixel math + gridline POSITIONS transform,
-  //    so every $ label on the axis still reads a real dollar amount. fitY (on by default)
-  //    rescales the equity pane to just the data visible in [va,vb]; off freezes it to the full
-  //    series range instead. Manual y-axis dragging (yMan) always wins over either, unchanged. ──
-  let logY=false,fitY=true;
-  const _tv=v=>logY?(Math.sign(v)*Math.log10(1+Math.abs(v))):v;
-  const _itv=t=>logY?(Math.sign(t)*(Math.pow(10,Math.abs(t))-1)):t;
+  // ── item 5c (owner: remaining TradingView-style mechanics) — FIT Y toggle. fitY (on by
+  //    default) rescales the equity pane to just the data visible in [va,vb]; off freezes it
+  //    to the full series range instead. Manual y-axis dragging (yMan) always wins over
+  //    either, unchanged. (The LOG scale toggle that used to live alongside this was removed
+  //    v64.83 per owner request — plain linear only now.) ──
+  let fitY=true;
   const _syncToggleBtns=()=>{
-    if(logBtn){logBtn.style.background=logY?'var(--bg2)':'none';logBtn.style.borderColor=logY?'var(--blue)':'var(--border)';logBtn.style.color=logY?'var(--blue)':'var(--text3)';}
     if(fitYBtn){fitYBtn.style.background=fitY?'var(--bg2)':'none';fitYBtn.style.borderColor=fitY?'var(--blue)':'var(--border)';fitYBtn.style.color=fitY?'var(--blue)':'var(--text3)';}
   };
-  if(logBtn)logBtn.onclick=()=>{logY=!logY;_syncToggleBtns();render();};
   if(fitYBtn)fitYBtn.onclick=()=>{fitY=!fitY;_syncToggleBtns();render();};
   _syncToggleBtns();
   // v64.81 (item 3): OTHER slider — how many of the grey 'other config' lines actually draw
@@ -3574,56 +3562,9 @@ window.expandCompareEq=function(series,opts){
     const a=p[lo],b=p[hi],f=(b.x>a.x)?(cx-a.x)/(b.x-a.x):0;return a.v+(b.v-a.v)*f;};
   // running-drawdown array (each entry <=0, vs the running peak of that SAME series up to it)
   const _ddArr=(pts)=>{let rm=-Infinity;return pts.map(p=>{if(p.v>rm)rm=p.v;return p.v-rm;});};
-  // ── item 5d: navigator / mini-map strip. The sparkline is built ONCE (cheap redraw — render()
-  //    calls renderNav() every frame but that just repositions the window rect) off a fixed
-  //    0..100 x / 0..30 y viewBox, so its path never needs the real pixel width; only the
-  //    interaction handlers below convert real screen px -> the [0,1] va/vb domain. ──
-  const NAVH=30;
-  let _navSparkPath='';
-  if(navSvg){
-    navSvg.setAttribute('viewBox','0 0 100 '+NAVH);
-    const navSr=PS.find(s=>String(s.id)==='crowned')||_mainPS()[0]||PS[0];
-    if(navSr&&navSr.pts&&navSr.pts.length>1){
-      let nmn=Infinity,nmx=-Infinity;navSr.pts.forEach(p=>{if(p.v<nmn)nmn=p.v;if(p.v>nmx)nmx=p.v;});
-      if(nmx<=nmn)nmx=nmn+1;
-      const nY=v=>2+(NAVH-4)*(1-(v-nmn)/(nmx-nmn));
-      _navSparkPath=navSr.pts.map((p,i)=>((i?'L':'M')+(p.x*100).toFixed(2)+' '+nY(p.v).toFixed(2))).join(' ');
-    }
-  }
-  const renderNav=()=>{
-    if(!navSvg)return;
-    const wx0=(va*100),wx1=(vb*100),ww=Math.max(0.3,wx1-wx0);
-    navSvg.innerHTML=(_navSparkPath?('<path d="'+_navSparkPath+'" fill="none" stroke="var(--text4)" stroke-width="0.6" opacity="0.85" vector-effect="non-scaling-stroke"/>'):'')
-      +'<rect x="'+wx0.toFixed(2)+'" y="0" width="'+ww.toFixed(2)+'" height="'+NAVH+'" fill="var(--blue)" opacity="0.16" stroke="var(--blue)" stroke-width="0.8" vector-effect="non-scaling-stroke"/>';
-  };
-  // drag the window rect = pan, drag its edges = resize/zoom, click elsewhere = jump there. One
-  //   set of Pointer Events (not separate mouse/touch listeners) covers mouse AND touch alike.
-  let navDrag=null;
-  if(navEl){
-    navEl.addEventListener('pointerdown',e=>{
-      e.preventDefault();
-      const r=navEl.getBoundingClientRect();if(!(r.width>0))return;
-      const fx=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),pxX=e.clientX-r.left,pxVa=va*r.width,pxVb=vb*r.width,EDGE=8;
-      if(Math.abs(pxX-pxVa)<=EDGE)navDrag={mode:'edgeL'};
-      else if(Math.abs(pxX-pxVb)<=EDGE)navDrag={mode:'edgeR'};
-      else if(fx>=va&&fx<=vb)navDrag={mode:'pan',x0:fx,va0:va,vb0:vb};
-      else{const span=vb-va;va=Math.max(0,Math.min(1-span,fx-span/2));vb=va+span;clampView();render();
-        navDrag={mode:'pan',x0:fx,va0:va,vb0:vb};}
-      try{navEl.setPointerCapture(e.pointerId);}catch(_ne){}
-    });
-    navEl.addEventListener('pointermove',e=>{
-      if(!navDrag)return;
-      const r=navEl.getBoundingClientRect();if(!(r.width>0))return;
-      const fx=(e.clientX-r.left)/r.width;
-      if(navDrag.mode==='pan'){const d=fx-navDrag.x0;va=navDrag.va0+d;vb=navDrag.vb0+d;
-        if(va<0){vb-=va;va=0;}if(vb>1){va-=(vb-1);vb=1;}clampView();render();}
-      else if(navDrag.mode==='edgeL'){va=Math.max(0,Math.min(vb-0.01,fx));clampView();render();}
-      else if(navDrag.mode==='edgeR'){vb=Math.min(1,Math.max(va+0.01,fx));clampView();render();}
-    });
-    const navEnd=e=>{if(navDrag){navDrag=null;try{navEl.releasePointerCapture(e.pointerId);}catch(_ne){}}};
-    navEl.addEventListener('pointerup',navEnd);
-    navEl.addEventListener('pointercancel',navEnd);
-  }
+  // (v64.83: the navigator / mini-map strip that used to live here was removed per owner
+  //   request — "get rid of it, its completely too big" — the chart panes below reclaim the
+  //   space it used to reserve.)
   const render=()=>{
     const g=geo();
     // v64.81 (item 3): which 'other config' grey lines the OTHER slider currently trims — the
@@ -3668,11 +3609,7 @@ window.expandCompareEq=function(series,opts){
     if(mn===null){mn=0;mx=1;}
     if(yMan){mn=yMan[0];mx=yMan[1];}
     else{if(mx<=mn)mx=mn+1;const pad=(mx-mn)*0.06;mn-=pad;mx+=pad;}
-    // item 5b: the auto-fit / manual-drag bounds just above stay in real dollars — only the pixel
-    //   mapping transforms for LOG mode (sign(v)*log10(1+|v|), safe at zero/negative equity), so
-    //   $ gridline VALUES and every endpoint label drawn against Y() below stay real dollars.
-    const mnT=_tv(mn),mxT=_tv(mx);
-    const Y=v=>g.eqT+(mxT-_tv(v))/((mxT-mnT)||1)*(g.eqB-g.eqT);
+    const Y=v=>g.eqT+(mx-v)/((mx-mn)||1)*(g.eqB-g.eqT);
     // per-series drawdown + auto-fit the DD pane to the most-negative VISIBLE dd across all
     //   non-'off' curves (dd is still computed for every series, including 'off', so re-showing
     //   one later needs no recompute).
@@ -3808,8 +3745,7 @@ window.expandCompareEq=function(series,opts){
     s+='</g>';
     svgEl.setAttribute('viewBox','0 0 '+g.W+' '+g.H);
     svgEl.innerHTML=s;
-    svgEl._g={g:g,mn:mn,mx:mx,mnT:mnT,mxT:mxT,ddMin:ddMin,ddFloor:ddFloor,xd:_xDateStr};
-    renderNav();
+    svgEl._g={g:g,mn:mn,mx:mx,ddMin:ddMin,ddFloor:ddFloor,xd:_xDateStr};
   };
   // trade-dot clicks: svgEl's innerHTML is rebuilt every render(), so the listener lives on
   //   svgEl itself (delegated via closest()) rather than being re-bound to each circle.
@@ -3828,10 +3764,11 @@ window.expandCompareEq=function(series,opts){
   const zoomBy=k=>{const c=(va+vb)/2;va=c-(c-va)*k;vb=c+(vb-c)*k;clampView();render();};
   const panBy=f=>{const d=(vb-va)*f;va+=d;vb+=d;clampView();render();};
   const resetView=()=>{va=0;vb=1;yMan=null;ddMan=null;
-    // v64.73: RESET also snaps the RANGE/WINDOW dropdowns back to ALL and hides the custom
-    //   date inputs, so they never show a stale choice next to a chart that no longer matches it.
-    const _rs2=el2('ceqx-range'),_ws2=el2('ceqx-window'),_cf2=el2('ceqx-cfrom'),_ct2=el2('ceqx-cto');
-    if(_rs2)_rs2.value='all';if(_ws2)_ws2.value='all';
+    // v64.73: RESET also snaps the VIEW dropdown back to ALL and hides the custom date inputs,
+    //   so they never show a stale choice next to a chart that no longer matches it. (v64.83:
+    //   RANGE and WINDOW were merged into the one ceqx-view select.)
+    const _vs2=el2('ceqx-view'),_cf2=el2('ceqx-cfrom'),_ct2=el2('ceqx-cto');
+    if(_vs2)_vs2.value='all';
     if(_cf2)_cf2.style.display='none';if(_ct2)_ct2.style.display='none';
     render();};
   chartEl.addEventListener('wheel',e=>{e.preventDefault();
@@ -3889,8 +3826,12 @@ window.expandCompareEq=function(series,opts){
   window.addEventListener('mouseup',mUp);
   chartEl.addEventListener('dblclick',resetView);
   el2('ceqx-reset').onclick=resetView;
-  // ── RANGE / WINDOW view-jump dropdowns (v64.73) ──────────────────────────────────────────
-  const rangeSel=el2('ceqx-range'),cfromEl=el2('ceqx-cfrom'),ctoEl=el2('ceqx-cto'),winSel=el2('ceqx-window');
+  // ── VIEW dropdown (v64.83: merges the old separate RANGE + WINDOW selects into ONE control,
+  //    owner: "combine the views for the date range and the sample selection into one
+  //    button/dropdown" — same behaviour per option as before, just one <select> with
+  //    <optgroup> sections instead of two side-by-side selects). ──
+  const viewSel=el2('ceqx-view'),cfromEl=el2('ceqx-cfrom'),ctoEl=el2('ceqx-cto'),
+    viewDateGrp=el2('ceqx-viewdate'),viewStageGrp=el2('ceqx-viewstage');
   const _isoDate=ms=>{const d=new Date(ms);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
   const _applyCustom=()=>{
     if(!timeMode||!cfromEl.value||!ctoEl.value)return;
@@ -3898,40 +3839,35 @@ window.expandCompareEq=function(series,opts){
     va=Math.max(0,Math.min(1,(a-tMin)/((tMax-tMin)||1)));vb=Math.max(0,Math.min(1,(b-tMin)/((tMax-tMin)||1)));
     if(vb<=va)vb=va+0.001;
     yMan=null;ddMan=null;clampView();render();};
-  if(rangeSel){
-    // RANGE only means anything once every point carries a real calendar date — disabled
-    //   outright on the old fractional-progress fallback (no series had usable dates).
-    rangeSel.disabled=!timeMode;
-    rangeSel.onchange=()=>{
-      const v=rangeSel.value;
+  if(viewSel){
+    // DATE RANGE options only mean anything once every point carries a real calendar date;
+    //   STAGE options only mean anything when the selection carries a walk-forward/lockbox
+    //   split — same two guards the old separate RANGE/WINDOW selects had, now applied per
+    //   <optgroup> so ALL always stays pickable regardless of either guard.
+    if(viewDateGrp)viewDateGrp.disabled=!timeMode;
+    if(viewStageGrp)viewStageGrp.disabled=!(_anyWfi||_anyLi);
+    viewSel.onchange=()=>{
+      const v=viewSel.value;
       cfromEl.style.display=ctoEl.style.display=(v==='custom')?'inline-block':'none';
       if(v==='custom'){
         if(timeMode){cfromEl.value=_isoDate(tMin+va*(tMax-tMin));ctoEl.value=_isoDate(tMin+vb*(tMax-tMin));}
-        if(winSel)winSel.value='all';
         return;   // waits on a date input — no view change yet
       }
       if(v==='all'){va=0;vb=1;}
-      else{const yrs=v==='1y'?1:(v==='3y'?3:5),spanMs=yrs*365*86400000;
-        vb=1;va=timeMode?Math.max(0,1-spanMs/((tMax-tMin)||1)):0;}
+      else if(v==='1y'||v==='3y'||v==='5y'){
+        const yrs=v==='1y'?1:(v==='3y'?3:5),spanMs=yrs*365*86400000;
+        vb=1;va=timeMode?Math.max(0,1-spanMs/((tMax-tMin)||1)):0;
+      }else{
+        const rb=_regionBounds();
+        if(v==='is'){va=0;vb=(rb.wf!=null?rb.wf:(rb.lb!=null?rb.lb:1));}
+        else if(v==='wf'){if(rb.wf==null){viewSel.value='all';return;}va=rb.wf;vb=(rb.lb!=null?rb.lb:1);}
+        else if(v==='lb'){if(rb.lb==null){viewSel.value='all';return;}va=rb.lb;vb=1;}
+      }
       yMan=null;ddMan=null;clampView();render();
-      if(winSel)winSel.value='all';
     };
   }
   if(cfromEl)cfromEl.onchange=_applyCustom;
   if(ctoEl)ctoEl.onchange=_applyCustom;
-  if(winSel){
-    // disabled outright when NOTHING in the selection carries a walk-forward or lockbox split
-    winSel.disabled=!(_anyWfi||_anyLi);
-    winSel.onchange=()=>{
-      const rb=_regionBounds(),v=winSel.value;
-      if(v==='all'){va=0;vb=1;}
-      else if(v==='is'){va=0;vb=(rb.wf!=null?rb.wf:(rb.lb!=null?rb.lb:1));}
-      else if(v==='wf'){if(rb.wf==null){winSel.value='all';return;}va=rb.wf;vb=(rb.lb!=null?rb.lb:1);}
-      else if(v==='lb'){if(rb.lb==null){winSel.value='all';return;}va=rb.lb;vb=1;}
-      yMan=null;ddMan=null;clampView();render();
-      if(rangeSel){rangeSel.value='all';cfromEl.style.display=ctoEl.style.display='none';}
-    };
-  }
   // ── CHANGE 7 (v64.74): ⚖ PARAMS toggle — a compact table of every VISIBLE series that carries
   //    a params object (the 2A survivors do; the Compare tab's series and the 'other config'
   //    cloud do not, so it reads "no series in view carry parameter data" there instead of an
@@ -4066,7 +4002,7 @@ window.expandCompareEq=function(series,opts){
       if(gy>=st.g.eqT&&gy<=st.g.eqB){
         let bestId=null,bestD=Infinity;
         PS.forEach(s=>{if(s.vis==='off'||_othSliderHidden.has(s.id))return;
-          const py=st.g.eqT+(st.mxT-_tv(interpAt(s,cx)))/((st.mxT-st.mnT)||1)*(st.g.eqB-st.g.eqT),d2=Math.abs(py-gy);
+          const py=st.g.eqT+(st.mx-interpAt(s,cx))/((st.mx-st.mn)||1)*(st.g.eqB-st.g.eqT),d2=Math.abs(py-gy);
           if(d2<bestD){bestD=d2;bestId=s.id;}});
         // BUG 2 fix (v64.78): the old code always picked SOME nearest curve, so the highlight kept
         //   jumping onto an unrelated line even far from the cursor. Only highlight within ~12 CSS
@@ -4083,7 +4019,7 @@ window.expandCompareEq=function(series,opts){
     xchip.textContent=dstr?dstr:(pct+'%');
     // y-chip: EQUITY $ when over the equity pane, DRAWDOWN $ (labelled) when over the DD pane
     let ychipTxt;
-    if(gy<=st.g.eqB){ychipTxt=fmt$(_itv(st.mxT-(st.mxT-st.mnT)*((gy-st.g.eqT)/((st.g.eqB-st.g.eqT)||1))));}
+    if(gy<=st.g.eqB){ychipTxt=fmt$(st.mx-(st.mx-st.mn)*((gy-st.g.eqT)/((st.g.eqB-st.g.eqT)||1)));}
     else{const _dv=0-(0-st.ddFloor)*((gy-st.g.ddT)/((st.g.ddB-st.g.ddT)||1));ychipTxt='dd '+fmt$(Math.min(0,_dv));}
     ychip.style.display='block';ychip.style.left=(st.g.pw*sx)+'px';ychip.style.top=(gy*sy)+'px';ychip.textContent=ychipTxt;
     // item 9: 'off' series drop out of the readout entirely; 'dim' series read out greyed.
@@ -4317,9 +4253,10 @@ window.expandCompareEq=function(series,opts){
     window.addEventListener('pointermove',_gutMv);window.addEventListener('pointerup',_gutUp);});
   // ── keyboard nav (owner-requested): arrows pan ~5% per press, +/-/arrows zoom, 0/Home/R reset,
   //    Esc closes. Bound only while this modal is open, removed on close (mirrors expandEquity's
-  //    Esc). item 5a: while focus sits in one of this modal's OWN inputs/selects (RANGE, WINDOW,
-  //    the custom date pickers), every key is ignored here — otherwise e.g. the arrow keys meant
-  //    to move a focused dropdown's own selection would instead pan the chart underneath it. ──
+  //    Esc). item 5a: while focus sits in one of this modal's OWN inputs/selects (the VIEW
+  //    dropdown, the custom date pickers), every key is ignored here — otherwise e.g. the arrow
+  //    keys meant to move a focused dropdown's own selection would instead pan the chart
+  //    underneath it. ──
   const keyHandler=e=>{
     const _ae=document.activeElement,_atag=_ae&&_ae.tagName;
     if(_atag==='INPUT'||_atag==='SELECT'||_atag==='TEXTAREA'||(_ae&&_ae.isContentEditable))return;
