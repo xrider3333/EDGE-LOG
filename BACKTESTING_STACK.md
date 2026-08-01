@@ -691,8 +691,16 @@ not saved to the runs DB — so they carry no run id.*
   OFF to keep tests offline). **First scan — ORB_3_0 NQ 5m RTH 2024→2026-06 (590 trades):
   NOTHING survives FDR q<0.10**; range_pctile raw p=.036 = the false lead the correction
   caught (consistent with the round-2 VIX-tilt failures — ORB's edge isn't daily-context
-  conditional). Web CI-bar panel pending (contested index.html). Next scans: ENGU-Q legs,
-  real trade log.
+  conditional). Era-aware guard added (block bootstrap + within-year t≥2 test → slow
+  drifters like curve/tnx flagged `trend_confounded`; 1J shows them yellow, v64.85).
+  **Stage-3 filter verdict (2026-07-31, 4-config sweep A=#180 ENS / B=#125 deploy /
+  C=auto-champ / D=#181, pinned 2010→2026-06): NO context filter is wire-worthy.** No
+  feature holds its sign across all 4 configs (vol cluster flips with or_bars/stop —
+  config-specific, not a law); **ENS-180 shows ZERO context dependence** (edge robust to
+  regime reads, nothing to filter); B's lone formal survivor (range_pctile) bought only
+  +4.1% IS MAR as a skip-rule vs the pre-registered +10% bar → holdout never opened, no
+  shopping. Scripts/results: session scratchpad `phase1/phase2_*.{py,json}`. Next if
+  continued: same discipline on ENGU-Q legs or the REAL trade log, not more ORB configs.
 - `augur_engine/trial_cache.py` + `window_delta.py` — **#26 incremental reuse (SHIPPED
   2026-07-22)**: exact-hit per-config result cache (env `AUGUR_TRIAL_CACHE`, ON in the
   runner; `♻` chip on Builder launch rows) + data-prep memo + EOD-flat window-extension
