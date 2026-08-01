@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.85';
+const VERSION='64.86';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.86', date:'2026-07-29', notes:['The chosen ML gate line in the 2A key now names itself — it reads the winning model and cut-off (for example "random forest at 55 percent - CHOSEN") instead of just "gate-kept", so it is obvious which of the nine variants actually won.']},
   {v:'64.85', date:'2026-07-31', notes:['1J TRADE CONTEXT now guards against a trap: a feature that drifts over years (10-year yield, yield curve, VIX level) can look strongly linked to performance simply because BOTH it and the strategy changed over the decade. Every feature is now also tested INSIDE individual years, and its confidence range is widened to account for market conditions persisting for months. Anything that only correlates across eras is rejected and labelled trend artifact in yellow, with the year-by-year strength shown on hover. Real example caught: yield curve looked highly significant across 16 years of ORB trades, yet the link vanishes within any single year.']},
   {v:'64.84', date:'2026-07-29', notes:['The fullscreen equity explorer legend is now three collapsible groups — CONFIGS, ML GATES, OTHER CONFIGS — each collapsed to one row by default with an arrow to expand into its individual lines. Clicking a group row toggles that whole family between full, dimmed and hidden together, the same three-step click every individual line already had.','The walk-forward survivor config lines now share one teal/green family of shades, with the champion staying the brightest, instead of a different colour per line. The ML-gate candidate lines now share one pink/magenta family instead of a colour per model, so the chart reads as clear colour groups at a glance.','Config line labels dropped the walk-forward dollar figure from the always-visible text — hover a line to see it.','Removed the separate ML GATES header button now that the legend group does the same job in one place; the gate candidate lines still start hidden and the chosen gate line still starts visible.']},
   {v:'64.83', date:'2026-07-29', notes:['Removed the small navigator strip under the fullscreen equity explorer chart — it was too big and cluttered for what it did.','Removed the LOG axis-scale option from the fullscreen equity explorer — the dollar axis is plain and linear only now.','Combined the RANGE and WINDOW dropdowns in the fullscreen equity explorer into one VIEW dropdown, grouped into a date-range section (last 1/3/5 years, custom) and a stage section (in-sample, walk-forward, lockbox).']},
@@ -7743,7 +7744,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
             // gateChosen (v64.84): marks this as the chosen gate line for the explorer legend so
             //   it joins the 9 gateCand candidates in the ML GATES group (CHANGE 2) instead of
             //   the CONFIGS group — see _mainPS/_gatePS in expandCompareEq.
-            _ser.push({id:'gate',label:'🚪 gate-kept',color:'#e05fa0',eq:_gEqO.cum_gated.map(v=>v*mult),li:null,wfi:null,gateChosen:true,
+            // v64.85 (owner): name the CHOSEN gate the same way its 9 rivals are named, so it is
+            //   obvious which model + cut-off actually won (it just said "gate-kept" before).
+            _ser.push({id:'gate',label:(function(){var _c=(d.gate_validate&&d.gate_validate.chosen)||null;
+                         return _c?('🚪 '+String(_c.model||'gate')+' @ '+Math.round((+_c.threshold||0)*100)+'% · CHOSEN'):'🚪 gate-kept';})(),
+                       color:'#e05fa0',eq:_gEqO.cum_gated.map(v=>v*mult),li:null,wfi:null,gateChosen:true,
                        ts:_mkTsSpan(_gEqO.cum_gated.length,optFromMs,lbToMs),
                        blot:{date_from:_dF,date_to:_dEnd}});
           // v64.81 (owner, item 2): one extra series per ML-gate CANDIDATE (all 9 model x cutoff
