@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.92';
+const VERSION='64.93';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.93', date:'2026-07-29', notes:['FIXED a wrong number in 2B CONFIGS RAW: the TOTAL row was adding in-sample plus walk-forward plus lockbox, but those cover overlapping stretches and the lockbox figure is already the running total — so a config whose real full-run result is 485k was showing over a million. It is now a FULL RUN row that matches chart 1A and the crowned line in 2A, the LB row shows only what the held-out year itself added, and dollars are abbreviated so the table is as compact as 2C.']},
   {v:'64.92', date:'2026-07-29', notes:['2B CONFIGS RAW listed MAX DD twice — once under TOTAL and again as its own section. The duplicate section is gone; the drawdown now sits directly under the total, so profit and the risk taken to get it read together.']},
   {v:'64.91', date:'2026-07-29', notes:['CONFIGS · RAW (2B): column headers now read RANK 1, RANK 2 and so on instead of the confusing WF1/WF2 prefix (the crown still marks the winner). The walk-forward and lockbox return rows are tinted with the same blue and purple used for those periods everywhere else in the report; in-sample stays plain. Added a TOTAL row (in-sample plus walk-forward plus lockbox, or just the first two — starred — when a config never reached the lockbox) with max drawdown repeated directly under it so profit and the risk taken to get it read together. The reward-versus-risk group now also shows a derived Sharpe ratio, how many walk-forward folds each config held, and profit factor / win rate whenever a run actually saves them — never invented when it does not.','ML FILTER CONFIGS (2C, was CONFIGS · ML GATE FILTER): simplified header with one short line underneath instead of scattered text, and a duplicated lockbox chip removed. The tile now runs in clear order: the matrix of all 9 model and cut-off combinations, headed PRE-LOCKBOX and spelled out plainly as in-sample plus walk-forward combined, then a separate purple LOCKBOX block below it showing only the winning combination final-year numbers, held out and untouched until now (no-gate versus gated: net dollars, profit factor, trades, max drawdown) — those held-out numbers can no longer be mistaken for the ranking numbers above them. Dollars are abbreviated and columns tightened so the matrix fits the screen without side-scrolling.','Each ML model (random forest, gradient boosting, logistic regression) now gets its own color family in the 2C matrix column headers and in the funnel chart lines above, instead of every model sharing one shade of pink — the same color now means the same model in both places, and the winning combination stays the most vivid shade of its own color.']},
   {v:'64.90', date:'2026-07-29', notes:['Configuration Analysis section: CONFIGS · RAW now has its own bordered tile (it used to render as a bare table hanging under the funnel chart above it) — the funnel, the raw configs and the ML gate filter now read as three separate tiles in a row, the same way they render everywhere else in this report.','Both CONFIGS · RAW and CONFIGS · ML GATE FILTER now lead with a side-by-side matrix in the same style as the KPI MATRIX in Strategy Performance — one column per config or gate variant, with the crowned or chosen one highlighted, and the numbers grouped into return, drawdown, reward-versus-risk and sample sections; for CONFIGS · RAW the knobs that differ between configs are now their own rows, so the differences line up straight across. The ML gate matrix shows immediately now instead of being hidden behind the collapsed HOW IT WAS CHOSEN section. Both matrices scroll sideways inside their own box when there are many columns, with the metric names staying put on the left.','The COLUMNS control drag handles for resizing tile widths now keep working in the 2x2 layout (each row of two tiles can still be resized against each other), not just in the 3-across layout; the 1-column layout still has nothing to resize, so its handles stay hidden there.']},
@@ -7636,13 +7637,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   block with that field (see hasPf/hasWr below) — never fabricated.
         const mmPf=(mm.profit_factor!=null&&isFinite(+mm.profit_factor))?+mm.profit_factor:null;
         const mmWr=(mm.win_rate!=null&&isFinite(+mm.win_rate))?+mm.win_rate:null;
-        // TOTAL (owner redesign item A3): IS + WF + LB when this config carries a lockbox
-        //   number; IS + WF only (starred) when it does not — never silently treats a missing
-        //   lockbox as zero.
-        let totalV=null,totalStar=false;
-        if(isV!=null&&wfV!=null){if(lbOk){totalV=isV+wfV+lbV;}else{totalV=isV+wfV;totalStar=true;}}
+        // v64.93 (owner caught this): the old TOTAL row summed IS + WF + LB, which is WRONG —
+        //   those three measure OVERLAPPING windows and lb_equity.final is already the cumulative
+        //   end of the WHOLE run. On run 180 that produced $1,032,570 for a config whose real
+        //   full-run total is $485,416 (the number 1A and the 2A crowned line both show).
+        //   Now: FULL RUN = the curve end (authoritative, matches 1A/2A), and LB $ shows the
+        //   lockbox SLICE ONLY (curve end minus the optimize-window end), which reconciles with
+        //   the lockbox NET in the 1E matrix. Nothing is summed.
+        const optEnd=(c.equity&&c.equity.final!=null)?c.equity.final*mlt:null;
+        const lbSlice=(lbOk&&optEnd!=null)?(lbV-optEnd):null;
+        const fullRun=lbOk?lbV:optEnd;
+        const fullRunStar=!lbOk;   // no lockbox carry-through: this is the optimize-window end
         const rankTip='rank '+(i+1)+' of '+sorted.length+' by walk-forward result'+(crowned?' - CROWNED (the walk-forward winner)':'')+(ismax?' - also the in-sample maximum (best pre-registered search score)':'');
-        return {params:c.params||{},rank:i+1,crowned,ismax,cfgNo,isV,wfV,lbV,mdd,mar,sharpe,foldsHeld,mmPf,mmWr,totalV,totalStar,rankTip};});
+        return {params:c.params||{},rank:i+1,crowned,ismax,cfgNo,isV,wfV,lbV,lbSlice,fullRun,fullRunStar,mdd,mar,sharpe,foldsHeld,mmPf,mmWr,rankTip};});
       // ── TRANSPOSED MATRIX (owner redesign, item 2): 1E-style — one COLUMN per crown-pool
       //    config (headed by its walk-forward rank + config #, crowned column emphasised),
       //    metrics grouped as ROWS. Replaces the old one-row-per-config table; the knobs-that-
@@ -7654,8 +7661,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         sub:rc.crowned?'CROWNED':(rc.ismax?'IS MAX':''),
         col:rc.crowned?'var(--green)':(rc.ismax?'#3a9bdc':'var(--text2)'),
         emph:rc.crowned,tip:rc.rankTip},rc));
-      const _usd=v=>v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>'):'<span style="color:var(--text5)">—</span>';
-      const _ddCell=col=>col.mdd!=null?('<span style="color:#e24b4a">-'+fmtUsd(Math.round(col.mdd))+'</span>'):'<span style="color:var(--text5)">—</span>';
+      // v64.93 (owner): abbreviate dollars the way 2C does ($450k) so 2B is just as compact.
+      const _usd=v=>v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtAx(v,1)+'</span>'):'<span style="color:var(--text5)">—</span>';
+      const _ddCell=col=>col.mdd!=null?('<span style="color:#e24b4a">-'+fmtAx(col.mdd,1)+'</span>'):'<span style="color:var(--text5)">—</span>';
       // A2 (owner): tint the WF $ / LB $ rows with the SAME walk-forward blue / lockbox purple
       //   used everywhere else in this report (the 1A/2A band fills and their text labels) — a
       //   subtle row background plus a coloured row label. IS $ stays untinted, matching the
@@ -7677,8 +7685,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {name:'return',rows:[
           {lbl:'IS $',cell:col=>_usd(col.isV)},
           {lbl:'WF $',top:true,rowBg:_wfBg,lblCol:_wfCol,cell:col=>_usd(col.wfV)},
-          {lbl:'LB $',rowBg:_lbBg,lblCol:_lbCol,cell:col=>_usd(col.lbV)},
-          {lbl:'TOTAL',top:true,cell:col=>col.totalV!=null?('<span style="font-weight:700;color:'+(col.totalV>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(col.totalV))+(col.totalStar?'*':'')+'</span>'):'<span style="color:var(--text5)">—</span>'},
+          {lbl:'LB $',rowBg:_lbBg,lblCol:_lbCol,cell:col=>_usd(col.lbSlice)},
+          {lbl:'FULL RUN',top:true,cell:col=>col.fullRun!=null?('<span style="font-weight:700;color:'+(col.fullRun>=0?'#1d9e75':'#e24b4a')+'">'+fmtAx(col.fullRun,1)+(col.fullRunStar?'*':'')+'</span>'):'<span style="color:var(--text5)">—</span>'},
           // v64.92 (owner): MAX DD sits directly under TOTAL so profit and the risk taken to get
           //   it read together. The separate DRAWDOWN group that used to follow is GONE — it
           //   repeated this exact row verbatim two lines later.
@@ -7686,8 +7694,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {name:'reward ÷ risk',rows:_rrRows},
         {name:'config',rows:knobKeys.map(k2=>({lbl:_pp(k2),cell:col=>'<b style="color:var(--text2)">'+String((col.params||{})[k2])+'</b>'}))}
       ];
-      const _anyStar=recs.some(rc=>rc.totalStar);
-      const table=_matrixTbl(cols,groups)+(_anyStar?'<div style="font-size:7px;color:var(--text5);margin-top:4px;padding:0 4px">* TOTAL is IS + WF only for this config — no lockbox carry-through (either it did not survive to the top-3, or this run has none saved)</div>':'');
+      const _anyStar=recs.some(rc=>rc.fullRunStar);
+      const table=_matrixTbl(cols,groups)
+        +'<div style="font-size:7px;color:var(--text5);margin-top:4px;padding:0 4px">FULL RUN is the end of this config equity curve — the same figure chart 1A and the crowned line in 2A show. IS / WF / LB are measured on OVERLAPPING windows, so they do not add up to it.'
+        +(_anyStar?' &nbsp;* this config was not carried through the lockbox, so FULL RUN ends at the optimize-window close.':'')+'</div>';
       // honesty notes + the crown/robustness paragraph + the funnel-path caption — all relocated
       //   into this tile's info icon (item 4: at most one short line stays on screen).
       const hasLB=cand.some(c=>c.lb_equity&&c.lb_equity.final!=null);
