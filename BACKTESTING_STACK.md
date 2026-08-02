@@ -709,8 +709,22 @@ not saved to the runs DB — so they carry no run id.*
   textbook false lead (IS threshold excludes every post-2024 day — regime moved; the
   Phase-1 era flag empirically vindicated). REAL trade log (66 trades): 0/15 survive =
   correct at that n (power bar ≈600 trades); descriptive hunches only (low-VIX best,
-  Monday strongest, hours 10/14 weakest). Next if pursued: context-filter params on a
-  RESEARCH COPY of ENGUQ_1M → full Auto-Validate filtered-vs-raw; deployed file untouched.
+  Monday strongest, hours 10/14 weakest).
+  **GAUNTLET RESULT (2026-08-01, runs #182 vs #183) — filters NOT deploy-validated; parked.**
+  `ENGUQ_1M_CTX_1_0.py` (research copy, champion pinned + `max_vix`/`max_tnx_chg20` knobs;
+  knobs-off proven BIT-IDENTICAL to `ENGUQ_1M_1_0.py`). A=raw baseline: **PASS 5/5** (IS
+  $271.5k PF 1.69 · WF 7/8 WFE 1.80 OOS $302.4k · LB $73.5k PF 1.32). B=filters searchable
+  (117 evaluated): **FAIL 4/6** despite beating A on EVERY raw metric (IS DD -$22.1k vs
+  -$35.3k · WF 8/8, OOS $343.4k · LB $78.8k PF 1.35 · Sharpe 0.77 vs 0.69, DSR 0.92) —
+  failed gates = **pbo 0.635** (IS-best below OOS median in 63.5% of CSCV splits = real
+  selection risk; NB A structurally can't trip this gate with 1 config) and **plateau**
+  (razor miss 2/3, mostly a max_vix=1.0 boundary-probe artifact). **Decisive nuance: the
+  search ABANDONED the VIX leg both times it chose** (Stage-A pick 0.0=off; final champion
+  40.0=ceiling=never binds) — the frozen-holdout VIX pass was likely one-window luck; only
+  a LOOSENED rate-spike leg (0.4 vs pre-registered 0.298) stayed active. Verdict: do NOT
+  wire; TNX-rise lead stays on the shelf. ONE more pre-registered focused test (only
+  `max_tnx_chg20` searchable, tight range, bigger trial budget vs the pbo gate) would be
+  defensible; repeated gauntlet retries = shopping, don't.
 - `augur_engine/trial_cache.py` + `window_delta.py` — **#26 incremental reuse (SHIPPED
   2026-07-22)**: exact-hit per-config result cache (env `AUGUR_TRIAL_CACHE`, ON in the
   runner; `♻` chip on Builder launch rows) + data-prep memo + EOD-flat window-extension
