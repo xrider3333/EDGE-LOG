@@ -699,8 +699,18 @@ not saved to the runs DB — so they carry no run id.*
   config-specific, not a law); **ENS-180 shows ZERO context dependence** (edge robust to
   regime reads, nothing to filter); B's lone formal survivor (range_pctile) bought only
   +4.1% IS MAR as a skip-rule vs the pre-registered +10% bar → holdout never opened, no
-  shopping. Scripts/results: session scratchpad `phase1/phase2_*.{py,json}`. Next if
-  continued: same discipline on ENGU-Q legs or the REAL trade log, not more ORB configs.
+  shopping. Scripts/results: session scratchpad `phase1/phase2_*.{py,json}`.
+  **ENGU-Q + trade-log scans (2026-07-31): the first PASSING filter leads.** 5m/15m legs
+  context-silent (0/15). **1m champion (#149 raw): `vix` and `tnx_chg_20d` both survived
+  the era guard AND the frozen-holdout filter test** — skip worst-20% VIX days → holdout
+  (2024→2026-06, ~300 trades) net $177.2k vs $156.8k baseline, MAR 3.49 vs 2.21; skip
+  top-10% fastest-rising-rate days → $177.0k, MAR 3.11. LEADS, not proof: one holdout
+  window, thin trims (keep 80-90%), the two overlap as stress proxies. `tnx` LEVEL =
+  textbook false lead (IS threshold excludes every post-2024 day — regime moved; the
+  Phase-1 era flag empirically vindicated). REAL trade log (66 trades): 0/15 survive =
+  correct at that n (power bar ≈600 trades); descriptive hunches only (low-VIX best,
+  Monday strongest, hours 10/14 weakest). Next if pursued: context-filter params on a
+  RESEARCH COPY of ENGUQ_1M → full Auto-Validate filtered-vs-raw; deployed file untouched.
 - `augur_engine/trial_cache.py` + `window_delta.py` — **#26 incremental reuse (SHIPPED
   2026-07-22)**: exact-hit per-config result cache (env `AUGUR_TRIAL_CACHE`, ON in the
   runner; `♻` chip on Builder launch rows) + data-prep memo + EOD-flat window-extension
