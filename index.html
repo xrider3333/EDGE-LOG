@@ -405,10 +405,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.86';
+const VERSION='64.87';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.87', date:'2026-07-29', notes:['The fullscreen equity explorer TRADES button now works for each of the coloured survivor configs on the config chart - click it to pull the trade list for that specific config. The grey cloud and ML-gate lines still cannot be regenerated (that needs the model, which only runs on the server), and now say so plainly instead of a confusing error.','Explorer legend: the small expand arrow on each group is now a bigger, obvious button; the old line-style key (in-sample / walk-forward / lockbox dashes) at the bottom is gone; and the two separate info icons merged into one.','Explorer: the long list of every line value at the top on mouse-hover is gone - each line still shows its own value next to its name in the legend.','Explorer header buttons are now grouped left to right by purpose (view controls, then params and trades, then reset and close) with small dividers between them, instead of scattered in one row.','The SELECTION DETAIL table under the config chart now sorts by walk-forward result - the number that actually decides both the crown and the lockbox carry-through - with clear WALK-FORWARD RANK and CONFIG NUMBER columns and a note explaining the sort.','The ML gate candidates table is now a full side-by-side matrix (model, cut-off, trades kept, net dollars, a derived max-drawdown figure, profit factor, win rate, recovery) with the chosen candidate clearly marked and the whole table labelled pre-lockbox.']},
   {v:'64.86', date:'2026-07-29', notes:['The chosen ML gate line in the 2A key now names itself — it reads the winning model and cut-off (for example "random forest at 55 percent - CHOSEN") instead of just "gate-kept", so it is obvious which of the nine variants actually won.']},
   {v:'64.85', date:'2026-07-31', notes:['1J TRADE CONTEXT now guards against a trap: a feature that drifts over years (10-year yield, yield curve, VIX level) can look strongly linked to performance simply because BOTH it and the strategy changed over the decade. Every feature is now also tested INSIDE individual years, and its confidence range is widened to account for market conditions persisting for months. Anything that only correlates across eras is rejected and labelled trend artifact in yellow, with the year-by-year strength shown on hover. Real example caught: yield curve looked highly significant across 16 years of ORB trades, yet the link vanishes within any single year.']},
   {v:'64.84', date:'2026-07-29', notes:['The fullscreen equity explorer legend is now three collapsible groups — CONFIGS, ML GATES, OTHER CONFIGS — each collapsed to one row by default with an arrow to expand into its individual lines. Clicking a group row toggles that whole family between full, dimmed and hidden together, the same three-step click every individual line already had.','The walk-forward survivor config lines now share one teal/green family of shades, with the champion staying the brightest, instead of a different colour per line. The ML-gate candidate lines now share one pink/magenta family instead of a colour per model, so the chart reads as clear colour groups at a glance.','Config line labels dropped the walk-forward dollar figure from the always-visible text — hover a line to see it.','Removed the separate ML GATES header button now that the legend group does the same job in one place; the gate candidate lines still start hidden and the chosen gate line still starts visible.']},
@@ -3302,6 +3303,9 @@ window.expandCompareEq=function(series,opts){
       +'<input id="ceqx-othcnt" class="fillrng" type="range" min="0" max="'+_otherAllInit.length+'" step="1" value="'+_otherAllInit.length+'" style="width:56px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) 100%,var(--bg1) 0)">'
       +'<b id="ceqx-othcnt-lab" style="color:var(--text3);font-size:9px;min-width:34px;display:inline-block">'+_otherAllInit.length+'/'+_otherAllInit.length+'</b></span>')
     :'';
+  // v64.87 (item 4): a small vertical divider between header control ZONES (view controls |
+  //   data controls | session controls) — layout-only, no behaviour of its own.
+  const _hdrSep='<span style="width:1px;height:16px;background:var(--border);opacity:.7;flex:0 0 auto"></span>';
   // CHANGE 5 (v64.84, owner: the standalone header button is redundant once a legend GROUP can
   //   toggle its whole family): the old standalone "ML GATES" header button is REMOVED here —
   //   the ML GATES legend group (see _groupRow in renderLegend below) now owns that whole-family
@@ -3319,8 +3323,16 @@ window.expandCompareEq=function(series,opts){
     //   controls now live INLINE in this same fixed-height header row, next to RESET — small
     //   pills (~110px max including their label) in the same visual language as the buttons
     //   beside them, instead of two stacked full-width dropdown rows.
-    +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center;flex:0 0 auto;flex-wrap:nowrap">'
-    +'<span title="wheel/+-=zoom . drag/arrows=pan . drag $ axis=scale y . dbl-click/0=reset . esc=close" style="font-size:11px;color:var(--text5);cursor:help">controls ⓘ</span>'
+    // v64.87 (item 4, owner: RESET sat away from the other view controls) — the header is now
+    //   FOUR clear left-to-right zones separated by thin dividers: this info icon, VIEW/FIT Y/
+    //   OTHER (view controls), PARAMS/TRADES (data controls), RESET/CLOSE (session controls).
+    //   Every control keeps its exact old id/behaviour — layout/grouping only.
+    +'<span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex:0 0 auto;flex-wrap:nowrap">'
+    // v64.87 (item 2c): merged with the legend's old separate "ⓘ legend guide" icon — this
+    //   tooltip is extended with the legend-guide text right after _legInfoTip is defined below.
+    +'<span id="ceqx-info" title="wheel/+-=zoom . drag/arrows=pan . drag $ axis=scale y . dbl-click/0=reset . esc=close" style="font-size:11px;color:var(--text5);cursor:help;flex:0 0 auto">ⓘ</span>'
+    +_hdrSep
+    +'<span style="display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;flex-wrap:nowrap">'
     // v64.83 (owner: "combine the views for the date range and the sample selection into one
     //   button/dropdown") — RANGE and WINDOW used to be two separate selects; merged into ONE
     //   compact VIEW select with <optgroup> sections so it reads as one control instead of two.
@@ -3336,10 +3348,18 @@ window.expandCompareEq=function(series,opts){
     +'<input id="ceqx-cto" type="date" style="display:none;width:auto;max-width:105px;background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:4px 5px;border-radius:6px;font-family:inherit;font-size:9px">'
     +'<button id="ceqx-fity" title="FIT Y (on) rescales the dollar axis to whatever is visible in the current time window as you pan/zoom. Turn off to lock the axis to a fixed range." style="background:var(--bg2);border:1px solid var(--blue);color:var(--blue);padding:5px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">FIT Y</button>'
     +_otherSliderHtml
+    +'</span>'
+    +_hdrSep
+    +'<span style="display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;flex-wrap:nowrap">'
     +'<button id="ceqx-params" title="compare the parameters of every visible config against the crowned config" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">⚖ PARAMS</button>'
-    +'<button id="ceqx-reset" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">↺ RESET</button>'
     +'<button id="ceqx-blot" title="load each strategy trade blotter off your PC runner · Shift+click = regenerate fresh" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">▦ TRADES</button>'
-    +'<button id="ceqx-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:2px;border-radius:6px">CLOSE ✕</button></span></div>'
+    +'</span>'
+    +_hdrSep
+    +'<span style="display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;flex-wrap:nowrap">'
+    +'<button id="ceqx-reset" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">↺ RESET</button>'
+    +'<button id="ceqx-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:2px;border-radius:6px">CLOSE ✕</button>'
+    +'</span>'
+    +'</span></div>'
     // v64.74: PARAMS panel — absolutely positioned so it overlays the chart instead of pushing
     //   it down (the fixed-height header rule this modal follows everywhere else).
     +'<div id="ceqx-paramsbox" style="display:none;position:absolute;top:52px;left:22px;right:22px;max-height:55vh;overflow:auto;background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:10px 12px;z-index:20;box-shadow:0 10px 30px rgba(0,0,0,.55)"></div>'
@@ -3389,7 +3409,8 @@ window.expandCompareEq=function(series,opts){
     const wfSr=PS.find(s=>s.wfi!=null),lbSr=PS.find(s=>s.li!=null);
     return {wf:wfSr?wfSr.pts[wfSr.wfi].x:null, lb:lbSr?lbSr.pts[lbSr.li].x:null};
   };
-  const _lkSamp2=(dash,round)=>'<svg width="18" height="6" style="vertical-align:middle" aria-hidden="true"><line x1="1" y1="3" x2="17" y2="3" stroke="var(--text3)" stroke-width="1.4"'+(dash?' stroke-dasharray="'+dash+'"':'')+(round?' stroke-linecap="round"':'')+'/></svg>';
+  // v64.87 (item 2): _lkSamp2 (the dash-style line-sample svg helper) is removed — its only
+  //   callers were the in-sample/walk-forward/lockbox key entries just deleted from renderLegend.
   // renderLegend (item 9) — each series row opts back into pointer-events (the legend container
   //   itself stays pointer-events:none so it never steals chart drags) and cycles vis full ->
   //   greyed -> hidden -> full on click; the muted instrument+timeframe suffix (item 14) rides
@@ -3425,6 +3446,9 @@ window.expandCompareEq=function(series,opts){
   //   legend guide, a native title tooltip (same pattern as the header's "controls" hint above)
   //   so it needs no extra click-wiring: hover the ⓘ for what each legend group means.
   const _legInfoTip='champion = the config crowned by the walk-forward test. runner-ups = the other configs that competed for the crown, numbered by walk-forward result. robustness lines = extra configs drawn for context that were never eligible for the crown. other configs = every remaining tested config, drawn only up to the in-sample door.';
+  // v64.87 (item 2c): fold this legend-guide text into the ONE header ⓘ icon (was two separate
+  //   info icons — a legend guide here and a view/controls guide in the header).
+  (function(){const _ic=el2('ceqx-info');if(_ic)_ic.title=_ic.title+' || LEGEND GUIDE: '+_legInfoTip;})();
   // shared row markup for an EXPANDED group member — same shape/behaviour the old flat per-series
   //   rows always had (same data-ceqx-vis wiring below, same click-to-cycle, same hover).
   // CHANGE 3 (v64.84, owner: drop the always-visible " . WF $..." suffix): s.tip (set once in
@@ -3451,21 +3475,22 @@ window.expandCompareEq=function(series,opts){
       exp=!!_grpExpanded[key],swatch=members[0].color;
     let h='<span style="display:inline-flex;align-items:center;background:color-mix(in srgb,var(--bg1) 65%,transparent);border-radius:4px;white-space:nowrap">'
       +'<span data-ceqx-grp-tog="'+key+'" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);padding:2px 4px 2px 6px;border-radius:4px;opacity:'+op+'" title="click: full - greyed - hidden - full (whole group)"><span style="width:12px;height:3px;background:'+swatch+';display:inline-block;border-radius:2px;flex:0 0 auto"></span><span style="text-decoration:'+td+'">'+label+' ('+members.length+')</span></span>'
-      +'<span data-ceqx-grp-exp="'+key+'" style="pointer-events:auto;cursor:pointer;font-size:8px;color:var(--text5);padding:2px 6px 2px 2px" title="'+(exp?'collapse':'expand')+' the individual lines">'+(exp?'▾':'▸')+'</span>'
+      // v64.87 (item 2, owner: the ▸ was too small to notice) — a comfortably clickable chevron
+      //   button (its own background/border, bigger glyph, real padding) so it plainly reads as
+      //   a dropdown toggle; still a SEPARATE element from the group-toggle zone above it, so the
+      //   two click targets can never trigger each other.
+      +'<span data-ceqx-grp-exp="'+key+'" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;min-width:18px;font-size:11px;font-weight:700;line-height:1;color:var(--text2);background:var(--bg1);border:1px solid var(--border);border-radius:4px;padding:3px 7px;margin:1px 3px 1px 0" title="'+(exp?'collapse':'expand')+' the individual lines">'+(exp?'▾':'▸')+'</span>'
       +'</span>';
     if(exp)h+=members.map(s=>_memberRow(s,16)).join('');
     return h;
   };
   const renderLegend=()=>{
-    legendEl.innerHTML='<span style="pointer-events:auto;cursor:help;align-self:flex-start;font-size:9px;font-weight:700;color:var(--text5);padding:1px 2px 2px" title="'+_legInfoTip+'">ⓘ legend guide</span>'
-      +_groupRow('cfg','CONFIGS',_mainPS())
+    // v64.87 (item 2): the "ⓘ legend guide" icon moved into the header (merged with the controls
+    //   icon there) and the in-sample/walk-forward/lockbox dash-style key entries below the
+    //   groups are REMOVED entirely (owner: declutter) — the legend is just the three groups now.
+    legendEl.innerHTML=_groupRow('cfg','CONFIGS',_mainPS())
       +_groupRow('gate','ML GATES',_gatePS())
       +_groupRow('oth','OTHER CONFIGS',_otherPS());
-    legendEl.innerHTML+='<span style="display:inline-flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:8px;color:var(--text5);padding:2px 6px">'
-      +'<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2(null,false)+'in-sample</span>'
-      +(_anyWfi?('<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2('7,4',false)+'walk-forward</span>'):'')
-      +(_anyLi?('<span style="display:inline-flex;align-items:center;gap:3px">'+_lkSamp2('0.1,5',true)+'lockbox</span>'):'')
-      +'</span>';
     // v64.76: rebuild the id->element cache for the live legend values now that legendEl.innerHTML
     //   was just replaced wholesale — the old nodes (and any cached refs to them) are gone.
     _legendValEls={};
@@ -4032,14 +4057,16 @@ window.expandCompareEq=function(series,opts){
     //   hit-test, it reuses the interpAt(s,cx)/outOfSpan this loop already computes for the top
     //   readout row. The 'other config' cloud has no legend row of its own (collapsed into one
     //   aggregate row) so it is skipped here exactly like the top readout already skips it.
+    // v64.87 (item 3, owner: the top strip grew a long per-config value list — remove it, the
+    //   date/x readout is enough up there; each legend row already carries its own live value).
     const _seenVal={};
-    read.innerHTML=(dstr?dstr:(pct+'%'))+PS.filter(s=>s.vis!=='off'&&!s.isOther).map(s=>{
-      const v=interpAt(s,cx),isDim=s.vis==='dim',swCol=isDim?'var(--text5)':s.color,
-        outOfSpan=(cx<s.pts[0].x-1e-9)||(cx>s.pts[s.pts.length-1].x+1e-9),
-        valHtml=outOfSpan?'<b style="color:var(--text5)">&mdash;</b>':('<b style="color:'+(isDim?'var(--text5)':(v>=0?'var(--green)':'var(--red)'))+'">'+fmt$(v)+'</b>');
+    PS.filter(s=>s.vis!=='off'&&!s.isOther).forEach(s=>{
+      const v=interpAt(s,cx),isDim=s.vis==='dim',
+        outOfSpan=(cx<s.pts[0].x-1e-9)||(cx>s.pts[s.pts.length-1].x+1e-9);
       const _vEl=_legendValEls[s.id];
       if(_vEl){_seenVal[s.id]=1;_vEl.textContent=outOfSpan?'—':fmt$(v);_vEl.style.color=outOfSpan?'var(--text5)':(isDim?'var(--text5)':(v>=0?'var(--green)':'var(--red)'));}
-      return ' &middot; <span style="display:inline-flex;align-items:center;gap:3px;opacity:'+(isDim?0.55:1)+'"><span style="width:8px;height:8px;border-radius:2px;background:'+swCol+';display:inline-block"></span>'+s.label+' '+valHtml+'</span>';}).join('');
+    });
+    read.innerHTML=dstr?dstr:(pct+'%');
     // any legend row NOT touched above (an 'off' series still has its row in the DOM, just
     //   struck-through) keeps a blank live-value slot rather than a stale number from before it
     //   was hidden.
@@ -4200,7 +4227,11 @@ window.expandCompareEq=function(series,opts){
   };
   const loadAllBlotters=async(force)=>{
     const targets=PS.filter(p=>p.blot&&p.blot.run_id!=null);
-    if(!targets.length){alert('No strategy in this selection has a saved run to pull trades from.');return;}
+    // v64.87 (item 1): plain message — trade blotters only ever exist for the named survivor
+    //   configs (the coloured lines); the grey cloud and the ML-gate lines carry no run to pull
+    //   from on purpose (a gate cannot be regenerated client-side), so say that instead of a
+    //   generic "no strategy" line that reads like a bug.
+    if(!targets.length){alert('Trade blotters are only available for the named configs (the coloured lines). The grey cloud and ML-gate lines cannot be regenerated here - that needs the ML model, which only runs on the server.');return;}
     blotBtn.textContent='⏳ LOADING…';blotBtn.disabled=true;
     await Promise.all(targets.map(async p=>{
       try{
@@ -7430,28 +7461,44 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // climb alike the edge is robust; if only the winner climbs it's a fragile outlier.
     // #88b table+notes helper: the crown-pool rows + honesty notes that stack in the 2A card
     //   directly under the overlay (extracted so topEqOverlayHtml renders it in-place).
-    const selectionTableHtml=(sel,mlt)=>{
+    const selectionTableHtml=(sel,mlt,cfgNoMap)=>{
       if(!sel||!Array.isArray(sel.candidates)||!sel.candidates.length)return '';
       const cand=sel.candidates, robust=Array.isArray(sel.robust)?sel.robust:[];
       const CROWN='#1d9e75',ISC='#3a9bdc';
       let isMaxI=0;cand.forEach((c,i)=>{if((c.is_pnl||0)>(cand[isMaxI].is_pnl||0))isMaxI=i;});
+      const isMaxC=cand[isMaxI];
       const pk=Object.keys(cand[0].params||{});
       const vary=pk.filter(k2=>{const s=new Set(cand.map(c=>String((c.params||{})[k2])));return s.size>1;});
-      const rows=cand.map((c,i)=>{const crowned=!!c.crowned,ismax=(i===isMaxI);
+      // v64.87 (item 5, owner caught this): SORT by WALK-FORWARD result (best first) — the crown
+      //   AND the lockbox carry-through are both decided by walk-forward, not the pool/search
+      //   order this table used to list in. On run #180 that old order mislabelled which "rank"
+      //   carried a lockbox value (pool rows 2 and 4 looked lockbox-less by accident — they were
+      //   just walk-forward ranks 5 and 4; the real top-3, ranks 1/2/3, all carry one).
+      const sorted=cand.slice().sort((a,b)=>((b&&b.wf_oos_pnl)||0)-((a&&a.wf_oos_pnl)||0));
+      const rows=sorted.map((c,i)=>{const crowned=!!c.crowned,ismax=(c===isMaxC);
         const cfg=(vary.length?vary:pk.slice(0,3)).map(k2=>k2+' <b>'+String((c.params||{})[k2])+'</b>').join(' · ');
+        // CONFIG # reuses the SAME chart-legend match (cfgNoMap, built once in topEqOverlayHtml)
+        //   instead of recomputing it here — recomputing independently could land a close-value
+        //   match on a different slot and disagree with the chart. No match saved (older run, or
+        //   this candidate had no equity curve to match by) shows a dash, not a guess.
+        const cfgNo=cfgNoMap?cfgNoMap.get(c):null;
+        const rankTip='rank '+(i+1)+' of '+sorted.length+' by walk-forward result'+(crowned?' - CROWNED (the walk-forward winner)':'')+(ismax?' - also the in-sample maximum (best pre-registered search score)':'');
         return '<div style="display:flex;gap:8px;align-items:center;padding:3px 6px;font-size:8.5px;border-top:1px solid color-mix(in srgb,var(--border) 35%,transparent)'+(crowned?';background:color-mix(in srgb,#1d9e75 12%,transparent);border-left:3px solid #1d9e75':'')+'">'
-          +'<span style="flex:0 0 86px;font-weight:700;color:'+(crowned?CROWN:(ismax?ISC:'var(--text4)'))+'">'+(crowned?'👑 crowned':(ismax?'IS max':('rank '+(i+1))))+'</span>'
+          +'<span style="flex:0 0 46px;font-weight:700;color:'+(crowned?CROWN:(ismax?ISC:'var(--text3)'))+'" title="'+rankTip+'">'+(i+1)+(crowned?' 👑':'')+(ismax?' ▲':'')+'</span>'
+          +'<span style="flex:0 0 56px;color:var(--text4)" title="this config position in the run full tested-config list - matches the number on the 2A chart legend (for example #33 = config 33)">'+(cfgNo?('#'+cfgNo):'—')+'</span>'
           +'<span style="flex:1;color:var(--text3)">'+cfg+'</span>'
           +'<span style="flex:0 0 78px;text-align:right" title="what the SEARCH scored this config in-sample (its scoring window)">'+fmtUsd(Math.round((c.is_pnl||0)*mlt))+'</span>'
           +'<span style="flex:0 0 78px;text-align:right;font-weight:700;color:'+CROWN+'" title="summed PnL across the anchored walk-forward folds UNSEEN slices - the number that decides the crown">'+fmtUsd(Math.round((c.wf_oos_pnl||0)*mlt))+'</span>'
           +'<span style="flex:0 0 40px;text-align:center" title="how many walk-forward folds this config held (profitable) in">'+(c.folds_held!=null?c.folds_held:'—')+'</span>'
           +'<span style="flex:0 0 82px;text-align:right;color:'+((c.lb_equity&&c.lb_equity.final!=null)?ISC:'var(--text5)')+'" title="this config carried forward THROUGH the lockbox (top-3 only) - shown after the crown was set, never used to pick it">'+((c.lb_equity&&c.lb_equity.final!=null)?fmtUsd(Math.round(c.lb_equity.final*mlt)):'—')+'</span></div>';}).join('');
-      const hdr='<div style="display:flex;gap:8px;font-size:7px;letter-spacing:.5px;color:var(--text5);padding:0 6px 2px"><span style="flex:0 0 86px"></span><span style="flex:1">config (knobs that differ)</span><span style="flex:0 0 78px;text-align:right">IS (search $)</span><span style="flex:0 0 78px;text-align:right">WF folds $</span><span style="flex:0 0 40px;text-align:center">folds</span><span style="flex:0 0 82px;text-align:right">lockbox end $</span></div>';
+      const hdr='<div style="display:flex;gap:8px;font-size:7px;letter-spacing:.5px;color:var(--text5);padding:0 6px 2px"><span style="flex:0 0 46px" title="rank among the walk-forward survivors, best first">WF RANK</span><span style="flex:0 0 56px" title="this config number in the run full tested-config list, same numbering the chart legend uses">CONFIG #</span><span style="flex:1">config (knobs that differ)</span><span style="flex:0 0 78px;text-align:right">IS (search $)</span><span style="flex:0 0 78px;text-align:right">WF folds $</span><span style="flex:0 0 40px;text-align:center">folds</span><span style="flex:0 0 82px;text-align:right">lockbox end $</span></div>';
       const note=(sel.is_max_crowned===false)?'<div style="font-size:8.5px;color:var(--yellow);margin:4px 0 2px">⚖️ the in-sample MAX was NOT crowned — the walk-forward folds preferred a steadier config (this is #88 doing its job).</div>':'<div style="font-size:8.5px;color:var(--text4);margin:4px 0 2px">✓ the in-sample max ALSO won the walk-forward arbitration — search pick and OOS evidence agree.</div>';
       const robNote='<div style="font-size:8px;color:var(--text5);margin:1px 0 2px">the grey CLOUD = every top config, drawn only to the in-sample door (the first walk-forward test start — same date 1A marks); past it only the top configs that warranted walk-forward testing continue — green = crowned, blue dashed = in-sample max.</div>';
       const hasLB=cand.some(c=>c.lb_equity&&c.lb_equity.final!=null);
       const lbNote=hasLB?'<div style="font-size:8px;color:var(--text5);margin:1px 0 3px">🚪 past the lockbox door: only the top-3 by walk-forward are carried through the holdout — shown AFTER the crown was set, never used to pick the champion.</div>':'<div style="font-size:8px;color:var(--text5);margin:1px 0 3px">re-run this validate (engine 2026-07-21+) to draw the top-3 forward THROUGH the lockbox.</div>';
-      return note+robNote+lbNote+hdr+rows;};
+      // v64.87 (item 5): one plain line UNDER the table spelling out what the sort already shows.
+      const rankNote='<div style="font-size:8px;color:var(--text4);margin:4px 0 0">sorted by WALK-FORWARD result (best first) — the crown and the lockbox carry-through are BOTH decided by walk-forward, not by in-sample performance.</div>';
+      return note+robNote+lbNote+hdr+rows+rankNote;};
     const topEqOverlayHtml=(d,mult,tag)=>{
       const etop=d&&d.equity_top;if(!etop||etop.length<2)return '';
       const isL=/^L/.test(tag||'');
@@ -7465,6 +7512,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _okEqS=c=>c&&c.equity&&Array.isArray(c.equity.cum)&&c.equity.cum.length>1;
       const selMode=!isL&&SELN&&Array.isArray(SELN.candidates)&&SELN.candidates.some(_okEqS);
       let crownedC=null,isMaxC=null,lbCs=[],poolAll=[],hasLB=false,Wopt=['',''],Wlb=null;const extYs=[];
+      // v64.87 (item 5): the run config-list number per crown-pool candidate (same _cfgNoOf match
+      //   the chart legend labels use below) — filled in once the funnel builds its series, then
+      //   handed to selectionTableHtml so its CONFIG # column agrees with the chart, instead of
+      //   recomputing the match a second time (which could land on a different nearest slot).
+      let _cfgNoMap=null;
       if(selMode){const cand=SELN.candidates;
         // poolAll = the top-K WALK-FORWARD set (crown pool + display-only robust extras) — the
         //   configs that "warranted WF testing"; these continue past the in-sample door.
@@ -7673,7 +7725,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
                     //   walk-forward $ figure now rides along as `tip` instead, for the legend row
                     //   hover title, instead of being baked into the label text itself.
                     ts:_mkTs(base.length,li),params:c.params||null,tip:tip||'',
-                    blot:{date_from:_dF,date_to:(thru?_dEnd:_dOptEnd)}};};
+                    // v64.87 (item 1, owner: TRADES said no strategy had a saved run — only
+                    //   run-level series carried a blot before): every survivor now gets its OWN
+                    //   full blot payload, same field list the 1A chart uses, so TRADES can
+                    //   regenerate THIS config trades on demand. params is the CANDIDATE own
+                    //   params (not the run champion best_params); date_from/date_to/source stay
+                    //   pinned to the RUN values (not the validate sub-window) so the runner
+                    //   replays the same data the run itself used.
+                    blot:{run_id:d.id,instrument:d.instrument||'',timeframe:d.timeframe||'5m',
+                      session:d.session||'rth',strategy:d.strategy||'',params:c.params||null,
+                      cost_pts:(d.cost_pts!=null?d.cost_pts:5.66/mult),mult:mult,
+                      date_from:d.date_from||null,date_to:d.date_to||null,source:d.data_source||null,
+                      code:((typeof d.code_snapshot==='string'&&d.code_snapshot.length>100)?d.code_snapshot:null)}};};
           // walk-forward $ text (the number a survivor was actually crowned on) — now used ONLY
           //   as hover-tooltip text (CHANGE 3, v64.84); the always-visible label stays plain
           //   "config N" so it reads as a name, not a dashboard.
@@ -7718,6 +7781,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             //   and its config-list twin sit ~1-2% apart. Take the nearest unused slot within 4%.
             if(best>=0&&bestD<=Math.max(1e-6,Math.abs(want)*0.04)){_usedIdx.add(best);return best+1;}
             return null;};
+          _cfgNoMap=new Map();   // v64.87 (item 5): populated at each _cfgNoOf() call just below
           const _ser=[];let _hi=0;
           // order: crowned first, then the rest best-walk-forward-first
           const _rest=poolAll.filter(c=>c!==crownedC&&c!==isMaxC)
@@ -7730,11 +7794,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _cfgOthN=(isMaxC&&isMaxC!==crownedC?1:0)+_rest.length;let _cfgOthI=0;
           const _tealShade=()=>{const t=_cfgOthN>1?_cfgOthI/(_cfgOthN-1):0;_cfgOthI++;
             return 'hsl(161,'+Math.round(60-t*22)+'%,'+Math.round(52+t*28)+'%)';};
-          if(crownedC){const _n=_cfgNoOf(crownedC);
+          if(crownedC){const _n=_cfgNoOf(crownedC);_cfgNoMap.set(crownedC,_n);
             _ser.push(_mkSer(crownedC,'#1d9e75','👑 config '+(_n||'?'),'cfg'+(_n||'crown'),_wf$(crownedC)));}
-          if(isMaxC&&isMaxC!==crownedC){const _n=_cfgNoOf(isMaxC);
+          if(isMaxC&&isMaxC!==crownedC){const _n=_cfgNoOf(isMaxC);_cfgNoMap.set(isMaxC,_n);
             _ser.push(_mkSer(isMaxC,_tealShade(),'config '+(_n||'?')+' · in-sample best','cfg'+(_n||'ismax'),_wf$(isMaxC)));}
-          _rest.forEach(c=>{const _n=_cfgNoOf(c);_hi++;
+          _rest.forEach(c=>{const _n=_cfgNoOf(c);_cfgNoMap.set(c,_n);_hi++;
             _ser.push(_mkSer(c,_tealShade(),'config '+(_n||'?'),'cfg'+(_n||('x'+_hi)),_wf$(c)));});
           if(_hasGateO&&_gEqO&&Array.isArray(_gEqO.cum_gated)&&_gEqO.cum_gated.length>1)
             // the gate curve is indexed by TRADE ORDER, not time, so there is no real per-point
@@ -7749,8 +7813,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _ser.push({id:'gate',label:(function(){var _c=(d.gate_validate&&d.gate_validate.chosen)||null;
                          return _c?('🚪 '+String(_c.model||'gate')+' @ '+Math.round((+_c.threshold||0)*100)+'% · CHOSEN'):'🚪 gate-kept';})(),
                        color:'#e05fa0',eq:_gEqO.cum_gated.map(v=>v*mult),li:null,wfi:null,gateChosen:true,
-                       ts:_mkTsSpan(_gEqO.cum_gated.length,optFromMs,lbToMs),
-                       blot:{date_from:_dF,date_to:_dEnd}});
+                       // v64.87 (item 1): NO blot on the gate line — regenerating gated trades
+                       //   needs the ML model, which is not available client-side.
+                       ts:_mkTsSpan(_gEqO.cum_gated.length,optFromMs,lbToMs)});
           // v64.81 (owner, item 2): one extra series per ML-gate CANDIDATE (all 9 model x cutoff
           //   combos the engine bakes off, not just the one it chose) — see augur_engine/ml_gate.py
           //   gate_validate, which now saves a downsampled full-span gated equity curve on EVERY
@@ -7774,9 +7839,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 t=_gcOrder.length>1?_gi/(_gcOrder.length-1):0;
               _ser.push({id:'gc-'+_gcModel+'-'+_gcTh,label:'gate: '+_gcModel+' @ '+_gcTh+'%',
                          color:'hsl(330,'+Math.round(62-t*18)+'%,'+Math.round(30+t*24)+'%)',eq:gc.equity.cum.map(v=>v*mult),
-                         li:null,wfi:null,gateCand:true,
-                         ts:_mkTsSpan(gc.equity.cum.length,optFromMs,lbToMs),
-                         blot:{date_from:_dF,date_to:_dEnd}});
+                         li:null,wfi:null,gateCand:true,   // v64.87 (item 1): no blot — same reason
+                         ts:_mkTsSpan(gc.equity.cum.length,optFromMs,lbToMs)});
             });
           }catch(_gce){}
           // CHANGE 3 (v64.74, owner: bring back the grey cloud): every OTHER tested config, from
@@ -7920,7 +7984,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _selOpen=!!APREF.selDetail;
       // v64.25 (owner): the selection detail lives in its OWN subtile (was floating on the card).
       const _selHd='<div data-seldetail title="the funnel selection detail — crown-pool table + honesty notes. Click to '+(_selOpen?'collapse':'expand')+'." style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;font-weight:700;font-size:8.5px;color:var(--text3);letter-spacing:.3px">SELECTION DETAIL <span style="font-weight:400;color:var(--text5);font-size:8px">· crown pool + notes</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+(_selOpen?'▴ hide':'▾ show')+'</span></div>';
-      return _hdr+_body+'<div style="background:var(--bg1);border-radius:8px;padding:8px 11px;margin-top:9px">'+_selHd+(_selOpen?('<div style="margin-top:6px">'+selectionTableHtml(SELN,mult)+'</div>'):'')+'</div>';
+      return _hdr+_body+'<div style="background:var(--bg1);border-radius:8px;padding:8px 11px;margin-top:9px">'+_selHd+(_selOpen?('<div style="margin-top:6px">'+selectionTableHtml(SELN,mult,_cfgNoMap)+'</div>'):'')+'</div>';
     };
     // SCATTER — each tested config as a dot: chosen param (X) vs net PnL (Y). Shows
     // whether the edge is a smooth slope (robust) or random noise.
@@ -9245,9 +9309,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const $=v=>fmtUsd(Math.round((v||0)*mlt3));
         const ch=V.chosen,LB=V.lockbox;
         const cands=(V.candidates||[]).slice().sort((a,b)=>b.pre_rec-a.pre_rec);
+        // v64.87 (item 6, owner ask): rebuilt as a MATRIX — MODEL · CUT-OFF · TRADES KEPT · NET $ ·
+        //   MAX DD · PF · WIN % · RECOVERY — with a derived max-drawdown column (the engine does
+        //   not store per-candidate drawdown; recovery factor is $ made per $ of drawdown, so
+        //   drawdown = net $ ÷ recovery backs it out honestly, labelled "derived" in the header).
+        //   Already sorted by recovery best-first (cands, above); the chosen row gets a clear badge.
         const crow=c=>{const isCh=ch&&c.model===ch.model&&c.threshold===ch.threshold;
-          return '<tr'+(isCh?' style="color:var(--green)"':'')+'><td>'+(isCh?'▸ ':'')+c.model+'</td><td style="text-align:right">'+Math.round(c.threshold*100)+'%</td><td style="text-align:right">'+c.kept_pre+'</td><td style="text-align:right">'+$(c.pre_pnl)+'</td><td style="text-align:right">'+Math.round(c.pre_wr||0)+'%</td><td style="text-align:right">'+Math.min(c.pre_pf,99).toFixed(2)+'</td><td style="text-align:right">'+c.pre_rec.toFixed(2)+'</td></tr>';};
-        const ungRow='<tr style="color:var(--text3)"><td>— ungated</td><td style="text-align:right">—</td><td style="text-align:right">'+(V.ungated_pre&&V.ungated_pre.num_trades||0)+'</td><td style="text-align:right">'+$(V.ungated_pre&&V.ungated_pre.total_pnl)+'</td><td style="text-align:right">'+Math.round((V.ungated_pre&&V.ungated_pre.win_rate)||0)+'%</td><td style="text-align:right">'+Math.min((V.ungated_pre&&V.ungated_pre.profit_factor)||0,99).toFixed(2)+'</td><td style="text-align:right">'+(V.ungated_pre_rec!=null?V.ungated_pre_rec.toFixed(2):'—')+'</td></tr>';
+          const dd=c.pre_rec?(c.pre_pnl/c.pre_rec):null;
+          return '<tr'+(isCh?' style="color:var(--green);font-weight:700"':'')+'><td>'+(isCh?'▸ ':'')+c.model+(isCh?' <span style="font-size:7.5px;font-weight:700;letter-spacing:.5px;color:var(--green);border:1px solid var(--green);border-radius:4px;padding:0 4px;margin-left:4px">CHOSEN</span>':'')+'</td><td style="text-align:right">'+Math.round(c.threshold*100)+'%</td><td style="text-align:right">'+c.kept_pre+'</td><td style="text-align:right">'+$(c.pre_pnl)+'</td><td style="text-align:right;color:var(--text4)">'+(dd!=null?$(dd):'—')+'</td><td style="text-align:right">'+Math.min(c.pre_pf,99).toFixed(2)+'</td><td style="text-align:right">'+Math.round(c.pre_wr||0)+'%</td><td style="text-align:right">'+c.pre_rec.toFixed(2)+'</td></tr>';};
+        const _ungDD=V.ungated_pre_rec?(((V.ungated_pre&&V.ungated_pre.total_pnl)||0)/V.ungated_pre_rec):null;
+        const ungRow='<tr style="color:var(--text3)"><td>no gate</td><td style="text-align:right">—</td><td style="text-align:right">'+(V.ungated_pre&&V.ungated_pre.num_trades||0)+'</td><td style="text-align:right">'+$(V.ungated_pre&&V.ungated_pre.total_pnl)+'</td><td style="text-align:right">'+(_ungDD!=null?$(_ungDD):'—')+'</td><td style="text-align:right">'+Math.min((V.ungated_pre&&V.ungated_pre.profit_factor)||0,99).toFixed(2)+'</td><td style="text-align:right">'+Math.round((V.ungated_pre&&V.ungated_pre.win_rate)||0)+'%</td><td style="text-align:right">'+(V.ungated_pre_rec!=null?V.ungated_pre_rec.toFixed(2):'—')+'</td></tr>';
         const consHtml=V.consistency?('<span title="the pre-lockbox (tuning) period is split into '+V.consistency.windows+' equal chronological windows; this counts how many of them the GATED profit factor was at least as high as ungated. A gate that only helps overall but fails in most windows is fragile.">held <b>'+V.consistency.held+'/'+V.consistency.windows+'</b> pre-lockbox windows (gated PF ≥ ungated) ⓘ</span>'):'';
         let lbHtml='';
         if(LB){lbHtml='<div class="lbl" style="margin:12px 0 6px">🔒 THE ONE LOOK — LOCKBOX SINCE '+(V.lockbox_from||'')+'</div>'
@@ -9290,7 +9361,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           head:'<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>',
           intro:'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+V.n_candidates+' candidates (model × cut-off) ranked on PRE-lockbox data only, by recovery factor ($ made per $ of drawdown — the equal-risk yardstick, since a gate always trades less). The winner gets exactly one look at the lockbox; losing candidates\' lockbox results are never computed — no shopping.</div>',
           graph:_bakeGraph,
-          table:'<div style="overflow-x:auto"><table class="table"><thead><tr><th>GATE</th><th style="text-align:right">CUT-OFF</th><th style="text-align:right">KEPT</th><th style="text-align:right">PRE-LOCKBOX $</th><th style="text-align:right">WR</th><th style="text-align:right">PF</th><th style="text-align:right">REC</th></tr></thead><tbody>'+ungRow+cands.map(crow).join('')+'</tbody></table></div>',
+          table:'<div style="overflow-x:auto"><div style="font-size:7.5px;color:var(--text5);margin-bottom:3px">ALL rows below are PRE-LOCKBOX (the tuning slice, sorted by recovery, best first) — only the CHOSEN row above ever gets evaluated against the lockbox.</div><table class="table"><thead><tr><th>MODEL</th><th style="text-align:right">CUT-OFF</th><th style="text-align:right">TRADES KEPT</th><th style="text-align:right">NET $</th><th style="text-align:right" title="derived: net $ divided by recovery factor (recovery = profit per $ of drawdown) - the engine does not store a max-drawdown figure per candidate directly, so this is calculated from the two it does store">MAX DD (derived)</th><th style="text-align:right">PF</th><th style="text-align:right">WIN %</th><th style="text-align:right">RECOVERY</th></tr></thead><tbody>'+ungRow+cands.map(crow).join('')+'</tbody></table></div>',
           earns:'<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3);margin-top:8px"><span>gate earns pre-lockbox: <b style="color:'+(V.gate_earns_pre?'var(--green)':'var(--yellow)')+'">'+(V.gate_earns_pre?'YES':'NO')+'</b></span>'+consHtml+'</div>',
           lockbox:lbHtml,
           verdict:'<div style="font-size:var(--fsxs);color:'+(LB?(LB.helped?'var(--green)':'var(--red)'):'var(--yellow)')+';margin-top:8px">'+(V.verdict||'')+'</div>'};};
