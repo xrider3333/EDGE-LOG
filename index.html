@@ -301,16 +301,26 @@ button{cursor:pointer;font-family:'JetBrains Mono',monospace;border:none;transit
    from the COLUMNS control next to REPORT LAYOUT. Only the CLASSIC report's [data-colskey]
    tile groups respond (today: Strategy Performance + Configuration Analysis; any future group
    inherits this free) -- DASHBOARD/FUNNEL/GAUGES/PILLS build their own grids and never emit a
-   data-colskey wrapper, so they are unaffected. 2x2/1 switch a group from the flex-plus-
-   splitters layout to a plain CSS grid; the width splitters and per-column collapse chips are
-   meaningless once a grid owns the widths, so both are hidden (runDetail already renders full
-   tile content in those modes -- see the _isCl gate -- nothing is lost, only the now-inert
-   controls disappear). !important is required throughout: tile widths/flex-basis are inline
-   styles (persisted drag ratios), which otherwise beat a plain stylesheet rule. */
-#res-detail[data-repcols="2"] [data-colskey]{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
+   data-colskey wrapper, so they are unaffected. 1-col switches a group from the flex-plus-
+   splitters layout to a plain CSS grid (nothing left to divide, so the width splitters and the
+   per-column collapse chips are hidden -- runDetail already renders full tile content there --
+   see the _isCl gate -- nothing is lost, only the now-inert controls disappear).
+   2x2 (owner ask, v64.90) STAYS the flex row -- a CSS grid ignores the inline flex-basis the
+   drag handler writes, so dragging would silently do nothing under grid. [data-colskey]'s
+   children always alternate tile/splitter/tile/splitter/tile, so counting from the first
+   splitter, every 4th one (nth-child(4n)) is the one that would otherwise bridge two DIFFERENT
+   rows once tiles wrap two-per-line; giving just that splitter a 100%-wide, zero-height basis
+   forces the line break there regardless of window width, while the splitter BETWEEN the two
+   tiles that share a row (nth-child(4n+2)) is left completely alone -- same size, same drag
+   handler, same APREF persistence the 3-col splitters use. !important is required throughout:
+   tile widths/flex-basis are inline styles (persisted drag ratios), which otherwise beat a
+   plain stylesheet rule. */
+#res-detail[data-repcols="2"] [data-colskey] [data-vsplit]:nth-child(4n){flex:1 0 100%!important;height:0!important;min-height:0!important;overflow:hidden!important;pointer-events:none!important}
+#res-detail[data-repcols="2"] [data-colskey] [data-vsplit]:nth-child(4n) *{display:none!important}
+#res-detail[data-repcols="2"] [data-colskey] [data-s2cl]{display:none!important}
 #res-detail[data-repcols="1"] [data-colskey]{display:grid!important;grid-template-columns:1fr!important;gap:12px!important}
-#res-detail[data-repcols="2"] [data-colskey] [data-s1col],#res-detail[data-repcols="1"] [data-colskey] [data-s1col]{flex:none!important;min-width:0!important;max-width:none!important;width:100%!important}
-#res-detail[data-repcols="2"] [data-colskey] [data-vsplit],#res-detail[data-repcols="1"] [data-colskey] [data-vsplit],#res-detail[data-repcols="2"] [data-colskey] [data-s2cl],#res-detail[data-repcols="1"] [data-colskey] [data-s2cl]{display:none!important}
+#res-detail[data-repcols="1"] [data-colskey] [data-s1col]{flex:none!important;min-width:0!important;max-width:none!important;width:100%!important}
+#res-detail[data-repcols="1"] [data-colskey] [data-vsplit],#res-detail[data-repcols="1"] [data-colskey] [data-s2cl]{display:none!important}
 /* Narrow-viewport safety net: forces the SAME 1-col grid regardless of data-repcols, so a live
    window resize (with no app re-render in between, so the attribute value can be stale) still
    stacks correctly. [data-repcols] (attribute-exists) matches the same specificity as
@@ -432,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.89';
+const VERSION='64.90';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.90', date:'2026-07-29', notes:['Configuration Analysis section: CONFIGS · RAW now has its own bordered tile (it used to render as a bare table hanging under the funnel chart above it) — the funnel, the raw configs and the ML gate filter now read as three separate tiles in a row, the same way they render everywhere else in this report.','Both CONFIGS · RAW and CONFIGS · ML GATE FILTER now lead with a side-by-side matrix in the same style as the KPI MATRIX in Strategy Performance — one column per config or gate variant, with the crowned or chosen one highlighted, and the numbers grouped into return, drawdown, reward-versus-risk and sample sections; for CONFIGS · RAW the knobs that differ between configs are now their own rows, so the differences line up straight across. The ML gate matrix shows immediately now instead of being hidden behind the collapsed HOW IT WAS CHOSEN section. Both matrices scroll sideways inside their own box when there are many columns, with the metric names staying put on the left.','The COLUMNS control drag handles for resizing tile widths now keep working in the 2x2 layout (each row of two tiles can still be resized against each other), not just in the 3-across layout; the 1-column layout still has nothing to resize, so its handles stay hidden there.']},
   {v:'64.89', date:'2026-07-29', notes:['NEW: a COLUMNS control sits next to REPORT LAYOUT at the top of a run report — pick 3 (the current side-by-side default), 2×2 (two tiles per row) or 1 (every tile stacked full width), useful on a narrower laptop screen. It applies everywhere the report lays out multiple tiles side by side, not just one section. Below roughly 700 pixels wide the report always shows as a single stacked column regardless of the pick, and the width-drag bars and per-column collapse arrows — meaningless once a tile fills the whole row — step aside in 2×2 and 1 (they return in 3).','The CONFIGS · RAW table in Configuration Analysis now fills in MAX DD and MAR for every row, worked out from the equity curve saved for each config instead of showing a dash. The PF and WIN % columns are gone — they genuinely cannot be worked out from a curve alone, so a column of permanent dashes was removed rather than kept.']},
   {v:'64.88', date:'2026-07-29', notes:['Reorganised the CONFIGURATION ANALYSIS section of the run report: every tile now reads A through K in one consistent order, with two new tiles — a plain table of the raw crown-pool configs (promoted out of the funnel chart) and a renamed, relettered ML gate-filter tile.','The gate before/after numbers and its candidates table now each carry a clear coloured label naming which time period they measure (the held-out lockbox year vs the multi-year selection window), so the two can no longer read as a contradiction.','Long explanatory paragraphs moved into the small info icons, leaving at most one short line on screen per tile.','Each of the three columns in this section can now be collapsed to a narrow strip and restored, to make room for whichever one you are reading.']},
   {v:'64.87', date:'2026-07-29', notes:['The fullscreen equity explorer TRADES button now works for each of the coloured survivor configs on the config chart - click it to pull the trade list for that specific config. The grey cloud and ML-gate lines still cannot be regenerated (that needs the model, which only runs on the server), and now say so plainly instead of a confusing error.','Explorer legend: the small expand arrow on each group is now a bigger, obvious button; the old line-style key (in-sample / walk-forward / lockbox dashes) at the bottom is gone; and the two separate info icons merged into one.','Explorer: the long list of every line value at the top on mouse-hover is gone - each line still shows its own value next to its name in the legend.','Explorer header buttons are now grouped left to right by purpose (view controls, then params and trades, then reset and close) with small dividers between them, instead of scattered in one row.','The SELECTION DETAIL table under the config chart now sorts by walk-forward result - the number that actually decides both the crown and the lockbox carry-through - with clear WALK-FORWARD RANK and CONFIG NUMBER columns and a note explaining the sort.','The ML gate candidates table is now a full side-by-side matrix (model, cut-off, trades kept, net dollars, a derived max-drawdown figure, profit factor, win rate, recovery) with the chosen candidate clearly marked and the whole table labelled pre-lockbox.']},
@@ -7513,6 +7524,30 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //   with the standard _numHdr the same way every other §2 tile is headed. Reads like the
     //   1E KPI matrix now (a real <table>, no prose rows) with 4 extra columns (MAX DD / PF /
     //   WIN % / MAR) pulled from whatever the candidate actually stored — never estimated.
+    // ── SHARED MATRIX SHELL (owner redesign, item 2): the SAME grouped-rows / entity-columns
+    //    visual language as the 1E KPI MATRIX -- small uppercase group captions, metric names
+    //    down the LEFT (pinned/sticky on horizontal scroll), entities across the TOP, tabular-
+    //    numeric right-aligned cells, an emphasised (green-tinted) column for whichever entity
+    //    is crowned / chosen. Feeds the 2B CONFIGS RAW and 2C ML GATE FILTER matrices so the
+    //    three read as one family. cols: [{lbl,sub?,col?,emph?,tip?, ...caller data}]. groups:
+    //    [{name, rows:[{lbl, top?, cell:(col)=>html}]}].
+    const _mtxEmph=';border-left:2px solid color-mix(in srgb,var(--green) 55%,transparent);background:color-mix(in srgb,var(--green) 9%,transparent)';
+    const _matrixTbl=(cols,groups)=>{
+      const _ncol=cols.length+1,_stick='position:sticky;left:0;z-index:1;';
+      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:4px 6px;vertical-align:bottom;'+_stick+'background:var(--bg2)">METRIC</th>'
+        +cols.map(c=>'<th'+(c.tip?' title="'+c.tip+'"':'')+' style="text-align:right;padding:4px 6px;white-space:nowrap;'+(c.tip?'cursor:help;':'')+'vertical-align:bottom;color:'+(c.col||'var(--text2)')+(c.emph?';font-weight:800':';font-weight:700')+(c.emph?_mtxEmph:'')+'">'+c.lbl+(c.sub?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+c.sub+'</div>':'')+'</th>').join('')+'</tr>';
+      const body=groups.map(g=>{
+        const grpRow='<tr><td colspan="'+_ncol+'" style="padding:9px 6px 2px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+g.name+'</td></tr>';
+        const rows=g.rows.map(r=>{
+          const rowBg=r.top?'color-mix(in srgb,var(--border) 10%,transparent)':'var(--bg2)';
+          const bTop='border-top:1px solid color-mix(in srgb,var(--border) '+(r.top?'70%':'40%')+',transparent);';
+          return '<tr>'
+            +'<td style="'+bTop+'padding:5px 6px;font-size:var(--fsxs);color:var(--text2);font-weight:'+(r.top?'700':'400')+';white-space:nowrap;'+_stick+'background:'+rowBg+'">'+r.lbl+'</td>'
+            +cols.map(c=>'<td style="'+bTop+'padding:5px 6px;text-align:right;white-space:nowrap;background:'+rowBg+(c.emph?_mtxEmph:'')+'">'+r.cell(c)+'</td>').join('')
+            +'</tr>';}).join('');
+        return grpRow+rows;}).join('');
+      return '<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 4px;overflow-x:auto;max-width:100%"><table class="table" style="width:100%;font-size:var(--fsxs);border-collapse:collapse"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
+    };
     const selectionTableHtml=(sel,mlt,cfgNoMap)=>{
       if(!sel||!Array.isArray(sel.candidates)||!sel.candidates.length)return null;
       const cand=sel.candidates;
@@ -7520,6 +7555,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const isMaxC=cand[isMaxI];
       const pk=Object.keys(cand[0].params||{});
       const vary=pk.filter(k2=>{const s=new Set(cand.map(c=>String((c.params||{})[k2])));return s.size>1;});
+      const knobKeys=vary.length?vary:pk.slice(0,3);
       // sort by WALK-FORWARD result (best first) — the crown AND the lockbox carry-through are
       //   both decided by walk-forward, not the pool/search order candidates arrive in.
       const sorted=cand.slice().sort((a,b)=>((b&&b.wf_oos_pnl)||0)-((a&&a.wf_oos_pnl)||0));
@@ -7533,8 +7569,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _ddFromCum=arr=>{if(!Array.isArray(arr)||!arr.length)return null;let peak=0,dd=0;
         for(let i=0;i<arr.length;i++){const v=+arr[i]||0;if(v>peak)peak=v;const d=peak-v;if(d>dd)dd=d;}
         return dd;};
-      const rows=sorted.map((c,i)=>{const crowned=!!c.crowned,ismax=(c===isMaxC);
-        const cfg=(vary.length?vary:pk.slice(0,3)).map(k2=>k2+' <b>'+String((c.params||{})[k2])+'</b>').join(' · ');
+      // one data record per candidate (was one <tr> string before the transpose below) — same
+      //   per-candidate math the old row table used, just fed into columns instead of rows.
+      const recs=sorted.map((c,i)=>{const crowned=!!c.crowned,ismax=(c===isMaxC);
         // CONFIG # reuses the SAME chart-legend match (cfgNoMap, built once in topEqOverlayHtml)
         //   instead of recomputing it here — recomputing independently could land a close-value
         //   match on a different slot and disagree with the chart. No match saved (older run, or
@@ -7554,25 +7591,36 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   mattered, not the in-sample score.
         const mar=(mdd!=null&&mdd>1e-9&&wfV!=null&&isFinite(wfV))?(wfV/mdd):null;
         const rankTip='rank '+(i+1)+' of '+sorted.length+' by walk-forward result'+(crowned?' - CROWNED (the walk-forward winner)':'')+(ismax?' - also the in-sample maximum (best pre-registered search score)':'');
-        return '<tr'+(crowned?' style="color:var(--green);font-weight:700"':'')+'>'
-          +'<td title="'+rankTip+'">'+(i+1)+(crowned?' 👑':'')+(ismax?' ▲':'')+'</td>'
-          +'<td style="color:var(--text4)" title="this config position in the run full tested-config list - matches the number on the 2A chart legend">'+(cfgNo?('#'+cfgNo):'—')+'</td>'
-          +'<td style="color:var(--text3);font-weight:400">'+cfg+'</td>'
-          +'<td style="text-align:right" title="what the SEARCH scored this config in-sample (its scoring window)">'+(isV!=null?fmtUsd(Math.round(isV)):'—')+'</td>'
-          +'<td style="text-align:right;font-weight:700" title="summed PnL across the anchored walk-forward folds UNSEEN slices - the number that decides the crown">'+(wfV!=null?fmtUsd(Math.round(wfV)):'—')+'</td>'
-          +'<td style="text-align:right" title="this config carried forward THROUGH the lockbox (top-3 only) - shown after the crown was set, never used to pick it">'+(lbV!=null?fmtUsd(Math.round(lbV)):'—')+'</td>'
-          +'<td style="text-align:right">'+(mdd!=null?fmtUsd(Math.round(mdd)):'—')+'</td>'
-          +'<td style="text-align:right">'+(mar!=null?mar.toFixed(2):'—')+'</td>'
-          +'</tr>';}).join('');
-      const hdr='<thead><tr><th title="rank among the walk-forward survivors, best first">WF RANK</th><th title="this config number in the run full tested-config list, same numbering the chart legend uses">CONFIG #</th><th>KNOBS THAT DIFFER</th><th style="text-align:right">IS $</th><th style="text-align:right">WF $</th><th style="text-align:right">LB $</th><th style="text-align:right" title="DERIVED from the equity curve for this config — the largest peak-to-trough drop, in dollars (not a stored metric; the running peak starts at 0 so a curve already underwater at its first point still reports honestly)">MAX DD</th><th style="text-align:right" title="DERIVED: walk-forward $ divided by that same derived MAX DD. PF and win rate are not shown here — a cumulative equity curve alone cannot honestly derive them (that needs per-trade data this table does not have)">MAR</th></tr></thead>';
-      const table='<div style="overflow-x:auto"><table class="table">'+hdr+'<tbody>'+rows+'</tbody></table></div>';
+        return {params:c.params||{},rank:i+1,crowned,ismax,cfgNo,isV,wfV,lbV,mdd,mar,rankTip};});
+      // ── TRANSPOSED MATRIX (owner redesign, item 2): 1E-style — one COLUMN per crown-pool
+      //    config (headed by its walk-forward rank + config #, crowned column emphasised),
+      //    metrics grouped as ROWS. Replaces the old one-row-per-config table; the knobs-that-
+      //    differ rows are the most useful read now — differences line up straight across.
+      const cols=recs.map(rc=>Object.assign({
+        lbl:(rc.crowned?'👑 ':'')+'WF'+rc.rank+' · '+(rc.cfgNo?('#'+rc.cfgNo):'—'),
+        sub:rc.crowned?'CROWNED':(rc.ismax?'IS MAX':''),
+        col:rc.crowned?'var(--green)':(rc.ismax?'#3a9bdc':'var(--text2)'),
+        emph:rc.crowned,tip:rc.rankTip},rc));
+      const _usd=v=>v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>'):'<span style="color:var(--text5)">—</span>';
+      const groups=[
+        {name:'return',rows:[
+          {lbl:'IS $',cell:col=>_usd(col.isV)},
+          {lbl:'WF $',top:true,cell:col=>_usd(col.wfV)},
+          {lbl:'LB $',cell:col=>_usd(col.lbV)}]},
+        {name:'drawdown',rows:[
+          {lbl:'MAX DD',cell:col=>col.mdd!=null?('<span style="color:#e24b4a">-'+fmtUsd(Math.round(col.mdd))+'</span>'):'<span style="color:var(--text5)">—</span>'}]},
+        {name:'reward ÷ risk',rows:[
+          {lbl:'MAR',cell:col=>col.mar!=null?('<span style="color:var(--text2)">'+col.mar.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'}]},
+        {name:'config',rows:knobKeys.map(k2=>({lbl:_pp(k2),cell:col=>'<b style="color:var(--text2)">'+String((col.params||{})[k2])+'</b>'}))}
+      ];
+      const table=_matrixTbl(cols,groups);
       // honesty notes + the crown/robustness paragraph + the funnel-path caption — all relocated
       //   into this tile's info icon (item 4: at most one short line stays on screen).
       const hasLB=cand.some(c=>c.lb_equity&&c.lb_equity.final!=null);
       const crownNote=(sel.is_max_crowned===false)?'⚖️ The in-sample MAX was NOT crowned — the walk-forward folds preferred a steadier config (the selection guard doing its job).':'✓ The in-sample max ALSO won the walk-forward arbitration — search pick and out-of-sample evidence agree.';
-      const cloudNote='This table is the numeric twin of the 2A funnel chart above: the funnel’s grey cloud is every top config drawn only to the in-sample door; the rows here are the configs that warranted walk-forward testing (continuing past that door) — 👑 = crowned, ▲ = in-sample max.';
+      const cloudNote='This matrix is the numeric twin of the 2A funnel chart above: the funnel’s grey cloud is every top config drawn only to the in-sample door; the columns here are the configs that warranted walk-forward testing (continuing past that door) — 👑 = crowned, each header also names this config’s number in the run’s full tested-config list.';
       const lbNote=hasLB?'🚪 Past the lockbox door, only the top-3 by walk-forward carry an LB $ — shown after the crown was already set, never used to pick it.':'Re-run this validate on the current engine to populate LB $ (carries the top-3 through the lockbox holdout).';
-      const rankNote='Sorted by WALK-FORWARD result, best first — the crown and the LB $ carry-through are both decided by walk-forward, not by IS $.';
+      const rankNote='Columns are ordered by WALK-FORWARD result, best first — the crown and the LB $ carry-through are both decided by walk-forward, not by IS $. The CONFIG rows show only the knobs that differ across these configs, so differences read straight across the row.';
       const tip='<div style="color:var(--text2)">'+crownNote+'<br><br>'+cloudNote+'<br><br>'+lbNote+'<br><br>'+rankNote+'</div>';
       const sub=sorted.length+' crown-pool config'+(sorted.length===1?'':'s')+' · sorted by walk-forward rank';
       return {table:table,tip:tip,sub:sub};};
@@ -9435,9 +9483,43 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<div style="background:var(--bg1);border-radius:8px;padding:8px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+xl+'</svg></div>'
             +'<div style="text-align:center;font-size:8px;margin-top:3px">'+legend+'</div>'
             +'</div>';})();
+        // ── TRANSPOSED MATRIX (owner redesign, item 2): 1E-style — one COLUMN per gate variant
+        //    (a NO GATE baseline first, then every model × cut-off candidate ordered by
+        //    recovery, chosen column crowned + emphasised), metrics grouped as ROWS. Shown FIRST
+        //    in the 2C tile, ahead of the before/after hero cards and the sweep-chart evidence
+        //    that used to bury it behind the collapsed HOW IT WAS CHOSEN expander.
+        const _isChosen=cd=>!!(ch&&cd.model===ch.model&&Math.abs((cd.threshold||0)-(ch.threshold||0))<1e-6);
+        const _gCols=[{
+          lbl:'NO GATE',sub:'baseline',col:'var(--text3)',emph:false,
+          tip:'every trade, no ML filter — the baseline the gate has to beat',
+          net:(V.ungated_pre&&V.ungated_pre.total_pnl!=null)?V.ungated_pre.total_pnl:null,
+          dd:_ungDD!=null?Math.abs(_ungDD):null,
+          pf:(V.ungated_pre&&V.ungated_pre.profit_factor!=null)?V.ungated_pre.profit_factor:null,
+          wr:(V.ungated_pre&&V.ungated_pre.win_rate!=null)?V.ungated_pre.win_rate:null,
+          rec:V.ungated_pre_rec!=null?V.ungated_pre_rec:null,
+          kept:(V.ungated_pre&&V.ungated_pre.num_trades!=null)?V.ungated_pre.num_trades:null
+        }].concat(cands.map(cd=>{const isCh=_isChosen(cd);
+          return {lbl:(isCh?'👑 ':'')+String(cd.model||'').toUpperCase()+' '+Math.round((cd.threshold||0)*100)+'%',
+            sub:isCh?'CHOSEN':'',col:isCh?'var(--green)':'var(--text2)',emph:isCh,
+            tip:cd.model+' @ '+Math.round((cd.threshold||0)*100)+'% cut-off'+(isCh?' — CHOSEN, gets the one lockbox look':'')+(cd.eligible===false?' · ineligible (too few kept)':''),
+            net:cd.pre_pnl!=null?cd.pre_pnl:null,
+            dd:cd.pre_rec?Math.abs(cd.pre_pnl/cd.pre_rec):null,
+            pf:cd.pre_pf,wr:cd.pre_wr,rec:cd.pre_rec,kept:cd.kept_pre};}));
+        const _gGroups=[
+          {name:'return',rows:[{lbl:'NET $',top:true,cell:col=>col.net!=null?('<span style="font-weight:700;color:'+(col.net>=0?'#1d9e75':'#e24b4a')+'">'+$(col.net)+'</span>'):'<span style="color:var(--text5)">—</span>'}]},
+          {name:'drawdown',rows:[{lbl:'MAX DD (derived)',cell:col=>col.dd!=null?('<span style="color:#e24b4a">-'+$(col.dd)+'</span>'):'<span style="color:var(--text5)">—</span>'}]},
+          {name:'reward ÷ risk',rows:[{lbl:'RECOVERY',cell:col=>col.rec!=null?('<span style="color:var(--text2)">'+col.rec.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'}]},
+          {name:'edge & profile',rows:[
+            {lbl:'PF',cell:col=>col.pf!=null?('<span style="color:'+(col.pf>=1?'var(--text)':'var(--red)')+'">'+Math.min(col.pf,99).toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'},
+            {lbl:'WIN %',cell:col=>col.wr!=null?('<span style="color:var(--text2)">'+Math.round(col.wr)+'%</span>'):'<span style="color:var(--text5)">—</span>'}]},
+          {name:'sample',rows:[{lbl:'TRADES KEPT',cell:col=>col.kept!=null?('<span style="color:var(--text3)">'+(+col.kept).toLocaleString()+'</span>'):'<span style="color:var(--text5)">—</span>'}]}
+        ];
+        const _gMatrix='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'+_pdChip('PRE-LOCKBOX (selection period)','#60a5fa')+'<span style="font-size:7.5px;color:var(--text5)">'+cands.length+' model × cut-off candidates, sorted by recovery — only the 👑 CHOSEN column ever sees the lockbox'+_infoIc('<div style="color:var(--text2)">'+V.n_candidates+' candidates (model × cut-off), all scored on the PRE-lockbox tuning slice only, ranked by recovery factor ($ made per $ of drawdown). MAX DD is derived (net ÷ recovery) — the engine does not store a max-drawdown figure per candidate directly. The winner gets exactly one look at the lockbox; losing candidates’ lockbox results are never computed — no shopping.</div>')+'</span></div>'
+          +_matrixTbl(_gCols,_gGroups);
         return {V:V,LB:LB,ch:ch,
           head:'<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>',
           intro:'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+V.n_candidates+' candidates ranked pre-lockbox by recovery factor ($ per $ of drawdown). The winner gets exactly one lockbox look — no shopping.</div>',
+          matrix:_gMatrix,
           graph:_bakeGraph,
           // item 3 (owner-reported bug): every row here is PRE-LOCKBOX (the ~15yr selection
           //   period) — a DIFFERENT window than the before/after cards above (the lockbox held-
@@ -10169,7 +10251,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   the funnel's own chart-legend match (_eqSink.cfgNoMap), so it alone falls back to a
       //   dash when 2A did not run.
       const _selParts=selectionTableHtml(d.selection,mlt,_eqSink.cfgNoMap);
-      const _rawInner=_selParts?(_numHdr(_cfgN+'B','CONFIGS · RAW',_selParts.tip,_selParts.sub)+_selParts.table):'';
+      // v64.90 (item 1, owner-reported bug): 2B now gets its OWN bordered tile — the exact same
+      //   chrome _colStyle gives 2C below it (background / border / radius / padding / resize
+      //   handle) — instead of rendering as a bare header + table hanging under 2A's card. The
+      //   literal style string is duplicated here (not a _colStyle reference) because _colStyle
+      //   itself is declared further down this function and would not exist yet at this point.
+      const _rawInner=_selParts?('<div style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:12px 14px;box-sizing:border-box;overflow:auto;resize:vertical;min-height:52px;max-height:900px">'+_numHdr(_cfgN+'B','CONFIGS · RAW',_selParts.tip,_selParts.sub)+_selParts.table+'</div>'):'';
       // v64.31 (owner): 4B histograms the LARGEST saved population — on pre-v64.30 docs the
       //   points array (171 configs on #173) beats the old 73-config dist sample; on v64.30+
       //   docs dist already holds every evaluated config.
@@ -10460,11 +10547,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _evTile=(tog,open,inner)=>'<div style="background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:7px 10px;margin-top:8px">'+tog+(open?inner:'')+'</div>';
         if(_gvP){
           const _pickLine='<div style="font-size:var(--fsxs);color:var(--text3);margin-bottom:4px">chosen: <b style="color:var(--green)">'+(_gvP.ch?('▸ '+_gvP.ch.model+' @ '+Math.round(_gvP.ch.threshold*100)+'%'):'—')+'</b> <span style="color:var(--text5)">— best recovery of '+(_gvP.V.n_candidates||'')+' model × cut-off candidates</span></div>';
-          const _evTog='<div data-r3ev title="the recovery-vs-cut-off sweep chart and the full candidates table — how the winner was picked on pre-lockbox data. Click to '+(_evOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">'+(_evOpen?'▴ hide how it was chosen':'▾ HOW IT WAS CHOSEN — sweep chart + candidates ⓘ')+'</div>';
+          const _evTog='<div data-r3ev title="the recovery-vs-cut-off sweep chart behind the matrix above — how the winner was picked on pre-lockbox data. Click to '+(_evOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">'+(_evOpen?'▴ hide the sweep chart':'▾ HOW IT WAS CHOSEN — sweep chart ⓘ')+'</div>';
           // v64.43 (owner): _gvP.verdict dropped here — it repeated the LOCKBOX-FAILED chip.
           // v64.52 (owner): the gate EQUITY graph (_ovlNote) is dropped here — it is now overlaid
           //   ON the 2A funnel (crowned = ungated, pink = gated), so a second copy is redundant.
-          _gBody=_hero+_epViz+_gc2j+_pickLine+_gvP.earns+_evTile(_evTog,_evOpen,('<div data-r3graph style="max-width:540px;margin-top:8px"><style>[data-r3graph] .rschart-box{height:174px!important;resize:none}</style>'+_gvP.graph+'</div>'+_gvP.table));
+          // v64.90 (item 2, owner redesign): the MODEL × CUT-OFF matrix now leads the tile (was
+          //   buried behind this same collapsed expander as a one-row-per-candidate table) — the
+          //   old row table is dropped here (the matrix replaces it); only the sweep chart stays
+          //   collapsed as supporting evidence.
+          _gBody=(_gvP.matrix||'')+_hero+_epViz+_gc2j+_pickLine+_gvP.earns+_evTile(_evTog,_evOpen,('<div data-r3graph style="max-width:540px;margin-top:8px"><style>[data-r3graph] .rschart-box{height:174px!important;resize:none}</style>'+_gvP.graph+'</div>'));
         }else{
           const _evTog='<div data-r3ev title="the full gate report — before/after table, feature attribution (SHAP), calibration and discrimination. Click to '+(_evOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">'+(_evOpen?'▴ hide the full gate detail':'▾ FULL GATE DETAIL — feature attribution · calibration ⓘ')+'</div>';
           _gBody=_hero+_epViz+_gc2j+_evTile(_evTog,_evOpen,('<div style="margin-top:8px">'+gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt)+'</div>'));
@@ -10547,7 +10638,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +_layBtn('funnel','FUNNEL β','PREVIEW — the same panels regrouped into 5 questions: performance and validation → config robustness → what drives the edge → enhancements → is the edge real. Nothing is deleted; flip back any time.')
         +_layBtn('gauges','GAUGES β','PREVIEW — the car-dashboard read: every KPI as a compact gauge (red / yellow / green zones, needle on the value, number underneath) in 4 sections: strategy performance · strategy robustness · param influence · param robustness. Tap a gauge to unfold its full chart. Nothing is deleted; flip back any time.')
         +_layBtn('pills','PILLS β','PREVIEW — same section breakdown, but each 0-1 / $ metric is a horizontal PILL gauged to 100% (zone bands + a value tick) instead of a dial. The 1A-1D charts, the 1E matrix and the 1G/1H distributions stay as real graphs under Strategy Performance. Based on the classic view; flip back any time.')
-        +_colDiv+'<span style="font-size:8px;letter-spacing:1px;color:var(--text5)" title="how many tiles sit side by side in the CLASSIC report multi-column sections. 2x2 and 1 also drop the width splitters and per-column collapse chips there (nothing left to split or collapse once a grid owns the widths). Under roughly 700px wide this always renders as 1, regardless of the pick here.">COLUMNS</span>'
+        +_colDiv+'<span style="font-size:8px;letter-spacing:1px;color:var(--text5)" title="how many tiles sit side by side in the CLASSIC report multi-column sections. The drag splitter between each pair of tiles still works in 2x2 (widths persist the same way as in 3); 1-COL drops the splitters and the per-column collapse chips — nothing left to split or collapse once every tile is full width. Under roughly 700px wide this always renders as 1, regardless of the pick here.">COLUMNS</span>'
         +_colBtn('3','3','three tiles across, side by side — the default on a wide screen')
         +_colBtn('2','2×2','tiles flow two per row — more width per tile on a laptop screen')
         +_colBtn('1','1','every tile full width, stacked top to bottom — best on a narrow window')
