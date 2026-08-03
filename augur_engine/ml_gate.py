@@ -204,6 +204,7 @@ def gate_trades(arrays, trades, model="logistic", threshold=0.50,
         "trades": kept,
         "stats": after,
         "keep": keep.copy(),          # top level only — never persisted, unlike summary
+        "prob": prob.copy(),          # top level only — the cut-off sweep reuses these
         "summary": {
             "model": str(model),
             "model_impl": getattr(mdl, "_gate_impl", str(model)),
@@ -350,12 +351,15 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
 
     cands = []
     lb_secret = {}                                         # lockbox stats stay HERE
+    model_prob = {}                                        # one prob array per model (v66.0 sweep)
     for m in gates:
         for th in thresholds:
             g = gate_trades(arrays, T, model=m, threshold=th,
                             min_history=min_history, refit_every=refit_every,
                             seed=seed, feats=feats)
             kept = g["trades"]
+            if m not in model_prob and g.get("prob") is not None:
+                model_prob[m] = np.asarray(g["prob"], float)
             k_ts = np.array([idx[min(t[0], nb - 1)] for t in kept])
             k_p = np.array([t[2] for t in kept], float)
             pre = _slice_stats(k_ts, k_p, None, lb_start)
@@ -421,6 +425,36 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
         "gate_earns_pre": gate_earns,
         "chosen": None, "lockbox": None,
     }
+    # ── CUT-OFF SWEEP (v66.0, owner: "where is the plateau?") — reporting only. ──────────
+    #   A model's win-probability scores do NOT depend on the cut-off (training never sees the
+    #   keep/skip decision), so the 9 gate_trades calls above already priced every possible
+    #   cut-off: sweeping is just moving the line through the saved scores. Dense grid,
+    #   0.40 -> 0.70 by 0.01. PRE-LOCKBOX curves are honest exploration (same data the pick is
+    #   made on); the LOCKBOX curves are HINDSIGHT and the UI labels them so. Nothing here is
+    #   read by the selection above — the official candidates and the crown are untouched.
+    try:
+        thr_grid = [round(0.40 + 0.01 * i, 2) for i in range(31)]
+        pre_m = entry_ts < lb_start
+        lb_m = ~pre_m
+        sweep_models = {}
+        for m, pr in model_prob.items():
+            if pr is None or len(pr) != len(pnls_all):
+                continue
+            pn, pr_, pk = [], [], []
+            ln, lr = [], []
+            for th in thr_grid:
+                kmask = ~(pr < th)                     # NaN (warmup) passes through, like the gate
+                a = _stats(pnls_all[kmask & pre_m])
+                b = _stats(pnls_all[kmask & lb_m])
+                pn.append(round(a["total_pnl"], 1)); pr_.append(round(_rec(a), 2))
+                pk.append(int(a["num_trades"]))
+                ln.append(round(b["total_pnl"], 1)); lr.append(round(_rec(b), 2))
+            sweep_models[str(m)] = {"pre_net": pn, "pre_rec": pr_, "pre_kept": pk,
+                                    "lb_net": ln, "lb_rec": lr}
+        if sweep_models:
+            out["cutoff_sweep"] = {"thresholds": thr_grid, "models": sweep_models}
+    except Exception:
+        pass                                            # reporting only — never fail the gate
     if chosen is None:
         out["verdict"] = "NO ELIGIBLE GATE (all kept too few pre-lockbox trades)"
         return out

@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='65.9';
+const VERSION='66.0';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -9712,6 +9712,57 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    cut-offs — you see each model's curve and where it peaks vs the ungated baseline. ──
         const _bakeGraph=(function(){
           const cs2=(V.candidates||[]);if(cs2.length<2)return '';
+          // v66.0 (owner: "where is the plateau?"): when the run carries the dense cut-off sweep
+          //   (engine walks each model once, then re-draws the keep/skip line at every 1% from
+          //   40% to 70% — the scores never depend on the cut-off, so this is free), draw FULL
+          //   CURVES instead of three dots per model. Solid = tuning years (honest exploration);
+          //   dashed = the held-out year, hindsight, labelled as such. The y-axis follows the
+          //   RANK control: MAR when ranking by MAR, net $ otherwise.
+          const _sw=V.cutoff_sweep&&V.cutoff_sweep.models?V.cutoff_sweep:null;
+          // read the pref directly: _g2rank is declared further down this function and this
+          //   IIFE runs first (learned the hard way in 65.0/65.2 — order bugs here throw and
+          //   blank the whole report).
+          const _yPnl=((['rec','pnl','floor'].indexOf(String(APREF.g2rank||''))>=0)?String(APREF.g2rank):'rec')!=='rec';
+          if(_sw){
+            const ths=_sw.thresholds||[];
+            const models=Object.keys(_sw.models);
+            const _mc=m=>_gateColor(m,1,60);
+            const pick=(m,pre)=>(_sw.models[m][(pre?'pre_':'lb_')+(_yPnl?'net':'rec')]||[]).map(v=>_yPnl?v*mlt3:v);
+            let vals=[];models.forEach(m=>{vals=vals.concat(pick(m,true)).concat(pick(m,false));});
+            const ub=_yPnl?(((V.ungated_pre||{}).total_pnl||0)*mlt3):(V.ungated_pre_rec!=null?V.ungated_pre_rec:0);
+            vals.push(ub);
+            let rmn=Math.min.apply(null,vals),rmx=Math.max.apply(null,vals);if(rmn===rmx){rmn-=1;rmx+=1;}
+            const pd2=(rmx-rmn)*0.10||1;rmn-=pd2;rmx+=pd2;
+            const W=520,H=190,pl=26,pr=58,pt=12,pb=34,pw=W-pl-pr,ph=H-pt-pb;
+            const tmn=ths[0],tmx=ths[ths.length-1],trg=(tmx-tmn)||1;
+            const X=t=>pl+pw*((t-tmn)/trg),Y=v=>pt+ph*(1-(v-rmn)/((rmx-rmn)||1));
+            const fv=v=>_yPnl?fmtAx(v,1):(+v).toFixed(1);
+            let g='';
+            for(let i=0;i<=4;i++){const v=rmn+(rmx-rmn)*i/4,gy=Y(v);
+              g+='<line x1="'+pl+'" y1="'+gy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.3"/><text x="'+(pl+pw+4)+'" y="'+(gy+3).toFixed(1)+'" font-size="8" fill="var(--text4)">'+fv(v)+'</text>';}
+            const uy=Y(ub);
+            g+='<line x1="'+pl+'" y1="'+uy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+uy.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" stroke-dasharray="4,3" opacity="0.85"/><text x="'+(pl+2)+'" y="'+(uy-3).toFixed(1)+'" font-size="8" fill="var(--text4)">no gate '+fv(ub)+'</text>';
+            const _yc=(pt+ph/2).toFixed(1);
+            g+='<text x="10" y="'+_yc+'" transform="rotate(-90 10 '+_yc+')" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">'+(_yPnl?'NET $, tuning years':'MAR ($ per $ drawdown)')+' &#8594;</text>';
+            g+='<text x="'+(pl+pw/2).toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">GATE CUT-OFF % &#8212; min win-probability to take a trade &#8594;</text>';
+            models.forEach(m=>{const mc=_mc(m);
+              const line=(pre)=>{const ys=pick(m,pre);if(ys.length!==ths.length)return '';
+                return '<path d="'+ths.map((t,i)=>(i?'L':'M')+X(t).toFixed(1)+' '+Y(ys[i]).toFixed(1)).join(' ')+'" fill="none" stroke="'+mc+'" stroke-width="'+(pre?1.8:1)+'"'+(pre?'':' stroke-dasharray="3,3" opacity="0.55"')+'/>';};
+              g+=line(true)+line(false);});
+            // dots for the three OFFICIAL cut-offs per model; the chosen one ringed
+            cs2.forEach(c=>{const isCh=ch&&c.model===ch.model&&Math.abs(c.threshold-ch.threshold)<1e-6;
+              const arr=pick(c.model,true),ti=ths.indexOf(+(+c.threshold).toFixed(2));
+              const yv=(ti>=0&&arr.length===ths.length)?arr[ti]:null;if(yv==null)return;
+              const dc=_gateColor(c.model,1,isCh?90:60);
+              g+='<circle cx="'+X(c.threshold).toFixed(1)+'" cy="'+Y(yv).toFixed(1)+'" r="'+(isCh?4.6:3)+'" fill="'+dc+'"'+(isCh?' stroke="var(--text)" stroke-width="1.6"':'')+'><title>'+c.model+' @ '+Math.round(c.threshold*100)+'% &#183; official candidate'+(isCh?' &#183; CHOSEN':'')+'</title></circle>';});
+            let xl='';for(let t=tmn;t<=tmx+1e-9;t+=0.05){xl+='<text x="'+X(t).toFixed(1)+'" y="'+(pt+ph+11).toFixed(1)+'" text-anchor="middle" font-size="8" fill="var(--text4)">'+Math.round(t*100)+'%</text>';}
+            const legend=models.map(m=>'<span style="color:'+_mc(m)+';font-weight:700">&#9679; '+m+'</span>').join(' &nbsp; ');
+            return '<div style="margin:2px 0 10px">'
+              +'<div style="font-size:8px;color:var(--text4);margin:0 0 3px">Every 1% cut-off from 40% to 70%, one walk per model &#183; <b>solid</b> = tuning years &#183; <b>dashed</b> = held-out year (<span style="color:var(--yellow)">hindsight &#8212; reporting only, the pick never sees it</span>) &#183; dots = the three official cut-offs, ringed = chosen &#183; y-axis follows the RANK button.</div>'
+              +'<div style="background:var(--bg1);border-radius:8px;padding:8px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+xl+'</svg></div>'
+              +'<div style="text-align:center;font-size:8px;margin-top:3px">'+legend+'</div>'
+              +'</div>';
+          }
           const models=[];cs2.forEach(c=>{if(models.indexOf(c.model)<0)models.push(c.model);});
           const ths=[];cs2.forEach(c=>{if(ths.indexOf(c.threshold)<0)ths.push(c.threshold);});ths.sort((a,b)=>a-b);
           // B5 (owner redesign): same model-family hues as the matrix header + the 2A chart
@@ -10073,29 +10124,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   rather than buried, because it is the one number here that can mislead.
           +'<div style="font-size:7px;color:var(--text5);margin-top:4px;padding:0 4px">Every row measures over the stretches ticked in SAMPLE: '+_sampLbl+'.'
           +(_anyDer?' &nbsp;&deg; estimated from the saved equity curve rather than measured trade by trade — only combinations the engine did not score directly.':'')+'</div>';
-        // B3 step 2 (owner: "make the periods unambiguous"): the held-out final year, chosen
-        //   variant only — no-gate vs gated, purple-styled, clearly separated below the matrix.
-        //   This is the ONLY place lockbox numbers appear in this tile, and the ONLY column that
-        //   ever gets them (the 8 losing candidates are never scored on this slice, by design).
-        const _lbCol='#a78bfa',_lbBg='rgba(167,139,250,.16)';
-        const _lbRow=(lbl,bef,aft,better)=>'<tr><td style="padding:3px 8px 3px 0;color:var(--text4);white-space:nowrap;font-size:var(--fsxs)">'+lbl+'</td><td style="padding:3px 10px;text-align:right;color:var(--text5);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:var(--fsxs)">'+bef+'</td><td style="padding:3px 0 3px 10px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:var(--fsxs);background:'+_lbBg+';color:'+(better===true?'var(--green)':(better===false?'var(--red)':_lbCol))+'">'+aft+'</td></tr>';
-        let _lockboxBlock;
-        if(LB){
-          const _chLbl=ch?((_mNm[ch.model]||String(ch.model||'').toUpperCase())+' '+Math.round((ch.threshold||0)*100)+'%'):'GATED';
-          const _lbDdU=(LB.ungated&&LB.ungated.max_drawdown!=null)?Math.abs(LB.ungated.max_drawdown):null;
-          const _lbDdG=(LB.gated&&LB.gated.max_drawdown!=null)?Math.abs(LB.gated.max_drawdown):null;
-          const _rows=_lbRow('NET $',$k(LB.ungated&&LB.ungated.total_pnl),$k(LB.gated&&LB.gated.total_pnl),((LB.gated&&LB.gated.total_pnl)||0)>=((LB.ungated&&LB.ungated.total_pnl)||0))
-            +_lbRow('PF',Math.min((LB.ungated&&LB.ungated.profit_factor)||0,99).toFixed(2),Math.min((LB.gated&&LB.gated.profit_factor)||0,99).toFixed(2),((LB.gated&&LB.gated.profit_factor)||0)>=((LB.ungated&&LB.ungated.profit_factor)||0))
-            +_lbRow('TRADES',(((LB.ungated&&LB.ungated.num_trades)||0)).toLocaleString(),(((LB.gated&&LB.gated.num_trades)||0)).toLocaleString(),null)
-            +_lbRow('MAX DD',_lbDdU!=null?('-'+$k(_lbDdU)):'—',_lbDdG!=null?('-'+$k(_lbDdG)):'—',(_lbDdG!=null&&_lbDdU!=null)?(_lbDdG<=_lbDdU):null);
-          _lockboxBlock='<div style="margin-top:14px;padding-top:12px;border-top:1px solid color-mix(in srgb,'+_lbCol+' 30%,var(--border))">'
-            +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+_pdChip('LOCKBOX (held-out final year)',_lbCol)+'<span style="font-size:7.5px;color:var(--text5)">full held-out stats — chosen variant only, measured trade by trade'+_infoIc('<div style="color:var(--text2)">The final '+(V.lockbox_months||12)+' months of data, held out and untouched until the winner was already picked on PRE-LOCKBOX data above. Only '+_chLbl+' (the recovery winner) is re-scored trade by trade here, which is why it is the only variant with a real PF, trade count, win % and measured drawdown for this period — the matrix above can show every variant lockbox $ because that comes free from the saved equity curves, but $ is all a curve can give.<br><br>MAX DD here is measured directly from the lockbox trades, not derived like the PRE-LOCKBOX rows above.</div>')+'</span></div>'
-            +'<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:10px"><thead><tr><th style="padding:2px 8px 4px 0;text-align:left;font-size:7.5px;letter-spacing:.5px;color:var(--text5)">METRIC</th><th style="padding:2px 10px 4px;text-align:right;font-size:7.5px;letter-spacing:.5px;color:var(--text5)">NO GATE<br><span style="font-weight:400">every trade</span></th><th style="padding:2px 10px 4px;text-align:right;font-size:7.5px;letter-spacing:.5px;color:'+_lbCol+'">'+_chLbl+'<br><span style="font-weight:400">gate kept</span></th></tr></thead><tbody>'+_rows+'</tbody></table></div>'
-            +'<div style="font-size:var(--fsxs);margin-top:6px;color:var(--text4)">equal-risk recovery ($ per $ of drawdown): '+(LB.ungated_rec!=null?LB.ungated_rec.toFixed(1):'—')+' → <b style="color:'+(LB.helped?'var(--green)':'var(--red)')+'">'+(LB.gated_rec!=null?LB.gated_rec.toFixed(1):'—')+'</b></div>'
-            +'</div>';
-        }else{
-          _lockboxBlock='<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'+_pdChip('LOCKBOX (held-out final year)','var(--text4)')+'</div><div style="font-size:var(--fsxs);color:var(--text5)">'+(V.gate_earns_pre?'Not opened yet on this run — the chosen variant has not been scored against the held-out year.':'Never opened — no candidate out-earned no-gate on the PRE-LOCKBOX data above, so the held-out final year was not touched.')+'</div></div>';
-        }
+        // v66.0 (owner: "is it redundant? if so delete it"): the purple LOCKBOX block that sat
+        //   here is GONE. Everything it showed — chosen-variant net / PF / trades / measured
+        //   drawdown vs no-gate, plus the recovery pair — is in the matrix above with SAMPLE set
+        //   to LB, measured for ALL variants rather than just the chosen one. The legacy path
+        //   (gvTableHtml, the section-3 diagnostics chip) keeps its own lockbox line.
+        const _lockboxBlock='';
         return {V:V,LB:LB,ch:ch,ctrls:(_ctrls+_sampMenu+_rankMenu),menus:'',
           head:'<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>',
           intro:'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+V.n_candidates+' candidates ranked pre-lockbox by recovery factor ($ per $ of drawdown). The winner gets exactly one lockbox look — no shopping.</div>',
@@ -11118,7 +11152,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   and the matrix; everything else (the pick, the sweep-chart evidence, the equity
         //   visual, the consistency note) now sits BELOW the matrix + lockbox block instead.
         if(_gvP){
-          const _evTog='<div data-r3ev title="the recovery-vs-cut-off sweep chart behind the matrix above — how the winner was picked on PRE-LOCKBOX data. Click to '+(_evOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">'+(_evOpen?'▴ hide the sweep chart':'▾ HOW IT WAS CHOSEN — sweep chart ⓘ')+'</div>';
+          const _evTog='<div data-r3ev title="the recovery-vs-cut-off sweep chart behind the matrix above — how the winner was picked on PRE-LOCKBOX data. Click to '+(_evOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">'+(_evOpen?'▴ hide the sweep chart':'▾ CUT-OFF EXPLORER — the sweep + where the plateau is ⓘ')+'</div>';
           // B3 (owner redesign, THE IMPORTANT ONE): chronological order now — 1) the PRE-LOCKBOX
           //   matrix (_gvP.matrix, all variants), 2) the LOCKBOX block (_gvP.lockboxBlock, chosen
           //   variant only, purple), THEN everything else below: the gate equity visual (when
@@ -11127,7 +11161,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   hero cards + pick-line duplicated what the matrix/lockbox block now say directly
           //   (and mixed the two periods in one place) — dropped in favour of this tile own
           //   lockboxBlock, which is unambiguous about which period each number belongs to.
-          _gBody=(_gvP.matrix||'')+(_gvP.lockboxBlock||'')+_epViz+_gc2j+_gvP.earns+_evTile(_evTog,_evOpen,('<div data-r3graph style="max-width:540px;margin-top:8px"><style>[data-r3graph] .rschart-box{height:174px!important;resize:none}</style>'+_gvP.graph+'</div>'));
+          _gBody=(_gvP.matrix||'')+_epViz+_gc2j+_gvP.earns+_evTile(_evTog,_evOpen,('<div data-r3graph style="max-width:540px;margin-top:8px"><style>[data-r3graph] .rschart-box{height:174px!important;resize:none}</style>'+_gvP.graph+'</div>'));
         }else{
           const _evTog='<div data-r3ev title="the full gate report — before/after table, feature attribution (SHAP), calibration and discrimination. Click to '+(_evOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">'+(_evOpen?'▴ hide the full gate detail':'▾ FULL GATE DETAIL — feature attribution · calibration ⓘ')+'</div>';
           _gBody=_hero+_epViz+_gc2j+_evTile(_evTog,_evOpen,('<div style="margin-top:8px">'+gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt)+'</div>'));
@@ -13544,8 +13578,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         place();requestAnimationFrame(place);setTimeout(place,60);setTimeout(place,220);
         const onMove=()=>{if(!m.isConnected){window.removeEventListener('scroll',onMove,true);window.removeEventListener('resize',onMove);return;}place();};
         window.addEventListener('scroll',onMove,true);window.addEventListener('resize',onMove);});
-      if(String(APREF.g2open||'')&&!window._g2docClose){window._g2docClose=1;
-        document.addEventListener('click',ev=>{if(!String(APREF.g2open||''))return;
+      // v66.0 (owner: clicking outside did not close the panel): pointerdown in CAPTURE phase —
+      //   'click' can be swallowed by chart drag handlers and never reach the document, and the
+      //   old guard only registered the listener on a render that already had a panel open.
+      if(!window._g2docClose){window._g2docClose=1;
+        document.addEventListener('pointerdown',ev=>{if(!String(APREF.g2open||''))return;
           if(ev.target.closest&&(ev.target.closest('[data-g2menu]')||ev.target.closest('[data-g2d]')))return;
           savePref('g2open','');renderApp();},true);}
       content.querySelectorAll('[data-g2rank]').forEach(s=>{s.onchange=()=>{savePref('g2rank',s.value);renderApp();};});
