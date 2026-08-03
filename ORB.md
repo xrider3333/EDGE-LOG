@@ -402,6 +402,17 @@ MAR/DD compare on the same risk basis. in-sample + held-out lockbox.
 - **Caveat:** 2 contracts = **2× fees + 2× margin**; the blend is the 1-contract-equivalent (average).
   Worth it only if you trade ≥2 lots. WF-folds + ES transfer of the ensemble are still TODO before deploy.
 - Tooling: `tools/orb_ensemble.py`. Item **E → DONE (WIN — ensemble beats both legs on lockbox MAR + DD).**
+- **FLOOR RULE, FIRST RUNS (2026-08-03).** #189 (ORB-19) = ORB under the new rule, champion
+  BIT-IDENTICAL to #180/#187, gate crown moves rf@55 -> rf@50. Held-out year: no-gate $67,493,
+  rf@55 $64,568 (the old crown actually TRAILED no-gate on dollars), rf@50 $81,464. So the rule
+  picked up +$16,896 of held-out money on the same champion, by a rule fixed BEFORE the run.
+  #188 (ENGU-Q-10) = ENGU-Q under the new rule, crown xgb@0.50 -> xgb@0.45, lockbox FAILED again
+  (gated -$26,485 vs no-gate $56,384; the old rule failed too at -$64,585). CAVEAT: #188's
+  CHAMPION CONFIG differs from #183's, so it is not a controlled A/B of the rule — the job params
+  I reconstructed did not exactly reproduce the runner's #183 search. The finding that survives
+  regardless: **ENGU-Q's ML gate is harmful out-of-sample under both rules — do not deploy a gate
+  on ENGU-Q.** A genuinely virgin test of the rule is still open (ENGU-Q on ES 1m has never had a
+  gate run).
 - **Canonical ensemble run = #187 (ORB-18)** (2026-08-03; supersedes #186/ORB-17 and #185/ORB-16,
   each bit-identical on every champion number). #186 added measured WF-through-lockbox blocks;
   #187 adds the CUT-OFF SWEEP: every 1% gate cut-off from 40% to 70% per model, priced from the
