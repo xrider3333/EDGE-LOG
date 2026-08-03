@@ -414,7 +414,7 @@ MAR/DD compare on the same risk basis. in-sample + held-out lockbox.
   agrees: $ peak 45% ($85.2k), 50-51% ~$81.5k, declining above 55%. The official coarse grid
   (50/55/60) straddles the plateau's right edge - 50% sits ON it, the crowned 55% just past it.
   XGB: monotone decline from 40% (its best is the most permissive setting - weak family here).
-  LOGIT: money peak ~48%, collapses above 54%. DISCIPLINE: re-picking a cut-off from this sweep
+  LOGIT: money peak ~48%, collapses above 54%. RULE SHIPPED 2026-08-03 (engine v66.2, owner-approved): gate crowning = NET pre-lockbox $ among candidates within 80% of the best MAR (ties -> higher MAR), candidate grid now 45/50/55/60. First clean test = the next strategy validated; ORB's standing crown stays rf@55 (crowned under the old rule) until then. DISCIPLINE: re-picking a cut-off from this sweep
   on THIS run is selection-after-peek; the clean path stays "pre-register the floor rule + finer
   grid, first clean test on the next strategy".
 - **Superseded: #185 (ORB-16)** (2026-08-03; supersedes #184/ORB-15, which superseded
