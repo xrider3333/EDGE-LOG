@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='65.2';
+const VERSION='65.3';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -9869,6 +9869,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           v=v.filter(x=>_segAll.indexOf(x)>=0);
           return v.length?_segAll.filter(x=>v.indexOf(x)>=0):_segMig.pre;})();
         const _segKey=_g2segs.join(',');
+        const _g2rank=(['rec','pnl','floor'].indexOf(String(APREF.g2rank||''))>=0)?String(APREF.g2rank):'rec';
+        const _g2heat=+(APREF.g2heat||0);
         const _segNm={is:'IS',wf:'WF',lb:'LB',pre:'PRE-LB'};
         const _sampLbl=_g2segs.map(x=>_segNm[x]).join('+');
         const _g2samp=_segKey;
