@@ -402,7 +402,22 @@ MAR/DD compare on the same risk basis. in-sample + held-out lockbox.
 - **Caveat:** 2 contracts = **2× fees + 2× margin**; the blend is the 1-contract-equivalent (average).
   Worth it only if you trade ≥2 lots. WF-folds + ES transfer of the ensemble are still TODO before deploy.
 - Tooling: `tools/orb_ensemble.py`. Item **E → DONE (WIN — ensemble beats both legs on lockbox MAR + DD).**
-- **Canonical ensemble run = #185 (ORB-16)** (2026-08-03; supersedes #184/ORB-15, which superseded
+- **Canonical ensemble run = #187 (ORB-18)** (2026-08-03; supersedes #186/ORB-17 and #185/ORB-16,
+  each bit-identical on every champion number). #186 added measured WF-through-lockbox blocks;
+  #187 adds the CUT-OFF SWEEP: every 1% gate cut-off from 40% to 70% per model, priced from the
+  walks the gate already does (scores never depend on the cut-off). Renders as full curves in the
+  2C CUT-OFF EXPLORER expander.
+- **RF plateau (from #187's sweep).** Tuning-years dollars sit on a broad plateau ~45-52%
+  ($480-500k, peak $500k @ 47%); below 44% decays (junk trades let in), above ~53% money falls
+  steadily as trades get cut. Tuning MAR ridge ~50-58% (peak 81.6 @ 56%; the 99.7 @ 69% is a
+  small-sample artifact, 547 trades). Held-out year (HINDSIGHT, reporting only) independently
+  agrees: $ peak 45% ($85.2k), 50-51% ~$81.5k, declining above 55%. The official coarse grid
+  (50/55/60) straddles the plateau's right edge - 50% sits ON it, the crowned 55% just past it.
+  XGB: monotone decline from 40% (its best is the most permissive setting - weak family here).
+  LOGIT: money peak ~48%, collapses above 54%. DISCIPLINE: re-picking a cut-off from this sweep
+  on THIS run is selection-after-peek; the clean path stays "pre-register the floor rule + finer
+  grid, first clean test on the next strategy".
+- **Superseded: #185 (ORB-16)** (2026-08-03; supersedes #184/ORB-15, which superseded
   #180/ORB-13). Bit-identical to all of them on every champion number. #185 adds the WALK-FORWARD
   DATE RANGE (2016-06-24 -> 2025-06-30) and per-variant IS / WF calendar slices, so 2C can be read
   over the same stretches as the 2B config matrix. IS = 2010-06-07 -> 2016-06-24.
