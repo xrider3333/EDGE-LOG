@@ -402,7 +402,15 @@ MAR/DD compare on the same risk basis. in-sample + held-out lockbox.
 - **Caveat:** 2 contracts = **2× fees + 2× margin**; the blend is the 1-contract-equivalent (average).
   Worth it only if you trade ≥2 lots. WF-folds + ES transfer of the ensemble are still TODO before deploy.
 - Tooling: `tools/orb_ensemble.py`. Item **E → DONE (WIN — ensemble beats both legs on lockbox MAR + DD).**
-- **Canonical ensemble run = #184 (ORB-15)** (2026-08-02; supersedes #180/ORB-13).
+- **Canonical ensemble run = #185 (ORB-16)** (2026-08-03; supersedes #184/ORB-15, which superseded
+  #180/ORB-13). Bit-identical to all of them on every champion number. #185 adds the WALK-FORWARD
+  DATE RANGE (2016-06-24 -> 2025-06-30) and per-variant IS / WF calendar slices, so 2C can be read
+  over the same stretches as the 2B config matrix. IS = 2010-06-07 -> 2016-06-24.
+  Filter over the WF years vs the ungated champion ($365.9k / PF 1.62 / 2,213 trades):
+  RF @ 50% $439.5k / PF 2.37 · RF @ 55% (crowned) $406.4k / PF 2.91 · RF @ 60% $352.6k / PF 3.44 ·
+  LOGIT @ 50% $392.6k / PF 1.81 · XGB best $379.1k / PF 2.37. Every RF cut-off beat the ungated
+  champion on both dollars and profit factor over those same years.
+- **Superseded: #184 (ORB-15)** (2026-08-02; superseded #180/ORB-13).
   BIT-IDENTICAL to #180 and #178 on every champion number — same champion (target 4.0R - trail 12 -
   BE 1.0R), net $485.4k / 2,787 trades / PF 1.567 / DD -$10.6k, lockbox 243 trades $67,493, verdict
   PASS, same chosen gate (rf @ 55%). Re-run ONLY to save data the engine had been computing and
