@@ -402,11 +402,29 @@ MAR/DD compare on the same risk basis. in-sample + held-out lockbox.
 - **Caveat:** 2 contracts = **2× fees + 2× margin**; the blend is the 1-contract-equivalent (average).
   Worth it only if you trade ≥2 lots. WF-folds + ES transfer of the ensemble are still TODO before deploy.
 - Tooling: `tools/orb_ensemble.py`. Item **E → DONE (WIN — ensemble beats both legs on lockbox MAR + DD).**
-- **Canonical ensemble run = #180 (ORB-13)** (2026-07-29; supersedes #178/ORB-11, now archived).
-  NUMERICALLY IDENTICAL to #178 — same champion (target 4.0R - trail 12 - BE 1.0R), net $485.4k / 2,787
-  trades / PF 1.567 / DD -$10.6k, lockbox 243 trades $67,493, verdict PASS. Re-run only so the 9 ML gate
-  candidates (3 models x 3 cut-offs) each carry an equity curve, which the 2A gate overlay draws.
-  Lineage: #159 (del) -> #175 (arch) -> #176 (arch) -> #178 (arch) -> #180.
+- **Canonical ensemble run = #184 (ORB-15)** (2026-08-02; supersedes #180/ORB-13).
+  BIT-IDENTICAL to #180 and #178 on every champion number — same champion (target 4.0R - trail 12 -
+  BE 1.0R), net $485.4k / 2,787 trades / PF 1.567 / DD -$10.6k, lockbox 243 trades $67,493, verdict
+  PASS, same chosen gate (rf @ 55%). Re-run ONLY to save data the engine had been computing and
+  discarding: each of the 9 gate candidates now carries a MEASURED lockbox + full-run stat block
+  (PF / win % / trades / real drawdown), and each selection config carries its optimize-window
+  profile — which is what finally populates the PF and WIN % rows in the 2B matrix.
+  Window + master PINNED to #180 (2010-06-07 -> 2026-06-30, db_noadj_rth) so the parity check is valid.
+  Lineage: #159 (del) -> #175 (arch) -> #176 (arch) -> #178 (arch) -> #180 -> #184.
+- **Cross-model read, first time measurable (from #184's held-out year).** Averaged over its three
+  cut-offs, on the lockbox: RF $69.4k / PF 3.13 / DD -$4.5k · LOGISTIC $70.4k / PF 2.03 / DD -$7.1k ·
+  XGB $47.3k / PF 2.27 / DD -$7.1k. XGB is the weak family here — every one of its three cut-offs
+  earned less out-of-sample than every RF and every LOGISTIC cut-off, and XGB @ 50% took a bigger
+  held-out drawdown (-$10.1k) than taking every trade (-$8.9k). RF @ 50% is the money leader
+  ($81.5k lockbox, $580.2k full run) and RF @ 60% the risk leader (PF 3.98, DD -$2.8k, recovery 22.0)
+  against the crowned RF @ 55% ($64.6k / $514.8k). One run is not a rule — check it holds on ENGU-Q
+  before treating "avoid XGB" as anything more than a note.
+- **CAUTION on curve-derived lockbox drawdowns (measured in #184).** Before the engine saved real
+  per-variant lockbox stats, the UI backed the losers' drawdowns out of the 300-point saved equity
+  curve — only ~18 of those points fall in the held-out year. EVERY derived figure understated, by
+  1.5x to 4x (XGB @ 50%: derived -$2.4k vs measured -$10.1k). Dollars were exact; drawdowns and any
+  recovery built on them were not. Do not compare variants on a run made before #184 without this
+  in mind.
 - **Engine-rerun replication: run #175 — same window (pinned 2010-06-07→2026-06-30), same
   knobs, TODAY's steered/OOS-selection engine.** The new machinery picks winners differently (GP-steered
   search: 80 seed + 26 steered trials over 77 configs, then champion crowned by walk-forward steadiness,
