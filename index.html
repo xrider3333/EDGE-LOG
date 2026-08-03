@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='65.8';
+const VERSION='65.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -9821,7 +9821,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             full:(_blk(V.ungated_full)||(function(){const dd=_ungCum?_ddSlice(_ungCum,0,_ungCum.length-1):null;
                 return {net:_ungFull,dd:dd,ddDer:dd!=null,rec:_rec2(_ungFull,dd),pf:null,wr:null,
                         kept:(_nPreT&&_nLbT)?(_nPreT+_nLbT):null};})()),
-            is:_blk(V.ungated_is),wf:_blk(V.ungated_wf)
+            is:_blk(V.ungated_is),wf:_blk(V.ungated_wf),wf_lb:_blk(V.ungated_wf_lb)
           }
         }].concat(cands.map(cd=>{const isCh=_isChosen(cd),_gc=_gateColor(cd.model,_thLi(cd.threshold),isCh?88:58);
           const _cum=(cd.equity&&Array.isArray(cd.equity.cum))?cd.equity.cum:null;
@@ -9862,7 +9862,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
                     rec:(_mFu&&_mFu.rec!=null)?_mFu.rec:_rec2(_fuNet,_fullDd),
                     pf:_mFu?_mFu.profit_factor:null,wr:_mFu?_mFu.win_rate:null,
                     kept:_mFu?_mFu.num_trades:null,avg_pnl:_mFu?_mFu.avg_pnl:null},
-              is:_blk(cd.is_rng),wf:_blk(cd.wf_rng)
+              is:_blk(cd.is_rng),wf:_blk(cd.wf_rng),wf_lb:_blk(cd.wf_lb)
             }};}));
         // B4 (compact): dollars abbreviated ($450k), recovery to 1dp, PF/WIN% already at target
         //   precision. A2/C: the NET $ row carries the same PRE-LOCKBOX blue used on the 2B WF $
@@ -9907,7 +9907,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // Combining stretches: use the engine exact block when one matches the pick, else sum
         //   dollars and trades, rebuild profit factor from each block own totals, and read the
         //   drawdown off the saved curve for the spanned stretch (marked with a degree sign).
-        const _EXACT={is:'is',wf:'wf',lb:'lb','is,wf':'pre','is,wf,lb':'full','pre':'pre','pre,lb':'full'};
+        const _EXACT={is:'is',wf:'wf',lb:'lb','is,wf':'pre','is,wf,lb':'full','pre':'pre','pre,lb':'full','wf,lb':'wf_lb'};
         const _nIsT=(V.ungated_is&&V.ungated_is.num_trades)||0;
         const _fIsG=((_nPreT+_nLbT)>0&&_nIsT)?(_nIsT/(_nPreT+_nLbT)):0;
         const _segSpan={is:[0,_fIsG],wf:[_fIsG,_fSplitG],pre:[0,_fSplitG],lb:[_fSplitG,1]};
