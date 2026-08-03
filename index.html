@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='66.0';
+const VERSION='66.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -13581,10 +13581,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v66.0 (owner: clicking outside did not close the panel): pointerdown in CAPTURE phase —
       //   'click' can be swallowed by chart drag handlers and never reach the document, and the
       //   old guard only registered the listener on a render that already had a panel open.
-      if(!window._g2docClose){window._g2docClose=1;
-        document.addEventListener('pointerdown',ev=>{if(!String(APREF.g2open||''))return;
-          if(ev.target.closest&&(ev.target.closest('[data-g2menu]')||ev.target.closest('[data-g2d]')))return;
-          savePref('g2open','');renderApp();},true);}
+      // Re-registered EVERY render (remove-then-add): a once-only registration made at boot
+      //   was observed dead on the deployed page while an identical one made later worked, so
+      //   the freshest closure always wins now — costs nothing, immune to whatever staled it.
+      if(window._g2close)document.removeEventListener('pointerdown',window._g2close,true);
+      window._g2close=ev=>{if(!String(APREF.g2open||''))return;
+        if(ev.target.closest&&(ev.target.closest('[data-g2menu]')||ev.target.closest('[data-g2d]')))return;
+        savePref('g2open','');renderApp();};
+      document.addEventListener('pointerdown',window._g2close,true);
       content.querySelectorAll('[data-g2rank]').forEach(s=>{s.onchange=()=>{savePref('g2rank',s.value);renderApp();};});
       content.querySelectorAll('[data-g2heat]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('g2heat',(+(APREF.g2heat||0))?0:1);renderApp();};});
       // report layout toggle: CLASSIC ⇄ FUNNEL β ⇄ GAUGES β (value-generic)
