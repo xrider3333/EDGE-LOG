@@ -674,8 +674,30 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         if _full_arr is not None and isinstance(full, dict) and full.get("trades"):
             try:
                 from .ml_gate import gate_validate as _gate_bakeoff_fn
+                # v65.0 (owner: "the date range comparisons should be apples to apples"): hand the
+                #   gate the WALK-FORWARD out-of-sample date range so 2C can be sliced by the same
+                #   calendar stretches the 2B config matrix uses. Bar bounds come from the ANCHORED
+                #   folds — the same (train_bars, train_bars+test_bars) reading score_candidates_on_
+                #   folds already relies on, so the interpretation is the known-correct one — and
+                #   _full_arr starts at opt_from just like the walk-forward arrays did, so the bar
+                #   indices line up. Best-effort: a failure here just leaves the split absent.
+                _wfA = _wfB = None
+                try:
+                    _fb = [(int(fr.get("train_bars") or 0),
+                            int(fr.get("train_bars") or 0) + int(fr.get("test_bars") or 0))
+                           for fr in ((wf_anch.get("folds") or []) if wf_anch.get("ran") else [])
+                           if int(fr.get("test_bars") or 0) > 0]
+                    if _fb:
+                        _fidx = _full_arr.get("index")
+                        _nb2 = len(_fidx)
+                        _b0 = min(b[0] for b in _fb); _b1 = min(_nb2 - 1, max(b[1] for b in _fb))
+                        if 0 <= _b0 < _b1 <= _nb2 - 1:
+                            _wfA, _wfB = _fidx[_b0], _fidx[_b1]
+                except Exception:
+                    _wfA = _wfB = None
                 gate_bakeoff = _gate_bakeoff_fn(_full_arr, full["trades"],
-                                                lockbox_months=lockbox_months, lb_from=lb_from)
+                                                lockbox_months=lockbox_months, lb_from=lb_from,
+                                                wf_from=_wfA, wf_to=_wfB)
             except Exception as _ge:
                 import traceback as _gt
                 print("[validate] gate_validate FAILED:", repr(_ge)); _gt.print_exc()

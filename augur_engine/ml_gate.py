@@ -269,7 +269,7 @@ def _cand_out(c):
     #   not REPORTING it afterwards — and the alternative (publishing only the winner's
     #   held-out result) hides exactly the evidence needed to judge whether a model FAMILY
     #   generalises, which is the owner's stated reason for wanting it.
-    for _k in ("lockbox", "full"):
+    for _k in ("lockbox", "full", "is_rng", "wf_rng"):
         if isinstance(c.get(_k), dict):
             s = c[_k]
             d[_k] = {"total_pnl": s.get("total_pnl"), "num_trades": s.get("num_trades"),
@@ -281,7 +281,7 @@ def _cand_out(c):
 
 def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
                   thresholds=(0.50, 0.55, 0.60), lockbox_months=12,
-                  min_kept=50, windows=4, min_history=30, refit_every=25,
+                  min_kept=50, windows=4, min_history=30, refit_every=25, wf_from=None, wf_to=None,
                   seed=42, lb_from=None):
     """The honest way to pick a gate (board 4.10, ROADMAP #25).
 
@@ -320,9 +320,32 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
         lb_start = idx[-1] - pd.DateOffset(months=int(lockbox_months))
     t_first = entry_ts.min()
 
+    # v65.0 (owner): the pre-lockbox stretch also gets split at the WALK-FORWARD boundary the
+    #   1C/2B folds use, so 2C can be read over the SAME DATE RANGES as the config matrix. This
+    #   is a calendar split, not a claim that the filter has an in-sample phase — the filter is
+    #   retrained as it goes and is out-of-sample on every trade either way. It exists purely so
+    #   "how did the filter do during the walk-forward years" can be compared like for like
+    #   against the ungated champion over those same years.
+    def _loc(t):
+        if t is None:
+            return None
+        ts = pd.Timestamp(t)
+        if ts.tzinfo is None:
+            _tz2 = getattr(idx, "tz", None) or getattr(pd.Timestamp(idx[-1]), "tzinfo", None)
+            if _tz2 is not None:
+                ts = ts.tz_localize(_tz2)
+        return ts
+    wf0, wf1 = _loc(wf_from), _loc(wf_to)
+    if wf1 is not None and lb_start is not None and wf1 > lb_start:
+        wf1 = lb_start                                     # folds never reach into the lockbox
+    _rng = (wf0 is not None and wf1 is not None and wf1 > wf0)
+
     feats = entry_features(arrays)[0]                      # compute once, reuse 9x
     ung_pre = _slice_stats(entry_ts, pnls_all, None, lb_start)
     ung_lb = _slice_stats(entry_ts, pnls_all, lb_start, None)
+    ung_full = _slice_stats(entry_ts, pnls_all, None, None)
+    ung_is = _slice_stats(entry_ts, pnls_all, None, wf0) if _rng else None
+    ung_wf = _slice_stats(entry_ts, pnls_all, wf0, wf1) if _rng else None
     from .analytics import downsample_curve                # shared w/ gate_trades' own curve
 
     cands = []
@@ -347,7 +370,9 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
                     #   the report. Computed from the trades already gated above — no extra
                     #   backtest — and attached AFTER selection, which reads only "pre".
                     "lockbox": lb_secret[key][0],
-                    "full": _slice_stats(k_ts, k_p, None, None)}
+                    "full": _slice_stats(k_ts, k_p, None, None),
+                    "is_rng": (_slice_stats(k_ts, k_p, None, wf0) if _rng else None),
+                    "wf_rng": (_slice_stats(k_ts, k_p, wf0, wf1) if _rng else None)}
             # v64.81 (owner): downsampled gated equity curve for EVERY candidate (not just
             #   the chosen one), full pre+lockbox span, same trade-order grid as the chosen
             #   candidate's out["equity"] below — so the UI can overlay all 9. Additive only:
@@ -381,6 +406,8 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
         "span": [str(pd.Timestamp(t_first).date()), str(idx[-1].date())],
         "lockbox_from": str(pd.Timestamp(lb_start).date()),
         "ungated_pre": ung_pre, "ungated_lockbox": ung_lb,
+        "ungated_full": ung_full, "ungated_is": ung_is, "ungated_wf": ung_wf,
+        "wf_range": ([str(pd.Timestamp(wf0).date()), str(pd.Timestamp(wf1).date())] if _rng else None),
         "candidates": [_cand_out(c) for c in cands],
         "ungated_pre_rec": round(_rec(ung_pre), 2),
         "gate_earns_pre": gate_earns,
