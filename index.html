@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.93';
+const VERSION='64.94';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+  {v:'64.94', date:'2026-07-29', notes:['FIXED the ML gate line on the 2A chart disagreeing with the fullscreen view. On 2A the tuning window is stretched across most of the width and the held-out year gets the rest, but the gate line was being spread evenly across the whole width — so it was showing an earlier point in time than the config lines beside it and drew too low through the middle. It is now split at its own held-out boundary and mapped onto the same stretches, so both views agree: the gate runs above the ungated champion.']},
   {v:'64.93', date:'2026-07-29', notes:['FIXED a wrong number in 2B CONFIGS RAW: the TOTAL row was adding in-sample plus walk-forward plus lockbox, but those cover overlapping stretches and the lockbox figure is already the running total — so a config whose real full-run result is 485k was showing over a million. It is now a FULL RUN row that matches chart 1A and the crowned line in 2A, the LB row shows only what the held-out year itself added, and dollars are abbreviated so the table is as compact as 2C.']},
   {v:'64.92', date:'2026-07-29', notes:['2B CONFIGS RAW listed MAX DD twice — once under TOTAL and again as its own section. The duplicate section is gone; the drawdown now sits directly under the total, so profit and the risk taken to get it read together.']},
   {v:'64.91', date:'2026-07-29', notes:['CONFIGS · RAW (2B): column headers now read RANK 1, RANK 2 and so on instead of the confusing WF1/WF2 prefix (the crown still marks the winner). The walk-forward and lockbox return rows are tinted with the same blue and purple used for those periods everywhere else in the report; in-sample stays plain. Added a TOTAL row (in-sample plus walk-forward plus lockbox, or just the first two — starred — when a config never reached the lockbox) with max drawdown repeated directly under it so profit and the risk taken to get it read together. The reward-versus-risk group now also shows a derived Sharpe ratio, how many walk-forward folds each config held, and profit factor / win rate whenever a run actually saves them — never invented when it does not.','ML FILTER CONFIGS (2C, was CONFIGS · ML GATE FILTER): simplified header with one short line underneath instead of scattered text, and a duplicated lockbox chip removed. The tile now runs in clear order: the matrix of all 9 model and cut-off combinations, headed PRE-LOCKBOX and spelled out plainly as in-sample plus walk-forward combined, then a separate purple LOCKBOX block below it showing only the winning combination final-year numbers, held out and untouched until now (no-gate versus gated: net dollars, profit factor, trades, max drawdown) — those held-out numbers can no longer be mistaken for the ranking numbers above them. Dollars are abbreviated and columns tightened so the matrix fits the screen without side-scrolling.','Each ML model (random forest, gradient boosting, logistic regression) now gets its own color family in the 2C matrix column headers and in the funnel chart lines above, instead of every model sharing one shade of pink — the same color now means the same model in both places, and the winning combination stays the most vivid shade of its own color.']},
@@ -8113,7 +8114,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _hasGate=!!(_gEq&&Array.isArray(_gEq.cum_gated)&&_gEq.cum_gated.length>1);
         const _a2gate=(APREF.a2gate==null?1:+APREF.a2gate);
         if(_hasGate&&_a2gate){const gc=_gEq.cum_gated,gn=gc.length,_gf=gc[gn-1]*mult;
-          const gp=gc.map((v,i)=>((xL+(xR-xL)*(gn<=1?1:i/(gn-1))).toFixed(1))+' '+Yv(v*mult).toFixed(1)).join(' ');
+          // v64.94 (owner spotted this): the gate line USED to be spread linearly across the whole
+          //   plot width, but this funnel WARPS its x — the optimize window occupies xL..xFull
+          //   (84%) and the lockbox the remaining 16%, while in TRADE terms the lockbox is only
+          //   ~6% of the run. So the gate curve was showing an earlier trade than the config
+          //   curves at the same x and drew LOW through the middle, contradicting the fullscreen
+          //   explorer (which maps by real date and had it correctly ABOVE). Split the gate curve
+          //   at its own pre-lockbox / lockbox trade boundary and map each part onto the matching
+          //   stretch of this axis, so both now agree.
+          const _gvD2=d.gate_validate||{};
+          const _nPre=((_gvD2.ungated_pre||{}).num_trades)||0,_nLb=((_gvD2.ungated_lockbox||{}).num_trades)||0;
+          const _fSplit=(hasLB&&_nPre>0&&_nLb>0)?(_nPre/(_nPre+_nLb)):1;   // fraction of gate points before the lockbox
+          const _gx=i=>{const f=(gn<=1)?1:i/(gn-1);
+            return (f<=_fSplit||_fSplit>=1)
+              ? (xL+(xFull-xL)*(_fSplit>0?f/_fSplit:1))            // pre-lockbox -> xL..xFull
+              : (xFull+(xR-xFull)*((f-_fSplit)/(1-_fSplit)));      // lockbox     -> xFull..xR
+          };
+          const gp=gc.map((v,i)=>_gx(i).toFixed(1)+' '+Yv(v*mult).toFixed(1)).join(' ');
           gateOv='<polyline points="'+gp+'" fill="none" stroke="#e05fa0" stroke-width="0.9" opacity="0.95" stroke-dasharray="1.6 1.3" stroke-linecap="round"/>';
           labs.push({y:Yv(_gf),col:'#e05fa0',txt:_kUsd(_gf)+' 🚪'});}
         // IS-max total into the gutter (its in-chart door label is removed). Crowned already has a
