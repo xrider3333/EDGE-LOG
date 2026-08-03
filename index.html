@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='66.2';
+const VERSION='66.3';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -9733,7 +9733,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             vals.push(ub);
             let rmn=Math.min.apply(null,vals),rmx=Math.max.apply(null,vals);if(rmn===rmx){rmn-=1;rmx+=1;}
             const pd2=(rmx-rmn)*0.10||1;rmn-=pd2;rmx+=pd2;
-            const W=520,H=190,pl=26,pr=58,pt=12,pb=34,pw=W-pl-pr,ph=H-pt-pb;
+            const W=520,H=190,pl=12,pr=76,pt=12,pb=34,pw=W-pl-pr,ph=H-pt-pb;
             const tmn=ths[0],tmx=ths[ths.length-1],trg=(tmx-tmn)||1;
             const X=t=>pl+pw*((t-tmn)/trg),Y=v=>pt+ph*(1-(v-rmn)/((rmx-rmn)||1));
             const fv=v=>_yPnl?fmtAx(v,1):(+v).toFixed(1);
@@ -9743,7 +9743,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
             const uy=Y(ub);
             g+='<line x1="'+pl+'" y1="'+uy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+uy.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" stroke-dasharray="4,3" opacity="0.85"/><text x="'+(pl+2)+'" y="'+(uy-3).toFixed(1)+'" font-size="8" fill="var(--text4)">no gate '+fv(ub)+'</text>';
             const _yc=(pt+ph/2).toFixed(1);
-            g+='<text x="10" y="'+_yc+'" transform="rotate(-90 10 '+_yc+')" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">'+(_yPnl?'NET $, tuning years':'MAR ($ per $ drawdown)')+' &#8594;</text>';
+            const _yx=(W-7).toFixed(1);
+            g+='<text x="'+_yx+'" y="'+_yc+'" transform="rotate(-90 '+_yx+' '+_yc+')" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">'+(_yPnl?'NET $, tuning years':'MAR ($ per $ drawdown)')+' &#8594;</text>';
             g+='<text x="'+(pl+pw/2).toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">GATE CUT-OFF % &#8212; min win-probability to take a trade &#8594;</text>';
             models.forEach(m=>{const mc=_mc(m);
               const line=(pre)=>{const ys=pick(m,pre);if(ys.length!==ths.length)return '';
@@ -9774,13 +9775,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const recs=cs2.map(c=>c.pre_rec).concat([ub]);let rmn=Math.min.apply(null,recs),rmx=Math.max.apply(null,recs);if(rmn===rmx){rmn-=1;rmx+=1;}const pd2=(rmx-rmn)*0.12||1;rmn-=pd2;rmx+=pd2;
           // pl/pb widened to seat the inline axis TITLES (owner: chart read as unlabeled —
           //   the titles were detached HTML above/below; now they live on the axes).
-          const W=520,H=162,pl=24,pr=54,pt=12,pb=34,pw=W-pl-pr,ph=H-pt-pb,tmn=ths[0],tmx=ths[ths.length-1],trg=(tmx-tmn)||1;
+          const W=520,H=162,pl=12,pr=74,pt=12,pb=34,pw=W-pl-pr,ph=H-pt-pb,tmn=ths[0],tmx=ths[ths.length-1],trg=(tmx-tmn)||1;
           const X=t=>pl+(trg?pw*((t-tmn)/trg):pw/2),Y=r=>pt+ph*(1-(r-rmn)/((rmx-rmn)||1));
           let g='';for(let i=0;i<=4;i++){const r=rmn+(rmx-rmn)*i/4,gy=Y(r);g+='<line x1="'+pl+'" y1="'+gy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.3"/><text x="'+(pl+pw+4)+'" y="'+(gy+3).toFixed(1)+'" font-size="8" fill="var(--text4)">'+r.toFixed(1)+'</text>';}
           const uy=Y(ub);g+='<line x1="'+pl+'" y1="'+uy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+uy.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" stroke-dasharray="4,3" opacity="0.85"/><text x="'+(pl+2)+'" y="'+(uy-3).toFixed(1)+'" font-size="8" fill="var(--text4)">ungated '+ub.toFixed(2)+' = no gate baseline</text>';
           // inline axis titles: rotated y (recovery factor) on the left, x (cut-off) below the ticks
           const _yc=(pt+ph/2).toFixed(1);
-          g+='<text x="10" y="'+_yc+'" transform="rotate(-90 10 '+_yc+')" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">RECOVERY FACTOR ($ per $ drawdown) →</text>';
+          const _yx2=(W-7).toFixed(1);
+          g+='<text x="'+_yx2+'" y="'+_yc+'" transform="rotate(-90 '+_yx2+' '+_yc+')" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">MAR ($ per $ drawdown) →</text>';
           g+='<text x="'+(pl+pw/2).toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">GATE CUT-OFF %  —  min win-probability to take a trade  →</text>';
           models.forEach(m=>{const mc=_mc(m),pmt=cs2.filter(c=>c.model===m).sort((a,b)=>a.threshold-b.threshold);
             if(pmt.length>1)g+='<path d="'+pmt.map((c,i)=>(i?'L':'M')+X(c.threshold).toFixed(1)+' '+Y(c.pre_rec).toFixed(1)).join(' ')+'" fill="none" stroke="'+mc+'" stroke-width="1.6" opacity="0.85"/>';
