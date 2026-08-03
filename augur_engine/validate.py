@@ -201,6 +201,15 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
         # exit timestamps ride along so the web can draw the candidate curves on the
         # SAME calendar axis as 1A (t[1] = exit time — the point the 1A line steps at).
         c["equity"] = equity_curve_from_pnls(pnls, cap=160, times=[t[1] for t in _tr])
+        # v64.98 (owner: "2B does not have win % or PF like 2C -- trying to make these
+        #   match"): the per-candidate optimize-window backtest above already produced
+        #   these; they were simply never carried into the saved doc, which is why the
+        #   2B matrix had to omit the PF / WIN % rows rather than show them. MEASURED
+        #   over the whole optimize window (the same window MAX DD and SHARPE use there).
+        c["opt_metrics"] = ({kk: m.get(kk) for kk in
+                             ("total_pnl", "num_trades", "profit_factor", "win_rate",
+                              "max_drawdown", "avg_pnl") if m.get(kk) is not None}
+                            if m else None)
 
     orig_sig = _sig(champ)
     # crown ONLY among the crown-pool (the display-only robustness extras never win)
@@ -216,7 +225,10 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
                 "wf_oos_pnl": round(float(c.get("wf_oos_pnl", 0.0)), 1),
                 "folds_held": int(c.get("folds_held", 0)),
                 "crowned": bool(c.get("crowned", False)),
-                "equity": c.get("equity")}
+                "equity": c.get("equity"),
+                # v64.98: measured optimize-window profile (PF / win % / trades / drawdown)
+                #   so the 2B matrix can show the same rows 2C does instead of omitting them.
+                "metrics": (c.get("opt_metrics") or (c.get("metrics") or None))}
 
     # `candidates` = the CROWN POOL (the configs eligible to win — unchanged shape), and
     # `robust` = the extra top-IS configs shown only as walk-forward context (owner's

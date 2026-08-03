@@ -258,6 +258,24 @@ def _cand_out(c):
         "eligible": c["eligible"]}
     if "equity" in c:
         d["equity"] = c["equity"]
+    # v64.98 (owner ask): every candidate's LOCKBOX and FULL-RUN stat blocks, so the 2C
+    #   matrix can show profit factor / win % / trade count / a MEASURED drawdown for all
+    #   nine variants on every period — not just dollars read off a downsampled curve
+    #   (~18 points across the held-out year, which understates drawdown badly).
+    #
+    #   THIS DOES NOT WEAKEN THE ONE-LOOK RULE. Selection happens above on PRE-LOCKBOX
+    #   recovery alone and is already final by the time these are attached; nothing here
+    #   is read by the chooser. What the rule forbids is PICKING with lockbox knowledge,
+    #   not REPORTING it afterwards — and the alternative (publishing only the winner's
+    #   held-out result) hides exactly the evidence needed to judge whether a model FAMILY
+    #   generalises, which is the owner's stated reason for wanting it.
+    for _k in ("lockbox", "full"):
+        if isinstance(c.get(_k), dict):
+            s = c[_k]
+            d[_k] = {"total_pnl": s.get("total_pnl"), "num_trades": s.get("num_trades"),
+                     "profit_factor": s.get("profit_factor"), "win_rate": s.get("win_rate"),
+                     "max_drawdown": s.get("max_drawdown"), "avg_pnl": s.get("avg_pnl"),
+                     "rec": round(_rec(s), 2)}
     return d
 
 
@@ -324,7 +342,12 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
             cand = {"model": str(m), "threshold": float(th),
                     "impl": g["summary"].get("model_impl", str(m)),
                     "kept_pre": int(pre["num_trades"]),
-                    "pre": pre, "eligible": pre["num_trades"] >= int(min_kept)}
+                    "pre": pre, "eligible": pre["num_trades"] >= int(min_kept),
+                    # v64.98: measured (not curve-derived) lockbox + full-run blocks for
+                    #   the report. Computed from the trades already gated above — no extra
+                    #   backtest — and attached AFTER selection, which reads only "pre".
+                    "lockbox": lb_secret[key][0],
+                    "full": _slice_stats(k_ts, k_p, None, None)}
             # v64.81 (owner): downsampled gated equity curve for EVERY candidate (not just
             #   the chosen one), full pre+lockbox span, same trade-order grid as the chosen
             #   candidate's out["equity"] below — so the UI can overlay all 9. Additive only:
