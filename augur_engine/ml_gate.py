@@ -269,7 +269,7 @@ def _cand_out(c):
     #   not REPORTING it afterwards — and the alternative (publishing only the winner's
     #   held-out result) hides exactly the evidence needed to judge whether a model FAMILY
     #   generalises, which is the owner's stated reason for wanting it.
-    for _k in ("lockbox", "full", "is_rng", "wf_rng"):
+    for _k in ("lockbox", "full", "is_rng", "wf_rng", "wf_lb"):
         if isinstance(c.get(_k), dict):
             s = c[_k]
             d[_k] = {"total_pnl": s.get("total_pnl"), "num_trades": s.get("num_trades"),
@@ -372,7 +372,14 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
                     "lockbox": lb_secret[key][0],
                     "full": _slice_stats(k_ts, k_p, None, None),
                     "is_rng": (_slice_stats(k_ts, k_p, None, wf0) if _rng else None),
-                    "wf_rng": (_slice_stats(k_ts, k_p, wf0, wf1) if _rng else None)}
+                    "wf_rng": (_slice_stats(k_ts, k_p, wf0, wf1) if _rng else None),
+                    # v65.5 (owner: "is there a way to fix this so its accurate?"): the
+                    #   walk-forward years THROUGH the held-out year is the one span the UI
+                    #   could not measure exactly -- contiguous, but matching no saved block,
+                    #   so its drawdown had to be read off ~18 points of a downsampled curve,
+                    #   which understates. Measured here instead; every contiguous combination
+                    #   the SAMPLE toggles can produce now has a real drawdown behind it.
+                    "wf_lb": (_slice_stats(k_ts, k_p, wf0, None) if _rng else None)}
             # v64.81 (owner): downsampled gated equity curve for EVERY candidate (not just
             #   the chosen one), full pre+lockbox span, same trade-order grid as the chosen
             #   candidate's out["equity"] below — so the UI can overlay all 9. Additive only:
@@ -407,6 +414,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
         "lockbox_from": str(pd.Timestamp(lb_start).date()),
         "ungated_pre": ung_pre, "ungated_lockbox": ung_lb,
         "ungated_full": ung_full, "ungated_is": ung_is, "ungated_wf": ung_wf,
+        "ungated_wf_lb": (_slice_stats(entry_ts, pnls_all, wf0, None) if _rng else None),
         "wf_range": ([str(pd.Timestamp(wf0).date()), str(pd.Timestamp(wf1).date())] if _rng else None),
         "candidates": [_cand_out(c) for c in cands],
         "ungated_pre_rec": round(_rec(ung_pre), 2),
