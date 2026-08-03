@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='65.7';
+const VERSION='65.8';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -13518,8 +13518,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v65.6: the option panel is position:FIXED and parked off-screen until placed here, so no
       //   tile can clip it (the reason clicking used to look dead). Anchored under its own button,
       //   nudged back inside the viewport if it would run off the right or bottom edge.
+      // v65.8: a .hero-card ancestor carries backdrop-filter, which makes it the containing block
+      //   for position:fixed descendants — the panel was being laid out relative to THAT, landing
+      //   ~1900px above the viewport however carefully it was measured. Re-parent it to <body>,
+      //   which has no such property, before placing. Handlers are already bound by this point and
+      //   travel with the node. Stale panels from the previous render are cleared first.
+      Array.prototype.forEach.call(document.body.children,function(){});
+      document.querySelectorAll('body > [data-g2menu]').forEach(x=>x.remove());
       content.querySelectorAll('[data-g2menu]').forEach(m=>{
         const btn=content.querySelector('[data-g2d="'+m.getAttribute('data-g2menu')+'"]');
+        if(btn)document.body.appendChild(m);
         if(!btn){m.style.display='none';return;}
         // Re-anchor on every frame that matters rather than once: the report restores its scroll
         //   AFTER this wiring pass runs, so a single measurement here lands the panel off-screen.
