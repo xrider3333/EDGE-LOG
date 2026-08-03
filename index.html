@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='65.6';
+const VERSION='65.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -13521,11 +13521,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-g2menu]').forEach(m=>{
         const btn=content.querySelector('[data-g2d="'+m.getAttribute('data-g2menu')+'"]');
         if(!btn){m.style.display='none';return;}
-        const r=btn.getBoundingClientRect(),mw=m.offsetWidth||210,mh=m.offsetHeight||90;
-        let L=r.left,T=r.bottom+5;
-        if(L+mw>window.innerWidth-8)L=Math.max(8,window.innerWidth-8-mw);
-        if(T+mh>window.innerHeight-8)T=Math.max(8,r.top-5-mh);
-        m.style.left=Math.round(L)+'px';m.style.top=Math.round(T)+'px';});
+        // Re-anchor on every frame that matters rather than once: the report restores its scroll
+        //   AFTER this wiring pass runs, so a single measurement here lands the panel off-screen.
+        //   Also keeps it glued to its button while the page scrolls or resizes.
+        const place=()=>{
+          if(!m.isConnected||!btn.isConnected)return;
+          const r=btn.getBoundingClientRect();
+          if(!r.width&&!r.height)return;
+          const mw=m.offsetWidth||210,mh=m.offsetHeight||90;
+          let L=r.left,T=r.bottom+5;
+          if(L+mw>window.innerWidth-8)L=Math.max(8,window.innerWidth-8-mw);
+          if(T+mh>window.innerHeight-8)T=Math.max(8,r.top-5-mh);
+          m.style.left=Math.round(Math.max(8,L))+'px';m.style.top=Math.round(Math.max(8,T))+'px';};
+        place();requestAnimationFrame(place);setTimeout(place,60);setTimeout(place,220);
+        const onMove=()=>{if(!m.isConnected){window.removeEventListener('scroll',onMove,true);window.removeEventListener('resize',onMove);return;}place();};
+        window.addEventListener('scroll',onMove,true);window.addEventListener('resize',onMove);});
       if(String(APREF.g2open||'')&&!window._g2docClose){window._g2docClose=1;
         document.addEventListener('click',ev=>{if(!String(APREF.g2open||''))return;
           if(ev.target.closest&&(ev.target.closest('[data-g2menu]')||ev.target.closest('[data-g2d]')))return;
