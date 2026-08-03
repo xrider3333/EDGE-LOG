@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='65.5';
+const VERSION='65.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -7570,6 +7570,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const _mtxEmphBd=c=>';border-left:2px solid color-mix(in srgb,'+(c.emphCol||'var(--green)')+' 55%,transparent)';
     const _mtxEmphBg=c=>'color-mix(in srgb,'+(c.emphCol||'var(--green)')+' 9%,transparent)';
     const _mtxEmph=c=>_mtxEmphBd(c)+';background:'+_mtxEmphBg(c);
+    // ── the 2B / 2C control kit (v65.6) ────────────────────────────────────────────────
+    //    One-word button; its options float in a panel anchored under it. The panel is
+    //    position:FIXED and placed by script after render — an absolutely-positioned panel
+    //    was being clipped by the tile that hosts it (that is why clicking looked dead), and
+    //    an inline row pushed the matrix down, which the owner did not want either.
+    const _ctlBtn=(id,on,txt,val,tip)=>'<span data-g2d="'+id+'" title="'+String(tip||'').replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;gap:4px;font-size:7.5px;font-weight:700;letter-spacing:.5px;border:1px solid '+(on?'var(--text3)':'var(--border)')+';background:'+(on?'color-mix(in srgb,var(--text4) 16%,transparent)':'var(--bg1)')+';color:'+(on?'var(--text2)':'var(--text5)')+';border-radius:6px;padding:2px 7px;cursor:pointer;white-space:nowrap">'+txt+(val?'<b style="color:var(--text)">'+val+'</b>':'')+'<span style="color:var(--text5)">'+(on?'\u25B4':'\u25BE')+'</span></span>';
+    const _ctlChip=(on,lbl,attr,tip)=>'<span '+attr+' title="'+String(tip||'').replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.4px;white-space:nowrap;border:1px solid '+(on?'var(--green)':'var(--border)')+';color:'+(on?'var(--text)':'var(--text4)')+';background:'+(on?'color-mix(in srgb,var(--green) 15%,transparent)':'var(--bg2)')+'">'+(on?'&#10003; ':'')+lbl+'</span>';
+    const _ctlMenu=(id,head,chips,note)=>'<div data-g2menu="'+id+'" style="position:fixed;left:-9999px;top:-9999px;z-index:9000;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:7px 8px;box-shadow:0 8px 24px rgba(0,0,0,.45);max-width:230px">'
+      +'<div style="font-size:6.5px;color:var(--text5);letter-spacing:.5px;margin-bottom:5px">'+head+'</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:4px">'+chips+'</div>'
+      +(note?'<div style="font-size:6.5px;color:var(--text5);margin-top:6px;line-height:1.4">'+note+'</div>':'')+'</div>';
+    const _ctlHeat=on=>'<span data-g2heat>'+_ctlChip(on,'HEAT','','shade every cell by where it lands across its own row - green best, red worst. Shared by 2B and 2C.')+'</span>';
+    // SAMPLE stretches, shared by both matrices so one tick moves both.
+    const _segsOf=(all)=>{const raw=String(APREF.g2samp==null?'':APREF.g2samp);
+      let v=(raw.indexOf(',')>=0)?raw.split(','):(raw==='full'?['is','wf','lb']:(raw==='pre'?['is','wf']:(raw?[raw]:null)));
+      if(!v)v=['is','wf'];
+      v=v.filter(x=>all.indexOf(x)>=0);
+      return v.length?all.filter(x=>v.indexOf(x)>=0):all.filter(x=>['is','wf'].indexOf(x)>=0);};
+    const _rkNmAll={rec:'MAR',pnl:'NET $',floor:'NET $ + FLOOR'};
+    const _rkOptsAll=[['rec','MAR','most $ per $ of drawdown - the engine own rule, the one that crowned the winner'],
+                      ['pnl','NET $','most dollars, no safety check'],
+                      ['floor','NET $ + MAR FLOOR','most dollars, but only among candidates at least 80% as efficient as the best MAR']];
+    const _rkNote2='Solid yellow marks the row it sorts on &middot; dashed yellow marks a row it only uses to disqualify.';
     // opts.compact (owner redesign item B4): tighter cell padding for wide matrices (2C has 11
     //   columns) so it fits without horizontal scroll at a normal viewport width. Rows/cols that
     //   do not need it (2B, 5-6 columns) simply omit opts and render exactly as before.
@@ -7699,6 +7722,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   really just the walk-forward RANK — spelled out plainly now, crown still 👑.
       const _rkYel=';box-shadow:inset 0 1px 0 var(--yellow),inset 0 -1px 0 var(--yellow);';
       const _b2Sty='background:var(--bg1);border:1px solid var(--border);border-radius:5px;color:var(--text2);font-size:8px;padding:1px 3px;cursor:pointer;font-family:inherit';
+      const _b2segs=_segsOf(['is','wf','lb']);
       const _b2heat=+(APREF.g2heat||0),_b2rank=(['rec','pnl','floor'].indexOf(String(APREF.g2rank||''))>=0)?String(APREF.g2rank):'rec';
       // v65.0 (owner: apply the controls to 2B): RANK BY reorders the config columns and HEAT
       //   shades them, sharing the SAME prefs as 2C so one setting drives both matrices.
@@ -7715,8 +7739,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         return ((vb!=null&&isFinite(vb))?vb:-Infinity)-((va!=null&&isFinite(va))?va:-Infinity);});
       const _b2Would=(_b2rank!=='rec')?recs[0]:null;
       const cols=recs.map(rc=>Object.assign({
-        lbl:(rc.crowned?'👑 ':'')+'RANK '+rc.rank+' · '+(rc.cfgNo?('#'+rc.cfgNo):'—'),
-        sub:rc.crowned?'CROWNED':((_b2Would===rc)?'◇ WOULD PICK':(rc.ismax?'IS MAX':'')),
+        lbl:(rc.crowned?'👑':'')+'R'+rc.rank+' · '+(rc.cfgNo?('#'+rc.cfgNo):'—'),
+        sub:rc.crowned?'CROWNED':((_b2Would===rc)?'◇ WOULD':(rc.ismax?'IS MAX':'')),
         col:rc.crowned?'var(--green)':(rc.ismax?'#3a9bdc':'var(--text2)'),
         emph:rc.crowned,tip:rc.rankTip},rc));
       // v64.93 (owner): abbreviate dollars the way 2C does ($450k) so 2B is just as compact.
@@ -7749,15 +7773,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v65.0 (owner): $ PER TRADE, same row 2C now carries, so the two matrices line up.
       if(recs.some(rc=>rc.mmApt!=null))_rrRows.push({lbl:'<span title="average net dollars per trade over the optimize window -- says whether a config makes its money from bigger trades or just more of them" style="border-bottom:1px dotted var(--text5);cursor:help">$ / TRADE</span>',cell:col=>col.mmApt!=null?('<span style="font-weight:700;color:'+(col.mmApt>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(col.mmApt))+'</span>'):'<span style="color:var(--text5)">—</span>'});
       const groups=[
-        {name:'return',rows:[
-          {lbl:'IS $',cell:col=>_usd(col.isV)},
-          {lbl:'WF $',top:true,rowBg:_wfBg,lblCol:_wfCol,cell:col=>_usd(col.wfV)},
-          {lbl:'LB $',rowBg:_lbBg,lblCol:_lbCol,cell:col=>_usd(col.lbSlice)},
+        {name:'return <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">&middot; '+_b2segs.map(x=>x.toUpperCase()).join('+')+'</span>',rows:[]
+          .concat(_b2segs.indexOf('is')>=0?[{lbl:'IS $',cell:col=>_usd(col.isV)}]:[])
+          .concat(_b2segs.indexOf('wf')>=0?[{lbl:'WF $',top:true,rowBg:_wfBg,lblCol:_wfCol,cell:col=>_usd(col.wfV)}]:[])
+          .concat(_b2segs.indexOf('lb')>=0?[{lbl:'LB $',rowBg:_lbBg,lblCol:_lbCol,cell:col=>_usd(col.lbSlice)}]:[])
+          .concat([
           {lbl:'FULL',top:true,rowSty:(_b2rank!=='rec'?_rkYel:''),cell:col=>col.fullRun!=null?('<span style="font-weight:700;color:'+(col.fullRun>=0?'#1d9e75':'#e24b4a')+'">'+fmtAx(col.fullRun,1)+(col.fullRunStar?'*':'')+'</span>'):'<span style="color:var(--text5)">—</span>'},
           // v64.92 (owner): MAX DD sits directly under TOTAL so profit and the risk taken to get
           //   it read together. The separate DRAWDOWN group that used to follow is GONE — it
           //   repeated this exact row verbatim two lines later.
-          {lbl:'<span title="peak-to-trough drop on this config equity curve over the WHOLE optimize window (in-sample and walk-forward together) -- not a per-period figure" style="border-bottom:1px dotted var(--text5);cursor:help">MAX DD</span>',cell:_ddCell}]},
+          {lbl:'<span title="peak-to-trough drop on this config equity curve over the WHOLE optimize window (in-sample and walk-forward together) -- not a per-period figure" style="border-bottom:1px dotted var(--text5);cursor:help">MAX DD</span>',cell:_ddCell}])},
         {name:'reward ÷ risk <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">· mixed slices — hover each row</span>',rows:_rrRows},
         {name:'config',rows:knobKeys.map(k2=>({lbl:_pp(k2),cell:col=>'<b style="color:var(--text2)">'+String((col.params||{})[k2])+'</b>'}))}
       ];
@@ -7776,7 +7801,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const key=String(r.lbl).replace(/<[^>]*>/g,'').trim();
           if(_pick[key]){const f=_hf(_pick[key],true);if(f)r.cellBg=f;}}));
       }
-      const table=_matrixTbl(cols,groups)
+      const table=_matrixTbl(cols,groups,{compact:true})
         +'<div style="font-size:7px;color:var(--text5);margin-top:4px;padding:0 4px">FULL RUN is the end of this config equity curve — the same figure chart 1A and the crowned line in 2A show. IS / WF / LB are measured on OVERLAPPING windows, so they do not add up to it.'
         +(_anyStar?' &nbsp;* this config was not carried through the lockbox, so FULL RUN ends at the optimize-window close.':'')+'</div>';
       // honesty notes + the crown/robustness paragraph + the funnel-path caption — all relocated
@@ -7788,14 +7813,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const rankNote='Columns are ordered by WALK-FORWARD result, best first — the crown and the LB $ carry-through are both decided by walk-forward, not by IS $. The CONFIG rows show only the knobs that differ across these configs, so differences read straight across the row. SHARPE is derived from the equity curve each candidate carries (see its header for how); FOLDS HELD is the walk-forward folds that stayed profitable for that config.';
       const tip='<div style="color:var(--text2)">'+crownNote+'<br><br>'+cloudNote+'<br><br>'+lbNote+'<br><br>'+rankNote+'</div>';
       const sub=sorted.length+' crown-pool config'+(sorted.length===1?'':'s')+' · sorted by walk-forward rank';
-      const _b2Btn=(on,txt,tip)=>'<span title="'+tip+'" style="display:inline-flex;align-items:center;gap:4px;font-size:7.5px;font-weight:700;letter-spacing:.4px;border:1px solid '+(on?'var(--green)':'var(--border)')+';background:'+(on?'color-mix(in srgb,var(--green) 15%,transparent)':'var(--bg1)')+';color:'+(on?'var(--text)':'var(--text4)')+';border-radius:6px;padding:2px 7px;cursor:pointer;white-space:nowrap">'+(on?'&#10003; ':'')+txt+'</span>';
-      const _b2Ctrls='<div data-g2ctl style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
-        +'<span style="font-size:6.5px;color:var(--text5);letter-spacing:.5px">RANK</span>'
-        +'<span data-g2rk="rec">'+_b2Btn(_b2rank==='rec','MAR','most $ per $ of drawdown. Shared with the 2C matrix.')+'</span>'
-        +'<span data-g2rk="pnl">'+_b2Btn(_b2rank==='pnl','NET $','most dollars, no safety check. Shared with the 2C matrix.')+'</span>'
-        +'<span data-g2rk="floor">'+_b2Btn(_b2rank==='floor','+ MAR FLOOR','most dollars among configs at least 80% as efficient as the best MAR. Shared with the 2C matrix.')+'</span>'
-        +'<span data-g2heat style="margin-left:4px">'+_b2Btn(!!_b2heat,'HEAT','shade every cell by where it lands across its own row. Shared with the 2C matrix.')+'</span>'
-        +'</div>';
+      // v65.6 (owner: "make sure these recent UI changes are applying to 2B"): same control kit
+      //   as 2C, sharing the same prefs — one tick moves both matrices.
+      const _b2open=String(APREF.g2open||'');
+      const _b2Tip={is:'the in-sample score over the optimize window',
+                    wf:'the walk-forward result — the number that actually decided the crown',
+                    lb:'what the held-out final year itself added'};
+      const _b2sampMenu=(_b2open==='b-samp')?_ctlMenu('b-samp','SHOW RETURN ROWS',
+        ['is','wf','lb'].map(sg=>_ctlChip(_b2segs.indexOf(sg)>=0,sg.toUpperCase(),'data-g2seg="'+sg+'"',_b2Tip[sg])).join(''),
+        'IS, WF and LB here cover OVERLAPPING windows, so they are shown separately and never added up. FULL is the end of the curve.'):'';
+      const _b2rankMenu=(_b2open==='b-rank')?_ctlMenu('b-rank','ORDER COLUMNS BY',
+        _rkOptsAll.map(o=>_ctlChip(_b2rank===o[0],o[1],'data-g2rk="'+o[0]+'"',o[2])).join(''),_rkNote2):'';
+      const _b2Ctrls='<div data-g2ctl style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
+        +_ctlBtn('b-samp',_b2open==='b-samp','SAMPLE',_b2segs.map(x=>x.toUpperCase()).join('+'),'pick which return rows to show')
+        +_ctlBtn('b-rank',_b2open==='b-rank','RANK',_rkNmAll[_b2rank],'how the config columns are ordered. View only - the crown never moves.')
+        +_ctlHeat(!!_b2heat)
+        +'</div>'+_b2sampMenu+_b2rankMenu;
       return {table:table,tip:tip,sub:sub,ctrls:_b2Ctrls};};
     const topEqOverlayHtml=(d,mult,tag,sink)=>{
       const etop=d&&d.equity_top;if(!etop||etop.length<2)return '';
@@ -10012,30 +10045,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   toggleable"): three one-word buttons. SAMPLE and RANK open a small menu on click
         //   (native details element - no JS to open/close); HEAT is a straight on/off. SAMPLE is
         //   MULTI-select: tick the stretches you want and the matrix measures over exactly those.
-        const _btn=(on,txt,val,tip)=>'<span title="'+tip+'" style="display:inline-flex;align-items:center;gap:4px;font-size:7.5px;font-weight:700;letter-spacing:.5px;border:1px solid '+(on?'var(--text4)':'var(--border)')+';background:'+(on?'color-mix(in srgb,var(--text4) 12%,transparent)':'var(--bg1)')+';color:'+(on?'var(--text2)':'var(--text5)')+';border-radius:6px;padding:2px 7px;cursor:pointer;white-space:nowrap">'+txt+(val?'<b style="color:var(--text)">'+val+'</b>':'')+'</span>';
         const _g2open=String(APREF.g2open||'');
-        const _menu=inner=>'<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:flex-start;background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:6px 8px;margin:5px 0 0">'+inner+'</div>';
-        const _item=(on,lbl,attr,sub)=>'<span '+attr+' title="'+String(sub||'').replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.4px;white-space:nowrap;border:1px solid '+(on?'var(--green)':'var(--border)')+';color:'+(on?'var(--text)':'var(--text4)')+';background:'+(on?'color-mix(in srgb,var(--green) 15%,transparent)':'var(--bg2)')+'">'+(on?'&#10003; ':'')+lbl+'</span>';
         const _sp0=(V.span||[])[0]||'',_sp1=(V.span||[])[1]||'',_wr0=(V.wf_range||[])[0]||'',_wr1=(V.wf_range||[])[1]||'';
-        const _segTip={is:'before the walk-forward folds begin'+(_sp0?(' &middot; '+_sp0+' to '+_wr0):''),
-                       wf:'the walk-forward years, the same stretch 2B tests over'+(_wr0?(' &middot; '+_wr0+' to '+_wr1):''),
-                       lb:'the held-out final year'+(V.lockbox_from?(' &middot; '+V.lockbox_from+' to '+_sp1):''),
+        const _segTip={is:'before the walk-forward folds begin'+(_sp0?(' \u00b7 '+_sp0+' to '+_wr0):''),
+                       wf:'the walk-forward years, the same stretch 2B tests over'+(_wr0?(' \u00b7 '+_wr0+' to '+_wr1):''),
+                       lb:'the held-out final year'+(V.lockbox_from?(' \u00b7 '+V.lockbox_from+' to '+_sp1):''),
                        pre:'the tuning years, in-sample and walk-forward together'};
-        const _sampMenu=(_g2open==='samp')?_menu('<span style="font-size:6.5px;color:var(--text5);letter-spacing:.5px;align-self:center;margin-right:2px">MEASURE OVER</span>'
-          +_segAll.map(sg=>_item(_g2segs.indexOf(sg)>=0,_segNm[sg],'data-g2seg="'+sg+'"',_segTip[sg]||'')).join('')
-          +(_hasRng?'':'<span style="font-size:6.5px;color:var(--text5)">IS and WF need a re-run on this config.</span>')):'';
-        const _rkOpts=[['rec','MAR','most $ per $ of drawdown - the engine own rule, the one that crowned the winner'],
-                       ['pnl','NET $','most dollars, no safety check'],
-                       ['floor','NET $ + MAR FLOOR','most dollars, but only among variants at least 80% as efficient as the best MAR']];
-        const _rkNm={rec:'MAR',pnl:'NET $',floor:'NET $ + FLOOR'};
-        const _rankMenu=(_g2open==='rank')?_menu('<span style="font-size:6.5px;color:var(--text5);letter-spacing:.5px;align-self:center;margin-right:2px">ORDER COLUMNS BY</span>'
-          +_rkOpts.map(o=>_item(_g2rank===o[0],o[1],'data-g2rk="'+o[0]+'"',o[2])).join('')
-          +'<span style="font-size:6.5px;color:var(--text5);white-space:normal;flex-basis:100%;line-height:1.35">Solid yellow marks the row it sorts on &middot; dashed yellow marks a row it only uses to disqualify.</span>'):'';
-        const _drop=(id,btn)=>'<span data-g2d="'+id+'">'+btn+'</span>';
+        const _rkNm=_rkNmAll;
+        const _sampMenu=(_g2open==='c-samp')?_ctlMenu('c-samp','MEASURE OVER',
+          _segAll.map(sg=>_ctlChip(_g2segs.indexOf(sg)>=0,_segNm[sg],'data-g2seg="'+sg+'"',_segTip[sg]||'')).join(''),
+          _hasRng?'Tick as many as you like. All three is the full run.':'IS and WF need a re-run on this config.'):'';
+        const _rankMenu=(_g2open==='c-rank')?_ctlMenu('c-rank','ORDER COLUMNS BY',
+          _rkOptsAll.map(o=>_ctlChip(_g2rank===o[0],o[1],'data-g2rk="'+o[0]+'"',o[2])).join(''),_rkNote2):'';
         const _ctrls='<div data-g2ctl style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
-          +_drop('samp',_btn(_g2open==='samp','SAMPLE',_sampLbl+(_g2open==='samp'?' \u25B4':' \u25BE'),'pick which stretches of the run the matrix measures over - tick as many as you like'))
-          +_drop('rank',_btn(_g2open==='rank','RANK',_rkNm[_g2rank]+(_g2open==='rank'?' \u25B4':' \u25BE'),'how the variant columns are ordered. View only - the crown never moves.'))
-          +'<span data-g2heat>'+_btn(!!_g2heat,'HEAT','','shade every cell by where it lands across its own row - green best, red worst')+'</span>'
+          +_ctlBtn('c-samp',_g2open==='c-samp','SAMPLE',_sampLbl,'pick which stretches of the run the matrix measures over - tick as many as you like')
+          +_ctlBtn('c-rank',_g2open==='c-rank','RANK',_rkNm[_g2rank],'how the variant columns are ordered. View only - the crown never moves.')
+          +_ctlHeat(!!_g2heat)
           +((_g2rank!=='rec'||_g2segs.indexOf('lb')>=0)?'<span title="The winner was picked on MAR over the tuning years and nothing else, before any held-out number existed. Ordering by a different rule, or measuring over a stretch that was sealed at the time, is hindsight - useful for study, not a valid way to crown anything." style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 6px;font-size:7px;cursor:help;white-space:nowrap">&#9888; HINDSIGHT</span>':'')
           +'</div>';
         const _gMatrix=''
@@ -10071,7 +10096,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         }else{
           _lockboxBlock='<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'+_pdChip('LOCKBOX (held-out final year)','var(--text4)')+'</div><div style="font-size:var(--fsxs);color:var(--text5)">'+(V.gate_earns_pre?'Not opened yet on this run — the chosen variant has not been scored against the held-out year.':'Never opened — no candidate out-earned no-gate on the PRE-LOCKBOX data above, so the held-out final year was not touched.')+'</div></div>';
         }
-        return {V:V,LB:LB,ch:ch,ctrls:_ctrls,menus:(_sampMenu+_rankMenu),
+        return {V:V,LB:LB,ch:ch,ctrls:(_ctrls+_sampMenu+_rankMenu),menus:'',
           head:'<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>',
           intro:'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+V.n_candidates+' candidates ranked pre-lockbox by recovery factor ($ per $ of drawdown). The winner gets exactly one lockbox look — no shopping.</div>',
           matrix:_gMatrix,
@@ -13490,6 +13515,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-g2d]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();
         const id=b.getAttribute('data-g2d');
         savePref('g2open',String(APREF.g2open||'')===id?'':id);renderApp();};});
+      // v65.6: the option panel is position:FIXED and parked off-screen until placed here, so no
+      //   tile can clip it (the reason clicking used to look dead). Anchored under its own button,
+      //   nudged back inside the viewport if it would run off the right or bottom edge.
+      content.querySelectorAll('[data-g2menu]').forEach(m=>{
+        const btn=content.querySelector('[data-g2d="'+m.getAttribute('data-g2menu')+'"]');
+        if(!btn){m.style.display='none';return;}
+        const r=btn.getBoundingClientRect(),mw=m.offsetWidth||210,mh=m.offsetHeight||90;
+        let L=r.left,T=r.bottom+5;
+        if(L+mw>window.innerWidth-8)L=Math.max(8,window.innerWidth-8-mw);
+        if(T+mh>window.innerHeight-8)T=Math.max(8,r.top-5-mh);
+        m.style.left=Math.round(L)+'px';m.style.top=Math.round(T)+'px';});
+      if(String(APREF.g2open||'')&&!window._g2docClose){window._g2docClose=1;
+        document.addEventListener('click',ev=>{if(!String(APREF.g2open||''))return;
+          if(ev.target.closest&&(ev.target.closest('[data-g2menu]')||ev.target.closest('[data-g2d]')))return;
+          savePref('g2open','');renderApp();},true);}
       content.querySelectorAll('[data-g2rank]').forEach(s=>{s.onchange=()=>{savePref('g2rank',s.value);renderApp();};});
       content.querySelectorAll('[data-g2heat]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('g2heat',(+(APREF.g2heat||0))?0:1);renderApp();};});
       // report layout toggle: CLASSIC ⇄ FUNNEL β ⇄ GAUGES β (value-generic)
