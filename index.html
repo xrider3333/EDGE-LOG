@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='65.0';
+const VERSION='65.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'65.1',date:'2026-08-03',notes:['FIX: opening a run report failed to draw in 65.0 — the new 2B controls were referenced before they were defined. Reports render again.']},
 {v:'65.0',date:'2026-08-02',notes:[
  '2C: RECOVERY is now called MAR everywhere (same calculation, one name), and FULL RUN is now FULL',
  '2C: the row the column order is reading is outlined in yellow, matching the now-yellow RANK BY control',
@@ -7696,6 +7697,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    differ rows are the most useful read now — differences line up straight across.
       // A1 (owner): "WF1 / WF2 ..." read as if the WF prefix were part of the header; it is
       //   really just the walk-forward RANK — spelled out plainly now, crown still 👑.
+      const _rkYel=';box-shadow:inset 0 1px 0 var(--yellow),inset 0 -1px 0 var(--yellow);';
+      const _b2Sty='background:var(--bg1);border:1px solid var(--border);border-radius:5px;color:var(--text2);font-size:8px;padding:1px 3px;cursor:pointer;font-family:inherit';
+      const _b2Opt=(v,l,cur)=>'<option value="'+v+'"'+(cur===v?' selected':'')+'>'+l+'</option>';
+      const _b2heat=+(APREF.g2heat||0),_b2rank=(['rec','pnl','floor'].indexOf(String(APREF.g2rank||''))>=0)?String(APREF.g2rank):'rec';
       // v65.0 (owner: apply the controls to 2B): RANK BY reorders the config columns and HEAT
       //   shades them, sharing the SAME prefs as 2C so one setting drives both matrices.
       //   RANK BY here reads MAR or FULL-RUN dollars; the MAR floor keeps configs within 80% of
@@ -7731,10 +7736,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   period: the walk-forward folds are OOS slices scattered THROUGH the optimize window
       //   (they overlap the in-sample stretch rather than following it), so there is no separate
       //   IS-only or WF-only drawdown curve to measure a second version against.
-      const _rkYel=';box-shadow:inset 0 1px 0 var(--yellow),inset 0 -1px 0 var(--yellow);';
-      const _b2Sty='background:var(--bg1);border:1px solid var(--border);border-radius:5px;color:var(--text2);font-size:8px;padding:1px 3px;cursor:pointer;font-family:inherit';
-      const _b2Opt=(v,l,cur)=>'<option value="'+v+'"'+(cur===v?' selected':'')+'>'+l+'</option>';
-      const _b2heat=+(APREF.g2heat||0),_b2rank=(['rec','pnl','floor'].indexOf(String(APREF.g2rank||''))>=0)?String(APREF.g2rank):'rec';
       const _rrRows=[
         {lbl:'<span title="walk-forward dollars divided by the drawdown of the WHOLE optimize window. WF is the numerator because walk-forward is the number that actually decided the crown; the drawdown is whole-window because that is the only equity curve each candidate carries." style="border-bottom:1px dotted var(--text5);cursor:help">MAR</span>',rowSty:(_b2rank==='rec'?_rkYel:''),cell:col=>col.mar!=null?('<span style="color:var(--text2)">'+col.mar.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'},
         {lbl:'<span title="Derived from the equity curve each candidate carries (period-to-period change in cumulative PnL) over the WHOLE optimize window, annualised using that window length -- not stored directly by the engine" style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>',
