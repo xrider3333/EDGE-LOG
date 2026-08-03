@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='65.3';
+const VERSION='65.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -11096,12 +11096,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   that used to be spread across a pick-line + hero caption sitting BETWEEN the title
         //   and the matrix; everything else (the pick, the sweep-chart evidence, the equity
         //   visual, the consistency note) now sits BELOW the matrix + lockbox block instead.
-        // v65.0 (owner: "clean up everything in the yellow boxes, its messy"): this line repeated,
-        //   almost word for word, the caption already sitting above the matrix. It now carries
-        //   only what the matrix does NOT say — which variant won.
-        const _gOneLiner=_gvP
-          ?('chosen: '+(_gvP.ch?(String(_gvP.ch.model||'').toUpperCase()+' @ '+Math.round((_gvP.ch.threshold||0)*100)+'%'):'none eligible')+(_gvP.V.n_candidates?(' of '+_gvP.V.n_candidates+' model × cut-off combinations'):''))
-          :'A single ML filter model — no model × cut-off bake-off saved for this run.';
         if(_gvP){
           const _evTog='<div data-r3ev title="the recovery-vs-cut-off sweep chart behind the matrix above — how the winner was picked on PRE-LOCKBOX data. Click to '+(_evOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">'+(_evOpen?'▴ hide the sweep chart':'▾ HOW IT WAS CHOSEN — sweep chart ⓘ')+'</div>';
           // B3 (owner redesign, THE IMPORTANT ONE): chronological order now — 1) the PRE-LOCKBOX
@@ -11137,7 +11131,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   context down to just an icon.
         _gateSec='<div style="'+_colStyle+';margin-bottom:0;resize:vertical;min-height:52px;max-height:900px">'
           +'<div data-gate2a style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow:hidden">2C 🚪 ML FILTER CONFIGS '+_infoIc('<div style="color:var(--text2)">DOES A TRADE-FILTER MODEL EARN ITS KEEP? A GATE is an ML model that scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. GATE VALIDATE sweeps several models across several cut-offs on PRE-LOCKBOX data (in-sample + walk-forward combined — everything before the held-out final year), picks ONE winner by recovery factor, and gives only that winner a single look at the held-out lockbox — no cherry-picking.<br><br>NOT the same as the 2K ML CONFIG BUILDER: 2K picks which PARAMETER CONFIG (knob settings) is best; this filter keeps the chosen config and only decides which individual TRADES to take. 2K = build the config, 2C = filter its trades.<br><br>THE GATE EQUITY is also shown on the 2A funnel above (the crowned line = every trade / ungated, the pink line = only the trades the gate kept).</div>')+'<span title="'+_gbFull.replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;border:1px solid color-mix(in srgb,'+_gbc+' 45%,var(--border));background:color-mix(in srgb,'+_gbc+' 10%,transparent);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help;flex-shrink:1;min-width:0">'+_gbShort+'</span>'+((_g2Open&&_gvP&&_gvP.ctrls)?_gvP.ctrls:'')+'<span style="'+((_g2Open&&_gvP&&_gvP.ctrls)?'':'margin-left:auto;')+'font-size:8px;color:var(--text4);flex-shrink:0">'+(_g2Open?'▴ hide':'▾ show')+'</span></div>'
-          +'<div style="font-size:8px;color:var(--text5);margin-top:3px">'+_gOneLiner+'</div>'
           +(_g2Open?('<div style="margin-top:9px">'+_gateCard+'</div>'):'')
           +'</div>';
       }
