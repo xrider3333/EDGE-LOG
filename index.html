@@ -442,10 +442,18 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.98';
+const VERSION='64.99';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'64.99',date:'2026-08-02',notes:[
+ '2A: SAMPLE picker on the funnel title row — dims the periods you are not looking at, and shares one setting with the 2C matrix',
+ '2C: heat map now shades the crowned column too (the crown tint was painting over it)',
+ '2C: MAX DD moved under the last equity row with a separator, instead of its own section; it follows SAMPLE',
+ '2C: added SHARPE, marked RECOVERY as the same calculation 2B calls MAR, and badged the row the column order is reading',
+ '2C: SAMPLE renamed PRE-LB, with an entry explaining why a filter cannot be split into in-sample and walk-forward',
+ '2B: MAR / SHARPE / MAX DD / FOLDS HELD now say which slice each one measures',
+ 'engine: gate variants now save measured lockbox and full-run stats, and configs save their optimize-window profile — both need a re-run to appear']},
 {v:'64.97',date:'2026-08-02',notes:[
  '2C: on the LOCKBOX sample, a warning now says the marked drawdowns are read from about 18 curve points and understate — the dollars are exact, the drawdowns are indicative']},
 {v:'64.96',date:'2026-08-02',notes:[
@@ -7874,6 +7882,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // selMode funnel: the two doors, the top-K walk-forward continuation, the crowned/IS-max
       //   full-length traces, the top-3 lockbox continuation, and compact right-gutter $ labels.
       let selSvg='',selBands='',_gutterHtml='',_keyBox='',gateOv='',_gateChip='';
+      // v64.98: the 2A copy of the SAMPLE control — same pref key as 2C (g2samp), so changing it
+      //   in either place moves both. On this chart it dims the periods you are not looking at.
+      const _a2sV=(['pre','lb','full'].indexOf(String(APREF.g2samp||''))>=0)?String(APREF.g2samp):'pre';
+      const _a2SampSel='<select data-g2samp title="which period to focus on. Dims the rest of this chart, and drives the drawdown / reward-risk / sample rows in the 2C matrix below — one setting, both tiles." style="background:var(--bg1);border:1px solid var(--border);border-radius:5px;color:var(--text2);font-size:8px;padding:1px 3px;cursor:pointer;font-family:inherit;font-weight:700">'
+        +['pre|PRE-LB','lb|LOCKBOX','full|FULL RUN'].map(o=>{const p=o.split('|');
+          return '<option value="'+p[0]+'"'+(_a2sV===p[0]?' selected':'')+'>'+p[1]+'</option>';}).join('')
+        +'</select>';
       if(selMode){
         const _kUsd=v=>{v=Math.round(v);const a=Math.abs(v);return (v<0?'-$':'$')+(a>=1000?(a/1000).toFixed(a>=10000?0:1)+'k':a);};
         // top-K SURVIVORS — every WF config EXCEPT the two highlighted ones (crowned/IS-max get
@@ -8207,7 +8222,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="white-space:nowrap;color:var(--text4)"><b>▬</b> other configs</div>'
           +((_hasGate&&_a2gate)?'<div style="white-space:nowrap;color:#e05fa0"><b>▬</b> 🚪 gate-filtered</div>':'')
           +'</div>';
-        selSvg=isDoor+lbDoor+wf+ov+lb+gateOv;}
+        // v64.98 (owner: "add these to 2A as well"): the SAMPLE control is SHARED with the 2C
+        //   matrix — one setting, both tiles agree — and here it dims the stretch you are not
+        //   looking at so the chart and the matrix are talking about the same period. Only
+        //   SAMPLE crosses over: RANK BY reorders matrix COLUMNS and HEAT shades matrix CELLS,
+        //   neither of which means anything on a line chart, so they stay in 2C.
+        const _a2samp=(['pre','lb','full'].indexOf(String(APREF.g2samp||''))>=0)?String(APREF.g2samp):'pre';
+        let _dimOv='';
+        if(hasLB&&_a2samp!=='full'){
+          const _dR=(x0,x1)=>'<rect x="'+x0.toFixed(1)+'" y="'+pt+'" width="'+Math.max(0,x1-x0).toFixed(1)+'" height="'+(H-pd-pt).toFixed(1)+'" fill="var(--bg1)" opacity="0.62" pointer-events="none"/>';
+          _dimOv=(_a2samp==='lb')?_dR(xL,xFull):_dR(xFull,xR);
+        }
+        selSvg=isDoor+lbDoor+wf+ov+lb+gateOv+_dimOv;}
       // x-axis date labels (owner request). Use the OPTIMIZE window when this is a validate
       //   run; selMode+lockbox pushes the right label out to the holdout end.
       const _xw=(d.validate&&d.validate.windows&&d.validate.windows.optimize)||null;
@@ -8230,7 +8256,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v64.25 (owner): ⓘ right after the tag (1A pattern), the funnel-path caption lives in the
       //   info box, and the configs slider is right-aligned on the title row.
       const _hdr=selMode
-        ?(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_selTip+'<br><br>Path: all configs → IS door → top-K walk-forward → top-3 lockbox.</div>')+' CONFIG FUNNEL <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex-shrink:1;min-width:0;overflow:hidden;white-space:nowrap">'+_gateChip+cfgSlider+'</span></div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
+        ?(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_selTip+'<br><br>Path: all configs → IS door → top-K walk-forward → top-3 lockbox.</div>')+' CONFIG FUNNEL <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex-shrink:1;min-width:0;overflow:hidden;white-space:nowrap">'+_a2SampSel+_gateChip+cfgSlider+'</span></div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
         :(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_eqTip+'</div>')+' TOP CONFIGS PNL'+selDrop+'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px">'+_gateChipNS+cfgSlider+'</span></div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
       // v64.46 (owner): the funnel (selMode) now ALSO carries a data-xh descriptor, so the expand
       //   modal's crosshair shows date + equity $ under the cursor (same readout as 1A). x is a
