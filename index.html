@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='65.1';
+const VERSION='65.2';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -7789,10 +7789,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const rankNote='Columns are ordered by WALK-FORWARD result, best first — the crown and the LB $ carry-through are both decided by walk-forward, not by IS $. The CONFIG rows show only the knobs that differ across these configs, so differences read straight across the row. SHARPE is derived from the equity curve each candidate carries (see its header for how); FOLDS HELD is the walk-forward folds that stayed profitable for that config.';
       const tip='<div style="color:var(--text2)">'+crownNote+'<br><br>'+cloudNote+'<br><br>'+lbNote+'<br><br>'+rankNote+'</div>';
       const sub=sorted.length+' crown-pool config'+(sorted.length===1?'':'s')+' · sorted by walk-forward rank';
-      const _b2Ctrls='<div data-g2ctl style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
-        +'<label style="font-size:7px;letter-spacing:.5px;color:var(--text5);display:flex;align-items:center;gap:3px">RANK BY<select data-g2rank title="how the config columns are ordered — the row it reads is outlined in yellow. View only, the crown never moves. Shared with the 2C matrix." style="'+_b2Sty+';border-color:var(--yellow);color:var(--yellow);font-weight:700">'
-          +_b2Opt('rec','MAR · engine rule',_b2rank)+_b2Opt('pnl','NET $ · raw',_b2rank)+_b2Opt('floor','NET $ · MAR floor',_b2rank)+'</select></label>'
-        +'<span data-g2heat title="shade every cell by where it lands across its own row — green best, red worst. Shared with the 2C matrix." style="cursor:pointer;user-select:none;font-size:7px;letter-spacing:.5px;color:'+(_b2heat?'var(--text2)':'var(--text5)')+';border:1px solid '+(_b2heat?'var(--text4)':'var(--border)')+';border-radius:5px;padding:1px 6px">'+(_b2heat?'▪ HEAT MAP':'▫ HEAT MAP')+'</span>'
+      const _b2Btn=(on,txt,val,tip)=>'<span title="'+tip+'" style="display:inline-flex;align-items:center;gap:4px;font-size:7.5px;font-weight:700;letter-spacing:.5px;border:1px solid '+(on?'var(--text4)':'var(--border)')+';background:'+(on?'color-mix(in srgb,var(--text4) 12%,transparent)':'var(--bg1)')+';color:'+(on?'var(--text2)':'var(--text5)')+';border-radius:6px;padding:2px 7px;cursor:pointer;white-space:nowrap">'+txt+(val?'<b style="color:var(--text)">'+val+'</b>':'')+'</span>';
+      const _b2Nm={rec:'MAR',pnl:'NET $',floor:'NET $ + FLOOR'};
+      const _b2Item=(on,lbl,v,sub)=>'<div data-g2rk="'+v+'" style="display:flex;align-items:flex-start;gap:6px;padding:3px 6px;border-radius:5px;cursor:pointer;font-size:8px;color:'+(on?'var(--text)':'var(--text4)')+';background:'+(on?'color-mix(in srgb,var(--text4) 14%,transparent)':'transparent')+'"><span style="width:9px;color:var(--green)">'+(on?'&#10003;':'')+'</span><span><b>'+lbl+'</b><div style="font-size:6.5px;color:var(--text5);white-space:normal;max-width:150px;line-height:1.3">'+sub+'</div></span></div>';
+      const _b2Ctrls='<div data-g2ctl style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
+        +'<details style="position:relative;display:inline-block"><summary style="list-style:none;cursor:pointer">'+_b2Btn(true,'RANK',_b2Nm[_b2rank],'how the config columns are ordered. View only - the crown never moves. Shared with the 2C matrix.')+'</summary>'
+        +'<div style="position:absolute;right:0;top:100%;margin-top:4px;z-index:40;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px;box-shadow:0 6px 20px rgba(0,0,0,.35);min-width:136px"><div style="font-size:6.5px;color:var(--text5);padding:1px 6px 4px;letter-spacing:.5px">ORDER COLUMNS BY</div>'
+          +_b2Item(_b2rank==='rec','MAR','rec','most $ per $ of drawdown')
+          +_b2Item(_b2rank==='pnl','NET $','pnl','most dollars, no safety check')
+          +_b2Item(_b2rank==='floor','NET $ + MAR FLOOR','floor','most dollars among configs at least 80% as efficient as the best MAR')
+          +'<div style="font-size:6.5px;color:var(--text5);padding:4px 6px 1px;max-width:150px;white-space:normal;line-height:1.35">Solid yellow marks the row it sorts on.</div></div></details>'
+        +'<span data-g2heat>'+_b2Btn(!!_b2heat,'HEAT','','shade every cell by where it lands across its own row. Shared with the 2C matrix.')+'</span>'
         +'</div>';
       return {table:table,tip:tip,sub:sub,ctrls:_b2Ctrls};};
     const topEqOverlayHtml=(d,mult,tag,sink)=>{
@@ -9849,14 +9856,62 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    RANK BY  how the variant columns are ordered. RECOVERY is the engine rule that
         //             actually picked the winner; the other two are what-if lenses.
         //    HEAT     shade each cell by where it lands across its own row.
+        // v65.2 (owner): SAMPLE is no longer one-of-five. You TOGGLE the stretches you want —
+        //   IS, WF, LB — and the matrix measures over exactly those. All three IS the full run;
+        //   IS+WF is the tuning years. Old prefs are migrated so nobody lands on an empty pick.
         const _hasRng=!!(V.wf_range&&V.ungated_wf);
-        const _sampOK=['pre','lb','full'].concat(_hasRng?['is','wf']:[]);
-        const _g2samp=(_sampOK.indexOf(String(APREF.g2samp||''))>=0)?String(APREF.g2samp):'pre';
-        const _g2rank=(['rec','pnl','floor'].indexOf(String(APREF.g2rank||''))>=0)?String(APREF.g2rank):'rec';
-        const _g2heat=+(APREF.g2heat||0);
+        const _segAll=_hasRng?['is','wf','lb']:['pre','lb'];
+        const _segMig={pre:(_hasRng?['is','wf']:['pre']),full:_segAll.slice(),is:['is'],wf:['wf'],lb:['lb']};
+        const _g2segs=(function(){
+          const raw=String(APREF.g2samp==null?'':APREF.g2samp);
+          let v=(raw.indexOf(',')>=0)?raw.split(','):(_segMig[raw]||null);
+          if(!v)v=_segMig.pre;
+          v=v.filter(x=>_segAll.indexOf(x)>=0);
+          return v.length?_segAll.filter(x=>v.indexOf(x)>=0):_segMig.pre;})();
+        const _segKey=_g2segs.join(',');
+        const _segNm={is:'IS',wf:'WF',lb:'LB',pre:'PRE-LB'};
+        const _sampLbl=_g2segs.map(x=>_segNm[x]).join('+');
+        const _g2samp=_segKey;
         const _sampNm={pre:'PRE-LB',lb:'LOCKBOX',full:'FULL',is:'IS',wf:'WF'};
-        const _sampCol={pre:_preCol,lb:_lbColR,full:'var(--text3)',is:'var(--text3)',wf:_preCol};
-        const _P=col=>((col&&col.per&&col.per[_g2samp])||{});
+        const _segCol={is:'var(--text3)',wf:_preCol,lb:_lbColR,pre:_preCol};
+        // Combining stretches: use the engine exact block when one matches the pick, else sum
+        //   dollars and trades, rebuild profit factor from each block own totals, and read the
+        //   drawdown off the saved curve for the spanned stretch (marked with a degree sign).
+        const _EXACT={is:'is',wf:'wf',lb:'lb','is,wf':'pre','is,wf,lb':'full','pre':'pre','pre,lb':'full'};
+        const _nIsT=(V.ungated_is&&V.ungated_is.num_trades)||0;
+        const _fIsG=((_nPreT+_nLbT)>0&&_nIsT)?(_nIsT/(_nPreT+_nLbT)):0;
+        const _segSpan={is:[0,_fIsG],wf:[_fIsG,_fSplitG],pre:[0,_fSplitG],lb:[_fSplitG,1]};
+        const _contig=(function(){const o=_segAll.filter(x=>_g2segs.indexOf(x)>=0);
+          for(let i=1;i<o.length;i++){const a=_segSpan[o[i-1]],b=_segSpan[o[i]];
+            if(!a||!b||Math.abs(a[1]-b[0])>1e-9)return null;}
+          return o.length?[_segSpan[o[0]][0],_segSpan[o[o.length-1]][1]]:null;})();
+        const _Pc=new Map();
+        const _P=col=>{
+          if(!col||!col.per)return {};
+          if(_Pc.has(col))return _Pc.get(col);
+          const ex=_EXACT[_segKey];
+          let out=(ex&&col.per[ex])?col.per[ex]:null;
+          if(!out){
+            const parts=_g2segs.map(x=>col.per[x]).filter(Boolean);
+            if(!parts.length){out={};}
+            else{
+              const net=parts.reduce((a,x)=>a+(x.net||0),0);
+              const kept=parts.every(x=>x.kept!=null)?parts.reduce((a,x)=>a+x.kept,0):null;
+              let gw=0,gl=0,pfOK=true,wins=0,wrOK=true;
+              parts.forEach(x=>{
+                if(x.net==null||x.pf==null||!(x.pf>1.0000001))pfOK=false;
+                else{const L=x.net/(x.pf-1);gl+=L;gw+=x.pf*L;}
+                if(x.wr==null||x.kept==null)wrOK=false;else wins+=x.wr/100*x.kept;});
+              const cum=col.base?_ungCum:((col.raw&&col.raw.equity&&col.raw.equity.cum)||null);
+              const dd=(_contig&&Array.isArray(cum)&&cum.length>1)
+                ?_ddSlice(cum,Math.round(_contig[0]*(cum.length-1)),Math.round(_contig[1]*(cum.length-1))):null;
+              out={net:net,kept:kept,avg_pnl:(kept?(net/kept):null),
+                   pf:(pfOK&&gl>1e-9)?(gw/gl):null,
+                   wr:(wrOK&&kept)?((wins/kept)*100):null,
+                   dd:dd,ddDer:(dd!=null),rec:_rec2(net,dd)};
+            }
+          }
+          _Pc.set(col,out);return out;};
         // RANK BY. The floor rule is the one worth explaining: it keeps only variants whose
         //   recovery is within 80% of the best on that period (so nothing reckless can win),
         //   then ranks those by raw dollars. It is the middle ground between "most efficient"
@@ -9921,58 +9976,71 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   ordering is never a mystery (owner: "make it delineatable on the metric column").
         // v65.0 (owner): the ranked row is OUTLINED in yellow across its full width instead of wearing
         //   a small badge — same yellow as the RANK BY control, so eye goes control -> row.
-        const _rkBadge='';
+        // v65.2: ranking marks the row it READS. Solid yellow = the row it sorts on. Dashed
+        //   yellow = a row it only uses to disqualify — which answers the owner question about
+        //   LB lighting up under MAR FLOOR: that rule sorts on DOLLARS of the toggled stretch
+        //   and only consults MAR to throw out anything less than 80% as efficient as the best.
         const _rkRowSty=';box-shadow:inset 0 1px 0 var(--yellow),inset 0 -1px 0 var(--yellow);';
-        const _isRk=which=>((_g2rank==='rec')?(which==='rec'):(which==='net'+_g2samp));
-        const _rkm=which=>'';const _rkS=which=>_isRk(which)?_rkRowSty:'';
-        const _preLbl='<span title="the tuning years — in-sample and walk-forward together. They cannot be split apart for a filter: the filter is retrained as it goes and only ever scores trades it has not seen, so every trade in this stretch is already out-of-sample from the filter point of view. There is no in-sample filter number to separate out. (2B CAN split them because there each walk-forward fold re-optimises its own config.)" style="border-bottom:1px dotted var(--text5);cursor:help">PRE-LB $</span>';
+        const _rkFloorSty=';box-shadow:inset 0 1px 0 color-mix(in srgb,var(--yellow) 45%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--yellow) 45%,transparent);';
+        const _rkNet=(_g2rank!=='rec');
+        const _multi=_g2segs.length>1;
+        const _segRows=_g2segs.map(sg=>({sg:sg,lbl:_segNm[sg]+' $',
+          bg:(sg==='lb'?_lbBgR:(sg==='wf'?_preBg:null)),col:_segCol[sg]||'var(--text2)'}));
+        const _retRows=_segRows.map((r,i)=>_hRow({lbl:r.lbl,top:(i===0),rowBg:(r.bg||undefined),lblCol:r.col,
+            rowSty:((!_multi&&_rkNet)?_rkRowSty:''),
+            cell:col=>{const b=(col.per||{})[r.sg];return _g$(b?b.net:null);}},
+          col=>{const b=(col.per||{})[r.sg];return b?b.net:null;},true))
+          .concat(_multi?[_hRow({lbl:'<span title="the toggled stretches added together" style="border-bottom:1px dotted var(--text5);cursor:help">'+_sampLbl+'</span>',top:true,
+            rowSty:(_rkNet?_rkRowSty:''),cell:col=>_g$(_P(col).net)},col=>_P(col).net,true)]:[])
+          .concat([_hRow({lbl:'<span title="'+_ddTip+'" style="border-bottom:1px dotted var(--text5);cursor:help">MAX DD</span>',top:true,
+            cell:col=>{const b=_P(col);return b.dd!=null?('<span style="color:#e24b4a">-'+$k(b.dd)+(b.ddDer?'<span style="color:var(--text5)">&deg;</span>':'')+'</span>'):_dash;}},
+            col=>{const b=_P(col);return b.dd!=null?-Math.abs(b.dd):null;},true)]);
+        const _hd=nm=>nm+' <span style="font-weight:400;color:'+(_segCol[_g2segs[0]]||'var(--text5)')+';letter-spacing:0;text-transform:none">&middot; '+_sampLbl+'</span>';
         const _gGroups=[
-          // v64.98 (owner): MAX DD now sits INSIDE the return group, directly under the last
-          //   equity row, with a separator line above it — the standalone DRAWDOWN section is
-          //   gone. It follows the SAMPLE control, so choosing LOCKBOX shows the lockbox drop.
-          {name:'return <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">· all three periods · drawdown follows SAMPLE</span>',rows:[
-            _hRow({lbl:_preLbl,top:true,rowBg:_preBg,lblCol:_preCol,rowSty:_rkS('netpre'),cell:col=>_g$(col.net)},col=>col.net,true),
-            _hRow({lbl:'LB $',rowBg:_lbBgR,lblCol:_lbColR,rowSty:_rkS('netlb'),cell:col=>col.lb!=null?(_g$(col.lb)+(col.lbDer?'<span title="read off this variant own saved full-run equity curve (curve end minus its exact pre-lockbox total) — reporting only, it played no part in choosing the winner" style="color:var(--text5);cursor:help">°</span>':'')):_dash},col=>col.lb,true),
-            _hRow({lbl:'FULL',rowSty:_rkS('netfull'),cell:col=>_g$(col.full)},col=>col.full,true),
-            _hRow({lbl:'<span title="'+_ddTip+'" style="border-bottom:1px dotted var(--text5);cursor:help">MAX DD</span> <span style="font-size:6.5px;color:'+_sampCol[_g2samp]+'">'+_sampNm[_g2samp]+'</span>',top:true,
-              cell:col=>{const p=_P(col);return p.dd!=null?('<span style="color:#e24b4a">-'+$k(p.dd)+(p.ddDer?'<span style="color:var(--text5)">°</span>':'')+'</span>'):_dash;}},col=>{const p=_P(col);return p.dd!=null?-Math.abs(p.dd):null;},true)]},
-          {name:'reward ÷ risk <span style="font-weight:400;color:'+_sampCol[_g2samp]+';letter-spacing:0;text-transform:none">· '+_sampNm[_g2samp]+'</span>',rows:[
-            _hRow({lbl:'<span title="MAR = net $ divided by max drawdown, measured on the selected SAMPLE period. The same calculation the 2B config matrix calls MAR; the gate engine internally calls it recovery factor." style="border-bottom:1px dotted var(--text5);cursor:help">MAR</span>',rowSty:_rkS('rec'),cell:col=>{const r=_P(col).rec;return r!=null?('<span style="color:var(--text2)">'+r.toFixed(1)+'</span>'):_dash;}},col=>_P(col).rec,true),
-            _hRow({lbl:'<span title="derived the same way 2B derives its SHARPE: period-to-period change in this variant saved cumulative curve, annualised by the length of the selected period. Not stored by the engine." style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>',cell:col=>{const s=_shp(col);return s!=null?('<span style="color:var(--text2)">'+s.toFixed(2)+'</span>'):_dash;}},_shp,true),
-            _hRow({lbl:'PF',cell:col=>{const p=_P(col).pf;return p!=null?('<span style="color:'+(p>=1?'var(--text)':'var(--red)')+'">'+Math.min(p,99).toFixed(2)+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">—</span>';}},col=>_P(col).pf,true),
-            _hRow({lbl:'WIN %',cell:col=>{const w=_P(col).wr;return w!=null?('<span style="color:var(--text2)">'+Math.round(w)+'%</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">—</span>';}},col=>_P(col).wr,true),
-            // v65.0 (owner): $ PER TRADE — the number that says whether a filter keeps BETTER
-            //   trades or merely fewer of them. Engine average where saved, else net / trades.
-            _hRow({lbl:'<span title="average net dollars per trade over the selected period. A filter that merely trades less will not move this; a filter that genuinely picks better will." style="border-bottom:1px dotted var(--text5);cursor:help">$ / TRADE</span>',cell:col=>{const v=_apt(col);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>'):_dash;}},_apt,true)]},
-          {name:'sample <span style="font-weight:400;color:'+_sampCol[_g2samp]+';letter-spacing:0;text-transform:none">· '+_sampNm[_g2samp]+'</span>',rows:[
-            {lbl:'TRADES KEPT',cell:col=>{const k=_P(col).kept;return k!=null?('<span style="color:var(--text3)">'+(+k).toLocaleString()+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">—</span>';}}]}
+          {name:_hd('return'),rows:_retRows},
+          {name:_hd('reward &divide; risk'),rows:[
+            _hRow({lbl:'<span title="MAR = net $ divided by max drawdown over the toggled stretches. The same calculation the 2B config matrix calls MAR; the gate engine internally calls it recovery factor." style="border-bottom:1px dotted var(--text5);cursor:help">MAR</span>',rowSty:(_g2rank==='rec'?_rkRowSty:(_g2rank==='floor'?_rkFloorSty:'')),cell:col=>{const v=_P(col).rec;return v!=null?('<span style="color:var(--text2)">'+v.toFixed(1)+'</span>'):_dash;}},col=>_P(col).rec,true),
+            _hRow({lbl:'<span title="derived the same way 2B derives its SHARPE: period-to-period change in this variant saved cumulative curve, annualised by the length of the toggled stretches. Not stored by the engine." style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>',cell:col=>{const v=_shp(col);return v!=null?('<span style="color:var(--text2)">'+v.toFixed(2)+'</span>'):_dash;}},_shp,true),
+            _hRow({lbl:'PF',cell:col=>{const v=_P(col).pf;return v!=null?('<span style="color:'+(v>=1?'var(--text)':'var(--red)')+'">'+Math.min(v,99).toFixed(2)+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">&mdash;</span>';}},col=>_P(col).pf,true),
+            _hRow({lbl:'WIN %',cell:col=>{const v=_P(col).wr;return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">&mdash;</span>';}},col=>_P(col).wr,true),
+            _hRow({lbl:'<span title="average net dollars per trade over the toggled stretches. A filter that merely trades less will not move this; a filter that genuinely picks better will." style="border-bottom:1px dotted var(--text5);cursor:help">$ / TRADE</span>',cell:col=>{const v=_apt(col);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>'):_dash;}},_apt,true)]},
+          {name:_hd('sample'),rows:[
+            {lbl:'TRADES KEPT',cell:col=>{const k=_P(col).kept;return k!=null?('<span style="color:var(--text3)">'+(+k).toLocaleString()+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">&mdash;</span>';}}]}
         ];
-        // B3 (the important one): PRE-LOCKBOX is spelled out in plain words every time it is
-        //   used — it means in-sample + walk-forward combined, everything before the held-out
-        //   final year. This heading is step 1 of the tile's chronological order.
         const _anyDer=_gCols.some(c=>c.lbDer)||_gColsV.some(c=>{const p=_P(c);return p&&p.ddDer;});
-        // ── the control strip: SAMPLE · RANK BY · HEAT (v64.96) ──
-        const _selSty='background:var(--bg1);border:1px solid var(--border);border-radius:5px;color:var(--text2);font-size:8px;padding:1px 3px;cursor:pointer;font-family:inherit';
-        const _opt=(v,l,cur)=>'<option value="'+v+'"'+(cur===v?' selected':'')+'>'+l+'</option>';
-        const _rkNote={rec:'ordered by MAR — the engine own rule, the one that actually crowned the winner',
-                       pnl:'ordered by raw dollars — a what-if view, it changes nothing',
-                       floor:'ordered by dollars, among variants within 80% of the best MAR — a what-if view, it changes nothing'};
-        const _hind=(_g2rank!=='rec'||_g2samp!=='pre')
-          ?'<span title="The winner was picked on IS+WF recovery and nothing else, before any held-out number existed. Ordering by a different rule — or by a period that was sealed at the time — is hindsight: useful for study, not a valid way to crown anything. The engine crown stays put." style="border:1px solid var(--yellow);color:var(--yellow);border-radius:5px;padding:0 5px;font-size:7px;cursor:help;white-space:nowrap">⚠ HINDSIGHT VIEW</span>':'';
         // v64.98 (owner): this strip now rides the TILE TITLE ROW, anchored right, instead of
         //   sitting above the matrix — same placement 2A uses, so the controls are always in the
         //   same spot. margin-left:auto does the anchoring at the call site.
-        const _ctrls='<div data-g2ctl style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
-          +'<label style="font-size:7px;letter-spacing:.5px;color:var(--text5);display:flex;align-items:center;gap:3px">SAMPLE<select data-g2samp title="which period the DRAWDOWN, REWARD-RISK and SAMPLE rows measure. The RETURN rows always show all three periods." style="'+_selSty+'">'
-            +(_hasRng?(_opt('is','IS · '+((V.span||[])[0]||'')+' → '+((V.wf_range||[])[0]||''),_g2samp)
-                      +_opt('wf','WF · '+((V.wf_range||[])[0]||'')+' → '+((V.wf_range||[])[1]||''),_g2samp)):'')
-            +_opt('pre','PRE-LB · IS + WF',_g2samp)+_opt('lb','LOCKBOX · held-out year',_g2samp)+_opt('full','FULL',_g2samp)
-            +(_hasRng?'':'<option disabled title="This run predates the engine build that records the walk-forward date range, so 2C cannot be sliced by it yet. Re-run this config to enable IS and WF here.">— IS / WF: needs a re-run —</option>')+'</select></label>'
-          +'<label style="font-size:7px;letter-spacing:.5px;color:var(--text5);display:flex;align-items:center;gap:3px">RANK BY<select data-g2rank title="how the variant columns are ordered — the row it reads is outlined in yellow below. View only, the crown never moves." style="'+_selSty+';border-color:var(--yellow);color:var(--yellow);font-weight:700">'
-            +_opt('rec','MAR · engine rule',_g2rank)+_opt('pnl','NET $ · raw',_g2rank)+_opt('floor','NET $ · MAR floor',_g2rank)+'</select></label>'
-          +'<span data-g2heat title="shade every cell by where it lands across its own row — green best, red worst" style="cursor:pointer;user-select:none;font-size:7px;letter-spacing:.5px;color:'+(_g2heat?'var(--text2)':'var(--text5)')+';border:1px solid '+(_g2heat?'var(--text4)':'var(--border)')+';border-radius:5px;padding:1px 6px">'+(_g2heat?'▪ HEAT MAP':'▫ HEAT MAP')+'</span>'
-          +_hind+'</div>';
-        const _gMatrix='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px"><span style="font-size:7.5px;color:var(--text5)"><b style="color:'+_preCol+'">blue</b> = tuning years · <b style="color:'+_lbColR+'">purple</b> = held-out year · '+_rkNote[_g2rank]+_infoIc('<div style="color:var(--text2)">Same shape as the 2B config matrix: one COLUMN per gate variant, metrics as ROWS, and the return rows carry the same period colours used everywhere else in this report — BLUE = PRE-LOCKBOX (in-sample + walk-forward combined: every year except the held-out final one), PURPLE = LOCKBOX (that held-out final year).<br><br>WHAT PICKED THE WINNER: the blue row only. All '+V.n_candidates+' candidates are scored on PRE-LOCKBOX and ranked by recovery factor ($ made per $ of drawdown), and that ranking is locked before any lockbox number is read.<br><br>WHY THE LOSERS ALSO SHOW A LOCKBOX $: each variant saved a full-run equity curve, so its held-out slice was already in the run doc. It is shown for cross-strategy comparison (does RF hold up better than XGB?) and feeds nothing — the pick was already made. Full lockbox STATS (PF, trades, win %, true drawdown) are still computed for the chosen variant only, in the block below.<br><br>THE THREE CONTROLS ARE VIEW-ONLY. SAMPLE picks which period the drawdown, reward-risk and sample rows measure — the three return rows always show, so they stay comparable. IS and WF slice by the SAME calendar stretches the 2B config matrix uses, so the filter and the ungated champion can be compared over matching dates. RANK BY re-orders the columns and outlines the row it is reading in yellow: MAR is the engine own rule, NET $ is raw dollars, and NET $ WITH A MAR FLOOR keeps only variants within 80% of the best MAR (so nothing reckless can win) then takes the most money among them. A what-if ordering that would have picked a different variant marks it WOULD PICK — the crown never moves. HEAT MAP shades each cell by where it falls across its own row.</div>')+'</span></div>'
+        // v65.2 (owner: "make them one word toggle buttons, dropdown shows the options that are
+        //   toggleable"): three one-word buttons. SAMPLE and RANK open a small menu on click
+        //   (native details element - no JS to open/close); HEAT is a straight on/off. SAMPLE is
+        //   MULTI-select: tick the stretches you want and the matrix measures over exactly those.
+        const _btn=(on,txt,val,tip)=>'<span title="'+tip+'" style="display:inline-flex;align-items:center;gap:4px;font-size:7.5px;font-weight:700;letter-spacing:.5px;border:1px solid '+(on?'var(--text4)':'var(--border)')+';background:'+(on?'color-mix(in srgb,var(--text4) 12%,transparent)':'var(--bg1)')+';color:'+(on?'var(--text2)':'var(--text5)')+';border-radius:6px;padding:2px 7px;cursor:pointer;white-space:nowrap">'+txt+(val?'<b style="color:var(--text)">'+val+'</b>':'')+'</span>';
+        const _menu=inner=>'<div style="position:absolute;right:0;top:100%;margin-top:4px;z-index:40;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px;box-shadow:0 6px 20px rgba(0,0,0,.35);min-width:136px">'+inner+'</div>';
+        const _item=(on,lbl,attr,sub)=>'<div '+attr+' style="display:flex;align-items:flex-start;gap:6px;padding:3px 6px;border-radius:5px;cursor:pointer;font-size:8px;color:'+(on?'var(--text)':'var(--text4)')+';background:'+(on?'color-mix(in srgb,var(--text4) 14%,transparent)':'transparent')+'"><span style="width:9px;color:var(--green)">'+(on?'&#10003;':'')+'</span><span><b>'+lbl+'</b>'+(sub?'<div style="font-size:6.5px;color:var(--text5);white-space:normal;max-width:150px;line-height:1.3">'+sub+'</div>':'')+'</span></div>';
+        const _sp0=(V.span||[])[0]||'',_sp1=(V.span||[])[1]||'',_wr0=(V.wf_range||[])[0]||'',_wr1=(V.wf_range||[])[1]||'';
+        const _segTip={is:'before the walk-forward folds begin'+(_sp0?(' &middot; '+_sp0+' to '+_wr0):''),
+                       wf:'the walk-forward years, the same stretch 2B tests over'+(_wr0?(' &middot; '+_wr0+' to '+_wr1):''),
+                       lb:'the held-out final year'+(V.lockbox_from?(' &middot; '+V.lockbox_from+' to '+_sp1):''),
+                       pre:'the tuning years, in-sample and walk-forward together'};
+        const _sampMenu=_menu('<div style="font-size:6.5px;color:var(--text5);padding:1px 6px 4px;letter-spacing:.5px">MEASURE OVER</div>'
+          +_segAll.map(sg=>_item(_g2segs.indexOf(sg)>=0,_segNm[sg],'data-g2seg="'+sg+'"',_segTip[sg]||'')).join('')
+          +(_hasRng?'':'<div style="font-size:6.5px;color:var(--text5);padding:4px 6px 1px;white-space:normal;max-width:150px">IS and WF need a re-run on this config.</div>'));
+        const _rkOpts=[['rec','MAR','most $ per $ of drawdown - the engine own rule, the one that crowned the winner'],
+                       ['pnl','NET $','most dollars, no safety check'],
+                       ['floor','NET $ + MAR FLOOR','most dollars, but only among variants at least 80% as efficient as the best MAR']];
+        const _rkNm={rec:'MAR',pnl:'NET $',floor:'NET $ + FLOOR'};
+        const _rankMenu=_menu('<div style="font-size:6.5px;color:var(--text5);padding:1px 6px 4px;letter-spacing:.5px">ORDER COLUMNS BY</div>'
+          +_rkOpts.map(o=>_item(_g2rank===o[0],o[1],'data-g2rk="'+o[0]+'"',o[2])).join('')
+          +'<div style="font-size:6.5px;color:var(--text5);padding:4px 6px 1px;max-width:150px;white-space:normal;line-height:1.35">Solid yellow marks the row it sorts on. Dashed yellow marks a row it only uses to disqualify.</div>');
+        const _drop=(id,btn,menu)=>'<details data-g2d="'+id+'" style="position:relative;display:inline-block"><summary style="list-style:none;cursor:pointer">'+btn+'</summary>'+menu+'</details>';
+        const _ctrls='<div data-g2ctl style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
+          +_drop('samp',_btn(true,'SAMPLE',_sampLbl,'pick which stretches of the run the matrix measures over - tick as many as you like'),_sampMenu)
+          +_drop('rank',_btn(true,'RANK',_rkNm[_g2rank],'how the variant columns are ordered. View only - the crown never moves.'),_rankMenu)
+          +'<span data-g2heat>'+_btn(!!_g2heat,'HEAT','','shade every cell by where it lands across its own row - green best, red worst')+'</span>'
+          +((_g2rank!=='rec'||_g2segs.indexOf('lb')>=0)?'<span title="The winner was picked on MAR over the tuning years and nothing else, before any held-out number existed. Ordering by a different rule, or measuring over a stretch that was sealed at the time, is hindsight - useful for study, not a valid way to crown anything." style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 6px;font-size:7px;cursor:help;white-space:nowrap">&#9888; HINDSIGHT</span>':'')
+          +'</div>';
+        const _gMatrix='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px"><span style="font-size:7.5px;color:var(--text5)">'+_infoIc('<div style="color:var(--text2)">Same shape as the 2B config matrix: one COLUMN per gate variant, metrics as ROWS, and the return rows carry the same period colours used everywhere else in this report — BLUE = PRE-LOCKBOX (in-sample + walk-forward combined: every year except the held-out final one), PURPLE = LOCKBOX (that held-out final year).<br><br>WHAT PICKED THE WINNER: the blue row only. All '+V.n_candidates+' candidates are scored on PRE-LOCKBOX and ranked by recovery factor ($ made per $ of drawdown), and that ranking is locked before any lockbox number is read.<br><br>WHY THE LOSERS ALSO SHOW A LOCKBOX $: each variant saved a full-run equity curve, so its held-out slice was already in the run doc. It is shown for cross-strategy comparison (does RF hold up better than XGB?) and feeds nothing — the pick was already made. Full lockbox STATS (PF, trades, win %, true drawdown) are still computed for the chosen variant only, in the block below.<br><br>THE THREE CONTROLS ARE VIEW-ONLY. SAMPLE picks which period the drawdown, reward-risk and sample rows measure — the three return rows always show, so they stay comparable. IS and WF slice by the SAME calendar stretches the 2B config matrix uses, so the filter and the ungated champion can be compared over matching dates. RANK BY re-orders the columns and outlines the row it is reading in yellow: MAR is the engine own rule, NET $ is raw dollars, and NET $ WITH A MAR FLOOR keeps only variants within 80% of the best MAR (so nothing reckless can win) then takes the most money among them. A what-if ordering that would have picked a different variant marks it WOULD PICK — the crown never moves. HEAT MAP shades each cell by where it falls across its own row.</div>')+'</span></div>'
           +_matrixTbl(_gColsV,_gGroups,{compact:true})
           // Precision caveat that matters: a saved curve is 300 points across the WHOLE run, so
           //   the held-out year is only about 18 of them (one point per ~13 trades). Dollar
@@ -13414,6 +13482,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v64.96: the three 2C view controls — sample period, column ordering, heat map. All three
       //   only change how the matrix READS; none of them touch what the engine crowned.
       content.querySelectorAll('[data-g2samp]').forEach(s=>{s.onchange=()=>{savePref('g2samp',s.value);renderApp();};});
+      // v65.2: SAMPLE stretch toggles (multi-select) and RANK picks (single-select).
+      content.querySelectorAll('[data-g2seg]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();
+        const order=['is','wf','lb','pre'];
+        const cur=String(APREF.g2samp==null?'':APREF.g2samp);
+        let set=(cur.indexOf(',')>=0)?cur.split(','):(cur==='full'?['is','wf','lb']:(cur==='pre'?['is','wf']:(cur?[cur]:['is','wf'])));
+        const sg=b.getAttribute('data-g2seg'),i=set.indexOf(sg);
+        if(i>=0){if(set.length>1)set.splice(i,1);}else set.push(sg);
+        set=order.filter(x=>set.indexOf(x)>=0);
+        savePref('g2samp',set.join(','));renderApp();};});
+      content.querySelectorAll('[data-g2rk]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();
+        savePref('g2rank',b.getAttribute('data-g2rk'));renderApp();};});
       content.querySelectorAll('[data-g2rank]').forEach(s=>{s.onchange=()=>{savePref('g2rank',s.value);renderApp();};});
       content.querySelectorAll('[data-g2heat]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('g2heat',(+(APREF.g2heat||0))?0:1);renderApp();};});
       // report layout toggle: CLASSIC ⇄ FUNNEL β ⇄ GAUGES β (value-generic)
