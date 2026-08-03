@@ -675,7 +675,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         if _sm and _fb2 and _picks:
             _champ_p = {k: champ.get(k) for k in (champ or {})}
             _all = _picks + ([_champ_p] if _champ_p else [])
-            _sc = score_candidates_on_folds(strategy, arrays, _all, _fb2, cost_pts=cost_pts)
+            _sel_arr = load_master_arrays(master, date_from=opt_from, date_to=opt_to)
+            _sc = score_candidates_on_folds(strategy, _sel_arr, _all, _fb2, cost_pts=cost_pts)
             for _m, _rows in zip([m for m in _sm if isinstance(m.get("predicted_best_params"), dict)], _sc):
                 _m["wf_oos_pnl"] = round(sum(r["oos_pnl"] for r in _rows), 1)
                 _m["folds_held"] = sum(1 for r in _rows if r["held"])
