@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='66.1';
+const VERSION='66.2';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -10106,8 +10106,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _sampMenu=(_g2open==='c-samp')?_ctlMenu('c-samp','MEASURE OVER',
           _segAll.map(sg=>_ctlChip(_g2segs.indexOf(sg)>=0,_segNm[sg],'data-g2seg="'+sg+'"',_segTip[sg]||'')).join(''),
           _hasRng?'Tick as many as you like. All three is the full run.':'IS and WF need a re-run on this config.'):'';
+        // which option is the ENGINE's own rule for THIS run: docs from the v66.2 engine carry
+        //   selection_rule = net_dollars_mar_floor_80 (pre-registered 2026-08-03, owner-approved);
+        //   older docs were crowned by pure MAR/recovery.
+        const _engRule=(V.selection_rule==='net_dollars_mar_floor_80')?'floor':'rec';
         const _rankMenu=(_g2open==='c-rank')?_ctlMenu('c-rank','ORDER COLUMNS BY',
-          _rkOptsAll.map(o=>_ctlChip(_g2rank===o[0],o[1],'data-g2rk="'+o[0]+'"',o[2])).join(''),_rkNote2):'';
+          _rkOptsAll.map(o=>_ctlChip(_g2rank===o[0],o[1]+(o[0]===_engRule?' &middot; ENGINE RULE':''),'data-g2rk="'+o[0]+'"',o[2]+(o[0]===_engRule?' - the rule that crowned THIS run.':''))).join(''),_rkNote2):'';
         const _ctrls='<div data-g2ctl style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
           +_ctlBtn('c-samp',_g2open==='c-samp','SAMPLE',_sampLbl,'pick which stretches of the run the matrix measures over - tick as many as you like')
           +_ctlBtn('c-rank',_g2open==='c-rank','RANK',_rkNm[_g2rank],'how the variant columns are ordered. View only - the crown never moves.')
@@ -10122,8 +10126,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   opens and closes inside 13 trades is invisible, so the eight derived lockbox
           //   drawdowns understate, and any recovery built on them flatters. Said out loud
           //   rather than buried, because it is the one number here that can mislead.
-          +'<div style="font-size:7px;color:var(--text5);margin-top:4px;padding:0 4px">Every row measures over the stretches ticked in SAMPLE: '+_sampLbl+'.'
-          +(_anyDer?' &nbsp;&deg; estimated from the saved equity curve rather than measured trade by trade — only combinations the engine did not score directly.':'')+'</div>';
+          ;   // v66.2 (owner): footnote removed - the group headings already name the ticked
+              //   stretches; the degree marker is explained on the MAX DD tooltip.
         // v66.0 (owner: "is it redundant? if so delete it"): the purple LOCKBOX block that sat
         //   here is GONE. Everything it showed — chosen-variant net / PF / trades / measured
         //   drawdown vs no-gate, plus the recovery pair — is in the matrix above with SAMPLE set
@@ -11142,7 +11146,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           return '<div style="margin:2px 0 10px"><div style="font-size:8px;color:var(--text5);margin-bottom:3px;display:flex;align-items:center;gap:5px"><span style="font-size:11px;font-variant-emoji:text">📈</span>GATE EQUITY — every trade (grey) vs the trades the gate kept (<span style="color:#e05fa0;font-weight:700">pink</span>)<span style="color:var(--text5);cursor:help" title="Shown here rather than on the 2A funnel because this run has no walk-forward survivor pool (e.g. an ensemble), so the funnel cannot host the overlay. Same 300-point gated / ungated curves, x = trade number in time order.">ⓘ</span></div>'+_cv+'</div>';
         })();
         // ── the pick + collapsed EVIDENCE (sweep chart + candidates table / full gate detail) ──
-        const _evOpen=!!window._gvEvOpen;
+        const _evOpen=(window._gvEvOpen==null)?true:!!window._gvEvOpen;
         let _gBody;
         // v64.41 (owner): the evidence expander is a visible TILE (rounded box) so it reads as
         //   expandable; 3B (the equity chart) is the FIRST thing under the title.
@@ -11161,7 +11165,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   hero cards + pick-line duplicated what the matrix/lockbox block now say directly
           //   (and mixed the two periods in one place) — dropped in favour of this tile own
           //   lockboxBlock, which is unambiguous about which period each number belongs to.
-          _gBody=(_gvP.matrix||'')+_epViz+_gc2j+_gvP.earns+_evTile(_evTog,_evOpen,('<div data-r3graph style="max-width:540px;margin-top:8px"><style>[data-r3graph] .rschart-box{height:174px!important;resize:none}</style>'+_gvP.graph+'</div>'));
+          _gBody=(_gvP.matrix||'')+_epViz+_gc2j+_evTile(_evTog,_evOpen,('<div data-r3graph style="max-width:540px;margin-top:8px"><style>[data-r3graph] .rschart-box{height:174px!important;resize:none}</style>'+_gvP.graph+'</div>'));
         }else{
           const _evTog='<div data-r3ev title="the full gate report — before/after table, feature attribution (SHAP), calibration and discrimination. Click to '+(_evOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">'+(_evOpen?'▴ hide the full gate detail':'▾ FULL GATE DETAIL — feature attribution · calibration ⓘ')+'</div>';
           _gBody=_hero+_epViz+_gc2j+_evTile(_evTog,_evOpen,('<div style="margin-top:8px">'+gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt)+'</div>'));
@@ -13529,7 +13533,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const i=+b.dataset.s2cl,n=content.querySelectorAll('[data-s2cl]').length;
         const cur=(Array.isArray(APREF.s2colCollapse)&&APREF.s2colCollapse.length===n)?APREF.s2colCollapse.slice():new Array(n).fill(false);
         cur[i]=!cur[i];savePref('s2colCollapse',cur);renderApp();};});
-      content.querySelectorAll('[data-r3ev]').forEach(b=>{b.onclick=()=>{window._gvEvOpen=!window._gvEvOpen;renderApp();};});
+      content.querySelectorAll('[data-r3ev]').forEach(b=>{b.onclick=()=>{window._gvEvOpen=!((window._gvEvOpen==null)?true:window._gvEvOpen);renderApp();};});
       // v64.96: the three 2C view controls — sample period, column ordering, heat map. All three
       //   only change how the matrix READS; none of them touch what the engine crowned.
       content.querySelectorAll('[data-g2samp]').forEach(s=>{s.onchange=()=>{savePref('g2samp',s.value);renderApp();};});

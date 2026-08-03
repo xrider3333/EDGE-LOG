@@ -281,7 +281,7 @@ def _cand_out(c):
 
 
 def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
-                  thresholds=(0.50, 0.55, 0.60), lockbox_months=12,
+                  thresholds=(0.45, 0.50, 0.55, 0.60), lockbox_months=12,
                   min_kept=50, windows=4, min_history=30, refit_every=25, wf_from=None, wf_to=None,
                   seed=42, lb_from=None):
     """The honest way to pick a gate (board 4.10, ROADMAP #25).
@@ -404,10 +404,20 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
                 pass                                        # defensive: never fail the gate
             cands.append(cand)
 
-    # ── selection: pre-lockbox RECOVERY FACTOR (pnl per point of drawdown) among
-    #    eligible gated candidates — the equal-risk yardstick, not raw totals.
+    # ── selection (v66.2, owner-approved 2026-08-03): NET DOLLARS with an 80% MAR FLOOR. ──
+    #   Pure recovery is a ratio and ratios ignore size — on ORB it preferred rf@55 over rf@50
+    #   despite rf@50 earning ~$49k more for ~$924 more drawdown ($54 of profit per extra $ of
+    #   pain). New rule: among eligible candidates, keep only those whose pre-lockbox recovery
+    #   is at least 80% of the best (nothing reckless can win), then take the most pre-lockbox
+    #   MONEY among them (ties -> higher recovery). PRE-REGISTERED before any run under it:
+    #   decided from ORB run #187's sweep, first CLEAN test = the next strategy validated after
+    #   this ships. Still decided on PRE-LOCKBOX data only — the one-look rule is untouched.
     elig = [c for c in cands if c["eligible"]]
-    chosen = max(elig, key=lambda c: _rec(c["pre"])) if elig else None
+    chosen = None
+    if elig:
+        _mx = max(_rec(c["pre"]) for c in elig)
+        _pool = [c for c in elig if _rec(c["pre"]) >= 0.8 * _mx] or elig
+        chosen = max(_pool, key=lambda c: (c["pre"]["total_pnl"], _rec(c["pre"])))
     gate_earns = bool(chosen and _rec(chosen["pre"]) > _rec(ung_pre))
 
     out = {
@@ -424,6 +434,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
         "ungated_pre_rec": round(_rec(ung_pre), 2),
         "gate_earns_pre": gate_earns,
         "chosen": None, "lockbox": None,
+        "selection_rule": "net_dollars_mar_floor_80",   # v66.2 — the UI labels the RANK options with this
     }
     # ── CUT-OFF SWEEP (v66.0, owner: "where is the plateau?") — reporting only. ──────────
     #   A model's win-probability scores do NOT depend on the cut-off (training never sees the
