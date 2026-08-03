@@ -442,10 +442,14 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.94';
+const VERSION='64.95';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'64.95',date:'2026-08-02',notes:[
+ '2C matrix rebuilt to match 2B/1E: return rows are now IS+WF $ / LB $ / FULL RUN / MAX DD, in blue and purple period colours',
+ '2C shows every gate variant lockbox $, not just the chosen one — read off the saved curves, marked with a degree sign, and it still plays no part in choosing the winner',
+ 'gate quality bar is back: the before/after GATE EQUITY bars now draw on every gated run instead of only on older runs with no saved curve']},
   {v:'64.94', date:'2026-07-29', notes:['FIXED the ML gate line on the 2A chart disagreeing with the fullscreen view. On 2A the tuning window is stretched across most of the width and the held-out year gets the rest, but the gate line was being spread evenly across the whole width — so it was showing an earlier point in time than the config lines beside it and drew too low through the middle. It is now split at its own held-out boundary and mapped onto the same stretches, so both views agree: the gate runs above the ungated champion.']},
   {v:'64.93', date:'2026-07-29', notes:['FIXED a wrong number in 2B CONFIGS RAW: the TOTAL row was adding in-sample plus walk-forward plus lockbox, but those cover overlapping stretches and the lockbox figure is already the running total — so a config whose real full-run result is 485k was showing over a million. It is now a FULL RUN row that matches chart 1A and the crowned line in 2A, the LB row shows only what the held-out year itself added, and dollars are abbreviated so the table is as compact as 2C.']},
   {v:'64.92', date:'2026-07-29', notes:['2B CONFIGS RAW listed MAX DD twice — once under TOTAL and again as its own section. The duplicate section is gone; the drawdown now sits directly under the total, so profit and the risk taken to get it read together.']},
@@ -9620,20 +9624,38 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   its own (3 columns × the longest label) — abbreviated to LOGIT (the standard short
         //   form) in the header only; the info-icon tip and the row title keep the full word.
         const _mNm={logistic:'LOGIT',rf:'RF',xgb:'XGB'};
+        // v64.95 (owner ask): every candidate already carries a saved equity curve spanning the
+        //   WHOLE run (pre-lockbox + the held-out final year), so each variant's LOCKBOX SLICE is
+        //   sitting in the run doc already — nothing re-run, nothing recomputed, no new engine
+        //   data. LB $ = that curve end minus the variant's own exact pre-lockbox total; the
+        //   chosen variant uses the engine exact lockbox figure instead of the derived one.
+        //   Owner asked for all nine deliberately: comparing how RF / XGB / LOGIT hold up
+        //   out-of-sample ACROSS strategy types is the whole point. This cannot become lockbox-
+        //   shopping — the winner is already picked, the ranking below still uses PRE-LOCKBOX
+        //   recovery only, and these columns feed nothing downstream.
+        const _cEnd=cd=>{const a=cd&&cd.equity&&cd.equity.cum;return (Array.isArray(a)&&a.length)?(+a[a.length-1]):null;};
+        const _ungLb=(V.ungated_lockbox&&V.ungated_lockbox.total_pnl!=null)?V.ungated_lockbox.total_pnl:null;
+        const _ungPre=(V.ungated_pre&&V.ungated_pre.total_pnl!=null)?V.ungated_pre.total_pnl:null;
         const _gCols=[{
           lbl:'NO GATE',sub:'baseline',col:'var(--text3)',emph:false,
           tip:'every trade, no ML filter — the baseline the gate has to beat',
-          net:(V.ungated_pre&&V.ungated_pre.total_pnl!=null)?V.ungated_pre.total_pnl:null,
+          net:_ungPre,lb:_ungLb,lbDer:false,
+          full:(_ungPre!=null&&_ungLb!=null)?(_ungPre+_ungLb):_ungPre,
           dd:_ungDD!=null?Math.abs(_ungDD):null,
           pf:(V.ungated_pre&&V.ungated_pre.profit_factor!=null)?V.ungated_pre.profit_factor:null,
           wr:(V.ungated_pre&&V.ungated_pre.win_rate!=null)?V.ungated_pre.win_rate:null,
           rec:V.ungated_pre_rec!=null?V.ungated_pre_rec:null,
           kept:(V.ungated_pre&&V.ungated_pre.num_trades!=null)?V.ungated_pre.num_trades:null
         }].concat(cands.map(cd=>{const isCh=_isChosen(cd),_gc=_gateColor(cd.model,_thLi(cd.threshold),isCh?88:58);
+          const _end=_cEnd(cd);
+          const _lbEx=(isCh&&LB&&LB.gated&&LB.gated.total_pnl!=null)?LB.gated.total_pnl:null;
+          const _lbS=(_lbEx!=null)?_lbEx:((_end!=null&&cd.pre_pnl!=null)?(_end-cd.pre_pnl):null);
           return {lbl:(isCh?'👑 ':'')+(_mNm[cd.model]||String(cd.model||'').toUpperCase())+' '+Math.round((cd.threshold||0)*100)+'%',
             sub:isCh?'CHOSEN':'',col:_gc,emph:isCh,emphCol:_gc,
             tip:cd.model+' @ '+Math.round((cd.threshold||0)*100)+'% cut-off'+(isCh?' — CHOSEN, gets the one lockbox look':'')+(cd.eligible===false?' · ineligible (too few kept)':''),
             net:cd.pre_pnl!=null?cd.pre_pnl:null,
+            lb:_lbS,lbDer:(_lbEx==null&&_lbS!=null),
+            full:(cd.pre_pnl!=null&&_lbS!=null)?(cd.pre_pnl+_lbS):_end,
             dd:cd.pre_rec?Math.abs(cd.pre_pnl/cd.pre_rec):null,
             pf:cd.pre_pf,wr:cd.pre_wr,rec:cd.pre_rec,kept:cd.kept_pre};}));
         // B4 (compact): dollars abbreviated ($450k), recovery to 1dp, PF/WIN% already at target
@@ -9641,10 +9663,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   row and the matrix own heading chip below, so the period-colour convention matches
         //   across both matrices. C: 'edge & profile' folds into 'reward ÷ risk' to match 2B's
         //   grouping (MAR/SHARPE/FOLDS HELD/PF/WIN % all live under one caption there too).
-        const _preBg='rgba(96,165,250,.13)',_preCol='#60a5fa';
+        const _preBg='rgba(96,165,250,.13)',_preCol='#60a5fa',_lbBgR='rgba(167,139,250,.16)',_lbColR='#a78bfa';
+        // v64.95 (owner): the RETURN group now mirrors 2B exactly — period rows stacked in
+        //   chronological order with the SAME blue / purple tints, FULL RUN, then MAX DD directly
+        //   under it (2B dropped its separate DRAWDOWN group for the same reason). IS and WF are
+        //   NOT split apart here the way 2B splits them: the gate trains and scores on the two
+        //   combined as one block, so there is no separate fold figure to show — the row says
+        //   IS+WF so it never reads as a missing number.
+        const _g$=v=>v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):'<span style="color:var(--text5)">—</span>';
         const _gGroups=[
-          {name:'return',rows:[{lbl:'NET $',top:true,rowBg:_preBg,lblCol:_preCol,cell:col=>col.net!=null?('<span style="font-weight:700;color:'+(col.net>=0?'#1d9e75':'#e24b4a')+'">'+$k(col.net)+'</span>'):'<span style="color:var(--text5)">—</span>'}]},
-          {name:'drawdown',rows:[{lbl:'<span title="derived: net $ divided by recovery factor -- the engine does not store a max-drawdown figure per candidate directly, so this is backed out from the two numbers it does store" style="border-bottom:1px dotted var(--text5);cursor:help">MAX DD</span>',cell:col=>col.dd!=null?('<span style="color:#e24b4a">-'+$k(col.dd)+'</span>'):'<span style="color:var(--text5)">—</span>'}]},
+          {name:'return',rows:[
+            {lbl:'IS+WF $',top:true,rowBg:_preBg,lblCol:_preCol,cell:col=>_g$(col.net)},
+            {lbl:'LB $',rowBg:_lbBgR,lblCol:_lbColR,cell:col=>col.lb!=null?(_g$(col.lb)+(col.lbDer?'<span title="read off this variant own saved full-run equity curve (curve end minus its exact pre-lockbox total) — reporting only, it played no part in choosing the winner" style="color:var(--text5);cursor:help">°</span>':'')):'<span style="color:var(--text5)">—</span>'},
+            {lbl:'FULL RUN',top:true,cell:col=>_g$(col.full)},
+            {lbl:'<span title="derived: net $ divided by recovery factor -- the engine does not store a max-drawdown figure per candidate directly, so this is backed out from the two numbers it does store. Measured on the PRE-LOCKBOX slice." style="border-bottom:1px dotted var(--text5);cursor:help">MAX DD</span>',cell:col=>col.dd!=null?('<span style="color:#e24b4a">-'+$k(col.dd)+'</span>'):'<span style="color:var(--text5)">—</span>'}]},
           {name:'reward ÷ risk',rows:[
             {lbl:'RECOVERY',cell:col=>col.rec!=null?('<span style="color:var(--text2)">'+col.rec.toFixed(1)+'</span>'):'<span style="color:var(--text5)">—</span>'},
             {lbl:'PF',cell:col=>col.pf!=null?('<span style="color:'+(col.pf>=1?'var(--text)':'var(--red)')+'">'+Math.min(col.pf,99).toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'},
@@ -9654,8 +9686,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // B3 (the important one): PRE-LOCKBOX is spelled out in plain words every time it is
         //   used — it means in-sample + walk-forward combined, everything before the held-out
         //   final year. This heading is step 1 of the tile's chronological order.
-        const _gMatrix='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'+_pdChip('PRE-LOCKBOX (in-sample + walk-forward)',_preCol)+'<span style="font-size:7.5px;color:var(--text5)">'+cands.length+' model × cut-off candidates ranked here, best recovery first — only the 👑 CHOSEN column ever sees the lockbox below'+_infoIc('<div style="color:var(--text2)">PRE-LOCKBOX = in-sample + walk-forward combined — every year of data except the held-out final year. '+V.n_candidates+' candidates (model × cut-off) are scored ONLY on this combined period, ranked by recovery factor ($ made per $ of drawdown). The winner gets exactly one look at the lockbox below; the other candidates lockbox results are never computed — no shopping.</div>')+'</span></div>'
-          +_matrixTbl(_gCols,_gGroups,{compact:true});
+        const _anyDer=_gCols.some(c=>c.lbDer);
+        const _gMatrix='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'+_pdChip('PRE-LOCKBOX (in-sample + walk-forward)',_preCol)+_pdChip('LOCKBOX (held-out year)',_lbColR)+'<span style="font-size:7.5px;color:var(--text5)">'+cands.length+' model × cut-off candidates, best recovery first — ranked on the BLUE row only'+_infoIc('<div style="color:var(--text2)">Same shape as the 2B config matrix: one COLUMN per gate variant, metrics as ROWS, and the return rows carry the same period colours used everywhere else in this report — BLUE = PRE-LOCKBOX (in-sample + walk-forward combined: every year except the held-out final one), PURPLE = LOCKBOX (that held-out final year).<br><br>WHAT PICKED THE WINNER: the blue row only. All '+V.n_candidates+' candidates are scored on PRE-LOCKBOX and ranked by recovery factor ($ made per $ of drawdown), and that ranking is locked before any lockbox number is read.<br><br>WHY THE LOSERS ALSO SHOW A LOCKBOX $: each variant saved a full-run equity curve, so its held-out slice was already in the run doc. It is shown for cross-strategy comparison (does RF hold up better than XGB?) and feeds nothing — the pick was already made. Full lockbox STATS (PF, trades, win %, true drawdown) are still computed for the chosen variant only, in the block below.<br><br>IS and WF are not split apart here the way 2B splits them: the gate trains and scores on the two combined as one block, so there is no separate fold figure to show.</div>')+'</span></div>'
+          +_matrixTbl(_gCols,_gGroups,{compact:true})
+          +'<div style="font-size:7px;color:var(--text5);margin-top:4px;padding:0 4px">FULL RUN = IS+WF plus LB — the end of that variant equity curve on the 2A chart.'+(_anyDer?' &nbsp;° lockbox $ read off the saved curve (reporting only — it did not choose the winner); the 👑 chosen column uses the engine measured figure.':'')+'</div>';
         // B3 step 2 (owner: "make the periods unambiguous"): the held-out final year, chosen
         //   variant only — no-gate vs gated, purple-styled, clearly separated below the matrix.
         //   This is the ONLY place lockbox numbers appear in this tile, and the ONLY column that
@@ -9672,7 +9706,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +_lbRow('TRADES',(((LB.ungated&&LB.ungated.num_trades)||0)).toLocaleString(),(((LB.gated&&LB.gated.num_trades)||0)).toLocaleString(),null)
             +_lbRow('MAX DD',_lbDdU!=null?('-'+$k(_lbDdU)):'—',_lbDdG!=null?('-'+$k(_lbDdG)):'—',(_lbDdG!=null&&_lbDdU!=null)?(_lbDdG<=_lbDdU):null);
           _lockboxBlock='<div style="margin-top:14px;padding-top:12px;border-top:1px solid color-mix(in srgb,'+_lbCol+' 30%,var(--border))">'
-            +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+_pdChip('LOCKBOX (held-out final year)',_lbCol)+'<span style="font-size:7.5px;color:var(--text5)">the chosen variant only — the 8 losers never get a lockbox look, by design'+_infoIc('<div style="color:var(--text2)">The final '+(V.lockbox_months||12)+' months of data, held out and untouched until the winner was already picked on PRE-LOCKBOX data above. Only '+_chLbl+' (the recovery winner) is scored here — no shopping. MAX DD here is measured directly from the lockbox trades, not derived like the PRE-LOCKBOX matrix above.</div>')+'</span></div>'
+            +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+_pdChip('LOCKBOX (held-out final year)',_lbCol)+'<span style="font-size:7.5px;color:var(--text5)">full held-out stats — chosen variant only, measured trade by trade'+_infoIc('<div style="color:var(--text2)">The final '+(V.lockbox_months||12)+' months of data, held out and untouched until the winner was already picked on PRE-LOCKBOX data above. Only '+_chLbl+' (the recovery winner) is re-scored trade by trade here, which is why it is the only variant with a real PF, trade count, win % and measured drawdown for this period — the matrix above can show every variant lockbox $ because that comes free from the saved equity curves, but $ is all a curve can give.<br><br>MAX DD here is measured directly from the lockbox trades, not derived like the PRE-LOCKBOX rows above.</div>')+'</span></div>'
             +'<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:10px"><thead><tr><th style="padding:2px 8px 4px 0;text-align:left;font-size:7.5px;letter-spacing:.5px;color:var(--text5)">METRIC</th><th style="padding:2px 10px 4px;text-align:right;font-size:7.5px;letter-spacing:.5px;color:var(--text5)">NO GATE<br><span style="font-weight:400">every trade</span></th><th style="padding:2px 10px 4px;text-align:right;font-size:7.5px;letter-spacing:.5px;color:'+_lbCol+'">'+_chLbl+'<br><span style="font-weight:400">gate kept</span></th></tr></thead><tbody>'+_rows+'</tbody></table></div>'
             +'<div style="font-size:var(--fsxs);margin-top:6px;color:var(--text4)">equal-risk recovery ($ per $ of drawdown): '+(LB.ungated_rec!=null?LB.ungated_rec.toFixed(1):'—')+' → <b style="color:'+(LB.helped?'var(--green)':'var(--red)')+'">'+(LB.gated_rec!=null?LB.gated_rec.toFixed(1):'—')+'</b></div>'
             +'</div>';
@@ -10671,8 +10705,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   we DO have (the same numbers as the hero cards). Honest: labelled endpoints-only, with
         //   a re-run note; runs that carry the real curve (_geq) show the full pink path on 2A and
         //   this returns '' so there is no duplicate.
+        // v64.95 (owner, pointing at run 157): this bar is the "gate quality bar" — it used to
+        //   vanish on any run that HAS saved curves (it was written as a fallback for old runs),
+        //   which is why 180 lost it. It is genuinely useful on every run: two bars, same scale,
+        //   answering "did the filter keep more or less money than taking every trade" at a
+        //   glance. Now always drawn; only the caption changes — an old run says endpoints-only
+        //   with a re-run tip, a run with curves points at the full pink path on the 2A chart.
         const _epViz=(function(){
-          if(_geq)return '';
           let uv,gv,sl;
           if(_gvP&&_gvP.LB){uv=_gvP.LB.ungated.total_pnl;gv=_gvP.LB.gated.total_pnl;sl='lockbox · held-out slice';}
           else if(_gvP&&_gvP.ch){uv=(_gvP.V.ungated_pre||{}).total_pnl;gv=_gvP.ch.pre_pnl;sl='pre-lockbox · tuning slice';}
@@ -10681,7 +10720,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const uD=(uv||0)*mlt,gD=(gv||0)*mlt,mx=Math.max(Math.abs(uD),Math.abs(gD),1),help=(gv||0)>=(uv||0);
           const _bar=(lab,val,col)=>'<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="width:62px;font-size:8px;color:var(--text5);text-align:right">'+lab+'</span><div style="flex:1;height:11px;background:color-mix(in srgb,var(--border) 35%,transparent);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+(Math.abs(val)/mx*100).toFixed(1)+'%;background:'+col+';border-radius:3px"></div></div><span style="width:50px;font-size:9px;font-weight:700;color:'+col+';text-align:right">'+fmtAx(val,1)+'</span></div>';
           return '<div style="background:var(--bg1);border-radius:8px;padding:7px 10px;margin-bottom:10px">'
-            +'<div style="font-size:8px;color:var(--text5);margin-bottom:5px;display:flex;align-items:center;gap:5px"><span style="font-size:11px;font-variant-emoji:text">📊</span>GATE EQUITY · '+sl+' — <b style="color:'+(help?'var(--green)':'var(--red)')+'">endpoints only</b><span style="color:var(--text5);cursor:help" title="This run predates the engine build (v64.13) that saves the full gated equity CURVE, so only the start-to-end totals draw here. Re-run this exact config on the current engine to get the full pink path on the 2A funnel above.">ⓘ</span></div>'
+            +'<div style="font-size:8px;color:var(--text5);margin-bottom:5px;display:flex;align-items:center;gap:5px"><span style="font-size:11px;font-variant-emoji:text">📊</span>GATE EQUITY · '+sl+' — <b style="color:'+(help?'var(--green)':'var(--red)')+'">'+(_geq?'end totals':'endpoints only')+'</b><span style="color:var(--text5);cursor:help" title="'+(_geq?'Start-to-end totals for this slice, both bars on the same scale — a quick read on whether the filter kept more or less money than taking every trade. The full shape over time is the pink gate line on the 2A chart above.':'This run predates the engine build (v64.13) that saves the full gated equity CURVE, so only the start-to-end totals draw here. Re-run this exact config on the current engine to get the full pink path on the 2A funnel above.')+'">ⓘ</span></div>'
             +_bar('every trade',uD,'var(--text3)')
             +_bar('gate kept',gD,help?'var(--green)':'var(--red)')
             +'</div>';
