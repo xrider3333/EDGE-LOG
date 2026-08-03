@@ -442,10 +442,16 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.95';
+const VERSION='64.96';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'64.96',date:'2026-08-02',notes:[
+ '2C: new SAMPLE control — drawdown, reward-risk and trades-kept rows switch between IS+WF, the held-out year, and the full run, so the periods are never ambiguous',
+ '2C: new RANK BY control — order the variants by recovery (the engine rule), by raw dollars, or by dollars among variants within 80% of the best recovery; a what-if winner is marked WOULD PICK and the crown never moves',
+ '2C: optional HEAT MAP shades every cell by where it lands across its own row',
+ '2B: reward-risk rows now say which slice each one measures — MAR, SHARPE and MAX DD were three different windows with no label',
+ 'gate quality bar removed — the lockbox block above it already says the same thing in more detail']},
 {v:'64.95',date:'2026-08-02',notes:[
  '2C matrix rebuilt to match 2B/1E: return rows are now IS+WF $ / LB $ / FULL RUN / MAX DD, in blue and purple period colours',
  '2C shows every gate variant lockbox $, not just the chosen one — read off the saved curves, marked with a degree sign, and it still plays no part in choosing the winner',
@@ -7561,7 +7567,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const bTop='border-top:1px solid color-mix(in srgb,var(--border) '+(r.top?'70%':'40%')+',transparent);';
           return '<tr>'
             +'<td style="'+bTop+'padding:'+_cp+';font-size:var(--fsxs);color:'+(r.lblCol||'var(--text2)')+';font-weight:'+(r.top?'700':'400')+';white-space:nowrap;'+_stick+'background:'+rowBg+'">'+r.lbl+'</td>'
-            +cols.map(c=>'<td style="'+bTop+'padding:'+_cp+';text-align:right;white-space:nowrap;background:'+rowBg+(c.emph?_mtxEmph(c):'')+'">'+r.cell(c)+'</td>').join('')
+            // v64.96: a row may override the background PER CELL (r.cellBg) — that is what the
+            //   optional 2C heat map uses to shade each value by how it ranks across the row.
+            //   Rows that do not define cellBg are untouched, so 1E / 2B render exactly as before.
+            +cols.map(c=>'<td style="'+bTop+'padding:'+_cp+';text-align:right;white-space:nowrap;background:'+((r.cellBg&&r.cellBg(c))||rowBg)+(c.emph?_mtxEmph(c):'')+'">'+r.cell(c)+'</td>').join('')
             +'</tr>';}).join('');
         return grpRow+rows;}).join('');
       return '<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 4px;overflow-x:auto;max-width:100%"><table class="table" style="width:100%;font-size:var(--fsxs);border-collapse:collapse"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
@@ -7675,11 +7684,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   existing convention (1A/1E never tint the in-sample stretch either).
       const _wfBg='rgba(96,165,250,.13)',_wfCol='#60a5fa',_lbBg='rgba(167,139,250,.16)',_lbCol='#a78bfa';
       const hasPf=recs.some(rc=>rc.mmPf!=null),hasWr=recs.some(rc=>rc.mmWr!=null);
+      // v64.96 (owner: "what data set is reward/risk measuring off of? its all a little
+      //   ambiguous") — these three rows were genuinely measured on THREE different slices and
+      //   the table never said so. Each row label now names its own slice in the tooltip and the
+      //   group caption says the same out loud. Unlike 2C these cannot be switched to another
+      //   period: the walk-forward folds are OOS slices scattered THROUGH the optimize window
+      //   (they overlap the in-sample stretch rather than following it), so there is no separate
+      //   IS-only or WF-only drawdown curve to measure a second version against.
       const _rrRows=[
-        {lbl:'MAR',cell:col=>col.mar!=null?('<span style="color:var(--text2)">'+col.mar.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'},
-        {lbl:'<span title="Derived from the equity curve each candidate carries (period-to-period change in cumulative PnL), annualised using the run optimize-window length -- not stored directly by the engine" style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>',
+        {lbl:'<span title="walk-forward dollars divided by the drawdown of the WHOLE optimize window. WF is the numerator because walk-forward is the number that actually decided the crown; the drawdown is whole-window because that is the only equity curve each candidate carries." style="border-bottom:1px dotted var(--text5);cursor:help">MAR</span>',cell:col=>col.mar!=null?('<span style="color:var(--text2)">'+col.mar.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'},
+        {lbl:'<span title="Derived from the equity curve each candidate carries (period-to-period change in cumulative PnL) over the WHOLE optimize window, annualised using that window length -- not stored directly by the engine" style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>',
          cell:col=>col.sharpe!=null?('<span style="color:var(--text2)">'+col.sharpe.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'},
-        {lbl:'FOLDS HELD',cell:col=>col.foldsHeld!=null?('<span style="color:var(--text2)">'+col.foldsHeld+(_nFolds!=null?('/'+_nFolds):'')+'</span>'):'<span style="color:var(--text5)">—</span>'}
+        {lbl:'<span title="walk-forward only: how many out-of-sample folds this config held up in" style="border-bottom:1px dotted var(--text5);cursor:help">FOLDS HELD</span>',cell:col=>col.foldsHeld!=null?('<span style="color:var(--text2)">'+col.foldsHeld+(_nFolds!=null?('/'+_nFolds):'')+'</span>'):'<span style="color:var(--text5)">—</span>'}
       ];
       // PF / WIN % (owner redesign item A4): only added when at least one candidate genuinely
       //   carries that field on its own metrics object — today's selection engine does not save
@@ -7695,8 +7711,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // v64.92 (owner): MAX DD sits directly under TOTAL so profit and the risk taken to get
           //   it read together. The separate DRAWDOWN group that used to follow is GONE — it
           //   repeated this exact row verbatim two lines later.
-          {lbl:'MAX DD',cell:_ddCell}]},
-        {name:'reward ÷ risk',rows:_rrRows},
+          {lbl:'<span title="peak-to-trough drop on this config equity curve over the WHOLE optimize window (in-sample and walk-forward together) -- not a per-period figure" style="border-bottom:1px dotted var(--text5);cursor:help">MAX DD</span>',cell:_ddCell}]},
+        {name:'reward ÷ risk <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">· mixed slices — hover each row</span>',rows:_rrRows},
         {name:'config',rows:knobKeys.map(k2=>({lbl:_pp(k2),cell:col=>'<b style="color:var(--text2)">'+String((col.params||{})[k2])+'</b>'}))}
       ];
       const _anyStar=recs.some(rc=>rc.fullRunStar);
@@ -9636,28 +9652,74 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _cEnd=cd=>{const a=cd&&cd.equity&&cd.equity.cum;return (Array.isArray(a)&&a.length)?(+a[a.length-1]):null;};
         const _ungLb=(V.ungated_lockbox&&V.ungated_lockbox.total_pnl!=null)?V.ungated_lockbox.total_pnl:null;
         const _ungPre=(V.ungated_pre&&V.ungated_pre.total_pnl!=null)?V.ungated_pre.total_pnl:null;
+        // ── v64.96 (owner: "what data set is reward/risk measuring off of? make it toggleable") ──
+        //   Every variant now carries a metric block PER PERIOD instead of one unlabelled set, and
+        //   the SAMPLE control picks which one the drawdown / reward-risk / sample rows read from.
+        //   What is honestly available differs by period, so nothing is invented:
+        //     pre  — exact for every variant (the engine scores all nine here; it is the only
+        //            period the winner was ever chosen on).
+        //     lb   — $ for every variant (curve end minus its own exact pre total) and drawdown
+        //            read off the curve tail; PF / win % / trade count exist ONLY for the chosen
+        //            variant and the no-gate baseline, because a saved curve carries dollars, not
+        //            per-trade outcomes. The rest show a dash with a "needs a re-run" tooltip.
+        //     full — $ and drawdown off the whole saved curve; PF / win % cannot be combined
+        //            across periods from curves alone, so they dash.
+        //   IS and WF are NOT separable here at all: the filter trains and scores on the two as a
+        //   single block, so there is no fold-level figure to split out (unlike 2B).
+        const _ddSlice=(arr,a,b)=>{if(!Array.isArray(arr)||arr.length<2)return null;
+          const i0=Math.max(0,Math.min(arr.length-1,a)),i1=Math.max(i0,Math.min(arr.length-1,b));
+          if(i1<=i0)return null;
+          let peak=+arr[i0]||0,dd=0;
+          for(let i=i0;i<=i1;i++){const v=+arr[i]||0;if(v>peak)peak=v;const d=peak-v;if(d>dd)dd=d;}
+          return dd;};
+        const _nPreT=(V.ungated_pre&&V.ungated_pre.num_trades)||0,_nLbT=(V.ungated_lockbox&&V.ungated_lockbox.num_trades)||0;
+        const _fSplitG=(_nPreT+_nLbT)>0?(_nPreT/(_nPreT+_nLbT)):1;
+        const _bIdx=len=>Math.max(0,Math.min(len-1,Math.round(_fSplitG*(len-1))));
+        const _rec2=(n,d)=>(n!=null&&d!=null&&Math.abs(d)>1e-9)?(n/Math.abs(d)):null;
+        const _ungCum=(V.equity&&Array.isArray(V.equity.cum_ungated))?V.equity.cum_ungated:null;
+        const _ungFull=(_ungPre!=null&&_ungLb!=null)?(_ungPre+_ungLb):_ungPre;
         const _gCols=[{
-          lbl:'NO GATE',sub:'baseline',col:'var(--text3)',emph:false,
+          lbl:'NO GATE',sub:'baseline',col:'var(--text3)',emph:false,base:true,
           tip:'every trade, no ML filter — the baseline the gate has to beat',
-          net:_ungPre,lb:_ungLb,lbDer:false,
-          full:(_ungPre!=null&&_ungLb!=null)?(_ungPre+_ungLb):_ungPre,
-          dd:_ungDD!=null?Math.abs(_ungDD):null,
-          pf:(V.ungated_pre&&V.ungated_pre.profit_factor!=null)?V.ungated_pre.profit_factor:null,
-          wr:(V.ungated_pre&&V.ungated_pre.win_rate!=null)?V.ungated_pre.win_rate:null,
-          rec:V.ungated_pre_rec!=null?V.ungated_pre_rec:null,
-          kept:(V.ungated_pre&&V.ungated_pre.num_trades!=null)?V.ungated_pre.num_trades:null
+          net:_ungPre,lb:_ungLb,lbDer:false,full:_ungFull,
+          per:{
+            pre:{net:_ungPre,dd:_ungDD!=null?Math.abs(_ungDD):null,rec:V.ungated_pre_rec!=null?V.ungated_pre_rec:null,
+                 pf:(V.ungated_pre&&V.ungated_pre.profit_factor!=null)?V.ungated_pre.profit_factor:null,
+                 wr:(V.ungated_pre&&V.ungated_pre.win_rate!=null)?V.ungated_pre.win_rate:null,
+                 kept:(V.ungated_pre&&V.ungated_pre.num_trades!=null)?V.ungated_pre.num_trades:null},
+            lb:{net:_ungLb,dd:(V.ungated_lockbox&&V.ungated_lockbox.max_drawdown!=null)?Math.abs(V.ungated_lockbox.max_drawdown):null,
+                rec:(LB&&LB.ungated_rec!=null)?LB.ungated_rec:_rec2(_ungLb,(V.ungated_lockbox&&V.ungated_lockbox.max_drawdown)),
+                pf:(V.ungated_lockbox&&V.ungated_lockbox.profit_factor!=null)?V.ungated_lockbox.profit_factor:null,
+                wr:(V.ungated_lockbox&&V.ungated_lockbox.win_rate!=null)?V.ungated_lockbox.win_rate:null,
+                kept:(V.ungated_lockbox&&V.ungated_lockbox.num_trades!=null)?V.ungated_lockbox.num_trades:null},
+            full:(function(){const dd=_ungCum?_ddSlice(_ungCum,0,_ungCum.length-1):null;
+                return {net:_ungFull,dd:dd,ddDer:dd!=null,rec:_rec2(_ungFull,dd),pf:null,wr:null,
+                        kept:(_nPreT&&_nLbT)?(_nPreT+_nLbT):null};})()
+          }
         }].concat(cands.map(cd=>{const isCh=_isChosen(cd),_gc=_gateColor(cd.model,_thLi(cd.threshold),isCh?88:58);
+          const _cum=(cd.equity&&Array.isArray(cd.equity.cum))?cd.equity.cum:null;
           const _end=_cEnd(cd);
           const _lbEx=(isCh&&LB&&LB.gated&&LB.gated.total_pnl!=null)?LB.gated.total_pnl:null;
           const _lbS=(_lbEx!=null)?_lbEx:((_end!=null&&cd.pre_pnl!=null)?(_end-cd.pre_pnl):null);
+          const _fullN=(cd.pre_pnl!=null&&_lbS!=null)?(cd.pre_pnl+_lbS):_end;
+          const _lbDdEx=(isCh&&LB&&LB.gated&&LB.gated.max_drawdown!=null)?Math.abs(LB.gated.max_drawdown):null;
+          const _lbDd=(_lbDdEx!=null)?_lbDdEx:(_cum?_ddSlice(_cum,_bIdx(_cum.length),_cum.length-1):null);
+          const _fullDd=_cum?_ddSlice(_cum,0,_cum.length-1):null;
           return {lbl:(isCh?'👑 ':'')+(_mNm[cd.model]||String(cd.model||'').toUpperCase())+' '+Math.round((cd.threshold||0)*100)+'%',
-            sub:isCh?'CHOSEN':'',col:_gc,emph:isCh,emphCol:_gc,
+            sub:isCh?'CHOSEN':'',col:_gc,emph:isCh,emphCol:_gc,base:false,
+            model:cd.model,threshold:cd.threshold,chosen:isCh,
             tip:cd.model+' @ '+Math.round((cd.threshold||0)*100)+'% cut-off'+(isCh?' — CHOSEN, gets the one lockbox look':'')+(cd.eligible===false?' · ineligible (too few kept)':''),
             net:cd.pre_pnl!=null?cd.pre_pnl:null,
-            lb:_lbS,lbDer:(_lbEx==null&&_lbS!=null),
-            full:(cd.pre_pnl!=null&&_lbS!=null)?(cd.pre_pnl+_lbS):_end,
-            dd:cd.pre_rec?Math.abs(cd.pre_pnl/cd.pre_rec):null,
-            pf:cd.pre_pf,wr:cd.pre_wr,rec:cd.pre_rec,kept:cd.kept_pre};}));
+            lb:_lbS,lbDer:(_lbEx==null&&_lbS!=null),full:_fullN,
+            per:{
+              pre:{net:cd.pre_pnl!=null?cd.pre_pnl:null,dd:cd.pre_rec?Math.abs(cd.pre_pnl/cd.pre_rec):null,
+                   rec:cd.pre_rec,pf:cd.pre_pf,wr:cd.pre_wr,kept:cd.kept_pre},
+              lb:{net:_lbS,dd:_lbDd,ddDer:(_lbDdEx==null&&_lbDd!=null),rec:_rec2(_lbS,_lbDd),
+                  pf:(isCh&&LB&&LB.gated)?LB.gated.profit_factor:null,
+                  wr:(isCh&&LB&&LB.gated)?LB.gated.win_rate:null,
+                  kept:(isCh&&LB&&LB.gated)?LB.gated.num_trades:null},
+              full:{net:_fullN,dd:_fullDd,ddDer:_fullDd!=null,rec:_rec2(_fullN,_fullDd),pf:null,wr:null,kept:null}
+            }};}));
         // B4 (compact): dollars abbreviated ($450k), recovery to 1dp, PF/WIN% already at target
         //   precision. A2/C: the NET $ row carries the same PRE-LOCKBOX blue used on the 2B WF $
         //   row and the matrix own heading chip below, so the period-colour convention matches
@@ -9671,25 +9733,92 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   combined as one block, so there is no separate fold figure to show — the row says
         //   IS+WF so it never reads as a missing number.
         const _g$=v=>v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):'<span style="color:var(--text5)">—</span>';
+        const _dash='<span style="color:var(--text5)">—</span>';
+        // ── v64.96 the three 2C view controls (all VIEW-only — none of them change what the
+        //    engine crowned, they only change how this matrix is read) ──────────────────────
+        //    SAMPLE   which period the drawdown / reward-risk / sample rows measure.
+        //    RANK BY  how the variant columns are ordered. RECOVERY is the engine rule that
+        //             actually picked the winner; the other two are what-if lenses.
+        //    HEAT     shade each cell by where it lands across its own row.
+        const _g2samp=(['pre','lb','full'].indexOf(String(APREF.g2samp||''))>=0)?String(APREF.g2samp):'pre';
+        const _g2rank=(['rec','pnl','floor'].indexOf(String(APREF.g2rank||''))>=0)?String(APREF.g2rank):'rec';
+        const _g2heat=+(APREF.g2heat||0);
+        const _sampNm={pre:'IS+WF',lb:'LOCKBOX',full:'FULL RUN'};
+        const _sampCol={pre:_preCol,lb:_lbColR,full:'var(--text3)'};
+        const _P=col=>((col&&col.per&&col.per[_g2samp])||{});
+        // RANK BY. The floor rule is the one worth explaining: it keeps only variants whose
+        //   recovery is within 80% of the best on that period (so nothing reckless can win),
+        //   then ranks those by raw dollars. It is the middle ground between "most efficient"
+        //   and "most money" — see the tile info icon.
+        const _cand2=_gCols.slice(1),_baseCol=_gCols[0];
+        const _rkVal=c=>{const p=_P(c);return (_g2rank==='rec')?p.rec:p.net;};
+        const _recMax=Math.max.apply(null,_cand2.map(c=>{const r=_P(c).rec;return (r!=null&&isFinite(r))?r:-Infinity;}).concat([-Infinity]));
+        const _floorOk=c=>{const r=_P(c).rec;return (_recMax>-Infinity&&r!=null&&isFinite(r))?(r>=0.8*_recMax):false;};
+        const _sortedCand=_cand2.slice().sort((a,b)=>{
+          if(_g2rank==='floor'){const fa=_floorOk(a),fb=_floorOk(b);if(fa!==fb)return fa?-1:1;}
+          const va=_rkVal(a),vb=_rkVal(b);
+          return ((vb!=null&&isFinite(vb))?vb:-Infinity)-((va!=null&&isFinite(va))?va:-Infinity);});
+        // The engine crown NEVER moves. When a what-if ordering would have picked someone else,
+        //   that column gets a "◇ WOULD PICK" note so the difference is explicit rather than
+        //   implied by position alone.
+        const _wouldPick=(_g2rank!=='rec'||_g2samp!=='pre')?(_sortedCand[0]||null):null;
+        _sortedCand.forEach(c=>{c.sub=c.chosen?'CHOSEN':'';});
+        if(_wouldPick&&!_wouldPick.chosen)_wouldPick.sub='◇ WOULD PICK';
+        const _gColsV=[_baseCol].concat(_sortedCand);
+        // HEAT MAP: red (worst in the row) through to green (best), alpha strongest at the two
+        //   ends so the middle of the pack stays quiet. hiGood=false flips it for drawdown.
+        const _heatFn=(get,hiGood)=>{
+          if(!_g2heat)return null;
+          const nums=_gColsV.map(get).filter(v=>v!=null&&isFinite(v));
+          if(nums.length<2)return null;
+          const mn=Math.min.apply(null,nums),mx=Math.max.apply(null,nums);
+          if(!(mx-mn>1e-9))return null;
+          return col=>{const v=get(col);if(v==null||!isFinite(v))return null;
+            let t=(v-mn)/(mx-mn);if(!hiGood)t=1-t;
+            return 'hsla('+Math.round(4+116*t)+',68%,45%,'+(0.09+0.24*Math.abs(t-0.5)*2).toFixed(3)+')';};};
+        const _hRow=(o,get,hiGood)=>{const f=_heatFn(get,hiGood);if(f)o.cellBg=f;return o;};
+        const _needRerun='no per-trade record was saved for this variant on this period, so profit factor, win rate and trade count cannot be shown. Only the chosen variant and the no-gate baseline are re-scored trade by trade. A re-run on a newer engine would fill the rest in.';
+        const _ddTip=(_g2samp==='pre')
+          ?'derived: net $ divided by recovery factor -- the engine does not store a per-candidate drawdown, so it is backed out from the two numbers it does store. Measured on the IS+WF (tuning) slice.'
+          :'measured on this variant own saved equity curve over the '+_sampNm[_g2samp]+' slice. The chosen variant and the no-gate baseline use the engine measured figure instead.';
         const _gGroups=[
-          {name:'return',rows:[
-            {lbl:'IS+WF $',top:true,rowBg:_preBg,lblCol:_preCol,cell:col=>_g$(col.net)},
-            {lbl:'LB $',rowBg:_lbBgR,lblCol:_lbColR,cell:col=>col.lb!=null?(_g$(col.lb)+(col.lbDer?'<span title="read off this variant own saved full-run equity curve (curve end minus its exact pre-lockbox total) — reporting only, it played no part in choosing the winner" style="color:var(--text5);cursor:help">°</span>':'')):'<span style="color:var(--text5)">—</span>'},
-            {lbl:'FULL RUN',top:true,cell:col=>_g$(col.full)},
-            {lbl:'<span title="derived: net $ divided by recovery factor -- the engine does not store a max-drawdown figure per candidate directly, so this is backed out from the two numbers it does store. Measured on the PRE-LOCKBOX slice." style="border-bottom:1px dotted var(--text5);cursor:help">MAX DD</span>',cell:col=>col.dd!=null?('<span style="color:#e24b4a">-'+$k(col.dd)+'</span>'):'<span style="color:var(--text5)">—</span>'}]},
-          {name:'reward ÷ risk',rows:[
-            {lbl:'RECOVERY',cell:col=>col.rec!=null?('<span style="color:var(--text2)">'+col.rec.toFixed(1)+'</span>'):'<span style="color:var(--text5)">—</span>'},
-            {lbl:'PF',cell:col=>col.pf!=null?('<span style="color:'+(col.pf>=1?'var(--text)':'var(--red)')+'">'+Math.min(col.pf,99).toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'},
-            {lbl:'WIN %',cell:col=>col.wr!=null?('<span style="color:var(--text2)">'+Math.round(col.wr)+'%</span>'):'<span style="color:var(--text5)">—</span>'}]},
-          {name:'sample',rows:[{lbl:'KEPT',cell:col=>col.kept!=null?('<span style="color:var(--text3)">'+(+col.kept).toLocaleString()+'</span>'):'<span style="color:var(--text5)">—</span>'}]}
+          {name:'return <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">· every period, always</span>',rows:[
+            _hRow({lbl:'IS+WF $',top:true,rowBg:_preBg,lblCol:_preCol,cell:col=>_g$(col.net)},col=>col.net,true),
+            _hRow({lbl:'LB $',rowBg:_lbBgR,lblCol:_lbColR,cell:col=>col.lb!=null?(_g$(col.lb)+(col.lbDer?'<span title="read off this variant own saved full-run equity curve (curve end minus its exact pre-lockbox total) — reporting only, it played no part in choosing the winner" style="color:var(--text5);cursor:help">°</span>':'')):_dash},col=>col.lb,true),
+            _hRow({lbl:'FULL RUN',top:true,cell:col=>_g$(col.full)},col=>col.full,true)]},
+          {name:'drawdown <span style="font-weight:400;color:'+_sampCol[_g2samp]+';letter-spacing:0;text-transform:none">· '+_sampNm[_g2samp]+'</span>',rows:[
+            _hRow({lbl:'<span title="'+_ddTip+'" style="border-bottom:1px dotted var(--text5);cursor:help">MAX DD</span>',
+              cell:col=>{const p=_P(col);return p.dd!=null?('<span style="color:#e24b4a">-'+$k(p.dd)+(p.ddDer?'<span style="color:var(--text5)">°</span>':'')+'</span>'):_dash;}},col=>{const p=_P(col);return p.dd!=null?-Math.abs(p.dd):null;},true)]},
+          {name:'reward ÷ risk <span style="font-weight:400;color:'+_sampCol[_g2samp]+';letter-spacing:0;text-transform:none">· '+_sampNm[_g2samp]+'</span>',rows:[
+            _hRow({lbl:'RECOVERY',cell:col=>{const r=_P(col).rec;return r!=null?('<span style="color:var(--text2)">'+r.toFixed(1)+'</span>'):_dash;}},col=>_P(col).rec,true),
+            _hRow({lbl:'PF',cell:col=>{const p=_P(col).pf;return p!=null?('<span style="color:'+(p>=1?'var(--text)':'var(--red)')+'">'+Math.min(p,99).toFixed(2)+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">—</span>';}},col=>_P(col).pf,true),
+            _hRow({lbl:'WIN %',cell:col=>{const w=_P(col).wr;return w!=null?('<span style="color:var(--text2)">'+Math.round(w)+'%</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">—</span>';}},col=>_P(col).wr,true)]},
+          {name:'sample <span style="font-weight:400;color:'+_sampCol[_g2samp]+';letter-spacing:0;text-transform:none">· '+_sampNm[_g2samp]+'</span>',rows:[
+            {lbl:'TRADES KEPT',cell:col=>{const k=_P(col).kept;return k!=null?('<span style="color:var(--text3)">'+(+k).toLocaleString()+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">—</span>';}}]}
         ];
         // B3 (the important one): PRE-LOCKBOX is spelled out in plain words every time it is
         //   used — it means in-sample + walk-forward combined, everything before the held-out
         //   final year. This heading is step 1 of the tile's chronological order.
-        const _anyDer=_gCols.some(c=>c.lbDer);
-        const _gMatrix='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'+_pdChip('PRE-LOCKBOX (in-sample + walk-forward)',_preCol)+_pdChip('LOCKBOX (held-out year)',_lbColR)+'<span style="font-size:7.5px;color:var(--text5)">'+cands.length+' model × cut-off candidates, best recovery first — ranked on the BLUE row only'+_infoIc('<div style="color:var(--text2)">Same shape as the 2B config matrix: one COLUMN per gate variant, metrics as ROWS, and the return rows carry the same period colours used everywhere else in this report — BLUE = PRE-LOCKBOX (in-sample + walk-forward combined: every year except the held-out final one), PURPLE = LOCKBOX (that held-out final year).<br><br>WHAT PICKED THE WINNER: the blue row only. All '+V.n_candidates+' candidates are scored on PRE-LOCKBOX and ranked by recovery factor ($ made per $ of drawdown), and that ranking is locked before any lockbox number is read.<br><br>WHY THE LOSERS ALSO SHOW A LOCKBOX $: each variant saved a full-run equity curve, so its held-out slice was already in the run doc. It is shown for cross-strategy comparison (does RF hold up better than XGB?) and feeds nothing — the pick was already made. Full lockbox STATS (PF, trades, win %, true drawdown) are still computed for the chosen variant only, in the block below.<br><br>IS and WF are not split apart here the way 2B splits them: the gate trains and scores on the two combined as one block, so there is no separate fold figure to show.</div>')+'</span></div>'
-          +_matrixTbl(_gCols,_gGroups,{compact:true})
-          +'<div style="font-size:7px;color:var(--text5);margin-top:4px;padding:0 4px">FULL RUN = IS+WF plus LB — the end of that variant equity curve on the 2A chart.'+(_anyDer?' &nbsp;° lockbox $ read off the saved curve (reporting only — it did not choose the winner); the 👑 chosen column uses the engine measured figure.':'')+'</div>';
+        const _anyDer=_gCols.some(c=>c.lbDer)||_gColsV.some(c=>{const p=_P(c);return p&&p.ddDer;});
+        // ── the control strip: SAMPLE · RANK BY · HEAT (v64.96) ──
+        const _selSty='background:var(--bg1);border:1px solid var(--border);border-radius:5px;color:var(--text2);font-size:8px;padding:1px 3px;cursor:pointer;font-family:inherit';
+        const _opt=(v,l,cur)=>'<option value="'+v+'"'+(cur===v?' selected':'')+'>'+l+'</option>';
+        const _rkNote={rec:'best recovery first — the engine own rule, the one that actually crowned the winner',
+                       pnl:'most dollars first — a what-if ordering, it changes nothing',
+                       floor:'most dollars among variants within 80% of the best recovery — a what-if ordering, it changes nothing'};
+        const _hind=(_g2rank!=='rec'||_g2samp!=='pre')
+          ?'<span title="The winner was picked on IS+WF recovery and nothing else, before any held-out number existed. Ordering by a different rule — or by a period that was sealed at the time — is hindsight: useful for study, not a valid way to crown anything. The engine crown stays put." style="border:1px solid var(--yellow);color:var(--yellow);border-radius:5px;padding:0 5px;font-size:7px;cursor:help;white-space:nowrap">⚠ HINDSIGHT VIEW</span>':'';
+        const _ctrls='<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:6px 0 5px">'
+          +'<label style="font-size:7px;letter-spacing:.5px;color:var(--text5);display:flex;align-items:center;gap:3px">SAMPLE<select data-g2samp title="which period the DRAWDOWN, REWARD-RISK and SAMPLE rows measure. The RETURN rows always show all three periods." style="'+_selSty+'">'
+            +_opt('pre','IS+WF · tuning',_g2samp)+_opt('lb','LOCKBOX · held-out year',_g2samp)+_opt('full','FULL RUN',_g2samp)+'</select></label>'
+          +'<label style="font-size:7px;letter-spacing:.5px;color:var(--text5);display:flex;align-items:center;gap:3px">RANK BY<select data-g2rank title="how the variant columns are ordered. View only — the crown never moves." style="'+_selSty+'">'
+            +_opt('rec','RECOVERY · engine rule',_g2rank)+_opt('pnl','NET $ · raw',_g2rank)+_opt('floor','NET $ · recovery floor',_g2rank)+'</select></label>'
+          +'<span data-g2heat title="shade every cell by where it lands across its own row — green best, red worst" style="cursor:pointer;user-select:none;font-size:7px;letter-spacing:.5px;color:'+(_g2heat?'var(--text2)':'var(--text5)')+';border:1px solid '+(_g2heat?'var(--text4)':'var(--border)')+';border-radius:5px;padding:1px 6px">'+(_g2heat?'▪ HEAT MAP':'▫ HEAT MAP')+'</span>'
+          +_hind+'</div>';
+        const _gMatrix='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'+_pdChip('PRE-LOCKBOX (in-sample + walk-forward)',_preCol)+_pdChip('LOCKBOX (held-out year)',_lbColR)+'<span style="font-size:7.5px;color:var(--text5)">'+cands.length+' model × cut-off candidates · '+_rkNote[_g2rank]+_infoIc('<div style="color:var(--text2)">Same shape as the 2B config matrix: one COLUMN per gate variant, metrics as ROWS, and the return rows carry the same period colours used everywhere else in this report — BLUE = PRE-LOCKBOX (in-sample + walk-forward combined: every year except the held-out final one), PURPLE = LOCKBOX (that held-out final year).<br><br>WHAT PICKED THE WINNER: the blue row only. All '+V.n_candidates+' candidates are scored on PRE-LOCKBOX and ranked by recovery factor ($ made per $ of drawdown), and that ranking is locked before any lockbox number is read.<br><br>WHY THE LOSERS ALSO SHOW A LOCKBOX $: each variant saved a full-run equity curve, so its held-out slice was already in the run doc. It is shown for cross-strategy comparison (does RF hold up better than XGB?) and feeds nothing — the pick was already made. Full lockbox STATS (PF, trades, win %, true drawdown) are still computed for the chosen variant only, in the block below.<br><br>IS and WF are not split apart here the way 2B splits them: the gate trains and scores on the two combined as one block, so there is no separate fold figure to show.<br><br>THE THREE CONTROLS ARE VIEW-ONLY. SAMPLE picks which period the drawdown, reward-risk and sample rows measure — the return rows always show all three periods so they stay comparable. RANK BY re-orders the columns: RECOVERY is the engine own rule, NET $ is raw dollars, and NET $ WITH A RECOVERY FLOOR keeps only variants within 80% of the best recovery (so nothing reckless can win) and then takes the most money among them. Whenever a what-if ordering would have picked a different variant, that column is marked WOULD PICK — the crown itself never moves. HEAT MAP shades each cell by where it falls across its own row.</div>')+'</span></div>'
+          +_ctrls
+          +_matrixTbl(_gColsV,_gGroups,{compact:true})
+          +'<div style="font-size:7px;color:var(--text5);margin-top:4px;padding:0 4px">FULL RUN = IS+WF plus LB — the end of that variant equity curve on the 2A chart. Return rows always cover all three periods; the rows below them follow the SAMPLE control.'+(_anyDer?' &nbsp;° read off the saved equity curve rather than measured trade by trade (reporting only — it did not choose the winner); the 👑 chosen column and the NO GATE baseline use engine measured figures.':'')+'</div>';
         // B3 step 2 (owner: "make the periods unambiguous"): the held-out final year, chosen
         //   variant only — no-gate vs gated, purple-styled, clearly separated below the matrix.
         //   This is the ONLY place lockbox numbers appear in this tile, and the ONLY column that
@@ -10699,32 +10828,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // otherwise a one-line re-run note (same graceful pattern as the 2H/2L overlays).
         const _geq=(_gvD&&_gvD.equity)||(d.gate_validate&&d.gate_validate.equity)||(d.ml_gate&&d.ml_gate.equity)||null;
         const _ovlNote=(_geq?gateEquityHtml(_geq,mlt,_gbc):'')||'<div style="display:flex;align-items:center;gap:8px;background:var(--bg1);border-radius:8px;padding:6px 10px;margin-bottom:12px;font-size:8px;color:var(--text5)"><span style="font-size:11px;font-variant-emoji:text">📈</span><span>GATE EQUITY — no saved curves on this run: the engine saves them on gate runs made from v64.13 on (first live doc: run 173). Re-run this config to populate the chart.</span></div>';
-        // v64.60 (owner): "show the gate regardless". Runs made before v64.13 carry the gate
-        //   NUMBERS but not the saved equity CURVE, so the pink path can't draw on the 2A funnel.
-        //   Instead of a blank, draw a before→after GATE EQUITY endpoint bar here from the totals
-        //   we DO have (the same numbers as the hero cards). Honest: labelled endpoints-only, with
-        //   a re-run note; runs that carry the real curve (_geq) show the full pink path on 2A and
-        //   this returns '' so there is no duplicate.
-        // v64.95 (owner, pointing at run 157): this bar is the "gate quality bar" — it used to
-        //   vanish on any run that HAS saved curves (it was written as a fallback for old runs),
-        //   which is why 180 lost it. It is genuinely useful on every run: two bars, same scale,
-        //   answering "did the filter keep more or less money than taking every trade" at a
-        //   glance. Now always drawn; only the caption changes — an old run says endpoints-only
-        //   with a re-run tip, a run with curves points at the full pink path on the 2A chart.
-        const _epViz=(function(){
-          let uv,gv,sl;
-          if(_gvP&&_gvP.LB){uv=_gvP.LB.ungated.total_pnl;gv=_gvP.LB.gated.total_pnl;sl='lockbox · held-out slice';}
-          else if(_gvP&&_gvP.ch){uv=(_gvP.V.ungated_pre||{}).total_pnl;gv=_gvP.ch.pre_pnl;sl='pre-lockbox · tuning slice';}
-          else if(d.ml_gate){uv=(d.ml_gate.ungated||{}).total_pnl;gv=(d.ml_gate.gated||{}).total_pnl;sl='in-sample';}
-          else return '';
-          const uD=(uv||0)*mlt,gD=(gv||0)*mlt,mx=Math.max(Math.abs(uD),Math.abs(gD),1),help=(gv||0)>=(uv||0);
-          const _bar=(lab,val,col)=>'<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="width:62px;font-size:8px;color:var(--text5);text-align:right">'+lab+'</span><div style="flex:1;height:11px;background:color-mix(in srgb,var(--border) 35%,transparent);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+(Math.abs(val)/mx*100).toFixed(1)+'%;background:'+col+';border-radius:3px"></div></div><span style="width:50px;font-size:9px;font-weight:700;color:'+col+';text-align:right">'+fmtAx(val,1)+'</span></div>';
-          return '<div style="background:var(--bg1);border-radius:8px;padding:7px 10px;margin-bottom:10px">'
-            +'<div style="font-size:8px;color:var(--text5);margin-bottom:5px;display:flex;align-items:center;gap:5px"><span style="font-size:11px;font-variant-emoji:text">📊</span>GATE EQUITY · '+sl+' — <b style="color:'+(help?'var(--green)':'var(--red)')+'">'+(_geq?'end totals':'endpoints only')+'</b><span style="color:var(--text5);cursor:help" title="'+(_geq?'Start-to-end totals for this slice, both bars on the same scale — a quick read on whether the filter kept more or less money than taking every trade. The full shape over time is the pink gate line on the 2A chart above.':'This run predates the engine build (v64.13) that saves the full gated equity CURVE, so only the start-to-end totals draw here. Re-run this exact config on the current engine to get the full pink path on the 2A funnel above.')+'">ⓘ</span></div>'
-            +_bar('every trade',uD,'var(--text3)')
-            +_bar('gate kept',gD,help?'var(--green)':'var(--red)')
-            +'</div>';
-        })();
+        // v64.96 (owner: "go ahead and delete it"): the before/after GATE EQUITY endpoint bar is
+        //   GONE. It was added in v64.60 as a stand-in for runs too old to carry a saved equity
+        //   curve, briefly restored in v64.95, and dropped here for good — the purple LOCKBOX
+        //   block right above already states the same before/after numbers with more detail
+        //   (PF, trades, measured drawdown), so the bar was a second, weaker telling of it.
+        //   Old runs with no saved curve keep that lockbox block; they simply have no pink
+        //   equity path on the 2A chart, which the 2A tile already explains.
+        const _epViz='';
         // v64.61 (owner): the FULL gate curve, drawn here when the 2A funnel WON'T show it.
         //   The 2A pink overlay only renders inside the survivor-FUNNEL branch (selMode) — a run
         //   with real gate curves but NO walk-forward selection pool (an ENSEMBLE, e.g. #175) has
@@ -13132,6 +13243,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const cur=(Array.isArray(APREF.s2colCollapse)&&APREF.s2colCollapse.length===n)?APREF.s2colCollapse.slice():new Array(n).fill(false);
         cur[i]=!cur[i];savePref('s2colCollapse',cur);renderApp();};});
       content.querySelectorAll('[data-r3ev]').forEach(b=>{b.onclick=()=>{window._gvEvOpen=!window._gvEvOpen;renderApp();};});
+      // v64.96: the three 2C view controls — sample period, column ordering, heat map. All three
+      //   only change how the matrix READS; none of them touch what the engine crowned.
+      content.querySelectorAll('[data-g2samp]').forEach(s=>{s.onchange=()=>{savePref('g2samp',s.value);renderApp();};});
+      content.querySelectorAll('[data-g2rank]').forEach(s=>{s.onchange=()=>{savePref('g2rank',s.value);renderApp();};});
+      content.querySelectorAll('[data-g2heat]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('g2heat',(+(APREF.g2heat||0))?0:1);renderApp();};});
       // report layout toggle: CLASSIC ⇄ FUNNEL β ⇄ GAUGES β (value-generic)
       content.querySelectorAll('[data-replay]').forEach(b=>{b.onclick=()=>{savePref('repLayout',b.dataset.replay);renderApp();};});
       // REPORT COLUMNS toggle: 3 ⇄ 2×2 ⇄ 1 (value-generic, same pattern as repLayout above)
