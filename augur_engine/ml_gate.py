@@ -282,7 +282,8 @@ def _cand_out(c):
 
 def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
                   thresholds=(0.45, 0.50, 0.55, 0.60), lockbox_months=12,
-                  min_kept=50, windows=4, min_history=30, refit_every=25, wf_from=None, wf_to=None,
+                  min_kept=50, min_keep_frac=0.10, windows=4, min_history=30,
+                  refit_every=25, wf_from=None, wf_to=None,
                   seed=42, lb_from=None):
     """The honest way to pick a gate (board 4.10, ROADMAP #25).
 
@@ -341,8 +342,17 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
         wf1 = lb_start                                     # folds never reach into the lockbox
     _rng = (wf0 is not None and wf1 is not None and wf1 > wf0)
 
+    # v66.5 (owner-approved 2026-08-03, found by the ES 1m clean test): the eligibility floor is
+    #   now PROPORTIONAL, not a flat 50. On ES 1m the old floor let rf@0.60 through on 67 kept
+    #   trades, where its tiny sample posted the best MAR on the board (12.21) -- so the MAR floor
+    #   crowned it, and in the held-out year it took ONE trade and lost money. A ratio computed on
+    #   almost nothing is not evidence. A variant must now keep at least `min_kept` AND at least
+    #   `min_keep_frac` of the ungated pre-lockbox trades to be crownable.
     feats = entry_features(arrays)[0]                      # compute once, reuse 9x
     ung_pre = _slice_stats(entry_ts, pnls_all, None, lb_start)
+    ung_pre_n = int(ung_pre.get("num_trades") or 0)
+    _min_keep = max(int(min_kept),
+                    int(round(float(min_keep_frac) * max(1, int(ung_pre_n)))))
     ung_lb = _slice_stats(entry_ts, pnls_all, lb_start, None)
     ung_full = _slice_stats(entry_ts, pnls_all, None, None)
     ung_is = _slice_stats(entry_ts, pnls_all, None, wf0) if _rng else None
@@ -369,7 +379,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
             cand = {"model": str(m), "threshold": float(th),
                     "impl": g["summary"].get("model_impl", str(m)),
                     "kept_pre": int(pre["num_trades"]),
-                    "pre": pre, "eligible": pre["num_trades"] >= int(min_kept),
+                    "pre": pre, "eligible": pre["num_trades"] >= _min_keep,
                     # v64.98: measured (not curve-derived) lockbox + full-run blocks for
                     #   the report. Computed from the trades already gated above — no extra
                     #   backtest — and attached AFTER selection, which reads only "pre".
@@ -424,6 +434,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
         "gates": list(gates), "thresholds": [float(t) for t in thresholds],
         "n_candidates": len(cands), "lockbox_months": int(lockbox_months),
         "windows": int(windows), "min_kept": int(min_kept),
+        "min_keep_frac": float(min_keep_frac), "min_keep_applied": int(_min_keep),
         "span": [str(pd.Timestamp(t_first).date()), str(idx[-1].date())],
         "lockbox_from": str(pd.Timestamp(lb_start).date()),
         "ungated_pre": ung_pre, "ungated_lockbox": ung_lb,
@@ -434,7 +445,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
         "ungated_pre_rec": round(_rec(ung_pre), 2),
         "gate_earns_pre": gate_earns,
         "chosen": None, "lockbox": None,
-        "selection_rule": "net_dollars_mar_floor_80",   # v66.2 — the UI labels the RANK options with this
+        "selection_rule": "net_dollars_mar_floor_80_minkeep",   # v66.5 — the UI labels RANK with this
     }
     # ── CUT-OFF SWEEP (v66.0, owner: "where is the plateau?") — reporting only. ──────────
     #   A model's win-probability scores do NOT depend on the cut-off (training never sees the

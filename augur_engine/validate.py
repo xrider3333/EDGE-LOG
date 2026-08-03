@@ -658,6 +658,37 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     if champ and tlist:
         checks["transfer"] = any(t["pass"] for t in transfer)
 
+    # ── v66.5: walk-forward the surrogate picks (2K). The models are FIT on in-sample results
+    #    only, so their picks carried no out-of-sample evidence at all. Scoring them on the same
+    #    anchored fold windows the crown pool uses costs one cheap pass each and makes 2K
+    #    comparable with 2B. The LOCKBOX is deliberately NOT opened for them — it stays for the
+    #    crowned config and the top-3 walk-forward carry-through.
+    try:
+        _sur = A.get("surrogate") if isinstance(A, dict) else None
+        _sm = (_sur or {}).get("models") or []
+        _fb2 = [(int(fr.get("train_bars") or 0),
+                 int(fr.get("train_bars") or 0) + int(fr.get("test_bars") or 0))
+                for fr in ((wf_anch.get("folds") or []) if wf_anch.get("ran") else [])
+                if int(fr.get("test_bars") or 0) > 0]
+        _picks = [m.get("predicted_best_params") for m in _sm
+                  if isinstance(m, dict) and isinstance(m.get("predicted_best_params"), dict)]
+        if _sm and _fb2 and _picks:
+            _champ_p = {k: champ.get(k) for k in (champ or {})}
+            _all = _picks + ([_champ_p] if _champ_p else [])
+            _sc = score_candidates_on_folds(strategy, arrays, _all, _fb2, cost_pts=cost_pts)
+            for _m, _rows in zip([m for m in _sm if isinstance(m.get("predicted_best_params"), dict)], _sc):
+                _m["wf_oos_pnl"] = round(sum(r["oos_pnl"] for r in _rows), 1)
+                _m["folds_held"] = sum(1 for r in _rows if r["held"])
+                _m["n_folds"] = len(_rows)
+            if _champ_p and len(_sc) == len(_all):
+                _sur["champion_wf"] = {"params": _champ_p,
+                                       "wf_oos_pnl": round(sum(r["oos_pnl"] for r in _sc[-1]), 1),
+                                       "folds_held": sum(1 for r in _sc[-1] if r["held"]),
+                                       "n_folds": len(_sc[-1])}
+            _sur["wf_scored"] = True
+    except Exception as _se:
+        print("[validate] surrogate walk-forward skipped:", repr(_se))
+
     # ── Gate bake-off + PBO — both re-run the champion / candidates on already-resolved data. ──
     #    GATE BAKE-OFF: ungated (take every trade) + logistic / RF / XGB gates × cut-offs, ranked
     #    on the pre-lockbox slice by recovery factor; the winner gets ONE lockbox look (losers'

@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='66.4';
+const VERSION='66.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -10357,16 +10357,62 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   it reads as its own expandable panel.
         const _chOpen=!!APREF.surrCharts;
         const _chBlk=(inter2&&inter2.replace(/\s/g,''))?('<div style="background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:7px 10px;margin-top:8px"><div data-surrcharts title="the model knob-pair surfaces — how PnL depends on two knobs jointly (the knobs-vs-noise screen now lives in the KNOB IMPORTANCE panel). Click to '+(_chOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">'+(_chOpen?'▴ hide the knob-pair surfaces':'▾ KNOB-PAIR SURFACES — the model view of two knobs jointly ⓘ')+'</div>'+(_chOpen?('<div style="margin-top:8px">'+inter2+'</div>'):'')+'</div>'):'';
+        // v66.5 (owner: "how do i know what configs it landed on? or compare them to the
+        //   champion?"): a matrix of every model's PICKED CONFIG against the champion. Knobs
+        //   that differ from the champion are highlighted, so the comparison is a glance rather
+        //   than a hunt. WF $ comes from the engine scoring each pick on the SAME walk-forward
+        //   folds the crown pool uses (v66.5) — it is blank on runs made before that shipped.
+        const _picksTbl=(function(){
+          const withP=models.filter(m=>m&&m.predicted_best_params&&typeof m.predicted_best_params==='object');
+          if(!withP.length)return '';
+          const cw=surr.champion_wf||null;
+          const champP=(cw&&cw.params)||null;
+          const keys=Object.keys(withP[0].predicted_best_params);
+          const varies=keys.filter(k=>{const vals=new Set(withP.map(m=>String(m.predicted_best_params[k])));
+            if(champP)vals.add(String(champP[k]));return vals.size>1;});
+          const show=varies.length?varies:keys.slice(0,4);
+          const cols=(champP?[{lbl:'\u{1F451} CHAMPION',sub:'the crowned config',col:'var(--green)',emph:true,
+                               p:champP,gt:null,wf:cw.wf_oos_pnl,fh:cw.folds_held,nf:cw.n_folds,isChamp:true}]:[])
+            .concat(withP.map(m=>({lbl:(m.model===surr.best_model?'\u25B8 ':'')+String(m.model||'').toUpperCase(),
+              sub:(m.model===surr.best_model?'best fit':''),col:_mcl(m.model),emph:false,emphCol:_mcl(m.model),
+              p:m.predicted_best_params,gt:m.ground_truth_pnl,wf:m.wf_oos_pnl,fh:m.folds_held,nf:m.n_folds,
+              tip:String(m.model)+' picked this config; IS $ is that config re-run as a real backtest'
+                 +((m.extrap&&m.extrap.flag)?(' \u00b7 '+m.extrap.flag+((m.extrap.outside&&m.extrap.outside.length)?(' outside sampled range on: '+m.extrap.outside.join(', ')):'')):'')})));
+          const _d=v=>'<span style="color:var(--text5)">\u2014</span>';
+          const _money=v=>(v==null)?_d():('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtAx(v*mlt,1)+'</span>');
+          const anyWf=cols.some(c=>c.wf!=null);
+          const rows=[{lbl:'IS $',top:true,cell:c=>c.isChamp?'<span style="color:var(--text5)" title="the champion in-sample figure lives in 1E / 2B">see 2B</span>':_money(c.gt)}]
+            .concat(anyWf?[{lbl:'WF $',rowBg:'rgba(96,165,250,.13)',lblCol:'#60a5fa',cell:c=>_money(c.wf)},
+                           {lbl:'FOLDS HELD',cell:c=>(c.fh!=null?('<span style="color:var(--text2)">'+c.fh+(c.nf?('/'+c.nf):'')+'</span>'):_d())}]
+                        :[{lbl:'WF $',rowBg:'rgba(96,165,250,.13)',lblCol:'#60a5fa',cell:c=>'<span style="color:var(--text5);cursor:help" title="this run predates the walk-forward scoring of model picks - re-run to fill this in">\u2014</span>'}]);
+          const knobRows=show.map(k=>({lbl:_pp(k),cell:c=>{const v=(c.p||{})[k];
+            const diff=champP&&String(v)!==String(champP[k]);
+            return '<b style="color:'+(diff?'var(--yellow)':'var(--text2)')+'"'+(diff?' title="differs from the champion"':'')+'>'+String(v)+'</b>';}}));
+          return '<div class="lbl" style="margin:12px 0 4px">WHAT EACH MODEL PICKED '
+            +_infoIc('<div style="color:var(--text2)">Every surrogate model proposes ONE config. This shows what it proposed, next to the crowned champion, with any knob that DIFFERS from the champion in yellow.<br><br>IS $ is that proposed config re-run as a genuine backtest over the optimize window — not the model prediction.<br><br>WF $ scores the same proposed config on the SAME walk-forward folds the crown pool is judged on, so a model pick and a 2B config are finally comparable on the number that decided the crown. The LOCKBOX is deliberately not opened for these — it stays reserved for the crowned config and the top-3 carry-through.</div>')+'</div>'
+            +_matrixTbl(cols,[{name:'result',rows:rows},{name:'knobs that differ',rows:knobRows}],{compact:true});
+        })();
         // #80: MODEL-PICK EQUITY OVERLAY — each model proposed one config; that config's
         //   in-sample equity curve (saved by the engine, v60.9+) is overlaid so the picks
         //   compare by SHAPE / drawdown, not just end $. Dashed = the brute-force search
         //   best. Runs saved before the engine change have no curves → a re-run note.
+        // v66.5: data-skeqx marks this chart as explorer-capable (see the dblclick handler).
         const _ovl=(function(){
           const wc=models.filter(m=>Array.isArray(m.ground_truth_curve)&&m.ground_truth_curve.length>1);
           const ref=(Array.isArray(surr.sampled_best_curve)&&surr.sampled_best_curve.length>1)?surr.sampled_best_curve:null;
           const _lbl='<div class="lbl" style="margin:12px 0 4px" title="Each model proposed its single best config; that config was run through ONE real backtest. Here each pick\'s in-sample equity curve is overlaid so you can compare their SHAPES and drawdowns, not only the end dollars. Dashed line = the brute-force search best (the bar every pick is trying to beat).">📈 MODEL-PICK EQUITY OVERLAY — the picks on one chart ⓘ</div>';
           if(!wc.length)return _lbl+'<div style="font-size:8px;color:var(--text5);padding:6px 4px">Curves populate on the next Auto-Validate run — this run was saved before the overlay shipped, so only each pick\'s end-dollar was stored.</div>';
-          const ser=wc.map(m=>({name:m.model,col:_mcl(m.model),cum:m.ground_truth_curve,best:m.model===surr.best_model}));
+          const ser=wc.map(m=>({name:m.model,col:_mcl(m.model),cum:m.ground_truth_curve,best:m.model===surr.best_model,src:m}));
+          // v66.5 (owner): hand these curves to the shared fullscreen explorer (the one 2A uses)
+          //   so 2K can be expanded, zoomed and toggled line-by-line like the rest of the report.
+          //   The dashed reference is the SEARCH BEST — the champion config the brute-force search
+          //   found — so it rides along as its own toggleable line rather than being chart-only.
+          try{
+            const _mk=(nm,col,cum,dim)=>({id:'sk-'+nm,label:nm,color:col,eq:cum.map(v=>v*mlt),dim:!!dim});
+            const _sk=ser.map(sx=>_mk((sx.best?'\u25B8 ':'')+sx.name,sx.col,sx.cum,false));
+            if(ref)_sk.push(_mk('search best (champion config)','var(--text4)',ref,true));
+            window._skEqSeries=_sk;
+          }catch(_ske){window._skEqSeries=null;}
           let mn=Infinity,mx=-Infinity;
           ser.map(s=>s.cum).concat(ref?[ref]:[]).forEach(c=>c.forEach(v=>{const y=v*mlt;if(y<mn)mn=y;if(y>mx)mx=y;}));
           // v64.45 (owner): a caption so it is clear WHY you may see only a couple of lines — when
@@ -10406,7 +10452,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _pinHtml=_pins.map(p=>'<span style="position:absolute;top:calc('+(p.y/H*100).toFixed(2)+'% - 7px);left:1px;font-size:8px;font-weight:800;color:#04130c;background:'+p.bg+';padding:0 4px;border-radius:4px;white-space:nowrap;z-index:2">'+p.txt+'</span>').join('');
           const gut='<div style="flex:0 0 44px;min-width:44px;position:relative">'+_gl.map(o=>'<span style="position:absolute;top:calc('+o.p.toFixed(2)+'% - 5px);left:5px;font-size:8px;color:var(--text5)">'+fmtAx(o.v,1)+'</span>').join('')+_pinHtml+'</div>';
           const xstrip='<div title="x axis = progress through the OPTIMIZE window (bar order, not calendar dates — the saved curves carry no timestamps)" style="position:relative;height:12px;margin-top:2px;flex:0 0 auto;cursor:help">'+[0,25,50,75,100].map(p=>'<span style="position:absolute;left:'+p+'%;transform:translateX(-'+(p===0?'0%':(p===100?'100%':'50%'))+');font-size:8px;color:var(--text5)">'+(p===0?'start':(p===100?'end':p+'%'))+'</span>').join('')+'</div>';
-          return _lbl+_cap+'<div class="rschart-box" style="display:flex;gap:6px;height:150px;min-height:60px;max-height:500px;overflow:hidden;margin-bottom:8px">'
+          return _lbl+_cap+'<div class="rschart-box" data-skeqx="1" title="double-click for the fullscreen explorer — zoom, pan, toggle each model pick on and off" style="display:flex;gap:6px;height:150px;min-height:60px;max-height:500px;overflow:hidden;margin-bottom:8px">'
             +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">'
               +'<div style="flex:1;position:relative;min-height:0;background:var(--bg1);border-radius:8px;overflow:hidden"><svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100%" preserveAspectRatio="none" style="display:block">'+g+'</svg><div style="position:absolute;left:6px;top:4px;pointer-events:none">'+leg+'</div></div>'
               +xstrip
@@ -10414,7 +10460,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         })();
         // v64.43 (owner): a drag handle between the equity graph and the MODEL PICKS cards so the
         //   graph can be shrunk on its own (rsRow resizes the rschart-box directly above it).
-        return head+_ovl+rsRow+cardsRow+_chBlk;
+        return head+_ovl+_picksTbl+rsRow+cardsRow+_chBlk;
       })();
       // v64.40 (owner): `sub` (the 🎯 model-steered badge) renders UNDER the chart title.
       return hdr+(sub||'')+v2;
@@ -12782,6 +12828,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   scale-y / dbl-click reset) with every top config as its own line + the gate curve.
           const _a2Host=svg.closest('[data-a2eqx]')||box.closest('[data-a2eqx]');
           if(_a2Host&&window.expandCompareEq&&window._a2EqSeries&&window._a2EqSeries.length){window.expandCompareEq(window._a2EqSeries,{bands:window._a2Bands});return;}
+          // v66.5: 2K model-pick overlay opens in the same explorer.
+          const _skHost=svg.closest('[data-skeqx]')||box.closest('[data-skeqx]');
+          if(_skHost&&window.expandCompareEq&&window._skEqSeries&&window._skEqSeries.length){window.expandCompareEq(window._skEqSeries,{});return;}
           // 3-D param surfaces (2H in 3-D mode / 2J) open the drag-to-orbit modal instead.
           if(svg.hasAttribute('data-s3d')&&window.expandSurface3D){window.expandSurface3D(svg);return;}
           // 2B parallel-coords opens the interactive config-space modal (2B+2C, still brushable).
