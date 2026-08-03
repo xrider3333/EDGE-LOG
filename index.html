@@ -442,10 +442,12 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='64.96';
+const VERSION='64.97';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'64.97',date:'2026-08-02',notes:[
+ '2C: on the LOCKBOX sample, a warning now says the marked drawdowns are read from about 18 curve points and understate — the dollars are exact, the drawdowns are indicative']},
 {v:'64.96',date:'2026-08-02',notes:[
  '2C: new SAMPLE control — drawdown, reward-risk and trades-kept rows switch between IS+WF, the held-out year, and the full run, so the periods are never ambiguous',
  '2C: new RANK BY control — order the variants by recovery (the engine rule), by raw dollars, or by dollars among variants within 80% of the best recovery; a what-if winner is marked WOULD PICK and the crown never moves',
@@ -9818,7 +9820,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _gMatrix='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'+_pdChip('PRE-LOCKBOX (in-sample + walk-forward)',_preCol)+_pdChip('LOCKBOX (held-out year)',_lbColR)+'<span style="font-size:7.5px;color:var(--text5)">'+cands.length+' model × cut-off candidates · '+_rkNote[_g2rank]+_infoIc('<div style="color:var(--text2)">Same shape as the 2B config matrix: one COLUMN per gate variant, metrics as ROWS, and the return rows carry the same period colours used everywhere else in this report — BLUE = PRE-LOCKBOX (in-sample + walk-forward combined: every year except the held-out final one), PURPLE = LOCKBOX (that held-out final year).<br><br>WHAT PICKED THE WINNER: the blue row only. All '+V.n_candidates+' candidates are scored on PRE-LOCKBOX and ranked by recovery factor ($ made per $ of drawdown), and that ranking is locked before any lockbox number is read.<br><br>WHY THE LOSERS ALSO SHOW A LOCKBOX $: each variant saved a full-run equity curve, so its held-out slice was already in the run doc. It is shown for cross-strategy comparison (does RF hold up better than XGB?) and feeds nothing — the pick was already made. Full lockbox STATS (PF, trades, win %, true drawdown) are still computed for the chosen variant only, in the block below.<br><br>IS and WF are not split apart here the way 2B splits them: the gate trains and scores on the two combined as one block, so there is no separate fold figure to show.<br><br>THE THREE CONTROLS ARE VIEW-ONLY. SAMPLE picks which period the drawdown, reward-risk and sample rows measure — the return rows always show all three periods so they stay comparable. RANK BY re-orders the columns: RECOVERY is the engine own rule, NET $ is raw dollars, and NET $ WITH A RECOVERY FLOOR keeps only variants within 80% of the best recovery (so nothing reckless can win) and then takes the most money among them. Whenever a what-if ordering would have picked a different variant, that column is marked WOULD PICK — the crown itself never moves. HEAT MAP shades each cell by where it falls across its own row.</div>')+'</span></div>'
           +_ctrls
           +_matrixTbl(_gColsV,_gGroups,{compact:true})
-          +'<div style="font-size:7px;color:var(--text5);margin-top:4px;padding:0 4px">FULL RUN = IS+WF plus LB — the end of that variant equity curve on the 2A chart. Return rows always cover all three periods; the rows below them follow the SAMPLE control.'+(_anyDer?' &nbsp;° read off the saved equity curve rather than measured trade by trade (reporting only — it did not choose the winner); the 👑 chosen column and the NO GATE baseline use engine measured figures.':'')+'</div>';
+          // Precision caveat that matters: a saved curve is 300 points across the WHOLE run, so
+          //   the held-out year is only about 18 of them (one point per ~13 trades). Dollar
+          //   totals are still exact there — the endpoints are endpoints — but a DRAWDOWN that
+          //   opens and closes inside 13 trades is invisible, so the eight derived lockbox
+          //   drawdowns understate, and any recovery built on them flatters. Said out loud
+          //   rather than buried, because it is the one number here that can mislead.
+          +'<div style="font-size:7px;color:var(--text5);margin-top:4px;padding:0 4px">FULL RUN = IS+WF plus LB — the end of that variant equity curve on the 2A chart. Return rows always cover all three periods; the rows below them follow the SAMPLE control.'+(_anyDer?' &nbsp;° read off the saved equity curve rather than measured trade by trade (reporting only — it did not choose the winner); the 👑 chosen column and the NO GATE baseline use engine measured figures.':'')
+          +(_g2samp==='lb'?'<br><span style="color:var(--yellow)">⚠ Lockbox DOLLARS are exact for every variant, but a lockbox DRAWDOWN marked ° is read from roughly 18 curve points across the whole held-out year, so a dip that opens and closes quickly will not show. Those drawdowns understate, and the recovery built on them flatters. Treat the ° drawdown and recovery cells as indicative only — a re-run is what would make them exact.</span>':'')+'</div>';
         // B3 step 2 (owner: "make the periods unambiguous"): the held-out final year, chosen
         //   variant only — no-gate vs gated, purple-styled, clearly separated below the matrix.
         //   This is the ONLY place lockbox numbers appear in this tile, and the ONLY column that
