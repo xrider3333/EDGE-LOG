@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='66.8';
+const VERSION='66.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -10301,7 +10301,46 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const gpCard=models.find(m=>m.model==='gp')||null;
       const consNote=(surr.consensus&&surr.consensus.note)?_esS(surr.consensus.note):'';
       const uncNote=(gpCard&&gpCard.uncertainty_note)?_esS(gpCard.uncertainty_note):'';
-      const hdr='<div style="margin:0 0 10px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap" title="Machine-learning models fit to the SAME sampled configs, learning params → PnL. They are called surrogate models because each stands in for the expensive real backtest — a fast approximate map of the surface. SAMPLE: these models see the OPTIMIZE WINDOW ONLY — the same in-sample results every tested config produced. They are NOT walk-forward tested and never touch the lockbox; only the crowned config (and the top few) go through walk-forward, and only the top 3 reach the held-out year. So read this panel as a map of the search space, not as evidence a config survives out-of-sample — that evidence lives in 1E, 2B and the lockbox. Every model pick is re-run as a REAL backtest (ground-truthing) — never trusted on prediction alone. Best cross-validated model leads (▸). NOT the same as the 2C CONFIGS · ML GATE FILTER: THIS panel picks which PARAMETER CONFIG (the knob settings) is best — a search / optimisation helper; the 2C filter instead decides which individual TRADES of the already-chosen config to take — an execution filter. Different job, both use ML.">'+tag+' · ML CONFIG BUILDER <span style="font-weight:400;color:var(--text5)">(surrogates) — '+models.length+' models · IN-SAMPLE ONLY ⓘ</span><span style="margin-left:auto"></span>'+_s3chip('0','▦ FLAT',!_use3d)+_s3chip('1','⬛ 3-D',_use3d)+'</div>';
+      // v66.9 (owner): DIAGNOSTICS is a second, compact rendering of the SAME bake-off data.
+      //   The full view stays exactly as it was so the two can be compared side by side.
+      const _surrView=(String(APREF.surrView||'full')==='diag')?'diag':'full';
+      const _vwChip=(v,lab,on,tip)=>'<span data-surrview="'+v+'" title="'+tip+'" style="cursor:pointer;font-size:8px;font-weight:700;padding:1px 7px;border-radius:6px;border:1px solid '+(on?'var(--yellow)':'var(--border)')+';background:'+(on?'color-mix(in srgb,var(--yellow) 14%,transparent)':'var(--bg2)')+';color:'+(on?'var(--yellow)':'var(--text3)')+'">'+lab+'</span>';
+      const _diagPanel=()=>(function(){
+        const ms=models.filter(m=>m&&m.model);
+        if(!ms.length)return '';
+        const best=surr.best_model;
+        const _r2=ms.map(m=>(typeof m.cv_r2==='number')?m.cv_r2:null).filter(v=>v!=null);
+        const _r2max=_r2.length?Math.max.apply(null,_r2):null;
+        const _bar=m=>{const v=(typeof m.cv_r2==='number')?Math.max(0,Math.min(1,m.cv_r2)):null;
+          const col=(v==null)?'var(--text5)':(v>=0.8?'#1d9e75':(v>=0.5?'var(--yellow)':'#e24b4a'));
+          return '<div style="display:flex;align-items:center;gap:6px;margin:2px 0">'
+            +'<span style="width:78px;font-size:8px;font-weight:'+(m.model===best?'800':'600')+';color:'+_mcl(m.model)+';white-space:nowrap">'+(m.model===best?'▸ ':'')+_esS(m.model)+'</span>'
+            +'<div style="flex:1;height:8px;background:color-mix(in srgb,var(--border) 35%,transparent);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+((v==null?0:v)*100).toFixed(1)+'%;background:'+col+';border-radius:3px"></div></div>'
+            +'<span style="width:34px;text-align:right;font-size:8px;font-weight:700;color:'+col+'">'+(v==null?'—':v.toFixed(2))+'</span></div>';};
+        const cons=surr.consensus||{};
+        const _consLine=cons.note
+          ? '<div style="border-left:2px solid var(--yellow);padding:4px 8px;margin-top:8px;background:color-mix(in srgb,var(--yellow) 7%,transparent);border-radius:0 6px 6px 0"><b style="font-size:8px;color:var(--yellow)">WHERE THE SEARCH IS THIN</b><div style="font-size:8px;color:var(--text2);margin-top:2px;line-height:1.45">'+_esS(cons.note)+'</div></div>'
+          : '<div style="border-left:2px solid var(--green);padding:4px 8px;margin-top:8px;background:color-mix(in srgb,var(--green) 7%,transparent);border-radius:0 6px 6px 0"><b style="font-size:8px;color:var(--green)">MODELS AGREE</b><div style="font-size:8px;color:var(--text2);margin-top:2px">every model lands on the same region — the surface is well sampled where it matters.</div></div>';
+        const _ext=ms.filter(m=>m.extrap&&m.extrap.flag);
+        const _extLine=_ext.length
+          ? '<div style="border-left:2px solid #e24b4a;padding:4px 8px;margin-top:6px;background:color-mix(in srgb,#e24b4a 7%,transparent);border-radius:0 6px 6px 0"><b style="font-size:8px;color:#e24b4a">REACHED OUTSIDE THE TESTED RANGE</b><div style="font-size:8px;color:var(--text2);margin-top:2px;line-height:1.45">'
+            +_ext.map(m=>_esS(m.model)+((m.extrap.outside&&m.extrap.outside.length)?(' — on '+m.extrap.outside.map(_pp).join(', ')):'')).join('<br>')
+            +'<br><span style="color:var(--text5)">A model guessing past the configs you actually tested is guessing, not measuring.</span></div></div>'
+          : '';
+        const _lead=(_r2max!=null)
+          ? ('the surface is '+(_r2max>=0.8?'<b style="color:#1d9e75">predictable</b> — knob settings explain most of the PnL spread'
+             :(_r2max>=0.5?'<b style="color:var(--yellow)">partly predictable</b> — a real pattern, but plenty of noise'
+             :'<b style="color:#e24b4a">mostly noise</b> — knob settings barely explain the PnL spread, so treat any single config as luck')))
+          : 'no fit scores saved on this run';
+        return '<div style="background:var(--bg1);border-radius:8px;padding:9px 11px;margin-bottom:8px">'
+          +'<div style="font-size:8px;color:var(--text5);margin-bottom:6px">HOW WELL EACH MODEL LEARNED THE CONFIG SURFACE (cross-validated) &middot; '+_lead+'</div>'
+          +ms.map(_bar).join('')+_consLine+_extLine
+          +'<div style="font-size:7px;color:var(--text5);margin-top:8px;line-height:1.4">This is the whole of what the bake-off decides for you: nothing. Its proposed configs never enter the crown pool. What it is worth keeping is exactly the three readings above — how learnable the surface is, where the models disagree (so where to sample more), and whether one reached past the data.</div>'
+          +'</div>';
+      })();
+      const hdr='<div style="margin:0 0 10px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap" title="Machine-learning models fit to the SAME sampled configs, learning params → PnL. They are called surrogate models because each stands in for the expensive real backtest — a fast approximate map of the surface. SAMPLE: these models see the OPTIMIZE WINDOW ONLY — the same in-sample results every tested config produced. They are NOT walk-forward tested and never touch the lockbox; only the crowned config (and the top few) go through walk-forward, and only the top 3 reach the held-out year. So read this panel as a map of the search space, not as evidence a config survives out-of-sample — that evidence lives in 1E, 2B and the lockbox. Every model pick is re-run as a REAL backtest (ground-truthing) — never trusted on prediction alone. Best cross-validated model leads (▸). NOT the same as the 2C CONFIGS · ML GATE FILTER: THIS panel picks which PARAMETER CONFIG (the knob settings) is best — a search / optimisation helper; the 2C filter instead decides which individual TRADES of the already-chosen config to take — an execution filter. Different job, both use ML.">'+tag+' · ML CONFIG BUILDER <span style="font-weight:400;color:var(--text5)">(surrogates) — '+models.length+' models · IN-SAMPLE ONLY ⓘ</span><span style="margin-left:auto"></span>'+_vwChip('full','FULL',_surrView==='full','the original panel — model picks, their configs and the equity overlay')
+        +_vwChip('diag','DIAGNOSTICS',_surrView==='diag','the compact read: fit quality, where the models disagree, and any model that reached outside the tested range')
+        +((_surrView==='full')?(_s3chip('0','▦ FLAT',!_use3d)+_s3chip('1','⬛ 3-D',_use3d)):'')+'</div>';
       // ── THE panel body (owner picked the redesign 2026-07-19): verdict headline →
       //    uniform model scorecards → knob-vs-noise bar chart → strongest interaction
       //    + expander for the rest. ──
@@ -10480,6 +10519,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         })();
         // v64.43 (owner): a drag handle between the equity graph and the MODEL PICKS cards so the
         //   graph can be shrunk on its own (rsRow resizes the rschart-box directly above it).
+        if(_surrView==='diag')return _diagPanel();
         return head+_ovl+_picksTbl+rsRow+cardsRow+_chBlk;
       })();
       // v64.40 (owner): `sub` (the 🎯 model-steered badge) renders UNDER the chart title.
@@ -13625,6 +13665,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         savePref('g2rank',b.getAttribute('data-g2rk'));renderApp();};});
       // v65.5: SAMPLE / RANK open their option row. Kept in a pref, not in DOM state, because
       //   every pick re-renders the report — a details element would slam shut on each click.
+      content.querySelectorAll('[data-surrview]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('surrView',b.getAttribute('data-surrview'));renderApp();};});
       content.querySelectorAll('[data-g2d]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();
         const id=b.getAttribute('data-g2d');
         savePref('g2open',String(APREF.g2open||'')===id?'':id);renderApp();};});
