@@ -413,6 +413,18 @@ MAR/DD compare on the same risk basis. in-sample + held-out lockbox.
   regardless: **ENGU-Q's ML gate is harmful out-of-sample under both rules — do not deploy a gate
   on ENGU-Q.** A genuinely virgin test of the rule is still open (ENGU-Q on ES 1m has never had a
   gate run).
+- **Canonical ensemble run = #192 (ORB-20)** (2026-08-03; champion bit-identical to #180 onward).
+  Adds: 2B contiguous IS/WF calendar slices (reconciles with 2C -- both now read IS $52,053 /
+  WF $365,871, summing to the real $417,924; the old 2B "IS" was the search 75/25 split score
+  $181,430 and did NOT add up), gate grid 45/50/55/60 with the min-keep floor, and 2K model picks
+  scored on walk-forward AND the held-out year.
+- **2K STEERING VERDICT (from #192, the first run with WF+LB on model picks).** Five of six
+  surrogates picked the SAME config: IS $178,980 / WF $359,898 / LB $69,478 (243 trades). The
+  crowned champion: WF $365,724 / LB $67,493. So the ML-steered picks are ~1.6% WORSE on
+  walk-forward and ~2.9% BETTER on the held-out year -- a wash, well inside noise. quadratic is
+  the outlier again (IS $114,130 / WF $224,420 / LB $67,308), still extrapolating outside the
+  sampled box. READ: the steering is not finding a better config than the plain search on ORB;
+  it earns its keep by making the search cheaper, not better.
 - **Canonical ensemble run = #187 (ORB-18)** (2026-08-03; supersedes #186/ORB-17 and #185/ORB-16,
   each bit-identical on every champion number). #186 added measured WF-through-lockbox blocks;
   #187 adds the CUT-OFF SWEEP: every 1% gate cut-off from 40% to 70% per model, priced from the
