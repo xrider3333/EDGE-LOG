@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='66.9';
+const VERSION='67.0';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -10226,6 +10226,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const models=Array.isArray(surr.models)?surr.models:[];
       if(!models.length)return '';
       const _esS=s=>(s==null?'':String(s)).replace(/</g,'&lt;');
+      const MC={logistic:'#3a9bdc',logit:'#3a9bdc',lr:'#3a9bdc',random_forest:'#1d9e75',rf:'#1d9e75',xgboost:'#a879e6',xgb:'#a879e6',boosted:'#a879e6',gp:'#e0a04b',quadratic:'#e6c84b',gam:'#4fc9c9'};
+      const _mcl=m=>MC[m]||'#8aa0b0';
+
       const $=v=>(v==null?'—':fmtUsd(Math.round(v*mlt)));
       const r2Col=v=>(v>=0.5?'var(--green)':v>=0.2?'var(--yellow)':'var(--red)');
       // (v59.7: the old wide table / pill knob-screen / all-3-interaction layout is GONE —
@@ -10349,8 +10352,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(!okM.length)return '';
         const bm=models.find(m=>m.model===surr.best_model)||okM[0];
         // model colours — the SAME palette the equity overlay uses (owner: match the graph)
-        const MC={logistic:'#3a9bdc',logit:'#3a9bdc',lr:'#3a9bdc',random_forest:'#1d9e75',rf:'#1d9e75',xgboost:'#a879e6',xgb:'#a879e6',boosted:'#a879e6',gp:'#e0a04b',quadratic:'#e6c84b',gam:'#4fc9c9'};
-        const _mcl=m=>MC[m]||'#8aa0b0';
         const agree=consNote&&/agree/i.test(consNote);
         const _st=(consNote+(uncNote?' — '+uncNote:'')).replace(/"/g,'&quot;');
         const statusIc=consNote?(agree?'<span title="'+_st+'" style="cursor:help;color:var(--green);font-size:9px;font-weight:700">✓ models agree</span>':'<span title="'+_st+'" style="cursor:help;color:var(--yellow);font-size:9px;font-weight:700">⚠ models diverge</span>'):'';
