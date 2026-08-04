@@ -705,6 +705,43 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
             _all = _picks + ([_champ_p] if _champ_p else [])
             _sel_arr = load_master_arrays(master, date_from=opt_from, date_to=opt_to)
             _sc = score_candidates_on_folds(strategy, _sel_arr, _all, _fb2, cost_pts=cost_pts)
+            # v66.8: 2K "real" came from the 75/25 TRAINING SPLIT while 2B/2C use the
+            #   contiguous calendar slice before walk-forward - the same mismatch just fixed
+            #   between 2B and 2C, one layer up. Slice each pick the same way so all three agree.
+            _wfB0s = min((bb[0] for bb in _fb2), default=None)
+            _evS = make_slice_evaluator(strategy, _sel_arr, cost_pts)
+            _nS = len(_sel_arr["close"])
+
+            def _calS(prm):
+                try:
+                    mm = _evS(0, _nS, prm, keep_trades=True)
+                    trs = (mm.get("trades") or []) if mm else []
+                    if not trs or _wfB0s is None:
+                        return None
+
+                    def _sl(lo, hi):
+                        sel = [float(t[2]) for t in trs
+                               if (lo is None or int(t[0]) >= lo) and (hi is None or int(t[0]) < hi)]
+                        if not sel:
+                            return None
+                        run = 0.0; peak = 0.0; dd = 0.0
+                        for v in sel:
+                            run += v
+                            if run > peak:
+                                peak = run
+                            dd = min(dd, run - peak)
+                        return {"total_pnl": round(sum(sel), 4), "num_trades": len(sel),
+                                "max_drawdown": round(dd, 4)}
+                    return {"is": _sl(None, _wfB0s), "wf": _sl(_wfB0s, None), "pre": _sl(None, None)}
+                except Exception:
+                    return None
+
+            for _m2 in _sm:
+                _pp3 = _m2.get("predicted_best_params")
+                if isinstance(_pp3, dict):
+                    _m2["cal"] = _calS(_pp3)
+            if _champ_p:
+                _sur["champion_cal"] = _calS(_champ_p)
             for _m, _rows in zip([m for m in _sm if isinstance(m.get("predicted_best_params"), dict)], _sc):
                 _m["wf_oos_pnl"] = round(sum(r["oos_pnl"] for r in _rows), 1)
                 _m["folds_held"] = sum(1 for r in _rows if r["held"])

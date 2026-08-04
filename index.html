@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='66.7';
+const VERSION='66.8';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -10381,17 +10381,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
             if(champP)vals.add(String(champP[k]));return vals.size>1;});
           const show=varies.length?varies:keys.slice(0,4);
           const cols=(champP?[{lbl:'\u{1F451} CHAMPION',sub:'the crowned config',col:'var(--green)',emph:true,
-                               p:champP,gt:null,wf:cw.wf_oos_pnl,fh:cw.folds_held,nf:cw.n_folds,isChamp:true}]:[])
+                               p:champP,gt:((surr.champion_cal&&surr.champion_cal.is)?surr.champion_cal.is.total_pnl:null),
+                               gtCal:!!(surr.champion_cal&&surr.champion_cal.is),
+                               wf:cw.wf_oos_pnl,fh:cw.folds_held,nf:cw.n_folds,isChamp:true}]:[])
             .concat(withP.map(m=>({lbl:(m.model===surr.best_model?'\u25B8 ':'')+String(m.model||'').toUpperCase(),
               sub:(m.model===surr.best_model?'best fit':''),col:_mcl(m.model),emph:false,emphCol:_mcl(m.model),
-              p:m.predicted_best_params,gt:m.ground_truth_pnl,wf:m.wf_oos_pnl,fh:m.folds_held,nf:m.n_folds,lb:m.lb,
+              p:m.predicted_best_params,
+              gt:((m.cal&&m.cal.is&&m.cal.is.total_pnl!=null)?m.cal.is.total_pnl:m.ground_truth_pnl),
+              gtCal:!!(m.cal&&m.cal.is&&m.cal.is.total_pnl!=null),
+              wf:m.wf_oos_pnl,fh:m.folds_held,nf:m.n_folds,lb:m.lb,
               tip:String(m.model)+' picked this config; IS $ is that config re-run as a real backtest'
                  +((m.extrap&&m.extrap.flag)?(' \u00b7 '+m.extrap.flag+((m.extrap.outside&&m.extrap.outside.length)?(' outside sampled range on: '+m.extrap.outside.join(', ')):'')):'')})));
           const _d=v=>'<span style="color:var(--text5)">\u2014</span>';
           const _money=v=>(v==null)?_d():('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtAx(v*mlt,1)+'</span>');
           const anyWf=cols.some(c=>c.wf!=null);
           const anyLb=cols.some(c=>c.lb&&c.lb.total_pnl!=null);
-          const rows=[{lbl:'IS $',top:true,cell:c=>c.isChamp?'<span style="color:var(--text5)" title="the champion in-sample figure lives in 1E / 2B">see 2B</span>':_money(c.gt)}]
+          const _anyCal=cols.some(c=>c.gtCal);
+          const rows=[{lbl:'<span title="'+(_anyCal?'the years BEFORE walk-forward begins - the SAME calendar stretch 2B and 2C call IS, so all three agree':'this run predates calendar slicing: it shows the search 75/25 training-split score, a DIFFERENT and much larger window than the IS in 2B/2C. Re-run to reconcile.')+'" style="border-bottom:1px dotted var(--text5);cursor:help">IS $</span>'+(_anyCal?'':' <span style="font-size:6.5px;color:var(--yellow)">split</span>'),top:true,cell:c=>_money(c.gt)}]
             .concat(anyWf?[{lbl:'WF $',rowBg:'rgba(96,165,250,.13)',lblCol:'#60a5fa',cell:c=>_money(c.wf)},
                            {lbl:'FOLDS HELD',cell:c=>(c.fh!=null?('<span style="color:var(--text2)">'+c.fh+(c.nf?('/'+c.nf):'')+'</span>'):_d())}]
                         :[{lbl:'WF $',rowBg:'rgba(96,165,250,.13)',lblCol:'#60a5fa',cell:c=>'<span style="color:var(--text5);cursor:help" title="this run predates the walk-forward scoring of model picks - re-run to fill this in">\u2014</span>'}])
