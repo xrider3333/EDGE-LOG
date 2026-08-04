@@ -194,10 +194,35 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
 
     n_bars = len(arrays["close"])
     ev = make_slice_evaluator(strategy, arrays, cost_pts)
+    # v66.7 (owner reconciliation): the bar where walk-forward testing begins. Everything
+    #   before it is the stretch no fold ever tested out-of-sample; everything after it is
+    #   the walk-forward years. Same cut the 2C gate matrix uses, so the two agree.
+    _wfB0 = min((b[0] for b in fold_bounds), default=None)
+
+    def _slice_pnl(trs, lo, hi):
+        """Net points of trades whose ENTRY bar falls in [lo, hi), plus their count and the
+        peak-to-trough drop within the slice. Entry-bar sliced to match the gate exactly."""
+        sel = [float(t[2]) for t in trs if (lo is None or int(t[0]) >= lo) and (hi is None or int(t[0]) < hi)]
+        if not sel:
+            return None
+        run = 0.0; peak = 0.0; dd = 0.0
+        for v in sel:
+            run += v
+            if run > peak:
+                peak = run
+            dd = min(dd, run - peak)
+        return {"total_pnl": round(sum(sel), 4), "num_trades": len(sel),
+                "max_drawdown": round(dd, 4)}
+
     for c in cands:
         m = ev(0, n_bars, c["params"], keep_trades=True)
         _tr = (m.get("trades") or []) if m else []
         pnls = [float(t[2]) for t in _tr]
+        # contiguous calendar split of THIS config's own trades
+        if _wfB0 is not None and _tr:
+            c["cal"] = {"is": _slice_pnl(_tr, None, _wfB0),
+                        "wf": _slice_pnl(_tr, _wfB0, None),
+                        "pre": _slice_pnl(_tr, None, None)}
         # exit timestamps ride along so the web can draw the candidate curves on the
         # SAME calendar axis as 1A (t[1] = exit time — the point the 1A line steps at).
         c["equity"] = equity_curve_from_pnls(pnls, cap=160, times=[t[1] for t in _tr])
@@ -228,7 +253,10 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
                 "equity": c.get("equity"),
                 # v64.98: measured optimize-window profile (PF / win % / trades / drawdown)
                 #   so the 2B matrix can show the same rows 2C does instead of omitting them.
-                "metrics": (c.get("opt_metrics") or (c.get("metrics") or None))}
+                "metrics": (c.get("opt_metrics") or (c.get("metrics") or None)),
+                # v66.7: contiguous IS / WF calendar slices that ADD UP to the window total,
+                #   cut at the same bar 2C cuts at, so the two matrices reconcile.
+                "cal": c.get("cal")}
 
     # `candidates` = the CROWN POOL (the configs eligible to win — unchanged shape), and
     # `robust` = the extra top-IS configs shown only as walk-forward context (owner's
@@ -687,8 +715,28 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                                        "folds_held": sum(1 for r in _sc[-1] if r["held"]),
                                        "n_folds": len(_sc[-1])}
             _sur["wf_scored"] = True
+            # LOCKBOX for each model pick (owner-approved): one extra backtest per pick on the
+            #   held-out window, purely so 2K can be contrasted the way 2C's variants already are.
+            #   Selection is finished by now and reads none of this.
+            for _m in _sm:
+                _pp2 = _m.get("predicted_best_params")
+                if not isinstance(_pp2, dict):
+                    continue
+                try:
+                    _lbm = run_backtest(strategy, instrument=instrument, timeframe=timeframe,
+                                        session=session, source=source, params=_pp2,
+                                        cost_pts=cost_pts, date_from=lb_from, date_to=date_to,
+                                        return_trades=False)
+                    if isinstance(_lbm, dict):
+                        _m["lb"] = {k: _lbm.get(k) for k in
+                                    ("total_pnl", "num_trades", "profit_factor",
+                                     "win_rate", "max_drawdown", "avg_pnl")}
+                except Exception:
+                    _m["lb"] = None
+            _sur["lb_scored"] = True
     except Exception as _se:
-        print("[validate] surrogate walk-forward skipped:", repr(_se))
+        import traceback as _st2
+        print("[validate] surrogate walk-forward/lockbox skipped:", repr(_se)); _st2.print_exc()
 
     # ── Gate bake-off + PBO — both re-run the champion / candidates on already-resolved data. ──
     #    GATE BAKE-OFF: ungated (take every trade) + logistic / RF / XGB gates × cut-offs, ranked

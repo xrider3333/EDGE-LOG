@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='66.6';
+const VERSION='66.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -7681,7 +7681,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   match on a different slot and disagree with the chart. No match saved (older run, or
         //   this candidate had no equity curve to match by) shows a dash, not a guess.
         const cfgNo=cfgNoMap?cfgNoMap.get(c):null;
-        const isV=(c.is_pnl!=null)?c.is_pnl*mlt:null,wfV=(c.wf_oos_pnl!=null)?c.wf_oos_pnl*mlt:null;
+        // v66.7 (owner reconciliation): calendar slices when the run has them; the old
+        //   search-split / fold-sum pair only as a fallback for older docs.
+        const _cal=c.cal||null;
+        const _calIs=(_cal&&_cal.is&&_cal.is.total_pnl!=null)?_cal.is.total_pnl:null;
+        const _calWf=(_cal&&_cal.wf&&_cal.wf.total_pnl!=null)?_cal.wf.total_pnl:null;
+        const _isCal=(_calIs!=null&&_calWf!=null);
+        const isV=_isCal?_calIs*mlt:((c.is_pnl!=null)?c.is_pnl*mlt:null);
+        const wfV=_isCal?_calWf*mlt:((c.wf_oos_pnl!=null)?c.wf_oos_pnl*mlt:null);
+        const searchIsV=(c.is_pnl!=null)?c.is_pnl*mlt:null;
+        const foldWfV=(c.wf_oos_pnl!=null)?c.wf_oos_pnl*mlt:null;
         const lbOk=!!(c.lb_equity&&c.lb_equity.final!=null),lbV=lbOk?c.lb_equity.final*mlt:null;
         // MAX DD prefers a genuinely stored metric (some run shapes may carry one); the
         //   crown-pool candidates from this selection engine never do, so this falls through to
@@ -7713,7 +7722,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const fullRun=lbOk?lbV:optEnd;
         const fullRunStar=!lbOk;   // no lockbox carry-through: this is the optimize-window end
         const rankTip='rank '+(i+1)+' of '+sorted.length+' by walk-forward result'+(crowned?' - CROWNED (the walk-forward winner)':'')+(ismax?' - also the in-sample maximum (best pre-registered search score)':'');
-        return {params:c.params||{},rank:i+1,crowned,ismax,cfgNo,isV,wfV,lbV,lbSlice,fullRun,fullRunStar,mdd,mar,sharpe,foldsHeld,mmPf,mmWr,mmApt,rankTip};});
+        return {params:c.params||{},rank:i+1,crowned,ismax,cfgNo,isV,wfV,lbV,lbSlice,fullRun,fullRunStar,mdd,mar,sharpe,foldsHeld,mmPf,mmWr,mmApt,rankTip,isCal:_isCal,searchIsV,foldWfV};});
       // ── TRANSPOSED MATRIX (owner redesign, item 2): 1E-style — one COLUMN per crown-pool
       //    config (headed by its walk-forward rank + config #, crowned column emphasised),
       //    metrics grouped as ROWS. Replaces the old one-row-per-config table; the knobs-that-
@@ -7774,8 +7783,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(recs.some(rc=>rc.mmApt!=null))_rrRows.push({lbl:'<span title="average net dollars per trade over the optimize window -- says whether a config makes its money from bigger trades or just more of them" style="border-bottom:1px dotted var(--text5);cursor:help">$ / TRADE</span>',cell:col=>col.mmApt!=null?('<span style="font-weight:700;color:'+(col.mmApt>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(col.mmApt))+'</span>'):'<span style="color:var(--text5)">—</span>'});
       const groups=[
         {name:'return <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">&middot; '+_b2segs.map(x=>x.toUpperCase()).join('+')+'</span>',rows:[]
-          .concat(_b2segs.indexOf('is')>=0?[{lbl:'IS $',cell:col=>_usd(col.isV)}]:[])
-          .concat(_b2segs.indexOf('wf')>=0?[{lbl:'WF $',top:true,rowBg:_wfBg,lblCol:_wfCol,cell:col=>_usd(col.wfV)}]:[])
+          .concat(_b2segs.indexOf('is')>=0?[{lbl:'<span title="'+(recs[0]&&recs[0].isCal?'the years BEFORE walk-forward testing begins - the same calendar stretch 2C calls IS, so the two matrices agree and IS + WF add up to the optimize window':'this run predates calendar slicing: it shows the search 75/25 in-sample split score, which is NOT the same window 2C calls IS and does not add up with WF. Re-run to reconcile.')+'" style="border-bottom:1px dotted var(--text5);cursor:help">IS $</span>'+((recs[0]&&recs[0].isCal)?'':' <span style="font-size:6.5px;color:var(--yellow)">split</span>'),cell:col=>_usd(col.isV)}]:[])
+          .concat(_b2segs.indexOf('wf')>=0?[{lbl:'<span title="'+(recs[0]&&recs[0].isCal?'the walk-forward years, as a calendar stretch - matches the same row in 2C':'summed out-of-sample PnL across the walk-forward folds')+'" style="border-bottom:1px dotted var(--text5);cursor:help">WF $</span>',top:true,rowBg:_wfBg,lblCol:_wfCol,cell:col=>_usd(col.wfV)}]:[])
           .concat(_b2segs.indexOf('lb')>=0?[{lbl:'LB $',rowBg:_lbBg,lblCol:_lbCol,cell:col=>_usd(col.lbSlice)}]:[])
           .concat([
           {lbl:'FULL',top:true,rowSty:(_b2rank!=='rec'?_rkYel:''),cell:col=>col.fullRun!=null?('<span style="font-weight:700;color:'+(col.fullRun>=0?'#1d9e75':'#e24b4a')+'">'+fmtAx(col.fullRun,1)+(col.fullRunStar?'*':'')+'</span>'):'<span style="color:var(--text5)">—</span>'},
@@ -10375,21 +10384,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
                                p:champP,gt:null,wf:cw.wf_oos_pnl,fh:cw.folds_held,nf:cw.n_folds,isChamp:true}]:[])
             .concat(withP.map(m=>({lbl:(m.model===surr.best_model?'\u25B8 ':'')+String(m.model||'').toUpperCase(),
               sub:(m.model===surr.best_model?'best fit':''),col:_mcl(m.model),emph:false,emphCol:_mcl(m.model),
-              p:m.predicted_best_params,gt:m.ground_truth_pnl,wf:m.wf_oos_pnl,fh:m.folds_held,nf:m.n_folds,
+              p:m.predicted_best_params,gt:m.ground_truth_pnl,wf:m.wf_oos_pnl,fh:m.folds_held,nf:m.n_folds,lb:m.lb,
               tip:String(m.model)+' picked this config; IS $ is that config re-run as a real backtest'
                  +((m.extrap&&m.extrap.flag)?(' \u00b7 '+m.extrap.flag+((m.extrap.outside&&m.extrap.outside.length)?(' outside sampled range on: '+m.extrap.outside.join(', ')):'')):'')})));
           const _d=v=>'<span style="color:var(--text5)">\u2014</span>';
           const _money=v=>(v==null)?_d():('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtAx(v*mlt,1)+'</span>');
           const anyWf=cols.some(c=>c.wf!=null);
+          const anyLb=cols.some(c=>c.lb&&c.lb.total_pnl!=null);
           const rows=[{lbl:'IS $',top:true,cell:c=>c.isChamp?'<span style="color:var(--text5)" title="the champion in-sample figure lives in 1E / 2B">see 2B</span>':_money(c.gt)}]
             .concat(anyWf?[{lbl:'WF $',rowBg:'rgba(96,165,250,.13)',lblCol:'#60a5fa',cell:c=>_money(c.wf)},
                            {lbl:'FOLDS HELD',cell:c=>(c.fh!=null?('<span style="color:var(--text2)">'+c.fh+(c.nf?('/'+c.nf):'')+'</span>'):_d())}]
-                        :[{lbl:'WF $',rowBg:'rgba(96,165,250,.13)',lblCol:'#60a5fa',cell:c=>'<span style="color:var(--text5);cursor:help" title="this run predates the walk-forward scoring of model picks - re-run to fill this in">\u2014</span>'}]);
+                        :[{lbl:'WF $',rowBg:'rgba(96,165,250,.13)',lblCol:'#60a5fa',cell:c=>'<span style="color:var(--text5);cursor:help" title="this run predates the walk-forward scoring of model picks - re-run to fill this in">\u2014</span>'}])
+            .concat(anyLb?[{lbl:'LB $',rowBg:'rgba(167,139,250,.16)',lblCol:'#a78bfa',
+                            cell:c=>c.isChamp?'<span style="color:var(--text5)" title="the champion held-out figure is in 1E / 2B">see 2B</span>':((c.lb&&c.lb.total_pnl!=null)?_money(c.lb.total_pnl):_d())},
+                           {lbl:'LB TRADES',rowBg:'rgba(167,139,250,.16)',lblCol:'#a78bfa',
+                            cell:c=>((c.lb&&c.lb.num_trades!=null)?('<span style="color:var(--text3)">'+c.lb.num_trades+'</span>'):_d())}]:[]);
           const knobRows=show.map(k=>({lbl:_pp(k),cell:c=>{const v=(c.p||{})[k];
             const diff=champP&&String(v)!==String(champP[k]);
             return '<b style="color:'+(diff?'var(--yellow)':'var(--text2)')+'"'+(diff?' title="differs from the champion"':'')+'>'+String(v)+'</b>';}}));
           return '<div class="lbl" style="margin:12px 0 4px">WHAT EACH MODEL PICKED '
-            +_infoIc('<div style="color:var(--text2)">Every surrogate model proposes ONE config. This shows what it proposed, next to the crowned champion, with any knob that DIFFERS from the champion in yellow.<br><br>IS $ is that proposed config re-run as a genuine backtest over the optimize window — not the model prediction.<br><br>WF $ scores the same proposed config on the SAME walk-forward folds the crown pool is judged on, so a model pick and a 2B config are finally comparable on the number that decided the crown. The LOCKBOX is deliberately not opened for these — it stays reserved for the crowned config and the top-3 carry-through.</div>')+'</div>'
+            +_infoIc('<div style="color:var(--text2)">Every surrogate model proposes ONE config. This shows what it proposed, next to the crowned champion, with any knob that DIFFERS from the champion in yellow.<br><br>IS $ is that proposed config re-run as a genuine backtest over the optimize window — not the model prediction.<br><br>WF $ scores the same proposed config on the SAME walk-forward folds the crown pool is judged on, so a model pick and a 2B config are finally comparable on the number that decided the crown. LB $ runs each proposed config on the held-out year too — owner-approved, purely so the models can be contrasted the way the 2C filter variants already are. It is REPORTING, not selection: the crown is decided long before this runs and nothing here feeds it. Treat a model pick that looks good on LB as a lead worth re-running properly, never as a reason to re-crown after the fact.</div>')+'</div>'
             +_matrixTbl(cols,[{name:'result',rows:rows},{name:'knobs that differ',rows:knobRows}],{compact:true});
         })();
         // #80: MODEL-PICK EQUITY OVERLAY — each model proposed one config; that config's
