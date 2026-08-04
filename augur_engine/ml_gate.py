@@ -19,8 +19,24 @@ Leakage rules (the whole point):
 Model zoo: "logistic" (sklearn, the KISS baseline), "rf" (shallow sklearn
 RandomForest), "xgb" (literal XGBoost — installed 2026-07-02, owner-approved;
 sklearn HistGradientBoosting is the automatic fallback if the package is
-missing). The doctrine: if rf/xgb can't beat logistic out-of-sample, the extra
-complexity isn't earning anything.
+missing), "tree" (a depth-3 DecisionTree - the only member whose rules can be read
+off and re-typed into Pine/NinjaScript), "et" (ExtraTrees - random-split forest,
+decorrelated from rf). The doctrine: if the fancier members cannot beat logistic
+out-of-sample, the extra complexity isn't earning anything.
+
+Tried and REJECTED from Carl McBride Ellis's zoo (docs/EDGELOG_TESTING_STACK.md S3),
+each measured on real ORB trades before being dropped:
+  * MLP / Keras-style net - sklearn's MLPClassifier cannot accept sample_weight, and
+    |pnl| weighting is the whole point here (learn which trades MATTER, not win RATE).
+    Unweighted it optimises the wrong objective, so it was dropped rather than fudged.
+  * GAM (pygam LogisticGAM) - PIRLS diverged on real trade data, and was the slowest
+    member by 2x before it failed. It works well in the 2K surrogate bake-off (77 smooth
+    points); per-trade binary classification on thousands of noisy rows is a different
+    problem.
+  * TabPFN - designed for tables under ~1,000 rows; a gate sees thousands of trades, so
+    it is outside its design point here (it is the right idea for the 2K surface instead).
+  * TabNet / GATE / TF-DF / H2O / RGF - heavy dependencies that either duplicate xgb or
+    need far more data than a few thousand trades.
 """
 import numpy as np
 import pandas as pd
