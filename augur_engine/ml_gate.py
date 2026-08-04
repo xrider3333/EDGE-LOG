@@ -127,9 +127,24 @@ def _make_model(name, seed):
         pipe = _P([("sc", StandardScaler()), ("clf", clf)])
         pipe._gate_impl = impl
         return pipe
+    elif name in ("tree", "dtree", "decision_tree"):
+        # v67.1 (owner: more models for a better filter). A SHALLOW single tree. It will not
+        # out-predict XGBoost, but it is the only member of the zoo whose rules can be read
+        # and re-typed into Pine/NinjaScript - "skip when ATR ratio < 0.8 and after 2pm".
+        from sklearn.tree import DecisionTreeClassifier
+        clf = DecisionTreeClassifier(max_depth=3, min_samples_leaf=25,
+                                     random_state=int(seed))
+    elif name in ("et", "extra_trees", "extratrees"):
+        # Extremely-randomised trees: same family as RF but splits are drawn at random,
+        # which decorrelates the ensemble. Cheap, and a genuinely different bias to RF.
+        from sklearn.ensemble import ExtraTreesClassifier
+        clf = ExtraTreesClassifier(n_estimators=200, max_depth=5,
+                                   min_samples_leaf=15, n_jobs=-1,
+                                   random_state=int(seed))
     else:
         raise ValueError(
-            f"unknown gate model '{name}' (supported: logistic, rf, boosted)")
+            f"unknown gate model '{name}' (supported: logistic, rf, boosted/xgb, "
+            f"tree, et, mlp, gam)")
     return Pipeline([("sc", StandardScaler()), ("clf", clf)])
 
 
@@ -280,7 +295,7 @@ def _cand_out(c):
     return d
 
 
-def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
+def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
                   thresholds=(0.45, 0.50, 0.55, 0.60), lockbox_months=12,
                   min_kept=50, min_keep_frac=0.10, windows=4, min_history=30,
                   refit_every=25, wf_from=None, wf_to=None,
@@ -362,22 +377,31 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb"),
     cands = []
     lb_secret = {}                                         # lockbox stats stay HERE
     model_prob = {}                                        # one prob array per model (v66.0 sweep)
+    _T_ts = np.array([idx[min(t[0], nb - 1)] for t in T])
+    _T_p = np.array([t[2] for t in T], float)
     for m in gates:
+        # ONE walk per model (v67.1). threshold=0.0 keeps everything, so the walk is a pure
+        #   scoring pass; every cut-off below is then a mask over those scores.
+        g0 = gate_trades(arrays, T, model=m, threshold=0.0,
+                         min_history=min_history, refit_every=refit_every,
+                         seed=seed, feats=feats)
+        if g0 is None:
+            continue
+        _prob = np.asarray(g0.get("prob"), float) if g0.get("prob") is not None else None
+        if _prob is not None and len(_prob) == len(T):
+            model_prob[m] = _prob
+        _impl = g0["summary"].get("model_impl", str(m))
         for th in thresholds:
-            g = gate_trades(arrays, T, model=m, threshold=th,
-                            min_history=min_history, refit_every=refit_every,
-                            seed=seed, feats=feats)
-            kept = g["trades"]
-            if m not in model_prob and g.get("prob") is not None:
-                model_prob[m] = np.asarray(g["prob"], float)
-            k_ts = np.array([idx[min(t[0], nb - 1)] for t in kept])
-            k_p = np.array([t[2] for t in kept], float)
+            if _prob is None or len(_prob) != len(T):
+                continue
+            cand_keep = ~(_prob < float(th))       # NaN (warm-up) passes through, as the gate does
+            k_ts = _T_ts[cand_keep]
+            k_p = _T_p[cand_keep]
             pre = _slice_stats(k_ts, k_p, None, lb_start)
             key = f"{m}@{th:.2f}"
-            cand_keep = g.get("keep")
             lb_secret[key] = (_slice_stats(k_ts, k_p, lb_start, None), k_ts, k_p, cand_keep)
             cand = {"model": str(m), "threshold": float(th),
-                    "impl": g["summary"].get("model_impl", str(m)),
+                    "impl": _impl,
                     "kept_pre": int(pre["num_trades"]),
                     "pre": pre, "eligible": pre["num_trades"] >= _min_keep,
                     # v64.98: measured (not curve-derived) lockbox + full-run blocks for
