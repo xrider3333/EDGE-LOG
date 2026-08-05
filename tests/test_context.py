@@ -23,6 +23,8 @@ Covers:
     the old day-only CI for a persistent feature; a fast/noisy feature must
     NOT get flagged "slow" (and so isn't subject to the era gate at all).
 """
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -437,3 +439,156 @@ def test_build_context_nets_cost_pts_before_scoring():
     # just confirm build_context ran end to end without external data.
     assert out is not None
     assert out["external_available"] is False
+
+
+# ── shadow probes (Boruta idea) + joint importance layer (LASSO + RF) ──────────
+
+def test_probe_gate_signal_beats_probe_and_pure_noise_fails():
+    """A planted strong signal must clear the shadow-probe noise floor
+    (beats_probe True) and still survive; an unrelated (pure-noise) feature
+    must NOT survive -- whether the block is q, CI, era, or the probe gate,
+    any one of them is enough, and this test doesn't care which."""
+    n = 500
+    dates = _daily_index(n)
+    rng = np.random.default_rng(42)
+    signal = rng.uniform(0, 1, size=n)
+    noise_a = rng.normal(0, 1, size=n)
+    noise_b = rng.normal(0, 1, size=n)                    # extra source column so the
+                                                            # 3 probes aren't all forced
+                                                            # to reuse a single column
+    pnl = 40.0 * signal + rng.normal(0, 8, size=n)
+
+    daily = pd.DataFrame({"signal_feat": signal, "noise_a": noise_a, "noise_b": noise_b},
+                         index=dates.date)
+    trades = _trades_from_daily(pnl)
+
+    res = ctx.context_scores(trades, dates, daily, n_boot=500, seed=42)
+    assert res is not None
+    assert len(res["probe_rhos"]) == ctx.N_SHADOW_PROBES
+    assert res["probe_max_abs_rho"] == max(abs(r) for r in res["probe_rhos"])
+
+    sig = next(f for f in res["features"] if f["name"] == "signal_feat")
+    assert sig["beats_probe"] is True
+    assert sig["probe_margin"] > 0
+    assert sig["survives"] is True
+
+    noi = next(f for f in res["features"] if f["name"] == "noise_a")
+    assert noi["survives"] is False
+
+
+def test_probe_and_joint_determinism():
+    """Same seed -> identical probe_rhos/probe_max_abs_rho AND identical
+    per-feature probe/joint fields (LASSO+RF are seeded too)."""
+    n = 200
+    dates = _daily_index(n)
+    rng = np.random.default_rng(17)
+    a = rng.uniform(0, 1, size=n)
+    b = rng.normal(0, 1, size=n)
+    c = rng.normal(0, 1, size=n)
+    pnl = 15.0 * a + rng.normal(0, 5, size=n)
+    daily = pd.DataFrame({"a": a, "b": b, "c": c}, index=dates.date)
+    trades = _trades_from_daily(pnl)
+
+    r1 = ctx.context_scores(trades, dates, daily, n_boot=300, seed=13)
+    r2 = ctx.context_scores(trades, dates, daily, n_boot=300, seed=13)
+    assert r1 == r2
+    assert r1["probe_rhos"] == r2["probe_rhos"]
+    assert r1["joint"] == r2["joint"]
+
+
+def test_probe_floor_positive_and_all_noise_features_never_survive():
+    """With every daily feature pure noise (independent of PnL), the probe
+    floor is still a real positive number (some random shuffled column always
+    picks up SOME nonzero sample correlation), and nothing survives."""
+    n = 400
+    dates = _daily_index(n)
+    rng = np.random.default_rng(23)
+    pnl = rng.normal(0, 10, size=n)
+    daily = pd.DataFrame({f"noise{i}": rng.normal(0, 1, size=n) for i in range(5)},
+                         index=dates.date)
+    trades = _trades_from_daily(pnl)
+
+    res = ctx.context_scores(trades, dates, daily, n_boot=300, seed=23)
+    assert res is not None
+    assert res["probe_max_abs_rho"] > 0
+    assert len(res["features"]) == 5
+    assert all(f["survives"] is False for f in res["features"])
+
+
+def test_joint_layer_separates_collinear_pair_from_noise():
+    """A collinear pair (x2 = x1 + tiny noise, both driven by the same planted
+    signal) alongside independent noise features: the joint LASSO must keep at
+    least one of the pair, the kept-set must be much smaller than the full
+    feature set, and RF permutation importance must rank a member of the pair
+    highest -- proving the joint layer (unlike the univariate rho above, where
+    x1 and x2 look identically "significant") can actually attribute the
+    signal to the right feature(s)."""
+    n = 2000
+    dates = _daily_index(n)
+    seed = 3
+    rng = np.random.default_rng(seed)
+    x1 = rng.uniform(0, 1, size=n)
+    x2 = x1 + rng.normal(0, 0.001, size=n)                # near-duplicate of x1
+    noise_feats = {f"noise{i}": rng.normal(0, 1, size=n) for i in range(4)}
+    pnl = 20.0 * x1 + rng.normal(0, 1.0, size=n)           # true signal lives in the pair
+
+    daily = pd.DataFrame({"x1": x1, "x2": x2, **noise_feats}, index=dates.date)
+    trades = _trades_from_daily(pnl)
+
+    res = ctx.context_scores(trades, dates, daily, n_boot=200, seed=seed)
+    assert res is not None
+    joint = res["joint"]
+    assert joint is not None
+    assert joint["n_used"] >= ctx.MIN_JOINT_ROWS
+
+    feats = {f["name"]: f for f in res["features"]}
+    assert len(feats) == 6
+    kept = [name for name, f in feats.items() if f["lasso_kept"]]
+    assert kept                                            # keeps AT LEAST one of the pair
+    assert set(kept) <= {"x1", "x2"}                       # nothing spurious got kept here
+    assert len(kept) < len(feats)                          # much smaller than the full set
+    assert joint["probes_kept_lasso"] == 0                 # honestly reported either way
+
+    top_rf = max(feats.values(), key=lambda f: f["rf_imp"])
+    assert top_rf["name"] in ("x1", "x2")                  # RF importance leads to the signal
+    for name in ("x1", "x2"):
+        assert feats[name]["rf_beats_probe"] is True
+
+
+def test_joint_layer_none_below_min_rows():
+    """Fewer than MIN_JOINT_ROWS complete-case rows -> joint=None, and every
+    per-feature joint field is explicitly None (not just missing) while the
+    rest of the row (probe fields included) is populated as normal."""
+    n = 60
+    dates = _daily_index(n)
+    rng = np.random.default_rng(5)
+    x = rng.uniform(0, 1, size=n)
+    pnl = 10.0 * x + rng.normal(0, 4, size=n)
+    daily = pd.DataFrame({"x": x}, index=dates.date)
+    trades = _trades_from_daily(pnl)
+
+    res = ctx.context_scores(trades, dates, daily, n_boot=200, seed=5)
+    assert res is not None
+    assert res["joint"] is None
+    f = res["features"][0]
+    assert f["lasso_coef"] is None
+    assert f["lasso_kept"] is None
+    assert f["rf_imp"] is None
+    assert f["rf_beats_probe"] is None
+    assert isinstance(f["beats_probe"], bool)              # probe gate still ran normally
+
+
+def test_full_result_including_joint_is_json_safe():
+    n = 400
+    dates = _daily_index(n)
+    rng = np.random.default_rng(31)
+    x1 = rng.uniform(0, 1, size=n)
+    x2 = rng.normal(0, 1, size=n)
+    pnl = 20.0 * x1 + rng.normal(0, 6, size=n)
+    daily = pd.DataFrame({"x1": x1, "x2": x2}, index=dates.date)
+    trades = _trades_from_daily(pnl)
+
+    res = ctx.context_scores(trades, dates, daily, n_boot=200, seed=31)
+    assert res is not None
+    assert res["joint"] is not None                        # exercise the joint branch too
+    json.dumps(res)                                        # must not raise

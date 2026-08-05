@@ -26,11 +26,27 @@ Four pieces, same "never break a backtest" discipline as analytics.py:
     across the whole history — see context_scores' docstring for the full
     field list (rho_within/n_eras/era_consistent/era_pass/autocorr/slow/
     trend_confounded). A plain `_clustered_bootstrap_ci` (day-only) is still
-    available for comparison/tests.
+    available for comparison/tests. Two more layers, both informational/gating
+    on TOP of everything above (never replacing it):
+      - SHADOW PROBES (hand-rolled Boruta idea): K=3 fake features built by
+        shuffling real feature columns across days (same marginal distribution,
+        destroyed date alignment -> a pure noise floor). A real feature must
+        beat the strongest probe's |rho| to `survive` at all — catches a
+        feature that clears FDR/CI/era only because the bar itself was low
+        for this dataset. See `_build_probe_daily`/`_score_probes`.
+      - JOINT IMPORTANCE (LASSO + RF permutation importance, sklearn): all the
+        above is univariate (one feature at a time); this fits ALL features
+        (+ the 3 probes, for a noise floor inside the joint model too)
+        together on the complete-case matrix, so a pair of collinear features
+        that both "survive" alone can be told apart — which one the joint
+        model actually leans on. Pure information, reported per feature
+        (`lasso_coef/lasso_kept/rf_imp/rf_beats_probe`) and does NOT gate
+        `survives`. See `_joint_importance`.
   * build_context        — the one-call wiring helper optimize.py/auto.py use:
     ties the three together and NEVER raises (returns None on any failure).
 """
 import os
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -79,6 +95,25 @@ ERA_T_MIN = 2.0                # |t| of the per-era rhos vs 0 (mean / SE across 
                                # no evidence), so a pooled correlation built from tiny
                                # per-era rhos that scatter around zero — the signature of
                                # a multi-year drift artifact — must also fail this.
+
+# ── shadow probes (hand-rolled Boruta idea) ─────────────────────────────────────
+# K fake "features" per call, each a shuffled copy of a real feature column (same
+# values, permuted across days -> same marginal distribution, zero true relationship
+# to any trade). Their max |rho| is the noise floor a real feature must beat to
+# `survive` — catches "significant" relationships that only cleared FDR/CI/era
+# because the bar was low for THIS dataset, not because the feature is special.
+N_SHADOW_PROBES = 3            # fixed K — see context_scores docstring
+PROBE_SEED_STRIDE = 9973       # spaces out each probe's sub-seed from the caller's
+                                # `seed` so 3 probes built from the SAME source column
+                                # (fewer than N_SHADOW_PROBES real columns available)
+                                # still get 3 independent permutations, deterministically.
+
+# ── joint importance layer (LASSO + RF permutation) ─────────────────────────────
+MIN_JOINT_ROWS = 100            # fewer complete-case rows (ALL scored features + all
+                                # probes non-NaN) than this -> joint=None, too little
+                                # data for a stable multivariate fit.
+LASSO_KEPT_EPS = 1e-10          # |coef| above this counts as "kept" (LassoCV can leave
+                                # a coefficient at a tiny non-zero float, not exactly 0.0).
 
 EXTERNAL_TICKERS = {"^VIX": "vix", "^VIX3M": "vix3m", "^TNX": "tnx", "^IRX": "irx"}
 EXTERNAL_FEATURES = ("vix", "vix_pctile_1y", "vix_chg_5d", "vix_term",
@@ -572,6 +607,186 @@ def _within_era_consistency(x, y, dates, rho_overall):
     return rho_within, n_eras, era_consistent, era_pass, era_t
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# shadow probes (hand-rolled Boruta idea) — a noise floor real features must beat
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _pick_probe_source_columns(daily_features, k):
+    """The `k` column names to build shadow probes from: real feature columns
+    ranked by non-NaN coverage over their OWN full daily series (most complete
+    first, ties broken by original column order). Repeats columns (cycling the
+    ranked list) when fewer than `k` distinct columns exist -- each repeat still
+    gets its own independent shuffle in `_build_probe_daily`, so this degrades
+    gracefully instead of requiring >=k real features to exist."""
+    cols = list(daily_features.columns)
+    if not cols:
+        return []
+    coverage = [int(daily_features[c].notna().sum()) for c in cols]
+    order = sorted(range(len(cols)), key=lambda i: (-coverage[i], i))
+    chosen = []
+    j = 0
+    while len(chosen) < k:
+        chosen.append(cols[order[j % len(order)]])
+        j += 1
+    return chosen
+
+
+def _build_probe_daily(daily_features, seed):
+    """N_SHADOW_PROBES fake daily "features": each is a real feature column's
+    VALUES shuffled across days (`np.random.default_rng` seeded off `seed`, a
+    distinct sub-seed per probe via PROBE_SEED_STRIDE so same-seed calls are
+    reproducible and multiple probes drawn from the same source column still
+    differ). Shuffling preserves the column's marginal distribution exactly
+    (same values, same NaN count) while destroying which date each value
+    belongs to -- so a probe has, by construction, no real relationship to any
+    trade's PnL. Returns (probe_df, probe_names); probe_df shares
+    daily_features' index so it joins to trades exactly like a real feature.
+    """
+    src_cols = _pick_probe_source_columns(daily_features, N_SHADOW_PROBES)
+    if not src_cols:
+        return pd.DataFrame(index=daily_features.index), []
+    data, names = {}, []
+    for i, col in enumerate(src_cols):
+        rng = np.random.default_rng(int(seed) + PROBE_SEED_STRIDE * (i + 1))
+        vals = daily_features[col].to_numpy(copy=True)
+        perm = rng.permutation(len(vals))
+        pname = f"__probe{i}__"
+        data[pname] = vals[perm]
+        names.append(pname)
+    return pd.DataFrame(data, index=daily_features.index), names
+
+
+def _score_probes(joined, probe_names):
+    """Each probe's Spearman rho vs PnL -- SAME join (already done by the
+    caller, `joined` carries the probe columns alongside the real ones) and
+    SAME rank-Pearson rho formula as a real feature. Deliberately skips the
+    rest of a real feature's pipeline (CI/p/q/era) -- only the rho is needed
+    for the noise floor, and those extra steps would ~double this function's
+    runtime for no benefit. A probe that fails the same degenerate/too-few-
+    trades checks a real feature would fail falls back to rho=0.0 (a neutral
+    "carries no signal" default) rather than being dropped, so there are
+    always exactly N_SHADOW_PROBES rhos to report and max over."""
+    rhos = []
+    for pname in probe_names:
+        sub = joined[["pnl", pname]].dropna(subset=[pname])
+        x = sub[pname].to_numpy(float)
+        y = sub["pnl"].to_numpy(float)
+        if len(x) < MIN_FEATURE_TRADES or np.ptp(x) <= 0 or np.ptp(y) <= 0:
+            rhos.append(0.0)
+            continue
+        rhos.append(float(_pearson(_rank(x), _rank(y))))
+    return rhos
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# joint importance layer (LASSO + RF permutation importance) — sklearn, info only
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _rank_scale_01(values):
+    """Rank-transform to [0, 1]: min value -> 0.0, max -> 1.0, ties get the
+    average-rank treatment (same `_rank` used everywhere else in this module).
+    Puts every feature -- a VIX level, a [0,1] efficiency ratio, a signed
+    streak count -- on the same scale so LASSO/RF coefficients & importances
+    are comparable across features instead of dominated by raw units."""
+    r = _rank(values)
+    n = len(r)
+    if n <= 1:
+        return np.zeros(n)
+    return (r - 1.0) / (n - 1.0)
+
+
+def _joint_importance(joined, scored_names, probe_names, seed=42):
+    """Joint multivariate importance: fits LASSO + a random forest on ALL
+    scored real features TOGETHER (+ the probes, for a noise floor inside the
+    joint model too), on the COMPLETE-CASE matrix (every row -- trade --
+    non-NaN across every one of those columns). Pure INFORMATION layer: never
+    feeds back into `survives`. Univariate rho (above) can't tell two
+    collinear features apart -- both "explain" PnL alone -- this can, because
+    a linear/tree model fit on both at once has to choose how to split credit
+    between them.
+
+    X = each column RANK-transformed to [0,1] (see _rank_scale_01). y = raw
+    per-trade PnL (unscaled -- fine, X's uniform scaling is what makes
+    cross-feature coefficients/importances comparable).
+      lasso_coef / lasso_kept : sklearn.linear_model.LassoCV(cv=5,
+        random_state=seed) coefficient per feature; "kept" = |coef| >
+        LASSO_KEPT_EPS (LassoCV rarely lands exactly on 0.0 for a dropped
+        feature).
+      rf_imp / rf_beats_probe : mean permutation importance (10 repeats) of a
+        RandomForestRegressor(n_estimators=200, max_depth=5,
+        random_state=seed, n_jobs=-1) fit on the same X/y; "beats_probe" =
+        rf_imp > the max rf_imp among the 3 probe columns (the RF's OWN noise
+        floor, distinct from the univariate probe_max_abs_rho above).
+
+    Returns (meta_dict, per_feature_dict) where per_feature_dict maps real
+    feature name -> {lasso_coef, lasso_kept, rf_imp, rf_beats_probe}, or
+    (None, {}) when there are fewer than MIN_JOINT_ROWS complete rows, sklearn
+    can't be imported, or the fit raises for any reason -- this NEVER raises
+    out to the caller, matching this module's "never break a backtest" rule.
+    """
+    cols = list(scored_names) + list(probe_names)
+    if not cols:
+        return None, {}
+    cc = joined.dropna(subset=cols)
+    n_used = int(len(cc))
+    if n_used < MIN_JOINT_ROWS:
+        return None, {}
+    try:
+        from sklearn.linear_model import LassoCV
+        from sklearn.ensemble import RandomForestRegressor
+        from sklearn.inspection import permutation_importance
+    except Exception:
+        return None, {}
+
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            X = np.column_stack([_rank_scale_01(cc[c].to_numpy(float)) for c in cols])
+            y = cc["pnl"].to_numpy(float)
+
+            lasso = LassoCV(cv=5, random_state=int(seed), max_iter=5000).fit(X, y)
+            lasso_coef = {c: float(v) for c, v in zip(cols, lasso.coef_)}
+
+            rf = RandomForestRegressor(n_estimators=200, max_depth=5,
+                                       random_state=int(seed), n_jobs=-1).fit(X, y)
+            # permutation_importance calls rf.predict() ~n_repeats*n_features times;
+            # a 200-tree/depth-5 predict on a few thousand rows is trivially fast
+            # single-threaded, but predict() inherits the estimator's n_jobs, and on
+            # Windows each of those calls re-spins a whole loky process pool (measured
+            # ~1s+ of pure pool teardown/startup PER CALL -- see this function's
+            # docstring runtime note) instead of reusing one. n_jobs=-1 stays on the
+            # FIT (one bagged-ensemble build, genuinely worth parallelizing) and is
+            # dropped to 1 only for the predict-heavy permutation loop.
+            rf.n_jobs = 1
+            perm = permutation_importance(rf, X, y, n_repeats=10, random_state=int(seed))
+            rf_imp = {c: float(v) for c, v in zip(cols, perm.importances_mean)}
+    except Exception:
+        return None, {}
+
+    rf_probe_floor = max((rf_imp[p] for p in probe_names), default=0.0)
+    probes_kept_lasso = int(sum(1 for p in probe_names
+                                if abs(lasso_coef.get(p, 0.0)) > LASSO_KEPT_EPS))
+
+    per_feature = {}
+    for c in scored_names:
+        coef = lasso_coef.get(c, 0.0)
+        imp = rf_imp.get(c, 0.0)
+        per_feature[c] = {
+            "lasso_coef": round(coef, 6),
+            "lasso_kept": bool(abs(coef) > LASSO_KEPT_EPS),
+            "rf_imp": round(imp, 6),
+            "rf_beats_probe": bool(imp > rf_probe_floor),
+        }
+
+    meta = {
+        "n_used": n_used,
+        "rf_probe_floor": round(float(rf_probe_floor), 6),
+        "probes_kept_lasso": probes_kept_lasso,
+        "lasso_alpha": round(float(lasso.alpha_), 6),
+    }
+    return meta, per_feature
+
+
 def context_scores(trades, index, daily_features, n_boot=DEFAULT_BLOCK_N_BOOT, seed=42):
     """The stats core: join each trade's ENTRY bar -> entry date -> that date's
     row in `daily_features` (already prior-day-shifted — see build_internal_daily
@@ -611,17 +826,38 @@ def context_scores(trades, index, daily_features, n_boot=DEFAULT_BLOCK_N_BOOT, s
                        rho's sign.
       era_pass       : n_eras >= ERA_MIN_ERAS AND era_consistent >=
                        ERA_CONSISTENT_MIN AND sign(rho_within) == sign(rho).
-    `survives` = q < FDR_Q AND (era_pass if slow else True) -- a slow feature
-    now has to show a relationship that holds INSIDE eras, not just across
-    them. `trend_confounded` = slow AND q < FDR_Q AND NOT era_pass: it looked
-    significant by the plain FDR test but failed the era check -- flagged
-    explicitly rather than silently dropped, so a caller can show it.
+    SHADOW PROBES (see _build_probe_daily/_score_probes): N_SHADOW_PROBES=3 fake
+    features, each a real feature column shuffled across days (same marginal
+    distribution, zero true relationship to any trade). Every real feature adds:
+      probe_margin   : round(|rho| - probe_max_abs_rho, 4) -- how far above (or
+                       below, if negative) the noise floor this feature's |rho|
+                       sits.
+      beats_probe    : bool, |rho| > probe_max_abs_rho.
+    `survives` now ALSO requires beats_probe -- a feature that only cleared
+    FDR/CI/era because the bar happened to be low for this dataset gets caught
+    here. `trend_confounded`'s meaning is unchanged (probes don't feed it).
+
+    JOINT IMPORTANCE (see _joint_importance): an INFORMATION-ONLY layer (never
+    gates `survives`) that fits LASSO + a random forest on every scored feature
+    (+ the 3 probes) TOGETHER on the complete-case matrix, so two collinear
+    features that both look good univariately can be told apart. Every real
+    feature adds (None for all four when the joint layer was skipped):
+      lasso_coef     : LassoCV(cv=5, random_state=seed) coefficient.
+      lasso_kept     : bool, |lasso_coef| > LASSO_KEPT_EPS.
+      rf_imp         : mean permutation importance (10 repeats) from a
+                       RandomForestRegressor(200 trees, depth 5, random_state=seed).
+      rf_beats_probe : bool, rf_imp > the max rf_imp among the 3 probes.
 
     Returns {"features": [{name, rho, r, ci_lo, ci_hi, n, p, q, survives,
     rho_within, n_eras, era_consistent, era_pass, autocorr, slow,
-    trend_confounded}, ...] sorted by |rho| desc, "n_trades", "n_days",
-    "external_available"} — every value a native python type (JSON-safe) — or
-    None when fewer than MIN_TRADES trades joined to a valid entry-date row.
+    trend_confounded, probe_margin, beats_probe, lasso_coef, lasso_kept,
+    rf_imp, rf_beats_probe}, ...] sorted by |rho| desc, "n_trades", "n_days",
+    "external_available", "probe_max_abs_rho" (max |rho| among the 3 probes),
+    "probe_rhos" (the 3 individual probe rhos), "joint" (the _joint_importance
+    meta dict -- n_used/rf_probe_floor/probes_kept_lasso/lasso_alpha -- or None
+    when skipped: <MIN_JOINT_ROWS complete rows or sklearn unavailable)} —
+    every value a native python type (JSON-safe) — or None when fewer than
+    MIN_TRADES trades joined to a valid entry-date row.
     """
     if not trades or daily_features is None or not len(daily_features):
         return None
@@ -642,12 +878,19 @@ def context_scores(trades, index, daily_features, n_boot=DEFAULT_BLOCK_N_BOOT, s
         return None
 
     base = pd.DataFrame(rows, columns=["date", "pnl"])
-    joined = base.join(daily_features, on="date")
+    probe_df, probe_names = _build_probe_daily(daily_features, seed)
+    daily_all = daily_features.join(probe_df) if len(probe_df.columns) else daily_features
+    joined = base.join(daily_all, on="date")
     n_trades = int(len(joined))
     n_days = int(joined["date"].nunique())
     ext_available = any(c in joined.columns and joined[c].notna().any()
                         for c in EXTERNAL_FEATURES)
 
+    probe_rhos = _score_probes(joined, probe_names)
+    probe_max_abs_rho = max((abs(r) for r in probe_rhos), default=0.0)
+
+    # feat_cols is drawn from daily_features (not daily_all) -- probes are
+    # NEVER treated as scoreable "real" features, matching the module contract.
     feat_cols = [c for c in daily_features.columns if c in joined.columns]
     out_rows, pvals = [], []
     for col in feat_cols:
@@ -682,6 +925,12 @@ def context_scores(trades, index, daily_features, n_boot=DEFAULT_BLOCK_N_BOOT, s
         rho_within, n_eras, era_consistent, era_pass, era_t = _within_era_consistency(
             x, y, days, rho)
 
+        # shadow-probe margin -- how far this feature's |rho| sits above (or
+        # below) the noise floor set by the 3 shuffled probes.
+        abs_rho = abs(float(rho))
+        probe_margin = round(abs_rho - probe_max_abs_rho, 4)
+        beats_probe = bool(abs_rho > probe_max_abs_rho)
+
         out_rows.append({"name": col, "rho": round(float(rho), 4),
                          "r": round(float(r), 4), "ci_lo": round(ci_lo, 4),
                          "ci_hi": round(ci_hi, 4), "n": int(n),
@@ -692,12 +941,17 @@ def context_scores(trades, index, daily_features, n_boot=DEFAULT_BLOCK_N_BOOT, s
                          "era_pass": bool(era_pass),
                          "era_t": round(float(era_t), 3),
                          "autocorr": round(float(autocorr), 4),
-                         "slow": bool(slow)})
+                         "slow": bool(slow),
+                         "probe_margin": probe_margin,
+                         "beats_probe": beats_probe})
         pvals.append(float(p))
 
     if not out_rows:
         return {"features": [], "n_trades": n_trades, "n_days": n_days,
-                "external_available": bool(ext_available)}
+                "external_available": bool(ext_available),
+                "probe_max_abs_rho": round(float(probe_max_abs_rho), 4),
+                "probe_rhos": [round(float(r), 4) for r in probe_rhos],
+                "joint": None}
 
     qvals = _bh_fdr(pvals)
     for row, q in zip(out_rows, qvals):
@@ -715,13 +969,43 @@ def context_scores(trades, index, daily_features, n_boot=DEFAULT_BLOCK_N_BOOT, s
                                 or (row["ci_lo"] < 0 and row["ci_hi"] < 0))
         era_ok = bool(row["era_pass"] if row["slow"] else True)
         row["ci_excludes_zero"] = ci_excludes_zero
-        row["survives"] = bool(q_survives and ci_excludes_zero and era_ok)
+        # `beats_probe` (shadow-probe gate) is ANDed in on top of the existing
+        # q/CI/era conditions -- tightens survival, never loosens it: a row
+        # that was already going to fail stays failed either way (AND with an
+        # extra term can't flip False -> True). `trend_confounded`'s formula
+        # is intentionally untouched -- probes are a separate, additive gate.
+        row["survives"] = bool(q_survives and ci_excludes_zero and era_ok
+                               and row["beats_probe"])
         row["trend_confounded"] = bool(row["slow"] and q_survives
                                        and not (ci_excludes_zero and era_ok))
 
+    # joint importance layer (LASSO + RF permutation) -- see _joint_importance;
+    # computed once over every scored real feature + the 3 probes together.
+    # Belt-and-suspenders try/except even though _joint_importance already
+    # catches internally: this module's rule is NEVER raise out of
+    # context_scores, no matter what.
+    scored_names = [row["name"] for row in out_rows]
+    try:
+        joint_meta, joint_per_feature = _joint_importance(joined, scored_names,
+                                                           probe_names, seed=seed)
+    except Exception:
+        joint_meta, joint_per_feature = None, {}
+    for row in out_rows:
+        jf = joint_per_feature.get(row["name"])
+        if jf:
+            row.update(jf)
+        else:
+            row["lasso_coef"] = None
+            row["lasso_kept"] = None
+            row["rf_imp"] = None
+            row["rf_beats_probe"] = None
+
     out_rows.sort(key=lambda row: abs(row["rho"]), reverse=True)
     return {"features": out_rows, "n_trades": n_trades, "n_days": n_days,
-            "external_available": bool(ext_available)}
+            "external_available": bool(ext_available),
+            "probe_max_abs_rho": round(float(probe_max_abs_rho), 4),
+            "probe_rhos": [round(float(r), 4) for r in probe_rhos],
+            "joint": joint_meta}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
