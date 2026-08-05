@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='67.1';
+const VERSION='67.2';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'67.2',date:'2026-08-04',notes:['CHAMPION EQUITY (2A): the size-tilt variants now draw as their own lines, on the same chart as the no-filter champion and the skip-filter candidates - so tilt versus skip versus no filter can be read off one picture instead of three tables. They sit in the ML GATES legend group with the other filter lines, hidden until you toggle that group on, and are labelled tilt: model so they can never be mistaken for a crownable candidate.']},
 {v:'67.1',date:'2026-08-04',notes:['ML FILTER (2C): a new SIZE TILT table under the matrix. The filter above SKIPS trades below its cut-off; these rows spend the very same confidence scores as SIZE instead — every trade still taken, bigger when the model is confident, smaller when it is not. Shows in-sample, walk-forward and held-out dollars, held-out MAR and max drawdown, and the biggest size any single trade got, against both the no-filter baseline and the crowned skip-filter.','Every tilt row averages one lot per trade over the tuning years, so it is the same size of book as the no-filter row — not a bigger bet. Marked COMPARISON ONLY: the engine can never crown one, and the pre-registered filter rule is untouched.','Costs nothing to compute — the tilt rows reuse the model scores the filter already produced, so no extra run time.']},
 {v:'65.1',date:'2026-08-03',notes:['FIX: opening a run report failed to draw in 65.0 — the new 2B controls were referenced before they were defined. Reports render again.']},
 {v:'65.0',date:'2026-08-02',notes:[
@@ -8204,6 +8205,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
                          color:_gateColor(_gcModel,_gvThLi(gc.threshold),_isChGc?88:54),eq:gc.equity.cum.map(v=>v*mult),
                          li:null,wfi:null,gateCand:true,   // v64.87 (item 1): no blot — same reason
                          ts:_mkTsSpan(gc.equity.cum.length,optFromMs,lbToMs)});
+            });
+            // v67.2 (owner: "is there a way to compare this to the normal non tilt config") —
+            //   one more series per SIZE TILT variant, drawn on the exact same grid as the skip
+            //   candidates and the ungated champion above, so tilt / skip / no-filter can be read
+            //   off ONE chart instead of three tables. They join the same ML GATES legend group
+            //   (gateCand:true = default-hidden, one toggle) and are labelled "tilt: <model>" so a
+            //   tilt line can never be misread as a crownable candidate. Older runs carry no
+            //   d.gate_validate.tilts and simply push nothing here.
+            const _gvTilts=(d.gate_validate&&Array.isArray(d.gate_validate.tilts))?d.gate_validate.tilts:[];
+            _gvTilts.forEach(tl=>{
+              if(!(tl&&tl.equity&&Array.isArray(tl.equity.cum)&&tl.equity.cum.length>=2))return;
+              _ser.push({id:'tilt-'+String(tl.model||'')+'-'+String(tl.scheme||''),
+                         label:'tilt: '+String(tl.model||'')+' · '+String(tl.scheme||''),
+                         color:_gateColor(String(tl.model||''),1,70),
+                         eq:tl.equity.cum.map(v=>v*mult),
+                         li:null,wfi:null,gateCand:true,
+                         ts:_mkTsSpan(tl.equity.cum.length,optFromMs,lbToMs)});
             });
           }catch(_gce){}
           // CHANGE 3 (v64.74, owner: bring back the grey cloud): every OTHER tested config, from
