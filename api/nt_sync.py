@@ -22,7 +22,7 @@ import json
 import time
 import sqlite3
 import hashlib
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 
 # The AddOn's fills.csv timestamp follows NinjaTrader's *display* time-zone setting, which
 # the user can change (observed: some fills logged UTC, later ones logged Pacific) — so it is
@@ -104,6 +104,23 @@ PRESETS = {
 FEE_PER_SIDE = {
     "MES": 0.95, "MNQ": 0.95, "MGC": 0.95, "MCL": 0.95, "M2K": 0.95, "MYM": 0.95, "MBT": 0.95,
 }
+
+# The NFA assessment fee dropped from $0.02 to $0.01 per side sometime between the
+# 2026-06-30 and 2026-07-10 fills (confirmed line-by-line in the account's Cash History),
+# so a 1-lot round-trip costs $1.88 from July onward instead of $1.90. Without this the
+# journal drifts 2c per trade against the broker.
+NFA_CUT_DATE = date(2026, 7, 1)
+NFA_CUT_DELTA = 0.01
+
+
+def fee_per_side(sym, when=None):
+    """All-in per-contract, per-side fee for `sym` on the date of `when` (a datetime)."""
+    base = FEE_PER_SIDE.get(sym)
+    if base is None:
+        return None
+    if when is not None and when.date() >= NFA_CUT_DATE:
+        return round(base - NFA_CUT_DELTA, 2)
+    return base
 
 DEFAULT_FILLS = r"C:\EdgeLog\fills.csv"
 
@@ -293,7 +310,7 @@ def build_trades(fills):
                 # Fees: apply the fixed broker schedule (per contract x 2 sides) when known —
                 # the AddOn's live commission is $0 until overnight settlement. Fall back to
                 # the fill's reported commission for symbols not in the schedule.
-                _side = FEE_PER_SIDE.get(sym)
+                _side = fee_per_side(sym, entry_dt)
                 fees = round(_side * entry_qty * 2, 2) if _side is not None else round(comm_acc, 2)
                 gross, net = calc_pnl(sym, entry_side, avg_entry, avg_exit, entry_qty, fees)
                 dur = None
