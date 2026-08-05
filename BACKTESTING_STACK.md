@@ -1031,6 +1031,36 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-05** — **Round 6: ENGU-Q expansion push — ETH (24h) session-scaled config = the find; ES/gate/tilt dead.**
+  Owner directive: push ENGU-Q on any param/config/timeframe built around the validated core. All tests
+  window-pinned 2010-06-07→2026-06-30, entry-sliced lockbox 2025-06-30→2026-06-30, parity-gated, verified
+  independently (three agent reporting errors caught: ES lockbox exit-sliced → corrected entry-sliced flips
+  its LB PF 1.57→1.195; t1 2m/3m json nets omitted the 0.533-pt cost (~$10.66/trade); 3m first saved a
+  5-trial smoke as the result — rerun at 200).
+  **R6d WIN (candidate): ETH session-scaled transfer.** #149 params frozen, time-lookbacks × (1380/390≈3.54)
+  (ema 1380 / tl 170 / atr 106) on NQ 1m ETH (5.44M bars): $434,721 / PF 1.33 / maxDD −$50,420 / MAR 8.62,
+  LB (n=188) $98,488 / PF 1.49 — clears all pre-registered triage bars with ZERO tuning. Robust to 3×
+  overnight-leg cost (PF 1.33→1.30). Corr to RTH champion 0.26 daily / 0.51 monthly. Blend SWAP (ORB flat +
+  ETH-ENGUQ instead of RTH-ENGUQ): net $838k→$795k (−5%) but maxDD −$60.1k→−$46.6k (−22%), net/DD
+  13.95→17.06, losing years NONE. Overnight-exit bucket is a net DRAG (−21% of net) → "freeze trail
+  18:00–09:30" flagged as an untested refinement. RAW (unscaled) params on ETH = NOT interesting (PF 1.09).
+  Next gate: full Auto-Validate on ETH + paper-forward leg before any adoption.
+  **R6e PARTIAL: 2m promising** (reduced protocol: 200-trial IS-only Bayesian + one LB look, no WF/gates):
+  cost-corrected $381,130 / PF 1.78 / maxDD −$42,111 / MAR 9.05 (712 trades), LB $39,456 / PF 1.47 (n=41);
+  optimizer picked regime_len=100 (the daily gate 1m rejected). Earns a full validate. **3m FAILS the
+  sample gate:** 200-trial champion $477,653 / PF 2.16 but n=266 (<330 = 30×11 params), LB n=15 — dropped.
+  **DEAD: ES transfer** (IS PF 1.09 and corrected LB PF 1.195 both < 1.2 bar; corr 0.70 monthly to NQ leg —
+  no diversifier value; edge is NQ-specific); **ML meta-label gate** (xgb@0.45 crowned pre-LB: PF 1.87 /
+  MAR 15.6, 4/4 sub-windows consistent — then LOCKBOX −$32,550 vs ungated +$68,322: do not deploy);
+  **15m-confluence tilt** (diagnostic INVERTED: counter-15m entries carry the edge, IS PF 1.63 vs 1.05
+  aligned — deepest-pullback entries are the good ones; but the pre-registered 1.5×/0.5× tilt cleared IS
+  and LOST on LB $68.3k→$51.6k — rejected).
+  **PARKED: config-level diversification is real** — the fast-trend alt champion (ema 90) shares only 7.1%
+  of entries with #149, daily corr r=0.085; but its own LB evidence is n=8 and its causal test reads
+  "≈ market exposure" — needs its own full validation before any ensemble.
+  **Round meta-lesson: 3 IS-pass→LB-fail events in one round** (gate, tilt, ES). ENGU-Q's edge resists
+  trade-slicing (filters/tilts/gates); it survives RELOCATION (session, timeframe). Artifacts: scratchpad
+  enguq_es_transfer.* / enguq_gate_ensemble.* / enguq_eth_triage.* / enguq_tf_confluence.* / t1_*.
 - **2026-07-24** — **Round 5: PARAM_LIBRARY sweep — sized-ORB blend candidate found (+32%, all 17 years).**
   Five pre-registered tests off PARAM_LIBRARY's untested cells, window pinned 2010-06-07→2026-06-30
   (July backfill excluded), lockbox 2025-06-30→2026-06-30 verdict-deciding, all parity-gated to the
