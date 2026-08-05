@@ -118,6 +118,23 @@ def main():
         print(f"{name:<32}{a['net']:>11,.0f}{b['net']:>12,.0f}{c['net']:>11,.0f}"
               f"{c['mar']:>8.1f}{c['dd']:>10,.0f}{min(c['pf'],99):>7.2f}{c['max_sz']:>7.2f}")
 
+    # ── EQUAL-DRAWDOWN view — the only way the MAR gains read as money ────────────────────
+    #   Every row above is capital-matched, so a smoother row books FEWER dollars: it is
+    #   spending less risk. Scaling one row's size by a constant scales its PnL, its drawdown
+    #   AND its per-contract fees by that same constant, so "what would this earn if I sized it
+    #   up until it hurt as much as the flat book does?" is an exact rescale, not an estimate.
+    #   That is the number to compare - it is how SS4.7 said to bank a MAR gain in the first place.
+    base = out.get("flat 1 lot")
+    if base and abs(base["dd"]) > 1e-9:
+        print(f"\n--- EQUAL-DRAWDOWN view:每 row sized up to the flat book's "
+              f"${abs(base['dd']):,.0f} lockbox drawdown ---".replace("每", "each "))
+        for name, c in out.items():
+            if abs(c["dd"]) < 1e-9:
+                continue
+            k = abs(base["dd"]) / abs(c["dd"])
+            print(f"  {name:<32} x{k:>5.2f} size  ->  LB ${c['net'] * k:>11,.0f}"
+                  f"   (max {c['max_sz'] * k:>5.1f} lots)")
+
     print("\n--- pre-registered bar: STACK x TILT must beat BOTH parents on lockbox MAR ---")
     st = out.get("deploy stack (rp x time x side)")
     for mdl in MODELS:

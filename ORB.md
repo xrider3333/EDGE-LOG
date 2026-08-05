@@ -883,6 +883,48 @@ so it shows in all three stretches, the opposite signature to a lucky held-out y
 (§8), so the tilt SHAPES are themselves "seen". Crowning one needs its own pre-registered rule and
 a strategy whose lockbox is still sealed — the same discipline the MAR floor rule went through.
 
+### 4.27 The ML tilt STACKS with the deploy size levers (2026-08-05) — item 186 ✅ PASS
+
+`tools/orb_tilt_stack.py`. Question: is the gate tilt (§4.25) a FOURTH independent size lever, or
+does it just re-discover "mornings and shorts are better" — which the §5.6 stack already prices?
+Pre-registered bar: the combined row must beat **both** parents on lockbox MAR (beating one only
+would be substitution, not stacking). Levers and weights unchanged from §5.6; tilt shape unchanged
+from §4.25; capital-matched on pre-lockbox; 3× cap. NQ 5m RTH, pinned 2010-06-07 → 2026-06-30.
+
+| row | IS $ | WF $ | LB $ | LB MAR | LB DD | LB PF |
+|---|---|---|---|---|---|---|
+| flat 1 lot | $52,053 | $365,871 | $67,493 | 7.6 | −$8,868 | 1.59 |
+| deploy stack (rp × time × side) | $132,461 | $451,812 | $57,694 | 13.4 | −$4,293 | 2.84 |
+| gate tilt only (rf) | $73,248 | $595,204 | $107,348 | 15.5 | −$6,930 | 2.03 |
+| **stack × tilt (rf)** | $149,775 | $571,669 | $70,370 | **16.6** | −$4,237 | 3.22 |
+| gate tilt only (tree) | $82,073 | $587,005 | $97,517 | 15.1 | −$6,477 | 1.98 |
+| **stack × tilt (tree)** | $155,531 | $569,517 | $65,932 | **21.8** | **−$3,019** | **3.30** |
+
+**BOTH STACK.** rf 16.6 vs 13.4 / 15.5; tree **21.8** vs 13.4 / 15.1 — the model's win-probability
+is genuinely independent information from the structural levers, not a proxy for them. Lockbox
+profit factor **3.30** and a **−$3,019** drawdown are the best risk numbers in the whole ORB program.
+
+**The dollar columns understate this and must not be read alone.** Every row is capital-matched, so
+a smoother row books fewer dollars *because it is spending less risk*. Scaling a row's size by a
+constant scales its PnL, drawdown and per-contract fees identically, so sizing each row up to the
+flat book's −$8,868 drawdown is an exact rescale, and that is how §4.7 always said to bank a MAR
+gain:
+
+| row | size × | LB $ at equal drawdown | max lots |
+|---|---|---|---|
+| flat 1 lot | ×1.00 | $67,493 | 1.0 |
+| deploy stack | ×2.07 | $119,178 | 4.4 |
+| gate tilt only (rf) | ×1.28 | $137,368 | 2.5 |
+| stack × tilt (rf) | ×2.09 | $147,284 | 6.2 |
+| **stack × tilt (tree)** | ×2.94 | **$193,668** | 8.8 |
+
+**~2.9× the held-out profit of the flat book for the same pain.** Max 8.8 lots is liquid on NQ.
+
+Caveats: same over-used lockbox (§8); the 3× cap binds on the combined rows (max size 2.94–3.00
+before rescaling), so the combined result is partly a *capped* stack — an uncapped version would
+concentrate harder still and is untested. NOT adopted: same reason as §4.25 — the tilt shapes have
+now been read off this lockbox, so adoption needs a pre-registered rule on a sealed one.
+
 ### 4.26 Fixed-% compounding — why published ORBs "look better" (2026-08-04) — diagnostic ◐
 
 `tools/orb_fixed_pct.py`: the SAME champion trades sized three ways from $100k (micros allowed,
