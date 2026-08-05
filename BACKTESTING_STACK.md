@@ -1031,6 +1031,17 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-05** — **Param-library transfer sweep (3 tests, 1 win / 2 kills).** (1) **Blend
+  leg-upgrade WIN (measurement):** ORB×ENGU-Q 1:1 blend with the ORB leg swapped #125 single-lot →
+  `ORB_3_0_ENS.py` gate-floor crown = net +$125k (+19.6%), max DD −21%, MAR 5.46→8.29, identical
+  reproduced ENGU-Q leg on both sides (window 2010-06-07→2026-06-30 pinned; absolute $ not
+  comparable to the $835k headline until the ENGU-Q repro defect is fixed). Awaiting owner call to
+  re-baseline the book. (2) **Risk-parity sizing on ENGU-Q 1m: DEAD** — pre-registered rp probe
+  (caps 3.0/2.0) cuts net 33% full-history / 51% last-12mo and worsens the recent DD; ENGU-Q's big
+  winners live in its wider-risk entries. (3) **2-lot ensemble on ENGU-Q 1m: FAILED validate** —
+  new fork `ENGUQ_1M_ENS_1_0.py`, runs #196/#197 both FAIL (PBO + luck), search drifts to
+  vol_mult 0 / target 8R; note `discover:'none'` does NOT constrain a validate to the grid presets
+  (identical run to 'auto' with cache replay). Details: PARAM_LIBRARY.md ideas 7/9/10.
 - **2026-08-05 (correction)** — **Round-6 2m/3m nets: the t1 jsons were RIGHT; the supervisor's "cost fix" was the error.**
   engine.py `_apply_costs` rewrites each trade tuple's pnl (nt[2] −= cost_pts) before saving, so run_auto-path
   tuples are ALREADY cost-netted; subtracting 0.533 again from them double-counts. Corrected canon: **2m

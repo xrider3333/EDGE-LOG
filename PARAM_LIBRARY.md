@@ -369,8 +369,14 @@ reason, and any known reason it might NOT transfer).
    critically, unlike the chandelier-trail idea above, this one held up
    out-of-sample. It's a strategy-agnostic execution-layer idea (implemented in
    `augur_engine/sizing.py`) that could in principle apply to **any** strategy
-   with a well-defined per-trade dollar risk — **ENGU-Q, DRIVE, GAPFADE** all
-   qualify structurally; none of them have had this sizing overlay tested yet.
+   with a well-defined per-trade dollar risk. **TESTED ON ENGU-Q 1m 2026-08-05 —
+   DEAD there:** pre-registered probe (deploy-neighborhood config, rp caps 3.0 and
+   2.0 both declared up front, full history + last-12-months slices) CUT net PnL
+   33% full-history and 51% on the recent year, and made the recent-year drawdown
+   slightly WORSE (−$73.5k → −$81k). Mechanism: ENGU-Q's biggest winners come from
+   its wider-risk (more volatile) entries — exactly the trades 1/risk down-sizes.
+   The ORB win does NOT generalize; do not re-run on ENGU-Q. DRIVE/GAPFADE remain
+   untested (both families dead on other grounds anyway).
 
 8. **Entry-strength / decisiveness thresholds** — ORB's `vol_filter` (breakout-bar
    volume ≥ X× average) and ENGU-Q's `vol_mult` + `min_brk` + `buf_atr` (volume
@@ -386,16 +392,30 @@ reason, and any known reason it might NOT transfer).
 9. **Ensemble blend of two exit styles on the SAME entry** — proved on **ORB**
    (`ORB_3_0_ENS.py`: one lot rides-with-breakeven, one lot trails; blended 50/50)
    as genuine diversification (beats both legs on lockbox MAR + drawdown,
-   confirmed to transfer to ES). **Untested on ENGU-Q or DRIVE**, both of which
-   already have both a breakeven/target exit style AND a trailing-stop-flavored
-   exit available as separate knobs — the ORB result suggests running both
-   simultaneously (as a blended 2-lot book) could beat picking just one.
+   confirmed to transfer to ES). **TESTED ON ENGU-Q 1m 2026-08-05 — FAILED
+   validate:** research fork `ENGUQ_1M_ENS_1_0.py` (same entry, lot A
+   breakeven+target_R ride / lot B act_R+trail_frac trail, 50/50 blend) was built
+   and put through the full gated validate twice (runs #196/#197, window
+   2010-06-07→2026-06-30 pinned, NQ 1m db_noadj_rth): verdict **FAIL both times**
+   — the searched population flunks the overfit (PBO) and luck gates, and the
+   free search drifts far off the proven recipe (crowns vol_mult 0 / target 8R).
+   The deploy-neighborhood config DID beat the parent on a quick 250-day smoke
+   (net/PF/DD all better), but that never survived the honest gates, so it stays
+   unvalidated. DRIVE untested (family dead as a standalone anyway).
 
 10. **Portfolio-level blending across different STRATEGIES** (not exit styles
     within one strategy) — the ORB × ENGU-Q 1:1 blend is the current book
     baseline (~$835k / 17-for-17 winning years / max DD ≈ −$60k, from project
     memory) precisely because the two families' daily PnL is close to
-    uncorrelated. **DRIVE** is flagged in its own docs as "a genuine diversifier"
+    uncorrelated. **LEG-UPGRADE MEASURED 2026-08-05:** swapping the blend's ORB
+    leg from the old single-lot #125 config to the validated 2-lot ensemble
+    (`ORB_3_0_ENS.py` gate-floor crown) improves the blend on every axis — net
+    +$125k (+19.6%), max DD −21% (−$117k → −$92k), MAR 5.46 → 8.29, loss years
+    unchanged (2018/2022) but cushioned. Both blends shared the identical
+    reproduced ENGU-Q leg, so the comparison is clean; absolute dollars are NOT
+    comparable to the $835k headline until the ENGU-Q #149 repro defect is fixed
+    (BACKTESTING_STACK.md). Awaiting owner sign-off to make the ENS leg the new
+    book baseline. **DRIVE** is flagged in its own docs as "a genuine diversifier"
     (correlation 0.23 vs. ORB) despite failing walk-forward as a standalone
     strategy — worth a fresh look purely as a portfolio diversifier rather than a
     standalone deploy candidate, if a structural (not just era-specific) edge is

@@ -19,8 +19,12 @@ win_rate / PF / DD compare directly against ENGUQ_1M_1_0's own report. ENGU-Q
 holds overnight/multi-day (no EOD flat) — whatever ends a trade in the parent
 (stop hit, or data exhaustion) ends BOTH lots at that same price.
 
-Research fork: NOT yet walk-forward validated. Entry logic/filters/params are
-byte-for-byte identical to ENGUQ_1M_1_0.py; only target_R is new.
+Research fork: **FAILED the gated validate twice** (runs #196/#197, 2026-08-05,
+window 2010-06-07->2026-06-30 pinned, NQ 1m db_noadj_rth): PBO + luck gates fire
+on the searched population; the free search drifts to vol_mult 0 / target 8R.
+The deploy-neighborhood config beat the parent on a 250-day smoke (net/PF/DD all
+better) but never survived the honest gates. Parked — do NOT deploy; see
+PARAM_LIBRARY.md transferable-idea 9 before re-running anything here.
 """
 import numpy as np
 
