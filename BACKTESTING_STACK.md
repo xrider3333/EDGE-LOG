@@ -1031,6 +1031,14 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-05 (correction)** — **Round-6 2m/3m nets: the t1 jsons were RIGHT; the supervisor's "cost fix" was the error.**
+  engine.py `_apply_costs` rewrites each trade tuple's pnl (nt[2] −= cost_pts) before saving, so run_auto-path
+  tuples are ALREADY cost-netted; subtracting 0.533 again from them double-counts. Corrected canon: **2m
+  $388,719.58 / PF 1.809 / DD −$41,791 / MAR 9.30 (712 tr), LB $39,893 / PF 1.476 (n=41)**; 3m (200-trial)
+  ≈$480.5k but still FAILS the sample gate (n=266, LB n=15) — verdict unchanged. Strategy-DIRECT calls
+  (paper_forward pattern) return RAW tuples and DO need the external −0.533 — both conventions are correct
+  in their own path; know which path produced your tuples. All other Round-5/6 numbers used the
+  strategy-direct path and are unaffected. Caught by the 2m-registration executor's parity stop.
 - **2026-08-05** — **Round 6: ENGU-Q expansion push — ETH (24h) session-scaled config = the find; ES/gate/tilt dead.**
   Owner directive: push ENGU-Q on any param/config/timeframe built around the validated core. All tests
   window-pinned 2010-06-07→2026-06-30, entry-sliced lockbox 2025-06-30→2026-06-30, parity-gated, verified
