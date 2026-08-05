@@ -725,6 +725,19 @@ not saved to the runs DB — so they carry no run id.*
   wire; TNX-rise lead stays on the shelf. ONE more pre-registered focused test (only
   `max_tnx_chg20` searchable, tight range, bigger trial budget vs the pbo gate) would be
   defensible; repeated gauntlet retries = shopping, don't.
+  **CARL §5 ADOPTIONS SHIPPED (v67.3 `fc2dfdb`, 2026-08-04): shadow-probe noise floor +
+  joint importance in `context_scores`.** 3 shuffled fake features per scan — `survives`
+  now also requires beating the strongest fake's |rho| (3rd independent guard after
+  FDR+era); joint layer = LassoCV + RF permutation importance over ALL features + probes
+  together (info only, never gates `survives`). 1J renders the floor, blue ◆ on jointly-
+  backed features, grey "≤ noise" verdict. **Joint verdict on the ENGU-Q 1m champion:
+  the stress cluster (vix, vix_pctile, atr20_pctile, range_pctile, tnx_chg_20d) has ZERO
+  independent signal** — shared variance; none kept by LASSO, none beat the RF probe
+  floor → the shelved rate-spike lead is DOWNGRADED (recommend NOT spending its one
+  follow-up test). Curiosity, unverified: `gap_pct` = the only jointly-kept feature
+  (suppressor signature — near-zero alone, biggest LASSO coef jointly); parked. tnx/curve
+  top RF importance but stay era-flagged (the joint layer has no era awareness — same
+  drift suspicion applies).
 - `augur_engine/trial_cache.py` + `window_delta.py` — **#26 incremental reuse (SHIPPED
   2026-07-22)**: exact-hit per-config result cache (env `AUGUR_TRIAL_CACHE`, ON in the
   runner; `♻` chip on Builder launch rows) + data-prep memo + EOD-flat window-extension
