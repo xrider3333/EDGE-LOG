@@ -805,6 +805,56 @@ mechanical passes, one adoption (compression ×1.25 on the individual signals). 
 touch entry · BE 1.0R · at-entry ensemble (#159) · §5.6 sizing (+ compression factor) — is final
 pending live data (V delta) or a full-window ENGU-Q (W). Next step is the deploy toggle, not more research.
 
+### 4.25 ML gate as a SIZE TILT, not a keep/skip cut (2026-08-04) — item 171 ✅ PASS
+
+The gate deletes every trade under its cut-off — a CUT, and ORB's loudest lesson is *tilt, don't
+cut*. Tested the gate probability as a size weight instead. Pre-registered in
+`tools/orb_gate_tilt.py`: crowned ensemble champion (or1/Both/stop1.75/vol1.25/atr0.1/be1.0/
+target4.0/trail12, NQ 5m RTH), the gate's own causal walk at threshold 0 (pure scoring — nothing
+dropped), a-priori schemes (tier ×2/×1/×0.5 at p≥.55/.45–.55/<.45, copied from the time-tilt shape
+at the gate's existing grid break-points; linear clip(1+4(p−.5), .25, 3)), capital-matched on
+PRE-lockbox only, 3× cap. Bar: beat flat on MAR in BOTH windows AND beat cut@50 on lockbox.
+
+**9 of 12 tilt variants PASS.** 3,963 trades, all kept in every tilt row. Highlights (LB from 2025-07-16):
+
+| variant | pre net $ | pre MAR | LB net $ | LB MAR | LB DD |
+|---|---|---|---|---|---|
+| flat 1-lot baseline | $414,699 | 22.2 | $81,255 | 9.2 | −$8.9k |
+| rf cut@50 (today's gate) | $858,070 | 70.0 | $168,444 | 17.2 | −$9.8k |
+| **rf linear tilt** | $666,469 | 49.5 | $127,431 | **18.4** | **−$6.9k** |
+| **tree linear tilt** | $667,847 | 49.8 | $120,929 | **18.7** | **−$6.5k** |
+| xgb cut@50 | $804,532 | 52.4 | $119,939 | **6.2** | −$19.3k | 
+| xgb tier tilt (same model) | $662,564 | 46.5 | $111,620 | 14.8 | −$7.5k |
+| avg5 (5-model consensus) linear | $623,470 | 44.7 | $118,011 | 17.0 | −$7.0k |
+
+**The real finding is robustness, not more money.** On the models where the cut works (rf) the
+tilt is ≈ even. But where the cut FAILS out-of-sample (xgb: LB MAR 6.2, DD −$19.3k — worse DD
+than no gate at all), the tilt on the *same* model scores rescues it (14.8, −$7.5k) because a
+wrong model only mis-sizes a trade instead of deleting it. Tilt = a floor under model risk. The
+tilt also never orphans the book (243/243 LB trades taken vs the cut's 89–130) and posts the
+smallest drawdowns of any variant family. Caveats: this reuses the over-used lockbox (§8), and
+the pre-lockbox capital-match constant is the only fitted quantity (fit pre-LB only, no leak).
+
+### 4.26 Fixed-% compounding — why published ORBs "look better" (2026-08-04) — diagnostic ◐
+
+`tools/orb_fixed_pct.py`: the SAME champion trades sized three ways from $100k (micros allowed,
+$5k margin cap, fees scale with size, DD measured in % of equity — the number that matters once
+you compound). 16.1 years:
+
+| sizing | end equity | CAGR | maxDD % | CAGR÷DD |
+|---|---|---|---|---|
+| flat 1 contract (docs headline) | $596k | 11.7% | 4.4% | 2.64 |
+| fixed 0.5% of equity | $1.28M | 17.1% | 7.0% | 2.46 |
+| fixed 1% of equity | $16.4M | 37.2% | 13.8% | 2.69 |
+| fixed 2% of equity | $2.05B (fantasy) | 85.1% | 26.8% | 3.18 |
+
+Same trades in every row — **the entire gap between our "$596k" and a published ORB's headline is
+the sizing arithmetic, not the edge.** Risk-per-trade % compounding turns 11.7% CAGR into 37%+ at
+1%. The ≥1% rows are NOT executable as printed: avg size 23 contracts (max 145) at 1% and
+thousands at 2% would move the market — flat 0.25pt slippage is fiction at that size. Realistic
+read: **fixed 0.5% ≈ $1.3M / 17% CAGR / 7% DD** is what this edge supports on a $100k account.
+Diagnostic only — sizing policy is the owner's risk decision, not a strategy parameter.
+
 ---
 
 ## 5. What a pro would actually do here (principles)
