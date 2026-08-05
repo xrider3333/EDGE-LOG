@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='67.0';
+const VERSION='67.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'67.1',date:'2026-08-04',notes:['ML FILTER (2C): a new SIZE TILT table under the matrix. The filter above SKIPS trades below its cut-off; these rows spend the very same confidence scores as SIZE instead — every trade still taken, bigger when the model is confident, smaller when it is not. Shows in-sample, walk-forward and held-out dollars, held-out MAR and max drawdown, and the biggest size any single trade got, against both the no-filter baseline and the crowned skip-filter.','Every tilt row averages one lot per trade over the tuning years, so it is the same size of book as the no-filter row — not a bigger bet. Marked COMPARISON ONLY: the engine can never crown one, and the pre-registered filter rule is untouched.','Costs nothing to compute — the tilt rows reuse the model scores the filter already produced, so no extra run time.']},
 {v:'65.1',date:'2026-08-03',notes:['FIX: opening a run report failed to draw in 65.0 — the new 2B controls were referenced before they were defined. Reports render again.']},
 {v:'65.0',date:'2026-08-02',notes:[
  '2C: RECOVERY is now called MAR everywhere (same calculation, one name), and FULL RUN is now FULL',
@@ -10149,7 +10150,49 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   to LB, measured for ALL variants rather than just the chosen one. The legacy path
         //   (gvTableHtml, the section-3 diagnostics chip) keeps its own lockbox line.
         const _lockboxBlock='';
-        return {V:V,LB:LB,ch:ch,ctrls:(_ctrls+_sampMenu+_rankMenu),menus:'',
+        // ── SIZE TILT comparison (v67.2, ORB item 171) — the SAME model scores spent as SIZE
+        //   instead of as a skip. Sits UNDER the matrix, never inside it: a tilt has no cut-off,
+        //   so it would corrupt the cut-off columns and the sweep chart. The engine marks every
+        //   row crownable:false — nothing here can win the crown, by construction.
+        const _tl=(V.tilts||[]).slice();
+        const _tRec=s=>{if(!s)return null;const d=Math.abs((s.max_drawdown)||0);return d>1e-9?(s.total_pnl/d):null;};
+        const _shNm={tier:'steps',linear:'sloped'};
+        const _shTip={tier:'three sizes only - double on the confident trades, normal in the middle, half on the doubtful ones',
+                      linear:'size slides smoothly with confidence, from a quarter up to triple'};
+        const tiltTbl=(!_tl.length)?'':(function(){
+          _tl.sort((a,b)=>((_tRec(b.lockbox)!=null?_tRec(b.lockbox):-99)-(_tRec(a.lockbox)!=null?_tRec(a.lockbox):-99)));
+          const _bst=_tRec(_tl[0]&&_tl[0].lockbox);
+          const _c=(v,al)=>'<td style="text-align:'+(al||'right')+'">'+v+'</td>';
+          const _row=(nm,sh,n,is,wf,lb,sz,sty)=>'<tr'+(sty?(' style="'+sty+'"'):'')+'>'
+            +_c(nm,'left')+_c(sh,'left')+_c(n==null?'&mdash;':(+n).toLocaleString())
+            +_c(is?$k(is.total_pnl):'&mdash;')+_c(wf?$k(wf.total_pnl):'&mdash;')
+            +_c(lb?$k(lb.total_pnl):'&mdash;')
+            +_c(_tRec(lb)!=null?_tRec(lb).toFixed(1):'&mdash;')
+            +_c((lb&&lb.max_drawdown!=null)?$k(Math.abs(lb.max_drawdown)):'&mdash;')
+            +_c(sz==null?'&mdash;':((+sz).toFixed(1)+'&times;'))+'</tr>';
+          let b='';
+          b+=_row('no filter','every trade, one lot',(V.ungated_full||{}).num_trades,
+                  V.ungated_is,V.ungated_wf,V.ungated_lockbox,1,'color:var(--text3)');
+          if(ch)b+=_row('&#128081; '+ch.model+' @ '+Math.round((ch.threshold||0)*100)+'% <span style="font-size:7px;color:var(--text5)">SKIP</span>',
+                  'deletes the rest',ch.kept_pre,ch.is_rng,ch.wf_rng,ch.lockbox,1,
+                  'color:var(--green);font-weight:700');
+          _tl.forEach(t=>{const r=_tRec(t.lockbox),top=(r!=null&&_bst!=null&&Math.abs(r-_bst)<1e-9);
+            b+=_row(t.model,'<span title="'+(_shTip[t.scheme]||'')+'" style="border-bottom:1px dotted var(--text5);cursor:help">'+(_shNm[t.scheme]||t.scheme)+'</span>',
+                    t.n_trades,t.is_rng,t.wf_rng,t.lockbox,t.max_size,
+                    top?'color:#f0b429;font-weight:700':'');});
+          return '<div style="margin-top:12px"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'
+            +'<span style="font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--text2)">SIZE TILT &middot; SAME MODELS, SPENT AS SIZE</span>'
+            +'<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 6px;font-size:7px;white-space:nowrap">COMPARISON ONLY &middot; NEVER CROWNED</span>'
+            +_infoIc('<div style="color:var(--text2)">The filter above is a SKIP: below its cut-off a trade is thrown away. These rows spend the very same confidence scores as SIZE instead - every trade is still taken, just bigger when the model is confident and smaller when it is not.<br><br>Why it can matter: a skip bets the whole trade on the model being right, and this strategy makes its money from a handful of very large winners. Delete one of those and no amount of avoided losers pays it back. A tilt can only ever take a big winner SMALL - it can never lose it outright.<br><br>Every row averages one lot per trade over the tuning years, so it is the same size of book as the no-filter row - not a bigger bet. BIGGEST SIZE is the largest any single trade ever got.<br><br>These are shown for comparison and can never be crowned. Adopting one would need its own rule, registered in advance, exactly like the current filter rule was.</div>')
+            +'</div><div style="overflow-x:auto"><table class="table"><thead><tr>'
+            +'<th>MODEL</th><th>SIZE SHAPE</th><th style="text-align:right">TRADES</th>'
+            +'<th style="text-align:right">IN-SAMPLE $</th><th style="text-align:right">WALK-FWD $</th>'
+            +'<th style="text-align:right">HELD-OUT $</th>'
+            +'<th style="text-align:right" title="held-out net dollars per dollar of drawdown - higher is a smoother ride for the same money">HELD-OUT MAR</th>'
+            +'<th style="text-align:right">HELD-OUT MAX DD</th>'
+            +'<th style="text-align:right" title="the largest size any single trade was given">BIGGEST SIZE</th>'
+            +'</tr></thead><tbody>'+b+'</tbody></table></div></div>';})();
+        return {V:V,LB:LB,ch:ch,tilts:tiltTbl,ctrls:(_ctrls+_sampMenu+_rankMenu),menus:'',
           head:'<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>',
           intro:'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+V.n_candidates+' candidates ranked pre-lockbox by recovery factor ($ per $ of drawdown). The winner gets exactly one lockbox look — no shopping.</div>',
           matrix:_gMatrix,
@@ -11278,7 +11321,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   hero cards + pick-line duplicated what the matrix/lockbox block now say directly
           //   (and mixed the two periods in one place) — dropped in favour of this tile own
           //   lockboxBlock, which is unambiguous about which period each number belongs to.
-          _gBody=(_gvP.matrix||'')+_epViz+_gc2j+_evTile(_evTog,_evOpen,('<div data-r3graph style="max-width:540px;margin-top:8px"><style>[data-r3graph] .rschart-box{height:174px!important;resize:none}</style>'+_gvP.graph+'</div>'));
+          _gBody=(_gvP.matrix||'')+(_gvP.tilts||'')+_epViz+_gc2j+_evTile(_evTog,_evOpen,('<div data-r3graph style="max-width:540px;margin-top:8px"><style>[data-r3graph] .rschart-box{height:174px!important;resize:none}</style>'+_gvP.graph+'</div>'));
         }else{
           const _evTog='<div data-r3ev title="the full gate report — before/after table, feature attribution (SHAP), calibration and discrimination. Click to '+(_evOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">'+(_evOpen?'▴ hide the full gate detail':'▾ FULL GATE DETAIL — feature attribution · calibration ⓘ')+'</div>';
           _gBody=_hero+_epViz+_gc2j+_evTile(_evTog,_evOpen,('<div style="margin-top:8px">'+gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt)+'</div>'));

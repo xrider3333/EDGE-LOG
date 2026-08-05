@@ -454,6 +454,62 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
                 pass                                        # defensive: never fail the gate
             cands.append(cand)
 
+    # ── TILT VARIANTS (v67.2, ORB item 171 — owner: "run it as an auto-validate so I can see it") ──
+    #   The gate above is a CUT: under the cut-off a trade is deleted. These are the same model
+    #   scores spent as a SIZE TILT instead — every trade is still taken, just bigger or smaller.
+    #   That matters because a cut bets the whole trade on the model being right, and when a model
+    #   fails forward the cut amputates winners it cannot get back; a tilt only mis-SIZES them.
+    #
+    #   FREE: no new model walks. These reuse the scores already computed above.
+    #
+    #   Deliberately NOT candidates and NOT crownable. They live in their own block so that
+    #   (a) the pre-registered selection rule is untouched — nothing here can win the crown, and
+    #   (b) the cut-off sweep chart stays honest (a tilt has no cut-off to plot).
+    #   Adopting one would need its own pre-registration, exactly like the MAR floor rule did.
+    #
+    #   Schemes are a-priori, nothing fitted: the 2x/1x/0.5x tier shape is lifted from the
+    #   validated time-of-day tilt, and its 45%/55% break-points are the gate's own grid values.
+    #   Capital-matched by MEAN WEIGHT over the PRE-LOCKBOX trades only (so the book carries the
+    #   same average size as the ungated baseline and no held-out data touches the sizing), then
+    #   capped at 3x — the same cap the risk-parity overlay uses.
+    _tilt_schemes = (
+        ("tier", lambda p: np.where(p >= 0.55, 2.0, np.where(p >= 0.45, 1.0, 0.5))),
+        ("linear", lambda p: np.clip(1.0 + 4.0 * (p - 0.50), 0.25, 3.0)),
+    )
+    tilts = []
+    _pre_m = entry_ts < lb_start
+    for m, _pb in model_prob.items():
+        _pb = np.asarray(_pb, float)
+        if len(_pb) != len(pnls_all):
+            continue
+        for _sn, _fn in _tilt_schemes:
+            try:
+                w = np.where(np.isnan(_pb), 1.0, _fn(np.where(np.isnan(_pb), 0.5, _pb)))
+                _wp = w[_pre_m]
+                if not len(_wp) or float(_wp.mean()) <= 1e-9:
+                    continue
+                w = np.minimum(w / float(_wp.mean()), 3.0)
+                tp = pnls_all * w
+                t = {"model": str(m), "scheme": _sn, "crownable": False,
+                     "n_trades": int(len(tp)), "kept_pre": int(_pre_m.sum()),
+                     "avg_size": round(float(w.mean()), 3),
+                     "max_size": round(float(w.max()), 2),
+                     "pre": _slice_stats(entry_ts, tp, None, lb_start),
+                     "lockbox": _slice_stats(entry_ts, tp, lb_start, None),
+                     "full": _slice_stats(entry_ts, tp, None, None),
+                     "is_rng": (_slice_stats(entry_ts, tp, None, wf0) if _rng else None),
+                     "wf_rng": (_slice_stats(entry_ts, tp, wf0, wf1) if _rng else None),
+                     "wf_lb": (_slice_stats(entry_ts, tp, wf0, None) if _rng else None)}
+                t["pre_rec"] = round(_rec(t["pre"]), 2)
+                try:
+                    t["equity"] = {"cum": downsample_curve(np.cumsum(tp), cap=300, ndp=None),
+                                   "n": int(len(tp))}
+                except Exception:
+                    pass
+                tilts.append(t)
+            except Exception:
+                continue                                    # never fail the gate over a tilt row
+
     # ── selection (v66.2, owner-approved 2026-08-03): NET DOLLARS with an 80% MAR FLOOR. ──
     #   Pure recovery is a ratio and ratios ignore size — on ORB it preferred rf@55 over rf@50
     #   despite rf@50 earning ~$49k more for ~$924 more drawdown ($54 of profit per extra $ of
@@ -482,6 +538,9 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
         "ungated_wf_lb": (_slice_stats(entry_ts, pnls_all, wf0, None) if _rng else None),
         "wf_range": ([str(pd.Timestamp(wf0).date()), str(pd.Timestamp(wf1).date())] if _rng else None),
         "candidates": [_cand_out(c) for c in cands],
+        # v67.2 — comparison-only size-tilt rows (see the block above). Never crownable.
+        "tilts": tilts,
+        "tilt_rule": "mean_weight_matched_pre_lockbox_cap3",
         "ungated_pre_rec": round(_rec(ung_pre), 2),
         "gate_earns_pre": gate_earns,
         "chosen": None, "lockbox": None,
