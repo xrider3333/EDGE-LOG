@@ -219,7 +219,12 @@ def test_cards_well_formed_when_everything_available():
     out = surrogate_bakeoff(pts, keys, dp, seed=SEED)
     assert out is not None
     names = {c["model"] for c in out["models"]}
-    assert names == {"quadratic", "random_forest", "xgboost", "gp", "gam"} | ({"qrf"} if S.HAS_QRF else set())
+    # every roster model ALWAYS gets a card -- an optional dep that is missing yields a
+    # `skipped` card rather than dropping out of the list (see the roster builder), so the
+    # full set of card names is fixed regardless of which extras this machine has installed.
+    # (Gating `qrf` on HAS_QRF here made the test pass only on a box with quantile-forest
+    # installed and fail on CI, which has neither quantile-forest nor xgboost.)
+    assert names == {"quadratic", "random_forest", "xgboost", "gp", "gam", "qrf"}
     for c in out["models"]:
         if c.get("skipped"):
             continue
@@ -284,7 +289,12 @@ def test_bakeoff_still_picks_a_best_model_when_pygam_absent(monkeypatch):
     gam_card = next(c for c in out["models"] if c["model"] == "gam")
     assert gam_card.get("skipped") == "pygam not installed"
     fit_names = {c["model"] for c in out["models"] if "cv_r2" in c}
-    assert fit_names == {"quadratic", "random_forest", "xgboost", "gp"} | ({"qrf"} if S.HAS_QRF else set())
+    # only models whose optional dep is actually present get FITTED (a `cv_r2` card) --
+    # gate xgboost on HAS_XGBOOST the same way qrf is gated, so this passes both on a fully
+    # loaded box and on CI, where xgboost is not installed.
+    assert fit_names == ({"quadratic", "random_forest", "gp"}
+                         | ({"xgboost"} if S.HAS_XGBOOST else set())
+                         | ({"qrf"} if S.HAS_QRF else set()))
     assert out["best_model"] in fit_names
 
 
