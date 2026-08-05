@@ -815,25 +815,42 @@ dropped), a-priori schemes (tier ×2/×1/×0.5 at p≥.55/.45–.55/<.45, copied
 at the gate's existing grid break-points; linear clip(1+4(p−.5), .25, 3)), capital-matched on
 PRE-lockbox only, 3× cap. Bar: beat flat on MAR in BOTH windows AND beat cut@50 on lockbox.
 
-**9 of 12 tilt variants PASS.** 3,963 trades, all kept in every tilt row. Highlights (LB from 2025-07-16):
+⚠️ **TWO COMPARISON CONVENTIONS — they give different headlines. Read both.**
+- **CAPITAL-MATCHED** (this tool): every row deploys the SAME total dollar risk, so the cut's
+  freed budget is redeployed onto the trades it keeps. This is the fair "where do you spend the
+  risk?" question, and it is the convention `sizing.py` uses for every other ORB size lever.
+- **PER-TRADE-MATCHED** (the run report / §4.25 shipped block below): every row averages one lot
+  per trade, so a tilt taking 243 trades deploys ~1.9× the capital of a cut taking 130. This is
+  the convention the 2C matrix uses, because it is what the ungated-vs-gated rows already do.
 
-| variant | pre net $ | pre MAR | LB net $ | LB MAR | LB DD |
-|---|---|---|---|---|---|
-| flat 1-lot baseline | $414,699 | 22.2 | $81,255 | 9.2 | −$8.9k |
-| rf cut@50 (today's gate) | $858,070 | 70.0 | $168,444 | 17.2 | −$9.8k |
-| **rf linear tilt** | $666,469 | 49.5 | $127,431 | **18.4** | **−$6.9k** |
-| **tree linear tilt** | $667,847 | 49.8 | $120,929 | **18.7** | **−$6.5k** |
-| xgb cut@50 | $804,532 | 52.4 | $119,939 | **6.2** | −$19.3k | 
-| xgb tier tilt (same model) | $662,564 | 46.5 | $111,620 | 14.8 | −$7.5k |
-| avg5 (5-model consensus) linear | $623,470 | 44.7 | $118,011 | 17.0 | −$7.0k |
+**9 of 12 tilt variants PASS the bar.** Capital-matched, pinned window (2010-06-07 → 2026-06-30,
+LB from 2025-06-30), 3,952 trades, all kept in every tilt row:
 
-**The real finding is robustness, not more money.** On the models where the cut works (rf) the
-tilt is ≈ even. But where the cut FAILS out-of-sample (xgb: LB MAR 6.2, DD −$19.3k — worse DD
-than no gate at all), the tilt on the *same* model scores rescues it (14.8, −$7.5k) because a
-wrong model only mis-sizes a trade instead of deleting it. Tilt = a floor under model risk. The
-tilt also never orphans the book (243/243 LB trades taken vs the cut's 89–130) and posts the
-smallest drawdowns of any variant family. Caveats: this reuses the over-used lockbox (§8), and
-the pre-lockbox capital-match constant is the only fitted quantity (fit pre-LB only, no leak).
+| variant | pre net $ | pre MAR | LB net $ | LB MAR | LB DD | LB trades |
+|---|---|---|---|---|---|---|
+| flat 1-lot baseline | $416,570 | 27.6 | $67,493 | 7.6 | −$8.9k | 243 |
+| rf cut@50 (today's gate) | $860,921 | 70.3 | **$140,630** | 14.4 | −$9.8k | 130 |
+| **rf linear tilt** | $668,453 | 57.8 | $107,348 | **15.5** | **−$6.9k** | 243 |
+| **tree linear tilt** | $669,078 | 51.1 | $97,517 | **15.1** | **−$6.5k** | 243 |
+| xgb cut@50 | $806,887 | 52.7 | $89,419 | **4.6** | **−$19.3k** | 115 |
+| xgb tier tilt (same model) | $665,857 | 46.8 | $85,228 | 11.3 | −$7.5k | 243 |
+| avg5 (5-model consensus) linear | $625,787 | 51.6 | $97,267 | 14.0 | −$6.9k | 243 |
+
+**Capital-matched, the cut makes MORE MONEY and the tilt makes SMOOTHER money.** rf cut@50 books
+$140,630 held-out vs the best tilt's $107,348 — so the tilt's apparent dollar win in the run
+report is bought with ~1.9× the exposure, not with better trade selection. Do not report the tilt
+as "+$29k over the cut" without that qualifier.
+
+**The durable finding is ROBUSTNESS, not more money.** Where the cut works (rf) the tilt trades
+~$33k of held-out profit for a 29% smaller drawdown and a better MAR. But where the cut FAILS
+out-of-sample — xgb: LB MAR **4.6**, DD **−$19,251**, i.e. more than twice the no-gate drawdown —
+the tilt on the *same model's scores* rescues it (11.3, −$7,530). A wrong model can only MIS-SIZE
+a trade, never delete it. That asymmetry is the point: the tilt puts a floor under model risk. It
+also never orphans the book (243/243 lockbox trades taken vs the cut's 90–130) and posts the
+smallest drawdowns of any variant family in both windows.
+
+Caveats: reuses the over-used lockbox (§8); the capital-match constant is the only fitted
+quantity and is fit on pre-lockbox only (no leak).
 
 **SHIPPED + reproduced in the engine — run #195 (ORB-23), 2026-08-05.** The tilt is now a
 first-class gate output (`gate_validate` emits a `tilts` block; web v67.1 renders it under the 2C
@@ -853,11 +870,14 @@ therefore NOT directly comparable to the unpinned table above, which floated to 
 | tilt et linear | $64,119 | $516,251 | $98,285 | 13.0 | −$7,557 | 243 |
 
 **All 10 tilts beat no-filter on the lockbox; 9 of 10 beat the crowned cut on lockbox dollars.**
-Best tilt = +$29k over the cut. Critically the effect is **not lockbox-only** — the walk-forward
-years go $365,871 → $614,237 on the same trades, so it shows in all three windows, which is the
-opposite signature to a lucky held-out year. Costs: the tilt carries ~2× the market exposure of the
-cut (243 trades vs 130 at the same average size) and a worse drawdown than the cut (−$7.2k vs
-−$5.7k). It earns more and shakes more.
+⚠️ But this table is PER-TRADE-MATCHED (see the warning above): the tilt's dollar lead is bought
+with ~1.9× the exposure. Capital-matched, the cut wins on dollars — see the table above. Quote the
+capital-matched numbers when comparing "which is better", and these when asking "what would the
+book have made at one lot per signal".
+
+What survives both conventions: the tilt's **drawdowns are smaller in every window**, and the
+effect is **not lockbox-only** — the walk-forward years go $365,871 → $614,237 on the same trades,
+so it shows in all three stretches, the opposite signature to a lucky held-out year.
 
 **NOT adopted, and cannot be.** Ten tilt numbers have now been read off the over-used lockbox
 (§8), so the tilt SHAPES are themselves "seen". Crowning one needs its own pre-registered rule and
