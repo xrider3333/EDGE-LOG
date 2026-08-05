@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='67.6';
+const VERSION='67.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'67.7',date:'2026-08-05',notes:['SIZE TILTS are their own section in the 2A equity key now, instead of being buried inside ML GATES where they were unfindable. They are a different animal to a gate: a gate SKIPS trades, a tilt keeps every trade and only re-sizes it, so mixing them read as if the tilt lines were gate candidates. One toggle still shows or hides the whole tilt family, and the lines stay hidden until asked for.','Expanded chart view fits split-screen better: the title is smaller, the row gap tighter and the VIEW picker narrower, so the toggle labels (closed, trades and the rest) stop compressing and the header row no longer has to be scrolled sideways. The row deliberately stays one fixed-height non-wrapping line - letting it wrap re-flows the layout while the hover readout grows and resizes the chart under the cursor.']},
 {v:'67.6',date:'2026-08-05',notes:['Compare gained a mode toggle at the top: PICK RUNS (the manual picker, unchanged, still the default) or BY STRATEGY (new).','BY STRATEGY shows one curve per strategy family - its top config, picked automatically by score, max 8 families - on the same equity chart, drawdown pane, metric table and net P&L bars as before, updating on its own as new runs land.','No manual picking in that mode - switch back to PICK RUNS any time.']},
 {v:'67.5',date:'2026-08-05',notes:['Glass diet - the scroll lag fix, confirmed by the owner switching themes. Content surfaces (cards, sections, KPI strips, buttons, inputs) no longer run a LIVE blur on the six glassy themes - that was ~50 GPU re-blurs on every scrolled frame. The frosted look stays where it actually reads: the top bar, nav and pop-up menus keep their real blur, and cards keep their translucent tint, borders and depth shadows. Net effect: the glassy themes now scroll like the flat ones. If any card now reads too flat, say so - the tint can be warmed per theme.']},
 {v:'67.4',date:'2026-08-05',notes:['Scroll-lag pass, no visual change. The pinned REPORT header was re-measuring and re-styling itself on every scroll tick — it now checks at most once per frame and only touches styles when its pinned state actually flips. The glass card themes were animating every style property; they now animate only the four that ever change on hover. Two scroll listeners marked passive so the browser never waits on them. The glass blur itself is untouched — if scrolling still feels heavy on the frost theme, that blur is the remaining cost and dialing it down is a look decision.']},
@@ -2993,8 +2994,10 @@ window.expandEquity=function(host){
   modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.93);z-index:9999;display:flex;flex-direction:column;padding:18px 22px';
   // header is FIXED-HEIGHT and non-wrapping: the hover readout used to lengthen (…· lockbox)
   //   and wrap the header taller, which resized the chart under the cursor — the "glitch".
-  modal.innerHTML='<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:nowrap;height:30px;flex:0 0 auto;overflow:hidden">'
-    +'<span style="font-family:\'Bebas Neue\',monospace;font-size:20px;letter-spacing:3px;color:var(--text);white-space:nowrap;flex:0 0 auto">'+(D.title||'CHAMPION EQUITY')+'</span>'
+  modal.innerHTML='<div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;flex-wrap:nowrap;height:30px;flex:0 0 auto;overflow:hidden">'
+    // v67.6: title 20->15px (same split-screen fit reason as the compare modal); the fixed
+    //   height + nowrap above stay exactly as they were — see the glitch note.
+    +'<span style="font-family:\'Bebas Neue\',monospace;font-size:15px;letter-spacing:2px;color:var(--text);white-space:nowrap;flex:0 0 auto;max-width:38vw;overflow:hidden;text-overflow:ellipsis">'+(D.title||'CHAMPION EQUITY')+'</span>'
     +'<span id="eqx-read" style="font-size:11px;color:var(--text3);flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>'
     +'<span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex:0 0 auto">'
     +'<span title="wheel = zoom · drag = pan · drag the $ axis = scale y · double-click = reset" style="font-size:11px;color:var(--text5);cursor:help">controls ⓘ</span>'
@@ -3332,8 +3335,8 @@ window.expandCompareEq=function(series,opts){
     // v64.81 (owner): gateCand (2A's 9 ML-gate candidate lines) default HIDDEN — same as the
     //   grey 'other configs' cloud stays visible-by-default while gate candidates start off, so
     //   the chart is not cluttered with all 9 model x cutoff lines until asked for.
-    return {id:s.id,label:String(s.label||('#'+s.id)),color:s.color||'#3a9bdc',li:li,wfi:wfi,blot:s.blot||null,vis:(s.gateCand?'off':'on'),
-      ts:ts,isOther:!!s.dim,gateCand:!!s.gateCand,gateChosen:!!s.gateChosen,tip:s.tip||'',params:s.params||null,
+    return {id:s.id,label:String(s.label||('#'+s.id)),color:s.color||'#3a9bdc',li:li,wfi:wfi,blot:s.blot||null,vis:((s.gateCand||s.tiltCand)?'off':'on'),
+      ts:ts,isOther:!!s.dim,gateCand:!!s.gateCand,gateChosen:!!s.gateChosen,tiltCand:!!s.tiltCand,tip:s.tip||'',params:s.params||null,
       tr:_trOf(s),pts:s.eq.map((v,i)=>({x:0,v:v,t:0}))};});
   // rebakeDomain (item 24): bakes ONE shared tMin..tMax calendar span from every series real
   //   (blotter-loaded, exact per-trade) or approximate (run date_from/date_to) date range, then
@@ -3394,8 +3397,13 @@ window.expandCompareEq=function(series,opts){
   //    readout used to resize the chart under the cursor, the "glitch" that pattern avoids) ──
   const modal=document.createElement('div');
   modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.93);z-index:9999;display:flex;flex-direction:column;padding:18px 22px;user-select:none;-webkit-user-select:none';
-  modal.innerHTML='<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:nowrap;height:30px;flex:0 0 auto;overflow:hidden">'
-    +'<span style="font-family:\'Bebas Neue\',monospace;font-size:20px;letter-spacing:3px;color:var(--text);white-space:nowrap;flex:0 0 auto">EQUITY COMPARE</span>'
+  // v67.6 (owner: in split screen the toggle labels compress and the row has to be scrolled) —
+  //   the row STAYS fixed-height and non-wrapping ON PURPOSE (a wrapping header re-flows while
+  //   the hover readout grows, resizing the chart under the cursor — the documented "glitch"),
+  //   so the fit is bought by making the pieces SMALLER instead: title 20->15px, tighter gap,
+  //   and the VIEW control narrowed below.
+  modal.innerHTML='<div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;flex-wrap:nowrap;height:30px;flex:0 0 auto;overflow:hidden">'
+    +'<span style="font-family:\'Bebas Neue\',monospace;font-size:15px;letter-spacing:2px;color:var(--text);white-space:nowrap;flex:0 0 auto">EQUITY COMPARE</span>'
     +'<span id="ceqx-read" style="font-size:11px;color:var(--text3);flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>'
     // v64.74 (owner: the old RANGE/WINDOW rows were "huge full-width bars"): both view-jump
     //   controls now live INLINE in this same fixed-height header row, next to RESET — small
@@ -3416,7 +3424,7 @@ window.expandCompareEq=function(series,opts){
     //   compact VIEW select with <optgroup> sections so it reads as one control instead of two.
     +'<span style="display:inline-flex;align-items:center;gap:3px" title="jump to a calendar range or a funnel stage">'
       +'<span style="color:var(--text5);font-size:8px;letter-spacing:.5px">VIEW</span>'
-      +'<select id="ceqx-view" style="width:auto;max-width:108px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:4px 5px;border-radius:6px;font-family:inherit;font-size:9px;letter-spacing:.3px">'
+      +'<select id="ceqx-view" style="width:auto;max-width:82px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:4px 5px;border-radius:6px;font-family:inherit;font-size:9px;letter-spacing:.3px">'
         +'<option value="all">ALL</option>'
         +'<optgroup id="ceqx-viewdate" label="DATE RANGE"><option value="1y">LAST 1Y</option><option value="3y">LAST 3Y</option><option value="5y">LAST 5Y</option><option value="custom">CUSTOM…</option></optgroup>'
         +'<optgroup id="ceqx-viewstage" label="STAGE"><option value="is">IN-SAMPLE</option><option value="wf">WALK-FORWARD</option><option value="lb">LOCKBOX</option></optgroup>'
@@ -3499,7 +3507,12 @@ window.expandCompareEq=function(series,opts){
   //   instead of one flat list plus two bespoke collapse patterns. gateChosen (set on the single
   //   gate-id series in topEqOverlayHtml) now joins gateCand in the ML GATES bucket, so it is
   //   excluded from _mainPS the same way gateCand already was.
-  const _mainPS=()=>PS.filter(s=>!s.isOther&&!s.gateCand&&!s.gateChosen),_otherPS=()=>PS.filter(s=>s.isOther),_gatePS=()=>PS.filter(s=>s.gateCand||s.gateChosen);
+  const _mainPS=()=>PS.filter(s=>!s.isOther&&!s.gateCand&&!s.gateChosen&&!s.tiltCand),_otherPS=()=>PS.filter(s=>s.isOther),
+    // v67.6 (owner: "you put them in the ML gates. make it its own section in the key") — SIZE
+    //   TILTS are their own legend group now. They are NOT gate candidates: a gate SKIPS trades,
+    //   a tilt keeps every trade and only re-sizes it, so burying them in ML GATES made them
+    //   unfindable and easy to misread as crownable gate lines.
+    _gatePS=()=>PS.filter(s=>(s.gateCand||s.gateChosen)&&!s.tiltCand),_tiltPS=()=>PS.filter(s=>s.tiltCand);
   // per-group expand/collapse state — all three start COLLAPSED (one row each); replaces the old
   //   single-purpose gateExpanded flag.
   let _grpExpanded={cfg:false,gate:false,oth:false};
@@ -3568,6 +3581,7 @@ window.expandCompareEq=function(series,opts){
     //   groups are REMOVED entirely (owner: declutter) — the legend is just the three groups now.
     legendEl.innerHTML=_groupRow('cfg','CONFIGS',_mainPS())
       +_groupRow('gate','ML GATES',_gatePS())
+      +_groupRow('tilt','SIZE TILTS',_tiltPS())
       +_groupRow('oth','OTHER CONFIGS',_otherPS());
     // v64.76: rebuild the id->element cache for the live legend values now that legendEl.innerHTML
     //   was just replaced wholesale — the old nodes (and any cached refs to them) are gone.
@@ -3592,7 +3606,7 @@ window.expandCompareEq=function(series,opts){
     //   can never trigger each other.
     legendEl.querySelectorAll('[data-ceqx-grp-tog]').forEach(el=>{
       const key=el.getAttribute('data-ceqx-grp-tog'),
-        members=key==='cfg'?_mainPS():(key==='gate'?_gatePS():_otherPS());
+        members=key==='cfg'?_mainPS():(key==='gate'?_gatePS():(key==='tilt'?_tiltPS():_otherPS()));
       el.onclick=()=>{
         const nv=_grpNext(_grpState(members));
         members.forEach(s=>{s.vis=nv;});
@@ -3791,7 +3805,7 @@ window.expandCompareEq=function(series,opts){
     //   of the rest here.
     // v64.81: the OTHER slider trims this list to its first `otherCount` (stable order); the ML
     //   gate candidates (_gatePS, default vis 'off') paint last, on top, same as any survivor.
-    const _drawOrder=_otherPS().slice(0,otherCount).concat(_mainPS()).concat(_gatePS());
+    const _drawOrder=_otherPS().slice(0,otherCount).concat(_mainPS()).concat(_gatePS()).concat(_tiltPS());
     _drawOrder.forEach(sr=>{if(sr.vis==='off')return;
       let strokeCol=sr.vis==='dim'?'var(--text5)':sr.color,strokeOp=sr.vis==='dim'?0.45:1,swMain=1.6,swWF=1.6,swLB=1.6;
       if(sr.isOther){strokeCol='var(--text5)';strokeOp=0.18;swMain=swWF=swLB=0.6;}
@@ -8213,9 +8227,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
             // v67.2 (owner: "is there a way to compare this to the normal non tilt config") —
             //   one more series per SIZE TILT variant, drawn on the exact same grid as the skip
             //   candidates and the ungated champion above, so tilt / skip / no-filter can be read
-            //   off ONE chart instead of three tables. They join the same ML GATES legend group
-            //   (gateCand:true = default-hidden, one toggle) and are labelled "tilt: <model>" so a
-            //   tilt line can never be misread as a crownable candidate. Older runs carry no
+            //   off ONE chart instead of three tables. v67.7 (owner: "you put them in the ML
+            //   gates, make it its own section in the key"): they now form their OWN legend group
+            //   (SIZE TILTS, tiltCand:true = default-hidden, one toggle) instead of hiding inside
+            //   ML GATES — a gate SKIPS trades, a tilt keeps every trade and only re-sizes it, so
+            //   they are different animals and were unfindable buried together. Still labelled
+            //   "tilt: <model> · <scheme>" so a tilt line can never be misread as a crownable
+            //   candidate. Older runs carry no
             //   d.gate_validate.tilts and simply push nothing here.
             const _gvTilts=(d.gate_validate&&Array.isArray(d.gate_validate.tilts))?d.gate_validate.tilts:[];
             _gvTilts.forEach(tl=>{
@@ -8224,7 +8242,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
                          label:'tilt: '+String(tl.model||'')+' · '+String(tl.scheme||''),
                          color:_gateColor(String(tl.model||''),1,70),
                          eq:tl.equity.cum.map(v=>v*mult),
-                         li:null,wfi:null,gateCand:true,
+                         li:null,wfi:null,tiltCand:true,   // v67.6: own legend group, NOT ML GATES
                          ts:_mkTsSpan(tl.equity.cum.length,optFromMs,lbToMs)});
             });
           }catch(_gce){}
