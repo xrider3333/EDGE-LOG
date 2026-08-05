@@ -925,6 +925,34 @@ before rescaling), so the combined result is partly a *capped* stack — an unca
 concentrate harder still and is untested. NOT adopted: same reason as §4.25 — the tilt shapes have
 now been read off this lockbox, so adoption needs a pre-registered rule on a sealed one.
 
+### 4.28 ES transfer of the tilt — holds, and exposes WHY it is worth having (2026-08-05) ✅
+
+`python tools/orb_gate_tilt.py ES` — the NQ champion config on ES with **no re-fit**, same pinned
+window, same a-priori shapes, capital-matched. The standard ORB transfer test.
+
+**11 of 12 tilts beat the flat book on lockbox MAR (3.9); every one of them beats it pre-lockbox.**
+Only 6 of 12 clear the *full* bar, because on ES the bar's third clause (beat the cut) is much
+harder — see below. Tilt lockbox drawdowns again come in smallest (−$3,941 to −$7,574).
+
+**The real result is what happened to the CUT.** Which model's cut works is unstable across
+instruments, and unpredictable in advance:
+
+| | best cut | worst cut | spread | sd |
+|---|---|---|---|---|
+| NQ | **rf 14.4** | **xgb 4.6** | 9.8 | 3.32 |
+| ES | **xgb 19.4** | logistic 4.3 | 15.1 | 5.53 |
+| NQ tilts | 15.5 | 10.1 | 5.4 | **1.87** |
+| ES tilts | 12.5 | 5.1 | 7.4 | **2.39** |
+
+**xgb is the WORST cut on NQ (4.6) and the BEST cut on ES (19.4).** Picking a model's cut is a bet
+you cannot handicap ex ante. The tilts have roughly **half the dispersion** of the cuts on both
+instruments — they never win biggest and they never blow up. On ES the cost of that insurance is
+visible: xgb's cut posts 19.4 and no tilt gets near it. That is the honest trade — the tilt gives
+up the right tail to remove the left one.
+
+Verdict: the tilt is **structural, not an NQ artifact** — it transfers with no re-fit. But it is an
+insurance policy, not a profit maximiser, and §4.27's stacking result is the case for using it.
+
 ### 4.26 Fixed-% compounding — why published ORBs "look better" (2026-08-04) — diagnostic ◐
 
 `tools/orb_fixed_pct.py`: the SAME champion trades sized three ways from $100k (micros allowed,
