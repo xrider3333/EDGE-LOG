@@ -38,14 +38,20 @@ from augur_engine.engine import run_backtest
 from augur_engine.ml_gate import gate_trades
 from augur_engine.sizing import trade_features, mar
 
-MULT = 20.0
+INST = (sys.argv[1] if len(sys.argv) > 1 else "NQ").upper()
+MULT = {"NQ": 20.0, "ES": 50.0}.get(INST, 20.0)
 FEE = 5.66 / MULT + 0.25
 STRAT = "ORB_3_0_ENS.py"
+# The NQ champion, applied to ES with NO re-fit - the same transfer test ORB.md uses everywhere
+# else. If the tilt is a real structural effect it should survive the instrument change; if it is
+# NQ-specific curve-fitting it should not.
 CFG = dict(or_bars=1, trade_mode="Both", stop_frac=1.75, vol_filter=1.25, atr_filter=0.1,
            breakout_buf=0.0, be_after_R=1.0, target_R=4.0, trail_bars=12, flat_eod=True)
 MODELS = ("logistic", "rf", "xgb", "tree", "et")
-LB_DAYS = 365
 CAP = 3.0
+# Pinned to the run-report window so these numbers sit beside #194/#195 without a window slide.
+DFROM, DTO = "2010-06-07", "2026-06-30"
+LB_FROM = "2025-06-30"
 
 
 def _w_cut(p):
@@ -81,20 +87,26 @@ def _metrics(pnl_pts, size):
 
 
 def main():
-    m = find_master("NQ", "5m", "rth")
-    arrays = load_master_arrays(m)
-    res = run_backtest(STRAT, instrument="NQ", timeframe="5m", session="rth",
-                       params=CFG, cost_pts=0.0, return_trades=True)
+    m = find_master(INST, "5m", "rth")
+    arrays = load_master_arrays(m, DFROM, DTO)
+    res = run_backtest(STRAT, instrument=INST, timeframe="5m", session="rth",
+                       params=CFG, cost_pts=0.0, date_from=DFROM, date_to=DTO,
+                       return_trades=True)
     T = sorted(res["trades"], key=lambda t: int(t[0]))
     idx = np.asarray(arrays["index"])
     nb = len(idx)
     ts = np.array([idx[min(int(t[0]), nb - 1)] for t in T])
     pnl, risk, _ebar, _side = trade_features(T, arrays, CFG["stop_frac"], CFG["or_bars"])
 
-    lb_start = idx[-1] - np.timedelta64(LB_DAYS, "D")
+    import pandas as pd
+    lb_start = pd.Timestamp(LB_FROM)
+    _tz = getattr(pd.Timestamp(idx[-1]), "tzinfo", None)   # the master index is tz-aware
+    if _tz is not None and lb_start.tzinfo is None:
+        lb_start = lb_start.tz_localize(_tz)
     pre = ts < lb_start
     lb = ~pre
-    print(f"=== ORB item 171 — ML gate as a SIZE TILT (NQ 5m RTH, {STRAT}) ===")
+    print(f"=== ORB item 171 — ML gate as a SIZE TILT ({INST} 5m RTH, {STRAT}) ===")
+    print(f"window {DFROM} -> {DTO}  ·  master {m['filename']}")
     print(f"{len(T)} trades  ·  pre-lockbox {int(pre.sum())}  ·  lockbox {int(lb.sum())}  "
           f"(from {str(lb_start)[:10]})")
 

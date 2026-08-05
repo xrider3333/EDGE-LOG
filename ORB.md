@@ -835,6 +835,34 @@ tilt also never orphans the book (243/243 LB trades taken vs the cut's 89–130)
 smallest drawdowns of any variant family. Caveats: this reuses the over-used lockbox (§8), and
 the pre-lockbox capital-match constant is the only fitted quantity (fit pre-LB only, no leak).
 
+**SHIPPED + reproduced in the engine — run #195 (ORB-23), 2026-08-05.** The tilt is now a
+first-class gate output (`gate_validate` emits a `tilts` block; web v67.1 renders it under the 2C
+matrix, v67.2 draws each tilt on the 2A equity chart). It costs nothing — the tilt reuses the model
+scores the cut-off sweep already walked. Every tilt row is `crownable:false` and lives OUTSIDE
+`candidates`, so the pre-registered selection rule and the cut-off sweep chart are untouched.
+
+Run #195 numbers, on the **pinned** run window (2010-06-07 → 2026-06-30, LB from 2025-06-30 —
+therefore NOT directly comparable to the unpinned table above, which floated to 2026-07-16):
+
+| row | IS $ | WF $ | LB $ | LB MAR | LB DD | LB trades |
+|---|---|---|---|---|---|---|
+| no filter | $52,053 | $365,871 | $67,493 | 7.6 | −$8,868 | 243 |
+| 👑 cut rf@50 (crowned) | $59,188 | $439,523 | $81,464 | 14.4 | **−$5,653** | 130 |
+| **tilt rf linear** | $75,591 | $614,237 | **$110,781** | **15.5** | −$7,151 | 243 |
+| tilt tree linear | $83,971 | $600,576 | $99,771 | 15.1 | −$6,627 | 243 |
+| tilt et linear | $64,119 | $516,251 | $98,285 | 13.0 | −$7,557 | 243 |
+
+**All 10 tilts beat no-filter on the lockbox; 9 of 10 beat the crowned cut on lockbox dollars.**
+Best tilt = +$29k over the cut. Critically the effect is **not lockbox-only** — the walk-forward
+years go $365,871 → $614,237 on the same trades, so it shows in all three windows, which is the
+opposite signature to a lucky held-out year. Costs: the tilt carries ~2× the market exposure of the
+cut (243 trades vs 130 at the same average size) and a worse drawdown than the cut (−$7.2k vs
+−$5.7k). It earns more and shakes more.
+
+**NOT adopted, and cannot be.** Ten tilt numbers have now been read off the over-used lockbox
+(§8), so the tilt SHAPES are themselves "seen". Crowning one needs its own pre-registered rule and
+a strategy whose lockbox is still sealed — the same discipline the MAR floor rule went through.
+
 ### 4.26 Fixed-% compounding — why published ORBs "look better" (2026-08-04) — diagnostic ◐
 
 `tools/orb_fixed_pct.py`: the SAME champion trades sized three ways from $100k (micros allowed,
