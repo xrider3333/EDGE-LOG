@@ -25,7 +25,7 @@
 [data-theme="frost"]{--bg:#0c0c14;--bg1:#1a1a24;--bg2:#14141e;--bg3:#10101a;--border:#2e2e3d;--border2:#1f1f2c;--text:#f5f5fa;--text2:#d0d0d8;--text3:#9c9cac;--text4:#a8a8b8;--text5:#7a7a8a;--green:#4ade80;--red:#fb7185;--yellow:#fcd34d;--blue:#7dd3fc;--purple:#c4b5fd;}
 [data-theme="frost"] body,[data-theme="frost"] html{background:radial-gradient(ellipse at top left, #1a1a2e 0%, #0c0c14 50%, #08080f 100%);background-attachment:fixed}
 [data-theme="frost"] .section{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.08);border-radius:18px;backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);box-shadow:0 1px 0 rgba(255,255,255,0.05) inset, 0 8px 32px rgba(0,0,0,0.2)}
-[data-theme="frost"] .hero-card{background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.1);border-radius:16px;backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);box-shadow:0 1px 0 rgba(255,255,255,0.06) inset, 0 8px 24px rgba(0,0,0,0.15);transition:all 0.25s cubic-bezier(0.4, 0, 0.2, 1)}
+[data-theme="frost"] .hero-card{background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.1);border-radius:16px;backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);box-shadow:0 1px 0 rgba(255,255,255,0.06) inset, 0 8px 24px rgba(0,0,0,0.15);transition:background 0.25s cubic-bezier(0.4, 0, 0.2, 1),border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)}
 [data-theme="frost"] .hero-card:hover{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.15);transform:translateY(-2px);box-shadow:0 1px 0 rgba(255,255,255,0.1) inset, 0 12px 32px rgba(0,0,0,0.25)}
 [data-theme="frost"] .mini-card{background:transparent}
 [data-theme="frost"] .kpi-strip,[data-theme="frost"] .breakdown-strip{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.08);border-radius:16px;backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);box-shadow:0 1px 0 rgba(255,255,255,0.05) inset, 0 8px 32px rgba(0,0,0,0.2);overflow:hidden}
@@ -50,7 +50,7 @@
 [data-theme="frost"] .btn-ghost.active{color:rgba(255,255,255,1);background:rgba(125,211,252,0.1);border-bottom:2px solid #7dd3fc}
 [data-theme="glass"]{--bg:#08080c;--bg1:#15151a;--bg2:#101015;--bg3:#0c0c12;--border:#2a2a35;--border2:#1f1f28;--text:#f0f0f5;--text2:#c8c8d0;--text3:#9090a0;--text4:#a0a0b0;--text5:#707080;--green:#34d399;--red:#f87171;--yellow:#fbbf24;--blue:#60a5fa;--purple:#a78bfa;}
 [data-theme="glass"] .section{background:linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%);border:1px solid rgba(255,255,255,0.06);border-radius:16px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
-[data-theme="glass"] .hero-card{background:linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);border:1px solid rgba(255,255,255,0.06);border-radius:14px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);transition:all 0.2s}
+[data-theme="glass"] .hero-card{background:linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);border:1px solid rgba(255,255,255,0.06);border-radius:14px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);transition:background 0.2s,border-color 0.2s,box-shadow 0.2s,transform 0.2s}
 [data-theme="glass"] .hero-card:hover{background:linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);transform:translateY(-1px)}
 [data-theme="glass"] .mini-card{background:rgba(255,255,255,0.025);border-radius:12px}
 [data-theme="glass"] .kpi-strip{background:linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%);border:1px solid rgba(255,255,255,0.06);border-radius:14px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='67.3';
+const VERSION='67.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'67.4',date:'2026-08-05',notes:['Scroll-lag pass, no visual change. The pinned REPORT header was re-measuring and re-styling itself on every scroll tick — it now checks at most once per frame and only touches styles when its pinned state actually flips. The glass card themes were animating every style property; they now animate only the four that ever change on hover. Two scroll listeners marked passive so the browser never waits on them. The glass blur itself is untouched — if scrolling still feels heavy on the frost theme, that blur is the remaining cost and dialing it down is a look decision.']},
 {v:'67.3',date:'2026-08-04',notes:['1J TRADE CONTEXT gained two honesty layers from the Carl feature-selection playbook. NOISE FLOOR: every scan now plants three fake features (real values shuffled across days) and a real feature must out-score the best fake to survive - the floor value shows in the panel footer, and a feature that cleared the old checks but not this one reads a grey at-or-below-noise verdict. JOINT MODEL: all features are also fit TOGETHER (sparse regression plus a forest, both against the same fake-feature floor), so overlapping features like VIX and volatility percentile stop double-counting the same story - features the joint model independently leans on get a blue diamond next to their name and a summary line in the footer. Runs launched before this update lack the new fields and simply render as before.']},
 {v:'67.2',date:'2026-08-04',notes:['CHAMPION EQUITY (2A): the size-tilt variants now draw as their own lines, on the same chart as the no-filter champion and the skip-filter candidates - so tilt versus skip versus no filter can be read off one picture instead of three tables. They sit in the ML GATES legend group with the other filter lines, hidden until you toggle that group on, and are labelled tilt: model so they can never be mistaken for a crownable candidate.']},
 {v:'67.1',date:'2026-08-04',notes:['ML FILTER (2C): a new SIZE TILT table under the matrix. The filter above SKIPS trades below its cut-off; these rows spend the very same confidence scores as SIZE instead — every trade still taken, bigger when the model is confident, smaller when it is not. Shows in-sample, walk-forward and held-out dollars, held-out MAR and max drawdown, and the biggest size any single trade got, against both the no-filter baseline and the crowned skip-filter.','Every tilt row averages one lot per trade over the tuning years, so it is the same size of book as the no-filter row — not a bigger bet. Marked COMPARISON ONLY: the engine can never crown one, and the pre-registered filter rule is untouched.','Costs nothing to compute — the tilt rows reuse the model scores the filter already produced, so no extra run time.']},
@@ -7518,7 +7519,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(t&&t.title){e.stopPropagation();pop.innerHTML=String(t.title).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>');place(e.target);return;}
         if(!(e.target&&e.target.closest&&e.target.closest('#infopop')))close();});
       document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
-      window.addEventListener('scroll',close,true);};
+      window.addEventListener('scroll',close,{capture:true,passive:true});};
     // STRESS — winner PnL across 8 chronological windows. Profit SPREAD across windows is
     // robust; CONCENTRATED in one stretch is a red flag (one lucky regime carried it).
     const stressPanelHtml=(stress,mult,tag,scope)=>{
@@ -13636,7 +13637,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _det=el('res-detail');
         const _reveal=on=>{_rpEl.style.background=on?'var(--bg2)':'transparent';_rpEl.style.boxShadow=on?'0 6px 14px -8px rgba(0,0,0,.55)':'none';};
         if(window._resHeadScroll)window.removeEventListener('scroll',window._resHeadScroll);
-        window._resHeadScroll=()=>{const dt=_det?_det.getBoundingClientRect().top:(tbH+99);_reveal(dt<tbH-2);};
+        // rAF-throttled + state-guarded (perf): the old handler forced a layout read AND wrote
+        //   styles on EVERY scroll event — on the blurred sticky header that meant a repaint per
+        //   tick. Now at most one read per frame, and styles only touched when pinned-state FLIPS.
+        let _rhOn=null,_rhPend=false;
+        window._resHeadScroll=()=>{if(_rhPend)return;_rhPend=true;requestAnimationFrame(()=>{_rhPend=false;const dt=_det?_det.getBoundingClientRect().top:(tbH+99);const on=dt<tbH-2;if(on!==_rhOn){_rhOn=on;_reveal(on);}});};
         window.addEventListener('scroll',window._resHeadScroll,{passive:true});window._resHeadScroll();}
       // Interactive chart tooltips: any [data-tip] element (incl. SVG shapes) shows a floating
       //   styled tooltip that follows the cursor. data-tip holds HTML. Reusable across all charts.
@@ -13764,7 +13769,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           m.style.left=Math.round(Math.max(8,L))+'px';m.style.top=Math.round(Math.max(8,T))+'px';};
         place();requestAnimationFrame(place);setTimeout(place,60);setTimeout(place,220);
         const onMove=()=>{if(!m.isConnected){window.removeEventListener('scroll',onMove,true);window.removeEventListener('resize',onMove);return;}place();};
-        window.addEventListener('scroll',onMove,true);window.addEventListener('resize',onMove);});
+        window.addEventListener('scroll',onMove,{capture:true,passive:true});window.addEventListener('resize',onMove);});
       // v66.0 (owner: clicking outside did not close the panel): pointerdown in CAPTURE phase —
       //   'click' can be swallowed by chart drag handlers and never reach the document, and the
       //   old guard only registered the listener on a render that already had a panel open.
