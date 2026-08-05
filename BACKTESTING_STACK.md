@@ -1018,6 +1018,30 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-07-24** — **Round 5: PARAM_LIBRARY sweep — sized-ORB blend candidate found (+32%, all 17 years).**
+  Five pre-registered tests off PARAM_LIBRARY's untested cells, window pinned 2010-06-07→2026-06-30
+  (July backfill excluded), lockbox 2025-06-30→2026-06-30 verdict-deciding, all parity-gated to the
+  certified baselines (ENGUQ n=2048/$477,520.82 raw-mark; ORB #125 n=4064/$360,640.26 exact).
+  **S1 WIN (candidate, not yet adopted): the validated ORB sizing overlay (rp cap3 × time 2/1/0.5 ×
+  side L0.5/S1.5, sizing.py) applied to #125 with era-local rolling risk normalization (trailing
+  250-trade median risk, exposure-matched mean 1.0) lifts the ORB leg $360,640→$631,805 (MAR 38.6→88.8,
+  leg DD −$9.4k→−$7.1k) and the 1:1 blend $838k→$1,109k net / DD −$60.1k→−$58.7k / net/DD 13.95→18.91 /
+  lockbox-yr $183k→$222k, positive delta in EVERY of the 17 years, losing years NONE. Micro-tradeable
+  (10-MNQ units) within 0.1%; weights p95 3.2×/max 7.9× but worst sized loss −$2,660 < baseline −$4,836
+  (risk equalized by construction). Caveat: the specific rolling-normalization rule was fixed post-hoc
+  after the naive global-fit exposed a points-scale drift artifact (NQ price level ~4×) — parameter-free
+  (median), insensitive, but adopt via paper-forward tracking first. A global-fit (2010-anchored) sizing
+  is NOT recommended: it concentrates gains pre-2020 and loses to baseline 2022/25/26.
+  **S4 runner-up: ORB_3_0_ENS 2-lot exit ensemble as blend leg** — blend $943k / DD −$58.5k / LB $197k,
+  all-axes better than book but dominated by S1; overlay×ENS stack untested (needs own pre-registration).
+  **DEAD/REJECTED: S2** ENGUQ risk-parity (FULL/IS MAR doubles but lockbox collapses $68.3k→$1.1k — same
+  points-scale artifact, and ENGUQ's per-trade risk_pts ~3× in LB era; global rp = de-facto de-levering
+  of modern trades); **S3** ENGUQ time-of-day tilt (pre-registered ratio rule: IS PF first-hour 1.60 vs
+  late 1.16 = 1.37 < 1.5 bar — not adopted); **S5** ORB breakout_buf (every cell 0.05–0.30 worse on LB
+  MAR/PF, no plateau — matches pre-registration; settles the library's open cell as DEAD).
+  Artifacts: scratchpad orb_upgrades_* / enguq_sizing_* / orb_roll_overlay.pkl. Also flagged:
+  find_master('NQ','5m','rth') is ambiguous (db_noadj_rth vs tv tie → alphabetical pick fails #125
+  parity by 1 trade) — pin source='tv' for ORB comparisons, registry dedupe worth a fix.
 - **2026-07-23** — **§7 item 10 SHIPPED (v64.30) + run #174 = the new fully-loaded test doc.**
   Full config population saved: curve per recorded config (int, ≤110 pts, 400-curve work cap,
   400 KB byte guard), dist rebuilt post-expansion (fixes the 73-vs-171 divergence 4B showed),
