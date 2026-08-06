@@ -3,8 +3,8 @@
 **Single source of truth for where the backtesting engine stands.** Update this
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
-- **Last updated:** 2026-08-05
-- **Web VERSION:** 67.8 · **Stack board (`method_stack.html`):** v4.1
+- **Last updated:** 2026-08-06
+- **Web VERSION:** 68.3 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
@@ -575,6 +575,9 @@ external-conditioning diagnostic. Both come back empty — and the emptiness is 
 - **Tally: 12 rounds across both sessions · ~2,000 configs · 2 lockboxes spent · 0 beat ORB.**
 - Artifacts: session scratchpad round11_report.md, noise2_battery_report.md (+ per-condition .json,
   r11_*.py, run_c1_walkforward.py, r11_verify_yes.py).
+- **2026-08-05 — status change: promoted to backend-testable plugin `NOISE_1_0.py`** (owner-directed:
+  it passes the IS/WF bar the owner set; ES-transfer caveat and unspent lockbox carried in the file
+  docstring). Parity-gated to the round-11 frozen numbers; runnable in Builder → Auto-Validate.
 
 **2026-07-17 — challenger round 13 (owner: import + test TradingView's most-boosted community
 strategies): 12 verbatim Pine→Python ports, ~250 pre-registered cells — 0 of 12 survive triage.
@@ -1084,6 +1087,9 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-05** — **NOISE 1.0 shipped as a library plugin** (owner-directed backend-testing phase):
+  frozen round-11 config as defaults, parity-gated (n=3,147/$254.4k/PF 1.31/MAR 8.14), ES-transfer
+  caveat + unspent lockbox documented in-file. Not crowned.
 - **2026-08-05** — **ENGU-Q "repro defect" RESOLVED — the file was never broken; the params were.**
   Root cause: `ENGUQ_1M_1_0.py`'s DEFAULT_PARAMS defaults are the ES-validated config (tl_len 34 /
   ema_len 30 / …); the NQ champion #149 uses tl_len 48 / ema_len 390 / buf_atr 0.9 / min_brk 1.3 /
