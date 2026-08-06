@@ -953,6 +953,54 @@ up the right tail to remove the left one.
 Verdict: the tilt is **structural, not an NQ artifact** — it transfers with no re-fit. But it is an
 insurance policy, not a profit maximiser, and §4.27's stacking result is the case for using it.
 
+### 4.29 HYBRID — filter first, then tilt the survivors (2026-08-06) — item 201 ◐ MIXED
+
+`tools/orb_tilt_floor.py` (owner idea): instead of choosing between the filter (delete under the
+cut-off) and the tilt (re-size everything), do both — skip below a FLOOR, tilt whatever survives.
+Floor chosen on PRE-LOCKBOX MAR only (rule fixed before running, ties → lowest floor); the lockbox
+is reported afterwards as a check, never as the chooser. Every floor's lockbox is printed and
+labelled hindsight so the honest pick can be scored against the lucky one.
+
+**The clean version needs NO new knob.** Pin the floor to the filter's already-crowned cut-off
+(0.50) and the hybrid is just "the crowned filter, with its survivors sized by confidence" — no
+extra parameter, no new surface to overfit. On rf that is the best single reading in the study:
+
+| variant (capital-matched, held-out year) | LB $ | LB MAR | LB DD |
+|---|---|---|---|
+| no filter | $67,493 | 7.6 | −$8,868 |
+| filter rf@50 alone | $140,630 | 14.4 | −$9,759 |
+| tilt rf alone | $107,348 | 15.5 | −$6,930 |
+| **filter@50 + tilt the survivors** | **$155,583** | **17.9** | −$8,686 |
+
++$15k and +3.5 MAR over the plain filter on the *identical* trade set — the only difference is
+that survivors are sized by confidence instead of flat.
+
+**Letting the floor float is where it falls apart.** Swept 0 → 0.65 on three models:
+
+| floor | rf pre-MAR | rf LB MAR | tree pre-MAR | tree LB MAR | et pre-MAR | et LB MAR |
+|---|---|---|---|---|---|---|
+| 0.00 | 57.8 | 15.5 | 51.1 | **15.1** | 41.0 | 13.0 |
+| 0.50 | 73.4 | 17.9 | 57.7 | 12.5 | 46.2 | 14.8 |
+| 0.55 | **79.1** | 15.8 | 55.8 | 12.3 | 56.5 | 12.3 |
+| 0.60 | 60.9 | **22.0** | **60.4** | 11.4 | **71.3** | **31.6** |
+| 0.65 | 52.3 | 15.1 | 59.9 | 13.9 | 47.7 | 13.7 |
+
+Three things kill it as an adoptable rule:
+1. **The lockbox column is SPIKY, not a plateau.** et posts 12.3 → **31.6** → 13.7 across adjacent
+   floors; rf posts 15.8 → **22.0** → 15.1. An isolated peak flanked by much worse neighbours is
+   the exact signature ORB.md has rejected as noise everywhere else (§4.5 chandelier, §4.13 the
+   2.6R BE trap). et@0.60's $192,642 / MAR 31.6 is a spike, not an edge.
+2. **Pre-lockbox MAR does not rank the lockbox.** et's pre-MAR rises monotonically 46 → 56 → 71
+   while its LB MAR goes 14.8 → 12.3 → 31.6. The selector is reading a signal that does not carry.
+3. **The honest pick loses to hindsight 2 times in 3, and on tree it loses to doing nothing** —
+   floor 0.60 gives LB MAR 11.4 where the pure tilt (floor 0) gives 15.1.
+
+**Verdict: adopt nothing with a floating floor.** The floor is a genuine new free parameter and the
+surface it lives on is not smooth enough to pick from. The pinned version (floor = the crowned
+cut-off) is the only shape worth carrying forward, because it adds no parameter at all — and even
+that is one reading off a lockbox that §8 already calls over-used. This whole section spent ~21
+more lockbox reads; treat every number in it as exploration.
+
 ### 4.26 Fixed-% compounding — why published ORBs "look better" (2026-08-04) — diagnostic ◐
 
 `tools/orb_fixed_pct.py`: the SAME champion trades sized three ways from $100k (micros allowed,
