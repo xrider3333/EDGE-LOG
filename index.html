@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='68.0';
+const VERSION='68.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'68.1',date:'2026-08-06',notes:['SIZE TILT is its own section now (2D), directly under 2C, instead of being stacked inside it. The cut-off sweep stays in 2C where it belongs - it is a property of the filter, not the tilt.','Wording fixed throughout: the 2C model is called the FILTER everywhere, never a skip or a gate. The tilt info now spells out that both use the SAME score - the filter as a bouncer (trade does not happen), the tilt as a dimmer (trade happens smaller).','Cleared up the size contradiction: individual trades run from about half a contract to triple, and the AVERAGE across all trades is exactly one - that is the point, the tilt is the same size of book as no-filter, just spread differently. Half a contract is real: micros are one tenth, so half an NQ is five MNQ.','Every column in the tilt table now explains itself on hover - what IN-SAMPLE, WALK-FWD and HELD-OUT actually mean, and what BIGGEST SIZE measures.','2B now lists ALL the configs the engine evaluated, not just the five that could win. The engine always scored about ten; the display-only extras were computed and thrown away. They appear dimmed and marked NOT ELIGIBLE so the distinction stays clear.','2B: every listed config now carries a real held-out number. Previously only the top three by walk-forward were run through the held-out year, so most of the table had a blank there and could not be compared like for like.']},
 {v:'68.0',date:'2026-08-06',notes:['Compare chart moved above the table, with the same bordered key box style as chart 2B instead of the old wrapping legend text.','The Compare chart is now interactive in place - crosshair with date and per-run values, wheel zoom, drag pan, double-click reset - no need to open fullscreen.','Compare table can flip between VERT (runs as columns) and HORIZ (runs as rows) so many runs fit without sideways scrolling.','Compare table dollars abbreviated (400k / 1.03M) with compact run headers.']},
 {v:'67.9',date:'2026-08-06',notes:['Report columns re-ordered on owner request. Section 1: the KPI matrix moves to the MIDDLE column and the trade-distribution stack (1G-1J) moves to the right.','Section 2: the 2A funnel now owns the whole first column on its own. The middle column is 2B raw configs, the 2C ML filter, 2D distribution, 2E explorer and the 2K ML config builder. The third column is the parameter views - 2F through 2J.','1J TRADE CONTEXT was drawing its title twice, and listing every scanned feature made it a very tall tower. One title now, and the features that read no signal fold into a one-line expander at the bottom.','SIZE TILT table text shrunk - the shared table style was sizing those columns about twice as wide as their numbers need.']},
 {v:'67.8',date:'2026-08-05',notes:['Challenger round 15: the GMM regime-state signals from the 2026 MNQ falsification paper do not replicate under causal reconstruction on 16 years of NQ - the fourth and final online sweep closes with zero strategies beating ORB. See BACKTESTING_STACK section 3.']},
@@ -7855,7 +7856,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
     };
     const selectionTableHtml=(sel,mlt,cfgNoMap,valBlock)=>{
       if(!sel||!Array.isArray(sel.candidates)||!sel.candidates.length)return null;
-      const cand=sel.candidates;
+      // v68.1 (owner: "for 2b why do i only see 5 configs when 2c shows 10 or so?"). The engine has
+      //   always evaluated ~10 configs and split them into the crown pool (eligible to win) and
+      //   display-only robustness extras — but only the crown pool was ever drawn, so the table
+      //   showed 5 while the 2C matrix showed 20. Both groups are listed now. The extras are NOT
+      //   crownable and never were; they carry a dimmed rank so the distinction stays visible.
+      const _robust=Array.isArray(sel.robust)?sel.robust:[];
+      const cand=sel.candidates.concat(_robust.map(r=>Object.assign({},r,{_dispOnly:true})));
       let isMaxI=0;cand.forEach((c,i)=>{if((c.is_pnl||0)>(cand[isMaxI].is_pnl||0))isMaxI=i;});
       const isMaxC=cand[isMaxI];
       const pk=Object.keys(cand[0].params||{});
@@ -7938,7 +7945,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const fullRun=lbOk?lbV:optEnd;
         const fullRunStar=!lbOk;   // no lockbox carry-through: this is the optimize-window end
         const rankTip='rank '+(i+1)+' of '+sorted.length+' by walk-forward result'+(crowned?' - CROWNED (the walk-forward winner)':'')+(ismax?' - also the in-sample maximum (best pre-registered search score)':'');
-        return {params:c.params||{},rank:i+1,crowned,ismax,cfgNo,isV,wfV,lbV,lbSlice,fullRun,fullRunStar,mdd,mar,sharpe,foldsHeld,mmPf,mmWr,mmApt,rankTip,isCal:_isCal,searchIsV,foldWfV};});
+        return {params:c.params||{},rank:i+1,crowned,ismax,cfgNo,isV,wfV,lbV,lbSlice,fullRun,fullRunStar,mdd,mar,sharpe,foldsHeld,mmPf,mmWr,mmApt,rankTip,isCal:_isCal,searchIsV,foldWfV,_dispOnly:!!c._dispOnly};});
       // ── TRANSPOSED MATRIX (owner redesign, item 2): 1E-style — one COLUMN per crown-pool
       //    config (headed by its walk-forward rank + config #, crowned column emphasised),
       //    metrics grouped as ROWS. Replaces the old one-row-per-config table; the knobs-that-
@@ -7965,8 +7972,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _b2Would=(_b2rank!=='rec')?recs[0]:null;
       const cols=recs.map(rc=>Object.assign({
         lbl:(rc.crowned?'👑':'')+'R'+rc.rank+' · '+(rc.cfgNo?('#'+rc.cfgNo):'—'),
-        sub:rc.crowned?'CROWNED':((_b2Would===rc)?'◇ WOULD':(rc.ismax?'IS MAX':'')),
-        col:rc.crowned?'var(--green)':(rc.ismax?'#3a9bdc':'var(--text2)'),
+        // v68.1: the display-only rows (never eligible to be crowned) say so, and read dimmer.
+        sub:rc.crowned?'CROWNED':(rc._dispOnly?'NOT ELIGIBLE':((_b2Would===rc)?'◇ WOULD':(rc.ismax?'IS MAX':''))),
+        col:rc.crowned?'var(--green)':(rc._dispOnly?'var(--text4)':(rc.ismax?'#3a9bdc':'var(--text2)')),
         emph:rc.crowned,tip:rc.rankTip},rc));
       // v64.93 (owner): abbreviate dollars the way 2C does ($450k) so 2B is just as compact.
       const _usd=v=>v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtAx(v,1)+'</span>'):'<span style="color:var(--text5)">—</span>';
@@ -10423,29 +10431,34 @@ namespace NinjaTrader.NinjaScript.Strategies {
           let b='';
           b+=_row('no filter','every trade, one lot',(V.ungated_full||{}).num_trades,
                   V.ungated_is,V.ungated_wf,V.ungated_lockbox,1,'color:var(--text3)');
-          if(ch)b+=_row('&#128081; '+ch.model+' @ '+Math.round((ch.threshold||0)*100)+'% <span style="font-size:7px;color:var(--text5)">SKIP</span>',
-                  'deletes the rest',ch.kept_pre,ch.is_rng,ch.wf_rng,ch.lockbox,1,
+          // v68.1 (owner: "dont change up the verbage like that, just call it filter") — this row
+          //   is the 2C FILTER, named FILTER here exactly as it is named there. It used to say
+          //   SKIP, which read like a third thing.
+          if(ch)b+=_row('&#128081; the 2C filter &mdash; '+ch.model+' @ '+Math.round((ch.threshold||0)*100)+'%',
+                  'drops the rest',ch.kept_pre,ch.is_rng,ch.wf_rng,ch.lockbox,1,
                   'color:var(--green);font-weight:700');
           _tl.forEach(t=>{const r=_tRec(t.lockbox),top=(r!=null&&_bst!=null&&Math.abs(r-_bst)<1e-9);
             b+=_row(t.model,'<span title="'+(_shTip[t.scheme]||'')+'" style="border-bottom:1px dotted var(--text5);cursor:help">'+(_shNm[t.scheme]||t.scheme)+'</span>',
                     t.n_trades,t.is_rng,t.wf_rng,t.lockbox,t.max_size,
                     top?'color:#f0b429;font-weight:700':'');});
-          return '<div style="margin-top:12px"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'
-            +'<span style="font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--text2)">SIZE TILT &middot; SAME MODELS, SPENT AS SIZE</span>'
+          return '<div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'
+            +'<span style="font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--text2)">SAME MODELS AS 2C, SPENT AS SIZE INSTEAD OF AS A SKIP</span>'
             +'<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 6px;font-size:7px;white-space:nowrap">COMPARISON ONLY &middot; NEVER CROWNED</span>'
-            +_infoIc('<div style="color:var(--text2)">The filter above is a SKIP: below its cut-off a trade is thrown away. These rows spend the very same confidence scores as SIZE instead - every trade is still taken, just bigger when the model is confident and smaller when it is not.<br><br>Why it can matter: a skip bets the whole trade on the model being right, and this strategy makes its money from a handful of very large winners. Delete one of those and no amount of avoided losers pays it back. A tilt can only ever take a big winner SMALL - it can never lose it outright.<br><br>Every row averages one lot per trade over the tuning years, so it is the same size of book as the no-filter row - not a bigger bet. BIGGEST SIZE is the largest any single trade ever got.<br><br>These are shown for comparison and can never be crowned. Adopting one would need its own rule, registered in advance, exactly like the current filter rule was.</div>')
+            +_infoIc('<div style="color:var(--text2)"><b>THE FILTER AND THE TILT USE THE SAME SCORE. THEY SPEND IT DIFFERENTLY.</b><br>A model scores every trade before it happens - how likely it is to work, using only what was knowable at the time.<br><br><b>FILTER</b> (section 2C) = a bouncer. Score under the cut-off, the trade does not happen. Fewer trades.<br><b>TILT</b> (this section) = a dimmer. Every trade happens; confident ones get more contracts, doubtful ones get fewer.<br><br><b>Why a tilt can be safer:</b> this strategy earns from a handful of very large winners. A filter that is wrong about one of those deletes it, and no amount of avoided losers pays it back. A tilt that is wrong only takes it SMALL - it can never lose it outright.<br><br><b>ABOUT THE SIZES - these do not contradict each other.</b> Individual trades get roughly half a contract up to about triple. The AVERAGE across all trades is one contract, because the sizes are scaled to make it so. That is the point: the tilt is the SAME SIZE OF BOOK as the no-filter row, just distributed differently. It is not a bigger bet.<br><br><b>Half a contract is real, not theoretical:</b> micro contracts are one tenth of the full size, so half an NQ is five MNQ.<br><br><b>THE COLUMNS.</b> IN-SAMPLE and WALK-FWD are the tuning years - the model was being fitted and refitted across them. HELD-OUT is the final year, sealed away and never touched until the winner was already picked, so it is the closest thing to a forward test. HELD-OUT MAR is dollars earned per dollar of drawdown in that year - higher means a smoother ride for the same money. BIGGEST SIZE is the largest number of contracts any single trade was ever given.<br><br>Shown for comparison only. None of these can be crowned: adopting one would need its own rule registered in advance, exactly like the current filter rule was.</div>')
             +'</div><div style="overflow-x:auto">'
             // v67.9 (owner: "the size tilt column text are massive"): the shared .table th style is
             //   9px with 2px letter-spacing and 10px side padding, which blew every column out to
             //   twice the width its numbers need. Scope it down for this table only.
             +'<style>.tilttbl th{padding:4px 6px!important;font-size:7px!important;letter-spacing:.4px!important;line-height:1.25}.tilttbl td{padding:3px 6px!important;font-size:9px!important}</style>'
             +'<table class="table tilttbl"><thead><tr>'
-            +'<th>MODEL</th><th>SIZE SHAPE</th><th style="text-align:right">TRADES</th>'
-            +'<th style="text-align:right">IN-SAMPLE $</th><th style="text-align:right">WALK-FWD $</th>'
-            +'<th style="text-align:right">HELD-OUT $</th>'
-            +'<th style="text-align:right" title="held-out net dollars per dollar of drawdown - higher is a smoother ride for the same money">HELD-OUT MAR</th>'
-            +'<th style="text-align:right">HELD-OUT MAX DD</th>'
-            +'<th style="text-align:right" title="the largest size any single trade was given">BIGGEST SIZE</th>'
+            +'<th>MODEL</th><th title="how the contracts are handed out as confidence rises">SIZE SHAPE</th>'
+            +'<th style="text-align:right">TRADES</th>'
+            +'<th style="text-align:right" title="the earliest tuning years, before the walk-forward folds begin">IN-SAMPLE $</th>'
+            +'<th style="text-align:right" title="the walk-forward years - still tuning years, the model refits as it goes">WALK-FWD $</th>'
+            +'<th style="text-align:right" title="the final year, sealed away and never looked at until the winner was already chosen. The closest thing here to a forward test.">HELD-OUT $</th>'
+            +'<th style="text-align:right" title="held-out dollars earned per dollar of drawdown - higher means a smoother ride for the same money">HELD-OUT MAR</th>'
+            +'<th style="text-align:right" title="the deepest peak-to-trough loss during the held-out year">HELD-OUT MAX DD</th>'
+            +'<th style="text-align:right" title="the largest number of contracts any single trade was ever given. The AVERAGE across all trades is always 1 - only the spread differs.">BIGGEST SIZE</th>'
             +'</tr></thead><tbody>'+b+'</tbody></table></div></div>';})();
         return {V:V,LB:LB,ch:ch,tilts:tiltTbl,ctrls:(_ctrls+_sampMenu+_rankMenu),menus:'',
           head:'<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>',
@@ -11576,7 +11589,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   hero cards + pick-line duplicated what the matrix/lockbox block now say directly
           //   (and mixed the two periods in one place) — dropped in favour of this tile own
           //   lockboxBlock, which is unambiguous about which period each number belongs to.
-          _gBody=(_gvP.matrix||'')+(_gvP.tilts||'')+_epViz+_gc2j+_evTile(_evTog,_evOpen,('<div data-r3graph style="max-width:540px;margin-top:8px"><style>[data-r3graph] .rschart-box{height:174px!important;resize:none}</style>'+_gvP.graph+'</div>'));
+          // v68.1 (owner): the SIZE TILT table is no longer stacked inside 2C — it is its own
+          //   section below (2D). The cut-off sweep stays HERE because it belongs to the filter.
+          _gBody=(_gvP.matrix||'')+_epViz+_gc2j+_evTile(_evTog,_evOpen,('<div data-r3graph style="max-width:540px;margin-top:8px"><style>[data-r3graph] .rschart-box{height:174px!important;resize:none}</style>'+_gvP.graph+'</div>'));
         }else{
           const _evTog='<div data-r3ev title="the full gate report — before/after table, feature attribution (SHAP), calibration and discrimination. Click to '+(_evOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.5px">'+(_evOpen?'▴ hide the full gate detail':'▾ FULL GATE DETAIL — feature attribution · calibration ⓘ')+'</div>';
           _gBody=_hero+_epViz+_gc2j+_evTile(_evTog,_evOpen,('<div style="margin-top:8px">'+gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt)+'</div>'));
@@ -11605,6 +11620,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +(_g2Open?('<div style="margin-top:9px">'+_gateCard+'</div>'):'')
           +'</div>';
       }
+      // ── 2D SIZE TILT — its own collapsible section (v68.1, owner ask) ─────────────────────
+      //   Was stacked inside 2C, which made it read as a footnote to the filter. It is a
+      //   different animal and gets its own tile, directly under 2C, with the same open/close
+      //   behaviour. Only renders on runs whose engine saved tilt rows.
+      let _tiltSec='';
+      if(_gvP&&_gvP.tilts){
+        const _tOpen=(APREF.tilt2dOpen==null?1:+APREF.tilt2dOpen);
+        _tiltSec='<div style="'+_colStyle+';margin-bottom:0;resize:vertical;min-height:52px;max-height:900px">'
+          +'<div data-tilt2d style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow:hidden">2D &#127899; SIZE TILT '
+          +_infoIc('<div style="color:var(--text2)">THE SAME MODELS AS 2C, SPENT AS SIZE INSTEAD OF AS A SKIP.<br><br>2C uses a model score as a BOUNCER - under the cut-off, the trade does not happen. This section uses the identical score as a DIMMER - every trade still happens, confident ones get more contracts and doubtful ones get fewer.<br><br>Nothing here can ever be crowned; it exists so the two ways of spending the same model can be compared side by side over the same stretches.</div>')
+          +'<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap">COMPARISON ONLY</span>'
+          +'<span style="margin-left:auto;font-size:8px;color:var(--text4);flex-shrink:0">'+(_tOpen?'&#9652; hide':'&#9662; show')+'</span></div>'
+          +(_tOpen?('<div style="margin-top:9px">'+_gvP.tilts+'</div>'):'')
+          +'</div>';
+      }
       // v64.88 (item 1, owner re-letter): col 1 reads top-to-bottom as 2A funnel · 2B configs
       //   raw (promoted out of the 2A card) · the collapsible 2C gate pill (gate equity is
       //   overlaid on the funnel) · 2D distribution · 2E explorer. col 2 = 2F/2G/2H/2I/2J.
@@ -11613,7 +11643,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   col 2 = 2B raw configs · 2C gate pill · 2D distribution · 2E explorer + 2K ML config
       //   builder (+ DSR); col 3 = the old col 2 (2F-2J).
       const _col1=_eq;
-      const _col2b=_stack([_rawInner].concat(_gateSec?[rsRow,_gateSec,rsRow]:[]).concat([_dist,_p3inner,_surrInner,_dsrInner]));
+      const _col2b=_stack([_rawInner]
+        .concat(_gateSec?[rsRow,_gateSec]:[])
+        .concat(_tiltSec?[rsRow,_tiltSec]:[])
+        .concat((_gateSec||_tiltSec)?[rsRow]:[])
+        .concat([_dist,_p3inner,_surrInner,_dsrInner]));
       const _col3=_col2;
       const _sec3=(function(){
         // v64.19 (owner): §2 gets the SAME separation model as §1 — vertical splitter bars
@@ -13877,6 +13911,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v64.98: the SAMPLE / RANK BY / HEAT strip now lives ON this header row, so a click that
       //   lands inside it must NOT also collapse the tile.
       content.querySelectorAll('[data-gate2a]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-g2ctl]'))return;e.stopPropagation();savePref('gate2aOpen',(APREF.gate2aOpen==null?1:+APREF.gate2aOpen)?0:1);renderApp();};});
+      content.querySelectorAll('[data-tilt2d]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]'))return;e.stopPropagation();savePref('tilt2dOpen',(APREF.tilt2dOpen==null?1:+APREF.tilt2dOpen)?0:1);renderApp();};});
       // 2L TOP INTERACTIONS flat ⇄ 3-D toggle (#54)
       content.querySelectorAll('[data-surr3d]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('surr3d',+b.dataset.surr3d);renderApp();};});
       // CARD LAYOUT (owner): report cards resize BOTH directions (drag the corner) and the

@@ -499,9 +499,17 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     if selection and selection.get("candidates"):
         try:
             champ_sig = tuple(sorted((kk, champ.get(kk)) for kk in champ))
-            top3 = sorted(selection["candidates"],
-                          key=lambda c: -(c.get("wf_oos_pnl") or 0))[:3]
-            for c in top3:
+            # v68.1 (owner: "why only push the WF years ... I would like it to run through the LB
+            #   as well to see apples to apples"). Was the top THREE crown-pool configs only, so
+            #   2B could show a lockbox number for 3 of its 5 rows and nothing for the display-only
+            #   robustness rows. Now EVERY config 2B lists — crown pool AND the display-only extras
+            #   — carries its own lockbox slice, so the whole table reads on the same three stretches.
+            #   Cost is one short backtest per config over the held-out year only; the champion's is
+            #   reused, not re-run. This changes NOTHING about selection: the crown was already
+            #   decided from walk-forward above, and `robust` rows were never crownable to begin with.
+            _lb_rows = sorted((selection.get("candidates") or []) + (selection.get("robust") or []),
+                              key=lambda c: -(c.get("wf_oos_pnl") or 0))
+            for c in _lb_rows:
                 base = float(((c.get("equity") or {}).get("final")) or 0.0)
                 c_sig = tuple(sorted((kk, (c.get("params") or {}).get(kk)) for kk in (c.get("params") or {})))
                 _cbt = lb if (c_sig == champ_sig and lb) else run_backtest(
