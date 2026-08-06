@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='67.8';
+const VERSION='67.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'67.9',date:'2026-08-06',notes:['Report columns re-ordered on owner request. Section 1: the KPI matrix moves to the MIDDLE column and the trade-distribution stack (1G-1J) moves to the right.','Section 2: the 2A funnel now owns the whole first column on its own. The middle column is 2B raw configs, the 2C ML filter, 2D distribution, 2E explorer and the 2K ML config builder. The third column is the parameter views - 2F through 2J.','1J TRADE CONTEXT was drawing its title twice, and listing every scanned feature made it a very tall tower. One title now, and the features that read no signal fold into a one-line expander at the bottom.','SIZE TILT table text shrunk - the shared table style was sizing those columns about twice as wide as their numbers need.']},
 {v:'67.8',date:'2026-08-05',notes:['Challenger round 15: the GMM regime-state signals from the 2026 MNQ falsification paper do not replicate under causal reconstruction on 16 years of NQ - the fourth and final online sweep closes with zero strategies beating ORB. See BACKTESTING_STACK section 3.']},
 {v:'67.7',date:'2026-08-05',notes:['SIZE TILTS are their own section in the 2A equity key now, instead of being buried inside ML GATES where they were unfindable. They are a different animal to a gate: a gate SKIPS trades, a tilt keeps every trade and only re-sizes it, so mixing them read as if the tilt lines were gate candidates. One toggle still shows or hides the whole tilt family, and the lines stay hidden until asked for.','Expanded chart view fits split-screen better: the title is smaller, the row gap tighter and the VIEW picker narrower, so the toggle labels (closed, trades and the rest) stop compressing and the header row no longer has to be scrolled sideways. The row deliberately stays one fixed-height non-wrapping line - letting it wrap re-flows the layout while the hover readout grows and resizes the chart under the cursor.']},
 {v:'67.6',date:'2026-08-05',notes:['Compare gained a mode toggle at the top: PICK RUNS (the manual picker, unchanged, still the default) or BY STRATEGY (new).','BY STRATEGY shows one curve per strategy family - its top config, picked automatically by score, max 8 families - on the same equity chart, drawdown pane, metric table and net P&L bars as before, updating on its own as new runs land.','No manual picking in that mode - switch back to PICK RUNS any time.']},
@@ -8943,6 +8944,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'</span>'
           +'<span style="flex:0 0 62px;text-align:right;font-weight:700;color:'+vd.c+'">'+vd.t+'</span></div>';};
       const hdr='<div style="display:flex;gap:9px;align-items:baseline;font-size:8px;font-weight:700;margin:2px 0 3px;color:var(--text4)"><span style="flex:0 0 122px">MARKET FEATURE</span><span style="flex:0 0 34px;text-align:right">corr</span><span style="flex:1;text-align:center">hurt &lt;-- --&gt; helped (bar = correlation, band = confidence)</span><span style="flex:0 0 62px;text-align:right">verdict</span></div>';
+      // v67.9 (owner: "make 1J not stack so high"): the scan lists EVERY market feature and most of
+      //   them read "no signal" by design, so a 20-feature run built a 20-row tower. Show the rows
+      //   that carry a verdict (through the last survivor, min 6) and fold the silent tail into a
+      //   native <details> — no handler to wire, and nothing is hidden that a click cannot reach.
+      const _lastS=rows.reduce((m,o,i)=>o.survives?i:m,-1);
+      const _nShow=Math.min(rows.length,Math.max(6,_lastS+1));
+      const _rest=rows.slice(_nShow);
+      const _more=_rest.length?('<details><summary style="cursor:pointer;font-size:8px;color:var(--text4);padding:5px 0 0;outline:none">'+_rest.length+' more feature'+(_rest.length>1?'s':'')+' &middot; no signal</summary>'+_rest.map(row).join('')+'</details>'):'';
       const nTrend=rows.filter(o=>o.trend_confounded).length;
       const foot='<div style="font-size:8px;color:var(--text5);margin-top:7px;line-height:1.5">'
         +ctx.n_trades+' trades over '+ctx.n_days+' days · '+(nSurv?('<b style="color:var(--text3)">'+nSurv+' feature'+(nSurv>1?'s':'')+' survived</b>'):'<b>none survived</b>')+' the checks'
@@ -8950,8 +8959,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +((ctx.probe_max_abs_rho!=null)?(' · <span title="Three FAKE features (real values shuffled across days = pure noise) are planted in every scan; a real feature must out-score the best fake to survive. This is the noise floor they set.">noise floor '+(+ctx.probe_max_abs_rho).toFixed(2)+'</span>'):'')
         +((()=>{const jk=rows.filter(o=>o.lasso_kept||o.rf_beats_probe);if(!ctx.joint||!jk.length)return '';return ' · <span style="color:var(--blue)" title="Features the joint model (all features together, vs the planted noise probes) actually leans on - the diamond markers above. A feature can look correlated alone yet carry no independent signal once its overlapping siblings are in the same model.">◆ joint model leans on: '+jk.map(o=>(CTX_LBL[o.name]||o.name)).join(', ')+'</span>';})())
         +(ctx.external_available?'':' · VIX / rates unavailable offline — internal features only')+'</div>';
-      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+tag+' · TRADE CONTEXT</div>':'<div class="lbl" style="margin:8px 0 6px">TRADE CONTEXT</div>')
-        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;max-width:820px">'+hdr+rows.map(row).join('')+foot+'</div>';};
+      // v67.9 (owner: "1J has two chart titles"): BOTH call sites already prepend their own
+      //   numbered header, so the panel no longer draws a second one when a tag is supplied.
+      return (tag?'':'<div class="lbl" style="margin:8px 0 6px">TRADE CONTEXT</div>')
+        +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;max-width:820px">'+hdr+rows.slice(0,_nShow).map(row).join('')+_more+foot+'</div>';};
     const corrPanelHtml=(points,tag,rel,knobScreen)=>{
       if(!points||points.length<8)return '';
       const keys=Object.keys(points[0]).filter(k=>k!=='pnl'&&k!=='dd'&&typeof points[0][k]==='number');
@@ -10229,7 +10240,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<span style="font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--text2)">SIZE TILT &middot; SAME MODELS, SPENT AS SIZE</span>'
             +'<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 6px;font-size:7px;white-space:nowrap">COMPARISON ONLY &middot; NEVER CROWNED</span>'
             +_infoIc('<div style="color:var(--text2)">The filter above is a SKIP: below its cut-off a trade is thrown away. These rows spend the very same confidence scores as SIZE instead - every trade is still taken, just bigger when the model is confident and smaller when it is not.<br><br>Why it can matter: a skip bets the whole trade on the model being right, and this strategy makes its money from a handful of very large winners. Delete one of those and no amount of avoided losers pays it back. A tilt can only ever take a big winner SMALL - it can never lose it outright.<br><br>Every row averages one lot per trade over the tuning years, so it is the same size of book as the no-filter row - not a bigger bet. BIGGEST SIZE is the largest any single trade ever got.<br><br>These are shown for comparison and can never be crowned. Adopting one would need its own rule, registered in advance, exactly like the current filter rule was.</div>')
-            +'</div><div style="overflow-x:auto"><table class="table"><thead><tr>'
+            +'</div><div style="overflow-x:auto">'
+            // v67.9 (owner: "the size tilt column text are massive"): the shared .table th style is
+            //   9px with 2px letter-spacing and 10px side padding, which blew every column out to
+            //   twice the width its numbers need. Scope it down for this table only.
+            +'<style>.tilttbl th{padding:4px 6px!important;font-size:7px!important;letter-spacing:.4px!important;line-height:1.25}.tilttbl td{padding:3px 6px!important;font-size:9px!important}</style>'
+            +'<table class="table tilttbl"><thead><tr>'
             +'<th>MODEL</th><th>SIZE SHAPE</th><th style="text-align:right">TRADES</th>'
             +'<th style="text-align:right">IN-SAMPLE $</th><th style="text-align:right">WALK-FWD $</th>'
             +'<th style="text-align:right">HELD-OUT $</th>'
@@ -11399,13 +11415,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   raw (promoted out of the 2A card) · the collapsible 2C gate pill (gate equity is
       //   overlaid on the funnel) · 2D distribution · 2E explorer. col 2 = 2F/2G/2H/2I/2J.
       //   col 3 = 2K + DSR.
-      const _col1=_stack([_eq,_rawInner].concat(_gateSec?[rsRow,_gateSec,rsRow]:[]).concat([_dist,_p3inner]));
-      const _col3=[_surrInner,_dsrInner].filter(x=>x&&x.replace(/\s/g,'')).join(rsRow);
+      // v67.9 (owner): col 1 is the 2A funnel ALONE (the widest chart gets the widest column);
+      //   col 2 = 2B raw configs · 2C gate pill · 2D distribution · 2E explorer + 2K ML config
+      //   builder (+ DSR); col 3 = the old col 2 (2F-2J).
+      const _col1=_eq;
+      const _col2b=_stack([_rawInner].concat(_gateSec?[rsRow,_gateSec,rsRow]:[]).concat([_dist,_p3inner,_surrInner,_dsrInner]));
+      const _col3=_col2;
       const _sec3=(function(){
         // v64.19 (owner): §2 gets the SAME separation model as §1 — vertical splitter bars
         //   trade width between the column tiles (ratios persist in APREF.s2cols, dblclick =
         //   reset) and each tile gets a bottom handle row for its height (APREF.s1th c-slots).
-        const _colsIn=[[_col1,'c2col1','1.6 1 360px'],[_col2,'c2col2','1 1 280px'],[_col3,'c2col3','1.1 1 300px']].filter(c=>c[0]&&c[0].replace(/\s/g,''));
+        const _colsIn=[[_col1,'c2col1','1.5 1 360px'],[_col2b,'c2col2','1.2 1 300px'],[_col3,'c2col3','1.1 1 300px']].filter(c=>c[0]&&c[0].replace(/\s/g,''));
         if(!_colsIn.length)return _surrErr;
         const _g2=(Array.isArray(APREF.s2cols)&&APREF.s2cols.length===_colsIn.length)?APREF.s2cols.map(x=>Math.max(260,+x||260)):null;
         // v64.88 (item 5, owner ask): per-column COLLAPSE — a small ⟨/⟩ chip shrinks a column to
@@ -11718,9 +11738,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // v64.18 (owner): each tile also gets a handle row at its very BOTTOM — the tile-height
           //   drag the old corner grabber used to provide (per-tile, persists, dblclick = auto).
           var _th=function(i){return '<div data-tilerow="'+i+'" title="drag to resize this tile height · double-click = back to auto" style="height:8px;margin:5px 0 0;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div></div>';};
-          // v64.33 (owner column switch): middle column = the 1G-1I (+1F) stack, right column
-          //   = the 1E KPI matrix.
-          return '<div data-colskey="s1cols" style="display:flex;gap:2px;align-items:flex-start;flex-wrap:wrap">'+_w(0,'1.7 1 360px')+_panelEquity+_th(0)+'</div>'+_sp+_w(1,'1.1 1 300px')+_distTile+_th(1)+'</div>'+_sp+_w(2,'1 1 280px')+_panelMatrix+_panelRegime+_th(2)+'</div></div>';})())
+          // v67.9 (owner column switch): middle column = the 1E KPI matrix (+1F), right column
+          //   = the 1G-1J stack. (Was the other way round in v64.33.)
+          return '<div data-colskey="s1cols" style="display:flex;gap:2px;align-items:flex-start;flex-wrap:wrap">'+_w(0,'1.7 1 360px')+_panelEquity+_th(0)+'</div>'+_sp+_w(1,'1 1 280px')+_panelMatrix+_panelRegime+_th(1)+'</div>'+_sp+_w(2,'1.1 1 300px')+_distTile+_th(2)+'</div></div>';})())
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         // §3 is a fixed slot too (universal layout): show an n/a card when the run swept no config grid.
         +_sec('3','Configuration Analysis',(_s2Verd||'robust params — a cluster, not a lonely spike'),((_sec3&&_sec3.replace(/\s/g,''))?_sec3:('<div style="'+_card2+';margin-bottom:14px">'+_naTile('2A','CONFIG SEARCH','this run type did not sweep a parameter grid — no config landscape, top-configs table or robustness map to show')+'</div>')),_cfgN)
