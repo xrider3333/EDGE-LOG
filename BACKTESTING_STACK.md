@@ -1082,6 +1082,27 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-05 (evening)** — **ETH formal gauntlet DONE (run #198, ENGU-Q-15): PASS 6/6 on paper — but the
+  discovered champion FAILS the continuous-run deployability check; 2m full validate = FAIL.**
+  ETH full Auto-Validate (ENGUQ_1M_ETH_1_0.py, 11.4h local, 200 trials, ai_rounds=0, pinned window):
+  champion tl238/ema380/atr108/trail4.0/buf0.6/regime5/be1.0 → verdict PASS, 6/6 gates, IS PF 2.20
+  (938 tr, 85.3 tr/param), WF 7/8 folds (wfe 2.10 anchored / 1.02 rolling), lockbox PASS 126 tr /
+  $53,792 / PF 1.46, DSR 0.994, plateau 19/19, PBO 0.49. **BUT independent verification found the
+  killer:** in the CONTINUOUS 16-yr run (reproduced exactly: n=1304, $657,334, PF 2.24, maxDD −$52,674)
+  this config's LAST ENTRY is 2025-04 — silent for the entire lockbox period. The engine's lockbox is an
+  INDEPENDENT 2025-06-30 warm-start reload (fresh-start repro = exactly 126 tr / $53,791.84 ✓), which
+  masks path-dependent configs that stop trading in continuous operation. Saved to Runs as **#198 with
+  the caveat note stamped, starred=0 — do NOT deploy this champion.** PROPOSED ENGINE GUARD (not built):
+  before certifying, compare continuous-run lockbox-window trade count vs reload trade count; a large
+  shortfall (here 0 vs 126) = auto-flag "NOT DEPLOYABLE AS-RUN".
+  **The deployable ETH candidate remains the FROZEN clock-scaled #149 config** (no optimization; trades
+  continuously through 2026-06-26; $434,721 / PF 1.33 / DD −$50,420; LB entry-sliced $98,488 / PF 1.49,
+  n=188; blend-swap net/DD 13.95→17.06). Next certification step for it: fixed-config walk-forward (no
+  discovery) + paper-forward ETH leg.
+  **2m full validate FAIL** (3/6 gates: sample 25.5 tr/param < 30, folds 5/8 < 2/3, PBO 0.72 "likely
+  overfit"; discovery also crowned a different config than the reduced-protocol one). RTH timeframe map
+  final: 1m PASS (#149) · 5m PASS (#146) · 15m WEAK · 2m FAIL · 3m FAIL(sample). 2m master stays
+  registered (id 42) for reference.
 - **2026-08-05** — **Challenger round 15: Mesfin (2026) GMM regime-state signals fail causal reconstruction
   on 16y NQ (paper cells: MAR 0.17 and −$59.5k; W2 fires 20–25× the published trade count → undisclosed
   pipeline). Fourth online sweep closed; 0 beat ORB across 15 rounds.** Detail §3.
