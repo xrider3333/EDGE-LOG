@@ -408,6 +408,8 @@ found — a pre-existing ENGU-Q reproducibility defect — before the lockbox sh
   blotter (`Trading/ENGUQ_DB/blotters/run149_NQ_1m.csv`) opens with a trade the current file never
   generates → entry-logic drift, not a param typo. **Until fixed, every ENGU-Q-relative number is
   directional, not certified** (G5-real corr 0.254 — hold-cap-6 decorrelation confirmed directionally).
+  **[RESOLVED 2026-08-05 — it WAS a param mixup, not entry-logic drift: the attempts used the file's
+  ES-default params instead of #149's. File certified exact with `NQ_DEPLOY_PARAMS_149`; see Changelog.]**
   ORB's side IS certified: #125 reproduced bit-for-bit (n=4064 / $360,640.26 / PF 1.611 / DD −$9,351.60),
   TTIBS↔ORB corr −0.103. Fix leads: #149's exact params are stored in `optimizer_history.db` (runs table),
   and the 2026-07-14 Pine-port session reproduced #149 successfully — diff that session's invocation
@@ -1082,6 +1084,19 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-05** — **ENGU-Q "repro defect" RESOLVED — the file was never broken; the params were.**
+  Root cause: `ENGUQ_1M_1_0.py`'s DEFAULT_PARAMS defaults are the ES-validated config (tl_len 34 /
+  ema_len 30 / …); the NQ champion #149 uses tl_len 48 / ema_len 390 / buf_atr 0.9 / min_brk 1.3 /
+  atr_len 30 / vol_mult 0.8 / stop_mult 1.0 / act_R 2.5 / trail_frac 2.5 (recovered from the
+  TV-reconciled Pine port, whose defaults = #149). Every 2026-07-14+ repro attempt (incl. round-13
+  G5 legs) fed ES-style params → n=3618/$276k ghosts. **Certification with the right params (NQ 1m
+  RTH, 2010-06-07→2026-06-30, 0.533 cost): entries 1800/1800 EXACT vs the run-149 ground-truth
+  blotter; the 244 PnL diffs sum to −$237k = the documented gap-honest restatement (by design, old
+  blotter = optimistic fills); deploy (+breakeven 1.5) = n=2048 exact / maxDD −$65,635 exact / net
+  $477.5k vs doc $474.7k (~0.6% tail drift from master revisions since 2026-07-13).** Canonical
+  constant added: `ENGUQ_1M_1_0.NQ_DEPLOY_PARAMS_149`; warning comment on `orb_portfolio.py`'s
+  ES-config ENG_CFG. Consequence: every "directional-only" ENGU-Q correlation caveat (TTIBS G5,
+  round-13 G5, blend certification) can now be re-run exact on demand.
 - **2026-08-05 (evening)** — **ETH formal gauntlet DONE (run #198, ENGU-Q-15): PASS 6/6 on paper — but the
   discovered champion FAILS the continuous-run deployability check; 2m full validate = FAIL.**
   ETH full Auto-Validate (ENGUQ_1M_ETH_1_0.py, 11.4h local, 200 trials, ai_rounds=0, pinned window):

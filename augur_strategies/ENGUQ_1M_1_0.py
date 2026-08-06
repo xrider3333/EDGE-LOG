@@ -13,6 +13,18 @@ Trades are returned rich: (entry_idx, exit_idx, pnl_pts, side=+1, entry_px) -> M
 """
 import numpy as np
 
+# ── NQ DEPLOY CONFIG (run #149 + breakeven 1.5) — CERTIFIED 2026-08-05 ──────────
+# The DEFAULT_PARAMS defaults below are the ES-validated config. The NQ champion
+# (#149) uses DIFFERENT params — this mixup caused the 2026-07-14 "repro defect"
+# (attempts fed ES-style defaults and got n=3618/$276k instead of the champion).
+# With the params below on NQ 1m RTH 2010-06-07→2026-06-30 @ 0.533 pts cost this
+# file reproduces: entries 1800/1800 EXACT vs blotters/run149_NQ_1m.csv;
+# breakeven_R=1.5 → n=2048, maxDD −$65,635 (exact), net ≈$477.5k (doc $474.7k;
+# ~0.6% tail drift from master data revisions since 2026-07-13).
+NQ_DEPLOY_PARAMS_149 = dict(tl_len=48, ema_len=390, regime_len=0, buf_atr=0.9,
+                            min_brk=1.3, atr_len=30, vol_mult=0.8, stop_mult=1.0,
+                            act_R=2.5, trail_frac=2.5, breakeven_R=1.5)
+
 STRATEGY_NAME = "ENGU-Q 1m · trendline break (long)"
 DESCRIPTION = ("ENGU-Q tuned for 1-minute bars: green candle breaking a descending trendline of recent lower-highs, above the trend EMA, on a volume spike; trailing exit. Walk-forward VALIDATED (PASS) on ES 1m.")
 VERSION   = "1.0"

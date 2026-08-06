@@ -26,6 +26,10 @@ from augur_engine.data import list_masters
 LB_FROM = pd.Timestamp("2025-06-30").date()
 ORB_CFG = dict(or_bars=1, trade_mode="Both", stop_frac=1.75, vol_filter=1.25,
                atr_filter=0.1, breakout_buf=0.0, target_R=4.5, be_after_R=1.0)
+# NOTE: ENG_CFG below = the ES-validated defaults (this tool's item-W ES experiment).
+# It is NOT the NQ champion — that is ENGUQ_1M_1_0.NQ_DEPLOY_PARAMS_149 (tl_len=48,
+# ema_len=390, ...). Feeding THIS config to NQ repros caused the 2026-07-14 "repro
+# defect" (resolved 2026-08-05 — file certified, params were the culprit).
 ENG_CFG = dict(tl_len=34, vol_mult=1.2, stop_mult=1.7, act_R=1.0, trail_frac=2.5,
                buf_atr=0.35, min_brk=0.7, ema_len=30, atr_len=47, regime_len=0, breakeven_R=0.0)
 
