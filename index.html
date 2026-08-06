@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='67.9';
+const VERSION='68.0';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'68.0',date:'2026-08-06',notes:['Compare chart moved above the table, with the same bordered key box style as chart 2B instead of the old wrapping legend text.','The Compare chart is now interactive in place - crosshair with date and per-run values, wheel zoom, drag pan, double-click reset - no need to open fullscreen.','Compare table can flip between VERT (runs as columns) and HORIZ (runs as rows) so many runs fit without sideways scrolling.','Compare table dollars abbreviated (400k / 1.03M) with compact run headers.']},
 {v:'67.9',date:'2026-08-06',notes:['Report columns re-ordered on owner request. Section 1: the KPI matrix moves to the MIDDLE column and the trade-distribution stack (1G-1J) moves to the right.','Section 2: the 2A funnel now owns the whole first column on its own. The middle column is 2B raw configs, the 2C ML filter, 2D distribution, 2E explorer and the 2K ML config builder. The third column is the parameter views - 2F through 2J.','1J TRADE CONTEXT was drawing its title twice, and listing every scanned feature made it a very tall tower. One title now, and the features that read no signal fold into a one-line expander at the bottom.','SIZE TILT table text shrunk - the shared table style was sizing those columns about twice as wide as their numbers need.']},
 {v:'67.8',date:'2026-08-05',notes:['Challenger round 15: the GMM regime-state signals from the 2026 MNQ falsification paper do not replicate under causal reconstruction on 16 years of NQ - the fourth and final online sweep closes with zero strategies beating ORB. See BACKTESTING_STACK section 3.']},
 {v:'67.7',date:'2026-08-05',notes:['SIZE TILTS are their own section in the 2A equity key now, instead of being buried inside ML GATES where they were unfindable. They are a different animal to a gate: a gate SKIPS trades, a tilt keeps every trade and only re-sizes it, so mixing them read as if the tilt lines were gate candidates. One toggle still shows or hides the whole tilt family, and the lines stay hidden until asked for.','Expanded chart view fits split-screen better: the title is smaller, the row gap tighter and the VIEW picker narrower, so the toggle labels (closed, trades and the rest) stop compressing and the header row no longer has to be scrolled sideways. The row deliberately stays one fixed-height non-wrapping line - letting it wrap re-flows the layout while the hover readout grows and resizes the chart under the cursor.']},
@@ -4408,6 +4409,199 @@ window.expandCompareEq=function(series,opts){
     modal.remove();};
   el2('ceqx-close').onclick=close;
   requestAnimationFrame(render);
+};
+
+// ── window.cmpOvlMount — mounts the Compare tab EQUITY OVERLAY tile as a live inline chart, in
+//    place (v68.0, owner: "reference results tab 2B/2C… needs to be a copy of that essentially"
+//    for the key, plus TradingView effects without expanding). A simplified port of
+//    expandCompareEq just above: a shared-calendar x-axis (the simple branch only — no blotter
+//    refinement, this tile never loads trade blotters), the same 3-segment in-sample /
+//    walk-forward / lockbox line styles, and the same wheel-zoom / drag-pan / crosshair /
+//    dbl-click-reset interactions, drawn into one small chart instead of the fullscreen modal.
+//    The 2B key box (line ~8358) supplies the exact visual language for the new key, replacing
+//    the old wrapping legend text below the EQUITY OVERLAY title. Called after every cmp render
+//    (see the handler block) — the host element is a brand-new DOM node each renderApp (content
+//    is replaced wholesale), so rebuilding its content and rebinding listeners here is naturally
+//    idempotent; the one exception is the drag gesture's window-level mousemove/mouseup pair,
+//    added on mousedown and always removed on mouseup so it can never leak across renders.
+window.cmpOvlMount=function(hostId){
+  const host=document.getElementById(hostId);
+  const S=window._cmpEqxSeries||[];
+  const NC=window._cmpEqxNoCurve||[];
+  if(!host||!S.length)return;
+  const _ab$=v=>{const a=Math.abs(v||0),sg=(v<0?'-$':'$');return a>=1e6?(sg+(a/1e6).toFixed(2).replace(/\.?0+$/,'')+'M'):(a>=1000?(sg+Math.round(a/1000)+'k'):(sg+Math.round(a)));};
+  // shared-calendar x (simple branch of expandCompareEq's rebakeDomain above — no per-trade
+  //   blotter refinement, this tile only ever has the run-level equity array): each series
+  //   spreads its own eq[] evenly across its [date_from,date_to] span; a series missing a usable
+  //   span falls back to the shared tMin..tMax; if not one series has a usable date pair, every
+  //   series falls back to plain 0..1 progress-through-run instead (timeMode off).
+  const _spans=S.map(sr=>{const a=Date.parse((sr.blot&&sr.blot.date_from)||''),b=Date.parse((sr.blot&&sr.blot.date_to)||'');return (!isNaN(a)&&!isNaN(b)&&b>a)?[a,b]:null;});
+  let tMin=null,tMax=null;
+  _spans.forEach(sp=>{if(sp){if(tMin==null||sp[0]<tMin)tMin=sp[0];if(tMax==null||sp[1]>tMax)tMax=sp[1];}});
+  const timeMode=tMin!=null&&tMax!=null&&tMax>tMin;
+  S.forEach((sr,si)=>{const n=(sr.eq||[]).length;
+    if(timeMode){const sp=_spans[si]||[tMin,tMax],t0=sp[0],t1=sp[1]>t0?sp[1]:t0+1;
+      sr.pts=(sr.eq||[]).map((v,i)=>({x:(t0+(n>1?i/(n-1):0)*(t1-t0)-tMin)/((tMax-tMin)||1),v:v}));
+    }else{sr.pts=(sr.eq||[]).map((v,i)=>({x:(n>1?i/(n-1):0),v:v}));}});
+  const _mdyy=ms=>{const d=new Date(ms);return (d.getMonth()+1)+'/'+d.getDate()+'/'+String(d.getFullYear()).slice(2);};
+  const _xDateStr=timeMode?(f=>_mdyy(tMin+Math.max(0,Math.min(1,f))*(tMax-tMin))):null;
+  // view state persists across re-renders (renderApp rebuilds the host every time) on a window
+  //   global — same [0,1]-fraction-of-domain convention as expandCompareEq's va/vb above.
+  const VS=window._cmpOvlView=window._cmpOvlView||{va:0,vb:1};
+  const _clampView=()=>{const mnSpan=0.02;let va=VS.va,vb=VS.vb;if(vb-va<mnSpan){const c=(va+vb)/2;va=c-mnSpan/2;vb=c+mnSpan/2;}
+    if(va<0){vb-=va;va=0;}if(vb>1){va-=(vb-1);vb=1;}VS.va=Math.max(0,va);VS.vb=Math.min(1,vb);};
+  _clampView();
+  const _niceStep=x=>{x=Math.abs(x)||1;const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
+  const _ddOf=vals=>{let rm=-Infinity;return vals.map(v=>{if(v>rm)rm=v;return v-rm;});};
+  const _interpAt=(sr,cx)=>{const p=sr.pts,m=p.length;if(!m)return 0;if(cx<=p[0].x)return p[0].v;if(cx>=p[m-1].x)return p[m-1].v;
+    let lo=0,hi=m-1;while(hi-lo>1){const mid=(lo+hi)>>1;if(p[mid].x<=cx)lo=mid;else hi=mid;}
+    const a=p[lo],b=p[hi],f=(b.x>a.x)?(cx-a.x)/(b.x-a.x):0;return a.v+(b.v-a.v)*f;};
+  // clip an array of {x,...} points to [va,vb], keeping one neighbour past each edge so a zoomed
+  //   line still spans the visible window instead of stopping dead at the first in-range point
+  //   (same convention as expandCompareEq's _clipN above).
+  const _clipN=arr=>{const n=arr.length;if(n<2)return [];
+    let lo=arr.findIndex(p=>p.x>=VS.va);if(lo<0)lo=n;
+    let hi=-1;for(let i=n-1;i>=0;i--){if(arr[i].x<=VS.vb){hi=i;break;}}
+    const s0=Math.max(0,lo-1),e0=Math.min(n-1,hi+1);return (e0>=s0)?arr.slice(s0,e0+1):[];};
+
+  // ── scaffold — svg + the 2B-style key box (top-left) + a per-series readout (top-right) +
+  //    crosshair line/chips + a muted hint. host is rebuilt from scratch on every call. ──
+  host.innerHTML='<svg class="cmpovl-svg" style="display:block;width:100%;height:300px"></svg>'
+    +'<div class="cmpovl-key" style="position:absolute;top:8px;left:8px;background:color-mix(in srgb,var(--bg1) 82%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;pointer-events:none;z-index:2"></div>'
+    +'<div class="cmpovl-read" style="position:absolute;top:8px;right:8px;text-align:right;background:color-mix(in srgb,var(--bg1) 82%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;pointer-events:none;z-index:2;display:none"></div>'
+    +'<div class="cmpovl-vln" style="position:absolute;top:0;width:0;border-left:1px dashed var(--text4);opacity:.7;pointer-events:none;display:none"></div>'
+    +'<div class="cmpovl-xchip" style="position:absolute;pointer-events:none;display:none;background:var(--text2);color:var(--bg1);font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;transform:translateX(-50%);z-index:2"></div>'
+    +'<div class="cmpovl-ychip" style="position:absolute;pointer-events:none;display:none;background:var(--text2);color:var(--bg1);font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;transform:translateY(-50%);z-index:2"></div>'
+    +'<div class="cmpovl-hint" style="position:absolute;bottom:3px;right:8px;font-size:7.5px;color:var(--text5);pointer-events:none;z-index:2">wheel zoom · drag pan · dbl-click reset · ⛶ trades + more</div>';
+  host.style.cursor='crosshair';
+  const svg=host.querySelector('.cmpovl-svg'),keyEl=host.querySelector('.cmpovl-key'),readEl=host.querySelector('.cmpovl-read'),
+    vln=host.querySelector('.cmpovl-vln'),xchip=host.querySelector('.cmpovl-xchip'),ychip=host.querySelector('.cmpovl-ychip');
+
+  // KEY BOX (2B pattern, line ~8358) — one row per series (swatch + id + label + ending $, the
+  //   same _ab$ abbreviation the table uses), then the muted line-style rows (only the styles
+  //   actually present in this selection), then any no-curve runs as a muted footnote row.
+  keyEl.innerHTML=S.map(sr=>{const lastV=(sr.eq&&sr.eq.length)?sr.eq[sr.eq.length-1]:0;
+      return '<div style="white-space:nowrap;color:'+sr.color+'"><b>▬</b> #'+sr.id+' '+sr.label+' · '+_ab$(lastV)+'</div>';}).join('')
+    +'<div style="white-space:nowrap;color:var(--text4)"><b>—</b> in-sample</div>'
+    +(S.some(sr=>sr.wfi!=null)?'<div style="white-space:nowrap;color:var(--text4)"><b>––</b> walk-forward</div>':'')
+    +(S.some(sr=>sr.li!=null)?'<div style="white-space:nowrap;color:var(--text4)"><b>····</b> lockbox</div>':'')
+    +NC.map(c=>'<div style="white-space:nowrap;color:var(--text5)">#'+c.id+' '+c.label+' · no curve saved</div>').join('');
+
+  const geo=()=>{const r=host.getBoundingClientRect(),W=Math.max(240,r.width),H=300,gut=56,pL=2,pB=30,pw=W-pL-gut;
+    const eqT=8,eqB=eqT+Math.round((H-pB-16)*0.68),ddT=eqB+16,ddB=H-pB;
+    return {W:W,H:H,pw:pw,pL:pL,gut:gut,eqT:eqT,eqB:eqB,ddT:ddT,ddB:ddB,pB:pB};};
+  const X=(g,x)=>g.pL+(x-VS.va)/((VS.vb-VS.va)||1)*g.pw;
+  const seg=(g,arr,vf)=>arr.map((p,i)=>((i?'L':'M')+X(g,p.x).toFixed(1)+' '+vf(p.v).toFixed(1))).join(' ');
+  const render=()=>{
+    const g=geo();
+    // y-fit the equity pane to whichever points fall inside [va,vb] (falls back to the
+    //   interpolated window edges if the zoom is tighter than every curve point spacing).
+    let mn=null,mx=null;
+    S.forEach(sr=>sr.pts.forEach(p=>{if(p.x>=VS.va&&p.x<=VS.vb){if(mn===null||p.v<mn)mn=p.v;if(mx===null||p.v>mx)mx=p.v;}}));
+    if(mn===null)S.forEach(sr=>{[_interpAt(sr,VS.va),_interpAt(sr,VS.vb)].forEach(v=>{if(mn===null||v<mn)mn=v;if(mx===null||v>mx)mx=v;});});
+    if(mn===null){mn=0;mx=1;}if(mx<=mn)mx=mn+1;const pad=(mx-mn)*0.06;mn-=pad;mx+=pad;
+    const Y=v=>g.eqT+(mx-v)/((mx-mn)||1)*(g.eqB-g.eqT);
+    // per-series drawdown-from-peak, fit across the same [va,vb] window.
+    const ddMap={};let ddMin=0;
+    S.forEach(sr=>{const dd=_ddOf(sr.pts.map(p=>p.v));ddMap[sr.id]=dd;
+      sr.pts.forEach((p,i)=>{if(p.x>=VS.va&&p.x<=VS.vb&&dd[i]<ddMin)ddMin=dd[i];});});
+    if(ddMin>=0)ddMin=-1;
+    const ddFloor=ddMin*1.12,Yd=v=>g.ddT+(0-v)/((0-ddFloor)||1)*(g.ddB-g.ddT);
+    let s='<clipPath id="'+hostId+'-clip"><rect x="'+g.pL+'" y="0" width="'+g.pw+'" height="'+g.ddB+'"/></clipPath>';
+    // $ gridlines + right gutter labels (equity pane), k/M-abbreviated.
+    const step=_niceStep((mx-mn)/5)||1;
+    for(let L=Math.ceil(mn/step)*step;L<=mx;L+=step){const y=Y(L);
+      s+='<line x1="'+g.pL+'" y1="'+y.toFixed(1)+'" x2="'+(g.pL+g.pw)+'" y2="'+y.toFixed(1)+'" stroke="var(--border)" stroke-width="'+(Math.abs(L)<1e-9?1:0.5)+'" opacity="'+(Math.abs(L)<1e-9?0.6:0.22)+'"/>'
+        +'<text x="'+(g.pL+g.pw+5)+'" y="'+(y+3).toFixed(1)+'" font-size="8.5" fill="var(--text5)">'+_ab$(L)+'</text>';}
+    // x-axis: a handful of % ticks across [va,vb], with a real-date row underneath once every
+    //   series shares a calendar span (M/D/YY, no leading zeros).
+    {const xSpanPct=(VS.vb-VS.va)*100,steps=[1,2,5,10,20,25,50];let xStep=50;
+      for(let i=0;i<steps.length;i++){if(xSpanPct/steps[i]<=6){xStep=steps[i];break;}}
+      const t0=Math.ceil((VS.va*100-1e-6)/xStep)*xStep,nTk=Math.max(0,Math.floor((VS.vb*100+1e-6-t0)/xStep)+1);
+      for(let k=0;k<nTk;k++){const xp=t0+k*xStep,xf=xp/100,xPix=X(g,xf);
+        s+='<line x1="'+xPix.toFixed(1)+'" y1="'+g.eqT+'" x2="'+xPix.toFixed(1)+'" y2="'+g.ddB.toFixed(1)+'" stroke="var(--border)" stroke-width="0.4" opacity="0.16"/>'
+          +'<text x="'+xPix.toFixed(1)+'" y="'+(g.H-19)+'" text-anchor="middle" font-size="7.5" fill="var(--text5)">'+Math.round(xp)+'%</text>'
+          +(_xDateStr?('<text x="'+xPix.toFixed(1)+'" y="'+(g.H-8)+'" text-anchor="middle" font-size="7" fill="var(--text5)">'+_xDateStr(xf)+'</text>'):'');}}
+    // DRAWDOWN pane frame
+    s+='<line x1="'+g.pL+'" y1="'+(g.ddT-8).toFixed(1)+'" x2="'+(g.pL+g.pw)+'" y2="'+(g.ddT-8).toFixed(1)+'" stroke="var(--text4)" opacity="0.4"/>'
+      +'<text x="'+g.pL+'" y="'+(g.ddT+2).toFixed(1)+'" font-size="7.5" letter-spacing="1" fill="var(--text5)">DRAWDOWN</text>'
+      +'<line x1="'+g.pL+'" y1="'+Yd(0).toFixed(1)+'" x2="'+(g.pL+g.pw)+'" y2="'+Yd(0).toFixed(1)+'" stroke="var(--border)" opacity="0.3"/>'
+      +'<text x="'+(g.pL+g.pw+5)+'" y="'+(Yd(0)+3).toFixed(1)+'" font-size="7.5" fill="var(--text5)">$0</text>';
+    // equity curves — 3 non-overlapping segments (SOLID in-sample -> DASHED walk-forward ->
+    //   DOTTED lockbox), a direct port of the static builder's segment math (the `ovl` fallback
+    //   built above), parameterised by the live [va,vb] and clipped with _clipN.
+    s+='<g clip-path="url(#'+hostId+'-clip)">';
+    S.forEach(sr=>{const pts=sr.pts,n=pts.length;
+      const li=(sr.li!=null&&sr.li>=0&&sr.li<n-1)?sr.li:null,
+        wfi=(sr.wfi!=null)?Math.max(0,Math.min(sr.wfi,(li!=null?li:n-1))):null,
+        solidEnd=wfi!=null?wfi:(li!=null?li:n-1);
+      const solid=_clipN(pts.slice(0,solidEnd+1));
+      if(solid.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(g,solid,Y)+'" fill="none" stroke="'+sr.color+'" stroke-width="1.2"/>';
+      if(wfi!=null){const wfEnd=(li!=null?li:n-1),dash=_clipN(pts.slice(solidEnd,wfEnd+1));
+        if(dash.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(g,dash,Y)+'" fill="none" stroke="'+sr.color+'" stroke-width="1.2" stroke-dasharray="7,4"/>';}
+      if(li!=null){const dot=_clipN(pts.slice(li));
+        if(dot.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(g,dot,Y)+'" fill="none" stroke="'+sr.color+'" stroke-width="1.2" stroke-dasharray="0.1,5" stroke-linecap="round" opacity="0.9"/>';}
+    });
+    s+='</g><g clip-path="url(#'+hostId+'-clip)">';
+    S.forEach(sr=>{const dd=ddMap[sr.id],ddPts=sr.pts.map((p,i)=>({x:p.x,v:dd[i]})),dvis=_clipN(ddPts);
+      if(dvis.length<2)return;
+      s+='<path d="M '+X(g,dvis[0].x).toFixed(1)+' '+Yd(0).toFixed(1)+' '+dvis.map(p=>'L '+X(g,p.x).toFixed(1)+' '+Yd(p.v).toFixed(1)).join(' ')+' L '+X(g,dvis[dvis.length-1].x).toFixed(1)+' '+Yd(0).toFixed(1)+' Z" fill="'+sr.color+'" opacity="0.10" stroke="none"/>'
+        +'<path data-sr="'+sr.id+'" d="'+seg(g,dvis,Yd)+'" fill="none" stroke="'+sr.color+'" stroke-width="0.9" opacity="0.9"/>';});
+    s+='</g>';
+    svg.setAttribute('viewBox','0 0 '+g.W+' '+g.H);
+    svg.innerHTML=s;
+    svg._g={g:g,mn:mn,mx:mx,ddFloor:ddFloor};
+  };
+
+  // ── interactions: wheel=zoom anchored at cursor, drag=pan, dbl-click=reset, crosshair on
+  //    hover — same math shape as expandCompareEq above, simplified to this one small chart.
+  //    Every listener is host-scoped (bound fresh on this mount call) except the drag gesture's
+  //    window mousemove/mouseup pair, which is added on mousedown and removed on mouseup. ──
+  host.addEventListener('wheel',e=>{
+    const st=svg._g;if(!st)return;const r=host.getBoundingClientRect();if(!(r.width>0))return;
+    e.preventDefault();
+    const sx=r.width/st.g.W,gx=(e.clientX-r.left)/sx;
+    const fx=Math.max(0,Math.min(1,(gx-st.g.pL)/st.g.pw)),c=VS.va+(VS.vb-VS.va)*fx,k=(e.deltaY>0)?1.22:0.82;
+    VS.va=c-(c-VS.va)*k;VS.vb=c+(VS.vb-c)*k;_clampView();render();
+  },{passive:false});
+  let drag=null;
+  const _onMove=e=>{
+    if(!drag)return;
+    const r=host.getBoundingClientRect();if(!(r.width>0))return;
+    const sx=r.width/drag.st.g.W;
+    if(Math.abs(e.clientX-drag.x)>2)drag.moved=true;
+    const dx=(e.clientX-drag.x)/(sx||1)/drag.st.g.pw*(drag.vb-drag.va);
+    VS.va=drag.va-dx;VS.vb=drag.vb-dx;_clampView();render();
+  };
+  const _onUp=()=>{drag=null;host.style.cursor='crosshair';window.removeEventListener('mousemove',_onMove);window.removeEventListener('mouseup',_onUp);};
+  host.addEventListener('mousedown',e=>{
+    const st=svg._g;if(!st)return;
+    drag={x:e.clientX,va:VS.va,vb:VS.vb,st:st,moved:false};
+    host.style.cursor='grabbing';
+    window.addEventListener('mousemove',_onMove);window.addEventListener('mouseup',_onUp);
+  });
+  host.addEventListener('dblclick',()=>{VS.va=0;VS.vb=1;render();});
+  host.addEventListener('mousemove',e=>{
+    const st=svg._g;if(!st)return;
+    const r=host.getBoundingClientRect();if(!(r.width>0&&r.height>0))return;
+    const sx=r.width/st.g.W,sy=r.height/st.g.H;
+    const gx=(e.clientX-r.left)/sx,gy=(e.clientY-r.top)/sy;
+    if(gx<st.g.pL||gx>st.g.pL+st.g.pw||gy<0||gy>st.g.ddB){
+      vln.style.display=xchip.style.display=ychip.style.display='none';readEl.style.display='none';return;}
+    vln.style.display='block';vln.style.left=(gx*sx)+'px';vln.style.top=(st.g.eqT*sy)+'px';vln.style.height=((st.g.ddB-st.g.eqT)*sy)+'px';
+    const cx=VS.va+(VS.vb-VS.va)*((gx-st.g.pL)/st.g.pw);
+    const dstr=_xDateStr?_xDateStr(cx):null,pct=Math.round(Math.max(0,Math.min(1,cx))*100);
+    xchip.style.display='block';xchip.style.left=(gx*sx)+'px';xchip.style.top=((st.g.H-st.g.pB+3)*sy)+'px';xchip.textContent=dstr?dstr:(pct+'%');
+    ychip.style.display='block';ychip.style.left=((st.g.pL+st.g.pw)*sx)+'px';ychip.style.top=(gy*sy)+'px';
+    ychip.textContent=(gy<=st.g.eqB)?_ab$(st.mx-(st.mx-st.mn)*((gy-st.g.eqT)/((st.g.eqB-st.g.eqT)||1))):('dd '+_ab$(0-(0-st.ddFloor)*((gy-st.g.ddT)/((st.g.ddB-st.g.ddT)||1))));
+    // per-series readout — an em dash when the cursor sits outside that series own date span.
+    readEl.innerHTML=S.map(sr=>{const p=sr.pts,out=(cx<p[0].x-1e-9)||(cx>p[p.length-1].x+1e-9);
+      return '<div style="white-space:nowrap;color:'+(out?'var(--text5)':sr.color)+'">#'+sr.id+' '+(out?'—':_ab$(_interpAt(sr,cx)))+'</div>';}).join('');
+    readEl.style.display='block';
+  });
+  host.addEventListener('mouseleave',()=>{vln.style.display=xchip.style.display=ychip.style.display='none';readEl.style.display='none';});
+
+  render();
 };
 
 // ── 3-D PARAM SURFACE ORBIT — the ⛶ on 2H/2J opens the same binned param→PnL surface in a
@@ -12289,6 +12483,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   picked automatically by score) instead of manually picked runs. PICK RUNS stays the
       //   default, so every existing Compare behaviour below is unchanged unless this flips.
       const _cmpMode=(APREF.cmpMode==='fam')?'fam':'runs';
+      // v68.0 (owner ask): metric-table orientation — VERT (runs as columns, metrics as rows,
+      //   the original layout) or HORIZ (runs as rows, metrics as columns) so a comparison with
+      //   many runs fits without sideways scrolling. Persists like every other Compare pref.
+      const _cOr=(APREF.cmpOrient==='h')?'h':'v';
       if(!rs.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUNS TO COMPARE YET</div>';}
       else{
         const find=id=>{for(let i=0;i<rs.length;i++)if(String(rs[i].id)===String(id))return rs[i];return null;};
@@ -12441,10 +12639,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           return {net:(lb.pnl||0)*_mcOf(x),pf:(+lb.pf||0),tr:(lb.trades||0),pass:!!lb.pass};};
         // Tests-run chips: which of the three checks each run actually has (lit = ran; WF/LB colour = held?)
         const _chip=(t2,on,col,tip)=>'<span title="'+tip+'" style="display:inline-block;margin-right:4px;padding:1px 7px;border-radius:9px;font-size:8px;font-weight:700;border:1px solid '+(on?col:'var(--border)')+';color:'+(on?col:'var(--text5)')+';opacity:'+(on?'1':'0.45')+'">'+t2+'</span>';
-        const M_id=[{l:'Strategy',f:x=>stratTag(x.strategy)},
-          {l:'Market',f:x=>instTag(x.instrument)+' '+(x.timeframe||'')},
-          {l:'Scope',f:x=>'<span style="font-size:var(--fsxs)">'+(x.scope||'')+'</span>'},
-          {l:'Tests run',f:x=>{const a=_wfA(x),lb=x.validate&&x.validate.lockbox;
+        // v68.0 (owner ask): condense the table — $ figures abbreviated to k / M (the HORIZ
+        //   orientation especially needs the width back). Same rounding convention at every
+        //   scale: whole dollars under $1k, Nk from $1k, N.NNM from $1m (trailing zeros trimmed).
+        const _ab$=v=>{const a=Math.abs(v||0),sg=(v<0?'-$':'$');return a>=1e6?(sg+(a/1e6).toFixed(2).replace(/\.?0+$/,'')+'M'):(a>=1000?(sg+Math.round(a/1000)+'k'):(sg+Math.round(a)));};
+        const M_id=[{l:'Strategy',s:'Strategy',f:x=>stratTag(x.strategy)},
+          {l:'Market',s:'Mkt',f:x=>instTag(x.instrument)+' '+(x.timeframe||'')},
+          {l:'Scope',s:'Scope',f:x=>'<span style="font-size:var(--fsxs)">'+(x.scope||'')+'</span>'},
+          {l:'Tests run',s:'Tests',f:x=>{const a=_wfA(x),lb=x.validate&&x.validate.lockbox;
             return _chip('IS',true,'var(--blue)','in-sample — every run optimizes on this window')
               +_chip('WF',!!a,(a&&a.held>=a.n/2)?'var(--green)':'var(--yellow)','walk-forward out-of-sample folds'+(a?(' · '+a.held+'/'+a.n+' held'):' — NOT run (numbers are in-sample only)'))
               +_chip('LB',!!lb,(lb&&lb.pass)?'var(--green)':'var(--red)','lockbox holdout'+(lb?(lb.pass?' · HELD':' · FAILED'):' — NOT run (numbers are in-sample only)'));}}];
@@ -12452,26 +12654,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   (return · drawdown · reward ÷ risk · edge · sample — CHANGELOG v49.1) so a small
         //   uppercase divider can precede each block; Verdict stays its own row at the bottom.
         const M_all=[
-          {l:'Net P&L',v:x=>x.best_pnl_usd||0,f:x=>fmtUsd(x.best_pnl_usd),b:'max',sec:'return'},
-          {l:'$/day',v:x=>x.best_pnl_per_day||0,f:x=>fmtUsd(x.best_pnl_per_day||0),b:'max',sec:'return'},
-          {l:'Max DD',v:x=>x.best_dd_usd||0,f:x=>fmtUsd(x.best_dd_usd||0),b:'max',sec:'drawdown'},
-          {l:'MAR',v:x=>{var dd=Math.abs(+x.best_dd_usd||0);return dd>1e-9?(+x.best_pnl_usd||0)/dd:0;},f:x=>{var dd=Math.abs(+x.best_dd_usd||0);return dd>1e-9?((+x.best_pnl_usd||0)/dd).toFixed(1):'—';},b:'max',sec:'reward ÷ risk'},
-          {l:'PF',v:x=>x.best_pf||0,f:x=>(x.best_pf||0).toFixed(2),b:'max',sec:'edge'},
-          {l:'Win %',v:x=>x.best_win_rate||0,f:x=>Math.round(x.best_win_rate||0)+'%',b:'max',sec:'edge'},
-          {l:'Robustness',v:x=>scoreRun(x),f:x=>scoreRun(x),b:'max',sec:'edge'},
-          {l:'DSR',f:x=>(x.dsr&&x.dsr.dsr!=null?Math.round(x.dsr.dsr*100)+'%':'—'),sec:'edge'},
-          {l:'Trades',f:x=>(x.best_trades||0),sec:'sample'},
-          {l:'Verdict',f:x=>x.validate?'<b style="color:'+(x.validate.verdict==='PASS'?'var(--green)':x.validate.verdict==='WEAK'?'var(--yellow)':'var(--red)')+'">'+x.validate.verdict+'</b>':'—'}];
+          {l:'Net P&L',s:'Net $',v:x=>x.best_pnl_usd||0,f:x=>_ab$(x.best_pnl_usd),b:'max',sec:'return'},
+          {l:'$/day',s:'$/day',v:x=>x.best_pnl_per_day||0,f:x=>_ab$(x.best_pnl_per_day||0),b:'max',sec:'return'},
+          {l:'Max DD',s:'Max DD',v:x=>x.best_dd_usd||0,f:x=>_ab$(x.best_dd_usd||0),b:'max',sec:'drawdown'},
+          {l:'MAR',s:'MAR',v:x=>{var dd=Math.abs(+x.best_dd_usd||0);return dd>1e-9?(+x.best_pnl_usd||0)/dd:0;},f:x=>{var dd=Math.abs(+x.best_dd_usd||0);return dd>1e-9?((+x.best_pnl_usd||0)/dd).toFixed(1):'—';},b:'max',sec:'reward ÷ risk'},
+          {l:'PF',s:'PF',v:x=>x.best_pf||0,f:x=>(x.best_pf||0).toFixed(2),b:'max',sec:'edge'},
+          {l:'Win %',s:'Win%',v:x=>x.best_win_rate||0,f:x=>Math.round(x.best_win_rate||0)+'%',b:'max',sec:'edge'},
+          {l:'Robustness',s:'Rob',v:x=>scoreRun(x),f:x=>scoreRun(x),b:'max',sec:'edge'},
+          {l:'DSR',s:'DSR',f:x=>(x.dsr&&x.dsr.dsr!=null?Math.round(x.dsr.dsr*100)+'%':'—'),sec:'edge'},
+          {l:'Trades',s:'Trades',f:x=>(x.best_trades||0),sec:'sample'},
+          {l:'Verdict',s:'Verdict',f:x=>x.validate?'<b style="color:'+(x.validate.verdict==='PASS'?'var(--green)':x.validate.verdict==='WEAK'?'var(--yellow)':'var(--red)')+'">'+x.validate.verdict+'</b>':'—'}];
         const M_wf=[
-          {l:'WF net $ (out-of-sample)',v:x=>{const a=_wfA(x);return a?a.net:-1e15;},f:x=>{const a=_wfA(x);return a?fmtUsd(Math.round(a.net)):'—';},b:'max',sec:'return'},
-          {l:'Median fold PF',v:x=>{const a=_wfA(x);return (a&&a.pfm!=null)?a.pfm:-1e15;},f:x=>{const a=_wfA(x);return (a&&a.pfm!=null)?a.pfm.toFixed(2):'—';},b:'max',sec:'edge'},
-          {l:'Folds held',f:x=>{const a=_wfA(x);return a?('<b style="color:'+(a.held>=a.n/2?'var(--green)':'var(--red)')+'">'+a.held+'/'+a.n+'</b>'):'—';},sec:'sample'},
-          {l:'OOS trades',f:x=>{const a=_wfA(x);return (a&&a.tr)?a.tr:'—';},sec:'sample'}];
+          {l:'WF net $ (out-of-sample)',s:'WF $',v:x=>{const a=_wfA(x);return a?a.net:-1e15;},f:x=>{const a=_wfA(x);return a?_ab$(a.net):'—';},b:'max',sec:'return'},
+          {l:'Median fold PF',s:'Fold PF',v:x=>{const a=_wfA(x);return (a&&a.pfm!=null)?a.pfm:-1e15;},f:x=>{const a=_wfA(x);return (a&&a.pfm!=null)?a.pfm.toFixed(2):'—';},b:'max',sec:'edge'},
+          {l:'Folds held',s:'Folds',f:x=>{const a=_wfA(x);return a?('<b style="color:'+(a.held>=a.n/2?'var(--green)':'var(--red)')+'">'+a.held+'/'+a.n+'</b>'):'—';},sec:'sample'},
+          {l:'OOS trades',s:'OOS tr',f:x=>{const a=_wfA(x);return (a&&a.tr)?a.tr:'—';},sec:'sample'}];
         const M_lb=[
-          {l:'Lockbox net $',v:x=>{const a=_lbA(x);return a?a.net:-1e15;},f:x=>{const a=_lbA(x);return a?fmtUsd(Math.round(a.net)):'—';},b:'max',sec:'return'},
-          {l:'Lockbox PF',v:x=>{const a=_lbA(x);return a?a.pf:-1e15;},f:x=>{const a=_lbA(x);return a?a.pf.toFixed(2):'—';},b:'max',sec:'edge'},
-          {l:'Held?',f:x=>{const a=_lbA(x);return a?('<b style="color:'+(a.pass?'var(--green)':'var(--red)')+'">'+(a.pass?'HELD ✓':'FAILED ✕')+'</b>'):'—';},sec:'edge'},
-          {l:'Lockbox trades',f:x=>{const a=_lbA(x);return a?a.tr:'—';},sec:'sample'}];
+          {l:'Lockbox net $',s:'LB $',v:x=>{const a=_lbA(x);return a?a.net:-1e15;},f:x=>{const a=_lbA(x);return a?_ab$(a.net):'—';},b:'max',sec:'return'},
+          {l:'Lockbox PF',s:'LB PF',v:x=>{const a=_lbA(x);return a?a.pf:-1e15;},f:x=>{const a=_lbA(x);return a?a.pf.toFixed(2):'—';},b:'max',sec:'edge'},
+          {l:'Held?',s:'Held',f:x=>{const a=_lbA(x);return a?('<b style="color:'+(a.pass?'var(--green)':'var(--red)')+'">'+(a.pass?'HELD ✓':'FAILED ✕')+'</b>'):'—';},sec:'edge'},
+          {l:'Lockbox trades',s:'LB tr',f:x=>{const a=_lbA(x);return a?a.tr:'—';},sec:'sample'}];
         // v64.56 (owner: "no overall section"): the old "OVERALL" scope was really the IN-SAMPLE
         //   champion (best_pnl_usd = the optimize-window numbers), so there was no whole-run figure
         //   anywhere in COMPARE. A real TOTAL scope now mirrors the Results KPI matrix TOTAL column:
@@ -12483,25 +12685,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // no validate curve (plain sweep): the whole run IS the in-sample window
           return {net:(+x.best_pnl_usd||0),is:(+x.best_pnl_usd||0),wf:wfN,lb:lbN,whole:false};};
         const M_tot=[
-          {l:'Total net $ (whole run)',v:x=>{const a=_totA(x);return a?a.net:-1e15;},f:x=>{const a=_totA(x);if(!a)return '—';
-            return '<b>'+fmtUsd(Math.round(a.net))+'</b>'+(a.whole?'':'<span title="this run has no walk-forward / lockbox stages — its whole run IS the in-sample window, so this equals the in-sample figure" style="color:var(--yellow);font-size:8px"> IS only</span>');},b:'max',sec:'return'},
-          {l:'  ├ in-sample $',v:x=>{const a=_totA(x);return a?a.is:-1e15;},f:x=>{const a=_totA(x);return a?'<span style="color:var(--text4)">'+fmtUsd(Math.round(a.is))+'</span>':'—';},sec:'return'},
-          {l:'  ├ walk-forward $',v:x=>{const a=_wfA(x);return a?a.net:-1e15;},f:x=>{const a=_wfA(x);return a?'<span style="color:var(--text4)">'+fmtUsd(Math.round(a.net))+'</span>':'—';},sec:'return'},
-          {l:'  └ lockbox $',v:x=>{const a=_lbA(x);return a?a.net:-1e15;},f:x=>{const a=_lbA(x);return a?'<span style="color:var(--text4)">'+fmtUsd(Math.round(a.net))+'</span>':'—';},sec:'return'},
-          {l:'Max DD (in-sample)',v:x=>x.best_dd_usd||0,f:x=>fmtUsd(x.best_dd_usd||0),b:'max',sec:'drawdown'},
-          {l:'Robustness',v:x=>scoreRun(x),f:x=>scoreRun(x),b:'max',sec:'edge'},
-          {l:'Verdict',f:x=>x.validate?'<b style="color:'+(x.validate.verdict==='PASS'?'var(--green)':x.validate.verdict==='WEAK'?'var(--yellow)':'var(--red)')+'">'+x.validate.verdict+'</b>':'—'}];
+          {l:'Total net $ (whole run)',s:'Total $',v:x=>{const a=_totA(x);return a?a.net:-1e15;},f:x=>{const a=_totA(x);if(!a)return '—';
+            return '<b>'+_ab$(a.net)+'</b>'+(a.whole?'':'<span title="this run has no walk-forward / lockbox stages — its whole run IS the in-sample window, so this equals the in-sample figure" style="color:var(--yellow);font-size:8px"> IS only</span>');},b:'max',sec:'return'},
+          {l:'  ├ in-sample $',s:'IS $',v:x=>{const a=_totA(x);return a?a.is:-1e15;},f:x=>{const a=_totA(x);return a?'<span style="color:var(--text4)">'+_ab$(a.is)+'</span>':'—';},sec:'return'},
+          {l:'  ├ walk-forward $',s:'WF $',v:x=>{const a=_wfA(x);return a?a.net:-1e15;},f:x=>{const a=_wfA(x);return a?'<span style="color:var(--text4)">'+_ab$(a.net)+'</span>':'—';},sec:'return'},
+          {l:'  └ lockbox $',s:'LB $',v:x=>{const a=_lbA(x);return a?a.net:-1e15;},f:x=>{const a=_lbA(x);return a?'<span style="color:var(--text4)">'+_ab$(a.net)+'</span>':'—';},sec:'return'},
+          {l:'Max DD (in-sample)',s:'Max DD',v:x=>x.best_dd_usd||0,f:x=>_ab$(x.best_dd_usd||0),b:'max',sec:'drawdown'},
+          {l:'Robustness',s:'Rob',v:x=>scoreRun(x),f:x=>scoreRun(x),b:'max',sec:'edge'},
+          {l:'Verdict',s:'Verdict',f:x=>x.validate?'<b style="color:'+(x.validate.verdict==='PASS'?'var(--green)':x.validate.verdict==='WEAK'?'var(--yellow)':'var(--red)')+'">'+x.validate.verdict+'</b>':'—'}];
         const _cSc=(APREF.cmpScope==='wf'||APREF.cmpScope==='lb'||APREF.cmpScope==='tot')?APREF.cmpScope:'all';
         const M=M_id.concat(_cSc==='wf'?M_wf:(_cSc==='lb'?M_lb:(_cSc==='tot'?M_tot:M_all)));
-        const hdr='<tr><th></th>'+runs.map(r=>'<th style="white-space:nowrap">#'+r.id+((r.famKey&&r.famSeq!=null)?' <span style="font-size:8px;color:var(--text4);font-weight:700">'+r.famKey+'-'+r.famSeq+'</span>':'')+' '+stratTag(r.strategy)+(_cmpMode==='fam'?'':' <span data-cmp-rm="'+r.id+'" title="remove" style="cursor:pointer;color:var(--text5)">✕</span>')+'</th>').join('')+'</tr>';
-        let _lastSec=null;
-        const mrows=M.map(m=>{let bi=-1;if(m.v&&m.b){let bv=null;runs.forEach((r,i)=>{const val=m.v(r);if(bv===null||(m.b==='max'?val>bv:val<bv)){bv=val;bi=i;}});}
-          const secRow=(m.sec&&m.sec!==_lastSec)?('<tr><td colspan="'+(runs.length+1)+'" style="padding:9px 6px 2px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+m.sec+'</td></tr>'):'';
-          if(m.sec)_lastSec=m.sec;
-          return secRow+'<tr><td style="color:var(--text4);font-size:var(--fsxs)">'+m.l+'</td>'+runs.map((r,i)=>'<td'+(i===bi?' style="font-weight:700;color:var(--green)"':'')+'>'+m.f(r)+'</td>').join('')+'</tr>';}).join('');
-        // ── EQUITY OVERLAY: one coloured curve per selected run (validate equity, else the stored
-        //    grid/auto curve), x = progress through THAT run, dotted tail = its lockbox slice.
-        //    The legend colour keys the net P&L bars below too. ──
+        // ── curve colours — MOVED above the table (v68.0, was below it) so the compact run
+        //    header (next) can swatch each column/row in its overlay-chart colour. One coloured
+        //    curve per selected run (validate equity, else the stored grid/auto curve); this
+        //    colour keys the net P&L bars too — see the EQUITY OVERLAY build further down. ──
         const CLR=['#3a9bdc','#1d9e75','#e2a94b','#d6557a','#a78bfa','#5bc8c8','#c48fef','#7aa05a'];
         // Curve colour = the run's STRATEGY colour (stratColor), so the overlay hue matches the
         //   colour used everywhere else (PICK RUNS rows, stratTag labels). Two selected runs of
@@ -12524,21 +12721,40 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(eq&&_fs.length>=2){const tr0=+_fs[0].train_bars||0,tb=_fs.map(f2=>+f2.test_bars||0),spn=tr0+tb.reduce((s2,x2)=>s2+x2,0);
             if(spn>0){let acc=tr0;wf=_fs.map((f2,j)=>{const a2=acc/spn,b2=(acc+tb[j])/spn;acc+=tb[j];return [a2,b2];});}}
           return {r:r,c:_curveColor(r,i),eq:eq,li:li,wf:wf};});
-        const legend='<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px;font-size:9px">'+curves.map(c=>'<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:3px;background:'+c.c+';display:inline-block;border-radius:2px"></span>#'+c.r.id+' '+stratTag(c.r.strategy)+(c.eq?'':' <span style="color:var(--text5)">(no curve saved — re-run to record)</span>')+'</span>').join('')+'</div>';
+        // compact run header (v68.0, owner: condense the table) — swatch dot in the curve
+        //   colour + #id + the famKey chip (e.g. "ORB-4"); the long strategy tag is dropped from
+        //   the header itself (it was the widest thing in the table) and rides in title= instead.
+        //   Shared by the VERT header row and the HORIZ first column below.
+        const _runHdr=(r,i)=>{const full=((stratTag(r.strategy)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||'';
+          return '<span title="'+full.replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap">'
+            +'<span style="width:9px;height:9px;border-radius:3px;background:'+curves[i].c+';flex:0 0 auto"></span>'
+            +'<span style="color:var(--text3)">#'+r.id+'</span>'
+            +((r.famKey&&r.famSeq!=null)?('<span style="font-size:8px;color:var(--text4);font-weight:700">'+r.famKey+'-'+r.famSeq+'</span>'):'')
+            +'</span>';};
+        const _rmBtn=r=>(_cmpMode==='fam')?'':(' <span data-cmp-rm="'+r.id+'" title="remove" style="cursor:pointer;color:var(--text5)">✕</span>');
+        // v68.0 (owner ask): VERT (runs as columns, metrics as rows — the original layout) or
+        //   HORIZ (runs as rows, metrics as columns) so a comparison with many runs fits without
+        //   sideways scrolling. Toggle pills are in the COMPARE tile header, next to scopeSeg.
+        let hdr,mrows;
+        if(_cOr==='h'){
+          // section dividers (m.sec) do not survive a transposed layout, so they are simply
+          //   dropped here; best-in-row highlight (m.v/m.b) still applies, now read per METRIC
+          //   COLUMN instead of per metric row.
+          hdr='<tr><th></th>'+M.map(m=>'<th style="white-space:nowrap;font-size:var(--fsxs);padding:3px 7px" title="'+String(m.l).replace(/"/g,'&quot;')+'">'+(m.s||m.l)+'</th>').join('')+'</tr>';
+          const _bi=M.map(m=>{if(!(m.v&&m.b))return -1;let bv=null,bi=-1;runs.forEach((r,i)=>{const val=m.v(r);if(bv===null||(m.b==='max'?val>bv:val<bv)){bv=val;bi=i;}});return bi;});
+          mrows=runs.map((r,ri)=>'<tr><td style="white-space:nowrap;font-size:var(--fsxs);padding:3px 7px">'+_runHdr(r,ri)+_rmBtn(r)+'</td>'
+            +M.map((m,mi)=>'<td style="font-size:var(--fsxs);padding:3px 7px'+(_bi[mi]===ri?';font-weight:700;color:var(--green)':'')+'">'+m.f(r)+'</td>').join('')
+            +'</tr>').join('');
+        }else{
+          hdr='<tr><th></th>'+runs.map((r,i)=>'<th style="white-space:nowrap">'+_runHdr(r,i)+_rmBtn(r)+'</th>').join('')+'</tr>';
+          let _lastSec=null;
+          mrows=M.map(m=>{let bi=-1;if(m.v&&m.b){let bv=null;runs.forEach((r,i)=>{const val=m.v(r);if(bv===null||(m.b==='max'?val>bv:val<bv)){bv=val;bi=i;}});}
+            const secRow=(m.sec&&m.sec!==_lastSec)?('<tr><td colspan="'+(runs.length+1)+'" style="padding:9px 6px 2px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+m.sec+'</td></tr>'):'';
+            if(m.sec)_lastSec=m.sec;
+            return secRow+'<tr><td style="color:var(--text4);font-size:var(--fsxs)">'+m.l+'</td>'+runs.map((r,i)=>'<td'+(i===bi?' style="font-weight:700;color:var(--green)"':'')+'>'+m.f(r)+'</td>').join('')+'</tr>';}).join('');
+        }
         let ovl;
         const withEq=curves.filter(c=>c.eq);
-        // walk-forward / lockbox availability across the current selection — drives the honest
-        //   legend below (only advertise a line style that actually has data behind it).
-        const _hasWf=withEq.some(c=>c.wf&&c.wf.length);
-        const _hasLb=withEq.some(c=>c.li!=null&&c.li>1);
-        // legend KEY — actual tiny inline-svg line samples using the SAME stroke-dasharray as
-        //   the real curve segments above, so "which style is which" is shown, not described.
-        const _lkSamp=(dash,round)=>'<svg width="22" height="6" style="vertical-align:middle;margin:0 3px 0 10px" aria-hidden="true"><line x1="1" y1="3" x2="21" y2="3" stroke="var(--text3)" stroke-width="1.4"'+(dash?' stroke-dasharray="'+dash+'"':'')+(round?' stroke-linecap="round"':'')+'/></svg>';
-        const _ovlSub='· x = progress through run'
-          +_lkSamp(null,false)+'in-sample'
-          +(_hasWf?(_lkSamp('7,4',false)+'walk-forward'):'')
-          +(_hasLb?(_lkSamp('0.1,5',true)+'lockbox'):'')
-          +((!_hasWf&&!_hasLb)?'&nbsp;&nbsp;&nbsp;(no walk-forward or lockbox slices saved)':'');
         // stash a serialisable payload for the fullscreen multi-curve explorer (⛶ button /
         //   dbl-click on the overlay below) — window.expandCompareEq reads this global. Each
         //   series also carries a `blot` payload (same shape 1A builds) so the explorer's TRADES
@@ -12551,6 +12767,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
               mult:_mc,date_from:c.r.date_from||null,date_to:c.r.date_to||null,
               source:c.r.data_source||null,   // pin the run's master (window AND master rule)
               code:((typeof c.r.code_snapshot==='string'&&c.r.code_snapshot.length>100)?c.r.code_snapshot:null)}};});
+        // v68.0: runs with NO saved curve (withEq excludes them) still get a muted line in the
+        //   live chart's key box below (cmpOvlMount), instead of silently vanishing from it.
+        window._cmpEqxNoCurve=curves.filter(c=>!c.eq).map(c=>({id:c.r.id,label:(stratTag(c.r.strategy)||'').replace(/<[^>]*>/g,'').trim()||('#'+c.r.id)}));
         if(withEq.length){
           let emn=0,emx=0;withEq.forEach(c=>{c.eq.forEach(v=>{if(v<emn)emn=v;if(v>emx)emx=v;});});
           if(emx<=emn)emx=emn+1;const epad=(emx-emn)*0.05;emn-=epad;emx+=epad;
@@ -12614,9 +12833,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v64.56 (owner): four scopes matching the Results KPI matrix — IN-SAMPLE (what the old
         //   "OVERALL" button actually showed) · WALK-FORWARD · LOCKBOX · TOTAL (the real whole run).
         const scopeSeg='<span style="margin-left:auto;display:inline-flex;gap:3px" title="which slice of each run the metric rows compare — IN-SAMPLE = the tuned optimize window · WALK-FORWARD / LOCKBOX = unseen-data slices · TOTAL = the whole run (in-sample + walk-forward + lockbox), the same figure as the TOTAL column of a run report KPI matrix">'+_scBtn2('all','IN-SAMPLE')+_scBtn2('wf','WALK-FORWARD')+_scBtn2('lb','LOCKBOX')+_scBtn2('tot','TOTAL')+'</span>';
-        const _scNote=(_cSc==='all')?'<div style="font-size:8px;color:var(--text5);margin-top:5px">IN-SAMPLE = each run best config measured on the window it was TUNED on — optimistic by construction. Switch to WALK-FORWARD or LOCKBOX for unseen-data-only comparisons, or TOTAL for the whole-run figure.</div>'
-          :(_cSc==='tot'?'<div style="font-size:8px;color:var(--text5);margin-top:5px">TOTAL = the whole run end to end (in-sample + walk-forward + lockbox) read off the champion equity curve — the same number as the TOTAL column in a run report KPI matrix. The indented rows split it into the three stages; in-sample is the residual (TOTAL − walk-forward − lockbox) so the three always add up. A run with no walk-forward / lockbox stage is marked "IS only".</div>'
-          :'<div style="font-size:8px;color:var(--text5);margin-top:5px">Out-of-sample slice — runs that did not run this test show a dash.</div>');
+        // v68.0 (owner ask): VERT ⇄ HORIZ table-orientation pills — same pill visual language as
+        //   the scope buttons just above, sat right next to them in the COMPARE tile header.
+        const _orBtn=(k2,lab,tip)=>'<button data-cmporient="'+k2+'" title="'+tip+'" style="height:20px;padding:0 8px;font-size:8px;letter-spacing:.5px;border-radius:6px;border:1px solid '+(_cOr===k2?'color-mix(in srgb,var(--text4) 55%,var(--border))':'var(--border)')+';background:'+(_cOr===k2?'var(--bg2)':'var(--bg1)')+';color:'+(_cOr===k2?'var(--text)':'var(--text4)')+';cursor:pointer">'+lab+'</button>';
+        const orientSeg='<span style="display:inline-flex;gap:3px">'+_orBtn('v','▥ VERT','runs as columns, metrics as rows')+_orBtn('h','▤ HORIZ','runs as rows, metrics as columns — fits many runs without sideways scrolling')+'</span>';
+        const _scNote=((_cSc==='all')?'<div style="font-size:8px;color:var(--text5);margin-top:5px">IN-SAMPLE = each run best config measured on the window it was TUNED on — optimistic by construction. Switch to WALK-FORWARD or LOCKBOX for unseen-data-only comparisons, or TOTAL for the whole-run figure.'
+          :(_cSc==='tot'?'<div style="font-size:8px;color:var(--text5);margin-top:5px">TOTAL = the whole run end to end (in-sample + walk-forward + lockbox) read off the champion equity curve — the same number as the TOTAL column in a run report KPI matrix. The indented rows split it into the three stages; in-sample is the residual (TOTAL − walk-forward − lockbox) so the three always add up. A run with no walk-forward / lockbox stage is marked "IS only".'
+          :'<div style="font-size:8px;color:var(--text5);margin-top:5px">Out-of-sample slice — runs that did not run this test show a dash.'))
+          +' Dollar figures are abbreviated (k = thousand, M = million).</div>';
         // ── Compare MODE toggle (owner ask): PICK RUNS (manual, default) vs BY STRATEGY (auto,
         //    one champion curve per family) — same segmented-pill look as the scope buttons above
         //    (_scBtn2), rendered above everything else so switching modes is always one click away.
@@ -12631,8 +12855,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="flex:0 1 430px;min-width:310px">'+pickerTile+'</div>'
           +(!runs.length?('<div style="flex:1 1 480px;min-width:0">'+tile('<div style="padding:40px 18px;text-align:center;color:var(--text5);font-size:var(--fsxs);line-height:2"><div style="font-size:12px;letter-spacing:3px;color:var(--text4);margin-bottom:6px">EMPTY COMPARISON TAB</div>Pick runs in the list on the left — they are added to <b style="color:var(--text3)">this tab only</b>, so each tab keeps its own comparison.</div>')+'</div>'):
           ('<div style="flex:1 1 480px;min-width:0">'
-            +tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px">COMPARE · '+runs.length+' run'+(runs.length===1?'':'s')+' <span style="font-weight:400;color:var(--text5);font-size:8px">· green = best in row'+(_cmpMode==='fam'?'':' · ✕ removes a run')+'</span>'+scopeSeg+'</div><div style="overflow-x:auto"><table class="table"><thead>'+hdr+'</thead><tbody>'+mrows+'</tbody></table></div>'+_scNote)
-            +tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px">EQUITY OVERLAY <span style="font-weight:400;color:var(--text5);font-size:8px">'+_ovlSub+'</span><button data-cmpexpand title="open the fullscreen multi-curve explorer" style="margin-left:auto;flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></div>'+legend+ovl)
+            // v68.0 (owner ask): the live chart now sits ABOVE the table (was below it) — its
+            //   2B-style key box and crosshair/zoom/pan interactions (window.cmpOvlMount, wired
+            //   in the handler block below) replace the old wrapping legend text entirely. The
+            //   #cmp-ovl-host div stays a plain container: the static ovl svg is its first-paint
+            //   / no-JS fallback, mount() clears and replaces it. The ⛶ button stays OUTSIDE the
+            //   host div so a re-mount never clobbers its click handler.
+            +tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px">EQUITY OVERLAY<button data-cmpexpand title="open the fullscreen multi-curve explorer" style="margin-left:auto;flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></div><div id="cmp-ovl-host" style="position:relative;min-height:300px">'+ovl+'</div>')
+            +tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px">COMPARE · '+runs.length+' run'+(runs.length===1?'':'s')+' <span style="font-weight:400;color:var(--text5);font-size:8px">· green = best in row'+(_cmpMode==='fam'?'':' · ✕ removes a run')+'</span>'+scopeSeg+orientSeg+'</div><div style="overflow-x:auto"><table class="table"><thead>'+hdr+'</thead><tbody>'+mrows+'</tbody></table></div>'+_scNote)
             +tile('<div class="lbl" style="margin-bottom:6px">NET P&L <span style="font-weight:400;color:var(--text5);font-size:8px">· whole-run best-config $ (see the scope note above)</span></div>'+pnlBars)
           +'</div>'))+'</div>';
       }
@@ -13473,7 +13703,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-cmp-rm]').forEach(x=>{x.onclick=()=>{const ids=_cur().filter(id=>id!==String(x.dataset.cmpRm));if(ids.length>=1){savePref('cmpIds',ids);renderApp();}};});
       // PICK RUNS ⇄ BY STRATEGY mode toggle (top of the Compare body)
       content.querySelectorAll('[data-cmpmode]').forEach(b=>{b.onclick=()=>{savePref('cmpMode',b.dataset.cmpmode);renderApp();};});
-      const _cex=content.querySelector('[data-cmpexpand]');if(_cex)_cex.onclick=()=>window.expandCompareEq(window._cmpEqxSeries);}
+      // VERT ⇄ HORIZ metric-table orientation toggle
+      content.querySelectorAll('[data-cmporient]').forEach(b=>{b.onclick=()=>{savePref('cmpOrient',b.dataset.cmporient);renderApp();};});
+      const _cex=content.querySelector('[data-cmpexpand]');if(_cex)_cex.onclick=()=>window.expandCompareEq(window._cmpEqxSeries);
+      // v68.0: mount the live inline equity-overlay chart (crosshair, wheel zoom, drag pan,
+      //   dbl-click reset, 2B-style key box) into the host the render just emitted.
+      if(typeof window.cmpOvlMount==='function')window.cmpOvlMount('cmp-ovl-host');}
     else if(augurSub==='rank'){content.querySelectorAll('[data-rank-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.rankRun;augurSub='runs';renderApp();};});
       const _rgb2=content.querySelector('[data-rankgroupbtn]');if(_rgb2)_rgb2.onclick=()=>{savePref('rankGroup',!APREF.rankGroup);renderApp();};
       content.querySelectorAll('[data-rankgrp]').forEach(h=>{h.onclick=()=>{const k=decodeURIComponent(h.dataset.rankgrp);if(window._rankGrpOpen.has(k))window._rankGrpOpen.delete(k);else window._rankGrpOpen.add(k);renderApp();};});}
