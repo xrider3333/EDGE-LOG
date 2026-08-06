@@ -3,7 +3,7 @@
 **Single source of truth for where the backtesting engine stands.** Update this
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
-- **Last updated:** 2026-07-17
+- **Last updated:** 2026-08-05
 - **Web VERSION:** 56.4 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
@@ -602,6 +602,37 @@ Full running record: [`TV_SWEEP.md`](TV_SWEEP.md).**
 - Artifacts: `TV_SWEEP.md` (prereg + per-strategy records) · 12 committed ports in
   `augur_strategies/` · session scratchpad r13/ (driver + per-strategy JSONs, tv_sweep/ pine pulls).
 
+**2026-08-05 — challenger round 14 (owner: "find more strats online and test them"): fresh web hunt
+for mechanically-NEW candidates. Two found; both closed with evidence; zero survive to a build.**
+- **Sweep:** 4 targeted searches over 2025–26 sources. Everything else found = (a) the graveyard
+  renamed (listicle ORB/scalp/spread setups), (b) commercial systems with undisclosed rules
+  (untestable), or (c) NEW falsification literature that independently agrees with our rounds 1–13:
+  arXiv 2605.04004 (14 OHLCV families on MNQ 5m, none survive costs — the Mesfin series round 11
+  already cited) and arXiv 2605.17724 (LSTM + gradient boosting on MNQ 2023–25: OOS accuracy
+  50.0–50.9% ≈ coin flip).
+- **Candidate 1 — the OVERNIGHT DRIFT (Boyarchenko/Larsen/Whelan, NY Fed SR 917 / JF): REPLICATED
+  on our own ETH masters, then CLOSED by arithmetic.** `tools/r14_overnight_check.py` measured the
+  paper's 02:00→03:00 ET window per night, 2010-06→2025-06 (sealed year untouched): NQ pre-2021
+  +0.749 pts/night (the drift is real and in our data) — but the pre-registered overnight cost line
+  (0.783 pts RT = comm + 0.5-pt Globex slippage, round-6 precedent) already exceeds it; net at 1
+  contract = **−$16.2k over 15 yr** (ES: −$85.7k). Post-2021 mean +0.163 NQ / −0.123 ES ≈ zero —
+  matching the authors' own July-2026 follow-up ("The Disappearing Overnight Drift": the window that
+  made ~3.7%/yr has averaged ~zero since 2021). Only fat year = 2020 (+3.5 pts/night, COVID vol) =
+  regime concentration. **Real anomaly, never retail-harvestable at our costs, and dead since 2021
+  per its own discoverers AND our data. No DAWN build; nothing spent.** Independently re-confirms
+  round-6 GLOBEX: the overnight session has no honestly-fillable edge at these costs.
+- **Candidate 2 — "push-response" anomalies (arXiv 2511.06177, Nov-2025): SKIPPED, unimplementable.**
+  Tick-scale NBBO event-time effect on SPY (lags measured in ticks), no stated effect size, no
+  transaction-cost survival claim. Below our 1m bar resolution — same class as the 2026-07-14 10s
+  order-flow probe (real microstructure, untradeable here).
+- Also re-screened and NOT re-opened: intraday momentum first-30min→last-30min (= LDM, closed with
+  placebo control round 8), NR7/compression-conditioned breakouts (conditioning on the same OHLCV =
+  quadruple-confirmed dead money, round 11), gap continuation (RELAY/DRIVE gap-align, rounds 3–6).
+- **Tally: 14 rounds · 3 public sources exhausted + 1 fresh hunt · 0 beat ORB. The falsification
+  literature now says what the program says.** Paths unchanged: order-flow (~Oct 2026) · owner ideas
+  · fix the ENGU-Q repro defect (still the highest-value open item).
+- Artifacts: `tools/r14_overnight_check.py` (+ output table in the commit message / this entry).
+
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
 |---|---|---|---|
@@ -1031,6 +1062,14 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-05** — **Challenger round 14 (owner: "find more strats online and test them"): fresh
+  2025–26 web hunt → 2 mechanically-new candidates, both closed with evidence, 0 builds.** The
+  published OVERNIGHT DRIFT replicated on our ETH masters (NQ +0.75 pts/night pre-2021 in the 2–3am
+  window) but sits BELOW the 0.783-pt overnight cost line even in its best era, is ~zero post-2021
+  (matching the authors' own 2026 "Disappearing Overnight Drift" follow-up), and nets −$16k/15yr at
+  1 lot → closed without a strategy build. Push-response (arXiv 2511.06177) = tick-scale,
+  unimplementable at 1m. New falsification papers (2605.04004, 2605.17724) independently confirm the
+  program's graveyard. Detail §3 round 14; tool: `tools/r14_overnight_check.py`.
 - **2026-08-05** — **Param-library transfer sweep (3 tests, 1 win / 2 kills).** (1) **Blend
   leg-upgrade WIN (measurement):** ORB×ENGU-Q 1:1 blend with the ORB leg swapped #125 single-lot →
   `ORB_3_0_ENS.py` gate-floor crown = net +$125k (+19.6%), max DD −21%, MAR 5.46→8.29, identical
