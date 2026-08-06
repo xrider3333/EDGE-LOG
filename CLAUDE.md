@@ -12,6 +12,13 @@ Structure EVERY substantive reply top-to-bottom as:
    Completed | No deploy — reason>`. Examples: `✅ Opus 4.8 · Pushed v64.0` · `✅ Opus 4.8 ·
    Completed` · `⚠️ Opus 4.8 · No deploy — waiting on X`. Nothing above it. A one-line summary may
    follow directly under it.
+1b. **THE TABLE COMES AT THE END — one table per reply, nothing after it (owner correction
+   2026-08-05: "wait till the end of your thinking before populating and giving me the tables…
+   i need everything at the end").** Never interleave table → text → another table → more text;
+   that mid-reply sandwich is exactly what confused him. Order: status header → short prose
+   details/caveats → the single consolidated numbered table LAST. Finish all tool work and
+   verification BEFORE writing the reply so the table is written once, complete, at the bottom.
+   All other format rules below (columns, numbering, locations, bullets) unchanged.
 2. **Then ONE numbered table — NEVER split into separate done / not-done / to-do tables.** Columns:
    `# | Thing | Description | Status`. **Status** is one of: **done** (already done before this
    reply), **just done** (finished in THIS reply), **to be done** (still pending). Use a status
