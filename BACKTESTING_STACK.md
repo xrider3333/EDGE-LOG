@@ -4,7 +4,7 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-08-05
-- **Web VERSION:** 56.4 · **Stack board (`method_stack.html`):** v4.1
+- **Web VERSION:** 67.8 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
@@ -633,6 +633,26 @@ for mechanically-NEW candidates. Two found; both closed with evidence; zero surv
   · fix the ENGU-Q repro defect (still the highest-value open item).
 - Artifacts: `tools/r14_overnight_check.py` (+ output table in the commit message / this entry).
 
+**2026-08-05 — challenger round 15 (owner: "find more strats online"): systematic-literature sweep — the Mesfin (2026) GMM regime-state signals DO NOT REPLICATE. Fourth online sweep closed.**
+- The sweep (Quantpedia catalog + 2024–26 SSRN/arXiv) surfaced one genuinely new signal class: **GMM/Markov
+  regime-state models** — the two "positive controls" of an arXiv MNQ falsification study (Mesfin 2026)
+  whose main result independently reconfirms this program's own conclusion (14 common OHLCV signal
+  families, all dead at friction; gross-edge ceiling ~1–1.5 pts on 5m bars).
+- **Causal reconstruction on 16y NQ (pre-registered spec, 12 cells, zero mining):** monthly-refit GMM k=3
+  (trailing 24-mo, fit-window-only standardization), causal 200-bar Markov transitions, fixed cluster-naming
+  rule. Results: **W1 "RTH Confluence" paper cell MAR 0.17** ($3.6k, n=252; pre-2021 conditional mean
+  −2.19 pts/trade → the conditional edge DOES NOT HOLD in old data) · **W2 "London Signal B" paper cell
+  net −$59.5k** (PF 0.92) — and it fires **20–25× the paper's reported trade count**, strong evidence the
+  paper's real pipeline contains undisclosed persistence/smoothing machinery. Per pre-registration that gap
+  was NOT reverse-engineered post-hoc. The paper's own falsification probe (1-bar delay degrades the edge)
+  reproduced directionally — the reconstruction is not obviously broken; the disclosed spec just does not
+  carry the claimed edge.
+- Verdict: **class closed** unless the author publishes the full pipeline. Also logged: Maróy (2025)
+  SSRN 5095349 (exit-strategy variants for the shelved NOISE family) — paywalled, parked as a lead.
+- **Four online sweeps now closed** (owner shortlist · deep-dive · TV top-boosts · systematic literature).
+  Tally across both sessions: 15 rounds · ~2,050 configs · 2 lockboxes spent · **0 beat ORB**.
+- Artifacts: session scratchpad round14_report.md (+ .json, r14_*.py, mesfin2026_fulltext.txt).
+
 ### Other strategies
 | # | Strategy | Type | Status (2026-06-20 screen) |
 |---|---|---|---|
@@ -1062,6 +1082,9 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-05** — **Challenger round 15: Mesfin (2026) GMM regime-state signals fail causal reconstruction
+  on 16y NQ (paper cells: MAR 0.17 and −$59.5k; W2 fires 20–25× the published trade count → undisclosed
+  pipeline). Fourth online sweep closed; 0 beat ORB across 15 rounds.** Detail §3.
 - **2026-08-05** — **Challenger round 14 (owner: "find more strats online and test them"): fresh
   2025–26 web hunt → 2 mechanically-new candidates, both closed with evidence, 0 builds.** The
   published OVERNIGHT DRIFT replicated on our ETH masters (NQ +0.75 pts/night pre-2021 in the 2–3am
