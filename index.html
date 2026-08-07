@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='68.6';
+const VERSION='68.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'68.7',date:'2026-08-06',notes:['2D column headers say what they are in plain words: SLIDING SIZE (contracts slide smoothly with confidence, quarter-lot to triple) or 3 STEP SIZES (half / one / two lots by confidence band) - and each notes NO CUT-OFF, because a tilt never drops a trade, so there is no rf-at-50 to name.','2E hybrid headers name the pinned cut-off - gate 50% + tilt - so it is clear which gate the survivors passed.','NEW SIZE MIX row in 2D and 2E: how many trades were given a small (under 0.75 lot), normal (0.75-1.5) or large (over 1.5) size. The engine saves it from today - runs made before this show a dash.']},
 {v:'68.6',date:'2026-08-06',notes:['2A: the key is the expanded-view style box inside the chart again, with exactly four rows - RAW, GATE, TILT, HYBRID - each showing its family top-line dollars. The default view draws ONLY those four top lines; clicking RAW reveals the rest of the config family (the survivors and the grey cloud), clicking again hides them.','2A: the drawdown now hangs DOWN from its own baseline exactly as 1A draws it - it was filling from the floor up, which read inverted. The dashed IS/LB divider lines are gone (the stripe colours already mark the sections), and the IS / WF / LB tags sit inside the plot.','2A: the best HYBRID (2E) draws as its own violet line on runs that carry hybrid data.']},
 {v:'68.5',date:'2026-08-06',notes:['Named back to ML GATE everywhere, per the owner - 2C title, the 2A chip and key, the tilt texts, the Builder and run-list labels. One name, no more switching.','2A brought in line with 1A: horizontal gridlines gone, the IS / WF / LB tags are crisp HTML (they were being stretched with the chart), the stripes stop at the equity floor so the drawdown pane below stays clean, and the key moved OUT of the plot into a chip row above the chart reading crowned / RAW configs / GATE (2C) / TILT (2D) / DRAWDOWN.','2A crosshair works like a chart cursor now: a date label rides the bottom axis and a dollar label rides the right axis, with both hairlines - nothing floats over the curves.','2D SIZE TILT rebuilt as the same matrix shape as 2C - one column per variant, metrics as rows - and every held-out column is named LB.','NEW 2E HYBRID section: gate first, then tilt the survivors. The cut-off is pinned to the one 2C crowned, so it adds no new knob. Appears on runs made from today; older reports have no hybrid data saved.','The crown pool widened from the top-5 to the top-10 in-sample configs - still ranked by walk-forward, and the LB still never chooses. A config like number 5, strong on walk-forward but sixth-or-lower in-sample, can now compete for the crown instead of watching from the stands.','2B header labels aligned consistently.']},
 {v:'68.4',date:'2026-08-06',notes:['2A cleanup pass on the owner punch-list: the drawdown is now its OWN pane under the equity with its own baseline and worst-$ label, exactly like 1A - it no longer sits inside the price section. The IS / WF / LB labels moved INSIDE the plot and IS is actually visible now. The best size-tilt line is included in the y-scale so it can no longer run off the top of the chart.','2A crosshair upgraded to 1A behaviour: the readout now shows the date, the champion equity dollars AND the drawdown dollars under the cursor, not just the date.','2A key renamed for clarity: best size tilt (2D) - the best row of section 2D, not the hybrid; other WF-tested configs - the configs that reached walk-forward testing but are not the crowned or in-sample-best line; 2C ML filter - the same thing section 2C crowns.','2B: the NOT ELIGIBLE columns now show their config numbers (a bookkeeping bug made them print a dash).','2C: the HINDSIGHT badge was firing on every new run even when the view matched the exact rule that crowned it - the rule name gained a suffix in v66.5 and the badge check was never updated. It now only appears when the view genuinely differs from the crowning rule or includes the LB.']},
@@ -10549,7 +10550,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   row crownable:false — nothing here can win the crown, by construction.
         const _tl=(V.tilts||[]).slice();
         const _tRec=s=>{if(!s)return null;const d=Math.abs((s.max_drawdown)||0);return d>1e-9?(s.total_pnl/d):null;};
-        const _shNm={tier:'steps',linear:'sloped'};
+        // v68.7 (owner: "what does sloped mean?"): plain words. SLIDING SIZE = the contract count
+        //   slides smoothly with the model's confidence (quarter-lot up to 3). 3 STEP SIZES =
+        //   just three fixed sizes - half, one, or two lots - by confidence band.
+        const _shNm={tier:'3 step sizes',linear:'sliding size'};
         const _shTip={tier:'three sizes only - double on the confident trades, normal in the middle, half on the doubtful ones',
                       linear:'size slides smoothly with confidence, from a quarter up to triple'};
         // v68.5 (owner: "make it match 2C - flip the rows/columns"): the tilt table is now the
@@ -10560,7 +10564,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
           cols.push({lbl:'no gate',col:'var(--text3)',_s:{is:V.ungated_is,wf:V.ungated_wf,lb:V.ungated_lockbox,n:(V.ungated_full||{}).num_trades,mx:1}});
           if(ch){const cc=(V.candidates||[]).filter(c=>c.model===ch.model&&Math.abs(c.threshold-ch.threshold)<1e-9)[0];
             if(cc)cols.push({lbl:'&#128081; gate',sub:cc.model+' @ '+Math.round(cc.threshold*100)+'%',col:'var(--green)',emph:true,emphCol:'var(--green)',_s:{is:cc.is_rng,wf:cc.wf_rng,lb:cc.lockbox,n:cc.kept_pre,mx:1}});}
-          list.forEach(t=>{cols.push({lbl:String(t.model||''),sub:(kind==='hyb')?'gate + tilt':(_shNm[t.scheme]||t.scheme),col:_gateColor(String(t.model||''),1,60),_s:{is:t.is_rng,wf:t.wf_rng,lb:t.lockbox,n:(kind==='hyb'?t.kept_pre:t.n_trades),mx:t.max_size}});});
+          // v68.7 (owner: "it doesnt say which rf"): a TILT column has NO cut-off — every trade is
+          //   taken, only re-sized — so the header says so instead of leaving it to guesswork.
+          //   A HYBRID column names the pinned cut-off it drops below (the 2C crown).
+          list.forEach(t=>{cols.push({lbl:String(t.model||''),
+            sub:(kind==='hyb')?('gate '+(t.floor!=null?Math.round(t.floor*100)+'%':(ch?Math.round(ch.threshold*100)+'%':''))+' + tilt'):((_shNm[t.scheme]||t.scheme)+' · no cut-off'),
+            col:_gateColor(String(t.model||''),1,60),
+            _s:{is:t.is_rng,wf:t.wf_rng,lb:t.lockbox,n:(kind==='hyb'?t.n_trades:t.n_trades),mx:t.max_size,mix:t.sizes||null}});});
           return cols;};
         const _cmpRec=x=>{if(!x)return null;const dd0=Math.abs(x.max_drawdown||0);return dd0>1e-9?(x.total_pnl/dd0):null;};
         const _cmpUsd=v=>(v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):'<span style="color:var(--text5)">&mdash;</span>');
@@ -10575,7 +10585,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
               {lbl:'LB MAX DD',cell:c=>{const x=c._s.lb;return (x&&x.max_drawdown!=null)?('<span style="color:#e24b4a">-'+$k(Math.abs(x.max_drawdown))+'</span>'):'&mdash;';}}]},
             {name:'SAMPLE',rows:[
               {lbl:'TRADES',top:true,cell:c=>c._s.n!=null?(+c._s.n).toLocaleString():'&mdash;'},
-              {lbl:'<span title="largest contracts any single trade got - the average is always 1">BIGGEST SIZE</span>',cell:c=>c._s.mx!=null?((+c._s.mx).toFixed(1)+'&times;'):'&mdash;'}]}
+              {lbl:'<span title="largest contracts any single trade got - the average is always 1">BIGGEST SIZE</span>',cell:c=>c._s.mx!=null?((+c._s.mx).toFixed(1)+'&times;'):'&mdash;'},
+              // v68.7 (owner: "how do we know how many small/medium/large trades it did?") —
+              //   engine >= v68.7 saves the split; older runs show a dash here.
+              {lbl:'<span title="how the trades split by the size they were given: under 0.75 of a lot / 0.75-1.5 / over 1.5. Saved by the engine from v68.7 runs on.">SIZE MIX s·m·L</span>',cell:c=>{const x=c._s.mix;return x?('<span style="color:var(--text3)">'+(+x.small).toLocaleString()+' · '+(+x.normal).toLocaleString()+' · '+(+x.big).toLocaleString()+'</span>'):'<span style="color:var(--text5)">&mdash;</span>';}}]}
           ],{compact:true});};
         const tiltTbl=(!_tl.length)?'':(function(){
           _tl.sort((a,b)=>((_cmpRec(b.lockbox)!=null?_cmpRec(b.lockbox):-99)-(_cmpRec(a.lockbox)!=null?_cmpRec(a.lockbox):-99)));
