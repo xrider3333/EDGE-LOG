@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='68.5';
+const VERSION='68.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'68.6',date:'2026-08-06',notes:['2A: the key is the expanded-view style box inside the chart again, with exactly four rows - RAW, GATE, TILT, HYBRID - each showing its family top-line dollars. The default view draws ONLY those four top lines; clicking RAW reveals the rest of the config family (the survivors and the grey cloud), clicking again hides them.','2A: the drawdown now hangs DOWN from its own baseline exactly as 1A draws it - it was filling from the floor up, which read inverted. The dashed IS/LB divider lines are gone (the stripe colours already mark the sections), and the IS / WF / LB tags sit inside the plot.','2A: the best HYBRID (2E) draws as its own violet line on runs that carry hybrid data.']},
 {v:'68.5',date:'2026-08-06',notes:['Named back to ML GATE everywhere, per the owner - 2C title, the 2A chip and key, the tilt texts, the Builder and run-list labels. One name, no more switching.','2A brought in line with 1A: horizontal gridlines gone, the IS / WF / LB tags are crisp HTML (they were being stretched with the chart), the stripes stop at the equity floor so the drawdown pane below stays clean, and the key moved OUT of the plot into a chip row above the chart reading crowned / RAW configs / GATE (2C) / TILT (2D) / DRAWDOWN.','2A crosshair works like a chart cursor now: a date label rides the bottom axis and a dollar label rides the right axis, with both hairlines - nothing floats over the curves.','2D SIZE TILT rebuilt as the same matrix shape as 2C - one column per variant, metrics as rows - and every held-out column is named LB.','NEW 2E HYBRID section: gate first, then tilt the survivors. The cut-off is pinned to the one 2C crowned, so it adds no new knob. Appears on runs made from today; older reports have no hybrid data saved.','The crown pool widened from the top-5 to the top-10 in-sample configs - still ranked by walk-forward, and the LB still never chooses. A config like number 5, strong on walk-forward but sixth-or-lower in-sample, can now compete for the crown instead of watching from the stands.','2B header labels aligned consistently.']},
 {v:'68.4',date:'2026-08-06',notes:['2A cleanup pass on the owner punch-list: the drawdown is now its OWN pane under the equity with its own baseline and worst-$ label, exactly like 1A - it no longer sits inside the price section. The IS / WF / LB labels moved INSIDE the plot and IS is actually visible now. The best size-tilt line is included in the y-scale so it can no longer run off the top of the chart.','2A crosshair upgraded to 1A behaviour: the readout now shows the date, the champion equity dollars AND the drawdown dollars under the cursor, not just the date.','2A key renamed for clarity: best size tilt (2D) - the best row of section 2D, not the hybrid; other WF-tested configs - the configs that reached walk-forward testing but are not the crowned or in-sample-best line; 2C ML filter - the same thing section 2C crowns.','2B: the NOT ELIGIBLE columns now show their config numbers (a bookkeeping bug made them print a dash).','2C: the HINDSIGHT badge was firing on every new run even when the view matched the exact rule that crowned it - the rule name gained a suffix in v66.5 and the badge check was never updated. It now only appears when the view genuinely differs from the crowning rule or includes the LB.']},
 {v:'68.3',date:'2026-08-06',notes:['2A CONFIG FUNNEL revamp (non-expanded): walk-forward folds now draw as alternating blue stripes exactly like 1A; a compact red champion-drawdown strip runs along the plot floor; the best SIZE TILT from 2D draws as its own amber line; a crosshair with a date readout follows the cursor; and every key row is live - click hides or shows that line, hovering spotlights it. FULL RUN is the default period, and the overlay chip says FILTER instead of gated.','Section 2 re-lettered so SIZE TILT is properly 2D: distribution 2E, param surface 2F, parallel coordinates 2G, PDP 2H, knob importance 2I, neighbours 2J, top configs 2K, ML config builder 2L. Every section-2 title now carries an emoji like 2C does.','2B and 2C title rows now end in the identical SAMPLE / RANK / HEAT controls - the hindsight warning moved out of the strip to a small note under the 2C matrix.','Expanded 2A: the OTHER CONFIGS group now states the split - 67 grey plus 10 coloured equals the 77 the tile reports - so the two counts stop looking like a discrepancy.','2B: hovering a NOT ELIGIBLE column rank now explains what that means - kept for context, never in the pool the crown picks from.']},
@@ -8124,6 +8125,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(_bestTiltC&&_bestTiltC.equity&&Array.isArray(_bestTiltC.equity.cum))
           _bestTiltC.equity.cum.forEach(v=>extYs.push(v*mult));
       }catch(_bt0){_bestTiltC=null;}
+      // v68.6: same pre-pass for the best HYBRID (2E) — engine >= v68.5 runs only.
+      let _bestHybC=null;
+      try{
+        const _hyA0=(d.gate_validate&&Array.isArray(d.gate_validate.hybrids))?d.gate_validate.hybrids:[];
+        const _hRc0=t=>{const c=t&&t.lockbox;if(!c)return -99;const dd0=Math.abs(c.max_drawdown||0);return dd0>1e-9?(c.total_pnl/dd0):-99;};
+        _bestHybC=_hyA0.slice().sort((a,b)=>_hRc0(b)-_hRc0(a))[0]||null;
+        if(_bestHybC&&_bestHybC.equity&&Array.isArray(_bestHybC.equity.cum))
+          _bestHybC.equity.cum.forEach(v=>extYs.push(v*mult));
+      }catch(_bh0){_bestHybC=null;}
       // draw ALL stored curves; the slider picks how many get COLOUR — the rest stay as faint
       //   grey context lines (owner request) instead of disappearing. Slider max = stored curves.
       // v64.27 (owner): DEFAULT = every stored curve (the slider already spans them all).
@@ -8245,7 +8255,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         poolAll.forEach(c=>{if(c===crownedC||c===isMaxC)return;
           wf+=_proc(c.equity.cum.map(v=>v*mult),_huePal[(_hueI++)%_huePal.length],0.6,0.85);});
         let ov='';
-        if(isMaxC&&isMaxC!==crownedC)ov+='<g data-kg="ismax">'+_proc(isMaxC.equity.cum.map(v=>v*mult),'#3a9bdc',0.7,0.95)+'</g>';
+        if(isMaxC&&isMaxC!==crownedC)ov+='<g data-kg="ismax" style="display:none">'+_proc(isMaxC.equity.cum.map(v=>v*mult),'#3a9bdc',0.7,0.95)+'</g>';
         if(crownedC)ov+='<g data-kg="crown">'+_proc(crownedC.equity.cum.map(v=>v*mult),'#1d9e75',0.9,1)+'</g>';
         // top-3 lockbox continuation [lockbox door → right edge] — DOTTED per the procedure
         const LBALT=['#e0a04b','#a879e6'];let alt=0;const labs=[];let lb='';
@@ -8570,7 +8580,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           ;
         // v68.5 (owner: labels looked stretched): the svg scales with preserveAspectRatio=none,
         //   which warps text — the IS/WF/LB tags are HTML overlays now (1A look), placed by %.
-        const _secLab=(x,txt,col)=>'<div style="position:absolute;top:3px;left:'+((x/W)*100).toFixed(2)+'%;transform:translateX(-50%);font-size:9px;font-weight:700;letter-spacing:.5px;color:'+col+';pointer-events:none;z-index:2">'+txt+'</div>';
+        const _secLab=(x,txt,col)=>'<div style="position:absolute;top:13%;left:'+((x/W)*100).toFixed(2)+'%;transform:translateX(-50%);font-size:9px;font-weight:700;letter-spacing:.5px;color:'+col+';pointer-events:none;z-index:2">'+txt+'</div>';
         _gutterHtml=_gutterHtml||'';
         var _secLabs=_secLab((xL+xIS)/2,'IS','var(--text3)')+_secLab((xIS+xFull)/2,'WF','#60a5fa')+(hasLB?_secLab((xFull+xR)/2,'LB','#a78bfa'):'');
         // v64.43 (owner): the 2A key now uses the SAME HTML box format as 2B — marker + label +
@@ -8601,6 +8611,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _tiltOv='<g data-kg="tilt"><polyline points="'+_tp.join(' ')+'" fill="none" stroke="#f0b429" stroke-width="0.75" opacity="0.9" stroke-dasharray="3 1.6"><title>best size tilt (2D): '+String(_bt.model||'')+' · '+String(_bt.scheme||'')+'</title></polyline></g>';
             _tiltEnd=_ta[_tn-1];}
         }catch(_te){}
+        // v68.6: the best HYBRID (2E) draws too — violet, same trade-grid mapping as the tilt.
+        let _hybOv='',_hybEnd=null;
+        try{
+          const _bh=_bestHybC;
+          if(_bh&&_bh.equity&&Array.isArray(_bh.equity.cum)&&_bh.equity.cum.length>2){
+            const _ha=_bh.equity.cum.map(v=>v*mult),_hn=_ha.length;
+            const _hf=Math.max(0.02,Math.min(0.98,(+_bh.kept_pre||0)/Math.max(1,+_bh.n_trades||_hn)));
+            const _hp2=[];
+            for(let j=0;j<_hn;j++){const f=_hn<=1?1:j/(_hn-1);
+              const x=(f<=_hf)?(xL+(xFull-xL)*(f/_hf)):(xFull+(xR-xFull)*((f-_hf)/(1-_hf)));
+              _hp2.push(x.toFixed(1)+' '+Yv(_ha[j]).toFixed(1));}
+            _hybOv='<g data-kg="hyb"><polyline points="'+_hp2.join(' ')+'" fill="none" stroke="#c084fc" stroke-width="0.75" opacity="0.9"><title>best hybrid (2E): '+String(_bh.model||'')+' · gate + tilt</title></polyline></g>';
+            _hybEnd=_ha[_hn-1];}
+        }catch(_he){}
         // v68.3 (owner: "add the drawdown graph"): a compact drawdown strip along the plot floor —
         //   the crowned champion's whole-run drawdown (incl. the held-out year), red area, same
         //   x mapping as the equity above it. 1A's lower pane, miniaturised.
@@ -8616,9 +8640,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
             const _xAt=j=>{const preN=Math.max(2,_li);
               return (j<_li)?(xL+(xFull-xL)*(j/(preN-1)))
                             :(xFull+(xR-xFull)*((j-_li)/Math.max(1,_en-1-_li)));};
-            const _pts=['M'+_xAt(0).toFixed(1)+' '+_dB.toFixed(1)];
+            const _pts=['M'+_xAt(0).toFixed(1)+' '+_dT.toFixed(1)];
             for(let j=0;j<_en;j++)_pts.push('L'+_xAt(j).toFixed(1)+' '+(_dT+(_dB-_dT)*(_dd[j]/_dmn)).toFixed(1));
-            _pts.push('L'+_xAt(_en-1).toFixed(1)+' '+_dB.toFixed(1)+'Z');
+            _pts.push('L'+_xAt(_en-1).toFixed(1)+' '+_dT.toFixed(1)+'Z');
             _ddStrip='<g data-kg="dd">'
               +'<line x1="'+xL.toFixed(1)+'" y1="'+_dT.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+_dT.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.6"/>'
               +'<path d="'+_pts.join('')+'" fill="rgba(226,75,74,.38)" stroke="#e24b4a" stroke-width="0.5" opacity="0.8"><title>champion drawdown (whole run) · worst '+_kUsd(_dmn)+'</title></path>'
@@ -8631,15 +8655,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(_tiltEnd!=null)_kRows.push(['◔','best size tilt (2D)',_kUsd(_tiltEnd),'#f0b429','tilt']);
         _keyBox='<div style="position:absolute;top:8px;left:8px;background:color-mix(in srgb,var(--bg1) 82%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;pointer-events:none;z-index:2">'
           ;
-        // v68.5 (owner): the KEY is a horizontal chip row ABOVE the chart — nothing overlaps the
-        //   plot any more — and it reads in the owner's three words: RAW / GATE / TILT.
-        const _kc=(k,ic,txt,val,col)=>'<span data-a2k="'+k+'" title="click: hide / show · hover: spotlight" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;color:'+col+';font-size:8px;font-weight:700"><b>'+ic+'</b>'+txt+(val?(' <b>'+val+'</b>'):'')+'</span>';
-        _keyBox='<div data-a2krow style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:0 2px 4px">'
-          +(_crV!=null?_kc('crown','👑','crowned',_kUsd(_crV),'#1d9e75'):'')
-          +_kc('raw','▬','RAW configs','','#e0a04b')
-          +((_hasGate&&_a2gate)?_kc('gate','▬','GATE (2C)','','#e05fa0'):'')
-          +(_tiltEnd!=null?_kc('tilt','◔','TILT (2D)',_kUsd(_tiltEnd),'#f0b429'):'')
-          +_kc('dd','▨','DRAWDOWN','','#e24b4a')
+        // v68.6 (owner): the KEY is the expanded-view style BOX inside the plot again, top-left,
+        //   with exactly four family rows: RAW · GATE · TILT · HYBRID. Each row shows its family's
+        //   top line value; clicking a row reveals / hides the rest of that family.
+        const _gateEndV=(_hasGate&&_gEq&&Array.isArray(_gEq.cum_gated)&&_gEq.cum_gated.length)?_gEq.cum_gated[_gEq.cum_gated.length-1]*mult:null;
+        const _kr=(k,txt,val,col)=>'<div data-a2k="'+k+'" title="click: show / hide the rest of this family · hover: spotlight it" style="cursor:pointer;white-space:nowrap;color:'+col+'"><b>▬</b> '+txt+(val!=null?(' <b>'+_kUsd(val)+'</b>'):'')+'</div>';
+        _keyBox='<div data-a2krow style="position:absolute;top:8px;left:8px;background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;z-index:3">'
+          +_kr('raw','👑 RAW',(_crV!=null?_crV:null),'#1d9e75')
+          +(_hasGate?_kr('gate','GATE',_gateEndV,'#e05fa0'):'')
+          +(_tiltEnd!=null?_kr('tilt','TILT',_tiltEnd,'#f0b429'):'')
+          +(_hybEnd!=null?_kr('hyb','HYBRID',_hybEnd,'#c084fc'):'')
           +'</div>';
         // v64.98 (owner: "add these to 2A as well"): the SAMPLE control is SHARED with the 2C
         //   matrix — one setting, both tiles agree — and here it dims the stretch you are not
@@ -8652,7 +8677,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _dR=(x0,x1)=>'<rect x="'+x0.toFixed(1)+'" y="'+pt+'" width="'+Math.max(0,x1-x0).toFixed(1)+'" height="'+(eqB-pt).toFixed(1)+'" fill="var(--bg1)" opacity="0.62" pointer-events="none"/>';
           _dimOv=(_a2samp==='lb')?_dR(xL,xFull):_dR(xFull,xR);
         }
-        selSvg=_ddStrip+isDoor+lbDoor+'<g data-kg="wf">'+wf+'</g>'+ov+'<g data-kg="lb">'+lb+'</g>'+_tiltOv+'<g data-kg="gate">'+gateOv+'</g>'+_dimOv;}
+        // v68.6 (owner): the dashed IS/LB door lines are gone — the stripe colours already mark
+        //   the sections. Default view = the TOP line of each family only (crowned raw, gate,
+        //   tilt, hybrid); the rest of the raw family starts hidden and the key reveals it.
+        selSvg=_ddStrip
+          +'<g data-kg="wf" style="display:none">'+wf+'</g>'
+          +ov+'<g data-kg="lb">'+lb+'</g>'+_tiltOv+_hybOv+'<g data-kg="gate">'+gateOv+'</g>'+_dimOv;}
       // x-axis date labels (owner request). Use the OPTIMIZE window when this is a validate
       //   run; selMode+lockbox pushes the right label out to the holdout end.
       const _xw=(d.validate&&d.validate.windows&&d.validate.windows.optimize)||null;
@@ -8684,11 +8714,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _svgStr='<svg viewBox="0 0 '+W+' '+H+'" '+(selMode?'preserveAspectRatio="none" style="display:block;width:100%;height:100%"':'width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"')+((selMode&&_xd0&&_xd1)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:_xd0,x1:_xd1,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,xl:'',yl:'equity'}))+'"':((!selMode&&d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,yl:'equity'}))+'"':''))+'>'
         +selBands
         +grid
-        +'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>'+(selMode?('<g data-kg="cloud">'+lines+'</g>'):lines)+selSvg+(selMode?'':_gateOvNS)+winTag+(selMode?'':c2YTitle(H,'equity $'))+'</svg>';
+        +'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>'+(selMode?('<g data-kg="cloud" style="display:none">'+lines+'</g>'):lines)+selSvg+(selMode?'':_gateOvNS)+winTag+(selMode?'':c2YTitle(H,'equity $'))+'</svg>';
       // v64.31 (owner): selMode = PRE-BOXED row exactly like 1A-1D — chart fills the row, the
       //   $ scale + endpoint pills live in the 44px HTML gutter, handle row underneath.
       const _body=selMode
-        ?(_keyBox||'')+'<div class="rschart-box" data-a2eqx="1" title="double-click for the fullscreen explorer — zoom / pan, each config on its own line, gate curve included" style="display:flex;gap:6px;height:190px;min-height:60px;max-height:600px;overflow:hidden"><div '+(function(){
+        ?'<div class="rschart-box" data-a2eqx="1" title="double-click for the fullscreen explorer — zoom / pan, each config on its own line, gate curve included" style="display:flex;gap:6px;height:190px;min-height:60px;max-height:600px;overflow:hidden"><div '+(function(){
           // v68.4: crosshair payload — 160 samples of the champion equity + drawdown laid out on
           //   the SAME piecewise x the funnel draws (optimize window to the lockbox door, then the
           //   held-out year to the right edge), so the hover readout matches the picture exactly.
@@ -8708,7 +8738,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             const _l0=(Wlb&&Wlb[0])||'',_l1=(Wlb&&Wlb[1])||'';
             return 'data-a2xh2="'+encodeURIComponent(JSON.stringify({fS:+_fS.toFixed(4),o0:_o,o1:_oe,l0:_l0,l1:_l1,eq:_se,dd:_sd,mn:Math.round(mn),mx:Math.round(mx),ptF:+(pt/H).toFixed(4),ebF:+(eqB/H).toFixed(4)}))+'" ';
           }catch(_xp){return '';}})()
-        +'style="flex:1;min-width:0;position:relative;background:var(--bg1);border-radius:8px;padding:6px 4px;box-sizing:border-box">'+_svgStr+(typeof _secLabs!=='undefined'?_secLabs:'')+'</div>'+_gutterHtml+'</div>'+rsRow
+        +'style="flex:1;min-width:0;position:relative;background:var(--bg1);border-radius:8px;padding:6px 4px;box-sizing:border-box">'+_svgStr+(typeof _secLabs!=='undefined'?_secLabs:'')+_keyBox+'</div>'+_gutterHtml+'</div>'+rsRow
         :'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'+_svgStr+'</div>';
       // v64.88 (item 1, owner redesign): the selection detail (crown-pool table + honesty
       //   notes) is PROMOTED out of this card into its own 2B CONFIGS · RAW tile — the §2
@@ -14026,15 +14056,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   click and SPOTLIGHTS it on hover (everything else fades). Render-local, no pref.
       content.querySelectorAll('[data-a2eqx]').forEach(box=>{
         const svg=box.querySelector('svg');if(!svg)return;
-        const kroot=(box.previousElementSibling&&box.previousElementSibling.hasAttribute&&box.previousElementSibling.hasAttribute('data-a2krow'))?box.previousElementSibling:box;
-        const _kmap={raw:['wf','cloud','ismax','lb'],gate:['gate'],tilt:['tilt'],dd:['dd'],crown:['crown']};
+        const kroot=box;   // v68.6: the key box lives inside the chart wrap again
+        const _kmap={raw:['crown','ismax','wf','cloud','lb'],gate:['gate'],tilt:['tilt'],hyb:['hyb'],dd:['dd']};
+        const _kOthers={raw:['ismax','wf','cloud']};   // groups a click reveals (family top line stays)
         const grp=k=>{const ks=_kmap[k]||[k];const out=[];ks.forEach(k2=>svg.querySelectorAll('[data-kg="'+k2+'"]').forEach(g=>out.push(g)));return out;};
         kroot.querySelectorAll('[data-a2k]').forEach(row=>{
           const k=row.dataset.a2k;if(!k)return;
           row.style.pointerEvents='auto';
-          row.onclick=(e)=>{e.stopPropagation();const off=row.dataset.off==='1';
-            row.dataset.off=off?'':'1';row.style.opacity=off?'':'0.35';
-            grp(k).forEach(g=>{g.style.display=off?'':'none';});};
+          row.onclick=(e)=>{e.stopPropagation();
+            const tg=_kOthers[k]||_kmap[k]||[k];const els=[];
+            tg.forEach(k2=>svg.querySelectorAll('[data-kg="'+k2+'"]').forEach(g=>els.push(g)));
+            if(!els.length)return;
+            const anyHidden=els.some(g=>g.style.display==='none');
+            els.forEach(g=>{g.style.display=anyHidden?'':'none';});
+            row.style.opacity=anyHidden?'':(_kOthers[k]?'':'0.35');};
           row.onmouseenter=()=>{if(row.dataset.off==='1')return;
             const mine=new Set((_kmap[k]||[k]));
             svg.querySelectorAll('[data-kg]').forEach(g=>{if(!mine.has(g.getAttribute('data-kg')))g.style.opacity='0.12';});};
