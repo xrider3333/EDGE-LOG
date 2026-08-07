@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='68.4';
+const VERSION='68.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'68.5',date:'2026-08-06',notes:['Named back to ML GATE everywhere, per the owner - 2C title, the 2A chip and key, the tilt texts, the Builder and run-list labels. One name, no more switching.','2A brought in line with 1A: horizontal gridlines gone, the IS / WF / LB tags are crisp HTML (they were being stretched with the chart), the stripes stop at the equity floor so the drawdown pane below stays clean, and the key moved OUT of the plot into a chip row above the chart reading crowned / RAW configs / GATE (2C) / TILT (2D) / DRAWDOWN.','2A crosshair works like a chart cursor now: a date label rides the bottom axis and a dollar label rides the right axis, with both hairlines - nothing floats over the curves.','2D SIZE TILT rebuilt as the same matrix shape as 2C - one column per variant, metrics as rows - and every held-out column is named LB.','NEW 2E HYBRID section: gate first, then tilt the survivors. The cut-off is pinned to the one 2C crowned, so it adds no new knob. Appears on runs made from today; older reports have no hybrid data saved.','The crown pool widened from the top-5 to the top-10 in-sample configs - still ranked by walk-forward, and the LB still never chooses. A config like number 5, strong on walk-forward but sixth-or-lower in-sample, can now compete for the crown instead of watching from the stands.','2B header labels aligned consistently.']},
 {v:'68.4',date:'2026-08-06',notes:['2A cleanup pass on the owner punch-list: the drawdown is now its OWN pane under the equity with its own baseline and worst-$ label, exactly like 1A - it no longer sits inside the price section. The IS / WF / LB labels moved INSIDE the plot and IS is actually visible now. The best size-tilt line is included in the y-scale so it can no longer run off the top of the chart.','2A crosshair upgraded to 1A behaviour: the readout now shows the date, the champion equity dollars AND the drawdown dollars under the cursor, not just the date.','2A key renamed for clarity: best size tilt (2D) - the best row of section 2D, not the hybrid; other WF-tested configs - the configs that reached walk-forward testing but are not the crowned or in-sample-best line; 2C ML filter - the same thing section 2C crowns.','2B: the NOT ELIGIBLE columns now show their config numbers (a bookkeeping bug made them print a dash).','2C: the HINDSIGHT badge was firing on every new run even when the view matched the exact rule that crowned it - the rule name gained a suffix in v66.5 and the badge check was never updated. It now only appears when the view genuinely differs from the crowning rule or includes the LB.']},
 {v:'68.3',date:'2026-08-06',notes:['2A CONFIG FUNNEL revamp (non-expanded): walk-forward folds now draw as alternating blue stripes exactly like 1A; a compact red champion-drawdown strip runs along the plot floor; the best SIZE TILT from 2D draws as its own amber line; a crosshair with a date readout follows the cursor; and every key row is live - click hides or shows that line, hovering spotlights it. FULL RUN is the default period, and the overlay chip says FILTER instead of gated.','Section 2 re-lettered so SIZE TILT is properly 2D: distribution 2E, param surface 2F, parallel coordinates 2G, PDP 2H, knob importance 2I, neighbours 2J, top configs 2K, ML config builder 2L. Every section-2 title now carries an emoji like 2C does.','2B and 2C title rows now end in the identical SAMPLE / RANK / HEAT controls - the hindsight warning moved out of the strip to a small note under the 2C matrix.','Expanded 2A: the OTHER CONFIGS group now states the split - 67 grey plus 10 coloured equals the 77 the tile reports - so the two counts stop looking like a discrepancy.','2B: hovering a NOT ELIGIBLE column rank now explains what that means - kept for context, never in the pool the crown picks from.']},
 {v:'68.3',date:'2026-08-06',notes:['NOISE 1.0 added to the strategy library for backend testing - the wide-band intraday momentum envelope that passed walk-forward validation; ES-transfer caveat and unspent lockbox documented in the strategy file. Not a crowned strategy.']},
@@ -7821,7 +7822,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _cp=(opts&&opts.compact)?'3px 4px':'5px 6px',_hp=(opts&&opts.compact)?'3px 4px':'4px 6px';
       const _ncol=cols.length+1,_stick='position:sticky;left:0;z-index:1;';
       const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:'+_hp+';vertical-align:bottom;'+_stick+'background:var(--bg2)">METRIC</th>'
-        +cols.map(c=>'<th'+(c.tip?' title="'+c.tip+'"':'')+' style="text-align:right;padding:'+_hp+';white-space:nowrap;'+(c.tip?'cursor:help;':'')+'vertical-align:bottom;color:'+(c.col||'var(--text2)')+(c.emph?';font-weight:800':';font-weight:700')+(c.emph?_mtxEmph(c):'')+'">'+c.lbl+(c.sub?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+c.sub+'</div>':'')+'</th>').join('')+'</tr>';
+        +cols.map(c=>'<th'+(c.tip?' title="'+c.tip+'"':'')+' style="text-align:right;padding:'+_hp+';white-space:nowrap;'+(c.tip?'cursor:help;':'')+'vertical-align:top;color:'+(c.col||'var(--text2)')+(c.emph?';font-weight:800':';font-weight:700')+(c.emph?_mtxEmph(c):'')+'">'+c.lbl+(c.sub?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+c.sub+'</div>':'')+'</th>').join('')+'</tr>';
       const body=groups.map(g=>{
         const grpRow='<tr><td colspan="'+_ncol+'" style="padding:9px 6px 2px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+g.name+'</td></tr>';
         const rows=g.rows.map(r=>{
@@ -8193,7 +8194,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           _gateOvNS='<polyline points="'+gp+'" fill="none" stroke="#e05fa0" stroke-width="0.9" opacity="0.95" stroke-dasharray="1.6 1.3" stroke-linecap="round"/>'
             +'<circle cx="'+xR.toFixed(1)+'" cy="'+_gy.toFixed(1)+'" r="1.5" fill="#e05fa0"/>'
             +'<text x="'+(xR-1).toFixed(1)+'" y="'+(_gy-2).toFixed(1)+'" text-anchor="end" font-size="4.6" font-weight="700" fill="#e05fa0" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.3">'+fmtAx(_gf,1)+' 🚪 gate-kept</text>';}
-        _gateChipNS='<span data-a2gate="'+(_a2gateO?0:1)+'" title="overlay the CONFIGS · ML GATE FILTER (2C) gated equity on this chart — the same trades with the filter skipping the ones it scores low. Pink = the trades the gate kept." style="cursor:pointer;font-size:8px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid '+(_a2gateO?'#e05fa0':'var(--border)')+';background:'+(_a2gateO?'color-mix(in srgb,#e05fa0 16%,transparent)':'var(--bg2)')+';color:'+(_a2gateO?'#e05fa0':'var(--text3)')+'">🚪 FILTER</span>';
+        _gateChipNS='<span data-a2gate="'+(_a2gateO?0:1)+'" title="overlay the CONFIGS · ML GATE FILTER (2C) gated equity on this chart — the same trades with the filter skipping the ones it scores low. Pink = the trades the gate kept." style="cursor:pointer;font-size:8px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid '+(_a2gateO?'#e05fa0':'var(--border)')+';background:'+(_a2gateO?'color-mix(in srgb,#e05fa0 16%,transparent)':'var(--bg2)')+';color:'+(_a2gateO?'#e05fa0':'var(--text3)')+'">🚪 GATE</span>';
       }
       // visible horizontal $ gridlines running THROUGH the plot (xL→xR) + compact $ labels just
       //   right of the NET (yellow) axis — denser (~5 steps) and smaller than the old shared chrome.
@@ -8201,7 +8202,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _gs=_niceE((mx-mn)/5)||1;let grid='';const _gls=[];
       // brighter/whiter gridlines; selMode labels live in the HTML gutter instead (v64.31).
       for(let L=Math.ceil(mn/_gs)*_gs;L<=mx+1e-6;L+=_gs){const _z=Math.abs(L)<1e-6,gy=Yv(L);_gls.push(L);
-        grid+='<line x1="'+xL.toFixed(1)+'" y1="'+gy.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--text4)" stroke-width="'+(_z?0.9:0.5)+'" opacity="'+(_z?0.7:0.42)+'"/>'
+        if(!selMode)grid+='<line x1="'+xL.toFixed(1)+'" y1="'+gy.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--text4)" stroke-width="'+(_z?0.9:0.5)+'" opacity="'+(_z?0.7:0.42)+'"/>'
           +(selMode?'':'<text x="'+(xR+4).toFixed(1)+'" y="'+(gy+2.5).toFixed(1)+'" font-size="5" fill="var(--text5)">'+fmtAx(L,1)+'</text>');}
       // Single NET (y) axis on the RIGHT, drawn to MATCH the x-axis baseline styling (neutral white);
       //   the old red LEFT guide is dropped — owner: "dont need y axis on the left".
@@ -8549,13 +8550,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +_gls.map(L=>{const ly=Yv(L);if(labs.some(p=>Math.abs(p.y-ly)<7))return '';return '<span style="position:absolute;left:2px;top:calc('+(ly/H*100).toFixed(2)+'% - 5px);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</span>';}).join('')
           +labs.map(L=>'<span style="position:absolute;left:1px;top:calc('+(L.y/H*100).toFixed(2)+'% - 6px);white-space:nowrap;font-weight:800;color:#04130c;background:'+L.col+';padding:0 4px;border-radius:4px;z-index:2">'+L.txt+'</span>').join('')
           +'</div>';
-        _gateChip=_hasGate?'<span data-a2gate="'+(_a2gate?0:1)+'" title="overlay the CONFIGS · ML GATE FILTER (2C) gated equity on this funnel — the SAME crowned champion with the filter skipping trades (the crowned line here is the ungated version). Spans in-sample + walk-forward + lockbox." style="cursor:pointer;font-size:8px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid '+(_a2gate?'#e05fa0':'var(--border)')+';background:'+(_a2gate?'color-mix(in srgb,#e05fa0 16%,transparent)':'var(--bg2)')+';color:'+(_a2gate?'#e05fa0':'var(--text3)')+'">🚪 FILTER</span>':'';
+        _gateChip=_hasGate?'<span data-a2gate="'+(_a2gate?0:1)+'" title="overlay the CONFIGS · ML GATE FILTER (2C) gated equity on this funnel — the SAME crowned champion with the filter skipping trades (the crowned line here is the ungated version). Spans in-sample + walk-forward + lockbox." style="cursor:pointer;font-size:8px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid '+(_a2gate?'#e05fa0':'var(--border)')+';background:'+(_a2gate?'color-mix(in srgb,#e05fa0 16%,transparent)':'var(--bg2)')+';color:'+(_a2gate?'#e05fa0':'var(--text3)')+'">🚪 GATE</span>':'';
         // DOOR lines (in-sample slate · lockbox purple) — labels moved to the region labels below.
         const isDoor='<line x1="'+xIS.toFixed(1)+'" y1="'+pt+'" x2="'+xIS.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#7f8c99" stroke-width="0.6" stroke-dasharray="2 2" opacity="0.7"/>';
         const lbDoor=hasLB?('<line x1="'+xFull.toFixed(1)+'" y1="'+pt+'" x2="'+xFull.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#a78bfa" stroke-width="0.7" stroke-dasharray="3 2" opacity="0.85"/>'):'';
         // REGION BACKGROUND TINTS + SECTION LABELS (mirror 1A: WALK-FORWARD blue, LOCKBOX purple;
         //   in-sample stays un-tinted). Drawn BEHIND the grid/curves (injected before grid below).
-        const _yT=pt-1,_hB=(H-pd)-_yT;
+        const _yT=pt-1,_hB=eqB-_yT;
         // v68.3 (owner: "WF oscillating section to 2a like in 1a"): one stripe PER walk-forward
         //   fold, alternating light/dark blue exactly as 1A does, from the fold bar-counts already
         //   summed above (_fU/_spanB). Falls back to the old flat wash when folds are absent.
@@ -8566,9 +8567,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
             if(x1>x0)_foldRects+='<rect x="'+x0.toFixed(1)+'" y="'+_yT.toFixed(1)+'" width="'+(x1-x0).toFixed(1)+'" height="'+_hB.toFixed(1)+'" fill="'+((i2%2===0)?'rgba(96,165,250,.10)':'rgba(96,165,250,.20)')+'"><title>walk-forward fold '+(f.fold!=null?f.fold:(i2+1))+'</title></rect>';});}
         selBands=(_foldRects||('<rect x="'+xIS.toFixed(1)+'" y="'+_yT.toFixed(1)+'" width="'+Math.max(0,xFull-xIS).toFixed(1)+'" height="'+_hB.toFixed(1)+'" fill="rgba(96,165,250,.13)"/>'))
           +(hasLB?('<rect x="'+xFull.toFixed(1)+'" y="'+_yT.toFixed(1)+'" width="'+Math.max(0,xR-xFull).toFixed(1)+'" height="'+_hB.toFixed(1)+'" fill="rgba(167,139,250,.16)"/>'):'')
-          +'<text x="'+((xL+xIS)/2).toFixed(1)+'" y="'+(pt+7).toFixed(1)+'" text-anchor="middle" font-size="6" font-weight="700" fill="var(--text3)">IS</text>'
-          +'<text x="'+((xIS+xFull)/2).toFixed(1)+'" y="'+(pt+7).toFixed(1)+'" text-anchor="middle" font-size="6" font-weight="700" fill="#60a5fa">WF</text>'
-          +(hasLB?('<text x="'+((xFull+xR)/2).toFixed(1)+'" y="'+(pt+7).toFixed(1)+'" text-anchor="middle" font-size="6" font-weight="700" fill="#a78bfa">LB</text>'):'');
+          ;
+        // v68.5 (owner: labels looked stretched): the svg scales with preserveAspectRatio=none,
+        //   which warps text — the IS/WF/LB tags are HTML overlays now (1A look), placed by %.
+        const _secLab=(x,txt,col)=>'<div style="position:absolute;top:3px;left:'+((x/W)*100).toFixed(2)+'%;transform:translateX(-50%);font-size:9px;font-weight:700;letter-spacing:.5px;color:'+col+';pointer-events:none;z-index:2">'+txt+'</div>';
+        _gutterHtml=_gutterHtml||'';
+        var _secLabs=_secLab((xL+xIS)/2,'IS','var(--text3)')+_secLab((xIS+xFull)/2,'WF','#60a5fa')+(hasLB?_secLab((xFull+xR)/2,'LB','#a78bfa'):'');
         // v64.43 (owner): the 2A key now uses the SAME HTML box format as 2B — marker + label +
         //   $ rows for the two named lines, then the line-style legend, in a bordered box.
         // v64.66 (owner): the key showed each line's value at the WF/lockbox DOOR (optimize end);
@@ -8626,11 +8630,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(_isV!=null)_kRows.push(['▲','IS max',_kUsd(_isV),'#3a9bdc','ismax']);
         if(_tiltEnd!=null)_kRows.push(['◔','best size tilt (2D)',_kUsd(_tiltEnd),'#f0b429','tilt']);
         _keyBox='<div style="position:absolute;top:8px;left:8px;background:color-mix(in srgb,var(--bg1) 82%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;pointer-events:none;z-index:2">'
-          +_kRows.map(r=>'<div data-a2k="'+(r[4]||'')+'" title="click: hide / show this line · hover: spotlight it" style="cursor:pointer;white-space:nowrap;color:'+r[3]+'"><b>'+r[0]+'</b> '+r[1]+' <b>'+r[2]+'</b></div>').join('')
-          +'<div data-a2k="wf" title="click: hide / show these lines · hover: spotlight them" style="cursor:pointer;white-space:nowrap;color:#e0a04b"><b>▬</b> other WF-tested configs</div>'
-          +'<div data-a2k="cloud" title="click: hide / show these lines · hover: spotlight them" style="cursor:pointer;white-space:nowrap;color:var(--text4)"><b>▬</b> other configs</div>'
-          +'<div data-a2k="dd" title="click: hide / show the drawdown strip" style="cursor:pointer;white-space:nowrap;color:#e24b4a"><b>▨</b> champion drawdown</div>'
-          +((_hasGate&&_a2gate)?'<div data-a2k="gate" title="click: hide / show this line · hover: spotlight it" style="cursor:pointer;white-space:nowrap;color:#e05fa0"><b>▬</b> 🚪 2C ML filter</div>':'')
+          ;
+        // v68.5 (owner): the KEY is a horizontal chip row ABOVE the chart — nothing overlaps the
+        //   plot any more — and it reads in the owner's three words: RAW / GATE / TILT.
+        const _kc=(k,ic,txt,val,col)=>'<span data-a2k="'+k+'" title="click: hide / show · hover: spotlight" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;color:'+col+';font-size:8px;font-weight:700"><b>'+ic+'</b>'+txt+(val?(' <b>'+val+'</b>'):'')+'</span>';
+        _keyBox='<div data-a2krow style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:0 2px 4px">'
+          +(_crV!=null?_kc('crown','👑','crowned',_kUsd(_crV),'#1d9e75'):'')
+          +_kc('raw','▬','RAW configs','','#e0a04b')
+          +((_hasGate&&_a2gate)?_kc('gate','▬','GATE (2C)','','#e05fa0'):'')
+          +(_tiltEnd!=null?_kc('tilt','◔','TILT (2D)',_kUsd(_tiltEnd),'#f0b429'):'')
+          +_kc('dd','▨','DRAWDOWN','','#e24b4a')
           +'</div>';
         // v64.98 (owner: "add these to 2A as well"): the SAMPLE control is SHARED with the 2C
         //   matrix — one setting, both tiles agree — and here it dims the stretch you are not
@@ -8640,7 +8649,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _a2samp=(['pre','lb','full'].indexOf(String(APREF.g2samp||''))>=0)?String(APREF.g2samp):'full';
         let _dimOv='';
         if(hasLB&&_a2samp!=='full'){
-          const _dR=(x0,x1)=>'<rect x="'+x0.toFixed(1)+'" y="'+pt+'" width="'+Math.max(0,x1-x0).toFixed(1)+'" height="'+(H-pd-pt).toFixed(1)+'" fill="var(--bg1)" opacity="0.62" pointer-events="none"/>';
+          const _dR=(x0,x1)=>'<rect x="'+x0.toFixed(1)+'" y="'+pt+'" width="'+Math.max(0,x1-x0).toFixed(1)+'" height="'+(eqB-pt).toFixed(1)+'" fill="var(--bg1)" opacity="0.62" pointer-events="none"/>';
           _dimOv=(_a2samp==='lb')?_dR(xL,xFull):_dR(xFull,xR);
         }
         selSvg=_ddStrip+isDoor+lbDoor+'<g data-kg="wf">'+wf+'</g>'+ov+'<g data-kg="lb">'+lb+'</g>'+_tiltOv+'<g data-kg="gate">'+gateOv+'</g>'+_dimOv;}
@@ -8679,7 +8688,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v64.31 (owner): selMode = PRE-BOXED row exactly like 1A-1D — chart fills the row, the
       //   $ scale + endpoint pills live in the 44px HTML gutter, handle row underneath.
       const _body=selMode
-        ?'<div class="rschart-box" data-a2eqx="1" title="double-click for the fullscreen explorer — zoom / pan, each config on its own line, gate curve included" style="display:flex;gap:6px;height:190px;min-height:60px;max-height:600px;overflow:hidden"><div '+(function(){
+        ?(_keyBox||'')+'<div class="rschart-box" data-a2eqx="1" title="double-click for the fullscreen explorer — zoom / pan, each config on its own line, gate curve included" style="display:flex;gap:6px;height:190px;min-height:60px;max-height:600px;overflow:hidden"><div '+(function(){
           // v68.4: crosshair payload — 160 samples of the champion equity + drawdown laid out on
           //   the SAME piecewise x the funnel draws (optimize window to the lockbox door, then the
           //   held-out year to the right edge), so the hover readout matches the picture exactly.
@@ -8697,9 +8706,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
             for(let k2=0;k2<160;k2++){const fx=k2/159;_se.push(Math.round(_sampAt(_ea,fx)));_sd.push(Math.round(_sampAt(_dd,fx)));}
             const _o=(Wopt&&Wopt[0])||d.date_from||'',_oe=(Wopt&&Wopt[1])||d.date_to||'';
             const _l0=(Wlb&&Wlb[0])||'',_l1=(Wlb&&Wlb[1])||'';
-            return 'data-a2xh2="'+encodeURIComponent(JSON.stringify({fS:+_fS.toFixed(4),o0:_o,o1:_oe,l0:_l0,l1:_l1,eq:_se,dd:_sd}))+'" ';
+            return 'data-a2xh2="'+encodeURIComponent(JSON.stringify({fS:+_fS.toFixed(4),o0:_o,o1:_oe,l0:_l0,l1:_l1,eq:_se,dd:_sd,mn:Math.round(mn),mx:Math.round(mx),ptF:+(pt/H).toFixed(4),ebF:+(eqB/H).toFixed(4)}))+'" ';
           }catch(_xp){return '';}})()
-        +'style="flex:1;min-width:0;position:relative;background:var(--bg1);border-radius:8px;padding:6px 4px;box-sizing:border-box">'+_svgStr+_keyBox+'</div>'+_gutterHtml+'</div>'+rsRow
+        +'style="flex:1;min-width:0;position:relative;background:var(--bg1);border-radius:8px;padding:6px 4px;box-sizing:border-box">'+_svgStr+(typeof _secLabs!=='undefined'?_secLabs:'')+'</div>'+_gutterHtml+'</div>'+rsRow
         :'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'+_svgStr+'</div>';
       // v64.88 (item 1, owner redesign): the selection detail (crown-pool table + honesty
       //   notes) is PROMOTED out of this card into its own 2B CONFIGS · RAW tile — the §2
@@ -10513,50 +10522,49 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _shNm={tier:'steps',linear:'sloped'};
         const _shTip={tier:'three sizes only - double on the confident trades, normal in the middle, half on the doubtful ones',
                       linear:'size slides smoothly with confidence, from a quarter up to triple'};
+        // v68.5 (owner: "make it match 2C - flip the rows/columns"): the tilt table is now the
+        //   SAME transposed matrix shape as 2C - one COLUMN per variant, metrics as rows - built
+        //   with the shared _matrixTbl helper, and every held-out column is named LB.
+        const _cmpCols=(list,kind)=>{
+          const cols=[];
+          cols.push({lbl:'no gate',col:'var(--text3)',_s:{is:V.ungated_is,wf:V.ungated_wf,lb:V.ungated_lockbox,n:(V.ungated_full||{}).num_trades,mx:1}});
+          if(ch){const cc=(V.candidates||[]).filter(c=>c.model===ch.model&&Math.abs(c.threshold-ch.threshold)<1e-9)[0];
+            if(cc)cols.push({lbl:'&#128081; gate',sub:cc.model+' @ '+Math.round(cc.threshold*100)+'%',col:'var(--green)',emph:true,emphCol:'var(--green)',_s:{is:cc.is_rng,wf:cc.wf_rng,lb:cc.lockbox,n:cc.kept_pre,mx:1}});}
+          list.forEach(t=>{cols.push({lbl:String(t.model||''),sub:(kind==='hyb')?'gate + tilt':(_shNm[t.scheme]||t.scheme),col:_gateColor(String(t.model||''),1,60),_s:{is:t.is_rng,wf:t.wf_rng,lb:t.lockbox,n:(kind==='hyb'?t.kept_pre:t.n_trades),mx:t.max_size}});});
+          return cols;};
+        const _cmpRec=x=>{if(!x)return null;const dd0=Math.abs(x.max_drawdown||0);return dd0>1e-9?(x.total_pnl/dd0):null;};
+        const _cmpUsd=v=>(v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):'<span style="color:var(--text5)">&mdash;</span>');
+        const _cmpMatrix=list=>{if(!list.length)return '';
+          return _matrixTbl(list,[
+            {name:'RETURN',rows:[
+              {lbl:'IS $',top:true,cell:c=>_cmpUsd(c._s.is&&c._s.is.total_pnl)},
+              {lbl:'WF $',cell:c=>_cmpUsd(c._s.wf&&c._s.wf.total_pnl)},
+              {lbl:'<span title="the sealed final year - the lockbox">LB $</span>',cell:c=>_cmpUsd(c._s.lb&&c._s.lb.total_pnl)}]},
+            {name:'REWARD / RISK',rows:[
+              {lbl:'<span title="LB dollars earned per dollar of LB drawdown">LB MAR</span>',top:true,cell:c=>{const r=_cmpRec(c._s.lb);return r!=null?('<b>'+r.toFixed(1)+'</b>'):'&mdash;';}},
+              {lbl:'LB MAX DD',cell:c=>{const x=c._s.lb;return (x&&x.max_drawdown!=null)?('<span style="color:#e24b4a">-'+$k(Math.abs(x.max_drawdown))+'</span>'):'&mdash;';}}]},
+            {name:'SAMPLE',rows:[
+              {lbl:'TRADES',top:true,cell:c=>c._s.n!=null?(+c._s.n).toLocaleString():'&mdash;'},
+              {lbl:'<span title="largest contracts any single trade got - the average is always 1">BIGGEST SIZE</span>',cell:c=>c._s.mx!=null?((+c._s.mx).toFixed(1)+'&times;'):'&mdash;'}]}
+          ],{compact:true});};
         const tiltTbl=(!_tl.length)?'':(function(){
-          _tl.sort((a,b)=>((_tRec(b.lockbox)!=null?_tRec(b.lockbox):-99)-(_tRec(a.lockbox)!=null?_tRec(a.lockbox):-99)));
-          const _bst=_tRec(_tl[0]&&_tl[0].lockbox);
-          const _c=(v,al)=>'<td style="text-align:'+(al||'right')+'">'+v+'</td>';
-          const _row=(nm,sh,n,is,wf,lb,sz,sty)=>'<tr'+(sty?(' style="'+sty+'"'):'')+'>'
-            +_c(nm,'left')+_c(sh,'left')+_c(n==null?'&mdash;':(+n).toLocaleString())
-            +_c(is?$k(is.total_pnl):'&mdash;')+_c(wf?$k(wf.total_pnl):'&mdash;')
-            +_c(lb?$k(lb.total_pnl):'&mdash;')
-            +_c(_tRec(lb)!=null?_tRec(lb).toFixed(1):'&mdash;')
-            +_c((lb&&lb.max_drawdown!=null)?$k(Math.abs(lb.max_drawdown)):'&mdash;')
-            +_c(sz==null?'&mdash;':((+sz).toFixed(1)+'&times;'))+'</tr>';
-          let b='';
-          b+=_row('no filter','every trade, one lot',(V.ungated_full||{}).num_trades,
-                  V.ungated_is,V.ungated_wf,V.ungated_lockbox,1,'color:var(--text3)');
-          // v68.1 (owner: "dont change up the verbage like that, just call it filter") — this row
-          //   is the 2C FILTER, named FILTER here exactly as it is named there. It used to say
-          //   SKIP, which read like a third thing.
-          if(ch)b+=_row('&#128081; the 2C filter &mdash; '+ch.model+' @ '+Math.round((ch.threshold||0)*100)+'%',
-                  'drops the rest',ch.kept_pre,ch.is_rng,ch.wf_rng,ch.lockbox,1,
-                  'color:var(--green);font-weight:700');
-          _tl.forEach(t=>{const r=_tRec(t.lockbox),top=(r!=null&&_bst!=null&&Math.abs(r-_bst)<1e-9);
-            b+=_row(t.model,'<span title="'+(_shTip[t.scheme]||'')+'" style="border-bottom:1px dotted var(--text5);cursor:help">'+(_shNm[t.scheme]||t.scheme)+'</span>',
-                    t.n_trades,t.is_rng,t.wf_rng,t.lockbox,t.max_size,
-                    top?'color:#f0b429;font-weight:700':'');});
+          _tl.sort((a,b)=>((_cmpRec(b.lockbox)!=null?_cmpRec(b.lockbox):-99)-(_cmpRec(a.lockbox)!=null?_cmpRec(a.lockbox):-99)));
           return '<div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'
-            +'<span style="font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--text2)">THE SAME MODELS AS THE 2C FILTER, SPENT AS SIZE INSTEAD</span>'
+            +'<span style="font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--text2)">THE SAME MODELS AS THE 2C ML GATE, SPENT AS SIZE INSTEAD</span>'
             +'<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 6px;font-size:7px;white-space:nowrap">COMPARISON ONLY &middot; NEVER CROWNED</span>'
-            +_infoIc('<div style="color:var(--text2)"><b>THE FILTER AND THE TILT USE THE SAME SCORE. THEY SPEND IT DIFFERENTLY.</b><br>A model scores every trade before it happens - how likely it is to work, using only what was knowable at the time.<br><br><b>THE FILTER</b> (section 2C) = a bouncer. Score under the cut-off, the trade does not happen. Fewer trades.<br><b>TILT</b> (this section) = a dimmer. Every trade happens; confident ones get more contracts, doubtful ones get fewer.<br><br><b>Why a tilt can be safer:</b> this strategy earns from a handful of very large winners. A filter that is wrong about one of those deletes it, and no amount of avoided losers pays it back. A tilt that is wrong only takes it SMALL - it can never lose it outright.<br><br><b>ABOUT THE SIZES - these do not contradict each other.</b> Individual trades get roughly half a contract up to about triple. The AVERAGE across all trades is one contract, because the sizes are scaled to make it so. That is the point: the tilt is the SAME SIZE OF BOOK as the no-filter row, just distributed differently. It is not a bigger bet.<br><br><b>Half a contract is real, not theoretical:</b> micro contracts are one tenth of the full size, so half an NQ is five MNQ.<br><br><b>THE COLUMNS.</b> IN-SAMPLE and WALK-FWD are the tuning years - the model was being fitted and refitted across them. HELD-OUT is the final year, sealed away and never touched until the winner was already picked, so it is the closest thing to a forward test. HELD-OUT MAR is dollars earned per dollar of drawdown in that year - higher means a smoother ride for the same money. BIGGEST SIZE is the largest number of contracts any single trade was ever given.<br><br>Shown for comparison only. None of these can be crowned: adopting one would need its own rule registered in advance, exactly like the current filter rule was.</div>')
-            +'</div><div style="overflow-x:auto">'
-            // v67.9 (owner: "the size tilt column text are massive"): the shared .table th style is
-            //   9px with 2px letter-spacing and 10px side padding, which blew every column out to
-            //   twice the width its numbers need. Scope it down for this table only.
-            +'<style>.tilttbl th{padding:4px 6px!important;font-size:7px!important;letter-spacing:.4px!important;line-height:1.25}.tilttbl td{padding:3px 6px!important;font-size:9px!important}</style>'
-            +'<table class="table tilttbl"><thead><tr>'
-            +'<th>MODEL</th><th title="how the contracts are handed out as confidence rises">SIZE SHAPE</th>'
-            +'<th style="text-align:right">TRADES</th>'
-            +'<th style="text-align:right" title="the earliest tuning years, before the walk-forward folds begin">IN-SAMPLE $</th>'
-            +'<th style="text-align:right" title="the walk-forward years - still tuning years, the model refits as it goes">WALK-FWD $</th>'
-            +'<th style="text-align:right" title="the final year, sealed away and never looked at until the winner was already chosen. The closest thing here to a forward test.">HELD-OUT $</th>'
-            +'<th style="text-align:right" title="held-out dollars earned per dollar of drawdown - higher means a smoother ride for the same money">HELD-OUT MAR</th>'
-            +'<th style="text-align:right" title="the deepest peak-to-trough loss during the held-out year">HELD-OUT MAX DD</th>'
-            +'<th style="text-align:right" title="the largest number of contracts any single trade was ever given. The AVERAGE across all trades is always 1 - only the spread differs.">BIGGEST SIZE</th>'
-            +'</tr></thead><tbody>'+b+'</tbody></table></div></div>';})();
-        return {V:V,LB:LB,ch:ch,tilts:tiltTbl,ctrls:(_ctrls+_sampMenu+_rankMenu),menus:'',
+            +_infoIc('<div style="color:var(--text2)"><b>THE GATE AND THE TILT USE THE SAME SCORE. THEY SPEND IT DIFFERENTLY.</b><br>A model scores every trade before it happens.<br><br><b>THE GATE</b> (2C) = a bouncer. Score under the cut-off, the trade does not happen.<br><b>THE TILT</b> (this section) = a dimmer. Every trade happens; confident ones get more contracts, doubtful ones fewer (about half a contract up to triple - half an NQ is five MNQ micros). The AVERAGE across all trades is one contract, so it is the same size of book as no-gate, just distributed differently.<br><br><b>LB</b> = the lockbox - the sealed final year, opened only after the winner was already chosen. The tilt lines run through the SAME LB window as everything else in this report.<br><br>Comparison only; adopting a tilt would need its own pre-registered rule.</div>')
+            +'</div>'+_cmpMatrix(_cmpCols(_tl,'tilt'))+'</div>';})();
+        // 2E HYBRID (owner idea, v68.5): the gate keeps its crowned cut-off, the SURVIVORS are
+        //   then sized by the tilt. Floor pinned to the crown - no new knob. Engine >= v68.5 only.
+        const _hy=(V.hybrids||[]).slice();
+        const hybTbl=(!_hy.length)?'':(function(){
+          _hy.sort((a,b)=>((_cmpRec(b.lockbox)!=null?_cmpRec(b.lockbox):-99)-(_cmpRec(a.lockbox)!=null?_cmpRec(a.lockbox):-99)));
+          return '<div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'
+            +'<span style="font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--text2)">GATE FIRST, THEN TILT THE SURVIVORS</span>'
+            +'<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 6px;font-size:7px;white-space:nowrap">COMPARISON ONLY &middot; NEVER CROWNED</span>'
+            +_infoIc('<div style="color:var(--text2)">The HYBRID does both: trades under the crowned 2C cut-off are dropped (the gate), and the survivors are sized by confidence (the tilt). The cut-off is PINNED to the one 2C already crowned, so this adds NO new tunable knob.<br><br>Each column is one model scoring the trades. Sizes average one lot across the kept trades, so the column compares one-for-one with the crowned gate column.<br><br>Comparison only - adopting the hybrid would need its own pre-registered rule on a strategy with a sealed lockbox.</div>')
+            +'</div>'+_cmpMatrix(_cmpCols(_hy,'hyb'))+'</div>';})();
+        return {V:V,LB:LB,ch:ch,tilts:tiltTbl,hyb:hybTbl,ctrls:(_ctrls+_sampMenu+_rankMenu),menus:'',
           head:'<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>',
           intro:'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+V.n_candidates+' candidates ranked pre-lockbox by recovery factor ($ per $ of drawdown). The winner gets exactly one lockbox look — no shopping.</div>',
           matrix:_gMatrix,
@@ -11711,7 +11719,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   outside the collapse (like the verdict chip) so collapsing the tile never hides ALL
         //   context down to just an icon.
         _gateSec='<div style="'+_colStyle+';margin-bottom:0;resize:vertical;min-height:52px;max-height:900px">'
-          +'<div data-gate2a style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow:hidden">2C 🚪 ML FILTER '+_infoIc('<div style="color:var(--text2)">DOES A TRADE-FILTER MODEL EARN ITS KEEP? A GATE is an ML model that scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. GATE VALIDATE sweeps several models across several cut-offs on PRE-LOCKBOX data (in-sample + walk-forward combined — everything before the held-out final year), picks ONE winner by recovery factor, and gives only that winner a single look at the held-out lockbox — no cherry-picking.<br><br>NOT the same as the 2L ML CONFIG BUILDER: 2L picks which PARAMETER CONFIG (knob settings) is best; this filter keeps the chosen config and only decides which individual TRADES to take. 2L = build the config, 2C = filter its trades.<br><br>THE GATE EQUITY is also shown on the 2A funnel above (the crowned line = every trade / ungated, the pink line = only the trades the gate kept).</div>')+'<span title="'+_gbFull.replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;border:1px solid color-mix(in srgb,'+_gbc+' 45%,var(--border));background:color-mix(in srgb,'+_gbc+' 10%,transparent);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help;flex-shrink:1;min-width:0">'+_gbShort+'</span>'+((_g2Open&&_gvP&&_gvP.ctrls)?_gvP.ctrls:'')+'<span style="'+((_g2Open&&_gvP&&_gvP.ctrls)?'':'margin-left:auto;')+'font-size:8px;color:var(--text4);flex-shrink:0">'+(_g2Open?'▴ hide':'▾ show')+'</span></div>'
+          +'<div data-gate2a style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow:hidden">2C 🚪 ML GATE '+_infoIc('<div style="color:var(--text2)">DOES A TRADE-FILTER MODEL EARN ITS KEEP? A GATE is an ML model that scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. GATE VALIDATE sweeps several models across several cut-offs on PRE-LOCKBOX data (in-sample + walk-forward combined — everything before the held-out final year), picks ONE winner by recovery factor, and gives only that winner a single look at the held-out lockbox — no cherry-picking.<br><br>NOT the same as the 2L ML CONFIG BUILDER: 2L picks which PARAMETER CONFIG (knob settings) is best; this filter keeps the chosen config and only decides which individual TRADES to take. 2L = build the config, 2C = filter its trades.<br><br>THE GATE EQUITY is also shown on the 2A funnel above (the crowned line = every trade / ungated, the pink line = only the trades the gate kept).</div>')+'<span title="'+_gbFull.replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;border:1px solid color-mix(in srgb,'+_gbc+' 45%,var(--border));background:color-mix(in srgb,'+_gbc+' 10%,transparent);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help;flex-shrink:1;min-width:0">'+_gbShort+'</span>'+((_g2Open&&_gvP&&_gvP.ctrls)?_gvP.ctrls:'')+'<span style="'+((_g2Open&&_gvP&&_gvP.ctrls)?'':'margin-left:auto;')+'font-size:8px;color:var(--text4);flex-shrink:0">'+(_g2Open?'▴ hide':'▾ show')+'</span></div>'
           +((_g2Open&&_gvP&&_gvP.menus)?_gvP.menus:'')
           +(_g2Open?('<div style="margin-top:9px">'+_gateCard+'</div>'):'')
           +'</div>';
@@ -11720,12 +11728,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   Was stacked inside 2C, which made it read as a footnote to the filter. It is a
       //   different animal and gets its own tile, directly under 2C, with the same open/close
       //   behaviour. Only renders on runs whose engine saved tilt rows.
-      let _tiltSec='';
+      let _tiltSec='',_hybSec='';
+      if(_gvP&&_gvP.hyb){
+        const _hOpen=(APREF.hyb2eOpen==null?1:+APREF.hyb2eOpen);
+        _hybSec='<div style="'+_colStyle+';margin-bottom:0;resize:vertical;min-height:52px;max-height:900px">'
+          +'<div data-hyb2e style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow:hidden">2E &#128682;&#127899; HYBRID '
+          +_infoIc('<div style="color:var(--text2)">GATE FIRST, THEN TILT THE SURVIVORS - the owner idea from the tilt research. Trades under the crowned 2C cut-off are dropped; the survivors are sized by confidence. The cut-off is PINNED to the one 2C crowned, so no new knob exists to overfit.</div>')
+          +'<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap">COMPARISON ONLY</span>'
+          +'<span style="margin-left:auto;font-size:8px;color:var(--text4);flex-shrink:0">'+(_hOpen?'&#9652; hide':'&#9662; show')+'</span></div>'
+          +(_hOpen?('<div style="margin-top:9px">'+_gvP.hyb+'</div>'):'')
+          +'</div>';
+      }
       if(_gvP&&_gvP.tilts){
         const _tOpen=(APREF.tilt2dOpen==null?1:+APREF.tilt2dOpen);
         _tiltSec='<div style="'+_colStyle+';margin-bottom:0;resize:vertical;min-height:52px;max-height:900px">'
           +'<div data-tilt2d style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow:hidden">2D &#127899; SIZE TILT '
-          +_infoIc('<div style="color:var(--text2)">THE SAME MODELS AS THE 2C FILTER, SPENT AS SIZE INSTEAD.<br><br>The 2C FILTER uses a model score as a BOUNCER - under the cut-off, the trade does not happen. This section uses the identical score as a DIMMER - every trade still happens, confident ones get more contracts and doubtful ones get fewer.<br><br>Nothing here can ever be crowned; it exists so the two ways of spending the same model can be compared side by side over the same stretches.</div>')
+          +_infoIc('<div style="color:var(--text2)">THE SAME MODELS AS THE 2C ML GATE, SPENT AS SIZE INSTEAD.<br><br>The 2C ML GATE uses a model score as a BOUNCER - under the cut-off, the trade does not happen. This section uses the identical score as a DIMMER - every trade still happens, confident ones get more contracts and doubtful ones get fewer.<br><br>Nothing here can ever be crowned; it exists so the two ways of spending the same model can be compared side by side over the same stretches.</div>')
           +'<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap">COMPARISON ONLY</span>'
           +'<span style="margin-left:auto;font-size:8px;color:var(--text4);flex-shrink:0">'+(_tOpen?'&#9652; hide':'&#9662; show')+'</span></div>'
           +(_tOpen?('<div style="margin-top:9px">'+_gvP.tilts+'</div>'):'')
@@ -11742,6 +11760,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _col2b=_stack([_rawInner]
         .concat(_gateSec?[rsRow,_gateSec]:[])
         .concat(_tiltSec?[rsRow,_tiltSec]:[])
+        .concat(_hybSec?[rsRow,_hybSec]:[])
         .concat((_gateSec||_tiltSec)?[rsRow]:[])
         .concat([_dist,_p3inner,_surrInner,_dsrInner]));
       const _col3=_col2;
@@ -12104,7 +12123,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const jobCtl=b=>{const s=b.status;if(s==='done'||s==='error'||s==='cancelled')return '<span style="color:var(--text5)">—</span>';
         const btn=(v,gl,t,col)=>'<span data-jobctl="'+v+'" data-jobid="'+b.id+'" title="'+t+'" style="cursor:pointer;font-size:12px;margin-left:8px;color:'+col+'">'+gl+'</span>';
         return (s==='paused'?btn('run','▶','Resume','var(--green)'):btn('pause','⏸','Pause','var(--text4)'))+btn('stop','■','Stop','var(--red)');};
-      const grows=grids.map(b=>{const r=b.result||{};const done=b.status==='done';const ai=b.type==='ai_optimize'||b.type==='ai_evolve';const vald=b.type==='validate';const smart=b.type==='auto'||b.type==='walkforward'||vald;const gvt=b.type==='gate_validate';const single=!ai&&!smart&&!gvt&&b.type!=='grid';const m=(single||gvt)?r:(r.best||{});const net=done?Math.round((m.total_pnl||0)*(b.mult||20)):0;const sizecell=done?(vald?((r.validate&&r.validate.n_pass!=null?r.validate.n_pass+'/'+(r.validate.n_gates||5):'—')):gvt?((r.gate_validate&&r.gate_validate.chosen)?(r.gate_validate.chosen.model+'@'+Math.round(r.gate_validate.chosen.threshold*100)+'%'):'—'):single?((r.num_trades||0)+'T'):ai?((r.n_rounds||'?')+' rnds'):(r.n_valid+'/'+r.n_combos)):'—';const scope=b.lockbox?'🔒 lockbox':vald?('🧭 '+((r.validate&&r.validate.verdict)||'…')):single?((b.ml_filter&&b.ml_filter!=='none')?'🚪 filtered':'single'):(scopeLbl[b.type]||(b.preset||'').slice(0,16));const _cr2=r.cache_reuse;const _reuseChip2=(done&&_cr2&&_cr2.total>0&&_cr2.hits>0)?' <span title="Trial cache: reused '+_cr2.hits+' of '+_cr2.total+' configs ('+_cr2.pct_reused+'% less compute)'+(_cr2.note?' (approx: parallel grid, parent-process only)':'')+'" style="font-size:8px;color:var(--text4);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:6px;padding:1px 4px;margin-left:5px;white-space:nowrap">♻ '+_cr2.hits+'/'+_cr2.total+(_cr2.note?'~':'')+'</span>':'';return '<tr><td>'+gbadge(b)+'</td><td style="font-size:var(--fsxs)">'+(ai?'AI ':'')+stratTag(b.strategy)+_reuseChip2+'</td><td style="font-size:var(--fsxs)">'+scope+'</td><td style="text-align:right">'+sizecell+'</td><td style="text-align:right">'+(done?Math.min(m.profit_factor||0,99).toFixed(2):'—')+'</td><td style="text-align:right;color:'+(done?(net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(done?fmtUsd(net):'—')+'</td><td style="text-align:right;white-space:nowrap">'+jobCtl(b)+'</td></tr>';}).join('');
+      const grows=grids.map(b=>{const r=b.result||{};const done=b.status==='done';const ai=b.type==='ai_optimize'||b.type==='ai_evolve';const vald=b.type==='validate';const smart=b.type==='auto'||b.type==='walkforward'||vald;const gvt=b.type==='gate_validate';const single=!ai&&!smart&&!gvt&&b.type!=='grid';const m=(single||gvt)?r:(r.best||{});const net=done?Math.round((m.total_pnl||0)*(b.mult||20)):0;const sizecell=done?(vald?((r.validate&&r.validate.n_pass!=null?r.validate.n_pass+'/'+(r.validate.n_gates||5):'—')):gvt?((r.gate_validate&&r.gate_validate.chosen)?(r.gate_validate.chosen.model+'@'+Math.round(r.gate_validate.chosen.threshold*100)+'%'):'—'):single?((r.num_trades||0)+'T'):ai?((r.n_rounds||'?')+' rnds'):(r.n_valid+'/'+r.n_combos)):'—';const scope=b.lockbox?'🔒 lockbox':vald?('🧭 '+((r.validate&&r.validate.verdict)||'…')):single?((b.ml_filter&&b.ml_filter!=='none')?'🚪 gated':'single'):(scopeLbl[b.type]||(b.preset||'').slice(0,16));const _cr2=r.cache_reuse;const _reuseChip2=(done&&_cr2&&_cr2.total>0&&_cr2.hits>0)?' <span title="Trial cache: reused '+_cr2.hits+' of '+_cr2.total+' configs ('+_cr2.pct_reused+'% less compute)'+(_cr2.note?' (approx: parallel grid, parent-process only)':'')+'" style="font-size:8px;color:var(--text4);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:6px;padding:1px 4px;margin-left:5px;white-space:nowrap">♻ '+_cr2.hits+'/'+_cr2.total+(_cr2.note?'~':'')+'</span>':'';return '<tr><td>'+gbadge(b)+'</td><td style="font-size:var(--fsxs)">'+(ai?'AI ':'')+stratTag(b.strategy)+_reuseChip2+'</td><td style="font-size:var(--fsxs)">'+scope+'</td><td style="text-align:right">'+sizecell+'</td><td style="text-align:right">'+(done?Math.min(m.profit_factor||0,99).toFixed(2):'—')+'</td><td style="text-align:right;color:'+(done?(net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(done?fmtUsd(net):'—')+'</td><td style="text-align:right;white-space:nowrap">'+jobCtl(b)+'</td></tr>';}).join('');
       const lastDone=grids.filter(b=>b.status==='done'&&b.result&&b.result.top)[0];
       // ── ML GATE before/after card (board 3A.2): the most recent gated single run.
       //    UNGATED = the strategy taking every trade; GATED = only the trades the
@@ -13646,7 +13665,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // cut-off input only applies to the SINGLE gated run — gate-validate sweeps all cut-offs
           if(mth){const w=mth.closest('div');if(w)w.style.display=(_exExpert||(mf&&mf.value!=='none'&&em.value==='single'))?'':'none';}
           const nt=el('ex-modenote');if(nt){let s=MODENOTE[em.value]||em.value;
-            if(mf&&mf.value!=='none'&&em.value==='single')s+=' · 🚪 filter: '+mf.value+' reviews each trade, cut-off '+((mth&&mth.value)||50)+'%';
+            if(mf&&mf.value!=='none'&&em.value==='single')s+=' · 🚪 gate: '+mf.value+' reviews each trade, cut-off '+((mth&&mth.value)||50)+'%';
             nt.innerHTML='→ runs: '+s;}
           exRenderGuided();exUpdateDataSpan();};
         // 3-axis → job-type wiring: an axis change snaps the OTHER axes to the nearest
@@ -14007,45 +14026,58 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   click and SPOTLIGHTS it on hover (everything else fades). Render-local, no pref.
       content.querySelectorAll('[data-a2eqx]').forEach(box=>{
         const svg=box.querySelector('svg');if(!svg)return;
-        const grp=k=>svg.querySelectorAll('[data-kg="'+k+'"]');
-        box.querySelectorAll('[data-a2k]').forEach(row=>{
+        const kroot=(box.previousElementSibling&&box.previousElementSibling.hasAttribute&&box.previousElementSibling.hasAttribute('data-a2krow'))?box.previousElementSibling:box;
+        const _kmap={raw:['wf','cloud','ismax','lb'],gate:['gate'],tilt:['tilt'],dd:['dd'],crown:['crown']};
+        const grp=k=>{const ks=_kmap[k]||[k];const out=[];ks.forEach(k2=>svg.querySelectorAll('[data-kg="'+k2+'"]').forEach(g=>out.push(g)));return out;};
+        kroot.querySelectorAll('[data-a2k]').forEach(row=>{
           const k=row.dataset.a2k;if(!k)return;
           row.style.pointerEvents='auto';
           row.onclick=(e)=>{e.stopPropagation();const off=row.dataset.off==='1';
             row.dataset.off=off?'':'1';row.style.opacity=off?'':'0.35';
             grp(k).forEach(g=>{g.style.display=off?'':'none';});};
           row.onmouseenter=()=>{if(row.dataset.off==='1')return;
-            svg.querySelectorAll('[data-kg]').forEach(g=>{if(g.getAttribute('data-kg')!==k)g.style.opacity='0.12';});};
+            const mine=new Set((_kmap[k]||[k]));
+            svg.querySelectorAll('[data-kg]').forEach(g=>{if(!mine.has(g.getAttribute('data-kg')))g.style.opacity='0.12';});};
           row.onmouseleave=()=>{svg.querySelectorAll('[data-kg]').forEach(g=>{g.style.opacity='';});};});
         // crosshair: vertical line + date readout riding the cursor (the expand modal keeps its
         //   richer one; this is the always-on tile version the owner asked for).
         const wrap=svg.parentElement;if(!wrap)return;
-        let xl=null,lab=null;
+        // v68.5 (owner: "nothing populating above the chart please"): crosshair = two axis-pinned
+        //   readouts only — the DATE rides the bottom edge under the cursor, the $ rides the right
+        //   edge at the cursor height. Plus the two hairlines. Nothing floats over the curves.
+        let xl=null,yl=null,dLab=null,vLab=null;
         let xp=null;try{const _a=wrap.getAttribute('data-a2xh2');xp=_a?JSON.parse(decodeURIComponent(_a)):null;}catch(_x){}
         const _fUsd=v=>{const a=Math.abs(Math.round(v));return (v<0?'-$':'$')+(a>=1000?(a/1000).toFixed(a>=10000?0:1)+'k':a);};
         wrap.addEventListener('mousemove',ev=>{
-          const r=wrap.getBoundingClientRect();const fx=(ev.clientX-r.left)/Math.max(1,r.width);
-          if(fx<0||fx>1)return;
-          if(!xl){xl=document.createElement('div');xl.style.cssText='position:absolute;top:0;bottom:0;width:1px;background:var(--text4);opacity:.55;pointer-events:none;z-index:3';wrap.appendChild(xl);
-            lab=document.createElement('div');lab.style.cssText='position:absolute;top:2px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg1) 92%,transparent);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:8px;color:var(--text2);pointer-events:none;white-space:nowrap;z-index:3;line-height:1.5';wrap.appendChild(lab);}
-          xl.style.left=(fx*100)+'%';lab.style.left=Math.min(88,Math.max(12,fx*100))+'%';
-          let txt='';
+          const r=wrap.getBoundingClientRect();
+          const fx=(ev.clientX-r.left)/Math.max(1,r.width),fy=(ev.clientY-r.top)/Math.max(1,r.height);
+          if(fx<0||fx>1||fy<0||fy>1)return;
+          if(!xl){
+            xl=document.createElement('div');xl.style.cssText='position:absolute;top:0;bottom:0;width:1px;background:var(--text4);opacity:.5;pointer-events:none;z-index:3';wrap.appendChild(xl);
+            yl=document.createElement('div');yl.style.cssText='position:absolute;left:0;right:0;height:1px;background:var(--text4);opacity:.5;pointer-events:none;z-index:3';wrap.appendChild(yl);
+            dLab=document.createElement('div');dLab.style.cssText='position:absolute;bottom:0;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border);border-radius:3px;padding:0 4px;font-size:8px;color:var(--text2);pointer-events:none;white-space:nowrap;z-index:4';wrap.appendChild(dLab);
+            vLab=document.createElement('div');vLab.style.cssText='position:absolute;right:0;transform:translateY(-50%);background:var(--bg2);border:1px solid var(--border);border-radius:3px;padding:0 4px;font-size:8px;color:var(--text2);pointer-events:none;white-space:nowrap;z-index:4';wrap.appendChild(vLab);}
+          xl.style.left=(fx*100)+'%';yl.style.top=(fy*100)+'%';
+          dLab.style.left=Math.min(92,Math.max(8,fx*100))+'%';vLab.style.top=Math.min(94,Math.max(4,fy*100))+'%';
+          let dt='';
           if(xp&&xp.o0){const fS=+xp.fS||0.84;let dte=null;
             if(fx<=fS){const t0=Date.parse(xp.o0),t1=Date.parse(xp.o1);if(!isNaN(t0)&&!isNaN(t1))dte=new Date(t0+(fx/fS)*(t1-t0));}
             else{const t0=Date.parse(xp.l0||xp.o1),t1=Date.parse(xp.l1||xp.o1);if(!isNaN(t0)&&!isNaN(t1))dte=new Date(t0+((fx-fS)/Math.max(1e-9,1-fS))*(t1-t0));}
-            if(dte)txt=dte.toISOString().slice(0,10);
-            if(Array.isArray(xp.eq)&&xp.eq.length){const j=Math.min(xp.eq.length-1,Math.round(fx*(xp.eq.length-1)));
-              txt+=' · <b style="color:#1d9e75">'+_fUsd(xp.eq[j])+'</b>';
-              if(Array.isArray(xp.dd)&&xp.dd[j]<0)txt+=' · <b style="color:#e24b4a">DD '+_fUsd(xp.dd[j])+'</b>';}
-          }
-          lab.innerHTML=txt||'&nbsp;';
-          xl.style.display='';lab.style.display='';});
-        wrap.addEventListener('mouseleave',()=>{if(xl){xl.style.display='none';lab.style.display='none';}});});
+            if(dte)dt=dte.toISOString().slice(0,10);}
+          dLab.textContent=dt;dLab.style.display=dt?'':'none';
+          let vt='';
+          if(xp&&xp.mx!=null&&xp.mn!=null&&xp.ebF>xp.ptF){
+            const g=(fy-xp.ptF)/(xp.ebF-xp.ptF);
+            if(g>=-0.02&&g<=1.02)vt=_fUsd(xp.mx-g*(xp.mx-xp.mn));}
+          vLab.textContent=vt;vLab.style.display=vt?'':'none';
+          xl.style.display='';yl.style.display='';});
+        wrap.addEventListener('mouseleave',()=>{[xl,yl,dLab,vLab].forEach(e=>{if(e)e.style.display='none';});});});
       // v64.52 (owner): the collapsible 2C CONFIGS · ML GATE FILTER pill under 2A/2B.
       // v64.98: the SAMPLE / RANK BY / HEAT strip now lives ON this header row, so a click that
       //   lands inside it must NOT also collapse the tile.
       content.querySelectorAll('[data-gate2a]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-g2ctl]'))return;e.stopPropagation();savePref('gate2aOpen',(APREF.gate2aOpen==null?1:+APREF.gate2aOpen)?0:1);renderApp();};});
       content.querySelectorAll('[data-tilt2d]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]'))return;e.stopPropagation();savePref('tilt2dOpen',(APREF.tilt2dOpen==null?1:+APREF.tilt2dOpen)?0:1);renderApp();};});
+      content.querySelectorAll('[data-hyb2e]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]'))return;e.stopPropagation();savePref('hyb2eOpen',(APREF.hyb2eOpen==null?1:+APREF.hyb2eOpen)?0:1);renderApp();};});
       // 2L TOP INTERACTIONS flat ⇄ 3-D toggle (#54)
       content.querySelectorAll('[data-surr3d]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('surr3d',+b.dataset.surr3d);renderApp();};});
       // CARD LAYOUT (owner): report cards resize BOTH directions (drag the corner) and the

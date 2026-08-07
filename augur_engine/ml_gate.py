@@ -526,6 +526,52 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
         chosen = max(_pool, key=lambda c: (c["pre"]["total_pnl"], _rec(c["pre"])))
     gate_earns = bool(chosen and _rec(chosen["pre"]) > _rec(ung_pre))
 
+    # ── HYBRID VARIANTS (v68.5, owner idea, ORB.md §4.29): gate first, then TILT the survivors.
+    #   The floor is PINNED to the crowned gate's own cut-off — no new free parameter, which is
+    #   the only floor shape §4.29 found defensible (a floating floor picks noise). One hybrid per
+    #   model, sized per-trade like the gate rows: survivors' tilt weights are normalised to MEAN 1
+    #   over the SURVIVORS (so the row compares 1-for-1 with the crowned gate's one-lot-per-kept),
+    #   capped 3×. Comparison-only, never crownable — same standing as the tilts above.
+    hybrids = []
+    if chosen is not None:
+        _hth = float(chosen["threshold"])
+        for m, _pb in model_prob.items():
+            _pb = np.asarray(_pb, float)
+            if len(_pb) != len(pnls_all):
+                continue
+            try:
+                _pf2 = np.where(np.isnan(_pb), 0.5, _pb)
+                keep = ~(_pb < _hth)                       # NaN warm-up passes, as the gate does
+                w = np.clip(1.0 + 4.0 * (_pf2 - 0.50), 0.25, 3.0)
+                w = np.where(np.isnan(_pb), 1.0, w) * keep
+                _wk = w[_pre_m & keep]
+                if not len(_wk) or float(_wk.mean()) <= 1e-9:
+                    continue
+                w = np.minimum(w / float(_wk.mean()), 3.0)
+                hp = pnls_all * w
+                h_ts, h_p = entry_ts[keep], hp[keep]
+                hrow = {"model": str(m), "floor": _hth, "scheme": "linear",
+                        "crownable": False,
+                        "kept_pre": int((_pre_m & keep).sum()),
+                        "n_trades": int(keep.sum()),
+                        "max_size": round(float(w.max()), 2),
+                        "pre": _slice_stats(h_ts, h_p, None, lb_start),
+                        "lockbox": _slice_stats(h_ts, h_p, lb_start, None),
+                        "full": _slice_stats(h_ts, h_p, None, None),
+                        "is_rng": (_slice_stats(h_ts, h_p, None, wf0) if _rng else None),
+                        "wf_rng": (_slice_stats(h_ts, h_p, wf0, wf1) if _rng else None),
+                        "wf_lb": (_slice_stats(h_ts, h_p, wf0, None) if _rng else None)}
+                hrow["pre_rec"] = round(_rec(hrow["pre"]), 2)
+                try:
+                    hrow["equity"] = {"cum": downsample_curve(np.cumsum(np.where(keep, hp, 0.0)),
+                                                              cap=300, ndp=None),
+                                      "n": int(len(hp))}
+                except Exception:
+                    pass
+                hybrids.append(hrow)
+            except Exception:
+                continue
+
     out = {
         "gates": list(gates), "thresholds": [float(t) for t in thresholds],
         "n_candidates": len(cands), "lockbox_months": int(lockbox_months),
@@ -541,6 +587,9 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
         # v67.2 — comparison-only size-tilt rows (see the block above). Never crownable.
         "tilts": tilts,
         "tilt_rule": "mean_weight_matched_pre_lockbox_cap3",
+        # v68.5 — gate-then-tilt hybrids, floor pinned to the crowned cut-off. Never crownable.
+        "hybrids": hybrids,
+        "hybrid_rule": "floor_pinned_to_crowned_cutoff_survivor_mean1_cap3",
         "ungated_pre_rec": round(_rec(ung_pre), 2),
         "gate_earns_pre": gate_earns,
         "chosen": None, "lockbox": None,

@@ -153,7 +153,7 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 # had DOUBLE the lockbox PnL. Re-scores the top-5 IS candidates by
                 # walk-forward fold OOS PnL and crowns the steadiest one instead of
                 # the raw IS-max (augur_engine/validate.py's Stage A.5).
-                select_oos_topk=int(job.get("select_oos_topk", 5) or 0),
+                select_oos_topk=int(job.get("select_oos_topk", 10) or 0),   # v68.5 (owner): crown pool widened to the top-10 IS configs, still WF-ranked
                 progress_cb=progress_cb)
         elif jtype == "gate_validate":
             r = ae.run_gate_validate(
