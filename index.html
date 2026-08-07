@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='69.4';
+const VERSION='69.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'69.5',date:'2026-08-07',notes:['FIX: switching to the ML GATE tab in 69.4 blanked the report - the verdict chip was built inside an inner block the new merged header could not reach. The chip is now shared properly and the tab switches cleanly.']},
 {v:'69.4',date:'2026-08-07',notes:['2B and 2C are now ONE section - 2B CONFIGS - with RAW CONFIGS and ML GATE as tabs in the title row, matching what 2D ML SIZING already does.','Nothing was dropped in the merge: each tab keeps its own info icon, its own sub-line, and its own SAMPLE / RANK / HEAT controls, and the ML GATE tab keeps its verdict chip, its pop-out menus and the cut-off sweep chart. The header shows whichever tab is active.','The hide arrow now collapses whichever tab is showing - RAW CONFIGS was previously always open with no way to fold it away.']},
 {v:'69.3',date:'2026-08-07',notes:['2D and 2E are now ONE section - 2D ML SIZING - with ML TILT and ML HYBRID as tabs in the title row. Saves a whole tile of vertical space and puts the two side by side under one roof.','The ML HYBRID tab keeps its own ONE LOT / REDEPLOY / EQUAL DD strip, so you can tab to the hybrid and then choose how it is sized without leaving the section.']},
 {v:'69.2',date:'2026-08-07',notes:['2E ML HYBRID: the REDEPLOY toggle is now a three-way tab strip - ONE LOT, REDEPLOY, EQUAL DD.','NEW EQUAL DD view: each column is sized until its LB drawdown matches the no-gate book, answering which variant makes the most money for the SAME pain. Unlike REDEPLOY it needs no historical keep-ratio, so it is the comparison that survives into live trading.','LB dollars, max drawdown, biggest size and average contracts all follow the selected tab; MAR stays fixed in every view because scaling multiplies profit and drawdown equally.']},
@@ -11693,7 +11694,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    vs ungated $) leads, then sweep chart | candidates table | decision rail in §1-style
       //    columns. (v64.5: the LEGACY comparison block is fully deleted.) ──
       const _gvP=_gvD?gvParts(_gvD,stratTag(d.strategy),mlt):null;
-      let _gateSec='',_gateCard='';
+      let _gateSec='',_gateCard='',_gVerdictChip='';   // v69.4: built inside the gate block, used by the merged CONFIGS header
       if(_gvP||d.ml_gate){
         // v64.43 (owner): abbreviate to k ($427k / $27k) in the before→after cards so the NET P&L
         //   value stops getting cut off in the narrow col-3 tile — force-k (2nd arg) so even
@@ -11802,6 +11803,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   3B leads the body; ONE info icon carries the gate question + the equity-chart read.
         const _gbShort=_gbTxt.split(' — ')[0];
         const _gbFull=_gbTxt.replace(/<\/?b[^>]*>/g,'');
+        _gVerdictChip='<span title="'+_gbFull.replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;border:1px solid color-mix(in srgb,'+_gbc+' 45%,var(--border));background:color-mix(in srgb,'+_gbc+' 10%,transparent);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help;flex-shrink:1;min-width:0">'+_gbShort+'</span>';
         _gateCard=_gBody;
         // v64.52 (owner): the 2J tile is now a COLLAPSIBLE pill that sits UNDER 2A (its equity
         //   graph moved onto the funnel). The header keeps the verdict chip even when collapsed.
@@ -11842,7 +11844,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           ? _infoIc('<div style="color:var(--text2)">DOES A TRADE-FILTER MODEL EARN ITS KEEP? The ML GATE scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. It sweeps several models across several cut-offs on PRE-LOCKBOX data (IS + WF combined), picks ONE winner, and gives only that winner a single look at the LB - no cherry-picking.<br><br>NOT the same as the 2K ML CONFIG BUILDER: 2K picks which PARAMETER CONFIG is best; this gate keeps the chosen config and only decides which individual TRADES to take.<br><br>The gate equity is also drawn on the 2A funnel above.</div>')
           : ((_selParts&&_selParts.tip)?_infoIc('<div style="color:var(--text2)">'+_selParts.tip+'</div>'):'');
         const _cSub=_isG
-          ? ('<span title="'+_gbFull.replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;border:1px solid color-mix(in srgb,'+_gbc+' 45%,var(--border));background:color-mix(in srgb,'+_gbc+' 10%,transparent);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help;flex-shrink:1;min-width:0">'+_gbShort+'</span>')
+          ? _gVerdictChip
           : ((_selParts&&_selParts.sub)?('<span style="font-weight:400;color:var(--text4);font-size:8px">&middot; '+_selParts.sub+'</span>'):'');
         const _cCtrls=_cfgOpen?(_isG?((_gvP&&_gvP.ctrls)||''):((_selParts&&_selParts.ctrls)||'')):'';
         const _cMenus=(_cfgOpen&&_isG&&_gvP&&_gvP.menus)?_gvP.menus:'';
