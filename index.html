@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='68.8';
+const VERSION='68.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'68.9',date:'2026-08-06',notes:['NEW SIZE RULE row in 2D ML TILT and 2E ML HYBRID: every column now states its own exact sizing rule and its own cut-off. Two rf columns can run two different shapes, so this can never be guessed from the model name - 2D reads no cut-off (a tilt drops nothing), 2E reads drops under 50 percent.','NEW DROPPED row: how many trades the cut-off threw away entirely. Tilts always read 0; hybrids show the real count.','SIZE MIX tooltip spells out the buckets: small is under 0.75 of a lot, medium 0.75 to 1.5, large over 1.5.','These three rows need engine data saved from this version on - reports made earlier show a dash.']},
 {v:'68.8',date:'2026-08-06',notes:['2D renamed ML TILT and 2E renamed ML HYBRID - matching 2C ML GATE, fixed vocabulary from here on.','2D and 2E slimmed back down: the no-gate and crowned-gate baseline columns are removed (they kept reading as variants - the baselines live in 2C), the header annotations moved behind each section info icon, and column sub-labels are one word (sliding / steps) or nothing.','The 2E info icon now states the shared ratio once: every column uses the SAME pinned cut-off (the 2C crown, 50% on this run) and the same sliding sizing - only the scoring model differs between columns.']},
 {v:'68.7',date:'2026-08-06',notes:['2D column headers say what they are in plain words: SLIDING SIZE (contracts slide smoothly with confidence, quarter-lot to triple) or 3 STEP SIZES (half / one / two lots by confidence band) - and each notes NO CUT-OFF, because a tilt never drops a trade, so there is no rf-at-50 to name.','2E hybrid headers name the pinned cut-off - gate 50% + tilt - so it is clear which gate the survivors passed.','NEW SIZE MIX row in 2D and 2E: how many trades were given a small (under 0.75 lot), normal (0.75-1.5) or large (over 1.5) size. The engine saves it from today - runs made before this show a dash.']},
 {v:'68.6',date:'2026-08-06',notes:['2A: the key is the expanded-view style box inside the chart again, with exactly four rows - RAW, GATE, TILT, HYBRID - each showing its family top-line dollars. The default view draws ONLY those four top lines; clicking RAW reveals the rest of the config family (the survivors and the grey cloud), clicking again hides them.','2A: the drawdown now hangs DOWN from its own baseline exactly as 1A draws it - it was filling from the floor up, which read inverted. The dashed IS/LB divider lines are gone (the stripe colours already mark the sections), and the IS / WF / LB tags sit inside the plot.','2A: the best HYBRID (2E) draws as its own violet line on runs that carry hybrid data.']},
@@ -10566,7 +10567,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _cmpCols=(list,kind)=>list.map(t=>({lbl:String(t.model||''),
             sub:(kind==='hyb')?'':(_shNm[t.scheme]||t.scheme),
             col:_gateColor(String(t.model||''),1,60),
-            _s:{is:t.is_rng,wf:t.wf_rng,lb:t.lockbox,n:t.n_trades,mx:t.max_size,mix:t.sizes||null}}));
+            _s:{is:t.is_rng,wf:t.wf_rng,lb:t.lockbox,n:t.n_trades,mx:t.max_size,mix:t.sizes||null,
+                rule:t.rule||null,cut:(t.cutoff!=null?t.cutoff:(kind==='hyb'&&ch?ch.threshold:null))}}));
         const _cmpRec=x=>{if(!x)return null;const dd0=Math.abs(x.max_drawdown||0);return dd0>1e-9?(x.total_pnl/dd0):null;};
         const _cmpUsd=v=>(v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):'<span style="color:var(--text5)">&mdash;</span>');
         const _cmpMatrix=list=>{if(!list.length)return '';
@@ -10581,9 +10583,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
             {name:'SAMPLE',rows:[
               {lbl:'TRADES',top:true,cell:c=>c._s.n!=null?(+c._s.n).toLocaleString():'&mdash;'},
               {lbl:'<span title="largest contracts any single trade got - the average is always 1">BIGGEST SIZE</span>',cell:c=>c._s.mx!=null?((+c._s.mx).toFixed(1)+'&times;'):'&mdash;'},
-              // v68.7 (owner: "how do we know how many small/medium/large trades it did?") —
-              //   engine >= v68.7 saves the split; older runs show a dash here.
-              {lbl:'<span title="how the trades split by the size they were given: under 0.75 of a lot / 0.75-1.5 / over 1.5. Saved by the engine from v68.7 runs on.">SIZE MIX s·m·L</span>',cell:c=>{const x=c._s.mix;return x?('<span style="color:var(--text3)">'+(+x.small).toLocaleString()+' · '+(+x.normal).toLocaleString()+' · '+(+x.big).toLocaleString()+'</span>'):'<span style="color:var(--text5)">&mdash;</span>';}}]}
+              // v68.7/68.9 (owner: "we dont see the trade distribution for dropped small/medium/large")
+              //   engine >= v68.9 saves the split incl. DROPPED; older runs show a dash.
+              {lbl:'<span title="how the trades split by the size each was given: SMALL under 0.75 of a lot · MEDIUM 0.75 to 1.5 · LARGE over 1.5. Saved by the engine from v68.7 runs on.">SIZE MIX s·m·L</span>',cell:c=>{const x=c._s.mix;return x?('<span style="color:var(--text3)">'+(+x.small).toLocaleString()+' · '+(+x.normal).toLocaleString()+' · '+(+x.big).toLocaleString()+'</span>'):'<span style="color:var(--text5)">&mdash;</span>';}},
+              {lbl:'<span title="trades the cut-off threw away entirely (size zero). A tilt drops nothing, so it always reads 0 here.">DROPPED</span>',cell:c=>{const x=c._s.mix;return (x&&x.dropped!=null)?((+x.dropped)?('<span style="color:#e24b4a">'+(+x.dropped).toLocaleString()+'</span>'):'<span style="color:var(--text5)">0</span>'):'<span style="color:var(--text5)">&mdash;</span>';}},
+              // v68.9 (owner: "how do we know what level applies... we dont see what the bouncer
+              //   level is"): the EXACT rule each column ran, per column - two rf columns can use
+              //   two different shapes, so it can never be inferred from the model name alone.
+              {lbl:'<span title="the exact sizing rule this column used, and the cut-off below which it drops a trade (a tilt has none)">SIZE RULE</span>',top:true,cell:c=>{
+                const r=c._s.rule,ct=c._s.cut;
+                if(!r&&ct==null)return '<span style="color:var(--text5)">&mdash;</span>';
+                return '<span style="color:var(--text3);font-size:7px">'+(ct!=null?('<b style="color:#e05fa0">drops under '+Math.round(ct*100)+'%</b><br>'):'<span style="color:var(--text5)">no cut-off</span><br>')+(r||'')+'</span>';}}]}
           ],{compact:true});};
         const tiltTbl=(!_tl.length)?'':(function(){
           _tl.sort((a,b)=>((_cmpRec(b.lockbox)!=null?_cmpRec(b.lockbox):-99)-(_cmpRec(a.lockbox)!=null?_cmpRec(a.lockbox):-99)));
