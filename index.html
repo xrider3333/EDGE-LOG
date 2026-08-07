@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='69.3';
+const VERSION='69.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'69.4',date:'2026-08-07',notes:['2B and 2C are now ONE section - 2B CONFIGS - with RAW CONFIGS and ML GATE as tabs in the title row, matching what 2D ML SIZING already does.','Nothing was dropped in the merge: each tab keeps its own info icon, its own sub-line, and its own SAMPLE / RANK / HEAT controls, and the ML GATE tab keeps its verdict chip, its pop-out menus and the cut-off sweep chart. The header shows whichever tab is active.','The hide arrow now collapses whichever tab is showing - RAW CONFIGS was previously always open with no way to fold it away.']},
 {v:'69.3',date:'2026-08-07',notes:['2D and 2E are now ONE section - 2D ML SIZING - with ML TILT and ML HYBRID as tabs in the title row. Saves a whole tile of vertical space and puts the two side by side under one roof.','The ML HYBRID tab keeps its own ONE LOT / REDEPLOY / EQUAL DD strip, so you can tab to the hybrid and then choose how it is sized without leaving the section.']},
 {v:'69.2',date:'2026-08-07',notes:['2E ML HYBRID: the REDEPLOY toggle is now a three-way tab strip - ONE LOT, REDEPLOY, EQUAL DD.','NEW EQUAL DD view: each column is sized until its LB drawdown matches the no-gate book, answering which variant makes the most money for the SAME pain. Unlike REDEPLOY it needs no historical keep-ratio, so it is the comparison that survives into live trading.','LB dollars, max drawdown, biggest size and average contracts all follow the selected tab; MAR stays fixed in every view because scaling multiplies profit and drawdown equally.']},
 {v:'69.1',date:'2026-08-07',notes:['2C ML GATE gains a fixed LB TRADES row. The existing TRADES KEPT row follows the SAMPLE toggle so its meaning shifts as you tick stretches; this new one is always the lockbox year, which is the basis 2D and 2E report on - so all three sections can be compared without touching a control.','2D ML TILT and 2E ML HYBRID: the TRADES row was printing the whole-run count while every row around it was lockbox-only. It is now LB TRADES, with ALL TRADES kept as a separate row underneath.','NEW REDEPLOY toggle on 2E ML HYBRID. ONE LOT is the normal view - every column averages one contract per trade, so a variant that refuses trades leaves that capacity idle. REDEPLOY sizes each column up until it spends the same total contracts as the no-gate book, which is the what-if-I-put-the-freed-capacity-back-to-work question. LB dollars, max drawdown and biggest size all move with it; MAR never does, because scaling multiplies profit and drawdown equally.','NEW AVG CONTRACTS row in 2D and 2E showing the average contracts per trade each column runs - one in the normal view, and in REDEPLOY what the freed capacity buys.']},
@@ -11496,7 +11497,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   handle) — instead of rendering as a bare header + table hanging under 2A's card. The
       //   literal style string is duplicated here (not a _colStyle reference) because _colStyle
       //   itself is declared further down this function and would not exist yet at this point.
-      const _rawInner=_selParts?('<div style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:12px 14px;box-sizing:border-box;overflow:auto;resize:vertical;min-height:52px;max-height:900px">'+_numHdr(_cfgN+'B','🧱 CONFIGS · RAW',_selParts.tip,_selParts.sub,_selParts.ctrls)+_selParts.table+'</div>'):'';
+      // v69.4 (owner: "make them tabs so i can tab between 2b/2c"): 2B no longer draws its own
+      //   card - the merged CONFIGS section below renders whichever tab is active. Its parts
+      //   (info tip, sub-line, controls, table) are all carried through unchanged.
+      const _rawInner='';
       // v64.31 (owner): 4B histograms the LARGEST saved population — on pre-v64.30 docs the
       //   points array (171 configs on #173) beats the old 73-config dist sample; on v64.30+
       //   docs dist already holds every evaluated config.
@@ -11817,6 +11821,40 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +(_g2Open?('<div style="margin-top:9px">'+_gateCard+'</div>'):'')
           +'</div>';
       }
+      // ── 2B + 2C MERGED (v69.4, owner) — one card, two tabs, nothing dropped ───────────────
+      //   Each tab keeps its OWN info icon, sub-line and SAMPLE / RANK / HEAT controls; the
+      //   header row shows whichever tab is active. 2C additionally keeps its verdict chip and
+      //   its pop-out menus. The collapse arrow now covers both (2B was never collapsible, so
+      //   that is an addition rather than a loss).
+      let _cfgSec='';
+      if(_selParts||_gateSec){
+        const _hasG=!!(_gateSec&&_gvP);
+        const _cfgTab=(String(APREF.cfgTab||'')==='gate'&&_hasG)?'gate':(_selParts?'raw':'gate');
+        const _cfgOpen=(APREF.gate2aOpen==null?1:+APREF.gate2aOpen);
+        const _cfgTabs='<span style="display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden">'
+          +[['raw','RAW CONFIGS',!!_selParts],['gate','ML GATE',_hasG]]
+            .filter(function(t){return t[2];})
+            .map(function(t){const on=(_cfgTab===t[0]);
+              return '<span data-cfgtab="'+t[0]+'" style="cursor:pointer;padding:1px 8px;font-size:8px;font-weight:700;white-space:nowrap;background:'+(on?'color-mix(in srgb,var(--yellow) 18%,transparent)':'transparent')+';color:'+(on?'var(--yellow)':'var(--text4)')+'">'+t[1]+'</span>';}).join('')
+          +'</span>';
+        const _isG=(_cfgTab==='gate'&&_hasG);
+        const _cInfo=_isG
+          ? _infoIc('<div style="color:var(--text2)">DOES A TRADE-FILTER MODEL EARN ITS KEEP? The ML GATE scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. It sweeps several models across several cut-offs on PRE-LOCKBOX data (IS + WF combined), picks ONE winner, and gives only that winner a single look at the LB - no cherry-picking.<br><br>NOT the same as the 2K ML CONFIG BUILDER: 2K picks which PARAMETER CONFIG is best; this gate keeps the chosen config and only decides which individual TRADES to take.<br><br>The gate equity is also drawn on the 2A funnel above.</div>')
+          : ((_selParts&&_selParts.tip)?_infoIc('<div style="color:var(--text2)">'+_selParts.tip+'</div>'):'');
+        const _cSub=_isG
+          ? ('<span title="'+_gbFull.replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;border:1px solid color-mix(in srgb,'+_gbc+' 45%,var(--border));background:color-mix(in srgb,'+_gbc+' 10%,transparent);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help;flex-shrink:1;min-width:0">'+_gbShort+'</span>')
+          : ((_selParts&&_selParts.sub)?('<span style="font-weight:400;color:var(--text4);font-size:8px">&middot; '+_selParts.sub+'</span>'):'');
+        const _cCtrls=_cfgOpen?(_isG?((_gvP&&_gvP.ctrls)||''):((_selParts&&_selParts.ctrls)||'')):'';
+        const _cMenus=(_cfgOpen&&_isG&&_gvP&&_gvP.menus)?_gvP.menus:'';
+        const _cBody=_isG?_gateCard:((_selParts&&_selParts.table)||'');
+        _cfgSec='<div style="'+_colStyle+';margin-bottom:0;resize:vertical;min-height:52px;max-height:900px">'
+          +'<div data-cfg2bc style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow:hidden">'
+          +_cfgN+'B &#129521; CONFIGS '+_cfgTabs+' '+_cInfo+_cSub+_cCtrls
+          +'<span style="'+(_cCtrls?'':'margin-left:auto;')+'font-size:8px;color:var(--text4);flex-shrink:0">'+(_cfgOpen?'&#9652; hide':'&#9662; show')+'</span></div>'
+          +_cMenus
+          +(_cfgOpen?('<div style="margin-top:9px">'+_cBody+'</div>'):'')
+          +'</div>';
+      }
       // ── 2D SIZE TILT — its own collapsible section (v68.1, owner ask) ─────────────────────
       //   Was stacked inside 2C, which made it read as a footnote to the filter. It is a
       //   different animal and gets its own tile, directly under 2C, with the same open/close
@@ -11849,10 +11887,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   col 2 = 2B raw configs · 2C gate pill · 2D distribution · 2E explorer + 2K ML config
       //   builder (+ DSR); col 3 = the old col 2 (2F-2J).
       const _col1=_eq;
-      const _col2b=_stack([_rawInner]
-        .concat(_gateSec?[rsRow,_gateSec]:[])
+      const _col2b=_stack([_cfgSec]
+        .concat([])
         .concat(_tiltSec?[rsRow,_tiltSec]:[])
-        .concat((_gateSec||_tiltSec)?[rsRow]:[])
+        .concat((_cfgSec||_tiltSec)?[rsRow]:[])
         .concat([_dist,_p3inner,_surrInner,_dsrInner]));
       const _col3=_col2;
       const _sec3=(function(){
@@ -14171,6 +14209,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v64.52 (owner): the collapsible 2C CONFIGS · ML GATE FILTER pill under 2A/2B.
       // v64.98: the SAMPLE / RANK BY / HEAT strip now lives ON this header row, so a click that
       //   lands inside it must NOT also collapse the tile.
+      content.querySelectorAll('[data-cfgtab]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('cfgTab',b.getAttribute('data-cfgtab'));renderApp();};});
+      content.querySelectorAll('[data-cfg2bc]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-g2ctl]')||e.target.closest('[data-cfgtab]')||e.target.closest('[data-b2ctl]'))return;e.stopPropagation();savePref('gate2aOpen',(APREF.gate2aOpen==null?1:+APREF.gate2aOpen)?0:1);renderApp();};});
       content.querySelectorAll('[data-gate2a]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-g2ctl]'))return;e.stopPropagation();savePref('gate2aOpen',(APREF.gate2aOpen==null?1:+APREF.gate2aOpen)?0:1);renderApp();};});
       content.querySelectorAll('[data-sztab]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('sizeTab',b.getAttribute('data-sztab'));renderApp();};});
       content.querySelectorAll('[data-tilt2d]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-sztab]')||e.target.closest('[data-hybmode]'))return;e.stopPropagation();savePref('tilt2dOpen',(APREF.tilt2dOpen==null?1:+APREF.tilt2dOpen)?0:1);renderApp();};});
