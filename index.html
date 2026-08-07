@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='68.3';
+const VERSION='68.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'68.4',date:'2026-08-06',notes:['2A cleanup pass on the owner punch-list: the drawdown is now its OWN pane under the equity with its own baseline and worst-$ label, exactly like 1A - it no longer sits inside the price section. The IS / WF / LB labels moved INSIDE the plot and IS is actually visible now. The best size-tilt line is included in the y-scale so it can no longer run off the top of the chart.','2A crosshair upgraded to 1A behaviour: the readout now shows the date, the champion equity dollars AND the drawdown dollars under the cursor, not just the date.','2A key renamed for clarity: best size tilt (2D) - the best row of section 2D, not the hybrid; other WF-tested configs - the configs that reached walk-forward testing but are not the crowned or in-sample-best line; 2C ML filter - the same thing section 2C crowns.','2B: the NOT ELIGIBLE columns now show their config numbers (a bookkeeping bug made them print a dash).','2C: the HINDSIGHT badge was firing on every new run even when the view matched the exact rule that crowned it - the rule name gained a suffix in v66.5 and the badge check was never updated. It now only appears when the view genuinely differs from the crowning rule or includes the LB.']},
 {v:'68.3',date:'2026-08-06',notes:['2A CONFIG FUNNEL revamp (non-expanded): walk-forward folds now draw as alternating blue stripes exactly like 1A; a compact red champion-drawdown strip runs along the plot floor; the best SIZE TILT from 2D draws as its own amber line; a crosshair with a date readout follows the cursor; and every key row is live - click hides or shows that line, hovering spotlights it. FULL RUN is the default period, and the overlay chip says FILTER instead of gated.','Section 2 re-lettered so SIZE TILT is properly 2D: distribution 2E, param surface 2F, parallel coordinates 2G, PDP 2H, knob importance 2I, neighbours 2J, top configs 2K, ML config builder 2L. Every section-2 title now carries an emoji like 2C does.','2B and 2C title rows now end in the identical SAMPLE / RANK / HEAT controls - the hindsight warning moved out of the strip to a small note under the 2C matrix.','Expanded 2A: the OTHER CONFIGS group now states the split - 67 grey plus 10 coloured equals the 77 the tile reports - so the two counts stop looking like a discrepancy.','2B: hovering a NOT ELIGIBLE column rank now explains what that means - kept for context, never in the pool the crown picks from.']},
 {v:'68.3',date:'2026-08-06',notes:['NOISE 1.0 added to the strategy library for backend testing - the wide-band intraday momentum envelope that passed walk-forward validation; ES-transfer caveat and unspent lockbox documented in the strategy file. Not a crowned strategy.']},
 {v:'68.2',date:'2026-08-06',notes:['Wording: the word SKIP is gone from the tilt section entirely. The 2C model is called THE FILTER everywhere it is referred to, so the vocabulary never changes between sections.']},
@@ -7865,7 +7866,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   showed 5 while the 2C matrix showed 20. Both groups are listed now. The extras are NOT
       //   crownable and never were; they carry a dimmed rank so the distinction stays visible.
       const _robust=Array.isArray(sel.robust)?sel.robust:[];
-      const cand=sel.candidates.concat(_robust.map(r=>Object.assign({},r,{_dispOnly:true})));
+      // v68.4: concat KEEPS identity (no clones) — cfgNoMap is keyed by object identity, so the
+      //   cloned robust rows could never find their config number and printed "—".
+      const _robSet=new Set(_robust);
+      const cand=sel.candidates.concat(_robust);
       let isMaxI=0;cand.forEach((c,i)=>{if((c.is_pnl||0)>(cand[isMaxI].is_pnl||0))isMaxI=i;});
       const isMaxC=cand[isMaxI];
       const pk=Object.keys(cand[0].params||{});
@@ -7947,8 +7951,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const lbSlice=(lbOk&&optEnd!=null)?(lbV-optEnd):null;
         const fullRun=lbOk?lbV:optEnd;
         const fullRunStar=!lbOk;   // no lockbox carry-through: this is the optimize-window end
-        const rankTip='rank '+(i+1)+' of '+sorted.length+' by walk-forward result'+(c._dispOnly?' - NOT ELIGIBLE: kept for context only; this config was never in the pool the crown is picked from, its rank is informational':'')+(crowned?' - CROWNED (the walk-forward winner)':'')+(ismax?' - also the in-sample maximum (best pre-registered search score)':'');
-        return {params:c.params||{},rank:i+1,crowned,ismax,cfgNo,isV,wfV,lbV,lbSlice,fullRun,fullRunStar,mdd,mar,sharpe,foldsHeld,mmPf,mmWr,mmApt,rankTip,isCal:_isCal,searchIsV,foldWfV,_dispOnly:!!c._dispOnly};});
+        const rankTip='rank '+(i+1)+' of '+sorted.length+' by walk-forward result'+(_robSet.has(c)?' - NOT ELIGIBLE: kept for context only; this config was never in the pool the crown is picked from, its rank is informational':'')+(crowned?' - CROWNED (the walk-forward winner)':'')+(ismax?' - also the in-sample maximum (best pre-registered search score)':'');
+        return {params:c.params||{},rank:i+1,crowned,ismax,cfgNo,isV,wfV,lbV,lbSlice,fullRun,fullRunStar,mdd,mar,sharpe,foldsHeld,mmPf,mmWr,mmApt,rankTip,isCal:_isCal,searchIsV,foldWfV,_dispOnly:_robSet.has(c)};});
       // ── TRANSPOSED MATRIX (owner redesign, item 2): 1E-style — one COLUMN per crown-pool
       //    config (headed by its walk-forward rank + config #, crowned column emphasised),
       //    metrics grouped as ROWS. Replaces the old one-row-per-config table; the knobs-that-
@@ -8109,6 +8113,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _hasGateO=!!(_gEqO&&Array.isArray(_gEqO.cum_gated)&&_gEqO.cum_gated.length>1);
       const _a2gateO=(APREF.a2gate==null?1:+APREF.a2gate);
       if(_hasGateO&&_a2gateO)_gEqO.cum_gated.forEach(v=>extYs.push(v*mult));
+      // v68.4 (owner: "the top tilt gets pushed off the graph"): find the best 2D size tilt ONCE,
+      //   up front, and feed its values into the y-scale so its line fits on the plot.
+      let _bestTiltC=null;
+      try{
+        const _tlA0=(d.gate_validate&&Array.isArray(d.gate_validate.tilts))?d.gate_validate.tilts:[];
+        const _tRc0=t=>{const c=t&&t.lockbox;if(!c)return -99;const dd0=Math.abs(c.max_drawdown||0);return dd0>1e-9?(c.total_pnl/dd0):-99;};
+        _bestTiltC=_tlA0.slice().sort((a,b)=>_tRc0(b)-_tRc0(a))[0]||null;
+        if(_bestTiltC&&_bestTiltC.equity&&Array.isArray(_bestTiltC.equity.cum))
+          _bestTiltC.equity.cum.forEach(v=>extYs.push(v*mult));
+      }catch(_bt0){_bestTiltC=null;}
       // draw ALL stored curves; the slider picks how many get COLOUR — the rest stay as faint
       //   grey context lines (owner request) instead of disappearing. Slider max = stored curves.
       // v64.27 (owner): DEFAULT = every stored curve (the slider already spans them all).
@@ -8125,6 +8139,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // plot insets: pt top headroom (so the winner curve + its $ label clear the top),
       //   pr right gap (so the curves stop short of the y-axis numbers in the gutter).
       const W=C2W,H=140,pd=6,pt=13,pr=16,PW=C2P;
+      const eqB=selMode?(H-34):(H-pd);   // v68.4: selMode floor of the EQUITY pane (DD pane below)
       // ── align 2A's plot to 2B's parallel-coords axes: the curves span the LEFTMOST param
       //    axis → the NET axis. selMode instead repurposes the wide right gutter for lockbox /
       //    crown $ labels (that x-registration is replaced by the optimize→lockbox time axis). ──
@@ -8153,7 +8168,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _champTot=(d.equity&&Array.isArray(d.equity.cum)&&d.equity.cum.length)?d.equity.cum[d.equity.cum.length-1]:null;
       const xFull=(selMode&&hasLB)?(xL+(xR-xL)*0.84):xR;   // optimize-window end = lockbox door
       const xIS=xL+(xFull-xL)*fIS;                          // in-sample door
-      const Yv=v=>H-pd-(H-pt-pd)*(v-mn)/rg;
+      const Yv=v=>eqB-(eqB-pt)*(v-mn)/rg;
       const OXf=f=>xL+(xFull-xL)*f;                         // optimize-window x for index-fraction f∈[0,1]
       const _vAt=(a,f)=>{const n=a.length;if(n<=1)return a[0]||0;const x=f*(n-1),i0=Math.floor(x),i1=Math.min(n-1,i0+1);return a[i0]+(a[i1]-a[i0])*(x-i0);};
       // polyline points for the index-fraction span [f0,f1] of a ×mult value array (interpolated
@@ -8551,9 +8566,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
             if(x1>x0)_foldRects+='<rect x="'+x0.toFixed(1)+'" y="'+_yT.toFixed(1)+'" width="'+(x1-x0).toFixed(1)+'" height="'+_hB.toFixed(1)+'" fill="'+((i2%2===0)?'rgba(96,165,250,.10)':'rgba(96,165,250,.20)')+'"><title>walk-forward fold '+(f.fold!=null?f.fold:(i2+1))+'</title></rect>';});}
         selBands=(_foldRects||('<rect x="'+xIS.toFixed(1)+'" y="'+_yT.toFixed(1)+'" width="'+Math.max(0,xFull-xIS).toFixed(1)+'" height="'+_hB.toFixed(1)+'" fill="rgba(96,165,250,.13)"/>'))
           +(hasLB?('<rect x="'+xFull.toFixed(1)+'" y="'+_yT.toFixed(1)+'" width="'+Math.max(0,xR-xFull).toFixed(1)+'" height="'+_hB.toFixed(1)+'" fill="rgba(167,139,250,.16)"/>'):'')
-          +'<text x="'+((xL+xIS)/2).toFixed(1)+'" y="'+(pt-1.5).toFixed(1)+'" text-anchor="middle" font-size="4.6" font-weight="700" fill="var(--text4)">IS</text>'
-          +'<text x="'+((xIS+xFull)/2).toFixed(1)+'" y="'+(pt-1.5).toFixed(1)+'" text-anchor="middle" font-size="4.6" font-weight="700" fill="#60a5fa">WF</text>'
-          +(hasLB?('<text x="'+((xFull+xR)/2).toFixed(1)+'" y="'+(pt-1.5).toFixed(1)+'" text-anchor="middle" font-size="4.6" font-weight="700" fill="#a78bfa">LB</text>'):'');
+          +'<text x="'+((xL+xIS)/2).toFixed(1)+'" y="'+(pt+7).toFixed(1)+'" text-anchor="middle" font-size="6" font-weight="700" fill="var(--text3)">IS</text>'
+          +'<text x="'+((xIS+xFull)/2).toFixed(1)+'" y="'+(pt+7).toFixed(1)+'" text-anchor="middle" font-size="6" font-weight="700" fill="#60a5fa">WF</text>'
+          +(hasLB?('<text x="'+((xFull+xR)/2).toFixed(1)+'" y="'+(pt+7).toFixed(1)+'" text-anchor="middle" font-size="6" font-weight="700" fill="#a78bfa">LB</text>'):'');
         // v64.43 (owner): the 2A key now uses the SAME HTML box format as 2B — marker + label +
         //   $ rows for the two named lines, then the line-style legend, in a bordered box.
         // v64.66 (owner): the key showed each line's value at the WF/lockbox DOOR (optimize end);
@@ -8571,9 +8586,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   pre-lockbox trades spread start→lockbox door, held-out trades door→right edge.
         let _tiltOv='',_tiltEnd=null;
         try{
-          const _tlA=(d.gate_validate&&Array.isArray(d.gate_validate.tilts))?d.gate_validate.tilts:[];
-          const _tRc=t=>{const c=t&&t.lockbox;if(!c)return -99;const dd0=Math.abs(c.max_drawdown||0);return dd0>1e-9?(c.total_pnl/dd0):-99;};
-          const _bt=_tlA.slice().sort((a,b)=>_tRc(b)-_tRc(a))[0];
+          const _bt=_bestTiltC;
           if(_bt&&_bt.equity&&Array.isArray(_bt.equity.cum)&&_bt.equity.cum.length>2){
             const _ta=_bt.equity.cum.map(v=>v*mult),_tn=_ta.length;
             const _tf=Math.max(0.02,Math.min(0.98,(+_bt.kept_pre||0)/Math.max(1,+_bt.n_trades||_tn)));
@@ -8595,25 +8608,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
             let _pk=-Infinity,_dd=new Array(_en);
             for(let j=0;j<_en;j++){if(_ea[j]>_pk)_pk=_ea[j];_dd[j]=_ea[j]-_pk;}
             const _dmn=Math.min.apply(null,_dd)||-1;
-            const _dT=H-pd-16,_dB=H-pd;   // 16px strip pinned to the plot floor
+            const _dT=eqB+7,_dB=H-pd-1;   // v68.4: its own pane BELOW the equity, 1A-style
             const _xAt=j=>{const preN=Math.max(2,_li);
               return (j<_li)?(xL+(xFull-xL)*(j/(preN-1)))
                             :(xFull+(xR-xFull)*((j-_li)/Math.max(1,_en-1-_li)));};
             const _pts=['M'+_xAt(0).toFixed(1)+' '+_dB.toFixed(1)];
             for(let j=0;j<_en;j++)_pts.push('L'+_xAt(j).toFixed(1)+' '+(_dT+(_dB-_dT)*(_dd[j]/_dmn)).toFixed(1));
             _pts.push('L'+_xAt(_en-1).toFixed(1)+' '+_dB.toFixed(1)+'Z');
-            _ddStrip='<g data-kg="dd" opacity="0.55"><path d="'+_pts.join('')+'" fill="rgba(226,75,74,.38)" stroke="#e24b4a" stroke-width="0.4"><title>champion drawdown (whole run) · worst '+_kUsd(_dmn)+'</title></path></g>';}
+            _ddStrip='<g data-kg="dd">'
+              +'<line x1="'+xL.toFixed(1)+'" y1="'+_dT.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+_dT.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.6"/>'
+              +'<path d="'+_pts.join('')+'" fill="rgba(226,75,74,.38)" stroke="#e24b4a" stroke-width="0.5" opacity="0.8"><title>champion drawdown (whole run) · worst '+_kUsd(_dmn)+'</title></path>'
+              +'<text x="'+(xL+2).toFixed(1)+'" y="'+(_dT+6.5).toFixed(1)+'" font-size="4.6" font-weight="700" fill="#e24b4a" opacity="0.85">DRAWDOWN</text>'
+              +'<text x="'+(xR-2).toFixed(1)+'" y="'+(_dB-1.5).toFixed(1)+'" text-anchor="end" font-size="4.4" fill="#e24b4a" opacity="0.8">worst '+_kUsd(_dmn)+'</text></g>';}
         }catch(_de){}
         const _kRows=[];
         if(_crV!=null)_kRows.push(['👑','crowned',_kUsd(_crV),'#1d9e75','crown']);
         if(_isV!=null)_kRows.push(['▲','IS max',_kUsd(_isV),'#3a9bdc','ismax']);
-        if(_tiltEnd!=null)_kRows.push(['◔','top tilt (2D)',_kUsd(_tiltEnd),'#f0b429','tilt']);
+        if(_tiltEnd!=null)_kRows.push(['◔','best size tilt (2D)',_kUsd(_tiltEnd),'#f0b429','tilt']);
         _keyBox='<div style="position:absolute;top:8px;left:8px;background:color-mix(in srgb,var(--bg1) 82%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;pointer-events:none;z-index:2">'
           +_kRows.map(r=>'<div data-a2k="'+(r[4]||'')+'" title="click: hide / show this line · hover: spotlight it" style="cursor:pointer;white-space:nowrap;color:'+r[3]+'"><b>'+r[0]+'</b> '+r[1]+' <b>'+r[2]+'</b></div>').join('')
-          +'<div data-a2k="wf" title="click: hide / show these lines · hover: spotlight them" style="cursor:pointer;white-space:nowrap;color:#e0a04b"><b>▬</b> top-K WF survivors</div>'
+          +'<div data-a2k="wf" title="click: hide / show these lines · hover: spotlight them" style="cursor:pointer;white-space:nowrap;color:#e0a04b"><b>▬</b> other WF-tested configs</div>'
           +'<div data-a2k="cloud" title="click: hide / show these lines · hover: spotlight them" style="cursor:pointer;white-space:nowrap;color:var(--text4)"><b>▬</b> other configs</div>'
           +'<div data-a2k="dd" title="click: hide / show the drawdown strip" style="cursor:pointer;white-space:nowrap;color:#e24b4a"><b>▨</b> champion drawdown</div>'
-          +((_hasGate&&_a2gate)?'<div data-a2k="gate" title="click: hide / show this line · hover: spotlight it" style="cursor:pointer;white-space:nowrap;color:#e05fa0"><b>▬</b> 🚪 the 2C filter</div>':'')
+          +((_hasGate&&_a2gate)?'<div data-a2k="gate" title="click: hide / show this line · hover: spotlight it" style="cursor:pointer;white-space:nowrap;color:#e05fa0"><b>▬</b> 🚪 2C ML filter</div>':'')
           +'</div>';
         // v64.98 (owner: "add these to 2A as well"): the SAMPLE control is SHARED with the 2C
         //   matrix — one setting, both tiles agree — and here it dims the stretch you are not
@@ -8662,7 +8679,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v64.31 (owner): selMode = PRE-BOXED row exactly like 1A-1D — chart fills the row, the
       //   $ scale + endpoint pills live in the 44px HTML gutter, handle row underneath.
       const _body=selMode
-        ?'<div class="rschart-box" data-a2eqx="1" title="double-click for the fullscreen explorer — zoom / pan, each config on its own line, gate curve included" style="display:flex;gap:6px;height:190px;min-height:60px;max-height:600px;overflow:hidden"><div style="flex:1;min-width:0;position:relative;background:var(--bg1);border-radius:8px;padding:6px 4px;box-sizing:border-box">'+_svgStr+_keyBox+'</div>'+_gutterHtml+'</div>'+rsRow
+        ?'<div class="rschart-box" data-a2eqx="1" title="double-click for the fullscreen explorer — zoom / pan, each config on its own line, gate curve included" style="display:flex;gap:6px;height:190px;min-height:60px;max-height:600px;overflow:hidden"><div '+(function(){
+          // v68.4: crosshair payload — 160 samples of the champion equity + drawdown laid out on
+          //   the SAME piecewise x the funnel draws (optimize window to the lockbox door, then the
+          //   held-out year to the right edge), so the hover readout matches the picture exactly.
+          try{
+            const _V5=d.validate;
+            if(!(_V5&&Array.isArray(_V5.equity)&&_V5.equity.length>2))return '';
+            const _ea=_V5.equity.map(v=>Math.round(v*mult)),_li=Math.min((_V5.lb_idx||_ea.length),_ea.length),_en=_ea.length;
+            let _pk=-Infinity;const _dd=_ea.map(v=>{if(v>_pk)_pk=v;return Math.round(v-_pk);});
+            const _fS=(xFull-xL)/Math.max(1e-9,(xR-xL));
+            const _sampAt=(arr,fx)=>{let j;
+              if(fx<=_fS){const f=_fS>1e-9?fx/_fS:0;j=f*Math.max(1,_li-1);}
+              else{const f=(fx-_fS)/Math.max(1e-9,1-_fS);j=_li+f*Math.max(0,_en-1-_li);}
+              const i0=Math.floor(j),i1=Math.min(_en-1,i0+1);return arr[i0]+(arr[i1]-arr[i0])*(j-i0);};
+            const _se=[],_sd=[];
+            for(let k2=0;k2<160;k2++){const fx=k2/159;_se.push(Math.round(_sampAt(_ea,fx)));_sd.push(Math.round(_sampAt(_dd,fx)));}
+            const _o=(Wopt&&Wopt[0])||d.date_from||'',_oe=(Wopt&&Wopt[1])||d.date_to||'';
+            const _l0=(Wlb&&Wlb[0])||'',_l1=(Wlb&&Wlb[1])||'';
+            return 'data-a2xh2="'+encodeURIComponent(JSON.stringify({fS:+_fS.toFixed(4),o0:_o,o1:_oe,l0:_l0,l1:_l1,eq:_se,dd:_sd}))+'" ';
+          }catch(_xp){return '';}})()
+        +'style="flex:1;min-width:0;position:relative;background:var(--bg1);border-radius:8px;padding:6px 4px;box-sizing:border-box">'+_svgStr+_keyBox+'</div>'+_gutterHtml+'</div>'+rsRow
         :'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'+_svgStr+'</div>';
       // v64.88 (item 1, owner redesign): the selection detail (crown-pool table + honesty
       //   notes) is PROMOTED out of this card into its own 2B CONFIGS · RAW tile — the §2
@@ -10435,7 +10472,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // which option is the ENGINE's own rule for THIS run: docs from the v66.2 engine carry
         //   selection_rule = net_dollars_mar_floor_80 (pre-registered 2026-08-03, owner-approved);
         //   older docs were crowned by pure MAR/recovery.
-        const _engRule=(V.selection_rule==='net_dollars_mar_floor_80')?'floor':'rec';
+        // v68.4 (owner: hindsight made no sense): the rule string gained a _minkeep suffix in
+        //   v66.5, so this exact-match broke — every new run read as MAR-crowned and ordering
+        //   by the ACTUAL engine rule was flagged as hindsight. Match the family, and only
+        //   warn when the view genuinely differs from how the crown was picked.
+        const _engRule=String(V.selection_rule||'').indexOf('net_dollars_mar_floor')===0?'floor':'rec';
         const _rankMenu=(_g2open==='c-rank')?_ctlMenu('c-rank','ORDER COLUMNS BY',
           _rkOptsAll.map(o=>_ctlChip(_g2rank===o[0],o[1]+(o[0]===_engRule?' &middot; ENGINE RULE':''),'data-g2rk="'+o[0]+'"',o[2]+(o[0]===_engRule?' - the rule that crowned THIS run.':''))).join(''),_rkNote2):'';
         const _ctrls='<div data-g2ctl style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
@@ -10445,7 +10486,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'</div>';
         // v68.3 (owner: same far-right controls on 2B and 2C; the hindsight warning moved OUT of
         //   the strip) — it now sits as a right-aligned note directly under the matrix.
-        const _hindNote=((_g2rank!=='rec'||_g2segs.indexOf('lb')>=0)?'<div style="text-align:right;margin-top:3px"><span title="The winner was picked on MAR over the tuning years and nothing else, before any held-out number existed. Ordering by a different rule, or measuring over a stretch that was sealed at the time, is hindsight - useful for study, not a valid way to crown anything." style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 6px;font-size:7px;cursor:help;white-space:nowrap">&#9888; HINDSIGHT VIEW</span></div>':'');
+        const _hindNote=((_g2rank!==_engRule||_g2segs.indexOf('lb')>=0)?'<div style="text-align:right;margin-top:3px"><span title="The crown was picked using ONLY the WF tuning years (in-sample + walk-forward), by the rule this run shipped with - the LB stayed sealed. This view is currently ordered by a DIFFERENT rule than the one that crowned, or measures over the LB - fine for study, but not the view the winner was chosen on." style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 6px;font-size:7px;cursor:help;white-space:nowrap">&#9888; HINDSIGHT VIEW</span></div>':'');
         const _gMatrix=''
           +_matrixTbl(_gColsV,_gGroups,{compact:true})
           +_hindNote
@@ -13980,17 +14021,24 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   richer one; this is the always-on tile version the owner asked for).
         const wrap=svg.parentElement;if(!wrap)return;
         let xl=null,lab=null;
-        const xh=(svg.getAttribute('data-xh')||'');
-        let xd=null;try{xd=xh?JSON.parse(decodeURIComponent(xh)):null;}catch(_x){}
+        let xp=null;try{const _a=wrap.getAttribute('data-a2xh2');xp=_a?JSON.parse(decodeURIComponent(_a)):null;}catch(_x){}
+        const _fUsd=v=>{const a=Math.abs(Math.round(v));return (v<0?'-$':'$')+(a>=1000?(a/1000).toFixed(a>=10000?0:1)+'k':a);};
         wrap.addEventListener('mousemove',ev=>{
           const r=wrap.getBoundingClientRect();const fx=(ev.clientX-r.left)/Math.max(1,r.width);
           if(fx<0||fx>1)return;
           if(!xl){xl=document.createElement('div');xl.style.cssText='position:absolute;top:0;bottom:0;width:1px;background:var(--text4);opacity:.55;pointer-events:none;z-index:3';wrap.appendChild(xl);
-            lab=document.createElement('div');lab.style.cssText='position:absolute;bottom:2px;transform:translateX(-50%);background:var(--bg1);border:1px solid var(--border);border-radius:4px;padding:0 5px;font-size:8px;color:var(--text2);pointer-events:none;white-space:nowrap;z-index:3';wrap.appendChild(lab);}
-          xl.style.left=(fx*100)+'%';lab.style.left=(fx*100)+'%';
-          if(xd&&xd.x0&&xd.x1){const t0=Date.parse(xd.x0),t1=Date.parse(xd.x1);
-            if(!isNaN(t0)&&!isNaN(t1)){const dte=new Date(t0+fx*(t1-t0));
-              lab.textContent=dte.toISOString().slice(0,10);}}
+            lab=document.createElement('div');lab.style.cssText='position:absolute;top:2px;transform:translateX(-50%);background:color-mix(in srgb,var(--bg1) 92%,transparent);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:8px;color:var(--text2);pointer-events:none;white-space:nowrap;z-index:3;line-height:1.5';wrap.appendChild(lab);}
+          xl.style.left=(fx*100)+'%';lab.style.left=Math.min(88,Math.max(12,fx*100))+'%';
+          let txt='';
+          if(xp&&xp.o0){const fS=+xp.fS||0.84;let dte=null;
+            if(fx<=fS){const t0=Date.parse(xp.o0),t1=Date.parse(xp.o1);if(!isNaN(t0)&&!isNaN(t1))dte=new Date(t0+(fx/fS)*(t1-t0));}
+            else{const t0=Date.parse(xp.l0||xp.o1),t1=Date.parse(xp.l1||xp.o1);if(!isNaN(t0)&&!isNaN(t1))dte=new Date(t0+((fx-fS)/Math.max(1e-9,1-fS))*(t1-t0));}
+            if(dte)txt=dte.toISOString().slice(0,10);
+            if(Array.isArray(xp.eq)&&xp.eq.length){const j=Math.min(xp.eq.length-1,Math.round(fx*(xp.eq.length-1)));
+              txt+=' · <b style="color:#1d9e75">'+_fUsd(xp.eq[j])+'</b>';
+              if(Array.isArray(xp.dd)&&xp.dd[j]<0)txt+=' · <b style="color:#e24b4a">DD '+_fUsd(xp.dd[j])+'</b>';}
+          }
+          lab.innerHTML=txt||'&nbsp;';
           xl.style.display='';lab.style.display='';});
         wrap.addEventListener('mouseleave',()=>{if(xl){xl.style.display='none';lab.style.display='none';}});});
       // v64.52 (owner): the collapsible 2C CONFIGS · ML GATE FILTER pill under 2A/2B.
