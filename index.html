@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='69.0';
+const VERSION='69.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'69.1',date:'2026-08-07',notes:['2C ML GATE gains a fixed LB TRADES row. The existing TRADES KEPT row follows the SAMPLE toggle so its meaning shifts as you tick stretches; this new one is always the lockbox year, which is the basis 2D and 2E report on - so all three sections can be compared without touching a control.','2D ML TILT and 2E ML HYBRID: the TRADES row was printing the whole-run count while every row around it was lockbox-only. It is now LB TRADES, with ALL TRADES kept as a separate row underneath.','NEW REDEPLOY toggle on 2E ML HYBRID. ONE LOT is the normal view - every column averages one contract per trade, so a variant that refuses trades leaves that capacity idle. REDEPLOY sizes each column up until it spends the same total contracts as the no-gate book, which is the what-if-I-put-the-freed-capacity-back-to-work question. LB dollars, max drawdown and biggest size all move with it; MAR never does, because scaling multiplies profit and drawdown equally.','NEW AVG CONTRACTS row in 2D and 2E showing the average contracts per trade each column runs - one in the normal view, and in REDEPLOY what the freed capacity buys.']},
 {v:'69.0',date:'2026-08-07',notes:['2D and 2E: the DROPPED row is renamed NOT TAKEN, and its tooltip now says what actually happened - the cut-off refused those trades, so they were never entered at all: no position, no fee, no profit or loss. A tilt refuses nothing, so it always reads 0.']},
 {v:'68.9',date:'2026-08-06',notes:['NEW SIZE RULE row in 2D ML TILT and 2E ML HYBRID: every column now states its own exact sizing rule and its own cut-off. Two rf columns can run two different shapes, so this can never be guessed from the model name - 2D reads no cut-off (a tilt drops nothing), 2E reads drops under 50 percent.','NEW DROPPED row: how many trades the cut-off threw away entirely. Tilts always read 0; hybrids show the real count.','SIZE MIX tooltip spells out the buckets: small is under 0.75 of a lot, medium 0.75 to 1.5, large over 1.5.','These three rows need engine data saved from this version on - reports made earlier show a dash.']},
 {v:'68.8',date:'2026-08-06',notes:['2D renamed ML TILT and 2E renamed ML HYBRID - matching 2C ML GATE, fixed vocabulary from here on.','2D and 2E slimmed back down: the no-gate and crowned-gate baseline columns are removed (they kept reading as variants - the baselines live in 2C), the header annotations moved behind each section info icon, and column sub-labels are one word (sliding / steps) or nothing.','The 2E info icon now states the shared ratio once: every column uses the SAME pinned cut-off (the 2C crown, 50% on this run) and the same sliding sizing - only the scoring model differs between columns.']},
@@ -10492,7 +10493,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _hRow({lbl:'WIN %',cell:col=>{const v=_P(col).wr;return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">&mdash;</span>';}},col=>_P(col).wr,true),
             _hRow({lbl:'<span title="average net dollars per trade over the toggled stretches. A filter that merely trades less will not move this; a filter that genuinely picks better will." style="border-bottom:1px dotted var(--text5);cursor:help">$ / TRADE</span>',cell:col=>{const v=_apt(col);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>'):_dash;}},_apt,true)]},
           {name:_hd('sample'),rows:[
-            {lbl:'TRADES KEPT',cell:col=>{const k=_P(col).kept;return k!=null?('<span style="color:var(--text3)">'+(+k).toLocaleString()+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">&mdash;</span>';}}]}
+            {lbl:'TRADES KEPT',cell:col=>{const k=_P(col).kept;return k!=null?('<span style="color:var(--text3)">'+(+k).toLocaleString()+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">&mdash;</span>';}},
+            // v69.1 (owner: "i dont see trade count on 2c so cant compare"). The row above follows
+            //   the SAMPLE toggle, so it changes meaning as you tick stretches. This one is FIXED
+            //   on the lockbox, which is the basis 2D and 2E report on - so the three sections can
+            //   be read side by side without touching any control.
+            {lbl:'<span title="trades taken in the lockbox year only - the same basis 2D and 2E use, so the three sections line up">LB TRADES</span>',cell:col=>{
+              const n=col.base?((V.ungated_lockbox||{}).num_trades):(((col.raw&&col.raw.lockbox)||{}).num_trades);
+              return n!=null?('<span style="color:var(--text3)">'+(+n).toLocaleString()+'</span>'):'<span style="color:var(--text5)">&mdash;</span>';}}]}
         ];
         const _anyDer=_gCols.some(c=>c.lbDer)||_gColsV.some(c=>{const p=_P(c);return p&&p.ddDer;});
         // v64.98 (owner): this strip now rides the TILE TITLE ROW, anchored right, instead of
@@ -10572,18 +10580,34 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 rule:t.rule||null,cut:(t.cutoff!=null?t.cutoff:(kind==='hyb'&&ch?ch.threshold:null))}}));
         const _cmpRec=x=>{if(!x)return null;const dd0=Math.abs(x.max_drawdown||0);return dd0>1e-9?(x.total_pnl/dd0):null;};
         const _cmpUsd=v=>(v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):'<span style="color:var(--text5)">&mdash;</span>');
-        const _cmpMatrix=list=>{if(!list.length)return '';
+        // v69.1 (owner): REDEPLOY view. Every column normally averages one lot per trade, so a
+        //   variant that refuses trades simply leaves that capacity idle and books fewer dollars.
+        //   This view instead spends the SAME total trade-lots as the no-gate book by scaling each
+        //   column up, which is the "what if I put the freed capacity back to work" question.
+        //   Scaling multiplies profit AND drawdown by the same factor, so MAR never moves - that is
+        //   why MAR is the honest comparator and is left untouched here.
+        const _ungLbN=((V.ungated_lockbox||{}).num_trades)||0;
+        const _rdF=c=>{const n=(c._s.lb&&c._s.lb.num_trades)||0;
+          return (_ungLbN>0&&n>0)?(_ungLbN/n):1;};
+        const _cmpMatrix=(list,redeploy)=>{if(!list.length)return '';
+          const _sc=c=>redeploy?_rdF(c):1;
           return _matrixTbl(list,[
             {name:'RETURN',rows:[
               {lbl:'IS $',top:true,cell:c=>_cmpUsd(c._s.is&&c._s.is.total_pnl)},
               {lbl:'WF $',cell:c=>_cmpUsd(c._s.wf&&c._s.wf.total_pnl)},
-              {lbl:'<span title="the sealed final year - the lockbox">LB $</span>',cell:c=>_cmpUsd(c._s.lb&&c._s.lb.total_pnl)}]},
+              {lbl:'<span title="the sealed final year - the lockbox">LB $</span>',cell:c=>_cmpUsd((c._s.lb&&c._s.lb.total_pnl)!=null?c._s.lb.total_pnl*_sc(c):null)}]},
             {name:'REWARD / RISK',rows:[
               {lbl:'<span title="LB dollars earned per dollar of LB drawdown">LB MAR</span>',top:true,cell:c=>{const r=_cmpRec(c._s.lb);return r!=null?('<b>'+r.toFixed(1)+'</b>'):'&mdash;';}},
-              {lbl:'LB MAX DD',cell:c=>{const x=c._s.lb;return (x&&x.max_drawdown!=null)?('<span style="color:#e24b4a">-'+$k(Math.abs(x.max_drawdown))+'</span>'):'&mdash;';}}]},
+              {lbl:'LB MAX DD',cell:c=>{const x=c._s.lb;return (x&&x.max_drawdown!=null)?('<span style="color:#e24b4a">-'+$k(Math.abs(x.max_drawdown)*_sc(c))+'</span>'):'&mdash;';}}]},
             {name:'SAMPLE',rows:[
-              {lbl:'TRADES',top:true,cell:c=>c._s.n!=null?(+c._s.n).toLocaleString():'&mdash;'},
-              {lbl:'<span title="largest contracts any single trade got - the average is always 1">BIGGEST SIZE</span>',cell:c=>c._s.mx!=null?((+c._s.mx).toFixed(1)+'&times;'):'&mdash;'},
+              // v69.1: this used to print the whole-run trade count while every row around it was
+              //   lockbox-only, which made the section impossible to reconcile against 2C.
+              {lbl:'<span title="trades taken in the lockbox year - the same basis as the LB rows above and as 2C">LB TRADES</span>',top:true,cell:c=>{
+                const n=(c._s.lb&&c._s.lb.num_trades);return n!=null?(+n).toLocaleString():'&mdash;';}},
+              {lbl:'<span title="every trade the variant took across the whole run">ALL TRADES</span>',cell:c=>c._s.n!=null?(+c._s.n).toLocaleString():'&mdash;'},
+              {lbl:'<span title="average contracts per trade this column runs. One in the normal view; in REDEPLOY it is what the freed capacity buys.">AVG CONTRACTS</span>',cell:c=>{
+                const f=_sc(c);return '<span style="color:'+(redeploy?'#f0b429':'var(--text3)')+'">'+f.toFixed(2)+'&times;</span>';}},
+              {lbl:'<span title="largest contracts any single trade got">BIGGEST SIZE</span>',cell:c=>c._s.mx!=null?((+c._s.mx*_sc(c)).toFixed(1)+'&times;'):'&mdash;'},
               // v68.7/68.9 (owner: "we dont see the trade distribution for dropped small/medium/large")
               //   engine >= v68.9 saves the split incl. DROPPED; older runs show a dash.
               {lbl:'<span title="how the trades split by the size each was given: SMALL under 0.75 of a lot · MEDIUM 0.75 to 1.5 · LARGE over 1.5. Saved by the engine from v68.7 runs on.">SIZE MIX s·m·L</span>',cell:c=>{const x=c._s.mix;return x?('<span style="color:var(--text3)">'+(+x.small).toLocaleString()+' · '+(+x.normal).toLocaleString()+' · '+(+x.big).toLocaleString()+'</span>'):'<span style="color:var(--text5)">&mdash;</span>';}},
@@ -10602,17 +10626,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<span style="font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--text2)">THE SAME MODELS AS THE 2C ML GATE, SPENT AS SIZE INSTEAD</span>'
             +'<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 6px;font-size:7px;white-space:nowrap">COMPARISON ONLY &middot; NEVER CROWNED</span>'
             +_infoIc('<div style="color:var(--text2)"><b>THE GATE AND THE TILT USE THE SAME SCORE. THEY SPEND IT DIFFERENTLY.</b><br>A model scores every trade before it happens.<br><br><b>THE GATE</b> (2C) = a bouncer. Score under the cut-off, the trade does not happen.<br><b>THE TILT</b> (this section) = a dimmer. Every trade happens; confident ones get more contracts, doubtful ones fewer (about half a contract up to triple - half an NQ is five MNQ micros). The AVERAGE across all trades is one contract, so it is the same size of book as no-gate, just distributed differently.<br><br><b>A TILT HAS NO CUT-OFF.</b> That is why no column says rf @ 50% here - there is no line below which trades are dropped; the model name alone identifies the column.<br><br><b>THE TWO SIZE SHAPES.</b> SLIDING = the contract count slides smoothly with confidence, quarter-lot up to 3. STEPS = three fixed sizes only (half / one / two lots) by confidence band.<br><br><b>LB</b> = the lockbox - the sealed final year, opened only after the winner was already chosen. The tilt columns run through the SAME LB window as everything else in this report.<br><br>Comparison only; adopting a tilt would need its own pre-registered rule. Baselines for comparison (no gate, the crowned gate) live in the 2C matrix.</div>')
-            +'</div>'+_cmpMatrix(_cmpCols(_tl,'tilt'))+'</div>';})();
+            +'</div>'+_cmpMatrix(_cmpCols(_tl,'tilt'),false)+'</div>';})();
         // 2E HYBRID (owner idea, v68.5): the gate keeps its crowned cut-off, the SURVIVORS are
         //   then sized by the tilt. Floor pinned to the crown - no new knob. Engine >= v68.5 only.
         const _hy=(V.hybrids||[]).slice();
+        const _hybRD=!!(+(APREF.hybRedeploy||0));
         const hybTbl=(!_hy.length)?'':(function(){
           _hy.sort((a,b)=>((_cmpRec(b.lockbox)!=null?_cmpRec(b.lockbox):-99)-(_cmpRec(a.lockbox)!=null?_cmpRec(a.lockbox):-99)));
           return '<div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'
             +'<span style="font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--text2)">GATE FIRST, THEN TILT THE SURVIVORS</span>'
             +'<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 6px;font-size:7px;white-space:nowrap">COMPARISON ONLY &middot; NEVER CROWNED</span>'
+            +'<span data-hybrd style="cursor:pointer;border:1px solid '+(_hybRD?'#f0b429':'var(--border)')+';background:'+(_hybRD?'color-mix(in srgb,#f0b429 14%,transparent)':'var(--bg2)')+';color:'+(_hybRD?'#f0b429':'var(--text3)')+';border-radius:6px;padding:1px 7px;font-size:7px;font-weight:700;white-space:nowrap" title="ONE LOT: every column averages one contract per trade, so refusing trades leaves that capacity idle. REDEPLOY: each column is sized up until it spends the same total contracts as the no-gate book. MAR is identical either way - only the dollars move.">'+(_hybRD?'&#9679; REDEPLOY':'&#9675; ONE LOT')+'</span>'
             +_infoIc('<div style="color:var(--text2)">The HYBRID does both: trades under the crowned 2C cut-off are dropped (the gate), and the survivors are sized by confidence (the tilt).<br><br><b>EVERY COLUMN USES THE SAME RATIO</b>: the cut-off is PINNED to the one 2C crowned'+(ch?(' (this run: '+Math.round((ch.threshold||0)*100)+'%)'):'')+' and the sizing is the sliding shape - so the only thing that differs between columns is WHICH MODEL scored the trades. That is why the headers carry no per-column annotation.<br><br>Pinning to the crown means NO new tunable knob exists here.<br><br>Sizes average one lot across the kept trades. Comparison only - adopting the hybrid would need its own pre-registered rule on a strategy with a sealed lockbox. Baselines (no gate, the crowned gate) live in the 2C matrix.</div>')
-            +'</div>'+_cmpMatrix(_cmpCols(_hy,'hyb'))+'</div>';})();
+            +'</div>'+_cmpMatrix(_cmpCols(_hy,'hyb'),_hybRD)+'</div>';})();
         return {V:V,LB:LB,ch:ch,tilts:tiltTbl,hyb:hybTbl,ctrls:(_ctrls+_sampMenu+_rankMenu),menus:'',
           head:'<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>',
           intro:'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+V.n_candidates+' candidates ranked pre-lockbox by recovery factor ($ per $ of drawdown). The winner gets exactly one lockbox look — no shopping.</div>',
@@ -14131,7 +14157,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   lands inside it must NOT also collapse the tile.
       content.querySelectorAll('[data-gate2a]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-g2ctl]'))return;e.stopPropagation();savePref('gate2aOpen',(APREF.gate2aOpen==null?1:+APREF.gate2aOpen)?0:1);renderApp();};});
       content.querySelectorAll('[data-tilt2d]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]'))return;e.stopPropagation();savePref('tilt2dOpen',(APREF.tilt2dOpen==null?1:+APREF.tilt2dOpen)?0:1);renderApp();};});
-      content.querySelectorAll('[data-hyb2e]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]'))return;e.stopPropagation();savePref('hyb2eOpen',(APREF.hyb2eOpen==null?1:+APREF.hyb2eOpen)?0:1);renderApp();};});
+      content.querySelectorAll('[data-hyb2e]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-hybrd]'))return;e.stopPropagation();savePref('hyb2eOpen',(APREF.hyb2eOpen==null?1:+APREF.hyb2eOpen)?0:1);renderApp();};});
+      content.querySelectorAll('[data-hybrd]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('hybRedeploy',(+(APREF.hybRedeploy||0))?0:1);renderApp();};});
       // 2L TOP INTERACTIONS flat ⇄ 3-D toggle (#54)
       content.querySelectorAll('[data-surr3d]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('surr3d',+b.dataset.surr3d);renderApp();};});
       // CARD LAYOUT (owner): report cards resize BOTH directions (drag the corner) and the
