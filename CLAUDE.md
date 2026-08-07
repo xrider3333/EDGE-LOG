@@ -33,6 +33,19 @@ Structure EVERY substantive reply top-to-bottom as:
    Description (or a Location column) — a row without a location is incomplete.
    **Description cells are BULLETS, not prose** (owner 2026-07-23): short bullet lines inside
    the cell (`•` separated by `<br>`), each one fact.
+2b. **TOPIC-FIRST PARAGRAPHS (owner corrections 2026-08-06, stated twice: "delinate what your
+   talking about"; "you need to start specifically with where/what youre talking about").**
+   Every explanation paragraph OPENS by naming its subject — the UI location or the exact
+   thing being explained — in bold: `**2D ML TILT:** …`, `**the chat table (equal-risk):** …`,
+   `**why the two numbers differ:** …`. ONE topic per paragraph, never two concepts
+   conglomerated into one paragraph. When comparing two things, first define EACH side in its
+   own named paragraph (what it measures, its convention), THEN a third paragraph does the
+   comparison — never interleave definitions inside the comparison.
+2c. **NEVER RENAME AN ESTABLISHED TERM (owner 2026-08-06: "stop changing terms!").** The fixed
+   vocabulary: **ML GATE** (2C), **ML TILT** (2D), **ML HYBRID** (2E), **IS / WF / LB** for the
+   three stretches ("LB", never "held-out year"/"lockbox year" alternations), **RAW configs**
+   (2B). If a new concept truly needs a name, pick it ONCE, say "calling this X from now on",
+   and add it to this list in the same commit.
 3. **Details / caveats / how-to-verify / numbers go UNDERNEATH the table** — the owner skims the
    table, then drops down for detail. Keep prose terse; process/"thinking" text is noise.
    **KEEP IT SHORT AND JARGON-FREE (owner 2026-07-23, stated twice): "make more concise and

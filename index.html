@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='68.7';
+const VERSION='68.8';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'68.8',date:'2026-08-06',notes:['2D renamed ML TILT and 2E renamed ML HYBRID - matching 2C ML GATE, fixed vocabulary from here on.','2D and 2E slimmed back down: the no-gate and crowned-gate baseline columns are removed (they kept reading as variants - the baselines live in 2C), the header annotations moved behind each section info icon, and column sub-labels are one word (sliding / steps) or nothing.','The 2E info icon now states the shared ratio once: every column uses the SAME pinned cut-off (the 2C crown, 50% on this run) and the same sliding sizing - only the scoring model differs between columns.']},
 {v:'68.7',date:'2026-08-06',notes:['2D column headers say what they are in plain words: SLIDING SIZE (contracts slide smoothly with confidence, quarter-lot to triple) or 3 STEP SIZES (half / one / two lots by confidence band) - and each notes NO CUT-OFF, because a tilt never drops a trade, so there is no rf-at-50 to name.','2E hybrid headers name the pinned cut-off - gate 50% + tilt - so it is clear which gate the survivors passed.','NEW SIZE MIX row in 2D and 2E: how many trades were given a small (under 0.75 lot), normal (0.75-1.5) or large (over 1.5) size. The engine saves it from today - runs made before this show a dash.']},
 {v:'68.6',date:'2026-08-06',notes:['2A: the key is the expanded-view style box inside the chart again, with exactly four rows - RAW, GATE, TILT, HYBRID - each showing its family top-line dollars. The default view draws ONLY those four top lines; clicking RAW reveals the rest of the config family (the survivors and the grey cloud), clicking again hides them.','2A: the drawdown now hangs DOWN from its own baseline exactly as 1A draws it - it was filling from the floor up, which read inverted. The dashed IS/LB divider lines are gone (the stripe colours already mark the sections), and the IS / WF / LB tags sit inside the plot.','2A: the best HYBRID (2E) draws as its own violet line on runs that carry hybrid data.']},
 {v:'68.5',date:'2026-08-06',notes:['Named back to ML GATE everywhere, per the owner - 2C title, the 2A chip and key, the tilt texts, the Builder and run-list labels. One name, no more switching.','2A brought in line with 1A: horizontal gridlines gone, the IS / WF / LB tags are crisp HTML (they were being stretched with the chart), the stripes stop at the equity floor so the drawdown pane below stays clean, and the key moved OUT of the plot into a chip row above the chart reading crowned / RAW configs / GATE (2C) / TILT (2D) / DRAWDOWN.','2A crosshair works like a chart cursor now: a date label rides the bottom axis and a dollar label rides the right axis, with both hairlines - nothing floats over the curves.','2D SIZE TILT rebuilt as the same matrix shape as 2C - one column per variant, metrics as rows - and every held-out column is named LB.','NEW 2E HYBRID section: gate first, then tilt the survivors. The cut-off is pinned to the one 2C crowned, so it adds no new knob. Appears on runs made from today; older reports have no hybrid data saved.','The crown pool widened from the top-5 to the top-10 in-sample configs - still ranked by walk-forward, and the LB still never chooses. A config like number 5, strong on walk-forward but sixth-or-lower in-sample, can now compete for the crown instead of watching from the stands.','2B header labels aligned consistently.']},
@@ -8664,8 +8665,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         _keyBox='<div data-a2krow style="position:absolute;top:8px;left:8px;background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;z-index:3">'
           +_kr('raw','👑 RAW',(_crV!=null?_crV:null),'#1d9e75')
           +(_hasGate?_kr('gate','GATE',_gateEndV,'#e05fa0'):'')
-          +(_tiltEnd!=null?_kr('tilt','TILT',_tiltEnd,'#f0b429'):'')
-          +(_hybEnd!=null?_kr('hyb','HYBRID',_hybEnd,'#c084fc'):'')
+          +(_tiltEnd!=null?_kr('tilt','ML TILT (2D)',_tiltEnd,'#f0b429'):'')
+          +(_hybEnd!=null?_kr('hyb','ML HYBRID (2E)',_hybEnd,'#c084fc'):'')
           +'</div>';
         // v64.98 (owner: "add these to 2A as well"): the SAMPLE control is SHARED with the 2C
         //   matrix — one setting, both tiles agree — and here it dims the stretch you are not
@@ -10550,28 +10551,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   row crownable:false — nothing here can win the crown, by construction.
         const _tl=(V.tilts||[]).slice();
         const _tRec=s=>{if(!s)return null;const d=Math.abs((s.max_drawdown)||0);return d>1e-9?(s.total_pnl/d):null;};
-        // v68.7 (owner: "what does sloped mean?"): plain words. SLIDING SIZE = the contract count
-        //   slides smoothly with the model's confidence (quarter-lot up to 3). 3 STEP SIZES =
-        //   just three fixed sizes - half, one, or two lots - by confidence band.
-        const _shNm={tier:'3 step sizes',linear:'sliding size'};
+        // v68.7/68.8: SLIDING = contract count slides smoothly with the model's confidence
+        //   (quarter-lot up to 3). STEPS = three fixed sizes (half / one / two lots) by band.
+        //   One word in the header; the full definitions live in the section info icon.
+        const _shNm={tier:'steps',linear:'sliding'};
         const _shTip={tier:'three sizes only - double on the confident trades, normal in the middle, half on the doubtful ones',
                       linear:'size slides smoothly with confidence, from a quarter up to triple'};
         // v68.5 (owner: "make it match 2C - flip the rows/columns"): the tilt table is now the
         //   SAME transposed matrix shape as 2C - one COLUMN per variant, metrics as rows - built
         //   with the shared _matrixTbl helper, and every held-out column is named LB.
-        const _cmpCols=(list,kind)=>{
-          const cols=[];
-          cols.push({lbl:'no gate',col:'var(--text3)',_s:{is:V.ungated_is,wf:V.ungated_wf,lb:V.ungated_lockbox,n:(V.ungated_full||{}).num_trades,mx:1}});
-          if(ch){const cc=(V.candidates||[]).filter(c=>c.model===ch.model&&Math.abs(c.threshold-ch.threshold)<1e-9)[0];
-            if(cc)cols.push({lbl:'&#128081; gate',sub:cc.model+' @ '+Math.round(cc.threshold*100)+'%',col:'var(--green)',emph:true,emphCol:'var(--green)',_s:{is:cc.is_rng,wf:cc.wf_rng,lb:cc.lockbox,n:cc.kept_pre,mx:1}});}
-          // v68.7 (owner: "it doesnt say which rf"): a TILT column has NO cut-off — every trade is
-          //   taken, only re-sized — so the header says so instead of leaving it to guesswork.
-          //   A HYBRID column names the pinned cut-off it drops below (the 2C crown).
-          list.forEach(t=>{cols.push({lbl:String(t.model||''),
-            sub:(kind==='hyb')?('gate '+(t.floor!=null?Math.round(t.floor*100)+'%':(ch?Math.round(ch.threshold*100)+'%':''))+' + tilt'):((_shNm[t.scheme]||t.scheme)+' · no cut-off'),
+        // v68.8 (owner): ONLY the variants — the no-gate and crowned-gate baseline columns are
+        //   gone (they kept reading as if they were tilt/hybrid variants; the baselines live in
+        //   2C). Headers stay one short word; the cut-off facts live in the section info icon.
+        const _cmpCols=(list,kind)=>list.map(t=>({lbl:String(t.model||''),
+            sub:(kind==='hyb')?'':(_shNm[t.scheme]||t.scheme),
             col:_gateColor(String(t.model||''),1,60),
-            _s:{is:t.is_rng,wf:t.wf_rng,lb:t.lockbox,n:(kind==='hyb'?t.n_trades:t.n_trades),mx:t.max_size,mix:t.sizes||null}});});
-          return cols;};
+            _s:{is:t.is_rng,wf:t.wf_rng,lb:t.lockbox,n:t.n_trades,mx:t.max_size,mix:t.sizes||null}}));
         const _cmpRec=x=>{if(!x)return null;const dd0=Math.abs(x.max_drawdown||0);return dd0>1e-9?(x.total_pnl/dd0):null;};
         const _cmpUsd=v=>(v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):'<span style="color:var(--text5)">&mdash;</span>');
         const _cmpMatrix=list=>{if(!list.length)return '';
@@ -10595,7 +10590,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           return '<div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'
             +'<span style="font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--text2)">THE SAME MODELS AS THE 2C ML GATE, SPENT AS SIZE INSTEAD</span>'
             +'<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 6px;font-size:7px;white-space:nowrap">COMPARISON ONLY &middot; NEVER CROWNED</span>'
-            +_infoIc('<div style="color:var(--text2)"><b>THE GATE AND THE TILT USE THE SAME SCORE. THEY SPEND IT DIFFERENTLY.</b><br>A model scores every trade before it happens.<br><br><b>THE GATE</b> (2C) = a bouncer. Score under the cut-off, the trade does not happen.<br><b>THE TILT</b> (this section) = a dimmer. Every trade happens; confident ones get more contracts, doubtful ones fewer (about half a contract up to triple - half an NQ is five MNQ micros). The AVERAGE across all trades is one contract, so it is the same size of book as no-gate, just distributed differently.<br><br><b>LB</b> = the lockbox - the sealed final year, opened only after the winner was already chosen. The tilt lines run through the SAME LB window as everything else in this report.<br><br>Comparison only; adopting a tilt would need its own pre-registered rule.</div>')
+            +_infoIc('<div style="color:var(--text2)"><b>THE GATE AND THE TILT USE THE SAME SCORE. THEY SPEND IT DIFFERENTLY.</b><br>A model scores every trade before it happens.<br><br><b>THE GATE</b> (2C) = a bouncer. Score under the cut-off, the trade does not happen.<br><b>THE TILT</b> (this section) = a dimmer. Every trade happens; confident ones get more contracts, doubtful ones fewer (about half a contract up to triple - half an NQ is five MNQ micros). The AVERAGE across all trades is one contract, so it is the same size of book as no-gate, just distributed differently.<br><br><b>A TILT HAS NO CUT-OFF.</b> That is why no column says rf @ 50% here - there is no line below which trades are dropped; the model name alone identifies the column.<br><br><b>THE TWO SIZE SHAPES.</b> SLIDING = the contract count slides smoothly with confidence, quarter-lot up to 3. STEPS = three fixed sizes only (half / one / two lots) by confidence band.<br><br><b>LB</b> = the lockbox - the sealed final year, opened only after the winner was already chosen. The tilt columns run through the SAME LB window as everything else in this report.<br><br>Comparison only; adopting a tilt would need its own pre-registered rule. Baselines for comparison (no gate, the crowned gate) live in the 2C matrix.</div>')
             +'</div>'+_cmpMatrix(_cmpCols(_tl,'tilt'))+'</div>';})();
         // 2E HYBRID (owner idea, v68.5): the gate keeps its crowned cut-off, the SURVIVORS are
         //   then sized by the tilt. Floor pinned to the crown - no new knob. Engine >= v68.5 only.
@@ -10605,7 +10600,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           return '<div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'
             +'<span style="font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--text2)">GATE FIRST, THEN TILT THE SURVIVORS</span>'
             +'<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 6px;font-size:7px;white-space:nowrap">COMPARISON ONLY &middot; NEVER CROWNED</span>'
-            +_infoIc('<div style="color:var(--text2)">The HYBRID does both: trades under the crowned 2C cut-off are dropped (the gate), and the survivors are sized by confidence (the tilt). The cut-off is PINNED to the one 2C already crowned, so this adds NO new tunable knob.<br><br>Each column is one model scoring the trades. Sizes average one lot across the kept trades, so the column compares one-for-one with the crowned gate column.<br><br>Comparison only - adopting the hybrid would need its own pre-registered rule on a strategy with a sealed lockbox.</div>')
+            +_infoIc('<div style="color:var(--text2)">The HYBRID does both: trades under the crowned 2C cut-off are dropped (the gate), and the survivors are sized by confidence (the tilt).<br><br><b>EVERY COLUMN USES THE SAME RATIO</b>: the cut-off is PINNED to the one 2C crowned'+(ch?(' (this run: '+Math.round((ch.threshold||0)*100)+'%)'):'')+' and the sizing is the sliding shape - so the only thing that differs between columns is WHICH MODEL scored the trades. That is why the headers carry no per-column annotation.<br><br>Pinning to the crown means NO new tunable knob exists here.<br><br>Sizes average one lot across the kept trades. Comparison only - adopting the hybrid would need its own pre-registered rule on a strategy with a sealed lockbox. Baselines (no gate, the crowned gate) live in the 2C matrix.</div>')
             +'</div>'+_cmpMatrix(_cmpCols(_hy,'hyb'))+'</div>';})();
         return {V:V,LB:LB,ch:ch,tilts:tiltTbl,hyb:hybTbl,ctrls:(_ctrls+_sampMenu+_rankMenu),menus:'',
           head:'<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>',
@@ -11775,7 +11770,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(_gvP&&_gvP.hyb){
         const _hOpen=(APREF.hyb2eOpen==null?1:+APREF.hyb2eOpen);
         _hybSec='<div style="'+_colStyle+';margin-bottom:0;resize:vertical;min-height:52px;max-height:900px">'
-          +'<div data-hyb2e style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow:hidden">2E &#128682;&#127899; HYBRID '
+          +'<div data-hyb2e style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow:hidden">2E &#128682;&#127899; ML HYBRID '
           +_infoIc('<div style="color:var(--text2)">GATE FIRST, THEN TILT THE SURVIVORS - the owner idea from the tilt research. Trades under the crowned 2C cut-off are dropped; the survivors are sized by confidence. The cut-off is PINNED to the one 2C crowned, so no new knob exists to overfit.</div>')
           +'<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap">COMPARISON ONLY</span>'
           +'<span style="margin-left:auto;font-size:8px;color:var(--text4);flex-shrink:0">'+(_hOpen?'&#9652; hide':'&#9662; show')+'</span></div>'
@@ -11785,7 +11780,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(_gvP&&_gvP.tilts){
         const _tOpen=(APREF.tilt2dOpen==null?1:+APREF.tilt2dOpen);
         _tiltSec='<div style="'+_colStyle+';margin-bottom:0;resize:vertical;min-height:52px;max-height:900px">'
-          +'<div data-tilt2d style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow:hidden">2D &#127899; SIZE TILT '
+          +'<div data-tilt2d style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow:hidden">2D &#127899; ML TILT '
           +_infoIc('<div style="color:var(--text2)">THE SAME MODELS AS THE 2C ML GATE, SPENT AS SIZE INSTEAD.<br><br>The 2C ML GATE uses a model score as a BOUNCER - under the cut-off, the trade does not happen. This section uses the identical score as a DIMMER - every trade still happens, confident ones get more contracts and doubtful ones get fewer.<br><br>Nothing here can ever be crowned; it exists so the two ways of spending the same model can be compared side by side over the same stretches.</div>')
           +'<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap">COMPARISON ONLY</span>'
           +'<span style="margin-left:auto;font-size:8px;color:var(--text4);flex-shrink:0">'+(_tOpen?'&#9652; hide':'&#9662; show')+'</span></div>'
