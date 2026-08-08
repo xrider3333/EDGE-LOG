@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.0';
+const VERSION='71.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.1',date:'2026-08-08',notes:['2A FUNNEL gutter pills, the REAL cause: a de-collide pass was pushing eleven pills 8 units apart so they would not overlap, which walked nine of them off the lines they label. Only the lines that are actually drawn get a pill now, so there is nothing to fan out and each pill sits on its line. Turning the full config cloud back on brings its pills back with it.','The 1E KPI matrix sits tighter vertically - the same padding rhythm the RAW and GATE matrices use.']},
 {v:'71.0',date:'2026-08-08',notes:['NOISE 1.0 gained a protective stop (stop_mode / stop_k, default OFF so nothing changes unless you opt in). NOISE had no stop before this - only a VWAP cross - so a bad breakout could run a long way before exiting. The researched setting (bandwidth mode, k=1.0) lifts net 254.4k to 268.4k, cuts max drawdown 31.2k to 21.7k, cuts the worst single trade 15.5k to 4.7k, and MAR moves 8.14 to 12.39, reviewer audited pre-lockbox. This variant has NOT been tested on the held-out year - the lockbox for this family is spent, so it is paper-forward only. See BACKTESTING_STACK.md section 3 for the full record.']},
 {v:'70.9',date:'2026-08-08',notes:['SECTION 1 is back to THREE columns - the equity/funnel card, the 1E matrix and its duplicate. The fourth column is gone.','The 1G / 1H / 1I / 1J distribution stack moved DOWN into section 2, which is now three columns again: distributions on the left, parameter panels in the middle, config-landscape panels on the right. In the 2x2 and single-column report layouts those three simply stack.','2A FUNNEL: the IS / WF / LB tags ride the very top edge of the chart like 1A, the key box sits directly under them at the top left, and a tag whose centre lands near the right edge now anchors to that edge instead of being cut off.']},
 {v:'70.8',date:'2026-08-08',notes:['THE KPI TAB NOW AGREES WITH RAW AND GATE. Every column - IS, WF, LB and TOTAL - is rebuilt from ONE source: the champion own trade list, sliced at the real calendar boundaries. Net, trades, drawdown, profit factor and win rate all describe the same trades over the same dates.','What changed in numbers on run 200: IS net 56,814 becomes 52,053 (it was a residual, not a measurement), WF net 361,110 becomes 365,871 (the crowned config, not the re-optimising procedure), IS max drawdown 10,611 becomes 4,702 (it came from a third measurement), and TOTAL trades 3,948 becomes 3,952 (it was three counts from three backtests added together).','Each column drawdown is now the deepest dip INSIDE that stretch, and TOTAL is the deepest dip on the whole curve - so the drawdown row follows the section you are reading, exactly as the returns do.','NEW WF OOS chip on the 1E title row carries the walk-forward PROCEDURE result - the folds each re-picking their own config - so that number is not lost, it just stops being mixed into the champion column.','The Feasibility header chip counted a different trade set again; it now reports the champion own total.']},
@@ -8317,6 +8318,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(isMaxC&&isMaxC!==crownedC)ov+='<g data-kg="ismax" style="display:none">'+_proc(isMaxC.equity.cum.map(v=>v*mult),'#3a9bdc',0.7,0.95)+'</g>';
         if(crownedC)ov+='<g data-kg="crown">'+_proc(crownedC.equity.cum.map(v=>v*mult),'#1d9e75',0.9,1)+'</g>';
         // top-3 lockbox continuation [lockbox door → right edge] — DOTTED per the procedure
+        // v71.0 (owner: "2a gutter pils not alined"). The alignment was not the gutter box this
+        //   time - it was the de-collide pass. Eleven pills were being pushed 8 svg units apart to
+        //   stop them overlapping, which walked nine of them right off the lines they label. With
+        //   the funnel opening on one line per family, only the lines you can SEE get a pill now,
+        //   so there is nothing to fan out and each pill sits exactly on its line.
+        const _a2kAll=+(APREF.a2kAll||0);
         const LBALT=['#e0a04b','#a879e6'];let alt=0;const labs=[];let lb='';
         // v64.70 (owner): the crowned line is reconciled to the champion's TRUE total (1A), but the
         //   other top-3 survivors kept the saved-curve reconstruction, which overshoots — so the
@@ -8337,7 +8344,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           for(let j=0;j<n;j++){const f=n<=1?1:j/(n-1);pts.push((xFull+(xR-xFull)*f).toFixed(1)+' '+Yv((anchor+(cum[j]-base)*_sc)*mult).toFixed(1))}
           lb+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?0.9:0.6)+'" opacity="0.95" stroke-dasharray="0.5 1.6" stroke-linecap="round"/>';
           // v64.71 (owner): the crowned lockbox pill gets the CROWN (all three showed the same 🔒).
-          const fv=anchor+_rawEnd*_sc;labs.push({y:Yv(fv*mult),col,txt:_kUsd(fv*mult)+(cr?' 👑':' 🔒')});});
+          const fv=anchor+_rawEnd*_sc;
+          if(cr||_a2kAll)labs.push({y:Yv(fv*mult),col,txt:_kUsd(fv*mult)+(cr?' 👑':' 🔒')});});
         // v64.71 (owner): build the SERIES for the fullscreen explorer — double-clicking 2A now
         //   opens the same TradingView-style zoom/pan viewer the Compare tab uses, with each top
         //   config as its OWN coloured, separable line PLUS the gate curve (they overlap badly in
@@ -8609,9 +8617,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           labs.push({y:Yv(_gf),col:'#e05fa0',txt:_kUsd(_gf)+' 🚪'});}
         // IS-max total into the gutter (its in-chart door label is removed). Crowned already has a
         //   lockbox pill; IS-max may not, so add it here.
-        if(isMaxC&&isMaxC!==crownedC){const _isf=isMaxC.equity.cum[isMaxC.equity.cum.length-1]*mult;labs.push({y:Yv(_isf),col:'#3a9bdc',txt:_kUsd(_isf)+' IS'});}
+        if(_a2kAll&&isMaxC&&isMaxC!==crownedC){const _isf=isMaxC.equity.cum[isMaxC.equity.cum.length-1]*mult;labs.push({y:Yv(_isf),col:'#3a9bdc',txt:_kUsd(_isf)+' IS'});}
         // de-collide the pills vertically now that gated + IS were added
-        labs.sort((a,b)=>a.y-b.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<8)labs[i].y=labs[i-1].y+8;
+        // only nudge when two pills would genuinely overlap, and by the least that separates them
+        labs.sort((a,b)=>a.y-b.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<5)labs[i].y=labs[i-1].y+5;
         // GUTTER: the $ SCALE sits flush against the y-axis (left:2px); a scale number is DROPPED
         //   where an endpoint pill would cover it (owner: pills were blocking the scale when
         //   expanded), so the axis stays readable. Pills are the colored $ endpoints.
@@ -9613,14 +9622,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Per-column background tint REPLACES the old "no shading / blue bands / purple" subtitle text:
       //   walk-forward = blue wash, lockbox = purple wash, total = green wash, in-sample = neutral.
       const _ovl=p=>p.total?';border-left:2px solid color-mix(in srgb,var(--green) 55%,transparent);background:color-mix(in srgb,var(--green) 9%,transparent)':(p.col&&p.col[0]==='#'?';background:color-mix(in srgb,'+p.col+' 12%,transparent)':'');
-      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:4px 6px;vertical-align:bottom">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:4px 6px;white-space:nowrap;cursor:help;vertical-align:bottom;color:'+p.col+(p.total?';font-weight:800':';font-weight:700')+_ovl(p)+'">'+p.sh_+(p.dr?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+p.dr+'</div>':'')+'</th>').join('')+'</tr>';
+      // v71.0 (owner: "compress kpi vertically a bit, trying to get close to raw vertical"):
+      //   same padding rhythm the config matrices use in compact mode.
+      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:3px 5px;vertical-align:bottom">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:3px 5px;white-space:nowrap;cursor:help;vertical-align:bottom;color:'+p.col+(p.total?';font-weight:800':';font-weight:700')+_ovl(p)+'">'+p.sh_+(p.dr?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+p.dr+'</div>':'')+'</th>').join('')+'</tr>';
       // group the rows into sections (return / drawdown / reward÷risk / edge / sample) — a small
       //   uppercase header row precedes the first metric of each group so the eye reads them as blocks.
       const _grpAt={'NET P&L':'return','MAX DD':'drawdown','RECOVERY':'reward ÷ risk','PF':'edge & profile','TRADES':'sample'},_ncol=phases.length+1;
-      const body=metrics.map(m=>(_grpAt[m.lbl]?'<tr><td colspan="'+_ncol+'" style="padding:9px 6px 2px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+_grpAt[m.lbl]+'</td></tr>':'')
+      const body=metrics.map(m=>(_grpAt[m.lbl]?'<tr><td colspan="'+_ncol+'" style="padding:7px 5px 1px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+_grpAt[m.lbl]+'</td></tr>':'')
         +'<tr style="border-top:1px solid color-mix(in srgb,var(--border) '+(m.top?'70%':'40%')+',transparent)'+(m.top?';background:color-mix(in srgb,var(--border) 10%,transparent)':'')+'">'
-        +'<td style="padding:5px 6px;font-size:var(--fsxs);color:var(--text2);font-weight:'+(m.top?'700':'400')+';white-space:nowrap">'+m.lbl+'</td>'
-        +phases.map(p=>'<td style="padding:5px 6px;text-align:right;white-space:nowrap'+_ovl(p)+'">'+m.cell(p)+'</td>').join('')+'</tr>').join('');
+        +'<td style="padding:3px 5px;font-size:var(--fsxs);color:var(--text2);font-weight:'+(m.top?'700':'400')+';white-space:nowrap">'+m.lbl+'</td>'
+        +phases.map(p=>'<td style="padding:3px 5px;text-align:right;white-space:nowrap'+_ovl(p)+'">'+m.cell(p)+'</td>').join('')+'</tr>').join('');
       // CALMAR = CAGR ÷ max-drawdown-%, over the LAST 3 YEARS, on a $100k account. A whole-run
       //   recent-window number (not per-section), so it lives as a header pill next to DSR.
       const _calmar=(function(){const acct=100000,totMs=(optS&&lbE)?(lbE-optS):null;if(!eq||eq.length<8||!totMs)return null;const totYr=totMs/(365.25*864e5);if(totYr<=0)return null;const win=Math.min(3,totYr),i0=Math.max(0,Math.round(eq.length*(1-win/totYr))),seg=eq.slice(i0);if(seg.length<4)return null;const v0=acct+seg[0],v1=acct+seg[seg.length-1];if(v0<=0||v1<=0)return null;const cagr=Math.pow(v1/v0,1/win)-1;let pk=-Infinity,md=0;for(const x of seg){const e=acct+x;if(e>pk)pk=e;const dd=(e-pk)/pk;if(dd<md)md=dd;}const ddp=Math.abs(md);return ddp>0?cagr/ddp:null;})();
