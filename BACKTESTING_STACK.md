@@ -1087,6 +1087,12 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-06** — **Blend baseline RECERTIFIED on certified legs (`tools/blend_recert.py`).** ORB #125
+  + ENGU-Q `NQ_DEPLOY_PARAMS_149`, 1:1, window pinned 2010-06-07→2026-06-30: **net $837,645 / maxDD
+  −$60,098 (exact to round-3) / net-DD 13.94 / 17-for-17 years / corr +0.069 / worst day −$13,797
+  (exact).** +$2.3k net vs the round-3 figure = the documented master-revision tail drift (both legs
+  reproduce within ±1 trade / <1%). The blend's "directional ENGU-Q leg" caveat is CLOSED — both legs
+  now certified-exact.
 - **2026-08-05** — **NOISE 1.0 shipped as a library plugin** (owner-directed backend-testing phase):
   frozen round-11 config as defaults, parity-gated (n=3,147/$254.4k/PF 1.31/MAR 8.14), ES-transfer
   caveat + unspent lockbox documented in-file. Not crowned.
