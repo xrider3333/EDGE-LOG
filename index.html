@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.5';
+const VERSION='71.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.6',date:'2026-08-08',notes:['FUNNEL gets a HYBRID RECYCLE line. Redeploying spends the contracts the filter freed up, so the same trades carry more size - the dollars, the drawdown and where the book finishes all move, and that deserved its own line rather than being called a duplicate. It is drawn at the exact factor the HYBRID recycle tab uses on its FULL row, so the two agree.','The champion / funnel card carries its number again - 1A on the card, with CHAMPION and FUNNEL staying plain tab names inside it. Monthly P and L below it is 1B as before.','SAMPLE, RANK and HEAT now read as underlined tab rails matching the tab strip above them, highlighted when on. RANK no longer opens a pop-out panel - its three options sit inline like everything else in the row.']},
 {v:'71.5',date:'2026-08-08',notes:['FUNNEL: the worst-drawdown figure moved up onto the drawdown pane top row, beside the DRAWDOWN caption, so it stops crowding the date ticks underneath it.']},
 {v:'71.4',date:'2026-08-08',notes:['FUNNEL now runs on a real calendar. The lockbox door sits at its true share of the timeline instead of a fixed 84 percent - on run 200 that one lockbox year was taking 16 percent of the chart, nearly three times the time it covers, stretching it and squeezing the fifteen years before it. Same placement the CHAMPION chart uses.','FUNNEL date ticks were WRONG: they were pinned to fixed fractions of the window (37.5 and 75 percent), which stopped being true when the in-sample door moved to the real first-fold boundary - the tick reading Sep 2021 was sitting on the June 2016 door. Six ticks now, each placed at the x its own date maps to.','FUNNEL drawdown pane is sized like the CHAMPION chart - about a quarter of the plot instead of a sliver - and its captions plus the date ticks moved out of the stretched drawing layer into crisp text, so they stop looking squashed.']},
 {v:'71.3',date:'2026-08-08',notes:['The two chart views carry no section letter any more - they are simply the CHAMPION and FUNNEL tabs. The 1A prefix is gone from the champion title and the 2A prefix is gone from the funnel title; everything else keeps its letter.']},
@@ -7876,6 +7877,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
                       ['pnl','NET $','most dollars, no safety check'],
                       ['floor','NET $ + MAR FLOOR','most dollars, but only among candidates at least 80% as efficient as the best MAR']];
     const _rkNote2='Solid yellow marks the row it sorts on &middot; dashed yellow marks a row it only uses to disqualify.';
+    // v71.6 (owner: "make the same selector, rank and heat look like a tab as well - like the tab
+    //   above - highlight when toggled on"): SAMPLE, RANK and HEAT are underlined tab rails now,
+    //   the same look as the tab strip directly above them, instead of three different pill
+    //   shapes. RANK stops being a pop-out panel - its three options sit inline like the rest, so
+    //   nothing in this row opens a menu any more.
+    const _rkShort={rec:'MAR',pnl:'NET $',floor:'FLOOR'};
+    const _ctlGrp=(cap,capTip,items)=>'<span style="display:inline-flex;align-items:center;gap:5px">'
+      +'<span title="'+String(capTip||'').replace(/"/g,'&quot;')+'" style="font-size:7px;font-weight:700;letter-spacing:.5px;color:var(--text5);cursor:help">'+cap+'</span>'
+      +_tabStrip(items,false)+'</span>';
+    const _ctlRow=(segAll,segs,segNm,segTip,rank,rankTip,heat,engRule)=>'<div data-g2ctl style="display:flex;align-items:center;gap:11px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
+      +_ctlGrp('SAMPLE','which stretches of the run this table measures over - click one to tick or untick it',
+        segAll.map(sg=>_tabBtn('data-g2seg="'+sg+'"',(segNm&&segNm[sg])||String(sg).toUpperCase(),segs.indexOf(sg)>=0,(segTip&&segTip[sg])||'')).join(''))
+      +_ctlGrp('RANK',rankTip,
+        _rkOptsAll.map(o=>_tabBtn('data-g2rk="'+o[0]+'"',_rkShort[o[0]],rank===o[0],o[2]+((engRule&&o[0]===engRule)?' - this is the rule that crowned THIS run.':''))).join(''))
+      +'<span data-g2heat>'+_tabStrip(_tabBtn('','HEAT',!!heat,'shade every cell by where it lands across its own row - green best, red worst. Shared by every tab in this card.'),false)+'</span>'
+      +'</div>';
     // opts.compact (owner redesign item B4): tighter cell padding for wide matrices (2C has 11
     //   columns) so it fits without horizontal scroll at a normal viewport width. Rows/cols that
     //   do not need it (2B, 5-6 columns) simply omit opts and render exactly as before.
@@ -8134,11 +8151,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _b2sampMenu='';
       const _b2rankMenu=(_b2open==='b-rank')?_ctlMenu('b-rank','ORDER COLUMNS BY',
         _rkOptsAll.map(o=>_ctlChip(_b2rank===o[0],o[1],'data-g2rk="'+o[0]+'"',o[2])).join(''),_rkNote2):'';
-      const _b2Ctrls='<div data-g2ctl style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
-        +_sampChips(['is','wf','lb'],_b2segs,null,_b2Tip)
-        +_ctlBtn('b-rank',_b2open==='b-rank','RANK',_rkNmAll[_b2rank],'how the config columns are ordered. View only - the crown never moves.')
-        +_ctlHeat(!!_b2heat)
-        +'</div>'+_b2sampMenu+_b2rankMenu;
+      const _b2Ctrls=_ctlRow(['is','wf','lb'],_b2segs,null,_b2Tip,_b2rank,
+        'how the config columns are ordered. View only - the crown never moves.',_b2heat,null);
       return {table:table,tip:tip,sub:sub,ctrls:_b2Ctrls};};
     // v71.2 (owner: "maybe just dont have a 1a or 2a on champion or funnel. leave them as just
     //   tabs"): noTag keeps the tag doing its job in the logic below while dropping it from the
@@ -8201,6 +8215,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(_bestHybC&&_bestHybC.equity&&Array.isArray(_bestHybC.equity.cum))
           _bestHybC.equity.cum.forEach(v=>extYs.push(v*mult));
       }catch(_bh0){_bestHybC=null;}
+      // v71.6 (owner: "its putting $ back in the system vs the normal hybrid, so pnl blotter and
+      //   trade pnl will be different"). Right - REDEPLOY spends the contracts the filter freed up,
+      //   so the same trades carry more size and the dollars, the drawdown and where the book
+      //   finishes all move. It earns its own line. The factor here is the one the HYBRID recycle
+      //   tab applies to its FULL row, so this line ends exactly on the figure that tab prints.
+      let _hyRdF=null;
+      try{
+        const _uF0=(d.gate_validate&&d.gate_validate.ungated_full)||null,_hF0=_bestHybC&&_bestHybC.full;
+        if(_uF0&&_hF0&&(+_uF0.num_trades)>0&&(+_hF0.num_trades)>0){
+          const _fq=(+_uF0.num_trades)/(+_hF0.num_trades);
+          if(_fq>1.005){_hyRdF=_fq;
+            if(_bestHybC.equity&&Array.isArray(_bestHybC.equity.cum))
+              _bestHybC.equity.cum.forEach(v=>extYs.push(v*mult*_fq));}}
+      }catch(_hr0){_hyRdF=null;}
       // draw ALL stored curves; the slider picks how many get COLOUR — the rest stay as faint
       //   grey context lines (owner request) instead of disappearing. Slider max = stored curves.
       // v64.27 (owner): DEFAULT = every stored curve (the slider already spans them all).
@@ -8720,6 +8748,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _hybOv='<g data-kg="hyb"><polyline points="'+_hp2.join(' ')+'" fill="none" stroke="#c084fc" stroke-width="0.75" opacity="0.9"><title>best hybrid (2E): '+String(_bh.model||'')+' · gate + tilt</title></polyline></g>';
             _hybEnd=_ha[_hn-1];}
         }catch(_he){}
+        // v71.6: the SAME hybrid book with the freed-up contracts put back to work - the HYBRID
+        //   recycle tab, drawn. Same trades, more size, so it finishes higher and digs deeper.
+        let _hyb2Ov='',_hyb2End=null;
+        try{
+          const _bh3=_bestHybC;
+          if(_hyRdF&&_bh3&&_bh3.equity&&Array.isArray(_bh3.equity.cum)&&_bh3.equity.cum.length>2){
+            const _ha3=_bh3.equity.cum.map(v=>v*mult*_hyRdF),_hn3=_ha3.length;
+            const _hf3=Math.max(0.02,Math.min(0.98,(+_bh3.kept_pre||0)/Math.max(1,+_bh3.n_trades||_hn3)));
+            const _hp3=[];
+            for(let j=0;j<_hn3;j++){const f=_hn3<=1?1:j/(_hn3-1);
+              const x=(f<=_hf3)?(xL+(xFull-xL)*(f/_hf3)):(xFull+(xR-xFull)*((f-_hf3)/(1-_hf3)));
+              _hp3.push(x.toFixed(1)+' '+Yv(_ha3[j]).toFixed(1));}
+            _hyb2Ov='<g data-kg="hyb2"><polyline points="'+_hp3.join(' ')+'" fill="none" stroke="#f0abfc" stroke-width="0.8" opacity="0.92" stroke-dasharray="2.4 1.2"><title>hybrid with contracts redeployed - '+_hyRdF.toFixed(2)+'x the size of the plain hybrid line</title></polyline></g>';
+            _hyb2End=_ha3[_hn3-1];}
+        }catch(_he3){}
         // v68.3 (owner: "add the drawdown graph"): a compact drawdown strip along the plot floor —
         //   the crowned champion's whole-run drawdown (incl. the held-out year), red area, same
         //   x mapping as the equity above it. 1A's lower pane, miniaturised.
@@ -8764,6 +8807,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +(_hasGate?_kr('gate','GATE',_gateEndV,'#e05fa0'):'')
           +(_tiltEnd!=null?_kr('tilt','TILT',_tiltEnd,'#f0b429'):'')
           +(_hybEnd!=null?_kr('hyb','HYBRID',_hybEnd,'#c084fc'):'')
+          +(_hyb2End!=null?_kr('hyb2','HYBRID &#9851;',_hyb2End,'#f0abfc'):'')
           +'</div>';
         // v64.98 (owner: "add these to 2A as well"): the SAMPLE control is SHARED with the 2C
         //   matrix — one setting, both tiles agree — and here it dims the stretch you are not
@@ -8781,7 +8825,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   tilt, hybrid); the rest of the raw family starts hidden and the key reveals it.
         selSvg=_ddStrip
           +'<g data-kg="wf" style="display:none">'+wf+'</g>'
-          +ov+'<g data-kg="lb">'+lb+'</g>'+_tiltOv+_hybOv+'<g data-kg="gate">'+gateOv+'</g>'+_dimOv;}
+          +ov+'<g data-kg="lb">'+lb+'</g>'+_tiltOv+_hybOv+_hyb2Ov+'<g data-kg="gate">'+gateOv+'</g>'+_dimOv;}
       // x-axis date labels (owner request). Use the OPTIMIZE window when this is a validate
       //   run; selMode+lockbox pushes the right label out to the holdout end.
       const _xw=(d.validate&&d.validate.windows&&d.validate.windows.optimize)||null;
@@ -10678,11 +10722,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _engRule=String(V.selection_rule||'').indexOf('net_dollars_mar_floor')===0?'floor':'rec';
         const _rankMenu=(_g2open==='c-rank')?_ctlMenu('c-rank','ORDER COLUMNS BY',
           _rkOptsAll.map(o=>_ctlChip(_g2rank===o[0],o[1]+(o[0]===_engRule?' &middot; ENGINE RULE':''),'data-g2rk="'+o[0]+'"',o[2]+(o[0]===_engRule?' - the rule that crowned THIS run.':''))).join(''),_rkNote2):'';
-        const _ctrls='<div data-g2ctl style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
-          +_sampChips(_segAll,_g2segs,_segNm,_segTip)
-          +_ctlBtn('c-rank',_g2open==='c-rank','RANK',_rkNm[_g2rank],'how the variant columns are ordered. View only - the crown never moves.')
-          +_ctlHeat(!!_g2heat)
-          +'</div>';
+        const _ctrls=_ctlRow(_segAll,_g2segs,_segNm,_segTip,_g2rank,
+          'how the variant columns are ordered. View only - the crown never moves.',_g2heat,_engRule);
         // v68.3 (owner: same far-right controls on 2B and 2C; the hindsight warning moved OUT of
         //   the strip) — it now sits as a right-aligned note directly under the matrix.
         const _hindNote=((_g2rank!==_engRule||_g2segs.indexOf('lb')>=0)?'<div style="text-align:right;margin-top:3px"><span title="The crown was picked using ONLY the WF tuning years (in-sample + walk-forward), by the rule this run shipped with - the LB stayed sealed. This view is currently ordered by a DIFFERENT rule than the one that crowned, or measures over the LB - fine for study, but not the view the winner was chosen on." style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 6px;font-size:7px;cursor:help;white-space:nowrap">&#9888; HINDSIGHT VIEW</span></div>':'');
@@ -10873,11 +10914,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _szSampMenu='';
         const _szRankMenu=(_szOpen==='d-rank')?_ctlMenu('d-rank','ORDER COLUMNS BY',
           _szRkOpts.map(o=>_ctlChip(_szRank===o[0],o[1],'data-g2rk="'+o[0]+'"',o[2])).join(''),_rkNote2):'';
-        const _szCtrls='<div data-g2ctl style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
-          +_sampChips(['is','wf','lb'],_szSegs,null,_szSegTip)
-          +_ctlBtn('d-rank',_szOpen==='d-rank','RANK',_rkNmAll[_szRank],'how the model columns are ordered, measured on the lockbox rows. View only - nothing in this section is ever crowned.')
-          +_ctlHeat(!!_szHeat)
-          +'</div>'+_szSampMenu+_szRankMenu;
+        const _szCtrls=_ctlRow(['is','wf','lb'],_szSegs,null,_szSegTip,_szRank,
+          'how the model columns are ordered, measured on the lockbox rows. View only - nothing in this section is ever crowned.',_szHeat,null);
         // v70.1 (owner: "put warnings / extra text under the chart"): the descriptive line, the
         //   COMPARISON ONLY chip and the info icon render UNDER the matrix now, not above it.
         const _cmpChip='<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 6px;font-size:7px;white-space:nowrap">COMPARISON ONLY &middot; NEVER CROWNED</span>';
@@ -10913,7 +10951,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +_cmpChip+_infoIc(_hybInfo));});}
         const hybTbl=hybBy.one||'';
         const hybNote=hybNoteBy.one||'';
-        return {V:V,LB:LB,ch:ch,tilts:tiltTbl,hyb:hybTbl,ctrls:(_ctrls+_sampMenu+_rankMenu),menus:'',
+        return {V:V,LB:LB,ch:ch,tilts:tiltTbl,hyb:hybTbl,ctrls:_ctrls,menus:'',
           szCtrls:_szCtrls,tiltNote:tiltNote,hybNote:hybNote,hybModes:hybModes,hybBy:hybBy,hybNoteBy:hybNoteBy,
           head:'<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>',
           intro:'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+V.n_candidates+' candidates ranked pre-lockbox by recovery factor ($ per $ of drawdown). The winner gets exactly one lockbox look — no shopping.</div>',
@@ -12510,7 +12548,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
                                    ['funnel','FUNNEL','every tested config drawn as a funnel: many at the in-sample door, the top-K past it, the survivors through the lockbox']]
               .map(function(t){return _tabBtn('data-eqtab="'+t[0]+'"',t[1],_eqTab===t[0],t[2]);}).join(''),false);
             _panelEquity='<div style="'+_cardSty+';height:100%;box-sizing:border-box">'
-              +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px"><span style="margin-left:auto;flex-shrink:0">'+_eqTabs+'</span></div>'
+              // v71.6 (owner: "this should be just be 1A, 1B is the Monthly pnl underneath"):
+              //   the NUMBER belongs to the card, the two TABS keep their plain names.
+              +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;flex-shrink:0">1A</span><span style="margin-left:auto;flex-shrink:0">'+_eqTabs+'</span></div>'
               +(_eqTab==='funnel'?_eq:_eqChart)+_eqRest+'</div>';
           }
           var _panelMatrixB='';
