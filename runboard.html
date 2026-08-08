@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>EDGELOG — RUNBOARD</title>
+<style>
+  :root{
+    --bg:#05050a;--bg1:#0e0e1e;--bg2:#0a0a18;--border:#1e1e36;--border2:#181830;
+    --text:#c8ccd8;--text2:#a0a4b8;--text3:#7070a0;--text5:#5a5a78;
+    --green:#00e5a0;--red:#ff3d5a;--yellow:#f5c842;--blue:#4a9eff;--purple:#a78bfa;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:-apple-system,ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+       font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1240px;margin:0 auto;padding:22px 20px 56px}
+  h1{font-size:20px;font-weight:700;margin:0 0 3px;letter-spacing:.2px}
+  .sub{color:var(--text3);font-size:12.5px;margin:0 0 14px}
+  .bar{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin:0 0 12px;
+       background:var(--bg1);border:1px solid var(--border);border-radius:12px;padding:10px 14px}
+  .grp{display:flex;gap:6px;align-items:center}
+  .glbl{font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--text5);font-weight:700;margin-right:2px}
+  .tab{font-size:11.5px;padding:5px 12px;border-radius:999px;border:1px solid var(--border);
+       color:var(--text2);cursor:pointer;user-select:none;white-space:nowrap;background:transparent}
+  .tab:hover{border-color:var(--text5)}
+  .tab.on{color:var(--green);background:rgba(0,229,160,.10);border-color:rgba(0,229,160,.34);font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;
+        background:var(--bg1);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  thead th{font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text3);
+           font-weight:700;text-align:right;padding:9px 10px;border-bottom:1px solid var(--border);
+           cursor:pointer;user-select:none;white-space:nowrap;background:var(--bg2)}
+  thead th:first-child,thead th.l{text-align:left}
+  thead th:hover{color:var(--text)}
+  thead th .ar{color:var(--green);font-size:9px}
+  tbody td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--border2);white-space:nowrap}
+  tbody td.l{text-align:left}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:rgba(255,255,255,.02)}
+  .nm{font-weight:700;color:var(--text)}
+  .legs{display:block;font-size:10.5px;color:var(--text5);font-weight:400;margin-top:1px}
+  .pos{color:var(--green)} .neg{color:var(--red)} .mut{color:var(--text5)}
+  .v{font-size:10.5px;padding:3px 8px;border-radius:999px;border:1px solid;white-space:nowrap}
+  .v-champ{color:var(--yellow);background:rgba(245,200,66,.09);border-color:rgba(245,200,66,.32)}
+  .v-cand{color:var(--green);background:rgba(0,229,160,.08);border-color:rgba(0,229,160,.30)}
+  .v-park{color:var(--blue);background:rgba(74,158,255,.08);border-color:rgba(74,158,255,.30)}
+  .v-dead{color:var(--red);background:rgba(255,61,90,.07);border-color:rgba(255,61,90,.28)}
+  .note{color:var(--text5);font-size:11.5px;margin:12px 2px 0;line-height:1.65}
+  .note b{color:var(--text3);font-weight:700}
+  .k{color:var(--text2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>RUNBOARD</h1>
+  <p class="sub">Every config as ONE strategy — both legs' trades pooled. Same yardstick for every row.
+     Window 2010-06-07 → 2026-06-30 · NQ · 1 contract per leg · costs in (0.533 pts/RT).</p>
+
+  <div class="bar">
+    <div class="grp"><span class="glbl">Sample</span>
+      <span class="tab on" data-s="full">FULL</span>
+      <span class="tab" data-s="is">IS</span>
+      <span class="tab" data-s="lb">LB</span>
+    </div>
+    <div class="grp"><span class="glbl">Rank by</span>
+      <span class="tab on" data-r="mar">MAR</span>
+      <span class="tab" data-r="pf">PF</span>
+      <span class="tab" data-r="net">NET</span>
+      <span class="tab" data-r="dd">DRAWDOWN</span>
+    </div>
+  </div>
+
+  <table id="tb">
+    <thead><tr>
+      <th class="l">#</th><th class="l">Config</th><th>Net</th><th>PF</th>
+      <th>MaxDD</th><th>MAR</th><th>Trades</th><th>WF +/8</th><th class="l">Verdict</th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <p class="note">
+    <b>SAMPLE</b> — <span class="k">FULL</span> = whole history · <span class="k">IS</span> = history
+    minus the last year · <span class="k">LB</span> = the lockbox year (2025-06-30 → 2026-06-30), the
+    honest forward read. Every column recomputes for the chosen sample.<br/>
+    <b>MAR</b> = net ÷ that sample's own worst drawdown — the risk-adjusted rank number.
+    <b>PF</b> = gross wins ÷ gross losses, pooled across both legs. <b>WF</b> = the full history cut into
+    8 equal stretches; how many were profitable (same test for every row, no re-fitting).<br/>
+    <b>MaxDD</b> is printed positive. Trades bucketed by exit date.
+  </p>
+  <p class="note" id="stamp"></p>
+</div>
+
+<script>
+/* DATA — regenerate with: python tools/t5_runboard.py  (paste its JSON block here) */
+const DATA = [
+ {
+  "id": "baseline",
+  "name": "Baseline book",
+  "legs": "ORB #125 + ENGU-Q #149, 1:1",
+  "full": {
+   "net": 838161,
+   "pf": 1.477,
+   "dd": 60098,
+   "mar": 13.95,
+   "n": 6112
+  },
+  "is_": {
+   "net": 654771,
+   "pf": 1.432,
+   "dd": 45849,
+   "mar": 14.28,
+   "n": 5777
+  },
+  "lb": {
+   "net": 183390,
+   "pf": 1.765,
+   "dd": 60098,
+   "mar": 3.05,
+   "n": 335
+  },
+  "wf": {
+   "pos": 8,
+   "of": 8,
+   "slices": [
+    29600,
+    24737,
+    47164,
+    85920,
+    122989,
+    132495,
+    164297,
+    230959
+   ]
+  },
+  "verdict": "champion"
+ },
+ {
+  "id": "ens_crown",
+  "name": "ENS-crown book",
+  "legs": "ENS leg (4.0R/trail 12) + ENGU-Q",
+  "full": {
+   "net": 963708,
+   "pf": 1.492,
+   "dd": 62806,
+   "mar": 15.34,
+   "n": 5999
+  },
+  "is_": {
+   "net": 766178,
+   "pf": 1.453,
+   "dd": 39483,
+   "mar": 19.41,
+   "n": 5672
+  },
+  "lb": {
+   "net": 197530,
+   "pf": 1.741,
+   "dd": 62806,
+   "mar": 3.15,
+   "n": 327
+  },
+  "wf": {
+   "pos": 8,
+   "of": 8,
+   "slices": [
+    27904,
+    28416,
+    54796,
+    92278,
+    113199,
+    161519,
+    168424,
+    317172
+   ]
+  },
+  "verdict": "dead"
+ },
+ {
+  "id": "ens_def",
+  "name": "ENS-defaults book",
+  "legs": "ENS leg (4.5R/trail 5) + ENGU-Q",
+  "full": {
+   "net": 942620,
+   "pf": 1.488,
+   "dd": 58463,
+   "mar": 16.12,
+   "n": 5999
+  },
+  "is_": {
+   "net": 746047,
+   "pf": 1.447,
+   "dd": 38498,
+   "mar": 19.38,
+   "n": 5672
+  },
+  "lb": {
+   "net": 196573,
+   "pf": 1.745,
+   "dd": 58463,
+   "mar": 3.36,
+   "n": 327
+  },
+  "wf": {
+   "pos": 8,
+   "of": 8,
+   "slices": [
+    28024,
+    28509,
+    52944,
+    90938,
+    117477,
+    145246,
+    166699,
+    312782
+   ]
+  },
+  "verdict": "candidate"
+ },
+ {
+  "id": "overlay",
+  "name": "Overlay book",
+  "legs": "sized ORB #125 (rp\u00d7time\u00d7side) + ENGU-Q",
+  "full": {
+   "net": 1109574,
+   "pf": 1.71,
+   "dd": 58648,
+   "mar": 18.92,
+   "n": 6112
+  },
+  "is_": {
+   "net": 887909,
+   "pf": 1.654,
+   "dd": 50481,
+   "mar": 17.59,
+   "n": 5777
+  },
+  "lb": {
+   "net": 221665,
+   "pf": 2.076,
+   "dd": 58648,
+   "mar": 3.78,
+   "n": 335
+  },
+  "wf": {
+   "pos": 8,
+   "of": 8,
+   "slices": [
+    39263,
+    38401,
+    56399,
+    105287,
+    136666,
+    163412,
+    264714,
+    305431
+   ]
+  },
+  "verdict": "candidate"
+ },
+ {
+  "id": "eth",
+  "name": "ETH standalone",
+  "legs": "ENGU-Q clock-scaled, 24h session (single leg)",
+  "full": {
+   "net": 434721,
+   "pf": 1.332,
+   "dd": 50420,
+   "mar": 8.62,
+   "n": 2843
+  },
+  "is_": {
+   "net": 305098,
+   "pf": 1.275,
+   "dd": 50420,
+   "mar": 6.05,
+   "n": 2654
+  },
+  "lb": {
+   "net": 129623,
+   "pf": 1.648,
+   "dd": 34671,
+   "mar": 3.74,
+   "n": 189
+  },
+  "wf": {
+   "pos": 8,
+   "of": 8,
+   "slices": [
+    9779,
+    13002,
+    3985,
+    38854,
+    38084,
+    77461,
+    125864,
+    127692
+   ]
+  },
+  "verdict": "candidate"
+ }
+];
+const STAMP = "built 2026-08-08 by tools/t5_runboard.py — NQ, 1 lot per leg, costs in, window 2010-06-07 to 2026-06-30";
+
+let SAMPLE="full", RANK="mar", DESC=true;
+const F=n=>n==null?"—":"$"+Math.round(n).toLocaleString();
+const N=(n,d=2)=>n==null?"—":Number(n).toFixed(d);
+
+function pick(r){ return SAMPLE==="full"?r.full : SAMPLE==="is"?r.is_ : r.lb; }
+function verdictCls(v){ return v==="champion"?"v-champ":v==="candidate"?"v-cand":v==="parked"?"v-park":"v-dead"; }
+function verdictTxt(v){ return v==="champion"?"★ champion":v==="candidate"?"● candidate":v==="parked"?"‖ parked":"✕ dead"; }
+
+function render(){
+  const rows=[...DATA].map(r=>({r,s:pick(r)})).filter(x=>x.s);
+  const key=RANK==="dd"?"dd":RANK;
+  rows.sort((a,b)=>{
+    const av=a.s[key]??-1e18, bv=b.s[key]??-1e18;
+    return key==="dd" ? av-bv : bv-av;         // drawdown: smaller is better
+  });
+  document.getElementById("rows").innerHTML = rows.map((x,i)=>{
+    const r=x.r,s=x.s;
+    return `<tr>
+      <td class="l mut">${i+1}</td>
+      <td class="l"><span class="nm">${r.name}</span><span class="legs">${r.legs}</span></td>
+      <td class="${s.net>=0?'pos':'neg'}">${F(s.net)}</td>
+      <td>${N(s.pf)}</td>
+      <td>${F(s.dd)}</td>
+      <td><b>${N(s.mar)}</b></td>
+      <td class="mut">${s.n==null?"—":s.n.toLocaleString()}</td>
+      <td>${r.wf?r.wf.pos+"/"+r.wf.of:"—"}</td>
+      <td class="l"><span class="v ${verdictCls(r.verdict)}">${verdictTxt(r.verdict)}</span></td>
+    </tr>`;
+  }).join("");
+  document.getElementById("stamp").innerHTML = STAMP ? "<b>DATA</b> — "+STAMP : "";
+}
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
+  const grp = t.dataset.s ? "s" : "r";
+  document.querySelectorAll(`.tab[data-${grp}]`).forEach(o=>o.classList.remove("on"));
+  t.classList.add("on");
+  if(grp==="s") SAMPLE=t.dataset.s; else RANK=t.dataset.r;
+  render();
+}));
+render();
+</script>
+</body>
+</html>
