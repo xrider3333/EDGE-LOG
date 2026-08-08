@@ -1087,6 +1087,27 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-08** — **Owner "test these" batch (t1/t2/t3, drivers committed to tools/): ENS-leg re-read
+  on certified legs · overlay sensitivity · ETH frozen WF — all three decisive.**
+  **(t1) ENS blend re-test on CERTIFIED legs:** transfer-sweep "gate-floor crown" (stop 1.75/4.0R/
+  trail 12/BE 1.0) = blend $963.7k / DD −$62.8k / net-DD 15.34 — its "−21% DD" claim was a
+  broken-leg artifact (DD actually +4.5% vs baseline). **File-DEFAULTS ENS (= S4: 4.5R/trail 5)
+  DOMINATES risk-adjusted: $942.6k / DD −$58.5k / net-DD 16.12 / 17-for-17 / corr +0.068**
+  (baseline 13.94). The ENS leg-swap candidate = the DEFAULTS config, not the crown.
+  **(t2) S1 sizing-overlay sensitivity — the post-hoc caveat largely CLEARED:** S1 reproduced to
+  0.04% (leg $632.1k, blend $1,109.6k / net-DD 18.92, tv-pin required for #125 parity); rolling
+  rule swept {125/250/500} × {median/mean} = **6/6 cells HOLD** (net-DD 18.7–18.9, positive-delta
+  years 16-17/17; lone miss = 2018 −$164 at 500/median). Implementation gotcha documented: use the
+  mean-normalized weight DIRECTLY as size — routing through sized_metrics' risk-weighted rescale
+  double-normalizes (+40% overshoot). Overlay remains the top blend upgrade; paper-forward still
+  the adoption gate.
+  **(t3) ETH clock-scaled frozen WF — PASS 8/8** (pre-registered ≥6/8, worst ≥−$25k, early-era
+  points>0): parity EXACT ($434,721.12 to the cent, PF 1.332, DD −$50,420), every fold positive
+  incl. 2010-16 thin folds (fold PF 1.18-1.49), folds 1-4 +3,321 pts; LB-year analog n=188 /
+  $98,488 / PF 1.493 confirmed. **Candidate advances to the paper-forward ETH leg** (the
+  deployable form = this frozen continuous config, not #198's reload artifact).
+  Open (pre-registration required before running): overlay × ENS stack on the ORB leg.
+  Upgrade menu now: baseline 13.94 → ENS-defaults 16.12 → overlay 18.92 (all 17-for-17).
 - **2026-08-06** — **Blend baseline RECERTIFIED on certified legs (`tools/blend_recert.py`).** ORB #125
   + ENGU-Q `NQ_DEPLOY_PARAMS_149`, 1:1, window pinned 2010-06-07→2026-06-30: **net $837,645 / maxDD
   −$60,098 (exact to round-3) / net-DD 13.94 / 17-for-17 years / corr +0.069 / worst day −$13,797
