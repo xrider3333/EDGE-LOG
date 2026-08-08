@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.1';
+const VERSION='71.2';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.2',date:'2026-08-08',notes:['COMPARE has a third mode: RUNBOARD — compare whole BOOKS (deployable strategy combinations) instead of individual runs. Each row is one book scored as ONE strategy, with every leg trade pooled, so PF and MAR are true book numbers.','RUNBOARD: SAMPLE flips every column between FULL, IS and LB (the lockbox year), and RANK BY re-sorts on MAR, PF, NET or MAX DD. Both choices are remembered.','The STRATEGY column names the book (BLEND = two strategies side by side, 1 contract each) and the VERSION column says what is different about that book.']},
 {v:'71.1',date:'2026-08-08',notes:['2A FUNNEL gutter pills, the REAL cause: a de-collide pass was pushing eleven pills 8 units apart so they would not overlap, which walked nine of them off the lines they label. Only the lines that are actually drawn get a pill now, so there is nothing to fan out and each pill sits on its line. Turning the full config cloud back on brings its pills back with it.','The 1E KPI matrix sits tighter vertically - the same padding rhythm the RAW and GATE matrices use.']},
 {v:'71.0',date:'2026-08-08',notes:['NOISE 1.0 gained a protective stop (stop_mode / stop_k, default OFF so nothing changes unless you opt in). NOISE had no stop before this - only a VWAP cross - so a bad breakout could run a long way before exiting. The researched setting (bandwidth mode, k=1.0) lifts net 254.4k to 268.4k, cuts max drawdown 31.2k to 21.7k, cuts the worst single trade 15.5k to 4.7k, and MAR moves 8.14 to 12.39, reviewer audited pre-lockbox. This variant has NOT been tested on the held-out year - the lockbox for this family is spent, so it is paper-forward only. See BACKTESTING_STACK.md section 3 for the full record.']},
 {v:'70.9',date:'2026-08-08',notes:['SECTION 1 is back to THREE columns - the equity/funnel card, the 1E matrix and its duplicate. The fourth column is gone.','The 1G / 1H / 1I / 1J distribution stack moved DOWN into section 2, which is now three columns again: distributions on the left, parameter panels in the middle, config-landscape panels on the right. In the 2x2 and single-column report layouts those three simply stack.','2A FUNNEL: the IS / WF / LB tags ride the very top edge of the chart like 1A, the key box sits directly under them at the top left, and a tag whose centre lands near the right edge now anchors to that edge instead of being cut off.']},
@@ -13045,12 +13046,61 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v67.6 (owner ask): BY STRATEGY mode — one curve per strategy family (its champion config,
       //   picked automatically by score) instead of manually picked runs. PICK RUNS stays the
       //   default, so every existing Compare behaviour below is unchanged unless this flips.
-      const _cmpMode=(APREF.cmpMode==='fam')?'fam':'runs';
+      const _cmpMode=(APREF.cmpMode==='fam')?'fam':((APREF.cmpMode==='board')?'board':'runs');
       // v68.0 (owner ask): metric-table orientation — VERT (runs as columns, metrics as rows,
       //   the original layout) or HORIZ (runs as rows, metrics as columns) so a comparison with
       //   many runs fits without sideways scrolling. Persists like every other Compare pref.
       const _cOr=(APREF.cmpOrient==='h')?'h':'v';
-      if(!rs.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUNS TO COMPARE YET</div>';}
+      // ── RUNBOARD (owner ask): compare whole BOOKS, not runs. Each row is one deployable
+      //    book scored as ONE strategy (every leg trade pooled), same yardstick for all rows.
+      //    SAMPLE flips every column between FULL / IS / LB; RANK BY re-sorts.
+      /* RUNBOARD DATA — regenerate with: python tools/t5_runboard.py (paste rows) */
+      const RB_BOOKS=[
+        {st:'BLEND',vr:'baseline (current book)',md:'ORB 3.1 + ENGU-Q 1m',wf:'8/8',v:'champion',
+         full:{net:838161,pf:1.477,dd:60098,mar:13.95,n:6112},is:{net:654771,pf:1.432,dd:45849,mar:14.28,n:5777},lb:{net:183390,pf:1.765,dd:60098,mar:3.05,n:335}},
+        {st:'BLEND',vr:'ENS exits 4.0R / trail 12',md:'ORB 3.0 ENS + ENGU-Q 1m',wf:'8/8',v:'dead',
+         full:{net:963708,pf:1.492,dd:62806,mar:15.34,n:5999},is:{net:766178,pf:1.453,dd:39483,mar:19.41,n:5672},lb:{net:197530,pf:1.741,dd:62806,mar:3.15,n:327}},
+        {st:'BLEND',vr:'ENS exits 4.5R / trail 5',md:'ORB 3.0 ENS + ENGU-Q 1m',wf:'8/8',v:'candidate',
+         full:{net:942620,pf:1.488,dd:58463,mar:16.12,n:5999},is:{net:746047,pf:1.447,dd:38498,mar:19.38,n:5672},lb:{net:196573,pf:1.745,dd:58463,mar:3.36,n:327}},
+        {st:'BLEND',vr:'overlay sizing (risk x time x side)',md:'ORB 3.1 sized + ENGU-Q 1m',wf:'8/8',v:'candidate',
+         full:{net:1109574,pf:1.71,dd:58648,mar:18.92,n:6112},is:{net:887909,pf:1.654,dd:50481,mar:17.59,n:5777},lb:{net:221665,pf:2.076,dd:58648,mar:3.78,n:335}},
+        {st:'ENGU-Q ETH',vr:'frozen clock-scaled (single leg)',md:'ENGU-Q 1m on the 24h session',wf:'8/8',v:'candidate',
+         full:{net:434721,pf:1.332,dd:50420,mar:8.62,n:2843},is:{net:305098,pf:1.275,dd:50420,mar:6.05,n:2654},lb:{net:129623,pf:1.648,dd:34671,mar:3.74,n:189}}
+      ];
+      if(_cmpMode==='board'){
+        const _rbS=(['full','is','lb'].indexOf(APREF.rbSample)>=0)?APREF.rbSample:'lb';
+        const _rbR=(['mar','pf','net','dd'].indexOf(APREF.rbRank)>=0)?APREF.rbRank:'mar';
+        const _rbBtn=(a,k2,lab,cur)=>'<button data-'+a+'="'+k2+'" style="height:20px;padding:0 10px;font-size:9px;letter-spacing:.5px;font-weight:700;border-radius:6px;border:1px solid '+(cur===k2?'color-mix(in srgb,var(--text4) 55%,var(--border))':'var(--border)')+';background:'+(cur===k2?'var(--bg2)':'var(--bg1)')+';color:'+(cur===k2?'var(--text)':'var(--text4)')+';cursor:pointer">'+lab+'</button>';
+        const _rbMode=(k2,lab)=>'<button data-cmpmode="'+k2+'" style="height:20px;padding:0 10px;font-size:9px;letter-spacing:.5px;font-weight:700;border-radius:6px;border:1px solid '+(_cmpMode===k2?'color-mix(in srgb,var(--text4) 55%,var(--border))':'var(--border)')+';background:'+(_cmpMode===k2?'var(--bg2)':'var(--bg1)')+';color:'+(_cmpMode===k2?'var(--text)':'var(--text4)')+';cursor:pointer">'+lab+'</button>';
+        const _rbF=n=>'$'+Math.round(n).toLocaleString();
+        const _rbV=v=>{const m={champion:['★ CHAMPION','var(--yellow)'],candidate:['● CANDIDATE','var(--green)'],parked:['‖ PARKED','var(--blue)'],dead:['✕ DEAD','var(--red)']}[v]||['—','var(--text5)'];
+          return '<span style="font-size:9px;padding:2px 7px;border-radius:999px;border:1px solid '+m[1]+'55;color:'+m[1]+';white-space:nowrap">'+m[0]+'</span>';};
+        const _rbRows=RB_BOOKS.map(b=>({b:b,s:b[_rbS]})).sort((x,y)=>(_rbR==='dd')?(x.s.dd-y.s.dd):(y.s[_rbR]-x.s[_rbR]));
+        const _rbTh='<tr>'+['#','STRATEGY','VERSION','NET','PF','MAX DD','MAR','TRADES','WF','VERDICT']
+          .map((h,i)=>'<th style="text-align:'+(i<3||i===9?'left':'right')+';font-size:8px;letter-spacing:1.2px;color:var(--text5);font-weight:700;padding:7px 9px;border-bottom:1px solid var(--border);white-space:nowrap">'+h+'</th>').join('')+'</tr>';
+        const _rbTr=_rbRows.map((x,i)=>{const b=x.b,s=x.s;const td=(c,al)=>'<td style="text-align:'+(al||'right')+';padding:8px 9px;border-bottom:1px solid var(--border2);white-space:nowrap">'+c+'</td>';
+          return '<tr>'+td('<span style="color:var(--text5)">'+(i+1)+'</span>','left')
+            +td('<b style="color:var(--text)">'+b.st+'</b><div style="font-size:8.5px;color:var(--text5)">'+b.md+'</div>','left')
+            +td('<span style="color:var(--text3);font-size:11px">'+b.vr+'</span>','left')
+            +td('<span style="color:'+(s.net>=0?'var(--green)':'var(--red)')+'">'+_rbF(s.net)+'</span>')
+            +td(s.pf.toFixed(2))+td(_rbF(s.dd))+td('<b>'+s.mar.toFixed(2)+'</b>')
+            +td('<span style="color:var(--text5)">'+s.n.toLocaleString()+'</span>')+td(b.wf)+td(_rbV(b.v),'left')+'</tr>';}).join('');
+        const _rbHead='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap"><span style="display:inline-flex;gap:3px">'
+          +_rbMode('runs','PICK RUNS')+_rbMode('fam','BY STRATEGY')+_rbMode('board','RUNBOARD')+'</span></div>';
+        const _rbBar='<div style="display:flex;align-items:center;gap:14px;margin-bottom:9px;flex-wrap:wrap">'
+          +'<span style="display:inline-flex;gap:6px;align-items:center"><span style="font-size:8px;letter-spacing:1.6px;color:var(--text5);font-weight:700">SAMPLE</span>'
+          +_rbBtn('rbs','full','FULL',_rbS)+_rbBtn('rbs','is','IS',_rbS)+_rbBtn('rbs','lb','LB',_rbS)+'</span>'
+          +'<span style="display:inline-flex;gap:6px;align-items:center"><span style="font-size:8px;letter-spacing:1.6px;color:var(--text5);font-weight:700">RANK BY</span>'
+          +_rbBtn('rbr','mar','MAR',_rbR)+_rbBtn('rbr','pf','PF',_rbR)+_rbBtn('rbr','net','NET',_rbR)+_rbBtn('rbr','dd','MAX DD',_rbR)+'</span></div>';
+        const _rbNote='<div style="font-size:8.5px;color:var(--text5);line-height:1.9;margin-top:9px">'
+          +'<b style="color:var(--text4)">STRATEGY</b> — BLEND means two strategies traded side by side in one account, 1 contract each; the VERSION column says what is different about that book. ENGU-Q ETH is a single strategy on its own.<br>'
+          +'<b style="color:var(--text4)">SAMPLE</b> — FULL is the whole history, IS is history minus the last year, LB is the lockbox year (2025-06-30 to 2026-06-30), the honest forward read. Every column recomputes.<br>'
+          +'<b style="color:var(--text4)">MAR</b> = net divided by the worst drawdown of that sample. <b style="color:var(--text4)">PF</b> = gross wins over gross losses, all legs pooled. <b style="color:var(--text4)">WF</b> = the history cut into 8 equal stretches, how many were profitable. MAX DD is shown positive.<br>'
+          +'Window 2010-06-07 to 2026-06-30 · NQ · costs in · trades counted on exit date. Rebuild the numbers with tools/t5_runboard.py.</div>';
+        body=_rbHead+tile('<div class="lbl" style="margin-bottom:8px">◫ RUNBOARD · whole books compared as one strategy each</div>'+_rbBar
+          +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px"><thead>'+_rbTh+'</thead><tbody>'+_rbTr+'</tbody></table></div>'+_rbNote,0);
+      }
+      else if(!rs.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUNS TO COMPARE YET</div>';}
       else{
         const find=id=>{for(let i=0;i<rs.length;i++)if(String(rs[i].id)===String(id))return rs[i];return null;};
         // N-way: persisted set of run ids (default to the most recent 3)
@@ -13411,6 +13461,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const modeToggle='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap"><span style="display:inline-flex;gap:3px">'
           +_cmpModeBtn('runs','PICK RUNS','manually choose which runs go into the comparison — your picks, your tabs, your saved sets')
           +_cmpModeBtn('fam','BY STRATEGY','one curve per strategy family, its top config, chosen automatically by score — no manual picking')
+          +_cmpModeBtn('board','RUNBOARD','compare whole BOOKS (deployable strategy combinations) as one strategy each — sample and rank selectable')
           +'</span>'+(_cmpMode==='fam'?'<span style="font-size:8px;color:var(--text5)">one curve per strategy family — its top config, picked automatically</span>':'')+'</div>';
         // v64.57: a deliberately empty tab renders an empty state instead of the comparison tiles
         //   (there is nothing to compare) — the picker stays so you can fill this tab.
@@ -14272,6 +14323,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-cmp-rm]').forEach(x=>{x.onclick=()=>{const ids=_cur().filter(id=>id!==String(x.dataset.cmpRm));if(ids.length>=1){savePref('cmpIds',ids);renderApp();}};});
       // PICK RUNS ⇄ BY STRATEGY mode toggle (top of the Compare body)
       content.querySelectorAll('[data-cmpmode]').forEach(b=>{b.onclick=()=>{savePref('cmpMode',b.dataset.cmpmode);renderApp();};});
+      // RUNBOARD: sample (FULL/IS/LB) + rank-by controls
+      content.querySelectorAll('[data-rbs]').forEach(b=>{b.onclick=()=>{savePref('rbSample',b.dataset.rbs);renderApp();};});
+      content.querySelectorAll('[data-rbr]').forEach(b=>{b.onclick=()=>{savePref('rbRank',b.dataset.rbr);renderApp();};});
       // VERT ⇄ HORIZ metric-table orientation toggle
       content.querySelectorAll('[data-cmporient]').forEach(b=>{b.onclick=()=>{savePref('cmpOrient',b.dataset.cmporient);renderApp();};});
       const _cex=content.querySelector('[data-cmpexpand]');if(_cex)_cex.onclick=()=>window.expandCompareEq(window._cmpEqxSeries);
