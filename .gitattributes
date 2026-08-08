@@ -1,2 +1,9 @@
 # Keep the git hook LF so its shebang works after checkout on Windows (autocrlf=true).
 tools/githooks/pre-push text eol=lf
+
+# index.html is edited by more than one agent session at a time. core.autocrlf is set at the
+# SYSTEM level on this machine, not in the repo, so a checkout anywhere without it would commit
+# CRLF and turn a two-line edit into a whole-file rewrite (seen once, on v71.3). Pinning it here
+# ties the normalisation to the repo instead of the machine. No diff today - the stored blob is
+# already LF - so this changes nothing except who guarantees it.
+index.html text
