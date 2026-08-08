@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='70.8';
+const VERSION='70.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'70.9',date:'2026-08-08',notes:['SECTION 1 is back to THREE columns - the equity/funnel card, the 1E matrix and its duplicate. The fourth column is gone.','The 1G / 1H / 1I / 1J distribution stack moved DOWN into section 2, which is now three columns again: distributions on the left, parameter panels in the middle, config-landscape panels on the right. In the 2x2 and single-column report layouts those three simply stack.','2A FUNNEL: the IS / WF / LB tags ride the very top edge of the chart like 1A, the key box sits directly under them at the top left, and a tag whose centre lands near the right edge now anchors to that edge instead of being cut off.']},
 {v:'70.8',date:'2026-08-08',notes:['THE KPI TAB NOW AGREES WITH RAW AND GATE. Every column - IS, WF, LB and TOTAL - is rebuilt from ONE source: the champion own trade list, sliced at the real calendar boundaries. Net, trades, drawdown, profit factor and win rate all describe the same trades over the same dates.','What changed in numbers on run 200: IS net 56,814 becomes 52,053 (it was a residual, not a measurement), WF net 361,110 becomes 365,871 (the crowned config, not the re-optimising procedure), IS max drawdown 10,611 becomes 4,702 (it came from a third measurement), and TOTAL trades 3,948 becomes 3,952 (it was three counts from three backtests added together).','Each column drawdown is now the deepest dip INSIDE that stretch, and TOTAL is the deepest dip on the whole curve - so the drawdown row follows the section you are reading, exactly as the returns do.','NEW WF OOS chip on the 1E title row carries the walk-forward PROCEDURE result - the folds each re-picking their own config - so that number is not lost, it just stops being mixed into the champion column.','The Feasibility header chip counted a different trade set again; it now reports the champion own total.']},
 {v:'70.7',date:'2026-08-08',notes:['DOCS: the visual PnL and price-action report is now specced - docs/VISUAL_TRADE_REPORT.md, with a working prototype promoted into the repo (docs/samples/noise_visual_report.html, tools/build_visual_report.py). No UI change yet - this is the build plan for a candle-chart view per trade, recommended Phase A next.']},
 {v:'69.5',date:'2026-08-07',notes:['FIX: switching to the ML GATE tab in 69.4 blanked the report - the verdict chip was built inside an inner block the new merged header could not reach. The chip is now shared properly and the tab switches cleanly.']},
@@ -8644,7 +8645,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
           ;
         // v68.5 (owner: labels looked stretched): the svg scales with preserveAspectRatio=none,
         //   which warps text — the IS/WF/LB tags are HTML overlays now (1A look), placed by %.
-        const _secLab=(x,txt,col)=>'<div style="position:absolute;top:13%;left:'+((x/W)*100).toFixed(2)+'%;transform:translateX(-50%);font-size:9px;font-weight:700;letter-spacing:.5px;color:'+col+';pointer-events:none;z-index:2">'+txt+'</div>';
+        // v70.9 (owner: "IS WF/LB logos sit in wierd spot. should be at the top of the chart.
+        //   LB logo gets cut off"): the tags ride the very top edge like 1A does, and a tag whose
+        //   centre lands near the right edge anchors to that edge instead of overflowing it.
+        const _secLab=(x,txt,col)=>{const pc=(x/W)*100;const edge=(pc>88);
+          return '<div style="position:absolute;top:2px;'+(edge?'right:4px;':'left:'+pc.toFixed(2)+'%;transform:translateX(-50%);')+'font-size:9px;font-weight:700;letter-spacing:.5px;color:'+col+';pointer-events:none;z-index:2">'+txt+'</div>';};
         _gutterHtml=_gutterHtml||'';
         var _secLabs=_secLab((xL+xIS)/2,'IS','var(--text3)')+_secLab((xIS+xFull)/2,'WF','#60a5fa')+(hasLB?_secLab((xFull+xR)/2,'LB','#a78bfa'):'');
         // v64.43 (owner): the 2A key now uses the SAME HTML box format as 2B — marker + label +
@@ -8724,7 +8729,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   top line value; clicking a row reveals / hides the rest of that family.
         const _gateEndV=(_hasGate&&_gEq&&Array.isArray(_gEq.cum_gated)&&_gEq.cum_gated.length)?_gEq.cum_gated[_gEq.cum_gated.length-1]*mult:null;
         const _kr=(k,txt,val,col)=>'<div data-a2k="'+k+'" title="click: show / hide the rest of this family · hover: spotlight it" style="cursor:pointer;white-space:nowrap;color:'+col+'"><b>▬</b> '+txt+(val!=null?(' <b>'+_kUsd(val)+'</b>'):'')+'</div>';
-        _keyBox='<div data-a2krow style="position:absolute;top:8px;left:8px;background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;z-index:3">'
+        _keyBox='<div data-a2krow style="position:absolute;top:19px;left:8px;background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;z-index:3">'
           +_kr('raw','👑 RAW',(_crV!=null?_crV:null),'#1d9e75')
           +(_hasGate?_kr('gate','GATE',_gateEndV,'#e05fa0'):'')
           +(_tiltEnd!=null?_kr('tilt','TILT',_tiltEnd,'#f0b429'):'')
@@ -11522,7 +11527,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v70.4 (owner: "move 2b into 1e... move 2a into 1a, same tab methodology"): the two §1
       //   cards keep their INNER html separately so the §1 assembly below can re-wrap them with
       //   a tab strip and swap in the §2 funnel / config matrices.
-      let _eqInner='',_kpiInner='',_cardSty='',_mtipRef='';
+      let _eqInner='',_kpiInner='',_cardSty='',_mtipRef='',_distInner='';
       // v70.5: the 1A card splits into the CHART (what the 1A / 2A tab swaps) and the REST
       //   (1B monthly, 1C walk-forward, 1D stress) which stays on screen either way.
       let _eqChart='',_eqRest='';
@@ -11613,7 +11618,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 +'<div style="font-size:8px;color:var(--text5);margin-top:5px;line-height:1.5">Re-runs the champion with stop × target swept around your winners\' reach : heat ≈ <b style="color:var(--text3)">'+R.toFixed(1)+' : 1</b> ('+Math.round(f50)+'p reach vs '+Math.round(s50)+'p heat). <b>In-sample</b> sweep — validate the winner to confirm out-of-sample.</div></div>';
             }}
         }catch(_e){}
-        _distTile=(_td||_mae||_ctxBlock)?'<div style="'+_card+';height:100%;box-sizing:border-box">'+_td+((_td&&_mae)?'<div style="height:10px"></div>':'')+_mae+((dsrHtml&&dsrHtml.replace(/\s/g,''))?_dsrBlock:'')+_regBlock+_ctxBlock+_exitBtn+'</div>':'';
+        _distInner=(_td||_mae||_ctxBlock)?(_td+((_td&&_mae)?'<div style="height:10px"></div>':'')+_mae+((dsrHtml&&dsrHtml.replace(/\s/g,''))?_dsrBlock:'')+_regBlock+_ctxBlock+_exitBtn):'';
+        _distTile=_distInner?('<div style="'+_card+';height:100%;box-sizing:border-box">'+_distInner+'</div>'):'';
       }else{
         // NON-Auto-Validate runs (grid / auto / walk-forward / single) render the SAME three-column
         //   §1 skeleton as run 137 — populating each tile where the run has the data and dropping an
@@ -11648,7 +11654,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // 1J TRADE CONTEXT — same panel as the validate layout, for grid / auto runs.
         const _ctxH2=contextPanelHtml(d.context,'1J');
         const _ctxBlock2=((_ctxH2&&_ctxH2.replace(/\s/g,''))?'<div style="margin-top:14px;padding-top:13px;border-top:1px solid var(--border)">'+_numHdr('1J','TRADE CONTEXT','Each market feature (measured the PRIOR day, so it was knowable before the trade) scored against every trade net $. Bar = correlation, faint band = 95% confidence, and a feature only reads helps / hurts when it survives the false-lead check that accounts for testing many features at once. Most features SHOULD read no signal — that is the check working.')+_ctxH2+'</div>':'');
-        _distTile='<div style="'+_card+';height:100%;box-sizing:border-box">'+(_td||_naTile('1G','TRADE-PNL DISTRIBUTION','no per-trade P&L distribution saved for this run'))+_div+(_mae||_naTile('1H','MAE / MFE','no MAE / MFE (max adverse / favourable excursion) saved for this run'))+_div+_dsrBlk+_ctxBlock2+'</div>';
+        _distInner=(_td||_naTile('1G','TRADE-PNL DISTRIBUTION','no per-trade P&L distribution saved for this run'))+_div+(_mae||_naTile('1H','MAE / MFE','no MAE / MFE (max adverse / favourable excursion) saved for this run'))+_div+_dsrBlk+_ctxBlock2;
+        _distTile='<div style="'+_card+';height:100%;box-sizing:border-box">'+_distInner+'</div>';
       }
       const _noteEsc=String(d.note||'').replace(/"/g,'&quot;'),_hasNote=!!(d.note&&String(d.note).trim());
       // shared style so the note / relabel / delete controls read as one consistent button group.
@@ -11852,7 +11859,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v69.8 (owner: "2e throught 2l, move under 2k"): the distribution, the 3-D explorer and
       //   the ML config builder used to sit in the middle column under 2D. They now stack under
       //   2K in the right column, leaving the middle column as the two big tables alone.
-      const _col2=_stack([((_parc&&_parc.replace(/\s/g,''))?((_pmBtns?'':_pmTog)+_parc):''),_corr,_nbInner,_topInner,rsRow,_dist,_p3inner,_surrInner,_dsrInner]);
+      const _col2=_stack([((_parc&&_parc.replace(/\s/g,''))?((_pmBtns?'':_pmTog)+_parc):''),_corr,_nbInner,_topInner]);
+      // v70.9 (owner: "move 1g-1j below it to section 2. reassess section 2 for how to format it
+      //   for all layouts. im currently primarily using the 3x3"): §2 is three columns again -
+      //   the 1G/1H/1I/1J distributions on the left, the parameter panels in the middle, the
+      //   config-landscape panels on the right. In the 1-column and 2x2 report layouts the same
+      //   three columns simply stack, which is what the width rules already do.
+      const _col2x=_stack([_dist,_p3inner,_surrInner,_dsrInner]);
       // §2 header verdict line (redesign #22): the cluster question answered up front —
       //   neighbours held / plateau agreement / PBO, colored, before any chart is read.
       const _pboR=(d.validate&&d.validate.pbo&&d.validate.pbo.pbo!=null)?d.validate.pbo.pbo:((d.pbo&&d.pbo.pbo!=null)?d.pbo.pbo:null);
@@ -12129,9 +12142,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v67.9 (owner): col 1 is the 2A funnel ALONE (the widest chart gets the widest column);
       //   col 2 = 2B raw configs · 2C gate pill · 2D distribution · 2E explorer + 2K ML config
       //   builder (+ DSR); col 3 = the old col 2 (2F-2J).
-      const _col1=_eqInner?'':_eq;
-      const _col2b=_stack([_cfgSec].concat(_cfgSec?[rsRow]:[]));
-      const _col3=_col2;
+      const _col1=_distInner||(_eqInner?'':_eq);
+      const _col2b=_cfgSec?_stack([_cfgSec,rsRow]):_col2;
+      const _col3=_cfgSec?_col2:_col2x;
       const _sec3=(function(){
         // v64.19 (owner): §2 gets the SAME separation model as §1 — vertical splitter bars
         //   trade width between the column tiles (ratios persist in APREF.s2cols, dblclick =
@@ -12456,7 +12469,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _panelMatrix='<div style="'+_cardSty+';height:100%;box-sizing:border-box">'+_cfgInner+'</div>';
             if(_cfgInnerB)_panelMatrixB='<div style="'+_cardSty+';height:100%;box-sizing:border-box">'+_cfgInnerB+'</div>';
           }
-          var _nCol=_panelMatrixB?4:3;
+          var _nCol=3;
           var _g=(Array.isArray(APREF.s1cols)&&APREF.s1cols.length===_nCol)?APREF.s1cols.map(function(x){return Math.max(260,+x||260);}):null;
           // column floor MUST match the _card min-width (260px) — a smaller floor let a squeezed
           //   column force its card to overflow and paint OVER the neighbouring tile (owner hit it).
@@ -12467,10 +12480,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
           var _th=function(i){return '<div data-tilerow="'+i+'" title="drag to resize this tile height · double-click = back to auto" style="height:8px;margin:5px 0 0;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div></div>';};
           // v67.9 (owner column switch): middle column = the 1E KPI matrix (+1F), right column
           //   = the 1G-1J stack. (Was the other way round in v64.33.)
+          // v70.9 (owner: "werent suppose to add fourth column"): §1 is THREE columns -
+          //   the equity/funnel card, the 1E matrix, and its duplicate. The distributions tile
+          //   moved down to §2.
           return '<div data-colskey="s1cols" style="display:flex;gap:2px;align-items:flex-start;flex-wrap:wrap">'+_w(0,'1.7 1 360px')+_panelEquity+_th(0)+'</div>'
             +_sp+_w(1,'1 1 280px')+_panelMatrix+_panelRegime+_th(1)+'</div>'
-            +(_panelMatrixB?(_sp+_w(2,'1 1 280px')+_panelMatrixB+_th(2)+'</div>'):'')
-            +_sp+_w(_panelMatrixB?3:2,'1.1 1 300px')+_distTile+_th(_panelMatrixB?3:2)+'</div></div>';})())
+            +_sp+_w(2,'1 1 280px')+(_panelMatrixB||_distTile)+_th(2)+'</div></div>';})())
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         // §3 is a fixed slot too (universal layout): show an n/a card when the run swept no config grid.
         +_sec('3','Configuration Analysis',(_s2Verd||'robust params — a cluster, not a lonely spike'),((_sec3&&_sec3.replace(/\s/g,''))?_sec3:('<div style="'+_card2+';margin-bottom:14px">'+_naTile('2A','CONFIG SEARCH','this run type did not sweep a parameter grid — no config landscape, top-configs table or robustness map to show')+'</div>')),_cfgN)
