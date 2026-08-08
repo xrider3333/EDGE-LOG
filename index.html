@@ -442,11 +442,12 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='69.5';
+const VERSION='69.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
 {v:'69.5',date:'2026-08-07',notes:['FIX: switching to the ML GATE tab in 69.4 blanked the report - the verdict chip was built inside an inner block the new merged header could not reach. The chip is now shared properly and the tab switches cleanly.']},
+{v:'69.6',date:'2026-08-07',notes:['2D ML SIZING now runs the SAME SAMPLE / RANK / HEAT control kit as 2B CONFIGS, off the SAME saved settings - one tick moves all three sections. SAMPLE picks which of IS / WF / LB return rows show (FULL and the LB anchor rows always show); RANK orders the model columns by MAR, NET $, or NET $ with the 80% MAR floor, measured on the lockbox; HEAT shades every cell by where it lands across its own row.','Seven metric rows carried across from 2B into 2D: FULL $, FULL MAX DD, FULL MAR, SHARPE, LB PF, LB WIN % and LB $ / TRADE. FOLDS HELD is the one 2B row deliberately left out - a tilt is never fold-tested, so there is no honest number to print.','The REDEPLOY / EQUAL DD sizing factor is now computed PER SLICE instead of once on the lockbox and applied sideways to rows measured over other stretches. Every slice carries its own no-gate twin in the run doc, so IS, WF, LB and FULL each scale by their own exact ratio. MAR, SHARPE, PF and WIN % are scale-free and never move.']},
 {v:'69.4',date:'2026-08-07',notes:['2B and 2C are now ONE section - 2B CONFIGS - with RAW CONFIGS and ML GATE as tabs in the title row, matching what 2D ML SIZING already does.','Nothing was dropped in the merge: each tab keeps its own info icon, its own sub-line, and its own SAMPLE / RANK / HEAT controls, and the ML GATE tab keeps its verdict chip, its pop-out menus and the cut-off sweep chart. The header shows whichever tab is active.','The hide arrow now collapses whichever tab is showing - RAW CONFIGS was previously always open with no way to fold it away.']},
 {v:'69.3',date:'2026-08-07',notes:['2D and 2E are now ONE section - 2D ML SIZING - with ML TILT and ML HYBRID as tabs in the title row. Saves a whole tile of vertical space and puts the two side by side under one roof.','The ML HYBRID tab keeps its own ONE LOT / REDEPLOY / EQUAL DD strip, so you can tab to the hybrid and then choose how it is sized without leaving the section.']},
 {v:'69.2',date:'2026-08-07',notes:['2E ML HYBRID: the REDEPLOY toggle is now a three-way tab strip - ONE LOT, REDEPLOY, EQUAL DD.','NEW EQUAL DD view: each column is sized until its LB drawdown matches the no-gate book, answering which variant makes the most money for the SAME pain. Unlike REDEPLOY it needs no historical keep-ratio, so it is the comparison that survives into live trading.','LB dollars, max drawdown, biggest size and average contracts all follow the selected tab; MAR stays fixed in every view because scaling multiplies profit and drawdown equally.']},
@@ -10577,62 +10578,158 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v68.8 (owner): ONLY the variants — the no-gate and crowned-gate baseline columns are
         //   gone (they kept reading as if they were tilt/hybrid variants; the baselines live in
         //   2C). Headers stay one short word; the cut-off facts live in the section info icon.
+        // v69.6 (owner: "add any metrics from 2b to 2d... same format for the three sample
+        //   selector and heat map... trying to unify them"). 2D now runs the SAME control kit as
+        //   2B / 2C off the SAME prefs — one tick of SAMPLE / RANK / HEAT moves all three — and
+        //   carries the metric rows 2B had that 2D was missing: FULL $, FULL MAX DD, FULL MAR,
+        //   SHARPE, PF, WIN % and $ / TRADE. FOLDS HELD is the one 2B row deliberately NOT
+        //   brought across: a tilt is not fold-tested, so there is no honest number to print.
+        const _szOpen=String(APREF.g2open||'');
+        const _szSegs=_segsOf(['is','wf','lb']);
+        const _szHeat=+(APREF.g2heat||0);
+        const _szRank=(['rec','pnl','floor'].indexOf(String(APREF.g2rank||''))>=0)?String(APREF.g2rank):'rec';
         const _cmpCols=(list,kind)=>list.map(t=>({lbl:String(t.model||''),
             sub:(kind==='hyb')?'':(_shNm[t.scheme]||t.scheme),
             col:_gateColor(String(t.model||''),1,60),
-            _s:{is:t.is_rng,wf:t.wf_rng,lb:t.lockbox,n:t.n_trades,mx:t.max_size,mix:t.sizes||null,
+            _s:{is:t.is_rng,wf:t.wf_rng,lb:t.lockbox,full:t.full,eq:t.equity,
+                n:t.n_trades,mx:t.max_size,mix:t.sizes||null,
                 rule:t.rule||null,cut:(t.cutoff!=null?t.cutoff:(kind==='hyb'&&ch?ch.threshold:null))}}));
         const _cmpRec=x=>{if(!x)return null;const dd0=Math.abs(x.max_drawdown||0);return dd0>1e-9?(x.total_pnl/dd0):null;};
         const _cmpUsd=v=>(v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):'<span style="color:var(--text5)">&mdash;</span>');
-        // v69.1 (owner): REDEPLOY view. Every column normally averages one lot per trade, so a
-        //   variant that refuses trades simply leaves that capacity idle and books fewer dollars.
-        //   This view instead spends the SAME total trade-lots as the no-gate book by scaling each
-        //   column up, which is the "what if I put the freed capacity back to work" question.
-        //   Scaling multiplies profit AND drawdown by the same factor, so MAR never moves - that is
-        //   why MAR is the honest comparator and is left untouched here.
-        const _ungLbN=((V.ungated_lockbox||{}).num_trades)||0;
-        const _ungLbDD=Math.abs(((V.ungated_lockbox||{}).max_drawdown)||0);
-        // v69.2 (owner): THREE sizing views, not two.
-        //   one     - every column averages one contract per trade (the report default)
-        //   redeploy- sized up until it spends the same total contracts as the no-gate book
-        //   equaldd - sized until its LB drawdown equals the no-gate book, i.e. same pain
-        const _rdF=(c,mode)=>{
-          if(mode==='redeploy'){const n=(c._s.lb&&c._s.lb.num_trades)||0;
-            return (_ungLbN>0&&n>0)?(_ungLbN/n):1;}
-          if(mode==='equaldd'){const d=Math.abs((c._s.lb&&c._s.lb.max_drawdown)||0);
-            return (_ungLbDD>0&&d>1e-9)?(_ungLbDD/d):1;}
+        const _cmpDash='<span style="color:var(--text5)">&mdash;</span>';
+        // ── the three sizing tabs ────────────────────────────────────────────────────────────
+        //   one      every column averages one contract per trade (the report default)
+        //   redeploy sized up until it spends the same total contracts as the no-gate book
+        //   equaldd  sized until its drawdown matches the no-gate book, i.e. the same pain
+        // v69.6: the factor is computed PER SLICE. It used to be measured once on the lockbox and
+        //   then applied to rows measured over other stretches; every slice carries its own
+        //   ungated twin in the run doc, so IS / WF / LB / FULL each scale by their own exact
+        //   ratio now. MAR, SHARPE, PF and WIN % are scale-free and never move.
+        const _ungOf={is:V.ungated_is,wf:V.ungated_wf,lb:V.ungated_lockbox,full:V.ungated_full};
+        const _colOf=(c,sg)=>(sg==='is'?c._s.is:(sg==='wf'?c._s.wf:(sg==='full'?c._s.full:c._s.lb)));
+        const _rdF=(c,sg,mode)=>{
+          const u=_ungOf[sg]||null,x=_colOf(c,sg)||null;
+          if(!mode||mode==='one'||!u||!x)return 1;
+          if(mode==='redeploy'){const a=+u.num_trades||0,b=+x.num_trades||0;return (a>0&&b>0)?(a/b):1;}
+          if(mode==='equaldd'){const a=Math.abs(+u.max_drawdown||0),b=Math.abs(+x.max_drawdown||0);return (a>1e-9&&b>1e-9)?(a/b):1;}
           return 1;};
+        // SHARPE, derived exactly the way 2B derives it for its config columns: period-to-period
+        //   change on the equity curve the engine saved, annualised by the span length. Scale-free,
+        //   so the sizing tabs never move it; null (a dash) when the curve is too short to mean
+        //   anything, never a fabricated number.
+        const _spanYrs=(V.span&&V.span[0]&&V.span[1])?Math.max(0,(new Date(V.span[1])-new Date(V.span[0]))/(365.25*86400000)):null;
+        const _shrp=c=>{const cum=c._s.eq&&c._s.eq.cum;
+          if(!Array.isArray(cum)||cum.length<3||!_spanYrs||_spanYrs<=0)return null;
+          const d=[];for(let i=1;i<cum.length;i++)d.push((+cum[i]||0)-(+cum[i-1]||0));
+          const n=d.length,mn=d.reduce((a,b)=>a+b,0)/n;
+          const vr=d.reduce((a,b)=>a+(b-mn)*(b-mn),0)/Math.max(1,n-1),sd=Math.sqrt(vr);
+          return (sd>1e-9)?((mn/sd)*Math.sqrt(n/_spanYrs)):null;};
+        const _rkYel2=';box-shadow:inset 0 1px 0 var(--yellow),inset 0 -1px 0 var(--yellow);';
+        const _rkDsh2=';box-shadow:inset 0 1px 0 color-mix(in srgb,var(--yellow) 50%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--yellow) 50%,transparent);';
+        const _wfBg2='rgba(96,165,250,.13)',_wfCol2='#60a5fa',_lbBg2='rgba(167,139,250,.16)',_lbCol2='#a78bfa';
+        const _szSegTip={is:'the in-sample years - everything before walk-forward testing starts. Same calendar stretch 2B and 2C call IS.',
+                       wf:'the walk-forward years - the same stretch 2B and 2C call WF.',
+                       lb:'the sealed final year - the lockbox. This is the stretch the LB rows below anchor on.'};
         const _cmpMatrix=(list,mode)=>{if(!list.length)return '';
-          const _sc=c=>_rdF(c,mode);
-          return _matrixTbl(list,[
-            {name:'RETURN',rows:[
-              {lbl:'IS $',top:true,cell:c=>_cmpUsd(c._s.is&&c._s.is.total_pnl)},
-              {lbl:'WF $',cell:c=>_cmpUsd(c._s.wf&&c._s.wf.total_pnl)},
-              {lbl:'<span title="the sealed final year - the lockbox">LB $</span>',cell:c=>_cmpUsd((c._s.lb&&c._s.lb.total_pnl)!=null?c._s.lb.total_pnl*_sc(c):null)}]},
-            {name:'REWARD / RISK',rows:[
-              {lbl:'<span title="LB dollars earned per dollar of LB drawdown">LB MAR</span>',top:true,cell:c=>{const r=_cmpRec(c._s.lb);return r!=null?('<b>'+r.toFixed(1)+'</b>'):'&mdash;';}},
-              {lbl:'LB MAX DD',cell:c=>{const x=c._s.lb;return (x&&x.max_drawdown!=null)?('<span style="color:#e24b4a">-'+$k(Math.abs(x.max_drawdown)*_sc(c))+'</span>'):'&mdash;';}}]},
-            {name:'SAMPLE',rows:[
+          const _sc=(c,sg)=>_rdF(c,sg,mode);
+          const _sl$=(c,sg)=>{const x=_colOf(c,sg);return (x&&x.total_pnl!=null)?x.total_pnl*_sc(c,sg):null;};
+          const _lbMar=c=>_cmpRec(c._s.lb);
+          const _fuMar=c=>_cmpRec(c._s.full);
+          const _lbPf=c=>{const x=c._s.lb;return (x&&x.profit_factor!=null&&isFinite(+x.profit_factor))?+x.profit_factor:null;};
+          const _lbWr=c=>{const x=c._s.lb;return (x&&x.win_rate!=null&&isFinite(+x.win_rate))?+x.win_rate:null;};
+          const _lbApt=c=>{const x=c._s.lb;return (x&&x.avg_pnl!=null&&isFinite(+x.avg_pnl))?(+x.avg_pnl*_sc(c,'lb')):null;};
+          const _fuDd=c=>{const x=c._s.full;return (x&&x.max_drawdown!=null)?(Math.abs(+x.max_drawdown)*_sc(c,'full')):null;};
+          const _lbDd=c=>{const x=c._s.lb;return (x&&x.max_drawdown!=null)?(Math.abs(+x.max_drawdown)*_sc(c,'lb')):null;};
+          // RANK — the SAME three options 2B / 2C offer, off the same pref. View only: nothing in
+          //   this section is crownable, so ordering can never change an outcome, only the
+          //   reading order. It ranks on the LOCKBOX rows because those are what this section
+          //   anchors on and what the sizing tabs actually move.
+          const cols=list.slice();
+          const _mxMar=Math.max.apply(null,cols.map(c=>{const r=_lbMar(c);return (r!=null&&isFinite(r))?r:-Infinity;}).concat([-Infinity]));
+          const _flOk=c=>{const r=_lbMar(c);return (_mxMar>-Infinity&&r!=null&&isFinite(r))?(r>=0.8*_mxMar):false;};
+          cols.sort((a,b)=>{
+            if(_szRank==='floor'){const fa=_flOk(a),fb=_flOk(b);if(fa!==fb)return fa?-1:1;}
+            if(_szRank==='rec'){const ra=_lbMar(a),rb=_lbMar(b);
+              return ((rb!=null&&isFinite(rb))?rb:-99)-((ra!=null&&isFinite(ra))?ra:-99);}
+            const va=_sl$(a,'lb'),vb=_sl$(b,'lb');
+            return ((vb!=null&&isFinite(vb))?vb:-Infinity)-((va!=null&&isFinite(va))?va:-Infinity);});
+          // RETURN — which of IS / WF / LB show is the shared SAMPLE tick, exactly as in 2B.
+          //   FULL and its drawdown always show: they are the end of the curve, not a stretch.
+          const _ret=[];
+          if(_szSegs.indexOf('is')>=0)_ret.push({lbl:'<span title="'+_szSegTip.is+'">IS $</span>',top:!_ret.length,cell:c=>_cmpUsd(_sl$(c,'is'))});
+          if(_szSegs.indexOf('wf')>=0)_ret.push({lbl:'<span title="'+_szSegTip.wf+'">WF $</span>',top:!_ret.length,rowBg:_wfBg2,lblCol:_wfCol2,cell:c=>_cmpUsd(_sl$(c,'wf'))});
+          if(_szSegs.indexOf('lb')>=0)_ret.push({lbl:'<span title="'+_szSegTip.lb+'">LB $</span>',top:!_ret.length,rowBg:_lbBg2,lblCol:_lbCol2,rowSty:(_szRank!=='rec'?_rkYel2:''),cell:c=>_cmpUsd(_sl$(c,'lb'))});
+          _ret.push({lbl:'<span title="the whole run end to end - in-sample, walk-forward and lockbox together. The same row 2B calls FULL. IS / WF / LB measure overlapping windows, so they do not add up to it.">FULL $</span>',top:true,cell:c=>_cmpUsd(_sl$(c,'full'))});
+          _ret.push({lbl:'<span title="deepest peak-to-trough drop over the WHOLE run - the same basis as the 2B MAX DD row, not a per-period figure">FULL MAX DD</span>',cell:c=>{const v=_fuDd(c);return v!=null?('<span style="color:#e24b4a">-'+$k(v)+'</span>'):_cmpDash;}});
+          const groups=[
+            {name:'return <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">&middot; '+_szSegs.map(x=>x.toUpperCase()).join('+')+' + FULL</span>',rows:_ret},
+            {name:'reward &divide; risk <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">&middot; mixed slices &mdash; hover each row</span>',rows:[
+              {lbl:'<span title="LOCKBOX dollars per dollar of LOCKBOX drawdown. Scale-free: the sizing tabs multiply profit and drawdown by the same number, so this never moves - which is why it is the honest comparator.">LB MAR</span>',top:true,rowSty:(_szRank==='rec'?_rkYel2:(_szRank==='floor'?_rkDsh2:'')),cell:c=>{const r=_lbMar(c);return r!=null?('<b>'+r.toFixed(1)+'</b>'):_cmpDash;}},
+              {lbl:'<span title="deepest peak-to-trough drop inside the lockbox year only">LB MAX DD</span>',cell:c=>{const v=_lbDd(c);return v!=null?('<span style="color:#e24b4a">-'+$k(v)+'</span>'):_cmpDash;}},
+              {lbl:'<span title="whole-run dollars per dollar of whole-run drawdown - the long-horizon twin of LB MAR, and the row most comparable to the 2B MAR">FULL MAR</span>',cell:c=>{const r=_fuMar(c);return r!=null?(r.toFixed(1)):_cmpDash;}},
+              {lbl:'<span title="derived the same way 2B derives it: period-to-period change on the equity curve the engine saved, over the whole run, annualised by the span length. Scale-free - the sizing tabs do not move it.">SHARPE</span>',cell:c=>{const s=_shrp(c);return s!=null?('<span style="color:var(--text2)">'+s.toFixed(2)+'</span>'):_cmpDash;}},
+              {lbl:'<span title="lockbox profit factor - gross winning dollars divided by gross losing dollars. Scale-free.">LB PF</span>',cell:c=>{const v=_lbPf(c);return v!=null?('<span style="color:var(--text2)">'+Math.min(v,99).toFixed(2)+'</span>'):_cmpDash;}},
+              {lbl:'<span title="share of lockbox trades that finished green. Scale-free - re-sizing changes how much each trade is worth, never whether it won.">LB WIN %</span>',cell:c=>{const v=_lbWr(c);return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):_cmpDash;}},
+              {lbl:'<span title="average net dollars per lockbox trade - says whether a column makes its money from bigger trades or just more of them. Follows the sizing tab.">LB $ / TRADE</span>',cell:c=>{const v=_lbApt(c);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):_cmpDash;}}]},
+            {name:'sample',rows:[
               // v69.1: this used to print the whole-run trade count while every row around it was
               //   lockbox-only, which made the section impossible to reconcile against 2C.
-              {lbl:'<span title="trades taken in the lockbox year - the same basis as the LB rows above and as 2C">LB TRADES</span>',top:true,cell:c=>{
-                const n=(c._s.lb&&c._s.lb.num_trades);return n!=null?(+n).toLocaleString():'&mdash;';}},
-              {lbl:'<span title="every trade the variant took across the whole run">ALL TRADES</span>',cell:c=>c._s.n!=null?(+c._s.n).toLocaleString():'&mdash;'},
-              {lbl:'<span title="average contracts per trade this column runs. One in the normal view; in REDEPLOY it is what the freed capacity buys.">AVG CONTRACTS</span>',cell:c=>{
-                const f=_sc(c);return '<span style="color:'+((mode&&mode!=='one')?'#f0b429':'var(--text3)')+'">'+f.toFixed(2)+'&times;</span>';}},
-              {lbl:'<span title="largest contracts any single trade got">BIGGEST SIZE</span>',cell:c=>c._s.mx!=null?((+c._s.mx*_sc(c)).toFixed(1)+'&times;'):'&mdash;'},
+              {lbl:'<span title="trades taken in the lockbox year - the same basis as the LB rows above and as the 2C LB TRADES row">LB TRADES</span>',top:true,cell:c=>{
+                const n=(c._s.lb&&c._s.lb.num_trades);return n!=null?(+n).toLocaleString():_cmpDash;}},
+              {lbl:'<span title="every trade the variant took across the whole run">ALL TRADES</span>',cell:c=>c._s.n!=null?(+c._s.n).toLocaleString():_cmpDash},
+              {lbl:'<span title="average contracts per trade this column runs in the lockbox. One in the ONE LOT tab; in REDEPLOY / EQUAL DD it is what the freed capacity buys.">AVG CONTRACTS</span>',cell:c=>{
+                const f=_sc(c,'lb');return '<span style="color:'+((mode&&mode!=='one')?'#f0b429':'var(--text3)')+'">'+f.toFixed(2)+'&times;</span>';}},
+              {lbl:'<span title="largest contracts any single trade got">BIGGEST SIZE</span>',cell:c=>c._s.mx!=null?((+c._s.mx*_sc(c,'lb')).toFixed(1)+'&times;'):_cmpDash},
               // v68.7/68.9 (owner: "we dont see the trade distribution for dropped small/medium/large")
               //   engine >= v68.9 saves the split incl. DROPPED; older runs show a dash.
-              {lbl:'<span title="how the trades split by the size each was given: SMALL under 0.75 of a lot · MEDIUM 0.75 to 1.5 · LARGE over 1.5. Saved by the engine from v68.7 runs on.">SIZE MIX s·m·L</span>',cell:c=>{const x=c._s.mix;return x?('<span style="color:var(--text3)">'+(+x.small).toLocaleString()+' · '+(+x.normal).toLocaleString()+' · '+(+x.big).toLocaleString()+'</span>'):'<span style="color:var(--text5)">&mdash;</span>';}},
-              {lbl:'<span title="trades the cut-off refused, so they were never entered at all - no position, no fee, no profit or loss. A tilt refuses nothing, so it always reads 0 here.">NOT TAKEN</span>',cell:c=>{const x=c._s.mix;return (x&&x.dropped!=null)?((+x.dropped)?('<span style="color:#e24b4a">'+(+x.dropped).toLocaleString()+'</span>'):'<span style="color:var(--text5)">0</span>'):'<span style="color:var(--text5)">&mdash;</span>';}},
+              {lbl:'<span title="how the trades split by the size each was given: SMALL under 0.75 of a lot &middot; MEDIUM 0.75 to 1.5 &middot; LARGE over 1.5. Saved by the engine from v68.7 runs on.">SIZE MIX s&middot;m&middot;L</span>',cell:c=>{const x=c._s.mix;return x?('<span style="color:var(--text3)">'+(+x.small).toLocaleString()+' &middot; '+(+x.normal).toLocaleString()+' &middot; '+(+x.big).toLocaleString()+'</span>'):_cmpDash;}},
+              {lbl:'<span title="trades the cut-off refused, so they were never entered at all - no position, no fee, no profit or loss. A tilt refuses nothing, so it always reads 0 here.">NOT TAKEN</span>',cell:c=>{const x=c._s.mix;return (x&&x.dropped!=null)?((+x.dropped)?('<span style="color:#e24b4a">'+(+x.dropped).toLocaleString()+'</span>'):'<span style="color:var(--text5)">0</span>'):_cmpDash;}},
               // v68.9 (owner: "how do we know what level applies... we dont see what the bouncer
               //   level is"): the EXACT rule each column ran, per column - two rf columns can use
               //   two different shapes, so it can never be inferred from the model name alone.
               {lbl:'<span title="the exact sizing rule this column used, and the cut-off below which it drops a trade (a tilt has none)">SIZE RULE</span>',top:true,cell:c=>{
                 const r=c._s.rule,ct=c._s.cut;
-                if(!r&&ct==null)return '<span style="color:var(--text5)">&mdash;</span>';
+                if(!r&&ct==null)return _cmpDash;
                 return '<span style="color:var(--text3);font-size:7px">'+(ct!=null?('<b style="color:#e05fa0">drops under '+Math.round(ct*100)+'%</b><br>'):'<span style="color:var(--text5)">no cut-off</span><br>')+(r||'')+'</span>';}}]}
-          ],{compact:true});};
+          ];
+          // HEAT — the same shading 2B / 2C use, off the same pref: every cell tinted by where it
+          //   lands across its OWN row, green best red worst. Rows with no numeric read (SIZE MIX,
+          //   SIZE RULE) are simply left alone rather than faked.
+          if(_szHeat){
+            const _hf=(get,hiGood)=>{const nums=cols.map(get).filter(v=>v!=null&&isFinite(v));
+              if(nums.length<2)return null;const mn=Math.min.apply(null,nums),mx=Math.max.apply(null,nums);
+              if(!(mx-mn>1e-9))return null;
+              return c=>{const v=get(c);if(v==null||!isFinite(v))return null;
+                let t=(v-mn)/(mx-mn);if(!hiGood)t=1-t;
+                return 'hsla('+Math.round(4+116*t)+',68%,45%,'+(0.09+0.24*Math.abs(t-0.5)*2).toFixed(3)+')';};};
+            const _pick={'IS $':[c=>_sl$(c,'is'),true],'WF $':[c=>_sl$(c,'wf'),true],'LB $':[c=>_sl$(c,'lb'),true],
+              'FULL $':[c=>_sl$(c,'full'),true],'FULL MAX DD':[c=>{const v=_fuDd(c);return v!=null?-v:null;},true],
+              'LB MAR':[_lbMar,true],'LB MAX DD':[c=>{const v=_lbDd(c);return v!=null?-v:null;},true],
+              'FULL MAR':[_fuMar,true],'SHARPE':[_shrp,true],'LB PF':[c=>{const v=_lbPf(c);return v!=null?Math.min(v,99):null;},true],
+              'LB WIN %':[_lbWr,true],'LB $ / TRADE':[_lbApt,true],
+              'LB TRADES':[c=>{const n=c._s.lb&&c._s.lb.num_trades;return n!=null?+n:null;},true],
+              'ALL TRADES':[c=>c._s.n!=null?+c._s.n:null,true],
+              'AVG CONTRACTS':[c=>_sc(c,'lb'),true],
+              'BIGGEST SIZE':[c=>c._s.mx!=null?(+c._s.mx*_sc(c,'lb')):null,true]};
+            groups.forEach(g=>g.rows.forEach(r=>{
+              const key=String(r.lbl).replace(/<[^>]*>/g,'').replace(/&middot;/g,'·').trim();
+              const p=_pick[key];if(p){const f=_hf(p[0],p[1]);if(f)r.cellBg=f;}}));
+          }
+          return _matrixTbl(cols,groups,{compact:true});};
+        // the 2D control strip — same kit, same prefs, as 2B and 2C (owner: "trying to unify them")
+        const _szRkOpts=[['rec','MAR','most lockbox dollars per dollar of lockbox drawdown - the default order here'],
+                         ['pnl','NET $','most lockbox dollars, no safety check'],
+                         ['floor','NET $ + MAR FLOOR','most lockbox dollars, but only among columns at least 80% as efficient as the best LB MAR']];
+        const _szSampMenu=(_szOpen==='d-samp')?_ctlMenu('d-samp','SHOW RETURN ROWS',
+          ['is','wf','lb'].map(sg=>_ctlChip(_szSegs.indexOf(sg)>=0,sg.toUpperCase(),'data-g2seg="'+sg+'"',_szSegTip[sg])).join(''),
+          'Shared with 2B and 2C - one tick moves all three. FULL and the LB anchor rows always show.'):'';
+        const _szRankMenu=(_szOpen==='d-rank')?_ctlMenu('d-rank','ORDER COLUMNS BY',
+          _szRkOpts.map(o=>_ctlChip(_szRank===o[0],o[1],'data-g2rk="'+o[0]+'"',o[2])).join(''),_rkNote2):'';
+        const _szCtrls='<div data-g2ctl style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
+          +_ctlBtn('d-samp',_szOpen==='d-samp','SAMPLE',_szSegs.map(x=>x.toUpperCase()).join('+'),'pick which return rows to show - the same setting 2B and 2C use')
+          +_ctlBtn('d-rank',_szOpen==='d-rank','RANK',_rkNmAll[_szRank],'how the model columns are ordered, measured on the lockbox rows. View only - nothing in this section is ever crowned.')
+          +_ctlHeat(!!_szHeat)
+          +'</div>'+_szSampMenu+_szRankMenu;
         const tiltTbl=(!_tl.length)?'':(function(){
           _tl.sort((a,b)=>((_cmpRec(b.lockbox)!=null?_cmpRec(b.lockbox):-99)-(_cmpRec(a.lockbox)!=null?_cmpRec(a.lockbox):-99)));
           return '<div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'
@@ -10660,6 +10757,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +_infoIc('<div style="color:var(--text2)">The HYBRID does both: trades under the crowned 2C cut-off are dropped (the gate), and the survivors are sized by confidence (the tilt).<br><br><b>EVERY COLUMN USES THE SAME RATIO</b>: the cut-off is PINNED to the one 2C crowned'+(ch?(' (this run: '+Math.round((ch.threshold||0)*100)+'%)'):'')+' and the sizing is the sliding shape - so the only thing that differs between columns is WHICH MODEL scored the trades. That is why the headers carry no per-column annotation.<br><br>Pinning to the crown means NO new tunable knob exists here.<br><br>Sizes average one lot across the kept trades. Comparison only - adopting the hybrid would need its own pre-registered rule on a strategy with a sealed lockbox. Baselines (no gate, the crowned gate) live in the 2C matrix.</div>')
             +'</div>'+_cmpMatrix(_cmpCols(_hy,'hyb'),_hybMode)+'</div>';})();
         return {V:V,LB:LB,ch:ch,tilts:tiltTbl,hyb:hybTbl,ctrls:(_ctrls+_sampMenu+_rankMenu),menus:'',
+          szCtrls:_szCtrls,
           head:'<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>',
           intro:'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+V.n_candidates+' candidates ranked pre-lockbox by recovery factor ($ per $ of drawdown). The winner gets exactly one lockbox look — no shopping.</div>',
           matrix:_gMatrix,
@@ -11865,6 +11963,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let _tiltSec='',_hybSec='';
       if(_gvP&&(_gvP.tilts||_gvP.hyb)){
         const _tOpen=(APREF.tilt2dOpen==null?1:+APREF.tilt2dOpen);
+        // v69.6 (owner): the SAME control kit 2B / 2C carry, off the SAME prefs - one tick of
+        //   SAMPLE / RANK / HEAT moves all three sections.
+        const _szC=(_tOpen&&_gvP.szCtrls)?_gvP.szCtrls:'';
         const _szTab=(String(APREF.sizeTab||'')==='hyb'&&_gvP.hyb)?'hyb':'tilt';
         const _szTabs='<span style="display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden">'
           +[['tilt','ML TILT','every trade is taken, only re-sized by model confidence'],
@@ -11877,7 +11978,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div data-tilt2d style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow:hidden">2D &#127899; ML SIZING '+_szTabs+' '
           +_infoIc('<div style="color:var(--text2)">THE SAME MODELS AS THE 2C ML GATE, SPENT AS SIZE INSTEAD.<br><br>The 2C ML GATE uses a model score as a BOUNCER - under the cut-off, the trade does not happen. This section uses the identical score as a DIMMER - every trade still happens, confident ones get more contracts and doubtful ones get fewer.<br><br>Nothing here can ever be crowned; it exists so the two ways of spending the same model can be compared side by side over the same stretches.</div>')
           +'<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap">COMPARISON ONLY</span>'
-          +'<span style="margin-left:auto;font-size:8px;color:var(--text4);flex-shrink:0">'+(_tOpen?'&#9652; hide':'&#9662; show')+'</span></div>'
+          +_szC
+          +'<span style="'+(_szC?'':'margin-left:auto;')+'font-size:8px;color:var(--text4);flex-shrink:0">'+(_tOpen?'&#9652; hide':'&#9662; show')+'</span></div>'
           +(_tOpen?('<div style="margin-top:9px">'+((_szTab==='hyb')?(_gvP.hyb||''):(_gvP.tilts||''))+'</div>'):'')
           +'</div>';
       }
@@ -14215,7 +14317,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-cfg2bc]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-g2ctl]')||e.target.closest('[data-cfgtab]')||e.target.closest('[data-b2ctl]'))return;e.stopPropagation();savePref('gate2aOpen',(APREF.gate2aOpen==null?1:+APREF.gate2aOpen)?0:1);renderApp();};});
       content.querySelectorAll('[data-gate2a]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-g2ctl]'))return;e.stopPropagation();savePref('gate2aOpen',(APREF.gate2aOpen==null?1:+APREF.gate2aOpen)?0:1);renderApp();};});
       content.querySelectorAll('[data-sztab]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('sizeTab',b.getAttribute('data-sztab'));renderApp();};});
-      content.querySelectorAll('[data-tilt2d]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-sztab]')||e.target.closest('[data-hybmode]'))return;e.stopPropagation();savePref('tilt2dOpen',(APREF.tilt2dOpen==null?1:+APREF.tilt2dOpen)?0:1);renderApp();};});
+      content.querySelectorAll('[data-tilt2d]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-sztab]')||e.target.closest('[data-hybmode]')||e.target.closest('[data-g2ctl]'))return;e.stopPropagation();savePref('tilt2dOpen',(APREF.tilt2dOpen==null?1:+APREF.tilt2dOpen)?0:1);renderApp();};});
       content.querySelectorAll('[data-hyb2e]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-hybmode]'))return;e.stopPropagation();savePref('hyb2eOpen',(APREF.hyb2eOpen==null?1:+APREF.hyb2eOpen)?0:1);renderApp();};});
       content.querySelectorAll('[data-hybmode]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('hybMode',b.getAttribute('data-hybmode'));renderApp();};});
       // 2L TOP INTERACTIONS flat ⇄ 3-D toggle (#54)
