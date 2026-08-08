@@ -42,10 +42,14 @@ Structure EVERY substantive reply top-to-bottom as:
    own named paragraph (what it measures, its convention), THEN a third paragraph does the
    comparison — never interleave definitions inside the comparison.
 2c. **NEVER RENAME AN ESTABLISHED TERM (owner 2026-08-06: "stop changing terms!").** The fixed
-   vocabulary: **ML GATE** (2C), **ML TILT** (2D), **ML HYBRID** (2E), **IS / WF / LB** for the
-   three stretches ("LB", never "held-out year"/"lockbox year" alternations), **RAW configs**
-   (2B). If a new concept truly needs a name, pick it ONCE, say "calling this X from now on",
-   and add it to this list in the same commit.
+   vocabulary, as the OWNER renamed it 2026-08-08 ("rename raw configs to just raw. remove the
+   ML in gate, tilt, hybrid"): everything lives in **§2B CONFIGS**, one card, tabs
+   **RAW · GATE · TILT · HYBRID · HYBRID ♻ · HYBRID 📉** (the last two are the same hybrid at
+   REDEPLOY and EQUAL-DRAWDOWN sizing). There is no 2C or 2D section letter any more — those
+   are tabs. **IS / WF / LB** stay the names for the three stretches ("LB", never
+   "held-out year"/"lockbox year" alternations). Only the OWNER renames these; if a new concept
+   truly needs a name, pick it ONCE, say "calling this X from now on", and add it here in the
+   same commit.
 3. **Details / caveats / how-to-verify / numbers go UNDERNEATH the table** — the owner skims the
    table, then drops down for detail. Keep prose terse; process/"thinking" text is noise.
    **KEEP IT SHORT AND JARGON-FREE (owner 2026-07-23, stated twice): "make more concise and
