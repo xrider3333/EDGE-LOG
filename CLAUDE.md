@@ -58,9 +58,15 @@ Structure EVERY substantive reply top-to-bottom as:
    describe the EFFECT in EDGELOG-UI terms instead. Table cells = 1-2 short plain bullets.
    Detail under the table = only what changes a decision. Deep investigation notes belong in
    BACKTESTING_STACK.md / memory, not the reply.
-4. For strategy-run rows, include the rich columns the owner tracks: strategy TYPE (mechanism +
-   indicators) and PnL split by stage — **IS** (in-sample) vs **WF** (walk-forward) vs **LB**
-   (lockbox); if a stage was not run, SAY so ("WF not run · LB sealed") rather than omitting.
+4. **Backtest/test RESULTS get their OWN table — never stuffed into ledger Description cells
+   (owner correction 2026-08-08: "any results from test need to be in their own table… i cant
+   interpret backtesting data how you displayed it in the description").** When a reply carries
+   run results: (a) the ledger/status table stays short, (b) a separate RESULTS table follows
+   with one row per strategy/config ran and columns the owner tracks: Strategy/config ·
+   TYPE (mechanism + indicators) · Net · PF · MaxDD · net/DD (MAR) · years +/− · **WF** ·
+   **LB** · Verdict. PnL split by stage — IS (in-sample) vs WF (walk-forward) vs LB (lockbox);
+   if a stage was not run, SAY so ("WF not run · LB sealed") rather than omitting. (c) a
+   "to be done" table (or rows) closes the reply.
 
 ## Delegate execution to Sonnet; you stay the supervisor (owner ask, 2026-07-21)
 Owner: "spawn the top sonnet agent for simpler tasks to save tokens (simple executions, codes etc)
