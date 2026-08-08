@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='70.6';
+const VERSION='70.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'70.7',date:'2026-08-08',notes:['DOCS: the visual PnL and price-action report is now specced - docs/VISUAL_TRADE_REPORT.md, with a working prototype promoted into the repo (docs/samples/noise_visual_report.html, tools/build_visual_report.py). No UI change yet - this is the build plan for a candle-chart view per trade, recommended Phase A next.']},
 {v:'69.5',date:'2026-08-07',notes:['FIX: switching to the ML GATE tab in 69.4 blanked the report - the verdict chip was built inside an inner block the new merged header could not reach. The chip is now shared properly and the tab switches cleanly.']},
 {v:'70.6',date:'2026-08-08',notes:['1E MATRIX is now DUPLICATED side by side - two identical cards, each remembering its own tab, so any two tabs can be read against each other without switching back and forth.','2A FUNNEL gutter pills were genuinely misaligned: the plot sits in a box with 6px of vertical padding, so the drawing area is 12px shorter than the gutter beside it, and the percent positions drifted up to 6px away from the line they label. Pills and scale numbers now share the same measuring box and centre exactly.','2A FUNNEL opens as one line per family - the grey cloud, the in-sample max and the other walk-forward survivors start hidden. Click the RAW key row to bring them back; the choice sticks.']},
 {v:'70.5',date:'2026-08-08',notes:['Fix from the 70.4 merge: switching to the 2A FUNNEL tab was hiding 1B MONTHLY P&L, 1C WALK-FORWARD and 1D STRESS along with the champion chart. The tab now swaps ONLY the chart - the three panels below stay on screen on both tabs.']},

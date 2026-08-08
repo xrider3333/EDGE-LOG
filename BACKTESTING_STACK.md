@@ -3,8 +3,8 @@
 **Single source of truth for where the backtesting engine stands.** Update this
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
-- **Last updated:** 2026-08-06
-- **Web VERSION:** 68.3 · **Stack board (`method_stack.html`):** v4.1
+- **Last updated:** 2026-08-08
+- **Web VERSION:** 70.7 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
@@ -1015,6 +1015,24 @@ not saved to the runs DB — so they carry no run id.*
     - **Still open**: #175 itself cannot backfill — its saved doc has `selection: null`. It needs
       a **rerun pinned to its window (2010-06-07 → 2026-06-30) and master** to gain the crown
       pool; until then its 2A/2B stay degraded.
+14. **🆕 NEW (added 2026-08-08) — visual PnL & price-action report**: owner-requested. He
+    assesses a strategy by looking at the price action on its actual trades, and derives his
+    tweaks that way; he also needs this to reconcile EDGELOG's backtested trades against
+    TradingView. Full build spec + a working prototype are in `docs/VISUAL_TRADE_REPORT.md`
+    (prototype HTML: `docs/samples/noise_visual_report.html`, full-history equity + drawdown,
+    sealed-year equity + monthly bars, per-year bars, time-of-day/long-short/holding-time/PnL
+    histograms, and 6 candlestick session panels with band/VWAP overlays and entry/exit markers;
+    data-build script: `tools/build_visual_report.py`). Three phases specced, **Phase A
+    recommended first**: a 🕯 button on each row of the existing blotter table (the ▦ TRADES
+    panel inside `window.expandEquity`) opens an in-app candlestick modal reusing
+    `window.expandChart`, backed by a new `get_bars` runner command mirroring `get_blotter`
+    (`api/blotter.py` / `api/runner.py:763`). Phase B: a Pine v5 snippet with the run's own
+    trades hardcoded as labels (not a re-derived strategy port — hardcoding exposes fill
+    differences, which is the point), copied to clipboard + a TradingView deep-link
+    (symbol/interval only, Pine paste stays manual) — complements the existing `reconcile`
+    runner command / Settings ▸ OPEN RECONCILER, doesn't replace it. Phase C (optional): static
+    PNG/SVG export attached to saved run reports. **Not started** — this item tracks the
+    feature until Phase A ships.
 
 **Current Auto-Validate pipeline (as of 2026-07-20, for orientation):** 🎯 steered search (random
 seed ~40% of trials → GP-aimed batches, #36; TPE and QRF brains available) → auto-expand of
