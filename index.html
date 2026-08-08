@@ -442,11 +442,12 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='69.8';
+const VERSION='69.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
 {v:'69.5',date:'2026-08-07',notes:['FIX: switching to the ML GATE tab in 69.4 blanked the report - the verdict chip was built inside an inner block the new merged header could not reach. The chip is now shared properly and the tab switches cleanly.']},
+{v:'69.9',date:'2026-08-07',notes:['2E CONFIG DISTRIBUTION: found the real reason the IS MAX line could not be seen - on this run the walk-forward crown lands on the SAME config, so the green crown line was drawn straight over the blue IS MAX line at the identical dollar figure. When two marks coincide the line now SPLITS vertically: IS MAX takes the top half, the crown the bottom half, both at their true position, and the key says so.']},
 {v:'69.8',date:'2026-08-07',notes:['The drag-to-resize handle bars in section 2 were dead - every one of them. Each tile there is wrapped in its own divider row, so the handle could not find the tile above it and the drag did nothing. All section-2 handles now resize their tile.','2B CONFIGS and 2D ML SIZING: the view switchers moved to the top RIGHT of the title row and are drawn as proper underlined TABS instead of a segmented toggle.','2D ML SIZING fits on screen again. The SIZE RULE row printed a full sentence per column on one line, which alone forced every column to about 170px; it now shows the shape and the cut-off, with the sentence on hover. SIZE MIX lost its thousands separators, and any matrix past 8 columns tightens its padding.','2E CONFIG DISTRIBUTION, 2F 3-D EXPLORER and 2L ML CONFIG BUILDER moved out of the middle column and now stack under 2K in the right column - the middle column is the two big tables alone.','2E CONFIG DISTRIBUTION: the mean, crown, IS MAX and sigma lines are SOLID instead of dashed, each with its own transparency - mean, crown and sigma are deliberately faint, IS MAX is the boldest so it is findable. The chart now draws a real bottom axis rule and the $ numbers under it are brighter on a taller strip.']},
 {v:'69.7',date:'2026-08-07',notes:['2D ML SIZING: LB $ and FULL $ now stay on screen whatever SAMPLE is set to. Every reward/risk and sample row under them is measured on the lockbox, so hiding the LB return row left LB MAR and LB TRADES with nothing to reconcile against. IS and WF still follow the tick.']},
 {v:'69.6',date:'2026-08-07',notes:['2D ML SIZING now runs the SAME SAMPLE / RANK / HEAT control kit as 2B CONFIGS, off the SAME saved settings - one tick moves all three sections. SAMPLE picks which of IS / WF / LB return rows show (FULL and the LB anchor rows always show); RANK orders the model columns by MAR, NET $, or NET $ with the 80% MAR floor, measured on the lockbox; HEAT shades every cell by where it lands across its own row.','Seven metric rows carried across from 2B into 2D: FULL $, FULL MAX DD, FULL MAR, SHARPE, LB PF, LB WIN % and LB $ / TRADE. FOLDS HELD is the one 2B row deliberately left out - a tilt is never fold-tested, so there is no honest number to print.','The REDEPLOY / EQUAL DD sizing factor is now computed PER SLICE instead of once on the lockbox and applied sideways to rows measured over other stretches. Every slice carries its own no-gate twin in the run doc, so IS, WF, LB and FULL each scale by their own exact ratio. MAR, SHARPE, PF and WIN % are scale-free and never move.']},
@@ -7615,19 +7616,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v69.8 (owner): every marker line is SOLID now and carries its own opacity/width -
         //   the dashes read as noise over 120 thin bars. Mean, crown and the sigma marks are
         //   deliberately faint; IS MAX is the one the owner could not find, so it is the boldest.
-        const vlin=(xx,c2,dash,op,w)=>'<line x1="'+TXv(xx).toFixed(1)+'" y1="'+TT+'" x2="'+TXv(xx).toFixed(1)+'" y2="'+TH+'" stroke="'+c2+'" stroke-width="'+(w||1)+'"'+(op!=null?' opacity="'+op+'"':'')+(dash?' stroke-dasharray="'+dash+'"':'')+' vector-effect="non-scaling-stroke"/>';
+        const vlin=(xx,c2,dash,op,w,y0,y1)=>'<line x1="'+TXv(xx).toFixed(1)+'" y1="'+(y0!=null?y0:TT)+'" x2="'+TXv(xx).toFixed(1)+'" y2="'+(y1!=null?y1:TH)+'" stroke="'+c2+'" stroke-width="'+(w||1)+'"'+(op!=null?' opacity="'+op+'"':'')+(dash?' stroke-dasharray="'+dash+'"':'')+' vector-effect="non-scaling-stroke"/>';
         // v64.38 (owner): the SAME 2A annotations on the $ axis — IS max now wears 2A blue and
         //   the 👑 crown (walk-forward-checked champion) gets its own green line when known.
-        let xm='';(Array.isArray(xmarks)?xmarks:[]).forEach(m=>{const xv=(+m.v)*mult;if(xv>lo&&xv<hi)xm+=vlin(xv,m.col,'',0.42,1.5);});
+        // v69.9 (owner: "i dont see IS max line") - on this run the walk-forward crown IS the
+        //   in-sample max, so the green crown line was drawn straight over the blue one at the
+        //   identical $. Coincident marks now SPLIT the line vertically: IS MAX takes the top
+        //   half, the crown the bottom half. Both keep their true position, both are visible.
+        const _mxX=TXv(mx),_midY=TT+(TH-TT)/2;
+        let _coin=false;
+        let xm='';(Array.isArray(xmarks)?xmarks:[]).forEach(m=>{const xv=(+m.v)*mult;if(xv>lo&&xv<hi){
+          const _hit=Math.abs(TXv(xv)-_mxX)<2;if(_hit)_coin=true;
+          xm+=vlin(xv,m.col,'',_hit?0.6:0.42,_hit?1.75:1.5,_hit?_midY:null,null);}});
         const _axLine='<line x1="0" y1="'+(TH-0.5)+'" x2="'+TW+'" y2="'+(TH-0.5)+'" stroke="var(--text4)" stroke-width="1" opacity="0.85" vector-effect="non-scaling-stroke"/>';
-        const tmarks=vlin(mean,'var(--blue)','',0.35,1.25)+((lo<0&&hi>0)?vlin(0,'var(--border)','',0.9,1):'')+vlin(mx,'#3a9bdc','',0.75,1.75)+xm+[-2,-1,1,2].map(k=>{const xx=mean+k*sd;return (xx>lo&&xx<hi)?vlin(xx,'var(--text4)','',0.2,1):'';}).join('')+_axLine;
+        const tmarks=vlin(mean,'var(--blue)','',0.35,1.25)+((lo<0&&hi>0)?vlin(0,'var(--border)','',0.9,1):'')+vlin(mx,'#3a9bdc','',0.8,1.75,null,_coin?_midY:null)+xm+[-2,-1,1,2].map(k=>{const xx=mean+k*sd;return (xx>lo&&xx<hi)?vlin(xx,'var(--text4)','',0.2,1):'';}).join('')+_axLine;
         const pctX=x=>((x-lo)/span*100).toFixed(2);
         const tlbl=(x,st,txt)=>'<span style="position:absolute;pointer-events:none;white-space:nowrap;'+st+'left:'+pctX(x)+'%">'+txt+'</span>';
         // v64.42 (owner): the bare mean / IS-max / crown lines wore edge labels that collided and
         //   got cut off. Now each line carries a MARKER at its top (◆ mean · ▲ IS max · 👑 crown)
         //   and one KEY box (top-left, over the empty low-$ tail) lists them with their $ — same
         //   read as 1A's endpoint pills.
-        const _mk=(x,em,col)=>tlbl(x,'top:-1px;transform:translate(-50%,0);font-size:9px;line-height:1;color:'+col+';',em);
+        const _mk=(x,em,col,dx)=>tlbl(x,'top:-1px;transform:translate(calc(-50% + '+(dx||0)+'px),0);font-size:9px;line-height:1;color:'+col+';',em);
         // v64.65: the marker glyph + key text come from the CALLER's label now — they were
         //   hardcoded to "👑 crown", so a run with NO walk-forward crown pool (an ensemble /
         //   deploy-book run) still claimed a crown it never earned.
@@ -7635,11 +7644,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _keyItems=[['◆','mean',mean,'var(--blue)'],['▲','IS max',mx,'#3a9bdc']];
         (Array.isArray(xmarks)?xmarks:[]).forEach(m=>{const xv=(+m.v)*mult,L=_labOfM(m);_keyItems.push([L[0],L[1],xv,m.col]);});
         const tover=_mk(mean,'◆','var(--blue)')+_mk(mx,'▲','#3a9bdc')
-          +(Array.isArray(xmarks)?xmarks.map(m=>{const xv=(+m.v)*mult;return (xv>lo&&xv<hi)?_mk(xv,_labOfM(m)[0],m.col):'';}).join(''):'')
+          +(Array.isArray(xmarks)?xmarks.map(m=>{const xv=(+m.v)*mult;return (xv>lo&&xv<hi)?_mk(xv,_labOfM(m)[0],m.col,(Math.abs(TXv(xv)-_mxX)<2?9:0)):'';}).join(''):'')
           +[-2,-1,1,2].map(k=>{const xx=mean+k*sd;return (xx>lo&&xx<hi)?tlbl(xx,'top:11px;transform:translateX(-50%);font-size:7px;color:var(--text4);',(k>0?'+':'')+k+'σ'):'';}).join('')
           +((lo<0&&hi>0)?tlbl(0,'bottom:2px;transform:translateX(-50%);font-size:8px;font-weight:700;color:var(--text3);','BE'):'')
           +'<div style="position:absolute;top:3px;left:6px;background:color-mix(in srgb,var(--bg1) 82%,transparent);border:1px solid var(--border);border-radius:6px;padding:2px 6px;font-size:7.5px;line-height:1.55;pointer-events:none">'
             +_keyItems.map(it=>'<div style="white-space:nowrap;color:'+it[3]+'"><b>'+it[0]+'</b> '+it[1]+' <b>'+fmtAx(it[2],1)+'</b></div>').join('')
+            +(_coin?'<div style="white-space:nowrap;color:var(--text5);font-size:6.5px;margin-top:1px">same config &mdash; one line, split top / bottom</div>':'')
           +'</div>';
         const _n3=x2=>{x2=Math.abs(x2)||1;const e=Math.pow(10,Math.floor(Math.log10(x2)));const f=x2/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
         // v69.8 (owner: "cant see botom x axis, it blends into the bottom of the subchart"):
