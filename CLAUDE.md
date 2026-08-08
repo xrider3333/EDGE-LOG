@@ -67,6 +67,21 @@ Structure EVERY substantive reply top-to-bottom as:
    **LB** · Verdict. PnL split by stage — IS (in-sample) vs WF (walk-forward) vs LB (lockbox);
    if a stage was not run, SAY so ("WF not run · LB sealed") rather than omitting. (c) a
    "to be done" table (or rows) closes the reply.
+4b. **THE RESULTS TABLE IS CALLED THE `RUNBOARD` (named 2026-08-08 at owner request: "name this
+   chart layout. i want to be able to call it up on other chart sessions").** When the owner says
+   "give me the RUNBOARD" / "RUNBOARD it", emit exactly this, one row per config:
+   `# | Config | Type | Net | PF | MaxDD | net/DD | IS | WF | LB | Verdict`
+   RUNBOARD hard rules:
+   • **MaxDD column holds a POSITIVE number** — the header already says drawdown, so never print a
+     leading minus (owner 2026-08-08: "max DD has - above it. adjust format"). Same for any loss cell.
+   • **Say "LB", never "sealed year"/"held-out year"** (owner 2026-08-08: "sealed year bad
+     terminology. call it lockbox"). IS / WF / LB are the only three stage names.
+   • **NEVER write a bare gate name like "sample" or "consistency"** (owner 2026-08-08: "bad term.
+     again. sample meaning WF or LB?"). Always name the WINDOW and the measured quantity:
+     "IS trades-per-knob 25.5 (floor 30)", "WF folds 5/8 (floor 6/8)", "LB trades 15". A gate label
+     without its window and number is incomplete.
+   • Money in $ with thousands separators; PF and net/DD to 2 dp; Verdict is one of
+     ⭐ champion / 🟡 candidate / ⏸️ parked / ❌ dead, plus a ≤6-word reason.
 
 ## Delegate execution to Sonnet; you stay the supervisor (owner ask, 2026-07-21)
 Owner: "spawn the top sonnet agent for simpler tasks to save tokens (simple executions, codes etc)
