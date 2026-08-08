@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.2';
+const VERSION='71.3';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.3',date:'2026-08-08',notes:['The two chart views carry no section letter any more - they are simply the CHAMPION and FUNNEL tabs. The 1A prefix is gone from the champion title and the 2A prefix is gone from the funnel title; everything else keeps its letter.']},
 {v:'71.2',date:'2026-08-08',notes:['COMPARE has a third mode: RUNBOARD — compare whole BOOKS (deployable strategy combinations) instead of individual runs. Each row is one book scored as ONE strategy, with every leg trade pooled, so PF and MAR are true book numbers.','RUNBOARD: SAMPLE flips every column between FULL, IS and LB (the lockbox year), and RANK BY re-sorts on MAR, PF, NET or MAX DD. Both choices are remembered.','The STRATEGY column names the book (BLEND = two strategies side by side, 1 contract each) and the VERSION column says what is different about that book.']},
 {v:'71.1',date:'2026-08-08',notes:['2A FUNNEL gutter pills, the REAL cause: a de-collide pass was pushing eleven pills 8 units apart so they would not overlap, which walked nine of them off the lines they label. Only the lines that are actually drawn get a pill now, so there is nothing to fan out and each pill sits on its line. Turning the full config cloud back on brings its pills back with it.','The 1E KPI matrix sits tighter vertically - the same padding rhythm the RAW and GATE matrices use.']},
 {v:'71.0',date:'2026-08-08',notes:['NOISE 1.0 gained a protective stop (stop_mode / stop_k, default OFF so nothing changes unless you opt in). NOISE had no stop before this - only a VWAP cross - so a bad breakout could run a long way before exiting. The researched setting (bandwidth mode, k=1.0) lifts net 254.4k to 268.4k, cuts max drawdown 31.2k to 21.7k, cuts the worst single trade 15.5k to 4.7k, and MAR moves 8.14 to 12.39, reviewer audited pre-lockbox. This variant has NOT been tested on the held-out year - the lockbox for this family is spent, so it is paper-forward only. See BACKTESTING_STACK.md section 3 for the full record.']},
@@ -8137,7 +8138,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +_ctlHeat(!!_b2heat)
         +'</div>'+_b2sampMenu+_b2rankMenu;
       return {table:table,tip:tip,sub:sub,ctrls:_b2Ctrls};};
-    const topEqOverlayHtml=(d,mult,tag,sink)=>{
+    // v71.2 (owner: "maybe just dont have a 1a or 2a on champion or funnel. leave them as just
+    //   tabs"): noTag keeps the tag doing its job in the logic below while dropping it from the
+    //   printed title, so the card reads CHAMPION / FUNNEL and nothing else.
+    const topEqOverlayHtml=(d,mult,tag,sink,noTag)=>{
       const etop=d&&d.equity_top;if(!etop||etop.length<2)return '';
       const isL=/^L/.test(tag||'');
       // ── #88b (owner 2026-07-21, "put it ON the 2a chart"): on a validate run with a
@@ -8785,8 +8789,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v64.25 (owner): ⓘ right after the tag (1A pattern), the funnel-path caption lives in the
       //   info box, and the configs slider is right-aligned on the title row.
       const _hdr=selMode
-        ?(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_selTip+'<br><br>Path: all configs → IS door → top-K walk-forward → top-3 lockbox.</div>')+' 🔻 CONFIG FUNNEL <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex-shrink:1;min-width:0;overflow:hidden;white-space:nowrap">'+_a2SampSel+_gateChip+cfgSlider+'</span></div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
-        :(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+tag+' '+_infoIc('<div style="color:var(--text2)">'+_eqTip+'</div>')+' TOP CONFIGS PNL'+selDrop+'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px">'+_gateChipNS+cfgSlider+'</span></div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
+        ?(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+(noTag?'':tag+' ')+_infoIc('<div style="color:var(--text2)">'+_selTip+'<br><br>Path: all configs → IS door → top-K walk-forward → top-3 lockbox.</div>')+' 🔻 CONFIG FUNNEL <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex-shrink:1;min-width:0;overflow:hidden;white-space:nowrap">'+_a2SampSel+_gateChip+cfgSlider+'</span></div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
+        :(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+(noTag?'':tag+' ')+_infoIc('<div style="color:var(--text2)">'+_eqTip+'</div>')+' TOP CONFIGS PNL'+selDrop+'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px">'+_gateChipNS+cfgSlider+'</span></div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
       // v64.46 (owner): the funnel (selMode) now ALSO carries a data-xh descriptor, so the expand
       //   modal's crosshair shows date + equity $ under the cursor (same readout as 1A). x is a
       //   linear date interp across the whole window (optimize start → lockbox end) — approximate
@@ -11562,7 +11566,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // real per-section + TOTAL accounting; this panel just draws the curve.
         _cardSty=_card;
         _eqChart=''
-          +'<div style="display:flex;align-items:center;gap:10px;margin:0 0 4px;flex-wrap:wrap"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1A '+_infoIc(_ipAB('The champion config equity curve, chronological: in-sample + walk-forward first (green), then the purple LOCKBOX holdout the optimizer never saw. The labels inside the top of the chart mark its three sections: IS = in-sample, WF = walk-forward, LB = lockbox (with its held/fail mark). Blue bands = the walk-forward test windows; pink segments = high-water marks; the red pane below = underwater drawdown on the same time axis. Double-click expands with a live crosshair and trade blotter. GRAPH DETAIL thins only the drawn line — never the totals.','best config · 1 contract · whole run'))+' CHAMPION EQUITY</span><span style="display:flex;align-items:center;gap:6px;font-size:8px;color:var(--text5)"><span style="letter-spacing:.5px">GRAPH DETAIL</span><input type="range" class="fillrng" min="5" max="100" step="5" value="'+Math.round((window._eqDetail||1)*100)+'" oninput="this.nextElementSibling.textContent=this.value+\'%\';this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-5)/95*100)+\'%,var(--bg1) 0)\'" onchange="window._eqDetail=+this.value/100;renderApp()" style="width:120px;background:linear-gradient(90deg,var(--blue) '+(((Math.round((window._eqDetail||1)*100))-5)/95*100).toFixed(1)+'%,var(--bg1) 0)"><span>'+Math.round((window._eqDetail||1)*100)+'%</span></span></div>'
+          +'<div style="display:flex;align-items:center;gap:10px;margin:0 0 4px;flex-wrap:wrap"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_infoIc(_ipAB('The champion config equity curve, chronological: in-sample + walk-forward first (green), then the purple LOCKBOX holdout the optimizer never saw. The labels inside the top of the chart mark its three sections: IS = in-sample, WF = walk-forward, LB = lockbox (with its held/fail mark). Blue bands = the walk-forward test windows; pink segments = high-water marks; the red pane below = underwater drawdown on the same time axis. Double-click expands with a live crosshair and trade blotter. GRAPH DETAIL thins only the drawn line — never the totals.','best config · 1 contract · whole run'))+' CHAMPION EQUITY</span><span style="display:flex;align-items:center;gap:6px;font-size:8px;color:var(--text5)"><span style="letter-spacing:.5px">GRAPH DETAIL</span><input type="range" class="fillrng" min="5" max="100" step="5" value="'+Math.round((window._eqDetail||1)*100)+'" oninput="this.nextElementSibling.textContent=this.value+\'%\';this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-5)/95*100)+\'%,var(--bg1) 0)\'" onchange="window._eqDetail=+this.value/100;renderApp()" style="width:120px;background:linear-gradient(90deg,var(--blue) '+(((Math.round((window._eqDetail||1)*100))-5)/95*100).toFixed(1)+'%,var(--bg1) 0)"><span>'+Math.round((window._eqDetail||1)*100)+'%</span></span></div>'
           +'<div id="res-step-8" style="scroll-margin-top:64px"'+_eqxA+'>'+championEquityHtml(_V,mlt,d.top10_results,1)+'</div>';
         _eqRest=''
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
@@ -11724,7 +11728,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    4A neighbour robustness · 4B config-PnL distribution. (CLASSIC shows the same tags —
       //    they are dashboard coordinates, not classic section numbers.) ──
       const _eqSink={};
-      const _eq=((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt,_cfgN+'A',_eqSink):'');
+      const _eq=((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt,_cfgN+'A',_eqSink,1):'');
       // v64.88 (item 1/2, owner redesign): the SELECTION DETAIL crown-pool table is promoted
       //   out of the 2A card into its own 2B CONFIGS · RAW tile — built here (independent of
       //   whether 2A itself rendered) from d.selection directly; only the CONFIG # column needs
@@ -12470,8 +12474,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // v70.4 (owner): 2A rides inside 1A as a tab, 2B (and its own tabs) inside 1E.
           if(_eqInner&&_eq){
             var _eqTab=(String(APREF.eqTab||'')==='funnel')?'funnel':'chart';
-            var _eqTabs=_tabStrip([['chart','1A CHAMPION','the champion config equity curve, chronological - in-sample, walk-forward, then the sealed lockbox'],
-                                   ['funnel','2A FUNNEL','every tested config drawn as a funnel: many at the in-sample door, the top-K past it, the survivors through the lockbox']]
+            var _eqTabs=_tabStrip([['chart','CHAMPION','the champion config equity curve, chronological - in-sample, walk-forward, then the sealed lockbox'],
+                                   ['funnel','FUNNEL','every tested config drawn as a funnel: many at the in-sample door, the top-K past it, the survivors through the lockbox']]
               .map(function(t){return _tabBtn('data-eqtab="'+t[0]+'"',t[1],_eqTab===t[0],t[2]);}).join(''),false);
             _panelEquity='<div style="'+_cardSty+';height:100%;box-sizing:border-box">'
               +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px"><span style="margin-left:auto;flex-shrink:0">'+_eqTabs+'</span></div>'
