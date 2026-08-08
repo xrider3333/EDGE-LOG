@@ -442,11 +442,12 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='70.4';
+const VERSION='70.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
 {v:'69.5',date:'2026-08-07',notes:['FIX: switching to the ML GATE tab in 69.4 blanked the report - the verdict chip was built inside an inner block the new merged header could not reach. The chip is now shared properly and the tab switches cleanly.']},
+{v:'70.5',date:'2026-08-08',notes:['Fix from the 70.4 merge: switching to the 2A FUNNEL tab was hiding 1B MONTHLY P&L, 1C WALK-FORWARD and 1D STRESS along with the champion chart. The tab now swaps ONLY the chart - the three panels below stay on screen on both tabs.']},
 {v:'70.4',date:'2026-08-08',notes:['2A CONFIG FUNNEL now lives INSIDE the 1A card as a tab - 1A CHAMPION first, 2A FUNNEL second. It no longer takes its own column in section 2.','2B moved INSIDE the 1E card, and 1E became the first tab: KPI, RAW, GATE, TILT, HYBRID, HYBRID recycle, HYBRID falling-chart - seven tabs, one card.','1E money cells print in the same compact k format the config tabs use, so 56,814 now reads 57k. The exact dollar figure is on hover.','RECONCILIATION: the 1E IS cell is a RESIDUAL (total minus walk-forward minus lockbox), not a measured slice - its tooltip now says so and points at the RAW and GATE tabs for the exact calendar figure. The RAW MAX DD row is relabelled MAX DD IS+WF because it covers the optimize window only, while the GATE and KPI drawdowns include the lockbox.']},
 {v:'70.3',date:'2026-08-08',notes:['2A CONFIG FUNNEL key rows renamed to match the new tab names - RAW, GATE, TILT, HYBRID. They still carried the old ML prefix and the retired 2D / 2E section letters.']},
 {v:'70.2',date:'2026-08-07',notes:['2B tab labels shortened: RAW, GATE, TILT, HYBRID - the ML prefix is gone from the chips.','The three hybrid sizing views are three separate TABS now instead of a second switcher inside the card: HYBRID (one lot), HYBRID with the recycle mark (redeploy) and HYBRID with the falling-chart mark (equal drawdown). The active view is named on a chip under the table.','SAMPLE is no longer a drop-down anywhere. The IS / WF / LB chips sit inline in the control row and tick or untick on click. RANK stays a menu because it is a single pick with long labels.']},
@@ -11467,6 +11468,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   cards keep their INNER html separately so the §1 assembly below can re-wrap them with
       //   a tab strip and swap in the §2 funnel / config matrices.
       let _eqInner='',_kpiInner='',_cardSty='',_mtipRef='';
+      // v70.5: the 1A card splits into the CHART (what the 1A / 2A tab swaps) and the REST
+      //   (1B monthly, 1C walk-forward, 1D stress) which stays on screen either way.
+      let _eqChart='',_eqRest='';
       if(d.validate){const _V=d.validate,_lb=_V.lockbox||{};
         // 1D/1G/1I show WHOLE-RUN champion behaviour on new runs (engine full-window pass); older runs fall back to the in-sample slice.
         // v64.21: runs saved BEFORE the 2026-07-22 runner fix never carried the scope tag —
@@ -11484,12 +11488,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // (1b), which was the single biggest source of confusion. The matrix carries the
         // real per-section + TOTAL accounting; this panel just draws the curve.
         _cardSty=_card;
-        _eqInner=''
+        _eqChart=''
           +'<div style="display:flex;align-items:center;gap:10px;margin:0 0 4px;flex-wrap:wrap"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1A '+_infoIc(_ipAB('The champion config equity curve, chronological: in-sample + walk-forward first (green), then the purple LOCKBOX holdout the optimizer never saw. The labels inside the top of the chart mark its three sections: IS = in-sample, WF = walk-forward, LB = lockbox (with its held/fail mark). Blue bands = the walk-forward test windows; pink segments = high-water marks; the red pane below = underwater drawdown on the same time axis. Double-click expands with a live crosshair and trade blotter. GRAPH DETAIL thins only the drawn line — never the totals.','best config · 1 contract · whole run'))+' CHAMPION EQUITY</span><span style="display:flex;align-items:center;gap:6px;font-size:8px;color:var(--text5)"><span style="letter-spacing:.5px">GRAPH DETAIL</span><input type="range" class="fillrng" min="5" max="100" step="5" value="'+Math.round((window._eqDetail||1)*100)+'" oninput="this.nextElementSibling.textContent=this.value+\'%\';this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-5)/95*100)+\'%,var(--bg1) 0)\'" onchange="window._eqDetail=+this.value/100;renderApp()" style="width:120px;background:linear-gradient(90deg,var(--blue) '+(((Math.round((window._eqDetail||1)*100))-5)/95*100).toFixed(1)+'%,var(--bg1) 0)"><span>'+Math.round((window._eqDetail||1)*100)+'%</span></span></div>'
-          +'<div id="res-step-8" style="scroll-margin-top:64px"'+_eqxA+'>'+championEquityHtml(_V,mlt,d.top10_results,1)+'</div>'
+          +'<div id="res-step-8" style="scroll-margin-top:64px"'+_eqxA+'>'+championEquityHtml(_V,mlt,d.top10_results,1)+'</div>';
+        _eqRest=''
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
           +((wf=>wf?'<div style="margin-top:4px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
           +((st=>st?'<div style="margin-top:5px">'+st+'</div>':'')(stressPanelHtml(d.stress,mlt,'1D',_dscope)));
+        _eqInner=_eqChart+_eqRest;
         _panelEquity='<div style="'+_card+';height:100%;box-sizing:border-box">'+_eqInner+'</div>';
         // 1H header: title (description on hover) with the calculated stats pinned to the right — the standard chart-header pattern.
         const _dsrBlock='<div style="margin-top:14px"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1I '+_infoIc(_ipAB(dsrTip,dsrStats))+' DEFLATED SHARPE</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>';
@@ -12386,7 +12392,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               .map(function(t){return _tabBtn('data-eqtab="'+t[0]+'"',t[1],_eqTab===t[0],t[2]);}).join(''),false);
             _panelEquity='<div style="'+_cardSty+';height:100%;box-sizing:border-box">'
               +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px"><span style="margin-left:auto;flex-shrink:0">'+_eqTabs+'</span></div>'
-              +(_eqTab==='funnel'?_eq:_eqInner)+'</div>';
+              +(_eqTab==='funnel'?_eq:_eqChart)+_eqRest+'</div>';
           }
           if(_kpiInner&&_cfgInner){
             _panelMatrix='<div style="'+_cardSty+';height:100%;box-sizing:border-box">'+_cfgInner+'</div>';
