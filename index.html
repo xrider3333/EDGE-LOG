@@ -442,11 +442,12 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='70.2';
+const VERSION='70.3';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
 {v:'69.5',date:'2026-08-07',notes:['FIX: switching to the ML GATE tab in 69.4 blanked the report - the verdict chip was built inside an inner block the new merged header could not reach. The chip is now shared properly and the tab switches cleanly.']},
+{v:'70.3',date:'2026-08-08',notes:['2A CONFIG FUNNEL key rows renamed to match the new tab names - RAW, GATE, TILT, HYBRID. They still carried the old ML prefix and the retired 2D / 2E section letters.']},
 {v:'70.2',date:'2026-08-07',notes:['2B tab labels shortened: RAW, GATE, TILT, HYBRID - the ML prefix is gone from the chips.','The three hybrid sizing views are three separate TABS now instead of a second switcher inside the card: HYBRID (one lot), HYBRID with the recycle mark (redeploy) and HYBRID with the falling-chart mark (equal drawdown). The active view is named on a chip under the table.','SAMPLE is no longer a drop-down anywhere. The IS / WF / LB chips sit inline in the control row and tick or untick on click. RANK stays a menu because it is a single pick with long labels.']},
 {v:'70.1',date:'2026-08-07',notes:['2B CONFIGS is now ONE card with FOUR tabs - RAW CONFIGS, ML GATE, ML TILT, ML HYBRID. The separate 2D ML SIZING tile is gone; its two views became the last two tabs.','The tab strip sits hard right on the title row and SAMPLE / RANK / HEAT sit directly UNDERNEATH it, also hard right. On the ML HYBRID tab the ONE LOT / REDEPLOY / EQUAL DD switcher joins that same control row.','Every warning, chip and explanatory line moved BELOW the table: the ML GATE verdict chip, the COMPARISON ONLY badge and the one-line description of each sizing tab now sit under the matrix behind a divider, instead of crowding the title row.','The hide arrow is gone from 2B - the card is permanently displayed.']},
 {v:'70.0',date:'2026-08-07',notes:['2B CONFIGS and 2D ML SIZING title rows: the controls, the tabs and the hide arrow now travel as one right-aligned group, so a narrow column drops the whole group to a second line still flush right instead of stranding the tabs on the left.','The ONE LOT / REDEPLOY / EQUAL DD switcher inside 2D ML HYBRID is drawn as tabs too, matching the section title row.']},
@@ -8711,8 +8712,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         _keyBox='<div data-a2krow style="position:absolute;top:8px;left:8px;background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;z-index:3">'
           +_kr('raw','👑 RAW',(_crV!=null?_crV:null),'#1d9e75')
           +(_hasGate?_kr('gate','GATE',_gateEndV,'#e05fa0'):'')
-          +(_tiltEnd!=null?_kr('tilt','ML TILT (2D)',_tiltEnd,'#f0b429'):'')
-          +(_hybEnd!=null?_kr('hyb','ML HYBRID (2E)',_hybEnd,'#c084fc'):'')
+          +(_tiltEnd!=null?_kr('tilt','TILT',_tiltEnd,'#f0b429'):'')
+          +(_hybEnd!=null?_kr('hyb','HYBRID',_hybEnd,'#c084fc'):'')
           +'</div>';
         // v64.98 (owner: "add these to 2A as well"): the SAMPLE control is SHARED with the 2C
         //   matrix — one setting, both tiles agree — and here it dims the stretch you are not
