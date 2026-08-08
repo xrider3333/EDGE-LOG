@@ -4,7 +4,7 @@
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
 - **Last updated:** 2026-08-08
-- **Web VERSION:** 70.7 · **Stack board (`method_stack.html`):** v4.1
+- **Web VERSION:** 71.0 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
 > **Plain-language rule** (owner preference): every technical term is defined in
@@ -578,6 +578,18 @@ external-conditioning diagnostic. Both come back empty — and the emptiness is 
 - **2026-08-05 — status change: promoted to backend-testable plugin `NOISE_1_0.py`** (owner-directed:
   it passes the IS/WF bar the owner set; ES-transfer caveat and unspent lockbox carried in the file
   docstring). Parity-gated to the round-11 frozen numbers; runnable in Builder → Auto-Validate.
+- **2026-08-08 — protective stop found and validated (pre-lockbox), reviewer-audited.** NOISE had NO
+  stop (VWAP cross only), which is why its tail was naked (worst trade −$15,466). A stop at **1.0 ×
+  the entry bar's own band excursion** improves every axis at once: net $254.4k→**$268.4k**, maxDD
+  −$31.2k→**−$21.7k**, worst trade −$15.5k→**−$4.7k**, MAR 8.14→**12.39** (271 stops / 3,185 trades).
+  Audit: stop-disabled reproduces baseline to the cent; 0 stops on the entry bar; 0 optimistic fills;
+  tail genuinely truncated. Mechanism: after a breakout entry the VWAP exit sits far behind, so
+  losers ran unchecked; the stop cuts exactly that, and the freed position re-enters. **Caveats: the
+  family's lockbox is SPENT — this variant is NOT holdout-tested (paper-forward only) — and the stop
+  does NOT fix regime concentration (pre-2018 stays ~6% of profit).** Time stops, EMA-cross and
+  chandelier replacements were all worse than baseline. Files: `augur_strategies/NOISE_1_0.py`
+  (stop_mode/stop_k, default off), `tools/noise_exits_research.py`,
+  `docs/samples/noise_exits_report.md`.
 
 **2026-07-17 — challenger round 13 (owner: import + test TradingView's most-boosted community
 strategies): 12 verbatim Pine→Python ports, ~250 pre-registered cells — 0 of 12 survive triage.
@@ -1105,6 +1117,15 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-08** — **NOISE: validated band-width protective stop shipped (default off, `stop_mode`/
+  `stop_k` in `augur_strategies/NOISE_1_0.py`).** NOISE had NO stop (VWAP cross only) → naked tail
+  (worst trade −$15,466). Round-16 research (25 exit/stop variants, pre-registered adoption rule)
+  found the winner: a stop at 1.0 × the entry bar's own band excursion — net $254.4k→$268.4k, maxDD
+  −$31.2k→−$21.7k, worst trade −$15.5k→−$4.7k, MAR 8.14→12.39, reviewer-audited (baseline parity
+  exact, 0 entry-bar stops, 0 optimistic fills). Family's lockbox is SPENT → paper-forward only, not
+  holdout-tested; does not fix the ~6%-of-profit pre-2018 regime concentration. Research engine
+  promoted `scratchpad/noise_exits.py` → `tools/noise_exits_research.py`; report copied to
+  `docs/samples/noise_exits_report.md`. See §3 NOISE challenger block for the full record.
 - **2026-08-08** — **Owner "test these" batch (t1/t2/t3, drivers committed to tools/): ENS-leg re-read
   on certified legs · overlay sensitivity · ETH frozen WF — all three decisive.**
   **(t1) ENS blend re-test on CERTIFIED legs:** transfer-sweep "gate-floor crown" (stop 1.75/4.0R/
