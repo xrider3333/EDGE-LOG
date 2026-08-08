@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='70.7';
+const VERSION='70.8';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'70.8',date:'2026-08-08',notes:['THE KPI TAB NOW AGREES WITH RAW AND GATE. Every column - IS, WF, LB and TOTAL - is rebuilt from ONE source: the champion own trade list, sliced at the real calendar boundaries. Net, trades, drawdown, profit factor and win rate all describe the same trades over the same dates.','What changed in numbers on run 200: IS net 56,814 becomes 52,053 (it was a residual, not a measurement), WF net 361,110 becomes 365,871 (the crowned config, not the re-optimising procedure), IS max drawdown 10,611 becomes 4,702 (it came from a third measurement), and TOTAL trades 3,948 becomes 3,952 (it was three counts from three backtests added together).','Each column drawdown is now the deepest dip INSIDE that stretch, and TOTAL is the deepest dip on the whole curve - so the drawdown row follows the section you are reading, exactly as the returns do.','NEW WF OOS chip on the 1E title row carries the walk-forward PROCEDURE result - the folds each re-picking their own config - so that number is not lost, it just stops being mixed into the champion column.','The Feasibility header chip counted a different trade set again; it now reports the champion own total.']},
 {v:'70.7',date:'2026-08-08',notes:['DOCS: the visual PnL and price-action report is now specced - docs/VISUAL_TRADE_REPORT.md, with a working prototype promoted into the repo (docs/samples/noise_visual_report.html, tools/build_visual_report.py). No UI change yet - this is the build plan for a candle-chart view per trade, recommended Phase A next.']},
 {v:'69.5',date:'2026-08-07',notes:['FIX: switching to the ML GATE tab in 69.4 blanked the report - the verdict chip was built inside an inner block the new merged header could not reach. The chip is now shared properly and the tab switches cleanly.']},
 {v:'70.6',date:'2026-08-08',notes:['1E MATRIX is now DUPLICATED side by side - two identical cards, each remembering its own tab, so any two tabs can be read against each other without switching back and forth.','2A FUNNEL gutter pills were genuinely misaligned: the plot sits in a box with 6px of vertical padding, so the drawing area is 12px shorter than the gutter beside it, and the percent positions drifted up to 6px away from the line they label. Pills and scale numbers now share the same measuring box and centre exactly.','2A FUNNEL opens as one line per family - the grey cloud, the in-sample max and the other walk-forward survivors start hidden. Click the RAW key row to bring them back; the choice sticks.']},
@@ -9548,6 +9549,40 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {sh_:'TOTAL', total:true, col:'var(--green)', dr:_dr(optS,lbE), days:_days(optS,lbE), bars:totBars, net:nTOT, dd:ddTOT, pf:totPf, wr:(V.total_win_rate!=null?+V.total_win_rate:null), aw:(V.total_avg_win!=null?(+V.total_avg_win)*mult:awTOT.aw), al:(V.total_avg_loss!=null?(+V.total_avg_loss)*mult:awTOT.al), sh:(V.total_sharpe!=null?+V.total_sharpe:null), sortino:(V.total_sortino!=null?+V.total_sortino:null), tr:totTr,
           tip:'TOTAL = the whole backtest = IN-SAMPLE + WALK-FORWARD + LOCKBOX. NET P&L is the equity curve\'s endpoint — the three sections add up to it. Win% & Sharpe are the champion measured over the whole window.'}
       ].filter(Boolean);
+      // ── v70.7 (owner: "what im going after is whats most accurate for the configs
+      //    performance. so which do you recommend. fix it") ──────────────────────────────────
+      //    Every column is now rebuilt from ONE source: the champion's own trade list, sliced by
+      //    the real calendar boundaries. Net, trades, drawdown, PF and win% then all describe the
+      //    SAME trades over the SAME dates, which is what makes this matrix agree with the RAW
+      //    and GATE tabs. Before, NET was a residual, TRADES came from fold-1 plus the fold OOS
+      //    counts of RE-OPTIMISED configs, and the in-sample drawdown came from a third
+      //    measurement — three methods in one table. Runs without these saved stats fall back to
+      //    the old derivation untouched.
+      const _Guv=d.gate_validate||d.ml_gate||null;
+      const _uOf=k=>{const x=_Guv&&_Guv[k];return (x&&x.num_trades!=null&&x.total_pnl!=null)?x:null;};
+      const _uIS=_uOf('ungated_is'),_uWF=_uOf('ungated_wf'),_uLB=_uOf('ungated_lockbox'),_uAL=_uOf('ungated_full');
+      const _wfProc=folds.length?(folds.reduce((a,f)=>a+(+f.oos_pnl||0),0)*mult):null;
+      let _exact=false;
+      if(_uIS&&_uWF&&_uLB&&_uAL){
+        _exact=true;
+        const _ms=x=>x?+new Date(x):null;
+        const _gS=_ms((_Guv.span||[])[0]),_gW=_ms((_Guv.wf_range||[])[0]),_gL=_ms(_Guv.lockbox_from),_gE=_ms((_Guv.span||[])[1]);
+        const _awl2=x=>{const net=+x.total_pnl,pf=+x.profit_factor,nw=+x.wins||0,nl=+x.losses||0;
+          if(!(pf>1)||!nw||!nl)return{aw:null,al:null};const gl=net/(pf-1),gp=pf*gl;return{aw:gp/nw*mult,al:gl/nl*mult};};
+        const _mkU=(x,a,b)=>{const w=_awl2(x);return {net:(+x.total_pnl)*mult,tr:+x.num_trades,
+          dd:(x.max_drawdown!=null?Math.abs(+x.max_drawdown)*mult:null),
+          pf:(x.profit_factor!=null?+x.profit_factor:null),wr:(x.win_rate!=null?+x.win_rate:null),
+          aw:w.aw,al:w.al,days:_days(a,b),dr:_dr(a,b)};};
+        const _uMap={IS:_mkU(_uIS,_gS,_gW),WF:_mkU(_uWF,_gW,_gL),LB:_mkU(_uLB,_gL,_gE),TOTAL:_mkU(_uAL,_gS,_gE)};
+        // TOTAL drawdown is the deepest dip on the WHOLE curve, not the deepest of the sections.
+        if(V.total_dd!=null)_uMap.TOTAL.dd=Math.abs(+V.total_dd)*mult;
+        phases.forEach(ph=>{const o=_uMap[ph.sh_];if(!o)return;
+          Object.keys(o).forEach(k=>{if(o[k]!=null)ph[k]=o[k];});
+          ph.tip=({IS:'IN-SAMPLE = the years before walk-forward testing starts - the stretch no fold ever tested out-of-sample. Every figure here is the CHAMPION own trades over these exact dates, the same numbers the RAW and GATE tabs show.',
+                   WF:'WALK-FORWARD = the years the folds tested over. Every figure here is the CHAMPION held constant across those years. The separate WF OOS chip on the title row is the walk-forward PROCEDURE result, where each fold re-picks its own config - a different question.',
+                   LB:'LOCKBOX = the sealed final year, opened once after the winner was already chosen.',
+                   TOTAL:'TOTAL = the whole backtest. NET, TRADES and the section figures all come from the champion own trade list, so the three sections add up exactly. MAX DD is the deepest dip on the whole curve, which is why it is deeper than any single section.'})[ph.sh_]||ph.tip;});
+      }
       const _pf=v=>(v==null||!isFinite(v)||v<=0)?'—':Math.min(v,99).toFixed(2);
       const _sh=v=>(v==null||!isFinite(v))?'—':(+v).toFixed(2);
       const _wr=v=>(v==null||!isFinite(v))?'—':(+v).toFixed(0)+'%';
@@ -9594,6 +9629,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +(V.n_pass!=null?_pill('GATES',V.n_pass+'/'+_ng,(V.n_pass>=_ng?'var(--green)':'var(--yellow)')):'')
         +(V.dsr!=null?_pill('DSR',(+V.dsr).toFixed(2),((+V.dsr)>=0.95?'var(--green)':(+V.dsr)>=0.8?'var(--yellow)':'var(--red)'),'deflated Sharpe (selection-luck haircut) — ≥0.95 solid'):'')
         +(_calmar!=null&&isFinite(_calmar)?_pill('CALMAR',_calmar.toFixed(2),'var(--text)','Calmar = CAGR ÷ max-drawdown-%, last 3 years, on a $100k account. Like MAR (ann.) but recent-only — flags a strategy decaying lately.'):'')
+        +((_exact&&_wfProc!=null)?_pill('WF OOS',fmtAx(_wfProc,1),C_WF,'The walk-forward PROCEDURE result: eight folds, each re-picking its OWN best config for its own test slice. This is the out-of-sample evidence and it matches the 1C chart. The WF column in the table is a different question — the crowned config held constant across the same years.'):'')
         +'</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 4px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
     };
@@ -11365,7 +11401,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // SHORT stat shown inside each pill (e.g. "7/7", "PF 2.10") — the headline number
       // that earned the pass/fail. Kept terse on purpose.
       const _stat={};
-      _stat.feasibility=((+d.best_trades||0)>0)?((d.best_trades||0).toLocaleString()+'T'):'';
+      // v70.7 (owner: "fix headership"): the chip printed the run top-level saved trade count,
+      //   which is a DIFFERENT number from the champion's own total. Use the champion's when the
+      //   run carries it, so the chip, the KPI tab and the config tabs all say the same thing.
+      const _fTr=(function(){const g=d.gate_validate||d.ml_gate||null;
+        const n=g&&g.ungated_full&&g.ungated_full.num_trades;return (n!=null&&+n>0)?+n:(+d.best_trades||0);})();
+      _stat.feasibility=(_fTr>0)?(_fTr.toLocaleString()+'T'):'';
       _stat.insample=(d.best_pf!=null)?('PF '+(+d.best_pf||0).toFixed(2)):'';
       _stat.plateau=d.neighborhood?((d.neighborhood.good||0)+'/'+(d.neighborhood.tot||0)):((_V&&_V.plateau&&_V.plateau.tot)?((_V.plateau.good||0)+'/'+_V.plateau.tot):'');
       {const s=d.stress;_stat.stress=(Array.isArray(s)&&s.length>=4)?(s.filter(x=>x>0).length+'/'+s.length):'';}
