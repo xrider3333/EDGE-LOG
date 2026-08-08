@@ -1117,6 +1117,39 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-08** — **🚨 ENGINE DEFECT: the LB verdict is computed on an INDEPENDENT WARM-START RELOAD,
+  not on the continuous run — it can both INVENT and DELETE lockbox trades. Two confirmed cases.**
+  `run_validate` grades the lockbox by reloading the master from `lockbox_from` with no prior history.
+  Any config whose state is path-dependent, or whose lookbacks need warm-up, gets a LB verdict that
+  does not correspond to trading it continuously. Confirmed in both directions:
+  • **INVENTS (run #198, ETH):** continuous run takes its LAST entry 2025-04-07 and holds it 449 days
+    (marked out at the final bar, worth $255,974 = 38.9% of that run's entire profit — an accidental
+    buy-and-hold from 17,553; trail 4R + act 2.5R + no EOD flat on 24h bars = trail never triggers).
+    Continuous LB trades = **0**; reload LB = **126 / $53,792 / PF 1.46 → "PASS"**. Closed-trade net is
+    $401,360, not $657,334.
+  • **DELETES (2m sample-floor rerun, min_trades=330, champion regime_len=95 / ema 200):** reload
+    warm-up eats **282 days of the 12-month LB** (first reload entry 2026-04-08 vs continuous
+    2025-08-20). Engine graded 9 trades / $57,439 / PF 2.19 → **verdict PASS 6/6**. Honest continuous
+    LB = **38 trades / $41,130 / PF 1.34 / net-DD 0.89** — the PASS was scored on the last 2.7 months.
+    Continuous full run is otherwise clean (550 tr, $436,417, DD $46,417, trades through 2026-06-29).
+  **GUARD (proposed, not built):** run the champion continuously over the full window, slice the LB by
+  ENTRY time, report BOTH counts, flag material divergence. Also warm-start the reload (load
+  pre-boundary history, count only post-boundary entries) so long-lookback configs aren't graded on a
+  truncated window. Until built, **no validate PASS is trustworthy without the continuous cross-check**
+  — applies retroactively to every strategy, not just ENGU-Q.
+  **2m verdict after the honest check:** real edge, but LB $41,130 / PF 1.34 / net-DD 0.89 on 38 trades
+  is BELOW champion #149 (LB $68,322 / PF 1.44 / net-DD 1.04 on 84) — parked, not a replacement. The
+  sample-floor fix itself worked as designed (IS trades-per-knob 25.5→34.7, WF folds 5/8→7/8,
+  PBO 0.72→0.47, verdict FAIL→PASS).
+- **2026-08-08** — **ENGU-Q ML family (GATE · TILT · HYBRID) = DEAD under the house crowning rule.**
+  Hybrid rows (v68.5) had never run on ENGU-Q — reran the full bake-off (gate + 6 tilts + 3 hybrids,
+  #149 params, pinned window). **PRE-LB ranking is INVERTED vs LB, every time:** xgb wins PRE (tilt
+  linear $838,046 PF 1.77; hybrid linear $516,800 PF 1.98) and is worst in LB (−$24,572 / −$39,332);
+  logistic is last in PRE and best in LB (tilt tier $92,811 PF 1.62; hybrid linear $77,067 PF 1.59, both
+  above raw $68,322 PF 1.44). Crowning on PRE — the pre-registered rule — picks xgb and loses money in
+  LB. Model capacity is INVERSELY related to LB result (xgb<rf<logistic) = the signature of fitting
+  noise. Logistic rows are visible only by post-hoc inspection of all 7 = lockbox shopping; if wanted it
+  must be declared in advance for one fresh look. RAW #149 stays the champion.
 - **2026-08-08** — **NOISE: validated band-width protective stop shipped (default off, `stop_mode`/
   `stop_k` in `augur_strategies/NOISE_1_0.py`).** NOISE had NO stop (VWAP cross only) → naked tail
   (worst trade −$15,466). Round-16 research (25 exit/stop variants, pre-registered adoption rule)
