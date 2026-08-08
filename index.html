@@ -442,11 +442,12 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='69.9';
+const VERSION='70.0';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
 {v:'69.5',date:'2026-08-07',notes:['FIX: switching to the ML GATE tab in 69.4 blanked the report - the verdict chip was built inside an inner block the new merged header could not reach. The chip is now shared properly and the tab switches cleanly.']},
+{v:'70.0',date:'2026-08-07',notes:['2B CONFIGS and 2D ML SIZING title rows: the controls, the tabs and the hide arrow now travel as one right-aligned group, so a narrow column drops the whole group to a second line still flush right instead of stranding the tabs on the left.','The ONE LOT / REDEPLOY / EQUAL DD switcher inside 2D ML HYBRID is drawn as tabs too, matching the section title row.']},
 {v:'69.9',date:'2026-08-07',notes:['2E CONFIG DISTRIBUTION: found the real reason the IS MAX line could not be seen - on this run the walk-forward crown lands on the SAME config, so the green crown line was drawn straight over the blue IS MAX line at the identical dollar figure. When two marks coincide the line now SPLITS vertically: IS MAX takes the top half, the crown the bottom half, both at their true position, and the key says so.']},
 {v:'69.8',date:'2026-08-07',notes:['The drag-to-resize handle bars in section 2 were dead - every one of them. Each tile there is wrapped in its own divider row, so the handle could not find the tile above it and the drag did nothing. All section-2 handles now resize their tile.','2B CONFIGS and 2D ML SIZING: the view switchers moved to the top RIGHT of the title row and are drawn as proper underlined TABS instead of a segmented toggle.','2D ML SIZING fits on screen again. The SIZE RULE row printed a full sentence per column on one line, which alone forced every column to about 170px; it now shows the shape and the cut-off, with the sentence on hover. SIZE MIX lost its thousands separators, and any matrix past 8 columns tightens its padding.','2E CONFIG DISTRIBUTION, 2F 3-D EXPLORER and 2L ML CONFIG BUILDER moved out of the middle column and now stack under 2K in the right column - the middle column is the two big tables alone.','2E CONFIG DISTRIBUTION: the mean, crown, IS MAX and sigma lines are SOLID instead of dashed, each with its own transparency - mean, crown and sigma are deliberately faint, IS MAX is the boldest so it is findable. The chart now draws a real bottom axis rule and the $ numbers under it are brighter on a taller strip.']},
 {v:'69.7',date:'2026-08-07',notes:['2D ML SIZING: LB $ and FULL $ now stay on screen whatever SAMPLE is set to. Every reward/risk and sample row under them is measured on the lockbox, so hiding the LB return row left LB MAR and LB TRADES with nothing to reconcile against. IS and WF still follow the tick.']},
@@ -7837,6 +7838,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //   the 2B CONFIGS and 2D ML SIZING title rows.
     const _tabBtn=(attr,txt,on,tip)=>'<span '+attr+(tip?' title="'+String(tip).replace(/"/g,'&quot;')+'"':'')+' style="cursor:pointer;user-select:none;padding:2px 10px 3px;font-size:8px;font-weight:700;letter-spacing:.4px;white-space:nowrap;color:'+(on?'var(--yellow)':'var(--text4)')+';border-bottom:2px solid '+(on?'var(--yellow)':'transparent')+';margin-bottom:-1px">'+txt+'</span>';
     const _tabStrip=(items,auto)=>'<span style="display:inline-flex;align-items:flex-end;gap:2px;flex-shrink:0;'+(auto?'margin-left:auto;':'')+'border-bottom:1px solid color-mix(in srgb,var(--border) 70%,transparent)">'+items+'</span>';
+    // v70.0 (owner: the tabs must sit TOP RIGHT): the controls, the tab strip and the hide arrow
+    //   travel as ONE right-aligned group, so a narrow column drops the whole group to a second
+    //   line still flush right instead of stranding the tabs on the left.
+    const _hdrRight=inner=>'<span style="display:inline-flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-left:auto;min-width:0">'+inner+'</span>';
     const _ctlHeat=on=>'<span data-g2heat>'+_ctlChip(on,'HEAT','','shade every cell by where it lands across its own row - green best, red worst. Shared by 2B and 2C.')+'</span>';
     // SAMPLE stretches, shared by both matrices so one tick moves both.
     const _segsOf=(all)=>{const raw=String(APREF.g2samp==null?'':APREF.g2samp);
@@ -10783,9 +10788,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
               const _tabs=[['one','ONE LOT','every column averages one contract per trade - the report default. A column that refuses trades simply leaves that capacity idle, so it books fewer dollars.'],
                            ['redeploy','REDEPLOY','sized up until the column spends the same total contracts as the no-gate book - what the freed capacity buys if you put it back to work.'],
                            ['equaldd','EQUAL DD','sized until the column LB drawdown matches the no-gate book - which makes the most money for the SAME pain. Needs no historical ratio.']];
-              return '<span style="display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden">'
+              // v70.0: drawn as tabs, matching the section title row.
+              return '<span style="display:inline-flex;align-items:flex-end;gap:2px;flex-shrink:0;border-bottom:1px solid color-mix(in srgb,var(--border) 70%,transparent)">'
                 +_tabs.map(function(t){const on=(_hybMode===t[0]);
-                  return '<span data-hybmode="'+t[0]+'" title="'+t[2]+'" style="cursor:pointer;padding:1px 7px;font-size:7px;font-weight:700;white-space:nowrap;background:'+(on?'color-mix(in srgb,#f0b429 18%,transparent)':'transparent')+';color:'+(on?'#f0b429':'var(--text4)')+'">'+t[1]+'</span>';}).join('')
+                  return '<span data-hybmode="'+t[0]+'" title="'+String(t[2]).replace(/"/g,'&quot;')+'" style="cursor:pointer;user-select:none;padding:2px 9px 3px;font-size:7.5px;font-weight:700;letter-spacing:.4px;white-space:nowrap;color:'+(on?'#f0b429':'var(--text4)')+';border-bottom:2px solid '+(on?'#f0b429':'transparent')+';margin-bottom:-1px">'+t[1]+'</span>';}).join('')
                 +'</span>';})()
             +_infoIc('<div style="color:var(--text2)">The HYBRID does both: trades under the crowned 2C cut-off are dropped (the gate), and the survivors are sized by confidence (the tilt).<br><br><b>EVERY COLUMN USES THE SAME RATIO</b>: the cut-off is PINNED to the one 2C crowned'+(ch?(' (this run: '+Math.round((ch.threshold||0)*100)+'%)'):'')+' and the sizing is the sliding shape - so the only thing that differs between columns is WHICH MODEL scored the trades. That is why the headers carry no per-column annotation.<br><br>Pinning to the crown means NO new tunable knob exists here.<br><br>Sizes average one lot across the kept trades. Comparison only - adopting the hybrid would need its own pre-registered rule on a strategy with a sealed lockbox. Baselines (no gate, the crowned gate) live in the 2C matrix.</div>')
             +'</div>'+_cmpMatrix(_cmpCols(_hy,'hyb'),_hybMode)+'</div>';})();
@@ -11980,11 +11986,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _cfgTabs=_tabStrip([['raw','RAW CONFIGS',!!_selParts,'the strategy parameter configs the search produced, before any model touches them'],
                                   ['gate','ML GATE',_hasG,'the trade filter: a model scores each entry and the ones under the cut-off are not taken']]
             .filter(function(t){return t[2];})
-            .map(function(t){return _tabBtn('data-cfgtab="'+t[0]+'"',t[1],_cfgTab===t[0],t[3]);}).join(''),!_cCtrls);
+            .map(function(t){return _tabBtn('data-cfgtab="'+t[0]+'"',t[1],_cfgTab===t[0],t[3]);}).join(''),false);
         _cfgSec='<div style="'+_colStyle+';margin-bottom:0;resize:vertical;min-height:52px;max-height:900px">'
           +'<div data-cfg2bc style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow:hidden">'
-          +_cfgN+'B &#129521; CONFIGS '+_cInfo+_cSub+_cCtrls+_cfgTabs
-          +'<span style="font-size:8px;color:var(--text4);flex-shrink:0;margin-left:6px">'+(_cfgOpen?'&#9652; hide':'&#9662; show')+'</span></div>'
+          +_cfgN+'B &#129521; CONFIGS '+_cInfo+_cSub
+          +_hdrRight(_cCtrls+_cfgTabs+'<span style="font-size:8px;color:var(--text4);flex-shrink:0">'+(_cfgOpen?'&#9652; hide':'&#9662; show')+'</span>')+'</div>'
           +_cMenus
           +(_cfgOpen?('<div style="margin-top:9px">'+_cBody+'</div>'):'')
           +'</div>';
@@ -12004,13 +12010,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _szTabs=_tabStrip([['tilt','ML TILT','every trade is taken, only re-sized by model confidence'],
             ['hyb','ML HYBRID','the ML GATE drops the weak trades first, then the survivors are re-sized by confidence']]
             .filter(function(t){return t[0]==='tilt'?!!_gvP.tilts:!!_gvP.hyb;})
-            .map(function(t){return _tabBtn('data-sztab="'+t[0]+'"',t[1],_szTab===t[0],t[2]);}).join(''),!_szC);
+            .map(function(t){return _tabBtn('data-sztab="'+t[0]+'"',t[1],_szTab===t[0],t[2]);}).join(''),false);
         _tiltSec='<div style="'+_colStyle+';margin-bottom:0;resize:vertical;min-height:52px;max-height:900px">'
           +'<div data-tilt2d style="cursor:pointer;user-select:none;margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow:hidden">2D &#127899; ML SIZING '
           +_infoIc('<div style="color:var(--text2)">THE SAME MODELS AS THE 2C ML GATE, SPENT AS SIZE INSTEAD.<br><br>The 2C ML GATE uses a model score as a BOUNCER - under the cut-off, the trade does not happen. This section uses the identical score as a DIMMER - every trade still happens, confident ones get more contracts and doubtful ones get fewer.<br><br>Nothing here can ever be crowned; it exists so the two ways of spending the same model can be compared side by side over the same stretches.</div>')
           +'<span style="border:1px solid var(--yellow);color:var(--yellow);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap">COMPARISON ONLY</span>'
-          +_szC+_szTabs
-          +'<span style="font-size:8px;color:var(--text4);flex-shrink:0;margin-left:6px">'+(_tOpen?'&#9652; hide':'&#9662; show')+'</span></div>'
+          +_hdrRight(_szC+_szTabs+'<span style="font-size:8px;color:var(--text4);flex-shrink:0">'+(_tOpen?'&#9652; hide':'&#9662; show')+'</span>')+'</div>'
           +(_tOpen?('<div style="margin-top:9px">'+((_szTab==='hyb')?(_gvP.hyb||''):(_gvP.tilts||''))+'</div>'):'')
           +'</div>';
       }
