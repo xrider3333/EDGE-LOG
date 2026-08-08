@@ -442,11 +442,12 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='70.3';
+const VERSION='70.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
 {v:'69.5',date:'2026-08-07',notes:['FIX: switching to the ML GATE tab in 69.4 blanked the report - the verdict chip was built inside an inner block the new merged header could not reach. The chip is now shared properly and the tab switches cleanly.']},
+{v:'70.4',date:'2026-08-08',notes:['2A CONFIG FUNNEL now lives INSIDE the 1A card as a tab - 1A CHAMPION first, 2A FUNNEL second. It no longer takes its own column in section 2.','2B moved INSIDE the 1E card, and 1E became the first tab: KPI, RAW, GATE, TILT, HYBRID, HYBRID recycle, HYBRID falling-chart - seven tabs, one card.','1E money cells print in the same compact k format the config tabs use, so 56,814 now reads 57k. The exact dollar figure is on hover.','RECONCILIATION: the 1E IS cell is a RESIDUAL (total minus walk-forward minus lockbox), not a measured slice - its tooltip now says so and points at the RAW and GATE tabs for the exact calendar figure. The RAW MAX DD row is relabelled MAX DD IS+WF because it covers the optimize window only, while the GATE and KPI drawdowns include the lockbox.']},
 {v:'70.3',date:'2026-08-08',notes:['2A CONFIG FUNNEL key rows renamed to match the new tab names - RAW, GATE, TILT, HYBRID. They still carried the old ML prefix and the retired 2D / 2E section letters.']},
 {v:'70.2',date:'2026-08-07',notes:['2B tab labels shortened: RAW, GATE, TILT, HYBRID - the ML prefix is gone from the chips.','The three hybrid sizing views are three separate TABS now instead of a second switcher inside the card: HYBRID (one lot), HYBRID with the recycle mark (redeploy) and HYBRID with the falling-chart mark (equal drawdown). The active view is named on a chip under the table.','SAMPLE is no longer a drop-down anywhere. The IS / WF / LB chips sit inline in the control row and tick or untick on click. RANK stays a menu because it is a single pick with long labels.']},
 {v:'70.1',date:'2026-08-07',notes:['2B CONFIGS is now ONE card with FOUR tabs - RAW CONFIGS, ML GATE, ML TILT, ML HYBRID. The separate 2D ML SIZING tile is gone; its two views became the last two tabs.','The tab strip sits hard right on the title row and SAMPLE / RANK / HEAT sit directly UNDERNEATH it, also hard right. On the ML HYBRID tab the ONE LOT / REDEPLOY / EQUAL DD switcher joins that same control row.','Every warning, chip and explanatory line moved BELOW the table: the ML GATE verdict chip, the COMPARISON ONLY badge and the one-line description of each sizing tab now sit under the matrix behind a divider, instead of crowding the title row.','The hide arrow is gone from 2B - the card is permanently displayed.']},
@@ -8075,7 +8076,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // v64.92 (owner): MAX DD sits directly under TOTAL so profit and the risk taken to get
           //   it read together. The separate DRAWDOWN group that used to follow is GONE — it
           //   repeated this exact row verbatim two lines later.
-          {lbl:'<span title="peak-to-trough drop on this config equity curve over the WHOLE optimize window (in-sample and walk-forward together) -- not a per-period figure" style="border-bottom:1px dotted var(--text5);cursor:help">MAX DD</span>',cell:_ddCell}])},
+          // v70.4 (owner reconciliation): the label now names its window. This row is the
+          //   OPTIMIZE window only; the GATE tab MAX DD and the KPI TOTAL MAX DD include the
+          //   lockbox, which is why those read deeper.
+          {lbl:'<span title="peak-to-trough drop on this config equity curve over the OPTIMIZE window only (in-sample and walk-forward together, NOT the lockbox). The GATE tab MAX DD and the KPI TOTAL MAX DD both include the lockbox, so they read deeper." style="border-bottom:1px dotted var(--text5);cursor:help">MAX DD &middot; IS+WF</span>',cell:_ddCell}])},
         {name:'reward ÷ risk <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">· mixed slices — hover each row</span>',rows:_rrRows},
         {name:'config',rows:knobKeys.map(k2=>({lbl:_pp(k2),cell:col=>'<b style="color:var(--text2)">'+String((col.params||{})[k2])+'</b>'}))}
       ];
@@ -9526,7 +9530,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const ddIS=_ddOf(V.is_dd,0,wEnd+1),ddWF=_ddOf(null,wEnd,li),ddLB=_ddOf(lb.dd,Math.max(0,li-1),eq.length),ddTOT=_ddOf(V.total_dd,0,eq.length);
       const phases=[
         {sh_:'IS', sub:'no shading', col:'var(--text2)', dr:_dr(optS,isEndMs), days:_days(optS,isEndMs), bars:tr0||null, net:nIS, dd:ddIS, pf:(f1.profit_factor!=null?+f1.profit_factor:null), wr:(f1.win_rate!=null?+f1.win_rate:null), aw:awIS.aw, al:awIS.al, sh:V.is_sharpe, tr:(f1.num_trades!=null?+f1.num_trades:null),
-          tip:'IN-SAMPLE = the knob-tuning start of the graph. NET here is the RESIDUAL (TOTAL − WALK-FORWARD − LOCKBOX) so the three sections reconcile to the whole-run total. PF / Win% / Trades are its in-sample backtest; DAYS read off the curve.'},
+          tip:'IN-SAMPLE = the knob-tuning start of the graph. NET here is a RESIDUAL (TOTAL − WALK-FORWARD − LOCKBOX) so the three sections reconcile to the whole-run total — it is NOT a measured slice. The RAW and GATE tabs show the exact calendar in-sample figure (every trade before the first walk-forward fold), and it differs from this by whatever the fold test slices do not cover. PF / Win% / Trades here come from fold 1 in-sample backtest; DAYS are read off the curve.'},
         folds.length?{sh_:'WF', sub:'blue bands', col:C_WF, dr:_dr(isEndMs,optE), days:_days(isEndMs,optE), bars:wfBars||null, net:nWF, dd:ddWF, pf:oosPf, wr:oosWr, aw:awWF.aw, al:awWF.al, sh:foldSharpe(), tr:oosTr,
           tip:'WALK-FORWARD = the blue test bands — data held back while tuning, then tested forward ('+folds.length+' folds). NET P&L & DAYS are that slice of the curve; PF / Win% / Sharpe / Trades are the pooled out-of-sample results.'}:null,
         (lb.pnl!=null)?{sh_:'LB', sub:'purple', col:C_LB, dr:_dr(lbS,lbE), days:_days(lbS,lbE), bars:(lb.bars!=null?+lb.bars:null), net:nLB, dd:ddLB, pf:(lb.pf!=null?+lb.pf:null), wr:(lb.win_rate!=null?+lb.win_rate:null), aw:(lb.avg_win!=null?(+lb.avg_win)*mult:awLB.aw), al:(lb.avg_loss!=null?(+lb.avg_loss)*mult:awLB.al), sh:(lb.sharpe!=null?+lb.sharpe:null), sortino:(lb.sortino!=null?+lb.sortino:null), tr:(lb.trades!=null?+lb.trades:null),
@@ -9538,9 +9542,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _sh=v=>(v==null||!isFinite(v))?'—':(+v).toFixed(2);
       const _wr=v=>(v==null||!isFinite(v))?'—':(+v).toFixed(0)+'%';
       const metrics=[
-        {lbl:'NET P&L', top:true, cell:p=>'<span style="font-weight:700;color:'+((p.net||0)>=0?'#1d9e75':'#e24b4a')+'">'+(p.net!=null?fmtUsd(Math.round(p.net)):'—')+'</span>'},
+        // v70.4 (owner): the big money cells print in the same compact k format the config
+        //   matrix uses, so 56,814 reads 57k and the two tabs line up at a glance.
+        {lbl:'NET P&L', top:true, cell:p=>'<span title="'+(p.net!=null?fmtUsd(Math.round(p.net)):'')+'" style="font-weight:700;color:'+((p.net||0)>=0?'#1d9e75':'#e24b4a')+'">'+(p.net!=null?fmtAx(p.net,1):'—')+'</span>'},
         {lbl:'$ / DAY', cell:p=>{const v=(p.net!=null&&p.days)?p.net/p.days:null;return '<span style="color:var(--text2)">'+(v!=null?fmtUsd(Math.round(v)):'—')+'</span>';}},
-        {lbl:'MAX DD', cell:p=>'<span style="color:#e24b4a" title="Worst peak-to-trough equity loss in this section ($). Engine value where available, else from the equity curve.">'+(p.dd!=null&&isFinite(p.dd)&&p.dd>0?'-'+fmtUsd(Math.round(p.dd)):'—')+'</span>'},
+        {lbl:'MAX DD', cell:p=>'<span style="color:#e24b4a" title="Worst peak-to-trough equity loss in this section. Engine value where available, else from the equity curve. Exact: '+(p.dd!=null&&isFinite(p.dd)?fmtUsd(Math.round(p.dd)):'n/a')+'">'+(p.dd!=null&&isFinite(p.dd)&&p.dd>0?'-'+fmtAx(p.dd,1):'—')+'</span>'},
         {lbl:'RECOVERY', cell:p=>{const v=(p.net!=null&&p.net>0&&p.dd&&p.dd>0)?p.net/p.dd:null;return '<span title="Recovery factor = net P&amp;L ÷ max drawdown ($). Dollars earned per $1 of worst peak-to-trough loss. NOT annualized (grows with track-record length). Walk-forward = curve estimate." style="color:'+(v!=null&&v>=2?'var(--green)':'var(--text2)')+';font-weight:'+(v!=null&&v>=2?'700':'400')+'">'+(v!=null?v.toFixed(1)+'×':'—')+'</span>';}},
         {lbl:'MAR (ann.)', cell:p=>{const A=100000,yr=p.days?p.days/365.25:null;if(p.net==null||!yr||yr<=0||!p.dd||p.dd<=0||(A+p.net)<=0)return '<span style="color:var(--text2)">—</span>';const cagr=Math.pow((A+p.net)/A,1/yr)-1,ddp=p.dd/(A+Math.max(0,p.net)),mar=(ddp>0)?cagr/ddp:null;return '<span title="True MAR = CAGR ÷ max-drawdown-%, on an assumed $100k account. Annualized, so it is fair across strategies of any length. (The RECOVERY row above is the same idea in raw dollars, not annualized.)" style="color:var(--text2)">'+(mar!=null&&isFinite(mar)?mar.toFixed(2):'—')+'</span>';}},
         {lbl:'SHARPE', cell:p=>'<span style="color:var(--text2)">'+_sh(p.sh)+'</span>'},
@@ -11457,6 +11463,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         return ' data-eqx="'+encodeURIComponent(JSON.stringify(pay))+'" data-eqblot="'+encodeURIComponent(JSON.stringify(blot))+'"';
       }catch(_e){return '';}})();
       let _panelEquity='',_panelMatrix='',_panelRegime='',_panelMae='',_panelTD='',_distTile='';
+      // v70.4 (owner: "move 2b into 1e... move 2a into 1a, same tab methodology"): the two §1
+      //   cards keep their INNER html separately so the §1 assembly below can re-wrap them with
+      //   a tab strip and swap in the §2 funnel / config matrices.
+      let _eqInner='',_kpiInner='',_cardSty='',_mtipRef='';
       if(d.validate){const _V=d.validate,_lb=_V.lockbox||{};
         // 1D/1G/1I show WHOLE-RUN champion behaviour on new runs (engine full-window pass); older runs fall back to the in-sample slice.
         // v64.21: runs saved BEFORE the 2026-07-22 runner fix never carried the scope tag —
@@ -11473,13 +11483,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // fold dates and does NOT correspond to any one section of the 3-section matrix
         // (1b), which was the single biggest source of confusion. The matrix carries the
         // real per-section + TOTAL accounting; this panel just draws the curve.
-        _panelEquity='<div style="'+_card+';height:100%;box-sizing:border-box">'
+        _cardSty=_card;
+        _eqInner=''
           +'<div style="display:flex;align-items:center;gap:10px;margin:0 0 4px;flex-wrap:wrap"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1A '+_infoIc(_ipAB('The champion config equity curve, chronological: in-sample + walk-forward first (green), then the purple LOCKBOX holdout the optimizer never saw. The labels inside the top of the chart mark its three sections: IS = in-sample, WF = walk-forward, LB = lockbox (with its held/fail mark). Blue bands = the walk-forward test windows; pink segments = high-water marks; the red pane below = underwater drawdown on the same time axis. Double-click expands with a live crosshair and trade blotter. GRAPH DETAIL thins only the drawn line — never the totals.','best config · 1 contract · whole run'))+' CHAMPION EQUITY</span><span style="display:flex;align-items:center;gap:6px;font-size:8px;color:var(--text5)"><span style="letter-spacing:.5px">GRAPH DETAIL</span><input type="range" class="fillrng" min="5" max="100" step="5" value="'+Math.round((window._eqDetail||1)*100)+'" oninput="this.nextElementSibling.textContent=this.value+\'%\';this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-5)/95*100)+\'%,var(--bg1) 0)\'" onchange="window._eqDetail=+this.value/100;renderApp()" style="width:120px;background:linear-gradient(90deg,var(--blue) '+(((Math.round((window._eqDetail||1)*100))-5)/95*100).toFixed(1)+'%,var(--bg1) 0)"><span>'+Math.round((window._eqDetail||1)*100)+'%</span></span></div>'
           +'<div id="res-step-8" style="scroll-margin-top:64px"'+_eqxA+'>'+championEquityHtml(_V,mlt,d.top10_results,1)+'</div>'
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
           +((wf=>wf?'<div style="margin-top:4px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
-          +((st=>st?'<div style="margin-top:5px">'+st+'</div>':'')(stressPanelHtml(d.stress,mlt,'1D',_dscope)))
-          +'</div>';
+          +((st=>st?'<div style="margin-top:5px">'+st+'</div>':'')(stressPanelHtml(d.stress,mlt,'1D',_dscope)));
+        _panelEquity='<div style="'+_card+';height:100%;box-sizing:border-box">'+_eqInner+'</div>';
         // 1H header: title (description on hover) with the calculated stats pinned to the right — the standard chart-header pattern.
         const _dsrBlock='<div style="margin-top:14px"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1I '+_infoIc(_ipAB(dsrTip,dsrStats))+' DEFLATED SHARPE</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>';
         // 1E matrix + 1F regime share ONE tile (a divider between them) instead of two stacked cards.
@@ -11491,6 +11502,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   scored per FEATURE with confidence bands instead of bucketed by regime.
         const _ctxH=contextPanelHtml(d.context,'1J');
         const _ctxBlock=((_ctxH&&_ctxH.replace(/\s/g,''))?'<div style="margin-top:14px;padding-top:13px;border-top:1px solid var(--border)">'+_numHdr('1J','TRADE CONTEXT','Each market feature (measured the PRIOR day, so it was knowable before the trade) scored against every trade net $. Bar = correlation, faint band = 95% confidence, and a feature only reads helps / hurts when it survives the false-lead check that accounts for testing many features at once. Most features SHOULD read no signal — that is the check working.')+_ctxH+'</div>':'');
+        _mtipRef=_mtip;
+        _kpiInner=kpiMatrixHtml(d,mlt,1,'')+verdictPowerHtml(_V,mlt);
         _panelMatrix='<div style="'+_card+';height:100%;box-sizing:border-box">'+kpiMatrixHtml(d,mlt,1,_mHdr)
           +verdictPowerHtml(_V,mlt)
           +'</div>';
@@ -11977,13 +11990,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   Row 2 = that tab's controls, hard right, directly under the tabs.
       //   Then the table. Then that tab's warnings / chips / notes.
       //   Nothing collapses any more - the card is permanently open.
-      let _cfgSec='';
-      if(_selParts||_gateSec){
+      let _cfgSec='',_cfgInner='';
+      if(_selParts||_gateSec||_kpiInner){
         const _hasG=!!(_gateSec&&_gvP);
         const _hasT=!!(_gvP&&_gvP.tilts),_hasH=!!(_gvP&&_gvP.hyb);
         // v70.2 (owner): short labels, no ML prefix, and the three hybrid sizing views are three
         //   separate tabs instead of a second switcher inside the card.
-        const _tabDefs=[['raw','RAW',!!_selParts,'the strategy parameter configs the search produced, before any model touches them'],
+        const _tabDefs=[['kpi','KPI',!!_kpiInner,'the champion three-section scorecard - in-sample, walk-forward, lockbox and the whole-run total'],
+                        ['raw','RAW',!!_selParts,'the strategy parameter configs the search produced, before any model touches them'],
                         ['gate','GATE',_hasG,'the trade filter: a model scores each entry and the ones under the cut-off are not taken'],
                         ['tilt','TILT',_hasT,'every trade is taken, only re-sized by model confidence'],
                         ['hyb','HYBRID',_hasH,'gate first, then size the survivors by confidence. ONE LOT: every column averages one contract per trade, so a column that refuses trades leaves that capacity idle.'],
@@ -11993,29 +12007,33 @@ namespace NinjaTrader.NinjaScript.Strategies {
         let _cfgTab=String(APREF.cfgTab||'');
         if(!_tabDefs.some(function(t){return t[0]===_cfgTab;}))_cfgTab=_tabDefs.length?_tabDefs[0][0]:'raw';
         const _isHyb=(_cfgTab==='hyb'||_cfgTab==='hyb2'||_cfgTab==='hyb3');
+        const _isK=(_cfgTab==='kpi');
         const _isG=(_cfgTab==='gate'),_isSz=(_cfgTab==='tilt'||_isHyb);
         const _szInfo='<div style="color:var(--text2)">THE SAME MODELS AS THE GATE TAB, SPENT AS SIZE INSTEAD.<br><br>The GATE tab uses a model score as a BOUNCER - under the cut-off, the trade does not happen. These two tabs use the identical score as a DIMMER - every trade still happens, confident ones get more contracts and doubtful ones get fewer.<br><br>Nothing in these two tabs can ever be crowned; they exist so the two ways of spending the same model can be compared side by side over the same stretches.</div>';
-        const _cInfo=_isG
+        const _cInfo=_isK
+          ? _infoIc('<div style="color:var(--text2)">'+_mtipRef+'</div>')
+          : _isG
           ? _infoIc('<div style="color:var(--text2)">DOES A TRADE-FILTER MODEL EARN ITS KEEP? The ML GATE scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. It sweeps several models across several cut-offs on PRE-LOCKBOX data (IS + WF combined), picks ONE winner, and gives only that winner a single look at the LB - no cherry-picking.<br><br>NOT the same as the 2L ML CONFIG BUILDER: 2L picks which PARAMETER CONFIG is best; this gate keeps the chosen config and only decides which individual TRADES to take.<br><br>The gate equity is also drawn on the 2A funnel above.</div>')
           : (_isSz ? _infoIc(_szInfo)
                    : ((_selParts&&_selParts.tip)?_infoIc('<div style="color:var(--text2)">'+_selParts.tip+'</div>'):''));
-        const _cCtrls=_isG?((_gvP&&_gvP.ctrls)||''):(_isSz?((_gvP&&_gvP.szCtrls)||''):((_selParts&&_selParts.ctrls)||''));
+        const _cCtrls=_isK?'':(_isG?((_gvP&&_gvP.ctrls)||''):(_isSz?((_gvP&&_gvP.szCtrls)||''):((_selParts&&_selParts.ctrls)||'')));
         const _cModes='';
-        const _cBody=_isG?_gateCard:(_cfgTab==='tilt'?((_gvP&&_gvP.tilts)||''):(_isHyb?((_gvP&&_gvP.hyb)||''):((_selParts&&_selParts.table)||'')));
+        const _cBody=_isK?_kpiInner:(_isG?_gateCard:(_cfgTab==='tilt'?((_gvP&&_gvP.tilts)||''):(_isHyb?((_gvP&&_gvP.hyb)||''):((_selParts&&_selParts.table)||''))));
         const _nRow=inner=>inner?('<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;padding-top:7px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+inner+'</div>'):'';
-        const _cNote=_isG?_nRow(_gVerdictChip)
+        const _cNote=_isK?'':_isG?_nRow(_gVerdictChip)
           :(_cfgTab==='tilt'?((_gvP&&_gvP.tiltNote)||'')
           :(_isHyb?((_gvP&&_gvP.hybNote)||'')
           :_nRow((_selParts&&_selParts.sub)?('<span style="font-weight:400;color:var(--text4);font-size:8px">'+_selParts.sub+'</span>'):'')));
         const _cfgTabs=_tabStrip(_tabDefs.map(function(t){return _tabBtn('data-cfgtab="'+t[0]+'"',t[1],_cfgTab===t[0],t[3]);}).join(''),false);
-        _cfgSec='<div style="'+_colStyle+';margin-bottom:0;resize:vertical;min-height:52px;max-height:900px">'
-          +'<div style="margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
-          +_cfgN+'B &#129521; CONFIGS '+_cInfo
+        const _cTitle=_kpiInner?'1E &#128202; MATRIX':(_cfgN+'B &#129521; CONFIGS');
+        _cfgInner='<div style="margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+          +_cTitle+' '+_cInfo
           +'<span style="margin-left:auto;flex-shrink:0">'+_cfgTabs+'</span></div>'
           +((_cModes||_cCtrls)?('<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-top:6px">'+_cModes+_cCtrls+'</div>'):'')
           +'<div style="margin-top:9px">'+_cBody+'</div>'
-          +_cNote
-          +'</div>';
+          +_cNote;
+        // Only stands alone in §2 when there is no 1E card to live inside.
+        _cfgSec=_kpiInner?'':('<div style="'+_colStyle+';margin-bottom:0;resize:vertical;min-height:52px;max-height:900px">'+_cfgInner+'</div>');
       }
       // ── 2D SIZE TILT — its own collapsible section (v68.1, owner ask) ─────────────────────
       //   Was stacked inside 2C, which made it read as a footnote to the filter. It is a
@@ -12048,7 +12066,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v67.9 (owner): col 1 is the 2A funnel ALONE (the widest chart gets the widest column);
       //   col 2 = 2B raw configs · 2C gate pill · 2D distribution · 2E explorer + 2K ML config
       //   builder (+ DSR); col 3 = the old col 2 (2F-2J).
-      const _col1=_eq;
+      const _col1=_eqInner?'':_eq;
       const _col2b=_stack([_cfgSec].concat(_cfgSec?[rsRow]:[]));
       const _col3=_col2;
       const _sec3=(function(){
@@ -12360,6 +12378,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // v64.16 (owner): the three S1 tiles share ONE width budget — slim vertical splitter
           //   bars between them (the chart handle-row idea, rotated) drag width OUT of one tile
           //   INTO its neighbour so no gap ever opens. Tiles stay separate; ratios persist.
+          // v70.4 (owner): 2A rides inside 1A as a tab, 2B (and its own tabs) inside 1E.
+          if(_eqInner&&_eq){
+            var _eqTab=(String(APREF.eqTab||'')==='funnel')?'funnel':'chart';
+            var _eqTabs=_tabStrip([['chart','1A CHAMPION','the champion config equity curve, chronological - in-sample, walk-forward, then the sealed lockbox'],
+                                   ['funnel','2A FUNNEL','every tested config drawn as a funnel: many at the in-sample door, the top-K past it, the survivors through the lockbox']]
+              .map(function(t){return _tabBtn('data-eqtab="'+t[0]+'"',t[1],_eqTab===t[0],t[2]);}).join(''),false);
+            _panelEquity='<div style="'+_cardSty+';height:100%;box-sizing:border-box">'
+              +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px"><span style="margin-left:auto;flex-shrink:0">'+_eqTabs+'</span></div>'
+              +(_eqTab==='funnel'?_eq:_eqInner)+'</div>';
+          }
+          if(_kpiInner&&_cfgInner){
+            _panelMatrix='<div style="'+_cardSty+';height:100%;box-sizing:border-box">'+_cfgInner+'</div>';
+          }
           var _g=(Array.isArray(APREF.s1cols)&&APREF.s1cols.length===3)?APREF.s1cols.map(function(x){return Math.max(260,+x||260);}):null;
           // column floor MUST match the _card min-width (260px) — a smaller floor let a squeezed
           //   column force its card to overflow and paint OVER the neighbouring tile (owner hit it).
@@ -14374,6 +14405,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v64.98: the SAMPLE / RANK BY / HEAT strip now lives ON this header row, so a click that
       //   lands inside it must NOT also collapse the tile.
       content.querySelectorAll('[data-cfgtab]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('cfgTab',b.getAttribute('data-cfgtab'));renderApp();};});
+      content.querySelectorAll('[data-eqtab]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('eqTab',b.getAttribute('data-eqtab'));renderApp();};});
       content.querySelectorAll('[data-cfg2bc]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-g2ctl]')||e.target.closest('[data-cfgtab]')||e.target.closest('[data-b2ctl]'))return;e.stopPropagation();savePref('gate2aOpen',(APREF.gate2aOpen==null?1:+APREF.gate2aOpen)?0:1);renderApp();};});
       content.querySelectorAll('[data-gate2a]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-g2ctl]'))return;e.stopPropagation();savePref('gate2aOpen',(APREF.gate2aOpen==null?1:+APREF.gate2aOpen)?0:1);renderApp();};});
       content.querySelectorAll('[data-sztab]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('sizeTab',b.getAttribute('data-sztab'));renderApp();};});
