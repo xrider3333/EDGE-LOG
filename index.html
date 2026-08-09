@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.30';
+const VERSION='71.31';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.31',date:'2026-08-09',notes:['EVERY 1E ROW NOW MEASURES WHAT THE SAMPLE TABS SAY, AND NOTHING ELSE. The tabs were mixing windows in one table - a sample-scoped row sitting next to a whole-run copy of the same metric - so a number could be read against a neighbour that was measured on a different stretch.','Each RETURN group reads IS, WF, LB as ticked, then TOTAL of exactly those stretches, then the DD of exactly those stretches. Tick all three and TOTAL is the whole run, taken from the engine own whole-run block, so nothing is lost by dropping the old FULL row.','It is called DD now, not MAX DD. A drawdown measured on two of three stretches is not the max drawdown of the run and should not claim to be. The tag next to it names the tick it belongs to.','Gone as duplicates: FULL DOLLARS, FULL MAX DD, FULL MAR, ALL TRADES and the LB TRADES row on the GATE tab. Every one of them was a second copy of a row already on screen, measured on a window you did not pick.','SHARPE on the TILT and HYBRID tabs was quietly measured over the whole run whatever you ticked. It is cut to the ticked stretches now and annualised on that span.','The RAW tab is the one place a metric genuinely cannot follow the tick: a config saved equity curve covers the optimize window only, and the walk-forward folds are scattered THROUGH the in-sample years rather than following them, so there is no IS-only or WF-only curve to measure on. Its dollar rows and TOTAL do follow the tick; DD, MAR, SHARPE, PF, WIN percent and dollars per trade now print their real window in the row label - DD IS+WF, MAR WF over IS+WF DD, and so on - instead of leaving it to a hover.']},
 {v:'71.30',date:'2026-08-08',notes:['ENSEMBLE is now SCALED OUT, everywhere the site names it. ORB 3.0-ENSEMBLE reads ORB 3.0-scaled out in past runs, the run header, rankings, the compare board, the library and every strategy dropdown. The old word was wrong twice over: this is one entry with two exit plans, not an ensemble of strategies, and the report already uses ensemble for its own top-K config blending.','Whole words in the branch tag are lower case now - scaled out, master. The true abbreviations keep their capitals because that is what they are: BE, 2L, TR, TS, BE-TRIG.','The lunch-trail sibling gets a proper tag too - it used to render as a bare ORB 3.0 with no branch at all.','Nothing about the strategy changed and no saved run was touched. The rename is display only, so every past run keeps its identity, its family number and its history.']},
 {v:'71.29',date:'2026-08-09',notes:['ONE DRAWDOWN ROW. The TILT and the three HYBRID tabs were printing the drawdown twice - FULL MAX DD up in RETURN and a second MAX DD down in REWARD divided by RISK, on two different windows. There is now a single MAX DD row, measured on whatever SAMPLE is ticked, sitting directly under the stretch dollars it belongs to and labelled with that same tick. Both old rows are gone.','That is the shape the GATE tab already used, so all the drawdown tabs now read the same way: the dollars for the stretches you ticked, then the drawdown it took to earn them, in one place.','The RAW tab keeps its MAX DD tagged IS+WF. A config saved equity curve covers the optimize window only, so a per-stretch drawdown does not exist for those columns - the label says which window it is rather than pretending it follows the tick.']},
 {v:'71.28',date:'2026-08-09',notes:['TILT tab: the size shape no longer prints on a second line under the model name, which was adding a whole row of height to the header and pushing the table down. It rides inline after the name as (SL) sliding or (ST) steps, and hovering the tag gives the full sentence. The section info icon carries the same two tags.','TILT and HYBRID tabs: the RETURN caption stops saying FULL when IS, WF and LB are all ticked - at that point the tick already IS the full run, so naming it twice read as a fourth stretch.','TILT tab WIN %: the heat map was never broken. A tilt refuses no trades, so every column on that tab wins the exact same trades and only the size differs - the row reads one number all the way across and there is no spread to shade. The hover now says that outright instead of leaving it looking broken. The HYBRID tabs, which DO drop trades, shade normally.','TRADES and ALL TRADES now name their window - TRADES carries the stretches you have ticked, ALL TRADES is tagged FULL. Untick IS and the two separate by exactly the in-sample trade count, which is the whole of the difference. Re-sizing never moves either, so both read identical on HYBRID, HYBRID recycle and HYBRID equal-drawdown.']},
@@ -8414,6 +8415,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v64.93 (owner): abbreviate dollars the way 2C does ($450k) so 2B is just as compact.
       const _usd=v=>v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtAx(v,1)+'</span>'):'<span style="color:var(--text5)">—</span>';
       const _ddCell=col=>col.mdd!=null?('<span style="color:#e24b4a">-'+fmtAx(col.mdd,1)+'</span>'):'<span style="color:var(--text5)">—</span>';
+      // v71.30: TOTAL of the ticked stretches. All three ticked = the saved whole-run endpoint
+      //   (authoritative); anything less sums the stretches that ARE ticked.
+      const _b2tot=col=>{if(_b2segs.length>=3)return col.fullRun;
+        let s=null;_b2segs.forEach(function(sg){const v=(sg==='is')?col.isV:(sg==='wf'?col.wfV:col.lbSlice);
+          if(v!=null&&isFinite(v))s=(s==null?0:s)+v;});return s;};
       // A2 (owner): tint the WF $ / LB $ rows with the SAME walk-forward blue / lockbox purple
       //   used everywhere else in this report (the 1A/2A band fills and their text labels) — a
       //   subtle row background plus a coloured row label. IS $ stays untinted, matching the
@@ -8427,33 +8433,42 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   period: the walk-forward folds are OOS slices scattered THROUGH the optimize window
       //   (they overlap the in-sample stretch rather than following it), so there is no separate
       //   IS-only or WF-only drawdown curve to measure a second version against.
+      // v71.30 (owner: every row must say which stretch it measures): on THIS tab they cannot
+      //   follow the SAMPLE tick — see the DD note above — so each label now carries its own
+      //   window instead of leaving it to a hover.
+      const _win=w=>' <span style="font-weight:400;color:var(--text5)">&middot; '+w+'</span>';
       const _rrRows=[
-        {lbl:'<span title="walk-forward dollars divided by the drawdown of the WHOLE optimize window. WF is the numerator because walk-forward is the number that actually decided the crown; the drawdown is whole-window because that is the only equity curve each candidate carries." style="border-bottom:1px dotted var(--text5);cursor:help">MAR</span>',rowSty:(_b2rank==='rec'?_rkYel:''),cell:col=>col.mar!=null?('<span style="color:var(--text2)">'+col.mar.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'},
-        {lbl:'<span title="Derived from the equity curve each candidate carries (period-to-period change in cumulative PnL) over the WHOLE optimize window, annualised using that window length -- not stored directly by the engine" style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>',
+        {lbl:'<span title="walk-forward dollars divided by the drawdown of the WHOLE optimize window. WF is the numerator because walk-forward is the number that actually decided the crown; the drawdown is whole-window because that is the only equity curve each candidate carries. It cannot follow the SAMPLE tick on this tab." style="border-bottom:1px dotted var(--text5);cursor:help">MAR</span>'+_win('WF &divide; IS+WF DD'),rowSty:(_b2rank==='rec'?_rkYel:''),cell:col=>col.mar!=null?('<span style="color:var(--text2)">'+col.mar.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'},
+        {lbl:'<span title="Derived from the equity curve each candidate carries (period-to-period change in cumulative PnL) over the WHOLE optimize window, annualised using that window length -- not stored directly by the engine, and it cannot follow the SAMPLE tick on this tab." style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>'+_win('IS+WF'),
          cell:col=>col.sharpe!=null?('<span style="color:var(--text2)">'+col.sharpe.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'},
-        {lbl:'<span title="walk-forward only: how many out-of-sample folds this config held up in" style="border-bottom:1px dotted var(--text5);cursor:help">FOLDS HELD</span>',cell:col=>col.foldsHeld!=null?('<span style="color:var(--text2)">'+col.foldsHeld+(_nFolds!=null?('/'+_nFolds):'')+'</span>'):'<span style="color:var(--text5)">—</span>'}
+        {lbl:'<span title="walk-forward only: how many out-of-sample folds this config held up in" style="border-bottom:1px dotted var(--text5);cursor:help">FOLDS HELD</span>'+_win('WF'),cell:col=>col.foldsHeld!=null?('<span style="color:var(--text2)">'+col.foldsHeld+(_nFolds!=null?('/'+_nFolds):'')+'</span>'):'<span style="color:var(--text5)">—</span>'}
       ];
       // PF / WIN % (owner redesign item A4): only added when at least one candidate genuinely
       //   carries that field on its own metrics object — today's selection engine does not save
       //   one, so in practice these rows are omitted rather than fabricated or dashed out.
-      if(hasPf)_rrRows.push({lbl:'PF',cell:col=>col.mmPf!=null?('<span style="color:var(--text2)">'+Math.min(col.mmPf,99).toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'});
-      if(hasWr)_rrRows.push({lbl:'WIN %',cell:col=>col.mmWr!=null?('<span style="color:var(--text2)">'+Math.round(col.mmWr)+'%</span>'):'<span style="color:var(--text5)">—</span>'});
+      if(hasPf)_rrRows.push({lbl:'PF'+_win('IS+WF'),cell:col=>col.mmPf!=null?('<span style="color:var(--text2)">'+Math.min(col.mmPf,99).toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'});
+      if(hasWr)_rrRows.push({lbl:'WIN %'+_win('IS+WF'),cell:col=>col.mmWr!=null?('<span style="color:var(--text2)">'+Math.round(col.mmWr)+'%</span>'):'<span style="color:var(--text5)">—</span>'});
       // v65.0 (owner): $ PER TRADE, same row 2C now carries, so the two matrices line up.
-      if(recs.some(rc=>rc.mmApt!=null))_rrRows.push({lbl:'<span title="average net dollars per trade over the optimize window -- says whether a config makes its money from bigger trades or just more of them" style="border-bottom:1px dotted var(--text5);cursor:help">$ / TRADE</span>',cell:col=>col.mmApt!=null?('<span style="font-weight:700;color:'+(col.mmApt>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(col.mmApt))+'</span>'):'<span style="color:var(--text5)">—</span>'});
+      if(recs.some(rc=>rc.mmApt!=null))_rrRows.push({lbl:'<span title="average net dollars per trade over the optimize window -- says whether a config makes its money from bigger trades or just more of them" style="border-bottom:1px dotted var(--text5);cursor:help">$ / TRADE</span>'+_win('IS+WF'),cell:col=>col.mmApt!=null?('<span style="font-weight:700;color:'+(col.mmApt>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(col.mmApt))+'</span>'):'<span style="color:var(--text5)">—</span>'});
       const groups=[
         {name:'return <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">&middot; '+_b2segs.map(x=>x.toUpperCase()).join('+')+'</span>',rows:[]
           .concat(_b2segs.indexOf('is')>=0?[{lbl:'<span title="'+(recs[0]&&recs[0].isCal?'the years BEFORE walk-forward testing begins - the same calendar stretch 2C calls IS, so the two matrices agree and IS + WF add up to the optimize window':'this run predates calendar slicing: it shows the search 75/25 in-sample split score, which is NOT the same window 2C calls IS and does not add up with WF. Re-run to reconcile.')+'" style="border-bottom:1px dotted var(--text5);cursor:help">IS $</span>'+((recs[0]&&recs[0].isCal)?'':' <span style="font-size:6.5px;color:var(--yellow)">split</span>'),cell:col=>_usd(col.isV)}]:[])
           .concat(_b2segs.indexOf('wf')>=0?[{lbl:'<span title="'+(recs[0]&&recs[0].isCal?'the walk-forward years, as a calendar stretch - matches the same row in 2C':'summed out-of-sample PnL across the walk-forward folds')+'" style="border-bottom:1px dotted var(--text5);cursor:help">WF $</span>',top:true,rowBg:_wfBg,lblCol:_wfCol,cell:col=>_usd(col.wfV)}]:[])
           .concat(_b2segs.indexOf('lb')>=0?[{lbl:'LB $',rowBg:_lbBg,lblCol:_lbCol,cell:col=>_usd(col.lbSlice)}]:[])
-          .concat([
-          {lbl:'FULL',top:true,rowSty:(_b2rank!=='rec'?_rkYel:''),cell:col=>col.fullRun!=null?('<span style="font-weight:700;color:'+(col.fullRun>=0?'#1d9e75':'#e24b4a')+'">'+fmtAx(col.fullRun,1)+(col.fullRunStar?'*':'')+'</span>'):'<span style="color:var(--text5)">—</span>'},
-          // v64.92 (owner): MAX DD sits directly under TOTAL so profit and the risk taken to get
-          //   it read together. The separate DRAWDOWN group that used to follow is GONE — it
-          //   repeated this exact row verbatim two lines later.
-          // v70.4 (owner reconciliation): the label now names its window. This row is the
-          //   OPTIMIZE window only; the GATE tab MAX DD and the KPI TOTAL MAX DD include the
-          //   lockbox, which is why those read deeper.
-          {lbl:'<span title="peak-to-trough drop on this config equity curve over the OPTIMIZE window only (in-sample and walk-forward together, NOT the lockbox). The GATE tab MAX DD and the KPI TOTAL MAX DD both include the lockbox, so they read deeper." style="border-bottom:1px dotted var(--text5);cursor:help">MAX DD &middot; IS+WF</span>',cell:_ddCell}])},
+          // v71.30 (owner: rows follow the SAMPLE tick, nothing else): the fixed FULL row is now a
+          //   TOTAL of exactly the stretches ticked. Tick all three and it reads the whole-run
+          //   endpoint the engine saved (authoritative); tick fewer and it sums those stretches.
+          //   It only appears when more than one stretch is ticked - with one, the row above it is
+          //   already the total.
+          .concat(_b2segs.length>1?[{lbl:'<span title="the ticked stretches added together. With IS, WF and LB all ticked this is the whole run end to end, taken from the saved equity curve endpoint rather than summed." style="border-bottom:1px dotted var(--text5);cursor:help">TOTAL <span style="font-weight:400;color:var(--text5)">&middot; '+_b2segs.map(x=>x.toUpperCase()).join('+')+'</span></span>',top:true,rowSty:(_b2rank!=='rec'?_rkYel:''),cell:col=>{const v=_b2tot(col);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtAx(v,1)+((_b2segs.length>=3&&col.fullRunStar)?'*':'')+'</span>'):'<span style="color:var(--text5)">—</span>';}}]:[])
+          // v64.92 (owner): the drawdown sits directly under the dollars so profit and the risk
+          //   taken to get it read together.
+          // v71.30 (owner: "do not call it MAX DD if it is not the max DD"): this row is the
+          //   OPTIMIZE-window drawdown, so it is DD tagged IS+WF. Unlike the GATE / TILT / HYBRID
+          //   tabs it cannot follow the tick: the walk-forward folds are out-of-sample slices
+          //   scattered THROUGH the in-sample stretch rather than following it, so a config saved
+          //   curve has no IS-only or WF-only stretch to measure a separate drawdown on.
+          .concat([{lbl:'<span title="peak-to-trough drop on this config equity curve over the OPTIMIZE window only (in-sample and walk-forward together, NOT the lockbox). It cannot follow the SAMPLE tick like the other tabs do: the walk-forward folds are scattered through the in-sample stretch instead of following it, so there is no IS-only or WF-only curve to read. The GATE tab DD and the KPI TOTAL both include the lockbox, which is why those read deeper." style="border-bottom:1px dotted var(--text5);cursor:help">DD <span style="font-weight:400;color:var(--text5)">&middot; IS+WF</span></span>',cell:_ddCell}])},
         {name:'reward ÷ risk <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">· mixed slices — hover each row</span>',rows:_rrRows},
         {name:'config',rows:knobKeys.map(k2=>({lbl:_pp(k2),cell:col=>'<b style="color:var(--text2)">'+String((col.params||{})[k2])+'</b>'}))}
       ];
@@ -8465,11 +8480,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
           return c=>{const v=get(c);if(v==null||!isFinite(v))return null;
             let t=(v-mn)/(mx-mn);if(!hiGood)t=1-t;
             return 'hsla('+Math.round(4+116*t)+',68%,45%,'+(0.09+0.24*Math.abs(t-0.5)*2).toFixed(3)+')';};};
-        const _pick={'IS $':c=>c.isV,'WF $':c=>c.wfV,'LB $':c=>c.lbSlice,'FULL':c=>c.fullRun,
-          'MAX DD':c=>c.mdd!=null?-Math.abs(c.mdd):null,'MAR':c=>c.mar,'SHARPE':c=>c.sharpe,
+        const _pick={'IS $':c=>c.isV,'WF $':c=>c.wfV,'LB $':c=>c.lbSlice,'TOTAL':_b2tot,
+          'DD':c=>c.mdd!=null?-Math.abs(c.mdd):null,'MAR':c=>c.mar,'SHARPE':c=>c.sharpe,
           'FOLDS HELD':c=>c.foldsHeld,'PF':c=>c.mmPf,'WIN %':c=>c.mmWr,'$ / TRADE':c=>c.mmApt};
         groups.forEach(g=>g.rows.forEach(r=>{
-          const key=String(r.lbl).replace(/<[^>]*>/g,'').trim();
+          // v71.30: split on the middle dot so a label carrying a "· IS+WF" window tag still matches
+          const key=String(r.lbl).replace(/<[^>]*>/g,'').replace(/&middot;/g,'·').replace(/&divide;/g,'÷').split('·')[0].trim();
           if(_pick[key]){const f=_hf(_pick[key],true);if(f)r.cellBg=f;}}));
       }
       const table=_matrixTbl(cols,groups,{compact:true})
@@ -11192,7 +11208,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           col=>{const b=(col.per||{})[r.sg];return b?b.net:null;},true))
           .concat(_multi?[_hRow({lbl:'<span title="the toggled stretches added together" style="border-bottom:1px dotted var(--text5);cursor:help">'+_sampLbl+'</span>',top:true,
             rowSty:(_rkNet?_rkRowSty:''),cell:col=>_g$(_P(col).net)},col=>_P(col).net,true)]:[])
-          .concat([_hRow({lbl:'<span title="'+_ddTip+'" style="border-bottom:1px dotted var(--text5);cursor:help">MAX DD</span>',top:true,
+          // v71.30 (owner: "do not call it MAX DD if it is not the max DD"): it is the drawdown of
+          //   the ticked stretches, so it is DD, tagged with that same tick.
+          .concat([_hRow({lbl:'<span title="'+_ddTip+' Called DD, not MAX DD, because it is only the max across the stretches you ticked." style="border-bottom:1px dotted var(--text5);cursor:help">DD <span style="font-weight:400;color:var(--text5)">&middot; '+_sampLbl+'</span></span>',top:true,
             cell:col=>{const b=_P(col);return b.dd!=null?('<span style="color:#e24b4a">-'+$k(b.dd)+(b.ddDer?'<span style="color:var(--text5)">&deg;</span>':'')+'</span>'):_dash;}},
             col=>{const b=_P(col);return b.dd!=null?-Math.abs(b.dd):null;},true)]);
         const _hd=nm=>nm+' <span style="font-weight:400;color:'+(_segCol[_g2segs[0]]||'var(--text5)')+';letter-spacing:0;text-transform:none">&middot; '+_sampLbl+'</span>';
@@ -11206,13 +11224,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _hRow({lbl:'<span title="average net dollars per trade over the toggled stretches. A filter that merely trades less will not move this; a filter that genuinely picks better will." style="border-bottom:1px dotted var(--text5);cursor:help">$ / TRADE</span>',cell:col=>{const v=_apt(col);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>'):_dash;}},_apt,true)]},
           {name:_hd('sample'),rows:[
             {lbl:'TRADES KEPT',cell:col=>{const k=_P(col).kept;return k!=null?('<span style="color:var(--text3)">'+(+k).toLocaleString()+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">&mdash;</span>';}},
-            // v69.1 (owner: "i dont see trade count on 2c so cant compare"). The row above follows
-            //   the SAMPLE toggle, so it changes meaning as you tick stretches. This one is FIXED
-            //   on the lockbox, which is the basis 2D and 2E report on - so the three sections can
-            //   be read side by side without touching any control.
-            {lbl:'<span title="trades taken in the lockbox year only - the same basis 2D and 2E use, so the three sections line up">LB TRADES</span>',cell:col=>{
-              const n=col.base?((V.ungated_lockbox||{}).num_trades):(((col.raw&&col.raw.lockbox)||{}).num_trades);
-              return n!=null?('<span style="color:var(--text3)">'+(+n).toLocaleString()+'</span>'):'<span style="color:var(--text5)">&mdash;</span>';}}]}
+            // v71.30 (owner): the fixed LB TRADES row is gone. It existed so this tab could be read
+            //   against the TILT / HYBRID tabs back when those were pinned to the lockbox; they
+            //   follow the SAMPLE tick now, so every tab already measures the same stretches and a
+            //   second hard-wired window was the last of the duplicated rows.
+            ]}
         ];
         const _anyDer=_gCols.some(c=>c.lbDer)||_gColsV.some(c=>{const p=_P(c);return p&&p.ddDer;});
         // v64.98 (owner): this strip now rides the TILE TITLE ROW, anchored right, instead of
@@ -11324,12 +11340,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   so the sizing tabs never move it; null (a dash) when the curve is too short to mean
         //   anything, never a fabricated number.
         const _spanYrs=(V.span&&V.span[0]&&V.span[1])?Math.max(0,(new Date(V.span[1])-new Date(V.span[0]))/(365.25*86400000)):null;
+        // v71.30 (owner: "just show the metric for what is selected, all metrics all tabs"):
+        //   SHARPE used to be measured over the whole run no matter what was ticked. It now cuts
+        //   the saved curve to the ticked stretches and annualises on that span only. A pick that
+        //   skips a stretch has no single span to read, so it prints a dash.
         const _shrp=c=>{const cum=c._s.eq&&c._s.eq.cum;
           if(!Array.isArray(cum)||cum.length<3||!_spanYrs||_spanYrs<=0)return null;
-          const d=[];for(let i=1;i<cum.length;i++)d.push((+cum[i]||0)-(+cum[i-1]||0));
-          const n=d.length,mn=d.reduce((a,b)=>a+b,0)/n;
-          const vr=d.reduce((a,b)=>a+(b-mn)*(b-mn),0)/Math.max(1,n-1),sd=Math.sqrt(vr);
-          return (sd>1e-9)?((mn/sd)*Math.sqrt(n/_spanYrs)):null;};
+          let a=0,b=1;
+          // same trade-count span split _szSpanOf uses, inlined so this helper stays self-contained
+          const _ia=+((c._s.is||{}).num_trades)||0,_wb=+((c._s.wf||{}).num_trades)||0,_lc=+((c._s.lb||{}).num_trades)||0,_T=_ia+_wb+_lc;
+          const sp=_T?{is:[0,_ia/_T],wf:[_ia/_T,(_ia+_wb)/_T],lb:[(_ia+_wb)/_T,1]}:null;
+          const o=['is','wf','lb'].filter(x=>_szSegs.indexOf(x)>=0);
+          if(sp&&o.length){for(let i=1;i<o.length;i++)if(Math.abs(sp[o[i-1]][1]-sp[o[i]][0])>1e-9)return null;
+            a=sp[o[0]][0];b=sp[o[o.length-1]][1];}
+          const i0=Math.max(0,Math.round(a*(cum.length-1))),i1=Math.min(cum.length-1,Math.round(b*(cum.length-1)));
+          if(i1-i0<2)return null;
+          const d=[];for(let i=i0+1;i<=i1;i++)d.push((+cum[i]||0)-(+cum[i-1]||0));
+          const n=d.length,mn=d.reduce((a2,b2)=>a2+b2,0)/n;
+          const vr=d.reduce((a2,b2)=>a2+(b2-mn)*(b2-mn),0)/Math.max(1,n-1),sd=Math.sqrt(vr);
+          const yrs=_spanYrs*Math.max(1e-6,(b-a));
+          return (sd>1e-9)?((mn/sd)*Math.sqrt(n/yrs)):null;};
         const _rkYel2=';box-shadow:inset 0 1px 0 color-mix(in srgb,var(--yellow) 50%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--yellow) 50%,transparent);';
         const _rkDsh2=';box-shadow:inset 0 1px 0 color-mix(in srgb,var(--yellow) 24%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--yellow) 24%,transparent);';
         const _wfBg2='rgba(96,165,250,.13)',_wfCol2='#60a5fa',_lbBg2='rgba(167,139,250,.16)',_lbCol2='#a78bfa';
@@ -11427,8 +11457,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   directly under the stretch dollars it belongs to. FULL MAX DD is gone, and the copy
           //   that used to sit down in REWARD / RISK is gone with it. Same shape the RAW and GATE
           //   tabs already use.
-          _ret.push({lbl:'<span title="deepest peak-to-trough drop across the ticked SAMPLE - the risk taken to earn the dollars directly above. When the pick spans more than one stretch it is read off the saved equity curve for that span; a pick that skips a stretch (IS + LB with no WF) has no single span to read, so it prints a dash rather than a number that would not mean anything.">MAX DD <span style="font-weight:400;color:var(--text5)">&middot; '+_szLbl+'</span></span>',cell:c=>{const p=_szP(c);return p.dd!=null?('<span style="color:#e24b4a"'+(p.ddDer?' title="read off the saved curve across the spanned stretch"':'')+'>-'+$k(p.dd)+(p.ddDer?'&deg;':'')+'</span>'):_cmpDash;}});
-          _ret.push({lbl:'<span title="the whole run end to end - in-sample, walk-forward and lockbox together. The same row 2B calls FULL. IS / WF / LB measure overlapping windows, so they do not add up to it.">FULL $</span>',top:true,cell:c=>_cmpUsd(_sl$(c,'full'))});
+          // v71.30 (owner): the group now reads exactly IS / WF / LB (as ticked), then the TOTAL of
+          //   what is ticked, then the DD of what is ticked. No FULL $ - with all three ticked the
+          //   TOTAL row IS the full run, read straight off the engine whole-run block. And it is
+          //   called DD, not MAX DD: a slice drawdown is not the max drawdown of the whole run.
+          if(_szSegs.length>1)_ret.push({lbl:'<span title="the ticked stretches added together. With IS, WF and LB all ticked this is the whole run end to end, read off the engine own whole-run block rather than summed.">TOTAL <span style="font-weight:400;color:var(--text5)">&middot; '+_szLbl+'</span></span>',top:true,cell:c=>_cmpUsd(_szP(c).net)});
+          _ret.push({lbl:'<span title="deepest peak-to-trough drop across the ticked SAMPLE - the risk taken to earn the dollars directly above. Called DD, not MAX DD, because it is only the max over the stretches you ticked. When the pick spans more than one stretch it is read off the saved equity curve for that span; a pick that skips a stretch (IS + LB with no WF) has no single span to read, so it prints a dash rather than a number that would not mean anything.">DD <span style="font-weight:400;color:var(--text5)">&middot; '+_szLbl+'</span></span>',cell:c=>{const p=_szP(c);return p.dd!=null?('<span style="color:#e24b4a"'+(p.ddDer?' title="read off the saved curve across the spanned stretch"':'')+'>-'+$k(p.dd)+(p.ddDer?'&deg;':'')+'</span>'):_cmpDash;}});
           const groups=[
             // v71.28 (owner: "if all three sample tabs are selected then that IS full - no need to
             //   put FULL on there"): the caption only names FULL when the tick does not already
@@ -11438,7 +11472,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
               {lbl:'<span title="net dollars per dollar of drawdown over the ticked SAMPLE - the same calculation the ML GATE matrix calls MAR. Scale-free: the sizing tabs multiply profit and drawdown by the same number, so this never moves.">MAR</span>',top:true,rowSty:(_szRank==='rec'?_rkYel2:(_szRank==='floor'?_rkDsh2:'')),cell:c=>{const r=_szMar(c);return r!=null?('<b>'+r.toFixed(1)+'</b>'):_cmpDash;}},
               // v71.29: the MAX DD copy that used to sit here has moved up into RETURN, under the
               //   stretch dollars it belongs to. One drawdown row per tab, nowhere else.
-              {lbl:'<span title="whole-run dollars per dollar of whole-run drawdown - the long-horizon anchor. Equals MAR above when IS + WF + LB are all ticked, which is the reconciliation.">FULL MAR</span>',cell:c=>{const r=_fuMar(c);return r!=null?(r.toFixed(1)):_cmpDash;}},
+              // v71.30 (owner): FULL MAR is gone with it. Every row in this matrix measures the
+              //   ticked SAMPLE and nothing else - tick IS, WF and LB and MAR above IS the full-run
+              //   number, so a second whole-run copy was the same duplication as the two DD rows.
               {lbl:'<span title="derived the same way 2B derives it: period-to-period change on the equity curve the engine saved, over the whole run, annualised by the span length. Scale-free - the sizing tabs do not move it.">SHARPE</span>',cell:c=>{const s=_shrp(c);return s!=null?('<span style="color:var(--text2)">'+s.toFixed(2)+'</span>'):_cmpDash;}},
               {lbl:'<span title="profit factor over the ticked SAMPLE - gross winning dollars divided by gross losing dollars. Across several stretches it is rebuilt from each stretch own gross totals. Scale-free.">PF</span>',cell:c=>{const v=_szP(c).pf;return v!=null?('<span style="color:var(--text2)">'+Math.min(v,99).toFixed(2)+'</span>'):_cmpDash;}},
               // v71.28 (owner: "WIN % is not heat-mapped on the TILT tab?"): it IS — there is just
@@ -11456,7 +11492,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
               //   the two is self-explaining instead of looking like a mismatch.
               {lbl:'<span title="trades taken across the ticked SAMPLE - the same basis as the rows above it. ALL TRADES below counts the whole run, so untick a stretch and these two separate by exactly that stretch trade count.">TRADES <span style="font-weight:400;color:var(--text5)">&middot; '+_szLbl+'</span></span>',top:true,cell:c=>{
                 const n=_szP(c).n;return n!=null?(+n).toLocaleString():_cmpDash;}},
-              {lbl:'<span title="every trade the variant took across the whole run - IS plus WF plus LB, whatever is ticked above. Re-sizing never changes it, so this row is identical on the HYBRID, HYBRID recycle and HYBRID equal-drawdown tabs.">ALL TRADES <span style="font-weight:400;color:var(--text5)">&middot; FULL</span></span>',cell:c=>c._s.n!=null?(+c._s.n).toLocaleString():_cmpDash},
+              // v71.30 (owner): ALL TRADES was the whole-run count sitting next to a sample-scoped
+              //   one - the same duplication as FULL $ / FULL MAR. Tick all three stretches and
+              //   TRADES above IS the whole-run count.
               {lbl:'<span title="average contracts per trade this column runs over the ticked SAMPLE. One in the ONE LOT tab; in REDEPLOY / EQUAL DD it is what the freed capacity buys.">AVG CONTRACTS</span>',cell:c=>{
                 const f=_szFac(c);return '<span style="color:'+((mode&&mode!=='one')?'#f0b429':'var(--text3)')+'">'+f.toFixed(2)+'&times;</span>';}},
               {lbl:'<span title="largest contracts any single trade got">BIGGEST SIZE</span>',cell:c=>c._s.mx!=null?((+c._s.mx*_szFac(c)).toFixed(1)+'&times;'):_cmpDash},
@@ -11488,12 +11526,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 let t=(v-mn)/(mx-mn);if(!hiGood)t=1-t;
                 return 'hsla('+Math.round(4+116*t)+',68%,45%,'+(0.09+0.24*Math.abs(t-0.5)*2).toFixed(3)+')';};};
             const _pick={'IS $':[c=>_sl$(c,'is'),true],'WF $':[c=>_sl$(c,'wf'),true],'LB $':[c=>_sl$(c,'lb'),true],
-              'FULL $':[c=>_sl$(c,'full'),true],
-              'MAR':[_szMar,true],'MAX DD':[c=>{const v=_szP(c).dd;return v!=null?-v:null;},true],
-              'FULL MAR':[_fuMar,true],'SHARPE':[_shrp,true],'PF':[c=>{const v=_szP(c).pf;return v!=null?Math.min(v,99):null;},true],
+              'TOTAL':[c=>_szP(c).net,true],
+              'MAR':[_szMar,true],'DD':[c=>{const v=_szP(c).dd;return v!=null?-v:null;},true],
+              'SHARPE':[_shrp,true],'PF':[c=>{const v=_szP(c).pf;return v!=null?Math.min(v,99):null;},true],
               'WIN %':[c=>_szP(c).wr,true],'$ / TRADE':[c=>_szP(c).apt,true],
               'TRADES':[c=>{const n=_szP(c).n;return n!=null?+n:null;},true],
-              'ALL TRADES':[c=>c._s.n!=null?+c._s.n:null,true],
               'AVG CONTRACTS':[_szFac,true],
               'BIGGEST SIZE':[c=>c._s.mx!=null?(+c._s.mx*_szFac(c)):null,true]};
             groups.forEach(g=>g.rows.forEach(r=>{
