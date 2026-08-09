@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.22';
+const VERSION='71.23';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.23',date:'2026-08-09',notes:['RUNBOARD funnel now wears the 1A CHAMPION EQUITY look: a blue walk-forward band and a purple lockbox band shaded across the plot with in-sample left un-shaded, the IS / WF / LB labels printed inside the top of each region, a dashed purple door line, and each strategy ending $ pinned as a coloured pill on the right at its own line height.','RUNBOARD table rebuilt on the SAME matrix shell the 1E KPI MATRIX uses - grouped uppercase metric bands, the metric names pinned on the left while the columns scroll, one column per strategy in its curve colour, and the ranking leader tinted in its own hue.','SAMPLE and RANK moved ONTO the matrix tile as underlined tab rails - the same control look the 1E card uses, blue for SAMPLE and teal for RANK - instead of sitting in a separate strip above the board.','The MATRIX now sits to the RIGHT of the FUNNEL, the way 1A and 1E sit side by side in a run report, with the strategy list keeping the narrow left column.']},
 {v:'71.22',date:'2026-08-09',notes:['RUNBOARD rebuilt in the 1A + 1E style: a FUNNEL chart (the same live equity overlay COMPARE uses - key pills on their lines, crosshair, drawdown pane, solid in-sample / dashed walk-forward / dotted lockbox) sits above a sectioned MATRIX (metrics as rows, strategies as columns, green best in row, VERT / HORIZ flip).','The board now POPULATES ITSELF with the top run of every strategy - the same champion rule BY STRATEGY uses - instead of a hand-pasted table.','SAMPLE (FULL / IS / LB) redraws the funnel curves, not just the numbers: IS cuts each curve at its first walk-forward fold, LB shows only the lockbox year with every curve rebased to zero. RANK BY (MAR / PF / NET / MAX DD) orders the funnel key, the matrix columns and the list, measured on the picked SAMPLE.','The pooled BOOKS table (the offline two-strategy book numbers) keeps its own clearly separated tile at the bottom - same SAMPLE and RANK BY picks apply.']},
 {v:'71.21',date:'2026-08-08',notes:['Funnel key box nudged 5px down so it sits fully INSIDE the plot rather than starting in the boxs padding - at 4px its top edge was 2px above where the chart actually begins.']},
 {v:'71.20',date:'2026-08-08',notes:['THE GATE CURVE WAS NOT BEING DRAWN AT ALL. It was only built when the GATE chip was on, and that chip is saved off - so the key box was listing a GATE line with a dollar figure while the chart had no such line on it. The curve is always built now and simply hidden when the chip is off, exactly like the config cloud and the walk-forward group, so one click on the GATE key row draws it. That row reads dimmed while it is hidden.','And the gate curve is RED now - line, key row, gutter pill and chip together. It used to be drawn in the same pink family as the two hybrid lines running beside it, which is a large part of why it could not be found.','FUNNEL KEY is ordered by where each line FINISHES, best first, instead of a fixed RAW / GATE / TILT / HYBRID order - so the key reads top to bottom the way the chart does.','IS / WF / LB are off the funnel. The blue fold stripes and the purple lockbox stripe already mark those stretches and hovering either now names it with its dates and its numbers, so the floating tags were saying a third time what the chart says twice.','And with them gone the funnel needs no headroom band: the key box sits at the top edge of the plot and the gap between the chart and the tile above it is closed.']},
@@ -3468,7 +3469,7 @@ window.expandEquity=function(host){
         LI=lbS?P.findIndex(p=>p.t>=lbS):-1;if(LI<0)LI=P.length;}
     }
     blFee=(B&&B.cost_pts!=null&&B.mult)?(+B.cost_pts*+B.mult):null;
-    blMeta='TRADE BLOTTER · '+rows.length+' trades'+(r.capped?' (most recent — '+r.capped+' older stay in the CSV)':'')
+    blMeta='TRADE BLOTTER · champion config · '+rows.length+' trades'+(r.capped?' (most recent — '+r.capped+' older stay in the CSV)':'')
       +(cached?' · saved on this browser'+(r.ts?' '+new Date(r.ts).toLocaleDateString():'')+' — Shift+click TRADES to regenerate':(r.regenerated?' · regenerated on your PC':(r.source?' · '+r.source:'')))
       +(r.master?' · master: '+r.master:'')
       +' · click a header to sort / filter · click a row to fly to it';
@@ -3510,14 +3511,38 @@ window.expandEquity=function(host){
       if(hasEntry&&hasExit){markers.shadeFrom=r.entry_idx;markers.shadeTo=r.exit_idx;}
       const svgStr=window.candleSVG(r.bars||[],r.overlays||{},markers,{});
       const meta=r.meta||{};
-      const sub='entry '+x._et+' &rarr; exit '+x._xt2+' &middot; '+(side==='long'?'LONG':'SHORT')
+      const sub='champion config &middot; entry '+x._et+' &rarr; exit '+x._xt2+' &middot; '+(side==='long'?'LONG':'SHORT')
         +' &middot; net <span style="color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x._usd)+'</span>'
         +(meta.master?' &middot; master: '+meta.master:'')
         // A blotter saved before the exit-price fix carries no side column and an exit
         // price taken from the exit bar close, which is not always the real fill — say so
         // rather than drawing a wrong dot silently. Shift+click TRADES to regenerate.
         +(x._side?'':' &middot; <span style="color:var(--amber,#f5c842)">saved blotter — exit price is the exit bar close; Shift+click TRADES to regenerate for the true fill</span>');
-      window.expandChart('TRADE #'+x._no+' · CANDLES',svgStr,{sub:sub});
+      const api=window.expandChart('TRADE #'+x._no+' · CANDLES',svgStr,{sub:sub});
+      // per-bar OHLC readout — hover any candle and its numbers print in the control row
+      // (candleSVG default geometry: 1080 wide, 58 left / 14 right margins).
+      const svgEl2=api&&api.modal?api.modal.querySelector('#chart-body svg'):null;
+      const rBars=r.bars||[];
+      if(svgEl2&&rBars.length){
+        const W2=1080,mL2=58,xStep2=(W2-mL2-14)/rBars.length;
+        const ro=document.createElement('div');
+        ro.style.cssText='font-size:11px;color:var(--text3);min-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%';
+        ro.innerHTML='<span style="color:var(--text5)">hover a candle to read its OHLC</span>';
+        if(api.ctl)api.ctl.appendChild(ro);
+        const _f2=v2=>(+v2).toLocaleString('en-US');
+        svgEl2.style.cursor='crosshair';
+        svgEl2.addEventListener('mousemove',ev=>{
+          const rc=svgEl2.getBoundingClientRect();if(!(rc.width>0))return;
+          const i2=Math.floor(((ev.clientX-rc.left)/rc.width*W2-mL2)/xStep2);
+          if(i2<0||i2>=rBars.length)return;
+          const b2=rBars[i2],up2=b2.c>=b2.o;
+          let ov2='';
+          Object.keys(r.overlays||{}).forEach(k2=>{const v2=(r.overlays[k2]||[])[i2];if(v2!=null)ov2+=' &middot; '+String(k2).toUpperCase()+' '+_f2(v2);});
+          ro.innerHTML='<b style="color:var(--text2)">'+b2.t+'</b> &middot; O '+_f2(b2.o)+' &middot; H '+_f2(b2.h)+' &middot; L '+_f2(b2.l)
+            +' &middot; C <b style="color:'+(up2?'var(--green)':'var(--red)')+'">'+_f2(b2.c)+'</b>'
+            +(b2.v?' &middot; V '+_f2(b2.v):'')+ov2;
+        });
+      }
     }catch(err){
       alert('Candle chart load failed: '+err.message);
     }finally{
@@ -4537,7 +4562,13 @@ window.expandCompareEq=function(series,opts){
       return '<div data-blot-col="'+p.id+'" style="flex:0 0 '+w+'px;min-width:'+w+'px;display:flex;flex-direction:column">'
         +'<div style="position:sticky;top:0;z-index:2;height:'+HEADER_H+'px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 8px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:10px;overflow:hidden">'
         +'<span style="width:10px;height:10px;border-radius:3px;background:'+p.color+';flex:0 0 auto"></span>'
-        +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)" title="#'+p.id+' '+p.label+'">#'+p.id+' '+p.label+instTf+'</span>'
+        +((m2=>m2
+          // a cfg-numbered series reads "config N · 2B RANK N" instead of the raw #cfgN id —
+          // config N IS the RANK N column of the 2B CONFIGS card (owner: "#cfg7, which i dont
+          // know what config that is"); its knob values are one click away on ⚖ PARAMS.
+          ?'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)" title="config '+m2[1]+' = the RANK '+m2[1]+' column in 2B CONFIGS — click PARAMS above to see its knob values">'+p.label+' <span style="color:var(--text5)">&middot; 2B RANK '+m2[1]+'</span>'+instTf+'</span>'
+          :'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)" title="#'+p.id+' '+p.label+'">#'+p.id+' '+p.label+instTf+'</span>'
+        )(/^cfg(\d+)$/.exec(String(p.id||''))))
         +'<span style="flex:0 0 auto;white-space:nowrap">'+tag+'</span>'
         +'<button data-blot-toggle="'+p.id+'" title="toggle compact / full columns" style="flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text4);width:16px;height:16px;line-height:1;font-size:9px;cursor:pointer;border-radius:4px;padding:0">'+(full?'⤡':'⤢')+'</button>'
         +'</div>'+body2+'</div>';
@@ -4746,8 +4777,30 @@ window.cmpOvlMount=function(hostId){
     +(S.some(sr=>sr.li!=null)?'<div style="white-space:nowrap;color:var(--text4)"><b>····</b> lockbox</div>':'')
     +NC.map(c=>'<div style="white-space:nowrap;color:var(--text5)">#'+c.id+' '+c.label+' · no curve saved</div>').join('');
 
-  const geo=()=>{const r=host.getBoundingClientRect(),W=Math.max(240,r.width),H=300,gut=56,pL=2,pB=30,pw=W-pL-gut;
-    const eqT=8,eqB=eqT+Math.round((H-pB-16)*0.68),ddT=eqB+16,ddB=H-pB;
+  // ── v71.23 (owner: "the funnel still doesnt look like a 1a funnel"): 1A MODE. The RUNBOARD
+  //    sets window._cmpOvl1A before mounting, and the chart then wears the SAME visual language
+  //    as 1A CHAMPION EQUITY in the run report:
+  //      · a blue WALK-FORWARD band and a purple LOCKBOX band shaded across the plot, in-sample
+  //        left un-shaded, with a dashed purple door line at the lockbox boundary;
+  //      · the IS / WF / LB abbreviations printed INSIDE the top of the plot, one centred over
+  //        each region, in 1A's exact colours (text3 / #60a5fa / #a78bfa);
+  //      · each curve's ENDING $ as a filled pill on the right gutter at that curve's exact y,
+  //        dark text on the curve's own colour — 1A's endpoint-tag treatment, one per strategy;
+  //      · fmtAxis money, matching the report's shared $ axis format.
+  //    Every run here has its OWN window, so a single shared band would be a lie: the bands span
+  //    from the EARLIEST door to the latest, and each series also gets a small tick in its own
+  //    colour at its own door. The band note under the chart says so.
+  const ONE_A=!!window._cmpOvl1A;
+  const _fmtAxis=(typeof fmtAx==='function')?fmtAx:_ab$;
+  // stage doors in shared x-fraction space, per series (null when that run has no such stage)
+  const _doorOf=(sr,which)=>{const n=(sr.pts||[]).length;if(!n)return null;
+    const i=(which==='lb')?sr.li:sr.wfi;
+    return (i!=null&&i>0&&i<n)?sr.pts[Math.min(i,n-1)].x:null;};
+  const _doors=which=>S.map(sr=>_doorOf(sr,which)).filter(x=>x!=null).sort((a,b)=>a-b);
+  const _wfD=_doors('wfi'),_lbD=_doors('lb');
+  const _bandWF=_wfD.length?_wfD[0]:null,_bandLB=_lbD.length?_lbD[0]:null,_lbMid=_lbD.length?_lbD[Math.floor(_lbD.length/2)]:null;
+  const geo=()=>{const r=host.getBoundingClientRect(),W=Math.max(240,r.width),H=300,gut=ONE_A?62:56,pL=2,pB=30,pw=W-pL-gut;
+    const eqT=ONE_A?15:8,eqB=eqT+Math.round((H-pB-16)*0.68),ddT=eqB+16,ddB=H-pB;
     return {W:W,H:H,pw:pw,pL:pL,gut:gut,eqT:eqT,eqB:eqB,ddT:ddT,ddB:ddB,pB:pB};};
   const X=(g,x)=>g.pL+(x-VS.va)/((VS.vb-VS.va)||1)*g.pw;
   const seg=(g,arr,vf)=>arr.map((p,i)=>((i?'L':'M')+X(g,p.x).toFixed(1)+' '+vf(p.v).toFixed(1))).join(' ');
@@ -4767,11 +4820,30 @@ window.cmpOvlMount=function(hostId){
     if(ddMin>=0)ddMin=-1;
     const ddFloor=ddMin*1.12,Yd=v=>g.ddT+(0-v)/((0-ddFloor)||1)*(g.ddB-g.ddT);
     let s='<clipPath id="'+hostId+'-clip"><rect x="'+g.pL+'" y="0" width="'+g.pw+'" height="'+g.ddB+'"/></clipPath>';
+    // 1A MODE: stage bands FIRST so every gridline, curve and label draws on top of them —
+    //   exactly the layer order championEquityHtml uses (wfBands, lockbox rect, grid, curves).
+    if(ONE_A){
+      const _clip=x=>Math.max(g.pL,Math.min(g.pL+g.pw,X(g,x)));
+      if(_bandWF!=null){const x0=_clip(_bandWF),x1=(_bandLB!=null)?_clip(_bandLB):(g.pL+g.pw);
+        if(x1>x0)s+='<rect x="'+x0.toFixed(1)+'" y="'+g.eqT+'" width="'+(x1-x0).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(96,165,250,.16)"/>';}
+      if(_bandLB!=null){const x0=_clip(_bandLB),x1=g.pL+g.pw;
+        if(x1>x0)s+='<rect x="'+x0.toFixed(1)+'" y="'+g.eqT+'" width="'+(x1-x0).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(167,139,250,.16)"/>';
+        if(_lbMid!=null){const xd=_clip(_lbMid);
+          s+='<line x1="'+xd.toFixed(1)+'" y1="'+g.eqT+'" x2="'+xd.toFixed(1)+'" y2="'+g.ddB.toFixed(1)+'" stroke="#a78bfa" stroke-width="1.3" stroke-dasharray="4,3" opacity="0.85"/>';}}
+      // IS / WF / LB printed inside the top of the plot, centred over their own region (1A v64.8)
+      const _lo=g.pL,_hi=g.pL+g.pw;
+      const _wfX=(_bandWF!=null)?_clip(_bandWF):null,_lbX=(_bandLB!=null)?_clip(_bandLB):null;
+      const _anno=[{a:_lo,b:(_wfX!=null?_wfX:(_lbX!=null?_lbX:_hi)),t:'IS',c:'var(--text3)'}];
+      if(_wfX!=null)_anno.push({a:_wfX,b:(_lbX!=null?_lbX:_hi),t:'WF',c:'#60a5fa'});
+      if(_lbX!=null)_anno.push({a:_lbX,b:_hi,t:'LB',c:'#a78bfa'});
+      _anno.forEach(a=>{if(a.b-a.a<14)return;
+        s+='<text x="'+((a.a+a.b)/2).toFixed(1)+'" y="'+(g.eqT-5)+'" text-anchor="middle" font-size="7" font-weight="700" letter-spacing="0.4" fill="'+a.c+'">'+a.t+'</text>';});
+    }
     // $ gridlines + right gutter labels (equity pane), k/M-abbreviated.
     const step=_niceStep((mx-mn)/5)||1;
     for(let L=Math.ceil(mn/step)*step;L<=mx;L+=step){const y=Y(L);
       s+='<line x1="'+g.pL+'" y1="'+y.toFixed(1)+'" x2="'+(g.pL+g.pw)+'" y2="'+y.toFixed(1)+'" stroke="var(--border)" stroke-width="'+(Math.abs(L)<1e-9?1:0.5)+'" opacity="'+(Math.abs(L)<1e-9?0.6:0.22)+'"/>'
-        +'<text x="'+(g.pL+g.pw+5)+'" y="'+(y+3).toFixed(1)+'" font-size="8.5" fill="var(--text5)">'+_ab$(L)+'</text>';}
+        +'<text x="'+(g.pL+g.pw+5)+'" y="'+(y+3).toFixed(1)+'" font-size="8.5" fill="var(--text5)">'+(ONE_A?_fmtAxis(L,1):_ab$(L))+'</text>';}
     // x-axis: a handful of % ticks across [va,vb], with a real-date row underneath once every
     //   series shares a calendar span (M/D/YY, no leading zeros).
     {const xSpanPct=(VS.vb-VS.va)*100,steps=[1,2,5,10,20,25,50];let xStep=50;
@@ -4807,6 +4879,17 @@ window.cmpOvlMount=function(hostId){
       s+='<path d="M '+X(g,dvis[0].x).toFixed(1)+' '+Yd(0).toFixed(1)+' '+dvis.map(p=>'L '+X(g,p.x).toFixed(1)+' '+Yd(p.v).toFixed(1)).join(' ')+' L '+X(g,dvis[dvis.length-1].x).toFixed(1)+' '+Yd(0).toFixed(1)+' Z" fill="'+sr.color+'" opacity="0.10" stroke="none"/>'
         +'<path data-sr="'+sr.id+'" d="'+seg(g,dvis,Yd)+'" fill="none" stroke="'+sr.color+'" stroke-width="0.9" opacity="0.9"/>';});
     s+='</g>';
+    // 1A MODE: ENDPOINT $ PILLS in the right gutter — each curve's ending value at its own exact
+    //   y, dark text on the curve's colour (1A pins its final $ the same way). Pills that would
+    //   overlap are nudged apart just enough to stay readable, never further.
+    if(ONE_A){
+      const _ends=S.map(sr=>{const p=sr.pts;if(!p||!p.length)return null;
+        const vis=p.filter(q=>q.x<=VS.vb);const last=vis.length?vis[vis.length-1]:p[0];
+        return {c:sr.color,v:last.v,y:Y(last.v)};}).filter(Boolean).sort((a,b)=>a.y-b.y);
+      let prev=-99;_ends.forEach(e=>{const y=Math.max(g.eqT+5,Math.min(g.eqB,Math.max(e.y,prev+9)));prev=y;
+        s+='<rect x="'+(g.pL+g.pw+2)+'" y="'+(y-5).toFixed(1)+'" width="'+(g.gut-6)+'" height="10" rx="3" fill="'+e.c+'"/>'
+          +'<text x="'+(g.pL+g.pw+4)+'" y="'+(y+2.6).toFixed(1)+'" font-size="7.5" font-weight="800" fill="#04130c">'+_fmtAxis(e.v,1)+'</text>';});
+    }
     svg.setAttribute('viewBox','0 0 '+g.W+' '+g.H);
     svg.innerHTML=s;
     svg._g={g:g,mn:mn,mx:mx,ddFloor:ddFloor};
@@ -7682,7 +7765,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const _abbrVer=base=>{const toks=String(base||'').replace(/\.py$/,'').split(/[_\s]+/).filter(Boolean);const isNum=t=>/^\d+(\.\d+)*$/.test(t);let k=toks.length;while(k>0&&isNum(toks[k-1]))k--;const nameT=toks.slice(0,k).filter(t=>!isNum(t));const verT=toks.slice(k);let abbr=(nameT[0]||base||'').toUpperCase();if(abbr.length<3&&nameT[1])abbr=(nameT[0]+nameT[1]).toUpperCase();return {abbr:abbr.slice(0,5),ver:verT.join('.')};};
     // Family keyword, searched ANYWHERE in the string (legacy run names often led with
     // the version, e.g. "1.3.1 ENGU 3 (CLAUDE)"); underscores/punctuation → spaces.
-    const _FAMRE=[[/opening|orb/,'ORB'],[/overnight/,'OVN'],[/engu/,'ENGU'],[/supertrend/,'ST'],[/revert/,'RVT'],[/vwap/,'VWAP'],[/randomforest|rfml|\brf\b/,'RFML'],[/rsidiv/,'RSIDIV'],[/ttibs/,'TTIBS']];
+    const _FAMRE=[[/opening|orb/,'ORB'],[/overnight/,'OVN'],[/engu/,'ENGU'],[/supertrend/,'ST'],[/revert/,'RVT'],[/vwap/,'VWAP'],[/randomforest|rfml|\brf\b/,'RFML'],[/rsidiv/,'RSIDIV'],[/ttibs/,'TTIBS'],[/noise/,'NOISE']];
     const _famKey=s=>{const x=String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ');for(const fr of _FAMRE)if(fr[0].test(x))return fr[1];return '';};
     // ── FAMILY IDENTITY (owner 2026-07-11): a stable FAMILY number (birth order of the family,
     //    NOT the per-file creation rowid that scattered ORB across #18/#19/#20/None) + a fixed
@@ -7700,7 +7783,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       'ENGU-Q':{abbr:'ENGU-Q',n:8,hue:165,full:'Engulfing-Quant',desc:'Data-derived ENGU rebuild: descending-trendline break, long-only'},
       REPLAY:{abbr:'REPLAY',n:9,hue:0,full:'Discretionary Replay',desc:'Replays your discretionary trades for quant conversion'},
       TTIBS:{abbr:'TTIBS',n:10,hue:255,full:'Turnaround-Tuesday / IBS',desc:'Turnaround-Tuesday plus IBS mean-reversion (long)'},
-      RSIDIV:{abbr:'RSIDIV',n:11,hue:120,full:'RSI Divergence',desc:'RSI pivot-divergence long entries (TV round-13 port)'}};
+      RSIDIV:{abbr:'RSIDIV',n:11,hue:120,full:'RSI Divergence',desc:'RSI pivot-divergence long entries (TV round-13 port)'},
+      NOISE:{abbr:'NOISE',n:12,hue:300,full:'Noise Control',desc:'Deliberate no-edge control strategy - the false-positive yardstick'}};
     const _canonFam=s=>{const x=String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ');
       if(/enguq|engu q/.test(x))return 'ENGU-Q'; if(/replay/.test(x))return 'REPLAY'; return _famKey(s)||'';};
     // display ver+branch overrides for files whose token names read wrong (ORB 2-lot / BE / forks).
@@ -8940,6 +9024,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   hidden, like the cloud and the walk-forward group. And it was drawn in the same pink
         //   family as the hybrid lines beside it; it is red now, on the line, the key row, the
         //   gutter pill and the chip, so it cannot be mistaken for one of them.
+        // v71.23 (owner: "the drawdown underneath the pnl chart is only the top RAW config even
+        //   though this is the funnel view — show the drawdown of what is actually on the chart").
+        //   Every family line registers its dollar curve + its own x-mapping here; the drawdown
+        //   pane below then draws ONE underwater line per family, in that family's colour, inside
+        //   the same show/hide group as its equity line.
+        const _famDD=[];
         if(_hasGate){const gc=_gEq.cum_gated,gn=gc.length,_gf=gc[gn-1]*mult;
           // v64.94 (owner spotted this): the gate line USED to be spread linearly across the whole
           //   plot width, but this funnel WARPS its x — the optimize window occupies xL..xFull
@@ -8959,6 +9049,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           };
           const gp=gc.map((v,i)=>_gx(i).toFixed(1)+' '+Yv(v*mult).toFixed(1)).join(' ');
           gateOv='<polyline points="'+gp+'" fill="none" stroke="#e24b4a" stroke-width="1" opacity="0.95" stroke-dasharray="2.4 1.5" stroke-linecap="round"/>';
+          _famDD.push({a:gc.map(v=>v*mult),x:_gx,col:'#e24b4a',kg:'gate',nm:'GATE'});
           labs.push({y:Yv(_gf),col:'#e24b4a',kg:'gate',txt:_kUsd(_gf)+' 🚪'});}
         // IS-max total into the gutter (its in-chart door label is removed). Crowned already has a
         //   lockbox pill; IS-max may not, so add it here.
@@ -9020,6 +9111,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               const x=(f<=_tf)?(xL+(xFull-xL)*(f/_tf)):(xFull+(xR-xFull)*((f-_tf)/(1-_tf)));
               _tp.push(x.toFixed(1)+' '+Yv(_ta[j]).toFixed(1));}
             _tiltOv='<g data-kg="tilt"><polyline points="'+_tp.join(' ')+'" fill="none" stroke="#f0b429" stroke-width="0.75" opacity="0.9" stroke-dasharray="3 1.6"><title>best size tilt (2D): '+String(_bt.model||'')+' · '+String(_bt.scheme||'')+'</title></polyline></g>';
+            _famDD.push({a:_ta,x:function(j){const f=_tn<=1?1:j/(_tn-1);return (f<=_tf)?(xL+(xFull-xL)*(f/_tf)):(xFull+(xR-xFull)*((f-_tf)/(1-_tf)));},col:'#f0b429',kg:'tilt',nm:'TILT'});
             _tiltEnd=_ta[_tn-1];}
         }catch(_te){}
         // v68.6: the best HYBRID (2E) draws too — violet, same trade-grid mapping as the tilt.
@@ -9034,6 +9126,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               const x=(f<=_hf)?(xL+(xFull-xL)*(f/_hf)):(xFull+(xR-xFull)*((f-_hf)/(1-_hf)));
               _hp2.push(x.toFixed(1)+' '+Yv(_ha[j]).toFixed(1));}
             _hybOv='<g data-kg="hyb"><polyline points="'+_hp2.join(' ')+'" fill="none" stroke="#c084fc" stroke-width="0.75" opacity="0.9"><title>best hybrid (2E): '+String(_bh.model||'')+' · gate + tilt</title></polyline></g>';
+            _famDD.push({a:_ha,x:function(j){const f=_hn<=1?1:j/(_hn-1);return (f<=_hf)?(xL+(xFull-xL)*(f/_hf)):(xFull+(xR-xFull)*((f-_hf)/(1-_hf)));},col:'#c084fc',kg:'hyb',nm:'HYBRID'});
             _hybEnd=_ha[_hn-1];}
         }catch(_he){}
         // v71.6: the SAME hybrid book with the freed-up contracts put back to work - the HYBRID
@@ -9049,6 +9142,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               const x=(f<=_hf3)?(xL+(xFull-xL)*(f/_hf3)):(xFull+(xR-xFull)*((f-_hf3)/(1-_hf3)));
               _hp3.push(x.toFixed(1)+' '+Yv(_ha3[j]).toFixed(1));}
             _hyb2Ov='<g data-kg="hyb2"><polyline points="'+_hp3.join(' ')+'" fill="none" stroke="#f0abfc" stroke-width="0.8" opacity="0.92" stroke-dasharray="2.4 1.2"><title>hybrid with contracts redeployed - '+_hyRdF.toFixed(2)+'x the size of the plain hybrid line</title></polyline></g>';
+            _famDD.push({a:_ha3,x:function(j){const f=_hn3<=1?1:j/(_hn3-1);return (f<=_hf3)?(xL+(xFull-xL)*(f/_hf3)):(xFull+(xR-xFull)*((f-_hf3)/(1-_hf3)));},col:'#f0abfc',kg:'hyb2',nm:'HYBRID recycle'});
             _hyb2End=_ha3[_hn3-1];}
         }catch(_he3){}
         // v68.3 (owner: "add the drawdown graph"): a compact drawdown strip along the plot floor —
@@ -9069,7 +9163,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
             //   instead of one filled shape. Same references, same colours, same pills, and a
             //   card-coloured band above it so it reads as its own pane the way 1A does.
             const _mcP=(_V4.mc_p95!=null)?(+_V4.mc_p95)*mult:null;
-            const _dFloor=Math.min(_dmn,(_mcP!=null?_mcP:_dmn))||-1;
+            // v71.23: every family line on the chart gets its own underwater curve, so the pane
+            //   has to reach the DEEPEST of them, not just the champion's.
+            const _famD=[];
+            _famDD.forEach(function(F){try{
+              const A=F.a,N=A.length;if(!(N>2))return;
+              let pk=-Infinity;const dv=new Array(N);
+              for(let j=0;j<N;j++){if(A[j]>pk)pk=A[j];dv[j]=A[j]-pk;}
+              _famD.push({d:dv,x:F.x,col:F.col,kg:F.kg,nm:F.nm,worst:Math.min.apply(null,dv)});
+            }catch(_fe){}});
+            const _dFloor=Math.min.apply(null,[_dmn,(_mcP!=null?_mcP:_dmn)].concat(_famD.map(function(F){return F.worst;})))||-1;
             // v71.15 (owner: "big space 1a funnel between pnl chart and drawdown") - 7 units of
             //   dead band became 3, the same 5px breather 1A leaves between its two panes.
             const _dT=eqB+3,_dB=H-pd-1;   // v68.4: its own pane BELOW the equity, 1A-style
@@ -9085,9 +9188,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _ddStrip='<g data-kg="dd">'
               +'<rect x="0" y="'+(eqB+1).toFixed(1)+'" width="'+W+'" height="'+Math.max(0,_dT-eqB-2).toFixed(1)+'" fill="var(--bg2)"/>'
               +'<line x1="'+xL.toFixed(1)+'" y1="'+_dT.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+_dT.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.6"/>'
-              +'<path d="'+_pts.join('')+'" fill="rgba(193,66,106,0.5)" stroke="#d6557a" stroke-width="0.6" opacity="0.95"><title>champion drawdown (whole run) · worst '+_kUsd(_dmn)+'</title></path>'
+              +'<path d="'+_pts.join('')+'" fill="rgba(193,66,106,0.5)" stroke="#d6557a" stroke-width="0.6" opacity="0.95"><title>RAW champion drawdown (whole run) · worst '+_kUsd(_dmn)+'</title></path>'
               +_dRef(_ddY(_dmn),'#d6557a')+((_mcP!=null)?_dRef(_ddY(_mcP),'#f5c842'):'')
-              +'</g>';
+              +'</g>'
+              // v71.23: one underwater LINE per family (no fill, so they read over the champion
+              //   area), each inside its own family group — click that family's key row and its
+              //   equity line and its drawdown hide together.
+              +_famD.map(function(F){const p=[];
+                for(let j=0;j<F.d.length;j++)p.push((j?'L':'M')+F.x(j).toFixed(1)+' '+_ddY(F.d[j]).toFixed(1));
+                return '<g data-kg="'+F.kg+'dd"><path d="'+p.join('')+'" fill="none" stroke="'+F.col+'" stroke-width="0.6" opacity="0.85"><title>'+F.nm+' drawdown · worst '+_kUsd(F.worst)+'</title></path></g>';}).join('');
             // v71.13 (owner: "watermark segments"): 1A holds a horizontal at each running peak
             //   until equity recovers, so WHERE each drawdown sits reads straight off the curve.
             // v71.14: the "is this drawdown worth marking" test is 3% of the CHAMPION curve own
@@ -9230,7 +9339,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _hInfo=_infoIc('<div style="color:var(--text2)">'+(selMode?(_selTip+'<br><br>Path: all configs → IS door → top-K walk-forward → top-3 lockbox.'):_eqTip)+'</div>');
       if(sink){sink.title=selMode?'CONFIG FUNNEL':'TOP CONFIGS PNL';sink.info=_hInfo;}
       const _hdr=selMode
-        ?(tag?'<div style="margin:5px 0 3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;row-gap:4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+(noTag?'':tag+' '+_hInfo+' CONFIG FUNNEL ')+cfgSlider+'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex-shrink:0;white-space:nowrap">'+_a2SampSel+_gateChip+'</span></div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
+        // v71.23 (owner: "remove the FULL RUN and GATE toggles on the top right"): both are gone
+        //   from the funnel header. The stretch picker still lives on the 1E MATRIX SAMPLE tabs
+        //   (same saved setting), and the GATE line is switched from its own key row inside the
+        //   plot since v71.20 — so neither chip was the only way to reach its setting.
+        ?(tag?'<div style="margin:5px 0 3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;row-gap:4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+(noTag?'':tag+' '+_hInfo+' CONFIG FUNNEL ')+cfgSlider+'</div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
         :(tag?'<div style="margin:5px 0 3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;row-gap:4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+(noTag?'':tag+' '+_hInfo+' TOP CONFIGS PNL ')+selDrop+cfgSlider+'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px">'+_gateChipNS+'</span></div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
       // v64.46 (owner): the funnel (selMode) now ALSO carries a data-xh descriptor, so the expand
       //   modal's crosshair shows date + equity $ under the cursor (same readout as 1A). x is a
@@ -13570,6 +13683,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   the picked SAMPLE. The pooled BOOKS table keeps its own tile at the bottom.
       const _rbS=(['full','is','lb'].indexOf(APREF.rbSample)>=0)?APREF.rbSample:'lb';
       const _rbR=(['mar','pf','net','dd'].indexOf(APREF.rbRank)>=0)?APREF.rbRank:'mar';
+      // the 1A-style chart dressing (stage bands, in-plot IS/WF/LB, endpoint pills) belongs to the
+      //   RUNBOARD only — PICK RUNS / BY STRATEGY keep the plain overlay they have always had.
+      window._cmpOvl1A=false;
       if(!rs.length&&_cmpMode!=='board'){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUNS TO COMPARE YET</div>';}
       else{
         const find=id=>{for(let i=0;i<rs.length;i++)if(String(rs[i].id)===String(id))return rs[i];return null;};
@@ -13978,21 +14094,56 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    live overlay PICK RUNS uses (key pills on their lines, crosshair, drawdown pane,
         //    solid/dashed/dotted stages); the matrix is the SAME sectioned green-best table with
         //    VERT/HORIZ. The pooled BOOKS keep their own tile at the bottom, clearly separated. ──
-        const _rbBtn=(a,k2,lab,cur,tip)=>'<button data-'+a+'="'+k2+'" title="'+(tip||'')+'" style="height:20px;padding:0 10px;font-size:9px;letter-spacing:.5px;font-weight:700;border-radius:6px;border:1px solid '+(cur===k2?'color-mix(in srgb,var(--text4) 55%,var(--border))':'var(--border)')+';background:'+(cur===k2?'var(--bg2)':'var(--bg1)')+';color:'+(cur===k2?'var(--text)':'var(--text4)')+';cursor:pointer">'+lab+'</button>';
-        const _rbCtl='<div style="display:flex;align-items:center;gap:14px;margin:-2px 0 10px;flex-wrap:wrap">'
-          +'<span style="display:inline-flex;gap:6px;align-items:center"><span title="which stretch every panel measures - the funnel redraws, the matrix recomputes, the ranking re-sorts" style="font-size:8px;letter-spacing:1.6px;color:var(--text5);font-weight:700;cursor:help">SAMPLE</span>'
-          +_rbBtn('rbs','full','FULL',_rbS,'the whole run - in-sample + walk-forward + lockbox')+_rbBtn('rbs','is','IS',_rbS,'the optimize window only - the stretch every config was tuned on')+_rbBtn('rbs','lb','LB',_rbS,'the lockbox year only - the honest forward read')+'</span>'
-          +'<span style="display:inline-flex;gap:6px;align-items:center"><span title="which metric orders the strategies - measured on the picked SAMPLE" style="font-size:8px;letter-spacing:1.6px;color:var(--text5);font-weight:700;cursor:help">RANK BY</span>'
-          +_rbBtn('rbr','mar','MAR',_rbR,'net divided by the worst drawdown of the picked sample')+_rbBtn('rbr','pf','PF',_rbR,'gross wins over gross losses')+_rbBtn('rbr','net','NET',_rbR,'most dollars')+_rbBtn('rbr','dd','MAX DD',_rbR,'smallest drawdown ranks first')+'</span></div>';
+        // v71.23 (owner: "still doesnt look like 1e matrix/table in terms of layout / sample /
+        //   rank selection (these are on the matrix tile itself)"). The board's table is now the
+        //   SHARED 1E MATRIX SHELL (_matrixTbl) — the same grouped uppercase metric bands, sticky
+        //   metric column on the left, entity columns across the top, tabular-numeric right-
+        //   aligned cells and the emphasised (tinted) column for the leader. SAMPLE and RANK ride
+        //   as underlined TAB RAILS in the matrix tile's own title row, the same _tabBtn / _ctlGrp
+        //   control kit the 1E card uses, each rail wearing its group colour.
+        const _rbRail=(attr,items,cap,capTip,tone)=>_ctlGrp(cap,capTip,items,tone);
+        const _sampTabs=[['full','FULL','the whole run - in-sample + walk-forward + lockbox'],
+                         ['is','IS','the optimize window only - the stretch every config was tuned on'],
+                         ['lb','LB','the lockbox year only, never touched during tuning - the honest forward read']]
+          .map(o=>_tabBtn('data-rbs="'+o[0]+'"',o[1],_rbS===o[0],o[2],_TONE.samp)).join('');
+        const _rankTabs=[['mar','MAR','net divided by the worst drawdown of the picked sample'],
+                         ['pf','PF','gross wins over gross losses'],
+                         ['net','NET $','most dollars'],
+                         ['dd','MAX DD','smallest drawdown ranks first']]
+          .map(o=>_tabBtn('data-rbr="'+o[0]+'"',o[1],_rbR===o[0],o[2],_TONE.rank)).join('');
+        const _rbCtlRow='<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
+          +_rbRail('rbs',_sampTabs,'SAMPLE','which stretch every panel measures - the funnel redraws, the matrix recomputes, the ranking re-sorts',_TONE.samp)
+          +_rbRail('rbr',_rankTabs,'RANK','which metric orders the strategies - measured on the picked SAMPLE',_TONE.rank)
+          +orientSeg+'</div>';
         const boardTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">RUNBOARD</span><span style="font-size:8px;color:var(--text5)">top run per strategy · auto-populates from run history · ordered by the RANK BY pick</span></div>'
           +'<div style="overflow:auto;max-height:74vh">'+runs.map(_famRowOf).join('')+'</div>'
           +_famMoreNote);
-        const _sampTag=(_rbS==='full')?'SOLID in-sample · DASHED walk-forward · DOTTED lockbox':((_rbS==='is')?'showing the IS stretch only':'showing the LB year only · every curve rebased to $0');
-        const funnelTile=tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px">FUNNEL · one curve per strategy champion <span style="font-weight:400;color:var(--text5);font-size:8px">· '+_sampTag+'</span><button data-cmpexpand title="open the fullscreen multi-curve explorer" style="margin-left:auto;flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></div><div id="cmp-ovl-host" style="position:relative;min-height:300px">'+ovl+'</div>');
-        const _rbScNote='<div style="font-size:8px;color:var(--text5);margin-top:5px">'
+        const _sampTag=(_rbS==='full')?'in-sample, then the blue walk-forward band, then the purple lockbox':((_rbS==='is')?'the IS stretch only':'the LB year only · every curve rebased to $0');
+        const funnelTile=tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px">1A · FUNNEL <span style="font-weight:400;color:var(--text5);font-size:8px">· one curve per strategy champion · '+_sampTag+'</span><button data-cmpexpand title="open the fullscreen multi-curve explorer" style="margin-left:auto;flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></div><div id="cmp-ovl-host" style="position:relative;min-height:300px">'+ovl+'</div>'
+          +'<div style="font-size:8px;color:var(--text5);margin-top:6px;line-height:1.7">Every strategy runs its OWN window, so the bands span from the earliest door onward: un-shaded = in-sample, <span style="color:#60a5fa">blue = walk-forward</span>, <span style="color:#a78bfa">purple = lockbox</span> (dashed line = the middle strategy door). Line style per curve: solid in-sample, dashed walk-forward, dotted lockbox. The pill on the right of each line is that strategy ending $.</div>');
+        const _rbScNote='<div style="font-size:8px;color:var(--text5);margin-top:6px;line-height:1.7">'
           +(_rbS==='full'?'FULL = the whole run end to end, read off the champion equity curve, split into the indented IS / WF / LB rows.':(_rbS==='is'?'IS = the optimize window - the stretch every config was TUNED on, optimistic by construction.':'LB = the lockbox year only, never touched during tuning - the honest forward read.'))
           +' MAX DD prints positive. A dash means that run never ran the stage. Dollar figures are abbreviated (k = thousand, M = million). With SAMPLE = FULL the PF ranking uses the optimize-window PF (no whole-run PF is stored), and FULL / LB drawdowns are read off the stored curve - close approximations, same treatment for every row.</div>';
-        const matrixTile=tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px">MATRIX · '+runs.length+' strateg'+(runs.length===1?'y':'ies')+' <span style="font-weight:400;color:var(--text5);font-size:8px">· green = best in row</span><span style="margin-left:auto"></span>'+orientSeg+'</div><div style="overflow-x:auto"><table class="table"><thead>'+hdr+'</thead><tbody>'+mrows+'</tbody></table></div>'+_rbScNote);
+        // 1E shell: entity COLUMNS (one per strategy champion, swatched in its curve colour, the
+        //   RANK BY leader emphasised in its own hue) × grouped metric ROWS (M's `sec` bands).
+        const _mCols=runs.map((r,i)=>{const full=((stratTag(r.strategy)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||'';
+          return {lbl:'<span style="display:inline-flex;align-items:center;gap:4px;justify-content:flex-end"><span style="width:8px;height:8px;border-radius:2px;background:'+curves[i].c+';flex:0 0 auto"></span>#'+r.id+'</span>',
+            sub:((r.famKey&&r.famSeq!=null)?(r.famKey+'-'+r.famSeq):(instTag(r.instrument)||'').replace(/<[^>]*>/g,'').trim()),
+            col:curves[i].c,emph:(i===0),emphCol:curves[i].c,run:r,
+            tip:(full+' · rank '+(i+1)+' by '+({mar:'MAR',pf:'PF',net:'NET $',dd:'MAX DD'})[_rbR]+' on '+_rbS.toUpperCase()).replace(/"/g,'&quot;')};});
+        const _mGroups=[];
+        M.forEach(m=>{const nm=(m.sec||'identity').toUpperCase();
+          let grp=_mGroups.length?_mGroups[_mGroups.length-1]:null;
+          if(!grp||grp.name!==nm){grp={name:nm,rows:[]};_mGroups.push(grp);}
+          // best-in-row stays the COMPARE / 1E green highlight, computed per metric row
+          let bi=-1;if(m.v&&m.b){let bv=null;runs.forEach((r,i)=>{const val=m.v(r);if(bv===null||(m.b==='max'?val>bv:val<bv)){bv=val;bi=i;}});}
+          const _isTop=/^(Net P&L|Total net|Max DD|MAR|PF|Verdict)/.test(m.l);
+          grp.rows.push({lbl:m.l,top:_isTop,
+            cell:c=>{const i=runs.indexOf(c.run);
+              return (i>=0&&i===bi)?('<b style="color:var(--green)">'+m.f(c.run)+'</b>'):m.f(c.run);}});});
+        const matrixTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap"><span class="lbl" style="flex-shrink:0">1E · MATRIX <span style="font-weight:400;color:var(--text5);font-size:8px">· '+runs.length+' strateg'+(runs.length===1?'y':'ies')+' · green = best in row</span></span>'+_rbCtlRow+'</div>'
+          +((_cOr==='h')?('<div style="overflow-x:auto"><table class="table"><thead>'+hdr+'</thead><tbody>'+mrows+'</tbody></table></div>'):_matrixTbl(_mCols,_mGroups,{compact:runs.length>=6}))
+          +_rbScNote);
         // ── the pooled BOOKS table (offline t5_runboard.py numbers) — kept, clearly separated ──
         const _rbF=n=>'$'+Math.round(n).toLocaleString();
         const _rbV=v=>{const m={champion:['★ CHAMPION','var(--yellow)'],candidate:['● CANDIDATE','var(--green)'],parked:['‖ PARKED','var(--blue)'],dead:['✕ DEAD','var(--red)']}[v]||['—','var(--text5)'];
@@ -14014,10 +14165,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'Window 2010-06-07 to 2026-06-30 · NQ · costs in · trades counted on exit date. Rebuild the numbers with tools/t5_runboard.py.</div>';
         const booksTile=tile('<div class="lbl" style="margin-bottom:8px">◫ BOOKS · pooled two-strategy books · offline numbers, not app-validated</div>'
           +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px"><thead>'+_rbTh+'</thead><tbody>'+_rbTr+'</tbody></table></div>'+_rbNote,0);
-        body=modeToggle+_rbCtl
+        // v71.23 (owner: "the matrix should sit to the right of the funnel (like in compare tab)"):
+        //   FUNNEL and MATRIX are side-by-side columns, the way 1A and 1E sit side by side in the
+        //   run report. The strategy list keeps the narrow left column, same as COMPARE's picker.
+        //   Each column carries a min-width so a narrow viewport wraps instead of squeezing.
+        window._cmpOvl1A=true;
+        body=modeToggle
           +(runs.length?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
-            +'<div style="flex:0 1 430px;min-width:310px">'+boardTile+'</div>'
-            +'<div style="flex:1 1 480px;min-width:0">'+funnelTile+matrixTile+'</div>'
+            +'<div style="flex:0 1 340px;min-width:290px">'+boardTile+'</div>'
+            +'<div style="flex:1 1 430px;min-width:340px">'+funnelTile+'</div>'
+            +'<div style="flex:1 1 430px;min-width:340px">'+matrixTile+'</div>'
             +'</div>'):'<div style="border:1px dashed var(--border);padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px;margin-bottom:14px">NO SAVED RUNS YET — THE BOARD POPULATES ITSELF FROM RUN HISTORY</div>')
           +booksTile;
         }else
@@ -14195,7 +14352,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _instShort=i=>{const m=String(i||'').trim().match(/^[A-Za-z0-9]+/);return m?m[0].toUpperCase():'';};
         const trows=sorted.length?sorted.map(r=>{const on=String(r.id)===String(d.id);const T=_T(r);const pnl=T.net||0;const sc=scoreRun(r);const vd=r.validate?r.validate.verdict:'';const dd=T.dd||0;const shp=T.sharpe;const wf=_wfHeld(r);const src=r.source_name||r.data_source||'';const ik=_instShort(r.instrument);
           return '<tr class="arow" data-run="'+r.id+'" style="cursor:pointer;'+(on?'background:var(--bg1)':'')+'">'
-            +'<td style="text-align:center"><span data-star="'+r.id+'" title="star" style="cursor:pointer;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span></td>'
+            +'<td class="prstar"><span data-star="'+r.id+'" title="star" style="cursor:pointer;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span></td>'
             +'<td style="text-align:right;color:var(--text3);font-variant-numeric:tabular-nums;white-space:nowrap">'+r.id+((r.famKey&&r.famSeq!=null)?'<div title="family run id — chronological within '+r.famKey+', stable (never renumbers)" style="margin-top:1px;font-size:7.5px;color:var(--text4);font-weight:700;letter-spacing:.2px">'+r.famKey+'-'+r.famSeq+'</div>':'')+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+_dtmini(r.timestamp)+'</td>'
             +'<td style="white-space:nowrap">'+stratTag(r.strategy)+(vd?' <span style="font-size:8px;color:'+(vd==='PASS'?'var(--green)':vd==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vd+'</span>':'')+'</td>'
@@ -14244,7 +14401,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'.fhsel option{background:var(--bg2);color:var(--text);letter-spacing:normal;font-weight:400}'
           +'#res-listscroll thead th{position:sticky;top:0;z-index:5;background:var(--bg1);box-shadow:inset 0 -1px 0 var(--border)}</style>'
           +'<div id="res-listscroll" style="overflow:auto;max-height:'+(rv==='side'?'86vh':rVH+'px')+'">'
-          +'<table class="table" style="font-size:var(--fsxs)"><thead><tr><th style="text-align:center;vertical-align:bottom" title="show starred only"><span data-rfstar style="cursor:pointer;user-select:none;font-size:12px;color:'+(fStar?'var(--yellow)':'var(--text5)')+'">'+(fStar?'★':'☆')+'</span></th>'
+          // v71.23 (owner: "star column takes up way too much space"): the shared table cell
+          //   padding is 10px a side, so a 12px glyph was sitting in a ~32px column. Squeeze it to
+          //   the glyph and let RUN start where the star ends.
+          +'<style>.prstar{width:1%;padding-left:3px!important;padding-right:3px!important;text-align:center;vertical-align:bottom}</style>'
+          +'<table class="table" style="font-size:var(--fsxs)"><thead><tr><th class="prstar" title="show starred only"><span data-rfstar style="cursor:pointer;user-select:none;font-size:12px;color:'+(fStar?'var(--yellow)':'var(--text5)')+'">'+(fStar?'★':'☆')+'</span></th>'
           +sh('id','RUN','right')+sh('date','DATE','left')+'<th style="vertical-align:bottom;white-space:nowrap;cursor:pointer">'+_stratHdr+'</th>'+sh('trd','TRD','right')+fh('MODE',(_scopes.length>1?'rfScope':''),fScope,_scopes.map(s=>[s,s.slice(0,16)]))+fh('MARKET',(_insts.length>1?'rfInst':''),fInst,_insts.map(i=>[i,i]))+fh('TF',(_tfs.length>1?'rfTf':''),fTf,_tfs.map(t=>[t,t]))+'<th style="text-align:center;vertical-align:bottom">EQUITY</th>'
           +sh('pnl','NET $','right')+sh('perday','$/DAY','right')+sh('maxdd','MAX DD','right')+sh('mar','MAR','right')+sh('pf','PF','right')+sh('sharpe','SHARPE','right')+sh('wr','WR','right')+'<th style="text-align:center;vertical-align:bottom" title="walk-forward folds that held out-of-sample">WF</th>'+sh('score','SCORE','right')+sh('took','TOOK','right')+'<th style="vertical-align:bottom">SRC</th>'+'<th style="vertical-align:bottom">RANGE</th>'+sh('days','DAYS','right')
           +'</tr></thead><tbody>'+trows+'</tbody></table></div>';
@@ -14434,6 +14595,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // double-click anywhere on the chart to expand it — opens the existing expandChart
         // modal with a clean (undistorted) copy of the svg + crosshair.
         const openExpand=e=>{if(e&&e.stopPropagation)e.stopPropagation();
+          // v71.23 (owner): switching a key row off and back on is two clicks in the same spot,
+          //   which the browser ALSO reports as a double-click — so the chart kept opening the
+          //   expanded view when he only meant to bring a line back. A double-click that lands on
+          //   a control (key row, chip, slider, dropdown) never expands; the chart body still does.
+          try{if(e&&e.target&&e.target.closest&&e.target.closest('[data-a2k],[data-a2krow],[data-pg],[data-a2gate],[data-g2samp],[data-eqtab],select,input,button'))return;}catch(_ce){}
           // 1A (or any chart carrying a data-eqx payload) opens the RICH equity explorer
           // (zoom/pan/crosshair/blotter) instead of the generic clone modal.
           const _eqxHost=svg.closest('[data-eqx]')||box.closest('[data-eqx]');
@@ -15059,7 +15225,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-a2eqx]').forEach(box=>{
         const svg=box.querySelector('svg');if(!svg)return;
         const kroot=box;   // v68.6: the key box lives inside the chart wrap again
-        const _kmap={raw:['crown','ismax','wf','cloud','lb'],gate:['gate'],tilt:['tilt'],hyb:['hyb'],dd:['dd']};
+        // v71.23: each family's drawdown curve rides in the SAME key group as its equity line
+        //   ("gatedd" with "gate", and so on), so one click hides or shows both.
+        const _kmap={raw:['crown','ismax','wf','cloud','lb'],gate:['gate','gatedd'],tilt:['tilt','tiltdd'],hyb:['hyb','hybdd'],hyb2:['hyb2','hyb2dd'],dd:['dd']};
         const _kOthers={raw:['ismax','wf','cloud']};   // groups a click reveals (family top line stays)
         const grp=k=>{const ks=_kmap[k]||[k];const out=[];ks.forEach(k2=>svg.querySelectorAll('[data-kg="'+k2+'"]').forEach(g=>out.push(g)));return out;};
         // v70.6 (owner: "default 2a funnel, just show the top configs of ea tab"): the grey
