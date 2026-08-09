@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.25';
+const VERSION='71.26';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.26',date:'2026-08-09',notes:['RUNBOARD matrix printed its band caption IDENTITY twice - once over the strategy / market / scope rows at the top and again over the lone verdict row at the bottom. The top block is headed RUN now and the bottom one VERDICT.']},
 {v:'71.25',date:'2026-08-09',notes:['RUNBOARD matrix now opens in the 1E layout - metrics down the side, strategies across the top - regardless of what COMPARE own table is set to. The board keeps its own VERT / HORIZ pick, and that pick moved onto the matrix tile as a third tab rail beside SAMPLE and RANK.','RUNBOARD funnel: a gridline $ label that would land underneath a strategy ending-$ pill is no longer drawn, so the right gutter never shows two figures stacked on each other.','The wheel-zoom / drag-pan hint on the compare and runboard charts used to sit permanently on top of the date row. It fades in only while the cursor is over the chart now.','RUNBOARD funnel title no longer wraps onto a second line over the plot - the description truncates with the full text on hover.']},
 {v:'71.24',date:'2026-08-09',notes:['1A FUNNEL: switching a key row off and back on no longer opens the expanded chart. Two clicks in the same spot is also a double-click as far as the browser is concerned, so toggling a line back on kept expanding the view. A double-click that lands on a control - a key row, a chip, a slider - is now ignored; the chart body still expands as before.','1A FUNNEL: the FULL RUN and GATE chips are off the top right. The stretch picker is the same saved setting as the SAMPLE tabs on 1E, and the GATE line has been switched from its own key row since 71.20, so neither chip was the only way to reach its setting.','1A FUNNEL DRAWDOWN was only ever the RAW champion, on a chart showing five books. It now draws one underwater line per family - RAW, GATE, TILT, HYBRID and HYBRID recycle - each in its own line colour, each hiding and showing with its own key row, and the pane stretches to whichever digs deepest so none of them is clipped.','PAST RUNS: the star column is squeezed to the width of the star. The shared table padding was giving a 12px glyph a 32px column.','PAST RUNS: NOISE was missing from the family chip row. It was not in the family table at all, so it had no number and no colour and got no chip in either view. It is family 12 now and the chip shows in the flat list as well as the grouped one.']},
 {v:'71.23',date:'2026-08-09',notes:['RUNBOARD funnel now wears the 1A CHAMPION EQUITY look: a blue walk-forward band and a purple lockbox band shaded across the plot with in-sample left un-shaded, the IS / WF / LB labels printed inside the top of each region, a dashed purple door line, and each strategy ending $ pinned as a coloured pill on the right at its own line height.','RUNBOARD table rebuilt on the SAME matrix shell the 1E KPI MATRIX uses - grouped uppercase metric bands, the metric names pinned on the left while the columns scroll, one column per strategy in its curve colour, and the ranking leader tinted in its own hue.','SAMPLE and RANK moved ONTO the matrix tile as underlined tab rails - the same control look the 1E card uses, blue for SAMPLE and teal for RANK - instead of sitting in a separate strip above the board.','The MATRIX now sits to the RIGHT of the FUNNEL, the way 1A and 1E sit side by side in a run report, with the strategy list keeping the narrow left column.']},
@@ -14152,7 +14153,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
             col:curves[i].c,emph:(i===0),emphCol:curves[i].c,run:r,
             tip:(full+' · rank '+(i+1)+' by '+({mar:'MAR',pf:'PF',net:'NET $',dd:'MAX DD'})[_rbR]+' on '+_rbS.toUpperCase()).replace(/"/g,'&quot;')};});
         const _mGroups=[];
-        M.forEach(m=>{const nm=(m.sec||'identity').toUpperCase();
+        // rows carrying no `sec` are the identity block at the TOP (strategy / market / scope /
+        //   tests) and the single VERDICT row at the BOTTOM — name them apart so the matrix does
+        //   not print the same band caption twice.
+        let _seenSec=false;
+        M.forEach(m=>{if(m.sec)_seenSec=true;
+          const nm=(m.sec||(_seenSec?'verdict':'run')).toUpperCase();
           let grp=_mGroups.length?_mGroups[_mGroups.length-1]:null;
           if(!grp||grp.name!==nm){grp={name:nm,rows:[]};_mGroups.push(grp);}
           // best-in-row stays the COMPARE / 1E green highlight, computed per metric row
