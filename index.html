@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.11';
+const VERSION='71.12';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.12',date:'2026-08-08',notes:['FUNNEL gutter width now follows its widest endpoint pill instead of a hard 44px. With five pills on the axis the longest was running past the edge and getting clipped - the recycled-hybrid pill lost its tag entirely. Short runs are unchanged because 44px stays the floor.']},
 {v:'71.11',date:'2026-08-08',notes:['FUNNEL gutter: every family line now prints its ending PnL as a pill on the axis. TILT, HYBRID and HYBRID recycle were drawn on the chart and priced in the key box but had no pill, so only two of the five lines could be read against the scale. Pills are tagged T, H and H-recycle in their line colour, next to the existing crown, gate, IS and lockbox pills.','Those pills now hide when you click their key row off, and dim with everything else when you hover a different family - a dollar chip sitting on the axis with no line under it reads as a line you cannot find.']},
 {v:'71.10',date:'2026-08-08',notes:['Put back the two things 71.9 changed for no good reason: the configs slider is 120px again and the evaluated-configs count always prints. 71.9 read the sample control as four separate chips being clipped, but it is a DROPDOWN - its options are text inside it, so nothing was ever hidden.','Kept from 71.9: the control row wraps rather than cutting, which is worth having on a narrow card.']},
 {v:'71.9',date:'2026-08-08',notes:['FIX on top of 71.8: moving the configs slider to the left squeezed the funnel control row, and PRE-LB and LOCKBOX were being CLIPPED off the left edge of the sample tabs - the row was set to cut rather than wrap. It wraps now, so no control can ever be hidden.','Also bought the row some width back: a shorter slider track, and the evaluated-configs count prints only when it differs from the stored-curve count (on run 200 both read 77, so it was saying the same number twice).']},
@@ -8795,7 +8796,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   to 6px away from the line they label - worst at the top and bottom, right in the
         //   middle. The pills now live in an inner box inset by the same 6px, and both the pills
         //   and the scale numbers centre with translateY(-50%) instead of a guessed pixel nudge.
-        _gutterHtml='<div style="width:44px;min-width:44px;position:relative;font-size:8px;color:var(--text5)">'
+        // v71.12: the gutter was a hard 44px, which fit the plain scale numbers but CUT OFF the
+        //   longer pills - the recycled-hybrid one ran 10px past the edge and lost its tag. Width
+        //   now follows the widest pill (emoji count double), floor 44 so short runs look
+        //   unchanged, ceiling 68 so it can never eat the plot.
+        const _pgW=labs.reduce((m,L)=>{let u=0;for(const ch of String(L.txt||''))u+=(ch.charCodeAt(0)>255?2:1);return Math.max(m,u);},0);
+        const _gutW=Math.max(44,Math.min(68,Math.round(_pgW*5.2+11)));
+        _gutterHtml='<div style="width:'+_gutW+'px;min-width:'+_gutW+'px;position:relative;font-size:8px;color:var(--text5)">'
           +'<div style="position:absolute;left:0;right:0;top:6px;bottom:6px">'
           +_gls.map(L=>{const ly=Yv(L);if(labs.some(p=>Math.abs(p.y-ly)<7))return '';return '<span style="position:absolute;left:2px;top:'+(ly/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</span>';}).join('')
           +labs.map(L=>'<span'+(L.kg?(' data-pg="'+L.kg+'"'):'')+' style="position:absolute;left:1px;top:'+(L.y/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;font-weight:800;color:#04130c;background:'+L.col+';padding:0 4px;border-radius:4px;z-index:2">'+L.txt+'</span>').join('')
