@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.33';
+const VERSION='71.34';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.34',date:'2026-08-09',notes:['RUNBOARD now shows each strategy WINDOW - the dates it covers and how long that is - as its own row on the matrix, and a span under two years is flagged in yellow. A 19-day run was sitting at the top of the board on NET against 16-year runs, and nothing on screen said the samples were different sizes.','The funnel key carries the same span beside each ending dollar figure. That is what the hairline blip on the chart was: a run whose whole window is a few weeks, drawn on a 16-year calendar axis.']},
 {v:'71.33',date:'2026-08-09',notes:['Two labels left over from the 71.31 pass. The TILT and HYBRID RETURN headers were still ending in FULL after the FULL row itself was removed, and the GATE total row read as a bare stretch list where every other tab reads TOTAL. Both now say the same thing in the same place: TOTAL followed by the stretches you ticked.']},
 {v:'71.32',date:'2026-08-09',notes:['RUNBOARD panels RESIZE now. A drag bar under the funnel and under the matrix sets that panel height, and drag bars BETWEEN the three panels trade width - the same two gestures the run report uses. Every size is remembered; double-click a bar to put it back to default.','RUNBOARD matrix: the stages row is plain text now - IS · WF · LB in their period colours, dimmed when a run never ran that stage - instead of bordered chips. It is called STAGES RUN.','The compare and runboard equity charts are no longer locked to one height.']},
 {v:'71.31',date:'2026-08-09',notes:['EVERY 1E ROW NOW MEASURES WHAT THE SAMPLE TABS SAY, AND NOTHING ELSE. The tabs were mixing windows in one table - a sample-scoped row sitting next to a whole-run copy of the same metric - so a number could be read against a neighbour that was measured on a different stretch.','Each RETURN group reads IS, WF, LB as ticked, then TOTAL of exactly those stretches, then the DD of exactly those stretches. Tick all three and TOTAL is the whole run, taken from the engine own whole-run block, so nothing is lost by dropping the old FULL row.','It is called DD now, not MAX DD. A drawdown measured on two of three stretches is not the max drawdown of the run and should not claim to be. The tag next to it names the tick it belongs to.','Gone as duplicates: FULL DOLLARS, FULL MAX DD, FULL MAR, ALL TRADES and the LB TRADES row on the GATE tab. Every one of them was a second copy of a row already on screen, measured on a window you did not pick.','SHARPE on the TILT and HYBRID tabs was quietly measured over the whole run whatever you ticked. It is cut to the ticked stretches now and annualised on that span.','The RAW tab is the one place a metric genuinely cannot follow the tick: a config saved equity curve covers the optimize window only, and the walk-forward folds are scattered THROUGH the in-sample years rather than following them, so there is no IS-only or WF-only curve to measure on. Its dollar rows and TOTAL do follow the tick; DD, MAR, SHARPE, PF, WIN percent and dollars per trade now print their real window in the row label - DD IS+WF, MAR WF over IS+WF DD, and so on - instead of leaving it to a hover.']},
@@ -4786,11 +4787,21 @@ window.cmpOvlMount=function(hostId){
   const svg=host.querySelector('.cmpovl-svg'),keyEl=host.querySelector('.cmpovl-key'),readEl=host.querySelector('.cmpovl-read'),
     vln=host.querySelector('.cmpovl-vln'),xchip=host.querySelector('.cmpovl-xchip'),ychip=host.querySelector('.cmpovl-ychip');
 
+  // 1A MODE flag — declared BEFORE the key box below, which reads it.
+  const ONE_A=!!window._cmpOvl1A;
   // KEY BOX (2B pattern, line ~8358) — one row per series (swatch + id + label + ending $, the
   //   same _ab$ abbreviation the table uses), then the muted line-style rows (only the styles
   //   actually present in this selection), then any no-curve runs as a muted footnote row.
+  // v71.34: in 1A mode each key row also carries that strategy's WINDOW LENGTH. A run covering a
+  //   few weeks draws as a hairline next to a 15-year run, and without this the short one just
+  //   looks like a rendering glitch instead of a much smaller sample.
+  const _spanTxt=sr=>{const a=Date.parse((sr.blot&&sr.blot.date_from)||''),b=Date.parse((sr.blot&&sr.blot.date_to)||'');
+    if(isNaN(a)||isNaN(b)||b<=a)return '';
+    const d=Math.round((b-a)/86400000),y=d/365.25;
+    return (y>=1.5)?(' <span style="color:var(--text5)">· '+y.toFixed(1)+'y</span>')
+      :(' <span style="color:var(--yellow)" title="short sample - this curve only covers '+d+' days, so it draws as a hairline beside the full-history runs">· '+d+'d ⚠</span>');};
   keyEl.innerHTML=S.map(sr=>{const lastV=(sr.eq&&sr.eq.length)?sr.eq[sr.eq.length-1]:0;
-      return '<div style="white-space:nowrap;color:'+sr.color+'"><b>▬</b> #'+sr.id+' '+sr.label+' · '+_ab$(lastV)+'</div>';}).join('')
+      return '<div style="white-space:nowrap;color:'+sr.color+'"><b>▬</b> #'+sr.id+' '+sr.label+' · '+_ab$(lastV)+(ONE_A?_spanTxt(sr):'')+'</div>';}).join('')
     +'<div style="white-space:nowrap;color:var(--text4)"><b>—</b> in-sample</div>'
     +(S.some(sr=>sr.wfi!=null)?'<div style="white-space:nowrap;color:var(--text4)"><b>––</b> walk-forward</div>':'')
     +(S.some(sr=>sr.li!=null)?'<div style="white-space:nowrap;color:var(--text4)"><b>····</b> lockbox</div>':'')
@@ -4809,7 +4820,6 @@ window.cmpOvlMount=function(hostId){
   //    Every run here has its OWN window, so a single shared band would be a lie: the bands span
   //    from the EARLIEST door to the latest, and each series also gets a small tick in its own
   //    colour at its own door. The band note under the chart says so.
-  const ONE_A=!!window._cmpOvl1A;
   const _fmtAxis=(typeof fmtAx==='function')?fmtAx:_ab$;
   // stage doors in shared x-fraction space, per series (null when that run has no such stage)
   const _doorOf=(sr,which)=>{const n=(sr.pts||[]).length;if(!n)return null;
@@ -14027,6 +14037,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +'<span style="color:var(--text5)"> · </span>'
               +one('LB',!!lb,(lb&&lb.pass)?'var(--green)':'var(--red)','lockbox'+(lb?(lb.pass?' · held':' · failed'):' - not run, so the numbers are in-sample only'))+'</span>';}});
           return m;});
+        // v71.34 (owner: "why is 42 on there as a small blip on the 1a graph"): because that run
+        //   only covers 19 DAYS while the others cover 16 YEARS — on a shared calendar axis a
+        //   19-day curve is a hairline at the far right, and its $ ranks against 16-year books as
+        //   if they were the same thing. The window is now a ROW on the matrix, and a span under
+        //   two years is flagged, so a short-sample run can never quietly top the board again.
+        if(_cmpMode==='board'){
+          const _md=s=>{const t=Date.parse(s||'');if(isNaN(t))return null;const d=new Date(t);
+            return (d.getUTCMonth()+1)+'/'+d.getUTCDate()+'/'+String(d.getUTCFullYear()).slice(2);};
+          const _spanD=x=>{const a=Date.parse(x.date_from||''),b=Date.parse(x.date_to||'');
+            return (isNaN(a)||isNaN(b)||b<=a)?null:Math.round((b-a)/86400000);};
+          const _winRow={l:'Window',f:x=>{const f=_md(x.date_from),t=_md(x.date_to),d=_spanD(x);
+            if(!f||!t)return '<span style="color:var(--text5)">not saved</span>';
+            const yrs=d/365.25,short=yrs<2;
+            const len=(yrs>=1.5)?(yrs.toFixed(1)+' yrs'):(d+' day'+(d===1?'':'s'));
+            return '<span style="white-space:nowrap;color:var(--text4)">'+f+' → '+t+'</span>'
+              +'<div style="font-size:8px;color:'+(short?'var(--yellow)':'var(--text5)')+'"'
+              +(short?' title="this run covers a much shorter stretch than a full-history book - its $ figures are NOT comparable with a 15-year run, and on the funnel it draws as a hairline at its own dates"':'')
+              +'>'+(short?'⚠ ':'')+len+'</div>';}};
+          const _at=M.findIndex(m=>m.l==='Scope');
+          M.splice(_at>=0?_at+1:1,0,_winRow);
+        }
         // ── curve colours — MOVED above the table (v68.0, was below it) so the compact run
         //    header (next) can swatch each column/row in its overlay-chart colour. One coloured
         //    curve per selected run (validate equity, else the stored grid/auto curve); this
