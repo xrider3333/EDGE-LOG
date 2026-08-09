@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.16';
+const VERSION='71.17';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.17',date:'2026-08-08',notes:['TILT and HYBRID now measure on the SAMPLE you tick, exactly like the ML GATE matrix. Every reward-versus-risk row, the drawdown row and the trade count were hard-wired to the lockbox, so ticking IS and WF changed nothing below the return block. They are now MAR, MAX DD, PF, WIN percent, DOLLARS PER TRADE and TRADES over whatever is selected, the ordering ranks on that same selection, and the group caption names it. A pick that skips a stretch - IS plus LB with no WF - has no single span to read a drawdown from, so that one cell prints a dash instead of a number that would not mean anything.','SIZING OVERLAY removed. It was a hand-rolled ORB contract-sizing card that rendered above every ORB report; sizing is read from the TILT and HYBRID tabs now.','FUNNEL: the IS / WF / LB row sits lower in the chart with the top inset grown to match, so the curves still never reach the tags.','FUNNEL: the dead band between the equity pane and the drawdown pane is down from 7 units to 3 - about the 5px breather 1A leaves.','FUNNEL: the two grey axis rules are gone. The chart reads off its gutter pills and its date strip, so they were chrome. The non-funnel TOP CONFIGS chart keeps its axis - it has no gutter to read instead.']},
 {v:'71.16',date:'2026-08-08',notes:['TRADE CANDLES: every row of the TRADES blotter (inside the expanded 1A equity chart) now carries a candle button. Click it and the trade opens as a real price chart - that session of candles plus the session either side, the session VWAP, a shaded band over the bars you were in the trade for, and an entry arrow and exit dot at the fill prices. This is the first time EDGELOG draws a candle anywhere.','EXIT PRICE FIX: the blotter was printing the closing price of the exit bar as the exit fill. That is not the price the engine filled at whenever a trade exits on a stop, a target, or the next bar open - on ORB it was wrong on 3,397 of 4,065 trades. Exit price is now worked back from the trades own points and cost, which is exact. The blotter also carries LONG or SHORT per trade now.','Blotters saved before this fix still hold the old exit price. The candle chart says so in its subtitle when it sees one - Shift+click TRADES to regenerate it on your PC.']},
 {v:'71.15',date:'2026-08-08',notes:['EXPANDED FUNNEL: the legend groups now read RAW, GATES, TILTS, HYBRID, HYBRID recycle and OTHER RAW - the same names as the tabs on the card, instead of ML GATES and SIZE TILTS.','EXPANDED FUNNEL: HYBRID and HYBRID recycle lines are IN there now. Every hybrid model draws its own line, plus a second line for the same book with the freed contracts put back to work, at the exact factor the HYBRID recycle tab prints. Both families start hidden and switch on from the key, like the gates and tilts.','FUNNEL KEY: the HYBRID recycle row no longer disappears on runs where the top hybrid refuses no trades. There is nothing to recycle on those runs, so the row prints the same figure tagged 1.00x and points at the hybrid line - it used to vanish entirely and read as a broken feature (run 201).']},
 {v:'71.14',date:'2026-08-08',notes:['FIX on 71.13: the funnel high-water marks came out EMPTY on run 200. The test for whether a drawdown is deep enough to mark was 3 percent of the whole chart range, and the hybrid recycle line stretches that range to 1.16m - so the bar sat at 35k and the champion real drawdowns, which top out around 17k, all fell under it. The test now measures against the champion own curve, which is what 1A does.']},
@@ -8469,7 +8470,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       else{const vals=series.map((s,i)=>tops[i]?+tops[i][mode]:NaN),fin=vals.filter(v=>!isNaN(v)),vmn=Math.min.apply(null,fin),vmx=Math.max.apply(null,fin);colOf=i=>{const v=vals[i];if(isNaN(v))return 'var(--text4)';const t=(v-vmn)/((vmx-vmn)||1);return 'rgb('+Math.round(70-30*t)+','+Math.round(110+110*t)+','+Math.round(200-90*t)+')';};}
       // plot insets: pt top headroom (so the winner curve + its $ label clear the top),
       //   pr right gap (so the curves stop short of the y-axis numbers in the gutter).
-      const W=C2W,H=140,pd=6,pt=13,pr=16,PW=C2P;
+      // v71.15 (owner marked-up screenshot): the IS / WF / LB row moves DOWN off the top edge,
+      //   so the top inset grows with it and the curves still never reach the tags.
+      const W=C2W,H=140,pd=6,pt=20,pr=16,PW=C2P;
       // v71.4: the drawdown pane is sized like 1A - roughly a quarter of the plot, not a sliver.
       const eqB=selMode?(H-41):(H-pd);   // v68.4: selMode floor of the EQUITY pane (DD pane below)
       // ── align 2A's plot to 2B's parallel-coords axes: the curves span the LEFTMOST param
@@ -8555,7 +8558,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +(selMode?'':'<text x="'+(xR+4).toFixed(1)+'" y="'+(gy+2.5).toFixed(1)+'" font-size="5" fill="var(--text5)">'+fmtAx(L,1)+'</text>');}
       // Single NET (y) axis on the RIGHT, drawn to MATCH the x-axis baseline styling (neutral white);
       //   the old red LEFT guide is dropped — owner: "dont need y axis on the left".
-      grid+='<line x1="'+xR.toFixed(1)+'" y1="'+pt+'" x2="'+xR.toFixed(1)+'" y2="'+(H-pd)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>';
+      // v71.15 (owner: "remove grey bars on pnl chart y axis and x axis"): the funnel reads off
+      //   its gutter pills and its date strip, so the two grey rules were chrome. The non-funnel
+      //   TOP CONFIGS chart still draws its own axis - it has no gutter to read instead.
+      if(!selMode)grid+='<line x1="'+xR.toFixed(1)+'" y1="'+pt+'" x2="'+xR.toFixed(1)+'" y2="'+(H-pd)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>';
       // BASE-PATH champion / highest-end markers — skipped in selMode (crown markers drawn below).
       let winTag='';
       if(!selMode){const _w0=series[0]||[],_fin=_w0.length?_w0[_w0.length-1]:null;
@@ -8949,7 +8955,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   LB logo gets cut off"): the tags ride the very top edge like 1A does, and a tag whose
         //   centre lands near the right edge anchors to that edge instead of overflowing it.
         const _secLab=(x,txt,col)=>{const pc=(x/W)*100;const edge=(pc>88);
-          return '<div style="position:absolute;top:2px;'+(edge?'right:4px;':'left:'+pc.toFixed(2)+'%;transform:translateX(-50%);')+'font-size:9px;font-weight:700;letter-spacing:.5px;color:'+col+';pointer-events:none;z-index:2">'+txt+'</div>';};
+          return '<div style="position:absolute;top:16px;'+(edge?'right:4px;':'left:'+pc.toFixed(2)+'%;transform:translateX(-50%);')+'font-size:9px;font-weight:700;letter-spacing:.5px;color:'+col+';pointer-events:none;z-index:2">'+txt+'</div>';};
         _gutterHtml=_gutterHtml||'';
         var _secLabs=_secLab((xL+xIS)/2,'IS','var(--text3)')+_secLab((xIS+xFull)/2,'WF','#60a5fa')
           +(hasLB?_secLab((xFull+xR)/2,'LB <span style="color:'+(_lbPass?'#1d9e75':'#e24b4a')+'">'+(_lbPass?'\u2713':'\u2717')+'</span>','#a78bfa'):'');
@@ -9029,7 +9035,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
             //   card-coloured band above it so it reads as its own pane the way 1A does.
             const _mcP=(_V4.mc_p95!=null)?(+_V4.mc_p95)*mult:null;
             const _dFloor=Math.min(_dmn,(_mcP!=null?_mcP:_dmn))||-1;
-            const _dT=eqB+7,_dB=H-pd-1;   // v68.4: its own pane BELOW the equity, 1A-style
+            // v71.15 (owner: "big space 1a funnel between pnl chart and drawdown") - 7 units of
+            //   dead band became 3, the same 5px breather 1A leaves between its two panes.
+            const _dT=eqB+3,_dB=H-pd-1;   // v68.4: its own pane BELOW the equity, 1A-style
             const _ddY=v=>_dT+(_dB-_dT)*(v/(_dFloor||-1));
             _ddYv=_ddY;_ddTop=_dT;_ddWorst=_dmn;_ddMc=_mcP;
             const _xAt=j=>{const preN=Math.max(2,_li);
@@ -9189,7 +9197,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _svgStr='<svg viewBox="0 0 '+W+' '+H+'" '+(selMode?'preserveAspectRatio="none" style="display:block;width:100%;height:100%"':'width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"')+((selMode&&_xd0&&_xd1)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:_xd0,x1:_xd1,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,xl:'',yl:'equity'}))+'"':((!selMode&&d.date_from&&d.date_to)?' data-xh="'+encodeURIComponent(JSON.stringify({xt:'date',x0:d.date_from,x1:d.date_to,yt:'usd',y0:mn,y1:mx,px:xL,py:pt,pw:xR-xL,ph:H-pt-pd,yl:'equity'}))+'"':''))+'>'
         +selBands
         +grid
-        +'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>'+(selMode?('<g data-kg="cloud" style="display:none">'+lines+'</g>'):lines)+selSvg+(selMode?'':_gateOvNS)+winTag+(selMode?'':c2YTitle(H,'equity $'))+'</svg>';
+        +(selMode?'':'<line x1="'+xL.toFixed(1)+'" y1="'+zeroY.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.75"/>')+(selMode?('<g data-kg="cloud" style="display:none">'+lines+'</g>'):lines)+selSvg+(selMode?'':_gateOvNS)+winTag+(selMode?'':c2YTitle(H,'equity $'))+'</svg>';
       // v64.31 (owner): selMode = PRE-BOXED row exactly like 1A-1D — chart fills the row, the
       //   $ scale + endpoint pills live in the 44px HTML gutter, handle row underneath.
       const _body=selMode
@@ -11158,18 +11166,72 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _lbApt=c=>{const x=c._s.lb;return (x&&x.avg_pnl!=null&&isFinite(+x.avg_pnl))?(+x.avg_pnl*_sc(c,'lb')):null;};
           const _fuDd=c=>{const x=c._s.full;return (x&&x.max_drawdown!=null)?(Math.abs(+x.max_drawdown)*_sc(c,'full')):null;};
           const _lbDd=c=>{const x=c._s.lb;return (x&&x.max_drawdown!=null)?(Math.abs(+x.max_drawdown)*_sc(c,'lb')):null;};
+          // v71.15 (owner: "why does tilt risk reward show LB info even if i have everything
+          //   selected? just make it match the gate tab were the metrics calulated are whats
+          //   seleced in the sample tab. same for drawdown"). Every reward/risk, drawdown and
+          //   sample row here was hard-wired to the lockbox. They now measure over whatever
+          //   SAMPLE is ticked, by the SAME method the GATE matrix uses: the engine exact block
+          //   when one matches the pick, otherwise dollars and trades summed, profit factor
+          //   rebuilt from each block own gross totals, win rate weighted by trades, and the
+          //   drawdown read off the saved curve across the spanned stretch. A non-contiguous
+          //   pick (IS + LB, skipping WF) has no single stretch to read, so it prints a dash
+          //   rather than a number that would not mean anything.
+          const _szKey=_szSegs.join(',');
+          const _szEx={'is':'is','wf':'wf','lb':'lb','is,wf,lb':'full'};
+          const _szFac=c=>_sc(c,_szEx[_szKey]||'full');
+          const _szSpanOf=c=>{const a=+((c._s.is||{}).num_trades)||0,b=+((c._s.wf||{}).num_trades)||0,l=+((c._s.lb||{}).num_trades)||0,T=a+b+l;
+            return T?{is:[0,a/T],wf:[a/T,(a+b)/T],lb:[(a+b)/T,1]}:null;};
+          const _szPc=new Map();
+          const _szP=c=>{
+            if(_szPc.has(c))return _szPc.get(c);
+            let out={};const ex=_szEx[_szKey];
+            if(ex){const x=_colOf(c,ex),f=_sc(c,ex);
+              if(x)out={net:(x.total_pnl!=null?+x.total_pnl*f:null),
+                        dd:(x.max_drawdown!=null?Math.abs(+x.max_drawdown)*f:null),ddDer:false,
+                        pf:(x.profit_factor!=null&&isFinite(+x.profit_factor))?+x.profit_factor:null,
+                        wr:(x.win_rate!=null&&isFinite(+x.win_rate))?+x.win_rate:null,
+                        apt:(x.avg_pnl!=null?+x.avg_pnl*f:null),
+                        n:(x.num_trades!=null?+x.num_trades:null)};}
+            else{
+              const parts=_szSegs.map(sg=>({x:_colOf(c,sg),f:_sc(c,sg)})).filter(p=>p.x);
+              if(parts.length){
+                let net=0,kept=0,keptOK=true,gw=0,gl=0,pfOK=true,wins=0,wrOK=true;
+                parts.forEach(p=>{const x=p.x,nr=(x.total_pnl!=null?+x.total_pnl:null);
+                  net+=(nr!=null?nr*p.f:0);
+                  if(x.num_trades==null)keptOK=false;else kept+=+x.num_trades;
+                  if(nr==null||x.profit_factor==null||!(+x.profit_factor>1.0000001))pfOK=false;
+                  else{const L=nr/(+x.profit_factor-1);gl+=L;gw+=(+x.profit_factor)*L;}
+                  if(x.win_rate==null||x.num_trades==null)wrOK=false;else wins+=(+x.win_rate)/100*(+x.num_trades);});
+                const sp=_szSpanOf(c),cum=c._s.eq&&c._s.eq.cum;
+                let a0=null,a1=null,ok=!!sp;
+                if(sp){const o=['is','wf','lb'].filter(x=>_szSegs.indexOf(x)>=0);
+                  for(let i=1;i<o.length;i++)if(Math.abs(sp[o[i-1]][1]-sp[o[i]][0])>1e-9)ok=false;
+                  if(ok&&o.length){a0=sp[o[0]][0];a1=sp[o[o.length-1]][1];}}
+                const dd0=(ok&&a0!=null&&Array.isArray(cum)&&cum.length>1)
+                  ?_ddSlice(cum,Math.round(a0*(cum.length-1)),Math.round(a1*(cum.length-1))):null;
+                const dd=(dd0!=null)?Math.abs(dd0)*_szFac(c):null;
+                out={net:net,dd:dd,ddDer:(dd!=null),
+                     pf:(pfOK&&gl>1e-9)?(gw/gl):null,
+                     wr:(wrOK&&kept)?((wins/kept)*100):null,
+                     apt:(keptOK&&kept)?(net/kept):null,
+                     n:(keptOK?kept:null)};}
+            }
+            _szPc.set(c,out);return out;};
+          const _szMar=c=>{const p=_szP(c);return (p.net!=null&&p.dd!=null&&Math.abs(p.dd)>1e-9)?(p.net/Math.abs(p.dd)):null;};
+          const _szNm2={is:'IS',wf:'WF',lb:'LB'};
+          const _szLbl=_szSegs.map(x=>_szNm2[x]).join('+');
           // RANK — the SAME three options 2B / 2C offer, off the same pref. View only: nothing in
           //   this section is crownable, so ordering can never change an outcome, only the
           //   reading order. It ranks on the LOCKBOX rows because those are what this section
           //   anchors on and what the sizing tabs actually move.
           const cols=list.slice();
-          const _mxMar=Math.max.apply(null,cols.map(c=>{const r=_lbMar(c);return (r!=null&&isFinite(r))?r:-Infinity;}).concat([-Infinity]));
-          const _flOk=c=>{const r=_lbMar(c);return (_mxMar>-Infinity&&r!=null&&isFinite(r))?(r>=0.8*_mxMar):false;};
+          const _mxMar=Math.max.apply(null,cols.map(c=>{const r=_szMar(c);return (r!=null&&isFinite(r))?r:-Infinity;}).concat([-Infinity]));
+          const _flOk=c=>{const r=_szMar(c);return (_mxMar>-Infinity&&r!=null&&isFinite(r))?(r>=0.8*_mxMar):false;};
           cols.sort((a,b)=>{
             if(_szRank==='floor'){const fa=_flOk(a),fb=_flOk(b);if(fa!==fb)return fa?-1:1;}
-            if(_szRank==='rec'){const ra=_lbMar(a),rb=_lbMar(b);
+            if(_szRank==='rec'){const ra=_szMar(a),rb=_szMar(b);
               return ((rb!=null&&isFinite(rb))?rb:-99)-((ra!=null&&isFinite(ra))?ra:-99);}
-            const va=_sl$(a,'lb'),vb=_sl$(b,'lb');
+            const va=_szP(a).net,vb=_szP(b).net;
             return ((vb!=null&&isFinite(vb))?vb:-Infinity)-((va!=null&&isFinite(va))?va:-Infinity);});
           // RETURN — IS and WF follow the shared SAMPLE tick, exactly as in 2B. LB $ and FULL $
           //   always show: every reward/risk and sample row below this group is measured on the
@@ -11178,28 +11240,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _ret=[];
           if(_szSegs.indexOf('is')>=0)_ret.push({lbl:'<span title="'+_szSegTip.is+'">IS $</span>',top:!_ret.length,cell:c=>_cmpUsd(_sl$(c,'is'))});
           if(_szSegs.indexOf('wf')>=0)_ret.push({lbl:'<span title="'+_szSegTip.wf+'">WF $</span>',top:!_ret.length,rowBg:_wfBg2,lblCol:_wfCol2,cell:c=>_cmpUsd(_sl$(c,'wf'))});
-          _ret.push({lbl:'<span title="'+_szSegTip.lb+'">LB $</span>',top:!_ret.length,rowBg:_lbBg2,lblCol:_lbCol2,rowSty:(_szRank!=='rec'?_rkYel2:''),cell:c=>_cmpUsd(_sl$(c,'lb'))});
+          if(_szSegs.indexOf('lb')>=0)_ret.push({lbl:'<span title="'+_szSegTip.lb+'">LB $</span>',top:!_ret.length,rowBg:_lbBg2,lblCol:_lbCol2,rowSty:(_szRank!=='rec'?_rkYel2:''),cell:c=>_cmpUsd(_sl$(c,'lb'))});
           _ret.push({lbl:'<span title="the whole run end to end - in-sample, walk-forward and lockbox together. The same row 2B calls FULL. IS / WF / LB measure overlapping windows, so they do not add up to it.">FULL $</span>',top:true,cell:c=>_cmpUsd(_sl$(c,'full'))});
           _ret.push({lbl:'<span title="deepest peak-to-trough drop over the WHOLE run - the same basis as the 2B MAX DD row, not a per-period figure">FULL MAX DD</span>',cell:c=>{const v=_fuDd(c);return v!=null?('<span style="color:#e24b4a">-'+$k(v)+'</span>'):_cmpDash;}});
           const groups=[
-            {name:'return <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">&middot; '+_szSegs.filter(x=>x!=='lb').map(x=>x.toUpperCase()).concat(['LB','FULL']).join(' + ')+'</span>',rows:_ret},
-            {name:'reward &divide; risk <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">&middot; mixed slices &mdash; hover each row</span>',rows:[
-              {lbl:'<span title="LOCKBOX dollars per dollar of LOCKBOX drawdown. Scale-free: the sizing tabs multiply profit and drawdown by the same number, so this never moves - which is why it is the honest comparator.">LB MAR</span>',top:true,rowSty:(_szRank==='rec'?_rkYel2:(_szRank==='floor'?_rkDsh2:'')),cell:c=>{const r=_lbMar(c);return r!=null?('<b>'+r.toFixed(1)+'</b>'):_cmpDash;}},
-              {lbl:'<span title="deepest peak-to-trough drop inside the lockbox year only">LB MAX DD</span>',cell:c=>{const v=_lbDd(c);return v!=null?('<span style="color:#e24b4a">-'+$k(v)+'</span>'):_cmpDash;}},
-              {lbl:'<span title="whole-run dollars per dollar of whole-run drawdown - the long-horizon twin of LB MAR, and the row most comparable to the 2B MAR">FULL MAR</span>',cell:c=>{const r=_fuMar(c);return r!=null?(r.toFixed(1)):_cmpDash;}},
+            {name:'return <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">&middot; '+_szSegs.map(x=>x.toUpperCase()).concat(['FULL']).join(' + ')+'</span>',rows:_ret},
+            {name:'reward &divide; risk <span style="font-weight:400;color:'+(_lbCol2)+';letter-spacing:0;text-transform:none">&middot; '+_szLbl+'</span>',rows:[
+              {lbl:'<span title="net dollars per dollar of drawdown over the ticked SAMPLE - the same calculation the ML GATE matrix calls MAR. Scale-free: the sizing tabs multiply profit and drawdown by the same number, so this never moves.">MAR</span>',top:true,rowSty:(_szRank==='rec'?_rkYel2:(_szRank==='floor'?_rkDsh2:'')),cell:c=>{const r=_szMar(c);return r!=null?('<b>'+r.toFixed(1)+'</b>'):_cmpDash;}},
+              {lbl:'<span title="deepest peak-to-trough drop across the ticked SAMPLE. When the pick spans more than one stretch it is read off the saved equity curve for that span; a pick that skips a stretch has no single span to read, so it prints a dash.">MAX DD</span>',cell:c=>{const p=_szP(c);return p.dd!=null?('<span style="color:#e24b4a"'+(p.ddDer?' title="read off the saved curve across the spanned stretch"':'')+'>-'+$k(p.dd)+(p.ddDer?'&deg;':'')+'</span>'):_cmpDash;}},
+              {lbl:'<span title="whole-run dollars per dollar of whole-run drawdown - the long-horizon anchor. Equals MAR above when IS + WF + LB are all ticked, which is the reconciliation.">FULL MAR</span>',cell:c=>{const r=_fuMar(c);return r!=null?(r.toFixed(1)):_cmpDash;}},
               {lbl:'<span title="derived the same way 2B derives it: period-to-period change on the equity curve the engine saved, over the whole run, annualised by the span length. Scale-free - the sizing tabs do not move it.">SHARPE</span>',cell:c=>{const s=_shrp(c);return s!=null?('<span style="color:var(--text2)">'+s.toFixed(2)+'</span>'):_cmpDash;}},
-              {lbl:'<span title="lockbox profit factor - gross winning dollars divided by gross losing dollars. Scale-free.">LB PF</span>',cell:c=>{const v=_lbPf(c);return v!=null?('<span style="color:var(--text2)">'+Math.min(v,99).toFixed(2)+'</span>'):_cmpDash;}},
-              {lbl:'<span title="share of lockbox trades that finished green. Scale-free - re-sizing changes how much each trade is worth, never whether it won.">LB WIN %</span>',cell:c=>{const v=_lbWr(c);return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):_cmpDash;}},
-              {lbl:'<span title="average net dollars per lockbox trade - says whether a column makes its money from bigger trades or just more of them. Follows the sizing tab.">LB $ / TRADE</span>',cell:c=>{const v=_lbApt(c);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):_cmpDash;}}]},
+              {lbl:'<span title="profit factor over the ticked SAMPLE - gross winning dollars divided by gross losing dollars. Across several stretches it is rebuilt from each stretch own gross totals. Scale-free.">PF</span>',cell:c=>{const v=_szP(c).pf;return v!=null?('<span style="color:var(--text2)">'+Math.min(v,99).toFixed(2)+'</span>'):_cmpDash;}},
+              {lbl:'<span title="share of trades in the ticked SAMPLE that finished green, weighted by trade count across stretches. Scale-free - re-sizing changes how much each trade is worth, never whether it won.">WIN %</span>',cell:c=>{const v=_szP(c).wr;return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):_cmpDash;}},
+              {lbl:'<span title="average net dollars per trade over the ticked SAMPLE - says whether a column makes its money from bigger trades or just more of them. Follows the sizing tab.">$ / TRADE</span>',cell:c=>{const v=_szP(c).apt;return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):_cmpDash;}}]},
             {name:'sample',rows:[
               // v69.1: this used to print the whole-run trade count while every row around it was
               //   lockbox-only, which made the section impossible to reconcile against 2C.
-              {lbl:'<span title="trades taken in the lockbox year - the same basis as the LB rows above and as the ML GATE LB TRADES row">LB TRADES</span>',top:true,cell:c=>{
-                const n=(c._s.lb&&c._s.lb.num_trades);return n!=null?(+n).toLocaleString():_cmpDash;}},
+              {lbl:'<span title="trades taken across the ticked SAMPLE - the same basis as the rows above it">TRADES</span>',top:true,cell:c=>{
+                const n=_szP(c).n;return n!=null?(+n).toLocaleString():_cmpDash;}},
               {lbl:'<span title="every trade the variant took across the whole run">ALL TRADES</span>',cell:c=>c._s.n!=null?(+c._s.n).toLocaleString():_cmpDash},
-              {lbl:'<span title="average contracts per trade this column runs in the lockbox. One in the ONE LOT tab; in REDEPLOY / EQUAL DD it is what the freed capacity buys.">AVG CONTRACTS</span>',cell:c=>{
-                const f=_sc(c,'lb');return '<span style="color:'+((mode&&mode!=='one')?'#f0b429':'var(--text3)')+'">'+f.toFixed(2)+'&times;</span>';}},
-              {lbl:'<span title="largest contracts any single trade got">BIGGEST SIZE</span>',cell:c=>c._s.mx!=null?((+c._s.mx*_sc(c,'lb')).toFixed(1)+'&times;'):_cmpDash},
+              {lbl:'<span title="average contracts per trade this column runs over the ticked SAMPLE. One in the ONE LOT tab; in REDEPLOY / EQUAL DD it is what the freed capacity buys.">AVG CONTRACTS</span>',cell:c=>{
+                const f=_szFac(c);return '<span style="color:'+((mode&&mode!=='one')?'#f0b429':'var(--text3)')+'">'+f.toFixed(2)+'&times;</span>';}},
+              {lbl:'<span title="largest contracts any single trade got">BIGGEST SIZE</span>',cell:c=>c._s.mx!=null?((+c._s.mx*_szFac(c)).toFixed(1)+'&times;'):_cmpDash},
               // v68.7/68.9 (owner: "we dont see the trade distribution for dropped small/medium/large")
               //   engine >= v68.9 saves the split incl. DROPPED; older runs show a dash.
               {lbl:'<span title="how the trades split by the size each was given: SMALL under 0.75 of a lot &middot; MEDIUM 0.75 to 1.5 &middot; LARGE over 1.5. Saved by the engine from v68.7 runs on.">SIZE MIX s&middot;m&middot;L</span>',cell:c=>{const x=c._s.mix;return x?('<span style="color:var(--text3)">'+(+x.small)+'&middot;'+(+x.normal)+'&middot;'+(+x.big)+'</span>'):_cmpDash;}},
@@ -11229,22 +11291,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 return 'hsla('+Math.round(4+116*t)+',68%,45%,'+(0.09+0.24*Math.abs(t-0.5)*2).toFixed(3)+')';};};
             const _pick={'IS $':[c=>_sl$(c,'is'),true],'WF $':[c=>_sl$(c,'wf'),true],'LB $':[c=>_sl$(c,'lb'),true],
               'FULL $':[c=>_sl$(c,'full'),true],'FULL MAX DD':[c=>{const v=_fuDd(c);return v!=null?-v:null;},true],
-              'LB MAR':[_lbMar,true],'LB MAX DD':[c=>{const v=_lbDd(c);return v!=null?-v:null;},true],
-              'FULL MAR':[_fuMar,true],'SHARPE':[_shrp,true],'LB PF':[c=>{const v=_lbPf(c);return v!=null?Math.min(v,99):null;},true],
-              'LB WIN %':[_lbWr,true],'LB $ / TRADE':[_lbApt,true],
-              'LB TRADES':[c=>{const n=c._s.lb&&c._s.lb.num_trades;return n!=null?+n:null;},true],
+              'MAR':[_szMar,true],'MAX DD':[c=>{const v=_szP(c).dd;return v!=null?-v:null;},true],
+              'FULL MAR':[_fuMar,true],'SHARPE':[_shrp,true],'PF':[c=>{const v=_szP(c).pf;return v!=null?Math.min(v,99):null;},true],
+              'WIN %':[c=>_szP(c).wr,true],'$ / TRADE':[c=>_szP(c).apt,true],
+              'TRADES':[c=>{const n=_szP(c).n;return n!=null?+n:null;},true],
               'ALL TRADES':[c=>c._s.n!=null?+c._s.n:null,true],
-              'AVG CONTRACTS':[c=>_sc(c,'lb'),true],
-              'BIGGEST SIZE':[c=>c._s.mx!=null?(+c._s.mx*_sc(c,'lb')):null,true]};
+              'AVG CONTRACTS':[_szFac,true],
+              'BIGGEST SIZE':[c=>c._s.mx!=null?(+c._s.mx*_szFac(c)):null,true]};
             groups.forEach(g=>g.rows.forEach(r=>{
               const key=String(r.lbl).replace(/<[^>]*>/g,'').replace(/&middot;/g,'·').trim();
               const p=_pick[key];if(p){const f=_hf(p[0],p[1]);if(f)r.cellBg=f;}}));
           }
           return _matrixTbl(cols,groups,{compact:true});};
         // the 2D control strip — same kit, same prefs, as 2B and 2C (owner: "trying to unify them")
-        const _szRkOpts=[['rec','MAR','most lockbox dollars per dollar of lockbox drawdown - the default order here'],
-                         ['pnl','NET $','most lockbox dollars, no safety check'],
-                         ['floor','NET $ + MAR FLOOR','most lockbox dollars, but only among columns at least 80% as efficient as the best LB MAR']];
+        const _szRkOpts=[['rec','MAR','most dollars per dollar of drawdown over the ticked SAMPLE - the default order here'],
+                         ['pnl','NET $','most dollars over the ticked SAMPLE, no safety check'],
+                         ['floor','NET $ + MAR FLOOR','most dollars over the ticked SAMPLE, but only among columns at least 80% as efficient as the best MAR']];
         const _szSampMenu='';
         const _szRankMenu=(_szOpen==='d-rank')?_ctlMenu('d-rank','ORDER COLUMNS BY',
           _szRkOpts.map(o=>_ctlChip(_szRank===o[0],o[1],'data-g2rk="'+o[0]+'"',o[2])).join(''),_rkNote2):'';
@@ -11875,38 +11937,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         ].filter(Boolean);
       // CHAMPION card strip REMOVED (owner request): its 7 metrics live in 1E — the KPI matrix
       //   (validate), the 75/25 split table (auto), or the single-column champion table (grid).
-      const _summaryPanel=((/\bORB[\s_.\-]/i.test(String(d.strategy||'')))?(function(){
-          // Persist the sizing-lever choices on window so they survive renderApp() reruns
-          // (the card is fully rebuilt every render — plain local state would reset each time).
-          window._sizingCfg=window._sizingCfg||{rp:true, tt:true, st:true, cap:3};
-          var _rule='Bet bigger on higher-edge ORB signals — <b>tight stop</b> (risk-parity), <b>morning ×2</b>, <b>short ×1.5</b> (ORB longs are ~deadweight). <code style="color:var(--text2)">contracts = round( T·S·RISK$ ÷ (stop_pts·$/pt) )</code>, clamp&nbsp;[1,&nbsp;3×].';
-          var _sj=(backtests||[]).filter(function(b){return b&&b.kind==='sizing'&&String(b.run_id)===String(d.id);}).sort(function(a,b){return ((b.createdAt&&b.createdAt.seconds)||0)-((a.createdAt&&a.createdAt.seconds)||0);})[0];
-          var _sz=_sj&&_sj.result&&_sj.result.sizing, _body;
-          if(_sz&&_sz.baseline&&_sz.sized){
-            var _r=function(l,m,c){return '<tr><td style="color:var(--text4);padding:2px 12px 2px 0">'+l+'</td><td style="text-align:right;padding:2px 12px">'+fmtUsd(Math.round(m.net||0))+'</td><td style="text-align:right;padding:2px 12px">'+(+(m.profit_factor||0)).toFixed(2)+'</td><td style="text-align:right;padding:2px 12px;color:var(--red)">'+fmtUsd(Math.round(m.max_drawdown||0))+'</td><td style="text-align:right;padding:2px 0;font-weight:700;color:'+(c||'var(--text)')+'">'+(+(m.mar||0)).toFixed(1)+'</td></tr>';};
-            _body='<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.5;margin-bottom:8px">'+_rule+'</div><table style="font-size:var(--fsxs);border-collapse:collapse"><thead><tr style="color:var(--text5)"><th></th><th style="text-align:right;padding:0 12px">net $</th><th style="text-align:right;padding:0 12px">PF</th><th style="text-align:right;padding:0 12px">max DD</th><th style="text-align:right">MAR</th></tr></thead><tbody>'+_r('baseline (1 contract)',_sz.baseline,'var(--text)')+_r('sized overlay',_sz.sized,'var(--green)')+'</tbody></table><div style="font-size:8px;color:var(--text5);margin-top:6px">the rule auto-sizes each trade 1×–3× your base contract (capital-matched to the same total $risk) — this run: avg <b>'+(+(_sz.sized.avg_size||1)).toFixed(1)+'×</b>, biggest <b>'+(+(_sz.sized.max_size||1)).toFixed(1)+'×</b> on the strongest signals. No manual contract input — the rule sets the size.</div>';
-          }else if(_sj&&_sj.status&&_sj.status!=='done'&&_sj.status!=='error'){
-            _body='<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.5">'+_rule+'</div><div style="font-size:var(--fsxs);color:var(--yellow);margin-top:8px">computing the exact overlay for this run on your PC…</div>';
-          }else{
-            var _e=(_sj&&_sj.status==='error')?'<div style="font-size:8px;color:var(--red);margin-top:4px">last attempt errored: '+String(_sj.error||'').replace(/[<>]/g,'').slice(0,90)+'</div>':'';
-            var _cfg=window._sizingCfg;
-            var _ctrls='<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:8px 0;font-size:var(--fsxs);color:var(--text3)">'
-              +'<label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" data-sizing-cfg="rp"'+(_cfg.rp?' checked':'')+' onchange="window._sizingCfg.rp=this.checked" style="cursor:pointer">risk-parity (∝ 1/stop)</label>'
-              +'<label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" data-sizing-cfg="tt"'+(_cfg.tt?' checked':'')+' onchange="window._sizingCfg.tt=this.checked" style="cursor:pointer">morning ×2 (time-tilt)</label>'
-              +'<label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" data-sizing-cfg="st"'+(_cfg.st?' checked':'')+' onchange="window._sizingCfg.st=this.checked" style="cursor:pointer">short ×1.5 (side-tilt)</label>'
-              +'<label style="display:flex;align-items:center;gap:4px;cursor:pointer">cap × <input type="number" data-sizing-cfg="cap" min="1" max="10" step="0.5" value="'+(+_cfg.cap||3)+'" onchange="window._sizingCfg.cap=+this.value" style="width:46px;font-size:var(--fsxs);border:1px solid var(--border);background:var(--bg1);color:var(--text2);border-radius:5px;padding:2px 4px"></label>'
-              +'</div>';
-            _body='<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.5">'+_rule+' Measured on the deployable: <b style="color:var(--green)">MAR 6.9 → 15.0</b> on the reserved year (+118%).</div>'+_ctrls+'<button data-sizing-run="'+d.id+'" style="margin-top:9px;padding:6px 12px;font-size:var(--fsxs);border:1px solid var(--border);background:var(--bg1);color:var(--text2);border-radius:7px;cursor:pointer">▶ Compute exact overlay for this run</button>'+_e;
-          }
-          // v71.13 (owner: "sizing overlay why is it there for every run. is there a place we
-          //   can put this thats out of the way?"): it renders on EVERY ORB run and it is an
-          //   execution-layer side note, not part of the report. Collapsed to one line by
-          //   default now - click the bar to open it, and the choice sticks.
-          var _szOpen=+(APREF.szOv||0);
-          return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:'+(_szOpen?'12px 14px':'6px 12px')+';margin-bottom:'+(_szOpen?'14px':'8px')+'">'
-            +'<div data-szov="'+(_szOpen?0:1)+'" class="lbl" title="execution-layer sizing rule for ORB runs - every other figure in this report is 1 contract" style="margin:0;font-size:9px;color:var(--text5);cursor:pointer;user-select:none">'+(_szOpen?'\u25be':'\u25b8')+' SIZING OVERLAY · execution-layer (all report figures are 1 contract)</div>'
-            +(_szOpen?('<div style="margin-top:8px">'+_body+'</div>'):'')+'</div>';
-        })():'');
+      // v71.15 (owner: "remove the sizing overlay"): the ORB execution-layer card is gone.
+      //   It was a hand-rolled contract-sizing rule from v55.6 that rendered above every ORB
+      //   report; the TILT and HYBRID tabs in 1E are where sizing is read now.
+      const _summaryPanel='';
       // ── MASTER panel (validate runs only): ONE hero combining the champion equity curve, the
       //    KPI matrix, the champion headline cards, verdict + gate windows, run meta and the
       //    lockbox/MC strip — so the whole at-a-glance story lives in a single chart-led card. ──
@@ -14915,7 +14949,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-pmet]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('pMetric',b.dataset.pmet);renderApp();};});
       // v64.49 (owner): 2A "🚪 gated" toggle — overlay the ML Trade Filter gated curve on the funnel.
       content.querySelectorAll('[data-a2gate]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('a2gate',+b.dataset.a2gate);renderApp();};});
-      content.querySelectorAll('[data-szov]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('szOv',+b.dataset.szov);renderApp();};});
       // v68.3 (owner: 2A key should manipulate the chart): each key row toggles its line group on
       //   click and SPOTLIGHTS it on hover (everything else fades). Render-local, no pref.
       content.querySelectorAll('[data-a2eqx]').forEach(box=>{
