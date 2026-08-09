@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.27';
+const VERSION='71.28';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.28',date:'2026-08-09',notes:['TILT tab: the size shape no longer prints on a second line under the model name, which was adding a whole row of height to the header and pushing the table down. It rides inline after the name as (SL) sliding or (ST) steps, and hovering the tag gives the full sentence. The section info icon carries the same two tags.','TILT and HYBRID tabs: the RETURN caption stops saying FULL when IS, WF and LB are all ticked - at that point the tick already IS the full run, so naming it twice read as a fourth stretch.','TILT tab WIN %: the heat map was never broken. A tilt refuses no trades, so every column on that tab wins the exact same trades and only the size differs - the row reads one number all the way across and there is no spread to shade. The hover now says that outright instead of leaving it looking broken. The HYBRID tabs, which DO drop trades, shade normally.','TRADES and ALL TRADES now name their window - TRADES carries the stretches you have ticked, ALL TRADES is tagged FULL. Untick IS and the two separate by exactly the in-sample trade count, which is the whole of the difference. Re-sizing never moves either, so both read identical on HYBRID, HYBRID recycle and HYBRID equal-drawdown.']},
 {v:'71.27',date:'2026-08-09',notes:['TRADE CANDLES: hover any candle and its numbers print under the title - time, Open, High, Low, Close (green or red), Volume and VWAP. Until now the only prices on the chart were the axis labels.','TRADES blotter (expanded 1A) now says CHAMPION CONFIG in its header line, and the candle window subtitle leads with it - those trades are always the crowned config, nothing else.','EQUITY COMPARE (expanded 2A) blotter columns: the header used to print a raw tag like #cfg7. It now reads config 7 - 2B RANK 7, because config 7 IS the RANK 7 column of the 2B CONFIGS card; hover the header for the reminder, and the PARAMS button lists that config knob values. (These three shipped inside 71.23 and are logged here.)']},
 {v:'71.26',date:'2026-08-09',notes:['RUNBOARD matrix printed its band caption IDENTITY twice - once over the strategy / market / scope rows at the top and again over the lone verdict row at the bottom. The top block is headed RUN now and the bottom one VERDICT.']},
 {v:'71.25',date:'2026-08-09',notes:['RUNBOARD matrix now opens in the 1E layout - metrics down the side, strategies across the top - regardless of what COMPARE own table is set to. The board keeps its own VERT / HORIZ pick, and that pick moved onto the matrix tile as a third tab rail beside SAMPLE and RANK.','RUNBOARD funnel: a gridline $ label that would land underneath a strategy ending-$ pill is no longer drawn, so the right gutter never shows two figures stacked on each other.','The wheel-zoom / drag-pan hint on the compare and runboard charts used to sit permanently on top of the date row. It fades in only while the cursor is over the chart now.','RUNBOARD funnel title no longer wraps onto a second line over the plot - the description truncates with the full text on hover.']},
@@ -11282,8 +11283,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _szSegs=_segsOf(['is','wf','lb']);
         const _szHeat=+(APREF.g2heat||0);
         const _szRank=(['rec','pnl','floor'].indexOf(String(APREF.g2rank||''))>=0)?String(APREF.g2rank):'rec';
-        const _cmpCols=(list,kind)=>list.map(t=>({lbl:String(t.model||''),
-            sub:(kind==='hyb')?'':(_shNm[t.scheme]||t.scheme),
+        // v71.28 (owner): the size shape used to print on a SECOND LINE under the model name,
+        //   which added a whole row of height to the header and pushed the table down. It rides
+        //   inline after the name now as (SL) sliding / (ST) steps, hover for the full sentence.
+        const _shAb={tier:'ST',linear:'SL'};
+        const _cmpCols=(list,kind)=>list.map(t=>({lbl:String(t.model||'')+((kind==='hyb')?'':(' <span title="'+String(_shTip[t.scheme]||'').replace(/"/g,'&quot;')+'" style="font-weight:400;color:var(--text5);cursor:help">('+(_shAb[t.scheme]||String(t.scheme||'?').slice(0,2).toUpperCase())+')</span>')),
+            sub:'',
             col:_gateColor(String(t.model||''),1,60),
             _s:{is:t.is_rng,wf:t.wf_rng,lb:t.lockbox,full:t.full,eq:t.equity,
                 n:t.n_trades,mx:t.max_size,mix:t.sizes||null,
@@ -11412,21 +11417,32 @@ namespace NinjaTrader.NinjaScript.Strategies {
           _ret.push({lbl:'<span title="the whole run end to end - in-sample, walk-forward and lockbox together. The same row 2B calls FULL. IS / WF / LB measure overlapping windows, so they do not add up to it.">FULL $</span>',top:true,cell:c=>_cmpUsd(_sl$(c,'full'))});
           _ret.push({lbl:'<span title="deepest peak-to-trough drop over the WHOLE run - the same basis as the 2B MAX DD row, not a per-period figure">FULL MAX DD</span>',cell:c=>{const v=_fuDd(c);return v!=null?('<span style="color:#e24b4a">-'+$k(v)+'</span>'):_cmpDash;}});
           const groups=[
-            {name:'return <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">&middot; '+_szSegs.map(x=>x.toUpperCase()).concat(['FULL']).join(' + ')+'</span>',rows:_ret},
+            // v71.28 (owner: "if all three sample tabs are selected then that IS full - no need to
+            //   put FULL on there"): the caption only names FULL when the tick does not already
+            //   cover the whole run.
+            {name:'return <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">&middot; '+_szSegs.map(x=>x.toUpperCase()).concat(_szSegs.length>=3?[]:['FULL']).join(' + ')+'</span>',rows:_ret},
             {name:'reward &divide; risk <span style="font-weight:400;color:'+(_lbCol2)+';letter-spacing:0;text-transform:none">&middot; '+_szLbl+'</span>',rows:[
               {lbl:'<span title="net dollars per dollar of drawdown over the ticked SAMPLE - the same calculation the ML GATE matrix calls MAR. Scale-free: the sizing tabs multiply profit and drawdown by the same number, so this never moves.">MAR</span>',top:true,rowSty:(_szRank==='rec'?_rkYel2:(_szRank==='floor'?_rkDsh2:'')),cell:c=>{const r=_szMar(c);return r!=null?('<b>'+r.toFixed(1)+'</b>'):_cmpDash;}},
               {lbl:'<span title="deepest peak-to-trough drop across the ticked SAMPLE. When the pick spans more than one stretch it is read off the saved equity curve for that span; a pick that skips a stretch has no single span to read, so it prints a dash.">MAX DD</span>',cell:c=>{const p=_szP(c);return p.dd!=null?('<span style="color:#e24b4a"'+(p.ddDer?' title="read off the saved curve across the spanned stretch"':'')+'>-'+$k(p.dd)+(p.ddDer?'&deg;':'')+'</span>'):_cmpDash;}},
               {lbl:'<span title="whole-run dollars per dollar of whole-run drawdown - the long-horizon anchor. Equals MAR above when IS + WF + LB are all ticked, which is the reconciliation.">FULL MAR</span>',cell:c=>{const r=_fuMar(c);return r!=null?(r.toFixed(1)):_cmpDash;}},
               {lbl:'<span title="derived the same way 2B derives it: period-to-period change on the equity curve the engine saved, over the whole run, annualised by the span length. Scale-free - the sizing tabs do not move it.">SHARPE</span>',cell:c=>{const s=_shrp(c);return s!=null?('<span style="color:var(--text2)">'+s.toFixed(2)+'</span>'):_cmpDash;}},
               {lbl:'<span title="profit factor over the ticked SAMPLE - gross winning dollars divided by gross losing dollars. Across several stretches it is rebuilt from each stretch own gross totals. Scale-free.">PF</span>',cell:c=>{const v=_szP(c).pf;return v!=null?('<span style="color:var(--text2)">'+Math.min(v,99).toFixed(2)+'</span>'):_cmpDash;}},
-              {lbl:'<span title="share of trades in the ticked SAMPLE that finished green, weighted by trade count across stretches. Scale-free - re-sizing changes how much each trade is worth, never whether it won.">WIN %</span>',cell:c=>{const v=_szP(c).wr;return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):_cmpDash;}},
+              // v71.28 (owner: "WIN % is not heat-mapped on the TILT tab?"): it IS — there is just
+              //   nothing to shade. A tilt takes EVERY trade and only re-sizes it, so every tilt
+              //   column wins the same trades and the row reads the same number all the way across.
+              //   When that happens the hover says so, instead of looking like a broken heat map.
+              {lbl:'<span title="share of trades in the ticked SAMPLE that finished green, weighted by trade count across stretches. Scale-free - re-sizing changes how much each trade is worth, never whether it won.'+((function(){const ws=cols.map(c=>_szP(c).wr).filter(v=>v!=null);return (ws.length>1&&(Math.max.apply(null,ws)-Math.min.apply(null,ws))<0.05)?' EVERY COLUMN HERE READS THE SAME because a tilt refuses no trades - the whole tab wins the same trades and only the size differs, so the heat map has no spread to shade.':'';})())+'">WIN %</span>',cell:c=>{const v=_szP(c).wr;return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):_cmpDash;}},
               {lbl:'<span title="average net dollars per trade over the ticked SAMPLE - says whether a column makes its money from bigger trades or just more of them. Follows the sizing tab.">$ / TRADE</span>',cell:c=>{const v=_szP(c).apt;return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):_cmpDash;}}]},
             {name:'sample',rows:[
               // v69.1: this used to print the whole-run trade count while every row around it was
               //   lockbox-only, which made the section impossible to reconcile against 2C.
-              {lbl:'<span title="trades taken across the ticked SAMPLE - the same basis as the rows above it">TRADES</span>',top:true,cell:c=>{
+              // v71.28 (owner asked why TRADES and ALL TRADES differ with IS unticked): they
+              //   differ BY DESIGN - TRADES counts only the stretches you ticked, ALL TRADES
+              //   counts the whole run. The row now names the ticked stretches so the gap between
+              //   the two is self-explaining instead of looking like a mismatch.
+              {lbl:'<span title="trades taken across the ticked SAMPLE - the same basis as the rows above it. ALL TRADES below counts the whole run, so untick a stretch and these two separate by exactly that stretch trade count.">TRADES <span style="font-weight:400;color:var(--text5)">&middot; '+_szLbl+'</span></span>',top:true,cell:c=>{
                 const n=_szP(c).n;return n!=null?(+n).toLocaleString():_cmpDash;}},
-              {lbl:'<span title="every trade the variant took across the whole run">ALL TRADES</span>',cell:c=>c._s.n!=null?(+c._s.n).toLocaleString():_cmpDash},
+              {lbl:'<span title="every trade the variant took across the whole run - IS plus WF plus LB, whatever is ticked above. Re-sizing never changes it, so this row is identical on the HYBRID, HYBRID recycle and HYBRID equal-drawdown tabs.">ALL TRADES <span style="font-weight:400;color:var(--text5)">&middot; FULL</span></span>',cell:c=>c._s.n!=null?(+c._s.n).toLocaleString():_cmpDash},
               {lbl:'<span title="average contracts per trade this column runs over the ticked SAMPLE. One in the ONE LOT tab; in REDEPLOY / EQUAL DD it is what the freed capacity buys.">AVG CONTRACTS</span>',cell:c=>{
                 const f=_szFac(c);return '<span style="color:'+((mode&&mode!=='one')?'#f0b429':'var(--text3)')+'">'+f.toFixed(2)+'&times;</span>';}},
               {lbl:'<span title="largest contracts any single trade got">BIGGEST SIZE</span>',cell:c=>c._s.mx!=null?((+c._s.mx*_szFac(c)).toFixed(1)+'&times;'):_cmpDash},
@@ -11467,7 +11483,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
               'AVG CONTRACTS':[_szFac,true],
               'BIGGEST SIZE':[c=>c._s.mx!=null?(+c._s.mx*_szFac(c)):null,true]};
             groups.forEach(g=>g.rows.forEach(r=>{
-              const key=String(r.lbl).replace(/<[^>]*>/g,'').replace(/&middot;/g,'·').trim();
+              // v71.28: split on the middle dot so a row that now carries a "· WF+LB" suffix
+              //   (TRADES / ALL TRADES) still matches its heat entry.
+              const key=String(r.lbl).replace(/<[^>]*>/g,'').replace(/&middot;/g,'·').split('·')[0].trim();
               const p=_pick[key];if(p){const f=_hf(p[0],p[1]);if(f)r.cellBg=f;}}));
           }
           return _matrixTbl(cols,groups,{compact:true});};
@@ -11490,7 +11508,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const tiltNote=(!_tl.length)?'':_noteRow(
              '<span style="font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--text2)">THE SAME MODELS AS THE GATE TAB, SPENT AS SIZE INSTEAD</span>'
             +_cmpChip
-            +_infoIc('<div style="color:var(--text2)"><b>THE GATE AND THE TILT USE THE SAME SCORE. THEY SPEND IT DIFFERENTLY.</b><br>A model scores every trade before it happens.<br><br><b>THE GATE</b> (the ML GATE tab) = a bouncer. Score under the cut-off, the trade does not happen.<br><b>THE TILT</b> (this section) = a dimmer. Every trade happens; confident ones get more contracts, doubtful ones fewer (about half a contract up to triple - half an NQ is five MNQ micros). The AVERAGE across all trades is one contract, so it is the same size of book as no-gate, just distributed differently.<br><br><b>A TILT HAS NO CUT-OFF.</b> That is why no column says rf @ 50% here - there is no line below which trades are dropped; the model name alone identifies the column.<br><br><b>THE TWO SIZE SHAPES.</b> SLIDING = the contract count slides smoothly with confidence, quarter-lot up to 3. STEPS = three fixed sizes only (half / one / two lots) by confidence band.<br><br><b>LB</b> = the lockbox - the sealed final year, opened only after the winner was already chosen. The tilt columns run through the SAME LB window as everything else in this report.<br><br>Comparison only; adopting a tilt would need its own pre-registered rule. Baselines for comparison (no gate, the crowned gate) live in the ML GATE tab.</div>'));
+            +_infoIc('<div style="color:var(--text2)"><b>THE GATE AND THE TILT USE THE SAME SCORE. THEY SPEND IT DIFFERENTLY.</b><br>A model scores every trade before it happens.<br><br><b>THE GATE</b> (the ML GATE tab) = a bouncer. Score under the cut-off, the trade does not happen.<br><b>THE TILT</b> (this section) = a dimmer. Every trade happens; confident ones get more contracts, doubtful ones fewer (about half a contract up to triple - half an NQ is five MNQ micros). The AVERAGE across all trades is one contract, so it is the same size of book as no-gate, just distributed differently.<br><br><b>A TILT HAS NO CUT-OFF.</b> That is why no column says rf @ 50% here - there is no line below which trades are dropped; the model name alone identifies the column.<br><br><b>THE TWO SIZE SHAPES</b>, tagged after each model name in the column header. <b>(SL) SLIDING</b> = the contract count slides smoothly with confidence, quarter-lot up to 3. <b>(ST) STEPS</b> = three fixed sizes only (half / one / two lots) by confidence band. Same model, same scores - only how the score is turned into a contract count differs.<br><br><b>LB</b> = the lockbox - the sealed final year, opened only after the winner was already chosen. The tilt columns run through the SAME LB window as everything else in this report.<br><br>Comparison only; adopting a tilt would need its own pre-registered rule. Baselines for comparison (no gate, the crowned gate) live in the ML GATE tab.</div>'));
         // 2E HYBRID (owner idea, v68.5): the gate keeps its crowned cut-off, the SURVIVORS are
         //   then sized by the tilt. Floor pinned to the crown - no new knob. Engine >= v68.5 only.
         const _hy=(V.hybrids||[]).slice();
