@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.19';
+const VERSION='71.20';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.20',date:'2026-08-08',notes:['THE GATE CURVE WAS NOT BEING DRAWN AT ALL. It was only built when the GATE chip was on, and that chip is saved off - so the key box was listing a GATE line with a dollar figure while the chart had no such line on it. The curve is always built now and simply hidden when the chip is off, exactly like the config cloud and the walk-forward group, so one click on the GATE key row draws it. That row reads dimmed while it is hidden.','And the gate curve is RED now - line, key row, gutter pill and chip together. It used to be drawn in the same pink family as the two hybrid lines running beside it, which is a large part of why it could not be found.','FUNNEL KEY is ordered by where each line FINISHES, best first, instead of a fixed RAW / GATE / TILT / HYBRID order - so the key reads top to bottom the way the chart does.','IS / WF / LB are off the funnel. The blue fold stripes and the purple lockbox stripe already mark those stretches and hovering either now names it with its dates and its numbers, so the floating tags were saying a third time what the chart says twice.','And with them gone the funnel needs no headroom band: the key box sits at the top edge of the plot and the gap between the chart and the tile above it is closed.']},
 {v:'71.19',date:'2026-08-08',notes:['TRADE CANDLES (71.16 follow-up, caught by looking at a real render): on a chart carrying more than one day, the day label and the nearest clock label were printing on top of each other - 15:30 and 04/08 landed on the same spot and neither could be read. The day label now wins and the clock label next to it stands down.','TRADE CANDLES: the VWAP line was joining one day close straight to the next day open, drawing a move that never happened. VWAP restarts every session, so the line now breaks at each day and draws one segment per session.']},
 {v:'71.18',date:'2026-08-08',notes:['Follow-up to 71.17: closing the funnel pane gap had quietly handed those units to the drawdown pane and grown it 15 percent. The equity floor drops by the same amount, so the gap is the only thing that changed.','And with the panes adjacent, the drawdown zero label was landing on top of the equity zero gridline. It steps aside when a scale number is already there, the same way the gutter drops a number under a pill.']},
 {v:'71.17',date:'2026-08-08',notes:['TILT and HYBRID now measure on the SAMPLE you tick, exactly like the ML GATE matrix. Every reward-versus-risk row, the drawdown row and the trade count were hard-wired to the lockbox, so ticking IS and WF changed nothing below the return block. They are now MAR, MAX DD, PF, WIN percent, DOLLARS PER TRADE and TRADES over whatever is selected, the ordering ranks on that same selection, and the group caption names it. A pick that skips a stretch - IS plus LB with no WF - has no single span to read a drawdown from, so that one cell prints a dash instead of a number that would not mean anything.','SIZING OVERLAY removed. It was a hand-rolled ORB contract-sizing card that rendered above every ORB report; sizing is read from the TILT and HYBRID tabs now.','FUNNEL: the IS / WF / LB row sits lower in the chart with the top inset grown to match, so the curves still never reach the tags.','FUNNEL: the dead band between the equity pane and the drawdown pane is down from 7 units to 3 - about the 5px breather 1A leaves.','FUNNEL: the two grey axis rules are gone. The chart reads off its gutter pills and its date strip, so they were chrome. The non-funnel TOP CONFIGS chart keeps its axis - it has no gutter to read instead.']},
@@ -8489,7 +8490,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   pr right gap (so the curves stop short of the y-axis numbers in the gutter).
       // v71.15 (owner marked-up screenshot): the IS / WF / LB row moves DOWN off the top edge,
       //   so the top inset grows with it and the curves still never reach the tags.
-      const W=C2W,H=140,pd=6,pt=20,pr=16,PW=C2P;
+      // v71.19 (owner: "remove the gap from the top of the pnl chart to the top of the subtile"):
+      //   the top inset existed to hold the IS / WF / LB tags clear of the curves. With the tags
+      //   gone the funnel needs no band at all, so the plot starts where the box starts. The
+      //   non-funnel TOP CONFIGS chart keeps its 13, which its in-plot winner label needs.
+      const W=C2W,H=140,pd=6,pt=(selMode?6:13),pr=16,PW=C2P;
       // v71.4: the drawdown pane is sized like 1A - roughly a quarter of the plot, not a sliver.
       // v71.18: closing the inter-pane gap in 71.17 handed those 4 units to the DROPDOWN pane,
       //   which grew it 15%. The equity floor drops by the same 4, so the gap is the only thing
@@ -8927,7 +8932,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _gEq=(d.gate_validate&&d.gate_validate.equity)||(d.ml_gate&&d.ml_gate.equity)||null;
         const _hasGate=!!(_gEq&&Array.isArray(_gEq.cum_gated)&&_gEq.cum_gated.length>1);
         const _a2gate=(APREF.a2gate==null?1:+APREF.a2gate);
-        if(_hasGate&&_a2gate){const gc=_gEq.cum_gated,gn=gc.length,_gf=gc[gn-1]*mult;
+        // v71.19 (owner: "where is the gate on the pnl chart? should be red... dont see it").
+        //   TWO things were wrong. The curve was only BUILT when the chip was on, so with the chip
+        //   off there was nothing for the key row to reveal - it is always built now and simply
+        //   hidden, like the cloud and the walk-forward group. And it was drawn in the same pink
+        //   family as the hybrid lines beside it; it is red now, on the line, the key row, the
+        //   gutter pill and the chip, so it cannot be mistaken for one of them.
+        if(_hasGate){const gc=_gEq.cum_gated,gn=gc.length,_gf=gc[gn-1]*mult;
           // v64.94 (owner spotted this): the gate line USED to be spread linearly across the whole
           //   plot width, but this funnel WARPS its x — the optimize window occupies xL..xFull
           //   (84%) and the lockbox the remaining 16%, while in TRADE terms the lockbox is only
@@ -8945,12 +8956,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
               : (xFull+(xR-xFull)*((f-_fSplit)/(1-_fSplit)));      // lockbox     -> xFull..xR
           };
           const gp=gc.map((v,i)=>_gx(i).toFixed(1)+' '+Yv(v*mult).toFixed(1)).join(' ');
-          gateOv='<polyline points="'+gp+'" fill="none" stroke="#e05fa0" stroke-width="0.9" opacity="0.95" stroke-dasharray="1.6 1.3" stroke-linecap="round"/>';
-          labs.push({y:Yv(_gf),col:'#e05fa0',kg:'gate',txt:_kUsd(_gf)+' 🚪'});}
+          gateOv='<polyline points="'+gp+'" fill="none" stroke="#e24b4a" stroke-width="1" opacity="0.95" stroke-dasharray="2.4 1.5" stroke-linecap="round"/>';
+          labs.push({y:Yv(_gf),col:'#e24b4a',kg:'gate',txt:_kUsd(_gf)+' 🚪'});}
         // IS-max total into the gutter (its in-chart door label is removed). Crowned already has a
         //   lockbox pill; IS-max may not, so add it here.
         if(_a2kAll&&isMaxC&&isMaxC!==crownedC){const _isf=isMaxC.equity.cum[isMaxC.equity.cum.length-1]*mult;labs.push({y:Yv(_isf),col:'#3a9bdc',kg:'ismax',txt:_kUsd(_isf)+' IS'});}
-        _gateChip=_hasGate?'<span data-a2gate="'+(_a2gate?0:1)+'" title="overlay the CONFIGS · ML GATE FILTER (2C) gated equity on this funnel — the SAME crowned champion with the filter skipping trades (the crowned line here is the ungated version). Spans in-sample + walk-forward + lockbox." style="cursor:pointer;font-size:8px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid '+(_a2gate?'#e05fa0':'var(--border)')+';background:'+(_a2gate?'color-mix(in srgb,#e05fa0 16%,transparent)':'var(--bg2)')+';color:'+(_a2gate?'#e05fa0':'var(--text3)')+'">GATE</span>':'';
+        _gateChip=_hasGate?'<span data-a2gate="'+(_a2gate?0:1)+'" title="overlay the CONFIGS · ML GATE FILTER (2C) gated equity on this funnel — the SAME crowned champion with the filter skipping trades (the crowned line here is the ungated version). Spans in-sample + walk-forward + lockbox." style="cursor:pointer;font-size:8px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid '+(_a2gate?'#e24b4a':'var(--border)')+';background:'+(_a2gate?'color-mix(in srgb,#e24b4a 16%,transparent)':'var(--bg2)')+';color:'+(_a2gate?'#e24b4a':'var(--text3)')+'">GATE</span>':'';
         // DOOR lines (in-sample slate · lockbox purple) — labels moved to the region labels below.
         const isDoor='<line x1="'+xIS.toFixed(1)+'" y1="'+pt+'" x2="'+xIS.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#7f8c99" stroke-width="0.6" stroke-dasharray="2 2" opacity="0.7"/>';
         const lbDoor=hasLB?('<line x1="'+xFull.toFixed(1)+'" y1="'+pt+'" x2="'+xFull.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#a78bfa" stroke-width="0.7" stroke-dasharray="3 2" opacity="0.85"/>'):'';
@@ -8974,11 +8985,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v70.9 (owner: "IS WF/LB logos sit in wierd spot. should be at the top of the chart.
         //   LB logo gets cut off"): the tags ride the very top edge like 1A does, and a tag whose
         //   centre lands near the right edge anchors to that edge instead of overflowing it.
-        const _secLab=(x,txt,col)=>{const pc=(x/W)*100;const edge=(pc>88);
-          return '<div style="position:absolute;top:16px;'+(edge?'right:4px;':'left:'+pc.toFixed(2)+'%;transform:translateX(-50%);')+'font-size:9px;font-weight:700;letter-spacing:.5px;color:'+col+';pointer-events:none;z-index:2">'+txt+'</div>';};
         _gutterHtml=_gutterHtml||'';
-        var _secLabs=_secLab((xL+xIS)/2,'IS','var(--text3)')+_secLab((xIS+xFull)/2,'WF','#60a5fa')
-          +(hasLB?_secLab((xFull+xR)/2,'LB <span style="color:'+(_lbPass?'#1d9e75':'#e24b4a')+'">'+(_lbPass?'\u2713':'\u2717')+'</span>','#a78bfa'):'');
+        // v71.19 (owner: "you keep messing up the pnl chart is/wf/lb locations. remove them"):
+        //   the stretch tags are gone from the funnel. The blue fold stripes and the purple
+        //   lockbox stripe already mark those stretches, and hovering either one now names it
+        //   with its dates and its numbers - so the floating tags were the third telling of a
+        //   thing the chart already says twice.
+        var _secLabs='';
         // v64.43 (owner): the 2A key now uses the SAME HTML box format as 2B — marker + label +
         //   $ rows for the two named lines, then the line-style legend, in a bordered box.
         // v64.66 (owner): the key showed each line's value at the WF/lockbox DOOR (optimize end);
@@ -9137,20 +9150,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   with exactly four family rows: RAW · GATE · TILT · HYBRID. Each row shows its family's
         //   top line value; clicking a row reveals / hides the rest of that family.
         const _gateEndV=(_hasGate&&_gEq&&Array.isArray(_gEq.cum_gated)&&_gEq.cum_gated.length)?_gEq.cum_gated[_gEq.cum_gated.length-1]*mult:null;
-        const _kr=(k,txt,val,col,xt)=>'<div data-a2k="'+k+'" title="'+(xt?(xt+' · '):'')+'click: show / hide the rest of this family · hover: spotlight it" style="cursor:pointer;white-space:nowrap;color:'+col+'"><b>▬</b> '+txt+(val!=null?(' <b>'+_kUsd(val)+'</b>'):'')+'</div>';
+        const _kr=(k,txt,val,col,xt,off)=>'<div data-a2k="'+k+'" title="'+(xt?(xt+' · '):'')+'click: show / hide the rest of this family · hover: spotlight it" style="cursor:pointer;white-space:nowrap;color:'+col+(off?';opacity:.4':'')+'"><b>▬</b> '+txt+(val!=null?(' <b>'+_kUsd(val)+'</b>'):'')+'</div>';
         // v71.15: the HYBRID ♻ row shows on every run that has a hybrid. When the top hybrid
         //   refuses no trades there is nothing to recycle, so the row prints the same figure and
         //   is tagged 1.00x - it points at the hybrid line itself rather than a line that is not
         //   there. Value drawn from its own line when one exists, else the hybrid's.
         const _hyb2KeyV=(_hyb2End!=null)?_hyb2End:((_hyRdSame&&_hybEnd!=null)?_hybEnd:null);
-        _keyBox='<div data-a2krow style="position:absolute;top:19px;left:8px;background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;z-index:3">'
-          +_kr('raw','👑 RAW',(_crV!=null?_crV:null),'#1d9e75')
-          +(_hasGate?_kr('gate','GATE',_gateEndV,'#e05fa0'):'')
-          +(_tiltEnd!=null?_kr('tilt','TILT',_tiltEnd,'#f0b429'):'')
-          +(_hybEnd!=null?_kr('hyb','HYBRID',_hybEnd,'#c084fc'):'')
-          +(_hyb2KeyV!=null?_kr((_hyb2End!=null?'hyb2':'hyb'),'HYBRID &#9851;'+(_hyb2End!=null?'':' <span style="opacity:.7">1.00&times;</span>'),_hyb2KeyV,'#f0abfc',
+        // v71.19 (owner: "have key in non expanded view be dynamic. top performing config on the
+        //   chart should be number one on the key, 2nd pnl should be second"): the rows are
+        //   ordered by where each line actually FINISHES, best first, instead of the old fixed
+        //   RAW / GATE / TILT / HYBRID order - so the key reads top to bottom like the chart does.
+        const _kOrder=[['raw','👑 RAW',(_crV!=null?_crV:null),'#1d9e75','',0]];
+        if(_hasGate)_kOrder.push(['gate','GATE',_gateEndV,'#e24b4a',
+          (_a2gate?'the crowned book with the trade filter applied':'the filtered book - currently HIDDEN, click to draw it'),(_a2gate?0:1)]);
+        if(_tiltEnd!=null)_kOrder.push(['tilt','TILT',_tiltEnd,'#f0b429','',0]);
+        if(_hybEnd!=null)_kOrder.push(['hyb','HYBRID',_hybEnd,'#c084fc','',0]);
+        if(_hyb2KeyV!=null)_kOrder.push([(_hyb2End!=null?'hyb2':'hyb'),'HYBRID &#9851;'+(_hyb2End!=null?'':' <span style="opacity:.7">1.00&times;</span>'),_hyb2KeyV,'#f0abfc',
               (_hyb2End!=null?('the same hybrid book sized up '+(_hyRdF||1).toFixed(2)+'x - the contracts the filter freed, put back to work')
-                            :'the top hybrid refuses no trades on this run, so recycling frees nothing - same book, same size as HYBRID')):'')
+                            :'the top hybrid refuses no trades on this run, so recycling frees nothing - same book, same size as HYBRID'),0]);
+        _kOrder.sort(function(a,b){return ((b[2]!=null?b[2]:-Infinity)-(a[2]!=null?a[2]:-Infinity));});
+        _keyBox='<div data-a2krow style="position:absolute;top:4px;left:8px;background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;z-index:3">'
+          +_kOrder.map(function(r){return _kr(r[0],r[1],r[2],r[3],r[4],r[5]);}).join('')
           +'</div>';
         // v64.98 (owner: "add these to 2A as well"): the SAMPLE control is SHARED with the 2C
         //   matrix — one setting, both tiles agree — and here it dims the stretch you are not
@@ -9168,7 +9188,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   tilt, hybrid); the rest of the raw family starts hidden and the key reveals it.
         selSvg=_ddStrip+_hwOv
           +'<g data-kg="wf" style="display:none">'+wf+'</g>'
-          +ov+'<g data-kg="lb">'+lb+'</g>'+_tiltOv+_hybOv+_hyb2Ov+'<g data-kg="gate">'+gateOv+'</g>'+_dimOv;}
+          +ov+'<g data-kg="lb">'+lb+'</g>'+_tiltOv+_hybOv+_hyb2Ov+'<g data-kg="gate"'+(_a2gate?'':' style="display:none"')+'>'+gateOv+'</g>'+_dimOv;}
       // x-axis date labels (owner request). Use the OPTIMIZE window when this is a validate
       //   run; selMode+lockbox pushes the right label out to the holdout end.
       const _xw=(d.validate&&d.validate.windows&&d.validate.windows.optimize)||null;
@@ -9208,8 +9228,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _hInfo=_infoIc('<div style="color:var(--text2)">'+(selMode?(_selTip+'<br><br>Path: all configs → IS door → top-K walk-forward → top-3 lockbox.'):_eqTip)+'</div>');
       if(sink){sink.title=selMode?'CONFIG FUNNEL':'TOP CONFIGS PNL';sink.info=_hInfo;}
       const _hdr=selMode
-        ?(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;row-gap:4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+(noTag?'':tag+' '+_hInfo+' CONFIG FUNNEL ')+cfgSlider+'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex-shrink:0;white-space:nowrap">'+_a2SampSel+_gateChip+'</span></div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
-        :(tag?'<div style="margin:8px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;row-gap:4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+(noTag?'':tag+' '+_hInfo+' TOP CONFIGS PNL ')+selDrop+cfgSlider+'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px">'+_gateChipNS+'</span></div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
+        ?(tag?'<div style="margin:5px 0 3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;row-gap:4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+(noTag?'':tag+' '+_hInfo+' CONFIG FUNNEL ')+cfgSlider+'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex-shrink:0;white-space:nowrap">'+_a2SampSel+_gateChip+'</span></div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
+        :(tag?'<div style="margin:5px 0 3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;row-gap:4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+(noTag?'':tag+' '+_hInfo+' TOP CONFIGS PNL ')+selDrop+cfgSlider+'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px">'+_gateChipNS+'</span></div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
       // v64.46 (owner): the funnel (selMode) now ALSO carries a data-xh descriptor, so the expand
       //   modal's crosshair shows date + equity $ under the cursor (same readout as 1A). x is a
       //   linear date interp across the whole window (optimize start → lockbox end) — approximate
@@ -14982,7 +15002,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   chart opens as one line per family. Click the RAW key row to bring them back; the
         //   choice sticks.
         const _a2All=+(APREF.a2kAll||0);
-        if(!_a2All)['ismax','wf','cloud'].forEach(k2=>svg.querySelectorAll('[data-kg="'+k2+'"]').forEach(g=>{g.style.display='none';}));
+        // v71.19: the gate curve is always drawn now and simply hidden when its chip is off, so a
+        //   click on the GATE key row reveals it. Its gutter pill hides and shows with it.
+        const _a2Gt=(APREF.a2gate==null?1:+APREF.a2gate);
+        (!_a2All?['ismax','wf','cloud']:[]).concat(_a2Gt?[]:['gate']).forEach(k2=>{
+          svg.querySelectorAll('[data-kg="'+k2+'"]').forEach(g=>{g.style.display='none';});
+          kroot.querySelectorAll('[data-pg="'+k2+'"]').forEach(p=>{p.style.display='none';});});
         kroot.querySelectorAll('[data-a2k]').forEach(row=>{
           const k=row.dataset.a2k;if(!k)return;
           row.style.pointerEvents='auto';
