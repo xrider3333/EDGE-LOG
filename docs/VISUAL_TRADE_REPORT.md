@@ -410,8 +410,13 @@ touching the drawing code, because a DOM-count assertion will not catch a collis
 `candleSVG` against synthetic single-session, 3-session, empty-bars and empty-markers
 cases — session dividers, bold `M/D` labels, null-tolerant overlays. `load_session_bars`
 was exercised against the real NQ 5m RTH master (201 bars over 2018-06-29..2018-07-03).
-**Not yet verified in the live logged-in app** — the runner must be restarted to pick up
-the `get_bars` command before the 🕯 button can work end to end.
+**Verified end-to-end in the live logged-in app** (2026-08-08, runner v71.19): run #202
+(NOISE 1.0, 5,616 trades) → expand 1A → ▦ TRADES → 🕯 on trade #5616 fired `get_bars`
+through Firestore to the runner and opened the modal with real candles (07/15 + 07/16
+sessions, divider, per-session VWAP, held-window shade, entry ▼ / exit dot, correct
+"SHORT · net -$1,636 · master: NQ 5m RTH - no-adj" subtitle). Runner-side blotter
+auto-saves made after this ship (run #202 onward) already carry `side` + the corrected
+exit price.
 
 ---
 
