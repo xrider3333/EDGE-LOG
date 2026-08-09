@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.18';
+const VERSION='71.19';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.19',date:'2026-08-08',notes:['TRADE CANDLES (71.16 follow-up, caught by looking at a real render): on a chart carrying more than one day, the day label and the nearest clock label were printing on top of each other - 15:30 and 04/08 landed on the same spot and neither could be read. The day label now wins and the clock label next to it stands down.','TRADE CANDLES: the VWAP line was joining one day close straight to the next day open, drawing a move that never happened. VWAP restarts every session, so the line now breaks at each day and draws one segment per session.']},
 {v:'71.18',date:'2026-08-08',notes:['Follow-up to 71.17: closing the funnel pane gap had quietly handed those units to the drawdown pane and grown it 15 percent. The equity floor drops by the same amount, so the gap is the only thing that changed.','And with the panes adjacent, the drawdown zero label was landing on top of the equity zero gridline. It steps aside when a scale number is already there, the same way the gutter drops a number under a pill.']},
 {v:'71.17',date:'2026-08-08',notes:['TILT and HYBRID now measure on the SAMPLE you tick, exactly like the ML GATE matrix. Every reward-versus-risk row, the drawdown row and the trade count were hard-wired to the lockbox, so ticking IS and WF changed nothing below the return block. They are now MAR, MAX DD, PF, WIN percent, DOLLARS PER TRADE and TRADES over whatever is selected, the ordering ranks on that same selection, and the group caption names it. A pick that skips a stretch - IS plus LB with no WF - has no single span to read a drawdown from, so that one cell prints a dash instead of a number that would not mean anything.','SIZING OVERLAY removed. It was a hand-rolled ORB contract-sizing card that rendered above every ORB report; sizing is read from the TILT and HYBRID tabs now.','FUNNEL: the IS / WF / LB row sits lower in the chart with the top inset grown to match, so the curves still never reach the tags.','FUNNEL: the dead band between the equity pane and the drawdown pane is down from 7 units to 3 - about the 5px breather 1A leaves.','FUNNEL: the two grey axis rules are gone. The chart reads off its gutter pills and its date strip, so they were chrome. The non-funnel TOP CONFIGS chart keeps its axis - it has no gutter to read instead.']},
 {v:'71.16',date:'2026-08-08',notes:['TRADE CANDLES: every row of the TRADES blotter (inside the expanded 1A equity chart) now carries a candle button. Click it and the trade opens as a real price chart - that session of candles plus the session either side, the session VWAP, a shaded band over the bars you were in the trade for, and an entry arrow and exit dot at the fill prices. This is the first time EDGELOG draws a candle anywhere.','EXIT PRICE FIX: the blotter was printing the closing price of the exit bar as the exit fill. That is not the price the engine filled at whenever a trade exits on a stop, a target, or the next bar open - on ORB it was wrong on 3,397 of 4,065 trades. Exit price is now worked back from the trades own points and cost, which is exact. The blotter also carries LONG or SHORT per trade now.','Blotters saved before this fix still hold the old exit price. The candle chart says so in its subtitle when it sees one - Shift+click TRADES to regenerate it on your PC.']},
@@ -2845,20 +2846,32 @@ window.candleSVG=function(bars,overlays,markers,opts){
     out+='<rect x="'+x0+'" y="'+margin.t+'" width="'+(x1-x0)+'" height="'+plotH+'" fill="var(--blue)" opacity="0.08"/>';
   }
 
-  // overlay lines, in key order — generic: any strategy's overlay series draws for free
+  // session boundaries — the window carries context sessions either side of the trade, so
+  // work out where each new day starts once and reuse it for the overlays and the x axis.
+  const _day=i=>(bars[i]&&bars[i].t)?String(bars[i].t).slice(0,10):'';
+  const newDay={};
+  for(let i=1;i<n;i++)if(_day(i)!==_day(i-1))newDay[i]=1;
+
+  // overlay lines, in key order — generic: any strategy's overlay series draws for free.
+  // The path BREAKS at a session boundary and at any null: a session-anchored series (VWAP)
+  // re-anchors each day, so a line joining one session close to the next session open would
+  // draw a move that never happened.
   Object.keys(overlays).forEach(k=>{
     const arr=overlays[k]||[];
-    const xs=[],ys=[];
+    const color=OVCOLORS[k]||NEUTRAL;
+    const dash=(k==='ub'||k==='lb')?'4,3':'none';
+    let xs=[],ys=[];
+    const flush=()=>{
+      if(xs.length>1)out+='<path d="'+pathFromXY(xs,ys)+'" fill="none" stroke="'+color+'" stroke-width="1.3" stroke-dasharray="'+dash+'"/>';
+      xs=[];ys=[];
+    };
     for(let i=0;i<n;i++){
+      if(newDay[i])flush();
       const v=arr[i];
-      if(v===null||v===undefined)continue;
+      if(v===null||v===undefined){flush();continue;}
       xs.push(xCenter(i));ys.push(yScale(v));
     }
-    if(xs.length>1){
-      const color=OVCOLORS[k]||NEUTRAL;
-      const dash=(k==='ub'||k==='lb')?'4,3':'none';
-      out+='<path d="'+pathFromXY(xs,ys)+'" fill="none" stroke="'+color+'" stroke-width="1.3" stroke-dasharray="'+dash+'"/>';
-    }
+    flush();
   });
 
   // candles
@@ -2874,24 +2887,27 @@ window.candleSVG=function(bars,overlays,markers,opts){
     out+='<rect x="'+(x-bodyW/2)+'" y="'+yTop+'" width="'+bodyW+'" height="'+hgt+'" fill="'+color+'"/>';
   }
 
-  // session boundaries — the window can carry context sessions either side of the trade,
-  // and bare HH:MM labels repeat once per session, so mark where each new day starts.
-  const _day=i=>(bars[i]&&bars[i].t)?String(bars[i].t).slice(0,10):'';
-  const newDay={};
-  for(let i=1;i<n;i++)if(_day(i)!==_day(i-1))newDay[i]=1;
+  // session divider lines
   Object.keys(newDay).forEach(i=>{
     const x=margin.l+(+i)*xStep;
     out+='<line x1="'+x+'" x2="'+x+'" y1="'+margin.t+'" y2="'+(margin.t+plotH)+'" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2,3" opacity="0.5"/>';
   });
 
-  // x-axis time labels (~13 of them) — the first bar of each session shows its date
-  // instead of the time, so a multi-session window reads unambiguously.
+  // x-axis labels (~13 of them) — the first bar of each session shows its DATE instead of
+  // the time, so a multi-session window reads unambiguously. A date label always wins over
+  // a time label near it: an evenly-spaced tick that lands within half a slot of a session
+  // start is dropped, otherwise the two print on top of each other and neither is readable.
   const everyN=Math.max(1,Math.round(n/13));
+  const dayIdx=Object.keys(newDay).map(Number);
+  const nearDay=i=>(i===0)?false:dayIdx.some(d=>Math.abs(d-i)<Math.max(1,everyN*0.6));
   for(let i=0;i<n;i++){
-    if(i%everyN!==0&&i!==n-1&&!newDay[i]&&i!==0)continue;
+    const dayLbl=(newDay[i]||i===0);
+    if(!dayLbl){
+      if(i%everyN!==0&&i!==n-1)continue;
+      if(nearDay(i))continue;
+    }
     const x=xCenter(i);
     const t0=bars[i]&&bars[i].t?String(bars[i].t):'';
-    const dayLbl=(newDay[i]||i===0);
     const tt=dayLbl?(t0.slice(5,7)+'/'+t0.slice(8,10)):t0.slice(11,16);
     out+='<text x="'+x+'" y="'+(margin.t+plotH+15)+'" text-anchor="middle" font-size="9" font-weight="'+(dayLbl?700:400)+'" fill="var(--text5)">'+esc(tt)+'</text>';
   }
