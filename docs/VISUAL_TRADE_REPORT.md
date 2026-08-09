@@ -394,6 +394,16 @@ otherwise). The 🕯 button lives in each `renderBlot()` row inside `expandEquit
 - No click-through from the equity curve, no keyboard next/prev trade, no overlay toggles
   (§6 suggestions, still just suggestions).
 
+**Two render bugs were caught only by LOOKING at a real render** (v71.19) — worth repeating
+as method, since both passed every structural assertion: on a multi-session window the bold
+`M/D` session label and the nearest evenly-spaced `HH:MM` tick printed on top of each other,
+and the session-anchored VWAP was joined straight across the overnight gap, drawing a move
+that never happened. Fixed by letting a date label suppress a clock label within half a slot
+of it, and by breaking every overlay path at a session boundary (and at any null).
+`tools/candle_render_check.py` renders a real `get_bars` payload through the shipped
+`candleSVG` → `expandChart` path in headless Chrome and screenshots it — run it after
+touching the drawing code, because a DOM-count assertion will not catch a collision.
+
 **Verification actually run** (not inferred): `python tools/preflight_boot.py` → PASS;
 `tools/candle_probe.py` (promoted out of the volatile scratchpad per the
 `edgelog-scratchpad-volatility` lesson) boots `index.html` in headless Chrome and asserts
