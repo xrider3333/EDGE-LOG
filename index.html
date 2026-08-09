@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.13';
+const VERSION='71.14';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.14',date:'2026-08-08',notes:['FIX on 71.13: the funnel high-water marks came out EMPTY on run 200. The test for whether a drawdown is deep enough to mark was 3 percent of the whole chart range, and the hybrid recycle line stretches that range to 1.16m - so the bar sat at 35k and the champion real drawdowns, which top out around 17k, all fell under it. The test now measures against the champion own curve, which is what 1A does.']},
 {v:'71.13',date:'2026-08-08',notes:['FUNNEL drawdown pane rebuilt to the CHAMPION spec: the Monte-Carlo P95 floor and the realised worst drawdown now draw as dashed reference lines, the scale stretches to whichever is deeper, both get their own pill on the axis, and the pane sits on its own band so it reads as a separate pane. Same colours as 1A. The old DRAWDOWN and worst captions are gone because the pills carry the numbers.','FUNNEL high-water marks: a horizontal held at each running peak until equity recovers, so where each drawdown sits reads straight off the curve. 1A has drawn these for a long time.','FUNNEL band hovers: the walk-forward stripes carried a bare browser tooltip with nothing but a fold number and the lockbox stripe carried none at all. Both now open the same detail box 1A gives - dates, out-of-sample dollars, PF, trade count and the held or failed verdict.','FUNNEL dates print M/D/YY like 1A, and the LB tag carries the held tick or cross.','IS / WF / LB were sitting in the plot boxs padding ABOVE the drawing area on the funnel. They are inside the chart now, over its own background, the same place 1A draws them.','SIZING OVERLAY is collapsed to a single line. It renders on every ORB run and is an execution-layer side note rather than part of the report, so it no longer pushes the whole of section 1 down. Click the bar to open it and the choice sticks.']},
 {v:'71.12',date:'2026-08-08',notes:['FUNNEL gutter width now follows its widest endpoint pill instead of a hard 44px. With five pills on the axis the longest was running past the edge and getting clipped - the recycled-hybrid pill lost its tag entirely. Short runs are unchanged because 44px stays the floor.']},
 {v:'71.11',date:'2026-08-08',notes:['FUNNEL gutter: every family line now prints its ending PnL as a pill on the axis. TILT, HYBRID and HYBRID recycle were drawn on the chart and priced in the key box but had no pill, so only two of the five lines could be read against the scale. Pills are tagged T, H and H-recycle in their line colour, next to the existing crown, gate, IS and lockbox pills.','Those pills now hide when you click their key row off, and dim with everything else when you hover a different family - a dollar chip sitting on the axis with no line under it reads as a line you cannot find.']},
@@ -8828,9 +8829,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +'</g>';
             // v71.13 (owner: "watermark segments"): 1A holds a horizontal at each running peak
             //   until equity recovers, so WHERE each drawdown sits reads straight off the curve.
+            // v71.14: the "is this drawdown worth marking" test is 3% of the CHAMPION curve own
+            //   range, not of the whole funnel range - the hybrid recycle line stretches the axis
+            //   to 1.16m on run 200, so 3% came out at 35k and every real drawdown fell under it.
+            const _eaRg=(Math.max.apply(null,_ea)-Math.min.apply(null,_ea))||1;
             let _hp=_ea[0],_hi=0,_hw='';
             const _hwSeg=(a2,b2)=>{let tr=Infinity;for(let j=a2;j<=b2;j++)if(_ea[j]<tr)tr=_ea[j];
-              if(_hp-tr>0.03*rg)_hw+='<line x1="'+_xAt(a2).toFixed(1)+'" y1="'+Yv(_hp).toFixed(1)+'" x2="'+_xAt(b2).toFixed(1)+'" y2="'+Yv(_hp).toFixed(1)+'" stroke="#d6557a" stroke-width="0.6" opacity="0.7"/>';};
+              if(_hp-tr>0.03*_eaRg)_hw+='<line x1="'+_xAt(a2).toFixed(1)+'" y1="'+Yv(_hp).toFixed(1)+'" x2="'+_xAt(b2).toFixed(1)+'" y2="'+Yv(_hp).toFixed(1)+'" stroke="#d6557a" stroke-width="0.6" opacity="0.7"/>';};
             for(let j=1;j<_en;j++){if(_ea[j]>=_hp){if(j-1>_hi)_hwSeg(_hi,j);_hp=_ea[j];_hi=j;}}
             if(_en-1>_hi)_hwSeg(_hi,_en-1);
             _hwOv='<g data-kg="hwm">'+_hw+'</g>';
