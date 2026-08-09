@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.34';
+const VERSION='71.35';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.35',date:'2026-08-09',notes:['TRADES blotter (expanded 1A): the candle button on each row is now a clear bordered CHART pill with a CHART column header - it was a bare candle glyph that was easy to miss entirely.','TRADES button: when a saved blotter auto-opens with the view, the button now lights up blue while the panel is SHOWING - before, clicking it just hid the already-open panel with no hint, which read as the load doing nothing.','TRADES button while loading now says a FIRST load reruns the champion on your PC and can take minutes - the quick reopen is only quick because it restores the saved copy.']},
 {v:'71.34',date:'2026-08-09',notes:['RUNBOARD now shows each strategy WINDOW - the dates it covers and how long that is - as its own row on the matrix, and a span under two years is flagged in yellow. A 19-day run was sitting at the top of the board on NET against 16-year runs, and nothing on screen said the samples were different sizes.','The funnel key carries the same span beside each ending dollar figure. That is what the hairline blip on the chart was: a run whose whole window is a few weeks, drawn on a 16-year calendar axis.']},
 {v:'71.33',date:'2026-08-09',notes:['Two labels left over from the 71.31 pass. The TILT and HYBRID RETURN headers were still ending in FULL after the FULL row itself was removed, and the GATE total row read as a bare stretch list where every other tab reads TOTAL. Both now say the same thing in the same place: TOTAL followed by the stretches you ticked.']},
 {v:'71.32',date:'2026-08-09',notes:['RUNBOARD panels RESIZE now. A drag bar under the funnel and under the matrix sets that panel height, and drag bars BETWEEN the three panels trade width - the same two gestures the run report uses. Every size is remembered; double-click a bar to put it back to default.','RUNBOARD matrix: the stages row is plain text now - IS · WF · LB in their period colours, dimmed when a run never ran that stage - instead of bordered chips. It is called STAGES RUN.','The compare and runboard equity charts are no longer locked to one height.']},
@@ -2827,6 +2828,9 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const norm=step0/mag;
     let step;
     if(norm<1.5)step=1*mag;else if(norm<3)step=2*mag;else if(norm<7)step=5*mag;else step=10*mag;
+    // a zero/NaN step (degenerate or non-finite price range) would make this loop spin the
+    // tab forever — bail to the two endpoints instead.
+    if(!(step>0)||!isFinite(step))return [lo,hi];
     const start=Math.ceil(lo/step)*step;
     const out=[];
     for(let v=start;v<=hi+1e-9;v+=step)out.push(Math.round(v*1e6)/1e6);
@@ -3424,8 +3428,8 @@ window.expandEquity=function(host){
     const k=blSort.k,dir=blSort.dir;
     rows.sort((a2,b2)=>((a2[k]>b2[k])?1:(a2[k]<b2[k])?-1:0)*dir);
     const arrow=c=>c===k?(dir>0?' ▲':' ▼'):'';
-    const th='<tr style="position:sticky;top:0;background:var(--bg1);color:var(--text5);font-size:9px;letter-spacing:1px;z-index:2"><th style="padding:6px 6px;text-align:center"></th>'+COLS.map(c=>'<th data-bh="'+c[0]+'" style="padding:6px 10px;text-align:'+c[2]+';cursor:pointer;white-space:nowrap;user-select:none"'+(c[3]?' title="'+c[3]+'"':' title="click to sort / filter"')+'>'+c[1]+(c[3]?' ⓘ':'')+arrow(c[0])+'</th>').join('')+'</tr>';
-    const trs=rows.map(x=>'<tr data-blrow="'+x._no+'" style="cursor:pointer;border-top:1px solid var(--border2)'+(selTrade===x._no?';background:color-mix(in srgb,var(--blue) 16%,transparent)':'')+'" title="click to fly to this trade on the chart"><td style="padding:5px 6px;text-align:center"><span data-blcandle="'+x._no+'" title="open this trade candle chart" style="cursor:pointer">🕯</span></td><td style="padding:5px 10px;color:var(--text5)">'+x._no+'</td><td style="padding:5px 10px;font-size:10px">'+x._et+'</td><td style="padding:5px 10px;font-size:10px">'+x._xt2+'</td><td style="padding:5px 10px;text-align:right;color:var(--text4);white-space:nowrap">'+_dur(x._hold)+'</td><td style="padding:5px 10px;text-align:right">'+x._ep+'</td><td style="padding:5px 10px;text-align:right">'+x._xp+'</td><td style="padding:5px 10px;text-align:right;color:'+(x._pts>=0?'var(--green)':'var(--red)')+'">'+x._pts+'</td><td style="padding:5px 10px;text-align:right;color:var(--text4)">'+(blFee!=null?('-'+fmt$(blFee)):'—')+'</td><td style="padding:5px 10px;text-align:right;font-weight:700;color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x._usd)+'</td><td style="padding:5px 10px;text-align:right;color:'+(x._cum>=0?'var(--text2)':'var(--red)')+'">'+fmt$(x._cum)+'</td></tr>').join('');
+    const th='<tr style="position:sticky;top:0;background:var(--bg1);color:var(--text5);font-size:9px;letter-spacing:1px;z-index:2"><th style="padding:6px 6px;text-align:center;white-space:nowrap" title="open that trade session candles in a price chart">CHART</th>'+COLS.map(c=>'<th data-bh="'+c[0]+'" style="padding:6px 10px;text-align:'+c[2]+';cursor:pointer;white-space:nowrap;user-select:none"'+(c[3]?' title="'+c[3]+'"':' title="click to sort / filter"')+'>'+c[1]+(c[3]?' ⓘ':'')+arrow(c[0])+'</th>').join('')+'</tr>';
+    const trs=rows.map(x=>'<tr data-blrow="'+x._no+'" style="cursor:pointer;border-top:1px solid var(--border2)'+(selTrade===x._no?';background:color-mix(in srgb,var(--blue) 16%,transparent)':'')+'" title="click to fly to this trade on the chart"><td style="padding:4px 6px;text-align:center"><span data-blcandle="'+x._no+'" title="open this trade session candles in a price chart" style="cursor:pointer;display:inline-block;border:1px solid color-mix(in srgb,var(--blue) 55%,var(--border));border-radius:5px;padding:1px 6px;font-size:8px;letter-spacing:1px;color:var(--blue);font-variant-emoji:text">🕯 CHART</span></td><td style="padding:5px 10px;color:var(--text5)">'+x._no+'</td><td style="padding:5px 10px;font-size:10px">'+x._et+'</td><td style="padding:5px 10px;font-size:10px">'+x._xt2+'</td><td style="padding:5px 10px;text-align:right;color:var(--text4);white-space:nowrap">'+_dur(x._hold)+'</td><td style="padding:5px 10px;text-align:right">'+x._ep+'</td><td style="padding:5px 10px;text-align:right">'+x._xp+'</td><td style="padding:5px 10px;text-align:right;color:'+(x._pts>=0?'var(--green)':'var(--red)')+'">'+x._pts+'</td><td style="padding:5px 10px;text-align:right;color:var(--text4)">'+(blFee!=null?('-'+fmt$(blFee)):'—')+'</td><td style="padding:5px 10px;text-align:right;font-weight:700;color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x._usd)+'</td><td style="padding:5px 10px;text-align:right;color:'+(x._cum>=0?'var(--text2)':'var(--red)')+'">'+fmt$(x._cum)+'</td></tr>').join('');
     wrap.innerHTML='<div style="padding:8px 12px 2px;font-size:9px;color:var(--text5);letter-spacing:1px">'+blMeta+(blFilt!=='all'?' · <span style="color:var(--blue)">'+rows.length+' '+(blFilt==='win'?'winners':'losers')+' shown</span>':'')+'</div><table style="width:100%;border-collapse:collapse;font-size:11px">'+th+trs+'</table>';
     wrap.querySelectorAll('[data-bh]').forEach(h=>{h.onclick=e=>{e.stopPropagation();
       if(blMenu){blMenu.remove();blMenu=null;}
@@ -3490,7 +3494,7 @@ window.expandEquity=function(host){
     layoutMain();renderBlot();render();
   };
   const _fetchBlot=async()=>{
-    blotBtn.textContent='⏳ LOADING…';blotBtn.disabled=true;
+    blotBtn.textContent='⏳ LOADING… (a first load reruns the champion on your PC — can take minutes)';blotBtn.disabled=true;
     try{
       const r=await _runCmd('get_blotter',B);
       _applyBlot(r,false);
@@ -3560,13 +3564,19 @@ window.expandEquity=function(host){
       if(glyphEl)glyphEl.textContent=origTxt||'🕯';
     }
   };
+  // the button reflects whether the panel is SHOWING — the saved-copy auto-restore below
+  // opens the panel on its own, so without this a first click reads as "load did nothing"
+  // when it actually just hid an already-open panel (owner hit exactly that).
+  const _syncBlotBtn=()=>{if(!blotBtn)return;const on=!!blotRows&&wrap.style.display!=='none';
+    blotBtn.style.borderColor=on?'var(--blue)':'';blotBtn.style.color=on?'var(--blue)':'';
+    if(blotRows)blotBtn.title=(on?'blotter is SHOWING - click to hide':'blotter is hidden - click to show')+' · Shift+click = regenerate fresh on your PC';};
   if(blotBtn)blotBtn.onclick=async(e)=>{
-    if(e&&e.shiftKey){await _fetchBlot();return;}   // force-regenerate (bypasses the saved copy)
-    if(blotRows){wrap.style.display=(wrap.style.display==='none')?'block':'none';layoutMain();render();return;}
-    await _fetchBlot();
+    if(e&&e.shiftKey){await _fetchBlot();_syncBlotBtn();return;}   // force-regenerate (bypasses the saved copy)
+    if(blotRows){wrap.style.display=(wrap.style.display==='none')?'block':'none';layoutMain();render();_syncBlotBtn();return;}
+    await _fetchBlot();_syncBlotBtn();
   };
   // auto-restore this run's saved blotter (if one was generated before) — instant, no runner needed.
-  if(blotBtn&&B&&B.run_id!=null)_blotGet(B.run_id).then(r=>{if(r&&r.rows&&r.rows.length&&!blotRows){try{_applyBlot(r,true);}catch(_e){}}}).catch(()=>{});
+  if(blotBtn&&B&&B.run_id!=null)_blotGet(B.run_id).then(r=>{if(r&&r.rows&&r.rows.length&&!blotRows){try{_applyBlot(r,true);_syncBlotBtn();}catch(_e){}}}).catch(()=>{});
   // ── lifecycle ──
   const onResize=()=>render();
   window.addEventListener('resize',onResize);
