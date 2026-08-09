@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.17';
+const VERSION='71.18';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.18',date:'2026-08-08',notes:['Follow-up to 71.17: closing the funnel pane gap had quietly handed those units to the drawdown pane and grown it 15 percent. The equity floor drops by the same amount, so the gap is the only thing that changed.','And with the panes adjacent, the drawdown zero label was landing on top of the equity zero gridline. It steps aside when a scale number is already there, the same way the gutter drops a number under a pill.']},
 {v:'71.17',date:'2026-08-08',notes:['TILT and HYBRID now measure on the SAMPLE you tick, exactly like the ML GATE matrix. Every reward-versus-risk row, the drawdown row and the trade count were hard-wired to the lockbox, so ticking IS and WF changed nothing below the return block. They are now MAR, MAX DD, PF, WIN percent, DOLLARS PER TRADE and TRADES over whatever is selected, the ordering ranks on that same selection, and the group caption names it. A pick that skips a stretch - IS plus LB with no WF - has no single span to read a drawdown from, so that one cell prints a dash instead of a number that would not mean anything.','SIZING OVERLAY removed. It was a hand-rolled ORB contract-sizing card that rendered above every ORB report; sizing is read from the TILT and HYBRID tabs now.','FUNNEL: the IS / WF / LB row sits lower in the chart with the top inset grown to match, so the curves still never reach the tags.','FUNNEL: the dead band between the equity pane and the drawdown pane is down from 7 units to 3 - about the 5px breather 1A leaves.','FUNNEL: the two grey axis rules are gone. The chart reads off its gutter pills and its date strip, so they were chrome. The non-funnel TOP CONFIGS chart keeps its axis - it has no gutter to read instead.']},
 {v:'71.16',date:'2026-08-08',notes:['TRADE CANDLES: every row of the TRADES blotter (inside the expanded 1A equity chart) now carries a candle button. Click it and the trade opens as a real price chart - that session of candles plus the session either side, the session VWAP, a shaded band over the bars you were in the trade for, and an entry arrow and exit dot at the fill prices. This is the first time EDGELOG draws a candle anywhere.','EXIT PRICE FIX: the blotter was printing the closing price of the exit bar as the exit fill. That is not the price the engine filled at whenever a trade exits on a stop, a target, or the next bar open - on ORB it was wrong on 3,397 of 4,065 trades. Exit price is now worked back from the trades own points and cost, which is exact. The blotter also carries LONG or SHORT per trade now.','Blotters saved before this fix still hold the old exit price. The candle chart says so in its subtitle when it sees one - Shift+click TRADES to regenerate it on your PC.']},
 {v:'71.15',date:'2026-08-08',notes:['EXPANDED FUNNEL: the legend groups now read RAW, GATES, TILTS, HYBRID, HYBRID recycle and OTHER RAW - the same names as the tabs on the card, instead of ML GATES and SIZE TILTS.','EXPANDED FUNNEL: HYBRID and HYBRID recycle lines are IN there now. Every hybrid model draws its own line, plus a second line for the same book with the freed contracts put back to work, at the exact factor the HYBRID recycle tab prints. Both families start hidden and switch on from the key, like the gates and tilts.','FUNNEL KEY: the HYBRID recycle row no longer disappears on runs where the top hybrid refuses no trades. There is nothing to recycle on those runs, so the row prints the same figure tagged 1.00x and points at the hybrid line - it used to vanish entirely and read as a broken feature (run 201).']},
@@ -8474,7 +8475,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   so the top inset grows with it and the curves still never reach the tags.
       const W=C2W,H=140,pd=6,pt=20,pr=16,PW=C2P;
       // v71.4: the drawdown pane is sized like 1A - roughly a quarter of the plot, not a sliver.
-      const eqB=selMode?(H-41):(H-pd);   // v68.4: selMode floor of the EQUITY pane (DD pane below)
+      // v71.18: closing the inter-pane gap in 71.17 handed those 4 units to the DROPDOWN pane,
+      //   which grew it 15%. The equity floor drops by the same 4, so the gap is the only thing
+      //   that changed and the drawdown pane is the exact height it has always been.
+      const eqB=selMode?(H-37):(H-pd);   // v68.4: selMode floor of the EQUITY pane (DD pane below)
       // ── align 2A's plot to 2B's parallel-coords axes: the curves span the LEFTMOST param
       //    axis → the NET axis. selMode instead repurposes the wide right gutter for lockbox /
       //    crown $ labels (that x-registration is replaced by the optimize→lockbox time axis). ──
@@ -9103,7 +9107,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _gutW=Math.max(44,Math.min(68,Math.round(_pgW*5.2+11)));
         _gutterHtml='<div style="width:'+_gutW+'px;min-width:'+_gutW+'px;position:relative;font-size:8px;color:var(--text5)">'
           +'<div style="position:absolute;left:0;right:0;top:6px;bottom:6px">'
-          +((_ddTop!=null)?('<span style="position:absolute;left:3px;top:'+((_ddTop/H)*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:var(--text4)">$0</span>'):'')
+          +((_ddTop!=null&&!_gls.some(L=>Math.abs(Yv(L)-_ddTop)<7))?('<span style="position:absolute;left:3px;top:'+((_ddTop/H)*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:var(--text4)">$0</span>'):'')
           +_gls.map(L=>{const ly=Yv(L);if(labs.some(p=>Math.abs(p.y-ly)<7))return '';return '<span style="position:absolute;left:2px;top:'+(ly/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</span>';}).join('')
           +labs.map(L=>'<span'+(L.kg?(' data-pg="'+L.kg+'"'):'')+' style="position:absolute;left:1px;top:'+(L.y/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;font-weight:800;color:#04130c;background:'+L.col+';padding:0 4px;border-radius:4px;z-index:2">'+L.txt+'</span>').join('')
           +'</div></div>';
