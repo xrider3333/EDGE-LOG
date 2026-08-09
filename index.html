@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.6';
+const VERSION='71.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.7',date:'2026-08-08',notes:['FIXED: a page refresh kept landing on COMPARE. A second browser tab left open on COMPARE was re-rendering on every data update and stamping ITS view over the one you were using. Only the tab you can actually see saves the view now.','Tabs everywhere now sit on a faint translucent background, a little stronger when selected, and each control group has its own tint - card views yellow, the IS / WF / LB stretch picker blue, the ordering picker teal, the shading toggle amber - so it is obvious which control a tab belongs to.','The heavy yellow bar under a selected tab is gone site-wide, and the yellow outline on the ranked row is softened to a hairline.','1E: the NO GATE baseline column is removed - shading now compares the gate variants against each other. The CHOSEN and WOULD PICK badges and the pink highlight on the winning column are gone too; the column order already says which one wins under the rule picked top right.','1E title compacted to free up width for the tab rail.']},
 {v:'71.6',date:'2026-08-08',notes:['FUNNEL gets a HYBRID RECYCLE line. Redeploying spends the contracts the filter freed up, so the same trades carry more size - the dollars, the drawdown and where the book finishes all move, and that deserved its own line rather than being called a duplicate. It is drawn at the exact factor the HYBRID recycle tab uses on its FULL row, so the two agree.','The champion / funnel card carries its number again - 1A on the card, with CHAMPION and FUNNEL staying plain tab names inside it. Monthly P and L below it is 1B as before.','SAMPLE, RANK and HEAT now read as underlined tab rails matching the tab strip above them, highlighted when on. RANK no longer opens a pop-out panel - its three options sit inline like everything else in the row.']},
 {v:'71.5',date:'2026-08-08',notes:['FUNNEL: the worst-drawdown figure moved up onto the drawdown pane top row, beside the DRAWDOWN caption, so it stops crowding the date ticks underneath it.']},
 {v:'71.4',date:'2026-08-08',notes:['FUNNEL now runs on a real calendar. The lockbox door sits at its true share of the timeline instead of a fixed 84 percent - on run 200 that one lockbox year was taking 16 percent of the chart, nearly three times the time it covers, stretching it and squeezing the fifteen years before it. Same placement the CHAMPION chart uses.','FUNNEL date ticks were WRONG: they were pinned to fixed fractions of the window (37.5 and 75 percent), which stopped being true when the in-sample door moved to the real first-fold boundary - the tick reading Sep 2021 was sitting on the June 2016 door. Six ticks now, each placed at the x its own date maps to.','FUNNEL drawdown pane is sized like the CHAMPION chart - about a quarter of the plot instead of a sliver - and its captions plus the date ticks moved out of the stretched drawing layer into crisp text, so they stop looking squashed.']},
@@ -859,7 +860,11 @@ let userLogo=localStorage.getItem('el_logo')||null;
 function savePref(k,v){prefs[k]=v;localStorage.setItem('el_prefs',JSON.stringify(prefs));}
 // ── remember the last VIEW so a page refresh lands where you left off: which tab, the backtester
 //    sub-tab + open run, and the analytics/chart selections. Written every render; restored once on load. ──
-function _saveView(){try{localStorage.setItem('el_view',JSON.stringify({activeTab:activeTab,augurSub:augurSub,augurRunSel:augurRunSel,analyticsSubTab:analyticsSubTab,activeChart:activeChart,chartTF:chartTF,chartMode:chartMode,distMetric:distMetric,dataSub:window._dataSubTab||null,lastLogTab:window._lastLogTab||null}));}catch(e){}}
+// v71.7 (owner: "every refresh takes me to the compare tab"): a BACKGROUND tab was doing it.
+//   Every Firestore update re-renders EVERY open tab, and each render wrote its own view here -
+//   so a second tab left parked on COMPARE kept stamping COMPARE over the tab you were actually
+//   using, and the next refresh restored that. Only the VISIBLE tab writes now.
+function _saveView(){try{if(document.hidden)return;localStorage.setItem('el_view',JSON.stringify({activeTab:activeTab,augurSub:augurSub,augurRunSel:augurRunSel,analyticsSubTab:analyticsSubTab,activeChart:activeChart,chartTF:chartTF,chartMode:chartMode,distMetric:distMetric,dataSub:window._dataSubTab||null,lastLogTab:window._lastLogTab||null}));}catch(e){}}
 function applyTheme(){document.documentElement.setAttribute('data-theme',prefs.theme||'dark');document.documentElement.setAttribute('data-density',prefs.density||'normal');}
 applyTheme();
 
@@ -7852,7 +7857,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // v69.8 (owner: "put them in the top right of the subchart. make them tabs, not toggles"):
     //   underlined tab labels on a hairline rail instead of a segmented toggle pill. Shared by
     //   the 2B CONFIGS and 2D ML SIZING title rows.
-    const _tabBtn=(attr,txt,on,tip)=>'<span '+attr+(tip?' title="'+String(tip).replace(/"/g,'&quot;')+'"':'')+' style="cursor:pointer;user-select:none;padding:2px 10px 3px;font-size:8px;font-weight:700;letter-spacing:.4px;white-space:nowrap;color:'+(on?'var(--yellow)':'var(--text4)')+';border-bottom:2px solid '+(on?'var(--yellow)':'transparent')+';margin-bottom:-1px">'+txt+'</span>';
+    // v71.7 (owner, three asks in one): "add a slight backround to the tabs (mostly translucent,
+    //   slightly more bolder when selected but barily)" - "no heavy yellow bar when tiles are
+    //   selected (site wide)" - "for each tab section that switches between the two (like IS/WF/LB)
+    //   delineate they apply to that section by slightly different backround tab color".
+    //   So every tab wears a faint wash of its OWN GROUP colour: card views keep yellow, the
+    //   stretch picker is blue, the ordering picker teal, the shading toggle amber. Selected =
+    //   a slightly stronger wash plus the group colour on the text. The 2px solid yellow bar is
+    //   gone, replaced by a hairline. Padding tightened 10px to 7px so the rails take less width.
+    const _tabBtn=(attr,txt,on,tip,tone)=>{const _t=tone||'var(--yellow)';
+      return '<span '+attr+(tip?' title="'+String(tip).replace(/"/g,'&quot;')+'"':'')
+        +' style="cursor:pointer;user-select:none;padding:2px 7px 3px;font-size:8px;font-weight:700;letter-spacing:.4px;white-space:nowrap;border-radius:5px 5px 0 0'
+        +';background:color-mix(in srgb,'+_t+' '+(on?'15':'5')+'%,transparent)'
+        +';color:'+(on?_t:'var(--text4)')
+        +';border-bottom:1px solid '+(on?('color-mix(in srgb,'+_t+' 55%,transparent)'):'transparent')
+        +';margin-bottom:-1px">'+txt+'</span>';};
     const _tabStrip=(items,auto)=>'<span style="display:inline-flex;align-items:flex-end;gap:2px;flex-shrink:0;'+(auto?'margin-left:auto;':'')+'border-bottom:1px solid color-mix(in srgb,var(--border) 70%,transparent)">'+items+'</span>';
     // v70.0 (owner: the tabs must sit TOP RIGHT): the controls, the tab strip and the hide arrow
     //   travel as ONE right-aligned group, so a narrow column drops the whole group to a second
@@ -7883,15 +7902,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //   shapes. RANK stops being a pop-out panel - its three options sit inline like the rest, so
     //   nothing in this row opens a menu any more.
     const _rkShort={rec:'MAR',pnl:'NET $',floor:'FLOOR'};
-    const _ctlGrp=(cap,capTip,items)=>'<span style="display:inline-flex;align-items:center;gap:5px">'
-      +'<span title="'+String(capTip||'').replace(/"/g,'&quot;')+'" style="font-size:7px;font-weight:700;letter-spacing:.5px;color:var(--text5);cursor:help">'+cap+'</span>'
+    // one colour per CONTROL GROUP - the caption and its tabs share it, so a glance says which
+    //   control a tab belongs to without reading the caption.
+    const _TONE={samp:'#60a5fa',rank:'#2dd4bf',heat:'#f0b429'};
+    const _ctlGrp=(cap,capTip,items,tone)=>'<span style="display:inline-flex;align-items:center;gap:4px">'
+      +'<span title="'+String(capTip||'').replace(/"/g,'&quot;')+'" style="font-size:7px;font-weight:700;letter-spacing:.5px;color:'+(tone?('color-mix(in srgb,'+tone+' 60%,var(--text5))'):'var(--text5)')+';cursor:help">'+cap+'</span>'
       +_tabStrip(items,false)+'</span>';
-    const _ctlRow=(segAll,segs,segNm,segTip,rank,rankTip,heat,engRule)=>'<div data-g2ctl style="display:flex;align-items:center;gap:11px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
+    const _ctlRow=(segAll,segs,segNm,segTip,rank,rankTip,heat,engRule)=>'<div data-g2ctl style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
       +_ctlGrp('SAMPLE','which stretches of the run this table measures over - click one to tick or untick it',
-        segAll.map(sg=>_tabBtn('data-g2seg="'+sg+'"',(segNm&&segNm[sg])||String(sg).toUpperCase(),segs.indexOf(sg)>=0,(segTip&&segTip[sg])||'')).join(''))
+        segAll.map(sg=>_tabBtn('data-g2seg="'+sg+'"',(segNm&&segNm[sg])||String(sg).toUpperCase(),segs.indexOf(sg)>=0,(segTip&&segTip[sg])||'',_TONE.samp)).join(''),_TONE.samp)
       +_ctlGrp('RANK',rankTip,
-        _rkOptsAll.map(o=>_tabBtn('data-g2rk="'+o[0]+'"',_rkShort[o[0]],rank===o[0],o[2]+((engRule&&o[0]===engRule)?' - this is the rule that crowned THIS run.':''))).join(''))
-      +'<span data-g2heat>'+_tabStrip(_tabBtn('','HEAT',!!heat,'shade every cell by where it lands across its own row - green best, red worst. Shared by every tab in this card.'),false)+'</span>'
+        _rkOptsAll.map(o=>_tabBtn('data-g2rk="'+o[0]+'"',_rkShort[o[0]],rank===o[0],o[2]+((engRule&&o[0]===engRule)?' - this is the rule that crowned THIS run.':''),_TONE.rank)).join(''),_TONE.rank)
+      +'<span data-g2heat>'+_tabStrip(_tabBtn('','HEAT',!!heat,'shade every cell by where it lands across its own row - green best, red worst. Shared by every tab in this card.',_TONE.heat),false)+'</span>'
       +'</div>';
     // opts.compact (owner redesign item B4): tighter cell padding for wide matrices (2C has 11
     //   columns) so it fits without horizontal scroll at a normal viewport width. Rows/cols that
@@ -8041,7 +8063,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    differ rows are the most useful read now — differences line up straight across.
       // A1 (owner): "WF1 / WF2 ..." read as if the WF prefix were part of the header; it is
       //   really just the walk-forward RANK — spelled out plainly now, crown still 👑.
-      const _rkYel=';box-shadow:inset 0 1px 0 var(--yellow),inset 0 -1px 0 var(--yellow);';
+      // v71.7: softened - it was a solid yellow bar top and bottom of the whole row.
+      const _rkYel=';box-shadow:inset 0 1px 0 color-mix(in srgb,var(--yellow) 50%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--yellow) 50%,transparent);';
       const _b2Sty='background:var(--bg1);border:1px solid var(--border);border-radius:5px;color:var(--text2);font-size:8px;padding:1px 3px;cursor:pointer;font-family:inherit';
       const _b2segs=_segsOf(['is','wf','lb']);
       const _b2heat=+(APREF.g2heat||0),_b2rank=(['rec','pnl','floor'].indexOf(String(APREF.g2rank||''))>=0)?String(APREF.g2rank):'rec';
@@ -8062,7 +8085,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const cols=recs.map(rc=>Object.assign({
         lbl:(rc.crowned?'👑':'')+'R'+rc.rank+' · '+(rc.cfgNo?('#'+rc.cfgNo):'—'),
         // v68.1: the display-only rows (never eligible to be crowned) say so, and read dimmer.
-        sub:rc.crowned?'CROWNED':(rc._dispOnly?'NOT ELIGIBLE':((_b2Would===rc)?'◇ WOULD':(rc.ismax?'IS MAX':''))),
+        // v71.7 (owner: "remove the would pick and chosen") - the ordering already says it.
+        sub:rc.crowned?'CROWNED':(rc._dispOnly?'NOT ELIGIBLE':(rc.ismax?'IS MAX':'')),
         col:rc.crowned?'var(--green)':(rc._dispOnly?'var(--text4)':(rc.ismax?'#3a9bdc':'var(--text2)')),
         emph:rc.crowned,tip:rc.rankTip},rc));
       // v64.93 (owner): abbreviate dollars the way 2C does ($450k) so 2B is just as compact.
@@ -10495,7 +10519,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _lbNet=(_mLb&&_mLb.total_pnl!=null)?_mLb.total_pnl:_lbS;
           const _fuNet=(_mFu&&_mFu.total_pnl!=null)?_mFu.total_pnl:_fullN;
           return {lbl:(isCh?'👑 ':'')+(_mNm[cd.model]||String(cd.model||'').toUpperCase())+' '+Math.round((cd.threshold||0)*100)+'%',
-            sub:isCh?'CHOSEN':'',col:_gc,emph:isCh,emphCol:_gc,base:false,raw:cd,
+            // v71.7 (owner: "remove the would pick and chosen, and remove the pink RF 50
+            //   highlight and bar") - the crown stays on the label, the column tint and its
+            //   left-hand bar are gone.
+            sub:'',col:_gc,emph:false,emphCol:_gc,base:false,raw:cd,
             model:cd.model,threshold:cd.threshold,chosen:isCh,
             tip:cd.model+' @ '+Math.round((cd.threshold||0)*100)+'% cut-off'+(isCh?' — CHOSEN, gets the one lockbox look':'')+(cd.eligible===false?' · ineligible (too few kept)':''),
             net:cd.pre_pnl!=null?cd.pre_pnl:null,
@@ -10610,9 +10637,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   that column gets a "◇ WOULD PICK" note so the difference is explicit rather than
         //   implied by position alone.
         const _wouldPick=(_g2rank!=='rec'||_g2samp!=='pre')?(_sortedCand[0]||null):null;
-        _sortedCand.forEach(c=>{c.sub=c.chosen?'CHOSEN':'';});
-        if(_wouldPick&&!_wouldPick.chosen)_wouldPick.sub='◇ WOULD PICK';
-        const _gColsV=[_baseCol].concat(_sortedCand);
+        _sortedCand.forEach(c=>{c.sub='';});
+        // v71.7 (owner: "remove the no gate column baseline on the 1E's") - the ungated book is
+        //   its own line on the 1A funnel and its own column set elsewhere; inside this matrix it
+        //   kept reading as if it were one of the gate variants. Heat now shades across the
+        //   variants only, which is the comparison that matters here.
+        const _gColsV=_sortedCand.slice();
         // HEAT MAP: red (worst in the row) through to green (best), alpha strongest at the two
         //   ends so the middle of the pack stays quiet. hiGood=false flips it for drawdown.
         const _heatFn=(get,hiGood)=>{
@@ -10662,8 +10692,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   yellow = a row it only uses to disqualify — which answers the owner question about
         //   LB lighting up under MAR FLOOR: that rule sorts on DOLLARS of the toggled stretch
         //   and only consults MAR to throw out anything less than 80% as efficient as the best.
-        const _rkRowSty=';box-shadow:inset 0 1px 0 var(--yellow),inset 0 -1px 0 var(--yellow);';
-        const _rkFloorSty=';box-shadow:inset 0 1px 0 color-mix(in srgb,var(--yellow) 45%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--yellow) 45%,transparent);';
+        // v71.7: softened, same reason as 2B - it read as a heavy yellow bar across the row.
+        const _rkRowSty=';box-shadow:inset 0 1px 0 color-mix(in srgb,var(--yellow) 50%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--yellow) 50%,transparent);';
+        const _rkFloorSty=';box-shadow:inset 0 1px 0 color-mix(in srgb,var(--yellow) 24%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--yellow) 24%,transparent);';
         const _rkNet=(_g2rank!=='rec');
         const _multi=_g2segs.length>1;
         const _segRows=_g2segs.map(sg=>({sg:sg,lbl:_segNm[sg]+' $',
@@ -10808,8 +10839,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const n=d.length,mn=d.reduce((a,b)=>a+b,0)/n;
           const vr=d.reduce((a,b)=>a+(b-mn)*(b-mn),0)/Math.max(1,n-1),sd=Math.sqrt(vr);
           return (sd>1e-9)?((mn/sd)*Math.sqrt(n/_spanYrs)):null;};
-        const _rkYel2=';box-shadow:inset 0 1px 0 var(--yellow),inset 0 -1px 0 var(--yellow);';
-        const _rkDsh2=';box-shadow:inset 0 1px 0 color-mix(in srgb,var(--yellow) 50%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--yellow) 50%,transparent);';
+        const _rkYel2=';box-shadow:inset 0 1px 0 color-mix(in srgb,var(--yellow) 50%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--yellow) 50%,transparent);';
+        const _rkDsh2=';box-shadow:inset 0 1px 0 color-mix(in srgb,var(--yellow) 24%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--yellow) 24%,transparent);';
         const _wfBg2='rgba(96,165,250,.13)',_wfCol2='#60a5fa',_lbBg2='rgba(167,139,250,.16)',_lbCol2='#a78bfa';
         const _szSegTip={is:'the in-sample years - everything before walk-forward testing starts. Same calendar stretch 2B and 2C call IS.',
                        wf:'the walk-forward years - the same stretch 2B and 2C call WF.',
@@ -12186,7 +12217,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
                    :(isHyb?(((_gvP&&_gvP.hybNoteBy)||{})[_hybOf(tb)]||'')
                    :_nRow((_selParts&&_selParts.sub)?('<span style="font-weight:400;color:var(--text4);font-size:8px">'+_selParts.sub+'</span>'):'')));
           const tabs=_tabStrip(_tabDefs.map(function(t){return _tabBtn(attr+'="'+t[0]+'"',t[1],tb===t[0],t[3]);}).join(''),false);
-          const title=_kpiInner?'1E &#128202; MATRIX':(_cfgN+'B &#129521; CONFIGS');
+          // v71.7 (owner: "compact the 1E titles a bit"): icons dropped from the title so the
+          //   tab rail gets the width back.
+          const title=_kpiInner?'1E MATRIX':(_cfgN+'B CONFIGS');
           return '<div style="margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
             +title+' '+info
             +'<span style="margin-left:auto;flex-shrink:0">'+tabs+'</span></div>'
