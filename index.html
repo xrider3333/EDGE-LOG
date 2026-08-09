@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.36';
+const VERSION='71.37';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.37',date:'2026-08-09',notes:['KPI tab now lines up with the rest of 1E. Its group captions and cells were on their own padding rhythm, so every row sat a few pixels off the same row on RAW, GATE, TILT and the hybrids and a tab flip shifted the whole table. Same rhythm everywhere now. Its column headers stay one line taller because each one carries the date range under the stretch name.','No duplicate rows found on KPI - RECOVERY and MAR are genuinely different numbers, net over drawdown versus the annualised version, not the same figure twice.','AVG CONTRACTS only shows when a column is NOT running one lot. On TILT and on the plain HYBRID tab it read 1.00x in every column, which is the definition of those tabs rather than a finding. It still shows on REDEPLOY and EQUAL-DRAWDOWN where it is the whole point.','NOT TAKEN only shows when something was actually refused. A tilt refuses nothing, so that row was a column of zeros on every tilt.','NOT TAKEN now sits directly under TRADES on the tabs that have it. Taken and refused are the same question and they were four rows apart.']},
 {v:'71.36',date:'2026-08-09',notes:['WIN % on the TILT tab now shades. It was never being skipped - a tilt refuses no trades, so every column on that tab wins the exact same trades and the row reads one number all the way across. A heat map of a flat row is one uniform colour, and that is what it paints now, instead of leaving the row blank and looking like the shading had missed it. Applies to any flat row on any 1E tab.','1E ROWS LINE UP ACROSS TABS NOW. The wide-table squeeze was tightening rows vertically as well as sideways, so a ten-column TILT drew 15px rows against a five-column HYBRID at 17px and every row shifted when you flipped between them. Only the sideways padding tightens now, so the tabs sit row for row and a flip compares like with like.','SIZE RULE is one line on every tab. The cut-off used to print above the size shape on the HYBRID tabs, making that row nearly twice as tall as the same row on TILT - the single biggest reason the two would not align. Cut-off and shape share one line; the full sentence is still on hover.']},
 {v:'71.35',date:'2026-08-09',notes:['TRADES blotter (expanded 1A): the candle button on each row is now a clear bordered CHART pill with a CHART column header - it was a bare candle glyph that was easy to miss entirely.','TRADES button: when a saved blotter auto-opens with the view, the button now lights up blue while the panel is SHOWING - before, clicking it just hid the already-open panel with no hint, which read as the load doing nothing.','TRADES button while loading now says a FIRST load reruns the champion on your PC and can take minutes - the quick reopen is only quick because it restores the saved copy.']},
 {v:'71.34',date:'2026-08-09',notes:['RUNBOARD now shows each strategy WINDOW - the dates it covers and how long that is - as its own row on the matrix, and a span under two years is flagged in yellow. A 19-day run was sitting at the top of the board on NET against 16-year runs, and nothing on screen said the samples were different sizes.','The funnel key carries the same span beside each ending dollar figure. That is what the hairline blip on the chart was: a run whose whole window is a few weeks, drawn on a 16-year calendar axis.']},
@@ -10265,14 +10266,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _ovl=p=>p.total?';border-left:2px solid color-mix(in srgb,var(--green) 55%,transparent);background:color-mix(in srgb,var(--green) 9%,transparent)':(p.col&&p.col[0]==='#'?';background:color-mix(in srgb,'+p.col+' 12%,transparent)':'');
       // v71.0 (owner: "compress kpi vertically a bit, trying to get close to raw vertical"):
       //   same padding rhythm the config matrices use in compact mode.
-      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:3px 5px;vertical-align:bottom">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:3px 5px;white-space:nowrap;cursor:help;vertical-align:bottom;color:'+p.col+(p.total?';font-weight:800':';font-weight:700')+_ovl(p)+'">'+p.sh_+(p.dr?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+p.dr+'</div>':'')+'</th>').join('')+'</tr>';
+      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:3px 4px;vertical-align:bottom">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:3px 4px;white-space:nowrap;cursor:help;vertical-align:bottom;color:'+p.col+(p.total?';font-weight:800':';font-weight:700')+_ovl(p)+'">'+p.sh_+(p.dr?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+p.dr+'</div>':'')+'</th>').join('')+'</tr>';
       // group the rows into sections (return / drawdown / reward÷risk / edge / sample) — a small
       //   uppercase header row precedes the first metric of each group so the eye reads them as blocks.
       const _grpAt={'NET P&L':'return','MAX DD':'drawdown','RECOVERY':'reward ÷ risk','PF':'edge & profile','TRADES':'sample'},_ncol=phases.length+1;
-      const body=metrics.map(m=>(_grpAt[m.lbl]?'<tr><td colspan="'+_ncol+'" style="padding:7px 5px 1px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+_grpAt[m.lbl]+'</td></tr>':'')
+      const body=metrics.map(m=>(_grpAt[m.lbl]?'<tr><td colspan="'+_ncol+'" style="padding:9px 6px 2px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+_grpAt[m.lbl]+'</td></tr>':'')
         +'<tr style="border-top:1px solid color-mix(in srgb,var(--border) '+(m.top?'70%':'40%')+',transparent)'+(m.top?';background:color-mix(in srgb,var(--border) 10%,transparent)':'')+'">'
-        +'<td style="padding:3px 5px;font-size:var(--fsxs);color:var(--text2);font-weight:'+(m.top?'700':'400')+';white-space:nowrap">'+m.lbl+'</td>'
-        +phases.map(p=>'<td style="padding:3px 5px;text-align:right;white-space:nowrap'+_ovl(p)+'">'+m.cell(p)+'</td>').join('')+'</tr>').join('');
+        +'<td style="padding:3px 4px;font-size:var(--fsxs);color:var(--text2);font-weight:'+(m.top?'700':'400')+';white-space:nowrap">'+m.lbl+'</td>'
+        +phases.map(p=>'<td style="padding:3px 4px;text-align:right;white-space:nowrap'+_ovl(p)+'">'+m.cell(p)+'</td>').join('')+'</tr>').join('');
       // CALMAR = CAGR ÷ max-drawdown-%, over the LAST 3 YEARS, on a $100k account. A whole-run
       //   recent-window number (not per-section), so it lives as a header pill next to DSR.
       const _calmar=(function(){const acct=100000,totMs=(optS&&lbE)?(lbE-optS):null;if(!eq||eq.length<8||!totMs)return null;const totYr=totMs/(365.25*864e5);if(totYr<=0)return null;const win=Math.min(3,totYr),i0=Math.max(0,Math.round(eq.length*(1-win/totYr))),seg=eq.slice(i0);if(seg.length<4)return null;const v0=acct+seg[0],v1=acct+seg[seg.length-1];if(v0<=0||v1<=0)return null;const cagr=Math.pow(v1/v0,1/win)-1;let pk=-Infinity,md=0;for(const x of seg){const e=acct+x;if(e>pk)pk=e;const dd=(e-pk)/pk;if(dd<md)md=dd;}const ddp=Math.abs(md);return ddp>0?cagr/ddp:null;})();
@@ -11520,6 +11521,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
               //   When that happens the hover says so, instead of looking like a broken heat map.
               {lbl:'<span title="share of trades in the ticked SAMPLE that finished green, weighted by trade count across stretches. Scale-free - re-sizing changes how much each trade is worth, never whether it won.'+((function(){const ws=cols.map(c=>_szP(c).wr).filter(v=>v!=null);return (ws.length>1&&(Math.max.apply(null,ws)-Math.min.apply(null,ws))<0.05)?' EVERY COLUMN HERE READS THE SAME because a tilt refuses no trades - the whole tab wins the same trades and only the size differs, so the heat map has no spread to shade.':'';})())+'">WIN %</span>',cell:c=>{const v=_szP(c).wr;return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):_cmpDash;}},
               {lbl:'<span title="average net dollars per trade over the ticked SAMPLE - says whether a column makes its money from bigger trades or just more of them. Follows the sizing tab.">$ / TRADE</span>',cell:c=>{const v=_szP(c).apt;return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):_cmpDash;}}]},
+            // v71.37 (owner: "why does TILT have an AVG CONTRACTS row if it is always 1, and a NOT
+            //   TAKEN row if it is always 0"): a row every column agrees on and that says nothing
+            //   is dropped. AVG CONTRACTS only shows when some column is NOT one lot (the REDEPLOY
+            //   and EQUAL-DD tabs), NOT TAKEN only when something was actually refused - so both
+            //   still appear on the hybrids and never on a tilt.
+            // And NOT TAKEN now sits directly under TRADES (owner: "why are trades and not taken so
+            //   far apart") - taken and refused are the same question.
             {name:'sample',rows:[
               // v69.1: this used to print the whole-run trade count while every row around it was
               //   lockbox-only, which made the section impossible to reconcile against 2C.
@@ -11529,16 +11537,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
               //   the two is self-explaining instead of looking like a mismatch.
               {lbl:'<span title="trades taken across the ticked SAMPLE - the same basis as the rows above it. ALL TRADES below counts the whole run, so untick a stretch and these two separate by exactly that stretch trade count.">TRADES <span style="font-weight:400;color:var(--text5)">&middot; '+_szLbl+'</span></span>',top:true,cell:c=>{
                 const n=_szP(c).n;return n!=null?(+n).toLocaleString():_cmpDash;}},
-              // v71.30 (owner): ALL TRADES was the whole-run count sitting next to a sample-scoped
-              //   one - the same duplication as FULL $ / FULL MAR. Tick all three stretches and
-              //   TRADES above IS the whole-run count.
-              {lbl:'<span title="average contracts per trade this column runs over the ticked SAMPLE. One in the ONE LOT tab; in REDEPLOY / EQUAL DD it is what the freed capacity buys.">AVG CONTRACTS</span>',cell:c=>{
-                const f=_szFac(c);return '<span style="color:'+((mode&&mode!=='one')?'#f0b429':'var(--text3)')+'">'+f.toFixed(2)+'&times;</span>';}},
+              ].concat(cols.some(c=>{const x=c._s.mix;return x&&x.dropped!=null&&+x.dropped>0;})
+                ?[{lbl:'<span title="trades the cut-off refused, so they were never entered at all - no position, no fee, no profit or loss. The row only appears when something was actually refused; a tilt refuses nothing, so it never shows on that tab.">NOT TAKEN</span>',cell:c=>{const x=c._s.mix;return (x&&x.dropped!=null)?((+x.dropped)?('<span style="color:#e24b4a">'+(+x.dropped).toLocaleString()+'</span>'):'<span style="color:var(--text5)">0</span>'):_cmpDash;}}]:[])
+              .concat(cols.some(c=>Math.abs(_szFac(c)-1)>0.005)
+                ?[{lbl:'<span title="average contracts per trade this column runs over the ticked SAMPLE. It only appears when a column is NOT running one lot - that is the REDEPLOY and EQUAL-DRAWDOWN tabs, where it is what the freed capacity buys.">AVG CONTRACTS</span>',cell:c=>{
+                const f=_szFac(c);return '<span style="color:'+((mode&&mode!=='one')?'#f0b429':'var(--text3)')+'">'+f.toFixed(2)+'&times;</span>';}}]:[])
+              .concat([
               {lbl:'<span title="largest contracts any single trade got">BIGGEST SIZE</span>',cell:c=>c._s.mx!=null?((+c._s.mx*_szFac(c)).toFixed(1)+'&times;'):_cmpDash},
               // v68.7/68.9 (owner: "we dont see the trade distribution for dropped small/medium/large")
               //   engine >= v68.9 saves the split incl. DROPPED; older runs show a dash.
               {lbl:'<span title="how the trades split by the size each was given: SMALL under 0.75 of a lot &middot; MEDIUM 0.75 to 1.5 &middot; LARGE over 1.5. Saved by the engine from v68.7 runs on.">SIZE MIX s&middot;m&middot;L</span>',cell:c=>{const x=c._s.mix;return x?('<span style="color:var(--text3)">'+(+x.small)+'&middot;'+(+x.normal)+'&middot;'+(+x.big)+'</span>'):_cmpDash;}},
-              {lbl:'<span title="trades the cut-off refused, so they were never entered at all - no position, no fee, no profit or loss. A tilt refuses nothing, so it always reads 0 here.">NOT TAKEN</span>',cell:c=>{const x=c._s.mix;return (x&&x.dropped!=null)?((+x.dropped)?('<span style="color:#e24b4a">'+(+x.dropped).toLocaleString()+'</span>'):'<span style="color:var(--text5)">0</span>'):_cmpDash;}},
               // v68.9 (owner: "how do we know what level applies... we dont see what the bouncer
               //   level is"): the EXACT rule each column ran, per column - two rf columns can use
               //   two different shapes, so it can never be inferred from the model name alone.
