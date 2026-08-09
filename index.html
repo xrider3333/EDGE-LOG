@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.14';
+const VERSION='71.15';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.15',date:'2026-08-08',notes:['EXPANDED FUNNEL: the legend groups now read RAW, GATES, TILTS, HYBRID, HYBRID recycle and OTHER RAW - the same names as the tabs on the card, instead of ML GATES and SIZE TILTS.','EXPANDED FUNNEL: HYBRID and HYBRID recycle lines are IN there now. Every hybrid model draws its own line, plus a second line for the same book with the freed contracts put back to work, at the exact factor the HYBRID recycle tab prints. Both families start hidden and switch on from the key, like the gates and tilts.','FUNNEL KEY: the HYBRID recycle row no longer disappears on runs where the top hybrid refuses no trades. There is nothing to recycle on those runs, so the row prints the same figure tagged 1.00x and points at the hybrid line - it used to vanish entirely and read as a broken feature (run 201).']},
 {v:'71.14',date:'2026-08-08',notes:['FIX on 71.13: the funnel high-water marks came out EMPTY on run 200. The test for whether a drawdown is deep enough to mark was 3 percent of the whole chart range, and the hybrid recycle line stretches that range to 1.16m - so the bar sat at 35k and the champion real drawdowns, which top out around 17k, all fell under it. The test now measures against the champion own curve, which is what 1A does.']},
 {v:'71.13',date:'2026-08-08',notes:['FUNNEL drawdown pane rebuilt to the CHAMPION spec: the Monte-Carlo P95 floor and the realised worst drawdown now draw as dashed reference lines, the scale stretches to whichever is deeper, both get their own pill on the axis, and the pane sits on its own band so it reads as a separate pane. Same colours as 1A. The old DRAWDOWN and worst captions are gone because the pills carry the numbers.','FUNNEL high-water marks: a horizontal held at each running peak until equity recovers, so where each drawdown sits reads straight off the curve. 1A has drawn these for a long time.','FUNNEL band hovers: the walk-forward stripes carried a bare browser tooltip with nothing but a fold number and the lockbox stripe carried none at all. Both now open the same detail box 1A gives - dates, out-of-sample dollars, PF, trade count and the held or failed verdict.','FUNNEL dates print M/D/YY like 1A, and the LB tag carries the held tick or cross.','IS / WF / LB were sitting in the plot boxs padding ABOVE the drawing area on the funnel. They are inside the chart now, over its own background, the same place 1A draws them.','SIZING OVERLAY is collapsed to a single line. It renders on every ORB run and is an execution-layer side note rather than part of the report, so it no longer pushes the whole of section 1 down. Click the bar to open it and the choice sticks.']},
 {v:'71.12',date:'2026-08-08',notes:['FUNNEL gutter width now follows its widest endpoint pill instead of a hard 44px. With five pills on the axis the longest was running past the edge and getting clipped - the recycled-hybrid pill lost its tag entirely. Short runs are unchanged because 44px stays the floor.']},
@@ -3387,8 +3388,11 @@ window.expandCompareEq=function(series,opts){
     // v64.81 (owner): gateCand (2A's 9 ML-gate candidate lines) default HIDDEN — same as the
     //   grey 'other configs' cloud stays visible-by-default while gate candidates start off, so
     //   the chart is not cluttered with all 9 model x cutoff lines until asked for.
-    return {id:s.id,label:String(s.label||('#'+s.id)),color:s.color||'#3a9bdc',li:li,wfi:wfi,blot:s.blot||null,vis:((s.gateCand||s.tiltCand)?'off':'on'),
-      ts:ts,isOther:!!s.dim,gateCand:!!s.gateCand,gateChosen:!!s.gateChosen,tiltCand:!!s.tiltCand,tip:s.tip||'',params:s.params||null,
+    // v71.15: hybrid and hybrid-recycle lines carry their own flags through here (they were being
+    //   dropped, so the new HYBRID legend groups would have rendered empty) and start hidden like
+    //   the gate and tilt families.
+    return {id:s.id,label:String(s.label||('#'+s.id)),color:s.color||'#3a9bdc',li:li,wfi:wfi,blot:s.blot||null,vis:((s.gateCand||s.tiltCand||s.hybCand||s.hybRcy)?'off':'on'),
+      ts:ts,isOther:!!s.dim,gateCand:!!s.gateCand,gateChosen:!!s.gateChosen,tiltCand:!!s.tiltCand,hybCand:!!s.hybCand,hybRcy:!!s.hybRcy,tip:s.tip||'',params:s.params||null,
       tr:_trOf(s),pts:s.eq.map((v,i)=>({x:0,v:v,t:0}))};});
   // rebakeDomain (item 24): bakes ONE shared tMin..tMax calendar span from every series real
   //   (blotter-loaded, exact per-trade) or approximate (run date_from/date_to) date range, then
@@ -3559,15 +3563,18 @@ window.expandCompareEq=function(series,opts){
   //   instead of one flat list plus two bespoke collapse patterns. gateChosen (set on the single
   //   gate-id series in topEqOverlayHtml) now joins gateCand in the ML GATES bucket, so it is
   //   excluded from _mainPS the same way gateCand already was.
-  const _mainPS=()=>PS.filter(s=>!s.isOther&&!s.gateCand&&!s.gateChosen&&!s.tiltCand),_otherPS=()=>PS.filter(s=>s.isOther),
+  // v71.15: hybrid / hybrid-recycle series join tilts as their own families - excluded here so
+  //   they never fall into the RAW config group.
+  const _mainPS=()=>PS.filter(s=>!s.isOther&&!s.gateCand&&!s.gateChosen&&!s.tiltCand&&!s.hybCand&&!s.hybRcy),_otherPS=()=>PS.filter(s=>s.isOther),
     // v67.6 (owner: "you put them in the ML gates. make it its own section in the key") — SIZE
     //   TILTS are their own legend group now. They are NOT gate candidates: a gate SKIPS trades,
     //   a tilt keeps every trade and only re-sizes it, so burying them in ML GATES made them
     //   unfindable and easy to misread as crownable gate lines.
-    _gatePS=()=>PS.filter(s=>(s.gateCand||s.gateChosen)&&!s.tiltCand),_tiltPS=()=>PS.filter(s=>s.tiltCand);
+    _gatePS=()=>PS.filter(s=>(s.gateCand||s.gateChosen)&&!s.tiltCand&&!s.hybCand&&!s.hybRcy),_tiltPS=()=>PS.filter(s=>s.tiltCand),
+    _hybPS=()=>PS.filter(s=>s.hybCand),_hybRPS=()=>PS.filter(s=>s.hybRcy);
   // per-group expand/collapse state — all three start COLLAPSED (one row each); replaces the old
   //   single-purpose gateExpanded flag.
-  let _grpExpanded={cfg:false,gate:false,oth:false};
+  let _grpExpanded={cfg:false,gate:false,tilt:false,hyb:false,hybr:false,oth:false};
   // CHANGE 4: a group aggregate vis state, for the group header look and for what a group click
   //   cycles FROM. "mixed" (members disagree) reads and acts like "on" — full brightness, and
   //   the next click dims the whole group, the same first step an all-on group would take.
@@ -3631,10 +3638,15 @@ window.expandCompareEq=function(series,opts){
     // v64.87 (item 2): the "ⓘ legend guide" icon moved into the header (merged with the controls
     //   icon there) and the in-sample/walk-forward/lockbox dash-style key entries below the
     //   groups are REMOVED entirely (owner: declutter) — the legend is just the three groups now.
-    legendEl.innerHTML=_groupRow('cfg','CONFIGS',_mainPS())
-      +_groupRow('gate','ML GATES',_gatePS())
-      +_groupRow('tilt','SIZE TILTS',_tiltPS())
-      +_groupRow('oth','OTHER CONFIGS · '+_otherPS().length+' grey + '+_mainPS().length+' coloured above = '+(_otherPS().length+_mainPS().length)+' total',_otherPS());
+    // v71.15 (owner: "for expanded view just relabel them gates, tilts, hybrid. hybrid r - like
+    //   in the non expanded view"): the group names now match the 2B tab strip exactly - RAW,
+    //   GATES, TILTS, HYBRID, HYBRID ♻ - instead of the old ML GATES / SIZE TILTS wording.
+    legendEl.innerHTML=_groupRow('cfg','RAW',_mainPS())
+      +_groupRow('gate','GATES',_gatePS())
+      +_groupRow('tilt','TILTS',_tiltPS())
+      +_groupRow('hyb','HYBRID',_hybPS())
+      +_groupRow('hybr','HYBRID ♻',_hybRPS())
+      +_groupRow('oth','OTHER RAW · '+_otherPS().length+' grey + '+_mainPS().length+' coloured above = '+(_otherPS().length+_mainPS().length)+' total',_otherPS());
     // v64.76: rebuild the id->element cache for the live legend values now that legendEl.innerHTML
     //   was just replaced wholesale — the old nodes (and any cached refs to them) are gone.
     _legendValEls={};
@@ -8251,14 +8263,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   so the same trades carry more size and the dollars, the drawdown and where the book
       //   finishes all move. It earns its own line. The factor here is the one the HYBRID recycle
       //   tab applies to its FULL row, so this line ends exactly on the figure that tab prints.
-      let _hyRdF=null;
+      let _hyRdF=null,_hyRdSame=false;
       try{
         const _uF0=(d.gate_validate&&d.gate_validate.ungated_full)||null,_hF0=_bestHybC&&_bestHybC.full;
         if(_uF0&&_hF0&&(+_uF0.num_trades)>0&&(+_hF0.num_trades)>0){
           const _fq=(+_uF0.num_trades)/(+_hF0.num_trades);
           if(_fq>1.005){_hyRdF=_fq;
             if(_bestHybC.equity&&Array.isArray(_bestHybC.equity.cum))
-              _bestHybC.equity.cum.forEach(v=>extYs.push(v*mult*_fq));}}
+              _bestHybC.equity.cum.forEach(v=>extYs.push(v*mult*_fq));}
+          // v71.15 (owner: "i dont see hybrid r on 1a"): the top hybrid can be one that refuses
+          //   NOTHING - on run 201 it keeps all 692 trades - so recycling frees no contracts and
+          //   the factor is 1.00x. That used to silently drop the whole row, reading as a missing
+          //   feature. The row now renders at the same figure and SAYS nothing was freed.
+          else _hyRdSame=true;}
       }catch(_hr0){_hyRdF=null;}
       // draw ALL stored curves; the slider picks how many get COLOUR — the rest stay as faint
       //   grey context lines (owner request) instead of disappearing. Slider max = stored curves.
@@ -8633,6 +8650,30 @@ namespace NinjaTrader.NinjaScript.Strategies {
                          li:null,wfi:null,tiltCand:true,   // v67.6: own legend group, NOT ML GATES
                          ts:_mkTsSpan(tl.equity.cum.length,optFromMs,lbToMs)});
             });
+            // v71.15 (owner: "i dont see hybrid or hybrid r on expanded") — HYBRID was the one
+            //   2B tab with no line in the expanded view. Every hybrid now pushes TWO series: the
+            //   book itself, and the same book RECYCLED (sized up by the contracts its filter
+            //   freed, at the exact factor the HYBRID recycle tab prints on its FULL row, so the
+            //   chart and that tab agree). A hybrid that refuses nothing frees nothing and pushes
+            //   no recycle line. Own legend groups - never crownable, like the tilts.
+            const _gvHybs=(d.gate_validate&&Array.isArray(d.gate_validate.hybrids))?d.gate_validate.hybrids:[];
+            const _uFn=+((((d.gate_validate||{}).ungated_full)||{}).num_trades)||0;
+            _gvHybs.forEach(hy=>{
+              if(!(hy&&hy.equity&&Array.isArray(hy.equity.cum)&&hy.equity.cum.length>=2))return;
+              const _hm=String(hy.model||'');
+              _ser.push({id:'hyb-'+_hm,label:'hybrid: '+_hm,
+                         color:_gateColor(_hm,2,74),
+                         eq:hy.equity.cum.map(v=>v*mult),
+                         li:null,wfi:null,hybCand:true,
+                         ts:_mkTsSpan(hy.equity.cum.length,optFromMs,lbToMs)});
+              const _hfn=+(((hy.full)||{}).num_trades)||0,_hq=(_uFn>0&&_hfn>0)?(_uFn/_hfn):1;
+              if(_hq>1.005)
+                _ser.push({id:'hybr-'+_hm,label:'hybrid ♻: '+_hm+' · '+_hq.toFixed(2)+'x',
+                           color:_gateColor(_hm,0,90),
+                           eq:hy.equity.cum.map(v=>v*mult*_hq),
+                           li:null,wfi:null,hybRcy:true,
+                           ts:_mkTsSpan(hy.equity.cum.length,optFromMs,lbToMs)});
+            });
           }catch(_gce){}
           // CHANGE 3 (v64.74, owner: bring back the grey cloud): every OTHER tested config, from
           //   d.equity_top, drawn faint and stopping at the in-sample door — mirrors the inline 2A
@@ -8891,13 +8932,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   with exactly four family rows: RAW · GATE · TILT · HYBRID. Each row shows its family's
         //   top line value; clicking a row reveals / hides the rest of that family.
         const _gateEndV=(_hasGate&&_gEq&&Array.isArray(_gEq.cum_gated)&&_gEq.cum_gated.length)?_gEq.cum_gated[_gEq.cum_gated.length-1]*mult:null;
-        const _kr=(k,txt,val,col)=>'<div data-a2k="'+k+'" title="click: show / hide the rest of this family · hover: spotlight it" style="cursor:pointer;white-space:nowrap;color:'+col+'"><b>▬</b> '+txt+(val!=null?(' <b>'+_kUsd(val)+'</b>'):'')+'</div>';
+        const _kr=(k,txt,val,col,xt)=>'<div data-a2k="'+k+'" title="'+(xt?(xt+' · '):'')+'click: show / hide the rest of this family · hover: spotlight it" style="cursor:pointer;white-space:nowrap;color:'+col+'"><b>▬</b> '+txt+(val!=null?(' <b>'+_kUsd(val)+'</b>'):'')+'</div>';
+        // v71.15: the HYBRID ♻ row shows on every run that has a hybrid. When the top hybrid
+        //   refuses no trades there is nothing to recycle, so the row prints the same figure and
+        //   is tagged 1.00x - it points at the hybrid line itself rather than a line that is not
+        //   there. Value drawn from its own line when one exists, else the hybrid's.
+        const _hyb2KeyV=(_hyb2End!=null)?_hyb2End:((_hyRdSame&&_hybEnd!=null)?_hybEnd:null);
         _keyBox='<div data-a2krow style="position:absolute;top:19px;left:8px;background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;z-index:3">'
           +_kr('raw','👑 RAW',(_crV!=null?_crV:null),'#1d9e75')
           +(_hasGate?_kr('gate','GATE',_gateEndV,'#e05fa0'):'')
           +(_tiltEnd!=null?_kr('tilt','TILT',_tiltEnd,'#f0b429'):'')
           +(_hybEnd!=null?_kr('hyb','HYBRID',_hybEnd,'#c084fc'):'')
-          +(_hyb2End!=null?_kr('hyb2','HYBRID &#9851;',_hyb2End,'#f0abfc'):'')
+          +(_hyb2KeyV!=null?_kr((_hyb2End!=null?'hyb2':'hyb'),'HYBRID &#9851;'+(_hyb2End!=null?'':' <span style="opacity:.7">1.00&times;</span>'),_hyb2KeyV,'#f0abfc',
+              (_hyb2End!=null?('the same hybrid book sized up '+(_hyRdF||1).toFixed(2)+'x - the contracts the filter freed, put back to work')
+                            :'the top hybrid refuses no trades on this run, so recycling frees nothing - same book, same size as HYBRID')):'')
           +'</div>';
         // v64.98 (owner: "add these to 2A as well"): the SAMPLE control is SHARED with the 2C
         //   matrix — one setting, both tiles agree — and here it dims the stretch you are not
