@@ -23,13 +23,27 @@ he says *"give me the RUNBOARD"* or *"update the runboard"*, emit/refresh exactl
 
 ## 1. Current state (built)
 
-**v71.22 (2026-08-09) — the 1A + 1E rebuild SHIPPED.** The board now flows through the
-same COMPARE pipeline as PICK RUNS / BY STRATEGY:
-- **FUNNEL** (top right): the live equity overlay — key pills on their lines, crosshair,
-  drawdown pane, solid IS / dashed WF / dotted LB stages, ⛶ fullscreen explorer.
-- **MATRIX** (under the funnel): the sectioned compare table — metrics as rows grouped
-  return / drawdown / reward÷risk / edge / sample, strategies as columns, green
-  best-in-row, VERT / HORIZ flip, TOTAL with indented IS / WF / LB rows on FULL.
+**v71.22–71.34 (2026-08-09) — the 1A + 1E rebuild SHIPPED.** Three panels side by side:
+strategy list · funnel · matrix. The board flows through the same COMPARE pipeline as
+PICK RUNS / BY STRATEGY:
+- **1A · FUNNEL** (middle): the live equity overlay dressed in 1A's own visual language —
+  blue WF band + purple LB band with in-sample un-shaded, IS/WF/LB printed inside the top
+  of each region, a dashed purple door line, ending-$ pills on the right gutter at each
+  line's height, crosshair, drawdown pane, ⛶ fullscreen explorer. Runs have DIFFERENT
+  windows, so bands span from the earliest door onward and each key row states its span.
+  Turned on via `window._cmpOvl1A` before `cmpOvlMount` — COMPARE's own chart is unchanged.
+- **1E · MATRIX** (right): the shared `_matrixTbl` shell — the SAME component 1E / 2B / 2C
+  use. Grouped bands RUN · RETURN · DRAWDOWN · EDGE · SAMPLE · VERDICT, metric names pinned
+  left, one column per strategy in its curve colour, leader column tinted, green best-in-row.
+  SAMPLE / RANK / VIEW ride on this tile as `_tabBtn` rails (blue / teal / violet).
+  Board keeps its OWN orientation pref (`rbOrient`) so the 1E look survives COMPARE on HORIZ.
+- **RESIZE**: drag bar under the funnel and under the matrix set those heights
+  (`rbFunnelH`, `rbMtxH`); drag bars BETWEEN the three columns trade width (`rbCols`).
+  Double-click any bar resets it. The report's own handles only ever existed inside
+  `res-detail`, which is why COMPARE had none — these are wired in the compare handler block.
+- **WINDOW row** (v71.34): each strategy's date span + length, flagged yellow under 2 years.
+  Added because run #42 (19 days, ES 1m) was topping the NET ranking against 16-year runs
+  and drawing as a hairline blip on the funnel with nothing on screen explaining why.
 - **AUTO-POPULATED**: the top run of every strategy family (same champion rule as
   BY STRATEGY), listed in the left tile — no more hand-pasted run rows.
 - **SAMPLE** (FULL / IS / LB) redraws the funnel curves (IS = cut at the first WF fold,
@@ -112,7 +126,7 @@ conventions.
 | # | Item | Notes |
 |---|---|---|
 | A | ~~Rebuild RUNBOARD in the 1E matrix + 1A funnel style~~ | **SHIPPED v71.22** (§1 above) |
-| B | Book-level validate path | so a BLEND row can carry a real Auto-Validate verdict + WF folds + LB, instead of the house 8-slice test |
+| B | Book-level validate path — **"the BOOKS problem"** | The 5 BOOKS rows are the only hand-fed thing left on the board. They are computed offline by `tools/t5_runboard.py` and pasted into `index.html`, because a BOOK is two strategies traded together and Auto-Validate can only take ONE strategy file. Consequences: (a) no app verdict — their WF 8/8 is a house 8-slice test, not the fold engine; (b) no saved equity curve, so they cannot draw on the funnel; (c) they go stale until someone re-runs the script. FIX = teach the runner a `book` job type that runs N strategy files over one window, pools the trades, and saves ONE run doc — then a book becomes an ordinary row on the board and items C/F close with it. |
 | C | ~~Auto-populate from run history~~ | **SHIPPED v71.22** for the strategy-champion rows (board reads saved runs directly); the pooled BOOK rows are still pasted from `tools/t5_runboard.py` — pending item B |
 | D | Add columns the owner flagged as useful | trades per year · average $ per trade · worst single day · longest flat stretch · correlation to the current book |
 | E | Overlay × ENS stacked book | untested 6th row — both upgrades modify the ORB half; needs its own pre-registration |
