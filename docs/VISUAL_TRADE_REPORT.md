@@ -13,7 +13,8 @@ the artifacts before writing code — this doc summarizes them, it does not repl
 | Reusable candlestick-panel drawing function | **DONE**, embedded in the sample HTML's `<script>` | `docs/samples/noise_visual_report.html` — `candlestickChart()` |
 | JSON→chart mapping table (which data key feeds which chart) | **DONE**, reproduced below | §2.3 of this doc |
 | Exit-price reconstruction fix (cost-inversion) | **DONE**, documented + implemented | `tools/build_visual_report.py` STEP 3 |
-| **Phase A** — in-app per-trade candle modal off the blotter row | **NOT STARTED — recommended first** | design + file:line pointers in §3 |
+| **Phase A** — in-app per-trade candle modal off the blotter row | **SHIPPED v71.16** (2026-08-08) — see §3.4 for what actually shipped and what was deliberately left | `api/bars.py`, `api/runner.py` (`get_bars`), `index.html` (`candleSVG`, `_openCandles`), `tools/candle_probe.py` |
+| Blotter exit-price cost-inversion fix (the §2.5 bug, in the LIVE blotter) | **SHIPPED v71.16** — was wrong on 3,397/4,065 ORB trades | `api/blotter.py` `champion_blotter` |
 | **Phase B** — TradingView Pine trade-overlay bridge | **NOT STARTED** | design in §4 |
 | **Phase C** — static PNG/SVG export attached to saved run reports | **NOT STARTED, optional** | §5 |
 | Suggested extras (click-through, keyboard nav, worst-10 filter, overlay toggles, generic overlay contract) | **SUGGESTIONS ONLY, not specced in detail** | §6 |
@@ -333,6 +334,74 @@ from the equity curve are all real improvements but are NOT required to ship a f
 version — ship it for one strategy family first (reusing NOISE 1.0's or another
 in-book strategy's existing overlay computation), prove the modal/runner-command path
 end to end, then generalize.
+
+### 3.4 WHAT SHIPPED (v71.16, 2026-08-08) — read before extending Phase A
+
+**Backend.** `api/bars.py` → `load_session_bars(root, payload, log)`, registered as the
+`get_bars` runner command (`api/runner.py`, immediately after `get_blotter`). Payload:
+`{instrument, timeframe, session, source, entry_time, exit_time, pad_sessions=1}`. It
+resolves the master with `champion_blotter`'s exact fallback chain, loads a
+calendar-padded window (`pad_sessions + 5` days each side so weekends cannot starve the
+padding), groups bars by session date, keeps the trade's session ±`pad_sessions`, and
+returns `{ok, bars:[{t,o,h,l,c,v}], overlays:{vwap:[...]}, entry_idx, exit_idx,
+meta:{master, source, sessions, n}}`. VWAP is session-anchored and re-anchors per session
+(verified: it resets across a session boundary rather than carrying the prior day's
+running average); it emits `null` for a session whose bars carry no volume.
+
+**The §2.5 exit-price bug was live in the real blotter, and is now fixed.** Inspecting the
+engine settled an open question §3.2(a) left open: `run_backtest(return_trades=True)`
+returns whatever tuple each strategy plugin emits, and the shape is **not uniform** —
+two families exist:
+- 5-tuple `(entry_bar, exit_bar, pnl_pts, side, entry_px)` with `side` = `1`/`-1` —
+  ORB_3_0/3_1, AOSTOCH, BBRSI, EMAX, DRIVE, all ENGUQ variants.
+- 3-tuple `(entry_bar, exit_bar, pnl_pts)` — legacy ENGU_1_1_x / ENGU_1_3_x. No side, no
+  entry price.
+
+**Neither family carries a true exit fill price**, so §2.5's cost-inversion is the general
+answer, not a NOISE-1.0 workaround. `champion_blotter` now reconstructs
+`exit_px = entry_px ± (pnl_pts + cost_pts)` and emits a `side` column (from `t[3]`, or —
+for the 3-tuple family only — inferred by which direction's implied exit lands nearer the
+exit bar's close). Measured impact: on ORB_3_1 / NQ 5m / 2010-2026, **3,397 of 4,065
+trades (83.6%) had a different exit price than the old `close[xb]`** — the blotter's EXIT
+PX column was simply wrong for most trades that exit on a stop or target.
+
+**Cache caveat (deliberate, not a bug).** `side` was appended to `FIELDS` so old blotter
+CSVs still read fine, but blotters cached before this fix (on disk under `blotters/`, and
+in the browser copy) still hold the naive exit price. The candle modal detects this (the
+row has no `side`) and says so in its subtitle rather than drawing a wrong exit dot
+silently; Shift+click TRADES regenerates. Nothing auto-invalidates the caches.
+
+**Frontend.** `window.candleSVG(bars, overlays, markers, opts)` sits immediately above
+`window.expandChart` in `index.html`. It is a re-port of the prototype's
+`candlestickChart()`, not a copy — the prototype builds SVG DOM nodes via helpers
+(`el`, `scaleLinear`, `niceTicks`, `pathFromXY`) that do not exist in `index.html` (`el`
+there is `getElementById`), so this version returns an **SVG string** (what `expandChart`
+takes) and carries its own local scale/tick/path helpers. It also went slightly beyond the
+prototype: `overlays` is iterated **generically** as `{name: [num|null, ...]}` rather than
+hardcoding ub/lb/vwap — this is the §3.2(d)/§6 overlay contract, so any strategy series
+added later draws with no JS change — and multi-session windows get dashed session-divider
+lines plus a bold `M/D` x-label at each session start (bare `HH:MM` repeats once per day
+otherwise). The 🕯 button lives in each `renderBlot()` row inside `expandEquity`;
+`_openCandles(x, glyphEl)` fetches `get_bars` and opens `expandChart`.
+
+**Deliberately NOT done** (§3.3 said to ship one strategy first, then generalize):
+- **Strategy-specific overlays (UB/LB bands etc.) are not emitted.** Only the generic
+  session VWAP ships. The renderer already accepts any series; what is missing is the
+  engine side of §3.2(d) — `return_trades=True` emitting a per-bar overlay series. That is
+  the single highest-value next step and it unlocks every strategy at once.
+- Session grouping is by **calendar date**, which is correct for RTH but would split an
+  overnight/ETH session at midnight. Revisit if this is pointed at an ETH session.
+- No click-through from the equity curve, no keyboard next/prev trade, no overlay toggles
+  (§6 suggestions, still just suggestions).
+
+**Verification actually run** (not inferred): `python tools/preflight_boot.py` → PASS;
+`tools/candle_probe.py` (promoted out of the volatile scratchpad per the
+`edgelog-scratchpad-volatility` lesson) boots `index.html` in headless Chrome and asserts
+`candleSVG` against synthetic single-session, 3-session, empty-bars and empty-markers
+cases — session dividers, bold `M/D` labels, null-tolerant overlays. `load_session_bars`
+was exercised against the real NQ 5m RTH master (201 bars over 2018-06-29..2018-07-03).
+**Not yet verified in the live logged-in app** — the runner must be restarted to pick up
+the `get_bars` command before the 🕯 button can work end to end.
 
 ---
 

@@ -7,7 +7,7 @@ import augur_engine as ae
 from augur_engine.data import find_master, load_master_arrays
 
 FIELDS = ["trade_no", "entry_time", "exit_time", "hold_bars",
-          "entry_px", "exit_px", "pnl_pts", "pnl_usd", "cum_usd"]
+          "entry_px", "exit_px", "pnl_pts", "pnl_usd", "cum_usd", "side"]
 
 
 def champion_blotter(strategy, instrument, timeframe, session="rth", params=None,
@@ -40,11 +40,33 @@ def champion_blotter(strategy, instrument, timeframe, session="rth", params=None
     for i, t in enumerate((bt or {}).get("trades") or [], 1):
         eb, xb, pnl = int(t[0]), int(t[1]), float(t[2])
         ep = float(t[4]) if len(t) > 4 else float(close[eb])
+        # Trade tuple shape varies by strategy file: some carry a side flag at index 3
+        # (1=long/-1=short — ORB/AOSTOCH/BBRSI/EMAX/ENGUQ/DRIVE families), some are a
+        # bare (entry_bar, exit_bar, pnl) 3-tuple with no side and no entry price
+        # (legacy ENGU_1_1_x/ENGU_1_3_x family) — entry_px already falls back to
+        # close[eb] above for those.
+        side_flag = int(t[3]) if len(t) > 3 else None
+        # docs/VISUAL_TRADE_REPORT.md §2.5: this engine's exit logic can defer a fill to
+        # the FOLLOWING bar (or an EOD backstop), so "exit = close[xb]" is not reliably
+        # the real fill price. The trade tuple never carries a true exit price either, so
+        # reconstruct it by cost-inversion: net pnl + cost = gross points moved, and
+        # inverting that arithmetic recovers the exact fill the simulator used.
+        gross = pnl + float(cost_pts or 0)
+        if side_flag is not None:
+            side = 1 if side_flag >= 0 else -1
+        else:
+            # No side flag on this tuple — infer it the only way available: whichever
+            # direction's implied exit price lands closer to the bar's actual close.
+            long_exit = ep + gross
+            short_exit = ep - gross
+            side = 1 if abs(float(close[xb]) - long_exit) <= abs(float(close[xb]) - short_exit) else -1
+        exit_px = ep + gross if side == 1 else ep - gross
         usd = pnl * float(mult)
         cum += usd
         rows.append({"trade_no": i, "entry_time": str(idx[eb])[:16], "exit_time": str(idx[xb])[:16],
-                     "hold_bars": xb - eb, "entry_px": round(ep, 2), "exit_px": round(float(close[xb]), 2),
-                     "pnl_pts": round(pnl, 2), "pnl_usd": round(usd, 2), "cum_usd": round(cum, 0)})
+                     "hold_bars": xb - eb, "entry_px": round(ep, 2), "exit_px": round(exit_px, 2),
+                     "pnl_pts": round(pnl, 2), "pnl_usd": round(usd, 2), "cum_usd": round(cum, 0),
+                     "side": "long" if side == 1 else "short"})
     return rows, meta
 
 

@@ -770,6 +770,19 @@ class FirestoreQueue:
                                 "result": json_safe(res), "finishedAt": time.time()})
                     n += 1
                     continue
+                # Per-trade session candles for the web's candle modal (docs/
+                # VISUAL_TRADE_REPORT.md §3, Phase A) — compute/file-read, handled here
+                # like get_blotter/reconcile above, not a Library file-op.
+                if action == "get_bars":
+                    from api.bars import load_session_bars
+                    try:
+                        res = load_session_bars(ROOT, doc.get("payload") or {}, log)
+                    except Exception as e:
+                        res = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+                    ref.update({"status": "done" if res.get("ok") else "error",
+                                "result": json_safe(res), "finishedAt": time.time()})
+                    n += 1
+                    continue
                 res = process_command(action, doc.get("payload") or doc, log)
                 ref.update({"status": "done" if res.get("ok") else "error",
                             "result": json_safe(res), "finishedAt": time.time()})
