@@ -382,7 +382,13 @@ hardcoding ub/lb/vwap — this is the §3.2(d)/§6 overlay contract, so any stra
 added later draws with no JS change — and multi-session windows get dashed session-divider
 lines plus a bold `M/D` x-label at each session start (bare `HH:MM` repeats once per day
 otherwise). The 🕯 button lives in each `renderBlot()` row inside `expandEquity`;
-`_openCandles(x, glyphEl)` fetches `get_bars` and opens `expandChart`.
+`_openCandles(x, glyphEl)` fetches `get_bars` and opens `expandChart`. Since v71.27
+(shipped in the v71.23 bundle, logged at 71.27): a per-bar OHLC hover readout in the
+modal's ctl row (time · O/H/L/C · V · every overlay value, generic over overlay keys),
+the 1A blotter meta line and candle subtitle name the config ("champion config" — the 1A
+blotter is always the crowned config), and the 2A compare-explorer blotter column headers
+render cfg-numbered series as "config N · 2B RANK N" (config N = the RANK N column in the
+2B CONFIGS card) instead of the raw `#cfgN` id.
 
 **Deliberately NOT done** (§3.3 said to ship one strategy first, then generalize):
 - **Strategy-specific overlays (UB/LB bands etc.) are not emitted.** Only the generic
