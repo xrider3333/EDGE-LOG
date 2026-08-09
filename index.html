@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.31';
+const VERSION='71.32';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.32',date:'2026-08-09',notes:['RUNBOARD panels RESIZE now. A drag bar under the funnel and under the matrix sets that panel height, and drag bars BETWEEN the three panels trade width - the same two gestures the run report uses. Every size is remembered; double-click a bar to put it back to default.','RUNBOARD matrix: the stages row is plain text now - IS · WF · LB in their period colours, dimmed when a run never ran that stage - instead of bordered chips. It is called STAGES RUN.','The compare and runboard equity charts are no longer locked to one height.']},
 {v:'71.31',date:'2026-08-09',notes:['EVERY 1E ROW NOW MEASURES WHAT THE SAMPLE TABS SAY, AND NOTHING ELSE. The tabs were mixing windows in one table - a sample-scoped row sitting next to a whole-run copy of the same metric - so a number could be read against a neighbour that was measured on a different stretch.','Each RETURN group reads IS, WF, LB as ticked, then TOTAL of exactly those stretches, then the DD of exactly those stretches. Tick all three and TOTAL is the whole run, taken from the engine own whole-run block, so nothing is lost by dropping the old FULL row.','It is called DD now, not MAX DD. A drawdown measured on two of three stretches is not the max drawdown of the run and should not claim to be. The tag next to it names the tick it belongs to.','Gone as duplicates: FULL DOLLARS, FULL MAX DD, FULL MAR, ALL TRADES and the LB TRADES row on the GATE tab. Every one of them was a second copy of a row already on screen, measured on a window you did not pick.','SHARPE on the TILT and HYBRID tabs was quietly measured over the whole run whatever you ticked. It is cut to the ticked stretches now and annualised on that span.','The RAW tab is the one place a metric genuinely cannot follow the tick: a config saved equity curve covers the optimize window only, and the walk-forward folds are scattered THROUGH the in-sample years rather than following them, so there is no IS-only or WF-only curve to measure on. Its dollar rows and TOTAL do follow the tick; DD, MAR, SHARPE, PF, WIN percent and dollars per trade now print their real window in the row label - DD IS+WF, MAR WF over IS+WF DD, and so on - instead of leaving it to a hover.']},
 {v:'71.30',date:'2026-08-08',notes:['ENSEMBLE is now SCALED OUT, everywhere the site names it. ORB 3.0-ENSEMBLE reads ORB 3.0-scaled out in past runs, the run header, rankings, the compare board, the library and every strategy dropdown. The old word was wrong twice over: this is one entry with two exit plans, not an ensemble of strategies, and the report already uses ensemble for its own top-K config blending.','Whole words in the branch tag are lower case now - scaled out, master. The true abbreviations keep their capitals because that is what they are: BE, 2L, TR, TS, BE-TRIG.','The lunch-trail sibling gets a proper tag too - it used to render as a bare ORB 3.0 with no branch at all.','Nothing about the strategy changed and no saved run was touched. The rename is display only, so every past run keeps its identity, its family number and its history.']},
 {v:'71.29',date:'2026-08-09',notes:['ONE DRAWDOWN ROW. The TILT and the three HYBRID tabs were printing the drawdown twice - FULL MAX DD up in RETURN and a second MAX DD down in REWARD divided by RISK, on two different windows. There is now a single MAX DD row, measured on whatever SAMPLE is ticked, sitting directly under the stretch dollars it belongs to and labelled with that same tick. Both old rows are gone.','That is the shape the GATE tab already used, so all the drawdown tabs now read the same way: the dollars for the stretches you ticked, then the drawdown it took to earn them, in one place.','The RAW tab keeps its MAX DD tagged IS+WF. A config saved equity curve covers the optimize window only, so a per-stretch drawdown does not exist for those columns - the label says which window it is rather than pretending it follows the tick.']},
@@ -4764,7 +4765,11 @@ window.cmpOvlMount=function(hostId){
 
   // ── scaffold — svg + the 2B-style key box (top-left) + a per-series readout (top-right) +
   //    crosshair line/chips + a muted hint. host is rebuilt from scratch on every call. ──
-  host.innerHTML='<svg class="cmpovl-svg" style="display:block;width:100%;height:300px"></svg>'
+  // v71.27 (owner: "i cant change the size of the 1a 1e or runboard with sliders"): the chart
+  //   height is no longer hard-wired at 300 — the caller parks a saved height on window._cmpOvlH
+  //   and the drag handle under the chart writes to it, exactly like the section-1 handle rows.
+  const CH=Math.max(170,Math.min(900,Math.round(+window._cmpOvlH||300)));
+  host.innerHTML='<svg class="cmpovl-svg" style="display:block;width:100%;height:'+CH+'px"></svg>'
     +'<div class="cmpovl-key" style="position:absolute;top:8px;left:8px;background:color-mix(in srgb,var(--bg1) 82%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;pointer-events:none;z-index:2"></div>'
     +'<div class="cmpovl-read" style="position:absolute;top:8px;right:8px;text-align:right;background:color-mix(in srgb,var(--bg1) 82%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;pointer-events:none;z-index:2;display:none"></div>'
     +'<div class="cmpovl-vln" style="position:absolute;top:0;width:0;border-left:1px dashed var(--text4);opacity:.7;pointer-events:none;display:none"></div>'
@@ -4812,7 +4817,7 @@ window.cmpOvlMount=function(hostId){
   const _doors=which=>S.map(sr=>_doorOf(sr,which)).filter(x=>x!=null).sort((a,b)=>a-b);
   const _wfD=_doors('wfi'),_lbD=_doors('lb');
   const _bandWF=_wfD.length?_wfD[0]:null,_bandLB=_lbD.length?_lbD[0]:null,_lbMid=_lbD.length?_lbD[Math.floor(_lbD.length/2)]:null;
-  const geo=()=>{const r=host.getBoundingClientRect(),W=Math.max(240,r.width),H=300,gut=ONE_A?62:56,pL=2,pB=30,pw=W-pL-gut;
+  const geo=()=>{const r=host.getBoundingClientRect(),W=Math.max(240,r.width),H=CH,gut=ONE_A?62:56,pL=2,pB=30,pw=W-pL-gut;
     const eqT=ONE_A?15:8,eqB=eqT+Math.round((H-pB-16)*0.68),ddT=eqB+16,ddB=H-pB;
     return {W:W,H:H,pw:pw,pL:pL,gut:gut,eqT:eqT,eqB:eqB,ddT:ddT,ddB:ddB,pB:pB};};
   const X=(g,x)=>g.pL+(x-VS.va)/((VS.vb-VS.va)||1)*g.pw;
@@ -11206,7 +11211,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             rowSty:((!_multi&&_rkNet)?_rkRowSty:''),
             cell:col=>{const b=(col.per||{})[r.sg];return _g$(b?b.net:null);}},
           col=>{const b=(col.per||{})[r.sg];return b?b.net:null;},true))
-          .concat(_multi?[_hRow({lbl:'<span title="the toggled stretches added together" style="border-bottom:1px dotted var(--text5);cursor:help">'+_sampLbl+'</span>',top:true,
+          .concat(_multi?[_hRow({lbl:'<span title="the toggled stretches added together" style="border-bottom:1px dotted var(--text5);cursor:help">TOTAL <span style="font-weight:400;color:var(--text5)">&middot; '+_sampLbl+'</span></span>',top:true,
             rowSty:(_rkNet?_rkRowSty:''),cell:col=>_g$(_P(col).net)},col=>_P(col).net,true)]:[])
           // v71.30 (owner: "do not call it MAX DD if it is not the max DD"): it is the drawdown of
           //   the ticked stretches, so it is DD, tagged with that same tick.
@@ -11467,7 +11472,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             // v71.28 (owner: "if all three sample tabs are selected then that IS full - no need to
             //   put FULL on there"): the caption only names FULL when the tick does not already
             //   cover the whole run.
-            {name:'return <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">&middot; '+_szSegs.map(x=>x.toUpperCase()).concat(_szSegs.length>=3?[]:['FULL']).join(' + ')+'</span>',rows:_ret},
+            {name:'return <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">&middot; '+_szLbl+'</span>',rows:_ret},
             {name:'reward &divide; risk <span style="font-weight:400;color:'+(_lbCol2)+';letter-spacing:0;text-transform:none">&middot; '+_szLbl+'</span>',rows:[
               {lbl:'<span title="net dollars per dollar of drawdown over the ticked SAMPLE - the same calculation the ML GATE matrix calls MAR. Scale-free: the sizing tabs multiply profit and drawdown by the same number, so this never moves.">MAR</span>',top:true,rowSty:(_szRank==='rec'?_rkYel2:(_szRank==='floor'?_rkDsh2:'')),cell:c=>{const r=_szMar(c);return r!=null?('<b>'+r.toFixed(1)+'</b>'):_cmpDash;}},
               // v71.29: the MAX DD copy that used to sit here has moved up into RETURN, under the
@@ -14005,8 +14010,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   (TOTAL, with its IS/WF/LB split rows), IS = the optimize window, LB = the lockbox year.
         const _cSc=(_cmpMode==='board')?({full:'tot',is:'all',lb:'lb'})[_rbS]:((APREF.cmpScope==='wf'||APREF.cmpScope==='lb'||APREF.cmpScope==='tot')?APREF.cmpScope:'all');
         const M=M_id.concat(_cSc==='wf'?M_wf:(_cSc==='lb'?M_lb:(_cSc==='tot'?M_tot:M_all))).map(m=>{
+          if(_cmpMode!=='board')return m;
           // RUNBOARD house rule: MAX DD prints POSITIVE — the row name already says drawdown.
-          if(_cmpMode==='board'&&/Max DD/.test(m.l)){const f0=m.f;return Object.assign({},m,{f:x=>String(f0(x)).replace('-$','$')});}
+          if(/Max DD/.test(m.l)){const f0=m.f;return Object.assign({},m,{f:x=>String(f0(x)).replace('-$','$')});}
+          // v71.27 (owner: "why is test runs in 1e pills? remove the pill ui"): the stage row reads
+          //   as plain text on the matrix — the three names in their period colours when the run
+          //   has that stage, dimmed when it does not. No bordered chips.
+          if(/^Tests run$/.test(m.l))return Object.assign({},m,{l:'Stages run',f:x=>{
+            const a=_wfA(x),lb=x.validate&&x.validate.lockbox;
+            const one=(t,on,col,tip)=>'<span title="'+tip+'" style="color:'+(on?col:'var(--text5)')+';opacity:'+(on?'1':'.45')+'">'+t+'</span>';
+            return '<span style="white-space:nowrap">'
+              +one('IS',true,'var(--text3)','in-sample - every run optimizes on this window')
+              +'<span style="color:var(--text5)"> · </span>'
+              +one('WF',!!a,(a&&a.held>=a.n/2)?'var(--green)':'var(--yellow)','walk-forward'+(a?(' · '+a.held+'/'+a.n+' folds held'):' - not run, so the numbers are in-sample only'))
+              +'<span style="color:var(--text5)"> · </span>'
+              +one('LB',!!lb,(lb&&lb.pass)?'var(--green)':'var(--red)','lockbox'+(lb?(lb.pass?' · held':' · failed'):' - not run, so the numbers are in-sample only'))+'</span>';}});
           return m;});
         // ── curve colours — MOVED above the table (v68.0, was below it) so the compact run
         //    header (next) can swatch each column/row in its overlay-chart colour. One coloured
@@ -14210,8 +14228,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="overflow:auto;max-height:74vh">'+runs.map(_famRowOf).join('')+'</div>'
           +_famMoreNote);
         const _sampTag=(_rbS==='full')?'in-sample, then the blue walk-forward band, then the purple lockbox':((_rbS==='is')?'the IS stretch only':'the LB year only · every curve rebased to $0');
-        const funnelTile=tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden">1A · FUNNEL <span title="one curve per strategy champion · '+_sampTag+'" style="font-weight:400;color:var(--text5);font-size:8px;overflow:hidden;text-overflow:ellipsis;min-width:0">· '+_sampTag+'</span><button data-cmpexpand title="open the fullscreen multi-curve explorer" style="margin-left:auto;flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></div><div id="cmp-ovl-host" style="position:relative;min-height:300px">'+ovl+'</div>'
-          +'<div style="font-size:8px;color:var(--text5);margin-top:6px;line-height:1.7">Every strategy runs its OWN window, so the bands span from the earliest door onward: un-shaded = in-sample, <span style="color:#60a5fa">blue = walk-forward</span>, <span style="color:#a78bfa">purple = lockbox</span> (dashed line = the middle strategy door). Line style per curve: solid in-sample, dashed walk-forward, dotted lockbox. The pill on the right of each line is that strategy ending $.</div>');
+        // v71.27: saved chart height + a drag HANDLE ROW under the chart, the same grip the
+        //   section-1 charts use (rsRow). cmpOvlMount reads window._cmpOvlH when it draws.
+        const _rbFH=Math.max(170,Math.min(900,Math.round(+APREF.rbFunnelH||300)));
+        window._cmpOvlH=_rbFH;
+        const _grip=(k,tip)=>'<div data-rbgrip="'+k+'" title="'+tip+'" style="height:9px;margin:5px 0 2px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div></div>';
+        const funnelTile=tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden">1A · FUNNEL <span title="one curve per strategy champion · '+_sampTag+'" style="font-weight:400;color:var(--text5);font-size:8px;overflow:hidden;text-overflow:ellipsis;min-width:0">· '+_sampTag+'</span><button data-cmpexpand title="open the fullscreen multi-curve explorer" style="margin-left:auto;flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></div><div id="cmp-ovl-host" style="position:relative;min-height:'+_rbFH+'px">'+ovl+'</div>'
+          +_grip('funnel','drag up / down to resize the funnel · double-click = back to the default height')
+          +'<div style="font-size:8px;color:var(--text5);margin-top:4px;line-height:1.7">Every strategy runs its OWN window, so the bands span from the earliest door onward: un-shaded = in-sample, <span style="color:#60a5fa">blue = walk-forward</span>, <span style="color:#a78bfa">purple = lockbox</span> (dashed line = the middle strategy door). Line style per curve: solid in-sample, dashed walk-forward, dotted lockbox. The pill on the right of each line is that strategy ending $.</div>');
         const _rbScNote='<div style="font-size:8px;color:var(--text5);margin-top:6px;line-height:1.7">'
           +(_rbS==='full'?'FULL = the whole run end to end, read off the champion equity curve, split into the indented IS / WF / LB rows.':(_rbS==='is'?'IS = the optimize window - the stretch every config was TUNED on, optimistic by construction.':'LB = the lockbox year only, never touched during tuning - the honest forward read.'))
           +' MAX DD prints positive. A dash means that run never ran the stage. Dollar figures are abbreviated (k = thousand, M = million). With SAMPLE = FULL the PF ranking uses the optimize-window PF (no whole-run PF is stored), and FULL / LB drawdowns are read off the stored curve - close approximations, same treatment for every row.</div>';
@@ -14237,8 +14261,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
           grp.rows.push({lbl:m.l,top:_isTop,
             cell:c=>{const i=runs.indexOf(c.run);
               return (i>=0&&i===bi)?('<b style="color:var(--green)">'+m.f(c.run)+'</b>'):m.f(c.run);}});});
+        // v71.27: the matrix scrolls inside a box whose height the owner can drag, same handle.
+        const _rbMH=Math.max(160,Math.min(1600,Math.round(+APREF.rbMtxH||420)));
         const matrixTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap"><span class="lbl" style="flex-shrink:0">1E · MATRIX <span style="font-weight:400;color:var(--text5);font-size:8px">· '+runs.length+' strateg'+(runs.length===1?'y':'ies')+' · green = best in row</span></span>'+_rbCtlRow+'</div>'
+          +'<div id="rb-mtx-box" style="height:'+_rbMH+'px;min-height:120px;max-height:1600px;overflow:auto">'
           +((_cOr==='h')?('<div style="overflow-x:auto"><table class="table"><thead>'+hdr+'</thead><tbody>'+mrows+'</tbody></table></div>'):_matrixTbl(_mCols,_mGroups,{compact:runs.length>=6}))
+          +'</div>'
+          +_grip('mtx','drag up / down to resize the matrix · double-click = back to the default height')
           +_rbScNote);
         // ── the pooled BOOKS table (offline t5_runboard.py numbers) — kept, clearly separated ──
         const _rbF=n=>'$'+Math.round(n).toLocaleString();
@@ -14266,11 +14295,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   run report. The strategy list keeps the narrow left column, same as COMPARE's picker.
         //   Each column carries a min-width so a narrow viewport wraps instead of squeezing.
         window._cmpOvl1A=true;
+        // v71.27 (owner: "i cant change the size ... with sliders"): drag bars BETWEEN the three
+        //   columns trade width the same way the section-1 splitters do, and the ratio persists.
+        const _rbW=(Array.isArray(APREF.rbCols)&&APREF.rbCols.length===3&&APREF.rbCols.every(n=>+n>120))?APREF.rbCols.map(Number):null;
+        const _rbCol=(i,dflt,mw,inner)=>'<div data-rbcol="'+i+'" style="flex:'+(_rbW?(_rbW[i]+' 1 0px'):dflt)+';min-width:'+mw+'px">'+inner+'</div>';
+        const _rbSp=i=>'<div data-rbsplit="'+i+'" title="drag left / right — width moves between these two panels · double-click = reset" style="flex:0 0 10px;align-self:stretch;cursor:ew-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:3px;height:46px;border-radius:2px;background:var(--border)"></div></div>';
         body=modeToggle
-          +(runs.length?('<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
-            +'<div style="flex:0 1 340px;min-width:290px">'+boardTile+'</div>'
-            +'<div style="flex:1 1 430px;min-width:340px">'+funnelTile+'</div>'
-            +'<div style="flex:1 1 430px;min-width:340px">'+matrixTile+'</div>'
+          +(runs.length?('<div data-rbrow style="display:flex;gap:4px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
+            +_rbCol(0,'0 1 340px',260,boardTile)+_rbSp(0)
+            +_rbCol(1,'1 1 430px',300,funnelTile)+_rbSp(1)
+            +_rbCol(2,'1 1 430px',300,matrixTile)
             +'</div>'):'<div style="border:1px dashed var(--border);padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px;margin-bottom:14px">NO SAVED RUNS YET — THE BOARD POPULATES ITSELF FROM RUN HISTORY</div>')
           +booksTile;
         }else
@@ -15150,6 +15184,40 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-cmporient]').forEach(b=>{b.onclick=()=>{savePref('cmpOrient',b.dataset.cmporient);renderApp();};});
       // RUNBOARD keeps its own VERT/HORIZ pick so the 1E look survives COMPARE being left on HORIZ
       content.querySelectorAll('[data-rborient]').forEach(b=>{b.onclick=()=>{savePref('rbOrient',b.dataset.rborient);renderApp();};});
+      // v71.27 (owner: "i cant change the size of the 1a 1e or runboard with sliders") — the
+      //   report's resize handles only ever existed inside the run report, so COMPARE had none.
+      //   These are the same two gestures: a HANDLE ROW under a panel drags its height, and a
+      //   SPLITTER between two panels trades width. Both persist; double-click resets.
+      content.querySelectorAll('[data-rbgrip]').forEach(g=>{
+        const kind=g.dataset.rbgrip,isF=(kind==='funnel');
+        const box=isF?document.getElementById('cmp-ovl-host'):document.getElementById('rb-mtx-box');
+        if(!box)return;
+        g.addEventListener('pointerdown',e=>{e.preventDefault();
+          const y0=e.clientY,h0=isF?(Math.round(+window._cmpOvlH||300)):box.offsetHeight;let last=h0,raf=0;
+          const apply=h=>{if(isF){window._cmpOvlH=h;box.style.minHeight=h+'px';
+              if(typeof window.cmpOvlMount==='function')window.cmpOvlMount('cmp-ovl-host');}
+            else box.style.height=h+'px';};
+          const mv=ev=>{last=Math.max(isF?170:120,Math.min(isF?900:1600,h0+(ev.clientY-y0)));
+            if(raf)return;raf=requestAnimationFrame(()=>{raf=0;apply(last);});};
+          const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);
+            if(raf){cancelAnimationFrame(raf);raf=0;}apply(last);savePref(isF?'rbFunnelH':'rbMtxH',last);};
+          window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});
+        g.addEventListener('dblclick',()=>{savePref(isF?'rbFunnelH':'rbMtxH',null);renderApp();});});
+      content.querySelectorAll('[data-rbsplit]').forEach(sp=>{
+        sp.addEventListener('pointerdown',e=>{e.preventDefault();
+          const row=sp.closest('[data-rbrow]');if(!row)return;
+          const cols=[...row.querySelectorAll(':scope > [data-rbcol]')];
+          const L=sp.previousElementSibling,R=sp.nextElementSibling;if(!L||!R)return;
+          cols.forEach(c=>{c.style.flex=c.offsetWidth+' 1 0px';});
+          const x0=e.clientX,wL=L.offsetWidth,wR=R.offsetWidth;
+          const mv=ev=>{const dx=ev.clientX-x0;
+            L.style.flex=Math.max(240,wL+dx)+' 1 0px';R.style.flex=Math.max(240,wR-dx)+' 1 0px';};
+          const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);
+            savePref('rbCols',cols.map(c=>Math.round(c.offsetWidth)));
+            // the funnel is width-driven, so redraw it at the new size
+            if(typeof window.cmpOvlMount==='function')window.cmpOvlMount('cmp-ovl-host');};
+          window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});
+        sp.addEventListener('dblclick',()=>{savePref('rbCols',null);renderApp();});});
       const _cex=content.querySelector('[data-cmpexpand]');if(_cex)_cex.onclick=()=>window.expandCompareEq(window._cmpEqxSeries);
       // v68.0: mount the live inline equity-overlay chart (crosshair, wheel zoom, drag pan,
       //   dbl-click reset, 2B-style key box) into the host the render just emitted.
