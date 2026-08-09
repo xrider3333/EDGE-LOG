@@ -23,12 +23,29 @@ he says *"give me the RUNBOARD"* or *"update the runboard"*, emit/refresh exactl
 
 ## 1. Current state (built)
 
-Data is a hard-coded array in `index.html` — search the file for the comment
-`/* RUNBOARD DATA — regenerate with: python tools/t5_runboard.py (paste rows) */`.
+**v71.22 (2026-08-09) — the 1A + 1E rebuild SHIPPED.** The board now flows through the
+same COMPARE pipeline as PICK RUNS / BY STRATEGY:
+- **FUNNEL** (top right): the live equity overlay — key pills on their lines, crosshair,
+  drawdown pane, solid IS / dashed WF / dotted LB stages, ⛶ fullscreen explorer.
+- **MATRIX** (under the funnel): the sectioned compare table — metrics as rows grouped
+  return / drawdown / reward÷risk / edge / sample, strategies as columns, green
+  best-in-row, VERT / HORIZ flip, TOTAL with indented IS / WF / LB rows on FULL.
+- **AUTO-POPULATED**: the top run of every strategy family (same champion rule as
+  BY STRATEGY), listed in the left tile — no more hand-pasted run rows.
+- **SAMPLE** (FULL / IS / LB) redraws the funnel curves (IS = cut at the first WF fold,
+  LB = lockbox tail rebased to $0), recomputes the matrix, re-ranks everything.
+  **RANK BY** (MAR / PF / NET / MAX DD) orders the funnel key, matrix columns and list,
+  measured on the picked SAMPLE. Both persist (`rbSample`, `rbRank`).
+- **BOOKS tile** (bottom): the pooled two-strategy book rows keep their own clearly
+  separated table (columns `# · STRATEGY · VERSION · NET · PF · MAX DD · MAR · TRADES ·
+  WF · VERDICT`), still hard-coded from `tools/t5_runboard.py` — search `index.html` for
+  `RUNBOARD DATA`.
 
-Columns today: `# · STRATEGY · VERSION · NET · PF · MAX DD · MAR · TRADES · WF · VERDICT`
-Controls today: **SAMPLE** = FULL / IS / LB · **RANK BY** = MAR / PF / NET / MAX DD.
-Both persist in app prefs (`rbSample`, `rbRank`).
+Honesty mechanics: FULL/LB drawdowns and MAR are read off the stored (downsampled)
+champion curve — close approximations, same treatment every row; FULL-sample PF ranking
+falls back to the optimize-window PF (no whole-run PF is stored); a run missing a stage
+shows a dash and sinks in the ranking; a run with no saved curve drops to the funnel's
+no-curve key list.
 
 House conventions that must not drift:
 - **MAX DD prints POSITIVE** (the header already says drawdown).
@@ -94,11 +111,12 @@ conventions.
 
 | # | Item | Notes |
 |---|---|---|
-| A | Rebuild RUNBOARD in the 1E matrix + 1A funnel style | the §2 spec above |
+| A | ~~Rebuild RUNBOARD in the 1E matrix + 1A funnel style~~ | **SHIPPED v71.22** (§1 above) |
 | B | Book-level validate path | so a BLEND row can carry a real Auto-Validate verdict + WF folds + LB, instead of the house 8-slice test |
-| C | Auto-populate from run history | today the rows are pasted from `tools/t5_runboard.py`; ideally the board reads saved runs/books directly |
+| C | ~~Auto-populate from run history~~ | **SHIPPED v71.22** for the strategy-champion rows (board reads saved runs directly); the pooled BOOK rows are still pasted from `tools/t5_runboard.py` — pending item B |
 | D | Add columns the owner flagged as useful | trades per year · average $ per trade · worst single day · longest flat stretch · correlation to the current book |
 | E | Overlay × ENS stacked book | untested 6th row — both upgrades modify the ORB half; needs its own pre-registration |
+| F | Book curves in the funnel | the BOOKS rows carry no equity curve, so only strategy champions draw; t5_runboard.py could emit a downsampled per-book curve to overlay |
 
 ---
 
