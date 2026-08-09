@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.10';
+const VERSION='71.11';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.11',date:'2026-08-08',notes:['FUNNEL gutter: every family line now prints its ending PnL as a pill on the axis. TILT, HYBRID and HYBRID recycle were drawn on the chart and priced in the key box but had no pill, so only two of the five lines could be read against the scale. Pills are tagged T, H and H-recycle in their line colour, next to the existing crown, gate, IS and lockbox pills.','Those pills now hide when you click their key row off, and dim with everything else when you hover a different family - a dollar chip sitting on the axis with no line under it reads as a line you cannot find.']},
 {v:'71.10',date:'2026-08-08',notes:['Put back the two things 71.9 changed for no good reason: the configs slider is 120px again and the evaluated-configs count always prints. 71.9 read the sample control as four separate chips being clipped, but it is a DROPDOWN - its options are text inside it, so nothing was ever hidden.','Kept from 71.9: the control row wraps rather than cutting, which is worth having on a narrow card.']},
 {v:'71.9',date:'2026-08-08',notes:['FIX on top of 71.8: moving the configs slider to the left squeezed the funnel control row, and PRE-LB and LOCKBOX were being CLIPPED off the left edge of the sample tabs - the row was set to cut rather than wrap. It wraps now, so no control can ever be hidden.','Also bought the row some width back: a shorter slider track, and the evaluated-configs count prints only when it differs from the stored-curve count (on run 200 both read 77, so it was saying the same number twice).']},
 {v:'71.8',date:'2026-08-08',notes:['1A now names the chart it is showing ON THE SAME ROW as the number - 1A CONFIG FUNNEL or 1A CHAMPION EQUITY, with the info icon beside it and the CHAMPION / FUNNEL tabs at the right. The chart name used to sit on a second line underneath, out of line with the 1A.','The door emoji is off the GATE toggle on both charts, and the funnel triangle is off the funnel title.','The configs slider moved to the LEFT end of the funnel control row - the sample tabs and the GATE toggle keep the right edge. On the CHAMPION tab the graph-detail slider leads its row the same way.']},
@@ -8416,7 +8417,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           lb+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?0.9:0.6)+'" opacity="0.95" stroke-dasharray="0.5 1.6" stroke-linecap="round"/>';
           // v64.71 (owner): the crowned lockbox pill gets the CROWN (all three showed the same 🔒).
           const fv=anchor+_rawEnd*_sc;
-          if(cr||_a2kAll)labs.push({y:Yv(fv*mult),col,txt:_kUsd(fv*mult)+(cr?' 👑':' 🔒')});});
+          if(cr||_a2kAll)labs.push({y:Yv(fv*mult),col,kg:(cr?'crown':'lb'),txt:_kUsd(fv*mult)+(cr?' 👑':' 🔒')});});
         // v64.71 (owner): build the SERIES for the fullscreen explorer — double-clicking 2A now
         //   opens the same TradingView-style zoom/pan viewer the Compare tab uses, with each top
         //   config as its OWN coloured, separable line PLUS the gate curve (they overlap badly in
@@ -8685,27 +8686,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           };
           const gp=gc.map((v,i)=>_gx(i).toFixed(1)+' '+Yv(v*mult).toFixed(1)).join(' ');
           gateOv='<polyline points="'+gp+'" fill="none" stroke="#e05fa0" stroke-width="0.9" opacity="0.95" stroke-dasharray="1.6 1.3" stroke-linecap="round"/>';
-          labs.push({y:Yv(_gf),col:'#e05fa0',txt:_kUsd(_gf)+' 🚪'});}
+          labs.push({y:Yv(_gf),col:'#e05fa0',kg:'gate',txt:_kUsd(_gf)+' 🚪'});}
         // IS-max total into the gutter (its in-chart door label is removed). Crowned already has a
         //   lockbox pill; IS-max may not, so add it here.
-        if(_a2kAll&&isMaxC&&isMaxC!==crownedC){const _isf=isMaxC.equity.cum[isMaxC.equity.cum.length-1]*mult;labs.push({y:Yv(_isf),col:'#3a9bdc',txt:_kUsd(_isf)+' IS'});}
-        // de-collide the pills vertically now that gated + IS were added
-        // only nudge when two pills would genuinely overlap, and by the least that separates them
-        labs.sort((a,b)=>a.y-b.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<5)labs[i].y=labs[i-1].y+5;
-        // GUTTER: the $ SCALE sits flush against the y-axis (left:2px); a scale number is DROPPED
-        //   where an endpoint pill would cover it (owner: pills were blocking the scale when
-        //   expanded), so the axis stays readable. Pills are the colored $ endpoints.
-        // v70.6 (owner: "your gutter pnl pills are legitimately not aligned"). The plot sits in a
-        //   box with 6px of vertical padding, so the svg drawing area is 12px SHORTER than the
-        //   gutter beside it. Percent positions measured against the gutter therefore drifted up
-        //   to 6px away from the line they label - worst at the top and bottom, right in the
-        //   middle. The pills now live in an inner box inset by the same 6px, and both the pills
-        //   and the scale numbers centre with translateY(-50%) instead of a guessed pixel nudge.
-        _gutterHtml='<div style="width:44px;min-width:44px;position:relative;font-size:8px;color:var(--text5)">'
-          +'<div style="position:absolute;left:0;right:0;top:6px;bottom:6px">'
-          +_gls.map(L=>{const ly=Yv(L);if(labs.some(p=>Math.abs(p.y-ly)<7))return '';return '<span style="position:absolute;left:2px;top:'+(ly/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</span>';}).join('')
-          +labs.map(L=>'<span style="position:absolute;left:1px;top:'+(L.y/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;font-weight:800;color:#04130c;background:'+L.col+';padding:0 4px;border-radius:4px;z-index:2">'+L.txt+'</span>').join('')
-          +'</div></div>';
+        if(_a2kAll&&isMaxC&&isMaxC!==crownedC){const _isf=isMaxC.equity.cum[isMaxC.equity.cum.length-1]*mult;labs.push({y:Yv(_isf),col:'#3a9bdc',kg:'ismax',txt:_kUsd(_isf)+' IS'});}
         _gateChip=_hasGate?'<span data-a2gate="'+(_a2gate?0:1)+'" title="overlay the CONFIGS · ML GATE FILTER (2C) gated equity on this funnel — the SAME crowned champion with the filter skipping trades (the crowned line here is the ungated version). Spans in-sample + walk-forward + lockbox." style="cursor:pointer;font-size:8px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid '+(_a2gate?'#e05fa0':'var(--border)')+';background:'+(_a2gate?'color-mix(in srgb,#e05fa0 16%,transparent)':'var(--bg2)')+';color:'+(_a2gate?'#e05fa0':'var(--text3)')+'">GATE</span>':'';
         // DOOR lines (in-sample slate · lockbox purple) — labels moved to the region labels below.
         const isDoor='<line x1="'+xIS.toFixed(1)+'" y1="'+pt+'" x2="'+xIS.toFixed(1)+'" y2="'+(H-pd).toFixed(1)+'" stroke="#7f8c99" stroke-width="0.6" stroke-dasharray="2 2" opacity="0.7"/>';
@@ -8790,6 +8774,32 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _hyb2Ov='<g data-kg="hyb2"><polyline points="'+_hp3.join(' ')+'" fill="none" stroke="#f0abfc" stroke-width="0.8" opacity="0.92" stroke-dasharray="2.4 1.2"><title>hybrid with contracts redeployed - '+_hyRdF.toFixed(2)+'x the size of the plain hybrid line</title></polyline></g>';
             _hyb2End=_ha3[_hn3-1];}
         }catch(_he3){}
+        // v71.11 (owner: "there isnt pills for the end pnl for all the configs in the gutter"):
+        //   TILT, HYBRID and HYBRID recycle are drawn on the chart and priced in the key box, but
+        //   only the crowned line and the gate line ever put a pill on the axis - so three of the
+        //   five families had no endpoint to read against the scale. They all do now, which is why
+        //   the gutter is built HERE instead of 90 lines earlier: it has to wait until every
+        //   overlay has reported where it finished.
+        if(_tiltEnd!=null)labs.push({y:Yv(_tiltEnd),col:'#f0b429',kg:'tilt',txt:_kUsd(_tiltEnd)+' T'});
+        if(_hybEnd!=null)labs.push({y:Yv(_hybEnd),col:'#c084fc',kg:'hyb',txt:_kUsd(_hybEnd)+' H'});
+        if(_hyb2End!=null)labs.push({y:Yv(_hyb2End),col:'#f0abfc',kg:'hyb2',txt:_kUsd(_hyb2End)+' H♻'});
+        // de-collide the pills vertically now that every family has one
+        // only nudge when two pills would genuinely overlap, and by the least that separates them
+        labs.sort((a,b)=>a.y-b.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<5)labs[i].y=labs[i-1].y+5;
+        // GUTTER: the $ SCALE sits flush against the y-axis (left:2px); a scale number is DROPPED
+        //   where an endpoint pill would cover it (owner: pills were blocking the scale when
+        //   expanded), so the axis stays readable. Pills are the colored $ endpoints.
+        // v70.6 (owner: "your gutter pnl pills are legitimately not aligned"). The plot sits in a
+        //   box with 6px of vertical padding, so the svg drawing area is 12px SHORTER than the
+        //   gutter beside it. Percent positions measured against the gutter therefore drifted up
+        //   to 6px away from the line they label - worst at the top and bottom, right in the
+        //   middle. The pills now live in an inner box inset by the same 6px, and both the pills
+        //   and the scale numbers centre with translateY(-50%) instead of a guessed pixel nudge.
+        _gutterHtml='<div style="width:44px;min-width:44px;position:relative;font-size:8px;color:var(--text5)">'
+          +'<div style="position:absolute;left:0;right:0;top:6px;bottom:6px">'
+          +_gls.map(L=>{const ly=Yv(L);if(labs.some(p=>Math.abs(p.y-ly)<7))return '';return '<span style="position:absolute;left:2px;top:'+(ly/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</span>';}).join('')
+          +labs.map(L=>'<span'+(L.kg?(' data-pg="'+L.kg+'"'):'')+' style="position:absolute;left:1px;top:'+(L.y/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;font-weight:800;color:#04130c;background:'+L.col+';padding:0 4px;border-radius:4px;z-index:2">'+L.txt+'</span>').join('')
+          +'</div></div>';
         // v68.3 (owner: "add the drawdown graph"): a compact drawdown strip along the plot floor —
         //   the crowned champion's whole-run drawdown (incl. the held-out year), red area, same
         //   x mapping as the equity above it. 1A's lower pane, miniaturised.
@@ -14639,12 +14649,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
             if(!els.length)return;
             const anyHidden=els.some(g=>g.style.display==='none');
             els.forEach(g=>{g.style.display=anyHidden?'':'none';});
+            // v71.11: a family's gutter pill hides with its line - a $ chip left floating on the
+            //   axis with nothing drawn under it reads as a line you cannot find.
+            tg.forEach(k2=>kroot.querySelectorAll('[data-pg="'+k2+'"]').forEach(p=>{p.style.display=anyHidden?'':'none';}));
             if(k==='raw')savePref('a2kAll',anyHidden?1:0);
             row.style.opacity=anyHidden?'':(_kOthers[k]?'':'0.35');};
           row.onmouseenter=()=>{if(row.dataset.off==='1')return;
             const mine=new Set((_kmap[k]||[k]));
-            svg.querySelectorAll('[data-kg]').forEach(g=>{if(!mine.has(g.getAttribute('data-kg')))g.style.opacity='0.12';});};
-          row.onmouseleave=()=>{svg.querySelectorAll('[data-kg]').forEach(g=>{g.style.opacity='';});};});
+            svg.querySelectorAll('[data-kg]').forEach(g=>{if(!mine.has(g.getAttribute('data-kg')))g.style.opacity='0.12';});
+            kroot.querySelectorAll('[data-pg]').forEach(p=>{if(!mine.has(p.getAttribute('data-pg')))p.style.opacity='0.12';});};
+          row.onmouseleave=()=>{svg.querySelectorAll('[data-kg]').forEach(g=>{g.style.opacity='';});
+            kroot.querySelectorAll('[data-pg]').forEach(p=>{p.style.opacity='';});};});
         // crosshair: vertical line + date readout riding the cursor (the expand modal keeps its
         //   richer one; this is the always-on tile version the owner asked for).
         const wrap=svg.parentElement;if(!wrap)return;
