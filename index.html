@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.35';
+const VERSION='71.36';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.36',date:'2026-08-09',notes:['WIN % on the TILT tab now shades. It was never being skipped - a tilt refuses no trades, so every column on that tab wins the exact same trades and the row reads one number all the way across. A heat map of a flat row is one uniform colour, and that is what it paints now, instead of leaving the row blank and looking like the shading had missed it. Applies to any flat row on any 1E tab.','1E ROWS LINE UP ACROSS TABS NOW. The wide-table squeeze was tightening rows vertically as well as sideways, so a ten-column TILT drew 15px rows against a five-column HYBRID at 17px and every row shifted when you flipped between them. Only the sideways padding tightens now, so the tabs sit row for row and a flip compares like with like.','SIZE RULE is one line on every tab. The cut-off used to print above the size shape on the HYBRID tabs, making that row nearly twice as tall as the same row on TILT - the single biggest reason the two would not align. Cut-off and shape share one line; the full sentence is still on hover.']},
 {v:'71.35',date:'2026-08-09',notes:['TRADES blotter (expanded 1A): the candle button on each row is now a clear bordered CHART pill with a CHART column header - it was a bare candle glyph that was easy to miss entirely.','TRADES button: when a saved blotter auto-opens with the view, the button now lights up blue while the panel is SHOWING - before, clicking it just hid the already-open panel with no hint, which read as the load doing nothing.','TRADES button while loading now says a FIRST load reruns the champion on your PC and can take minutes - the quick reopen is only quick because it restores the saved copy.']},
 {v:'71.34',date:'2026-08-09',notes:['RUNBOARD now shows each strategy WINDOW - the dates it covers and how long that is - as its own row on the matrix, and a span under two years is flagged in yellow. A 19-day run was sitting at the top of the board on NET against 16-year runs, and nothing on screen said the samples were different sizes.','The funnel key carries the same span beside each ending dollar figure. That is what the hairline blip on the chart was: a run whose whole window is a few weeks, drawn on a 16-year calendar axis.']},
 {v:'71.33',date:'2026-08-09',notes:['Two labels left over from the 71.31 pass. The TILT and HYBRID RETURN headers were still ending in FULL after the FULL row itself was removed, and the GATE total row read as a bare stretch list where every other tab reads TOTAL. Both now say the same thing in the same place: TOTAL followed by the stretches you ticked.']},
@@ -8271,7 +8272,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v69.8 (owner: "2d columns are wide. cant see all the columns"): past 8 columns the
       //   padding tightens again, which is what lets the 10-column ML TILT view fit on screen.
       const _wide=cols.length>=8;
-      const _cp=(opts&&opts.compact)?(_wide?'2px 3px':'3px 4px'):'5px 6px',_hp=(opts&&opts.compact)?(_wide?'2px 3px':'3px 4px'):'4px 6px';
+      // v71.36 (owner: "rows are offset when comparing TILT vs HYBRID - unify the rows across all
+      //   tabs"): the wide-table squeeze used to tighten BOTH axes, so a 10-column TILT drew 15px
+      //   rows while a 5-column HYBRID drew 17px and every row shifted when flipping tabs. Only
+      //   the HORIZONTAL padding tightens now - vertical is fixed, so every tab lines up row for
+      //   row and a tab flip compares like with like.
+      const _cp=(opts&&opts.compact)?(_wide?'3px 3px':'3px 4px'):'5px 6px',_hp=(opts&&opts.compact)?(_wide?'3px 3px':'3px 4px'):'4px 6px';
       const _ncol=cols.length+1,_stick='position:sticky;left:0;z-index:1;';
       const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:'+_hp+';vertical-align:bottom;'+_stick+'background:var(--bg2)">METRIC</th>'
         +cols.map(c=>'<th'+(c.tip?' title="'+c.tip+'"':'')+' style="text-align:right;padding:'+_hp+';white-space:nowrap;'+(c.tip?'cursor:help;':'')+'vertical-align:top;color:'+(c.col||'var(--text2)')+(c.emph?';font-weight:800':';font-weight:700')+(c.emph?_mtxEmph(c):'')+'">'+c.lbl+(c.sub?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+c.sub+'</div>':'')+'</th>').join('')+'</tr>';
@@ -8502,7 +8508,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(_b2heat){
         const _hf=(get,hiGood)=>{const nums=cols.map(get).filter(v=>v!=null&&isFinite(v));
           if(nums.length<2)return null;const mn=Math.min.apply(null,nums),mx=Math.max.apply(null,nums);
-          if(!(mx-mn>1e-9))return null;
+          // v71.36: flat row = one uniform tint, not blank. See the note on the GATE heat fn.
+          if(!(mx-mn>1e-9))return c=>{const v=get(c);return (v==null||!isFinite(v))?null:'hsla(62,68%,45%,0.090)';};
           return c=>{const v=get(c);if(v==null||!isFinite(v))return null;
             let t=(v-mn)/(mx-mn);if(!hiGood)t=1-t;
             return 'hsla('+Math.round(4+116*t)+',68%,45%,'+(0.09+0.24*Math.abs(t-0.5)*2).toFixed(3)+')';};};
@@ -11179,7 +11186,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const nums=_gColsV.map(get).filter(v=>v!=null&&isFinite(v));
           if(nums.length<2)return null;
           const mn=Math.min.apply(null,nums),mx=Math.max.apply(null,nums);
-          if(!(mx-mn>1e-9))return null;
+          // v71.36 (owner: "make sure WIN % is heat mapped"): a row where every column reads the
+          //   SAME number is not a row the heat map skipped - it is a flat row, and a heat map of
+          //   a flat row is one uniform colour. Paint the mid-scale tint so it reads as measured
+          //   and equal instead of looking like the shading missed it.
+          if(!(mx-mn>1e-9))return col=>{const v=get(col);return (v==null||!isFinite(v))?null:'hsla(62,68%,45%,0.090)';};
           return col=>{const v=get(col);if(v==null||!isFinite(v))return null;
             let t=(v-mn)/(mx-mn);if(!hiGood)t=1-t;
             return 'hsla('+Math.round(4+116*t)+',68%,45%,'+(0.09+0.24*Math.abs(t-0.5)*2).toFixed(3)+')';};};
@@ -11539,7 +11550,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 if(!r&&ct==null)return _cmpDash;
                 const _shape=/0\.5x/.test(String(r||''))?'&frac12; &middot; 1 &middot; 2&times;':'0.25&ndash;3&times;';
                 const _tt=((ct!=null)?('drops any trade scoring under '+Math.round(ct*100)+'%. '):'no cut-off - every trade is taken. ')+String(r||'');
-                return '<span title="'+_tt.replace(/"/g,'&quot;')+'" style="color:var(--text3);font-size:7px;cursor:help">'+(ct!=null?('<b style="color:#e05fa0">&lt;'+Math.round(ct*100)+'% &#10007;</b><br>'):'')+_shape+'</span>';}}]}
+                // v71.36: ONE line, always. The cut-off used to sit on its own line above the
+                //   shape, which made this row 28px on HYBRID and 15px on TILT (no cut-off) - the
+                //   single biggest reason the two tabs would not line up. Full sentence on hover.
+                return '<span title="'+_tt.replace(/"/g,'&quot;')+'" style="display:block;color:var(--text3);font-size:7px;cursor:help;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(ct!=null?('<b style="color:#e05fa0">&lt;'+Math.round(ct*100)+'%</b> '):'')+_shape+'</span>';}}]}
           ];
           // HEAT — the same shading 2B / 2C use, off the same pref: every cell tinted by where it
           //   lands across its OWN row, green best red worst. Rows with no numeric read (SIZE MIX,
@@ -11547,7 +11561,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(_szHeat){
             const _hf=(get,hiGood)=>{const nums=cols.map(get).filter(v=>v!=null&&isFinite(v));
               if(nums.length<2)return null;const mn=Math.min.apply(null,nums),mx=Math.max.apply(null,nums);
-              if(!(mx-mn>1e-9))return null;
+              // v71.36: flat row = one uniform tint, not blank. See the note on the GATE heat fn.
+              if(!(mx-mn>1e-9))return c=>{const v=get(c);return (v==null||!isFinite(v))?null:'hsla(62,68%,45%,0.090)';};
               return c=>{const v=get(c);if(v==null||!isFinite(v))return null;
                 let t=(v-mn)/(mx-mn);if(!hiGood)t=1-t;
                 return 'hsla('+Math.round(4+116*t)+',68%,45%,'+(0.09+0.24*Math.abs(t-0.5)*2).toFixed(3)+')';};};
@@ -14047,7 +14062,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +'<span style="color:var(--text5)"> · </span>'
               +one('LB',!!lb,(lb&&lb.pass)?'var(--green)':'var(--red)','lockbox'+(lb?(lb.pass?' · held':' · failed'):' - not run, so the numbers are in-sample only'))+'</span>';}});
           return m;});
-        // v71.34 (owner: "why is 42 on there as a small blip on the 1a graph"): because that run
+        // v71.36 (owner: "why is 42 on there as a small blip on the 1a graph"): because that run
         //   only covers 19 DAYS while the others cover 16 YEARS — on a shared calendar axis a
         //   19-day curve is a hairline at the far right, and its $ ranks against 16-year books as
         //   if they were the same thing. The window is now a ROW on the matrix, and a span under
