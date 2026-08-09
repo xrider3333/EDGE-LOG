@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.23';
+const VERSION='71.24';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.24',date:'2026-08-09',notes:['1A FUNNEL: switching a key row off and back on no longer opens the expanded chart. Two clicks in the same spot is also a double-click as far as the browser is concerned, so toggling a line back on kept expanding the view. A double-click that lands on a control - a key row, a chip, a slider - is now ignored; the chart body still expands as before.','1A FUNNEL: the FULL RUN and GATE chips are off the top right. The stretch picker is the same saved setting as the SAMPLE tabs on 1E, and the GATE line has been switched from its own key row since 71.20, so neither chip was the only way to reach its setting.','1A FUNNEL DRAWDOWN was only ever the RAW champion, on a chart showing five books. It now draws one underwater line per family - RAW, GATE, TILT, HYBRID and HYBRID recycle - each in its own line colour, each hiding and showing with its own key row, and the pane stretches to whichever digs deepest so none of them is clipped.','PAST RUNS: the star column is squeezed to the width of the star. The shared table padding was giving a 12px glyph a 32px column.','PAST RUNS: NOISE was missing from the family chip row. It was not in the family table at all, so it had no number and no colour and got no chip in either view. It is family 12 now and the chip shows in the flat list as well as the grouped one.']},
 {v:'71.23',date:'2026-08-09',notes:['RUNBOARD funnel now wears the 1A CHAMPION EQUITY look: a blue walk-forward band and a purple lockbox band shaded across the plot with in-sample left un-shaded, the IS / WF / LB labels printed inside the top of each region, a dashed purple door line, and each strategy ending $ pinned as a coloured pill on the right at its own line height.','RUNBOARD table rebuilt on the SAME matrix shell the 1E KPI MATRIX uses - grouped uppercase metric bands, the metric names pinned on the left while the columns scroll, one column per strategy in its curve colour, and the ranking leader tinted in its own hue.','SAMPLE and RANK moved ONTO the matrix tile as underlined tab rails - the same control look the 1E card uses, blue for SAMPLE and teal for RANK - instead of sitting in a separate strip above the board.','The MATRIX now sits to the RIGHT of the FUNNEL, the way 1A and 1E sit side by side in a run report, with the strategy list keeping the narrow left column.']},
 {v:'71.22',date:'2026-08-09',notes:['RUNBOARD rebuilt in the 1A + 1E style: a FUNNEL chart (the same live equity overlay COMPARE uses - key pills on their lines, crosshair, drawdown pane, solid in-sample / dashed walk-forward / dotted lockbox) sits above a sectioned MATRIX (metrics as rows, strategies as columns, green best in row, VERT / HORIZ flip).','The board now POPULATES ITSELF with the top run of every strategy - the same champion rule BY STRATEGY uses - instead of a hand-pasted table.','SAMPLE (FULL / IS / LB) redraws the funnel curves, not just the numbers: IS cuts each curve at its first walk-forward fold, LB shows only the lockbox year with every curve rebased to zero. RANK BY (MAR / PF / NET / MAX DD) orders the funnel key, the matrix columns and the list, measured on the picked SAMPLE.','The pooled BOOKS table (the offline two-strategy book numbers) keeps its own clearly separated tile at the bottom - same SAMPLE and RANK BY picks apply.']},
 {v:'71.21',date:'2026-08-08',notes:['Funnel key box nudged 5px down so it sits fully INSIDE the plot rather than starting in the boxs padding - at 4px its top edge was 2px above where the chart actually begins.']},
@@ -4777,7 +4778,7 @@ window.cmpOvlMount=function(hostId){
     +(S.some(sr=>sr.li!=null)?'<div style="white-space:nowrap;color:var(--text4)"><b>····</b> lockbox</div>':'')
     +NC.map(c=>'<div style="white-space:nowrap;color:var(--text5)">#'+c.id+' '+c.label+' · no curve saved</div>').join('');
 
-  // ── v71.23 (owner: "the funnel still doesnt look like a 1a funnel"): 1A MODE. The RUNBOARD
+  // ── v71.24 (owner: "the funnel still doesnt look like a 1a funnel"): 1A MODE. The RUNBOARD
   //    sets window._cmpOvl1A before mounting, and the chart then wears the SAME visual language
   //    as 1A CHAMPION EQUITY in the run report:
   //      · a blue WALK-FORWARD band and a purple LOCKBOX band shaded across the plot, in-sample
@@ -9024,7 +9025,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   hidden, like the cloud and the walk-forward group. And it was drawn in the same pink
         //   family as the hybrid lines beside it; it is red now, on the line, the key row, the
         //   gutter pill and the chip, so it cannot be mistaken for one of them.
-        // v71.23 (owner: "the drawdown underneath the pnl chart is only the top RAW config even
+        // v71.24 (owner: "the drawdown underneath the pnl chart is only the top RAW config even
         //   though this is the funnel view — show the drawdown of what is actually on the chart").
         //   Every family line registers its dollar curve + its own x-mapping here; the drawdown
         //   pane below then draws ONE underwater line per family, in that family's colour, inside
@@ -9163,7 +9164,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             //   instead of one filled shape. Same references, same colours, same pills, and a
             //   card-coloured band above it so it reads as its own pane the way 1A does.
             const _mcP=(_V4.mc_p95!=null)?(+_V4.mc_p95)*mult:null;
-            // v71.23: every family line on the chart gets its own underwater curve, so the pane
+            // v71.24: every family line on the chart gets its own underwater curve, so the pane
             //   has to reach the DEEPEST of them, not just the champion's.
             const _famD=[];
             _famDD.forEach(function(F){try{
@@ -9191,7 +9192,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +'<path d="'+_pts.join('')+'" fill="rgba(193,66,106,0.5)" stroke="#d6557a" stroke-width="0.6" opacity="0.95"><title>RAW champion drawdown (whole run) · worst '+_kUsd(_dmn)+'</title></path>'
               +_dRef(_ddY(_dmn),'#d6557a')+((_mcP!=null)?_dRef(_ddY(_mcP),'#f5c842'):'')
               +'</g>'
-              // v71.23: one underwater LINE per family (no fill, so they read over the champion
+              // v71.24: one underwater LINE per family (no fill, so they read over the champion
               //   area), each inside its own family group — click that family's key row and its
               //   equity line and its drawdown hide together.
               +_famD.map(function(F){const p=[];
@@ -9339,7 +9340,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _hInfo=_infoIc('<div style="color:var(--text2)">'+(selMode?(_selTip+'<br><br>Path: all configs → IS door → top-K walk-forward → top-3 lockbox.'):_eqTip)+'</div>');
       if(sink){sink.title=selMode?'CONFIG FUNNEL':'TOP CONFIGS PNL';sink.info=_hInfo;}
       const _hdr=selMode
-        // v71.23 (owner: "remove the FULL RUN and GATE toggles on the top right"): both are gone
+        // v71.24 (owner: "remove the FULL RUN and GATE toggles on the top right"): both are gone
         //   from the funnel header. The stretch picker still lives on the 1E MATRIX SAMPLE tabs
         //   (same saved setting), and the GATE line is switched from its own key row inside the
         //   plot since v71.20 — so neither chip was the only way to reach its setting.
@@ -14094,7 +14095,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    live overlay PICK RUNS uses (key pills on their lines, crosshair, drawdown pane,
         //    solid/dashed/dotted stages); the matrix is the SAME sectioned green-best table with
         //    VERT/HORIZ. The pooled BOOKS keep their own tile at the bottom, clearly separated. ──
-        // v71.23 (owner: "still doesnt look like 1e matrix/table in terms of layout / sample /
+        // v71.24 (owner: "still doesnt look like 1e matrix/table in terms of layout / sample /
         //   rank selection (these are on the matrix tile itself)"). The board's table is now the
         //   SHARED 1E MATRIX SHELL (_matrixTbl) — the same grouped uppercase metric bands, sticky
         //   metric column on the left, entity columns across the top, tabular-numeric right-
@@ -14165,7 +14166,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'Window 2010-06-07 to 2026-06-30 · NQ · costs in · trades counted on exit date. Rebuild the numbers with tools/t5_runboard.py.</div>';
         const booksTile=tile('<div class="lbl" style="margin-bottom:8px">◫ BOOKS · pooled two-strategy books · offline numbers, not app-validated</div>'
           +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px"><thead>'+_rbTh+'</thead><tbody>'+_rbTr+'</tbody></table></div>'+_rbNote,0);
-        // v71.23 (owner: "the matrix should sit to the right of the funnel (like in compare tab)"):
+        // v71.24 (owner: "the matrix should sit to the right of the funnel (like in compare tab)"):
         //   FUNNEL and MATRIX are side-by-side columns, the way 1A and 1E sit side by side in the
         //   run report. The strategy list keeps the narrow left column, same as COMPARE's picker.
         //   Each column carries a min-width so a narrow viewport wraps instead of squeezing.
@@ -14401,7 +14402,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'.fhsel option{background:var(--bg2);color:var(--text);letter-spacing:normal;font-weight:400}'
           +'#res-listscroll thead th{position:sticky;top:0;z-index:5;background:var(--bg1);box-shadow:inset 0 -1px 0 var(--border)}</style>'
           +'<div id="res-listscroll" style="overflow:auto;max-height:'+(rv==='side'?'86vh':rVH+'px')+'">'
-          // v71.23 (owner: "star column takes up way too much space"): the shared table cell
+          // v71.24 (owner: "star column takes up way too much space"): the shared table cell
           //   padding is 10px a side, so a 12px glyph was sitting in a ~32px column. Squeeze it to
           //   the glyph and let RUN start where the star ends.
           +'<style>.prstar{width:1%;padding-left:3px!important;padding-right:3px!important;text-align:center;vertical-align:bottom}</style>'
@@ -14595,7 +14596,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // double-click anywhere on the chart to expand it — opens the existing expandChart
         // modal with a clean (undistorted) copy of the svg + crosshair.
         const openExpand=e=>{if(e&&e.stopPropagation)e.stopPropagation();
-          // v71.23 (owner): switching a key row off and back on is two clicks in the same spot,
+          // v71.24 (owner): switching a key row off and back on is two clicks in the same spot,
           //   which the browser ALSO reports as a double-click — so the chart kept opening the
           //   expanded view when he only meant to bring a line back. A double-click that lands on
           //   a control (key row, chip, slider, dropdown) never expands; the chart body still does.
@@ -15225,7 +15226,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-a2eqx]').forEach(box=>{
         const svg=box.querySelector('svg');if(!svg)return;
         const kroot=box;   // v68.6: the key box lives inside the chart wrap again
-        // v71.23: each family's drawdown curve rides in the SAME key group as its equity line
+        // v71.24: each family's drawdown curve rides in the SAME key group as its equity line
         //   ("gatedd" with "gate", and so on), so one click hides or shows both.
         const _kmap={raw:['crown','ismax','wf','cloud','lb'],gate:['gate','gatedd'],tilt:['tilt','tiltdd'],hyb:['hyb','hybdd'],hyb2:['hyb2','hyb2dd'],dd:['dd']};
         const _kOthers={raw:['ismax','wf','cloud']};   // groups a click reveals (family top line stays)
