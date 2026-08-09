@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.28';
+const VERSION='71.29';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.29',date:'2026-08-09',notes:['ONE DRAWDOWN ROW. The TILT and the three HYBRID tabs were printing the drawdown twice - FULL MAX DD up in RETURN and a second MAX DD down in REWARD divided by RISK, on two different windows. There is now a single MAX DD row, measured on whatever SAMPLE is ticked, sitting directly under the stretch dollars it belongs to and labelled with that same tick. Both old rows are gone.','That is the shape the GATE tab already used, so all the drawdown tabs now read the same way: the dollars for the stretches you ticked, then the drawdown it took to earn them, in one place.','The RAW tab keeps its MAX DD tagged IS+WF. A config saved equity curve covers the optimize window only, so a per-stretch drawdown does not exist for those columns - the label says which window it is rather than pretending it follows the tick.']},
 {v:'71.28',date:'2026-08-09',notes:['TILT tab: the size shape no longer prints on a second line under the model name, which was adding a whole row of height to the header and pushing the table down. It rides inline after the name as (SL) sliding or (ST) steps, and hovering the tag gives the full sentence. The section info icon carries the same two tags.','TILT and HYBRID tabs: the RETURN caption stops saying FULL when IS, WF and LB are all ticked - at that point the tick already IS the full run, so naming it twice read as a fourth stretch.','TILT tab WIN %: the heat map was never broken. A tilt refuses no trades, so every column on that tab wins the exact same trades and only the size differs - the row reads one number all the way across and there is no spread to shade. The hover now says that outright instead of leaving it looking broken. The HYBRID tabs, which DO drop trades, shade normally.','TRADES and ALL TRADES now name their window - TRADES carries the stretches you have ticked, ALL TRADES is tagged FULL. Untick IS and the two separate by exactly the in-sample trade count, which is the whole of the difference. Re-sizing never moves either, so both read identical on HYBRID, HYBRID recycle and HYBRID equal-drawdown.']},
 {v:'71.27',date:'2026-08-09',notes:['TRADE CANDLES: hover any candle and its numbers print under the title - time, Open, High, Low, Close (green or red), Volume and VWAP. Until now the only prices on the chart were the axis labels.','TRADES blotter (expanded 1A) now says CHAMPION CONFIG in its header line, and the candle window subtitle leads with it - those trades are always the crowned config, nothing else.','EQUITY COMPARE (expanded 2A) blotter columns: the header used to print a raw tag like #cfg7. It now reads config 7 - 2B RANK 7, because config 7 IS the RANK 7 column of the 2B CONFIGS card; hover the header for the reminder, and the PARAMS button lists that config knob values. (These three shipped inside 71.23 and are logged here.)']},
 {v:'71.26',date:'2026-08-09',notes:['RUNBOARD matrix printed its band caption IDENTITY twice - once over the strategy / market / scope rows at the top and again over the lone verdict row at the bottom. The top block is headed RUN now and the bottom one VERDICT.']},
@@ -11414,8 +11415,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(_szSegs.indexOf('is')>=0)_ret.push({lbl:'<span title="'+_szSegTip.is+'">IS $</span>',top:!_ret.length,cell:c=>_cmpUsd(_sl$(c,'is'))});
           if(_szSegs.indexOf('wf')>=0)_ret.push({lbl:'<span title="'+_szSegTip.wf+'">WF $</span>',top:!_ret.length,rowBg:_wfBg2,lblCol:_wfCol2,cell:c=>_cmpUsd(_sl$(c,'wf'))});
           if(_szSegs.indexOf('lb')>=0)_ret.push({lbl:'<span title="'+_szSegTip.lb+'">LB $</span>',top:!_ret.length,rowBg:_lbBg2,lblCol:_lbCol2,rowSty:(_szRank!=='rec'?_rkYel2:''),cell:c=>_cmpUsd(_sl$(c,'lb'))});
+          // v71.29 (owner: "there is FULL MAX DD and MAX DD - just show the drawdown for whatever
+          //   SAMPLE is selected, under that same selection cumulative PnL row. No need for DD in
+          //   multiple spots"): ONE drawdown row now, measured on the ticked stretches, sitting
+          //   directly under the stretch dollars it belongs to. FULL MAX DD is gone, and the copy
+          //   that used to sit down in REWARD / RISK is gone with it. Same shape the RAW and GATE
+          //   tabs already use.
+          _ret.push({lbl:'<span title="deepest peak-to-trough drop across the ticked SAMPLE - the risk taken to earn the dollars directly above. When the pick spans more than one stretch it is read off the saved equity curve for that span; a pick that skips a stretch (IS + LB with no WF) has no single span to read, so it prints a dash rather than a number that would not mean anything.">MAX DD <span style="font-weight:400;color:var(--text5)">&middot; '+_szLbl+'</span></span>',cell:c=>{const p=_szP(c);return p.dd!=null?('<span style="color:#e24b4a"'+(p.ddDer?' title="read off the saved curve across the spanned stretch"':'')+'>-'+$k(p.dd)+(p.ddDer?'&deg;':'')+'</span>'):_cmpDash;}});
           _ret.push({lbl:'<span title="the whole run end to end - in-sample, walk-forward and lockbox together. The same row 2B calls FULL. IS / WF / LB measure overlapping windows, so they do not add up to it.">FULL $</span>',top:true,cell:c=>_cmpUsd(_sl$(c,'full'))});
-          _ret.push({lbl:'<span title="deepest peak-to-trough drop over the WHOLE run - the same basis as the 2B MAX DD row, not a per-period figure">FULL MAX DD</span>',cell:c=>{const v=_fuDd(c);return v!=null?('<span style="color:#e24b4a">-'+$k(v)+'</span>'):_cmpDash;}});
           const groups=[
             // v71.28 (owner: "if all three sample tabs are selected then that IS full - no need to
             //   put FULL on there"): the caption only names FULL when the tick does not already
@@ -11423,7 +11430,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
             {name:'return <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">&middot; '+_szSegs.map(x=>x.toUpperCase()).concat(_szSegs.length>=3?[]:['FULL']).join(' + ')+'</span>',rows:_ret},
             {name:'reward &divide; risk <span style="font-weight:400;color:'+(_lbCol2)+';letter-spacing:0;text-transform:none">&middot; '+_szLbl+'</span>',rows:[
               {lbl:'<span title="net dollars per dollar of drawdown over the ticked SAMPLE - the same calculation the ML GATE matrix calls MAR. Scale-free: the sizing tabs multiply profit and drawdown by the same number, so this never moves.">MAR</span>',top:true,rowSty:(_szRank==='rec'?_rkYel2:(_szRank==='floor'?_rkDsh2:'')),cell:c=>{const r=_szMar(c);return r!=null?('<b>'+r.toFixed(1)+'</b>'):_cmpDash;}},
-              {lbl:'<span title="deepest peak-to-trough drop across the ticked SAMPLE. When the pick spans more than one stretch it is read off the saved equity curve for that span; a pick that skips a stretch has no single span to read, so it prints a dash.">MAX DD</span>',cell:c=>{const p=_szP(c);return p.dd!=null?('<span style="color:#e24b4a"'+(p.ddDer?' title="read off the saved curve across the spanned stretch"':'')+'>-'+$k(p.dd)+(p.ddDer?'&deg;':'')+'</span>'):_cmpDash;}},
+              // v71.29: the MAX DD copy that used to sit here has moved up into RETURN, under the
+              //   stretch dollars it belongs to. One drawdown row per tab, nowhere else.
               {lbl:'<span title="whole-run dollars per dollar of whole-run drawdown - the long-horizon anchor. Equals MAR above when IS + WF + LB are all ticked, which is the reconciliation.">FULL MAR</span>',cell:c=>{const r=_fuMar(c);return r!=null?(r.toFixed(1)):_cmpDash;}},
               {lbl:'<span title="derived the same way 2B derives it: period-to-period change on the equity curve the engine saved, over the whole run, annualised by the span length. Scale-free - the sizing tabs do not move it.">SHARPE</span>',cell:c=>{const s=_shrp(c);return s!=null?('<span style="color:var(--text2)">'+s.toFixed(2)+'</span>'):_cmpDash;}},
               {lbl:'<span title="profit factor over the ticked SAMPLE - gross winning dollars divided by gross losing dollars. Across several stretches it is rebuilt from each stretch own gross totals. Scale-free.">PF</span>',cell:c=>{const v=_szP(c).pf;return v!=null?('<span style="color:var(--text2)">'+Math.min(v,99).toFixed(2)+'</span>'):_cmpDash;}},
@@ -11474,7 +11482,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 let t=(v-mn)/(mx-mn);if(!hiGood)t=1-t;
                 return 'hsla('+Math.round(4+116*t)+',68%,45%,'+(0.09+0.24*Math.abs(t-0.5)*2).toFixed(3)+')';};};
             const _pick={'IS $':[c=>_sl$(c,'is'),true],'WF $':[c=>_sl$(c,'wf'),true],'LB $':[c=>_sl$(c,'lb'),true],
-              'FULL $':[c=>_sl$(c,'full'),true],'FULL MAX DD':[c=>{const v=_fuDd(c);return v!=null?-v:null;},true],
+              'FULL $':[c=>_sl$(c,'full'),true],
               'MAR':[_szMar,true],'MAX DD':[c=>{const v=_szP(c).dd;return v!=null?-v:null;},true],
               'FULL MAR':[_fuMar,true],'SHARPE':[_shrp,true],'PF':[c=>{const v=_szP(c).pf;return v!=null?Math.min(v,99):null;},true],
               'WIN %':[c=>_szP(c).wr,true],'$ / TRADE':[c=>_szP(c).apt,true],
