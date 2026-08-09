@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.24';
+const VERSION='71.25';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.25',date:'2026-08-09',notes:['RUNBOARD matrix now opens in the 1E layout - metrics down the side, strategies across the top - regardless of what COMPARE own table is set to. The board keeps its own VERT / HORIZ pick, and that pick moved onto the matrix tile as a third tab rail beside SAMPLE and RANK.','RUNBOARD funnel: a gridline $ label that would land underneath a strategy ending-$ pill is no longer drawn, so the right gutter never shows two figures stacked on each other.','The wheel-zoom / drag-pan hint on the compare and runboard charts used to sit permanently on top of the date row. It fades in only while the cursor is over the chart now.','RUNBOARD funnel title no longer wraps onto a second line over the plot - the description truncates with the full text on hover.']},
 {v:'71.24',date:'2026-08-09',notes:['1A FUNNEL: switching a key row off and back on no longer opens the expanded chart. Two clicks in the same spot is also a double-click as far as the browser is concerned, so toggling a line back on kept expanding the view. A double-click that lands on a control - a key row, a chip, a slider - is now ignored; the chart body still expands as before.','1A FUNNEL: the FULL RUN and GATE chips are off the top right. The stretch picker is the same saved setting as the SAMPLE tabs on 1E, and the GATE line has been switched from its own key row since 71.20, so neither chip was the only way to reach its setting.','1A FUNNEL DRAWDOWN was only ever the RAW champion, on a chart showing five books. It now draws one underwater line per family - RAW, GATE, TILT, HYBRID and HYBRID recycle - each in its own line colour, each hiding and showing with its own key row, and the pane stretches to whichever digs deepest so none of them is clipped.','PAST RUNS: the star column is squeezed to the width of the star. The shared table padding was giving a 12px glyph a 32px column.','PAST RUNS: NOISE was missing from the family chip row. It was not in the family table at all, so it had no number and no colour and got no chip in either view. It is family 12 now and the chip shows in the flat list as well as the grouped one.']},
 {v:'71.23',date:'2026-08-09',notes:['RUNBOARD funnel now wears the 1A CHAMPION EQUITY look: a blue walk-forward band and a purple lockbox band shaded across the plot with in-sample left un-shaded, the IS / WF / LB labels printed inside the top of each region, a dashed purple door line, and each strategy ending $ pinned as a coloured pill on the right at its own line height.','RUNBOARD table rebuilt on the SAME matrix shell the 1E KPI MATRIX uses - grouped uppercase metric bands, the metric names pinned on the left while the columns scroll, one column per strategy in its curve colour, and the ranking leader tinted in its own hue.','SAMPLE and RANK moved ONTO the matrix tile as underlined tab rails - the same control look the 1E card uses, blue for SAMPLE and teal for RANK - instead of sitting in a separate strip above the board.','The MATRIX now sits to the RIGHT of the FUNNEL, the way 1A and 1E sit side by side in a run report, with the strategy list keeping the narrow left column.']},
 {v:'71.22',date:'2026-08-09',notes:['RUNBOARD rebuilt in the 1A + 1E style: a FUNNEL chart (the same live equity overlay COMPARE uses - key pills on their lines, crosshair, drawdown pane, solid in-sample / dashed walk-forward / dotted lockbox) sits above a sectioned MATRIX (metrics as rows, strategies as columns, green best in row, VERT / HORIZ flip).','The board now POPULATES ITSELF with the top run of every strategy - the same champion rule BY STRATEGY uses - instead of a hand-pasted table.','SAMPLE (FULL / IS / LB) redraws the funnel curves, not just the numbers: IS cuts each curve at its first walk-forward fold, LB shows only the lockbox year with every curve rebased to zero. RANK BY (MAR / PF / NET / MAX DD) orders the funnel key, the matrix columns and the list, measured on the picked SAMPLE.','The pooled BOOKS table (the offline two-strategy book numbers) keeps its own clearly separated tile at the bottom - same SAMPLE and RANK BY picks apply.']},
@@ -4763,8 +4764,13 @@ window.cmpOvlMount=function(hostId){
     +'<div class="cmpovl-vln" style="position:absolute;top:0;width:0;border-left:1px dashed var(--text4);opacity:.7;pointer-events:none;display:none"></div>'
     +'<div class="cmpovl-xchip" style="position:absolute;pointer-events:none;display:none;background:var(--text2);color:var(--bg1);font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;transform:translateX(-50%);z-index:2"></div>'
     +'<div class="cmpovl-ychip" style="position:absolute;pointer-events:none;display:none;background:var(--text2);color:var(--bg1);font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;transform:translateY(-50%);z-index:2"></div>'
-    +'<div class="cmpovl-hint" style="position:absolute;bottom:3px;right:8px;font-size:7.5px;color:var(--text5);pointer-events:none;z-index:2">wheel zoom · drag pan · dbl-click reset · ⛶ trades + more</div>';
+    // v71.25: the hint used to sit permanently ON the date-axis row. It now fades in only while
+    //   the cursor is over the chart, so the axis reads clean.
+    +'<div class="cmpovl-hint" style="position:absolute;bottom:3px;right:8px;font-size:7.5px;color:var(--text5);pointer-events:none;z-index:3;opacity:0;transition:opacity .12s;background:color-mix(in srgb,var(--bg1) 88%,transparent);border-radius:4px;padding:0 4px">wheel zoom · drag pan · dbl-click reset · ⛶ trades + more</div>';
   host.style.cursor='crosshair';
+  {const _hint=host.querySelector('.cmpovl-hint');
+   host.addEventListener('mouseenter',()=>{if(_hint)_hint.style.opacity='1';});
+   host.addEventListener('mouseleave',()=>{if(_hint)_hint.style.opacity='0';});}
   const svg=host.querySelector('.cmpovl-svg'),keyEl=host.querySelector('.cmpovl-key'),readEl=host.querySelector('.cmpovl-read'),
     vln=host.querySelector('.cmpovl-vln'),xchip=host.querySelector('.cmpovl-xchip'),ychip=host.querySelector('.cmpovl-ychip');
 
@@ -4840,11 +4846,20 @@ window.cmpOvlMount=function(hostId){
       _anno.forEach(a=>{if(a.b-a.a<14)return;
         s+='<text x="'+((a.a+a.b)/2).toFixed(1)+'" y="'+(g.eqT-5)+'" text-anchor="middle" font-size="7" font-weight="700" letter-spacing="0.4" fill="'+a.c+'">'+a.t+'</text>';});
     }
+    // 1A MODE: work out the endpoint-pill y positions FIRST, so a gridline label that would sit
+    //   underneath a pill is simply not drawn — 1A never shows two $ figures on top of each other.
+    let _pillYs=[];
+    if(ONE_A){const _e=S.map(sr=>{const p=sr.pts;if(!p||!p.length)return null;
+        const vis=p.filter(q=>q.x<=VS.vb);const last=vis.length?vis[vis.length-1]:p[0];
+        return {c:sr.color,v:last.v,y:Y(last.v)};}).filter(Boolean).sort((a,b)=>a.y-b.y);
+      let prev=-99;_e.forEach(e=>{e.y=Math.max(g.eqT+5,Math.min(g.eqB,Math.max(e.y,prev+9)));prev=e.y;});
+      _pillYs=_e;}
     // $ gridlines + right gutter labels (equity pane), k/M-abbreviated.
     const step=_niceStep((mx-mn)/5)||1;
     for(let L=Math.ceil(mn/step)*step;L<=mx;L+=step){const y=Y(L);
+      const hidden=ONE_A&&_pillYs.some(p=>Math.abs(p.y-y)<7);
       s+='<line x1="'+g.pL+'" y1="'+y.toFixed(1)+'" x2="'+(g.pL+g.pw)+'" y2="'+y.toFixed(1)+'" stroke="var(--border)" stroke-width="'+(Math.abs(L)<1e-9?1:0.5)+'" opacity="'+(Math.abs(L)<1e-9?0.6:0.22)+'"/>'
-        +'<text x="'+(g.pL+g.pw+5)+'" y="'+(y+3).toFixed(1)+'" font-size="8.5" fill="var(--text5)">'+(ONE_A?_fmtAxis(L,1):_ab$(L))+'</text>';}
+        +(hidden?'':'<text x="'+(g.pL+g.pw+5)+'" y="'+(y+3).toFixed(1)+'" font-size="8.5" fill="var(--text5)">'+(ONE_A?_fmtAxis(L,1):_ab$(L))+'</text>');}
     // x-axis: a handful of % ticks across [va,vb], with a real-date row underneath once every
     //   series shares a calendar span (M/D/YY, no leading zeros).
     {const xSpanPct=(VS.vb-VS.va)*100,steps=[1,2,5,10,20,25,50];let xStep=50;
@@ -4883,14 +4898,9 @@ window.cmpOvlMount=function(hostId){
     // 1A MODE: ENDPOINT $ PILLS in the right gutter — each curve's ending value at its own exact
     //   y, dark text on the curve's colour (1A pins its final $ the same way). Pills that would
     //   overlap are nudged apart just enough to stay readable, never further.
-    if(ONE_A){
-      const _ends=S.map(sr=>{const p=sr.pts;if(!p||!p.length)return null;
-        const vis=p.filter(q=>q.x<=VS.vb);const last=vis.length?vis[vis.length-1]:p[0];
-        return {c:sr.color,v:last.v,y:Y(last.v)};}).filter(Boolean).sort((a,b)=>a.y-b.y);
-      let prev=-99;_ends.forEach(e=>{const y=Math.max(g.eqT+5,Math.min(g.eqB,Math.max(e.y,prev+9)));prev=y;
-        s+='<rect x="'+(g.pL+g.pw+2)+'" y="'+(y-5).toFixed(1)+'" width="'+(g.gut-6)+'" height="10" rx="3" fill="'+e.c+'"/>'
-          +'<text x="'+(g.pL+g.pw+4)+'" y="'+(y+2.6).toFixed(1)+'" font-size="7.5" font-weight="800" fill="#04130c">'+_fmtAxis(e.v,1)+'</text>';});
-    }
+    if(ONE_A)_pillYs.forEach(e=>{
+      s+='<rect x="'+(g.pL+g.pw+2)+'" y="'+(e.y-5).toFixed(1)+'" width="'+(g.gut-6)+'" height="10" rx="3" fill="'+e.c+'"/>'
+        +'<text x="'+(g.pL+g.pw+4)+'" y="'+(e.y+2.6).toFixed(1)+'" font-size="7.5" font-weight="800" fill="#04130c">'+_fmtAxis(e.v,1)+'</text>';});
     svg.setAttribute('viewBox','0 0 '+g.W+' '+g.H);
     svg.innerHTML=s;
     svg._g={g:g,mn:mn,mx:mx,ddFloor:ddFloor};
@@ -13659,7 +13669,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v68.0 (owner ask): metric-table orientation — VERT (runs as columns, metrics as rows,
       //   the original layout) or HORIZ (runs as rows, metrics as columns) so a comparison with
       //   many runs fits without sideways scrolling. Persists like every other Compare pref.
-      const _cOr=(APREF.cmpOrient==='h')?'h':'v';
+      // v71.25: the RUNBOARD keeps its OWN orientation pref. The 1E look IS metrics-as-rows, so
+      //   the board must open that way even when COMPARE's own table is left on HORIZ.
+      const _cOr=(_cmpMode==='board')?((APREF.rbOrient==='h')?'h':'v'):((APREF.cmpOrient==='h')?'h':'v');
       // ── RUNBOARD (owner ask): compare whole BOOKS, not runs. Each row is one deployable
       //    book scored as ONE strategy (every leg trade pooled), same yardstick for all rows.
       //    SAMPLE flips every column between FULL / IS / LB; RANK BY re-sorts.
@@ -14074,8 +14086,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const scopeSeg='<span style="margin-left:auto;display:inline-flex;gap:3px" title="which slice of each run the metric rows compare — IN-SAMPLE = the tuned optimize window · WALK-FORWARD / LOCKBOX = unseen-data slices · TOTAL = the whole run (in-sample + walk-forward + lockbox), the same figure as the TOTAL column of a run report KPI matrix">'+_scBtn2('all','IN-SAMPLE')+_scBtn2('wf','WALK-FORWARD')+_scBtn2('lb','LOCKBOX')+_scBtn2('tot','TOTAL')+'</span>';
         // v68.0 (owner ask): VERT ⇄ HORIZ table-orientation pills — same pill visual language as
         //   the scope buttons just above, sat right next to them in the COMPARE tile header.
-        const _orBtn=(k2,lab,tip)=>'<button data-cmporient="'+k2+'" title="'+tip+'" style="height:20px;padding:0 8px;font-size:8px;letter-spacing:.5px;border-radius:6px;border:1px solid '+(_cOr===k2?'color-mix(in srgb,var(--text4) 55%,var(--border))':'var(--border)')+';background:'+(_cOr===k2?'var(--bg2)':'var(--bg1)')+';color:'+(_cOr===k2?'var(--text)':'var(--text4)')+';cursor:pointer">'+lab+'</button>';
-        const orientSeg='<span style="display:inline-flex;gap:3px">'+_orBtn('v','▥ VERT','runs as columns, metrics as rows')+_orBtn('h','▤ HORIZ','runs as rows, metrics as columns — fits many runs without sideways scrolling')+'</span>';
+        //   v71.25: on the RUNBOARD these write the board's OWN pref (rbOrient) and wear the tab
+        //   rail look, so the flip sits with SAMPLE / RANK on the matrix tile instead of a pill.
+        const _orAttr=(_cmpMode==='board')?'data-rborient':'data-cmporient';
+        const _orBtn=(k2,lab,tip)=>'<button '+_orAttr+'="'+k2+'" title="'+tip+'" style="height:20px;padding:0 8px;font-size:8px;letter-spacing:.5px;border-radius:6px;border:1px solid '+(_cOr===k2?'color-mix(in srgb,var(--text4) 55%,var(--border))':'var(--border)')+';background:'+(_cOr===k2?'var(--bg2)':'var(--bg1)')+';color:'+(_cOr===k2?'var(--text)':'var(--text4)')+';cursor:pointer">'+lab+'</button>';
+        const orientSeg=(_cmpMode==='board')
+          ?_ctlGrp('VIEW','which way round the matrix reads - metrics down the side (the 1E look) or strategies down the side',
+             _tabBtn(_orAttr+'="v"','▥ VERT',_cOr==='v','metrics as rows, strategies as columns - the 1E KPI matrix layout','#c4b5fd')
+            +_tabBtn(_orAttr+'="h"','▤ HORIZ',_cOr==='h','strategies as rows, metrics as columns - fits many strategies without sideways scrolling','#c4b5fd'),'#c4b5fd')
+          :'<span style="display:inline-flex;gap:3px">'+_orBtn('v','▥ VERT','runs as columns, metrics as rows')+_orBtn('h','▤ HORIZ','runs as rows, metrics as columns — fits many runs without sideways scrolling')+'</span>';
         const _scNote=((_cSc==='all')?'<div style="font-size:8px;color:var(--text5);margin-top:5px">IN-SAMPLE = each run best config measured on the window it was TUNED on — optimistic by construction. Switch to WALK-FORWARD or LOCKBOX for unseen-data-only comparisons, or TOTAL for the whole-run figure.'
           :(_cSc==='tot'?'<div style="font-size:8px;color:var(--text5);margin-top:5px">TOTAL = the whole run end to end (in-sample + walk-forward + lockbox) read off the champion equity curve — the same number as the TOTAL column in a run report KPI matrix. The indented rows split it into the three stages; in-sample is the residual (TOTAL − walk-forward − lockbox) so the three always add up. A run with no walk-forward / lockbox stage is marked "IS only".'
           :'<div style="font-size:8px;color:var(--text5);margin-top:5px">Out-of-sample slice — runs that did not run this test show a dash.'))
@@ -14120,7 +14139,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="overflow:auto;max-height:74vh">'+runs.map(_famRowOf).join('')+'</div>'
           +_famMoreNote);
         const _sampTag=(_rbS==='full')?'in-sample, then the blue walk-forward band, then the purple lockbox':((_rbS==='is')?'the IS stretch only':'the LB year only · every curve rebased to $0');
-        const funnelTile=tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px">1A · FUNNEL <span style="font-weight:400;color:var(--text5);font-size:8px">· one curve per strategy champion · '+_sampTag+'</span><button data-cmpexpand title="open the fullscreen multi-curve explorer" style="margin-left:auto;flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></div><div id="cmp-ovl-host" style="position:relative;min-height:300px">'+ovl+'</div>'
+        const funnelTile=tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden">1A · FUNNEL <span title="one curve per strategy champion · '+_sampTag+'" style="font-weight:400;color:var(--text5);font-size:8px;overflow:hidden;text-overflow:ellipsis;min-width:0">· '+_sampTag+'</span><button data-cmpexpand title="open the fullscreen multi-curve explorer" style="margin-left:auto;flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></div><div id="cmp-ovl-host" style="position:relative;min-height:300px">'+ovl+'</div>'
           +'<div style="font-size:8px;color:var(--text5);margin-top:6px;line-height:1.7">Every strategy runs its OWN window, so the bands span from the earliest door onward: un-shaded = in-sample, <span style="color:#60a5fa">blue = walk-forward</span>, <span style="color:#a78bfa">purple = lockbox</span> (dashed line = the middle strategy door). Line style per curve: solid in-sample, dashed walk-forward, dotted lockbox. The pill on the right of each line is that strategy ending $.</div>');
         const _rbScNote='<div style="font-size:8px;color:var(--text5);margin-top:6px;line-height:1.7">'
           +(_rbS==='full'?'FULL = the whole run end to end, read off the champion equity curve, split into the indented IS / WF / LB rows.':(_rbS==='is'?'IS = the optimize window - the stretch every config was TUNED on, optimistic by construction.':'LB = the lockbox year only, never touched during tuning - the honest forward read.'))
@@ -15053,6 +15072,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-rbr]').forEach(b=>{b.onclick=()=>{savePref('rbRank',b.dataset.rbr);renderApp();};});
       // VERT ⇄ HORIZ metric-table orientation toggle
       content.querySelectorAll('[data-cmporient]').forEach(b=>{b.onclick=()=>{savePref('cmpOrient',b.dataset.cmporient);renderApp();};});
+      // RUNBOARD keeps its own VERT/HORIZ pick so the 1E look survives COMPARE being left on HORIZ
+      content.querySelectorAll('[data-rborient]').forEach(b=>{b.onclick=()=>{savePref('rbOrient',b.dataset.rborient);renderApp();};});
       const _cex=content.querySelector('[data-cmpexpand]');if(_cex)_cex.onclick=()=>window.expandCompareEq(window._cmpEqxSeries);
       // v68.0: mount the live inline equity-overlay chart (crosshair, wheel zoom, drag pan,
       //   dbl-click reset, 2B-style key box) into the host the render just emitted.
