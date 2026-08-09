@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.20';
+const VERSION='71.21';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.21',date:'2026-08-08',notes:['Funnel key box nudged 5px down so it sits fully INSIDE the plot rather than starting in the boxs padding - at 4px its top edge was 2px above where the chart actually begins.']},
 {v:'71.20',date:'2026-08-08',notes:['THE GATE CURVE WAS NOT BEING DRAWN AT ALL. It was only built when the GATE chip was on, and that chip is saved off - so the key box was listing a GATE line with a dollar figure while the chart had no such line on it. The curve is always built now and simply hidden when the chip is off, exactly like the config cloud and the walk-forward group, so one click on the GATE key row draws it. That row reads dimmed while it is hidden.','And the gate curve is RED now - line, key row, gutter pill and chip together. It used to be drawn in the same pink family as the two hybrid lines running beside it, which is a large part of why it could not be found.','FUNNEL KEY is ordered by where each line FINISHES, best first, instead of a fixed RAW / GATE / TILT / HYBRID order - so the key reads top to bottom the way the chart does.','IS / WF / LB are off the funnel. The blue fold stripes and the purple lockbox stripe already mark those stretches and hovering either now names it with its dates and its numbers, so the floating tags were saying a third time what the chart says twice.','And with them gone the funnel needs no headroom band: the key box sits at the top edge of the plot and the gap between the chart and the tile above it is closed.']},
 {v:'71.19',date:'2026-08-08',notes:['TRADE CANDLES (71.16 follow-up, caught by looking at a real render): on a chart carrying more than one day, the day label and the nearest clock label were printing on top of each other - 15:30 and 04/08 landed on the same spot and neither could be read. The day label now wins and the clock label next to it stands down.','TRADE CANDLES: the VWAP line was joining one day close straight to the next day open, drawing a move that never happened. VWAP restarts every session, so the line now breaks at each day and draws one segment per session.']},
 {v:'71.18',date:'2026-08-08',notes:['Follow-up to 71.17: closing the funnel pane gap had quietly handed those units to the drawdown pane and grown it 15 percent. The equity floor drops by the same amount, so the gap is the only thing that changed.','And with the panes adjacent, the drawdown zero label was landing on top of the equity zero gridline. It steps aside when a scale number is already there, the same way the gutter drops a number under a pill.']},
@@ -9169,7 +9170,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               (_hyb2End!=null?('the same hybrid book sized up '+(_hyRdF||1).toFixed(2)+'x - the contracts the filter freed, put back to work')
                             :'the top hybrid refuses no trades on this run, so recycling frees nothing - same book, same size as HYBRID'),0]);
         _kOrder.sort(function(a,b){return ((b[2]!=null?b[2]:-Infinity)-(a[2]!=null?a[2]:-Infinity));});
-        _keyBox='<div data-a2krow style="position:absolute;top:4px;left:8px;background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;z-index:3">'
+        _keyBox='<div data-a2krow style="position:absolute;top:9px;left:8px;background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;z-index:3">'
           +_kOrder.map(function(r){return _kr(r[0],r[1],r[2],r[3],r[4],r[5]);}).join('')
           +'</div>';
         // v64.98 (owner: "add these to 2A as well"): the SAMPLE control is SHARED with the 2C
