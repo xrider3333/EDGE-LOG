@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.4';
+const VERSION='73.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.5',date:'2026-08-10',notes:['FIX on the new BOOK picker: GATE was re-deriving a DEFAULT model instead of the gate this run actually crowned - on run 203 it answered with logistic at 0.5 when the run crowns xgb at 0.45. The blotter now hands your PC the run own crowned model and cut-off, so the GATE / TILT / HYBRID books you see are the ones the report is talking about.']},
 {v:'73.4',date:'2026-08-09',notes:['The GATE SWEEP CHART has its own Y AXIS switch - MAR or NET $ - sitting on the chart itself. It used to follow the RANK button, which is a control for ordering matrix COLUMNS, so changing what the chart measured meant reaching for something that looks like it does something else entirely. Until the new switch is touched it still follows RANK, so nothing moves unless you ask it to.','Said plainly on the chart: every figure on it covers the TUNING YEARS ONLY - in-sample plus walk-forward - because that is all the pick was allowed to see. The GATE matrix above it totals whatever SAMPLE is ticked, so with LB ticked it reads higher by exactly the held-out year. Same model, same cut-off, different stretch. That is why rf at 50 percent can read 499k on the chart and 580k in the matrix, and both be correct. The axis title, the hover and a line under the chart all now say so.']},
 {v:'73.3',date:'2026-08-10',notes:['THE BLOTTER CAN NOW SHOW THE GATE, TILT AND HYBRID BOOKS, not just the crowned RAW config (owner ask). Pick RAW / GATE / TILT / HYBRID under the view switch: trades the gate would SKIP grey out and say SKIP, sized books show the size each trade gets, and the line above reports how many trades that book takes and what it does to the net.','These per-trade answers are NOT stored in the run - the run only ever saved the totals - so your PC re-derives them on demand, about 40 seconds for a 5,600-trade run.','Checked against the run own saved gate result before shipping: on run 203 the recomputed gate keeps 2,959 trades for 24,809.87 points, matching the saved figures exactly.','Every candle chart opened from the blotter still draws the same real bars - the book only changes which trades are taken and at what size.']},
 {v:'73.2',date:'2026-08-10',notes:['Cut-off sweep chart (1E GATE tab): the dashed hindsight curves are OFF by default and no longer stretch the y-axis. That was why the chart looked squashed on run 203 - one held-out year ran far past the tuning years and flattened every line that actually made the decision. A HINDSIGHT chip turns them back on when you want them.','The solid/dashed key, the hindsight warning and the hover tip moved off the caption and into the info icon.','The LB HELD chip under the sweep chart is gone - the gate verdict reads off the 2A funnel as a line, and the sentence now lives in the tab info icon and the section 3 GATE VALIDATE pill.']},
@@ -13575,7 +13576,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
           source:d.data_source||null,
           // the run's exact source — lets the runner rebuild a blotter even when the strategy
           // file has since been renamed/deleted (e.g. run 137's ORB_SIMPLE_1_0).
-          code:((typeof d.code_snapshot==='string'&&d.code_snapshot.length>100)?d.code_snapshot:null)};
+          code:((typeof d.code_snapshot==='string'&&d.code_snapshot.length>100)?d.code_snapshot:null),
+          // v73.4: pin the run's OWN crowned gate so the blotter BOOK picker re-derives THAT
+          // gate rather than a default one - without it the picker quietly answered with a
+          // different model than the report crowns. The single matching candidate rides along
+          // so the PC can prove its recompute against the run's saved figures.
+          gate_validate:(function(){try{var gv=d.gate_validate||{},ch=gv.chosen||null;if(!ch)return null;
+            var cands=(gv.candidates||[]).filter(function(c){return String(c.model)===String(ch.model)&&Math.abs((+c.threshold)-(+ch.threshold))<1e-6;})
+              .map(function(c){return {model:c.model,threshold:c.threshold,full:(c.full?{num_trades:c.full.num_trades,total_pnl:c.full.total_pnl}:null)};});
+            return {chosen:{model:ch.model,threshold:ch.threshold},lockbox_from:gv.lockbox_from||null,lockbox_months:gv.lockbox_months||null,candidates:cands};}catch(_g){return null;}})()};
         return ' data-eqx="'+encodeURIComponent(JSON.stringify(pay))+'" data-eqblot="'+encodeURIComponent(JSON.stringify(blot))+'"';
       }catch(_e){return '';}})();
       let _panelEquity='',_panelMatrix='',_panelRegime='',_panelMae='',_panelTD='',_distTile='';
