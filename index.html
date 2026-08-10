@@ -447,6 +447,7 @@ const VERSION='71.94';
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
 {v:'71.94',date:'2026-08-09',notes:['Fix: the CHAMPION / FUNNEL tabs were dead when you opened the CHAMPION chart first. The code that wires them only came into existence once the funnel explorer had been opened at least once, so whichever chart you expanded first got two painted but unclickable tabs.']},
+{v:'71.94',date:'2026-08-09',notes:['LOOK-ALIKE SETUPS: the win-rate chip was multiplying an already-finished percentage, so a 36 percent group printed 3610 percent. Reads correctly now.']},
 {v:'71.93',date:'2026-08-09',notes:['HOTFIX: every run report died with "Cannot access _actSel before initialization" - the new header action tray was a const that could be read before its initializer ran. It is a hoisted function now, which cannot land in that state.']},
 {v:'71.93',date:'2026-08-09',notes:['CRITICAL FIX: EVERY run report has been failing to open since 71.90 - the panel just said the run detail could not render. The header rebuild in that version accidentally absorbed the line that starts the report header, leaving that block referring to itself. Reports open again.']},
 {v:'71.92',date:'2026-08-09',notes:['NEW - LOOK-ALIKE SETUPS (owner idea): a button on the blotter that hunts for trades whose price action BEFORE the entry is near-identical, the setups that look copy-pasted. Your PC strips out price level and volatility so only the SHAPE is compared, then groups everything 97 percent alike or better. Each group shows how many trades, how alike they are, the average result, the win rate and a sketch of the shared shape - and SEE THESE CHARTS stacks that group in the gallery so you can eyeball them side by side.','It tells you when a group is just luck. With thousands of trades there are millions of pairs, so some look-alikes are guaranteed by chance. Every group is tested against shuffled data and corrected for the number of groups tested at once - only the ones that survive are tagged SIGNAL, everything else says CHANCE.','This needs the PC runner restarted once to answer the new request.']},
@@ -3933,7 +3934,7 @@ window.openBlotterModal=async function(B){
       +'<div style="display:flex;gap:5px;flex-wrap:wrap;flex:1 1 auto;min-width:0">'
       +chip(g.n+' TRADES')+chip(Math.round(g.mean_corr*100)+'% ALIKE')
       +chip('AVG '+$(g.mean_pnl_usd),g.mean_pnl_usd>=0?'var(--green)':'var(--red)')
-      +chip(Math.round(g.win_rate*100)+'% WIN')+badge(g)
+      +chip(Math.round(g.win_rate)+'% WIN')+badge(g)   // the scan already returns a percent
       +'</div>'
       +'<span data-lagal="'+i+'" style="cursor:pointer;font-size:9px;font-weight:700;letter-spacing:.5px;padding:5px 11px;border-radius:8px;border:1px solid color-mix(in srgb,var(--blue) 60%,var(--border));color:var(--blue);flex:0 0 auto">SEE THESE '+g.n+' CHARTS</span></div>').join('');
     body.querySelectorAll('[data-lagal]').forEach(b3=>{b3.onclick=()=>{
