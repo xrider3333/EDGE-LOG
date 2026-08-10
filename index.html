@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.0';
+const VERSION='73.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.1',date:'2026-08-10',notes:['Greying a strategy on the funnel key now fades its DRAWDOWN trace too. The equity line went faint but its underwater shading stayed at full strength, so a greyed strategy was still shouting from the lower pane.']},
 {v:'73.0',date:'2026-08-10',notes:['PAPER Layer 1 - NinjaTrader Sim101 auto-trading strategies added to the repo (tools/nt): EdgeLogORB30 and EdgeLogENGUQ1m, ports of the two crowned configs the shadow trader runs, plus a setup checklist (SIM101_SETUP.md). No app change - compile and enable them inside NinjaTrader; their Sim101 fills flow into the trade log automatically.']},
 {v:'72.9',date:'2026-08-09',notes:['The GREY step of the key cycle now actually greys the line. The click was recording the state but the chart was still drawing that strategy at full strength, so grey and shown looked identical. All three segments of a curve fade together.']},
 {v:'72.8',date:'2026-08-10',notes:['Ship tool fixes (dev-side, no UI change) - the version-realign step no longer skips silently on Windows, so a push can never step the site version backward again; and the pre-push boot gate now tests the worktree copy of the site that is actually being pushed, not the shared checkout.']},
@@ -5999,8 +6000,8 @@ window.cmpOvlMount=function(hostId){
     s+='</g><g clip-path="url(#'+hostId+'-clip)">';
     S.forEach(sr=>{const dd=ddMap[sr.id],ddPts=sr.pts.map((p,i)=>({x:p.x,v:dd[i]})),dvis=_clipN(ddPts);
       if(dvis.length<2)return;
-      s+='<path d="M '+X(g,dvis[0].x).toFixed(1)+' '+Yd(0).toFixed(1)+' '+dvis.map(p=>'L '+X(g,p.x).toFixed(1)+' '+Yd(p.v).toFixed(1)).join(' ')+' L '+X(g,dvis[dvis.length-1].x).toFixed(1)+' '+Yd(0).toFixed(1)+' Z" fill="'+sr.color+'" opacity="0.10" stroke="none"/>'
-        +'<path data-sr="'+sr.id+'" d="'+seg(g,dvis,Yd)+'" fill="none" stroke="'+sr.color+'" stroke-width="0.9" opacity="0.9"/>';});
+      s+='<path d="M '+X(g,dvis[0].x).toFixed(1)+' '+Yd(0).toFixed(1)+' '+dvis.map(p=>'L '+X(g,p.x).toFixed(1)+' '+Yd(p.v).toFixed(1)).join(' ')+' L '+X(g,dvis[dvis.length-1].x).toFixed(1)+' '+Yd(0).toFixed(1)+' Z" fill="'+sr.color+'" opacity="'+(GRY.has(String(sr.id))?'0.03':'0.10')+'" stroke="none"/>'
+        +'<path data-sr="'+sr.id+'" d="'+seg(g,dvis,Yd)+'" fill="none" stroke="'+sr.color+'" stroke-width="0.9" opacity="'+(GRY.has(String(sr.id))?'0.15':'0.9')+'"/>';});
     s+='</g>';
     // 1A MODE: ENDPOINT $ PILLS in the right gutter — each curve's ending value at its own exact
     //   y, dark text on the curve's colour (1A pins its final $ the same way). Pills that would
