@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.50';
+const VERSION='71.51';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -8628,10 +8628,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _hf=(get,hiGood)=>{const nums=cols.map(get).filter(v=>v!=null&&isFinite(v));
           if(nums.length<2)return null;const mn=Math.min.apply(null,nums),mx=Math.max.apply(null,nums);
           // v71.36: flat row = one uniform tint, not blank. See the note on the GATE heat fn.
-          if(!(mx-mn>1e-9))return c=>{const v=get(c);return (v==null||!isFinite(v))?null:'hsla(62,68%,45%,0.090)';};
+          if(!(mx-mn>1e-9))return c=>{const v=get(c);return (v==null||!isFinite(v))?null:'hsla(62,62%,44%,0.060)';};
           return c=>{const v=get(c);if(v==null||!isFinite(v))return null;
             let t=(v-mn)/(mx-mn);if(!hiGood)t=1-t;
-            return 'hsla('+Math.round(4+116*t)+',68%,45%,'+(0.09+0.24*Math.abs(t-0.5)*2).toFixed(3)+')';};};
+            return 'hsla('+Math.round(4+116*t)+',62%,44%,'+(0.06+0.16*Math.abs(t-0.5)*2).toFixed(3)+')';};};
         const _pick={'IS $':c=>c.isV,'WF $':c=>c.wfV,'LB $':c=>c.lbSlice,'TOTAL':_b2tot,
           'DD':c=>c.mdd!=null?-Math.abs(c.mdd):null,'MAR':c=>c.mar,'SHARPE':c=>c.sharpe,
           'FOLDS HELD':c=>c.foldsHeld,'PF':c=>c.mmPf,'WIN %':c=>c.mmWr,'$ / TRADE':c=>c.mmApt,'TRADES':c=>c.mmN};
@@ -9433,12 +9433,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   now follows the widest pill (emoji count double), floor 44 so short runs look
         //   unchanged, ceiling 68 so it can never eat the plot.
         const _pgW=labs.reduce((m,L)=>{let u=0;for(const ch of String(L.txt||''))u+=(ch.charCodeAt(0)>255?2:1);return Math.max(m,u);},0);
-        const _gutW=Math.max(44,Math.min(68,Math.round(_pgW*5.2+11)));
+        const _gutW=Math.max(66,Math.min(94,Math.round(_pgW*5.2+11)+26));
         _gutterHtml='<div style="width:'+_gutW+'px;min-width:'+_gutW+'px;position:relative;font-size:8px;color:var(--text5)">'
           +'<div style="position:absolute;left:0;right:0;top:6px;bottom:6px">'
           +((_ddTop!=null&&!_gls.some(L=>Math.abs(Yv(L)-_ddTop)<7))?('<span style="position:absolute;left:3px;top:'+((_ddTop/H)*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:var(--text4)">$0</span>'):'')
-          +_gls.map(L=>{const ly=Yv(L);if(labs.some(p=>Math.abs(p.y-ly)<7))return '';return '<span style="position:absolute;left:2px;top:'+(ly/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</span>';}).join('')
-          +labs.map(L=>'<span'+(L.kg?(' data-pg="'+L.kg+'"'):'')+' style="position:absolute;left:1px;top:'+(L.y/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;font-weight:800;color:#04130c;background:'+L.col+';padding:0 4px;border-radius:4px;z-index:2">'+L.txt+'</span>').join('')
+          +_gls.map(L=>{const ly=Yv(L);return '<span style="position:absolute;left:1px;font-size:7px;top:'+(ly/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</span>';}).join('')
+          +labs.map(L=>'<span'+(L.kg?(' data-pg="'+L.kg+'"'):'')+' style="position:absolute;right:1px;top:'+(L.y/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;font-weight:800;color:#04130c;background:'+L.col+';padding:0 4px;border-radius:4px;z-index:2">'+L.txt+'</span>').join('')
           +'</div></div>';
         const _kRows=[];
         if(_crV!=null)_kRows.push(['👑','crowned',_kUsd(_crV),'#1d9e75','crown']);
@@ -11310,10 +11310,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   SAME number is not a row the heat map skipped - it is a flat row, and a heat map of
           //   a flat row is one uniform colour. Paint the mid-scale tint so it reads as measured
           //   and equal instead of looking like the shading missed it.
-          if(!(mx-mn>1e-9))return col=>{const v=get(col);return (v==null||!isFinite(v))?null:'hsla(62,68%,45%,0.090)';};
+          if(!(mx-mn>1e-9))return col=>{const v=get(col);return (v==null||!isFinite(v))?null:'hsla(62,62%,44%,0.060)';};
           return col=>{const v=get(col);if(v==null||!isFinite(v))return null;
             let t=(v-mn)/(mx-mn);if(!hiGood)t=1-t;
-            return 'hsla('+Math.round(4+116*t)+',68%,45%,'+(0.09+0.24*Math.abs(t-0.5)*2).toFixed(3)+')';};};
+            return 'hsla('+Math.round(4+116*t)+',62%,44%,'+(0.06+0.16*Math.abs(t-0.5)*2).toFixed(3)+')';};};
         const _hRow=(o,get,hiGood)=>{const f=_heatFn(get,hiGood);if(f)o.cellBg=f;return o;};
         const _needRerun='this run predates the engine build that saves each variant per-trade profile for this period, so profit factor, win rate and trade count cannot be shown here. Re-run this config to fill them in.';
         const _ddTip=(_g2samp==='pre')
@@ -11716,10 +11716,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
             const _hf=(get,hiGood)=>{const nums=cols.map(get).filter(v=>v!=null&&isFinite(v));
               if(nums.length<2)return null;const mn=Math.min.apply(null,nums),mx=Math.max.apply(null,nums);
               // v71.36: flat row = one uniform tint, not blank. See the note on the GATE heat fn.
-              if(!(mx-mn>1e-9))return c=>{const v=get(c);return (v==null||!isFinite(v))?null:'hsla(62,68%,45%,0.090)';};
+              if(!(mx-mn>1e-9))return c=>{const v=get(c);return (v==null||!isFinite(v))?null:'hsla(62,62%,44%,0.060)';};
               return c=>{const v=get(c);if(v==null||!isFinite(v))return null;
                 let t=(v-mn)/(mx-mn);if(!hiGood)t=1-t;
-                return 'hsla('+Math.round(4+116*t)+',68%,45%,'+(0.09+0.24*Math.abs(t-0.5)*2).toFixed(3)+')';};};
+                return 'hsla('+Math.round(4+116*t)+',62%,44%,'+(0.06+0.16*Math.abs(t-0.5)*2).toFixed(3)+')';};};
             const _pick={'IS $':[c=>_sl$(c,'is'),true],'WF $':[c=>_sl$(c,'wf'),true],'LB $':[c=>_sl$(c,'lb'),true],
               'TOTAL':[c=>_szP(c).net,true],
               'MAR':[_szMar,true],'DD':[c=>{const v=_szP(c).dd;return v!=null?-v:null;},true],
@@ -12570,11 +12570,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _layOpts=[['classic','CLASSIC'],['dense','DASHBOARD'],['funnel','FUNNEL β'],['gauges','GAUGES β'],['pills','PILLS β']];
       const _laySel='<select data-replaysel title="REPORT LAYOUT - CLASSIC is the primary numbered view; the others regroup the same panels (dashboard grid, 5-question funnel, gauges, pills). Nothing is deleted, flip back any time." style="'+_laySelSty+'">'
         +_layOpts.map(function(o){return '<option value="'+o[0]+'"'+(_repLay===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>';
-      const _colSel='<select data-repcolsel title="COLUMNS - how many tiles sit side by side in the CLASSIC report. Under roughly 700px wide it always renders as 1 regardless of the pick." style="'+_laySelSty+';max-width:62px">'
-        +[['3','3 COL'],['2','2×2'],['1','1 COL']].map(function(o){return '<option value="'+o[0]+'"'+(_repColsSel===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>';
+      const _colSel='<select data-repcolsel title="COLUMNS - how many tiles sit side by side in the CLASSIC report. Under roughly 700px wide it always renders as 1 regardless of the pick." style="'+_laySelSty+';max-width:104px">'
+        +[['3','3 COLUMNS'],['2','2 × 2'],['1','1 COLUMN']].map(function(o){return '<option value="'+o[0]+'"'+(_repColsSel===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>';
       const hdrHtml='<div id="res-head" style="display:flex;align-items:center;gap:7px;margin:0 0 10px;white-space:nowrap;position:sticky;position:-webkit-sticky;top:47px;z-index:6;background:transparent;padding:3px 0">'
         +'<span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:13px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span>'
-        +'<span class="lbl" style="font-size:11px;letter-spacing:1px;color:var(--text4);flex:0 0 auto">REPORT: '+d.id+((d.famKey&&d.famSeq!=null)?' <span title="family run id — chronological within '+d.famKey+', stable" style="color:var(--text3);font-weight:700">· '+d.famKey+'-'+d.famSeq+'</span>':'')+'</span>'
+        +'<span style="font-size:11px;font-weight:800;letter-spacing:0;color:var(--text);flex:0 0 auto">REPORT: '+d.id+((d.famKey&&d.famSeq!=null)?' <span title="family run id — chronological within '+d.famKey+', stable" style="color:var(--text3);font-weight:700">· '+d.famKey+'-'+d.famSeq+'</span>':'')+'</span>'
         +'<span style="font-size:11px;font-weight:400;line-height:1;flex:0 0 auto;padding-right:2px;display:inline-flex;align-items:center">'+stratTag(d.strategy,'11px',400)+'</span>'
         // the numbered checklist "tiles" now live INLINE in the header (fill the middle, squish to fit)
         +'<span id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex:1 1 auto;min-width:40px;overflow:hidden">'+segs+'</span>'
