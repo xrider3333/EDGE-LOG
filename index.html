@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.53';
+const VERSION='71.54';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.54',date:'2026-08-09',notes:['CANDLE WINDOW is now a full viewer (owner asks): PREV / NEXT buttons and the LEFT/RIGHT ARROW KEYS step to the neighbouring trade in the blotter current sort order, with a ROW x / y position readout.','TOP 10 menu in the same row jumps straight to any of the ten biggest winners or ten biggest losers of the run.','ZOOM: drag across the candles to zoom to that stretch, the TRADE button zooms to the held window with some context, FULL or a double-click shows everything again.','SAVE PNG downloads the current view as an image, named by run and trade number.','Stepping is fast: each trade bars are kept once fetched, and the two neighbouring trades quietly pre-load in the background while you look at the current one.']},
 {v:'71.53',date:'2026-08-09',notes:['RUNBOARD ranking: a run whose window is under two years is now placed LAST no matter what RANK BY says. A 19-day run with a 116 dollar drawdown was scoring a MAR of 1400 and taking the leading column off a sixteen-year book. That is not a comparison, it is dividing by almost nothing. Those runs stay on the board - hiding them would be worse - but they can never head the ranking.','TRADES on the whole-run view is filled in now: the optimize-window count plus the walk-forward out-of-sample counts plus the lockbox count, the same sum the run report KPI matrix adds up. It was showing a dash for everything except books.']},
 {v:'71.52',date:'2026-08-09',notes:['RUNBOARD matrix rebuilt to match how 1E is ACTUALLY laid out. 1E is metrics only - no band of text rows at the top. The board was printing Strategy, Market, Scope, Window and Stages as five prose rows, which is what made it read as a wall of text instead of a table you can scan.','A column is now a short name plus the years it covers, and nothing else. Strategy, market, scope and the exact dates are on hover, the way 1E puts its date range under the stage name.','Rows sit in the 1E bands: RETURN with the money row leading and the stage split indented beneath it, then DRAWDOWN, REWARD divided by RISK, EDGE, SAMPLE and VERDICT. FULL now carries MAR, PF, win rate, dollars per trade and trades instead of stopping at the net split.','Honest dashes: only a book records a whole-run profit factor, win rate and dollars per trade, because only a book re-measures its own pooled trades. Every other run shows a dash there rather than borrowing its optimize-window figure and calling it a whole-run number.','ROBUSTNESS was printing NaN on a book run. It shows a dash now - that score was never defined for a book.','A short window is flagged with a yellow warning mark on the column head itself, not just in a row.']},
 {v:'71.49',date:'2026-08-09',notes:['BOOKS table fix: every lockbox run was showing up as a book, because the word LOCKBOX contains the letters book. A row is a book only if it actually carries pooled book results now.','BOOK row numbers all describe the SAME stretch. A row was mixing a whole-run net with an in-sample profit factor and in-sample trade count, which reads as nonsense. Net, PF, drawdown, MAR and trades now all come from the stretch the SAMPLE tabs are on.']},
@@ -3533,89 +3534,215 @@ window.expandEquity=function(host){
       if(B&&B.run_id!=null)_blotPut(B.run_id,{rows:r.rows||[],capped:r.capped||null,source:r.source||null,master:r.master||null,ts:Date.now()}).catch(()=>{});
     }catch(err){clearInterval(btick);blotBtn.textContent='▦ TRADES';blotBtn.disabled=false;alert('Blotter load failed: '+err.message);}
   };
-  // per-trade candle chart — fetches this trade's session bars (± context) off the PC
-  // runner and opens candleSVG() in the generic expandChart modal (docs/VISUAL_TRADE_REPORT.md §3).
+  // ── per-trade candle chart (docs/VISUAL_TRADE_REPORT.md §3) — fetches session bars off
+  //    the PC runner into a small in-modal viewer: PREV/NEXT + arrow keys step through the
+  //    blotter in its CURRENT sort order, a TOP 10 menu jumps to the biggest winners/losers,
+  //    drag across the candles zooms to that bar range (double-click resets, TRADE zooms to
+  //    the held window), SAVE PNG downloads the current view. Bars cache per trade, so a
+  //    revisit / zoom / nav-back is instant — only a first visit costs the runner trip. ──
+  const _barsCache={};
+  const _cndl={api:null,x:null,r:null,view:null,seq:0};
+  const _navRows=()=>{   // the table's exact current order (same sort+filter renderBlot shows)
+    let rows=(blotRows||[]).slice();
+    if(blFilt==='win')rows=rows.filter(q=>q._usd>0);else if(blFilt==='loss')rows=rows.filter(q=>q._usd<0);
+    const k=blSort.k,dir=blSort.dir;
+    rows.sort((a2,b2)=>((a2[k]>b2[k])?1:(a2[k]<b2[k])?-1:0)*dir);
+    return rows;
+  };
+  const _sideOf=x=>{
+    if(x._side)return x._side;
+    const gross=x._pts+((B&&B.cost_pts)||0);
+    return (Math.abs((x._xp-x._ep)-gross)<=Math.abs((x._ep-x._xp)-gross))?'long':'short';
+  };
+  const _cndlAlive=()=>_cndl.api&&_cndl.api.modal&&document.body.contains(_cndl.api.modal);
+  const _cndlTitle=t=>{if(!_cndlAlive())return;const el3=_cndl.api.modal.querySelector('div[style*="Bebas"]');if(el3)el3.textContent=t;};
+  // render the CURRENT view slice of the cached bars — pure client-side, instant.
+  const _renderCandle=()=>{
+    if(!_cndlAlive()||!_cndl.r)return;
+    const x=_cndl.x,r=_cndl.r,all=r.bars||[];
+    let [lo3,hi3]=_cndl.view||[0,all.length-1];
+    lo3=Math.max(0,lo3);hi3=Math.min(all.length-1,hi3);if(hi3-lo3<3){lo3=0;hi3=all.length-1;}
+    const bars=all.slice(lo3,hi3+1);
+    const ovs={};Object.keys(r.overlays||{}).forEach(k3=>{ovs[k3]=(r.overlays[k3]||[]).slice(lo3,hi3+1);});
+    const side=_sideOf(x);
+    const eIn=(r.entry_idx!=null&&r.entry_idx>=lo3&&r.entry_idx<=hi3),xIn=(r.exit_idx!=null&&r.exit_idx>=lo3&&r.exit_idx<=hi3);
+    const markers={entryPrice:x._ep,exitPrice:x._xp,side:side,pnlUsd:x._usd};
+    if(eIn)markers.entryIdx=r.entry_idx-lo3;
+    if(xIn)markers.exitIdx=r.exit_idx-lo3;
+    if(eIn&&xIn){markers.shadeFrom=r.entry_idx-lo3;markers.shadeTo=r.exit_idx-lo3;}
+    _cndl.api.setSvg(window.candleSVG(bars,ovs,markers,{}));
+    const meta=r.meta||{},zoomed=(lo3>0||hi3<all.length-1);
+    _cndlTitle('TRADE #'+x._no+' · CANDLES');
+    _cndl.api.setSub('champion config &middot; entry '+x._et+' &rarr; exit '+x._xt2+' &middot; '+(side==='long'?'LONG':'SHORT')
+      +' &middot; net <span style="color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x._usd)+'</span>'
+      +(meta.master?' &middot; master: '+meta.master:'')
+      +(zoomed?' &middot; <span style="color:var(--blue)">zoomed '+bars.length+' of '+all.length+' bars — double-click for all</span>':'')
+      +(x._side?'':' &middot; <span style="color:var(--amber,#f5c842)">saved blotter — exit price is the exit bar close; Shift+click TRADES to regenerate for the true fill</span>'));
+    _wireCandleSvg(bars,ovs,lo3);
+    _syncCndlCtl();
+  };
+  // hover OHLC readout + drag-zoom live on the svg node, so they re-wire on every render.
+  const _wireCandleSvg=(bars,ovs,lo3)=>{
+    const svgEl2=_cndl.api.modal.querySelector('#chart-body svg');if(!svgEl2)return;
+    const W2=1080,mL2=58,xStep2=(W2-mL2-14)/bars.length;
+    const _f2=v2=>(+v2).toLocaleString('en-US');
+    const ro=_cndl.api.ctl.querySelector('#cndl-ro');
+    svgEl2.style.cursor='crosshair';
+    const _barAt=ev=>{const rc=svgEl2.getBoundingClientRect();if(!(rc.width>0))return null;
+      const i2=Math.floor(((ev.clientX-rc.left)/rc.width*W2-mL2)/xStep2);return (i2<0||i2>=bars.length)?null:i2;};
+    svgEl2.addEventListener('mousemove',ev=>{
+      const i2=_barAt(ev);if(i2==null||!ro)return;
+      const b2=bars[i2],up2=b2.c>=b2.o;
+      let ov2='';
+      Object.keys(ovs).forEach(k2=>{const v2=(ovs[k2]||[])[i2];if(v2!=null)ov2+=' &middot; '+String(k2).toUpperCase()+' '+_f2(v2);});
+      ro.innerHTML='<b style="color:var(--text2)">'+b2.t+'</b> &middot; O '+_f2(b2.o)+' &middot; H '+_f2(b2.h)+' &middot; L '+_f2(b2.l)
+        +' &middot; C <b style="color:'+(up2?'var(--green)':'var(--red)')+'">'+_f2(b2.c)+'</b>'
+        +(b2.v?' &middot; V '+_f2(b2.v):'')+ov2;
+    });
+    // drag across the candles = zoom to that bar range (like brushing a chart axis).
+    // stopPropagation so the modal shell does not treat the drag as a pan.
+    svgEl2.addEventListener('mousedown',ev=>{
+      if(ev.button!==0)return;ev.stopPropagation();ev.preventDefault();
+      const i0=_barAt(ev);if(i0==null)return;
+      const rc=svgEl2.getBoundingClientRect();
+      const band=document.createElement('div');
+      band.style.cssText='position:fixed;top:'+rc.top+'px;height:'+rc.height+'px;background:color-mix(in srgb,var(--blue) 18%,transparent);border-left:1px solid var(--blue);border-right:1px solid var(--blue);pointer-events:none;z-index:10003';
+      document.body.appendChild(band);
+      let iEnd=i0;
+      const _px=i2=>rc.left+((mL2+(i2+0.5)*xStep2)/W2)*rc.width;
+      const mv=e2=>{const i2=_barAt(e2);if(i2!=null)iEnd=i2;
+        const a3=Math.min(i0,iEnd),b3=Math.max(i0,iEnd);
+        band.style.left=_px(a3)+'px';band.style.width=Math.max(2,_px(b3)-_px(a3))+'px';};
+      const up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);band.remove();
+        const a3=Math.min(i0,iEnd),b3=Math.max(i0,iEnd);
+        if(b3-a3>=3){_cndl.view=[lo3+a3,lo3+b3];_renderCandle();}};
+      window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);
+    });
+    svgEl2.addEventListener('dblclick',ev=>{ev.stopPropagation();_cndl.view=null;_renderCandle();});
+  };
+  // control row: built ONCE per modal, then kept in sync per trade/view.
+  const _buildCndlCtl=()=>{
+    const ctl=_cndl.api.ctl;ctl.innerHTML='';
+    const bs='background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:4px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px';
+    ctl.insertAdjacentHTML('beforeend',
+      '<button id="cndl-prev" style="'+bs+'">&lsaquo; PREV</button>'
+      +'<span id="cndl-pos" style="font-size:9px;color:var(--text5);letter-spacing:1px;white-space:nowrap"></span>'
+      +'<button id="cndl-next" style="'+bs+'">NEXT &rsaquo;</button>'
+      +'<select id="cndl-top" style="'+bs.replace('cursor:pointer','cursor:pointer;max-width:210px')+'"></select>'
+      +'<button id="cndl-ztrade" title="zoom to the held window plus a little context" style="'+bs+'">&#128269; TRADE</button>'
+      +'<button id="cndl-zfull" title="show every fetched bar (or double-click the chart)" style="'+bs+'">FULL</button>'
+      +'<button id="cndl-save" title="download the current view as a PNG image" style="'+bs+'">&#10515; SAVE PNG</button>'
+      +'<div id="cndl-ro" style="font-size:11px;color:var(--text3);min-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 100%"><span style="color:var(--text5)">hover a candle to read its OHLC &middot; drag across candles to zoom</span></div>');
+    const g=id=>ctl.querySelector('#'+id);
+    g('cndl-prev').onclick=()=>_cndlStep(-1);
+    g('cndl-next').onclick=()=>_cndlStep(1);
+    g('cndl-ztrade').onclick=()=>{const r=_cndl.r;if(!r||r.entry_idx==null)return;
+      const e3=r.entry_idx,x3=(r.exit_idx!=null?r.exit_idx:e3);
+      _cndl.view=[e3-20,x3+20];_renderCandle();};
+    g('cndl-zfull').onclick=()=>{_cndl.view=null;_renderCandle();};
+    g('cndl-save').onclick=()=>_saveCandlePNG();
+    g('cndl-top').onchange=ev=>{const no=+ev.target.value;if(!no)return;
+      const x2=(blotRows||[]).find(q=>q._no===no);ev.target.value='';if(x2)_loadTrade(x2);};
+  };
+  const _syncCndlCtl=()=>{
+    if(!_cndlAlive())return;
+    const ctl=_cndl.api.ctl,g=id=>ctl.querySelector('#'+id);
+    const rows=_navRows(),i3=rows.findIndex(q=>q._no===(_cndl.x&&_cndl.x._no));
+    if(g('cndl-pos'))g('cndl-pos').textContent=(i3>=0?('ROW '+(i3+1)+' / '+rows.length+' (table order)'):'');
+    if(g('cndl-prev'))g('cndl-prev').disabled=!(i3>0);
+    if(g('cndl-next'))g('cndl-next').disabled=!(i3>=0&&i3<rows.length-1);
+    const sel=g('cndl-top');
+    if(sel&&!sel.options.length){
+      const by=(blotRows||[]).slice().sort((a2,b2)=>b2._usd-a2._usd);
+      const win=by.slice(0,10),los=by.slice(-10).reverse();
+      const opt=(x2,tag)=>'<option value="'+x2._no+'">'+tag+' '+fmt$(x2._usd)+' &middot; #'+x2._no+' &middot; '+String(x2._et).slice(0,10)+'</option>';
+      sel.innerHTML='<option value="">TOP 10 &#9662;</option>'
+        +'<optgroup label="BIGGEST WINNERS">'+win.map(x2=>opt(x2,'&#9650;')).join('')+'</optgroup>'
+        +'<optgroup label="BIGGEST LOSERS">'+los.map(x2=>opt(x2,'&#9660;')).join('')+'</optgroup>';
+    }
+  };
+  const _cndlStep=d=>{
+    const rows=_navRows(),i3=rows.findIndex(q=>q._no===(_cndl.x&&_cndl.x._no));
+    if(i3<0)return;const nx=rows[i3+d];if(nx)_loadTrade(nx);
+  };
+  // save the CURRENT view as a PNG — the svg uses CSS variables, which die outside the page,
+  // so they are resolved to literal colors before rasterising (2x for crispness).
+  const _saveCandlePNG=()=>{
+    const svgEl2=_cndlAlive()?_cndl.api.modal.querySelector('#chart-body svg'):null;if(!svgEl2)return;
+    const cs=getComputedStyle(document.documentElement);
+    const raw=svgEl2.outerHTML.replace(/var\((--[a-z0-9-]+)(?:,[^)]*)?\)/gi,(m2,v2)=>{const c2=cs.getPropertyValue(v2).trim();return c2||'#888';});
+    const vb=(svgEl2.getAttribute('viewBox')||'0 0 1080 360').split(/\s+/),W3=+vb[2]||1080,H3=+vb[3]||360;
+    const img=new Image();
+    img.onload=()=>{
+      const cv=document.createElement('canvas');cv.width=W3*2;cv.height=H3*2;
+      const cx2=cv.getContext('2d');
+      cx2.fillStyle=cs.getPropertyValue('--bg').trim()||'#0d1117';cx2.fillRect(0,0,cv.width,cv.height);
+      cx2.drawImage(img,0,0,cv.width,cv.height);
+      const name='run'+((B&&B.run_id)!=null?B.run_id:'')+'_trade'+(_cndl.x?_cndl.x._no:'')+'_candles.png';
+      const url=cv.toDataURL('image/png');
+      window._lastCandlePNG={name:name,bytes:url.length};   // test hook
+      const a2=document.createElement('a');a2.href=url;a2.download=name;a2.click();
+    };
+    img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(raw);
+  };
+  // fetch (or cache-hit) one trade into the open modal.
+  const _loadTrade=async(x)=>{
+    if(!_cndlAlive())return;
+    const seq=++_cndl.seq;
+    _cndl.x=x;_cndl.view=null;
+    _cndlTitle('TRADE #'+x._no+' · CANDLES');
+    _syncCndlCtl();
+    const hit=_barsCache[x._no];
+    if(hit){_cndl.r=hit;_renderCandle();_prefetchNeighbors(x);return;}
+    // wait state INSIDE the existing modal: swap the svg for a stub and show the counter
+    // in the sub line (the body cannot be innerHTML-wiped — the crosshair divs live there).
+    _cndl.api.setSvg('<svg viewBox="0 0 1080 8" style="display:block;height:6px"></svg>');
+    const t0=Date.now();
+    const tick=setInterval(()=>{if(!_cndlAlive()||_cndl.seq!==seq){clearInterval(tick);return;}
+      _cndl.api.setSub('<b style="color:var(--blue)">FETCHING FROM YOUR PC… '+Math.round((Date.now()-t0)/1000)+'s</b> &middot; ~30s normally; up to 5 min behind a running backtest');},500);
+    try{
+      const r=await _runCmd('get_bars',Object.assign({},B,{entry_time:x._et,exit_time:x._xt2,pad_sessions:1}),300000);
+      clearInterval(tick);
+      _barsCache[x._no]=r;
+      if(!_cndlAlive()||_cndl.seq!==seq)return;   // closed, or user already navigated on
+      _cndl.r=r;_renderCandle();_prefetchNeighbors(x);
+    }catch(err){
+      clearInterval(tick);
+      if(!_cndlAlive()||_cndl.seq!==seq)return;
+      _cndl.api.setSub('<span style="color:var(--red)">candle load failed: '+String(err&&err.message||err).replace(/</g,'&lt;')+'</span> &middot; is the runner awake? PREV/NEXT or TOP 10 retries');
+    }
+  };
+  // quietly warm the cache for the neighbours in table order — stepping feels instant.
+  const _prefetchNeighbors=(x)=>{
+    const rows=_navRows(),i3=rows.findIndex(q=>q._no===x._no);
+    [rows[i3-1],rows[i3+1]].forEach(nb=>{
+      if(!nb||_barsCache[nb._no]||nb._pf)return;nb._pf=1;
+      _runCmd('get_bars',Object.assign({},B,{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
+        .then(r=>{_barsCache[nb._no]=r;}).catch(()=>{}).finally(()=>{nb._pf=0;});
+    });
+  };
   const _openCandles=async(x,glyphEl)=>{
-    if(glyphEl&&glyphEl._busy)return;   // a fetch is already in flight for this row
+    if(_cndlAlive()){_loadTrade(x);return;}   // already open — just switch trades
+    if(glyphEl&&glyphEl._busy)return;
     if(glyphEl)glyphEl._busy=1;
     const origTxt=glyphEl?glyphEl.textContent:'';
     if(glyphEl)glyphEl.textContent='⏳ …';
-    // the modal opens IMMEDIATELY with a progress body — the bar fetch is a real round trip
-    // to the PC runner (~30s, longer if a backtest is running there), and a bare hourglass on
-    // the row read as "stuck" (owner). setSvg needs an <svg> to replace, hence the stub.
+    // the modal opens IMMEDIATELY (setSvg needs an <svg> to replace, hence the stub).
     const api=window.expandChart('TRADE #'+x._no+' · CANDLES',
-      '<div id="cndl-wait" style="min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px">'
-      +'<div style="font-size:13px;color:var(--text2);letter-spacing:1px">FETCHING THIS TRADE FROM YOUR PC…</div>'
-      +'<div id="cndl-secs" style="font-size:20px;font-weight:700;color:var(--blue)">0s</div>'
-      +'<div style="font-size:10px;color:var(--text5);max-width:520px;text-align:center">a fetch normally lands in ~30 seconds — your PC checks for commands every half minute. If a backtest is running there this waits in line behind it, up to 5 minutes. This window fills in by itself; CLOSE cancels the view (the fetch finishes quietly).</div>'
-      +'</div><svg viewBox="0 0 1080 8" style="display:block;height:6px"></svg>',
+      '<svg viewBox="0 0 1080 8" style="display:block;height:6px"></svg>',
       {sub:'entry '+x._et+' &rarr; exit '+x._xt2});
-    const t0=Date.now();
-    const secsEl=api&&api.modal?api.modal.querySelector('#cndl-secs'):null;
-    const tick=setInterval(()=>{if(secsEl)secsEl.textContent=Math.round((Date.now()-t0)/1000)+'s';},1000);
+    _cndl.api=api;
+    _buildCndlCtl();
+    // arrow keys step trades while the modal is open; the listener retires itself with it.
+    const keyNav=e2=>{
+      if(!_cndlAlive()){document.removeEventListener('keydown',keyNav);return;}
+      if(e2.key==='ArrowLeft'){e2.preventDefault();_cndlStep(-1);}
+      else if(e2.key==='ArrowRight'){e2.preventDefault();_cndlStep(1);}
+    };
+    document.addEventListener('keydown',keyNav);
     try{
-      const r=await _runCmd('get_bars',Object.assign({},B,{entry_time:x._et,exit_time:x._xt2,pad_sessions:1}),300000);
-      const costPts=(B&&B.cost_pts)||0;
-      let side=x._side;
-      if(!side){
-        const gross=x._pts+costPts;
-        const dLong=Math.abs((x._xp-x._ep)-gross);
-        const dShort=Math.abs((x._ep-x._xp)-gross);
-        side=(dLong<=dShort)?'long':'short';
-      }
-      const hasEntry=(r.entry_idx!==undefined&&r.entry_idx!==null);
-      const hasExit=(r.exit_idx!==undefined&&r.exit_idx!==null);
-      const markers={
-        entryIdx:hasEntry?r.entry_idx:undefined,entryPrice:x._ep,side:side,
-        exitIdx:hasExit?r.exit_idx:undefined,exitPrice:x._xp,pnlUsd:x._usd
-      };
-      if(hasEntry&&hasExit){markers.shadeFrom=r.entry_idx;markers.shadeTo=r.exit_idx;}
-      const svgStr=window.candleSVG(r.bars||[],r.overlays||{},markers,{});
-      const meta=r.meta||{};
-      const sub='champion config &middot; entry '+x._et+' &rarr; exit '+x._xt2+' &middot; '+(side==='long'?'LONG':'SHORT')
-        +' &middot; net <span style="color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x._usd)+'</span>'
-        +(meta.master?' &middot; master: '+meta.master:'')
-        // A blotter saved before the exit-price fix carries no side column and an exit
-        // price taken from the exit bar close, which is not always the real fill — say so
-        // rather than drawing a wrong dot silently. Shift+click TRADES to regenerate.
-        +(x._side?'':' &middot; <span style="color:var(--amber,#f5c842)">saved blotter — exit price is the exit bar close; Shift+click TRADES to regenerate for the true fill</span>');
-      clearInterval(tick);
-      if(!api||!api.modal||!document.body.contains(api.modal))return;   // user closed the wait view
-      const waitEl=api.modal.querySelector('#cndl-wait');if(waitEl)waitEl.remove();
-      api.setSvg(svgStr);api.setSub(sub);
-      // per-bar OHLC readout — hover any candle and its numbers print in the control row
-      // (candleSVG default geometry: 1080 wide, 58 left / 14 right margins).
-      const svgEl2=api&&api.modal?api.modal.querySelector('#chart-body svg'):null;
-      const rBars=r.bars||[];
-      if(svgEl2&&rBars.length){
-        const W2=1080,mL2=58,xStep2=(W2-mL2-14)/rBars.length;
-        const ro=document.createElement('div');
-        ro.style.cssText='font-size:11px;color:var(--text3);min-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%';
-        ro.innerHTML='<span style="color:var(--text5)">hover a candle to read its OHLC</span>';
-        if(api.ctl)api.ctl.appendChild(ro);
-        const _f2=v2=>(+v2).toLocaleString('en-US');
-        svgEl2.style.cursor='crosshair';
-        svgEl2.addEventListener('mousemove',ev=>{
-          const rc=svgEl2.getBoundingClientRect();if(!(rc.width>0))return;
-          const i2=Math.floor(((ev.clientX-rc.left)/rc.width*W2-mL2)/xStep2);
-          if(i2<0||i2>=rBars.length)return;
-          const b2=rBars[i2],up2=b2.c>=b2.o;
-          let ov2='';
-          Object.keys(r.overlays||{}).forEach(k2=>{const v2=(r.overlays[k2]||[])[i2];if(v2!=null)ov2+=' &middot; '+String(k2).toUpperCase()+' '+_f2(v2);});
-          ro.innerHTML='<b style="color:var(--text2)">'+b2.t+'</b> &middot; O '+_f2(b2.o)+' &middot; H '+_f2(b2.h)+' &middot; L '+_f2(b2.l)
-            +' &middot; C <b style="color:'+(up2?'var(--green)':'var(--red)')+'">'+_f2(b2.c)+'</b>'
-            +(b2.v?' &middot; V '+_f2(b2.v):'')+ov2;
-        });
-      }
-    }catch(err){
-      clearInterval(tick);
-      // the error prints INSIDE the open wait view — an alert on top of a modal was easy to
-      // dismiss and forget, and then the wait view sat there looking stuck.
-      const waitEl=api&&api.modal?api.modal.querySelector('#cndl-wait'):null;
-      if(waitEl)waitEl.innerHTML='<div style="font-size:12px;color:var(--red);max-width:520px;text-align:center">candle load failed: '+String(err&&err.message||err).replace(/</g,'&lt;')+'<br><span style="color:var(--text5);font-size:10px">is the runner on your PC awake? close this window and click CHART again to retry</span></div>';
-      else alert('Candle chart load failed: '+err.message);
+      await _loadTrade(x);   // errors surface in the sub line inside _loadTrade
     }finally{
-      clearInterval(tick);
       if(glyphEl){glyphEl.textContent=origTxt||'🕯 CHART';glyphEl._busy=0;}
     }
   };
