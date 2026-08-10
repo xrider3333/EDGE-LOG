@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.63';
+const VERSION='71.64';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.64',date:'2026-08-09',notes:['RUNBOARD columns are no longer padded out. A table narrower than its panel was spreading the spare width evenly, so eight short numeric columns each sat at about 130 pixels when their contents needed half that. The data columns now shrink to what they actually hold and the metric names absorb the slack, so the table still fills the panel but the numbers sit close together the way they do on the 1E card.']},
 {v:'71.63',date:'2026-08-09',notes:['RUNBOARD columns narrowed. The head now reads exactly like a 1E head - a crown on the leader, the rank, then the RUN NUMBER - with the strategy short name on the line underneath where 1E puts its date range. The long name was on the top line before and it was the single thing forcing every column wider than its numbers needed.','Row names trimmed of the parts that repeated themselves: MAR reads MAR then the stretch instead of naming the same stretch twice, and the ROBUSTNESS and STAGES rows drop their whole-run suffix.','The matrix takes the larger share of the width by default now - it is the panel carrying eight numeric columns. The drag bars still override it and your split is remembered.']},
 {v:'71.62',date:'2026-08-09',notes:['EXPANDED 1A can switch charts. CHAMPION and FUNNEL tabs ride the expanded header now - clicking one flips the tile tab and re-opens the expanded view on that chart, so you are no longer stuck with whichever one you happened to open.','COLUMNS picker reads as a caption then plain 3, 2, 1 instead of spelling out 3 COLUMNS on every button.']},
 {v:'71.61',date:'2026-08-09',notes:['HOTFIX on 71.60: fresh tabs could boot with an empty RESULTS list - the offline cache layer was deadlocking against older open tabs and silently queueing every read forever. The offline cache is now OFF entirely; every tab talks straight to the server. Only cost: the runs list re-downloads on each page load, which is small. If anything ever hangs again, closing other EDGELOG tabs and reloading is the reset.']},
@@ -8546,8 +8547,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   row and a tab flip compares like with like.
       const _cp=(opts&&opts.compact)?(_wide?'3px 3px':'3px 4px'):'5px 6px',_hp=(opts&&opts.compact)?(_wide?'3px 3px':'3px 4px'):'4px 6px';
       const _ncol=cols.length+1,_stick='position:sticky;left:0;z-index:1;';
-      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:'+_hp+';vertical-align:bottom;'+_stick+'background:var(--bg2)">METRIC</th>'
-        +cols.map(c=>'<th'+(c.tip?' title="'+c.tip+'"':'')+' style="text-align:right;padding:'+_hp+';line-height:1.35;white-space:nowrap;'+(c.tip?'cursor:help;':'')+'vertical-align:top;color:'+(c.col||'var(--text2)')+(c.emph?';font-weight:800':';font-weight:700')+(c.emph?_mtxEmph(c):'')+'">'+c.lbl+(c.sub?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+c.sub+'</div>':'')+'</th>').join('')+'</tr>';
+      // opts.tight (v71.64, owner: "columns are a bit to wide"): a table narrower than its panel
+      //   spreads the slack evenly, so a few short numeric columns end up far wider than their
+      //   content. With `tight` the DATA columns shrink to what they hold (width:1%) and the
+      //   metric-name column absorbs every spare pixel instead — the table still fills the panel.
+      //   Off by default, so 1E / 2B / 2C keep their existing proportions exactly.
+      const _tight=!!(opts&&opts.tight),_wCell=_tight?'width:1%;':'',_wLbl=_tight?'width:100%;':'';
+      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:'+_hp+';'+_wLbl+'vertical-align:bottom;'+_stick+'background:var(--bg2)">METRIC</th>'
+        +cols.map(c=>'<th'+(c.tip?' title="'+c.tip+'"':'')+' style="text-align:right;padding:'+_hp+';'+_wCell+'line-height:1.35;white-space:nowrap;'+(c.tip?'cursor:help;':'')+'vertical-align:top;color:'+(c.col||'var(--text2)')+(c.emph?';font-weight:800':';font-weight:700')+(c.emph?_mtxEmph(c):'')+'">'+c.lbl+(c.sub?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+c.sub+'</div>':'')+'</th>').join('')+'</tr>';
       const body=groups.map(g=>{
         const grpRow='<tr><td colspan="'+_ncol+'" style="padding:9px 6px 2px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+g.name+'</td></tr>';
         const rows=g.rows.map(r=>{
@@ -8556,7 +8563,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const rowBg=r.rowBg||(r.top?'color-mix(in srgb,var(--border) 10%,transparent)':'var(--bg2)');
           const bTop='border-top:1px solid color-mix(in srgb,var(--border) '+(r.top?'70%':'40%')+',transparent);';
           return '<tr>'
-            +'<td style="'+bTop+'padding:'+_cp+';font-size:var(--fsxs);color:'+(r.lblCol||'var(--text2)')+';font-weight:'+(r.top?'700':'400')+';white-space:nowrap;'+_stick+'background:'+rowBg+(r.rowSty||'')+'">'+r.lbl+'</td>'
+            +'<td style="'+bTop+'padding:'+_cp+';'+_wLbl+'font-size:var(--fsxs);color:'+(r.lblCol||'var(--text2)')+';font-weight:'+(r.top?'700':'400')+';white-space:nowrap;'+_stick+'background:'+rowBg+(r.rowSty||'')+'">'+r.lbl+'</td>'
             // v64.96: a row may override the background PER CELL (r.cellBg) — that is what the
             //   optional 2C heat map uses to shade each value by how it ranks across the row.
             //   Rows that do not define cellBg are untouched, so 1E / 2B render exactly as before.
@@ -8566,7 +8573,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             //   emphasis is now split — its left BORDER always applies, its background only
             //   when no heat colour is present — so the crowned column heats like the rest.
             +cols.map(c=>{const _hb=r.cellBg&&r.cellBg(c);
-              return '<td style="'+bTop+'padding:'+_cp+';text-align:right;white-space:nowrap;background:'+(_hb||(c.emph?_mtxEmphBg(c):rowBg))+(c.emph?_mtxEmphBd(c):'')+(r.rowSty||'')+'">'+r.cell(c)+'</td>';}).join('')
+              return '<td style="'+bTop+'padding:'+_cp+';'+_wCell+'text-align:right;white-space:nowrap;background:'+(_hb||(c.emph?_mtxEmphBg(c):rowBg))+(c.emph?_mtxEmphBd(c):'')+(r.rowSty||'')+'">'+r.cell(c)+'</td>';}).join('')
             +'</tr>';}).join('');
         return grpRow+rows;}).join('');
       return '<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 4px;overflow-x:auto;max-width:100%"><table class="table" style="width:100%;font-size:var(--fsxs);border-collapse:collapse"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
@@ -14773,7 +14780,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _rbMH=Math.max(160,Math.min(1600,Math.round(+APREF.rbMtxH||420)));
         const matrixTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap"><span class="lbl" style="flex-shrink:0">1E · MATRIX <span style="font-weight:400;color:var(--text5);font-size:8px">· '+runs.length+' strateg'+(runs.length===1?'y':'ies')+' · green = best in row</span></span>'+_rbCtlRow+'</div>'
           +'<div id="rb-mtx-box" style="height:'+_rbMH+'px;min-height:120px;max-height:1600px;overflow:auto">'
-          +((_cOr==='h')?('<div style="overflow-x:auto"><table class="table"><thead>'+hdr+'</thead><tbody>'+mrows+'</tbody></table></div>'):_matrixTbl(_mCols,_mGroups,{compact:runs.length>=6}))
+          +((_cOr==='h')?('<div style="overflow-x:auto"><table class="table"><thead>'+hdr+'</thead><tbody>'+mrows+'</tbody></table></div>'):_matrixTbl(_mCols,_mGroups,{compact:true,tight:true}))
           +'</div>'
           +_grip('mtx','drag up / down to resize the matrix · double-click = back to the default height')
           +_rbScNote);
