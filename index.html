@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.60';
+const VERSION='71.61';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.61',date:'2026-08-09',notes:['HOTFIX on 71.60: fresh tabs could boot with an empty RESULTS list - the offline cache layer was deadlocking against older open tabs and silently queueing every read forever. The offline cache is now OFF entirely; every tab talks straight to the server. Only cost: the runs list re-downloads on each page load, which is small. If anything ever hangs again, closing other EDGELOG tabs and reloading is the reset.']},
 {v:'71.60',date:'2026-08-09',notes:['CONNECTION FIX for fetches that never came back even though your PC had answered: every open EDGELOG tab was funneling its traffic through ONE elected lead tab, so a single stale tab could starve all of them - each tab now talks to the server on its own. The connection also auto-switches transport when the stream goes quiet. If a fetch ever still hangs, closing OTHER old EDGELOG tabs and reloading this one is the reset.']},
 {v:'71.59',date:'2026-08-09',notes:['FUNNEL opens on the top THREE raw configs instead of every stored curve. On a run that saved 400 of them the gate, tilt and hybrid lines were buried under a wall of near-identical raw curves. The configs slider still spans all of them, and a setting you drag yourself still wins.']},
 {v:'71.58',date:'2026-08-09',notes:['FIXED the "Document already exists" error on candle / blotter fetches. On a shaky connection the browser retries sending the command to your PC, and the retry was tripping over the first attempt - the fetch had actually gone through, but the window showed a failure. Command sends are retry-proof now.']},
@@ -1314,12 +1315,14 @@ function calcStats(tds){
 
 // Firebase
 function initFB(){if(firebase.apps.length)return true;try{firebase.initializeApp({apiKey:"AIzaSyD0Q3ms5xZJ5SFl7aHh3oYIkGJJAUiRRBI",authDomain:"edge-tracker-b55af.firebaseapp.com",projectId:"edge-tracker-b55af",storageBucket:"edge-tracker-b55af.firebasestorage.app",messagingSenderId:"351905859153",appId:"1:351905859153:web:9657ca100cf3463ca89a70"});auth=firebase.auth();db=firebase.firestore();
-// autoDetectLongPolling: falls back off WebSockets when the stream silently stops delivering
-// (the "runner answered but the page never heard it" wedge). And persistence is SINGLE-tab
-// now: synchronizeTabs routed every tab's traffic through one elected lead tab, so one stale
-// or wedged tab starved snapshots in ALL of them — extra tabs just run without the cache.
-try{db.settings({cacheSizeBytes:firebase.firestore.CACHE_SIZE_UNLIMITED,experimentalAutoDetectLongPolling:true});}catch(_p){try{db.settings({cacheSizeBytes:firebase.firestore.CACHE_SIZE_UNLIMITED});}catch(_p2){}}
-try{db.enablePersistence().catch(function(){});}catch(_p){}return true;}catch(e){console.error(e);return false;}}
+// NO offline persistence, deliberately (v71.61). The old synchronizeTabs persistence routed
+// every tab through one elected lead tab — a wedged lead starved snapshots in ALL tabs — and
+// the v71.60 single-tab attempt could deadlock its lease negotiation against an old
+// multi-tab holder, queueing EVERY read forever (fresh tabs booted with zero runs; a raw
+// REST fetch worked fine, proving it was client-state, not the service). Persistence only
+// saved re-reading the ~300-doc runs list per load — trivial against the quota. If a fetch
+// ever hangs again: close other EDGELOG tabs and reload.
+return true;}catch(e){console.error(e);return false;}}
 function subscribeAll(uid){
   colRef=db.collection('users').doc(uid).collection('trades');
   lessonRef=db.collection('users').doc(uid).collection('lessons');
