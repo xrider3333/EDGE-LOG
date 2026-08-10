@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.5';
+const VERSION='73.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.6',date:'2026-08-10',notes:['The hover figures moved INTO the key. Mousing across the funnel used to open a second box in the top right corner listing every strategy value, which covered the chart. Each key row now shows that strategy dollars AT THE CURSOR instead, swapping back to its ending figure when you move off.','DOUBLE-CLICK anywhere on the funnel opens the expanded explorer, the same gesture the report chart uses. Double-clicking a key row still only works the key.']},
 {v:'73.5',date:'2026-08-10',notes:['FIX on the new BOOK picker: GATE was re-deriving a DEFAULT model instead of the gate this run actually crowned - on run 203 it answered with logistic at 0.5 when the run crowns xgb at 0.45. The blotter now hands your PC the run own crowned model and cut-off, so the GATE / TILT / HYBRID books you see are the ones the report is talking about.']},
 {v:'73.4',date:'2026-08-09',notes:['The GATE SWEEP CHART has its own Y AXIS switch - MAR or NET $ - sitting on the chart itself. It used to follow the RANK button, which is a control for ordering matrix COLUMNS, so changing what the chart measured meant reaching for something that looks like it does something else entirely. Until the new switch is touched it still follows RANK, so nothing moves unless you ask it to.','Said plainly on the chart: every figure on it covers the TUNING YEARS ONLY - in-sample plus walk-forward - because that is all the pick was allowed to see. The GATE matrix above it totals whatever SAMPLE is ticked, so with LB ticked it reads higher by exactly the held-out year. Same model, same cut-off, different stretch. That is why rf at 50 percent can read 499k on the chart and 580k in the matrix, and both be correct. The axis title, the hover and a line under the chart all now say so.']},
 {v:'73.3',date:'2026-08-10',notes:['THE BLOTTER CAN NOW SHOW THE GATE, TILT AND HYBRID BOOKS, not just the crowned RAW config (owner ask). Pick RAW / GATE / TILT / HYBRID under the view switch: trades the gate would SKIP grey out and say SKIP, sized books show the size each trade gets, and the line above reports how many trades that book takes and what it does to the net.','These per-trade answers are NOT stored in the run - the run only ever saved the totals - so your PC re-derives them on demand, about 40 seconds for a 5,600-trade run.','Checked against the run own saved gate result before shipping: on run 203 the recomputed gate keeps 2,959 trades for 24,809.87 points, matching the saved figures exactly.','Every candle chart opened from the blotter still draws the same real bars - the book only changes which trades are taken and at what size.']},
@@ -5904,7 +5905,7 @@ window.cmpOvlMount=function(hostId){
     return (y>=1.5)?(' <span style="color:var(--text5)">· '+y.toFixed(1)+'y</span>')
       :(' <span style="color:var(--yellow)" title="short sample - this curve only covers '+d+' days, so it draws as a hairline beside the full-history runs">· '+d+'d ⚠</span>');};
   keyEl.innerHTML=ALL.map(sr=>{const lastV=(sr.eq&&sr.eq.length)?sr.eq[sr.eq.length-1]:0,off=HID.has(String(sr.id)),gry=GRY.has(String(sr.id));
-      return '<div data-ovltog="'+sr.id+'" title="'+(off?'click to bring this strategy back':(gry?'click again to remove it from the chart':'click to grey this strategy out - it stays on the chart, faint. Click again to remove it, once more to bring it back.'))+'" style="white-space:nowrap;cursor:pointer;user-select:none;color:'+(off?'var(--text5)':sr.color)+(off?';text-decoration:line-through':'')+'"><b>'+(off?'▭':(gry?'▬':'▬'))+'</b> '+(sr.rank?('<span style="color:var(--text5)">R'+sr.rank+'</span> '):'')+'#'+sr.id+' '+sr.label+' · '+_ab$(lastV)+(ONE_A?_spanTxt(sr):'')+'</div>';}).join('')
+      return '<div data-ovltog="'+sr.id+'" title="'+(off?'click to bring this strategy back':(gry?'click again to remove it from the chart':'click to grey this strategy out - it stays on the chart, faint. Click again to remove it, once more to bring it back.'))+'" style="white-space:nowrap;cursor:pointer;user-select:none;color:'+(off?'var(--text5)':sr.color)+(off?';text-decoration:line-through':'')+'"><b>'+(off?'▭':(gry?'▬':'▬'))+'</b> '+(sr.rank?('<span style="color:var(--text5)">R'+sr.rank+'</span> '):'')+'#'+sr.id+' '+sr.label+' · '+'<span class="cmpovl-kv" data-end="'+_ab$(lastV)+'">'+_ab$(lastV)+'</span>'+(ONE_A?_spanTxt(sr):'')+'</div>';}).join('')
     // v72.0 (owner: "remove the in-sample wf lb in the key on 1A"): the line-style legend only
     //   shows on the plain COMPARE chart. On the RUNBOARD the info icon already explains it.
     +(ONE_A?'':('<div style="white-space:nowrap;color:var(--text4)"><b>—</b> in-sample</div>'
@@ -6086,7 +6087,14 @@ window.cmpOvlMount=function(hostId){
     host.style.cursor='grabbing';
     window.addEventListener('mousemove',_onMove);window.addEventListener('mouseup',_onUp);
   });
-  host.addEventListener('dblclick',()=>{VS.va=0;VS.vb=1;render();});
+  host.addEventListener('dblclick',e=>{
+    // on the RUNBOARD a double-click EXPANDS (report behaviour). The key keeps its own handler,
+    // so double-clicking a strategy row never opens the modal by accident.
+    if(ONE_A&&!(e.target&&e.target.closest&&e.target.closest('.cmpovl-key'))){
+      const btn=document.querySelector('[data-cmpexpand]');
+      if(btn){btn.click();return;}
+    }
+    VS.va=0;VS.vb=1;render();});
   host.addEventListener('mousemove',e=>{
     const st=svg._g;if(!st)return;
     const r=host.getBoundingClientRect();if(!(r.width>0&&r.height>0))return;
@@ -6101,11 +6109,27 @@ window.cmpOvlMount=function(hostId){
     ychip.style.display='block';ychip.style.left=((st.g.pL+st.g.pw)*sx)+'px';ychip.style.top=(gy*sy)+'px';
     ychip.textContent=(gy<=st.g.eqB)?_ab$(st.mx-(st.mx-st.mn)*((gy-st.g.eqT)/((st.g.eqB-st.g.eqT)||1))):('dd '+_ab$(0-(0-st.ddFloor)*((gy-st.g.ddT)/((st.g.ddB-st.g.ddT)||1))));
     // per-series readout — an em dash when the cursor sits outside that series own date span.
+    // v73.2 (owner: "the current pnl populates in the upper right covering everything like a
+    //   second key - just add those values to the key already there"): on the RUNBOARD the hover
+    //   figures are written INTO the existing key rows, replacing each strategy's ending $ while
+    //   the cursor is on the chart. No second box, nothing covered.
+    if(ONE_A){
+      readEl.style.display='none';
+      keyEl.querySelectorAll('[data-ovltog]').forEach(rw=>{
+        const sr=S.find(x=>String(x.id)===String(rw.dataset.ovltog)),kv=rw.querySelector('.cmpovl-kv');
+        if(!kv)return;
+        if(!sr){kv.textContent=kv.dataset.end;kv.style.color='';return;}
+        const p=sr.pts,out=(cx<p[0].x-1e-9)||(cx>p[p.length-1].x+1e-9);
+        kv.textContent=out?'—':_ab$(_interpAt(sr,cx));
+        kv.style.color=out?'var(--text5)':'';});
+      return;
+    }
     readEl.innerHTML=S.map(sr=>{const p=sr.pts,out=(cx<p[0].x-1e-9)||(cx>p[p.length-1].x+1e-9);
       return '<div style="white-space:nowrap;color:'+(out?'var(--text5)':sr.color)+'">#'+sr.id+' '+(out?'—':_ab$(_interpAt(sr,cx)))+'</div>';}).join('');
     readEl.style.display='block';
   });
   host.addEventListener('mouseleave',()=>{vln.style.display=xchip.style.display=ychip.style.display='none';readEl.style.display='none';
+    keyEl.querySelectorAll('.cmpovl-kv').forEach(kv=>{kv.textContent=kv.dataset.end;kv.style.color='';});
     if(_spot!=null){_spot=null;_paintKey();render();}});
 
   // ── SPOTLIGHT wiring. The key rows dim to match the plot, so the two always agree.
