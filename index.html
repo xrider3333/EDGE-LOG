@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='72.8';
+const VERSION='72.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'72.5',date:'2026-08-10',notes:['FOUND IT - the HYBRID and HYBRID-recycle lines were never drawn in the expanded 1A because the equity draw order simply did not include those two families. Their right-edge pills and drawdown strips come from loops over every series, which is why you saw the pill and no line. Both families are in the draw order now, painted on top like the tilts.','Expanded key group headers now quote the same line the tile draws - so GATES reads the chosen gate figure (the one on the funnel gutter pill), not whichever hidden candidate happened to finish highest.']},
 {v:'72.8',date:'2026-08-10',notes:['PAPER - the load error under the board is actually gone now. The 72.7 attempt still tripped the same database requirement; the daily-reports list now fetches the last 60 days of reports the plain way and sorts them newest-first itself.']},
 {v:'72.7',date:'2026-08-10',notes:['PAPER - fixed the load error that appeared under the board. The daily-reports list was asking the database for newest-first in a way that needs a special index; it now asks oldest-first and flips the list itself, which needs nothing extra.']},
 {v:'72.6',date:'2026-08-10',notes:['PAPER view v1 — live forward-test board. New Backtester sub-tab PAPER shows the shadow trades the runner logs each day for ORB, ENGU-Q and the 1:1 BLEND: per-leg tiles (days live, trades, net dollars, win rate, last trade), a cumulative PnL curve, a trades table and a daily reports list with per-leg warnings and the reviewed verdict. No real money — shadow trading starts 2026-08-11.']},
@@ -4865,13 +4866,18 @@ window.expandCompareEq=function(series,opts){
   const _groupRow=(key,label,members)=>{
     if(!members.length)return '';
     const st=_grpState(members),op=st==='dim'?0.45:(st==='off'?0.3:1),td=st==='off'?'line-through':'none',
-      exp=!!_grpExpanded[key],swatch=members[0].color;
+      exp=!!_grpExpanded[key],
+      // v72.5 (owner took the recommendation): the header quotes the TILE'S line - the chosen
+      //   gate, the drawn tilt/hybrid - not whichever hidden candidate finishes highest, so
+      //   the figure here always equals the gutter pill on the non-expanded funnel. Groups
+      //   with no stamped line (RAW, OTHER) fall back to best-finisher exactly as before.
+      _gTop=(members.filter(function(s){return s.famTop;})[0]||members[0]),swatch=_gTop.color;
     let h='<span style="display:inline-flex;align-items:center;background:color-mix(in srgb,var(--bg1) 65%,transparent);border-radius:4px;white-space:nowrap">'
       +'<span data-ceqx-grp-tog="'+key+'" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);padding:2px 4px 2px 6px;border-radius:4px;opacity:'+op+'" title="click: full - greyed - hidden - full (whole group)"><span style="width:12px;height:3px;background:'+swatch+';display:inline-block;border-radius:2px;flex:0 0 auto"></span><span style="text-decoration:'+td+'">'+label+' ('+members.length+')</span>'
       // v71.48 (owner: "the key has no ranking like 1A non-expanded"): every group row now prints
       //   where its BEST line finishes, in that line colour - the same figure and the same reading
       //   order the tile key uses. Members are already sorted best-first, so members[0] is it.
-      +((function(){const v=_endV(members[0]);return isFinite(v)?('<b style="color:'+swatch+';font-weight:800">'+fmt$(v)+'</b>'):'';})())+'</span>'
+      +((function(){const v=_endV(_gTop);return isFinite(v)?('<b style="color:'+swatch+';font-weight:800">'+fmt$(v)+'</b>'):'';})())+'</span>'
       // v64.87 (item 2, owner: the ▸ was too small to notice) — a comfortably clickable chevron
       //   button (its own background/border, bigger glyph, real padding) so it plainly reads as
       //   a dropdown toggle; still a SEPARATE element from the group-toggle zone above it, so the
@@ -5131,7 +5137,13 @@ window.expandCompareEq=function(series,opts){
     //   of the rest here.
     // v64.81: the OTHER slider trims this list to its first `otherCount` (stable order); the ML
     //   gate candidates (_gatePS, default vis 'off') paint last, on top, same as any survivor.
-    const _drawOrder=_otherPS().slice(0,otherCount).concat(_mainPS()).concat(_gatePS()).concat(_tiltPS());
+    // v72.5 (owner: "i dont see the hybrid r line, i only see the pill. i also dont see the
+    //   normal hybrid line"): THE cause - this draw order concats other+main+gate+tilt and
+    //   NEVER included the two hybrid families. v71.15 added their flags to the legend and
+    //   the drawdown pane (both loop over ALL of PS - which is exactly why the pill and the
+    //   dd strip rendered) but nobody added them HERE, so the equity line itself was never
+    //   drawn no matter what the palette said. They paint last = on top, like the tilts.
+    const _drawOrder=_otherPS().slice(0,otherCount).concat(_mainPS()).concat(_gatePS()).concat(_tiltPS()).concat(_hybPS()).concat(_hybRPS());
     _drawOrder.forEach(sr=>{if(sr.vis==='off')return;
       let strokeCol=sr.vis==='dim'?'var(--text5)':sr.color,strokeOp=sr.vis==='dim'?0.45:1,swMain=1.6,swWF=1.6,swLB=1.6;
       if(sr.isOther){strokeCol='var(--text5)';strokeOp=0.18;swMain=swWF=swLB=0.6;}
