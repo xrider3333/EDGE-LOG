@@ -11,7 +11,8 @@ FIELDS = ["trade_no", "entry_time", "exit_time", "hold_bars",
 
 
 def champion_blotter(strategy, instrument, timeframe, session="rth", params=None,
-                     cost_pts=0.0, mult=20.0, date_from=None, date_to=None, source=None):
+                     cost_pts=0.0, mult=20.0, date_from=None, date_to=None, source=None,
+                     return_raw=False):
     """Run the champion once (return_trades) and return (rows, meta): a list of per-trade
     dict rows plus {"master", "source", ...} naming the master that actually served the
     run — the caller surfaces it so a fallback resolution is never silent. Empty rows if
@@ -20,11 +21,17 @@ def champion_blotter(strategy, instrument, timeframe, session="rth", params=None
     `source` pins the master the run was made on (repo rule: comparison reruns pin the
     data window AND the master). Without it, resolution falls back to the registry's
     first instrument+timeframe(+session) match — which is source-ORDERED, so a tv-master
-    run would silently get its blotter from the db_noadj master (run #162 did)."""
+    run would silently get its blotter from the db_noadj master (run #162 did).
+
+    `return_raw=True` returns a THIRD element: the raw (entry_bar, exit_bar, pnl_pts, ...)
+    trade tuples straight off the engine, in the SAME order as `rows` (rows[i]['trade_no']
+    == i+1 <-> raw_trades[i]) — for callers (api/configs.py) that need bar indices / net
+    points to feed augur_engine.ml_gate, without re-running the backtest a second time and
+    risking a different trade list."""
     m = ((find_master(instrument, timeframe, session, source) if source else None)
          or find_master(instrument, timeframe, session) or find_master(instrument, timeframe))
     if not m:
-        return [], {}
+        return ([], {}, []) if return_raw else ([], {})
     meta = {"master": m.get("name"), "source": m.get("source"),
             "requested_source": source or None,
             "date_from": date_from or None, "date_to": date_to or None}
@@ -36,8 +43,9 @@ def champion_blotter(strategy, instrument, timeframe, session="rth", params=None
     bt = ae.run_backtest(strategy, instrument=instrument, timeframe=timeframe, session=session,
                          arrays=a, params=params or {}, cost_pts=float(cost_pts or 0),
                          return_trades=True)
+    raw_trades = list((bt or {}).get("trades") or [])
     rows, cum = [], 0.0
-    for i, t in enumerate((bt or {}).get("trades") or [], 1):
+    for i, t in enumerate(raw_trades, 1):
         eb, xb, pnl = int(t[0]), int(t[1]), float(t[2])
         ep = float(t[4]) if len(t) > 4 else float(close[eb])
         # Trade tuple shape varies by strategy file: some carry a side flag at index 3
@@ -67,6 +75,8 @@ def champion_blotter(strategy, instrument, timeframe, session="rth", params=None
                      "hold_bars": xb - eb, "entry_px": round(ep, 2), "exit_px": round(exit_px, 2),
                      "pnl_pts": round(pnl, 2), "pnl_usd": round(usd, 2), "cum_usd": round(cum, 0),
                      "side": "long" if side == 1 else "short"})
+    if return_raw:
+        return rows, meta, raw_trades
     return rows, meta
 
 

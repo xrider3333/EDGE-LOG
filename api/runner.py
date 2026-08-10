@@ -48,7 +48,9 @@ JOBS_DIR = os.path.join(ROOT, "augur_jobs")
 # similar_setups is CPU-heavy (a chunked NxN-ish correlation pass over thousands of
 # trades) but still a pure read — no engine job state touched — so it belongs here too,
 # same as get_bars/get_blotter: served in parallel, never queued behind a running job.
-READONLY_ACTIONS = {"get_bars", "get_blotter", "similar_setups"}
+# config_trades (api/configs.py) is the same shape again — one champion re-run + a gate
+# scoring pass, no engine job state touched — the per-trade GATE/TILT/HYBRID blotter.
+READONLY_ACTIONS = {"get_bars", "get_blotter", "similar_setups", "config_trades"}
 
 
 def _anthropic_key():
@@ -956,6 +958,9 @@ class CommandThread:
         elif action == "similar_setups":
             from api.similar import find_similar_setups
             res = find_similar_setups(self.root, payload, self._log)
+        elif action == "config_trades":
+            from api.configs import load_config_trades
+            res = load_config_trades(self.root, payload, self._log)
         else:
             res = {"ok": False, "error": f"unsupported readonly action {action!r}"}
         ref.update({"status": "done" if res.get("ok") else "error",
@@ -1008,7 +1013,7 @@ class CommandThread:
         """Thread target: poll every POLL_SEC seconds until the process exits (daemon
         thread, so it never blocks shutdown). A crash anywhere in poll_once is swallowed
         here too, belt-and-suspenders on top of poll_once's own per-uid guard."""
-        self._log("command thread: ON (get_bars/get_blotter/similar_setups served in parallel with jobs)")
+        self._log("command thread: ON (get_bars/get_blotter/similar_setups/config_trades served in parallel with jobs)")
         while not self._stop:
             try:
                 self.poll_once()
