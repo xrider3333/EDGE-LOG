@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.57';
+const VERSION='71.58';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.58',date:'2026-08-09',notes:['FIXED the "Document already exists" error on candle / blotter fetches. On a shaky connection the browser retries sending the command to your PC, and the retry was tripping over the first attempt - the fetch had actually gone through, but the window showed a failure. Command sends are retry-proof now.']},
 {v:'71.57',date:'2026-08-09',notes:['RUNBOARD heat: a short-window column is left OUT of the colour scale, for the same reason the 1E card drops its ungated baseline out of its own heat - a column that is not a like-for-like comparison drags the scale and paints every real one the same colour. A 19-day run scoring a MAR of 1400 was making all five full-history strategies read red. Those cells still shade, in a muted grey, so they read as measured but deliberately excluded.','The in-sample, walk-forward and lockbox split rows are heat mapped too, like the matching rows on the 1E card.']},
 {v:'71.56',date:'2026-08-09',notes:['RUNBOARD matrix now wears the three things that actually make the 1E card look like itself. HEAT: every cell shaded by where it lands across its own row, green best through red worst, with the middle of the pack left quiet - the same shading maths and the same amber HEAT tab the 1E card uses. On by default, and remembered.','Every row NAMES ITS WINDOW, the way 1E rows read PF then the stretch. So a row is NET dollars FULL, MAX DD FULL, MAR FULL divided by FULL DD, and so on - you can never read a number without knowing what it was measured over.','Column heads use the 1E format: a rank number, a crown on the leader, the short name, and the years underneath. Band captions read like 1E too - return then the stretch, reward divided by risk then the stretch, sample, verdict.']},
 {v:'71.54',date:'2026-08-09',notes:['CANDLE WINDOW is now a full viewer (owner asks): PREV / NEXT buttons and the LEFT/RIGHT ARROW KEYS step to the neighbouring trade in the blotter current sort order, with a ROW x / y position readout.','TOP 10 menu in the same row jumps straight to any of the ten biggest winners or ten biggest losers of the run.','ZOOM: drag across the candles to zoom to that stretch, the TRADE button zooms to the held window with some context, FULL or a double-click shows everything again.','SAVE PNG downloads the current view as an image, named by run and trade number.','Stepping is fast: each trade bars are kept once fetched, and the two neighbouring trades quietly pre-load in the background while you look at the current one.']},
@@ -1355,7 +1356,12 @@ function _runCmd(action,payload,toMs){return new Promise((resolve,reject)=>{
   let settled=false;
   const _settle=fn=>a=>{if(settled)return;settled=true;window._pendingCmds=Math.max(0,(window._pendingCmds||1)-1);fn(a);};
   const res2=_settle(resolve),rej2=_settle(reject);
-  cmdRef.add({action:action,payload:payload,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()}).then(ref=>{
+  // doc()+set(), NOT add(): on a flaky connection the SDK retries the write, and add() is a
+  // CREATE — if the first attempt actually landed, the retry dies with "Document already
+  // exists" even though the command is queued and the runner will serve it (owner hit this
+  // on a candle fetch). set() on a pre-picked id is an upsert, so retries are harmless.
+  const ref=cmdRef.doc();
+  ref.set({action:action,payload:payload,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()}).then(()=>{
     let done=false;
     const unsub=ref.onSnapshot(d=>{const x=d.data()||{};if(x.status!=='done'&&x.status!=='error')return;done=true;try{unsub();}catch(_){}
       const r=x.result||{};
