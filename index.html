@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.87';
+const VERSION='71.88';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.88',date:'2026-08-09',notes:['BACK buttons: the candle window and the chart gallery both open with a BACK button now, so you step out to whatever you came from instead of hunting for CLOSE.','TOP 10 sets grow: a +10 MORE button appears in the candle window while you are inside a top-10 set, extending it to the top 20, 30 and so on with the new charts pre-loading in the background.','BLOTTER WINDOW CLEANED UP (owner: too much text, confusing): the run-on header sentence is gone. The facts are chips now - trade count, NET dollars, win rate, master, how many are showing - the four views are ONE segmented switch (RECENT / WINS / LOSSES / ALL), the paging button is a simple +25, and the hint sentences moved onto hover.']},
 {v:'71.87',date:'2026-08-09',notes:['Hotfix on the new CHART GALLERY: it opened UNDERNEATH the blotter window instead of on top of it, so it looked like nothing happened. It sits above now.']},
 {v:'71.86',date:'2026-08-09',notes:['CHART GALLERY (owner ask): a CHARTS OF THIS VIEW button on the blotter now stacks a REAL candle chart for every trade in the current view - top wins, top losses or most recent - in ONE scrollable window, all fetched at once instead of one trade at a time. LOAD 10 MORE keeps going past the first ten, and the header counts them in as they land.','Each gallery chart has an OPEN button that hands that trade to the full CANDLES window for zoom, save and stepping. Anything already viewed draws instantly - the two share one cache.','FIXED: clicking ALL in the blotter dumped every one of the 5,616 rows in one go, which shoved the view controls off the screen. ALL is paged now, same LOAD 25 MORE as RECENT.']},
 {v:'71.85',date:'2026-08-09',notes:['Fix: the CHAMPION / FUNNEL tabs in the expanded 1A now actually switch. Two faults, both fixed: the handler was calling the top-level savePref and renderApp rather than the report renderer versions, so the choice was never stored; and clicking the cards own tab button in the same instant as the modal close hit a node the re-render had already thrown away. It now waits for the close, re-finds the live button, and re-opens the chart as soon as it exists.']},
@@ -3438,7 +3439,8 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     ctl.insertAdjacentHTML('beforeend',
 
-      '<button id="cndl-prev" style="'+bs+'">&lsaquo; PREV</button>'
+      '<button id="cndl-back" title="close this chart and go back to where you opened it from" style="'+bs+';border-color:color-mix(in srgb,var(--blue) 55%,var(--border));color:var(--blue)">&lsaquo; BACK</button>'
+      +'<button id="cndl-prev" style="'+bs+'">&lsaquo; PREV</button>'
 
       +'<span id="cndl-pos" style="font-size:9px;color:var(--text5);letter-spacing:1px;white-space:nowrap"></span>'
 
@@ -3446,6 +3448,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
       +'<select id="cndl-top" style="'+bs.replace('cursor:pointer','cursor:pointer;max-width:210px')+'"></select>'
 
+      +'<button id="cndl-grpmore" title="extend this top-10 set by another 10 trades" style="'+bs+';display:none">+10 MORE</button>'
       +'<button id="cndl-ztrade" title="zoom to the held window plus a little context" style="'+bs+'">&#128269; TRADE</button>'
 
       +'<button id="cndl-zfull" title="show every fetched bar (or double-click the chart)" style="'+bs+'">FULL</button>'
@@ -3465,6 +3468,17 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     const g=id=>ctl.querySelector('#'+id);
 
+    g('cndl-back').onclick=()=>{const m2=_cndl.api&&_cndl.api.modal;if(m2)m2.remove();};
+    g('cndl-grpmore').onclick=()=>{
+      const gp=_cndl.grp;if(!gp)return;
+      const by=_cAll().slice().sort((a2,b2)=>b2._usd-a2._usd);
+      gp.n=(gp.n||10)+10;
+      gp.list=(gp.kind==='w:')?by.slice(0,gp.n):by.slice(-gp.n).reverse();
+      gp.label=(gp.kind==='w:')?('TOP '+gp.n+' WINNERS'):('TOP '+gp.n+' LOSERS');
+      gp.list.forEach(nb=>{if(_barsCache[nb._no]||nb._pf)return;nb._pf=1;
+        _runCmd('get_bars',Object.assign({},_cB(),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
+          .then(r2=>{_barsCache[nb._no]=r2;}).catch(()=>{}).finally(()=>{nb._pf=0;_syncCndlCtl();});});
+      _syncCndlCtl();};
     g('cndl-prev').onclick=()=>_cndlStep(-1);
 
     g('cndl-next').onclick=()=>_cndlStep(1);
@@ -3485,7 +3499,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       const kind=v3.slice(0,2),no=+v3.slice(2);
       const by=_cAll().slice().sort((a2,b2)=>b2._usd-a2._usd);
       const list=(kind==='w:')?by.slice(0,10):by.slice(-10).reverse();
-      _cndl.grp={list:list,label:(kind==='w:')?'TOP 10 WINNERS':'TOP 10 LOSERS'};
+      _cndl.grp={list:list,kind:kind,n:10,label:(kind==='w:')?'TOP 10 WINNERS':'TOP 10 LOSERS'};
       // fetch ALL TEN up front so PREV/NEXT and the arrow keys flip through the set instantly
       list.forEach(nb=>{if(_barsCache[nb._no]||nb._pf)return;nb._pf=1;
         _runCmd('get_bars',Object.assign({},_cB(),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
@@ -3512,6 +3526,8 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     if(g('cndl-next'))g('cndl-next').disabled=!(i3>=0&&i3<rows.length-1);
 
+    const mb=g('cndl-grpmore');
+    if(mb)mb.style.display=(gp&&gp.list.length<_cAll().length)?'':'none';
     const sel=g('cndl-top');
 
     if(sel&&!sel.options.length){
@@ -3725,7 +3741,8 @@ window.openChartGallery=function(B,rowsAll,initialView){
     +'<div style="display:flex;align-items:center;gap:12px;padding-bottom:8px;border-bottom:1px solid var(--border);flex:0 0 auto">'
     +'<span style="font-family:\'Bebas Neue\',monospace;font-size:20px;letter-spacing:3px;color:var(--text)">CHART GALLERY &middot; RUN #'+B.run_id+'</span>'
     +'<span id="gal-meta" style="font-size:10px;color:var(--text5);letter-spacing:.5px;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>'
-    +'<button id="gal-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 14px;cursor:pointer;font-family:inherit;letter-spacing:2px;flex:0 0 auto">CLOSE ✕</button></div>'
+    +'<button id="gal-back" title="back to the blotter" style="background:none;border:1px solid color-mix(in srgb,var(--blue) 55%,var(--border));border-radius:7px;color:var(--blue);padding:5px 12px;cursor:pointer;font-family:inherit;letter-spacing:2px;font-size:10px;flex:0 0 auto">&lsaquo; BACK</button>'
+    +'<button id="gal-close" style="background:none;border:1px solid var(--border);border-radius:7px;color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;letter-spacing:2px;font-size:10px;flex:0 0 auto">CLOSE ✕</button></div>'
     +'<div id="gal-views" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 0;flex:0 0 auto"></div>'
     +'<div id="gal-body" style="overflow:auto;flex:1 1 auto"></div></div>';
   modal.onclick=e=>{if(e.target===modal)close();};
@@ -3734,6 +3751,7 @@ window.openChartGallery=function(B,rowsAll,initialView){
   const close=()=>{seq++;document.removeEventListener('keydown',esc);modal.remove();};
   document.addEventListener('keydown',esc);
   modal.querySelector('#gal-close').onclick=close;
+  modal.querySelector('#gal-back').onclick=close;   // the blotter window is still open behind it
   const body=modal.querySelector('#gal-body'),meta=modal.querySelector('#gal-meta'),views=modal.querySelector('#gal-views');
   const card=x=>'<div data-gal="'+x._no+'" style="border:1px solid var(--border2);border-radius:8px;margin-bottom:12px;overflow:hidden">'
     +'<div style="display:flex;align-items:center;gap:10px;padding:7px 11px;background:var(--bg2);font-size:10px;letter-spacing:.5px">'
@@ -3796,13 +3814,19 @@ window.openBlotterModal=async function(B){
   const map=rows=>rows.map(x=>({_no:+x.trade_no,_usd:+x.pnl_usd,_cum:+x.cum_usd,_pts:+x.pnl_pts,_hold:+x.hold_bars,_ep:+x.entry_px,_xp:+x.exit_px,_et:String(x.entry_time),_xt2:String(x.exit_time),_side:(x.side||null)}));
   const modal=document.createElement('div');
   modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:9998;display:flex;align-items:center;justify-content:center;padding:26px';
-  modal.innerHTML='<div style="background:var(--bg1);border:1px solid var(--border);width:min(1100px,96vw);max-height:92vh;display:flex;flex-direction:column;padding:18px 20px" onclick="event.stopPropagation()">'
-    +'<div style="display:flex;align-items:center;gap:12px;padding-bottom:9px;border-bottom:1px solid var(--border)">'
-    +'<span style="font-family:\'Bebas Neue\',monospace;font-size:20px;letter-spacing:3px;color:var(--text)">TRADE BLOTTER &middot; RUN #'+B.run_id+'</span>'
-    +'<span id="bm-meta" style="font-size:10px;color:var(--text5);letter-spacing:.5px;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>'
-    +'<button id="bm-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 14px;cursor:pointer;font-family:inherit;letter-spacing:2px;flex:0 0 auto">CLOSE ✕</button></div>'
-    +'<div id="bm-views" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:9px 0 7px"></div>'
-    +'<div id="bm-body" style="overflow:auto;flex:1 1 auto;min-height:120px"></div></div>';
+  // v71.88 (owner: "modernize this - text everywhere and confusing"): the header was one long
+  // run-on sentence plus a hint sentence. Now: title, facts as CHIPS, controls as a segmented
+  // switch, and the hints live on hover instead of on screen.
+  const chip=(t,c)=>'<span style="font-size:9px;letter-spacing:.5px;color:'+(c||'var(--text4)')+';background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:3px 9px;white-space:nowrap">'+t+'</span>';
+  modal.innerHTML='<div style="background:var(--bg1);border:1px solid var(--border);border-radius:12px;width:min(1140px,96vw);max-height:92vh;display:flex;flex-direction:column;padding:16px 18px;box-sizing:border-box" onclick="event.stopPropagation()">'
+    +'<div style="display:flex;align-items:baseline;gap:10px;flex:0 0 auto">'
+    +'<span style="font-family:\'Bebas Neue\',monospace;font-size:21px;letter-spacing:3px;color:var(--text)">TRADE BLOTTER</span>'
+    +'<span style="font-size:11px;color:var(--text4);letter-spacing:1px">RUN #'+B.run_id+'</span>'
+    +'<span style="flex:1 1 auto"></span>'
+    +'<button id="bm-close" style="background:none;border:1px solid var(--border);border-radius:7px;color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;letter-spacing:2px;font-size:10px;flex:0 0 auto">CLOSE ✕</button></div>'
+    +'<div id="bm-meta" style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;padding:8px 0 10px;flex:0 0 auto"></div>'
+    +'<div id="bm-views" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-bottom:10px;border-bottom:1px solid var(--border);flex:0 0 auto"></div>'
+    +'<div id="bm-body" style="overflow:auto;flex:1 1 auto;min-height:120px;padding-top:4px"></div></div>';
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   document.body.appendChild(modal);
   const esc=e=>{if(e.key==='Escape'){modal.remove();document.removeEventListener('keydown',esc);}};
@@ -3824,11 +3848,14 @@ window.openBlotterModal=async function(B){
     return a.sort((p,q)=>q._no-p._no).slice(0,shown);
   };
   const draw=()=>{
-    const vs=[['recent','RECENT'],['wins','TOP 10 WINS'],['losses','TOP 10 LOSSES'],['all','ALL']];
-    viewsEl.innerHTML=vs.map(v2=>'<span data-bmv="'+v2[0]+'" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;border:1px solid '+(view===v2[0]?'var(--blue)':'var(--border)')+';color:'+(view===v2[0]?'var(--blue)':'var(--text4)')+'">'+v2[1]+'</span>').join('')
-      +(((view==='recent'||view==='all')&&rows&&shown<rows.length)?'<span data-bmv="more" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);color:var(--text3)">LOAD 25 MORE</span>':'')
-      +'<span data-bmv="gallery" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;border:1px solid color-mix(in srgb,var(--blue) 60%,var(--border));color:var(--blue)">&#128200; CHARTS OF THIS VIEW</span>'
-      +'<span style="font-size:9px;color:var(--text5);margin-left:auto">click a row for one chart &middot; CHARTS OF THIS VIEW stacks them all in one scroll</span>';
+    // SEGMENTED switch (one connected control) instead of four look-alike buttons in a row,
+    // then the actions on the right. No hint sentences — they moved onto the tooltips.
+    const vs=[['recent','RECENT'],['wins','WINS'],['losses','LOSSES'],['all','ALL']];
+    const seg=vs.map((v2,i)=>'<span data-bmv="'+v2[0]+'" title="'+(v2[0]==='recent'?'newest trades first':v2[0]==='wins'?'the 10 biggest winners':v2[0]==='losses'?'the 10 biggest losers':'every trade, 25 at a time')+'" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.6px;padding:5px 12px;color:'+(view===v2[0]?'var(--bg1)':'var(--text4)')+';background:'+(view===v2[0]?'var(--blue)':'transparent')+(i?';border-left:1px solid var(--border)':'')+'">'+v2[1]+'</span>').join('');
+    viewsEl.innerHTML='<span style="display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">'+seg+'</span>'
+      +(((view==='recent'||view==='all')&&rows&&shown<rows.length)?'<span data-bmv="more" title="add 25 more rows" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:5px 11px;border-radius:8px;border:1px solid var(--border2);color:var(--text3)">+25</span>':'')
+      +'<span style="flex:1 1 auto"></span>'
+      +'<span data-bmv="gallery" title="stack a candle chart for every trade in this view, in one scrolling window" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.6px;padding:5px 13px;border-radius:8px;border:1px solid color-mix(in srgb,var(--blue) 60%,var(--border));color:var(--blue)">&#128200; SEE ALL CHARTS</span>';
     viewsEl.querySelectorAll('[data-bmv]').forEach(b3=>{b3.onclick=()=>{const v2=b3.dataset.bmv;
       if(v2==='gallery'){if(rows)window.openChartGallery(B,rows,(view==='wins'||view==='losses')?view:'recent');return;}
       if(v2==='more')shown+=25;else{view=v2;if(v2==='recent')shown=Math.max(shown,10);}draw();};});
@@ -3843,7 +3870,14 @@ window.openBlotterModal=async function(B){
       +'<td style="padding:4px 10px;text-align:right;font-weight:700;color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+$(x._usd)+'</td>'
       +'<td style="padding:4px 10px;text-align:right;color:'+(x._cum>=0?'var(--text2)':'var(--red)')+'">'+$(x._cum)+'</td></tr>').join('');
     body.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:11px">'+th+trs+'</table>';
-    meta.textContent='champion config · '+rows.length+' trades'+(masterName?' · master: '+masterName:'')+((view==='recent'||view==='all')?' · showing '+Math.min(shown,rows.length)+' of '+rows.length:'');
+    // facts as chips, plus the two numbers that actually matter for a blotter: net and win rate
+    const net=rows.reduce((s,x)=>s+x._usd,0),wins=rows.filter(x=>x._usd>0).length;
+    meta.innerHTML=chip('CHAMPION CONFIG','var(--text3)')
+      +chip(rows.length.toLocaleString()+' TRADES')
+      +chip('NET '+$(net),net>=0?'var(--green)':'var(--red)')
+      +chip(Math.round(wins/rows.length*100)+'% WIN')
+      +(masterName?chip(masterName):'')
+      +(((view==='recent'||view==='all'))?chip('SHOWING '+Math.min(shown,rows.length)+' OF '+rows.length,'var(--blue)'):chip(cur.length+' SHOWN','var(--blue)'));
     body.querySelectorAll('[data-bmrow]').forEach(tr=>{tr.onclick=()=>{
       const x=rows.find(q=>q._no===+tr.dataset.bmrow);if(!x)return;
       window._openTradeCandles(x,null,{B:B,all:()=>rows,order:()=>slice()});
