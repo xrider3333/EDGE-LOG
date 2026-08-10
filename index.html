@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.2';
+const VERSION='73.3';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.3',date:'2026-08-10',notes:['THE BLOTTER CAN NOW SHOW THE GATE, TILT AND HYBRID BOOKS, not just the crowned RAW config (owner ask). Pick RAW / GATE / TILT / HYBRID under the view switch: trades the gate would SKIP grey out and say SKIP, sized books show the size each trade gets, and the line above reports how many trades that book takes and what it does to the net.','These per-trade answers are NOT stored in the run - the run only ever saved the totals - so your PC re-derives them on demand, about 40 seconds for a 5,600-trade run.','Checked against the run own saved gate result before shipping: on run 203 the recomputed gate keeps 2,959 trades for 24,809.87 points, matching the saved figures exactly.','Every candle chart opened from the blotter still draws the same real bars - the book only changes which trades are taken and at what size.']},
 {v:'73.2',date:'2026-08-10',notes:['Cut-off sweep chart (1E GATE tab): the dashed hindsight curves are OFF by default and no longer stretch the y-axis. That was why the chart looked squashed on run 203 - one held-out year ran far past the tuning years and flattened every line that actually made the decision. A HINDSIGHT chip turns them back on when you want them.','The solid/dashed key, the hindsight warning and the hover tip moved off the caption and into the info icon.','The LB HELD chip under the sweep chart is gone - the gate verdict reads off the 2A funnel as a line, and the sentence now lives in the tab info icon and the section 3 GATE VALIDATE pill.']},
 {v:'73.1',date:'2026-08-10',notes:['Greying a strategy on the funnel key now fades its DRAWDOWN trace too. The equity line went faint but its underwater shading stayed at full strength, so a greyed strategy was still shouting from the lower pane.']},
 {v:'73.0',date:'2026-08-10',notes:['PAPER Layer 1 - NinjaTrader Sim101 auto-trading strategies added to the repo (tools/nt): EdgeLogORB30 and EdgeLogENGUQ1m, ports of the two crowned configs the shadow trader runs, plus a setup checklist (SIM101_SETUP.md). No app change - compile and enable them inside NinjaTrader; their Sim101 fills flow into the trade log automatically.']},
@@ -4022,6 +4023,10 @@ window.openBlotterModal=async function(B){
   const body=modal.querySelector('#bm-body'),meta=modal.querySelector('#bm-meta'),viewsEl=modal.querySelector('#bm-views');
   body.innerHTML='<div style="padding:34px;text-align:center;color:var(--text5);font-size:11px" id="bm-wait">loading the blotter&hellip; <b id="bm-secs" style="color:var(--blue)">0s</b><br><span style="font-size:9px">saved copies open instantly; a first load reruns the champion on your PC and can take minutes</span></div>';
   let rows=null,view='recent',shown=10,masterName='';
+  // v72.6 (owner): the blotter has only ever shown the CHAMPION RAW config. cfg holds the
+  // chosen book - raw / gate / tilt / hybrid - and cfgMap the per-trade answer the PC
+  // computes for it (kept + size). The run doc never stores this, so it is re-derived.
+  let cfg='raw',cfgMap=null,cfgInfo=null,cfgBusy=false;
   const t0=Date.now();const tick=setInterval(()=>{const s=modal.querySelector('#bm-secs');if(s)s.textContent=Math.round((Date.now()-t0)/1000)+'s';},1000);
   const _tfMin=(function(tf){const m2=/^(\d+)\s*([smhd])$/i.exec(String(tf||'').trim());if(!m2)return null;return (+m2[1])*({s:1/60,m:1,h:60,d:1440})[m2[2].toLowerCase()];})(B.timeframe);
   const _dur=b3=>{if(_tfMin==null||!isFinite(b3))return b3+' bars';let mins=b3*_tfMin;const d2=Math.floor(mins/1440);mins-=d2*1440;const h=Math.floor(mins/60),mm=Math.round(mins-h*60);return (d2?d2+'d ':'')+((h||d2)?h+'h ':'')+mm+'m';};
@@ -4042,22 +4047,48 @@ window.openBlotterModal=async function(B){
     viewsEl.innerHTML='<span style="display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">'+seg+'</span>'
       +(((view==='recent'||view==='all')&&rows&&shown<rows.length)?'<span data-bmv="more" title="add 25 more rows" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:5px 11px;border-radius:8px;border:1px solid var(--border2);color:var(--text3)">+25</span>':'')
       +'<span style="flex:1 1 auto"></span>'
-      +'<span data-bmv="lookalike" title="find trades whose price action BEFORE the entry is near-identical - setups that look copy-pasted - then test whether those repeats share an outcome" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.6px;padding:5px 13px;border-radius:8px;border:1px solid color-mix(in srgb,var(--purple) 60%,var(--border));color:var(--purple);margin-right:6px">&#128269; LOOK-ALIKE SETUPS</span>'
+      +'<span style="width:100%;height:0"></span>'
+      +'<span style="font-size:8px;color:var(--text5);letter-spacing:.6px;align-self:center">BOOK</span>'
+      +['raw','gate','tilt','hybrid'].map(function(c){var on=(cfg===c);
+        return '<span data-bmcfg="'+c+'" title="'+(c==='raw'?'the crowned config, every trade at one lot':c==='gate'?'the filter model - trades it would SKIP grey out':c==='tilt'?'the same trades, sized by the model score':'the filter AND the sizing together')+'" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;border:1px solid '+(on?'var(--purple)':'var(--border)')+';color:'+(on?'var(--purple)':'var(--text4)')+'">'+c.toUpperCase()+'</span>';}).join('')
+      +(cfgBusy?'<span style="font-size:9px;color:var(--purple)">working it out on your PC&hellip;</span>':'')
+      +(cfgInfo?'<span style="font-size:9px;color:var(--text4)">'+cfgInfo+'</span>':'')
+      +'<span data-bmv="lookalike" title=""find trades whose price action BEFORE the entry is near-identical - setups that look copy-pasted - then test whether those repeats share an outcome" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.6px;padding:5px 13px;border-radius:8px;border:1px solid color-mix(in srgb,var(--purple) 60%,var(--border));color:var(--purple);margin-right:6px">&#128269; LOOK-ALIKE SETUPS</span>'
       +'<span data-bmv="gallery" title="stack a candle chart for every trade in this view, in one scrolling window" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.6px;padding:5px 13px;border-radius:8px;border:1px solid color-mix(in srgb,var(--blue) 60%,var(--border));color:var(--blue)">&#128200; SEE ALL CHARTS</span>';
+    viewsEl.querySelectorAll('[data-bmcfg]').forEach(b3=>{b3.onclick=async()=>{
+      const c=b3.dataset.bmcfg;
+      if(c===cfg||cfgBusy)return;
+      if(c==='raw'){cfg='raw';cfgMap=null;cfgInfo=null;draw();return;}
+      cfgBusy=true;cfg=c;cfgMap=null;cfgInfo=null;draw();
+      try{
+        const r2=await _runCmd('config_trades',Object.assign({},B,{config:c}),300000);
+        const mp={};(r2.rows||[]).forEach(q=>{mp[q.trade_no]={kept:!!q.kept,size:+q.size,score:q.score};});
+        cfgMap=mp;
+        const su=r2.summary||{};
+        cfgInfo=(su.n_kept!=null?(su.n_kept+' of '+su.n_total+' trades taken · '):'')
+          +(su.net_usd_config!=null?('net '+$(su.net_usd_config)+' vs '+$(su.net_usd_raw)+' raw'):'')
+          +(r2.model?(' · '+String(r2.model).toUpperCase()+(r2.threshold!=null?('@'+r2.threshold):'')):'');
+      }catch(err){cfgInfo='could not work out this book: '+String((err&&err.message)||err);cfg='raw';cfgMap=null;}
+      cfgBusy=false;draw();};});
     viewsEl.querySelectorAll('[data-bmv]').forEach(b3=>{b3.onclick=()=>{const v2=b3.dataset.bmv;
       if(v2==='gallery'){if(rows)window.openChartGallery(B,rows,(view==='wins'||view==='losses')?view:'recent');return;}
       if(v2==='lookalike'){if(rows)runLookalike();return;}
       if(v2==='more')shown+=25;else{view=v2;if(v2==='recent')shown=Math.max(shown,10);}draw();};});
     if(!rows)return;
     const cur=slice();
-    const th='<tr style="position:sticky;top:0;background:var(--bg1);color:var(--text5);font-size:9px;letter-spacing:1px;z-index:2">'+['CHART','#','ENTRY','EXIT','HOLD','ENTRY PX','EXIT PX','PTS','NET $','CUM $'].map((h,i)=>'<th style="padding:6px 10px;text-align:'+(i<4?'left':'right')+';white-space:nowrap">'+h+'</th>').join('')+'</tr>';
-    const trs=cur.map(x=>'<tr data-bmrow="'+x._no+'" style="cursor:pointer;border-top:1px solid var(--border2)" title="open this trade session candles">'
+    const _cols=['CHART','#','ENTRY','EXIT','HOLD','ENTRY PX','EXIT PX','PTS','NET $','CUM $'].concat(cfgMap?[cfg.toUpperCase()]:[]);
+    const th='<tr style="position:sticky;top:0;background:var(--bg1);color:var(--text5);font-size:9px;letter-spacing:1px;z-index:2">'+_cols.map((h,i)=>'<th style="padding:6px 10px;text-align:'+(i<4?'left':'right')+';white-space:nowrap">'+h+'</th>').join('')+'</tr>';
+    const trs=cur.map(x=>{const cm=cfgMap?cfgMap[x._no]:null;
+      const skipped=!!(cm&&!cm.kept),sz=cm?cm.size:1;
+      return '<tr data-bmrow="'+x._no+'" style="cursor:pointer;border-top:1px solid var(--border2)'+(skipped?';opacity:.32':'')+'" title="'+(skipped?'this book SKIPS this trade — ':'')+'open this trade session candles">'
       +'<td style="padding:4px 8px"><span style="display:inline-block;border:1px solid color-mix(in srgb,var(--blue) 55%,var(--border));border-radius:5px;padding:1px 6px;font-size:8px;letter-spacing:1px;color:var(--blue);font-variant-emoji:text">🕯 CHART</span></td>'
       +'<td style="padding:4px 10px;color:var(--text5)">'+x._no+'</td><td style="padding:4px 10px;font-size:10px">'+x._et+'</td><td style="padding:4px 10px;font-size:10px">'+x._xt2+'</td>'
       +'<td style="padding:4px 10px;text-align:right;color:var(--text4);white-space:nowrap">'+_dur(x._hold)+'</td><td style="padding:4px 10px;text-align:right">'+x._ep+'</td><td style="padding:4px 10px;text-align:right">'+x._xp+'</td>'
       +'<td style="padding:4px 10px;text-align:right;color:'+(x._pts>=0?'var(--green)':'var(--red)')+'">'+x._pts+'</td>'
       +'<td style="padding:4px 10px;text-align:right;font-weight:700;color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+$(x._usd)+'</td>'
-      +'<td style="padding:4px 10px;text-align:right;color:'+(x._cum>=0?'var(--text2)':'var(--red)')+'">'+$(x._cum)+'</td></tr>').join('');
+      +'<td style="padding:4px 10px;text-align:right;color:'+(x._cum>=0?'var(--text2)':'var(--red)')+'">'+$(x._cum)+'</td>'
+      +(cfgMap?('<td style="padding:4px 10px;text-align:right;white-space:nowrap;color:'+(skipped?'var(--red)':'var(--text4)')+'">'+(skipped?'SKIP':(Math.round(sz*100)/100)+'x')+'</td>'):'')
+      +'</tr>';}).join('');
     body.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:11px">'+th+trs+'</table>';
     // facts as chips, plus the two numbers that actually matter for a blotter: net and win rate
     const net=rows.reduce((s,x)=>s+x._usd,0),wins=rows.filter(x=>x._usd>0).length;
