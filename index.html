@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.67';
+const VERSION='71.68';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.68',date:'2026-08-09',notes:['CONFIG COLOURS MATCH between the 1A tile and its expanded view. The tile painted the walk-forward survivors from an eight-hue palette while the expanded explorer painted the very same configs from a teal ramp - two different palettes for one set of lines, so a config you were following changed colour the moment you expanded the chart. The tile choice is now handed to the explorer, so both draw the same config in the same colour. The crowned line stays green and the in-sample best stays blue in both.']},
 {v:'71.67',date:'2026-08-09',notes:['1A card grows a ▦ TRADES tab (next to CHAMPION / FUNNEL): opens the champion trade blotter in its OWN window - no chart expansion needed. Same quick views, same CHART pill per row into the full candle viewer (prev/next, top 10, zoom, save).','BLOTTER QUICK VIEWS (both the new window and the expanded-1A panel): RECENT (10 newest, LOAD 25 MORE), TOP 10 WINS, TOP 10 LOSSES, and ALL. RECENT is the default - the panel no longer renders five thousand rows up front; ALL is one click.','NO MORE WAITING BEHIND A BACKTEST: your PC now answers candle and blotter fetches on a separate lane, in parallel with a running job - a fetch lands in seconds instead of queueing behind a 30-90 minute backtest. (Takes effect at the next runner restart, done.)']},
 {v:'71.66',date:'2026-08-09',notes:['RUNBOARD column width, second pass. Handing the spare width to the metric-name column left a wide empty gap down the middle of the table, which was worse than the columns being padded. The table now sizes to its content and stops: every column is as wide as its own numbers, and any leftover width sits outside the table where it belongs. Drag the panel divider in if you want it gone entirely.']},
 {v:'71.65',date:'2026-08-09',notes:['The CHAMPION and FUNNEL tabs in the expanded view moved next to the EQUITY COMPARE title. They were tucked in beside RESET at the far right of a very wide header row, which on a normal window is past the edge of the screen - which is why they could not be found.','And the expanded key is ranked like the tile key: the family groups are ordered by where each one FINISHES, best first, instead of a fixed RAW, GATES, TILTS, HYBRID order. The two keys now read top to bottom the same way.']},
@@ -9400,9 +9401,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _huePal=['#e0a04b','#a879e6','#4bc0c0','#e06b9a','#8fbf4d','#5b8dee','#d9c34a','#c86b4b'];
         const _proc=(vals,col,wd,op)=>'<polyline points="'+_seg(vals,0,fIS)+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'"/>'
           +'<polyline points="'+_seg(vals,fIS,1)+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'" stroke-dasharray="2.2 1.6"/>';
-        let wf='';let _hueI=0;
+        // v71.66 (owner: "when expanding 1A the config colours change"): the tile paints the
+        //   survivors from this 8-hue palette while the expanded explorer was painting the SAME
+        //   configs from a teal ramp - two palettes for one set of lines. The tile's choice is
+        //   captured here and handed to the explorer payload below, so both draw the same config
+        //   in the same colour.
+        let wf='';let _hueI=0;const _cfgHue=new Map();
         poolAll.forEach(c=>{if(c===crownedC||c===isMaxC)return;
-          wf+=_proc(c.equity.cum.map(v=>v*mult),_huePal[(_hueI++)%_huePal.length],0.6,0.85);});
+          const _hc=_huePal[(_hueI++)%_huePal.length];_cfgHue.set(c,_hc);
+          wf+=_proc(c.equity.cum.map(v=>v*mult),_hc,0.6,0.85);});
         let ov='';
         if(isMaxC&&isMaxC!==crownedC)ov+='<g data-kg="ismax" style="display:none">'+_proc(isMaxC.equity.cum.map(v=>v*mult),'#3a9bdc',0.7,0.95)+'</g>';
         if(crownedC)ov+='<g data-kg="crown">'+_proc(crownedC.equity.cum.map(v=>v*mult),'#1d9e75',0.9,1)+'</g>';
@@ -9557,9 +9564,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(crownedC){const _n=_cfgNoOf(crownedC);_cfgNoMap.set(crownedC,_n);
             _ser.push(_mkSer(crownedC,'#1d9e75','👑 config '+(_n||'?'),'cfg'+(_n||'crown'),_wf$(crownedC)));}
           if(isMaxC&&isMaxC!==crownedC){const _n=_cfgNoOf(isMaxC);_cfgNoMap.set(isMaxC,_n);
-            _ser.push(_mkSer(isMaxC,_tealShade(),'config '+(_n||'?')+' · in-sample best','cfg'+(_n||'ismax'),_wf$(isMaxC)));}
+            _ser.push(_mkSer(isMaxC,'#3a9bdc','config '+(_n||'?')+' · in-sample best','cfg'+(_n||'ismax'),_wf$(isMaxC)));}
           _rest.forEach(c=>{const _n=_cfgNoOf(c);_cfgNoMap.set(c,_n);_hi++;
-            _ser.push(_mkSer(c,_tealShade(),'config '+(_n||'?'),'cfg'+(_n||('x'+_hi)),_wf$(c)));});
+            _ser.push(_mkSer(c,(_cfgHue.get(c)||_tealShade()),'config '+(_n||'?'),'cfg'+(_n||('x'+_hi)),_wf$(c)));});
           // B5 (owner redesign): gate lines colour by the MODEL family hue (rf magenta/pink,
           //   xgb amber/orange, logistic violet — see _gateColor), not one fixed pink for every
           //   model. Computed once here and reused by both the chosen line below and the 9-
