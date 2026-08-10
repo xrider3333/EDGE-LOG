@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.8';
+const VERSION='73.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.9',date:'2026-08-10',notes:['FIX (owner-reported): the expanded 1A funnel used to open with every RAW config AND the whole OTHER RAW grey cloud switched on at once, which lagged badly. It now opens with just one line per section - the crowned RAW config, the chosen gate, the picked tilt, the picked hybrid, the picked hybrid recycle - and nothing from OTHER RAW by default. Every other line is one click away in its group.','Verified while in there: the HYBRID / HYBRID RECYCLE key rows already toggle their own lines correctly (fixed last version, 73.7) - the default-visibility pick above now reuses that exact same per-section ranking instead of a separate one, so the two can never disagree.']},
 {v:'73.8',date:'2026-08-09',notes:['The gate sweep chart says IS + WF on the plot itself now, in the same words the rest of the report uses, instead of only in the axis title and a line underneath. The caption below it shortens to the one thing the plot cannot say: the matrix above totals whatever SAMPLE is ticked, so with LB ticked it reads higher by exactly the held-out year.']},
 {v:'73.7',date:'2026-08-10',notes:['FIX (owner-reported): in the expanded funnel, clicking the HYBRID or HYBRID recycle key row greyed out the OTHER RAW cloud instead of the hybrids. Those two families got their own key rows a while back but the click handler was never told about them, so both fell through to the last group in an old three-way branch. Every family now cycles its own lines.','FIX: the OTHER RAW row printed the ending dollars of whichever grey line happened to be first in memory, presented as the group best. It now reads the best one, like every other row.','FIX: the key rows were ORDERED by each family best line but each row PRINTS the line the funnel actually draws. When those differed the key sat in an order its own figures did not explain. Both read the same line now.']},
 {v:'73.6',date:'2026-08-10',notes:['The hover figures moved INTO the key. Mousing across the funnel used to open a second box in the top right corner listing every strategy value, which covered the chart. Each key row now shows that strategy dollars AT THE CURSOR instead, swapping back to its ending figure when you move off.','DOUBLE-CLICK anywhere on the funnel opens the expanded explorer, the same gesture the report chart uses. Double-clicking a key row still only works the key.']},
@@ -4653,7 +4654,12 @@ window.expandCompareEq=function(series,opts){
     // v71.15: hybrid and hybrid-recycle lines carry their own flags through here (they were being
     //   dropped, so the new HYBRID legend groups would have rendered empty) and start hidden like
     //   the gate and tilt families.
-    return {id:s.id,label:String(s.label||('#'+s.id)),color:s.color||'#3a9bdc',li:li,wfi:wfi,blot:s.blot||null,vis:((s.gateCand||s.tiltCand||s.hybCand||s.hybRcy)?'off':'on'),
+    // v73.8 (owner-reported: "opens with every raw + other raw config switched on, lags badly"):
+    //   EVERY series now starts hidden here, no exceptions for RAW/OTHER RAW — the block right
+    //   after _hybRPS below (search _topPick) turns exactly ONE line back on per section (RAW,
+    //   GATES, TILTS, HYBRID, HYBRID recycle), same as the families already did. OTHER RAW keeps
+    //   no default line — it is the noise cloud, not a ranked section, and stays a manual opt-in.
+    return {id:s.id,label:String(s.label||('#'+s.id)),color:s.color||'#3a9bdc',li:li,wfi:wfi,blot:s.blot||null,vis:'off',
       ts:ts,isOther:!!s.dim,gateCand:!!s.gateCand,gateChosen:!!s.gateChosen,tiltCand:!!s.tiltCand,hybCand:!!s.hybCand,hybRcy:!!s.hybRcy,famTop:!!s.famTop,tip:s.tip||'',params:s.params||null,
       tr:_trOf(s),pts:s.eq.map((v,i)=>({x:0,v:v,t:0}))};});
   // rebakeDomain (item 24): bakes ONE shared tMin..tMax calendar span from every series real
@@ -4843,22 +4849,23 @@ window.expandCompareEq=function(series,opts){
     //   unfindable and easy to misread as crownable gate lines.
     _gatePS=()=>_byEnd(PS.filter(s=>(s.gateCand||s.gateChosen)&&!s.tiltCand&&!s.hybCand&&!s.hybRcy)),_tiltPS=()=>_byEnd(PS.filter(s=>s.tiltCand)),
     _hybPS=()=>_byEnd(PS.filter(s=>s.hybCand)),_hybRPS=()=>_byEnd(PS.filter(s=>s.hybRcy));
-  // v71.40: and the best-finishing line of each family starts VISIBLE, so the explorer opens on
-  //   the same picture the tile shows - one line per family - instead of an empty chart you have
-  //   to switch on family by family. The rest of each family stays hidden behind its group row.
-  // v71.98 (owner: "the 1a funnel non expanded IS the template"): the line each family opens
-  //   with is the EXACT line the tile draws (famTop, stamped by the payload builder from
-  //   _bestTiltC/_bestHybC/the chosen gate), not merely whichever finishes highest - those
-  //   two can differ, and when they did the explorer showed a dark shade variant while the
-  //   tile line stayed hidden.
-  [_gatePS,_tiltPS,_hybPS,_hybRPS].forEach(function(fn){try{const g=fn();if(!g.length)return;(g.filter(function(s){return s.famTop;})[0]||g[0]).vis='on';}catch(_te){}});
-  // v71.42 (owner: "for top RAW in the expanded view just show the top three - it is too many"):
-  //   the RAW group carries ten coloured configs, which buried the family lines under a fan of
-  //   near-identical curves. Only the best three by where they finish start drawn - plus the
-  //   crowned config, always. The rest stay in the group, one click away.
-  try{const _raw=_mainPS();
-    if(_raw.length>3)_raw.forEach(function(s,i){if(i>=3&&!/👑/.test(String(s.label||'')))s.vis='off';});
-  }catch(_re){}
+  // _grpTop — the line a section SPEAKS FOR: famTop (stamped by the payload builder — the exact
+  //   line the non-expanded 1A/2A tile draws for that section, e.g. the 👑 crowned raw config,
+  //   the chosen gate, the picked tilt/hybrid) when the payload carries one, else the section's
+  //   own best finisher. Also used below by renderLegend/_groupRow so the key header always
+  //   names the same line this default-visibility pick turns on — one ranking, read everywhere.
+  const _grpTop=m=>(m.filter(function(s){return s.famTop;})[0]
+    ||m.slice().sort(function(x,y){return _endV(y)-_endV(x);})[0]||m[0]);
+  // v71.40 (owner: "the expanded view does not show the top config of each group by default, and
+  //   the key has no ranking like the non-expanded 1A"): the tile funnel opens as ONE line per
+  //   family, best first. The explorer opened with every family switched OFF and each group in
+  //   whatever order the series happened to be built.
+  // v73.8 (owner-reported: "opens with every raw + other raw config switched on, lags badly" /
+  //   "show only the top config of each section, everything else starts hidden"): RAW now gets
+  //   the exact same one-line-per-section default the other four families already had — no more
+  //   top-three carve-out. OTHER RAW is deliberately excluded: it is the unranked grey noise
+  //   cloud, not a section with a "top", and stays fully opt-in.
+  [_mainPS,_gatePS,_tiltPS,_hybPS,_hybRPS].forEach(function(fn){try{const g=fn();if(!g.length)return;_grpTop(g).vis='on';}catch(_te){}});
   // per-group expand/collapse state — all three start COLLAPSED (one row each); replaces the old
   //   single-purpose gateExpanded flag.
   let _grpExpanded={cfg:false,gate:false,tilt:false,hyb:false,hybr:false,oth:false};
@@ -4913,8 +4920,9 @@ window.expandCompareEq=function(series,opts){
   //   whichever grey line happened to sit first in PS and called it the group's best. Sorting a
   //   COPY here fixes that figure without touching _otherPS() itself, which the draw loop slices
   //   by otherCount and must keep in its existing order.
-  const _grpTop=m=>(m.filter(function(s){return s.famTop;})[0]
-    ||m.slice().sort(function(x,y){return _endV(y)-_endV(x);})[0]||m[0]);
+  // v73.8: _grpTop itself now lives up by the default-visibility pick (right after _hybRPS is
+  //   defined) so that pick and this header figure read off the exact same ranking — reused here
+  //   by closure, not redefined.
   const _groupRow=(key,label,members)=>{
     if(!members.length)return '';
     const st=_grpState(members),op=st==='dim'?0.45:(st==='off'?0.3:1),td=st==='off'?'line-through':'none',
@@ -10199,7 +10207,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _tealShade=()=>{const t=_cfgOthN>1?_cfgOthI/(_cfgOthN-1):0;_cfgOthI++;
             return 'hsl(161,'+Math.round(60-t*22)+'%,'+Math.round(52+t*28)+'%)';};
           if(crownedC){const _n=_cfgNoOf(crownedC);_cfgNoMap.set(crownedC,_n);
-            _ser.push(_mkSer(crownedC,'#1d9e75','👑 config '+(_n||'?'),'cfg'+(_n||'crown'),_wf$(crownedC)));}
+            // v73.8: famTop:true marks this as the RAW section's own line for the expanded
+            //   explorer's default-visibility pick (see _grpTop in expandCompareEq) — the same
+            //   crowned/champion config the non-expanded 1A funnel already draws as its top line,
+            //   so RAW opens on that exact line instead of whichever config happens to finish
+            //   highest (those can differ: the crown is a walk-forward pick, not a raw-$ pick).
+            const _crownedSer=_mkSer(crownedC,'#1d9e75','👑 config '+(_n||'?'),'cfg'+(_n||'crown'),_wf$(crownedC));
+            _crownedSer.famTop=true;
+            _ser.push(_crownedSer);}
           if(isMaxC&&isMaxC!==crownedC){const _n=_cfgNoOf(isMaxC);_cfgNoMap.set(isMaxC,_n);
             _ser.push(_mkSer(isMaxC,'#3a9bdc','config '+(_n||'?')+' · in-sample best','cfg'+(_n||'ismax'),_wf$(isMaxC)));}
           _rest.forEach(c=>{const _n=_cfgNoOf(c);_cfgNoMap.set(c,_n);_hi++;
