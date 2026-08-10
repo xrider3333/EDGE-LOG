@@ -41,6 +41,12 @@ PICK RUNS / BY STRATEGY:
   (`rbFunnelH`, `rbMtxH`); drag bars BETWEEN the three columns trade width (`rbCols`).
   Double-click any bar resets it. The report's own handles only ever existed inside
   `res-detail`, which is why COMPARE had none — these are wired in the compare handler block.
+- **QUICK TOGGLE** (v71.35): click a strategy in the funnel key to drop its curve; click again to
+  restore. Hidden ones stay listed struck-through; axis, bands and drawdown pane rescale to what
+  is shown. State lives on `window._cmpOvlHide`, cleared whenever the curve set changes.
+- **BOOKS are real runs** (v71.42+): `type:'book'` jobs pool N legs and save an ordinary run doc —
+  see §5. Real book runs list at the top of the BOOKS tile as green ▸ LIVE RUN rows, click to open
+  the run report. The offline rows stay beneath until each is replaced.
 - **WINDOW row** (v71.34): each strategy's date span + length, flagged yellow under 2 years.
   Added because run #42 (19 days, ES 1m) was topping the NET ranking against 16-year runs
   and drawing as a hairline blip on the funnel with nothing on screen explaining why.
@@ -126,7 +132,7 @@ conventions.
 | # | Item | Notes |
 |---|---|---|
 | A | ~~Rebuild RUNBOARD in the 1E matrix + 1A funnel style~~ | **SHIPPED v71.22** (§1 above) |
-| B | Book-level validate path — **"the BOOKS problem"** | The 5 BOOKS rows are the only hand-fed thing left on the board. They are computed offline by `tools/t5_runboard.py` and pasted into `index.html`, because a BOOK is two strategies traded together and Auto-Validate can only take ONE strategy file. Consequences: (a) no app verdict — their WF 8/8 is a house 8-slice test, not the fold engine; (b) no saved equity curve, so they cannot draw on the funnel; (c) they go stale until someone re-runs the script. FIX = teach the runner a `book` job type that runs N strategy files over one window, pools the trades, and saves ONE run doc — then a book becomes an ordinary row on the board and items C/F close with it. |
+| B | ~~Book-level validate path — "the BOOKS problem"~~ | **SHIPPED v71.42–71.49.** `augur_engine/book.py` + runner job `type:'book'`. Launch from RUNBOARD ▸ BOOKS ▸ ＋ RUN A BOOK. First real book run = **#204 (BOOK-1)**. Verified against the offline script: the baseline book's IS net/DD/PF/trades come out identical ($654,771 / $45,849 / 1.432 / 5,777) — `python tools/book_smoke.py`. Two bugs the end-to-end test caught and fixed: a leg whose run never recorded its session (overnight leg asked for day-session data → book died; now inferred from the source with fallbacks), and the BOOKS tile matching every 🔒 LOCKBOX run as a book (the word contains "book"; now keyed on the pooled block). Original problem, for the record: | The 5 BOOKS rows are the only hand-fed thing left on the board. They are computed offline by `tools/t5_runboard.py` and pasted into `index.html`, because a BOOK is two strategies traded together and Auto-Validate can only take ONE strategy file. Consequences: (a) no app verdict — their WF 8/8 is a house 8-slice test, not the fold engine; (b) no saved equity curve, so they cannot draw on the funnel; (c) they go stale until someone re-runs the script. FIX = teach the runner a `book` job type that runs N strategy files over one window, pools the trades, and saves ONE run doc — then a book becomes an ordinary row on the board and items C/F close with it. |
 | C | ~~Auto-populate from run history~~ | **SHIPPED v71.22** for the strategy-champion rows (board reads saved runs directly); the pooled BOOK rows are still pasted from `tools/t5_runboard.py` — pending item B |
 | D | Add columns the owner flagged as useful | trades per year · average $ per trade · worst single day · longest flat stretch · correlation to the current book |
 | E | Overlay × ENS stacked book | untested 6th row — both upgrades modify the ORB half; needs its own pre-registration |
@@ -147,3 +153,33 @@ Pins the window 2010-06-07 → 2026-06-30, NQ, 1 contract per leg, costs in
 Related drivers: `tools/blend_recert.py` (baseline recert), `tools/t1_ens_blend.py`
 (ENS leg swap), `tools/t2_overlay_sens.py` (sizing overlay + rule sensitivity),
 `tools/t3_eth_wf.py` (ETH frozen walk-forward).
+
+---
+
+## 5. BOOK runs (v71.42+) — how a book is measured
+
+A BOOK is what actually gets deployed: two or more strategies running side by side in one
+account, 1 contract each. `augur_engine/book.py` runs one as a normal job.
+
+**The mechanic.** Every leg is replayed over the SAME window with its own frozen params,
+its own market/timeframe/session/source and its own contract multiplier. Each leg's trades
+are converted to DOLLARS, stamped by EXIT date, and poured into one pile. The pile is then
+scored as a single strategy — which is the whole point: profit factor is computed across the
+pooled trades, and drawdown is measured on the DAILY account curve, so a day where one leg
+loses and the other wins nets out first, exactly as the account sees it.
+
+**What a book reports:** whole-window / pre-lockbox / lockbox stats, a real equity curve
+(so it draws on the funnel), the per-leg breakdown, and the house count of how many of 8
+equal stretches were profitable.
+
+**What a book deliberately does NOT report: walk-forward folds.** Nothing is tuned during a
+book run — the params arrive frozen — so there is no fold engine result, and `top10_results`
+is left empty on purpose so no house number can ever land in a WF column. The 8-stretch count
+rides under `book.slices` as its own thing. Do not merge the two.
+
+**Launching one:** RUNBOARD ▸ BOOKS ▸ ＋ RUN A BOOK. The picker lists each strategy family's
+champion; the window defaults to the OVERLAP of the picked runs (the only stretch where every
+leg has data), and is pinned into the job.
+
+**Regression test:** `python tools/book_smoke.py` — reproduces the offline baseline book
+(ORB 3.1 + ENGU-Q 1m) and fails if net or trade count drifts more than 2%.
