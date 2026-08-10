@@ -1133,6 +1133,13 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
   and `tools/gate_lookahead_audit.py` for the measured before/after (ORB pre-lockbox gated
   $348,256/3375 trades → $288,793/3431 trades causal; NOISE full-hist gated $282,310/4345 →
   $294,327/4320 causal — NOISE actually IMPROVED, since its edge structure differs from ORB's).
+  **Follow-up same day — gate-as-tilt DEAD on causal scores:** reran the pre-registered
+  `tools/orb_gate_tilt.py` (ORB_3_0_ENS, 2010-06-07→2026-06-30) on the fixed engine: **0 of 12
+  tilt variants clear the bar** — every tilt now loses to flat sizing on pre-lockbox MAR
+  (flat 27.6; best tilt rf·linear 27.3), so the "beats flat in BOTH windows" leg fails across
+  the board. The v67.1-era ORB #195 tilt result ("9 of 10 beat the cut on LB") was leak-driven.
+  Verdict: on ORB, neither the gate CUT nor the gate TILT earns its keep once scores are causal
+  — flat size-1 (plus the unaffected sizing.py overlay) is the honest champion configuration.
 - **2026-08-08** — **🚨 ENGINE DEFECT: the LB verdict is computed on an INDEPENDENT WARM-START RELOAD,
   not on the continuous run — it can both INVENT and DELETE lockbox trades. Two confirmed cases.**
   `run_validate` grades the lockbox by reloading the master from `lockbox_from` with no prior history.
