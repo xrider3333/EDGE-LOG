@@ -50,6 +50,10 @@ Structure EVERY substantive reply top-to-bottom as:
    "held-out year"/"lockbox year" alternations). Only the OWNER renames these; if a new concept
    truly needs a name, pick it ONCE, say "calling this X from now on", and add it here in the
    same commit.
+3b. **EVERYTHING UNDER THE TABLE IS TLDR AND BULLETED (owner 2026-08-09: "for any info under
+   the table that you give me, keep it tldr and bullet each sentence / section").** No prose
+   paragraphs below the table — every sentence is its own bullet. Group related bullets under
+   a short bold lead-in when there is more than one topic. Shorter is always better.
 3. **Details / caveats / how-to-verify / numbers go UNDERNEATH the table** — the owner skims the
    table, then drops down for detail. Keep prose terse; process/"thinking" text is noise.
    **KEEP IT SHORT AND JARGON-FREE (owner 2026-07-23, stated twice): "make more concise and
