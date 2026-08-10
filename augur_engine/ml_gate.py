@@ -41,8 +41,9 @@ each measured on real ORB trades before being dropped:
 import numpy as np
 import pandas as pd
 
-__all__ = ["gate_trades", "entry_features", "gate_validate", "gate_explain",
-           "adversarial_validation", "gate_calibration", "gate_feature_select"]
+__all__ = ["gate_trades", "entry_features", "entry_features_causal", "gate_validate",
+           "gate_explain", "adversarial_validation", "gate_calibration",
+           "gate_feature_select"]
 
 
 # ── features at the entry bar (OHLC + clock only — no volume dependency) ───────
@@ -54,7 +55,14 @@ def _atr(h, l, c, n):
 
 def entry_features(arrays):
     """Full-series feature matrix (n_bars x n_feat) + names. Row i describes the
-    market AS OF bar i's close using only bars <= i — safe to read at entry."""
+    market AS OF bar i's close using only bars <= i.
+
+    NOT safe to read at bar i's entry — every strategy plugin fills at bar i's
+    OPEN, so row i still leaks that same bar's own high/low/close (mom_5, mom_20,
+    atr_norm, atr_ratio, trend_20, range_pos) into a trade that hasn't seen the
+    rest of the bar yet. Callers that index this matrix by trade ENTRY bar must
+    use `entry_features_causal` below instead (found 2026-08-10, tools/
+    gate_lookahead_audit.py)."""
     C = pd.Series(np.asarray(arrays["close"], float))
     H = pd.Series(np.asarray(arrays["high"], float))
     L = pd.Series(np.asarray(arrays["low"], float))
@@ -85,6 +93,22 @@ def entry_features(arrays):
     X = pd.DataFrame(feats)
     X = X.replace([np.inf, -np.inf], np.nan).fillna(0.0)
     return X.to_numpy(float), list(X.columns)
+
+
+_CLOCK_FEATS = {"tod_sin", "tod_cos", "dow"}
+
+
+def entry_features_causal(arrays):
+    """entry_features shifted so row i is safe to read at bar i's OPEN:
+    market features (built from bar closes) come from bar i-1; clock features
+    (known at the open) stay at bar i. Fixes the one-bar intrabar look-ahead
+    (found 2026-08-10: reading row E leaked the entry bar's own H/L/C)."""
+    F, names = entry_features(arrays)
+    Fc = F.copy()
+    mkt = [j for j, nm in enumerate(names) if nm not in _CLOCK_FEATS]
+    Fc[1:, mkt] = F[:-1, mkt]
+    Fc[0, mkt] = F[0, mkt]
+    return Fc, names
 
 
 # ── stats in the engine's exact shape ──────────────────────────────────────────
@@ -190,7 +214,7 @@ def gate_trades(arrays, trades, model="logistic", threshold=0.50,
     P = np.array([t[2] for t in T]); y = (P > 0).astype(int)
     n = len(T)
 
-    F = feats if feats is not None else entry_features(arrays)[0]
+    F = feats if feats is not None else entry_features_causal(arrays)[0]
     nb = len(F)
     Ecl = np.clip(E, 0, nb - 1)                     # guard odd bar indices
     X = F[Ecl]
@@ -379,7 +403,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
     #   crowned it, and in the held-out year it took ONE trade and lost money. A ratio computed on
     #   almost nothing is not evidence. A variant must now keep at least `min_kept` AND at least
     #   `min_keep_frac` of the ungated pre-lockbox trades to be crownable.
-    feats = entry_features(arrays)[0]                      # compute once, reuse 9x
+    feats = entry_features_causal(arrays)[0]                # compute once, reuse 9x
     ung_pre = _slice_stats(entry_ts, pnls_all, None, lb_start)
     ung_pre_n = int(ung_pre.get("num_trades") or 0)
     _min_keep = max(int(min_kept),
@@ -721,7 +745,7 @@ def gate_explain(arrays, trades, model="logistic", min_history=30, seed=42, top=
     if np.unique(y).size < 2:
         return None
 
-    F, names = entry_features(arrays)
+    F, names = entry_features_causal(arrays)
     nb = len(F)
     X = F[np.clip(E, 0, nb - 1)]
     w = np.abs(P) + 1e-9
@@ -913,7 +937,7 @@ def gate_calibration(arrays, trades, model="rf", min_history=30, seed=42, nbins=
     y = (P > 0).astype(int)
     if np.unique(y).size < 2:
         return None
-    F = entry_features(arrays)[0]
+    F = entry_features_causal(arrays)[0]
     nb = len(F)
     X = F[np.clip(E, 0, nb - 1)]; w = np.abs(P) + 1e-9
 
@@ -1018,7 +1042,7 @@ def gate_feature_select(arrays, trades, min_history=30, seed=42):
     y = (P > 0).astype(int)
     if np.unique(y).size < 2:
         return None
-    F, names = entry_features(arrays)
+    F, names = entry_features_causal(arrays)
     nb = len(F)
     X = F[np.clip(E, 0, nb - 1)]
     try:

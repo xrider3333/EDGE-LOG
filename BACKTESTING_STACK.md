@@ -701,6 +701,15 @@ Leakage-safe by construction: the gate only ever trains on trades that finished 
 each new trade; 30-trade warm-up ungated; refit every 25; samples weighted by |PnL| so
 cut-off 50% ≈ positive expectancy (matters for low-win-rate strategies).
 
+**Entry features are CAUSAL as of the fill bar's open (fixed 2026-08-10).** The market
+features (momentum/ATR/trend/range-position) are built from bar closes, so a trade
+filled at bar E's open must read features as of bar E-1's close, not bar E's — reading
+row E leaked that same bar's own high/low/close into the score. `entry_features_causal`
+(`augur_engine/ml_gate.py`) shifts the market columns down one row before `gate_trades`,
+`gate_explain`, `gate_calibration`, and `gate_feature_select` index by entry bar; the
+clock columns (tod_sin/tod_cos/dow) are known at the open and stay unshifted. Whole-array
+uses (VIF collinearity, adversarial validation) were never affected.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.
@@ -1117,6 +1126,13 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-10** — **ML gate one-bar look-ahead fixed (`entry_features_causal`):** gate read
+  entry-bar close at a bar filled at its open; ORB #125 gate edge was entirely the leak
+  (+$59k inflated, causal gate ≤ raw); all saved GATE/TILT(model)/HYBRID stats predating this
+  are optimistic and need rerun; sizing.py overlay unaffected. See §4 for the mechanics note
+  and `tools/gate_lookahead_audit.py` for the measured before/after (ORB pre-lockbox gated
+  $348,256/3375 trades → $288,793/3431 trades causal; NOISE full-hist gated $282,310/4345 →
+  $294,327/4320 causal — NOISE actually IMPROVED, since its edge structure differs from ORB's).
 - **2026-08-08** — **🚨 ENGINE DEFECT: the LB verdict is computed on an INDEPENDENT WARM-START RELOAD,
   not on the continuous run — it can both INVENT and DELETE lockbox trades. Two confirmed cases.**
   `run_validate` grades the lockbox by reloading the master from `lockbox_from` with no prior history.
