@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.95';
+const VERSION='71.96';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.96',date:'2026-08-09',notes:['GATE SWEEP CHART now reads out on hover. Move across it and every model prints its MAR and its net dollars at that exact 1 percent cut-off, tuning years. Both measures were already saved at every step - the chart was only ever drawing whichever one the RANK button selected - so the peaks can now be priced without flipping RANK back and forth.','A BOOK run names itself. Run 204 was reading 7 - ORB 3.0 in every run list, because a book has no single strategy file and the family matcher fell back to the closest name it could find. Book rows now show the book mark and the book name.','And a book no longer prints NaN in the ROBUSTNESS column. A book tunes nothing, so that score was never defined for it - it shows a dash, like the walk-forward column next to it already does.']},
 {v:'71.95',date:'2026-08-09',notes:['Opening a LOOK-ALIKE group as charts now names that group at the top instead of the generic MOST RECENT heading, and the view switch is hidden since the set is already fixed to that group.']},
 {v:'71.94',date:'2026-08-09',notes:['Fix: the CHAMPION / FUNNEL tabs were dead when you opened the CHAMPION chart first. The code that wires them only came into existence once the funnel explorer had been opened at least once, so whichever chart you expanded first got two painted but unclickable tabs.']},
 {v:'71.94',date:'2026-08-09',notes:['LOOK-ALIKE SETUPS: the win-rate chip was multiplying an already-finished percentage, so a 36 percent group printed 3610 percent. Reads correctly now.']},
@@ -8816,6 +8817,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const rich=sfam||fm;const sd=SDIFF[_sdiffKey(src)];
       return {num:num,abbr:abbr,ver:vb.ver,branch:vb.br,fam:fam,full:(rich?rich.full:abbr),desc:(rich?rich.desc:''),diff:(sd?sd.s:''),diffLong:(sd?sd.l:''),color:color,label:label};};
     const stratTag=(str,sz,wt)=>{const i=stratInfo(str);return '<span style="color:'+i.color+';font-weight:'+(wt||600)+(sz?';font-size:'+sz:'')+'">'+i.label+'</span>';};
+    // owner (run 204): "what was run 204 orb book 1?" - a BOOK has no single strategy file, so its
+    //   stored strategy is the book NAME and the family matcher was labelling it 7 - ORB 3.0, which
+    //   reads as an ORB run. A book names itself now, with the book mark in front of it.
+    const runTag=(r,sz)=>{
+      if(r&&r.book)return '<span title="a BOOK - several strategies traded side by side over one window, their trades pooled and scored as one" style="color:var(--text2);font-weight:600'+(sz?';font-size:'+sz:'')+'">\u{1F4DA} '+String(r.strategy||'book').replace(/[<>&]/g,'')+'</span>';
+      return stratTag(r&&r.strategy,sz);};
+    // a score the run type was never defined for (a book tunes nothing, so there is nothing to
+    //   score) printed as the literal text NaN. It prints a dash.
+    const _scTxt=v=>(v!=null&&isFinite(v))?Math.round(v):'\u2014';
     // ── Instrument color (CSV / masters), consistent everywhere ──────────────
     const INSTC={NQ:'#5b8def',MNQ:'#93b3f2',ES:'#27c08a',MES:'#79d6b1',YM:'#e0a341',MYM:'#ecc684',RTY:'#c77dd6',M2K:'#dba9e6',CL:'#d6694b',GC:'#d4b95e'};
     // $ point-value per instrument — used to convert commission $/RT into cost POINTS.
@@ -11905,9 +11915,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
               g+='<circle cx="'+X(c.threshold).toFixed(1)+'" cy="'+Y(yv).toFixed(1)+'" r="'+(isCh?4.6:3)+'" fill="'+dc+'"'+(isCh?' stroke="var(--text)" stroke-width="1.6"':'')+'><title>'+c.model+' @ '+Math.round(c.threshold*100)+'% &#183; official candidate'+(isCh?' &#183; CHOSEN':'')+'</title></circle>';});
             let xl='';for(let t=tmn;t<=tmx+1e-9;t+=0.05){xl+='<text x="'+X(t).toFixed(1)+'" y="'+(pt+ph+11).toFixed(1)+'" text-anchor="middle" font-size="8" fill="var(--text4)">'+Math.round(t*100)+'%</text>';}
             const legend=models.map(m=>'<span style="color:'+_mc(m)+';font-weight:700">&#9679; '+m+'</span>').join(' &nbsp; ');
+            // owner: "is there a way when im mousing over the sweep chart to see what pnl would
+            //   have been". The engine already stores BOTH measures at every 1% - the chart just
+            //   draws whichever one RANK selects - so the hover can report both without any new
+            //   compute. Payload rides on the wrapper; the readout is wired with the other charts.
+            const _swPay={ths:ths,pl:pl,pw:pw,W:W,ub:ub,yPnl:_yPnl?1:0,
+              ms:models.map(m=>({n:m,c:_mc(m),
+                rec:(_sw.models[m].pre_rec||[]).map(v=>+v),
+                net:(_sw.models[m].pre_net||[]).map(v=>+v*mlt3),
+                lrec:(_sw.models[m].lb_rec||[]).map(v=>+v),
+                lnet:(_sw.models[m].lb_net||[]).map(v=>+v*mlt3)}))};
+            let _swAttr='';try{_swAttr=' data-swxh="'+encodeURIComponent(JSON.stringify(_swPay))+'"';}catch(_se){}
             return '<div style="margin:2px 0 10px">'
-              +'<div style="font-size:8px;color:var(--text4);margin:0 0 3px">Every 1% cut-off from 40% to 70%, one walk per model &#183; <b>solid</b> = tuning years &#183; <b>dashed</b> = held-out year (<span style="color:var(--yellow)">hindsight &#8212; reporting only, the pick never sees it</span>) &#183; dots = the three official cut-offs, ringed = chosen &#183; y-axis follows the RANK button.</div>'
-              +'<div style="background:var(--bg1);border-radius:8px;padding:8px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+xl+'</svg></div>'
+              +'<div style="font-size:8px;color:var(--text4);margin:0 0 3px">Every 1% cut-off from 40% to 70%, one walk per model &#183; <b>solid</b> = tuning years &#183; <b>dashed</b> = held-out year (<span style="color:var(--yellow)">hindsight &#8212; reporting only, the pick never sees it</span>) &#183; dots = the three official cut-offs, ringed = chosen &#183; y-axis follows the RANK button &#183; <b>hover the chart</b> for every model MAR and net $ at that cut-off.</div>'
+              +'<div'+_swAttr+' style="position:relative;background:var(--bg1);border-radius:8px;padding:8px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+xl+'</svg></div>'
               +'<div style="text-align:center;font-size:8px;margin-top:3px">'+legend+'</div>'
               +'</div>';
           }
@@ -15045,10 +15066,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<span style="flex:0 0 12px;text-align:center;color:var(--yellow)"'+(isBest?' title="best run of this strategy"':'')+'>'+(isBest?'★':'')+'</span>'
             +'<span style="flex:0 0 13px;text-align:center;color:'+(on?'var(--blue)':'var(--text5)')+'">'+(on?'☑':'☐')+'</span>'
             +'<span style="flex:0 0 33px;text-align:right;color:var(--text3)">#'+r.id+'</span>'+((r.famKey&&r.famSeq!=null)?'<span style="flex:0 0 auto;font-size:8px;font-weight:700;color:var(--text5)" title="family run id">'+r.famKey+'-'+r.famSeq+'</span>':'')
-            +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+stratTag(r.strategy)+'</span>'
+            +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+runTag(r)+'</span>'
             +'<span style="flex:0 0 52px;font-size:8px;color:var(--text5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+instTag(r.instrument)+' '+(r.timeframe||'')+'</span>'
             +'<span style="flex:0 0 58px;text-align:right;color:'+((r.best_pnl_usd||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(r.best_pnl_usd||0))+'</span>'
-            +'<span style="flex:0 0 28px;text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)')+'">'+sc+'</span>'
+            +'<span style="flex:0 0 28px;text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)')+'">'+_scTxt(sc)+'</span>'
             +'<span style="flex:0 0 32px;font-size:8px;font-weight:700;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':'var(--red)')+'">'+(vv||'')+'</span>'
             +'</div>';};
         // ── ▦ GROUP view (owner: same by-strategy grouping as Past Runs) — collapsible strategy
@@ -15114,10 +15135,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           return '<div title="automatic — this family champion is picked by score" style="display:flex;align-items:center;gap:7px;padding:4px 8px;border-radius:6px;font-size:var(--fsxs)">'
             +'<span style="flex:0 0 10px;height:10px;border-radius:3px;background:'+swc+'"></span>'
             +'<span style="flex:0 0 33px;text-align:right;color:var(--text3)">#'+r.id+'</span>'+((r.famKey&&r.famSeq!=null)?'<span style="flex:0 0 auto;font-size:8px;font-weight:700;color:var(--text5)" title="family run id">'+r.famKey+'-'+r.famSeq+'</span>':'')
-            +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+stratTag(r.strategy)+'</span>'
+            +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+runTag(r)+'</span>'
             +'<span style="flex:0 0 52px;font-size:8px;color:var(--text5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+instTag(r.instrument)+' '+(r.timeframe||'')+'</span>'
             +'<span style="flex:0 0 58px;text-align:right;color:'+((r.best_pnl_usd||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(r.best_pnl_usd||0))+'</span>'
-            +'<span style="flex:0 0 28px;text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)')+'">'+sc+'</span>'
+            +'<span style="flex:0 0 28px;text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)')+'">'+_scTxt(sc)+'</span>'
             +'<span style="flex:0 0 32px;font-size:8px;font-weight:700;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':'var(--red)')+'">'+(vv||'')+'</span>'
             +'</div>';};
         // hidden short-window strategies are COUNTED here so nothing disappears silently
@@ -15256,7 +15277,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   colour + #id + the famKey chip (e.g. "ORB-4"); the long strategy tag is dropped from
         //   the header itself (it was the widest thing in the table) and rides in title= instead.
         //   Shared by the VERT header row and the HORIZ first column below.
-        const _runHdr=(r,i)=>{const full=((stratTag(r.strategy)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||'';
+        const _runHdr=(r,i)=>{const full=((runTag(r)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||'';
           return '<span title="'+full.replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap">'
             +'<span style="width:9px;height:9px;border-radius:3px;background:'+curves[i].c+';flex:0 0 auto"></span>'
             +'<span style="color:var(--text3)">#'+r.id+'</span>'
@@ -15471,7 +15492,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _spanOf=r=>{const a=Date.parse(r.date_from||''),b=Date.parse(r.date_to||'');
           return (isNaN(a)||isNaN(b)||b<=a)?null:Math.round((b-a)/86400000);};
         const _shortOf=r=>((r.famKey&&r.famSeq!=null)?(r.famKey+'-'+r.famSeq):('#'+r.id));
-        const _mCols=runs.map((r,i)=>{const full=((stratTag(r.strategy)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||'';
+        const _mCols=runs.map((r,i)=>{const full=((runTag(r)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||'';
           const d=_spanOf(r),short=(d!=null&&d/365.25<2);
           // 1E's own column-head format, character for character: "👑R1 · #262". The RUN NUMBER is
           //   what goes on the top line — it is short, so eight columns fit without the table
@@ -15700,14 +15721,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _mNm={mar:'MAR',pf:'PF',net:'NET $',dd:'DD'}[_rbR];
           const _sideRow=(r,i)=>{const v=_rbVal(r,_rbR),shown=(_rbR==='dd')?-v:v;
             const vv=r.validate?r.validate.verdict:'',swc=((typeof stratColor==='function')&&stratColor(r.strategy))||'var(--text4)';
-            const lab=((stratTag(r.strategy)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||('#'+r.id);
+            const lab=((runTag(r)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||('#'+r.id);
             const val=(_rbSide==='recent')?_ab$(_netOf(r)||0)
               :((_rbR==='pf'||_rbR==='mar')?(isFinite(shown)?shown.toFixed(2):'—'):_ab$(shown||0));
             return '<div data-rank-run="'+r.id+'" title="open this run report · '+String(lab).replace(/"/g,'')+'" style="display:flex;align-items:center;gap:6px;padding:4px 7px;border-radius:6px;cursor:pointer;font-size:var(--fsxs)">'
               +'<span style="flex:0 0 14px;text-align:right;color:var(--text5);font-size:8px">'+(i+1)+'</span>'
               +'<span style="flex:0 0 9px;height:9px;border-radius:2px;background:'+swc+'"></span>'
               +'<span style="flex:0 0 32px;text-align:right;color:var(--text3)">#'+r.id+'</span>'
-              +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+stratTag(r.strategy)+'</span>'
+              +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+runTag(r)+'</span>'
               +(_shortCol(r)?'<span title="short sample — under two years" style="flex:0 0 auto;color:var(--yellow);font-size:8px">⚠</span>':'')
               +'<span style="flex:0 0 56px;text-align:right;font-weight:700;color:'+((_rbSide==='worst')?'var(--red)':'var(--green)')+'">'+val+'</span>'
               +'<span style="flex:0 0 26px;font-size:8px;font-weight:700;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':vv?'var(--red)':'var(--text5)')+'">'+(vv||'')+'</span>'
@@ -15766,8 +15787,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(!scored.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUNS YET — RUN SOME BACKTESTS</div>';}
       else{const _rrow=(o,i)=>{const r=o.r,sc=o.s,col=sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)';const vv=r.validate?r.validate.verdict:'';return '<tr class="arow" data-rank-run="'+r.id+'" style="cursor:pointer">'
           +'<td style="color:var(--text5)">'+(i+1)+'</td>'
-          +'<td><div style="display:flex;align-items:center;gap:8px"><span style="width:26px;text-align:right;font-weight:800;color:'+col+'">'+sc+'</span><span style="flex:1;height:5px;background:var(--bg1);border-radius:3px;overflow:hidden;min-width:54px;display:inline-block"><span style="display:block;height:100%;width:'+sc+'%;background:'+col+'"></span></span></div></td>'
-          +'<td style="font-size:var(--fsxs)">'+stratTag(r.strategy)+(vv?' <span style="font-size:8px;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vv+'</span>':'')+'</td>'
+          +'<td><div style="display:flex;align-items:center;gap:8px"><span style="width:26px;text-align:right;font-weight:800;color:'+col+'">'+_scTxt(sc)+'</span><span style="flex:1;height:5px;background:var(--bg1);border-radius:3px;overflow:hidden;min-width:54px;display:inline-block"><span style="display:block;height:100%;width:'+((sc!=null&&isFinite(sc))?sc:0)+'%;background:'+col+'"></span></span></div></td>'
+          +'<td style="font-size:var(--fsxs)">'+runTag(r)+(vv?' <span style="font-size:8px;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vv+'</span>':'')+'</td>'
           +'<td style="font-size:var(--fsxs)">'+instTag(r.instrument)+' '+(r.timeframe||'')+'</td><td style="font-size:var(--fsxs);color:var(--text5)">'+(r.scope||'')+'</td>'
           +'<td style="text-align:right">'+(r.best_pf||0).toFixed(2)+'</td>'
           +'<td style="text-align:right">'+(function(){var dd=Math.abs(+r.best_dd_usd||0);return dd>1e-9?((+r.best_pnl_usd||0)/dd).toFixed(1):'—';})()+'</td>'
@@ -15921,7 +15942,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<td class="prstar"><span data-star="'+r.id+'" title="star" style="cursor:pointer;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span></td>'
             +'<td style="text-align:right;color:var(--text3);font-variant-numeric:tabular-nums;white-space:nowrap">'+r.id+((r.famKey&&r.famSeq!=null)?'<div title="family run id — chronological within '+r.famKey+', stable (never renumbers)" style="margin-top:1px;font-size:7.5px;color:var(--text4);font-weight:700;letter-spacing:.2px">'+r.famKey+'-'+r.famSeq+'</div>':'')+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+_dtmini(r.timestamp)+'</td>'
-            +'<td style="white-space:nowrap">'+stratTag(r.strategy)+(vd?' <span style="font-size:8px;color:'+(vd==='PASS'?'var(--green)':vd==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vd+'</span>':'')+'</td>'
+            +'<td style="white-space:nowrap">'+runTag(r)+(vd?' <span style="font-size:8px;color:'+(vd==='PASS'?'var(--green)':vd==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vd+'</span>':'')+'</td>'
             +'<td style="text-align:right;font-variant-numeric:tabular-nums;color:var(--text2)" title="total trades in this run">'+(T.trades||0).toLocaleString()+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text4);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="mode '+_modeNum(r)+' · '+(_modeName[_modeNum(r)]||'')+' — '+String(r.scope||'').replace(/"/g,'')+'"><b style="color:var(--text2)">'+_modeNum(r)+'</b> · '+(r.scope||'')+'</td>'
             +'<td style="white-space:nowrap">'+(ik?instTag(ik):'—')+'</td>'
@@ -15935,7 +15956,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<td title="'+(T.validated?(shp!=null&&!isNaN(+shp)?'whole-run Sharpe — champion measured over the full window':'whole-run Sharpe needs a re-run that saves per-trade data (this older run did not). Out-of-sample Sharpe '+(T.sharpeOOS!=null?(+T.sharpeOOS).toFixed(2):'—')+' — see the report matrix'):'risk-adjusted return')+'" style="text-align:right'+(T.validated?';cursor:help':'')+'">'+(shp!=null&&!isNaN(+shp)?(+shp).toFixed(2):'—')+'</td>'
             +'<td title="'+(T.validated?(T.wr!=null?'whole-run win% — champion over the full window':'whole-run win% needs a re-run that saves per-trade data (this older run did not)'+(T.isWr!=null?' (in-sample was '+Math.round(T.isWr)+'%)':'')):'win rate')+'" style="text-align:right'+(T.validated?';cursor:help':'')+'">'+(T.wr!=null?Math.round(T.wr)+'%':'—')+'</td>'
             +'<td style="text-align:center;font-size:var(--fsxs);color:'+(wf?'var(--text3)':'var(--text5)')+'">'+(wf||'—')+'</td>'
-            +'<td style="text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)')+'">'+sc+'</td>'
+            +'<td style="text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)')+'">'+_scTxt(sc)+'</td>'
             +'<td style="text-align:right;font-size:var(--fsxs);color:var(--text4);white-space:nowrap">'+_dur(r.elapsed_s)+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text5);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+src.replace(/"/g,'')+'">'+(src||'—')+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+(r.date_from?_dnice(r.date_from)+'→'+_dnice(r.date_to):'—')+'</td>'
@@ -16029,7 +16050,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<span style="width:38px;text-align:right;color:var(--text2);font-weight:600" title="MAR = net ÷ max drawdown, measured on the OPTIMIZE (in-sample) window — the tuned stretch, so it reads big. The LB MAR in a run report uses ONLY the held-out lockbox slice; same formula, different window.">'+((T.net&&T.dd)?(T.net/Math.abs(T.dd)).toFixed(1):'—')+'</span>'
             +'<span style="width:40px;text-align:right;color:var(--text4)" title="lockbox (held-out) profit factor">'+((r.validate&&r.validate.lockbox&&r.validate.lockbox.pf)?(+r.validate.lockbox.pf).toFixed(2):'—')+'</span>'
             +'<span style="width:30px;text-align:center;color:var(--text4)">'+(_wfHeld(r)||'—')+'</span>'
-            +'<span style="margin-left:auto;width:40px;text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':(sc>=45?'var(--yellow)':'var(--red)'))+'">'+sc+'</span>'
+            +'<span style="margin-left:auto;width:40px;text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':(sc>=45?'var(--yellow)':'var(--red)'))+'">'+_scTxt(sc)+'</span>'
             +'</div>';};
         // slim column-header line above a group's expanded run rows (the "family ledger")
         const _gHdr='<div style="display:flex;align-items:center;gap:10px;padding:1px 8px 2px;font-size:8px;letter-spacing:.5px;color:var(--text5);user-select:none">'
@@ -16628,7 +16649,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
          const cur=(Array.isArray(APREF.rbAdd)?APREF.rbAdd:[]).map(String);
          const ov=document.createElement('div');
          ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:9500;display:flex;align-items:center;justify-content:center;padding:20px';
-         const row=r=>{const lab=((stratTag(r.strategy)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||('#'+r.id);
+         const row=r=>{const lab=((runTag(r)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||('#'+r.id);
            return '<label style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:var(--fsxs)">'
              +'<input type="checkbox" data-addr="'+r.id+'"'+(cur.indexOf(String(r.id))>=0?' checked':'')+' style="cursor:pointer">'
              +'<span style="flex:0 0 34px;text-align:right;color:var(--text3)">#'+r.id+'</span>'
@@ -16713,7 +16734,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(!pool.length){alert('No runs with saved settings yet — run a strategy first, then build a book from it.');return;}
         const ov=document.createElement('div');
         ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:9500;display:flex;align-items:center;justify-content:center;padding:20px';
-        const row=r=>{const lab=((stratTag(r.strategy)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||('#'+r.id);
+        const row=r=>{const lab=((runTag(r)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||('#'+r.id);
           return '<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:var(--fsxs)">'
             +'<input type="checkbox" data-bkleg="'+r.id+'" style="cursor:pointer">'
             +'<span style="flex:0 0 34px;text-align:right;color:var(--text3)">#'+r.id+'</span>'
@@ -16755,7 +16776,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const df=(ov.querySelector('[data-bkfrom]').value||'').trim()||o[0]||'';
           const dt=(ov.querySelector('[data-bkto]').value||'').trim()||o[1]||'';
           const nm=(ov.querySelector('[data-bkname]').value||'').trim()
-            ||ls.map(r=>((stratTag(r.strategy)||'').replace(/<[^>]*>/g,'').trim()||r.strategy)).join(' + ');
+            ||ls.map(r=>((runTag(r)||'').replace(/<[^>]*>/g,'').trim()||r.strategy)).join(' + ');
           // a saved run does not always record its SESSION — infer it from the data source name
           // (…_eth / …_rth) so an overnight leg is not asked for day-session data it never used.
           const _sessOf=r=>r.session||(/eth/i.test(String(r.data_source||''))?'eth':'rth');
@@ -16942,6 +16963,31 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-pmet]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('pMetric',b.dataset.pmet);renderApp();};});
       // v64.49 (owner): 2A "🚪 gated" toggle — overlay the ML Trade Filter gated curve on the funnel.
       content.querySelectorAll('[data-a2gate]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('a2gate',+b.dataset.a2gate);renderApp();};});
+      // GATE SWEEP hover: snap to the nearest 1% cut-off and print every model tuning-years MAR
+      //   and net $ side by side, so the peaks the line shows can be read as dollars without
+      //   flipping the RANK button back and forth.
+      content.querySelectorAll('[data-swxh]').forEach(box=>{
+        let PZ=null;try{PZ=JSON.parse(decodeURIComponent(box.getAttribute('data-swxh')||''));}catch(_e){}
+        if(!PZ||!PZ.ths||PZ.ths.length<2)return;
+        const _n=PZ.ths.length;let vl=null,rd=null;
+        const _u2=v=>{if(v==null||!isFinite(v))return '\u2014';const a=Math.abs(Math.round(v));return (v<0?'-$':'$')+(a>=1000?(a/1000).toFixed(a>=10000?0:1)+'k':a);};
+        const _hide=()=>{if(vl){vl.style.display='none';rd.style.display='none';}};
+        box.addEventListener('mousemove',ev=>{
+          const r=box.getBoundingClientRect();if(!r.width)return;
+          const tf=((ev.clientX-r.left)/r.width*PZ.W-PZ.pl)/Math.max(1,PZ.pw);
+          if(tf<-0.03||tf>1.03){_hide();return;}
+          const i=Math.max(0,Math.min(_n-1,Math.round(tf*(_n-1))));
+          if(!vl){
+            vl=document.createElement('div');vl.style.cssText='position:absolute;top:6px;bottom:6px;width:1px;background:var(--text4);opacity:.55;pointer-events:none;z-index:3';box.appendChild(vl);
+            rd=document.createElement('div');rd.style.cssText='position:absolute;top:6px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px 7px;font-size:8px;line-height:1.6;color:var(--text2);pointer-events:none;white-space:nowrap;z-index:4';box.appendChild(rd);}
+          vl.style.display='';rd.style.display='';
+          const px=((PZ.pl+PZ.pw*(i/(_n-1)))/PZ.W)*100;
+          vl.style.left=px+'%';
+          rd.style.left=(px>50?'':(px+2)+'%');rd.style.right=(px>50?((100-px)+2)+'%':'');
+          rd.innerHTML='<b>'+Math.round(PZ.ths[i]*100)+'% cut-off</b> <span style="color:var(--text5)">tuning years</span><br>'
+            +PZ.ms.map(m=>'<span style="color:'+m.c+'">\u25cf '+m.n+'</span> &nbsp;MAR <b>'+((m.rec[i]!=null&&isFinite(m.rec[i]))?(+m.rec[i]).toFixed(1):'\u2014')+'</b> &nbsp;'+_u2(m.net[i])).join('<br>');
+        },{passive:true});
+        box.addEventListener('mouseleave',_hide);});
       // v68.3 (owner: 2A key should manipulate the chart): each key row toggles its line group on
       //   click and SPOTLIGHTS it on hover (everything else fades). Render-local, no pref.
       content.querySelectorAll('[data-a2eqx]').forEach(box=>{
