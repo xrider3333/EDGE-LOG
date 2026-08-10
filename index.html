@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.94';
+const VERSION='71.95';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.95',date:'2026-08-09',notes:['Opening a LOOK-ALIKE group as charts now names that group at the top instead of the generic MOST RECENT heading, and the view switch is hidden since the set is already fixed to that group.']},
 {v:'71.94',date:'2026-08-09',notes:['Fix: the CHAMPION / FUNNEL tabs were dead when you opened the CHAMPION chart first. The code that wires them only came into existence once the funnel explorer had been opened at least once, so whichever chart you expanded first got two painted but unclickable tabs.']},
 {v:'71.94',date:'2026-08-09',notes:['LOOK-ALIKE SETUPS: the win-rate chip was multiplying an already-finished percentage, so a 36 percent group printed 3610 percent. Reads correctly now.']},
 {v:'71.93',date:'2026-08-09',notes:['HOTFIX: every run report died with "Cannot access _actSel before initialization" - the new header action tray was a const that could be read before its initializer ran. It is a hoisted function now, which cannot land in that state.']},
@@ -3733,7 +3734,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 //    chart per trade in one scrolling window, fetches the whole batch at once, and appends the
 //    next 10 on LOAD MORE. Shares _barsCache with the single-trade CANDLES window, so anything
 //    already viewed draws instantly and anything drawn here makes the CANDLES window instant. ──
-window.openChartGallery=function(B,rowsAll,initialView){
+window.openChartGallery=function(B,rowsAll,initialView,fixedLabel){
   if(!B||!rowsAll||!rowsAll.length)return;
   const $=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
   const sideOf=x=>{if(x._side)return x._side;const g=x._pts+((B.cost_pts)||0);
@@ -3777,7 +3778,9 @@ window.openChartGallery=function(B,rowsAll,initialView){
     host.style.display='block';
     host.innerHTML=window.candleSVG(r.bars||[],r.overlays||{},m,{height:300});
   };
-  const label=()=>view==='wins'?'TOP WINNERS':(view==='losses'?'TOP LOSERS':'MOST RECENT');
+  // a caller-supplied name (a look-alike group) beats the generic view name - opening a
+  // 21-trade group under the heading MOST RECENT read as the wrong list.
+  const label=()=>fixedLabel||(view==='wins'?'TOP WINNERS':(view==='losses'?'TOP LOSERS':'MOST RECENT'));
   const sync=()=>{
     const list=order().slice(0,shown);
     const done=list.filter(x=>_barsCache[x._no]).length;
@@ -3787,7 +3790,7 @@ window.openChartGallery=function(B,rowsAll,initialView){
   const draw=()=>{
     const mySeq=++seq;
     const vs=[['wins','TOP WINS'],['losses','TOP LOSSES'],['recent','MOST RECENT']];
-    views.innerHTML=vs.map(v2=>'<span data-galv="'+v2[0]+'" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;border:1px solid '+(view===v2[0]?'var(--blue)':'var(--border)')+';color:'+(view===v2[0]?'var(--blue)':'var(--text4)')+'">'+v2[1]+'</span>').join('')
+    views.innerHTML=(fixedLabel?'<span title="this set is fixed to one look-alike group" style="font-size:9px;font-weight:700;letter-spacing:.6px;padding:4px 10px;border-radius:6px;border:1px solid color-mix(in srgb,var(--purple) 60%,var(--border));color:var(--purple)">'+fixedLabel+'</span>':'')+(fixedLabel?'':vs.map(v2=>'<span data-galv="'+v2[0]+'" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;border:1px solid '+(view===v2[0]?'var(--blue)':'var(--border)')+';color:'+(view===v2[0]?'var(--blue)':'var(--text4)')+'">'+v2[1]+'</span>').join(''))
       +'<span style="font-size:9px;color:var(--text5);margin-left:auto">every chart is live — click OPEN for zoom, save and stepping</span>';
     views.querySelectorAll('[data-galv]').forEach(b2=>{b2.onclick=()=>{if(view===b2.dataset.galv)return;view=b2.dataset.galv;shown=10;draw();};});
     const list=order().slice(0,shown);
@@ -3940,7 +3943,7 @@ window.openBlotterModal=async function(B){
     body.querySelectorAll('[data-lagal]').forEach(b3=>{b3.onclick=()=>{
       const g=gs[+b3.dataset.lagal];if(!g)return;
       const mem=(g.members||[]).map(no=>rows.find(q=>q._no===no)).filter(Boolean);
-      if(mem.length)window.openChartGallery(B,mem,'recent');};});
+      if(mem.length)window.openChartGallery(B,mem,'recent','LOOK-ALIKE GROUP '+((+b3.dataset.lagal)+1)+' - '+g.n+' NEAR-IDENTICAL SETUPS');};});
   };
   draw();
   try{
