@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='72.8';
+const VERSION='72.9';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'72.9',date:'2026-08-09',notes:['The GREY step of the key cycle now actually greys the line. The click was recording the state but the chart was still drawing that strategy at full strength, so grey and shown looked identical. All three segments of a curve fade together.']},
 {v:'72.8',date:'2026-08-10',notes:['Ship tool fixes (dev-side, no UI change) - the version-realign step no longer skips silently on Windows, so a push can never step the site version backward again; and the pre-push boot gate now tests the worktree copy of the site that is actually being pushed, not the shared checkout.']},
 {v:'72.7',date:'2026-08-09',notes:['Hotfix: the funnel key came up blank on 72.6 - the three-state click landed but the setting it reads was never created. Key rows are back and the cycle works: click greys a strategy out, click again removes it, once more brings it back.']},
 {v:'72.6',date:'2026-08-09',notes:['RUNBOARD funnel key rows CYCLE three states on click now, instead of only deleting. First click GREYS the strategy out - it stays on the chart, faint, and still counts toward the scale so you keep the context. Second click REMOVES it. Third brings it back. The report funnel greys its non-survivors the same way.','The expand button opens the fullscreen explorer with what is actually on screen. A greyed or removed strategy no longer reappears at full strength just because you expanded the chart.']},
@@ -5906,8 +5907,8 @@ window.cmpOvlMount=function(hostId){
   //   strategy and drops every other one to a faint trace, in the plot AND in the key. Same
   //   behaviour the config funnel in the report has.
   let _spot=null;
-  const _so=sr=>(_spot==null||_spot===String(sr.id))?'1':'0.13';
-  const _sw=sr=>(_spot===String(sr.id))?'2.1':'1.2';
+  const _so=sr=>GRY.has(String(sr.id))?'0.15':((_spot==null||_spot===String(sr.id))?'1':'0.13');
+  const _sw=sr=>(_spot===String(sr.id)&&!GRY.has(String(sr.id)))?'2.1':'1.2';
   const render=()=>{
     const g=geo();
     // y-fit the equity pane to whichever points fall inside [va,vb] (falls back to the
@@ -5983,7 +5984,7 @@ window.cmpOvlMount=function(hostId){
       if(wfi!=null){const wfEnd=(li!=null?li:n-1),dash=_clipN(pts.slice(solidEnd,wfEnd+1));
         if(dash.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(g,dash,Y)+'" fill="none" stroke="'+sr.color+'" stroke-width="'+_sw(sr)+'" stroke-dasharray="7,4" opacity="'+_so(sr)+'"/>';}
       if(li!=null){const dot=_clipN(pts.slice(li));
-        if(dot.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(g,dot,Y)+'" fill="none" stroke="'+sr.color+'" stroke-width="'+_sw(sr)+'" stroke-dasharray="0.1,5" stroke-linecap="round" opacity="'+((_spot==null||_spot===String(sr.id))?'0.9':'0.13')+'"/>';}
+        if(dot.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(g,dot,Y)+'" fill="none" stroke="'+sr.color+'" stroke-width="'+_sw(sr)+'" stroke-dasharray="0.1,5" stroke-linecap="round" opacity="'+(GRY.has(String(sr.id))?'0.15':((_spot==null||_spot===String(sr.id))?'0.9':'0.13'))+'"/>';}
     });
     // v72.4 HIGH-WATER MARK (owner: "maybe add the watermark as a toggle. want to see it first"):
     //   each curve's running peak - the most that strategy had ever made up to that point. The gap
