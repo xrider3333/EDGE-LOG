@@ -497,6 +497,14 @@ optional, lowest priority of the three phases.
 
 ## 6. SUGGESTED EXTRAS (suggestions, not requirements)
 
+**Status update (v71.54, 2026-08-09):** most of this list SHIPPED, owner-driven. The candle
+modal is now a viewer: PREV/NEXT + arrow-key stepping through the blotter's current sort
+order, a TOP 10 winners/losers jump menu, drag-across-candles zoom (+ TRADE/FULL buttons,
+double-click reset — client-side re-render of the cached bars, no refetch), SAVE PNG (CSS
+vars resolved to literals before rasterising, 2x scale), per-trade bars cache + quiet
+neighbour prefetch so stepping is instant. Still open from this list: click-through from
+equity-curve points, overlay toggles, and the §3.2(d) engine-emitted strategy overlays.
+
 These are ideas, not a spec — evaluate/design each on its own if pursued:
 
 - **Click-through from any equity-curve point** to that trade's chart (from inside
