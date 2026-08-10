@@ -26,6 +26,7 @@ import json
 import time
 import glob
 import argparse
+import threading
 
 import augur_engine as ae
 from augur_engine import trial_cache as TC
@@ -33,6 +34,13 @@ from .util import json_safe
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 JOBS_DIR = os.path.join(ROOT, "augur_jobs")
+
+# Commands the parallel CommandThread (see below) is allowed to serve WHILE a backtest
+# job is running in the main loop. Only cheap/pure reads — reconcile (re-runs the engine)
+# and the Library file-ops (process_command) can mutate or be heavy, so they stay on the
+# main loop as before. FirestoreQueue.run_commands() skips any queued doc whose action is
+# in this set so the two loops never race to claim the same doc.
+READONLY_ACTIONS = {"get_bars", "get_blotter"}
 
 
 def _anthropic_key():
@@ -724,9 +732,16 @@ class FirestoreQueue:
             col = self.db.collection("users").document(uid).collection("commands")
             for snap in col.where(filter=qf).stream():
                 ref = snap.reference
-                ref.update({"status": "running"})
                 doc = snap.to_dict() or {}
                 action = doc.get("action")
+                # get_bars/get_blotter are served immediately by the parallel CommandThread
+                # (started alongside the watch loop, see main()) so the web doesn't wait
+                # behind a running backtest for these read-only lookups. Skip them here
+                # BEFORE claiming (status->running) so the main loop and the command thread
+                # never race to serve the same doc.
+                if action in READONLY_ACTIONS:
+                    continue
+                ref.update({"status": "running"})
                 # NinjaTrader trade refresh is a Firestore-write op (db+uid), so it's
                 # handled here rather than in lib_commands (which is file-ops only).
                 if action == "sync_trades":
@@ -779,32 +794,9 @@ class FirestoreQueue:
                                 "result": json_safe(res), "finishedAt": time.time()})
                     n += 1
                     continue
-                # Trade-blotter fetch for the web's expanded 1A chart: serve the saved
-                # CSV (or regenerate the champion's trades) — compute/file-read, not a
-                # Library file-op, so it's handled here like sync_trades/reconcile.
-                if action == "get_blotter":
-                    from api.blotter import load_blotter_rows
-                    try:
-                        res = load_blotter_rows(ROOT, doc.get("payload") or {}, log)
-                    except Exception as e:
-                        res = {"ok": False, "error": f"{type(e).__name__}: {e}"}
-                    ref.update({"status": "done" if res.get("ok") else "error",
-                                "result": json_safe(res), "finishedAt": time.time()})
-                    n += 1
-                    continue
-                # Per-trade session candles for the web's candle modal (docs/
-                # VISUAL_TRADE_REPORT.md §3, Phase A) — compute/file-read, handled here
-                # like get_blotter/reconcile above, not a Library file-op.
-                if action == "get_bars":
-                    from api.bars import load_session_bars
-                    try:
-                        res = load_session_bars(ROOT, doc.get("payload") or {}, log)
-                    except Exception as e:
-                        res = {"ok": False, "error": f"{type(e).__name__}: {e}"}
-                    ref.update({"status": "done" if res.get("ok") else "error",
-                                "result": json_safe(res), "finishedAt": time.time()})
-                    n += 1
-                    continue
+                # get_blotter / get_bars (compute/file-read, not a Library file-op) used to
+                # be handled inline here like reconcile — now served by CommandThread in
+                # parallel with running jobs (see READONLY_ACTIONS skip above).
                 res = process_command(action, doc.get("payload") or doc, log)
                 ref.update({"status": "done" if res.get("ok") else "error",
                             "result": json_safe(res), "finishedAt": time.time()})
@@ -895,6 +887,122 @@ class FirestoreQueue:
                 ref.update(process_job(snap.to_dict() or {}))
                 n += 1
         return n
+
+
+class CommandThread:
+    """Daemon thread that serves READONLY_ACTIONS commands (get_bars, get_blotter)
+    immediately, in parallel with a backtest job that may be running in the main watch
+    loop for 30-90+ minutes. Without this, a web request for chart candles or a trade
+    blotter sits queued behind the running job until it finishes — this thread polls
+    independently on its own short cadence so those two read-only lookups never wait.
+
+    Claim mechanism: an update-with-precondition write (Firestore `write_option
+    (last_update_time=...)`), keyed off the exact snapshot this thread just read. If the
+    doc changed since that read (e.g. another pass already claimed it), the precondition
+    write is rejected and this thread backs off instead of double-serving. This is
+    Firestore's normal optimistic-concurrency primitive — not a manual transaction, but
+    equally atomic for a single-document claim like this one. Paired with the main loop's
+    READONLY_ACTIONS skip (in run_commands) so there's no window where both loops try to
+    serve the same doc.
+    """
+
+    POLL_SEC = 5.0
+
+    def __init__(self, db, allow_uids, root, log=print):
+        self.db = db
+        self.allow = tuple(allow_uids or ())
+        self.root = root
+        self.log = log
+        self._stop = False
+
+    def _log(self, msg):
+        try:
+            self.log(f"  [cmd-thread] {msg}")
+        except Exception:
+            pass
+
+    def _claim(self, snap):
+        """Try to atomically flip one queued doc to running+claimedBy='cmdthread'.
+        Returns the doc dict on success, or None if it lost the race (or any error) —
+        never raises, so a flaky claim just means 'skip it, try again next poll'."""
+        ref = snap.reference
+        try:
+            option = self.db.write_option(last_update_time=snap.update_time)
+            ref.update({"status": "running", "claimedBy": "cmdthread"}, option=option)
+            return snap.to_dict() or {}
+        except Exception as e:
+            self._log(f"claim lost (already served elsewhere): {type(e).__name__}: {e}")
+            return None
+
+    def _serve(self, ref, action, doc):
+        """Serve one command exactly like the main loop's inline blocks did — same
+        result/status/finishedAt shape, same json_safe."""
+        payload = doc.get("payload") or {}
+        if action == "get_blotter":
+            from api.blotter import load_blotter_rows
+            res = load_blotter_rows(self.root, payload, self._log)
+        elif action == "get_bars":
+            from api.bars import load_session_bars
+            res = load_session_bars(self.root, payload, self._log)
+        else:
+            res = {"ok": False, "error": f"unsupported readonly action {action!r}"}
+        ref.update({"status": "done" if res.get("ok") else "error",
+                    "result": json_safe(res), "finishedAt": time.time()})
+
+    def _poll_uid(self, uid) -> int:
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        col = self.db.collection("users").document(uid).collection("commands")
+        qf = FieldFilter("status", "==", "queued")
+        n = 0
+        for snap in col.where(filter=qf).stream():
+            doc = snap.to_dict() or {}
+            action = doc.get("action")
+            # filtered client-side (not a second `where`) so this stays the same simple
+            # single-field status=='queued' query the main loop already uses -- adding a
+            # second equality/IN clause here would need a composite index.
+            if action not in READONLY_ACTIONS:
+                continue
+            claimed = self._claim(snap)
+            if claimed is None:
+                continue
+            ref = snap.reference
+            try:
+                self._serve(ref, action, claimed)
+            except Exception as e:
+                # A crash inside one command must never take down the thread — mark that
+                # one doc as errored and move on to the next.
+                try:
+                    ref.update({"status": "error", "error": f"{type(e).__name__}: {e}",
+                                "finishedAt": time.time()})
+                except Exception:
+                    pass
+                self._log(f"{action} for {uid} failed: {type(e).__name__}: {e}")
+            n += 1
+        return n
+
+    def poll_once(self) -> int:
+        """One pass over every allowlisted uid. Never raises — a per-uid failure (bad
+        query, transient Firestore error, etc.) is logged and skipped so the rest of the
+        allowlist and the next poll are unaffected."""
+        n = 0
+        for uid in self.allow:
+            try:
+                n += self._poll_uid(uid)
+            except Exception as e:
+                self._log(f"uid {uid} poll skipped: {type(e).__name__}: {e}")
+        return n
+
+    def run_forever(self):
+        """Thread target: poll every POLL_SEC seconds until the process exits (daemon
+        thread, so it never blocks shutdown). A crash anywhere in poll_once is swallowed
+        here too, belt-and-suspenders on top of poll_once's own per-uid guard."""
+        self._log("command thread: ON (get_bars/get_blotter served in parallel with jobs)")
+        while not self._stop:
+            try:
+                self.poll_once()
+            except Exception as e:
+                self._log(f"loop error (continuing): {type(e).__name__}: {e}")
+            time.sleep(self.POLL_SEC)
 
 
 def auto_pine(log=print, limit=25, provider=None):
@@ -1007,6 +1115,14 @@ def main(argv=None):
         pass
 
     if a.watch:
+        # Parallel command server (item: "why do I wait behind a backtest?"): serves
+        # get_bars/get_blotter off a separate daemon thread so those two web lookups
+        # never queue behind a 30-90 min job in the main loop below. Firestore-only
+        # (the LocalQueue test path has no commands subcollection to poll).
+        if a.firestore:
+            cmd_thread = CommandThread(q.db, a.allow_uid, ROOT, log=print)
+            threading.Thread(target=cmd_thread.run_forever, daemon=True,
+                             name="cmd-thread").start()
         # Auto-refresh data on start and on a timer — hands-free, like the desktop
         # app does on open. Runs in the same loop (infrequent + bounded), so it
         # briefly pauses job polling while it pulls; that's fine at a 30-min cadence.

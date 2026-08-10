@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.66';
+const VERSION='71.67';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.67',date:'2026-08-09',notes:['1A card grows a ▦ TRADES tab (next to CHAMPION / FUNNEL): opens the champion trade blotter in its OWN window - no chart expansion needed. Same quick views, same CHART pill per row into the full candle viewer (prev/next, top 10, zoom, save).','BLOTTER QUICK VIEWS (both the new window and the expanded-1A panel): RECENT (10 newest, LOAD 25 MORE), TOP 10 WINS, TOP 10 LOSSES, and ALL. RECENT is the default - the panel no longer renders five thousand rows up front; ALL is one click.','NO MORE WAITING BEHIND A BACKTEST: your PC now answers candle and blotter fetches on a separate lane, in parallel with a running job - a fetch lands in seconds instead of queueing behind a 30-90 minute backtest. (Takes effect at the next runner restart, done.)']},
 {v:'71.66',date:'2026-08-09',notes:['RUNBOARD column width, second pass. Handing the spare width to the metric-name column left a wide empty gap down the middle of the table, which was worse than the columns being padded. The table now sizes to its content and stops: every column is as wide as its own numbers, and any leftover width sits outside the table where it belongs. Drag the panel divider in if you want it gone entirely.']},
 {v:'71.65',date:'2026-08-09',notes:['The CHAMPION and FUNNEL tabs in the expanded view moved next to the EQUITY COMPARE title. They were tucked in beside RESET at the far right of a very wide header row, which on a normal window is past the edge of the screen - which is why they could not be found.','And the expanded key is ranked like the tile key: the family groups are ordered by where each one FINISHES, best first, instead of a fixed RAW, GATES, TILTS, HYBRID order. The two keys now read top to bottom the same way.']},
 {v:'71.64',date:'2026-08-09',notes:['RUNBOARD columns are no longer padded out. A table narrower than its panel was spreading the spare width evenly, so eight short numeric columns each sat at about 130 pixels when their contents needed half that. The data columns now shrink to what they actually hold and the metric names absorb the slack, so the table still fills the panel but the numbers sit close together the way they do on the 1E card.']},
@@ -3243,6 +3244,498 @@ window.expandConfigSpace=function(box){
 const _blotDB=()=>new Promise((res,rej)=>{const q=indexedDB.open('edgelog-blot',1);q.onupgradeneeded=()=>{q.result.createObjectStore('blot');};q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});
 const _blotGet=id=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.transaction('blot').objectStore('blot').get(String(id));t.onsuccess=()=>res(t.result||null);t.onerror=()=>rej(t.error);}));
 const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.transaction('blot','readwrite').objectStore('blot').put(val,String(id));t.onsuccess=()=>res();t.onerror=()=>rej(t.error);}));
+  // ── per-trade candle VIEWER (docs/VISUAL_TRADE_REPORT.md §3) — TOP-LEVEL since v71.63 so
+// the 1A-card blotter modal and the expanded-1A blotter share it; callers pass ctx
+// {B, all:()=>rows, order:()=>rows-in-nav-order}. Fetches session bars off
+
+  //    the PC runner into a small in-modal viewer: PREV/NEXT + arrow keys step through the
+
+  //    blotter in its CURRENT sort order, a TOP 10 menu jumps to the biggest winners/losers,
+
+  //    drag across the candles zooms to that bar range (double-click resets, TRADE zooms to
+
+  //    the held window), SAVE PNG downloads the current view. Bars cache per trade, so a
+
+  //    revisit / zoom / nav-back is instant — only a first visit costs the runner trip. ──
+
+  const _barsCache={};
+
+  const _cndl={api:null,x:null,r:null,view:null,seq:0,ctx:null};
+  const _cB=()=>((_cndl.ctx||{}).B||{});
+  const _cAll=()=>(((_cndl.ctx||{}).all||(()=>[]))());
+  const _cOrder=()=>(((_cndl.ctx||{}).order||_cAll)());
+  const fmt$=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
+
+
+  const _sideOf=x=>{
+
+    if(x._side)return x._side;
+
+    const gross=x._pts+((_cB().cost_pts)||0);
+
+    return (Math.abs((x._xp-x._ep)-gross)<=Math.abs((x._ep-x._xp)-gross))?'long':'short';
+
+  };
+
+  const _cndlAlive=()=>_cndl.api&&_cndl.api.modal&&document.body.contains(_cndl.api.modal);
+
+  const _cndlTitle=t=>{if(!_cndlAlive())return;const el3=_cndl.api.modal.querySelector('div[style*="Bebas"]');if(el3)el3.textContent=t;};
+
+  // render the CURRENT view slice of the cached bars — pure client-side, instant.
+
+  const _renderCandle=()=>{
+
+    if(!_cndlAlive()||!_cndl.r)return;
+
+    const x=_cndl.x,r=_cndl.r,all=r.bars||[];
+
+    let [lo3,hi3]=_cndl.view||[0,all.length-1];
+
+    lo3=Math.max(0,lo3);hi3=Math.min(all.length-1,hi3);if(hi3-lo3<3){lo3=0;hi3=all.length-1;}
+
+    const bars=all.slice(lo3,hi3+1);
+
+    const ovs={};Object.keys(r.overlays||{}).forEach(k3=>{ovs[k3]=(r.overlays[k3]||[]).slice(lo3,hi3+1);});
+
+    const side=_sideOf(x);
+
+    const eIn=(r.entry_idx!=null&&r.entry_idx>=lo3&&r.entry_idx<=hi3),xIn=(r.exit_idx!=null&&r.exit_idx>=lo3&&r.exit_idx<=hi3);
+
+    const markers={entryPrice:x._ep,exitPrice:x._xp,side:side,pnlUsd:x._usd};
+
+    if(eIn)markers.entryIdx=r.entry_idx-lo3;
+
+    if(xIn)markers.exitIdx=r.exit_idx-lo3;
+
+    if(eIn&&xIn){markers.shadeFrom=r.entry_idx-lo3;markers.shadeTo=r.exit_idx-lo3;}
+
+    _cndl.api.setSvg(window.candleSVG(bars,ovs,markers,{}));
+
+    const meta=r.meta||{},zoomed=(lo3>0||hi3<all.length-1);
+
+    _cndlTitle('TRADE #'+x._no+' · CANDLES');
+
+    _cndl.api.setSub('champion config &middot; entry '+x._et+' &rarr; exit '+x._xt2+' &middot; '+(side==='long'?'LONG':'SHORT')
+
+      +' &middot; net <span style="color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x._usd)+'</span>'
+
+      +(meta.master?' &middot; master: '+meta.master:'')
+
+      +(zoomed?' &middot; <span style="color:var(--blue)">zoomed '+bars.length+' of '+all.length+' bars — double-click for all</span>':'')
+
+      +(x._side?'':' &middot; <span style="color:var(--amber,#f5c842)">saved blotter — exit price is the exit bar close; Shift+click TRADES to regenerate for the true fill</span>'));
+
+    _wireCandleSvg(bars,ovs,lo3);
+
+    _syncCndlCtl();
+
+  };
+
+  // hover OHLC readout + drag-zoom live on the svg node, so they re-wire on every render.
+
+  const _wireCandleSvg=(bars,ovs,lo3)=>{
+
+    const svgEl2=_cndl.api.modal.querySelector('#chart-body svg');if(!svgEl2)return;
+
+    const W2=1080,mL2=58,xStep2=(W2-mL2-14)/bars.length;
+
+    const _f2=v2=>(+v2).toLocaleString('en-US');
+
+    const ro=_cndl.api.ctl.querySelector('#cndl-ro');
+
+    svgEl2.style.cursor='crosshair';
+
+    const _barAt=ev=>{const rc=svgEl2.getBoundingClientRect();if(!(rc.width>0))return null;
+
+      const i2=Math.floor(((ev.clientX-rc.left)/rc.width*W2-mL2)/xStep2);return (i2<0||i2>=bars.length)?null:i2;};
+
+    svgEl2.addEventListener('mousemove',ev=>{
+
+      const i2=_barAt(ev);if(i2==null||!ro)return;
+
+      const b2=bars[i2],up2=b2.c>=b2.o;
+
+      let ov2='';
+
+      Object.keys(ovs).forEach(k2=>{const v2=(ovs[k2]||[])[i2];if(v2!=null)ov2+=' &middot; '+String(k2).toUpperCase()+' '+_f2(v2);});
+
+      ro.innerHTML='<b style="color:var(--text2)">'+b2.t+'</b> &middot; O '+_f2(b2.o)+' &middot; H '+_f2(b2.h)+' &middot; L '+_f2(b2.l)
+
+        +' &middot; C <b style="color:'+(up2?'var(--green)':'var(--red)')+'">'+_f2(b2.c)+'</b>'
+
+        +(b2.v?' &middot; V '+_f2(b2.v):'')+ov2;
+
+    });
+
+    // drag across the candles = zoom to that bar range (like brushing a chart axis).
+
+    // stopPropagation so the modal shell does not treat the drag as a pan.
+
+    svgEl2.addEventListener('mousedown',ev=>{
+
+      if(ev.button!==0)return;ev.stopPropagation();ev.preventDefault();
+
+      const i0=_barAt(ev);if(i0==null)return;
+
+      const rc=svgEl2.getBoundingClientRect();
+
+      const band=document.createElement('div');
+
+      band.style.cssText='position:fixed;top:'+rc.top+'px;height:'+rc.height+'px;background:color-mix(in srgb,var(--blue) 18%,transparent);border-left:1px solid var(--blue);border-right:1px solid var(--blue);pointer-events:none;z-index:10003';
+
+      document.body.appendChild(band);
+
+      let iEnd=i0;
+
+      const _px=i2=>rc.left+((mL2+(i2+0.5)*xStep2)/W2)*rc.width;
+
+      const mv=e2=>{const i2=_barAt(e2);if(i2!=null)iEnd=i2;
+
+        const a3=Math.min(i0,iEnd),b3=Math.max(i0,iEnd);
+
+        band.style.left=_px(a3)+'px';band.style.width=Math.max(2,_px(b3)-_px(a3))+'px';};
+
+      const up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);band.remove();
+
+        const a3=Math.min(i0,iEnd),b3=Math.max(i0,iEnd);
+
+        if(b3-a3>=3){_cndl.view=[lo3+a3,lo3+b3];_renderCandle();}};
+
+      window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);
+
+    });
+
+    svgEl2.addEventListener('dblclick',ev=>{ev.stopPropagation();_cndl.view=null;_renderCandle();});
+
+  };
+
+  // control row: built ONCE per modal, then kept in sync per trade/view.
+
+  const _buildCndlCtl=()=>{
+
+    const ctl=_cndl.api.ctl;ctl.innerHTML='';
+
+    const bs='background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:4px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px';
+
+    ctl.insertAdjacentHTML('beforeend',
+
+      '<button id="cndl-prev" style="'+bs+'">&lsaquo; PREV</button>'
+
+      +'<span id="cndl-pos" style="font-size:9px;color:var(--text5);letter-spacing:1px;white-space:nowrap"></span>'
+
+      +'<button id="cndl-next" style="'+bs+'">NEXT &rsaquo;</button>'
+
+      +'<select id="cndl-top" style="'+bs.replace('cursor:pointer','cursor:pointer;max-width:210px')+'"></select>'
+
+      +'<button id="cndl-ztrade" title="zoom to the held window plus a little context" style="'+bs+'">&#128269; TRADE</button>'
+
+      +'<button id="cndl-zfull" title="show every fetched bar (or double-click the chart)" style="'+bs+'">FULL</button>'
+
+      +'<button id="cndl-save" title="download the current view as a PNG image" style="'+bs+'">&#10515; SAVE PNG</button>'
+
+      +'<div id="cndl-ro" style="font-size:11px;color:var(--text3);min-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 100%"><span style="color:var(--text5)">hover a candle to read its OHLC &middot; drag across candles to zoom</span></div>');
+
+    const g=id=>ctl.querySelector('#'+id);
+
+    g('cndl-prev').onclick=()=>_cndlStep(-1);
+
+    g('cndl-next').onclick=()=>_cndlStep(1);
+
+    g('cndl-ztrade').onclick=()=>{const r=_cndl.r;if(!r||r.entry_idx==null)return;
+
+      const e3=r.entry_idx,x3=(r.exit_idx!=null?r.exit_idx:e3);
+
+      _cndl.view=[e3-20,x3+20];_renderCandle();};
+
+    g('cndl-zfull').onclick=()=>{_cndl.view=null;_renderCandle();};
+
+    g('cndl-save').onclick=()=>_saveCandlePNG();
+
+    g('cndl-top').onchange=ev=>{const no=+ev.target.value;if(!no)return;
+
+      const x2=_cAll().find(q=>q._no===no);ev.target.value='';if(x2)_loadTrade(x2);};
+
+  };
+
+  const _syncCndlCtl=()=>{
+
+    if(!_cndlAlive())return;
+
+    const ctl=_cndl.api.ctl,g=id=>ctl.querySelector('#'+id);
+
+    const rows=_cOrder(),i3=rows.findIndex(q=>q._no===(_cndl.x&&_cndl.x._no));
+
+    if(g('cndl-pos'))g('cndl-pos').textContent=(i3>=0?('ROW '+(i3+1)+' / '+rows.length+' (table order)'):'');
+
+    if(g('cndl-prev'))g('cndl-prev').disabled=!(i3>0);
+
+    if(g('cndl-next'))g('cndl-next').disabled=!(i3>=0&&i3<rows.length-1);
+
+    const sel=g('cndl-top');
+
+    if(sel&&!sel.options.length){
+
+      const by=_cAll().slice().sort((a2,b2)=>b2._usd-a2._usd);
+
+      const win=by.slice(0,10),los=by.slice(-10).reverse();
+
+      const opt=(x2,tag)=>'<option value="'+x2._no+'">'+tag+' '+fmt$(x2._usd)+' &middot; #'+x2._no+' &middot; '+String(x2._et).slice(0,10)+'</option>';
+
+      sel.innerHTML='<option value="">TOP 10 &#9662;</option>'
+
+        +'<optgroup label="BIGGEST WINNERS">'+win.map(x2=>opt(x2,'&#9650;')).join('')+'</optgroup>'
+
+        +'<optgroup label="BIGGEST LOSERS">'+los.map(x2=>opt(x2,'&#9660;')).join('')+'</optgroup>';
+
+    }
+
+  };
+
+  const _cndlStep=d=>{
+
+    const rows=_cOrder(),i3=rows.findIndex(q=>q._no===(_cndl.x&&_cndl.x._no));
+
+    if(i3<0)return;const nx=rows[i3+d];if(nx)_loadTrade(nx);
+
+  };
+
+  // save the CURRENT view as a PNG — the svg uses CSS variables, which die outside the page,
+
+  // so they are resolved to literal colors before rasterising (2x for crispness).
+
+  const _saveCandlePNG=()=>{
+
+    const svgEl2=_cndlAlive()?_cndl.api.modal.querySelector('#chart-body svg'):null;if(!svgEl2)return;
+
+    const cs=getComputedStyle(document.documentElement);
+
+    const raw=svgEl2.outerHTML.replace(/var\((--[a-z0-9-]+)(?:,[^)]*)?\)/gi,(m2,v2)=>{const c2=cs.getPropertyValue(v2).trim();return c2||'#888';});
+
+    const vb=(svgEl2.getAttribute('viewBox')||'0 0 1080 360').split(/\s+/),W3=+vb[2]||1080,H3=+vb[3]||360;
+
+    const img=new Image();
+
+    img.onload=()=>{
+
+      const cv=document.createElement('canvas');cv.width=W3*2;cv.height=H3*2;
+
+      const cx2=cv.getContext('2d');
+
+      cx2.fillStyle=cs.getPropertyValue('--bg').trim()||'#0d1117';cx2.fillRect(0,0,cv.width,cv.height);
+
+      cx2.drawImage(img,0,0,cv.width,cv.height);
+
+      const name='run'+((_cB().run_id)!=null?_cB().run_id:'')+'_trade'+(_cndl.x?_cndl.x._no:'')+'_candles.png';
+
+      const url=cv.toDataURL('image/png');
+
+      window._lastCandlePNG={name:name,bytes:url.length};   // test hook
+
+      const a2=document.createElement('a');a2.href=url;a2.download=name;a2.click();
+
+    };
+
+    img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(raw);
+
+  };
+
+  // fetch (or cache-hit) one trade into the open modal.
+
+  const _loadTrade=async(x)=>{
+
+    if(!_cndlAlive())return;
+
+    const seq=++_cndl.seq;
+
+    _cndl.x=x;_cndl.view=null;
+
+    _cndlTitle('TRADE #'+x._no+' · CANDLES');
+
+    _syncCndlCtl();
+
+    const hit=_barsCache[x._no];
+
+    if(hit){_cndl.r=hit;_renderCandle();_prefetchNeighbors(x);return;}
+
+    // wait state INSIDE the existing modal: swap the svg for a stub and show the counter
+
+    // in the sub line (the body cannot be innerHTML-wiped — the crosshair divs live there).
+
+    _cndl.api.setSvg('<svg viewBox="0 0 1080 8" style="display:block;height:6px"></svg>');
+
+    const t0=Date.now();
+
+    const tick=setInterval(()=>{if(!_cndlAlive()||_cndl.seq!==seq){clearInterval(tick);return;}
+
+      _cndl.api.setSub('<b style="color:var(--blue)">FETCHING FROM YOUR PC… '+Math.round((Date.now()-t0)/1000)+'s</b> &middot; ~30s normally; up to 5 min behind a running backtest');},500);
+
+    try{
+
+      const r=await _runCmd('get_bars',Object.assign({},_cB(),{entry_time:x._et,exit_time:x._xt2,pad_sessions:1}),300000);
+
+      clearInterval(tick);
+
+      _barsCache[x._no]=r;
+
+      if(!_cndlAlive()||_cndl.seq!==seq)return;   // closed, or user already navigated on
+
+      _cndl.r=r;_renderCandle();_prefetchNeighbors(x);
+
+    }catch(err){
+
+      clearInterval(tick);
+
+      if(!_cndlAlive()||_cndl.seq!==seq)return;
+
+      _cndl.api.setSub('<span style="color:var(--red)">candle load failed: '+String(err&&err.message||err).replace(/</g,'&lt;')+'</span> &middot; is the runner awake? PREV/NEXT or TOP 10 retries');
+
+    }
+
+  };
+
+  // quietly warm the cache for the neighbours in table order — stepping feels instant.
+
+  const _prefetchNeighbors=(x)=>{
+
+    const rows=_cOrder(),i3=rows.findIndex(q=>q._no===x._no);
+
+    [rows[i3-1],rows[i3+1]].forEach(nb=>{
+
+      if(!nb||_barsCache[nb._no]||nb._pf)return;nb._pf=1;
+
+      _runCmd('get_bars',Object.assign({},_cB(),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
+
+        .then(r=>{_barsCache[nb._no]=r;}).catch(()=>{}).finally(()=>{nb._pf=0;});
+
+    });
+
+  };
+
+  window._openTradeCandles=async(x,glyphEl,ctx)=>{
+    if(ctx)_cndl.ctx=ctx;
+
+    if(_cndlAlive()){_loadTrade(x);return;}   // already open — just switch trades
+
+    if(glyphEl&&glyphEl._busy)return;
+
+    if(glyphEl)glyphEl._busy=1;
+
+    const origTxt=glyphEl?glyphEl.textContent:'';
+
+    if(glyphEl)glyphEl.textContent='⏳ …';
+
+    // the modal opens IMMEDIATELY (setSvg needs an <svg> to replace, hence the stub).
+
+    const api=window.expandChart('TRADE #'+x._no+' · CANDLES',
+
+      '<svg viewBox="0 0 1080 8" style="display:block;height:6px"></svg>',
+
+      {sub:'entry '+x._et+' &rarr; exit '+x._xt2});
+
+    _cndl.api=api;
+
+    _buildCndlCtl();
+
+    // arrow keys step trades while the modal is open; the listener retires itself with it.
+
+    const keyNav=e2=>{
+
+      if(!_cndlAlive()){document.removeEventListener('keydown',keyNav);return;}
+
+      if(e2.key==='ArrowLeft'){e2.preventDefault();_cndlStep(-1);}
+
+      else if(e2.key==='ArrowRight'){e2.preventDefault();_cndlStep(1);}
+
+    };
+
+    document.addEventListener('keydown',keyNav);
+
+    try{
+
+      await _loadTrade(x);   // errors surface in the sub line inside _loadTrade
+
+    }finally{
+
+      if(glyphEl){glyphEl.textContent=origTxt||'🕯 CHART';glyphEl._busy=0;}
+
+    }
+
+  };
+
+// ── STANDALONE BLOTTER MODAL (v71.63, owner: "open it without expanding the chart") — the
+//    1A card TRADES tab opens this: the run's champion blotter in its own window, quick views
+//    (RECENT / TOP 10 WINS / TOP 10 LOSSES / ALL + LOAD MORE), a CHART pill per row feeding
+//    the shared candle viewer. Same cache + payload as the expanded-1A blotter. ──
+window.openBlotterModal=async function(B){
+  if(!B||B.run_id==null){alert('this run carries no blotter payload');return;}
+  const $=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
+  const map=rows=>rows.map(x=>({_no:+x.trade_no,_usd:+x.pnl_usd,_cum:+x.cum_usd,_pts:+x.pnl_pts,_hold:+x.hold_bars,_ep:+x.entry_px,_xp:+x.exit_px,_et:String(x.entry_time),_xt2:String(x.exit_time),_side:(x.side||null)}));
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:9998;display:flex;align-items:center;justify-content:center;padding:26px';
+  modal.innerHTML='<div style="background:var(--bg1);border:1px solid var(--border);width:min(1100px,96vw);max-height:92vh;display:flex;flex-direction:column;padding:18px 20px" onclick="event.stopPropagation()">'
+    +'<div style="display:flex;align-items:center;gap:12px;padding-bottom:9px;border-bottom:1px solid var(--border)">'
+    +'<span style="font-family:\'Bebas Neue\',monospace;font-size:20px;letter-spacing:3px;color:var(--text)">TRADE BLOTTER &middot; RUN #'+B.run_id+'</span>'
+    +'<span id="bm-meta" style="font-size:10px;color:var(--text5);letter-spacing:.5px;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>'
+    +'<button id="bm-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 14px;cursor:pointer;font-family:inherit;letter-spacing:2px;flex:0 0 auto">CLOSE ✕</button></div>'
+    +'<div id="bm-views" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:9px 0 7px"></div>'
+    +'<div id="bm-body" style="overflow:auto;flex:1 1 auto;min-height:120px"></div></div>';
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  document.body.appendChild(modal);
+  const esc=e=>{if(e.key==='Escape'){modal.remove();document.removeEventListener('keydown',esc);}};
+  document.addEventListener('keydown',esc);
+  modal.querySelector('#bm-close').onclick=()=>{modal.remove();document.removeEventListener('keydown',esc);};
+  const body=modal.querySelector('#bm-body'),meta=modal.querySelector('#bm-meta'),viewsEl=modal.querySelector('#bm-views');
+  body.innerHTML='<div style="padding:34px;text-align:center;color:var(--text5);font-size:11px" id="bm-wait">loading the blotter&hellip; <b id="bm-secs" style="color:var(--blue)">0s</b><br><span style="font-size:9px">saved copies open instantly; a first load reruns the champion on your PC and can take minutes</span></div>';
+  let rows=null,view='recent',shown=10,masterName='';
+  const t0=Date.now();const tick=setInterval(()=>{const s=modal.querySelector('#bm-secs');if(s)s.textContent=Math.round((Date.now()-t0)/1000)+'s';},1000);
+  const _tfMin=(function(tf){const m2=/^(\d+)\s*([smhd])$/i.exec(String(tf||'').trim());if(!m2)return null;return (+m2[1])*({s:1/60,m:1,h:60,d:1440})[m2[2].toLowerCase()];})(B.timeframe);
+  const _dur=b3=>{if(_tfMin==null||!isFinite(b3))return b3+' bars';let mins=b3*_tfMin;const d2=Math.floor(mins/1440);mins-=d2*1440;const h=Math.floor(mins/60),mm=Math.round(mins-h*60);return (d2?d2+'d ':'')+((h||d2)?h+'h ':'')+mm+'m';};
+  const slice=()=>{
+    const a=rows.slice();
+    if(view==='wins')return a.sort((p,q)=>q._usd-p._usd).slice(0,10);
+    if(view==='losses')return a.sort((p,q)=>p._usd-q._usd).slice(0,10);
+    if(view==='recent')return a.sort((p,q)=>q._no-p._no).slice(0,shown);
+    return a.sort((p,q)=>q._no-p._no);
+  };
+  const draw=()=>{
+    const vs=[['recent','RECENT'],['wins','TOP 10 WINS'],['losses','TOP 10 LOSSES'],['all','ALL']];
+    viewsEl.innerHTML=vs.map(v2=>'<span data-bmv="'+v2[0]+'" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;border:1px solid '+(view===v2[0]?'var(--blue)':'var(--border)')+';color:'+(view===v2[0]?'var(--blue)':'var(--text4)')+'">'+v2[1]+'</span>').join('')
+      +(view==='recent'&&rows&&shown<rows.length?'<span data-bmv="more" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);color:var(--text3)">LOAD 25 MORE</span>':'')
+      +'<span style="font-size:9px;color:var(--text5);margin-left:auto">click a row or its CHART pill for that trade candles</span>';
+    viewsEl.querySelectorAll('[data-bmv]').forEach(b3=>{b3.onclick=()=>{const v2=b3.dataset.bmv;if(v2==='more')shown+=25;else{view=v2;if(v2==='recent')shown=Math.max(shown,10);}draw();};});
+    if(!rows)return;
+    const cur=slice();
+    const th='<tr style="position:sticky;top:0;background:var(--bg1);color:var(--text5);font-size:9px;letter-spacing:1px;z-index:2">'+['CHART','#','ENTRY','EXIT','HOLD','ENTRY PX','EXIT PX','PTS','NET $','CUM $'].map((h,i)=>'<th style="padding:6px 10px;text-align:'+(i<4?'left':'right')+';white-space:nowrap">'+h+'</th>').join('')+'</tr>';
+    const trs=cur.map(x=>'<tr data-bmrow="'+x._no+'" style="cursor:pointer;border-top:1px solid var(--border2)" title="open this trade session candles">'
+      +'<td style="padding:4px 8px"><span style="display:inline-block;border:1px solid color-mix(in srgb,var(--blue) 55%,var(--border));border-radius:5px;padding:1px 6px;font-size:8px;letter-spacing:1px;color:var(--blue);font-variant-emoji:text">🕯 CHART</span></td>'
+      +'<td style="padding:4px 10px;color:var(--text5)">'+x._no+'</td><td style="padding:4px 10px;font-size:10px">'+x._et+'</td><td style="padding:4px 10px;font-size:10px">'+x._xt2+'</td>'
+      +'<td style="padding:4px 10px;text-align:right;color:var(--text4);white-space:nowrap">'+_dur(x._hold)+'</td><td style="padding:4px 10px;text-align:right">'+x._ep+'</td><td style="padding:4px 10px;text-align:right">'+x._xp+'</td>'
+      +'<td style="padding:4px 10px;text-align:right;color:'+(x._pts>=0?'var(--green)':'var(--red)')+'">'+x._pts+'</td>'
+      +'<td style="padding:4px 10px;text-align:right;font-weight:700;color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+$(x._usd)+'</td>'
+      +'<td style="padding:4px 10px;text-align:right;color:'+(x._cum>=0?'var(--text2)':'var(--red)')+'">'+$(x._cum)+'</td></tr>').join('');
+    body.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:11px">'+th+trs+'</table>';
+    meta.textContent='champion config · '+rows.length+' trades'+(masterName?' · master: '+masterName:'')+(view==='recent'?' · showing the '+Math.min(shown,rows.length)+' most recent':'');
+    body.querySelectorAll('[data-bmrow]').forEach(tr=>{tr.onclick=()=>{
+      const x=rows.find(q=>q._no===+tr.dataset.bmrow);if(!x)return;
+      window._openTradeCandles(x,null,{B:B,all:()=>rows,order:()=>slice()});
+    };});
+  };
+  draw();
+  try{
+    let r=null;
+    try{const c=await _blotGet(B.run_id);if(c&&c.rows&&c.rows.length)r=c;}catch(_e){}
+    if(!r){r=await _runCmd('get_blotter',B,300000);
+      _blotPut(B.run_id,{rows:r.rows||[],capped:r.capped||null,source:r.source||null,master:r.master||null,ts:Date.now()}).catch(()=>{});}
+    clearInterval(tick);
+    rows=map(r.rows||[]);masterName=r.master||'';
+    if(!rows.length)throw new Error('blotter came back empty');
+    draw();
+  }catch(err){
+    clearInterval(tick);
+    body.innerHTML='<div style="padding:30px;text-align:center;color:var(--red);font-size:11px">blotter load failed: '+String(err&&err.message||err).replace(/</g,'&lt;')+'</div>';
+  }
+};
+
 window.expandEquity=function(host){
   let D=null,B=null;
   try{D=JSON.parse(decodeURIComponent(host.getAttribute('data-eqx')||''));}catch(_){}
@@ -3460,6 +3953,11 @@ window.expandEquity=function(host){
   const _PRF=(typeof APREF!=='undefined')?APREF:{};
   const _sav=(k2,v2)=>{try{if(typeof savePref==='function')savePref(k2,v2);}catch(_e){}};
   let blSort={k:'_no',dir:-1},blFilt='all',blMeta='',blFee=null,blMenu=null;
+  // quick views (owner): RECENT n (+ LOAD MORE) / TOP 10 WINS / TOP 10 LOSSES / ALL.
+  // 'recent' is the default — rendering all 5k+ rows at once was the old behavior and it
+  // is still one click away on ALL. A header sort/filter click switches to ALL so the
+  // chosen ordering is actually visible.
+  let blView='recent',blShown=10;
   let split=(_PRF.eqxSplit==='h')?'h':'v';
   let blotFrac=(+_PRF.eqxFrac>=0.15&&+_PRF.eqxFrac<=0.7)?+_PRF.eqxFrac:0.34;
   const _tfMin=(function(tf){const m2=/^(\d+)\s*([smhd])$/i.exec(String(tf||'').trim());if(!m2)return null;return (+m2[1])*({s:1/60,m:1,h:60,d:1440})[m2[2].toLowerCase()];})(B&&B.timeframe);
@@ -3478,10 +3976,28 @@ window.expandEquity=function(host){
     if(blFilt==='win')rows=rows.filter(x=>x._usd>0);else if(blFilt==='loss')rows=rows.filter(x=>x._usd<0);
     const k=blSort.k,dir=blSort.dir;
     rows.sort((a2,b2)=>((a2[k]>b2[k])?1:(a2[k]<b2[k])?-1:0)*dir);
+    // quick views trump the header sort/filter; ALL restores it.
+    if(blView==='wins')rows=blotRows.slice().sort((p,q)=>q._usd-p._usd).slice(0,10);
+    else if(blView==='losses')rows=blotRows.slice().sort((p,q)=>p._usd-q._usd).slice(0,10);
+    else if(blView==='recent')rows=blotRows.slice().sort((p,q)=>q._no-p._no).slice(0,blShown);
+    const _pill=(v2,lbl)=>'<span data-blview="'+v2+'" style="cursor:pointer;user-select:none;font-weight:700;padding:2px 8px;border-radius:5px;border:1px solid '+(blView===v2?'var(--blue)':'var(--border)')+';color:'+(blView===v2?'var(--blue)':'var(--text4)')+'">'+lbl+'</span>';
+    const viewsHtml='<span style="display:inline-flex;gap:5px;align-items:center;margin-right:8px">'
+      +_pill('recent','RECENT')+_pill('wins','TOP 10 WINS')+_pill('losses','TOP 10 LOSSES')+_pill('all','ALL')
+      +((blView==='recent'&&blotRows.length>blShown)?'<span data-blview="more" style="cursor:pointer;user-select:none;font-weight:700;padding:2px 8px;border-radius:5px;border:1px solid var(--border2);color:var(--text3)">LOAD 25 MORE</span>':'')
+      +'</span>';
     const arrow=c=>c===k?(dir>0?' ▲':' ▼'):'';
     const th='<tr style="position:sticky;top:0;background:var(--bg1);color:var(--text5);font-size:9px;letter-spacing:1px;z-index:2"><th style="padding:6px 6px;text-align:center;white-space:nowrap" title="open that trade session candles in a price chart">CHART</th>'+COLS.map(c=>'<th data-bh="'+c[0]+'" style="padding:6px 10px;text-align:'+c[2]+';cursor:pointer;white-space:nowrap;user-select:none"'+(c[3]?' title="'+c[3]+'"':' title="click to sort / filter"')+'>'+c[1]+(c[3]?' ⓘ':'')+arrow(c[0])+'</th>').join('')+'</tr>';
     const trs=rows.map(x=>'<tr data-blrow="'+x._no+'" style="cursor:pointer;border-top:1px solid var(--border2)'+(selTrade===x._no?';background:color-mix(in srgb,var(--blue) 16%,transparent)':'')+'" title="click to fly to this trade on the chart"><td style="padding:4px 6px;text-align:center"><span data-blcandle="'+x._no+'" title="open this trade session candles in a price chart" style="cursor:pointer;display:inline-block;border:1px solid color-mix(in srgb,var(--blue) 55%,var(--border));border-radius:5px;padding:1px 6px;font-size:8px;letter-spacing:1px;color:var(--blue);font-variant-emoji:text">🕯 CHART</span></td><td style="padding:5px 10px;color:var(--text5)">'+x._no+'</td><td style="padding:5px 10px;font-size:10px">'+x._et+'</td><td style="padding:5px 10px;font-size:10px">'+x._xt2+'</td><td style="padding:5px 10px;text-align:right;color:var(--text4);white-space:nowrap">'+_dur(x._hold)+'</td><td style="padding:5px 10px;text-align:right">'+x._ep+'</td><td style="padding:5px 10px;text-align:right">'+x._xp+'</td><td style="padding:5px 10px;text-align:right;color:'+(x._pts>=0?'var(--green)':'var(--red)')+'">'+x._pts+'</td><td style="padding:5px 10px;text-align:right;color:var(--text4)">'+(blFee!=null?('-'+fmt$(blFee)):'—')+'</td><td style="padding:5px 10px;text-align:right;font-weight:700;color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x._usd)+'</td><td style="padding:5px 10px;text-align:right;color:'+(x._cum>=0?'var(--text2)':'var(--red)')+'">'+fmt$(x._cum)+'</td></tr>').join('');
-    wrap.innerHTML='<div style="padding:8px 12px 2px;font-size:9px;color:var(--text5);letter-spacing:1px">'+blMeta+(blFilt!=='all'?' · <span style="color:var(--blue)">'+rows.length+' '+(blFilt==='win'?'winners':'losers')+' shown</span>':'')+'</div><table style="width:100%;border-collapse:collapse;font-size:11px">'+th+trs+'</table>';
+    wrap.innerHTML='<div style="padding:8px 12px 2px;font-size:9px;color:var(--text5);letter-spacing:1px;display:flex;align-items:center;flex-wrap:wrap;gap:4px">'+viewsHtml+'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis">'+blMeta
+      +(blView==='recent'?' · <span style="color:var(--blue)">'+Math.min(blShown,blotRows.length)+' most recent shown</span>':'')
+      +(blView==='wins'?' · <span style="color:var(--green)">10 biggest winners</span>':'')
+      +(blView==='losses'?' · <span style="color:var(--red)">10 biggest losers</span>':'')
+      +(blView==='all'&&blFilt!=='all'?' · <span style="color:var(--blue)">'+rows.length+' '+(blFilt==='win'?'winners':'losers')+' shown</span>':'')
+      +'</span></div><table style="width:100%;border-collapse:collapse;font-size:11px">'+th+trs+'</table>';
+    wrap.querySelectorAll('[data-blview]').forEach(p2=>{p2.onclick=e=>{e.stopPropagation();
+      const v2=p2.dataset.blview;
+      if(v2==='more')blShown+=25;else{blView=v2;if(v2==='recent')blShown=Math.max(blShown,10);}
+      renderBlot();};});
     wrap.querySelectorAll('[data-bh]').forEach(h=>{h.onclick=e=>{e.stopPropagation();
       if(blMenu){blMenu.remove();blMenu=null;}
       const kk=h.dataset.bh;
@@ -3497,6 +4013,7 @@ window.expandEquity=function(host){
       m.querySelectorAll('[data-mi]').forEach(it=>{it.onmouseenter=()=>it.style.background='var(--bg2)';it.onmouseleave=()=>it.style.background='';
         it.onclick=ev=>{ev.stopPropagation();const fn=it.dataset.fn;
           if(fn==='asc')blSort={k:kk,dir:1};else if(fn==='desc')blSort={k:kk,dir:-1};else blFilt=fn;
+          blView='all';   // a chosen sort/filter must actually be visible
           m.remove();blMenu=null;renderBlot();};});
       const closeM=()=>{if(blMenu){blMenu.remove();blMenu=null;}document.removeEventListener('click',closeM);};
       setTimeout(()=>document.addEventListener('click',closeM),0);};});
@@ -3558,218 +4075,20 @@ window.expandEquity=function(host){
       if(B&&B.run_id!=null)_blotPut(B.run_id,{rows:r.rows||[],capped:r.capped||null,source:r.source||null,master:r.master||null,ts:Date.now()}).catch(()=>{});
     }catch(err){clearInterval(btick);blotBtn.textContent='▦ TRADES';blotBtn.disabled=false;alert('Blotter load failed: '+err.message);}
   };
-  // ── per-trade candle chart (docs/VISUAL_TRADE_REPORT.md §3) — fetches session bars off
-  //    the PC runner into a small in-modal viewer: PREV/NEXT + arrow keys step through the
-  //    blotter in its CURRENT sort order, a TOP 10 menu jumps to the biggest winners/losers,
-  //    drag across the candles zooms to that bar range (double-click resets, TRADE zooms to
-  //    the held window), SAVE PNG downloads the current view. Bars cache per trade, so a
-  //    revisit / zoom / nav-back is instant — only a first visit costs the runner trip. ──
-  const _barsCache={};
-  const _cndl={api:null,x:null,r:null,view:null,seq:0};
   const _navRows=()=>{   // the table's exact current order (same sort+filter renderBlot shows)
+
     let rows=(blotRows||[]).slice();
+
     if(blFilt==='win')rows=rows.filter(q=>q._usd>0);else if(blFilt==='loss')rows=rows.filter(q=>q._usd<0);
+
     const k=blSort.k,dir=blSort.dir;
+
     rows.sort((a2,b2)=>((a2[k]>b2[k])?1:(a2[k]<b2[k])?-1:0)*dir);
+
     return rows;
+
   };
-  const _sideOf=x=>{
-    if(x._side)return x._side;
-    const gross=x._pts+((B&&B.cost_pts)||0);
-    return (Math.abs((x._xp-x._ep)-gross)<=Math.abs((x._ep-x._xp)-gross))?'long':'short';
-  };
-  const _cndlAlive=()=>_cndl.api&&_cndl.api.modal&&document.body.contains(_cndl.api.modal);
-  const _cndlTitle=t=>{if(!_cndlAlive())return;const el3=_cndl.api.modal.querySelector('div[style*="Bebas"]');if(el3)el3.textContent=t;};
-  // render the CURRENT view slice of the cached bars — pure client-side, instant.
-  const _renderCandle=()=>{
-    if(!_cndlAlive()||!_cndl.r)return;
-    const x=_cndl.x,r=_cndl.r,all=r.bars||[];
-    let [lo3,hi3]=_cndl.view||[0,all.length-1];
-    lo3=Math.max(0,lo3);hi3=Math.min(all.length-1,hi3);if(hi3-lo3<3){lo3=0;hi3=all.length-1;}
-    const bars=all.slice(lo3,hi3+1);
-    const ovs={};Object.keys(r.overlays||{}).forEach(k3=>{ovs[k3]=(r.overlays[k3]||[]).slice(lo3,hi3+1);});
-    const side=_sideOf(x);
-    const eIn=(r.entry_idx!=null&&r.entry_idx>=lo3&&r.entry_idx<=hi3),xIn=(r.exit_idx!=null&&r.exit_idx>=lo3&&r.exit_idx<=hi3);
-    const markers={entryPrice:x._ep,exitPrice:x._xp,side:side,pnlUsd:x._usd};
-    if(eIn)markers.entryIdx=r.entry_idx-lo3;
-    if(xIn)markers.exitIdx=r.exit_idx-lo3;
-    if(eIn&&xIn){markers.shadeFrom=r.entry_idx-lo3;markers.shadeTo=r.exit_idx-lo3;}
-    _cndl.api.setSvg(window.candleSVG(bars,ovs,markers,{}));
-    const meta=r.meta||{},zoomed=(lo3>0||hi3<all.length-1);
-    _cndlTitle('TRADE #'+x._no+' · CANDLES');
-    _cndl.api.setSub('champion config &middot; entry '+x._et+' &rarr; exit '+x._xt2+' &middot; '+(side==='long'?'LONG':'SHORT')
-      +' &middot; net <span style="color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x._usd)+'</span>'
-      +(meta.master?' &middot; master: '+meta.master:'')
-      +(zoomed?' &middot; <span style="color:var(--blue)">zoomed '+bars.length+' of '+all.length+' bars — double-click for all</span>':'')
-      +(x._side?'':' &middot; <span style="color:var(--amber,#f5c842)">saved blotter — exit price is the exit bar close; Shift+click TRADES to regenerate for the true fill</span>'));
-    _wireCandleSvg(bars,ovs,lo3);
-    _syncCndlCtl();
-  };
-  // hover OHLC readout + drag-zoom live on the svg node, so they re-wire on every render.
-  const _wireCandleSvg=(bars,ovs,lo3)=>{
-    const svgEl2=_cndl.api.modal.querySelector('#chart-body svg');if(!svgEl2)return;
-    const W2=1080,mL2=58,xStep2=(W2-mL2-14)/bars.length;
-    const _f2=v2=>(+v2).toLocaleString('en-US');
-    const ro=_cndl.api.ctl.querySelector('#cndl-ro');
-    svgEl2.style.cursor='crosshair';
-    const _barAt=ev=>{const rc=svgEl2.getBoundingClientRect();if(!(rc.width>0))return null;
-      const i2=Math.floor(((ev.clientX-rc.left)/rc.width*W2-mL2)/xStep2);return (i2<0||i2>=bars.length)?null:i2;};
-    svgEl2.addEventListener('mousemove',ev=>{
-      const i2=_barAt(ev);if(i2==null||!ro)return;
-      const b2=bars[i2],up2=b2.c>=b2.o;
-      let ov2='';
-      Object.keys(ovs).forEach(k2=>{const v2=(ovs[k2]||[])[i2];if(v2!=null)ov2+=' &middot; '+String(k2).toUpperCase()+' '+_f2(v2);});
-      ro.innerHTML='<b style="color:var(--text2)">'+b2.t+'</b> &middot; O '+_f2(b2.o)+' &middot; H '+_f2(b2.h)+' &middot; L '+_f2(b2.l)
-        +' &middot; C <b style="color:'+(up2?'var(--green)':'var(--red)')+'">'+_f2(b2.c)+'</b>'
-        +(b2.v?' &middot; V '+_f2(b2.v):'')+ov2;
-    });
-    // drag across the candles = zoom to that bar range (like brushing a chart axis).
-    // stopPropagation so the modal shell does not treat the drag as a pan.
-    svgEl2.addEventListener('mousedown',ev=>{
-      if(ev.button!==0)return;ev.stopPropagation();ev.preventDefault();
-      const i0=_barAt(ev);if(i0==null)return;
-      const rc=svgEl2.getBoundingClientRect();
-      const band=document.createElement('div');
-      band.style.cssText='position:fixed;top:'+rc.top+'px;height:'+rc.height+'px;background:color-mix(in srgb,var(--blue) 18%,transparent);border-left:1px solid var(--blue);border-right:1px solid var(--blue);pointer-events:none;z-index:10003';
-      document.body.appendChild(band);
-      let iEnd=i0;
-      const _px=i2=>rc.left+((mL2+(i2+0.5)*xStep2)/W2)*rc.width;
-      const mv=e2=>{const i2=_barAt(e2);if(i2!=null)iEnd=i2;
-        const a3=Math.min(i0,iEnd),b3=Math.max(i0,iEnd);
-        band.style.left=_px(a3)+'px';band.style.width=Math.max(2,_px(b3)-_px(a3))+'px';};
-      const up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);band.remove();
-        const a3=Math.min(i0,iEnd),b3=Math.max(i0,iEnd);
-        if(b3-a3>=3){_cndl.view=[lo3+a3,lo3+b3];_renderCandle();}};
-      window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);
-    });
-    svgEl2.addEventListener('dblclick',ev=>{ev.stopPropagation();_cndl.view=null;_renderCandle();});
-  };
-  // control row: built ONCE per modal, then kept in sync per trade/view.
-  const _buildCndlCtl=()=>{
-    const ctl=_cndl.api.ctl;ctl.innerHTML='';
-    const bs='background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:4px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px';
-    ctl.insertAdjacentHTML('beforeend',
-      '<button id="cndl-prev" style="'+bs+'">&lsaquo; PREV</button>'
-      +'<span id="cndl-pos" style="font-size:9px;color:var(--text5);letter-spacing:1px;white-space:nowrap"></span>'
-      +'<button id="cndl-next" style="'+bs+'">NEXT &rsaquo;</button>'
-      +'<select id="cndl-top" style="'+bs.replace('cursor:pointer','cursor:pointer;max-width:210px')+'"></select>'
-      +'<button id="cndl-ztrade" title="zoom to the held window plus a little context" style="'+bs+'">&#128269; TRADE</button>'
-      +'<button id="cndl-zfull" title="show every fetched bar (or double-click the chart)" style="'+bs+'">FULL</button>'
-      +'<button id="cndl-save" title="download the current view as a PNG image" style="'+bs+'">&#10515; SAVE PNG</button>'
-      +'<div id="cndl-ro" style="font-size:11px;color:var(--text3);min-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 100%"><span style="color:var(--text5)">hover a candle to read its OHLC &middot; drag across candles to zoom</span></div>');
-    const g=id=>ctl.querySelector('#'+id);
-    g('cndl-prev').onclick=()=>_cndlStep(-1);
-    g('cndl-next').onclick=()=>_cndlStep(1);
-    g('cndl-ztrade').onclick=()=>{const r=_cndl.r;if(!r||r.entry_idx==null)return;
-      const e3=r.entry_idx,x3=(r.exit_idx!=null?r.exit_idx:e3);
-      _cndl.view=[e3-20,x3+20];_renderCandle();};
-    g('cndl-zfull').onclick=()=>{_cndl.view=null;_renderCandle();};
-    g('cndl-save').onclick=()=>_saveCandlePNG();
-    g('cndl-top').onchange=ev=>{const no=+ev.target.value;if(!no)return;
-      const x2=(blotRows||[]).find(q=>q._no===no);ev.target.value='';if(x2)_loadTrade(x2);};
-  };
-  const _syncCndlCtl=()=>{
-    if(!_cndlAlive())return;
-    const ctl=_cndl.api.ctl,g=id=>ctl.querySelector('#'+id);
-    const rows=_navRows(),i3=rows.findIndex(q=>q._no===(_cndl.x&&_cndl.x._no));
-    if(g('cndl-pos'))g('cndl-pos').textContent=(i3>=0?('ROW '+(i3+1)+' / '+rows.length+' (table order)'):'');
-    if(g('cndl-prev'))g('cndl-prev').disabled=!(i3>0);
-    if(g('cndl-next'))g('cndl-next').disabled=!(i3>=0&&i3<rows.length-1);
-    const sel=g('cndl-top');
-    if(sel&&!sel.options.length){
-      const by=(blotRows||[]).slice().sort((a2,b2)=>b2._usd-a2._usd);
-      const win=by.slice(0,10),los=by.slice(-10).reverse();
-      const opt=(x2,tag)=>'<option value="'+x2._no+'">'+tag+' '+fmt$(x2._usd)+' &middot; #'+x2._no+' &middot; '+String(x2._et).slice(0,10)+'</option>';
-      sel.innerHTML='<option value="">TOP 10 &#9662;</option>'
-        +'<optgroup label="BIGGEST WINNERS">'+win.map(x2=>opt(x2,'&#9650;')).join('')+'</optgroup>'
-        +'<optgroup label="BIGGEST LOSERS">'+los.map(x2=>opt(x2,'&#9660;')).join('')+'</optgroup>';
-    }
-  };
-  const _cndlStep=d=>{
-    const rows=_navRows(),i3=rows.findIndex(q=>q._no===(_cndl.x&&_cndl.x._no));
-    if(i3<0)return;const nx=rows[i3+d];if(nx)_loadTrade(nx);
-  };
-  // save the CURRENT view as a PNG — the svg uses CSS variables, which die outside the page,
-  // so they are resolved to literal colors before rasterising (2x for crispness).
-  const _saveCandlePNG=()=>{
-    const svgEl2=_cndlAlive()?_cndl.api.modal.querySelector('#chart-body svg'):null;if(!svgEl2)return;
-    const cs=getComputedStyle(document.documentElement);
-    const raw=svgEl2.outerHTML.replace(/var\((--[a-z0-9-]+)(?:,[^)]*)?\)/gi,(m2,v2)=>{const c2=cs.getPropertyValue(v2).trim();return c2||'#888';});
-    const vb=(svgEl2.getAttribute('viewBox')||'0 0 1080 360').split(/\s+/),W3=+vb[2]||1080,H3=+vb[3]||360;
-    const img=new Image();
-    img.onload=()=>{
-      const cv=document.createElement('canvas');cv.width=W3*2;cv.height=H3*2;
-      const cx2=cv.getContext('2d');
-      cx2.fillStyle=cs.getPropertyValue('--bg').trim()||'#0d1117';cx2.fillRect(0,0,cv.width,cv.height);
-      cx2.drawImage(img,0,0,cv.width,cv.height);
-      const name='run'+((B&&B.run_id)!=null?B.run_id:'')+'_trade'+(_cndl.x?_cndl.x._no:'')+'_candles.png';
-      const url=cv.toDataURL('image/png');
-      window._lastCandlePNG={name:name,bytes:url.length};   // test hook
-      const a2=document.createElement('a');a2.href=url;a2.download=name;a2.click();
-    };
-    img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(raw);
-  };
-  // fetch (or cache-hit) one trade into the open modal.
-  const _loadTrade=async(x)=>{
-    if(!_cndlAlive())return;
-    const seq=++_cndl.seq;
-    _cndl.x=x;_cndl.view=null;
-    _cndlTitle('TRADE #'+x._no+' · CANDLES');
-    _syncCndlCtl();
-    const hit=_barsCache[x._no];
-    if(hit){_cndl.r=hit;_renderCandle();_prefetchNeighbors(x);return;}
-    // wait state INSIDE the existing modal: swap the svg for a stub and show the counter
-    // in the sub line (the body cannot be innerHTML-wiped — the crosshair divs live there).
-    _cndl.api.setSvg('<svg viewBox="0 0 1080 8" style="display:block;height:6px"></svg>');
-    const t0=Date.now();
-    const tick=setInterval(()=>{if(!_cndlAlive()||_cndl.seq!==seq){clearInterval(tick);return;}
-      _cndl.api.setSub('<b style="color:var(--blue)">FETCHING FROM YOUR PC… '+Math.round((Date.now()-t0)/1000)+'s</b> &middot; ~30s normally; up to 5 min behind a running backtest');},500);
-    try{
-      const r=await _runCmd('get_bars',Object.assign({},B,{entry_time:x._et,exit_time:x._xt2,pad_sessions:1}),300000);
-      clearInterval(tick);
-      _barsCache[x._no]=r;
-      if(!_cndlAlive()||_cndl.seq!==seq)return;   // closed, or user already navigated on
-      _cndl.r=r;_renderCandle();_prefetchNeighbors(x);
-    }catch(err){
-      clearInterval(tick);
-      if(!_cndlAlive()||_cndl.seq!==seq)return;
-      _cndl.api.setSub('<span style="color:var(--red)">candle load failed: '+String(err&&err.message||err).replace(/</g,'&lt;')+'</span> &middot; is the runner awake? PREV/NEXT or TOP 10 retries');
-    }
-  };
-  // quietly warm the cache for the neighbours in table order — stepping feels instant.
-  const _prefetchNeighbors=(x)=>{
-    const rows=_navRows(),i3=rows.findIndex(q=>q._no===x._no);
-    [rows[i3-1],rows[i3+1]].forEach(nb=>{
-      if(!nb||_barsCache[nb._no]||nb._pf)return;nb._pf=1;
-      _runCmd('get_bars',Object.assign({},B,{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
-        .then(r=>{_barsCache[nb._no]=r;}).catch(()=>{}).finally(()=>{nb._pf=0;});
-    });
-  };
-  const _openCandles=async(x,glyphEl)=>{
-    if(_cndlAlive()){_loadTrade(x);return;}   // already open — just switch trades
-    if(glyphEl&&glyphEl._busy)return;
-    if(glyphEl)glyphEl._busy=1;
-    const origTxt=glyphEl?glyphEl.textContent:'';
-    if(glyphEl)glyphEl.textContent='⏳ …';
-    // the modal opens IMMEDIATELY (setSvg needs an <svg> to replace, hence the stub).
-    const api=window.expandChart('TRADE #'+x._no+' · CANDLES',
-      '<svg viewBox="0 0 1080 8" style="display:block;height:6px"></svg>',
-      {sub:'entry '+x._et+' &rarr; exit '+x._xt2});
-    _cndl.api=api;
-    _buildCndlCtl();
-    // arrow keys step trades while the modal is open; the listener retires itself with it.
-    const keyNav=e2=>{
-      if(!_cndlAlive()){document.removeEventListener('keydown',keyNav);return;}
-      if(e2.key==='ArrowLeft'){e2.preventDefault();_cndlStep(-1);}
-      else if(e2.key==='ArrowRight'){e2.preventDefault();_cndlStep(1);}
-    };
-    document.addEventListener('keydown',keyNav);
-    try{
-      await _loadTrade(x);   // errors surface in the sub line inside _loadTrade
-    }finally{
-      if(glyphEl){glyphEl.textContent=origTxt||'🕯 CHART';glyphEl._busy=0;}
-    }
-  };
+  const _openCandles=(x,glyphEl)=>window._openTradeCandles(x,glyphEl,{B:B,all:()=>blotRows||[],order:_navRows});
   // the button reflects whether the panel is SHOWING — the saved-copy auto-restore below
   // opens the panel on its own, so without this a first click reads as "load did nothing"
   // when it actually just hid an already-open panel (owner hit exactly that).
@@ -13551,7 +13870,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
             var _eqTab=(String(APREF.eqTab||'')==='funnel')?'funnel':'chart';
             var _eqTabs=_tabStrip([['chart','CHAMPION','the champion config equity curve, chronological - in-sample, walk-forward, then the sealed lockbox'],
                                    ['funnel','FUNNEL','every tested config drawn as a funnel: many at the in-sample door, the top-K past it, the survivors through the lockbox']]
-              .map(function(t){return _tabBtn('data-eqtab="'+t[0]+'"',t[1],_eqTab===t[0],t[2]);}).join(''),false);
+              .map(function(t){return _tabBtn('data-eqtab="'+t[0]+'"',t[1],_eqTab===t[0],t[2]);}).join('')
+              // v71.63 (owner: "open it without expanding the chart") — TRADES is an ACTION tab:
+              // it opens the standalone blotter modal, it never becomes the card's active tab.
+              +_tabBtn('data-eqblotopen="1"','▦ TRADES',false,'open the champion trade blotter in its own window - no chart expansion needed','var(--blue)'),false);
             _panelEquity='<div style="'+_cardSty+';height:100%;box-sizing:border-box">'
               // v71.6 (owner: "this should be just be 1A, 1B is the Monthly pnl underneath"):
               //   the NUMBER belongs to the card, the two TABS keep their plain names.
@@ -16098,6 +16420,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   lands inside it must NOT also collapse the tile.
       content.querySelectorAll('[data-cfgtab]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('cfgTab',b.getAttribute('data-cfgtab'));renderApp();};});
       content.querySelectorAll('[data-eqtab]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('eqTab',b.getAttribute('data-eqtab'));renderApp();};});
+      // 1A card TRADES tab → the standalone blotter modal (payload = the SAME data-eqblot the
+      // expanded 1A reads; no chart expansion involved).
+      content.querySelectorAll('[data-eqblotopen]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();
+        const h=content.querySelector('[data-eqblot]');let B2=null;
+        try{B2=h?JSON.parse(decodeURIComponent(h.getAttribute('data-eqblot')||'')):null;}catch(_e){}
+        if(B2&&window.openBlotterModal)window.openBlotterModal(B2);
+        else alert('this run does not carry a blotter payload (older run doc)');};});
       content.querySelectorAll('[data-cfgtabb]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('cfgTabB',b.getAttribute('data-cfgtabb'));renderApp();};});
       content.querySelectorAll('[data-cfg2bc]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-g2ctl]')||e.target.closest('[data-cfgtab]')||e.target.closest('[data-b2ctl]'))return;e.stopPropagation();savePref('gate2aOpen',(APREF.gate2aOpen==null?1:+APREF.gate2aOpen)?0:1);renderApp();};});
       content.querySelectorAll('[data-gate2a]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-g2ctl]'))return;e.stopPropagation();savePref('gate2aOpen',(APREF.gate2aOpen==null?1:+APREF.gate2aOpen)?0:1);renderApp();};});
