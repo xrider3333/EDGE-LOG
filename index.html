@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.39';
+const VERSION='71.40';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -3812,13 +3812,24 @@ window.expandCompareEq=function(series,opts){
   //   excluded from _mainPS the same way gateCand already was.
   // v71.15: hybrid / hybrid-recycle series join tilts as their own families - excluded here so
   //   they never fall into the RAW config group.
-  const _mainPS=()=>PS.filter(s=>!s.isOther&&!s.gateCand&&!s.gateChosen&&!s.tiltCand&&!s.hybCand&&!s.hybRcy),_otherPS=()=>PS.filter(s=>s.isOther),
+  // v71.40 (owner: "the expanded view does not show the top config of each group by default, and
+  //   the key has no ranking like the non-expanded 1A"): the tile funnel opens as ONE line per
+  //   family, best first. The explorer opened with every family switched OFF and each group in
+  //   whatever order the series happened to be built.
+  //   _endV = where a line finishes, the same measure the tile key ranks on.
+  const _endV=s=>{const p=s&&s.pts;return (p&&p.length)?(+p[p.length-1].v||0):-Infinity;};
+  const _byEnd=a=>a.sort((x,y)=>_endV(y)-_endV(x));
+  const _mainPS=()=>_byEnd(PS.filter(s=>!s.isOther&&!s.gateCand&&!s.gateChosen&&!s.tiltCand&&!s.hybCand&&!s.hybRcy)),_otherPS=()=>PS.filter(s=>s.isOther),
     // v67.6 (owner: "you put them in the ML gates. make it its own section in the key") — SIZE
     //   TILTS are their own legend group now. They are NOT gate candidates: a gate SKIPS trades,
     //   a tilt keeps every trade and only re-sizes it, so burying them in ML GATES made them
     //   unfindable and easy to misread as crownable gate lines.
-    _gatePS=()=>PS.filter(s=>(s.gateCand||s.gateChosen)&&!s.tiltCand&&!s.hybCand&&!s.hybRcy),_tiltPS=()=>PS.filter(s=>s.tiltCand),
-    _hybPS=()=>PS.filter(s=>s.hybCand),_hybRPS=()=>PS.filter(s=>s.hybRcy);
+    _gatePS=()=>_byEnd(PS.filter(s=>(s.gateCand||s.gateChosen)&&!s.tiltCand&&!s.hybCand&&!s.hybRcy)),_tiltPS=()=>_byEnd(PS.filter(s=>s.tiltCand)),
+    _hybPS=()=>_byEnd(PS.filter(s=>s.hybCand)),_hybRPS=()=>_byEnd(PS.filter(s=>s.hybRcy));
+  // v71.40: and the best-finishing line of each family starts VISIBLE, so the explorer opens on
+  //   the same picture the tile shows - one line per family - instead of an empty chart you have
+  //   to switch on family by family. The rest of each family stays hidden behind its group row.
+  [_gatePS,_tiltPS,_hybPS,_hybRPS].forEach(function(fn){try{const g=fn();if(g.length)g[0].vis='on';}catch(_te){}});
   // per-group expand/collapse state — all three start COLLAPSED (one row each); replaces the old
   //   single-purpose gateExpanded flag.
   let _grpExpanded={cfg:false,gate:false,tilt:false,hyb:false,hybr:false,oth:false};
