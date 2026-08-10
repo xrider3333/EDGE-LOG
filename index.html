@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.45';
+const VERSION='71.46';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -7977,7 +7977,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const label=(num!=null?num+' · ':'')+abbr+(vb.ver?' '+vb.ver:'')+(vb.br?'-'+vb.br:'');
       const rich=sfam||fm;const sd=SDIFF[_sdiffKey(src)];
       return {num:num,abbr:abbr,ver:vb.ver,branch:vb.br,fam:fam,full:(rich?rich.full:abbr),desc:(rich?rich.desc:''),diff:(sd?sd.s:''),diffLong:(sd?sd.l:''),color:color,label:label};};
-    const stratTag=(str,sz)=>{const i=stratInfo(str);return '<span style="color:'+i.color+';font-weight:600'+(sz?';font-size:'+sz:'')+'">'+i.label+'</span>';};
+    const stratTag=(str,sz,wt)=>{const i=stratInfo(str);return '<span style="color:'+i.color+';font-weight:'+(wt||600)+(sz?';font-size:'+sz:'')+'">'+i.label+'</span>';};
     // ── Instrument color (CSV / masters), consistent everywhere ──────────────
     const INSTC={NQ:'#5b8def',MNQ:'#93b3f2',ES:'#27c08a',MES:'#79d6b1',YM:'#e0a341',MYM:'#ecc684',RTY:'#c77dd6',M2K:'#dba9e6',CL:'#d6694b',GC:'#d4b95e'};
     // $ point-value per instrument — used to convert commission $/RT into cost POINTS.
@@ -8530,7 +8530,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         lbl:(rc.crowned?'👑':'')+'R'+rc.rank+' · '+(rc.cfgNo?('#'+rc.cfgNo):'—'),
         // v68.1: the display-only rows (never eligible to be crowned) say so, and read dimmer.
         // v71.7 (owner: "remove the would pick and chosen") - the ordering already says it.
-        sub:rc.crowned?'CROWNED':(rc._dispOnly?'NOT ELIGIBLE':(rc.ismax?'IS MAX':'')),
+        sub:'',
         col:rc.crowned?'var(--green)':(rc._dispOnly?'var(--text4)':(rc.ismax?'#3a9bdc':'var(--text2)')),
         emph:rc.crowned,tip:rc.rankTip},rc));
       // v64.93 (owner): abbreviate dollars the way 2C does ($450k) so 2B is just as compact.
@@ -10367,7 +10367,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _ovl=p=>p.total?';border-left:2px solid color-mix(in srgb,var(--green) 55%,transparent);background:color-mix(in srgb,var(--green) 9%,transparent)':(p.col&&p.col[0]==='#'?';background:color-mix(in srgb,'+p.col+' 12%,transparent)':'');
       // v71.0 (owner: "compress kpi vertically a bit, trying to get close to raw vertical"):
       //   same padding rhythm the config matrices use in compact mode.
-      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:3px 4px;vertical-align:bottom">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:3px 4px;white-space:nowrap;cursor:help;vertical-align:bottom;color:'+p.col+(p.total?';font-weight:800':';font-weight:700')+_ovl(p)+'">'+p.sh_+(p.dr?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+p.dr+'</div>':'')+'</th>').join('')+'</tr>';
+      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:3px 4px;vertical-align:bottom">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:3px 4px;white-space:nowrap;cursor:help;vertical-align:bottom;color:'+p.col+(p.total?';font-weight:800':';font-weight:700')+_ovl(p)+'">'+p.sh_+(p.dr?'<span style="font-size:7px;font-weight:400;color:var(--text5);margin-left:3px">'+p.dr+'</span>':'')+'</th>').join('')+'</tr>';
       // group the rows into sections (return / drawdown / reward÷risk / edge / sample) — a small
       //   uppercase header row precedes the first metric of each group so the eye reads them as blocks.
       const _grpAt={'NET P&L':'return','MAR':'reward ÷ risk','MAR (ann.)':'other','TRADES':'sample'},_ncol=phases.length+1;
@@ -12323,7 +12323,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Steps 2/3/4/5/8 have report sections (res-step-N anchors); their pills are
       // clickable and scroll the report to that section. Each pill carries a short stat.
       const _hasSec={2:1,3:1,4:1,5:1,8:1};if(d.validate)_hasSec[1]=1;   // 1 Feasibility → Auto-Validate card
-      const segs=VSTEPS.map((s,i)=>{const n=i+1;const stt=vstat[s[1]];const sv=_stat[s[1]];const bg=stt==='pass'?'#1d9e75':stt==='fail'?'#e24b4a':'color-mix(in srgb,var(--border) 42%,transparent)';const fg=stt==='pass'?'#04130c':stt==='fail'?'#fff':'var(--text4)';const br='0';const go=_hasSec[n]?(' data-vstep-go="'+n+'"'):'';const cur=_hasSec[n]?'cursor:pointer;':'';return '<span'+go+' title="'+n+'. '+s[0]+' — '+(stt==='pass'?'passed':stt==='fail'?'not met':'n/a / not tested')+(_hasSec[n]?' · click to jump':'')+'" style="'+cur+'display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:3px 6px;border-radius:999px;background:'+bg+';color:'+fg+';border:'+br+';font-size:8px;font-weight:700;flex:0 1 auto;min-width:0;overflow:hidden"><b style="font-weight:900;flex:0 0 auto">'+n+'</b>'+(sv?'<span style="opacity:.85;font-weight:800;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">'+sv+'</span>':'')+'</span>';}).join('');
+      const segs=VSTEPS.map((s,i)=>{const n=i+1;const stt=vstat[s[1]];const sv=_stat[s[1]];const bg=stt==='pass'?'#1d9e75':stt==='fail'?'#e24b4a':'color-mix(in srgb,var(--border) 42%,transparent)';const fg=stt==='pass'?'#04130c':stt==='fail'?'#fff':'var(--text4)';const br='0';const go=_hasSec[n]?(' data-vstep-go="'+n+'"'):'';const cur=_hasSec[n]?'cursor:pointer;':'';return '<span'+go+' title="'+n+'. '+s[0]+' — '+(stt==='pass'?'passed':stt==='fail'?'not met':'n/a / not tested')+(_hasSec[n]?' · click to jump':'')+'" style="'+cur+'display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:3px 6px;border-radius:999px;background:'+bg+';color:'+fg+';border:'+br+';font-size:8px;font-weight:700;flex:0 1 auto;min-width:34px;overflow:hidden"><b style="font-weight:900;flex:0 0 auto">'+n+'</b>'+(sv?'<span style="opacity:.85;font-weight:800;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">'+sv+'</span>':'')+'</span>';}).join('');
       // Sticky header block: eyebrow title, then the run-info line (run# + strategy on one
       //   line, sized to read as the title), then the checklist pills on a single row.
       //   The whole block (#res-head) is frozen to the top of the tile as the report scrolls.
@@ -12557,7 +12557,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const hdrHtml='<div id="res-head" style="display:flex;align-items:center;gap:7px;margin:0 0 10px;white-space:nowrap;position:sticky;position:-webkit-sticky;top:47px;z-index:6;background:transparent;padding:3px 0">'
         +'<span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:13px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span>'
         +'<span class="lbl" style="font-size:11px;letter-spacing:1px;color:var(--text4);flex:0 0 auto">REPORT: '+d.id+((d.famKey&&d.famSeq!=null)?' <span title="family run id — chronological within '+d.famKey+', stable" style="color:var(--text3);font-weight:700">· '+d.famKey+'-'+d.famSeq+'</span>':'')+'</span>'
-        +'<span style="font-size:11px;font-weight:400;line-height:1;flex:0 0 auto;padding-right:2px;display:inline-flex;align-items:center">'+stratTag(d.strategy,'11px')+'</span>'
+        +'<span style="font-size:11px;font-weight:400;line-height:1;flex:0 0 auto;padding-right:2px;display:inline-flex;align-items:center">'+stratTag(d.strategy,'11px',400)+'</span>'
         // the numbered checklist "tiles" now live INLINE in the header (fill the middle, squish to fit)
         +'<span id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex:1 1 auto;min-width:40px;overflow:hidden">'+segs+'</span>'
         +'<span style="display:flex;gap:6px;align-items:center;flex:0 0 auto;padding-left:4px">'
