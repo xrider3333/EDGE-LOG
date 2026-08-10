@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='72.1';
+const VERSION='72.2';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'72.2',date:'2026-08-09',notes:['1A EXPANDED NOW MIRRORS THE TILE BY CONSTRUCTION. The tile draws one line per family - the best tilt, the best hybrid, its recycle, the chosen gate - and the payload builder now stamps those exact objects, so the explorer opens with the same lines visible in the same pure colours (amber, violet, pink, red). Before, each family opened on whichever line finished highest - often a dark shade variant - while the tile line stayed hidden. That mismatch is why colours kept looking wrong and lines kept looking missing no matter how many palettes were corrected.','The best hybrid recycle line now uses the tile own redeploy factor, so it ends exactly on the H-recycle gutter pill figure instead of a ratio computed from a different field.']},
 {v:'72.1',date:'2026-08-09',notes:['HOVERING THE KEY now does exactly what hovering a line does - that strategy lifts, every other one fades, in the chart and in the matrix. It was already wired but the plot was fighting it: the key sits inside the chart area, so moving onto a key row also counted as moving over the plot, and the plot immediately cleared the highlight the key had just set.','The in-sample, walk-forward and lockbox line-style rows are off the RUNBOARD key. The info icon covers them and they were taking three rows of a small box.']},
 {v:'72.0',date:'2026-08-09',notes:['PRICE SCALE MOVED TO THE RIGHT on every candle chart, the side every trading platform puts it on. The left gutter it used to sit in was dead space.','THE GALLERY IS NOW A WORKING SURFACE, not thumbnails: roll the wheel over ANY chart in the list to zoom its price action in place, double-click to reset, and each card carries its own TRADE and FULL buttons plus a live bar count. You no longer have to open a chart to study it.','CANDLE WINDOW header tidied: flatter controls, tighter row, and the price readout moved onto its own quiet line under a divider instead of competing with the buttons.']},
 {v:'71.99',date:'2026-08-09',notes:['The tick-box fix in 71.98 only reached one of the two pickers. Both the ADD RUNS list and the book picker have proper tick boxes now instead of ones stretched across a quarter of the row.']},
@@ -4503,7 +4504,7 @@ window.expandCompareEq=function(series,opts){
     //   dropped, so the new HYBRID legend groups would have rendered empty) and start hidden like
     //   the gate and tilt families.
     return {id:s.id,label:String(s.label||('#'+s.id)),color:s.color||'#3a9bdc',li:li,wfi:wfi,blot:s.blot||null,vis:((s.gateCand||s.tiltCand||s.hybCand||s.hybRcy)?'off':'on'),
-      ts:ts,isOther:!!s.dim,gateCand:!!s.gateCand,gateChosen:!!s.gateChosen,tiltCand:!!s.tiltCand,hybCand:!!s.hybCand,hybRcy:!!s.hybRcy,tip:s.tip||'',params:s.params||null,
+      ts:ts,isOther:!!s.dim,gateCand:!!s.gateCand,gateChosen:!!s.gateChosen,tiltCand:!!s.tiltCand,hybCand:!!s.hybCand,hybRcy:!!s.hybRcy,famTop:!!s.famTop,tip:s.tip||'',params:s.params||null,
       tr:_trOf(s),pts:s.eq.map((v,i)=>({x:0,v:v,t:0}))};});
   // rebakeDomain (item 24): bakes ONE shared tMin..tMax calendar span from every series real
   //   (blotter-loaded, exact per-trade) or approximate (run date_from/date_to) date range, then
@@ -4695,7 +4696,12 @@ window.expandCompareEq=function(series,opts){
   // v71.40: and the best-finishing line of each family starts VISIBLE, so the explorer opens on
   //   the same picture the tile shows - one line per family - instead of an empty chart you have
   //   to switch on family by family. The rest of each family stays hidden behind its group row.
-  [_gatePS,_tiltPS,_hybPS,_hybRPS].forEach(function(fn){try{const g=fn();if(g.length)g[0].vis='on';}catch(_te){}});
+  // v71.98 (owner: "the 1a funnel non expanded IS the template"): the line each family opens
+  //   with is the EXACT line the tile draws (famTop, stamped by the payload builder from
+  //   _bestTiltC/_bestHybC/the chosen gate), not merely whichever finishes highest - those
+  //   two can differ, and when they did the explorer showed a dark shade variant while the
+  //   tile line stayed hidden.
+  [_gatePS,_tiltPS,_hybPS,_hybRPS].forEach(function(fn){try{const g=fn();if(!g.length)return;(g.filter(function(s){return s.famTop;})[0]||g[0]).vis='on';}catch(_te){}});
   // v71.42 (owner: "for top RAW in the expanded view just show the top three - it is too many"):
   //   the RAW group carries ten coloured configs, which buried the family lines under a fan of
   //   near-identical curves. Only the best three by where they finish start drawn - plus the
@@ -10036,7 +10042,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             //   obvious which model + cut-off actually won (it just said "gate-kept" before).
             _ser.push({id:'gate',label:(_gvChosen?('🚪 '+String(_gvChosen.model||'gate')+' @ '+Math.round((+_gvChosen.threshold||0)*100)+'% · CHOSEN'):'🚪 gate-kept'),
                        color:'#e24b4a',   // v71.86: the funnel draws the chosen gate in this exact red
-                       eq:_gEqO.cum_gated.map(v=>v*mult),li:null,wfi:null,gateChosen:true,
+                       eq:_gEqO.cum_gated.map(v=>v*mult),li:null,wfi:null,gateChosen:true,famTop:true,
                        // v64.87 (item 1): NO blot on the gate line — regenerating gated trades
                        //   needs the ML model, which is not available client-side.
                        ts:_mkTsSpan(_gEqO.cum_gated.length,optFromMs,lbToMs)});
@@ -10084,9 +10090,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
               if(!(tl&&tl.equity&&Array.isArray(tl.equity.cum)&&tl.equity.cum.length>=2))return;
               _ser.push({id:'tilt-'+String(tl.model||'')+'-'+String(tl.scheme||''),
                          label:'tilt: '+String(tl.model||'')+' · '+String(tl.scheme||''),
-                         color:_famCol('#f0b429',_ti,_gvTilts.length),
+                         color:(tl===_bestTiltC?'#f0b429':_famCol('#f0b429',_ti+1,_gvTilts.length+1)),
                          eq:tl.equity.cum.map(v=>v*mult),
-                         li:null,wfi:null,tiltCand:true,   // v67.6: own legend group, NOT ML GATES
+                         li:null,wfi:null,tiltCand:true,famTop:(tl===_bestTiltC),
                          ts:_mkTsSpan(tl.equity.cum.length,optFromMs,lbToMs)});
             });
             // v71.15 (owner: "i dont see hybrid or hybrid r on expanded") — HYBRID was the one
@@ -10100,17 +10106,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _gvHybs.forEach((hy,_hi)=>{
               if(!(hy&&hy.equity&&Array.isArray(hy.equity.cum)&&hy.equity.cum.length>=2))return;
               const _hm=String(hy.model||'');
+              // v71.98: same template rule as the tilts - the tile's _bestHybC wears the pure
+              //   violet (and its recycle the pure pink, at the TILE'S OWN _hyRdF factor, so
+              //   the line lands exactly on the tile's H-recycle pill); the rest shade darker.
+              const _isBH=(hy===_bestHybC);
               _ser.push({id:'hyb-'+_hm,label:'hybrid: '+_hm,
-                         color:_famCol('#c084fc',_hi,_gvHybs.length),
+                         color:(_isBH?'#c084fc':_famCol('#c084fc',_hi+1,_gvHybs.length+1)),
                          eq:hy.equity.cum.map(v=>v*mult),
-                         li:null,wfi:null,hybCand:true,
+                         li:null,wfi:null,hybCand:true,famTop:_isBH,
                          ts:_mkTsSpan(hy.equity.cum.length,optFromMs,lbToMs)});
               const _hfn=+(((hy.full)||{}).num_trades)||0,_hq=(_uFn>0&&_hfn>0)?(_uFn/_hfn):1;
-              if(_hq>1.005)
-                _ser.push({id:'hybr-'+_hm,label:'hybrid ♻: '+_hm+' · '+_hq.toFixed(2)+'x',
-                           color:_famCol('#f0abfc',_hi,_gvHybs.length),
-                           eq:hy.equity.cum.map(v=>v*mult*_hq),
-                           li:null,wfi:null,hybRcy:true,
+              const _fq2=(_isBH&&_hyRdF)?_hyRdF:_hq;
+              if(_fq2>1.005)
+                _ser.push({id:'hybr-'+_hm,label:'hybrid ♻: '+_hm+' · '+_fq2.toFixed(2)+'x',
+                           color:(_isBH?'#f0abfc':_famCol('#f0abfc',_hi+1,_gvHybs.length+1)),
+                           eq:hy.equity.cum.map(v=>v*mult*_fq2),
+                           li:null,wfi:null,hybRcy:true,famTop:_isBH,
                            ts:_mkTsSpan(hy.equity.cum.length,optFromMs,lbToMs)});
             });
           }catch(_gce){}
