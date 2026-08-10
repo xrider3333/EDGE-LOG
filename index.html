@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.70';
+const VERSION='71.71';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.71',date:'2026-08-09',notes:['RUNBOARD panel split: only a real DRAG pins it now. A click on a divider that never moved was saving the current widths as a fixed split, quietly freezing the three panels at whatever size they happened to be - which is how the matrix could end up narrower than its own table on a later visit and look cramped for no reason. A click with no drag now clears the pin and goes back to the automatic sizing.']},
 {v:'71.70',date:'2026-08-09',notes:['FIX on 71.67: clicking the new 1A ▦ TRADES tab while the card was on FUNNEL popped a blocking browser alert that froze the whole page until dismissed. The tab now carries its own blotter payload so it works from BOTH card tabs, and that alert is gone for good - a run without a payload just dims the tab with the reason on hover.']},
 {v:'71.69',date:'2026-08-09',notes:['RUNBOARD metric names and their order now match the 1E card. 1E lists the stage money rows first and then TOTAL as the summary - it does not lead with a total and indent children under it. So the rows read IS dollars, WF dollars, LB dollars, then TOTAL.','It says DD, not MAX DD, for the same reason the 1E card was renamed: a drawdown measured on one stretch is not the maximum drawdown of the whole run.','The stage-lit row is replaced by FOLDS HELD, the row 1E actually carries. A book shows a dash there and says why on hover - it tunes nothing, so it has no folds to hold by design.','SAMPLE, RANK and HEAT moved off the far right. They were pinned to the tile right edge, and now that the table sizes to its own content the tile is often much wider than the table - so the controls were stranding themselves hundreds of pixels from the thing they control. They sit on their own line under the title, reading left to right like the table below them.']},
 {v:'71.68',date:'2026-08-09',notes:['CONFIG COLOURS MATCH between the 1A tile and its expanded view. The tile painted the walk-forward survivors from an eight-hue palette while the expanded explorer painted the very same configs from a teal ramp - two different palettes for one set of lines, so a config you were following changed colour the moment you expanded the chart. The tile choice is now handed to the explorer, so both draw the same config in the same colour. The crowned line stays green and the in-sample best stays blue in both.']},
@@ -16105,10 +16106,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const cols=[...row.querySelectorAll(':scope > [data-rbcol]')];
           const L=sp.previousElementSibling,R=sp.nextElementSibling;if(!L||!R)return;
           cols.forEach(c=>{c.style.flex=c.offsetWidth+' 1 0px';});
-          const x0=e.clientX,wL=L.offsetWidth,wR=R.offsetWidth;
-          const mv=ev=>{const dx=ev.clientX-x0;
+          const x0=e.clientX,wL=L.offsetWidth,wR=R.offsetWidth;let moved=false;
+          const mv=ev=>{const dx=ev.clientX-x0;if(Math.abs(dx)>2)moved=true;
             L.style.flex=Math.max(240,wL+dx)+' 1 0px';R.style.flex=Math.max(240,wR-dx)+' 1 0px';};
+          // v71.70: only a real DRAG pins the layout. A click that never moved was saving the
+          //   current widths as a fixed split, which silently froze the panels at whatever size
+          //   they happened to be — and a frozen split is why the matrix could end up narrower
+          //   than its own table on a later visit.
           const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);
+            if(!moved){cols.forEach(c=>{c.style.flex='';});renderApp();return;}
             savePref('rbCols',cols.map(c=>Math.round(c.offsetWidth)));
             // the funnel is width-driven, so redraw it at the new size
             if(typeof window.cmpOvlMount==='function')window.cmpOvlMount('cmp-ovl-host');};
