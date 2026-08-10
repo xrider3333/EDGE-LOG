@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.93';
+const VERSION='71.94';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.94',date:'2026-08-09',notes:['Fix: the CHAMPION / FUNNEL tabs were dead when you opened the CHAMPION chart first. The code that wires them only came into existence once the funnel explorer had been opened at least once, so whichever chart you expanded first got two painted but unclickable tabs.']},
 {v:'71.93',date:'2026-08-09',notes:['HOTFIX: every run report died with "Cannot access _actSel before initialization" - the new header action tray was a const that could be read before its initializer ran. It is a hoisted function now, which cannot land in that state.']},
 {v:'71.93',date:'2026-08-09',notes:['CRITICAL FIX: EVERY run report has been failing to open since 71.90 - the panel just said the run detail could not render. The header rebuild in that version accidentally absorbed the line that starts the report header, leaving that block referring to itself. Reports open again.']},
 {v:'71.92',date:'2026-08-09',notes:['NEW - LOOK-ALIKE SETUPS (owner idea): a button on the blotter that hunts for trades whose price action BEFORE the entry is near-identical, the setups that look copy-pasted. Your PC strips out price level and volatility so only the SHAPE is compared, then groups everything 97 percent alike or better. Each group shows how many trades, how alike they are, the average result, the win rate and a sketch of the shared shape - and SEE THESE CHARTS stacks that group in the gallery so you can eyeball them side by side.','It tells you when a group is just luck. With thousands of trades there are millions of pairs, so some look-alikes are guaranteed by chance. Every group is tested against shuffled data and corrected for the number of groups tested at once - only the ones that survive are tagged SIGNAL, everything else says CHANCE.','This needs the PC runner restarted once to answer the new request.']},
@@ -3956,6 +3957,38 @@ window.openBlotterModal=async function(B){
   }
 };
 
+// v71.94: defined at TOP LEVEL, not inside the funnel explorer. It used to be created only
+//   when expandCompareEq ran, so opening the CHAMPION chart first found no wirer and its two
+//   tabs rendered dead - exactly the one-way switch item 311 was meant to end.
+window._eqxWireTabs=function(){
+  try{document.querySelectorAll('[data-ceqx-eqtab]').forEach(function(t){
+    t.onclick=function(ev){ev.stopPropagation();const want=t.getAttribute('data-ceqx-eqtab');
+      const _sy=window.scrollY||document.documentElement.scrollTop||0;
+      try{const cl=document.getElementById('ceqx-close')||document.getElementById('eqx-close');if(cl)cl.click();}catch(_c){}
+      // v71.85 (owner: STILL stuck on FUNNEL). Two things were wrong here, in order:
+      //   1. calling savePref / renderApp from this scope reached the top-level globals, not
+      //      the report renderer's own pair, so the choice was never stored (v71.84);
+      //   2. clicking the tile's own tab button - the path that demonstrably works by hand -
+      //      still did nothing when fired in the SAME tick as the modal close, because
+      //      closing re-renders and the button we clicked was already a detached node.
+      //   So: let the close finish, THEN re-query the live button and click that.
+      setTimeout(function(){
+        try{const tb=document.querySelector('[data-eqtab="'+want+'"]');if(tb)tb.click();}catch(_tt){}
+      // v71.83 (owner: "clicking on champion kicks me out to the main results page"): the
+      //   re-render rebuilds the report and the page snaps to scroll 0, which IS the top of
+      //   RESULTS - and the old fixed 420ms delay could fire before the new chart existed, so
+      //   nothing re-opened and you were left sitting there. Put the scroll back and POLL for
+      //   the box the chosen tab draws instead of guessing a delay.
+        let _tries=0;const _reopen=function(){
+        try{window.scrollTo(0,_sy);}catch(_s){}
+        try{
+          const bx=document.querySelector(want==='funnel'?'[data-a2eqx]':'[data-eqx]');
+          const sv=bx&&bx.querySelector('svg');
+          if(sv){try{bx.scrollIntoView({block:'center'});}catch(_v){}
+            sv.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));return;}
+        }catch(_r){}
+          if(_tries++<30)setTimeout(_reopen,120);};
+        setTimeout(_reopen,200);},80);};});}catch(_tb){}};
 window.expandEquity=function(host){
   let D=null,B=null;
   try{D=JSON.parse(decodeURIComponent(host.getAttribute('data-eqx')||''));}catch(_){}
@@ -5052,35 +5085,6 @@ window.expandCompareEq=function(series,opts){
   //   and no tab ever got a handler. The two tabs were painted and completely dead.
   //   v71.86 (item 311): promoted to a shared wirer so the CHAMPION modal can call it too -
   //   the tab strip is identical in both, so the behaviour should be identical in both.
-  window._eqxWireTabs=function(){
-  try{document.querySelectorAll('[data-ceqx-eqtab]').forEach(function(t){
-    t.onclick=function(ev){ev.stopPropagation();const want=t.getAttribute('data-ceqx-eqtab');
-      const _sy=window.scrollY||document.documentElement.scrollTop||0;
-      try{const cl=document.getElementById('ceqx-close')||document.getElementById('eqx-close');if(cl)cl.click();}catch(_c){}
-      // v71.85 (owner: STILL stuck on FUNNEL). Two things were wrong here, in order:
-      //   1. calling savePref / renderApp from this scope reached the top-level globals, not
-      //      the report renderer's own pair, so the choice was never stored (v71.84);
-      //   2. clicking the tile's own tab button - the path that demonstrably works by hand -
-      //      still did nothing when fired in the SAME tick as the modal close, because
-      //      closing re-renders and the button we clicked was already a detached node.
-      //   So: let the close finish, THEN re-query the live button and click that.
-      setTimeout(function(){
-        try{const tb=document.querySelector('[data-eqtab="'+want+'"]');if(tb)tb.click();}catch(_tt){}
-      // v71.83 (owner: "clicking on champion kicks me out to the main results page"): the
-      //   re-render rebuilds the report and the page snaps to scroll 0, which IS the top of
-      //   RESULTS - and the old fixed 420ms delay could fire before the new chart existed, so
-      //   nothing re-opened and you were left sitting there. Put the scroll back and POLL for
-      //   the box the chosen tab draws instead of guessing a delay.
-        let _tries=0;const _reopen=function(){
-        try{window.scrollTo(0,_sy);}catch(_s){}
-        try{
-          const bx=document.querySelector(want==='funnel'?'[data-a2eqx]':'[data-eqx]');
-          const sv=bx&&bx.querySelector('svg');
-          if(sv){try{bx.scrollIntoView({block:'center'});}catch(_v){}
-            sv.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));return;}
-        }catch(_r){}
-          if(_tries++<30)setTimeout(_reopen,120);};
-        setTimeout(_reopen,200);},80);};});}catch(_tb){}};
   window._eqxWireTabs();
   el2('ceqx-reset').onclick=resetView;
   // ── VIEW dropdown (v64.83: merges the old separate RANGE + WINDOW selects into ONE control,
