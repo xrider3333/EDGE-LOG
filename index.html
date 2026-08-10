@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.54';
+const VERSION='71.55';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -9562,12 +9562,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   now follows the widest pill (emoji count double), floor 44 so short runs look
         //   unchanged, ceiling 68 so it can never eat the plot.
         const _pgW=labs.reduce((m,L)=>{let u=0;for(const ch of String(L.txt||''))u+=(ch.charCodeAt(0)>255?2:1);return Math.max(m,u);},0);
-        const _gutW=Math.max(66,Math.min(94,Math.round(_pgW*5.2+11)+26));
-        _gutterHtml='<div style="width:'+_gutW+'px;min-width:'+_gutW+'px;position:relative;font-size:8px;color:var(--text5)">'
+        const _gutW=44;   // v71.52 (owner): scale-only width - the pills overhang left onto the plot
+        _gutterHtml='<div style="width:'+_gutW+'px;min-width:'+_gutW+'px;position:relative;overflow:visible;font-size:8px;color:var(--text5)">'
           +'<div style="position:absolute;left:0;right:0;top:6px;bottom:6px">'
           +((_ddTop!=null&&!_gls.some(L=>Math.abs(Yv(L)-_ddTop)<7))?('<span style="position:absolute;left:3px;top:'+((_ddTop/H)*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:var(--text4)">$0</span>'):'')
           +_gls.map(L=>{const ly=Yv(L);return '<span style="position:absolute;left:1px;font-size:7px;top:'+(ly/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;color:'+(Math.abs(L)<1e-6?'var(--text4)':'var(--text5)')+'">'+fmtAx(L,1)+'</span>';}).join('')
-          +labs.map(L=>'<span'+(L.kg?(' data-pg="'+L.kg+'"'):'')+' style="position:absolute;right:1px;top:'+(L.y/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;font-weight:800;color:#04130c;background:'+L.col+';padding:0 4px;border-radius:4px;z-index:2">'+L.txt+'</span>').join('')
+          +labs.map(L=>'<span'+(L.kg?(' data-pg="'+L.kg+'"'):'')+' style="position:absolute;right:1px;z-index:4;top:'+(L.y/H*100).toFixed(2)+'%;transform:translateY(-50%);white-space:nowrap;font-weight:800;color:#04130c;background:'+L.col+';padding:0 4px;border-radius:4px;z-index:2">'+L.txt+'</span>').join('')
           +'</div></div>';
         const _kRows=[];
         if(_crV!=null)_kRows.push(['👑','crowned',_kUsd(_crV),'#1d9e75','crown']);
@@ -12695,16 +12695,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   the other icons"): the whole REPORT LAYOUT / COLUMNS strip collapses into two compact
       //   dropdowns that ride the report header row. _layTog itself is no longer rendered - the
       //   selects below carry the same picks and write the same saved settings.
-      const _laySelSty='height:24px;box-sizing:border-box;padding:0 4px;font-size:9px;border-radius:6px;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--text3);font-family:inherit;max-width:96px';
-      const _layOpts=[['classic','CLASSIC'],['dense','DASHBOARD'],['funnel','FUNNEL β'],['gauges','GAUGES β'],['pills','PILLS β']];
-      const _laySel='<select data-replaysel title="REPORT LAYOUT - CLASSIC is the primary numbered view; the others regroup the same panels (dashboard grid, 5-question funnel, gauges, pills). Nothing is deleted, flip back any time." style="'+_laySelSty+'">'
-        +_layOpts.map(function(o){return '<option value="'+o[0]+'"'+(_repLay===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>';
-      const _colSel='<select data-repcolsel title="COLUMNS - how many tiles sit side by side in the CLASSIC report. Under roughly 700px wide it always renders as 1 regardless of the pick." style="'+_laySelSty+';max-width:104px">'
-        +[['3','3 COLUMNS'],['2','2 × 2'],['1','1 COLUMN']].map(function(o){return '<option value="'+o[0]+'"'+(_repColsSel===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>';
+      // v71.52 (owner picked option B): the two dropdowns become TAB RAILS - the same control
+      //   language the SAMPLE / RANK / HEAT rows inside 1E already use, so the report header stops
+      //   reading as a separate toolbar bolted on above the report.
+      const _railWrap=(tint,inner)=>'<span style="display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,'+tint+' 8%,transparent)">'+inner+'</span>';
+      const _rail=(attr,v,lab,on,tint,tip)=>'<span '+attr+'="'+v+'" title="'+tip+'" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 7px;border-radius:6px;color:'+(on?'var(--text)':'var(--text4)')+';background:'+(on?'color-mix(in srgb,'+tint+' 20%,transparent)':'transparent')+';box-shadow:'+(on?'inset 0 -2px 0 '+tint:'none')+'">'+lab+'</span>';
+      const _layOpts=[['classic','CLASSIC'],['dense','DASHBOARD'],['funnel','FUNNEL'],['gauges','GAUGES'],['pills','PILLS']];
+      const _laySel=_railWrap('var(--green)',_layOpts.map(function(o){return _rail('data-replay',o[0],o[1],_repLay===o[0],'var(--green)','REPORT LAYOUT - '+o[1]);}).join(''));
+      const _colSel=_railWrap('var(--blue)',[['3','3 COLUMNS'],['2','2 x 2'],['1','1 COLUMN']].map(function(o){return _rail('data-repcolbtn',o[0],o[1],_repColsSel===o[0],'var(--blue)','how many tiles sit side by side in the CLASSIC report - '+o[1]);}).join(''));
       const hdrHtml='<div id="res-head" style="display:flex;align-items:center;gap:7px;margin:0 0 10px;white-space:nowrap;position:sticky;position:-webkit-sticky;top:47px;z-index:6;background:transparent;padding:3px 0">'
         +'<span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:13px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span>'
-        +'<span style="font-size:11px;font-weight:800;letter-spacing:0;color:var(--text);flex:0 0 auto">REPORT: '+d.id+((d.famKey&&d.famSeq!=null)?' <span title="family run id — chronological within '+d.famKey+', stable" style="color:var(--text3);font-weight:700">· '+d.famKey+'-'+d.famSeq+'</span>':'')+'</span>'
-        +'<span style="font-size:11px;font-weight:400;line-height:1;flex:0 0 auto;padding-right:2px;display:inline-flex;align-items:center">'+stratTag(d.strategy,'11px',400)+'</span>'
+        +'<span title="'+((d.famKey&&d.famSeq!=null)?('family run id '+d.famKey+'-'+d.famSeq):'')+'" style="font-size:11px;font-weight:800;letter-spacing:0;color:var(--text);flex:0 0 auto">REPORT '+d.id+':</span>'
+        +'<span style="font-size:11px;font-weight:400;line-height:1;flex:0 0 auto;padding-right:2px;display:inline-flex;align-items:center">'+stratTag(d.strategy,'11px',400).replace(/\s*&middot;\s*|\s+·\s+/g,' ')+'</span>'
         // the numbered checklist "tiles" now live INLINE in the header (fill the middle, squish to fit)
         +'<span id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex:1 1 auto;min-width:40px;overflow:hidden">'+segs+'</span>'
         +'<span style="display:flex;gap:6px;align-items:center;flex:0 0 auto;padding-left:4px">'
@@ -14585,9 +14587,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
                          ['net','NET $','most dollars'],
                          ['dd','MAX DD','smallest drawdown ranks first']]
           .map(o=>_tabBtn('data-rbr="'+o[0]+'"',o[1],_rbR===o[0],o[2],_TONE.rank)).join('');
+        // v71.54: HEAT is the single loudest thing about the real 1E — every cell shaded by where it
+        //   lands across its own row. Same toggle, same amber tone, same default-on behaviour.
+        const _rbHeat=(APREF.rbHeat==null)?true:!!APREF.rbHeat;
         const _rbCtlRow='<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
           +_rbRail('rbs',_sampTabs,'SAMPLE','which stretch every panel measures - the funnel redraws, the matrix recomputes, the ranking re-sorts',_TONE.samp)
           +_rbRail('rbr',_rankTabs,'RANK','which metric orders the strategies - measured on the picked SAMPLE',_TONE.rank)
+          +'<span data-rbheat>'+_tabStrip(_tabBtn('','HEAT',_rbHeat,'shade every cell by where it lands across its own row - green best, red worst. The same heat map the 1E card uses.',_TONE.heat),false)+'</span>'
           +orientSeg+'</div>';
         const boardTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">RUNBOARD</span><span style="font-size:8px;color:var(--text5)">top run per strategy · auto-populates from run history · ordered by the RANK BY pick</span></div>'
           +'<div style="overflow:auto;max-height:74vh">'+runs.map(_famRowOf).join('')+'</div>'
@@ -14655,10 +14661,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _marOf=r=>{const n=_netOf(r),d=_ddOf2(r);return (n!=null&&d&&d>1e-9)?n/d:null;};
         const _bestOf=(fn,dir)=>{let bv=null,bi=-1;runs.forEach((r,i)=>{const v=fn(r);
           if(v==null||!isFinite(v))return;if(bv===null||(dir==='min'?v<bv:v>bv)){bv=v;bi=i;}});return bi;};
+        // the 1E heat map, same maths as the 1E card: red at the worst end through to green at the
+        //   best, alpha strongest at both ends so the middle of the pack stays quiet; a flat row
+        //   paints one mid tint so it reads as measured-and-equal rather than skipped.
+        const _rbHeatFn=(fn,hiGood)=>{
+          if(!_rbHeat)return null;
+          const nums=runs.map(fn).filter(v=>v!=null&&isFinite(v));
+          if(nums.length<2)return null;
+          const mn=Math.min.apply(null,nums),mx=Math.max.apply(null,nums);
+          if(!(mx-mn>1e-9))return c=>{const v=fn(c.run);return (v==null||!isFinite(v))?null:'hsla(62,62%,44%,0.060)';};
+          return c=>{const v=fn(c.run);if(v==null||!isFinite(v))return null;
+            let t=(v-mn)/(mx-mn);if(!hiGood)t=1-t;
+            return 'hsla('+Math.round(4+116*t)+',62%,44%,'+(0.06+0.16*Math.abs(t-0.5)*2).toFixed(3)+')';};};
+        // every row NAMES THE WINDOW it measures, exactly like the 1E rows read "PF · IS+WF".
+        const _win=(_rbS==='full')?'FULL':((_rbS==='is')?'IS':'LB');
         const _mk=(lbl,fn,fmt,dir,opt)=>{const bi=(dir?_bestOf(fn,dir):-1);
-          return Object.assign({lbl:lbl,cell:c=>{const i=runs.indexOf(c.run),v=fn(c.run);
+          const o=Object.assign({lbl:lbl,cell:c=>{const i=runs.indexOf(c.run),v=fn(c.run);
             const txt=_num(v,fmt);
-            return (i>=0&&i===bi&&v!=null&&isFinite(v))?('<b style="color:var(--green)">'+String(txt).replace(/color:var\(--text5\)/,'')+'</b>'):txt;}},opt||{});};
+            return (i>=0&&i===bi&&v!=null&&isFinite(v))?('<b style="color:var(--green)">'+String(txt).replace(/color:var\(--text5\)/,'')+'</b>'):txt;}},opt||{});
+          if(dir){const h=_rbHeatFn(fn,dir==='max');if(h)o.cellBg=h;}
+          return o;};
         const _m$=v=>'<span style="color:'+(v>=0?'#1d9e75':'#e24b4a')+';font-weight:700">'+_ab$(v)+'</span>';
         const _mSub=v=>'<span style="color:var(--text4)">'+_ab$(v)+'</span>';
         const _mGroups=[
