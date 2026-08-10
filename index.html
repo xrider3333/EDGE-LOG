@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.90';
+const VERSION='71.91';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.91',date:'2026-08-09',notes:['CONFIG COLOURS, THE REST OF IT. The funnel key paints GATE red, TILT amber, HYBRID violet and HYBRID recycle pink - but the expanded explorer was painting those same four curves from the ML MODEL palette instead, so the lines you pick out of the funnel by colour arrived expanded wearing different ones. Each family now keeps its funnel colour; extra variants of a family step darker off the same hue so they stay separable.','The CHAMPION expanded view now has the CHAMPION / FUNNEL tabs too, so the switch works both ways instead of only funnel to champion.','The four run actions at the end of the report header - note, re-label, archive, delete - are one tinted tray of borderless icon chips now, matching the REPORT LAYOUT and COLUMNS rails beside them. Delete carries its red on the icon instead of a permanent red box.']},
 {v:'71.90',date:'2026-08-09',notes:['Follow-up to 71.85: the line naming which short-window strategies were hidden was being built but never attached, so the board dropped them silently. It prints under the list now.']},
 {v:'71.89',date:'2026-08-09',notes:['RUNBOARD layout: 1A FUNNEL on the left, 1E MATRIX on the right, and the strategy list with TOP 10 stacked together in one bar on the far right.','Strategies whose best run covers under two years are DROPPED from the board rather than sorted last - nineteen days does not compare with sixteen years, and showing it only invited the comparison. The count and the run numbers are named under the list, and TOP 10 still reaches them.','Highlighting reaches ACROSS panels: hover a curve in the funnel and that strategy column lifts in the matrix while the rest of the table fades. Hovering its key row does the same.','New + ADD button on the funnel. The board picks one run per strategy automatically - its best - so this is how you put ANY other config on the chart. Ticked runs join as their own line and column, ten columns maximum, and the picks are remembered. Clear them from the same row.','Every walk-forward stripe now says what that fold actually made - dollars, profit factor and trades for the strategy leading the board.']},
 {v:'71.88',date:'2026-08-09',notes:['BACK buttons: the candle window and the chart gallery both open with a BACK button now, so you step out to whatever you came from instead of hunting for CLOSE.','TOP 10 sets grow: a +10 MORE button appears in the candle window while you are inside a top-10 set, extending it to the top 20, 30 and so on with the new charts pre-loading in the background.','BLOTTER WINDOW CLEANED UP (owner: too much text, confusing): the run-on header sentence is gone. The facts are chips now - trade count, NET dollars, win rate, master, how many are showing - the four views are ONE segmented switch (RECENT / WINS / LOSSES / ALL), the paging button is a simple +25, and the hint sentences moved onto hover.']},
@@ -3932,6 +3933,10 @@ window.expandEquity=function(host){
     // v67.6: title 20->15px (same split-screen fit reason as the compare modal); the fixed
     //   height + nowrap above stay exactly as they were — see the glitch note.
     +'<span style="font-family:\'Bebas Neue\',monospace;font-size:15px;letter-spacing:2px;color:var(--text);white-space:nowrap;flex:0 0 auto;max-width:38vw;overflow:hidden;text-overflow:ellipsis">'+(D.title||'CHAMPION EQUITY')+'</span>'
+    // v71.86 (owner, item 311): the CHAMPION modal carried no tab strip, so the switch only
+    //   worked one way - funnel to champion, never back. Same two tabs as the funnel explorer,
+    //   same markup, same [data-ceqx-eqtab] handler wired below.
+    +'<span id="eqx-tabs" style="display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,var(--green) 8%,transparent);margin-right:8px;flex:0 0 auto">'+'<span data-ceqx-eqtab="chart" title="show the CHAMPION equity chart expanded" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.4px;padding:4px 9px;border-radius:6px;color:var(--text);background:color-mix(in srgb,var(--green) 20%,transparent);box-shadow:inset 0 -2px 0 var(--green)">CHAMPION</span>'+'<span data-ceqx-eqtab="funnel" title="show the CONFIG FUNNEL expanded" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.4px;padding:4px 9px;border-radius:6px;color:var(--text4)">FUNNEL</span>'+'</span>'
     +'<span id="eqx-read" style="font-size:11px;color:var(--text3);flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>'
     +'<span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex:0 0 auto">'
     +'<span title="wheel = zoom · drag = pan · drag the $ axis = scale y · double-click = reset" style="font-size:11px;color:var(--text5);cursor:help">controls ⓘ</span>'
@@ -4276,6 +4281,9 @@ window.expandEquity=function(host){
   const esc=e=>{if(e.key==='Escape')close();};
   document.addEventListener('keydown',esc);
   const close=()=>{if(blMenu){blMenu.remove();blMenu=null;}window.removeEventListener('resize',onResize);document.removeEventListener('keydown',esc);modal.remove();};
+  // v71.86 (item 311): the shared tab wirer - defined with the funnel explorer - also serves
+  //   this modal, so CHAMPION -> FUNNEL behaves exactly like FUNNEL -> CHAMPION.
+  try{if(window._eqxWireTabs)window._eqxWireTabs();}catch(_wt){}
   el2('eqx-close').onclick=close;
   requestAnimationFrame(render);
 };
@@ -4988,10 +4996,13 @@ window.expandCompareEq=function(series,opts){
   //   `host.ownerDocument` - but there is no `host` in THIS function (that is expandEquity's
   //   parameter, not this one), so every call threw a ReferenceError straight into the catch
   //   and no tab ever got a handler. The two tabs were painted and completely dead.
+  //   v71.86 (item 311): promoted to a shared wirer so the CHAMPION modal can call it too -
+  //   the tab strip is identical in both, so the behaviour should be identical in both.
+  window._eqxWireTabs=function(){
   try{document.querySelectorAll('[data-ceqx-eqtab]').forEach(function(t){
     t.onclick=function(ev){ev.stopPropagation();const want=t.getAttribute('data-ceqx-eqtab');
       const _sy=window.scrollY||document.documentElement.scrollTop||0;
-      try{const cl=document.getElementById('ceqx-close');if(cl)cl.click();}catch(_c){}
+      try{const cl=document.getElementById('ceqx-close')||document.getElementById('eqx-close');if(cl)cl.click();}catch(_c){}
       // v71.85 (owner: STILL stuck on FUNNEL). Two things were wrong here, in order:
       //   1. calling savePref / renderApp from this scope reached the top-level globals, not
       //      the report renderer's own pair, so the choice was never stored (v71.84);
@@ -5015,7 +5026,8 @@ window.expandCompareEq=function(series,opts){
             sv.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));return;}
         }catch(_r){}
           if(_tries++<30)setTimeout(_reopen,120);};
-        setTimeout(_reopen,200);},80);};});}catch(_tb){}
+        setTimeout(_reopen,200);},80);};});}catch(_tb){}};
+  window._eqxWireTabs();
   el2('ceqx-reset').onclick=resetView;
   // ── VIEW dropdown (v64.83: merges the old separate RANGE + WINDOW selects into ONE control,
   //    owner: "combine the views for the date range and the sample selection into one
@@ -7732,7 +7744,7 @@ function renderApp(){
             <input class="inline-txt" data-field="notes" data-id="${t.id}" value="${(t.notes||'').replace(/"/g,'&quot;')}" placeholder="notes..." style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:var(--fsm);width:100%;padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--green)'" onblur="this.style.borderBottomColor='transparent';saveInlineField(this)" onkeydown="if(event.key==='Enter')this.blur()"/>
           </td>
           ${ex}
-          <td><button class="edit-btn" data-id="${t.id}">✎</button></td>
+          <td><button class="edit-btn" data-id="${t.id}">&#9998;</button></td>
           <td><button class="del-btn" data-id="${t.id}">✕</button></td>
         </tr>`;
       })(t,i);
@@ -9848,6 +9860,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   candidate loop, so the chart, this fullscreen explorer legend (same _ser feeds
           //   window._a2EqSeries) and the 2C matrix column headers all agree on one colour per
           //   model.
+          // v71.86 (owner, third report of "config colours change when i expand"): the funnel
+          //   KEY paints GATE red, TILT amber, HYBRID violet and HYBRID recycle pink, and those
+          //   are the lines you pick out of the chart by colour. The explorer was painting the
+          //   same four curves from the ML MODEL palette instead (rf magenta, xgb amber, logistic
+          //   violet), so they arrived expanded wearing different colours entirely. Each family
+          //   now keeps its funnel colour; extra variants of a family step darker off the same
+          //   hue so they stay separable without leaving the family.
+          const _famCol=function(hex,i,n){
+            const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),bl=parseInt(hex.slice(5,7),16);
+            const t=(n>1)?(i/(n-1)):0,f=1-0.34*t,q=function(v){return Math.max(0,Math.min(255,Math.round(v*f)));};
+            return 'rgb('+q(r)+','+q(g)+','+q(bl)+')';};
           const _gvChosen=(d.gate_validate&&d.gate_validate.chosen)||null;
           const _gvThAll=(d.gate_validate&&Array.isArray(d.gate_validate.thresholds))?d.gate_validate.thresholds.slice().sort((a,b)=>a-b):[];
           const _gvThLi=th=>{const i=_gvThAll.indexOf(th);return i<0?1:i;};
@@ -9862,7 +9885,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             // v64.85 (owner): name the CHOSEN gate the same way its 9 rivals are named, so it is
             //   obvious which model + cut-off actually won (it just said "gate-kept" before).
             _ser.push({id:'gate',label:(_gvChosen?('🚪 '+String(_gvChosen.model||'gate')+' @ '+Math.round((+_gvChosen.threshold||0)*100)+'% · CHOSEN'):'🚪 gate-kept'),
-                       color:_gvChosen?_gateColor(_gvChosen.model,_gvThLi(_gvChosen.threshold),90):'#e05fa0',
+                       color:'#e24b4a',   // v71.86: the funnel draws the chosen gate in this exact red
                        eq:_gEqO.cum_gated.map(v=>v*mult),li:null,wfi:null,gateChosen:true,
                        // v64.87 (item 1): NO blot on the gate line — regenerating gated trades
                        //   needs the ML model, which is not available client-side.
@@ -9907,11 +9930,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
             //   candidate. Older runs carry no
             //   d.gate_validate.tilts and simply push nothing here.
             const _gvTilts=(d.gate_validate&&Array.isArray(d.gate_validate.tilts))?d.gate_validate.tilts:[];
-            _gvTilts.forEach(tl=>{
+            _gvTilts.forEach((tl,_ti)=>{
               if(!(tl&&tl.equity&&Array.isArray(tl.equity.cum)&&tl.equity.cum.length>=2))return;
               _ser.push({id:'tilt-'+String(tl.model||'')+'-'+String(tl.scheme||''),
                          label:'tilt: '+String(tl.model||'')+' · '+String(tl.scheme||''),
-                         color:_gateColor(String(tl.model||''),1,70),
+                         color:_famCol('#f0b429',_ti,_gvTilts.length),
                          eq:tl.equity.cum.map(v=>v*mult),
                          li:null,wfi:null,tiltCand:true,   // v67.6: own legend group, NOT ML GATES
                          ts:_mkTsSpan(tl.equity.cum.length,optFromMs,lbToMs)});
@@ -9924,18 +9947,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
             //   no recycle line. Own legend groups - never crownable, like the tilts.
             const _gvHybs=(d.gate_validate&&Array.isArray(d.gate_validate.hybrids))?d.gate_validate.hybrids:[];
             const _uFn=+((((d.gate_validate||{}).ungated_full)||{}).num_trades)||0;
-            _gvHybs.forEach(hy=>{
+            _gvHybs.forEach((hy,_hi)=>{
               if(!(hy&&hy.equity&&Array.isArray(hy.equity.cum)&&hy.equity.cum.length>=2))return;
               const _hm=String(hy.model||'');
               _ser.push({id:'hyb-'+_hm,label:'hybrid: '+_hm,
-                         color:_gateColor(_hm,2,74),
+                         color:_famCol('#c084fc',_hi,_gvHybs.length),
                          eq:hy.equity.cum.map(v=>v*mult),
                          li:null,wfi:null,hybCand:true,
                          ts:_mkTsSpan(hy.equity.cum.length,optFromMs,lbToMs)});
               const _hfn=+(((hy.full)||{}).num_trades)||0,_hq=(_uFn>0&&_hfn>0)?(_uFn/_hfn):1;
               if(_hq>1.005)
                 _ser.push({id:'hybr-'+_hm,label:'hybrid ♻: '+_hm+' · '+_hq.toFixed(2)+'x',
-                           color:_gateColor(_hm,0,90),
+                           color:_famCol('#f0abfc',_hi,_gvHybs.length),
                            eq:hy.equity.cum.map(v=>v*mult*_hq),
                            li:null,wfi:null,hybRcy:true,
                            ts:_mkTsSpan(hy.equity.cum.length,optFromMs,lbToMs)});
@@ -13373,18 +13396,30 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _layOpts=[['classic','CLASSIC'],['dense','DASHBOARD'],['funnel','FUNNEL'],['gauges','GAUGES'],['pills','PILLS']];
       const _laySel=_railWrap('var(--green)',_layOpts.map(function(o){return _rail('data-replay',o[0],o[1],_repLay===o[0],'var(--green)','REPORT LAYOUT - '+o[1]);}).join(''));
       const _colSel='<span style="font-size:8px;letter-spacing:.6px;color:var(--text5);font-weight:700;margin-right:1px">COLUMNS</span>'+_railWrap('var(--blue)',[['3','3'],['2','2'],['1','1']].map(function(o){return _rail('data-repcolbtn',o[0],o[1],_repColsSel===o[0],'var(--blue)','how many tiles sit side by side in the CLASSIC report - '+o[1]+(o[0]==='2'?' (two per row)':(o[0]==='1'?' (every tile full width)':' across')));}).join(''));
-      const hdrHtml='<div id="res-head" style="display:flex;align-items:center;gap:7px;margin:0 0 10px;white-space:nowrap;position:sticky;position:-webkit-sticky;top:47px;z-index:6;background:transparent;padding:3px 0">'
+      // v71.86 (owner: "finish the ui on the last four buttons - we adjusted the view and column
+      //   selector, now those last four"): NOTE / RE-LABEL / ARCHIVE / DELETE were four separate
+      //   bordered boxes sitting next to two tinted rails, which is why the right end of the row
+      //   read as a different toolbar. They are one tray now, in the same language: borderless
+      //   icon chips, state carried by the ICON colour plus the same inset underline the rails
+      //   use, and the destructive one is red only on hover - not a permanent red box shouting
+      //   from the corner of every report.
+      const _actTray='display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,var(--text4) 8%,transparent)';
+      const _actChip=function(on,tint){return 'cursor:pointer;user-select:none;display:inline-flex;align-items:center;justify-content:center;width:23px;height:21px;padding:0;border:0;border-radius:6px;font-family:inherit;font-size:11px;line-height:1;'
+        +'color:'+(on?tint:'var(--text4)')+';background:'+(on?'color-mix(in srgb,'+tint+' 18%,transparent)':'transparent')
+        +';box-shadow:'+(on?'inset 0 -2px 0 '+tint:'none');};
+      const _actSel='<span style="'+_actTray+'">'
+        +'<button id="det-note" data-note-id="'+d.id+'" data-note-val="'+_noteEsc+'" title="'+(_hasNote?_noteEsc:'add a note')+'" style="'+_actChip(_hasNote,'var(--green)')+'">&#9998;</button>'
+        +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="'+_actChip(false,'var(--blue)')+';-webkit-appearance:none;-moz-appearance:none;appearance:none;text-align:center;text-align-last:center"><option value="">&#8801;</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
+        +'<button id="det-arch" data-arch-id="'+d.id+'" title="'+(d.archived?'un-archive - show this run in Past Runs again':'archive - hide this run from Past Runs (keeps the data, reversible)')+'" style="'+_actChip(!!d.archived,'var(--yellow)')+'">&#9707;</button>'
+        // destructive: the icon carries the red, the chip stays flat like its neighbours.
+        +'<button id="det-del" data-del-id="'+d.id+'" title="delete run" style="'+_actChip(false,'var(--red)').replace('color:var(--text4)','color:var(--red)')+'">&#128465;</button>'
         +'<span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:13px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span>'
         +'<span title="'+((d.famKey&&d.famSeq!=null)?('family run id '+d.famKey+'-'+d.famSeq):'')+'" style="font-size:11px;font-weight:800;letter-spacing:0;color:var(--text);flex:0 0 auto">REPORT '+d.id+':</span>'
         +'<span style="font-size:11px;font-weight:400;line-height:1;flex:0 0 auto;padding-right:2px;display:inline-flex;align-items:center">'+stratTag(d.strategy,'11px',400).replace(/\s*&middot;\s*|\s+·\s+/g,' ')+'</span>'
         // the numbered checklist "tiles" now live INLINE in the header (fill the middle, squish to fit)
         +'<span id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex:1 1 auto;min-width:40px;overflow:hidden">'+segs+'</span>'
         +'<span style="display:flex;gap:6px;align-items:center;flex:0 0 auto;padding-left:4px">'
-          +_laySel+_colSel
-          +'<button id="det-note" data-note-id="'+d.id+'" data-note-val="'+_noteEsc+'" title="'+(_hasNote?_noteEsc:'add a note')+'" style="'+_ctlBtn+';border:1px solid '+(_hasNote?'var(--green)':'var(--border)')+';background:'+(_hasNote?'color-mix(in srgb,var(--green) 14%,transparent)':'var(--bg2)')+';color:'+(_hasNote?'var(--green)':'var(--text3)')+'">✎</button>'
-          +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="'+_ctlBase+';width:24px;min-width:24px;padding:0;text-align:center;text-align-last:center;-webkit-appearance:none;-moz-appearance:none;appearance:none;border:1px solid var(--border);background:var(--bg2);color:var(--text3)"><option value="">≡</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
-          +'<button id="det-arch" data-arch-id="'+d.id+'" title="'+(d.archived?'un-archive — show this run in Past Runs again':'archive — hide this run from Past Runs (keeps the data, reversible)')+'" style="'+_ctlBtn+';border:1px solid '+(d.archived?'var(--yellow)':'var(--border)')+';background:'+(d.archived?'color-mix(in srgb,var(--yellow) 14%,transparent)':'var(--bg2)')+';color:'+(d.archived?'var(--yellow)':'var(--text3)')+'">◫</button>'
-          +'<button id="det-del" data-del-id="'+d.id+'" title="delete run" style="'+_ctlBtn+';border:1px solid var(--red);background:var(--bg2);color:var(--red)">🗑</button>'
+          +_laySel+_colSel+_actSel
         +'</span>'
         +'</div>';
       // ── Numbered checklist sections: group each Results panel under its deploy step
