@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.74';
+const VERSION='71.75';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.75',date:'2026-08-09',notes:['CANDLE WINDOW mouse controls now match TradingView (owner: "moving the mouse around changes the chart"): DRAGGING no longer zoom-selects - the mouse WHEEL zooms the bars around the cursor, DRAG pans the zoomed view, DOUBLE-CLICK shows everything. The old behavior fired a zoom on the pan gesture every chart trains your hand to make.','TOP 10 menu: picking any trade now loads ALL TEN of that list up front and PREV / NEXT / arrow keys page through just those ten - the readout shows "3 / 10 - TOP 10 WINNERS - loading 7/10" until the set is in. "Back to table order" in the same menu returns to normal stepping.']},
 {v:'71.74',date:'2026-08-09',notes:['RUNBOARD funnel: the walk-forward region draws as ALTERNATING FOLD STRIPES now, one stripe per fold, the way 1A and the config funnel in the results tab both do it - so you can count the test windows straight off the chart. It was one flat blue wash before, which was the most obvious difference between this chart and the report one.']},
 {v:'71.73',date:'2026-08-09',notes:['1E pickers now wear the same look as the report header controls. The tab strip and the SAMPLE, RANK and HEAT rows were bordered chips and open-topped folder tabs; they are tinted trays with a filled, underlined active segment now - the same rail the CLASSIC and COLUMNS controls use - so the whole report speaks one control language.']},
 {v:'71.72',date:'2026-08-09',notes:['RUNBOARD heat map is RANK based now, so EVERY column gets a colour. Shading by raw value let one freak number own the whole scale - a 19-day run scoring a MAR of 1400 pushed every real strategy to the same red - so short-window columns had to be cut out of the scale and left grey, and that grey is what read as columns not being heat mapped. Ranking each column against the others is immune to outliers: everything with a number gets its own shade, ties share one.','The reward and risk band is filled in. Whole-run profit factor and win rate were blank on every run except a book. They are recoverable the same way the run report builds them - profit factor by pooling the stages rather than averaging ratios, win rate and Sharpe from the whole-window figures the validate already saves - and SHARPE is now a row, like it is on the 1E card.','The metric column says the window ONCE, on the band caption, instead of repeating it on every row. A row only names a window of its own when it genuinely measures a different one: FOLDS HELD is always walk-forward and ROBUSTNESS is always whole-run.']},
@@ -3267,10 +3268,10 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
   const _barsCache={};
 
-  const _cndl={api:null,x:null,r:null,view:null,seq:0,ctx:null};
+  const _cndl={api:null,x:null,r:null,view:null,seq:0,ctx:null,grp:null};
   const _cB=()=>((_cndl.ctx||{}).B||{});
   const _cAll=()=>(((_cndl.ctx||{}).all||(()=>[]))());
-  const _cOrder=()=>(((_cndl.ctx||{}).order||_cAll)());
+  const _cOrder=()=>(_cndl.grp?_cndl.grp.list:(((_cndl.ctx||{}).order||_cAll)()));
   const fmt$=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
 
 
@@ -3459,9 +3460,18 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     g('cndl-save').onclick=()=>_saveCandlePNG();
 
-    g('cndl-top').onchange=ev=>{const no=+ev.target.value;if(!no)return;
-
-      const x2=_cAll().find(q=>q._no===no);ev.target.value='';if(x2)_loadTrade(x2);};
+    g('cndl-top').onchange=ev=>{const v3=String(ev.target.value||'');ev.target.value='';
+      if(!v3)return;
+      if(v3==='reset'){_cndl.grp=null;_syncCndlCtl();return;}
+      const kind=v3.slice(0,2),no=+v3.slice(2);
+      const by=_cAll().slice().sort((a2,b2)=>b2._usd-a2._usd);
+      const list=(kind==='w:')?by.slice(0,10):by.slice(-10).reverse();
+      _cndl.grp={list:list,label:(kind==='w:')?'TOP 10 WINNERS':'TOP 10 LOSERS'};
+      // fetch ALL TEN up front so PREV/NEXT and the arrow keys flip through the set instantly
+      list.forEach(nb=>{if(_barsCache[nb._no]||nb._pf)return;nb._pf=1;
+        _runCmd('get_bars',Object.assign({},_cB(),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
+          .then(r2=>{_barsCache[nb._no]=r2;}).catch(()=>{}).finally(()=>{nb._pf=0;_syncCndlCtl();});});
+      const x2=list.find(q=>q._no===no)||list[0];if(x2)_loadTrade(x2);};
 
   };
 
@@ -3473,7 +3483,11 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     const rows=_cOrder(),i3=rows.findIndex(q=>q._no===(_cndl.x&&_cndl.x._no));
 
-    if(g('cndl-pos'))g('cndl-pos').textContent=(i3>=0?('ROW '+(i3+1)+' / '+rows.length+' (table order)'):'');
+    const gp=_cndl.grp,gLoaded=gp?gp.list.filter(q=>_barsCache[q._no]).length:0;
+    if(g('cndl-pos'))g('cndl-pos').textContent=(i3>=0
+      ?(gp?((i3+1)+' / '+rows.length+' · '+gp.label+(gLoaded<rows.length?(' · loading '+gLoaded+'/'+rows.length+'…'):' · all loaded'))
+          :('ROW '+(i3+1)+' / '+rows.length+' (table order)'))
+      :'');
 
     if(g('cndl-prev'))g('cndl-prev').disabled=!(i3>0);
 
@@ -3487,13 +3501,14 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
       const win=by.slice(0,10),los=by.slice(-10).reverse();
 
-      const opt=(x2,tag)=>'<option value="'+x2._no+'">'+tag+' '+fmt$(x2._usd)+' &middot; #'+x2._no+' &middot; '+String(x2._et).slice(0,10)+'</option>';
+      const opt=(x2,tag,pre)=>'<option value="'+pre+x2._no+'">'+tag+' '+fmt$(x2._usd)+' &middot; #'+x2._no+' &middot; '+String(x2._et).slice(0,10)+'</option>';
 
       sel.innerHTML='<option value="">TOP 10 &#9662;</option>'
+        +'<option value="reset">&#8617; back to table order</option>'
 
-        +'<optgroup label="BIGGEST WINNERS">'+win.map(x2=>opt(x2,'&#9650;')).join('')+'</optgroup>'
+        +'<optgroup label="BIGGEST WINNERS - picking one loads ALL 10">'+win.map(x2=>opt(x2,'&#9650;','w:')).join('')+'</optgroup>'
 
-        +'<optgroup label="BIGGEST LOSERS">'+los.map(x2=>opt(x2,'&#9660;')).join('')+'</optgroup>';
+        +'<optgroup label="BIGGEST LOSERS - picking one loads ALL 10">'+los.map(x2=>opt(x2,'&#9660;','l:')).join('')+'</optgroup>';
 
     }
 
@@ -3620,7 +3635,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
   };
 
   window._openTradeCandles=async(x,glyphEl,ctx)=>{
-    if(ctx)_cndl.ctx=ctx;
+    if(ctx){_cndl.ctx=ctx;_cndl.grp=null;}
 
     if(_cndlAlive()){_loadTrade(x);return;}   // already open — just switch trades
 
