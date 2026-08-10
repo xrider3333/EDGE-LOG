@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.99';
+const VERSION='72.0';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'72.0',date:'2026-08-09',notes:['PRICE SCALE MOVED TO THE RIGHT on every candle chart, the side every trading platform puts it on. The left gutter it used to sit in was dead space.','THE GALLERY IS NOW A WORKING SURFACE, not thumbnails: roll the wheel over ANY chart in the list to zoom its price action in place, double-click to reset, and each card carries its own TRADE and FULL buttons plus a live bar count. You no longer have to open a chart to study it.','CANDLE WINDOW header tidied: flatter controls, tighter row, and the price readout moved onto its own quiet line under a divider instead of competing with the buttons.']},
 {v:'71.99',date:'2026-08-09',notes:['The tick-box fix in 71.98 only reached one of the two pickers. Both the ADD RUNS list and the book picker have proper tick boxes now instead of ones stretched across a quarter of the row.']},
 {v:'71.98',date:'2026-08-09',notes:['FIXED the ADD RUNS dialog, which rendered as a column of stretched tick boxes with the text flung to the right. The app-wide input rule sets every input to full width with big padding and the tick boxes were inheriting it. They opt out now, and the book picker had the same bug.','The dashed purple line down the middle of the funnel is gone.','The in-sample then blue band then purple lockbox line is off the funnel title - the info icon already covers it.','Each funnel key row carries the SAME rank as its matrix column now - R1, R2 and so on - so the chart and the table read as one board. A strategy with no saved curve was quietly shifting the key out of step with the ranks.']},
 {v:'71.97',date:'2026-08-09',notes:['1A expanded key: the GATES group read BLUE while the funnel drew the gate RED. The group swatch comes from its first member, and the 21 gate CANDIDATES were still on the ML model palette - only the chosen line had been moved. All of them now shade off the same funnel red, so the group reads as one family.','Switching CHAMPION / FUNNEL in the expanded view no longer flashes the bare report at you. The swap - close, re-render, re-open - is covered by a single veil so it reads as one transition.','1E SIZE tabs: the permanent caption line and the COMPARISON ONLY chip are behind the info icon now instead of taking a row under every table. Same for the three HYBRID modes.']},
@@ -2895,7 +2896,10 @@ function toggleThMenu(col){window._thMenu=(window._thMenu===col?null:col);render
 window.candleSVG=function(bars,overlays,markers,opts){
   opts=opts||{};overlays=overlays||{};markers=markers||{};
   const W=opts.width||1080,H=opts.height||360;
-  const margin={l:opts.marginLeft||58,r:opts.marginRight||14,t:opts.marginTop||10,b:opts.marginBottom||26};
+  // v71.96 (owner): the price scale sits on the RIGHT, like every trading platform - the
+  // left gutter is dead space there. window.CANDLE_GEO is the single source of truth so the
+  // hover readout and the drag/zoom maths cannot drift from what is drawn.
+  const margin={l:opts.marginLeft||14,r:opts.marginRight||64,t:opts.marginTop||10,b:opts.marginBottom||26};
   const n=(bars||[]).length;
   if(!n)return '<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg"></svg>';
   const plotW=W-margin.l-margin.r,plotH=H-margin.t-margin.b;
@@ -2932,6 +2936,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
   const xCenter=i=>margin.l+i*xStep+xStep/2;
   const yScale=scaleLinear(lo,hi,margin.t+plotH,margin.t);
 
+  try{window.CANDLE_GEO={W:W,H:H,mL:margin.l,mR:margin.r,plotW:plotW};}catch(_g){}
   let out='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMinYMin meet" xmlns="http://www.w3.org/2000/svg">';
 
   // y gridlines + tick labels
@@ -2939,7 +2944,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
   yTicks.forEach(t=>{
     const y=yScale(t);
     out+='<line x1="'+margin.l+'" x2="'+(margin.l+plotW)+'" y1="'+y+'" y2="'+y+'" stroke="var(--border2)" stroke-width="1"/>';
-    out+='<text x="'+(margin.l-6)+'" y="'+(y+3)+'" text-anchor="end" fill="var(--text5)" font-size="9.5">'+esc(t.toLocaleString('en-US'))+'</text>';
+    out+='<text x="'+(margin.l+plotW+7)+'" y="'+(y+3)+'" text-anchor="start" fill="var(--text5)" font-size="9.5">'+esc(t.toLocaleString('en-US'))+'</text>';
   });
 
   // shaded held-window
@@ -3369,7 +3374,8 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     const svgEl2=_cndl.api.modal.querySelector('#chart-body svg');if(!svgEl2)return;
 
-    const W2=1080,mL2=58,xStep2=(W2-mL2-14)/bars.length;
+    const _G=window.CANDLE_GEO||{W:1080,mL:14,mR:64,plotW:1002};
+    const W2=_G.W,mL2=_G.mL,xStep2=_G.plotW/bars.length;
 
     const _f2=v2=>(+v2).toLocaleString('en-US');
 
@@ -3448,7 +3454,9 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     const ctl=_cndl.api.ctl;ctl.innerHTML='';
 
-    const bs='background:var(--bg2);border:1px solid var(--border);color:var(--text3);padding:4px 10px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px';
+    // v71.96 (owner: "modernize this. messy") - flatter chips, tighter row, the price
+    // readout on its own quiet line underneath instead of shouting in the same strip.
+    const bs='background:transparent;border:1px solid var(--border);color:var(--text3);padding:4px 9px;cursor:pointer;font-family:inherit;font-size:9px;letter-spacing:.6px;border-radius:7px';
 
     ctl.insertAdjacentHTML('beforeend',
 
@@ -3472,7 +3480,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       // the readout swaps a short hint for a long OHLC line on every hover, and BOTH its width
       // and its line box fed back into the auto-sized modal — measured 39px of chart resize and
       // a 20px shift per hover. Pinned here; the window also gets a definite width below.
-      +'<div id="cndl-ro" style="font-size:11px;color:var(--text3);height:16px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 100%;min-width:0"><span style="color:var(--text5)">hover = OHLC &middot; wheel = zoom &middot; drag = pan (when zoomed) &middot; double-click = all bars</span></div>');
+      +'<div id="cndl-ro" style="font-size:10px;color:var(--text4);height:15px;line-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 100%;min-width:0;letter-spacing:.3px;border-top:1px solid var(--border2);padding-top:5px;margin-top:2px"><span style="color:var(--text5)">hover = OHLC &middot; wheel = zoom &middot; drag = pan &middot; double-click = all bars</span></div>');
     // the shell sizes itself to its content, so ANY text change inside re-lays-out the chart.
     // A definite width stops that dead — and keeps the chart the same size trade to trade.
     try{const _bd=_cndl.api.modal.querySelector('#chart-body');
@@ -3771,16 +3779,56 @@ window.openChartGallery=function(B,rowsAll,initialView,fixedLabel){
     +'<b style="color:var(--text2)">#'+x._no+'</b><span style="color:var(--text4)">'+x._et+'</span>'
     +'<span style="color:var(--text5)">'+(sideOf(x)==='long'?'LONG':'SHORT')+'</span>'
     +'<b style="margin-left:auto;color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+$(x._usd)+'</b>'
-    +'<span data-galopen="'+x._no+'" style="cursor:pointer;border:1px solid color-mix(in srgb,var(--blue) 55%,var(--border));border-radius:5px;padding:1px 7px;font-size:8px;color:var(--blue)">OPEN &#9655;</span></div>'
+    +'<span data-galzoom="'+x._no+'" style="font-size:8px;color:var(--text5);letter-spacing:.4px"></span>'
+    +'<span data-galtrade="'+x._no+'" title="frame the held window" style="cursor:pointer;border:1px solid var(--border);border-radius:5px;padding:1px 7px;font-size:8px;color:var(--text3)">&#128269; TRADE</span>'
+    +'<span data-galfull="'+x._no+'" title="show every bar (or double-click the chart)" style="cursor:pointer;border:1px solid var(--border);border-radius:5px;padding:1px 7px;font-size:8px;color:var(--text3)">FULL</span>'
+    +'<span data-galopen="'+x._no+'" title="open this trade in the full candle window" style="cursor:pointer;border:1px solid color-mix(in srgb,var(--blue) 55%,var(--border));border-radius:5px;padding:1px 7px;font-size:8px;color:var(--blue)">OPEN &#9655;</span></div>'
     +'<div class="galchart" style="min-height:150px;display:flex;align-items:center;justify-content:center;color:var(--text5);font-size:10px">loading bars&hellip;</div></div>';
+  // per-card view state: the gallery is now a working surface, not just thumbnails -
+  // wheel zooms a card in place, TRADE frames the held window, FULL resets it.
+  const galView={};
   const drawCard=(x,r)=>{
     const host=body.querySelector('[data-gal="'+x._no+'"] .galchart');if(!host)return;
     const m={entryPrice:x._ep,exitPrice:x._xp,side:sideOf(x),pnlUsd:x._usd};
     if(r.entry_idx!=null)m.entryIdx=r.entry_idx;
     if(r.exit_idx!=null)m.exitIdx=r.exit_idx;
     if(r.entry_idx!=null&&r.exit_idx!=null){m.shadeFrom=r.entry_idx;m.shadeTo=r.exit_idx;}
+    // slice to this card's own zoom window before drawing
+    const all=r.bars||[];let v=galView[x._no];
+    let lo3=v?Math.max(0,v[0]):0,hi3=v?Math.min(all.length-1,v[1]):all.length-1;
+    if(hi3-lo3<3){lo3=0;hi3=all.length-1;}
+    const bars=all.slice(lo3,hi3+1),ovs={};
+    Object.keys(r.overlays||{}).forEach(k3=>{ovs[k3]=(r.overlays[k3]||[]).slice(lo3,hi3+1);});
+    const inB=(i)=>(i!=null&&i>=lo3&&i<=hi3);
+    const m2={entryPrice:m.entryPrice,exitPrice:m.exitPrice,side:m.side,pnlUsd:m.pnlUsd};
+    if(inB(r.entry_idx))m2.entryIdx=r.entry_idx-lo3;
+    if(inB(r.exit_idx))m2.exitIdx=r.exit_idx-lo3;
+    if(inB(r.entry_idx)&&inB(r.exit_idx)){m2.shadeFrom=r.entry_idx-lo3;m2.shadeTo=r.exit_idx-lo3;}
     host.style.display='block';
-    host.innerHTML=window.candleSVG(r.bars||[],r.overlays||{},m,{height:300});
+    host.innerHTML=window.candleSVG(bars,ovs,m2,{height:300});
+    const zl=body.querySelector('[data-galzoom="'+x._no+'"]');
+    if(zl)zl.textContent=(bars.length<all.length)?(bars.length+' / '+all.length+' bars'):(all.length+' bars');
+    const svg3=host.querySelector('svg');
+    if(svg3){
+      const G=window.CANDLE_GEO||{W:1080,mL:14,plotW:1002};
+      const step=G.plotW/bars.length;
+      svg3.addEventListener('wheel',ev=>{
+        ev.preventDefault();ev.stopPropagation();
+        const rc=svg3.getBoundingClientRect();if(!(rc.width>0))return;
+        const i2=Math.floor(((ev.clientX-rc.left)/rc.width*G.W-G.mL)/step);
+        const span=hi3-lo3+1,anchor=lo3+((i2<0||i2>=bars.length)?span/2:i2);
+        let ns=Math.round(span*((ev.deltaY<0)?0.75:1.35));
+        ns=Math.max(8,Math.min(all.length,ns));
+        if(ns===span)return;
+        const frac=(anchor-lo3)/span;
+        let a3=Math.round(anchor-frac*ns),b3=a3+ns-1;
+        if(a3<0){a3=0;b3=ns-1;}
+        if(b3>all.length-1){b3=all.length-1;a3=b3-ns+1;}
+        galView[x._no]=(ns>=all.length)?null:[Math.max(0,a3),b3];
+        drawCard(x,r);
+      },{passive:false});
+      svg3.addEventListener('dblclick',ev=>{ev.stopPropagation();galView[x._no]=null;drawCard(x,r);});
+    }
   };
   // a caller-supplied name (a look-alike group) beats the generic view name - opening a
   // 21-trade group under the heading MOST RECENT read as the wrong list.
@@ -3795,13 +3843,21 @@ window.openChartGallery=function(B,rowsAll,initialView,fixedLabel){
     const mySeq=++seq;
     const vs=[['wins','TOP WINS'],['losses','TOP LOSSES'],['recent','MOST RECENT']];
     views.innerHTML=(fixedLabel?'<span title="this set is fixed to one look-alike group" style="font-size:9px;font-weight:700;letter-spacing:.6px;padding:4px 10px;border-radius:6px;border:1px solid color-mix(in srgb,var(--purple) 60%,var(--border));color:var(--purple)">'+fixedLabel+'</span>':'')+(fixedLabel?'':vs.map(v2=>'<span data-galv="'+v2[0]+'" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;border:1px solid '+(view===v2[0]?'var(--blue)':'var(--border)')+';color:'+(view===v2[0]?'var(--blue)':'var(--text4)')+'">'+v2[1]+'</span>').join(''))
-      +'<span style="font-size:9px;color:var(--text5);margin-left:auto">every chart is live — click OPEN for zoom, save and stepping</span>';
+      +'<span style="font-size:9px;color:var(--text5);margin-left:auto">wheel to zoom any chart here &middot; double-click resets &middot; OPEN for save and stepping</span>';
     views.querySelectorAll('[data-galv]').forEach(b2=>{b2.onclick=()=>{if(view===b2.dataset.galv)return;view=b2.dataset.galv;shown=10;draw();};});
     const list=order().slice(0,shown);
     body.innerHTML=list.map(card).join('')
       +(shown<rowsAll.length?'<div style="text-align:center;padding:6px 0 14px"><span id="gal-more" style="cursor:pointer;user-select:none;font-size:10px;font-weight:700;letter-spacing:1px;padding:7px 18px;border-radius:7px;border:1px solid var(--border);color:var(--text3)">LOAD 10 MORE</span></div>':'');
     const more=body.querySelector('#gal-more');
     if(more)more.onclick=()=>{shown+=10;draw();};
+    body.querySelectorAll('[data-galtrade]').forEach(b2=>{b2.onclick=ev=>{ev.stopPropagation();
+      const no=+b2.dataset.galtrade,x2=rowsAll.find(q=>q._no===no),r2=_barsCache[no];
+      if(!x2||!r2||r2.entry_idx==null)return;
+      const e3=r2.entry_idx,x3=(r2.exit_idx!=null?r2.exit_idx:e3);
+      galView[no]=[e3-20,x3+20];drawCard(x2,r2);};});
+    body.querySelectorAll('[data-galfull]').forEach(b2=>{b2.onclick=ev=>{ev.stopPropagation();
+      const no=+b2.dataset.galfull,x2=rowsAll.find(q=>q._no===no),r2=_barsCache[no];
+      if(!x2||!r2)return;galView[no]=null;drawCard(x2,r2);};});
     body.querySelectorAll('[data-galopen]').forEach(b2=>{b2.onclick=ev=>{ev.stopPropagation();
       const x2=rowsAll.find(q=>q._no===+b2.dataset.galopen);
       if(x2)window._openTradeCandles(x2,null,{B:B,all:()=>rowsAll,order:()=>order().slice(0,shown)});};});
