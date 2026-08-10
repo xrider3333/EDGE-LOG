@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.76';
+const VERSION='71.77';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.77',date:'2026-08-09',notes:['TOP 10 now sits UNDER the RUNBOARD list in the left column instead of taking a fourth column of its own. Both lists cap their height when it is open so the pair still fits one screen.','RUNBOARD funnel picked up the report chart furniture it was missing: an info icon that opens the full explanation, a GRAPH DETAIL slider that thins the drawn line without touching any total, hover text on every walk-forward stripe and on the lockbox wash, and a dashed line marking the deepest drawdown on show with its dollar figure on the axis.','The dashed line style is not decoration: solid is in-sample, dashed is walk-forward, dotted is the lockbox. That is the same line procedure the report funnel uses, so a glance tells you which part of a curve was tuned and which part was not.']},
 {v:'71.76',date:'2026-08-09',notes:['RUNBOARD has a + TOP 10 button next to the mode pills. It opens a FOURTH panel on the right listing ten individual runs, with tabs for BEST, WORST and RECENT.','BEST and WORST rank on the same metric and the same stretch the RANK BY and SAMPLE tabs are set to, so the list always answers the question the board is currently asking. RECENT ignores both and just lists the newest runs. Click any row to open that run report.','This is the one place on the board that shows INDIVIDUAL runs. The other three panels only ever show one run per strategy - its champion - so every other run a strategy has made is invisible there. Short-sample runs still carry their warning mark and are pushed to the bottom of BEST.']},
 {v:'71.75',date:'2026-08-09',notes:['CANDLE WINDOW mouse controls now match TradingView (owner: "moving the mouse around changes the chart"): DRAGGING no longer zoom-selects - the mouse WHEEL zooms the bars around the cursor, DRAG pans the zoomed view, DOUBLE-CLICK shows everything. The old behavior fired a zoom on the pan gesture every chart trains your hand to make.','TOP 10 menu: picking any trade now loads ALL TEN of that list up front and PREV / NEXT / arrow keys page through just those ten - the readout shows "3 / 10 - TOP 10 WINNERS - loading 7/10" until the set is in. "Back to table order" in the same menu returns to normal stepping.']},
 {v:'71.74',date:'2026-08-09',notes:['RUNBOARD funnel: the walk-forward region draws as ALTERNATING FOLD STRIPES now, one stripe per fold, the way 1A and the config funnel in the results tab both do it - so you can count the test windows straight off the chart. It was one flat blue wash before, which was the most obvious difference between this chart and the report one.']},
@@ -5363,6 +5364,21 @@ window.cmpOvlMount=function(hostId){
     if(timeMode){const sp=_spans[si]||[tMin,tMax],t0=sp[0],t1=sp[1]>t0?sp[1]:t0+1;
       sr.pts=(sr.eq||[]).map((v,i)=>({x:(t0+(n>1?i/(n-1):0)*(t1-t0)-tMin)/((tMax-tMin)||1),v:v}));
     }else{sr.pts=(sr.eq||[]).map((v,i)=>({x:(n>1?i/(n-1):0),v:v}));}});
+  // v71.77 GRAPH DETAIL (1A's own control): thin the DRAWN points only. Endpoints are pinned and
+  //   the stage indices are re-mapped with the same stride, so the curve still ends on the true
+  //   final dollar and its doors stay where they were — this only ever changes the drawing.
+  {const _dt=Math.max(0.1,Math.min(1,+window._rbDetail||1));
+   S.forEach(sr=>{
+     // remember the UNTHINNED stage indices once — re-thinning off already-thinned values would
+     // walk the doors a little further left every redraw.
+     if(sr._li0===undefined){sr._li0=sr.li;sr._wfi0=sr.wfi;}
+     const p=sr.pts,n=p.length,keep=Math.max(12,Math.round(n*_dt));
+     if(_dt>=0.999||n<=keep){sr.li=sr._li0;sr.wfi=sr._wfi0;return;}
+     const st=(n-1)/(keep-1),idx=[];
+     for(let i=0;i<keep;i++)idx.push(Math.round(i*st));
+     const _re=v=>(v==null)?null:Math.max(0,Math.min(keep-1,Math.round(v/st)));
+     sr.li=_re(sr._li0);sr.wfi=_re(sr._wfi0);
+     sr.pts=idx.map(i=>p[i]);});}
   const _mdyy=ms=>{const d=new Date(ms);return (d.getMonth()+1)+'/'+d.getDate()+'/'+String(d.getFullYear()).slice(2);};
   const _xDateStr=timeMode?(f=>_mdyy(tMin+Math.max(0,Math.min(1,f))*(tMax-tMin))):null;
   // view state persists across re-renders (renderApp rebuilds the host every time) on a window
@@ -5484,10 +5500,11 @@ window.cmpOvlMount=function(hostId){
           const _lead=S.find(sr=>sr.wfFolds&&sr.wfFolds.length>1);
           if(_lead){const fr=_lead.wfFolds,n=fr.length;
             for(let i=0;i<n;i++){const a=x0+(x1-x0)*(i/n),b=x0+(x1-x0)*((i+1)/n);
-              s+='<rect x="'+a.toFixed(1)+'" y="'+g.eqT+'" width="'+Math.max(0,b-a).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(96,165,250,'+((i%2===0)?'.16':'.30')+')"/>';}
-          }else s+='<rect x="'+x0.toFixed(1)+'" y="'+g.eqT+'" width="'+(x1-x0).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(96,165,250,.16)"/>';}}
+              // hover text on each stripe, the way 1A tips its fold bands
+              s+='<rect x="'+a.toFixed(1)+'" y="'+g.eqT+'" width="'+Math.max(0,b-a).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(96,165,250,'+((i%2===0)?'.16':'.30')+')"><title>walk-forward fold '+(i+1)+' of '+n+' — data held back while tuning, then tested forward</title></rect>';}
+          }else s+='<rect x="'+x0.toFixed(1)+'" y="'+g.eqT+'" width="'+(x1-x0).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(96,165,250,.16)"><title>walk-forward — data held back while tuning, then tested forward</title></rect>';}}
       if(_bandLB!=null){const x0=_clip(_bandLB),x1=g.pL+g.pw;
-        if(x1>x0)s+='<rect x="'+x0.toFixed(1)+'" y="'+g.eqT+'" width="'+(x1-x0).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(167,139,250,.16)"/>';
+        if(x1>x0)s+='<rect x="'+x0.toFixed(1)+'" y="'+g.eqT+'" width="'+(x1-x0).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(167,139,250,.16)"><title>lockbox — never tuned, never browsed, the final untouched test</title></rect>';
         if(_lbMid!=null){const xd=_clip(_lbMid);
           s+='<line x1="'+xd.toFixed(1)+'" y1="'+g.eqT+'" x2="'+xd.toFixed(1)+'" y2="'+g.ddB.toFixed(1)+'" stroke="#a78bfa" stroke-width="1.3" stroke-dasharray="4,3" opacity="0.85"/>';}}
       // IS / WF / LB printed inside the top of the plot, centred over their own region (1A v64.8)
@@ -5527,6 +5544,13 @@ window.cmpOvlMount=function(hostId){
       +'<text x="'+g.pL+'" y="'+(g.ddT+2).toFixed(1)+'" font-size="7.5" letter-spacing="1" fill="var(--text5)">DRAWDOWN</text>'
       +'<line x1="'+g.pL+'" y1="'+Yd(0).toFixed(1)+'" x2="'+(g.pL+g.pw)+'" y2="'+Yd(0).toFixed(1)+'" stroke="var(--border)" opacity="0.3"/>'
       +'<text x="'+(g.pL+g.pw+5)+'" y="'+(Yd(0)+3).toFixed(1)+'" font-size="7.5" fill="var(--text5)">$0</text>';
+    // v71.77: the DEEPEST drawdown on show, called out with a dashed reference line and a filled
+    //   tag on the axis — the same treatment 1A gives its realised max drawdown. Without it the
+    //   drawdown pane had no scale you could read a number off.
+    if(ONE_A){let _worst=0;S.forEach(sr=>{const dd=_ddOf(sr.pts.map(p=>p.v));dd.forEach(v=>{if(v<_worst)_worst=v;});});
+      if(_worst<-1e-9){const _wy=Yd(_worst);
+        s+='<line x1="'+g.pL+'" y1="'+_wy.toFixed(1)+'" x2="'+(g.pL+g.pw)+'" y2="'+_wy.toFixed(1)+'" stroke="#d6557a" stroke-width="1" stroke-dasharray="5,3" opacity="0.85"><title>deepest drawdown of any strategy shown</title></line>'
+          +'<text x="'+(g.pL+g.pw+5)+'" y="'+(_wy+3).toFixed(1)+'" font-size="7.5" font-weight="700" fill="#d6557a">'+_ab$(_worst)+'</text>';}}
     // equity curves — 3 non-overlapping segments (SOLID in-sample -> DASHED walk-forward ->
     //   DOTTED lockbox), a direct port of the static builder's segment math (the `ovl` fallback
     //   built above), parameterised by the live [va,vb] and clipped with _clipN.
@@ -15022,7 +15046,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<span data-rbheat>'+_tabStrip(_tabBtn('','HEAT',_rbHeat,'shade every cell by where it lands across its own row - green best, red worst. The same heat map the 1E card uses.',_TONE.heat),false)+'</span>'
           +orientSeg+'</div>';
         const boardTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">RUNBOARD</span><span style="font-size:8px;color:var(--text5)">top run per strategy · auto-populates from run history · ordered by the RANK BY pick</span></div>'
-          +'<div style="overflow:auto;max-height:74vh">'+runs.map(_famRowOf).join('')+'</div>'
+          +'<div style="overflow:auto;max-height:'+(_rbSide?'38vh':'74vh')+'">'+runs.map(_famRowOf).join('')+'</div>'
           +_famMoreNote);
         const _sampTag=(_rbS==='full')?'in-sample, then the blue walk-forward band, then the purple lockbox':((_rbS==='is')?'the IS stretch only':'the LB year only · every curve rebased to $0');
         // v71.27: saved chart height + a drag HANDLE ROW under the chart, the same grip the
@@ -15030,7 +15054,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _rbFH=Math.max(170,Math.min(900,Math.round(+APREF.rbFunnelH||300)));
         window._cmpOvlH=_rbFH;
         const _grip=(k,tip)=>'<div data-rbgrip="'+k+'" title="'+tip+'" style="height:9px;margin:5px 0 2px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div></div>';
-        const funnelTile=tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden">1A · FUNNEL <span title="one curve per strategy champion · '+_sampTag+'" style="font-weight:400;color:var(--text5);font-size:8px;overflow:hidden;text-overflow:ellipsis;min-width:0">· '+_sampTag+'</span><button data-cmpexpand title="open the fullscreen multi-curve explorer" style="margin-left:auto;flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></div><div id="cmp-ovl-host" style="position:relative;min-height:'+_rbFH+'px">'+ovl+'</div>'
+        // v71.77: the report's charts all carry an ⓘ that opens the explanation box, and 1A carries
+        //   a GRAPH DETAIL slider that thins the DRAWN line without touching any total. Both are
+        //   here now, in the same title-row order the report uses.
+        const _fInfo=_infoIc(_ipAB('One curve per strategy — each strategy best run, drawn on ONE shared calendar so they line up by date rather than by trade count. Line style marks the stage: <b>solid</b> = in-sample, the stretch the config was tuned on; <b>dashed</b> = walk-forward, data held back while tuning and then tested forward; <b>dotted</b> = the lockbox, never touched until the end. Blue stripes = the walk-forward folds, one stripe per fold; the purple wash and dashed door = the lockbox. The pill at the right of each line is that strategy ending dollars. Click a line in the key to hide it — the axis and the drawdown pane rescale to what is left. Wheel zooms, drag pans, double-click resets, and the expand button opens the fullscreen explorer with a trade blotter.','strategies run DIFFERENT windows, so the bands span from the earliest door onward'));
+        const _gd=Math.round((window._rbDetail||1)*100);
+        const _detail='<span style="display:flex;align-items:center;gap:5px;font-size:8px;color:var(--text5);flex:0 0 auto"><span style="letter-spacing:.5px">GRAPH DETAIL</span>'
+          +'<input type="range" class="fillrng" min="10" max="100" step="5" value="'+_gd+'" title="thins the drawn line only - it never changes a total" oninput="this.nextElementSibling.textContent=this.value+\'%\';this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-10)/90*100)+\'%,var(--bg1) 0)\'" onchange="window._rbDetail=+this.value/100;if(window.cmpOvlMount)window.cmpOvlMount(\'cmp-ovl-host\')" style="width:74px;background:linear-gradient(90deg,var(--blue) '+(((_gd-10)/90*100).toFixed(1))+'%,var(--bg1) 0)"><span>'+_gd+'%</span></span>';
+        const funnelTile=tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden">1A '+_fInfo+' FUNNEL <span title="one curve per strategy champion · '+_sampTag+'" style="font-weight:400;color:var(--text5);font-size:8px;overflow:hidden;text-overflow:ellipsis;min-width:0">· '+_sampTag+'</span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px;flex:0 0 auto">'+_detail+'<button data-cmpexpand title="open the fullscreen multi-curve explorer" style="flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></span></div><div id="cmp-ovl-host" style="position:relative;min-height:'+_rbFH+'px">'+ovl+'</div>'
           +_grip('funnel','drag up / down to resize the funnel · double-click = back to the default height')
           +'<div style="font-size:8px;color:var(--text5);margin-top:4px;line-height:1.7">Every strategy runs its OWN window, so the bands span from the earliest door onward: un-shaded = in-sample, <span style="color:#60a5fa">blue = walk-forward</span>, <span style="color:#a78bfa">purple = lockbox</span> (dashed line = the middle strategy door). Line style per curve: solid in-sample, dashed walk-forward, dotted lockbox. The pill on the right of each line is that strategy ending $.</div>');
         const _rbScNote='<div style="font-size:8px;color:var(--text5);margin-top:6px;line-height:1.7">'
@@ -15294,14 +15325,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<div style="margin-bottom:6px">'+_tabStrip(_sTab('best','BEST','the ten highest on the metric the RANK BY tab is set to, measured on the picked SAMPLE - short-sample runs are pushed to the bottom')
               +_sTab('worst','WORST','the ten lowest on the same metric and stretch - what is actually failing')
               +_sTab('recent','RECENT','the ten newest runs, whatever they scored'),false)+'</span></div>'
-            +'<div style="overflow:auto;max-height:74vh">'+(_list.length?_list.map(_sideRow).join(''):'<div style="padding:14px;text-align:center;color:var(--text5);font-size:var(--fsxs)">no runs carry that measurement</div>')+'</div>'
+            +'<div style="overflow:auto;max-height:40vh">'+(_list.length?_list.map(_sideRow).join(''):'<div style="padding:14px;text-align:center;color:var(--text5);font-size:var(--fsxs)">no runs carry that measurement</div>')+'</div>'
             +'<div style="font-size:8px;color:var(--text5);margin-top:7px;line-height:1.7">'
             +((_rbSide==='recent')?'Newest first, showing each run net $ for the picked SAMPLE.':('Ranked on <b style="color:var(--text4)">'+_mNm+'</b> over <b style="color:var(--text4)">'+_win+'</b> — the same metric and stretch the RANK BY and SAMPLE tabs are set to, so this list follows them.'))
             +' Click a row to open that run report.</div>');
         }
         // v71.27 (owner: "i cant change the size ... with sliders"): drag bars BETWEEN the
         //   columns trade width the same way the section-1 splitters do, and the ratio persists.
-        const _nCols=_rbSide?4:3;
+        const _nCols=3;
         const _rbW=(Array.isArray(APREF.rbCols)&&APREF.rbCols.length===_nCols&&APREF.rbCols.every(n=>+n>120))?APREF.rbCols.map(Number):null;
         const _rbCol=(i,dflt,mw,inner)=>'<div data-rbcol="'+i+'" style="flex:'+(_rbW?(_rbW[i]+' 1 0px'):dflt)+';min-width:'+mw+'px">'+inner+'</div>';
         const _rbSp=i=>'<div data-rbsplit="'+i+'" title="drag left / right — width moves between these two panels · double-click = reset" style="flex:0 0 10px;align-self:stretch;cursor:ew-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:3px;height:46px;border-radius:2px;background:var(--border)"></div></div>';
@@ -15310,10 +15341,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +(runs.length?('<div data-rbrow style="display:flex;gap:4px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
             // the matrix is the densest panel — it carries eight numeric columns — so it takes the
             //   larger share by default. Drag the bars to change it; the split is remembered.
-            +_rbCol(0,'0 1 300px',240,boardTile)+_rbSp(0)
+            // v71.77 (owner: "put the top 10 tile under the runboard"): TOP 10 stacks UNDER the
+            //   strategy list in the same left column, not as a fourth column of its own.
+            +_rbCol(0,'0 1 300px',240,boardTile+(_rbSide?('<div style="height:10px"></div>'+_sideTile):''))+_rbSp(0)
             +_rbCol(1,'1 1 400px',300,funnelTile)+_rbSp(1)
             +_rbCol(2,'1.45 1 520px',320,matrixTile)
-            +(_rbSide?(_rbSp(2)+_rbCol(3,'0 1 320px',260,_sideTile)):'')
             +'</div>'):'<div style="border:1px dashed var(--border);padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px;margin-bottom:14px">NO SAVED RUNS YET — THE BOARD POPULATES ITSELF FROM RUN HISTORY</div>')
           +booksTile;
         }else
@@ -16199,9 +16231,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   column count changes with it, so any pinned split is dropped — a 3-panel split cannot
       //   describe 4 panels and would leave the new one mis-sized.
       content.querySelectorAll('[data-rbside]').forEach(b=>{b.onclick=()=>{
-        const v=b.dataset.rbside||'';
-        if((!!v)!==(!!APREF.rbSide))savePref('rbCols',null);
-        savePref('rbSide',v);renderApp();};});
+        savePref('rbSide',b.dataset.rbside||'');renderApp();};});
       // v71.27 (owner: "i cant change the size of the 1a 1e or runboard with sliders") — the
       //   report's resize handles only ever existed inside the run report, so COMPARE had none.
       //   These are the same two gestures: a HANDLE ROW under a panel drags its height, and a
