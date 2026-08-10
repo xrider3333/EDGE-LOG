@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.98';
+const VERSION='71.99';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.99',date:'2026-08-09',notes:['The tick-box fix in 71.98 only reached one of the two pickers. Both the ADD RUNS list and the book picker have proper tick boxes now instead of ones stretched across a quarter of the row.']},
 {v:'71.98',date:'2026-08-09',notes:['FIXED the ADD RUNS dialog, which rendered as a column of stretched tick boxes with the text flung to the right. The app-wide input rule sets every input to full width with big padding and the tick boxes were inheriting it. They opt out now, and the book picker had the same bug.','The dashed purple line down the middle of the funnel is gone.','The in-sample then blue band then purple lockbox line is off the funnel title - the info icon already covers it.','Each funnel key row carries the SAME rank as its matrix column now - R1, R2 and so on - so the chart and the table read as one board. A strategy with no saved curve was quietly shifting the key out of step with the ranks.']},
 {v:'71.97',date:'2026-08-09',notes:['1A expanded key: the GATES group read BLUE while the funnel drew the gate RED. The group swatch comes from its first member, and the 21 gate CANDIDATES were still on the ML model palette - only the chosen line had been moved. All of them now shade off the same funnel red, so the group reads as one family.','Switching CHAMPION / FUNNEL in the expanded view no longer flashes the bare report at you. The swap - close, re-render, re-open - is covered by a single veil so it reads as one transition.','1E SIZE tabs: the permanent caption line and the COMPARISON ONLY chip are behind the info icon now instead of taking a row under every table. Same for the three HYBRID modes.']},
 {v:'71.96',date:'2026-08-09',notes:['GATE SWEEP CHART now reads out on hover. Move across it and every model prints its MAR and its net dollars at that exact 1 percent cut-off, tuning years. Both measures were already saved at every step - the chart was only ever drawing whichever one the RANK button selected - so the peaks can now be priced without flipping RANK back and forth.','A BOOK run names itself. Run 204 was reading 7 - ORB 3.0 in every run list, because a book has no single strategy file and the family matcher fell back to the closest name it could find. Book rows now show the book mark and the book name.','And a book no longer prints NaN in the ROBUSTNESS column. A book tunes nothing, so that score was never defined for it - it shows a dash, like the walk-forward column next to it already does.']},
@@ -16669,7 +16670,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
          ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:9500;display:flex;align-items:center;justify-content:center;padding:20px';
          const row=r=>{const lab=((runTag(r)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||('#'+r.id);
            return '<label style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:var(--fsxs)">'
-             +'<input type="checkbox" data-addr="'+r.id+'"'+(cur.indexOf(String(r.id))>=0?' checked':'')+' style="cursor:pointer">'
+             +'<input type="checkbox" data-addr="'+r.id+'"'+(cur.indexOf(String(r.id))>=0?' checked':'')+' style="cursor:pointer;width:auto;flex:0 0 auto;padding:0;margin:0">'
              +'<span style="flex:0 0 34px;text-align:right;color:var(--text3)">#'+r.id+'</span>'
              +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+lab+'</span>'
              +'<span style="flex:0 0 60px;font-size:8px;color:var(--text5)">'+(instTag(r.instrument)||'')+' '+(r.timeframe||'')+'</span>'
@@ -16754,7 +16755,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:9500;display:flex;align-items:center;justify-content:center;padding:20px';
         const row=r=>{const lab=((runTag(r)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||('#'+r.id);
           return '<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:var(--fsxs)">'
-            +'<input type="checkbox" data-bkleg="'+r.id+'" style="cursor:pointer">'
+            +'<input type="checkbox" data-bkleg="'+r.id+'" style="cursor:pointer;width:auto;flex:0 0 auto;padding:0;margin:0">'
             +'<span style="flex:0 0 34px;text-align:right;color:var(--text3)">#'+r.id+'</span>'
             +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+lab+'</span>'
             +'<span style="flex:0 0 64px;font-size:8px;color:var(--text5)">'+(instTag(r.instrument)||'')+' '+(r.timeframe||'')+'</span>'
