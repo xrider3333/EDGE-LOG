@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.73';
+const VERSION='71.74';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.74',date:'2026-08-09',notes:['RUNBOARD funnel: the walk-forward region draws as ALTERNATING FOLD STRIPES now, one stripe per fold, the way 1A and the config funnel in the results tab both do it - so you can count the test windows straight off the chart. It was one flat blue wash before, which was the most obvious difference between this chart and the report one.']},
 {v:'71.73',date:'2026-08-09',notes:['1E pickers now wear the same look as the report header controls. The tab strip and the SAMPLE, RANK and HEAT rows were bordered chips and open-topped folder tabs; they are tinted trays with a filled, underlined active segment now - the same rail the CLASSIC and COLUMNS controls use - so the whole report speaks one control language.']},
 {v:'71.72',date:'2026-08-09',notes:['RUNBOARD heat map is RANK based now, so EVERY column gets a colour. Shading by raw value let one freak number own the whole scale - a 19-day run scoring a MAR of 1400 pushed every real strategy to the same red - so short-window columns had to be cut out of the scale and left grey, and that grey is what read as columns not being heat mapped. Ranking each column against the others is immune to outliers: everything with a number gets its own shade, ties share one.','The reward and risk band is filled in. Whole-run profit factor and win rate were blank on every run except a book. They are recoverable the same way the run report builds them - profit factor by pooling the stages rather than averaging ratios, win rate and Sharpe from the whole-window figures the validate already saves - and SHARPE is now a row, like it is on the 1E card.','The metric column says the window ONCE, on the band caption, instead of repeating it on every row. A row only names a window of its own when it genuinely measures a different one: FOLDS HELD is always walk-forward and ROBUSTNESS is always whole-run.']},
 {v:'71.71',date:'2026-08-09',notes:['RUNBOARD panel split: only a real DRAG pins it now. A click on a divider that never moved was saving the current widths as a fixed split, quietly freezing the three panels at whatever size they happened to be - which is how the matrix could end up narrower than its own table on a later visit and look cramped for no reason. A click with no drag now clears the pin and goes back to the automatic sizing.']},
@@ -5455,8 +5456,20 @@ window.cmpOvlMount=function(hostId){
     //   exactly the layer order championEquityHtml uses (wfBands, lockbox rect, grid, curves).
     if(ONE_A){
       const _clip=x=>Math.max(g.pL,Math.min(g.pL+g.pw,X(g,x)));
+      // v71.74 (owner: "1A looks inconsistent still and nothing like the 1A funnel chart"): the
+      //   walk-forward region draws as ALTERNATING FOLD STRIPES, the way 1A and the config funnel
+      //   both do it — one stripe per fold, .16 / .30 alpha alternating, so you can count the test
+      //   windows off the chart. It was one flat wash before, which is the single most obvious
+      //   difference between this chart and the report's. The stripes come from the LEADING run's
+      //   folds mapped into the shared calendar (each run has its own folds, so the stripes are
+      //   that run's — the note under the chart already says the bands are the earliest door on).
       if(_bandWF!=null){const x0=_clip(_bandWF),x1=(_bandLB!=null)?_clip(_bandLB):(g.pL+g.pw);
-        if(x1>x0)s+='<rect x="'+x0.toFixed(1)+'" y="'+g.eqT+'" width="'+(x1-x0).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(96,165,250,.16)"/>';}
+        if(x1>x0){
+          const _lead=S.find(sr=>sr.wfFolds&&sr.wfFolds.length>1);
+          if(_lead){const fr=_lead.wfFolds,n=fr.length;
+            for(let i=0;i<n;i++){const a=x0+(x1-x0)*(i/n),b=x0+(x1-x0)*((i+1)/n);
+              s+='<rect x="'+a.toFixed(1)+'" y="'+g.eqT+'" width="'+Math.max(0,b-a).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(96,165,250,'+((i%2===0)?'.16':'.30')+')"/>';}
+          }else s+='<rect x="'+x0.toFixed(1)+'" y="'+g.eqT+'" width="'+(x1-x0).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(96,165,250,.16)"/>';}}
       if(_bandLB!=null){const x0=_clip(_bandLB),x1=g.pL+g.pw;
         if(x1>x0)s+='<rect x="'+x0.toFixed(1)+'" y="'+g.eqT+'" width="'+(x1-x0).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(167,139,250,.16)"/>';
         if(_lbMid!=null){const xd=_clip(_lbMid);
@@ -14855,6 +14868,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         window._cmpEqxSeries=withEq.map(c=>{const _mc=c.r.multiplier||instMult(c.r.instrument)||20;
           return {id:c.r.id,label:(stratTag(c.r.strategy)||'').replace(/<[^>]*>/g,'').trim()||('#'+c.r.id),color:c.c,eq:c.eq,li:c.li,
             wfi:(c.wf&&c.wf.length&&c.li!=null)?Math.max(0,Math.min(c.li,Math.round(c.wf[0][0]*c.li))):null,
+            // the run's individual walk-forward folds — the funnel stripes one blue band per fold
+            wfFolds:(c.wf&&c.wf.length>1)?c.wf:null,
             blot:{run_id:c.r.id,instrument:c.r.instrument||'',timeframe:c.r.timeframe||'5m',session:c.r.session||'rth',
               strategy:c.r.strategy||'',params:c.r.best_params||null,cost_pts:(c.r.cost_pts!=null?c.r.cost_pts:5.66/_mc),
               mult:_mc,date_from:c.r.date_from||null,date_to:c.r.date_to||null,
