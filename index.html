@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.89';
+const VERSION='71.90';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.90',date:'2026-08-09',notes:['Follow-up to 71.85: the line naming which short-window strategies were hidden was being built but never attached, so the board dropped them silently. It prints under the list now.']},
 {v:'71.89',date:'2026-08-09',notes:['RUNBOARD layout: 1A FUNNEL on the left, 1E MATRIX on the right, and the strategy list with TOP 10 stacked together in one bar on the far right.','Strategies whose best run covers under two years are DROPPED from the board rather than sorted last - nineteen days does not compare with sixteen years, and showing it only invited the comparison. The count and the run numbers are named under the list, and TOP 10 still reaches them.','Highlighting reaches ACROSS panels: hover a curve in the funnel and that strategy column lifts in the matrix while the rest of the table fades. Hovering its key row does the same.','New + ADD button on the funnel. The board picks one run per strategy automatically - its best - so this is how you put ANY other config on the chart. Ticked runs join as their own line and column, ten columns maximum, and the picks are remembered. Clear them from the same row.','Every walk-forward stripe now says what that fold actually made - dollars, profit factor and trades for the strategy leading the board.']},
 {v:'71.88',date:'2026-08-09',notes:['BACK buttons: the candle window and the chart gallery both open with a BACK button now, so you step out to whatever you came from instead of hunting for CLOSE.','TOP 10 sets grow: a +10 MORE button appears in the candle window while you are inside a top-10 set, extending it to the top 20, 30 and so on with the new charts pre-loading in the background.','BLOTTER WINDOW CLEANED UP (owner: too much text, confusing): the run-on header sentence is gone. The facts are chips now - trade count, NET dollars, win rate, master, how many are showing - the four views are ONE segmented switch (RECENT / WINS / LOSSES / ALL), the paging button is a simple +25, and the hint sentences moved onto hover.']},
 {v:'71.87',date:'2026-08-09',notes:['Hotfix on the new CHART GALLERY: it opened UNDERNEATH the blotter window instead of on top of it, so it looked like nothing happened. It sits above now.']},
@@ -15016,7 +15017,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'</div>';};
         // hidden short-window strategies are COUNTED here so nothing disappears silently
         const _rbHideNote=(_cmpMode==='board'&&_rbHidden.length)?('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">'+_rbHidden.length+' strateg'+(_rbHidden.length===1?'y':'ies')+' hidden - window under 2 years, so their figures do not compare: '+_rbHidden.map(r=>'#'+r.id).join(' ')+'. The TOP 10 panel still reaches them.</div>'):'';
-        const _famMoreNote=famMore.length?('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">+'+famMore.length+' more famil'+(famMore.length===1?'y':'ies')+' below the top-8 score cutoff: '+famMore.map(_labOf).join(', ')+'</div>'):'';+_rbHideNote
+        const _famMoreNote=(famMore.length?('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">+'+famMore.length+' more famil'+(famMore.length===1?'y':'ies')+' below the top-8 score cutoff: '+famMore.map(_labOf).join(', ')+'</div>'):'')+_rbHideNote;
         const famTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">BY STRATEGY</span><span style="font-size:8px;color:var(--text5)">top config per family · auto-updates as new runs land</span></div>'
           +'<div style="overflow:auto;max-height:74vh">'+runs.map(_famRowOf).join('')+'</div>'
           +_famMoreNote);
