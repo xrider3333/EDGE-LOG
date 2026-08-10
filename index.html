@@ -446,6 +446,7 @@ const VERSION='71.93';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.93',date:'2026-08-09',notes:['HOTFIX: every run report died with "Cannot access _actSel before initialization" - the new header action tray was a const that could be read before its initializer ran. It is a hoisted function now, which cannot land in that state.']},
 {v:'71.93',date:'2026-08-09',notes:['CRITICAL FIX: EVERY run report has been failing to open since 71.90 - the panel just said the run detail could not render. The header rebuild in that version accidentally absorbed the line that starts the report header, leaving that block referring to itself. Reports open again.']},
 {v:'71.92',date:'2026-08-09',notes:['NEW - LOOK-ALIKE SETUPS (owner idea): a button on the blotter that hunts for trades whose price action BEFORE the entry is near-identical, the setups that look copy-pasted. Your PC strips out price level and volatility so only the SHAPE is compared, then groups everything 97 percent alike or better. Each group shows how many trades, how alike they are, the average result, the win rate and a sketch of the shared shape - and SEE THESE CHARTS stacks that group in the gallery so you can eyeball them side by side.','It tells you when a group is just luck. With thousands of trades there are millions of pairs, so some look-alikes are guaranteed by chance. Every group is tested against shuffled data and corrected for the number of groups tested at once - only the ones that survive are tagged SIGNAL, everything else says CHANCE.','This needs the PC runner restarted once to answer the new request.']},
 {v:'71.91',date:'2026-08-09',notes:['CONFIG COLOURS, THE REST OF IT. The funnel key paints GATE red, TILT amber, HYBRID violet and HYBRID recycle pink - but the expanded explorer was painting those same four curves from the ML MODEL palette instead, so the lines you pick out of the funnel by colour arrived expanded wearing different ones. Each family now keeps its funnel colour; extra variants of a family step darker off the same hue so they stay separable.','The CHAMPION expanded view now has the CHAMPION / FUNNEL tabs too, so the switch works both ways instead of only funnel to champion.','The four run actions at the end of the report header - note, re-label, archive, delete - are one tinted tray of borderless icon chips now, matching the REPORT LAYOUT and COLUMNS rails beside them. Delete carries its red on the icon instead of a permanent red box.']},
@@ -13456,17 +13457,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   icon chips, state carried by the ICON colour plus the same inset underline the rails
       //   use, and the destructive one is red only on hover - not a permanent red box shouting
       //   from the corner of every report.
+      // v71.93: built by a HOISTED FUNCTION, not a const. As a const it could be read before
+      //   its initializer ran and the whole report died with "Cannot access '_actSel' before
+      //   initialization" - a function declaration is bound at scope entry, so that is
+      //   structurally impossible now.
+      function _actSelHtml(){
       const _actTray='display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,var(--text4) 8%,transparent)';
       const _actChip=function(on,tint){return 'cursor:pointer;user-select:none;display:inline-flex;align-items:center;justify-content:center;width:23px;height:21px;padding:0;border:0;border-radius:6px;font-family:inherit;font-size:11px;line-height:1;'
         +'color:'+(on?tint:'var(--text4)')+';background:'+(on?'color-mix(in srgb,'+tint+' 18%,transparent)':'transparent')
         +';box-shadow:'+(on?'inset 0 -2px 0 '+tint:'none');};
-      const _actSel='<span style="'+_actTray+'">'
+      return '<span style="'+_actTray+'">'
         +'<button id="det-note" data-note-id="'+d.id+'" data-note-val="'+_noteEsc+'" title="'+(_hasNote?_noteEsc:'add a note')+'" style="'+_actChip(_hasNote,'var(--green)')+'">&#9998;</button>'
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="'+_actChip(false,'var(--blue)')+';-webkit-appearance:none;-moz-appearance:none;appearance:none;text-align:center;text-align-last:center"><option value="">&#8801;</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
         +'<button id="det-arch" data-arch-id="'+d.id+'" title="'+(d.archived?'un-archive - show this run in Past Runs again':'archive - hide this run from Past Runs (keeps the data, reversible)')+'" style="'+_actChip(!!d.archived,'var(--yellow)')+'">&#9707;</button>'
         // destructive: the icon carries the red, the chip stays flat like its neighbours.
         +'<button id="det-del" data-del-id="'+d.id+'" title="delete run" style="'+_actChip(false,'var(--red)').replace('color:var(--text4)','color:var(--red)')+'">&#128465;</button>'
         +'</span>';
+      }
       const hdrHtml='<div id="res-head" style="display:flex;align-items:center;gap:7px;margin:0 0 10px;white-space:nowrap;position:sticky;position:-webkit-sticky;top:47px;z-index:6;background:transparent;padding:3px 0">'
         +'<span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:13px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span>'
         +'<span title="'+((d.famKey&&d.famSeq!=null)?('family run id '+d.famKey+'-'+d.famSeq):'')+'" style="font-size:11px;font-weight:800;letter-spacing:0;color:var(--text);flex:0 0 auto">REPORT '+d.id+':</span>'
@@ -13474,7 +13481,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // the numbered checklist "tiles" now live INLINE in the header (fill the middle, squish to fit)
         +'<span id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex:1 1 auto;min-width:40px;overflow:hidden">'+segs+'</span>'
         +'<span style="display:flex;gap:6px;align-items:center;flex:0 0 auto;padding-left:4px">'
-          +_laySel+_colSel+_actSel
+          +_laySel+_colSel+_actSelHtml()
         +'</span>'
         +'</div>';
       // ── Numbered checklist sections: group each Results panel under its deploy step
