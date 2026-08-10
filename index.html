@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.75';
+const VERSION='71.76';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.76',date:'2026-08-09',notes:['RUNBOARD has a + TOP 10 button next to the mode pills. It opens a FOURTH panel on the right listing ten individual runs, with tabs for BEST, WORST and RECENT.','BEST and WORST rank on the same metric and the same stretch the RANK BY and SAMPLE tabs are set to, so the list always answers the question the board is currently asking. RECENT ignores both and just lists the newest runs. Click any row to open that run report.','This is the one place on the board that shows INDIVIDUAL runs. The other three panels only ever show one run per strategy - its champion - so every other run a strategy has made is invisible there. Short-sample runs still carry their warning mark and are pushed to the bottom of BEST.']},
 {v:'71.75',date:'2026-08-09',notes:['CANDLE WINDOW mouse controls now match TradingView (owner: "moving the mouse around changes the chart"): DRAGGING no longer zoom-selects - the mouse WHEEL zooms the bars around the cursor, DRAG pans the zoomed view, DOUBLE-CLICK shows everything. The old behavior fired a zoom on the pan gesture every chart trains your hand to make.','TOP 10 menu: picking any trade now loads ALL TEN of that list up front and PREV / NEXT / arrow keys page through just those ten - the readout shows "3 / 10 - TOP 10 WINNERS - loading 7/10" until the set is in. "Back to table order" in the same menu returns to normal stepping.']},
 {v:'71.74',date:'2026-08-09',notes:['RUNBOARD funnel: the walk-forward region draws as ALTERNATING FOLD STRIPES now, one stripe per fold, the way 1A and the config funnel in the results tab both do it - so you can count the test windows straight off the chart. It was one flat blue wash before, which was the most obvious difference between this chart and the report one.']},
 {v:'71.73',date:'2026-08-09',notes:['1E pickers now wear the same look as the report header controls. The tab strip and the SAMPLE, RANK and HEAT rows were bordered chips and open-topped folder tabs; they are tinted trays with a filled, underlined active segment now - the same rail the CLASSIC and COLUMNS controls use - so the whole report speaks one control language.']},
@@ -15255,16 +15256,64 @@ namespace NinjaTrader.NinjaScript.Strategies {
         window._cmpOvl1A=true;
         // v71.27 (owner: "i cant change the size ... with sliders"): drag bars BETWEEN the three
         //   columns trade width the same way the section-1 splitters do, and the ratio persists.
-        const _rbW=(Array.isArray(APREF.rbCols)&&APREF.rbCols.length===3&&APREF.rbCols.every(n=>+n>120))?APREF.rbCols.map(Number):null;
+        // ── v71.75 (owner: "add a button somewhere that adds a fourth column to the right, that
+        //    when pressed, loads the top 10 of either best / worst or recent"). The board's three
+        //    panels only ever show ONE run per strategy — its champion — so a strategy's other
+        //    runs are invisible there. This fourth panel lists ten INDIVIDUAL runs from the whole
+        //    history: BEST and WORST rank on the same metric and stretch the RANK BY / SAMPLE tabs
+        //    are set to, so the list always answers the question the board is currently asking;
+        //    RECENT ignores both and just lists the newest. Off until asked for, then remembered.
+        const _rbSide=(['best','worst','recent'].indexOf(APREF.rbSide)>=0)?APREF.rbSide:'';
+        let _sideTile='';
+        if(_rbSide){
+          const _pool=rs.filter(r=>r&&(_rbSide==='recent'||isFinite(_rbVal(r,_rbR))&&_rbVal(r,_rbR)>-1e14));
+          let _list;
+          if(_rbSide==='recent')_list=_pool.slice().sort((a,b)=>(+b.id||0)-(+a.id||0));
+          else if(_rbSide==='worst')_list=_pool.slice().sort((a,b)=>_rbVal(a,_rbR)-_rbVal(b,_rbR));
+          else _list=_pool.slice().sort((a,b)=>{const sa=_shortCol(a),sb=_shortCol(b);
+            return (sa!==sb)?(sa?1:-1):(_rbVal(b,_rbR)-_rbVal(a,_rbR));});
+          _list=_list.slice(0,10);
+          const _mNm={mar:'MAR',pf:'PF',net:'NET $',dd:'DD'}[_rbR];
+          const _sideRow=(r,i)=>{const v=_rbVal(r,_rbR),shown=(_rbR==='dd')?-v:v;
+            const vv=r.validate?r.validate.verdict:'',swc=((typeof stratColor==='function')&&stratColor(r.strategy))||'var(--text4)';
+            const lab=((stratTag(r.strategy)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||('#'+r.id);
+            const val=(_rbSide==='recent')?_ab$(_netOf(r)||0)
+              :((_rbR==='pf'||_rbR==='mar')?(isFinite(shown)?shown.toFixed(2):'—'):_ab$(shown||0));
+            return '<div data-rank-run="'+r.id+'" title="open this run report · '+String(lab).replace(/"/g,'')+'" style="display:flex;align-items:center;gap:6px;padding:4px 7px;border-radius:6px;cursor:pointer;font-size:var(--fsxs)">'
+              +'<span style="flex:0 0 14px;text-align:right;color:var(--text5);font-size:8px">'+(i+1)+'</span>'
+              +'<span style="flex:0 0 9px;height:9px;border-radius:2px;background:'+swc+'"></span>'
+              +'<span style="flex:0 0 32px;text-align:right;color:var(--text3)">#'+r.id+'</span>'
+              +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+stratTag(r.strategy)+'</span>'
+              +(_shortCol(r)?'<span title="short sample — under two years" style="flex:0 0 auto;color:var(--yellow);font-size:8px">⚠</span>':'')
+              +'<span style="flex:0 0 56px;text-align:right;font-weight:700;color:'+((_rbSide==='worst')?'var(--red)':'var(--green)')+'">'+val+'</span>'
+              +'<span style="flex:0 0 26px;font-size:8px;font-weight:700;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':vv?'var(--red)':'var(--text5)')+'">'+(vv||'')+'</span>'
+              +'</div>';};
+          const _sTab=(k,lab,tip)=>_tabBtn('data-rbside="'+k+'"',lab,_rbSide===k,tip,'#f472b6');
+          _sideTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap"><span class="lbl" style="flex-shrink:0">TOP 10 <span style="font-weight:400;color:var(--text5);font-size:8px">· individual runs, not strategy champions</span></span>'
+              +'<span data-rbside="" title="close this panel" style="margin-left:auto;cursor:pointer;color:var(--text5);font-size:11px">✕</span></div>'
+            +'<div style="margin-bottom:6px">'+_tabStrip(_sTab('best','BEST','the ten highest on the metric the RANK BY tab is set to, measured on the picked SAMPLE - short-sample runs are pushed to the bottom')
+              +_sTab('worst','WORST','the ten lowest on the same metric and stretch - what is actually failing')
+              +_sTab('recent','RECENT','the ten newest runs, whatever they scored'),false)+'</span></div>'
+            +'<div style="overflow:auto;max-height:74vh">'+(_list.length?_list.map(_sideRow).join(''):'<div style="padding:14px;text-align:center;color:var(--text5);font-size:var(--fsxs)">no runs carry that measurement</div>')+'</div>'
+            +'<div style="font-size:8px;color:var(--text5);margin-top:7px;line-height:1.7">'
+            +((_rbSide==='recent')?'Newest first, showing each run net $ for the picked SAMPLE.':('Ranked on <b style="color:var(--text4)">'+_mNm+'</b> over <b style="color:var(--text4)">'+_win+'</b> — the same metric and stretch the RANK BY and SAMPLE tabs are set to, so this list follows them.'))
+            +' Click a row to open that run report.</div>');
+        }
+        // v71.27 (owner: "i cant change the size ... with sliders"): drag bars BETWEEN the
+        //   columns trade width the same way the section-1 splitters do, and the ratio persists.
+        const _nCols=_rbSide?4:3;
+        const _rbW=(Array.isArray(APREF.rbCols)&&APREF.rbCols.length===_nCols&&APREF.rbCols.every(n=>+n>120))?APREF.rbCols.map(Number):null;
         const _rbCol=(i,dflt,mw,inner)=>'<div data-rbcol="'+i+'" style="flex:'+(_rbW?(_rbW[i]+' 1 0px'):dflt)+';min-width:'+mw+'px">'+inner+'</div>';
         const _rbSp=i=>'<div data-rbsplit="'+i+'" title="drag left / right — width moves between these two panels · double-click = reset" style="flex:0 0 10px;align-self:stretch;cursor:ew-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:3px;height:46px;border-radius:2px;background:var(--border)"></div></div>';
-        body=modeToggle
+        const _openSide='<button data-rbside="best" title="add a fourth panel on the right listing ten individual runs - best, worst or most recent" style="height:20px;padding:0 10px;font-size:9px;letter-spacing:.5px;font-weight:700;border-radius:6px;border:1px solid var(--border);background:var(--bg1);color:var(--text4);cursor:pointer">＋ TOP 10</button>';
+        body=modeToggle.replace('</div>',_openSide+'</div>')
           +(runs.length?('<div data-rbrow style="display:flex;gap:4px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
             // the matrix is the densest panel — it carries eight numeric columns — so it takes the
             //   larger share by default. Drag the bars to change it; the split is remembered.
             +_rbCol(0,'0 1 300px',240,boardTile)+_rbSp(0)
             +_rbCol(1,'1 1 400px',300,funnelTile)+_rbSp(1)
             +_rbCol(2,'1.45 1 520px',320,matrixTile)
+            +(_rbSide?(_rbSp(2)+_rbCol(3,'0 1 320px',260,_sideTile)):'')
             +'</div>'):'<div style="border:1px dashed var(--border);padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px;margin-bottom:14px">NO SAVED RUNS YET — THE BOARD POPULATES ITSELF FROM RUN HISTORY</div>')
           +booksTile;
         }else
@@ -16146,6 +16195,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-rborient]').forEach(b=>{b.onclick=()=>{savePref('rbOrient',b.dataset.rborient);renderApp();};});
       {const _rh=content.querySelector('[data-rbheat]');
        if(_rh)_rh.onclick=()=>{savePref('rbHeat',(APREF.rbHeat==null)?false:!APREF.rbHeat);renderApp();};}
+      // TOP 10 side panel: the ＋ button opens it on BEST, the tabs switch it, ✕ closes it. The
+      //   column count changes with it, so any pinned split is dropped — a 3-panel split cannot
+      //   describe 4 panels and would leave the new one mis-sized.
+      content.querySelectorAll('[data-rbside]').forEach(b=>{b.onclick=()=>{
+        const v=b.dataset.rbside||'';
+        if((!!v)!==(!!APREF.rbSide))savePref('rbCols',null);
+        savePref('rbSide',v);renderApp();};});
       // v71.27 (owner: "i cant change the size of the 1a 1e or runboard with sliders") — the
       //   report's resize handles only ever existed inside the run report, so COMPARE had none.
       //   These are the same two gestures: a HANDLE ROW under a panel drags its height, and a
