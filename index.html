@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.61';
+const VERSION='71.62';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.62',date:'2026-08-09',notes:['EXPANDED 1A can switch charts. CHAMPION and FUNNEL tabs ride the expanded header now - clicking one flips the tile tab and re-opens the expanded view on that chart, so you are no longer stuck with whichever one you happened to open.','COLUMNS picker reads as a caption then plain 3, 2, 1 instead of spelling out 3 COLUMNS on every button.']},
 {v:'71.61',date:'2026-08-09',notes:['HOTFIX on 71.60: fresh tabs could boot with an empty RESULTS list - the offline cache layer was deadlocking against older open tabs and silently queueing every read forever. The offline cache is now OFF entirely; every tab talks straight to the server. Only cost: the runs list re-downloads on each page load, which is small. If anything ever hangs again, closing other EDGELOG tabs and reloading is the reset.']},
 {v:'71.60',date:'2026-08-09',notes:['CONNECTION FIX for fetches that never came back even though your PC had answered: every open EDGELOG tab was funneling its traffic through ONE elected lead tab, so a single stale tab could starve all of them - each tab now talks to the server on its own. The connection also auto-switches transport when the stream goes quiet. If a fetch ever still hangs, closing OTHER old EDGELOG tabs and reloading this one is the reset.']},
 {v:'71.59',date:'2026-08-09',notes:['FUNNEL opens on the top THREE raw configs instead of every stored curve. On a run that saved 400 of them the gate, tilt and hybrid lines were buried under a wall of near-identical raw curves. The configs slider still spans all of them, and a setting you drag yourself still wins.']},
@@ -3943,6 +3944,7 @@ window.expandCompareEq=function(series,opts){
     +'</span>'
     +_hdrSep
     +'<span style="display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;flex-wrap:nowrap">'
+    +'<span id="ceqx-tabs" style="display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,var(--green) 8%,transparent);margin-right:8px">'+'<span data-ceqx-eqtab="chart" title="show the CHAMPION equity chart expanded" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.4px;padding:4px 9px;border-radius:6px;color:var(--text4)">CHAMPION</span>'+'<span data-ceqx-eqtab="funnel" title="show the CONFIG FUNNEL expanded" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.4px;padding:4px 9px;border-radius:6px;color:var(--text);background:color-mix(in srgb,var(--green) 20%,transparent);box-shadow:inset 0 -2px 0 var(--green)">FUNNEL</span>'+'</span>'
     +'<button id="ceqx-reset" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;border-radius:6px">↺ RESET</button>'
     +'<button id="ceqx-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:2px;border-radius:6px">CLOSE ✕</button>'
     +'</span>'
@@ -4484,6 +4486,18 @@ window.expandCompareEq=function(series,opts){
   window.addEventListener('mousemove',mMove);
   window.addEventListener('mouseup',mUp);
   chartEl.addEventListener('dblclick',resetView);
+  // v71.62 (owner: "in the expanded view i cannot switch between the CHAMPION and FUNNEL tabs"):
+  //   the two tabs ride the modal header now. Clicking one closes the explorer, flips the tile
+  //   tab, and re-opens whichever chart that tab draws - so the expanded view follows the tile.
+  try{host.ownerDocument.querySelectorAll('[data-ceqx-eqtab]').forEach(function(t){
+    t.onclick=function(ev){ev.stopPropagation();const want=t.getAttribute('data-ceqx-eqtab');
+      try{if(typeof savePref==='function')savePref('eqTab',want);}catch(_p){}
+      try{const cl=host.ownerDocument.getElementById('ceqx-close');if(cl)cl.click();}catch(_c){}
+      setTimeout(function(){try{
+        const bx=document.querySelector(want==='funnel'?'[data-a2eqx]':'[data-eqx]');
+        const sv=bx&&bx.querySelector('svg');
+        if(sv)sv.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));
+      }catch(_r){}},420);};});}catch(_tb){}
   el2('ceqx-reset').onclick=resetView;
   // ── VIEW dropdown (v64.83: merges the old separate RANGE + WINDOW selects into ONE control,
   //    owner: "combine the views for the date range and the sample selection into one
@@ -12725,7 +12739,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _rail=(attr,v,lab,on,tint,tip)=>'<span '+attr+'="'+v+'" title="'+tip+'" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 7px;border-radius:6px;color:'+(on?'var(--text)':'var(--text4)')+';background:'+(on?'color-mix(in srgb,'+tint+' 20%,transparent)':'transparent')+';box-shadow:'+(on?'inset 0 -2px 0 '+tint:'none')+'">'+lab+'</span>';
       const _layOpts=[['classic','CLASSIC'],['dense','DASHBOARD'],['funnel','FUNNEL'],['gauges','GAUGES'],['pills','PILLS']];
       const _laySel=_railWrap('var(--green)',_layOpts.map(function(o){return _rail('data-replay',o[0],o[1],_repLay===o[0],'var(--green)','REPORT LAYOUT - '+o[1]);}).join(''));
-      const _colSel=_railWrap('var(--blue)',[['3','3 COLUMNS'],['2','2 x 2'],['1','1 COLUMN']].map(function(o){return _rail('data-repcolbtn',o[0],o[1],_repColsSel===o[0],'var(--blue)','how many tiles sit side by side in the CLASSIC report - '+o[1]);}).join(''));
+      const _colSel='<span style="font-size:8px;letter-spacing:.6px;color:var(--text5);font-weight:700;margin-right:1px">COLUMNS</span>'+_railWrap('var(--blue)',[['3','3'],['2','2'],['1','1']].map(function(o){return _rail('data-repcolbtn',o[0],o[1],_repColsSel===o[0],'var(--blue)','how many tiles sit side by side in the CLASSIC report - '+o[1]+(o[0]==='2'?' (two per row)':(o[0]==='1'?' (every tile full width)':' across')));}).join(''));
       const hdrHtml='<div id="res-head" style="display:flex;align-items:center;gap:7px;margin:0 0 10px;white-space:nowrap;position:sticky;position:-webkit-sticky;top:47px;z-index:6;background:transparent;padding:3px 0">'
         +'<span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:13px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span>'
         +'<span title="'+((d.famKey&&d.famSeq!=null)?('family run id '+d.famKey+'-'+d.famSeq):'')+'" style="font-size:11px;font-weight:800;letter-spacing:0;color:var(--text);flex:0 0 auto">REPORT '+d.id+':</span>'
