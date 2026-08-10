@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.55';
+const VERSION='71.56';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.56',date:'2026-08-09',notes:['RUNBOARD matrix now wears the three things that actually make the 1E card look like itself. HEAT: every cell shaded by where it lands across its own row, green best through red worst, with the middle of the pack left quiet - the same shading maths and the same amber HEAT tab the 1E card uses. On by default, and remembered.','Every row NAMES ITS WINDOW, the way 1E rows read PF then the stretch. So a row is NET dollars FULL, MAX DD FULL, MAR FULL divided by FULL DD, and so on - you can never read a number without knowing what it was measured over.','Column heads use the 1E format: a rank number, a crown on the leader, the short name, and the years underneath. Band captions read like 1E too - return then the stretch, reward divided by risk then the stretch, sample, verdict.']},
 {v:'71.54',date:'2026-08-09',notes:['CANDLE WINDOW is now a full viewer (owner asks): PREV / NEXT buttons and the LEFT/RIGHT ARROW KEYS step to the neighbouring trade in the blotter current sort order, with a ROW x / y position readout.','TOP 10 menu in the same row jumps straight to any of the ten biggest winners or ten biggest losers of the run.','ZOOM: drag across the candles to zoom to that stretch, the TRADE button zooms to the held window with some context, FULL or a double-click shows everything again.','SAVE PNG downloads the current view as an image, named by run and trade number.','Stepping is fast: each trade bars are kept once fetched, and the two neighbouring trades quietly pre-load in the background while you look at the current one.']},
 {v:'71.53',date:'2026-08-09',notes:['RUNBOARD ranking: a run whose window is under two years is now placed LAST no matter what RANK BY says. A 19-day run with a 116 dollar drawdown was scoring a MAR of 1400 and taking the leading column off a sixteen-year book. That is not a comparison, it is dividing by almost nothing. Those runs stay on the board - hiding them would be worse - but they can never head the ranking.','TRADES on the whole-run view is filled in now: the optimize-window count plus the walk-forward out-of-sample counts plus the lockbox count, the same sum the run report KPI matrix adds up. It was showing a dash for everything except books.']},
 {v:'71.52',date:'2026-08-09',notes:['RUNBOARD matrix rebuilt to match how 1E is ACTUALLY laid out. 1E is metrics only - no band of text rows at the top. The board was printing Strategy, Market, Scope, Window and Stages as five prose rows, which is what made it read as a wall of text instead of a table you can scan.','A column is now a short name plus the years it covers, and nothing else. Strategy, market, scope and the exact dates are on hover, the way 1E puts its date range under the stage name.','Rows sit in the 1E bands: RETURN with the money row leading and the stage split indented beneath it, then DRAWDOWN, REWARD divided by RISK, EDGE, SAMPLE and VERDICT. FULL now carries MAR, PF, win rate, dollars per trade and trades instead of stopping at the net split.','Honest dashes: only a book records a whole-run profit factor, win rate and dollars per trade, because only a book re-measures its own pooled trades. Every other run shows a dash there rather than borrowing its optimize-window figure and calling it a whole-run number.','ROBUSTNESS was printing NaN on a book run. It shows a dash now - that score was never defined for a book.','A short window is flagged with a yellow warning mark on the column head itself, not just in a row.']},
@@ -14630,7 +14631,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _shortOf=r=>((r.famKey&&r.famSeq!=null)?(r.famKey+'-'+r.famSeq):('#'+r.id));
         const _mCols=runs.map((r,i)=>{const full=((stratTag(r.strategy)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||'';
           const d=_spanOf(r),short=(d!=null&&d/365.25<2);
-          return {lbl:'<span style="display:inline-flex;align-items:center;gap:4px;justify-content:flex-end"><span style="width:8px;height:8px;border-radius:2px;background:'+curves[i].c+';flex:0 0 auto"></span>'+_shortOf(r)+(short?' <span style="color:var(--yellow)">⚠</span>':'')+'</span>',
+          // 1E's own column-head format: rank prefix, a crown on the leader, then the short name.
+          return {lbl:'<span style="display:inline-flex;align-items:center;gap:3px;justify-content:flex-end">'+((i===0)?'<span title="leads the ranking">👑</span>':'')+'<span style="color:var(--text5)">R'+(i+1)+'</span> <span style="width:7px;height:7px;border-radius:2px;background:'+curves[i].c+';flex:0 0 auto"></span>'+_shortOf(r)+(short?' <span style="color:var(--yellow)">⚠</span>':'')+'</span>',
             sub:_drOf(r),col:curves[i].c,emph:(i===0),emphCol:curves[i].c,run:r,
             tip:(full+' · #'+r.id+' · '+((instTag(r.instrument)||'').replace(/<[^>]*>/g,'').trim())+' '+(r.timeframe||'')
               +' · '+(r.scope||'')+' · '+(r.date_from||'?')+' to '+(r.date_to||'?')
@@ -14684,29 +14686,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _m$=v=>'<span style="color:'+(v>=0?'#1d9e75':'#e24b4a')+';font-weight:700">'+_ab$(v)+'</span>';
         const _mSub=v=>'<span style="color:var(--text4)">'+_ab$(v)+'</span>';
         const _mGroups=[
-          {name:'RETURN',rows:[
-            _mk((_rbS==='is')?'NET $ · IS':((_rbS==='lb')?'NET $ · LB':'NET $ · whole run'),_netOf,_m$,'max',{top:true})
+          {name:'return · '+_win,rows:[
+            _mk('NET $ · '+_win,_netOf,_m$,'max',{top:true})
           ].concat((_rbS==='full')?[
-            _mk('├ in-sample $',r=>{const b=_bw(r);return b?null:_totA(r).is;},_mSub),
-            _mk('├ walk-forward $',r=>{const a=_wfA(r);return a?a.net:null;},_mSub),
-            _mk('└ lockbox $',r=>{const a=_lbA(r);return a?a.net:null;},_mSub)
-          ]:[])},
-          {name:'DRAWDOWN',rows:[_mk('MAX DD',_ddOf2,v=>'<span style="color:#e24b4a">'+_ab$(Math.abs(v))+'</span>','min')]},
-          {name:'REWARD ÷ RISK',rows:[
-            _mk('MAR',_marOf,v=>'<span style="color:'+(v>=2?'var(--green)':'var(--text2)')+';font-weight:'+(v>=2?'700':'400')+'">'+v.toFixed(2)+'×</span>','max',{top:true})]},
-          {name:'EDGE',rows:[
-            _mk('PF',_pfOf,v=>'<span style="color:'+(v>=1?'var(--text)':'var(--red)')+'">'+v.toFixed(2)+'</span>','max'),
-            _mk('WIN %',_wrOf,v=>'<span style="color:var(--text2)">'+Math.round(v)+'%</span>','max'),
-            _mk('$ / TRADE',r=>{const n=_netOf(r),t=_trOf(r);return (n!=null&&t)?n/t:null;},v=>'<span style="color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>','max'),
+            _mk('├ IS $',r=>{const b=_bw(r);return b?null:_totA(r).is;},_mSub),
+            _mk('├ WF $',r=>{const a=_wfA(r);return a?a.net:null;},_mSub),
+            _mk('└ LB $',r=>{const a=_lbA(r);return a?a.net:null;},_mSub)
+          ]:[]).concat([
+            _mk('MAX DD · '+_win,_ddOf2,v=>'<span style="color:#e24b4a">'+_ab$(Math.abs(v))+'</span>','min')])},
+          {name:'reward ÷ risk · '+_win,rows:[
+            _mk('MAR · '+_win+' ÷ '+_win+' DD',_marOf,v=>'<span style="color:'+(v>=2?'var(--green)':'var(--text2)')+';font-weight:'+(v>=2?'700':'400')+'">'+v.toFixed(2)+'</span>','max',{top:true}),
+            _mk('PF · '+_win,_pfOf,v=>'<span style="color:'+(v>=1?'var(--text)':'var(--red)')+'">'+v.toFixed(2)+'</span>','max'),
+            _mk('WIN % · '+_win,_wrOf,v=>'<span style="color:var(--text2)">'+Math.round(v)+'%</span>','max'),
+            _mk('$ / TRADE · '+_win,r=>{const n=_netOf(r),t=_trOf(r);return (n!=null&&t)?n/t:null;},v=>'<span style="color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>','max'),
             // scoreRun can come back NaN for a run type it was never written for (a book) — show a
             // dash instead of printing NaN into the table.
-            _mk('ROBUSTNESS',r=>{const s=scoreRun(r);return (s!=null&&isFinite(s))?+s:null;},v=>'<span style="color:'+(v>=70?'var(--green)':v>=45?'var(--yellow)':'var(--red)')+';font-weight:700">'+Math.round(v)+'</span>','max')]},
-          {name:'SAMPLE',rows:[
-            _mk('TRADES',_trOf,v=>'<span style="color:var(--text3)">'+Math.round(v).toLocaleString()+'</span>','max'),
+            _mk('ROBUSTNESS · whole run',r=>{const s=scoreRun(r);return (s!=null&&isFinite(s))?+s:null;},v=>'<span style="color:'+(v>=70?'var(--green)':v>=45?'var(--yellow)':'var(--red)')+';font-weight:700">'+Math.round(v)+'</span>','max')]},
+          {name:'sample',rows:[
+            _mk('TRADES · '+_win,_trOf,v=>'<span style="color:var(--text3)">'+Math.round(v).toLocaleString()+'</span>','max'),
             {lbl:'WINDOW',cell:c=>{const r=c.run,d=_spanOf(r);if(d==null)return '<span style="color:var(--text5)">—</span>';
               const y=d/365.25,short=y<2;
               return '<span title="'+(r.date_from||'?')+' to '+(r.date_to||'?')+'" style="color:'+(short?'var(--yellow)':'var(--text4)')+'">'+(short?'⚠ ':'')+((y>=1.5)?(y.toFixed(1)+'y'):(d+'d'))+'</span>';}},
-            {lbl:'STAGES RUN',cell:c=>{const r=c.run,a=_wfA(r),lb=r.validate&&r.validate.lockbox,bk=!!(r&&r.book);
+            {lbl:'STAGES RUN · whole run',cell:c=>{const r=c.run,a=_wfA(r),lb=r.validate&&r.validate.lockbox,bk=!!(r&&r.book);
               const one=(t,on,col,tip)=>'<span title="'+tip+'" style="color:'+(on?col:'var(--text5)')+';opacity:'+(on?'1':'.45')+'">'+t+'</span>';
               return '<span style="white-space:nowrap">'
                 +one('IS',true,'var(--text3)','in-sample — every run measures this stretch')
@@ -14714,7 +14715,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 +one('WF',!!a,(a&&a.held>=a.n/2)?'var(--green)':'var(--yellow)',bk?'a book tunes nothing, so it has no walk-forward folds by design':('walk-forward'+(a?(' · '+a.held+'/'+a.n+' folds held'):' — not run')))
                 +'<span style="color:var(--text5)"> · </span>'
                 +one('LB',!!lb,(lb&&lb.pass)?'var(--green)':'var(--red)','lockbox'+(lb?(lb.pass?' · held':' · failed'):' — not run'))+'</span>';}}]},
-          {name:'VERDICT',rows:[
+          {name:'verdict',rows:[
             {lbl:'VERDICT',top:true,cell:c=>{const v=c.run.validate?c.run.validate.verdict:'';
               return v?'<b style="color:'+(v==='PASS'?'var(--green)':v==='WEAK'?'var(--yellow)':'var(--red)')+'">'+v+'</b>':'<span style="color:var(--text5)">—</span>';}}]}
         ];
@@ -15670,6 +15671,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-cmporient]').forEach(b=>{b.onclick=()=>{savePref('cmpOrient',b.dataset.cmporient);renderApp();};});
       // RUNBOARD keeps its own VERT/HORIZ pick so the 1E look survives COMPARE being left on HORIZ
       content.querySelectorAll('[data-rborient]').forEach(b=>{b.onclick=()=>{savePref('rbOrient',b.dataset.rborient);renderApp();};});
+      {const _rh=content.querySelector('[data-rbheat]');
+       if(_rh)_rh.onclick=()=>{savePref('rbHeat',(APREF.rbHeat==null)?false:!APREF.rbHeat);renderApp();};}
       // v71.27 (owner: "i cant change the size of the 1a 1e or runboard with sliders") — the
       //   report's resize handles only ever existed inside the run report, so COMPARE had none.
       //   These are the same two gestures: a HANDLE ROW under a panel drags its height, and a
