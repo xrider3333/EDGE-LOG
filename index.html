@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.78';
+const VERSION='71.79';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.79',date:'2026-08-09',notes:['FIXED: reading the OHLC line moved the chart. The window sized itself to whatever text sat inside it, so every hover swapped a short hint for a long price line and the chart jumped and resized with it - measured at 39 pixels of resize and a 20 pixel shift per hover. The window now has a fixed width and the readout line a fixed height, so hovering moves NOTHING.','Same fix keeps the chart the same size from one trade to the next while stepping with PREV / NEXT.']},
 {v:'71.78',date:'2026-08-09',notes:['Hotfix: opening COMPARE threw and left the tab blank on 71.77. The strategy list was reading the TOP 10 setting one step before that setting was created. Nothing else changed.']},
 {v:'71.77',date:'2026-08-09',notes:['TOP 10 now sits UNDER the RUNBOARD list in the left column instead of taking a fourth column of its own. Both lists cap their height when it is open so the pair still fits one screen.','RUNBOARD funnel picked up the report chart furniture it was missing: an info icon that opens the full explanation, a GRAPH DETAIL slider that thins the drawn line without touching any total, hover text on every walk-forward stripe and on the lockbox wash, and a dashed line marking the deepest drawdown on show with its dollar figure on the axis.','The dashed line style is not decoration: solid is in-sample, dashed is walk-forward, dotted is the lockbox. That is the same line procedure the report funnel uses, so a glance tells you which part of a curve was tuned and which part was not.']},
 {v:'71.76',date:'2026-08-09',notes:['RUNBOARD has a + TOP 10 button next to the mode pills. It opens a FOURTH panel on the right listing ten individual runs, with tabs for BEST, WORST and RECENT.','BEST and WORST rank on the same metric and the same stretch the RANK BY and SAMPLE tabs are set to, so the list always answers the question the board is currently asking. RECENT ignores both and just lists the newest runs. Click any row to open that run report.','This is the one place on the board that shows INDIVIDUAL runs. The other three panels only ever show one run per strategy - its champion - so every other run a strategy has made is invisible there. Short-sample runs still carry their warning mark and are pushed to the bottom of BEST.']},
@@ -3445,7 +3446,16 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
       +'<button id="cndl-save" title="download the current view as a PNG image" style="'+bs+'">&#10515; SAVE PNG</button>'
 
-      +'<div id="cndl-ro" style="font-size:11px;color:var(--text3);min-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 100%"><span style="color:var(--text5)">hover = OHLC &middot; wheel = zoom &middot; drag = pan (when zoomed) &middot; double-click = all bars</span></div>');
+      // FIXED height + min-width:0 (owner: "looking at the ohlc value still moves the chart"):
+      // the readout swaps a short hint for a long OHLC line on every hover, and BOTH its width
+      // and its line box fed back into the auto-sized modal — measured 39px of chart resize and
+      // a 20px shift per hover. Pinned here; the window also gets a definite width below.
+      +'<div id="cndl-ro" style="font-size:11px;color:var(--text3);height:16px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 100%;min-width:0"><span style="color:var(--text5)">hover = OHLC &middot; wheel = zoom &middot; drag = pan (when zoomed) &middot; double-click = all bars</span></div>');
+    // the shell sizes itself to its content, so ANY text change inside re-lays-out the chart.
+    // A definite width stops that dead — and keeps the chart the same size trade to trade.
+    try{const _bd=_cndl.api.modal.querySelector('#chart-body');
+      if(_bd){_bd.style.minWidth='0';_bd.style.width='100%';
+        if(_bd.parentElement){_bd.parentElement.style.width='min(1180px,95vw)';_bd.parentElement.style.boxSizing='border-box';}}}catch(_e){}
 
     const g=id=>ctl.querySelector('#'+id);
 
