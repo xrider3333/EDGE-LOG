@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.48';
+const VERSION='71.49';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.49',date:'2026-08-09',notes:['BOOKS table fix: every lockbox run was showing up as a book, because the word LOCKBOX contains the letters book. A row is a book only if it actually carries pooled book results now.','BOOK row numbers all describe the SAME stretch. A row was mixing a whole-run net with an in-sample profit factor and in-sample trade count, which reads as nonsense. Net, PF, drawdown, MAR and trades now all come from the stretch the SAMPLE tabs are on.']},
 {v:'71.48',date:'2026-08-09',notes:['BOOK legs find their own data now. A saved run does not always record whether it traded the day session or the overnight one, so an overnight leg was being asked for day-session data and the whole book failed with no data for that leg. The book now infers the session from the leg data source and, failing that, tries the alternatives before giving up - and each finished book reports which data each leg actually ran on.']},
 {v:'71.45',date:'2026-08-09',notes:['CHART and TRADES fetches now wait up to 5 MINUTES instead of giving up at 90 seconds. When a backtest is running on your PC every fetch queues behind it, and 90s was routinely too short - the wait window kept counting while the fetch had already silently died. The timeout message also says the likely reason now: runner off, or busy with a backtest.']},
 {v:'71.43',date:'2026-08-09',notes:['ROOT CAUSE of "stuck on loading" FOUND AND FIXED: when a new version deploys, a tab sitting in the background silently HARD-RELOADS itself - and that wipe was killing your in-flight blotter and candle fetches and closing the expanded view mid-wait. On a day with many deploys it hit constantly. The auto-reload now stands down whenever a PC fetch is in flight or an expanded view is open - you get the green update pill to tap instead, never a silent wipe.']},
@@ -14504,13 +14505,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    params, all trades pooled and scored as ONE strategy — so a book saves a run doc like
         //    anything else: real curve, real lockbox, appears in Past Runs. Any book run in history
         //    is listed here ABOVE the offline rows, which stay until each is replaced by a real run.
-        const _bookRuns=rs.filter(r=>/Book/i.test(r.scope||'')).sort((a,b)=>(+b.id||0)-(+a.id||0));
+        // a book run is identified by the BOOK BLOCK it carries, not by its scope text — the
+        // scope string "🔒 LOCKBOX" contains the letters "book" and was matching every lockbox run.
+        const _bookRuns=rs.filter(r=>r&&r.book&&Array.isArray(r.book.legs)).sort((a,b)=>(+b.id||0)-(+a.id||0));
         const _liveTr=_bookRuns.map((r,i)=>{const td=(c,al)=>'<td style="text-align:'+(al||'right')+';padding:8px 9px;border-bottom:1px solid var(--border2);white-space:nowrap">'+c+'</td>';
-          const t=_totA(r),lbx=_lbA(r),dd=_eqDD(r,'full')||Math.abs(+r.best_dd_usd||0);
-          const s=(_rbS==='lb'&&lbx)?{net:lbx.net,pf:lbx.pf,dd:(_eqDD(r,'lb')||0),n:lbx.tr}
-                 :(_rbS==='is')?{net:(+r.best_pnl_usd||0),pf:(+r.best_pf||0),dd:Math.abs(+r.best_dd_usd||0),n:(+r.best_trades||0)}
-                 :{net:t.net,pf:(+r.best_pf||0),dd:dd,n:(+r.best_trades||0)};
           const bk=r.book||{},vv=r.validate?r.validate.verdict:'';
+          // every figure comes from the book's OWN pooled block, so net / PF / drawdown / trades
+          // on a row always describe the SAME stretch — mixing a whole-run net with an
+          // in-sample PF is exactly the kind of unreadable row this board exists to kill.
+          const _st=(_rbS==='lb')?bk.lockbox:((_rbS==='is')?bk.pre_lockbox:bk.whole);
+          const s=_st?{net:(+_st.total_pnl||0),pf:(+_st.profit_factor||0),
+                       dd:Math.abs(+_st.max_drawdown||0),n:(+_st.num_trades||0)}:null;
+          if(!s)return '<tr><td colspan="10" style="padding:8px 9px;color:var(--text5);font-size:9px">BOOK #'+r.id+' — no '+_rbS.toUpperCase()+' stretch recorded</td></tr>';
           const legs=(bk.legs||[]).map(l=>String(l.strategy||'').replace(/\.py$/,'')).join(' + ');
           return '<tr data-rank-run="'+r.id+'" title="open this book run report" style="cursor:pointer">'
             +td('<span style="color:var(--green)">▸</span>','left')
