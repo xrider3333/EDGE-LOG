@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.82';
+const VERSION='71.83';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.83',date:'2026-08-09',notes:['FIXED FOR REAL - config colours no longer change when you expand the 1A funnel. The cause was the LOCKBOX CONTINUATION tails: they were painted from their own two-colour orange/purple alternation that knew nothing about the config palette, so a config rode a teal line to the lockbox door and then finished the run in orange. The expanded explorer draws one continuous line per config, so it disagreed. Each tail now inherits its own config colour.','Fix: clicking CHAMPION or FUNNEL in the expanded 1A no longer throws you back to the top of RESULTS. The tab switch re-renders the report, which reset the page scroll - your position is now restored, and the chart re-opens as soon as it exists instead of after a fixed delay that could fire too early and open nothing.']},
 {v:'71.82',date:'2026-08-09',notes:['SECTION 2 REGROUPED BY CHART TYPE (owner). Three named columns: DISTRIBUTIONS (2A config spread, 2B trade-PnL spread, 2C MAE/MFE, 2D deflated Sharpe), SURFACES and CURVES (2E 3-D explorer, 2F parallel coordinates, 2G PDP top-out curves), BARS and TABLES (2H knob importance, 2I neighbours, 2J regime card, 2K trade context, 2L ML config builder, 2M top configs). Section 1 is untouched.','The CONFIG DISTRIBUTION now leads section 2 directly above the TRADE-PNL DISTRIBUTION - the two spread charts read as a pair - so it takes the first letter of the section, 2A. Every tile that had moved down from section 1 takes a section-2 letter too, so no tile in section 2 is labelled 1-anything any more.','The ROBUSTNESS and DIAGNOSTICS pills are now a vertical rail pinned to the right of section 2 instead of a wide grid below it. Clicking a pill still opens its full readout in the section below, which is where the tables have room.','Fix: the distribution stack could render TWICE - once in section 1 and again in section 2 - on runs with no second 1E matrix card. It now renders in exactly one place.','Fix: in the expanded 1A explorer, the CHAMPION and FUNNEL tabs were completely dead - the code that wired them up read a variable that does not exist in that function, so it threw before attaching a single handler. They switch now, and the report re-renders first so the chart being re-opened is actually in the page.']},
 {v:'71.79',date:'2026-08-09',notes:['FIXED: reading the OHLC line moved the chart. The window sized itself to whatever text sat inside it, so every hover swapped a short hint for a long price line and the chart jumped and resized with it - measured at 39 pixels of resize and a 20 pixel shift per hover. The window now has a fixed width and the readout line a fixed height, so hovering moves NOTHING.','Same fix keeps the chart the same size from one trade to the next while stepping with PREV / NEXT.']},
 {v:'71.78',date:'2026-08-09',notes:['Hotfix: opening COMPARE threw and left the tab blank on 71.77. The strategy list was reading the TOP 10 setting one step before that setting was created. Nothing else changed.']},
@@ -4859,6 +4860,7 @@ window.expandCompareEq=function(series,opts){
   //   and no tab ever got a handler. The two tabs were painted and completely dead.
   try{document.querySelectorAll('[data-ceqx-eqtab]').forEach(function(t){
     t.onclick=function(ev){ev.stopPropagation();const want=t.getAttribute('data-ceqx-eqtab');
+      const _sy=window.scrollY||document.documentElement.scrollTop||0;
       try{const cl=document.getElementById('ceqx-close');if(cl)cl.click();}catch(_c){}
       try{if(typeof savePref==='function')savePref('eqTab',want);}catch(_p){}
       // v71.79 (owner: "1a expanded cant click to champion when in funnel"): savePref only
@@ -4866,11 +4868,21 @@ window.expandCompareEq=function(series,opts){
       //   this reopen looks for ([data-eqx] when going to CHAMPION) is not in the DOM and the
       //   dblclick lands on nothing. Re-render the report first, THEN re-open.
       try{if(typeof renderApp==='function')renderApp();}catch(_rr){}
-      setTimeout(function(){try{
-        const bx=document.querySelector(want==='funnel'?'[data-a2eqx]':'[data-eqx]');
-        const sv=bx&&bx.querySelector('svg');
-        if(sv)sv.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));
-      }catch(_r){}},420);};});}catch(_tb){}
+      // v71.83 (owner: "clicking on champion kicks me out to the main results page"): the
+      //   re-render rebuilds the report and the page snaps to scroll 0, which IS the top of
+      //   RESULTS - and the old fixed 420ms delay could fire before the new chart existed, so
+      //   nothing re-opened and you were left sitting there. Put the scroll back and POLL for
+      //   the box the chosen tab draws instead of guessing a delay.
+      let _tries=0;const _reopen=function(){
+        try{window.scrollTo(0,_sy);}catch(_s){}
+        try{
+          const bx=document.querySelector(want==='funnel'?'[data-a2eqx]':'[data-eqx]');
+          const sv=bx&&bx.querySelector('svg');
+          if(sv){try{bx.scrollIntoView({block:'center'});}catch(_v){}
+            sv.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));return;}
+        }catch(_r){}
+        if(_tries++<30)setTimeout(_reopen,120);};
+      setTimeout(_reopen,120);};});}catch(_tb){}
   el2('ceqx-reset').onclick=resetView;
   // ── VIEW dropdown (v64.83: merges the old separate RANGE + WINDOW selects into ONE control,
   //    owner: "combine the views for the date range and the sample selection into one
@@ -9500,7 +9512,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   the funnel opening on one line per family, only the lines you can SEE get a pill now,
         //   so there is nothing to fan out and each pill sits exactly on its line.
         const _a2kAll=+(APREF.a2kAll||0);
+        // v71.83 (owner, said twice: "config colors still change when i expand the 1a chart").
+        //   THE ACTUAL CAUSE, found by counting lines: the funnel draws 23 coloured strokes but
+        //   the explorer payload carries 10 series. The extras are these LOCKBOX CONTINUATION
+        //   tails, and they were painted from a hard-coded two-colour alternation (orange,
+        //   purple, orange, purple...) that knew nothing about _cfgHue. So a config could ride
+        //   a teal line to the lockbox door and finish the run in orange - and the explorer,
+        //   which draws one continuous line per config, showed it teal end to end. Each tail
+        //   now inherits ITS OWN config hue, so a config is one colour everywhere.
+        //   _cfgHue is keyed by config object; lbCs comes from a different pass, so a value
+        //   join on the in-sample final is the fallback (same join key _cfgNoOf uses below).
+        //   LBALT survives only as the last resort for a config that matches neither.
         const LBALT=['#e0a04b','#a879e6'];let alt=0;const labs=[];let lb='';
+        const _hueByFin=new Map();
+        poolAll.forEach(function(c){const h=_cfgHue.get(c);
+          if(h&&c&&c.equity&&c.equity.final!=null)_hueByFin.set(+c.equity.final,h);});
+        const _lbCol=function(c,cr){
+          if(cr)return '#1d9e75';
+          if(isMaxC&&c===isMaxC)return '#3a9bdc';
+          const h=_cfgHue.get(c)||((c&&c.equity&&c.equity.final!=null)?_hueByFin.get(+c.equity.final):null);
+          return h||LBALT[(alt++)%2];};
         // v64.70 (owner): the crowned line is reconciled to the champion's TRUE total (1A), but the
         //   other top-3 survivors kept the saved-curve reconstruction, which overshoots — so the
         //   crowned looked LOWER than them. Bring the survivors onto the same footing by the SAME
@@ -9510,7 +9541,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(_champTot!=null){const _cc=lbCs.find(c=>c.crowned);
           if(_cc&&_cc.lb_equity&&Array.isArray(_cc.lb_equity.cum)&&_cc.lb_equity.cum.length&&_cc.equity&&_cc.equity.final!=null&&_cc.lb_equity.base!=null){
             const _lc=_cc.lb_equity.cum;_crownOver=(_cc.equity.final+(_lc[_lc.length-1]-_cc.lb_equity.base))-_champTot;}}
-        if(hasLB)lbCs.forEach(c=>{const cr=!!c.crowned,col=cr?'#1d9e75':LBALT[(alt++)%2];
+        if(hasLB)lbCs.forEach(c=>{const cr=!!c.crowned,col=_lbCol(c,cr);
           const cum=c.lb_equity.cum,base=c.lb_equity.base,anchor=c.equity.final,n=cum.length;
           const _rawEnd=cum[n-1]-base;
           const _sc=cr
