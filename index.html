@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.42';
+const VERSION='71.43';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.43',date:'2026-08-09',notes:['ROOT CAUSE of "stuck on loading" FOUND AND FIXED: when a new version deploys, a tab sitting in the background silently HARD-RELOADS itself - and that wipe was killing your in-flight blotter and candle fetches and closing the expanded view mid-wait. On a day with many deploys it hit constantly. The auto-reload now stands down whenever a PC fetch is in flight or an expanded view is open - you get the green update pill to tap instead, never a silent wipe.']},
 {v:'71.42',date:'2026-08-09',notes:['BOOK RUNS ARE REAL NOW. A book - two or more strategies traded side by side in one account - used to be the one thing the app could not measure, because Auto-Validate takes a single strategy file, so those numbers were computed offline and pasted in by hand. Your PC can run a book as an ordinary job: every leg replayed over the same window with its own frozen settings, every trade pooled into one pile, and the pile scored as ONE strategy - so the profit factor and the drawdown are true account numbers, not a legs.','RUNBOARD BOOKS has a + RUN A BOOK button. Tick the strategies you would trade together and it queues the job; the window defaults to the stretch every picked strategy has data for. The finished book saves like any other run - real equity curve, real lockbox read, its own run report - and lands at the top of the BOOKS table marked LIVE RUN. Click the row to open it.','A book carries no walk-forward column on purpose. Nothing is tuned during a book run, so there are no folds to report; what it does carry is the lockbox stretch and the house count of how many of 8 equal stretches were profitable.','QUICK TOGGLE ON THE CHART: click any strategy in the funnel key to drop it out of the chart, click again to bring it back. Hidden strategies stay in the key struck through, and the axis, bands and drawdown pane all rescale to what is left.']},
 {v:'71.41',date:'2026-08-09',notes:['CHART button (TRADES blotter row): the candle window now opens INSTANTLY with a live seconds counter and a plain explanation - the bar fetch is a real trip to your PC (~30s, longer if a backtest is running there) and the old tiny hourglass read as stuck. The chart fills in by itself when the bars land.','CHART button: a failed fetch now prints its error inside that same window with a retry hint, instead of a pop-up alert that was easy to dismiss and forget.','TRADES button while loading now ticks elapsed seconds too, so a minutes-long first load reads as alive.']},
 {v:'71.38',date:'2026-08-09',notes:['REAL BUG, caught on run 203: TAKEN plus NOT TAKEN did not add up. NOT TAKEN was the refused count for the WHOLE RUN sitting directly under a TRADES row that follows the SAMPLE tick, so on WF+LB the hybrid read 2,222 taken and 2,657 refused - a total larger than the 3,707 trades those two stretches even contain.','Refused is now measured stretch by stretch: the no-filter trade count for each ticked stretch minus what that column kept. On the same run the xgb hybrid now reads 2,222 taken and 1,485 refused, which is exactly the 3,707 the TILT tab shows for WF+LB, since a tilt refuses nothing.','BIGGEST SIZE and SIZE MIX carry a FULL tag now. The engine saves the size profile once for the run rather than per stretch, so those two genuinely cannot follow the tick and they say so instead of looking sample-scoped.','Worth knowing when reconciling: the RAW tab TRADES row is tagged IS+WF and counts one config over the optimize window. It is a different window AND a different book to the filter tabs, so it is not the total those two rows add up to - the TILT TRADES row on the same tick is.']},
@@ -851,7 +852,13 @@ const CHANGELOG=[
         var m=t.match(/const VERSION='([0-9.]+)'/);if(!m)return;
         _remote=m[1];if(_remote===VERSION)return;
         var done='';try{done=sessionStorage.getItem('_upd_done')||'';}catch(_e){}
-        if(document.hidden&&done!==_remote){hardReload();return;}
+        // NEVER yank the page out from under work in progress. A pending PC-runner command
+        // (blotter / candle fetch) or an open expanded view means the user is mid-action —
+        // the silent background hardReload was wiping those (deploy-heavy days made every
+        // backgrounded tab reload within 5 min, which read as "stuck on loading" / "not
+        // saving"). Skip the reload and fall through to the pill instead.
+        var _busyUI=((window._pendingCmds|0)>0)||document.querySelector('#chart-body,#eqx-main,#ceqx-chart');
+        if(document.hidden&&done!==_remote&&!_busyUI){hardReload();return;}
         showPill(_remote,notesFor(t,_remote));})
       .catch(function(){_busy=false;});
   }
@@ -1334,13 +1341,19 @@ function _libDownload(name,content){try{const a=document.createElement('a');a.hr
 // ── Master CSV viewer + download (no Firebase Storage; data fetched via the runner) ──
 function _runCmd(action,payload){return new Promise((resolve,reject)=>{
   if(!cmdRef){reject(new Error('sign in first'));return;}
+  // pending-command counter — the update checker reads it so a background hardReload can
+  // never wipe the page while a runner round trip is in flight.
+  window._pendingCmds=(window._pendingCmds||0)+1;
+  let settled=false;
+  const _settle=fn=>a=>{if(settled)return;settled=true;window._pendingCmds=Math.max(0,(window._pendingCmds||1)-1);fn(a);};
+  const res2=_settle(resolve),rej2=_settle(reject);
   cmdRef.add({action:action,payload:payload,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()}).then(ref=>{
     let done=false;
     const unsub=ref.onSnapshot(d=>{const x=d.data()||{};if(x.status!=='done'&&x.status!=='error')return;done=true;try{unsub();}catch(_){}
       const r=x.result||{};
-      if(x.status==='error'||!r.ok){reject(new Error(r.error||x.error||'failed'));return;}resolve(r);});
-    setTimeout(()=>{if(!done){try{unsub();}catch(_){}reject(new Error('no response in 90s — is the runner running (EdgeLog.bat)?'));}},90000);
-  }).catch(reject);
+      if(x.status==='error'||!r.ok){rej2(new Error(r.error||x.error||'failed'));return;}res2(r);});
+    setTimeout(()=>{if(!done){try{unsub();}catch(_){}rej2(new Error('no response in 90s — is the runner running (EdgeLog.bat)?'));}},90000);
+  }).catch(rej2);
 });}
 async function _gunzipB64(b64){const bin=atob(b64);const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
   if(typeof DecompressionStream==='undefined')throw new Error('this browser cannot un-gzip — use Chrome or Edge');
