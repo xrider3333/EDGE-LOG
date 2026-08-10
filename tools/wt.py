@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""
+tools/wt.py -- one git worktree per Claude session, so concurrent sessions never
+share a working copy of index.html.
+
+THE PROBLEM THIS SOLVES
+-----------------------
+Every session used to edit the SAME checkout. `git add index.html` therefore swept in
+whatever another session had half-typed into that file, and a session that wanted to be
+careful had to sit and wait for the other one to commit. Both failure modes are the same
+root cause: one working tree, many writers.
+
+WITH A WORKTREE PER SESSION
+---------------------------
+Each session gets its own folder and its own branch off origin/main. Nobody waits, nobody
+bundles. `ship` rebases onto the newest main, re-aligns the VERSION line (two sessions
+racing to bump it is the one guaranteed conflict), runs the boot gate, and pushes to main.
+
+USAGE
+-----
+  python tools/wt.py new  <name>     create + print the worktree path to cd into
+  python tools/wt.py ship [name]     rebase onto origin/main, fix VERSION, preflight, push
+  python tools/wt.py list            show every session worktree
+  python tools/wt.py drop <name>     remove a worktree (refuses if it has uncommitted work)
+
+`ship` run from inside a worktree needs no name.
+
+Stdlib only. Safe to re-run: `new` on an existing name just prints its path.
+"""
+import argparse
+import os
+import re
+import subprocess
+import sys
+
+BRANCH_PREFIX = 'session/'
+# deliberately OFF OneDrive: a worktree churns thousands of files and the sync client
+# fights git for locks. Override with EDGELOG_WT_ROOT.
+DEFAULT_ROOT = os.path.join(
+    os.environ.get('LOCALAPPDATA') or os.path.expanduser('~'), 'EdgeLog-worktrees')
+
+
+def run(args, cwd=None, check=True, quiet=False):
+    p = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
+    if p.returncode != 0 and check:
+        if not quiet:
+            sys.stderr.write((p.stdout or '') + (p.stderr or ''))
+        raise SystemExit('git failed: ' + ' '.join(args))
+    return (p.stdout or '').strip()
+
+
+def repo_root():
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return run(['git', '-C', here, 'rev-parse', '--show-toplevel'])
+
+
+def wt_root():
+    return os.environ.get('EDGELOG_WT_ROOT') or DEFAULT_ROOT
+
+
+def cmd_new(name):
+    root = repo_root()
+    path = os.path.join(wt_root(), name)
+    branch = BRANCH_PREFIX + name
+    if os.path.isdir(os.path.join(path, '.git')) or os.path.isfile(os.path.join(path, '.git')):
+        print(path)
+        return
+    run(['git', '-C', root, 'fetch', '-q', 'origin'])
+    os.makedirs(wt_root(), exist_ok=True)
+    exists = run(['git', '-C', root, 'branch', '--list', branch])
+    args = ['git', '-C', root, 'worktree', 'add']
+    if exists:
+        args += [path, branch]
+    else:
+        args += ['-b', branch, path, 'origin/main']
+    run(args)
+    print(path)
+
+
+def read_version(text):
+    m = re.search(r"const VERSION='([\d.]+)'", text)
+    return m.group(1) if m else None
+
+
+def bump(v):
+    a, b = v.split('.')
+    return '%s.%d' % (a, int(b) + 1)
+
+
+def cmd_ship(name, message):
+    root = repo_root()
+    wt = os.getcwd() if name is None else os.path.join(wt_root(), name)
+    if not os.path.isdir(wt):
+        raise SystemExit('no such worktree: ' + wt)
+    inside = run(['git', '-C', wt, 'rev-parse', '--show-toplevel'])
+    if os.path.abspath(inside) == os.path.abspath(root):
+        raise SystemExit('refusing to ship from the SHARED checkout - run this from a worktree '
+                         '(python tools/wt.py new <name>)')
+
+    if run(['git', '-C', wt, 'status', '--porcelain']):
+        if not message:
+            raise SystemExit('uncommitted changes here - commit them, or pass --msg to commit now')
+        run(['git', '-C', wt, 'add', '-A'])
+        run(['git', '-C', wt, 'commit', '-q', '-m', message])
+
+    run(['git', '-C', wt, 'fetch', '-q', 'origin'])
+    ahead = run(['git', '-C', wt, 'rev-list', '--count', 'origin/main..HEAD'])
+    if ahead == '0':
+        print('nothing to ship - HEAD has no commits beyond origin/main')
+        return
+    p = subprocess.run(['git', '-C', wt, 'rebase', 'origin/main'], capture_output=True, text=True)
+    if p.returncode != 0:
+        run(['git', '-C', wt, 'rebase', '--abort'], check=False, quiet=True)
+        raise SystemExit('rebase onto origin/main hit a conflict - resolve by hand in ' + wt +
+                         '\n' + (p.stdout or '') + (p.stderr or ''))
+
+    # VERSION race: two sessions bumping the same line always collides. After the rebase,
+    # take whatever origin/main is on and step past it, and retag our newest changelog entry
+    # so Settings > CHANGELOG still matches the version that actually ships.
+    idx = os.path.join(wt, 'index.html')
+    if os.path.isfile(idx):
+        with open(idx, encoding='utf-8', newline='') as f:
+            mine_txt = f.read()
+        theirs = read_version(run(['git', '-C', wt, 'show', 'origin/main:index.html']) or '')
+        mine = read_version(mine_txt)
+        if mine and theirs:
+            def num(v):
+                a, b = v.split('.')
+                return (int(a), int(b))
+            if num(mine) <= num(theirs):
+                want = bump(theirs)
+                new_txt = mine_txt.replace("const VERSION='%s'" % mine,
+                                           "const VERSION='%s'" % want, 1)
+                new_txt = new_txt.replace("{v:'%s'," % mine, "{v:'%s'," % want, 1)
+                with open(idx, 'w', encoding='utf-8', newline='') as f:
+                    f.write(new_txt)
+                run(['git', '-C', wt, 'add', 'index.html'])
+                run(['git', '-C', wt, 'commit', '-q', '--amend', '--no-edit'])
+                print('version realigned %s -> %s (origin/main was on %s)' % (mine, want, theirs))
+
+    pf = os.path.join(root, 'tools', 'preflight_boot.py')
+    if os.path.isfile(pf):
+        r = subprocess.run([sys.executable, pf], cwd=wt, capture_output=True, text=True)
+        out = (r.stdout or '') + (r.stderr or '')
+        print(out.strip().splitlines()[-1] if out.strip() else '(preflight produced no output)')
+        if r.returncode == 1:
+            raise SystemExit('boot gate FAILED - not pushing')
+
+    run(['git', '-C', wt, 'push', '-q', 'origin', 'HEAD:main'])
+    print('pushed: ' + run(['git', '-C', wt, 'log', '--oneline', '-1']))
+
+
+def cmd_list():
+    root = repo_root()
+    print(run(['git', '-C', root, 'worktree', 'list']))
+
+
+def cmd_drop(name):
+    root = repo_root()
+    path = os.path.join(wt_root(), name)
+    if run(['git', '-C', path, 'status', '--porcelain'], check=False, quiet=True):
+        raise SystemExit('worktree has uncommitted changes - ship or discard them first')
+    run(['git', '-C', root, 'worktree', 'remove', path])
+    run(['git', '-C', root, 'branch', '-D', BRANCH_PREFIX + name], check=False, quiet=True)
+    print('removed ' + path)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest='cmd', required=True)
+    n = sub.add_parser('new'); n.add_argument('name')
+    s = sub.add_parser('ship'); s.add_argument('name', nargs='?'); s.add_argument('--msg', default=None)
+    sub.add_parser('list')
+    d = sub.add_parser('drop'); d.add_argument('name')
+    a = ap.parse_args()
+    if a.cmd == 'new':
+        cmd_new(a.name)
+    elif a.cmd == 'ship':
+        cmd_ship(a.name, a.msg)
+    elif a.cmd == 'list':
+        cmd_list()
+    elif a.cmd == 'drop':
+        cmd_drop(a.name)
+
+
+if __name__ == '__main__':
+    main()

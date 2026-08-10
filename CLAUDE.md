@@ -246,7 +246,23 @@ Update `ROADMAP.md` as work ships; keep this file for durable context/convention
   staged.** A second Claude session may be committing to this same repo/working tree
   concurrently (e.g. the trades-table work that jumped 36.0→36.5) — fetch-first avoids
   version clashes and clobbering its in-flight edits.
-  **Multi-session protocol (shared working tree):** `git add` ONLY the specific file(s) you
+  **WORK IN YOUR OWN WORKTREE — the standing rule since 2026-08-09 (owner picked this over a
+  deferred-push queue).** Concurrent sessions sharing ONE checkout is what caused every
+  bundling incident and every "waiting for the other session" stall: `git add index.html`
+  sweeps in whatever another agent has half-typed into that same file. So at the START of any
+  session that will edit code:
+  ```
+  python tools/wt.py new <short-name>        # prints a path — cd into it and work there
+  python tools/wt.py ship [name] [--msg "…"] # rebase onto origin/main, fix VERSION, preflight, push
+  python tools/wt.py list | drop <name>
+  ```
+  Each session gets its own folder (off OneDrive, under LOCALAPPDATA) on its own
+  `session/<name>` branch cut from `origin/main`. Nobody waits and nobody bundles. `ship`
+  rebases onto the newest main, and — because two sessions bumping `const VERSION` is the one
+  guaranteed collision — it re-reads main's VERSION, steps past it, and retags your newest
+  CHANGELOG entry to match, then runs the boot gate before pushing to `main`. It REFUSES to
+  run from the shared checkout. A rebase conflict stops it and tells you where to fix it.
+  **Multi-session protocol (only if you are stuck in the shared checkout):** `git add` ONLY the specific file(s) you
   changed — never `git add -A` / `git add .` (it sweeps in another session's files). Before
   committing, `git diff` your file; if it carries uncommitted edits you did NOT make (another
   agent mid-task on a different feature in the SAME file), do NOT commit — you'd bundle and
