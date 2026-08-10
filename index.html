@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='72.3';
+const VERSION='72.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'72.4',date:'2026-08-09',notes:['RUNBOARD funnel: the blue walk-forward and purple lockbox SHADING is gone. Every strategy reaches its own walk-forward and lockbox on a different date, so one shared band drew boundaries that were true for at most one curve and wrong for the rest - a strategy still in walk-forward appeared to be sitting inside the lockbox. Each line states its own stages instead: solid in-sample, dashed walk-forward, dotted lockbox, the same line procedure every other PnL chart on the site uses.','The word DRAWDOWN sat on the top edge of the drawdown pane and the filled area sliced it in half. It sits above the pane now.','NEW HWM toggle on the funnel title. It draws each line HIGH-WATER MARK - the running peak, the most that strategy had ever made up to that point. The gap between a line and its own mark is the drawdown it was sitting in right then, so a long flat mark with the line beneath it reads as a long stretch under water. Off by default, remembered once set.']},
 {v:'72.3',date:'2026-08-10',notes:['CHART GALLERY - the mouse wheel scrolls the LIST again. Zooming a chart now takes CTRL (or Shift) plus the wheel, because a plain wheel belongs to the list you are scrolling.','CHART GALLERY - click and DRAG a zoomed chart to pan it, the way you would on TradingView. The cursor turns to a grab hand on any chart that is zoomed in.','SAVING - every card has its own PNG button, and a SAVE ALL button at the top prints just the charts, so your browser Save as PDF gives you the whole set in one file.']},
 {v:'72.2',date:'2026-08-09',notes:['1A EXPANDED NOW MIRRORS THE TILE BY CONSTRUCTION. The tile draws one line per family - the best tilt, the best hybrid, its recycle, the chosen gate - and the payload builder now stamps those exact objects, so the explorer opens with the same lines visible in the same pure colours (amber, violet, pink, red). Before, each family opened on whichever line finished highest - often a dark shade variant - while the tile line stayed hidden. That mismatch is why colours kept looking wrong and lines kept looking missing no matter how many palettes were corrected.','The best hybrid recycle line now uses the tile own redeploy factor, so it ends exactly on the H-recycle gutter pill figure instead of a ratio computed from a different field.']},
 {v:'72.1',date:'2026-08-09',notes:['HOVERING THE KEY now does exactly what hovering a line does - that strategy lifts, every other one fades, in the chart and in the matrix. It was already wired but the plot was fighting it: the key sits inside the chart area, so moving onto a key row also counted as moving over the plot, and the plot immediately cleared the highlight the key had just set.','The in-sample, walk-forward and lockbox line-style rows are off the RUNBOARD key. The info icon covers them and they were taking three rows of a small box.']},
@@ -5873,36 +5874,13 @@ window.cmpOvlMount=function(hostId){
     // 1A MODE: stage bands FIRST so every gridline, curve and label draws on top of them —
     //   exactly the layer order championEquityHtml uses (wfBands, lockbox rect, grid, curves).
     if(ONE_A){
-      const _clip=x=>Math.max(g.pL,Math.min(g.pL+g.pw,X(g,x)));
-      // v71.74 (owner: "1A looks inconsistent still and nothing like the 1A funnel chart"): the
-      //   walk-forward region draws as ALTERNATING FOLD STRIPES, the way 1A and the config funnel
-      //   both do it — one stripe per fold, .16 / .30 alpha alternating, so you can count the test
-      //   windows off the chart. It was one flat wash before, which is the single most obvious
-      //   difference between this chart and the report's. The stripes come from the LEADING run's
-      //   folds mapped into the shared calendar (each run has its own folds, so the stripes are
-      //   that run's — the note under the chart already says the bands are the earliest door on).
-      if(_bandWF!=null){const x0=_clip(_bandWF),x1=(_bandLB!=null)?_clip(_bandLB):(g.pL+g.pw);
-        if(x1>x0){
-          const _lead=S.find(sr=>sr.wfFolds&&sr.wfFolds.length>1);
-          if(_lead){const fr=_lead.wfFolds,n=fr.length;
-            for(let i=0;i<n;i++){const a=x0+(x1-x0)*(i/n),b=x0+(x1-x0)*((i+1)/n);
-              // hover text on each stripe, the way 1A tips its fold bands
-              const _fi=(_lead.wfInfo&&_lead.wfInfo[i])?_lead.wfInfo[i]:null;
-              const _ft='walk-forward fold '+(i+1)+' of '+n+' - data held back while tuning, then tested forward'
-                +(_fi?(' · '+_lead.label+' made '+_ab$(_fi.pnl)+' here, PF '+(_fi.pf?_fi.pf.toFixed(2):'-')+', '+_fi.tr+' trades'):'');
-              s+='<rect x="'+a.toFixed(1)+'" y="'+g.eqT+'" width="'+Math.max(0,b-a).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(96,165,250,'+((i%2===0)?'.16':'.30')+')"><title>'+_ft+'</title></rect>';}
-          }else s+='<rect x="'+x0.toFixed(1)+'" y="'+g.eqT+'" width="'+(x1-x0).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(96,165,250,.16)"><title>walk-forward — data held back while tuning, then tested forward</title></rect>';}}
-      if(_bandLB!=null){const x0=_clip(_bandLB),x1=g.pL+g.pw;
-        if(x1>x0)s+='<rect x="'+x0.toFixed(1)+'" y="'+g.eqT+'" width="'+(x1-x0).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(167,139,250,.16)"><title>lockbox — never tuned, never browsed, the final untouched test</title></rect>';
-        }
-      // IS / WF / LB printed inside the top of the plot, centred over their own region (1A v64.8)
-      const _lo=g.pL,_hi=g.pL+g.pw;
-      const _wfX=(_bandWF!=null)?_clip(_bandWF):null,_lbX=(_bandLB!=null)?_clip(_bandLB):null;
-      const _anno=[{a:_lo,b:(_wfX!=null?_wfX:(_lbX!=null?_lbX:_hi)),t:'IS',c:'var(--text3)'}];
-      if(_wfX!=null)_anno.push({a:_wfX,b:(_lbX!=null?_lbX:_hi),t:'WF',c:'#60a5fa'});
-      if(_lbX!=null)_anno.push({a:_lbX,b:_hi,t:'LB',c:'#a78bfa'});
-      _anno.forEach(a=>{if(a.b-a.a<14)return;
-        s+='<text x="'+((a.a+a.b)/2).toFixed(1)+'" y="'+(g.eqT-5)+'" text-anchor="middle" font-size="7" font-weight="700" letter-spacing="0.4" fill="'+a.c+'">'+a.t+'</text>';});
+      // v72.4 (owner): NO stage SHADING on this chart. Every strategy reaches its own
+      //   walk-forward and lockbox at a DIFFERENT date, so one shared blue band and one shared
+      //   purple band drew boundaries true for at most one curve and wrong for the rest - a
+      //   strategy still in walk-forward looked like it was sitting inside the lockbox. Each
+      //   line states its own stages instead: solid in-sample, dashed walk-forward, dotted
+      //   lockbox - the line procedure every other PnL chart on the site uses. The region
+      //   labels went with the bands, since they labelled regions that no longer exist.
     }
     // 1A MODE: work out the endpoint-pill y positions FIRST, so a gridline label that would sit
     //   underneath a pill is simply not drawn — 1A never shows two $ figures on top of each other.
@@ -5929,7 +5907,7 @@ window.cmpOvlMount=function(hostId){
           +(_xDateStr?('<text x="'+xPix.toFixed(1)+'" y="'+(g.H-8)+'" text-anchor="middle" font-size="7" fill="var(--text5)">'+_xDateStr(xf)+'</text>'):'');}}
     // DRAWDOWN pane frame
     s+='<line x1="'+g.pL+'" y1="'+(g.ddT-8).toFixed(1)+'" x2="'+(g.pL+g.pw)+'" y2="'+(g.ddT-8).toFixed(1)+'" stroke="var(--text4)" opacity="0.4"/>'
-      +'<text x="'+g.pL+'" y="'+(g.ddT+2).toFixed(1)+'" font-size="7.5" letter-spacing="1" fill="var(--text5)">DRAWDOWN</text>'
+      +'<text x="'+g.pL+'" y="'+(g.ddT-2).toFixed(1)+'" font-size="7.5" letter-spacing="1" fill="var(--text5)">DRAWDOWN</text>'
       +'<line x1="'+g.pL+'" y1="'+Yd(0).toFixed(1)+'" x2="'+(g.pL+g.pw)+'" y2="'+Yd(0).toFixed(1)+'" stroke="var(--border)" opacity="0.3"/>'
       +'<text x="'+(g.pL+g.pw+5)+'" y="'+(Yd(0)+3).toFixed(1)+'" font-size="7.5" fill="var(--text5)">$0</text>';
     // v71.77: the DEEPEST drawdown on show, called out with a dashed reference line and a filled
@@ -5954,6 +5932,15 @@ window.cmpOvlMount=function(hostId){
       if(li!=null){const dot=_clipN(pts.slice(li));
         if(dot.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(g,dot,Y)+'" fill="none" stroke="'+sr.color+'" stroke-width="'+_sw(sr)+'" stroke-dasharray="0.1,5" stroke-linecap="round" opacity="'+((_spot==null||_spot===String(sr.id))?'0.9':'0.13')+'"/>';}
     });
+    // v72.4 HIGH-WATER MARK (owner: "maybe add the watermark as a toggle. want to see it first"):
+    //   each curve's running peak - the most that strategy had ever made up to that point. The gap
+    //   between a line and its own mark IS the drawdown it was sitting in right then, so a long
+    //   flat mark with the line under it reads as a long stretch below water. Thin, faint, in the
+    //   curve's own colour, and only for the strategies currently shown.
+    if(ONE_A&&window._rbHwm)S.forEach(sr=>{
+      let pk=-Infinity;const hp=sr.pts.map(p=>{if(p.v>pk)pk=p.v;return {x:p.x,v:pk};});
+      const vis=_clipN(hp);
+      if(vis.length>1)s+='<path d="'+seg(g,vis,Y)+'" fill="none" stroke="'+sr.color+'" stroke-width="0.9" stroke-dasharray="2,3" opacity="'+((_spot==null||_spot===String(sr.id))?'0.5':'0.08')+'"/>';});
     s+='</g><g clip-path="url(#'+hostId+'-clip)">';
     S.forEach(sr=>{const dd=ddMap[sr.id],ddPts=sr.pts.map((p,i)=>({x:p.x,v:dd[i]})),dvis=_clipN(ddPts);
       if(dvis.length<2)return;
@@ -15632,7 +15619,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   a GRAPH DETAIL slider that thins the DRAWN line without touching any total. Both are
         //   here now, in the same title-row order the report uses.
         const _fInfo=_infoIc(_ipAB('One curve per strategy — each strategy best run, drawn on ONE shared calendar so they line up by date rather than by trade count. Line style marks the stage: <b>solid</b> = in-sample, the stretch the config was tuned on; <b>dashed</b> = walk-forward, data held back while tuning and then tested forward; <b>dotted</b> = the lockbox, never touched until the end. Blue stripes = the walk-forward folds, one stripe per fold; the purple wash and dashed door = the lockbox. The pill at the right of each line is that strategy ending dollars. Click a line in the key to hide it — the axis and the drawdown pane rescale to what is left. Wheel zooms, drag pans, double-click resets, and the expand button opens the fullscreen explorer with a trade blotter.','strategies run DIFFERENT windows, so the bands span from the earliest door onward'));
-        const funnelTile=tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden">1A '+_fInfo+' FUNNEL<span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px;flex:0 0 auto"><button data-rbadd title="add another run to the chart - any strategy config from your history, not just each strategy champion" style="flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:9px;font-weight:700;border-radius:6px">＋ ADD</button>'+((Array.isArray(APREF.rbAdd)&&APREF.rbAdd.length)?('<span data-rbaddclr title="remove every hand-added run" style="cursor:pointer;color:var(--text5);font-size:9px">clear '+APREF.rbAdd.length+'</span>'):'')+'<button data-cmpexpand title="open the fullscreen multi-curve explorer" style="flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></span></div><div id="cmp-ovl-host" style="position:relative;min-height:'+_rbFH+'px">'+ovl+'</div>'
+        const funnelTile=tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden">1A '+_fInfo+' FUNNEL<span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px;flex:0 0 auto"><span data-rbhwm title="HIGH-WATER MARK - each line running peak, the most that strategy had ever made up to that point. The gap between a line and its own mark is the drawdown it was sitting in right then." style="cursor:pointer;user-select:none;padding:2px 7px 3px;font-size:8px;font-weight:700;letter-spacing:.4px;white-space:nowrap;border-radius:5px;background:color-mix(in srgb,#f0b429 '+(window._rbHwm?'15':'5')+'%,transparent);color:'+(window._rbHwm?'#f0b429':'var(--text4)')+'">HWM</span><button data-rbadd title="add another run to the chart - any strategy config from your history, not just each strategy champion" style="flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:9px;font-weight:700;border-radius:6px">＋ ADD</button>'+((Array.isArray(APREF.rbAdd)&&APREF.rbAdd.length)?('<span data-rbaddclr title="remove every hand-added run" style="cursor:pointer;color:var(--text5);font-size:9px">clear '+APREF.rbAdd.length+'</span>'):'')+'<button data-cmpexpand title="open the fullscreen multi-curve explorer" style="flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></span></div><div id="cmp-ovl-host" style="position:relative;min-height:'+_rbFH+'px">'+ovl+'</div>'
           +_grip('funnel','drag up / down to resize the funnel · double-click = back to the default height')
           );
         // the long note that used to sit under the table now lives behind the title info icon.
@@ -15862,6 +15849,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   FUNNEL and MATRIX are side-by-side columns, the way 1A and 1E sit side by side in the
         //   run report. The strategy list keeps the narrow left column, same as COMPARE's picker.
         //   Each column carries a min-width so a narrow viewport wraps instead of squeezing.
+        window._rbHwm=!!APREF.rbHwm;
         window._cmpOvl1A=true;
         // v71.27 (owner: "i cant change the size ... with sliders"): drag bars BETWEEN the three
         //   columns trade width the same way the section-1 splitters do, and the ratio persists.
@@ -16806,6 +16794,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-rborient]').forEach(b=>{b.onclick=()=>{savePref('rbOrient',b.dataset.rborient);renderApp();};});
       // ＋ ADD on the funnel — pick any runs from history and pin them onto the board as extra
       //   lines/columns, on top of the automatic one-per-strategy champions.
+      {const _hw=content.querySelector('[data-rbhwm]');
+       if(_hw)_hw.onclick=()=>{savePref('rbHwm',!APREF.rbHwm);renderApp();};}
       {const _ab=content.querySelector('[data-rbadd]');
        if(_ab)_ab.onclick=()=>{
          const pool=(runHistory||[]).filter(r=>r&&(r.validate||r.equity||r.best_pnl_usd!=null)).slice(0,300);
