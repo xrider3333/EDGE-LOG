@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.51';
+const VERSION='71.52';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.52',date:'2026-08-09',notes:['RUNBOARD matrix rebuilt to match how 1E is ACTUALLY laid out. 1E is metrics only - no band of text rows at the top. The board was printing Strategy, Market, Scope, Window and Stages as five prose rows, which is what made it read as a wall of text instead of a table you can scan.','A column is now a short name plus the years it covers, and nothing else. Strategy, market, scope and the exact dates are on hover, the way 1E puts its date range under the stage name.','Rows sit in the 1E bands: RETURN with the money row leading and the stage split indented beneath it, then DRAWDOWN, REWARD divided by RISK, EDGE, SAMPLE and VERDICT. FULL now carries MAR, PF, win rate, dollars per trade and trades instead of stopping at the net split.','Honest dashes: only a book records a whole-run profit factor, win rate and dollars per trade, because only a book re-measures its own pooled trades. Every other run shows a dash there rather than borrowing its optimize-window figure and calling it a whole-run number.','ROBUSTNESS was printing NaN on a book run. It shows a dash now - that score was never defined for a book.','A short window is flagged with a yellow warning mark on the column head itself, not just in a row.']},
 {v:'71.49',date:'2026-08-09',notes:['BOOKS table fix: every lockbox run was showing up as a book, because the word LOCKBOX contains the letters book. A row is a book only if it actually carries pooled book results now.','BOOK row numbers all describe the SAME stretch. A row was mixing a whole-run net with an in-sample profit factor and in-sample trade count, which reads as nonsense. Net, PF, drawdown, MAR and trades now all come from the stretch the SAMPLE tabs are on.']},
 {v:'71.48',date:'2026-08-09',notes:['BOOK legs find their own data now. A saved run does not always record whether it traded the day session or the overnight one, so an overnight leg was being asked for day-session data and the whole book failed with no data for that leg. The book now infers the session from the leg data source and, failing that, tries the alternatives before giving up - and each finished book reports which data each leg actually ran on.']},
 {v:'71.45',date:'2026-08-09',notes:['CHART and TRADES fetches now wait up to 5 MINUTES instead of giving up at 90 seconds. When a backtest is running on your PC every fetch queues behind it, and 90s was routinely too short - the wait window kept counting while the fetch had already silently died. The timeout message also says the likely reason now: runner off, or busy with a backtest.']},
@@ -14464,30 +14465,95 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +_grip('funnel','drag up / down to resize the funnel · double-click = back to the default height')
           +'<div style="font-size:8px;color:var(--text5);margin-top:4px;line-height:1.7">Every strategy runs its OWN window, so the bands span from the earliest door onward: un-shaded = in-sample, <span style="color:#60a5fa">blue = walk-forward</span>, <span style="color:#a78bfa">purple = lockbox</span> (dashed line = the middle strategy door). Line style per curve: solid in-sample, dashed walk-forward, dotted lockbox. The pill on the right of each line is that strategy ending $.</div>');
         const _rbScNote='<div style="font-size:8px;color:var(--text5);margin-top:6px;line-height:1.7">'
-          +(_rbS==='full'?'FULL = the whole run end to end, read off the champion equity curve, split into the indented IS / WF / LB rows.':(_rbS==='is'?'IS = the optimize window - the stretch every config was TUNED on, optimistic by construction.':'LB = the lockbox year only, never touched during tuning - the honest forward read.'))
-          +' MAX DD prints positive. A dash means that run never ran the stage. Dollar figures are abbreviated (k = thousand, M = million). With SAMPLE = FULL the PF ranking uses the optimize-window PF (no whole-run PF is stored), and FULL / LB drawdowns are read off the stored curve - close approximations, same treatment for every row.</div>';
+          +'Each column is one strategy: its short name, the years it covers underneath, everything else on hover. '
+          +(_rbS==='full'?'FULL = the whole run end to end, split into the indented in-sample / walk-forward / lockbox rows.':(_rbS==='is'?'IS = the optimize window, the stretch every config was TUNED on - optimistic by construction.':'LB = the lockbox stretch only, never touched during tuning - the honest forward read.'))
+          +' MAX DD prints positive and a dash means that figure was never measured on this stretch - only a book records a whole-run profit factor, win rate and dollars per trade, because only a book re-measures its own pooled trades. A yellow ⚠ marks a window under two years, whose dollar figures do not compare with a full-history run.</div>';
         // 1E shell: entity COLUMNS (one per strategy champion, swatched in its curve colour, the
         //   RANK BY leader emphasised in its own hue) × grouped metric ROWS (M's `sec` bands).
+        // ── v71.50 (owner: "looks messy … look at section 1E again and asses how its laid out").
+        //    1E's actual discipline, matched here row for row:
+        //      · a column header is a SHORT NAME plus a tiny year range and NOTHING else — every
+        //        other identity fact (strategy, market, scope, exact dates) rides in the hover;
+        //      · there is NO identity band of text rows. 1E is metrics only, top to bottom;
+        //      · each column wears a wash of its own colour, the leader a stronger one;
+        //      · rows sit in the same bands 1E uses: RETURN · DRAWDOWN · REWARD ÷ RISK · EDGE ·
+        //        SAMPLE · VERDICT, with the money row leading and the stage split indented under it.
+        //    The old board printed Strategy / Market / Scope / Window / Stages as five text rows,
+        //    which is what made it read as a wall of prose instead of a metric matrix.
+        const _yy2=s=>{const t=Date.parse(s||'');return isNaN(t)?'':("’"+String(new Date(t).getUTCFullYear()).slice(2));};
+        const _drOf=r=>{const a=_yy2(r.date_from),b=_yy2(r.date_to);return (a&&b)?(a+'–'+b):'';};
+        const _spanOf=r=>{const a=Date.parse(r.date_from||''),b=Date.parse(r.date_to||'');
+          return (isNaN(a)||isNaN(b)||b<=a)?null:Math.round((b-a)/86400000);};
+        const _shortOf=r=>((r.famKey&&r.famSeq!=null)?(r.famKey+'-'+r.famSeq):('#'+r.id));
         const _mCols=runs.map((r,i)=>{const full=((stratTag(r.strategy)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||'';
-          return {lbl:'<span style="display:inline-flex;align-items:center;gap:4px;justify-content:flex-end"><span style="width:8px;height:8px;border-radius:2px;background:'+curves[i].c+';flex:0 0 auto"></span>#'+r.id+'</span>',
-            sub:((r.famKey&&r.famSeq!=null)?(r.famKey+'-'+r.famSeq):(instTag(r.instrument)||'').replace(/<[^>]*>/g,'').trim()),
-            col:curves[i].c,emph:(i===0),emphCol:curves[i].c,run:r,
-            tip:(full+' · rank '+(i+1)+' by '+({mar:'MAR',pf:'PF',net:'NET $',dd:'MAX DD'})[_rbR]+' on '+_rbS.toUpperCase()).replace(/"/g,'&quot;')};});
-        const _mGroups=[];
-        // rows carrying no `sec` are the identity block at the TOP (strategy / market / scope /
-        //   tests) and the single VERDICT row at the BOTTOM — name them apart so the matrix does
-        //   not print the same band caption twice.
-        let _seenSec=false;
-        M.forEach(m=>{if(m.sec)_seenSec=true;
-          const nm=(m.sec||(_seenSec?'verdict':'run')).toUpperCase();
-          let grp=_mGroups.length?_mGroups[_mGroups.length-1]:null;
-          if(!grp||grp.name!==nm){grp={name:nm,rows:[]};_mGroups.push(grp);}
-          // best-in-row stays the COMPARE / 1E green highlight, computed per metric row
-          let bi=-1;if(m.v&&m.b){let bv=null;runs.forEach((r,i)=>{const val=m.v(r);if(bv===null||(m.b==='max'?val>bv:val<bv)){bv=val;bi=i;}});}
-          const _isTop=/^(Net P&L|Total net|Max DD|MAR|PF|Verdict)/.test(m.l);
-          grp.rows.push({lbl:m.l,top:_isTop,
-            cell:c=>{const i=runs.indexOf(c.run);
-              return (i>=0&&i===bi)?('<b style="color:var(--green)">'+m.f(c.run)+'</b>'):m.f(c.run);}});});
+          const d=_spanOf(r),short=(d!=null&&d/365.25<2);
+          return {lbl:'<span style="display:inline-flex;align-items:center;gap:4px;justify-content:flex-end"><span style="width:8px;height:8px;border-radius:2px;background:'+curves[i].c+';flex:0 0 auto"></span>'+_shortOf(r)+(short?' <span style="color:var(--yellow)">⚠</span>':'')+'</span>',
+            sub:_drOf(r),col:curves[i].c,emph:(i===0),emphCol:curves[i].c,run:r,
+            tip:(full+' · #'+r.id+' · '+((instTag(r.instrument)||'').replace(/<[^>]*>/g,'').trim())+' '+(r.timeframe||'')
+              +' · '+(r.scope||'')+' · '+(r.date_from||'?')+' to '+(r.date_to||'?')
+              +(d!=null?(' ('+((d/365.25>=1.5)?((d/365.25).toFixed(1)+' years'):(d+' days'))+')'):'')
+              +(short?' — SHORT SAMPLE: its dollar figures are not comparable with a full-history run':'')
+              +' · rank '+(i+1)+' by '+({mar:'MAR',pf:'PF',net:'NET $',dd:'MAX DD'})[_rbR]+' on '+_rbS.toUpperCase()).replace(/"/g,'&quot;')};});
+        // metric rows, 1E's own set and order. Whole-run PF / win% / $-per-trade only exist for a
+        //   BOOK (which measures its own pooled pile) — every other run shows an honest dash there
+        //   rather than borrowing its optimize-window figure and calling it a whole-run number.
+        const _bw=r=>(r&&r.book)?((_rbS==='lb')?r.book.lockbox:((_rbS==='is')?r.book.pre_lockbox:r.book.whole)):null;
+        const _num=(v,f)=>(v==null||!isFinite(v))?'<span style="color:var(--text5)">—</span>':f(v);
+        const _pf2=v=>(v==null||!isFinite(v)||v<=0)?null:Math.min(v,99);
+        const _netOf=r=>{const b=_bw(r);if(b)return +b.total_pnl||0;
+          return (_rbS==='is')?(+r.best_pnl_usd||0):((_rbS==='lb')?((_lbA(r)||{}).net):(_totA(r).net));};
+        const _ddOf2=r=>{const b=_bw(r);if(b)return Math.abs(+b.max_drawdown||0);
+          return (_rbS==='is')?Math.abs(+r.best_dd_usd||0):((_rbS==='lb')?_eqDD(r,'lb'):(_eqDD(r,'full')||Math.abs(+r.best_dd_usd||0)));};
+        const _pfOf=r=>{const b=_bw(r);if(b)return _pf2(+b.profit_factor);
+          return (_rbS==='is')?_pf2(+r.best_pf):((_rbS==='lb')?_pf2((_lbA(r)||{}).pf):null);};
+        const _wrOf=r=>{const b=_bw(r);if(b)return (b.win_rate!=null)?+b.win_rate:null;
+          return (_rbS==='is')?((r.best_win_rate!=null)?+r.best_win_rate:null):null;};
+        const _trOf=r=>{const b=_bw(r);if(b)return +b.num_trades||0;
+          return (_rbS==='is')?(+r.best_trades||0):((_rbS==='lb')?((_lbA(r)||{}).tr):null);};
+        const _marOf=r=>{const n=_netOf(r),d=_ddOf2(r);return (n!=null&&d&&d>1e-9)?n/d:null;};
+        const _bestOf=(fn,dir)=>{let bv=null,bi=-1;runs.forEach((r,i)=>{const v=fn(r);
+          if(v==null||!isFinite(v))return;if(bv===null||(dir==='min'?v<bv:v>bv)){bv=v;bi=i;}});return bi;};
+        const _mk=(lbl,fn,fmt,dir,opt)=>{const bi=(dir?_bestOf(fn,dir):-1);
+          return Object.assign({lbl:lbl,cell:c=>{const i=runs.indexOf(c.run),v=fn(c.run);
+            const txt=_num(v,fmt);
+            return (i>=0&&i===bi&&v!=null&&isFinite(v))?('<b style="color:var(--green)">'+String(txt).replace(/color:var\(--text5\)/,'')+'</b>'):txt;}},opt||{});};
+        const _m$=v=>'<span style="color:'+(v>=0?'#1d9e75':'#e24b4a')+';font-weight:700">'+_ab$(v)+'</span>';
+        const _mSub=v=>'<span style="color:var(--text4)">'+_ab$(v)+'</span>';
+        const _mGroups=[
+          {name:'RETURN',rows:[
+            _mk((_rbS==='is')?'NET $ · IS':((_rbS==='lb')?'NET $ · LB':'NET $ · whole run'),_netOf,_m$,'max',{top:true})
+          ].concat((_rbS==='full')?[
+            _mk('├ in-sample $',r=>{const b=_bw(r);return b?null:_totA(r).is;},_mSub),
+            _mk('├ walk-forward $',r=>{const a=_wfA(r);return a?a.net:null;},_mSub),
+            _mk('└ lockbox $',r=>{const a=_lbA(r);return a?a.net:null;},_mSub)
+          ]:[])},
+          {name:'DRAWDOWN',rows:[_mk('MAX DD',_ddOf2,v=>'<span style="color:#e24b4a">'+_ab$(Math.abs(v))+'</span>','min')]},
+          {name:'REWARD ÷ RISK',rows:[
+            _mk('MAR',_marOf,v=>'<span style="color:'+(v>=2?'var(--green)':'var(--text2)')+';font-weight:'+(v>=2?'700':'400')+'">'+v.toFixed(2)+'×</span>','max',{top:true})]},
+          {name:'EDGE',rows:[
+            _mk('PF',_pfOf,v=>'<span style="color:'+(v>=1?'var(--text)':'var(--red)')+'">'+v.toFixed(2)+'</span>','max'),
+            _mk('WIN %',_wrOf,v=>'<span style="color:var(--text2)">'+Math.round(v)+'%</span>','max'),
+            _mk('$ / TRADE',r=>{const n=_netOf(r),t=_trOf(r);return (n!=null&&t)?n/t:null;},v=>'<span style="color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>','max'),
+            // scoreRun can come back NaN for a run type it was never written for (a book) — show a
+            // dash instead of printing NaN into the table.
+            _mk('ROBUSTNESS',r=>{const s=scoreRun(r);return (s!=null&&isFinite(s))?+s:null;},v=>'<span style="color:'+(v>=70?'var(--green)':v>=45?'var(--yellow)':'var(--red)')+';font-weight:700">'+Math.round(v)+'</span>','max')]},
+          {name:'SAMPLE',rows:[
+            _mk('TRADES',_trOf,v=>'<span style="color:var(--text3)">'+Math.round(v).toLocaleString()+'</span>','max'),
+            {lbl:'WINDOW',cell:c=>{const r=c.run,d=_spanOf(r);if(d==null)return '<span style="color:var(--text5)">—</span>';
+              const y=d/365.25,short=y<2;
+              return '<span title="'+(r.date_from||'?')+' to '+(r.date_to||'?')+'" style="color:'+(short?'var(--yellow)':'var(--text4)')+'">'+(short?'⚠ ':'')+((y>=1.5)?(y.toFixed(1)+'y'):(d+'d'))+'</span>';}},
+            {lbl:'STAGES RUN',cell:c=>{const r=c.run,a=_wfA(r),lb=r.validate&&r.validate.lockbox,bk=!!(r&&r.book);
+              const one=(t,on,col,tip)=>'<span title="'+tip+'" style="color:'+(on?col:'var(--text5)')+';opacity:'+(on?'1':'.45')+'">'+t+'</span>';
+              return '<span style="white-space:nowrap">'
+                +one('IS',true,'var(--text3)','in-sample — every run measures this stretch')
+                +'<span style="color:var(--text5)"> · </span>'
+                +one('WF',!!a,(a&&a.held>=a.n/2)?'var(--green)':'var(--yellow)',bk?'a book tunes nothing, so it has no walk-forward folds by design':('walk-forward'+(a?(' · '+a.held+'/'+a.n+' folds held'):' — not run')))
+                +'<span style="color:var(--text5)"> · </span>'
+                +one('LB',!!lb,(lb&&lb.pass)?'var(--green)':'var(--red)','lockbox'+(lb?(lb.pass?' · held':' · failed'):' — not run'))+'</span>';}}]},
+          {name:'VERDICT',rows:[
+            {lbl:'VERDICT',top:true,cell:c=>{const v=c.run.validate?c.run.validate.verdict:'';
+              return v?'<b style="color:'+(v==='PASS'?'var(--green)':v==='WEAK'?'var(--yellow)':'var(--red)')+'">'+v+'</b>':'<span style="color:var(--text5)">—</span>';}}]}
+        ];
         // v71.27: the matrix scrolls inside a box whose height the owner can drag, same handle.
         const _rbMH=Math.max(160,Math.min(1600,Math.round(+APREF.rbMtxH||420)));
         const matrixTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap"><span class="lbl" style="flex-shrink:0">1E · MATRIX <span style="font-weight:400;color:var(--text5);font-size:8px">· '+runs.length+' strateg'+(runs.length===1?'y':'ies')+' · green = best in row</span></span>'+_rbCtlRow+'</div>'
