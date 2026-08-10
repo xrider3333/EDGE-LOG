@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.46';
+const VERSION='71.47';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -8366,7 +8366,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _cp=(opts&&opts.compact)?(_wide?'3px 3px':'3px 4px'):'5px 6px',_hp=(opts&&opts.compact)?(_wide?'3px 3px':'3px 4px'):'4px 6px';
       const _ncol=cols.length+1,_stick='position:sticky;left:0;z-index:1;';
       const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:'+_hp+';vertical-align:bottom;'+_stick+'background:var(--bg2)">METRIC</th>'
-        +cols.map(c=>'<th'+(c.tip?' title="'+c.tip+'"':'')+' style="text-align:right;padding:'+_hp+';white-space:nowrap;'+(c.tip?'cursor:help;':'')+'vertical-align:top;color:'+(c.col||'var(--text2)')+(c.emph?';font-weight:800':';font-weight:700')+(c.emph?_mtxEmph(c):'')+'">'+c.lbl+(c.sub?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+c.sub+'</div>':'')+'</th>').join('')+'</tr>';
+        +cols.map(c=>'<th'+(c.tip?' title="'+c.tip+'"':'')+' style="text-align:right;padding:'+_hp+';line-height:1.35;white-space:nowrap;'+(c.tip?'cursor:help;':'')+'vertical-align:top;color:'+(c.col||'var(--text2)')+(c.emph?';font-weight:800':';font-weight:700')+(c.emph?_mtxEmph(c):'')+'">'+c.lbl+(c.sub?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+c.sub+'</div>':'')+'</th>').join('')+'</tr>';
       const body=groups.map(g=>{
         const grpRow='<tr><td colspan="'+_ncol+'" style="padding:9px 6px 2px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+g.name+'</td></tr>';
         const rows=g.rows.map(r=>{
