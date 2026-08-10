@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.58';
+const VERSION='71.59';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.59',date:'2026-08-09',notes:['FUNNEL opens on the top THREE raw configs instead of every stored curve. On a run that saved 400 of them the gate, tilt and hybrid lines were buried under a wall of near-identical raw curves. The configs slider still spans all of them, and a setting you drag yourself still wins.']},
 {v:'71.58',date:'2026-08-09',notes:['FIXED the "Document already exists" error on candle / blotter fetches. On a shaky connection the browser retries sending the command to your PC, and the retry was tripping over the first attempt - the fetch had actually gone through, but the window showed a failure. Command sends are retry-proof now.']},
 {v:'71.57',date:'2026-08-09',notes:['RUNBOARD heat: a short-window column is left OUT of the colour scale, for the same reason the 1E card drops its ungated baseline out of its own heat - a column that is not a like-for-like comparison drags the scale and paints every real one the same colour. A 19-day run scoring a MAR of 1400 was making all five full-history strategies read red. Those cells still shade, in a muted grey, so they read as measured but deliberately excluded.','The in-sample, walk-forward and lockbox split rows are heat mapped too, like the matching rows on the 1E card.']},
 {v:'71.56',date:'2026-08-09',notes:['RUNBOARD matrix now wears the three things that actually make the 1E card look like itself. HEAT: every cell shaded by where it lands across its own row, green best through red worst, with the middle of the pack left quiet - the same shading maths and the same amber HEAT tab the 1E card uses. On by default, and remembered.','Every row NAMES ITS WINDOW, the way 1E rows read PF then the stretch. So a row is NET dollars FULL, MAX DD FULL, MAR FULL divided by FULL DD, and so on - you can never read a number without knowing what it was measured over.','Column heads use the 1E format: a rank number, a crown on the leader, the short name, and the years underneath. Band captions read like 1E too - return then the stretch, reward divided by risk then the stretch, sample, verdict.']},
@@ -8888,7 +8889,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // draw ALL stored curves; the slider picks how many get COLOUR — the rest stay as faint
       //   grey context lines (owner request) instead of disappearing. Slider max = stored curves.
       // v64.27 (owner): DEFAULT = every stored curve (the slider already spans them all).
-      const _cfgPts=Math.max(2,Math.min(etop.length,(+APREF.cfgPts)||etop.length)),_cfgShow=Math.min(_cfgPts,etop.length);
+      // v71.56 (owner: "for the raw configs shown by default only show the top three"): the funnel
+      //   used to open with EVERY stored curve drawn, which on a 400-curve run buried the gate,
+      //   tilt and hybrid lines under a wall of near-identical raw configs. Default is the top 3
+      //   now; the configs slider still spans all of them and a dragged setting still wins.
+      const _cfgPts=Math.max(2,Math.min(etop.length,(+APREF.cfgPts)||Math.min(3,etop.length))),_cfgShow=Math.min(_cfgPts,etop.length);
       const series=etop.map(o=>((o&&o.cum)?o.cum:o).map(x=>x*mult));let mn=0,mx=0;series.forEach(s=>s.forEach(v=>{if(v<mn)mn=v;if(v>mx)mx=v;}));extYs.forEach(v=>{if(v<mn)mn=v;if(v>mx)mx=v;});const rg=(mx-mn)||1;
       // colour the curves: by RANK (winner brightest) or by a chosen PARAM value (mapped to
       // each curve by index — equity_top is rank-ordered like top10_results).
