@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.71';
+const VERSION='71.72';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.72',date:'2026-08-09',notes:['RUNBOARD heat map is RANK based now, so EVERY column gets a colour. Shading by raw value let one freak number own the whole scale - a 19-day run scoring a MAR of 1400 pushed every real strategy to the same red - so short-window columns had to be cut out of the scale and left grey, and that grey is what read as columns not being heat mapped. Ranking each column against the others is immune to outliers: everything with a number gets its own shade, ties share one.','The reward and risk band is filled in. Whole-run profit factor and win rate were blank on every run except a book. They are recoverable the same way the run report builds them - profit factor by pooling the stages rather than averaging ratios, win rate and Sharpe from the whole-window figures the validate already saves - and SHARPE is now a row, like it is on the 1E card.','The metric column says the window ONCE, on the band caption, instead of repeating it on every row. A row only names a window of its own when it genuinely measures a different one: FOLDS HELD is always walk-forward and ROBUSTNESS is always whole-run.']},
 {v:'71.71',date:'2026-08-09',notes:['RUNBOARD panel split: only a real DRAG pins it now. A click on a divider that never moved was saving the current widths as a fixed split, quietly freezing the three panels at whatever size they happened to be - which is how the matrix could end up narrower than its own table on a later visit and look cramped for no reason. A click with no drag now clears the pin and goes back to the automatic sizing.']},
 {v:'71.70',date:'2026-08-09',notes:['FIX on 71.67: clicking the new 1A ▦ TRADES tab while the card was on FUNNEL popped a blocking browser alert that froze the whole page until dismissed. The tab now carries its own blotter payload so it works from BOTH card tabs, and that alert is gone for good - a run without a payload just dims the tab with the reason on hover.']},
 {v:'71.69',date:'2026-08-09',notes:['RUNBOARD metric names and their order now match the 1E card. 1E lists the stage money rows first and then TOTAL as the summary - it does not lead with a total and indent children under it. So the rows read IS dollars, WF dollars, LB dollars, then TOTAL.','It says DD, not MAX DD, for the same reason the 1E card was renamed: a drawdown measured on one stretch is not the maximum drawdown of the whole run.','The stage-lit row is replaced by FOLDS HELD, the row 1E actually carries. A book shows a dash there and says why on hover - it tunes nothing, so it has no folds to hold by design.','SAMPLE, RANK and HEAT moved off the far right. They were pinned to the tile right edge, and now that the table sizes to its own content the tile is often much wider than the table - so the controls were stranding themselves hundreds of pixels from the thing they control. They sit on their own line under the title, reading left to right like the table below them.']},
@@ -15043,10 +15044,33 @@ namespace NinjaTrader.NinjaScript.Strategies {
           return (_rbS==='is')?(+r.best_pnl_usd||0):((_rbS==='lb')?((_lbA(r)||{}).net):(_totA(r).net));};
         const _ddOf2=r=>{const b=_bw(r);if(b)return Math.abs(+b.max_drawdown||0);
           return (_rbS==='is')?Math.abs(+r.best_dd_usd||0):((_rbS==='lb')?_eqDD(r,'lb'):(_eqDD(r,'full')||Math.abs(+r.best_dd_usd||0)));};
+        // v71.72 (owner: "were missing data for the risk / reward in them too"): the whole-run PF
+        //   and win rate were blank on every run except a book. They are recoverable — the run
+        //   report's own KPI matrix builds them the same way: PF by POOLING the stages (rebuild
+        //   each stage's gross loss from its net and PF, sum the grosses — a true pooled PF, never
+        //   an average of ratios), and win rate / Sharpe from the whole-window champion figures
+        //   the validate saves. Anything genuinely not stored still shows a dash.
+        const _poolPF=items=>{let gw=0,gl=0;
+          items.forEach(f=>{const pf=+f.pf||0,net=+f.net||0;
+            if(pf>0&&isFinite(pf)&&Math.abs(pf-1)>1e-4){const g=Math.abs(net/(pf-1));gw+=pf*g;gl+=g;}});
+          return gl>0?gw/gl:null;};
         const _pfOf=r=>{const b=_bw(r);if(b)return _pf2(+b.profit_factor);
-          return (_rbS==='is')?_pf2(+r.best_pf):((_rbS==='lb')?_pf2((_lbA(r)||{}).pf):null);};
+          if(_rbS==='is')return _pf2(+r.best_pf);
+          if(_rbS==='lb')return _pf2((_lbA(r)||{}).pf);
+          const a=_wfA(r),lb=_lbA(r),t=_totA(r);
+          return _pf2(_poolPF([{net:t.is,pf:+r.best_pf||0},
+                               {net:(a?a.net:0),pf:(a&&a.pfm!=null)?a.pfm:0},
+                               {net:(lb?lb.net:0),pf:(lb?lb.pf:0)}]));};
         const _wrOf=r=>{const b=_bw(r);if(b)return (b.win_rate!=null)?+b.win_rate:null;
-          return (_rbS==='is')?((r.best_win_rate!=null)?+r.best_win_rate:null):null;};
+          const V=r.validate;
+          if(_rbS==='is')return (r.best_win_rate!=null)?+r.best_win_rate:null;
+          if(_rbS==='lb'){const lb=V&&V.lockbox;return (lb&&lb.win_rate!=null)?+lb.win_rate:null;}
+          return (V&&V.total_win_rate!=null)?+V.total_win_rate:null;};
+        // SHARPE — the row the 1E card carries in this same band.
+        const _shOf=r=>{const V=r.validate;if(!V)return null;
+          if(_rbS==='is')return (V.is_sharpe!=null)?+V.is_sharpe:null;
+          if(_rbS==='lb'){const lb=V.lockbox;return (lb&&lb.sharpe!=null)?+lb.sharpe:null;}
+          return (V.total_sharpe!=null)?+V.total_sharpe:null;};
         // whole-run trades = the optimize-window champion count + the walk-forward out-of-sample
         //   counts + the lockbox count, the same sum the run report's own KPI matrix adds up.
         const _trOf=r=>{const b=_bw(r);if(b)return +b.num_trades||0;
@@ -15067,17 +15091,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   Those cells still shade — in a muted neutral — so they read as measured but excluded.
         const _shortCol=r=>{const a=Date.parse(r.date_from||''),b=Date.parse(r.date_to||'');
           return (!isNaN(a)&&!isNaN(b)&&b>a)?(((b-a)/86400000)/365.25<2):false;};
+        // v71.72 (owner: "some of the configs in the 1E matrix arent heat maped"): the heat is
+        //   RANK-based now, not value-range. Shading by raw value meant one freak number set the
+        //   whole scale — a 19-day run scoring MAR 1400 pushed every real strategy to the same
+        //   red — so short-window columns had to be cut out of the scale and left grey, which is
+        //   what read as "not heat mapped". Ranking each column against the others is immune to
+        //   that: every column with a number gets its own colour, outliers included, and ties
+        //   share a shade. Same ramp and alpha curve as the 1E card.
         const _rbHeatFn=(fn,hiGood)=>{
           if(!_rbHeat)return null;
-          const scale=runs.filter(r=>!_shortCol(r)).map(fn).filter(v=>v!=null&&isFinite(v));
-          const nums=scale.length>=2?scale:runs.map(fn).filter(v=>v!=null&&isFinite(v));
+          const nums=runs.map(fn).filter(v=>v!=null&&isFinite(v));
           if(nums.length<2)return null;
-          const mn=Math.min.apply(null,nums),mx=Math.max.apply(null,nums);
-          const _muted='hsla(0,0%,60%,0.055)';
-          if(!(mx-mn>1e-9))return c=>{const v=fn(c.run);return (v==null||!isFinite(v))?null:'hsla(62,62%,44%,0.060)';};
+          const span=nums.length-1;
           return c=>{const v=fn(c.run);if(v==null||!isFinite(v))return null;
-            if(scale.length>=2&&_shortCol(c.run))return _muted;
-            let t=Math.max(0,Math.min(1,(v-mn)/(mx-mn)));if(!hiGood)t=1-t;
+            let lt=0,eq=0;nums.forEach(x=>{if(x<v)lt++;else if(x===v)eq++;});
+            let t=span>0?((lt+(eq-1)/2)/span):0.5;if(!hiGood)t=1-t;
             return 'hsla('+Math.round(4+116*t)+',62%,44%,'+(0.06+0.16*Math.abs(t-0.5)*2).toFixed(3)+')';};};
         // every row NAMES THE WINDOW it measures, exactly like the 1E rows read "PF · IS+WF".
         const _win=(_rbS==='full')?'FULL':((_rbS==='is')?'IS':'LB');
@@ -15095,23 +15123,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   the summary — it does not lead with a total and indent children under it. And it
           //   says DD, not MAX DD, because a drawdown measured on one stretch is not the run's
           //   maximum (the same reasoning that renamed it on the 1E card in v71.31).
+          // v71.72 (owner: "why does the metric column have the word full in it so many times"):
+          //   the window is stated ONCE, on the band caption. A row only names a window of its own
+          //   when it genuinely measures a different one (FOLDS HELD is always walk-forward,
+          //   ROBUSTNESS is always whole-run) — otherwise it inherits the band's.
           {name:'return · '+_win,rows:((_rbS==='full')?[
             _mk('IS $',r=>{const b=_bw(r);return b?null:_totA(r).is;},_mSub,'max'),
             _mk('WF $',r=>{const a=_wfA(r);return a?a.net:null;},_mSub,'max'),
             _mk('LB $',r=>{const a=_lbA(r);return a?a.net:null;},_mSub,'max')
           ]:[]).concat([
-            _mk('TOTAL · '+_win,_netOf,_m$,'max',{top:true}),
-            _mk('DD · '+_win,_ddOf2,v=>'<span style="color:#e24b4a">'+_ab$(Math.abs(v))+'</span>','min')])},
+            _mk('TOTAL',_netOf,_m$,'max',{top:true}),
+            _mk('DD',_ddOf2,v=>'<span style="color:#e24b4a">'+_ab$(Math.abs(v))+'</span>','min')])},
           {name:'reward ÷ risk · '+_win,rows:[
-            _mk('MAR · '+_win,_marOf,v=>'<span style="color:'+(v>=2?'var(--green)':'var(--text2)')+';font-weight:'+(v>=2?'700':'400')+'">'+v.toFixed(2)+'</span>','max',{top:true}),
-            _mk('PF · '+_win,_pfOf,v=>'<span style="color:'+(v>=1?'var(--text)':'var(--red)')+'">'+v.toFixed(2)+'</span>','max'),
-            _mk('WIN % · '+_win,_wrOf,v=>'<span style="color:var(--text2)">'+Math.round(v)+'%</span>','max'),
-            _mk('$ / TRADE · '+_win,r=>{const n=_netOf(r),t=_trOf(r);return (n!=null&&t)?n/t:null;},v=>'<span style="color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>','max'),
+            _mk('MAR',_marOf,v=>'<span style="color:'+(v>=2?'var(--green)':'var(--text2)')+';font-weight:'+(v>=2?'700':'400')+'">'+v.toFixed(2)+'</span>','max',{top:true}),
+            _mk('SHARPE',_shOf,v=>'<span style="color:var(--text2)">'+v.toFixed(2)+'</span>','max'),
+            _mk('PF',_pfOf,v=>'<span style="color:'+(v>=1?'var(--text)':'var(--red)')+'">'+v.toFixed(2)+'</span>','max'),
+            _mk('WIN %',_wrOf,v=>'<span style="color:var(--text2)">'+Math.round(v)+'%</span>','max'),
+            _mk('$ / TRADE',r=>{const n=_netOf(r),t=_trOf(r);return (n!=null&&t)?n/t:null;},v=>'<span style="color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>','max'),
             // scoreRun can come back NaN for a run type it was never written for (a book) — show a
             // dash instead of printing NaN into the table.
-            _mk('ROBUSTNESS',r=>{const s=scoreRun(r);return (s!=null&&isFinite(s))?+s:null;},v=>'<span style="color:'+(v>=70?'var(--green)':v>=45?'var(--yellow)':'var(--red)')+';font-weight:700">'+Math.round(v)+'</span>','max')]},
+            _mk('ROBUSTNESS · whole run',r=>{const s=scoreRun(r);return (s!=null&&isFinite(s))?+s:null;},v=>'<span style="color:'+(v>=70?'var(--green)':v>=45?'var(--yellow)':'var(--red)')+';font-weight:700">'+Math.round(v)+'</span>','max')]},
           {name:'sample',rows:[
-            _mk('TRADES · '+_win,_trOf,v=>'<span style="color:var(--text3)">'+Math.round(v).toLocaleString()+'</span>','max'),
+            _mk('TRADES',_trOf,v=>'<span style="color:var(--text3)">'+Math.round(v).toLocaleString()+'</span>','max'),
             {lbl:'WINDOW',cell:c=>{const r=c.run,d=_spanOf(r);if(d==null)return '<span style="color:var(--text5)">—</span>';
               const y=d/365.25,short=y<2;
               return '<span title="'+(r.date_from||'?')+' to '+(r.date_to||'?')+'" style="color:'+(short?'var(--yellow)':'var(--text4)')+'">'+(short?'⚠ ':'')+((y>=1.5)?(y.toFixed(1)+'y'):(d+'d'))+'</span>';}},
