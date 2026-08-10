@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='72.7';
+const VERSION='72.8';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'72.8',date:'2026-08-10',notes:['Ship tool fixes (dev-side, no UI change) - the version-realign step no longer skips silently on Windows, so a push can never step the site version backward again; and the pre-push boot gate now tests the worktree copy of the site that is actually being pushed, not the shared checkout.']},
 {v:'72.7',date:'2026-08-09',notes:['Hotfix: the funnel key came up blank on 72.6 - the three-state click landed but the setting it reads was never created. Key rows are back and the cycle works: click greys a strategy out, click again removes it, once more brings it back.']},
 {v:'72.6',date:'2026-08-09',notes:['RUNBOARD funnel key rows CYCLE three states on click now, instead of only deleting. First click GREYS the strategy out - it stays on the chart, faint, and still counts toward the scale so you keep the context. Second click REMOVES it. Third brings it back. The report funnel greys its non-survivors the same way.','The expand button opens the fullscreen explorer with what is actually on screen. A greyed or removed strategy no longer reappears at full strength just because you expanded the chart.']},
 {v:'72.5',date:'2026-08-10',notes:['FOUND IT - the HYBRID and HYBRID-recycle lines were never drawn in the expanded 1A because the equity draw order simply did not include those two families. Their right-edge pills and drawdown strips come from loops over every series, which is why you saw the pill and no line. Both families are in the draw order now, painted on top like the tilts.','Expanded key group headers now quote the same line the tile draws - so GATES reads the chosen gate figure (the one on the funnel gutter pill), not whichever hidden candidate happened to finish highest.']},

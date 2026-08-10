@@ -25,6 +25,12 @@ USAGE
 
 `ship` run from inside a worktree needs no name.
 
+IMPORTANT: always invoke ship via the SHARED checkout's script path, e.g.
+  python C:\\...\\EDGE-LOG\\tools\\wt.py ship
+from inside (or naming) your worktree. Running the worktree's OWN tools/wt.py
+resolves the repo root to the worktree itself, self-detects as "the shared
+checkout", and refuses to ship.
+
 Stdlib only. Safe to re-run: `new` on an existing name just prints its path.
 """
 import argparse
@@ -41,7 +47,11 @@ DEFAULT_ROOT = os.path.join(
 
 
 def run(args, cwd=None, check=True, quiet=False):
-    p = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
+    # encoding matters: git output (e.g. `git show origin/main:index.html`, 2 MB UTF-8)
+    # decoded with the Windows default cp1252 raises UnicodeDecodeError and silently
+    # skipped the VERSION realign (observed 2026-08-10: a push shipped 72.4 over 72.5).
+    p = subprocess.run(args, cwd=cwd, capture_output=True, text=True,
+                       encoding='utf-8', errors='replace')
     if p.returncode != 0 and check:
         if not quiet:
             sys.stderr.write((p.stdout or '') + (p.stderr or ''))
@@ -108,7 +118,8 @@ def cmd_ship(name, message):
     if ahead == '0':
         print('nothing to ship - HEAD has no commits beyond origin/main')
         return
-    p = subprocess.run(['git', '-C', wt, 'rebase', 'origin/main'], capture_output=True, text=True)
+    p = subprocess.run(['git', '-C', wt, 'rebase', 'origin/main'], capture_output=True,
+                       text=True, encoding='utf-8', errors='replace')
     if p.returncode != 0:
         run(['git', '-C', wt, 'rebase', '--abort'], check=False, quiet=True)
         raise SystemExit('rebase onto origin/main hit a conflict - resolve by hand in ' + wt +
@@ -138,9 +149,19 @@ def cmd_ship(name, message):
                 run(['git', '-C', wt, 'commit', '-q', '--amend', '--no-edit'])
                 print('version realigned %s -> %s (origin/main was on %s)' % (mine, want, theirs))
 
-    pf = os.path.join(root, 'tools', 'preflight_boot.py')
+    # The boot gate must test the WORKTREE's index.html. preflight_boot.py resolves its
+    # target from its own __file__ location (not cwd), so running the shared checkout's
+    # copy validates the WRONG file (observed 2026-08-10: the gate reported the shared
+    # checkout's VERSION). Prefer the worktree's own copy; fall back to the shared
+    # checkout's script pointed explicitly at the worktree's index.html via --file.
+    pf = os.path.join(wt, 'tools', 'preflight_boot.py')
+    pf_args = [sys.executable, pf]
+    if not os.path.isfile(pf):
+        pf = os.path.join(root, 'tools', 'preflight_boot.py')
+        pf_args = [sys.executable, pf, '--file', os.path.join(wt, 'index.html')]
     if os.path.isfile(pf):
-        r = subprocess.run([sys.executable, pf], cwd=wt, capture_output=True, text=True)
+        r = subprocess.run(pf_args, cwd=wt, capture_output=True, text=True,
+                           encoding='utf-8', errors='replace')
         out = (r.stdout or '') + (r.stderr or '')
         print(out.strip().splitlines()[-1] if out.strip() else '(preflight produced no output)')
         if r.returncode == 1:
