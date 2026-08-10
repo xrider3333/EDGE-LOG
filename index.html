@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.7';
+const VERSION='73.8';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.8',date:'2026-08-09',notes:['The gate sweep chart says IS + WF on the plot itself now, in the same words the rest of the report uses, instead of only in the axis title and a line underneath. The caption below it shortens to the one thing the plot cannot say: the matrix above totals whatever SAMPLE is ticked, so with LB ticked it reads higher by exactly the held-out year.']},
 {v:'73.7',date:'2026-08-10',notes:['FIX (owner-reported): in the expanded funnel, clicking the HYBRID or HYBRID recycle key row greyed out the OTHER RAW cloud instead of the hybrids. Those two families got their own key rows a while back but the click handler was never told about them, so both fell through to the last group in an old three-way branch. Every family now cycles its own lines.','FIX: the OTHER RAW row printed the ending dollars of whichever grey line happened to be first in memory, presented as the group best. It now reads the best one, like every other row.','FIX: the key rows were ORDERED by each family best line but each row PRINTS the line the funnel actually draws. When those differed the key sat in an order its own figures did not explain. Both read the same line now.']},
 {v:'73.6',date:'2026-08-10',notes:['The hover figures moved INTO the key. Mousing across the funnel used to open a second box in the top right corner listing every strategy value, which covered the chart. Each key row now shows that strategy dollars AT THE CURSOR instead, swapping back to its ending figure when you move off.','DOUBLE-CLICK anywhere on the funnel opens the expanded explorer, the same gesture the report chart uses. Double-clicking a key row still only works the key.']},
 {v:'73.5',date:'2026-08-10',notes:['FIX on the new BOOK picker: GATE was re-deriving a DEFAULT model instead of the gate this run actually crowned - on run 203 it answered with logistic at 0.5 when the run crowns xgb at 0.45. The blotter now hands your PC the run own crowned model and cut-off, so the GATE / TILT / HYBRID books you see are the ones the report is talking about.']},
@@ -12198,7 +12199,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
             g+='<line x1="'+pl+'" y1="'+uy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+uy.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" stroke-dasharray="4,3" opacity="0.85"/><text x="'+(pl+2)+'" y="'+(uy-3).toFixed(1)+'" font-size="8" fill="var(--text4)">no gate '+fv(ub)+'</text>';
             const _yc=(pt+ph/2).toFixed(1);
             const _yx=(W-7).toFixed(1);
-            g+='<text x="'+_yx+'" y="'+_yc+'" transform="rotate(-90 '+_yx+' '+_yc+')" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">'+(_yPnl?'NET $':'MAR ($ per $ drawdown)')+', tuning years only &#8594;</text>';
+            g+='<text x="'+_yx+'" y="'+_yc+'" transform="rotate(-90 '+_yx+' '+_yc+')" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">'+(_yPnl?'NET $':'MAR ($ per $ drawdown)')+' &#8594;</text>';
+            // owner: "maybe just annotate that on the sweep that its IS + WF data". In the plot,
+            //   in the same IS / WF words the rest of the report uses, so the stretch is read off
+            //   the picture instead of a caption underneath it.
+            g+='<text x="'+(pl+3)+'" y="'+(pt+8)+'" font-size="8.5" font-weight="700" letter-spacing="0.4" fill="var(--text3)">IS + WF <tspan fill="var(--text5)" font-weight="400">only &#183; the lockbox is not in these numbers</tspan></text>';
             g+='<text x="'+(pl+pw/2).toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">GATE CUT-OFF % &#8212; min win-probability to take a trade &#8594;</text>';
             models.forEach(m=>{const mc=_mc(m);
               const line=(pre)=>{const ys=pick(m,pre);if(ys.length!==ths.length)return '';
@@ -12243,7 +12248,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               //   TUNING YEARS only, because that is all the pick was allowed to see. The matrix
               //   above totals whatever SAMPLE is ticked, and with LB ticked that adds the
               //   held-out year on top. Said out loud here so the two can be reconciled on sight.
-              +'<div style="font-size:8px;color:var(--text4);margin-top:5px;line-height:1.5">Every figure on this chart covers the <b>tuning years only</b> (in-sample + walk-forward) &#8212; that is all the pick was allowed to see. The GATE matrix above totals whatever <b>SAMPLE</b> is ticked, so with <b>LB</b> ticked its numbers are higher by exactly the held-out year. Same model, same cut-off, different stretch.</div>'
+              +'<div style="font-size:8px;color:var(--text4);margin-top:5px;line-height:1.5">The matrix above totals whatever <b>SAMPLE</b> is ticked, so with <b>LB</b> ticked it reads higher than this chart by exactly the held-out year.</div>'
               +'</div>';
           }
           const models=[];cs2.forEach(c=>{if(models.indexOf(c.model)<0)models.push(c.model);});
