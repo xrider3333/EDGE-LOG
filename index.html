@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='72.2';
+const VERSION='72.3';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'72.3',date:'2026-08-10',notes:['CHART GALLERY - the mouse wheel scrolls the LIST again. Zooming a chart now takes CTRL (or Shift) plus the wheel, because a plain wheel belongs to the list you are scrolling.','CHART GALLERY - click and DRAG a zoomed chart to pan it, the way you would on TradingView. The cursor turns to a grab hand on any chart that is zoomed in.','SAVING - every card has its own PNG button, and a SAVE ALL button at the top prints just the charts, so your browser Save as PDF gives you the whole set in one file.']},
 {v:'72.2',date:'2026-08-09',notes:['1A EXPANDED NOW MIRRORS THE TILE BY CONSTRUCTION. The tile draws one line per family - the best tilt, the best hybrid, its recycle, the chosen gate - and the payload builder now stamps those exact objects, so the explorer opens with the same lines visible in the same pure colours (amber, violet, pink, red). Before, each family opened on whichever line finished highest - often a dark shade variant - while the tile line stayed hidden. That mismatch is why colours kept looking wrong and lines kept looking missing no matter how many palettes were corrected.','The best hybrid recycle line now uses the tile own redeploy factor, so it ends exactly on the H-recycle gutter pill figure instead of a ratio computed from a different field.']},
 {v:'72.1',date:'2026-08-09',notes:['HOVERING THE KEY now does exactly what hovering a line does - that strategy lifts, every other one fades, in the chart and in the matrix. It was already wired but the plot was fighting it: the key sits inside the chart area, so moving onto a key row also counted as moving over the plot, and the plot immediately cleared the highlight the key had just set.','The in-sample, walk-forward and lockbox line-style rows are off the RUNBOARD key. The info icon covers them and they were taking three rows of a small box.']},
 {v:'72.0',date:'2026-08-09',notes:['PRICE SCALE MOVED TO THE RIGHT on every candle chart, the side every trading platform puts it on. The left gutter it used to sit in was dead space.','THE GALLERY IS NOW A WORKING SURFACE, not thumbnails: roll the wheel over ANY chart in the list to zoom its price action in place, double-click to reset, and each card carries its own TRADE and FULL buttons plus a live bar count. You no longer have to open a chart to study it.','CANDLE WINDOW header tidied: flatter controls, tighter row, and the price readout moved onto its own quiet line under a divider instead of competing with the buttons.']},
@@ -3584,6 +3585,26 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
   // so they are resolved to literal colors before rasterising (2x for crispness).
 
+  // shared saver: resolves CSS variables to literal colours (they die outside the page),
+  // paints the page background in, and rasterises at 2x. Used by the candle window AND by
+  // every gallery card.
+  window.saveSvgAsPNG=function(svgEl,name){
+    if(!svgEl)return;
+    const cs=getComputedStyle(document.documentElement);
+    const raw=svgEl.outerHTML.replace(/var\((--[a-z0-9-]+)(?:,[^)]*)?\)/gi,(m2,v2)=>{const c2=cs.getPropertyValue(v2).trim();return c2||'#888';});
+    const vb=(svgEl.getAttribute('viewBox')||'0 0 1080 360').split(/\s+/),W3=+vb[2]||1080,H3=+vb[3]||360;
+    const img=new Image();
+    img.onload=()=>{
+      const cv=document.createElement('canvas');cv.width=W3*2;cv.height=H3*2;
+      const cx2=cv.getContext('2d');
+      cx2.fillStyle=cs.getPropertyValue('--bg').trim()||'#0d1117';cx2.fillRect(0,0,cv.width,cv.height);
+      cx2.drawImage(img,0,0,cv.width,cv.height);
+      const url=cv.toDataURL('image/png');
+      window._lastCandlePNG={name:name,bytes:url.length};
+      const a2=document.createElement('a');a2.href=url;a2.download=name;a2.click();
+    };
+    img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(raw);
+  };
   const _saveCandlePNG=()=>{
 
     const svgEl2=_cndlAlive()?_cndl.api.modal.querySelector('#chart-body svg'):null;if(!svgEl2)return;
@@ -3764,6 +3785,7 @@ window.openChartGallery=function(B,rowsAll,initialView,fixedLabel){
     +'<div style="display:flex;align-items:center;gap:12px;padding-bottom:8px;border-bottom:1px solid var(--border);flex:0 0 auto">'
     +'<span style="font-family:\'Bebas Neue\',monospace;font-size:20px;letter-spacing:3px;color:var(--text)">CHART GALLERY &middot; RUN #'+B.run_id+'</span>'
     +'<span id="gal-meta" style="font-size:10px;color:var(--text5);letter-spacing:.5px;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>'
+    +'<button id="gal-save" title="save every chart in this list - the print dialog that opens has a Save as PDF option" style="background:none;border:1px solid var(--border);border-radius:7px;color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;letter-spacing:2px;font-size:10px;flex:0 0 auto">&#10515; SAVE ALL</button>'
     +'<button id="gal-back" title="back to the blotter" style="background:none;border:1px solid color-mix(in srgb,var(--blue) 55%,var(--border));border-radius:7px;color:var(--blue);padding:5px 12px;cursor:pointer;font-family:inherit;letter-spacing:2px;font-size:10px;flex:0 0 auto">&lsaquo; BACK</button>'
     +'<button id="gal-close" style="background:none;border:1px solid var(--border);border-radius:7px;color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;letter-spacing:2px;font-size:10px;flex:0 0 auto">CLOSE ✕</button></div>'
     +'<div id="gal-views" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 0;flex:0 0 auto"></div>'
@@ -3775,6 +3797,25 @@ window.openChartGallery=function(B,rowsAll,initialView,fixedLabel){
   document.addEventListener('keydown',esc);
   modal.querySelector('#gal-close').onclick=close;
   modal.querySelector('#gal-back').onclick=close;   // the blotter window is still open behind it
+  // SAVE ALL: no PDF library ships with this page (and none may be loaded), so this prints
+  // JUST the gallery - every browser print dialog can Save as PDF from there. The stylesheet
+  // hides the rest of the app, drops the scroll clipping so every card lands on paper, and
+  // forces the dark chart art to survive the print colour pass.
+  const galSave=modal.querySelector('#gal-save');
+  if(galSave)galSave.onclick=()=>{
+    const st=document.createElement('style');st.id='gal-print-css';
+    st.textContent='@media print{body>*{display:none!important}body>[data-galmodal]{display:block!important;position:static!important;background:#fff!important;padding:0!important}'
+      +'[data-galmodal] #gal-views,[data-galmodal] #gal-back,[data-galmodal] #gal-close,[data-galmodal] #gal-save,[data-galmodal] [data-galpng],[data-galmodal] [data-galopen],[data-galmodal] [data-galtrade],[data-galmodal] [data-galfull]{display:none!important}'
+      +'[data-galmodal]>div{width:auto!important;max-height:none!important;border:0!important;box-shadow:none!important}'
+      +'[data-galmodal] #gal-body{overflow:visible!important;max-height:none!important}'
+      +'[data-galmodal] [data-gal]{break-inside:avoid;page-break-inside:avoid;margin-bottom:14px}'
+      +'*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}';
+    document.head.appendChild(st);
+    modal.setAttribute('data-galmodal','1');
+    const cleanup=()=>{const e2=document.getElementById('gal-print-css');if(e2)e2.remove();window.removeEventListener('afterprint',cleanup);};
+    window.addEventListener('afterprint',cleanup);
+    setTimeout(()=>{window.print();setTimeout(cleanup,1500);},60);
+  };
   const body=modal.querySelector('#gal-body'),meta=modal.querySelector('#gal-meta'),views=modal.querySelector('#gal-views');
   const card=x=>'<div data-gal="'+x._no+'" style="border:1px solid var(--border2);border-radius:8px;margin-bottom:12px;overflow:hidden">'
     +'<div style="display:flex;align-items:center;gap:10px;padding:7px 11px;background:var(--bg2);font-size:10px;letter-spacing:.5px">'
@@ -3784,6 +3825,7 @@ window.openChartGallery=function(B,rowsAll,initialView,fixedLabel){
     +'<span data-galzoom="'+x._no+'" style="font-size:8px;color:var(--text5);letter-spacing:.4px"></span>'
     +'<span data-galtrade="'+x._no+'" title="frame the held window" style="cursor:pointer;border:1px solid var(--border);border-radius:5px;padding:1px 7px;font-size:8px;color:var(--text3)">&#128269; TRADE</span>'
     +'<span data-galfull="'+x._no+'" title="show every bar (or double-click the chart)" style="cursor:pointer;border:1px solid var(--border);border-radius:5px;padding:1px 7px;font-size:8px;color:var(--text3)">FULL</span>'
+    +'<span data-galpng="'+x._no+'" title="save THIS chart as a PNG image" style="cursor:pointer;border:1px solid var(--border);border-radius:5px;padding:1px 7px;font-size:8px;color:var(--text3)">&#10515; PNG</span>'
     +'<span data-galopen="'+x._no+'" title="open this trade in the full candle window" style="cursor:pointer;border:1px solid color-mix(in srgb,var(--blue) 55%,var(--border));border-radius:5px;padding:1px 7px;font-size:8px;color:var(--blue)">OPEN &#9655;</span></div>'
     +'<div class="galchart" style="min-height:150px;display:flex;align-items:center;justify-content:center;color:var(--text5);font-size:10px">loading bars&hellip;</div></div>';
   // per-card view state: the gallery is now a working surface, not just thumbnails -
@@ -3815,6 +3857,9 @@ window.openChartGallery=function(B,rowsAll,initialView,fixedLabel){
       const G=window.CANDLE_GEO||{W:1080,mL:14,plotW:1002};
       const step=G.plotW/bars.length;
       svg3.addEventListener('wheel',ev=>{
+        // owner: the wheel was trapped by zoom so the list could not be scrolled. In a
+        // SCROLLING list the wheel belongs to the list; zoom takes Ctrl (or Shift/Cmd).
+        if(!(ev.ctrlKey||ev.metaKey||ev.shiftKey))return;
         ev.preventDefault();ev.stopPropagation();
         const rc=svg3.getBoundingClientRect();if(!(rc.width>0))return;
         const i2=Math.floor(((ev.clientX-rc.left)/rc.width*G.W-G.mL)/step);
@@ -3830,6 +3875,28 @@ window.openChartGallery=function(B,rowsAll,initialView,fixedLabel){
         drawCard(x,r);
       },{passive:false});
       svg3.addEventListener('dblclick',ev=>{ev.stopPropagation();galView[x._no]=null;drawCard(x,r);});
+      // click-drag pans the view (owner: "like in tradingview"). Only meaningful once the
+      // card is zoomed in - at full view there is nothing either side to pan to.
+      svg3.style.cursor=(bars.length<all.length)?'grab':'crosshair';
+      svg3.addEventListener('mousedown',ev=>{
+        if(ev.button!==0)return;
+        if(bars.length>=all.length)return;
+        ev.preventDefault();ev.stopPropagation();
+        svg3.style.cursor='grabbing';
+        const rc0=svg3.getBoundingClientRect(),x0=ev.clientX,span=hi3-lo3+1;
+        let raf=0,last=0;
+        const mv=e2=>{
+          const dx=Math.round((x0-e2.clientX)/rc0.width*G.plotW/step);
+          if(dx===last||raf)return;
+          raf=requestAnimationFrame(()=>{raf=0;last=dx;
+            let a3=lo3+dx,b3=hi3+dx;
+            if(a3<0){a3=0;b3=span-1;}
+            if(b3>all.length-1){b3=all.length-1;a3=b3-span+1;}
+            galView[x._no]=[Math.max(0,a3),b3];drawCard(x,r);});
+        };
+        const up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};
+        window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);
+      });
     }
   };
   // a caller-supplied name (a look-alike group) beats the generic view name - opening a
@@ -3845,13 +3912,17 @@ window.openChartGallery=function(B,rowsAll,initialView,fixedLabel){
     const mySeq=++seq;
     const vs=[['wins','TOP WINS'],['losses','TOP LOSSES'],['recent','MOST RECENT']];
     views.innerHTML=(fixedLabel?'<span title="this set is fixed to one look-alike group" style="font-size:9px;font-weight:700;letter-spacing:.6px;padding:4px 10px;border-radius:6px;border:1px solid color-mix(in srgb,var(--purple) 60%,var(--border));color:var(--purple)">'+fixedLabel+'</span>':'')+(fixedLabel?'':vs.map(v2=>'<span data-galv="'+v2[0]+'" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;border:1px solid '+(view===v2[0]?'var(--blue)':'var(--border)')+';color:'+(view===v2[0]?'var(--blue)':'var(--text4)')+'">'+v2[1]+'</span>').join(''))
-      +'<span style="font-size:9px;color:var(--text5);margin-left:auto">wheel to zoom any chart here &middot; double-click resets &middot; OPEN for save and stepping</span>';
+      +'<span style="font-size:9px;color:var(--text5);margin-left:auto">CTRL+wheel zooms a chart &middot; drag pans it &middot; double-click resets &middot; wheel scrolls the list</span>';
     views.querySelectorAll('[data-galv]').forEach(b2=>{b2.onclick=()=>{if(view===b2.dataset.galv)return;view=b2.dataset.galv;shown=10;draw();};});
     const list=order().slice(0,shown);
     body.innerHTML=list.map(card).join('')
       +(shown<rowsAll.length?'<div style="text-align:center;padding:6px 0 14px"><span id="gal-more" style="cursor:pointer;user-select:none;font-size:10px;font-weight:700;letter-spacing:1px;padding:7px 18px;border-radius:7px;border:1px solid var(--border);color:var(--text3)">LOAD 10 MORE</span></div>':'');
     const more=body.querySelector('#gal-more');
     if(more)more.onclick=()=>{shown+=10;draw();};
+    body.querySelectorAll('[data-galpng]').forEach(b2=>{b2.onclick=ev=>{ev.stopPropagation();
+      const no=+b2.dataset.galpng;
+      const sv=body.querySelector('[data-gal="'+no+'"] .galchart svg');
+      window.saveSvgAsPNG(sv,'run'+(B.run_id!=null?B.run_id:'')+'_trade'+no+'_candles.png');};});
     body.querySelectorAll('[data-galtrade]').forEach(b2=>{b2.onclick=ev=>{ev.stopPropagation();
       const no=+b2.dataset.galtrade,x2=rowsAll.find(q=>q._no===no),r2=_barsCache[no];
       if(!x2||!r2||r2.entry_idx==null)return;
