@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.6';
+const VERSION='73.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.7',date:'2026-08-10',notes:['FIX (owner-reported): in the expanded funnel, clicking the HYBRID or HYBRID recycle key row greyed out the OTHER RAW cloud instead of the hybrids. Those two families got their own key rows a while back but the click handler was never told about them, so both fell through to the last group in an old three-way branch. Every family now cycles its own lines.','FIX: the OTHER RAW row printed the ending dollars of whichever grey line happened to be first in memory, presented as the group best. It now reads the best one, like every other row.','FIX: the key rows were ORDERED by each family best line but each row PRINTS the line the funnel actually draws. When those differed the key sat in an order its own figures did not explain. Both read the same line now.']},
 {v:'73.6',date:'2026-08-10',notes:['The hover figures moved INTO the key. Mousing across the funnel used to open a second box in the top right corner listing every strategy value, which covered the chart. Each key row now shows that strategy dollars AT THE CURSOR instead, swapping back to its ending figure when you move off.','DOUBLE-CLICK anywhere on the funnel opens the expanded explorer, the same gesture the report chart uses. Double-clicking a key row still only works the key.']},
 {v:'73.5',date:'2026-08-10',notes:['FIX on the new BOOK picker: GATE was re-deriving a DEFAULT model instead of the gate this run actually crowned - on run 203 it answered with logistic at 0.5 when the run crowns xgb at 0.45. The blotter now hands your PC the run own crowned model and cut-off, so the GATE / TILT / HYBRID books you see are the ones the report is talking about.']},
 {v:'73.4',date:'2026-08-09',notes:['The GATE SWEEP CHART has its own Y AXIS switch - MAR or NET $ - sitting on the chart itself. It used to follow the RANK button, which is a control for ordering matrix COLUMNS, so changing what the chart measured meant reaching for something that looks like it does something else entirely. Until the new switch is touched it still follows RANK, so nothing moves unless you ask it to.','Said plainly on the chart: every figure on it covers the TUNING YEARS ONLY - in-sample plus walk-forward - because that is all the pick was allowed to see. The GATE matrix above it totals whatever SAMPLE is ticked, so with LB ticked it reads higher by exactly the held-out year. Same model, same cut-off, different stretch. That is why rf at 50 percent can read 499k on the chart and 580k in the matrix, and both be correct. The axis title, the hover and a line under the chart all now say so.']},
@@ -4904,6 +4905,15 @@ window.expandCompareEq=function(series,opts){
   //   expands or collapses the member rows) — two distinct elements side by side, never nested, so
   //   one click target can never trigger the other. Returns empty when the group has no members,
   //   so e.g. a run with no gate candidates renders no ML GATES group at all.
+  // v73.7 (owner-reported, second bug in this block): the line a group SPEAKS FOR. famTop is the
+  //   tile's own drawn line when the payload stamped one; otherwise the best finisher. The old
+  //   code took members[0] and relied on every group arriving pre-sorted by _byEnd - true for
+  //   RAW / GATES / TILTS / HYBRID, but _otherPS() is NOT sorted, so the OTHER RAW row printed
+  //   whichever grey line happened to sit first in PS and called it the group's best. Sorting a
+  //   COPY here fixes that figure without touching _otherPS() itself, which the draw loop slices
+  //   by otherCount and must keep in its existing order.
+  const _grpTop=m=>(m.filter(function(s){return s.famTop;})[0]
+    ||m.slice().sort(function(x,y){return _endV(y)-_endV(x);})[0]||m[0]);
   const _groupRow=(key,label,members)=>{
     if(!members.length)return '';
     const st=_grpState(members),op=st==='dim'?0.45:(st==='off'?0.3:1),td=st==='off'?'line-through':'none',
@@ -4912,7 +4922,7 @@ window.expandCompareEq=function(series,opts){
       //   gate, the drawn tilt/hybrid - not whichever hidden candidate finishes highest, so
       //   the figure here always equals the gutter pill on the non-expanded funnel. Groups
       //   with no stamped line (RAW, OTHER) fall back to best-finisher exactly as before.
-      _gTop=(members.filter(function(s){return s.famTop;})[0]||members[0]),swatch=_gTop.color;
+      _gTop=_grpTop(members),swatch=_gTop.color;
     let h='<span style="display:inline-flex;align-items:center;background:color-mix(in srgb,var(--bg1) 65%,transparent);border-radius:4px;white-space:nowrap">'
       +'<span data-ceqx-grp-tog="'+key+'" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);padding:2px 4px 2px 6px;border-radius:4px;opacity:'+op+'" title="click: full - greyed - hidden - full (whole group)"><span style="width:12px;height:3px;background:'+swatch+';display:inline-block;border-radius:2px;flex:0 0 auto"></span><span style="text-decoration:'+td+'">'+label+' ('+members.length+')</span>'
       // v71.48 (owner: "the key has no ranking like 1A non-expanded"): every group row now prints
@@ -4941,7 +4951,10 @@ window.expandCompareEq=function(series,opts){
     legendEl.innerHTML=[['cfg','RAW',_mainPS()],['gate','GATES',_gatePS()],['tilt','TILTS',_tiltPS()],
       ['hyb','HYBRID',_hybPS()],['hybr','HYBRID ♻',_hybRPS()]]
       .filter(function(g){return g[2].length;})
-      .sort(function(a,b){return _endV(b[2][0])-_endV(a[2][0]);})
+      // v73.7 (third bug in this block): the groups were ORDERED by their best finisher while each
+      //   row PRINTS its famTop line (v72.5), so a key that says it is ranked by PnL could sit in
+      //   an order none of its visible figures explain. Both now read the same line.
+      .sort(function(a,b){return _endV(_grpTop(b[2]))-_endV(_grpTop(a[2]));})
       .map(function(g){return _groupRow(g[0],g[1],g[2]);}).join('')
       +_groupRow('oth','OTHER RAW · '+_otherPS().length+' grey + '+_mainPS().length+' coloured above = '+(_otherPS().length+_mainPS().length)+' total',_otherPS());
     // v64.76: rebuild the id->element cache for the live legend values now that legendEl.innerHTML
@@ -4965,9 +4978,15 @@ window.expandCompareEq=function(series,opts){
     // CHANGE 4 (v64.84): the group swatch/label zone cycles the WHOLE group vis together — kept
     //   deliberately SEPARATE from the expand arrow below (data-ceqx-grp-exp) so the two actions
     //   can never trigger each other.
+    // v73.7 (owner-reported: "clicking on hybrid key greys out the other raw configs"): this
+    //   lookup was a three-way chain written before HYBRID and HYBRID recycle became their own
+    //   legend groups (v71.15). Both keys fell through its final else and cycled _otherPS(), so
+    //   clicking either hybrid row greyed the grey cloud and left the hybrid alone. It is a map
+    //   keyed exactly like renderLegend builds the rows now, so a family added there can never
+    //   silently land on another group again.
+    const _grpMembers={cfg:_mainPS,gate:_gatePS,tilt:_tiltPS,hyb:_hybPS,hybr:_hybRPS,oth:_otherPS};
     legendEl.querySelectorAll('[data-ceqx-grp-tog]').forEach(el=>{
-      const key=el.getAttribute('data-ceqx-grp-tog'),
-        members=key==='cfg'?_mainPS():(key==='gate'?_gatePS():(key==='tilt'?_tiltPS():_otherPS()));
+      const key=el.getAttribute('data-ceqx-grp-tog'),members=(_grpMembers[key]||_otherPS)();
       el.onclick=()=>{
         const nv=_grpNext(_grpState(members));
         members.forEach(s=>{s.vis=nv;});
