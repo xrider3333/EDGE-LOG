@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.77';
+const VERSION='71.78';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.78',date:'2026-08-09',notes:['Hotfix: opening COMPARE threw and left the tab blank on 71.77. The strategy list was reading the TOP 10 setting one step before that setting was created. Nothing else changed.']},
 {v:'71.77',date:'2026-08-09',notes:['TOP 10 now sits UNDER the RUNBOARD list in the left column instead of taking a fourth column of its own. Both lists cap their height when it is open so the pair still fits one screen.','RUNBOARD funnel picked up the report chart furniture it was missing: an info icon that opens the full explanation, a GRAPH DETAIL slider that thins the drawn line without touching any total, hover text on every walk-forward stripe and on the lockbox wash, and a dashed line marking the deepest drawdown on show with its dollar figure on the axis.','The dashed line style is not decoration: solid is in-sample, dashed is walk-forward, dotted is the lockbox. That is the same line procedure the report funnel uses, so a glance tells you which part of a curve was tuned and which part was not.']},
 {v:'71.76',date:'2026-08-09',notes:['RUNBOARD has a + TOP 10 button next to the mode pills. It opens a FOURTH panel on the right listing ten individual runs, with tabs for BEST, WORST and RECENT.','BEST and WORST rank on the same metric and the same stretch the RANK BY and SAMPLE tabs are set to, so the list always answers the question the board is currently asking. RECENT ignores both and just lists the newest runs. Click any row to open that run report.','This is the one place on the board that shows INDIVIDUAL runs. The other three panels only ever show one run per strategy - its champion - so every other run a strategy has made is invisible there. Short-sample runs still carry their warning mark and are pushed to the bottom of BEST.']},
 {v:'71.75',date:'2026-08-09',notes:['CANDLE WINDOW mouse controls now match TradingView (owner: "moving the mouse around changes the chart"): DRAGGING no longer zoom-selects - the mouse WHEEL zooms the bars around the cursor, DRAG pans the zoomed view, DOUBLE-CLICK shows everything. The old behavior fired a zoom on the pan gesture every chart trains your hand to make.','TOP 10 menu: picking any trade now loads ALL TEN of that list up front and PREV / NEXT / arrow keys page through just those ten - the readout shows "3 / 10 - TOP 10 WINNERS - loading 7/10" until the set is in. "Back to table order" in the same menu returns to normal stepping.']},
@@ -15045,6 +15046,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +_rbRail('rbr',_rankTabs,'RANK','which metric orders the strategies - measured on the picked SAMPLE',_TONE.rank)
           +'<span data-rbheat>'+_tabStrip(_tabBtn('','HEAT',_rbHeat,'shade every cell by where it lands across its own row - green best, red worst. The same heat map the 1E card uses.',_TONE.heat),false)+'</span>'
           +orientSeg+'</div>';
+        // declared here because boardTile below caps its own height when this panel is open
+        const _rbSide=(['best','worst','recent'].indexOf(APREF.rbSide)>=0)?APREF.rbSide:'';
         const boardTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">RUNBOARD</span><span style="font-size:8px;color:var(--text5)">top run per strategy · auto-populates from run history · ordered by the RANK BY pick</span></div>'
           +'<div style="overflow:auto;max-height:'+(_rbSide?'38vh':'74vh')+'">'+runs.map(_famRowOf).join('')+'</div>'
           +_famMoreNote);
@@ -15294,7 +15297,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    history: BEST and WORST rank on the same metric and stretch the RANK BY / SAMPLE tabs
         //    are set to, so the list always answers the question the board is currently asking;
         //    RECENT ignores both and just lists the newest. Off until asked for, then remembered.
-        const _rbSide=(['best','worst','recent'].indexOf(APREF.rbSide)>=0)?APREF.rbSide:'';
         let _sideTile='';
         if(_rbSide){
           const _pool=rs.filter(r=>r&&(_rbSide==='recent'||isFinite(_rbVal(r,_rbR))&&_rbVal(r,_rbR)>-1e14));
