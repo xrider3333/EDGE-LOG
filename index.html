@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.37';
+const VERSION='71.38';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.38',date:'2026-08-09',notes:['REAL BUG, caught on run 203: TAKEN plus NOT TAKEN did not add up. NOT TAKEN was the refused count for the WHOLE RUN sitting directly under a TRADES row that follows the SAMPLE tick, so on WF+LB the hybrid read 2,222 taken and 2,657 refused - a total larger than the 3,707 trades those two stretches even contain.','Refused is now measured stretch by stretch: the no-filter trade count for each ticked stretch minus what that column kept. On the same run the xgb hybrid now reads 2,222 taken and 1,485 refused, which is exactly the 3,707 the TILT tab shows for WF+LB, since a tilt refuses nothing.','BIGGEST SIZE and SIZE MIX carry a FULL tag now. The engine saves the size profile once for the run rather than per stretch, so those two genuinely cannot follow the tick and they say so instead of looking sample-scoped.','Worth knowing when reconciling: the RAW tab TRADES row is tagged IS+WF and counts one config over the optimize window. It is a different window AND a different book to the filter tabs, so it is not the total those two rows add up to - the TILT TRADES row on the same tick is.']},
 {v:'71.37',date:'2026-08-09',notes:['RAW tab has a TRADES row now. The config records were carrying the count all along, the matrix just never printed it - so the tab showed PF, WIN percent and dollars per trade with no sample size under them. It sits with the other optimize-window rows and is tagged IS+WF like they are.','KPI tab now lines up with the rest of 1E. Its group captions and cells were on their own padding rhythm, so every row sat a few pixels off the same row on RAW, GATE, TILT and the hybrids and a tab flip shifted the whole table. Same rhythm everywhere now. Its column headers stay one line taller because each one carries the date range under the stretch name.','No duplicate rows found on KPI - RECOVERY and MAR are genuinely different numbers, net over drawdown versus the annualised version, not the same figure twice.','AVG CONTRACTS only shows when a column is NOT running one lot. On TILT and on the plain HYBRID tab it read 1.00x in every column, which is the definition of those tabs rather than a finding. It still shows on REDEPLOY and EQUAL-DRAWDOWN where it is the whole point.','NOT TAKEN only shows when something was actually refused. A tilt refuses nothing, so that row was a column of zeros on every tilt.','NOT TAKEN now sits directly under TRADES on the tabs that have it. Taken and refused are the same question and they were four rows apart.']},
 {v:'71.36',date:'2026-08-09',notes:['WIN % on the TILT tab now shades. It was never being skipped - a tilt refuses no trades, so every column on that tab wins the exact same trades and the row reads one number all the way across. A heat map of a flat row is one uniform colour, and that is what it paints now, instead of leaving the row blank and looking like the shading had missed it. Applies to any flat row on any 1E tab.','1E ROWS LINE UP ACROSS TABS NOW. The wide-table squeeze was tightening rows vertically as well as sideways, so a ten-column TILT drew 15px rows against a five-column HYBRID at 17px and every row shifted when you flipped between them. Only the sideways padding tightens now, so the tabs sit row for row and a flip compares like with like.','SIZE RULE is one line on every tab. The cut-off used to print above the size shape on the HYBRID tabs, making that row nearly twice as tall as the same row on TILT - the single biggest reason the two would not align. Cut-off and shape share one line; the full sentence is still on hover.']},
 {v:'71.35',date:'2026-08-09',notes:['TRADES blotter (expanded 1A): the candle button on each row is now a clear bordered CHART pill with a CHART column header - it was a bare candle glyph that was easy to miss entirely.','TRADES button: when a saved blotter auto-opens with the view, the button now lights up blue while the panel is SHOWING - before, clicking it just hid the already-open panel with no hint, which read as the load doing nothing.','TRADES button while loading now says a FIRST load reruns the champion on your PC and can take minutes - the quick reopen is only quick because it restores the saved copy.']},
@@ -11471,6 +11472,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
             }
             _szPc.set(c,out);return out;};
           const _szMar=c=>{const p=_szP(c);return (p.net!=null&&p.dd!=null&&Math.abs(p.dd)>1e-9)?(p.net/Math.abs(p.dd)):null;};
+          // v71.38 (owner, run 203: "taken 2,222 plus not taken 2,657 does not add up"): NOT TAKEN
+          //   was the WHOLE-RUN refused count parked next to a TRADES row that follows the SAMPLE
+          //   tick, so the two could never reconcile. Refused is now measured stretch by stretch -
+          //   the no-filter trade count for each ticked stretch minus what this column kept - so
+          //   TAKEN + NOT TAKEN is exactly the no-filter book over those same stretches.
+          const _szNot=c=>{let s=null,ok=true;
+            _szSegs.forEach(function(sg){const u=_ungOf[sg],x=_colOf(c,sg);
+              if(!u||u.num_trades==null||!x||x.num_trades==null){ok=false;return;}
+              s=(s==null?0:s)+((+u.num_trades)-(+x.num_trades));});
+            return (ok&&s!=null)?Math.max(0,s):null;};
           const _szNm2={is:'IS',wf:'WF',lb:'LB'};
           const _szLbl=_szSegs.map(x=>_szNm2[x]).join('+');
           // RANK — the SAME three options 2B / 2C offer, off the same pref. View only: nothing in
@@ -11542,16 +11553,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
               //   the two is self-explaining instead of looking like a mismatch.
               {lbl:'<span title="trades taken across the ticked SAMPLE - the same basis as the rows above it. ALL TRADES below counts the whole run, so untick a stretch and these two separate by exactly that stretch trade count.">TRADES <span style="font-weight:400;color:var(--text5)">&middot; '+_szLbl+'</span></span>',top:true,cell:c=>{
                 const n=_szP(c).n;return n!=null?(+n).toLocaleString():_cmpDash;}},
-              ].concat(cols.some(c=>{const x=c._s.mix;return x&&x.dropped!=null&&+x.dropped>0;})
-                ?[{lbl:'<span title="trades the cut-off refused, so they were never entered at all - no position, no fee, no profit or loss. The row only appears when something was actually refused; a tilt refuses nothing, so it never shows on that tab.">NOT TAKEN</span>',cell:c=>{const x=c._s.mix;return (x&&x.dropped!=null)?((+x.dropped)?('<span style="color:#e24b4a">'+(+x.dropped).toLocaleString()+'</span>'):'<span style="color:var(--text5)">0</span>'):_cmpDash;}}]:[])
+              ].concat(cols.some(c=>{const v=_szNot(c);return v!=null&&v>0;})
+                ?[{lbl:'<span title="trades the cut-off refused over the ticked SAMPLE, so they were never entered at all - no position, no fee, no profit or loss. TAKEN plus NOT TAKEN equals every trade the no-filter book had over those same stretches, which is what the TILT tab TRADES row reads. The row only appears when something was actually refused; a tilt refuses nothing, so it never shows on that tab.">NOT TAKEN <span style="font-weight:400;color:var(--text5)">&middot; '+_szLbl+'</span></span>',cell:c=>{const v=_szNot(c);return v!=null?(v?('<span style="color:#e24b4a">'+v.toLocaleString()+'</span>'):'<span style="color:var(--text5)">0</span>'):_cmpDash;}}]:[])
               .concat(cols.some(c=>Math.abs(_szFac(c)-1)>0.005)
                 ?[{lbl:'<span title="average contracts per trade this column runs over the ticked SAMPLE. It only appears when a column is NOT running one lot - that is the REDEPLOY and EQUAL-DRAWDOWN tabs, where it is what the freed capacity buys.">AVG CONTRACTS</span>',cell:c=>{
                 const f=_szFac(c);return '<span style="color:'+((mode&&mode!=='one')?'#f0b429':'var(--text3)')+'">'+f.toFixed(2)+'&times;</span>';}}]:[])
               .concat([
-              {lbl:'<span title="largest contracts any single trade got">BIGGEST SIZE</span>',cell:c=>c._s.mx!=null?((+c._s.mx*_szFac(c)).toFixed(1)+'&times;'):_cmpDash},
+              // v71.38: these two are saved once for the WHOLE run - the engine does not split the
+              //   size profile by stretch - so they carry a FULL tag rather than pretending to
+              //   follow the tick like the rows above them.
+              {lbl:'<span title="largest contracts any single trade got, across the whole run. The engine saves the size profile once for the run, not per stretch, so this one cannot follow the SAMPLE tick.">BIGGEST SIZE</span><span style="font-weight:400;color:var(--text5)"> &middot; FULL</span>',cell:c=>c._s.mx!=null?((+c._s.mx*_szFac(c)).toFixed(1)+'&times;'):_cmpDash},
               // v68.7/68.9 (owner: "we dont see the trade distribution for dropped small/medium/large")
               //   engine >= v68.9 saves the split incl. DROPPED; older runs show a dash.
-              {lbl:'<span title="how the trades split by the size each was given: SMALL under 0.75 of a lot &middot; MEDIUM 0.75 to 1.5 &middot; LARGE over 1.5. Saved by the engine from v68.7 runs on.">SIZE MIX s&middot;m&middot;L</span>',cell:c=>{const x=c._s.mix;return x?('<span style="color:var(--text3)">'+(+x.small)+'&middot;'+(+x.normal)+'&middot;'+(+x.big)+'</span>'):_cmpDash;}},
+              {lbl:'<span title="how the trades split by the size each was given: SMALL under 0.75 of a lot &middot; MEDIUM 0.75 to 1.5 &middot; LARGE over 1.5. Saved by the engine from v68.7 runs on, once for the whole run rather than per stretch, so this one cannot follow the SAMPLE tick.">SIZE MIX s&middot;m&middot;L</span><span style="font-weight:400;color:var(--text5)"> &middot; FULL</span>',cell:c=>{const x=c._s.mix;return x?('<span style="color:var(--text3)">'+(+x.small)+'&middot;'+(+x.normal)+'&middot;'+(+x.big)+'</span>'):_cmpDash;}},
               // v68.9 (owner: "how do we know what level applies... we dont see what the bouncer
               //   level is"): the EXACT rule each column ran, per column - two rf columns can use
               //   two different shapes, so it can never be inferred from the model name alone.
