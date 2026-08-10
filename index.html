@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.86';
+const VERSION='71.87';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.87',date:'2026-08-09',notes:['Hotfix on the new CHART GALLERY: it opened UNDERNEATH the blotter window instead of on top of it, so it looked like nothing happened. It sits above now.']},
 {v:'71.86',date:'2026-08-09',notes:['CHART GALLERY (owner ask): a CHARTS OF THIS VIEW button on the blotter now stacks a REAL candle chart for every trade in the current view - top wins, top losses or most recent - in ONE scrollable window, all fetched at once instead of one trade at a time. LOAD 10 MORE keeps going past the first ten, and the header counts them in as they land.','Each gallery chart has an OPEN button that hands that trade to the full CANDLES window for zoom, save and stepping. Anything already viewed draws instantly - the two share one cache.','FIXED: clicking ALL in the blotter dumped every one of the 5,616 rows in one go, which shoved the view controls off the screen. ALL is paged now, same LOAD 25 MORE as RECENT.']},
 {v:'71.85',date:'2026-08-09',notes:['Fix: the CHAMPION / FUNNEL tabs in the expanded 1A now actually switch. Two faults, both fixed: the handler was calling the top-level savePref and renderApp rather than the report renderer versions, so the choice was never stored; and clicking the cards own tab button in the same instant as the modal close hit a node the re-render had already thrown away. It now waits for the close, re-finds the live button, and re-opens the chart as soon as it exists.']},
 {v:'71.84',date:'2026-08-09',notes:['SPOTLIGHT on the funnel: hover a curve and it lifts while every other one drops to a faint trace, in the plot and in the key at the same time. Hovering a key row does the same thing. Moving off clears it.','The key box was set at 7.5px, below what the mono font renders cleanly - that is why it looked pixelated. It is 9px now with more line spacing.','The paragraphs under the funnel and under the matrix are gone. Both are summarised behind the info icon on the title instead.','GRAPH DETAIL slider removed.','Runs with no walk-forward and no lockbox - plain Auto-Optimize runs like 42, 60 and 74 - were showing dashes for profit factor, win rate and Sharpe on the whole-run view. Those runs never split their window, so the optimize window IS the whole run and their own figures were already the right answer. They fill in now.']},
@@ -3719,7 +3720,7 @@ window.openChartGallery=function(B,rowsAll,initialView){
     if(view==='losses')return a.sort((p,q)=>p._usd-q._usd);
     return a.sort((p,q)=>q._no-p._no);};
   const modal=document.createElement('div');
-  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.93);z-index:9997;display:flex;align-items:flex-start;justify-content:center;padding:22px';
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.93);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:22px';
   modal.innerHTML='<div style="background:var(--bg1);border:1px solid var(--border);width:min(1240px,96vw);max-height:94vh;display:flex;flex-direction:column;padding:16px 18px;box-sizing:border-box">'
     +'<div style="display:flex;align-items:center;gap:12px;padding-bottom:8px;border-bottom:1px solid var(--border);flex:0 0 auto">'
     +'<span style="font-family:\'Bebas Neue\',monospace;font-size:20px;letter-spacing:3px;color:var(--text)">CHART GALLERY &middot; RUN #'+B.run_id+'</span>'
