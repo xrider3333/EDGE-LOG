@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.69';
+const VERSION='71.70';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.70',date:'2026-08-09',notes:['FIX on 71.67: clicking the new 1A ▦ TRADES tab while the card was on FUNNEL popped a blocking browser alert that froze the whole page until dismissed. The tab now carries its own blotter payload so it works from BOTH card tabs, and that alert is gone for good - a run without a payload just dims the tab with the reason on hover.']},
 {v:'71.69',date:'2026-08-09',notes:['RUNBOARD metric names and their order now match the 1E card. 1E lists the stage money rows first and then TOTAL as the summary - it does not lead with a total and indent children under it. So the rows read IS dollars, WF dollars, LB dollars, then TOTAL.','It says DD, not MAX DD, for the same reason the 1E card was renamed: a drawdown measured on one stretch is not the maximum drawdown of the whole run.','The stage-lit row is replaced by FOLDS HELD, the row 1E actually carries. A book shows a dash there and says why on hover - it tunes nothing, so it has no folds to hold by design.','SAMPLE, RANK and HEAT moved off the far right. They were pinned to the tile right edge, and now that the table sizes to its own content the tile is often much wider than the table - so the controls were stranding themselves hundreds of pixels from the thing they control. They sit on their own line under the title, reading left to right like the table below them.']},
 {v:'71.68',date:'2026-08-09',notes:['CONFIG COLOURS MATCH between the 1A tile and its expanded view. The tile painted the walk-forward survivors from an eight-hue palette while the expanded explorer painted the very same configs from a teal ramp - two different palettes for one set of lines, so a config you were following changed colour the moment you expanded the chart. The tile choice is now handed to the explorer, so both draw the same config in the same colour. The crowned line stays green and the in-sample best stays blue in both.']},
 {v:'71.67',date:'2026-08-09',notes:['1A card grows a ▦ TRADES tab (next to CHAMPION / FUNNEL): opens the champion trade blotter in its OWN window - no chart expansion needed. Same quick views, same CHART pill per row into the full candle viewer (prev/next, top 10, zoom, save).','BLOTTER QUICK VIEWS (both the new window and the expanded-1A panel): RECENT (10 newest, LOAD 25 MORE), TOP 10 WINS, TOP 10 LOSSES, and ALL. RECENT is the default - the panel no longer renders five thousand rows up front; ALL is one click.','NO MORE WAITING BEHIND A BACKTEST: your PC now answers candle and blotter fetches on a separate lane, in parallel with a running job - a fetch lands in seconds instead of queueing behind a 30-90 minute backtest. (Takes effect at the next runner restart, done.)']},
@@ -3669,7 +3670,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 //    (RECENT / TOP 10 WINS / TOP 10 LOSSES / ALL + LOAD MORE), a CHART pill per row feeding
 //    the shared candle viewer. Same cache + payload as the expanded-1A blotter. ──
 window.openBlotterModal=async function(B){
-  if(!B||B.run_id==null){alert('this run carries no blotter payload');return;}
+  if(!B||B.run_id==null){console.warn('openBlotterModal: no blotter payload');return;}
   const $=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
   const map=rows=>rows.map(x=>({_no:+x.trade_no,_usd:+x.pnl_usd,_cum:+x.cum_usd,_pts:+x.pnl_pts,_hold:+x.hold_bars,_ep:+x.entry_px,_xp:+x.exit_px,_et:String(x.entry_time),_xt2:String(x.exit_time),_side:(x.side||null)}));
   const modal=document.createElement('div');
@@ -13881,7 +13882,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
               .map(function(t){return _tabBtn('data-eqtab="'+t[0]+'"',t[1],_eqTab===t[0],t[2]);}).join('')
               // v71.63 (owner: "open it without expanding the chart") — TRADES is an ACTION tab:
               // it opens the standalone blotter modal, it never becomes the card's active tab.
-              +_tabBtn('data-eqblotopen="1"','▦ TRADES',false,'open the champion trade blotter in its own window - no chart expansion needed','var(--blue)'),false);
+              // The tab CARRIES ITS OWN blotter payload (sliced out of _eqxA) so it works from
+              // the FUNNEL tab too, where the equity host (and its attrs) is not in the DOM.
+              +_tabBtn('data-eqblotopen="1" '+((_eqxA.match(/data-eqblot="[^"]*"/)||[''])[0]),'▦ TRADES',false,'open the champion trade blotter in its own window - no chart expansion needed','var(--blue)'),false);
             _panelEquity='<div style="'+_cardSty+';height:100%;box-sizing:border-box">'
               // v71.6 (owner: "this should be just be 1A, 1B is the Monthly pnl underneath"):
               //   the NUMBER belongs to the card, the two TABS keep their plain names.
@@ -16438,10 +16441,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // 1A card TRADES tab → the standalone blotter modal (payload = the SAME data-eqblot the
       // expanded 1A reads; no chart expansion involved).
       content.querySelectorAll('[data-eqblotopen]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();
-        const h=content.querySelector('[data-eqblot]');let B2=null;
+        // payload: the tab's own attr first (present on both card tabs), the equity host as
+        // fallback. NO alert here — a native dialog blocks the whole page and reads as a
+        // freeze; a missing payload just marks the tab dead with the reason on hover.
+        const h=(b.getAttribute('data-eqblot')?b:content.querySelector('[data-eqblot]'));let B2=null;
         try{B2=h?JSON.parse(decodeURIComponent(h.getAttribute('data-eqblot')||'')):null;}catch(_e){}
         if(B2&&window.openBlotterModal)window.openBlotterModal(B2);
-        else alert('this run does not carry a blotter payload (older run doc)');};});
+        else{b.style.opacity='0.4';b.title='this run does not carry a blotter payload (older run doc)';}};});
       content.querySelectorAll('[data-cfgtabb]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('cfgTabB',b.getAttribute('data-cfgtabb'));renderApp();};});
       content.querySelectorAll('[data-cfg2bc]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-g2ctl]')||e.target.closest('[data-cfgtab]')||e.target.closest('[data-b2ctl]'))return;e.stopPropagation();savePref('gate2aOpen',(APREF.gate2aOpen==null?1:+APREF.gate2aOpen)?0:1);renderApp();};});
       content.querySelectorAll('[data-gate2a]').forEach(b=>{b.onclick=(e)=>{if(e.target.closest('[data-infopop]')||e.target.closest('[data-g2ctl]'))return;e.stopPropagation();savePref('gate2aOpen',(APREF.gate2aOpen==null?1:+APREF.gate2aOpen)?0:1);renderApp();};});
