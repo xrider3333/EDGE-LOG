@@ -446,6 +446,7 @@ const VERSION='71.84';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.84',date:'2026-08-09',notes:['Fix: the CHAMPION / FUNNEL tabs in the expanded 1A now actually switch. The handler was calling the top-level savePref and renderApp, not the report renderer versions, so the choice was never stored - the modal simply closed and left you on whichever tab you started on. It clicks the cards own tab button now, which is the path that already works.']},
 {v:'71.84',date:'2026-08-09',notes:['SPOTLIGHT on the funnel: hover a curve and it lifts while every other one drops to a faint trace, in the plot and in the key at the same time. Hovering a key row does the same thing. Moving off clears it.','The key box was set at 7.5px, below what the mono font renders cleanly - that is why it looked pixelated. It is 9px now with more line spacing.','The paragraphs under the funnel and under the matrix are gone. Both are summarised behind the info icon on the title instead.','GRAPH DETAIL slider removed.','Runs with no walk-forward and no lockbox - plain Auto-Optimize runs like 42, 60 and 74 - were showing dashes for profit factor, win rate and Sharpe on the whole-run view. Those runs never split their window, so the optimize window IS the whole run and their own figures were already the right answer. They fill in now.']},
 {v:'71.83',date:'2026-08-09',notes:['FIXED FOR REAL - config colours no longer change when you expand the 1A funnel. The cause was the LOCKBOX CONTINUATION tails: they were painted from their own two-colour orange/purple alternation that knew nothing about the config palette, so a config rode a teal line to the lockbox door and then finished the run in orange. The expanded explorer draws one continuous line per config, so it disagreed. Each tail now inherits its own config colour.','Fix: clicking CHAMPION or FUNNEL in the expanded 1A no longer throws you back to the top of RESULTS. The tab switch re-renders the report, which reset the page scroll - your position is now restored, and the chart re-opens as soon as it exists instead of after a fixed delay that could fire too early and open nothing.']},
 {v:'71.82',date:'2026-08-09',notes:['SECTION 2 REGROUPED BY CHART TYPE (owner). Three named columns: DISTRIBUTIONS (2A config spread, 2B trade-PnL spread, 2C MAE/MFE, 2D deflated Sharpe), SURFACES and CURVES (2E 3-D explorer, 2F parallel coordinates, 2G PDP top-out curves), BARS and TABLES (2H knob importance, 2I neighbours, 2J regime card, 2K trade context, 2L ML config builder, 2M top configs). Section 1 is untouched.','The CONFIG DISTRIBUTION now leads section 2 directly above the TRADE-PNL DISTRIBUTION - the two spread charts read as a pair - so it takes the first letter of the section, 2A. Every tile that had moved down from section 1 takes a section-2 letter too, so no tile in section 2 is labelled 1-anything any more.','The ROBUSTNESS and DIAGNOSTICS pills are now a vertical rail pinned to the right of section 2 instead of a wide grid below it. Clicking a pill still opens its full readout in the section below, which is where the tables have room.','Fix: the distribution stack could render TWICE - once in section 1 and again in section 2 - on runs with no second 1E matrix card. It now renders in exactly one place.','Fix: in the expanded 1A explorer, the CHAMPION and FUNNEL tabs were completely dead - the code that wired them up read a variable that does not exist in that function, so it threw before attaching a single handler. They switch now, and the report re-renders first so the chart being re-opened is actually in the page.']},
@@ -4863,12 +4864,13 @@ window.expandCompareEq=function(series,opts){
     t.onclick=function(ev){ev.stopPropagation();const want=t.getAttribute('data-ceqx-eqtab');
       const _sy=window.scrollY||document.documentElement.scrollTop||0;
       try{const cl=document.getElementById('ceqx-close');if(cl)cl.click();}catch(_c){}
-      try{if(typeof savePref==='function')savePref('eqTab',want);}catch(_p){}
-      // v71.79 (owner: "1a expanded cant click to champion when in funnel"): savePref only
-      //   STORES the pref - without a re-render the tile still shows the tab it had, so the box
-      //   this reopen looks for ([data-eqx] when going to CHAMPION) is not in the DOM and the
-      //   dblclick lands on nothing. Re-render the report first, THEN re-open.
-      try{if(typeof renderApp==='function')renderApp();}catch(_rr){}
+      // v71.84 (owner: still stuck on FUNNEL): calling savePref / renderApp from HERE reached
+      //   the top-level globals, not the report renderer's own scoped pair - so the choice was
+      //   never stored, the tile never changed, and the modal just closed on you. Flip the tab
+      //   by clicking the TILE's own tab button instead: that path is already wired correctly
+      //   (it saves the pref and re-renders in the right scope) and is the one you click by
+      //   hand every day.
+      try{const tb=document.querySelector('[data-eqtab="'+want+'"]');if(tb)tb.click();}catch(_tt){}
       // v71.83 (owner: "clicking on champion kicks me out to the main results page"): the
       //   re-render rebuilds the report and the page snaps to scroll 0, which IS the top of
       //   RESULTS - and the old fixed 420ms delay could fire before the new chart existed, so
