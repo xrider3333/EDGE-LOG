@@ -688,6 +688,11 @@ class FirestoreQueue:
         try:
             from api.blotter import champion_blotter, write_csv
             _bp = result.get("best_params") or (job.get("params") or {})
+            # A BOOK has no single strategy file to re-run (its "strategy" is the book NAME
+            # and its params are a leg list), so there is no one champion blotter to build.
+            # Skip it outright rather than logging a file-not-found every book run.
+            if job.get("type") == "book":
+                _bp = None
             if _bp and job.get("strategy") and job.get("instrument"):
                 # pin the run's exact window AND master source — an unpinned blotter
                 # covers whatever the registry's first master happens to span (run #162,
