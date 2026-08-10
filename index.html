@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.91';
+const VERSION='71.92';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.92',date:'2026-08-09',notes:['NEW - LOOK-ALIKE SETUPS (owner idea): a button on the blotter that hunts for trades whose price action BEFORE the entry is near-identical, the setups that look copy-pasted. Your PC strips out price level and volatility so only the SHAPE is compared, then groups everything 97 percent alike or better. Each group shows how many trades, how alike they are, the average result, the win rate and a sketch of the shared shape - and SEE THESE CHARTS stacks that group in the gallery so you can eyeball them side by side.','It tells you when a group is just luck. With thousands of trades there are millions of pairs, so some look-alikes are guaranteed by chance. Every group is tested against shuffled data and corrected for the number of groups tested at once - only the ones that survive are tagged SIGNAL, everything else says CHANCE.','This needs the PC runner restarted once to answer the new request.']},
 {v:'71.91',date:'2026-08-09',notes:['CONFIG COLOURS, THE REST OF IT. The funnel key paints GATE red, TILT amber, HYBRID violet and HYBRID recycle pink - but the expanded explorer was painting those same four curves from the ML MODEL palette instead, so the lines you pick out of the funnel by colour arrived expanded wearing different ones. Each family now keeps its funnel colour; extra variants of a family step darker off the same hue so they stay separable.','The CHAMPION expanded view now has the CHAMPION / FUNNEL tabs too, so the switch works both ways instead of only funnel to champion.','The four run actions at the end of the report header - note, re-label, archive, delete - are one tinted tray of borderless icon chips now, matching the REPORT LAYOUT and COLUMNS rails beside them. Delete carries its red on the icon instead of a permanent red box.']},
 {v:'71.90',date:'2026-08-09',notes:['Follow-up to 71.85: the line naming which short-window strategies were hidden was being built but never attached, so the board dropped them silently. It prints under the list now.']},
 {v:'71.89',date:'2026-08-09',notes:['RUNBOARD layout: 1A FUNNEL on the left, 1E MATRIX on the right, and the strategy list with TOP 10 stacked together in one bar on the far right.','Strategies whose best run covers under two years are DROPPED from the board rather than sorted last - nineteen days does not compare with sixteen years, and showing it only invited the comparison. The count and the run numbers are named under the list, and TOP 10 still reaches them.','Highlighting reaches ACROSS panels: hover a curve in the funnel and that strategy column lifts in the matrix while the rest of the table fades. Hovering its key row does the same.','New + ADD button on the funnel. The board picks one run per strategy automatically - its best - so this is how you put ANY other config on the chart. Ticked runs join as their own line and column, ten columns maximum, and the picks are remembered. Clear them from the same row.','Every walk-forward stripe now says what that fold actually made - dollars, profit factor and trades for the strategy leading the board.']},
@@ -3858,9 +3859,11 @@ window.openBlotterModal=async function(B){
     viewsEl.innerHTML='<span style="display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">'+seg+'</span>'
       +(((view==='recent'||view==='all')&&rows&&shown<rows.length)?'<span data-bmv="more" title="add 25 more rows" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:5px 11px;border-radius:8px;border:1px solid var(--border2);color:var(--text3)">+25</span>':'')
       +'<span style="flex:1 1 auto"></span>'
+      +'<span data-bmv="lookalike" title="find trades whose price action BEFORE the entry is near-identical - setups that look copy-pasted - then test whether those repeats share an outcome" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.6px;padding:5px 13px;border-radius:8px;border:1px solid color-mix(in srgb,var(--purple) 60%,var(--border));color:var(--purple);margin-right:6px">&#128269; LOOK-ALIKE SETUPS</span>'
       +'<span data-bmv="gallery" title="stack a candle chart for every trade in this view, in one scrolling window" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.6px;padding:5px 13px;border-radius:8px;border:1px solid color-mix(in srgb,var(--blue) 60%,var(--border));color:var(--blue)">&#128200; SEE ALL CHARTS</span>';
     viewsEl.querySelectorAll('[data-bmv]').forEach(b3=>{b3.onclick=()=>{const v2=b3.dataset.bmv;
       if(v2==='gallery'){if(rows)window.openChartGallery(B,rows,(view==='wins'||view==='losses')?view:'recent');return;}
+      if(v2==='lookalike'){if(rows)runLookalike();return;}
       if(v2==='more')shown+=25;else{view=v2;if(v2==='recent')shown=Math.max(shown,10);}draw();};});
     if(!rows)return;
     const cur=slice();
@@ -3885,6 +3888,55 @@ window.openBlotterModal=async function(B){
       const x=rows.find(q=>q._no===+tr.dataset.bmrow);if(!x)return;
       window._openTradeCandles(x,null,{B:B,all:()=>rows,order:()=>slice()});
     };});
+  };
+  // -- LOOK-ALIKE SETUPS (owner: "assess the OHLC structure prior ... setups look identical").
+  //    The PC does the heavy lift (similar_setups): it strips price level and volatility out of
+  //    the 24 bars before every entry, leaving pure SHAPE, groups the near-identical ones, and
+  //    tests each group against chance with an FDR correction across every group tested.
+  const runLookalike=async()=>{
+    const t0=Date.now();
+    const tick=setInterval(()=>{const e2=modal.querySelector('#la-secs');if(e2)e2.textContent=Math.round((Date.now()-t0)/1000)+'s';},500);
+    body.innerHTML='<div style="padding:40px;text-align:center;color:var(--text5);font-size:11px">'
+      +'<div style="font-size:12px;color:var(--text2);letter-spacing:1px;margin-bottom:8px">COMPARING EVERY SETUP AGAINST EVERY OTHER&hellip;</div>'
+      +'<div id="la-secs" style="font-size:19px;font-weight:700;color:var(--purple)">0s</div>'
+      +'<div style="margin-top:8px;max-width:520px;margin-left:auto;margin-right:auto">this reruns the strategy and compares millions of pairs on your PC - roughly 15 seconds of work once it starts, longer if it is queued behind a backtest</div></div>';
+    try{
+      const r=await _runCmd('similar_setups',Object.assign({},B,{lookback:24,min_corr:0.97,max_groups:12,min_group:2}),300000);
+      clearInterval(tick);drawLookalike(r);
+    }catch(err){
+      clearInterval(tick);
+      body.innerHTML='<div style="padding:34px;text-align:center;color:var(--red);font-size:11px">look-alike scan failed: '+String((err&&err.message)||err).replace(/</g,'&lt;')+'<br><span style="color:var(--text5);font-size:10px">if your PC has not restarted since this shipped, restart the runner and try again</span></div>';
+    }
+  };
+  const drawLookalike=(r)=>{
+    const gs=r.groups||[];
+    const spark=sh=>{
+      if(!sh||!sh.length)return '';
+      const W2=190,H2=34,lo=Math.min.apply(null,sh),hi=Math.max.apply(null,sh),rg=(hi-lo)||1;
+      const pts=sh.map((v,i)=>(6+i*(W2-12)/(sh.length-1)).toFixed(1)+','+(H2-4-((v-lo)/rg)*(H2-8)).toFixed(1)).join(' ');
+      return '<svg viewBox="0 0 '+W2+' '+H2+'" style="width:'+W2+'px;height:'+H2+'px;flex:0 0 auto" title="the average shape of this group price action before entry"><polyline points="'+pts+'" fill="none" stroke="var(--purple)" stroke-width="1.4"/><line x1="'+(W2-6)+'" y1="2" x2="'+(W2-6)+'" y2="'+(H2-2)+'" stroke="var(--text5)" stroke-dasharray="2,2" stroke-width="1"/></svg>';
+    };
+    const badge=g=>{const ok=(g.verdict==='signal');
+      return '<span title="'+(ok?'unlikely by chance even after correcting for every group tested':'this group result is within what chance produces')+'" style="font-size:8px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:20px;border:1px solid '+(ok?'var(--green)':'var(--border2)')+';color:'+(ok?'var(--green)':'var(--text5)')+'">'+String(g.verdict||'').toUpperCase()+'</span>';};
+    const exp=((r.expected_by_chance||{}).median_groups);
+    const head='<div style="padding:2px 2px 12px;font-size:10px;color:var(--text4);line-height:1.6">'
+      +'<b style="color:var(--text2)">'+gs.length+' repeat-setup groups</b> out of '+r.n_trades+' trades, matched on the '+r.lookback+' bars before entry - shape only, '+Math.round(r.min_corr*100)+' percent alike or better.<br>'
+      +'The same scan on shape-scrambled data finds <b>'+((exp!=null)?exp:'?')+'</b> groups, so the repeats themselves are real. The open question is whether the RESULT repeats too.<br>'
+      +'<span style="color:var(--text5)">SIGNAL means that group result stays unlikely after correcting for testing '+(((gs[0]&&gs[0].n_tested))||gs.length)+' groups at once. Everything else is chance.</span></div>';
+    if(!gs.length){body.innerHTML=head+'<div style="padding:20px;text-align:center;color:var(--text5);font-size:11px">no setups repeated closely enough to group.</div>';return;}
+    body.innerHTML=head+gs.map((g,i)=>'<div style="border:1px solid var(--border2);border-radius:9px;margin-bottom:9px;padding:9px 11px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
+      +'<b style="font-size:11px;color:var(--text2);width:64px;flex:0 0 auto">GROUP '+(i+1)+'</b>'
+      +spark(g.mean_shape)
+      +'<div style="display:flex;gap:5px;flex-wrap:wrap;flex:1 1 auto;min-width:0">'
+      +chip(g.n+' TRADES')+chip(Math.round(g.mean_corr*100)+'% ALIKE')
+      +chip('AVG '+$(g.mean_pnl_usd),g.mean_pnl_usd>=0?'var(--green)':'var(--red)')
+      +chip(Math.round(g.win_rate*100)+'% WIN')+badge(g)
+      +'</div>'
+      +'<span data-lagal="'+i+'" style="cursor:pointer;font-size:9px;font-weight:700;letter-spacing:.5px;padding:5px 11px;border-radius:8px;border:1px solid color-mix(in srgb,var(--blue) 60%,var(--border));color:var(--blue);flex:0 0 auto">SEE THESE '+g.n+' CHARTS</span></div>').join('');
+    body.querySelectorAll('[data-lagal]').forEach(b3=>{b3.onclick=()=>{
+      const g=gs[+b3.dataset.lagal];if(!g)return;
+      const mem=(g.members||[]).map(no=>rows.find(q=>q._no===no)).filter(Boolean);
+      if(mem.length)window.openChartGallery(B,mem,'recent');};});
   };
   draw();
   try{

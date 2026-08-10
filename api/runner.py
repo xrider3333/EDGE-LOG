@@ -40,7 +40,10 @@ JOBS_DIR = os.path.join(ROOT, "augur_jobs")
 # and the Library file-ops (process_command) can mutate or be heavy, so they stay on the
 # main loop as before. FirestoreQueue.run_commands() skips any queued doc whose action is
 # in this set so the two loops never race to claim the same doc.
-READONLY_ACTIONS = {"get_bars", "get_blotter"}
+# similar_setups is CPU-heavy (a chunked NxN-ish correlation pass over thousands of
+# trades) but still a pure read — no engine job state touched — so it belongs here too,
+# same as get_bars/get_blotter: served in parallel, never queued behind a running job.
+READONLY_ACTIONS = {"get_bars", "get_blotter", "similar_setups"}
 
 
 def _anthropic_key():
@@ -890,7 +893,8 @@ class FirestoreQueue:
 
 
 class CommandThread:
-    """Daemon thread that serves READONLY_ACTIONS commands (get_bars, get_blotter)
+    """Daemon thread that serves READONLY_ACTIONS commands (get_bars, get_blotter,
+    similar_setups)
     immediately, in parallel with a backtest job that may be running in the main watch
     loop for 30-90+ minutes. Without this, a web request for chart candles or a trade
     blotter sits queued behind the running job until it finishes — this thread polls
@@ -944,6 +948,9 @@ class CommandThread:
         elif action == "get_bars":
             from api.bars import load_session_bars
             res = load_session_bars(self.root, payload, self._log)
+        elif action == "similar_setups":
+            from api.similar import find_similar_setups
+            res = find_similar_setups(self.root, payload, self._log)
         else:
             res = {"ok": False, "error": f"unsupported readonly action {action!r}"}
         ref.update({"status": "done" if res.get("ok") else "error",
@@ -996,7 +1003,7 @@ class CommandThread:
         """Thread target: poll every POLL_SEC seconds until the process exits (daemon
         thread, so it never blocks shutdown). A crash anywhere in poll_once is swallowed
         here too, belt-and-suspenders on top of poll_once's own per-uid guard."""
-        self._log("command thread: ON (get_bars/get_blotter served in parallel with jobs)")
+        self._log("command thread: ON (get_bars/get_blotter/similar_setups served in parallel with jobs)")
         while not self._stop:
             try:
                 self.poll_once()
