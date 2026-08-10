@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='72.5';
+const VERSION='72.6';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'72.6',date:'2026-08-09',notes:['RUNBOARD funnel key rows CYCLE three states on click now, instead of only deleting. First click GREYS the strategy out - it stays on the chart, faint, and still counts toward the scale so you keep the context. Second click REMOVES it. Third brings it back. The report funnel greys its non-survivors the same way.','The expand button opens the fullscreen explorer with what is actually on screen. A greyed or removed strategy no longer reappears at full strength just because you expanded the chart.']},
 {v:'72.5',date:'2026-08-10',notes:['FOUND IT - the HYBRID and HYBRID-recycle lines were never drawn in the expanded 1A because the equity draw order simply did not include those two families. Their right-edge pills and drawdown strips come from loops over every series, which is why you saw the pill and no line. Both families are in the draw order now, painted on top like the tilts.','Expanded key group headers now quote the same line the tile draws - so GATES reads the chosen gate figure (the one on the funnel gutter pill), not whichever hidden candidate happened to finish highest.']},
 {v:'72.8',date:'2026-08-10',notes:['PAPER - the load error under the board is actually gone now. The 72.7 attempt still tripped the same database requirement; the daily-reports list now fetches the last 60 days of reports the plain way and sorts them newest-first itself.']},
 {v:'72.7',date:'2026-08-10',notes:['PAPER - fixed the load error that appeared under the board. The daily-reports list was asking the database for newest-first in a way that needs a special index; it now asks oldest-first and flips the list itself, which needs nothing extra.']},
@@ -5859,8 +5860,8 @@ window.cmpOvlMount=function(hostId){
     const d=Math.round((b-a)/86400000),y=d/365.25;
     return (y>=1.5)?(' <span style="color:var(--text5)">· '+y.toFixed(1)+'y</span>')
       :(' <span style="color:var(--yellow)" title="short sample - this curve only covers '+d+' days, so it draws as a hairline beside the full-history runs">· '+d+'d ⚠</span>');};
-  keyEl.innerHTML=ALL.map(sr=>{const lastV=(sr.eq&&sr.eq.length)?sr.eq[sr.eq.length-1]:0,off=HID.has(String(sr.id));
-      return '<div data-ovltog="'+sr.id+'" title="'+(off?'click to show this strategy on the chart':'click to hide this strategy — the chart rescales to what is left')+'" style="white-space:nowrap;cursor:pointer;user-select:none;color:'+(off?'var(--text5)':sr.color)+(off?';text-decoration:line-through;opacity:.6':'')+'"><b>'+(off?'▭':'▬')+'</b> '+(sr.rank?('<span style="color:var(--text5)">R'+sr.rank+'</span> '):'')+'#'+sr.id+' '+sr.label+' · '+_ab$(lastV)+(ONE_A?_spanTxt(sr):'')+'</div>';}).join('')
+  keyEl.innerHTML=ALL.map(sr=>{const lastV=(sr.eq&&sr.eq.length)?sr.eq[sr.eq.length-1]:0,off=HID.has(String(sr.id)),gry=GRY.has(String(sr.id));
+      return '<div data-ovltog="'+sr.id+'" title="'+(off?'click to bring this strategy back':(gry?'click again to remove it from the chart':'click to grey this strategy out - it stays on the chart, faint. Click again to remove it, once more to bring it back.'))+'" style="white-space:nowrap;cursor:pointer;user-select:none;color:'+(off?'var(--text5)':sr.color)+(off?';text-decoration:line-through':'')+'"><b>'+(off?'▭':(gry?'▬':'▬'))+'</b> '+(sr.rank?('<span style="color:var(--text5)">R'+sr.rank+'</span> '):'')+'#'+sr.id+' '+sr.label+' · '+_ab$(lastV)+(ONE_A?_spanTxt(sr):'')+'</div>';}).join('')
     // v72.0 (owner: "remove the in-sample wf lb in the key on 1A"): the line-style legend only
     //   shows on the plain COMPARE chart. On the RUNBOARD the info icon already explains it.
     +(ONE_A?'':('<div style="white-space:nowrap;color:var(--text4)"><b>—</b> in-sample</div>'
@@ -6015,7 +6016,9 @@ window.cmpOvlMount=function(hostId){
     rw.addEventListener('dblclick',e=>{e.stopPropagation();});
     rw.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();
       const k=String(rw.dataset.ovltog);
-      if(HID.has(k))HID.delete(k);else HID.add(k);
+      if(!GRY.has(k)&&!HID.has(k))GRY.add(k);                       // shown  -> greyed
+      else if(GRY.has(k)&&!HID.has(k)){GRY.delete(k);HID.add(k);}   // greyed -> hidden
+      else {HID.delete(k);GRY.delete(k);}                           // hidden -> shown
       window.cmpOvlMount(hostId);});});
   host.addEventListener('wheel',e=>{
     const st=svg._g;if(!st)return;const r=host.getBoundingClientRect();if(!(r.width>0))return;
@@ -6064,9 +6067,9 @@ window.cmpOvlMount=function(hostId){
 
   // ── SPOTLIGHT wiring. The key rows dim to match the plot, so the two always agree.
   const _paintKey=()=>{keyEl.querySelectorAll('[data-ovltog]').forEach(rw=>{
-    const k=String(rw.dataset.ovltog),off=HID.has(k),dim=(_spot!=null&&_spot!==k);
-    rw.style.opacity=off?'0.6':(dim?'0.28':'1');
-    rw.style.fontWeight=(_spot===k)?'700':'400';});};
+    const k=String(rw.dataset.ovltog),off=HID.has(k),gry=GRY.has(k),dim=(_spot!=null&&_spot!==k);
+    rw.style.opacity=off?'0.55':(gry?'0.42':(dim?'0.28':'1'));
+    rw.style.fontWeight=(_spot===k&&!gry&&!off)?'700':'400';});};
   // v71.85 (owner: "if im highlighting it in the pnl funnel, i need it highlighted on the matrix"):
   //   the spotlight reaches ACROSS panels. The matrix tags every cell with its run, so lighting a
   //   curve lifts that strategy's whole column and fades the rest of the table with it.
@@ -15526,7 +15529,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v71.35: the chart's hide-toggles belong to THIS set of curves — a different selection
         //   (or a SAMPLE flip that changes which runs have a curve) starts from everything shown.
         {const _sig=window._cmpEqxSeries.map(s=>s.id).join(',');
-         if(window._cmpOvlSig!==_sig){window._cmpOvlSig=_sig;window._cmpOvlHide=new Set();}}
+         if(window._cmpOvlSig!==_sig){window._cmpOvlSig=_sig;window._cmpOvlHide=new Set();window._cmpOvlGrey=new Set();}}
         if(withEq.length){
           let emn=0,emx=0;withEq.forEach(c=>{c.eq.forEach(v=>{if(v<emn)emn=v;if(v>emx)emx=v;});});
           if(emx<=emn)emx=emn+1;const epad=(emx-emn)*0.05;emn-=epad;emx+=epad;
@@ -17105,7 +17108,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       };
       // a LIVE BOOK row opens its run report, same as a Rankings row
       content.querySelectorAll('tr[data-rank-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.rankRun;augurSub='runs';renderApp();};});
-      const _cex=content.querySelector('[data-cmpexpand]');if(_cex)_cex.onclick=()=>window.expandCompareEq(window._cmpEqxSeries);
+      const _cex=content.querySelector('[data-cmpexpand]');
+      if(_cex)_cex.onclick=()=>{
+        // open the explorer with what is actually on screen - a hidden or greyed strategy should
+        // not reappear at full strength just because you expanded the chart.
+        const H=(window._cmpOvlHide instanceof Set)?window._cmpOvlHide:new Set();
+        const G=(window._cmpOvlGrey instanceof Set)?window._cmpOvlGrey:new Set();
+        const vis=(window._cmpEqxSeries||[]).filter(s2=>!H.has(String(s2.id))&&!G.has(String(s2.id)));
+        window.expandCompareEq(vis.length?vis:(window._cmpEqxSeries||[]));};
       // v68.0: mount the live inline equity-overlay chart (crosshair, wheel zoom, drag pan,
       //   dbl-click reset, 2B-style key box) into the host the render just emitted.
       if(typeof window.cmpOvlMount==='function')window.cmpOvlMount('cmp-ovl-host');}
