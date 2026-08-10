@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.68';
+const VERSION='71.69';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.69',date:'2026-08-09',notes:['RUNBOARD metric names and their order now match the 1E card. 1E lists the stage money rows first and then TOTAL as the summary - it does not lead with a total and indent children under it. So the rows read IS dollars, WF dollars, LB dollars, then TOTAL.','It says DD, not MAX DD, for the same reason the 1E card was renamed: a drawdown measured on one stretch is not the maximum drawdown of the whole run.','The stage-lit row is replaced by FOLDS HELD, the row 1E actually carries. A book shows a dash there and says why on hover - it tunes nothing, so it has no folds to hold by design.','SAMPLE, RANK and HEAT moved off the far right. They were pinned to the tile right edge, and now that the table sizes to its own content the tile is often much wider than the table - so the controls were stranding themselves hundreds of pixels from the thing they control. They sit on their own line under the title, reading left to right like the table below them.']},
 {v:'71.68',date:'2026-08-09',notes:['CONFIG COLOURS MATCH between the 1A tile and its expanded view. The tile painted the walk-forward survivors from an eight-hue palette while the expanded explorer painted the very same configs from a teal ramp - two different palettes for one set of lines, so a config you were following changed colour the moment you expanded the chart. The tile choice is now handed to the explorer, so both draw the same config in the same colour. The crowned line stays green and the in-sample best stays blue in both.']},
 {v:'71.67',date:'2026-08-09',notes:['1A card grows a ▦ TRADES tab (next to CHAMPION / FUNNEL): opens the champion trade blotter in its OWN window - no chart expansion needed. Same quick views, same CHART pill per row into the full candle viewer (prev/next, top 10, zoom, save).','BLOTTER QUICK VIEWS (both the new window and the expanded-1A panel): RECENT (10 newest, LOAD 25 MORE), TOP 10 WINS, TOP 10 LOSSES, and ALL. RECENT is the default - the panel no longer renders five thousand rows up front; ALL is one click.','NO MORE WAITING BEHIND A BACKTEST: your PC now answers candle and blotter fetches on a separate lane, in parallel with a running job - a fetch lands in seconds instead of queueing behind a 30-90 minute backtest. (Takes effect at the next runner restart, done.)']},
 {v:'71.66',date:'2026-08-09',notes:['RUNBOARD column width, second pass. Handing the spare width to the metric-name column left a wide empty gap down the middle of the table, which was worse than the columns being padded. The table now sizes to its content and stops: every column is as wide as its own numbers, and any leftover width sits outside the table where it belongs. Drag the panel divider in if you want it gone entirely.']},
@@ -14972,7 +14973,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v71.54: HEAT is the single loudest thing about the real 1E — every cell shaded by where it
         //   lands across its own row. Same toggle, same amber tone, same default-on behaviour.
         const _rbHeat=(APREF.rbHeat==null)?true:!!APREF.rbHeat;
-        const _rbCtlRow='<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-left:auto;flex-shrink:0">'
+        // v71.67 (owner: "why is the sample row select and the rest so far to the right"): the rail
+        //   used to be pinned to the RIGHT EDGE of the tile. Now that the table sizes to its own
+        //   content, the tile is often much wider than the table, so the controls were stranding
+        //   themselves hundreds of pixels away from the thing they control. They sit on their own
+        //   line directly under the title, reading left to right like the table underneath them.
+        const _rbCtlRow='<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;flex-shrink:0">'
           +_rbRail('rbs',_sampTabs,'SAMPLE','which stretch every panel measures - the funnel redraws, the matrix recomputes, the ranking re-sorts',_TONE.samp)
           +_rbRail('rbr',_rankTabs,'RANK','which metric orders the strategies - measured on the picked SAMPLE',_TONE.rank)
           +'<span data-rbheat>'+_tabStrip(_tabBtn('','HEAT',_rbHeat,'shade every cell by where it lands across its own row - green best, red worst. The same heat map the 1E card uses.',_TONE.heat),false)+'</span>'
@@ -15080,14 +15086,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _m$=v=>'<span style="color:'+(v>=0?'#1d9e75':'#e24b4a')+';font-weight:700">'+_ab$(v)+'</span>';
         const _mSub=v=>'<span style="color:var(--text4)">'+_ab$(v)+'</span>';
         const _mGroups=[
-          {name:'return · '+_win,rows:[
-            _mk('NET $ · '+_win,_netOf,_m$,'max',{top:true})
-          ].concat((_rbS==='full')?[
-            _mk('├ IS $',r=>{const b=_bw(r);return b?null:_totA(r).is;},_mSub,'max'),
-            _mk('├ WF $',r=>{const a=_wfA(r);return a?a.net:null;},_mSub,'max'),
-            _mk('└ LB $',r=>{const a=_lbA(r);return a?a.net:null;},_mSub,'max')
+          // v71.67 (owner: "metric column. some of those look different"): the row NAMES and their
+          //   ORDER now match the 1E card. 1E lists the stage money rows first and then TOTAL as
+          //   the summary — it does not lead with a total and indent children under it. And it
+          //   says DD, not MAX DD, because a drawdown measured on one stretch is not the run's
+          //   maximum (the same reasoning that renamed it on the 1E card in v71.31).
+          {name:'return · '+_win,rows:((_rbS==='full')?[
+            _mk('IS $',r=>{const b=_bw(r);return b?null:_totA(r).is;},_mSub,'max'),
+            _mk('WF $',r=>{const a=_wfA(r);return a?a.net:null;},_mSub,'max'),
+            _mk('LB $',r=>{const a=_lbA(r);return a?a.net:null;},_mSub,'max')
           ]:[]).concat([
-            _mk('MAX DD · '+_win,_ddOf2,v=>'<span style="color:#e24b4a">'+_ab$(Math.abs(v))+'</span>','min')])},
+            _mk('TOTAL · '+_win,_netOf,_m$,'max',{top:true}),
+            _mk('DD · '+_win,_ddOf2,v=>'<span style="color:#e24b4a">'+_ab$(Math.abs(v))+'</span>','min')])},
           {name:'reward ÷ risk · '+_win,rows:[
             _mk('MAR · '+_win,_marOf,v=>'<span style="color:'+(v>=2?'var(--green)':'var(--text2)')+';font-weight:'+(v>=2?'700':'400')+'">'+v.toFixed(2)+'</span>','max',{top:true}),
             _mk('PF · '+_win,_pfOf,v=>'<span style="color:'+(v>=1?'var(--text)':'var(--red)')+'">'+v.toFixed(2)+'</span>','max'),
@@ -15101,21 +15111,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
             {lbl:'WINDOW',cell:c=>{const r=c.run,d=_spanOf(r);if(d==null)return '<span style="color:var(--text5)">—</span>';
               const y=d/365.25,short=y<2;
               return '<span title="'+(r.date_from||'?')+' to '+(r.date_to||'?')+'" style="color:'+(short?'var(--yellow)':'var(--text4)')+'">'+(short?'⚠ ':'')+((y>=1.5)?(y.toFixed(1)+'y'):(d+'d'))+'</span>';}},
-            {lbl:'STAGES',cell:c=>{const r=c.run,a=_wfA(r),lb=r.validate&&r.validate.lockbox,bk=!!(r&&r.book);
-              const one=(t,on,col,tip)=>'<span title="'+tip+'" style="color:'+(on?col:'var(--text5)')+';opacity:'+(on?'1':'.45')+'">'+t+'</span>';
-              return '<span style="white-space:nowrap">'
-                +one('IS',true,'var(--text3)','in-sample — every run measures this stretch')
-                +'<span style="color:var(--text5)"> · </span>'
-                +one('WF',!!a,(a&&a.held>=a.n/2)?'var(--green)':'var(--yellow)',bk?'a book tunes nothing, so it has no walk-forward folds by design':('walk-forward'+(a?(' · '+a.held+'/'+a.n+' folds held'):' — not run')))
-                +'<span style="color:var(--text5)"> · </span>'
-                +one('LB',!!lb,(lb&&lb.pass)?'var(--green)':'var(--red)','lockbox'+(lb?(lb.pass?' · held':' · failed'):' — not run'))+'</span>';}}]},
+            // 1E's own row — how many walk-forward folds held. A book shows a dash and says why on
+            //   hover: it tunes nothing, so it has no folds to hold by design.
+            {lbl:'FOLDS HELD · WF',cell:c=>{const r=c.run,a=_wfA(r);
+              if(!a)return '<span title="'+((r&&r.book)?'a book tunes nothing, so it has no walk-forward folds by design':'walk-forward was not run on this strategy')+'" style="color:var(--text5)">—</span>';
+              return '<b style="color:'+(a.held>=a.n/2?'var(--green)':'var(--red)')+'">'+a.held+'/'+a.n+'</b>';}}]},
           {name:'verdict',rows:[
             {lbl:'VERDICT',top:true,cell:c=>{const v=c.run.validate?c.run.validate.verdict:'';
               return v?'<b style="color:'+(v==='PASS'?'var(--green)':v==='WEAK'?'var(--yellow)':'var(--red)')+'">'+v+'</b>':'<span style="color:var(--text5)">—</span>';}}]}
         ];
         // v71.27: the matrix scrolls inside a box whose height the owner can drag, same handle.
         const _rbMH=Math.max(160,Math.min(1600,Math.round(+APREF.rbMtxH||420)));
-        const matrixTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap"><span class="lbl" style="flex-shrink:0">1E · MATRIX <span style="font-weight:400;color:var(--text5);font-size:8px">· '+runs.length+' strateg'+(runs.length===1?'y':'ies')+' · green = best in row</span></span>'+_rbCtlRow+'</div>'
+        const matrixTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap"><span class="lbl" style="flex-shrink:0">1E · MATRIX <span style="font-weight:400;color:var(--text5);font-size:8px">· '+runs.length+' strateg'+(runs.length===1?'y':'ies')+' · green = best in row</span></span></div>'
+          +'<div style="margin-bottom:7px">'+_rbCtlRow+'</div>'
           +'<div id="rb-mtx-box" style="height:'+_rbMH+'px;min-height:120px;max-height:1600px;overflow:auto">'
           +((_cOr==='h')?('<div style="overflow-x:auto"><table class="table"><thead>'+hdr+'</thead><tbody>'+mrows+'</tbody></table></div>'):_matrixTbl(_mCols,_mGroups,{compact:true,tight:true}))
           +'</div>'
