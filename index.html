@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='72.6';
+const VERSION='72.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'72.7',date:'2026-08-10',notes:['PAPER - fixed the load error that appeared under the board. The daily-reports list was asking the database for newest-first in a way that needs a special index; it now asks oldest-first and flips the list itself, which needs nothing extra.']},
 {v:'72.6',date:'2026-08-10',notes:['PAPER view v1 — live forward-test board. New Backtester sub-tab PAPER shows the shadow trades the runner logs each day for ORB, ENGU-Q and the 1:1 BLEND: per-leg tiles (days live, trades, net dollars, win rate, last trade), a cumulative PnL curve, a trades table and a daily reports list with per-leg warnings and the reviewed verdict. No real money — shadow trading starts 2026-08-11.']},
 {v:'72.5',date:'2026-08-09',notes:['The HWM chip was lighting up one click behind what the chart was drawing - the setting was being read after the title row had already been built.']},
 {v:'72.4',date:'2026-08-09',notes:['RUNBOARD funnel: the blue walk-forward and purple lockbox SHADING is gone. Every strategy reaches its own walk-forward and lockbox on a different date, so one shared band drew boundaries that were true for at most one curve and wrong for the rest - a strategy still in walk-forward appeared to be sitting inside the lockbox. Each line states its own stages instead: solid in-sample, dashed walk-forward, dotted lockbox, the same line procedure every other PnL chart on the site uses.','The word DRAWDOWN sat on the top edge of the drawdown pane and the filled area sliced it in half. It sits above the pane now.','NEW HWM toggle on the funnel title. It draws each line HIGH-WATER MARK - the running peak, the most that strategy had ever made up to that point. The gap between a line and its own mark is the drawdown it was sitting in right then, so a long flat mark with the line beneath it reads as a long stretch under water. Off by default, remembered once set.']},
