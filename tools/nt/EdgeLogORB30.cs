@@ -43,7 +43,6 @@ namespace NinjaTrader.NinjaScript.Strategies
         private int    bis;            // bar index within session (0-based, counts CLOSED bars)
         private double orHi, orLo, sessOpen, orClose, rng, upLvl, dnLvl;
         private double cumVol;         // session volume of closed bars (for the filter mean)
-        private double volMeanAtArm;   // mean bar volume of session-so-far when orders were armed
         private bool   tradedThisSession;   // a REAL (non-scratch) trade completed
         private bool   armed;
         private int    orDir;
@@ -119,7 +118,11 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (pendingVolCheck && dir != 0)
             {
                 pendingVolCheck = false;
-                if (VolFilter > 0 && volMeanAtArm > 0 && Volume[0] < VolFilter * volMeanAtArm)
+                // engine: sv[:k].mean() = mean of the session bars BEFORE this breakout bar.
+                // At this point cumVol/bis are still the pre-current-bar totals, so this is
+                // exact for ANY entry bar (not just the one we armed on).
+                double volMeanPrior = bis > 0 ? cumVol / bis : 0;
+                if (VolFilter > 0 && volMeanPrior > 0 && Volume[0] < VolFilter * volMeanPrior)
                 {
                     // engine would have skipped this break — eject and re-arm later
                     ejecting = true;
@@ -155,11 +158,6 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                     bool longOk  = TradeMode == "Both" || TradeMode == "Long Only"  || (TradeMode == "First-candle dir" && orDir > 0);
                     bool shortOk = TradeMode == "Both" || TradeMode == "Short Only" || (TradeMode == "First-candle dir" && orDir < 0);
-
-                    // engine: sv[:k].mean() = mean of session bars BEFORE the breakout bar.
-                    // We arm at the close of bar `bis`; the earliest fill bar is bis+1, so
-                    // the reference mean is over bars 0..bis inclusive (bis+1 closed bars).
-                    volMeanAtArm = (cumVol + Volume[0]) / (bis + 1);
 
                     string oco = "ORBent_" + CurrentBar;   // unique per arming; pairs the two entry stops
                     if (longOk)

@@ -26,7 +26,8 @@
 //  position can carry across sessions (RTH-only bars).
 //
 //  Known engine gaps (documented, measured later by reconcile):
-//  • Engine enters AT the signal close; live fills the next tick (≈1 tick slip).
+//  • Engine enters AT the signal close; this sends a market order at that close, so
+//    live on Sim101 it fills at the next tick (usually a tick or two of slip).
 //  • Engine raises the trail with the CURRENT bar's high before checking that
 //    same bar's low; live the stop order updates after the bar closes, so a
 //    same-bar spike-up-then-down exits at the PREVIOUS stop level.

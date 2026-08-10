@@ -12,11 +12,13 @@ Files (also copied to `Documents\NinjaTrader 8\bin\Custom\Strategies\`):
 | `EdgeLogORB30` | ORB_3_0.py | #125: OR=1 bar · Both · stop 0.75×range · vol 1.25× · flat EOD | NQ · **5 Minute** · RTH session template |
 | `EdgeLogENGUQ1m` | ENGUQ_1M_1_0.py | #149 + breakeven 1.5 (long only, trail 2.5R, holds overnight) | NQ · **1 Minute** · RTH session template · load ≥30 days |
 
-## One-time setup (~10 min, owner does this — needs NT open)
+## One-time setup (~5 min, owner does this — needs NT open)
 
-1. **Compile:** NinjaTrader ▸ New ▸ NinjaScript Editor ▸ press **F5** (Compile).
-   Both strategies were written against the standard NT8 API but have NOT been
-   compiled yet — if the editor reports errors, paste them back to Claude.
+1. ~~**Compile**~~ — **already done and verified 2026-08-10.** The files were copied
+   into `Documents\NinjaTrader 8\bin\Custom\Strategies\` and NinjaTrader compiled
+   them cleanly on its own (both classes confirmed present in the rebuilt
+   `NinjaTrader.Custom.dll`). Nothing to do unless the files change; then NT
+   recompiles automatically, or press **F5** in the NinjaScript Editor.
 2. **ORB chart:** open NQ (current contract) 5-Minute, session template
    *CME US Index Futures RTH*. Right-click ▸ Strategies ▸ add **EdgeLogORB30**,
    account **Sim101**, leave all inputs at defaults, ENABLE.
