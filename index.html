@@ -1414,10 +1414,10 @@ function loadPaper(uidArg,force){
   const base=db.collection('users').doc(u);
   Promise.all([
     base.collection('paper_trades').orderBy('entryTime','desc').limit(500).get(),
-    base.collection('paper_reports').orderBy(firebase.firestore.FieldPath.documentId(),'desc').limit(30).get()
+    base.collection('paper_reports').orderBy(firebase.firestore.FieldPath.documentId()).limitToLast(30).get()
   ]).then(([ts,rs])=>{
     window._paperTrades=ts.docs.map(d=>({id:d.id,...d.data()}));
-    window._paperReports=rs.docs.map(d=>({id:d.id,...d.data()}));
+    window._paperReports=rs.docs.map(d=>({id:d.id,...d.data()})).reverse();
     window._paperLoaded=true;window._paperLoading=false;
     if(activeTab==='augur'&&augurSub==='paper')renderApp();
   }).catch(e=>{
