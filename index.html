@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.3';
+const VERSION='73.4';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.4',date:'2026-08-09',notes:['The GATE SWEEP CHART has its own Y AXIS switch - MAR or NET $ - sitting on the chart itself. It used to follow the RANK button, which is a control for ordering matrix COLUMNS, so changing what the chart measured meant reaching for something that looks like it does something else entirely. Until the new switch is touched it still follows RANK, so nothing moves unless you ask it to.','Said plainly on the chart: every figure on it covers the TUNING YEARS ONLY - in-sample plus walk-forward - because that is all the pick was allowed to see. The GATE matrix above it totals whatever SAMPLE is ticked, so with LB ticked it reads higher by exactly the held-out year. Same model, same cut-off, different stretch. That is why rf at 50 percent can read 499k on the chart and 580k in the matrix, and both be correct. The axis title, the hover and a line under the chart all now say so.']},
 {v:'73.3',date:'2026-08-10',notes:['THE BLOTTER CAN NOW SHOW THE GATE, TILT AND HYBRID BOOKS, not just the crowned RAW config (owner ask). Pick RAW / GATE / TILT / HYBRID under the view switch: trades the gate would SKIP grey out and say SKIP, sized books show the size each trade gets, and the line above reports how many trades that book takes and what it does to the net.','These per-trade answers are NOT stored in the run - the run only ever saved the totals - so your PC re-derives them on demand, about 40 seconds for a 5,600-trade run.','Checked against the run own saved gate result before shipping: on run 203 the recomputed gate keeps 2,959 trades for 24,809.87 points, matching the saved figures exactly.','Every candle chart opened from the blotter still draws the same real bars - the book only changes which trades are taken and at what size.']},
 {v:'73.2',date:'2026-08-10',notes:['Cut-off sweep chart (1E GATE tab): the dashed hindsight curves are OFF by default and no longer stretch the y-axis. That was why the chart looked squashed on run 203 - one held-out year ran far past the tuning years and flattened every line that actually made the decision. A HINDSIGHT chip turns them back on when you want them.','The solid/dashed key, the hindsight warning and the hover tip moved off the caption and into the info icon.','The LB HELD chip under the sweep chart is gone - the gate verdict reads off the 2A funnel as a line, and the sentence now lives in the tab info icon and the section 3 GATE VALIDATE pill.']},
 {v:'73.1',date:'2026-08-10',notes:['Greying a strategy on the funnel key now fades its DRAWDOWN trace too. The equity line went faint but its underwater shading stayed at full strength, so a greyed strategy was still shouting from the lower pane.']},
@@ -12116,7 +12117,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // read the pref directly: _g2rank is declared further down this function and this
           //   IIFE runs first (learned the hard way in 65.0/65.2 — order bugs here throw and
           //   blank the whole report).
-          const _yPnl=((['rec','pnl','floor'].indexOf(String(APREF.g2rank||''))>=0)?String(APREF.g2rank):'rec')!=='rec';
+          // owner: "what i was really after is to change the y axis from mar to pnl... i guess
+          //   switch to net $ in the top of the 1e matrix does it, but its confusing". It did,
+          //   which is the problem - the chart y-axis was a side effect of a control that orders
+          //   MATRIX COLUMNS. It has its own MAR / NET $ switch now. Until that switch is touched
+          //   it keeps following RANK, so nothing moves for anyone who has not asked it to.
+          const _swYP=String(APREF.swY||'');
+          const _yPnl=(_swYP==='net')?true:((_swYP==='rec')?false
+            :(((['rec','pnl','floor'].indexOf(String(APREF.g2rank||''))>=0)?String(APREF.g2rank):'rec')!=='rec'));
           if(_sw){
             const ths=_sw.thresholds||[];
             const models=Object.keys(_sw.models);
@@ -12146,7 +12154,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             g+='<line x1="'+pl+'" y1="'+uy.toFixed(1)+'" x2="'+(pl+pw)+'" y2="'+uy.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" stroke-dasharray="4,3" opacity="0.85"/><text x="'+(pl+2)+'" y="'+(uy-3).toFixed(1)+'" font-size="8" fill="var(--text4)">no gate '+fv(ub)+'</text>';
             const _yc=(pt+ph/2).toFixed(1);
             const _yx=(W-7).toFixed(1);
-            g+='<text x="'+_yx+'" y="'+_yc+'" transform="rotate(-90 '+_yx+' '+_yc+')" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">'+(_yPnl?'NET $, tuning years':'MAR ($ per $ drawdown)')+' &#8594;</text>';
+            g+='<text x="'+_yx+'" y="'+_yc+'" transform="rotate(-90 '+_yx+' '+_yc+')" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">'+(_yPnl?'NET $':'MAR ($ per $ drawdown)')+', tuning years only &#8594;</text>';
             g+='<text x="'+(pl+pw/2).toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--text3)">GATE CUT-OFF % &#8212; min win-probability to take a trade &#8594;</text>';
             models.forEach(m=>{const mc=_mc(m);
               const line=(pre)=>{const ys=pick(m,pre);if(ys.length!==ths.length)return '';
@@ -12177,12 +12185,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
               //   explanation, the solid/dashed key and the hover tip all move into the icon,
               //   and the hindsight curves themselves become a deliberate one-click reveal.
               +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:8px;color:var(--text4);margin:0 0 3px">'
-              +'<span>Every 1% cut-off from 40% to 70%, one walk per model &#183; dots = the three official cut-offs, ringed = chosen &#183; y-axis follows the RANK button.</span>'
+              +'<span>Every 1% cut-off from 40% to 70%, one walk per model &#183; dots = the official cut-offs, ringed = chosen.</span>'
+              +'<span style="display:inline-flex;align-items:center;gap:4px;margin-left:2px"><span style="font-size:7px;font-weight:700;letter-spacing:.5px;color:var(--text5)">Y AXIS</span>'
+              +_tabStrip(_tabBtn('data-swy="rec"','MAR',!_yPnl,'dollars earned per dollar of drawdown - efficiency, scale-free')
+                        +_tabBtn('data-swy="net"','NET $',_yPnl,'dollars made - what the cut-off is actually worth'),false)+'</span>'
               +_infoIc('<div style="color:var(--text2)"><b>SOLID = TUNING YEARS.</b> Every line you see by default was walked on pre-lockbox data only &#8212; the same data the winning model and cut-off were picked on. This is the honest picture of the decision.<br><br><b>DASHED = THE HELD-OUT YEAR (HINDSIGHT).</b> Off by default. It replays each model across every cut-off on the lockbox slice, which the pick never saw, so it can only ever be read after the fact &#8212; reporting, never selection. Choosing a cut-off by looking at it would be lockbox shopping.<br><br><b>WHY IT IS OFF.</b> A held-out year is one year, so its curve can run far above or below the tuning curves. When both shared one y-axis the outlier set the range and the solid lines flattened into a band you could not read (owner-reported on run 203, where the logistic hindsight curve stretched it). With hindsight off the axis fits the tuning curves alone; switching it on deliberately re-fits the axis to hold both.<br><br><b>HOVER THE CHART</b> for every model MAR and net $ at that cut-off.</div>')
               +'<span data-swhind title="show or hide the dashed held-out (hindsight) curves. They are reporting-only and re-scale the y-axis when shown." style="cursor:pointer;user-select:none;border:1px solid '+(_hind?'var(--yellow)':'var(--border)')+';color:'+(_hind?'var(--yellow)':'var(--text4)')+';border-radius:6px;padding:0 6px;font-size:8px;font-weight:700;white-space:nowrap">'+(_hind?'&#9679; HINDSIGHT ON':'&#9675; HINDSIGHT OFF')+'</span>'
               +'</div>'
               +'<div'+_swAttr+' style="position:relative;background:var(--bg1);border-radius:8px;padding:8px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+xl+'</svg></div>'
               +'<div style="text-align:center;font-size:8px;margin-top:3px">'+legend+'</div>'
+              // owner: "rf 50 shows total pnl at 580k but the sweep chart says rf50 is 499k".
+              //   Both are right - they cover different stretches. This chart is walked on the
+              //   TUNING YEARS only, because that is all the pick was allowed to see. The matrix
+              //   above totals whatever SAMPLE is ticked, and with LB ticked that adds the
+              //   held-out year on top. Said out loud here so the two can be reconciled on sight.
+              +'<div style="font-size:8px;color:var(--text4);margin-top:5px;line-height:1.5">Every figure on this chart covers the <b>tuning years only</b> (in-sample + walk-forward) &#8212; that is all the pick was allowed to see. The GATE matrix above totals whatever <b>SAMPLE</b> is ticked, so with <b>LB</b> ticked its numbers are higher by exactly the held-out year. Same model, same cut-off, different stretch.</div>'
               +'</div>';
           }
           const models=[];cs2.forEach(c=>{if(models.indexOf(c.model)<0)models.push(c.model);});
@@ -17352,6 +17369,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // GATE SWEEP hover: snap to the nearest 1% cut-off and print every model tuning-years MAR
       //   and net $ side by side, so the peaks the line shows can be read as dollars without
       //   flipping the RANK button back and forth.
+      content.querySelectorAll('[data-swy]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('swY',b.getAttribute('data-swy'));renderApp();};});
       content.querySelectorAll('[data-swxh]').forEach(box=>{
         let PZ=null;try{PZ=JSON.parse(decodeURIComponent(box.getAttribute('data-swxh')||''));}catch(_e){}
         if(!PZ||!PZ.ths||PZ.ths.length<2)return;
@@ -17370,7 +17388,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const px=((PZ.pl+PZ.pw*(i/(_n-1)))/PZ.W)*100;
           vl.style.left=px+'%';
           rd.style.left=(px>50?'':(px+2)+'%');rd.style.right=(px>50?((100-px)+2)+'%':'');
-          rd.innerHTML='<b>'+Math.round(PZ.ths[i]*100)+'% cut-off</b> <span style="color:var(--text5)">tuning years</span><br>'
+          rd.innerHTML='<b>'+Math.round(PZ.ths[i]*100)+'% cut-off</b> <span style="color:var(--text5)">tuning years only (IS + WF)</span><br>'
             +PZ.ms.map(m=>'<span style="color:'+m.c+'">\u25cf '+m.n+'</span> &nbsp;MAR <b>'+((m.rec[i]!=null&&isFinite(m.rec[i]))?(+m.rec[i]).toFixed(1):'\u2014')+'</b> &nbsp;'+_u2(m.net[i])).join('<br>');
         },{passive:true});
         box.addEventListener('mouseleave',_hide);});
