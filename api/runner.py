@@ -155,6 +155,19 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 # the raw IS-max (augur_engine/validate.py's Stage A.5).
                 select_oos_topk=int(job.get("select_oos_topk", 10) or 0),   # v68.5 (owner): crown pool widened to the top-10 IS configs, still WF-ranked
                 progress_cb=progress_cb)
+        elif jtype == "book":
+            # BOOK (RUNBOARD item B): N strategy files traded side by side over ONE window,
+            # every leg's trades pooled into a single pile and scored as ONE strategy. Fixed
+            # params — nothing is tuned here — so there is no WF fold result to report; the
+            # lockbox split and the house consistency count are in the result's `book` block.
+            r = ae.run_book(
+                job.get("legs") or [],
+                date_from=df_from, date_to=df_to,
+                lockbox_months=int(job.get("lockbox_months", 12) or 12),
+                slices=int(job.get("slices", 8) or 8),
+                equity_points=int(job.get("equity_points", 400) or 400),
+                name=job.get("book_name") or job.get("strategy"),
+                progress_cb=progress_cb)
         elif jtype == "gate_validate":
             r = ae.run_gate_validate(
                 job["strategy"], instrument=job.get("instrument"),
@@ -582,7 +595,8 @@ class FirestoreQueue:
             "timeframe": job.get("timeframe", ""),
             "scope": ({"ai_optimize": "AI optimize", "ai_evolve": "AI evolve",
                        "auto": "Auto-Optimize", "walkforward": "Walk-Forward",
-                       "validate": "🧭 Auto-Validate", "gate_validate": "🚪🧭 Gate-Validate"}
+                       "validate": "🧭 Auto-Validate", "gate_validate": "🚪🧭 Gate-Validate",
+                       "book": "📚 Book"}
                       .get(job.get("type"), job.get("preset", "web sweep"))),
             # carry the validate report card into run history so Results/Library can show it
             "validate": result.get("validate"),
@@ -639,6 +653,9 @@ class FirestoreQueue:
             # ── one-stop-shop report parity: carry the config-selection + gate cards + the
             #    diagnostic 'pills' into run history so the saved RUN REPORT renders the same
             #    rich view the Builder does (not just Auto-Validate runs). ──
+            # BOOK runs: the pooled per-leg breakdown + lockbox split + house 8-stretch
+            # count, so the RUNBOARD's BOOKS tile can render a real book row.
+            "book": result.get("book"),
             "ensemble": result.get("ensemble"),        # §6 top-K blend + CCMP (grid sweeps)
             "plateau_pick": result.get("plateau_pick"),  # 3C.1 broad-high-ground vs argmax
             "surrogate": result.get("surrogate"),      # #31 P1 multi-surrogate bake-off cards (2L panel)
@@ -858,7 +875,7 @@ class FirestoreQueue:
                     ref.update(patch)
                     # A completed grid sweep also lands in the Runs history, so web
                     # sweeps appear alongside the app's runs in users/{uid}/runs.
-                    if job.get("type") in ("grid", "auto", "walkforward", "ai_optimize", "ai_evolve", "validate", "gate_validate") and patch.get("status") == "done":
+                    if job.get("type") in ("grid", "auto", "walkforward", "ai_optimize", "ai_evolve", "validate", "gate_validate", "book") and patch.get("status") == "done":
                         try:
                             self._persist_run(uid, job, patch.get("result") or {}, log, elapsed_s=_elapsed)
                         except Exception as _e:

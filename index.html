@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.41';
+const VERSION='71.42';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.42',date:'2026-08-09',notes:['BOOK RUNS ARE REAL NOW. A book - two or more strategies traded side by side in one account - used to be the one thing the app could not measure, because Auto-Validate takes a single strategy file, so those numbers were computed offline and pasted in by hand. Your PC can run a book as an ordinary job: every leg replayed over the same window with its own frozen settings, every trade pooled into one pile, and the pile scored as ONE strategy - so the profit factor and the drawdown are true account numbers, not a legs.','RUNBOARD BOOKS has a + RUN A BOOK button. Tick the strategies you would trade together and it queues the job; the window defaults to the stretch every picked strategy has data for. The finished book saves like any other run - real equity curve, real lockbox read, its own run report - and lands at the top of the BOOKS table marked LIVE RUN. Click the row to open it.','A book carries no walk-forward column on purpose. Nothing is tuned during a book run, so there are no folds to report; what it does carry is the lockbox stretch and the house count of how many of 8 equal stretches were profitable.','QUICK TOGGLE ON THE CHART: click any strategy in the funnel key to drop it out of the chart, click again to bring it back. Hidden strategies stay in the key struck through, and the axis, bands and drawdown pane all rescale to what is left.']},
 {v:'71.41',date:'2026-08-09',notes:['CHART button (TRADES blotter row): the candle window now opens INSTANTLY with a live seconds counter and a plain explanation - the bar fetch is a real trip to your PC (~30s, longer if a backtest is running there) and the old tiny hourglass read as stuck. The chart fills in by itself when the bars land.','CHART button: a failed fetch now prints its error inside that same window with a retry hint, instead of a pop-up alert that was easy to dismiss and forget.','TRADES button while loading now ticks elapsed seconds too, so a minutes-long first load reads as alive.']},
 {v:'71.38',date:'2026-08-09',notes:['REAL BUG, caught on run 203: TAKEN plus NOT TAKEN did not add up. NOT TAKEN was the refused count for the WHOLE RUN sitting directly under a TRADES row that follows the SAMPLE tick, so on WF+LB the hybrid read 2,222 taken and 2,657 refused - a total larger than the 3,707 trades those two stretches even contain.','Refused is now measured stretch by stretch: the no-filter trade count for each ticked stretch minus what that column kept. On the same run the xgb hybrid now reads 2,222 taken and 1,485 refused, which is exactly the 3,707 the TILT tab shows for WF+LB, since a tilt refuses nothing.','BIGGEST SIZE and SIZE MIX carry a FULL tag now. The engine saves the size profile once for the run rather than per stretch, so those two genuinely cannot follow the tick and they say so instead of looking sample-scoped.','Worth knowing when reconciling: the RAW tab TRADES row is tagged IS+WF and counts one config over the optimize window. It is a different window AND a different book to the filter tabs, so it is not the total those two rows add up to - the TILT TRADES row on the same tick is.']},
 {v:'71.37',date:'2026-08-09',notes:['RAW tab has a TRADES row now. The config records were carrying the count all along, the matrix just never printed it - so the tab showed PF, WIN percent and dollars per trade with no sample size under them. It sits with the other optimize-window rows and is tagged IS+WF like they are.','KPI tab now lines up with the rest of 1E. Its group captions and cells were on their own padding rhythm, so every row sat a few pixels off the same row on RAW, GATE, TILT and the hybrids and a tab flip shifted the whole table. Same rhythm everywhere now. Its column headers stay one line taller because each one carries the date range under the stretch name.','No duplicate rows found on KPI - RECOVERY and MAR are genuinely different numbers, net over drawdown versus the annualised version, not the same figure twice.','AVG CONTRACTS only shows when a column is NOT running one lot. On TILT and on the plain HYBRID tab it read 1.00x in every column, which is the definition of those tabs rather than a finding. It still shows on REDEPLOY and EQUAL-DRAWDOWN where it is the whole point.','NOT TAKEN only shows when something was actually refused. A tilt refuses nothing, so that row was a column of zeros on every tilt.','NOT TAKEN now sits directly under TRADES on the tabs that have it. Taken and refused are the same question and they were four rows apart.']},
@@ -3860,6 +3861,13 @@ window.expandCompareEq=function(series,opts){
   //   the same picture the tile shows - one line per family - instead of an empty chart you have
   //   to switch on family by family. The rest of each family stays hidden behind its group row.
   [_gatePS,_tiltPS,_hybPS,_hybRPS].forEach(function(fn){try{const g=fn();if(g.length)g[0].vis='on';}catch(_te){}});
+  // v71.42 (owner: "for top RAW in the expanded view just show the top three - it is too many"):
+  //   the RAW group carries ten coloured configs, which buried the family lines under a fan of
+  //   near-identical curves. Only the best three by where they finish start drawn - plus the
+  //   crowned config, always. The rest stay in the group, one click away.
+  try{const _raw=_mainPS();
+    if(_raw.length>3)_raw.forEach(function(s,i){if(i>=3&&!/👑/.test(String(s.label||'')))s.vis='off';});
+  }catch(_re){}
   // per-group expand/collapse state — all three start COLLAPSED (one row each); replaces the old
   //   single-purpose gateExpanded flag.
   let _grpExpanded={cfg:false,gate:false,tilt:false,hyb:false,hybr:false,oth:false};
@@ -4781,9 +4789,18 @@ window.expandCompareEq=function(series,opts){
 //    added on mousedown and always removed on mouseup so it can never leak across renders.
 window.cmpOvlMount=function(hostId){
   const host=document.getElementById(hostId);
-  const S=window._cmpEqxSeries||[];
+  const ALL=window._cmpEqxSeries||[];
   const NC=window._cmpEqxNoCurve||[];
-  if(!host||!S.length)return;
+  // v71.35 (owner: "i want a quick toggle for the strategies. on the chart"): CLICK A KEY ROW
+  //   to drop that strategy out of the chart, click again to bring it back. Hidden strategies
+  //   stay listed in the key (struck through) so nothing silently disappears, and the axis /
+  //   bands / drawdown pane all rescale to what is actually shown. The picks live on
+  //   window._cmpOvlHide so a redraw keeps them; changing the run selection clears them.
+  const HID=window._cmpOvlHide=(window._cmpOvlHide instanceof Set)?window._cmpOvlHide:new Set();
+  const S=ALL.filter(sr=>!HID.has(String(sr.id)));
+  if(!host||!ALL.length)return;
+  // everything hidden = nothing to scale against; keep the last visible one on screen
+  if(!S.length){HID.delete(String(ALL[ALL.length-1].id));return window.cmpOvlMount(hostId);}
   const _ab$=v=>{const a=Math.abs(v||0),sg=(v<0?'-$':'$');return a>=1e6?(sg+(a/1e6).toFixed(2).replace(/\.?0+$/,'')+'M'):(a>=1000?(sg+Math.round(a/1000)+'k'):(sg+Math.round(a)));};
   // shared-calendar x (simple branch of expandCompareEq's rebakeDomain above — no per-trade
   //   blotter refinement, this tile only ever has the run-level equity array): each series
@@ -4854,8 +4871,8 @@ window.cmpOvlMount=function(hostId){
     const d=Math.round((b-a)/86400000),y=d/365.25;
     return (y>=1.5)?(' <span style="color:var(--text5)">· '+y.toFixed(1)+'y</span>')
       :(' <span style="color:var(--yellow)" title="short sample - this curve only covers '+d+' days, so it draws as a hairline beside the full-history runs">· '+d+'d ⚠</span>');};
-  keyEl.innerHTML=S.map(sr=>{const lastV=(sr.eq&&sr.eq.length)?sr.eq[sr.eq.length-1]:0;
-      return '<div style="white-space:nowrap;color:'+sr.color+'"><b>▬</b> #'+sr.id+' '+sr.label+' · '+_ab$(lastV)+(ONE_A?_spanTxt(sr):'')+'</div>';}).join('')
+  keyEl.innerHTML=ALL.map(sr=>{const lastV=(sr.eq&&sr.eq.length)?sr.eq[sr.eq.length-1]:0,off=HID.has(String(sr.id));
+      return '<div data-ovltog="'+sr.id+'" title="'+(off?'click to show this strategy on the chart':'click to hide this strategy — the chart rescales to what is left')+'" style="white-space:nowrap;cursor:pointer;user-select:none;color:'+(off?'var(--text5)':sr.color)+(off?';text-decoration:line-through;opacity:.6':'')+'"><b>'+(off?'▭':'▬')+'</b> #'+sr.id+' '+sr.label+' · '+_ab$(lastV)+(ONE_A?_spanTxt(sr):'')+'</div>';}).join('')
     +'<div style="white-space:nowrap;color:var(--text4)"><b>—</b> in-sample</div>'
     +(S.some(sr=>sr.wfi!=null)?'<div style="white-space:nowrap;color:var(--text4)"><b>––</b> walk-forward</div>':'')
     +(S.some(sr=>sr.li!=null)?'<div style="white-space:nowrap;color:var(--text4)"><b>····</b> lockbox</div>':'')
@@ -4986,6 +5003,15 @@ window.cmpOvlMount=function(hostId){
   //    hover — same math shape as expandCompareEq above, simplified to this one small chart.
   //    Every listener is host-scoped (bound fresh on this mount call) except the drag gesture's
   //    window mousemove/mouseup pair, which is added on mousedown and removed on mouseup. ──
+  // v71.35: the key rows are the quick toggle. Bound on the KEY box (not the plot) so a click
+  //   here never starts the chart's drag/pan gesture; the remount redraws every scale.
+  keyEl.querySelectorAll('[data-ovltog]').forEach(rw=>{
+    rw.addEventListener('mousedown',e=>{e.stopPropagation();});
+    rw.addEventListener('dblclick',e=>{e.stopPropagation();});
+    rw.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();
+      const k=String(rw.dataset.ovltog);
+      if(HID.has(k))HID.delete(k);else HID.add(k);
+      window.cmpOvlMount(hostId);});});
   host.addEventListener('wheel',e=>{
     const st=svg._g;if(!st)return;const r=host.getBoundingClientRect();if(!(r.width>0))return;
     e.preventDefault();
@@ -8519,17 +8545,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {lbl:'<span title="walk-forward dollars divided by the drawdown of the WHOLE optimize window. WF is the numerator because walk-forward is the number that actually decided the crown; the drawdown is whole-window because that is the only equity curve each candidate carries. It cannot follow the SAMPLE tick on this tab." style="border-bottom:1px dotted var(--text5);cursor:help">MAR</span>'+_win('WF &divide; IS+WF DD'),rowSty:(_b2rank==='rec'?_rkYel:''),cell:col=>col.mar!=null?('<span style="color:var(--text2)">'+col.mar.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'},
         {lbl:'<span title="Derived from the equity curve each candidate carries (period-to-period change in cumulative PnL) over the WHOLE optimize window, annualised using that window length -- not stored directly by the engine, and it cannot follow the SAMPLE tick on this tab." style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>'+_win('IS+WF'),
          cell:col=>col.sharpe!=null?('<span style="color:var(--text2)">'+col.sharpe.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'},
-        {lbl:'<span title="walk-forward only: how many out-of-sample folds this config held up in" style="border-bottom:1px dotted var(--text5);cursor:help">FOLDS HELD</span>'+_win('WF'),cell:col=>col.foldsHeld!=null?('<span style="color:var(--text2)">'+col.foldsHeld+(_nFolds!=null?('/'+_nFolds):'')+'</span>'):'<span style="color:var(--text5)">—</span>'}
+      ];
+      // v71.42 (owner: "make REWARD / RISK the same across all tabs on 1E - anything that does not
+      //   apply or is unique goes in its own section below, e.g. FOLDS HELD"): this group is now
+      //   exactly MAR - SHARPE - PF - WIN % - $ / TRADE on every tab, in that order. Rows the
+      //   engine did not save for a config print a dash rather than being dropped, so the group is
+      //   the same height everywhere and a tab flip compares like with like. FOLDS HELD and TRADES
+      //   moved down into SAMPLE - they are sample facts, not reward-versus-risk.
+      const _b2Dash='<span style="color:var(--text5)">—</span>';
+      _rrRows.push({lbl:'PF'+_win('IS+WF'),cell:col=>col.mmPf!=null?('<span style="color:var(--text2)">'+Math.min(col.mmPf,99).toFixed(2)+'</span>'):_b2Dash});
+      _rrRows.push({lbl:'WIN %'+_win('IS+WF'),cell:col=>col.mmWr!=null?('<span style="color:var(--text2)">'+Math.round(col.mmWr)+'%</span>'):_b2Dash});
+      _rrRows.push({lbl:'<span title="average net dollars per trade over the optimize window -- says whether a config makes its money from bigger trades or just more of them" style="border-bottom:1px dotted var(--text5);cursor:help">$ / TRADE</span>'+_win('IS+WF'),cell:col=>col.mmApt!=null?('<span style="font-weight:700;color:'+(col.mmApt>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(col.mmApt))+'</span>'):_b2Dash});
+      const _b2Sample=[
+        {lbl:'<span title="trades this config took over the optimize window - the sample size behind the PF, WIN % and dollars-per-trade rows above. It cannot follow the SAMPLE tick on this tab: a config saved record carries one whole-window count, not a per-stretch split." style="border-bottom:1px dotted var(--text5);cursor:help">TRADES</span>'+_win('IS+WF'),top:true,cell:col=>col.mmN!=null?('<span style="color:var(--text3)">'+(+col.mmN).toLocaleString()+'</span>'):_b2Dash},
+        {lbl:'<span title="walk-forward only: how many out-of-sample folds this config held up in. Unique to this tab - the filter tabs are not fold-tested - so it sits here rather than in the shared reward-versus-risk block." style="border-bottom:1px dotted var(--text5);cursor:help">FOLDS HELD</span>'+_win('WF'),cell:col=>col.foldsHeld!=null?('<span style="color:var(--text2)">'+col.foldsHeld+(_nFolds!=null?('/'+_nFolds):'')+'</span>'):_b2Dash}
       ];
       // PF / WIN % (owner redesign item A4): only added when at least one candidate genuinely
       //   carries that field on its own metrics object — today's selection engine does not save
       //   one, so in practice these rows are omitted rather than fabricated or dashed out.
-      if(hasPf)_rrRows.push({lbl:'PF'+_win('IS+WF'),cell:col=>col.mmPf!=null?('<span style="color:var(--text2)">'+Math.min(col.mmPf,99).toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'});
-      if(hasWr)_rrRows.push({lbl:'WIN %'+_win('IS+WF'),cell:col=>col.mmWr!=null?('<span style="color:var(--text2)">'+Math.round(col.mmWr)+'%</span>'):'<span style="color:var(--text5)">—</span>'});
       // v65.0 (owner): $ PER TRADE, same row 2C now carries, so the two matrices line up.
       // v71.37 (owner: "i dont see trade count in RAW"): the sample size behind every row above it.
-      if(recs.some(rc=>rc.mmN!=null))_rrRows.push({lbl:'<span title="trades this config took over the optimize window - the sample size behind the PF, WIN % and dollars-per-trade rows above. It cannot follow the SAMPLE tick on this tab: a config saved record carries one whole-window count, not a per-stretch split." style="border-bottom:1px dotted var(--text5);cursor:help">TRADES</span>'+_win('IS+WF'),top:true,cell:col=>col.mmN!=null?('<span style="color:var(--text3)">'+(+col.mmN).toLocaleString()+'</span>'):'<span style="color:var(--text5)">—</span>'});
-      if(recs.some(rc=>rc.mmApt!=null))_rrRows.push({lbl:'<span title="average net dollars per trade over the optimize window -- says whether a config makes its money from bigger trades or just more of them" style="border-bottom:1px dotted var(--text5);cursor:help">$ / TRADE</span>'+_win('IS+WF'),cell:col=>col.mmApt!=null?('<span style="font-weight:700;color:'+(col.mmApt>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(col.mmApt))+'</span>'):'<span style="color:var(--text5)">—</span>'});
       const groups=[
         {name:'return <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">&middot; '+_b2segs.map(x=>x.toUpperCase()).join('+')+'</span>',rows:[]
           .concat(_b2segs.indexOf('is')>=0?[{lbl:'<span title="'+(recs[0]&&recs[0].isCal?'the years BEFORE walk-forward testing begins - the same calendar stretch 2C calls IS, so the two matrices agree and IS + WF add up to the optimize window':'this run predates calendar slicing: it shows the search 75/25 in-sample split score, which is NOT the same window 2C calls IS and does not add up with WF. Re-run to reconcile.')+'" style="border-bottom:1px dotted var(--text5);cursor:help">IS $</span>'+((recs[0]&&recs[0].isCal)?'':' <span style="font-size:6.5px;color:var(--yellow)">split</span>'),cell:col=>_usd(col.isV)}]:[])
@@ -8550,6 +8585,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   curve has no IS-only or WF-only stretch to measure a separate drawdown on.
           .concat([{lbl:'<span title="peak-to-trough drop on this config equity curve over the OPTIMIZE window only (in-sample and walk-forward together, NOT the lockbox). It cannot follow the SAMPLE tick like the other tabs do: the walk-forward folds are scattered through the in-sample stretch instead of following it, so there is no IS-only or WF-only curve to read. The GATE tab DD and the KPI TOTAL both include the lockbox, which is why those read deeper." style="border-bottom:1px dotted var(--text5);cursor:help">DD <span style="font-weight:400;color:var(--text5)">&middot; IS+WF</span></span>',cell:_ddCell}])},
         {name:'reward ÷ risk <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">· mixed slices — hover each row</span>',rows:_rrRows},
+        {name:'sample',rows:_b2Sample},
         {name:'config',rows:knobKeys.map(k2=>({lbl:_pp(k2),cell:col=>'<b style="color:var(--text2)">'+String((col.params||{})[k2])+'</b>'}))}
       ];
       const _anyStar=recs.some(rc=>rc.fullRunStar);
@@ -10294,16 +10330,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v70.4 (owner): the big money cells print in the same compact k format the config
         //   matrix uses, so 56,814 reads 57k and the two tabs line up at a glance.
         {lbl:'NET P&L', top:true, cell:p=>'<span title="'+(p.net!=null?fmtUsd(Math.round(p.net)):'')+'" style="font-weight:700;color:'+((p.net||0)>=0?'#1d9e75':'#e24b4a')+'">'+(p.net!=null?fmtAx(p.net,1):'—')+'</span>'},
-        {lbl:'$ / DAY', cell:p=>{const v=(p.net!=null&&p.days)?p.net/p.days:null;return '<span style="color:var(--text2)">'+(v!=null?fmtUsd(Math.round(v)):'—')+'</span>';}},
-        {lbl:'MAX DD', cell:p=>'<span style="color:#e24b4a" title="Worst peak-to-trough equity loss in this section. Engine value where available, else from the equity curve. Exact: '+(p.dd!=null&&isFinite(p.dd)?fmtUsd(Math.round(p.dd)):'n/a')+'">'+(p.dd!=null&&isFinite(p.dd)&&p.dd>0?'-'+fmtAx(p.dd,1):'—')+'</span>'},
-        {lbl:'RECOVERY', cell:p=>{const v=(p.net!=null&&p.net>0&&p.dd&&p.dd>0)?p.net/p.dd:null;return '<span title="Recovery factor = net P&amp;L ÷ max drawdown ($). Dollars earned per $1 of worst peak-to-trough loss. NOT annualized (grows with track-record length). Walk-forward = curve estimate." style="color:'+(v!=null&&v>=2?'var(--green)':'var(--text2)')+';font-weight:'+(v!=null&&v>=2?'700':'400')+'">'+(v!=null?v.toFixed(1)+'×':'—')+'</span>';}},
-        {lbl:'MAR (ann.)', cell:p=>{const A=100000,yr=p.days?p.days/365.25:null;if(p.net==null||!yr||yr<=0||!p.dd||p.dd<=0||(A+p.net)<=0)return '<span style="color:var(--text2)">—</span>';const cagr=Math.pow((A+p.net)/A,1/yr)-1,ddp=p.dd/(A+Math.max(0,p.net)),mar=(ddp>0)?cagr/ddp:null;return '<span title="True MAR = CAGR ÷ max-drawdown-%, on an assumed $100k account. Annualized, so it is fair across strategies of any length. (The RECOVERY row above is the same idea in raw dollars, not annualized.)" style="color:var(--text2)">'+(mar!=null&&isFinite(mar)?mar.toFixed(2):'—')+'</span>';}},
+        {lbl:'DD', cell:p=>'<span style="color:#e24b4a" title="Worst peak-to-trough equity loss in this section. Engine value where available, else from the equity curve. Exact: '+(p.dd!=null&&isFinite(p.dd)?fmtUsd(Math.round(p.dd)):'n/a')+'">'+(p.dd!=null&&isFinite(p.dd)&&p.dd>0?'-'+fmtAx(p.dd,1):'—')+'</span>'},
+        {lbl:'MAR', cell:p=>{const v=(p.net!=null&&p.net>0&&p.dd&&p.dd>0)?p.net/p.dd:null;return '<span title="Recovery factor = net P&amp;L ÷ max drawdown ($). Dollars earned per $1 of worst peak-to-trough loss. NOT annualized (grows with track-record length). Walk-forward = curve estimate." style="color:'+(v!=null&&v>=2?'var(--green)':'var(--text2)')+';font-weight:'+(v!=null&&v>=2?'700':'400')+'">'+(v!=null?v.toFixed(1)+'×':'—')+'</span>';}},
         {lbl:'SHARPE', cell:p=>'<span style="color:var(--text2)">'+_sh(p.sh)+'</span>'},
-        {lbl:'SORTINO', cell:p=>'<span title="Like Sharpe but only DOWNSIDE volatility in the denominator — it does not penalise big winners, so it reads higher than Sharpe for fat-tailed strategies like this one. (Lockbox + total only; sections with no saved trade series show —.)" style="color:var(--text2)">'+_sh(p.sortino)+'</span>'},
         {lbl:'PF', cell:p=>'<span style="color:'+((p.pf!=null&&p.pf>=1)?'var(--text)':'var(--red)')+'">'+_pf(p.pf)+'</span>'},
         {lbl:'WIN %', cell:p=>'<span style="color:var(--text2)">'+_wr(p.wr)+'</span>'},
+        {lbl:'$ / TRADE', cell:p=>{const v=(p.net!=null&&p.tr)?p.net/p.tr:null;return '<span style="font-weight:700;color:'+((v||0)>=0?'#1d9e75':'#e24b4a')+'">'+(v!=null?fmtUsd(Math.round(v)):'&mdash;')+'</span>';}},
+        {lbl:'MAR (ann.)', cell:p=>{const A=100000,yr=p.days?p.days/365.25:null;if(p.net==null||!yr||yr<=0||!p.dd||p.dd<=0||(A+p.net)<=0)return '<span style="color:var(--text2)">—</span>';const cagr=Math.pow((A+p.net)/A,1/yr)-1,ddp=p.dd/(A+Math.max(0,p.net)),mar=(ddp>0)?cagr/ddp:null;return '<span title="True MAR = CAGR ÷ max-drawdown-%, on an assumed $100k account. Annualized, so it is fair across strategies of any length. (The RECOVERY row above is the same idea in raw dollars, not annualized.)" style="color:var(--text2)">'+(mar!=null&&isFinite(mar)?mar.toFixed(2):'—')+'</span>';}},
+        {lbl:'SORTINO', cell:p=>'<span title="Like Sharpe but only DOWNSIDE volatility in the denominator — it does not penalise big winners, so it reads higher than Sharpe for fat-tailed strategies like this one. (Lockbox + total only; sections with no saved trade series show —.)" style="color:var(--text2)">'+_sh(p.sortino)+'</span>'},
         {lbl:'AVG WIN', cell:p=>'<span style="color:#1d9e75">'+(p.aw!=null&&isFinite(p.aw)?fmtUsd(Math.round(p.aw)):'—')+'</span>'},
         {lbl:'AVG LOSS', cell:p=>'<span style="color:#e24b4a">'+(p.al!=null&&isFinite(p.al)?'-'+fmtUsd(Math.round(p.al)):'—')+'</span>'},
+        {lbl:'$ / DAY', cell:p=>{const v=(p.net!=null&&p.days)?p.net/p.days:null;return '<span style="color:var(--text2)">'+(v!=null?fmtUsd(Math.round(v)):'—')+'</span>';}},
         {lbl:'TRADES', cell:p=>'<span style="color:var(--text3)">'+(p.tr!=null?(+p.tr).toLocaleString():'—')+'</span>'},
         {lbl:'BARS', cell:p=>'<span style="color:var(--text4)">'+(p.bars!=null?(+p.bars).toLocaleString():'—')+'</span>'},
         {lbl:'DAYS', cell:p=>'<span style="color:var(--text4)">'+(p.days!=null?(+p.days).toLocaleString():'—')+'</span>'}
@@ -10316,7 +10353,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:3px 4px;vertical-align:bottom">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:3px 4px;white-space:nowrap;cursor:help;vertical-align:bottom;color:'+p.col+(p.total?';font-weight:800':';font-weight:700')+_ovl(p)+'">'+p.sh_+(p.dr?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+p.dr+'</div>':'')+'</th>').join('')+'</tr>';
       // group the rows into sections (return / drawdown / reward÷risk / edge / sample) — a small
       //   uppercase header row precedes the first metric of each group so the eye reads them as blocks.
-      const _grpAt={'NET P&L':'return','MAX DD':'drawdown','RECOVERY':'reward ÷ risk','PF':'edge & profile','TRADES':'sample'},_ncol=phases.length+1;
+      const _grpAt={'NET P&L':'return','MAR':'reward ÷ risk','MAR (ann.)':'other','TRADES':'sample'},_ncol=phases.length+1;
       const body=metrics.map(m=>(_grpAt[m.lbl]?'<tr><td colspan="'+_ncol+'" style="padding:9px 6px 2px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+_grpAt[m.lbl]+'</td></tr>':'')
         +'<tr style="border-top:1px solid color-mix(in srgb,var(--border) '+(m.top?'70%':'40%')+',transparent)'+(m.top?';background:color-mix(in srgb,var(--border) 10%,transparent)':'')+'">'
         +'<td style="padding:3px 4px;font-size:var(--fsxs);color:var(--text2);font-weight:'+(m.top?'700':'400')+';white-space:nowrap">'+m.lbl+'</td>'
@@ -11308,11 +11345,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _hRow({lbl:'WIN %',cell:col=>{const v=_P(col).wr;return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">&mdash;</span>';}},col=>_P(col).wr,true),
             _hRow({lbl:'<span title="average net dollars per trade over the toggled stretches. A filter that merely trades less will not move this; a filter that genuinely picks better will." style="border-bottom:1px dotted var(--text5);cursor:help">$ / TRADE</span>',cell:col=>{const v=_apt(col);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>'):_dash;}},_apt,true)]},
           {name:_hd('sample'),rows:[
-            {lbl:'TRADES KEPT',cell:col=>{const k=_P(col).kept;return k!=null?('<span style="color:var(--text3)">'+(+k).toLocaleString()+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">&mdash;</span>';}},
+            // v71.42 (owner: same rows across the tabs): this is the same metric every other tab
+            //   calls TRADES - what this column actually took over the ticked stretches - so it
+            //   carries the same name and the same window tag. The hover keeps the filter wording.
+            {lbl:'<span title="trades this variant KEPT over the ticked stretches - the ones that cleared its cut-off and were actually entered. The same row the TILT and HYBRID tabs call TRADES." style="border-bottom:1px dotted var(--text5);cursor:help">TRADES</span><span style="font-weight:400;color:var(--text5)"> &middot; '+_sampLbl+'</span>',top:true,cell:col=>{const k=_P(col).kept;return k!=null?('<span style="color:var(--text3)">'+(+k).toLocaleString()+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">&mdash;</span>';}},
             // v71.30 (owner): the fixed LB TRADES row is gone. It existed so this tab could be read
             //   against the TILT / HYBRID tabs back when those were pinned to the lockbox; they
             //   follow the SAMPLE tick now, so every tab already measures the same stretches and a
             //   second hard-wired window was the last of the duplicated rows.
+            ,
+            // v71.42: NOT TAKEN belongs here too - a gate refuses trades, and this is the same row
+            //   the HYBRID tabs carry. Refused = the no-filter trade count over the ticked
+            //   stretches minus what this column kept, so TRADES + NOT TAKEN is the no-filter book.
+            {lbl:'<span title="trades this cut-off refused over the ticked stretches - never entered, no position, no fee, no profit or loss. TRADES above plus this equals every trade the no-filter book had over the same stretches." style="border-bottom:1px dotted var(--text5);cursor:help">NOT TAKEN</span><span style="font-weight:400;color:var(--text5)"> &middot; '+_sampLbl+'</span>',cell:col=>{
+              const U={is:V.ungated_is,wf:V.ungated_wf,lb:V.ungated_lockbox};
+              let tot=null,ok=true;_g2segs.forEach(function(sg){const u=U[sg];if(!u||u.num_trades==null){ok=false;return;}tot=(tot==null?0:tot)+(+u.num_trades);});
+              const k=_P(col).kept;
+              if(!ok||tot==null||k==null)return '<span style="color:var(--text5)">&mdash;</span>';
+              const v=Math.max(0,tot-k);
+              return v?('<span style="color:#e24b4a">'+v.toLocaleString()+'</span>'):'<span style="color:var(--text5)">0</span>';}}
             ]}
         ];
         const _anyDer=_gCols.some(c=>c.lbDer)||_gColsV.some(c=>{const p=_P(c);return p&&p.ddDer;});
@@ -12255,7 +12306,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Steps 2/3/4/5/8 have report sections (res-step-N anchors); their pills are
       // clickable and scroll the report to that section. Each pill carries a short stat.
       const _hasSec={2:1,3:1,4:1,5:1,8:1};if(d.validate)_hasSec[1]=1;   // 1 Feasibility → Auto-Validate card
-      const segs=VSTEPS.map((s,i)=>{const n=i+1;const stt=vstat[s[1]];const sv=_stat[s[1]];const bg=stt==='pass'?'#1d9e75':stt==='fail'?'#e24b4a':'color-mix(in srgb,var(--border) 42%,transparent)';const fg=stt==='pass'?'#04130c':stt==='fail'?'#fff':'var(--text4)';const br='0';const go=_hasSec[n]?(' data-vstep-go="'+n+'"'):'';const cur=_hasSec[n]?'cursor:pointer;':'';return '<span'+go+' title="'+n+'. '+s[0]+' — '+(stt==='pass'?'passed':stt==='fail'?'not met':'n/a / not tested')+(_hasSec[n]?' · click to jump':'')+'" style="'+cur+'display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:3px 6px;border-radius:999px;background:'+bg+';color:'+fg+';border:'+br+';font-size:8px;font-weight:700;flex:1 1 0;min-width:0;overflow:hidden"><b style="font-weight:900;flex:0 0 auto">'+n+'</b><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">'+s[0]+'</span>'+(sv?'<span style="opacity:.8;font-weight:800;flex:0 0 auto">'+sv+'</span>':'')+'</span>';}).join('');
+      const segs=VSTEPS.map((s,i)=>{const n=i+1;const stt=vstat[s[1]];const sv=_stat[s[1]];const bg=stt==='pass'?'#1d9e75':stt==='fail'?'#e24b4a':'color-mix(in srgb,var(--border) 42%,transparent)';const fg=stt==='pass'?'#04130c':stt==='fail'?'#fff':'var(--text4)';const br='0';const go=_hasSec[n]?(' data-vstep-go="'+n+'"'):'';const cur=_hasSec[n]?'cursor:pointer;':'';return '<span'+go+' title="'+n+'. '+s[0]+' — '+(stt==='pass'?'passed':stt==='fail'?'not met':'n/a / not tested')+(_hasSec[n]?' · click to jump':'')+'" style="'+cur+'display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:3px 6px;border-radius:999px;background:'+bg+';color:'+fg+';border:'+br+';font-size:8px;font-weight:700;flex:0 1 auto;min-width:0;overflow:hidden"><b style="font-weight:900;flex:0 0 auto">'+n+'</b>'+(sv?'<span style="opacity:.85;font-weight:800;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">'+sv+'</span>':'')+'</span>';}).join('');
       // Sticky header block: eyebrow title, then the run-info line (run# + strategy on one
       //   line, sized to read as the title), then the checklist pills on a single row.
       //   The whole block (#res-head) is frozen to the top of the tile as the report scrolls.
@@ -12489,7 +12540,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const hdrHtml='<div id="res-head" style="display:flex;align-items:center;gap:7px;margin:0 0 10px;white-space:nowrap;position:sticky;position:-webkit-sticky;top:47px;z-index:6;background:transparent;padding:3px 0">'
         +'<span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:13px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span>'
         +'<span class="lbl" style="font-size:11px;letter-spacing:1px;color:var(--text4);flex:0 0 auto">REPORT: '+d.id+((d.famKey&&d.famSeq!=null)?' <span title="family run id — chronological within '+d.famKey+', stable" style="color:var(--text3);font-weight:700">· '+d.famKey+'-'+d.famSeq+'</span>':'')+'</span>'
-        +'<span style="font-size:12px;font-weight:600;flex:0 0 auto;padding-right:2px">'+stratTag(d.strategy,'12px')+'</span>'
+        +'<span style="font-size:11px;font-weight:400;line-height:1;flex:0 0 auto;padding-right:2px;display:inline-flex;align-items:center">'+stratTag(d.strategy,'11px')+'</span>'
         // the numbered checklist "tiles" now live INLINE in the header (fill the middle, squish to fit)
         +'<span id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex:1 1 auto;min-width:40px;overflow:hidden">'+segs+'</span>'
         +'<span style="display:flex;gap:6px;align-items:center;flex:0 0 auto;padding-left:4px">'
@@ -14247,6 +14298,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v68.0: runs with NO saved curve (withEq excludes them) still get a muted line in the
         //   live chart's key box below (cmpOvlMount), instead of silently vanishing from it.
         window._cmpEqxNoCurve=curves.filter(c=>!c.eq).map(c=>({id:c.r.id,label:(stratTag(c.r.strategy)||'').replace(/<[^>]*>/g,'').trim()||('#'+c.r.id)}));
+        // v71.35: the chart's hide-toggles belong to THIS set of curves — a different selection
+        //   (or a SAMPLE flip that changes which runs have a curve) starts from everything shown.
+        {const _sig=window._cmpEqxSeries.map(s=>s.id).join(',');
+         if(window._cmpOvlSig!==_sig){window._cmpOvlSig=_sig;window._cmpOvlHide=new Set();}}
         if(withEq.length){
           let emn=0,emx=0;withEq.forEach(c=>{c.eq.forEach(v=>{if(v<emn)emn=v;if(v>emx)emx=v;});});
           if(emx<=emn)emx=emn+1;const epad=(emx-emn)*0.05;emn-=epad;emx+=epad;
@@ -14421,12 +14476,36 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +td(s.pf.toFixed(2))+td(_rbF(s.dd))+td('<b>'+s.mar.toFixed(2)+'</b>')
             +td('<span style="color:var(--text5)">'+s.n.toLocaleString()+'</span>')+td(b.wf)+td(_rbV(b.v),'left')+'</tr>';}).join('');
         const _rbNote='<div style="font-size:8.5px;color:var(--text5);line-height:1.9;margin-top:9px">'
-          +'<b style="color:var(--text4)">BOOKS vs the board above</b> — a book pools EVERY leg trade and scores the pile as one strategy, so these rows are not app-validated runs; the strategy champions above each ARE a saved run. Same SAMPLE and RANK BY picks apply to both.<br>'
+          +'<b style="color:var(--text4)">LIVE RUN rows (green ▸)</b> — a real book job your PC ran: every leg replayed over one window with frozen params, all trades pooled, scored as one strategy. Click the row for its run report. Its lockbox column is a genuine unseen-data read; the folds column is the house 8-stretch count, never the walk-forward engine.<br>'
+          +'<b style="color:var(--text4)">The plain rows below them</b> — the older offline figures, computed by a script and pasted in. They stay until a real book run replaces each one. Same SAMPLE and RANK BY picks apply to both.<br>'
           +'<b style="color:var(--text4)">STRATEGY</b> — BLEND means two strategies traded side by side in one account, 1 contract each; the VERSION column says what is different about that book. ENGU-Q ETH is a single strategy on its own.<br>'
           +'<b style="color:var(--text4)">MAR</b> = net divided by the worst drawdown of that sample. <b style="color:var(--text4)">WF</b> = the history cut into 8 equal stretches, how many were profitable. MAX DD is shown positive.<br>'
           +'Window 2010-06-07 to 2026-06-30 · NQ · costs in · trades counted on exit date. Rebuild the numbers with tools/t5_runboard.py.</div>';
-        const booksTile=tile('<div class="lbl" style="margin-bottom:8px">◫ BOOKS · pooled two-strategy books · offline numbers, not app-validated</div>'
-          +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px"><thead>'+_rbTh+'</thead><tbody>'+_rbTr+'</tbody></table></div>'+_rbNote,0);
+        // ── v71.35 (owner: "yes do the book job type"): REAL book runs. A book is now an ordinary
+        //    job the PC runner can execute — every leg replayed over one window with its frozen
+        //    params, all trades pooled and scored as ONE strategy — so a book saves a run doc like
+        //    anything else: real curve, real lockbox, appears in Past Runs. Any book run in history
+        //    is listed here ABOVE the offline rows, which stay until each is replaced by a real run.
+        const _bookRuns=rs.filter(r=>/Book/i.test(r.scope||'')).sort((a,b)=>(+b.id||0)-(+a.id||0));
+        const _liveTr=_bookRuns.map((r,i)=>{const td=(c,al)=>'<td style="text-align:'+(al||'right')+';padding:8px 9px;border-bottom:1px solid var(--border2);white-space:nowrap">'+c+'</td>';
+          const t=_totA(r),lbx=_lbA(r),dd=_eqDD(r,'full')||Math.abs(+r.best_dd_usd||0);
+          const s=(_rbS==='lb'&&lbx)?{net:lbx.net,pf:lbx.pf,dd:(_eqDD(r,'lb')||0),n:lbx.tr}
+                 :(_rbS==='is')?{net:(+r.best_pnl_usd||0),pf:(+r.best_pf||0),dd:Math.abs(+r.best_dd_usd||0),n:(+r.best_trades||0)}
+                 :{net:t.net,pf:(+r.best_pf||0),dd:dd,n:(+r.best_trades||0)};
+          const bk=r.book||{},vv=r.validate?r.validate.verdict:'';
+          const legs=(bk.legs||[]).map(l=>String(l.strategy||'').replace(/\.py$/,'')).join(' + ');
+          return '<tr data-rank-run="'+r.id+'" title="open this book run report" style="cursor:pointer">'
+            +td('<span style="color:var(--green)">▸</span>','left')
+            +td('<b style="color:var(--text)">'+(bk.name?String(bk.name).replace(/</g,'&lt;'):('BOOK #'+r.id))+'</b><div style="font-size:8.5px;color:var(--text5)">'+(legs||'—')+'</div>','left')
+            +td('<span style="color:var(--green);font-size:10px">● LIVE RUN #'+r.id+'</span>','left')
+            +td('<span style="color:'+(s.net>=0?'var(--green)':'var(--red)')+'">'+_rbF(s.net)+'</span>')
+            +td(s.pf?s.pf.toFixed(2):'—')+td(_rbF(Math.abs(s.dd)))+td('<b>'+((s.dd>1e-9)?(s.net/Math.abs(s.dd)).toFixed(2):'—')+'</b>')
+            +td('<span style="color:var(--text5)">'+(s.n||0).toLocaleString()+'</span>')
+            +td((bk.slices_n?(bk.slices_held+'/'+bk.slices_n):'—'))
+            +td('<span style="font-size:9px;padding:2px 7px;border-radius:999px;border:1px solid '+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':'var(--red)')+'55;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':'var(--red)')+'">'+(vv||'—')+'</span>','left')+'</tr>';}).join('');
+        const _newBookBtn='<button data-booknew title="run a BOOK: pick two or more strategies and the PC replays them over one window, pools every trade, and scores the pile as one strategy" style="margin-left:auto;height:21px;padding:0 10px;font-size:9px;font-weight:700;letter-spacing:.5px;border-radius:7px;border:1px solid var(--green);background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green);cursor:pointer">＋ RUN A BOOK</button>';
+        const booksTile=tile('<div class="lbl" style="margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">◫ BOOKS <span style="font-weight:400;color:var(--text5);font-size:8px">· strategies traded side by side, every leg trade pooled and scored as one</span>'+_newBookBtn+'</div>'
+          +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px"><thead>'+_rbTh+'</thead><tbody>'+_liveTr+_rbTr+'</tbody></table></div>'+_rbNote,0);
         // v71.24 (owner: "the matrix should sit to the right of the funnel (like in compare tab)"):
         //   FUNNEL and MATRIX are side-by-side columns, the way 1A and 1E sit side by side in the
         //   run report. The strategy list keeps the narrow left column, same as COMPARE's picker.
@@ -15355,6 +15434,80 @@ namespace NinjaTrader.NinjaScript.Strategies {
             if(typeof window.cmpOvlMount==='function')window.cmpOvlMount('cmp-ovl-host');};
           window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});
         sp.addEventListener('dblclick',()=>{savePref('rbCols',null);renderApp();});});
+      // ── v71.35 BOOK LAUNCHER (owner: "yes do the book job type") — pick two or more strategy
+      //    champions and queue ONE book job. Each leg carries that run's own frozen params,
+      //    market, timeframe, data source and costs, so the book is a faithful replay of what
+      //    those runs actually found. The window defaults to the OVERLAP of the picked runs
+      //    (the only stretch where every leg has data) — pinning it, per the rerun rule.
+      const _bkBtn=content.querySelector('[data-booknew]');
+      if(_bkBtn)_bkBtn.onclick=()=>{
+        const pool=[];const seen={};
+        (runHistory||[]).forEach(r=>{if(!r.best_params||/Book/i.test(r.scope||''))return;
+          const k=(typeof _canonFam==='function'&&_canonFam(r.strategy))||r.strategy;
+          const cur=seen[k];if(!cur||scoreRun(r)>scoreRun(cur)){seen[k]=r;}});
+        Object.keys(seen).forEach(k=>pool.push(seen[k]));
+        pool.sort((a,b)=>scoreRun(b)-scoreRun(a));
+        if(!pool.length){alert('No runs with saved settings yet — run a strategy first, then build a book from it.');return;}
+        const ov=document.createElement('div');
+        ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:9500;display:flex;align-items:center;justify-content:center;padding:20px';
+        const row=r=>{const lab=((stratTag(r.strategy)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||('#'+r.id);
+          return '<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:var(--fsxs)">'
+            +'<input type="checkbox" data-bkleg="'+r.id+'" style="cursor:pointer">'
+            +'<span style="flex:0 0 34px;text-align:right;color:var(--text3)">#'+r.id+'</span>'
+            +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+lab+'</span>'
+            +'<span style="flex:0 0 64px;font-size:8px;color:var(--text5)">'+(instTag(r.instrument)||'')+' '+(r.timeframe||'')+'</span>'
+            +'<span style="flex:0 0 62px;text-align:right;color:'+((r.best_pnl_usd||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(r.best_pnl_usd||0))+'</span></label>';};
+        ov.innerHTML='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;max-width:600px;width:100%;max-height:86vh;overflow:auto">'
+          +'<div style="font-size:12px;letter-spacing:2px;color:var(--text2);font-weight:700;margin-bottom:3px">RUN A BOOK</div>'
+          +'<div style="font-size:9px;color:var(--text5);line-height:1.7;margin-bottom:10px">Pick the strategies you would trade side by side. Your PC replays each one over the same window with the exact settings that run found, pools every trade into one pile, and scores that pile as a single strategy — so the profit factor and drawdown are true book numbers, not a leg is.</div>'
+          +'<div style="max-height:38vh;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:4px;margin-bottom:10px">'+pool.map(row).join('')+'</div>'
+          +'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">'
+          +'<label style="font-size:8px;letter-spacing:1px;color:var(--text5)">FROM<br><input data-bkfrom placeholder="auto" style="width:110px;padding:3px 6px;font-size:10px"></label>'
+          +'<label style="font-size:8px;letter-spacing:1px;color:var(--text5)">TO<br><input data-bkto placeholder="auto" style="width:110px;padding:3px 6px;font-size:10px"></label>'
+          +'<label style="font-size:8px;letter-spacing:1px;color:var(--text5)">LOCKBOX MONTHS<br><input data-bklb value="12" style="width:70px;padding:3px 6px;font-size:10px"></label>'
+          +'<label style="font-size:8px;letter-spacing:1px;color:var(--text5)">NAME<br><input data-bkname placeholder="auto" style="width:150px;padding:3px 6px;font-size:10px"></label>'
+          +'</div>'
+          +'<div data-bkwin style="font-size:8px;color:var(--text5);margin-bottom:10px;line-height:1.6">Leave the dates blank and the book uses the stretch every picked strategy has data for.</div>'
+          +'<div style="display:flex;gap:8px;justify-content:flex-end">'
+          +'<button data-bkcancel style="background:none;border:1px solid var(--border);color:var(--text4);padding:6px 14px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:7px">CANCEL</button>'
+          +'<button data-bkrun style="background:var(--green);border:1px solid var(--green);color:#04130c;padding:6px 16px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;font-weight:700;border-radius:7px">QUEUE BOOK</button>'
+          +'</div></div>';
+        document.body.appendChild(ov);
+        ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+        ov.querySelector('[data-bkcancel]').onclick=()=>ov.remove();
+        const picked=()=>Array.from(ov.querySelectorAll('[data-bkleg]:checked'))
+          .map(cb=>(runHistory||[]).filter(r=>String(r.id)===String(cb.dataset.bkleg))[0]).filter(Boolean);
+        // live overlap readout, so the window is never a surprise
+        const _overlap=ls=>{let f='',t='';ls.forEach(r=>{const a=String(r.date_from||''),b=String(r.date_to||'');
+            if(a&&(!f||a>f))f=a;if(b&&(!t||b<t))t=b;});return [f,t];};
+        const _sync=()=>{const ls=picked(),w=ov.querySelector('[data-bkwin]');
+          if(!ls.length){w.innerHTML='Leave the dates blank and the book uses the stretch every picked strategy has data for.';return;}
+          const o=_overlap(ls);
+          w.innerHTML=ls.length+' leg'+(ls.length===1?'':'s')+' picked · shared window <b style="color:var(--text3)">'+(o[0]||'?')+' → '+(o[1]||'?')+'</b>'
+            +(ls.length<2?' <span style="color:var(--yellow)">· a book of one leg is just that strategy</span>':'');};
+        ov.querySelectorAll('[data-bkleg]').forEach(cb=>cb.addEventListener('change',_sync));
+        ov.querySelector('[data-bkrun]').onclick=async()=>{
+          const ls=picked();if(!ls.length){alert('Pick at least one strategy.');return;}
+          const o=_overlap(ls);
+          const df=(ov.querySelector('[data-bkfrom]').value||'').trim()||o[0]||'';
+          const dt=(ov.querySelector('[data-bkto]').value||'').trim()||o[1]||'';
+          const nm=(ov.querySelector('[data-bkname]').value||'').trim()
+            ||ls.map(r=>((stratTag(r.strategy)||'').replace(/<[^>]*>/g,'').trim()||r.strategy)).join(' + ');
+          const legs=ls.map(r=>({strategy:r.strategy,params:r.best_params||{},instrument:r.instrument||'NQ',
+            timeframe:r.timeframe||'5m',session:r.session||'rth',source:r.data_source||null,
+            cost_pts:(r.cost_pts!=null?r.cost_pts:0),mult:r.multiplier||instMult(r.instrument)||20,weight:1}));
+          const job={type:'book',strategy:'BOOK · '+nm,book_name:nm,legs:legs,
+            instrument:legs[0].instrument,timeframe:legs[0].timeframe,session:legs[0].session,source:legs[0].source,
+            date_from:df,date_to:dt,lockbox_months:parseInt(ov.querySelector('[data-bklb]').value)||12,
+            slices:8,equity_points:400,mult:1,
+            status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+          const btn=ov.querySelector('[data-bkrun]');btn.textContent='QUEUED…';btn.disabled=true;
+          try{await btRef.add(job);ov.remove();renderApp();}
+          catch(e){alert('Queue failed: '+e.message);btn.textContent='QUEUE BOOK';btn.disabled=false;}
+        };
+      };
+      // a LIVE BOOK row opens its run report, same as a Rankings row
+      content.querySelectorAll('tr[data-rank-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.rankRun;augurSub='runs';renderApp();};});
       const _cex=content.querySelector('[data-cmpexpand]');if(_cex)_cex.onclick=()=>window.expandCompareEq(window._cmpEqxSeries);
       // v68.0: mount the live inline equity-overlay chart (crosshair, wheel zoom, drag pan,
       //   dbl-click reset, 2B-style key box) into the host the render just emitted.
