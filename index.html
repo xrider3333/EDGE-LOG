@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.47';
+const VERSION='71.48';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.48',date:'2026-08-09',notes:['BOOK legs find their own data now. A saved run does not always record whether it traded the day session or the overnight one, so an overnight leg was being asked for day-session data and the whole book failed with no data for that leg. The book now infers the session from the leg data source and, failing that, tries the alternatives before giving up - and each finished book reports which data each leg actually ran on.']},
 {v:'71.45',date:'2026-08-09',notes:['CHART and TRADES fetches now wait up to 5 MINUTES instead of giving up at 90 seconds. When a backtest is running on your PC every fetch queues behind it, and 90s was routinely too short - the wait window kept counting while the fetch had already silently died. The timeout message also says the likely reason now: runner off, or busy with a backtest.']},
 {v:'71.43',date:'2026-08-09',notes:['ROOT CAUSE of "stuck on loading" FOUND AND FIXED: when a new version deploys, a tab sitting in the background silently HARD-RELOADS itself - and that wipe was killing your in-flight blotter and candle fetches and closing the expanded view mid-wait. On a day with many deploys it hit constantly. The auto-reload now stands down whenever a PC fetch is in flight or an expanded view is open - you get the green update pill to tap instead, never a silent wipe.']},
 {v:'71.42',date:'2026-08-09',notes:['BOOK RUNS ARE REAL NOW. A book - two or more strategies traded side by side in one account - used to be the one thing the app could not measure, because Auto-Validate takes a single strategy file, so those numbers were computed offline and pasted in by hand. Your PC can run a book as an ordinary job: every leg replayed over the same window with its own frozen settings, every trade pooled into one pile, and the pile scored as ONE strategy - so the profit factor and the drawdown are true account numbers, not a legs.','RUNBOARD BOOKS has a + RUN A BOOK button. Tick the strategies you would trade together and it queues the job; the window defaults to the stretch every picked strategy has data for. The finished book saves like any other run - real equity curve, real lockbox read, its own run report - and lands at the top of the BOOKS table marked LIVE RUN. Click the row to open it.','A book carries no walk-forward column on purpose. Nothing is tuned during a book run, so there are no folds to report; what it does carry is the lockbox stretch and the house count of how many of 8 equal stretches were profitable.','QUICK TOGGLE ON THE CHART: click any strategy in the funnel key to drop it out of the chart, click again to bring it back. Hidden strategies stay in the key struck through, and the axis, bands and drawdown pane all rescale to what is left.']},
@@ -15510,8 +15511,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const dt=(ov.querySelector('[data-bkto]').value||'').trim()||o[1]||'';
           const nm=(ov.querySelector('[data-bkname]').value||'').trim()
             ||ls.map(r=>((stratTag(r.strategy)||'').replace(/<[^>]*>/g,'').trim()||r.strategy)).join(' + ');
+          // a saved run does not always record its SESSION — infer it from the data source name
+          // (…_eth / …_rth) so an overnight leg is not asked for day-session data it never used.
+          const _sessOf=r=>r.session||(/eth/i.test(String(r.data_source||''))?'eth':'rth');
           const legs=ls.map(r=>({strategy:r.strategy,params:r.best_params||{},instrument:r.instrument||'NQ',
-            timeframe:r.timeframe||'5m',session:r.session||'rth',source:r.data_source||null,
+            timeframe:r.timeframe||'5m',session:_sessOf(r),source:r.data_source||null,
             cost_pts:(r.cost_pts!=null?r.cost_pts:0),mult:r.multiplier||instMult(r.instrument)||20,weight:1}));
           const job={type:'book',strategy:'BOOK · '+nm,book_name:nm,legs:legs,
             instrument:legs[0].instrument,timeframe:legs[0].timeframe,session:legs[0].session,source:legs[0].source,

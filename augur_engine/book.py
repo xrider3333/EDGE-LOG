@@ -52,11 +52,30 @@ def _leg_trades(leg, date_from, date_to):
     """
     inst = leg.get("instrument")
     tf = leg.get("timeframe", "5m")
-    sess = leg.get("session", "rth")
-    master = find_master(inst, tf, sess, leg.get("source"))
+    sess = leg.get("session") or "rth"
+    src = leg.get("source")
+    # A saved run does not always record its SESSION, so a leg can arrive claiming "rth" while
+    # its data source is an overnight (eth) master — the pair then matches nothing and the whole
+    # book dies. Try the leg as given, then the session its own source name implies, then drop
+    # the source pin entirely. Whatever finally matched is reported back in the leg info, so a
+    # book never silently runs on data the leg did not ask for.
+    tries = [(sess, src)]
+    implied = "eth" if "eth" in str(src or "").lower() else ("rth" if "rth" in str(src or "").lower() else None)
+    if implied and implied != sess:
+        tries.append((implied, src))
+    for _s in ("eth", "rth"):
+        if (_s, None) not in tries:
+            tries.append((_s, None))
+    master = None
+    for _s, _src in tries:
+        master = find_master(inst, tf, _s, _src)
+        if master is not None:
+            sess, src = _s, _src
+            break
     if master is None:
-        raise ValueError(f"no master for instrument={inst} timeframe={tf} "
-                         f"session={sess} source={leg.get('source')}")
+        raise ValueError(
+            f"no data for leg {leg.get('strategy')} ({inst} {tf}) — tried "
+            + ", ".join(f"session={a}/source={b or 'any'}" for a, b in tries))
     arr = load_master_arrays(master, date_from=date_from, date_to=date_to)
     res = run_backtest(leg["strategy"], arrays=arr, params=leg.get("params") or {},
                        cost_pts=float(leg.get("cost_pts", 0) or 0), return_trades=True)
@@ -74,7 +93,7 @@ def _leg_trades(leg, date_from, date_to):
         except Exception:
             continue
     info = {"strategy": leg.get("strategy"), "instrument": inst, "timeframe": tf,
-            "session": sess, "mult": mult, "weight": weight,
+            "session": sess, "source": src, "mult": mult, "weight": weight,
             "trades": len(out), "net": round(sum(p for _, p in out), 2),
             "master": (arr.get("meta") or {}).get("name"),
             "cost_pts": float(leg.get("cost_pts", 0) or 0)}
