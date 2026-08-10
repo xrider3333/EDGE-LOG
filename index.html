@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.88';
+const VERSION='71.89';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.89',date:'2026-08-09',notes:['RUNBOARD layout: 1A FUNNEL on the left, 1E MATRIX on the right, and the strategy list with TOP 10 stacked together in one bar on the far right.','Strategies whose best run covers under two years are DROPPED from the board rather than sorted last - nineteen days does not compare with sixteen years, and showing it only invited the comparison. The count and the run numbers are named under the list, and TOP 10 still reaches them.','Highlighting reaches ACROSS panels: hover a curve in the funnel and that strategy column lifts in the matrix while the rest of the table fades. Hovering its key row does the same.','New + ADD button on the funnel. The board picks one run per strategy automatically - its best - so this is how you put ANY other config on the chart. Ticked runs join as their own line and column, ten columns maximum, and the picks are remembered. Clear them from the same row.','Every walk-forward stripe now says what that fold actually made - dollars, profit factor and trades for the strategy leading the board.']},
 {v:'71.88',date:'2026-08-09',notes:['BACK buttons: the candle window and the chart gallery both open with a BACK button now, so you step out to whatever you came from instead of hunting for CLOSE.','TOP 10 sets grow: a +10 MORE button appears in the candle window while you are inside a top-10 set, extending it to the top 20, 30 and so on with the new charts pre-loading in the background.','BLOTTER WINDOW CLEANED UP (owner: too much text, confusing): the run-on header sentence is gone. The facts are chips now - trade count, NET dollars, win rate, master, how many are showing - the four views are ONE segmented switch (RECENT / WINS / LOSSES / ALL), the paging button is a simple +25, and the hint sentences moved onto hover.']},
 {v:'71.87',date:'2026-08-09',notes:['Hotfix on the new CHART GALLERY: it opened UNDERNEATH the blotter window instead of on top of it, so it looked like nothing happened. It sits above now.']},
 {v:'71.86',date:'2026-08-09',notes:['CHART GALLERY (owner ask): a CHARTS OF THIS VIEW button on the blotter now stacks a REAL candle chart for every trade in the current view - top wins, top losses or most recent - in ONE scrollable window, all fetched at once instead of one trade at a time. LOAD 10 MORE keeps going past the first ten, and the header counts them in as they land.','Each gallery chart has an OPEN button that hands that trade to the full CANDLES window for zoom, save and stepping. Anything already viewed draws instantly - the two share one cache.','FIXED: clicking ALL in the blotter dumped every one of the 5,616 rows in one go, which shoved the view controls off the screen. ALL is paged now, same LOAD 25 MORE as RECENT.']},
@@ -5657,7 +5658,10 @@ window.cmpOvlMount=function(hostId){
           if(_lead){const fr=_lead.wfFolds,n=fr.length;
             for(let i=0;i<n;i++){const a=x0+(x1-x0)*(i/n),b=x0+(x1-x0)*((i+1)/n);
               // hover text on each stripe, the way 1A tips its fold bands
-              s+='<rect x="'+a.toFixed(1)+'" y="'+g.eqT+'" width="'+Math.max(0,b-a).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(96,165,250,'+((i%2===0)?'.16':'.30')+')"><title>walk-forward fold '+(i+1)+' of '+n+' — data held back while tuning, then tested forward</title></rect>';}
+              const _fi=(_lead.wfInfo&&_lead.wfInfo[i])?_lead.wfInfo[i]:null;
+              const _ft='walk-forward fold '+(i+1)+' of '+n+' - data held back while tuning, then tested forward'
+                +(_fi?(' · '+_lead.label+' made '+_ab$(_fi.pnl)+' here, PF '+(_fi.pf?_fi.pf.toFixed(2):'-')+', '+_fi.tr+' trades'):'');
+              s+='<rect x="'+a.toFixed(1)+'" y="'+g.eqT+'" width="'+Math.max(0,b-a).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(96,165,250,'+((i%2===0)?'.16':'.30')+')"><title>'+_ft+'</title></rect>';}
           }else s+='<rect x="'+x0.toFixed(1)+'" y="'+g.eqT+'" width="'+(x1-x0).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(96,165,250,.16)"><title>walk-forward — data held back while tuning, then tested forward</title></rect>';}}
       if(_bandLB!=null){const x0=_clip(_bandLB),x1=g.pL+g.pw;
         if(x1>x0)s+='<rect x="'+x0.toFixed(1)+'" y="'+g.eqT+'" width="'+(x1-x0).toFixed(1)+'" height="'+(g.ddB-g.eqT).toFixed(1)+'" fill="rgba(167,139,250,.16)"><title>lockbox — never tuned, never browsed, the final untouched test</title></rect>';
@@ -5802,8 +5806,16 @@ window.cmpOvlMount=function(hostId){
     const k=String(rw.dataset.ovltog),off=HID.has(k),dim=(_spot!=null&&_spot!==k);
     rw.style.opacity=off?'0.6':(dim?'0.28':'1');
     rw.style.fontWeight=(_spot===k)?'700':'400';});};
+  // v71.85 (owner: "if im highlighting it in the pnl funnel, i need it highlighted on the matrix"):
+  //   the spotlight reaches ACROSS panels. The matrix tags every cell with its run, so lighting a
+  //   curve lifts that strategy's whole column and fades the rest of the table with it.
+  const _spotMatrix=v=>{const t=document.getElementById('rb-mtx-box');if(!t)return;
+    t.querySelectorAll('[data-rbc]').forEach(el=>{
+      const on=(v==null)||(String(el.dataset.rbc)===v);
+      el.style.opacity=on?'1':'0.3';
+      el.style.filter=(v!=null&&on)?'brightness(1.25)':'none';});};
   const _setSpot=k=>{const v=(k==null)?null:String(k);
-    if(v===_spot)return;_spot=v;_paintKey();render();};
+    if(v===_spot)return;_spot=v;_paintKey();_spotMatrix(v);render();};
   keyEl.querySelectorAll('[data-ovltog]').forEach(rw=>{
     rw.addEventListener('mouseenter',()=>{if(!HID.has(String(rw.dataset.ovltog)))_setSpot(rw.dataset.ovltog);});
     rw.addEventListener('mouseleave',()=>_setSpot(null));});
@@ -9125,7 +9137,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   1E / 2B / 2C keep their existing proportions exactly.
       const _tight=!!(opts&&opts.tight),_wCell='',_wLbl='';
       const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:'+_hp+';'+_wLbl+'vertical-align:bottom;'+_stick+'background:var(--bg2)">METRIC</th>'
-        +cols.map(c=>'<th'+(c.tip?' title="'+c.tip+'"':'')+' style="text-align:right;padding:'+_hp+';'+_wCell+'line-height:1.35;white-space:nowrap;'+(c.tip?'cursor:help;':'')+'vertical-align:top;color:'+(c.col||'var(--text2)')+(c.emph?';font-weight:800':';font-weight:700')+(c.emph?_mtxEmph(c):'')+'">'+c.lbl+(c.sub?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+c.sub+'</div>':'')+'</th>').join('')+'</tr>';
+        +cols.map(c=>'<th'+(c.dataAttr||'')+(c.tip?' title="'+c.tip+'"':'')+' style="text-align:right;padding:'+_hp+';'+_wCell+'line-height:1.35;white-space:nowrap;'+(c.tip?'cursor:help;':'')+'vertical-align:top;color:'+(c.col||'var(--text2)')+(c.emph?';font-weight:800':';font-weight:700')+(c.emph?_mtxEmph(c):'')+'">'+c.lbl+(c.sub?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+c.sub+'</div>':'')+'</th>').join('')+'</tr>';
       const body=groups.map(g=>{
         const grpRow='<tr><td colspan="'+_ncol+'" style="padding:9px 6px 2px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+g.name+'</td></tr>';
         const rows=g.rows.map(r=>{
@@ -9144,7 +9156,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             //   emphasis is now split — its left BORDER always applies, its background only
             //   when no heat colour is present — so the crowned column heats like the rest.
             +cols.map(c=>{const _hb=r.cellBg&&r.cellBg(c);
-              return '<td style="'+bTop+'padding:'+_cp+';'+_wCell+'text-align:right;white-space:nowrap;background:'+(_hb||(c.emph?_mtxEmphBg(c):rowBg))+(c.emph?_mtxEmphBd(c):'')+(r.rowSty||'')+'">'+r.cell(c)+'</td>';}).join('')
+              return '<td'+(c.dataAttr||'')+' style="'+bTop+'padding:'+_cp+';'+_wCell+'text-align:right;white-space:nowrap;background:'+(_hb||(c.emph?_mtxEmphBg(c):rowBg))+(c.emph?_mtxEmphBd(c):'')+(r.rowSty||'')+'">'+r.cell(c)+'</td>';}).join('')
             +'</tr>';}).join('');
         return grpRow+rows;}).join('');
       return '<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 4px;overflow-x:auto;max-width:100%"><table class="table" style="width:'+(_tight?'auto':'100%')+';font-size:var(--fsxs);border-collapse:collapse"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
@@ -14891,7 +14903,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    computed over the FULL run history (all `rs`), not the filtered/grouped picker list
         //    (`_plist`, which is limited to the strategy dropdown filter). Capped at 8 (the
         //    Compare pipeline max); anything past the cutoff is reported in a footer note. ──
-        let famMore=[];
+        let famMore=[],_rbHidden=[];
         if(_cmpMode==='fam'||_cmpMode==='board'){
           const _fb={};
           rs.forEach(r=>{const l=_canonFam(r.strategy)||_labOf(r),cur=_fb[l];
@@ -14906,11 +14918,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(_cmpMode==='board'){
             const _shortRun=r=>{const a=Date.parse(r.date_from||''),b=Date.parse(r.date_to||'');
               return (!isNaN(a)&&!isNaN(b)&&b>a)?(((b-a)/86400000)/365.25<2):false;};
-            famRuns=famRuns.slice().sort((a,b)=>{const sa=_shortRun(a),sb=_shortRun(b);
-              return (sa!==sb)?(sa?1:-1):(_rbVal(b,_rbR)-_rbVal(a,_rbR));});
+            // v71.85 (owner: "remove the engu thats only 19 days lol"): a strategy whose best run
+            //   covers under two years is DROPPED from the board, not just sorted last. Nineteen
+            //   days of trading cannot be compared with sixteen years, so showing it at all only
+            //   invited the comparison. The count is reported under the list so nothing vanishes
+            //   silently, and the TOP 10 panel still reaches every run including these.
+            _rbHidden=famRuns.filter(_shortRun);
+            famRuns=famRuns.filter(r=>!_shortRun(r)).sort((a,b)=>_rbVal(b,_rbR)-_rbVal(a,_rbR));
+            // …plus any runs added by hand with the ＋ ADD button on the funnel.
+            const _pin=(Array.isArray(APREF.rbAdd)?APREF.rbAdd:[]).map(String);
+            if(_pin.length){const have={};famRuns.forEach(r=>{have[String(r.id)]=1;});
+              _pin.forEach(id=>{if(have[id])return;
+                const r=rs.filter(x=>String(x.id)===id)[0];if(r){famRuns.push(r);have[id]=1;}});}
           }
-          famMore=famRuns.slice(8);
-          runs=famRuns.slice(0,8);
+          famMore=famRuns.slice(_cmpMode==='board'?10:8);
+          runs=famRuns.slice(0,_cmpMode==='board'?10:8);
         }
         const _rowOf=r=>{const on=ids.indexOf(String(r.id))>=0;const vv=r.validate?r.validate.verdict:'';const sc=scoreRun(r);const isBest=_isBest(r);
           return '<div data-cmpk="'+r.id+'" style="display:flex;align-items:center;gap:7px;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:var(--fsxs);'+(on?'background:color-mix(in srgb,var(--blue) 13%,transparent);':'')+'" title="'+(on?'click to remove from the comparison':'click to add to the comparison')+'">'
@@ -14992,7 +15014,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<span style="flex:0 0 28px;text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)')+'">'+sc+'</span>'
             +'<span style="flex:0 0 32px;font-size:8px;font-weight:700;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':'var(--red)')+'">'+(vv||'')+'</span>'
             +'</div>';};
-        const _famMoreNote=famMore.length?('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">+'+famMore.length+' more famil'+(famMore.length===1?'y':'ies')+' below the top-8 score cutoff: '+famMore.map(_labOf).join(', ')+'</div>'):'';
+        // hidden short-window strategies are COUNTED here so nothing disappears silently
+        const _rbHideNote=(_cmpMode==='board'&&_rbHidden.length)?('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">'+_rbHidden.length+' strateg'+(_rbHidden.length===1?'y':'ies')+' hidden - window under 2 years, so their figures do not compare: '+_rbHidden.map(r=>'#'+r.id).join(' ')+'. The TOP 10 panel still reaches them.</div>'):'';
+        const _famMoreNote=famMore.length?('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">+'+famMore.length+' more famil'+(famMore.length===1?'y':'ies')+' below the top-8 score cutoff: '+famMore.map(_labOf).join(', ')+'</div>'):'';+_rbHideNote
         const famTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">BY STRATEGY</span><span style="font-size:8px;color:var(--text5)">top config per family · auto-updates as new runs land</span></div>'
           +'<div style="overflow:auto;max-height:74vh">'+runs.map(_famRowOf).join('')+'</div>'
           +_famMoreNote);
@@ -15165,6 +15189,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
             wfi:(c.wf&&c.wf.length&&c.li!=null)?Math.max(0,Math.min(c.li,Math.round(c.wf[0][0]*c.li))):null,
             // the run's individual walk-forward folds — the funnel stripes one blue band per fold
             wfFolds:(c.wf&&c.wf.length>1)?c.wf:null,
+            // each fold's own out-of-sample result, so a stripe can say what that window made
+            wfInfo:(function(){const fl=(Array.isArray(c.r.top10_results)?c.r.top10_results.filter(f=>f&&f.fold!=null):[]).slice().sort((x,y)=>x.fold-y.fold);
+              return fl.length?fl.map(f=>({n:f.fold,pnl:(+f.oos_pnl||0)*_mc,pf:(+f.oos_pf||0),tr:(+f.oos_trades||0)})):null;})(),
             blot:{run_id:c.r.id,instrument:c.r.instrument||'',timeframe:c.r.timeframe||'5m',session:c.r.session||'rth',
               strategy:c.r.strategy||'',params:c.r.best_params||null,cost_pts:(c.r.cost_pts!=null?c.r.cost_pts:5.66/_mc),
               mult:_mc,date_from:c.r.date_from||null,date_to:c.r.date_to||null,
@@ -15315,7 +15342,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   a GRAPH DETAIL slider that thins the DRAWN line without touching any total. Both are
         //   here now, in the same title-row order the report uses.
         const _fInfo=_infoIc(_ipAB('One curve per strategy — each strategy best run, drawn on ONE shared calendar so they line up by date rather than by trade count. Line style marks the stage: <b>solid</b> = in-sample, the stretch the config was tuned on; <b>dashed</b> = walk-forward, data held back while tuning and then tested forward; <b>dotted</b> = the lockbox, never touched until the end. Blue stripes = the walk-forward folds, one stripe per fold; the purple wash and dashed door = the lockbox. The pill at the right of each line is that strategy ending dollars. Click a line in the key to hide it — the axis and the drawdown pane rescale to what is left. Wheel zooms, drag pans, double-click resets, and the expand button opens the fullscreen explorer with a trade blotter.','strategies run DIFFERENT windows, so the bands span from the earliest door onward'));
-        const funnelTile=tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden">1A '+_fInfo+' FUNNEL <span title="one curve per strategy champion · '+_sampTag+'" style="font-weight:400;color:var(--text5);font-size:8px;overflow:hidden;text-overflow:ellipsis;min-width:0">· '+_sampTag+'</span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px;flex:0 0 auto"><button data-cmpexpand title="open the fullscreen multi-curve explorer" style="flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></span></div><div id="cmp-ovl-host" style="position:relative;min-height:'+_rbFH+'px">'+ovl+'</div>'
+        const funnelTile=tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden">1A '+_fInfo+' FUNNEL <span title="one curve per strategy champion · '+_sampTag+'" style="font-weight:400;color:var(--text5);font-size:8px;overflow:hidden;text-overflow:ellipsis;min-width:0">· '+_sampTag+'</span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px;flex:0 0 auto"><button data-rbadd title="add another run to the chart - any strategy config from your history, not just each strategy champion" style="flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:9px;font-weight:700;border-radius:6px">＋ ADD</button>'+((Array.isArray(APREF.rbAdd)&&APREF.rbAdd.length)?('<span data-rbaddclr title="remove every hand-added run" style="cursor:pointer;color:var(--text5);font-size:9px">clear '+APREF.rbAdd.length+'</span>'):'')+'<button data-cmpexpand title="open the fullscreen multi-curve explorer" style="flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></span></div><div id="cmp-ovl-host" style="position:relative;min-height:'+_rbFH+'px">'+ovl+'</div>'
           +_grip('funnel','drag up / down to resize the funnel · double-click = back to the default height')
           );
         // the long note that used to sit under the table now lives behind the title info icon.
@@ -15345,7 +15372,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   pushing its own width out. The family alias rides underneath as the sub, where 1E
           //   puts its date range, and the years move to the WINDOW row + the hover.
           return {lbl:'<span style="white-space:nowrap">'+((i===0)?'👑':'')+'<span style="color:var(--text5)">R'+(i+1)+'</span> ·&nbsp;#'+r.id+(short?' <span style="color:var(--yellow)">⚠</span>':'')+'</span>',
-            sub:_shortOf(r),col:curves[i].c,emph:(i===0),emphCol:curves[i].c,run:r,
+            sub:_shortOf(r),col:curves[i].c,emph:(i===0),emphCol:curves[i].c,run:r,dataAttr:' data-rbc="'+r.id+'"',
             tip:(full+' · #'+r.id+' · '+((instTag(r.instrument)||'').replace(/<[^>]*>/g,'').trim())+' '+(r.timeframe||'')
               +' · '+(r.scope||'')+' · '+(r.date_from||'?')+' to '+(r.date_to||'?')
               +(d!=null?(' ('+((d/365.25>=1.5)?((d/365.25).toFixed(1)+' years'):(d+' days'))+')'):'')
@@ -15603,9 +15630,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
             //   larger share by default. Drag the bars to change it; the split is remembered.
             // v71.77 (owner: "put the top 10 tile under the runboard"): TOP 10 stacks UNDER the
             //   strategy list in the same left column, not as a fourth column of its own.
-            +_rbCol(0,'0 1 300px',240,boardTile+(_rbSide?('<div style="height:10px"></div>'+_sideTile):''))+_rbSp(0)
-            +_rbCol(1,'1 1 400px',300,funnelTile)+_rbSp(1)
-            +_rbCol(2,'1.45 1 520px',320,matrixTile)
+            // v71.85 (owner): funnel LEFT, matrix RIGHT, and the strategy list + TOP 10 stacked
+            //   together in one bar on the far right.
+            +_rbCol(0,'1 1 420px',300,funnelTile)+_rbSp(0)
+            +_rbCol(1,'1.35 1 500px',320,matrixTile)+_rbSp(1)
+            +_rbCol(2,'0 1 290px',240,boardTile+(_rbSide?('<div style="height:10px"></div>'+_sideTile):''))
             +'</div>'):'<div style="border:1px dashed var(--border);padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px;margin-bottom:14px">NO SAVED RUNS YET — THE BOARD POPULATES ITSELF FROM RUN HISTORY</div>')
           +booksTile;
         }else
@@ -16485,6 +16514,37 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-cmporient]').forEach(b=>{b.onclick=()=>{savePref('cmpOrient',b.dataset.cmporient);renderApp();};});
       // RUNBOARD keeps its own VERT/HORIZ pick so the 1E look survives COMPARE being left on HORIZ
       content.querySelectorAll('[data-rborient]').forEach(b=>{b.onclick=()=>{savePref('rbOrient',b.dataset.rborient);renderApp();};});
+      // ＋ ADD on the funnel — pick any runs from history and pin them onto the board as extra
+      //   lines/columns, on top of the automatic one-per-strategy champions.
+      {const _ab=content.querySelector('[data-rbadd]');
+       if(_ab)_ab.onclick=()=>{
+         const pool=(runHistory||[]).filter(r=>r&&(r.validate||r.equity||r.best_pnl_usd!=null)).slice(0,300);
+         const cur=(Array.isArray(APREF.rbAdd)?APREF.rbAdd:[]).map(String);
+         const ov=document.createElement('div');
+         ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:9500;display:flex;align-items:center;justify-content:center;padding:20px';
+         const row=r=>{const lab=((stratTag(r.strategy)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||('#'+r.id);
+           return '<label style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:var(--fsxs)">'
+             +'<input type="checkbox" data-addr="'+r.id+'"'+(cur.indexOf(String(r.id))>=0?' checked':'')+' style="cursor:pointer">'
+             +'<span style="flex:0 0 34px;text-align:right;color:var(--text3)">#'+r.id+'</span>'
+             +'<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+lab+'</span>'
+             +'<span style="flex:0 0 60px;font-size:8px;color:var(--text5)">'+(instTag(r.instrument)||'')+' '+(r.timeframe||'')+'</span>'
+             +'<span style="flex:0 0 62px;text-align:right;color:'+((r.best_pnl_usd||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(r.best_pnl_usd||0))+'</span></label>';};
+         ov.innerHTML='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;max-width:620px;width:100%;max-height:86vh;overflow:auto">'
+           +'<div style="font-size:12px;letter-spacing:2px;color:var(--text2);font-weight:700;margin-bottom:3px">ADD RUNS TO THE BOARD</div>'
+           +'<div style="font-size:9px;color:var(--text5);line-height:1.7;margin-bottom:10px">The board shows one run per strategy automatically - its best. Tick any others here and they join the chart and the matrix as their own line and column. Ten columns maximum.</div>'
+           +'<div style="max-height:52vh;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:4px;margin-bottom:12px">'+pool.map(row).join('')+'</div>'
+           +'<div style="display:flex;gap:8px;justify-content:flex-end">'
+           +'<button data-addcancel style="background:none;border:1px solid var(--border);color:var(--text4);padding:6px 14px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:7px">CANCEL</button>'
+           +'<button data-addok style="background:var(--green);border:1px solid var(--green);color:#04130c;padding:6px 16px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;font-weight:700;border-radius:7px">ADD</button>'
+           +'</div></div>';
+         document.body.appendChild(ov);
+         ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+         ov.querySelector('[data-addcancel]').onclick=()=>ov.remove();
+         ov.querySelector('[data-addok]').onclick=()=>{
+           savePref('rbAdd',Array.from(ov.querySelectorAll('[data-addr]:checked')).map(cb=>cb.dataset.addr));
+           ov.remove();renderApp();};};
+       const _ac=content.querySelector('[data-rbaddclr]');
+       if(_ac)_ac.onclick=()=>{savePref('rbAdd',[]);renderApp();};}
       {const _rh=content.querySelector('[data-rbheat]');
        if(_rh)_rh.onclick=()=>{savePref('rbHeat',(APREF.rbHeat==null)?false:!APREF.rbHeat);renderApp();};}
       // TOP 10 side panel: the ＋ button opens it on BEST, the tabs switch it, ✕ closes it. The
