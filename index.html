@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.79';
+const VERSION='71.80';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.80',date:'2026-08-09',notes:['SECTION 2 REGROUPED BY CHART TYPE (owner). Three named columns: DISTRIBUTIONS (2A config spread, 2B trade-PnL spread, 2C MAE/MFE, 2D deflated Sharpe), SURFACES and CURVES (2E 3-D explorer, 2F parallel coordinates, 2G PDP top-out curves), BARS and TABLES (2H knob importance, 2I neighbours, 2J regime card, 2K trade context, 2L ML config builder, 2M top configs). Section 1 is untouched.','The CONFIG DISTRIBUTION now leads section 2 directly above the TRADE-PNL DISTRIBUTION - the two spread charts read as a pair - so it takes the first letter of the section, 2A. Every tile that had moved down from section 1 takes a section-2 letter too, so no tile in section 2 is labelled 1-anything any more.','The ROBUSTNESS and DIAGNOSTICS pills are now a vertical rail pinned to the right of section 2 instead of a wide grid below it. Clicking a pill still opens its full readout in the section below, which is where the tables have room.','Fix: the distribution stack could render TWICE - once in section 1 and again in section 2 - on runs with no second 1E matrix card. It now renders in exactly one place.','Fix: in the expanded 1A explorer, clicking CHAMPION while the FUNNEL tab was active did nothing. Switching tabs saved the choice but never re-rendered the report, so the chart being re-opened was not in the page yet.']},
 {v:'71.79',date:'2026-08-09',notes:['FIXED: reading the OHLC line moved the chart. The window sized itself to whatever text sat inside it, so every hover swapped a short hint for a long price line and the chart jumped and resized with it - measured at 39 pixels of resize and a 20 pixel shift per hover. The window now has a fixed width and the readout line a fixed height, so hovering moves NOTHING.','Same fix keeps the chart the same size from one trade to the next while stepping with PREV / NEXT.']},
 {v:'71.78',date:'2026-08-09',notes:['Hotfix: opening COMPARE threw and left the tab blank on 71.77. The strategy list was reading the TOP 10 setting one step before that setting was created. Nothing else changed.']},
 {v:'71.77',date:'2026-08-09',notes:['TOP 10 now sits UNDER the RUNBOARD list in the left column instead of taking a fourth column of its own. Both lists cap their height when it is open so the pair still fits one screen.','RUNBOARD funnel picked up the report chart furniture it was missing: an info icon that opens the full explanation, a GRAPH DETAIL slider that thins the drawn line without touching any total, hover text on every walk-forward stripe and on the lockbox wash, and a dashed line marking the deepest drawdown on show with its dollar figure on the axis.','The dashed line style is not decoration: solid is in-sample, dashed is walk-forward, dotted is the lockbox. That is the same line procedure the report funnel uses, so a glance tells you which part of a curve was tuned and which part was not.']},
@@ -4854,8 +4855,13 @@ window.expandCompareEq=function(series,opts){
   //   tab, and re-opens whichever chart that tab draws - so the expanded view follows the tile.
   try{host.ownerDocument.querySelectorAll('[data-ceqx-eqtab]').forEach(function(t){
     t.onclick=function(ev){ev.stopPropagation();const want=t.getAttribute('data-ceqx-eqtab');
-      try{if(typeof savePref==='function')savePref('eqTab',want);}catch(_p){}
       try{const cl=host.ownerDocument.getElementById('ceqx-close');if(cl)cl.click();}catch(_c){}
+      try{if(typeof savePref==='function')savePref('eqTab',want);}catch(_p){}
+      // v71.79 (owner: "1a expanded cant click to champion when in funnel"): savePref only
+      //   STORES the pref - without a re-render the tile still shows the tab it had, so the box
+      //   this reopen looks for ([data-eqx] when going to CHAMPION) is not in the DOM and the
+      //   dblclick lands on nothing. Re-render the report first, THEN re-open.
+      try{if(typeof renderApp==='function')renderApp();}catch(_rr){}
       setTimeout(function(){try{
         const bx=document.querySelector(want==='funnel'?'[data-a2eqx]':'[data-eqx]');
         const sv=bx&&bx.querySelector('svg');
@@ -12999,7 +13005,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v70.4 (owner: "move 2b into 1e... move 2a into 1a, same tab methodology"): the two §1
       //   cards keep their INNER html separately so the §1 assembly below can re-wrap them with
       //   a tab strip and swap in the §2 funnel / config matrices.
-      let _eqInner='',_kpiInner='',_cardSty='',_mtipRef='',_distInner='';
+      let _eqInner='',_kpiInner='',_cardSty='',_mtipRef='',_distInner='',_barsInner='';
       // v70.5: the 1A card splits into the CHART (what the 1A / 2A tab swaps) and the REST
       //   (1B monthly, 1C walk-forward, 1D stress) which stays on screen either way.
       let _eqChart='',_eqRest='',_eqcInfo='';
@@ -13029,17 +13035,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +((st=>st?'<div style="margin-top:5px">'+st+'</div>':'')(stressPanelHtml(d.stress,mlt,'1D',_dscope)));
         _eqInner=_eqChart+_eqRest;
         _panelEquity='<div style="'+_card+';height:100%;box-sizing:border-box"><div style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;margin-bottom:6px">1A '+_eqcInfo+' CHAMPION EQUITY</div>'+_eqInner+'</div>';
+        // v71.79 (owner: "1g is in section two ... so section two subtitles need a rename revamp.
+        //   if 2e was to sit above the trade pnl distribution graph then the 2e chart title would
+        //   be 2a, since its the first in the section two"): when the 1E matrix DUPLICATE fills
+        //   §1's third column, this whole distribution stack renders down in §2 — so it takes §2
+        //   letters (2B trade-PnL · 2C MAE/MFE · 2D deflated Sharpe · 2J regime · 2K trade
+        //   context), sitting under the 2A config distribution. With no duplicate the same stack
+        //   stays in §1's third column and keeps its 1x letters. §1 itself is never touched.
+        const _inS2=!!_kpiInner,_dT=(a,b)=>_inS2?b:a;
         // 1H header: title (description on hover) with the calculated stats pinned to the right — the standard chart-header pattern.
-        const _dsrBlock='<div style="margin-top:14px"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1I '+_infoIc(_ipAB(dsrTip,dsrStats))+' DEFLATED SHARPE</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>';
+        const _dsrBlock='<div style="margin-top:14px"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_dT('1I','2D')+' '+_infoIc(_ipAB(dsrTip,dsrStats))+' DEFLATED SHARPE</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml+'</div>';
         // 1E matrix + 1F regime share ONE tile (a divider between them) instead of two stacked cards.
         // 1E title rides on the matrix's own verdict/gates/DSR row (one line) instead of a separate header above it.
         const _mHdr='<span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;white-space:nowrap">1E '+_infoIc('<div style="color:var(--text2)">'+_mtip+'</div>')+' KPI MATRIX</span>';
         // v64.33 (owner): 1F moved OUT of the matrix tile — it now lives under 1I in tile 3.
-        const _regBlock=((regHtml&&regHtml.replace(/\s/g,''))?'<div style="margin-top:14px;padding-top:13px;border-top:1px solid var(--border)">'+_numHdr('1F','REGIME REPORT CARD','Net $ split by market regime, one pill per dimension — segment width = that bucket share of the net $ (green made money, red lost; hover a segment for trades, net and PF). Scope: '+_dscope+'. Weakest vol bucket: '+((d.regime&&d.regime.worst_vol)||'—'))+regHtml+'</div>':'');
+        const _regBlock=((regHtml&&regHtml.replace(/\s/g,''))?'<div style="margin-top:14px;padding-top:13px;border-top:1px solid var(--border)">'+_numHdr(_dT('1F','2J'),'REGIME REPORT CARD','Net $ split by market regime, one pill per dimension — segment width = that bucket share of the net $ (green made money, red lost; hover a segment for trades, net and PF). Scope: '+_dscope+'. Weakest vol bucket: '+((d.regime&&d.regime.worst_vol)||'—'))+regHtml+'</div>':'');
         // 1J TRADE CONTEXT — sits under 1F: same family (what the market was doing), but
         //   scored per FEATURE with confidence bands instead of bucketed by regime.
         const _ctxH=contextPanelHtml(d.context,'1J');
-        const _ctxBlock=((_ctxH&&_ctxH.replace(/\s/g,''))?'<div style="margin-top:14px;padding-top:13px;border-top:1px solid var(--border)">'+_numHdr('1J','TRADE CONTEXT','Each market feature (measured the PRIOR day, so it was knowable before the trade) scored against every trade net $. Bar = correlation, faint band = 95% confidence, and a feature only reads helps / hurts when it survives the false-lead check that accounts for testing many features at once. Most features SHOULD read no signal — that is the check working.')+_ctxH+'</div>':'');
+        const _ctxBlock=((_ctxH&&_ctxH.replace(/\s/g,''))?'<div style="margin-top:14px;padding-top:13px;border-top:1px solid var(--border)">'+_numHdr(_dT('1J','2K'),'TRADE CONTEXT','Each market feature (measured the PRIOR day, so it was knowable before the trade) scored against every trade net $. Bar = correlation, faint band = 95% confidence, and a feature only reads helps / hurts when it survives the false-lead check that accounts for testing many features at once. Most features SHOULD read no signal — that is the check working.')+_ctxH+'</div>':'');
         _mtipRef=_mtip;
         _kpiInner=kpiMatrixHtml(d,mlt,1,'')+verdictPowerHtml(_V,mlt);
         _panelMatrix='<div style="'+_card+';height:100%;box-sizing:border-box">'+kpiMatrixHtml(d,mlt,1,_mHdr)
@@ -13068,8 +13082,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _secSel='<span style="position:relative;display:inline-flex;margin-left:6px">'
           +'<span data-scopecur title="which slice 1G / 1H show — click to switch (WF and LB are out-of-sample)" style="cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border);border-radius:7px;background:var(--bg1);padding:2px 8px;font-size:8px;font-weight:700;color:var(--blue);white-space:nowrap">'+_curScope+' <span style="font-size:6px;color:var(--text4)">▼</span></span>'
           +'<span data-scopeopts style="display:none;position:absolute;top:calc(100% + 3px);right:0;z-index:60;background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.4)">'+_scopes.map(o=>{const on=o[0]===_dSec,ok=o[2];return '<span '+(ok?'data-distsec2="'+o[0]+'" ':'')+'title="'+(ok?'':'not saved on this run — the run saver dropped this slice before 2026-07-22; re-run the validate (same window) to record it')+'" style="display:block;'+(ok?'cursor:pointer;':'opacity:.4;')+'padding:4px 12px;font-size:8px;font-weight:700;white-space:nowrap;background:'+(on?'color-mix(in srgb,var(--blue) 16%,transparent)':'transparent')+';color:'+(on?'var(--blue)':'var(--text3)')+'">'+o[1]+'</span>';}).join('')+'</span></span>';
-        const _mae=maeMfePanelHtml(_pickMae(_dSec)||d.mae_mfe,mlt,'1H',_scLbl),
-              _td=tradeDistPanelHtml(_pickDist(_dSec)||d.win_dist,mlt,'1G',_scLbl,_secSel);
+        const _mae=maeMfePanelHtml(_pickMae(_dSec)||d.mae_mfe,mlt,_dT('1H','2C'),_scLbl),
+              _td=tradeDistPanelHtml(_pickDist(_dSec)||d.win_dist,mlt,_dT('1G','2B'),_scLbl,_secSel);
         // ── ACTIONABLE MAE/MFE: a button that queues a focused GRID re-run — the champion config pinned,
         //    stop_mult × tp_mult swept around the winners' reach:heat ratio (scale-free, so no ATR needed).
         //    Only for a champion that exposes ATR stop/target mults (ENGU family). Wired in the handler below.
@@ -13090,7 +13104,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 +'<div style="font-size:8px;color:var(--text5);margin-top:5px;line-height:1.5">Re-runs the champion with stop × target swept around your winners\' reach : heat ≈ <b style="color:var(--text3)">'+R.toFixed(1)+' : 1</b> ('+Math.round(f50)+'p reach vs '+Math.round(s50)+'p heat). <b>In-sample</b> sweep — validate the winner to confirm out-of-sample.</div></div>';
             }}
         }catch(_e){}
-        _distInner=(_td||_mae||_ctxBlock)?(_td+((_td&&_mae)?'<div style="height:10px"></div>':'')+_mae+((dsrHtml&&dsrHtml.replace(/\s/g,''))?_dsrBlock:'')+_regBlock+_ctxBlock+_exitBtn):'';
+        // v71.79 (owner: "bars in one section, graphs in another"): in §2 the REGIME card and the
+        //   TRADE CONTEXT chart are bar readouts, so they leave this stack and join the bars
+        //   column; the distributions (trade PnL · MAE/MFE · deflated Sharpe) stay together. In
+        //   §1 (no 1E duplicate) nothing moves — the stack renders exactly as it always did.
+        _barsInner=_inS2?(_regBlock+_ctxBlock):'';
+        _distInner=(_td||_mae||_ctxBlock)?(_td+((_td&&_mae)?'<div style="height:10px"></div>':'')+_mae+((dsrHtml&&dsrHtml.replace(/\s/g,''))?_dsrBlock:'')+(_inS2?'':(_regBlock+_ctxBlock))+_exitBtn):'';
         _distTile=_distInner?('<div style="'+_card+';height:100%;box-sizing:border-box">'+_distInner+'</div>'):'';
       }else{
         // NON-Auto-Validate runs (grid / auto / walk-forward / single) render the SAME three-column
@@ -13234,7 +13253,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const usd=(d.best_pnl_usd!=null&&isFinite(+d.best_pnl_usd))?+d.best_pnl_usd:null;
         if(usd!=null&&mlt)return {v:usd/mlt,lab:'★ champion',col:'#1d9e75'};
         return null;})();
-      const _dist=distPanelHtml(_distSrc,mlt,'2E',(_crownM?[_crownM]:null));
+      // v71.79 (owner): the CONFIG DISTRIBUTION leads §2 — it is the same kind of chart as the
+      //   trade-PnL distribution directly beneath it — so it takes the section's first letter.
+      const _dist=distPanelHtml(_distSrc,mlt,_cfgN+'A',(_crownM?[_crownM]:null));
       // ── CHART METRIC toggle (item L): the param charts (2B/2C/2H/2I/2J) historically plot
       //    each config's NET PNL only — a drawdown lever (e.g. be_after_R) is INVISIBLE on that
       //    axis (PnL flat ±2% while DD moves 33%). New `dd` per points row (engine ≥ this build)
@@ -13258,23 +13279,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _pdpD=pdpCurvesData(_PTS,mlt,(_pMet==='pnl'?d.plateau_pick:null));
       const _allK=(d.points&&d.points.length)?Object.keys(d.points[0]).filter(k=>k!=='pnl'&&k!=='dd'&&typeof d.points[0][k]==='number'):[];
       const _kOrd=_pdpD.map(c=>c.k).concat(_allK.filter(k=>!_pdpD.some(c=>c.k===k)));
-      // v64.41 (owner): §2 re-lettered to READING order (col1 top→bottom, then col2, col3):
-      //   2A funnel · 2B config distribution · 2C the 3-D explorer (all views share the tag) ·
-      //   2D parallel coords · 2E PDP · 2F knob importance · 2G neighbours · 2H top configs ·
-      //   2I model bake-off. (Dragged sizes keyed by tag reset once on the rename.)
-      const _pdp=pdpCurvesPanelHtml(_PTS,mlt,_cfgN+'H',(_pMet==='pnl'?d.plateau_pick:null),((_kOrd&&_kOrd.length>=2)?_kOrd:null),true,(_pMet==='pnl'?d.auto_expand:null));
-      const _parc=parallelCoordsHtml(_PTS,mlt,_cfgN+'G',_kOrd,_pdp,_pmBtns);
-      const _corr=corrPanelHtml(d.points,_cfgN+'I',d.relationship,(d.surrogate&&d.surrogate.knob_screen));
+      // v71.79 (owner: "bars in one section, graphs in another ... 2e would be 2a since its the
+      //   first in the section"): §2 re-lettered to READING order over the NEW three columns —
+      //     col1 DISTRIBUTIONS      2A config dist · 2B trade-PnL dist · 2C MAE/MFE · 2D deflated Sharpe
+      //     col2 SURFACES & CURVES  2E 3-D explorer (all three views share the tag) · 2F parallel
+      //                             coords · 2G PDP top-out curves (2F's own footer)
+      //     col3 BARS & TABLES      2H knob importance · 2I neighbours · 2J regime · 2K trade
+      //                             context · 2L ML config builder · 2M top configs
+      //   (Dragged chart sizes are keyed by tag, so they reset once on this rename — same as the
+      //    v64.41 re-letter.)
+      const _pdp=pdpCurvesPanelHtml(_PTS,mlt,_cfgN+'G',(_pMet==='pnl'?d.plateau_pick:null),((_kOrd&&_kOrd.length>=2)?_kOrd:null),true,(_pMet==='pnl'?d.auto_expand:null));
+      const _parc=parallelCoordsHtml(_PTS,mlt,_cfgN+'F',_kOrd,_pdp,_pmBtns);
+      const _corr=corrPanelHtml(d.points,_cfgN+'H',d.relationship,(d.surrogate&&d.surrogate.knob_screen));
       // 2E is view-toggleable (APREF.hm3d, DEFAULT 3-D per owner): flat heatmap ⇄ 3-D surface.
       const _hm3dOn=(APREF.hm3d==null?1:+APREF.hm3d);
-      const _hm=(_hm3dOn?surface3dPanelHtml(_PTS,mlt,_cfgN+'F',d.best_params):heatmapPanelHtml(_PTS,mlt,_cfgN+'F'));
+      const _hm=(_hm3dOn?surface3dPanelHtml(_PTS,mlt,_cfgN+'E',d.best_params):heatmapPanelHtml(_PTS,mlt,_cfgN+'E'));
       // scatter is view-toggleable too (APREF.sc3d, DEFAULT 3-D per owner): raw config dots in
       //   space (two params × net $ height) ⇄ the flat scatter with density contours.
       const _sc3dOn=(APREF.sc3d==null?1:+APREF.sc3d);
-      const _sc=(_sc3dOn?scatter3dPanelHtml(_PTS,mlt,_cfgN+'F',d.best_params):scatterPanelHtml(_PTS,mlt,_cfgN+'F'));
+      const _sc=(_sc3dOn?scatter3dPanelHtml(_PTS,mlt,_cfgN+'E',d.best_params):scatterPanelHtml(_PTS,mlt,_cfgN+'E'));
       // second 3-D surface on its OWN param pair (hm2X × hm2Y, defaults to the 3rd × 4th knob)
       //   so it never duplicates the first; hides itself under 3 numeric params.
-      const _p3d=surface3dPanelHtml(_PTS,mlt,_cfgN+'F',d.best_params,1);
+      const _p3d=surface3dPanelHtml(_PTS,mlt,_cfgN+'E',d.best_params,1);
       // _pdp is computed above and rendered INSIDE 2F's card as its footer (owner: 2G = same sub-chart under 2F).
       // lay non-empty panels in a row (1, 2 or 3 across); single panel = full-width. stretch=true makes
       //   the cards equal-height (good for similar charts); otherwise they top-align at natural height.
@@ -13306,7 +13332,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   charts, top-aligned (align-items:flex-start), nothing clipped. Charts resize individually.
       const _colStyle='background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:12px;padding:12px 14px;box-sizing:border-box;overflow:auto';
       const _colCard=(inner,ck,fx)=>(inner&&inner.replace(/\s/g,''))?('<div style="flex:'+fx+';min-width:0"><div data-ck="'+ck+'" style="'+_colStyle+'">'+inner+'</div></div>'):'';
-      const _nbInner=(nbHtml&&nbHtml.replace(/\s/g,''))?(_numHdr('2J','🎯 NEIGHBOUR ROBUSTNESS',nbTip,nbSub)+nbHtml):'';
+      const _nbInner=(nbHtml&&nbHtml.replace(/\s/g,''))?(_numHdr('2I','🎯 NEIGHBOUR ROBUSTNESS',nbTip,nbSub)+nbHtml):'';
       // 3-D EXPLORER inner (2E/2F/2G via chips) — content only, no per-tile card (it stacks in col 3).
       const _p3opts=[['h','⛰ SURFACE',_hm],['i','⛰ SURFACE 2',_p3d],['j','• SCATTER',_sc]].filter(o=>o[2]&&o[2].replace(/\s/g,''));
       const _p3v=(function(){const w=APREF.p3view;return _p3opts.some(o=>o[0]===w)?w:(_p3opts.length?_p3opts[0][0]:null);})();
@@ -13324,13 +13350,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _steerBadge=(d.steering&&d.steering.used)?('<div style="display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:9px;color:#3a9bdc;font-weight:700" title="P2 steered search (#36): the first batch of configs was sampled at random, then a Gaussian-Process model was re-fit on every result so far and CHOSE each next batch (predicted-high-PnL regions plus regions it was still unsure about). Every proposed config was still evaluated by the same real backtest as always.">🎯 MODEL-STEERED SEARCH <span style="font-weight:400;color:var(--text4)">'+(d.steering.seed_trials||0)+' random seed + '+(d.steering.steered_trials||0)+' GP-aimed trials'+((d.steering.fallback_random||0)>0?' · '+d.steering.fallback_random+' fell back to random':' · 0 fallbacks')+'</span></div>'):'';
       const _surrHtml=surrogatePanelHtml(d.surrogate,mlt,_cfgN+'L',_steerBadge);
       const _surrInner=(_surrHtml&&_surrHtml.replace(/\s/g,''))?_surrHtml:'';
-      const _surrErr=(d.surrogate&&d.surrogate.error)?'<div style="font-size:8px;color:var(--text5);margin-bottom:8px">'+_cfgN+'K · ML CONFIG BUILDER — skipped: '+String(d.surrogate.error).replace(/</g,'&lt;')+'</div>':'';
+      const _surrErr=(d.surrogate&&d.surrogate.error)?'<div style="font-size:8px;color:var(--text5);margin-bottom:8px">'+_cfgN+'L · ML CONFIG BUILDER — skipped: '+String(d.surrogate.error).replace(/</g,'&lt;')+'</div>':'';
       // #29: 2J is a reference table the owner rarely reads — one-line strip, click to expand (cfgTblOpen).
       const _tfOpen=!!APREF.cfgTblOpen;
-      const _topInner=(t10.length?('<div data-cfgtbl title="the numeric detail behind the 2A curves — every top config with its full parameter set and stats. Click to '+(_tfOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'K 🏆 TOP CONFIGS <span style="font-weight:400;color:var(--text4);font-size:8px">· '+t10.length+' configs ⓘ</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+(_tfOpen?'▴ hide':'▾ show')+'</span></div>'
+      const _topInner=(t10.length?('<div data-cfgtbl title="the numeric detail behind the 2A curves — every top config with its full parameter set and stats. Click to '+(_tfOpen?'collapse':'open')+'." style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'M 🏆 TOP CONFIGS <span style="font-weight:400;color:var(--text4);font-size:8px">· '+t10.length+' configs ⓘ</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+(_tfOpen?'▴ hide':'▾ show')+'</span></div>'
         +(_tfOpen?('<div style="margin-top:8px"><style>.cfgtbl th,.cfgtbl td{padding:2px 5px!important;font-size:8px!important;border-right:1px solid color-mix(in srgb,var(--border) 45%,transparent)}.cfgtbl th:last-child,.cfgtbl td:last-child{border-right:none}.cfgtbl th{white-space:nowrap!important;max-width:70px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;color:var(--text4);letter-spacing:0;cursor:help}</style><div style="overflow-x:auto"><table class="table cfgtbl" style="width:auto;white-space:nowrap">'+thead+'<tbody>'+trows+'</tbody></table></div></div>'):'')):'');
       // 3A DEFLATED SHARPE inner — non-validate sweeps only (validate runs show it in §1/1I).
-      const _dsrInner=(!d.validate&&dsrHtml&&dsrHtml.replace(/\s/g,''))?('<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">3A '+_infoIc(_ipAB(dsrTip,dsrStats))+' DEFLATED SHARPE</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml):'';
+      const _dsrInner=(!d.validate&&dsrHtml&&dsrHtml.replace(/\s/g,''))?('<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">'+_cfgN+'D '+_infoIc(_ipAB(dsrTip,dsrStats))+' DEFLATED SHARPE</span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml):'';
       // stack each column with §1-style dividers, then wrap in one equal-height card
       // 2D (param relationships) moved UNDER 2C in col1 (owner) — it's a per-knob view like 2C,
       //   and col1 is the widest column so its bars stop squishing.
@@ -13346,13 +13372,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v69.8 (owner: "2e throught 2l, move under 2k"): the distribution, the 3-D explorer and
       //   the ML config builder used to sit in the middle column under 2D. They now stack under
       //   2K in the right column, leaving the middle column as the two big tables alone.
-      const _col2=_stack([((_parc&&_parc.replace(/\s/g,''))?((_pmBtns?'':_pmTog)+_parc):''),_corr,_nbInner,_topInner]);
-      // v70.9 (owner: "move 1g-1j below it to section 2. reassess section 2 for how to format it
-      //   for all layouts. im currently primarily using the 3x3"): §2 is three columns again -
-      //   the 1G/1H/1I/1J distributions on the left, the parameter panels in the middle, the
-      //   config-landscape panels on the right. In the 1-column and 2x2 report layouts the same
-      //   three columns simply stack, which is what the width rules already do.
-      const _col2x=_stack([_dist,_p3inner,_surrInner,_dsrInner]);
+      // v71.79 (owner: "group bars in one section and graphs in another"). §2's three columns are
+      //   now sorted by WHAT KIND OF CHART each panel is, not by which pass produced it:
+      //     _col1  DISTRIBUTIONS     — 2A config spread, then the trade-level spreads under it
+      //     _col2  SURFACES & CURVES — the config space drawn as geometry (3-D, parallel coords, PDP)
+      //     _col3  BARS & TABLES     — every ranked-bar readout and the two big tables
+      //   The column HEADINGS name the group so the grouping reads without hunting.
+      const _col2=_stack([_p3inner,((_parc&&_parc.replace(/\s/g,''))?((_pmBtns?'':_pmTog)+_parc):'')]);
+      const _col2x=_stack([_corr,_nbInner,_barsInner,_surrInner,_topInner]);
       // §2 header verdict line (redesign #22): the cluster question answered up front —
       //   neighbours held / plateau agreement / PBO, colored, before any chart is read.
       const _pboR=(d.validate&&d.validate.pbo&&d.validate.pbo.pbo!=null)?d.validate.pbo.pbo:((d.pbo&&d.pbo.pbo!=null)?d.pbo.pbo:null);
@@ -13407,8 +13434,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _openChip=_chips.filter(c=>c.k===window._diagOpenKey)[0];
       // Fixed slot for EVERY run type (universal layout): render the header always, with an n/a card when this run saved no diagnostics.
       const _diagHd='<div id="res-step-diag" class="lbl" style="margin:22px 0 8px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;align-items:baseline;gap:8px;scroll-margin-top:8px"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;border-radius:50%;background:var(--bg1);border:1px solid var(--border);font-size:9px;font-weight:800;color:var(--text2)">3</span><span style="font-weight:800;font-size:11px;color:var(--text);letter-spacing:0;text-transform:none">🔬 Robustness &amp; Diagnostics</span>'+(_dVerd||'<span style="font-weight:400;color:var(--text4);font-size:9px">informational — distribution-free checks · ensemble · ML gate</span>')+'<span style="font-weight:400;color:var(--text5);font-size:9px;cursor:help" title="Each chip is one independent robustness check — the dot is its verdict (green pass, yellow warn, red flag, grey = context only, no pass/fail). Click a chip for the full readout with methodology. These are informational: they do not gate the checklist.">ⓘ</span></div>';
-      const _diagSec=_diagHd+'<div data-ck="diag" style="'+_card2+';margin-bottom:14px">'+(_chips.length
-        ?('<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px">'+_chips.map(_chipHtml).join('')+'</div>'
+      // v71.79 (owner: "put the section 3 pills as a vertical row to the right of section 2"):
+      //   the chips ride a narrow rail pinned to §2's right edge. The §3 card itself stays where
+      //   it is and becomes the HOST for whichever chip is open — a full readout (gate bake-off
+      //   tables, ensemble curves) has no room in a 170px rail. _railOn is set by _sec3 below,
+      //   so the grid only draws here when §2 rendered no columns to pin the rail to.
+      let _railOn=false;
+      const _diagRail=_chips.length?('<div style="font-weight:800;font-size:9px;letter-spacing:1.2px;color:var(--text2);margin:0 0 8px">&#128300; ROBUSTNESS</div>'
+        +'<div style="display:flex;flex-direction:column;gap:6px">'+_chips.map(_chipHtml).join('')+'</div>'
+        +'<div style="font-size:8px;color:var(--text5);margin-top:8px;line-height:1.45">click a chip &mdash; its readout opens under this section</div>'):'';
+      const _diagBody=()=>_diagHd+'<div data-ck="diag" style="'+_card2+';margin-bottom:14px">'+(_chips.length
+        ?((_railOn?'':('<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px">'+_chips.map(_chipHtml).join('')+'</div>'))
           +(_openChip?('<div style="margin-top:6px;padding:0 4px 4px;border:1px dashed color-mix(in srgb,'+_dcDot(_openChip)+' 45%,var(--border));border-radius:8px">'+_openChip.html+'</div>'):'<div style="font-size:8px;color:var(--text5);margin-top:6px">click a chip for its full readout</div>'))
         :_naTile('','ROBUSTNESS &amp; DIAGNOSTICS','no distribution-free checks, ensemble or ML-gate saved for this run'))+'</div>';
       // ── ML GATE section (redesign #26): the headline verdict (lockbox held or failed, gated
@@ -13631,14 +13667,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v67.9 (owner): col 1 is the 2A funnel ALONE (the widest chart gets the widest column);
       //   col 2 = 2B raw configs · 2C gate pill · 2D distribution · 2E explorer + 2K ML config
       //   builder (+ DSR); col 3 = the old col 2 (2F-2J).
-      const _col1=_distInner||(_eqInner?'':(_eq?('<div style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;margin:8px 0 0">'+(_eqSink.info||'')+' '+(_eqSink.title||'CONFIG FUNNEL')+'</div>'+_eq):''));
-      const _col2b=_cfgSec?_stack([_cfgSec,rsRow]):_col2;
-      const _col3=_cfgSec?_col2:_col2x;
+      // v71.79 (owner): col 1 is the DISTRIBUTIONS group — 2A config spread on top (the section's
+      //   first letter, because it is the first chart in the section), then the trade-level
+      //   spreads (2B/2C/2D) that live down here whenever §1's third column is holding the 1E
+      //   matrix duplicate. Claiming _distInner only in that case is what stops the same stack
+      //   from drawing TWICE on runs that render it up in §1.
+      const _c1=_stack([_dist,(_kpiInner?_distInner:''),_dsrInner]);
+      const _col1=(_c1&&_c1.replace(/\s/g,''))?_c1:(_eqInner?'':(_eq?('<div style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;margin:8px 0 0">'+(_eqSink.info||'')+' '+(_eqSink.title||'CONFIG FUNNEL')+'</div>'+_eq):''));
+      const _col2b=_col2;
+      // the standalone CONFIGS card (only built when there is no 1E card for it to live inside)
+      //   is a table, so it leads the tables column rather than taking a column of its own.
+      const _col3=_cfgSec?_stack([_cfgSec,rsRow,_col2x]):_col2x;
       const _sec3=(function(){
         // v64.19 (owner): §2 gets the SAME separation model as §1 — vertical splitter bars
         //   trade width between the column tiles (ratios persist in APREF.s2cols, dblclick =
         //   reset) and each tile gets a bottom handle row for its height (APREF.s1th c-slots).
-        const _colsIn=[[_col1,'c2col1','1.5 1 360px'],[_col2b,'c2col2','1.2 1 300px'],[_col3,'c2col3','1.1 1 300px']].filter(c=>c[0]&&c[0].replace(/\s/g,''));
+        const _colsIn=[[_col1,'c2col1','1.15 1 300px','DISTRIBUTIONS','the spread &mdash; configs, trades, excursions'],
+                       [_col2b,'c2col2','1.5 1 340px','SURFACES &amp; CURVES','the config space drawn as geometry'],
+                       [_col3,'c2col3','1.35 1 320px','BARS &amp; TABLES','ranked readouts and the numbers behind them']]
+                      .filter(c=>c[0]&&c[0].replace(/\s/g,''));
         if(!_colsIn.length)return _surrErr;
         const _g2=(Array.isArray(APREF.s2cols)&&APREF.s2cols.length===_colsIn.length)?APREF.s2cols.map(x=>Math.max(260,+x||260)):null;
         // v64.88 (item 5, owner ask): per-column COLLAPSE — a small ⟨/⟩ chip shrinks a column to
@@ -13659,9 +13706,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _th2=i=>'<div data-tilerow="c'+i+'" title="drag to resize this tile height · double-click = back to auto" style="height:8px;margin:5px 0 0;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div></div>';
         const _colHtml=(c,i)=>{
           if(_isCl(i))return '<div data-s1col="'+i+'" data-s1cs="1" style="flex:0 0 34px;min-width:34px;max-width:34px;overflow:hidden"><div data-ck="'+c[1]+'" style="'+_colStyle+';padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:6px;min-height:120px">'+_clChip(i)+'</div></div>';
-          return '<div data-s1col="'+i+'" style="'+(_g2?('flex:'+_g2[i]+' 1 0px'):('flex:'+c[2]))+';min-width:260px;overflow:hidden"><div data-ck="'+c[1]+'" style="'+_colStyle+'"><div style="display:flex;justify-content:flex-end;margin-bottom:6px">'+_clChip(i)+'</div>'+c[0]+'</div>'+_th2(i)+'</div>';};
+          // v71.79: the group name heads the column and the collapse chip rides its right edge,
+          //   so the heading costs no extra vertical band.
+          return '<div data-s1col="'+i+'" style="'+(_g2?('flex:'+_g2[i]+' 1 0px'):('flex:'+c[2]))+';min-width:260px;overflow:hidden"><div data-ck="'+c[1]+'" style="'+_colStyle+'"><div style="display:flex;align-items:baseline;gap:7px;margin:0 0 10px;padding-bottom:7px;border-bottom:1px solid color-mix(in srgb,var(--border) 60%,transparent)"><span style="font-weight:800;font-size:9px;letter-spacing:1.2px;color:var(--text2);flex-shrink:0">'+(c[3]||'')+'</span><span style="font-weight:400;font-size:8px;color:var(--text5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(c[4]||'')+'</span><span style="margin-left:auto;flex-shrink:0">'+_clChip(i)+'</span></div>'+c[0]+'</div>'+_th2(i)+'</div>';};
         let _row='';
         _colsIn.forEach((c,i)=>{if(i)_row+=_sp2(_isCl(i-1)||_isCl(i));_row+=_colHtml(c,i);});
+        // v71.79 (owner: "put the section 3 pills as a vertical row to the right of section 2"):
+        //   a fixed-width rail after the last column. It is OUTSIDE the splitter/collapse indexing
+        //   (no data-s1col), so dragging column widths and collapsing columns behave exactly as
+        //   before — the rail simply keeps its own width.
+        if(_diagRail){_railOn=true;
+          _row+='<div style="flex:0 0 12px"></div><div style="flex:0 0 176px;min-width:150px"><div data-ck="c2diag" style="'+_colStyle+'">'+_diagRail+'</div></div>';}
         return '<div data-colskey="s2cols" style="display:flex;gap:2px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'+_row+'</div>'+_surrErr;})();
       // ── REPORT LAYOUT toggle (owner 2026-07-20): CLASSIC = the numbered sections below,
       //    untouched. FUNNEL β = the SAME panels regrouped into 5 questions (performance →
@@ -13987,7 +14042,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v64.40 (owner): the ML gate is stacked INSIDE the §2 card (col 3, under 2H) now — no standalone section.
         +_sec('4','Stress','profit spread across time, not one lucky stretch',_sec4,_strN)
         +_sec('8','Drawdown','size for the worst-case equity path',_sec8)
-        +_diagSec
+        +_diagBody()
         +runCodeHtml(d);
     };
     let body='';
