@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.65';
+const VERSION='71.66';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.66',date:'2026-08-09',notes:['RUNBOARD column width, second pass. Handing the spare width to the metric-name column left a wide empty gap down the middle of the table, which was worse than the columns being padded. The table now sizes to its content and stops: every column is as wide as its own numbers, and any leftover width sits outside the table where it belongs. Drag the panel divider in if you want it gone entirely.']},
 {v:'71.65',date:'2026-08-09',notes:['The CHAMPION and FUNNEL tabs in the expanded view moved next to the EQUITY COMPARE title. They were tucked in beside RESET at the far right of a very wide header row, which on a normal window is past the edge of the screen - which is why they could not be found.','And the expanded key is ranked like the tile key: the family groups are ordered by where each one FINISHES, best first, instead of a fixed RAW, GATES, TILTS, HYBRID order. The two keys now read top to bottom the same way.']},
 {v:'71.64',date:'2026-08-09',notes:['RUNBOARD columns are no longer padded out. A table narrower than its panel was spreading the spare width evenly, so eight short numeric columns each sat at about 130 pixels when their contents needed half that. The data columns now shrink to what they actually hold and the metric names absorb the slack, so the table still fills the panel but the numbers sit close together the way they do on the 1E card.']},
 {v:'71.63',date:'2026-08-09',notes:['RUNBOARD columns narrowed. The head now reads exactly like a 1E head - a crown on the leader, the rank, then the RUN NUMBER - with the strategy short name on the line underneath where 1E puts its date range. The long name was on the top line before and it was the single thing forcing every column wider than its numbers needed.','Row names trimmed of the parts that repeated themselves: MAR reads MAR then the stretch instead of naming the same stretch twice, and the ROBUSTNESS and STAGES rows drop their whole-run suffix.','The matrix takes the larger share of the width by default now - it is the panel carrying eight numeric columns. The drag bars still override it and your split is remembered.']},
@@ -8552,12 +8553,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   row and a tab flip compares like with like.
       const _cp=(opts&&opts.compact)?(_wide?'3px 3px':'3px 4px'):'5px 6px',_hp=(opts&&opts.compact)?(_wide?'3px 3px':'3px 4px'):'4px 6px';
       const _ncol=cols.length+1,_stick='position:sticky;left:0;z-index:1;';
-      // opts.tight (v71.64, owner: "columns are a bit to wide"): a table narrower than its panel
-      //   spreads the slack evenly, so a few short numeric columns end up far wider than their
-      //   content. With `tight` the DATA columns shrink to what they hold (width:1%) and the
-      //   metric-name column absorbs every spare pixel instead — the table still fills the panel.
-      //   Off by default, so 1E / 2B / 2C keep their existing proportions exactly.
-      const _tight=!!(opts&&opts.tight),_wCell=_tight?'width:1%;':'',_wLbl=_tight?'width:100%;':'';
+      // opts.tight (v71.65, owner: "columns are a bit to wide"): a full-width table spreads its
+      //   spare width across the columns, so a handful of short numeric columns end up far wider
+      //   than what they hold. With `tight` the table sizes to its CONTENT and simply stops —
+      //   every column is as wide as its own numbers and the leftover sits outside the table,
+      //   not inside a column. (Pushing the slack into the metric-name column instead left a
+      //   356px gap down the middle, which was worse than the problem.) Off by default, so
+      //   1E / 2B / 2C keep their existing proportions exactly.
+      const _tight=!!(opts&&opts.tight),_wCell='',_wLbl='';
       const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:'+_hp+';'+_wLbl+'vertical-align:bottom;'+_stick+'background:var(--bg2)">METRIC</th>'
         +cols.map(c=>'<th'+(c.tip?' title="'+c.tip+'"':'')+' style="text-align:right;padding:'+_hp+';'+_wCell+'line-height:1.35;white-space:nowrap;'+(c.tip?'cursor:help;':'')+'vertical-align:top;color:'+(c.col||'var(--text2)')+(c.emph?';font-weight:800':';font-weight:700')+(c.emph?_mtxEmph(c):'')+'">'+c.lbl+(c.sub?'<div style="font-size:7px;font-weight:400;color:var(--text5);margin-top:1px">'+c.sub+'</div>':'')+'</th>').join('')+'</tr>';
       const body=groups.map(g=>{
@@ -8581,7 +8584,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               return '<td style="'+bTop+'padding:'+_cp+';'+_wCell+'text-align:right;white-space:nowrap;background:'+(_hb||(c.emph?_mtxEmphBg(c):rowBg))+(c.emph?_mtxEmphBd(c):'')+(r.rowSty||'')+'">'+r.cell(c)+'</td>';}).join('')
             +'</tr>';}).join('');
         return grpRow+rows;}).join('');
-      return '<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 4px;overflow-x:auto;max-width:100%"><table class="table" style="width:100%;font-size:var(--fsxs);border-collapse:collapse"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
+      return '<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 4px;overflow-x:auto;max-width:100%"><table class="table" style="width:'+(_tight?'auto':'100%')+';font-size:var(--fsxs);border-collapse:collapse"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
     };
     // ML-gate model-family hues (owner redesign item B5): rf = magenta/pink, xgb = amber/orange,
     //   logistic = violet -- each clearly distinct from the teal (~161) used for the strategy
