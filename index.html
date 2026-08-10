@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='72.4';
+const VERSION='72.5';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'72.5',date:'2026-08-09',notes:['The HWM chip was lighting up one click behind what the chart was drawing - the setting was being read after the title row had already been built.']},
 {v:'72.4',date:'2026-08-09',notes:['RUNBOARD funnel: the blue walk-forward and purple lockbox SHADING is gone. Every strategy reaches its own walk-forward and lockbox on a different date, so one shared band drew boundaries that were true for at most one curve and wrong for the rest - a strategy still in walk-forward appeared to be sitting inside the lockbox. Each line states its own stages instead: solid in-sample, dashed walk-forward, dotted lockbox, the same line procedure every other PnL chart on the site uses.','The word DRAWDOWN sat on the top edge of the drawdown pane and the filled area sliced it in half. It sits above the pane now.','NEW HWM toggle on the funnel title. It draws each line HIGH-WATER MARK - the running peak, the most that strategy had ever made up to that point. The gap between a line and its own mark is the drawdown it was sitting in right then, so a long flat mark with the line beneath it reads as a long stretch under water. Off by default, remembered once set.']},
 {v:'72.4',date:'2026-08-10',notes:['FIX: drag-to-pan on the gallery charts did nothing. Every pan redraws the chart, which swaps the drawing out from under the mouse, and the old handler lost the gesture the instant that happened. The drag is now pinned to the chart you grabbed, so it pans smoothly the whole way.']},
 {v:'72.3',date:'2026-08-10',notes:['CHART GALLERY - the mouse wheel scrolls the LIST again. Zooming a chart now takes CTRL (or Shift) plus the wheel, because a plain wheel belongs to the list you are scrolling.','CHART GALLERY - click and DRAG a zoomed chart to pan it, the way you would on TradingView. The cursor turns to a grab hand on any chart that is zoomed in.','SAVING - every card has its own PNG button, and a SAVE ALL button at the top prints just the charts, so your browser Save as PDF gives you the whole set in one file.']},
@@ -15613,6 +15614,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<span data-rbheat>'+_tabStrip(_tabBtn('','HEAT',_rbHeat,'shade every cell by where it lands across its own row - green best, red worst. The same heat map the 1E card uses.',_TONE.heat),false)+'</span>'
           +orientSeg+'</div>';
         // declared here because boardTile below caps its own height when this panel is open
+        // set BEFORE the funnel tile is built - the HWM chip reads it while rendering
+        window._rbHwm=!!APREF.rbHwm;
         const _rbSide=(['best','worst','recent'].indexOf(APREF.rbSide)>=0)?APREF.rbSide:'';
         const boardTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">RUNBOARD</span><span style="font-size:8px;color:var(--text5)">top run per strategy · auto-populates from run history · ordered by the RANK BY pick</span></div>'
           +'<div style="overflow:auto;max-height:'+(_rbSide?'38vh':'74vh')+'">'+runs.map(_famRowOf).join('')+'</div>'
@@ -15857,7 +15860,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   FUNNEL and MATRIX are side-by-side columns, the way 1A and 1E sit side by side in the
         //   run report. The strategy list keeps the narrow left column, same as COMPARE's picker.
         //   Each column carries a min-width so a narrow viewport wraps instead of squeezing.
-        window._rbHwm=!!APREF.rbHwm;
         window._cmpOvl1A=true;
         // v71.27 (owner: "i cant change the size ... with sliders"): drag bars BETWEEN the three
         //   columns trade width the same way the section-1 splitters do, and the ratio persists.
