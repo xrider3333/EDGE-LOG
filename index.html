@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='72.0';
+const VERSION='72.1';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'72.1',date:'2026-08-09',notes:['HOVERING THE KEY now does exactly what hovering a line does - that strategy lifts, every other one fades, in the chart and in the matrix. It was already wired but the plot was fighting it: the key sits inside the chart area, so moving onto a key row also counted as moving over the plot, and the plot immediately cleared the highlight the key had just set.','The in-sample, walk-forward and lockbox line-style rows are off the RUNBOARD key. The info icon covers them and they were taking three rows of a small box.']},
 {v:'72.0',date:'2026-08-09',notes:['PRICE SCALE MOVED TO THE RIGHT on every candle chart, the side every trading platform puts it on. The left gutter it used to sit in was dead space.','THE GALLERY IS NOW A WORKING SURFACE, not thumbnails: roll the wheel over ANY chart in the list to zoom its price action in place, double-click to reset, and each card carries its own TRADE and FULL buttons plus a live bar count. You no longer have to open a chart to study it.','CANDLE WINDOW header tidied: flatter controls, tighter row, and the price readout moved onto its own quiet line under a divider instead of competing with the buttons.']},
 {v:'71.99',date:'2026-08-09',notes:['The tick-box fix in 71.98 only reached one of the two pickers. Both the ADD RUNS list and the book picker have proper tick boxes now instead of ones stretched across a quarter of the row.']},
 {v:'71.98',date:'2026-08-09',notes:['FIXED the ADD RUNS dialog, which rendered as a column of stretched tick boxes with the text flung to the right. The app-wide input rule sets every input to full width with big padding and the tick boxes were inheriting it. They opt out now, and the book picker had the same bug.','The dashed purple line down the middle of the funnel is gone.','The in-sample then blue band then purple lockbox line is off the funnel title - the info icon already covers it.','Each funnel key row carries the SAME rank as its matrix column now - R1, R2 and so on - so the chart and the table read as one board. A strategy with no saved curve was quietly shifting the key out of step with the ranks.']},
@@ -5736,9 +5737,11 @@ window.cmpOvlMount=function(hostId){
       :(' <span style="color:var(--yellow)" title="short sample - this curve only covers '+d+' days, so it draws as a hairline beside the full-history runs">· '+d+'d ⚠</span>');};
   keyEl.innerHTML=ALL.map(sr=>{const lastV=(sr.eq&&sr.eq.length)?sr.eq[sr.eq.length-1]:0,off=HID.has(String(sr.id));
       return '<div data-ovltog="'+sr.id+'" title="'+(off?'click to show this strategy on the chart':'click to hide this strategy — the chart rescales to what is left')+'" style="white-space:nowrap;cursor:pointer;user-select:none;color:'+(off?'var(--text5)':sr.color)+(off?';text-decoration:line-through;opacity:.6':'')+'"><b>'+(off?'▭':'▬')+'</b> '+(sr.rank?('<span style="color:var(--text5)">R'+sr.rank+'</span> '):'')+'#'+sr.id+' '+sr.label+' · '+_ab$(lastV)+(ONE_A?_spanTxt(sr):'')+'</div>';}).join('')
-    +'<div style="white-space:nowrap;color:var(--text4)"><b>—</b> in-sample</div>'
-    +(S.some(sr=>sr.wfi!=null)?'<div style="white-space:nowrap;color:var(--text4)"><b>––</b> walk-forward</div>':'')
-    +(S.some(sr=>sr.li!=null)?'<div style="white-space:nowrap;color:var(--text4)"><b>····</b> lockbox</div>':'')
+    // v72.0 (owner: "remove the in-sample wf lb in the key on 1A"): the line-style legend only
+    //   shows on the plain COMPARE chart. On the RUNBOARD the info icon already explains it.
+    +(ONE_A?'':('<div style="white-space:nowrap;color:var(--text4)"><b>—</b> in-sample</div>'
+      +(S.some(sr=>sr.wfi!=null)?'<div style="white-space:nowrap;color:var(--text4)"><b>––</b> walk-forward</div>':'')
+      +(S.some(sr=>sr.li!=null)?'<div style="white-space:nowrap;color:var(--text4)"><b>····</b> lockbox</div>':'')))
     +NC.map(c=>'<div style="white-space:nowrap;color:var(--text5)">#'+c.id+' '+c.label+' · no curve saved</div>').join('');
 
   // ── v71.24 (owner: "the funnel still doesnt look like a 1a funnel"): 1A MODE. The RUNBOARD
@@ -5970,6 +5973,9 @@ window.cmpOvlMount=function(hostId){
   // hovering the PLOT picks the nearest curve at the cursor's date — within a tolerance, so
   //   empty space clears the spotlight instead of clamping onto whatever is closest.
   host.addEventListener('mousemove',e=>{
+    // the KEY sits INSIDE the host, so moving over it reached here and cleared the very spotlight
+    // the key row had just set — which is why hovering the key did nothing to the chart.
+    if(e.target&&e.target.closest&&e.target.closest('.cmpovl-key'))return;
     const st=svg._g;if(!st)return;
     const r=host.getBoundingClientRect();if(!(r.width>0&&r.height>0))return;
     const sx=r.width/st.g.W,sy=r.height/st.g.H;
