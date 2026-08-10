@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1';
+const VERSION='73.2';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.2',date:'2026-08-10',notes:['Cut-off sweep chart (1E GATE tab): the dashed hindsight curves are OFF by default and no longer stretch the y-axis. That was why the chart looked squashed on run 203 - one held-out year ran far past the tuning years and flattened every line that actually made the decision. A HINDSIGHT chip turns them back on when you want them.','The solid/dashed key, the hindsight warning and the hover tip moved off the caption and into the info icon.','The LB HELD chip under the sweep chart is gone - the gate verdict reads off the 2A funnel as a line, and the sentence now lives in the tab info icon and the section 3 GATE VALIDATE pill.']},
 {v:'73.1',date:'2026-08-10',notes:['Greying a strategy on the funnel key now fades its DRAWDOWN trace too. The equity line went faint but its underwater shading stayed at full strength, so a greyed strategy was still shouting from the lower pane.']},
 {v:'73.0',date:'2026-08-10',notes:['PAPER Layer 1 - NinjaTrader Sim101 auto-trading strategies added to the repo (tools/nt): EdgeLogORB30 and EdgeLogENGUQ1m, ports of the two crowned configs the shadow trader runs, plus a setup checklist (SIM101_SETUP.md). No app change - compile and enable them inside NinjaTrader; their Sim101 fills flow into the trade log automatically.']},
 {v:'72.9',date:'2026-08-09',notes:['The GREY step of the key cycle now actually greys the line. The click was recording the state but the chart was still drawing that strategy at full strength, so grey and shown looked identical. All three segments of a curve fade together.']},
@@ -12090,7 +12091,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
             const models=Object.keys(_sw.models);
             const _mc=m=>_gateColor(m,1,60);
             const pick=(m,pre)=>(_sw.models[m][(pre?'pre_':'lb_')+(_yPnl?'net':'rec')]||[]).map(v=>_yPnl?v*mlt3:v);
-            let vals=[];models.forEach(m=>{vals=vals.concat(pick(m,true)).concat(pick(m,false));});
+            // v72.9 (owner, item 320: "why is the sweep chart on 203 compressed bc of the
+            //   logistic dashed line?"): it was. The y-axis was fitted to the tuning curves AND
+            //   the held-out hindsight curves together, so one model whose held-out year ran far
+            //   above or below its tuning years stretched the range and squashed every solid line
+            //   - the lines that actually made the decision - into a flat band. The hindsight
+            //   curves are reporting-only, so they are OFF by default and no longer touch the
+            //   scale; turning them on deliberately re-fits the axis to include them.
+            const _hind=!!window._gvHind;
+            let vals=[];models.forEach(m=>{vals=vals.concat(pick(m,true));if(_hind)vals=vals.concat(pick(m,false));});
             const ub=_yPnl?(((V.ungated_pre||{}).total_pnl||0)*mlt3):(V.ungated_pre_rec!=null?V.ungated_pre_rec:0);
             vals.push(ub);
             let rmn=Math.min.apply(null,vals),rmx=Math.max.apply(null,vals);if(rmn===rmx){rmn-=1;rmx+=1;}
@@ -12111,7 +12120,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             models.forEach(m=>{const mc=_mc(m);
               const line=(pre)=>{const ys=pick(m,pre);if(ys.length!==ths.length)return '';
                 return '<path d="'+ths.map((t,i)=>(i?'L':'M')+X(t).toFixed(1)+' '+Y(ys[i]).toFixed(1)).join(' ')+'" fill="none" stroke="'+mc+'" stroke-width="'+(pre?1.8:1)+'"'+(pre?'':' stroke-dasharray="3,3" opacity="0.55"')+'/>';};
-              g+=line(true)+line(false);});
+              g+=line(true)+(_hind?line(false):'');});
             // dots for the three OFFICIAL cut-offs per model; the chosen one ringed
             cs2.forEach(c=>{const isCh=ch&&c.model===ch.model&&Math.abs(c.threshold-ch.threshold)<1e-6;
               const arr=pick(c.model,true),ti=ths.indexOf(+(+c.threshold).toFixed(2));
@@ -12132,7 +12141,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 lnet:(_sw.models[m].lb_net||[]).map(v=>+v*mlt3)}))};
             let _swAttr='';try{_swAttr=' data-swxh="'+encodeURIComponent(JSON.stringify(_swPay))+'"';}catch(_se){}
             return '<div style="margin:2px 0 10px">'
-              +'<div style="font-size:8px;color:var(--text4);margin:0 0 3px">Every 1% cut-off from 40% to 70%, one walk per model &#183; <b>solid</b> = tuning years &#183; <b>dashed</b> = held-out year (<span style="color:var(--yellow)">hindsight &#8212; reporting only, the pick never sees it</span>) &#183; dots = the three official cut-offs, ringed = chosen &#183; y-axis follows the RANK button &#183; <b>hover the chart</b> for every model MAR and net $ at that cut-off.</div>'
+              // v72.9 (owner, item 319: "hindsight view, just put that behind the info tab"):
+              //   the caption keeps only what you need to read the chart; the hindsight
+              //   explanation, the solid/dashed key and the hover tip all move into the icon,
+              //   and the hindsight curves themselves become a deliberate one-click reveal.
+              +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:8px;color:var(--text4);margin:0 0 3px">'
+              +'<span>Every 1% cut-off from 40% to 70%, one walk per model &#183; dots = the three official cut-offs, ringed = chosen &#183; y-axis follows the RANK button.</span>'
+              +_infoIc('<div style="color:var(--text2)"><b>SOLID = TUNING YEARS.</b> Every line you see by default was walked on pre-lockbox data only &#8212; the same data the winning model and cut-off were picked on. This is the honest picture of the decision.<br><br><b>DASHED = THE HELD-OUT YEAR (HINDSIGHT).</b> Off by default. It replays each model across every cut-off on the lockbox slice, which the pick never saw, so it can only ever be read after the fact &#8212; reporting, never selection. Choosing a cut-off by looking at it would be lockbox shopping.<br><br><b>WHY IT IS OFF.</b> A held-out year is one year, so its curve can run far above or below the tuning curves. When both shared one y-axis the outlier set the range and the solid lines flattened into a band you could not read (owner-reported on run 203, where the logistic hindsight curve stretched it). With hindsight off the axis fits the tuning curves alone; switching it on deliberately re-fits the axis to hold both.<br><br><b>HOVER THE CHART</b> for every model MAR and net $ at that cut-off.</div>')
+              +'<span data-swhind title="show or hide the dashed held-out (hindsight) curves. They are reporting-only and re-scale the y-axis when shown." style="cursor:pointer;user-select:none;border:1px solid '+(_hind?'var(--yellow)':'var(--border)')+';color:'+(_hind?'var(--yellow)':'var(--text4)')+';border-radius:6px;padding:0 6px;font-size:8px;font-weight:700;white-space:nowrap">'+(_hind?'&#9679; HINDSIGHT ON':'&#9675; HINDSIGHT OFF')+'</span>'
+              +'</div>'
               +'<div'+_swAttr+' style="position:relative;background:var(--bg1);border-radius:8px;padding:8px"><svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+xl+'</svg></div>'
               +'<div style="text-align:center;font-size:8px;margin-top:3px">'+legend+'</div>'
               +'</div>';
@@ -13986,7 +14003,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    vs ungated $) leads, then sweep chart | candidates table | decision rail in §1-style
       //    columns. (v64.5: the LEGACY comparison block is fully deleted.) ──
       const _gvP=_gvD?gvParts(_gvD,stratTag(d.strategy),mlt):null;
-      let _gateSec='',_gateCard='',_gVerdictChip='';   // v69.4: built inside the gate block, used by the merged CONFIGS header
+      // v72.9 (owner, item 318: "1e gate tab, remove the LB held at the bottom of the sweep
+      //   chart - i think we can visualize that quickly on the 1a funnel chart"). The chip is
+      //   gone from the tab footer; the sentence it carried now rides the tab info icon, and the
+      //   verdict itself is a LINE on the 2A funnel (gate curve vs crowned curve) and still a
+      //   dot on the section 3 GATE VALIDATE robustness pill.
+      let _gateSec='',_gateCard='',_gVerdictTxt='';   // v69.4: built inside the gate block, used by the merged CONFIGS header
       if(_gvP||d.ml_gate){
         // v64.43 (owner): abbreviate to k ($427k / $27k) in the before→after cards so the NET P&L
         //   value stops getting cut off in the narrow col-3 tile — force-k (2nd arg) so even
@@ -14095,7 +14117,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   3B leads the body; ONE info icon carries the gate question + the equity-chart read.
         const _gbShort=_gbTxt.split(' — ')[0];
         const _gbFull=_gbTxt.replace(/<\/?b[^>]*>/g,'');
-        _gVerdictChip='<span title="'+_gbFull.replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;border:1px solid color-mix(in srgb,'+_gbc+' 45%,var(--border));background:color-mix(in srgb,'+_gbc+' 10%,transparent);border-radius:6px;padding:1px 7px;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help;flex-shrink:1;min-width:0">'+_gbShort+'</span>';
+        _gVerdictTxt='<div style="color:'+_gbc+';font-weight:700;margin-bottom:6px">'+_gbFull+'</div>';
         _gateCard=_gBody;
         // v64.52 (owner): the 2J tile is now a COLLAPSIBLE pill that sits UNDER 2A (its equity
         //   graph moved onto the funnel). The header keeps the verdict chip even when collapsed.
@@ -14137,7 +14159,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
                         ['hyb3','HYBRID &#128201;',_hasH,'the same hybrid at EQUAL DRAWDOWN: sized until the column drawdown matches the no-gate book - the most money for the same pain.']]
                        .filter(function(t){return t[2];});
         const _szInfo='<div style="color:var(--text2)">THE SAME MODELS AS THE GATE TAB, SPENT AS SIZE INSTEAD.<br><br>The GATE tab uses a model score as a BOUNCER - under the cut-off, the trade does not happen. These two tabs use the identical score as a DIMMER - every trade still happens, confident ones get more contracts and doubtful ones get fewer.<br><br>Nothing in these two tabs can ever be crowned; they exist so the two ways of spending the same model can be compared side by side over the same stretches.</div>';
-        const _gateInfo=('<div style="color:var(--text2)">DOES A TRADE-FILTER MODEL EARN ITS KEEP? The ML GATE scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. It sweeps several models across several cut-offs on PRE-LOCKBOX data (IS + WF combined), picks ONE winner, and gives only that winner a single look at the LB - no cherry-picking.<br><br>NOT the same as the 2L ML CONFIG BUILDER: 2L picks which PARAMETER CONFIG is best; this gate keeps the chosen config and only decides which individual TRADES to take.<br><br>The gate equity is also drawn on the 2A funnel above.</div>');
+        const _gateInfo=('<div style="color:var(--text2)">'+_gVerdictTxt+'DOES A TRADE-FILTER MODEL EARN ITS KEEP? The ML GATE scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. It sweeps several models across several cut-offs on PRE-LOCKBOX data (IS + WF combined), picks ONE winner, and gives only that winner a single look at the LB - no cherry-picking.<br><br>NOT the same as the 2L ML CONFIG BUILDER: 2L picks which PARAMETER CONFIG is best; this gate keeps the chosen config and only decides which individual TRADES to take.<br><br>The gate equity is also drawn on the 2A funnel above.</div>');
         const _nRow=inner=>inner?('<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;padding-top:7px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+inner+'</div>'):'';
         const _hybOf=t=>(t==='hyb2'?'redeploy':(t==='hyb3'?'equaldd':'one'));
         // v70.6 (owner: "duplicate 1E and place its duplicate next to it... so i can compare two
@@ -14152,7 +14174,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
                    :((_selParts&&_selParts.tip)?_infoIc('<div style="color:var(--text2)">'+_selParts.tip+'</div>'):'');
           const ctrls=isK?'':(isG?((_gvP&&_gvP.ctrls)||''):(isSz?((_gvP&&_gvP.szCtrls)||''):((_selParts&&_selParts.ctrls)||'')));
           const body=isK?_kpiInner:(isG?_gateCard:(tb==='tilt'?((_gvP&&_gvP.tilts)||''):(isHyb?(((_gvP&&_gvP.hybBy)||{})[_hybOf(tb)]||''):((_selParts&&_selParts.table)||''))));
-          const note=isK?'':isG?_nRow(_gVerdictChip)
+          const note=isK?'':isG?''
                    :(tb==='tilt'?((_gvP&&_gvP.tiltNote)||'')
                    :(isHyb?(((_gvP&&_gvP.hybNoteBy)||{})[_hybOf(tb)]||'')
                    :_nRow((_selParts&&_selParts.sub)?('<span style="font-weight:400;color:var(--text4);font-size:8px">'+_selParts.sub+'</span>'):'')));
@@ -17582,6 +17604,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const cur=(Array.isArray(APREF.s2colCollapse)&&APREF.s2colCollapse.length===n)?APREF.s2colCollapse.slice():new Array(n).fill(false);
         cur[i]=!cur[i];savePref('s2colCollapse',cur);renderApp();};});
       content.querySelectorAll('[data-r3ev]').forEach(b=>{b.onclick=()=>{window._gvEvOpen=!((window._gvEvOpen==null)?true:window._gvEvOpen);renderApp();};});
+      // v72.9 (item 319/320): the dashed held-out curves on the cut-off sweep. Render-local like
+      //   the expander above - a look at hindsight should not persist into the next run report.
+      content.querySelectorAll('[data-swhind]').forEach(b=>{b.onclick=ev=>{ev.stopPropagation();window._gvHind=!window._gvHind;renderApp();};});
       // v64.96: the three 2C view controls — sample period, column ordering, heat map. All three
       //   only change how the matrix READS; none of them touch what the engine crowned.
       content.querySelectorAll('[data-g2samp]').forEach(s=>{s.onchange=()=>{savePref('g2samp',s.value);renderApp();};});
