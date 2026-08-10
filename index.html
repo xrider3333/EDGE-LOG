@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.52';
+const VERSION='71.53';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.53',date:'2026-08-09',notes:['RUNBOARD ranking: a run whose window is under two years is now placed LAST no matter what RANK BY says. A 19-day run with a 116 dollar drawdown was scoring a MAR of 1400 and taking the leading column off a sixteen-year book. That is not a comparison, it is dividing by almost nothing. Those runs stay on the board - hiding them would be worse - but they can never head the ranking.','TRADES on the whole-run view is filled in now: the optimize-window count plus the walk-forward out-of-sample counts plus the lockbox count, the same sum the run report KPI matrix adds up. It was showing a dash for everything except books.']},
 {v:'71.52',date:'2026-08-09',notes:['RUNBOARD matrix rebuilt to match how 1E is ACTUALLY laid out. 1E is metrics only - no band of text rows at the top. The board was printing Strategy, Market, Scope, Window and Stages as five prose rows, which is what made it read as a wall of text instead of a table you can scan.','A column is now a short name plus the years it covers, and nothing else. Strategy, market, scope and the exact dates are on hover, the way 1E puts its date range under the stage name.','Rows sit in the 1E bands: RETURN with the money row leading and the stage split indented beneath it, then DRAWDOWN, REWARD divided by RISK, EDGE, SAMPLE and VERDICT. FULL now carries MAR, PF, win rate, dollars per trade and trades instead of stopping at the net split.','Honest dashes: only a book records a whole-run profit factor, win rate and dollars per trade, because only a book re-measures its own pooled trades. Every other run shows a dash there rather than borrowing its optimize-window figure and calling it a whole-run number.','ROBUSTNESS was printing NaN on a book run. It shows a dash now - that score was never defined for a book.','A short window is flagged with a yellow warning mark on the column head itself, not just in a row.']},
 {v:'71.49',date:'2026-08-09',notes:['BOOKS table fix: every lockbox run was showing up as a book, because the word LOCKBOX contains the letters book. A row is a book only if it actually carries pooled book results now.','BOOK row numbers all describe the SAME stretch. A row was mixing a whole-run net with an in-sample profit factor and in-sample trade count, which reads as nonsense. Net, PF, drawdown, MAR and trades now all come from the stretch the SAMPLE tabs are on.']},
 {v:'71.48',date:'2026-08-09',notes:['BOOK legs find their own data now. A saved run does not always record whether it traded the day session or the overnight one, so an overnight leg was being asked for day-session data and the whole book failed with no data for that leg. The book now infers the session from the leg data source and, failing that, tries the alternatives before giving up - and each finished book reports which data each leg actually ran on.']},
@@ -14071,7 +14072,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
           let famRuns=Object.keys(_fb).map(k=>_fb[k]).sort((a,b)=>scoreRun(b)-scoreRun(a)||((b.best_pnl_usd||0)-(a.best_pnl_usd||0)));
           // RUNBOARD: same champion-per-family pool, but the ORDER (funnel key, matrix columns,
           //   list rows) follows RANK BY measured on the picked SAMPLE, not the robustness score.
-          if(_cmpMode==='board')famRuns=famRuns.slice().sort((a,b)=>_rbVal(b,_rbR)-_rbVal(a,_rbR));
+          // v71.53 (owner saw it): a SHORT-SAMPLE run sorts LAST no matter how good it looks. A
+          //   19-day run with a $116 drawdown scores MAR 1400x and was taking the top column off a
+          //   16-year book — that is not a comparison, it is a divide-by-almost-nothing. They stay
+          //   on the board (hiding them would be worse) but they can never head the ranking.
+          if(_cmpMode==='board'){
+            const _shortRun=r=>{const a=Date.parse(r.date_from||''),b=Date.parse(r.date_to||'');
+              return (!isNaN(a)&&!isNaN(b)&&b>a)?(((b-a)/86400000)/365.25<2):false;};
+            famRuns=famRuns.slice().sort((a,b)=>{const sa=_shortRun(a),sb=_shortRun(b);
+              return (sa!==sb)?(sa?1:-1):(_rbVal(b,_rbR)-_rbVal(a,_rbR));});
+          }
           famMore=famRuns.slice(8);
           runs=famRuns.slice(0,8);
         }
@@ -14467,7 +14477,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _rbScNote='<div style="font-size:8px;color:var(--text5);margin-top:6px;line-height:1.7">'
           +'Each column is one strategy: its short name, the years it covers underneath, everything else on hover. '
           +(_rbS==='full'?'FULL = the whole run end to end, split into the indented in-sample / walk-forward / lockbox rows.':(_rbS==='is'?'IS = the optimize window, the stretch every config was TUNED on - optimistic by construction.':'LB = the lockbox stretch only, never touched during tuning - the honest forward read.'))
-          +' MAX DD prints positive and a dash means that figure was never measured on this stretch - only a book records a whole-run profit factor, win rate and dollars per trade, because only a book re-measures its own pooled trades. A yellow ⚠ marks a window under two years, whose dollar figures do not compare with a full-history run.</div>';
+          +' MAX DD prints positive and a dash means that figure was never measured on this stretch - only a book records a whole-run profit factor, win rate and dollars per trade, because only a book re-measures its own pooled trades. A yellow ⚠ marks a window under two years: those columns are always placed LAST whatever the RANK BY pick says, because a few weeks of trading does not rank against sixteen years.</div>';
         // 1E shell: entity COLUMNS (one per strategy champion, swatched in its curve colour, the
         //   RANK BY leader emphasised in its own hue) × grouped metric ROWS (M's `sec` bands).
         // ── v71.50 (owner: "looks messy … look at section 1E again and asses how its laid out").
@@ -14508,8 +14518,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
           return (_rbS==='is')?_pf2(+r.best_pf):((_rbS==='lb')?_pf2((_lbA(r)||{}).pf):null);};
         const _wrOf=r=>{const b=_bw(r);if(b)return (b.win_rate!=null)?+b.win_rate:null;
           return (_rbS==='is')?((r.best_win_rate!=null)?+r.best_win_rate:null):null;};
+        // whole-run trades = the optimize-window champion count + the walk-forward out-of-sample
+        //   counts + the lockbox count, the same sum the run report's own KPI matrix adds up.
         const _trOf=r=>{const b=_bw(r);if(b)return +b.num_trades||0;
-          return (_rbS==='is')?(+r.best_trades||0):((_rbS==='lb')?((_lbA(r)||{}).tr):null);};
+          if(_rbS==='is')return +r.best_trades||0;
+          if(_rbS==='lb')return (_lbA(r)||{}).tr;
+          const a=_wfA(r),lb=_lbA(r);
+          return (+r.best_trades||0)+((a&&a.tr)||0)+((lb&&lb.tr)||0);};
         const _marOf=r=>{const n=_netOf(r),d=_ddOf2(r);return (n!=null&&d&&d>1e-9)?n/d:null;};
         const _bestOf=(fn,dir)=>{let bv=null,bi=-1;runs.forEach((r,i)=>{const v=fn(r);
           if(v==null||!isFinite(v))return;if(bv===null||(dir==='min'?v<bv:v>bv)){bv=v;bi=i;}});return bi;};
