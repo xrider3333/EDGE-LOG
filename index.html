@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='72.6';
+const VERSION='72.7';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'72.7',date:'2026-08-09',notes:['Hotfix: the funnel key came up blank on 72.6 - the three-state click landed but the setting it reads was never created. Key rows are back and the cycle works: click greys a strategy out, click again removes it, once more brings it back.']},
 {v:'72.6',date:'2026-08-09',notes:['RUNBOARD funnel key rows CYCLE three states on click now, instead of only deleting. First click GREYS the strategy out - it stays on the chart, faint, and still counts toward the scale so you keep the context. Second click REMOVES it. Third brings it back. The report funnel greys its non-survivors the same way.','The expand button opens the fullscreen explorer with what is actually on screen. A greyed or removed strategy no longer reappears at full strength just because you expanded the chart.']},
 {v:'72.5',date:'2026-08-10',notes:['FOUND IT - the HYBRID and HYBRID-recycle lines were never drawn in the expanded 1A because the equity draw order simply did not include those two families. Their right-edge pills and drawdown strips come from loops over every series, which is why you saw the pill and no line. Both families are in the draw order now, painted on top like the tilts.','Expanded key group headers now quote the same line the tile draws - so GATES reads the chosen gate figure (the one on the funnel gutter pill), not whichever hidden candidate happened to finish highest.']},
 {v:'72.8',date:'2026-08-10',notes:['PAPER - the load error under the board is actually gone now. The 72.7 attempt still tripped the same database requirement; the daily-reports list now fetches the last 60 days of reports the plain way and sorts them newest-first itself.']},
@@ -5786,6 +5787,10 @@ window.cmpOvlMount=function(hostId){
   //   bands / drawdown pane all rescale to what is actually shown. The picks live on
   //   window._cmpOvlHide so a redraw keeps them; changing the run selection clears them.
   const HID=window._cmpOvlHide=(window._cmpOvlHide instanceof Set)?window._cmpOvlHide:new Set();
+  // v72.10 (owner): a key row CYCLES three states - shown, GREYED (still drawn, faint, still in
+  //   the scale so the context stays) and hidden (dropped). The report funnel greys its
+  //   non-survivors the same way rather than removing them.
+  const GRY=window._cmpOvlGrey=(window._cmpOvlGrey instanceof Set)?window._cmpOvlGrey:new Set();
   const S=ALL.filter(sr=>!HID.has(String(sr.id)));
   if(!host||!ALL.length)return;
   // everything hidden = nothing to scale against; keep the last visible one on screen
