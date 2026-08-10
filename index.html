@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.96';
+const VERSION='71.97';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.97',date:'2026-08-09',notes:['1A expanded key: the GATES group read BLUE while the funnel drew the gate RED. The group swatch comes from its first member, and the 21 gate CANDIDATES were still on the ML model palette - only the chosen line had been moved. All of them now shade off the same funnel red, so the group reads as one family.','Switching CHAMPION / FUNNEL in the expanded view no longer flashes the bare report at you. The swap - close, re-render, re-open - is covered by a single veil so it reads as one transition.','1E SIZE tabs: the permanent caption line and the COMPARISON ONLY chip are behind the info icon now instead of taking a row under every table. Same for the three HYBRID modes.']},
 {v:'71.96',date:'2026-08-09',notes:['GATE SWEEP CHART now reads out on hover. Move across it and every model prints its MAR and its net dollars at that exact 1 percent cut-off, tuning years. Both measures were already saved at every step - the chart was only ever drawing whichever one the RANK button selected - so the peaks can now be priced without flipping RANK back and forth.','A BOOK run names itself. Run 204 was reading 7 - ORB 3.0 in every run list, because a book has no single strategy file and the family matcher fell back to the closest name it could find. Book rows now show the book mark and the book name.','And a book no longer prints NaN in the ROBUSTNESS column. A book tunes nothing, so that score was never defined for it - it shows a dash, like the walk-forward column next to it already does.']},
 {v:'71.95',date:'2026-08-09',notes:['Opening a LOOK-ALIKE group as charts now names that group at the top instead of the generic MOST RECENT heading, and the view switch is hidden since the set is already fixed to that group.']},
 {v:'71.94',date:'2026-08-09',notes:['Fix: the CHAMPION / FUNNEL tabs were dead when you opened the CHAMPION chart first. The code that wires them only came into existence once the funnel explorer had been opened at least once, so whichever chart you expanded first got two painted but unclickable tabs.']},
@@ -3969,6 +3970,19 @@ window._eqxWireTabs=function(){
   try{document.querySelectorAll('[data-ceqx-eqtab]').forEach(function(t){
     t.onclick=function(ev){ev.stopPropagation();const want=t.getAttribute('data-ceqx-eqtab');
       const _sy=window.scrollY||document.documentElement.scrollTop||0;
+      // v71.95 (owner: "it kicks me out to results home temporarily before switching views"):
+      //   swapping tabs means closing one modal, re-rendering the report and opening the other
+      //   - and for those few hundred ms you are looking at the bare report. A full-screen
+      //   veil covers the whole swap so it reads as one transition instead of a bounce out
+      //   and back. It self-destructs after 4s even if something goes wrong, so it can never
+      //   strand the page behind a dead overlay.
+      const _veil=document.createElement('div');
+      _veil.setAttribute('data-eqxveil','1');
+      _veil.style.cssText='position:fixed;inset:0;z-index:99998;background:var(--bg1);opacity:.96;display:flex;align-items:center;justify-content:center;font-family:inherit;font-size:11px;letter-spacing:2px;color:var(--text4)';
+      _veil.textContent=(want==='funnel'?'CONFIG FUNNEL':'CHAMPION EQUITY');
+      try{document.body.appendChild(_veil);}catch(_ve){}
+      const _drop=function(){try{if(_veil&&_veil.parentNode)_veil.parentNode.removeChild(_veil);}catch(_de){}};
+      setTimeout(_drop,4000);
       try{const cl=document.getElementById('ceqx-close')||document.getElementById('eqx-close');if(cl)cl.click();}catch(_c){}
       // v71.85 (owner: STILL stuck on FUNNEL). Two things were wrong here, in order:
       //   1. calling savePref / renderApp from this scope reached the top-level globals, not
@@ -3990,9 +4004,10 @@ window._eqxWireTabs=function(){
           const bx=document.querySelector(want==='funnel'?'[data-a2eqx]':'[data-eqx]');
           const sv=bx&&bx.querySelector('svg');
           if(sv){try{bx.scrollIntoView({block:'center'});}catch(_v){}
-            sv.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));return;}
+            sv.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));
+            setTimeout(_drop,260);return;}
         }catch(_r){}
-          if(_tries++<30)setTimeout(_reopen,120);};
+          if(_tries++<30)setTimeout(_reopen,120);else _drop();};
         setTimeout(_reopen,200);},80);};});}catch(_tb){}};
 window.expandEquity=function(host){
   let D=null,B=null;
@@ -9986,7 +10001,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               const _gcTh=Math.round((gc.threshold||0)*100),_gcModel=String(gc.model||'');
               const _isChGc=!!(_gvChosen&&_gvChosen.model===gc.model&&Math.abs((_gvChosen.threshold||0)-(gc.threshold||0))<1e-6);
               _ser.push({id:'gc-'+_gcModel+'-'+_gcTh,label:'gate: '+_gcModel+' @ '+_gcTh+'%',
-                         color:_gateColor(_gcModel,_gvThLi(gc.threshold),_isChGc?88:54),eq:gc.equity.cum.map(v=>v*mult),
+                         color:(_isChGc?'#e24b4a':_famCol('#e24b4a',_gvThLi(gc.threshold)+1,4)),eq:gc.equity.cum.map(v=>v*mult),
                          li:null,wfi:null,gateCand:true,   // v64.87 (item 1): no blot — same reason
                          ts:_mkTsSpan(gc.equity.cum.length,optFromMs,lbToMs)});
             });
@@ -12640,10 +12655,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const tiltTbl=(!_tl.length)?'':(function(){
           _tl.sort((a,b)=>((_cmpRec(b.lockbox)!=null?_cmpRec(b.lockbox):-99)-(_cmpRec(a.lockbox)!=null?_cmpRec(a.lockbox):-99)));
           return _cmpMatrix(_cmpCols(_tl,'tilt'),'one');})();
+        // v71.95 (owner: "put that behind the info tab"): the caption line and the COMPARISON
+        //   ONLY chip never change from run to run - they were permanent wall text costing a
+        //   whole row under every SIZE tab. Only the info icon shows now; both strings lead
+        //   its readout instead.
+        const _szHead='<div style="color:var(--yellow);font-weight:700;margin-bottom:6px">THE SAME MODELS AS THE GATE TAB, SPENT AS SIZE INSTEAD &middot; COMPARISON ONLY, NEVER CROWNED</div>';
         const tiltNote=(!_tl.length)?'':_noteRow(
-             '<span style="font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--text2)">THE SAME MODELS AS THE GATE TAB, SPENT AS SIZE INSTEAD</span>'
-            +_cmpChip
-            +_infoIc('<div style="color:var(--text2)"><b>THE GATE AND THE TILT USE THE SAME SCORE. THEY SPEND IT DIFFERENTLY.</b><br>A model scores every trade before it happens.<br><br><b>THE GATE</b> (the ML GATE tab) = a bouncer. Score under the cut-off, the trade does not happen.<br><b>THE TILT</b> (this section) = a dimmer. Every trade happens; confident ones get more contracts, doubtful ones fewer (about half a contract up to triple - half an NQ is five MNQ micros). The AVERAGE across all trades is one contract, so it is the same size of book as no-gate, just distributed differently.<br><br><b>A TILT HAS NO CUT-OFF.</b> That is why no column says rf @ 50% here - there is no line below which trades are dropped; the model name alone identifies the column.<br><br><b>THE TWO SIZE SHAPES</b>, tagged after each model name in the column header. <b>(SL) SLIDING</b> = the contract count slides smoothly with confidence, quarter-lot up to 3. <b>(ST) STEPS</b> = three fixed sizes only (half / one / two lots) by confidence band. Same model, same scores - only how the score is turned into a contract count differs.<br><br><b>LB</b> = the lockbox - the sealed final year, opened only after the winner was already chosen. The tilt columns run through the SAME LB window as everything else in this report.<br><br>Comparison only; adopting a tilt would need its own pre-registered rule. Baselines for comparison (no gate, the crowned gate) live in the ML GATE tab.</div>'));
+            _infoIc('<div style="color:var(--text2)">'+_szHead+'<b>THE GATE AND THE TILT USE THE SAME SCORE. THEY SPEND IT DIFFERENTLY.</b><br>A model scores every trade before it happens.<br><br><b>THE GATE</b> (the ML GATE tab) = a bouncer. Score under the cut-off, the trade does not happen.<br><b>THE TILT</b> (this section) = a dimmer. Every trade happens; confident ones get more contracts, doubtful ones fewer (about half a contract up to triple - half an NQ is five MNQ micros). The AVERAGE across all trades is one contract, so it is the same size of book as no-gate, just distributed differently.<br><br><b>A TILT HAS NO CUT-OFF.</b> That is why no column says rf @ 50% here - there is no line below which trades are dropped; the model name alone identifies the column.<br><br><b>THE TWO SIZE SHAPES</b>, tagged after each model name in the column header. <b>(SL) SLIDING</b> = the contract count slides smoothly with confidence, quarter-lot up to 3. <b>(ST) STEPS</b> = three fixed sizes only (half / one / two lots) by confidence band. Same model, same scores - only how the score is turned into a contract count differs.<br><br><b>LB</b> = the lockbox - the sealed final year, opened only after the winner was already chosen. The tilt columns run through the SAME LB window as everything else in this report.<br><br>Comparison only; adopting a tilt would need its own pre-registered rule. Baselines for comparison (no gate, the crowned gate) live in the ML GATE tab.</div>'));
         // 2E HYBRID (owner idea, v68.5): the gate keeps its crowned cut-off, the SURVIVORS are
         //   then sized by the tilt. Floor pinned to the crown - no new knob. Engine >= v68.5 only.
         const _hy=(V.hybrids||[]).slice();
@@ -12662,10 +12680,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           _hy.sort((a,b)=>((_cmpRec(b.lockbox)!=null?_cmpRec(b.lockbox):-99)-(_cmpRec(a.lockbox)!=null?_cmpRec(a.lockbox):-99)));
           ['one','redeploy','equaldd'].forEach(function(md){
             hybBy[md]=_cmpMatrix(_cmpCols(_hy,'hyb'),md);
-            hybNoteBy[md]=_noteRow(
-               '<span style="font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--text2)">GATE FIRST, THEN TILT THE SURVIVORS</span>'
-              +'<span title="'+String((_hybModeNm[md]||['',''])[1]).replace(/"/g,'&quot;')+'" style="border:1px solid #f0b429;color:#f0b429;border-radius:6px;padding:1px 6px;font-size:7px;white-space:nowrap;cursor:help">'+((_hybModeNm[md]||['',''])[0])+'</span>'
-              +_cmpChip+_infoIc(_hybInfo));});}
+            // v71.95 (owner): same treatment - headline, mode chip and the never-crowned
+            //   warning all move inside the info readout; the row keeps only the icon.
+            hybNoteBy[md]=_noteRow(_infoIc('<div style="color:var(--yellow);font-weight:700;margin-bottom:6px">GATE FIRST, THEN TILT THE SURVIVORS &middot; '+String((_hybModeNm[md]||['',''])[0]).replace(/<[^>]*>/g,'')+' &middot; COMPARISON ONLY, NEVER CROWNED</div>'+String((_hybModeNm[md]||['',''])[1]).replace(/'/g,'&#39;'))+_infoIc(_hybInfo));});}
         const hybTbl=hybBy.one||'';
         const hybNote=hybNoteBy.one||'';
         return {V:V,LB:LB,ch:ch,tilts:tiltTbl,hyb:hybTbl,ctrls:_ctrls,menus:'',
