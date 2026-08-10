@@ -442,7 +442,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.49';
+const VERSION='71.50';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -3939,7 +3939,11 @@ window.expandCompareEq=function(series,opts){
     const st=_grpState(members),op=st==='dim'?0.45:(st==='off'?0.3:1),td=st==='off'?'line-through':'none',
       exp=!!_grpExpanded[key],swatch=members[0].color;
     let h='<span style="display:inline-flex;align-items:center;background:color-mix(in srgb,var(--bg1) 65%,transparent);border-radius:4px;white-space:nowrap">'
-      +'<span data-ceqx-grp-tog="'+key+'" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);padding:2px 4px 2px 6px;border-radius:4px;opacity:'+op+'" title="click: full - greyed - hidden - full (whole group)"><span style="width:12px;height:3px;background:'+swatch+';display:inline-block;border-radius:2px;flex:0 0 auto"></span><span style="text-decoration:'+td+'">'+label+' ('+members.length+')</span></span>'
+      +'<span data-ceqx-grp-tog="'+key+'" style="pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);padding:2px 4px 2px 6px;border-radius:4px;opacity:'+op+'" title="click: full - greyed - hidden - full (whole group)"><span style="width:12px;height:3px;background:'+swatch+';display:inline-block;border-radius:2px;flex:0 0 auto"></span><span style="text-decoration:'+td+'">'+label+' ('+members.length+')</span>'
+      // v71.48 (owner: "the key has no ranking like 1A non-expanded"): every group row now prints
+      //   where its BEST line finishes, in that line colour - the same figure and the same reading
+      //   order the tile key uses. Members are already sorted best-first, so members[0] is it.
+      +((function(){const v=_endV(members[0]);return isFinite(v)?('<b style="color:'+swatch+';font-weight:800">'+fmt$(v)+'</b>'):'';})())+'</span>'
       // v64.87 (item 2, owner: the ▸ was too small to notice) — a comfortably clickable chevron
       //   button (its own background/border, bigger glyph, real padding) so it plainly reads as
       //   a dropdown toggle; still a SEPARATE element from the group-toggle zone above it, so the
@@ -4159,12 +4163,24 @@ window.expandCompareEq=function(series,opts){
     //   label in the right gutter, at the exact same height, still marks where each curve ends;
     //   only the line across the chart is gone. 'other config' cloud series (CHANGE 3) never
     //   get a label either — up to hundreds of them would swamp the gutter.
-    PS.forEach(sr=>{if(sr.vis==='off'||sr.isOther)return;
-      const lastV=sr.pts[sr.pts.length-1].v,y=Y(lastV);
-      if(y<g.eqT||y>g.eqB)return;
-      const col=sr.vis==='dim'?'var(--text5)':sr.color;
-      s+='<text x="'+(g.pw+6)+'" y="'+(y+3).toFixed(1)+'" font-size="8" fill="'+col+'">'+fmt$(lastV)+'</text>';
-    });
+    // v71.48 (owner: "no pills in the gutter like 1A non-expanded"): these were plain coloured
+    //   text. The tile draws each endpoint as a filled PILL in the line colour, which is what makes
+    //   a value readable against the curve behind it - same treatment here now. Drawn back-to-front
+    //   by height so an overlapping pair still reads.
+    (function(){const _lab=[];
+      PS.forEach(sr=>{if(sr.vis==='off'||sr.isOther)return;
+        const lastV=sr.pts[sr.pts.length-1].v,y=Y(lastV);
+        if(y<g.eqT||y>g.eqB)return;
+        _lab.push({y:y,v:lastV,dim:sr.vis==='dim',col:sr.color});});
+      _lab.sort((a,b)=>a.y-b.y);
+      _lab.forEach(function(L){
+        const txt=fmt$(L.v),w=Math.max(22,txt.length*4.6+7);
+        const bg=L.dim?'var(--text5)':L.col;
+        s+='<g opacity="'+(L.dim?0.5:1)+'">'
+          +'<rect x="'+(g.pw+4)+'" y="'+(L.y-5.5).toFixed(1)+'" width="'+w.toFixed(1)+'" height="11" rx="3" fill="'+bg+'"/>'
+          +'<text x="'+(g.pw+4+w/2).toFixed(1)+'" y="'+(L.y+2.6).toFixed(1)+'" font-size="7.5" font-weight="800" text-anchor="middle" fill="#04130c">'+txt+'</text>'
+          +'</g>';});
+    })();
     // equity paths — redrawn from data every render. 3 NON-OVERLAPPING segments per curve:
     //   SOLID (in-sample, to the walk-forward start) · DASHED (walk-forward folds) · DOTTED
     //   (lockbox tail) — same segmentation as the inline overlay, so the dashes actually show
