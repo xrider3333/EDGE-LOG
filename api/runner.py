@@ -31,6 +31,11 @@ import threading
 import augur_engine as ae
 from augur_engine import trial_cache as TC
 from .util import json_safe
+try:
+    from . import paper as _paper
+except Exception as _e:
+    _paper = None
+    print(f"[paper] import skipped: {type(_e).__name__}: {_e}")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 JOBS_DIR = os.path.join(ROOT, "augur_jobs")
@@ -1177,6 +1182,11 @@ def main(argv=None):
                 except Exception as e:
                     print(f"[webull] skipped: {type(e).__name__}: {e}")
                 next_trades = time.time() + a.trades_sec
+            if a.firestore and _paper is not None:
+                try:
+                    _paper.maybe_run_eod(q)
+                except Exception as e:
+                    print(f"[paper] hook error: {type(e).__name__}: {e}")
             if not done:
                 time.sleep(a.interval)
     else:

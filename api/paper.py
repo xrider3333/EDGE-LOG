@@ -1,0 +1,403 @@
+"""Shadow paper trading — the always-on runner re-runs the two crowned strategies on
+each day's fresh intraday data and logs the trades the engine WOULD have taken.
+
+Nothing here ever touches real money or a broker; this is a pure "would-have-traded"
+shadow log written to Firestore (users/{uid}/paper_trades + users/{uid}/paper_reports)
+plus a per-uid state doc (users/{uid}/meta/paper_state) that gates the once-a-day run.
+
+Data flow per leg:
+  1. Load the leg's master CSV (augur_uploads/*.csv) via find_master/load_master_arrays,
+     sliced from ~150 calendar days before "today" (warm-up headroom for ema_len=390 on
+     1m ENGU-Q) up to whatever the master already has.
+  2. Read the NinjaTrader AddOn's live 10s CSV (C:\\EdgeLog\\ohlc_addon\\NQ_10s.csv,
+     fallback C:\\EdgeLog\\ohlc\\NQ_10s.csv), resample to the leg's timeframe, filter to
+     RTH (09:30-16:00 America/New_York), and keep only bars strictly AFTER the master's
+     last bar — i.e. only the fresh tail the master doesn't have yet.
+  3. Append that tail to the loaded arrays IN MEMORY (the master file on disk is never
+     touched) and hand the combined arrays to run_backtest(..., return_trades=True).
+  4. Trades with an entry date on/after PAPER_START are the "paper" trades; anything
+     from the warm-up history before that is discarded.
+
+Everything here is exception-proof by design (try/except around every stage) — a data
+hiccup must never take down the runner's watch loop.
+"""
+import os
+import time
+from datetime import date, timedelta
+
+import numpy as np
+import pandas as pd
+
+from augur_engine.data import find_master, load_master_arrays
+from augur_engine.engine import run_backtest
+from .util import json_safe
+
+# ── crowned legs ─────────────────────────────────────────────────────────────────
+# First trading day shadow trades are logged for. Anything with an entry before this
+# (e.g. the warm-up history the engine needs to even start emitting signals) is dropped.
+PAPER_START = "2026-08-11"
+
+# NQ contract multiplier ($/point) — same value augur_engine/book.py's _MULT table and
+# tools/t5_runboard.py / tools/book_smoke.py use for NQ.
+_NQ_MULT = 20.0
+# NQ round-trip cost in POINTS — same value tools/t5_runboard.py's leg_trades() and
+# tools/book_smoke.py use for both the ORB and ENGU-Q NQ legs (commission+slippage,
+# see ORB.md: "cost_pts = 0.533 (NQ, mult 20)").
+_NQ_COST_PTS = 0.533
+
+# ORB leg params: ORB_125 is defined inline in tools/t5_runboard.py (line ~26), a
+# top-level research SCRIPT that runs full 16yr backtests as a side effect of being
+# imported — not safe to import from. Copied here verbatim instead (source: tools/
+# t5_runboard.py ORB_125) MINUS partial_exit_R/trail_bars: t5_runboard.py actually
+# runs this dict against ORB_3_1.py (the richer partial/trailing-stop version), but
+# this leg is pinned to ORB_3_0.py — the deliberately-stripped "5 knob" deployable
+# (see that file's own docstring) whose run_backtest() has no partial_exit_R or
+# trail_bars parameter at all (TypeError if passed); the other knobs are identical.
+ORB_125 = dict(or_bars=1, trade_mode="Both", stop_frac=0.75, vol_filter=1.25,
+               breakout_buf=0.0, target_R=0.0, flat_eod=True)
+
+# ENGU-Q leg params: NQ_DEPLOY_PARAMS_149 is a clean module-level constant in
+# augur_strategies/ENGUQ_1M_1_0.py — import it directly.
+from augur_strategies import ENGUQ_1M_1_0 as _enguq  # noqa: E402
+ENGUQ_149 = dict(_enguq.NQ_DEPLOY_PARAMS_149)
+
+PAPER_LEGS = [
+    {"key": "ORB", "strategy": "ORB_3_0.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": ORB_125, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT},
+    {"key": "ENGUQ", "strategy": "ENGUQ_1M_1_0.py", "instrument": "NQ", "timeframe": "1m",
+     "session": "rth", "params": ENGUQ_149, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT},
+]
+
+# ── fresh 10s tick source ────────────────────────────────────────────────────────
+_ADDON_10S = r"C:\EdgeLog\ohlc_addon\NQ_10s.csv"
+_FALLBACK_10S = r"C:\EdgeLog\ohlc\NQ_10s.csv"
+
+_WARMUP_DAYS = 150          # calendar days before "today" (ema_len=390 on 1m headroom)
+_STALE_MINUTES = 30         # 10s file is "stale" if its last bar is this far before close
+_CHECK_INTERVAL_S = 60.0    # internal throttle for maybe_run_eod
+
+
+def _log(msg):
+    print(f"[paper] {msg}")
+
+
+# ── fresh-tail builder ───────────────────────────────────────────────────────────
+def _ticks_path():
+    return _ADDON_10S if os.path.exists(_ADDON_10S) else _FALLBACK_10S
+
+
+def _load_fresh_ticks():
+    """Read the live 10s OHLC+delta CSV. Returns (DataFrame|None, path)."""
+    path = _ticks_path()
+    if not os.path.exists(path):
+        return None, path
+    try:
+        df = pd.read_csv(path, usecols=["time", "open", "high", "low", "close", "volume"])
+    except Exception as e:
+        _log(f"failed reading {path}: {type(e).__name__}: {e}")
+        return None, path
+    if df.empty:
+        return None, path
+    df["time"] = df["time"].astype("int64")
+    return df, path
+
+
+def _resample(df, tf_minutes):
+    """10s rows -> OHLCV bars of tf_minutes, bar time = bar-start unix. Bars with no
+    rows are simply absent (groupby only emits buckets that have data)."""
+    sec = int(tf_minutes) * 60
+    key = (df["time"] // sec) * sec
+    g = df.groupby(key, sort=True)
+    out = pd.DataFrame({
+        "time": g["open"].first().index.values,
+        "open": g["open"].first().values,
+        "high": g["high"].max().values,
+        "low": g["low"].min().values,
+        "close": g["close"].last().values,
+        "volume": g["volume"].sum().values,
+    })
+    return out
+
+
+def _filter_rth(bars):
+    """Keep only bars whose bar-start falls in 09:30-16:00 America/New_York.
+    Returns (filtered bars DataFrame, tz-aware US/Eastern Timestamp Series aligned to it)."""
+    et = pd.to_datetime(bars["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
+    tod = et.dt.hour * 60 + et.dt.minute
+    mask = (tod >= 9 * 60 + 30) & (tod < 16 * 60)
+    return bars[mask].reset_index(drop=True), et[mask].reset_index(drop=True)
+
+
+def _append_fresh(arrays, bars):
+    """Append fresh bars (DataFrame: time/open/high/low/close/volume) to a loaded
+    master `arrays` dict, IN MEMORY ONLY. Returns (new arrays dict, n bars appended)."""
+    if bars is None or bars.empty:
+        return arrays, 0
+    new_index = pd.DatetimeIndex(
+        pd.to_datetime(bars["time"], unit="s", utc=True).dt.tz_convert("US/Eastern"))
+    combined_index = arrays["index"].append(new_index)
+    o = np.concatenate([np.asarray(arrays["open"], float), bars["open"].values.astype(float)])
+    h = np.concatenate([np.asarray(arrays["high"], float), bars["high"].values.astype(float)])
+    l = np.concatenate([np.asarray(arrays["low"], float), bars["low"].values.astype(float)])
+    c = np.concatenate([np.asarray(arrays["close"], float), bars["close"].values.astype(float)])
+    v_old = arrays.get("volume")
+    if v_old is not None:
+        v = np.concatenate([np.asarray(v_old, float), bars["volume"].values.astype(float)])
+    else:
+        v = None
+    day_id = pd.factorize(pd.Series(combined_index).dt.date)[0].astype("int64")
+    out = dict(arrays)
+    out.update(open=o, high=h, low=l, close=c, volume=v, day_id=day_id, index=combined_index)
+    return out, len(bars)
+
+
+# ── trade conversion (mirrors augur_engine/reconcile.py edgelog_blotter) ─────────
+def _extract_trades(leg, arrays, res):
+    """raw trade tuples (entry_bar, exit_bar, pnl_pts, side, entry_px) -> plain dicts."""
+    mult = float(leg.get("mult") or 20.0)
+    idx = arrays["index"]
+    O = arrays["open"]
+    out = []
+    for t in ((res or {}).get("trades") or []):
+        eb, xb, pnl_pts = int(t[0]), int(t[1]), float(t[2])
+        side = int(t[3]) if len(t) >= 4 else 0
+        entry_px = float(t[4]) if len(t) >= 5 else float(O[eb])
+        exit_px = (entry_px + side * pnl_pts) if side else None
+        entry_dt = pd.Timestamp(idx[eb])
+        exit_dt = pd.Timestamp(idx[xb])
+        out.append({
+            "leg": leg["key"], "strategy": leg["strategy"], "side": side,
+            "entry_dt": entry_dt, "exit_dt": exit_dt,
+            "entry_px": entry_px, "exit_px": exit_px,
+            "pnl_pts": pnl_pts, "pnl_usd": pnl_pts * mult,
+        })
+    return out
+
+
+# ── per-leg shadow run ────────────────────────────────────────────────────────────
+def run_shadow(leg, today):
+    """Re-run one crowned leg on master + fresh-tail data. Never raises.
+
+    today: a date (or anything pandas.Timestamp can parse) — the trading day this
+    shadow run is being produced for; only used to size the warm-up window and the
+    staleness check (today's 16:00 ET close).
+
+    Returns {trades:[...], bars_appended:int, data_fresh_thru:int|None, warnings:[...]}.
+    `trades` only includes trades whose entry date is >= PAPER_START.
+    """
+    warnings = []
+    trades_out = []
+    bars_appended = 0
+    data_fresh_thru = None
+    try:
+        today_d = pd.Timestamp(today).date()
+
+        master = find_master(leg["instrument"], leg["timeframe"], leg.get("session", "rth"))
+        if master is None:
+            warnings.append(
+                f"no master for {leg['instrument']} {leg['timeframe']} {leg.get('session')}")
+            return {"trades": [], "bars_appended": 0, "data_fresh_thru": None,
+                   "warnings": warnings}
+
+        date_from = (pd.Timestamp(today_d) - pd.Timedelta(days=_WARMUP_DAYS)).strftime("%Y-%m-%d")
+        arrays = load_master_arrays(master, date_from=date_from, date_to=None)
+
+        ticks_df, ticks_path = _load_fresh_ticks()
+        if ticks_df is None:
+            warnings.append(f"10s data file missing/empty: {ticks_path}")
+        else:
+            last_tick_unix = int(ticks_df["time"].iloc[-1])
+            data_fresh_thru = last_tick_unix
+            close_et = pd.Timestamp(f"{today_d} 16:00:00", tz="US/Eastern")
+            last_tick_et = pd.Timestamp(last_tick_unix, unit="s", tz="UTC").tz_convert("US/Eastern")
+            if last_tick_et < close_et - pd.Timedelta(minutes=_STALE_MINUTES):
+                warnings.append(
+                    f"10s data looks stale: last bar {last_tick_et} "
+                    f"(more than {_STALE_MINUTES}m before {close_et} close)")
+
+            tf_min = 5 if str(leg["timeframe"]).lower().startswith("5") else 1
+            bars = _resample(ticks_df, tf_min)
+            bars, bars_et = _filter_rth(bars)
+            last_master_time = arrays["index"][-1] if len(arrays["index"]) else None
+            if last_master_time is not None and len(bars):
+                keep = (bars_et > last_master_time).values
+                bars = bars[keep].reset_index(drop=True)
+            if len(bars):
+                arrays, bars_appended = _append_fresh(arrays, bars)
+
+        if bars_appended == 0:
+            warnings.append("zero fresh bars appended")
+
+        res = run_backtest(leg["strategy"], arrays=arrays, params=leg["params"],
+                           cost_pts=leg.get("cost_pts", 0.0), return_trades=True)
+        trades = _extract_trades(leg, arrays, res)
+        paper_start = pd.Timestamp(PAPER_START).date()
+        trades_out = [t for t in trades if t["entry_dt"].date() >= paper_start]
+    except Exception as e:
+        msg = f"exception in run_shadow({leg.get('key')}): {type(e).__name__}: {e}"
+        warnings.append(msg)
+        _log(msg)
+
+    return {"trades": trades_out, "bars_appended": bars_appended,
+           "data_fresh_thru": data_fresh_thru, "warnings": warnings}
+
+
+# ── once-a-day EOD driver ─────────────────────────────────────────────────────────
+_last_check_ts = 0.0
+
+
+def _last_completed_trading_day(et_now, force=False):
+    """The most recent trading day whose EOD (16:10 ET) has passed. With force=True,
+    returns today's date regardless of time-of-day (manual/smoke-test trigger)."""
+    d = et_now.date()
+    if force:
+        return d
+    if et_now.weekday() < 5 and (et_now.hour, et_now.minute) >= (16, 10):
+        candidate = d
+    else:
+        candidate = d - timedelta(days=1)
+    while candidate.weekday() >= 5:
+        candidate -= timedelta(days=1)
+    return candidate
+
+
+def _et_now():
+    try:
+        from zoneinfo import ZoneInfo
+        return pd.Timestamp.now(tz=ZoneInfo("America/New_York"))
+    except Exception:
+        return pd.Timestamp.now(tz="US/Eastern")
+
+
+def maybe_run_eod(q, *, force=False, dry_run=False):
+    """Cheap, throttled, exception-proof hook for the runner's watch loop. Actually
+    runs the shadow legs at most once per trading day, after 16:10 ET, skipping
+    weekends — plus a startup catch-up if the last run is older than the most recent
+    completed trading day. No-ops in well under 1ms outside its 60s check window."""
+    global _last_check_ts
+    now_wall = time.time()
+    if not force and (now_wall - _last_check_ts) < _CHECK_INTERVAL_S:
+        return None
+    _last_check_ts = now_wall
+    try:
+        return _run_eod_check(q, force=force, dry_run=dry_run)
+    except Exception as e:
+        _log(f"maybe_run_eod error: {type(e).__name__}: {e}")
+        return None
+
+
+def _run_eod_check(q, *, force=False, dry_run=False):
+    et_now = _et_now()
+    # No weekday/time-of-day early return here: _last_completed_trading_day already
+    # excludes today until 16:10 ET has passed, and the per-uid last_run_date guard
+    # below makes the call a no-op when that day was run. This is what lets a Monday-
+    # morning restart still catch up a Friday the PC was off for at Friday's close.
+    target_date = _last_completed_trading_day(et_now, force=force)
+    target_date_s = target_date.isoformat()
+
+    reports = {}
+    for uid in list(getattr(q, "allow", None) or []):
+        try:
+            already_ran = False
+            if not force and not dry_run:
+                state = _get_state(q.db, uid)
+                last_run = (state or {}).get("last_run_date")
+                if last_run and str(last_run) >= target_date_s:
+                    already_ran = True
+            if already_ran:
+                continue
+
+            report = _run_one_uid(q, uid, target_date, dry_run=dry_run)
+            reports[uid] = report
+
+            if not dry_run:
+                _set_state(q.db, uid, {"last_run_date": target_date_s,
+                                       "paper_start": PAPER_START})
+        except Exception as e:
+            _log(f"uid {uid} skipped: {type(e).__name__}: {e}")
+    return {"date": target_date_s, "reports": reports}
+
+
+def _get_state(db, uid):
+    try:
+        doc = db.collection("users").document(uid).collection("meta").document("paper_state").get()
+        return doc.to_dict() if doc.exists else None
+    except Exception:
+        return None
+
+
+def _set_state(db, uid, patch):
+    try:
+        db.collection("users").document(uid).collection("meta").document("paper_state").set(
+            patch, merge=True)
+    except Exception as e:
+        _log(f"state write failed for uid: {type(e).__name__}: {e}")
+
+
+def _run_one_uid(q, uid, target_date, *, dry_run=False):
+    """Run both legs for one uid, upsert trades + write the daily report doc.
+    Returns the report dict (also written to Firestore unless dry_run)."""
+    leg_reports = {}
+    total_pnl = 0.0
+    batch = None
+    pending = 0
+    firestore = None
+    if not dry_run:
+        from firebase_admin import firestore as _fs
+        firestore = _fs
+        batch = q.db.batch()
+
+    for leg in PAPER_LEGS:
+        r = run_shadow(leg, target_date)
+        trade_ids = []
+        leg_pnl = 0.0
+        for t in r["trades"]:
+            entry_unix = int(t["entry_dt"].timestamp())
+            exit_unix = int(t["exit_dt"].timestamp())
+            doc_id = f"pt_{leg['key']}_{entry_unix}"
+            trade_ids.append(doc_id)
+            leg_pnl += t["pnl_usd"]
+            if not dry_run:
+                doc = json_safe({
+                    "leg": leg["key"], "strategy": leg["strategy"],
+                    "side": t["side"], "entryTime": entry_unix, "exitTime": exit_unix,
+                    "entryIso": t["entry_dt"].isoformat(), "exitIso": t["exit_dt"].isoformat(),
+                    "entry_px": t["entry_px"], "exit_px": t["exit_px"],
+                    "pnl_pts": t["pnl_pts"], "pnl_usd": t["pnl_usd"],
+                    "layer": "shadow", "run_date": target_date.isoformat(),
+                })
+                doc["createdAt"] = firestore.SERVER_TIMESTAMP
+                batch.set(q.db.collection("users").document(uid)
+                         .collection("paper_trades").document(doc_id), doc, merge=True)
+                pending += 1
+                if pending >= 400:
+                    batch.commit(); batch = q.db.batch(); pending = 0
+
+        leg_reports[leg["key"]] = {
+            "n_signals": len(r["trades"]), "trade_ids": trade_ids, "pnl_usd": leg_pnl,
+            "bars_appended": r["bars_appended"], "data_fresh_thru": r["data_fresh_thru"],
+            "warnings": r["warnings"],
+        }
+        total_pnl += leg_pnl
+        if r["warnings"]:
+            for w in r["warnings"]:
+                _log(f"uid={uid} leg={leg['key']} {w}")
+
+    if not dry_run and pending:
+        batch.commit()
+
+    report = {
+        "legs": leg_reports,
+        "blend": {"pnl_usd": total_pnl},
+        "status": "runner_done",
+        "run_date": target_date.isoformat(),
+    }
+    if not dry_run:
+        report_doc = json_safe(dict(report))
+        report_doc["generatedAt"] = firestore.SERVER_TIMESTAMP
+        q.db.collection("users").document(uid).collection("paper_reports").document(
+            target_date.isoformat()).set(report_doc, merge=True)
+        _leg_summary = ", ".join(f"{k}:{v['n_signals']}" for k, v in leg_reports.items())
+        _log(f"uid={uid} {target_date.isoformat()}: blend ${total_pnl:,.0f} ({_leg_summary})")
+
+    return report
