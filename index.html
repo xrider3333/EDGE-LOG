@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='71.85';
+const VERSION='71.86';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'71.86',date:'2026-08-09',notes:['CHART GALLERY (owner ask): a CHARTS OF THIS VIEW button on the blotter now stacks a REAL candle chart for every trade in the current view - top wins, top losses or most recent - in ONE scrollable window, all fetched at once instead of one trade at a time. LOAD 10 MORE keeps going past the first ten, and the header counts them in as they land.','Each gallery chart has an OPEN button that hands that trade to the full CANDLES window for zoom, save and stepping. Anything already viewed draws instantly - the two share one cache.','FIXED: clicking ALL in the blotter dumped every one of the 5,616 rows in one go, which shoved the view controls off the screen. ALL is paged now, same LOAD 25 MORE as RECENT.']},
 {v:'71.85',date:'2026-08-09',notes:['Fix: the CHAMPION / FUNNEL tabs in the expanded 1A now actually switch. Two faults, both fixed: the handler was calling the top-level savePref and renderApp rather than the report renderer versions, so the choice was never stored; and clicking the cards own tab button in the same instant as the modal close hit a node the re-render had already thrown away. It now waits for the close, re-finds the live button, and re-opens the chart as soon as it exists.']},
 {v:'71.84',date:'2026-08-09',notes:['SPOTLIGHT on the funnel: hover a curve and it lifts while every other one drops to a faint trace, in the plot and in the key at the same time. Hovering a key row does the same thing. Moving off clears it.','The key box was set at 7.5px, below what the mono font renders cleanly - that is why it looked pixelated. It is 9px now with more line spacing.','The paragraphs under the funnel and under the matrix are gone. Both are summarised behind the info icon on the title instead.','GRAPH DETAIL slider removed.','Runs with no walk-forward and no lockbox - plain Auto-Optimize runs like 42, 60 and 74 - were showing dashes for profit factor, win rate and Sharpe on the whole-run view. Those runs never split their window, so the optimize window IS the whole run and their own figures were already the right answer. They fill in now.']},
 {v:'71.83',date:'2026-08-09',notes:['FIXED FOR REAL - config colours no longer change when you expand the 1A funnel. The cause was the LOCKBOX CONTINUATION tails: they were painted from their own two-colour orange/purple alternation that knew nothing about the config palette, so a config rode a teal line to the lockbox door and then finished the run in orange. The expanded explorer draws one continuous line per config, so it disagreed. Each tail now inherits its own config colour.','Fix: clicking CHAMPION or FUNNEL in the expanded 1A no longer throws you back to the top of RESULTS. The tab switch re-renders the report, which reset the page scroll - your position is now restored, and the chart re-opens as soon as it exists instead of after a fixed delay that could fire too early and open nothing.']},
@@ -3702,6 +3703,88 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
   };
 
+// ── CHART GALLERY (v71.80, owner: "load the top 10 wins / loss / recents WITH THEIR CHARTS in
+//    one scrollable window, with load more, instead of one at a time") — stacks a real candle
+//    chart per trade in one scrolling window, fetches the whole batch at once, and appends the
+//    next 10 on LOAD MORE. Shares _barsCache with the single-trade CANDLES window, so anything
+//    already viewed draws instantly and anything drawn here makes the CANDLES window instant. ──
+window.openChartGallery=function(B,rowsAll,initialView){
+  if(!B||!rowsAll||!rowsAll.length)return;
+  const $=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
+  const sideOf=x=>{if(x._side)return x._side;const g=x._pts+((B.cost_pts)||0);
+    return (Math.abs((x._xp-x._ep)-g)<=Math.abs((x._ep-x._xp)-g))?'long':'short';};
+  let view=initialView||'wins',shown=10,seq=0;
+  const order=()=>{const a=rowsAll.slice();
+    if(view==='wins')return a.sort((p,q)=>q._usd-p._usd);
+    if(view==='losses')return a.sort((p,q)=>p._usd-q._usd);
+    return a.sort((p,q)=>q._no-p._no);};
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.93);z-index:9997;display:flex;align-items:flex-start;justify-content:center;padding:22px';
+  modal.innerHTML='<div style="background:var(--bg1);border:1px solid var(--border);width:min(1240px,96vw);max-height:94vh;display:flex;flex-direction:column;padding:16px 18px;box-sizing:border-box">'
+    +'<div style="display:flex;align-items:center;gap:12px;padding-bottom:8px;border-bottom:1px solid var(--border);flex:0 0 auto">'
+    +'<span style="font-family:\'Bebas Neue\',monospace;font-size:20px;letter-spacing:3px;color:var(--text)">CHART GALLERY &middot; RUN #'+B.run_id+'</span>'
+    +'<span id="gal-meta" style="font-size:10px;color:var(--text5);letter-spacing:.5px;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>'
+    +'<button id="gal-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:5px 14px;cursor:pointer;font-family:inherit;letter-spacing:2px;flex:0 0 auto">CLOSE ✕</button></div>'
+    +'<div id="gal-views" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 0;flex:0 0 auto"></div>'
+    +'<div id="gal-body" style="overflow:auto;flex:1 1 auto"></div></div>';
+  modal.onclick=e=>{if(e.target===modal)close();};
+  document.body.appendChild(modal);
+  const esc=e=>{if(e.key==='Escape')close();};
+  const close=()=>{seq++;document.removeEventListener('keydown',esc);modal.remove();};
+  document.addEventListener('keydown',esc);
+  modal.querySelector('#gal-close').onclick=close;
+  const body=modal.querySelector('#gal-body'),meta=modal.querySelector('#gal-meta'),views=modal.querySelector('#gal-views');
+  const card=x=>'<div data-gal="'+x._no+'" style="border:1px solid var(--border2);border-radius:8px;margin-bottom:12px;overflow:hidden">'
+    +'<div style="display:flex;align-items:center;gap:10px;padding:7px 11px;background:var(--bg2);font-size:10px;letter-spacing:.5px">'
+    +'<b style="color:var(--text2)">#'+x._no+'</b><span style="color:var(--text4)">'+x._et+'</span>'
+    +'<span style="color:var(--text5)">'+(sideOf(x)==='long'?'LONG':'SHORT')+'</span>'
+    +'<b style="margin-left:auto;color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+$(x._usd)+'</b>'
+    +'<span data-galopen="'+x._no+'" style="cursor:pointer;border:1px solid color-mix(in srgb,var(--blue) 55%,var(--border));border-radius:5px;padding:1px 7px;font-size:8px;color:var(--blue)">OPEN &#9655;</span></div>'
+    +'<div class="galchart" style="min-height:150px;display:flex;align-items:center;justify-content:center;color:var(--text5);font-size:10px">loading bars&hellip;</div></div>';
+  const drawCard=(x,r)=>{
+    const host=body.querySelector('[data-gal="'+x._no+'"] .galchart');if(!host)return;
+    const m={entryPrice:x._ep,exitPrice:x._xp,side:sideOf(x),pnlUsd:x._usd};
+    if(r.entry_idx!=null)m.entryIdx=r.entry_idx;
+    if(r.exit_idx!=null)m.exitIdx=r.exit_idx;
+    if(r.entry_idx!=null&&r.exit_idx!=null){m.shadeFrom=r.entry_idx;m.shadeTo=r.exit_idx;}
+    host.style.display='block';
+    host.innerHTML=window.candleSVG(r.bars||[],r.overlays||{},m,{height:300});
+  };
+  const label=()=>view==='wins'?'TOP WINNERS':(view==='losses'?'TOP LOSERS':'MOST RECENT');
+  const sync=()=>{
+    const list=order().slice(0,shown);
+    const done=list.filter(x=>_barsCache[x._no]).length;
+    meta.textContent=label()+' · '+list.length+' charts · '+done+' of '+list.length+' loaded'
+      +(done<list.length?' — the rest are on the way':'');
+  };
+  const draw=()=>{
+    const mySeq=++seq;
+    const vs=[['wins','TOP WINS'],['losses','TOP LOSSES'],['recent','MOST RECENT']];
+    views.innerHTML=vs.map(v2=>'<span data-galv="'+v2[0]+'" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;border:1px solid '+(view===v2[0]?'var(--blue)':'var(--border)')+';color:'+(view===v2[0]?'var(--blue)':'var(--text4)')+'">'+v2[1]+'</span>').join('')
+      +'<span style="font-size:9px;color:var(--text5);margin-left:auto">every chart is live — click OPEN for zoom, save and stepping</span>';
+    views.querySelectorAll('[data-galv]').forEach(b2=>{b2.onclick=()=>{if(view===b2.dataset.galv)return;view=b2.dataset.galv;shown=10;draw();};});
+    const list=order().slice(0,shown);
+    body.innerHTML=list.map(card).join('')
+      +(shown<rowsAll.length?'<div style="text-align:center;padding:6px 0 14px"><span id="gal-more" style="cursor:pointer;user-select:none;font-size:10px;font-weight:700;letter-spacing:1px;padding:7px 18px;border-radius:7px;border:1px solid var(--border);color:var(--text3)">LOAD 10 MORE</span></div>':'');
+    const more=body.querySelector('#gal-more');
+    if(more)more.onclick=()=>{shown+=10;draw();};
+    body.querySelectorAll('[data-galopen]').forEach(b2=>{b2.onclick=ev=>{ev.stopPropagation();
+      const x2=rowsAll.find(q=>q._no===+b2.dataset.galopen);
+      if(x2)window._openTradeCandles(x2,null,{B:B,all:()=>rowsAll,order:()=>order().slice(0,shown)});};});
+    sync();
+    // fire the whole visible batch at once — cached trades paint immediately, the rest stream in
+    list.forEach(x=>{
+      const hit=_barsCache[x._no];
+      if(hit){drawCard(x,hit);return;}
+      _runCmd('get_bars',Object.assign({},B,{entry_time:x._et,exit_time:x._xt2,pad_sessions:1}),300000)
+        .then(r=>{_barsCache[x._no]=r;if(seq===mySeq){drawCard(x,r);sync();}})
+        .catch(err=>{if(seq!==mySeq)return;const h=body.querySelector('[data-gal="'+x._no+'"] .galchart');
+          if(h)h.innerHTML='<span style="color:var(--red)">could not load these bars — '+String(err&&err.message||err).replace(/</g,'&lt;')+'</span>';});
+    });
+  };
+  draw();
+};
+
 // ── STANDALONE BLOTTER MODAL (v71.63, owner: "open it without expanding the chart") — the
 //    1A card TRADES tab opens this: the run's champion blotter in its own window, quick views
 //    (RECENT / TOP 10 WINS / TOP 10 LOSSES / ALL + LOAD MORE), a CHART pill per row feeding
@@ -3735,14 +3818,19 @@ window.openBlotterModal=async function(B){
     if(view==='wins')return a.sort((p,q)=>q._usd-p._usd).slice(0,10);
     if(view==='losses')return a.sort((p,q)=>p._usd-q._usd).slice(0,10);
     if(view==='recent')return a.sort((p,q)=>q._no-p._no).slice(0,shown);
-    return a.sort((p,q)=>q._no-p._no);
+    // ALL is PAGED too (owner: clicking ALL dumped 5,616 rows in one go and shoved the
+    // controls off screen) — same LOAD MORE, just a bigger page.
+    return a.sort((p,q)=>q._no-p._no).slice(0,shown);
   };
   const draw=()=>{
     const vs=[['recent','RECENT'],['wins','TOP 10 WINS'],['losses','TOP 10 LOSSES'],['all','ALL']];
     viewsEl.innerHTML=vs.map(v2=>'<span data-bmv="'+v2[0]+'" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;border:1px solid '+(view===v2[0]?'var(--blue)':'var(--border)')+';color:'+(view===v2[0]?'var(--blue)':'var(--text4)')+'">'+v2[1]+'</span>').join('')
-      +(view==='recent'&&rows&&shown<rows.length?'<span data-bmv="more" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);color:var(--text3)">LOAD 25 MORE</span>':'')
-      +'<span style="font-size:9px;color:var(--text5);margin-left:auto">click a row or its CHART pill for that trade candles</span>';
-    viewsEl.querySelectorAll('[data-bmv]').forEach(b3=>{b3.onclick=()=>{const v2=b3.dataset.bmv;if(v2==='more')shown+=25;else{view=v2;if(v2==='recent')shown=Math.max(shown,10);}draw();};});
+      +(((view==='recent'||view==='all')&&rows&&shown<rows.length)?'<span data-bmv="more" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);color:var(--text3)">LOAD 25 MORE</span>':'')
+      +'<span data-bmv="gallery" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:6px;border:1px solid color-mix(in srgb,var(--blue) 60%,var(--border));color:var(--blue)">&#128200; CHARTS OF THIS VIEW</span>'
+      +'<span style="font-size:9px;color:var(--text5);margin-left:auto">click a row for one chart &middot; CHARTS OF THIS VIEW stacks them all in one scroll</span>';
+    viewsEl.querySelectorAll('[data-bmv]').forEach(b3=>{b3.onclick=()=>{const v2=b3.dataset.bmv;
+      if(v2==='gallery'){if(rows)window.openChartGallery(B,rows,(view==='wins'||view==='losses')?view:'recent');return;}
+      if(v2==='more')shown+=25;else{view=v2;if(v2==='recent')shown=Math.max(shown,10);}draw();};});
     if(!rows)return;
     const cur=slice();
     const th='<tr style="position:sticky;top:0;background:var(--bg1);color:var(--text5);font-size:9px;letter-spacing:1px;z-index:2">'+['CHART','#','ENTRY','EXIT','HOLD','ENTRY PX','EXIT PX','PTS','NET $','CUM $'].map((h,i)=>'<th style="padding:6px 10px;text-align:'+(i<4?'left':'right')+';white-space:nowrap">'+h+'</th>').join('')+'</tr>';
@@ -3754,7 +3842,7 @@ window.openBlotterModal=async function(B){
       +'<td style="padding:4px 10px;text-align:right;font-weight:700;color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+$(x._usd)+'</td>'
       +'<td style="padding:4px 10px;text-align:right;color:'+(x._cum>=0?'var(--text2)':'var(--red)')+'">'+$(x._cum)+'</td></tr>').join('');
     body.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:11px">'+th+trs+'</table>';
-    meta.textContent='champion config · '+rows.length+' trades'+(masterName?' · master: '+masterName:'')+(view==='recent'?' · showing the '+Math.min(shown,rows.length)+' most recent':'');
+    meta.textContent='champion config · '+rows.length+' trades'+(masterName?' · master: '+masterName:'')+((view==='recent'||view==='all')?' · showing '+Math.min(shown,rows.length)+' of '+rows.length:'');
     body.querySelectorAll('[data-bmrow]').forEach(tr=>{tr.onclick=()=>{
       const x=rows.find(q=>q._no===+tr.dataset.bmrow);if(!x)return;
       window._openTradeCandles(x,null,{B:B,all:()=>rows,order:()=>slice()});
@@ -4020,10 +4108,12 @@ window.expandEquity=function(host){
     if(blView==='wins')rows=blotRows.slice().sort((p,q)=>q._usd-p._usd).slice(0,10);
     else if(blView==='losses')rows=blotRows.slice().sort((p,q)=>p._usd-q._usd).slice(0,10);
     else if(blView==='recent')rows=blotRows.slice().sort((p,q)=>q._no-p._no).slice(0,blShown);
+    else if(blView==='all')rows=rows.slice(0,blShown);   // ALL is paged too — never dump 5k rows
     const _pill=(v2,lbl)=>'<span data-blview="'+v2+'" style="cursor:pointer;user-select:none;font-weight:700;padding:2px 8px;border-radius:5px;border:1px solid '+(blView===v2?'var(--blue)':'var(--border)')+';color:'+(blView===v2?'var(--blue)':'var(--text4)')+'">'+lbl+'</span>';
     const viewsHtml='<span style="display:inline-flex;gap:5px;align-items:center;margin-right:8px">'
       +_pill('recent','RECENT')+_pill('wins','TOP 10 WINS')+_pill('losses','TOP 10 LOSSES')+_pill('all','ALL')
-      +((blView==='recent'&&blotRows.length>blShown)?'<span data-blview="more" style="cursor:pointer;user-select:none;font-weight:700;padding:2px 8px;border-radius:5px;border:1px solid var(--border2);color:var(--text3)">LOAD 25 MORE</span>':'')
+      +(((blView==='recent'||blView==='all')&&blotRows.length>blShown)?'<span data-blview="more" style="cursor:pointer;user-select:none;font-weight:700;padding:2px 8px;border-radius:5px;border:1px solid var(--border2);color:var(--text3)">LOAD 25 MORE</span>':'')
+      +'<span data-blview="gallery" style="cursor:pointer;user-select:none;font-weight:700;padding:2px 8px;border-radius:5px;border:1px solid color-mix(in srgb,var(--blue) 60%,var(--border));color:var(--blue)">&#128200; CHARTS OF THIS VIEW</span>'
       +'</span>';
     const arrow=c=>c===k?(dir>0?' ▲':' ▼'):'';
     const th='<tr style="position:sticky;top:0;background:var(--bg1);color:var(--text5);font-size:9px;letter-spacing:1px;z-index:2"><th style="padding:6px 6px;text-align:center;white-space:nowrap" title="open that trade session candles in a price chart">CHART</th>'+COLS.map(c=>'<th data-bh="'+c[0]+'" style="padding:6px 10px;text-align:'+c[2]+';cursor:pointer;white-space:nowrap;user-select:none"'+(c[3]?' title="'+c[3]+'"':' title="click to sort / filter"')+'>'+c[1]+(c[3]?' ⓘ':'')+arrow(c[0])+'</th>').join('')+'</tr>';
@@ -4036,6 +4126,7 @@ window.expandEquity=function(host){
       +'</span></div><table style="width:100%;border-collapse:collapse;font-size:11px">'+th+trs+'</table>';
     wrap.querySelectorAll('[data-blview]').forEach(p2=>{p2.onclick=e=>{e.stopPropagation();
       const v2=p2.dataset.blview;
+      if(v2==='gallery'){if(blotRows&&window.openChartGallery)window.openChartGallery(B,blotRows,(blView==='wins'||blView==='losses')?blView:'recent');return;}
       if(v2==='more')blShown+=25;else{blView=v2;if(v2==='recent')blShown=Math.max(blShown,10);}
       renderBlot();};});
     wrap.querySelectorAll('[data-bh]').forEach(h=>{h.onclick=e=>{e.stopPropagation();
