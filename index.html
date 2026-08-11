@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.9';
+const VERSION='73.10';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.10',date:'2026-08-10',notes:['RUNBOARD has FAMILY chips now, the same quick-toggle the Past Runs tab carries. Click ORB and the whole board - funnel, matrix and list - reloads with the top ORB runs instead of one champion per strategy, ranked by whatever RANK BY and SAMPLE are set to. Click it again, or all, to go back. That is how you compare a strategy against its own other configs.','The expanded funnel no longer offers CHAMPION and CONFIG FUNNEL tabs. Those belong to a run report, where the curves ARE configs of one run and champion means that run crowned config. On the RUNBOARD every curve is a different STRATEGY, so a raw config view could not mean anything.']},
 {v:'73.9',date:'2026-08-10',notes:['FIX (owner-reported): the expanded 1A funnel used to open with every RAW config AND the whole OTHER RAW grey cloud switched on at once, which lagged badly. It now opens with just one line per section - the crowned RAW config, the chosen gate, the picked tilt, the picked hybrid, the picked hybrid recycle - and nothing from OTHER RAW by default. Every other line is one click away in its group.','Verified while in there: the HYBRID / HYBRID RECYCLE key rows already toggle their own lines correctly (fixed last version, 73.7) - the default-visibility pick above now reuses that exact same per-section ranking instead of a separate one, so the two can never disagree.']},
 {v:'73.8',date:'2026-08-09',notes:['The gate sweep chart says IS + WF on the plot itself now, in the same words the rest of the report uses, instead of only in the axis title and a line underneath. The caption below it shortens to the one thing the plot cannot say: the matrix above totals whatever SAMPLE is ticked, so with LB ticked it reads higher by exactly the held-out year.']},
 {v:'73.7',date:'2026-08-10',notes:['FIX (owner-reported): in the expanded funnel, clicking the HYBRID or HYBRID recycle key row greyed out the OTHER RAW cloud instead of the hybrids. Those two families got their own key rows a while back but the click handler was never told about them, so both fell through to the last group in an old three-way branch. Every family now cycles its own lines.','FIX: the OTHER RAW row printed the ending dollars of whichever grey line happened to be first in memory, presented as the group best. It now reads the best one, like every other row.','FIX: the key rows were ORDERED by each family best line but each row PRINTS the line the funnel actually draws. When those differed the key sat in an order its own figures did not explain. Both read the same line now.']},
@@ -4728,7 +4729,12 @@ window.expandCompareEq=function(series,opts){
   //   and the VIEW control narrowed below.
   modal.innerHTML='<div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;flex-wrap:nowrap;height:30px;flex:0 0 auto;overflow:hidden">'
     +'<span style="font-family:\'Bebas Neue\',monospace;font-size:15px;letter-spacing:2px;color:var(--text);white-space:nowrap;flex:0 0 auto">EQUITY COMPARE</span>'
-    +'<span id="ceqx-tabs" style="display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,var(--green) 8%,transparent);margin-right:8px">'+'<span data-ceqx-eqtab="chart" title="show the CHAMPION equity chart expanded" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.4px;padding:4px 9px;border-radius:6px;color:var(--text4)">CHAMPION</span>'+'<span data-ceqx-eqtab="funnel" title="show the CONFIG FUNNEL expanded" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.4px;padding:4px 9px;border-radius:6px;color:var(--text);background:color-mix(in srgb,var(--green) 20%,transparent);box-shadow:inset 0 -2px 0 var(--green)">FUNNEL</span>'+'</span>'
+    // v73.7 (owner: "why does expanding show me raw config, makes no sense"): the CHAMPION /
+    //   CONFIG FUNNEL tabs belong to the run report, where the curves ARE configs of one run and
+    //   CHAMPION means "that run's crowned config". On the RUNBOARD every curve is a different
+    //   STRATEGY, so there is no champion config to flip to — the caller passes noTabs and the
+    //   strip is left out entirely rather than offering a view that cannot mean anything here.
+    +(opts.noTabs?'':('<span id="ceqx-tabs" style="display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,var(--green) 8%,transparent);margin-right:8px">'+'<span data-ceqx-eqtab="chart" title="show the CHAMPION equity chart expanded" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.4px;padding:4px 9px;border-radius:6px;color:var(--text4)">CHAMPION</span>'+'<span data-ceqx-eqtab="funnel" title="show the CONFIG FUNNEL expanded" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.4px;padding:4px 9px;border-radius:6px;color:var(--text);background:color-mix(in srgb,var(--green) 20%,transparent);box-shadow:inset 0 -2px 0 var(--green)">FUNNEL</span>'+'</span>'))
     
     +'<span id="ceqx-read" style="font-size:11px;color:var(--text3);flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>'
     // v64.74 (owner: the old RANGE/WINDOW rows were "huge full-width bars"): both view-jump
@@ -15289,6 +15295,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   best-in-row, VERT/HORIZ) for free. It auto-populates with the TOP RUN OF EVERY
       //   STRATEGY (same champion rule as BY STRATEGY), then ranks them by RANK BY measured on
       //   the picked SAMPLE. The pooled BOOKS table keeps its own tile at the bottom.
+      // v73.8: which strategy family the board is drilled into ('' = one champion per family)
+      const _rbFam=String(APREF.rbFam||'');
       const _rbS=(['full','is','lb'].indexOf(APREF.rbSample)>=0)?APREF.rbSample:'lb';
       const _rbR=(['mar','pf','net','dd'].indexOf(APREF.rbRank)>=0)?APREF.rbRank:'mar';
       // the 1A-style chart dressing (stage bands, in-plot IS/WF/LB, endpoint pills) belongs to the
@@ -15394,6 +15402,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(_cmpMode==='board'){
             const _shortRun=r=>{const a=Date.parse(r.date_from||''),b=Date.parse(r.date_to||'');
               return (!isNaN(a)&&!isNaN(b)&&b>a)?(((b-a)/86400000)/365.25<2):false;};
+            // v73.8 (owner: "i want to be able to load the top runs of each family, like the
+            //   buttons at the top of past runs"): with a family chip picked the board stops
+            //   showing one champion per strategy and shows the TOP RUNS INSIDE THAT FAMILY,
+            //   ranked by the same RANK BY / SAMPLE picks. That is how you compare ORB to ORB.
+            if(_rbFam)famRuns=rs.filter(r=>(_canonFam(r.strategy)||_labOf(r))===_rbFam);
             // v71.85 (owner: "remove the engu thats only 19 days lol"): a strategy whose best run
             //   covers under two years is DROPPED from the board, not just sorted last. Nineteen
             //   days of trading cannot be compared with sixteen years, so showing it at all only
@@ -15808,8 +15821,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // set BEFORE the funnel tile is built - the HWM chip reads it while rendering
         window._rbHwm=!!APREF.rbHwm;
         const _rbSide=(['best','worst','recent'].indexOf(APREF.rbSide)>=0)?APREF.rbSide:'';
+        // v73.8: family chips - the same quick-toggle the Past Runs tab carries. Picking one
+        //   drills the whole board (funnel, matrix, list) into that family's own top runs.
+        const _rbFams=[...new Set(rs.filter(r=>r&&!r.archived).map(r=>_canonFam(r.strategy)||_labOf(r)).filter(Boolean))]
+          .sort((x,y)=>((typeof famNum==='function'?famNum(x):99)||99)-((typeof famNum==='function'?famNum(y):99)||99));
+        const _rbFamBar=_rbFams.length>1?('<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-bottom:7px">'
+          +'<span title="click a strategy to load ITS top runs instead of one champion per strategy" style="font-size:7.5px;font-weight:700;letter-spacing:.6px;color:var(--text5);cursor:help">FAMILY</span>'
+          +_rbFams.map(f=>{const on=(_rbFam===f),col=((typeof stratColor==='function')&&stratColor(f))||'var(--text4)';
+            return '<span data-rbfam="'+String(f).replace(/"/g,'')+'" title="'+(on?'click to go back to one run per strategy':'show the top runs of '+f)+'" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:9px;white-space:nowrap;border:1px solid '+(on?col:'var(--border)')+';color:'+(on?'var(--text)':'var(--text4)')+';background:'+(on?'color-mix(in srgb,'+col+' 20%,transparent)':'var(--bg1)')+'">'+f+'</span>';}).join('')
+          +(_rbFam?'<span data-rbfam="" title="show one champion per strategy again" style="cursor:pointer;font-size:8px;color:var(--text5);text-decoration:underline;margin-left:2px">all</span>':'')
+          +'</div>'):'';
         const boardTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">RUNBOARD</span><span style="font-size:8px;color:var(--text5)">top run per strategy · auto-populates from run history · ordered by the RANK BY pick</span></div>'
-          +'<div style="overflow:auto;max-height:'+(_rbSide?'38vh':'74vh')+'">'+runs.map(_famRowOf).join('')+'</div>'
+          +_rbFamBar+'<div style="overflow:auto;max-height:'+(_rbSide?'38vh':'74vh')+'">'+runs.map(_famRowOf).join('')+'</div>'
           +_famMoreNote);
         const _sampTag=(_rbS==='full')?'in-sample, then the blue walk-forward band, then the purple lockbox':((_rbS==='is')?'the IS stretch only':'the LB year only · every curve rebased to $0');
         // v71.27: saved chart height + a drag HANDLE ROW under the chart, the same grip the
@@ -17136,6 +17159,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
            ov.remove();renderApp();};};
        const _ac=content.querySelector('[data-rbaddclr]');
        if(_ac)_ac.onclick=()=>{savePref('rbAdd',[]);renderApp();};}
+      // family chips - drill the board into one strategy's own runs, or back out to all
+      content.querySelectorAll('[data-rbfam]').forEach(c=>{c.onclick=()=>{
+        const v=c.dataset.rbfam||'';
+        savePref('rbFam',(v&&v===String(APREF.rbFam||''))?'':v);renderApp();};});
       {const _rh=content.querySelector('[data-rbheat]');
        if(_rh)_rh.onclick=()=>{savePref('rbHeat',(APREF.rbHeat==null)?false:!APREF.rbHeat);renderApp();};}
       // TOP 10 side panel: the ＋ button opens it on BEST, the tabs switch it, ✕ closes it. The
@@ -17266,7 +17293,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const H=(window._cmpOvlHide instanceof Set)?window._cmpOvlHide:new Set();
         const G=(window._cmpOvlGrey instanceof Set)?window._cmpOvlGrey:new Set();
         const vis=(window._cmpEqxSeries||[]).filter(s2=>!H.has(String(s2.id))&&!G.has(String(s2.id)));
-        window.expandCompareEq(vis.length?vis:(window._cmpEqxSeries||[]));};
+        window.expandCompareEq(vis.length?vis:(window._cmpEqxSeries||[]),{noTabs:true});};
       // v68.0: mount the live inline equity-overlay chart (crosshair, wheel zoom, drag pan,
       //   dbl-click reset, 2B-style key box) into the host the render just emitted.
       if(typeof window.cmpOvlMount==='function')window.cmpOvlMount('cmp-ovl-host');}
