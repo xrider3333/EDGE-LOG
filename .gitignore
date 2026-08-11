@@ -61,3 +61,7 @@ desktop.ini
 *.log
 tmp/
 temp/
+
+# Alpaca API credentials (stock data importer) — never commit
+tools/.alpaca_keys.json
+.alpaca_keys.json
