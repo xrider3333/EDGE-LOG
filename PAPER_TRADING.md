@@ -110,6 +110,41 @@ look-ahead), (b) something real to learn from a forward test, (c) low port cost.
 mechanisms (trendline break / opening-range breakout / noise-band momentum), all
 execution-clean, one shared demo account.
 
+## Chart layout + the fill-attribution constraint (2026-08-11)
+
+**Use one chart per strategy — three charts, all NQ, one demo account:**
+
+| Chart | Strategy | Why it needs its own |
+|---|---|---|
+| NQ 1-Minute RTH (≥30 days) | `EdgeLogENGUQ1m` | different timeframe — mandatory |
+| NQ 5-Minute RTH (~20 days) | `EdgeLogORBV2` | needs Calculate=OnEachTick (watches intrabar volume) |
+| NQ 5-Minute RTH (≥25 days) | `EdgeLogNOISE` | needs 14 prior sessions warm; keeps its trade marks separate |
+
+ORB V2 and NOISE *could* technically share the 5-min chart (Calculate is per-strategy,
+not per-chart) — separate is still better: clean trade marks, independent enable/disable,
+and no confusion when debugging one leg.
+
+**THE CONSTRAINT — fills carry no strategy name.** `C:\EdgeLog\fills.csv` columns are
+`ExecutionId,Time,Account,Instrument,Action,Qty,Price,Commission,OrderId` (written by
+`tools/EdgeLogExport.cs`, header at its `Header` const). Three strategies on one account
++ one instrument produce fills that are **indistinguishable at the import layer**.
+Separate charts do NOT fix this — it is account-level, not chart-level.
+
+Two consequences and how we handle them:
+1. **Attribution** — the daily reconcile must match fills to legs by **time + price**
+   (which is exactly what `tools/reconcile.py` already does, with tz auto-offset and a
+   tolerance window). Ambiguity only arises if two legs fire in the same second at the
+   same price — rare, and detectable. *Cheap future upgrade:* add `ex.Order.Name` as a
+   `Signal` column to `EdgeLogExport.cs` (each strategy already uses unique signal names:
+   `EQ`/`EQx`, `V2`/`V2x`/`V2eod`, `NZ`/`NZexit`/`NZstop`) and teach `api/nt_sync.py` to
+   read it. Touches the live import path that carries the owner's REAL trades — do it
+   deliberately, not casually.
+2. **Netted account P&L** — the broker account shows the NET of all three legs, so a long
+   ENGU-Q and a short ORB V2 can read as flat. NinjaTrader tracks each strategy's own
+   position independently, so the strategies themselves behave correctly; but **per-leg
+   P&L must come from the reconcile / NT's per-strategy tracking, never from the account
+   balance.**
+
 ## Open items
 
 1. Owner: enable the two strategies (above).
