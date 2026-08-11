@@ -55,6 +55,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private DateTime sessionEnd = DateTime.MaxValue;
         private double   entryFill;
         private bool     stopPlaced;
+        private bool     catchupDone;   // mid-session enable: one-time replay of today's closed bars
 
         protected override void OnStateChange()
         {
@@ -138,6 +139,41 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             // V2 is a REAL-TIME rule; historical bars have no intrabar sequencing.
             if (State != State.Realtime) return;
+
+            // ── one-time catch-up when enabled mid-session ───────────────────────
+            // The historical pass above already rebuilt today's opening range and
+            // volume stats from the chart's bars. What it could NOT do is trade —
+            // so if the engine's one trade for today ALREADY fired on a closed bar
+            // (touch + that bar's volume ≥ its gate — all in the past now, so
+            // reading those finished volumes is not look-ahead), we sit out the
+            // rest of the day rather than take a stale, late entry.
+            if (!catchupDone)
+            {
+                catchupDone = true;
+                if (orDone && !tradedThisSession && barsClosed > OrBars)
+                {
+                    double cv = 0;
+                    for (int n = barsClosed; n >= 1; n--)   // today's closed bars, oldest first
+                    {
+                        int off = n;                        // barsAgo: barsClosed..1
+                        int barInSess = barsClosed - n;     // 0-based index within session
+                        if (barInSess >= OrBars)
+                        {
+                            double g = (VolFilter > 0 && barInSess > 0) ? VolFilter * (cv / barInSess) : 0;
+                            bool touched = High[off] >= upLvl || Low[off] <= dnLvl;
+                            if (touched && (VolFilter <= 0 || Volume[off] >= g))
+                            {
+                                tradedThisSession = true;   // engine already had its trade today
+                                Print("[EdgeLogORBV2] mid-session enable: today's signal already fired on a closed bar - standing down until tomorrow");
+                                break;
+                            }
+                        }
+                        cv += Volume[off];
+                    }
+                    if (!tradedThisSession)
+                        Print("[EdgeLogORBV2] mid-session enable: no signal yet today - live for the remainder of the session");
+                }
+            }
 
             // ── manage an open position ──────────────────────────────────────────
             if (Position.MarketPosition == MarketPosition.Long)
