@@ -176,6 +176,12 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
             // ── manage an open position ──────────────────────────────────────────
+            // EOD flat is handled ONLY by NT's IsExitOnSessionCloseStrategy (10s before
+            // the chart session's close, on NT's own clock). A manual Time[0] check here
+            // is a trap: under OnEachTick, Time[0] is the FORMING BAR'S END time for every
+            // tick in it, so `Time[0] >= sessionEnd-20s` fires on the FIRST tick of the
+            // session's last bar — 5 minutes early (observed live 2026-08-11: the first
+            // V2 trade flattened at 16:55:00 on a 17:00 session).
             if (Position.MarketPosition == MarketPosition.Long)
             {
                 if (!stopPlaced && entryFill > 0)
@@ -185,7 +191,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                         "V2x", "V2");
                     stopPlaced = true;
                 }
-                if (Time[0] >= sessionEnd.AddSeconds(-20)) { ExitLong("V2eod", "V2"); }
                 return;
             }
             if (Position.MarketPosition == MarketPosition.Short)
@@ -197,7 +202,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                         "V2x", "V2");
                     stopPlaced = true;
                 }
-                if (Time[0] >= sessionEnd.AddSeconds(-20)) { ExitShort("V2eod", "V2"); }
                 return;
             }
 
