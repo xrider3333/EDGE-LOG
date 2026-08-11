@@ -1,6 +1,78 @@
 # ORB — Opening Range Breakout: status, results & backlog
 
-> Living handoff doc. **Last updated: 2026-07-13** (Claude Code).
+> Living handoff doc. **Last updated: 2026-08-11** (Claude Code).
+
+---
+
+## ⚠ 2026-08-11 — READ FIRST: the vol-filter LOOK-AHEAD supersedes everything below
+
+**Every touch-entry ORB result in this file is inflated and NOT live-achievable as
+written.** Found 2026-08-10/11 while porting #125 to NinjaTrader for paper trading;
+full story + numbers in `PAPER_TRADING.md` (repo root), library-wide audit in memory
+`edgelog-lookahead-audit-2026-08-11`.
+
+- **The defect:** touch-entry fills at the range edge INTRABAR, but the volume filter
+  (`vol_filter=1.25`) reads the breakout bar's FINISHED volume — which does not exist at
+  fill time. The engine takes the good fill *and* hindsight-keeps only fat-volume bars.
+- **Size of it (measured 2026-08-11, NQ 5m RTH 16.1y, ORB_3_1.py, cost 0.533):**
+  NOTE there are TWO "#125"s in circulation — the true crown (ORB_3_1, trail_bars=5,
+  $360k) and a no-trail ORB_3_0 cut ($494k) that `tools/t5_runboard.py` and
+  `api/paper.py` carry as `ORB_125`. Both leak; both rows below.
+
+  | config | n | net | PF | DD | MAR | live-legal? |
+  |---|---|---|---|---|---|---|
+  | crowned #125: touch+vol, trail 5 | 4,076 | $360,591 | 1.60 | $9,352 | 2.39 | **NO** |
+  | touch+vol, no trail (the $494k cut) | 4,076 | $494,065 | 1.50 | $33,681 | 0.91 | **NO** |
+  | close-confirm+vol, trail 5 | 3,979 | **−$6,744** | 0.99 | $22,269 | −0.02 | yes |
+  | close-confirm+vol, no trail | 3,979 | $69,210 | 1.08 | $36,750 | 0.12 | yes |
+  | touch, vol OFF, trail 5 | 4,136 | $66,398 | 1.08 | $36,860 | 0.11 | yes |
+
+  The honest ceiling is ~$44–69k/16y however you slice it, and the crown's trailing
+  stop actually turns NEGATIVE on honest close fills (it whipsaws on the worse entry).
+  ~91% of the edge was the level-fill + hindsight-volume combination. Tools:
+  `tools/orb_live_legal_variants.py`, `orb_barclose_entry.py`, `orb_session_trace.py`
+  (bar-by-bar proof of when each input exists). Beware: calling `ORB_3_1_125C.py`
+  directly with no params silently falls through to ORB_3_1's own defaults — its pins
+  only apply through the Builder/validate flow.
+- **Blast radius:** all 15 touch-entry files (ORB 2.0/3.0/3.1/3.2/3.3 + forks) — so #125,
+  #121/#122, the gate/tilt/hybrid stack on top, and the ORB leg of the 1:1 blend. The
+  "triple validation" below (WF, lockbox, ES transfer) all re-ran the same engine, so
+  the leak passed every statistical gate. Clean exceptions: `ORB_3_1_125C`
+  (close-confirmed), `ORB_FADE_1_0`, `ORB_1_0` (no vol filter).
+- **Live right now:** `tools/nt/EdgeLogORBV2.cs` — "volume-confirmed chase": watches the
+  FORMING 5-min bar tick-by-tick, enters at market once touch + running-volume ≥ gate
+  have both happened. Same trade selection, honest fills (~−1 pt chase measured on 10s
+  data). Un-backtestable beyond ~7 weeks (needs intrabar volume) → the PAPER forward
+  test (BACKTESTER ▸ PAPER) is the arbiter.
+
+### The open research direction: replace the illegal gate with a PRE-KNOWN one
+
+The fill at the level carried the money ($494k with the illegal filter, $63k with no
+filter, $43k with close fills). A resting stop at the level is fully legal — what's
+illegal is gating it on the same bar's volume. So the salvage question is:
+
+> **Is there a filter whose value is known BEFORE the touch that recovers the
+> selectivity the volume filter faked?**
+
+Candidates — all computable at/before the touch, NOISE-style (from PRIOR data only):
+1. **Rolling range regime** — only trade sessions whose recent daily ranges are wide vs
+   the trailing median. The existing `atr_filter` knob is exactly this shape (trailing-
+   only, currently unused at 0.0) — sweep it as the PRIMARY knob, not a bolt-on.
+2. **Opening-range width percentile** — today's OR width vs the last N days' OR widths;
+   known the moment the OR completes, before any touch.
+3. **Overnight gap / overnight range** — known at 09:30.
+4. **Time-of-day noise profile** — NOISE's prior-14-day per-bar-of-day sigma machinery
+   (`_sigma_matrix` in `NOISE_1_0.py`) gating WHEN touches are tradeable.
+5. **Session volume pace** — volume of bars BEFORE the breakout bar vs typical pace
+   (legal because it excludes the fill bar).
+
+Ground rules for this research: touch-entry stays (that IS the edge); filter inputs must
+exclude the fill bar entirely; compare against the honest baselines in
+`tools/orb_live_legal_variants.py` (B/C/D, $44–69k), never against the leaked $494k;
+full WF + lockbox + the execution-feasibility audit ("does every input exist at the
+moment of the fill?") before any re-crowning.
+
+---
 > Sibling of `ROADMAP.md`. Purpose: any human or Claude can pick ORB up cold from here.
 > All $ are **net of fees** unless flagged. Fees: commission $5.66 + slippage 0.25pt →
 > `cost_pts` = **0.533 (NQ, mult 20)**, **0.363 (ES, mult 50)**. Data: `NOADJ_NQ_5m_RTH.csv`

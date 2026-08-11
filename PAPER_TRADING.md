@@ -36,14 +36,21 @@ Forward-testing the crowned strategies on live data with no real money, to answe
 (`vol_filter=1.25 × session mean so far`) — a number that does not exist at fill time.
 The backtest takes the good fill *and* hindsight-selects the bars that ended fat.
 
-**Measured (NQ 5m RTH, 16.1y, `tools/orb_live_legal_variants.py` + `orb_barclose_entry.py`):**
+**Measured (NQ 5m RTH, 16.1y — CORRECTED 2026-08-11: two "#125"s exist; the true crown
+is ORB_3_1 with trail_bars=5; `t5_runboard.py`/`api/paper.py` carry a no-trail ORB_3_0
+cut under the same name. Both leak):**
 
 | Variant | Trades | Net | Verdict |
 |---|---|---|---|
-| #125 as crowned (touch + vol filter) | 4,076 | $494,065 | NOT live-legal |
-| Wait for close, filter there, fill at close | same 4,076 | $43,612 | live-legal; **91% of the edge was the fill price**, not trade selection |
-| Vol filter OFF / close-confirmed variants | ~4.1k | $63–69k | live-legal, ~1/7th the edge |
+| Crowned #125 (touch + vol + trail 5) | 4,076 | $360,591 (PF 1.60, MAR 2.39) | NOT live-legal |
+| The no-trail "$494k cut" (touch + vol) | 4,076 | $494,065 | NOT live-legal |
+| Close-confirmed + vol + trail 5 | 3,979 | **−$6,744** | live-legal; the trail whipsaws on honest fills |
+| Close-confirmed / vol-off variants (no trail) | ~4k | $44–69k | live-legal ceiling, PF ≤1.08 |
 | Naive live emulation (enter→eject thin bars) | 26k fills | **−$58k** | fatal: ~1,516 ejections/yr pay round turns |
+
+~91% of the edge was the level-fill + hindsight-volume combination. Gotcha: calling
+`ORB_3_1_125C.py` with no params silently uses ORB_3_1's own defaults — its pins only
+bind through the Builder/validate flow.
 
 **Library audit (2026-08-11, all 60 strategy files):** the leak is the entire
 **touch-entry ORB family — 15 files** (ORB 2.0/3.0/3.1/3.2/3.3 + forks). Everything else
@@ -82,6 +89,26 @@ Volume only accumulates, so V2 watches the **forming** 5-min bar tick-by-tick:
   `EdgeLogENGUQ1m` (1-min) ▸ Account **DEMO7240108** ▸ defaults ▸ Enabled ▸ OK.
 - Known V1 lessons already fixed in V2: orphaned protective stop after NT's session-close
   flatten; historical-replay trade marks confusing the chart; thin-vol scratch churn.
+
+## Candidate legs to add (2026-08-11 assessment)
+
+Criteria for going live on the demo account: (a) execution-feasibility CLEAN (no
+look-ahead), (b) something real to learn from a forward test, (c) low port cost.
+
+| Candidate | Timing | Verdict |
+|---|---|---|
+| **ENGU-Q #149** | CLEAN | **RUN IT** — already ported and compiled |
+| **ORB V2** | CLEAN by construction | **RUN IT** — un-backtestable, so forward test is the ONLY evidence path |
+| **NOISE 1.0** | CLEAN (close signal → next-open fill) | **BEST THIRD LEG.** Easiest port of all (market order at next bar's open — no intrabar logic). Forward testing also sidesteps its two open problems: ES-transfer FAILED (PF 1.12) and the lockbox-status contradiction in its own docstring. Live paper data is *new* evidence neither of those blocks. Use the validated config: lookback 14 · bands 1.5/1.5 · vwap exit · both sides · all_day, `stop_mode='bandwidth', stop_k=1.0` |
+| ORB_FADE_1_0 | CLEAN (close-anchored) | Only if it has a validated config — check `ORB.md`; otherwise not worth the port |
+| TTIBS_1_0 | CLEAN | Daily bars, one decision/day — trivial to port BUT failed the lockbox previously; forward testing a rejected strategy is low value. Skip unless owner wants it |
+| VWAP_FADE_2_0 / GAPFADE / SUPERTREND_3 / GAINZ_RF | CLEAN | Clean but never crowned — no reason to spend paper slots yet |
+| REVERT / ENGU_1_3.x | MILD | Not crowned; MILD trail assumption; skip |
+| Any touch-entry ORB (15 files) | **LEAK** | Never — they cannot be executed as written |
+
+**Recommended paper book: ENGU-Q + ORB V2 + NOISE.** Three legs, three different
+mechanisms (trendline break / opening-range breakout / noise-band momentum), all
+execution-clean, one shared demo account.
 
 ## Open items
 
