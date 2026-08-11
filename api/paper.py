@@ -61,12 +61,31 @@ ORB_125 = dict(or_bars=1, trade_mode="Both", stop_frac=0.75, vol_filter=1.25,
 from augur_strategies import ENGUQ_1M_1_0 as _enguq  # noqa: E402
 ENGUQ_149 = dict(_enguq.NQ_DEPLOY_PARAMS_149)
 
+# NOISE leg params: the validated config (see NOISE_1_0.py docstring) + the
+# researched bandwidth stop. NOISE is execution-CLEAN (close signal -> next-open
+# fill), so unlike ORB its shadow numbers are live-achievable.
+NOISE_FROZEN = dict(lookback=14, band_mult_long=1.5, band_mult_short=1.5,
+                    exit_mode="vwap", side="Both", window="all_day",
+                    flat_eod=True, skip_holidays=False,
+                    stop_mode="bandwidth", stop_k=1.0)
+
 PAPER_LEGS = [
+    # ORB: the engine's touch-entry volume filter is LOOK-AHEAD (2026-08-11 audit,
+    # see PAPER_TRADING.md) — these shadow numbers are NOT live-achievable. Kept as
+    # a flagged reference line; the live candidate is the NT-side ORB V2 chase.
     {"key": "ORB", "strategy": "ORB_3_0.py", "instrument": "NQ", "timeframe": "5m",
-     "session": "rth", "params": ORB_125, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT},
+     "session": "rth", "params": ORB_125, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "flags": ["lookahead-engine"]},
     {"key": "ENGUQ", "strategy": "ENGUQ_1M_1_0.py", "instrument": "NQ", "timeframe": "1m",
      "session": "rth", "params": ENGUQ_149, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT},
+    {"key": "NOISE", "strategy": "NOISE_1_0.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": NOISE_FROZEN, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT},
 ]
+
+# ── Layer 1: the NT demo account whose fills we mirror into the daily report ────
+PAPER_LIVE_ACCOUNT = "DEMO7240108"
+_FILLS_CSV = r"C:\EdgeLog\fills.csv"
+_INST_MULT = {"NQ": 20.0, "MNQ": 2.0, "ES": 50.0, "MES": 5.0}
 
 # ── fresh 10s tick source ────────────────────────────────────────────────────────
 _ADDON_10S = r"C:\EdgeLog\ohlc_addon\NQ_10s.csv"
@@ -242,6 +261,58 @@ def run_shadow(leg, today):
            "data_fresh_thru": data_fresh_thru, "warnings": warnings}
 
 
+# ── Layer 1: today's demo-account fills, mirrored into the daily report ──────────
+def collect_live_fills(target_date):
+    """Read C:\\EdgeLog\\fills.csv and return the PAPER demo account's fills for
+    target_date, plus a best-effort day-net. Attribution to individual strategies
+    is deliberately NOT attempted here (fills carry no strategy name — that's the
+    reconcile layer's job, by time+price). Never raises."""
+    out = {"account": PAPER_LIVE_ACCOUNT, "n_fills": 0, "fills": [],
+           "day_net_usd": None, "flat_eod": True, "warnings": []}
+    try:
+        if not os.path.exists(_FILLS_CSV):
+            out["warnings"].append("fills.csv missing")
+            return out
+        date_s = target_date.isoformat()
+        pos = {}      # instrument root -> signed qty
+        cash = {}     # instrument root -> signed cash flow in points*qty*mult
+        with open(_FILLS_CSV, encoding="utf-8-sig") as f:
+            header = f.readline()
+            for line in f:
+                parts = line.strip().split(",")
+                if len(parts) < 9 or parts[2] != PAPER_LIVE_ACCOUNT:
+                    continue
+                if not parts[1].startswith(date_s):
+                    continue
+                inst = parts[3]
+                root = inst.split(" ")[0].upper()
+                action = parts[4].upper()
+                try:
+                    qty = float(parts[5]); px = float(parts[6])
+                except ValueError:
+                    continue
+                side = 1 if action.startswith("BUY") else -1
+                mult = _INST_MULT.get(root, 1.0)
+                pos[root] = pos.get(root, 0.0) + side * qty
+                cash[root] = cash.get(root, 0.0) - side * qty * px * mult
+                out["fills"].append({"time": parts[1], "instrument": inst,
+                                     "action": action, "qty": qty, "price": px})
+        out["n_fills"] = len(out["fills"])
+        open_roots = [r for r, q in pos.items() if abs(q) > 1e-9]
+        out["flat_eod"] = not open_roots
+        if out["n_fills"]:
+            if open_roots:
+                out["warnings"].append(
+                    "position still open in " + ",".join(open_roots)
+                    + " - day net excludes it")
+                out["day_net_usd"] = sum(v for r, v in cash.items() if r not in open_roots)
+            else:
+                out["day_net_usd"] = sum(cash.values())
+    except Exception as e:
+        out["warnings"].append(f"live-fills read failed: {type(e).__name__}: {e}")
+    return out
+
+
 # ── once-a-day EOD driver ─────────────────────────────────────────────────────────
 _last_check_ts = 0.0
 
@@ -365,6 +436,7 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
                     "entry_px": t["entry_px"], "exit_px": t["exit_px"],
                     "pnl_pts": t["pnl_pts"], "pnl_usd": t["pnl_usd"],
                     "layer": "shadow", "run_date": target_date.isoformat(),
+                    "flags": leg.get("flags") or [],
                 })
                 doc["createdAt"] = firestore.SERVER_TIMESTAMP
                 batch.set(q.db.collection("users").document(uid)
@@ -376,7 +448,7 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
         leg_reports[leg["key"]] = {
             "n_signals": len(r["trades"]), "trade_ids": trade_ids, "pnl_usd": leg_pnl,
             "bars_appended": r["bars_appended"], "data_fresh_thru": r["data_fresh_thru"],
-            "warnings": r["warnings"],
+            "warnings": r["warnings"], "flags": leg.get("flags") or [],
         }
         total_pnl += leg_pnl
         if r["warnings"]:
@@ -386,9 +458,13 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
     if not dry_run and pending:
         batch.commit()
 
+    # blend stays the owner's 1:1 ORB+ENGU-Q baseline — NOISE is reported as its own
+    # leg but does NOT join the blend until the owner adds it to the book.
+    blend_pnl = sum(leg_reports[k]["pnl_usd"] for k in ("ORB", "ENGUQ") if k in leg_reports)
     report = {
         "legs": leg_reports,
-        "blend": {"pnl_usd": total_pnl},
+        "blend": {"pnl_usd": blend_pnl},
+        "live": collect_live_fills(target_date),   # Layer 1: NT demo fills, unattributed
         "status": "runner_done",
         "run_date": target_date.isoformat(),
     }
