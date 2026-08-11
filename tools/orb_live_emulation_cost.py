@@ -67,9 +67,16 @@ def port_sim(o, h, l, c, v, day_id, p):
         k = or_bars
         while k < m and not done:
             if pos == 0:
-                # resting stop entry: fill at the level, or at the open if it gapped past
-                up = sh[k] >= up_lvl
-                dn = sl[k] <= dn_lvl
+                # A resting stop entry can only EXIST on the correct side of the market:
+                # a buy-stop must sit ABOVE price, a sell-stop BELOW. After an ejection,
+                # price is usually already through the level, so the order cannot be
+                # re-placed until price comes back. Without this NT-realistic constraint
+                # the sim re-fires every bar and wildly over-counts ejections.
+                prev_close = sc[k - 1]
+                can_arm_up = prev_close < up_lvl
+                can_arm_dn = prev_close > dn_lvl
+                up = can_arm_up and sh[k] >= up_lvl
+                dn = can_arm_dn and sl[k] <= dn_lvl
                 if not (up or dn):
                     k += 1
                     continue
