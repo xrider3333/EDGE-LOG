@@ -68,12 +68,11 @@ DEFAULT_PARAMS = {
                    "least this multiple of the same-length prefix averaged over the prior 20 "
                    "sessions. LIVE-LEGAL: the breakout bar's own volume is never read. 0 = off.",
     },
-    "vol_filter": {
-        "default": 1.25, "min": 0.0, "max": 3.0, "step": 0.25, "type": "float",
-        "label": "Volume filter (× session avg, 0=off)",
-        "tooltip": "Require the breakout bar's volume ≥ this multiple of the mean bar volume "
-                   "of the session so far. Filters thin-volume fake breakouts. 1.25–1.5 validated.",
-    },
+    # v-SALVAGE FIX: the illegal filter is REMOVED FROM THE SEARCH SPACE. Left open, the
+    #   optimizer walks straight back to it - run 209 crowned vol_filter 1.0 / vpace 0.0 and
+    #   "passed" on the same look-ahead this file exists to replace. It stays a function
+    #   argument (default 0.0) so ORB_3_1 parity can still be reproduced by hand, but the
+    #   search can never reach it.
     "breakout_buf": {
         "default": 0.0, "min": 0.0, "max": 0.5, "step": 0.05, "type": "float",
         "label": "Breakout buffer (× range)",
