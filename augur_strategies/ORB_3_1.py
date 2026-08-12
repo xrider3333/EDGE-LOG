@@ -139,7 +139,8 @@ PARAM_GRID_PRESETS = {
     #    partial=0 / trail=0 corner IS the single-lot 3.0 control to beat.
     "Short  (scale-out core — 2 knobs only)": {
         "or_bars": [1], "trade_mode": ["Both"], "stop_frac": [0.75],
-        "vol_filter": [1.25], "breakout_buf": [0.0], "atr_filter": [0.0],
+        "vol_filter": [1.25], "close_confirm": [True],
+        "breakout_buf": [0.0], "atr_filter": [0.0],
         "target_R": [0.0], "flat_eod": [True],
         "partial_exit_R": [0.0, 1.0, 1.5, 2.0, 2.5, 3.0],
         "trail_bars":     [0, 3, 5, 8],
@@ -149,7 +150,7 @@ PARAM_GRID_PRESETS = {
     "Medium (base + scale-out)": {
         "or_bars": [1, 3], "trade_mode": ["Both"], "stop_frac": [0.5, 0.75],
         "vol_filter": [1.0, 1.25], "breakout_buf": [0.0], "atr_filter": [0.0],
-        "target_R": [0.0], "flat_eod": [True], "close_confirm": [False, True],
+        "target_R": [0.0], "flat_eod": [True], "close_confirm": [True],
         "partial_exit_R": [0.0, 1.5, 2.0, 3.0],
         "trail_bars":     [0, 3, 5, 8],
     },
@@ -160,7 +161,7 @@ PARAM_GRID_PRESETS = {
         "or_bars": [1, 3, 6], "trade_mode": ["Both", "First-candle dir"],
         "stop_frac": [0.5, 0.75, 1.0], "vol_filter": [1.0, 1.25, 1.5],
         "breakout_buf": [0.0], "atr_filter": [0.0, 0.8],
-        "target_R": [0.0, 3.0, 4.5], "flat_eod": [True], "close_confirm": [False, True],
+        "target_R": [0.0, 3.0, 4.5], "flat_eod": [True], "close_confirm": [True],
         "partial_exit_R": [0.0, 1.5, 2.0, 3.0],
         "trail_bars":     [0, 3, 5, 8],
     },
@@ -168,7 +169,8 @@ PARAM_GRID_PRESETS = {
     #    so you can read the lot-1 take-profit level in isolation (trail fixed at 5).
     "Partial (lot-1 TP scan)": {
         "or_bars": [1], "trade_mode": ["Both"], "stop_frac": [0.75],
-        "vol_filter": [1.25], "breakout_buf": [0.0], "atr_filter": [0.0],
+        "vol_filter": [1.25], "close_confirm": [True],
+        "breakout_buf": [0.0], "atr_filter": [0.0],
         "target_R": [0.0], "flat_eod": [True], "trail_bars": [5],
         "partial_exit_R": [0.0, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0],
     },
@@ -187,6 +189,13 @@ def run_backtest(
     day_id=None,
     return_trades: bool = False, _stop_event=None, _pause_event=None,
 ):
+    # ── LOOK-AHEAD GUARD (2026-08-11) — see ORB_3_0.py for the full note ──────
+    # vol_filter reads the breakout bar's FINISHED volume; with close_confirm OFF
+    # the fill is INTRABAR at the range edge, so that number does not exist yet.
+    # None makes the illegal combination unreachable by every search mode.
+    if float(vol_filter or 0) > 0 and not close_confirm:
+        return None
+
     o = np.asarray(opens, float); h = np.asarray(highs, float)
     l = np.asarray(lows, float);  c = np.asarray(closes, float)
     v = np.asarray(volumes, float) if volumes is not None else None

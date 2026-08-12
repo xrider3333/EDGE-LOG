@@ -77,14 +77,14 @@ DEFAULT_PARAMS = {
 
 PARAM_GRID_PRESETS = {
     "Chandelier scan": {
-        "or_bars": [1], "trade_mode": ["Both"], "stop_frac": [0.75], "vol_filter": [1.25],
+        "or_bars": [1], "trade_mode": ["Both"], "stop_frac": [0.75], "vol_filter": [0.0],
         "breakout_buf": [0.0], "partial_exit_R": [0.0], "trail_bars": [0], "atr_filter": [0.0],
         "target_R": [0.0], "flat_eod": [True], "atr_period": [5],
         "trail_atr": [1.0, 1.5, 2.0, 2.5, 3.0, 4.0],
         "trail_activate_R": [0.0, 1.0, 2.0], "breakeven_R": [0.0, 1.0],
     },
     "Activate + breakeven (bar trail)": {
-        "or_bars": [1], "trade_mode": ["Both"], "stop_frac": [0.75], "vol_filter": [1.25],
+        "or_bars": [1], "trade_mode": ["Both"], "stop_frac": [0.75], "vol_filter": [0.0],
         "breakout_buf": [0.0], "partial_exit_R": [0.0], "trail_bars": [5], "atr_filter": [0.0],
         "target_R": [0.0], "flat_eod": [True], "trail_atr": [0.0],
         "trail_activate_R": [0.0, 1.0, 2.0], "breakeven_R": [0.0, 1.0, 2.0],
@@ -103,6 +103,15 @@ def run_backtest(
     flat_eod: bool = True, skip_holidays: bool = False,
     day_id=None, return_trades: bool = False, _stop_event=None, _pause_event=None,
 ):
+    # ── LOOK-AHEAD GUARD (2026-08-11) ────────────────────────────────────────
+    # This file has NO close_confirm option, so entry is always the intrabar
+    # touch — meaning ANY vol_filter>0 reads the breakout bar's FINISHED volume
+    # before it exists (the 2026-08-10 leak). There is no legal nonzero setting
+    # here: use ORB_3_1 with close_confirm on, or the vpace_filter families
+    # (3.4/3.5) whose filter only reads bars BEFORE the entry bar.
+    if float(vol_filter or 0) > 0:
+        return None
+
     o = np.asarray(opens, float); h = np.asarray(highs, float)
     l = np.asarray(lows, float);  c = np.asarray(closes, float)
     v = np.asarray(volumes, float) if volumes is not None else None

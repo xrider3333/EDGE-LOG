@@ -103,30 +103,50 @@ DEFAULT_PARAMS = {
     },
 }
 
+# ── PRESETS ARE LIVE-LEGAL BY CONSTRUCTION (rebuilt 2026-08-11) ──────────────
+# A grid is a cartesian product, so it cannot express "vol_filter>0 ONLY when
+# close_confirm is on". Mixing them in one preset therefore hands the optimizer a
+# hindsight region that wins every time. Each preset below is internally legal
+# instead: either the filter is OFF (touch entry, the honest ~$63k form), or the
+# filter is ON and close_confirm is PINNED True (decide at the bar close, where
+# that bar's volume is legitimately known — the honest ~$69k form). Both legal
+# regions stay reachable; the illegal one is simply not in any search space.
 PARAM_GRID_PRESETS = {
-    "Short  (OR + direction)": {
+    "Short  (OR + direction · no filter)": {
         "or_bars": [3, 6], "trade_mode": ["Both", "First-candle dir"],
-        "stop_frac": [0.75, 1.0], "vol_filter": [1.5], "breakout_buf": [0.0],
-        "target_R": [0.0], "flat_eod": [True],
+        "stop_frac": [0.75, 1.0], "vol_filter": [0.0], "close_confirm": [False],
+        "breakout_buf": [0.0], "target_R": [0.0], "flat_eod": [True],
     },
-    "Medium (stop + vol)": {
+    "Medium (stop · no filter)": {
         "or_bars": [3, 6, 12], "trade_mode": ["Both", "First-candle dir"],
-        "stop_frac": [0.5, 0.75, 1.0], "vol_filter": [0.0, 1.0, 1.5, 2.0],
-        "breakout_buf": [0.0], "close_confirm": [False, True],
+        "stop_frac": [0.5, 0.75, 1.0], "vol_filter": [0.0], "close_confirm": [False],
+        "breakout_buf": [0.0], "target_R": [0.0, 3.0], "flat_eod": [True],
+    },
+    "Medium (stop + vol · close-confirmed)": {
+        "or_bars": [3, 6, 12], "trade_mode": ["Both", "First-candle dir"],
+        "stop_frac": [0.5, 0.75, 1.0], "vol_filter": [1.0, 1.5, 2.0],
+        "breakout_buf": [0.0], "close_confirm": [True],
         "target_R": [0.0, 3.0], "flat_eod": [True],
     },
-    "Long   (full simple sweep)": {
+    "Long   (full simple sweep · no filter)": {
         "or_bars": [1, 3, 6, 9, 12], "trade_mode": ["Both", "First-candle dir", "Long Only", "Short Only"],
-        "stop_frac": [0.5, 0.75, 1.0, 1.5], "vol_filter": [0.0, 1.0, 1.5, 2.0],
-        "breakout_buf": [0.0, 0.05, 0.1], "close_confirm": [False, True],
+        "stop_frac": [0.5, 0.75, 1.0, 1.5], "vol_filter": [0.0], "close_confirm": [False],
+        "breakout_buf": [0.0, 0.05, 0.1], "target_R": [0.0, 2.0, 3.0, 5.0],
+        "atr_filter": [0.0, 0.8, 1.0], "flat_eod": [True],
+    },
+    "Long   (full sweep + vol · close-confirmed)": {
+        "or_bars": [1, 3, 6, 9, 12], "trade_mode": ["Both", "First-candle dir", "Long Only", "Short Only"],
+        "stop_frac": [0.5, 0.75, 1.0, 1.5], "vol_filter": [1.0, 1.5, 2.0],
+        "breakout_buf": [0.0, 0.05, 0.1], "close_confirm": [True],
         "target_R": [0.0, 2.0, 3.0, 5.0],
         "atr_filter": [0.0, 0.8, 1.0], "flat_eod": [True],
     },
-    "Regime  (vol-filter test)": {
-        # Holds the validated config fixed, sweeps ONLY the vol-regime filter so you
-        # can read whether skipping low-vol days helps in isolation.
+    "Regime  (vol-regime filter test)": {
+        # Holds a legal base fixed and sweeps ONLY the vol-REGIME filter (atr_filter,
+        # which reads prior sessions and is causal) so you can read it in isolation.
         "or_bars": [3], "trade_mode": ["Both"], "stop_frac": [0.75],
-        "vol_filter": [1.5], "breakout_buf": [0.0], "target_R": [0.0],
+        "vol_filter": [0.0], "close_confirm": [False],
+        "breakout_buf": [0.0], "target_R": [0.0],
         "atr_filter": [0.0, 0.6, 0.8, 1.0, 1.2], "flat_eod": [True],
     },
 }
@@ -143,6 +163,17 @@ def run_backtest(
     day_id=None,
     return_trades: bool = False, _stop_event=None, _pause_event=None,
 ):
+    # ── LOOK-AHEAD GUARD (2026-08-11) ────────────────────────────────────────
+    # vol_filter reads the breakout bar's FINISHED volume. With close_confirm
+    # OFF the fill happens INTRABAR at the range edge, so that volume does not
+    # exist yet — the 2026-08-10 leak that made this family look like $494k when
+    # every live-legal form earns $44-69k (tools/orb_live_legal_variants.py).
+    # Returning None makes the combination unreachable by ANY search mode —
+    # preset, grid, or auto-sampling from the ranges above — instead of letting
+    # a hindsight config win a sweep by construction, which it always will.
+    if float(vol_filter or 0) > 0 and not close_confirm:
+        return None
+
     o = np.asarray(opens, float); h = np.asarray(highs, float)
     l = np.asarray(lows, float);  c = np.asarray(closes, float)
     v = np.asarray(volumes, float) if volumes is not None else None
