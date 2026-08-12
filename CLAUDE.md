@@ -54,6 +54,10 @@ Structure EVERY substantive reply top-to-bottom as:
    the table that you give me, keep it tldr and bullet each sentence / section").** No prose
    paragraphs below the table — every sentence is its own bullet. Group related bullets under
    a short bold lead-in when there is more than one topic. Shorter is always better.
+3b. **ALL PROSE IS BULLETS — no paragraphs (owner 2026-08-12: "consolidate your responses to
+   bullet points").** Under-table detail is `•`-led lines, one fact each, no multi-sentence
+   paragraphs. Tables stay as-is (rule 2 / RUNBOARD rule 4b). Bold the topic at the start of a
+   bullet when it names a UI location or subject (keeps rule 2b's topic-first habit).
 3. **Details / caveats / how-to-verify / numbers go UNDERNEATH the table** — the owner skims the
    table, then drops down for detail. Keep prose terse; process/"thinking" text is noise.
    **KEEP IT SHORT AND JARGON-FREE (owner 2026-07-23, stated twice): "make more concise and
