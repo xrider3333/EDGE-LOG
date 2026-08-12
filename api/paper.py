@@ -426,8 +426,19 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
             entry_unix = int(t["entry_dt"].timestamp())
             exit_unix = int(t["exit_dt"].timestamp())
             doc_id = f"pt_{leg['key']}_{entry_unix}"
-            trade_ids.append(doc_id)
-            leg_pnl += t["pnl_usd"]
+            # run_shadow re-scans the WHOLE window since PAPER_START every day, so this
+            # loop sees every trade ever, not just today's. Two consequences, both handled
+            # here (bug found 2026-08-12: ORB's single Aug-11 trade was being re-reported
+            # as a fresh signal each day, and every trade carried the RUN's date, which
+            # collapsed the cumulative curve onto one x-point):
+            #   • the trade doc is stamped with the TRADE's own date (upsert is idempotent
+            #     on doc_id, so re-scanning simply refreshes it), and
+            #   • the daily report counts only trades that actually happened THAT day.
+            t_date = t["entry_dt"].date()
+            is_today = (t_date == target_date)
+            if is_today:
+                trade_ids.append(doc_id)
+                leg_pnl += t["pnl_usd"]
             if not dry_run:
                 doc = json_safe({
                     "leg": leg["key"], "strategy": leg["strategy"],
@@ -435,7 +446,7 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
                     "entryIso": t["entry_dt"].isoformat(), "exitIso": t["exit_dt"].isoformat(),
                     "entry_px": t["entry_px"], "exit_px": t["exit_px"],
                     "pnl_pts": t["pnl_pts"], "pnl_usd": t["pnl_usd"],
-                    "layer": "shadow", "run_date": target_date.isoformat(),
+                    "layer": "shadow", "run_date": t_date.isoformat(),
                     "flags": leg.get("flags") or [],
                 })
                 doc["createdAt"] = firestore.SERVER_TIMESTAMP
@@ -446,7 +457,10 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
                     batch.commit(); batch = q.db.batch(); pending = 0
 
         leg_reports[leg["key"]] = {
-            "n_signals": len(r["trades"]), "trade_ids": trade_ids, "pnl_usd": leg_pnl,
+            # n_signals / pnl_usd are THIS DAY only; n_since_start is the running total
+            # so the cumulative view is still available without conflating the two.
+            "n_signals": len(trade_ids), "n_since_start": len(r["trades"]),
+            "trade_ids": trade_ids, "pnl_usd": leg_pnl,
             "bars_appended": r["bars_appended"], "data_fresh_thru": r["data_fresh_thru"],
             "warnings": r["warnings"], "flags": leg.get("flags") or [],
         }
