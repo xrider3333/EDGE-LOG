@@ -78,7 +78,12 @@ Structure EVERY substantive reply top-to-bottom as:
 4b. **THE RESULTS TABLE IS CALLED THE `RUNBOARD` (named 2026-08-08 at owner request: "name this
    chart layout. i want to be able to call it up on other chart sessions").** When the owner says
    "give me the RUNBOARD" / "RUNBOARD it", emit exactly this, one row per config:
-   `# | Config | Type | Net | PF | MaxDD | net/DD | IS | WF | LB | Verdict`
+   `# | Run | Type | Net | PF | MaxDD | net/DD | IS | WF | LB | Verdict`
+   • **First column is "Run" — the Past-Runs run number** (owner 2026-08-12: "why do you have a
+     config column, you mean run?"). If a result was computed locally and has NO run number yet,
+     the cell reads `local` — and that is a signal to PERSIST it as a real run (pinned single-config
+     file → Auto-Validate → Past-Runs card) so the owner can see it in the UI, where he actually
+     evaluates things. Numbers that exist only in chat/scratchpad don't count as delivered.
    RUNBOARD hard rules:
    • **MaxDD column holds a POSITIVE number** — the header already says drawdown, so never print a
      leading minus (owner 2026-08-08: "max DD has - above it. adjust format"). Same for any loss cell.
