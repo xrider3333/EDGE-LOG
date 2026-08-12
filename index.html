@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.16';
+const VERSION='73.17';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.17',date:'2026-08-12',notes:['Library: archived the leak-compromised touch-entry ORB family (ORB 2.0/3.0/3.1/3.2/3.3 and forks, 21 files) plus VWAP FADE 2.0, per the look-ahead audit and fill-realism sweep. ORB 3.5, ORB 3.1 125C, ORB FADE 1.0, ORB 1.0, NOISE 1.0 and the ENGU-Q files are unaffected and stay active.']},
 {v:'73.16',date:'2026-08-11',notes:['The BOOKS table in COMPARE was flagging the saved book rows for a look-ahead ORB leg but not the LIVE BOOK RUN rows, so the top row could show an ORB book at full net with no warning. Live book runs now carry the same flag.']},
 {v:'73.14',date:'2026-08-11',notes:['FILL-REALISM SWEEP. Audited all 60 strategy files for the same bug class as the ORB look-ahead: a simulated fill that used something nobody could have known yet. Fixed 13 files.','The BOOKS table in COMPARE now flags every book that contains an ORB leg, champion row included. Those net dollar figures are not live-achievable and the row now says so.','Three files were handing back invented profit factors and drawdowns without simulating a single trade. They now refuse to run instead of returning fiction.','Eleven strategies were paying the exact stop price even when the bar opened straight past it. They now fill at the open on a gap, which is what a real stop order does.','The VWAP FADE pair aimed its exit at a price that was partly built from the same bar it was being tested against. The target is now the level as it stood when the bar opened.','New push gate: any strategy file you change is checked for these mistakes before it can be pushed.']},
 {v:'73.13',date:'2026-08-11',notes:['Results ▸ 2B CONFIGS: a run scored before the 2026-08-10 gate look-ahead fix now shows an amber PRE-FIX ML pill next to the GATE / TILT / HYBRID tabs, so old inflated numbers are not mistaken for causal ones. Re-run Auto-Validate to get a clean read.','The TILT tab now carries a permanent notice: TILT is retired, 0 of 12 tilts cleared the pre-registered bar on causal scores (2026-08-10) - shown for reference only, do not adopt.','PAPER - the LIVE row (NinjaTrader demo fills) now counts from 2026-08-12 only, excluding the 2026-08-11 shakedown trade (wrong session template, -650). That first day is still visible in its own daily report.']},
@@ -9000,8 +9001,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //    strategy files that clutter the Library. Nothing here is deleted or hidden from history -
     //    these files just start ARCHIVED by default, same as a manual ARCHIVE click, and layer
     //    UNDER the per-file archived/unarchived toggle below (metaStratPrefs) so the owner can
-    //    still unarchive any one of them. Matched by EXACT filename only (no fuzzy/family regex)
-    //    so this can never accidentally catch ORB_3_x / ORB_1_0 / ENGUQ_* / anything active.
+    //    still unarchive any one of them. Matched by EXACT filename only (no fuzzy/family regex) -
+    //    so an entry here never accidentally catches ORB_3_5 / ORB_3_5_LD / ORB_3_1_125C /
+    //    ORB_FADE_1_0 / ORB_1_0 / NOISE_1_0 / ENGUQ_* / anything still active.
     const ARCHIVED_STRATS=[
       'ENGU_1_1_20','ENGU_1_1_21','ENGU_1_2_1',            // GROK ENGU v20 lineage
       'ENGU_1_3_1','ENGU_1_3_2','ENGU_1_3_3','ENGU_1_3_4','ENGU_1_3_5',  // CLAUDE ENGU lineage (incl ENGU 3)
@@ -9009,7 +9011,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       'VWAP_FADE_1_0',                                     // superseded by VWAP FADE 2.0
       'SUPERTREND_1_0','SUPERTREND_2_0',                   // superseded by SUPERTREND 3.0
       'ORB_2_0',                                            // Opening Range Breakout v2 - superseded by ORB 3.x
-      'ENGUDQ_1M_1_0'];                                     // dead short mirror of ENGUQ_1M_1_0
+      'ENGUDQ_1M_1_0',                                      // dead short mirror of ENGUQ_1M_1_0
+      // LEAK-COMPROMISED (look-ahead audit, ORB.md): touch-entry fill at the range edge INTRABAR
+      // while the volume filter reads the breakout bar's FINISHED volume - hindsight. Clean
+      // exceptions (NOT archived): ORB_3_1_125C (close-confirmed), ORB_FADE_1_0, ORB_1_0 (no vol filter).
+      'ORB_3_0','ORB_3_0_BE','ORB_3_0_BEAV','ORB_3_0_BET','ORB_3_0_CC','ORB_3_0_ENS','ORB_3_0_ENSL',
+      'ORB_3_0_LATE','ORB_3_0_MM','ORB_3_0_PYR','ORB_3_0_RE',
+      'ORB_3_1','ORB_3_1_125','ORB_3_2','ORB_3_3',
+      // ORB_3_4 family: fill-realism sweep found a hidden-knob defect (swept by the presets but
+      // hidden from DEFAULT_PARAMS) that re-crowns this same touch-entry/finished-volume leak.
+      'ORB_3_4','ORB_3_4_BASE','ORB_3_4_P080','ORB_3_4_P100','ORB_3_4_P110',
+      // VWAP_FADE_2_0: fill-realism sweep found a same-bar-VWAP exit leak (revert target built
+      // from the same bar's own high/low it was tested against).
+      'VWAP_FADE_2_0'];
     const _hardArchived=new Set(ARCHIVED_STRATS.map(x=>String(x).toUpperCase()));
     const _isHardArchived=file=>_hardArchived.has(String(file||'').replace(/\.py$/i,'').toUpperCase());
     const STRAT_FAM=[
