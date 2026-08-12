@@ -85,6 +85,36 @@ def entry_features(arrays):
                      / (H.rolling(20, min_periods=1).max()
                         - L.rolling(20, min_periods=1).min()).replace(0.0, np.nan),
     }
+    # ── prior-day S/R distance (2026-08-11 causal-feature probe, pre-registered
+    #    survivor — the ONLY family that cleared the causal bar; volume/candle-body
+    #    families all failed). Prior session's high/low/close held CONSTANT across
+    #    today's bars, distance to current close in ATR units. Session boundaries
+    #    from arrays["day_id"] (load_master_arrays) when present, else derived from
+    #    the index's calendar date. Functions of a fixed prior-day level + the
+    #    CURRENT close, so — like every other market column here — row i is "as of
+    #    bar i's close"; entry_features_causal lags them one bar same as the rest.
+    day_id = arrays.get("day_id")
+    if day_id is None and idx is not None:
+        day_id = pd.factorize(pd.DatetimeIndex(idx).date)[0]
+    if day_id is not None:
+        day_id = pd.Series(np.asarray(day_id), index=C.index)
+        day_df = pd.DataFrame({"day": day_id, "h": H, "l": L, "c": C})
+        daily = day_df.groupby("day").agg(day_high=("h", "max"),
+                                          day_low=("l", "min"),
+                                          day_close=("c", "last"))
+        prior = daily.shift(1)                      # PREVIOUS session's levels
+        prior_on_bars = prior.reindex(day_id.to_numpy()).set_index(C.index)
+        pdh = prior_on_bars["day_high"]
+        pdl = prior_on_bars["day_low"]
+        pdc = prior_on_bars["day_close"]
+        feats["dist_pdh_atr"] = (C - pdh) / atr14
+        feats["dist_pdl_atr"] = (C - pdl) / atr14
+        feats["dist_pdc_atr"] = (C - pdc) / atr14
+        # touch_count: how many of the last 20 bars traded within 0.25 ATR of the
+        # PRIOR day's high/low (a proxy for "this level is being actively tested")
+        near_h = (H.sub(pdh).abs() <= 0.25 * atr14).astype(float)
+        near_l = (L.sub(pdl).abs() <= 0.25 * atr14).astype(float)
+        feats["touch_count"] = (near_h + near_l).rolling(20, min_periods=1).sum()
     if idx is not None:
         tod = (idx.hour * 60 + idx.minute) / 1440.0 * 2 * np.pi
         feats["tod_sin"] = pd.Series(np.sin(tod), index=C.index)

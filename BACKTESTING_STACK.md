@@ -1126,6 +1126,13 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-10** — **PRE-REGISTERED gate test (S/R features, causal engine) — written
+  before the runs:** strategies NOISE 1.0 (champion params, NQ 5m rth db_noadj_rth) and
+  ENGU-Q #149 config. Adoption bar: a gate or tilt is adopted ONLY if it beats RAW on
+  BOTH net $ and MAR in the pre-lockbox window AND ties-or-beats RAW MAR on the lockbox
+  slice. NOISE's lockbox is already SPENT (confirmatory only); ENGU-Q's lockbox
+  gate-read is hereby spent for gate purposes. One shot per strategy; no shape shopping
+  — the engine's existing candidate grid and the two pre-declared tilt shapes only.
 - **2026-08-10** — **ML gate one-bar look-ahead fixed (`entry_features_causal`):** gate read
   entry-bar close at a bar filled at its open; ORB #125 gate edge was entirely the leak
   (+$59k inflated, causal gate ≤ raw); all saved GATE/TILT(model)/HYBRID stats predating this
