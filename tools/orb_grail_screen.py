@@ -127,6 +127,7 @@ def _eval(cfg):
 
 def main():
     N = int(sys.argv[1]) if len(sys.argv) > 1 else 24000
+    NW = int(sys.argv[2]) if len(sys.argv) > 2 else None
     _init()
     rng = random.Random(SEED)
     seen, cfgs = set(), []
@@ -139,24 +140,24 @@ def main():
     print(f"screening {len(cfgs)} configs, {ERAS} eras, lockbox quarantined", flush=True)
 
     from multiprocessing import Pool, cpu_count
-    rows = []
-    with Pool(max(2, cpu_count() - 2), initializer=_init) as pool:
-        for i, out in enumerate(pool.imap_unordered(_eval, cfgs, chunksize=16)):
-            if out:
-                rows.append(out)
-            if (i + 1) % 1000 == 0:
-                print(f"  {i+1}/{len(cfgs)} done, {len(rows)} qualified", flush=True)
-
-    rows.sort(key=lambda r: (r["held"], r["mar"], r["net_usd"]), reverse=True)
+    keys = list(SPACE)
     os.makedirs(REPO / "tools" / "data", exist_ok=True)
     path = REPO / "tools" / "data" / "orb_grail_screen.csv"
-    with open(path, "w", newline="") as f:
+    rows = []
+    # rows stream to disk as they land — a killed process keeps every finished config
+    with open(path, "w", newline="", buffering=1) as f:
         w = csv.writer(f)
-        keys = list(SPACE)
         w.writerow(["held", "n", "net_usd", "dd_usd", "mar", "pf", "lb_n", "lb_usd"] + keys)
-        for r in rows:
-            w.writerow([r["held"], r["n"], r["net_usd"], r["dd_usd"], r["mar"], r["pf"],
-                        r["lb_n"], r["lb_usd"]] + [r["cfg"][k] for k in keys])
+        with Pool(NW or max(2, cpu_count() - 2), initializer=_init) as pool:
+            for i, out in enumerate(pool.imap_unordered(_eval, cfgs, chunksize=16)):
+                if out:
+                    rows.append(out)
+                    w.writerow([out["held"], out["n"], out["net_usd"], out["dd_usd"],
+                                out["mar"], out["pf"], out["lb_n"], out["lb_usd"]]
+                               + [out["cfg"][k] for k in keys])
+                if (i + 1) % 1000 == 0:
+                    print(f"  {i+1}/{len(cfgs)} done, {len(rows)} qualified", flush=True)
+    rows.sort(key=lambda r: (r["held"], r["mar"], r["net_usd"]), reverse=True)
     print(f"\nwrote {len(rows)} rows -> {path}\n", flush=True)
     print("TOP 20 (ranked WITHOUT the lockbox; lb column shown for the record only):")
     for r in rows[:20]:
