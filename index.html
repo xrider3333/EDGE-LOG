@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.18';
+const VERSION='73.19';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.19',date:'2026-08-12',notes:['PAPER candle window now says PAPER SHADOW TRADE in its subtitle instead of champion config, and repeats the look-ahead warning on an ORB row - a paper trade is not a run champion and should not read like one.']},
 {v:'73.18',date:'2026-08-12',notes:['CANDLES ON THE PAPER TAB (owner ask). Every row of the PAPER trades table now has a CHART button that opens that trade as a real price chart - the session it happened in plus the session either side, the session VWAP, the bars you were in the trade shaded, and the entry and exit marked at their fill prices. Same window as the run blotter, so PREV and NEXT step through the paper trades and the arrow keys work.','These trades are newer than any saved price file on your PC, so the chart is built from the master plus the live feed the shadow runner itself uses. That means the candles you see are the same bars the paper trade was decided on.','The three legs run on different timeframes - ORB and NOISE on 5 minute bars, ENGU-Q on 1 minute - and each row now fetches its own, so an ENGU-Q trade opens at 1 minute rather than borrowing the wrong chart.','Coverage caveat: the live feed only started recording partway through 2026-08-10, so a chart of the earliest paper days can begin mid-session rather than at the open.']},
 {v:'73.17',date:'2026-08-12',notes:['Library: archived the leak-compromised touch-entry ORB family (ORB 2.0/3.0/3.1/3.2/3.3 and forks, 21 files) plus VWAP FADE 2.0, per the look-ahead audit and fill-realism sweep. ORB 3.5, ORB 3.1 125C, ORB FADE 1.0, ORB 1.0, NOISE 1.0 and the ENGU-Q files are unaffected and stay active.']},
 {v:'73.16',date:'2026-08-11',notes:['The BOOKS table in COMPARE was flagging the saved book rows for a look-ahead ORB leg but not the LIVE BOOK RUN rows, so the top row could show an ORB book at full net with no warning. Live book runs now carry the same flag.']},
@@ -3413,7 +3414,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     _cndlTitle(_cTitleOf(x));
 
-    _cndl.api.setSub('champion config &middot; entry '+x._et+' &rarr; exit '+x._xt2+' &middot; '+(side==='long'?'LONG':'SHORT')
+    _cndl.api.setSub((x._srcLbl||'champion config')+' &middot; entry '+x._et+' &rarr; exit '+x._xt2+' &middot; '+(side==='long'?'LONG':'SHORT')
 
       +' &middot; net <span style="color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x._usd)+'</span>'
 
@@ -16392,15 +16393,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _tRows=_tSorted.slice(0,200).map(t=>{
         const leg=legOf(t),lc=_legColor[leg]||'#5b8def';const pnl=+t.pnl_usd||0;
         const _etk=_etKey(t.entryTime),_xtk=_etKey(t.exitTime);
+        const _flagged=leg==='ORB'||(Array.isArray(t.flags)&&t.flags.indexOf('lookahead-engine')>=0);
+        const _laBadge=_flagged?'<span title="'+ORB_LA_TIP.replace(/"/g,'&quot;')+'" style="margin-left:4px;color:var(--yellow);cursor:help">⚠</span>':'';
         const _ci=_pCandleRows.length;
         _pCandleRows.push({_no:'P'+_ci,_label:(_legLabel[leg]||leg)+' · '+(_etk||'?'),
+          _srcLbl:'paper shadow trade'+(_flagged?' (ORB engine is look-ahead - reference only)':''),
           _et:_etk,_xt2:_xtk,_ep:(t.entry_px!=null?+t.entry_px:null),
           _xp:(t.exit_px!=null?+t.exit_px:null),_pts:(t.pnl_pts!=null?+t.pnl_pts:0),
           _usd:pnl,_side:(t.side?String(t.side).toLowerCase():null),
           _pb:{instrument:'NQ',timeframe:(_legTf[leg]||'5m'),session:'rth',
                include_fresh:true,cost_pts:0.533}});
-        const _flagged=leg==='ORB'||(Array.isArray(t.flags)&&t.flags.indexOf('lookahead-engine')>=0);
-        const _laBadge=_flagged?'<span title="'+ORB_LA_TIP.replace(/"/g,'&quot;')+'" style="margin-left:4px;color:var(--yellow);cursor:help">⚠</span>':'';
         const _chartCell=_etk
           ? '<td><span data-ptchart="'+_ci+'" title="open this trade session candles" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:5px;border:1px solid var(--border);color:var(--text4)">CHART</span></td>'
           : '<td><span title="this trade has no usable entry time, so there is nothing to centre a chart on" style="font-size:8px;color:var(--text5)">—</span></td>';
