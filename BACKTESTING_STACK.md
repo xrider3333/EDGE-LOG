@@ -564,7 +564,7 @@ external-conditioning diagnostic. Both come back empty — and the emptiness is 
 - Artifacts: scratchpad orbcond/ (orbcond_report.md, results + followups .json, blotter csv, drivers);
   round-2 research summaries in-session.
 
-**2026-07-16 — challenger round 12 ("new params on the promising ones"): NOISE-2 became the program's strongest challenger — 4 of 5 battery gates — then FAILED ES transfer. No lockbox fired; family shelved with its holdout INTACT.**
+**2026-07-16 — challenger round 12 ("new params on the promising ones"): NOISE-2 became the program's strongest challenger — 4 of 5 battery gates — then FAILED ES transfer. No lockbox fired; family shelved with its holdout INTACT.** [UPDATE 2026-08-11: lockbox since SPENT — read by full-window validates #202/#203 and the 2026-08-11 gate test; confirmatory only from here.]
 - This round's grid (108 configs): **wider symmetric bands (1.5× vs the paper's 1.0×) + VWAP exit turned NOISE
   regime-healthy on NQ 5m** — the pre-registered question answered YES: LB14/1.5/1.5/vwap/both/all-day =
   MAR 8.14, n=3,147, $254.4k, PF 1.31, DD −$31.2k, 2010–2017 **+$15.8k**, corr vs ORB 0.22. Long-only and
@@ -579,7 +579,9 @@ external-conditioning diagnostic. Both come back empty — and the emptiness is 
   FAIL — the edge does not travel; working suspicion = NQ post-2018-regime specificity.** Precedent note:
   TTIBS PASSED the ES gate and still died at its lockbox — 4/5 with the transfer gate failed earns no look.
 - Status: **NOISE-2 = 🔬 research shelf, strongest failed challenger of the program.** Its lockbox was
-  NEVER spent — honestly revisitable if a year of new data changes the regime picture. Banked autopsy for
+  NEVER spent at the time — honestly revisitable if a year of new data changes the regime picture.
+  [UPDATE 2026-08-11: lockbox since SPENT — read by full-window validates #202/#203 and the 2026-08-11
+  gate test; confirmatory only from here.] Banked autopsy for
   any revival: the VWAP exit whipsaws in extreme vol (2020: −$91.7k on vwap-exits vs +$84.1k on EOD-flats)
   → test a vol-conditional exit first.
 - **Tally: 12 rounds across both sessions · ~2,000 configs · 2 lockboxes spent · 0 beat ORB.**
@@ -588,6 +590,8 @@ external-conditioning diagnostic. Both come back empty — and the emptiness is 
 - **2026-08-05 — status change: promoted to backend-testable plugin `NOISE_1_0.py`** (owner-directed:
   it passes the IS/WF bar the owner set; ES-transfer caveat and unspent lockbox carried in the file
   docstring). Parity-gated to the round-11 frozen numbers; runnable in Builder → Auto-Validate.
+  [UPDATE 2026-08-11: lockbox since SPENT — read by full-window validates #202/#203 and the 2026-08-11
+  gate test; confirmatory only from here.]
 - **2026-08-08 — protective stop found and validated (pre-lockbox), reviewer-audited.** NOISE had NO
   stop (VWAP cross only), which is why its tail was naked (worst trade −$15,466). A stop at **1.0 ×
   the entry bar's own band excursion** improves every axis at once: net $254.4k→**$268.4k**, maxDD
@@ -1136,6 +1140,16 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-11** — **NOISE 1.0 lockbox-status contradiction settled: SPENT, confirmatory-only.**
+  The docstring and the round-12/round-13 sections above previously carried stale "never
+  spent" / "holdout INTACT" language from 2026-07-16/17. Settled truth: the NOISE 1.0
+  family lockbox (2025-06-30 → 2026-06-30) has been read multiple times — full-window
+  auto-validates runs #202/#203 rendered and analyzed the lockbox slice (the owner's own
+  LB-gyration investigation 2026-08-09/10), and the 2026-08-11 pre-registered gate test
+  read it again — so it is SPENT and any future read is confirmatory only, never a
+  promotion path. ES-transfer FAIL (PF 1.12) stands separately; forward paper trading is
+  the only remaining new-evidence path. Docstring (`augur_strategies/NOISE_1_0.py`) and
+  `PAPER_TRADING.md` open item 5 updated to match.
 - **2026-08-11** — **ORB touch-entry LOOK-AHEAD found — corrects every ORB/blend figure
   in this doc.** The touch-entry ORB family fills the instant price touches the range
   edge (intrabar), but its volume filter (`vol_filter=1.25`) gates on the breakout bar's

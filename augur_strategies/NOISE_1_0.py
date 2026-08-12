@@ -25,12 +25,19 @@ VALIDATION STATUS (stated honestly — read before treating this as "validated")
   PASSED the IS/WF battery 4/5 (walk-forward 5/6 folds green, neighborhood
   stability, family-level consistency, bootstrap P ~ 0 on the in-sample edge).
   FAILED the ES-transfer gate (PF 1.12 on ES — doesn't survive the cross-
-  instrument check the crowned strategies clear).
-  The lockbox for this family has NEVER been spent.
+  instrument check the crowned strategies clear); that failure stands.
+  The lockbox for this family (2025-06-30 -> 2026-06-30) is SPENT — it has
+  been read multiple times: full-window auto-validates runs 202/203 rendered
+  and analyzed the lockbox slice in detail (the owner's own LB-gyration
+  investigation 2026-08-09/10), and the 2026-08-11 pre-registered gate test
+  read it again. Any future lockbox read is CONFIRMATORY ONLY; it can never
+  be used to promote NOISE.
   Net: this is an OWNER-DIRECTED BACKEND-TESTING PROMOTION, not a crowned
   strategy — it clears the owner's stated IS/WF bar, but it has NOT cleared the
-  full validation roadmap (ES-transfer + lockbox are open items), and it is not
-  in the current book. Runnable in Builder -> Auto-Validate for further work.
+  full validation roadmap (ES-transfer failed, lockbox spent/confirmatory-only),
+  and it is not in the current book. Forward paper trading is the only
+  remaining new-evidence path. Runnable in Builder -> Auto-Validate for
+  further work.
 
 Reference numbers (frozen defaults, NQ 5m RTH, source=db_noadj_rth, cost_pts=0.533,
 data <= 2025-06-29): n=3,147 trades, net $254,383, PF 1.31, DD -$31,240, MAR 8.14.

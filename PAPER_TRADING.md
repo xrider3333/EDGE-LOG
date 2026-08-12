@@ -153,7 +153,10 @@ Two consequences and how we handle them:
    V2-equivalent shadow (needs 10s-aware shadow path) or read its PAPER line as reference-only.
 4. NQ masters end 2026-07-16 — refresh from the AddOn 10s feed (import path exists:
    `tools/import_nt_ohlc.py`); needed before any fresh engine-vs-chart comparison.
-5. NOISE: resolve the lockbox-spent contradiction in its docstring; ES-transfer already failed once.
+5. **RESOLVED 2026-08-11:** NOISE lockbox-spent contradiction settled — status is SPENT
+   (read by full-window validates #202/#203 and the 2026-08-11 gate test), confirmatory-only
+   from here; ES-transfer failure stands. `augur_strategies/NOISE_1_0.py` docstring and
+   `BACKTESTING_STACK.md` are now consistent.
 6. Blend baseline ($835k) flagged suspect until ORB is re-based on live-legal rules.
 
 ## Tooling index
