@@ -1140,6 +1140,22 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-11** — **PRE-REGISTERED S/R gate test VERDICT: no adoption, either strategy (runs
+  #218 ENGU-Q, #219 NOISE).** First honest (causal, post-leak-fix) ML tests, with the new
+  dist_pdh/pdl/pdc_atr + touch_count features in the gate's feature set.
+  ENGU-Q #218: RAW pre-LB $409,199 / MAR 6.66 vs gate (logistic@45) $385,710 / MAR 8.71 —
+  gate cut drawdown 28% and HELD the lockbox (rec 1.59 vs 1.04) but gives up 5.7% net, so it
+  fails the pre-registered "beats RAW on BOTH net $ and MAR" leg. Noted as the first
+  legitimate ML risk-reducer of the program (a future sizing-up lever), NOT adopted.
+  NOISE #219: RAW full-hist $322,842 (matches the audit baseline to the dollar — RAW is
+  engine-fix-invariant, baseline confirmed) vs gate (logistic@55) — slightly under RAW even
+  pre-LB on net $, and the lockbox read FAILED outright (gated rec 0.41 vs ungated 1.67; the
+  engine's own verdict: "pre-lockbox win was likely fit"). The tier tilt's pre-LB rec 23.6
+  is NOT adoptable: lockbox is confirmatory-only for NOISE and the tilt has no OOS
+  confirmation — recorded as seen, dead.
+  Program-level conclusion: after honest measurement the ML gate/tilt/hybrid family earns
+  adoption NOWHERE (ORB: leak artifact; NOISE: OOS collapse; ENGU-Q: risk-only). RAW crowns
+  + the sizing.py overlay stand everywhere.
 - **2026-08-11** — **NOISE 1.0 lockbox-status contradiction settled: SPENT, confirmatory-only.**
   The docstring and the round-12/round-13 sections above previously carried stale "never
   spent" / "holdout INTACT" language from 2026-07-16/17. Settled truth: the NOISE 1.0
