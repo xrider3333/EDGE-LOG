@@ -124,6 +124,12 @@ def fee_per_side(sym, when=None):
 
 DEFAULT_FILLS = r"C:\EdgeLog\fills.csv"
 
+# Accounts whose fills must NEVER reach the journal: NinjaTrader sim/demo/replay
+# accounts (incl. the paper-trading system's DEMO port target). The AddOn records
+# every account's fills; the journal is real-money only.
+import re as _re
+SIM_ACCOUNT_RE = _re.compile(r"^(sim|backtest|playback|demo)", _re.I)
+
 
 def _state_path(fills_path):
     d = os.path.dirname(fills_path) or "."
@@ -376,6 +382,7 @@ def sync_trades(db, uid, fills_path=DEFAULT_FILLS, log=print):
     from firebase_admin import firestore
 
     fills = parse_fills(fills_path)
+    fills = [f for f in fills if not SIM_ACCOUNT_RE.match(str(f.get("account") or ""))]
     enrich_utc_from_db(fills)   # prefer NinjaTrader.sqlite's absolute-UTC execution times
     trades = build_trades(fills)
 
