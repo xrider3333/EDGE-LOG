@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.17';
+const VERSION='73.18';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.18',date:'2026-08-12',notes:['CANDLES ON THE PAPER TAB (owner ask). Every row of the PAPER trades table now has a CHART button that opens that trade as a real price chart - the session it happened in plus the session either side, the session VWAP, the bars you were in the trade shaded, and the entry and exit marked at their fill prices. Same window as the run blotter, so PREV and NEXT step through the paper trades and the arrow keys work.','These trades are newer than any saved price file on your PC, so the chart is built from the master plus the live feed the shadow runner itself uses. That means the candles you see are the same bars the paper trade was decided on.','The three legs run on different timeframes - ORB and NOISE on 5 minute bars, ENGU-Q on 1 minute - and each row now fetches its own, so an ENGU-Q trade opens at 1 minute rather than borrowing the wrong chart.','Coverage caveat: the live feed only started recording partway through 2026-08-10, so a chart of the earliest paper days can begin mid-session rather than at the open.']},
 {v:'73.17',date:'2026-08-12',notes:['Library: archived the leak-compromised touch-entry ORB family (ORB 2.0/3.0/3.1/3.2/3.3 and forks, 21 files) plus VWAP FADE 2.0, per the look-ahead audit and fill-realism sweep. ORB 3.5, ORB 3.1 125C, ORB FADE 1.0, ORB 1.0, NOISE 1.0 and the ENGU-Q files are unaffected and stay active.']},
 {v:'73.16',date:'2026-08-11',notes:['The BOOKS table in COMPARE was flagging the saved book rows for a look-ahead ORB leg but not the LIVE BOOK RUN rows, so the top row could show an ORB book at full net with no warning. Live book runs now carry the same flag.']},
 {v:'73.14',date:'2026-08-11',notes:['FILL-REALISM SWEEP. Audited all 60 strategy files for the same bug class as the ORB look-ahead: a simulated fill that used something nobody could have known yet. Fixed 13 files.','The BOOKS table in COMPARE now flags every book that contains an ORB leg, champion row included. Those net dollar figures are not live-achievable and the row now says so.','Three files were handing back invented profit factors and drawdowns without simulating a single trade. They now refuse to run instead of returning fiction.','Eleven strategies were paying the exact stop price even when the bar opened straight past it. They now fill at the open on a gap, which is what a real stop order does.','The VWAP FADE pair aimed its exit at a price that was partly built from the same bar it was being tested against. The target is now the level as it stood when the bar opened.','New push gate: any strategy file you change is checked for these mistakes before it can be pushed.']},
@@ -3351,8 +3352,15 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
   const _barsCache={};
 
   const _cndl={api:null,x:null,r:null,view:null,seq:0,ctx:null,grp:null};
-  const _cB=()=>((_cndl.ctx||{}).B||{});
+  // v73.18: the bar-fetch payload is per-CONTEXT (one run = one instrument/timeframe),
+  // EXCEPT on the PAPER tab, where the three legs run different timeframes (ORB 5m,
+  // ENGU-Q 1m, NOISE 5m) in one list. A trade may therefore carry its own `_pb`
+  // payload override, which wins over the context payload.
+  const _cB=(x)=>Object.assign({},((_cndl.ctx||{}).B||{}),((x&&x._pb)||{}));
   const _cAll=()=>(((_cndl.ctx||{}).all||(()=>[]))());
+  // v73.18: PAPER trades have no run trade-number - they title themselves.
+  const _cTitleOf=x=>((x&&x._label)?String(x._label):('TRADE #'+(x&&x._no)))+' · CANDLES';
+
   const _cOrder=()=>(_cndl.grp?_cndl.grp.list:(((_cndl.ctx||{}).order||_cAll)()));
   const fmt$=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
 
@@ -3361,7 +3369,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     if(x._side)return x._side;
 
-    const gross=x._pts+((_cB().cost_pts)||0);
+    const gross=x._pts+((_cB(x).cost_pts)||0);
 
     return (Math.abs((x._xp-x._ep)-gross)<=Math.abs((x._ep-x._xp)-gross))?'long':'short';
 
@@ -3403,7 +3411,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     const meta=r.meta||{},zoomed=(lo3>0||hi3<all.length-1);
 
-    _cndlTitle('TRADE #'+x._no+' · CANDLES');
+    _cndlTitle(_cTitleOf(x));
 
     _cndl.api.setSub('champion config &middot; entry '+x._et+' &rarr; exit '+x._xt2+' &middot; '+(side==='long'?'LONG':'SHORT')
 
@@ -3550,7 +3558,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       gp.list=(gp.kind==='w:')?by.slice(0,gp.n):by.slice(-gp.n).reverse();
       gp.label=(gp.kind==='w:')?('TOP '+gp.n+' WINNERS'):('TOP '+gp.n+' LOSERS');
       gp.list.forEach(nb=>{if(_barsCache[nb._no]||nb._pf)return;nb._pf=1;
-        _runCmd('get_bars',Object.assign({},_cB(),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
+        _runCmd('get_bars',Object.assign({},_cB(nb),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
           .then(r2=>{_barsCache[nb._no]=r2;}).catch(()=>{}).finally(()=>{nb._pf=0;_syncCndlCtl();});});
       _syncCndlCtl();};
     g('cndl-prev').onclick=()=>_cndlStep(-1);
@@ -3576,7 +3584,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       _cndl.grp={list:list,kind:kind,n:10,label:(kind==='w:')?'TOP 10 WINNERS':'TOP 10 LOSERS'};
       // fetch ALL TEN up front so PREV/NEXT and the arrow keys flip through the set instantly
       list.forEach(nb=>{if(_barsCache[nb._no]||nb._pf)return;nb._pf=1;
-        _runCmd('get_bars',Object.assign({},_cB(),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
+        _runCmd('get_bars',Object.assign({},_cB(nb),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
           .then(r2=>{_barsCache[nb._no]=r2;}).catch(()=>{}).finally(()=>{nb._pf=0;_syncCndlCtl();});});
       const x2=list.find(q=>q._no===no)||list[0];if(x2)_loadTrade(x2);};
 
@@ -3701,7 +3709,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     _cndl.x=x;_cndl.view=null;
 
-    _cndlTitle('TRADE #'+x._no+' · CANDLES');
+    _cndlTitle(_cTitleOf(x));
 
     _syncCndlCtl();
 
@@ -3723,7 +3731,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     try{
 
-      const r=await _runCmd('get_bars',Object.assign({},_cB(),{entry_time:x._et,exit_time:x._xt2,pad_sessions:1}),300000);
+      const r=await _runCmd('get_bars',Object.assign({},_cB(x),{entry_time:x._et,exit_time:x._xt2,pad_sessions:1}),300000);
 
       clearInterval(tick);
 
@@ -3755,7 +3763,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
       if(!nb||_barsCache[nb._no]||nb._pf)return;nb._pf=1;
 
-      _runCmd('get_bars',Object.assign({},_cB(),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
+      _runCmd('get_bars',Object.assign({},_cB(nb),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
 
         .then(r=>{_barsCache[nb._no]=r;}).catch(()=>{}).finally(()=>{nb._pf=0;});
 
@@ -3778,7 +3786,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     // the modal opens IMMEDIATELY (setSvg needs an <svg> to replace, hence the stub).
 
-    const api=window.expandChart('TRADE #'+x._no+' · CANDLES',
+    const api=window.expandChart(_cTitleOf(x),
 
       '<svg viewBox="0 0 1080 8" style="display:block;height:6px"></svg>',
 
@@ -16370,11 +16378,33 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +_liveCleanStartNote);
       // trades table — newest first, capped at 200 rows for render cost
       const _tSorted=_pt.slice().sort((a,b)=>(+b.exitTime||+b.entryTime||0)-(+a.exitTime||+a.entryTime||0));
+      // v73.18 (owner ask): CANDLES ON THE PAPER TAB. Each leg runs its OWN timeframe, so
+      // every row carries its own bar-fetch payload (_pb) rather than sharing one. And the
+      // masters end well before PAPER started, so the payload asks the PC to append the
+      // live 10s tail - without it a paper trade has no bars anywhere.
+      const _legTf={ORB:'5m',ENGUQ:'1m',NOISE:'5m'};
+      const _etKey=sec=>{if(!sec)return '';try{
+        const d=new Date(sec*1000);
+        const day=d.toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+        const hm=d.toLocaleTimeString('en-GB',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hour12:false});
+        return day+' '+hm;}catch(e){return '';}};
+      const _pCandleRows=[];window._paperCandleRows=_pCandleRows;
       const _tRows=_tSorted.slice(0,200).map(t=>{
         const leg=legOf(t),lc=_legColor[leg]||'#5b8def';const pnl=+t.pnl_usd||0;
+        const _etk=_etKey(t.entryTime),_xtk=_etKey(t.exitTime);
+        const _ci=_pCandleRows.length;
+        _pCandleRows.push({_no:'P'+_ci,_label:(_legLabel[leg]||leg)+' · '+(_etk||'?'),
+          _et:_etk,_xt2:_xtk,_ep:(t.entry_px!=null?+t.entry_px:null),
+          _xp:(t.exit_px!=null?+t.exit_px:null),_pts:(t.pnl_pts!=null?+t.pnl_pts:0),
+          _usd:pnl,_side:(t.side?String(t.side).toLowerCase():null),
+          _pb:{instrument:'NQ',timeframe:(_legTf[leg]||'5m'),session:'rth',
+               include_fresh:true,cost_pts:0.533}});
         const _flagged=leg==='ORB'||(Array.isArray(t.flags)&&t.flags.indexOf('lookahead-engine')>=0);
         const _laBadge=_flagged?'<span title="'+ORB_LA_TIP.replace(/"/g,'&quot;')+'" style="margin-left:4px;color:var(--yellow);cursor:help">⚠</span>':'';
-        return '<tr><td>'+(t.run_date||_dOnly(t.exitTime||t.entryTime)||'—')+'</td>'
+        const _chartCell=_etk
+          ? '<td><span data-ptchart="'+_ci+'" title="open this trade session candles" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:5px;border:1px solid var(--border);color:var(--text4)">CHART</span></td>'
+          : '<td><span title="this trade has no usable entry time, so there is nothing to centre a chart on" style="font-size:8px;color:var(--text5)">—</span></td>';
+        return '<tr>'+_chartCell+'<td>'+(t.run_date||_dOnly(t.exitTime||t.entryTime)||'—')+'</td>'
           +'<td><span style="color:'+lc+';font-weight:600">'+(_legLabel[leg]||leg)+'</span>'+_laBadge+'</td>'
           +'<td>'+(t.side||'—')+'</td>'
           +'<td>'+_fmtET(t.entryTime)+'</td>'
@@ -16385,7 +16415,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<td style="text-align:right;color:'+(pnl>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(pnl)+'</td></tr>';
       }).join('');
       const tradesHtml=tile('<div class="lbl" style="margin-bottom:8px">TRADES'+(_tSorted.length>200?' <span style="font-weight:400;color:var(--text5);font-size:8px">· showing 200 of '+_tSorted.length+'</span>':'')+'</div>'
-        +(_tSorted.length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th>DATE</th><th>LEG</th><th>SIDE</th><th>ENTRY (ET)</th><th>EXIT (ET)</th><th style="text-align:right">ENTRY PX</th><th style="text-align:right">EXIT PX</th><th style="text-align:right">PTS</th><th style="text-align:right">$</th></tr></thead><tbody>'+_tRows+'</tbody></table></div>'
+        +(_tSorted.length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th>CHART</th><th>DATE</th><th>LEG</th><th>SIDE</th><th>ENTRY (ET)</th><th>EXIT (ET)</th><th style="text-align:right">ENTRY PX</th><th style="text-align:right">EXIT PX</th><th style="text-align:right">PTS</th><th style="text-align:right">$</th></tr></thead><tbody>'+_tRows+'</tbody></table></div>'
           :'<div style="padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:1px">NO PAPER TRADES YET — SHADOW TRADING STARTS '+PAPER_START+'</div>'));
       // daily reports — one row per paper_reports doc, click to expand per-leg detail + verdict
       const _repOpen=window._paperReportOpen||(window._paperReportOpen=new Set());
@@ -17482,6 +17512,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
     else if(augurSub==='paper'){
       const rb=content.querySelector('[data-paperrefresh]');if(rb)rb.onclick=()=>{loadPaper(null,true);renderApp();};
       content.querySelectorAll('[data-paperrep]').forEach(tr=>{tr.onclick=()=>{const id=tr.dataset.paperrep;const s=window._paperReportOpen||(window._paperReportOpen=new Set());if(s.has(id))s.delete(id);else s.add(id);renderApp();};});
+      // v73.18: CHART pill -> the shared candle viewer. PREV/NEXT walks the paper trade
+      // list in the order shown, exactly like the run blotter.
+      content.querySelectorAll('[data-ptchart]').forEach(b=>{b.onclick=ev=>{ev.stopPropagation();
+        const rows=window._paperCandleRows||[];const x=rows[+b.dataset.ptchart];
+        if(x)window._openTradeCandles(x,b,{B:{},all:()=>rows,order:()=>rows});};});
     }
     else if(augurSub==='set'){content.querySelectorAll('[data-setsub]').forEach(t=>{t.onclick=()=>{savePref('setSub',t.dataset.setsub);renderApp();};});const sv=el('set-save');if(sv)sv.onclick=()=>{savePref('instrument',el('set-inst').value);savePref('session',el('set-sess').value);savePref('timeframe',el('set-tf').value);savePref('workers',parseInt(el('set-work').value)||4);savePref('rounds',parseInt(el('set-rounds').value)||4);savePref('trials',parseInt(el('set-trials').value)||200);savePref('min_trades',parseInt(el('set-mint').value)||30);savePref('provider',el('set-prov').value);const s=el('set-saved');if(s){s.textContent='✓ saved — Builder will use these';setTimeout(()=>{if(el('set-saved'))el('set-saved').textContent='';},2000);}};}
     else{const vs=el('res-side'),vk=el('res-stack');if(vs)vs.onclick=()=>{savePref('resView','side');renderApp();};if(vk)vk.onclick=()=>{savePref('resView','stack');renderApp();};

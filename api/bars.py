@@ -35,13 +35,51 @@ def _nearest_at_or_before(bars, ts):
     return best
 
 
+def _fresh_tail(timeframe, session, last_master_ts, log):
+    """Bars the master does not have yet, resampled from the live 10s feed.
+
+    The masters currently end 2026-07-16 while PAPER trades start 2026-08-11, so a
+    paper trade has NO bars in any master. api/paper.py already solves this for the
+    shadow engine — reuse its exact 10s loader/resampler/RTH filter so the candles a
+    paper trade draws are built from the same bars the shadow run used. Returns a
+    DataFrame (time/open/high/low/close/volume) of bars strictly AFTER
+    `last_master_ts`, or None when there is no feed or nothing newer.
+    """
+    try:
+        from api import paper as _paper
+    except Exception as e:                                    # pragma: no cover
+        log(f"    -> fresh tail unavailable ({type(e).__name__}: {e})")
+        return None
+    ticks, path = _paper._load_fresh_ticks()
+    if ticks is None:
+        log(f"    -> no live 10s feed at {path}")
+        return None
+    try:
+        tf_min = int(str(timeframe).rstrip("m") or 5)
+    except Exception:
+        tf_min = 5
+    bars = _paper._resample(ticks, tf_min)
+    if session == "rth":
+        bars, _et = _paper._filter_rth(bars)
+    if bars is None or bars.empty:
+        return None
+    et = pd.to_datetime(bars["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
+    bars = bars[et > pd.Timestamp(last_master_ts)].reset_index(drop=True)
+    if bars.empty:
+        return None
+    log(f"    -> fresh tail: {len(bars)} {timeframe} bars past the master, from {path}")
+    return bars
+
+
 def load_session_bars(root, payload, log=print) -> dict:
     """Serve one trade's session candles to the web (get_bars runner command).
 
     payload: instrument, timeframe (default '5m'), session (default 'rth'), source
     (optional master pin), entry_time / exit_time ('YYYY-MM-DD HH:MM'-shaped strings),
     pad_sessions (int, default 1 — how many whole sessions of context to include on
-    each side of the trade's own session).
+    each side of the trade's own session), include_fresh (bool — append bars the
+    master does not have yet from the live 10s feed; the PAPER tab needs this because
+    paper trades are newer than any master).
 
     Resolution mirrors api/blotter.py's champion_blotter fallback chain: a source-pinned
     master first, then the plain instrument+timeframe+session match, then
@@ -79,10 +117,32 @@ def load_session_bars(root, payload, log=print) -> dict:
 
     a = load_master_arrays(m, date_from=date_from, date_to=date_to)
     idx = a["index"]
+
+    n_fresh = 0
+    if payload.get("include_fresh"):
+        # the whole master decides where the tail starts, not the windowed slice
+        full_last = load_master_arrays(m)["index"][-1]
+        tail = _fresh_tail(timeframe, session, full_last, log)
+        if tail is not None:
+            tail_et = pd.to_datetime(tail["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
+            keep = ((tail_et >= pd.Timestamp(date_from).tz_localize("US/Eastern")) &
+                    (tail_et < (pd.Timestamp(date_to) + pd.Timedelta(days=1)).tz_localize("US/Eastern")))
+            tail = tail[keep.values].reset_index(drop=True)
+            if not tail.empty:
+                if idx is None or len(idx) == 0:      # window is entirely past the master
+                    a = {"index": pd.DatetimeIndex([], tz="US/Eastern"),
+                         "open": [], "high": [], "low": [], "close": [], "volume": []}
+                from api import paper as _paper
+                a, n_fresh = _paper._append_fresh(a, tail)
+                idx = a["index"]
+
     if idx is None or len(idx) == 0:
         return {"ok": False,
                 "error": f"master '{m.get('name')}' has no bars in the padded window "
-                         f"{date_from}..{date_to} around {trade_date_str}"}
+                         f"{date_from}..{date_to} around {trade_date_str}"
+                         + ("" if payload.get("include_fresh") else
+                            " (this trade may be newer than the master — the PAPER tab "
+                            "asks for the live tail as well)")}
 
     o, h, l, c = a["open"], a["high"], a["low"], a["close"]
     v = a.get("volume")
@@ -149,5 +209,5 @@ def load_session_bars(root, payload, log=print) -> dict:
         "entry_idx": entry_idx,
         "exit_idx": exit_idx,
         "meta": {"master": m.get("name"), "source": m.get("source"),
-                 "sessions": sessions_str, "n": len(bars)},
+                 "sessions": sessions_str, "n": len(bars), "n_fresh": n_fresh},
     }
