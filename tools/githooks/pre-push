@@ -34,4 +34,28 @@ if [ "$status" -eq 2 ]; then
   echo ""
 fi
 
+# ---------------------------------------------------------------------------
+# EXECUTION-FEASIBILITY GATE (added 2026-08-11, after the ORB look-ahead)
+#
+# The ORB family filled at the range edge intrabar while gating the trade on
+# that bar's FINISHED volume. Walk-forward, lockbox and the ES transfer all
+# re-ran the same engine, so it passed every statistical check we had. Nothing
+# in the repo would have caught it. This is that missing check.
+#
+# It only audits STRATEGY FILES CHANGED IN THIS PUSH, so the known-dead ORB
+# family does not block unrelated work. A hard failure means the file would
+# hand back a number nobody could trade.
+# ---------------------------------------------------------------------------
+if [ -f "$repo_root/tools/exec_feasibility_audit.py" ]; then
+  python "$repo_root/tools/exec_feasibility_audit.py" --changed
+  efa=$?
+  if [ "$efa" -eq 1 ]; then
+    echo ""
+    echo "Execution-feasibility gate FAILED -- a changed strategy would produce a number you cannot trade."
+    echo "Fix it, or override with: git push --no-verify"
+    echo ""
+    exit 1
+  fi
+fi
+
 exit 0

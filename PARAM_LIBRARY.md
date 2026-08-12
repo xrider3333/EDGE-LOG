@@ -1,5 +1,13 @@
 # PARAM_LIBRARY — cross-strategy parameter reference
 
+> ⚠ **2026-08-11 — ORB look-ahead bug: the "#125 deployable" entry below is wrong.**
+> Touch-entry ORB fills the instant price touches the range edge (intrabar), but its
+> volume filter reads the breakout bar's FINISHED volume — a number that doesn't exist
+> yet at fill time. On live-legal fills #125's $360,640 collapses to roughly $44k-$69k.
+> Walk-forward, lockbox, and the ES transfer all passed anyway because they re-run the
+> SAME leaking engine — a look-ahead clears every statistical gate built on top of it.
+> Full writeup: `ORB.md` (repo root, top banner).
+
 ## What this is
 
 A **parameter** (a "knob") is any dial a strategy exposes — a lookback length, a
@@ -61,6 +69,11 @@ appear as "champion" below, so read the CHAMPION column carefully:
   next unseen slice, roll forward; the standard "is this overfit?" check) 6/6 folds,
   **lockbox** (the most recent year+ of data, sealed and looked at exactly once)
   PASS, and it transfers to ES with no re-fit.
+  > ⚠ 2026-08-11: "triple-validated" does NOT mean this is safe — WF, lockbox, and the
+  > ES transfer all re-run the same engine, and the engine itself has the look-ahead
+  > (fills intrabar, but gates on the breakout bar's finished volume). A leak like this
+  > passes every one of those checks because they never touch the thing that's broken.
+  > Live-legal net is roughly $44k-$69k, not $360,640. See `ORB.md`.
 - **#137 — the "locked" research base** (`ORB_3_0.py`, `or_bars=1 / Both / stop 1.75 /
   target 4.5R / vol 1.25 / atr_filter 0.1`). Highest raw PnL ($567k) but 4× #125's
   drawdown. Nearly every single-knob research file below (`_BE`, `_BET`, `_CC`,

@@ -163,6 +163,13 @@ DEFAULT_PARAMS = {
     },
 }
 
+# Declared for the execution-feasibility audit (tools/exec_feasibility_audit.py):
+# k_band is a deliberate GRID-ONLY shorthand - a preset passes "25/75" and
+# run_backtest unpacks it back into the real k_low / k_high knobs. It is not a
+# knob hidden from the Builder while still being swept behind the scenes, which
+# is the failure this audit exists to catch.
+GRID_ONLY_PARAMS = {"k_band"}
+
 PARAM_GRID_PRESETS = {
     "Short  (published defaults)": {
         "ao_fast": [5], "ao_slow": [34], "stoch_len": [14], "stoch_smooth": [3],

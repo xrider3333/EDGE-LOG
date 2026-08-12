@@ -12,6 +12,13 @@ Ported from Pine Script v5
 
 """
 
+# ─────────────────────────────────────────────────────────────────────────────
+# ⚠ QUARANTINED 2026-08-11 — THIS FILE NEVER SIMULATED ANY TRADES.
+#   It counted signal bars and returned hard-coded profit_factor / max_drawdown
+#   with total_pnl = 0.0. Every "result" it ever produced was fabricated. It now
+#   raises instead of handing back fake numbers. Fix the trade loop before use.
+# ─────────────────────────────────────────────────────────────────────────────
+
 import numpy as np
 
 import pandas as pd
@@ -194,6 +201,12 @@ def run_backtest(
 
 
 
+    raise RuntimeError(
+        "ENGU_1_2_1 is a STUB, not a backtest. It counts signal bars and then returns hard-coded profit-factor and drawdown numbers with zero PnL - it never simulates a single fill. Any result it produced was fiction. Quarantined 2026-08-11 during the fill-realism audit. Do not use it until the trade loop is actually written."
+    )
+
+    # -- the fabricated return block below is kept ONLY as evidence of what this
+    #    file used to hand back. It is unreachable.
     return {
 
         "total_pnl": 0.0,

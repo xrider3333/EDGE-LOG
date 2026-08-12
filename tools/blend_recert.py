@@ -1,6 +1,14 @@
 """Recertify the book baseline: ORB 3.1 #125 (NQ 5m) x ENGU-Q NQ 1m deploy, 1:1,
 now with the CERTIFIED ENGU-Q params (ENGUQ_1M_1_0.NQ_DEPLOY_PARAMS_149).
 
+*** WARNING (2026-08-11) — the ORB leg here (ORB_125) reproduces a LOOK-AHEAD bug. ***
+Touch-entry ORB fills the instant price touches the range edge (intrabar), but
+vol_filter=1.25 gates that fill on the breakout bar's FINISHED volume, which does not
+exist yet at fill time. That leak is ~91% of the ORB leg's edge, so the $835,351 book
+total below is NOT live-achievable. This script "recertifying" that number only proves
+the engine still reproduces the old (leaking) figure — it is not a fresh validation of
+tradeable edge. See ORB.md (repo root, top banner) for the full writeup.
+
 Round-3 documented baseline (2026-07-13): net $835,351.08 / maxDD -$60,097.59 /
 net-DD 13.90 / 0 losing years in 17 / daily Pearson +0.07 / worst day -$13,797.
 Window PINNED 2010-06-07 -> 2026-06-30, both legs costed 0.533 pts RT x $20,
@@ -18,6 +26,8 @@ _s = importlib.util.spec_from_file_location("enguq", REPO / "augur_strategies" /
 _m = importlib.util.module_from_spec(_s); _s.loader.exec_module(_m)
 ENG_149 = _m.NQ_DEPLOY_PARAMS_149
 
+# LEAKING CONFIG (see warning above): vol_filter gates on future-known volume. Historical
+# reference only - not live-achievable. See ORB.md.
 ORB_125 = dict(or_bars=1, trade_mode="Both", stop_frac=0.75, vol_filter=1.25,
                breakout_buf=0.0, target_R=0.0, partial_exit_R=0.0, trail_bars=5,
                flat_eod=True)

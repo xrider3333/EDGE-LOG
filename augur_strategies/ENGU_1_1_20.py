@@ -149,7 +149,12 @@ def run_backtest(
             bars_in = i - pos["bar"]
 
             if lows[i] <= pos["sl"]:                          # stop hit
-                pnl = pos["sl"] - pos["ep"]
+                # gap-through realism (added 2026-08-11): a bar that OPENED below the
+                # stop fills the resting stop order at that open, not at the stop
+                # price. Booking the stop price on a gap-through credits money that
+                # was never available.
+                _ex = opens[i] if opens[i] < pos["sl"] else pos["sl"]
+                pnl = _ex - pos["ep"]
                 pnl_list.append(pnl)
                 if return_trades: trade_log.append((pos["bar"], i, pnl))
                 pos = None; continue

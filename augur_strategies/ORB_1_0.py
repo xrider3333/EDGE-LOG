@@ -159,8 +159,14 @@ def run_backtest(
                     else:
                         if pos > 0:
                             if sl[k] <= stop:                       # stop first (pessimistic)
-                                pnl_list.append(stop - entry)
-                                if return_trades: trade_log.append((i + ek, i + k, stop - entry, 1, entry))
+                                # gap-through realism (added 2026-08-11): if the bar OPENED
+                                # already below the stop, a resting stop order fills at that
+                                # open, not at the stop price. Booking the stop price on a
+                                # gap-through is free money that never existed. Every other
+                                # ORB file already did this; 1.0 was the one that did not.
+                                ex_px = so[k] if so[k] < stop else stop
+                                pnl_list.append(ex_px - entry)
+                                if return_trades: trade_log.append((i + ek, i + k, ex_px - entry, 1, entry))
                                 pos = 0; break
                             if target_R > 0 and sh[k] >= tgt:
                                 pnl_list.append(tgt - entry)
@@ -168,8 +174,9 @@ def run_backtest(
                                 pos = 0; break
                         else:
                             if sh[k] >= stop:
-                                pnl_list.append(entry - stop)
-                                if return_trades: trade_log.append((i + ek, i + k, entry - stop, -1, entry))
+                                ex_px = so[k] if so[k] > stop else stop   # gap-through realism
+                                pnl_list.append(entry - ex_px)
+                                if return_trades: trade_log.append((i + ek, i + k, entry - ex_px, -1, entry))
                                 pos = 0; break
                             if target_R > 0 and sl[k] <= tgt:
                                 pnl_list.append(entry - tgt)

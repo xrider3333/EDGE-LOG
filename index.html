@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.13';
+const VERSION='73.14';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.14',date:'2026-08-11',notes:['FILL-REALISM SWEEP. Audited all 60 strategy files for the same bug class as the ORB look-ahead: a simulated fill that used something nobody could have known yet. Fixed 13 files.','The BOOKS table in COMPARE now flags every book that contains an ORB leg, champion row included. Those net dollar figures are not live-achievable and the row now says so.','Three files were handing back invented profit factors and drawdowns without simulating a single trade. They now refuse to run instead of returning fiction.','Eleven strategies were paying the exact stop price even when the bar opened straight past it. They now fill at the open on a gap, which is what a real stop order does.','The VWAP FADE pair aimed its exit at a price that was partly built from the same bar it was being tested against. The target is now the level as it stood when the bar opened.','New push gate: any strategy file you change is checked for these mistakes before it can be pushed.']},
 {v:'73.13',date:'2026-08-11',notes:['Results ▸ 2B CONFIGS: a run scored before the 2026-08-10 gate look-ahead fix now shows an amber PRE-FIX ML pill next to the GATE / TILT / HYBRID tabs, so old inflated numbers are not mistaken for causal ones. Re-run Auto-Validate to get a clean read.','The TILT tab now carries a permanent notice: TILT is retired, 0 of 12 tilts cleared the pre-registered bar on causal scores (2026-08-10) - shown for reference only, do not adopt.','PAPER - the LIVE row (NinjaTrader demo fills) now counts from 2026-08-12 only, excluding the 2026-08-11 shakedown trade (wrong session template, -650). That first day is still visible in its own daily report.']},
 {v:'73.12',date:'2026-08-11',notes:['PAPER - NOISE joins the shadow board as a third leg, ORB shadow line is badged as engine reference only (its volume filter is look-ahead), and a new LIVE row shows the NinjaTrader demo account fills next to the shadow numbers.']},
 {v:'73.11',date:'2026-08-10',notes:['The FAMILY chip row was listing individual strategy VERSIONS alongside the real families - eight extra chips like ENGU 1.3.5 plus a no-label one. It shows the same nine families the Past Runs tab does and nothing else.']},
@@ -15293,17 +15294,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    SAMPLE flips every column between FULL / IS / LB; RANK BY re-sorts.
       /* RUNBOARD DATA — regenerate with: python tools/t5_runboard.py (paste rows) */
       const RB_BOOKS=[
-        {st:'BLEND',vr:'baseline (current book)',md:'ORB 3.1 + ENGU-Q 1m',wf:'8/8',v:'champion',
+        {st:'BLEND',vr:'baseline (current book)',md:'ORB 3.1 + ENGU-Q 1m',wf:'8/8',v:'champion',la:true,
          full:{net:838161,pf:1.477,dd:60098,mar:13.95,n:6112},is:{net:654771,pf:1.432,dd:45849,mar:14.28,n:5777},lb:{net:183390,pf:1.765,dd:60098,mar:3.05,n:335}},
-        {st:'BLEND',vr:'scaled-out exits 4.0R / trail 12',md:'ORB 3.0 scaled out + ENGU-Q 1m',wf:'8/8',v:'dead',
+        {st:'BLEND',vr:'scaled-out exits 4.0R / trail 12',md:'ORB 3.0 scaled out + ENGU-Q 1m',wf:'8/8',v:'dead',la:true,
          full:{net:963708,pf:1.492,dd:62806,mar:15.34,n:5999},is:{net:766178,pf:1.453,dd:39483,mar:19.41,n:5672},lb:{net:197530,pf:1.741,dd:62806,mar:3.15,n:327}},
-        {st:'BLEND',vr:'scaled-out exits 4.5R / trail 5',md:'ORB 3.0 scaled out + ENGU-Q 1m',wf:'8/8',v:'candidate',
+        {st:'BLEND',vr:'scaled-out exits 4.5R / trail 5',md:'ORB 3.0 scaled out + ENGU-Q 1m',wf:'8/8',v:'candidate',la:true,
          full:{net:942620,pf:1.488,dd:58463,mar:16.12,n:5999},is:{net:746047,pf:1.447,dd:38498,mar:19.38,n:5672},lb:{net:196573,pf:1.745,dd:58463,mar:3.36,n:327}},
-        {st:'BLEND',vr:'overlay sizing (risk x time x side)',md:'ORB 3.1 sized + ENGU-Q 1m',wf:'8/8',v:'candidate',
+        {st:'BLEND',vr:'overlay sizing (risk x time x side)',md:'ORB 3.1 sized + ENGU-Q 1m',wf:'8/8',v:'candidate',la:true,
          full:{net:1109574,pf:1.71,dd:58648,mar:18.92,n:6112},is:{net:887909,pf:1.654,dd:50481,mar:17.59,n:5777},lb:{net:221665,pf:2.076,dd:58648,mar:3.78,n:335}},
         {st:'ENGU-Q ETH',vr:'frozen clock-scaled (single leg)',md:'ENGU-Q 1m on the 24h session',wf:'8/8',v:'candidate',
          full:{net:434721,pf:1.332,dd:50420,mar:8.62,n:2843},is:{net:305098,pf:1.275,dd:50420,mar:6.05,n:2654},lb:{net:129623,pf:1.648,dd:34671,mar:3.74,n:189}}
       ];
+      // v-fillfix: BOOKS rows that pool an ORB leg inherit the documented ORB look-ahead bug (the
+      //   opening-range fill is scored on that same bars FINISHED volume, which is not knowable at
+      //   fill time) — about nine tenths of the ORB edge traces to this leak, so any net dollar
+      //   figure above that includes an ORB leg is inflated versus what could have been traded live.
+      //   Flagged via the la:true field on each row above, never by string-matching the label here.
+      const RB_ORB_LA_TIP='This book pools the ORB leg, and ORB fills on a bar using that same bars FINISHED volume, which a live trader could not have known yet. Most of the ORB edge traces to that gap. This net dollar figure is not something a live account could have achieved, so this book baseline is under review.';
       // v71.22 (owner ask): the RUNBOARD is no longer its own flat table — it flows through the
       //   SAME pipeline as PICK RUNS / BY STRATEGY, so it gets the 1A-style equity FUNNEL (the
       //   live overlay with key pills + drawdown pane) and the 1E-style sectioned MATRIX (green
@@ -16037,23 +16044,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +_rbScNote);
         // ── the pooled BOOKS table (offline t5_runboard.py numbers) — kept, clearly separated ──
         const _rbF=n=>'$'+Math.round(n).toLocaleString();
-        const _rbV=v=>{const m={champion:['★ CHAMPION','var(--yellow)'],candidate:['● CANDIDATE','var(--green)'],parked:['‖ PARKED','var(--blue)'],dead:['✕ DEAD','var(--red)']}[v]||['—','var(--text5)'];
-          return '<span style="font-size:9px;padding:2px 7px;border-radius:999px;border:1px solid '+m[1]+'55;color:'+m[1]+';white-space:nowrap">'+m[0]+'</span>';};
+        const _rbV=(v,la)=>{const m={champion:['★ CHAMPION','var(--yellow)'],candidate:['● CANDIDATE','var(--green)'],parked:['‖ PARKED','var(--blue)'],dead:['✕ DEAD','var(--red)']}[v]||['—','var(--text5)'];
+          const laBadge=la?'<span title="'+RB_ORB_LA_TIP.replace(/"/g,'&quot;')+'" style="margin-left:5px;font-size:9px;color:var(--yellow);cursor:help">⚠</span>':'';
+          return '<span style="font-size:9px;padding:2px 7px;border-radius:999px;border:1px solid '+m[1]+'55;color:'+m[1]+';white-space:nowrap">'+m[0]+'</span>'+laBadge;};
         const _rbRows=RB_BOOKS.map(b=>({b:b,s:b[_rbS]})).sort((x,y)=>(_rbR==='dd')?(x.s.dd-y.s.dd):(y.s[_rbR]-x.s[_rbR]));
         const _rbTh='<tr>'+['#','STRATEGY','VERSION','NET','PF','MAX DD','MAR','TRADES','WF','VERDICT']
           .map((h,i)=>'<th style="text-align:'+(i<3||i===9?'left':'right')+';font-size:8px;letter-spacing:1.2px;color:var(--text5);font-weight:700;padding:7px 9px;border-bottom:1px solid var(--border);white-space:nowrap">'+h+'</th>').join('')+'</tr>';
         const _rbTr=_rbRows.map((x,i)=>{const b=x.b,s=x.s;const td=(c,al)=>'<td style="text-align:'+(al||'right')+';padding:8px 9px;border-bottom:1px solid var(--border2);white-space:nowrap">'+c+'</td>';
+          const _stLa=b.la?'<span title="'+RB_ORB_LA_TIP.replace(/"/g,'&quot;')+'" style="margin-left:6px;font-size:8px;font-weight:600;padding:1px 6px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);opacity:.85;cursor:help">⚠ ORB leg</span>':'';
           return '<tr>'+td('<span style="color:var(--text5)">'+(i+1)+'</span>','left')
-            +td('<b style="color:var(--text)">'+b.st+'</b><div style="font-size:8.5px;color:var(--text5)">'+b.md+'</div>','left')
+            +td('<b style="color:var(--text)">'+b.st+'</b>'+_stLa+'<div style="font-size:8.5px;color:var(--text5)">'+b.md+'</div>','left')
             +td('<span style="color:var(--text3);font-size:11px">'+b.vr+'</span>','left')
             +td('<span style="color:'+(s.net>=0?'var(--green)':'var(--red)')+'">'+_rbF(s.net)+'</span>')
             +td(s.pf.toFixed(2))+td(_rbF(s.dd))+td('<b>'+s.mar.toFixed(2)+'</b>')
-            +td('<span style="color:var(--text5)">'+s.n.toLocaleString()+'</span>')+td(b.wf)+td(_rbV(b.v),'left')+'</tr>';}).join('');
+            +td('<span style="color:var(--text5)">'+s.n.toLocaleString()+'</span>')+td(b.wf)+td(_rbV(b.v,b.la),'left')+'</tr>';}).join('');
         const _rbNote='<div style="font-size:8.5px;color:var(--text5);line-height:1.9;margin-top:9px">'
           +'<b style="color:var(--text4)">LIVE RUN rows (green ▸)</b> — a real book job your PC ran: every leg replayed over one window with frozen params, all trades pooled, scored as one strategy. Click the row for its run report. Its lockbox column is a genuine unseen-data read; the folds column is the house 8-stretch count, never the walk-forward engine.<br>'
           +'<b style="color:var(--text4)">The plain rows below them</b> — the older offline figures, computed by a script and pasted in. They stay until a real book run replaces each one. Same SAMPLE and RANK BY picks apply to both.<br>'
           +'<b style="color:var(--text4)">STRATEGY</b> — BLEND means two strategies traded side by side in one account, 1 contract each; the VERSION column says what is different about that book. ENGU-Q ETH is a single strategy on its own.<br>'
           +'<b style="color:var(--text4)">MAR</b> = net divided by the worst drawdown of that sample. <b style="color:var(--text4)">WF</b> = the history cut into 8 equal stretches, how many were profitable. MAX DD is shown positive.<br>'
+          +'<b style="color:var(--yellow)">⚠ ORB leg</b> — this book includes the ORB strategy, which has a documented look-ahead bug in its volume filter (see PAPER_TRADING.md). Its backtest numbers are not something a live account could have achieved, so any net dollar figure on that row is inflated versus real trading, CHAMPION included.<br>'
           +'Window 2010-06-07 to 2026-06-30 · NQ · costs in · trades counted on exit date. Rebuild the numbers with tools/t5_runboard.py.</div>';
         // ── v71.35 (owner: "yes do the book job type"): REAL book runs. A book is now an ordinary
         //    job the PC runner can execute — every leg replayed over one window with its frozen

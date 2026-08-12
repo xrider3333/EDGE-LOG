@@ -1,5 +1,13 @@
 """RUNBOARD data builder — pooled book-level stats, stage-split, for runboard.html.
 
+*** WARNING (2026-08-11) — ORB_125 below reproduces a LOOK-AHEAD bug, not real edge. ***
+The touch-entry ORB fills the instant price touches the range edge (intrabar), but
+vol_filter=1.25 gates that fill on the breakout bar's FINISHED volume - a number that
+does not exist yet at fill time. On live-legal fills the crowned $360,591 collapses to
+roughly $44k-$69k. These numbers are NOT achievable live; they are kept here only as a
+historical / regression reference, not as proof the strategy still works. Running this
+script again does NOT re-validate anything. Full story: ORB.md (repo root, top banner).
+
 Treats each config as ONE strategy (both legs' trades pooled, overlay weights applied):
   FULL = 2010-06-07 -> 2026-06-30   IS = FULL minus the LB year   LB = 2025-06-30 -> 2026-06-30
   WF   = 8 equal-day slices of the FULL daily $ series (count positive)
@@ -23,6 +31,8 @@ ENG_149 = _m.NQ_DEPLOY_PARAMS_149
 
 WIN = ("2010-06-07", "2026-06-30")
 LB_FROM = pd.Timestamp("2025-06-30").date()
+# LEAKING CONFIG (see warning above): vol_filter gates on future-known volume. Historical
+# reference only - not live-achievable. See ORB.md.
 ORB_125 = dict(or_bars=1, trade_mode="Both", stop_frac=0.75, vol_filter=1.25,
                breakout_buf=0.0, target_R=0.0, partial_exit_R=0.0, trail_bars=5, flat_eod=True)
 ENS_A = dict(or_bars=1, trade_mode="Both", stop_frac=1.75, vol_filter=1.25, atr_filter=0.1,

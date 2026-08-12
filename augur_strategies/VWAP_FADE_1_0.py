@@ -186,23 +186,31 @@ def run_backtest(
         # -- position management --------------------------------------------
         if pos is not None:
             side = pos["side"]
-            vw = vwap[i]
+            # v-FIX 2026-08-11: the exit target is the VWAP as it stood when THIS bar
+            # opened (vwap[i-1]), not vwap[i]. vwap[i] contains bar i own high/low/close,
+            # and was being compared against bar i own high/low - the target was partly
+            # built from the extreme it was tested against, so it could never be missed.
+            # bis[i] == 0 is the first bar of a session: no prior level exists yet.
+            vw = vwap[i - 1]
+            vw_ok = (bis[i] != 0)
             if side > 0:
                 # stop first (pessimistic), then revert-to-VWAP target
                 if lows[i] <= pos["sl"]:
-                    pnl = pos["sl"] - pos["ep"]; pnl_list.append(pnl)
+                    _ex = opens[i] if opens[i] < pos["sl"] else pos["sl"]   # gap-through
+                    pnl = _ex - pos["ep"]; pnl_list.append(pnl)
                     if return_trades: trade_log.append((pos["bar"], i, pnl))
                     last_loss_bar = i if pnl < 0 else last_loss_bar; pos = None; continue
-                if highs[i] >= vw:
+                if vw_ok and highs[i] >= vw:
                     pnl = vw - pos["ep"]; pnl_list.append(pnl)
                     if return_trades: trade_log.append((pos["bar"], i, pnl))
                     last_loss_bar = i if pnl < 0 else last_loss_bar; pos = None; continue
             else:
                 if highs[i] >= pos["sl"]:
-                    pnl = pos["ep"] - pos["sl"]; pnl_list.append(pnl)
+                    _ex = opens[i] if opens[i] > pos["sl"] else pos["sl"]   # gap-through
+                    pnl = pos["ep"] - _ex; pnl_list.append(pnl)
                     if return_trades: trade_log.append((pos["bar"], i, pnl))
                     last_loss_bar = i if pnl < 0 else last_loss_bar; pos = None; continue
-                if lows[i] <= vw:
+                if vw_ok and lows[i] <= vw:
                     pnl = pos["ep"] - vw; pnl_list.append(pnl)
                     if return_trades: trade_log.append((pos["bar"], i, pnl))
                     last_loss_bar = i if pnl < 0 else last_loss_bar; pos = None; continue

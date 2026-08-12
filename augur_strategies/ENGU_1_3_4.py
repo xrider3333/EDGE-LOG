@@ -429,7 +429,8 @@ def run_backtest(
 
             if side > 0:   # long
                 if lows[i] <= pos["sl"]:
-                    pnl = pos["sl"] - pos["ep"]
+                    _ex = opens[i] if opens[i] < pos["sl"] else pos["sl"]   # gap-through realism 2026-08-11
+                    pnl = _ex - pos["ep"]
                     pnl_list.append(pnl)
                     if return_trades: trade_log.append((pos["bar"], i, pnl))
                     last_loss_bar = (i if pnl < 0 else last_loss_bar)
@@ -442,7 +443,8 @@ def run_backtest(
                     pos = None; continue
             else:          # short
                 if highs[i] >= pos["sl"]:
-                    pnl = pos["ep"] - pos["sl"]
+                    _ex = opens[i] if opens[i] > pos["sl"] else pos["sl"]   # gap-through realism 2026-08-11
+                    pnl = pos["ep"] - _ex
                     pnl_list.append(pnl)
                     if return_trades: trade_log.append((pos["bar"], i, pnl))
                     last_loss_bar = (i if pnl < 0 else last_loss_bar)

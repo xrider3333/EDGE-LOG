@@ -3,7 +3,15 @@
 **Single source of truth for where the backtesting engine stands.** Update this
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
-- **Last updated:** 2026-08-08
+> ⚠ **2026-08-11 — ORB look-ahead bug affects numbers in this doc.** The touch-entry
+> ORB family fills the instant price touches the range edge (intrabar), but its volume
+> filter reads the breakout bar's FINISHED volume — a number that doesn't exist yet at
+> fill time. On NQ 5m RTH (16.1 years), this was ~91% of the measured edge: the crowned
+> #125 shows $360,591 net but live-legal fills top out around $44k-$69k. This also hits
+> the ORB × ENGU-Q blend baseline ($835,351 / $838,161 below — NOT live-achievable as
+> written). Full writeup: `ORB.md` (repo root, top banner) and `PAPER_TRADING.md`.
+
+- **Last updated:** 2026-08-11 (adds ORB look-ahead correction above; see Changelog)
 - **Web VERSION:** 71.0 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
@@ -210,6 +218,8 @@ Full running record: `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`. **NQ 1m = champion (r
     decision — NOT adopted into the deploy config.
 - **Round 3 — ORB + ENGU-Q portfolio blend** (2010-06-07 to 2026-06-30, exit-date daily PnL,
   both legs costed (pnl_pts − 0.533) × 20):
+  > ⚠ **2026-08-11:** the ORB leg's numbers below are inflated by the vol-filter
+  > look-ahead bug (see banner at top of doc) — NOT live-achievable. See `ORB.md`.
   - Legs: ENGU-Q 1m deploy config (checksum-gated, exact) + ORB 3.1 champion p0/trail5 (run #125
     config: or_bars=1, stop_frac=0.75, vol_filter=1.25, partial_exit_R=0, trail_bars=5;
     reproduced n=4064 / $360,640.26 / PF 1.611 / maxDD −$9,351.60 exactly).
@@ -1126,6 +1136,16 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-11** — **ORB touch-entry LOOK-AHEAD found — corrects every ORB/blend figure
+  in this doc.** The touch-entry ORB family fills the instant price touches the range
+  edge (intrabar), but its volume filter (`vol_filter=1.25`) gates on the breakout bar's
+  FINISHED volume — a number that doesn't exist yet at fill time. Measured on NQ 5m RTH,
+  16.1 years: ~91% of the crowned #125's edge was this leak ($360,591 net leaking vs.
+  $44k-$69k on live-legal fills; the trailing-stop variant goes NEGATIVE, -$6,744).
+  Blast radius: all 15 touch-entry ORB files, plus anything built on top — the ORB leg
+  of the ORB × ENGU-Q 1:1 blend, so the $835,351 / $838,161 blend baselines quoted
+  earlier in this doc are also NOT live-achievable as written. Inline flags added at
+  each affected section. Full writeup: `ORB.md` (repo root, top banner), `PAPER_TRADING.md`.
 - **2026-08-10** — **PRE-REGISTERED gate test (S/R features, causal engine) — written
   before the runs:** strategies NOISE 1.0 (champion params, NQ 5m rth db_noadj_rth) and
   ENGU-Q #149 config. Adoption bar: a gate or tilt is adopted ONLY if it beats RAW on
@@ -1314,6 +1334,8 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
   trade-slicing (filters/tilts/gates); it survives RELOCATION (session, timeframe). Artifacts: scratchpad
   enguq_es_transfer.* / enguq_gate_ensemble.* / enguq_eth_triage.* / enguq_tf_confluence.* / t1_*.
 - **2026-07-24** — **Round 5: PARAM_LIBRARY sweep — sized-ORB blend candidate found (+32%, all 17 years).**
+  > ⚠ 2026-08-11: the ORB #125 baseline this round is parity-gated to ($360,640.26) is the
+  > leaking vol-filter number — see banner at top of doc / `ORB.md`.
   Five pre-registered tests off PARAM_LIBRARY's untested cells, window pinned 2010-06-07→2026-06-30
   (July backfill excluded), lockbox 2025-06-30→2026-06-30 verdict-deciding, all parity-gated to the
   certified baselines (ENGUQ n=2048/$477,520.82 raw-mark; ORB #125 n=4064/$360,640.26 exact).
@@ -1553,6 +1575,8 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
   (Pearson +0.07); **1:1 combo nets $835,351.08, maxDD −$60,097.59** (shallower than ENGU-Q
   alone), net/DD 13.90, **zero losing years in 17** (ORB's 2022 covers ENGU-Q's only losing
   year). Full detail in `Trading/ENGUQ_DB/ENGUQ_STRATEGY.md`.
+  > ⚠ 2026-08-11: the $835,351.08 combo figure includes the leaking ORB leg — NOT
+  > live-achievable. See banner at top of doc / `ORB.md`.
 - **2026-07-12** — **ENGUQ gap-honest fills + deploy config; ORB close_confirm.** All 3 ENGUQ TF
   files (`ENGUQ_1M/5M/15M_1_0.py`) now book gap-through stop fills at the bar's open (hardcoded,
   mirrors ORB 3.0) — prior ENGUQ results were ~35% optimistic; `breakeven_R` param added.

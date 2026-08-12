@@ -1,5 +1,13 @@
 """Item W — portfolio blend: ORB (NQ 5m, deploy config) × ENGU-Q (ES 1m, validated defaults).
 
+*** WARNING (2026-08-11) — ORB_CFG below reproduces the SAME LOOK-AHEAD bug as #125. ***
+It uses the same vol_filter=1.25 mechanism: touch-entry ORB fills the instant price
+touches the range edge (intrabar), but the volume filter gates that fill on the
+breakout bar's FINISHED volume, which does not exist yet at fill time. Any ORB numbers
+this script prints are NOT live-achievable and should be treated as a historical /
+regression reference only, not a re-validation of tradeable edge. See ORB.md (repo
+root, top banner) for the full writeup.
+
 The §4.16 ensemble result generalized: two books whose bad days don't line up should have a
 portfolio MAR above either book. ORB is two-sided/short-carried intraday breakout on NQ;
 ENGU-Q is long-only trendline-break on ES — different signal, different instrument, different
@@ -24,6 +32,8 @@ from augur_engine.engine import load_master_arrays
 from augur_engine.data import list_masters
 
 LB_FROM = pd.Timestamp("2025-06-30").date()
+# LEAKING CONFIG (see warning above): vol_filter gates on future-known volume. Historical
+# reference only - not live-achievable. See ORB.md.
 ORB_CFG = dict(or_bars=1, trade_mode="Both", stop_frac=1.75, vol_filter=1.25,
                atr_filter=0.1, breakout_buf=0.0, target_R=4.5, be_after_R=1.0)
 # NOTE: ENG_CFG below = the ES-validated defaults (this tool's item-W ES experiment).

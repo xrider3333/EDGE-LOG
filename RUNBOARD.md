@@ -1,5 +1,12 @@
 # RUNBOARD — spec + running record
 
+> ⚠ **2026-08-11 — ORB look-ahead bug affects the ORB rows on this board.** Touch-entry
+> ORB fills the instant price touches the range edge (intrabar), but its volume filter
+> gates on the breakout bar's FINISHED volume — a number that doesn't exist yet at fill
+> time. Crowned #125 shows $360,591 net but live-legal fills top out around $44k-$69k;
+> this also drags down the ORB × ENGU-Q blend baseline. Full writeup: `ORB.md` (repo
+> root, top banner).
+
 **What it is:** the one place that compares whole **BOOKS** (deployable strategy
 combinations) against each other, instead of comparing individual runs.
 
@@ -183,3 +190,5 @@ leg has data), and is pinned into the job.
 
 **Regression test:** `python tools/book_smoke.py` — reproduces the offline baseline book
 (ORB 3.1 + ENGU-Q 1m) and fails if net or trade count drifts more than 2%.
+> ⚠ 2026-08-11: this reproduces a fixed number as a regression check only — that number
+> itself is inflated by the ORB look-ahead bug and is not live-achievable. See `ORB.md`.
