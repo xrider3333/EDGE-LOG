@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.14';
+const VERSION='73.15';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.15',date:'2026-08-11',notes:['The BOOKS table in COMPARE was flagging the saved book rows for a look-ahead ORB leg but not the LIVE BOOK RUN rows, so the top row could show an ORB book at full net with no warning. Live book runs now carry the same flag.']},
 {v:'73.14',date:'2026-08-11',notes:['FILL-REALISM SWEEP. Audited all 60 strategy files for the same bug class as the ORB look-ahead: a simulated fill that used something nobody could have known yet. Fixed 13 files.','The BOOKS table in COMPARE now flags every book that contains an ORB leg, champion row included. Those net dollar figures are not live-achievable and the row now says so.','Three files were handing back invented profit factors and drawdowns without simulating a single trade. They now refuse to run instead of returning fiction.','Eleven strategies were paying the exact stop price even when the bar opened straight past it. They now fill at the open on a gap, which is what a real stop order does.','The VWAP FADE pair aimed its exit at a price that was partly built from the same bar it was being tested against. The target is now the level as it stood when the bar opened.','New push gate: any strategy file you change is checked for these mistakes before it can be pushed.']},
 {v:'73.13',date:'2026-08-11',notes:['Results ▸ 2B CONFIGS: a run scored before the 2026-08-10 gate look-ahead fix now shows an amber PRE-FIX ML pill next to the GATE / TILT / HYBRID tabs, so old inflated numbers are not mistaken for causal ones. Re-run Auto-Validate to get a clean read.','The TILT tab now carries a permanent notice: TILT is retired, 0 of 12 tilts cleared the pre-registered bar on causal scores (2026-08-10) - shown for reference only, do not adopt.','PAPER - the LIVE row (NinjaTrader demo fills) now counts from 2026-08-12 only, excluding the 2026-08-11 shakedown trade (wrong session template, -650). That first day is still visible in its own daily report.']},
 {v:'73.12',date:'2026-08-11',notes:['PAPER - NOISE joins the shadow board as a third leg, ORB shadow line is badged as engine reference only (its volume filter is look-ahead), and a new LIVE row shows the NinjaTrader demo account fills next to the shadow numbers.']},
@@ -16083,9 +16084,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
                        dd:Math.abs(+_st.max_drawdown||0),n:(+_st.num_trades||0)}:null;
           if(!s)return '<tr><td colspan="10" style="padding:8px 9px;color:var(--text5);font-size:9px">BOOK #'+r.id+' — no '+_rbS.toUpperCase()+' stretch recorded</td></tr>';
           const legs=(bk.legs||[]).map(l=>String(l.strategy||'').replace(/\.py$/,'')).join(' + ');
+          // v73.14: a LIVE book run gets the same look-ahead badge as the hard-coded rows
+          // above whenever any of its legs is a touch-entry ORB file. Without this the top
+          // row of the table could show an ORB book at full net with no warning at all.
+          const _lrLa=/(^|[^A-Z])ORB/i.test(legs)&&!/ORB_FADE|ORB_1_0|_125C/i.test(legs);
+          const _lrB=_lrLa?'<span title="'+RB_ORB_LA_TIP.replace(/"/g,'&quot;')+'" style="margin-left:6px;font-size:8px;font-weight:600;padding:1px 6px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);opacity:.85;cursor:help">⚠ ORB leg</span>':'';
           return '<tr data-rank-run="'+r.id+'" title="open this book run report" style="cursor:pointer">'
             +td('<span style="color:var(--green)">▸</span>','left')
-            +td('<b style="color:var(--text)">'+(bk.name?String(bk.name).replace(/</g,'&lt;'):('BOOK #'+r.id))+'</b><div style="font-size:8.5px;color:var(--text5)">'+(legs||'—')+'</div>','left')
+            +td('<b style="color:var(--text)">'+(bk.name?String(bk.name).replace(/</g,'&lt;'):('BOOK #'+r.id))+'</b>'+_lrB+'<div style="font-size:8.5px;color:var(--text5)">'+(legs||'—')+'</div>','left')
             +td('<span style="color:var(--green);font-size:10px">● LIVE RUN #'+r.id+'</span>','left')
             +td('<span style="color:'+(s.net>=0?'var(--green)':'var(--red)')+'">'+_rbF(s.net)+'</span>')
             +td(s.pf?s.pf.toFixed(2):'—')+td(_rbF(Math.abs(s.dd)))+td('<b>'+((s.dd>1e-9)?(s.net/Math.abs(s.dd)).toFixed(2):'—')+'</b>')
