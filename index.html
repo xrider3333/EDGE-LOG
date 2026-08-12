@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.12';
+const VERSION='73.13';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.13',date:'2026-08-11',notes:['Results ▸ 2B CONFIGS: a run scored before the 2026-08-10 gate look-ahead fix now shows an amber PRE-FIX ML pill next to the GATE / TILT / HYBRID tabs, so old inflated numbers are not mistaken for causal ones. Re-run Auto-Validate to get a clean read.','The TILT tab now carries a permanent notice: TILT is retired, 0 of 12 tilts cleared the pre-registered bar on causal scores (2026-08-10) - shown for reference only, do not adopt.','PAPER - the LIVE row (NinjaTrader demo fills) now counts from 2026-08-12 only, excluding the 2026-08-11 shakedown trade (wrong session template, -650). That first day is still visible in its own daily report.']},
 {v:'73.12',date:'2026-08-11',notes:['PAPER - NOISE joins the shadow board as a third leg, ORB shadow line is badged as engine reference only (its volume filter is look-ahead), and a new LIVE row shows the NinjaTrader demo account fills next to the shadow numbers.']},
 {v:'73.11',date:'2026-08-10',notes:['The FAMILY chip row was listing individual strategy VERSIONS alongside the real families - eight extra chips like ENGU 1.3.5 plus a no-label one. It shows the same nine families the Past Runs tab does and nothing else.']},
 {v:'73.10',date:'2026-08-10',notes:['RUNBOARD has FAMILY chips now, the same quick-toggle the Past Runs tab carries. Click ORB and the whole board - funnel, matrix and list - reloads with the top ORB runs instead of one champion per strategy, ranked by whatever RANK BY and SAMPLE are set to. Click it again, or all, to go back. That is how you compare a strategy against its own other configs.','The expanded funnel no longer offers CHAMPION and CONFIG FUNNEL tabs. Those belong to a run report, where the curves ARE configs of one run and champion means that run crowned config. On the RUNBOARD every curve is a different STRATEGY, so a raw config view could not mean anything.']},
@@ -14276,6 +14277,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(_selParts||_gateSec||_kpiInner){
         const _hasG=!!(_gateSec&&_gvP);
         const _hasT=!!(_gvP&&_gvP.tilts),_hasH=!!(_gvP&&_gvP.hyb);
+        // v73.13 (owner: gate look-ahead fix landed 2026-08-10): a run scored before that date
+        //   carries inflated GATE / TILT / HYBRID numbers (the gate read the entry-bar close on
+        //   open-filled bars). Same run-date source the report header uses (d.timestamp, parsed
+        //   the same way _dtnice does) — missing/unparseable dates are treated as pre-fix too.
+        const _preFixML=(function(){const m=String(d.timestamp||'').match(/(\d{4})-(\d{2})-(\d{2})/);return !m||m[0]<'2026-08-10';})();
         // v70.2 (owner): short labels, no ML prefix, and the three hybrid sizing views are three
         //   separate tabs instead of a second switcher inside the card.
         const _tabDefs=[['kpi','KPI',!!_kpiInner,'the champion three-section scorecard - in-sample, walk-forward, lockbox and the whole-run total'],
@@ -14301,18 +14307,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
                    :isSz?_infoIc(_szInfo)
                    :((_selParts&&_selParts.tip)?_infoIc('<div style="color:var(--text2)">'+_selParts.tip+'</div>'):'');
           const ctrls=isK?'':(isG?((_gvP&&_gvP.ctrls)||''):(isSz?((_gvP&&_gvP.szCtrls)||''):((_selParts&&_selParts.ctrls)||'')));
-          const body=isK?_kpiInner:(isG?_gateCard:(tb==='tilt'?((_gvP&&_gvP.tilts)||''):(isHyb?(((_gvP&&_gvP.hybBy)||{})[_hybOf(tb)]||''):((_selParts&&_selParts.table)||''))));
+          // v73.13 (owner: TILT killed by the pre-registered 0/12 test on causal scores) — a
+          //   permanent muted-warning line leads the TILT tab body, every run, any date.
+          const _tiltDeadWarn=(tb==='tilt')?'<div style="color:var(--yellow);font-weight:700;margin-bottom:8px">&#9888; TILT is retired: 0 of 12 tilts cleared the pre-registered bar on causal scores (2026-08-10). Shown for reference only - do not adopt.</div>':'';
+          const body=isK?_kpiInner:(isG?_gateCard:(tb==='tilt'?(_tiltDeadWarn+((_gvP&&_gvP.tilts)||'')):(isHyb?(((_gvP&&_gvP.hybBy)||{})[_hybOf(tb)]||''):((_selParts&&_selParts.table)||''))));
           const note=isK?'':isG?''
                    :(tb==='tilt'?((_gvP&&_gvP.tiltNote)||'')
                    :(isHyb?(((_gvP&&_gvP.hybNoteBy)||{})[_hybOf(tb)]||'')
                    :_nRow((_selParts&&_selParts.sub)?('<span style="font-weight:400;color:var(--text4);font-size:8px">'+_selParts.sub+'</span>'):'')));
           const tabs=_tabStrip(_tabDefs.map(function(t){return _tabBtn(attr+'="'+t[0]+'"',t[1],tb===t[0],t[3]);}).join(''),false);
+          // v73.13 (owner ask): a run scored before the 2026-08-10 gate look-ahead fix carries an
+          //   amber pill next to the tab strip whenever an ML tab (GATE / TILT / HYBRID family) is
+          //   the active one — never on RAW or KPI, and it never touches any number.
+          const _preFixBadge=(_preFixML&&(isG||isSz))?'<span title="This run was scored before the 2026-08-10 gate look-ahead fix - GATE / TILT / HYBRID numbers here are inflated. Re-run Auto-Validate to get causal numbers." style="display:inline-flex;align-items:center;flex-shrink:0;font-size:8px;font-weight:700;padding:2px 7px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);cursor:help;white-space:nowrap">&#9888; PRE-FIX ML</span>':'';
           // v71.7 (owner: "compact the 1E titles a bit"): icons dropped from the title so the
           //   tab rail gets the width back.
           const title=_kpiInner?'1E MATRIX':(_cfgN+'B CONFIGS');
           return '<div style="margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
             +title+' '+info
-            +'<span style="margin-left:auto;flex-shrink:0">'+tabs+'</span></div>'
+            +'<span style="margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:6px">'+_preFixBadge+tabs+'</span></div>'
             +(ctrls?('<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-top:6px">'+ctrls+'</div>'):'')
             +'<div style="margin-top:9px">'+body+'</div>'
             +note;};
@@ -16298,11 +16311,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _parseFillMs=v=>{if(v==null)return 0;try{if(typeof v==='number')return v>1e12?v:v*1000;const d=new Date(v);return isNaN(d)?0:d.getTime();}catch(e){return 0;}};
       const _fmtMs=ms=>{if(!ms)return '—';try{return new Date(ms).toLocaleString('en-US',{timeZone:'America/New_York',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})+' ET';}catch(e){return '—';}};
       const _fmtFillTime=v=>_fmtMs(_parseFillMs(v));
-      const _liveTotalFills=_pr.reduce((s,r)=>s+_liveFillsN(r),0);
-      const _liveDaysWithFills=_pr.filter(r=>_liveFillsN(r)>0).length;
-      const _liveCumNet=_pr.reduce((s,r)=>{const v=r&&r.live&&r.live.day_net_usd;return s+(v!=null?+v:0);},0);
-      let _liveLastMs=0;_pr.forEach(r=>{const fills=(r&&r.live&&Array.isArray(r.live.fills))?r.live.fills:[];fills.forEach(f=>{const ms=_parseFillMs(f&&f.time);if(ms>_liveLastMs)_liveLastMs=ms;});});
+      // v73.13 (owner: clean start for the LIVE row) — 2026-08-11 was a shakedown trade (wrong
+      //   session template, -650), not a real read on the live account. Every LIVE aggregate below
+      //   counts only reports dated 2026-08-12 or later; the doc id itself is the YYYY-MM-DD date,
+      //   so a plain string compare is exact and needs no parsing. The 8/11 report row + its
+      //   expanded live block below (built off the full _pr, untouched) still show that day in full.
+      const LIVE_START='2026-08-12';
+      const _prLive=_pr.filter(r=>String(r.id)>=LIVE_START);
+      const _liveTotalFills=_prLive.reduce((s,r)=>s+_liveFillsN(r),0);
+      const _liveDaysWithFills=_prLive.filter(r=>_liveFillsN(r)>0).length;
+      const _liveCumNet=_prLive.reduce((s,r)=>{const v=r&&r.live&&r.live.day_net_usd;return s+(v!=null?+v:0);},0);
+      let _liveLastMs=0;_prLive.forEach(r=>{const fills=(r&&r.live&&Array.isArray(r.live.fills))?r.live.fills:[];fills.forEach(f=>{const ms=_parseFillMs(f&&f.time);if(ms>_liveLastMs)_liveLastMs=ms;});});
       const _liveWarnings=(latestReport&&latestReport.live&&Array.isArray(latestReport.live.warnings))?latestReport.live.warnings:[];
+      // v73.13 (owner): small muted note under the stats explaining the 2026-08-12 cutoff.
+      const _liveCleanStartNote='<div style="margin-top:10px;font-size:9px;color:var(--text5)">counting from '+LIVE_START+' - the 2026-08-11 shakedown trade (wrong session template, -650) is excluded here; see the 2026-08-11 report for the story.</div>';
       const liveHtml=tile('<div class="lbl" style="margin-bottom:8px">LIVE · NINJATRADER DEMO (ACCOUNT DEMO7240108)</div>'
         +(_liveTotalFills?(
           '<div style="display:flex;gap:20px;flex-wrap:wrap;font-size:9px;color:var(--text4)">'
@@ -16314,7 +16336,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +(_liveWarnings.length?'<div style="margin-top:10px;font-size:10px;color:var(--yellow)">⚠ '+_liveWarnings.join(' · ').replace(/</g,'&lt;')+'</div>':'')
         ):(
           '<div style="padding:8px 2px 2px;color:var(--text5);font-size:11px;line-height:1.7;max-width:760px">No live fills yet — strategies enabled 2026-08-11. Fills are not attributed per-strategy (the fill log carries no strategy name); per-leg attribution comes from the daily reconcile.</div>'
-        )));
+        ))
+        +_liveCleanStartNote);
       // trades table — newest first, capped at 200 rows for render cost
       const _tSorted=_pt.slice().sort((a,b)=>(+b.exitTime||+b.entryTime||0)-(+a.exitTime||+a.entryTime||0));
       const _tRows=_tSorted.slice(0,200).map(t=>{
