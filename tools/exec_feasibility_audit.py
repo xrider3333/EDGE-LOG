@@ -38,10 +38,18 @@ CHECKS
      A parameter this repo has already recorded as a look-ahead is still being
      swept somewhere.
 
+  5  CONFIG VERDICT (--config, merged 2026-08-11)
+     The checks above ask "is this FILE dangerous?". Crowning also needs "is this
+     CONFIG tradeable?" - one knob flips it. ORB_3_0 with close_confirm=True is
+     legal; the same file with close_confirm=False and vol_filter>0 is the crowned
+     leak. Encodes the 2026-08-11 audit of all 60 files: LEAK / MILD / CLEAN.
+
 USAGE
   python tools/exec_feasibility_audit.py                 # whole library
   python tools/exec_feasibility_audit.py FILE [FILE...]  # named files only
   python tools/exec_feasibility_audit.py --changed       # files changed vs origin/main
+  python tools/exec_feasibility_audit.py --config ORB_3_0.py \
+      --params "or_bars=1,vol_filter=1.25,close_confirm=False"     # PRE-CROWN gate
 
 EXIT CODES
   0 = no hard failures (warnings may still be printed)
@@ -213,7 +221,119 @@ def changed_files():
         return []
 
 
+# ── CONFIG MODE: is this exact config tradeable? (merged in 2026-08-11) ────────
+# The static checks above ask "is this FILE dangerous?". Crowning needs the other
+# half: "is this CONFIG, with THESE params, tradeable?" — because a single knob
+# flips the answer. ORB_3_0 with close_confirm=True is legal; the same file with
+# close_confirm=False and vol_filter>0 is the crowned leak that cost 91% of the
+# edge. Encodes the 2026-08-11 sweep of all 60 files.
+#
+#   python tools/exec_feasibility_audit.py --config ORB_3_0.py \
+#       --params "or_bars=1,vol_filter=1.25,close_confirm=False"
+
+_ORB_TOUCH_FAMILY = {
+    "ORB_2_0.py", "ORB_3_0.py", "ORB_3_1.py", "ORB_3_2.py", "ORB_3_3.py",
+    "ORB_3_0_BE.py", "ORB_3_0_BEAV.py", "ORB_3_0_BET.py", "ORB_3_0_CC.py",
+    "ORB_3_0_ENS.py", "ORB_3_0_ENSL.py", "ORB_3_0_LATE.py", "ORB_3_0_MM.py",
+    "ORB_3_0_PYR.py", "ORB_3_0_RE.py", "ORB_3_1_125.py",
+}
+
+# same-bar trail/breakeven ordering: an intrabar SEQUENCING assumption, not future
+# information. Priced on ENGU-Q #149 (tools/enguq_trail_lag.py): the live-realistic
+# lagged trail earns MORE (+$31k/16.1y), so the engine book is conservative there.
+_MILD_FILES = {
+    "ENGUQ_1M_1_0.py", "ENGUQ_5M_1_0.py", "ENGUQ_15M_1_0.py", "ENGUQ_1M_ETH_1_0.py",
+    "ENGUQ_1M_ENS_1_0.py", "ENGUQ_1M_CTX_1_0.py", "ENGUDQ_1M_1_0.py",
+    "REVERT_1_0.py", "REVERT_1_1.py", "REVERT_1_2.py",
+    "ENGU_1_3_1.py", "ENGU_1_3_2.py", "ENGU_1_3_3.py", "ENGU_1_3_4.py", "ENGU_1_3_5.py",
+}
+_MILD_WHY = ("trail / breakeven is raised using THIS bar's high then tested against THIS "
+             "bar's low in the same step - assumes the high printed first. Measured "
+             "conservative on ENGU-Q, so state it and move on.")
+
+_CLEAN_WHY = {
+    "NOISE_1_0.py": "signal at a bar's CLOSE, fill at the NEXT bar's OPEN.",
+    "ORB_1_0.py": "touch entry but no volume filter - nothing end-of-bar gates the fill.",
+    "ORB_FADE_1_0.py": "trigger and fill both at the bar's close.",
+    "ORB_3_1_125C.py": "#125's knobs with the decision at the bar close - the live-legal twin.",
+    "TTIBS_1_0.py": "daily bars; next-session-open or same-day-close fills.",
+}
+
+
+def _parse_params(s):
+    out = {}
+    for part in (s or "").split(","):
+        if "=" not in part:
+            continue
+        k, v = part.split("=", 1)
+        k, v = k.strip(), v.strip()
+        if v.lower() in ("true", "false"):
+            out[k] = (v.lower() == "true")
+        else:
+            try:
+                out[k] = float(v) if "." in v else int(v)
+            except ValueError:
+                out[k] = v
+    return out
+
+
+def _defaults_for(name):
+    try:
+        mod = _load(os.path.join(STRAT_DIR, name))
+        dp = getattr(mod, "DEFAULT_PARAMS", {}) or {}
+        return {k: (v or {}).get("default") for k, v in dp.items()}
+    except Exception:
+        return {}
+
+
+def audit_config(name, params):
+    """-> (verdict, why, fix)"""
+    name = os.path.basename(name)
+    if not name.endswith(".py"):
+        name += ".py"
+    p = dict(_defaults_for(name))
+    p.update(params or {})
+
+    if name in _ORB_TOUCH_FAMILY:
+        volf = float(p.get("vol_filter", 0) or 0)
+        mode = str(p.get("entry_mode", "") or "").lower()      # ORB_3_0_CC uses this
+        confirmed = bool(p.get("close_confirm", False)) or (mode and mode != "touch")
+        if volf > 0 and not confirmed:
+            return ("LEAK",
+                    "touch entry fills at the range edge INTRABAR while vol_filter=%g reads "
+                    "that bar's FINISHED volume - the number does not exist at fill time." % volf,
+                    "use ORB_3_1_125C.py, or close_confirm=True, or vol_filter=0 (and prefer "
+                    "vpace_filter, which only reads bars BEFORE the entry bar). Honest "
+                    "baselines are $44-69k/16.1y, never $494k.")
+        if volf > 0:
+            return ("CLEAN", "the decision happens at the bar's close, where that bar's "
+                             "volume is legitimately known.", "")
+        return ("CLEAN", "no volume filter gating the fill.", "")
+
+    if name in _MILD_FILES:
+        return ("MILD", _MILD_WHY, "state the assumption when reporting; no action needed.")
+    if name in _CLEAN_WHY:
+        return ("CLEAN", _CLEAN_WHY[name], "")
+    return ("UNAUDITED", "not covered by the 2026-08-11 sweep - audit by hand before crowning.",
+            "for every fill ask: does every input exist at the moment of THIS fill?")
+
+
+def _run_config_mode(argv):
+    def _opt(flag):
+        return argv[argv.index(flag) + 1] if flag in argv and len(argv) > argv.index(flag) + 1 else ""
+    name = _opt("--config")
+    verdict, why, fix = audit_config(name, _parse_params(_opt("--params")))
+    tag = {"LEAK": "FAIL", "MILD": "warn", "CLEAN": "PASS", "UNAUDITED": "warn"}[verdict]
+    print("EXEC-FEASIBILITY (config): %s  %s  %s" % (tag, verdict, name))
+    print("  why: %s" % why)
+    if fix:
+        print("  do : %s" % fix)
+    return 1 if verdict == "LEAK" else 0
+
+
 def main(argv):
+    if "--config" in argv:
+        return _run_config_mode(argv)
     args = [a for a in argv[1:] if not a.startswith("--")]
     if "--changed" in argv:
         paths = changed_files()
