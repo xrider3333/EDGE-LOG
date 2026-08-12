@@ -1140,6 +1140,47 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-12** — **Fresh #149 baseline rerun (#223) is a STUCK-POSITION ARTIFACT — 2nd instance; the
+  optimizer has a repeatable failure mode. Honest fresher-window baseline recorded instead.**
+  Ran the three owner-requested Auto-Validates on the extended window (2010-06-07 → **2026-07-16**;
+  1m/ETH masters could NOT reach today — Yahoo 1m serves 7 days and the NT capture restarted 2026-08-05,
+  leaving 07-17→08-04 unreachable, so nothing was fabricated; the 2m master WAS rebuilt to 07-16).
+  • **#223 (1m "new baseline") — INVALID.** Verdict WEAK 5/6 on paper, but run CONTINUOUSLY its champion
+    (ema270/tl49/stop1.2/**trail_frac 4.0**/atr5) takes its LAST entry **2025-04-07 10:11** and holds to
+    the data end → **ZERO continuous LB trades**. The 99 LB trades / $47,697.66 behind the verdict exist
+    only in the warm-start reload. **Same date and same trail_frac 4.0 as #198** → a 4R trail never
+    triggers in the 2025-26 NQ rally, so the search is REWARDED for getting stuck long. Note stamped,
+    starred=0. **Proposed fix: cap trail_frac in the ENGU-Q search space and/or make the continuous-run
+    LB cross-check a hard gate** (see the 2026-08-08 defect entry — this is its third confirmed instance).
+  • **HONEST BASELINE (frozen #149 config, same fresher window, continuous, entry-sliced LB):**
+    full **2054 tr / $453,531.86 / PF 1.39 / DD −$65,635.22 / net-DD 6.91**; IS 1964 tr / $409,198.76 /
+    PF 1.40; **LB (2025-07-16→2026-07-16) 90 tr / $44,333.10 / PF 1.27 / net-DD 0.68**; last entry
+    2026-07-15 — trades continuously, no stuck position. The engine's reload would have reported LB
+    141 tr / $66,261.94 — inflated vs the honest 90 / $44,333. **The champion still works but the newest
+    12 months are its weakest LB yet (PF 1.27 vs 1.44 on the prior window).**
+  • **#224 (2m, min_trades 330) — WEAK 5/6, fails PBO 0.774.** LB 15 tr / $3,795.10 / PF 1.05 = noise.
+    Continuous run clean (no stuck position). **2m closed as a candidate.**
+  • ETH FROZEN pinned run (`ENGUQ_1M_ETH_FROZEN_1_0.py`, all 11 params single-valued, parity exact
+    2843 tr / $434,721.12, commit 65cc4f2) still queued behind the parallel ORB job.
+- **2026-08-12** — **ENGU-Q LEAK AUDIT: no look-ahead — but a material OVERNIGHT BLIND SPOT.**
+  Per-decision audit of `ENGUQ_1M_1_0.py` / `ENGUQ_1M_ETH_1_0.py`: entry trigger LEGAL (trendline fit
+  strictly excludes the signal bar), entry fill LEGAL-but-tight (market-on-close style; median $5/contract
+  slip to next open), stop placement LEGAL, stop fill LEGAL and gap-honest (confirmed on 274/2048 exits),
+  trail/breakeven OPTIMISTIC but **conservative — priced at +$31,451.18 IN FAVOUR of live** (the honest
+  one-bar-delayed trail makes MORE). **The real finding:** the strategy reads RTH bars only yet **47.4%
+  (970/2048) of trades hold across a session boundary**, blind to the overnight tape. Independent
+  verification against the 24h master using each trade's INITIAL stop (the loosest it ever is → an
+  unarguable floor): **355 of 969 overnight holds (36.6%) traded clean through their stop unseen**, worst
+  300–500 pts; **$231,058 of backtest profit sits on 75 trades that a live resting stop would have cut**.
+  Audit's first-order repricing ≈ **−$177k of the certified $477k**. Live implication: with a 24h stop you
+  get stopped out of trades the backtest rides; without one you are naked overnight. **This is the
+  structural argument FOR the ETH (24h) branch**, which sees and manages the overnight tape. Artifacts:
+  scratchpad `enguq_leak_audit.md`/`.json`.
+- **2026-08-12** — **Leak-compromised strategies ARCHIVED in the Library (v73.17, `ef15b3a`).** 22 files
+  hidden behind the archived toggle: touch-entry ORB family (2.0/3.0 + 10 forks/3.1/3.1_125/3.2/3.3),
+  the ORB_3_4 family (hidden-knob defect re-crowns the same leak), VWAP_FADE_2_0 (same-bar-VWAP exit
+  leak). Kept ACTIVE: ORB_3_5 / 3_5_LD (live-legal, another session running them), ORB_3_1_125C,
+  ORB_FADE_1_0, ORB_1_0, NOISE_1_0, all ENGUQ. DOM-verified 27 archived / 9 active.
 - **2026-08-11** — **PRE-REGISTERED S/R gate test VERDICT: no adoption, either strategy (runs
   #218 ENGU-Q, #219 NOISE).** First honest (causal, post-leak-fix) ML tests, with the new
   dist_pdh/pdl/pdc_atr + touch_count features in the gate's feature set.
