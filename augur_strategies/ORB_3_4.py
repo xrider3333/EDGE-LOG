@@ -138,33 +138,46 @@ DEFAULT_PARAMS = {
     },
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# v-SALVAGE FIX 2 (2026-08-11): the presets below carried "vol_filter" pinned at
+#   1.25 (and swept 1.0/1.25/1.5 in Long) even though the SAME commit removed it
+#   from DEFAULT_PARAMS. Removing a knob from DEFAULT_PARAMS only hides it from
+#   the Builder UI — expand_grid() builds the parameter combos straight from the
+#   preset dict below, so every grid run of this file was still executing the
+#   look-ahead filter this file exists to REPLACE, and never once tested the
+#   legal vpace_filter (which was absent from all four presets). That is how run
+#   209 came back crowning "vol_filter 1.0 / vpace 0.0". Fixed: vol_filter is out
+#   of every preset, vpace_filter is in. vol_filter survives ONLY as a function
+#   argument (default 0.0) so ORB_3_1 parity can still be reproduced by hand.
+# ─────────────────────────────────────────────────────────────────────────────
 PARAM_GRID_PRESETS = {
     # ── THE hypothesis test: fix a clean validated base (119-flavour, stop 0.75,
-    #    vol 1.25, ride-to-close) and sweep ONLY the two runner levers. 6×4 = 24
-    #    combos. This is the lockbox-friendly, minimal-DOF walk-forward. The
-    #    partial=0 / trail=0 corner IS the single-lot 3.0 control to beat.
+    #    legal volume-pace gate, ride-to-close) and sweep ONLY the two runner
+    #    levers. 6×4 = 24 combos. This is the lockbox-friendly, minimal-DOF
+    #    walk-forward. The partial=0 / trail=0 corner IS the single-lot control.
     "Short  (scale-out core — 2 knobs only)": {
         "or_bars": [1], "trade_mode": ["Both"], "stop_frac": [0.75],
-        "vol_filter": [1.25], "breakout_buf": [0.0], "atr_filter": [0.0],
+        "vpace_filter": [0.8], "breakout_buf": [0.0], "atr_filter": [0.0],
         "target_R": [0.0], "flat_eod": [True],
         "partial_exit_R": [0.0, 1.0, 1.5, 2.0, 2.5, 3.0],
         "trail_bars":     [0, 3, 5, 8],
     },
-    # ── Adds a little base breadth (OR length, stop, vol) around the scale-out
+    # ── Adds a little base breadth (OR length, stop, v-pace) around the scale-out
     #    sweep for an XL / auto search. 2×2×2 base × 4×4 exits = 128 combos.
     "Medium (base + scale-out)": {
         "or_bars": [1, 3], "trade_mode": ["Both"], "stop_frac": [0.5, 0.75],
-        "vol_filter": [1.0, 1.25], "breakout_buf": [0.0], "atr_filter": [0.0],
+        "vpace_filter": [0.8, 1.0], "breakout_buf": [0.0], "atr_filter": [0.0],
         "target_R": [0.0], "flat_eod": [True], "close_confirm": [False, True],
         "partial_exit_R": [0.0, 1.5, 2.0, 3.0],
         "trail_bars":     [0, 3, 5, 8],
     },
     # ── Full sweep incl. a runner cap (target_R) and vol-regime filter. For XXL /
     #    auto only — this is broad enough to overfit, so trust it ONLY through a
-    #    walk-forward + lockbox, never a single in-sample best.
+    #    walk-forward + lockbox, never a single in-sample best. vpace 0.0 is left
+    #    in here on purpose as the gate-OFF control arm.
     "Long   (full — cap + regime)": {
         "or_bars": [1, 3, 6], "trade_mode": ["Both", "First-candle dir"],
-        "stop_frac": [0.5, 0.75, 1.0], "vol_filter": [1.0, 1.25, 1.5],
+        "stop_frac": [0.5, 0.75, 1.0], "vpace_filter": [0.0, 0.8, 1.1],
         "breakout_buf": [0.0], "atr_filter": [0.0, 0.8],
         "target_R": [0.0, 3.0, 4.5], "flat_eod": [True], "close_confirm": [False, True],
         "partial_exit_R": [0.0, 1.5, 2.0, 3.0],
@@ -174,7 +187,7 @@ PARAM_GRID_PRESETS = {
     #    so you can read the lot-1 take-profit level in isolation (trail fixed at 5).
     "Partial (lot-1 TP scan)": {
         "or_bars": [1], "trade_mode": ["Both"], "stop_frac": [0.75],
-        "vol_filter": [1.25], "breakout_buf": [0.0], "atr_filter": [0.0],
+        "vpace_filter": [0.8], "breakout_buf": [0.0], "atr_filter": [0.0],
         "target_R": [0.0], "flat_eod": [True], "trail_bars": [5],
         "partial_exit_R": [0.0, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0],
     },

@@ -56,6 +56,10 @@ DEFAULT_PARAMS = {
     "skip_holidays":  {"default": False, "type": "bool", "options": [False],                      "label": "Skip holidays - PINNED off"},
 }
 
+# v-SALVAGE FIX 2 (2026-08-11): the presets below passed vol_filter=1.25 straight
+#   past this file's DEFAULT_PARAMS pin (min=max=0.0). A grid/validate run therefore
+#   executed the LOOK-AHEAD filter and never touched the legal vpace gate this
+#   variant exists to test. vol_filter is now out of every preset; vpace is pinned in.
 PARAM_GRID_PRESETS = {
     # ── THE hypothesis test: fix a clean validated base (119-flavour, stop 0.75,
     #    vol 1.25, ride-to-close) and sweep ONLY the two runner levers. 6×4 = 24
@@ -63,7 +67,7 @@ PARAM_GRID_PRESETS = {
     #    partial=0 / trail=0 corner IS the single-lot 3.0 control to beat.
     "Short  (scale-out core — 2 knobs only)": {
         "or_bars": [1], "trade_mode": ["Both"], "stop_frac": [0.75],
-        "vol_filter": [1.25], "breakout_buf": [0.0], "atr_filter": [0.0],
+        "vpace_filter": [0.8], "breakout_buf": [0.0], "atr_filter": [0.0],
         "target_R": [0.0], "flat_eod": [True],
         "partial_exit_R": [0.0, 1.0, 1.5, 2.0, 2.5, 3.0],
         "trail_bars":     [0, 3, 5, 8],
@@ -72,7 +76,7 @@ PARAM_GRID_PRESETS = {
     #    sweep for an XL / auto search. 2×2×2 base × 4×4 exits = 128 combos.
     "Medium (base + scale-out)": {
         "or_bars": [1, 3], "trade_mode": ["Both"], "stop_frac": [0.5, 0.75],
-        "vol_filter": [1.0, 1.25], "breakout_buf": [0.0], "atr_filter": [0.0],
+        "vpace_filter": [0.8], "breakout_buf": [0.0], "atr_filter": [0.0],
         "target_R": [0.0], "flat_eod": [True], "close_confirm": [False, True],
         "partial_exit_R": [0.0, 1.5, 2.0, 3.0],
         "trail_bars":     [0, 3, 5, 8],
@@ -82,7 +86,7 @@ PARAM_GRID_PRESETS = {
     #    walk-forward + lockbox, never a single in-sample best.
     "Long   (full — cap + regime)": {
         "or_bars": [1, 3, 6], "trade_mode": ["Both", "First-candle dir"],
-        "stop_frac": [0.5, 0.75, 1.0], "vol_filter": [1.0, 1.25, 1.5],
+        "stop_frac": [0.5, 0.75, 1.0], "vpace_filter": [0.8],
         "breakout_buf": [0.0], "atr_filter": [0.0, 0.8],
         "target_R": [0.0, 3.0, 4.5], "flat_eod": [True], "close_confirm": [False, True],
         "partial_exit_R": [0.0, 1.5, 2.0, 3.0],
@@ -92,7 +96,7 @@ PARAM_GRID_PRESETS = {
     #    so you can read the lot-1 take-profit level in isolation (trail fixed at 5).
     "Partial (lot-1 TP scan)": {
         "or_bars": [1], "trade_mode": ["Both"], "stop_frac": [0.75],
-        "vol_filter": [1.25], "breakout_buf": [0.0], "atr_filter": [0.0],
+        "vpace_filter": [0.8], "breakout_buf": [0.0], "atr_filter": [0.0],
         "target_R": [0.0], "flat_eod": [True], "trail_bars": [5],
         "partial_exit_R": [0.0, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0],
     },
