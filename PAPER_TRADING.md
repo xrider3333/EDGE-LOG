@@ -117,6 +117,51 @@ Gotchas for the next session driving this:
 - The Pine Editor mangles non-ASCII on the way in — keep ports ASCII-only or the strategy
   title renders as mojibake (cosmetic only).
 - Panes 2 and 3 resist programmatic focus; ask the owner to click the target pane.
+- The Strategy Tester panel would not open from any of its buttons; what worked was
+  **dragging the divider just above the collapsed strip upward**. Export is the download
+  icon on the "List of trades" tab → lands in Downloads → `reconcile.py --tv auto`.
+- The engine's `--from` clips the master array *before* the strategy runs, so it eats the
+  warm-up. Start the engine window where TradingView's data starts, not where its first
+  trade is, or the engine sits out its first N sessions and the trade counts won't line up.
+
+### Reconcile #1 — NOISE, engine vs TradingView (2026-08-12)
+
+`NOISE_1_0.py` NQ 5m RTH, `stop_mode=bandwidth stop_k=1.0`, cost 0.283 pts, window
+2025-08-18 → 2026-07-16 (master ends there). Engine 191 trades / TV 182 / **161 matched**.
+
+The matched set splits cleanly and the split is the whole story:
+
+| Matched pairs | Exit bar | Total PnL gap |
+|---|---|---|
+| **111** | identical to the minute | **$139** |
+| 40 | differ | $15,121 |
+
+111 trades agreeing to the minute for $139 total is as close to proof as this gets: entry
+times and entry prices matched exactly on ~150 of 161, so the band math, the noise
+estimate, and the next-open fill convention all port correctly.
+
+All 40 disagreements were **one defect in the Pine port, not a modelling difference**: 39
+of them were trades the engine flattened at the 15:55 session close and TradingView carried
+into the next session (median 18 hours later). Cause: `process_orders_on_close=false` — the
+setting that makes entries faithful — also means a `close_all` on the last bar is only
+*filled* at the next bar's open. Fixed in `pine/NOISE_1_0.pine` with
+`strategy.close_all(..., immediately=true)`; **the fix needs a manual re-paste into the Pine
+Editor before the TV numbers above mean anything.**
+
+Note the direction: TradingView was the one that was wrong, and only a trade-for-trade
+comparison could show that. The headline stats (PF 1.205, net +$37k) looked perfectly
+plausible while a quarter of the trades were being held overnight against the rules.
+
+### ENGU-Q reconcile — BLOCKED, not attempted
+
+Two independent blockers, both on our side:
+1. **No overlapping data.** TradingView serves ~24 days of 1m bars (from 2026-07-19); the
+   `NOADJ_NQ_1m_ETH` master ends 2026-06-30 and `NOADJ_NQ_1m_RTH` ends 2026-07-16. Zero
+   overlap — there is nothing to compare. Needs the master refresh that is already open.
+2. **Session mismatch.** `ENGUQ_1M_1_0.py` is validated on **RTH**; chart 2 is currently on
+   **ETH** with back-adjustment on, and its trade list shows 00:32 / 04:49 fills. Whatever
+   that pane is testing, it is not the champion. Flip to RTH + B-ADJ off before exporting —
+   the toggles at the bottom-right of the pane did not respond to programmatic clicks.
 
 ## Candidate legs to add (2026-08-11 assessment)
 
