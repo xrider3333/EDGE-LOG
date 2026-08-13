@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.20';
+const VERSION='73.21';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.21',date:'2026-08-12',notes:['FIX on 73.20: dragging the price scale changed nothing. The drag was being tracked but the new scale was never handed to the chart, so it redrew at the old one. Verified working - the axis numbers now compress and expand as you drag.']},
 {v:'73.20',date:'2026-08-12',notes:['CANDLE CHART, three owner asks. POSITION BOX: a trade now draws as a box from the entry bar to the exit bar spanning entry price to exit price, green if it made money and red if it lost, with the entry level dashed across it. On a one or two bar trade the old arrow-and-dot labels landed on top of each other and were unreadable; the labels now sit outside the box, flip to the other side near the right edge so they cannot run off, and get pushed apart when the two prices are nearly the same.','DRAG THE PRICE SCALE. Grab the dollar numbers on the right and drag up to stretch the prices apart or down to squash them together. The axis used to auto-fit the bars on screen with no way to override it, so a quiet stretch filled the height and a big move flattened everything around it. Works whether or not you have zoomed the time axis; double-click resets both.','CANDLES ARE EASIER TO TELL APART, especially on the monochrome theme where up and down were two shades of grey. Up bars are now hollow and down bars solid, so the shape says which is which and brightness is no longer doing all the work. Same on every theme - it is the standard candle convention.']},
 {v:'73.19',date:'2026-08-12',notes:['PAPER candle window now says PAPER SHADOW TRADE in its subtitle instead of champion config, and repeats the look-ahead warning on an ORB row - a paper trade is not a run champion and should not read like one.']},
 {v:'73.18',date:'2026-08-12',notes:['CANDLES ON THE PAPER TAB (owner ask). Every row of the PAPER trades table now has a CHART button that opens that trade as a real price chart - the session it happened in plus the session either side, the session VWAP, the bars you were in the trade shaded, and the entry and exit marked at their fill prices. Same window as the run blotter, so PREV and NEXT step through the paper trades and the arrow keys work.','These trades are newer than any saved price file on your PC, so the chart is built from the master plus the live feed the shadow runner itself uses. That means the candles you see are the same bars the paper trade was decided on.','The three legs run on different timeframes - ORB and NOISE on 5 minute bars, ENGU-Q on 1 minute - and each row now fetches its own, so an ENGU-Q trade opens at 1 minute rather than borrowing the wrong chart.','Coverage caveat: the live feed only started recording partway through 2026-08-10, so a chart of the earliest paper days can begin mid-session rather than at the open.']},
@@ -3470,7 +3471,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     if(eIn&&xIn){markers.shadeFrom=r.entry_idx-lo3;markers.shadeTo=r.exit_idx-lo3;}
 
-    _cndl.api.setSvg(window.candleSVG(bars,ovs,markers,{}));
+    _cndl.api.setSvg(window.candleSVG(bars,ovs,markers,{yZoom:_cndl.yZoom||1}));
 
     const meta=r.meta||{},zoomed=(lo3>0||hi3<all.length-1);
 
