@@ -361,6 +361,10 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 .grade-D{color:#ff8c42;background:#ff8c4218;border:1px solid #ff8c4230;font-size:var(--fss);padding:1px 7px;font-family:'Bebas Neue',monospace}
 .grade-F{color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent);border:1px solid color-mix(in srgb,var(--red) 25%,transparent);font-size:var(--fss);padding:1px 7px;font-family:'Bebas Neue',monospace}
 .grade-x{color:var(--text4);background:var(--bg2);border:1px solid var(--border2);font-size:var(--fss);padding:1px 7px;font-family:'Bebas Neue',monospace}
+/* score pill — clickable, opens the score report */
+.score-pill{display:inline-block;font-family:'Bebas Neue',monospace;font-size:12px;letter-spacing:.5px;padding:1px 8px;border:1px solid var(--border2);cursor:pointer;white-space:nowrap}
+.score-pill:hover{filter:brightness(1.35)}
+.score-none{color:var(--text5);background:var(--bg2)}
 /* inline select */
 .inline-sel{background:var(--bg2);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:var(--fsxs);padding:2px 4px;outline:none;cursor:pointer;max-width:120px}
 .inline-sel:focus{border-color:color-mix(in srgb,var(--green) 40%,transparent)}
@@ -442,10 +446,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.26';
+const VERSION='73.27';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.27',date:'2026-08-12',notes:['New SCORE column in TRADING LOG > TRADES, next to GRADE. Click the pill for a full score report: two separate marks out of 100 - SETUP (everything knowable before the fill) and EXECUTION (graded against the tape afterwards) - with every factor, its weight and the measurement behind it.','The report also shows the entry geometry: breakout candle, its close, your CHASE % (how far above that close you filled, as a share of the candle range), stop, risk, reward, R multiple, how much of the planned risk the drawdown ate, and how much of the favourable move you kept.','First four stock trades scored: EHGO 82, XRX 61, OFAL 51, LABT 38. Sort the column to rank them.']},
 {v:'73.26',date:'2026-08-12',notes:['Picking a built-in logo mark no longer loses the image you uploaded. The last uploaded logo is kept aside and a RESTORE UPLOADED button with a thumbnail appears next to it in Settings > APPEARANCE > LOGO, so you can try the marks and go back.']},
 {v:'73.24',date:'2026-08-12',notes:['FIX (owner): switching settings panes moved the whole window around the screen. The window sized itself to whichever pane you were on, so APPEARANCE and TRADING LOG were different heights and the box jumped when you clicked between them. It is now one fixed size for every pane - nothing moves.','NEW LOGOS (owner ask). The LOGO card in Settings > APPEARANCE now offers six built-in marks - EL monogram, breakout candle, edge steps, pulse, wedge and candles - one click to wear one, with the current pick ticked. They are square vector marks so they stay sharp in the top bar AND as the browser-tab icon. Uploading your own image still works the same.']},
 {v:'73.23',date:'2026-08-12',notes:['The settings window now sizes itself to the pane you are on instead of always being 860px tall, so APPEARANCE no longer leaves half the window empty. Tall panes still cap at 88% of the screen and scroll.']},
@@ -963,6 +968,47 @@ const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},
 const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
 const TIMEFRAMES=['—','5s','10s','15s','30s','1m','2m','3m','5m','10m','15m','30m','1h','2h','4h','Daily','Weekly'];
+
+// ── TRADE SCORE ────────────────────────────────────────────────────────────────
+// Two independent 0-100 scores per trade. They are deliberately SEPARATE because only
+// one of them can ever run live:
+//   SETUP     — everything knowable BEFORE the entry fills. This is the half that
+//               eventually becomes a scanner rule / Pine filter.
+//   EXECUTION — how the trade was actually handled, graded against the tape after the
+//               fact (fill vs plan, MAE, MFE capture, sizing, plan adherence).
+// A trade can score high on one and low on the other; the split is the whole point.
+// GRADE (the A-F dropdown) stays the owner's own gut call and is never overwritten.
+//
+// Scores are authored, not computed in-app — they need 1-minute bar data the browser
+// does not have. Keyed 'YYYY-MM-DD|SYM' so they survive re-imports and id changes.
+const SCORE_BANDS=[[85,'A'],[70,'B'],[55,'C'],[40,'D'],[0,'F']];
+const scoreBand=n=>(SCORE_BANDS.find(b=>n>=b[0])||['','F'])[1];
+const scoreColor=n=>n>=85?'var(--green)':n>=70?'var(--blue)':n>=55?'var(--yellow)':n>=40?'#ff8c42':'var(--red)';
+const scoreKey=t=>`${t.date}|${(t.symbol||'').toUpperCase()}`;
+const scoreOf=t=>TRADE_SCORES[scoreKey(t)]||null;
+
+// f: [label, weight, score, note]
+const TRADE_SCORES={
+'2026-07-23|EHGO':{overall:82,summary:'The model trade. Bought a pullback BELOW the breakout candle close, sized up on the best catalyst, sold into the spike. Stock closed 2.71 — the exit was the trade.',
+  stats:{bo:'09:31',boClose:4.040,boRange:0.650,chase:-13.8,stop:3.780,risk:0.170,reward:0.565,R:3.32,maePct:41,mfeCap:55,dayClose:2.71},
+  setup:{total:84,f:[['Catalyst / RVOL',15,15,'+124% gap on a 1.76 prior close, 42M shares in the opening minute'],['Front-side structure',20,16,'Genuine first expansion off a premarket base'],['Entry location',20,18,'Filled 3.95 — BELOW the 4.04 breakout close. Bought the dip, not the spike'],['Risk definition',15,12,'Stop 3.78 = breakout candle low, 4.3% away'],['R:R to a real level',10,8,'0.17 risk against a multi-point extension'],['Liquidity',10,9,'Deep two-sided book'],['Time of day',10,6,'09:32, two minutes into the open']]},
+  exec:{total:81,f:[['Entry timing',25,23,'No chase at all — the best fill of any logged stock trade'],['Risk control / MAE',25,20,'MAE 3.88 = only 41% of planned risk used'],['Exit vs MFE',25,17,'Sold 4.515 into a 4.97 spike = 55% capture, and EHGO closed 2.71'],['Sizing',15,12,'100 sh / $395 = 13% of account — biggest size on the best setup. Correct.'],['Plan adherence',10,9,'Entry rule, stop and exit all followed']]}},
+
+'2026-07-30|XRX':{overall:61,summary:'Entry was disciplined — he paid the breakout candle close almost exactly. The loss came from exiting a candle LATE, taking 75% more than the planned risk.',
+  stats:{bo:'09:30',boClose:3.555,boRange:0.355,chase:2.8,stop:3.425,risk:0.140,reward:-0.245,R:-1.75,maePct:189,mfeCap:null,dayClose:3.42},
+  setup:{total:69,f:[['Catalyst / RVOL',15,13,'+35% gap, 6.0M shares in the opening minute'],['Front-side structure',20,8,'Bought the opening-drive high after a 0.355-range bar'],['Entry location',20,15,'3.565 vs a 3.555 breakout close — his rule’s ideal fill'],['Risk definition',15,12,'Stop 3.425 = breakout low, only 3.9% away. Tight and structural'],['R:R to a real level',10,6,'0.14 risk, ~0.22 to the 3.78 high = 1.5:1'],['Liquidity',10,9,'Large-cap, tight spread'],['Time of day',10,6,'09:31 — first minute after the bell']]},
+  exec:{total:54,f:[['Entry timing',25,20,'Bought his level, no chase'],['Risk control / MAE',25,8,'Stop 3.425 broke at 09:31 (low 3.380). He exited 3.32 — 0.105 BEYOND the stop'],['Exit vs MFE',25,10,'Sold into the flush; XRX closed 3.42, above the exit'],['Sizing',15,10,'50 sh / $178 = 5.9% of account'],['Plan adherence',10,6,'Honoured the idea of stopping out, but a candle late and at a worse price']]}},
+
+'2026-08-12|OFAL':{overall:51,summary:'Perfect stock, correct stop rule, chased fill. Paying 2.93 instead of the 2.65 his own rule pointed at gave away 34% of the risk budget and turned a 1.27R trade into 0.51R.',
+  stats:{bo:'08:40',boClose:2.650,boRange:0.640,chase:43.8,stop:2.100,risk:0.830,reward:0.420,R:0.51,maePct:58,mfeCap:74,dayClose:1.34},
+  setup:{total:51,f:[['Catalyst / RVOL',15,15,'+256% gap, 147M shares, ~$375M traded. The ticker of the day'],['Front-side structure',20,12,'Still front-side at 08:41, but bought the vertical rather than a base'],['Entry location',20,4,'Breakout candle closed 2.65; paid 2.93 = 44% of the candle range above it'],['Risk definition',15,7,'Stop 2.10 = breakout candle low. Correct rule, but 28% wide at this fill'],['R:R to a real level',10,3,'0.83 risk for 0.42 reward = 0.51:1'],['Liquidity',10,7,'$375M traded, but ~22 LULD halts 09:30-12:30'],['Time of day',10,3,'08:41 premarket — thin book, open still ahead']]},
+  exec:{total:52,f:[['Entry timing',25,5,'Entry bar ran 2.65 → 3.50 → closed 2.88. Filled inside the wick'],['Risk control / MAE',25,7,'Stop never hit (MAE used 58% of risk) but the geometry was sub-1R by construction'],['Exit vs MFE',25,21,'Out 3.35 for 74% of MFE-to-exit. OFAL closed 1.34 — a genuinely good exit'],['Sizing',15,8,'20 sh / $58.60 = 1.9% of account on the day’s best catalyst'],['Plan adherence',10,9,'Stop honoured, target 3.35 hit exactly']]}},
+
+'2026-07-22|LABT':{overall:38,summary:'The worst fill in the log: paid 5.11 when the breakout candle closed 4.54 — a full candle-range above it. Held through a stop breach, then took +$3.60 out of a move that ran to 7.72.',
+  stats:{bo:'08:07',boClose:4.540,boRange:0.510,chase:111.8,stop:4.150,risk:0.960,reward:0.120,R:0.13,maePct:70,mfeCap:14,dayClose:3.36},
+  setup:{total:44,f:[['Catalyst / RVOL',15,15,'+175% gap off a 1.86 close'],['Front-side structure',20,10,'Third vertical extension in three minutes, not a first break'],['Entry location',20,3,'Breakout close 4.54, filled 5.11 = 112% of the candle range above it'],['Risk definition',15,4,'Stop 4.15 = 0.96 risk (19%) on a bar that had just printed a 6.98 wick'],['R:R to a real level',10,3,'No overhead reference — pure blue sky after a 3.7x premarket run'],['Liquidity',10,6,'Premarket only, thin book'],['Time of day',10,3,'08:08, mid-vertical']]},
+  exec:{total:31,f:[['Entry timing',25,4,'Chased the extension bar by more than its own range'],['Risk control / MAE',25,8,'MAE 4.44 breached the 4.15 stop zone reasoning — 70% of risk used in one minute'],['Exit vs MFE',25,6,'+0.12 captured out of an 0.83 in-hold move; LABT hit 7.72 nineteen minutes later'],['Sizing',15,9,'30 sh / $153 = 5% of account'],['Plan adherence',10,4,'Exit was neither the stop nor a target — a discretionary bail']]}},
+};
 const TABS=['overview','trades','analytics','import_export','journal','augur'];
 // Two master sections: TRADING LOG (the tracker) and BACKTESTER (augur). Each shows its
 // own subtabs underneath. 'augur' is the single activeTab behind the Backtester master.
@@ -6942,6 +6988,75 @@ document.addEventListener('click',(e)=>{
   }
 });
 
+// ── SCORE REPORT ───────────────────────────────────────────────────────────────
+// Opened from the SCORE pill in the trades table. Shows the two halves side by side
+// with every factor, its weight and the measurement behind it, plus the entry
+// geometry (breakout candle → fill → stop) that drives most of the score.
+window.showTradeScore=function(key){
+  const sc=TRADE_SCORES[key];
+  const t=trades.find(x=>scoreKey(x)===key);
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;cursor:pointer;overflow:auto';
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const hd=(title,sub,col)=>`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:11px;border-bottom:1px solid var(--border)">
+      <div><div style="font-family:'Bebas Neue',monospace;font-size:18px;letter-spacing:2px;color:${col||'var(--text)'}">${title}</div>
+      <div style="font-size:var(--fsxs);color:var(--text4);margin-top:3px">${sub}</div></div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:1px solid var(--border);color:var(--text3);padding:6px 14px;cursor:pointer">CLOSE ✕</button></div>`;
+  if(!sc){
+    modal.innerHTML=`<div style="background:var(--bg1);border:1px solid var(--border2);max-width:540px;width:100%;padding:22px;cursor:default" onclick="event.stopPropagation()">
+      ${hd('NOT SCORED YET',key.replace('|',' · '))}
+      <div style="font-size:var(--fsm);color:var(--text3);line-height:1.85">
+        A score is two independent numbers out of 100:
+        <div style="margin:10px 0 0 0;padding-left:12px;border-left:2px solid var(--blue)"><b style="color:var(--blue)">SETUP</b> — everything knowable before the fill: catalyst / relative volume, front-side vs back-side, entry location, how the stop is defined, reward vs risk, liquidity, time of day. This is the half that can eventually run live as a filter.</div>
+        <div style="margin:10px 0 0 0;padding-left:12px;border-left:2px solid var(--yellow)"><b style="color:var(--yellow)">EXECUTION</b> — graded against the tape afterwards: entry timing, how much of the planned risk the drawdown ate, how much of the favourable move was captured, sizing, and whether the plan was actually followed.</div>
+        <div style="margin-top:14px;color:var(--text4);font-size:var(--fsxs)">Scoring needs 1-minute bars around the fill, so it is authored per trade rather than computed in the browser. Free intraday history reaches back about 30 days — older trades can only be scored from a saved chart.</div>
+      </div></div>`;
+    document.body.appendChild(modal);return;
+  }
+  const col=scoreColor(sc.overall);
+  const s=sc.stats||{};
+  const bar=(v,w,c)=>`<div style="height:4px;background:var(--bg3);width:70px;display:inline-block;vertical-align:middle"><div style="height:4px;width:${Math.round(v/w*70)}px;background:${c}"></div></div>`;
+  const half=(name,d,c)=>`<div style="flex:1;min-width:330px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px">
+      <span style="font-size:var(--fsxs);letter-spacing:2px;color:${c}">${name}</span>
+      <span style="font-family:'Bebas Neue',monospace;font-size:20px;color:${scoreColor(d.total)}">${d.total}<span style="font-size:11px;color:var(--text4)">/100 ${scoreBand(d.total)}</span></span>
+    </div>
+    <table style="width:100%;font-size:var(--fsxs);border-collapse:collapse">
+      ${d.f.map(([lbl,w,v,note])=>`<tr style="border-top:1px solid var(--border)">
+        <td style="padding:5px 0;color:var(--text3);white-space:nowrap;vertical-align:top">${lbl}</td>
+        <td style="padding:5px 6px;text-align:right;white-space:nowrap;vertical-align:top"><span style="color:${scoreColor(v/w*100)};font-family:'Bebas Neue',monospace;font-size:13px">${v}</span><span style="color:var(--text5)">/${w}</span> ${bar(v,w,scoreColor(v/w*100))}</td>
+      </tr><tr><td colspan="2" style="padding:0 0 6px 0;color:var(--text5);line-height:1.5">${note}</td></tr>`).join('')}
+    </table></div>`;
+  const stat=(lbl,val,c)=>`<div style="min-width:96px"><div style="font-size:8px;letter-spacing:1px;color:var(--text5)">${lbl}</div><div style="font-family:'Bebas Neue',monospace;font-size:15px;color:${c||'var(--text2)'}">${val}</div></div>`;
+  const chaseCol=s.chase==null?'var(--text3)':s.chase<=0?'var(--green)':s.chase<25?'var(--yellow)':'var(--red)';
+  modal.innerHTML=`<div style="background:var(--bg1);border:1px solid ${col};max-width:900px;width:100%;padding:22px;cursor:default;margin:auto" onclick="event.stopPropagation()">
+    ${hd('TRADE SCORE · '+key.split('|')[1],`${key.split('|')[0]}${t?` · ${t.type} ${t.size} @ ${t.entry} → ${t.exit} · ${t.pnl>=0?'+':''}$${(t.pnl||0).toFixed(2)}${t.grade&&t.grade!=='—'?` · your grade ${t.grade}`:''}`:''}`,col)}
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+      <div style="font-family:'Bebas Neue',monospace;font-size:46px;line-height:1;color:${col}">${sc.overall}<span style="font-size:18px;color:var(--text4)">/100</span></div>
+      <div style="font-family:'Bebas Neue',monospace;font-size:26px;color:${col};border:1px solid ${col};padding:2px 12px">${scoreBand(sc.overall)}</div>
+      <div style="flex:1;font-size:var(--fsm);color:var(--text3);line-height:1.6">${sc.summary||''}</div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);margin-bottom:16px">
+      ${stat('BREAKOUT CANDLE',s.bo??'—')}
+      ${stat('ITS CLOSE',s.boClose??'—')}
+      ${stat('CHASE',s.chase==null?'—':(s.chase>0?'+':'')+s.chase.toFixed(1)+'%',chaseCol)}
+      ${stat('STOP',s.stop??'—')}
+      ${stat('RISK',s.risk==null?'—':s.risk.toFixed(3))}
+      ${stat('REWARD',s.reward==null?'—':(s.reward>0?'+':'')+s.reward.toFixed(3))}
+      ${stat('R MULTIPLE',s.R==null?'—':(s.R>0?'+':'')+s.R.toFixed(2)+'R',s.R>=1?'var(--green)':s.R>0?'var(--yellow)':'var(--red)')}
+      ${stat('MAE USED',s.maePct==null?'—':s.maePct+'% of risk',s.maePct>100?'var(--red)':'var(--text2)')}
+      ${stat('MFE CAPTURED',s.mfeCap==null?'—':s.mfeCap+'%')}
+      ${stat('CLOSED THAT DAY',s.dayClose??'—')}
+    </div>
+    <div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:12px;line-height:1.6"><b style="color:var(--text3)">CHASE</b> = how far the fill sat above the breakout candle's close, as a share of that candle's range. Negative means the fill was below the close — a pullback, not a chase. It is the single strongest predictor in the log so far.</div>
+    <div style="display:flex;gap:26px;flex-wrap:wrap">
+      ${half('SETUP · knowable before the fill',sc.setup,'var(--blue)')}
+      ${half('EXECUTION · graded against the tape',sc.exec,'var(--yellow)')}
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+};
+
 window.showFeeBreakdown=function(tid){
   const t=trades.find(x=>x.id===tid);
   if(!t||!t.fees||t.fees<=0)return;
@@ -8104,6 +8219,9 @@ function renderApp(){
       // Apply sort
       const sortedFiltered=[...filtered].sort((a,b)=>{
         let av=a[sortCol],bv=b[sortCol];
+        // SCORE is a virtual column (authored data, not a trade field). Unscored trades sort
+        // last in both directions rather than pretending to be a 0.
+        if(sortCol==='_score'){av=scoreOf(a)?.overall??-1;bv=scoreOf(b)?.overall??-1;}
         if(sortCol==='pnl'||sortCol==='entry'||sortCol==='exit'||sortCol==='size'||sortCol==='fees'){av=parseFloat(av)||0;bv=parseFloat(bv)||0;}
         if(av<bv)return -sortDir;if(av>bv)return sortDir;
         // tiebreak by entry time when sorting by date
@@ -8219,6 +8337,10 @@ function renderApp(){
           <td><select class="inline-sel" data-field="grade" data-id="${t.id}">
             ${GRADES.map(g=>`<option${g===(t.grade||'—')?' selected':''}>${g}</option>`).join('')}
           </select></td>
+          <!-- SCORE — click for the full report -->
+          <td style="white-space:nowrap;text-align:center">${(()=>{const sc=scoreOf(t);
+            if(!sc)return `<span class="score-pill score-none" title="Not scored yet — click to see what a score covers" onclick="event.stopPropagation();showTradeScore('${scoreKey(t)}')">–</span>`;
+            return `<span class="score-pill" style="color:${scoreColor(sc.overall)};border-color:color-mix(in srgb,${scoreColor(sc.overall)} 35%,transparent);background:color-mix(in srgb,${scoreColor(sc.overall)} 10%,transparent)" title="Setup ${sc.setup.total} / Execution ${sc.exec.total} — click for the full report" onclick="event.stopPropagation();showTradeScore('${scoreKey(t)}')">${sc.overall} ${scoreBand(sc.overall)}</span>`;})()}</td>
           <!-- INLINE SETUP -->
           <td><select class="inline-sel" data-field="setup" data-id="${t.id}">
             ${customSetups.map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}
@@ -8282,7 +8404,7 @@ function renderApp(){
         ${_th('SYM','symbol',_fList('sym',_syms))}${_th('DIR','type',_fList('dir',['LONG','SHORT']))}
         ${_th('ENTRY','entry')}${_th('EXIT','exit')}${_th('PTS','_pts')}${_th('CTRS','size')}
         ${_th('GROSS','grossPnl')}${_th('FEES','fees')}${_th('NET P&L','pnl',_fRange('minPnl','maxPnl'))}${_th('ACCT','_runbal')}<th>ACCT%</th>
-        ${_th('GRADE','grade',_fList('grade',GRADES.filter(g=>g!=='—')))}${_th('SETUP','setup',_fList('setup',customSetups.filter(s=>s!=='—')))}${_th('TF','timeframe',_fList('tf',TIMEFRAMES))}
+        ${_th('GRADE','grade',_fList('grade',GRADES.filter(g=>g!=='—')))}${_th('SCORE','_score')}${_th('SETUP','setup',_fList('setup',customSetups.filter(s=>s!=='—')))}${_th('TF','timeframe',_fList('tf',TIMEFRAMES))}
         <th>CHART</th><th>TAGS</th><th>NOTES</th>${exH}<th></th><th></th>
       </tr></thead><tbody>${tbody}</tbody></table>`;
       content.appendChild(tw);
