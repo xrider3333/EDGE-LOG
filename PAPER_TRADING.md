@@ -13,7 +13,7 @@ Forward-testing the crowned strategies on live data with no real money, to answe
 | Layer | What | Measures | Status |
 |---|---|---|---|
 | 0 · SHADOW | The always-on runner re-runs each strategy daily ~16:10 ET on master + a fresh tail resampled from the NT AddOn's live 10s feed, logs would-have trades to Firestore | Live-data drift (signal-perfect by construction — **it reproduces engine bugs, see ORB below**) | **LIVE** since 2026-08-10 (`api/paper.py`, runner hook) |
-| 1 · NT DEMO | NinjaScript ports auto-trading the broker demo account `DEMO7240108` in NinjaTrader; fills flow into EDGELOG via the existing AddOn auto-import (`account` field) | Fill/slippage/execution realism | Strategies compiled + installed; **NOT yet enabled on charts** (owner action, ~2 min) |
+| 1 · NT DEMO | NinjaScript ports auto-trading the broker demo account `DEMO7240108` in NinjaTrader; fills flow into EDGELOG via the AddOn auto-import (`account` + `SignalName`) | Fill/slippage/execution realism | **LIVE since 2026-08-11** — NOISE trading, ENGU-Q + ORB V2 enabled but out of sync (see NT state) |
 | 2 · TRADINGVIEW | Pine ports of the same strategies on layout **PAPER EdgeLog**, run in TradingView's own engine, exported as "List of trades" and matched trade-for-trade against ours (`tools/reconcile.py --tv`) | Whether the RULES are what we think they are — a second engine that shares no code with ours | **NOISE: LIVE**, reconciled 2026-08-12 (see below) · ENGU-Q: blocked on chart session |
 | 3 · RECONCILE | `tools/reconcile.py --daily` shadow-vs-demo-vs-backtest compare | Which layer diverges | Not built yet — needs demo fills to exist |
 
@@ -93,13 +93,41 @@ Volume only accumulates, so V2 watches the **forming** 5-min bar tick-by-tick:
   over 16y** (needs intrabar volume; only ~7 weeks of 10s exists) — **the PAPER forward
   test is the arbiter.** TV cannot express V2 (Pine has no intrabar cum-volume decisions).
 
-## Current NT state (as of 2026-08-11 ~13:40 ET)
+## Current NT state (as of 2026-08-13 ~12:10 ET)
 
-- **Nothing is enabled in NinjaTrader.** Compiled & installed (verified in the rebuilt
-  `NinjaTrader.Custom.dll`): `EdgeLogORBV2`, `EdgeLogENGUQ1m`, `EdgeLogORB30` (V1 — retired,
-  do not enable). Charts exist: NQ 5-min RTH + NQ 1-min (verify RTH + ≥30 days loaded).
-- To go live (owner, ~2 min): chart ▸ Strategies ▸ add `EdgeLogORBV2` (5-min) /
-  `EdgeLogENGUQ1m` (1-min) ▸ Account **DEMO7240108** ▸ defaults ▸ Enabled ▸ OK.
+**The previous version of this section said "nothing is enabled in NinjaTrader". That was
+wrong from 2026-08-11 onward and nobody noticed until the Layer 3 reconcile was built and
+started asking where the fills were coming from. Treat this section as something to verify,
+not to trust.**
+
+All three strategies are enabled on `DEMO7240108`, all on NQ 09-26:
+
+| Strategy | Bars | Strategy pos | Acct pos | Sync | State |
+|---|---|---|---|---|---|
+| `EdgeLogNOISE` | 5 min | 1 L @ 30144.25 | 1 L | **True** | **Trading.** Realized $1,740 today |
+| `EdgeLogENGUQ1m` | 1 min | 1 L @ 29730.25 | 1 L | False | Holding a stale position, placing nothing |
+| `EdgeLogORBV2` | 5 min | flat | 1 L | False | Flat, placing nothing |
+
+**NOISE ran the bar-of-day bug live from 2026-08-11 until the 11:20 ET recompile on
+08-13.** Any demo P&L spanning that boundary mixes broken and fixed code — do not read it.
+
+**Three strategies on one account cannot be kept straight, and this is NinjaTrader's own
+position, not an opinion:** each strategy tracks its own virtual position but the ACCOUNT
+nets them, so when one exits "its" contract it may sell another's. NinjaTrader's guidance is
+separate accounts or one combined strategy. The Sync=False rows above are that collision
+showing itself.
+
+**Plan (agreed 2026-08-13):** NinjaTrader allows *unlimited* local simulation accounts
+(Tools ▸ Options ▸ Multi Providers, restart, then Accounts tab ▸ right-click ▸ New
+simulation account). Give ENGU-Q and ORB V2 one each; leave NOISE on the broker demo, which
+has realistic broker fills. For LIVE later: separate live accounts, or fold the legs into a
+single NinjaScript — the live analogue of the BOOK job type, which already pools legs and
+scores them as one strategy.
+
+**Do all of this while flat.** Compiling restarts every running strategy; NOISE survived a
+mid-trade recompile on 08-13 with Sync intact, but an orphaned position with no stop is the
+failure mode to avoid.
+
 - Known V1 lessons already fixed in V2: orphaned protective stop after NT's session-close
   flatten; historical-replay trade marks confusing the chart; thin-vol scratch churn.
 
