@@ -87,10 +87,14 @@ PAPER_LIVE_ACCOUNT = "DEMO7240108"
 
 # Are the NinjaScript strategies actually enabled on charts? While this is False the
 # Layer 3 reconcile does not treat "the engine signalled and the demo did not trade" as
-# a divergence, because that is exactly what is expected. FLIP THIS THE DAY THE CHARTS
-# ARE ENABLED - leaving it False would silently mute the one check the demo layer exists
-# to provide.
-NT_STRATEGIES_ENABLED = False
+# a divergence, because that is exactly what is expected.
+#
+# TRUE since 2026-08-13. PAPER_TRADING.md said the strategies were not enabled; the fills
+# say otherwise. DEMO7240108 has been trading NQ on exact 5-minute boundaries with zero
+# commission and sequential order ids since 2026-08-11 - machine-generated, on the 5m
+# chart, which is NOISE. Nobody updated the doc when the chart was enabled, which is
+# precisely the kind of drift this reconcile exists to catch.
+NT_STRATEGIES_ENABLED = True
 _FILLS_CSV = r"C:\EdgeLog\fills.csv"
 _INST_MULT = {"NQ": 20.0, "MNQ": 2.0, "ES": 50.0, "MES": 5.0}
 
