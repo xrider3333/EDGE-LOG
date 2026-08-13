@@ -110,10 +110,26 @@ bool warm      = matrix.rows(hist) >= lookback
 bool allowLong = sideIn == "Both" or sideIn == "Long Only"
 bool allowShort= sideIn == "Both" or sideIn == "Short Only"
 
+// Last bar of the regular session.
+//
+// session.islastbar ALONE DOES NOT WORK HERE and it fails SILENTLY. The 2026-08-13
+// export proves it: across 197 trades the strategy produced zero "eod" exits - every
+// single exit was the VWAP rule or the protective stop, so the flatten block below
+// never ran once and 36 trades rode overnight. Nothing errors; the strategy just
+// quietly stops obeying one of its rules.
+//
+// So test three ways and take any of them. The clock test is the reliable one on this
+// chart: NQ's regular session closes at 16:00 ET, so the final 5-minute bar is the one
+// whose CLOSE stamps 16:00. That is calendar knowledge, not look-ahead. It does not
+// fire on early-close half-days - a known, small gap.
+bool sessEnd = session.islastbar or session.islastbar_regular
+     or (hour(time_close, "America/New_York") == 16
+         and minute(time_close, "America/New_York") == 0)
+
 // The engine forbids a fresh entry on the session's first bar and inside its
 // last two bars (its k <= m-2 rule). Session length is calendar knowledge, so
 // this is not look-ahead.
-bool lastBars = session.islastbar or bod < 1
+bool lastBars = sessEnd or bod < 1
 
 // -- Entries -- decided at THIS close, filled at the NEXT bar's open -----------
 bool longTrig  = warm and allowLong  and not na(ub) and close > ub
@@ -150,13 +166,15 @@ if strategy.position_size < 0 and not na(vwap) and close > vwap
     strategy.close("NZS", comment="vwap")
 
 // -- Flat by session close ----------------------------------------------------
-// immediately=true is REQUIRED. With process_orders_on_close=false (which is what
-// makes entries faithful: decide at close, fill next open) a plain close_all on the
-// last bar is only FILLED at the next bar's open -- i.e. the next session -- so the
-// position rides overnight. The 2026-08-12 reconcile caught exactly that: 39 of the
-// 151 matched trades diverged, every one an engine EOD flatten that TV carried over,
-// costing $15,121. immediately=true fills at this bar's close, like the engine.
-if session.islastbar and strategy.position_size != 0
+// Two things are needed here and the first one was the real bug (see sessEnd above):
+//   1. sessEnd, not session.islastbar - the latter never fired on this chart at all.
+//   2. immediately=true - with process_orders_on_close=false (which is what makes the
+//      entries faithful: decide at close, fill next open) a plain close_all placed on
+//      the last bar is only FILLED at the next bar's open, i.e. the next session, so
+//      the position would ride overnight anyway.
+// The 2026-08-12 reconcile found 36 trades held overnight, costing $15,121 against the
+// engine. Fixing only (2) changed nothing, which is what exposed (1).
+if sessEnd and strategy.position_size != 0
     strategy.close_all(comment="eod", immediately=true)
 
 // -- End-of-bar bookkeeping ---------------------------------------------------
