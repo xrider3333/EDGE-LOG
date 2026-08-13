@@ -446,10 +446,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.29';
+const VERSION='73.30';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.30',date:'2026-08-13',notes:['New NEO report layout - the run report wearing a modern skin: deep glass panels, neon hairline dividers, a faint blueprint-grid backdrop, glowing section rules, calmer table chrome and slim accent scrollbars. Pick it from the layout rail in the report header, next to CLASSIC and DASHBOARD.','Nothing moved and nothing was rebuilt - NEO is the same charts, sections, drag splitters, saved sizes and COLUMNS control as CLASSIC, so the two views can never drift apart. CLASSIC itself is untouched; flip back any time.']},
 {v:'73.29',date:'2026-08-12',notes:['Trade scores now have a home in the repo instead of living inline. The judgement sits in tools/data/trade_scores.json and tools/trade_scores.py rebuilds the block in this file, so adding a scored trade no longer means hand-editing the app.','The 1-minute bars behind each score report are cached alongside it, so a trade stays scorable after it ages out of the free 30-day intraday window.','No change to what you see - the scores and charts are identical to 73.28.']},
 {v:'73.28',date:'2026-08-12',notes:['The score report now opens with a candlestick chart of the bars around your fill instead of pure text. The breakout candle is boxed, entry / exit / stop are drawn across it, and the shaded band is the CHASE - the gap between the breakout candle close and where you actually filled.','Seven more stock trades scored: AMC, GMM, SUGP, LGCL, LHAI, CELZ, TNMG. Eleven of the twenty-three are now scored - the rest are older than the free intraday history reaches.','Sort the SCORE column to rank every scored trade.']},
 {v:'73.27',date:'2026-08-12',notes:['New SCORE column in TRADING LOG > TRADES, next to GRADE. Click the pill for a full score report: two separate marks out of 100 - SETUP (everything knowable before the fill) and EXECUTION (graded against the tape afterwards) - with every factor, its weight and the measurement behind it.','The report also shows the entry geometry: breakout candle, its close, your CHASE % (how far above that close you filled, as a share of the candle range), stop, risk, reward, R multiple, how much of the planned risk the drawdown ate, and how much of the favourable move you kept.','First four stock trades scored: EHGO 82, XRX 61, OFAL 51, LABT 38. Sort the column to rank them.']},
@@ -14178,7 +14179,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // ── Compact report header (owner): ONE sticky row = REPORT: id + strategy + the checklist
       //    "tiles" (numbered section pills, middle, fill) + the action buttons. The repeated run-meta
       //    (instrument · configs · took · cost · ran-date) is DROPPED — it already lives in Past Runs.
-      const _repLay=(APREF.repLayout==='funnel')?'funnel':((APREF.repLayout==='gauges')?'gauges':((APREF.repLayout==='pills')?'pills':((APREF.repLayout==='dense')?'dense':'classic')));
+      const _repLay=(APREF.repLayout==='funnel')?'funnel':((APREF.repLayout==='gauges')?'gauges':((APREF.repLayout==='pills')?'pills':((APREF.repLayout==='dense')?'dense':((APREF.repLayout==='neo')?'neo':'classic'))));
       const _repColsSel=repColsPref();
       // v71.39 (owner: "make the report layout a drop down on the same row, anchored right with
       //   the other icons"): the whole REPORT LAYOUT / COLUMNS strip collapses into two compact
@@ -14189,8 +14190,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   reading as a separate toolbar bolted on above the report.
       const _railWrap=(tint,inner)=>'<span style="display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,'+tint+' 8%,transparent)">'+inner+'</span>';
       const _rail=(attr,v,lab,on,tint,tip)=>'<span '+attr+'="'+v+'" title="'+tip+'" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 7px;border-radius:6px;color:'+(on?'var(--text)':'var(--text4)')+';background:'+(on?'color-mix(in srgb,'+tint+' 20%,transparent)':'transparent')+';box-shadow:'+(on?'inset 0 -2px 0 '+tint:'none')+'">'+lab+'</span>';
-      const _layOpts=[['classic','CLASSIC'],['dense','DASHBOARD'],['funnel','FUNNEL'],['gauges','GAUGES'],['pills','PILLS']];
-      const _laySel=_railWrap('var(--green)',_layOpts.map(function(o){return _rail('data-replay',o[0],o[1],_repLay===o[0],'var(--green)','REPORT LAYOUT - '+o[1]);}).join(''));
+      // v73.30 (owner: "revamp the results tab... modernize... make it its new tab so we dont
+      //   loose the old one"): NEO = the CLASSIC report wearing a scoped modern skin (see the
+      //   _neoCss block above the classic return). Same DOM, so the rail entry is all it needs.
+      const _layOpts=[['classic','CLASSIC'],['neo','NEO','the modern skin - the CLASSIC report restyled: glass panels, neon hairlines, blueprint grid. Same charts, sections, splitters and columns; flip back any time'],['dense','DASHBOARD'],['funnel','FUNNEL'],['gauges','GAUGES'],['pills','PILLS']];
+      const _laySel=_railWrap('var(--green)',_layOpts.map(function(o){return _rail('data-replay',o[0],o[1],_repLay===o[0],'var(--green)','REPORT LAYOUT - '+(o[2]||o[1]));}).join(''));
       const _colSel='<span style="font-size:8px;letter-spacing:.6px;color:var(--text5);font-weight:700;margin-right:1px">COLUMNS</span>'+_railWrap('var(--blue)',[['3','3'],['2','2'],['1','1']].map(function(o){return _rail('data-repcolbtn',o[0],o[1],_repColsSel===o[0],'var(--blue)','how many tiles sit side by side in the CLASSIC report - '+o[1]+(o[0]==='2'?' (two per row)':(o[0]==='1'?' (every tile full width)':' across')));}).join(''));
       // v71.86 (owner: "finish the ui on the last four buttons - we adjusted the view and column
       //   selector, now those last four"): NOTE / RE-LABEL / ARCHIVE / DELETE were four separate
@@ -15047,7 +15051,35 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(_repLay==='dense')return hdrHtml+valBannerHtml(d)+_dense+runCodeHtml(d);
       if(_repLay==='gauges'||_repLay==='pills')return hdrHtml+valBannerHtml(d)+_gaug+runCodeHtml(d);
       if(_repLay==='funnel')return hdrHtml+valBannerHtml(d)+_funnel+runCodeHtml(d);
-      return hdrHtml
+      // ── NEO skin (owner 2026-08-13: "revamp the visual interface of the results tab...
+      //    borders, text, dividers... modernize... as futuristic as possible... new tab so we
+      //    dont loose the old one"): NEO is the CLASSIC report — the SAME DOM, charts, drag
+      //    splitters, saved sizes and COLUMNS control — wrapped in a scoped restyle. The wrapper
+      //    re-declares the theme tokens, so every inline var(--bg2) panel and var(--border)
+      //    hairline repaints itself into the NEO palette with zero panel rebuilds; the rules
+      //    below only ADD depth (box-shadow is never set inline on cards) or override the two
+      //    flat separators (section border-top, sticky-header background). Nothing here can
+      //    change layout geometry, so NEO can never drift from CLASSIC. ──
+      const _neoCss='<style>'
+        +'.rep-neo{--bg:#04070b;--bg1:#081019;--bg2:#0a141d;--bg3:#0d1822;--border:#1b3644;--border2:#122531;--text:#eafbf6;--text2:#c4dcd8;--text3:#8fb2ad;--text4:#7ba39e;--text5:#547a78;--green:#00e5a0;--red:#ff5f7e;--yellow:#ffd166;--blue:#4dc3ff;--purple:#b78cff;'
+        +'position:relative;margin:0;padding:12px 16px 30px;border-radius:18px;border:1px solid rgba(0,229,160,.10);color:var(--text2);font-variant-numeric:tabular-nums;'
+        +'background-image:linear-gradient(rgba(0,229,160,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,160,.022) 1px,transparent 1px),radial-gradient(1100px 460px at 85% -5%,rgba(0,229,160,.075),transparent 62%),radial-gradient(900px 540px at -8% 22%,rgba(77,195,255,.055),transparent 58%),linear-gradient(180deg,#060b11 0%,#04070b 100%);'
+        +'background-size:46px 46px,46px 46px,auto,auto,auto;'
+        +'box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 18px 60px rgba(0,0,0,.45)}'
+        +'.rep-neo div[style*="border-radius:12px"][style*="overflow:auto"]{border-radius:15px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.045),inset 0 0 0 1px rgba(0,229,160,.03),0 12px 34px rgba(0,0,0,.38)}'
+        +'.rep-neo div[style*="border-radius:12px"][style*="overflow:auto"]:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.05),inset 0 0 0 1px rgba(0,229,160,.07),0 14px 38px rgba(0,0,0,.42)}'
+        +'.rep-neo .lbl[id^="res-step-"]{border-top:none!important;position:relative;padding-top:22px!important}'
+        +'.rep-neo .lbl[id^="res-step-"]::before{content:"";position:absolute;top:9px;left:0;right:0;height:1px;background:linear-gradient(90deg,rgba(0,229,160,.45),rgba(0,229,160,.06) 45%,transparent 80%)}'
+        +'.rep-neo .lbl[id^="res-step-"]>span:first-child{box-shadow:0 0 0 3px rgba(0,229,160,.06),0 0 14px rgba(0,229,160,.16)}'
+        +'.rep-neo #res-head{background:linear-gradient(180deg,rgba(4,8,12,.94),rgba(4,8,12,.72))!important;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);border-bottom:1px solid rgba(0,229,160,.10);border-radius:0 0 12px 12px;padding:5px 8px!important}'
+        +'.rep-neo tbody tr:hover td{background:rgba(0,229,160,.035)}'
+        +'.rep-neo ::-webkit-scrollbar{width:9px;height:9px}'
+        +'.rep-neo ::-webkit-scrollbar-track{background:transparent}'
+        +'.rep-neo ::-webkit-scrollbar-thumb{background:rgba(0,229,160,.16);border-radius:8px;border:2px solid transparent;background-clip:padding-box}'
+        +'.rep-neo ::-webkit-scrollbar-thumb:hover{background:rgba(0,229,160,.30);border:2px solid transparent;background-clip:padding-box}'
+        +'.rep-neo [data-vsplit]>div,.rep-neo [data-tilerow]>div{background:rgba(0,229,160,.22)!important}'
+        +'</style>';
+      const _classicOut=hdrHtml
         +valBannerHtml(d)
         // §1 renders the SAME three-column skeleton for EVERY run type — both branches above populate
         //   _panelEquity / _panelMatrix / _distTile (with n/a cards where a tile doesn't apply).
@@ -15102,6 +15134,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +_sec('8','Drawdown','size for the worst-case equity path',_sec8)
         +_diagBody()
         +runCodeHtml(d);
+      // NEO = the classic body inside the skinned wrapper; CLASSIC returns it bare.
+      return (_repLay==='neo')?(_neoCss+'<div class="rep-neo">'+_classicOut+'</div>'):_classicOut;
     };
     let body='';
     if(augurSub==='launch'){
