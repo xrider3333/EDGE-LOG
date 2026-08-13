@@ -1,4 +1,4 @@
-// =============================================================================
+﻿// =============================================================================
 //  EDGELOG · ENGU-Q 1m — NinjaTrader 8 port of augur_strategies/ENGUQ_1M_1_0.py
 //  For AUTOMATED PAPER TRADING on Sim101 (PAPER system Layer 1).
 //
@@ -104,6 +104,87 @@ namespace NinjaTrader.NinjaScript.Strategies
                 xss = 0;
                 for (int j = 0; j < TlLen; j++) xss += (j - xm) * (j - xm);
                 inPos = false;
+            }
+            else if (State == State.Terminated)
+            {
+                DumpBlotter();
+            }
+        }
+
+        /// <summary>Write this run's trade blotter to the nt_backtest folder so the
+        /// reconcile tooling reads it directly instead of anyone hand-exporting from the
+        /// Strategy Analyzer grid. Same mechanism as EdgeLogNOISE - see that file for why
+        /// (the manual export produced the wrong file twice on 2026-08-13, and the grid
+        /// export records nothing about which strategy or timeframe actually ran).
+        ///
+        /// This matters MORE for ENGU-Q than for NOISE: TradingView serves only ~24 days of
+        /// 1-minute history and our 1m masters have a hole across exactly that window, so
+        /// NinjaTrader is currently the ONLY second engine ENGU-Q can be checked against.
+        ///
+        /// Times are UTC. NinjaTrader stamps a bar at its CLOSE and the AUGUR engine at its
+        /// OPEN; the reader undoes that with --bar-min.
+        ///
+        /// KNOWN CONVENTION GAP - expect it in the diff, do not chase it: the engine enters
+        /// AT the signal bar's close, while a market order placed here on bar close fills at
+        /// the NEXT bar's open. NT entries should sit one bar later at a slightly different
+        /// price. That is NinjaTrader being honest about a fill you cannot actually get.
+        ///
+        /// Never throws.</summary>
+        private void DumpBlotter()
+        {
+            try
+            {
+                if (SystemPerformance == null || SystemPerformance.AllTrades == null) return;
+                if (SystemPerformance.AllTrades.Count == 0) return;
+
+                string dir = @"C:\EdgeLog\nt_backtest";
+                if (!System.IO.Directory.Exists(dir)) System.IO.Directory.CreateDirectory(dir);
+
+                string instrument = Instrument != null ? Instrument.FullName : "?";
+                string period     = BarsPeriod != null
+                                  ? BarsPeriod.BarsPeriodType + "-" + BarsPeriod.Value : "?";
+                string hours      = (Bars != null && Bars.TradingHours != null)
+                                  ? Bars.TradingHours.Name : "?";
+                string stamp      = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                string path       = System.IO.Path.Combine(dir,
+                                        "EdgeLogENGUQ1m_" + stamp + ".csv");
+
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine("# strategy=EdgeLogENGUQ1m");
+                sb.AppendLine("# instrument=" + instrument);
+                sb.AppendLine("# bars=" + period);
+                sb.AppendLine("# trading_hours=" + hours);
+                sb.AppendLine("# tlLen=" + TlLen + " emaLen=" + EmaLen + " bufAtr=" + BufAtr
+                              + " minBrk=" + MinBrk + " atrLen=" + AtrLen + " volMult=" + VolMult
+                              + " stopMult=" + StopMult + " actR=" + ActR + " trailFrac=" + TrailFrac
+                              + " breakevenR=" + BreakevenR + " qty=" + Qty);
+                sb.AppendLine("# times=UTC bar_stamp=close");
+                sb.AppendLine("trade,side,qty,entry_utc,exit_utc,entry_px,exit_px,entry_name,exit_name,pnl_usd");
+
+                var inv = System.Globalization.CultureInfo.InvariantCulture;
+                int n = 0;
+                foreach (Trade t in SystemPerformance.AllTrades)
+                {
+                    n++;
+                    sb.AppendLine(string.Join(",", new string[] {
+                        n.ToString(inv),
+                        t.Entry.MarketPosition == MarketPosition.Long ? "1" : "-1",
+                        t.Quantity.ToString(inv),
+                        t.Entry.Time.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", inv),
+                        t.Exit.Time.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", inv),
+                        t.Entry.Price.ToString(inv),
+                        t.Exit.Price.ToString(inv),
+                        t.Entry.Name,
+                        t.Exit.Name,
+                        t.ProfitCurrency.ToString(inv)
+                    }));
+                }
+                System.IO.File.WriteAllText(path, sb.ToString());
+                Print("EdgeLogENGUQ1m: wrote " + n + " trades -> " + path);
+            }
+            catch (Exception ex)
+            {
+                Print("EdgeLogENGUQ1m: blotter dump failed: " + ex.Message);
             }
         }
 
