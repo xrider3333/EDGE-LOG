@@ -1,0 +1,995 @@
+{
+ "_note": "Authored trade scores for EDGE LOG. Edit here, then run tools/trade_scores.py --apply.",
+ "trades": [
+  {
+   "sym": "EHGO",
+   "date": "2026-07-23",
+   "interval": "1m",
+   "entry_time": "09:32",
+   "exit_time": "09:33",
+   "entry": 3.95,
+   "exit": 4.515,
+   "qty": 100,
+   "breakout_candle": "09:31",
+   "stop": 3.78,
+   "overall": 82,
+   "summary": "The model trade. Bought a pullback BELOW the breakout candle close, sized up on the best catalyst, and sold into the spike. EHGO closed 2.71 — the exit was the trade.",
+   "setup": [
+    {
+     "label": "Catalyst / RVOL",
+     "weight": 15,
+     "score": 15,
+     "note": "+124% gap on a 1.76 prior close, 42M shares in the opening minute"
+    },
+    {
+     "label": "Front-side structure",
+     "weight": 20,
+     "score": 16,
+     "note": "Genuine first expansion off a premarket base"
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 18,
+     "note": "Filled 3.95 BELOW the 4.04 breakout close. Bought the dip, not the spike"
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 12,
+     "note": "Stop 3.78 = breakout candle low, 4.3% away"
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 8,
+     "note": "0.17 risk against a multi-point extension"
+    },
+    {
+     "label": "Liquidity",
+     "weight": 10,
+     "score": 9,
+     "note": "Deep two-sided book"
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 6,
+     "note": "09:32, two minutes into the open"
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 23,
+     "note": "No chase at all — the best fill in the whole log"
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 20,
+     "note": "MAE 3.88 used only 41% of planned risk"
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 17,
+     "note": "Sold 4.515 into a 4.97 spike = 55% capture, and EHGO closed 2.71"
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 12,
+     "note": "100 sh / $395 = 13% of account. Biggest size on the best setup — correct"
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 9,
+     "note": "Entry rule, stop and exit all followed"
+    }
+   ]
+  },
+  {
+   "sym": "XRX",
+   "date": "2026-07-30",
+   "interval": "1m",
+   "entry_time": "09:31",
+   "exit_time": "09:32",
+   "entry": 3.565,
+   "exit": 3.32,
+   "qty": 50,
+   "breakout_candle": "09:30",
+   "stop": 3.425,
+   "overall": 61,
+   "summary": "Entry was disciplined — he paid the breakout candle close almost exactly. The loss came from exiting a candle LATE, taking 75% more than the planned risk.",
+   "setup": [
+    {
+     "label": "Catalyst / RVOL",
+     "weight": 15,
+     "score": 13,
+     "note": "+35% gap, 6.0M shares in the opening minute"
+    },
+    {
+     "label": "Front-side structure",
+     "weight": 20,
+     "score": 8,
+     "note": "Bought the opening-drive high after a 0.355-range bar"
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 15,
+     "note": "3.565 against a 3.555 breakout close — his rule’s ideal fill"
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 12,
+     "note": "Stop 3.425 = breakout low, only 3.9% away. Tight and structural"
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 6,
+     "note": "0.14 risk, ~0.22 to the 3.78 high = 1.5:1"
+    },
+    {
+     "label": "Liquidity",
+     "weight": 10,
+     "score": 9,
+     "note": "Large-cap, tight spread"
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 6,
+     "note": "09:31 — first minute after the bell"
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 20,
+     "note": "Bought his level, no chase"
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 8,
+     "note": "Stop 3.425 broke at 09:31 (low 3.380). He exited 3.32 — 0.105 BEYOND the stop"
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 10,
+     "note": "Sold into the flush; XRX closed 3.42, above the exit"
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 10,
+     "note": "50 sh / $178 = 5.9% of account"
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 6,
+     "note": "Honoured the idea of stopping out, but a candle late and at a worse price"
+    }
+   ]
+  },
+  {
+   "sym": "OFAL",
+   "date": "2026-08-12",
+   "interval": "1m",
+   "entry_time": "08:41",
+   "exit_time": "09:46",
+   "entry": 2.93,
+   "exit": 3.35,
+   "qty": 20,
+   "breakout_candle": "08:40",
+   "stop": 2.1,
+   "overall": 51,
+   "summary": "Perfect stock, correct stop rule, chased fill. Paying 2.93 instead of the 2.65 his own rule pointed at gave away 34% of the risk budget and turned a 1.27R trade into 0.51R.",
+   "setup": [
+    {
+     "label": "Catalyst / RVOL",
+     "weight": 15,
+     "score": 15,
+     "note": "+256% gap, 147M shares, ~$375M traded. The ticker of the day"
+    },
+    {
+     "label": "Front-side structure",
+     "weight": 20,
+     "score": 12,
+     "note": "Still front-side at 08:41, but bought the vertical rather than a base"
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 4,
+     "note": "Breakout candle closed 2.65; paid 2.93 = 44% of the candle range above it"
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 7,
+     "note": "Stop 2.10 = breakout candle low. Correct rule, but 28% wide at this fill"
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 3,
+     "note": "0.83 risk for 0.42 reward = 0.51:1"
+    },
+    {
+     "label": "Liquidity",
+     "weight": 10,
+     "score": 7,
+     "note": "$375M traded, but ~22 LULD halts between 09:30 and 12:30"
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 3,
+     "note": "08:41 premarket — thin book, the open still ahead"
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 5,
+     "note": "Entry bar ran 2.65 to 3.50 then closed 2.88. Filled inside the wick"
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 7,
+     "note": "Stop never hit (MAE used 58% of risk) but the geometry was sub-1R by construction"
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 21,
+     "note": "Out 3.35 for 74% of MFE-to-exit. OFAL closed 1.34 — a genuinely good exit"
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 8,
+     "note": "20 sh / $58.60 = 1.9% of account on the day’s best catalyst"
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 9,
+     "note": "Stop honoured, target 3.35 hit exactly"
+    }
+   ]
+  },
+  {
+   "sym": "LABT",
+   "date": "2026-07-22",
+   "interval": "1m",
+   "entry_time": "08:08",
+   "exit_time": "08:11",
+   "entry": 5.11,
+   "exit": 5.23,
+   "qty": 30,
+   "breakout_candle": "08:07",
+   "stop": 4.15,
+   "overall": 38,
+   "summary": "The worst fill in the log: paid 5.11 when the breakout candle closed 4.54 — a full candle-range above it. Held through the stop zone, then took $3.60 out of a move that ran to 7.72.",
+   "setup": [
+    {
+     "label": "Catalyst / RVOL",
+     "weight": 15,
+     "score": 15,
+     "note": "+175% gap off a 1.86 close"
+    },
+    {
+     "label": "Front-side structure",
+     "weight": 20,
+     "score": 10,
+     "note": "Third vertical extension in three minutes, not a first break"
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 3,
+     "note": "Breakout close 4.54, filled 5.11 = 112% of the candle range above it"
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 4,
+     "note": "Stop 4.15 = 0.96 risk (19%) on a bar that had just printed a 6.98 wick"
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 3,
+     "note": "No overhead reference — blue sky after a 3.7x premarket run"
+    },
+    {
+     "label": "Liquidity",
+     "weight": 10,
+     "score": 6,
+     "note": "Premarket only, thin book"
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 3,
+     "note": "08:08, mid-vertical"
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 4,
+     "note": "Chased the extension bar by more than its own range"
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 8,
+     "note": "MAE 4.44 ate 70% of risk inside one minute"
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 6,
+     "note": "+0.12 captured out of an 0.83 in-hold move; LABT hit 7.72 nineteen minutes later"
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 9,
+     "note": "30 sh / $153 = 5% of account"
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 4,
+     "note": "Exit was neither the stop nor a target — a discretionary bail"
+    }
+   ]
+  },
+  {
+   "sym": "AMC",
+   "date": "2026-07-20",
+   "interval": "1m",
+   "entry_time": "07:11",
+   "exit_time": "07:13",
+   "entry": 2.239,
+   "exit": 2.25,
+   "qty": 1,
+   "breakout_candle": "07:10",
+   "stop": 2.19,
+   "overall": 41,
+   "summary": "Not a setup at all — a 1-share poke into premarket chop with no expansion bar to trade off. AMC then closed at 2.46, 9% above the exit.",
+   "setup": [
+    {
+     "label": "Catalyst / RVOL",
+     "weight": 15,
+     "score": 7,
+     "note": "+15% gap on a mega-liquid name, but no volume event at the entry moment"
+    },
+    {
+     "label": "Front-side structure",
+     "weight": 20,
+     "score": 6,
+     "note": "Mid-range chop between 2.20 and 2.29 for fifteen minutes before the fill"
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 7,
+     "note": "Bought a red bar inside the range. Not a chase, but not a level either"
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 3,
+     "note": "No expansion candle exists, so the stop rule has nothing to anchor to"
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 5,
+     "note": "Range top 2.32 was 0.08 away — thin reward for a range trade"
+    },
+    {
+     "label": "Liquidity",
+     "weight": 10,
+     "score": 10,
+     "note": "The most liquid name he has traded"
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 4,
+     "note": "07:11 — deep premarket, hours before the open"
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 10,
+     "note": "No chase, but no trigger either"
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 15,
+     "note": "MAE 2.20 = 4 cents. Never in trouble"
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 6,
+     "note": "+0.011 out of a day that ran to 2.48 and closed 2.46"
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 4,
+     "note": "1 share / $2.24 = 0.07% of account. No size is no trade"
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 4,
+     "note": "No identifiable plan to adhere to"
+    }
+   ]
+  },
+  {
+   "sym": "GMM",
+   "date": "2026-07-10",
+   "interval": "5m",
+   "entry_time": "08:41",
+   "exit_time": "08:43",
+   "entry": 5.61,
+   "exit": 5.77,
+   "qty": 20,
+   "breakout_candle": "08:35",
+   "stop": 4.89,
+   "overall": 53,
+   "summary": "Chased 65% of the breakout candle range into a +203% gapper, then cut for 0.16 when the very next bar still carried 0.79 more. GMM printed 6.57 two minutes after the exit.",
+   "setup": [
+    {
+     "label": "Catalyst / RVOL",
+     "weight": 15,
+     "score": 15,
+     "note": "+203% gap off a 1.85 close"
+    },
+    {
+     "label": "Front-side structure",
+     "weight": 20,
+     "score": 14,
+     "note": "Clean first expansion after a 20-minute base"
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 6,
+     "note": "5.61 = 65% of the breakout candle range above its 5.31 close"
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 7,
+     "note": "Breakout candle low 4.89 gives a 0.72 stop, 13% away"
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 3,
+     "note": "0.72 risk for the 0.16 he took = 0.22R"
+    },
+    {
+     "label": "Liquidity",
+     "weight": 10,
+     "score": 7,
+     "note": "Premarket but active"
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 4,
+     "note": "08:41 premarket"
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 14,
+     "note": "Early in the bar rather than after it — better than OFAL, worse than the rule"
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 14,
+     "note": "Never pressed; the trade went his way immediately"
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 8,
+     "note": "Kept 0.16 of the 0.79 still in the bar. GMM printed 6.57 two minutes later"
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 9,
+     "note": "20 sh / $112 = 3.7% of account"
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 7,
+     "note": "Consistent with his rule, just early and short"
+    }
+   ]
+  },
+  {
+   "sym": "SUGP",
+   "date": "2026-07-07",
+   "interval": "5m",
+   "entry_time": "08:02",
+   "exit_time": "08:08",
+   "entry": 1.22,
+   "exit": 1.13,
+   "qty": 20,
+   "breakout_candle": "07:55",
+   "stop": 1.08,
+   "overall": 52,
+   "summary": "The first trade where the management beat the idea. He bought the high tick of the bar (+55% chase) but cut it fast — SUGP closed at 0.751, so the exit saved roughly nine dollars.",
+   "setup": [
+    {
+     "label": "Catalyst / RVOL",
+     "weight": 15,
+     "score": 12,
+     "note": "+48% gap off a 0.825 close"
+    },
+    {
+     "label": "Front-side structure",
+     "weight": 20,
+     "score": 8,
+     "note": "Fifth push of a premarket grind, not a first break"
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 4,
+     "note": "1.22 was 55% of the breakout candle range above its 1.16 close — the high tick"
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 10,
+     "note": "Stop 1.08 = prior bar low, 0.14 risk"
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 3,
+     "note": "No overhead level; the 1.23 high printed one minute later was the top"
+    },
+    {
+     "label": "Liquidity",
+     "weight": 10,
+     "score": 5,
+     "note": "Thin premarket book"
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 4,
+     "note": "08:02 premarket"
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 6,
+     "note": "Filled at the extreme of the bar"
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 18,
+     "note": "Exited ABOVE the stop. MAE used 64% of planned risk"
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 18,
+     "note": "Cut at 1.13 before the collapse — SUGP closed 0.751"
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 9,
+     "note": "20 sh / $24 = 0.8% of account"
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 8,
+     "note": "Recognised it was wrong and acted"
+    }
+   ]
+  },
+  {
+   "sym": "LGCL",
+   "date": "2026-07-02",
+   "interval": "5m",
+   "entry_time": "09:05",
+   "exit_time": "09:08",
+   "entry": 3.02,
+   "exit": 2.35,
+   "qty": 1,
+   "breakout_candle": "09:00",
+   "stop": 1.75,
+   "overall": 35,
+   "summary": "Bought three minutes after a candle that doubled the stock. There was no structure left to trade against — the only real stop sat 42% away.",
+   "setup": [
+    {
+     "label": "Catalyst / RVOL",
+     "weight": 15,
+     "score": 13,
+     "note": "+63% gap, then an 84% single-bar vertical"
+    },
+    {
+     "label": "Front-side structure",
+     "weight": 20,
+     "score": 4,
+     "note": "Entered at maximum extension, immediately after the doubling candle"
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 6,
+     "note": "Technically below the vertical bar close, but the level itself is meaningless"
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 2,
+     "note": "The only structural stop is 1.75 — 42% below the fill"
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 2,
+     "note": "Nothing overhead, nothing underneath"
+    },
+    {
+     "label": "Liquidity",
+     "weight": 10,
+     "score": 4,
+     "note": "Thin premarket, and the bar had a 1.53 range"
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 5,
+     "note": "09:05, twenty-five minutes before the open"
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 6,
+     "note": "Chasing a vertical is the entry, regardless of the tick"
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 6,
+     "note": "Down 22% within three minutes"
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 12,
+     "note": "Bailed at 2.35; LGCL traded 1.10 five minutes later. The exit was right"
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 6,
+     "note": "1 share / $3.02 — a test"
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 4,
+     "note": "No stop was reachable, so there was no plan to hold to"
+    }
+   ]
+  },
+  {
+   "sym": "LHAI",
+   "date": "2026-07-01",
+   "interval": "5m",
+   "entry_time": "08:38",
+   "exit_time": "08:38",
+   "entry": 1.48,
+   "exit": 1.6,
+   "qty": 1,
+   "breakout_candle": "08:30",
+   "stop": 1.22,
+   "overall": 42,
+   "summary": "Right stock, mid-bar fill, and then out for 0.12 on a name that ran to 3.11 and closed 2.56. Everything after the entry was left on the table.",
+   "setup": [
+    {
+     "label": "Catalyst / RVOL",
+     "weight": 15,
+     "score": 14,
+     "note": "+124% gap off a 0.66 close"
+    },
+    {
+     "label": "Front-side structure",
+     "weight": 20,
+     "score": 12,
+     "note": "Second expansion in a building premarket trend"
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 4,
+     "note": "1.48 = 96% of the breakout candle range above its 1.27 close — nearly a full range"
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 6,
+     "note": "Stop 1.19 = 0.29 risk, 20% away"
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 4,
+     "note": "Wide stop against no defined target"
+    },
+    {
+     "label": "Liquidity",
+     "weight": 10,
+     "score": 4,
+     "note": "Thin premarket"
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 4,
+     "note": "08:38 premarket"
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 10,
+     "note": "Mid-bar rather than after the close"
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 15,
+     "note": "Never under water"
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 4,
+     "note": "+0.12 taken. LHAI printed 3.11 and closed 2.56 — over 100% left behind"
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 4,
+     "note": "1 share / $1.48"
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 5,
+     "note": "Exit had no rule behind it"
+    }
+   ]
+  },
+  {
+   "sym": "CELZ",
+   "date": "2026-06-30",
+   "interval": "5m",
+   "entry_time": "08:55",
+   "exit_time": "08:57",
+   "entry": 1.84,
+   "exit": 1.89,
+   "qty": 3,
+   "breakout_candle": "08:50",
+   "stop": 1.18,
+   "overall": 39,
+   "summary": "A 66% chase into the expansion bar, then out for five cents. CELZ ran to 4.72 the same session — the worst capture in the log at 1.7%.",
+   "setup": [
+    {
+     "label": "Catalyst / RVOL",
+     "weight": 15,
+     "score": 14,
+     "note": "+113% gap off a 0.864 close"
+    },
+    {
+     "label": "Front-side structure",
+     "weight": 20,
+     "score": 13,
+     "note": "Live premarket trend with successive higher expansions"
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 4,
+     "note": "1.84 = 66% of the breakout candle range above its 1.57 close"
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 4,
+     "note": "Stop 1.18 = 0.66 risk, 36% away"
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 3,
+     "note": "Risking 0.66 for a five-cent exit"
+    },
+    {
+     "label": "Liquidity",
+     "weight": 10,
+     "score": 4,
+     "note": "Thin premarket"
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 4,
+     "note": "08:55 premarket"
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 6,
+     "note": "Chased the bar"
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 14,
+     "note": "MAE 1.53 stayed above the stop"
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 3,
+     "note": "+0.05 of a move that reached 4.72. 1.7% capture — the worst here"
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 5,
+     "note": "3 shares / $5.52"
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 5,
+     "note": "No target, no stop, discretionary scratch"
+    }
+   ]
+  },
+  {
+   "sym": "TNMG",
+   "date": "2026-06-29",
+   "interval": "5m",
+   "entry_time": "08:16",
+   "exit_time": "08:17",
+   "entry": 1.17,
+   "exit": 1.18,
+   "qty": 1,
+   "breakout_candle": "08:10",
+   "stop": 0.909,
+   "overall": 46,
+   "summary": "A 35% chase on the fourth push of a +140% gapper, scratched flat one minute later. TNMG closed at 0.976 — flat was the right answer.",
+   "setup": [
+    {
+     "label": "Catalyst / RVOL",
+     "weight": 15,
+     "score": 13,
+     "note": "+140% gap off a 0.488 close"
+    },
+    {
+     "label": "Front-side structure",
+     "weight": 20,
+     "score": 9,
+     "note": "Fourth push, already extended when he bought"
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 6,
+     "note": "1.17 = 35% of the breakout candle range above its 1.08 close"
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 6,
+     "note": "Stop 0.909 = 0.26 risk, 22% away"
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 3,
+     "note": "Wide stop, no target"
+    },
+    {
+     "label": "Liquidity",
+     "weight": 10,
+     "score": 4,
+     "note": "Thin premarket"
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 4,
+     "note": "08:16 premarket"
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 8,
+     "note": "Chased, but modestly"
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 16,
+     "note": "Never pressed"
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 12,
+     "note": "Scratched before the fade — TNMG closed 0.976, 17% below the fill"
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 4,
+     "note": "1 share / $1.17"
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 6,
+     "note": "Scratch was a reasonable read"
+    }
+   ]
+  }
+ ]
+}
