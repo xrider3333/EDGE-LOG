@@ -90,6 +90,34 @@ Volume only accumulates, so V2 watches the **forming** 5-min bar tick-by-tick:
 - Known V1 lessons already fixed in V2: orphaned protective stop after NT's session-close
   flatten; historical-replay trade marks confusing the chart; thin-vol scratch churn.
 
+## TradingView layer — visual cross-check (added 2026-08-12)
+
+Layout **PAPER EdgeLog** (`tradingview.com/chart/BTeSKT1C/`), owner's account. Purpose is
+**price-action eyes + an independent execution engine**, not a second backtest of record.
+
+| Pane | Symbol/TF | Script | Why it is a fair check |
+|---|---|---|---|
+| 1 | NQ1! · 5m · RTH · non-adjusted | `EDGELOG NOISE 1.0` (`pine/NOISE_1_0.pine`, written 2026-08-12) | NOISE decides at bar close and fills next open — exactly TradingView's `process_orders_on_close=false` model. Faithful by construction. |
+| 2 | NQ1! · 1m · RTH | `ENGUQ_1M_1_0` (existing July port, already TV-reconciled) | Same close-decide / next-open-fill convention. |
+| 3 | NQ1! · 5m | *(none)* | Plain price. **ORB deliberately excluded** — owner call 2026-08-12. |
+
+**ORB is not on TradingView and should not be added.** V2's entire fix is reading volume
+as it accumulates *inside* a forming bar; Pine cannot see that. Any ORB Pine script here
+would be a different strategy wearing the name, which is how the original leak hid.
+
+First TV run, NOISE, Aug 2025 → Aug 2026 (~1y is all TV serves at 5m):
+net **+$37,081** · PF **1.205** · 196 trades · 37.8% win · max DD **$48,198**. Treat as a
+smoke test that the rules execute, not as evidence — one year, one contract series, and
+TV's continuous NQ is rolled differently from our no-adjust master.
+
+Gotchas for the next session driving this:
+- **Clipboard paste into the Pine Editor cannot be automated.** Ctrl+V via the extension,
+  synthetic paste events, and `execCommand('insertText')` all fail or get mangled by
+  Monaco's auto-indent (Pine is indentation-significant). Hand the paste to the owner.
+- The Pine Editor mangles non-ASCII on the way in — keep ports ASCII-only or the strategy
+  title renders as mojibake (cosmetic only).
+- Panes 2 and 3 resist programmatic focus; ask the owner to click the target pane.
+
 ## Candidate legs to add (2026-08-11 assessment)
 
 Criteria for going live on the demo account: (a) execution-feasibility CLEAN (no
