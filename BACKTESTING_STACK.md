@@ -1140,6 +1140,25 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-12 (evening)** — **Overnight blind spot PRICED: a genuine 24h resting stop costs the #149
+  champion −$178,340 (−37.4%); no cheap fix recovers it; the ETH branch is the structural answer.**
+  Full re-simulation (stop trajectory rebuilt bar-by-bar, verified 100.00% against the engine's own
+  exits, parity n=2048/$477,520.82 exact; window ≤2026-06-30 because the ETH tape ends there):
+  freeze each trade's stop at the RTH close, walk the overnight Globex bars, exit gap-honestly on a
+  breach, forfeit the rest of the backtest PnL (no phantom re-entries → LOWER BOUND).
+  • **$477,521 → $299,181 net / PF 1.41→1.29 / DD $65,635→$77,874; LB $68,322→$34,002.**
+    538 trades affected (397 PnL-changed + 141 neutral): 149 worse (−$428,670 forfeited), 248 better
+    (+$250,330 avoided-worse-loss). Verified independently to the cent from the per-trade arrays.
+  • **Cheap-fix scan (pre-registered, IS-ranked, one LB look): ALL LOSE** to the naked status quo —
+    ATR-widened overnight stops k=0.5–2.0 (best k=1.0 reaches only $305k IS vs $409k) and
+    flat-before-close-if-not-at-breakeven. Tail events (up to 497.5 pts) are gap-driven; widening
+    trims tails only ~3–7% per k step.
+  • **Deployment menu this fixes into place:** (a) RTH champion with NO overnight stop = the certified
+    $477k but naked 500-pt overnight tail; (b) RTH champion + real 24h stop = $299k/PF 1.29/worse DD;
+    (c) **ETH FROZEN (clock-scaled #149) = $434.7k/PF 1.33/DD $50.4k with the overnight tape actually
+    managed — beats (b) on every axis and concedes only ~9% to blind (a).** The 24h branch is no longer
+    a nice-to-have; it is the only variant whose backtest matches how it would actually trade.
+    Artifacts: scratchpad enguq_overnight_stop.md/.json/.pkl + enguq_recon_match.json.
 - **2026-08-12** — **Fresh #149 baseline rerun (#223) is a STUCK-POSITION ARTIFACT — 2nd instance; the
   optimizer has a repeatable failure mode. Honest fresher-window baseline recorded instead.**
   Ran the three owner-requested Auto-Validates on the extended window (2010-06-07 → **2026-07-16**;
