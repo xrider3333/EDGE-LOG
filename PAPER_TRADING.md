@@ -14,7 +14,20 @@ Forward-testing the crowned strategies on live data with no real money, to answe
 |---|---|---|---|
 | 0 · SHADOW | The always-on runner re-runs each strategy daily ~16:10 ET on master + a fresh tail resampled from the NT AddOn's live 10s feed, logs would-have trades to Firestore | Live-data drift (signal-perfect by construction — **it reproduces engine bugs, see ORB below**) | **LIVE** since 2026-08-10 (`api/paper.py`, runner hook) |
 | 1 · NT DEMO | NinjaScript ports auto-trading the broker demo account `DEMO7240108` in NinjaTrader; fills flow into EDGELOG via the existing AddOn auto-import (`account` field) | Fill/slippage/execution realism | Strategies compiled + installed; **NOT yet enabled on charts** (owner action, ~2 min) |
-| 2 · RECONCILE | `tools/reconcile.py --daily` shadow-vs-demo-vs-backtest compare | Which layer diverges | Not built yet — needs demo fills to exist |
+| 2 · TRADINGVIEW | Pine ports of the same strategies on layout **PAPER EdgeLog**, run in TradingView's own engine, exported as "List of trades" and matched trade-for-trade against ours (`tools/reconcile.py --tv`) | Whether the RULES are what we think they are — a second engine that shares no code with ours | **NOISE: LIVE**, reconciled 2026-08-12 (see below) · ENGU-Q: blocked on chart session |
+| 3 · RECONCILE | `tools/reconcile.py --daily` shadow-vs-demo-vs-backtest compare | Which layer diverges | Not built yet — needs demo fills to exist |
+
+**Why layer 2 earns its place.** Layers 0 and 1 both run OUR code, so both reproduce our
+bugs — layer 0 says so in its own row. TradingView re-implements the strategy from the Pine
+source in an engine we did not write, so a rule we got wrong shows up as a trade mismatch.
+On its first run it immediately caught a defect the summary statistics hid completely: net,
+profit factor and trade count all looked healthy while a quarter of the trades were being
+held overnight against a hard rule. Only the trade-by-trade match exposed it.
+
+**It is not automatic.** The trade list has to be exported by hand (TradingView ▸ Strategy
+Tester ▸ List of trades ▸ download), and pasting a Pine script into the editor cannot be
+automated at all — see the gotchas below. Treat this as a deliberate periodic check, run
+after any change to a strategy's rules, not as a nightly job.
 
 - **UI:** BACKTESTER ▸ **PAPER** tab (index.html) — per-leg tiles, cumulative curve, trades table, daily report docs.
 - **Daily report:** runner writes `users/{uid}/paper_reports/{YYYY-MM-DD}`; a scheduled Claude session (`edgelog-paper-eod-review`, weekdays 13:25 local = 16:25 EDT) reviews and writes its verdict into the doc (status `runner_done` → `reviewed`).
