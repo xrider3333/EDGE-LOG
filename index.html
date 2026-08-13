@@ -446,10 +446,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.31';
+const VERSION='73.32';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.32',date:'2026-08-13',notes:['PAPER now has a LEG rail next to REFRESH - ALL / ORB / ENGU-Q / NOISE / BLEND - and picking one narrows the WHOLE board to that strategy: its tile, its curve line, its trades. ALL is the default and behaves exactly as before.','Same control language as the report layout rail, and it is a lens rather than a saved setting - it resets when you reload.']},
 {v:'73.31',date:'2026-08-13',notes:['NEO now follows your theme instead of forcing its own teal - every glow, hairline, grid line and tint is derived from the active theme accent, so on MONO the whole report reads as pure silver-on-black with zero added color; green themes look as before and other accents follow suit.','NEO pushed further (NEO only - CLASSIC untouched): HUD-style section headers in uppercase with wide tracking and squared number chips, more air between sections, wider title letter-spacing, the 1A champion card wears a stronger accent ring, faint zebra striping on plain table rows, soft hover transitions, and the back-to-checklist hint only appears when you hover a section header.']},
 {v:'73.30',date:'2026-08-13',notes:['New NEO report layout - the run report wearing a modern skin: deep glass panels, neon hairline dividers, a faint blueprint-grid backdrop, glowing section rules, calmer table chrome and slim accent scrollbars. Pick it from the layout rail in the report header, next to CLASSIC and DASHBOARD.','Nothing moved and nothing was rebuilt - NEO is the same charts, sections, drag splitters, saved sizes and COLUMNS control as CLASSIC, so the two views can never drift apart. CLASSIC itself is untouched; flip back any time.']},
 {v:'73.29',date:'2026-08-12',notes:['Trade scores now have a home in the repo instead of living inline. The judgement sits in tools/data/trade_scores.json and tools/trade_scores.py rebuilds the block in this file, so adding a scored trade no longer means hand-editing the app.','The 1-minute bars behind each score report are cached alongside it, so a trade stays scorable after it ages out of the free 30-day intraday window.','No change to what you see - the scores and charts are identical to 73.28.']},
@@ -16685,6 +16686,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const legOf=t=>{const raw=t&&t.leg;if(raw)return String(raw).toUpperCase();const s=String((t&&t.strategy)||'').toUpperCase();return s.indexOf('ENGU')>=0?'ENGUQ':'ORB';};
       const _legColor={ORB:'#5b8def',ENGUQ:'#c090ff',NOISE:'#2dd4bf'};
       const _legLabel={ORB:'ORB',ENGUQ:'ENGU-Q',NOISE:'NOISE'};
+      // ── LEG FILTER (owner ask 2026-08-13) — same idea as the report's CLASSIC/NEO rail:
+      // one control that narrows the WHOLE board to a single strategy. With three legs
+      // sharing one trades table, one curve and one tile row, reading a single strategy's
+      // behaviour meant picking it out of the mix by colour. This filters the tiles, the
+      // curve series and the trades table together, so what you see is only that leg.
+      // ALL is the default and restores today's behaviour exactly. Not persisted to
+      // localStorage on purpose — it is a lens you look through, not a setting you keep.
+      const PLEGS=['ALL','ORB','ENGUQ','NOISE','BLEND'];
+      const PLEG=PLEGS.indexOf(window._paperLeg)>=0?window._paperLeg:'ALL';
+      const _legShown=k=>PLEG==='ALL'||PLEG===k;
       const ORB_LA_TIP='The ORB engine\'s volume filter is look-ahead (see PAPER_TRADING.md) — these shadow numbers are NOT live-achievable. The live candidate is ORB V2 on NinjaTrader.';
       // BLEND is the owner's fixed ORB+ENGUQ baseline — NOISE never joins it, even though it shares the same trade collection.
       const legRows=name=>name==='BLEND'?_pt.filter(t=>{const l=legOf(t);return l==='ORB'||l==='ENGUQ';}):_pt.filter(t=>legOf(t)===name);
@@ -16712,7 +16723,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div><b style="color:var(--text2);font-size:12px">'+(a.lastT?_dOnly(a.lastT):'—')+'</b><br>last trade</div>'
           +'</div></div>';
       };
-      const tilesHtml='<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'+legTile('ORB','ORB','#5b8def')+legTile('ENGUQ','ENGU-Q','#c090ff')+legTile('NOISE','NOISE','#2dd4bf')+legTile('BLEND','BLEND (1:1)','var(--yellow)')+'</div>';
+      const _tileDefs=[['ORB','ORB','#5b8def'],['ENGUQ','ENGU-Q','#c090ff'],['NOISE','NOISE','#2dd4bf'],['BLEND','BLEND (1:1)','var(--yellow)']];
+      const tilesHtml='<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
+        +_tileDefs.filter(d=>_legShown(d[0])).map(d=>legTile(d[0],d[1],d[2])).join('')+'</div>';
       // cumulative curve — one merged date axis (all distinct run/exit dates), stepwise
       // cumulative $ per leg so the three lines share one x-axis even if a leg skipped a day.
       const _allDates=[...new Set(_pt.map(t=>t.run_date||_dOnly(t.exitTime||t.entryTime)).filter(Boolean))].sort();
@@ -16734,7 +16747,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         return '<div style="margin-bottom:6px">'+legend+'</div>'
           +'<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:220px;display:block">'+gridLines+lines+xLabels+'</svg>';
       };
-      const curveHtml=tile('<div class="lbl" style="margin-bottom:8px">CUMULATIVE PAPER PnL</div>'+_curveSvg(_allDates,[{label:'ORB',color:'#5b8def',vals:_cumByDate('ORB')},{label:'ENGU-Q',color:'#c090ff',vals:_cumByDate('ENGUQ')},{label:'NOISE',color:'#2dd4bf',vals:_cumByDate('NOISE')},{label:'BLEND',color:'#e0c341',vals:_cumByDate('BLEND')}]));
+      const _curveSeries=[['ORB','ORB','#5b8def'],['ENGUQ','ENGU-Q','#c090ff'],['NOISE','NOISE','#2dd4bf'],['BLEND','BLEND','#e0c341']]
+        .filter(d=>_legShown(d[0])).map(d=>({label:d[1],color:d[2],vals:_cumByDate(d[0])}));
+      const curveHtml=tile('<div class="lbl" style="margin-bottom:8px">CUMULATIVE PAPER PnL'
+        +(PLEG==='ALL'?'':' <span style="font-weight:400;color:var(--text5);font-size:8px">· '+(_legLabel[PLEG]||PLEG)+' only</span>')
+        +'</div>'+_curveSvg(_allDates,_curveSeries));
       // ── LIVE · NinjaTrader demo — Layer 1. paper_reports docs now carry a `live` block logged
       // straight off the demo account's own fill log (no strategy attribution — see zero-state copy
       // below). Every read here is defensive: old reports simply lack `live` and roll up to zero.
@@ -16770,7 +16787,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         ))
         +_liveCleanStartNote);
       // trades table — newest first, capped at 200 rows for render cost
-      const _tSorted=_pt.slice().sort((a,b)=>(+b.exitTime||+b.entryTime||0)-(+a.exitTime||+a.entryTime||0));
+      const _tSorted=(PLEG==='ALL'?_pt.slice():legRows(PLEG).slice())
+        .sort((a,b)=>(+b.exitTime||+b.entryTime||0)-(+a.exitTime||+a.entryTime||0));
       // v73.18 (owner ask): CANDLES ON THE PAPER TAB. Each leg runs its OWN timeframe, so
       // every row carries its own bar-fetch payload (_pb) rather than sharing one. And the
       // masters end well before PAPER started, so the payload asks the PC to append the
@@ -16851,7 +16869,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
           :'<div style="padding:30px;text-align:center;color:var(--text5);font-size:11px">no reports yet</div>'));
       const _reloadLbl=window._paperLoading?'LOADING…':'⟳ REFRESH';
       const _reloadBtn='<button data-paperrefresh style="height:24px;padding:0 12px;font-size:10px;font-weight:700;letter-spacing:1px;border-radius:7px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);cursor:pointer">'+_reloadLbl+'</button>';
-      const headerHtml='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px"><span class="lbl" style="font-size:13px">◷ PAPER · LIVE FORWARD TEST</span>'+_reloadBtn+'<span style="margin-left:auto;font-size:9px;color:var(--text5)">paper trading starts '+PAPER_START+'</span></div>'
+      // Leg rail — same tinted-tray-with-filled-active-segment language as the report
+      // header's CLASSIC / NEO control, so the whole app speaks one control vocabulary.
+      const _legRail='<span style="display:inline-flex;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:2px;gap:2px">'
+        +PLEGS.map(k=>{
+          const on=k===PLEG;
+          const col=k==='ALL'?'var(--text2)':(k==='BLEND'?'var(--yellow)':(_legColor[k]||'var(--text2)'));
+          return '<span data-paperleg="'+k+'" title="'+(k==='ALL'?'show every leg':'show only '+(_legLabel[k]||k))+'" '
+            +'style="cursor:pointer;font-size:9px;font-weight:700;letter-spacing:1px;padding:3px 10px;border-radius:6px;'
+            +(on?'background:var(--bg3);color:'+col+';box-shadow:inset 0 -2px 0 '+col:'color:var(--text5)')+'">'
+            +(k==='ALL'?'ALL':(_legLabel[k]||k))+'</span>';
+        }).join('')+'</span>';
+      const headerHtml='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px"><span class="lbl" style="font-size:13px">◷ PAPER · LIVE FORWARD TEST</span>'+_legRail+_reloadBtn+'<span style="margin-left:auto;font-size:9px;color:var(--text5)">paper trading starts '+PAPER_START+'</span></div>'
         +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6;margin:0 2px 16px;max-width:820px">The runner re-runs each crowned strategy on live data every day and logs the trades it would have taken — no real money. This board shows whether reality tracks the backtest.</div>';
       body=headerHtml+tilesHtml+liveHtml+curveHtml+tradesHtml+reportsHtml
         +(window._paperErr?'<div style="color:var(--red);font-size:10px;margin-top:10px">load error: '+String(window._paperErr).replace(/</g,'&lt;')+'</div>':'');
@@ -17873,6 +17902,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
     }
     else if(augurSub==='paper'){
       const rb=content.querySelector('[data-paperrefresh]');if(rb)rb.onclick=()=>{loadPaper(null,true);renderApp();};
+      // Leg rail — a lens, not a saved preference, so it lives on window and resets on reload.
+      content.querySelectorAll('[data-paperleg]').forEach(el=>{el.onclick=()=>{window._paperLeg=el.getAttribute('data-paperleg');renderApp();};});
       content.querySelectorAll('[data-paperrep]').forEach(tr=>{tr.onclick=()=>{const id=tr.dataset.paperrep;const s=window._paperReportOpen||(window._paperReportOpen=new Set());if(s.has(id))s.delete(id);else s.add(id);renderApp();};});
       // v73.18: CHART pill -> the shared candle viewer. PREV/NEXT walks the paper trade
       // list in the order shown, exactly like the run blotter.
