@@ -155,9 +155,16 @@ plausible while a quarter of the trades were being held overnight against the ru
 ### ENGU-Q reconcile — BLOCKED, not attempted
 
 Two independent blockers, both on our side:
-1. **No overlapping data.** TradingView serves ~24 days of 1m bars (from 2026-07-19); the
-   `NOADJ_NQ_1m_ETH` master ends 2026-06-30 and `NOADJ_NQ_1m_RTH` ends 2026-07-16. Zero
-   overlap — there is nothing to compare. Needs the master refresh that is already open.
+1. **A 1-minute data hole that free sources cannot fill.** TradingView's ENGU-Q trades run
+   2026-07-20 → 2026-08-05. `tools/refresh_noadj_yahoo.py` was run 2026-08-12 and extended
+   every non-adj master to current — but Yahoo only serves **7 days** of 1m, so it appended
+   a fresh tail from ~2026-08-06 and left the old series ending 2026-06-30 (ETH) /
+   2026-07-16 (RTH). The gap is exactly the window TradingView covers, so the overlap is
+   still zero. Confirmed by running it: engine 4 trades, TV 0, matched 0.
+   The 5m masters ARE now current, which is why the NOISE reconcile worked.
+   Paths forward: (a) wait — the NinjaTrader 1m capture (`nt_noadj_eth`, live since
+   2026-08-05) and TV's rolling 24-day window will overlap on their own in a few weeks;
+   (b) buy the 1m history. Do not re-run the Yahoo refresher expecting a different result.
 2. **Session mismatch.** `ENGUQ_1M_1_0.py` is validated on **RTH**; chart 2 is currently on
    **ETH** with back-adjustment on, and its trade list shows 00:32 / 04:49 fills. Whatever
    that pane is testing, it is not the champion. Flip to RTH + B-ADJ off before exporting —
