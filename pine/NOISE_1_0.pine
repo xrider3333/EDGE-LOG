@@ -1,0 +1,165 @@
+//@version=5
+// =============================================================================
+//  EDGELOG · NOISE 1.0 — intraday noise-band momentum
+//  Pine port of augur_strategies/NOISE_1_0.py   (written 2026-08-12)
+//
+//  WHY THIS PORT IS FAITHFUL BY CONSTRUCTION
+//  NOISE uses the honest convention end to end: every decision is taken at a
+//  bar's CLOSE and every fill is a market order at the NEXT bar's OPEN. That is
+//  exactly what Pine's process_orders_on_close=false model does natively, so
+//  unlike ORB there is no execution-model gap to argue about. Entry TIMES should
+//  match the engine bar-for-bar; prices differ only because TradingView's NQ1!
+//  continuous contract is rolled differently from our no-adjust master.
+//
+//  THE RULE
+//   • refHi = max(today's open, yesterday's close) · refLo = min(same). Fixed at
+//     the open, never revised.
+//   • sigma[k] for bar-of-day k = mean over the PRIOR `lookback` sessions of
+//     |close - session open| / session open at that SAME bar-of-day. Prior
+//     sessions only — known before the bar starts.
+//   • UB = refHi × (1 + bandLong × sigma[k]) · LB = refLo × (1 − bandShort × sigma[k])
+//   • ENTRY  : a bar CLOSES outside its band -> market order, fills next open.
+//   • EXIT   : a bar CLOSES back across the session VWAP -> market, next open.
+//   • STOP   : bandwidth mode — k × how far the entry bar's band sat outside the
+//     reference. Live from the bar AFTER entry (the engine never tests it on the
+//     entry bar either).
+//   • Flat at the session close. Re-entry allowed later the same session.
+//
+//  Defaults = the validated config (lookback 14 · 1.5/1.5 · vwap exit · both
+//  sides · all day · stop_mode bandwidth, stop_k 1.0).
+//  Chart: NQ1! · 5 minutes · regular trading hours.
+// =============================================================================
+strategy("EDGELOG NOISE 1.0 — noise-band momentum", overlay=true,
+     default_qty_type=strategy.fixed, default_qty_value=1, pyramiding=0,
+     commission_type=strategy.commission.cash_per_order, commission_value=2.83,
+     slippage=0, calc_on_every_tick=false, process_orders_on_close=false,
+     initial_capital=100000)
+
+// ── Inputs (mirror DEFAULT_PARAMS) ───────────────────────────────────────────
+gP        = "NOISE"
+lookback  = input.int(14,   "Noise lookback (sessions)", minval=5, maxval=120, group=gP,
+     tooltip="How many PRIOR days feed the band-width estimate. 14 = validated.")
+bandLong  = input.float(1.5, "Upper band width (x noise)", minval=0.5, maxval=2.5, step=0.25, group=gP)
+bandShort = input.float(1.5, "Lower band width (x noise)", minval=0.5, maxval=2.5, step=0.25, group=gP)
+sideIn    = input.string("Both", "Direction", options=["Both","Long Only","Short Only"], group=gP)
+useStop   = input.bool(true, "Protective stop (bandwidth mode)", group=gP)
+stopK     = input.float(1.0, "Stop size (x band excursion)", minval=0.25, maxval=4.0, step=0.25, group=gP)
+
+MAXBARS = 120        // max bars in a session we track (78 on NQ 5m RTH)
+
+// ── Session bookkeeping ──────────────────────────────────────────────────────
+newSession = ta.change(time("D")) != 0
+
+var float sessOpen  = na
+var float prevClose = na
+var int   bod       = 0        // bar-of-day, 0-based
+var float refHi     = na
+var float refLo     = na
+var int   sessCount = 0        // completed sessions seen
+
+// noise history: one row per stored session, MAXBARS columns
+var matrix<float> hist = matrix.new<float>(0, MAXBARS, na)
+var array<float>  cur  = array.new_float(MAXBARS, na)
+
+// session VWAP accumulators
+var float cumTPV = 0.0
+var float cumVol = 0.0
+
+if newSession
+    // bank the session that just ended, keep only the last `lookback` rows
+    if sessCount > 0
+        matrix.add_row(hist, matrix.rows(hist), array.copy(cur))
+        while matrix.rows(hist) > lookback
+            matrix.remove_row(hist, 0)
+    cur := array.new_float(MAXBARS, na)
+    sessCount := sessCount + 1
+    bod       := 0
+    sessOpen  := open
+    refHi     := na(prevClose) ? open : math.max(open, prevClose)
+    refLo     := na(prevClose) ? open : math.min(open, prevClose)
+    cumTPV    := 0.0
+    cumVol    := 0.0
+
+// this bar's own noise reading (knowable at its close)
+float ad = sessOpen > 0 ? math.abs(close - sessOpen) / sessOpen : na
+if bod < MAXBARS
+    array.set(cur, bod, ad)
+
+// session VWAP
+cumTPV := cumTPV + hlc3 * volume
+cumVol := cumVol + volume
+float vwap = cumVol > 0 ? cumTPV / cumVol : na
+
+// sigma[bod] = mean of the prior sessions at this same bar-of-day (nanmean:
+// shorter sessions simply do not contribute at that index)
+float sig = na
+if bod < MAXBARS and matrix.rows(hist) > 0
+    float s = 0.0
+    int   n = 0
+    for r = 0 to matrix.rows(hist) - 1
+        float x = matrix.get(hist, r, bod)
+        if not na(x)
+            s := s + x
+            n := n + 1
+    sig := n > 0 ? s / n : na
+
+float ub = na(sig) ? na : refHi * (1.0 + bandLong  * sig)
+float lb = na(sig) ? na : refLo * (1.0 - bandShort * sig)
+
+bool warm      = matrix.rows(hist) >= lookback
+bool allowLong = sideIn == "Both" or sideIn == "Long Only"
+bool allowShort= sideIn == "Both" or sideIn == "Short Only"
+
+// The engine forbids a fresh entry on the session's first bar and inside its
+// last two bars (its k <= m-2 rule). Session length is calendar knowledge, so
+// this is not look-ahead.
+bool lastBars = session.islastbar or bod < 1
+
+// ── Entries — decided at THIS close, filled at the NEXT bar's open ───────────
+bool longTrig  = warm and allowLong  and not na(ub) and close > ub
+bool shortTrig = warm and allowShort and not na(lb) and close < lb
+if longTrig and shortTrig                      // both: take the bigger excursion
+    if (close - ub) >= (lb - close)
+        shortTrig := false
+    else
+        longTrig := false
+
+if strategy.position_size == 0 and not lastBars
+    if longTrig
+        strategy.entry("NZL", strategy.long)
+    else if shortTrig
+        strategy.entry("NZS", strategy.short)
+
+// ── Protective stop, sized from the entry bar's band excursion ───────────────
+var float stopPx = na
+if strategy.position_size != 0 and na(stopPx) and useStop and not na(ub) and not na(lb)
+    stopPx := strategy.position_size > 0 ? strategy.position_avg_price - stopK * (ub - refHi)
+                                         : strategy.position_avg_price + stopK * (refLo - lb)
+if strategy.position_size == 0
+    stopPx := na
+
+if strategy.position_size > 0 and not na(stopPx)
+    strategy.exit("NZLx", from_entry="NZL", stop=stopPx)
+if strategy.position_size < 0 and not na(stopPx)
+    strategy.exit("NZSx", from_entry="NZS", stop=stopPx)
+
+// ── VWAP mean-reversion exit — decided at this close, filled next open ───────
+if strategy.position_size > 0 and not na(vwap) and close < vwap
+    strategy.close("NZL", comment="vwap")
+if strategy.position_size < 0 and not na(vwap) and close > vwap
+    strategy.close("NZS", comment="vwap")
+
+// ── Flat by session close ────────────────────────────────────────────────────
+if session.islastbar and strategy.position_size != 0
+    strategy.close_all(comment="eod")
+
+// ── End-of-bar bookkeeping ───────────────────────────────────────────────────
+bod := bod + 1
+prevClose := close
+
+// ── Plots ────────────────────────────────────────────────────────────────────
+plot(warm ? ub : na,   "Upper band", color.new(color.aqua, 20),   style=plot.style_linebr)
+plot(warm ? lb : na,   "Lower band", color.new(color.orange, 20), style=plot.style_linebr)
+plot(vwap,             "Session VWAP", color.new(color.yellow, 40))
+plot(refHi, "ref high", color.new(color.gray, 70), style=plot.style_linebr)
+plot(refLo, "ref low",  color.new(color.gray, 70), style=plot.style_linebr)
