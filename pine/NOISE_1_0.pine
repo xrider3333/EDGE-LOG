@@ -1,6 +1,6 @@
 //@version=5
 // =============================================================================
-//  EDGELOG · NOISE 1.0 — intraday noise-band momentum
+//  EDGELOG - NOISE 1.0 -- intraday noise-band momentum
 //  Pine port of augur_strategies/NOISE_1_0.py   (written 2026-08-12)
 //
 //  WHY THIS PORT IS FAITHFUL BY CONSTRUCTION
@@ -12,30 +12,30 @@
 //  continuous contract is rolled differently from our no-adjust master.
 //
 //  THE RULE
-//   • refHi = max(today's open, yesterday's close) · refLo = min(same). Fixed at
+//   - refHi = max(today's open, yesterday's close) - refLo = min(same). Fixed at
 //     the open, never revised.
-//   • sigma[k] for bar-of-day k = mean over the PRIOR `lookback` sessions of
+//   - sigma[k] for bar-of-day k = mean over the PRIOR `lookback` sessions of
 //     |close - session open| / session open at that SAME bar-of-day. Prior
-//     sessions only — known before the bar starts.
-//   • UB = refHi × (1 + bandLong × sigma[k]) · LB = refLo × (1 − bandShort × sigma[k])
-//   • ENTRY  : a bar CLOSES outside its band -> market order, fills next open.
-//   • EXIT   : a bar CLOSES back across the session VWAP -> market, next open.
-//   • STOP   : bandwidth mode — k × how far the entry bar's band sat outside the
+//     sessions only -- known before the bar starts.
+//   - UB = refHi x (1 + bandLong x sigma[k]) - LB = refLo x (1 - bandShort x sigma[k])
+//   - ENTRY  : a bar CLOSES outside its band -> market order, fills next open.
+//   - EXIT   : a bar CLOSES back across the session VWAP -> market, next open.
+//   - STOP   : bandwidth mode -- k x how far the entry bar's band sat outside the
 //     reference. Live from the bar AFTER entry (the engine never tests it on the
 //     entry bar either).
-//   • Flat at the session close. Re-entry allowed later the same session.
+//   - Flat at the session close. Re-entry allowed later the same session.
 //
-//  Defaults = the validated config (lookback 14 · 1.5/1.5 · vwap exit · both
-//  sides · all day · stop_mode bandwidth, stop_k 1.0).
-//  Chart: NQ1! · 5 minutes · regular trading hours.
+//  Defaults = the validated config (lookback 14 - 1.5/1.5 - vwap exit - both
+//  sides - all day - stop_mode bandwidth, stop_k 1.0).
+//  Chart: NQ1! - 5 minutes - regular trading hours.
 // =============================================================================
-strategy("EDGELOG NOISE 1.0 — noise-band momentum", overlay=true,
+strategy("EDGELOG NOISE 1.0 -- noise-band momentum", overlay=true,
      default_qty_type=strategy.fixed, default_qty_value=1, pyramiding=0,
      commission_type=strategy.commission.cash_per_order, commission_value=2.83,
      slippage=0, calc_on_every_tick=false, process_orders_on_close=false,
      initial_capital=100000)
 
-// ── Inputs (mirror DEFAULT_PARAMS) ───────────────────────────────────────────
+// -- Inputs (mirror DEFAULT_PARAMS) -------------------------------------------
 gP        = "NOISE"
 lookback  = input.int(14,   "Noise lookback (sessions)", minval=5, maxval=120, group=gP,
      tooltip="How many PRIOR days feed the band-width estimate. 14 = validated.")
@@ -47,7 +47,7 @@ stopK     = input.float(1.0, "Stop size (x band excursion)", minval=0.25, maxval
 
 MAXBARS = 120        // max bars in a session we track (78 on NQ 5m RTH)
 
-// ── Session bookkeeping ──────────────────────────────────────────────────────
+// -- Session bookkeeping ------------------------------------------------------
 newSession = ta.change(time("D")) != 0
 
 var float sessOpen  = na
@@ -115,7 +115,7 @@ bool allowShort= sideIn == "Both" or sideIn == "Short Only"
 // this is not look-ahead.
 bool lastBars = session.islastbar or bod < 1
 
-// ── Entries — decided at THIS close, filled at the NEXT bar's open ───────────
+// -- Entries -- decided at THIS close, filled at the NEXT bar's open -----------
 bool longTrig  = warm and allowLong  and not na(ub) and close > ub
 bool shortTrig = warm and allowShort and not na(lb) and close < lb
 if longTrig and shortTrig                      // both: take the bigger excursion
@@ -130,7 +130,7 @@ if strategy.position_size == 0 and not lastBars
     else if shortTrig
         strategy.entry("NZS", strategy.short)
 
-// ── Protective stop, sized from the entry bar's band excursion ───────────────
+// -- Protective stop, sized from the entry bar's band excursion ---------------
 var float stopPx = na
 if strategy.position_size != 0 and na(stopPx) and useStop and not na(ub) and not na(lb)
     stopPx := strategy.position_size > 0 ? strategy.position_avg_price - stopK * (ub - refHi)
@@ -143,13 +143,13 @@ if strategy.position_size > 0 and not na(stopPx)
 if strategy.position_size < 0 and not na(stopPx)
     strategy.exit("NZSx", from_entry="NZS", stop=stopPx)
 
-// ── VWAP mean-reversion exit — decided at this close, filled next open ───────
+// -- VWAP mean-reversion exit -- decided at this close, filled next open -------
 if strategy.position_size > 0 and not na(vwap) and close < vwap
     strategy.close("NZL", comment="vwap")
 if strategy.position_size < 0 and not na(vwap) and close > vwap
     strategy.close("NZS", comment="vwap")
 
-// ── Flat by session close ────────────────────────────────────────────────────
+// -- Flat by session close ----------------------------------------------------
 // immediately=true is REQUIRED. With process_orders_on_close=false (which is what
 // makes entries faithful: decide at close, fill next open) a plain close_all on the
 // last bar is only FILLED at the next bar's open -- i.e. the next session -- so the
@@ -159,11 +159,11 @@ if strategy.position_size < 0 and not na(vwap) and close > vwap
 if session.islastbar and strategy.position_size != 0
     strategy.close_all(comment="eod", immediately=true)
 
-// ── End-of-bar bookkeeping ───────────────────────────────────────────────────
+// -- End-of-bar bookkeeping ---------------------------------------------------
 bod := bod + 1
 prevClose := close
 
-// ── Plots ────────────────────────────────────────────────────────────────────
+// -- Plots --------------------------------------------------------------------
 plot(warm ? ub : na,   "Upper band", color.new(color.aqua, 20),   style=plot.style_linebr)
 plot(warm ? lb : na,   "Lower band", color.new(color.orange, 20), style=plot.style_linebr)
 plot(vwap,             "Session VWAP", color.new(color.yellow, 40))
