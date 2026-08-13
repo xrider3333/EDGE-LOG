@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.19';
+const VERSION='73.20';
 // ── CHANGELOG (Settings ▸ CHANGELOG). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.20',date:'2026-08-12',notes:['CANDLE CHART, three owner asks. POSITION BOX: a trade now draws as a box from the entry bar to the exit bar spanning entry price to exit price, green if it made money and red if it lost, with the entry level dashed across it. On a one or two bar trade the old arrow-and-dot labels landed on top of each other and were unreadable; the labels now sit outside the box, flip to the other side near the right edge so they cannot run off, and get pushed apart when the two prices are nearly the same.','DRAG THE PRICE SCALE. Grab the dollar numbers on the right and drag up to stretch the prices apart or down to squash them together. The axis used to auto-fit the bars on screen with no way to override it, so a quiet stretch filled the height and a big move flattened everything around it. Works whether or not you have zoomed the time axis; double-click resets both.','CANDLES ARE EASIER TO TELL APART, especially on the monochrome theme where up and down were two shades of grey. Up bars are now hollow and down bars solid, so the shape says which is which and brightness is no longer doing all the work. Same on every theme - it is the standard candle convention.']},
 {v:'73.19',date:'2026-08-12',notes:['PAPER candle window now says PAPER SHADOW TRADE in its subtitle instead of champion config, and repeats the look-ahead warning on an ORB row - a paper trade is not a run champion and should not read like one.']},
 {v:'73.18',date:'2026-08-12',notes:['CANDLES ON THE PAPER TAB (owner ask). Every row of the PAPER trades table now has a CHART button that opens that trade as a real price chart - the session it happened in plus the session either side, the session VWAP, the bars you were in the trade shaded, and the entry and exit marked at their fill prices. Same window as the run blotter, so PREV and NEXT step through the paper trades and the arrow keys work.','These trades are newer than any saved price file on your PC, so the chart is built from the master plus the live feed the shadow runner itself uses. That means the candles you see are the same bars the paper trade was decided on.','The three legs run on different timeframes - ORB and NOISE on 5 minute bars, ENGU-Q on 1 minute - and each row now fetches its own, so an ENGU-Q trade opens at 1 minute rather than borrowing the wrong chart.','Coverage caveat: the live feed only started recording partway through 2026-08-10, so a chart of the earliest paper days can begin mid-session rather than at the open.']},
 {v:'73.17',date:'2026-08-12',notes:['Library: archived the leak-compromised touch-entry ORB family (ORB 2.0/3.0/3.1/3.2/3.3 and forks, 21 files) plus VWAP FADE 2.0, per the look-ahead audit and fill-realism sweep. ORB 3.5, ORB 3.1 125C, ORB FADE 1.0, ORB 1.0, NOISE 1.0 and the ENGU-Q files are unaffected and stay active.']},
@@ -2986,6 +2987,14 @@ window.candleSVG=function(bars,overlays,markers,opts){
   Object.keys(overlays).forEach(k=>{(overlays[k]||[]).forEach(v=>{if(v!==null&&v!==undefined){if(v>hi)hi=v;if(v<lo)lo=v;}});});
   const pad=(hi-lo)*0.06||1;
   lo-=pad;hi+=pad;
+  // v73.20: the price axis is normally auto-fitted to whatever bars are on screen. A
+  // yZoom above 1 keeps the same centre and narrows the range (prices stretch apart);
+  // below 1 widens it (they squash together). Dragging the price scale sets this.
+  const _yz=+(opts.yZoom||1);
+  if(_yz>0&&isFinite(_yz)&&_yz!==1){
+    const _mid=(lo+hi)/2,_half=(hi-lo)/2/_yz;
+    lo=_mid-_half;hi=_mid+_half;
+  }
 
   const xStep=plotW/n;
   const xCenter=i=>margin.l+i*xStep+xStep/2;
@@ -3006,7 +3015,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
   if(markers.shadeFrom!==undefined&&markers.shadeFrom!==null&&markers.shadeTo!==undefined&&markers.shadeTo!==null){
     const x0=margin.l+markers.shadeFrom*xStep;
     const x1=margin.l+(markers.shadeTo+1)*xStep;
-    out+='<rect x="'+x0+'" y="'+margin.t+'" width="'+(x1-x0)+'" height="'+plotH+'" fill="var(--blue)" opacity="0.08"/>';
+    out+='<rect x="'+x0+'" y="'+margin.t+'" width="'+(x1-x0)+'" height="'+plotH+'" fill="var(--blue)" opacity="0.05"/>';
   }
 
   // session boundaries — the window carries context sessions either side of the trade, so
@@ -3037,8 +3046,12 @@ window.candleSVG=function(bars,overlays,markers,opts){
     flush();
   });
 
-  // candles
+  // candles — v73.20: HOLLOW up / SOLID down.
+  // The monochrome theme paints up #e0e0e0 and down #888888, so brightness alone was
+  // doing all the work and the chart read as one grey mush. Shape carries it now, which
+  // also matches the standard candle convention on every other theme.
   const bodyW=Math.max(1.5,xStep*0.62);
+  const _hollowOk=bodyW>=2.6;         // below this an outline has no interior to show
   for(let i=0;i<n;i++){
     const b=bars[i];
     const x=xCenter(i);
@@ -3047,7 +3060,11 @@ window.candleSVG=function(bars,overlays,markers,opts){
     out+='<line x1="'+x+'" x2="'+x+'" y1="'+yScale(b.h)+'" y2="'+yScale(b.l)+'" stroke="'+color+'" stroke-width="1"/>';
     const yO=yScale(b.o),yC=yScale(b.c);
     const yTop=Math.min(yO,yC),hgt=Math.max(0.8,Math.abs(yC-yO));
-    out+='<rect x="'+(x-bodyW/2)+'" y="'+yTop+'" width="'+bodyW+'" height="'+hgt+'" fill="'+color+'"/>';
+    if(up&&_hollowOk&&hgt>1.6){
+      out+='<rect x="'+(x-bodyW/2+0.5)+'" y="'+(yTop+0.5)+'" width="'+(bodyW-1)+'" height="'+(hgt-1)+'" fill="var(--bg)" stroke="'+color+'" stroke-width="1.1"/>';
+    }else{
+      out+='<rect x="'+(x-bodyW/2)+'" y="'+yTop+'" width="'+bodyW+'" height="'+hgt+'" fill="'+color+'"/>';
+    }
   }
 
   // session divider lines
@@ -3075,21 +3092,65 @@ window.candleSVG=function(bars,overlays,markers,opts){
     out+='<text x="'+x+'" y="'+(margin.t+plotH+15)+'" text-anchor="middle" font-size="9" font-weight="'+(dayLbl?700:400)+'" fill="var(--text5)">'+esc(tt)+'</text>';
   }
 
-  // entry / exit markers
-  if(markers.entryIdx!==undefined&&markers.entryIdx!==null&&markers.entryPrice!=null){
-    const x=xCenter(markers.entryIdx),y=yScale(markers.entryPrice);
+  // ── entry / exit: the POSITION BOX (v73.20, owner ask) ────────────────────────
+  // A glyph plus a dot, each with its own centred label, collides into an unreadable
+  // smudge whenever a trade lasts one or two bars - and near the right edge the labels
+  // ran off the plot entirely. Draw the trade the way a position tool does instead: a
+  // box from the entry bar to the exit bar, spanning entry price to exit price, tinted
+  // by the result. We hold no stop or target, so entry-to-exit is the honest extent.
+  const _mE=(markers.entryIdx!==undefined&&markers.entryIdx!==null&&markers.entryPrice!=null);
+  const _mX=(markers.exitIdx!==undefined&&markers.exitIdx!==null&&markers.exitPrice!=null);
+  const _won=(markers.pnlUsd||0)>=0;
+  const _pc=_won?'var(--green)':'var(--red)';
+  const _plotR=margin.l+plotW;
+  // labels get a backing plate so they read over candles; ~5.35px per char at 9px.
+  const _plate=(tx,ty,txt,fill,anchor,weight)=>{
+    const w=txt.length*5.35+8,h=13;
+    const x0=(anchor==='end')?(tx-w+4):(tx-4);
+    return '<rect x="'+x0.toFixed(1)+'" y="'+(ty-10).toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h+'" rx="3" fill="var(--bg)" opacity="0.78"/>'
+      +'<text x="'+tx.toFixed(1)+'" y="'+ty.toFixed(1)+'" text-anchor="'+anchor+'" font-size="9" fill="'+fill+'"'+(weight?' font-weight="700"':'')+'>'+esc(txt)+'</text>';
+  };
+  if(_mE&&_mX){
+    const yE=yScale(markers.entryPrice),yX=yScale(markers.exitPrice);
+    let bx0=margin.l+Math.min(markers.entryIdx,markers.exitIdx)*xStep;
+    let bx1=margin.l+(Math.max(markers.entryIdx,markers.exitIdx)+1)*xStep;
+    if(bx1-bx0<9){const c=(bx0+bx1)/2;bx0=c-4.5;bx1=c+4.5;}   // 1-bar trades stay visible
+    const by0=Math.min(yE,yX),by1=Math.max(yE,yX);
+    const bh=Math.max(by1-by0,3);
+    out+='<rect x="'+bx0.toFixed(1)+'" y="'+by0.toFixed(1)+'" width="'+(bx1-bx0).toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+_pc+'" opacity="0.18"/>';
+    out+='<rect x="'+bx0.toFixed(1)+'" y="'+by0.toFixed(1)+'" width="'+(bx1-bx0).toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="none" stroke="'+_pc+'" stroke-width="1" opacity="0.75"/>';
+    // entry level dashed across the box, exit level solid - which way price travelled
+    out+='<line x1="'+bx0.toFixed(1)+'" x2="'+bx1.toFixed(1)+'" y1="'+yE.toFixed(1)+'" y2="'+yE.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" stroke-dasharray="3 2"/>';
+    out+='<line x1="'+bx0.toFixed(1)+'" x2="'+bx1.toFixed(1)+'" y1="'+yX.toFixed(1)+'" y2="'+yX.toFixed(1)+'" stroke="'+_pc+'" stroke-width="1.4"/>';
     const isLong=markers.side==='long';
-    const glyph=isLong?'▲':'▼';
-    const yOff=isLong?14:-8;
-    out+='<text x="'+x+'" y="'+(y+yOff)+'" text-anchor="middle" font-size="13" fill="var(--text)" font-weight="700">'+glyph+'</text>';
-    out+='<text x="'+x+'" y="'+(y+yOff+(isLong?12:-12))+'" text-anchor="middle" font-size="9" fill="var(--text)">entry '+esc(markers.entryPrice.toLocaleString('en-US'))+'</text>';
-  }
-  if(markers.exitIdx!==undefined&&markers.exitIdx!==null&&markers.exitPrice!=null){
-    const x=xCenter(markers.exitIdx),y=yScale(markers.exitPrice);
-    const won=(markers.pnlUsd||0)>=0;
-    const color=won?'var(--green)':'var(--red)';
-    out+='<circle cx="'+x+'" cy="'+y+'" r="4" fill="'+color+'" stroke="var(--bg)" stroke-width="1.2"/>';
-    out+='<text x="'+x+'" y="'+(y-10)+'" text-anchor="middle" font-size="9" fill="'+color+'" font-weight="700">exit '+esc(markers.exitPrice.toLocaleString('en-US'))+'</text>';
+    out+='<text x="'+xCenter(markers.entryIdx).toFixed(1)+'" y="'+(yE+(isLong?13:-6)).toFixed(1)+'" text-anchor="middle" font-size="12" fill="var(--text)" font-weight="700">'+(isLong?'▲':'▼')+'</text>';
+    out+='<circle cx="'+xCenter(markers.exitIdx).toFixed(1)+'" cy="'+yX.toFixed(1)+'" r="3.6" fill="'+_pc+'" stroke="var(--bg)" stroke-width="1.2"/>';
+    // labels outside the box, flipped inward near the right edge, pushed apart when the
+    // two prices are within a line height of each other.
+    const eTxt='entry '+markers.entryPrice.toLocaleString('en-US');
+    const xTxt='exit '+markers.exitPrice.toLocaleString('en-US');
+    const need=Math.max(eTxt.length,xTxt.length)*5.35+14;
+    const right=(bx1+need)<=_plotR;
+    const lx=right?(bx1+6):(bx0-6),anch=right?'start':'end';
+    let lyE=yE+3,lyX=yX+3;
+    if(Math.abs(lyE-lyX)<14){const mid=(lyE+lyX)/2;if(yE<=yX){lyE=mid-7;lyX=mid+7;}else{lyE=mid+7;lyX=mid-7;}}
+    lyE=Math.max(margin.t+9,Math.min(margin.t+plotH-3,lyE));
+    lyX=Math.max(margin.t+9,Math.min(margin.t+plotH-3,lyX));
+    out+=_plate(lx,lyE,eTxt,'var(--text2)',anch,false);
+    out+=_plate(lx,lyX,xTxt,_pc,anch,true);
+  }else{
+    if(_mE){
+      const x=xCenter(markers.entryIdx),y=yScale(markers.entryPrice),isLong=markers.side==='long';
+      out+='<text x="'+x+'" y="'+(y+(isLong?14:-8))+'" text-anchor="middle" font-size="13" fill="var(--text)" font-weight="700">'+(isLong?'▲':'▼')+'</text>';
+      const right=(x+70)<=_plotR;
+      out+=_plate(right?(x+8):(x-8),y+3,'entry '+markers.entryPrice.toLocaleString('en-US'),'var(--text2)',right?'start':'end',false);
+    }
+    if(_mX){
+      const x=xCenter(markers.exitIdx),y=yScale(markers.exitPrice);
+      out+='<circle cx="'+x+'" cy="'+y+'" r="4" fill="'+_pc+'" stroke="var(--bg)" stroke-width="1.2"/>';
+      const right=(x+70)<=_plotR;
+      out+=_plate(right?(x+8):(x-8),y+3,'exit '+markers.exitPrice.toLocaleString('en-US'),_pc,right?'start':'end',true);
+    }
   }
 
   out+='</svg>';
@@ -3401,6 +3462,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     const eIn=(r.entry_idx!=null&&r.entry_idx>=lo3&&r.entry_idx<=hi3),xIn=(r.exit_idx!=null&&r.exit_idx>=lo3&&r.exit_idx<=hi3);
 
     const markers={entryPrice:x._ep,exitPrice:x._xp,side:side,pnlUsd:x._usd};
+    _cndl.yZoom=+(_cndl.yZoom||1);
 
     if(eIn)markers.entryIdx=r.entry_idx-lo3;
 
@@ -3485,8 +3547,38 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       [lo4,hi4]=_clampView(lo4,hi4,ns,n3);
       _cndl.view=(ns>=n3)?null:[lo4,hi4];_renderCandle();
     },{passive:false});
+    // v73.20: is the pointer over the price scale (the gutter right of the plot)?
+    const _onAxis=ev2=>{
+      const rc=svgEl2.getBoundingClientRect();
+      if(!rc.width)return false;
+      const vx=(ev2.clientX-rc.left)/rc.width*W2;
+      return vx>=(mL2+(_G.plotW||(W2-mL2-64)))-2;   // plot right edge onwards = the $ labels
+    };
+    svgEl2.addEventListener('mousemove',ev=>{
+      svgEl2.style.cursor=_onAxis(ev)?'ns-resize':'crosshair';
+    });
     svgEl2.addEventListener('mousedown',ev=>{
       if(ev.button!==0)return;
+      // PRICE-SCALE DRAG: works in full view too, unlike panning - stretching the prices
+      // is useful whether or not you have zoomed the time axis.
+      if(_onAxis(ev)){
+        ev.stopPropagation();ev.preventDefault();
+        const y0=ev.clientY,z0=+(_cndl.yZoom||1);
+        const rcH=svgEl2.getBoundingClientRect().height||400;
+        let raf=0;
+        const mv=e2=>{
+          if(raf)return;
+          raf=requestAnimationFrame(()=>{raf=0;
+            let z=z0*Math.exp((y0-e2.clientY)/rcH*2.4);
+            z=Math.max(0.25,Math.min(14,z));
+            if(Math.abs(z-(_cndl.yZoom||1))<1e-3)return;
+            _cndl.yZoom=z;_renderCandle();
+          });
+        };
+        const up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};
+        window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);
+        return;
+      }
       if(!_cndl.view)return;   // full view — nothing to pan; modal shell may pan/scroll itself
       ev.stopPropagation();ev.preventDefault();
       const n3=((_cndl.r||{}).bars||[]).length;
@@ -3506,7 +3598,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       const up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};
       window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);
     });
-    svgEl2.addEventListener('dblclick',ev=>{ev.stopPropagation();_cndl.view=null;_renderCandle();});
+    svgEl2.addEventListener('dblclick',ev=>{ev.stopPropagation();_cndl.view=null;_cndl.yZoom=1;_renderCandle();});
 
   };
 
@@ -3542,7 +3634,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       // the readout swaps a short hint for a long OHLC line on every hover, and BOTH its width
       // and its line box fed back into the auto-sized modal — measured 39px of chart resize and
       // a 20px shift per hover. Pinned here; the window also gets a definite width below.
-      +'<div id="cndl-ro" style="font-size:10px;color:var(--text4);height:15px;line-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 100%;min-width:0;letter-spacing:.3px;border-top:1px solid var(--border2);padding-top:5px;margin-top:2px"><span style="color:var(--text5)">hover = OHLC &middot; wheel = zoom &middot; drag = pan &middot; double-click = all bars</span></div>');
+      +'<div id="cndl-ro" style="font-size:10px;color:var(--text4);height:15px;line-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 100%;min-width:0;letter-spacing:.3px;border-top:1px solid var(--border2);padding-top:5px;margin-top:2px"><span style="color:var(--text5)">hover = OHLC &middot; wheel = zoom &middot; drag = pan &middot; drag the $ scale = stretch prices &middot; double-click = reset</span></div>');
     // the shell sizes itself to its content, so ANY text change inside re-lays-out the chart.
     // A definite width stops that dead — and keeps the chart the same size trade to trade.
     try{const _bd=_cndl.api.modal.querySelector('#chart-body');
@@ -3708,7 +3800,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     const seq=++_cndl.seq;
 
-    _cndl.x=x;_cndl.view=null;
+    _cndl.x=x;_cndl.view=null;_cndl.yZoom=1;
 
     _cndlTitle(_cTitleOf(x));
 
