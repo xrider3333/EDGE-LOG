@@ -122,14 +122,19 @@ bool allowShort= sideIn == "Both" or sideIn == "Short Only"
 // chart: NQ's regular session closes at 16:00 ET, so the final 5-minute bar is the one
 // whose CLOSE stamps 16:00. That is calendar knowledge, not look-ahead. It does not
 // fire on early-close half-days - a known, small gap.
-bool sessEnd = session.islastbar or session.islastbar_regular
-     or (hour(time_close, "America/New_York") == 16
-         and minute(time_close, "America/New_York") == 0)
+// inRTH also matters on its own: TradingView's "regular hours" for NQ1! runs PAST
+// 16:00 - it serves 16:05 and 16:10 bars that our RTH master does not have. The
+// 2026-08-13 reconcile found 32 trades entered at 16:05, losing $35,457, that the
+// engine could never have taken. Entries are blocked outside this window.
+bool inRTH = not na(time(timeframe.period, "0930-1600", "America/New_York"))
+bool sessEnd = (inRTH and hour(time_close, "America/New_York") == 16
+                and minute(time_close, "America/New_York") == 0)
+     or session.islastbar or session.islastbar_regular
 
 // The engine forbids a fresh entry on the session's first bar and inside its
 // last two bars (its k <= m-2 rule). Session length is calendar knowledge, so
 // this is not look-ahead.
-bool lastBars = sessEnd or bod < 1
+bool lastBars = not inRTH or sessEnd or bod < 1
 
 // -- Entries -- decided at THIS close, filled at the NEXT bar's open -----------
 bool longTrig  = warm and allowLong  and not na(ub) and close > ub
@@ -174,7 +179,7 @@ if strategy.position_size < 0 and not na(vwap) and close > vwap
 //      the position would ride overnight anyway.
 // The 2026-08-12 reconcile found 36 trades held overnight, costing $15,121 against the
 // engine. Fixing only (2) changed nothing, which is what exposed (1).
-if sessEnd and strategy.position_size != 0
+if (sessEnd or not inRTH) and strategy.position_size != 0
     strategy.close_all(comment="eod", immediately=true)
 
 // -- End-of-bar bookkeeping ---------------------------------------------------
