@@ -60,6 +60,41 @@ HEALTH_SEC = 3600.0
 # scoring pass, no engine job state touched — the per-trade GATE/TILT/HYBRID blotter.
 READONLY_ACTIONS = {"get_bars", "get_blotter", "similar_setups", "config_trades"}
 
+# Firestore hard-caps a document at 1 MiB. These result keys are the per-config bulk —
+# they scale with (configs x knobs) and are what pushes a wide search over the cap. They
+# are dropped, in this order, only when a save would otherwise be REJECTED outright:
+# losing a scatter panel beats losing the entire run. Verdict, champion, folds, lockbox
+# and equity all live outside this list and are never sacrificed.
+_HEAVY_RESULT_KEYS = ("points", "dist", "equity_top", "top", "mae_mfe", "win_dist",
+                      "mae_mfe_wf", "mae_mfe_lb", "win_dist_wf", "win_dist_lb")
+_DOC_LIMIT = 1_048_576
+_DOC_BUDGET = 950_000            # leave headroom for Firestore's own field overhead
+
+
+def _doc_bytes(doc):
+    try:
+        return len(json.dumps(doc, default=str).encode("utf-8"))
+    except Exception:
+        return 0
+
+
+def _fit_doc(doc, log=None, order=_HEAVY_RESULT_KEYS):
+    """Drop per-config bulk until the doc fits Firestore's 1 MiB cap. Returns the doc."""
+    if _doc_bytes(doc) <= _DOC_BUDGET:
+        return doc
+    dropped = []
+    for k in order:
+        if _doc_bytes(doc) <= _DOC_BUDGET:
+            break
+        if doc.get(k) is not None:
+            doc[k] = None
+            dropped.append(k)
+    if dropped:
+        doc["trimmed_keys"] = dropped
+        if log:
+            log(f"    (run doc over 1 MiB — dropped per-config detail: {', '.join(dropped)})")
+    return doc
+
 
 def _anthropic_key():
     """Read the Anthropic API key from local augur_config.json (never from a job doc)."""
@@ -755,6 +790,7 @@ class FirestoreQueue:
         if famkey is not None:
             doc["famKey"] = famkey
             doc["famSeq"] = famseq
+        _fit_doc(doc, log)
         self.db.collection("users").document(uid).collection("runs").document(str(rid)).set(doc)
         log(f"    -> saved to Runs history (#{rid}"
             + (f" · {famkey}-{famseq}" if famkey is not None else "") + ")")
@@ -937,7 +973,29 @@ class FirestoreQueue:
                     _elapsed = time.time() - _t0
                     if patch.get("status") == "done":
                         patch["elapsed_s"] = round(_elapsed, 2)
-                    ref.update(patch)
+                    # Firestore caps ONE document at 1 MiB. A wide search space (many knobs
+                    # x many configs) blows past that on the per-config payload alone, and a
+                    # rejected write used to throw here — losing the whole finished run,
+                    # including the Runs-history card. So: never let the job-doc echo kill
+                    # the run. Retry without the heavy per-config keys, then (below) persist
+                    # the run regardless. The Results report reads the RUN doc, not this one.
+                    try:
+                        ref.update(patch)
+                    except Exception as _e:
+                        _r = patch.get("result") or {}
+                        _slim = {k: v for k, v in patch.items() if k != "result"}
+                        _slim["result"] = {k: v for k, v in _r.items()
+                                           if k not in _HEAVY_RESULT_KEYS}
+                        _slim["result_trimmed"] = True
+                        log(f"  (job-doc write too big: {_e}; retried without per-config detail)")
+                        try:
+                            ref.update(_slim)
+                        except Exception as _e2:
+                            log(f"  (slim job-doc write also failed: {_e2})")
+                            try:
+                                ref.update({k: v for k, v in patch.items() if k != "result"})
+                            except Exception:
+                                pass
                     # A completed grid sweep also lands in the Runs history, so web
                     # sweeps appear alongside the app's runs in users/{uid}/runs.
                     if job.get("type") in ("grid", "auto", "walkforward", "ai_optimize", "ai_evolve", "validate", "gate_validate", "book") and patch.get("status") == "done":
