@@ -84,6 +84,13 @@ PAPER_LEGS = [
 
 # ── Layer 1: the NT demo account whose fills we mirror into the daily report ────
 PAPER_LIVE_ACCOUNT = "DEMO7240108"
+
+# Are the NinjaScript strategies actually enabled on charts? While this is False the
+# Layer 3 reconcile does not treat "the engine signalled and the demo did not trade" as
+# a divergence, because that is exactly what is expected. FLIP THIS THE DAY THE CHARTS
+# ARE ENABLED - leaving it False would silently mute the one check the demo layer exists
+# to provide.
+NT_STRATEGIES_ENABLED = False
 _FILLS_CSV = r"C:\EdgeLog\fills.csv"
 _INST_MULT = {"NQ": 20.0, "MNQ": 2.0, "ES": 50.0, "MES": 5.0}
 
@@ -421,6 +428,7 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
     for leg in PAPER_LEGS:
         r = run_shadow(leg, target_date)
         trade_ids = []
+        todays_trades = []      # the trade dicts behind trade_ids, for Layer 3
         leg_pnl = 0.0
         for t in r["trades"]:
             entry_unix = int(t["entry_dt"].timestamp())
@@ -438,6 +446,11 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
             is_today = (t_date == target_date)
             if is_today:
                 trade_ids.append(doc_id)
+                todays_trades.append({
+                    "side": t["side"], "entryIso": t["entry_dt"].isoformat(),
+                    "entry_px": t["entry_px"], "exit_px": t["exit_px"],
+                    "pnl_usd": t["pnl_usd"],
+                })
                 leg_pnl += t["pnl_usd"]
             if not dry_run:
                 doc = json_safe({
@@ -461,6 +474,9 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
             # so the cumulative view is still available without conflating the two.
             "n_signals": len(trade_ids), "n_since_start": len(r["trades"]),
             "trade_ids": trade_ids, "pnl_usd": leg_pnl,
+            # Layer 3 reads this and strips it before the doc is written - it is the
+            # same data as trade_ids, just resolved, and Firestore does not need both.
+            "_trades": todays_trades,
             "bars_appended": r["bars_appended"], "data_fresh_thru": r["data_fresh_thru"],
             "warnings": r["warnings"], "flags": leg.get("flags") or [],
         }
@@ -482,6 +498,25 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
         "status": "runner_done",
         "run_date": target_date.isoformat(),
     }
+    # Layer 3: three-way reconcile (api/paper_reconcile.py). live_expected reflects
+    # whether the NinjaScript strategies are actually enabled on charts - while they are
+    # not, "shadow signal with no live fill" is the designed state, and reporting it as a
+    # divergence every single day is how a status field becomes wallpaper.
+    try:
+        from . import paper_reconcile
+        report["reconcile"] = paper_reconcile.run(
+            target_date, report, live_expected=NT_STRATEGIES_ENABLED)
+        _v = report["reconcile"].get("verdict") or {}
+        for _p in (_v.get("problems") or []):
+            _log(f"uid={uid} RECONCILE {target_date.isoformat()}: {_p}")
+    except Exception as e:
+        report["reconcile"] = {"ok": None, "error": f"{type(e).__name__}: {e}"}
+
+    # _trades was only ever a hand-off to the reconcile; it is redundant with trade_ids
+    # and would bloat every report doc against the 1 MiB cap.
+    for _blk in report["legs"].values():
+        _blk.pop("_trades", None)
+
     if not dry_run:
         report_doc = json_safe(dict(report))
         report_doc["generatedAt"] = firestore.SERVER_TIMESTAMP
