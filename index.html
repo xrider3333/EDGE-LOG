@@ -442,11 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.25';
+const VERSION='73.26';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-{v:'73.25',date:'2026-08-12',notes:['Picking a built-in logo mark no longer loses the image you uploaded. The last uploaded logo is kept aside and a RESTORE UPLOADED button with a thumbnail appears next to it in Settings > APPEARANCE > LOGO, so you can try the marks and go back.']},
+{v:'73.26',date:'2026-08-12',notes:['Picking a built-in logo mark no longer loses the image you uploaded. The last uploaded logo is kept aside and a RESTORE UPLOADED button with a thumbnail appears next to it in Settings > APPEARANCE > LOGO, so you can try the marks and go back.']},
 {v:'73.24',date:'2026-08-12',notes:['FIX (owner): switching settings panes moved the whole window around the screen. The window sized itself to whichever pane you were on, so APPEARANCE and TRADING LOG were different heights and the box jumped when you clicked between them. It is now one fixed size for every pane - nothing moves.','NEW LOGOS (owner ask). The LOGO card in Settings > APPEARANCE now offers six built-in marks - EL monogram, breakout candle, edge steps, pulse, wedge and candles - one click to wear one, with the current pick ticked. They are square vector marks so they stay sharp in the top bar AND as the browser-tab icon. Uploading your own image still works the same.']},
 {v:'73.23',date:'2026-08-12',notes:['The settings window now sizes itself to the pane you are on instead of always being 860px tall, so APPEARANCE no longer leaves half the window empty. Tall panes still cap at 88% of the screen and scroll.']},
 {v:'73.22',date:'2026-08-12',notes:['ONE SETTINGS SCREEN (owner ask - tired of having two settings spots). The TRADING LOG > SETTINGS tab and the BACKTESTER > SETTINGS subtab are both gone. Everything now lives in a single master settings window opened by the gear in the top right, reachable from any tab on either side of the app.','The window is split by type down a left rail: APPEARANCE (theme, density, logo - applies to the whole app), TRADING LOG (setup types, tags, per-instrument fees, account balances, account info), BACKTESTER (run defaults, runner, reconciler, AI providers, auto-pull, synced counts) and ABOUT (version + full changelog, which used to be a sub-tab of the backtester settings).','Esc or a click outside closes it. Editing a setting that redraws the app (theme, adding a setup, saving a balance) now refreshes the window in place instead of leaving it showing the pre-edit state, and it keeps your scroll position.','A browser that had the old SETTINGS tab saved as its last view is sent to OVERVIEW (or LIBRARY on the backtester side) instead of landing on a tab that no longer has a button.']},
@@ -1002,6 +1002,10 @@ applyTheme();
 
 // State
 let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,cmdRef=null,augurCmdId=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],metaPull={},augurSub='runs',augurRunSel=null,augurExecStrat='',augurCmpA=null,augurCmpB=null,augurLibSel=null,augurLibDel=false,augurLibMsg='',augurReviewPine='',augurReviewFor='',augurMenu='',metaEta=null,metaWorkers=null,metaStratPrefs={},unsubSP=null;
+// v73.19 (Firestore quota): Past Runs used to pull a flat 300-doc listener on every page load
+// regardless of whether the owner ever scrolled that far. runsLimit starts at 75 and grows by
+// 75 per LOAD MORE click (below); _runsUid remembers who to re-subscribe as.
+let runsLimit=75,_runsUid=null;
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
 let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyOverlay=false,chartPctMode=false;window.chartPctMode=false;
 let formOpen=false,showAllCols=false;
@@ -1403,6 +1407,23 @@ function initFB(){if(firebase.apps.length)return true;try{firebase.initializeApp
 // saved re-reading the ~300-doc runs list per load — trivial against the quota. If a fetch
 // ever hangs again: close other EDGELOG tabs and reload.
 return true;}catch(e){console.error(e);return false;}}
+// v73.19 (Firestore quota): Past Runs used to pull a flat 300-doc listener on every page
+// load regardless of whether the owner scrolled anywhere near that far. Now starts at 75
+// (runsLimit, declared above) and the LOAD MORE row on the Past Runs list bumps it by +75
+// and re-subscribes HERE ONLY — the trades/lessons/backtests/meta listeners are untouched.
+// idempotent: safe to call again with the same limit (just re-attaches the same listener).
+function _subscribeRuns(uid,lim){
+  if(!db||!uid)return;
+  runsRef=db.collection('users').doc(uid).collection('runs');
+  if(unsubRuns)unsubRuns();
+  runsLimit=lim||75;
+  // normalize timestamp to an ISO STRING on read — some docs carry a Firestore Timestamp
+  //   object instead (crashed Rankings: "(r.timestamp||'').slice is not a function").
+  unsubRuns=runsRef.orderBy('timestamp','desc').limit(runsLimit).onSnapshot(snap=>{runHistory=snap.docs.map(d=>{const x={id:d.id,...d.data()};const t=x.timestamp;
+    if(t&&typeof t!=='string'){try{const dt=(t.seconds!=null)?new Date(t.seconds*1000):new Date(t);if(!isNaN(+dt))x.timestamp=dt.toISOString();else x.timestamp='';}catch(_){x.timestamp='';}}
+    return x;});if(activeTab==='augur'&&(augurSub==='runs'||augurSub==='rank'))renderApp();});
+}
+window._loadMoreRuns=()=>{if(!_runsUid)return;_subscribeRuns(_runsUid,(runsLimit||75)+75);};
 function subscribeAll(uid){
   colRef=db.collection('users').doc(uid).collection('trades');
   lessonRef=db.collection('users').doc(uid).collection('lessons');
@@ -1414,15 +1435,8 @@ function subscribeAll(uid){
   if(unsubBT)unsubBT();
   unsubBT=btRef.orderBy('createdAt','desc').limit(50).onSnapshot(snap=>{backtests=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='augur')renderApp();});
   runsRef=db.collection('users').doc(uid).collection('runs');
-  if(unsubRuns)unsubRuns();
-  // Cap the runs listener at the most-recent 300 (was reading the ENTIRE runs history on
-  // every page load — a growing Firestore read cost). The runs/rank tabs re-sort locally,
-  // so order is unaffected; older-than-300 runs just aren't pulled into that view.
-  // normalize timestamp to an ISO STRING on read — some docs carry a Firestore Timestamp
-  //   object instead (crashed Rankings: "(r.timestamp||'').slice is not a function").
-  unsubRuns=runsRef.orderBy('timestamp','desc').limit(300).onSnapshot(snap=>{runHistory=snap.docs.map(d=>{const x={id:d.id,...d.data()};const t=x.timestamp;
-    if(t&&typeof t!=='string'){try{const dt=(t.seconds!=null)?new Date(t.seconds*1000):new Date(t);if(!isNaN(+dt))x.timestamp=dt.toISOString();else x.timestamp='';}catch(_){x.timestamp='';}}
-    return x;});if(activeTab==='augur'&&(augurSub==='runs'||augurSub==='rank'))renderApp();});
+  _runsUid=uid;
+  _subscribeRuns(uid,runsLimit);
   cmdRef=db.collection('users').doc(uid).collection('commands');
   metaRef=db.collection('users').doc(uid).collection('meta');
   if(unsubMeta)unsubMeta();
@@ -3419,6 +3433,24 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
   //    revisit / zoom / nav-back is instant — only a first visit costs the runner trip. ──
 
   const _barsCache={};
+  // v73.19 (Firestore quota): the SAME get_bars request (same master+instrument+timeframe+
+  // session+date-range) could fire 5+ times back to back -- draw()/re-renders re-checking
+  // _barsCache before the FIRST fetch had landed, each one queueing its own command doc.
+  // _barsPending dedupes by request signature: a second caller for the same in-flight
+  // signature gets the SAME promise instead of writing a second command. _barsCache above
+  // is the completed-response session cache (keyed by trade #, never invalidated within a
+  // session -- there is no refresh affordance on the candle viewer and every request for a
+  // given trade always asks for the same fixed pad_sessions:1 window, so nothing to bypass).
+  const _barsPending=new Map();
+  const _barsKey=p=>[p.instrument,p.timeframe,p.session,p.source,p.run_id,p.entry_time,p.exit_time,p.pad_sessions].join('|');
+  const _fetchBars=(no,payload,toMs)=>{
+    if(_barsCache[no])return Promise.resolve(_barsCache[no]);
+    const k=_barsKey(payload);
+    if(_barsPending.has(k))return _barsPending.get(k);
+    const p=_runCmd('get_bars',payload,toMs).then(r=>{_barsCache[no]=r;_barsPending.delete(k);return r;},e=>{_barsPending.delete(k);throw e;});
+    _barsPending.set(k,p);
+    return p;
+  };
 
   const _cndl={api:null,x:null,r:null,view:null,seq:0,ctx:null,grp:null};
   // v73.18: the bar-fetch payload is per-CONTEXT (one run = one instrument/timeframe),
@@ -3658,8 +3690,8 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       gp.list=(gp.kind==='w:')?by.slice(0,gp.n):by.slice(-gp.n).reverse();
       gp.label=(gp.kind==='w:')?('TOP '+gp.n+' WINNERS'):('TOP '+gp.n+' LOSERS');
       gp.list.forEach(nb=>{if(_barsCache[nb._no]||nb._pf)return;nb._pf=1;
-        _runCmd('get_bars',Object.assign({},_cB(nb),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
-          .then(r2=>{_barsCache[nb._no]=r2;}).catch(()=>{}).finally(()=>{nb._pf=0;_syncCndlCtl();});});
+        _fetchBars(nb._no,Object.assign({},_cB(nb),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
+          .catch(()=>{}).finally(()=>{nb._pf=0;_syncCndlCtl();});});
       _syncCndlCtl();};
     g('cndl-prev').onclick=()=>_cndlStep(-1);
 
@@ -3684,8 +3716,8 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       _cndl.grp={list:list,kind:kind,n:10,label:(kind==='w:')?'TOP 10 WINNERS':'TOP 10 LOSERS'};
       // fetch ALL TEN up front so PREV/NEXT and the arrow keys flip through the set instantly
       list.forEach(nb=>{if(_barsCache[nb._no]||nb._pf)return;nb._pf=1;
-        _runCmd('get_bars',Object.assign({},_cB(nb),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
-          .then(r2=>{_barsCache[nb._no]=r2;}).catch(()=>{}).finally(()=>{nb._pf=0;_syncCndlCtl();});});
+        _fetchBars(nb._no,Object.assign({},_cB(nb),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
+          .catch(()=>{}).finally(()=>{nb._pf=0;_syncCndlCtl();});});
       const x2=list.find(q=>q._no===no)||list[0];if(x2)_loadTrade(x2);};
 
   };
@@ -3831,11 +3863,9 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     try{
 
-      const r=await _runCmd('get_bars',Object.assign({},_cB(x),{entry_time:x._et,exit_time:x._xt2,pad_sessions:1}),300000);
+      const r=await _fetchBars(x._no,Object.assign({},_cB(x),{entry_time:x._et,exit_time:x._xt2,pad_sessions:1}),300000);
 
       clearInterval(tick);
-
-      _barsCache[x._no]=r;
 
       if(!_cndlAlive()||_cndl.seq!==seq)return;   // closed, or user already navigated on
 
@@ -3863,9 +3893,9 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
       if(!nb||_barsCache[nb._no]||nb._pf)return;nb._pf=1;
 
-      _runCmd('get_bars',Object.assign({},_cB(nb),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
+      _fetchBars(nb._no,Object.assign({},_cB(nb),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
 
-        .then(r=>{_barsCache[nb._no]=r;}).catch(()=>{}).finally(()=>{nb._pf=0;});
+        .catch(()=>{}).finally(()=>{nb._pf=0;});
 
     });
 
@@ -4104,8 +4134,8 @@ window.openChartGallery=function(B,rowsAll,initialView,fixedLabel){
     list.forEach(x=>{
       const hit=_barsCache[x._no];
       if(hit){drawCard(x,hit);return;}
-      _runCmd('get_bars',Object.assign({},B,{entry_time:x._et,exit_time:x._xt2,pad_sessions:1}),300000)
-        .then(r=>{_barsCache[x._no]=r;if(seq===mySeq){drawCard(x,r);sync();}})
+      _fetchBars(x._no,Object.assign({},B,{entry_time:x._et,exit_time:x._xt2,pad_sessions:1}),300000)
+        .then(r=>{if(seq===mySeq){drawCard(x,r);sync();}})
         .catch(err=>{if(seq!==mySeq)return;const h=body.querySelector('[data-gal="'+x._no+'"] .galchart');
           if(h)h.innerHTML='<span style="color:var(--red)">could not load these bars — '+String(err&&err.message||err).replace(/</g,'&lt;')+'</span>';});
     });
@@ -16681,7 +16711,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +sh('id','RUN','right')+sh('date','DATE','left')+'<th style="vertical-align:bottom;white-space:nowrap;cursor:pointer">'+_stratHdr+'</th>'+sh('trd','TRD','right')+fh('MODE',(_scopes.length>1?'rfScope':''),fScope,_scopes.map(s=>[s,s.slice(0,16)]))+fh('MARKET',(_insts.length>1?'rfInst':''),fInst,_insts.map(i=>[i,i]))+fh('TF',(_tfs.length>1?'rfTf':''),fTf,_tfs.map(t=>[t,t]))+'<th style="text-align:center;vertical-align:bottom">EQUITY</th>'
           +sh('pnl','NET $','right')+sh('perday','$/DAY','right')+sh('maxdd','MAX DD','right')+sh('mar','MAR','right')+sh('pf','PF','right')+sh('sharpe','SHARPE','right')+sh('wr','WR','right')+'<th style="text-align:center;vertical-align:bottom" title="walk-forward folds that held out-of-sample">WF</th>'+sh('score','SCORE','right')+sh('took','TOOK','right')+'<th style="vertical-align:bottom">SRC</th>'+'<th style="vertical-align:bottom">RANGE</th>'+sh('days','DAYS','right')
           +'</tr></thead><tbody>'+trows+'</tbody></table></div>';
-        const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span>'+_famChips+'<span style="display:flex;gap:12px;align-items:center">'+(_nArch?'<span data-rfarch title="archived runs are hidden from this list by default" style="cursor:pointer;font-size:9px;color:'+(fArch?'var(--yellow)':'var(--text5)')+';text-decoration:underline">◫ '+(fArch?'hide':'show')+' '+_nArch+' archived</span>':'')+(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">'+'✕ clear filters</span>':'')+_viewSeg+'</span></div>'+tbl);
+        // v73.19: runsLimit caps the client listener (Firestore quota) below what the account
+        //   may actually hold. allRuns.length hitting the current cap is the signal there MAY
+        //   be more beyond it — LOAD MORE bumps the listener +75 and re-subscribes (_subscribeRuns).
+        const _runsMoreRow=(allRuns.length>=runsLimit)?('<div style="text-align:center;padding:9px 0 3px"><span data-runsmore style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:1px;padding:6px 16px;border-radius:7px;border:1px solid var(--border);color:var(--text3)">LOAD 75 MORE</span></div>'):'';
+        const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span>'+_famChips+'<span style="display:flex;gap:12px;align-items:center">'+(_nArch?'<span data-rfarch title="archived runs are hidden from this list by default" style="cursor:pointer;font-size:9px;color:'+(fArch?'var(--yellow)':'var(--text5)')+';text-decoration:underline">◫ '+(fArch?'hide':'show')+' '+_nArch+' archived</span>':'')+(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">'+'✕ clear filters</span>':'')+_viewSeg+'</span></div>'+tbl+_runsMoreRow);
         // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
         // would trap the sticky checklist-pills row (sticky breaks under any non-visible
         // overflow ancestor). Inline beats the class so the pinned pills work on every theme.
@@ -17655,6 +17689,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _star=content.querySelector('[data-rfstar]');if(_star)_star.onclick=()=>{savePref('rfStar',!APREF.rfStar);renderApp();};
       const _rfa=content.querySelector('[data-rfarch]');if(_rfa)_rfa.onclick=()=>{savePref('rfArch',!APREF.rfArch);renderApp();};
       const _rfc=content.querySelector('[data-rfclear]');if(_rfc)_rfc.onclick=()=>{['rfStrat','rfInst','rfTf','rfScope','rfFam'].forEach(k=>savePref(k,''));savePref('rfStar',false);renderApp();};
+      const _rmore=content.querySelector('[data-runsmore]');if(_rmore)_rmore.onclick=()=>{_rmore.textContent='LOADING…';window._loadMoreRuns();};
       // family quick-toggle chips (flat + grouped): click = filter to that family, click again = all
       content.querySelectorAll('[data-rffam]').forEach(ch=>{ch.onclick=(e)=>{e.stopPropagation();const f=ch.dataset.rffam;savePref('rfFam',(APREF.rfFam===f)?'':f);renderApp();};});
       // star a run (write-back to Firestore; snapshot re-renders). stopPropagation so the row doesn't also select.
