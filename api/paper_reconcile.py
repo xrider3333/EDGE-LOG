@@ -39,6 +39,25 @@ TOL_MIN = 3
 
 NY = "America/New_York"
 
+# Signal-name prefix -> leg. EdgeLogExport.cs began logging the signal name on
+# 2026-08-13, which turns attribution from a timing GUESS into a fact. Rows written
+# before that carry an empty signal, and so do manual/discretionary fills, so an empty
+# value means "unknown" and falls back to the timing matcher - it never silently picks
+# a leg. Keep these in step with the NinjaScripts' EnterLong/ExitLong signal names.
+SIGNAL_PREFIX = {"NZ": "NOISE", "EQ": "ENGUQ", "ORB": "ORB"}
+
+
+def leg_from_signal(sig):
+    """Exact leg for a fill's signal name, or None when it cannot be known."""
+    s = (sig or "").strip().upper()
+    if not s:
+        return None
+    # Longest prefix first so "ORB" is never shadowed by a shorter key.
+    for pre in sorted(SIGNAL_PREFIX, key=len, reverse=True):
+        if s.startswith(pre):
+            return SIGNAL_PREFIX[pre]
+    return None
+
 
 def _parse_iso(s):
     """paper_trades stores tz-aware ISO (America/New_York). Return naive NY."""
@@ -90,9 +109,24 @@ def match_day(shadow_by_leg, live_trades, *, tol_min=TOL_MIN):
         if ldt is None:
             continue
         lside = _side_of(lv)
+        # Prefer the signal name when the fill carries one: that is the strategy telling
+        # us which leg it is, rather than us inferring it from the clock.
+        known_leg = leg_from_signal(lv.get("signal"))
         near = [c for c in cands
                 if not c["taken"] and c["s"].get("side") == lside
-                and abs(c["dt"] - ldt) <= tol]
+                and abs(c["dt"] - ldt) <= tol
+                and (known_leg is None or c["leg"] == known_leg)]
+        if known_leg is not None and not near:
+            # The strategy named itself but the engine has no matching signal. That is a
+            # real divergence in a known leg, not an attribution puzzle, so it belongs in
+            # that leg's ledger rather than the unattributed pile.
+            if known_leg in results:
+                results[known_leg]["live_only"].append(lv)
+            else:
+                ambiguous.append({"kind": "live_only", "live": lv,
+                                  "reason": f"signal {lv.get('signal')} maps to leg "
+                                            f"{known_leg}, which is not in today's report"})
+            continue
         if not near:
             # No shadow trade explains this fill. Which leg it belongs to is unknowable,
             # so it is reported globally rather than blamed on one strategy.
@@ -100,7 +134,7 @@ def match_day(shadow_by_leg, live_trades, *, tol_min=TOL_MIN):
                               "reason": "no shadow signal within tolerance"})
             continue
         legs_in_reach = {c["leg"] for c in near}
-        if len(legs_in_reach) > 1:
+        if known_leg is None and len(legs_in_reach) > 1:
             ambiguous.append({"kind": "ambiguous", "live": lv,
                               "candidate_legs": sorted(legs_in_reach),
                               "reason": "two legs have a signal inside the tolerance"})
@@ -142,7 +176,7 @@ def verdict(rec, *, live_expected=True):
             out["legs"][leg] = (f"{m + so} shadow signal(s), {m} coincided with a demo "
                                 f"fill; strategies not enabled on charts")
             continue
-        if m == 0 and so == 0:
+        if m == 0 and so == 0 and lo == 0:
             out["legs"][leg] = "no signals"
             continue
         slips = [x["entry_slip_pts"] for x in r["matched"] if x.get("entry_slip_pts") is not None]
@@ -151,6 +185,10 @@ def verdict(rec, *, live_expected=True):
         if so:
             line += f", {so} SHADOW-ONLY"
             out["problems"].append(f"{leg}: {so} expected trade(s) the demo never took")
+        if lo:
+            line += f", {lo} LIVE-ONLY"
+            out["problems"].append(
+                f"{leg}: {lo} demo trade(s) the engine never signalled")
         out["legs"][leg] = line
     n_un = len(rec.get("unattributed") or [])
     if n_un and live_expected:

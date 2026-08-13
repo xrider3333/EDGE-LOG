@@ -233,6 +233,9 @@ def parse_fills(path):
                 "price": price,
                 "commission": comm,
                 "order_id": row.get("orderid") or "",
+                # Added 2026-08-13 (EdgeLogExport.cs). Empty on every row written before
+                # that and on manual fills, so treat "" as "unknown", never as a strategy.
+                "signal": row.get("signalname") or "",
                 "_i": i,
             })
     return fills
@@ -282,6 +285,7 @@ def build_trades(fills):
         entry_dt = exit_dt = None
         entry_side = None
         entry_oid = ""
+        entry_signal = ""      # strategy attribution, see parse_fills
         comm_acc = 0.0           # commissions accumulated for the open round-trip
         close_exec_id = ""
 
@@ -294,6 +298,7 @@ def build_trades(fills):
                 if pos == 0:
                     entry_side = "LONG" if f["action"] == "BUY" else "SHORT"
                     entry_oid = f["order_id"]
+                    entry_signal = f.get("signal") or ""
                     entry_dt = f["dt"]
                     entry_qty = abs(delta)
                     entry_notional = f["price"] * abs(delta)
@@ -344,6 +349,7 @@ def build_trades(fills):
                     "entryTime": e_ny.strftime("%H:%M"),
                     "exitTime": x_ny.strftime("%H:%M") if x_ny else None,
                     "orderId": entry_oid or "",
+                    "signal": entry_signal,
                     "source": "NinjaTrader",
                     "assetType": "futures" if is_fut(sym) else "stock",
                     "account": account,
@@ -354,7 +360,7 @@ def build_trades(fills):
                 entry_qty = entry_notional = exit_qty = exit_notional = 0.0
                 entry_dt = exit_dt = None
                 entry_side = None
-                entry_oid = ""
+                entry_oid = ""; entry_signal = ""
                 comm_acc = 0.0
                 continue
             pos = new_pos

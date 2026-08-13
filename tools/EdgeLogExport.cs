@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 //  EdgeLogExport v2.0  —  NinjaTrader 8 AddOn
 //  Streams every account execution (fill) to C:\EdgeLog\fills.csv in real time.
 //  EDGELOG's local runner watches that file, pairs fills into round-trip trades,
@@ -63,8 +63,21 @@ namespace NinjaTrader.NinjaScript.AddOns
         private const string FilePath      = @"C:\EdgeLog\fills.csv";
         private const string LogPath       = @"C:\EdgeLog\addon.log";
         private const string HeartbeatPath = @"C:\EdgeLog\addon_heartbeat.json";
+        // SignalName was APPENDED (2026-08-13), not inserted. Every consumer reads this
+        // file by column INDEX (api/nt_sync.py parse_fills, api/paper.py collect_live_fills)
+        // and the live fills.csv already holds thousands of 9-column rows. Appending keeps
+        // indices 0-8 meaning exactly what they meant, so old and new rows both parse - a
+        // reader only has to tolerate a missing 10th field.
+        //
+        // WHY IT EXISTS: fills carried no strategy identity, so with several strategies on
+        // one account the paper reconcile had to GUESS which strategy a fill belonged to,
+        // by timing. A wrong guess silently moves slippage from one strategy's ledger to
+        // another's - an error that looks like a result. The EDGELOG strategies use distinct
+        // signal prefixes (NZ* NOISE, EQ* ENGU-Q, ORB* ORB V2), so this makes attribution
+        // exact. A manual fill carries whatever name its order had (usually empty), which
+        // separates discretionary trades from strategy trades for free.
         private const string Header =
-            "ExecutionId,Time,Account,Instrument,Action,Qty,Price,Commission,OrderId\n";
+            "ExecutionId,Time,Account,Instrument,Action,Qty,Price,Commission,OrderId,SignalName\n";
 
         private const int SweepMs = 60000;    // sweep + heartbeat cadence (60s)
 
@@ -302,7 +315,12 @@ namespace NinjaTrader.NinjaScript.AddOns
                     ex.Commission.ToString("0.####", CultureInfo.InvariantCulture),
                     // Execution.OrderId is the documented fallback when the Order
                     // object isn't attached (e.g. broker-replayed executions).
-                    Csv(ex.Order != null ? (ex.Order.OrderId ?? "") : (ex.OrderId ?? ""))
+                    Csv(ex.Order != null ? (ex.Order.OrderId ?? "") : (ex.OrderId ?? "")),
+                    // Execution.Name is the signal name the strategy passed to
+                    // EnterLong/ExitLong ("NZ", "EQ", "EQx", ...). Fall back to the order
+                    // name, then empty for a manual fill.
+                    Csv(!string.IsNullOrEmpty(ex.Name) ? ex.Name
+                        : (ex.Order != null ? (ex.Order.Name ?? "") : ""))
                 }) + "\n";
 
                 File.AppendAllText(FilePath, line);
