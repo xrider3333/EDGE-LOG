@@ -60,6 +60,169 @@ HEALTH_SEC = 3600.0
 # scoring pass, no engine job state touched — the per-trade GATE/TILT/HYBRID blotter.
 READONLY_ACTIONS = {"get_bars", "get_blotter", "similar_setups", "config_trades"}
 
+# ── Firestore doc/batch size guard ──────────────────────────────────────────
+# Triggered by a real production failure (2026-08-13): job doc
+# 'backtests/g2iIT39Xnfuxcc69keQw' was 1,114,777 bytes -- over Firestore's hard
+# 1,048,576-byte-per-document cap -- so the write at run_once()'s ref.update(patch)
+# raised, the exception was swallowed by the "[queue] skipped" catch-all, and the
+# job was left stuck on status='running' forever with its result never saved. A
+# batched startup sync separately blew Firestore's 10 MiB per-request batch cap
+# ("[sync-runs] startup skipped ... 11,534,336 bytes"). shrink_to_fit() below is
+# applied to both single-doc save paths (the job doc in FirestoreQueue.run_once and
+# the Runs-history doc in FirestoreQueue._persist_run); sync_runs additionally
+# chunks its batch by bytes, not just doc count.
+FIRESTORE_DOC_LIMIT = 1_048_576
+DOC_SIZE_BUDGET = 950_000        # ~10% margin below the hard 1 MiB cap
+BATCH_BYTE_BUDGET = 9_000_000    # margin below the hard 10 MiB batch-commit cap
+
+# Field names that hold long per-bar/per-config arrays -- found anywhere in a result
+# doc, at any nesting depth -- and are safe to downsample before anything else, since
+# a big Auto-Validate/Book/grid result is almost entirely made of these.
+_CURVE_KEYS = ("equity", "equity_top", "win_dist", "win_dist_wf", "win_dist_lb",
+               "wf_alt_folds")
+# Per-config population arrays: capped to the top-N configs by PnL/score (stage 2).
+_POPULATION_KEYS = ("dist", "points", "top", "top10_results", "equity_top")
+# Substrings of top-level keys that are NEVER trimmed by any stage -- champion
+# stats/curves + WF/lockbox numbers are what a saved run is judged by.
+_PROTECTED_KEY_HINTS = (
+    "best", "champ", "validate", "lockbox", "book", "wf_", "wfe",
+    "id", "timestamp", "strategy", "instrument", "timeframe", "scope", "status",
+    "finishedAt", "elapsed_s", "error", "n_combos", "n_valid", "n_evaluated",
+    "days_in_test", "dsr", "mc", "cache_reuse", "data_source", "source_name",
+    "famKey", "famSeq",
+)
+
+
+def _is_protected_key(k) -> bool:
+    kl = str(k).lower()
+    return any(h in kl for h in _PROTECTED_KEY_HINTS)
+
+
+def _doc_size(doc) -> int:
+    """Proxy for the Firestore-encoded size of `doc`. json.dumps length isn't byte-
+    identical to Firestore's wire encoding but tracks it closely enough that the
+    margin baked into DOC_SIZE_BUDGET/BATCH_BYTE_BUDGET covers the drift."""
+    try:
+        return len(json.dumps(doc, default=str))
+    except Exception:
+        return 0
+
+
+def _downsample_list(lst, cap):
+    """Even-index stride down to <= cap elements, always keeping the first and last
+    (same shape as augur_engine.history._downsample_equity, generalized to any list)."""
+    if not isinstance(lst, list) or len(lst) <= cap or cap < 2:
+        return lst
+    step = len(lst) / (cap - 1)
+    idx = sorted({min(len(lst) - 1, round(i * step)) for i in range(cap - 1)} | {len(lst) - 1})
+    return [lst[i] for i in idx]
+
+
+def _walk_shrink_curves(node, cap, hits):
+    """Recursively downsample any _CURVE_KEYS array (or list-of-curves, e.g.
+    equity_top) found at any depth to <= cap points. Mutates `node` in place."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k in _CURVE_KEYS and isinstance(v, list):
+                if v and isinstance(v[0], list):   # list of curves
+                    node[k] = [_downsample_list(c, cap) if isinstance(c, list) else c for c in v]
+                else:
+                    before = len(v)
+                    node[k] = _downsample_list(v, cap)
+                    if len(node[k]) != before:
+                        hits.append((k, before, len(node[k])))
+            else:
+                _walk_shrink_curves(v, cap, hits)
+    elif isinstance(node, list):
+        for item in node:
+            _walk_shrink_curves(item, cap, hits)
+
+
+def _population_rank_key(cfg):
+    if isinstance(cfg, dict):
+        for k in ("total_pnl", "pnl", "score", "net_pnl"):
+            if k in cfg:
+                try:
+                    return float(cfg[k] or 0)
+                except Exception:
+                    return 0.0
+    return 0.0
+
+
+def _cap_population(node, n, hits):
+    """Truncate any _POPULATION_KEYS list-of-configs, anywhere in the tree, to its
+    top `n` entries by PnL/score. Mutates `node` in place."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k in _POPULATION_KEYS and isinstance(v, list) and len(v) > n:
+                before = len(v)
+                try:
+                    v = sorted(v, key=_population_rank_key, reverse=True)
+                except Exception:
+                    pass
+                node[k] = v[:n]
+                hits.append((k, before, n))
+            else:
+                _cap_population(v, n, hits)
+    elif isinstance(node, list):
+        for item in node:
+            _cap_population(item, n, hits)
+
+
+def shrink_to_fit(doc, budget=DOC_SIZE_BUDGET, log=print, label="doc", equity_points=400):
+    """Shrink a result/run doc that would blow Firestore's 1 MiB per-document limit,
+    in defined stages, cheapest/least-destructive first. Champion stats + WF/lockbox
+    numbers (anything matching _PROTECTED_KEY_HINTS) are NEVER touched. Mutates and
+    returns `doc`. Logs each stage it had to apply -- see the header comment above
+    _CURVE_KEYS for the production failure this exists to fix."""
+    size0 = _doc_size(doc)
+    if size0 <= budget or not isinstance(doc, dict):
+        return doc
+    # Stage 1: downsample every equity/curve array to <= equity_points, first/last kept.
+    hits = []
+    _walk_shrink_curves(doc, equity_points, hits)
+    size1 = _doc_size(doc)
+    if hits:
+        detail = ", ".join(f"{k} {b}->{a}" for k, b, a in hits)
+        log(f"[size-guard] {label} {size0}B -> {size1}B (stage 1: downsampled {detail})")
+    if size1 <= budget:
+        return doc
+    # Stage 2: cap per-config population arrays (dist/points/top/equity_top) to the
+    # top-N configs by PnL/score, shrinking N until it fits (floor of 10 configs).
+    for n in (150, 100, 60, 30, 15, 10):
+        hits2 = []
+        _cap_population(doc, n, hits2)
+        if not hits2:
+            continue
+        size2 = _doc_size(doc)
+        doc["population_truncated"] = True
+        kept = {k: a for k, b, a in hits2}
+        log(f"[size-guard] {label} {size1}B -> {size2}B (stage 2: kept top {n} configs "
+            f"-- {kept})")
+        size1 = size2
+        if size1 <= budget:
+            return doc
+        # else: still oversized -- fall through and try the next, smaller n (each
+        # _cap_population call further truncates the already-capped lists in place)
+    if size1 <= budget:
+        return doc
+    # Stage 3 (last resort): drop the heaviest non-protected top-level field(s)
+    # entirely until it fits. Champion stats/curves + WF/lockbox numbers are
+    # protected (_is_protected_key) and are never dropped.
+    dropped = []
+    while _doc_size(doc) > budget:
+        candidates = [(k, _doc_size(v)) for k, v in doc.items() if not _is_protected_key(k)]
+        if not candidates:
+            break
+        k, _sz = max(candidates, key=lambda kv: kv[1])
+        doc.pop(k, None)
+        dropped.append(k)
+    if dropped:
+        doc["population_truncated"] = True
+        doc["fields_dropped"] = dropped
+        log(f"[size-guard] {label} -> {_doc_size(doc)}B (stage 3: dropped {dropped})")
+    return doc
+
 
 def _anthropic_key():
     """Read the Anthropic API key from local augur_config.json (never from a job doc)."""
@@ -423,12 +586,16 @@ class FirestoreQueue:
     def sync_runs(self, log=print) -> int:
         """Push run history from optimizer_history.db up to users/{uid}/runs so the web
         UI can browse it. One doc per run (keyed by run id), with detail blobs parsed.
-        Skips the equity/full_results blobs on any run whose doc would exceed ~900KB."""
+        Skips the equity/full_results blobs on any run whose doc would exceed ~900KB.
+        Chunks each batch commit by BOTH doc count (Firestore's 500-write cap) AND
+        estimated bytes (Firestore's 10 MiB request cap) -- a run of big docs, not just
+        a run of many docs, can blow the request size (see the "[sync-runs] startup
+        skipped ... 11,534,336 bytes" production failure in BACKTESTING_STACK.md)."""
         import json as _json
         total = 0
         for uid in (self.allow or []):
             col = self.db.collection("users").document(uid).collection("runs")
-            batch = self.db.batch(); pending = 0
+            batch = self.db.batch(); pending = 0; batch_bytes = 0
             for r in ae.list_runs():
                 doc = ae.get_run(r["id"])
                 if doc is None:
@@ -436,14 +603,15 @@ class FirestoreQueue:
                 doc = json_safe(doc)
                 if len(_json.dumps(doc, default=str)) > 900_000:
                     doc.pop("full_results", None); doc.pop("equity", None)
+                doc_bytes = _doc_size(doc)
+                if pending and (pending >= 400 or batch_bytes + doc_bytes > BATCH_BYTE_BUDGET):
+                    batch.commit(); batch = self.db.batch(); pending = 0; batch_bytes = 0
                 # merge=True so web-only fields that never exist in the local SQLite doc
                 # (e.g. `archived`, set from the browser to hide a run from Past Runs) are
                 # PRESERVED across re-sync. A plain .set() is a full-doc overwrite and would
                 # silently drop them on every runner restart.
                 batch.set(col.document(str(r["id"])), doc, merge=True)
-                pending += 1; total += 1
-                if pending >= 400:          # Firestore batch cap is 500
-                    batch.commit(); batch = self.db.batch(); pending = 0
+                pending += 1; total += 1; batch_bytes += doc_bytes
             if pending:
                 batch.commit()
             log(f"  synced {total} runs -> users/{uid}/runs")
@@ -755,6 +923,7 @@ class FirestoreQueue:
         if famkey is not None:
             doc["famKey"] = famkey
             doc["famSeq"] = famseq
+        doc = shrink_to_fit(doc, log=log, label=f"run #{rid}")
         self.db.collection("users").document(uid).collection("runs").document(str(rid)).set(doc)
         log(f"    -> saved to Runs history (#{rid}"
             + (f" · {famkey}-{famseq}" if famkey is not None else "") + ")")
@@ -786,6 +955,44 @@ class FirestoreQueue:
                         f"master '{_bm.get('master')}') -> {_out}")
         except Exception as _e:
             log(f"    -> blotter skipped: {type(_e).__name__}: {_e}")
+
+    def _save_job_doc(self, ref, patch, log=print):
+        """Write the finished-job patch to its backtests doc. `patch["result"]` has
+        already been through shrink_to_fit, so this should normally just work -- but
+        a job must NEVER be left stuck on status='running' because a save failed (the
+        g2iIT39X bug: the write raised, the exception was swallowed by the caller's
+        catch-all, and the doc sat on 'running' forever). Falls back in stages if the
+        write still fails: protected-fields-only, then a bare status/error doc."""
+        try:
+            ref.update(patch)
+            return
+        except Exception as e:
+            log(f"  (job doc save failed even after size-guard: {type(e).__name__}: {e} "
+                f"-- retrying with protected fields only)")
+        try:
+            result = patch.get("result")
+            slim = {"status": patch.get("status", "error"),
+                    "finishedAt": patch.get("finishedAt", time.time())}
+            if "elapsed_s" in patch:
+                slim["elapsed_s"] = patch["elapsed_s"]
+            if isinstance(result, dict):
+                slim["result"] = {k: v for k, v in result.items() if _is_protected_key(k)}
+                slim["result"]["truncated_for_size"] = True
+            ref.update(slim)
+            log("  (job doc saved with protected-fields-only fallback)")
+            return
+        except Exception as e2:
+            log(f"  (protected-fields fallback ALSO failed: {type(e2).__name__}: {e2} "
+                f"-- writing bare status doc so the job doesn't stay stuck on 'running')")
+        try:
+            ref.update({
+                "status": "error" if patch.get("status") != "cancelled" else "cancelled",
+                "error": "result too large to save to Firestore (see runner.log)",
+                "finishedAt": patch.get("finishedAt", time.time()),
+            })
+        except Exception as e3:
+            log(f"  (bare status-doc save ALSO failed -- job may stay stuck on 'running': "
+                f"{type(e3).__name__}: {e3})")
 
     def run_commands(self, log=print) -> int:
         """Poll users/{uid}/commands for queued Library file-op commands (download /
@@ -937,7 +1144,9 @@ class FirestoreQueue:
                     _elapsed = time.time() - _t0
                     if patch.get("status") == "done":
                         patch["elapsed_s"] = round(_elapsed, 2)
-                    ref.update(patch)
+                    if isinstance(patch.get("result"), dict):
+                        shrink_to_fit(patch["result"], log=log, label=f"job {snap.id}")
+                    self._save_job_doc(ref, patch, log)
                     # A completed grid sweep also lands in the Runs history, so web
                     # sweeps appear alongside the app's runs in users/{uid}/runs.
                     if job.get("type") in ("grid", "auto", "walkforward", "ai_optimize", "ai_evolve", "validate", "gate_validate", "book") and patch.get("status") == "done":
