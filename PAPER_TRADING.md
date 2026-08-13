@@ -203,6 +203,50 @@ Two independent blockers, both on our side:
    that pane is testing, it is not the champion. Flip to RTH + B-ADJ off before exporting —
    the toggles at the bottom-right of the pane did not respond to programmatic clicks.
 
+### Reconcile #2 - NOISE, engine vs NinjaTrader (2026-08-13) - PASS
+
+`EdgeLogNOISE` in the Strategy Analyzer, NQ 5m, custom session template
+`EDGELOG RTH 0930-1600`, merge policy **Merge Non Back Adjusted**, same window as
+reconcile #1. Engine 191 trades / NT 192 / **184 matched, and all 184 agree on the exit
+bar**. Entry-price gap 0.0 points at both ends of the window - the two are running on
+byte-identical bars. Residual $1,737 on the matched set is mostly commission (the NT run
+had Include commission off) plus NT rounding its stop to tick size. 7 unmatched each side,
+scattered across ten months with no pattern.
+
+Getting there took three fixes, each of which was silent:
+
+| Fix | Symptom | Cause |
+|---|---|---|
+| Session template | 417 trades, exits at 17:00 ET | NT's built-in `CME US Index Futures RTH` ends 4:00 PM **Central** = 5:00 PM Eastern. Copy it, set end 3:00 PM, keep the holiday calendar. |
+| Merge policy | prices +747 pts in Sep 2025, +282 by June | NQ was back-adjusted. `Tools > Instruments > NQ > Merge Non Back Adjusted`. A DECAYING price gap is the fingerprint. |
+| **bar-of-day froze** | 322 trades, trading 151 days vs 108 | The in-position branch returned before `barOfDay++`, so bar-of-day stopped advancing the moment a trade opened and stayed stale for the rest of the session. Noise is smallest after the open, so a stale index gave too-small noise, too-narrow bands, way too many entries. **This was live on the demo account.** |
+
+**Strategies now dump their own blotter.** Exporting by hand through Display > Trades >
+right-click > Export produced the wrong file twice in one morning (wrong strategy once,
+wrong timeframe once) and neither was visible until the CSV was parsed, because the grid
+export records nothing about what was run. `tools/nt/EdgeLogNOISE.cs` now writes
+`C:\EdgeLog
+t_backtest\EdgeLogNOISE_<stamp>.csv` on `State.Terminated` with the
+instrument, bars period, session template and every parameter in the header, and
+`tools/reconcile_nt_dump.py` asserts on that header. Two timestamp offsets are handled
+there: NT displays in the PC's zone (Arizona, no DST - so the shift to Eastern is 3h in
+summer and 2h in winter, not a constant) and stamps bars at CLOSE while the engine stamps
+at OPEN.
+
+**NinjaTrader cannot be driven programmatically** - trading applications are restricted to
+screenshots only, and that is not something the owner can grant away. Everything above is
+built so the only manual steps are F5 and Run.
+
+### Where NOISE stands after both reconciles
+
+| | Engine | TradingView | NinjaTrader |
+|---|---|---|---|
+| Trades | 191 | 189 | 192 |
+| Matched to engine | - | 159 | 184 |
+| Exit bar identical | - | 157 | **184** |
+
+Three independent engines, three implementations, no shared code. NOISE is verified.
+
 ## Candidate legs to add (2026-08-11 assessment)
 
 Criteria for going live on the demo account: (a) execution-feasibility CLEAN (no
