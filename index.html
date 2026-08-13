@@ -446,10 +446,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.30';
+const VERSION='73.31';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.31',date:'2026-08-13',notes:['NEO now follows your theme instead of forcing its own teal - every glow, hairline, grid line and tint is derived from the active theme accent, so on MONO the whole report reads as pure silver-on-black with zero added color; green themes look as before and other accents follow suit.','NEO pushed further (NEO only - CLASSIC untouched): HUD-style section headers in uppercase with wide tracking and squared number chips, more air between sections, wider title letter-spacing, the 1A champion card wears a stronger accent ring, faint zebra striping on plain table rows, soft hover transitions, and the back-to-checklist hint only appears when you hover a section header.']},
 {v:'73.30',date:'2026-08-13',notes:['New NEO report layout - the run report wearing a modern skin: deep glass panels, neon hairline dividers, a faint blueprint-grid backdrop, glowing section rules, calmer table chrome and slim accent scrollbars. Pick it from the layout rail in the report header, next to CLASSIC and DASHBOARD.','Nothing moved and nothing was rebuilt - NEO is the same charts, sections, drag splitters, saved sizes and COLUMNS control as CLASSIC, so the two views can never drift apart. CLASSIC itself is untouched; flip back any time.']},
 {v:'73.29',date:'2026-08-12',notes:['Trade scores now have a home in the repo instead of living inline. The judgement sits in tools/data/trade_scores.json and tools/trade_scores.py rebuilds the block in this file, so adding a scored trade no longer means hand-editing the app.','The 1-minute bars behind each score report are cached alongside it, so a trade stays scorable after it ages out of the free 30-day intraday window.','No change to what you see - the scores and charts are identical to 73.28.']},
 {v:'73.28',date:'2026-08-12',notes:['The score report now opens with a candlestick chart of the bars around your fill instead of pure text. The breakout candle is boxed, entry / exit / stop are drawn across it, and the shaded band is the CHASE - the gap between the breakout candle close and where you actually filled.','Seven more stock trades scored: AMC, GMM, SUGP, LGCL, LHAI, CELZ, TNMG. Eleven of the twenty-three are now scored - the rest are older than the free intraday history reaches.','Sort the SCORE column to rank every scored trade.']},
@@ -15060,24 +15061,46 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    below only ADD depth (box-shadow is never set inline on cards) or override the two
       //    flat separators (section border-top, sticky-header background). Nothing here can
       //    change layout geometry, so NEO can never drift from CLASSIC. ──
+      // v73.31 (owner: "push it further. i feel like for neo on my monochrome theme you added
+      //   too much color"): NEO no longer carries its own teal palette. Every glow, hairline,
+      //   grid line and tint is now color-mix of the ACTIVE THEME accent (--green) over the
+      //   theme backgrounds, so MONO renders NEO as pure silver-on-black sci-fi, green themes
+      //   render it as before, aurora goes violet, and so on. Also the further pass: HUD-style
+      //   section headers (uppercase, wide tracking), wider title letter-spacing, soft hover
+      //   transitions. Still additive-only on cards, so geometry cannot drift from CLASSIC.
       const _neoCss='<style>'
-        +'.rep-neo{--bg:#04070b;--bg1:#081019;--bg2:#0a141d;--bg3:#0d1822;--border:#1b3644;--border2:#122531;--text:#eafbf6;--text2:#c4dcd8;--text3:#8fb2ad;--text4:#7ba39e;--text5:#547a78;--green:#00e5a0;--red:#ff5f7e;--yellow:#ffd166;--blue:#4dc3ff;--purple:#b78cff;'
-        +'position:relative;margin:0;padding:12px 16px 30px;border-radius:18px;border:1px solid rgba(0,229,160,.10);color:var(--text2);font-variant-numeric:tabular-nums;'
-        +'background-image:linear-gradient(rgba(0,229,160,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,160,.022) 1px,transparent 1px),radial-gradient(1100px 460px at 85% -5%,rgba(0,229,160,.075),transparent 62%),radial-gradient(900px 540px at -8% 22%,rgba(77,195,255,.055),transparent 58%),linear-gradient(180deg,#060b11 0%,#04070b 100%);'
+        +'.rep-neo{position:relative;margin:0;padding:12px 16px 30px;border-radius:18px;border:1px solid color-mix(in srgb,var(--green) 12%,transparent);color:var(--text2);font-variant-numeric:tabular-nums;'
+        +'background-image:linear-gradient(color-mix(in srgb,var(--green) 2.5%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--green) 2.5%,transparent) 1px,transparent 1px),radial-gradient(1100px 460px at 85% -5%,color-mix(in srgb,var(--green) 7%,transparent),transparent 62%),radial-gradient(900px 540px at -8% 22%,color-mix(in srgb,var(--blue) 5%,transparent),transparent 58%),linear-gradient(180deg,color-mix(in srgb,var(--bg1) 55%,#000),color-mix(in srgb,var(--bg) 70%,#000));'
         +'background-size:46px 46px,46px 46px,auto,auto,auto;'
         +'box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 18px 60px rgba(0,0,0,.45)}'
-        +'.rep-neo div[style*="border-radius:12px"][style*="overflow:auto"]{border-radius:15px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.045),inset 0 0 0 1px rgba(0,229,160,.03),0 12px 34px rgba(0,0,0,.38)}'
-        +'.rep-neo div[style*="border-radius:12px"][style*="overflow:auto"]:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.05),inset 0 0 0 1px rgba(0,229,160,.07),0 14px 38px rgba(0,0,0,.42)}'
+        +'.rep-neo div[style*="border-radius:12px"][style*="overflow:auto"]{border-radius:15px!important;transition:box-shadow .18s;box-shadow:inset 0 1px 0 rgba(255,255,255,.045),inset 0 0 0 1px color-mix(in srgb,var(--green) 4%,transparent),0 12px 34px rgba(0,0,0,.38)}'
+        +'.rep-neo div[style*="border-radius:12px"][style*="overflow:auto"]:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.05),inset 0 0 0 1px color-mix(in srgb,var(--green) 9%,transparent),0 14px 38px rgba(0,0,0,.42)}'
         +'.rep-neo .lbl[id^="res-step-"]{border-top:none!important;position:relative;padding-top:22px!important}'
-        +'.rep-neo .lbl[id^="res-step-"]::before{content:"";position:absolute;top:9px;left:0;right:0;height:1px;background:linear-gradient(90deg,rgba(0,229,160,.45),rgba(0,229,160,.06) 45%,transparent 80%)}'
-        +'.rep-neo .lbl[id^="res-step-"]>span:first-child{box-shadow:0 0 0 3px rgba(0,229,160,.06),0 0 14px rgba(0,229,160,.16)}'
-        +'.rep-neo #res-head{background:linear-gradient(180deg,rgba(4,8,12,.94),rgba(4,8,12,.72))!important;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);border-bottom:1px solid rgba(0,229,160,.10);border-radius:0 0 12px 12px;padding:5px 8px!important}'
-        +'.rep-neo tbody tr:hover td{background:rgba(0,229,160,.035)}'
+        +'.rep-neo .lbl[id^="res-step-"]::before{content:"";position:absolute;top:9px;left:0;right:0;height:1px;background:linear-gradient(90deg,color-mix(in srgb,var(--green) 45%,transparent),color-mix(in srgb,var(--green) 6%,transparent) 45%,transparent 80%)}'
+        +'.rep-neo .lbl[id^="res-step-"]>span:first-child{box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 7%,transparent),0 0 14px color-mix(in srgb,var(--green) 18%,transparent)}'
+        +'.rep-neo .lbl[id^="res-step-"]>span:nth-child(2){text-transform:uppercase!important;letter-spacing:2.5px!important;font-size:12px!important}'
+        +'.rep-neo [style*="letter-spacing:.5px"]{letter-spacing:1.1px!important}'
+        +'.rep-neo #res-head{background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 94%,transparent),color-mix(in srgb,var(--bg) 74%,transparent))!important;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);border-bottom:1px solid color-mix(in srgb,var(--green) 11%,transparent);border-radius:0 0 12px 12px;padding:5px 8px!important}'
+        +'.rep-neo td{transition:background-color .12s}'
+        +'.rep-neo tbody tr:hover td{background:color-mix(in srgb,var(--green) 4%,transparent)}'
         +'.rep-neo ::-webkit-scrollbar{width:9px;height:9px}'
         +'.rep-neo ::-webkit-scrollbar-track{background:transparent}'
-        +'.rep-neo ::-webkit-scrollbar-thumb{background:rgba(0,229,160,.16);border-radius:8px;border:2px solid transparent;background-clip:padding-box}'
-        +'.rep-neo ::-webkit-scrollbar-thumb:hover{background:rgba(0,229,160,.30);border:2px solid transparent;background-clip:padding-box}'
-        +'.rep-neo [data-vsplit]>div,.rep-neo [data-tilerow]>div{background:rgba(0,229,160,.22)!important}'
+        +'.rep-neo ::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--green) 17%,transparent);border-radius:8px;border:2px solid transparent;background-clip:padding-box}'
+        +'.rep-neo ::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--green) 32%,transparent);border:2px solid transparent;background-clip:padding-box}'
+        +'.rep-neo [data-vsplit]>div,.rep-neo [data-tilerow]>div{background:color-mix(in srgb,var(--green) 24%,transparent)!important}'
+        // NEO-only display tweaks (owner: "you can slightly revamp the layout... or how info is
+        // displayed if you want. but only for neo") - all presentational, classic DOM untouched:
+        // more air between sections; section number = squared tech chip, not a filled circle;
+        // the "back to checklist" hint only surfaces on hover; faint zebra striping on plain
+        // table rows (inline-tinted matrix cells keep their own colors); and the 1A hero card
+        // wears a slightly stronger accent ring than the rest.
+        +'.rep-neo .lbl[id^="res-step-"]{margin-top:34px!important}'
+        +'.rep-neo .lbl[id^="res-step-"]>span:first-child{border-radius:5px!important}'
+        +'.rep-neo .lbl[id^="res-step-"]>span:last-child{opacity:0;transition:opacity .15s}'
+        +'.rep-neo .lbl[id^="res-step-"]:hover>span:last-child{opacity:1}'
+        +'.rep-neo tbody tr:nth-child(even) td{background:color-mix(in srgb,var(--text) 2%,transparent)}'
+        +'.rep-neo tbody tr:hover td{background:color-mix(in srgb,var(--green) 4%,transparent)}'
+        +'.rep-neo [data-s1col="0"]>div:first-child{box-shadow:inset 0 1px 0 rgba(255,255,255,.05),inset 0 0 0 1px color-mix(in srgb,var(--green) 14%,transparent),0 14px 40px rgba(0,0,0,.45)!important}'
         +'</style>';
       const _classicOut=hdrHtml
         +valBannerHtml(d)
