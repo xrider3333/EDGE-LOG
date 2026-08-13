@@ -1140,6 +1140,7 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-13** — **Item #36: runner job-queue + command polling converted to Firestore on_snapshot listeners** (api/runner.py). Main watch loop now blocks on an event set by the listener callback instead of re-querying `status=='queued'` every `--interval` tick; a 600s backstop poll still runs underneath (and logs if it finds something the listener missed) so a wedged watch channel can never permanently stall job pickup. Falls back automatically to the old fixed-interval polling if listener setup fails or never confirms alive within 15s ("queue listener: FAILED -> polling every Ns" vs "queue listener: ON (backstop poll 600s)" at startup). Cuts ~5,800 idle Firestore reads/day. `--interval` stays meaningful as the fallback poll cadence.
 - **2026-08-13** — **Both pinned ENGU-Q validates LANDED: #226 ETH FROZEN = PASS 5/5 and continuous-clean
   → formally certified as the PRIMARY DEPLOYMENT CANDIDATE; #227 = the visible #149 baseline card.**
   • **#226 (ENGUQ_1M_ETH_FROZEN_1_0, 24h tape, zero optimization):** PASS 5/5 (PBO/DSR n/a — pinned run,

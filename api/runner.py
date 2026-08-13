@@ -40,6 +40,12 @@ except Exception as _e:
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 JOBS_DIR = os.path.join(ROOT, "augur_jobs")
 
+# Safety-backstop cadence for the Firestore queue listener (item #36, listener
+# conversion): even with on_snapshot listeners live, re-run the plain queued-docs
+# poll this often in case the watch channel wedges silently (this has happened
+# before on the web client side — see MEMORY "EDGELOG cmd-channel lessons").
+LISTENER_BACKSTOP_SEC = 600.0
+
 # Commands the parallel CommandThread (see below) is allowed to serve WHILE a backtest
 # job is running in the main loop. Only cheap/pure reads — reconcile (re-runs the engine)
 # and the Library file-ops (process_command) can mutate or be heavy, so they stay on the
@@ -329,6 +335,56 @@ class FirestoreQueue:
         self.allow = set(allow_uids)
         self.nt_fills = nt_fills
         self.webull_keys = webull_keys
+        # Listener conversion (item #36): `wake` is a thread-safe signal the
+        # on_snapshot callbacks set from a Firestore SDK background thread — the
+        # main watch loop (main() below) blocks on it instead of a fixed sleep.
+        # Callbacks do ONLY that (plus stamping the watchdog time); the *actual*
+        # queued-doc query + claim + execute still happens in run_once()/
+        # run_commands() on the main loop thread, unchanged, so serial execution
+        # and the existing claim logic (status->running writes) can never double-
+        # run a doc just because a listener fired.
+        self.wake = threading.Event()
+        self._watches = []
+        self._last_event_ts = 0.0
+
+    def _on_snapshot(self, _col_snapshot, _changes, _read_time):
+        """Firestore background-thread callback for both the backtests and commands
+        watches. Must stay cheap — no engine work, no Firestore writes here."""
+        self._last_event_ts = time.time()
+        self.wake.set()
+
+    def start_listeners(self, log=print, ready_timeout=15.0):
+        """Attach on_snapshot listeners on status=='queued' for every allowlisted
+        uid's backtests + commands subcollections. Returns True if at least one
+        listener confirmed it's alive (fired its initial snapshot) within
+        ready_timeout, else False so the caller falls back to plain polling.
+        Never raises — any failure here is a reason to poll, not to crash."""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        if not self.allow:
+            return False   # collection_group mode has no per-uid path to watch
+        qf = FieldFilter("status", "==", "queued")
+        ready = threading.Event()
+
+        def _cb(col_snapshot, changes, read_time):
+            ready.set()
+            self._on_snapshot(col_snapshot, changes, read_time)
+
+        ok = 0
+        for uid in self.allow:
+            for coll in (self.col, "commands"):
+                try:
+                    ref = self.db.collection("users").document(uid).collection(coll)
+                    watch = ref.where(filter=qf).on_snapshot(_cb)
+                    self._watches.append(watch)
+                    ok += 1
+                except Exception as e:
+                    log(f"  [listener] {uid}/{coll} setup failed: {type(e).__name__}: {e}")
+        if not ok:
+            return False
+        # Firestore always fires an initial snapshot right after attach (even if
+        # empty), so waiting here confirms the channel is actually live rather
+        # than just "no exception was raised while attaching".
+        return ready.wait(ready_timeout)
 
     def sync_webull(self, log=print) -> int:
         """Pull Webull filled orders (official OpenAPI) into each allowlisted user's
@@ -1140,6 +1196,24 @@ def main(argv=None):
             cmd_thread = CommandThread(q.db, a.allow_uid, ROOT, log=print)
             threading.Thread(target=cmd_thread.run_forever, daemon=True,
                              name="cmd-thread").start()
+        # Job-queue / command listener conversion (item #36): on_snapshot listeners
+        # replace the tight poll loop below with an event-driven wake, cutting idle
+        # Firestore reads (~5,800/day at --interval 30 x2 queries). A slow backstop
+        # poll (LISTENER_BACKSTOP_SEC) still runs underneath in case the channel
+        # wedges silently — same failure mode as the web client's cmd-channel
+        # (see MEMORY "EDGELOG cmd-channel lessons").
+        listener_ok = False
+        if a.firestore:
+            try:
+                listener_ok = q.start_listeners(log=print)
+            except Exception as e:
+                print(f"[listener] setup failed: {type(e).__name__}: {e}")
+        if a.firestore:
+            if listener_ok:
+                print(f"queue listener: ON (backstop poll {LISTENER_BACKSTOP_SEC:g}s)")
+            else:
+                print(f"queue listener: FAILED -> polling every {a.interval:g}s")
+        next_backstop = time.time() + LISTENER_BACKSTOP_SEC
         # Auto-refresh data on start and on a timer — hands-free, like the desktop
         # app does on open. Runs in the same loop (infrequent + bounded), so it
         # briefly pauses job polling while it pulls; that's fine at a 30-min cadence.
@@ -1165,15 +1239,35 @@ def main(argv=None):
                 print(f"[auto-pine] skipped: {type(e).__name__}: {e}")
         print("watching… (Ctrl+C to stop)")
         while True:
-            try:
-                done = q.run_once()
-            except Exception as _e:
-                print(f"[queue] skipped: {type(_e).__name__}: {_e}"); done = 0
-            if a.firestore:
+            # Decide WHY (if at all) we should hit the queued-docs query this tick:
+            # a listener wake, the backstop timer, or — no listener (LocalQueue, or
+            # the Firestore listener failed to come up) — every tick, same as before.
+            listener_active = a.firestore and listener_ok
+            if listener_active and q.wake.is_set():
+                q.wake.clear()
+                poll_reason = "listener"
+            elif not listener_active:
+                poll_reason = "poll"
+            elif time.time() >= next_backstop:
+                poll_reason = "backstop"
+            else:
+                poll_reason = None
+            done = 0
+            if poll_reason:
                 try:
-                    done += q.run_commands()
+                    done = q.run_once()
                 except Exception as _e:
-                    print(f"[commands] skipped: {type(_e).__name__}: {_e}")
+                    print(f"[queue] skipped: {type(_e).__name__}: {_e}"); done = 0
+                if a.firestore:
+                    try:
+                        done += q.run_commands()
+                    except Exception as _e:
+                        print(f"[commands] skipped: {type(_e).__name__}: {_e}")
+                if poll_reason == "backstop":
+                    next_backstop = time.time() + LISTENER_BACKSTOP_SEC
+                    if done:
+                        print(f"[backstop] found {done} job(s)/command(s) the "
+                              f"listener missed -- channel may be stale")
             if a.refresh_min > 0 and time.time() >= next_refresh:
                 _refresh(); next_refresh = time.time() + a.refresh_min * 60
             if a.firestore and a.trades_sec > 0 and time.time() >= next_trades:
@@ -1193,7 +1287,14 @@ def main(argv=None):
                 except Exception as e:
                     print(f"[paper] hook error: {type(e).__name__}: {e}")
             if not done:
-                time.sleep(a.interval)
+                if listener_active:
+                    # Blocks until a listener wake, or a.interval elapses — whichever
+                    # is first — so refresh_min/trades_sec/paper stay on their
+                    # existing cadence while the queued-docs query itself stays idle
+                    # (no read) unless the listener actually signals a change.
+                    q.wake.wait(timeout=a.interval)
+                else:
+                    time.sleep(a.interval)
     else:
         done = q.run_once()
         print(f"processed {done} job(s).")
