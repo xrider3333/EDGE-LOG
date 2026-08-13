@@ -1,4 +1,4 @@
-// =============================================================================
+﻿// =============================================================================
 //  EDGELOG · NOISE 1.0 — NinjaTrader 8 port of augur_strategies/NOISE_1_0.py
 //  For PAPER TRADING on the broker demo account (PAPER system Layer 1).
 //
@@ -95,6 +95,85 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 adCurrent = new List<double>();
                 history   = new List<double[]>();
+            }
+            else if (State == State.Terminated)
+            {
+                DumpBlotter();
+            }
+        }
+
+        /// <summary>Write this run's trade blotter to the nt_backtest folder so the
+        /// reconcile tooling can read it without anyone driving the Strategy Analyzer UI.
+        ///
+        /// WHY: exporting by hand through Display > Trades > right-click > Export is the
+        /// step that silently produced the wrong file twice on 2026-08-13 - once the wrong
+        /// strategy, once the wrong timeframe - and neither was visible until the CSV was
+        /// parsed. This writes itself, and it stamps the run's actual configuration into
+        /// the header so a mismatched run can never be mistaken for a matching one.
+        ///
+        /// Times are written in UTC. NinjaTrader displays in the PC's local zone (Arizona
+        /// here, which does not observe DST) and stamps a bar at its CLOSE while the AUGUR
+        /// engine stamps at its OPEN - two independent offsets that have to be undone
+        /// before any comparison. UTC removes the first; the reader handles the second.
+        ///
+        /// Never throws: a failed dump must not take down a backtest.</summary>
+        private void DumpBlotter()
+        {
+            try
+            {
+                if (SystemPerformance == null || SystemPerformance.AllTrades == null) return;
+                if (SystemPerformance.AllTrades.Count == 0) return;
+
+                string dir = @"C:\EdgeLog\nt_backtest";
+                if (!System.IO.Directory.Exists(dir)) System.IO.Directory.CreateDirectory(dir);
+
+                string instrument = Instrument != null ? Instrument.FullName : "?";
+                string period     = BarsPeriod != null
+                                  ? BarsPeriod.BarsPeriodType + "-" + BarsPeriod.Value : "?";
+                string hours      = (Bars != null && Bars.TradingHours != null)
+                                  ? Bars.TradingHours.Name : "?";
+                string stamp      = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                string path       = System.IO.Path.Combine(dir,
+                                        "EdgeLogNOISE_" + stamp + ".csv");
+
+                var sb = new System.Text.StringBuilder();
+                // Header carries the run config. The reconcile side asserts on these
+                // instead of trusting that the right thing was selected in the UI.
+                sb.AppendLine("# strategy=EdgeLogNOISE");
+                sb.AppendLine("# instrument=" + instrument);
+                sb.AppendLine("# bars=" + period);
+                sb.AppendLine("# trading_hours=" + hours);
+                sb.AppendLine("# lookback=" + Lookback + " bandLong=" + BandMultLong
+                              + " bandShort=" + BandMultShort + " useStop=" + UseStop
+                              + " stopK=" + StopK + " qty=" + Qty);
+                sb.AppendLine("# times=UTC bar_stamp=close");
+                sb.AppendLine("trade,side,qty,entry_utc,exit_utc,entry_px,exit_px,entry_name,exit_name,pnl_usd,bars");
+
+                var inv = System.Globalization.CultureInfo.InvariantCulture;
+                int n = 0;
+                foreach (Trade t in SystemPerformance.AllTrades)
+                {
+                    n++;
+                    sb.AppendLine(string.Join(",", new string[] {
+                        n.ToString(inv),
+                        t.Entry.MarketPosition == MarketPosition.Long ? "1" : "-1",
+                        t.Quantity.ToString(inv),
+                        t.Entry.Time.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", inv),
+                        t.Exit.Time.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", inv),
+                        t.Entry.Price.ToString(inv),
+                        t.Exit.Price.ToString(inv),
+                        t.Entry.Name,
+                        t.Exit.Name,
+                        t.ProfitCurrency.ToString(inv),
+                        t.BarsInTrade.ToString(inv)
+                    }));
+                }
+                System.IO.File.WriteAllText(path, sb.ToString());
+                Print("EdgeLogNOISE: wrote " + n + " trades -> " + path);
+            }
+            catch (Exception ex)
+            {
+                Print("EdgeLogNOISE: blotter dump failed: " + ex.Message);
             }
         }
 
