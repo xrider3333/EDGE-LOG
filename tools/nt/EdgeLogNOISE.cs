@@ -147,7 +147,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                               + " bandShort=" + BandMultShort + " useStop=" + UseStop
                               + " stopK=" + StopK + " qty=" + Qty);
                 sb.AppendLine("# times=UTC bar_stamp=close");
-                sb.AppendLine("trade,side,qty,entry_utc,exit_utc,entry_px,exit_px,entry_name,exit_name,pnl_usd,bars");
+                sb.AppendLine("trade,side,qty,entry_utc,exit_utc,entry_px,exit_px,entry_name,exit_name,pnl_usd");
 
                 var inv = System.Globalization.CultureInfo.InvariantCulture;
                 int n = 0;
@@ -164,8 +164,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         t.Exit.Price.ToString(inv),
                         t.Entry.Name,
                         t.Exit.Name,
-                        t.ProfitCurrency.ToString(inv),
-                        t.BarsInTrade.ToString(inv)
+                        t.ProfitCurrency.ToString(inv)
                     }));
                 }
                 System.IO.File.WriteAllText(path, sb.ToString());
