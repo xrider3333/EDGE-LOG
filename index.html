@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.24';
+const VERSION='73.25';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.25',date:'2026-08-12',notes:['Picking a built-in logo mark no longer loses the image you uploaded. The last uploaded logo is kept aside and a RESTORE UPLOADED button with a thumbnail appears next to it in Settings > APPEARANCE > LOGO, so you can try the marks and go back.']},
 {v:'73.24',date:'2026-08-12',notes:['FIX (owner): switching settings panes moved the whole window around the screen. The window sized itself to whichever pane you were on, so APPEARANCE and TRADING LOG were different heights and the box jumped when you clicked between them. It is now one fixed size for every pane - nothing moves.','NEW LOGOS (owner ask). The LOGO card in Settings > APPEARANCE now offers six built-in marks - EL monogram, breakout candle, edge steps, pulse, wedge and candles - one click to wear one, with the current pick ticked. They are square vector marks so they stay sharp in the top bar AND as the browser-tab icon. Uploading your own image still works the same.']},
 {v:'73.23',date:'2026-08-12',notes:['The settings window now sizes itself to the pane you are on instead of always being 860px tall, so APPEARANCE no longer leaves half the window empty. Tall panes still cap at 88% of the screen and scroll.']},
 {v:'73.22',date:'2026-08-12',notes:['ONE SETTINGS SCREEN (owner ask - tired of having two settings spots). The TRADING LOG > SETTINGS tab and the BACKTESTER > SETTINGS subtab are both gone. Everything now lives in a single master settings window opened by the gear in the top right, reachable from any tab on either side of the app.','The window is split by type down a left rail: APPEARANCE (theme, density, logo - applies to the whole app), TRADING LOG (setup types, tags, per-instrument fees, account balances, account info), BACKTESTER (run defaults, runner, reconciler, AI providers, auto-pull, synced counts) and ABOUT (version + full changelog, which used to be a sub-tab of the backtester settings).','Esc or a click outside closes it. Editing a setting that redraws the app (theme, adding a setup, saving a balance) now refreshes the window in place instead of leaving it showing the pre-edit state, and it keeps your scroll position.','A browser that had the old SETTINGS tab saved as its last view is sent to OVERVIEW (or LIBRARY on the backtester side) instead of landing on a tab that no longer has a button.']},
@@ -18094,6 +18095,11 @@ const LOGO_PRESETS=[
   ['candles','CANDLES',`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#0b1211"/><g stroke="#00e5a0" stroke-width="3" stroke-linecap="round"><path d="M17 24v6M17 48v4M32 16v6M32 48v4M47 8v6M47 48v4"/></g><g fill="#00e5a0"><rect x="12" y="30" width="10" height="18" rx="2"/><rect x="27" y="22" width="10" height="26" rx="2"/><rect x="42" y="14" width="10" height="34" rx="2"/></g></svg>`]
 ];
 const _logoURI=svg=>'data:image/svg+xml,'+encodeURIComponent(svg);
+// v73.25: picking a built-in mark used to overwrite an uploaded image with no way back.
+//   Keep the last NON-preset logo aside so RESTORE UPLOADED can put it straight back. Wrapped
+//   in try/catch because a big photo can push localStorage over quota - a failed stash must
+//   never block the logo change itself.
+function _stashCustomLogo(v){if(!v||v.indexOf('data:image/svg+xml')===0)return;try{localStorage.setItem('el_logo_custom',v);}catch(e){}}
 const _setCard=(hd,inner)=>`<div class="section" style="margin-bottom:12px"><div class="sec-hd">${hd}</div><div style="padding:14px">${inner}</div></div>`;
 const _setNote=t=>`<div style="font-size:var(--fsm);color:var(--text4);margin-bottom:10px;line-height:1.8">${t}</div>`;
 
@@ -18141,6 +18147,8 @@ function _setPaneAppear(){
       </div>
       <label class="btn-b" style="cursor:pointer">UPLOAD YOUR OWN<input type="file" accept="image/*" id="logo-upload2" style="display:none"/></label>
       ${userLogo?'<button class="btn-r" id="rm-logo">REMOVE</button>':''}
+      ${(function(){const c=localStorage.getItem('el_logo_custom');return (c&&c!==userLogo)
+        ?`<span style="display:flex;align-items:center;gap:8px;padding-left:10px;border-left:1px solid var(--border)"><img src="${c}" style="height:30px;width:30px;object-fit:contain;border-radius:7px;background:var(--bg3)"/><button class="btn-ghost" id="restore-logo" title="put your uploaded image back" style="border:1px solid var(--border);border-radius:7px;padding:5px 11px;font-size:var(--fsxs)">RESTORE UPLOADED</button></span>`:'';})()}
     </div>
     <div class="lbl" style="margin-bottom:8px">BUILT-IN MARKS</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -18293,11 +18301,13 @@ function openSettings(pane){
 // per-pane control wiring — lifted verbatim from the two old settings screens
 function _setWire(pane){
   if(pane==='appear'){
-    const lu2=el('logo-upload2');if(lu2)lu2.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{userLogo=ev.target.result;localStorage.setItem('el_logo',userLogo);updateFavicon();renderApp();};r.readAsDataURL(f);};
-    if(el('rm-logo'))el('rm-logo').onclick=()=>{userLogo=null;localStorage.removeItem('el_logo');updateFavicon();renderApp();};
+    const lu2=el('logo-upload2');if(lu2)lu2.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{userLogo=ev.target.result;localStorage.setItem('el_logo',userLogo);_stashCustomLogo(userLogo);updateFavicon();renderApp();};r.readAsDataURL(f);};
+    if(el('rm-logo'))el('rm-logo').onclick=()=>{_stashCustomLogo(userLogo);userLogo=null;localStorage.removeItem('el_logo');updateFavicon();renderApp();};
     document.querySelectorAll('[data-logopreset]').forEach(d=>{d.onclick=()=>{
       const p=LOGO_PRESETS.filter(x=>x[0]===d.dataset.logopreset)[0];if(!p)return;
+      _stashCustomLogo(userLogo);   // never lose an uploaded image to a one-click preset
       userLogo=_logoURI(p[2]);localStorage.setItem('el_logo',userLogo);updateFavicon();renderApp();};});
+    if(el('restore-logo'))el('restore-logo').onclick=()=>{const c=localStorage.getItem('el_logo_custom');if(!c)return;userLogo=c;localStorage.setItem('el_logo',c);updateFavicon();renderApp();};
   }
   if(pane==='log'){
     if(el('add-setup-btn'))el('add-setup-btn').onclick=()=>{const v=((el('new-setup')||{}).value||'').trim();if(!v)return;if(!customSetups.includes(v)){customSetups.push(v);localStorage.setItem('el_setups',JSON.stringify(customSetups));el('new-setup').value='';renderApp();}};
