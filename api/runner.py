@@ -45,6 +45,8 @@ JOBS_DIR = os.path.join(ROOT, "augur_jobs")
 # poll this often in case the watch channel wedges silently (this has happened
 # before on the web client side — see MEMORY "EDGELOG cmd-channel lessons").
 LISTENER_BACKSTOP_SEC = 600.0
+# How often the data-freshness watchdog republishes meta/data_health (api/data_health.py).
+HEALTH_SEC = 3600.0
 
 # Commands the parallel CommandThread (see below) is allowed to serve WHILE a backtest
 # job is running in the main loop. Only cheap/pure reads — reconcile (re-runs the engine)
@@ -1214,6 +1216,7 @@ def main(argv=None):
             else:
                 print(f"queue listener: FAILED -> polling every {a.interval:g}s")
         next_backstop = time.time() + LISTENER_BACKSTOP_SEC
+        next_health = 0.0   # first pass runs immediately, then every HEALTH_SEC
         # Auto-refresh data on start and on a timer — hands-free, like the desktop
         # app does on open. Runs in the same loop (infrequent + bounded), so it
         # briefly pauses job polling while it pulls; that's fine at a 30-min cadence.
@@ -1286,6 +1289,18 @@ def main(argv=None):
                     _paper.maybe_run_eod(q)
                 except Exception as e:
                     print(f"[paper] hook error: {type(e).__name__}: {e}")
+            # Data-freshness watchdog. Hourly, one tiny doc per uid — the NQ 10s capture
+            # died 2026-08-11 and the Yahoo top-up had been off for six weeks, and neither
+            # surfaced anywhere the owner looks. See api/data_health.py.
+            if a.firestore and time.time() >= next_health:
+                try:
+                    from api import data_health
+                    for _uid in (a.allow_uid or "").split(",") if a.allow_uid else []:
+                        if _uid.strip():
+                            data_health.publish(q.db, _uid.strip())
+                except Exception as e:
+                    print(f"[data-health] skipped: {type(e).__name__}: {e}")
+                next_health = time.time() + HEALTH_SEC
             if not done:
                 if listener_active:
                     # Blocks until a listener wake, or a.interval elapses — whichever
