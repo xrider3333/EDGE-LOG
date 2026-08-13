@@ -150,8 +150,14 @@ if strategy.position_size < 0 and not na(vwap) and close > vwap
     strategy.close("NZS", comment="vwap")
 
 // ── Flat by session close ────────────────────────────────────────────────────
+// immediately=true is REQUIRED. With process_orders_on_close=false (which is what
+// makes entries faithful: decide at close, fill next open) a plain close_all on the
+// last bar is only FILLED at the next bar's open -- i.e. the next session -- so the
+// position rides overnight. The 2026-08-12 reconcile caught exactly that: 39 of the
+// 151 matched trades diverged, every one an engine EOD flatten that TV carried over,
+// costing $15,121. immediately=true fills at this bar's close, like the engine.
 if session.islastbar and strategy.position_size != 0
-    strategy.close_all(comment="eod")
+    strategy.close_all(comment="eod", immediately=true)
 
 // ── End-of-bar bookkeeping ───────────────────────────────────────────────────
 bod := bod + 1
