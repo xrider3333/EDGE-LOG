@@ -278,6 +278,15 @@ namespace NinjaTrader.NinjaScript.Strategies
                         stopPlaced = false; stopLevel = double.NaN;
                     }
                 }
+                // barOfDay MUST advance here too. It did not until 2026-08-13, and the
+                // early return meant bar-of-day froze for the whole life of every trade:
+                // adCurrent[barOfDay] was overwritten at the same index bar after bar, and
+                // Sigma(barOfDay) was then read at a stale, too-early index for the REST of
+                // the session. Noise is smallest right after the open and grows through the
+                // day, so a stale index means a noise estimate that is too small, bands that
+                // are too narrow, and far too many entries. Measured against the engine on
+                // identical bars: 322 trades vs 191, and trades on 151 days vs 108.
+                barOfDay++;
                 prevSessionClose = Close[0];
                 return;                                  // never signal an entry while holding
             }
