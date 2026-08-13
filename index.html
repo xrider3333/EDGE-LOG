@@ -442,10 +442,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.23';
+const VERSION='73.24';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.24',date:'2026-08-12',notes:['FIX (owner): switching settings panes moved the whole window around the screen. The window sized itself to whichever pane you were on, so APPEARANCE and TRADING LOG were different heights and the box jumped when you clicked between them. It is now one fixed size for every pane - nothing moves.','NEW LOGOS (owner ask). The LOGO card in Settings > APPEARANCE now offers six built-in marks - EL monogram, breakout candle, edge steps, pulse, wedge and candles - one click to wear one, with the current pick ticked. They are square vector marks so they stay sharp in the top bar AND as the browser-tab icon. Uploading your own image still works the same.']},
 {v:'73.23',date:'2026-08-12',notes:['The settings window now sizes itself to the pane you are on instead of always being 860px tall, so APPEARANCE no longer leaves half the window empty. Tall panes still cap at 88% of the screen and scroll.']},
 {v:'73.22',date:'2026-08-12',notes:['ONE SETTINGS SCREEN (owner ask - tired of having two settings spots). The TRADING LOG > SETTINGS tab and the BACKTESTER > SETTINGS subtab are both gone. Everything now lives in a single master settings window opened by the gear in the top right, reachable from any tab on either side of the app.','The window is split by type down a left rail: APPEARANCE (theme, density, logo - applies to the whole app), TRADING LOG (setup types, tags, per-instrument fees, account balances, account info), BACKTESTER (run defaults, runner, reconciler, AI providers, auto-pull, synced counts) and ABOUT (version + full changelog, which used to be a sub-tab of the backtester settings).','Esc or a click outside closes it. Editing a setting that redraws the app (theme, adding a setup, saving a balance) now refreshes the window in place instead of leaving it showing the pre-edit state, and it keeps your scroll position.','A browser that had the old SETTINGS tab saved as its last view is sent to OVERVIEW (or LIBRARY on the backtester side) instead of landing on a tab that no longer has a button.']},
 {v:'73.21',date:'2026-08-12',notes:['FIX on 73.20: dragging the price scale changed nothing. The drag was being tracked but the new scale was never handed to the chart, so it redrew at the old one. Verified working - the axis numbers now compress and expand as you drag.']},
@@ -18080,6 +18081,19 @@ const SET_PANES=[['appear','APPEARANCE','◐','theme, density and logo — appli
 // backtester prefs live in their own store (augurPrefs), separate from the trading-log prefs
 const _aPrefs=()=>{try{return JSON.parse(localStorage.getItem('augurPrefs')||'{}');}catch(e){return {};}};
 const _aSave=(k,v)=>{const p=_aPrefs();p[k]=v;try{localStorage.setItem('augurPrefs',JSON.stringify(p));}catch(e){}};
+// v73.24 (owner: "also need a new logo") — built-in marks, one click to wear one. Square so
+//   they work as both the top-bar mark AND the browser-tab favicon (updateFavicon rasterises
+//   whatever is in userLogo to 32x32). Kept as SVG data URIs: a few hundred bytes each, and
+//   they stay sharp on any display. Uploading your own image still works exactly as before.
+const LOGO_PRESETS=[
+  ['mono','EL MONOGRAM',`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#00e5a0"/><path d="M16 18h16v6H22v5h9v6h-9v6h10v6H16z" fill="#08110d"/><path d="M38 18h6v23h9v6H38z" fill="#08110d"/></svg>`],
+  ['breakout','BREAKOUT',`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#0b1211"/><path d="M10 50h44" stroke="#3a5c53" stroke-width="4" stroke-linecap="round" stroke-dasharray="6 6"/><rect x="25" y="16" width="14" height="26" rx="2" fill="#00e5a0"/><path d="M32 8v8M32 42v8" stroke="#00e5a0" stroke-width="4" stroke-linecap="round"/></svg>`],
+  ['steps','EDGE STEPS',`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#00e5a0"/><path d="M12 44h10v8H12zM27 32h10v20H27zM42 18h10v34H42z" fill="#08110d"/></svg>`],
+  ['pulse','PULSE',`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#0b1211"/><path d="M10 44l12-10 9 7 10-16 12 8" fill="none" stroke="#00e5a0" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="53" cy="33" r="6" fill="#00e5a0"/></svg>`],
+  ['wedge','WEDGE',`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#00e5a0"/><path d="M32 14l18 20H39v16H25V34H14z" fill="#08110d"/></svg>`],
+  ['candles','CANDLES',`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#0b1211"/><g stroke="#00e5a0" stroke-width="3" stroke-linecap="round"><path d="M17 24v6M17 48v4M32 16v6M32 48v4M47 8v6M47 48v4"/></g><g fill="#00e5a0"><rect x="12" y="30" width="10" height="18" rx="2"/><rect x="27" y="22" width="10" height="26" rx="2"/><rect x="42" y="14" width="10" height="34" rx="2"/></g></svg>`]
+];
+const _logoURI=svg=>'data:image/svg+xml,'+encodeURIComponent(svg);
 const _setCard=(hd,inner)=>`<div class="section" style="margin-bottom:12px"><div class="sec-hd">${hd}</div><div style="padding:14px">${inner}</div></div>`;
 const _setNote=t=>`<div style="font-size:var(--fsm);color:var(--text4);margin-bottom:10px;line-height:1.8">${t}</div>`;
 
@@ -18119,11 +18133,22 @@ function _setPaneAppear(){
       </div>
     </div>`)
   +_setCard('LOGO',
-    _setNote('Shown in the browser tab and the top bar, beside the EDGE LOG wordmark.')
-    +`<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-      ${userLogo?`<img src="${userLogo}" style="height:48px;max-width:130px;object-fit:contain;border:1px solid var(--border)"/>`:'<div style="color:var(--text5);font-size:var(--fsm)">No logo set</div>'}
-      <label class="btn-b" style="cursor:pointer">UPLOAD LOGO<input type="file" accept="image/*" id="logo-upload2" style="display:none"/></label>
+    _setNote('Shown in the browser tab and the top bar, beside the EDGE LOG wordmark. Pick one of the built-in marks below, or upload your own image.')
+    +`<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+        ${userLogo?`<img src="${userLogo}" style="height:52px;width:52px;object-fit:contain;border:1px solid var(--border);border-radius:10px;background:var(--bg3)"/>`:'<div style="height:52px;width:52px;border:1px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text5);font-size:9px">NONE</div>'}
+        <span class="lbl" style="font-size:8px">IN USE</span>
+      </div>
+      <label class="btn-b" style="cursor:pointer">UPLOAD YOUR OWN<input type="file" accept="image/*" id="logo-upload2" style="display:none"/></label>
       ${userLogo?'<button class="btn-r" id="rm-logo">REMOVE</button>':''}
+    </div>
+    <div class="lbl" style="margin-bottom:8px">BUILT-IN MARKS</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${LOGO_PRESETS.map(p=>{const uri=_logoURI(p[2]),on=userLogo===uri;
+        return `<div data-logopreset="${p[0]}" title="use the ${p[1]} mark" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;padding:7px 8px;border-radius:10px;border:1px solid ${on?'var(--green)':'var(--border)'};${on?'background:color-mix(in srgb,var(--green) 10%,transparent);':''}">
+          <img src="${uri}" style="height:40px;width:40px;border-radius:8px" alt="${p[1]}"/>
+          <span style="font-size:8px;letter-spacing:.5px;color:${on?'var(--green)':'var(--text5)'}">${on?'✓ '+p[1]:p[1]}</span>
+        </div>`;}).join('')}
     </div>`);
 }
 
@@ -18243,7 +18268,7 @@ function openSettings(pane){
     const rail=SET_PANES.map(p=>{const on=p[0]===cur;
       return `<button class="btn-ghost" data-setpane="${p[0]}" title="${p[3]}" style="display:block;width:100%;text-align:left;padding:9px 12px;border-radius:8px;font-size:var(--fsxs);letter-spacing:1px;margin-bottom:2px;${on?'background:var(--bg3);color:var(--text);font-weight:700':'color:var(--text4)'}"><span style="margin-right:8px;font-size:13px;opacity:.75;font-variant-emoji:text">${p[2]}</span>${p[1]}</button>`;}).join('');
     const pageHtml=cur==='appear'?_setPaneAppear():cur==='log'?_setPaneLog():cur==='bt'?_setPaneBT():_setPaneAbout();
-    ov.innerHTML=`<div style="background:var(--bg1);border:1px solid var(--border);border-radius:14px;width:100%;max-width:1020px;height:auto;max-height:min(88vh,860px);min-height:380px;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.55);overflow:hidden">
+    ov.innerHTML=`<div style="background:var(--bg1);border:1px solid var(--border);border-radius:14px;width:100%;max-width:1020px;height:min(88vh,860px);display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.55);overflow:hidden">
       <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
         <span style="font-size:15px;opacity:.7;font-variant-emoji:text">&#9881;</span>
         <span style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:1px">SETTINGS</span>
@@ -18270,6 +18295,9 @@ function _setWire(pane){
   if(pane==='appear'){
     const lu2=el('logo-upload2');if(lu2)lu2.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{userLogo=ev.target.result;localStorage.setItem('el_logo',userLogo);updateFavicon();renderApp();};r.readAsDataURL(f);};
     if(el('rm-logo'))el('rm-logo').onclick=()=>{userLogo=null;localStorage.removeItem('el_logo');updateFavicon();renderApp();};
+    document.querySelectorAll('[data-logopreset]').forEach(d=>{d.onclick=()=>{
+      const p=LOGO_PRESETS.filter(x=>x[0]===d.dataset.logopreset)[0];if(!p)return;
+      userLogo=_logoURI(p[2]);localStorage.setItem('el_logo',userLogo);updateFavicon();renderApp();};});
   }
   if(pane==='log'){
     if(el('add-setup-btn'))el('add-setup-btn').onclick=()=>{const v=((el('new-setup')||{}).value||'').trim();if(!v)return;if(!customSetups.includes(v)){customSetups.push(v);localStorage.setItem('el_setups',JSON.stringify(customSetups));el('new-setup').value='';renderApp();}};
