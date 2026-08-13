@@ -126,10 +126,14 @@ bool allowShort= sideIn == "Both" or sideIn == "Short Only"
 // 16:00 - it serves 16:05 and 16:10 bars that our RTH master does not have. The
 // 2026-08-13 reconcile found 32 trades entered at 16:05, losing $35,457, that the
 // engine could never have taken. Entries are blocked outside this window.
-bool inRTH = not na(time(timeframe.period, "0930-1600", "America/New_York"))
-bool sessEnd = (inRTH and hour(time_close, "America/New_York") == 16
-                and minute(time_close, "America/New_York") == 0)
-     or session.islastbar or session.islastbar_regular
+// Keep every one of these on ONE line. Pine's line continuation does not survive an
+// `or` that starts a new line after a closing bracket -- that is the
+// "Mismatched input 'end of line without line continuation'" error.
+int  nyHH    = hour(time_close, "America/New_York")
+int  nyMM    = minute(time_close, "America/New_York")
+bool inRTH   = not na(time(timeframe.period, "0930-1600", "America/New_York"))
+bool atClose = inRTH and nyHH == 16 and nyMM == 0
+bool sessEnd = atClose or session.islastbar or session.islastbar_regular
 
 // The engine forbids a fresh entry on the session's first bar and inside its
 // last two bars (its k <= m-2 rule). Session length is calendar knowledge, so
