@@ -137,33 +137,53 @@ Gotchas for the next session driving this:
   warm-up. Start the engine window where TradingView's data starts, not where its first
   trade is, or the engine sits out its first N sessions and the trade counts won't line up.
 
-### Reconcile #1 — NOISE, engine vs TradingView (2026-08-12)
+### Reconcile #1 — NOISE, engine vs TradingView (closed 2026-08-13) — **PASS**
 
 `NOISE_1_0.py` NQ 5m RTH, `stop_mode=bandwidth stop_k=1.0`, cost 0.283 pts, window
-2025-08-18 → 2026-07-16 (master ends there). Engine 191 trades / TV 182 / **161 matched**.
+2025-08-18 → 2026-07-16 (master ends there).
 
-The matched set splits cleanly and the split is the whole story:
+**Final state: engine 191 trades / TV 189 / 159 matched, and 157 of those 159 agree on the
+exit bar TO THE MINUTE for $191 total.** That is the port verified against an engine that
+shares no code with ours.
 
-| Matched pairs | Exit bar | Total PnL gap |
-|---|---|---|
-| **111** | identical to the minute | **$139** |
-| 40 | differ | $15,121 |
+It took three rounds, and every round found a real defect that the summary statistics hid.
 
-111 trades agreeing to the minute for $139 total is as close to proof as this gets: entry
-times and entry prices matched exactly on ~150 of 161, so the band math, the noise
-estimate, and the next-open fill convention all port correctly.
+| Round | Matched | Exit bar identical | PnL gap on those | Defect found |
+|---|---|---|---|---|
+| 1 | 151 | 111 | $139 | 36 trades held overnight instead of flattening at 15:55 |
+| 2 | 155 | 153 | $189 | 32 trades **entered at 16:05**, after our session closes |
+| 3 | 159 | **157** | **$191** | — |
 
-All 40 disagreements were **one defect in the Pine port, not a modelling difference**: 39
-of them were trades the engine flattened at the 15:55 session close and TradingView carried
-into the next session (median 18 hours later). Cause: `process_orders_on_close=false` — the
-setting that makes entries faithful — also means a `close_all` on the last bar is only
-*filled* at the next bar's open. Fixed in `pine/NOISE_1_0.pine` with
-`strategy.close_all(..., immediately=true)`; **the fix needs a manual re-paste into the Pine
-Editor before the TV numbers above mean anything.**
+**Round 1 — the flatten never ran.** First hypothesis was that `close_all` fired but filled
+late (`process_orders_on_close=false` defers a market order to the next bar's open). Adding
+`immediately=true` changed the result by exactly nothing, and that null result was the
+useful part: the real cause was that **`session.islastbar` never evaluates true on this
+chart at all.** Proof was in the export's Signal column — 197 trades, zero `eod` exits.
+Fixed with an explicit session-end test (`atClose` on a 16:00 ET `time_close`, OR'd with
+both `session.islastbar` variants). It now produces ~56 `eod` exits.
 
-Note the direction: TradingView was the one that was wrong, and only a trade-for-trade
-comparison could show that. The headline stats (PF 1.205, net +$37k) looked perfectly
-plausible while a quarter of the trades were being held overnight against the rules.
+**Round 2 — TradingView's RTH is longer than ours.** With the flatten working, 32 fresh
+entries appeared at 16:05 losing $35,457: TV serves 16:05 and 16:10 bars inside "regular
+hours" for NQ1! that `NOADJ_NQ_5m_RTH` does not have. Fixed by gating entries on
+`inRTH = not na(time(timeframe.period, "0930-1600", "America/New_York"))`.
+
+**What is left is data, not rules.** ~30 unmatched trades per side, scattered across all 10
+months, no time-of-day or calendar clustering. Half of them are the *same* signal shifted
+under 30 minutes, and 17 of 25 unmatched days appear on both sides — the signature of
+marginal band breaks flipping because TradingView's rolled NQ1! continuous contract is not
+our no-adjust master. That residual cannot be removed and should not be chased.
+
+**The lesson worth keeping.** All three defects were silent. Nothing errored; the strategy
+just quietly stopped obeying one of its rules while net, profit factor and trade count all
+stayed plausible. Round 1's headline (+$37k, PF 1.205) looked fine with a quarter of the
+trades breaking a hard rule. Only the trade-by-trade match caught any of it.
+
+**Pine gotchas paid for here** (all in `pine/NOISE_1_0.pine`):
+- `session.islastbar` can silently never fire. Verify with the Signal column, not the totals.
+- `close_all` needs `immediately=true` under `process_orders_on_close=false`.
+- TV's regular session for NQ1! extends past 16:00 ET.
+- Pine will not continue an expression onto a line starting with `or` after a closing
+  bracket — `Mismatched input 'end of line without line continuation'`. One line per boolean.
 
 ### ENGU-Q reconcile — BLOCKED, not attempted
 
