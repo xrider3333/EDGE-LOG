@@ -1140,6 +1140,25 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-13** — **Both pinned ENGU-Q validates LANDED: #226 ETH FROZEN = PASS 5/5 and continuous-clean
+  → formally certified as the PRIMARY DEPLOYMENT CANDIDATE; #227 = the visible #149 baseline card.**
+  • **#226 (ENGUQ_1M_ETH_FROZEN_1_0, 24h tape, zero optimization):** PASS 5/5 (PBO/DSR n/a — pinned run,
+    no selection to test), WF 7/8 folds (wfe 2.62). Continuous cross-check PASSES (last entry 2026-06-26,
+    no stuck position). Card/reload LB 212 tr / $90,338 / PF 1.42 vs honest continuous LB 188 tr /
+    $98,488 / PF 1.49 — good agreement, both healthy. Full window 2843 tr / $434,721 / PF 1.33 /
+    DD $50,420. Combined with the leak audit (no look-ahead) and the overnight repricing (the RTH champion
+    loses $178,340 to a real 24h stop; ETH manages the night), **this is the only ENGU-Q variant whose
+    backtest matches live behaviour.** Remaining gate before adoption: paper-forward leg (24h feed wiring
+    + NT capture running). Note stamped on the run.
+  • **#227 (ENGUQ_1M_149F_1_0, RTH baseline, window→2026-07-16):** PASS 5/5, WF 7/8 (wfe 1.90),
+    continuous-clean (last entry 2026-07-15). Card/reload LB 141 tr / $66,262 / PF 1.31 vs honest
+    continuous LB **90 tr / $44,333 / PF 1.27** — the reload INFLATES this one (warm-up-free restart
+    takes extra trades); both numbers stamped on the card. Full window 2054 tr / $453,532 / PF 1.39 /
+    DD $65,635. Newest 12 months = the champion's weakest LB yet (PF 1.27 vs 1.44 prior window), and the
+    certified numbers still assume NO overnight stop.
+  • The reload-vs-continuous divergence has now been measured on 4 runs (invents on #198/#223, inflates
+    on #227, roughly agrees on #226) — the proposed continuous-cross-check hard gate + warm-started
+    reload remains the top engine fix.
 - **2026-08-12 (evening)** — **Overnight blind spot PRICED: a genuine 24h resting stop costs the #149
   champion −$178,340 (−37.4%); no cheap fix recovers it; the ETH branch is the structural answer.**
   Full re-simulation (stop trajectory rebuilt bar-by-bar, verified 100.00% against the engine's own
