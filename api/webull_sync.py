@@ -50,10 +50,27 @@ def _state_path(keys_path):
     return os.path.join(os.path.dirname(keys_path) or ".", ".webull_sync_state.json")
 
 
+def _ny_now():
+    """Current wall time in New York (the journal's session timezone)."""
+    return datetime.now(_NY) if _NY else datetime.utcnow()
+
+
 def _ny_today():
     """Today's date string in New York (the journal's session timezone)."""
-    now = datetime.now(_NY) if _NY else datetime.utcnow()
-    return now.strftime("%Y-%m-%d")
+    return _ny_now().strftime("%Y-%m-%d")
+
+
+# The day's pull only counts as FINAL once it happened after the close — a sync that
+# fires at 00:00 NY sees an empty pre-market window, and gating on the calendar day
+# alone would then lock out everything traded later that session (the "my trade isn't
+# showing" bug). Before the close we re-pull on a slow timer instead.
+FINAL_AFTER = (16, 15)      # NY hh,mm — regular session + settle margin
+INTRADAY_MIN = 30           # minutes between pre-close re-pulls
+
+
+def _is_final_time(now_ny=None):
+    n = now_ny or _ny_now()
+    return (n.hour, n.minute) >= FINAL_AFTER
 
 
 def load_keys(keys_path=DEFAULT_KEYS):
@@ -489,8 +506,15 @@ def sync_trades(db, uid, keys_path=DEFAULT_KEYS, log=print, force=False):
     except Exception:
         state = {}
     today = _ny_today()
-    if not force and state.get("last_run_day") == today:
+    final_now = _is_final_time()
+    # Done for the day only if today's pull already ran AFTER the close.
+    if not force and state.get("last_run_day") == today and state.get("last_run_final"):
         return {"skipped": "already-ran-today"}
+    # Pre-close: re-pull on a slow timer so same-day trades land without a manual
+    # "Sync now". Costs ZERO Firestore reads (the written-set cursor is local); the
+    # only writes are changed trades + one status doc.
+    if not force and time.time() - float(state.get("last_sync") or 0) < INTRADAY_MIN * 60:
+        return {"skipped": "throttled"}
     # After a failed pull (e.g. token lapsed → needs 2FA re-approval) back off ~30 min
     # instead of retrying — and blocking the runner ~15s — on every 20s loop pass.
     if not force and time.time() < float(state.get("fail_until", 0) or 0):
@@ -559,6 +583,7 @@ def sync_trades(db, uid, keys_path=DEFAULT_KEYS, log=print, force=False):
         batch.commit()
 
     state = {"written": written, "last_run_day": today, "last_sync": time.time(),
+             "last_run_final": _is_final_time(),
              "total_trades": len(written), "fills": len(fills), "fail_until": 0}
     try:
         json.dump(state, open(sp, "w", encoding="utf-8"))
