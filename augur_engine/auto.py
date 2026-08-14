@@ -193,7 +193,12 @@ def _auto_space_from_params(default_params: dict) -> dict:
             continue
         typ = meta.get("type", "float")
         if typ == "bool":
-            space[name] = ("cat", [True, False])
+            # A bool was ALWAYS searched over both values, so `default` could not pin it
+            # and a "pinned" strategy file silently kept exploring. Honour `options` the
+            # way str already does; with no options it still searches both, so every
+            # existing file behaves exactly as before.
+            _bo = meta.get("options")
+            space[name] = ("cat", list(_bo) if _bo else [True, False])
         elif typ == "str":
             opts = meta.get("options") or [meta.get("default")]
             space[name] = ("cat", list(opts))
