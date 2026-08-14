@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.32';
+const VERSION='73.33';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -16867,6 +16867,120 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const reportsHtml=tile('<div class="lbl" style="margin-bottom:8px">DAILY REPORTS</div>'
         +(_pr.length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th>DATE</th><th>LEGS</th><th style="text-align:right">BLEND $</th><th>STATUS</th></tr></thead><tbody>'+_repRows+'</tbody></table></div>'
           :'<div style="padding:30px;text-align:center;color:var(--text5);font-size:11px">no reports yet</div>'));
+      // ── RECONCILE ─────────────────────────────────────────────────────────────
+      // The whole point of PAPER is that three independent engines should agree. This
+      // panel is the only place that shows all three side by side.
+      //
+      // Two panels, because they answer different questions and are gathered
+      // differently, and blurring them would make a hand-checked number from last week
+      // look like it refreshed this morning:
+      //   TODAY   engine vs NinjaTrader, rebuilt automatically every evening from
+      //           paper_reports/{date}.reconcile (api/paper_reconcile.py).
+      //   HISTORY the full-backtest cross-engine checks. These are MANUAL — TradingView
+      //           has no feed we can read, so every TV number came from a hand-exported
+      //           CSV. Stored here with its date so the panel can say how stale it is
+      //           rather than implying a check that is not happening.
+      const TV_HAS_NO_FEED='TradingView has no API we can poll; these are hand-run.';
+      const XENGINE=[
+        {leg:'NOISE',date:'2026-08-13',eng:191,tv:189,nt:192,
+         tvIdent:'157/159',ntIdent:'184/184',tvUsd:191,ntUsd:0,verdict:'PASS'},
+        {leg:'ENGUQ',date:null,eng:null,tv:null,nt:null,
+         tvIdent:null,ntIdent:null,tvUsd:null,ntUsd:null,verdict:'NEVER RUN',
+         note:'TradingView has no 1-minute history this far back; the NinjaTrader backtest has not been run.'},
+        {leg:'ORB',date:null,eng:null,tv:null,nt:null,
+         tvIdent:null,ntIdent:null,tvUsd:null,ntUsd:null,verdict:'NEVER RUN',
+         note:'Not reconciled against any second engine.'},
+      ];
+      // Newest report that actually carries a reconcile block. Reports written before
+      // 2026-08-13 have none, and falling back to an older one would silently show
+      // yesterday's answer under today's date.
+      const _recRep=_pr.find(r=>r&&r.reconcile&&(r.reconcile.legs||r.reconcile.error));
+      const _rec=_recRep?_recRep.reconcile:null;
+      const _daysAgo=d=>{if(!d)return null;const ms=Date.now()-Date.parse(d+'T12:00:00-04:00');return Math.max(0,Math.floor(ms/86400000));};
+      const _stale=d=>{const n=_daysAgo(d);return n==null?'<span style="color:var(--text5)">never run</span>'
+        :'<span style="color:'+(n>14?'var(--yellow)':'var(--text5)')+'">'+(n===0?'today':n+'d ago')+'</span>';};
+      const _pill=(txt,col)=>'<span style="font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 8px;border-radius:999px;border:1px solid '+col+';color:'+col+'">'+txt+'</span>';
+      let reconcileHtml='';
+      {
+        // ---- TODAY: engine vs NinjaTrader, automatic ----
+        let todayBody;
+        if(!_rec){
+          todayBody='<div style="padding:26px;text-align:center;color:var(--text5);font-size:11px;line-height:1.7">'
+            +'no reconcile in the latest report<br><span style="font-size:10px">the runner writes this at the close — restart it if this persists</span></div>';
+        }else if(_rec.error){
+          todayBody='<div style="color:var(--yellow);font-size:11px;padding:12px">could not reconcile: '+String(_rec.error).replace(/</g,'&lt;')
+            +(_rec.note?'<div style="color:var(--text5);font-size:10px;margin-top:4px">'+_rec.note+'</div>':'')+'</div>';
+        }else{
+          const V=_rec.verdict||{};
+          const rows=['ORB','ENGUQ','NOISE'].filter(_legShown).map(k=>{
+            const R=(_rec.legs||{})[k];
+            const L=(_recRep.legs||{})[k]||{};
+            if(!R)return '';
+            const m=R.matched.length,so=R.shadow_only.length,lo=R.live_only.length;
+            // Slippage is only meaningful on MATCHED pairs — an average over a leg that
+            // matched nothing is not "0.00 pts of slippage", it is no measurement at all.
+            const slips=R.matched.map(x=>x.entry_slip_pts).filter(x=>x!=null);
+            const avg=slips.length?(slips.reduce((a,b)=>a+b,0)/slips.length):null;
+            const dUsd=R.matched.reduce((a,x)=>a+(+x.pnl_diff_usd||0),0);
+            const ok=!so&&!lo;
+            return '<tr>'
+              +'<td><span style="color:'+(_legColor[k]||'var(--text2)')+';font-weight:600">'+(_legLabel[k]||k)+'</span></td>'
+              +'<td style="text-align:right">'+(L.n_signals!=null?L.n_signals:'—')+'</td>'
+              +'<td style="text-align:right">'+(L.pnl_usd!=null?fmtUsd(+L.pnl_usd):'—')+'</td>'
+              +'<td style="text-align:right;font-weight:600">'+m+'</td>'
+              +'<td style="text-align:right;color:'+(so?'var(--red)':'var(--text5)')+'">'+so+'</td>'
+              +'<td style="text-align:right;color:'+(lo?'var(--red)':'var(--text5)')+'">'+lo+'</td>'
+              +'<td style="text-align:right;color:var(--text3)">'+(avg==null?'—':(avg>0?'+':'')+avg.toFixed(2))+'</td>'
+              +'<td style="text-align:right;color:'+(Math.abs(dUsd)<1?'var(--text5)':(dUsd>=0?'var(--green)':'var(--red)'))+'">'+(m?fmtUsd(dUsd):'—')+'</td>'
+              +'<td>'+_pill(ok?'MATCH':'DIVERGED',ok?'var(--green)':'var(--red)')+'</td></tr>';
+          }).join('');
+          const un=(_rec.unattributed||[]).length;
+          // Unattributed is not a leg failure, it is a gap in our own logging, so it gets
+          // its own line rather than being blamed on whichever leg was closest in time.
+          const unNote=un?('<div style="margin-top:10px;font-size:10px;color:var(--yellow);line-height:1.7">⚠ '+un+' live trade'+(un===1?'':'s')+' could not be attributed to a strategy.'
+            +'<div style="color:var(--text5);margin-top:2px">The fill log only carries a strategy name for fills written after the NinjaTrader AddOn was rebuilt. Older fills are matched by time, and anything ambiguous is reported here instead of guessed.</div></div>'):'';
+          const probs=(V.problems||[]).length
+            ?'<div style="margin-top:10px;font-size:10px;color:var(--text3);line-height:1.8">'+(V.problems||[]).map(p=>'· '+String(p).replace(/</g,'&lt;')).join('<br>')+'</div>':'';
+          todayBody='<div style="overflow-x:auto"><table class="table"><thead><tr>'
+            +'<th>LEG</th><th style="text-align:right" title="trades the engine says it would have taken">ENGINE</th>'
+            +'<th style="text-align:right">ENGINE $</th>'
+            +'<th style="text-align:right" title="engine trade and demo fill that are the same trade">MATCHED</th>'
+            +'<th style="text-align:right" title="engine signalled, the demo never took it">ENGINE ONLY</th>'
+            +'<th style="text-align:right" title="the demo traded, the engine never signalled it">NT ONLY</th>'
+            +'<th style="text-align:right" title="how much worse the live fill was, in points; negative is better than the engine">SLIP PTS</th>'
+            +'<th style="text-align:right" title="live minus engine, matched trades only">Δ $</th><th>VERDICT</th></tr></thead>'
+            +'<tbody>'+(rows||'<tr><td colspan="9" style="color:var(--text5)">no legs shown</td></tr>')+'</tbody></table></div>'+unNote+probs;
+        }
+        // ---- HISTORY: full-backtest cross-engine, manual ----
+        const xrows=XENGINE.filter(x=>_legShown(x.leg)).map(x=>{
+          const never=x.verdict==='NEVER RUN';
+          return '<tr>'
+            +'<td><span style="color:'+(_legColor[x.leg]||'var(--text2)')+';font-weight:600">'+(_legLabel[x.leg]||x.leg)+'</span></td>'
+            +'<td style="text-align:right">'+(x.eng!=null?x.eng:'—')+'</td>'
+            +'<td style="text-align:right">'+(x.tv!=null?x.tv:'—')+'</td>'
+            +'<td style="text-align:right;color:var(--text3)">'+(x.tvIdent||'—')+'</td>'
+            +'<td style="text-align:right">'+(x.nt!=null?x.nt:'—')+'</td>'
+            +'<td style="text-align:right;color:var(--text3)">'+(x.ntIdent||'—')+'</td>'
+            +'<td>'+_stale(x.date)+'</td>'
+            +'<td>'+_pill(x.verdict,never?'var(--red)':'var(--green)')+'</td></tr>'
+            +(x.note?'<tr><td colspan="8" style="padding:0 0 8px;border:0;font-size:10px;color:var(--text5)">'+x.note+'</td></tr>':'');
+        }).join('');
+        reconcileHtml=tile('<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px">'
+          +'<div class="lbl">RECONCILE · DO THE THREE ENGINES AGREE?</div>'
+          +'<span style="font-size:9px;color:var(--text5)">'+(_recRep?('daily block from '+_recRep.id):'daily block missing')+'</span></div>'
+          +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6;margin:0 2px 12px;max-width:860px">'
+          +'The same strategy runs in three places: our engine (what we believe), NinjaTrader on the broker demo (what a broker actually filled), and TradingView (an outside engine as a second opinion). '
+          +'If they disagree, one of them is wrong — and until this panel existed, nothing said which.</div>'
+          +'<div class="lbl" style="font-size:10px;margin:4px 0 6px;color:var(--text3)">TODAY · ENGINE vs NINJATRADER <span style="font-weight:400;color:var(--text5)">· rebuilt automatically at every close</span></div>'
+          +todayBody
+          +'<div class="lbl" style="font-size:10px;margin:18px 0 6px;color:var(--text3)">FULL HISTORY · ENGINE vs TRADINGVIEW vs NINJATRADER <span style="font-weight:400;color:var(--text5)">· hand-run, see date</span></div>'
+          +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>LEG</th>'
+          +'<th style="text-align:right">ENGINE</th><th style="text-align:right">TV</th><th style="text-align:right" title="exit bars that landed on the identical bar">TV SAME</th>'
+          +'<th style="text-align:right">NT</th><th style="text-align:right" title="exit bars that landed on the identical bar">NT SAME</th>'
+          +'<th>LAST RUN</th><th>VERDICT</th></tr></thead><tbody>'+(xrows||'<tr><td colspan="8" style="color:var(--text5)">no legs shown</td></tr>')+'</tbody></table></div>'
+          +'<div style="margin-top:8px;font-size:10px;color:var(--text5);line-height:1.7">'+TV_HAS_NO_FEED
+          +' A leg reading NEVER RUN has not been checked against a second engine at all — its backtest is unverified, not verified-and-passing.</div>');
+      }
       const _reloadLbl=window._paperLoading?'LOADING…':'⟳ REFRESH';
       const _reloadBtn='<button data-paperrefresh style="height:24px;padding:0 12px;font-size:10px;font-weight:700;letter-spacing:1px;border-radius:7px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);cursor:pointer">'+_reloadLbl+'</button>';
       // Leg rail — same tinted-tray-with-filled-active-segment language as the report
@@ -16882,7 +16996,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         }).join('')+'</span>';
       const headerHtml='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px"><span class="lbl" style="font-size:13px">◷ PAPER · LIVE FORWARD TEST</span>'+_legRail+_reloadBtn+'<span style="margin-left:auto;font-size:9px;color:var(--text5)">paper trading starts '+PAPER_START+'</span></div>'
         +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6;margin:0 2px 16px;max-width:820px">The runner re-runs each crowned strategy on live data every day and logs the trades it would have taken — no real money. This board shows whether reality tracks the backtest.</div>';
-      body=headerHtml+tilesHtml+liveHtml+curveHtml+tradesHtml+reportsHtml
+      body=headerHtml+tilesHtml+liveHtml+reconcileHtml+curveHtml+tradesHtml+reportsHtml
         +(window._paperErr?'<div style="color:var(--red);font-size:10px;margin-top:10px">load error: '+String(window._paperErr).replace(/</g,'&lt;')+'</div>':'');
     }else{
       const allRuns=runHistory.slice();
