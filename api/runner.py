@@ -49,6 +49,13 @@ LISTENER_BACKSTOP_SEC = 600.0
 HEALTH_SEC = 3600.0
 # How often the NinjaTrader bridge watchdog republishes meta/nt_bridge (api/nt_bridge_pub.py).
 BRIDGE_SEC = 300.0
+# 9am ET roster preflight window (api/nt_preflight.py) -- one check per weekday morning.
+PREFLIGHT_TZ = "America/New_York"
+PREFLIGHT_START_HHMM = (9, 0)
+PREFLIGHT_END_HHMM = (9, 20)
+# Nightly NT backup window, LOCAL time (api/nt_backup.py) -- one snapshot per day.
+BACKUP_START_HHMM = (21, 0)
+BACKUP_END_HHMM = (21, 20)
 
 # Commands the parallel CommandThread (see below) is allowed to serve WHILE a backtest
 # job is running in the main loop. Only cheap/pure reads — reconcile (re-runs the engine)
@@ -1429,6 +1436,8 @@ def main(argv=None):
         next_backstop = time.time() + LISTENER_BACKSTOP_SEC
         next_health = 0.0   # first pass runs immediately, then every HEALTH_SEC
         next_bridge = 0.0   # first pass runs immediately, then every BRIDGE_SEC
+        preflight_done_date = None  # last local date the 9am ET roster preflight ran
+        backup_done_date = None     # last local date the nightly NT backup ran
         # Auto-refresh data on start and on a timer — hands-free, like the desktop
         # app does on open. Runs in the same loop (infrequent + bounded), so it
         # briefly pauses job polling while it pulls; that's fine at a 30-min cadence.
@@ -1529,6 +1538,42 @@ def main(argv=None):
                 except Exception as e:
                     print(f"[nt-bridge] skipped: {type(e).__name__}: {e}")
                 next_bridge = time.time() + BRIDGE_SEC
+            # 9am ET roster preflight. Tonight's re-add dialogs put two strategies on
+            # the LIVE account and NT showed no warning; the bridge caught it in one
+            # call. This makes that call automatic every trading morning. See
+            # api/nt_preflight.py.
+            if a.firestore:
+                try:
+                    from datetime import datetime
+                    from zoneinfo import ZoneInfo
+                    now_et = datetime.now(ZoneInfo(PREFLIGHT_TZ))
+                    in_window = (
+                        now_et.weekday() < 5
+                        and (now_et.hour, now_et.minute) >= PREFLIGHT_START_HHMM
+                        and (now_et.hour, now_et.minute) <= PREFLIGHT_END_HHMM)
+                    if in_window and preflight_done_date != now_et.date():
+                        from api import nt_preflight
+                        for _uid in (a.allow_uid or []):
+                            if _uid and _uid.strip():
+                                nt_preflight.publish(q.db, _uid.strip())
+                        preflight_done_date = now_et.date()
+                except Exception as e:
+                    print(f"[preflight] skipped: {type(e).__name__}: {e}")
+            # Nightly NT backup. Snapshots the sqlite Strategies table, workspaces, and
+            # config so a future NT auto-update wipe is a five-minute restore instead
+            # of a lost evening. See api/nt_backup.py.
+            try:
+                from datetime import datetime as _dt
+                now_local = _dt.now()
+                in_backup_window = (
+                    (now_local.hour, now_local.minute) >= BACKUP_START_HHMM
+                    and (now_local.hour, now_local.minute) <= BACKUP_END_HHMM)
+                if in_backup_window and backup_done_date != now_local.date():
+                    from api import nt_backup
+                    nt_backup.run_nightly()
+                    backup_done_date = now_local.date()
+            except Exception as e:
+                print(f"[nt-backup] skipped: {type(e).__name__}: {e}")
             if not done:
                 if listener_active:
                     # Blocks until a listener wake, or a.interval elapses — whichever
