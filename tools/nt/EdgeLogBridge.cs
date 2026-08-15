@@ -58,7 +58,7 @@ namespace NinjaTrader.NinjaScript.AddOns
 {
     public class EdgeLogBridge : AddOnBase
     {
-        private const string Version   = "1.1";
+        private const string Version   = "1.2";
         private const int    Port      = 8391;
         private const string LogPath   = @"C:\EdgeLog\bridge.log";
         private const string ConfPath  = @"C:\EdgeLog\bridge.json";
@@ -217,6 +217,10 @@ namespace NinjaTrader.NinjaScript.AddOns
                 case "/orders":      Respond(s, 200, Orders(q.ContainsKey("all"))); return;
                 case "/strategies":  Respond(s, 200, Strategies());           return;
                 case "/executions":  Respond(s, 200, Executions());           return;
+                case "/cancel":
+                    if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
+                    CancelOrder(s, q.ContainsKey("account") ? q["account"] : "",
+                                   q.ContainsKey("order_id") ? q["order_id"] : ""); return;
                 case "/flatten":
                     if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
                     Flatten(s, q.ContainsKey("account") ? q["account"] : "");  return;
@@ -488,6 +492,27 @@ namespace NinjaTrader.NinjaScript.AddOns
             acct.Flatten(instruments);
             Log("FLATTEN " + acctName + " (" + instruments.Count + " instrument(s))");
             Respond(s, 200, "{\"ok\":true,\"flattened\":" + instruments.Count + "}");
+        }
+
+        private void CancelOrder(NetworkStream s, string acctName, string orderId)
+        {
+            // Cancel sits at L1+L2 like flatten: pulling a resting order only ever
+            // REDUCES what can happen next. First real use: the 2026-08-14 orphan —
+            // ENGU-Q's protective stop left working on the demo after the auto-update
+            // deleted the strategy that owned it, a short waiting to happen.
+            string deny = DenyMutation(acctName);
+            if (deny != null) { Respond(s, 403, "{\"error\":" + J(deny) + "}"); Log("cancel REFUSED " + acctName + ": " + deny); return; }
+            if (string.IsNullOrEmpty(orderId)) { Respond(s, 400, "{\"error\":\"order_id is required\"}"); return; }
+            Account acct = FindAccount(acctName);
+            if (acct == null) { Respond(s, 404, "{\"error\":\"no such account\"}"); return; }
+            Order target = null;
+            lock (acct.Orders)
+                foreach (var o in acct.Orders)
+                    try { if ((o.OrderId ?? "") == orderId) { target = o; break; } } catch { }
+            if (target == null) { Respond(s, 404, "{\"error\":\"no order with that id\"}"); return; }
+            acct.Cancel(new[] { target });
+            Log("CANCEL " + acctName + " " + orderId + " (" + (target.Name ?? "") + ")");
+            Respond(s, 200, "{\"ok\":true,\"note\":\"cancel requested - poll /orders to confirm\"}");
         }
 
         private void PlaceOrder(NetworkStream s, string body)

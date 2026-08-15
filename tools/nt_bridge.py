@@ -149,6 +149,16 @@ def cmd_connect(args):
         sys.exit(1)
 
 
+def cmd_cancel(args):
+    if not args.yes:
+        print(f"Would cancel order_id={args.order_id} on account={args.account}. Re-run with --yes.")
+        sys.exit(1)
+    status, data = _call("POST", "/cancel", params={"account": args.account, "order_id": args.order_id})
+    print(json.dumps(data, indent=2) if args.json else f"status={status} {data}")
+    if status != 200:
+        sys.exit(1)
+
+
 def cmd_flatten(args):
     if not args.yes:
         print(f"Would flatten account={args.account}. Re-run with --yes to confirm.")
@@ -197,6 +207,12 @@ def main():
     p = sub.add_parser("executions")
     p.add_argument("--today", action="store_true", help="filter to today's date (UTC)")
     p.set_defaults(func=cmd_executions)
+
+    p = sub.add_parser("cancel")
+    p.add_argument("--account", required=True)
+    p.add_argument("--order_id", required=True)
+    p.add_argument("--yes", action="store_true")
+    p.set_defaults(func=cmd_cancel)
 
     p = sub.add_parser("flatten")
     p.add_argument("--account", required=True)
