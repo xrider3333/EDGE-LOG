@@ -1507,7 +1507,9 @@ def main(argv=None):
             if a.firestore and time.time() >= next_health:
                 try:
                     from api import data_health
-                    for _uid in (a.allow_uid or "").split(",") if a.allow_uid else []:
+                    # allow_uid is argparse action="append" -> a LIST; .split() on it
+                    # threw AttributeError and this block never once published.
+                    for _uid in (a.allow_uid or []):
                         if _uid.strip():
                             data_health.publish(q.db, _uid.strip())
                 except Exception as e:
