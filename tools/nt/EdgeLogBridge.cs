@@ -59,7 +59,7 @@ namespace NinjaTrader.NinjaScript.AddOns
 {
     public class EdgeLogBridge : AddOnBase
     {
-        private const string Version   = "1.6";
+        private const string Version   = "1.7";
         private const int    Port      = 8391;
         private const string LogPath   = @"C:\EdgeLog\bridge.log";
         private const string ConfPath  = @"C:\EdgeLog\bridge.json";
@@ -500,16 +500,14 @@ namespace NinjaTrader.NinjaScript.AddOns
             if (sb == null)
                 lock (_parked)
                     if (_parked.TryGetValue(name, out var p)) { sb = p; where = "parked registry"; }
-            // 3) the grid's STATIC AvailableStrategies list - every configured instance,
-            //    enabled or not, with no dependency on the tab ever having been opened.
-            //    (The visual-tree walk below only works after the tab materializes;
-            //    that cost one failed enable on the 2026-08-15 boot before this step.)
-            if (sb == null)
-            {
-                sb = FindAvailableStrategy(name);
-                if (sb != null) where = "AvailableStrategies";
-            }
-            // 4) the grid's own rows (belt to the static list's suspenders)
+            // 3) REMOVED - v1.6 resolved here via StrategiesGrid.AvailableStrategies,
+            //    which turned out to be the New Strategy PICKER's template list: fresh
+            //    default-constructed objects bound to the FIRST account (the live one).
+            //    The L1 rail refused them on the 2026-08-15 test - working exactly as
+            //    designed - and this source is permanently disqualified for lifecycle.
+            //    (FindAvailableStrategy stays: it is the right raw material for a
+            //    future /strategy/add, where a fresh template is exactly what you want.)
+            // 4) the grid's own rows
             if (sb == null)
             {
                 sb = FindGridStrategy(name);
