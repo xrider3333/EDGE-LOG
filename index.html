@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.35';
+const VERSION='73.36';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -1553,12 +1553,14 @@ function loadPaper(uidArg,force){
     base.collection('paper_trades').orderBy('entryTime','desc').limit(500).get(),
     base.collection('paper_reports').where(firebase.firestore.FieldPath.documentId(),'>=',new Date(Date.now()-60*86400000).toLocaleDateString('en-CA')).limit(90).get(),
     base.collection('meta').doc('nt_bridge').get(),
-    base.collection('meta').doc('nt_preflight').get()
-  ]).then(([ts,rs,nb,np])=>{
+    base.collection('meta').doc('nt_preflight').get(),
+    base.collection('meta').doc('nt_alert').get()
+  ]).then(([ts,rs,nb,np,na])=>{
     window._paperTrades=ts.docs.map(d=>({id:d.id,...d.data()}));
     window._paperReports=rs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.id.localeCompare(a.id)).slice(0,30);
     window._ntBridge=nb.exists?nb.data():null;
     window._ntPreflight=np.exists?np.data():null;
+    window._ntAlert=na.exists?na.data():null; // api/nt_heartbeat.py dead-man's-switch: critical/warning/ok
     window._paperLoaded=true;window._paperLoading=false;
     if(activeTab==='augur'&&augurSub==='paper')renderApp();
   }).catch(e=>{
@@ -16877,12 +16879,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Before this existed, "are the strategies even running?" took a screenshot.
       let bridgeHtml='';
       {
-        const B=window._ntBridge, P=window._ntPreflight;
+        const B=window._ntBridge, P=window._ntPreflight, A=window._ntAlert;
         const _age=ts=>{if(!ts)return null;const m=Math.floor((Date.now()-Date.parse(String(ts).replace(' ','T')+'Z'))/60000);return m;};
         const ageMin=B?_age(B.checked_at):null;
         const up=!!(B&&B.up), fresh=ageMin!=null&&ageMin<=12;
         const dotCol=!B?'var(--text5)':(up&&fresh?'var(--green)':(up?'var(--yellow)':'var(--red)'));
         const statusTxt=!B?'never reported':(up?'UP':'DOWN')+(ageMin!=null?' · checked '+(ageMin<1?'just now':ageMin+'m ago'):'');
+        // Dead-man's-switch banner (api/nt_heartbeat.py) -- fires when meta/nt_bridge's own
+        // heartbeat goes stale, so it still shows up even if the bridge/NT/PC died outright.
+        // Same visual language as the preflight ⚠ list below: red = critical, yellow = warning.
+        let alertBanner='';
+        if(A&&(A.severity==='critical'||A.severity==='warning')){
+          const aCol=A.severity==='critical'?'var(--red)':'var(--yellow)';
+          alertBanner='<div style="margin-bottom:8px;padding:8px 10px;border:1px solid '+aCol+';border-radius:6px;background:color-mix(in srgb,'+aCol+' 10%,transparent)">'
+            +'<span style="font-size:10px;font-weight:700;letter-spacing:0.5px;color:'+aCol+'">⚠ '+A.severity.toUpperCase()+'</span>'
+            +'<div style="font-size:10px;color:var(--text3);margin-top:3px;line-height:1.5">'+String(A.message||'').replace(/</g,'&lt;')+'</div></div>';
+        }
         let body;
         if(!B){
           body='<div style="padding:22px;text-align:center;color:var(--text5);font-size:11px;line-height:1.7">no bridge snapshot yet — the runner publishes one every 5 minutes when it is up</div>';
@@ -16906,7 +16918,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dotCol+'"></span>'
           +'<div class="lbl">NINJATRADER · DEMO7240108</div>'
           +'<span style="font-size:9px;color:var(--text5)">'+statusTxt+(B&&B.version?' · v'+B.version:'')+'</span></div>'
-          +body+liveInner);
+          +alertBanner+body+liveInner);
       }
       // ── RECONCILE ─────────────────────────────────────────────────────────────
       // The whole point of PAPER is that three independent engines should agree. This

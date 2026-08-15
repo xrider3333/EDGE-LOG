@@ -1537,6 +1537,17 @@ def main(argv=None):
                             nt_bridge_pub.publish(q.db, _uid.strip())
                 except Exception as e:
                     print(f"[nt-bridge] skipped: {type(e).__name__}: {e}")
+                # Dead-man's-switch: does meta/nt_bridge's own heartbeat stay fresh? Runs
+                # right after the publish above, on the same BRIDGE_SEC cadence, but reads
+                # ONLY the Firestore doc -- never the bridge itself -- so it still fires an
+                # alarm even if the bridge/NT/PC/runner died outright. See api/nt_heartbeat.py.
+                try:
+                    from api import nt_heartbeat
+                    for _uid in (a.allow_uid or []):
+                        if _uid and _uid.strip():
+                            nt_heartbeat.publish(q.db, _uid.strip())
+                except Exception as e:
+                    print(f"[nt-heartbeat] skipped: {type(e).__name__}: {e}")
                 next_bridge = time.time() + BRIDGE_SEC
             # 9am ET roster preflight. Tonight's re-add dialogs put two strategies on
             # the LIVE account and NT showed no warning; the bridge caught it in one
