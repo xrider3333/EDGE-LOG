@@ -58,7 +58,7 @@ namespace NinjaTrader.NinjaScript.AddOns
 {
     public class EdgeLogBridge : AddOnBase
     {
-        private const string Version   = "1.2";
+        private const string Version   = "1.3";
         private const int    Port      = 8391;
         private const string LogPath   = @"C:\EdgeLog\bridge.log";
         private const string ConfPath  = @"C:\EdgeLog\bridge.json";
@@ -217,6 +217,10 @@ namespace NinjaTrader.NinjaScript.AddOns
                 case "/orders":      Respond(s, 200, Orders(q.ContainsKey("all"))); return;
                 case "/strategies":  Respond(s, 200, Strategies());           return;
                 case "/executions":  Respond(s, 200, Executions());           return;
+                case "/reflect/types":
+                    Respond(s, 200, ReflectTypes(q.ContainsKey("contains") ? q["contains"] : "")); return;
+                case "/reflect/members":
+                    Respond(s, 200, ReflectMembers(q.ContainsKey("type") ? q["type"] : "")); return;
                 case "/cancel":
                     if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
                     CancelOrder(s, q.ContainsKey("account") ? q["account"] : "",
@@ -416,6 +420,85 @@ namespace NinjaTrader.NinjaScript.AddOns
                 catch (Exception ex) { Log("executions: " + ex.Message); }
             }
             return "{\"executions\":[" + string.Join(",", rows) + "]}";
+        }
+
+        // ── reflection introspection — READ-ONLY R&D instruments ─────────────
+        // NT8 has no supported API for creating/enabling strategy instances (the
+        // 2026-08-14 recovery would have been one call if it did). These two
+        // endpoints let the outside tooling MAP the internals — type names, member
+        // signatures — live over HTTP, so each reflection experiment in a future
+        // version is designed from facts instead of one blind recompile per guess.
+        // They only ever READ metadata: no Invoke, no field writes, no instances.
+        private string ReflectTypes(string contains)
+        {
+            var rows = new List<string>();
+            if (string.IsNullOrEmpty(contains) || contains.Length < 3)
+                return "{\"error\":\"pass ?contains= with at least 3 chars\"}";
+            try
+            {
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    Type[] types;
+                    try { types = asm.GetTypes(); } catch { continue; }   // dynamic asms throw
+                    foreach (var t in types)
+                    {
+                        if (t.FullName == null ||
+                            t.FullName.IndexOf(contains, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                        rows.Add("{\"type\":" + J(t.FullName)
+                               + ",\"assembly\":" + J(asm.GetName().Name)
+                               + ",\"public\":" + (t.IsPublic ? "true" : "false") + "}");
+                        if (rows.Count >= 100) break;
+                    }
+                    if (rows.Count >= 100) break;
+                }
+            }
+            catch (Exception ex) { Log("reflect/types: " + ex.Message); }
+            return "{\"types\":[" + string.Join(",", rows) + "]}";
+        }
+
+        private string ReflectMembers(string typeName)
+        {
+            if (string.IsNullOrEmpty(typeName)) return "{\"error\":\"pass ?type=Full.Type.Name\"}";
+            Type t = null;
+            try
+            {
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    try { t = asm.GetType(typeName, false, true); } catch { }
+                    if (t != null) break;
+                }
+            }
+            catch (Exception ex) { Log("reflect/members: " + ex.Message); }
+            if (t == null) return "{\"error\":\"type not found\"}";
+            var rows = new List<string>();
+            const System.Reflection.BindingFlags F =
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic |
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static |
+                System.Reflection.BindingFlags.DeclaredOnly;
+            try
+            {
+                foreach (var m in t.GetMethods(F))
+                {
+                    var ps = new List<string>();
+                    foreach (var p in m.GetParameters()) ps.Add(p.ParameterType.Name + " " + p.Name);
+                    rows.Add("{\"kind\":\"method\",\"name\":" + J(m.Name)
+                           + ",\"static\":" + (m.IsStatic ? "true" : "false")
+                           + ",\"public\":" + (m.IsPublic ? "true" : "false")
+                           + ",\"returns\":" + J(m.ReturnType.Name)
+                           + ",\"params\":" + J(string.Join(", ", ps)) + "}");
+                    if (rows.Count >= 300) break;
+                }
+                foreach (var p in t.GetProperties(F))
+                {
+                    if (rows.Count >= 300) break;
+                    rows.Add("{\"kind\":\"property\",\"name\":" + J(p.Name)
+                           + ",\"type\":" + J(p.PropertyType.Name)
+                           + ",\"can_write\":" + (p.CanWrite ? "true" : "false") + "}");
+                }
+            }
+            catch (Exception ex) { Log("reflect/members walk: " + ex.Message); }
+            return "{\"type\":" + J(t.FullName) + ",\"base\":" + J(t.BaseType != null ? t.BaseType.FullName : "")
+                 + ",\"members\":[" + string.Join(",", rows) + "]}";
         }
 
         // ── connections ──────────────────────────────────────────────────────
