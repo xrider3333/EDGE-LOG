@@ -59,7 +59,7 @@ namespace NinjaTrader.NinjaScript.AddOns
 {
     public class EdgeLogBridge : AddOnBase
     {
-        private const string Version   = "1.7";
+        private const string Version   = "1.8";
         private const int    Port      = 8391;
         private const string LogPath   = @"C:\EdgeLog\bridge.log";
         private const string ConfPath  = @"C:\EdgeLog\bridge.json";
@@ -256,6 +256,12 @@ namespace NinjaTrader.NinjaScript.AddOns
                         Respond(s, 200, "{\"ok\":true,\"note\":\"flag set in memory; whether NT persists it shows on the next boot\"}");
                     }
                     return;
+                case "/reflect/windows":
+                    Respond(s, 200, ReflectWindows()); return;
+                case "/reflect/inspect":
+                    Respond(s, 200, ReflectInspect(q.ContainsKey("type") ? q["type"] : "")); return;
+                case "/reflect/gridfields":
+                    Respond(s, 200, ReflectGridFields()); return;
                 case "/reflect/gridrows":
                     Respond(s, 200, ReflectGridRows()); return;
                 case "/reflect/types":
@@ -588,6 +594,128 @@ namespace NinjaTrader.NinjaScript.AddOns
             }
             catch (Exception ex) { Log("AvailableStrategies dispatch: " + ex.Message); }
             return found;
+        }
+
+        /// <summary>Debug: every open window's type, plus how many StrategiesGrid
+        /// descendants the visual walk finds in each — discriminates "no grid exists"
+        /// from "grid exists but its rows hide elsewhere".</summary>
+        private string ReflectWindows()
+        {
+            var rows = new List<string>();
+            try
+            {
+                Core.Globals.MainThreadDispatcher.Invoke(new Action(() =>
+                {
+                    try
+                    {
+                        foreach (System.Windows.Window w in System.Windows.Application.Current.Windows)
+                        {
+                            int grids = 0, nodes = 0;
+                            foreach (var c in FindVisualChildren(w))
+                            {
+                                nodes++;
+                                if (c.GetType().FullName == "NinjaTrader.Gui.NinjaScript.StrategiesGrid") grids++;
+                            }
+                            rows.Add("{\"window\":" + J(w.GetType().FullName) + ",\"title\":" + J(w.Title ?? "")
+                                   + ",\"visual_nodes\":" + nodes + ",\"strategies_grids\":" + grids + "}");
+                        }
+                    }
+                    catch (Exception ex) { Log("windows: " + ex.Message); }
+                }));
+            }
+            catch (Exception ex) { Log("windows dispatch: " + ex.Message); }
+            return "{\"windows\":[" + string.Join(",", rows) + "]}";
+        }
+
+        /// <summary>Debug: a type's STATIC fields and properties with live values —
+        /// type name, enumerable count, first item's type. Read-only.</summary>
+        private string ReflectInspect(string typeName)
+        {
+            if (string.IsNullOrEmpty(typeName)) return "{\"error\":\"pass ?type=Full.Type.Name\"}";
+            Type t = null;
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try { t = asm.GetType(typeName, false, true); } catch { }
+                if (t != null) break;
+            }
+            if (t == null) return "{\"error\":\"type not found\"}";
+            var rows = new List<string>();
+            const System.Reflection.BindingFlags SF =
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic |
+                System.Reflection.BindingFlags.Static;
+            try
+            {
+                Core.Globals.MainThreadDispatcher.Invoke(new Action(() =>
+                {
+                    foreach (var f in t.GetFields(SF))
+                        rows.Add(DescribeValue("field", f.Name, () => f.GetValue(null)));
+                    foreach (var p in t.GetProperties(SF))
+                        if (p.GetIndexParameters().Length == 0)
+                            rows.Add(DescribeValue("property", p.Name, () => p.GetValue(null)));
+                }));
+            }
+            catch (Exception ex) { Log("inspect: " + ex.Message); }
+            return "{\"type\":" + J(t.FullName) + ",\"statics\":[" + string.Join(",", rows) + "]}";
+        }
+
+        private string DescribeValue(string kind, string name, Func<object> get)
+        {
+            string vt = "?", extra = "";
+            try
+            {
+                object v = get();
+                if (v == null) vt = "null";
+                else
+                {
+                    vt = v.GetType().Name;
+                    if (v is System.Collections.IEnumerable en && !(v is string))
+                    {
+                        int n = 0; string first = "";
+                        foreach (var item in en)
+                        {
+                            if (n == 0 && item != null) first = item.GetType().Name;
+                            n++; if (n > 500) break;
+                        }
+                        extra = ",\"count\":" + n + ",\"item_type\":" + J(first);
+                    }
+                }
+            }
+            catch (Exception ex) { vt = "threw: " + ex.Message; }
+            return "{\"kind\":" + J(kind) + ",\"name\":" + J(name) + ",\"value_type\":" + J(vt) + extra + "}";
+        }
+
+        /// <summary>Debug: every field/property on each StrategiesGrid instance found in
+        /// the tree — names, runtime types, enumerable counts. The map for finding where
+        /// the grid actually keeps its rows.</summary>
+        private string ReflectGridFields()
+        {
+            var rows = new List<string>();
+            try
+            {
+                Core.Globals.MainThreadDispatcher.Invoke(new Action(() =>
+                {
+                    try
+                    {
+                        foreach (System.Windows.Window w in System.Windows.Application.Current.Windows)
+                            foreach (var grid in FindVisualChildren(w))
+                            {
+                                if (grid.GetType().FullName != "NinjaTrader.Gui.NinjaScript.StrategiesGrid") continue;
+                                const System.Reflection.BindingFlags BF =
+                                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic |
+                                    System.Reflection.BindingFlags.Instance;
+                                foreach (var f in grid.GetType().GetFields(BF))
+                                    rows.Add(DescribeValue("field", f.Name, () => f.GetValue(grid)));
+                                foreach (var p in grid.GetType().GetProperties(BF))
+                                    if (p.GetIndexParameters().Length == 0)
+                                        rows.Add(DescribeValue("property", p.Name, () => p.GetValue(grid)));
+                                return;   // first grid is enough
+                            }
+                    }
+                    catch (Exception ex) { Log("gridfields: " + ex.Message); }
+                }));
+            }
+            catch (Exception ex) { Log("gridfields dispatch: " + ex.Message); }
+            return "{\"members\":[" + string.Join(",", rows) + "]}";
         }
 
         /// <summary>All enumerable collections reachable on a grid instance — fields AND
