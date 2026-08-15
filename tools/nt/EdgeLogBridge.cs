@@ -59,7 +59,7 @@ namespace NinjaTrader.NinjaScript.AddOns
 {
     public class EdgeLogBridge : AddOnBase
     {
-        private const string Version   = "1.4";
+        private const string Version   = "1.5";
         private const int    Port      = 8391;
         private const string LogPath   = @"C:\EdgeLog\bridge.log";
         private const string ConfPath  = @"C:\EdgeLog\bridge.json";
@@ -239,6 +239,23 @@ namespace NinjaTrader.NinjaScript.AddOns
                 case "/strategy/disable":
                     if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
                     StrategyLifecycle(s, q.ContainsKey("name") ? q["name"] : "", false); return;
+                case "/connections/startup":
+                    if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
+                    // Experiment, honestly labelled: ConnectOnStartup is writable, but
+                    // whether NT persists it for a login-provisioned brokerage
+                    // connection across restarts is unproven. The next boot is the test.
+                    {
+                        string cn = q.ContainsKey("name") ? q["name"] : "";
+                        bool on = !q.ContainsKey("on") || q["on"] != "0";
+                        ConnectOptions target = null;
+                        foreach (ConnectOptions o in AllConnectOptions())
+                            if (string.Equals(o.Name, cn, StringComparison.OrdinalIgnoreCase)) { target = o; break; }
+                        if (target == null) { Respond(s, 404, "{\"error\":\"no saved connection by that name\"}"); return; }
+                        try { target.ConnectOnStartup = on; Log("STARTUP flag " + cn + " -> " + on); }
+                        catch (Exception ex) { Respond(s, 500, "{\"error\":" + J(ex.Message) + "}"); return; }
+                        Respond(s, 200, "{\"ok\":true,\"note\":\"flag set in memory; whether NT persists it shows on the next boot\"}");
+                    }
+                    return;
                 case "/reflect/gridrows":
                     Respond(s, 200, ReflectGridRows()); return;
                 case "/reflect/types":
@@ -535,6 +552,35 @@ namespace NinjaTrader.NinjaScript.AddOns
                  + ",\"note\":\"poll /strategies to confirm state\"}");
         }
 
+        /// <summary>All enumerable collections reachable on a grid instance — fields AND
+        /// properties. v1.4 walked fields only and saw nothing; WPF controls keep their
+        /// rows behind properties (ItemsSource, Items, view collections).</summary>
+        private static List<System.Collections.IEnumerable> GridCollections(object grid)
+        {
+            var outp = new List<System.Collections.IEnumerable>();
+            const System.Reflection.BindingFlags BF =
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.Instance;
+            try
+            {
+                foreach (var f in grid.GetType().GetFields(BF))
+                {
+                    var v = f.GetValue(grid) as System.Collections.IEnumerable;
+                    if (v != null && !(v is string)) outp.Add(v);
+                }
+                foreach (var p in grid.GetType().GetProperties(BF))
+                {
+                    if (p.GetIndexParameters().Length > 0) continue;
+                    object v = null;
+                    try { v = p.GetValue(grid); } catch { }
+                    var en = v as System.Collections.IEnumerable;
+                    if (en != null && !(en is string)) outp.Add(en);
+                }
+            }
+            catch { }
+            return outp;
+        }
+
         /// <summary>Walk the Control Center's StrategiesGrid rows for a StrategyBase by
         /// name — reflection over its instance fields, read-only. Returns null quietly:
         /// callers treat null as "not reachable", never as an error.</summary>
@@ -552,17 +598,12 @@ namespace NinjaTrader.NinjaScript.AddOns
                             foreach (var grid in FindVisualChildren(w))
                             {
                                 if (grid.GetType().FullName != "NinjaTrader.Gui.NinjaScript.StrategiesGrid") continue;
-                                foreach (var f in grid.GetType().GetFields(
-                                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance))
-                                {
-                                    var val = f.GetValue(grid) as System.Collections.IEnumerable;
-                                    if (val == null || val is string) continue;
+                                foreach (var val in GridCollections(grid))
                                     foreach (var item in val)
                                     {
                                         var sbFound = StrategyFromRow(item, name);
                                         if (sbFound != null) { found = sbFound; return; }
                                     }
-                                }
                             }
                         }
                     }
@@ -627,11 +668,10 @@ namespace NinjaTrader.NinjaScript.AddOns
                             foreach (var grid in FindVisualChildren(w))
                             {
                                 if (grid.GetType().FullName != "NinjaTrader.Gui.NinjaScript.StrategiesGrid") continue;
-                                foreach (var f in grid.GetType().GetFields(
-                                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance))
+                                int srcIdx = -1;
+                                foreach (var val in GridCollections(grid))
                                 {
-                                    var val = f.GetValue(grid) as System.Collections.IEnumerable;
-                                    if (val == null || val is string) continue;
+                                    srcIdx++;
                                     foreach (var item in val)
                                     {
                                         var t = item.GetType().Name;
@@ -649,7 +689,7 @@ namespace NinjaTrader.NinjaScript.AddOns
                                             }
                                         }
                                         catch { }
-                                        rows.Add("{\"field\":" + J(f.Name) + ",\"row_type\":" + J(t)
+                                        rows.Add("{\"field\":" + J("src" + srcIdx) + ",\"row_type\":" + J(t)
                                                + ",\"name\":" + J(nm) + ",\"account\":" + J(acct)
                                                + ",\"state\":" + J(st)
                                                + ",\"strategy_reachable\":" + (reachable ? "true" : "false") + "}");
@@ -749,6 +789,23 @@ namespace NinjaTrader.NinjaScript.AddOns
         // holds no position — it is the same act as clicking Connections ▸ <name>.
         // There is still one guard: only names that exist in the user's own saved
         // connection list can be dialed. The bridge can never invent a connection.
+        /// <summary>Every saved connection: the user-defined list PLUS the unified-login
+        /// brokerage list. v1.1-v1.4 read only the first and could not see the broker
+        /// demo at all — three hand-dials in one evening before the gap was mapped
+        /// (Globals.BrokerageConnectOptions, found via /reflect on 2026-08-14).</summary>
+        private static List<ConnectOptions> AllConnectOptions()
+        {
+            var outp = new List<ConnectOptions>();
+            try { lock (Core.Globals.ConnectOptions) foreach (ConnectOptions o in Core.Globals.ConnectOptions) outp.Add(o); } catch { }
+            try
+            {
+                var bl = Core.Globals.BrokerageConnectOptions;
+                if (bl != null) lock (bl) foreach (var o in bl) if (o != null) outp.Add(o);
+            }
+            catch (Exception ex) { Log("brokerage options: " + ex.Message); }
+            return outp;
+        }
+
         private string Connections()
         {
             var rows = new List<string>();
@@ -761,16 +818,17 @@ namespace NinjaTrader.NinjaScript.AddOns
                         try { live[c.Options.Name] = c.Status.ToString(); }
                         catch { }
                     }
-                lock (Core.Globals.ConnectOptions)
-                    foreach (ConnectOptions o in Core.Globals.ConnectOptions)
+                foreach (ConnectOptions o in AllConnectOptions())
+                {
+                    try
                     {
-                        try
-                        {
-                            string st = live.ContainsKey(o.Name) ? live[o.Name] : "Disconnected";
-                            rows.Add("{\"name\":" + J(o.Name) + ",\"status\":" + J(st) + "}");
-                        }
-                        catch (Exception ex) { Log("conn row: " + ex.Message); }
+                        string st = live.ContainsKey(o.Name) ? live[o.Name] : "Disconnected";
+                        rows.Add("{\"name\":" + J(o.Name) + ",\"status\":" + J(st)
+                               + ",\"connect_on_startup\":" + (o.ConnectOnStartup ? "true" : "false")
+                               + ",\"brokerage\":" + (o is NTConnectOptions ? "true" : "false") + "}");
                     }
+                    catch (Exception ex) { Log("conn row: " + ex.Message); }
+                }
             }
             catch (Exception ex) { Log("connections: " + ex.Message); }
             return "{\"connections\":[" + string.Join(",", rows) + "]}";
@@ -780,9 +838,8 @@ namespace NinjaTrader.NinjaScript.AddOns
         {
             if (string.IsNullOrEmpty(name)) { Respond(s, 400, "{\"error\":\"name is required\"}"); return; }
             ConnectOptions opt = null;
-            lock (Core.Globals.ConnectOptions)
-                foreach (ConnectOptions o in Core.Globals.ConnectOptions)
-                    if (string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase)) { opt = o; break; }
+            foreach (ConnectOptions o in AllConnectOptions())
+                if (string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase)) { opt = o; break; }
             if (opt == null) { Respond(s, 404, "{\"error\":\"no saved connection by that name\"}"); return; }
             lock (Connection.Connections)
                 foreach (Connection c in Connection.Connections)
