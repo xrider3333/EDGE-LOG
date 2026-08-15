@@ -21,6 +21,7 @@
 //    GET  /strategies    per-account strategy instances: name, state, position
 //    GET  /executions    today's fills
 //    POST /flatten?account=NAME          close everything on ONE allowed account
+//    POST /killswitch                    flatten + disable every ALLOWED account/strategy
 //    POST /order  (json body)            place an order — see ORDERS below
 //
 //  SAFETY MODEL — built with LIVE trading in mind, so the rails are layered and
@@ -59,7 +60,7 @@ namespace NinjaTrader.NinjaScript.AddOns
 {
     public class EdgeLogBridge : AddOnBase
     {
-        private const string Version   = "1.9";
+        private const string Version   = "2.0";
         private const int    Port      = 8391;
         private const string LogPath   = @"C:\EdgeLog\bridge.log";
         private const string ConfPath  = @"C:\EdgeLog\bridge.json";
@@ -275,6 +276,9 @@ namespace NinjaTrader.NinjaScript.AddOns
                 case "/flatten":
                     if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
                     Flatten(s, q.ContainsKey("account") ? q["account"] : "");  return;
+                case "/killswitch":
+                    if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
+                    KillSwitch(s); return;
                 case "/order":
                     if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
                     PlaceOrder(s, body);                                       return;
@@ -1093,6 +1097,82 @@ namespace NinjaTrader.NinjaScript.AddOns
             acct.Cancel(new[] { target });
             Log("CANCEL " + acctName + " " + orderId + " (" + (target.Name ?? "") + ")");
             Respond(s, 200, "{\"ok\":true,\"note\":\"cancel requested - poll /orders to confirm\"}");
+        }
+
+        // ── kill switch — ONE call: flatten every allowed account, disable every
+        // reachable strategy on it. Built for the moment reasoning fails under
+        // pressure — no target selection, no judgment calls, just "stop everything
+        // you're allowed to touch, right now". It is a composition of Flatten +
+        // StrategyLifecycle's own disable path, so it inherits the SAME L1/L2 gate
+        // per account (DenyMutation) — it can never reach 1810769 any more than a
+        // single flatten call could. Best-effort: one account/strategy failing
+        // never stops the rest from being attempted.
+        private void KillSwitch(NetworkStream s)
+        {
+            var flattened = new List<string>();
+            var disabled = new List<string>();
+            var errors = new List<string>();
+
+            List<Account> accts;
+            lock (Account.All) accts = new List<Account>(Account.All);
+
+            foreach (var a in accts)
+            {
+                string deny = DenyMutation(a.Name);
+                if (deny != null) continue;   // not ours to touch (incl. LIVE_LOCKED)
+
+                try
+                {
+                    var instruments = new List<Instrument>();
+                    lock (a.Positions)
+                        foreach (var p in a.Positions)
+                            if (p.MarketPosition != MarketPosition.Flat && p.Instrument != null)
+                                instruments.Add(p.Instrument);
+                    if (instruments.Count > 0)
+                    {
+                        a.Flatten(instruments);
+                        flattened.Add(a.Name + " (" + instruments.Count + ")");
+                    }
+                }
+                catch (Exception ex) { errors.Add("flatten " + a.Name + ": " + ex.Message); }
+
+                List<StrategyBase> ss;
+                try { lock (a.Strategies) ss = new List<StrategyBase>(a.Strategies); }
+                catch (Exception ex) { errors.Add("strategies " + a.Name + ": " + ex.Message); continue; }
+
+                foreach (var st in ss)
+                {
+                    string stName = "?";
+                    try { stName = st.Name; } catch { }
+                    string err = null;
+                    try
+                    {
+                        Core.Globals.MainThreadDispatcher.Invoke(new Action(() =>
+                        {
+                            try
+                            {
+                                const System.Reflection.BindingFlags SF =
+                                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic |
+                                    System.Reflection.BindingFlags.Static;
+                                var mi = typeof(StrategiesGrid).GetMethod("StrategyDisable", SF);
+                                if (mi == null) err = "grid method not found";
+                                else mi.Invoke(null, new object[] { st });
+                            }
+                            catch (System.Reflection.TargetInvocationException tex)
+                            { err = (tex.InnerException ?? tex).Message; }
+                            catch (Exception ex) { err = ex.Message; }
+                        }));
+                    }
+                    catch (Exception ex) { err = "dispatch: " + ex.Message; }
+                    if (err != null) errors.Add("disable " + stName + ": " + err);
+                    else { disabled.Add(stName); lock (_parked) _parked[stName] = st; }
+                }
+            }
+
+            Log("KILLSWITCH flattened=[" + string.Join(",", flattened) + "] disabled=[" + string.Join(",", disabled) + "]"
+                + (errors.Count > 0 ? " errors=[" + string.Join(" | ", errors) + "]" : ""));
+            Respond(s, 200, "{\"ok\":true,\"flattened\":" + JArr(flattened) + ",\"disabled\":" + JArr(disabled)
+                + ",\"errors\":" + JArr(errors) + "}");
         }
 
         private void PlaceOrder(NetworkStream s, string body)

@@ -197,6 +197,19 @@ def cmd_flatten(args):
         sys.exit(1)
 
 
+def cmd_killswitch(args):
+    # Flattens + disables everything the bridge is ALLOWED to touch (L1/L2 rails
+    # still apply per-account inside the AddOn). This is the panic button: no
+    # target selection, one call, best-effort across every allowed account.
+    if not args.yes:
+        print("Would FLATTEN + DISABLE every allowed account/strategy. Re-run with --yes.")
+        sys.exit(1)
+    status, data = _call("POST", "/killswitch")
+    print(json.dumps(data, indent=2) if args.json else f"status={status} {data}")
+    if status != 200:
+        sys.exit(1)
+
+
 def cmd_order(args):
     body = {"account": args.account, "instrument": args.instrument, "action": args.action,
              "type": args.type, "qty": args.qty}
@@ -258,6 +271,10 @@ def main():
     p.add_argument("--account", required=True)
     p.add_argument("--yes", action="store_true")
     p.set_defaults(func=cmd_flatten)
+
+    p = sub.add_parser("killswitch")
+    p.add_argument("--yes", action="store_true")
+    p.set_defaults(func=cmd_killswitch)
 
     p = sub.add_parser("order")
     p.add_argument("--account", required=True)
