@@ -59,7 +59,7 @@ namespace NinjaTrader.NinjaScript.AddOns
 {
     public class EdgeLogBridge : AddOnBase
     {
-        private const string Version   = "1.5";
+        private const string Version   = "1.6";
         private const int    Port      = 8391;
         private const string LogPath   = @"C:\EdgeLog\bridge.log";
         private const string ConfPath  = @"C:\EdgeLog\bridge.json";
@@ -500,7 +500,16 @@ namespace NinjaTrader.NinjaScript.AddOns
             if (sb == null)
                 lock (_parked)
                     if (_parked.TryGetValue(name, out var p)) { sb = p; where = "parked registry"; }
-            // 3) the grid's own rows (works for strategies disabled before we loaded)
+            // 3) the grid's STATIC AvailableStrategies list - every configured instance,
+            //    enabled or not, with no dependency on the tab ever having been opened.
+            //    (The visual-tree walk below only works after the tab materializes;
+            //    that cost one failed enable on the 2026-08-15 boot before this step.)
+            if (sb == null)
+            {
+                sb = FindAvailableStrategy(name);
+                if (sb != null) where = "AvailableStrategies";
+            }
+            // 4) the grid's own rows (belt to the static list's suspenders)
             if (sb == null)
             {
                 sb = FindGridStrategy(name);
@@ -550,6 +559,37 @@ namespace NinjaTrader.NinjaScript.AddOns
             Log("lifecycle " + (enable ? "ENABLE" : "DISABLE") + " " + name + " via " + where);
             Respond(s, 200, "{\"ok\":true,\"found_in\":" + J(where)
                  + ",\"note\":\"poll /strategies to confirm state\"}");
+        }
+
+        /// <summary>Resolve a strategy instance from StrategiesGrid.AvailableStrategies —
+        /// the non-public STATIC list behind the grid, alive whether or not the tab was
+        /// ever opened. Read on the UI dispatcher: it is grid state.</summary>
+        private StrategyBase FindAvailableStrategy(string name)
+        {
+            StrategyBase found = null;
+            try
+            {
+                Core.Globals.MainThreadDispatcher.Invoke(new Action(() =>
+                {
+                    try
+                    {
+                        var pi = typeof(StrategiesGrid).GetProperty("AvailableStrategies",
+                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic |
+                            System.Reflection.BindingFlags.Static);
+                        var en = pi != null ? pi.GetValue(null) as System.Collections.IEnumerable : null;
+                        if (en == null) { Log("AvailableStrategies: property missing or null"); return; }
+                        foreach (var o in en)
+                        {
+                            var sb = o as StrategyBase;
+                            if (sb != null && string.Equals(sb.Name, name, StringComparison.OrdinalIgnoreCase))
+                            { found = sb; return; }
+                        }
+                    }
+                    catch (Exception ex) { Log("AvailableStrategies: " + ex.Message); }
+                }));
+            }
+            catch (Exception ex) { Log("AvailableStrategies dispatch: " + ex.Message); }
+            return found;
         }
 
         /// <summary>All enumerable collections reachable on a grid instance — fields AND
