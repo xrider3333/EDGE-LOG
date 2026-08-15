@@ -49,6 +49,9 @@ LISTENER_BACKSTOP_SEC = 600.0
 HEALTH_SEC = 3600.0
 # How often the NinjaTrader bridge watchdog republishes meta/nt_bridge (api/nt_bridge_pub.py).
 BRIDGE_SEC = 300.0
+# How often the execution reviewer polls /executions for new fills (api/nt_exec_review.py).
+# Much tighter than BRIDGE_SEC -- fills need to feel "immediate," not once-per-5-minutes.
+EXEC_REVIEW_SEC = 45.0
 # 9am ET roster preflight window (api/nt_preflight.py) -- one check per weekday morning.
 PREFLIGHT_TZ = "America/New_York"
 PREFLIGHT_START_HHMM = (9, 0)
@@ -1436,6 +1439,7 @@ def main(argv=None):
         next_backstop = time.time() + LISTENER_BACKSTOP_SEC
         next_health = 0.0   # first pass runs immediately, then every HEALTH_SEC
         next_bridge = 0.0   # first pass runs immediately, then every BRIDGE_SEC
+        next_exec_review = 0.0  # first pass runs immediately, then every EXEC_REVIEW_SEC
         preflight_done_date = None  # last local date the 9am ET roster preflight ran
         backup_done_date = None     # last local date the nightly NT backup ran
         # Auto-refresh data on start and on a timer — hands-free, like the desktop
@@ -1549,6 +1553,18 @@ def main(argv=None):
                 except Exception as e:
                     print(f"[nt-heartbeat] skipped: {type(e).__name__}: {e}")
                 next_bridge = time.time() + BRIDGE_SEC
+            # Tier-1 execution reviewer. Notifies on every new fill (push, not Firestore --
+            # no uid/db needed), separately flags fills that don't match the small static
+            # per-strategy fingerprint (instrument/account/max qty). Notify-only by design;
+            # see api/nt_exec_review.py's module docstring for the escalation path. Runs on
+            # its own tighter cadence than BRIDGE_SEC since fills need to feel immediate.
+            if time.time() >= next_exec_review:
+                try:
+                    from api import nt_exec_review
+                    nt_exec_review.publish()
+                except Exception as e:
+                    print(f"[exec-review] skipped: {type(e).__name__}: {e}")
+                next_exec_review = time.time() + EXEC_REVIEW_SEC
             # 9am ET roster preflight. Tonight's re-add dialogs put two strategies on
             # the LIVE account and NT showed no warning; the bridge caught it in one
             # call. This makes that call automatic every trading morning. See
