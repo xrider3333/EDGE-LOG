@@ -131,6 +131,24 @@ def cmd_executions(args):
     _print_rows(rows, ["account", "exec_id", "time_utc", "instrument", "side", "qty", "price"])
 
 
+def cmd_connections(args):
+    status, data = _call("GET", "/connections")
+    if args.json:
+        print(json.dumps(data, indent=2))
+        return
+    _print_rows(data.get("connections", []), ["name", "status"])
+
+
+def cmd_connect(args):
+    # No --yes here on purpose: connecting is the same act as clicking the
+    # Connections menu — it moves no money and holds no position. The AddOn only
+    # dials names that already exist in the user's saved connection list.
+    status, data = _call("POST", "/connect", params={"name": args.name})
+    print(json.dumps(data, indent=2) if args.json else f"status={status} {data}")
+    if status != 200:
+        sys.exit(1)
+
+
 def cmd_flatten(args):
     if not args.yes:
         print(f"Would flatten account={args.account}. Re-run with --yes to confirm.")
@@ -166,6 +184,11 @@ def main():
     sub.add_parser("accounts").set_defaults(func=cmd_accounts)
     sub.add_parser("positions").set_defaults(func=cmd_positions)
     sub.add_parser("strategies").set_defaults(func=cmd_strategies)
+    sub.add_parser("connections").set_defaults(func=cmd_connections)
+
+    p = sub.add_parser("connect")
+    p.add_argument("--name", required=True, help="saved connection name, e.g. the NT demo")
+    p.set_defaults(func=cmd_connect)
 
     p = sub.add_parser("orders")
     p.add_argument("--all", action="store_true", help="include filled/cancelled, not just working")

@@ -58,7 +58,7 @@ namespace NinjaTrader.NinjaScript.AddOns
 {
     public class EdgeLogBridge : AddOnBase
     {
-        private const string Version   = "1.0";
+        private const string Version   = "1.1";
         private const int    Port      = 8391;
         private const string LogPath   = @"C:\EdgeLog\bridge.log";
         private const string ConfPath  = @"C:\EdgeLog\bridge.json";
@@ -208,6 +208,10 @@ namespace NinjaTrader.NinjaScript.AddOns
             switch (path)
             {
                 case "/health":      Respond(s, 200, Health());               return;
+                case "/connections": Respond(s, 200, Connections());         return;
+                case "/connect":
+                    if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
+                    ConnectByName(s, q.ContainsKey("name") ? q["name"] : ""); return;
                 case "/accounts":    Respond(s, 200, Accounts());             return;
                 case "/positions":   Respond(s, 200, Positions());            return;
                 case "/orders":      Respond(s, 200, Orders(q.ContainsKey("all"))); return;
@@ -408,6 +412,60 @@ namespace NinjaTrader.NinjaScript.AddOns
                 catch (Exception ex) { Log("executions: " + ex.Message); }
             }
             return "{\"executions\":[" + string.Join(",", rows) + "]}";
+        }
+
+        // ── connections ──────────────────────────────────────────────────────
+        // Connect is deliberately OUTSIDE the account rails: it moves no money and
+        // holds no position — it is the same act as clicking Connections ▸ <name>.
+        // There is still one guard: only names that exist in the user's own saved
+        // connection list can be dialed. The bridge can never invent a connection.
+        private string Connections()
+        {
+            var rows = new List<string>();
+            try
+            {
+                var live = new Dictionary<string, string>();
+                lock (Connection.Connections)
+                    foreach (Connection c in Connection.Connections)
+                    {
+                        try { live[c.Options.Name] = c.Status.ToString(); }
+                        catch { }
+                    }
+                lock (Core.Globals.ConnectOptions)
+                    foreach (ConnectOptions o in Core.Globals.ConnectOptions)
+                    {
+                        try
+                        {
+                            string st = live.ContainsKey(o.Name) ? live[o.Name] : "Disconnected";
+                            rows.Add("{\"name\":" + J(o.Name) + ",\"status\":" + J(st) + "}");
+                        }
+                        catch (Exception ex) { Log("conn row: " + ex.Message); }
+                    }
+            }
+            catch (Exception ex) { Log("connections: " + ex.Message); }
+            return "{\"connections\":[" + string.Join(",", rows) + "]}";
+        }
+
+        private void ConnectByName(NetworkStream s, string name)
+        {
+            if (string.IsNullOrEmpty(name)) { Respond(s, 400, "{\"error\":\"name is required\"}"); return; }
+            ConnectOptions opt = null;
+            lock (Core.Globals.ConnectOptions)
+                foreach (ConnectOptions o in Core.Globals.ConnectOptions)
+                    if (string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase)) { opt = o; break; }
+            if (opt == null) { Respond(s, 404, "{\"error\":\"no saved connection by that name\"}"); return; }
+            lock (Connection.Connections)
+                foreach (Connection c in Connection.Connections)
+                    try
+                    {
+                        if (string.Equals(c.Options.Name, name, StringComparison.OrdinalIgnoreCase)
+                            && c.Status == ConnectionStatus.Connected)
+                        { Respond(s, 200, "{\"ok\":true,\"note\":\"already connected\"}"); return; }
+                    }
+                    catch { }
+            Connection.Connect(opt);
+            Log("CONNECT " + name);
+            Respond(s, 200, "{\"ok\":true,\"note\":\"connect requested - poll /connections for status\"}");
         }
 
         // ── mutating endpoints — the layered rails live here ─────────────────
