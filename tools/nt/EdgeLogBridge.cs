@@ -132,6 +132,19 @@ namespace NinjaTrader.NinjaScript.AddOns
         }
 
         // ── HTTP plumbing ────────────────────────────────────────────────────
+        /// <summary>First index of an ASCII marker within buf[0..len), or -1.</summary>
+        private static int IndexOf(byte[] buf, int len, string marker)
+        {
+            byte[] m = Encoding.ASCII.GetBytes(marker);
+            for (int i = 0; i <= len - m.Length; i++)
+            {
+                int j = 0;
+                while (j < m.Length && buf[i + j] == m[j]) j++;
+                if (j == m.Length) return i;
+            }
+            return -1;
+        }
+
         private void Handle(NetworkStream s)
         {
             // Read headers (and body if Content-Length says so). 64 KB cap.
