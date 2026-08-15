@@ -1,0 +1,5 @@
+# Deps for .github/workflows/nt-watchdog.yml (tools/nt_cloud_watchdog.py) ONLY.
+# Deliberately NOT api/requirements.txt -- that pulls in fastapi/uvicorn/numpy/pandas/
+# webull-openapi-python-sdk, none of which this checker needs. Just enough to read one
+# Firestore doc and POST one HTTP request.
+firebase-admin

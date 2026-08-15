@@ -1,0 +1,48 @@
+name: nt-cloud-watchdog
+
+# Runner-INDEPENDENT dead-man's-switch for the NT bridge heartbeat (tools/nt_cloud_watchdog.py).
+#
+# api/nt_heartbeat.py already detects a stale users/{uid}/meta/nt_bridge heartbeat, but it
+# only ever runs from INSIDE the same local runner loop it's supposed to be watching -- if
+# the owner's PC/runner/NinjaTrader all die, that checker dies with them and nothing pages
+# anyone. This workflow runs the SAME evaluate() logic on GitHub's own infrastructure, on a
+# schedule, so it keeps checking even when the PC is completely dark.
+#
+# Needs two repo secrets (Settings -> Secrets and variables -> Actions):
+#   FIREBASE_SERVICE_ACCOUNT_JSON  -- full contents of the Firebase Admin service account
+#                                     JSON (same credential shape api/runner.py --cred takes)
+#   EDGELOG_UID                    -- the owner's Firebase uid to check
+#   NTFY_TOPIC                     -- a long random unguessable ntfy.sh topic string (NOT a
+#                                     public/guessable name -- ntfy.sh topics are readable by
+#                                     anyone who knows the name)
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install watchdog deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-watchdog.txt
+
+      - name: Write service account credential
+        run: echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > "${{ runner.temp }}/serviceAccount.json"
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+
+      - name: Run cloud watchdog
+        run: python tools/nt_cloud_watchdog.py
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/serviceAccount.json
+          EDGELOG_UID: ${{ secrets.EDGELOG_UID }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
