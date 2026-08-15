@@ -59,7 +59,7 @@ namespace NinjaTrader.NinjaScript.AddOns
 {
     public class EdgeLogBridge : AddOnBase
     {
-        private const string Version   = "1.8";
+        private const string Version   = "1.9";
         private const int    Port      = 8391;
         private const string LogPath   = @"C:\EdgeLog\bridge.log";
         private const string ConfPath  = @"C:\EdgeLog\bridge.json";
@@ -692,12 +692,13 @@ namespace NinjaTrader.NinjaScript.AddOns
             var rows = new List<string>();
             try
             {
-                Core.Globals.MainThreadDispatcher.Invoke(new Action(() =>
+                var ccF = ControlCenterInstance() as System.Windows.DependencyObject;
+                if (ccF == null) return "{\"members\":[],\"error\":\"no ControlCenter.Instance\"}";
+                CcDispatcher().Invoke(new Action(() =>
                 {
                     try
                     {
-                        foreach (System.Windows.Window w in System.Windows.Application.Current.Windows)
-                            foreach (var grid in FindVisualChildren(w))
+                        foreach (var grid in FindVisualChildren(ccF))
                             {
                                 if (grid.GetType().FullName != "NinjaTrader.Gui.NinjaScript.StrategiesGrid") continue;
                                 const System.Reflection.BindingFlags BF =
@@ -716,6 +717,36 @@ namespace NinjaTrader.NinjaScript.AddOns
             }
             catch (Exception ex) { Log("gridfields dispatch: " + ex.Message); }
             return "{\"members\":[" + string.Join(",", rows) + "]}";
+        }
+
+        /// <summary>The Control Center window and its OWN dispatcher. NT runs every
+        /// window on its own UI thread, so Application.Current.Windows from the main
+        /// thread is EMPTY - the 2026-08-15 /reflect/windows probe proved it. All grid
+        /// walking must happen on the CC's dispatcher, reached via the static
+        /// ControlCenter.Instance found with /reflect/members.</summary>
+        private static object ControlCenterInstance()
+        {
+            try
+            {
+                Type t = null;
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    try { t = asm.GetType("NinjaTrader.Gui.ControlCenter", false, true); } catch { }
+                    if (t != null) break;
+                }
+                if (t == null) return null;
+                var pi = t.GetProperty("Instance",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic |
+                    System.Reflection.BindingFlags.Static);
+                return pi != null ? pi.GetValue(null) : null;
+            }
+            catch { return null; }
+        }
+
+        private static System.Windows.Threading.Dispatcher CcDispatcher()
+        {
+            var cc = ControlCenterInstance() as System.Windows.Threading.DispatcherObject;
+            return cc != null ? cc.Dispatcher : Core.Globals.MainThreadDispatcher;
         }
 
         /// <summary>All enumerable collections reachable on a grid instance — fields AND
@@ -755,22 +786,21 @@ namespace NinjaTrader.NinjaScript.AddOns
             StrategyBase found = null;
             try
             {
-                Core.Globals.MainThreadDispatcher.Invoke(new Action(() =>
+                var cc = ControlCenterInstance() as System.Windows.DependencyObject;
+                if (cc == null) { Log("grid walk: no ControlCenter.Instance"); return null; }
+                CcDispatcher().Invoke(new Action(() =>
                 {
                     try
                     {
-                        foreach (System.Windows.Window w in System.Windows.Application.Current.Windows)
+                        foreach (var grid in FindVisualChildren(cc))
                         {
-                            foreach (var grid in FindVisualChildren(w))
-                            {
-                                if (grid.GetType().FullName != "NinjaTrader.Gui.NinjaScript.StrategiesGrid") continue;
-                                foreach (var val in GridCollections(grid))
-                                    foreach (var item in val)
-                                    {
-                                        var sbFound = StrategyFromRow(item, name);
-                                        if (sbFound != null) { found = sbFound; return; }
-                                    }
-                            }
+                            if (grid.GetType().FullName != "NinjaTrader.Gui.NinjaScript.StrategiesGrid") continue;
+                            foreach (var val in GridCollections(grid))
+                                foreach (var item in val)
+                                {
+                                    var sbFound = StrategyFromRow(item, name);
+                                    if (sbFound != null) { found = sbFound; return; }
+                                }
                         }
                     }
                     catch (Exception ex) { Log("grid walk: " + ex.Message); }
@@ -826,12 +856,13 @@ namespace NinjaTrader.NinjaScript.AddOns
             var rows = new List<string>();
             try
             {
-                Core.Globals.MainThreadDispatcher.Invoke(new Action(() =>
+                var ccR = ControlCenterInstance() as System.Windows.DependencyObject;
+                if (ccR == null) return "{\"rows\":[],\"error\":\"no ControlCenter.Instance\"}";
+                CcDispatcher().Invoke(new Action(() =>
                 {
                     try
                     {
-                        foreach (System.Windows.Window w in System.Windows.Application.Current.Windows)
-                            foreach (var grid in FindVisualChildren(w))
+                        foreach (var grid in FindVisualChildren(ccR))
                             {
                                 if (grid.GetType().FullName != "NinjaTrader.Gui.NinjaScript.StrategiesGrid") continue;
                                 int srcIdx = -1;
