@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.37';
+const VERSION='73.38';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -16879,21 +16879,34 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Before this existed, "are the strategies even running?" took a screenshot.
       let bridgeHtml='';
       {
-        const B=window._ntBridge, P=window._ntPreflight, A=window._ntAlert;
+        const B=window._ntBridge, P=window._ntPreflight;
         const _age=ts=>{if(!ts)return null;const m=Math.floor((Date.now()-Date.parse(String(ts).replace(' ','T')+'Z'))/60000);return m;};
         const ageMin=B?_age(B.checked_at):null;
         const up=!!(B&&B.up), fresh=ageMin!=null&&ageMin<=12;
         const dotCol=!B?'var(--text5)':(up&&fresh?'var(--green)':(up?'var(--yellow)':'var(--red)'));
         const statusTxt=!B?'never reported':(up?'UP':'DOWN')+(ageMin!=null?' · checked '+(ageMin<1?'just now':ageMin+'m ago'):'');
-        // Dead-man's-switch banner (api/nt_heartbeat.py) -- fires when meta/nt_bridge's own
-        // heartbeat goes stale, so it still shows up even if the bridge/NT/PC died outright.
-        // Same visual language as the preflight ⚠ list below: red = critical, yellow = warning.
+        // Dead-man's-switch banner. Computed HERE, client-side, from B.checked_at's own
+        // age (Date.now() vs the timestamp) rather than trusting meta/nt_alert's written
+        // severity — a doc the runner writes FROM THE SAME LOOP being watched. If the
+        // runner process itself dies (the actual scenario this exists to catch), that write
+        // stops right along with everything else and would freeze on stale "ok". Computing
+        // staleness in the browser instead means the banner keeps working with zero runner
+        // involvement, forever, using nothing but the last snapshot it ever managed to send
+        // (api/nt_heartbeat.py's meta/nt_alert doc still gets written for future server-side
+        // paging, but the board's own signal must not depend on it staying alive).
         let alertBanner='';
-        if(A&&(A.severity==='critical'||A.severity==='warning')){
-          const aCol=A.severity==='critical'?'var(--red)':'var(--yellow)';
+        if(B&&ageMin!=null&&ageMin>15){
+          const wasRealtime=(B.strategies||[]).filter(r=>String(r.state)==='Realtime').map(r=>String(r.name||'?'));
+          const critical=wasRealtime.length>0;
+          const aCol=critical?'var(--red)':'var(--yellow)';
+          const msg=critical
+            ?('NT bridge heartbeat stale '+ageMin+'m (>15m) — last known roster had '+wasRealtime.length
+              +' strategy(ies) in Realtime: '+wasRealtime.join(', ').replace(/</g,'&lt;')
+              +'. NinjaTrader/bridge/PC may be down while a strategy is supposed to be trading live.')
+            :('NT bridge heartbeat stale '+ageMin+'m (>15m), but nothing was Realtime last seen — lower risk, still worth a look.');
           alertBanner='<div style="margin-bottom:8px;padding:8px 10px;border:1px solid '+aCol+';border-radius:6px;background:color-mix(in srgb,'+aCol+' 10%,transparent)">'
-            +'<span style="font-size:10px;font-weight:700;letter-spacing:0.5px;color:'+aCol+'">⚠ '+A.severity.toUpperCase()+'</span>'
-            +'<div style="font-size:10px;color:var(--text3);margin-top:3px;line-height:1.5">'+String(A.message||'').replace(/</g,'&lt;')+'</div></div>';
+            +'<span style="font-size:10px;font-weight:700;letter-spacing:0.5px;color:'+aCol+'">⚠ '+(critical?'CRITICAL':'WARNING')+'</span>'
+            +'<div style="font-size:10px;color:var(--text3);margin-top:3px;line-height:1.5">'+msg+'</div></div>';
         }
         let body;
         if(!B){
