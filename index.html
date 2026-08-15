@@ -79,7 +79,7 @@
 [data-theme="glass"] .btn-ghost.active{color:rgba(255,255,255,0.95);background:rgba(255,255,255,0.06);border-bottom:2px solid #60a5fa}
 
 /* ──── MONO — pure grayscale, monochrome ──── */
-[data-theme="mono"]{--bg:#0a0a0a;--bg1:#141414;--bg2:#0f0f0f;--bg3:#080808;--border:#2a2a2a;--border2:#1c1c1c;--text:#f0f0f0;--text2:#c0c0c0;--text3:#909090;--text4:#a0a0a0;--text5:#707070;--green:#e0e0e0;--red:#888888;--yellow:#c8c8c8;--blue:#b0b0b0;--purple:#a0a0a0;}
+[data-theme="mono"]{--bg:#0a0a0a;--bg1:#141414;--bg2:#0f0f0f;--bg3:#080808;--border:#2a2a2a;--border2:#1c1c1c;--text:#f0f0f0;--text2:#c0c0c0;--text3:#909090;--text4:#a0a0a0;--text5:#707070;--green:#f0f0f0;--red:#4d4d4d;--yellow:#999999;--blue:#b0b0b0;--purple:#a0a0a0;}
 [data-theme="mono"] .section{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.05);border-radius:14px}
 [data-theme="mono"] .hero-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;transition:all 0.2s}
 [data-theme="mono"] .hero-card:hover{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.12)}
@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.38';
+const VERSION='73.39';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -16927,11 +16927,49 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +(preProbs.length?'<div style="margin-top:8px;font-size:10px;color:var(--red);line-height:1.7">'+preProbs.map(p=>'⚠ '+String(p).replace(/</g,'&lt;')).join('<br>')+'</div>'
               :(P?'<div style="margin-top:8px;font-size:10px;color:var(--text5)">last 9am preflight: '+(P.ok?'✓ all clear':'')+' '+String(P.checked_at||'').replace(/</g,'&lt;')+'</div>':''));
         }
+        // ── MCP FEATURES — what's actually built vs still planned, so "is X live yet?"
+        // doesn't need to happen in chat. Collapsed by default (same toggle language as
+        // RECONCILE's "what is this?"), static list — this is a capability inventory of
+        // the bridge/runner code, not live Firestore data.
+        const MCP_FEATURES=[
+          ['Read state (accounts/positions/orders/strategies/executions/connections)','LIVE','polled every 5 min, published to this board'],
+          ['Enable / disable a strategy instance','LIVE','same call the Control Center checkbox makes'],
+          ['Flatten one account','LIVE','closes every open position, panic button for ONE account'],
+          ['Cancel one working order','LIVE','used once for real — the 2026-08-14 orphan stop'],
+          ['Connect a saved connection (e.g. Simulation)','LIVE','only dials names already in your saved list'],
+          ['Kill switch — flatten + disable everything allowed','LIVE','one call, same L1/L2 rails as every other mutation'],
+          ['Board visibility (this card + preflight + alert banner)','LIVE','no more "is it even running?" screenshots'],
+          ['9am ET roster preflight + nightly sqlite backup','LIVE','meta/nt_preflight · C:\\EdgeLog\\_ntbackup, 14-day retention'],
+          ['Dead-man\'s-switch heartbeat banner','LIVE','computed in the browser — survives the runner itself dying'],
+          ['Clean shutdown (/shutdown)','PARTIAL','disconnects + can leave the window open; force-kill is the fallback today'],
+          ['ConnectOnStartup persistence','PARTIAL','flag is set; whether NT honors it across a real reboot is unproven'],
+          ['Place a live order','BUILT, OFF','orders_enabled:false in bridge.json — flip only when going live'],
+          ['Add a new strategy instance (/strategy/add)','PLANNED','template + StrategyAdd — lets the bridge fully manage the roster'],
+          ['Order-rate / loss-limit circuit breaker','PLANNED','refuse new orders past N losses or N orders in a window'],
+          ['Intraday P&L drawdown alert','PLANNED','preflight + reconcile are once-a-day; nothing pings mid-session yet'],
+          ['Execution review + tolerance-based auto-kill','PLANNED','ping on every fill, kill the strategy if a fill looks wrong and you\'re unreachable'],
+          ['Runner-independent (cloud-side) paging','PLANNED','today\'s alert needs the runner alive to write it — see chat for options'],
+          ['Backtest trigger via bridge (Strategy Analyzer)','PLANNED','separate automation surface, not yet started'],
+          ['Position-size / margin sanity check before first live enable','PLANNED','checks HOW MUCH, not just WHICH account'],
+        ];
+        const _mHelp=!!window._paperMcpHelp;
+        const mcpRows=MCP_FEATURES.map(([name,status,note])=>{
+          const col=status==='LIVE'?'var(--green)':(status==='PARTIAL'||status==='BUILT, OFF'?'var(--yellow)':'var(--text5)');
+          return '<tr><td style="font-weight:600">'+name+'</td>'
+            +'<td><span style="color:'+col+';font-size:9px;font-weight:700;letter-spacing:0.5px">'+status+'</span></td>'
+            +'<td style="color:var(--text4);font-size:10px">'+note+'</td></tr>';
+        }).join('');
+        const mcpSection='<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">'
+          +'<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:'+(_mHelp?'8px':'0')+'">'
+          +'<div class="lbl" style="font-size:10px;color:var(--text3)">MCP FEATURES · built vs planned</div>'
+          +'<span data-mcphelp style="cursor:pointer;font-size:9px;color:var(--text5);border:1px solid var(--border);border-radius:999px;padding:1px 8px">'+(_mHelp?'hide':'show')+'</span></div>'
+          +(_mHelp?('<div style="overflow-x:auto"><table class="table"><thead><tr><th>FEATURE</th><th>STATUS</th><th>NOTE</th></tr></thead><tbody>'+mcpRows+'</tbody></table></div>'):'')
+          +'</div>';
         bridgeHtml=tile('<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">'
           +'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dotCol+'"></span>'
           +'<div class="lbl">NINJATRADER · DEMO7240108</div>'
           +'<span style="font-size:9px;color:var(--text5)">'+statusTxt+(B&&B.version?' · v'+B.version:'')+'</span></div>'
-          +alertBanner+body+liveInner);
+          +alertBanner+body+liveInner+mcpSection);
       }
       // ── RECONCILE ─────────────────────────────────────────────────────────────
       // The whole point of PAPER is that three independent engines should agree. This
@@ -18087,6 +18125,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Leg rail — a lens, not a saved preference, so it lives on window and resets on reload.
       content.querySelectorAll('[data-paperleg]').forEach(el=>{el.onclick=()=>{window._paperLeg=el.getAttribute('data-paperleg');renderApp();};});
       const rh=content.querySelector('[data-reconhelp]');if(rh)rh.onclick=()=>{window._paperReconHelp=!window._paperReconHelp;renderApp();};
+      const mh=content.querySelector('[data-mcphelp]');if(mh)mh.onclick=()=>{window._paperMcpHelp=!window._paperMcpHelp;renderApp();};
       content.querySelectorAll('[data-paperrep]').forEach(tr=>{tr.onclick=()=>{const id=tr.dataset.paperrep;const s=window._paperReportOpen||(window._paperReportOpen=new Set());if(s.has(id))s.delete(id);else s.add(id);renderApp();};});
       // v73.18: CHART pill -> the shared candle viewer. PREV/NEXT walks the paper trade
       // list in the order shown, exactly like the run blotter.
