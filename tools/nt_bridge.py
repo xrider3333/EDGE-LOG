@@ -149,6 +149,34 @@ def cmd_connect(args):
         sys.exit(1)
 
 
+def cmd_strategy(args):
+    # enable/disable a strategy INSTANCE by name. The AddOn resolves the instance
+    # (account collections -> its own parked registry -> a walk of the grid rows)
+    # and refuses via the same L1/L2 rails as every other mutation.
+    if not args.yes:
+        print(f"Would {args.action} strategy {args.name}. Re-run with --yes.")
+        sys.exit(1)
+    status, data = _call("POST", f"/strategy/{args.action}", params={"name": args.name})
+    print(json.dumps(data, indent=2) if args.json else f"status={status} {data}")
+    if status != 200:
+        sys.exit(1)
+
+
+def cmd_shutdown(args):
+    if not args.yes:
+        print("Would cleanly shut down NinjaTrader. Re-run with --yes.")
+        sys.exit(1)
+    status, data = _call("POST", "/shutdown")
+    print(json.dumps(data, indent=2) if args.json else f"status={status} {data}")
+
+
+def cmd_gridrows(args):
+    status, data = _call("GET", "/reflect/gridrows")
+    if args.json:
+        print(json.dumps(data, indent=2)); return
+    _print_rows(data.get("rows", []), ["row_type", "name", "account", "state", "strategy_reachable", "field"])
+
+
 def cmd_cancel(args):
     if not args.yes:
         print(f"Would cancel order_id={args.order_id} on account={args.account}. Re-run with --yes.")
@@ -207,6 +235,18 @@ def main():
     p = sub.add_parser("executions")
     p.add_argument("--today", action="store_true", help="filter to today's date (UTC)")
     p.set_defaults(func=cmd_executions)
+
+    p = sub.add_parser("strategy")
+    p.add_argument("action", choices=["enable", "disable"])
+    p.add_argument("--name", required=True, help="strategy instance name, e.g. EdgeLogENGUQ1m")
+    p.add_argument("--yes", action="store_true")
+    p.set_defaults(func=cmd_strategy)
+
+    p = sub.add_parser("shutdown")
+    p.add_argument("--yes", action="store_true")
+    p.set_defaults(func=cmd_shutdown)
+
+    sub.add_parser("gridrows").set_defaults(func=cmd_gridrows)
 
     p = sub.add_parser("cancel")
     p.add_argument("--account", required=True)

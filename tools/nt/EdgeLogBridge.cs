@@ -53,12 +53,13 @@ using System.Text;
 using System.Threading;
 using NinjaTrader.Cbi;
 using NinjaTrader.NinjaScript;
+using NinjaTrader.Gui.NinjaScript;   // StrategiesGrid statics: the same calls the UI buttons make
 
 namespace NinjaTrader.NinjaScript.AddOns
 {
     public class EdgeLogBridge : AddOnBase
     {
-        private const string Version   = "1.3";
+        private const string Version   = "1.4";
         private const int    Port      = 8391;
         private const string LogPath   = @"C:\EdgeLog\bridge.log";
         private const string ConfPath  = @"C:\EdgeLog\bridge.json";
@@ -217,6 +218,29 @@ namespace NinjaTrader.NinjaScript.AddOns
                 case "/orders":      Respond(s, 200, Orders(q.ContainsKey("all"))); return;
                 case "/strategies":  Respond(s, 200, Strategies());           return;
                 case "/executions":  Respond(s, 200, Executions());           return;
+                case "/shutdown":
+                    if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
+                    Respond(s, 200, "{\"ok\":true,\"note\":\"clean exit requested\"}");
+                    Log("SHUTDOWN requested via bridge");
+                    // Answer first, then exit: the socket must not die mid-reply. This is
+                    // the same call NT's own exit-confirm dialog makes - no dialog, saves state.
+                    try
+                    {
+                        Core.Globals.MainThreadDispatcher.BeginInvoke(new Action(() =>
+                        {
+                            try { Core.Globals.ApplicationExit(); } catch (Exception ex) { Log("shutdown: " + ex.Message); }
+                        }));
+                    }
+                    catch (Exception ex) { Log("shutdown dispatch: " + ex.Message); }
+                    return;
+                case "/strategy/enable":
+                    if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
+                    StrategyLifecycle(s, q.ContainsKey("name") ? q["name"] : "", true); return;
+                case "/strategy/disable":
+                    if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
+                    StrategyLifecycle(s, q.ContainsKey("name") ? q["name"] : "", false); return;
+                case "/reflect/gridrows":
+                    Respond(s, 200, ReflectGridRows()); return;
                 case "/reflect/types":
                     Respond(s, 200, ReflectTypes(q.ContainsKey("contains") ? q["contains"] : "")); return;
                 case "/reflect/members":
@@ -420,6 +444,225 @@ namespace NinjaTrader.NinjaScript.AddOns
                 catch (Exception ex) { Log("executions: " + ex.Message); }
             }
             return "{\"executions\":[" + string.Join(",", rows) + "]}";
+        }
+
+        // ── strategy lifecycle — the 2026-08-14 evening, as endpoints ────────
+        // StrategiesGrid.StrategyEnable/StrategyDisable are the PUBLIC STATIC
+        // methods the Control Center's own Enabled checkbox calls (mapped via
+        // /reflect/members, not guessed). Two honest limits in this version:
+        //  * finding the instance: enabled strategies sit in account.Strategies;
+        //    DISABLED ones are invisible there, so we also keep every strategy this
+        //    bridge itself disables in a parked registry, and fall back to the
+        //    grid's own rows (see FindGridStrategy). A strategy disabled before
+        //    this AddOn loaded may still be unreachable - the response says so.
+        //  * these run on NT's UI thread via MainThreadDispatcher - a wedge there
+        //    would hang the call, so everything is fenced and the socket times out.
+        private static readonly Dictionary<string, StrategyBase> _parked =
+            new Dictionary<string, StrategyBase>(StringComparer.OrdinalIgnoreCase);
+
+        private void StrategyLifecycle(NetworkStream s, string name, bool enable)
+        {
+            if (string.IsNullOrEmpty(name)) { Respond(s, 400, "{\"error\":\"name is required\"}"); return; }
+            StrategyBase sb = null; string where = null;
+            // 1) enabled instances: the account collections
+            List<Account> accts;
+            lock (Account.All) accts = new List<Account>(Account.All);
+            foreach (var a in accts)
+            {
+                try
+                {
+                    lock (a.Strategies)
+                        foreach (var st in a.Strategies)
+                            if (string.Equals(st.Name, name, StringComparison.OrdinalIgnoreCase))
+                            { sb = st; where = "account " + a.Name; break; }
+                }
+                catch { }
+                if (sb != null) break;
+            }
+            // 2) strategies this bridge parked when it disabled them
+            if (sb == null)
+                lock (_parked)
+                    if (_parked.TryGetValue(name, out var p)) { sb = p; where = "parked registry"; }
+            // 3) the grid's own rows (works for strategies disabled before we loaded)
+            if (sb == null)
+            {
+                sb = FindGridStrategy(name);
+                if (sb != null) where = "strategies grid";
+            }
+            if (sb == null)
+            {
+                Respond(s, 404, "{\"error\":\"no reachable instance named " + name.Replace('"', ' ')
+                    + " - if it was disabled before this bridge version loaded, toggle it once in the UI\"}");
+                return;
+            }
+            // Rails: the instance's own account decides, same L1+L2 as every mutation.
+            string acctName = "?";
+            try { acctName = sb.Account != null ? sb.Account.Name : "?"; } catch { }
+            string deny = DenyMutation(acctName);
+            if (deny != null) { Respond(s, 403, "{\"error\":" + J(deny) + "}"); Log("lifecycle REFUSED " + name + ": " + deny); return; }
+
+            string err = null;
+            try
+            {
+                Core.Globals.MainThreadDispatcher.Invoke(new Action(() =>
+                {
+                    try
+                    {
+                        // Present in the assembly (mapped via /reflect/members) but not
+                        // public, so the compiler cannot see them - reflection can.
+                        const System.Reflection.BindingFlags SF =
+                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic |
+                            System.Reflection.BindingFlags.Static;
+                        var mi = typeof(StrategiesGrid).GetMethod(enable ? "StrategyEnable" : "StrategyDisable", SF);
+                        if (mi == null) err = "grid method not found - NT version changed the internals";
+                        else mi.Invoke(null, enable ? new object[] { sb, null, null } : new object[] { sb });
+                    }
+                    catch (System.Reflection.TargetInvocationException tex)
+                    { err = (tex.InnerException ?? tex).GetType().Name + ": " + (tex.InnerException ?? tex).Message; }
+                    catch (Exception ex) { err = ex.GetType().Name + ": " + ex.Message; }
+                }));
+            }
+            catch (Exception ex) { err = "dispatch: " + ex.Message; }
+            if (err != null)
+            {
+                Log("lifecycle " + (enable ? "ENABLE" : "DISABLE") + " " + name + " FAILED: " + err);
+                Respond(s, 500, "{\"error\":" + J(err) + "}"); return;
+            }
+            if (!enable) lock (_parked) _parked[name] = sb;   // keep it reachable for re-enable
+            else lock (_parked) _parked.Remove(name);
+            Log("lifecycle " + (enable ? "ENABLE" : "DISABLE") + " " + name + " via " + where);
+            Respond(s, 200, "{\"ok\":true,\"found_in\":" + J(where)
+                 + ",\"note\":\"poll /strategies to confirm state\"}");
+        }
+
+        /// <summary>Walk the Control Center's StrategiesGrid rows for a StrategyBase by
+        /// name — reflection over its instance fields, read-only. Returns null quietly:
+        /// callers treat null as "not reachable", never as an error.</summary>
+        private StrategyBase FindGridStrategy(string name)
+        {
+            StrategyBase found = null;
+            try
+            {
+                Core.Globals.MainThreadDispatcher.Invoke(new Action(() =>
+                {
+                    try
+                    {
+                        foreach (System.Windows.Window w in System.Windows.Application.Current.Windows)
+                        {
+                            foreach (var grid in FindVisualChildren(w))
+                            {
+                                if (grid.GetType().FullName != "NinjaTrader.Gui.NinjaScript.StrategiesGrid") continue;
+                                foreach (var f in grid.GetType().GetFields(
+                                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance))
+                                {
+                                    var val = f.GetValue(grid) as System.Collections.IEnumerable;
+                                    if (val == null || val is string) continue;
+                                    foreach (var item in val)
+                                    {
+                                        var sbFound = StrategyFromRow(item, name);
+                                        if (sbFound != null) { found = sbFound; return; }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex) { Log("grid walk: " + ex.Message); }
+                }));
+            }
+            catch (Exception ex) { Log("grid walk dispatch: " + ex.Message); }
+            return found;
+        }
+
+        /// <summary>If a grid row (entry or child) carries a StrategyBase whose Name
+        /// matches, return it. Rows nest one level (entry -> Children).</summary>
+        private StrategyBase StrategyFromRow(object row, string name)
+        {
+            if (row == null) return null;
+            try
+            {
+                foreach (var p in row.GetType().GetProperties(
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic |
+                    System.Reflection.BindingFlags.Instance))
+                {
+                    if (!typeof(StrategyBase).IsAssignableFrom(p.PropertyType)) continue;
+                    var sb = p.GetValue(row) as StrategyBase;
+                    if (sb != null && string.Equals(sb.Name, name, StringComparison.OrdinalIgnoreCase)) return sb;
+                }
+                var kids = row.GetType().GetProperty("Children");
+                if (kids != null && kids.GetValue(row) is System.Collections.IEnumerable en)
+                    foreach (var k in en)
+                    {
+                        var sb = StrategyFromRow(k, name);
+                        if (sb != null) return sb;
+                    }
+            }
+            catch { }
+            return null;
+        }
+
+        private static IEnumerable<System.Windows.DependencyObject> FindVisualChildren(System.Windows.DependencyObject root)
+        {
+            if (root == null) yield break;
+            int n = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < n; i++)
+            {
+                var c = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+                yield return c;
+                foreach (var g in FindVisualChildren(c)) yield return g;
+            }
+        }
+
+        /// <summary>Debug: dump every StrategiesGrid row the walk can see — name,
+        /// account, state, whether a StrategyBase is reachable. Read-only.</summary>
+        private string ReflectGridRows()
+        {
+            var rows = new List<string>();
+            try
+            {
+                Core.Globals.MainThreadDispatcher.Invoke(new Action(() =>
+                {
+                    try
+                    {
+                        foreach (System.Windows.Window w in System.Windows.Application.Current.Windows)
+                            foreach (var grid in FindVisualChildren(w))
+                            {
+                                if (grid.GetType().FullName != "NinjaTrader.Gui.NinjaScript.StrategiesGrid") continue;
+                                foreach (var f in grid.GetType().GetFields(
+                                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance))
+                                {
+                                    var val = f.GetValue(grid) as System.Collections.IEnumerable;
+                                    if (val == null || val is string) continue;
+                                    foreach (var item in val)
+                                    {
+                                        var t = item.GetType().Name;
+                                        if (t != "StrategiesGridEntry" && t != "StrategiesGridEntryChild") continue;
+                                        string nm = "?", acct = "?", st = "?";
+                                        bool reachable = false;
+                                        try
+                                        {
+                                            foreach (var p in item.GetType().GetProperties())
+                                            {
+                                                if (p.Name == "Name") nm = "" + p.GetValue(item);
+                                                if (p.Name == "AccountName" || p.Name == "Account") acct = "" + p.GetValue(item);
+                                                if (p.Name == "State") st = "" + p.GetValue(item);
+                                                if (typeof(StrategyBase).IsAssignableFrom(p.PropertyType) && p.GetValue(item) != null) reachable = true;
+                                            }
+                                        }
+                                        catch { }
+                                        rows.Add("{\"field\":" + J(f.Name) + ",\"row_type\":" + J(t)
+                                               + ",\"name\":" + J(nm) + ",\"account\":" + J(acct)
+                                               + ",\"state\":" + J(st)
+                                               + ",\"strategy_reachable\":" + (reachable ? "true" : "false") + "}");
+                                        if (rows.Count >= 100) return;
+                                    }
+                                }
+                            }
+                    }
+                    catch (Exception ex) { Log("gridrows: " + ex.Message); }
+                }));
+            }
+            catch (Exception ex) { Log("gridrows dispatch: " + ex.Message); }
+            return "{\"rows\":[" + string.Join(",", rows) + "]}";
         }
 
         // ── reflection introspection — READ-ONLY R&D instruments ─────────────
