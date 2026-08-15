@@ -47,6 +47,8 @@ JOBS_DIR = os.path.join(ROOT, "augur_jobs")
 LISTENER_BACKSTOP_SEC = 600.0
 # How often the data-freshness watchdog republishes meta/data_health (api/data_health.py).
 HEALTH_SEC = 3600.0
+# How often the NinjaTrader bridge watchdog republishes meta/nt_bridge (api/nt_bridge_pub.py).
+BRIDGE_SEC = 300.0
 
 # Commands the parallel CommandThread (see below) is allowed to serve WHILE a backtest
 # job is running in the main loop. Only cheap/pure reads — reconcile (re-runs the engine)
@@ -1426,6 +1428,7 @@ def main(argv=None):
                 print(f"queue listener: FAILED -> polling every {a.interval:g}s")
         next_backstop = time.time() + LISTENER_BACKSTOP_SEC
         next_health = 0.0   # first pass runs immediately, then every HEALTH_SEC
+        next_bridge = 0.0   # first pass runs immediately, then every BRIDGE_SEC
         # Auto-refresh data on start and on a timer — hands-free, like the desktop
         # app does on open. Runs in the same loop (infrequent + bounded), so it
         # briefly pauses job polling while it pulls; that's fine at a 30-min cadence.
@@ -1510,6 +1513,20 @@ def main(argv=None):
                 except Exception as e:
                     print(f"[data-health] skipped: {type(e).__name__}: {e}")
                 next_health = time.time() + HEALTH_SEC
+            # NinjaTrader bridge watchdog. NT's own auto-update silently deleted every
+            # strategy instance on 2026-08-14 and nobody could see it without alt-tabbing
+            # into NT and looking. See api/nt_bridge_pub.py.
+            if a.firestore and time.time() >= next_bridge:
+                try:
+                    from api import nt_bridge_pub
+                    # a.allow_uid is already a list (argparse action="append"), not a
+                    # comma string -- unlike the data_health block above, do not .split() it.
+                    for _uid in (a.allow_uid or []):
+                        if _uid and _uid.strip():
+                            nt_bridge_pub.publish(q.db, _uid.strip())
+                except Exception as e:
+                    print(f"[nt-bridge] skipped: {type(e).__name__}: {e}")
+                next_bridge = time.time() + BRIDGE_SEC
             if not done:
                 if listener_active:
                     # Blocks until a listener wake, or a.interval elapses — whichever
