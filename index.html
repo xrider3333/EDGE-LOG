@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.71';
+const VERSION='73.72';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -463,7 +463,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-{v:'73.71',date:'2026-08-16',notes:['FIX: the 73.55 change that made RAW follow the SAMPLE tick only ever worked on runs produced by the newest engine - which is every run you have NOT got. On run #225 and every other existing run the RAW tab still showed the same pinned whole-window MAR, SHARPE and DD no matter what you ticked, so RAW-LB could never be compared with GATE-LB.','MAR, SHARPE and DD now follow the SAMPLE tick on OLD runs too. Those four read off the saved equity curves, which every run carries, so nothing newer is needed. On run #225 the crowned config reads MAR 14.22 with IS+WF ticked and MAR 1.00 with only LB ticked - two genuinely different numbers where before you got one.','PF, WIN % and $ / TRADE genuinely cannot be sliced from a curve - they need per-trade win/loss sums the older runs never saved. Rather than print an IS+WF number under an LB label, those three now show a dash on an old run whenever the tick is not exactly IS+WF, the section caption says so out loud, and hovering the dash explains why.','Also fixed while in there: DD and $ / TRADE printed point counts rather than dollars on the newest-engine path, the drawdown of a stretch missed the give-back after the last sampled point on the curve, and an IS-only or WF-only pick now uses the drawdown the engine actually measured for that stretch instead of estimating it.']},
+{v:'73.72',date:'2026-08-16',notes:['FIX: the 73.55 change that made RAW follow the SAMPLE tick only ever worked on runs produced by the newest engine - which is every run you have NOT got. On run #225 and every other existing run the RAW tab still showed the same pinned whole-window MAR, SHARPE and DD no matter what you ticked, so RAW-LB could never be compared with GATE-LB.','MAR, SHARPE and DD now follow the SAMPLE tick on OLD runs too. Those four read off the saved equity curves, which every run carries, so nothing newer is needed. On run #225 the crowned config reads MAR 14.22 with IS+WF ticked and MAR 1.00 with only LB ticked - two genuinely different numbers where before you got one.','PF, WIN % and $ / TRADE genuinely cannot be sliced from a curve - they need per-trade win/loss sums the older runs never saved. Rather than print an IS+WF number under an LB label, those three now show a dash on an old run whenever the tick is not exactly IS+WF, the section caption says so out loud, and hovering the dash explains why.','Also fixed while in there: DD and $ / TRADE printed point counts rather than dollars on the newest-engine path, the drawdown of a stretch missed the give-back after the last sampled point on the curve, and an IS-only or WF-only pick now uses the drawdown the engine actually measured for that stretch instead of estimating it.']},
 {v:'73.70',date:'2026-08-16',notes:['FIX on the ALL POOLS chart just shipped: it was being stretched to fill its tile, which squashed it sideways and stretched it tall - the dots came out as ovals rather than circles, and worse, the trend line LOOKED like a different slope than the one it was actually measured at, so you could not read a dot honestly against the two axes. It now keeps its true shape at whatever width the column is. Trade-off worth knowing: this one chart no longer has a drag handle to pull it taller, because its height is now fixed by its width.']},
 {v:'73.68',date:'2026-08-16',notes:[
  'FIX, the ALL POOLS dots really were not coloured. Three of the four pools were painted from THEME colours rather than fixed ones, and on the MONO theme the whole palette is grey - so RAW, GATE and TILT all came out the same grey and only HYBRID kept any colour. All four now use the exact colours the 1A FUNNEL key already paints them: RAW green, GATE red, TILT amber, HYBRID violet. Same colour for a family in both charts, on every theme.',
@@ -17370,6 +17370,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       };
       const latestReport=_pr[0]||null;
       const legWarn=name=>{if(!latestReport)return null;const L=(latestReport.legs||{})[name]||(latestReport.legs||{})[name.toLowerCase()];const w=L&&L.warnings;return (Array.isArray(w)&&w.length)?w:null;};
+      // TODAY / ALL TIME now lives ON the tile strip (owner: "need the time selector
+      // (today/alltime) make those the tab selectors like in results tab 1e matrix"), and
+      // drives the cross-engine block inside each tile. Same pill language as 1E.
+      const PSCOPE=(window._paperMatrixScope==='TODAY')?'TODAY':'ALL';
+      const _psScopeTab=(v,lbl)=>'<span data-mscope="'+v+'" style="cursor:pointer;user-select:none;font-weight:700;font-size:9px;letter-spacing:1px;padding:2px 8px;border-radius:5px;border:1px solid '
+        +(PSCOPE===v?'var(--blue)':'var(--border)')+';color:'+(PSCOPE===v?'var(--blue)':'var(--text4)')+'">'+lbl+'</span>';
       // ── PROVENANCE — which run + which config each leg came from ──────────────
       // Owner 2026-08-15: "i dont know which config or past run it got it from", then
       // "place the config where ea leg came from in the tiles". api/paper.py's LEG_SOURCE
@@ -17412,6 +17418,46 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // 'ALL' when this leg is already selected, so a second click clears it -- that reuses
         // the existing [data-paperleg] handler untouched rather than adding a second one.
         const sel=PLEG===name, dim=PLEG!=='ALL'&&!sel;
+        // Live state, pinned RIGHT on the tile (owner: "need the status dot on the tile
+        // (again pined right)"). Literal hex -- the theme greys out --green/--yellow/--red.
+        let dotHtml='';
+        if(name!=='BLEND'){
+          const _B=window._ntBridge;
+          const want={ORB:'ORBV2',ENGUQ:'ENGUQ',NOISE:'NOISE'}[name];
+          const st=(_B&&_B.up&&want)?(_B.strategies||[]).find(s=>String(s.name||'').toUpperCase().indexOf(want)>=0):null;
+          const on=st&&String(st.state)==='Realtime';
+          const dc=!_B?'#777':(on?'#1d9e75':'#e0c341');
+          const dt=!_B?'no bridge snapshot':(st?(st.name+' · '+st.state+' · '+st.account):'not attached in NinjaTrader');
+          dotHtml='<span title="'+String(dt).replace(/"/g,'&quot;')+'" style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-size:8px;color:var(--text5)">'
+            +'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+dc+'"></span>'+(on?'LIVE':(_B?'OFF':'—'))+'</span>';
+        }
+        // The cross-engine block -- the only part of the old MATRIX that was not already
+        // on the tile. Follows the TODAY / ALL TIME tab above the strip.
+        let xHtml='';
+        if(name!=='BLEND'){
+          const _mp2=(txt,col)=>'<span style="font-size:8px;font-weight:700;padding:0 5px;border-radius:3px;border:1px solid '+col+';color:'+col+'">'+txt+'</span>';
+          if(PSCOPE==='TODAY'){
+            const R=(_rec&&!_rec.error)?((_rec.legs||{})[name]||null):null;
+            const L=(_recRep&&_recRep.legs?_recRep.legs[name]:null)||{};
+            if(R){
+              const m=(R.matched||[]).length,so=(R.shadow_only||[]).length,lo=(R.live_only||[]).length;
+              const ok=!so&&!lo;
+              xHtml='<div style="margin-top:6px;padding-top:5px;border-top:1px solid var(--border2);font-size:8px;color:var(--text4);line-height:1.7">'
+                +'today '+(L.n_signals!=null?L.n_signals:'—')+' sig · '+m+' matched'
+                +((so||lo)?' <span style="color:#e24b4a">('+so+' eng-only · '+lo+' nt-only)</span>':'')
+                +' '+_mp2(ok?'MATCH':'DIVERGED',ok?'#1d9e75':'#e24b4a')+'</div>';
+            } else {
+              xHtml='<div style="margin-top:6px;padding-top:5px;border-top:1px solid var(--border2);font-size:8px;color:var(--text5)">no reconcile block for today</div>';
+            }
+          } else {
+            const x=XENGINE.find(e=>e.leg===name)||{};
+            const never=x.verdict==='NEVER RUN';
+            xHtml='<div style="margin-top:6px;padding-top:5px;border-top:1px solid var(--border2);font-size:8px;color:var(--text4);line-height:1.7">'
+              +'<span style="color:var(--text5)">TV</span> '+(x.tv!=null?(x.tv+' tr'+(x.tvIdent?' ('+x.tvIdent+')':'')):'never run')
+              +' · <span style="color:var(--text5)">NT</span> '+(x.nt!=null?(x.nt+' tr'+(x.ntIdent?' ('+x.ntIdent+')':'')):'never run')
+              +'<br>'+_mp2(x.verdict||'—',never?'#e24b4a':'#1d9e75')+' <span style="color:var(--text5)">'+(x.date?('checked '+x.date):'never checked')+'</span></div>';
+          }
+        }
         // The config the leg is RUNNING lives in the tile itself (owner: "place the config
         // where ea leg came from in the tiles"), so "how is it doing" and "what is it" are
         // never in two places again. BLEND is a derived 1:1 view of two legs, not a config
@@ -17438,11 +17484,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         return '<div data-paperleg="'+(sel?'ALL':name)+'" title="'+(sel?'click to show all legs':'click to highlight '+label+' and show only its trades')
           +'" style="flex:1 1 170px;min-width:170px;padding:2px 14px 2px 0;cursor:pointer;opacity:'+(dim?0.42:1)+';transition:opacity .12s">'
           +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap"><span style="font-size:10px;font-weight:700;letter-spacing:1px;color:'+color+'">'+label+'</span>'
-          +(sel?'<span style="font-size:8px;color:var(--text5)">●</span>':'')+wBadge+orbBadge+'</div>'
-          +'<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">'
-          +'<div style="font-size:20px;font-weight:700;color:'+(a.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(a.net)+'</div>'
-          +'<div style="font-size:9px;color:var(--text4);line-height:1.5">'+a.n+' trades · '+(a.n?Math.round(a.wr*100)+'% win':'—')+' · '+a.days+'d live<br>last '+(a.lastT?_dOnly(a.lastT):'—')+'</div></div>'
-          +cfgBlock+'</div>';
+          +(sel?'<span style="font-size:8px;color:var(--text5)">●</span>':'')+wBadge+orbBadge+dotHtml+'</div>'
+          +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:nowrap">'
+          +'<div style="font-size:20px;font-weight:700;line-height:1.15;color:'+(a.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(a.net)+'</div>'
+          +'<div style="font-size:9px;color:var(--text4);line-height:1.45;text-align:right;white-space:nowrap">'+a.n+' trades · '+(a.n?Math.round(a.wr*100)+'% win':'—')+'<br>'+a.days+'d live · last '+(a.lastT?_dOnly(a.lastT):'—')+'</div></div>'
+          +xHtml+cfgBlock+'</div>';
       };
       // Colours are hex, NOT theme vars: these four must match _curveSeries exactly, and
       // var(--yellow) resolves to #999999 grey on the monochrome theme while the BLEND
@@ -17451,7 +17497,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // ALL FOUR always render -- they are the chart legend, so filtering them away would
       // remove the only way to click back to another leg. Selection shows as emphasis, not
       // as absence.
-      const legStrip='<div style="display:flex;flex-wrap:wrap;gap:4px 0">'
+      const legStrip='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="lbl" style="font-size:10px;color:var(--text3)">LEGS</div>'
+        +'<span style="display:flex;gap:5px">'+_psScopeTab('TODAY','TODAY')+_psScopeTab('ALL','ALL TIME')+'</span>'
+        +'<span style="font-size:8px;color:var(--text5);margin-left:auto">dot = live in NinjaTrader</span></div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:4px 0">'
         +_tileDefs.map(d=>legTile(d[0],d[1],d[2])).join('<div style="width:1px;background:var(--border2);margin-right:14px"></div>')+'</div>';
       // cumulative curve — one merged date axis (all distinct run/exit dates), stepwise
       // cumulative $ per leg so the three lines share one x-axis even if a leg skipped a day.
@@ -18092,7 +18141,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         : '';
       // curveHtml now CARRIES the leg tiles, so it takes the tiles' old slot at the top:
       // summary + curve read as one block, then the detail panels below it.
-      body=headerHtml+bridgeHtml+curveHtml+tradesHtml+matrixHtml+reconcileHtml+reportsHtml
+      body=headerHtml+bridgeHtml+curveHtml+tradesHtml+reconcileHtml+reportsHtml
         +(window._paperErr?'<div style="color:var(--red);font-size:10px;margin-top:10px">load error: '+String(window._paperErr).replace(/</g,'&lt;')+'</div>':'');
     }else{
       const allRuns=runHistory.slice();
