@@ -446,10 +446,15 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.66';
+const VERSION='73.67';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.67',date:'2026-08-16',notes:[
+ 'FIX, the ALL POOLS dots really were not coloured. Three of the four pools were painted from THEME colours rather than fixed ones, and on the MONO theme the whole palette is grey - so RAW, GATE and TILT all came out the same grey and only HYBRID kept any colour. All four now use the exact colours the 1A FUNNEL key already paints them: RAW green, GATE red, TILT amber, HYBRID violet. Same colour for a family in both charts, on every theme.',
+ 'ALL POOLS has real axes now: a drawn x and y axis with tick marks and five labelled dollar values on each, named axis titles (NET PNL up the side, DD along the bottom), and a dashed trend line through the cloud - labelled with how many dollars of net it adds per $1 of extra drawdown and an r-squared, so a flat, meaningless trend says so out loud instead of looking like a finding.',
+ 'PNL vs DD is ONE row per candidate now, not two. Its name, its drawdown in dollars, both bars sharing one centreline, and its net in dollars all sit on a single line - and both bars are drawn to ONE dollar scale, so a bar twice as long really is twice the money. A candidate that lost money draws its net bar leftward, alongside its drawdown.',
+ 'Both charts now carry the SAMPLE toggles (IS / WF / LB) on the chart itself, so you can see which stretch of the run you are looking at without hunting for it. They are the same toggles the 1E MATRIX tables use, so ticking one here moves the tables too and the two can never disagree.']},
 {v:'73.66',date:'2026-08-16',notes:['HOTFIX: the previous release (73.62) crashed the run report for every Auto-Validate run - a variable the new 1A tabs needed was declared inside the wrong code block, so it was undefined by the time 1A tried to read it. Fixed - reports render normally again.']},
 {v:'73.62',date:'2026-08-16',notes:['The ALL POOLS PnL-vs-drawdown scatter moved out of 1E MATRIX and into 1A, as its own tab next to CHAMPION and FUNNEL - it no longer sits pinned above the RAW/GATE/TILT/HYBRID tables.','New PNL vs DD tab right next to it in 1A: the same all-pool candidates as horizontal bars instead of dots - one row per candidate, PnL and drawdown sharing a centreline, sorted best PnL first.','FIX: HYBRID pool candidates in that chart were rendering colorless (grey) instead of their assigned color, and clicking one did not jump to its matrix row either. Both now work - the color table needed the long pool name, not the short internal key.']},
 {v:'73.61',date:'2026-08-15',notes:['1E MATRIX gets a new ALL POOLS scatter, above the RAW/GATE/TILT/HYBRID tab tables: every candidate from all four pools plotted together (drawdown vs net $, colour-coded by pool), scoped to whatever SAMPLE is ticked, so an outlier the pre-registered net-$ + MAR-floor rule rejected is still there to eyeball. Hover a dot for its label and exact $/DD; click one to jump to its column in the matrix below.']},
@@ -11427,7 +11432,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+(multi?'':' data-xh="'+encodeURIComponent(JSON.stringify({xt:'num',x0:S[0].mn,x1:S[0].mx,yt:'usd',y0:ymn,y1:ymx,px:pd,py:pd,pw:PW-2*pd,ph:H-2*pd,xl:_pp(xk),yl:'net'}))+'"')+'>'+grid+dots+contours+c2YTitle(H,'net $')+'</svg>'
         +xrow+legend+'</div>';
     };
-    // 1E MATRIX SCATTER (owner ask, v73.5x): a "sanity check" view that does NOT depend on the
+    // ALL POOLS (owner ask, v73.5x): a "sanity check" view that does NOT depend on the
     //   pre-registered net-$ + MAR-floor adoption rule — every candidate the RAW search produced,
     //   PLUS every GATE cut-off, TILT model and HYBRID model, plotted on the SAME axes (DD on x,
     //   net $ on y) and colour-coded by pool, so an outlier the rule-based crowning rejected (or
@@ -11437,18 +11442,120 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //   Hover = candidate label + exact $ / DD (shares the global [data-tip] tooltip). Click a dot
     //   = jump to that candidate's own column in its pool's matrix (switches the 1E tab if needed,
     //   see the [data-mtxsc] click wiring near the other 1E tab handlers).
-    const _mtxPoolCol={RAW:'var(--blue)',GATE:'var(--purple)',TILT:'var(--yellow)',HYBRID:'#e879f9'};
+    // v73.6x: both this chart and the bar chart below it moved OUT of the 1E MATRIX card and into
+    //   §1A as their own tabs, so the titles here were dropped - the 1A card header names the tab.
+    // ── POOL COLOURS ────────────────────────────────────────────────────────────────────────
+    // v73.6x (owner: "the dots arent colored on the all pools. make sure they aline with the same
+    //   colo scheme of the funnel"). ROOT CAUSE of "not coloured": three of the four pools were
+    //   painted from THEME variables - var(--blue) / var(--purple) / var(--yellow) - and the owner
+    //   runs the MONO theme, whose entire palette is greyscale (--blue #b0b0b0, --purple #a0a0a0,
+    //   --yellow #999999). So RAW, GATE and TILT all resolved to three near-identical greys and
+    //   only HYBRID, the one hard-coded hex, kept any colour at all. Verified live in the owner
+    //   browser before this fix.
+    // These are now the EXACT hard-coded hexes the §1A funnel KEY paints each family with (see
+    //   _kOrder above: RAW #1d9e75, GATE #e24b4a, TILT #f0b429, HYBRID #c084fc), so one family is
+    //   one colour in BOTH charts, and - being literal hexes, not theme vars - they stay coloured
+    //   under mono and every other theme.
+    const _mtxPoolCol={RAW:'#1d9e75',GATE:'#e24b4a',TILT:'#f0b429',HYBRID:'#c084fc'};
+    const _mtxPoolTip={RAW:'RAW - the strategy parameter configs the search produced, before any model touches them. Same green the funnel KEY paints the crowned config.',
+                       GATE:'GATE - the trade filter: a model scores each entry and the ones under the cut-off are not taken. Same red as the funnel GATE line.',
+                       TILT:'TILT - every trade is taken, only re-sized by model confidence. Same amber as the funnel TILT line.',
+                       HYBRID:'HYBRID - gate first, then size the survivors by confidence. Same violet as the funnel HYBRID line.'};
+    const _mtxLegend=()=>Object.keys(_mtxPoolCol).map(k=>'<span title="'+_mtxPoolTip[k]+'" style="cursor:help;font-weight:700;color:'+_mtxPoolCol[k]+'">&#9679; '+k+'</span>').join(' &middot; ');
+    // ── SAMPLE STRIP ────────────────────────────────────────────────────────────────────────
+    // v73.6x (owner: "idk what im seeing in all pools or pnl vs dd. ie whcihh sample. toggles for
+    //   each or cominbing them like in 1d matrix?"). The points were ALWAYS scoped to the ticked
+    //   SAMPLE, but that control only ever existed on the 1E MATRIX card - once these two charts
+    //   moved up to 1A there was nothing on screen saying WHICH stretch of the run you were
+    //   looking at. This is the SAME _sampChips control off the SAME g2samp pref the matrices
+    //   read, so ticking it here also moves the 1E tables and the two can never disagree, exactly
+    //   the "combine them like in the matrix" behaviour asked for.
+    const _MTX_SEG_NM={is:'IS',wf:'WF',lb:'LB'};
+    const _MTX_SEG_TIP={is:'IS = IN-SAMPLE. The tuning years the search optimised on - the numbers it was allowed to look at while choosing.',
+                        wf:'WF = WALK-FORWARD. Rolling out-of-sample stretches: fit on the years before, scored on the year after, then step forward.',
+                        lb:'LB = LOCKBOX. The sealed final stretch, held back from the whole search and looked at exactly once.'};
+    const _mtxSampBar=()=>_sampChips(['is','wf','lb'],_segsOf(['is','wf','lb']),_MTX_SEG_NM,_MTX_SEG_TIP);
+    const _mtxInfoIc=t=>'<span title="'+String(t).replace(/"/g,'&quot;')+'" style="cursor:help;font-size:8px;color:var(--text4)">&#9432;</span>';
     const mtxScatterHtml=(points)=>{
       if(!points||points.length<2)return '';
-      const W=C2W,H=210,pd=8,PW=C2P;
+      // v73.6x (owner: "put axis lines for x and y axis and a couple data points on them for
+      //   reference... axis titles should be net pnl and DD"). Before this the chart had grid
+      //   lines, NO drawn axis at all, and only two end labels in an HTML row underneath - so
+      //   there was nothing to read a dot position against. Now: a real y axis down the left and
+      //   x axis along the bottom, both with tick marks and round-dollar reference values, plus
+      //   named axis titles. H grew from 210 to 236 to hold the x tick row and its title.
+      // GEOMETRY: this chart deliberately does NOT use the shared §2 chrome (a 46px RIGHT gutter
+      //   holding the y labels, per c2Txt / c2YTitle). That convention exists so the §2 config
+      //   tiles line up with each other - but this chart now lives alone in a §1A tab with nothing
+      //   to line up against, and putting the y VALUES in the right gutter while the y AXIS is
+      //   drawn on the left would leave every reference number 46px away from the axis it labels,
+      //   on the far side of the plot. Labels, ticks, axis line and axis title all sit together on
+      //   the LEFT here; the freed right gutter goes back to the plot.
+      const W=C2W,H=236;
+      const padL=34,padR=10,padT=10,padB=30;
+      const x0=padL,x1=W-padR,y0=padT,y1=H-padB;
+      const yTxt=(y,s)=>'<text x="'+(x0-6)+'" y="'+y+'" text-anchor="end" font-size="8" fill="var(--text4)">'+s+'</text>';
       const dds=points.map(p=>Math.abs(p.dd)),pnls=points.map(p=>p.pnl);
       const ddmx=Math.max.apply(null,dds.concat([1]));
       const ymn=Math.min.apply(null,[0].concat(pnls)),ymx=Math.max.apply(null,[0].concat(pnls)),yrg=(ymx-ymn)||1;
-      const X=v=>pd+(PW-2*pd)*(ddmx>1e-9?(Math.abs(v)/ddmx):0);
-      const Y=v=>H-pd-(H-2*pd)*((v-ymn)/yrg);
-      const zeroY=Y(0);
-      const grid=c2GridV(pd,H-pd,ymn,ymx);
-      // slight per-pool x jitter so same-DD dots from different pools don't fully overlap
+      const X=v=>x0+(x1-x0)*(ddmx>1e-9?Math.min(1,Math.abs(v)/ddmx):0);
+      const Y=v=>y1-(y1-y0)*((v-ymn)/yrg);
+      // the SAME 1/2/2.5/5/10 nice-number ladder c2GridV uses, so both axes tick on round dollars
+      //   instead of on the raw data extremes.
+      const _nice=v=>{v=Math.abs(v)||1;const e=Math.pow(10,Math.floor(Math.log10(v)));const f=v/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
+      // y grid + y-axis ticks, both labelled on the LEFT beside the axis line. Divided by 5, not
+      //   4: at /4 a typical run landed only TWO labelled values on the whole y axis, which is not
+      //   enough to read a dot position off.
+      let gridY='',tickY='';
+      {const gs=_nice(yrg/5)||1;
+        for(let L=Math.ceil(ymn/gs)*gs;L<=ymx+1e-6;L+=gs){
+          const z=Math.abs(L)<1e-6,gy=Y(L);
+          gridY+='<line x1="'+x0+'" y1="'+gy.toFixed(1)+'" x2="'+x1+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="'+(z?0.9:0.5)+'" opacity="'+(z?0.6:0.3)+'"/>';
+          tickY+='<line x1="'+(x0-4)+'" y1="'+gy.toFixed(1)+'" x2="'+x0+'" y2="'+gy.toFixed(1)+'" stroke="var(--text3)" stroke-width="0.9" opacity="0.85"/>'
+                +yTxt((gy+2.7).toFixed(1),fmtAx(L,1));}}
+      // x grid + x-axis ticks. DD is stored as a POSITIVE magnitude, so the tick values are
+      //   printed without a minus and the axis title carries the direction instead.
+      let gridX='',tickX='';
+      {const gs=_nice(ddmx/5)||1;
+        for(let L=0;L<=ddmx+1e-6;L+=gs){
+          const gx=X(L);
+          if(L>0)gridX+='<line x1="'+gx.toFixed(1)+'" y1="'+y0+'" x2="'+gx.toFixed(1)+'" y2="'+y1+'" stroke="var(--border)" stroke-width="0.5" opacity="0.22"/>';
+          tickX+='<line x1="'+gx.toFixed(1)+'" y1="'+y1+'" x2="'+gx.toFixed(1)+'" y2="'+(y1+4)+'" stroke="var(--text3)" stroke-width="0.9" opacity="0.85"/>'
+                +'<text x="'+gx.toFixed(1)+'" y="'+(y1+13)+'" text-anchor="middle" font-size="8" fill="var(--text4)">'+fmtAx(L,1)+'</text>';}}
+      const axes='<line x1="'+x0+'" y1="'+y0+'" x2="'+x0+'" y2="'+y1+'" stroke="var(--text3)" stroke-width="1" opacity="0.9"/>'
+                +'<line x1="'+x0+'" y1="'+y1+'" x2="'+x1+'" y2="'+y1+'" stroke="var(--text3)" stroke-width="1" opacity="0.9"/>';
+      const xTitle='<text x="'+((x0+x1)/2).toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text3)">DD &middot; MAX DRAWDOWN ($) &mdash; deeper to the right</text>';
+      const yTitle='<text x="9" y="'+((y0+y1)/2).toFixed(1)+'" transform="rotate(-90 9 '+((y0+y1)/2).toFixed(1)+')" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text3)">NET PNL ($)</text>';
+      // ── TREND (owner: "a regression line or trend line if there are any that are applicable") ──
+      //   Ordinary least-squares fit of net $ on |DD| over EVERY dot on the chart, all four pools
+      //   pooled. Drawn dashed, and labelled with the slope in plain dollars plus r-squared - how
+      //   much of the spread in net $ the drawdown actually explains. On this data the honest
+      //   answer is often "almost none", and a near-flat line at r-squared 0.04 IS the finding, so
+      //   the number is always printed and the line is drawn FAINT under 0.10 rather than hidden.
+      //   Caveat worth knowing and stated in the hover: GATE / TILT / HYBRID candidates are all
+      //   derived from the RAW ones, so these points are not four independent samples.
+      let trendSvg='',trendTxt='';
+      (function(){
+        const n=points.length;if(n<4)return;
+        let sx=0,sy=0,sxx=0,sxy=0,syy=0;
+        points.forEach(p=>{const x=Math.abs(p.dd),y=p.pnl;sx+=x;sy+=y;sxx+=x*x;sxy+=x*y;syy+=y*y;});
+        const den=n*sxx-sx*sx,dey=n*syy-sy*sy;
+        if(!(Math.abs(den)>1e-9)||!(Math.abs(dey)>1e-9))return;
+        const slope=(n*sxy-sx*sy)/den,icpt=(sy-slope*sx)/n;
+        const r=(n*sxy-sx*sy)/Math.sqrt(den*dey),r2=r*r;
+        const yAt=x=>icpt+slope*x;
+        // clip the fitted line to the plotted y range by solving for the x where it exits, so a
+        //   steep fit is not visually flattened by clamping its endpoints onto the frame.
+        const clipX=x=>{const y=yAt(x);if(Math.abs(slope)<1e-12)return x;
+          if(y>ymx)return (ymx-icpt)/slope;if(y<ymn)return (ymn-icpt)/slope;return x;};
+        const ax=Math.max(0,Math.min(ddmx,clipX(0))),bx=Math.max(0,Math.min(ddmx,clipX(ddmx)));
+        if(Math.abs(bx-ax)<1e-9)return;
+        trendSvg='<line x1="'+X(ax).toFixed(1)+'" y1="'+Y(yAt(ax)).toFixed(1)+'" x2="'+X(bx).toFixed(1)+'" y2="'+Y(yAt(bx)).toFixed(1)+'" stroke="var(--text2)" stroke-width="1.3" stroke-dasharray="5,4" opacity="'+(r2>=0.1?0.85:0.4)+'"/>';
+        trendTxt='<span title="TREND LINE = ordinary least-squares fit of net $ on drawdown across every dot on this chart, all four pools pooled together. SLOPE says how many dollars of net the fit adds for each extra $1 of drawdown taken on. r-squared says how much of the spread in net $ the drawdown explains: 0 = none of it, 1 = all of it. Below about 0.10 there is effectively no relationship and the line is drawn faint to say so. Note the four pools are not independent - GATE, TILT and HYBRID candidates are all built from the RAW ones - so read this as a shape, not as a test." style="cursor:help;color:var(--text3);white-space:nowrap">&#8211;&#8211; TREND <b style="color:var(--text2)">'
+          +(slope>=0?'+':'&minus;')+'$'+Math.abs(slope).toFixed(2)+'</b> net per $1 DD &middot; r&sup2; <b style="color:'+(r2>=0.1?'var(--text2)':'var(--text4)')+'">'+r2.toFixed(2)+'</b>'
+          +(r2<0.1?' <span style="color:var(--text4)">(no real relationship)</span>':'')+'</span>';
+      })();
+      // slight per-pool x jitter so same-DD dots from different pools do not fully overlap
       const _jit={RAW:-1.1,GATE:-0.35,TILT:0.35,HYBRID:1.1};
       const dots=points.slice().sort((a,b)=>a.pnl-b.pnl).map(p=>{
         const col=_mtxPoolCol[p.pool]||'var(--text3)';
@@ -11461,17 +11568,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // Escaping only p.label above is not enough -- the markup built around it carries
         // quotes too. Escape the whole finished string at the injection point. (Already-
         // escaped &quot; from the label has no raw quote left, so it is not double-escaped.)
-        return '<circle class="cfgmark" data-mtxsc="1" data-pool="'+p.pool+'" data-mtxkey="'+(p.key||'')+'" data-net="'+Math.round(p.pnl)+'" cx="'+cx+'" cy="'+cy+'" r="'+(p.crowned?4.2:3)+'" fill="'+col+'" opacity="'+(p.crowned?0.95:0.6)+'"'+(p.crowned?' stroke="var(--green)" stroke-width="1.2"':'')+' style="cursor:pointer;transition:opacity .12s" data-tip="'+tip.replace(/"/g,'&quot;')+'"/>';
+        // v73.6x: opacity lifted 0.6 -> 0.88 (at 0.6 over var(--bg1) even a saturated hue washed
+        //   out towards the card), and the crowned ring moved off var(--green) - now that RAW
+        //   itself is the funnel green, a green ring on a green dot was invisible. White ring, the
+        //   same mark the 2C cut-off sweep puts on its chosen model.
+        return '<circle class="cfgmark" data-mtxsc="1" data-pool="'+p.pool+'" data-mtxkey="'+(p.key||'')+'" data-net="'+Math.round(p.pnl)+'" cx="'+cx+'" cy="'+cy+'" r="'+(p.crowned?4.6:3.1)+'" fill="'+col+'" opacity="'+(p.crowned?1:0.88)+'"'+(p.crowned?' stroke="var(--text)" stroke-width="1.4"':'')+' style="cursor:pointer;transition:opacity .12s" data-tip="'+tip.replace(/"/g,'&quot;')+'"/>';
       }).join('');
-      const legend=Object.keys(_mtxPoolCol).map(k=>'<span style="color:'+_mtxPoolCol[k]+'">&#9679; '+k+'</span>').join(' &middot; ');
-      const xrow=c2XRow('0','<b style="color:var(--text2)">DRAWDOWN ($)</b> — magnitude, worse to the right (x)',fmtUsd(Math.round(ddmx)));
-      const _tip='Every candidate the search produced, across all four pools, on ONE chart — a sanity check that does not depend on the pre-registered net-$ + MAR-floor rule that actually crowns. Each dot = one candidate: DD (x, magnitude) vs net $ (y), scoped to whatever SAMPLE is ticked below. 👑 = the engine-crowned RAW column. Click a dot to jump to its row in the matrix below.';
-      return '<div title="'+_tip+'" style="cursor:help;margin:2px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">ALL POOLS · PnL vs DRAWDOWN <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span><span style="margin-left:auto;font-weight:400;font-size:8px">'+legend+'</span></div>'
+      const _tip='Every candidate the search produced, across all four pools, on ONE chart - a sanity check that does not depend on the pre-registered net-$ + MAR-floor rule that actually crowns. Each dot = one candidate: max drawdown on the x axis (a magnitude, so further right = deeper pain) against net $ on the y axis. The crown = the engine-crowned RAW config, ringed in white. Colours match the 1A FUNNEL key exactly. Click any dot to jump to that candidate own column in the 1E MATRIX below.';
+      return '<div style="margin:2px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:8px;color:var(--text4)">'
+          +_mtxInfoIc(_tip)+_mtxSampBar()
+          +'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap">'+trendTxt+'<span>'+_mtxLegend()+'</span></span></div>'
         +'<div style="background:var(--bg1);border-radius:8px;padding:10px;margin-bottom:6px">'
-        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+grid
-        +'<line x1="'+pd+'" y1="'+zeroY.toFixed(1)+'" x2="'+(PW-pd)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.65"/>'
-        +dots+c2YTitle(H,'net $')+'</svg>'
-        +xrow+'</div>';
+        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'
+        +gridY+gridX+axes+tickY+tickX+trendSvg+dots+xTitle+yTitle+'</svg>'
+        +'</div>';
     };
     // v73.6x (owner ask): the SAME cross-pool candidates as mtxScatterHtml, above, but read as a
     //   horizontal diverging bar chart instead of a scatter - one row per candidate, sorted best
@@ -11484,23 +11594,36 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //   SVG text measuring.
     const mtxBarsHtml=(points)=>{
       if(!points||points.length<2)return '';
-      const maxAbsPnl=Math.max.apply(null,points.map(p=>Math.abs(p.pnl)).concat([1]));
-      const maxAbsDd=Math.max.apply(null,points.map(p=>p.dd).concat([1]));
-      const LBW=132,VW=58,GAP=6;
-      // the shared centreline sits at 50% of the FLEXIBLE middle column. Because the label and
-      // value columns are fixed px and different widths, that point is offset from the row's OWN
-      // 50% by half the difference between them - solved once in closed form (the card padding
-      // below is symmetric, so it cancels out of this same formula) so one absolutely-positioned
-      // div can draw the line the full height of the chart instead of a tick stitched per row.
-      const midOff=((LBW-VW)/2).toFixed(1);
+      // v73.6x (owner: "pnl vs dd: why are the bars for a confit not on the same row. apply same
+      //   for the pnl and dd number"). It was TWO stacked flex rows per candidate - the PnL bar
+      //   and its dollars on one, the DD bar and its dollars on the next - which read as two
+      //   separate entries with a blank label. Now ONE row per candidate: label, the drawdown
+      //   dollars, a single shared track with drawdown running LEFT of the centreline and net PnL
+      //   running RIGHT of it, then the net dollars. Both bars and both numbers on one line, and
+      //   the tile is half the height it was.
+      // ONE DOLLAR SCALE across both halves (the largest of |net $| and DD over every candidate)
+      //   so a bar twice as long really is twice the money. With a separate scale per side - what
+      //   it used to do - a $9k drawdown could out-draw a $70k profit and the picture would lie.
+      const sc=Math.max.apply(null,points.map(p=>Math.abs(p.pnl)).concat(points.map(p=>Math.abs(p.dd))).concat([1]));
+      const LBW=126,DDW=56,VW=56,GAP=6;
+      // The shared centreline sits at 50% of the FLEXIBLE track. With fixed-px columns of
+      //   differing widths on either side that point is offset from the row OWN 50%: for a flex
+      //   row [a][b][flex][d] with gap G the offset is (a+b+G-d)/2. Solved once in closed form so
+      //   ONE absolutely-positioned div draws the line the full height of the chart instead of a
+      //   tick stitched per row. The card padding below is symmetric, so it cancels out of the
+      //   same formula (an absolutely-positioned child is placed against the PADDING box, whose
+      //   50% coincides with the content box 50% whenever the padding is equal on both sides).
+      const midOff=((LBW+DDW+GAP-VW)/2).toFixed(1);
       const rows=points.slice().sort((a,b)=>b.pnl-a.pnl).map((p,_bi)=>{
         const col=_mtxPoolCol[p.pool]||'var(--text3)';
         const pnlPos=p.pnl>=0,pnlCol=pnlPos?'#1d9e75':'#e24b4a';
-        const pnlPct=(Math.abs(p.pnl)/maxAbsPnl*50).toFixed(1),ddPct=(Math.abs(p.dd)/maxAbsDd*50).toFixed(1);
-        const pnlBar=pnlPos
-          ?'<span style="position:absolute;left:50%;top:0;height:100%;width:'+pnlPct+'%;background:'+pnlCol+';opacity:.85;border-radius:0 2px 2px 0"></span>'
-          :'<span style="position:absolute;right:50%;top:0;height:100%;width:'+pnlPct+'%;background:'+pnlCol+';opacity:.85;border-radius:2px 0 0 2px"></span>';
-        const ddBar='<span style="position:absolute;right:50%;top:0;height:100%;width:'+ddPct+'%;background:#e24b4a;opacity:.55;border-radius:2px 0 0 2px"></span>';
+        const pnlPct=(Math.abs(p.pnl)/sc*50).toFixed(2),ddPct=(Math.abs(p.dd)/sc*50).toFixed(2);
+        // Net PnL grows RIGHT of the centre when the candidate made money and LEFT when it lost -
+        //   the same direction the drawdown bar always runs - so a losing candidate reads as pain
+        //   on both counts. The two bars occupy the upper and lower half of the SAME 13px track,
+        //   so a leftward net bar stacks above the drawdown bar instead of colliding with it.
+        const pnlBar='<span style="position:absolute;'+(pnlPos?'left':'right')+':50%;top:1px;height:5px;width:'+pnlPct+'%;background:'+pnlCol+';opacity:.92;border-radius:'+(pnlPos?'0 2px 2px 0':'2px 0 0 2px')+'"></span>';
+        const ddBar='<span style="position:absolute;right:50%;top:7px;height:5px;width:'+ddPct+'%;background:#e24b4a;opacity:.5;border-radius:2px 0 0 2px"></span>';
         const lbl=(p.crowned?'<span style="color:var(--green)">👑</span> ':'')+String(p.label||'');
         const tip=p.pool+' <b>'+String(p.label||'').replace(/"/g,'&quot;')+'</b>'+(p.crowned?' <span style="color:var(--green)">👑 crowned</span>':'')
           +'<br>net <b style="color:'+pnlCol+'">'+fmtUsd(Math.round(p.pnl))+'</b> &middot; DD <b style="color:#e24b4a">-'+fmtUsd(Math.round(Math.abs(p.dd)))+'</b>';
@@ -11511,25 +11634,34 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // not piecemeal while it is being built above (the already-escaped &quot; from the label
         // has no raw quote left, so it does not get double-escaped).
         const tipEsc=tip.replace(/"/g,'&quot;');
-        return '<div class="cfgmark" data-mtxsc="1" data-pool="'+p.pool+'" data-mtxkey="'+(p.key||'')+'" data-net="'+Math.round(p.pnl)+'" style="cursor:pointer;padding:3px 0;'+(_bi?'border-top:1px solid color-mix(in srgb,var(--border) 40%,transparent);':'')+'" data-tip="'+tipEsc+'">'
-          +'<div style="display:flex;align-items:center;gap:'+GAP+'px;margin-bottom:2px">'
-            +'<span style="flex:0 0 '+LBW+'px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8.5px;color:var(--text2)"><span style="display:inline-block;width:6px;height:6px;border-radius:2px;background:'+col+';margin-right:4px"></span>'+lbl+'</span>'
-            +'<span style="flex:1;position:relative;height:9px">'+pnlBar+'</span>'
-            +'<span style="flex:0 0 '+VW+'px;text-align:right;font-size:8.5px;font-weight:700;color:'+pnlCol+'">'+fmtUsd(Math.round(p.pnl))+'</span>'
-          +'</div>'
-          +'<div style="display:flex;align-items:center;gap:'+GAP+'px">'
-            +'<span style="flex:0 0 '+LBW+'px"></span>'
-            +'<span style="flex:1;position:relative;height:9px">'+ddBar+'</span>'
-            +'<span style="flex:0 0 '+VW+'px;text-align:right;font-size:8.5px;font-weight:700;color:#e24b4a">-'+fmtUsd(Math.round(Math.abs(p.dd)))+'</span>'
-          +'</div>'
+        return '<div class="cfgmark" data-mtxsc="1" data-pool="'+p.pool+'" data-mtxkey="'+(p.key||'')+'" data-net="'+Math.round(p.pnl)+'" style="display:flex;align-items:center;gap:'+GAP+'px;cursor:pointer;padding:2px 0;'+(_bi?'border-top:1px solid color-mix(in srgb,var(--border) 40%,transparent);':'')+'" data-tip="'+tipEsc+'">'
+          +'<span style="flex:0 0 '+LBW+'px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8.5px;color:var(--text2)"><span style="display:inline-block;width:6px;height:6px;border-radius:2px;background:'+col+';margin-right:4px"></span>'+lbl+'</span>'
+          +'<span style="flex:0 0 '+DDW+'px;text-align:right;font-size:8.5px;font-weight:700;color:#e24b4a">-'+fmtUsd(Math.round(Math.abs(p.dd)))+'</span>'
+          +'<span style="flex:1;position:relative;height:13px">'+ddBar+pnlBar+'</span>'
+          +'<span style="flex:0 0 '+VW+'px;text-align:right;font-size:8.5px;font-weight:700;color:'+pnlCol+'">'+fmtUsd(Math.round(p.pnl))+'</span>'
         +'</div>';
       }).join('');
-      const legend=Object.keys(_mtxPoolCol).map(k=>'<span style="color:'+_mtxPoolCol[k]+'">&#9679; '+k+'</span>').join(' &middot; ');
-      const _tip='Every candidate the search produced, across all four pools, as bars instead of dots - read the same information as the ALL POOLS scatter, sorted by net PnL. Each row = one candidate: the PnL bar (green/red) and the drawdown bar (red) share a centreline so you can compare reward and pain directly. Click a bar to jump to its row in the matrix below.';
-      return '<div title="'+_tip+'" style="cursor:help;margin:2px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">PNL vs DRAWDOWN &middot; ALL POOLS <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span><span style="margin-left:auto;font-weight:400;font-size:8px">'+legend+'</span></div>'
+      // Column captions + a scale foot, both built from the SAME fixed widths as the rows so they
+      //   line up exactly. Answers the other half of "idk what im seeing": which number is which,
+      //   and what a bar of a given length is actually worth in dollars.
+      const _spacer=(w)=>'<span style="flex:0 0 '+w+'px"></span>';
+      const head='<div style="display:flex;align-items:center;gap:'+GAP+'px;font-size:7.5px;font-weight:700;letter-spacing:.4px;color:var(--text5);padding-bottom:4px;margin-bottom:2px;border-bottom:1px solid color-mix(in srgb,var(--border) 60%,transparent)">'
+        +'<span style="flex:0 0 '+LBW+'px">CANDIDATE</span>'
+        +'<span style="flex:0 0 '+DDW+'px;text-align:right;color:#e24b4a">DD</span>'
+        +'<span style="flex:1;text-align:center">&#9664; DRAWDOWN &nbsp;&middot;&nbsp; NET PNL &#9654;</span>'
+        +'<span style="flex:0 0 '+VW+'px;text-align:right;color:var(--text4)">NET PNL</span></div>';
+      const foot='<div style="display:flex;align-items:center;gap:'+GAP+'px;font-size:7.5px;color:var(--text4);padding-top:5px;margin-top:2px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)">'
+        +_spacer(LBW)+_spacer(DDW)
+        +'<span style="flex:1;display:flex;justify-content:space-between"><span>'+fmtAx(sc,1)+'</span><span style="color:var(--text5)">$0</span><span>'+fmtAx(sc,1)+'</span></span>'
+        +_spacer(VW)+'</div>';
+      const _tip='Every candidate the search produced, across all four pools, as bars instead of dots - the same information as the ALL POOLS scatter, sorted best net PnL first. ONE ROW per candidate: its drawdown in dollars, then a shared centreline with the drawdown bar running left and the net PnL bar running right, then its net in dollars. Both halves use ONE dollar scale, so bar lengths are directly comparable. A candidate that LOST money draws its net bar leftward too. Click any row to jump to that candidate own column in the 1E MATRIX below.';
+      return '<div style="margin:2px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:8px;color:var(--text4)">'
+          +_mtxInfoIc(_tip)+_mtxSampBar()
+          +'<span style="margin-left:auto">'+_mtxLegend()+'</span></div>'
         +'<div style="background:var(--bg1);border-radius:8px;padding:10px;margin-bottom:6px;position:relative">'
-        +'<div style="position:absolute;top:10px;bottom:10px;left:calc(50% + '+midOff+'px);width:1px;background:var(--text3);opacity:.5"></div>'
-        +rows
+        +head
+        +'<div style="position:relative"><div style="position:absolute;top:0;bottom:0;left:calc(50% + '+midOff+'px);width:1px;background:var(--text3);opacity:.45"></div>'+rows+'</div>'
+        +foot
         +'</div>';
     };
     // 3-D SCATTER (2G's default view) — every tested config as ONE dot in space: two chosen
