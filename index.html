@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.72';
+const VERSION='73.73';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -463,7 +463,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-{v:'73.72',date:'2026-08-16',notes:['FIX: the 73.55 change that made RAW follow the SAMPLE tick only ever worked on runs produced by the newest engine - which is every run you have NOT got. On run #225 and every other existing run the RAW tab still showed the same pinned whole-window MAR, SHARPE and DD no matter what you ticked, so RAW-LB could never be compared with GATE-LB.','MAR, SHARPE and DD now follow the SAMPLE tick on OLD runs too. Those four read off the saved equity curves, which every run carries, so nothing newer is needed. On run #225 the crowned config reads MAR 14.22 with IS+WF ticked and MAR 1.00 with only LB ticked - two genuinely different numbers where before you got one.','PF, WIN % and $ / TRADE genuinely cannot be sliced from a curve - they need per-trade win/loss sums the older runs never saved. Rather than print an IS+WF number under an LB label, those three now show a dash on an old run whenever the tick is not exactly IS+WF, the section caption says so out loud, and hovering the dash explains why.','Also fixed while in there: DD and $ / TRADE printed point counts rather than dollars on the newest-engine path, the drawdown of a stretch missed the give-back after the last sampled point on the curve, and an IS-only or WF-only pick now uses the drawdown the engine actually measured for that stretch instead of estimating it.']},
+{v:'73.73',date:'2026-08-16',notes:['FIX: the 73.55 change that made RAW follow the SAMPLE tick only ever worked on runs produced by the newest engine - which is every run you have NOT got. On run #225 and every other existing run the RAW tab still showed the same pinned whole-window MAR, SHARPE and DD no matter what you ticked, so RAW-LB could never be compared with GATE-LB.','MAR, SHARPE and DD now follow the SAMPLE tick on OLD runs too. Those four read off the saved equity curves, which every run carries, so nothing newer is needed. On run #225 the crowned config reads MAR 14.22 with IS+WF ticked and MAR 1.00 with only LB ticked - two genuinely different numbers where before you got one.','PF, WIN % and $ / TRADE genuinely cannot be sliced from a curve - they need per-trade win/loss sums the older runs never saved. Rather than print an IS+WF number under an LB label, those three now show a dash on an old run whenever the tick is not exactly IS+WF, the section caption says so out loud, and hovering the dash explains why.','Also fixed while in there: DD and $ / TRADE printed point counts rather than dollars on the newest-engine path, the drawdown of a stretch missed the give-back after the last sampled point on the curve, and an IS-only or WF-only pick now uses the drawdown the engine actually measured for that stretch instead of estimating it.']},
 {v:'73.70',date:'2026-08-16',notes:['FIX on the ALL POOLS chart just shipped: it was being stretched to fill its tile, which squashed it sideways and stretched it tall - the dots came out as ovals rather than circles, and worse, the trend line LOOKED like a different slope than the one it was actually measured at, so you could not read a dot honestly against the two axes. It now keeps its true shape at whatever width the column is. Trade-off worth knowing: this one chart no longer has a drag handle to pull it taller, because its height is now fixed by its width.']},
 {v:'73.68',date:'2026-08-16',notes:[
  'FIX, the ALL POOLS dots really were not coloured. Three of the four pools were painted from THEME colours rather than fixed ones, and on the MONO theme the whole palette is grey - so RAW, GATE and TILT all came out the same grey and only HYBRID kept any colour. All four now use the exact colours the 1A FUNNEL key already paints them: RAW green, GATE red, TILT amber, HYBRID violet. Same colour for a family in both charts, on every theme.',
@@ -17403,6 +17403,44 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const f=_CFG_FALLBACK[k];
         return f?{src:f,params:f.params,fromReport:false}:null;
       };
+      // HOISTED: the tiles now render the cross-engine block, so XENGINE / _rec /
+      // _recRep must exist BEFORE legTile is called. They used to be declared far below,
+      // which put them in the temporal dead zone at tile-build time and threw
+      // "Cannot access XENGINE before initialization" -- white-screening the whole tab.
+      // ── RECONCILE ─────────────────────────────────────────────────────────────
+      // The whole point of PAPER is that three independent engines should agree. This
+      // panel is the only place that shows all three side by side.
+      //
+      // Two panels, because they answer different questions and are gathered
+      // differently, and blurring them would make a hand-checked number from last week
+      // look like it refreshed this morning:
+      //   TODAY   engine vs NinjaTrader, rebuilt automatically every evening from
+      //           paper_reports/{date}.reconcile (api/paper_reconcile.py).
+      //   HISTORY the full-backtest cross-engine checks. These are MANUAL — TradingView
+      //           has no feed we can read, so every TV number came from a hand-exported
+      //           CSV. Stored here with its date so the panel can say how stale it is
+      //           rather than implying a check that is not happening.
+      const TV_HAS_NO_FEED='TradingView has no API we can poll; these are hand-run.';
+      const XENGINE=[
+        {leg:'NOISE',date:'2026-08-13',eng:191,tv:189,nt:192,
+         tvIdent:'157/159',ntIdent:'184/184',tvUsd:191,ntUsd:0,verdict:'PASS'},
+        {leg:'ENGUQ',date:null,eng:null,tv:null,nt:null,
+         tvIdent:null,ntIdent:null,tvUsd:null,ntUsd:null,verdict:'NEVER RUN',
+         note:'TradingView has no 1-minute history this far back; the NinjaTrader backtest has not been run.'},
+        {leg:'ORB',date:null,eng:null,tv:null,nt:null,
+         tvIdent:null,ntIdent:null,tvUsd:null,ntUsd:null,verdict:'NEVER RUN',
+         note:'Not reconciled against any second engine.'},
+      ];
+      // Newest report that actually carries a reconcile block. Reports written before
+      // 2026-08-13 have none, and falling back to an older one would silently show
+      // yesterday's answer under today's date.
+      const _recRep=_pr.find(r=>r&&r.reconcile&&(r.reconcile.legs||r.reconcile.error));
+      const _rec=_recRep?_recRep.reconcile:null;
+      const _daysAgo=d=>{if(!d)return null;const ms=Date.now()-Date.parse(d+'T12:00:00-04:00');return Math.max(0,Math.floor(ms/86400000));};
+      const _stale=d=>{const n=_daysAgo(d);return n==null?'<span style="color:var(--text5)">never run</span>'
+        :'<span style="color:'+(n>14?'var(--yellow)':'var(--text5)')+'">'+(n===0?'today':n+'d ago')+'</span>';};
+      const _pill=(txt,col)=>'<span style="font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 8px;border-radius:999px;border:1px solid '+col+';color:'+col+'">'+txt+'</span>';
+
       const legTile=(name,label,color)=>{
         const a=legAgg(name);
         // No warning badge here any more: every warning these legs produce is about the
@@ -17888,39 +17926,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +alertBanner
           +(window._paperNtDetail?(body+liveInner+mcpSection):_ntOneLine));
       }
-      // ── RECONCILE ─────────────────────────────────────────────────────────────
-      // The whole point of PAPER is that three independent engines should agree. This
-      // panel is the only place that shows all three side by side.
-      //
-      // Two panels, because they answer different questions and are gathered
-      // differently, and blurring them would make a hand-checked number from last week
-      // look like it refreshed this morning:
-      //   TODAY   engine vs NinjaTrader, rebuilt automatically every evening from
-      //           paper_reports/{date}.reconcile (api/paper_reconcile.py).
-      //   HISTORY the full-backtest cross-engine checks. These are MANUAL — TradingView
-      //           has no feed we can read, so every TV number came from a hand-exported
-      //           CSV. Stored here with its date so the panel can say how stale it is
-      //           rather than implying a check that is not happening.
-      const TV_HAS_NO_FEED='TradingView has no API we can poll; these are hand-run.';
-      const XENGINE=[
-        {leg:'NOISE',date:'2026-08-13',eng:191,tv:189,nt:192,
-         tvIdent:'157/159',ntIdent:'184/184',tvUsd:191,ntUsd:0,verdict:'PASS'},
-        {leg:'ENGUQ',date:null,eng:null,tv:null,nt:null,
-         tvIdent:null,ntIdent:null,tvUsd:null,ntUsd:null,verdict:'NEVER RUN',
-         note:'TradingView has no 1-minute history this far back; the NinjaTrader backtest has not been run.'},
-        {leg:'ORB',date:null,eng:null,tv:null,nt:null,
-         tvIdent:null,ntIdent:null,tvUsd:null,ntUsd:null,verdict:'NEVER RUN',
-         note:'Not reconciled against any second engine.'},
-      ];
-      // Newest report that actually carries a reconcile block. Reports written before
-      // 2026-08-13 have none, and falling back to an older one would silently show
-      // yesterday's answer under today's date.
-      const _recRep=_pr.find(r=>r&&r.reconcile&&(r.reconcile.legs||r.reconcile.error));
-      const _rec=_recRep?_recRep.reconcile:null;
-      const _daysAgo=d=>{if(!d)return null;const ms=Date.now()-Date.parse(d+'T12:00:00-04:00');return Math.max(0,Math.floor(ms/86400000));};
-      const _stale=d=>{const n=_daysAgo(d);return n==null?'<span style="color:var(--text5)">never run</span>'
-        :'<span style="color:'+(n>14?'var(--yellow)':'var(--text5)')+'">'+(n===0?'today':n+'d ago')+'</span>';};
-      const _pill=(txt,col)=>'<span style="font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 8px;border-radius:999px;border:1px solid '+col+';color:'+col+'">'+txt+'</span>';
       // ── MATRIX · STRATEGY × ENGINE ────────────────────────────────────────────
       // Owner 2026-08-15: "the data is scattered... thinking a matrix to consolidate."
       // The board's real shape is strategies × engines, but that one 2-D fact was smeared
