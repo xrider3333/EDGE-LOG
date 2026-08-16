@@ -53,8 +53,20 @@ _NQ_COST_PTS = 0.533
 # this leg is pinned to ORB_3_0.py — the deliberately-stripped "5 knob" deployable
 # (see that file's own docstring) whose run_backtest() has no partial_exit_R or
 # trail_bars parameter at all (TypeError if passed); the other knobs are identical.
-ORB_125 = dict(or_bars=1, trade_mode="Both", stop_frac=0.75, vol_filter=1.25,
-               breakout_buf=0.0, target_R=0.0, flat_eod=True)
+# RETIRED 2026-08-16: this was run #125's no-trail cut, whose volume filter is the
+# LOOK-AHEAD one (2026-08-11 audit) -- the shadow numbers it produced were never
+# live-achievable, so forward-testing it measured nothing you could ever trade. Kept only
+# as a named reference for old reports that cite it.
+ORB_125_RETIRED = dict(or_bars=1, trade_mode="Both", stop_frac=0.75, vol_filter=1.25,
+                       breakout_buf=0.0, target_R=0.0, flat_eod=True)
+
+# The current ORB crown: run #230 (ORB-40), ORB_3_4_C221.py. CLOSE-CONFIRMED entry, so it
+# is execution-legal -- the whole point of the grail hunt that produced it. Validated PASS
+# on all six checks with the lockbox HELD (PF 1.31 over 178 trades, 2025-08-13..2026-08-13).
+# Params copied verbatim from run #230's best_params.
+ORB_230 = dict(or_bars=2, trade_mode="First-candle dir", stop_frac=2.0, atr_filter=0.7,
+               vpace_filter=0.7, close_confirm=True, breakout_buf=0.25, trail_bars=3,
+               target_R=5.5, partial_exit_R=3.0, flat_eod=True, skip_holidays=True)
 
 # ENGU-Q leg params: NQ_DEPLOY_PARAMS_149 is a clean module-level constant in
 # augur_strategies/ENGUQ_1M_1_0.py — import it directly.
@@ -80,14 +92,16 @@ NOISE_FROZEN = dict(lookback=14, band_mult_long=1.5, band_mult_short=1.5,
 # leg's numbers -- leave it None rather than inventing reassurance.
 LEG_SOURCE = {
     "ORB": {
-        "run": 125, "run_label": "#125 (ORB-family)", "strategy_file": "ORB_3_0.py",
-        "picked": "2026-07",
-        "note": "The NO-TRAIL ORB_3_0 cut of run #125, not #125's crowned variant "
-                "(the crown is ORB_3_1 with trail_bars=5). Both are carried in the repo; "
-                "api/paper.py and tools/t5_runboard.py both use this one.",
-        "caveat": "Run #125's volume filter is LOOK-AHEAD (2026-08-11 audit): it gates an "
-                  "intrabar stop-entry on the breakout bar's FINISHED volume. These shadow "
-                  "numbers are NOT live-achievable. The live candidate is the NT-side ORB V2.",
+        "run": 230, "run_label": "#230 (ORB-40)", "strategy_file": "ORB_3_4_C221.py",
+        "picked": "2026-08-16",
+        "note": "The grail-hunt winner: CLOSE-CONFIRMED entry (OR 2 bars, first-candle "
+                "direction), so it is execution-legal rather than filled at a price that "
+                "needed hindsight. Validated PASS on all six checks with the lockbox HELD "
+                "(PF 1.31 over 178 trades, 2025-08-13..2026-08-13).",
+        "caveat": "Replaced the old #125 leg on 2026-08-16. That one used the LOOK-AHEAD "
+                  "volume filter, so every ORB paper number before this date measured a "
+                  "config that could never have been traded live -- compare across the "
+                  "switch with that in mind.",
     },
     "ENGUQ": {
         "run": 149, "run_label": "#149 (ENGU-Q)", "strategy_file": "ENGUQ_1M_1_0.py",
@@ -113,9 +127,9 @@ PAPER_LEGS = [
     # ORB: the engine's touch-entry volume filter is LOOK-AHEAD (2026-08-11 audit,
     # see PAPER_TRADING.md) — these shadow numbers are NOT live-achievable. Kept as
     # a flagged reference line; the live candidate is the NT-side ORB V2 chase.
-    {"key": "ORB", "strategy": "ORB_3_0.py", "instrument": "NQ", "timeframe": "5m",
-     "session": "rth", "params": ORB_125, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
-     "flags": ["lookahead-engine"], "source": LEG_SOURCE["ORB"]},
+    {"key": "ORB", "strategy": "ORB_3_4_C221.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": ORB_230, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "source": LEG_SOURCE["ORB"]},
     {"key": "ENGUQ", "strategy": "ENGUQ_1M_1_0.py", "instrument": "NQ", "timeframe": "1m",
      "session": "rth", "params": ENGUQ_149, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "source": LEG_SOURCE["ENGUQ"]},
