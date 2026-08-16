@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.45';
+const VERSION='73.46';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -7437,6 +7437,12 @@ function openEditModal(tradeId){
   };
 }
 
+// v73.34 (owner: TILT chart-legend vs matrix-header labeling mismatch): the §1E MATRIX TILT
+//   tab abbreviates t.scheme ('tier'/'linear') to ST/SL, but the §1A/2A funnel EXPANDED chart
+//   legend printed the raw scheme key instead ("tilt: xgb · tier") — a user could not visually
+//   match the two. Hoisted to a global so BOTH places share the exact same lookup and can never
+//   drift out of sync if scheme values ever change.
+const _TILT_SCHEME_AB={tier:'ST',linear:'SL'};
 // ══════════════════════════════════════════════════════════════════
 //  MAIN RENDER
 // ══════════════════════════════════════════════════════════════════
@@ -10688,7 +10694,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _gvTilts.forEach((tl,_ti)=>{
               if(!(tl&&tl.equity&&Array.isArray(tl.equity.cum)&&tl.equity.cum.length>=2))return;
               _ser.push({id:'tilt-'+String(tl.model||'')+'-'+String(tl.scheme||''),
-                         label:'tilt: '+String(tl.model||'')+' · '+String(tl.scheme||''),
+                         // v73.34: append the SAME ST/SL abbreviation the §1E MATRIX TILT tab
+                         //   shows in its column header (_TILT_SCHEME_AB, shared lookup) so a
+                         //   user can visually cross-reference "tilt: xgb · tier (ST)" here to
+                         //   "xgb (ST)" there without needing to already know the mapping.
+                         label:'tilt: '+String(tl.model||'')+' · '+String(tl.scheme||'')+' ('+(_TILT_SCHEME_AB[tl.scheme]||String(tl.scheme||'?').slice(0,2).toUpperCase())+')',
                          color:(tl===_bestTiltC?'#f0b429':_famCol('#f0b429',_ti+1,_gvTilts.length+1)),
                          eq:tl.equity.cum.map(v=>v*mult),
                          li:null,wfi:null,tiltCand:true,famTop:(tl===_bestTiltC),
@@ -13104,7 +13114,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v71.28 (owner): the size shape used to print on a SECOND LINE under the model name,
         //   which added a whole row of height to the header and pushed the table down. It rides
         //   inline after the name now as (SL) sliding / (ST) steps, hover for the full sentence.
-        const _shAb={tier:'ST',linear:'SL'};
+        const _shAb=_TILT_SCHEME_AB;   // v73.34: shared with the §1A/2A chart legend, see global def
         const _cmpCols=(list,kind)=>list.map(t=>({lbl:String(t.model||'')+((kind==='hyb')?'':(' <span title="'+String(_shTip[t.scheme]||'').replace(/"/g,'&quot;')+'" style="font-weight:400;color:var(--text5);cursor:help">('+(_shAb[t.scheme]||String(t.scheme||'?').slice(0,2).toUpperCase())+')</span>')),
             sub:'',
             col:_gateColor(String(t.model||''),1,60),
@@ -14687,7 +14697,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
                         ['hyb2','HYBRID &#9851;',_hasH,'the same hybrid, REDEPLOYED: sized up until the column spends the same total contracts as the no-gate book - what the freed capacity buys if you put it back to work.'],
                         ['hyb3','HYBRID &#128201;',_hasH,'the same hybrid at EQUAL DRAWDOWN: sized until the column drawdown matches the no-gate book - the most money for the same pain.']]
                        .filter(function(t){return t[2];});
-        const _szInfo='<div style="color:var(--text2)">THE SAME MODELS AS THE GATE TAB, SPENT AS SIZE INSTEAD.<br><br>The GATE tab uses a model score as a BOUNCER - under the cut-off, the trade does not happen. These two tabs use the identical score as a DIMMER - every trade still happens, confident ones get more contracts and doubtful ones get fewer.<br><br>Nothing in these two tabs can ever be crowned; they exist so the two ways of spending the same model can be compared side by side over the same stretches.</div>';
+        const _szInfo='<div style="color:var(--text2)">THE SAME MODELS AS THE GATE TAB, SPENT AS SIZE INSTEAD.<br><br>The GATE tab uses a model score as a BOUNCER - under the cut-off, the trade does not happen. These two tabs use the identical score as a DIMMER - every trade still happens, confident ones get more contracts and doubtful ones get fewer.<br><br>Nothing in these two tabs can ever be crowned; they exist so the two ways of spending the same model can be compared side by side over the same stretches.<br><br><b>ST = steps sizing (scheme: tier)</b> - three fixed sizes by band.<br><b>SL = sliding sizing (scheme: linear)</b> - size slides smoothly with confidence. Same crosswalk as the "(tier)"/"(linear)" tag on the §1A funnel chart legend\'s tilt lines.</div>';
         const _gateInfo=('<div style="color:var(--text2)">'+_gVerdictTxt+'DOES A TRADE-FILTER MODEL EARN ITS KEEP? The ML GATE scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. It sweeps several models across several cut-offs on PRE-LOCKBOX data (IS + WF combined), picks ONE winner, and gives only that winner a single look at the LB - no cherry-picking.<br><br>NOT the same as the 2L ML CONFIG BUILDER: 2L picks which PARAMETER CONFIG is best; this gate keeps the chosen config and only decides which individual TRADES to take.<br><br>The gate equity is also drawn on the 2A funnel above.</div>');
         const _nRow=inner=>inner?('<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;padding-top:7px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+inner+'</div>'):'';
         const _hybOf=t=>(t==='hyb2'?'redeploy':(t==='hyb3'?'equaldd':'one'));
