@@ -446,11 +446,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.58';
+const VERSION='73.59';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-{v:'73.58',date:'2026-08-15',notes:['1E MATRIX gets a new ALL POOLS scatter, above the RAW/GATE/TILT/HYBRID tab tables: every candidate from all four pools plotted together (drawdown vs net $, colour-coded by pool), scoped to whatever SAMPLE is ticked, so an outlier the pre-registered net-$ + MAR-floor rule rejected is still there to eyeball. Hover a dot for its label and exact $/DD; click one to jump to its column in the matrix below.']},
+{v:'73.59',date:'2026-08-15',notes:['1E MATRIX gets a new ALL POOLS scatter, above the RAW/GATE/TILT/HYBRID tab tables: every candidate from all four pools plotted together (drawdown vs net $, colour-coded by pool), scoped to whatever SAMPLE is ticked, so an outlier the pre-registered net-$ + MAR-floor rule rejected is still there to eyeball. Hover a dot for its label and exact $/DD; click one to jump to its column in the matrix below.']},
 {v:'73.55',date:'2026-08-15',notes:['SAMPLE-scope audit across §1E MATRIX (owner: "switching between tabs shouldn’t change metric behavior"). GATE’s SHARPE row silently measured the WHOLE saved equity curve on every tick combo except exactly PRE-LOCKBOX or LOCKBOX alone (IS alone, WF alone, IS+WF, WF+LB all fell through to the whole curve while the row header still named the ticked stretch) — it now reads the same contiguous span the DD row already cuts to, on every combo, and honestly dashes on the one combo DD also can’t span (IS+LB with WF unticked).','RAW’s SHARPE row was permanently pinned to the whole optimize window (IS+WF) no matter what was ticked, and combined-scope DD (e.g. IS+WF, or WF+LB) used a "deepest individual slice" approximation marked with a °. Both now genuinely follow the SAMPLE tick: the optimize-window curve and the lockbox continuation curve are stitched into one series (same debasing the 2A funnel chart already uses) and sliced/diffed for whichever stretches are ticked. Runs saved before this engine change (no is_rng/wf_rng/lockbox) keep the exact old pinned display.','TILT and HYBRID were already correctly scope-following (their own _shrp already fraction-splits by ticked stretch) — audited, no leak found, no change needed there.']},
 {v:'73.32',date:'2026-08-13',notes:['PAPER now has a LEG rail next to REFRESH - ALL / ORB / ENGU-Q / NOISE / BLEND - and picking one narrows the WHOLE board to that strategy: its tile, its curve line, its trades. ALL is the default and behaves exactly as before.','Same control language as the report layout rail, and it is a lens rather than a saved setting - it resets when you reload.']},
 {v:'73.31',date:'2026-08-13',notes:['NEO now follows your theme instead of forcing its own teal - every glow, hairline, grid line and tint is derived from the active theme accent, so on MONO the whole report reads as pure silver-on-black with zero added color; green themes look as before and other accents follow suit.','NEO pushed further (NEO only - CLASSIC untouched): HUD-style section headers in uppercase with wide tracking and squared number chips, more air between sections, wider title letter-spacing, the 1A champion card wears a stronger accent ring, faint zebra striping on plain table rows, soft hover transitions, and the back-to-checklist hint only appears when you hover a section header.']},
@@ -17042,15 +17042,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const orbBadge=name==='ORB'?'<span title="'+ORB_LA_TIP.replace(/"/g,'&quot;')+'" style="margin-left:6px;font-size:8px;font-weight:600;padding:1px 6px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);opacity:.85;cursor:help">⚠ engine reference</span>':'';
         // One COLUMN of a shared strip, not a card of its own: four framed boxes ate a
         // full screen row of mostly chrome (owner 2026-08-14: "data seems everywhere").
-        return '<div style="flex:1 1 170px;min-width:170px;padding:2px 14px 2px 0">'
-          +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap"><span style="font-size:10px;font-weight:700;letter-spacing:1px;color:'+color+'">'+label+'</span>'+wBadge+orbBadge+'</div>'
+        // The whole column is now the chart's legend AND its selector: clicking it highlights
+        // that leg's curve and filters the matrix/trades below. data-paperleg resolves to
+        // 'ALL' when this leg is already selected, so a second click clears it -- that reuses
+        // the existing [data-paperleg] handler untouched rather than adding a second one.
+        const sel=PLEG===name, dim=PLEG!=='ALL'&&!sel;
+        return '<div data-paperleg="'+(sel?'ALL':name)+'" title="'+(sel?'click to show all legs':'click to highlight '+label)
+          +'" style="flex:1 1 170px;min-width:170px;padding:2px 14px 2px 0;cursor:pointer;opacity:'+(dim?0.42:1)+';transition:opacity .12s">'
+          +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap"><span style="font-size:10px;font-weight:700;letter-spacing:1px;color:'+color+'">'+label+'</span>'
+          +(sel?'<span style="font-size:8px;color:var(--text5)">●</span>':'')+wBadge+orbBadge+'</div>'
           +'<div style="font-size:20px;font-weight:700;color:'+(a.net>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(a.net)+'</div>'
           +'<div style="font-size:9px;color:var(--text4);margin-top:2px">'+a.n+' trades · '+(a.n?Math.round(a.wr*100)+'% win':'—')+' · '+a.days+'d live<br>last '+(a.lastT?_dOnly(a.lastT):'—')+'</div>'
           +'</div>';
       };
       const _tileDefs=[['ORB','ORB','#5b8def'],['ENGUQ','ENGU-Q','#c090ff'],['NOISE','NOISE','#2dd4bf'],['BLEND','BLEND (1:1)','var(--yellow)']];
-      const tilesHtml=tile('<div style="display:flex;flex-wrap:wrap;gap:4px 0">'
-        +_tileDefs.filter(d=>_legShown(d[0])).map(d=>legTile(d[0],d[1],d[2])).join('<div style="width:1px;background:var(--border2);margin-right:14px"></div>')+'</div>');
+      // ALL FOUR always render -- they are the chart legend, so filtering them away would
+      // remove the only way to click back to another leg. Selection shows as emphasis, not
+      // as absence.
+      const legStrip='<div style="display:flex;flex-wrap:wrap;gap:4px 0">'
+        +_tileDefs.map(d=>legTile(d[0],d[1],d[2])).join('<div style="width:1px;background:var(--border2);margin-right:14px"></div>')+'</div>';
       // cumulative curve — one merged date axis (all distinct run/exit dates), stepwise
       // cumulative $ per leg so the three lines share one x-axis even if a leg skipped a day.
       const _allDates=[...new Set(_pt.map(t=>t.run_date||_dOnly(t.exitTime||t.entryTime)).filter(Boolean))].sort();
@@ -17067,15 +17077,31 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const nTicks=Math.min(6,dates.length);
         const tickIdx=[...Array(nTicks)].map((_,i)=>Math.round(i*(dates.length-1)/Math.max(1,nTicks-1)));
         const xLabels=[...new Set(tickIdx)].map(i=>'<text x="'+x(i).toFixed(1)+'" y="'+(H-6)+'" font-size="9" style="fill:var(--text5)" text-anchor="middle">'+(dates[i]||'').slice(5)+'</text>').join('');
-        const lines=series.map(s=>{const d=s.vals.map((v,i)=>(i===0?'M':'L')+x(i).toFixed(1)+','+y(v).toFixed(1)).join(' ');return '<path d="'+d+'" fill="none" style="stroke:'+s.color+'" stroke-width="2"/>';}).join('');
-        const legend=series.map(s=>'<span style="display:inline-flex;align-items:center;gap:5px;margin-right:16px;font-size:10px;color:var(--text3)"><span style="width:9px;height:9px;border-radius:2px;background:'+s.color+';display:inline-block"></span>'+s.label+'</span>').join('');
-        return '<div style="margin-bottom:6px">'+legend+'</div>'
-          +'<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:220px;display:block">'+gridLines+lines+xLabels+'</svg>';
+        // HIGHLIGHT, not isolate (owner's call 2026-08-15). A selected leg keeps every other
+        // curve on the chart, dimmed, so the comparison you actually want from an equity chart
+        // survives the click. Dimmed paths draw FIRST so the highlighted one sits on top, and
+        // the y-scale still spans ALL series -- rescaling to the selected leg alone would
+        // silently change the shape of the very line being inspected.
+        const _mkPath=s=>{const d=s.vals.map((v,i)=>(i===0?'M':'L')+x(i).toFixed(1)+','+y(v).toFixed(1)).join(' ');
+          return '<path d="'+d+'" fill="none" style="stroke:'+s.color+'" stroke-width="'+(s.dim?1.2:2.4)+'" opacity="'+(s.dim?0.3:1)+'"/>';};
+        const lines=series.filter(s=>s.dim).map(_mkPath).join('')+series.filter(s=>!s.dim).map(_mkPath).join('');
+        // No legend here any more -- the leg tiles directly above ARE the legend (their labels
+        // already carry each leg's colour) and the selector. Two colour keys for the same four
+        // series was part of what the owner meant by "data seems everywhere".
+        return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:220px;display:block">'+gridLines+lines+xLabels+'</svg>';
       };
+      // Every series is always built. PLEG no longer removes a curve, it dims the others.
       const _curveSeries=[['ORB','ORB','#5b8def'],['ENGUQ','ENGU-Q','#c090ff'],['NOISE','NOISE','#2dd4bf'],['BLEND','BLEND','#e0c341']]
-        .filter(d=>_legShown(d[0])).map(d=>({label:d[1],color:d[2],vals:_cumByDate(d[0])}));
-      const curveHtml=tile('<div class="lbl" style="margin-bottom:8px">CUMULATIVE PAPER PnL'
-        +(PLEG==='ALL'?'':' <span style="font-weight:400;color:var(--text5);font-size:8px">· '+(_legLabel[PLEG]||PLEG)+' only</span>')
+        .map(d=>({label:d[1],color:d[2],vals:_cumByDate(d[0]),dim:PLEG!=='ALL'&&PLEG!==d[0]}));
+      // MERGED PANEL (owner 2026-08-15): the leg tiles are the chart's header row, not their
+      // own card. They were describing the same four things the curve already draws -- tile
+      // said "NOISE $2,154", curve drew a NOISE line, neither knew the other existed. Now the
+      // tiles ARE the legend and the selector: click one to highlight its curve (and filter
+      // the matrix + trades table below via PLEG), click it again to go back to ALL.
+      const curveHtml=tile(legStrip
+        +'<div style="height:1px;background:var(--border2);margin:10px 0 9px"></div>'
+        +'<div class="lbl" style="margin-bottom:8px">CUMULATIVE PAPER PnL'
+        +(PLEG==='ALL'?'':' <span style="font-weight:400;color:var(--text5);font-size:8px">· '+(_legLabel[PLEG]||PLEG)+' highlighted · click again for all</span>')
         +'</div>'+_curveSvg(_allDates,_curveSeries));
       // ── LIVE · NinjaTrader demo — Layer 1. paper_reports docs now carry a `live` block logged
       // straight off the demo account's own fill log (no strategy attribution — see zero-state copy
@@ -17520,7 +17546,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         }).join('')+'</span>';
       const headerHtml='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px"><span class="lbl" style="font-size:13px">◷ PAPER · LIVE FORWARD TEST</span>'+_legRail+_reloadBtn+'<span style="margin-left:auto;font-size:9px;color:var(--text5)">paper trading starts '+PAPER_START+'</span></div>'
         +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6;margin:0 2px 16px;max-width:820px">The runner re-runs each crowned strategy on live data every day and logs the trades it would have taken — no real money. This board shows whether reality tracks the backtest.</div>';
-      body=headerHtml+tilesHtml+matrixHtml+bridgeHtml+reconcileHtml+curveHtml+tradesHtml+reportsHtml
+      // curveHtml now CARRIES the leg tiles, so it takes the tiles' old slot at the top:
+      // summary + curve read as one block, then the detail panels below it.
+      body=headerHtml+curveHtml+matrixHtml+bridgeHtml+reconcileHtml+tradesHtml+reportsHtml
         +(window._paperErr?'<div style="color:var(--red);font-size:10px;margin-top:10px">load error: '+String(window._paperErr).replace(/</g,'&lt;')+'</div>':'');
     }else{
       const allRuns=runHistory.slice();
