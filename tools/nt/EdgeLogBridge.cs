@@ -60,7 +60,7 @@ namespace NinjaTrader.NinjaScript.AddOns
 {
     public class EdgeLogBridge : AddOnBase
     {
-        private const string Version   = "2.0";
+        private const string Version   = "2.1";
         private const int    Port      = 8391;
         private const string LogPath   = @"C:\EdgeLog\bridge.log";
         private const string ConfPath  = @"C:\EdgeLog\bridge.json";
@@ -234,6 +234,13 @@ namespace NinjaTrader.NinjaScript.AddOns
                     }
                     catch (Exception ex) { Log("shutdown dispatch: " + ex.Message); }
                     return;
+                case "/strategy/params":
+                    StrategyParams(s, q.ContainsKey("name") ? q["name"] : ""); return;
+                case "/strategy/setparam":
+                    if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
+                    StrategySetParam(s, q.ContainsKey("name") ? q["name"] : "",
+                                        q.ContainsKey("param") ? q["param"] : "",
+                                        q.ContainsKey("value") ? q["value"] : ""); return;
                 case "/strategy/enable":
                     if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
                     StrategyLifecycle(s, q.ContainsKey("name") ? q["name"] : "", true); return;
@@ -567,6 +574,155 @@ namespace NinjaTrader.NinjaScript.AddOns
             Log("lifecycle " + (enable ? "ENABLE" : "DISABLE") + " " + name + " via " + where);
             Respond(s, 200, "{\"ok\":true,\"found_in\":" + J(where)
                  + ",\"note\":\"poll /strategies to confirm state\"}");
+        }
+
+        // ── strategy PARAMETERS — read, and (gated) write ────────────────────────
+        // WHY: the paper book only means anything if the config NinjaTrader is actually
+        // running is the config we think it is. That has already drifted once in this
+        // project (the NOISE leg runs 14/1.5/1.5/k=1.0 while auto-validate #225 crowned
+        // 44/0.75/1.5/k=1.75), and nothing outside NT could SEE the live values to catch it.
+        // Reads are pure reflection over the strategy type's OWN public properties -- the
+        // ones the NinjaScript author declared with [Display] -- not the ~200 inherited
+        // StrategyBase members, which would bury the six knobs that matter.
+
+        /// <summary>Same 3-step resolution the lifecycle endpoints use: enabled instances,
+        /// then this bridge's parked registry, then a walk of the Control Center grid.</summary>
+        private StrategyBase ResolveStrategy(string name, out string where)
+        {
+            where = null;
+            if (string.IsNullOrEmpty(name)) return null;
+            List<Account> accts;
+            lock (Account.All) accts = new List<Account>(Account.All);
+            foreach (var a in accts)
+            {
+                try
+                {
+                    lock (a.Strategies)
+                        foreach (var st in a.Strategies)
+                            if (string.Equals(st.Name, name, StringComparison.OrdinalIgnoreCase))
+                            { where = "account " + a.Name; return st; }
+                }
+                catch { }
+            }
+            lock (_parked)
+                if (_parked.TryGetValue(name, out var p)) { where = "parked registry"; return p; }
+            var sb = FindGridStrategy(name);
+            if (sb != null) where = "strategies grid";
+            return sb;
+        }
+
+        /// <summary>Public instance properties DECLARED ON the strategy type itself, with
+        /// their live values. Read-only.</summary>
+        private static List<System.Reflection.PropertyInfo> OwnParams(Type t)
+        {
+            var outp = new List<System.Reflection.PropertyInfo>();
+            try
+            {
+                foreach (var p in t.GetProperties(System.Reflection.BindingFlags.Public |
+                                                  System.Reflection.BindingFlags.Instance |
+                                                  System.Reflection.BindingFlags.DeclaredOnly))
+                {
+                    if (p.GetIndexParameters().Length > 0 || !p.CanRead) continue;
+                    var pt = p.PropertyType;
+                    // Only the simple, settable-looking knobs: numbers, bools, strings, enums.
+                    if (pt.IsPrimitive || pt.IsEnum || pt == typeof(string) || pt == typeof(decimal))
+                        outp.Add(p);
+                }
+            }
+            catch { }
+            return outp;
+        }
+
+        private void StrategyParams(NetworkStream s, string name)
+        {
+            string where;
+            var sb = ResolveStrategy(name, out where);
+            if (sb == null) { Respond(s, 404, "{\"error\":\"no reachable strategy named " + name.Replace('"', ' ') + "\"}"); return; }
+            var rows = new List<string>();
+            string acct = "?", state = "?";
+            try { acct = sb.Account != null ? sb.Account.Name : "?"; } catch { }
+            try { state = sb.State.ToString(); } catch { }
+            foreach (var p in OwnParams(sb.GetType()))
+            {
+                string val = "";
+                try { var v = p.GetValue(sb); val = v == null ? "" : Convert.ToString(v, CultureInfo.InvariantCulture); }
+                catch (Exception ex) { val = "threw: " + ex.Message; }
+                rows.Add("{\"name\":" + J(p.Name) + ",\"type\":" + J(p.PropertyType.Name)
+                       + ",\"value\":" + J(val) + ",\"writable\":" + (p.CanWrite ? "true" : "false") + "}");
+            }
+            Respond(s, 200, "{\"strategy\":" + J(sb.Name ?? name) + ",\"account\":" + J(acct)
+                 + ",\"state\":" + J(state) + ",\"found_in\":" + J(where)
+                 + ",\"params\":[" + string.Join(",", rows) + "]}");
+        }
+
+        private void StrategySetParam(NetworkStream s, string name, string param, string value)
+        {
+            if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(param))
+            { Respond(s, 400, "{\"error\":\"name and param are required\"}"); return; }
+            string where;
+            var sb = ResolveStrategy(name, out where);
+            if (sb == null) { Respond(s, 404, "{\"error\":\"no reachable strategy named " + name.Replace('"', ' ') + "\"}"); return; }
+
+            // Same account rails as every other mutation (L1 live-lock + L2 allowlist).
+            string acctName = "?";
+            try { acctName = sb.Account != null ? sb.Account.Name : "?"; } catch { }
+            string deny = DenyMutation(acctName);
+            if (deny != null) { Respond(s, 403, "{\"error\":" + J(deny) + "}"); Log("setparam REFUSED " + name + ": " + deny); return; }
+
+            // EXTRA RAIL, specific to this endpoint: refuse while the strategy is RUNNING.
+            // NinjaScript reads most parameters once at State.Configure; writing one to a
+            // live strategy either silently does nothing or leaves the running logic
+            // disagreeing with the value now displayed, which is worse than refusing.
+            // Disable -> set -> enable is the honest sequence, and it is two extra calls.
+            string state = "?";
+            try { state = sb.State.ToString(); } catch { }
+            if (state == "Realtime" || state == "Historical" || state == "Transition")
+            {
+                Respond(s, 409, "{\"error\":\"strategy is " + state + " - disable it first, set the "
+                     + "parameter, then re-enable. Parameters are read at configure time, so writing "
+                     + "one now would not take effect and would misreport the running config.\"}");
+                return;
+            }
+
+            var pi = OwnParams(sb.GetType()).Find(p => string.Equals(p.Name, param, StringComparison.OrdinalIgnoreCase));
+            if (pi == null) { Respond(s, 404, "{\"error\":\"no such parameter on this strategy (see GET /strategy/params)\"}"); return; }
+            if (!pi.CanWrite) { Respond(s, 403, "{\"error\":\"parameter is read-only\"}"); return; }
+
+            object oldVal = null, newVal = null;
+            try { oldVal = pi.GetValue(sb); } catch { }
+            try
+            {
+                var t = pi.PropertyType;
+                if (t.IsEnum) newVal = Enum.Parse(t, value, true);
+                else if (t == typeof(bool)) newVal = (value == "1" || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase));
+                else if (t == typeof(string)) newVal = value;
+                else newVal = Convert.ChangeType(value, t, CultureInfo.InvariantCulture);
+            }
+            catch (Exception ex)
+            { Respond(s, 400, "{\"error\":" + J("could not parse '" + value + "' as " + pi.PropertyType.Name + ": " + ex.Message) + "}"); return; }
+
+            string err = null;
+            try
+            {
+                CcDispatcher().Invoke(new Action(() =>
+                {
+                    try { pi.SetValue(sb, newVal); }
+                    catch (Exception ex) { err = ex.GetType().Name + ": " + ex.Message; }
+                }));
+            }
+            catch (Exception ex) { err = "dispatch: " + ex.Message; }
+            if (err != null) { Respond(s, 500, "{\"error\":" + J(err) + "}"); Log("setparam " + name + "." + param + " FAILED: " + err); return; }
+
+            string readBack = "";
+            try { var v = pi.GetValue(sb); readBack = v == null ? "" : Convert.ToString(v, CultureInfo.InvariantCulture); }
+            catch { }
+            Log("SETPARAM " + name + "." + pi.Name + " : " + Convert.ToString(oldVal, CultureInfo.InvariantCulture)
+                + " -> " + readBack + " (account " + acctName + ", via " + where + ")");
+            Respond(s, 200, "{\"ok\":true,\"strategy\":" + J(sb.Name ?? name) + ",\"param\":" + J(pi.Name)
+                 + ",\"old\":" + J(Convert.ToString(oldVal, CultureInfo.InvariantCulture))
+                 + ",\"new\":" + J(readBack)
+                 + ",\"note\":\"set in memory on the instance; NinjaTrader persists it when the "
+                 + "strategy is next enabled from the grid. Re-enable to apply.\"}");
         }
 
         /// <summary>Resolve a strategy instance from StrategiesGrid.AvailableStrategies —

@@ -18,6 +18,18 @@ Structure EVERY substantive reply top-to-bottom as:
    Order: status header → the single numbered table → short prose details/caveats underneath.
    Finish all tool work and verification BEFORE writing the reply so the table is written once,
    complete. All other format rules below (columns, numbering, locations, bullets) unchanged.
+1c. **THE TABLE IS THE LAST THING YOU BUILD, EVEN THOUGH IT PRINTS FIRST (owner 2026-08-15:
+   "only at the end of your process do you give me the table (if required)").** Do NOT emit a
+   table mid-turn, and do NOT emit interim/progress tables while still working — finish every
+   tool call, verification and fix, THEN write the one table. Two consequences: (a) a turn
+   that is still in progress carries no table at all, only brief prose; (b) "(if required)" is
+   real — a turn that answered a question, explained something, or changed nothing does not
+   need a table, and forcing one is noise. Keep the table for turns that actually moved work.
+1d. **DESCRIPTION CELLS ARE ONE OR TWO BULLETS, MAX (owner 2026-08-15: "shorten the
+   description to one or two bullets ea").** Each bullet is one short fact. If a row needs
+   more than two, the extra belongs under the table as prose, not in the cell. The location
+   (rule 2) still has to appear — fold it into one of the two bullets rather than adding a
+   third.
 2. **Then ONE numbered table — NEVER split into separate done / not-done / to-do tables.** Columns:
    `# | Thing | Description | Status`. **Status** is one of: **done** (already done before this
    reply), **just done** (finished in THIS reply), **to be done** (still pending). Use a status
