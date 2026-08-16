@@ -111,11 +111,19 @@ It is not — **it is #225's champion.**
 1. **Lockbox edge is thin** — PF 1.084, ~$2.73/trade, sharpe 0.43. Passing, not strong.
 2. **PBO 0.365** — the run's own label is *"some overfit risk"*
    (`validate.pbo`, 252 splits, 24 configs).
-3. **ES-transfer needs reconciling.** #225 records transfer **PASS at PF 1.033**
-   (`validate.transfer`: ES, 5,796 trades, pnl 709.51). But `NOISE_1_0.py`'s docstring
-   calls ES-transfer a **FAIL at PF 1.12** — a *higher* PF. Either the threshold moved,
-   or the two are measuring different things. ES-transfer is load-bearing for crowning,
-   so this should be settled before it's leaned on either way.
+3. **ES-transfer: resolved — two different bars, not a contradiction.** #225 records
+   transfer **PASS at PF 1.033** (`validate.transfer`: ES, 5,796 trades, pnl 709.51).
+   `NOISE_1_0.py`'s docstring calls ES-transfer a **FAIL**. Both are correct, because
+   they're measuring against different bars: `validate.transfer`'s `pass` field is the
+   engine's generic, universal cross-instrument sanity check applied to every strategy
+   (PF >= 1.0 and positive PnL, unchanged since 2026-06-20) — 1.033 clears it. NOISE
+   also has its own stricter, pre-registered promotion bar of **PF >= 1.2**, set in the
+   round-12 challenger writeup (see `BACKTESTING_STACK.md`, "C4 ES TRANSFER FAIL: PF
+   1.123 < 1.2"). #225's PF 1.033 still fails that bar (same failing side as the
+   original 1.123 < 1.2). Net: the promotion verdict is unchanged — NOISE has never
+   cleared its own ES-transfer promotion requirement, even though it clears the
+   engine's looser generic gate. ES-transfer is load-bearing for crowning; treat the
+   1.2 bar, not the generic 1.0 gate, as the one that matters for promotion.
 4. **VIF: 4 collinear features** (`dist_pdl_atr` 7.8, `dist_pdh_atr` 6.28, `range_pos`
    5.7, `dist_pdc_atr` 5.46) — flagged as drop candidates; the only non-passing flag.
 5. **Adversarial**: AUC 0.607, "mild drift — a modestly different regime" (passes).

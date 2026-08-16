@@ -24,8 +24,13 @@ covers the plugin-specific surface (params, presets, validation status).
 VALIDATION STATUS (stated honestly — read before treating this as "validated"):
   PASSED the IS/WF battery 4/5 (walk-forward 5/6 folds green, neighborhood
   stability, family-level consistency, bootstrap P ~ 0 on the in-sample edge).
-  FAILED the ES-transfer gate (PF 1.12 on ES — doesn't survive the cross-
-  instrument check the crowned strategies clear); that failure stands.
+  FAILED NOISE's own pre-registered ES-transfer promotion bar (requires PF >=
+  1.2; best observed is PF ~1.03-1.12 across rounds, ES PF 1.12 in round-12).
+  Note: the engine's generic per-run cross-instrument sanity check (validate.py's
+  transfer gate, PF >= 1.0) is a DIFFERENT, looser bar than NOISE's own 1.2
+  promotion requirement -- a validate run can show that generic check "pass"
+  (e.g. run #225, PF 1.033) without NOISE having cleared ES-transfer for
+  promotion purposes. That failure stands.
   The lockbox for this family (2025-06-30 -> 2026-06-30) is SPENT — it has
   been read multiple times: full-window auto-validates runs 202/203 rendered
   and analyzed the lockbox slice in detail (the owner's own LB-gyration
@@ -88,7 +93,9 @@ DESCRIPTION   = ("Wide symmetric bands (1.5x a rolling realized-noise estimate) 
                  "the wider of today's open / yesterday's close. Momentum breakout entry "
                  "at the next bar's open, VWAP mean-reversion exit by default. NQ 5m "
                  "default. Owner-directed backend-testing promotion — passes the IS/WF "
-                 "bar, has NOT cleared ES-transfer or the lockbox.")
+                 "bar, has NOT cleared its own ES-transfer promotion bar (PF >= 1.2; "
+                 "the engine's generic per-run transfer check, PF >= 1.0, is a looser, "
+                 "different bar) or the lockbox.")
 
 _AUGUR_MARKET = {"instrument": "NQ", "timeframe": "5m"}
 # From-scratch concept (Zarattini/Aziz/Barbon), not a fork of an existing EDGELOG

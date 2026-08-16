@@ -576,7 +576,11 @@ external-conditioning diagnostic. Both come back empty — and the emptiness is 
   C2 neighborhood **PASS** (mean neighbor MAR 6.19 ≥ 4.89) · C3 family health **PASS** (median 5.91 ≥ 5) ·
   C5 bootstrap **PASS** (P(net≤0)=0.0000, 5th-pct +$140.7k) · **C4 ES TRANSFER FAIL: PF 1.123 < 1.2**, ES
   era table re-concentrates (2010–17 −$11.6k) and ES avg loss 5.9 pts = fill-artifact zone. **Verdict:
-  FAIL — the edge does not travel; working suspicion = NQ post-2018-regime specificity.** Precedent note:
+  FAIL — the edge does not travel; working suspicion = NQ post-2018-regime specificity.** [Note: this
+  1.2 threshold is NOISE's own pre-registered promotion bar, not the engine's generic per-run transfer
+  check (`validate.py`, PF >= 1.0) — that looser gate can show "pass" on an individual validate run
+  (e.g. #225, PF 1.033) without NOISE having cleared this stricter bar. See NOISE.md for the full
+  reconciliation.] Precedent note:
   TTIBS PASSED the ES gate and still died at its lockbox — 4/5 with the transfer gate failed earns no look.
 - Status: **NOISE-2 = 🔬 research shelf, strongest failed challenger of the program.** Its lockbox was
   NEVER spent at the time — honestly revisitable if a year of new data changes the regime picture.
