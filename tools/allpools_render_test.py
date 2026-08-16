@@ -48,7 +48,8 @@ HARNESS = os.path.join(REPO, 'tools', '_allpools_probe.html')
 # Helpers the two charts close over, lifted straight out of index.html rather
 # than re-implemented here -- a stub that drifts from the real helper turns this
 # gate into a test of the stub.
-BORROWED = ['fmtUsd', 'fmtAx', 'c2Txt', 'c2YTitle', '_ctlChip', '_sampChips', '_segsOf']
+BORROWED = ['fmtUsd', 'fmtAx', 'c2Txt', 'c2YTitle', '_ctlChip', '_sampChips', '_segsOf',
+            '_tabBtn', '_tabStrip']
 
 
 def read_index():
@@ -98,9 +99,10 @@ def lift_const(src, name):
 
 
 def lift_block(src):
-    """Return the verbatim source from `const _mtxPoolCol=` through the closing
-    `};` of mtxBarsHtml -- i.e. everything this test is actually gating."""
-    start = src.index('    const _mtxPoolCol=')
+    """Return the verbatim source from `const MTX_HYB2=` (the first declaration the
+    charts depend on) through the closing `};` of mtxBarsHtml -- i.e. everything
+    this test is actually gating."""
+    start = src.index('    const MTX_HYB2=')
     bars = src.index('    const mtxBarsHtml=', start)
     end = src.index('\n    };\n', bars) + len('\n    };\n')
     return src[start:end]
@@ -124,8 +126,15 @@ POINTS = [
     {"pool": "TILT", "label": "logistic (SL)", "pnl": 6120, "dd": 0, "key": "tilt:5", "crowned": False},
     {"pool": "HYBRID", "label": "et", "pnl": -31416, "dd": 40565, "key": "hyb:4", "crowned": False},
     {"pool": "HYBRID", "label": "logistic", "pnl": 4856, "dd": 26140, "key": "hyb:3", "crowned": False},
+    {"pool": "HYBRID ♻", "label": "logistic", "pnl": 61200, "dd": 44100, "key": "hyb2:3", "crowned": False},
+    {"pool": "HYBRID ♻", "label": "et", "pnl": -52800, "dd": 66900, "key": "hyb2:4", "crowned": False},
     {"pool": "MYSTERY", "label": "unknown pool", "pnl": 500, "dd": 500, "key": "zzz:0", "crowned": False},
 ]
+
+# The five families the 1A funnel KEY lists, on its five colours. MYSTERY is not one
+# and must fall through to grey without throwing.
+EXPECT_COL = {'RAW': '#1d9e75', 'GATE': '#e24b4a', 'TILT': '#f0b429',
+              'HYBRID': '#c084fc', 'HYBRID ♻': '#f0abfc'}
 
 HARNESS_TMPL = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>allpools probe</title></head>
@@ -177,13 +186,65 @@ __BLOCK__
         return b.height>0?+(b.width/b.height).toFixed(3):null;})(),
       hasSampleChips:!!document.querySelector('[data-g2seg]'),
       sampleSegs:[].slice.call(document.querySelectorAll('[data-g2seg]')).map(function(e){return e.getAttribute('data-g2seg');}),
-      legendPools:(function(){var m=[];[].slice.call(document.querySelectorAll('#sc span, #bars span')).forEach(function(s){
-        var t=s.textContent.trim(); if(/^\\u25cf (RAW|GATE|TILT|HYBRID)$/.test(t)) m.push(t.slice(2)+':'+(s.style.color||''));}); return m;})(),
       trendText:(function(){var e=[].slice.call(document.querySelectorAll('#sc span')).filter(function(s){return /TREND/.test(s.textContent);})[0];
         return e?e.textContent.replace(/\\s+/g,' ').trim():null;})(),
+      // ---- legend keys must be clickable family toggles, on BOTH charts ----
+      legendKeysScatter:[].slice.call(scEl.querySelectorAll('[data-mtxpool]')).map(function(e){return e.getAttribute('data-mtxpool');}),
+      legendKeysBars:[].slice.call(barEl.querySelectorAll('[data-mtxpool]')).map(function(e){return e.getAttribute('data-mtxpool');}),
+      // ---- the BOTH / NET / DD metric toggle on the bar chart ----
+      metToggles:[].slice.call(barEl.querySelectorAll('[data-mtxbarmet]')).map(function(e){return e.getAttribute('data-mtxbarmet');}),
+      // ---- both bars must share ONE vertical band (owner: "dd bar sits below pnl bar
+      //      created its own row"). Compare the two bars inside one track: same top, same
+      //      height means one line; anything else is the two-row bug coming back. ----
+      barBands:(function(){
+        var track=barEl.querySelector('[data-mtxsc] span[style*="position:relative"]');
+        if(!track)return 'no track';
+        var bs=[].slice.call(track.children);
+        if(bs.length<2)return 'only '+bs.length+' bar(s)';
+        var t=bs.map(function(b){return b.style.top+'/'+b.style.height;});
+        return t.filter(function(v,i,a){return a.indexOf(v)===i;}).join(' vs ');})(),
       // literal-text spill check: an unescaped quote in data-tip dumps raw markup onto the page
       spill:/style=|<circle|<span style/.test(host.textContent)
     };
+    // ---- SECOND PASS: hide a family and confirm every chart AND scale re-fits ----
+    APREF.mtxOff='TILT';
+    var sc2=mtxScatterHtml(PTS), bars2=mtxBarsHtml(PTS);
+    host.innerHTML='<div id="sc2">'+sc2+'</div><div id="bars2">'+bars2+'</div>';
+    var nTilt=PTS.filter(function(p){return p.pool==='TILT';}).length;
+    out.hidden={
+      tiltInSource:nTilt,
+      dotsAfterHide:document.querySelectorAll('#sc2 circle[data-mtxsc]').length,
+      rowsAfterHide:document.querySelectorAll('#bars2 [data-mtxsc]').length,
+      expected:PTS.length-nTilt,
+      // the hidden family keeps a (struck-through) key so it can be clicked back on
+      keyStillThere:!!document.querySelector('#sc2 [data-mtxpool="TILT"]'),
+      keyStruck:(function(){var e=document.querySelector('#sc2 [data-mtxpool="TILT"]');
+        return e?/line-through/.test(e.style.textDecoration||e.getAttribute('style')||''):false;})()
+    };
+    // ---- THIRD PASS: the DD-only view must re-fit the scale to drawdown alone ----
+    APREF.mtxOff='';
+    var maxDd=Math.max.apply(null,PTS.map(function(p){return Math.abs(p.dd);}));
+    var widthOfLongestDd=function(html){
+      var d=document.createElement('div');d.innerHTML=html;document.body.appendChild(d);
+      var w=0;[].slice.call(d.querySelectorAll('[data-mtxsc] span[style*="position:relative"]')).forEach(function(tr){
+        [].slice.call(tr.children).forEach(function(b){
+          if(/e24b4a 32%/.test(b.getAttribute('style')||''))w=Math.max(w,parseFloat(b.style.width)||0);});});
+      d.remove();return w;};
+    APREF.mtxBarMet='both';var wBoth=widthOfLongestDd(mtxBarsHtml(PTS));
+    APREF.mtxBarMet='dd';  var wDd  =widthOfLongestDd(mtxBarsHtml(PTS));
+    APREF.mtxBarMet='net'; var netOnly=mtxBarsHtml(PTS);
+    var dOnly=document.createElement('div');dOnly.innerHTML=netOnly;
+    out.metric={maxDd:maxDd,longestDdPctBoth:+wBoth.toFixed(2),longestDdPctDdOnly:+wDd.toFixed(2),
+      ddBarsInNetOnlyView:(netOnly.match(/e24b4a 32%/g)||[]).length};
+    APREF.mtxBarMet='both';
+    // Exposed so the harness can be opened in a browser and driven by hand when a change needs
+    // LOOKING at rather than asserting on: window.__mtx.show('dd'), .hide('TILT'), .reset().
+    window.__mtx={APREF:APREF,PTS:PTS,
+      draw:function(){host.innerHTML='<div id="sc">'+mtxScatterHtml(PTS)+'</div><div id="bars">'+mtxBarsHtml(PTS)+'</div>';},
+      show:function(m){APREF.mtxBarMet=m;window.__mtx.draw();return m;},
+      hide:function(f){APREF.mtxOff=f||'';window.__mtx.draw();return f;},
+      reset:function(){APREF.mtxOff='';APREF.mtxBarMet='both';window.__mtx.draw();}};
+    window.__mtx.reset();
   }catch(e){ out={ok:false,err:String(e&&e.stack||e)}; }
   document.getElementById('o').textContent='PROBE: '+JSON.stringify(out);
 })();
@@ -230,12 +291,6 @@ def run_probe(chrome):
         return json.loads(_html.unescape(m.group(1))), None
     except json.JSONDecodeError as e:
         return None, 'probe JSON did not parse: %s' % e
-
-
-# The funnel KEY palette (index.html _kOrder). The whole point of the colour fix
-# is that these are literal hexes, so a theme like MONO -- whose --blue/--purple/
-# --yellow are all greys -- cannot flatten three pools into one colour.
-EXPECT_COL = {'RAW': '#1d9e75', 'GATE': '#e24b4a', 'TILT': '#f0b429', 'HYBRID': '#c084fc'}
 
 
 def check(o):
@@ -297,6 +352,47 @@ def check(o):
         fails.append('no SAMPLE chips rendered on the charts')
     if sorted(set(o.get('sampleSegs') or [])) != ['is', 'lb', 'wf']:
         fails.append('SAMPLE chips are not IS/WF/LB (got %s)' % o.get('sampleSegs'))
+
+    # --- bars: both bars on ONE vertical band, not stacked into two rows ---
+    bands = o.get('barBands')
+    if not isinstance(bands, str) or ' vs ' in bands or bands.startswith('no ') or bands.startswith('only '):
+        fails.append('the drawdown bar and the net bar are NOT on one band (%s) -- stacking them '
+                     'at different tops is exactly the "dd bar sits below pnl bar, created its own '
+                     'row" complaint' % bands)
+    elif not (bands.startswith('0/') or bands.startswith('0px/')):
+        fails.append('bars are not anchored at the top of their track (%s)' % bands)
+
+    # --- legend keys are clickable family toggles on BOTH charts ---
+    for where, got in (('scatter', o.get('legendKeysScatter')), ('bars', o.get('legendKeysBars'))):
+        missing = [k for k in EXPECT_COL if k not in (got or [])]
+        if missing:
+            fails.append('%s legend is missing clickable keys for %s (got %s)'
+                         % (where, missing, got))
+    h = o.get('hidden') or {}
+    if h.get('dotsAfterHide') != h.get('expected') or h.get('rowsAfterHide') != h.get('expected'):
+        fails.append('hiding a family did not filter both charts: expected %s points, got %s dots / '
+                     '%s bar rows' % (h.get('expected'), h.get('dotsAfterHide'), h.get('rowsAfterHide')))
+    if not h.get('keyStillThere'):
+        fails.append('a hidden family lost its legend key -- there is no way to switch it back on')
+    if not h.get('keyStruck'):
+        fails.append('a hidden family key is not visibly marked as off')
+
+    # --- the BOTH / NET / DD toggle, and that isolating DD really re-fits the scale ---
+    mt = o.get('metToggles') or []
+    if sorted(mt) != ['both', 'dd', 'net']:
+        fails.append('bar chart is missing the BOTH / NET / DD toggle (got %s)' % mt)
+    m = o.get('metric') or {}
+    if m.get('ddBarsInNetOnlyView'):
+        fails.append('NET-only view still draws %s drawdown bars' % m.get('ddBarsInNetOnlyView'))
+    # DD-only must stretch the deepest drawdown to a full half-track (50%); on BOTH it is
+    # dwarfed by net. If isolating DD does not grow it, the toggle is not re-scaling and the
+    # "so i can see scale better" ask is unmet.
+    if not (m.get('longestDdPctDdOnly') or 0) > (m.get('longestDdPctBoth') or 0):
+        fails.append('DD-only view did not re-fit the scale: longest DD bar is %s%% on BOTH and '
+                     '%s%% on DD-only' % (m.get('longestDdPctBoth'), m.get('longestDdPctDdOnly')))
+    elif abs((m.get('longestDdPctDdOnly') or 0) - 50.0) > 0.6:
+        fails.append('DD-only view does not fill its half of the track (longest DD bar %s%%, '
+                     'expected ~50%%)' % m.get('longestDdPctDdOnly'))
 
     if o.get('spill'):
         fails.append('raw markup spilled into the page text (an unescaped quote in data-tip)')

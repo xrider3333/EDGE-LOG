@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.75';
+const VERSION='73.76';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -463,6 +463,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.76',date:'2026-08-16',notes:['HYBRID RECYCLE was missing from both 1A candidate charts and is now in, as the fifth family in the fifth funnel-key colour (pink). It was left out on the grounds that it is the same candidates re-sized rather than a separate family - true of WHICH candidates they are, but re-sizing a book changes its net AND its drawdown, so a recycled hybrid lands somewhere else entirely on a profit-vs-drawdown chart. That is the whole question that family answers, so it belongs here. The third hybrid tab, EQUAL-DD, is still not plotted - it is not one of the funnel-key families.','RENAMED, because the old names did not survive scrutiny. ALL POOLS leaned on "pool", which is internal jargon - the tabs and the funnel key both call these things families, and what you want named is what is in the chart. PNL vs DD was worse: BOTH charts plot profit against drawdown, so it did not tell them apart. They are now RISK MAP (the scatter) and RANKED (the bar list), titled ALL CANDIDATES.','The colour keys on both charts are now CLICKABLE. Click a family to hide it; click again to bring it back. Everything re-fits to what is left - the axes, the trend line and the bar dollar scale - so hiding the family that was stretching an axis actually gives the rest of the points room instead of just blanking some dots. A hidden family keeps a struck-through key so you can switch it back on. The two charts share the setting on purpose.','FIX on RANKED: the drawdown bar and the profit bar now sit on ONE line, sharing a single band and baseline. The previous pass put them in the top and bottom half of one track, which still read as two rows. On a candidate that lost money - the only case where both bars run the same way - the drawdown is drawn as a hollow outline with the loss bar solid inside it, so an overlap reads as one bar inside another.','New SHOW toggle on RANKED: BOTH / NET / DD. On BOTH the two halves share one dollar scale, so bar lengths are directly comparable - honest, but it does squash the drawdowns into stubs whenever profit dwarfs them (yes, the drawdown bars really did shrink, and that is why). Picking NET or DD isolates one and re-fits the scale to it, so its own spread fills the track and can be read properly. The scale in force is named under the bars.']},
 {v:'73.75',date:'2026-08-16',notes:['FIX: the 73.55 change that made RAW follow the SAMPLE tick only ever worked on runs produced by the newest engine - which is every run you have NOT got. On run #225 and every other existing run the RAW tab still showed the same pinned whole-window MAR, SHARPE and DD no matter what you ticked, so RAW-LB could never be compared with GATE-LB.','MAR, SHARPE and DD now follow the SAMPLE tick on OLD runs too. Those four read off the saved equity curves, which every run carries, so nothing newer is needed. On run #225 the crowned config reads MAR 14.22 with IS+WF ticked and MAR 1.00 with only LB ticked - two genuinely different numbers where before you got one.','PF, WIN % and $ / TRADE genuinely cannot be sliced from a curve - they need per-trade win/loss sums the older runs never saved. Rather than print an IS+WF number under an LB label, those three now show a dash on an old run whenever the tick is not exactly IS+WF, the section caption says so out loud, and hovering the dash explains why.','Also fixed while in there: DD and $ / TRADE printed point counts rather than dollars on the newest-engine path, the drawdown of a stretch missed the give-back after the last sampled point on the curve, and an IS-only or WF-only pick now uses the drawdown the engine actually measured for that stretch instead of estimating it.']},
 {v:'73.70',date:'2026-08-16',notes:['FIX on the ALL POOLS chart just shipped: it was being stretched to fill its tile, which squashed it sideways and stretched it tall - the dots came out as ovals rather than circles, and worse, the trend line LOOKED like a different slope than the one it was actually measured at, so you could not read a dot honestly against the two axes. It now keeps its true shape at whatever width the column is. Trade-off worth knowing: this one chart no longer has a drag handle to pull it taller, because its height is now fixed by its width.']},
 {v:'73.68',date:'2026-08-16',notes:[
@@ -11541,7 +11542,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+(multi?'':' data-xh="'+encodeURIComponent(JSON.stringify({xt:'num',x0:S[0].mn,x1:S[0].mx,yt:'usd',y0:ymn,y1:ymx,px:pd,py:pd,pw:PW-2*pd,ph:H-2*pd,xl:_pp(xk),yl:'net'}))+'"')+'>'+grid+dots+contours+c2YTitle(H,'net $')+'</svg>'
         +xrow+legend+'</div>';
     };
-    // ALL POOLS (owner ask, v73.5x): a "sanity check" view that does NOT depend on the
+    // ALL CANDIDATES / RISK MAP (owner ask, v73.5x): a "sanity check" view that does NOT depend on the
     //   pre-registered net-$ + MAR-floor adoption rule — every candidate the RAW search produced,
     //   PLUS every GATE cut-off, TILT model and HYBRID model, plotted on the SAME axes (DD on x,
     //   net $ on y) and colour-coded by pool, so an outlier the rule-based crowning rejected (or
@@ -11565,12 +11566,56 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //   _kOrder above: RAW #1d9e75, GATE #e24b4a, TILT #f0b429, HYBRID #c084fc), so one family is
     //   one colour in BOTH charts, and - being literal hexes, not theme vars - they stay coloured
     //   under mono and every other theme.
+    // v73.7x (owner: "no hybrid r? on pnl vs dd or all pools?"). Correct - HYBRID RECYCLE was
+    //   missing, and it should not have been. It was left out on the grounds that REDEPLOY is
+    //   "the same candidates re-sized, not a distinct pool" - true of WHICH candidates they are,
+    //   false of what THESE charts plot. Re-sizing a book changes both its net $ AND its
+    //   drawdown, so a redeployed hybrid lands somewhere else entirely on a PnL-vs-DD chart -
+    //   which is the entire point of that family (what the capacity the filter freed actually
+    //   buys). Five families now, the same five the 1A FUNNEL key lists, in its five colours.
+    //   Still NOT plotted: the third hybrid tab, EQUAL-DD. That one is not a funnel-key family,
+    //   so adding it would break the one-for-one match with the key the owner asked to align to.
+    // The name carries the LITERAL recycle character, NOT the &#9851; HTML entity the 1E tab
+    //   label for the same family uses. It has to: this one string is both a lookup
+    //   key in code (_mtxPoolCol, _jit, the click-to-jump tabOf, the hidden-family pref) AND
+    //   the value of the data-pool / data-mtxpool attributes. A browser DECODES an entity
+    //   while parsing an attribute, so an entity-named family would come back out of
+    //   getAttribute() as the decoded character and never match a table keyed on the entity -
+    //   silently breaking its colour, its legend toggle AND its click-to-jump. That is the
+    //   same short-name-vs-long-name mismatch fixed in v73.6x wearing a new disguise; caught
+    //   here by the render test rather than in production this time.
+    const MTX_HYB2='HYBRID ♻';
     const _mtxPoolCol={RAW:'#1d9e75',GATE:'#e24b4a',TILT:'#f0b429',HYBRID:'#c084fc'};
+    _mtxPoolCol[MTX_HYB2]='#f0abfc';
     const _mtxPoolTip={RAW:'RAW - the strategy parameter configs the search produced, before any model touches them. Same green the funnel KEY paints the crowned config.',
                        GATE:'GATE - the trade filter: a model scores each entry and the ones under the cut-off are not taken. Same red as the funnel GATE line.',
                        TILT:'TILT - every trade is taken, only re-sized by model confidence. Same amber as the funnel TILT line.',
-                       HYBRID:'HYBRID - gate first, then size the survivors by confidence. Same violet as the funnel HYBRID line.'};
-    const _mtxLegend=()=>Object.keys(_mtxPoolCol).map(k=>'<span title="'+_mtxPoolTip[k]+'" style="cursor:help;font-weight:700;color:'+_mtxPoolCol[k]+'">&#9679; '+k+'</span>').join(' &middot; ');
+                       HYBRID:'HYBRID - gate first, then size the survivors by confidence, one contract per trade on average. Same violet as the funnel HYBRID line.'};
+    _mtxPoolTip[MTX_HYB2]='HYBRID RECYCLE - the same hybrid book sized UP until it spends the same total contracts as the no-filter book: what the capacity the gate freed actually buys. Different net $ AND different drawdown from plain HYBRID, which is why it is its own point here. Same pink as the funnel HYBRID recycle line.';
+    // ── LEGEND = FAMILY TOGGLES ─────────────────────────────────────────────────────────────
+    // v73.7x (owner: "for the keys on those above, make them toggleable (ie i want to turn tilt
+    //   off on all pools or pnl vs dd"). Clicking a key hides that family from BOTH charts and
+    //   from every scale they compute - the axes, the trend fit and the bar dollar scale all
+    //   re-fit to what is left, so hiding the family that was stretching an axis actually gives
+    //   the rest of the points room, rather than just blanking some dots. Same behaviour as the
+    //   funnel KEY rows, which have always worked this way.
+    //   Shared by the two charts on purpose: they are two views of ONE set of candidates, and
+    //   letting them disagree about which families are in play is how you end up reading a
+    //   filtered scatter against an unfiltered bar list.
+    const _mtxHidden=()=>{const raw=String(APREF.mtxOff||'');return raw?raw.split('|').filter(Boolean):[];};
+    const _mtxVisible=(pts)=>{const off=_mtxHidden();
+      const keep=(pts||[]).filter(p=>off.indexOf(p.pool)<0);
+      // never let the last family be switched off - an empty chart cannot be clicked back on.
+      return keep.length?keep:(pts||[]);};
+    const _mtxLegend=(pts)=>{
+      const off=_mtxHidden(),present={};(pts||[]).forEach(p=>{present[p.pool]=(present[p.pool]||0)+1;});
+      return Object.keys(_mtxPoolCol).filter(k=>present[k]).map(k=>{
+        const hid=off.indexOf(k)>=0;
+        return '<span data-mtxpool="'+k+'" title="'+String(_mtxPoolTip[k]||'').replace(/"/g,'&quot;')
+          +(hid?' &#183; HIDDEN - click to show it again.':' &#183; click to hide this family; both charts and all their scales re-fit to what is left.')
+          +'" style="cursor:pointer;user-select:none;font-weight:700;white-space:nowrap;color:'+(hid?'var(--text5)':_mtxPoolCol[k])
+          +(hid?';text-decoration:line-through;opacity:.65':'')+'">&#9679; '+k+' <span style="font-weight:400;opacity:.7">'+present[k]+'</span></span>';
+      }).join(' &middot; ');};
     // ── SAMPLE STRIP ────────────────────────────────────────────────────────────────────────
     // v73.6x (owner: "idk what im seeing in all pools or pnl vs dd. ie whcihh sample. toggles for
     //   each or cominbing them like in 1d matrix?"). The points were ALWAYS scoped to the ticked
@@ -11585,8 +11630,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
                         lb:'LB = LOCKBOX. The sealed final stretch, held back from the whole search and looked at exactly once.'};
     const _mtxSampBar=()=>_sampChips(['is','wf','lb'],_segsOf(['is','wf','lb']),_MTX_SEG_NM,_MTX_SEG_TIP);
     const _mtxInfoIc=t=>'<span title="'+String(t).replace(/"/g,'&quot;')+'" style="cursor:help;font-size:8px;color:var(--text4)">&#9432;</span>';
-    const mtxScatterHtml=(points)=>{
-      if(!points||points.length<2)return '';
+    const mtxScatterHtml=(_allPts)=>{
+      if(!_allPts||_allPts.length<2)return '';
+      // v73.7x: everything below measures the VISIBLE families only (see _mtxLegend) - axes,
+      //   trend fit and jitter all re-fit when a family is switched off. The legend still gets
+      //   the FULL set so a hidden family keeps a key to click back on.
+      const points=_mtxVisible(_allPts);
+      if(points.length<2)return '';
       // v73.6x (owner: "put axis lines for x and y axis and a couple data points on them for
       //   reference... axis titles should be net pnl and DD"). Before this the chart had grid
       //   lines, NO drawn axis at all, and only two end labels in an HTML row underneath - so
@@ -11639,7 +11689,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const xTitle='<text x="'+((x0+x1)/2).toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text3)">DD &middot; MAX DRAWDOWN ($) &mdash; deeper to the right</text>';
       const yTitle='<text x="9" y="'+((y0+y1)/2).toFixed(1)+'" transform="rotate(-90 9 '+((y0+y1)/2).toFixed(1)+')" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text3)">NET PNL ($)</text>';
       // ── TREND (owner: "a regression line or trend line if there are any that are applicable") ──
-      //   Ordinary least-squares fit of net $ on |DD| over EVERY dot on the chart, all four pools
+      //   Ordinary least-squares fit of net $ on |DD| over EVERY VISIBLE dot on the chart, all
       //   pooled. Drawn dashed, and labelled with the slope in plain dollars plus r-squared - how
       //   much of the spread in net $ the drawdown actually explains. On this data the honest
       //   answer is often "almost none", and a near-flat line at r-squared 0.04 IS the finding, so
@@ -11663,12 +11713,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const ax=Math.max(0,Math.min(ddmx,clipX(0))),bx=Math.max(0,Math.min(ddmx,clipX(ddmx)));
         if(Math.abs(bx-ax)<1e-9)return;
         trendSvg='<line x1="'+X(ax).toFixed(1)+'" y1="'+Y(yAt(ax)).toFixed(1)+'" x2="'+X(bx).toFixed(1)+'" y2="'+Y(yAt(bx)).toFixed(1)+'" stroke="var(--text2)" stroke-width="1.3" stroke-dasharray="5,4" opacity="'+(r2>=0.1?0.85:0.4)+'"/>';
-        trendTxt='<span title="TREND LINE = ordinary least-squares fit of net $ on drawdown across every dot on this chart, all four pools pooled together. SLOPE says how many dollars of net the fit adds for each extra $1 of drawdown taken on. r-squared says how much of the spread in net $ the drawdown explains: 0 = none of it, 1 = all of it. Below about 0.10 there is effectively no relationship and the line is drawn faint to say so. Note the four pools are not independent - GATE, TILT and HYBRID candidates are all built from the RAW ones - so read this as a shape, not as a test." style="cursor:help;color:var(--text3);white-space:nowrap">&#8211;&#8211; TREND <b style="color:var(--text2)">'
+        trendTxt='<span title="TREND LINE = ordinary least-squares fit of net $ on drawdown across every dot currently shown on this chart, all visible families pooled together (switching a family off with its legend key re-fits this). SLOPE says how many dollars of net the fit adds for each extra $1 of drawdown taken on. r-squared says how much of the spread in net $ the drawdown explains: 0 = none of it, 1 = all of it. Below about 0.10 there is effectively no relationship and the line is drawn faint to say so. Note the families are not independent - GATE, TILT and both HYBRIDs are all built from the RAW candidates - so read this as a shape, not as a test." style="cursor:help;color:var(--text3);white-space:nowrap">&#8211;&#8211; TREND <b style="color:var(--text2)">'
           +(slope>=0?'+':'&minus;')+'$'+Math.abs(slope).toFixed(2)+'</b> net per $1 DD &middot; r&sup2; <b style="color:'+(r2>=0.1?'var(--text2)':'var(--text4)')+'">'+r2.toFixed(2)+'</b>'
           +(r2<0.1?' <span style="color:var(--text4)">(no real relationship)</span>':'')+'</span>';
       })();
       // slight per-pool x jitter so same-DD dots from different pools do not fully overlap
-      const _jit={RAW:-1.1,GATE:-0.35,TILT:0.35,HYBRID:1.1};
+      const _jit={RAW:-1.4,GATE:-0.7,TILT:0,HYBRID:0.7};_jit[MTX_HYB2]=1.4;
       const dots=points.slice().sort((a,b)=>a.pnl-b.pnl).map(p=>{
         const col=_mtxPoolCol[p.pool]||'var(--text3)';
         const cx=(X(p.dd)+(_jit[p.pool]||0)).toFixed(1),cy=Y(p.pnl).toFixed(1);
@@ -11686,10 +11736,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   same mark the 2C cut-off sweep puts on its chosen model.
         return '<circle class="cfgmark" data-mtxsc="1" data-pool="'+p.pool+'" data-mtxkey="'+(p.key||'')+'" data-net="'+Math.round(p.pnl)+'" cx="'+cx+'" cy="'+cy+'" r="'+(p.crowned?4.6:3.1)+'" fill="'+col+'" opacity="'+(p.crowned?1:0.88)+'"'+(p.crowned?' stroke="var(--text)" stroke-width="1.4"':'')+' style="cursor:pointer;transition:opacity .12s" data-tip="'+tip.replace(/"/g,'&quot;')+'"/>';
       }).join('');
-      const _tip='Every candidate the search produced, across all four pools, on ONE chart - a sanity check that does not depend on the pre-registered net-$ + MAR-floor rule that actually crowns. Each dot = one candidate: max drawdown on the x axis (a magnitude, so further right = deeper pain) against net $ on the y axis. The crown = the engine-crowned RAW config, ringed in white. Colours match the 1A FUNNEL key exactly. Click any dot to jump to that candidate own column in the 1E MATRIX below.';
+      const _tip='Every candidate the search produced, across all five families, on ONE chart - a sanity check that does not depend on the pre-registered net-$ + MAR-floor rule that actually crowns. Each dot = one candidate: max drawdown on the x axis (a magnitude, so further right = deeper pain) against net $ on the y axis. The crown = the engine-crowned RAW config, ringed in white. Colours match the 1A FUNNEL key exactly, and clicking a key hides that family - the axes and the trend line re-fit to what is left. Click any dot to jump to that candidate own column in the 1E MATRIX below.';
       return '<div style="margin:2px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:8px;color:var(--text4)">'
           +_mtxInfoIc(_tip)+_mtxSampBar()
-          +'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap">'+trendTxt+'<span>'+_mtxLegend()+'</span></span></div>'
+          +'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap">'+trendTxt+'<span>'+_mtxLegend(_allPts)+'</span></span></div>'
         +'<div style="background:var(--bg1);border-radius:8px;padding:10px;margin-bottom:6px">'
         +'<svg data-keepaspect viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'
         +gridY+gridX+axes+tickY+tickX+trendSvg+dots+xTitle+yTitle+'</svg>'
@@ -11704,19 +11754,34 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //   flex columns, so 50% of the flexible middle column lands on the same on-screen pixel for
     //   every row for free, and label truncation is a plain CSS ellipsis instead of hand-rolled
     //   SVG text measuring.
-    const mtxBarsHtml=(points)=>{
-      if(!points||points.length<2)return '';
-      // v73.6x (owner: "pnl vs dd: why are the bars for a confit not on the same row. apply same
-      //   for the pnl and dd number"). It was TWO stacked flex rows per candidate - the PnL bar
-      //   and its dollars on one, the DD bar and its dollars on the next - which read as two
-      //   separate entries with a blank label. Now ONE row per candidate: label, the drawdown
-      //   dollars, a single shared track with drawdown running LEFT of the centreline and net PnL
-      //   running RIGHT of it, then the net dollars. Both bars and both numbers on one line, and
-      //   the tile is half the height it was.
-      // ONE DOLLAR SCALE across both halves (the largest of |net $| and DD over every candidate)
-      //   so a bar twice as long really is twice the money. With a separate scale per side - what
-      //   it used to do - a $9k drawdown could out-draw a $70k profit and the picture would lie.
-      const sc=Math.max.apply(null,points.map(p=>Math.abs(p.pnl)).concat(points.map(p=>Math.abs(p.dd))).concat([1]));
+    const mtxBarsHtml=(_allPts)=>{
+      if(!_allPts||_allPts.length<2)return '';
+      const points=_mtxVisible(_allPts);
+      if(points.length<2)return '';
+      // v73.7x (owner: "bar still sit off centered. ie dd bar sits below pnl bar created its own
+      //   row"). Right - the previous pass put the two bars in the upper and lower half of one
+      //   13px track, which still reads as two rows, just tighter ones. They now share the SAME
+      //   vertical band: one bar height, one baseline, drawdown running left of the centreline
+      //   and net running right of it.
+      //   The one case where they can collide is a candidate that LOST money, whose net bar also
+      //   runs left. That is handled by drawing the drawdown bar as a translucent block with a
+      //   hairline outline and the net bar solid on top of it, so an overlap reads as one bar
+      //   inside another instead of two bars fighting - and the NET / DD toggle below separates
+      //   them completely whenever that is not enough.
+      // v73.7x (owner: "add a toggle so i can see just the dd or pnl on the bar chart so i can
+      //   see scale better"). BOTH / NET / DD. The scale is the point: on BOTH the two halves
+      //   share ONE dollar scale so bar lengths are directly comparable, which is honest but
+      //   squashes the drawdowns into stubs whenever net dwarfs DD (a NOISE run: $430k net
+      //   against $20k DD, so DD gets 2% of the track). Isolating one metric re-fits the scale to
+      //   THAT metric alone, so its own spread fills the track and can actually be read.
+      const _barMet=(['both','net','dd'].indexOf(String(APREF.mtxBarMet||''))>=0)?String(APREF.mtxBarMet):'both';
+      const _shN=(_barMet!=='dd'),_shD=(_barMet!=='net');
+      // v73.7x (owner: "is the DD to scale? it seems to have shrunk but thats ok if so") - yes,
+      //   and this is where that happens. BOTH deliberately measures the two against each other;
+      //   NET and DD each measure only themselves.
+      const sc=Math.max.apply(null,[].concat(
+          _shN?points.map(p=>Math.abs(p.pnl)):[],
+          _shD?points.map(p=>Math.abs(p.dd)):[]).concat([1]));
       const LBW=126,DDW=56,VW=56,GAP=6;
       // The shared centreline sits at 50% of the FLEXIBLE track. With fixed-px columns of
       //   differing widths on either side that point is offset from the row OWN 50%: for a flex
@@ -11730,12 +11795,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const col=_mtxPoolCol[p.pool]||'var(--text3)';
         const pnlPos=p.pnl>=0,pnlCol=pnlPos?'#1d9e75':'#e24b4a';
         const pnlPct=(Math.abs(p.pnl)/sc*50).toFixed(2),ddPct=(Math.abs(p.dd)/sc*50).toFixed(2);
-        // Net PnL grows RIGHT of the centre when the candidate made money and LEFT when it lost -
-        //   the same direction the drawdown bar always runs - so a losing candidate reads as pain
-        //   on both counts. The two bars occupy the upper and lower half of the SAME 13px track,
-        //   so a leftward net bar stacks above the drawdown bar instead of colliding with it.
-        const pnlBar='<span style="position:absolute;'+(pnlPos?'left':'right')+':50%;top:1px;height:5px;width:'+pnlPct+'%;background:'+pnlCol+';opacity:.92;border-radius:'+(pnlPos?'0 2px 2px 0':'2px 0 0 2px')+'"></span>';
-        const ddBar='<span style="position:absolute;right:50%;top:7px;height:5px;width:'+ddPct+'%;background:#e24b4a;opacity:.5;border-radius:2px 0 0 2px"></span>';
+        // ONE band, ONE baseline. Net grows RIGHT of the centreline when the candidate made money
+        //   and LEFT when it lost; drawdown always grows left. Both are top:0;height:100% of the
+        //   same track, so nothing sits above or below anything else and no row is created.
+        //   The drawdown bar is translucent with a hairline outline and the net bar is solid, so
+        //   on a losing candidate - the only case where both run left - the overlap reads as one
+        //   bar drawn inside another rather than as a collision.
+        const pnlBar=_shN?('<span style="position:absolute;'+(pnlPos?'left':'right')+':50%;top:0;height:100%;width:'+pnlPct+'%;background:'+pnlCol+';opacity:.95;border-radius:'+(pnlPos?'0 2px 2px 0':'2px 0 0 2px')+'"></span>'):'';
+        const ddBar=_shD?('<span style="position:absolute;right:50%;top:0;height:100%;width:'+ddPct+'%;background:color-mix(in srgb,#e24b4a 32%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,#e24b4a 70%,transparent);border-radius:2px 0 0 2px"></span>'):'';
         const lbl=(p.crowned?'<span style="color:var(--green)">👑</span> ':'')+String(p.label||'');
         const tip=p.pool+' <b>'+String(p.label||'').replace(/"/g,'&quot;')+'</b>'+(p.crowned?' <span style="color:var(--green)">👑 crowned</span>':'')
           +'<br>net <b style="color:'+pnlCol+'">'+fmtUsd(Math.round(p.pnl))+'</b> &middot; DD <b style="color:#e24b4a">-'+fmtUsd(Math.round(Math.abs(p.dd)))+'</b>';
@@ -11748,28 +11815,38 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const tipEsc=tip.replace(/"/g,'&quot;');
         return '<div class="cfgmark" data-mtxsc="1" data-pool="'+p.pool+'" data-mtxkey="'+(p.key||'')+'" data-net="'+Math.round(p.pnl)+'" style="display:flex;align-items:center;gap:'+GAP+'px;cursor:pointer;padding:2px 0;'+(_bi?'border-top:1px solid color-mix(in srgb,var(--border) 40%,transparent);':'')+'" data-tip="'+tipEsc+'">'
           +'<span style="flex:0 0 '+LBW+'px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8.5px;color:var(--text2)"><span style="display:inline-block;width:6px;height:6px;border-radius:2px;background:'+col+';margin-right:4px"></span>'+lbl+'</span>'
-          +'<span style="flex:0 0 '+DDW+'px;text-align:right;font-size:8.5px;font-weight:700;color:#e24b4a">-'+fmtUsd(Math.round(Math.abs(p.dd)))+'</span>'
-          +'<span style="flex:1;position:relative;height:13px">'+ddBar+pnlBar+'</span>'
-          +'<span style="flex:0 0 '+VW+'px;text-align:right;font-size:8.5px;font-weight:700;color:'+pnlCol+'">'+fmtUsd(Math.round(p.pnl))+'</span>'
+          +'<span style="flex:0 0 '+DDW+'px;text-align:right;font-size:8.5px;font-weight:700;color:'+(_shD?'#e24b4a':'var(--text5)')+(_shD?'':';opacity:.5')+'">-'+fmtUsd(Math.round(Math.abs(p.dd)))+'</span>'
+          +'<span style="flex:1;position:relative;height:11px">'+ddBar+pnlBar+'</span>'
+          +'<span style="flex:0 0 '+VW+'px;text-align:right;font-size:8.5px;font-weight:700;color:'+(_shN?pnlCol:'var(--text5)')+(_shN?'':';opacity:.5')+'">'+fmtUsd(Math.round(p.pnl))+'</span>'
         +'</div>';
       }).join('');
       // Column captions + a scale foot, both built from the SAME fixed widths as the rows so they
       //   line up exactly. Answers the other half of "idk what im seeing": which number is which,
       //   and what a bar of a given length is actually worth in dollars.
       const _spacer=(w)=>'<span style="flex:0 0 '+w+'px"></span>';
+      const _mid=_shN&&_shD?'&#9664; DRAWDOWN &nbsp;&middot;&nbsp; NET PNL &#9654;':(_shN?'&#9664; NET LOSS &nbsp;&middot;&nbsp; NET PNL &#9654;':'&#9664; DRAWDOWN');
       const head='<div style="display:flex;align-items:center;gap:'+GAP+'px;font-size:7.5px;font-weight:700;letter-spacing:.4px;color:var(--text5);padding-bottom:4px;margin-bottom:2px;border-bottom:1px solid color-mix(in srgb,var(--border) 60%,transparent)">'
         +'<span style="flex:0 0 '+LBW+'px">CANDIDATE</span>'
-        +'<span style="flex:0 0 '+DDW+'px;text-align:right;color:#e24b4a">DD</span>'
-        +'<span style="flex:1;text-align:center">&#9664; DRAWDOWN &nbsp;&middot;&nbsp; NET PNL &#9654;</span>'
+        +'<span style="flex:0 0 '+DDW+'px;text-align:right;color:'+(_shD?'#e24b4a':'var(--text5)')+'">DD</span>'
+        +'<span style="flex:1;text-align:center">'+_mid+'</span>'
         +'<span style="flex:0 0 '+VW+'px;text-align:right;color:var(--text4)">NET PNL</span></div>';
+      // The scale foot names what a full half-track is worth in dollars, and says WHICH scale is
+      //   in force - the answer to "is the DD to scale? it seems to have shrunk".
+      const _scNote=(_shN&&_shD)?'one shared scale &#183; both sides comparable':(_shN?'net only &#183; scaled to net':'drawdown only &#183; scaled to DD');
       const foot='<div style="display:flex;align-items:center;gap:'+GAP+'px;font-size:7.5px;color:var(--text4);padding-top:5px;margin-top:2px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)">'
         +_spacer(LBW)+_spacer(DDW)
-        +'<span style="flex:1;display:flex;justify-content:space-between"><span>'+fmtAx(sc,1)+'</span><span style="color:var(--text5)">$0</span><span>'+fmtAx(sc,1)+'</span></span>'
+        +'<span style="flex:1;display:flex;justify-content:space-between;align-items:center"><span>'+fmtAx(sc,1)+'</span><span style="color:var(--text5)">'+_scNote+'</span><span>'+fmtAx(sc,1)+'</span></span>'
         +_spacer(VW)+'</div>';
-      const _tip='Every candidate the search produced, across all four pools, as bars instead of dots - the same information as the ALL POOLS scatter, sorted best net PnL first. ONE ROW per candidate: its drawdown in dollars, then a shared centreline with the drawdown bar running left and the net PnL bar running right, then its net in dollars. Both halves use ONE dollar scale, so bar lengths are directly comparable. A candidate that LOST money draws its net bar leftward too. Click any row to jump to that candidate own column in the 1E MATRIX below.';
+      const _metTip={both:'Draw BOTH: the drawdown bar and the net bar on one shared dollar scale, so their lengths are directly comparable. Honest, but when net dwarfs drawdown the DD bars shrink to stubs.',
+                     net:'NET only. The scale re-fits to net alone, so the spread between candidates fills the track and can actually be read.',
+                     dd:'DRAWDOWN only. The scale re-fits to drawdown alone - the stubs become full-length bars and the deepest drawdown reaches the end of the track.'};
+      const _metStrip=_tabStrip([['both','BOTH'],['net','NET'],['dd','DD']]
+        .map(function(t){return _tabBtn('data-mtxbarmet="'+t[0]+'"',t[1],_barMet===t[0],_metTip[t[0]],'var(--blue)');}).join(''),false,'var(--blue)');
+      const _tip='Every candidate the search produced, across all five families, as bars instead of dots - the same information as the RISK MAP scatter, sorted best net PnL first. ONE ROW per candidate: its drawdown in dollars, then a shared centreline with the drawdown bar running left and the net PnL bar running right, then its net in dollars. On BOTH the two halves use ONE dollar scale so bar lengths are directly comparable; NET and DD isolate one metric and re-fit the scale to it. A candidate that LOST money draws its net bar leftward too, inside its own drawdown bar. Click any row to jump to that candidate own column in the 1E MATRIX below.';
       return '<div style="margin:2px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:8px;color:var(--text4)">'
           +_mtxInfoIc(_tip)+_mtxSampBar()
-          +'<span style="margin-left:auto">'+_mtxLegend()+'</span></div>'
+          +'<span style="display:inline-flex;align-items:center;gap:4px"><span style="font-size:7.5px;font-weight:700;letter-spacing:.5px;color:var(--text5)">SHOW</span>'+_metStrip+'</span>'
+          +'<span style="margin-left:auto">'+_mtxLegend(_allPts)+'</span></div>'
         +'<div style="background:var(--bg1);border-radius:8px;padding:10px;margin-bottom:6px;position:relative">'
         +head
         +'<div style="position:relative"><div style="position:absolute;top:0;bottom:0;left:calc(50% + '+midOff+'px);width:1px;background:var(--text3);opacity:.45"></div>'+rows+'</div>'
@@ -13837,7 +13914,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 //   equal 'TILT' so tilt was fine, but 'hyb'.toUpperCase() is 'HYB', not 'HYBRID'
                 //   - every HYBRID dot fell through to the grey default colour AND failed the
                 //   tabOf lookup (click never switched 1E to the HYBRID tab before scrolling).
-                _scatterAcc.push({pool:(poolName==='hyb'?'HYBRID':poolName.toUpperCase()),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false});
+                // v73.7x: 'hyb2' (HYBRID RECYCLE) joins them, mapped the same way.
+                _scatterAcc.push({pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false});
             });
           }
           // RETURN — IS and WF follow the shared SAMPLE tick, exactly as in 2B. LB $ and FULL $
@@ -13991,9 +14069,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(_hy.length){
           _hy.sort((a,b)=>((_cmpRec(b.lockbox)!=null?_cmpRec(b.lockbox):-99)-(_cmpRec(a.lockbox)!=null?_cmpRec(a.lockbox):-99)));
           ['one','redeploy','equaldd'].forEach(function(md){
-            // v73.5x: only the ONE-LOT view feeds the scatter — REDEPLOY / EQUAL-DD are the same
-            //   candidates re-sized, not a distinct pool, and would just duplicate the same dots.
-            hybBy[md]=_cmpMatrix(_cmpCols(_hy,'hyb'),md,md==='one'?'hyb':null);
+            // v73.5x: only the ONE-LOT view fed the 1A candidate charts, on the grounds that
+            //   REDEPLOY / EQUAL-DD are the same candidates re-sized rather than a distinct pool.
+            // v73.7x (owner: "no hybrid r?"): REDEPLOY now feeds them too. Re-sizing changes both
+            //   the net $ and the drawdown, so it does NOT duplicate the one-lot dots - it lands
+            //   somewhere else entirely, which is the whole question that family answers. It is
+            //   also the fifth row of the 1A funnel KEY, so leaving it out made the chart legend
+            //   and the funnel legend disagree about how many families exist.
+            //   EQUAL-DD still does not: it is not a funnel-key family. _cmpCols builds fresh
+            //   column objects per call, so stamping data-mtxcol here cannot leak across tabs.
+            hybBy[md]=_cmpMatrix(_cmpCols(_hy,'hyb'),md,md==='one'?'hyb':(md==='redeploy'?'hyb2':null));
             // v71.95 (owner): same treatment - headline, mode chip and the never-crowned
             //   warning all move inside the info readout; the row keeps only the icon.
             hybNoteBy[md]=_noteRow(_infoIc('<div style="color:var(--yellow);font-weight:700;margin-bottom:6px">GATE FIRST, THEN TILT THE SURVIVORS &middot; '+String((_hybModeNm[md]||['',''])[0]).replace(/<[^>]*>/g,'')+' &middot; COMPARISON ONLY, NEVER CROWNED</div>'+String((_hybModeNm[md]||['',''])[1]).replace(/'/g,'&#39;'))+_infoIc(_hybInfo));});}
@@ -15300,7 +15385,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   pool's points are already scoped to whatever SAMPLE (IS/WF/LB) is ticked, the same
         //   g2samp pref the matrix tables read, so the chart and the tables underneath never
         //   disagree. Rendered ONCE, above the tab strip on the PRIMARY 1E card only — it spans
-        //   all four pools at once, so duplicating it on the side-by-side comparison card (1E's
+        //   all families at once, so duplicating it on the side-by-side comparison card (1E's
         //   "B" twin) would just be the same picture twice.
         _mtxScatterPts=[].concat((_selParts&&_selParts.scatterPts)||[],(_gvP&&_gvP.scatterPts)||[]);
         _mtxScatter=mtxScatterHtml(_mtxScatterPts);
@@ -15761,12 +15846,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
             var _mtxHasPts=!!(_mtxScatterPts&&_mtxScatterPts.length>=2);
             var _eqTabDefs=[['chart','CHAMPION',true,'the champion config equity curve, chronological - in-sample, walk-forward, then the sealed lockbox'],
                             ['funnel','FUNNEL',true,'every tested config drawn as a funnel: many at the in-sample door, the top-K past it, the survivors through the lockbox'],
-                            ['pools','ALL POOLS',_mtxHasPts,'every candidate the search produced, across all four pools (RAW/GATE/TILT/HYBRID), on one scatter - a sanity check that does not depend on the rule that actually crowns'],
-                            ['bars','PNL vs DD',_mtxHasPts,'the same all-pool candidates as bars instead of dots - PnL and drawdown sharing a centreline, sorted best PnL first']]
+                            // v73.7x (owner: "relable all pools scatter, and pnl vs dd bar. if
+                            //   those terminaloly make sence"). They did not.
+                            //   "ALL POOLS" leaned on "pool", which is internal vocabulary - the
+                            //   1E tabs and the funnel key both call these things FAMILIES, and
+                            //   what a reader actually wants named is what is IN the chart, which
+                            //   is every candidate. "PNL vs DD" was worse: BOTH charts plot PnL
+                            //   against drawdown, so the name did not distinguish them at all -
+                            //   what differs is scatter versus ranked list. Named for that now,
+                            //   with the full description carried by the card title below.
+                            ['pools','RISK MAP',_mtxHasPts,'every candidate the search produced, all five families, as a scatter: drawdown across, net PnL up. A sanity check that does not depend on the rule that actually crowns'],
+                            ['bars','RANKED',_mtxHasPts,'the same candidates as a ranked list instead of a scatter: one bar row each, best net PnL first, with drawdown running the other way off a shared centreline']]
                            .filter(function(t){return t[2];});
             var _eqTab=String(APREF.eqTab||'');
             if(!_eqTabDefs.some(function(t){return t[0]===_eqTab;}))_eqTab='chart';
-            var _eqTitles={chart:(_eqcInfo+' CHAMPION EQUITY'),funnel:((_eqSink.info||'')+' '+(_eqSink.title||'CONFIG FUNNEL')),pools:'ALL POOLS &middot; PnL vs DRAWDOWN',bars:'PNL vs DRAWDOWN &middot; ALL POOLS'};
+            var _eqTitles={chart:(_eqcInfo+' CHAMPION EQUITY'),funnel:((_eqSink.info||'')+' '+(_eqSink.title||'CONFIG FUNNEL')),pools:'ALL CANDIDATES &middot; NET PNL vs DRAWDOWN',bars:'ALL CANDIDATES &middot; RANKED BY NET PNL'};
             var _eqBodies={chart:_eqChart,funnel:_eq,pools:_mtxScatter,bars:_mtxBars};
             var _eqTabs=_tabStrip(_eqTabDefs.map(function(t){return _tabBtn('data-eqtab="'+t[0]+'"',t[1],_eqTab===t[0],t[3]);}).join('')
               // v71.63 (owner: "open it without expanding the chart") — TRADES is an ACTION tab:
@@ -19407,10 +19501,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   that tab's table renders). window._mtxScrollKey survives the renderApp() re-render.
       content.querySelectorAll('[data-mtxsc]').forEach(el2=>{el2.onclick=(e)=>{e.stopPropagation();
         const pool=el2.getAttribute('data-pool'),key=el2.getAttribute('data-mtxkey');
+        // v73.7x: HYBRID RECYCLE joined the four originals, and it lands on the 1E hyb2 tab.
+        //   Keyed off the same long family name the colour table uses (see _mtxPoolCol).
         const tabOf={RAW:'raw',GATE:'gate',TILT:'tilt',HYBRID:'hyb'};
+        tabOf[MTX_HYB2]='hyb2';
         if(tabOf[pool])savePref('cfgTab',tabOf[pool]);
         window._mtxScrollKey=key||null;
         renderApp();};});
+      // v73.7x (owner: "for the keys on those above, make them toggleable"): a legend key hides /
+      //   shows its family across BOTH 1A candidate charts. Stored as a pipe-joined list because
+      //   the HYBRID RECYCLE name carries an HTML entity, and a comma-joined pref is already what
+      //   g2samp uses for something else entirely.
+      content.querySelectorAll('[data-mtxpool]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();
+        const k=b.getAttribute('data-mtxpool');
+        const cur=String(APREF.mtxOff||'').split('|').filter(Boolean);
+        const i=cur.indexOf(k);
+        if(i>=0)cur.splice(i,1);else cur.push(k);
+        savePref('mtxOff',cur.join('|'));renderApp();};});
+      content.querySelectorAll('[data-mtxbarmet]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();
+        savePref('mtxBarMet',b.getAttribute('data-mtxbarmet'));renderApp();};});
       // land the deferred scroll (see above): find this run's re-rendered column header and
       //   flash it so a click-through from an outlier dot always ends up somewhere visible.
       if(window._mtxScrollKey){
