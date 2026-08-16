@@ -69,17 +69,59 @@ NOISE_FROZEN = dict(lookback=14, band_mult_long=1.5, band_mult_short=1.5,
                     flat_eod=True, skip_holidays=False,
                     stop_mode="bandwidth", stop_k=1.0)
 
+# PROVENANCE — where each leg's config actually came from (owner 2026-08-15: "i dont
+# know which config or past run it got it from"). This is the AUTHORITATIVE record; it
+# is written into every daily report's legs block so the board can show it, and it is
+# what tools/nt_config_reconcile.py's mapping is checked against.
+#
+# Keep it honest: `run` is the Past-Runs number the params came from, or None when the
+# config was never crowned by a run (NOISE's stop came out of a hand-run sweep, not an
+# auto-validate). `caveat` is the one thing you would want to know before trusting the
+# leg's numbers -- leave it None rather than inventing reassurance.
+LEG_SOURCE = {
+    "ORB": {
+        "run": 125, "run_label": "#125 (ORB-family)", "strategy_file": "ORB_3_0.py",
+        "picked": "2026-07",
+        "note": "The NO-TRAIL ORB_3_0 cut of run #125, not #125's crowned variant "
+                "(the crown is ORB_3_1 with trail_bars=5). Both are carried in the repo; "
+                "api/paper.py and tools/t5_runboard.py both use this one.",
+        "caveat": "Run #125's volume filter is LOOK-AHEAD (2026-08-11 audit): it gates an "
+                  "intrabar stop-entry on the breakout bar's FINISHED volume. These shadow "
+                  "numbers are NOT live-achievable. The live candidate is the NT-side ORB V2.",
+    },
+    "ENGUQ": {
+        "run": 149, "run_label": "#149 (ENGU-Q)", "strategy_file": "ENGUQ_1M_1_0.py",
+        "picked": "2026-07-14",
+        "note": "NQ_DEPLOY_PARAMS_149 imported directly from the strategy file, plus the "
+                "later breakeven_R=1.5 addition. Pine port reconciled against TradingView "
+                "2026-07-14 (84.5% of matched trades exact).",
+        "caveat": None,
+    },
+    "NOISE": {
+        "run": None, "run_label": "no crowned run", "strategy_file": "NOISE_1_0.py",
+        "picked": "2026-08-08",
+        "note": "Round-12 frozen defaults (lookback 14, symmetric 1.5 bands, vwap exit) plus "
+                "the bandwidth stop k=1.0 that won the 25-variant exit sweep. Assembled by "
+                "hand from research, never crowned by an auto-validate run.",
+        "caveat": "Auto-validate #225 (NOISE-6) later crowned a DIFFERENT config -- lookback 44, "
+                  "asymmetric 0.75/1.5 bands, stop_k 1.75 -- on a fresh 18-month lockbox. This "
+                  "leg is not that config. See NOISE.md.",
+    },
+}
+
 PAPER_LEGS = [
     # ORB: the engine's touch-entry volume filter is LOOK-AHEAD (2026-08-11 audit,
     # see PAPER_TRADING.md) — these shadow numbers are NOT live-achievable. Kept as
     # a flagged reference line; the live candidate is the NT-side ORB V2 chase.
     {"key": "ORB", "strategy": "ORB_3_0.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": ORB_125, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
-     "flags": ["lookahead-engine"]},
+     "flags": ["lookahead-engine"], "source": LEG_SOURCE["ORB"]},
     {"key": "ENGUQ", "strategy": "ENGUQ_1M_1_0.py", "instrument": "NQ", "timeframe": "1m",
-     "session": "rth", "params": ENGUQ_149, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT},
+     "session": "rth", "params": ENGUQ_149, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "source": LEG_SOURCE["ENGUQ"]},
     {"key": "NOISE", "strategy": "NOISE_1_0.py", "instrument": "NQ", "timeframe": "5m",
-     "session": "rth", "params": NOISE_FROZEN, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT},
+     "session": "rth", "params": NOISE_FROZEN, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "source": LEG_SOURCE["NOISE"]},
 ]
 
 # ── Layer 1: the NT demo account whose fills we mirror into the daily report ────
@@ -483,6 +525,14 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
             "_trades": todays_trades,
             "bars_appended": r["bars_appended"], "data_fresh_thru": r["data_fresh_thru"],
             "warnings": r["warnings"], "flags": leg.get("flags") or [],
+            # Provenance travels WITH the numbers (owner 2026-08-15: "i dont know which
+            # config or past run it got it from"). Writing both the source block and the
+            # exact params means a report is self-describing forever -- you can read an
+            # old report and know precisely which config produced it, even after this
+            # file has moved on to a different one.
+            "source": leg.get("source") or {},
+            "params": dict(leg.get("params") or {}),
+            "strategy_file": leg["strategy"], "timeframe": leg.get("timeframe"),
         }
         total_pnl += leg_pnl
         if r["warnings"]:
