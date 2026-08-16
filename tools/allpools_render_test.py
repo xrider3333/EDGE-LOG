@@ -168,6 +168,13 @@ __BLOCK__
       barRowsWithTwoNumbers:barRows.filter(function(r){return (r.textContent.match(/\\$/g)||[]).length>=2;}).length,
       nDashedLines:dashed.length,
       axisTexts:texts,
+      // the scatter must opt out of the fill-the-tile stretch (_rsCharts sets
+      // preserveAspectRatio=none on everything else), or dots render as ellipses and the
+      // trend line's apparent slope stops matching the slope it was fitted at.
+      keepAspect:svg.hasAttribute('data-keepaspect'),
+      par:svg.getAttribute('preserveAspectRatio'),
+      dotAspect:(function(){var b=circles[0].getBoundingClientRect();
+        return b.height>0?+(b.width/b.height).toFixed(3):null;})(),
       hasSampleChips:!!document.querySelector('[data-g2seg]'),
       sampleSegs:[].slice.call(document.querySelectorAll('[data-g2seg]')).map(function(e){return e.getAttribute('data-g2seg');}),
       legendPools:(function(){var m=[];[].slice.call(document.querySelectorAll('#sc span, #bars span')).forEach(function(s){
@@ -271,6 +278,15 @@ def check(o):
     dollar_ticks = [t for t in texts if t.strip().startswith('$') or t.strip().startswith('-$')]
     if len(dollar_ticks) < 4:
         fails.append('expected reference values on both axes, found %d $ labels' % len(dollar_ticks))
+    if not o.get('keepAspect'):
+        fails.append('the scatter svg has no data-keepaspect, so _rsCharts will stretch it to '
+                     'fill its tile -- dots become ellipses and the trend slope stops matching '
+                     'the data (observed live before v73.68: r=3 dots rendered 4.1 x 9.4px)')
+    if o.get('par') == 'none':
+        fails.append('scatter preserveAspectRatio is "none" -- it will render distorted')
+    da = o.get('dotAspect')
+    if da is not None and not (0.9 <= da <= 1.1):
+        fails.append('dots are not round: width/height = %s (1.0 = round)' % da)
     if not o.get('nDashedLines'):
         fails.append('no dashed trend line drawn')
     if not o.get('trendText'):
