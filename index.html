@@ -446,11 +446,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.65';
+const VERSION='73.66';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-{v:'73.65',date:'2026-08-16',notes:['HOTFIX: the previous release (73.62) crashed the run report for every Auto-Validate run - a variable the new 1A tabs needed was declared inside the wrong code block, so it was undefined by the time 1A tried to read it. Fixed - reports render normally again.']},
+{v:'73.66',date:'2026-08-16',notes:['HOTFIX: the previous release (73.62) crashed the run report for every Auto-Validate run - a variable the new 1A tabs needed was declared inside the wrong code block, so it was undefined by the time 1A tried to read it. Fixed - reports render normally again.']},
 {v:'73.62',date:'2026-08-16',notes:['The ALL POOLS PnL-vs-drawdown scatter moved out of 1E MATRIX and into 1A, as its own tab next to CHAMPION and FUNNEL - it no longer sits pinned above the RAW/GATE/TILT/HYBRID tables.','New PNL vs DD tab right next to it in 1A: the same all-pool candidates as horizontal bars instead of dots - one row per candidate, PnL and drawdown sharing a centreline, sorted best PnL first.','FIX: HYBRID pool candidates in that chart were rendering colorless (grey) instead of their assigned color, and clicking one did not jump to its matrix row either. Both now work - the color table needed the long pool name, not the short internal key.']},
 {v:'73.61',date:'2026-08-15',notes:['1E MATRIX gets a new ALL POOLS scatter, above the RAW/GATE/TILT/HYBRID tab tables: every candidate from all four pools plotted together (drawdown vs net $, colour-coded by pool), scoped to whatever SAMPLE is ticked, so an outlier the pre-registered net-$ + MAR-floor rule rejected is still there to eyeball. Hover a dot for its label and exact $/DD; click one to jump to its column in the matrix below.']},
 {v:'73.55',date:'2026-08-15',notes:['SAMPLE-scope audit across §1E MATRIX (owner: "switching between tabs shouldn’t change metric behavior"). GATE’s SHARPE row silently measured the WHOLE saved equity curve on every tick combo except exactly PRE-LOCKBOX or LOCKBOX alone (IS alone, WF alone, IS+WF, WF+LB all fell through to the whole curve while the row header still named the ticked stretch) — it now reads the same contiguous span the DD row already cuts to, on every combo, and honestly dashes on the one combo DD also can’t span (IS+LB with WF unticked).','RAW’s SHARPE row was permanently pinned to the whole optimize window (IS+WF) no matter what was ticked, and combined-scope DD (e.g. IS+WF, or WF+LB) used a "deepest individual slice" approximation marked with a °. Both now genuinely follow the SAMPLE tick: the optimize-window curve and the lockbox continuation curve are stitched into one series (same debasing the 2A funnel chart already uses) and sliced/diffed for whichever stretches are ticked. Runs saved before this engine change (no is_rng/wf_rng/lockbox) keep the exact old pinned display.','TILT and HYBRID were already correctly scope-following (their own _shrp already fraction-splits by ticked stretch) — audited, no leak found, no change needed there.']},
@@ -17097,6 +17097,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // the old name-sniffing heuristic is kept only as a fallback for legacy trades that predate the field.
       const legOf=t=>{const raw=t&&t.leg;if(raw)return String(raw).toUpperCase();const s=String((t&&t.strategy)||'').toUpperCase();return s.indexOf('ENGU')>=0?'ENGUQ':'ORB';};
       const _legColor={ORB:'#5b8def',ENGUQ:'#c090ff',NOISE:'#2dd4bf'};
+      // P&L sign colours are LITERAL hex on purpose. var(--green)/var(--red) resolve to
+      // #f0f0f0 / #4d4d4d on the monochrome theme -- i.e. no colour, and the loss shade is
+      // nearly invisible on the dark ground. The owner asked for green/red on the money
+      // column specifically, so this is one of the few deliberate theme overrides.
+      const PNL_POS='#1d9e75', PNL_NEG='#e24b4a';
       const _legLabel={ORB:'ORB',ENGUQ:'ENGU-Q',NOISE:'NOISE'};
       // ── LEG FILTER (owner ask 2026-08-13) — same idea as the report's CLASSIC/NEO rail:
       // one control that narrows the WHOLE board to a single strategy. With three legs
@@ -17149,8 +17154,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         return f?{src:f,params:f.params,fromReport:false}:null;
       };
       const legTile=(name,label,color)=>{
-        const a=legAgg(name);const w=name!=='BLEND'?legWarn(name):null;
-        const wBadge=w?'<span title="'+w.join(' · ').replace(/"/g,'&quot;')+'" style="margin-left:6px;font-size:9px;padding:1px 6px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow)">⚠ '+w.length+'</span>':'';
+        const a=legAgg(name);
+        // No warning badge here any more: every warning these legs produce is about the
+        // shared 10s data feed (file missing/stale, zero fresh bars appended), so it was
+        // the identical badge on all three tiles and said nothing about the strategy.
+        // It now renders once, in the DATA FEED line under the board header.
+        const wBadge='';
         const orbBadge=name==='ORB'?'<span title="'+ORB_LA_TIP.replace(/"/g,'&quot;')+'" style="margin-left:6px;font-size:8px;font-weight:600;padding:1px 6px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);opacity:.85;cursor:help">⚠ engine reference</span>':'';
         // One COLUMN of a shared strip, not a card of its own: four framed boxes ate a
         // full screen row of mostly chrome (owner 2026-08-14: "data seems everywhere").
@@ -17190,7 +17199,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="font-size:9px;color:var(--text4);margin-top:2px">'+a.n+' trades · '+(a.n?Math.round(a.wr*100)+'% win':'—')+' · '+a.days+'d live<br>last '+(a.lastT?_dOnly(a.lastT):'—')+'</div>'
           +cfgBlock+'</div>';
       };
-      const _tileDefs=[['ORB','ORB','#5b8def'],['ENGUQ','ENGU-Q','#c090ff'],['NOISE','NOISE','#2dd4bf'],['BLEND','BLEND (1:1)','var(--yellow)']];
+      // Colours are hex, NOT theme vars: these four must match _curveSeries exactly, and
+      // var(--yellow) resolves to #999999 grey on the monochrome theme while the BLEND
+      // curve is hardcoded #e0c341 -- the tile said grey, the line drew yellow.
+      const _tileDefs=[['ORB','ORB','#5b8def'],['ENGUQ','ENGU-Q','#c090ff'],['NOISE','NOISE','#2dd4bf'],['BLEND','BLEND (1:1)','#e0c341']];
       // ALL FOUR always render -- they are the chart legend, so filtering them away would
       // remove the only way to click back to another leg. Selection shows as emphasis, not
       // as absence.
@@ -17275,8 +17287,35 @@ namespace NinjaTrader.NinjaScript.Strategies {
         ))
         +_liveCleanStartNote);
       // trades table — newest first, capped at 200 rows for render cost
+      // ── SORTABLE TRADES (owner 2026-08-15: "option to show sort columns in trades
+      // colume. ie i want to change date from most recent top to most recent on bottom").
+      // Click a header to sort by it; click the same header again to flip direction. Not
+      // persisted -- like the leg filter it is a lens you look through, not a setting.
+      // Default stays newest-first so the table opens exactly as it always has.
+      const _PSORTS={
+        date:t=>(+t.exitTime||+t.entryTime||0),
+        leg:t=>String(legOf(t)||''),
+        side:t=>String(t.side||''),
+        entry:t=>(+t.entryTime||0),
+        exit:t=>(+t.exitTime||0),
+        entrypx:t=>(t.entry_px!=null?+t.entry_px:-Infinity),
+        exitpx:t=>(t.exit_px!=null?+t.exit_px:-Infinity),
+        pts:t=>(t.pnl_pts!=null?+t.pnl_pts:-Infinity),
+        usd:t=>(+t.pnl_usd||0)
+      };
+      const _psCol=_PSORTS[window._paperSortCol]?window._paperSortCol:'date';
+      const _psDir=(window._paperSortDir==='asc')?'asc':'desc';
+      const _psKey=_PSORTS[_psCol];
       const _tSorted=(PLEG==='ALL'?_pt.slice():legRows(PLEG).slice())
-        .sort((a,b)=>(+b.exitTime||+b.entryTime||0)-(+a.exitTime||+a.entryTime||0));
+        .sort((a,b)=>{
+          const x=_psKey(a),y=_psKey(b);
+          let c;
+          if(typeof x==='string'||typeof y==='string')c=String(x).localeCompare(String(y));
+          else c=(x-y);
+          return _psDir==='asc'?c:-c;
+        });
+      const _psTh=(key,label,align)=>'<th data-psort="'+key+'" title="sort by '+label+(_psCol===key?(_psDir==='asc'?' (now oldest/lowest first - click to flip)':' (now newest/highest first - click to flip)'):'')+'" style="cursor:pointer;user-select:none'+(align?';text-align:'+align:'')+'">'+label
+        +(_psCol===key?'<span style="margin-left:3px;color:var(--blue)">'+(_psDir==='asc'?'▲':'▼')+'</span>':'<span style="margin-left:3px;color:var(--text5);opacity:.45">▾</span>')+'</th>';
       // v73.18 (owner ask): CANDLES ON THE PAPER TAB. Each leg runs its OWN timeframe, so
       // every row carries its own bar-fetch payload (_pb) rather than sharing one. And the
       // masters end well before PAPER started, so the payload asks the PC to append the
@@ -17343,7 +17382,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _chartCell=_etk
           ? '<td><span data-ptchart="'+_ci+'" title="open this trade session candles" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:5px;border:1px solid var(--border);color:var(--text4)">CHART</span></td>'
           : '<td><span title="this trade has no usable entry time, so there is nothing to centre a chart on" style="font-size:8px;color:var(--text5)">—</span></td>';
-        return '<tr>'+_chartCell+_engineCell(t)+'<td>'+(t.run_date||_dOnly(t.exitTime||t.entryTime)||'—')+'</td>'
+        return '<tr>'+_engineCell(t)+'<td>'+(t.run_date||_dOnly(t.exitTime||t.entryTime)||'—')+'</td>'
           +'<td><span style="color:'+lc+';font-weight:600">'+(_legLabel[leg]||leg)+'</span>'+_laBadge+'</td>'
           +'<td>'+(t.side||'—')+'</td>'
           +'<td>'+_fmtET(t.entryTime)+'</td>'
@@ -17351,10 +17390,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<td style="text-align:right">'+(t.entry_px!=null?(+t.entry_px).toFixed(2):'—')+'</td>'
           +'<td style="text-align:right">'+(t.exit_px!=null?(+t.exit_px).toFixed(2):'—')+'</td>'
           +'<td style="text-align:right">'+(t.pnl_pts!=null?(+t.pnl_pts).toFixed(2):'—')+'</td>'
-          +'<td style="text-align:right;color:'+(pnl>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(pnl)+'</td></tr>';
+          +'<td style="text-align:right;font-weight:600;color:'+(pnl>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(pnl)+'</td>'
+          +_chartCell+'</tr>';
       }).join('');
       const tradesHtml=tile('<div class="lbl" style="margin-bottom:8px">TRADES'+(_tSorted.length>200?' <span style="font-weight:400;color:var(--text5);font-size:8px">· showing 200 of '+_tSorted.length+'</span>':'')+'</div>'
-        +(_tSorted.length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th>CHART</th><th title="which engines produced this trade">ENGINES</th><th>DATE</th><th>LEG</th><th>SIDE</th><th>ENTRY (ET)</th><th>EXIT (ET)</th><th style="text-align:right">ENTRY PX</th><th style="text-align:right">EXIT PX</th><th style="text-align:right">PTS</th><th style="text-align:right">$</th></tr></thead><tbody>'+_tRows+'</tbody></table></div>'
+        +(_tSorted.length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th title="which engines produced this trade">ENGINES</th>'+_psTh('date','DATE')+_psTh('leg','LEG')+_psTh('side','SIDE')+_psTh('entry','ENTRY (ET)')+_psTh('exit','EXIT (ET)')+_psTh('entrypx','ENTRY PX','right')+_psTh('exitpx','EXIT PX','right')+_psTh('pts','PTS','right')+_psTh('usd','$','right')+'<th>CHART</th></tr></thead><tbody>'+_tRows+'</tbody></table></div>'
           :'<div style="padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:1px">NO PAPER TRADES YET — SHADOW TRADING STARTS '+PAPER_START+'</div>'));
       // daily reports — one row per paper_reports doc, click to expand per-leg detail + verdict
       const _repOpen=window._paperReportOpen||(window._paperReportOpen=new Set());
@@ -17720,9 +17760,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
         }).join('')+'</span>';
       const headerHtml='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px"><span class="lbl" style="font-size:13px">◷ PAPER · LIVE FORWARD TEST</span>'+_legRail+_reloadBtn+'<span style="margin-left:auto;font-size:9px;color:var(--text5)">paper trading starts '+PAPER_START+'</span></div>'
         +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6;margin:0 2px 16px;max-width:820px">The runner re-runs each crowned strategy on live data every day and logs the trades it would have taken — no real money. This board shows whether reality tracks the backtest.</div>';
+      // ── DATA FEED — one shared line, not a badge on every tile ────────────────
+      // Owner 2026-08-15: "why is there a 10s warning on them. has nothing to do with
+      // paper trading." Correct: every warning the legs emit is about the shared 10s tick
+      // capture that appends today's fresh bars (file missing/stale, zero fresh bars
+      // appended). It is one pipeline, so three identical badges said the same thing three
+      // times and implied a per-strategy fault that does not exist. Deduped and shown once.
+      const _dataWarn=(()=>{
+        const seen=new Set();
+        ['ORB','ENGUQ','NOISE'].forEach(k=>{
+          const L=(latestReport&&latestReport.legs)?(latestReport.legs[k]||latestReport.legs[k.toLowerCase()]||{}):{};
+          (Array.isArray(L.warnings)?L.warnings:[]).forEach(w=>seen.add(String(w)));
+        });
+        return [...seen];
+      })();
+      const dataHtml=_dataWarn.length
+        ? '<div style="display:flex;align-items:flex-start;gap:8px;margin:0 2px 14px;padding:8px 10px;border:1px solid var(--yellow);border-radius:6px;background:color-mix(in srgb,var(--yellow) 8%,transparent)">'
+          +'<span style="font-size:9px;font-weight:700;letter-spacing:.5px;color:var(--yellow);white-space:nowrap">⚠ DATA FEED</span>'
+          +'<div style="font-size:10px;color:var(--text3);line-height:1.6">'+_dataWarn.map(w=>String(w).replace(/</g,'&lt;')).join('<br>')
+          +'<div style="color:var(--text5);margin-top:3px;font-size:9px">This is the shared 10s tick capture that tops up the current session bars — it affects every leg equally and is not a fault in any one strategy.</div></div></div>'
+        : '';
       // curveHtml now CARRIES the leg tiles, so it takes the tiles' old slot at the top:
       // summary + curve read as one block, then the detail panels below it.
-      body=headerHtml+curveHtml+tradesHtml+matrixHtml+bridgeHtml+reconcileHtml+reportsHtml
+      body=headerHtml+dataHtml+curveHtml+tradesHtml+matrixHtml+bridgeHtml+reconcileHtml+reportsHtml
         +(window._paperErr?'<div style="color:var(--red);font-size:10px;margin-top:10px">load error: '+String(window._paperErr).replace(/</g,'&lt;')+'</div>':'');
     }else{
       const allRuns=runHistory.slice();
@@ -18745,6 +18805,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Leg rail — a lens, not a saved preference, so it lives on window and resets on reload.
       content.querySelectorAll('[data-paperleg]').forEach(el=>{el.onclick=()=>{window._paperLeg=el.getAttribute('data-paperleg');renderApp();};});
       const rh=content.querySelector('[data-reconhelp]');if(rh)rh.onclick=()=>{window._paperReconHelp=!window._paperReconHelp;renderApp();};
+      content.querySelectorAll('[data-psort]').forEach(el=>{el.onclick=()=>{
+        const k=el.getAttribute('data-psort');
+        if(window._paperSortCol===k)window._paperSortDir=(window._paperSortDir==='asc')?'desc':'asc';
+        else {window._paperSortCol=k;window._paperSortDir='desc';}
+        renderApp();};});
       content.querySelectorAll('[data-mscope]').forEach(el=>{el.onclick=()=>{window._paperMatrixScope=el.getAttribute('data-mscope');renderApp();};});
       const mh=content.querySelector('[data-mcphelp]');if(mh)mh.onclick=()=>{window._paperMcpHelp=!window._paperMcpHelp;renderApp();};
       content.querySelectorAll('[data-paperrep]').forEach(tr=>{tr.onclick=()=>{const id=tr.dataset.paperrep;const s=window._paperReportOpen||(window._paperReportOpen=new Set());if(s.has(id))s.delete(id);else s.add(id);renderApp();};});
