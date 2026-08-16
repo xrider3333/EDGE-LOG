@@ -446,10 +446,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.62';
+const VERSION='73.63';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.63',date:'2026-08-16',notes:['HOTFIX: the previous release (73.62) crashed the run report for every Auto-Validate run - a variable the new 1A tabs needed was declared inside the wrong code block, so it was undefined by the time 1A tried to read it. Fixed - reports render normally again.']},
 {v:'73.62',date:'2026-08-16',notes:['The ALL POOLS PnL-vs-drawdown scatter moved out of 1E MATRIX and into 1A, as its own tab next to CHAMPION and FUNNEL - it no longer sits pinned above the RAW/GATE/TILT/HYBRID tables.','New PNL vs DD tab right next to it in 1A: the same all-pool candidates as horizontal bars instead of dots - one row per candidate, PnL and drawdown sharing a centreline, sorted best PnL first.','FIX: HYBRID pool candidates in that chart were rendering colorless (grey) instead of their assigned color, and clicking one did not jump to its matrix row either. Both now work - the color table needed the long pool name, not the short internal key.']},
 {v:'73.61',date:'2026-08-15',notes:['1E MATRIX gets a new ALL POOLS scatter, above the RAW/GATE/TILT/HYBRID tab tables: every candidate from all four pools plotted together (drawdown vs net $, colour-coded by pool), scoped to whatever SAMPLE is ticked, so an outlier the pre-registered net-$ + MAR-floor rule rejected is still there to eyeball. Hover a dot for its label and exact $/DD; click one to jump to its column in the matrix below.']},
 {v:'73.55',date:'2026-08-15',notes:['SAMPLE-scope audit across §1E MATRIX (owner: "switching between tabs shouldn’t change metric behavior"). GATE’s SHARPE row silently measured the WHOLE saved equity curve on every tick combo except exactly PRE-LOCKBOX or LOCKBOX alone (IS alone, WF alone, IS+WF, WF+LB all fell through to the whole curve while the row header still named the ticked stretch) — it now reads the same contiguous span the DD row already cuts to, on every combo, and honestly dashes on the one combo DD also can’t span (IS+LB with WF unticked).','RAW’s SHARPE row was permanently pinned to the whole optimize window (IS+WF) no matter what was ticked, and combined-scope DD (e.g. IS+WF, or WF+LB) used a "deepest individual slice" approximation marked with a °. Both now genuinely follow the SAMPLE tick: the optimize-window curve and the lockbox continuation curve are stitched into one series (same debasing the 2A funnel chart already uses) and sliced/diffed for whichever stretches are ticked. Runs saved before this engine change (no is_rng/wf_rng/lockbox) keep the exact old pinned display.','TILT and HYBRID were already correctly scope-following (their own _shrp already fraction-splits by ticked stretch) — audited, no leak found, no change needed there.']},
@@ -15018,7 +15019,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   Row 2 = that tab's controls, hard right, directly under the tabs.
       //   Then the table. Then that tab's warnings / chips / notes.
       //   Nothing collapses any more - the card is permanently open.
-      let _cfgSec='',_cfgInner='',_cfgInnerB='';
+      // v73.6x HOTFIX: _mtxScatterPts/_mtxScatter/_mtxBars hoisted out to HERE (let, pre-declared)
+      //   instead of `const` inside the `if(_selParts||_gateSec||_kpiInner){...}` block below —
+      //   const/let are BLOCK-scoped, so declaring them only inside that if-block made them
+      //   invisible to the 1A tab switcher further down in _classicOut (a SEPARATE block), which
+      //   threw "_mtxScatterPts is not defined" and broke the whole report for every run that hit
+      //   this branch (i.e. every Auto-Validate run). Same fix shape _cfgInner/_cfgInnerB/_cfgSec
+      //   already use on this exact line — pre-declare here, just ASSIGN inside the if-block.
+      let _cfgSec='',_cfgInner='',_cfgInnerB='',_mtxScatterPts=[],_mtxScatter='',_mtxBars='';
       if(_selParts||_gateSec||_kpiInner){
         const _hasG=!!(_gateSec&&_gvP);
         const _hasT=!!(_gvP&&_gvP.tilts),_hasH=!!(_gvP&&_gvP.hyb);
@@ -15050,9 +15058,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   disagree. Rendered ONCE, above the tab strip on the PRIMARY 1E card only — it spans
         //   all four pools at once, so duplicating it on the side-by-side comparison card (1E's
         //   "B" twin) would just be the same picture twice.
-        const _mtxScatterPts=[].concat((_selParts&&_selParts.scatterPts)||[],(_gvP&&_gvP.scatterPts)||[]);
-        const _mtxScatter=mtxScatterHtml(_mtxScatterPts);
-        const _mtxBars=mtxBarsHtml(_mtxScatterPts);
+        _mtxScatterPts=[].concat((_selParts&&_selParts.scatterPts)||[],(_gvP&&_gvP.scatterPts)||[]);
+        _mtxScatter=mtxScatterHtml(_mtxScatterPts);
+        _mtxBars=mtxBarsHtml(_mtxScatterPts);
         // v70.6 (owner: "duplicate 1E and place its duplicate next to it... so i can compare two
         //   tabs"): one builder, two cards, each with its own remembered tab.
         const _mkCfg=function(prefKey,attr,fallback,showScatter){
