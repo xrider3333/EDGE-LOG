@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.43';
+const VERSION='73.44';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -5461,6 +5461,13 @@ window.expandCompareEq=function(series,opts){
     _drawOrder.forEach(sr=>{if(sr.vis==='off')return;
       let strokeCol=sr.vis==='dim'?'var(--text5)':sr.color,strokeOp=sr.vis==='dim'?0.45:1,swMain=1.6,swWF=1.6,swLB=1.6;
       if(sr.isOther){strokeCol='var(--text5)';strokeOp=0.18;swMain=swWF=swLB=0.6;}
+      // v73.34 (bugfix): a family (tilt/hybrid/hybrid recycle) draws EVERY candidate at full
+      //   opacity in the SAME shaded hue, so the crowned member (famTop — the exact one the
+      //   funnel pill/legend prices) never stood out from its siblings; the chart read as
+      //   "5 comparably-prominent hybrid lines" while the pill priced only one of them. Non-famTop
+      //   members of these three families are now demoted to a faint dashed line so the crowned
+      //   line is the only prominent one in its family colour — matches what the pill says.
+      else if((sr.tiltCand||sr.hybCand||sr.hybRcy)&&!sr.famTop){strokeOp=Math.min(strokeOp,0.3);swMain=swWF=swLB=1;}
       const pts=sr.pts,n3=pts.length,
         li=(sr.li!=null&&sr.li>=0&&sr.li<n3-1)?sr.li:null,
         wfi=(sr.wfi!=null)?Math.max(0,Math.min(sr.wfi,(li!=null?li:n3-1))):null,
@@ -10214,23 +10221,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(_hasGateO&&_a2gateO)_gEqO.cum_gated.forEach(v=>extYs.push(v*mult));
       // v68.4 (owner: "the top tilt gets pushed off the graph"): find the best 2D size tilt ONCE,
       //   up front, and feed its values into the y-scale so its line fits on the plot.
-      let _bestTiltC=null;
+      let _bestTiltC=null,_bestTiltMar=null;
       try{
         const _tlA0=(d.gate_validate&&Array.isArray(d.gate_validate.tilts))?d.gate_validate.tilts:[];
         const _tRc0=t=>{const c=t&&t.lockbox;if(!c)return -99;const dd0=Math.abs(c.max_drawdown||0);return dd0>1e-9?(c.total_pnl/dd0):-99;};
         _bestTiltC=_tlA0.slice().sort((a,b)=>_tRc0(b)-_tRc0(a))[0]||null;
+        if(_bestTiltC){const _m0=_tRc0(_bestTiltC);_bestTiltMar=(_m0>-99)?_m0:null;}
         if(_bestTiltC&&_bestTiltC.equity&&Array.isArray(_bestTiltC.equity.cum))
           _bestTiltC.equity.cum.forEach(v=>extYs.push(v*mult));
-      }catch(_bt0){_bestTiltC=null;}
+      }catch(_bt0){_bestTiltC=null;_bestTiltMar=null;}
       // v68.6: same pre-pass for the best HYBRID (2E) — engine >= v68.5 runs only.
-      let _bestHybC=null;
+      let _bestHybC=null,_bestHybMar=null;
       try{
         const _hyA0=(d.gate_validate&&Array.isArray(d.gate_validate.hybrids))?d.gate_validate.hybrids:[];
         const _hRc0=t=>{const c=t&&t.lockbox;if(!c)return -99;const dd0=Math.abs(c.max_drawdown||0);return dd0>1e-9?(c.total_pnl/dd0):-99;};
         _bestHybC=_hyA0.slice().sort((a,b)=>_hRc0(b)-_hRc0(a))[0]||null;
+        // v73.34: capture the lockbox MAR (recovery factor) that PICKED this hybrid, so the key
+        //   row / pill can surface the same selection metric _bestHybC/_hRc0 decide by — it was
+        //   computed here but thrown away, leaving the pick invisible anywhere in the UI.
+        if(_bestHybC){const _m0=_hRc0(_bestHybC);_bestHybMar=(_m0>-99)?_m0:null;}
         if(_bestHybC&&_bestHybC.equity&&Array.isArray(_bestHybC.equity.cum))
           _bestHybC.equity.cum.forEach(v=>extYs.push(v*mult));
-      }catch(_bh0){_bestHybC=null;}
+      }catch(_bh0){_bestHybC=null;_bestHybMar=null;}
       // v71.6 (owner: "its putting $ back in the system vs the normal hybrid, so pnl blotter and
       //   trade pnl will be different"). Right - REDEPLOY spends the contracts the filter freed up,
       //   so the same trades carry more size and the dollars, the drawdown and where the book
@@ -10837,7 +10849,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(q&&Array.isArray(q.cum)&&q.cum.length&&c.equity&&c.equity.final!=null&&q.base!=null)
             return (c.equity.final+(q.cum[q.cum.length-1]-q.base))*mult;
           return (c.equity&&c.equity.cum&&c.equity.cum.length)?c.equity.cum[c.equity.cum.length-1]*mult:null;};
-        const _crV=(crownedC&&_champTot!=null)?_champTot*mult:_endOf(crownedC);
+        // v73.34 (bugfix): _champTot is d.equity.cum's last value — ALL trades (confirmed identical
+        //   to gate_validate.ungated_full.total_pnl), not the WF-crowned config's own trades. When a
+        //   crown exists, the RAW pill must ALWAYS read the crowned candidate's own lockbox-stitched
+        //   endpoint (_endOf(crownedC)); _champTot is only a fallback for legacy/pre-WF runs with no
+        //   crown at all (crownedC null). The old order picked _champTot first whenever both existed,
+        //   which is why the funnel's RAW pill (all-trades $) disagreed with the WF/lockbox number
+        //   the 1E matrix and crowned curve actually show.
+        const _crV=crownedC?_endOf(crownedC):(_champTot!=null?_champTot*mult:null);
         const _isV=(isMaxC&&isMaxC!==crownedC)?_endOf(isMaxC):null;
         // v68.3 (owner: "show the top size tilt in there as well"): the best SIZE TILT variant
         //   (2D) by held-out MAR draws on the funnel too — full span, amber, so filter vs tilt vs
@@ -11017,11 +11036,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _kOrder=[['raw','👑 RAW',(_crV!=null?_crV:null),'#1d9e75','',0]];
         if(_hasGate)_kOrder.push(['gate','GATE',_gateEndV,'#e24b4a',
           (_a2gate?'the crowned book with the trade filter applied':'the filtered book - currently HIDDEN, click to draw it'),(_a2gate?0:1)]);
-        if(_tiltEnd!=null)_kOrder.push(['tilt','TILT',_tiltEnd,'#f0b429','',0]);
-        if(_hybEnd!=null)_kOrder.push(['hyb','HYBRID',_hybEnd,'#c084fc','',0]);
+        // v73.34: LB MAR appended to each family's tooltip — the lockbox recovery factor
+        //   (_tRc0/_hRc0) that ACTUALLY picked this member out of its siblings, previously
+        //   invisible anywhere in the UI. Same one-decimal convention _szMar's cells use.
+        const _marSuf=m=>(m!=null&&isFinite(m))?(' · LB MAR '+m.toFixed(1)+'×'):'';
+        if(_tiltEnd!=null)_kOrder.push(['tilt','TILT',_tiltEnd,'#f0b429','best of the size-tilt models by lockbox MAR'+_marSuf(_bestTiltMar),0]);
+        if(_hybEnd!=null)_kOrder.push(['hyb','HYBRID',_hybEnd,'#c084fc','best of the hybrid models by lockbox MAR'+_marSuf(_bestHybMar),0]);
         if(_hyb2KeyV!=null)_kOrder.push([(_hyb2End!=null?'hyb2':'hyb'),'HYBRID &#9851;'+(_hyb2End!=null?'':' <span style="opacity:.7">1.00&times;</span>'),_hyb2KeyV,'#f0abfc',
-              (_hyb2End!=null?('the same hybrid book sized up '+(_hyRdF||1).toFixed(2)+'x - the contracts the filter freed, put back to work')
-                            :'the top hybrid refuses no trades on this run, so recycling frees nothing - same book, same size as HYBRID'),0]);
+              (_hyb2End!=null?('the same hybrid book sized up '+(_hyRdF||1).toFixed(2)+'x - the contracts the filter freed, put back to work'+_marSuf(_bestHybMar))
+                            :'the top hybrid refuses no trades on this run, so recycling frees nothing - same book, same size as HYBRID'+_marSuf(_bestHybMar)),0]);
         _kOrder.sort(function(a,b){return ((b[2]!=null?b[2]:-Infinity)-(a[2]!=null?a[2]:-Infinity));});
         _keyBox='<div data-a2krow style="position:absolute;top:9px;left:8px;background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;z-index:3">'
           +_kOrder.map(function(r){return _kr(r[0],r[1],r[2],r[3],r[4],r[5]);}).join('')
