@@ -1,0 +1,12 @@
+@echo off
+cd /d "C:\Users\xride\OneDrive\Desktop\EDGE-LOG"
+set AUGUR_TRIAL_CACHE=1
+REM ntfy push topic. Without this the local alerters (api/nt_exec_review.py fill pings and
+REM api/nt_drawdown_alert.py intraday warnings) fall back to LOG-ONLY and never reach the
+REM phone -- they were silently log-only until 2026-08-16 because this was only ever set as
+REM a GitHub Actions secret for the cloud watchdog, never in the local launcher.
+set NTFY_TOPIC=edgelog-ESmQqoq7tFF9PZVHs6azgDYI
+REM Warn on the phone well before the bridge's own breaker floor (max_daily_loss_usd in
+REM C:\EdgeLog\bridge.json) so a bad day is audible long before anything trips.
+set EDGELOG_DD_WARN_USD=500
+"C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0\python3.13.exe" -u -m api.runner --firestore --cred serviceAccount.json --allow-uid IO0K35JpLIcH9YK4C0pMNYUzZOM2 --watch --refresh-min 240 --interval 30 --trades-sec 20 >> "C:\EdgeLog\runner.log" 2>&1

@@ -1564,6 +1564,15 @@ def main(argv=None):
                     nt_exec_review.publish()
                 except Exception as e:
                     print(f"[exec-review] skipped: {type(e).__name__}: {e}")
+                # Intraday drawdown warning. Shares this tighter cadence because "how bad
+                # is today" is a mid-session question -- the daily reconcile and the 9am
+                # preflight both answer far too late. It only WATCHES; the bridge's own L5
+                # breaker is the thing that acts, at a lower floor. See api/nt_drawdown_alert.py.
+                try:
+                    from api import nt_drawdown_alert
+                    nt_drawdown_alert.check()
+                except Exception as e:
+                    print(f"[dd-alert] skipped: {type(e).__name__}: {e}")
                 next_exec_review = time.time() + EXEC_REVIEW_SEC
             # 9am ET roster preflight. Tonight's re-add dialogs put two strategies on
             # the LIVE account and NT showed no warning; the bridge caught it in one
