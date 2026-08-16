@@ -417,6 +417,7 @@ def run_shadow(leg, today):
     gate_info = None
     bars_appended = 0
     data_fresh_thru = None
+    ran_ok = False
     try:
         today_d = pd.Timestamp(today).date()
 
@@ -425,7 +426,7 @@ def run_shadow(leg, today):
             warnings.append(
                 f"no master for {leg['instrument']} {leg['timeframe']} {leg.get('session')}")
             return {"trades": [], "ungated_trades": [], "gate": None, "bars_appended": 0,
-                   "data_fresh_thru": None, "warnings": warnings}
+                   "data_fresh_thru": None, "warnings": warnings, "ran_ok": False}
 
         # A gated leg loads its FULL history (history_from) instead of the 150-day warm-up:
         # the gate model must be the one the validate crowned, and a model trained on 150
@@ -483,6 +484,7 @@ def run_shadow(leg, today):
 
         trades = _extract_trades(leg, arrays, sized)
         trades_out = [t for t in trades if t["entry_dt"].date() >= paper_start]
+        ran_ok = True          # the backtest completed; its trade list is authoritative
     except Exception as e:
         msg = f"exception in run_shadow({leg.get('key')}): {type(e).__name__}: {e}"
         warnings.append(msg)
@@ -490,7 +492,7 @@ def run_shadow(leg, today):
 
     return {"trades": trades_out, "ungated_trades": ungated_out, "gate": gate_info,
            "bars_appended": bars_appended, "data_fresh_thru": data_fresh_thru,
-           "warnings": warnings}
+           "warnings": warnings, "ran_ok": ran_ok}
 
 
 # ── Layer 1: today's demo-account fills, mirrored into the daily report ──────────
@@ -702,6 +704,51 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
                     batch.commit(); batch = q.db.batch(); pending = 0
         return trade_ids, todays_trades, leg_pnl
 
+    def _prune(key, trades, ran_ok):
+        """Delete trade docs this leg no longer produces. Returns the number removed.
+
+        WHY (found 2026-08-16). Trade docs are upserted by doc_id, which refreshes a trade
+        that still exists but can never remove one that stopped existing. So when the ORB
+        leg was swapped off the retired look-ahead #125 config on 2026-08-16, its four
+        ORB_3_0.py trades stayed in the collection and kept being drawn: the leg read
+        "6 trades, -$566" when its actual config produced two. The curve was a blend of two
+        different strategies, and every comparison against it was meaningless -- which
+        matters far more now that gated legs are scored AGAINST their raw control.
+
+        Bounded and guarded on purpose:
+          * only runs when the backtest actually COMPLETED (ran_ok) -- a leg that failed to
+            load its master returns no trades, and pruning on that would delete real history;
+          * only touches docs at/after PAPER_START, which is the only span run_shadow
+            rebuilds, so nothing outside the forward test is reachable;
+          * keys on ENTRY time, which is stable -- only an in-progress trade's EXIT moves as
+            new bars arrive.
+        """
+        nonlocal batch, pending
+        if dry_run or not ran_ok:
+            return 0
+        keep = {int(t["entry_dt"].timestamp()) for t in trades}
+        start_unix = int(pd.Timestamp(PAPER_START).timestamp())
+        removed = 0
+        try:
+            docs = (q.db.collection("users").document(uid).collection("paper_trades")
+                    .where("leg", "==", key).stream())
+            for d in docs:
+                t = d.to_dict() or {}
+                et = t.get("entryTime")
+                if et is None or int(et) < start_unix or int(et) in keep:
+                    continue
+                batch.delete(d.reference)
+                removed += 1
+                pending += 1
+                if pending >= 400:
+                    batch.commit(); batch = q.db.batch(); pending = 0
+                _log(f"uid={uid} leg={key} PRUNED stale trade {d.id} "
+                     f"({t.get('entryIso')}, strategy={t.get('strategy')}) - the current "
+                     f"config no longer produces it")
+        except Exception as e:
+            _log(f"uid={uid} leg={key} prune skipped: {type(e).__name__}: {e}")
+        return removed
+
     for leg in PAPER_LEGS:
         r = run_shadow(leg, target_date)
 
@@ -710,7 +757,9 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
         _companion = leg.get("emit_ungated_as")
         if _companion and r.get("ungated_trades"):
             c_ids, c_today, c_pnl = _emit(leg, _companion, r["ungated_trades"])
+            c_pruned = _prune(_companion, r["ungated_trades"], r.get("ran_ok"))
             leg_reports[_companion] = {
+                "pruned": c_pruned,
                 "n_signals": len(c_ids), "n_since_start": len(r["ungated_trades"]),
                 "trade_ids": c_ids, "pnl_usd": c_pnl, "_trades": c_today,
                 "bars_appended": r["bars_appended"], "data_fresh_thru": r["data_fresh_thru"],
@@ -723,7 +772,9 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
             total_pnl += c_pnl
 
         trade_ids, todays_trades, leg_pnl = _emit(leg, leg["key"], r["trades"])
+        n_pruned = _prune(leg["key"], r["trades"], r.get("ran_ok"))
         leg_reports[leg["key"]] = {
+            "pruned": n_pruned,
             # n_signals / pnl_usd are THIS DAY only; n_since_start is the running total
             # so the cumulative view is still available without conflating the two.
             "n_signals": len(trade_ids), "n_since_start": len(r["trades"]),
