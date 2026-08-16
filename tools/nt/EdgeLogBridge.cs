@@ -60,7 +60,7 @@ namespace NinjaTrader.NinjaScript.AddOns
 {
     public class EdgeLogBridge : AddOnBase
     {
-        private const string Version   = "2.1";
+        private const string Version   = "2.2";
         private const int    Port      = 8391;
         private const string LogPath   = @"C:\EdgeLog\bridge.log";
         private const string ConfPath  = @"C:\EdgeLog\bridge.json";
@@ -102,12 +102,17 @@ namespace NinjaTrader.NinjaScript.AddOns
             _running = true;
             _thread = new Thread(AcceptLoop) { IsBackground = true, Name = "EdgeLogBridge" };
             _thread.Start();
+            // L5 monitor. 10s cadence: fast enough that a runaway is caught in seconds,
+            // slow enough to be free. It re-reads bridge.json every tick, so limits and
+            // the on/off switch take effect without restarting NinjaTrader.
+            _riskTimer = new System.Threading.Timer(RiskTick, null, 10000, 10000);
             Log("started v" + Version + " on 127.0.0.1:" + Port);
         }
 
         private void Stop()
         {
             _running = false;
+            try { if (_riskTimer != null) { _riskTimer.Dispose(); _riskTimer = null; } } catch { }
             try { if (_listener != null) _listener.Stop(); } catch { }
             Log("stopped");
         }
@@ -283,6 +288,13 @@ namespace NinjaTrader.NinjaScript.AddOns
                 case "/flatten":
                     if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
                     Flatten(s, q.ContainsKey("account") ? q["account"] : "");  return;
+                case "/risk":        Respond(s, 200, RiskJson());            return;
+                case "/risk/reset":
+                    if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
+                    lock (_riskLock) { _breakerTripped = false; _breakerReason = ""; }
+                    Log("BREAKER RESET by request");
+                    Respond(s, 200, "{\"ok\":true,\"note\":\"breaker latch cleared; limits still apply\"}");
+                    return;
                 case "/killswitch":
                     if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
                     KillSwitch(s); return;
@@ -541,6 +553,39 @@ namespace NinjaTrader.NinjaScript.AddOns
             try { acctName = sb.Account != null ? sb.Account.Name : "?"; } catch { }
             string deny = DenyMutation(acctName);
             if (deny != null) { Respond(s, 403, "{\"error\":" + J(deny) + "}"); Log("lifecycle REFUSED " + name + ": " + deny); return; }
+
+            // L5 pre-ENABLE size gate. Turning a strategy on is the moment its size
+            // becomes real, so HOW MUCH gets checked here and not only at order time --
+            // the strategy's own orders never pass through /order. Reads the instance's
+            // own Qty property (the same knob /strategy/params exposes). Disable is never
+            // gated: stopping is always allowed.
+            if (enable)
+            {
+                var rc = ReadConfig();
+                if (rc.RiskEnabled)
+                {
+                    bool tripped; string treason;
+                    lock (_riskLock) { tripped = _breakerTripped; treason = _breakerReason; }
+                    if (tripped)
+                    { Respond(s, 403, "{\"error\":" + J("circuit breaker is TRIPPED: " + treason + " - POST /risk/reset to clear") + "}");
+                      Log("enable REFUSED " + name + ": breaker tripped"); return; }
+                    int q = 0;
+                    try
+                    {
+                        var qp = sb.GetType().GetProperty("Qty",
+                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                        if (qp != null) q = Convert.ToInt32(qp.GetValue(sb), CultureInfo.InvariantCulture);
+                    }
+                    catch { }
+                    if (q > 0)
+                    {
+                        string sz = DenySize(rc, FindAccount(acctName), q);
+                        if (sz != null)
+                        { Respond(s, 403, "{\"error\":" + J("position-size gate: " + name + " " + sz) + "}");
+                          Log("enable REFUSED " + name + ": " + sz); return; }
+                    }
+                }
+            }
 
             string err = null;
             try
@@ -1361,14 +1406,255 @@ namespace NinjaTrader.NinjaScript.AddOns
             if (ot == OrderType.Limit && limit <= 0) { Respond(s, 400, "{\"error\":\"limit price required\"}"); return; }
             string name = JGet(body, "name") ?? "ELB";
 
+            // L5 pre-trade: size, resulting position, margin, and rate. Only covers
+            // orders THIS bridge places -- strategy orders never reach here, which is
+            // exactly why the monitor above exists.
+            if (cfg.RiskEnabled)
+            {
+                bool tripped; string treason;
+                lock (_riskLock) { tripped = _breakerTripped; treason = _breakerReason; }
+                if (tripped)
+                { Respond(s, 403, "{\"error\":" + J("circuit breaker is TRIPPED: " + treason + " - POST /risk/reset to clear") + "}");
+                  Log("order REFUSED: breaker tripped"); return; }
+                string sz = DenySize(cfg, acct, qty);
+                if (sz != null) { Respond(s, 403, "{\"error\":" + J("position-size gate: " + sz) + "}"); Log("order REFUSED: " + sz); return; }
+                string rt = DenyRate(cfg);
+                if (rt != null) { Respond(s, 403, "{\"error\":" + J(rt) + "}"); Log("order REFUSED: " + rt); return; }
+            }
             Order o = acct.CreateOrder(inst,
                 act == "BUY" ? OrderAction.Buy : OrderAction.Sell,
                 ot, OrderEntry.Manual, TimeInForce.Day, qty, limit, 0,
                 "", name, Core.Globals.MaxDate, null);
             acct.Submit(new[] { o });
+            NoteOrderPlaced();
             Log("ORDER " + acctName + " " + act + " " + qty + " " + instName + " " + typ
                 + (ot == OrderType.Limit ? (" @" + limit) : ""));
             Respond(s, 200, "{\"ok\":true,\"order_id\":" + J(o.OrderId ?? "") + "}");
+        }
+
+        // ── L5: CIRCUIT BREAKER + POSITION-SIZE GATE ─────────────────────────
+        // THE THING THAT MAKES THIS NON-TRIVIAL: strategy orders do NOT pass through
+        // /order. NinjaScript submits them straight to the broker, so a pre-trade check
+        // on this bridge's own endpoint would protect exactly nothing when a strategy
+        // misbehaves -- which is the case that actually costs money. So there are TWO
+        // halves and they are not interchangeable:
+        //   (a) PRE-TRADE gate  -> covers orders THIS bridge places (qty, size, rate)
+        //   (b) MONITOR loop    -> watches ACCOUNT state (realized day P&L, net open
+        //                          contracts) on a timer, so it catches strategy orders,
+        //                          manual clicks in the NT UI, and anything else that
+        //                          moves the account without asking us.
+        // The monitor is the one that matters for live trading. It LATCHES on trip so a
+        // flapping value cannot fire the action repeatedly, and it only ever acts on
+        // accounts that already clear L1+L2.
+        private static readonly List<DateTime> _orderTimes = new List<DateTime>();
+        private static readonly object _riskLock = new object();
+        private static bool     _breakerTripped;
+        private static string   _breakerReason = "";
+        private static DateTime _breakerAtUtc;
+        private System.Threading.Timer _riskTimer;
+
+        /// <summary>Net open contracts on an account, summed across instruments.</summary>
+        private static int NetContracts(Account a)
+        {
+            int n = 0;
+            try
+            {
+                lock (a.Positions)
+                    foreach (var p in a.Positions)
+                        if (p.MarketPosition != MarketPosition.Flat) n += Math.Abs(p.Quantity);
+            }
+            catch { }
+            return n;
+        }
+
+        private static double RealizedToday(Account a)
+        {
+            try { return a.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar); }
+            catch { return 0.0; }
+        }
+
+        /// <summary>Position-size / margin gate. Returns a refusal reason or null.
+        /// `addQty` is what is about to be ADDED, so the check is on the resulting size.</summary>
+        private string DenySize(Conf cfg, Account acct, int addQty)
+        {
+            if (acct == null) return null;
+            if (addQty > cfg.MaxQty)
+                return "qty " + addQty + " exceeds max_qty " + cfg.MaxQty;
+            int after = NetContracts(acct) + Math.Max(0, addQty);
+            if (after > cfg.MaxPositionContracts)
+                return "resulting position " + after + " contracts exceeds max_position_contracts "
+                     + cfg.MaxPositionContracts + " (currently " + NetContracts(acct) + ")";
+            // Margin leg is SKIPPED when margin_per_contract_usd is unset. Guessing a
+            // margin number would be worse than not checking: it would either block
+            // legitimate orders or wave through real ones with false confidence.
+            if (cfg.MarginPerContract > 0)
+            {
+                double cash = 0;
+                try { cash = acct.Get(AccountItem.CashValue, Currency.UsDollar); } catch { }
+                if (cash > 0)
+                {
+                    double need = after * cfg.MarginPerContract;
+                    double cap  = cash * (cfg.MaxMarginPct / 100.0);
+                    if (need > cap)
+                        return "estimated margin $" + need.ToString("0", CultureInfo.InvariantCulture)
+                             + " for " + after + " contract(s) exceeds " + cfg.MaxMarginPct
+                             + "% of $" + cash.ToString("0", CultureInfo.InvariantCulture) + " cash (cap $"
+                             + cap.ToString("0", CultureInfo.InvariantCulture) + ")";
+                }
+            }
+            return null;
+        }
+
+        /// <summary>Bridge-placed order RATE ceiling. Returns a reason or null.</summary>
+        private string DenyRate(Conf cfg)
+        {
+            lock (_riskLock)
+            {
+                var cutoff = DateTime.UtcNow.AddMinutes(-1);
+                _orderTimes.RemoveAll(x => x < cutoff);
+                if (_orderTimes.Count >= cfg.MaxOrdersPerMin)
+                    return "order rate limit: " + _orderTimes.Count + " bridge orders in the last minute "
+                         + "(max_orders_per_min " + cfg.MaxOrdersPerMin + ")";
+            }
+            return null;
+        }
+
+        private static void NoteOrderPlaced()
+        {
+            lock (_riskLock) _orderTimes.Add(DateTime.UtcNow);
+        }
+
+        /// <summary>The monitor. Runs on a timer, reads ACCOUNT state so it sees orders
+        /// this bridge never placed, and trips once when a limit is breached.</summary>
+        private void RiskTick(object _)
+        {
+            try
+            {
+                var cfg = ReadConfig();
+                if (!cfg.RiskEnabled) return;
+                lock (_riskLock) { if (_breakerTripped) return; }   // latched: act once
+
+                List<Account> accts;
+                lock (Account.All) accts = new List<Account>(Account.All);
+                foreach (var a in accts)
+                {
+                    if (DenyMutation(a.Name) != null) continue;      // only accounts we may touch
+                    string why = null;
+                    double real = RealizedToday(a);
+                    if (real <= -Math.Abs(cfg.MaxDailyLossUsd))
+                        why = "daily loss limit: realized " + real.ToString("0.00", CultureInfo.InvariantCulture)
+                            + " on " + a.Name + " is at or past -" + cfg.MaxDailyLossUsd;
+                    int net = NetContracts(a);
+                    if (why == null && net > cfg.MaxPositionContracts)
+                        why = "position limit: " + net + " net contracts on " + a.Name
+                            + " exceeds max_position_contracts " + cfg.MaxPositionContracts;
+                    if (why == null) continue;
+
+                    lock (_riskLock)
+                    {
+                        if (_breakerTripped) return;
+                        _breakerTripped = true; _breakerReason = why; _breakerAtUtc = DateTime.UtcNow;
+                    }
+                    Log("BREAKER TRIPPED (" + cfg.BreakerAction + "): " + why);
+                    try
+                    {
+                        if (cfg.BreakerAction == "notify")
+                        {
+                            // nothing to do beyond the log + /risk surfacing it
+                        }
+                        else if (cfg.BreakerAction == "disable")
+                        {
+                            // Deliberately NOT the default: disabling a strategy that is
+                            // holding a position orphans that position with nothing left
+                            // managing its exit. Offered because it is the right call for a
+                            // RATE breach, wrong for a LOSS breach.
+                            DisableAllOn(a);
+                        }
+                        else
+                        {
+                            FlattenAccount(a);
+                            DisableAllOn(a);
+                        }
+                    }
+                    catch (Exception ex) { Log("breaker action failed: " + ex.Message); }
+                    return;
+                }
+            }
+            catch (Exception ex) { Log("risk tick: " + ex.Message); }
+        }
+
+        private void FlattenAccount(Account a)
+        {
+            var inst = new List<Instrument>();
+            try
+            {
+                lock (a.Positions)
+                    foreach (var p in a.Positions)
+                        if (p.MarketPosition != MarketPosition.Flat && p.Instrument != null) inst.Add(p.Instrument);
+            }
+            catch { }
+            if (inst.Count > 0) { a.Flatten(inst); Log("breaker: flattened " + inst.Count + " instrument(s) on " + a.Name); }
+        }
+
+        private void DisableAllOn(Account a)
+        {
+            List<StrategyBase> ss;
+            try { lock (a.Strategies) ss = new List<StrategyBase>(a.Strategies); }
+            catch { return; }
+            foreach (var st in ss)
+            {
+                string nm = "?";
+                try { nm = st.Name; } catch { }
+                try
+                {
+                    Core.Globals.MainThreadDispatcher.Invoke(new Action(() =>
+                    {
+                        try
+                        {
+                            const System.Reflection.BindingFlags SF =
+                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic |
+                                System.Reflection.BindingFlags.Static;
+                            var mi = typeof(StrategiesGrid).GetMethod("StrategyDisable", SF);
+                            if (mi != null) mi.Invoke(null, new object[] { st });
+                        }
+                        catch { }
+                    }));
+                    lock (_parked) _parked[nm] = st;
+                    Log("breaker: disabled " + nm);
+                }
+                catch (Exception ex) { Log("breaker disable " + nm + ": " + ex.Message); }
+            }
+        }
+
+        private string RiskJson()
+        {
+            var cfg = ReadConfig();
+            var rows = new List<string>();
+            List<Account> accts;
+            lock (Account.All) accts = new List<Account>(Account.All);
+            foreach (var a in accts)
+            {
+                if (DenyMutation(a.Name) != null) continue;
+                rows.Add("{\"account\":" + J(a.Name) + ",\"realized_today\":" + Num(RealizedToday(a))
+                       + ",\"net_contracts\":" + NetContracts(a) + "}");
+            }
+            bool tripped; string why; DateTime at;
+            lock (_riskLock) { tripped = _breakerTripped; why = _breakerReason; at = _breakerAtUtc; }
+            int recent;
+            lock (_riskLock) { _orderTimes.RemoveAll(x => x < DateTime.UtcNow.AddMinutes(-1)); recent = _orderTimes.Count; }
+            return "{\"risk_enabled\":" + (cfg.RiskEnabled ? "true" : "false")
+                 + ",\"tripped\":" + (tripped ? "true" : "false")
+                 + ",\"reason\":" + J(tripped ? why : "")
+                 + ",\"tripped_at_utc\":" + J(tripped ? at.ToString("yyyy-MM-dd HH:mm:ss") : "")
+                 + ",\"breaker_action\":" + J(cfg.BreakerAction)
+                 + ",\"limits\":{\"max_daily_loss_usd\":" + Num(cfg.MaxDailyLossUsd)
+                 + ",\"max_orders_per_min\":" + cfg.MaxOrdersPerMin
+                 + ",\"max_qty\":" + cfg.MaxQty
+                 + ",\"max_position_contracts\":" + cfg.MaxPositionContracts
+                 + ",\"margin_per_contract_usd\":" + Num(cfg.MarginPerContract)
+                 + ",\"max_margin_pct\":" + Num(cfg.MaxMarginPct) + "}"
+                 + ",\"orders_last_min\":" + recent
+                 + ",\"accounts\":[" + string.Join(",", rows) + "]}";
         }
 
         /// <summary>The layered account gate. Returns a refusal reason or null.</summary>
@@ -1402,7 +1688,60 @@ namespace NinjaTrader.NinjaScript.AddOns
         }
 
         // ── config / json / log helpers ──────────────────────────────────────
-        private class Conf { public bool OrdersEnabled; public List<string> Accounts = new List<string>(); }
+        // RISK CONFIG (L5). Everything in L1-L4 answers "WHICH account". None of it
+        // answers "HOW MUCH" or "how badly is today going" -- the gap that matters the
+        // day orders_enabled flips true. Tunable from bridge.json so thresholds need no
+        // recompile; the CODE defaults are conservative so a missing or garbled file can
+        // never silently mean "no limits".
+        private class Conf
+        {
+            public bool OrdersEnabled;
+            public List<string> Accounts = new List<string>();
+            // circuit breaker
+            public bool   RiskEnabled       = false;        // ships OFF; turning it on is the owner's call
+            public double MaxDailyLossUsd   = 1000.0;       // realized day P&L floor, per allowed account
+            public int    MaxOrdersPerMin   = 10;           // bridge-placed order RATE ceiling
+            public string BreakerAction     = "killswitch"; // notify | disable | killswitch
+            // position-size / margin gate
+            public int    MaxQty              = 3;    // per bridge order AND per strategy at enable
+            public int    MaxPositionContracts= 5;    // net open contracts per account
+            public double MarginPerContract   = 0.0;  // 0 = unknown -> margin leg SKIPPED, never guessed
+            public double MaxMarginPct        = 25.0; // of account cash
+        }
+
+        /// <summary>Pull "key": number out of the flat config. Returns dflt when absent or
+        /// unparseable -- a typo must fall back to the conservative default, not to zero.</summary>
+        private static double CfgNum(string t, string key, double dflt)
+        {
+            try
+            {
+                int i = t.IndexOf("\"" + key + "\"", StringComparison.OrdinalIgnoreCase);
+                if (i < 0) return dflt;
+                int c = t.IndexOf(':', i); if (c < 0) return dflt;
+                int p = c + 1; while (p < t.Length && (t[p] == ' ' || t[p] == '\t')) p++;
+                int e = p; while (e < t.Length && "-+.0123456789eE".IndexOf(t[e]) >= 0) e++;
+                double v;
+                if (e > p && double.TryParse(t.Substring(p, e - p), NumberStyles.Float, CultureInfo.InvariantCulture, out v)) return v;
+            }
+            catch { }
+            return dflt;
+        }
+
+        private static string CfgStr(string t, string key, string dflt)
+        {
+            try
+            {
+                int i = t.IndexOf("\"" + key + "\"", StringComparison.OrdinalIgnoreCase);
+                if (i < 0) return dflt;
+                int c = t.IndexOf(':', i); if (c < 0) return dflt;
+                int q1 = t.IndexOf('"', c + 1); if (q1 < 0) return dflt;
+                int q2 = t.IndexOf('"', q1 + 1); if (q2 < 0) return dflt;
+                string s = t.Substring(q1 + 1, q2 - q1 - 1).Trim();
+                return s.Length > 0 ? s : dflt;
+            }
+            catch { }
+            return dflt;
+        }
 
         private Conf ReadConfig()
         {
@@ -1412,6 +1751,14 @@ namespace NinjaTrader.NinjaScript.AddOns
                 if (!File.Exists(ConfPath)) return c;
                 string t = File.ReadAllText(ConfPath);
                 c.OrdersEnabled = t.Replace(" ", "").IndexOf("\"orders_enabled\":true", StringComparison.OrdinalIgnoreCase) >= 0;
+                c.RiskEnabled   = t.Replace(" ", "").IndexOf("\"risk_enabled\":true", StringComparison.OrdinalIgnoreCase) >= 0;
+                c.MaxDailyLossUsd    = CfgNum(t, "max_daily_loss_usd", c.MaxDailyLossUsd);
+                c.MaxOrdersPerMin    = (int)CfgNum(t, "max_orders_per_min", c.MaxOrdersPerMin);
+                c.MaxQty             = (int)CfgNum(t, "max_qty", c.MaxQty);
+                c.MaxPositionContracts = (int)CfgNum(t, "max_position_contracts", c.MaxPositionContracts);
+                c.MarginPerContract  = CfgNum(t, "margin_per_contract_usd", c.MarginPerContract);
+                c.MaxMarginPct       = CfgNum(t, "max_margin_pct", c.MaxMarginPct);
+                c.BreakerAction      = CfgStr(t, "breaker_action", c.BreakerAction);
                 int i = t.IndexOf("\"accounts\"", StringComparison.OrdinalIgnoreCase);
                 if (i >= 0)
                 {

@@ -1,0 +1,20 @@
+{
+  "_comment": "EdgeLogBridge rails. L1 (live account 1810769) is refused in COMPILED CODE regardless of this file. L2 = accounts below. L3 = orders_enabled. L5 = the risk block.",
+
+  "orders_enabled": false,
+  "accounts": ["DEMO7240108", "Sim101"],
+
+  "_risk_comment": "L5 circuit breaker + position-size gate. risk_enabled turns BOTH on. The monitor re-reads this file every 10s, so changes take effect without restarting NinjaTrader. Code defaults are conservative, so a typo here falls back to a limit rather than to no limit.",
+  "risk_enabled": true,
+
+  "max_daily_loss_usd": 1500,
+  "max_orders_per_min": 10,
+  "breaker_action": "killswitch",
+
+  "max_qty": 3,
+  "max_position_contracts": 5,
+
+  "_margin_comment": "margin_per_contract_usd 0 = UNKNOWN, so the margin leg is SKIPPED rather than guessed. Set it to the broker's intraday initial margin for the contract you trade to switch that leg on; the size and rate legs work regardless.",
+  "margin_per_contract_usd": 0,
+  "max_margin_pct": 25
+}
