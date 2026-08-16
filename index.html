@@ -446,10 +446,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.53';
+const VERSION='73.54';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.54',date:'2026-08-15',notes:['SAMPLE-scope audit across §1E MATRIX (owner: "switching between tabs shouldn’t change metric behavior"). GATE’s SHARPE row silently measured the WHOLE saved equity curve on every tick combo except exactly PRE-LOCKBOX or LOCKBOX alone (IS alone, WF alone, IS+WF, WF+LB all fell through to the whole curve while the row header still named the ticked stretch) — it now reads the same contiguous span the DD row already cuts to, on every combo, and honestly dashes on the one combo DD also can’t span (IS+LB with WF unticked).','RAW’s SHARPE row was permanently pinned to the whole optimize window (IS+WF) no matter what was ticked, and combined-scope DD (e.g. IS+WF, or WF+LB) used a "deepest individual slice" approximation marked with a °. Both now genuinely follow the SAMPLE tick: the optimize-window curve and the lockbox continuation curve are stitched into one series (same debasing the 2A funnel chart already uses) and sliced/diffed for whichever stretches are ticked. Runs saved before this engine change (no is_rng/wf_rng/lockbox) keep the exact old pinned display.','TILT and HYBRID were already correctly scope-following (their own _shrp already fraction-splits by ticked stretch) — audited, no leak found, no change needed there.']},
 {v:'73.32',date:'2026-08-13',notes:['PAPER now has a LEG rail next to REFRESH - ALL / ORB / ENGU-Q / NOISE / BLEND - and picking one narrows the WHOLE board to that strategy: its tile, its curve line, its trades. ALL is the default and behaves exactly as before.','Same control language as the report layout rail, and it is a lens rather than a saved setting - it resets when you reload.']},
 {v:'73.31',date:'2026-08-13',notes:['NEO now follows your theme instead of forcing its own teal - every glow, hairline, grid line and tint is derived from the active theme accent, so on MONO the whole report reads as pure silver-on-black with zero added color; green themes look as before and other accents follow suit.','NEO pushed further (NEO only - CLASSIC untouched): HUD-style section headers in uppercase with wide tracking and squared number chips, more air between sections, wider title letter-spacing, the 1A champion card wears a stronger accent ring, faint zebra striping on plain table rows, soft hover transitions, and the back-to-checklist hint only appears when you hover a section header.']},
 {v:'73.30',date:'2026-08-13',notes:['New NEO report layout - the run report wearing a modern skin: deep glass panels, neon hairline dividers, a faint blueprint-grid backdrop, glowing section rules, calmer table chrome and slim accent scrollbars. Pick it from the layout rail in the report header, next to CLASSIC and DASHBOARD.','Nothing moved and nothing was rebuilt - NEO is the same charts, sections, drag splitters, saved sizes and COLUMNS control as CLASSIC, so the two views can never drift apart. CLASSIC itself is untouched; flip back any time.']},
@@ -10105,6 +10106,74 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _rawSampLbl=_rawSegs.map(x=>_rawSegNm[x]).join('+');
       const _rawExact={is:'is',wf:'wf',lb:'lb'};
       const _rawHasNew=recs.some(rc=>rc.raw&&(rc.raw.is_rng||rc.raw.wf_rng||rc.raw.lockbox));
+      // v73.48 (owner: RAW's SHARPE + combined-scope DD must genuinely follow SAMPLE, not stay
+      //   pinned to the whole optimize window / hedge with a deepest-single-slice ° lower bound —
+      //   "if I want sharpe across the samples, then I will toggle that. switching between tabs
+      //   shouldn't change metric behavior"). A RAW candidate carries TWO equity curves —
+      //   c.equity.cum spans the optimize window only (IS+WF); c.lb_equity.cum is a SEPARATE
+      //   curve continuing from there through the lockbox — so a genuine multi-stretch read has
+      //   to stitch the two into ONE absolute-dollar series first (the same anchor/base debasing
+      //   the 2A funnel chart already uses to draw the lockbox extension on the same axis). IS/WF-
+      //   only slices split c.equity.cum by TRADE COUNT (is_rng.num_trades vs wf_rng.num_trades)
+      //   — the same approximation the TILT/HYBRID tabs already use for their own is/wf/lb split,
+      //   since no per-slice equity curve is saved to cut on exactly. A pick that is NOT a
+      //   contiguous run of stretches (IS + LB, skipping WF) has no single span to read and
+      //   honestly returns null (dash) — the same rule GATE/TILT already apply to their own
+      //   non-contiguous picks, and what the old DD row already did (this just extends the same
+      //   honesty to every combo instead of only ever measuring IS+WF regardless of the tick).
+      const _rawStitch=col=>{const c=col&&col.raw;if(!c)return null;
+        const a=(c.equity&&Array.isArray(c.equity.cum))?c.equity.cum:null;
+        if(!a||a.length<2)return null;
+        const lbOk2=!!(c.lb_equity&&Array.isArray(c.lb_equity.cum)&&c.lb_equity.cum.length&&c.equity.final!=null&&c.lb_equity.base!=null);
+        if(!lbOk2)return {cum:a,isEnd:a.length-1,hasLb:false};
+        const anchor=c.equity.final,base=c.lb_equity.base;
+        const lbAbs=c.lb_equity.cum.map(v=>anchor+(v-base));
+        return {cum:a.concat(lbAbs),isEnd:a.length-1,hasLb:true};};
+      const _rawFrac=col=>{const c=col&&col.raw;if(!c)return null;
+        const ni=(c.is_rng&&c.is_rng.num_trades!=null)?+c.is_rng.num_trades:null;
+        const nw=(c.wf_rng&&c.wf_rng.num_trades!=null)?+c.wf_rng.num_trades:null;
+        if(ni==null||nw==null||(ni+nw)<=0)return null;
+        return ni/(ni+nw);};
+      const _rawSpanIdx=col=>{const st=_rawStitch(col);if(!st)return null;
+        const cum=st.cum,isEnd=st.isEnd,hasLb=st.hasLb,has=x=>_rawSegs.indexOf(x)>=0;
+        if(has('is')&&has('lb')&&!has('wf'))return null;   // non-contiguous — no single span
+        const frac=_rawFrac(col);
+        const wfI=(frac!=null)?Math.max(0,Math.min(isEnd,Math.round(frac*isEnd))):null;
+        let i0=null,i1=null;
+        if(has('is')&&!has('wf')&&!has('lb')){if(wfI==null)return null;i0=0;i1=wfI;}
+        else if(has('wf')&&!has('is')&&!has('lb')){if(wfI==null)return null;i0=wfI;i1=isEnd;}
+        else if(has('lb')&&!has('is')&&!has('wf')){if(!hasLb)return null;i0=isEnd;i1=cum.length-1;}
+        else if(has('is')&&has('wf')&&!has('lb')){i0=0;i1=isEnd;}
+        else if(has('wf')&&has('lb')&&!has('is')){if(wfI==null||!hasLb)return null;i0=wfI;i1=cum.length-1;}
+        else if(has('is')&&has('wf')&&has('lb')){if(!hasLb)return null;i0=0;i1=cum.length-1;}
+        else return null;
+        if(i0==null||i1==null||i1<=i0)return null;
+        return {cum:cum,i0:i0,i1:i1};};
+      const _rawDdSlice=col=>{const sp=_rawSpanIdx(col);if(!sp)return null;
+        let peak=+sp.cum[sp.i0]||0,dd=0;
+        for(let i=sp.i0;i<=sp.i1;i++){const v=+sp.cum[i]||0;if(v>peak)peak=v;const d=peak-v;if(d>dd)dd=d;}
+        return dd;};
+      // real lockbox-window years (engine saves this window at valBlock.windows.lockbox) — the
+      //   IS/WF sub-split still approximates by trade-count fraction (see _rawFrac), so the same
+      //   fraction scales the optimize-window years for an IS-only or WF-only span, exactly the
+      //   way the TILT/HYBRID tabs already annualise their own fraction-split slices.
+      const _rawYrsLB=(function(){const w=(valBlock&&valBlock.windows&&valBlock.windows.lockbox)||null;
+        if(!w||!w[0]||!w[1])return null;
+        const t0=Date.parse(w[0]),t1=Date.parse(w[1]);
+        return (isFinite(t0)&&isFinite(t1)&&t1>t0)?((t1-t0)/(365.25*86400000)):null;})();
+      const _rawYrsFor=col=>{const frac=_rawFrac(col),has=x=>_rawSegs.indexOf(x)>=0;
+        let y=0,got=false;
+        if(has('is')){if(frac==null||!_yrsWindow)return null;y+=_yrsWindow*frac;got=true;}
+        if(has('wf')){if(frac==null||!_yrsWindow)return null;y+=_yrsWindow*(1-frac);got=true;}
+        if(has('lb')){if(!_rawYrsLB)return null;y+=_rawYrsLB;got=true;}
+        return (got&&y>0)?y:null;};
+      const _rawSharpe=col=>{const sp=_rawSpanIdx(col);if(!sp||sp.i1-sp.i0<3)return null;
+        const yrs=_rawYrsFor(col);if(!yrs)return null;
+        const d=[];for(let i=sp.i0+1;i<=sp.i1;i++)d.push((+sp.cum[i]||0)-(+sp.cum[i-1]||0));
+        const n=d.length,mean=d.reduce((x,y2)=>x+y2,0)/n;
+        const varc=d.reduce((x,y2)=>x+(y2-mean)*(y2-mean),0)/Math.max(1,n-1),sd=Math.sqrt(varc);
+        if(!(sd>1e-9))return null;
+        return (mean/sd)*Math.sqrt(n/yrs);};
       const _rawPc=new Map();
       const _rawP=col=>{
         if(!col||!col.raw)return {};
@@ -10123,13 +10192,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
               if(x.net==null||x.pf==null||!(x.pf>1.0000001))pfOK=false;
               else{const L=x.net/(x.pf-1);gl+=L;gw+=x.pf*L;}
               if(x.wr==null||x.kept==null)wrOK=false;else wins+=x.wr/100*x.kept;});
-            // DD does not add across slices, and RAW candidates carry no single unified equity
-            //   curve spanning IS+WF+LB the way GATE's do (their equity curve stops at the
-            //   optimize window; lb_equity is a separate continuation curve) — so a combined-
-            //   stretch DD can't be sliced off one curve the way GATE's fallback does. The
-            //   deepest individual slice's DD is an honest lower bound, marked derived (&deg;).
-            const dds=parts.map(x=>x.dd).filter(v=>v!=null);
-            const dd=dds.length?Math.max.apply(null,dds):null;
+            // v73.48: DD across combined stretches now reads the GENUINE stitched curve
+            //   (_rawSpanIdx / _rawDdSlice, above — the optimize-window curve concatenated with
+            //   the debased lockbox curve) instead of the old "deepest individual slice" lower
+            //   bound. It still carries the &deg; derived-from-curve marker whenever it wasn't an
+            //   exact single-slice engine stat — same honest meaning as every other &deg;'d
+            //   drawdown in this report: read off the saved curve, not measured trade by trade.
+            //   A non-contiguous pick (IS + LB, skipping WF) has no single curve span to read and
+            //   honestly returns null (dash) rather than a guessed lower bound.
+            const dd=_rawDdSlice(col);
             out={net:net,kept:kept,avg_pnl:(kept?(net/kept):null),
                  pf:(pfOK&&gl>1e-9)?(gw/gl):null,
                  wr:(wrOK&&kept)?((wins/kept)*100):null,
@@ -10167,8 +10238,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {lbl:_marLbl,rowSty:(_b2rank==='rec'?_rkYel:''),cell:col=>{
           const v=_rawHasNew?_rawMar(col):col.mar;
           return v!=null?('<span style="color:var(--text2)">'+v.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>';}},
-        {lbl:'<span title="Derived from the equity curve each candidate carries (period-to-period change in cumulative PnL) over the WHOLE optimize window, annualised using that window length -- not stored directly by the engine, and it cannot follow the SAMPLE tick on this tab." style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>'+_win('IS+WF'),
-         cell:col=>col.sharpe!=null?('<span style="color:var(--text2)">'+col.sharpe.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'},
+        {lbl:_rawHasNew
+          ?('<span title="period-to-period change in cumulative PnL, restricted to the ticked SAMPLE stretches only (stitching the optimize-window curve to the lockbox continuation curve when LB is ticked alongside IS/WF), annualised on that same span. A pick that skips a stretch (IS+LB with WF unticked) has no single span to read and dashes rather than measuring the wrong window." style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>'+_win(_rawSampLbl))
+          :('<span title="Derived from the equity curve each candidate carries (period-to-period change in cumulative PnL) over the WHOLE optimize window, annualised using that window length -- not stored directly by the engine, and it cannot follow the SAMPLE tick on this tab." style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>'+_win('IS+WF')),
+         cell:col=>{const v=_rawHasNew?_rawSharpe(col):col.sharpe;
+           return v!=null?('<span style="color:var(--text2)">'+v.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>';}},
       ];
       // v71.42 (owner: "make REWARD / RISK the same across all tabs on 1E - anything that does not
       //   apply or is unique goes in its own section below, e.g. FOLDS HELD"): this group is now
@@ -10211,13 +10285,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
           .concat(_b2segs.length>1?[{lbl:'<span title="the ticked stretches added together. With IS, WF and LB all ticked this is the whole run end to end, taken from the saved equity curve endpoint rather than summed." style="border-bottom:1px dotted var(--text5);cursor:help">TOTAL <span style="font-weight:400;color:var(--text5)">&middot; '+_b2segs.map(x=>x.toUpperCase()).join('+')+'</span></span>',top:true,rowSty:(_b2rank!=='rec'?_rkYel:''),cell:col=>{const v=_b2tot(col);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtAx(v,1)+((_b2segs.length>=3&&col.fullRunStar)?'*':'')+'</span>'):'<span style="color:var(--text5)">—</span>';}}]:[])
           // v64.92 (owner): the drawdown sits directly under the dollars so profit and the risk
           //   taken to get it read together.
-          // v71.30 (owner: "do not call it MAX DD if it is not the max DD"): this row is the
-          //   OPTIMIZE-window drawdown, so it is DD tagged IS+WF. Unlike the GATE / TILT / HYBRID
-          //   tabs it cannot follow the tick: the walk-forward folds are out-of-sample slices
-          //   scattered THROUGH the in-sample stretch rather than following it, so a config saved
-          //   curve has no IS-only or WF-only stretch to measure a separate drawdown on.
-          .concat([{lbl:'<span title="peak-to-trough drop on this config equity curve over the OPTIMIZE window only (in-sample and walk-forward together, NOT the lockbox). It cannot follow the SAMPLE tick like the other tabs do: the walk-forward folds are scattered through the in-sample stretch instead of following it, so there is no IS-only or WF-only curve to read. The GATE tab DD and the KPI TOTAL both include the lockbox, which is why those read deeper." style="border-bottom:1px dotted var(--text5);cursor:help">DD <span style="font-weight:400;color:var(--text5)">&middot; IS+WF</span></span>',cell:_ddCell}])},
-        {name:'reward ÷ risk <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">· mixed slices — hover each row</span>',rows:_rrRows},
+          // v71.30 (owner: "do not call it MAX DD if it is not the max DD"): called DD, not MAX
+          //   DD, because it is only the max over the stretches ticked.
+          // v73.48 (owner: RAW's combined-scope DD must genuinely follow SAMPLE, not stay pinned
+          //   to IS+WF): now reads _rawP(col).dd (see _rawDdSlice above) — a single ticked stretch
+          //   reads its own engine-measured drawdown, two or more CONTIGUOUS ticked stretches read
+          //   the stitched saved curve (optimize-window curve + debased lockbox curve), marked
+          //   with a degree sign the same way every other °'d drawdown in this report is. A
+          //   non-contiguous pick (IS+LB, skipping WF) has no single span to read and dashes.
+          //   Older runs (no is_rng/wf_rng/lockbox) keep the exact old pinned IS+WF behaviour.
+          .concat([{lbl:_rawHasNew
+            ?('<span title="peak-to-trough drop on the equity for the ticked SAMPLE stretches. A pick that skips a stretch (IS+LB with WF unticked) has no single span to read and dashes rather than measuring the wrong window." style="border-bottom:1px dotted var(--text5);cursor:help">DD</span>'+_win(_rawSampLbl))
+            :('<span title="peak-to-trough drop on this config equity curve over the OPTIMIZE window only (in-sample and walk-forward together, NOT the lockbox). It cannot follow the SAMPLE tick like the other tabs do: the walk-forward folds are scattered through the in-sample stretch instead of following it, so there is no IS-only or WF-only curve to read. The GATE tab DD and the KPI TOTAL both include the lockbox, which is why those read deeper." style="border-bottom:1px dotted var(--text5);cursor:help">DD <span style="font-weight:400;color:var(--text5)">&middot; IS+WF</span></span>'),
+            cell:col=>{if(!_rawHasNew)return _ddCell(col);
+              const p=_rawP(col);
+              return p.dd!=null?('<span style="color:#e24b4a">-'+fmtAx(p.dd,1)+(p.ddDer?'<span style="color:var(--text5)">&deg;</span>':'')+'</span>'):'<span style="color:var(--text5)">—</span>';}}])},
+        {name:'reward ÷ risk <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">&middot; '+(_rawHasNew?_rawSampLbl:'mixed slices — hover each row')+'</span>',rows:_rrRows},
         {name:'sample',rows:_b2Sample},
         {name:'config',rows:knobKeys.map(k2=>({lbl:_pp(k2),cell:col=>'<b style="color:var(--text2)">'+String((col.params||{})[k2])+'</b>'}))}
       ];
@@ -10231,8 +10314,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
             let t=(v-mn)/(mx-mn);if(!hiGood)t=1-t;
             return 'hsla('+Math.round(4+116*t)+',62%,44%,'+(0.06+0.16*Math.abs(t-0.5)*2).toFixed(3)+')';};};
         const _pick={'IS $':c=>c.isV,'WF $':c=>c.wfV,'LB $':c=>c.lbSlice,'TOTAL':_b2tot,
-          'DD':c=>c.mdd!=null?-Math.abs(c.mdd):null,
-          'MAR':_rawHasNew?_rawMar:(c=>c.mar),'SHARPE':c=>c.sharpe,
+          'DD':_rawHasNew?(c=>{const v=_rawP(c).dd;return v!=null?-Math.abs(v):null;}):(c=>c.mdd!=null?-Math.abs(c.mdd):null),
+          'MAR':_rawHasNew?_rawMar:(c=>c.mar),'SHARPE':_rawHasNew?_rawSharpe:(c=>c.sharpe),
           'FOLDS HELD':c=>c.foldsHeld,
           'PF':_rawHasNew?_rawPf:(c=>c.mmPf),'WIN %':_rawHasNew?_rawWr:(c=>c.mmWr),
           '$ / TRADE':_rawHasNew?_rawApt:(c=>c.mmApt),'TRADES':c=>c.mmN};
@@ -13045,11 +13128,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // SHARPE for 2C, derived exactly the way 2B derives its own — period-to-period change in
         //   the saved cumulative curve, annualised by that period length in years. Same method,
         //   same caveats, so the two matrices can be read side by side.
+        // v73.48 (owner: "GATE's SHARPE row confusingly says LB in the reward/risk section" — it
+        //   was genuinely LB-scoped ONLY for the two exact cases 'pre' and 'lb'; every other tick
+        //   combo (IS alone, WF alone, IS+WF, WF+LB) silently fell through to the WHOLE saved
+        //   curve while the row header still named the ticked stretch. Fixed to read off the SAME
+        //   contiguous index span (_contig, below) the DD row already uses, and a real date-based
+        //   year count for exactly that span — so Sharpe now genuinely follows every tick combo the
+        //   DD row can, and honestly dashes (null) on the one combo DD also can't span (a
+        //   non-contiguous pick like IS+LB with WF unticked), instead of quietly widening the window.
         const _spanY=(a,b)=>{const t0=Date.parse(a),t1=Date.parse(b);return (isFinite(t0)&&isFinite(t1)&&t1>t0)?((t1-t0)/(365.25*86400000)):null;};
-        const _sp=(V.span||[]),_lbFrom=V.lockbox_from||null;
-        const _yrs={pre:(_sp[0]&&_lbFrom)?_spanY(_sp[0],_lbFrom):null,
-                    lb:(_lbFrom&&_sp[1])?_spanY(_lbFrom,_sp[1]):null,
-                    full:(_sp[0]&&_sp[1])?_spanY(_sp[0],_sp[1]):null};
+        const _sp=(V.span||[]),_lbFrom=V.lockbox_from||null,_wfR0=(V.wf_range||[])[0]||null;
+        // date span of each named stretch, keyed the same as _segSpan above — used to compute the
+        //   real elapsed years of whatever contiguous run of stretches is ticked, instead of only
+        //   ever recognising the two hardcoded 'pre' / 'lb' cases.
+        const _segDateSpan={is:[_sp[0]||null,_wfR0],wf:[_wfR0,_lbFrom],lb:[_lbFrom,_sp[1]||null],
+                             pre:[_sp[0]||null,_lbFrom]};
+        const _yrsFor=segs=>{const o=_segAll.filter(x=>segs.indexOf(x)>=0);
+          if(!o.length)return null;
+          const first=_segDateSpan[o[0]],last=_segDateSpan[o[o.length-1]];
+          if(!first||!last||!first[0]||!last[1])return null;
+          return _spanY(first[0],last[1]);};
         const _shpFrom=(cum,i0,i1,yrs)=>{
           if(!Array.isArray(cum)||!yrs||yrs<=0)return null;
           const a=Math.max(0,Math.min(cum.length-1,i0)),b=Math.max(a,Math.min(cum.length-1,i1));
@@ -13063,10 +13161,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(p.avg_pnl!=null&&isFinite(p.avg_pnl))return p.avg_pnl*mlt3;
           return (p.net!=null&&p.kept)?((p.net/p.kept)*mlt3):null;};
         const _shp=col=>{const cum=col.base?_ungCum:((col.raw&&col.raw.equity&&col.raw.equity.cum)||null);
-          if(!Array.isArray(cum))return null;const L=cum.length,b=_bIdx(L);
-          return (_g2samp==='pre')?_shpFrom(cum,0,b,_yrs.pre)
-               :(_g2samp==='lb')?_shpFrom(cum,b,L-1,_yrs.lb)
-               :_shpFrom(cum,0,L-1,_yrs.full);};
+          if(!Array.isArray(cum)||!_contig)return null;
+          const L=cum.length,i0=Math.round(_contig[0]*(L-1)),i1=Math.round(_contig[1]*(L-1));
+          return _shpFrom(cum,i0,i1,_yrsFor(_g2segs));};
         // Which row the RANK BY control is actually reading — badged in the METRIC column so the
         //   ordering is never a mystery (owner: "make it delineatable on the metric column").
         // v65.0 (owner): the ranked row is OUTLINED in yellow across its full width instead of wearing
