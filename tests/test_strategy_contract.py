@@ -11,11 +11,14 @@ the same volumes/day_id/index introspection the app and workers do), so no real 
 network is touched. The strongest check is test_no_look_ahead: truncating the tail must
 not change any trade that already closed — the property a backtester lives or dies on.
 """
+import os
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from augur_engine import list_strategies, run_backtest, load_strategy
+from augur_engine.paths import STRAT_DIR
 from augur_engine.strategies import strategy_params
 
 REQUIRED_KEYS = {"total_pnl", "num_trades", "win_rate", "profit_factor",
@@ -53,7 +56,23 @@ def _default_params(mod):
             if isinstance(v, dict) and "default" in v}
 
 
+def _is_quarantined(strategy_file):
+    """True if the plugin was deliberately stubbed out (see augur_strategies/, fill-realism
+    audit 2026-08-11) -- it raises RuntimeError by design instead of running a real backtest,
+    so the contract battery below does not apply to it. Reads the SAME marker string
+    tools/exec_feasibility_audit.py already keys off ("is a STUB, not a backtest"), so
+    quarantining or un-quarantining a strategy in one place takes effect here automatically --
+    no separate list of stub filenames to keep in sync by hand."""
+    try:
+        with open(os.path.join(STRAT_DIR, strategy_file), encoding="utf-8") as f:
+            return "is a STUB, not a backtest" in f.read()
+    except OSError:
+        return False
+
+
 def _run(strategy_file, arrays):
+    if _is_quarantined(strategy_file):
+        pytest.skip(f"{strategy_file} is quarantined (stub, not a real backtest)")
     mod = load_strategy(strategy_file)
     return run_backtest(mod, arrays=arrays, params=_default_params(mod), return_trades=True)
 
