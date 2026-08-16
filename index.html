@@ -446,10 +446,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.61';
+const VERSION='73.62';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.62',date:'2026-08-16',notes:['The ALL POOLS PnL-vs-drawdown scatter moved out of 1E MATRIX and into 1A, as its own tab next to CHAMPION and FUNNEL - it no longer sits pinned above the RAW/GATE/TILT/HYBRID tables.','New PNL vs DD tab right next to it in 1A: the same all-pool candidates as horizontal bars instead of dots - one row per candidate, PnL and drawdown sharing a centreline, sorted best PnL first.','FIX: HYBRID pool candidates in that chart were rendering colorless (grey) instead of their assigned color, and clicking one did not jump to its matrix row either. Both now work - the color table needed the long pool name, not the short internal key.']},
 {v:'73.61',date:'2026-08-15',notes:['1E MATRIX gets a new ALL POOLS scatter, above the RAW/GATE/TILT/HYBRID tab tables: every candidate from all four pools plotted together (drawdown vs net $, colour-coded by pool), scoped to whatever SAMPLE is ticked, so an outlier the pre-registered net-$ + MAR-floor rule rejected is still there to eyeball. Hover a dot for its label and exact $/DD; click one to jump to its column in the matrix below.']},
 {v:'73.55',date:'2026-08-15',notes:['SAMPLE-scope audit across §1E MATRIX (owner: "switching between tabs shouldn’t change metric behavior"). GATE’s SHARPE row silently measured the WHOLE saved equity curve on every tick combo except exactly PRE-LOCKBOX or LOCKBOX alone (IS alone, WF alone, IS+WF, WF+LB all fell through to the whole curve while the row header still named the ticked stretch) — it now reads the same contiguous span the DD row already cuts to, on every combo, and honestly dashes on the one combo DD also can’t span (IS+LB with WF unticked).','RAW’s SHARPE row was permanently pinned to the whole optimize window (IS+WF) no matter what was ticked, and combined-scope DD (e.g. IS+WF, or WF+LB) used a "deepest individual slice" approximation marked with a °. Both now genuinely follow the SAMPLE tick: the optimize-window curve and the lockbox continuation curve are stitched into one series (same debasing the 2A funnel chart already uses) and sliced/diffed for whichever stretches are ticked. Runs saved before this engine change (no is_rng/wf_rng/lockbox) keep the exact old pinned display.','TILT and HYBRID were already correctly scope-following (their own _shrp already fraction-splits by ticked stretch) — audited, no leak found, no change needed there.']},
 {v:'73.32',date:'2026-08-13',notes:['PAPER now has a LEG rail next to REFRESH - ALL / ORB / ENGU-Q / NOISE / BLEND - and picking one narrows the WHOLE board to that strategy: its tile, its curve line, its trades. ALL is the default and behaves exactly as before.','Same control language as the report layout rail, and it is a lens rather than a saved setting - it resets when you reload.']},
@@ -11471,6 +11472,65 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +dots+c2YTitle(H,'net $')+'</svg>'
         +xrow+'</div>';
     };
+    // v73.6x (owner ask): the SAME cross-pool candidates as mtxScatterHtml, above, but read as a
+    //   horizontal diverging bar chart instead of a scatter - one row per candidate, sorted best
+    //   PnL first. The PnL bar (green/red) and the DD bar (red, always leftward - dd is stored as
+    //   a positive magnitude) share one centreline per row, so reward and pain read side by side
+    //   instead of as x/y coordinates - a genuinely different read of the same data, not a
+    //   restyle. Pure HTML/CSS bars, no SVG: every row uses the identical fixed-width label/value
+    //   flex columns, so 50% of the flexible middle column lands on the same on-screen pixel for
+    //   every row for free, and label truncation is a plain CSS ellipsis instead of hand-rolled
+    //   SVG text measuring.
+    const mtxBarsHtml=(points)=>{
+      if(!points||points.length<2)return '';
+      const maxAbsPnl=Math.max.apply(null,points.map(p=>Math.abs(p.pnl)).concat([1]));
+      const maxAbsDd=Math.max.apply(null,points.map(p=>p.dd).concat([1]));
+      const LBW=132,VW=58,GAP=6;
+      // the shared centreline sits at 50% of the FLEXIBLE middle column. Because the label and
+      // value columns are fixed px and different widths, that point is offset from the row's OWN
+      // 50% by half the difference between them - solved once in closed form (the card padding
+      // below is symmetric, so it cancels out of this same formula) so one absolutely-positioned
+      // div can draw the line the full height of the chart instead of a tick stitched per row.
+      const midOff=((LBW-VW)/2).toFixed(1);
+      const rows=points.slice().sort((a,b)=>b.pnl-a.pnl).map((p,_bi)=>{
+        const col=_mtxPoolCol[p.pool]||'var(--text3)';
+        const pnlPos=p.pnl>=0,pnlCol=pnlPos?'#1d9e75':'#e24b4a';
+        const pnlPct=(Math.abs(p.pnl)/maxAbsPnl*50).toFixed(1),ddPct=(Math.abs(p.dd)/maxAbsDd*50).toFixed(1);
+        const pnlBar=pnlPos
+          ?'<span style="position:absolute;left:50%;top:0;height:100%;width:'+pnlPct+'%;background:'+pnlCol+';opacity:.85;border-radius:0 2px 2px 0"></span>'
+          :'<span style="position:absolute;right:50%;top:0;height:100%;width:'+pnlPct+'%;background:'+pnlCol+';opacity:.85;border-radius:2px 0 0 2px"></span>';
+        const ddBar='<span style="position:absolute;right:50%;top:0;height:100%;width:'+ddPct+'%;background:#e24b4a;opacity:.55;border-radius:2px 0 0 2px"></span>';
+        const lbl=(p.crowned?'<span style="color:var(--green)">👑</span> ':'')+String(p.label||'');
+        const tip=p.pool+' <b>'+String(p.label||'').replace(/"/g,'&quot;')+'</b>'+(p.crowned?' <span style="color:var(--green)">👑 crowned</span>':'')
+          +'<br>net <b style="color:'+pnlCol+'">'+fmtUsd(Math.round(p.pnl))+'</b> &middot; DD <b style="color:#e24b4a">-'+fmtUsd(Math.round(Math.abs(p.dd)))+'</b>';
+        // Same discipline as mtxScatterHtml's dots, just adapted to a row <div> instead of a
+        // <circle>: the tip is HTML carrying its own style="..." quotes, so escaping p.label
+        // alone is not enough - the surrounding markup carries quotes too. Escape the WHOLE
+        // finished tip string once, right here at the point it is injected into data-tip="...",
+        // not piecemeal while it is being built above (the already-escaped &quot; from the label
+        // has no raw quote left, so it does not get double-escaped).
+        const tipEsc=tip.replace(/"/g,'&quot;');
+        return '<div class="cfgmark" data-mtxsc="1" data-pool="'+p.pool+'" data-mtxkey="'+(p.key||'')+'" data-net="'+Math.round(p.pnl)+'" style="cursor:pointer;padding:3px 0;'+(_bi?'border-top:1px solid color-mix(in srgb,var(--border) 40%,transparent);':'')+'" data-tip="'+tipEsc+'">'
+          +'<div style="display:flex;align-items:center;gap:'+GAP+'px;margin-bottom:2px">'
+            +'<span style="flex:0 0 '+LBW+'px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8.5px;color:var(--text2)"><span style="display:inline-block;width:6px;height:6px;border-radius:2px;background:'+col+';margin-right:4px"></span>'+lbl+'</span>'
+            +'<span style="flex:1;position:relative;height:9px">'+pnlBar+'</span>'
+            +'<span style="flex:0 0 '+VW+'px;text-align:right;font-size:8.5px;font-weight:700;color:'+pnlCol+'">'+fmtUsd(Math.round(p.pnl))+'</span>'
+          +'</div>'
+          +'<div style="display:flex;align-items:center;gap:'+GAP+'px">'
+            +'<span style="flex:0 0 '+LBW+'px"></span>'
+            +'<span style="flex:1;position:relative;height:9px">'+ddBar+'</span>'
+            +'<span style="flex:0 0 '+VW+'px;text-align:right;font-size:8.5px;font-weight:700;color:#e24b4a">-'+fmtUsd(Math.round(Math.abs(p.dd)))+'</span>'
+          +'</div>'
+        +'</div>';
+      }).join('');
+      const legend=Object.keys(_mtxPoolCol).map(k=>'<span style="color:'+_mtxPoolCol[k]+'">&#9679; '+k+'</span>').join(' &middot; ');
+      const _tip='Every candidate the search produced, across all four pools, as bars instead of dots - read the same information as the ALL POOLS scatter, sorted by net PnL. Each row = one candidate: the PnL bar (green/red) and the drawdown bar (red) share a centreline so you can compare reward and pain directly. Click a bar to jump to its row in the matrix below.';
+      return '<div title="'+_tip+'" style="cursor:help;margin:2px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">PNL vs DRAWDOWN &middot; ALL POOLS <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span><span style="margin-left:auto;font-weight:400;font-size:8px">'+legend+'</span></div>'
+        +'<div style="background:var(--bg1);border-radius:8px;padding:10px;margin-bottom:6px;position:relative">'
+        +'<div style="position:absolute;top:10px;bottom:10px;left:calc(50% + '+midOff+'px);width:1px;background:var(--text3);opacity:.5"></div>'
+        +rows
+        +'</div>';
+    };
     // 3-D SCATTER (2G's default view) — every tested config as ONE dot in space: two chosen
     //   params on the floor, its NET $ as the height. The raw-config sibling of the 2H/2J
     //   AVERAGED surfaces: you see each config, not cell means. ⛶ opens the drag-to-orbit view.
@@ -13526,7 +13586,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
               c.dataAttr=' data-mtxcol="'+poolName+':'+_ci2+'"';
               const p=_szP(c);
               if(p&&p.net!=null&&p.dd!=null&&isFinite(p.net)&&isFinite(p.dd))
-                _scatterAcc.push({pool:poolName.toUpperCase(),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false});
+                // v73.6x FIX (owner-flagged): poolName is the SHORT key ('hyb','tilt') used for
+                //   dataAttr/key above, but the colour table (_mtxPoolCol) and the click-to-jump
+                //   tabOf map are both keyed on the LONG name. 'tilt'.toUpperCase() happens to
+                //   equal 'TILT' so tilt was fine, but 'hyb'.toUpperCase() is 'HYB', not 'HYBRID'
+                //   - every HYBRID dot fell through to the grey default colour AND failed the
+                //   tabOf lookup (click never switched 1E to the HYBRID tab before scrolling).
+                _scatterAcc.push({pool:(poolName==='hyb'?'HYBRID':poolName.toUpperCase()),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false});
             });
           }
           // RETURN — IS and WF follow the shared SAMPLE tick, exactly as in 2B. LB $ and FULL $
@@ -14986,6 +15052,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   "B" twin) would just be the same picture twice.
         const _mtxScatterPts=[].concat((_selParts&&_selParts.scatterPts)||[],(_gvP&&_gvP.scatterPts)||[]);
         const _mtxScatter=mtxScatterHtml(_mtxScatterPts);
+        const _mtxBars=mtxBarsHtml(_mtxScatterPts);
         // v70.6 (owner: "duplicate 1E and place its duplicate next to it... so i can compare two
         //   tabs"): one builder, two cards, each with its own remembered tab.
         const _mkCfg=function(prefKey,attr,fallback,showScatter){
@@ -15017,9 +15084,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +title+' '+info
             +'<span style="margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:6px">'+_preFixBadge+tabs+'</span></div>'
             +(ctrls?('<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-top:6px">'+ctrls+'</div>'):'')
-            // the cross-pool scatter sits ABOVE the per-tab table — visible on RAW / GATE / TILT /
-            //   HYBRID alike (not KPI, a different scorecard entirely) since it spans all four.
-            +((showScatter&&!isK)?('<div style="margin-top:9px">'+_mtxScatter+'</div>'):'')
+            // v73.6x (owner ask): the cross-pool scatter moved to 1A as its own tab (see the 1A
+            //   tab switcher below) - it no longer lives inside this card.
             +'<div style="margin-top:9px">'+body+'</div>'
             +note;};
         _cfgInner=_mkCfg('cfgTab','data-cfgtab','kpi',true);
@@ -15440,10 +15506,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   INTO its neighbour so no gap ever opens. Tiles stay separate; ratios persist.
           // v70.4 (owner): 2A rides inside 1A as a tab, 2B (and its own tabs) inside 1E.
           if(_eqInner&&_eq){
-            var _eqTab=(String(APREF.eqTab||'')==='funnel')?'funnel':'chart';
-            var _eqTabs=_tabStrip([['chart','CHAMPION','the champion config equity curve, chronological - in-sample, walk-forward, then the sealed lockbox'],
-                                   ['funnel','FUNNEL','every tested config drawn as a funnel: many at the in-sample door, the top-K past it, the survivors through the lockbox']]
-              .map(function(t){return _tabBtn('data-eqtab="'+t[0]+'"',t[1],_eqTab===t[0],t[2]);}).join('')
+            var _mtxHasPts=!!(_mtxScatterPts&&_mtxScatterPts.length>=2);
+            var _eqTabDefs=[['chart','CHAMPION',true,'the champion config equity curve, chronological - in-sample, walk-forward, then the sealed lockbox'],
+                            ['funnel','FUNNEL',true,'every tested config drawn as a funnel: many at the in-sample door, the top-K past it, the survivors through the lockbox'],
+                            ['pools','ALL POOLS',_mtxHasPts,'every candidate the search produced, across all four pools (RAW/GATE/TILT/HYBRID), on one scatter - a sanity check that does not depend on the rule that actually crowns'],
+                            ['bars','PNL vs DD',_mtxHasPts,'the same all-pool candidates as bars instead of dots - PnL and drawdown sharing a centreline, sorted best PnL first']]
+                           .filter(function(t){return t[2];});
+            var _eqTab=String(APREF.eqTab||'');
+            if(!_eqTabDefs.some(function(t){return t[0]===_eqTab;}))_eqTab='chart';
+            var _eqTitles={chart:(_eqcInfo+' CHAMPION EQUITY'),funnel:((_eqSink.info||'')+' '+(_eqSink.title||'CONFIG FUNNEL')),pools:'ALL POOLS &middot; PnL vs DRAWDOWN',bars:'PNL vs DRAWDOWN &middot; ALL POOLS'};
+            var _eqBodies={chart:_eqChart,funnel:_eq,pools:_mtxScatter,bars:_mtxBars};
+            var _eqTabs=_tabStrip(_eqTabDefs.map(function(t){return _tabBtn('data-eqtab="'+t[0]+'"',t[1],_eqTab===t[0],t[3]);}).join('')
               // v71.63 (owner: "open it without expanding the chart") — TRADES is an ACTION tab:
               // it opens the standalone blotter modal, it never becomes the card's active tab.
               // The tab CARRIES ITS OWN blotter payload (sliced out of _eqxA) so it works from
@@ -15451,9 +15524,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +_tabBtn('data-eqblotopen="1" '+((_eqxA.match(/data-eqblot="[^"]*"/)||[''])[0]),'▦ TRADES',false,'open the champion trade blotter in its own window - no chart expansion needed','var(--blue)'),false);
             _panelEquity='<div style="'+_cardSty+';height:100%;box-sizing:border-box">'
               // v71.6 (owner: "this should be just be 1A, 1B is the Monthly pnl underneath"):
-              //   the NUMBER belongs to the card, the two TABS keep their plain names.
-              +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;flex-shrink:0">1A '+(_eqTab==='funnel'?((_eqSink.info||'')+' '+(_eqSink.title||'CONFIG FUNNEL')):(_eqcInfo+' CHAMPION EQUITY'))+'</span><span style="margin-left:auto;flex-shrink:0">'+_eqTabs+'</span></div>'
-              +(_eqTab==='funnel'?_eq:_eqChart)+_eqRest+'</div>';
+              //   the NUMBER belongs to the card, the tabs keep their plain names.
+              // v73.6x (owner ask): ALL POOLS (scatter) and PNL vs DD (bars) joined CHAMPION /
+              //   FUNNEL as two more tabs here - they used to live pinned above the 1E MATRIX
+              //   tab body; moved so the card that already owns config-comparison charts (1A)
+              //   is where you look for ALL of them, one click away, not split across two cards.
+              +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;flex-shrink:0">1A '+(_eqTitles[_eqTab]||_eqTitles.chart)+'</span><span style="margin-left:auto;flex-shrink:0">'+_eqTabs+'</span></div>'
+              +(_eqBodies[_eqTab]||_eqChart)+_eqRest+'</div>';
           }
           var _panelMatrixB='';
           if(_kpiInner&&_cfgInner){
