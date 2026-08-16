@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.49';
+const VERSION='73.50';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -18389,23 +18389,36 @@ namespace NinjaTrader.NinjaScript.Strategies {
         kroot.querySelectorAll('[data-a2k]').forEach(row=>{
           const k=row.dataset.a2k;if(!k)return;
           row.style.pointerEvents='auto';
+          const tg=_kOthers[k]||_kmap[k]||[k];const els=[];
+          tg.forEach(k2=>svg.querySelectorAll('[data-kg="'+k2+'"]').forEach(g=>els.push(g)));
+          if(!els.length)return;
+          // v73.50 (owner: bring the expanded explorer's full -> dimmed -> hidden -> full key
+          //   cycle to the COLLAPSED 1A/2A funnel key too - it only had a plain binary show/hide
+          //   before. Same three states and the same opacity/strike-through language renderLegend's
+          //   _memberRow/_groupRow already use (0.45 dim, 0.3 hidden, line-through when hidden).
+          //   "dim" is a transient per-render state stamped on each <g>/<pg> via data-a2dim - it is
+          //   never persisted, so a reload still opens exactly as before; only the fully-hidden
+          //   state still writes the existing a2kAll pref.
+          const _vState=()=>els.every(g=>g.style.display==='none')?'off':(els.every(g=>g.dataset.a2dim==='1')?'dim':'on');
+          const _applyVis=st=>{
+            els.forEach(g=>{g.style.display=(st==='off')?'none':'';g.style.opacity=(st==='dim')?'0.35':'';g.dataset.a2dim=(st==='dim')?'1':'0';});
+            // v71.11: a family's gutter pill hides/dims with its line - a $ chip left floating on
+            //   the axis with nothing drawn under it reads as a line you cannot find.
+            tg.forEach(k2=>kroot.querySelectorAll('[data-pg="'+k2+'"]').forEach(p=>{p.style.display=(st==='off')?'none':'';p.style.opacity=(st==='dim')?'0.5':'';p.dataset.a2dim=(st==='dim')?'1':'0';}));
+            row.style.opacity=(st==='dim')?'0.45':(st==='off'?'0.3':'');
+            row.style.textDecoration=(st==='off')?'line-through':'none';
+          };
+          _applyVis(_vState());   // sync the row's own look to whatever this render's defaults set
           row.onclick=(e)=>{e.stopPropagation();
-            const tg=_kOthers[k]||_kmap[k]||[k];const els=[];
-            tg.forEach(k2=>svg.querySelectorAll('[data-kg="'+k2+'"]').forEach(g=>els.push(g)));
-            if(!els.length)return;
-            const anyHidden=els.some(g=>g.style.display==='none');
-            els.forEach(g=>{g.style.display=anyHidden?'':'none';});
-            // v71.11: a family's gutter pill hides with its line - a $ chip left floating on the
-            //   axis with nothing drawn under it reads as a line you cannot find.
-            tg.forEach(k2=>kroot.querySelectorAll('[data-pg="'+k2+'"]').forEach(p=>{p.style.display=anyHidden?'':'none';}));
-            if(k==='raw')savePref('a2kAll',anyHidden?1:0);
-            row.style.opacity=anyHidden?'':(_kOthers[k]?'':'0.35');};
+            const cur=_vState(),nxt=cur==='on'?'dim':(cur==='dim'?'off':'on');
+            _applyVis(nxt);
+            if(k==='raw')savePref('a2kAll',nxt==='on'?1:0);};
           row.onmouseenter=()=>{if(row.dataset.off==='1')return;
             const mine=new Set((_kmap[k]||[k]));
             svg.querySelectorAll('[data-kg]').forEach(g=>{if(!mine.has(g.getAttribute('data-kg')))g.style.opacity='0.12';});
             kroot.querySelectorAll('[data-pg]').forEach(p=>{if(!mine.has(p.getAttribute('data-pg')))p.style.opacity='0.12';});};
-          row.onmouseleave=()=>{svg.querySelectorAll('[data-kg]').forEach(g=>{g.style.opacity='';});
-            kroot.querySelectorAll('[data-pg]').forEach(p=>{p.style.opacity='';});};});
+          row.onmouseleave=()=>{svg.querySelectorAll('[data-kg]').forEach(g=>{g.style.opacity=(g.dataset.a2dim==='1')?'0.35':'';});
+            kroot.querySelectorAll('[data-pg]').forEach(p=>{p.style.opacity=(p.dataset.a2dim==='1')?'0.5':'';});};});
         // crosshair: vertical line + date readout riding the cursor (the expand modal keeps its
         //   richer one; this is the always-on tile version the owner asked for).
         const wrap=svg.parentElement;if(!wrap)return;
