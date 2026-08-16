@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.48';
+const VERSION='73.49';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -7443,6 +7443,10 @@ function openEditModal(tradeId){
 //   match the two. Hoisted to a global so BOTH places share the exact same lookup and can never
 //   drift out of sync if scheme values ever change.
 const _TILT_SCHEME_AB={tier:'ST',linear:'SL'};
+// v73.47 (owner: no two naming conventions anywhere — never show the raw scheme key 'tier'/
+//   'linear' to the user): shared friendly full-name map for the internal scheme key, used
+//   everywhere a scheme is rendered so only "steps"/"sliding" (+ ST/SL) are ever visible.
+const _TILT_SCHEME_NM={tier:'steps',linear:'sliding'};
 // ══════════════════════════════════════════════════════════════════
 //  MAIN RENDER
 // ══════════════════════════════════════════════════════════════════
@@ -10778,9 +10782,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
               _ser.push({id:'tilt-'+String(tl.model||'')+'-'+String(tl.scheme||''),
                          // v73.34: append the SAME ST/SL abbreviation the §1E MATRIX TILT tab
                          //   shows in its column header (_TILT_SCHEME_AB, shared lookup) so a
-                         //   user can visually cross-reference "tilt: xgb · tier (ST)" here to
+                         //   user can visually cross-reference "tilt: xgb · steps (ST)" here to
                          //   "xgb (ST)" there without needing to already know the mapping.
-                         label:'tilt: '+String(tl.model||'')+' · '+String(tl.scheme||'')+' ('+(_TILT_SCHEME_AB[tl.scheme]||String(tl.scheme||'?').slice(0,2).toUpperCase())+')',
+                         // v73.47: the raw internal scheme key ('tier'/'linear') never renders
+                         //   directly — always the friendly full name (_TILT_SCHEME_NM) so only
+                         //   one naming convention (steps/sliding, ST/SL) is ever user-visible.
+                         label:'tilt: '+String(tl.model||'')+' · '+(_TILT_SCHEME_NM[tl.scheme]||String(tl.scheme||'?'))+' ('+(_TILT_SCHEME_AB[tl.scheme]||String(tl.scheme||'?').slice(0,2).toUpperCase())+')',
                          color:(tl===_bestTiltC?'#f0b429':_famCol('#f0b429',_ti+1,_gvTilts.length+1)),
                          eq:tl.equity.cum.map(v=>v*mult),
                          li:null,wfi:null,tiltCand:true,famTop:(tl===_bestTiltC),
@@ -10964,7 +10971,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             for(let j=0;j<_tn;j++){const f=_tn<=1?1:j/(_tn-1);
               const x=(f<=_tf)?(xL+(xFull-xL)*(f/_tf)):(xFull+(xR-xFull)*((f-_tf)/(1-_tf)));
               _tp.push(x.toFixed(1)+' '+Yv(_ta[j]).toFixed(1));}
-            _tiltOv='<g data-kg="tilt"><polyline points="'+_tp.join(' ')+'" fill="none" stroke="#f0b429" stroke-width="0.75" opacity="0.9" stroke-dasharray="3 1.6"><title>best size tilt (2D): '+String(_bt.model||'')+' · '+String(_bt.scheme||'')+'</title></polyline></g>';
+            _tiltOv='<g data-kg="tilt"><polyline points="'+_tp.join(' ')+'" fill="none" stroke="#f0b429" stroke-width="0.75" opacity="0.9" stroke-dasharray="3 1.6"><title>best size tilt (2D): '+String(_bt.model||'')+' · '+(_TILT_SCHEME_NM[_bt.scheme]||String(_bt.scheme||''))+' ('+(_TILT_SCHEME_AB[_bt.scheme]||String(_bt.scheme||'?').slice(0,2).toUpperCase())+')</title></polyline></g>';
             _famDD.push({a:_ta,x:function(j){const f=_tn<=1?1:j/(_tn-1);return (f<=_tf)?(xL+(xFull-xL)*(f/_tf)):(xFull+(xR-xFull)*((f-_tf)/(1-_tf)));},col:'#f0b429',kg:'tilt',nm:'TILT'});
             _tiltEnd=_ta[_tn-1];}
         }catch(_te){}
@@ -13174,7 +13181,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v68.7/68.8: SLIDING = contract count slides smoothly with the model's confidence
         //   (quarter-lot up to 3). STEPS = three fixed sizes (half / one / two lots) by band.
         //   One word in the header; the full definitions live in the section info icon.
-        const _shNm={tier:'steps',linear:'sliding'};
+        const _shNm=_TILT_SCHEME_NM;   // v73.47: shared with the §1A/2A chart legend, see global def
         const _shTip={tier:'three sizes only - double on the confident trades, normal in the middle, half on the doubtful ones',
                       linear:'size slides smoothly with confidence, from a quarter up to triple'};
         // v68.5 (owner: "make it match 2C - flip the rows/columns"): the tilt table is now the
@@ -14779,7 +14786,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
                         ['hyb2','HYBRID &#9851;',_hasH,'the same hybrid, REDEPLOYED: sized up until the column spends the same total contracts as the no-gate book - what the freed capacity buys if you put it back to work.'],
                         ['hyb3','HYBRID &#128201;',_hasH,'the same hybrid at EQUAL DRAWDOWN: sized until the column drawdown matches the no-gate book - the most money for the same pain.']]
                        .filter(function(t){return t[2];});
-        const _szInfo='<div style="color:var(--text2)">THE SAME MODELS AS THE GATE TAB, SPENT AS SIZE INSTEAD.<br><br>The GATE tab uses a model score as a BOUNCER - under the cut-off, the trade does not happen. These two tabs use the identical score as a DIMMER - every trade still happens, confident ones get more contracts and doubtful ones get fewer.<br><br>Nothing in these two tabs can ever be crowned; they exist so the two ways of spending the same model can be compared side by side over the same stretches.<br><br><b>ST = steps sizing (scheme: tier)</b> - three fixed sizes by band.<br><b>SL = sliding sizing (scheme: linear)</b> - size slides smoothly with confidence. Same crosswalk as the "(tier)"/"(linear)" tag on the §1A funnel chart legend\'s tilt lines.</div>';
+        const _szInfo='<div style="color:var(--text2)">THE SAME MODELS AS THE GATE TAB, SPENT AS SIZE INSTEAD.<br><br>The GATE tab uses a model score as a BOUNCER - under the cut-off, the trade does not happen. These two tabs use the identical score as a DIMMER - every trade still happens, confident ones get more contracts and doubtful ones get fewer.<br><br>Nothing in these two tabs can ever be crowned; they exist so the two ways of spending the same model can be compared side by side over the same stretches.<br><br><b>ST (steps)</b> = 3 discrete size buckets - 2x on the most confident trades, 1x in the middle, 0.5x on the doubtful ones.<br><b>SL (sliding)</b> = size scales continuously with confidence, from 0.25x up to 3x.<br><br>Both differ from GATE, which skips trades below a cutoff rather than resizing them. Same ST/SL tag as the §1A funnel chart legend\'s tilt lines.</div>';
         const _gateInfo=('<div style="color:var(--text2)">'+_gVerdictTxt+'DOES A TRADE-FILTER MODEL EARN ITS KEEP? The ML GATE scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. It sweeps several models across several cut-offs on PRE-LOCKBOX data (IS + WF combined), picks ONE winner, and gives only that winner a single look at the LB - no cherry-picking.<br><br>NOT the same as the 2L ML CONFIG BUILDER: 2L picks which PARAMETER CONFIG is best; this gate keeps the chosen config and only decides which individual TRADES to take.<br><br>The gate equity is also drawn on the 2A funnel above.</div>');
         const _nRow=inner=>inner?('<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;padding-top:7px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+inner+'</div>'):'';
         const _hybOf=t=>(t==='hyb2'?'redeploy':(t==='hyb3'?'equaldd':'one'));
