@@ -38,6 +38,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 BRANCH_PREFIX = 'session/'
 # deliberately OFF OneDrive: a worktree churns thousands of files and the sync client
@@ -143,8 +144,32 @@ def cmd_ship(name, message):
                 new_txt = mine_txt.replace("const VERSION='%s'" % mine,
                                            "const VERSION='%s'" % want, 1)
                 new_txt = new_txt.replace("{v:'%s'," % mine, "{v:'%s'," % want, 1)
+                # Flush to DISK, not just to the OS buffer. The boot gate below reads this
+                # same file back from a SEPARATE process moments later; on a busy Windows box
+                # (OneDrive/AV filter drivers in the path) that reader has been observed
+                # getting a partial/empty file and reporting VERSION=None, bodyLen=0 --
+                # which then blocked a perfectly valid push (2026-08-15). fsync + a
+                # read-back check closes that window.
                 with open(idx, 'w', encoding='utf-8', newline='') as f:
                     f.write(new_txt)
+                    f.flush()
+                    os.fsync(f.fileno())
+                # Prove the file is readable and complete before anything downstream trusts
+                # it. Cheap next to a failed ship, and it turns a silent race into a loud,
+                # specific error instead of a misleading "boot gate FAILED".
+                for _try in range(5):
+                    try:
+                        with open(idx, encoding='utf-8', newline='') as _f:
+                            _back = _f.read()
+                        if len(_back) == len(new_txt) and read_version(_back) == want:
+                            break
+                    except OSError:
+                        pass
+                    time.sleep(0.4)
+                else:
+                    raise SystemExit('version realign wrote index.html but could not read it '
+                                     'back intact - aborting before the boot gate sees a '
+                                     'partial file (re-run ship; nothing was pushed)')
                 run(['git', '-C', wt, 'add', 'index.html'])
                 run(['git', '-C', wt, 'commit', '-q', '--amend', '--no-edit'])
                 print('version realigned %s -> %s (origin/main was on %s)' % (mine, want, theirs))
