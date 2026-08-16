@@ -81,6 +81,63 @@ NOISE_FROZEN = dict(lookback=14, band_mult_long=1.5, band_mult_short=1.5,
                     flat_eod=True, skip_holidays=False,
                     stop_mode="bandwidth", stop_k=1.0)
 
+# The NOISE config two consecutive auto-validates actually crowned (#202 NOISE-1 and
+# #225 NOISE-6 landed on the identical dict). NOISE_FROZEN above is NOT this config --
+# it was assembled by hand from round-12 research and never crowned. Both are on the
+# board on purpose; see LEG_SOURCE and NOISE.md.
+NOISE_225 = dict(lookback=44, band_mult_long=0.75, band_mult_short=1.5,
+                 exit_mode="vwap", side="Both", window="all_day",
+                 flat_eod=True, skip_holidays=False,
+                 stop_mode="bandwidth", stop_k=1.75)
+
+# ── ML gate configs (api/paper_gate.py) ──────────────────────────────────────────
+# The gate is an OVERLAY: the strategy picks its trades exactly as it always has, and a
+# second model trained only on trades that had already finished decides which to keep
+# ("cut") and, in "hybrid" mode, how big to trade the survivors. Read paper_gate.py's
+# docstring for the leak rules -- they are the whole reason this is safe to forward-test.
+#
+# `size_norm` is the FROZEN size divisor. It is not a guess: tools/paper_gate_calibrate.py
+# recomputed each gate against its source run's own window and lockbox boundary and
+# reproduced that run's stored hybrid row exactly (ORB_H 1946 survivors / max size 1.78 vs
+# run #230's kept_pre 1946 / max_size 1.78; NOISE_H 2206 / 1.80 vs run #225's 2206 / 1.8).
+# Re-run that tool if a leg's base params, model, or cut-off ever change.
+#
+# `history_from` makes these legs load their FULL master history rather than the 150-day
+# warm-up the raw legs use. That is deliberate and it costs ~90s a day: a gate trained on
+# 150 days is a different model from the one the validate crowned, and forward-testing a
+# different model than the one under test would answer a question nobody asked.
+
+# ORB — the evidence-backed one. Run #230's crowned gate is rf@0.45 (chosen by the
+# pre-registered net-dollars/80%-MAR-floor rule on PRE-lockbox data only), and it HELD its
+# one look at the lockbox: gated recovery 2.48 vs ungated 2.31. The rf HYBRID row was then
+# the best of the five hybrids on BOTH halves -- top pre-lockbox recovery (6.97) and the
+# best held-out year (PF 1.403 vs ungated 1.311, $3,982 vs $3,229, drawdown -1,219 vs
+# -1,400). Best before AND after the boundary is the pattern you want; it is the only ML
+# variant in this project that has it.
+ORB_GATE = {"mode": "hybrid", "model": "rf", "threshold": 0.45,
+            "size_norm": 1.173085, "source_run": 230}
+
+# NOISE — the HONEST-TEST one. Read this before trusting the leg.
+#
+# Run #225's crowned gate was logistic@0.55 and it FAILED its lockbox outright (gated
+# recovery 0.44 vs ungated 1.50). Among the hybrid rows, `tree` at the same floor posted by
+# far the best held-out year -- PF 1.240 vs ungated 1.128, $3,117 vs $2,286, drawdown -1,079
+# vs -1,521 -- but its PRE-lockbox recovery (5.96) was the WORST of the five. The selection
+# rule only ever sees pre-lockbox data, so tree would never have been crowned; its lockbox
+# win is visible only in hindsight.
+#
+# So this leg is NOT a crown and must never be described as one. It is a pre-registered
+# forward test of a hindsight-generated hypothesis, which is the one legitimate way to
+# settle a result like this: the claim is written down BEFORE the data exists, and paper
+# trading costs nothing but compute. THE CLAIM, stated so it can fail: from 2026-08-16
+# forward, NOISE_H should beat its matched raw control NOISE_225 on recovery factor. If it
+# does not, the pre-lockbox ranking was right and the lockbox row was noise.
+NOISE_GATE = {"mode": "hybrid", "model": "tree", "threshold": 0.55,
+              "size_norm": 1.468647, "source_run": 225}
+
+# Full-history load date for the gated legs (the masters begin here).
+_GATE_HISTORY_FROM = "2010-06-07"
+
 # PROVENANCE — where each leg's config actually came from (owner 2026-08-15: "i dont
 # know which config or past run it got it from"). This is the AUTHORITATIVE record; it
 # is written into every daily report's legs block so the board can show it, and it is
@@ -119,7 +176,42 @@ LEG_SOURCE = {
                 "hand from research, never crowned by an auto-validate run.",
         "caveat": "Auto-validate #225 (NOISE-6) later crowned a DIFFERENT config -- lookback 44, "
                   "asymmetric 0.75/1.5 bands, stop_k 1.75 -- on a fresh 18-month lockbox. This "
-                  "leg is not that config. See NOISE.md.",
+                  "leg is not that config. It is now on the board as its own leg, NOISE_225.",
+    },
+    "NOISE_225": {
+        "run": 225, "run_label": "#225 (NOISE-6)", "strategy_file": "NOISE_1_0.py",
+        "picked": "2026-08-16",
+        "note": "The config two consecutive auto-validates crowned (#202 NOISE-1 and #225 "
+                "NOISE-6 landed on the identical dict): lookback 44, asymmetric 0.75/1.5 "
+                "bands, bandwidth stop k=1.75. Lockbox PASS, PF 1.08 over 424 trades.",
+        "caveat": "Added as the matched RAW control for NOISE_H -- same params, same backtest, "
+                  "gate off. Comparing NOISE_H against the older NOISE leg instead would "
+                  "confound the gate with a params change.",
+    },
+    "ORB_H": {
+        "run": 230, "run_label": "#230 (ORB-40) + rf hybrid gate", "strategy_file": "ORB_3_4_C221.py",
+        "picked": "2026-08-16",
+        "note": "The ORB leg with run #230's own ML gate switched on in HYBRID mode: trades "
+                "scoring under 45% are skipped and the survivors are sized by score. That gate "
+                "was crowned on pre-lockbox data by the pre-registered rule and then HELD its "
+                "one look at the lockbox (recovery 2.48 vs 2.31 ungated); the rf hybrid row was "
+                "best of five on both halves (held-out PF 1.403 vs 1.311, drawdown -1,219 vs "
+                "-1,400).",
+        "caveat": "Its matched RAW control is the ORB leg -- identical strategy file and params, "
+                  "gate off -- so any difference between the two rows is the gate and nothing else.",
+    },
+    "NOISE_H": {
+        "run": 225, "run_label": "#225 (NOISE-6) + tree hybrid gate", "strategy_file": "NOISE_1_0.py",
+        "picked": "2026-08-16",
+        "note": "Run #225's crowned config with a tree hybrid gate at the crowned 0.55 floor. In "
+                "that run's held-out year this row was the standout: PF 1.240 vs 1.128 ungated, "
+                "$3,117 vs $2,286, drawdown -1,079 vs -1,521.",
+        "caveat": "NOT A CROWN, and it must not be reported as one. Its PRE-lockbox recovery "
+                  "(5.96) was the WORST of the five hybrids, so the selection rule -- which only "
+                  "sees pre-lockbox data -- would never have picked it; the lockbox win is "
+                  "hindsight. #225's actual crowned gate (logistic@0.55) FAILED its lockbox. This "
+                  "leg is a pre-registered forward test: it should beat NOISE_225 on recovery "
+                  "from 2026-08-16 on, and if it does not, the lockbox row was noise.",
     },
 }
 
@@ -127,15 +219,35 @@ PAPER_LEGS = [
     # ORB: the engine's touch-entry volume filter is LOOK-AHEAD (2026-08-11 audit,
     # see PAPER_TRADING.md) — these shadow numbers are NOT live-achievable. Kept as
     # a flagged reference line; the live candidate is the NT-side ORB V2 chase.
+    # history_from matches ORB_H's window so the two legs are the SAME backtest with the
+    # gate off/on. Verified 2026-08-16: the 150-day window and the full history produce a
+    # bit-identical trade set here, so this changes no number today -- it just stops a
+    # future warm-up difference from quietly turning the control into a different
+    # experiment. Costs about a second.
     {"key": "ORB", "strategy": "ORB_3_4_C221.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": ORB_230, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
-     "source": LEG_SOURCE["ORB"]},
+     "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB"]},
     {"key": "ENGUQ", "strategy": "ENGUQ_1M_1_0.py", "instrument": "NQ", "timeframe": "1m",
      "session": "rth", "params": ENGUQ_149, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "source": LEG_SOURCE["ENGUQ"]},
     {"key": "NOISE", "strategy": "NOISE_1_0.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": NOISE_FROZEN, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "source": LEG_SOURCE["NOISE"]},
+
+    # ── gated legs (api/paper_gate.py) ──────────────────────────────────────────
+    # ORB_H needs no companion: the raw ORB leg above already runs the identical
+    # strategy file and params with the gate off, so it IS the matched control.
+    {"key": "ORB_H", "strategy": "ORB_3_4_C221.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": ORB_230, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": ORB_GATE, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["ORB_H"]},
+    # NOISE_H runs DIFFERENT params from the raw NOISE leg, so it carries its own control:
+    # emit_ungated_as publishes the same backtest's pre-gate trades as leg NOISE_225 at no
+    # extra cost. One backtest, two rows, nothing confounded.
+    {"key": "NOISE_H", "strategy": "NOISE_1_0.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": NOISE_225, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": NOISE_GATE, "history_from": _GATE_HISTORY_FROM,
+     "emit_ungated_as": "NOISE_225", "source": LEG_SOURCE["NOISE_H"]},
 ]
 
 # ── Layer 1: the NT demo account whose fills we mirror into the daily report ────
@@ -256,13 +368,20 @@ def _append_fresh(arrays, bars):
 
 
 # ── trade conversion (mirrors augur_engine/reconcile.py edgelog_blotter) ─────────
-def _extract_trades(leg, arrays, res):
-    """raw trade tuples (entry_bar, exit_bar, pnl_pts, side, entry_px) -> plain dicts."""
+def _extract_trades(leg, arrays, sized, key=None):
+    """(trade tuple, size multiplier) pairs -> plain dicts.
+
+    `sized` is a list of ((entry_bar, exit_bar, pnl_pts, side, entry_px), size). Size is
+    1.0 for every raw leg and for a gate running in "cut" mode; only a HYBRID gate ever
+    hands back anything else. It scales the money, never the prices: `pnl_usd` is the
+    sized result (what the leg actually earns) while `pnl_pts` stays the one-lot move, so
+    a sized row can still be reconciled against a chart tick for tick.
+    """
     mult = float(leg.get("mult") or 20.0)
     idx = arrays["index"]
     O = arrays["open"]
     out = []
-    for t in ((res or {}).get("trades") or []):
+    for t, size in sized:
         eb, xb, pnl_pts = int(t[0]), int(t[1]), float(t[2])
         side = int(t[3]) if len(t) >= 4 else 0
         entry_px = float(t[4]) if len(t) >= 5 else float(O[eb])
@@ -270,10 +389,11 @@ def _extract_trades(leg, arrays, res):
         entry_dt = pd.Timestamp(idx[eb])
         exit_dt = pd.Timestamp(idx[xb])
         out.append({
-            "leg": leg["key"], "strategy": leg["strategy"], "side": side,
+            "leg": key or leg["key"], "strategy": leg["strategy"], "side": side,
             "entry_dt": entry_dt, "exit_dt": exit_dt,
             "entry_px": entry_px, "exit_px": exit_px,
-            "pnl_pts": pnl_pts, "pnl_usd": pnl_pts * mult,
+            "size": float(size),
+            "pnl_pts": pnl_pts, "pnl_usd": pnl_pts * mult * float(size),
         })
     return out
 
@@ -286,11 +406,15 @@ def run_shadow(leg, today):
     shadow run is being produced for; only used to size the warm-up window and the
     staleness check (today's 16:00 ET close).
 
-    Returns {trades:[...], bars_appended:int, data_fresh_thru:int|None, warnings:[...]}.
-    `trades` only includes trades whose entry date is >= PAPER_START.
+    Returns {trades, ungated_trades, gate, bars_appended, data_fresh_thru, warnings}.
+    `trades` only includes trades whose entry date is >= PAPER_START. `ungated_trades` is
+    populated only for a gated leg that declares `emit_ungated_as` (its matched control),
+    and `gate` is the gate summary or None.
     """
     warnings = []
     trades_out = []
+    ungated_out = []
+    gate_info = None
     bars_appended = 0
     data_fresh_thru = None
     try:
@@ -300,10 +424,14 @@ def run_shadow(leg, today):
         if master is None:
             warnings.append(
                 f"no master for {leg['instrument']} {leg['timeframe']} {leg.get('session')}")
-            return {"trades": [], "bars_appended": 0, "data_fresh_thru": None,
-                   "warnings": warnings}
+            return {"trades": [], "ungated_trades": [], "gate": None, "bars_appended": 0,
+                   "data_fresh_thru": None, "warnings": warnings}
 
-        date_from = (pd.Timestamp(today_d) - pd.Timedelta(days=_WARMUP_DAYS)).strftime("%Y-%m-%d")
+        # A gated leg loads its FULL history (history_from) instead of the 150-day warm-up:
+        # the gate model must be the one the validate crowned, and a model trained on 150
+        # days is a different model. Raw legs are unaffected.
+        date_from = (leg.get("history_from")
+                     or (pd.Timestamp(today_d) - pd.Timedelta(days=_WARMUP_DAYS)).strftime("%Y-%m-%d"))
         arrays = load_master_arrays(master, date_from=date_from, date_to=None)
 
         ticks_df, ticks_path = _load_fresh_ticks()
@@ -334,16 +462,35 @@ def run_shadow(leg, today):
 
         res = run_backtest(leg["strategy"], arrays=arrays, params=leg["params"],
                            cost_pts=leg.get("cost_pts", 0.0), return_trades=True)
-        trades = _extract_trades(leg, arrays, res)
+        raw = list((res or {}).get("trades") or [])
         paper_start = pd.Timestamp(PAPER_START).date()
+
+        if leg.get("gate"):
+            from . import paper_gate
+            t_gate = time.time()
+            sized, gate_info = paper_gate.apply_gate(arrays, raw, leg["gate"])
+            gate_info["seconds"] = round(time.time() - t_gate, 1)
+            for w in (gate_info.get("warnings") or []):
+                warnings.append(f"gate: {w}")
+            # The matched RAW control, free: same backtest, same bars, gate off. Only
+            # emitted when the leg asks for it (ORB_H's control is the standalone ORB leg).
+            if leg.get("emit_ungated_as"):
+                ung = _extract_trades(leg, arrays, [(t, 1.0) for t in raw],
+                                      key=leg["emit_ungated_as"])
+                ungated_out = [t for t in ung if t["entry_dt"].date() >= paper_start]
+        else:
+            sized = [(t, 1.0) for t in raw]
+
+        trades = _extract_trades(leg, arrays, sized)
         trades_out = [t for t in trades if t["entry_dt"].date() >= paper_start]
     except Exception as e:
         msg = f"exception in run_shadow({leg.get('key')}): {type(e).__name__}: {e}"
         warnings.append(msg)
         _log(msg)
 
-    return {"trades": trades_out, "bars_appended": bars_appended,
-           "data_fresh_thru": data_fresh_thru, "warnings": warnings}
+    return {"trades": trades_out, "ungated_trades": ungated_out, "gate": gate_info,
+           "bars_appended": bars_appended, "data_fresh_thru": data_fresh_thru,
+           "warnings": warnings}
 
 
 # ── Layer 1: today's demo-account fills, mirrored into the daily report ──────────
@@ -503,15 +650,21 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
         firestore = _fs
         batch = q.db.batch()
 
-    for leg in PAPER_LEGS:
-        r = run_shadow(leg, target_date)
+    def _emit(leg, key, trades):
+        """Upsert one leg's trade docs and return (trade_ids, todays_trades, pnl).
+
+        Shared by a leg and its companion control row (a gated leg's `emit_ungated_as`),
+        so both are written by identical code -- the point of a matched control is that
+        nothing differs except the one thing under test.
+        """
+        nonlocal batch, pending
         trade_ids = []
         todays_trades = []      # the trade dicts behind trade_ids, for Layer 3
         leg_pnl = 0.0
-        for t in r["trades"]:
+        for t in trades:
             entry_unix = int(t["entry_dt"].timestamp())
             exit_unix = int(t["exit_dt"].timestamp())
-            doc_id = f"pt_{leg['key']}_{entry_unix}"
+            doc_id = f"pt_{key}_{entry_unix}"
             # run_shadow re-scans the WHOLE window since PAPER_START every day, so this
             # loop sees every trade ever, not just today's. Two consequences, both handled
             # here (bug found 2026-08-12: ORB's single Aug-11 trade was being re-reported
@@ -532,10 +685,11 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
                 leg_pnl += t["pnl_usd"]
             if not dry_run:
                 doc = json_safe({
-                    "leg": leg["key"], "strategy": leg["strategy"],
+                    "leg": key, "strategy": leg["strategy"],
                     "side": t["side"], "entryTime": entry_unix, "exitTime": exit_unix,
                     "entryIso": t["entry_dt"].isoformat(), "exitIso": t["exit_dt"].isoformat(),
                     "entry_px": t["entry_px"], "exit_px": t["exit_px"],
+                    "size": t.get("size", 1.0),
                     "pnl_pts": t["pnl_pts"], "pnl_usd": t["pnl_usd"],
                     "layer": "shadow", "run_date": t_date.isoformat(),
                     "flags": leg.get("flags") or [],
@@ -546,7 +700,29 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
                 pending += 1
                 if pending >= 400:
                     batch.commit(); batch = q.db.batch(); pending = 0
+        return trade_ids, todays_trades, leg_pnl
 
+    for leg in PAPER_LEGS:
+        r = run_shadow(leg, target_date)
+
+        # A gated leg's matched control is written FIRST so the board reads control-then-
+        # test, and so a failure writing the test never leaves the control missing.
+        _companion = leg.get("emit_ungated_as")
+        if _companion and r.get("ungated_trades"):
+            c_ids, c_today, c_pnl = _emit(leg, _companion, r["ungated_trades"])
+            leg_reports[_companion] = {
+                "n_signals": len(c_ids), "n_since_start": len(r["ungated_trades"]),
+                "trade_ids": c_ids, "pnl_usd": c_pnl, "_trades": c_today,
+                "bars_appended": r["bars_appended"], "data_fresh_thru": r["data_fresh_thru"],
+                "warnings": [], "flags": leg.get("flags") or [],
+                "source": LEG_SOURCE.get(_companion) or {},
+                "params": dict(leg.get("params") or {}),
+                "strategy_file": leg["strategy"], "timeframe": leg.get("timeframe"),
+                "gate": None, "control_for": leg["key"],
+            }
+            total_pnl += c_pnl
+
+        trade_ids, todays_trades, leg_pnl = _emit(leg, leg["key"], r["trades"])
         leg_reports[leg["key"]] = {
             # n_signals / pnl_usd are THIS DAY only; n_since_start is the running total
             # so the cumulative view is still available without conflating the two.
@@ -565,6 +741,11 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
             "source": leg.get("source") or {},
             "params": dict(leg.get("params") or {}),
             "strategy_file": leg["strategy"], "timeframe": leg.get("timeframe"),
+            # The gate's own summary (model, cut-off, how many it refused, average size
+            # it traded) rides with the leg for the same reason the params do: so a row
+            # on the board can always answer "what exactly produced this number".
+            "gate": r.get("gate"),
+            "control_leg": _companion or ("ORB" if leg["key"] == "ORB_H" else None),
         }
         total_pnl += leg_pnl
         if r["warnings"]:

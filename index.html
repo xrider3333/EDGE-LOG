@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.78';
+const VERSION='73.79';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -455,7 +455,9 @@ window._dataFeedWarn=function(){
   try{
     const r=(window._paperReports||[])[0]; if(!r||!r.legs)return [];
     const s=new Set();
-    ['ORB','ENGUQ','NOISE'].forEach(k=>{const L=r.legs[k]||r.legs[k.toLowerCase()]||{};
+    // Every leg in the report, not a fixed list: the gated legs were added later and a
+    // hardcoded roster here would just silently stop reporting their feed warnings.
+    Object.keys(r.legs).forEach(k=>{const L=r.legs[k]||{};
       (Array.isArray(L.warnings)?L.warnings:[]).forEach(w=>s.add(String(w)));});
     return [...s];
   }catch(e){return [];}
@@ -463,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.79',date:'2026-08-16',notes:['The ML GATE now runs on the paper board. Until today every ML result this project produced lived in the optimize/validate side and none of it was ever forward-tested; the paper runner only ever ran plain configs. It can now run a gate as an overlay: the strategy picks its trades exactly as before, and a second model - trained only on trades that had already FINISHED before each new trade fires - either skips the weak ones (cut) or skips them AND sizes the survivors by score (hybrid).','Three new legs. ORB +GATE is run #230 with its own crowned rf gate at 45% in hybrid mode - that gate was picked on pre-lockbox data by the pre-registered rule and then HELD its one look at the held-out year, and its hybrid row was the best of five on BOTH halves. NOISE-225 is the config two consecutive auto-validates actually crowned (lookback 44, 0.75/1.5 bands, stop 1.75), which the old hand-built NOISE leg is not. NOISE-225 +GATE is that config with a tree hybrid gate at 55%.','READ THE NOISE ONE AS A TEST, NOT A CROWN. The gate run #225 actually crowned FAILED its lockbox outright. The tree hybrid posted much the best held-out year, but its PRE-lockbox recovery was the WORST of the five, so the selection rule - which only ever sees pre-lockbox data - would never have picked it. That makes its win hindsight. It is on the board as a pre-registered forward test with the claim written down in advance: it should beat NOISE-225 from today on, and if it does not, that lockbox row was noise.','Every gated leg is paired with a matched CONTROL - the same backtest with the gate switched off - and the tile shows the head-to-head, because the question is never whether the gate made money but whether it beat the same strategy ungated. ORB +GATE reads against ORB; NOISE-225 +GATE against NOISE-225, which is emitted from the same backtest at no extra cost so nothing is confounded.','Tiles now show what the gate DID: model, mode, cut-off, how many trades it refused and the average size it traded. Without that a gated row is a bare number and a quiet market looks identical to a bouncer that refused everything. A gate that fails to run falls back to UNGATED and says so in red rather than silently reporting an empty day.','Housekeeping: the board leg list was five separate hardcoded arrays that had to agree by hand - which is how a tile once said grey while the curve drew yellow - and is now one definition everything derives from. The built-in ORB config card also still described the retired look-ahead #125 config long after the leg moved to #230.']},
 {v:'73.78',date:'2026-08-16',notes:['The SAMPLE and SHOW selectors on the two 1A candidate charts are pinned to the RIGHT now, travelling as one group - the same controls-right layout every other header in the report uses. In a narrow column the pair drops to a second line together, still flush right, instead of one of them getting stranded back on the left. The trend readout and the family key stay on the left, beside the chart they describe.']},
 {v:'73.76',date:'2026-08-16',notes:['HYBRID RECYCLE was missing from both 1A candidate charts and is now in, as the fifth family in the fifth funnel-key colour (pink). It was left out on the grounds that it is the same candidates re-sized rather than a separate family - true of WHICH candidates they are, but re-sizing a book changes its net AND its drawdown, so a recycled hybrid lands somewhere else entirely on a profit-vs-drawdown chart. That is the whole question that family answers, so it belongs here. The third hybrid tab, EQUAL-DD, is still not plotted - it is not one of the funnel-key families.','RENAMED, because the old names did not survive scrutiny. ALL POOLS leaned on "pool", which is internal jargon - the tabs and the funnel key both call these things families, and what you want named is what is in the chart. PNL vs DD was worse: BOTH charts plot profit against drawdown, so it did not tell them apart. They are now RISK MAP (the scatter) and RANKED (the bar list), titled ALL CANDIDATES.','The colour keys on both charts are now CLICKABLE. Click a family to hide it; click again to bring it back. Everything re-fits to what is left - the axes, the trend line and the bar dollar scale - so hiding the family that was stretching an axis actually gives the rest of the points room instead of just blanking some dots. A hidden family keeps a struck-through key so you can switch it back on. The two charts share the setting on purpose.','FIX on RANKED: the drawdown bar and the profit bar now sit on ONE line, sharing a single band and baseline. The previous pass put them in the top and bottom half of one track, which still read as two rows. On a candidate that lost money - the only case where both bars run the same way - the drawdown is drawn as a hollow outline with the loss bar solid inside it, so an overlap reads as one bar inside another.','New SHOW toggle on RANKED: BOTH / NET / DD. On BOTH the two halves share one dollar scale, so bar lengths are directly comparable - honest, but it does squash the drawdowns into stubs whenever profit dwarfs them (yes, the drawdown bars really did shrink, and that is why). Picking NET or DD isolates one and re-fits the scale to it, so its own spread fills the track and can be read properly. The scale in force is named under the bars.']},
 {v:'73.75',date:'2026-08-16',notes:['FIX: the 73.55 change that made RAW follow the SAMPLE tick only ever worked on runs produced by the newest engine - which is every run you have NOT got. On run #225 and every other existing run the RAW tab still showed the same pinned whole-window MAR, SHARPE and DD no matter what you ticked, so RAW-LB could never be compared with GATE-LB.','MAR, SHARPE and DD now follow the SAMPLE tick on OLD runs too. Those four read off the saved equity curves, which every run carries, so nothing newer is needed. On run #225 the crowned config reads MAR 14.22 with IS+WF ticked and MAR 1.00 with only LB ticked - two genuinely different numbers where before you got one.','PF, WIN % and $ / TRADE genuinely cannot be sliced from a curve - they need per-trade win/loss sums the older runs never saved. Rather than print an IS+WF number under an LB label, those three now show a dash on an old run whenever the tick is not exactly IS+WF, the section caption says so out loud, and hovering the dash explains why.','Also fixed while in there: DD and $ / TRADE printed point counts rather than dollars on the newest-engine path, the drawdown of a stretch missed the give-back after the last sampled point on the curve, and an IS-only or WF-only pick now uses the drawdown the engine actually measured for that stretch instead of estimating it.']},
@@ -17445,13 +17448,31 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // leg comes straight off the trade doc now (runner logs it verbatim: 'ORB'|'ENGUQ'|'NOISE');
       // the old name-sniffing heuristic is kept only as a fallback for legacy trades that predate the field.
       const legOf=t=>{const raw=t&&t.leg;if(raw)return String(raw).toUpperCase();const s=String((t&&t.strategy)||'').toUpperCase();return s.indexOf('ENGU')>=0?'ENGUQ':'ORB';};
-      const _legColor={ORB:'#5b8def',ENGUQ:'#c090ff',NOISE:'#2dd4bf'};
+      // ── ONE definition of the legs this board knows about (2026-08-16). This used to be
+      // FIVE hardcoded lists (_legColor, _legLabel, PLEGS, _tileDefs, _curveSeries) kept in
+      // agreement by hand -- which is exactly how a tile once said grey while the curve drew
+      // yellow. Adding the gated legs would have meant editing all five, so they derive from
+      // this single array instead.
+      //
+      // `ctrl` names the leg this one must be READ AGAINST: a gated leg means nothing alone,
+      // because the question is never "did the gate make money" but "did the gate beat the
+      // same strategy with the gate switched off". Each pair is one backtest, off vs on.
+      const PAPER_LEG_DEFS=[
+        {k:'ORB',       label:'ORB',             color:'#5b8def'},
+        {k:'ORB_H',     label:'ORB +GATE',       color:'#9dc0fb', ctrl:'ORB'},
+        {k:'ENGUQ',     label:'ENGU-Q',          color:'#c090ff'},
+        {k:'NOISE',     label:'NOISE',           color:'#2dd4bf'},
+        {k:'NOISE_225', label:'NOISE-225',       color:'#e0a33c'},
+        {k:'NOISE_H',   label:'NOISE-225 +GATE', color:'#f0c674', ctrl:'NOISE_225'},
+      ];
+      const _legColor=Object.fromEntries(PAPER_LEG_DEFS.map(d=>[d.k,d.color]));
+      const _legCtrl=Object.fromEntries(PAPER_LEG_DEFS.filter(d=>d.ctrl).map(d=>[d.k,d.ctrl]));
       // P&L sign colours are LITERAL hex on purpose. var(--green)/var(--red) resolve to
       // #f0f0f0 / #4d4d4d on the monochrome theme -- i.e. no colour, and the loss shade is
       // nearly invisible on the dark ground. The owner asked for green/red on the money
       // column specifically, so this is one of the few deliberate theme overrides.
       const PNL_POS='#1d9e75', PNL_NEG='#e24b4a';
-      const _legLabel={ORB:'ORB',ENGUQ:'ENGU-Q',NOISE:'NOISE'};
+      const _legLabel=Object.fromEntries(PAPER_LEG_DEFS.map(d=>[d.k,d.label]));
       // ── LEG FILTER (owner ask 2026-08-13) — same idea as the report's CLASSIC/NEO rail:
       // one control that narrows the WHOLE board to a single strategy. With three legs
       // sharing one trades table, one curve and one tile row, reading a single strategy's
@@ -17459,7 +17480,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // curve series and the trades table together, so what you see is only that leg.
       // ALL is the default and restores today's behaviour exactly. Not persisted to
       // localStorage on purpose — it is a lens you look through, not a setting you keep.
-      const PLEGS=['ALL','ORB','ENGUQ','NOISE'];
+      const PLEGS=['ALL',...PAPER_LEG_DEFS.map(d=>d.k)];
       const PLEG=PLEGS.indexOf(window._paperLeg)>=0?window._paperLeg:'ALL';
       const _legShown=k=>PLEG==='ALL'||PLEG===k;
       const ORB_LA_TIP='The ORB engine\'s volume filter is look-ahead (see PAPER_TRADING.md) — these shadow numbers are NOT live-achievable. The live candidate is ORB V2 on NinjaTrader.';
@@ -17487,11 +17508,30 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // is authoritative and now rides inside every daily report (legs[k].source/.params),
       // so a report is self-describing. Reports written before that change carry neither,
       // so this built-in map fills in until the next one lands; the report always wins.
+      // Newest report block that actually carries a gate summary for this leg. Same shape
+      // as _legSrc: the report is the source of truth, this is only the lookup.
+      const _legGate=k=>{const R=(_pr.find(r=>r&&r.legs&&r.legs[k]&&r.legs[k].gate)||{});
+        return R.legs?R.legs[k].gate:null;};
       const _CFG_FALLBACK={
-        ORB:{run_label:'#125',strategy_file:'ORB_3_0.py',
-             note:'The NO-TRAIL ORB_3_0 cut of run #125, not #125 crowned variant (the crown is ORB_3_1 with trail_bars=5).',
-             caveat:'Run #125 volume filter is LOOK-AHEAD: it gates an intrabar stop-entry on the breakout bar FINISHED volume. These shadow numbers are NOT live-achievable.',
-             params:{or_bars:1,trade_mode:'Both',stop_frac:0.75,vol_filter:1.25}},
+        // Updated 2026-08-16: this described run #125 / ORB_3_0 long after the leg was
+        // swapped to the #230 close-confirmed crown, so on any day the report was missing
+        // the tile confidently showed the retired look-ahead config.
+        ORB:{run_label:'#230 (ORB-40)',strategy_file:'ORB_3_4_C221.py',
+             note:'The grail-hunt winner: close-confirmed entry, so it is execution-legal. Validated PASS on all six checks with the lockbox held.',
+             caveat:'Replaced the old #125 leg on 2026-08-16. ORB paper numbers before that date came from the LOOK-AHEAD volume-filter config and were never live-achievable.',
+             params:{or_bars:2,trade_mode:'First-candle dir',stop_frac:2.0,atr_filter:0.7,vpace_filter:0.7,close_confirm:true,trail_bars:3,target_R:5.5,partial_exit_R:3.0}},
+        ORB_H:{run_label:'#230 (ORB-40) + rf hybrid gate',strategy_file:'ORB_3_4_C221.py',
+             note:'The ORB leg with run #230 own ML gate on, in hybrid mode: trades scoring under 45% are skipped and survivors are sized by score. That gate was crowned on pre-lockbox data and then HELD its one look at the lockbox.',
+             caveat:'Read it against the ORB leg — identical strategy and params, gate off — never on its own.',
+             params:{gate:'rf hybrid @45%'}},
+        NOISE_225:{run_label:'#225 (NOISE-6)',strategy_file:'NOISE_1_0.py',
+             note:'The config two consecutive auto-validates crowned (#202 and #225 landed on the identical dict). Lockbox PASS, PF 1.08 over 424 trades.',
+             caveat:'Added as the matched RAW control for NOISE-225 +GATE.',
+             params:{lookback:44,band_mult_long:0.75,band_mult_short:1.5,exit_mode:'vwap',stop_mode:'bandwidth',stop_k:1.75}},
+        NOISE_H:{run_label:'#225 (NOISE-6) + tree hybrid gate',strategy_file:'NOISE_1_0.py',
+             note:'Run #225 crowned config with a tree hybrid gate at the crowned 0.55 floor. In that run held-out year this row was the standout: PF 1.24 vs 1.13 ungated, with a third less drawdown.',
+             caveat:'NOT A CROWN. Its pre-lockbox recovery was the WORST of the five hybrids, so the selection rule would never have picked it — the lockbox win is hindsight. This leg is a pre-registered forward TEST: it should beat NOISE-225 from 2026-08-16 on, and if it does not, that lockbox row was noise.',
+             params:{gate:'tree hybrid @55%'}},
         ENGUQ:{run_label:'#149',strategy_file:'ENGUQ_1M_1_0.py',
              note:'NQ_DEPLOY_PARAMS_149 from the strategy file, plus the later breakeven_R=1.5 addition.',caveat:null,
              params:{tl_len:48,ema_len:390,buf_atr:0.9,min_brk:1.3,atr_len:30,vol_mult:0.8,stop_mult:1.0,act_R:2.5,trail_frac:2.5,breakeven_R:1.5}},
@@ -17624,6 +17664,35 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +'</div>';
           }
         }
+        // ── GATE (2026-08-16) ────────────────────────────────────────────────────
+        // A gated leg MUST say what the gate did. Without it the row is a bare number
+        // and there is no way to tell a quiet market from a bouncer that refused
+        // everything -- both look like "few trades". It also carries the head-to-head
+        // against its matched control, because that difference IS the experiment: the
+        // question is never "did the gate make money", it is "did the gate beat the
+        // same strategy with the gate switched off".
+        let gateBlock='';
+        const _gk=(name==='BLEND')?null:_legGate(name), _ck=_legCtrl[name];
+        if(_gk||_ck){
+          const parts=[];
+          if(_gk){
+            parts.push('<span style="color:var(--text5)">gate </span><b>'+(_gk.model||'?')+'</b>'
+              +' <span style="color:var(--text5)">'+(_gk.mode==='hybrid'?'hybrid':'cut')
+              +' @ '+Math.round((+_gk.threshold||0)*100)+'%</span>');
+            if(_gk.n_skipped!=null&&_gk.n_in!=null)parts.push('refused '+_gk.n_skipped+' of '+_gk.n_in);
+            if(_gk.avg_size!=null)parts.push('avg size '+(+_gk.avg_size).toFixed(2)+'x');
+            if(_gk.ok===false)parts.push('<span style="color:#e24b4a;font-weight:700">GATE FAILED — ran UNGATED</span>');
+          }
+          let cmp='';
+          if(_ck){
+            const d=a.net-legAgg(_ck).net;
+            cmp='<div style="margin-top:2px">vs <b>'+(_legLabel[_ck]||_ck)+'</b> '
+              +'<span style="color:'+(d>=0?PNL_POS:PNL_NEG)+';font-weight:700">'+(d>=0?'+':'')+fmtUsd(d)+'</span>'
+              +' <span style="color:var(--text5)">— same backtest, gate off vs on</span></div>';
+          }
+          gateBlock='<div style="margin-top:6px;padding-top:5px;border-top:1px solid var(--border2);font-size:8px;color:var(--text4);line-height:1.7">'
+            +parts.join(' · ')+cmp+'</div>';
+        }
         return '<div data-paperleg="'+(sel?'ALL':name)+'" title="'+(sel?'click to show all legs':'click to highlight '+label+' and show only its trades')
           +'" style="flex:1 1 170px;min-width:170px;padding:2px 14px 2px 0;cursor:pointer;opacity:'+(dim?0.42:1)+';transition:opacity .12s">'
           +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap"><span style="font-size:10px;font-weight:700;letter-spacing:1px;color:'+color+'">'+label+'</span>'
@@ -17631,12 +17700,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:nowrap">'
           +'<div style="font-size:20px;font-weight:700;line-height:1.15;color:'+(a.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(a.net)+'</div>'
           +'<div style="font-size:9px;color:var(--text4);line-height:1.45;text-align:right;white-space:nowrap">'+a.n+' trades · '+(a.n?Math.round(a.wr*100)+'% win':'—')+'<br>'+a.days+'d live · last '+(a.lastT?_dOnly(a.lastT):'—')+'</div></div>'
-          +xHtml+cfgBlock+'</div>';
+          +xHtml+cfgBlock+gateBlock+'</div>';
       };
       // Colours are hex, NOT theme vars: these four must match _curveSeries exactly, and
       // var(--yellow) resolves to #999999 grey on the monochrome theme while the BLEND
       // curve is hardcoded #e0c341 -- the tile said grey, the line drew yellow.
-      const _tileDefs=[['ORB','ORB','#5b8def'],['ENGUQ','ENGU-Q','#c090ff'],['NOISE','NOISE','#2dd4bf']];
+      const _tileDefs=PAPER_LEG_DEFS.map(d=>[d.k,d.label,d.color]);
       // ALL FOUR always render -- they are the chart legend, so filtering them away would
       // remove the only way to click back to another leg. Selection shows as emphasis, not
       // as absence.
@@ -17675,7 +17744,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:220px;display:block">'+gridLines+lines+xLabels+'</svg>';
       };
       // Every series is always built. PLEG no longer removes a curve, it dims the others.
-      const _curveSeries=[['ORB','ORB','#5b8def'],['ENGUQ','ENGU-Q','#c090ff'],['NOISE','NOISE','#2dd4bf']]
+      const _curveSeries=_tileDefs
         .map(d=>({label:d[1],color:d[2],vals:_cumByDate(d[0]),dim:PLEG!=='ALL'&&PLEG!==d[0]}));
       // MERGED PANEL (owner 2026-08-15): the leg tiles are the chart's header row, not their
       // own card. They were describing the same four things the curve already draws -- tile
@@ -17877,11 +17946,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const legs=r.legs||{};const st=r.status||'runner_done';
         const pillColor=st==='reviewed'?'var(--green)':'var(--text5)';
         const blendUsd=(r.blend&&r.blend.pnl_usd!=null)?fmtUsd(+r.blend.pnl_usd):'—';
-        const legSummary=['ORB','ENGUQ','NOISE'].map(k=>{const L=legs[k]||legs[k.toLowerCase()]||{};return (_legLabel[k]||k)+': '+(L.n_signals!=null?L.n_signals:'—')+' sig';}).join(' · ');
+        const legSummary=PAPER_LEG_DEFS.map(d=>d.k).filter(k=>legs[k]||legs[k.toLowerCase()]).map(k=>{const L=legs[k]||legs[k.toLowerCase()]||{};return (_legLabel[k]||k)+': '+(L.n_signals!=null?L.n_signals:'—')+' sig';}).join(' · ');
         const open=_repOpen.has(r.id);
         let detail='';
         if(open){
-          const legDetail=['ORB','ENGUQ','NOISE'].map(k=>{const L=legs[k]||legs[k.toLowerCase()]||{};
+          const legDetail=PAPER_LEG_DEFS.map(d=>d.k).filter(k=>legs[k]||legs[k.toLowerCase()]).map(k=>{const L=legs[k]||legs[k.toLowerCase()]||{};
             const warn=(Array.isArray(L.warnings)&&L.warnings.length)?('<div style="color:var(--yellow);font-size:10px;margin-top:4px">⚠ '+L.warnings.join(' · ')+'</div>'):'';
             return '<div style="flex:1 1 220px;min-width:200px;background:var(--bg1);border-radius:8px;padding:10px 12px">'
               +'<div style="font-weight:700;font-size:11px;margin-bottom:6px">'+(_legLabel[k]||k)+'</div>'
@@ -18067,7 +18136,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _num=(v,suffix)=>v==null?'<span style="color:var(--text5)">—</span>':(v+(suffix||''));
         const _usd=v=>v==null?'<span style="color:var(--text5)">—</span>'
           :'<span style="color:'+(v>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(v)+'</span>';
-        const legKeys=['ORB','ENGUQ','NOISE'].filter(_legShown);
+        const legKeys=PAPER_LEG_DEFS.map(d=>d.k).filter(_legShown);
         let mRows='',mHead='',mNote='';
         if(MSCOPE==='TODAY'){
           mHead='<th>STRATEGY</th><th style="text-align:right">EDGELOG</th><th style="text-align:right">TRADINGVIEW</th>'
@@ -18136,7 +18205,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +(_rec.note?'<div style="color:var(--text5);font-size:10px;margin-top:4px">'+_rec.note+'</div>':'')+'</div>';
         }else{
           const V=_rec.verdict||{};
-          const rows=['ORB','ENGUQ','NOISE'].filter(_legShown).map(k=>{
+          const rows=PAPER_LEG_DEFS.map(d=>d.k).filter(_legShown).map(k=>{
             const R=(_rec.legs||{})[k];
             const L=(_recRep.legs||{})[k]||{};
             if(!R)return '';
@@ -18237,8 +18306,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // times and implied a per-strategy fault that does not exist. Deduped and shown once.
       const _dataWarn=(()=>{
         const seen=new Set();
-        ['ORB','ENGUQ','NOISE'].forEach(k=>{
-          const L=(latestReport&&latestReport.legs)?(latestReport.legs[k]||latestReport.legs[k.toLowerCase()]||{}):{};
+        Object.keys((latestReport&&latestReport.legs)||{}).forEach(k=>{
+          const L=latestReport.legs[k]||{};
           (Array.isArray(L.warnings)?L.warnings:[]).forEach(w=>seen.add(String(w)));
         });
         return [...seen];

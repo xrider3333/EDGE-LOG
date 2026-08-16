@@ -39,8 +39,79 @@ after any change to a strategy's rules, not as a nightly job.
 | Leg | Config | Timing verdict | State |
 |---|---|---|---|
 | ENGU-Q | `ENGUQ_1M_1_0.py` #149 + breakeven 1.5, NQ 1m RTH | **CLEAN** (all conditions at bar close, entry at that close). Its one MILD trail assumption is *conservative* — live-realistic lagged trail earns **more** (+$31k/16.1y, `tools/enguq_trail_lag.py`) | Shadow: live · NT: `EdgeLogENGUQ1m` compiled, awaiting enable |
-| ORB | was `ORB_3_0.py` #125, NQ 5m RTH | **LOOK-AHEAD — dead as backtested** (below) | Shadow: still logging engine numbers (flagged fiction) · NT: V1 port retired, **V2 replaces it** |
-| BLEND 1:1 | ORB + ENGU-Q | Suspect — ORB leg inflated | Rollup only |
+| ORB | `ORB_3_4_C221.py` #230 (ORB-40), NQ 5m RTH — **swapped 2026-08-16** off the retired #125 `ORB_3_0` cut | **CLEAN** — close-confirmed entry, the whole point of the grail hunt that produced it | Shadow: live · NT: V1 port retired, **V2 replaces it** |
+| ORB +GATE | #230 + its own crowned **rf hybrid gate @45%** | Same as ORB — a gate is a post-trade overlay trained only on finished trades | Shadow: live · control = the ORB leg |
+| NOISE | `NOISE_1_0.py` hand-built round-12 config, NQ 5m RTH | **CLEAN** (close signal → next-open fill) | Shadow: live · NT: `EdgeLogNOISE` enabled · **never crowned by a run** |
+| NOISE-225 | `NOISE_1_0.py` #225/#202 crowned config (lookback 44, 0.75/1.5, stop 1.75) | CLEAN | Shadow: live · emitted free as NOISE-225 +GATE's control |
+| NOISE-225 +GATE | #225 config + **tree hybrid gate @55%** | CLEAN | Shadow: live · **a forward TEST, not a crown** (below) |
+| BLEND 1:1 | ORB + ENGU-Q | Suspect — the ORB leg was inflated until the 2026-08-16 swap | Rollup only, hidden in the UI |
+
+## THE ML GATE ON PAPER (built 2026-08-16 — `api/paper_gate.py`)
+
+Every ML result this project has produced lived in the optimize/validate path and **none of it
+had ever been forward-tested** — `api/paper.py` called `run_backtest` with a plain params dict
+and nothing else. That gap is now closed.
+
+**What a gate is.** The strategy picks its trades exactly as always. A second model scores each
+trade at the moment it fires and either refuses the weak ones (`cut`) or refuses them *and*
+sizes the survivors by score (`hybrid`). The strategy file is never touched.
+
+**Why it is safe to forward-test.** The model only ever trains on trades that had already
+FINISHED before the current trade's entry bar. That discipline lives in
+`augur_engine/ml_gate.py::gate_trades`; `paper_gate.py` deliberately does not reimplement it —
+it calls that function with `threshold=0.0` (a pure scoring pass) and applies the cut-off and
+size dial to the returned scores, which is byte-for-byte how `gate_validate` builds its own
+candidate and hybrid rows.
+
+**The one deviation, stated plainly.** `gate_validate` normalises hybrid sizes by the mean
+weight over its pre-lockbox survivors. A forward test cannot compute that without averaging over
+its own future, so `size_norm` is a **frozen constant** measured once by
+`tools/paper_gate_calibrate.py` against the source run's own window. That tool reproduced each
+source run exactly — ORB_H 1946 survivors / max size 1.78 vs #230's stored `kept_pre 1946 /
+max_size 1.78`; NOISE_H 2206 / 1.80 vs #225's `2206 / 1.8`. Re-run it if base params, model or
+cut-off ever change.
+
+**Matched controls.** A gated leg alone answers nothing — the question is never "did the gate
+make money" but "did it beat the same strategy with the gate off". So every gated leg is paired:
+ORB +GATE reads against ORB (verified 2026-08-16 to be a bit-identical trade set; both legs now
+load the same full history so it stays that way by construction), and NOISE-225 +GATE against
+NOISE-225, which is emitted from the *same backtest* via `emit_ungated_as` at no extra cost.
+
+### ORB +GATE — the evidence-backed one
+Run #230's crowned gate is `rf@0.45`, chosen by the pre-registered net-dollars / 80%-MAR-floor
+rule on **pre-lockbox data only**, and it HELD its one look at the lockbox (recovery 2.48 vs
+2.31). Its hybrid row was then best of five on **both** halves: top pre-lockbox recovery (6.97)
+*and* the best held-out year (PF 1.403 vs 1.311 ungated, $3,982 vs $3,229, drawdown −1,219 vs
+−1,400). Best before and after the boundary is the pattern you want, and it is the only ML
+variant in this project that has it.
+
+> This also overturns, **for ORB only**, the older program-wide "no adoption anywhere" verdict —
+> that was measured on the *leaky* ORB family, where the gate's apparent edge was the leak.
+
+### NOISE-225 +GATE — a pre-registered forward TEST, not a crown
+**Do not report this as a validated result.** Run #225's *actual* crowned gate was
+`logistic@0.55` and it **FAILED** its lockbox outright (gated recovery 0.44 vs ungated 1.50).
+The `tree` hybrid at the same floor posted by far the best held-out year (PF 1.240 vs 1.128,
+$3,117 vs $2,286, drawdown −1,079 vs −1,521) — but its **pre-lockbox recovery (5.96) was the
+worst of the five**, so the selection rule, which only ever sees pre-lockbox data, would never
+have picked it. Its lockbox win is visible only in hindsight, and crowning it would be exactly
+the lockbox-shopping `gate_validate` exists to prevent.
+
+Forward-testing is the one legitimate way to settle a result like that: the claim is written
+down *before* the data exists, and paper trading costs nothing but compute.
+
+> **THE CLAIM, stated so it can fail:** from **2026-08-16** forward, NOISE-225 +GATE should beat
+> NOISE-225 on recovery factor. If it does not, the pre-lockbox ranking was right and the
+> lockbox row was noise.
+
+**Known quirk worth watching:** a depth-3 tree produces very few distinct leaf probabilities, so
+on recent trades its "size dial" has been a near-constant ~0.85× haircut rather than a real
+per-trade dial. That is honest tree behaviour, not a bug — but it means this leg may end up
+testing *"trade ~15% smaller and skip a few"* more than *"size by conviction"*.
+
+**Cost:** the gated legs load full history so the gate is the model the validate crowned rather
+than a 150-day cousin. ORB_H's rf walk is ~110s, NOISE_H's tree ~6s — about two minutes added to
+the once-a-day EOD run.
 
 ## THE ORB LOOK-AHEAD (found 2026-08-10/11 — read before touching anything ORB)
 
