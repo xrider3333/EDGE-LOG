@@ -446,11 +446,24 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.67';
+const VERSION='73.68';
+// Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
+// show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
+// every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
+// each leg tile (owner 2026-08-15: "has nothing to do with paper trading").
+window._dataFeedWarn=function(){
+  try{
+    const r=(window._paperReports||[])[0]; if(!r||!r.legs)return [];
+    const s=new Set();
+    ['ORB','ENGUQ','NOISE'].forEach(k=>{const L=r.legs[k]||r.legs[k.toLowerCase()]||{};
+      (Array.isArray(L.warnings)?L.warnings:[]).forEach(w=>s.add(String(w)));});
+    return [...s];
+  }catch(e){return [];}
+};
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-{v:'73.67',date:'2026-08-16',notes:[
+{v:'73.68',date:'2026-08-16',notes:[
  'FIX, the ALL POOLS dots really were not coloured. Three of the four pools were painted from THEME colours rather than fixed ones, and on the MONO theme the whole palette is grey - so RAW, GATE and TILT all came out the same grey and only HYBRID kept any colour. All four now use the exact colours the 1A FUNNEL key already paints them: RAW green, GATE red, TILT amber, HYBRID violet. Same colour for a family in both charts, on every theme.',
  'ALL POOLS has real axes now: a drawn x and y axis with tick marks and five labelled dollar values on each, named axis titles (NET PNL up the side, DD along the bottom), and a dashed trend line through the cloud - labelled with how many dollars of net it adds per $1 of extra drawdown and an r-squared, so a flat, meaningless trend says so out loud instead of looking like a finding.',
  'PNL vs DD is ONE row per candidate now, not two. Its name, its drawdown in dollars, both bars sharing one centreline, and its net in dollars all sit on a single line - and both bars are drawn to ONE dollar scale, so a bar twice as long really is twice the money. A candidate that lost money draws its net bar leftward, alongside its drawdown.',
@@ -7489,6 +7502,7 @@ function renderApp(){
           <span>${bScope(trades).length}${activeBroker?' '+activeBroker:''} trades</span><span style="color:var(--text5)">·</span>
           <span style="color:${S?gch(S.net):'var(--text5)'}">${S?fmt(S.net):'—'}</span>
           ${autoHandle?'<span style="color:var(--text5)">·</span><span style="color:var(--yellow)"><span class="pulse-y"></span> AUTO</span>':''}
+          ${(()=>{const w=window._dataFeedWarn?window._dataFeedWarn():[];return w.length?'<span style="color:var(--text5)">·</span><span title="'+w.join(' | ').replace(/"/g,'&quot;')+' - shared 10s tick capture, affects every leg equally" style="cursor:help;color:#e0c341">&#9888; DATA</span>':'';})()}
         </div>
       </div>
     </div>
@@ -17242,7 +17256,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // curve series and the trades table together, so what you see is only that leg.
       // ALL is the default and restores today's behaviour exactly. Not persisted to
       // localStorage on purpose — it is a lens you look through, not a setting you keep.
-      const PLEGS=['ALL','ORB','ENGUQ','NOISE','BLEND'];
+      const PLEGS=['ALL','ORB','ENGUQ','NOISE'];
       const PLEG=PLEGS.indexOf(window._paperLeg)>=0?window._paperLeg:'ALL';
       const _legShown=k=>PLEG==='ALL'||PLEG===k;
       const ORB_LA_TIP='The ORB engine\'s volume filter is look-ahead (see PAPER_TRADING.md) — these shadow numbers are NOT live-achievable. The live candidate is ORB V2 on NinjaTrader.';
@@ -17327,14 +17341,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'" style="flex:1 1 170px;min-width:170px;padding:2px 14px 2px 0;cursor:pointer;opacity:'+(dim?0.42:1)+';transition:opacity .12s">'
           +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap"><span style="font-size:10px;font-weight:700;letter-spacing:1px;color:'+color+'">'+label+'</span>'
           +(sel?'<span style="font-size:8px;color:var(--text5)">●</span>':'')+wBadge+orbBadge+'</div>'
-          +'<div style="font-size:20px;font-weight:700;color:'+(a.net>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(a.net)+'</div>'
-          +'<div style="font-size:9px;color:var(--text4);margin-top:2px">'+a.n+' trades · '+(a.n?Math.round(a.wr*100)+'% win':'—')+' · '+a.days+'d live<br>last '+(a.lastT?_dOnly(a.lastT):'—')+'</div>'
+          +'<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">'
+          +'<div style="font-size:20px;font-weight:700;color:'+(a.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(a.net)+'</div>'
+          +'<div style="font-size:9px;color:var(--text4);line-height:1.5">'+a.n+' trades · '+(a.n?Math.round(a.wr*100)+'% win':'—')+' · '+a.days+'d live<br>last '+(a.lastT?_dOnly(a.lastT):'—')+'</div></div>'
           +cfgBlock+'</div>';
       };
       // Colours are hex, NOT theme vars: these four must match _curveSeries exactly, and
       // var(--yellow) resolves to #999999 grey on the monochrome theme while the BLEND
       // curve is hardcoded #e0c341 -- the tile said grey, the line drew yellow.
-      const _tileDefs=[['ORB','ORB','#5b8def'],['ENGUQ','ENGU-Q','#c090ff'],['NOISE','NOISE','#2dd4bf'],['BLEND','BLEND (1:1)','#e0c341']];
+      const _tileDefs=[['ORB','ORB','#5b8def'],['ENGUQ','ENGU-Q','#c090ff'],['NOISE','NOISE','#2dd4bf']];
       // ALL FOUR always render -- they are the chart legend, so filtering them away would
       // remove the only way to click back to another leg. Selection shows as emphasis, not
       // as absence.
@@ -17370,7 +17385,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:220px;display:block">'+gridLines+lines+xLabels+'</svg>';
       };
       // Every series is always built. PLEG no longer removes a curve, it dims the others.
-      const _curveSeries=[['ORB','ORB','#5b8def'],['ENGUQ','ENGU-Q','#c090ff'],['NOISE','NOISE','#2dd4bf'],['BLEND','BLEND','#e0c341']]
+      const _curveSeries=[['ORB','ORB','#5b8def'],['ENGUQ','ENGU-Q','#c090ff'],['NOISE','NOISE','#2dd4bf']]
         .map(d=>({label:d[1],color:d[2],vals:_cumByDate(d[0]),dim:PLEG!=='ALL'&&PLEG!==d[0]}));
       // MERGED PANEL (owner 2026-08-15): the leg tiles are the chart's header row, not their
       // own card. They were describing the same four things the curve already draws -- tile
@@ -17481,6 +17496,30 @@ namespace NinjaTrader.NinjaScript.Strategies {
           (L.shadow_only||[]).forEach(s=>{if(s&&s.entry)_ntSeen[s.entry]=false;});
         });
       });
+      const _ntMatch={};   // entryIso -> the reconcile's matched record (slip + live delta)
+      _pr.forEach(r=>{
+        const legs=(r&&r.reconcile&&r.reconcile.legs)?r.reconcile.legs:null;
+        if(!legs)return;
+        Object.keys(legs).forEach(k=>{
+          (legs[k].matched||[]).forEach(m=>{if(m&&m.shadow_entry)_ntMatch[m.shadow_entry]=m;});
+        });
+      });
+      // Running cumulative, computed over the CURRENTLY SORTED+FILTERED rows in
+      // chronological order, so it always reads as a real equity progression of what is on
+      // screen rather than a frozen all-time number pasted onto each row.
+      const _cumById=(()=>{
+        const chron=_tSorted.slice().sort((a,b)=>(+a.exitTime||+a.entryTime||0)-(+b.exitTime||+b.entryTime||0));
+        const m=new Map(); let c=0;
+        chron.forEach(x=>{c+=(+x.pnl_usd||0); m.set(x,c);});
+        return m;
+      })();
+      const _durTxt=t=>{
+        const a=+t.entryTime||0,b=+t.exitTime||0;
+        if(!a||!b||b<a)return '—';
+        const mins=Math.round((b-a)/60000);
+        if(mins<60)return mins+'m';
+        return Math.floor(mins/60)+'h'+String(mins%60).padStart(2,'0');
+      };
       const _engChip=(lbl,col,tip)=>'<span title="'+String(tip).replace(/"/g,'&quot;')+'" style="cursor:help;font-size:8px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:4px;border:1px solid '+col+';color:'+col+'">'+lbl+'</span>';
       const _engineCell=t=>{
         const iso=t.entryIso||null;
@@ -17521,12 +17560,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<td>'+_fmtET(t.exitTime)+'</td>'
           +'<td style="text-align:right">'+(t.entry_px!=null?(+t.entry_px).toFixed(2):'—')+'</td>'
           +'<td style="text-align:right">'+(t.exit_px!=null?(+t.exit_px).toFixed(2):'—')+'</td>'
+          +'<td style="text-align:right">'+_durTxt(t)+'</td>'
           +'<td style="text-align:right">'+(t.pnl_pts!=null?(+t.pnl_pts).toFixed(2):'—')+'</td>'
+          +(()=>{const m=t.entryIso?_ntMatch[t.entryIso]:null;
+            if(!m)return '<td style="text-align:right;color:var(--text5)" title="no matched NinjaTrader fill for this trade, so there is nothing to compare">—</td>'
+                        +'<td style="text-align:right;color:var(--text5)">—</td>';
+            const sl=(m.entry_slip_pts!=null)?+m.entry_slip_pts:null;
+            const dd=(m.pnl_diff_usd!=null)?+m.pnl_diff_usd:null;
+            return '<td style="text-align:right;color:'+(sl==null?'var(--text5)':(sl>0?PNL_NEG:(sl<0?PNL_POS:'var(--text4)')))+'" title="entry slippage in points, signed AGAINST us: positive means the live fill was worse than the engine">'
+                 +(sl==null?'—':(sl>0?'+':'')+sl.toFixed(2))+'</td>'
+                 +'<td style="text-align:right;color:'+(dd==null?'var(--text5)':(dd>=0?PNL_POS:PNL_NEG))+'" title="live P and L minus engine P and L on this matched trade">'
+                 +(dd==null?'—':fmtUsd(dd))+'</td>';})()
           +'<td style="text-align:right;font-weight:600;color:'+(pnl>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(pnl)+'</td>'
+          +(()=>{const c=_cumById.get(t);return '<td style="text-align:right;color:'+((c||0)>=0?PNL_POS:PNL_NEG)+';opacity:.75" title="running total of the rows currently shown, in date order">'+(c==null?'—':fmtUsd(c))+'</td>';})()
           +_chartCell+'</tr>';
       }).join('');
       const tradesHtml=tile('<div class="lbl" style="margin-bottom:8px">TRADES'+(_tSorted.length>200?' <span style="font-weight:400;color:var(--text5);font-size:8px">· showing 200 of '+_tSorted.length+'</span>':'')+'</div>'
-        +(_tSorted.length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th title="which engines produced this trade">ENGINES</th>'+_psTh('date','DATE')+_psTh('leg','LEG')+_psTh('side','SIDE')+_psTh('entry','ENTRY (ET)')+_psTh('exit','EXIT (ET)')+_psTh('entrypx','ENTRY PX','right')+_psTh('exitpx','EXIT PX','right')+_psTh('pts','PTS','right')+_psTh('usd','$','right')+'<th>CHART</th></tr></thead><tbody>'+_tRows+'</tbody></table></div>'
+        +(_tSorted.length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th title="which engines produced this trade">ENGINES</th>'+_psTh('date','DATE')+_psTh('leg','LEG')+_psTh('side','SIDE')+_psTh('entry','ENTRY (ET)')+_psTh('exit','EXIT (ET)')+_psTh('entrypx','ENTRY PX','right')+_psTh('exitpx','EXIT PX','right')+'<th style="text-align:right" title="how long the trade was held">DUR</th>'+_psTh('pts','PTS','right')
+        +'<th style="text-align:right" title="entry slippage in points vs the engine, positive = live fill was worse">SLIP</th>'
+        +'<th style="text-align:right" title="live P and L minus engine P and L, matched trades only">&#916; $</th>'
+        +_psTh('usd','$','right')+'<th style="text-align:right" title="running total of the rows shown, in date order">CUM</th><th>CHART</th></tr></thead><tbody>'+_tRows+'</tbody></table></div>'
           :'<div style="padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:1px">NO PAPER TRADES YET — SHADOW TRADING STARTS '+PAPER_START+'</div>'));
       // daily reports — one row per paper_reports doc, click to expand per-leg detail + verdict
       const _repOpen=window._paperReportOpen||(window._paperReportOpen=new Set());
@@ -17576,7 +17629,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _age=ts=>{if(!ts)return null;const m=Math.floor((Date.now()-Date.parse(String(ts).replace(' ','T')+'Z'))/60000);return m;};
         const ageMin=B?_age(B.checked_at):null;
         const up=!!(B&&B.up), fresh=ageMin!=null&&ageMin<=12;
-        const dotCol=!B?'var(--text5)':(up&&fresh?'var(--green)':(up?'var(--yellow)':'var(--red)'));
+        const dotCol=!B?'#777':(up&&fresh?'#1d9e75':(up?'#e0c341':'#e24b4a'));
         const statusTxt=!B?'never reported':(up?'UP':'DOWN')+(ageMin!=null?' · checked '+(ageMin<1?'just now':ageMin+'m ago'):'');
         // Dead-man's-switch banner. Computed HERE, client-side, from B.checked_at's own
         // age (Date.now() vs the timestamp) rather than trusting meta/nt_alert's written
@@ -17637,6 +17690,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           ['Clean shutdown (/shutdown)','PARTIAL','disconnects + can leave the window open; force-kill is the fallback today'],
           ['ConnectOnStartup persistence','PARTIAL','flag is set; whether NT honors it across a real reboot is unproven'],
           ['Place a live order','BUILT, OFF','orders_enabled:false in bridge.json — flip only when going live'],
+          ['Read a strategy live config (/strategy/params)','LIVE','v2.1 — what NinjaTrader is ACTUALLY running, no dialog needed'],
+          ['Edit a strategy parameter (/strategy/setparam)','LIVE','v2.1 — same L1/L2 rails, and refuses while the strategy is running'],
+          ['Config reconcile: engine vs NinjaTrader','LIVE','tools/nt_config_reconcile.py — 20/20 params agree today'],
           ['Add a new strategy instance (/strategy/add)','PLANNED','template + StrategyAdd — lets the bridge fully manage the roster'],
           ['Order-rate / loss-limit circuit breaker','PLANNED','refuse new orders past N losses or N orders in a window'],
           ['Intraday P&L drawdown alert','PLANNED','preflight + reconcile are once-a-day; nothing pings mid-session yet'],
@@ -17647,7 +17703,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           ['Backtest trigger via bridge (Strategy Analyzer)','PLANNED','separate automation surface, not yet started'],
           ['Position-size / margin sanity check before first live enable','PLANNED','checks HOW MUCH, not just WHICH account'],
           ['Fill-price sanity check vs live market','PLANNED','blocked: the bridge has no quote endpoint yet — would need a new one'],
-          ['Auto-recover: relaunch + re-enable after a crash','PLANNED','pieces all exist (login, connect, enable) — nothing chains them yet'],
+          ['Auto-recover: relaunch + re-enable after a crash','LIVE','C:\EdgeLog\nt_recover.ps1 — chains login + connect + enable; recovered NT twice on 2026-08-16'],
         ];
         const _mHelp=!!window._paperMcpHelp;
         const mcpRows=MCP_FEATURES.map(([name,status,note])=>{
@@ -17860,21 +17916,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +(x.note?'<tr><td colspan="8" style="padding:0 0 8px;border:0;font-size:10px;color:var(--text5)">'+x.note+'</td></tr>':'');
         }).join('');
         const _rHelp=!!window._paperReconHelp;
+        // Tabbed, not stacked (owner: "just tab the view so i can tab between today and
+        // full history"). They answer the same question over different windows, so showing
+        // both at once doubled the panel for no extra insight.
+        const _rTab=(window._paperReconTab==='HIST')?'HIST':'TODAY';
+        const _rTabBtn=(v,lbl)=>'<span data-recontab="'+v+'" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 9px;border-radius:999px;border:1px solid '
+          +(_rTab===v?'var(--blue)':'var(--border)')+';color:'+(_rTab===v?'var(--blue)':'var(--text4)')+'">'+lbl+'</span>';
         reconcileHtml=tile('<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px">'
           +'<div class="lbl">RECONCILE · DO THE THREE ENGINES AGREE?</div>'
           +'<span style="font-size:9px;color:var(--text5)">'+(_recRep?('daily block from '+_recRep.id):'daily block missing')+'</span>'
+          +'<span style="display:flex;gap:5px">'+_rTabBtn('TODAY','TODAY')+_rTabBtn('HIST','FULL HISTORY')+'</span>'
           +'<span data-reconhelp style="cursor:pointer;font-size:9px;color:var(--text5);border:1px solid var(--border);border-radius:999px;padding:1px 8px">'+(_rHelp?'hide':'what is this?')+'</span></div>'
           +(_rHelp?('<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6;margin:0 2px 12px;max-width:860px">'
           +'The same strategy runs in three places: our engine (what we believe), NinjaTrader on the broker demo (what a broker actually filled), and TradingView (an outside engine as a second opinion). '
           +'If they disagree, one of them is wrong — and until this panel existed, nothing said which. '
           +TV_HAS_NO_FEED+' A leg reading NEVER RUN has not been checked against a second engine at all.</div>'):'')
-          +'<div class="lbl" style="font-size:10px;margin:4px 0 6px;color:var(--text3)">TODAY · ENGINE vs NINJATRADER <span style="font-weight:400;color:var(--text5)">· rebuilt automatically at every close</span></div>'
-          +todayBody
-          +'<div class="lbl" style="font-size:10px;margin:18px 0 6px;color:var(--text3)">FULL HISTORY · ENGINE vs TRADINGVIEW vs NINJATRADER <span style="font-weight:400;color:var(--text5)">· hand-run, see date</span></div>'
+          +(_rTab==='TODAY'?('<div class="lbl" style="font-size:10px;margin:4px 0 6px;color:var(--text3)">ENGINE vs NINJATRADER <span style="font-weight:400;color:var(--text5)">· rebuilt automatically at every close</span></div>'
+          +todayBody):'')
+          +(_rTab==='HIST'?('<div class="lbl" style="font-size:10px;margin:4px 0 6px;color:var(--text3)">ENGINE vs TRADINGVIEW vs NINJATRADER <span style="font-weight:400;color:var(--text5)">· hand-run, see date</span></div>'
           +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>LEG</th>'
           +'<th style="text-align:right">ENGINE</th><th style="text-align:right">TV</th><th style="text-align:right" title="exit bars that landed on the identical bar">TV SAME</th>'
           +'<th style="text-align:right">NT</th><th style="text-align:right" title="exit bars that landed on the identical bar">NT SAME</th>'
-          +'<th>LAST RUN</th><th>VERDICT</th></tr></thead><tbody>'+(xrows||'<tr><td colspan="8" style="color:var(--text5)">no legs shown</td></tr>')+'</tbody></table></div>'
+          +'<th>LAST RUN</th><th>VERDICT</th></tr></thead><tbody>'+(xrows||'<tr><td colspan="8" style="color:var(--text5)">no legs shown</td></tr>')+'</tbody></table></div>'):'')
           );
       }
       const _reloadLbl=window._paperLoading?'LOADING…':'⟳ REFRESH';
@@ -17891,7 +17954,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +(k==='ALL'?'ALL':(_legLabel[k]||k))+'</span>';
         }).join('')+'</span>';
       const headerHtml='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px"><span class="lbl" style="font-size:13px">◷ PAPER · LIVE FORWARD TEST</span>'+_legRail+_reloadBtn+'<span style="margin-left:auto;font-size:9px;color:var(--text5)">paper trading starts '+PAPER_START+'</span></div>'
-        +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6;margin:0 2px 16px;max-width:820px">The runner re-runs each crowned strategy on live data every day and logs the trades it would have taken — no real money. This board shows whether reality tracks the backtest.</div>';
+        +'<div style="margin-bottom:12px"></div>';
       // ── DATA FEED — one shared line, not a badge on every tile ────────────────
       // Owner 2026-08-15: "why is there a 10s warning on them. has nothing to do with
       // paper trading." Correct: every warning the legs emit is about the shared 10s tick
@@ -17914,7 +17977,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         : '';
       // curveHtml now CARRIES the leg tiles, so it takes the tiles' old slot at the top:
       // summary + curve read as one block, then the detail panels below it.
-      body=headerHtml+dataHtml+curveHtml+tradesHtml+matrixHtml+bridgeHtml+reconcileHtml+reportsHtml
+      body=headerHtml+bridgeHtml+curveHtml+tradesHtml+matrixHtml+reconcileHtml+reportsHtml
         +(window._paperErr?'<div style="color:var(--red);font-size:10px;margin-top:10px">load error: '+String(window._paperErr).replace(/</g,'&lt;')+'</div>':'');
     }else{
       const allRuns=runHistory.slice();
@@ -18936,6 +18999,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const rb=content.querySelector('[data-paperrefresh]');if(rb)rb.onclick=()=>{loadPaper(null,true);renderApp();};
       // Leg rail — a lens, not a saved preference, so it lives on window and resets on reload.
       content.querySelectorAll('[data-paperleg]').forEach(el=>{el.onclick=()=>{window._paperLeg=el.getAttribute('data-paperleg');renderApp();};});
+      content.querySelectorAll('[data-recontab]').forEach(el=>{el.onclick=()=>{window._paperReconTab=el.getAttribute('data-recontab');renderApp();};});
       const rh=content.querySelector('[data-reconhelp]');if(rh)rh.onclick=()=>{window._paperReconHelp=!window._paperReconHelp;renderApp();};
       content.querySelectorAll('[data-psort]').forEach(el=>{el.onclick=()=>{
         const k=el.getAttribute('data-psort');

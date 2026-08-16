@@ -155,7 +155,25 @@ def _log(msg):
 
 # ── fresh-tail builder ───────────────────────────────────────────────────────────
 def _ticks_path():
-    return _ADDON_10S if os.path.exists(_ADDON_10S) else _FALLBACK_10S
+    """Pick the FRESHEST 10s file, not merely the first one that exists.
+
+    This preferred _ADDON_10S purely on existence, which is how a stale file won:
+    the NinjaScript OHLC export stopped writing on 2026-08-13 (it only runs while its
+    chart is open, and NinjaTrader was restarted repeatedly), so the addon file froze a
+    day behind while the watch-folder copy at _FALLBACK_10S kept up to 2026-08-14. The
+    runner went on reading the frozen file and every leg reported "10s data looks stale"
+    -- with a fresher file sitting right next to it. Compare last-modified and take the
+    newer; if only one exists that one wins by default.
+    """
+    have = [p for p in (_ADDON_10S, _FALLBACK_10S) if os.path.exists(p)]
+    if not have:
+        return _ADDON_10S          # canonical path for the "missing" warning
+    if len(have) == 1:
+        return have[0]
+    try:
+        return max(have, key=os.path.getmtime)
+    except OSError:
+        return have[0]
 
 
 def _load_fresh_ticks():
