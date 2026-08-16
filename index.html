@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.76';
+const VERSION='73.77';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -463,6 +463,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.77',date:'2026-08-16',notes:['The SAMPLE and SHOW selectors on the two 1A candidate charts are pinned to the RIGHT now, travelling as one group - the same controls-right layout every other header in the report uses. In a narrow column the pair drops to a second line together, still flush right, instead of one of them getting stranded back on the left. The trend readout and the family key stay on the left, beside the chart they describe.']},
 {v:'73.76',date:'2026-08-16',notes:['HYBRID RECYCLE was missing from both 1A candidate charts and is now in, as the fifth family in the fifth funnel-key colour (pink). It was left out on the grounds that it is the same candidates re-sized rather than a separate family - true of WHICH candidates they are, but re-sizing a book changes its net AND its drawdown, so a recycled hybrid lands somewhere else entirely on a profit-vs-drawdown chart. That is the whole question that family answers, so it belongs here. The third hybrid tab, EQUAL-DD, is still not plotted - it is not one of the funnel-key families.','RENAMED, because the old names did not survive scrutiny. ALL POOLS leaned on "pool", which is internal jargon - the tabs and the funnel key both call these things families, and what you want named is what is in the chart. PNL vs DD was worse: BOTH charts plot profit against drawdown, so it did not tell them apart. They are now RISK MAP (the scatter) and RANKED (the bar list), titled ALL CANDIDATES.','The colour keys on both charts are now CLICKABLE. Click a family to hide it; click again to bring it back. Everything re-fits to what is left - the axes, the trend line and the bar dollar scale - so hiding the family that was stretching an axis actually gives the rest of the points room instead of just blanking some dots. A hidden family keeps a struck-through key so you can switch it back on. The two charts share the setting on purpose.','FIX on RANKED: the drawdown bar and the profit bar now sit on ONE line, sharing a single band and baseline. The previous pass put them in the top and bottom half of one track, which still read as two rows. On a candidate that lost money - the only case where both bars run the same way - the drawdown is drawn as a hollow outline with the loss bar solid inside it, so an overlap reads as one bar inside another.','New SHOW toggle on RANKED: BOTH / NET / DD. On BOTH the two halves share one dollar scale, so bar lengths are directly comparable - honest, but it does squash the drawdowns into stubs whenever profit dwarfs them (yes, the drawdown bars really did shrink, and that is why). Picking NET or DD isolates one and re-fits the scale to it, so its own spread fills the track and can be read properly. The scale in force is named under the bars.']},
 {v:'73.75',date:'2026-08-16',notes:['FIX: the 73.55 change that made RAW follow the SAMPLE tick only ever worked on runs produced by the newest engine - which is every run you have NOT got. On run #225 and every other existing run the RAW tab still showed the same pinned whole-window MAR, SHARPE and DD no matter what you ticked, so RAW-LB could never be compared with GATE-LB.','MAR, SHARPE and DD now follow the SAMPLE tick on OLD runs too. Those four read off the saved equity curves, which every run carries, so nothing newer is needed. On run #225 the crowned config reads MAR 14.22 with IS+WF ticked and MAR 1.00 with only LB ticked - two genuinely different numbers where before you got one.','PF, WIN % and $ / TRADE genuinely cannot be sliced from a curve - they need per-trade win/loss sums the older runs never saved. Rather than print an IS+WF number under an LB label, those three now show a dash on an old run whenever the tick is not exactly IS+WF, the section caption says so out loud, and hovering the dash explains why.','Also fixed while in there: DD and $ / TRADE printed point counts rather than dollars on the newest-engine path, the drawdown of a stretch missed the give-back after the last sampled point on the curve, and an IS-only or WF-only pick now uses the drawdown the engine actually measured for that stretch instead of estimating it.']},
 {v:'73.70',date:'2026-08-16',notes:['FIX on the ALL POOLS chart just shipped: it was being stretched to fill its tile, which squashed it sideways and stretched it tall - the dots came out as ovals rather than circles, and worse, the trend line LOOKED like a different slope than the one it was actually measured at, so you could not read a dot honestly against the two axes. It now keeps its true shape at whatever width the column is. Trade-off worth knowing: this one chart no longer has a drag handle to pull it taller, because its height is now fixed by its width.']},
@@ -11737,9 +11738,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         return '<circle class="cfgmark" data-mtxsc="1" data-pool="'+p.pool+'" data-mtxkey="'+(p.key||'')+'" data-net="'+Math.round(p.pnl)+'" cx="'+cx+'" cy="'+cy+'" r="'+(p.crowned?4.6:3.1)+'" fill="'+col+'" opacity="'+(p.crowned?1:0.88)+'"'+(p.crowned?' stroke="var(--text)" stroke-width="1.4"':'')+' style="cursor:pointer;transition:opacity .12s" data-tip="'+tip.replace(/"/g,'&quot;')+'"/>';
       }).join('');
       const _tip='Every candidate the search produced, across all five families, on ONE chart - a sanity check that does not depend on the pre-registered net-$ + MAR-floor rule that actually crowns. Each dot = one candidate: max drawdown on the x axis (a magnitude, so further right = deeper pain) against net $ on the y axis. The crown = the engine-crowned RAW config, ringed in white. Colours match the 1A FUNNEL key exactly, and clicking a key hides that family - the axes and the trend line re-fit to what is left. Click any dot to jump to that candidate own column in the 1E MATRIX below.';
+      // v73.7x (owner: "move the sample and show selectsr of 1a to the right (ie pin to the
+      //   right"). CONTROLS right, READOUTS left - the same split _hdrRight applies to every
+      //   other header in the report. The right group travels as ONE right-aligned unit so a
+      //   narrow column drops the whole thing to a second line still flush right, rather than
+      //   stranding a control back on the left. The trend readout and the family key stay left:
+      //   the key IS clickable now, but it is a legend first and belongs beside its chart.
       return '<div style="margin:2px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:8px;color:var(--text4)">'
-          +_mtxInfoIc(_tip)+_mtxSampBar()
-          +'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap">'+trendTxt+'<span>'+_mtxLegend(_allPts)+'</span></span></div>'
+          +_mtxInfoIc(_tip)+trendTxt+'<span>'+_mtxLegend(_allPts)+'</span>'
+          +'<span style="margin-left:auto;display:inline-flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;min-width:0">'+_mtxSampBar()+'</span></div>'
         +'<div style="background:var(--bg1);border-radius:8px;padding:10px;margin-bottom:6px">'
         +'<svg data-keepaspect viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'
         +gridY+gridX+axes+tickY+tickX+trendSvg+dots+xTitle+yTitle+'</svg>'
@@ -11844,9 +11851,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         .map(function(t){return _tabBtn('data-mtxbarmet="'+t[0]+'"',t[1],_barMet===t[0],_metTip[t[0]],'var(--blue)');}).join(''),false,'var(--blue)');
       const _tip='Every candidate the search produced, across all five families, as bars instead of dots - the same information as the RISK MAP scatter, sorted best net PnL first. ONE ROW per candidate: its drawdown in dollars, then a shared centreline with the drawdown bar running left and the net PnL bar running right, then its net in dollars. On BOTH the two halves use ONE dollar scale so bar lengths are directly comparable; NET and DD isolate one metric and re-fit the scale to it. A candidate that LOST money draws its net bar leftward too, inside its own drawdown bar. Click any row to jump to that candidate own column in the 1E MATRIX below.';
       return '<div style="margin:2px 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:8px;color:var(--text4)">'
-          +_mtxInfoIc(_tip)+_mtxSampBar()
-          +'<span style="display:inline-flex;align-items:center;gap:4px"><span style="font-size:7.5px;font-weight:700;letter-spacing:.5px;color:var(--text5)">SHOW</span>'+_metStrip+'</span>'
-          +'<span style="margin-left:auto">'+_mtxLegend(_allPts)+'</span></div>'
+          // v73.7x: same split as the scatter above - SAMPLE and SHOW pinned right as one
+          //   group, the family key left beside the bars it labels.
+          +_mtxInfoIc(_tip)+'<span>'+_mtxLegend(_allPts)+'</span>'
+          +'<span style="margin-left:auto;display:inline-flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;min-width:0">'
+            +_mtxSampBar()
+            +'<span style="display:inline-flex;align-items:center;gap:4px"><span style="font-size:7.5px;font-weight:700;letter-spacing:.5px;color:var(--text5)">SHOW</span>'+_metStrip+'</span>'
+          +'</span></div>'
         +'<div style="background:var(--bg1);border-radius:8px;padding:10px;margin-bottom:6px;position:relative">'
         +head
         +'<div style="position:relative"><div style="position:absolute;top:0;bottom:0;left:calc(50% + '+midOff+'px);width:1px;background:var(--text3);opacity:.45"></div>'+rows+'</div>'
