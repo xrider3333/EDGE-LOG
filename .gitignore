@@ -69,3 +69,7 @@ tools/.alpaca_keys.json
 # score-report bar cache: these ARE the record for trades that have aged out of the
 # free 30-day intraday window, so they must be versioned (overrides the *.csv rule above)
 !tools/data/score_bars/*.csv
+
+# transient artifact from tools/preflight_boot.py (normally self-cleaned;
+# a killed/interrupted run can leave it behind, where it blocks wt.py ship)
+tools/_boot_probe.html
