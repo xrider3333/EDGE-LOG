@@ -19,6 +19,11 @@ from .auto import (run_auto, _is_real as _sel_is_real, _METRIC_KEYS as _SEL_METR
                    make_slice_evaluator, score_candidates_on_folds)
 from .optimize import run_grid
 from .analytics import probability_backtest_overfitting, equity_curve_from_pnls, power_stats
+# RAW-tab per-slice metrics (v72, owner ask: RAW's MAR/PF/WIN%/SHARPE/$-per-trade should be
+#   SAMPLE-toggle-aware like GATE/TILT/HYBRID already are). Reuse GATE's exact stats shape
+#   (total_pnl/num_trades/win_rate/profit_factor/max_drawdown/avg_pnl/wins/losses) so the web
+#   layer's existing `_blk()`/`_P()` machinery works unmodified on RAW candidates too.
+from .ml_gate import _stats as _gate_stats
 
 
 def _parse(d):
@@ -200,19 +205,21 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
     _wfB0 = min((b[0] for b in fold_bounds), default=None)
 
     def _slice_pnl(trs, lo, hi):
-        """Net points of trades whose ENTRY bar falls in [lo, hi), plus their count and the
-        peak-to-trough drop within the slice. Entry-bar sliced to match the gate exactly."""
+        """Full GATE-shaped stats (total_pnl/num_trades/win_rate/profit_factor/max_drawdown/
+        avg_pnl/wins/losses) for trades whose ENTRY bar falls in [lo, hi). Entry-bar sliced to
+        match the gate exactly. v72 (owner ask: RAW should carry the same per-slice PF/WIN%/
+        avg_pnl the GATE/TILT/HYBRID tabs already save) widened this from a total_pnl/num_trades/
+        max_drawdown-only block to the full `_gate_stats` shape — same function GATE's
+        is_rng/wf_rng/lockbox blocks use, so the web layer's `_blk()` reads either tab's
+        candidates identically. None (not an empty dict) when the slice has no trades, so the
+        client's presence-check (`is_rng != null`) still means "measured", not "measured zero"."""
         sel = [float(t[2]) for t in trs if (lo is None or int(t[0]) >= lo) and (hi is None or int(t[0]) < hi)]
         if not sel:
             return None
-        run = 0.0; peak = 0.0; dd = 0.0
-        for v in sel:
-            run += v
-            if run > peak:
-                peak = run
-            dd = min(dd, run - peak)
-        return {"total_pnl": round(sum(sel), 4), "num_trades": len(sel),
-                "max_drawdown": round(dd, 4)}
+        s = _gate_stats(sel)
+        s["total_pnl"] = round(s["total_pnl"], 4)
+        s["max_drawdown"] = round(s["max_drawdown"], 4)
+        return s
 
     for c in cands:
         m = ev(0, n_bars, c["params"], keep_trades=True)
@@ -223,6 +230,12 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
             c["cal"] = {"is": _slice_pnl(_tr, None, _wfB0),
                         "wf": _slice_pnl(_tr, _wfB0, None),
                         "pre": _slice_pnl(_tr, None, None)}
+            # v72: GATE-named aliases (is_rng/wf_rng) — same blocks as cal.is/cal.wf, just under
+            #   the field names the web's shared _blk()/_P() machinery already expects from the
+            #   GATE/TILT/HYBRID tabs. Kept alongside `cal` rather than replacing it (cal.pre is
+            #   still read by the ML-gate ground-truth reconciliation at index.html ~13687).
+            c["is_rng"] = c["cal"]["is"]
+            c["wf_rng"] = c["cal"]["wf"]
         # exit timestamps ride along so the web can draw the candidate curves on the
         # SAME calendar axis as 1A (t[1] = exit time — the point the 1A line steps at).
         c["equity"] = equity_curve_from_pnls(pnls, cap=160, times=[t[1] for t in _tr])
@@ -256,7 +269,14 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
                 "metrics": (c.get("opt_metrics") or (c.get("metrics") or None)),
                 # v66.7: contiguous IS / WF calendar slices that ADD UP to the window total,
                 #   cut at the same bar 2C cuts at, so the two matrices reconcile.
-                "cal": c.get("cal")}
+                "cal": c.get("cal"),
+                # v72: same field names + shape as the GATE tab's per-candidate is_rng/wf_rng
+                #   (full PF/WIN%/avg_pnl blocks, not just total_pnl) — RAW's SAMPLE-toggle-aware
+                #   reward/risk rows read these. `lockbox` is attached below, after the #88b
+                #   forward-lockbox backtest runs (this function only has the optimize-window
+                #   trades). Both are None on configs where no walk-forward fold bound existed
+                #   (mirrors cal's own None case) so the client falls back cleanly.
+                "is_rng": c.get("is_rng"), "wf_rng": c.get("wf_rng")}
 
     # `candidates` = the CROWN POOL (the configs eligible to win — unchanged shape), and
     # `robust` = the extra top-IS configs shown only as walk-forward context (owner's
@@ -517,6 +537,19 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                     source=source, params=c["params"], cost_pts=cost_pts,
                     date_from=lb_from, date_to=date_to, return_trades=True)
                 _ctr = (_cbt or {}).get("trades") or []
+                # v72 (owner ask: RAW's reward/risk rows should be SAMPLE-toggle-aware like
+                #   GATE/TILT/HYBRID): this backtest already ran for the lb_equity curve below —
+                #   no extra cost — so also save the full GATE-shaped stats block (PF/WIN%/
+                #   avg_pnl/max_drawdown), named `lockbox` to match GATE's own candidate field.
+                #   None (not {}) when the config took no lockbox trades, matching is_rng/wf_rng.
+                _ctr_pnls = [float(t[2]) for t in _ctr]
+                if _ctr_pnls:
+                    _lbs = _gate_stats(_ctr_pnls)
+                    _lbs["total_pnl"] = round(_lbs["total_pnl"], 4)
+                    _lbs["max_drawdown"] = round(_lbs["max_drawdown"], 4)
+                    c["lockbox"] = _lbs
+                else:
+                    c["lockbox"] = None
                 cum, s = [], base
                 for t in _ctr:
                     s += float(t[2])   # lockbox trades already net of cost

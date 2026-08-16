@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.46';
+const VERSION='73.47';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -10033,7 +10033,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const fullRun=lbOk?lbV:optEnd;
         const fullRunStar=!lbOk;   // no lockbox carry-through: this is the optimize-window end
         const rankTip='rank '+(i+1)+' of '+sorted.length+' by walk-forward result'+(_robSet.has(c)?' - NOT ELIGIBLE: kept for context only; this config was never in the pool the crown is picked from, its rank is informational':'')+(crowned?' - CROWNED (the walk-forward winner)':'')+(ismax?' - also the in-sample maximum (best pre-registered search score)':'');
-        return {params:c.params||{},rank:i+1,crowned,ismax,cfgNo,isV,wfV,lbV,lbSlice,fullRun,fullRunStar,mdd,mar,sharpe,foldsHeld,mmPf,mmWr,mmApt,mmN,rankTip,isCal:_isCal,searchIsV,foldWfV,_dispOnly:_robSet.has(c)};});
+        return {params:c.params||{},rank:i+1,crowned,ismax,cfgNo,isV,wfV,lbV,lbSlice,fullRun,fullRunStar,mdd,mar,sharpe,foldsHeld,mmPf,mmWr,mmApt,mmN,rankTip,isCal:_isCal,searchIsV,foldWfV,_dispOnly:_robSet.has(c),
+          // v72 (owner ask: RAW's reward/risk rows should follow the SAMPLE toggle like GATE/
+          //   TILT/HYBRID): raw candidate reference so _rawP below can read its is_rng/wf_rng/
+          //   lockbox blocks (engine validate.py v72 — absent on runs saved before that change).
+          raw:c};});
       // ── TRANSPOSED MATRIX (owner redesign, item 2): 1E-style — one COLUMN per crown-pool
       //    config (headed by its walk-forward rank + config #, crowned column emphasised),
       //    metrics grouped as ROWS. Replaces the old one-row-per-config table; the knobs-that-
@@ -10080,6 +10084,63 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   existing convention (1A/1E never tint the in-sample stretch either).
       const _wfBg='rgba(96,165,250,.13)',_wfCol='#60a5fa',_lbBg='rgba(167,139,250,.16)',_lbCol='#a78bfa';
       const hasPf=recs.some(rc=>rc.mmPf!=null),hasWr=recs.some(rc=>rc.mmWr!=null);
+      // v72 (owner ask: RAW's MAR/PF/WIN%/$-per-trade should read the SAMPLE toggle exactly like
+      //   the GATE/TILT/HYBRID tabs, instead of being permanently pinned to the whole optimize
+      //   window). Mirrors GATE's _blk()/_P() shape (~line 12753/12878) against the is_rng/
+      //   wf_rng/lockbox blocks the engine now saves per RAW candidate (validate.py v72). Runs
+      //   saved before that engine change carry none of these fields — `_rawHasNew` detects that
+      //   and the group below falls back to the OLD pinned IS+WF rows unchanged, so an older run
+      //   never shows a blank cell or a SAMPLE label it cannot actually honor.
+      const _rawBlk=b=>(b&&typeof b==='object')?{net:(b.total_pnl!=null?b.total_pnl:null),
+        dd:(b.max_drawdown!=null?Math.abs(b.max_drawdown):null),
+        pf:(b.profit_factor!=null?b.profit_factor:null),wr:(b.win_rate!=null?b.win_rate:null),
+        kept:(b.num_trades!=null?b.num_trades:null),avg_pnl:(b.avg_pnl!=null?b.avg_pnl:null)}:null;
+      const _rawRec2=(n,d)=>(n!=null&&d!=null&&Math.abs(d)>1e-9)?(n/Math.abs(d)):null;
+      const _rawSegs=_b2segs;   // same SAMPLE prefs already read for _b2segs above — one tick moves both
+      const _rawSegNm={is:'IS',wf:'WF',lb:'LB'};
+      const _rawSampLbl=_rawSegs.map(x=>_rawSegNm[x]).join('+');
+      const _rawExact={is:'is',wf:'wf',lb:'lb'};
+      const _rawHasNew=recs.some(rc=>rc.raw&&(rc.raw.is_rng||rc.raw.wf_rng||rc.raw.lockbox));
+      const _rawPc=new Map();
+      const _rawP=col=>{
+        if(!col||!col.raw)return {};
+        if(_rawPc.has(col))return _rawPc.get(col);
+        const per={is:_rawBlk(col.raw.is_rng),wf:_rawBlk(col.raw.wf_rng),lb:_rawBlk(col.raw.lockbox)};
+        const exK=_rawExact[_rawSegs.join(',')];
+        let out=(exK&&per[exK])?per[exK]:null;
+        if(!out){
+          const parts=_rawSegs.map(x=>per[x]).filter(Boolean);
+          if(!parts.length){out={};}
+          else{
+            const net=parts.reduce((a,x)=>a+(x.net||0),0);
+            const kept=parts.every(x=>x.kept!=null)?parts.reduce((a,x)=>a+x.kept,0):null;
+            let gw=0,gl=0,pfOK=true,wins=0,wrOK=true;
+            parts.forEach(x=>{
+              if(x.net==null||x.pf==null||!(x.pf>1.0000001))pfOK=false;
+              else{const L=x.net/(x.pf-1);gl+=L;gw+=x.pf*L;}
+              if(x.wr==null||x.kept==null)wrOK=false;else wins+=x.wr/100*x.kept;});
+            // DD does not add across slices, and RAW candidates carry no single unified equity
+            //   curve spanning IS+WF+LB the way GATE's do (their equity curve stops at the
+            //   optimize window; lb_equity is a separate continuation curve) — so a combined-
+            //   stretch DD can't be sliced off one curve the way GATE's fallback does. The
+            //   deepest individual slice's DD is an honest lower bound, marked derived (&deg;).
+            const dds=parts.map(x=>x.dd).filter(v=>v!=null);
+            const dd=dds.length?Math.max.apply(null,dds):null;
+            out={net:net,kept:kept,avg_pnl:(kept?(net/kept):null),
+                 pf:(pfOK&&gl>1e-9)?(gw/gl):null,
+                 wr:(wrOK&&kept)?((wins/kept)*100):null,
+                 dd:dd,ddDer:(dd!=null),rec:_rawRec2(net,dd)};
+          }
+        }
+        _rawPc.set(col,out);return out;
+      };
+      // per-column fallback: a candidate missing the new fields (mixed-vintage doc, or a
+      //   display-only extra whose lockbox backtest failed) reads its OLD pinned optimize-window
+      //   number instead of going blank.
+      const _rawMar=col=>{const p=_rawP(col);return p.rec!=null?p.rec:col.mar;};
+      const _rawPf=col=>{const p=_rawP(col);return p.pf!=null?p.pf:col.mmPf;};
+      const _rawWr=col=>{const p=_rawP(col);return p.wr!=null?p.wr:col.mmWr;};
+      const _rawApt=col=>{const p=_rawP(col);return p.avg_pnl!=null?(p.avg_pnl*mlt):col.mmApt;};
       // v64.96 (owner: "what data set is reward/risk measuring off of? its all a little
       //   ambiguous") — these three rows were genuinely measured on THREE different slices and
       //   the table never said so. Each row label now names its own slice in the tooltip and the
@@ -10091,8 +10152,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   follow the SAMPLE tick — see the DD note above — so each label now carries its own
       //   window instead of leaving it to a hover.
       const _win=w=>' <span style="font-weight:400;color:var(--text5)">&middot; '+w+'</span>';
+      // v72: MAR now reads net $ ÷ drawdown of the TICKED SAMPLE stretches (via _rawP/is_rng/
+      //   wf_rng/lockbox) on runs the engine saved that way; the label switches to name the
+      //   actual ticked stretches instead of the permanently-pinned "WF ÷ IS+WF DD". Older runs
+      //   (no is_rng/wf_rng/lockbox on any candidate) keep the exact old label + computation.
+      const _marLbl=_rawHasNew
+        ?('<span title="net $ over the ticked SAMPLE stretches, divided by the deepest drawdown measured across those same stretches. Matches the MAR calculation the GATE/TILT/HYBRID tabs use." style="border-bottom:1px dotted var(--text5);cursor:help">MAR</span>'+_win(_rawSampLbl))
+        :('<span title="walk-forward dollars divided by the drawdown of the WHOLE optimize window. WF is the numerator because walk-forward is the number that actually decided the crown; the drawdown is whole-window because that is the only equity curve each candidate carries. It cannot follow the SAMPLE tick on this tab." style="border-bottom:1px dotted var(--text5);cursor:help">MAR</span>'+_win('WF &divide; IS+WF DD'));
       const _rrRows=[
-        {lbl:'<span title="walk-forward dollars divided by the drawdown of the WHOLE optimize window. WF is the numerator because walk-forward is the number that actually decided the crown; the drawdown is whole-window because that is the only equity curve each candidate carries. It cannot follow the SAMPLE tick on this tab." style="border-bottom:1px dotted var(--text5);cursor:help">MAR</span>'+_win('WF &divide; IS+WF DD'),rowSty:(_b2rank==='rec'?_rkYel:''),cell:col=>col.mar!=null?('<span style="color:var(--text2)">'+col.mar.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'},
+        {lbl:_marLbl,rowSty:(_b2rank==='rec'?_rkYel:''),cell:col=>{
+          const v=_rawHasNew?_rawMar(col):col.mar;
+          return v!=null?('<span style="color:var(--text2)">'+v.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>';}},
         {lbl:'<span title="Derived from the equity curve each candidate carries (period-to-period change in cumulative PnL) over the WHOLE optimize window, annualised using that window length -- not stored directly by the engine, and it cannot follow the SAMPLE tick on this tab." style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>'+_win('IS+WF'),
          cell:col=>col.sharpe!=null?('<span style="color:var(--text2)">'+col.sharpe.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>'},
       ];
@@ -10103,9 +10173,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   the same height everywhere and a tab flip compares like with like. FOLDS HELD and TRADES
       //   moved down into SAMPLE - they are sample facts, not reward-versus-risk.
       const _b2Dash='<span style="color:var(--text5)">—</span>';
-      _rrRows.push({lbl:'PF'+_win('IS+WF'),cell:col=>col.mmPf!=null?('<span style="color:var(--text2)">'+Math.min(col.mmPf,99).toFixed(2)+'</span>'):_b2Dash});
-      _rrRows.push({lbl:'WIN %'+_win('IS+WF'),cell:col=>col.mmWr!=null?('<span style="color:var(--text2)">'+Math.round(col.mmWr)+'%</span>'):_b2Dash});
-      _rrRows.push({lbl:'<span title="average net dollars per trade over the optimize window -- says whether a config makes its money from bigger trades or just more of them" style="border-bottom:1px dotted var(--text5);cursor:help">$ / TRADE</span>'+_win('IS+WF'),cell:col=>col.mmApt!=null?('<span style="font-weight:700;color:'+(col.mmApt>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(col.mmApt))+'</span>'):_b2Dash});
+      // v72: PF / WIN % / $-per-trade follow the same SAMPLE-toggle-aware / old-pinned-fallback
+      //   split as MAR above — see _marLbl's comment.
+      const _pfWin=_rawHasNew?_rawSampLbl:'IS+WF';
+      _rrRows.push({lbl:'PF'+_win(_pfWin),cell:col=>{
+        const v=_rawHasNew?_rawPf(col):col.mmPf;
+        return v!=null?('<span style="color:var(--text2)">'+Math.min(v,99).toFixed(2)+'</span>'):_b2Dash;}});
+      _rrRows.push({lbl:'WIN %'+_win(_pfWin),cell:col=>{
+        const v=_rawHasNew?_rawWr(col):col.mmWr;
+        return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):_b2Dash;}});
+      _rrRows.push({lbl:'<span title="average net dollars per trade'+(_rawHasNew?' over the ticked SAMPLE stretches':' over the optimize window')+' -- says whether a config makes its money from bigger trades or just more of them" style="border-bottom:1px dotted var(--text5);cursor:help">$ / TRADE</span>'+_win(_pfWin),cell:col=>{
+        const v=_rawHasNew?_rawApt(col):col.mmApt;
+        return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>'):_b2Dash;}});
       const _b2Sample=[
         {lbl:'<span title="trades this config took over the optimize window - the sample size behind the PF, WIN % and dollars-per-trade rows above. It cannot follow the SAMPLE tick on this tab: a config saved record carries one whole-window count, not a per-stretch split." style="border-bottom:1px dotted var(--text5);cursor:help">TRADES</span>'+_win('IS+WF'),top:true,cell:col=>col.mmN!=null?('<span style="color:var(--text3)">'+(+col.mmN).toLocaleString()+'</span>'):_b2Dash},
         {lbl:'<span title="walk-forward only: how many out-of-sample folds this config held up in. Unique to this tab - the filter tabs are not fold-tested - so it sits here rather than in the shared reward-versus-risk block." style="border-bottom:1px dotted var(--text5);cursor:help">FOLDS HELD</span>'+_win('WF'),cell:col=>col.foldsHeld!=null?('<span style="color:var(--text2)">'+col.foldsHeld+(_nFolds!=null?('/'+_nFolds):'')+'</span>'):_b2Dash}
@@ -10148,8 +10227,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
             let t=(v-mn)/(mx-mn);if(!hiGood)t=1-t;
             return 'hsla('+Math.round(4+116*t)+',62%,44%,'+(0.06+0.16*Math.abs(t-0.5)*2).toFixed(3)+')';};};
         const _pick={'IS $':c=>c.isV,'WF $':c=>c.wfV,'LB $':c=>c.lbSlice,'TOTAL':_b2tot,
-          'DD':c=>c.mdd!=null?-Math.abs(c.mdd):null,'MAR':c=>c.mar,'SHARPE':c=>c.sharpe,
-          'FOLDS HELD':c=>c.foldsHeld,'PF':c=>c.mmPf,'WIN %':c=>c.mmWr,'$ / TRADE':c=>c.mmApt,'TRADES':c=>c.mmN};
+          'DD':c=>c.mdd!=null?-Math.abs(c.mdd):null,
+          'MAR':_rawHasNew?_rawMar:(c=>c.mar),'SHARPE':c=>c.sharpe,
+          'FOLDS HELD':c=>c.foldsHeld,
+          'PF':_rawHasNew?_rawPf:(c=>c.mmPf),'WIN %':_rawHasNew?_rawWr:(c=>c.mmWr),
+          '$ / TRADE':_rawHasNew?_rawApt:(c=>c.mmApt),'TRADES':c=>c.mmN};
         groups.forEach(g=>g.rows.forEach(r=>{
           // v71.30: split on the middle dot so a label carrying a "· IS+WF" window tag still matches
           const key=String(r.lbl).replace(/<[^>]*>/g,'').replace(/&middot;/g,'·').replace(/&divide;/g,'÷').split('·')[0].trim();
