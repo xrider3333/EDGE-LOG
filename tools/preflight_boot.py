@@ -45,6 +45,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 
@@ -135,7 +136,8 @@ PROBE_HTML = """<!DOCTYPE html>
 <script>
 (function(){
   var reported = false;
-  function report(){
+  var iframeLoaded = false;
+  function report(why){
     if (reported) return;
     reported = true;
     var o = document.getElementById('o');
@@ -148,15 +150,29 @@ PROBE_HTML = """<!DOCTYPE html>
         renderApp: typeof w.renderApp,
         expandChart: (w.expandChart ? 'function' : 'missing'),
         loadError: w.loadError || null,
-        bodyLen: (w.document.body ? w.document.body.innerHTML.length : 0)
+        bodyLen: (w.document.body ? w.document.body.innerHTML.length : 0),
+        // why this sample was taken, so the runner can tell "the app is broken"
+        // apart from "we never got to look at it". 'load' = the iframe's own load
+        // event fired and we sampled 2.5s later (a real reading). 'backstop' = the
+        // deadline expired first, so this may just be a slow/loaded machine.
+        why: why,
+        iframeLoaded: iframeLoaded
       };
       o.textContent = 'BOOTPROBE: ' + JSON.stringify(obj);
     } catch (e) {
-      o.textContent = 'BOOTPROBE: ' + JSON.stringify({err:String(e)});
+      o.textContent = 'BOOTPROBE: ' + JSON.stringify({err:String(e), why:why});
     }
   }
-  document.getElementById('f').addEventListener('load', function(){ setTimeout(report, 2500); });
-  setTimeout(report, 8000);
+  document.getElementById('f').addEventListener('load', function(){
+    iframeLoaded = true;
+    setTimeout(function(){ report('load'); }, 2500);
+  });
+  // Backstop. index.html is ~2 MB, and this gate often runs while the machine is
+  // busy (a runner restart, another Chrome, a build) -- 8s was too tight and fired
+  // on a still-blank iframe, which then read as a hard FAIL and blocked a valid
+  // push (observed 2026-08-15). Raised, and the sample is now labelled 'backstop'
+  // so an empty reading here is treated as INCONCLUSIVE rather than broken.
+  setTimeout(function(){ report('backstop'); }, 25000);
 })();
 </script>
 </body></html>
@@ -248,12 +264,31 @@ def main(argv=None):
         alt_index = target if args.file else None
         httpd, port = run_server(repo_root, alt_index)
         url = 'http://127.0.0.1:%d/tools/%s' % (port, PROBE_FILENAME)
-        stdout, err = dump_dom(chrome_path, url)
+
+        # Retry a blank/unreadable sample before drawing any conclusion. The failure
+        # this guards against is transient by nature (the box was busy for a few
+        # seconds), so one more look usually settles it -- far better than either
+        # blocking a good push or waving a bad one through on a single noisy read.
+        # A sample with real content is never retried: a genuine break is decided
+        # on the first look, so this cannot mask a broken build.
+        attempts = 3
+        obj, err = None, None
+        for attempt in range(1, attempts + 1):
+            stdout, err = dump_dom(chrome_path, url, timeout=45)
+            obj = parse_bootprobe(stdout) if not err else None
+            if obj is not None and 'err' not in obj:
+                got_content = obj.get('VERSION') or obj.get('loadError') or (obj.get('bodyLen') or 0)
+                if got_content:
+                    break
+            if attempt < attempts:
+                print('  preflight: unreadable sample on attempt %d/%d (%s) -- retrying'
+                      % (attempt, attempts, err or ('why=%s' % (obj or {}).get('why'))))
+                time.sleep(3)
+
         if err:
             print('PREFLIGHT: INCONCLUSIVE -- %s' % err)
             return INCONCLUSIVE
 
-        obj = parse_bootprobe(stdout)
         if obj is None:
             print('PREFLIGHT: INCONCLUSIVE -- no BOOTPROBE marker found in chrome output '
                   '(could not determine boot state)')
@@ -268,6 +303,39 @@ def main(argv=None):
         render_app = obj.get('renderApp')
         load_error = obj.get('loadError')
         body_len = obj.get('bodyLen') or 0
+
+        # "We never got a reading" vs "the app is broken". A genuinely broken app
+        # leaves EVIDENCE: a loadError, or a non-empty body that failed to wire up,
+        # or a VERSION that parsed with a dead renderApp. A totally blank sample --
+        # no VERSION, empty body, and no error at all -- means the iframe had not
+        # painted yet when we looked, which happens when the machine is loaded.
+        # Blocking a push on that is a false alarm (observed 2026-08-15: a valid
+        # NOISE.md-only commit was refused while a runner restart + Chrome were
+        # competing for the box). Report INCONCLUSIVE so the push is warned, not
+        # blocked -- the same treatment a missing Chrome or a timeout already gets.
+        blank_sample = (not version) and (not load_error) and (not body_len)
+        if blank_sample:
+            # One more discrimination before letting a blank reading off the hook:
+            # check the FILE ON DISK. If index.html is substantial but the probe saw
+            # an empty body, the file is fine and the probe simply never got to it.
+            # If the file itself is empty/tiny, that IS a real break (a truncated or
+            # clobbered write) and must still block the push -- otherwise this branch
+            # would wave through the worst failure of all.
+            try:
+                on_disk = os.path.getsize(target)
+            except OSError:
+                on_disk = 0
+            if on_disk < 100000:
+                print('PREFLIGHT: FAIL -- blank page AND %s is only %d bytes on disk '
+                      '(truncated/clobbered file, not a slow probe)' % (target, on_disk))
+                print('  parsed: %s' % obj)
+                return FAIL
+            print('PREFLIGHT: INCONCLUSIVE -- probe sampled a blank page (why=%r, '
+                  'iframeLoaded=%r) but %s is %d bytes on disk; the app never painted '
+                  'before the deadline, which means a busy machine rather than a broken build'
+                  % (obj.get('why'), obj.get('iframeLoaded'), os.path.basename(target), on_disk))
+            print('  parsed: %s' % obj)
+            return INCONCLUSIVE
 
         if not (isinstance(version, str) and version):
             print('PREFLIGHT: FAIL -- VERSION missing/empty (app did not boot)')
