@@ -446,10 +446,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.55';
+const VERSION='73.56';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.56',date:'2026-08-15',notes:['1E MATRIX gets a new ALL POOLS scatter, above the RAW/GATE/TILT/HYBRID tab tables: every candidate from all four pools plotted together (drawdown vs net $, colour-coded by pool), scoped to whatever SAMPLE is ticked, so an outlier the pre-registered net-$ + MAR-floor rule rejected is still there to eyeball. Hover a dot for its label and exact $/DD; click one to jump to its column in the matrix below.']},
 {v:'73.55',date:'2026-08-15',notes:['SAMPLE-scope audit across §1E MATRIX (owner: "switching between tabs shouldn’t change metric behavior"). GATE’s SHARPE row silently measured the WHOLE saved equity curve on every tick combo except exactly PRE-LOCKBOX or LOCKBOX alone (IS alone, WF alone, IS+WF, WF+LB all fell through to the whole curve while the row header still named the ticked stretch) — it now reads the same contiguous span the DD row already cuts to, on every combo, and honestly dashes on the one combo DD also can’t span (IS+LB with WF unticked).','RAW’s SHARPE row was permanently pinned to the whole optimize window (IS+WF) no matter what was ticked, and combined-scope DD (e.g. IS+WF, or WF+LB) used a "deepest individual slice" approximation marked with a °. Both now genuinely follow the SAMPLE tick: the optimize-window curve and the lockbox continuation curve are stitched into one series (same debasing the 2A funnel chart already uses) and sliced/diffed for whichever stretches are ticked. Runs saved before this engine change (no is_rng/wf_rng/lockbox) keep the exact old pinned display.','TILT and HYBRID were already correctly scope-following (their own _shrp already fraction-splits by ticked stretch) — audited, no leak found, no change needed there.']},
 {v:'73.32',date:'2026-08-13',notes:['PAPER now has a LEG rail next to REFRESH - ALL / ORB / ENGU-Q / NOISE / BLEND - and picking one narrows the WHOLE board to that strategy: its tile, its curve line, its trades. ALL is the default and behaves exactly as before.','Same control language as the report layout rail, and it is a lens rather than a saved setting - it resets when you reload.']},
 {v:'73.31',date:'2026-08-13',notes:['NEO now follows your theme instead of forcing its own teal - every glow, hairline, grid line and tint is derived from the active theme accent, so on MONO the whole report reads as pure silver-on-black with zero added color; green themes look as before and other accents follow suit.','NEO pushed further (NEO only - CLASSIC untouched): HUD-style section headers in uppercase with wide tracking and squared number chips, more air between sections, wider title letter-spacing, the 1A champion card wears a stronger accent ring, faint zebra striping on plain table rows, soft hover transitions, and the back-to-checklist hint only appears when you hover a section header.']},
@@ -10068,13 +10069,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const va=_b2v(a),vb=_b2v(b);
         return ((vb!=null&&isFinite(vb))?vb:-Infinity)-((va!=null&&isFinite(va))?va:-Infinity);});
       const _b2Would=(_b2rank!=='rec')?recs[0]:null;
-      const cols=recs.map(rc=>Object.assign({
+      const cols=recs.map((rc,_ci)=>Object.assign({
         lbl:(rc.crowned?'👑':'')+'R'+rc.rank+' · '+(rc.cfgNo?('#'+rc.cfgNo):'—'),
         // v68.1: the display-only rows (never eligible to be crowned) say so, and read dimmer.
         // v71.7 (owner: "remove the would pick and chosen") - the ordering already says it.
         sub:'',
         col:rc.crowned?'var(--green)':(rc._dispOnly?'var(--text4)':(rc.ismax?'#3a9bdc':'var(--text2)')),
-        emph:rc.crowned,tip:rc.rankTip},rc));
+        emph:rc.crowned,tip:rc.rankTip,
+        // v73.5x (1E MATRIX SCATTER, owner ask): matches this column so a scatter dot click can
+        //   scroll straight to its header — see mtxScatterHtml + the [data-mtxcol] click wiring.
+        dataAttr:' data-mtxcol="raw:'+_ci+'"'},rc));
       // v64.93 (owner): abbreviate dollars the way 2C does ($450k) so 2B is just as compact.
       const _usd=v=>v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtAx(v,1)+'</span>'):'<span style="color:var(--text5)">—</span>';
       const _ddCell=col=>col.mdd!=null?('<span style="color:#e24b4a">-'+fmtAx(col.mdd,1)+'</span>'):'<span style="color:var(--text5)">—</span>';
@@ -10351,7 +10355,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         _rkOptsAll.map(o=>_ctlChip(_b2rank===o[0],o[1],'data-g2rk="'+o[0]+'"',o[2])).join(''),_rkNote2):'';
       const _b2Ctrls=_ctlRow(['is','wf','lb'],_b2segs,null,_b2Tip,_b2rank,
         'how the config columns are ordered. View only - the crown never moves.',_b2heat,null);
-      return {table:table,tip:tip,sub:sub,ctrls:_b2Ctrls};};
+      // v73.5x (1E MATRIX SCATTER, owner ask): one point per RAW crown-pool column, scoped to the
+      //   SAME SAMPLE tick the table above just measured (_b2tot / col.mdd) — combined with the
+      //   GATE/TILT/HYBRID points (gvParts) into one cross-pool PnL-vs-DD sanity chart. key matches
+      //   the [data-mtxcol] stamped on this column's header above, for click-to-scroll.
+      const _scatterPtsRaw=cols.map(col=>{
+        const pnl=_b2tot(col),dd=col.mdd;
+        if(pnl==null||dd==null||!isFinite(pnl)||!isFinite(dd))return null;
+        return {pool:'RAW',label:String(col.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:pnl,dd:Math.abs(dd),key:'raw:'+cols.indexOf(col),crowned:!!col.crowned};
+      }).filter(Boolean);
+      return {table:table,tip:tip,sub:sub,ctrls:_b2Ctrls,scatterPts:_scatterPtsRaw};};
     // v71.2 (owner: "maybe just dont have a 1a or 2a on champion or funnel. leave them as just
     //   tabs"): noTag keeps the tag doing its job in the logic below while dropping it from the
     //   printed title, so the card reads CHAMPION / FUNNEL and nothing else.
@@ -11411,6 +11424,46 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="background:'+(tag?'var(--bg1)':'var(--bg2)')+';border-radius:8px;padding:10px;'+(tag?'flex:1;min-height:0':'margin-bottom:14px')+'">'
         +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto"'+(multi?'':' data-xh="'+encodeURIComponent(JSON.stringify({xt:'num',x0:S[0].mn,x1:S[0].mx,yt:'usd',y0:ymn,y1:ymx,px:pd,py:pd,pw:PW-2*pd,ph:H-2*pd,xl:_pp(xk),yl:'net'}))+'"')+'>'+grid+dots+contours+c2YTitle(H,'net $')+'</svg>'
         +xrow+legend+'</div>';
+    };
+    // 1E MATRIX SCATTER (owner ask, v73.5x): a "sanity check" view that does NOT depend on the
+    //   pre-registered net-$ + MAR-floor adoption rule — every candidate the RAW search produced,
+    //   PLUS every GATE cut-off, TILT model and HYBRID model, plotted on the SAME axes (DD on x,
+    //   net $ on y) and colour-coded by pool, so an outlier the rule-based crowning rejected (or
+    //   crowned) is still there to eyeball. Points arrive pre-scoped to whatever SAMPLE (IS/WF/LB)
+    //   is currently ticked — selectionTableHtml / gvParts read the SAME g2samp pref the matrix
+    //   tables below already use, so this chart and the tables underneath always agree.
+    //   Hover = candidate label + exact $ / DD (shares the global [data-tip] tooltip). Click a dot
+    //   = jump to that candidate's own column in its pool's matrix (switches the 1E tab if needed,
+    //   see the [data-mtxsc] click wiring near the other 1E tab handlers).
+    const _mtxPoolCol={RAW:'var(--blue)',GATE:'var(--purple)',TILT:'var(--yellow)',HYBRID:'#e879f9'};
+    const mtxScatterHtml=(points)=>{
+      if(!points||points.length<2)return '';
+      const W=C2W,H=210,pd=8,PW=C2P;
+      const dds=points.map(p=>Math.abs(p.dd)),pnls=points.map(p=>p.pnl);
+      const ddmx=Math.max.apply(null,dds.concat([1]));
+      const ymn=Math.min.apply(null,[0].concat(pnls)),ymx=Math.max.apply(null,[0].concat(pnls)),yrg=(ymx-ymn)||1;
+      const X=v=>pd+(PW-2*pd)*(ddmx>1e-9?(Math.abs(v)/ddmx):0);
+      const Y=v=>H-pd-(H-2*pd)*((v-ymn)/yrg);
+      const zeroY=Y(0);
+      const grid=c2GridV(pd,H-pd,ymn,ymx);
+      // slight per-pool x jitter so same-DD dots from different pools don't fully overlap
+      const _jit={RAW:-1.1,GATE:-0.35,TILT:0.35,HYBRID:1.1};
+      const dots=points.slice().sort((a,b)=>a.pnl-b.pnl).map(p=>{
+        const col=_mtxPoolCol[p.pool]||'var(--text3)';
+        const cx=(X(p.dd)+(_jit[p.pool]||0)).toFixed(1),cy=Y(p.pnl).toFixed(1);
+        const tip=p.pool+' <b>'+String(p.label||'').replace(/"/g,'&quot;')+'</b>'+(p.crowned?' <span style="color:var(--green)">👑 crowned</span>':'')
+          +'<br>net <b style="color:'+(p.pnl>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(p.pnl))+'</b> · DD <b style="color:#e24b4a">-'+fmtUsd(Math.round(Math.abs(p.dd)))+'</b>';
+        return '<circle class="cfgmark" data-mtxsc="1" data-pool="'+p.pool+'" data-mtxkey="'+(p.key||'')+'" data-net="'+Math.round(p.pnl)+'" cx="'+cx+'" cy="'+cy+'" r="'+(p.crowned?4.2:3)+'" fill="'+col+'" opacity="'+(p.crowned?0.95:0.6)+'"'+(p.crowned?' stroke="var(--green)" stroke-width="1.2"':'')+' style="cursor:pointer;transition:opacity .12s" data-tip="'+tip+'"/>';
+      }).join('');
+      const legend=Object.keys(_mtxPoolCol).map(k=>'<span style="color:'+_mtxPoolCol[k]+'">&#9679; '+k+'</span>').join(' &middot; ');
+      const xrow=c2XRow('0','<b style="color:var(--text2)">DRAWDOWN ($)</b> — magnitude, worse to the right (x)',fmtUsd(Math.round(ddmx)));
+      const _tip='Every candidate the search produced, across all four pools, on ONE chart — a sanity check that does not depend on the pre-registered net-$ + MAR-floor rule that actually crowns. Each dot = one candidate: DD (x, magnitude) vs net $ (y), scoped to whatever SAMPLE is ticked below. 👑 = the engine-crowned RAW column. Click a dot to jump to its row in the matrix below.';
+      return '<div title="'+_tip+'" style="cursor:help;margin:2px 0 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">ALL POOLS · PnL vs DRAWDOWN <span style="font-weight:400;color:var(--text4);font-size:8px">ⓘ</span><span style="margin-left:auto;font-weight:400;font-size:8px">'+legend+'</span></div>'
+        +'<div style="background:var(--bg1);border-radius:8px;padding:10px;margin-bottom:6px">'
+        +'<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+grid
+        +'<line x1="'+pd+'" y1="'+zeroY.toFixed(1)+'" x2="'+(PW-pd)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity="0.65"/>'
+        +dots+c2YTitle(H,'net $')+'</svg>'
+        +xrow+'</div>';
     };
     // 3-D SCATTER (2G's default view) — every tested config as ONE dot in space: two chosen
     //   params on the floor, its NET $ as the height. The raw-config sibling of the 2H/2J
@@ -12718,6 +12771,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // gvParts: the gate-validate content split into named pieces so the NEW §3 GATE section can
     //   arrange them in columns while the LEGACY wall (gvTableHtml) keeps the original order.
     const gvParts=(V,stratLbl,mlt3)=>{if(!V)return null;
+        // v73.5x (1E MATRIX SCATTER): one point per GATE/TILT/HYBRID column is pushed here as
+        //   each matrix builds (GATE below, TILT/HYBRID inside _cmpMatrix) — scoped to the SAME
+        //   SAMPLE tick each matrix just measured — then handed back on scatterPts and combined
+        //   with the RAW pool (selectionTableHtml) into one cross-pool sanity chart.
+        const _scatterAcc=[];
         const $=v=>fmtUsd(Math.round((v||0)*mlt3));
         // $k (owner redesign item B4): the compact "$450k" style used across the redesigned
         //   matrix + lockbox block, so 11 columns fit without horizontal scroll. The legacy
@@ -13105,6 +13163,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   kept reading as if it were one of the gate variants. Heat now shades across the
         //   variants only, which is the comparison that matters here.
         const _gColsV=_sortedCand.slice();
+        // v73.5x (1E MATRIX SCATTER): stamp each column so a scatter dot click can scroll to its
+        //   header, and capture its net $ / DD (same _P() the matrix below reads, so the point is
+        //   scoped to whatever SAMPLE is ticked) into the shared cross-pool array.
+        _gColsV.forEach((c,_gi)=>{
+          c.dataAttr=' data-mtxcol="gate:'+_gi+'"';
+          const p=_P(c);
+          if(p&&p.net!=null&&p.dd!=null&&isFinite(p.net)&&isFinite(p.dd))
+            _scatterAcc.push({pool:'GATE',label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:'gate:'+_gi,crowned:false});
+        });
         // HEAT MAP: red (worst in the row) through to green (best), alpha strongest at the two
         //   ends so the middle of the pack stays quiet. hiGood=false flips it for drawdown.
         const _heatFn=(get,hiGood)=>{
@@ -13357,7 +13424,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _szSegTip={is:'the in-sample years - everything before walk-forward testing starts. Same calendar stretch 2B and 2C call IS.',
                        wf:'the walk-forward years - the same stretch 2B and 2C call WF.',
                        lb:'the sealed final year - the lockbox. This is the stretch the LB rows below anchor on.'};
-        const _cmpMatrix=(list,mode)=>{if(!list.length)return '';
+        const _cmpMatrix=(list,mode,poolName)=>{if(!list.length)return '';
           const _sc=(c,sg)=>_rdF(c,sg,mode);
           const _sl$=(c,sg)=>{const x=_colOf(c,sg);return (x&&x.total_pnl!=null)?x.total_pnl*_sc(c,sg):null;};
           const _lbMar=c=>_cmpRec(c._s.lb);
@@ -13444,6 +13511,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
               return ((rb!=null&&isFinite(rb))?rb:-99)-((ra!=null&&isFinite(ra))?ra:-99);}
             const va=_szP(a).net,vb=_szP(b).net;
             return ((vb!=null&&isFinite(vb))?vb:-Infinity)-((va!=null&&isFinite(va))?va:-Infinity);});
+          // v73.5x (1E MATRIX SCATTER): stamp each column (TILT / HYBRID one-lot only — the
+          //   redeploy/equal-DD hybrid re-sizings are comparison views of the SAME candidates, not
+          //   a distinct pool) and push its net $ / DD, scoped to whatever SAMPLE is ticked
+          //   (_szP, the same read the matrix below uses), into the shared cross-pool array.
+          if(poolName){
+            cols.forEach((c,_ci2)=>{
+              c.dataAttr=' data-mtxcol="'+poolName+':'+_ci2+'"';
+              const p=_szP(c);
+              if(p&&p.net!=null&&p.dd!=null&&isFinite(p.net)&&isFinite(p.dd))
+                _scatterAcc.push({pool:poolName.toUpperCase(),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false});
+            });
+          }
           // RETURN — IS and WF follow the shared SAMPLE tick, exactly as in 2B. LB $ and FULL $
           //   always show: every reward/risk and sample row below this group is measured on the
           //   lockbox, so hiding LB $ would leave LB MAR and LB TRADES with nothing to reconcile
@@ -13570,7 +13649,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _noteRow=inner=>'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;padding-top:7px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+inner+'</div>';
         const tiltTbl=(!_tl.length)?'':(function(){
           _tl.sort((a,b)=>((_cmpRec(b.lockbox)!=null?_cmpRec(b.lockbox):-99)-(_cmpRec(a.lockbox)!=null?_cmpRec(a.lockbox):-99)));
-          return _cmpMatrix(_cmpCols(_tl,'tilt'),'one');})();
+          return _cmpMatrix(_cmpCols(_tl,'tilt'),'one','tilt');})();
         // v71.95 (owner: "put that behind the info tab"): the caption line and the COMPARISON
         //   ONLY chip never change from run to run - they were permanent wall text costing a
         //   whole row under every SIZE tab. Only the info icon shows now; both strings lead
@@ -13595,7 +13674,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(_hy.length){
           _hy.sort((a,b)=>((_cmpRec(b.lockbox)!=null?_cmpRec(b.lockbox):-99)-(_cmpRec(a.lockbox)!=null?_cmpRec(a.lockbox):-99)));
           ['one','redeploy','equaldd'].forEach(function(md){
-            hybBy[md]=_cmpMatrix(_cmpCols(_hy,'hyb'),md);
+            // v73.5x: only the ONE-LOT view feeds the scatter — REDEPLOY / EQUAL-DD are the same
+            //   candidates re-sized, not a distinct pool, and would just duplicate the same dots.
+            hybBy[md]=_cmpMatrix(_cmpCols(_hy,'hyb'),md,md==='one'?'hyb':null);
             // v71.95 (owner): same treatment - headline, mode chip and the never-crowned
             //   warning all move inside the info readout; the row keeps only the icon.
             hybNoteBy[md]=_noteRow(_infoIc('<div style="color:var(--yellow);font-weight:700;margin-bottom:6px">GATE FIRST, THEN TILT THE SURVIVORS &middot; '+String((_hybModeNm[md]||['',''])[0]).replace(/<[^>]*>/g,'')+' &middot; COMPARISON ONLY, NEVER CROWNED</div>'+String((_hybModeNm[md]||['',''])[1]).replace(/'/g,'&#39;'))+_infoIc(_hybInfo));});}
@@ -13603,6 +13684,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const hybNote=hybNoteBy.one||'';
         return {V:V,LB:LB,ch:ch,tilts:tiltTbl,hyb:hybTbl,ctrls:_ctrls,menus:'',
           szCtrls:_szCtrls,tiltNote:tiltNote,hybNote:hybNote,hybModes:hybModes,hybBy:hybBy,hybNoteBy:hybNoteBy,
+          scatterPts:_scatterAcc,
           head:'<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>',
           intro:'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+V.n_candidates+' candidates ranked pre-lockbox by recovery factor ($ per $ of drawdown). The winner gets exactly one lockbox look — no shopping.</div>',
           matrix:_gMatrix,
@@ -14887,9 +14969,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _gateInfo=('<div style="color:var(--text2)">'+_gVerdictTxt+'DOES A TRADE-FILTER MODEL EARN ITS KEEP? The ML GATE scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. It sweeps several models across several cut-offs on PRE-LOCKBOX data (IS + WF combined), picks ONE winner, and gives only that winner a single look at the LB - no cherry-picking.<br><br>NOT the same as the 2L ML CONFIG BUILDER: 2L picks which PARAMETER CONFIG is best; this gate keeps the chosen config and only decides which individual TRADES to take.<br><br>The gate equity is also drawn on the 2A funnel above.</div>');
         const _nRow=inner=>inner?('<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;padding-top:7px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+inner+'</div>'):'';
         const _hybOf=t=>(t==='hyb2'?'redeploy':(t==='hyb3'?'equaldd':'one'));
+        // v73.5x (1E MATRIX SCATTER, owner ask: "eyeball raw PnL vs Drawdown across ALL candidate
+        //   configs... to catch cases the rule-based crowning missed"): combines the per-candidate
+        //   points every pool already computed while building its own matrix table above — RAW
+        //   (selectionTableHtml), GATE / TILT / HYBRID (gvParts) — into one cross-pool chart. Each
+        //   pool's points are already scoped to whatever SAMPLE (IS/WF/LB) is ticked, the same
+        //   g2samp pref the matrix tables read, so the chart and the tables underneath never
+        //   disagree. Rendered ONCE, above the tab strip on the PRIMARY 1E card only — it spans
+        //   all four pools at once, so duplicating it on the side-by-side comparison card (1E's
+        //   "B" twin) would just be the same picture twice.
+        const _mtxScatterPts=[].concat((_selParts&&_selParts.scatterPts)||[],(_gvP&&_gvP.scatterPts)||[]);
+        const _mtxScatter=mtxScatterHtml(_mtxScatterPts);
         // v70.6 (owner: "duplicate 1E and place its duplicate next to it... so i can compare two
         //   tabs"): one builder, two cards, each with its own remembered tab.
-        const _mkCfg=function(prefKey,attr,fallback){
+        const _mkCfg=function(prefKey,attr,fallback,showScatter){
           let tb=String(APREF[prefKey]||'');
           if(!_tabDefs.some(function(t){return t[0]===tb;}))tb=(_tabDefs.some(function(t){return t[0]===fallback;})?fallback:(_tabDefs.length?_tabDefs[0][0]:'raw'));
           const isHyb=(tb==='hyb'||tb==='hyb2'||tb==='hyb3'),isK=(tb==='kpi'),isG=(tb==='gate'),isSz=(tb==='tilt'||isHyb);
@@ -14918,10 +15011,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +title+' '+info
             +'<span style="margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:6px">'+_preFixBadge+tabs+'</span></div>'
             +(ctrls?('<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-top:6px">'+ctrls+'</div>'):'')
+            // the cross-pool scatter sits ABOVE the per-tab table — visible on RAW / GATE / TILT /
+            //   HYBRID alike (not KPI, a different scorecard entirely) since it spans all four.
+            +((showScatter&&!isK)?('<div style="margin-top:9px">'+_mtxScatter+'</div>'):'')
             +'<div style="margin-top:9px">'+body+'</div>'
             +note;};
-        _cfgInner=_mkCfg('cfgTab','data-cfgtab','kpi');
-        _cfgInnerB=_kpiInner?_mkCfg('cfgTabB','data-cfgtabb','raw'):'';
+        _cfgInner=_mkCfg('cfgTab','data-cfgtab','kpi',true);
+        _cfgInnerB=_kpiInner?_mkCfg('cfgTabB','data-cfgtabb','raw',false):'';
         // Only stands alone in §2 when there is no 1E card to live inside.
         _cfgSec=_kpiInner?'':('<div style="'+_colStyle+';margin-bottom:0;resize:vertical;min-height:52px;max-height:900px">'+_cfgInner+'</div>');
       }
@@ -18647,6 +18743,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v64.98: the SAMPLE / RANK BY / HEAT strip now lives ON this header row, so a click that
       //   lands inside it must NOT also collapse the tile.
       content.querySelectorAll('[data-cfgtab]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('cfgTab',b.getAttribute('data-cfgtab'));renderApp();};});
+      // 1E MATRIX SCATTER dot click → jump to that candidate's own column in its pool's matrix
+      //   table below. The pool (raw/gate/tilt/hyb) may not be the tab currently open, so this
+      //   first switches the 1E tab (same pref data-cfgtab already uses) and defers the actual
+      //   scroll to the post-render pass below (the target column doesn't exist in the DOM until
+      //   that tab's table renders). window._mtxScrollKey survives the renderApp() re-render.
+      content.querySelectorAll('[data-mtxsc]').forEach(el2=>{el2.onclick=(e)=>{e.stopPropagation();
+        const pool=el2.getAttribute('data-pool'),key=el2.getAttribute('data-mtxkey');
+        const tabOf={RAW:'raw',GATE:'gate',TILT:'tilt',HYBRID:'hyb'};
+        if(tabOf[pool])savePref('cfgTab',tabOf[pool]);
+        window._mtxScrollKey=key||null;
+        renderApp();};});
+      // land the deferred scroll (see above): find this run's re-rendered column header and
+      //   flash it so a click-through from an outlier dot always ends up somewhere visible.
+      if(window._mtxScrollKey){
+        const _tgt=content.querySelector('[data-mtxcol="'+window._mtxScrollKey.replace(/"/g,'')+'"]');
+        window._mtxScrollKey=null;
+        if(_tgt){
+          _tgt.scrollIntoView({behavior:'smooth',block:'center',inline:'center'});
+          const _prevOl=_tgt.style.outline,_prevOff=_tgt.style.outlineOffset;
+          _tgt.style.outline='2px solid var(--yellow)';_tgt.style.outlineOffset='2px';
+          setTimeout(()=>{_tgt.style.outline=_prevOl;_tgt.style.outlineOffset=_prevOff;},1800);
+        }
+      }
       content.querySelectorAll('[data-eqtab]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('eqTab',b.getAttribute('data-eqtab'));renderApp();};});
       // 1A card TRADES tab → the standalone blotter modal (payload = the SAME data-eqblot the
       // expanded 1A reads; no chart expansion involved).
