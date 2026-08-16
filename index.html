@@ -446,11 +446,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.64';
+const VERSION='73.65';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-{v:'73.64',date:'2026-08-16',notes:['HOTFIX: the previous release (73.62) crashed the run report for every Auto-Validate run - a variable the new 1A tabs needed was declared inside the wrong code block, so it was undefined by the time 1A tried to read it. Fixed - reports render normally again.']},
+{v:'73.65',date:'2026-08-16',notes:['HOTFIX: the previous release (73.62) crashed the run report for every Auto-Validate run - a variable the new 1A tabs needed was declared inside the wrong code block, so it was undefined by the time 1A tried to read it. Fixed - reports render normally again.']},
 {v:'73.62',date:'2026-08-16',notes:['The ALL POOLS PnL-vs-drawdown scatter moved out of 1E MATRIX and into 1A, as its own tab next to CHAMPION and FUNNEL - it no longer sits pinned above the RAW/GATE/TILT/HYBRID tables.','New PNL vs DD tab right next to it in 1A: the same all-pool candidates as horizontal bars instead of dots - one row per candidate, PnL and drawdown sharing a centreline, sorted best PnL first.','FIX: HYBRID pool candidates in that chart were rendering colorless (grey) instead of their assigned color, and clicking one did not jump to its matrix row either. Both now work - the color table needed the long pool name, not the short internal key.']},
 {v:'73.61',date:'2026-08-15',notes:['1E MATRIX gets a new ALL POOLS scatter, above the RAW/GATE/TILT/HYBRID tab tables: every candidate from all four pools plotted together (drawdown vs net $, colour-coded by pool), scoped to whatever SAMPLE is ticked, so an outlier the pre-registered net-$ + MAR-floor rule rejected is still there to eyeball. Hover a dot for its label and exact $/DD; click one to jump to its column in the matrix below.']},
 {v:'73.55',date:'2026-08-15',notes:['SAMPLE-scope audit across §1E MATRIX (owner: "switching between tabs shouldn’t change metric behavior"). GATE’s SHARPE row silently measured the WHOLE saved equity curve on every tick combo except exactly PRE-LOCKBOX or LOCKBOX alone (IS alone, WF alone, IS+WF, WF+LB all fell through to the whole curve while the row header still named the ticked stretch) — it now reads the same contiguous span the DD row already cuts to, on every combo, and honestly dashes on the one combo DD also can’t span (IS+LB with WF unticked).','RAW’s SHARPE row was permanently pinned to the whole optimize window (IS+WF) no matter what was ticked, and combined-scope DD (e.g. IS+WF, or WF+LB) used a "deepest individual slice" approximation marked with a °. Both now genuinely follow the SAMPLE tick: the optimize-window curve and the lockbox continuation curve are stitched into one series (same debasing the 2A funnel chart already uses) and sliced/diffed for whichever stretches are ticked. Runs saved before this engine change (no is_rng/wf_rng/lockbox) keep the exact old pinned display.','TILT and HYBRID were already correctly scope-following (their own _shrp already fraction-splits by ticked stretch) — audited, no leak found, no change needed there.']},
@@ -17315,12 +17315,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const iso=t.entryIso||null;
         const known=iso!=null&&Object.prototype.hasOwnProperty.call(_ntSeen,iso);
         const nt=known?_ntSeen[iso]:null;
+        // GLYPH FIRST, colour second. On the monochrome theme var(--green)/var(--red)
+        // both resolve to greys -- one of them near-invisible on the dark ground (the same
+        // legibility complaint the owner raised about the bridge status dot) -- so the
+        // symbol has to carry the meaning on its own and the colour is only reinforcement.
         return '<td style="white-space:nowrap">'
-          +_engChip('EL','var(--green)','EDGELOG engine produced this trade - every row in this table is an engine trade')
-          +' '+(nt===true?_engChip('NT','var(--green)','NinjaTrader demo filled this trade too - matched by the daily reconcile')
-                :nt===false?_engChip('NT','var(--red)','The engine signalled it and the NinjaTrader demo never took it - engine-only in the daily reconcile')
-                :_engChip('NT','var(--text5)','No reconcile block covers this date, so whether NinjaTrader took it is unknown'))
-          +' '+_engChip('TV','var(--text5)','TradingView has no API to poll - it is only ever checked by hand, in bulk. See MATRIX, ALL TIME.')
+          +_engChip('EL ✓','var(--green)','EDGELOG engine produced this trade - every row in this table is an engine trade')
+          +' '+(nt===true?_engChip('NT ✓','var(--green)','NinjaTrader demo filled this trade too - matched by the daily reconcile')
+                :nt===false?_engChip('NT ✗','var(--red)','The engine signalled it and the NinjaTrader demo never took it - engine-only in the daily reconcile')
+                :_engChip('NT ?','var(--text5)','No reconcile block covers this date, so whether NinjaTrader took it is unknown'))
+          +' '+_engChip('TV –','var(--text5)','TradingView has no API to poll - it is only ever checked by hand, in bulk. See MATRIX, ALL TIME.')
           +'</td>';
       };
       const _tRows=_tSorted.slice(0,200).map(t=>{
