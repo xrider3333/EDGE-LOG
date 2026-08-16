@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.44';
+const VERSION='73.45';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -10456,21 +10456,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(isMaxC&&c===isMaxC)return '#3a9bdc';
           const h=_cfgHue.get(c)||((c&&c.equity&&c.equity.final!=null)?_hueByFin.get(+c.equity.final):null);
           return h||LBALT[(alt++)%2];};
-        // v64.70 (owner): the crowned line is reconciled to the champion's TRUE total (1A), but the
-        //   other top-3 survivors kept the saved-curve reconstruction, which overshoots — so the
-        //   crowned looked LOWER than them. Bring the survivors onto the same footing by the SAME
-        //   overshoot the crowned showed (crowned then ends highest, as it should). Approximation:
-        //   assumes a similar reconstruction overshoot across the top-3 on the same lockbox slice.
-        let _crownOver=0;
-        if(_champTot!=null){const _cc=lbCs.find(c=>c.crowned);
-          if(_cc&&_cc.lb_equity&&Array.isArray(_cc.lb_equity.cum)&&_cc.lb_equity.cum.length&&_cc.equity&&_cc.equity.final!=null&&_cc.lb_equity.base!=null){
-            const _lc=_cc.lb_equity.cum;_crownOver=(_cc.equity.final+(_lc[_lc.length-1]-_cc.lb_equity.base))-_champTot;}}
+        // v64.70 (owner): the crowned line used to be reconciled to "the champion's TRUE total",
+        //   which this code took to be _champTot — but _champTot is d.equity's last value, which is
+        //   ALL TRADES (byte-identical to gate_validate.ungated_full.total_pnl), not the crowned
+        //   candidate's own total. Rescaling the crowned pill/line toward it (and then dragging the
+        //   other two survivors along by the SAME offset via _crownOver) pulled every one of these
+        //   three gutter figures off the number the key box, matrix and crowned curve actually show.
+        // v73.34 (bugfix): each candidate's own reconstruction (anchor+_rawEnd) is exactly the
+        //   _endOf() formula used everywhere else on this funnel for "a config's true lockbox-
+        //   stitched total" — it needs no rescale toward _champTot. Drop the correction; _sc=1 for
+        //   every lbCs line (crowned and both survivors) so the gutter pill matches the key box.
         if(hasLB)lbCs.forEach(c=>{const cr=!!c.crowned,col=_lbCol(c,cr);
           const cum=c.lb_equity.cum,base=c.lb_equity.base,anchor=c.equity.final,n=cum.length;
           const _rawEnd=cum[n-1]-base;
-          const _sc=cr
-            ?((_champTot!=null&&_rawEnd!==0)?((_champTot-anchor)/_rawEnd):1)
-            :((_crownOver&&_rawEnd!==0)?((_rawEnd-_crownOver)/_rawEnd):1);
+          const _sc=1;
           const pts=[xFull.toFixed(1)+' '+Yv(anchor*mult).toFixed(1)];
           for(let j=0;j<n;j++){const f=n<=1?1:j/(n-1);pts.push((xFull+(xR-xFull)*f).toFixed(1)+' '+Yv((anchor+(cum[j]-base)*_sc)*mult).toFixed(1))}
           lb+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?0.9:0.6)+'" opacity="0.95" stroke-dasharray="0.5 1.6" stroke-linecap="round"/>';
@@ -10515,9 +10514,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _mkSer=(c,col,lab,id,tip)=>{const base=c.equity.cum.map(v=>v*mult);const q=c.lb_equity;
             let li=null,thru=false;
             if(q&&Array.isArray(q.cum)&&q.cum.length&&c.equity.final!=null&&q.base!=null){
-              const _re=q.cum[q.cum.length-1]-q.base;
-              const _s2=(c===crownedC)?((_champTot!=null&&_re!==0)?((_champTot-c.equity.final)/_re):1)
-                                      :((_crownOver&&_re!==0)?((_re-_crownOver)/_re):1);
+              // v73.34 (bugfix, same as the 2A gutter above): no rescale toward _champTot (the
+              //   ALL-TRADES total, not this candidate's own) — trust each candidate's own
+              //   lockbox-stitched reconstruction, same as _endOf() everywhere else on this funnel.
+              const _s2=1;
               li=base.length;thru=true;
               q.cum.forEach(v=>base.push((c.equity.final+(v-q.base)*_s2)*mult));}
             return {id:id,label:lab,color:col,eq:base,li:li,wfi:Math.round(fIS*(c.equity.cum.length||1)),
