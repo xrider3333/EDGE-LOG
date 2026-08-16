@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.42';
+const VERSION='73.43';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
@@ -16947,10 +16947,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           ['Add a new strategy instance (/strategy/add)','PLANNED','template + StrategyAdd — lets the bridge fully manage the roster'],
           ['Order-rate / loss-limit circuit breaker','PLANNED','refuse new orders past N losses or N orders in a window'],
           ['Intraday P&L drawdown alert','PLANNED','preflight + reconcile are once-a-day; nothing pings mid-session yet'],
-          ['Execution review + tolerance-based auto-kill','PLANNED','ping on every fill, kill the strategy if a fill looks wrong and you\'re unreachable'],
-          ['Runner-independent (cloud-side) paging','PLANNED','today\'s alert needs the runner alive to write it — see chat for options'],
+          ['Execution review — ping on every fill','LIVE','polls /executions every 45s, pushes via ntfy; flags fills off the expected fingerprint'],
+          ['Execution review — tolerance-based AUTO-KILL','BUILT, OFF','notify-only today; escalating to disable/flatten/killswitch is a one-line change'],
+          ['Runner-independent (cloud-side) paging','LIVE','GitHub Actions cron every 15 min — pages even if the PC is dark'],
+          ['Unattended NT8 login','LIVE','Windows Credential Manager + UI Automation; handles the trading-mode dialog'],
           ['Backtest trigger via bridge (Strategy Analyzer)','PLANNED','separate automation surface, not yet started'],
           ['Position-size / margin sanity check before first live enable','PLANNED','checks HOW MUCH, not just WHICH account'],
+          ['Fill-price sanity check vs live market','PLANNED','blocked: the bridge has no quote endpoint yet — would need a new one'],
+          ['Auto-recover: relaunch + re-enable after a crash','PLANNED','pieces all exist (login, connect, enable) — nothing chains them yet'],
         ];
         const _mHelp=!!window._paperMcpHelp;
         const mcpRows=MCP_FEATURES.map(([name,status,note])=>{
