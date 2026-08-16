@@ -446,11 +446,11 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.63';
+const VERSION='73.64';
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-{v:'73.63',date:'2026-08-16',notes:['HOTFIX: the previous release (73.62) crashed the run report for every Auto-Validate run - a variable the new 1A tabs needed was declared inside the wrong code block, so it was undefined by the time 1A tried to read it. Fixed - reports render normally again.']},
+{v:'73.64',date:'2026-08-16',notes:['HOTFIX: the previous release (73.62) crashed the run report for every Auto-Validate run - a variable the new 1A tabs needed was declared inside the wrong code block, so it was undefined by the time 1A tried to read it. Fixed - reports render normally again.']},
 {v:'73.62',date:'2026-08-16',notes:['The ALL POOLS PnL-vs-drawdown scatter moved out of 1E MATRIX and into 1A, as its own tab next to CHAMPION and FUNNEL - it no longer sits pinned above the RAW/GATE/TILT/HYBRID tables.','New PNL vs DD tab right next to it in 1A: the same all-pool candidates as horizontal bars instead of dots - one row per candidate, PnL and drawdown sharing a centreline, sorted best PnL first.','FIX: HYBRID pool candidates in that chart were rendering colorless (grey) instead of their assigned color, and clicking one did not jump to its matrix row either. Both now work - the color table needed the long pool name, not the short internal key.']},
 {v:'73.61',date:'2026-08-15',notes:['1E MATRIX gets a new ALL POOLS scatter, above the RAW/GATE/TILT/HYBRID tab tables: every candidate from all four pools plotted together (drawdown vs net $, colour-coded by pool), scoped to whatever SAMPLE is ticked, so an outlier the pre-registered net-$ + MAR-floor rule rejected is still there to eyeball. Hover a dot for its label and exact $/DD; click one to jump to its column in the matrix below.']},
 {v:'73.55',date:'2026-08-15',notes:['SAMPLE-scope audit across §1E MATRIX (owner: "switching between tabs shouldn’t change metric behavior"). GATE’s SHARPE row silently measured the WHOLE saved equity curve on every tick combo except exactly PRE-LOCKBOX or LOCKBOX alone (IS alone, WF alone, IS+WF, WF+LB all fell through to the whole curve while the row header still named the ticked stretch) — it now reads the same contiguous span the DD row already cuts to, on every combo, and honestly dashes on the one combo DD also can’t span (IS+LB with WF unticked).','RAW’s SHARPE row was permanently pinned to the whole optimize window (IS+WF) no matter what was ticked, and combined-scope DD (e.g. IS+WF, or WF+LB) used a "deepest individual slice" approximation marked with a °. Both now genuinely follow the SAMPLE tick: the optimize-window curve and the lockbox continuation curve are stitched into one series (same debasing the 2A funnel chart already uses) and sliced/diffed for whichever stretches are ticked. Runs saved before this engine change (no is_rng/wf_rng/lockbox) keep the exact old pinned display.','TILT and HYBRID were already correctly scope-following (their own _shrp already fraction-splits by ticked stretch) — audited, no leak found, no change needed there.']},
@@ -17121,6 +17121,33 @@ namespace NinjaTrader.NinjaScript.Strategies {
       };
       const latestReport=_pr[0]||null;
       const legWarn=name=>{if(!latestReport)return null;const L=(latestReport.legs||{})[name]||(latestReport.legs||{})[name.toLowerCase()];const w=L&&L.warnings;return (Array.isArray(w)&&w.length)?w:null;};
+      // ── PROVENANCE — which run + which config each leg came from ──────────────
+      // Owner 2026-08-15: "i dont know which config or past run it got it from", then
+      // "place the config where ea leg came from in the tiles". api/paper.py's LEG_SOURCE
+      // is authoritative and now rides inside every daily report (legs[k].source/.params),
+      // so a report is self-describing. Reports written before that change carry neither,
+      // so this built-in map fills in until the next one lands; the report always wins.
+      const _CFG_FALLBACK={
+        ORB:{run_label:'#125',strategy_file:'ORB_3_0.py',
+             note:'The NO-TRAIL ORB_3_0 cut of run #125, not #125 crowned variant (the crown is ORB_3_1 with trail_bars=5).',
+             caveat:'Run #125 volume filter is LOOK-AHEAD: it gates an intrabar stop-entry on the breakout bar FINISHED volume. These shadow numbers are NOT live-achievable.',
+             params:{or_bars:1,trade_mode:'Both',stop_frac:0.75,vol_filter:1.25}},
+        ENGUQ:{run_label:'#149',strategy_file:'ENGUQ_1M_1_0.py',
+             note:'NQ_DEPLOY_PARAMS_149 from the strategy file, plus the later breakeven_R=1.5 addition.',caveat:null,
+             params:{tl_len:48,ema_len:390,buf_atr:0.9,min_brk:1.3,atr_len:30,vol_mult:0.8,stop_mult:1.0,act_R:2.5,trail_frac:2.5,breakeven_R:1.5}},
+        NOISE:{run_label:'no crowned run',strategy_file:'NOISE_1_0.py',
+             note:'Round-12 frozen defaults plus the bandwidth stop k=1.0 that won the 25-variant exit sweep. Assembled by hand from research, never crowned by an auto-validate run.',
+             caveat:'Auto-validate #225 later crowned a DIFFERENT config - lookback 44, asymmetric 0.75/1.5 bands, stop_k 1.75 - on a fresh 18-month lockbox. This leg is not that config.',
+             params:{lookback:14,band_mult_long:1.5,band_mult_short:1.5,exit_mode:'vwap',stop_mode:'bandwidth',stop_k:1.0}}
+      };
+      const _legSrc=k=>{
+        const L=(_pr.find(r=>r&&r.legs&&r.legs[k]&&r.legs[k].source&&Object.keys(r.legs[k].source).length)||{});
+        const blk=L.legs?L.legs[k]:null;
+        if(blk&&blk.source&&Object.keys(blk.source).length)
+          return {src:blk.source,params:(blk.params&&Object.keys(blk.params).length)?blk.params:(_CFG_FALLBACK[k]||{}).params,fromReport:true};
+        const f=_CFG_FALLBACK[k];
+        return f?{src:f,params:f.params,fromReport:false}:null;
+      };
       const legTile=(name,label,color)=>{
         const a=legAgg(name);const w=name!=='BLEND'?legWarn(name):null;
         const wBadge=w?'<span title="'+w.join(' · ').replace(/"/g,'&quot;')+'" style="margin-left:6px;font-size:9px;padding:1px 6px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow)">⚠ '+w.length+'</span>':'';
@@ -17132,13 +17159,36 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // 'ALL' when this leg is already selected, so a second click clears it -- that reuses
         // the existing [data-paperleg] handler untouched rather than adding a second one.
         const sel=PLEG===name, dim=PLEG!=='ALL'&&!sel;
-        return '<div data-paperleg="'+(sel?'ALL':name)+'" title="'+(sel?'click to show all legs':'click to highlight '+label)
+        // The config the leg is RUNNING lives in the tile itself (owner: "place the config
+        // where ea leg came from in the tiles"), so "how is it doing" and "what is it" are
+        // never in two places again. BLEND is a derived 1:1 view of two legs, not a config
+        // of its own, so it says exactly that instead of borrowing one.
+        let cfgBlock='';
+        if(name==='BLEND'){
+          cfgBlock='<div style="margin-top:7px;padding-top:6px;border-top:1px solid var(--border2);font-size:8px;color:var(--text5);line-height:1.6">'
+            +'derived · 1:1 ORB + ENGU-Q<br><span style="color:var(--text5)">no config of its own</span></div>';
+        }else{
+          const P=_legSrc(name);
+          if(P){
+            const noRun=!P.src.run_label||P.src.run_label==='no crowned run';
+            const pTxt=P.params?Object.keys(P.params).map(p=>p+' '+P.params[p]).join(' · '):'';
+            const tip=((P.src.note||'')+(P.src.caveat?'\n\n⚠ '+P.src.caveat:'')
+              +'\n\n'+(P.fromReport?'from the daily report':'from the board built-in map; the next report carries its own')).trim();
+            cfgBlock='<div title="'+tip.replace(/"/g,'&quot;')+'" style="margin-top:7px;padding-top:6px;border-top:1px solid var(--border2);font-size:8px;line-height:1.6;cursor:help">'
+              +'<span style="color:var(--text5)">from </span><b style="color:'+(noRun?'var(--yellow)':'var(--text2)')+'">'+P.src.run_label+'</b>'
+              +'<span style="color:var(--text5)"> · '+(P.src.strategy_file||'')+'</span>'
+              +(P.src.caveat?'<span title="'+String(P.src.caveat).replace(/"/g,'&quot;')+'" style="margin-left:4px;color:var(--yellow)">⚠</span>':'')
+              +(pTxt?'<div style="color:var(--text4);margin-top:2px;word-break:break-word">'+pTxt+'</div>':'')
+              +'</div>';
+          }
+        }
+        return '<div data-paperleg="'+(sel?'ALL':name)+'" title="'+(sel?'click to show all legs':'click to highlight '+label+' and show only its trades')
           +'" style="flex:1 1 170px;min-width:170px;padding:2px 14px 2px 0;cursor:pointer;opacity:'+(dim?0.42:1)+';transition:opacity .12s">'
           +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap"><span style="font-size:10px;font-weight:700;letter-spacing:1px;color:'+color+'">'+label+'</span>'
           +(sel?'<span style="font-size:8px;color:var(--text5)">●</span>':'')+wBadge+orbBadge+'</div>'
           +'<div style="font-size:20px;font-weight:700;color:'+(a.net>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(a.net)+'</div>'
           +'<div style="font-size:9px;color:var(--text4);margin-top:2px">'+a.n+' trades · '+(a.n?Math.round(a.wr*100)+'% win':'—')+' · '+a.days+'d live<br>last '+(a.lastT?_dOnly(a.lastT):'—')+'</div>'
-          +'</div>';
+          +cfgBlock+'</div>';
       };
       const _tileDefs=[['ORB','ORB','#5b8def'],['ENGUQ','ENGU-Q','#c090ff'],['NOISE','NOISE','#2dd4bf'],['BLEND','BLEND (1:1)','var(--yellow)']];
       // ALL FOUR always render -- they are the chart legend, so filtering them away would
@@ -17183,11 +17233,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // said "NOISE $2,154", curve drew a NOISE line, neither knew the other existed. Now the
       // tiles ARE the legend and the selector: click one to highlight its curve (and filter
       // the matrix + trades table below via PLEG), click it again to go back to ALL.
-      const curveHtml=tile(legStrip
-        +'<div style="height:1px;background:var(--border2);margin:10px 0 9px"></div>'
-        +'<div class="lbl" style="margin-bottom:8px">CUMULATIVE PAPER PnL'
+      const curveHtml=tile('<div class="lbl" style="margin-bottom:8px">CUMULATIVE PAPER PnL'
         +(PLEG==='ALL'?'':' <span style="font-weight:400;color:var(--text5);font-size:8px">· '+(_legLabel[PLEG]||PLEG)+' highlighted · click again for all</span>')
-        +'</div>'+_curveSvg(_allDates,_curveSeries));
+        +'</div>'+_curveSvg(_allDates,_curveSeries)
+        +'<div style="height:1px;background:var(--border2);margin:12px 0 10px"></div>'
+        +legStrip);
       // ── LIVE · NinjaTrader demo — Layer 1. paper_reports docs now carry a `live` block logged
       // straight off the demo account's own fill log (no strategy attribution — see zero-state copy
       // below). Every read here is defensive: old reports simply lack `live` and roll up to zero.
@@ -17238,6 +17288,41 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const hm=d.toLocaleTimeString('en-GB',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hour12:false});
         return day+' '+hm;}catch(e){return '';}};
       const _pCandleRows=[];window._paperCandleRows=_pCandleRows;
+      // ── WHICH ENGINES PICKED UP THIS TRADE (owner 2026-08-15: "annotate which engines
+      // picked up on the trade"). Every row here is an EDGELOG engine trade by definition;
+      // the question is whether the other two engines produced it too.
+      //
+      // NinjaTrader: the daily reconcile already pairs shadow trades to demo fills by entry
+      // timestamp, and matched[].shadow_entry / shadow_only[].entry ARE those entryIso
+      // strings -- so they key straight back to a row here. Built from EVERY report that
+      // carries a reconcile, not just the newest, or only the last day could be annotated.
+      //
+      // TradingView: always reads "no feed", never a dash that could be mistaken for
+      // "checked and missing". TV has no API to poll; it is verified by hand, in bulk, and
+      // that lives in the MATRIX's ALL TIME scope.
+      const _ntSeen={};
+      _pr.forEach(r=>{
+        const legs=(r&&r.reconcile&&r.reconcile.legs)?r.reconcile.legs:null;
+        if(!legs)return;
+        Object.keys(legs).forEach(k=>{
+          const L=legs[k]||{};
+          (L.matched||[]).forEach(m=>{if(m&&m.shadow_entry)_ntSeen[m.shadow_entry]=true;});
+          (L.shadow_only||[]).forEach(s=>{if(s&&s.entry)_ntSeen[s.entry]=false;});
+        });
+      });
+      const _engChip=(lbl,col,tip)=>'<span title="'+String(tip).replace(/"/g,'&quot;')+'" style="cursor:help;font-size:8px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:4px;border:1px solid '+col+';color:'+col+'">'+lbl+'</span>';
+      const _engineCell=t=>{
+        const iso=t.entryIso||null;
+        const known=iso!=null&&Object.prototype.hasOwnProperty.call(_ntSeen,iso);
+        const nt=known?_ntSeen[iso]:null;
+        return '<td style="white-space:nowrap">'
+          +_engChip('EL','var(--green)','EDGELOG engine produced this trade - every row in this table is an engine trade')
+          +' '+(nt===true?_engChip('NT','var(--green)','NinjaTrader demo filled this trade too - matched by the daily reconcile')
+                :nt===false?_engChip('NT','var(--red)','The engine signalled it and the NinjaTrader demo never took it - engine-only in the daily reconcile')
+                :_engChip('NT','var(--text5)','No reconcile block covers this date, so whether NinjaTrader took it is unknown'))
+          +' '+_engChip('TV','var(--text5)','TradingView has no API to poll - it is only ever checked by hand, in bulk. See MATRIX, ALL TIME.')
+          +'</td>';
+      };
       const _tRows=_tSorted.slice(0,200).map(t=>{
         const leg=legOf(t),lc=_legColor[leg]||'#5b8def';const pnl=+t.pnl_usd||0;
         const _etk=_etKey(t.entryTime),_xtk=_etKey(t.exitTime);
@@ -17254,7 +17339,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _chartCell=_etk
           ? '<td><span data-ptchart="'+_ci+'" title="open this trade session candles" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:5px;border:1px solid var(--border);color:var(--text4)">CHART</span></td>'
           : '<td><span title="this trade has no usable entry time, so there is nothing to centre a chart on" style="font-size:8px;color:var(--text5)">—</span></td>';
-        return '<tr>'+_chartCell+'<td>'+(t.run_date||_dOnly(t.exitTime||t.entryTime)||'—')+'</td>'
+        return '<tr>'+_chartCell+_engineCell(t)+'<td>'+(t.run_date||_dOnly(t.exitTime||t.entryTime)||'—')+'</td>'
           +'<td><span style="color:'+lc+';font-weight:600">'+(_legLabel[leg]||leg)+'</span>'+_laBadge+'</td>'
           +'<td>'+(t.side||'—')+'</td>'
           +'<td>'+_fmtET(t.entryTime)+'</td>'
@@ -17265,7 +17350,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<td style="text-align:right;color:'+(pnl>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(pnl)+'</td></tr>';
       }).join('');
       const tradesHtml=tile('<div class="lbl" style="margin-bottom:8px">TRADES'+(_tSorted.length>200?' <span style="font-weight:400;color:var(--text5);font-size:8px">· showing 200 of '+_tSorted.length+'</span>':'')+'</div>'
-        +(_tSorted.length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th>CHART</th><th>DATE</th><th>LEG</th><th>SIDE</th><th>ENTRY (ET)</th><th>EXIT (ET)</th><th style="text-align:right">ENTRY PX</th><th style="text-align:right">EXIT PX</th><th style="text-align:right">PTS</th><th style="text-align:right">$</th></tr></thead><tbody>'+_tRows+'</tbody></table></div>'
+        +(_tSorted.length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th>CHART</th><th title="which engines produced this trade">ENGINES</th><th>DATE</th><th>LEG</th><th>SIDE</th><th>ENTRY (ET)</th><th>EXIT (ET)</th><th style="text-align:right">ENTRY PX</th><th style="text-align:right">EXIT PX</th><th style="text-align:right">PTS</th><th style="text-align:right">$</th></tr></thead><tbody>'+_tRows+'</tbody></table></div>'
           :'<div style="padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:1px">NO PAPER TRADES YET — SHADOW TRADING STARTS '+PAPER_START+'</div>'));
       // daily reports — one row per paper_reports doc, click to expand per-leg detail + verdict
       const _repOpen=window._paperReportOpen||(window._paperReportOpen=new Set());
@@ -17533,58 +17618,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +(mRows||'<tr><td colspan="6" style="color:var(--text5)">no legs shown</td></tr>')+'</tbody></table></div>'
           +'<div style="margin-top:8px;font-size:9px;color:var(--text5);line-height:1.7">'+mNote+'</div>');
       }
-      // ── CONFIG · WHERE EACH LEG CAME FROM ─────────────────────────────────────
-      // Owner 2026-08-15: "i dont see any info about the configs or the past run where it
-      // obtained the past config... like orb, i dont know which config or past run it got it
-      // from." The board showed what each leg EARNED but never what each leg IS.
-      //
-      // api/paper.py's LEG_SOURCE is authoritative and now travels inside every daily report
-      // (report.legs[key].source + .params), so a report is self-describing: read an old one
-      // and you know exactly which config produced it. Reports written BEFORE that change
-      // carry neither, so the built-in map below fills in until the next report lands. It is
-      // labelled as such in the detail, and the report always wins when it has the data.
-      let configHtml='';
-      {
-        const FALLBACK={
-          ORB:{run_label:'#125 (ORB-family)',strategy_file:'ORB_3_0.py',picked:'2026-07',
-               note:'The NO-TRAIL ORB_3_0 cut of run #125, not #125 crowned variant (the crown is ORB_3_1 with trail_bars=5).',
-               caveat:'Run #125 volume filter is LOOK-AHEAD: it gates an intrabar stop-entry on the breakout bar FINISHED volume. These shadow numbers are NOT live-achievable.',
-               params:{or_bars:1,trade_mode:'Both',stop_frac:0.75,vol_filter:1.25}},
-          ENGUQ:{run_label:'#149 (ENGU-Q)',strategy_file:'ENGUQ_1M_1_0.py',picked:'2026-07-14',
-               note:'NQ_DEPLOY_PARAMS_149 from the strategy file, plus the later breakeven_R=1.5 addition.',caveat:null,
-               params:{tl_len:48,ema_len:390,buf_atr:0.9,min_brk:1.3,atr_len:30,vol_mult:0.8,stop_mult:1.0,act_R:2.5,trail_frac:2.5,breakeven_R:1.5}},
-          NOISE:{run_label:'no crowned run',strategy_file:'NOISE_1_0.py',picked:'2026-08-08',
-               note:'Round-12 frozen defaults plus the bandwidth stop k=1.0 that won the 25-variant exit sweep. Assembled by hand from research, never crowned by an auto-validate run.',
-               caveat:'Auto-validate #225 later crowned a DIFFERENT config - lookback 44, asymmetric 0.75/1.5 bands, stop_k 1.75 - on a fresh 18-month lockbox. This leg is not that config.',
-               params:{lookback:14,band_mult_long:1.5,band_mult_short:1.5,exit_mode:'vwap',stop_mode:'bandwidth',stop_k:1.0}}
-        };
-        const _cOpen=!!window._paperCfgOpen;
-        const rows=['ORB','ENGUQ','NOISE'].filter(_legShown).map(k=>{
-          const L=(_recRep&&_recRep.legs?_recRep.legs[k]:null)||{};
-          const fromReport=!!(L.source&&Object.keys(L.source).length);
-          const src=fromReport?L.source:FALLBACK[k];
-          const prm=(L.params&&Object.keys(L.params).length)?L.params:((FALLBACK[k]||{}).params);
-          const noRun=!src||!src.run_label||src.run_label==='no crowned run';
-          const pTxt=prm?Object.keys(prm).map(p=>'<span style="white-space:nowrap"><span style="color:var(--text5)">'+p+'</span> '
-            +'<b style="color:var(--text2)">'+String(prm[p])+'</b></span>').join('<span style="color:var(--text5)"> · </span>'):'—';
-          return '<tr><td style="vertical-align:top;white-space:nowrap"><span style="color:'+(_legColor[k]||'var(--text2)')+';font-weight:600">'+(_legLabel[k]||k)+'</span></td>'
-            +'<td style="vertical-align:top;white-space:nowrap">'+(noRun
-                ?'<span style="color:var(--yellow)">'+((src&&src.run_label)||'unknown')+'</span>'
-                :'<b style="color:var(--text2)">'+src.run_label+'</b>')
-              +'<div style="font-size:9px;color:var(--text5);margin-top:2px">'+((src&&src.strategy_file)||'—')
-              +((src&&src.picked)?' · picked '+src.picked:'')+'</div></td>'
-            +'<td style="vertical-align:top;font-size:9px;line-height:1.9">'+pTxt+'</td></tr>'
-            +(_cOpen&&src&&(src.note||src.caveat)?'<tr><td colspan="3" style="padding:0 0 9px;border:0;font-size:10px;line-height:1.6">'
-              +(src.note?'<div style="color:var(--text4)">'+String(src.note).replace(/</g,'&lt;')+'</div>':'')
-              +(src.caveat?'<div style="color:var(--yellow);margin-top:3px">⚠ '+String(src.caveat).replace(/</g,'&lt;')+'</div>':'')
-              +'<div style="color:var(--text5);margin-top:3px;font-size:9px">'+(fromReport?'from the daily report':'from the board built-in map - this report predates config provenance; the next report carries its own')+'</div></td></tr>':'');
-        }).join('');
-        configHtml=tile('<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px">'
-          +'<div class="lbl">CONFIG · WHERE EACH LEG CAME FROM</div>'
-          +'<span data-papercfg style="cursor:pointer;user-select:none;font-size:9px;color:var(--text5);border:1px solid var(--border);border-radius:999px;padding:1px 8px">'+(_cOpen?'hide detail':'why / caveats')+'</span></div>'
-          +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>LEG</th><th>FROM RUN</th><th>CONFIG</th></tr></thead><tbody>'
-          +(rows||'<tr><td colspan="3" style="color:var(--text5)">no legs shown</td></tr>')+'</tbody></table></div>');
-      }
       let reconcileHtml='';
       {
         // ---- TODAY: engine vs NinjaTrader, automatic ----
@@ -17685,7 +17718,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6;margin:0 2px 16px;max-width:820px">The runner re-runs each crowned strategy on live data every day and logs the trades it would have taken — no real money. This board shows whether reality tracks the backtest.</div>';
       // curveHtml now CARRIES the leg tiles, so it takes the tiles' old slot at the top:
       // summary + curve read as one block, then the detail panels below it.
-      body=headerHtml+curveHtml+matrixHtml+configHtml+bridgeHtml+reconcileHtml+tradesHtml+reportsHtml
+      body=headerHtml+curveHtml+tradesHtml+matrixHtml+bridgeHtml+reconcileHtml+reportsHtml
         +(window._paperErr?'<div style="color:var(--red);font-size:10px;margin-top:10px">load error: '+String(window._paperErr).replace(/</g,'&lt;')+'</div>':'');
     }else{
       const allRuns=runHistory.slice();
@@ -18708,7 +18741,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Leg rail — a lens, not a saved preference, so it lives on window and resets on reload.
       content.querySelectorAll('[data-paperleg]').forEach(el=>{el.onclick=()=>{window._paperLeg=el.getAttribute('data-paperleg');renderApp();};});
       const rh=content.querySelector('[data-reconhelp]');if(rh)rh.onclick=()=>{window._paperReconHelp=!window._paperReconHelp;renderApp();};
-      const pc=content.querySelector('[data-papercfg]');if(pc)pc.onclick=()=>{window._paperCfgOpen=!window._paperCfgOpen;renderApp();};
       content.querySelectorAll('[data-mscope]').forEach(el=>{el.onclick=()=>{window._paperMatrixScope=el.getAttribute('data-mscope');renderApp();};});
       const mh=content.querySelector('[data-mcphelp]');if(mh)mh.onclick=()=>{window._paperMcpHelp=!window._paperMcpHelp;renderApp();};
       content.querySelectorAll('[data-paperrep]').forEach(tr=>{tr.onclick=()=>{const id=tr.dataset.paperrep;const s=window._paperReportOpen||(window._paperReportOpen=new Set());if(s.has(id))s.delete(id);else s.add(id);renderApp();};});
