@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.89';
+const VERSION='73.90';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.90',date:'2026-08-16',notes:['Retired the old hand-built NOISE leg. It was assembled from research and never actually won a validation, while three consecutive validations in a row (#202, #225, #231) all picked the NOISE-225 settings instead - and as of tonight NinjaTrader runs those too. It was the only thing left measuring a variant nothing else in the system uses. Its single logged trade was removed with it so the board does not carry an orphan row.','NOISE-225 inherits its teal colour, so the four NOISE-family rows are now three: the settings, and the same settings with each of the two bouncers.']},
 {v:'73.89',date:'2026-08-16',notes:['The ML gate status is now in the TOP BAR, next to the trade count, on every tab - a green GATE dot when it is running, red GATE DOWN when it is not, yellow GATE STALE when it is answering but its decision-maker has not been re-taught in days. Hovering gives the detail; clicking opens the gate service own status page.','It belongs up there rather than buried in the PAPER tab because its failure is SILENT: the gate is fail-open, so if it dies NinjaTrader simply takes every signal at normal size and nothing else on the screen changes. Same reasoning as the DATA warning beside it.','To make that work on every tab, the board now reads the NinjaTrader status doc on a slow timer rather than only when the PAPER tab loads. The browser cannot check the gate service directly - this site is https and the service is plain http on your own machine, which browsers block - so the status comes via the runner, and the clickable link is the direct check that always works.']},
 {v:'73.88',date:'2026-08-16',notes:['You can now SEE whether the ML gate is running. It went live earlier today with no indicator anywhere, and it is the one piece whose failure is invisible from the outside: if it dies, NinjaTrader keeps trading and just takes every signal at normal size, so everything still looks fine while the experiment has quietly stopped. There is now an ML GATE line on the NinjaTrader card - green UP with how many models are loaded and how fast it answers, or red DOWN saying outright that NinjaTrader is trading ungated.','It also watches how fresh the decision-maker is. The gate re-teaches itself every evening after the close; if that has been failing the line turns yellow and says how many days old it is, which you would never notice otherwise because the service keeps answering perfectly with a stale brain.','The line is always visible - it does not hide behind the detail toggle - and hovering it explains what happens if it is down and how to restart it.']},
 {v:'73.86',date:'2026-08-16',notes:['Added NOISE-225 · rf HYBRID 55 - your pick - and on the evidence it is the better grounded of the two NOISE gates, so it goes on the board beside the tree one rather than instead of it. Both are scored against the same raw NOISE-225 control, so they are also directly comparable with each other.','Why yours is better grounded: judged only on the years the selection rule is ALLOWED to see, rf recovery 19.72 beats ungated 14.23. Only two of the five hybrids clear that bar, and tree is not one of them - tree is the WORST of the five there. rf is also 2nd of five on BOTH sides of the lockbox boundary, the only variant that is neither a pre-lockbox favourite that collapsed nor a hindsight pick that never earned its place.','The honest weakness, so it is not oversold: out of sample rf does NOT beat taking every trade. Recovery 1.69 against 1.79, on less than half the money. What it does do is HALVE the drawdown, 831 against 1,640, for about the same risk-adjusted return. That makes it a risk reducer and a sizing-up lever, not an edge, and the forward test should be read that way.','Note on the size shape: HYBRID rows always slide linearly, 0.25x to 3x with 1x at a 50% score. The stepped 0.5x / 1x / 2x shape only ever existed on TILT rows, which are retired - so there is no stepped hybrid to choose between.']},
@@ -17521,8 +17522,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {k:'ORB',       label:'ORB · RAW',              color:'#5b8def'},
         {k:'ORB_H',     label:'ORB · rf HYBRID 45',     color:'#9dc0fb', ctrl:'ORB'},
         {k:'ENGUQ',     label:'ENGU-Q · RAW',           color:'#c090ff'},
-        {k:'NOISE',     label:'NOISE · RAW',            color:'#2dd4bf'},
-        {k:'NOISE_225', label:'NOISE-225 · RAW',        color:'#e0a33c'},
+        // The hand-built NOISE config was retired 2026-08-16: never crowned by any
+        // validate, superseded by NOISE-225 (picked by three consecutive validates and
+        // now what NinjaTrader actually runs). It kept its teal colour here.
+        {k:'NOISE_225', label:'NOISE-225 · RAW',        color:'#2dd4bf'},
         {k:'NOISE_H',   label:'NOISE-225 · tree HYBRID 55', color:'#f0c674', ctrl:'NOISE_225'},
         {k:'NOISE_H_RF',label:'NOISE-225 · rf HYBRID 55',   color:'#d98cc4', ctrl:'NOISE_225'},
       ];

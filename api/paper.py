@@ -293,9 +293,12 @@ PAPER_LEGS = [
     {"key": "ENGUQ", "strategy": "ENGUQ_1M_1_0.py", "instrument": "NQ", "timeframe": "1m",
      "session": "rth", "params": ENGUQ_149, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "source": LEG_SOURCE["ENGUQ"]},
-    {"key": "NOISE", "strategy": "NOISE_1_0.py", "instrument": "NQ", "timeframe": "5m",
-     "session": "rth", "params": NOISE_FROZEN, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
-     "source": LEG_SOURCE["NOISE"]},
+    # RETIRED 2026-08-16 (owner: "remove the old noise raw"). This was NOISE_FROZEN -- the
+    # hand-assembled round-12 config that was never crowned by any auto-validate. Three
+    # consecutive validates (#202, #225, #231) all landed on the NOISE_225 dict instead, and
+    # as of tonight NinjaTrader runs that config too, so this leg was measuring a variant
+    # nothing else in the system uses. Its provenance block stays in LEG_SOURCE so old daily
+    # reports that reference it still resolve.
 
     # ── gated legs (api/paper_gate.py) ──────────────────────────────────────────
     # ORB_H needs no companion: the raw ORB leg above already runs the identical
