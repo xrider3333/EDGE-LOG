@@ -54,7 +54,7 @@ PAPER_START = "2026-08-11"
 # leg was swapped off the retired look-ahead #125 cut on 2026-08-16, so its Aug-11 and
 # Aug-12 trades were produced by a config that was not on the board when they happened.
 LEG_LIVE_FROM = {
-    "ENGUQ":     "2026-08-11",   # genuinely forward since PAPER_START
+    "ENGUQ":     "2026-08-17",   # config swapped RTH #149 -> ETH #226
     "NOISE":     "2026-08-11",   # genuinely forward since PAPER_START
     "ORB":       "2026-08-16",   # config swapped #125 -> #230
     "ORB_H":     "2026-08-16",   # gate added
@@ -98,6 +98,22 @@ ORB_230 = dict(or_bars=2, trade_mode="First-candle dir", stop_frac=2.0, atr_filt
 # augur_strategies/ENGUQ_1M_1_0.py — import it directly.
 from augur_strategies import ENGUQ_1M_1_0 as _enguq  # noqa: E402
 ENGUQ_149 = dict(_enguq.NQ_DEPLOY_PARAMS_149)
+
+# ENGU-Q ETH -- the config run #226 certified, and the one this leg should have been
+# testing all along (owner 2026-08-17: "ENGUQ is suppose to be ETH right?").
+#
+# BACKTESTING_STACK.md, 2026-08-13, in its own words: #226 is "formally certified as the
+# PRIMARY DEPLOYMENT CANDIDATE" and "the only ENGU-Q variant whose backtest matches live
+# behaviour", because the RTH champion "loses $178,340 to a real 24h stop; ETH manages the
+# night". The RTH leg's numbers assume a position can sit through the overnight session
+# with no stop -- which is not a thing you can actually trade. The same entry names the
+# remaining gate before adoption as "paper-forward leg", i.e. exactly this.
+#
+# The params are the frozen clock-scaled #149 transfer (time lookbacks x3.54 for the 24h
+# tape: ema 390->1380, tl 48->170, atr 30->106), copied from run #226's best_params.
+ENGUQ_226_ETH = dict(ema_len=1380, tl_len=170, atr_len=106, buf_atr=0.9, vol_mult=0.8,
+                     stop_mult=1.0, trail_frac=2.5, regime_len=0, min_brk=1.3,
+                     breakeven_R=1.5, act_R=2.5)
 
 # NOISE leg params: the validated config (see NOISE_1_0.py docstring) + the
 # researched bandwidth stop. NOISE is execution-CLEAN (close signal -> next-open
@@ -211,12 +227,27 @@ LEG_SOURCE = {
                   "switch with that in mind.",
     },
     "ENGUQ": {
-        "run": 149, "run_label": "#149 (ENGU-Q)", "strategy_file": "ENGUQ_1M_1_0.py",
+        "run": 226, "run_label": "#226 (ENGU-Q ETH FROZEN)",
+        "strategy_file": "ENGUQ_1M_ETH_FROZEN_1_0.py",
+        "picked": "2026-08-17",
+        "note": "The 24-hour (ETH) config, certified 2026-08-13 as the PRIMARY DEPLOYMENT "
+                "CANDIDATE and the only ENGU-Q variant whose backtest matches live "
+                "behaviour. Frozen clock-scaled #149 transfer (time lookbacks x3.54 for the "
+                "24h tape). PASS 5/5, walk-forward 7/8, full window 2,843 trades / $434,721 "
+                "/ PF 1.33.",
+        "caveat": "Replaced the RTH #149 leg on 2026-08-17. That leg's numbers assumed a "
+                  "position could sit through the overnight session with no stop -- the RTH "
+                  "champion gives back $178,340 once a real 24h stop is priced in. Every "
+                  "ENGU-Q paper number before this date was measuring that.",
+    },
+    # Kept so older daily reports that cite the RTH leg still resolve.
+    "ENGUQ_RTH_RETIRED": {
+        "run": 149, "run_label": "#149 (ENGU-Q RTH)", "strategy_file": "ENGUQ_1M_1_0.py",
         "picked": "2026-07-14",
         "note": "NQ_DEPLOY_PARAMS_149 imported directly from the strategy file, plus the "
                 "later breakeven_R=1.5 addition. Pine port reconciled against TradingView "
                 "2026-07-14 (84.5% of matched trades exact).",
-        "caveat": None,
+        "caveat": "RETIRED 2026-08-17 -- assumes no overnight stop; superseded by #226 ETH.",
     },
     "NOISE": {
         "run": None, "run_label": "no crowned run", "strategy_file": "NOISE_1_0.py",
@@ -290,9 +321,11 @@ PAPER_LEGS = [
     {"key": "ORB", "strategy": "ORB_3_4_C221.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": ORB_230, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB"]},
-    {"key": "ENGUQ", "strategy": "ENGUQ_1M_1_0.py", "instrument": "NQ", "timeframe": "1m",
-     "session": "rth", "params": ENGUQ_149, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
-     "source": LEG_SOURCE["ENGUQ"]},
+    # ETH since 2026-08-17: the RTH leg was forward-testing the variant this project's own
+    # docs had already deprecated as not live-realistic. See ENGUQ_226_ETH above.
+    {"key": "ENGUQ", "strategy": "ENGUQ_1M_ETH_FROZEN_1_0.py", "instrument": "NQ",
+     "timeframe": "1m", "session": "eth", "params": ENGUQ_226_ETH,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ"]},
     # RETIRED 2026-08-16 (owner: "remove the old noise raw"). This was NOISE_FROZEN -- the
     # hand-assembled round-12 config that was never crowned by any auto-validate. Three
     # consecutive validates (#202, #225, #231) all landed on the NOISE_225 dict instead, and
@@ -408,10 +441,21 @@ def _resample(df, tf_minutes):
     return out
 
 
-def _filter_rth(bars):
-    """Keep only bars whose bar-start falls in 09:30-16:00 America/New_York.
+def _filter_rth(bars, session="rth"):
+    """Trim the fresh tail to a leg's own session.
+
+    RTH keeps 09:30-16:00 New York; ETH keeps everything. That distinction is the whole
+    point of an ETH leg: it exists to trade the overnight tape, so applying the day window
+    to it would silently delete the very bars it was validated on and leave a leg claiming
+    to be 24-hour while only ever seeing the day session.
+
+    Signature keeps the default so the other callers (api/bars.py, api/gate_live.py) are
+    unaffected -- they are RTH by construction.
+
     Returns (filtered bars DataFrame, tz-aware US/Eastern Timestamp Series aligned to it)."""
     et = pd.to_datetime(bars["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
+    if str(session).lower() != "rth":
+        return bars.reset_index(drop=True), et.reset_index(drop=True)
     tod = et.dt.hour * 60 + et.dt.minute
     mask = (tod >= 9 * 60 + 30) & (tod < 16 * 60)
     return bars[mask].reset_index(drop=True), et[mask].reset_index(drop=True)
@@ -523,7 +567,7 @@ def run_shadow(leg, today):
 
             tf_min = 5 if str(leg["timeframe"]).lower().startswith("5") else 1
             bars = _resample(ticks_df, tf_min)
-            bars, bars_et = _filter_rth(bars)
+            bars, bars_et = _filter_rth(bars, leg.get("session", "rth"))
             last_master_time = arrays["index"][-1] if len(arrays["index"]) else None
             if last_master_time is not None and len(bars):
                 keep = (bars_et > last_master_time).values
