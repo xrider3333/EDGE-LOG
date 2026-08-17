@@ -37,9 +37,10 @@ $logPath  = 'C:\EdgeLog\nt_recover.log'
 # guarding a position that exists only in the replay.
 # EdgeLogORBV2 REMOVED 2026-08-16: it still ran the retired look-ahead-era params
 # while the engine's ORB crown moved to run #230, so its fills measured a dead
-# config. EdgeLogORB230 is the honest port -- add it here once its grid row exists
-# and its fills reconcile against the engine.
-$expected = @('EdgeLogNOISE', 'EdgeLogENGUQ1m')
+# config. EdgeLogORB230 ADDED 2026-08-17 (owner's call): the honest #230 port,
+# created offline via nt_reconfig --add-orb230 and live on ORBV2's NQ 5-min chart.
+# Its fills still owe a reconcile against the engine's blotter -- forward, as they land.
+$expected = @('EdgeLogNOISE', 'EdgeLogENGUQ1m', 'EdgeLogORB230')
 $connName = 'Simulation'
 
 function Log($m){

@@ -259,6 +259,115 @@ def edit_chart_series(dry):
     log("workspace chart: NOISE's hosting chart series -> MNQ 09-26")
 
 
+ORBV2_STRATEGY_ID = 386606473
+# NT's Userdata XML is CRLF -- the replacement must match or the file gets mixed endings.
+ORB230_PARAMS_XML = (
+    "  &lt;OrBars&gt;2&lt;/OrBars&gt;\r\n"
+    "  &lt;StopFrac&gt;2&lt;/StopFrac&gt;\r\n"
+    "  &lt;BreakoutBuf&gt;0.25&lt;/BreakoutBuf&gt;\r\n"
+    "  &lt;PartialExitR&gt;3&lt;/PartialExitR&gt;\r\n"
+    "  &lt;TrailBars&gt;3&lt;/TrailBars&gt;\r\n"
+    "  &lt;TargetR&gt;5.5&lt;/TargetR&gt;\r\n"
+    "  &lt;AtrFilter&gt;0.7&lt;/AtrFilter&gt;\r\n"
+    "  &lt;VpaceFilter&gt;0.7&lt;/VpaceFilter&gt;\r\n"
+    "  &lt;SkipHolidays&gt;true&lt;/SkipHolidays&gt;\r\n"
+    "  &lt;Qty&gt;1&lt;/Qty&gt;\r\n"
+)
+
+
+def add_orb230(dry):
+    """Create the EdgeLogORB230 strategy row the way NinjaTrader itself would -- by
+    writing its own persistence, offline. This is the capability the New Strategy
+    dialog normally provides and the bridge cannot (the grid's template list binds
+    fresh instances to the FIRST account, the live one -- disqualified 2026-08-15).
+
+    A strategy is FOUR records (mapped 2026-08-17 from EdgeLogORBV2, id 386606473):
+      1. Strategies row       -- Userdata BLOB: UTF-16LE entity-escaped strategy XML
+      2. Strategy2Account     -- account link (cloned: DEMO, never constructed)
+      3. Strategy2Instrument  -- instrument link (NQ 09-26)
+      4. workspace XML        -- <StrategyN BarsIndex="0">id</StrategyN> inside the
+         hosting chart's DataSeries block. The CHART is the master: at boot it
+         recreates the strategy on ITS series, so hosting on ORBV2's NQ 5-min chart
+         is what binds ORB230 to NQ 5-min.
+    All edits happen with NinjaTrader STOPPED -- it rewrites both stores on exit.
+
+    The XML clone flips: class/Name ORBV2->ORB230, Calculate OnEachTick->OnBarClose
+    (the port is a bar-close engine), DaysToLoad 5->120 (the vol-regime gate needs a
+    60-session median banked), BarsRequiredToTrade->20, and swaps the param block for
+    run #230's pinned config. StartBehavior is already WaitUntilFlat in the template."""
+    import sqlite3
+    import re
+    new_id = None
+    con = sqlite3.connect(f"file:{NT_DB}?mode=ro", uri=True)
+    con.text_factory = bytes
+    try:
+        if con.execute("SELECT COUNT(*) FROM Strategies WHERE Name=?",
+                       (b"EdgeLogORB230",)).fetchone()[0]:
+            log("EdgeLogORB230 already exists in the DB - nothing to add")
+            return None
+        ud = con.execute("SELECT Userdata FROM Strategies WHERE Id=?",
+                         (ORBV2_STRATEGY_ID,)).fetchone()[0].decode("utf-16-le")
+        acct = con.execute("SELECT Account, Nr FROM Strategy2Account WHERE Strategy=?",
+                           (ORBV2_STRATEGY_ID,)).fetchone()
+        inst = con.execute("SELECT Instrument, Nr FROM Strategy2Instrument WHERE Strategy=?",
+                           (ORBV2_STRATEGY_ID,)).fetchone()
+        new_id = con.execute("SELECT MAX(Id)+1 FROM Strategies").fetchone()[0]
+    finally:
+        con.close()
+
+    s = ud.replace("EdgeLogORBV2", "EdgeLogORB230")
+    s = s.replace("&lt;calculate2&gt;OnEachTick&lt;/calculate2&gt;",
+                  "&lt;calculate2&gt;OnBarClose&lt;/calculate2&gt;")
+    s = s.replace("&lt;Calculate&gt;OnEachTick&lt;/Calculate&gt;",
+                  "&lt;Calculate&gt;OnBarClose&lt;/Calculate&gt;")
+    s = s.replace("&lt;DaysToLoad&gt;5&lt;/DaysToLoad&gt;",
+                  "&lt;DaysToLoad&gt;120&lt;/DaysToLoad&gt;")
+    s = re.sub(r"(&lt;BarsRequiredToTrade&gt;)\d+(&lt;/BarsRequiredToTrade&gt;)",
+               r"\g<1>20\g<2>", s)
+    s2, n = re.subn(r"  &lt;OrBars&gt;.*?&lt;Qty&gt;\d+&lt;/Qty&gt;\r?\n",
+                    ORB230_PARAMS_XML, s, flags=re.S)
+    if n != 1:
+        raise SystemExit(f"param block replace matched {n}x - template shape changed, refusing")
+    s = s2
+    for must in ("&lt;StartBehavior&gt;WaitUntilFlat", "EdgeLogORB230",
+                 "&lt;OrBars&gt;2&lt;", "OnBarClose"):
+        if must not in s:
+            raise SystemExit(f"post-transform sanity failed on: {must}")
+
+    w = open(WORKSPACE, encoding="utf-8", newline="").read()
+    anchor = f'<Strategy0 BarsIndex="0">{ORBV2_STRATEGY_ID}</Strategy0>'
+    if w.count(anchor) != 1:
+        raise SystemExit("ORBV2's chart anchor not found exactly once in the workspace - refusing")
+
+    if dry:
+        log(f"DRY RUN: would insert Strategies id {new_id} (clone of ORBV2, #230 config), "
+            f"clone acct link {acct}, instrument link {inst}, and host it on ORBV2's chart")
+        return None
+
+    con = sqlite3.connect(NT_DB)
+    con.text_factory = bytes
+    try:
+        con.execute("INSERT INTO Strategies (Id, Category, Classname, IsReplay, "
+                    "IsResetOnNewTradingDay, IsTerminal, Name, ServerId, Template, Userdata, Workspace) "
+                    "VALUES (?, 2, ?, 0, 1, 0, ?, -1, '', ?, 'Untitled 2')",
+                    (new_id, "NinjaTrader.NinjaScript.Strategies.EdgeLogORB230",
+                     b"EdgeLogORB230", s.encode("utf-16-le")))
+        con.execute("INSERT INTO Strategy2Account (Account, Strategy, Nr) VALUES (?,?,?)",
+                    (acct[0], new_id, acct[1]))
+        con.execute("INSERT INTO Strategy2Instrument (Instrument, Strategy, Nr) VALUES (?,?,?)",
+                    (inst[0], new_id, inst[1]))
+        con.commit()
+    finally:
+        con.close()
+    log(f"db: EdgeLogORB230 inserted as id {new_id} (account link {acct[0]}, instrument NQ 09-26)")
+
+    w2 = w.replace(anchor,
+                   anchor + f'\r\n            <Strategy1 BarsIndex="0">{new_id}</Strategy1>', 1)
+    open(WORKSPACE, "w", encoding="utf-8", newline="").write(w2)
+    log("workspace: ORB230 hosted on ORBV2's NQ 5-min chart")
+    return new_id
+
+
 def set_qty_via_bridge(qty):
     """Qty is a live NinjaScript property (comes from SetDefaults=1 each boot), so it is
     set through the bridge's own sanctioned setparam path: disable -> write -> enable."""
@@ -385,8 +494,71 @@ def main():
                     help="move ENGU-Q to the 24h session + run #226's clock-scaled lookbacks")
     ap.add_argument("--recycle-rails", action="store_true",
                     help="re-scale the risk rails for recycle sizing (no NT restart)")
+    ap.add_argument("--add-orb230", action="store_true",
+                    help="create the EdgeLogORB230 strategy row (run #230 port) on ORBV2's chart")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
+    if a.add_orb230:
+        if a.dry_run:
+            add_orb230(True)
+            return 0
+        # Refuse with anything on: a restart mid-position would strand it.
+        try:
+            pos = get("/positions").get("positions", [])
+            strats = get("/strategies").get("strategies", [])
+        except Exception:
+            pos, strats = [], []          # NT already down - safe to proceed
+        if pos:
+            log(f"REFUSING: open position(s) on the account: {pos}")
+            return 1
+        backup(NT_DB)
+        backup(WORKSPACE)
+        if strats:
+            # Clean exit so NT saves and releases both stores; hard stop as fallback.
+            try:
+                urllib.request.urlopen(urllib.request.Request(
+                    BRIDGE + "/shutdown", method="POST", data=b""), timeout=8)
+                log("clean shutdown requested")
+            except Exception as e:
+                log(f"clean shutdown failed ({e}) - stopping the process")
+            for _ in range(20):
+                time.sleep(3)
+                r = subprocess.run(["powershell", "-NoProfile", "-Command",
+                                    "(Get-Process NinjaTrader -ErrorAction SilentlyContinue) -ne $null"],
+                                   capture_output=True, text=True)
+                if "True" not in (r.stdout or ""):
+                    break
+            else:
+                stop_nt()
+        time.sleep(3)
+        new_id = add_orb230(False)
+        log("relaunching via nt_recover.ps1 ...")
+        r = subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", "-File", RECOVER],
+                           capture_output=True, text=True, timeout=420)
+        log("recover: " + " / ".join((r.stdout or "").strip().splitlines()[-1:]))
+        chk = get("/strategy/check?name=EdgeLogORB230")
+        log(f"pre-flight: ok={chk.get('ok')} checked={chk.get('checked')} "
+            f"out_of_range={chk.get('out_of_range')}")
+        if chk.get("ok") is not True:
+            log("RESULT: INCOMPLETE - ORB230 row exists but fails pre-flight; not enabling")
+            return 1
+        subprocess.run([PY, NT_CLI, "strategy", "enable", "--name", "EdgeLogORB230", "--yes"],
+                       capture_output=True, timeout=120)
+        time.sleep(15)
+        strats = {x.get("name"): x for x in get("/strategies").get("strategies", [])}
+        ob = strats.get("EdgeLogORB230") or {}
+        p = {x["name"]: x["value"] for x in
+             get("/strategy/params?name=EdgeLogORB230").get("params", [])}
+        log(f"EdgeLogORB230: state={ob.get('state')} instrument={ob.get('instrument')} "
+            f"OrBars={p.get('OrBars')} StopFrac={p.get('StopFrac')} TargetR={p.get('TargetR')}")
+        nz = strats.get("EdgeLogNOISE") or {}
+        eq = strats.get("EdgeLogENGUQ1m") or {}
+        log(f"roster: NOISE={nz.get('state')} ENGUQ={eq.get('state')}")
+        ok = (ob.get("state") == "Realtime" and p.get("OrBars") == "2"
+              and nz.get("state") == "Realtime" and eq.get("state") == "Realtime")
+        log("RESULT: " + ("PASS - ORB230 live on NQ 5-min with the #230 config"
+                          if ok else "INCOMPLETE - read the lines above"))
+        return 0 if ok else 1
     if a.enguq_eth:
         # Chart session (workspace, needs NT stopped) + the three lookbacks (bridge).
         # Both or neither: ETH-scaled lookbacks on RTH bars are worse than leaving it alone.
