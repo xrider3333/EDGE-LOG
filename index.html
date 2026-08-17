@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.103';
+const VERSION='73.104';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.104',date:'2026-08-16',notes:['1E MATRIX scope audit round two - every displayed cell on all four tabs was re-computed independently from two real run docs (231 and 225) for all seven SAMPLE tick combinations, 4,276 checks per run. Three leaks found and fixed.','THE SCATTER DOTS: a RAW dot drawdown was pinned to the whole optimize window while its profit half followed the SAMPLE tick - the dot could sit at a drawdown no ticked view shows. Dots now read the exact same scoped drawdown the DD row prints, and a tick the run cannot honour drops the dot instead of guessing.','RANK BY NET $ and MAR FLOOR on the RAW tab sorted the columns on whole-run dollars and the pinned MAR while the yellow highlight pointed at the scoped TOTAL and MAR rows - the sort key and the highlighted row were two different windows. They now sort on exactly what those rows display.','The GATE DD hover said measured over the undefined slice whenever more than one stretch was ticked. It now names the ticked stretches.','The audit itself ships as a repeatable gate: tools/matrix_scope_audit.py renders the real tabs headlessly against any saved run doc and fails on any cell that does not match its own recomputation.']},
 {v:'73.103',date:'2026-08-17',notes:['FIX to the badge shipped moments ago: hovering a NOISE row said NinjaTrader trades ORB instead, which is nonsense. Two legs that both lack a comparison partner were being treated as relatives of each other. Rows are now grouped by family properly, so each engine-only leg names the right sibling.']},
 {v:'73.95',date:'2026-08-17',notes:['FIX, and this one was showing you a wrong number rather than an ugly one: clicking TODAY never changed the money. The TODAY / ALL TIME tabs only ever switched the small cross-engine block at the bottom of each tile, so the big dollar figure stayed all-time under a TODAY label. TODAY now really means today - filtered on the NEW YORK date, because at half past ten at night in Arizona it is already tomorrow in the market - and the strip prints the date it is showing so there is no guessing.','ORB is ARCHIVED. Both ORB rows are out of the strip, the curve and the tables, but nothing was deleted: the runner still computes them every night and every trade is kept. A SHOW ARCHIVED button on the LEGS row brings the full history back whenever you want it.','The ENGINE badge now names the leg NinjaTrader trades INSTEAD. Three NOISE rows share one NinjaTrader strategy, so a bare ENGINE tag raised exactly the question it was supposed to answer. Hovering any engine-only leg now says which sibling is live.']},
 {v:'73.94',date:'2026-08-16',notes:['FIX: the board was telling you the wrong thing about what is running. The leg NinjaTrader is ACTUALLY trading - NOISE-225 with the rf bouncer - was showing OFF, because the live-state lookup still named the NOISE leg that was retired earlier today. It now reads the same field the tiles do, so the two can never drift apart again.','Legs that were never meant to run in NinjaTrader no longer wear a warning colour. The two comparison legs (NOISE-225 on its own, and the tree bouncer) and the ORB bouncer are computed here on purpose - they are the controls and the alternative brain - so they now read ENGINE in neutral grey instead of OFF in yellow, which looked like three broken things.','ORB still reads OFF, and that one is real: its NinjaTrader port was switched off today because it still runs the old pre-#230 settings, so its fills would measure a config nothing else on the board uses. Hovering the badge now says exactly that instead of leaving you to guess.']},
@@ -10524,6 +10525,24 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const key=String(r.lbl).replace(/<[^>]*>/g,'').replace(/&middot;/g,'·').replace(/&divide;/g,'÷').split('·')[0].trim();
           if(_pick[key]){const f=_hf(_pick[key],true);if(f)r.cellBg=f;}}));
       }
+      // v73.92 (scope audit): RANK BY NET $ / MAR-FLOOR now order the columns on the SAME
+      //   scoped values the yellow-marked rows display -- TOTAL of the ticked stretches and MAR
+      //   of the ticked stretches -- instead of the whole-run FULL $ / pinned WF-MAR keys the
+      //   first sort above used: the sort key and the row the yellow highlight points at were
+      //   two different windows. Re-sorted HERE because _b2tot/_rawMar only exist below the
+      //   first sort; the data-mtxcol stamps are refreshed so scatter-dot click-to-scroll and
+      //   the scatter keys (built later off cols.indexOf) stay aligned. RANK MAR (the engine
+      //   rule) keeps the walk-forward crown order exactly as before.
+      if(_b2rank!=='rec'){
+        const _sv=col=>{const v=_b2tot(col);return (v!=null&&isFinite(v))?v:-Infinity;};
+        const _sm=col=>{const v=_rawScopedA?_rawMar(col):col.mar;return (v!=null&&isFinite(v))?v:-Infinity;};
+        const _smx=Math.max.apply(null,cols.map(_sm).concat([-Infinity]));
+        const _sok=col=>(_smx>-Infinity&&_sm(col)>-Infinity)?(_sm(col)>=0.8*_smx):false;
+        cols.sort((a,b)=>{
+          if(_b2rank==='floor'){const fa=_sok(a),fb=_sok(b);if(fa!==fb)return fa?-1:1;}
+          return _sv(b)-_sv(a);});
+        cols.forEach((c,_ri)=>{c.dataAttr=' data-mtxcol="raw:'+_ri+'"';});
+      }
       const table=_matrixTbl(cols,groups,{compact:true})
         ;   // v66.4 (owner): the footnote text moved into this tile's ⓘ — see _fullNote below.
       // honesty notes + the crown/robustness paragraph + the funnel-path caption — all relocated
@@ -10555,8 +10574,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   SAME SAMPLE tick the table above just measured (_b2tot / col.mdd) — combined with the
       //   GATE/TILT/HYBRID points (gvParts) into one cross-pool PnL-vs-DD sanity chart. key matches
       //   the [data-mtxcol] stamped on this column's header above, for click-to-scroll.
+      // v73.92 (scope audit): the dot's drawdown now reads the SAME scoped drawdown the DD row
+      //   above prints (_rawPA — engine per-slice block or stitched-curve slice), instead of the
+      //   whole-optimize-window col.mdd it was pinned to while the pnl half followed the tick.
+      //   A pick with no single span (IS+LB) has no scoped DD and the dot is dropped, matching
+      //   the dashed DD row. Only a run with no curves at all falls back to the pinned col.mdd —
+      //   the same fallback the visible DD row uses there.
       const _scatterPtsRaw=cols.map(col=>{
-        const pnl=_b2tot(col),dd=col.mdd;
+        // ... and on a run whose curves cannot honour the CURRENT tick (_rawScopedA false —
+        //   e.g. an old doc with the non-contiguous IS+LB ticked), the visible rows fall back to
+        //   naming their own pinned IS+WF window, but a dot has no label to carry that honesty:
+        //   only a tick that IS exactly IS+WF may still use the pinned whole-optimize-window
+        //   drawdown; any other tick drops the dot instead of mixing a scoped $ with a wider DD.
+        const pnl=_b2tot(col),dd=_rawScopedA?_rawPA(col).dd:(_rawBScope?col.mdd:null);
         if(pnl==null||dd==null||!isFinite(pnl)||!isFinite(dd))return null;
         return {pool:'RAW',label:String(col.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:pnl,dd:Math.abs(dd),key:'raw:'+cols.indexOf(col),crowned:!!col.crowned};
       }).filter(Boolean);
@@ -13668,7 +13698,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _needRerun='this run predates the engine build that saves each variant per-trade profile for this period, so profit factor, win rate and trade count cannot be shown here. Re-run this config to fill them in.';
         const _ddTip=(_g2samp==='pre')
           ?'derived: net $ divided by recovery factor -- older runs do not store a per-candidate drawdown, so it is backed out from the two numbers they do store. Measured on the tuning years.'
-          :'measured over the '+_sampNm[_g2samp]+' slice. A degree sign means it was read off this variant saved equity curve rather than measured trade by trade.';
+          :'measured over the '+(_sampNm[_g2samp]||_sampLbl)+' slice. A degree sign means it was read off this variant saved equity curve rather than measured trade by trade.';
         // SHARPE for 2C, derived exactly the way 2B derives its own — period-to-period change in
         //   the saved cumulative curve, annualised by that period length in years. Same method,
         //   same caveats, so the two matrices can be read side by side.
