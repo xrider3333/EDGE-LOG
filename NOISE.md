@@ -1,6 +1,8 @@
 # NOISE — wide-band intraday momentum envelope: lockbox findings & open questions
 
-> Living handoff doc. **Last updated: 2026-08-15** (Claude Code, PAPER/NT-bridge session).
+> Living handoff doc. **Last updated: 2026-08-17** (variant campaign session — see the
+> "2026-08-17 — variant campaign" section: pre-registered entry-quality filters cleared
+> the bar; knobs shipped in `NOISE_1_0.py`; controlled auto-validate queued).
 > Written to hand off to a parallel NOISE session. Everything here is read straight from
 > the Firestore run doc for **auto-validate run #225 (NOISE-6)** — no re-derivation, no
 > estimates. Field paths are given so anything below can be re-checked in one query.
@@ -140,18 +142,81 @@ changes.
 
 ---
 
+## 2026-08-17 — variant campaign: entry-quality filters CLEAR the pre-registered bar
+
+> Full pre-registration + round log below. Harness: `tools/noise_variant_research.py`
+> (parity vs `NOISE_1_0.py` through the real engine proven exact to the cent).
+> Knobs shipped in `NOISE_1_0.py` (all default OFF, smoke tests a-d PASS):
+> `confirm_bars`, `daytype_mode`, `daytype_lo`, `daytype_hi`, `vol_skip_pct`.
+> New preset: **"Filter (2026-08-17 winner vs champion)"** — champion core pinned,
+> 12 cells incl. the exact champion cell, for a controlled auto-validate comparison.
+
+**Method (mirrors the 2026-08-08 stop research):** adoption bar pre-registered BEFORE any
+backtest; ALL selection on the PRE-LOCKBOX window **2010-06-07 → 2025-02-10** (run #231's
+optimize window — the 2025-02-11→2026-08-12 lockbox is SPENT, read once, confirmatory,
+after the pick). Bar: net ≥ champion · MAR ≥ champion · 2010-17 ≥ $0 · worst year not
+worse · plateau across pre-declared neighbors · mechanism sanity. Baseline (#231 champion
+44/0.75/1.5/vwap/bandwidth k1.75, selection window): **n=5,113 · $277,123 · PF 1.241 ·
+DD $19,482 · MAR 14.22 · 2010-17 +$11,524 · worst 2010 −$2,278**.
+
+**WINNER (pre-registered Occam combo rule): `confirm_bars=2` + `daytype_mode='skip_bot_short'`**
+— wait for 2 consecutive closes outside the band before entering, and take no SHORT
+entries the day after a close in the bottom 20% of the prior day's range (the program-wide
+"shorts fail after weak closes" pattern, banked across 4+ families):
+**n=4,010 · $332,699 (+20%) · PF 1.399 · DD $14,076 (−28%) · MAR 23.64 · 2010-17 +$22,262
+· worst 2010 −$1,581 · only negative year = 2010.** Neighborhood = a plateau (daytype_lo
+0.15/0.25, confirm 3, lookback 36/52, band_mult_long 0.5/1.0, band_mult_short 1.25/1.75,
+stop_k 1.5/2.0 all stay $303–338k net, MAR 17–24.7).
+
+**Round log (every cell judged against the bar above):**
+- **A1 vol-conditional exit switch (exit_eod / exit_band × pct 70/80/90/95): DEAD, all 8**
+  — the k1.75 stop already fixed the 2020 vwap-whipsaw (2020 = +$29.1k at baseline); the
+  round-12 lead was real but is already harvested.
+- **A2 skip high-vol days (`vol_skip_pct` 90/95/98): CLEARS on all 3 thresholds** (best
+  90: $310,690 · MAR 16.32). Mechanism: baseline day-mean −$100 on top-decile-vol days vs
+  +$142 elsewhere, day-clustered permutation p=0.001. Banked as a validated single — NOT
+  in the shipped winner (combos with it failed the beat-best-component rule).
+  skip LOW-vol days: dead (no plateau).
+- **A3 tighten stop in high vol (×0.5/×0.75 @ pct 80/90): clears, small** — dominated by
+  A2/B1/B4; not selected.
+- **B1 entry confirmation (2 and 3 closes): CLEARS both** ($299.1k/$299.0k, MAR 16.5/17.6).
+- **B2 time-decay exit (24/36/48 bars): DEAD** (net −$11k to −$34k vs baseline).
+- **B3 asymmetric stop_k long/short: DEAD** (stop_k_long 1.25 cleared net+MAR but its only
+  declared neighbor failed → no plateau → rejected per pre-reg).
+- **B4 prior-day close-position filter: `skip_bot_short` CLEARS big** ($320,530 · MAR 17.27,
+  best single); `skip_bot_all` also clears; both skip_top modes WORSE (long side is where
+  the money is — consistent with the buy-weakness meta-finding).
+- **B5 skip-after-loss: DEAD** ($116.7k, MAR 3.65 — as expected, banked).
+- **D combos (pre-registered addendum + Occam rule "combo must beat its best component on
+  net AND MAR"):** D3 confirm2+skip_bot_short WINS ($332.7k/23.64 > $320.5k/17.27);
+  hi90 combos and the triple all failed the rule (the filters overlap on the same bad days).
+
+**Confirmatory one-look (full window incl. SPENT lockbox — never used for selection):**
+net $367,959 · PF 1.322. Lockbox slice (2025-02-11→2026-08-12): **+$35.3k, PF 1.11 —
+positive but SMALLER than the baseline champion's same slice (+$58.9k)**. Carried honestly:
+the filters gave back some 2025-26 profit; the pre-registered pre-lockbox bar is what was
+met. The queued auto-validate (below) is the owner-visible arbiter (fresh WF machinery on
+the controlled 12-cell preset).
+
+**Known-unknown flagged:** run #225/#231's headline n/net (e.g. 3,872 / $96,611) don't
+match the raw-engine path on the same source/params (5,113 / $277,123 on the shorter
+selection window; harness == `augur_engine.engine.run_backtest` exact) — the validate
+pipeline's champion-metrics convention differs from the raw engine path. Run-to-run
+comparisons inside the runner remain apples-to-apples; worth a separate reconciliation.
+
+---
+
 ## Still genuinely untested (not dead ends — nobody has run these)
 
-- **Vol-regime filter / vol-conditional exit.** Named in `NOISE_1_0.py`'s docstring as
-  "the natural next lever," never built. The lead is concrete: 2020 vwap-exits −$91.7k
-  vs EOD-flats +$84.1k (round-12 autopsy, `BACKTESTING_STACK.md` ~584). An `atr_filter`
-  exists in the ORB family and has never been ported to NOISE.
 - **NOISE in a BOOK job.** BOOK (pool N legs, score as ONE strategy) exists since v71.42
   and has never had NOISE put through it. NOISE↔ORB correlation measured **0.21–0.25**
   (twice, rounds 10 and 12) — low enough to expect real diversification — but no blended
   backtest was ever actually run.
 - **TRADE CONTEXT feature→PnL FDR scan on NOISE.** The engine (`augur_engine/context.py`)
   is generic and wired in; no NOISE-specific scan is recorded anywhere.
+- ~~Vol-regime filter / vol-conditional exit~~ — RUN 2026-08-17 (campaign above): the
+  exit-switch is dead (stop already harvests it); the vol-skip FILTER validated as a
+  single (`vol_skip_pct=90`, banked).
 
 ---
 

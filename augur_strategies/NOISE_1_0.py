@@ -85,6 +85,40 @@ HONEST CAVEATS (read before treating this as more validated than it is):
       ($15,845 of $254,383 baseline = 6.2%; $15,264 of $268,371 with-stop = 5.7%).
 Ships default OFF (stop_mode='off') -- every reference number and docstring
 claim elsewhere in this file is unaffected until someone opts in.
+
+2026-08-17 -- entry-quality filters researched pre-lockbox (variant campaign vs the
+run-#231 champion: lookback 44, bands 0.75/1.5, vwap exit, bandwidth stop k=1.75).
+Methodology mirrored the 2026-08-08 stop research: adoption bar PRE-REGISTERED
+before any backtest (net >= champion, MAR >= champion, 2010-17 subtotal >= $0,
+worst year not worse, plateau across pre-declared threshold neighbors, mechanism
+sanity), ALL selection on the pre-lockbox window (2010-06-07 -> 2025-02-10, run
+#231's optimize window; the 2025-02-11 -> 2026-08-12 lockbox is SPENT and was
+read exactly once, confirmatory, AFTER the pick). Harness: tools/
+noise_variant_research.py (parity vs this file proven exact to the cent).
+Champion baseline on the selection window: n=5,113 . net $277,123.31 . PF 1.2406 .
+maxDD -$19,482.27 . MAR 14.22 . 2010-17 +$11,524 . worst year 2010 -$2,278.
+WINNER (pre-registered Occam combo rule): confirm_bars=2 + daytype_mode=
+'skip_bot_short' -- require 2 consecutive closes outside the band before entering,
+and take no SHORT entries on a day whose PRIOR day closed in the bottom 20% of its
+own range (the program-wide "shorts fail after weak closes / buy-weakness" pattern,
+banked across 4+ families):
+  n=4,010 . net $332,699.25 . PF 1.3992 . maxDD -$14,076.45 . MAR 23.64 .
+  2010-17 +$22,262 . worst year 2010 -$1,581 . only negative year = 2010.
+  Neighborhood: every neighbor (daytype_lo 0.15/0.25, confirm 3, lookback 36/52,
+  band_mult_long 0.5/1.0, band_mult_short 1.25/1.75, stop_k 1.5/2.0) stays at
+  $303k-$338k net, MAR 17-24.7 -- a plateau, not a magic cell.
+  Also individually clearing the bar (banked, not shipped as defaults):
+  vol_skip_pct=90 (skip entries when the PRIOR day's range percentile vs the
+  trailing 252 sessions is >= 90; plateau 90/95/98; day-clustered permutation
+  p=0.001 that those days underperform) -- n=4,309 . net $310,689.59 . MAR 16.32.
+  Dead ends (banked): vol-conditional exit switch (the k1.75 stop already does
+  that job), time-decay exits, asymmetric stop_k, skip-after-loss, skip-low-vol.
+  CONFIRMATORY one-look (full window incl. the SPENT lockbox, never used for
+  selection): net $367,959 . PF 1.322; lockbox slice positive (+$35.3k, PF 1.11)
+  but SMALLER than the baseline champion's same slice (+$58.9k) -- the filters
+  gave back some 2025-26 profit; carried honestly, the pre-lockbox bar is what
+  was pre-registered. All four filter knobs ship default OFF -- byte-identical
+  baseline when untouched (smoke tests a/b unchanged below).
 """
 import numpy as np
 
@@ -194,6 +228,55 @@ DEFAULT_PARAMS = {
                    "fixed = a stop at a flat k x 100 points -- RESEARCH-ONLY, not "
                    "separately validated.",
     },
+    "confirm_bars": {
+        "default": 1, "min": 1, "max": 4, "step": 1, "type": "int",
+        "label": "Entry confirmation (closes outside band)",
+        "tooltip": "How many CONSECUTIVE bar closes outside the band are required "
+                   "before entering (filled at the next bar's open, as always). 1 = "
+                   "the frozen behavior (first close outside enters, no change). 2 = "
+                   "the 2026-08-17 researched winner -- waits one extra bar for "
+                   "confirmation, cutting the one-bar head-fakes.",
+    },
+    "daytype_mode": {
+        "default": "off", "type": "str",
+        "options": ["off", "skip_bot_short", "skip_bot_all", "skip_top_long", "skip_top_all"],
+        "label": "Prior-day close-position filter",
+        "tooltip": "Gate today's NEW entries on where YESTERDAY closed inside its own "
+                   "range ((close-low)/(high-low), known before today's open -- fully "
+                   "causal). off (default) = no change. skip_bot_short = the 2026-08-17 "
+                   "researched winner: take no SHORT entries the day after a close in "
+                   "the bottom 20% of the day's range (shorts after weak closes is the "
+                   "program-wide losing pattern). skip_bot_all blocks both sides on "
+                   "those days; the two skip_top modes mirror at the top 20% (research-"
+                   "only, tested WORSE -- kept for completeness).",
+    },
+    "daytype_lo": {
+        "default": 0.2, "min": 0.05, "max": 0.45, "step": 0.05, "type": "float",
+        "label": "Bottom close-position threshold",
+        "tooltip": "The skip_bot_* cutoff: yesterday's close-position at or below this "
+                   "counts as a bottom close. 0.2 researched; 0.15/0.25 neighbors also "
+                   "clear the bar (plateau). Only read when daytype_mode is a skip_bot "
+                   "mode.",
+    },
+    "daytype_hi": {
+        "default": 0.8, "min": 0.55, "max": 0.95, "step": 0.05, "type": "float",
+        "label": "Top close-position threshold",
+        "tooltip": "The skip_top_* cutoff (mirror of daytype_lo). Research-only; the "
+                   "skip_top modes tested WORSE than baseline.",
+    },
+    "vol_skip_pct": {
+        "default": 0.0, "min": 0.0, "max": 99.0, "step": 1.0, "type": "float",
+        "label": "Skip entries above prior-day vol percentile (0=off)",
+        "tooltip": "0 (default) = no change. Otherwise: take no NEW entries on a day "
+                   "whose PRIOR day's range/close, percentile-ranked against the "
+                   "trailing 252 sessions (strictly prior -- fully causal), is at or "
+                   "above this value. 90 = the 2026-08-17 researched single (skips the "
+                   "top-decile vol days, where NOISE's day-mean is -$100 vs +$142 "
+                   "elsewhere, day-clustered permutation p=0.001; plateau at 90/95/98). "
+                   "Cleared the pre-registered bar alone but is NOT part of the shipped "
+                   "winner combo (the combo with it failed the beat-best-component "
+                   "rule).",
+    },
     "stop_k": {
         "default": 1.0, "min": 0.25, "max": 4.0, "step": 0.25, "type": "float",
         "label": "Stop size (x band excursion / ATR / points)",
@@ -230,6 +313,16 @@ PARAM_GRID_PRESETS = {
         "stop_mode": ["off", "bandwidth"], "stop_k": [0.5, 1.0, 1.5, 2.0],
         "lookback": [14], "band_mult_long": [1.5], "band_mult_short": [1.5],
         "exit_mode": ["vwap"], "side": ["Both"], "window": ["all_day"],
+    },
+    "Filter (2026-08-17 winner vs champion)": {
+        # The #231 champion core PINNED; only the researched filter knobs vary.
+        # Includes the exact champion cell (confirm 1 / off / 0) so a validate on
+        # this preset is a controlled champion-vs-variant comparison. 12 cells.
+        "lookback": [44], "band_mult_long": [0.75], "band_mult_short": [1.5],
+        "exit_mode": ["vwap"], "side": ["Both"], "window": ["all_day"],
+        "stop_mode": ["bandwidth"], "stop_k": [1.75],
+        "confirm_bars": [1, 2, 3], "daytype_mode": ["off", "skip_bot_short"],
+        "vol_skip_pct": [0.0, 90.0],
     },
 }
 
@@ -274,6 +367,38 @@ def _atr_by_session(h, l, sess_bounds, period):
     return atr
 
 
+def _vol_percentile(h, l, c, sess_bounds, ref_n=252, min_obs=60):
+    """vol_skip_pct helper (2026-08-17): pct[si] = percentile rank of the PRIOR
+    session's (H-L)/C among the ref_n sessions strictly before that prior session.
+    NaN when fewer than min_obs reference sessions exist (treated as not-extreme,
+    i.e. the filter stays inactive that day). Fully causal: session si only ever
+    reads sessions that FINISHED before si opens."""
+    n_sess = len(sess_bounds)
+    vals = np.array([(h[a:b].max() - l[a:b].min()) / c[b - 1] for a, b in sess_bounds], float)
+    pct = np.full(n_sess, np.nan, dtype=float)
+    for si in range(1, n_sess):
+        j = si - 1
+        lo = max(0, j - ref_n)
+        ref = vals[lo:j]
+        if len(ref) >= min_obs:
+            pct[si] = 100.0 * np.mean(ref < vals[j])
+    return pct
+
+
+def _daytype_pos(h, l, c, sess_bounds):
+    """daytype_mode helper (2026-08-17): pos[si] = the PRIOR session's close
+    position in its own range, (C-L)/(H-L). NaN for the first session or a
+    zero-range day (filter inactive). Fully causal."""
+    n_sess = len(sess_bounds)
+    cp = np.full(n_sess, np.nan, dtype=float)
+    for si in range(1, n_sess):
+        a, b = sess_bounds[si - 1]
+        rng = h[a:b].max() - l[a:b].min()
+        if rng > 1e-12:
+            cp[si] = (c[b - 1] - l[a:b].min()) / rng
+    return cp
+
+
 def run_backtest(
     opens, highs, lows, closes,
     volumes=None,
@@ -281,6 +406,9 @@ def run_backtest(
     exit_mode: str = "vwap", side: str = "Both", window: str = "all_day",
     flat_eod: bool = True, skip_holidays: bool = False,
     stop_mode: str = "off", stop_k: float = 1.0,
+    confirm_bars: int = 1, daytype_mode: str = "off",
+    daytype_lo: float = 0.2, daytype_hi: float = 0.8,
+    vol_skip_pct: float = 0.0,
     day_id=None,
     return_trades: bool = False, _stop_event=None, _pause_event=None,
 ):
@@ -326,6 +454,12 @@ def run_backtest(
     # true no-op (byte-identical) whenever the default 'off' is untouched.
     stop_atr = _atr_by_session(h, l, sess_bounds, 20) if stop_mode == "atr" else None
 
+    # 2026-08-17 filter knobs -- both computed ONLY when their knob is on, so the
+    # defaults stay a true no-op (byte-identical; proven by smoke tests a/b below).
+    confirm_bars = max(1, int(confirm_bars))
+    vol_pct = _vol_percentile(h, l, c, sess_bounds) if vol_skip_pct > 0.0 else None
+    dt_pos = _daytype_pos(h, l, c, sess_bounds) if daytype_mode != "off" else None
+
     pnl_list, trade_log = [], []
     prev_close = None
     for si, (a, b) in enumerate(sess_bounds):
@@ -348,6 +482,22 @@ def run_backtest(
             LB = ref_lo * (1.0 - band_mult_short * sigma_row[:m])
         atr_pts = stop_atr[si] if stop_atr is not None else None
 
+        # 2026-08-17 session-level entry gates (all causal, prior-session data only).
+        sess_block_entries = False
+        if vol_pct is not None and not np.isnan(vol_pct[si]) and vol_pct[si] >= vol_skip_pct:
+            sess_block_entries = True
+        block_long = block_short = False
+        if dt_pos is not None and not np.isnan(dt_pos[si]):
+            dp = dt_pos[si]
+            if daytype_mode == "skip_bot_short" and dp <= daytype_lo:
+                block_short = True
+            elif daytype_mode == "skip_bot_all" and dp <= daytype_lo:
+                block_long = block_short = True
+            elif daytype_mode == "skip_top_long" and dp >= daytype_hi:
+                block_long = True
+            elif daytype_mode == "skip_top_all" and dp >= daytype_hi:
+                block_long = block_short = True
+
         VWAP = None
         if exit_mode == "vwap" and sv is not None:
             typical = (sh + sl + sc) / 3.0
@@ -360,6 +510,7 @@ def run_backtest(
         entry_pending = 0        # queued long(+1)/short(-1) entry, fills at THIS bar's open
         exit_pending = False     # queued exit, fills at THIS bar's open
         stop_level = None        # protective-stop price, set at entry (stop_mode != 'off')
+        streak_long = streak_short = 0   # confirm_bars bookkeeping (2026-08-17)
 
         for k in range(m):
             is_last = (k == m - 1)
@@ -467,8 +618,16 @@ def run_backtest(
                     else:
                         exit_pending = True
 
+            # confirm_bars streak bookkeeping (2026-08-17): consecutive closes outside
+            # each band, each bar's close judged against THAT bar's own band level --
+            # finished-bar data only. Only maintained when the knob is active.
+            if confirm_bars > 1:
+                ub_s, lb_s = UB[k], LB[k]
+                streak_long = streak_long + 1 if (not np.isnan(ub_s)) and sc[k] > ub_s else 0
+                streak_short = streak_short + 1 if (not np.isnan(lb_s)) and sc[k] < lb_s else 0
+
             # STEP D -- new-entry signal at THIS bar's close (only if now flat).
-            if pos == 0 and not is_last and 1 <= k <= m - 2:
+            if pos == 0 and not is_last and 1 <= k <= m - 2 and not sess_block_entries:
                 in_window = True
                 if window == "morning":
                     in_window = (k <= 29)
@@ -476,8 +635,11 @@ def run_backtest(
                     in_window = (k <= m - 26)
                 if in_window:
                     ub_k, lb_k = UB[k], LB[k]
-                    long_trig = allow_long and (not np.isnan(ub_k)) and (sc[k] > ub_k)
-                    short_trig = allow_short and (not np.isnan(lb_k)) and (sc[k] < lb_k)
+                    long_trig = allow_long and not block_long and (not np.isnan(ub_k)) and (sc[k] > ub_k)
+                    short_trig = allow_short and not block_short and (not np.isnan(lb_k)) and (sc[k] < lb_k)
+                    if confirm_bars > 1:
+                        long_trig = long_trig and streak_long >= confirm_bars
+                        short_trig = short_trig and streak_short >= confirm_bars
                     if long_trig and short_trig:
                         entry_pending = 1 if (sc[k] - ub_k) >= (lb_k - sc[k]) else -1
                     elif long_trig:
@@ -537,10 +699,12 @@ if __name__ == "__main__":
                         exit_mode="vwap", side="Both", window="all_day",
                         flat_eod=True, skip_holidays=False)
 
-    def _run(label, extra_params, expect_n, expect_net, expect_dd, expect_pf=None, dd_tol=1.0):
+    def _run(label, extra_params, expect_n, expect_net, expect_dd, expect_pf=None,
+             dd_tol=1.0, date_to=None):
         params = dict(base_params, **extra_params)
+        _dt = date_to or DATE_TO
         r = eng_bt("NOISE_1_0.py", instrument="NQ", timeframe="5m", session="rth",
-                   source="db_noadj_rth", cost_pts=FEE, date_to=DATE_TO, params=params)
+                   source="db_noadj_rth", cost_pts=FEE, date_to=_dt, params=params)
         if r is None:
             print("  %-38s NO TRADES / no master found — check augur_uploads/ + optimizer_history.db" % label)
             return False
@@ -548,7 +712,7 @@ if __name__ == "__main__":
         net = r["total_pnl"] * MULT
         pf  = r["profit_factor"]
         dd  = r["max_drawdown"] * MULT
-        print("%s - NQ 5m RTH, source=db_noadj_rth (<= %s)" % (label, DATE_TO))
+        print("%s - NQ 5m RTH, source=db_noadj_rth (<= %s)" % (label, _dt))
         print("  params:   %s" % params)
         print("  got:      n=%d net=$%s PF=%.4f DD=$%s" % (n, format(net, ",.2f"), pf, format(dd, ",.2f")))
         exp_pf_str = ("PF=%.4f " % expect_pf) if expect_pf is not None else ""
@@ -568,5 +732,22 @@ if __name__ == "__main__":
                 dict(stop_mode="bandwidth", stop_k=1.0),
                 expect_n=3185, expect_net=268371.16, expect_dd=-21659.59, dd_tol=1.0)
 
-    print("OVERALL: %s" % ("PASS" if (ok_a and ok_b) else "FAIL"))
-    sys.exit(0 if (ok_a and ok_b) else 1)
+    # (c)/(d) -- the 2026-08-17 filter research, parity-gated against
+    # tools/noise_variant_research.py's reviewer numbers on the #231 selection
+    # window (date_to=2025-02-10). Core = the #231 champion (44/0.75/1.5, vwap,
+    # bandwidth k=1.75).
+    champ = dict(lookback=44, band_mult_long=0.75, band_mult_short=1.5,
+                 stop_mode="bandwidth", stop_k=1.75)
+
+    ok_c = _run("(c) champion + confirm_bars=2 + skip_bot_short (2026-08-17 winner)",
+                dict(champ, confirm_bars=2, daytype_mode="skip_bot_short"),
+                expect_n=4010, expect_net=332699.25, expect_dd=-14076.45,
+                expect_pf=1.3992, date_to="2025-02-10")
+
+    ok_d = _run("(d) champion + vol_skip_pct=90 (banked single)",
+                dict(champ, vol_skip_pct=90.0),
+                expect_n=4309, expect_net=310689.59, expect_dd=-19040.79,
+                expect_pf=1.3749, date_to="2025-02-10")
+
+    print("OVERALL: %s" % ("PASS" if (ok_a and ok_b and ok_c and ok_d) else "FAIL"))
+    sys.exit(0 if (ok_a and ok_b and ok_c and ok_d) else 1)
