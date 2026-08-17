@@ -415,6 +415,18 @@ def main():
                     log(f"setparam {k}={v}: {resp.read().decode()[:90]}")
             except Exception as e:
                 log(f"setparam {k} FAILED: {e}")
+        # PRE-FLIGHT before spending an enable. NinjaTrader enforces each parameter's
+        # declared range at STARTUP, not on assignment: an out-of-range value writes
+        # cleanly, displays correctly, and then the strategy dies to Finalized with only
+        # an on-screen popup -- nothing in the trace file, nothing in the Log tab. That
+        # is unreadable from here, so ask the bridge first and say which knob is wrong.
+        chk = get("/strategy/check?name=EdgeLogENGUQ1m")
+        if chk.get("ok") is False:
+            for b in chk.get("out_of_range", []):
+                log(f"BLOCKED {b['param']}={b['value']} is outside {b['min']}..{b['max']} "
+                    f"-- widen Range() in EdgeLogENGUQ1m.cs and recompile")
+            log("RESULT: BLOCKED - the strategy would refuse to start; not enabling")
+            return 1
         subprocess.run([PY, NT_CLI, "strategy", "enable", "--name", "EdgeLogENGUQ1m", "--yes"],
                        capture_output=True, timeout=120)
         time.sleep(10)

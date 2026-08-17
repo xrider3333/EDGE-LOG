@@ -246,6 +246,9 @@ namespace NinjaTrader.NinjaScript.AddOns
                     StrategySetParam(s, q.ContainsKey("name") ? q["name"] : "",
                                         q.ContainsKey("param") ? q["param"] : "",
                                         q.ContainsKey("value") ? q["value"] : ""); return;
+                case "/strategy/check":
+                    StrategyCheck(s, q.ContainsKey("name") ? q["name"] : ""); return;
+                case "/dialogs":     Respond(s, 200, Dialogs());               return;
                 case "/strategy/enable":
                     if (!post) { Respond(s, 405, "{\"error\":\"POST only\"}"); return; }
                     StrategyLifecycle(s, q.ContainsKey("name") ? q["name"] : "", true); return;
@@ -692,12 +695,51 @@ namespace NinjaTrader.NinjaScript.AddOns
                 string val = "";
                 try { var v = p.GetValue(sb); val = v == null ? "" : Convert.ToString(v, CultureInfo.InvariantCulture); }
                 catch (Exception ex) { val = "threw: " + ex.Message; }
+                double rmin, rmax;
+                string range = ParamRange(p, out rmin, out rmax)
+                    ? ",\"min\":" + rmin.ToString("R", CultureInfo.InvariantCulture)
+                      + ",\"max\":" + rmax.ToString("R", CultureInfo.InvariantCulture)
+                    : "";
                 rows.Add("{\"name\":" + J(p.Name) + ",\"type\":" + J(p.PropertyType.Name)
-                       + ",\"value\":" + J(val) + ",\"writable\":" + (p.CanWrite ? "true" : "false") + "}");
+                       + ",\"value\":" + J(val) + ",\"writable\":" + (p.CanWrite ? "true" : "false")
+                       + range + "}");
             }
             Respond(s, 200, "{\"strategy\":" + J(sb.Name ?? name) + ",\"account\":" + J(acct)
                  + ",\"state\":" + J(state) + ",\"found_in\":" + J(where)
                  + ",\"params\":[" + string.Join(",", rows) + "]}");
+        }
+
+        /// <summary>Pre-flights a strategy: checks EVERY current parameter value against its
+        /// declared range and reports the offenders. This answers "will it actually start?"
+        /// before burning an enable attempt, which is the question that matters — an enable
+        /// that fails this way leaves no trace anywhere except a popup on screen.</summary>
+        private void StrategyCheck(NetworkStream s, string name)
+        {
+            string where;
+            var sb = ResolveStrategy(name, out where);
+            if (sb == null) { Respond(s, 404, "{\"error\":\"no reachable strategy named " + name.Replace('"', ' ') + "\"}"); return; }
+            var bad = new List<string>();
+            int checkedN = 0;
+            foreach (var p in OwnParams(sb.GetType()))
+            {
+                double rmin, rmax;
+                if (!ParamRange(p, out rmin, out rmax)) continue;
+                double v;
+                try { v = Convert.ToDouble(p.GetValue(sb), CultureInfo.InvariantCulture); }
+                catch { continue; }
+                checkedN++;
+                if (v < rmin || v > rmax)
+                    bad.Add("{\"param\":" + J(p.Name)
+                          + ",\"value\":" + v.ToString("R", CultureInfo.InvariantCulture)
+                          + ",\"min\":" + rmin.ToString("R", CultureInfo.InvariantCulture)
+                          + ",\"max\":" + rmax.ToString("R", CultureInfo.InvariantCulture) + "}");
+            }
+            string state = "?";
+            try { state = sb.State.ToString(); } catch { }
+            Respond(s, 200, "{\"strategy\":" + J(sb.Name ?? name) + ",\"state\":" + J(state)
+                 + ",\"checked\":" + checkedN
+                 + ",\"ok\":" + (bad.Count == 0 ? "true" : "false")
+                 + ",\"out_of_range\":[" + string.Join(",", bad) + "]}");
         }
 
         private void StrategySetParam(NetworkStream s, string name, string param, string value)
@@ -745,6 +787,39 @@ namespace NinjaTrader.NinjaScript.AddOns
             }
             catch (Exception ex)
             { Respond(s, 400, "{\"error\":" + J("could not parse '" + value + "' as " + pi.PropertyType.Name + ": " + ex.Message) + "}"); return; }
+
+            // RANGE RAIL. A NinjaScript property carries a [Range(min,max)] attribute, and
+            // NinjaTrader enforces it at STARTUP, not at assignment: an out-of-range value
+            // writes cleanly here, shows correctly in the grid, and then the strategy dies
+            // to State.Finalized with nothing but a modal popup to explain it. Nothing is
+            // written to any log file. That cost a full session of blind diagnosis on
+            // ENGU-Q (TlLen 170 against a stale Range(15,80)), so refuse it up front and
+            // say exactly which bound was crossed.
+            {
+                double rmin, rmax;
+                if (ParamRange(pi, out rmin, out rmax))
+                {
+                    double nv;
+                    try { nv = Convert.ToDouble(newVal, CultureInfo.InvariantCulture); }
+                    catch { nv = double.NaN; }
+                    if (!double.IsNaN(nv) && (nv < rmin || nv > rmax))
+                    {
+                        Respond(s, 400, "{\"error\":" + J(param + " " + value + " is outside the range "
+                             + rmin.ToString("R", CultureInfo.InvariantCulture) + ".."
+                             + rmax.ToString("R", CultureInfo.InvariantCulture)
+                             + " declared on the strategy. NinjaTrader would accept the write and then "
+                             + "refuse to start the strategy (it finalizes with only a popup). Widen the "
+                             + "Range() attribute in the source and recompile, or pick a value in range.")
+                             + ",\"param\":" + J(param) + ",\"value\":" + J(value)
+                             + ",\"min\":" + rmin.ToString("R", CultureInfo.InvariantCulture)
+                             + ",\"max\":" + rmax.ToString("R", CultureInfo.InvariantCulture) + "}");
+                        Log("setparam REFUSED " + name + "." + param + "=" + value + ": out of range "
+                            + rmin.ToString("R", CultureInfo.InvariantCulture) + ".."
+                            + rmax.ToString("R", CultureInfo.InvariantCulture));
+                        return;
+                    }
+                }
+            }
 
             string err = null;
             try
@@ -799,6 +874,91 @@ namespace NinjaTrader.NinjaScript.AddOns
             }
             catch (Exception ex) { Log("AvailableStrategies dispatch: " + ex.Message); }
             return found;
+        }
+
+        /// <summary>Reads the [Range(min,max)] attribute off a NinjaScript property.
+        /// Returns false for properties that declare no range (bools, strings, enums).</summary>
+        private static bool ParamRange(System.Reflection.PropertyInfo p, out double min, out double max)
+        {
+            min = 0; max = 0;
+            try
+            {
+                foreach (var a in p.GetCustomAttributes(true))
+                {
+                    var ra = a as System.ComponentModel.DataAnnotations.RangeAttribute;
+                    if (ra == null) continue;
+                    min = Convert.ToDouble(ra.Minimum, CultureInfo.InvariantCulture);
+                    max = Convert.ToDouble(ra.Maximum, CultureInfo.InvariantCulture);
+                    return true;
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        /// <summary>Every open window with its visible text, so a modal error popup can be
+        /// READ instead of screenshotted. NinjaTrader reports several fatal conditions —
+        /// notably a parameter outside its declared range — only in a popup: nothing lands
+        /// in the trace file or the Log tab, so without this the failure is invisible to
+        /// anything that is not a pair of human eyes.</summary>
+        private string Dialogs()
+        {
+            var rows = new List<string>();
+            // Walk BOTH UI threads. The Control Center lives on its own dispatcher, and
+            // Application.Current.Windows only ever returns the CALLING thread's windows —
+            // so a popup raised by the Control Center is invisible from the main thread.
+            // Missing that is what makes an error dialog unreadable from here.
+            var dispatchers = new List<System.Windows.Threading.Dispatcher>();
+            try { dispatchers.Add(Core.Globals.MainThreadDispatcher); } catch { }
+            try { var d = CcDispatcher(); if (d != null && !dispatchers.Contains(d)) dispatchers.Add(d); } catch { }
+            foreach (var disp in dispatchers)
+            try
+            {
+                disp.Invoke(new Action(() =>
+                {
+                    try
+                    {
+                        if (System.Windows.Application.Current == null) return;
+                        foreach (System.Windows.Window w in System.Windows.Application.Current.Windows)
+                        {
+                            var texts = new List<string>();
+                            var seen = new HashSet<string>();
+                            foreach (var c in FindVisualChildren(w))
+                            {
+                                string t = null;
+                                var tb = c as System.Windows.Controls.TextBlock;
+                                if (tb != null) t = tb.Text;
+                                else
+                                {
+                                    var cl = c as System.Windows.Controls.ContentControl;
+                                    if (cl != null && cl.Content is string) t = (string)cl.Content;
+                                }
+                                if (string.IsNullOrEmpty(t)) continue;
+                                t = t.Trim();
+                                if (t.Length == 0 || !seen.Add(t)) continue;
+                                texts.Add(J(t));
+                                if (texts.Count >= 40) break;
+                            }
+                            bool modal = false;
+                            try
+                            {
+                                var mi = typeof(System.Windows.Window).GetProperty("IsModal",
+                                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                                if (mi != null) modal = Convert.ToBoolean(mi.GetValue(w));
+                            }
+                            catch { }
+                            rows.Add("{\"window\":" + J(w.GetType().FullName)
+                                   + ",\"title\":" + J(w.Title ?? "")
+                                   + ",\"visible\":" + (w.IsVisible ? "true" : "false")
+                                   + ",\"modal\":" + (modal ? "true" : "false")
+                                   + ",\"text\":[" + string.Join(",", texts) + "]}");
+                        }
+                    }
+                    catch (Exception ex) { Log("dialogs: " + ex.Message); }
+                }));
+            }
+            catch (Exception ex) { Log("dialogs dispatch: " + ex.Message); }
+            return "{\"dialogs\":[" + string.Join(",", rows) + "]}";
         }
 
         /// <summary>Debug: every open window's type, plus how many StrategiesGrid

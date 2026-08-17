@@ -268,11 +268,15 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
         #region Properties
-        [NinjaScriptProperty, Range(15, 80)]
+        // Ranges are wide enough for BOTH sessions: the RTH champion uses short lookbacks
+        // (tl 48 / ema 200 / atr 14) while the ETH champion (#226) needs tl 170 / ema 1380 /
+        // atr 106. A too-tight Range() here is fatal, not cosmetic — NinjaTrader refuses to
+        // start the strategy and finalizes it with only a modal popup to say why.
+        [NinjaScriptProperty, Range(15, 400)]
         [Display(Name = "Trendline length (bars)", Order = 1, GroupName = "ENGU-Q")]
         public int TlLen { get; set; }
 
-        [NinjaScriptProperty, Range(20, 400)]
+        [NinjaScriptProperty, Range(20, 4000)]
         [Display(Name = "Trend EMA length", Order = 2, GroupName = "ENGU-Q")]
         public int EmaLen { get; set; }
 
@@ -284,7 +288,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Display(Name = "Breakout decisiveness (x ATR)", Order = 4, GroupName = "ENGU-Q")]
         public double MinBrk { get; set; }
 
-        [NinjaScriptProperty, Range(5, 50)]
+        [NinjaScriptProperty, Range(5, 400)]
         [Display(Name = "ATR length (simple mean of TR)", Order = 5, GroupName = "ENGU-Q")]
         public int AtrLen { get; set; }
 
