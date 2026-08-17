@@ -39,6 +39,14 @@ Safe to run any time (add `-WhatIf` to preview). It only goes as far as it needs
   be read remotely instead of screenshotted.
 - `GET /accounts` — per-account `connection` / `connected` fields; cash is NOT a
   usable connected-proxy (a connected demo can read 0 before sync).
+- **Framework settings are writable too** (v73.101): `/strategy/params` returns a
+  `base_settings` list — StartBehavior, Calculate, IsExitOnSessionCloseStrategy,
+  ExitOnSessionCloseSeconds, BarsRequiredToTrade — and `/strategy/setparam` accepts
+  them by name (disable → set → enable, same as any knob; enums list their options).
+  First use 2026-08-17: ENGU-Q was on **ImmediatelySubmit**, which places REAL
+  protective orders for its warm-up replay position (the EQx stop that re-armed after
+  every cancel — never fight that loop, flip the mode). `StartBehavior=WaitUntilFlat`
+  ended it; verified by re-enable with an empty /orders next to a virtual Long 1.
 
 ## Compiling NinjaScript — the safe way
 

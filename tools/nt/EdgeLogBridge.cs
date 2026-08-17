@@ -759,10 +759,45 @@ namespace NinjaTrader.NinjaScript.AddOns
                        + ",\"value\":" + J(val) + ",\"writable\":" + (p.CanWrite ? "true" : "false")
                        + range + "}");
             }
+            var brows = new List<string>();
+            foreach (var bn in BaseSettables)
+            {
+                var bp = sb.GetType().GetProperty(bn);
+                if (bp == null) continue;
+                string val = "";
+                try { var v = bp.GetValue(sb); val = v == null ? "" : Convert.ToString(v, CultureInfo.InvariantCulture); }
+                catch (Exception ex) { val = "threw: " + ex.Message; }
+                string opts = "";
+                if (bp.PropertyType.IsEnum)
+                    opts = ",\"options\":[" + string.Join(",",
+                        Array.ConvertAll(Enum.GetNames(bp.PropertyType), J)) + "]";
+                brows.Add("{\"name\":" + J(bn) + ",\"type\":" + J(bp.PropertyType.Name)
+                        + ",\"value\":" + J(val) + ",\"writable\":" + (bp.CanWrite ? "true" : "false")
+                        + opts + "}");
+            }
             Respond(s, 200, "{\"strategy\":" + J(sb.Name ?? name) + ",\"account\":" + J(acct)
                  + ",\"state\":" + J(state) + ",\"found_in\":" + J(where)
-                 + ",\"params\":[" + string.Join(",", rows) + "]}");
+                 + ",\"params\":[" + string.Join(",", rows) + "]"
+                 + ",\"base_settings\":[" + string.Join(",", brows) + "]}");
         }
+
+        /// <summary>Framework-level strategy settings the bridge may read and (while the
+        /// strategy is disabled) write, by exact name. These live on StrategyBase, not on
+        /// the strategy subclass, so OwnParams never sees them — yet they decide behavior
+        /// as consequential as any knob: StartBehavior is the difference between a warm-up
+        /// replay position quietly placing REAL protective orders (ImmediatelySubmit, the
+        /// EQx stop that kept re-arming on 2026-08-17) and waiting for a genuine flat
+        /// (WaitUntilFlat). A tight whitelist, not open reflection: writing arbitrary base
+        /// properties (State, Account, Position...) could corrupt a strategy in ways no
+        /// range check would catch.</summary>
+        private static readonly string[] BaseSettables = new[]
+        {
+            "StartBehavior",                 // WaitUntilFlat / ImmediatelySubmit / ...
+            "Calculate",                     // OnBarClose / OnEachTick / OnPriceChange
+            "IsExitOnSessionCloseStrategy",  // flatten at session end
+            "ExitOnSessionCloseSeconds",     // how early before the close
+            "BarsRequiredToTrade",           // warm-up bar floor
+        };
 
         /// <summary>Pre-flights a strategy: checks EVERY current parameter value against its
         /// declared range and reports the offenders. This answers "will it actually start?"
@@ -827,7 +862,16 @@ namespace NinjaTrader.NinjaScript.AddOns
             }
 
             var pi = OwnParams(sb.GetType()).Find(p => string.Equals(p.Name, param, StringComparison.OrdinalIgnoreCase));
-            if (pi == null) { Respond(s, 404, "{\"error\":\"no such parameter on this strategy (see GET /strategy/params)\"}"); return; }
+            if (pi == null)
+            {
+                // Not a strategy knob - fall through to the framework-settings whitelist
+                // (StartBehavior and friends). Same rails as everything above: account
+                // checked, refused while running, so the value is read at the next enable.
+                foreach (var bn in BaseSettables)
+                    if (string.Equals(bn, param, StringComparison.OrdinalIgnoreCase))
+                    { pi = sb.GetType().GetProperty(bn); break; }
+            }
+            if (pi == null) { Respond(s, 404, "{\"error\":\"no such parameter or base setting on this strategy (see GET /strategy/params)\"}"); return; }
             if (!pi.CanWrite) { Respond(s, 403, "{\"error\":\"parameter is read-only\"}"); return; }
 
             object oldVal = null, newVal = null;
