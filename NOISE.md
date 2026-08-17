@@ -2,7 +2,7 @@
 
 > Living handoff doc. **Last updated: 2026-08-17** (variant campaign session — see the
 > "2026-08-17 — variant campaign" section: pre-registered entry-quality filters cleared
-> the bar; knobs shipped in `NOISE_1_0.py`; controlled auto-validate queued).
+> the bar; knobs shipped in `NOISE_1_0.py`; 12-cell comparison GRID + full re-validate + first NOISE BOOK job queued).
 > Written to hand off to a parallel NOISE session. Everything here is read straight from
 > the Firestore run doc for **auto-validate run #225 (NOISE-6)** — no re-derivation, no
 > estimates. Field paths are given so anything below can be re-checked in one query.
@@ -149,7 +149,10 @@ changes.
 > Knobs shipped in `NOISE_1_0.py` (all default OFF, smoke tests a-d PASS):
 > `confirm_bars`, `daytype_mode`, `daytype_lo`, `daytype_hi`, `vol_skip_pct`.
 > New preset: **"Filter (2026-08-17 winner vs champion)"** — champion core pinned,
-> 12 cells incl. the exact champion cell, for a controlled auto-validate comparison.
+> 12 cells incl. the exact champion cell. NOTE: the validate job type IGNORES presets
+> (`run_validate` searches DEFAULT_PARAMS via the auto-sampler — #231's preset field was
+> decorative too); the controlled 12-cell comparison therefore runs as a GRID job, and the
+> re-validate's job is to see whether the filter knobs EARN the crown under #231's machinery.
 
 **Method (mirrors the 2026-08-08 stop research):** adoption bar pre-registered BEFORE any
 backtest; ALL selection on the PRE-LOCKBOX window **2010-06-07 → 2025-02-10** (run #231's
@@ -195,8 +198,14 @@ stop_k 1.5/2.0 all stay $303–338k net, MAR 17–24.7).
 net $367,959 · PF 1.322. Lockbox slice (2025-02-11→2026-08-12): **+$35.3k, PF 1.11 —
 positive but SMALLER than the baseline champion's same slice (+$58.9k)**. Carried honestly:
 the filters gave back some 2025-26 profit; the pre-registered pre-lockbox bar is what was
-met. The queued auto-validate (below) is the owner-visible arbiter (fresh WF machinery on
-the controlled 12-cell preset).
+met. Owner-visible arbiters queued (in order): (1) 12-cell comparison GRID (champion core
+pinned, only filter knobs vary), (2) re-validate with #231's exact machinery/window (filter
+knobs now in the search space), (3) the first-ever NOISE BOOK job (variant + ORB #230 crown).
+
+**ES-transfer probe (local, selection window, same 0.533 costs):** the filters IMPROVE the
+ES sibling too — PF 1.037 → 1.116, points PnL +135% (645 → 1,519 pts). Still below NOISE's
+own PF ≥ 1.2 promotion bar, but the mechanism travels in the right direction (evidence
+against NQ curve-fit; the queued validate records the official transfer numbers).
 
 **Known-unknown flagged:** run #225/#231's headline n/net (e.g. 3,872 / $96,611) don't
 match the raw-engine path on the same source/params (5,113 / $277,123 on the shorter
