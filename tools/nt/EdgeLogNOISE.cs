@@ -259,6 +259,23 @@ namespace NinjaTrader.NinjaScript.Strategies
                 sessionEnd = si.ActualSessionEnd;
             }
             catch { sessionEnd = DateTime.MaxValue; }
+
+            // Warm-up self-report (2026-08-16). Lookback 44 needs 44 banked sessions
+            // before the FIRST trade is even possible, and a chart that loads fewer
+            // days fails SILENTLY -- the strategy just never trades and nothing says
+            // why. This one line, rewritten each session roll, makes the warm-up state
+            // checkable from outside NinjaTrader. Never throws.
+            try
+            {
+                System.IO.File.WriteAllText(@"C:\EdgeLog\noise_warmup.txt",
+                    DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+                    + "  sessions_banked=" + history.Count
+                    + "  lookback=" + Lookback
+                    + "  warm=" + (history.Count >= Lookback)
+                    + "  bars_loaded=" + (Bars != null ? Bars.Count : 0)
+                    + "  state=" + State);
+            }
+            catch { }
         }
 
         /// <summary>Mean of the prior sessions' noise at this bar-of-day. Sessions that

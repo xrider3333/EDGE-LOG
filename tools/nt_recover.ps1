@@ -32,7 +32,10 @@ $logPath  = 'C:\EdgeLog\nt_recover.log'
 # The roster this box is supposed to be running. ENGU-Q is deliberately NOT here: it uses
 # ImmediatelySubmit, so enabling it outside market hours gets its sync order rejected and
 # the strategy terminates itself (proven 2026-08-14). It is enabled on its own schedule.
-$expected = @('EdgeLogNOISE','EdgeLogORBV2')
+# EdgeLogORBV2 REMOVED 2026-08-16: it still ran the retired look-ahead-era params
+# while the engine's ORB crown moved to run #230, so its fills measured a dead
+# config. Re-add once a real #230 port exists.
+$expected = @('EdgeLogNOISE')
 $connName = 'Simulation'
 
 function Log($m){
