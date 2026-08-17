@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.92';
+const VERSION='73.93';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.93',date:'2026-08-16',notes:['NinjaTrader is now on the recycle hybrid too, and the guardrails were left alone to do it. The obvious way to make room was to scale every limit up to fit 3.85x sizing - but that would have meant raising the daily loss limit, the one guardrail measured in real money. Running the numbers gave a better answer: drop the BASE size from 10 micros to 3 instead. Recycle is a ratio, so the experiment and its equity curve are identical either way, just at a third of the exposure.','What that buys: the leg averages about 11 micros a trade (roughly the one-contract exposure it has had all along) and the untouched $1,500 daily limit still trips at about 65 adverse points - which is essentially the 75 points it was set for. At the naive setting it would have fired after 20 points and switched every strategy off on an ordinary day.','Only the contract count moved, 30 to 40, because the worst case a score can reach is 35. Verified live: all three gates released by the size interlock, worst case 34.7 against the 40 limit.','The tile comparison against the no-gate control now states the size it was earned at, and shows the per-contract figure beside the dollar gap. Once a gate recycles it trades several times the control size, so a raw dollar difference mostly measures size rather than skill - it would flatter the gate in a good stretch and damn it in a bad one, for the same wrong reason.']},
 {v:'73.92',date:'2026-08-16',notes:['The three gated legs are now RECYCLE hybrids, as asked. Recycle spends the money the bouncer frees up: it adds no trades, it makes each surviving trade bigger, so that the book commits the same total contracts as taking everything would have. On the board the average sizes are now 1.2x for ORB, 2.0x for the tree NOISE and 3.8x for the rf NOISE - the exact ratios of trades-taken to trades-kept, measured on the runs those gates came from and frozen, not recalculated from the days being tested.','Read the drawdowns with that in mind: recycle multiplies losses by the same number it multiplies gains. The rf NOISE row will swing about 3.8 times as hard in both directions.','NINJATRADER IS STILL ON PLAIN HYBRID, on purpose, and it says so. Its position limits are still set for one-lot trading, and a recycled order would have exceeded them - which would have made the circuit breaker flatten and switch off every strategy on the first trade Monday. The gate service now reads those limits itself and refuses to serve a size that would not fit, falling back to plain hybrid and stating why. Raise the limits and it switches over on its own, no restart.']},
 {v:'73.91',date:'2026-08-16',notes:['1E MATRIX scope tags cleaned up and colour-coded. The IS / WF / LB names in every section header (return, reward vs risk, sample) now wear the same colours the 2A funnel chart shades those periods with - IS in the plain grey of the un-shaded stretch, WF in the walk-forward blue, LB in the lockbox purple - on all four tabs (RAW, GATE, TILT, HYBRID), including the return section that had a plain tag before.','The little window tags repeated on individual rows (MAR, PF, DD, TRADES and friends) are gone where they only said the same thing as their section header. A row keeps its own tag ONLY when it genuinely measures a different window than its section - e.g. TRADES and FOLDS HELD on the RAW tab, the size rows pinned to FULL on the sizing tabs, and the pinned windows on runs too old to slice - and those surviving tags wear the same period colours.']},
 {v:'73.90',date:'2026-08-16',notes:['Retired the old hand-built NOISE leg. It was assembled from research and never actually won a validation, while three consecutive validations in a row (#202, #225, #231) all picked the NOISE-225 settings instead - and as of tonight NinjaTrader runs those too. It was the only thing left measuring a variant nothing else in the system uses. Its single logged trade was removed with it so the board does not carry an orphan row.','NOISE-225 inherits its teal colour, so the four NOISE-family rows are now three: the settings, and the same settings with each of the two bouncers.']},
@@ -17784,10 +17785,24 @@ namespace NinjaTrader.NinjaScript.Strategies {
           }
           let cmp='';
           if(_ck){
-            const d=a.net-legAgg(_ck).net;
+            const c=legAgg(_ck), d=a.net-c.net;
+            // RECYCLE MAKES THE DOLLAR GAP A TRAP. Once a hybrid recycles, it trades ~3.85x
+            // the control's size, so a raw dollar difference mostly measures SIZE, not skill
+            // -- it would flatter the gate in a good stretch and damn it in a bad one for the
+            // same reason. So the dollar gap now says at what size it was earned, and the
+            // per-contract figure (dollars divided by average size) sits beside it as the
+            // like-for-like read. Recovery -- profit per unit of drawdown -- is the honest
+            // scale-free verdict and is what the pre-registered claim is judged on.
+            const sz=(_gk&&_gk.avg_size)?+_gk.avg_size:1;
+            const same=Math.abs(sz-1)<0.02;
+            const per=sz>0?(a.net/sz-c.net):d;
             cmp='<div style="margin-top:2px">vs <b>'+(_legLabel[_ck]||_ck)+'</b> '
               +'<span style="color:'+(d>=0?PNL_POS:PNL_NEG)+';font-weight:700">'+(d>=0?'+':'')+fmtUsd(d)+'</span>'
-              +' <span style="color:var(--text5)">— same backtest, gate off vs on</span></div>';
+              +(same?' <span style="color:var(--text5)">— same backtest, gate off vs on</span>'
+                    :' <span style="color:var(--text5)">at '+sz.toFixed(2)+'x size · '
+                      +'<span style="color:'+(per>=0?PNL_POS:PNL_NEG)+'">'+(per>=0?'+':'')+fmtUsd(per)+'</span>'
+                      +' per contract</span>')
+              +'</div>';
           }
           gateBlock='<div style="margin-top:6px;padding-top:5px;border-top:1px solid var(--border2);font-size:8px;color:var(--text4);line-height:1.7">'
             +parts.join(' · ')+cmp+'</div>';

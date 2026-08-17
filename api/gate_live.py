@@ -255,7 +255,10 @@ def _refresh_live_arrays(leg):
 # ── recycle interlock ─────────────────────────────────────────────────────────────
 # The NinjaTrader quantity the served `size` is multiplied by. Kept here so the service
 # can reason in the same contracts the breaker counts.
-LIVE_QTY = int(os.environ.get("EDGELOG_LIVE_QTY", "10"))
+# 3 since 2026-08-16: recycle multiplies size ~3.85x, so base 3 micros lands the live leg
+# near one-contract exposure and keeps the untouched $1,500 daily-loss breaker meaning
+# roughly what it always meant (~65 adverse points). See tools/nt_reconfig.py.
+LIVE_QTY = int(os.environ.get("EDGELOG_LIVE_QTY", "3"))
 
 
 def _recycle_allowance(art):

@@ -132,32 +132,36 @@ def edit_db_noise_micros(dry):
 
 
 def edit_recycle_rails(dry):
-    """Re-scale the risk rails for RECYCLE sizing (owner-directed 2026-08-16).
+    """Make room for RECYCLE sizing WITHOUT weakening the dollar guardrail.
 
-    Recycle spends the capital the gate frees up: the live NOISE leg (rf hybrid, recycle
-    factor 3.85) now averages ~38 micros per trade and peaks near 58, against rails set
-    for 10. Two consequences, and the second one matters more than it looks:
+    Owner 2026-08-16: "make sure the guardrails dont mess this up". Working the numbers
+    through is what picked this shape, and it reversed the obvious approach.
 
-      * the CONTRACT rails must fit or nothing can be placed at all: 30 -> 60 micros
-        (60 micros = 6 full NQ, and 58 is the measured peak);
+    Recycle multiplies position size by 3.85 on the live NOISE leg. The naive move is to
+    keep base Qty at 10 micros and scale every rail to fit -- but that means ~38 micros a
+    trade ($77/point), at which the $1,500 daily-loss breaker fires after only 20 adverse
+    points. NQ covers 20 points in an hour, so the breaker would flatten AND DISABLE every
+    strategy on an ordinary day, killing the forward test silently. Raising the dollar rail
+    to compensate would have meant loosening the one guardrail denominated in real money.
 
-      * the DOLLAR rail has to be re-scaled or it stops meaning what it meant. $1,500 was
-        chosen when a position was ~1 NQ ($20/point) -- i.e. "stop me after about 75
-        adverse points". At ~3.85x that same $1,500 fires after ~20 points, which NQ can
-        cover in an hour, so the breaker would flatten AND DISABLE the strategies on an
-        ordinary day and the forward test would die silently. Scaling to $5,800 restores
-        the ORIGINAL intent (~75 adverse points), it does not loosen it.
+    Dropping BASE Qty to 3 instead gets the same experiment for a third of the exposure:
+    recycle's scaling is a ratio, so the equity curve shape -- and therefore everything the
+    test is trying to learn -- is identical either way. At Qty 3 the leg averages ~11.5
+    micros (~1.2 NQ, close to where it has been all along) and the untouched $1,500 breaker
+    trips at ~65 adverse points, essentially the 75 points it originally meant.
 
-    This is a DEMO account; the live account is refused in the bridge's compiled code
-    regardless. Dial either number down in C:\\EdgeLog\\bridge.json at any time -- the
-    monitor re-reads it within 10s.
+    So the ONLY rail that moves is the contract count, 30 -> 40, because the worst case
+    (3x per-trade cap x 3.85 recycle x 3 base) is 35 contracts. max_daily_loss_usd is
+    deliberately NOT in this list.
+
+    DEMO account throughout; the live account is refused in compiled bridge code regardless.
+    Everything here is reversible in C:\\EdgeLog\\bridge.json -- re-read within 10s.
     """
     s = open(BRIDGE_JSON, encoding="utf-8", newline="").read()
     changed = []
     for a, b, note in [
-        ('"max_qty": 30', '"max_qty": 60', "max_qty 30->60"),
-        ('"max_position_contracts": 30', '"max_position_contracts": 60', "position 30->60"),
-        ('"max_daily_loss_usd": 1500', '"max_daily_loss_usd": 5800', "daily loss 1500->5800"),
+        ('"max_qty": 30', '"max_qty": 40', "max_qty 30->40"),
+        ('"max_position_contracts": 30', '"max_position_contracts": 40', "position 30->40"),
     ]:
         if b in s:
             continue
@@ -339,7 +343,29 @@ def main():
         if not a.dry_run:
             backup(BRIDGE_JSON)
         edit_recycle_rails(a.dry_run)
-        return 0
+        # Base Qty 10 -> 3 so recycle lands near one-contract exposure (see the docstring
+        # above: same experiment, a third of the dollars, dollar guardrail untouched).
+        if a.dry_run:
+            log("DRY RUN: would set EdgeLogNOISE Qty 10 -> 3 via the bridge")
+            return 0
+        set_qty_via_bridge(3)
+        p = {x["name"]: x["value"] for x in
+             get("/strategy/params?name=EdgeLogNOISE").get("params", [])}
+        st = {x.get("name"): x for x in get("/strategies").get("strategies", [])}
+        nz = st.get("EdgeLogNOISE") or {}
+        log(f"EdgeLogNOISE: Qty={p.get('Qty')} state={nz.get('state')} "
+            f"instrument={nz.get('instrument')}")
+        try:
+            lim = get("/risk").get("limits", {})
+            log(f"rails now: position={lim.get('max_position_contracts')} "
+                f"qty={lim.get('max_qty')} daily_loss=${lim.get('max_daily_loss_usd')}")
+        except Exception as e:
+            log(f"risk read: {e}")
+        ok = (p.get("Qty") == "3" and nz.get("state") == "Realtime"
+              and "MNQ" in str(nz.get("instrument", "")))
+        log("RESULT: " + ("PASS - live leg on recycle sizing at base 3 micros" if ok
+                          else "INCOMPLETE - read the lines above"))
+        return 0 if ok else 1
     if not a.noise_micros:
         ap.error("nothing to do - pass --noise-micros or --recycle-rails")
 
