@@ -60,6 +60,7 @@ LEG_LIVE_FROM = {
     "ORB_H":     "2026-08-16",   # gate added
     "NOISE_225": "2026-08-16",   # leg added
     "NOISE_H":   "2026-08-16",   # gate added; the pre-registered claim starts here
+    "NOISE_H_RF": "2026-08-16",  # owner's pick, added the same day
 }
 
 # NQ contract multiplier ($/point) — same value augur_engine/book.py's _MULT table and
@@ -160,6 +161,30 @@ ORB_GATE = {"mode": "hybrid", "model": "rf", "threshold": 0.45,
 NOISE_GATE = {"mode": "hybrid", "model": "tree", "threshold": 0.55,
               "size_norm": 1.468647, "source_run": 225}
 
+# NOISE, rf — the OWNER's pick (2026-08-16), and on the evidence it is the better-grounded
+# of the two. Worth spelling out because it reverses the reasoning above.
+#
+# Judge the five hybrids ONLY on the years the selection rule is allowed to see (run #231,
+# pre-lockbox recovery; ungated scores 14.23):
+#     logistic 24.08 ✓   rf 19.72 ✓   xgb 12.47 ✗   et 11.94 ✗   tree 5.96 ✗
+# Only logistic and rf beat "just take every trade". TREE DOES NOT EVEN CLEAR THAT BAR --
+# it is the worst of the five on the legitimate criterion, which is the other half of why
+# NOISE_H is a test rather than a crown.
+#
+# Now the held-out year (hindsight, never a basis for choosing; ungated recovery 1.79):
+#     tree 3.05   rf 1.69   xgb 1.43   logistic 0.51   et negative
+# logistic wins before the boundary and collapses after it. tree does the reverse. rf is
+# 2nd on BOTH sides -- the only variant that is neither a pre-lockbox darling that died nor
+# a hindsight favourite that never earned its place.
+#
+# Being honest about rf's weakness: out of sample it does NOT beat ungated. Recovery 1.69 vs
+# 1.79, on less than half the money (1,405 vs 2,943 pts). What it does do is halve the
+# drawdown (831 vs 1,640) for roughly the same risk-adjusted return -- a RISK REDUCER, not a
+# money maker, and the same shape the ENGU-Q gate showed. That makes it a sizing-up lever
+# rather than an edge, and the forward test should be read that way.
+NOISE_GATE_RF = {"mode": "hybrid", "model": "rf", "threshold": 0.55,
+                 "size_norm": 1.338251, "source_run": 231}
+
 # Full-history load date for the gated legs (the masters begin here).
 _GATE_HISTORY_FROM = "2010-06-07"
 
@@ -225,6 +250,19 @@ LEG_SOURCE = {
         "caveat": "Its matched RAW control is the ORB leg -- identical strategy file and params, "
                   "gate off -- so any difference between the two rows is the gate and nothing else.",
     },
+    "NOISE_H_RF": {
+        "run": 231, "run_label": "#231 (NOISE-7) + rf hybrid gate", "strategy_file": "NOISE_1_0.py",
+        "picked": "2026-08-16",
+        "note": "The owner's pick, and the better-grounded of the two NOISE gates. On the years "
+                "the selection rule is ALLOWED to see, rf recovery 19.72 beats ungated 14.23 -- "
+                "one of only two hybrids that clear that bar, and tree is not one of them. It is "
+                "also 2nd of five on BOTH sides of the lockbox boundary: the only variant that is "
+                "neither a pre-lockbox darling that collapsed nor a hindsight favourite.",
+        "caveat": "It does NOT beat ungated out of sample -- recovery 1.69 vs 1.79, on less than "
+                  "half the money (1,405 vs 2,943 pts). What it does is HALVE the drawdown (831 "
+                  "vs 1,640) at about the same risk-adjusted return. Read it as a risk reducer "
+                  "and a sizing-up lever, not as an edge.",
+    },
     "NOISE_H": {
         "run": 225, "run_label": "#225 (NOISE-6) + tree hybrid gate", "strategy_file": "NOISE_1_0.py",
         "picked": "2026-08-16",
@@ -273,6 +311,13 @@ PAPER_LEGS = [
      "session": "rth", "params": NOISE_225, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "gate": NOISE_GATE, "history_from": _GATE_HISTORY_FROM,
      "emit_ungated_as": "NOISE_225", "source": LEG_SOURCE["NOISE_H"]},
+    # Owner's pick. Shares NOISE_225 as its control (already emitted by NOISE_H above), so both
+    # NOISE gates are scored against the SAME raw baseline and therefore against each other.
+    # Costs ~178s/day -- an rf walk over 5,633 trades is the most expensive leg on the board.
+    {"key": "NOISE_H_RF", "strategy": "NOISE_1_0.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": NOISE_225, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": NOISE_GATE_RF, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["NOISE_H_RF"]},
 ]
 
 # ── Layer 1: the NT demo account whose fills we mirror into the daily report ────

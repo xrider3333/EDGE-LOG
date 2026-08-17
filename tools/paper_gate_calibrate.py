@@ -109,6 +109,19 @@ SPECS = {
         "calibration": {"date_from": "2010-06-07", "date_to": "2026-08-12",
                         "lockbox_from": "2025-02-11"},
     },
+    # Owner's pick (2026-08-16), and better grounded than NOISE_H -- see api/paper.py.
+    # Same base config and floor, rf instead of tree.
+    "NOISE_H_RF": {
+        "strategy": "NOISE_1_0.py", "instrument": "NQ", "timeframe": "5m",
+        "session": "rth", "cost_pts": _NQ_COST,
+        "params": dict(lookback=44, band_mult_long=0.75, band_mult_short=1.5,
+                       exit_mode="vwap", side="Both", window="all_day",
+                       flat_eod=True, skip_holidays=False,
+                       stop_mode="bandwidth", stop_k=1.75),
+        "gate": {"mode": "hybrid", "model": "rf", "threshold": 0.55, "source_run": 231},
+        "calibration": {"date_from": "2010-06-07", "date_to": "2026-08-12",
+                        "lockbox_from": "2025-02-11"},
+    },
 }
 
 
