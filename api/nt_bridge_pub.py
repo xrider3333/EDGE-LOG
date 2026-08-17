@@ -24,6 +24,12 @@ import urllib.request
 from datetime import datetime, timezone
 
 BASE = os.environ.get("EDGELOG_BRIDGE_URL", "http://127.0.0.1:8391")
+# The live ML gate service (api/gate_live.py) -- the "bouncer" NinjaTrader asks before
+# each entry. Published alongside the bridge for exactly the reason this module exists:
+# it went live 2026-08-16 with NO indicator anywhere, and because it is FAIL-OPEN a dead
+# bouncer looks identical to a working one from the outside -- NOISE just quietly trades
+# ungated and the forward test stops being the experiment it claims to be.
+GATE_BASE = os.environ.get("EDGELOG_GATE_URL", "http://127.0.0.1:8392")
 TIMEOUT_SEC = 3
 MAX_ROWS = 50
 
@@ -44,6 +50,46 @@ def _capped(rows):
     return list(rows or [])[:MAX_ROWS]
 
 
+def gate_snapshot():
+    """Is the live ML gate service answering, and is its model current? Never raises.
+
+    `stale_days` is what actually matters day to day: the service re-fits itself each
+    evening, so a model trained more than a few days back means the nightly refresh has
+    been failing even though the service still answers every request.
+    """
+    out = {"up": False, "legs": [], "error": None, "latency_ms": None,
+           "trained_through": None, "stale_days": None}
+    t0 = time.time()
+    try:
+        req = urllib.request.Request(GATE_BASE.rstrip("/") + "/gate/health", method="GET")
+        with urllib.request.urlopen(req, timeout=TIMEOUT_SEC) as resp:
+            data = json.loads(resp.read().decode("utf-8") or "{}")
+    except Exception as e:
+        out["error"] = f"gate service not reachable ({type(e).__name__}) - NinjaTrader will trade UNGATED"
+        return out
+    out["up"] = True
+    out["latency_ms"] = int((time.time() - t0) * 1000)
+    legs = (data.get("legs") or {})
+    rows, newest = [], None
+    for k, v in legs.items():
+        tt = (v or {}).get("trained_through")
+        rows.append({"leg": k, "loaded": bool((v or {}).get("loaded")),
+                     "model": (v or {}).get("model"), "trained_through": tt})
+        if tt and (newest is None or str(tt) > str(newest)):
+            newest = tt
+    out["legs"] = rows
+    out["trained_through"] = newest
+    if not rows or not all(r["loaded"] for r in rows):
+        out["error"] = "gate service is up but a model failed to load - those legs trade UNGATED"
+    try:
+        if newest:
+            d = datetime.strptime(str(newest)[:10], "%Y-%m-%d").date()
+            out["stale_days"] = (datetime.now(timezone.utc).date() - d).days
+    except Exception:
+        pass
+    return out
+
+
 def snapshot():
     """Poll the bridge and build the status dict. Never raises."""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -56,6 +102,9 @@ def snapshot():
         "connections": [],
         "accounts": [],
         "error": None,
+        # Independent of the bridge on purpose: NinjaTrader can be perfectly healthy
+        # while the gate is dead, and that combination is the dangerous one.
+        "gate": gate_snapshot(),
     }
     try:
         health = _get("/health")
@@ -123,6 +172,12 @@ def publish(db, uid):
                   f"{len(rep.get('accounts', []))} account(s))")
         else:
             print(f"[nt-bridge] down: {rep.get('error')}")
+        g = rep.get("gate") or {}
+        if g.get("up") and not g.get("error"):
+            print(f"[ml-gate] up ({len(g.get('legs') or [])} model(s), "
+                  f"{g.get('latency_ms')}ms, trained {g.get('trained_through')})")
+        else:
+            print(f"[ml-gate] DOWN: {g.get('error')}")
     except Exception as e:
         print(f"[nt-bridge] publish failed: {type(e).__name__}: {e}")
 

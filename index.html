@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.86';
+const VERSION='73.87';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.87',date:'2026-08-16',notes:['You can now SEE whether the ML gate is running. It went live earlier today with no indicator anywhere, and it is the one piece whose failure is invisible from the outside: if it dies, NinjaTrader keeps trading and just takes every signal at normal size, so everything still looks fine while the experiment has quietly stopped. There is now an ML GATE line on the NinjaTrader card - green UP with how many models are loaded and how fast it answers, or red DOWN saying outright that NinjaTrader is trading ungated.','It also watches how fresh the decision-maker is. The gate re-teaches itself every evening after the close; if that has been failing the line turns yellow and says how many days old it is, which you would never notice otherwise because the service keeps answering perfectly with a stale brain.','The line is always visible - it does not hide behind the detail toggle - and hovering it explains what happens if it is down and how to restart it.']},
 {v:'73.86',date:'2026-08-16',notes:['Added NOISE-225 · rf HYBRID 55 - your pick - and on the evidence it is the better grounded of the two NOISE gates, so it goes on the board beside the tree one rather than instead of it. Both are scored against the same raw NOISE-225 control, so they are also directly comparable with each other.','Why yours is better grounded: judged only on the years the selection rule is ALLOWED to see, rf recovery 19.72 beats ungated 14.23. Only two of the five hybrids clear that bar, and tree is not one of them - tree is the WORST of the five there. rf is also 2nd of five on BOTH sides of the lockbox boundary, the only variant that is neither a pre-lockbox favourite that collapsed nor a hindsight pick that never earned its place.','The honest weakness, so it is not oversold: out of sample rf does NOT beat taking every trade. Recovery 1.69 against 1.79, on less than half the money. What it does do is HALVE the drawdown, 831 against 1,640, for about the same risk-adjusted return. That makes it a risk reducer and a sizing-up lever, not an edge, and the forward test should be read that way.','Note on the size shape: HYBRID rows always slide linearly, 0.25x to 3x with 1x at a 50% score. The stepped 0.5x / 1x / 2x shape only ever existed on TILT rows, which are retired - so there is no stepped hybrid to choose between.']},
 {v:'73.81',date:'2026-08-16',notes:['HONESTY FIX on the paper legs. The runner re-runs the whole window since 11 Aug every night, so the moment a leg is added it instantly shows trades going back to the 11th that nothing actually watched happen. Those are BACKTEST rows, and they were sitting next to ENGU-Q, which genuinely has been running since the 11th, looking exactly the same. A config added this morning was reading as a fortnight of evidence.','Every leg now records the date its CURRENT config went on the board, and trades before it are marked backfilled. The tile shows the split in yellow: how many rows are backfill and what they made, then the forward-only count underneath. Only that second number is evidence.','ORB is in that list too. Its trades predate 16 Aug but its config does not - the leg was swapped off the retired look-ahead #125 cut that morning, so its two rows were produced by a config that was not on the board when they happened.','LEG NAMES now say exactly which overlay is running. +GATE was useless because this project runs four kinds that behave nothing alike - RAW (none), CUT (skip the weak ones, one lot each), TILT (take everything, just size it - retired, 0 of 12 cleared the bar) and HYBRID (skip AND size the survivors). Both gated legs are HYBRID, so they now read ORB · rf HYBRID 45 and NOISE-225 · tree HYBRID 55: model, kind and cut-off, no cross-referencing.']},
 {v:'73.80',date:'2026-08-16',notes:['FIX, found while checking the new gated legs: the ORB leg was showing 6 trades and -$566 when its actual config produces 2. Trade rows are written by id, which refreshes a trade that still exists but can never remove one that stopped existing - so when ORB was swapped off the retired look-ahead #125 config, that config four trades stayed on the board and kept being drawn. The ORB curve was a blend of two different strategies.','The four stale rows are gone and ORB now reads its real 2 trades. This mattered more than it looks: gated legs are scored AGAINST their raw control, so a control carrying another config trades made every gate comparison meaningless.','The runner now prunes rows a leg no longer produces, so the next config swap cleans up after itself. Deliberately narrow: it only runs when the backtest actually completed (a leg that fails to load its data returns no trades, and pruning on that would delete real history), and it can only touch rows inside the forward-test window.']},
@@ -18127,13 +18128,49 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +(demo?' · demo cash '+fmtUsd(+demo.cash||0):'')
               +'</div>';
         }
+        // ── ML GATE (the bouncer) ─────────────────────────────────────────────────
+        // Owner 2026-08-16: "how do i know this bouncer is up and running". Fair -- it went
+        // live with no indicator anywhere. It is also the one component whose failure is
+        // INVISIBLE from outside: it is fail-open, so if it dies NinjaTrader just takes every
+        // signal at normal size and everything still LOOKS fine. Nothing breaks and nothing is
+        // at risk, but the live experiment silently stops being the experiment. So this line
+        // is always shown (never behind the detail toggle) and loud when wrong.
+        let _gateLine='';
+        {
+          const G=(B&&B.gate)?B.gate:null;
+          const gOk=!!(G&&G.up&&!G.error);
+          const gCol=!G?'#777':(gOk?'#1d9e75':'#e24b4a');
+          const nLegs=(G&&G.legs)?G.legs.length:0;
+          const stale=(G&&G.stale_days!=null)?G.stale_days:null;
+          // The model re-teaches itself each evening; >4 days means those nightly refreshes
+          // have been failing even though the service still answers every request.
+          const staleBad=stale!=null&&stale>4;
+          let txt;
+          if(!G) txt='<span style="color:var(--text5)">no report yet - the runner checks every 5 minutes</span>';
+          else if(!G.up) txt='<span style="color:#e24b4a;font-weight:700">DOWN - NinjaTrader is trading UNGATED</span>';
+          else if(G.error) txt='<span style="color:#e24b4a;font-weight:700">'+String(G.error).replace(/</g,'&lt;')+'</span>';
+          else txt='<span style="color:#1d9e75;font-weight:700">UP</span>'
+                  +'<span style="color:var(--text4)"> · '+nLegs+' model'+(nLegs===1?'':'s')+' loaded'
+                  +(G.latency_ms!=null?' · answers in '+G.latency_ms+'ms':'')
+                  +(stale!=null?' · <span style="color:'+(staleBad?'var(--yellow)':'var(--text4)')+'">taught '
+                     +(stale===0?'today':stale+'d ago')+'</span>':'')+'</span>';
+          const tip='The ML gate service NinjaTrader asks before every entry. If it is down, '
+                   +'NinjaTrader keeps trading but takes EVERY signal at normal size (fail-open) '
+                   +'- nothing breaks and nothing is at risk, but the gate experiment pauses. '
+                   +'To restart it, run C:\\EdgeLog\\_gate_server.bat';
+          _gateLine='<div title="'+tip.replace(/"/g,'&quot;')+'" style="display:flex;align-items:baseline;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border2);font-size:10px;cursor:help">'
+            +'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+gCol+'"></span>'
+            +'<span class="lbl" style="font-size:9px;color:var(--text3)">ML GATE</span>'
+            +'<span>'+txt+'</span></div>';
+        }
         bridgeHtml=tile('<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">'
           +'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dotCol+'"></span>'
           +'<div class="lbl">NINJATRADER · DEMO7240108</div>'
           +'<span style="font-size:9px;color:var(--text5)">'+statusTxt+(B&&B.version?' · v'+B.version:'')+'</span>'
           +'<span data-ntdetail style="margin-left:auto;cursor:pointer;user-select:none;font-size:9px;color:var(--text5);border:1px solid var(--border);border-radius:999px;padding:1px 8px">'+(window._paperNtDetail?'hide detail':'detail')+'</span></div>'
           +alertBanner
-          +(window._paperNtDetail?(body+liveInner+mcpSection):_ntOneLine));
+          +(window._paperNtDetail?(body+liveInner+mcpSection):_ntOneLine)
+          +_gateLine);
       }
       // ── MATRIX · STRATEGY × ENGINE ────────────────────────────────────────────
       // Owner 2026-08-15: "the data is scattered... thinking a matrix to consolidate."
