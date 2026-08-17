@@ -347,8 +347,23 @@ namespace NinjaTrader.NinjaScript.AddOns
                     double cash = 0, real = 0;
                     try { cash = a.Get(AccountItem.CashValue, Currency.UsDollar); } catch { }
                     try { real = a.Get(AccountItem.RealizedProfitLoss, Currency.UsDollar); } catch { }
+                    // Connection state, reported explicitly. Enabling a strategy against an
+                    // account that has not finished attaching throws a modal assertion that
+                    // FREEZES the whole platform -- the UI thread blocks, this bridge stops
+                    // answering, and only a human clicking "Ignore" clears it. Cash alone is
+                    // not a usable proxy: a connected demo account can legitimately read 0.
+                    string connStatus = "Unknown";
+                    try
+                    {
+                        var c = a.Connection;
+                        connStatus = c == null ? "None" : c.Status.ToString();
+                    }
+                    catch { }
+                    bool connected = connStatus == "Connected";
                     rows.Add("{\"name\":" + J(a.Name) + ",\"cash\":" + Num(cash)
                            + ",\"realized\":" + Num(real)
+                           + ",\"connection\":" + J(connStatus)
+                           + ",\"connected\":" + (connected ? "true" : "false")
                            + ",\"live_locked\":" + (IsLiveLocked(a.Name) ? "true" : "false") + "}");
                 }
                 catch (Exception ex) { Log("accounts row: " + ex.Message); }
@@ -562,8 +577,48 @@ namespace NinjaTrader.NinjaScript.AddOns
             // the strategy's own orders never pass through /order. Reads the instance's
             // own Qty property (the same knob /strategy/params exposes). Disable is never
             // gated: stopping is always allowed.
+            // L6 pre-ENABLE connection gate. Enabling a strategy whose account has not
+            // finished attaching throws a DEBUG ASSERTION ("Account 'X' is not connected")
+            // that is MODAL: it blocks NinjaTrader's UI thread, which freezes the platform
+            // AND this bridge, and only a human clicking Ignore can clear it. That happened
+            // on 2026-08-17 because an enable landed ~50s after launch. Refusing here costs
+            // one retry; not refusing costs the whole platform until someone is at the desk.
+            // Also refuse an out-of-range parameter, which finalizes the strategy silently.
             if (enable)
             {
+                string cs = "Unknown";
+                try { var c = sb.Account != null ? sb.Account.Connection : null; cs = c == null ? "None" : c.Status.ToString(); }
+                catch { }
+                if (cs != "Connected")
+                {
+                    Respond(s, 409, "{\"error\":" + J("account " + acctName + " is not connected (status "
+                         + cs + ") - enabling now would raise a modal assertion that freezes NinjaTrader. "
+                         + "Wait for the connection and retry.") + ",\"account\":" + J(acctName)
+                         + ",\"connection\":" + J(cs) + "}");
+                    Log("enable REFUSED " + name + ": account " + acctName + " connection=" + cs);
+                    return;
+                }
+                var bad = new List<string>();
+                foreach (var p in OwnParams(sb.GetType()))
+                {
+                    double rmin, rmax, v;
+                    if (!ParamRange(p, out rmin, out rmax)) continue;
+                    try { v = Convert.ToDouble(p.GetValue(sb), CultureInfo.InvariantCulture); }
+                    catch { continue; }
+                    if (v < rmin || v > rmax)
+                        bad.Add("{\"param\":" + J(p.Name) + ",\"value\":" + v.ToString("R", CultureInfo.InvariantCulture)
+                              + ",\"min\":" + rmin.ToString("R", CultureInfo.InvariantCulture)
+                              + ",\"max\":" + rmax.ToString("R", CultureInfo.InvariantCulture) + "}");
+                }
+                if (bad.Count > 0)
+                {
+                    Respond(s, 409, "{\"error\":" + J("parameters are outside their declared ranges - the "
+                         + "strategy would start and immediately finalize, reporting nothing to any log. "
+                         + "Widen Range() in the source and recompile, or fix the values.")
+                         + ",\"out_of_range\":[" + string.Join(",", bad) + "]}");
+                    Log("enable REFUSED " + name + ": " + bad.Count + " param(s) out of range");
+                    return;
+                }
                 var rc = ReadConfig();
                 if (rc.RiskEnabled)
                 {

@@ -29,13 +29,17 @@ $py       = 'C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.13_3
 $cli      = 'C:\Users\xride\AppData\Local\EdgeLog-worktrees\paper\tools\nt_bridge.py'
 $loginPs1 = 'C:\EdgeLog\nt_login.ps1'
 $logPath  = 'C:\EdgeLog\nt_recover.log'
-# The roster this box is supposed to be running. ENGU-Q is deliberately NOT here: it uses
-# ImmediatelySubmit, so enabling it outside market hours gets its sync order rejected and
-# the strategy terminates itself (proven 2026-08-14). It is enabled on its own schedule.
+# The roster this box is supposed to be running.
+# ENGU-Q ADDED 2026-08-17: the old exclusion (ImmediatelySubmit rejecting its sync order
+# outside market hours, proven 2026-08-14) no longer applies -- it now runs WaitUntilFlat
+# on the 24h ETH session (#226 config), so enabling it is safe around the clock. After it
+# reaches Realtime, check /orders: its warm-up replay can leave a REAL orphan stop (EQx)
+# guarding a position that exists only in the replay.
 # EdgeLogORBV2 REMOVED 2026-08-16: it still ran the retired look-ahead-era params
 # while the engine's ORB crown moved to run #230, so its fills measured a dead
-# config. Re-add once a real #230 port exists.
-$expected = @('EdgeLogNOISE')
+# config. EdgeLogORB230 is the honest port -- add it here once its grid row exists
+# and its fills reconcile against the engine.
+$expected = @('EdgeLogNOISE', 'EdgeLogENGUQ1m')
 $connName = 'Simulation'
 
 function Log($m){
