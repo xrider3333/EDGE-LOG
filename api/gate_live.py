@@ -375,9 +375,46 @@ def serve():
             self.end_headers()
             self.wfile.write(body)
 
+        def _page(self):
+            """Plain-English status page at http://127.0.0.1:8392 -- the answer to
+            "how do I know this thing is running?" without a terminal. Deliberately
+            self-refreshing and readable at a glance from across the room."""
+            rows = ""
+            for leg in _gated_legs():
+                a = _artifacts.get(leg["key"]) or {}
+                ok = bool(a)
+                rows += (f"<tr><td>{leg['key']}</td>"
+                         f"<td>{a.get('model') or '-'}</td>"
+                         f"<td style='color:{'#1d9e75' if ok else '#e24b4a'}'>"
+                         f"{'ready' if ok else 'NOT LOADED'}</td>"
+                         f"<td>{str(a.get('trained_through') or '-')[:16]}</td></tr>")
+            body = f"""<!doctype html><meta charset=utf-8>
+<meta http-equiv=refresh content=15>
+<title>ML gate status</title>
+<style>body{{font:15px system-ui;background:#111;color:#eee;padding:28px}}
+h1{{font-size:34px;margin:0 0 4px}}table{{border-collapse:collapse;margin-top:18px}}
+td,th{{padding:6px 16px 6px 0;text-align:left;border-bottom:1px solid #333}}
+.s{{color:#888;font-size:13px}}</style>
+<h1 style="color:#1d9e75">GATE IS UP</h1>
+<div class=s>NinjaTrader can ask this service before every trade.<br>
+This page re-checks itself every 15 seconds.</div>
+<table><tr><th>strategy</th><th>brain</th><th>state</th><th>taught through</th></tr>
+{rows}</table>
+<div class=s style="margin-top:20px">If this page ever fails to load, the service is
+down &mdash; NinjaTrader keeps trading but takes every signal at normal size.<br>
+Restart it by running <code>C:\\EdgeLog\\_gate_server.bat</code></div>"""
+            data = body.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
         def do_GET(self):
             u = urlparse(self.path)
-            if u.path == "/gate/health":
+            if u.path in ("/", "/status"):
+                self._page()
+            elif u.path == "/gate/health":
                 legs = {}
                 for leg in _gated_legs():
                     a = _artifacts.get(leg["key"]) or {}
