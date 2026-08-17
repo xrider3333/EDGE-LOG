@@ -69,6 +69,61 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool   stopPlaced;
         private int    lastDir;                      // +1/-1 of the position we believe we hold
 
+        // ── ML gate (the "bouncer", owner-approved 2026-08-16) ───────────────
+        // Just before entering, ask the local gate service (api/gate_live.py on this
+        // same PC) "take this trade, and how big?". FAIL-OPEN by design: any error,
+        // timeout, or the service simply not running -> trade exactly as before, at
+        // Qty. The bouncer can only ever SKIP or RESIZE an entry the strategy already
+        // wanted; it can never invent an order, and exits/stops are untouched.
+        /// <summary>Contracts to enter, per the gate. Qty on ANY failure (fail-open).</summary>
+        private int GateQty()
+        {
+            if (!GateEnabled) return Qty;
+            try
+            {
+                var req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create(GateUrl);
+                req.Method  = "GET";
+                req.Timeout = GateTimeoutMs;            // hard deadline; expired = fail-open
+                req.ReadWriteTimeout = GateTimeoutMs;
+                req.Proxy   = null;                     // localhost: skip proxy discovery
+                string body;
+                using (var resp = (System.Net.HttpWebResponse)req.GetResponse())
+                using (var sr = new System.IO.StreamReader(resp.GetResponseStream()))
+                    body = sr.ReadToEnd();
+
+                // tiny hand parse -- the service's JSON is flat and ours
+                bool take = body.IndexOf("\"take\": true") >= 0 || body.IndexOf("\"take\":true") >= 0;
+                double size = 1.0;
+                int i = body.IndexOf("\"size\":");
+                if (i >= 0)
+                {
+                    int j = i + 7; int k2 = j;
+                    while (k2 < body.Length && (char.IsDigit(body[k2]) || body[k2] == '.' || body[k2] == ' ')) k2++;
+                    double.TryParse(body.Substring(j, k2 - j).Trim(),
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out size);
+                }
+                if (!take)
+                {
+                    Print("EdgeLogNOISE gate: SKIP (" + body + ")");
+                    return 0;
+                }
+                // Size lands on whole contracts. At Qty=1 (full NQ) this rounds nearly
+                // everything to 1 -- effectively keep/skip; run Qty=10 on micros (MNQ)
+                // to give the size dial real resolution.
+                int q = (int)Math.Round(size * Qty);
+                if (q < 1) q = 1;                       // take=true never rounds to zero
+                if (q > Qty * 3) q = Qty * 3;           // engine's own 3x cap, belt+braces
+                Print("EdgeLogNOISE gate: TAKE x" + size.ToString("0.00") + " -> " + q + " (" + body + ")");
+                return q;
+            }
+            catch (Exception ex)
+            {
+                Print("EdgeLogNOISE gate: FAIL-OPEN (" + ex.Message + ") -> " + Qty);
+                return Qty;
+            }
+        }
+
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
@@ -84,12 +139,18 @@ namespace NinjaTrader.NinjaScript.Strategies
                 StartBehavior = StartBehavior.WaitUntilFlat;
                 BarsRequiredToTrade = 20;
 
-                Lookback       = 14;
-                BandMultLong   = 1.5;
+                // Defaults moved to the #231 crowned config on 2026-08-16 (three
+                // consecutive auto-validates landed on this identical dict). The old
+                // hand-built 14 / 1.5 / 1.5 / 1.0 stays available by typing it in.
+                Lookback       = 44;
+                BandMultLong   = 0.75;
                 BandMultShort  = 1.5;
-                StopK          = 1.0;
+                StopK          = 1.75;
                 UseStop        = true;
                 Qty            = 1;
+                GateEnabled    = true;
+                GateUrl        = "http://127.0.0.1:8392/gate/check?leg=NOISE_H_RF";
+                GateTimeoutMs  = 300;
             }
             else if (State == State.DataLoaded)
             {
@@ -307,8 +368,18 @@ namespace NinjaTrader.NinjaScript.Strategies
                 {
                     if ((Close[0] - ub) >= (lb - Close[0])) shortTrig = false; else longTrig = false;
                 }
-                if (longTrig)       EnterLong(Qty, "NZ");
-                else if (shortTrig) EnterShort(Qty, "NZ");
+                if (longTrig || shortTrig)
+                {
+                    // Historical bars (chart warm-up / backtest) never call the gate:
+                    // the service only knows "now", so an answer for an old bar would be
+                    // nonsense -- and the blotter must stay comparable to the engine.
+                    int q = State == State.Realtime ? GateQty() : Qty;
+                    if (q > 0)
+                    {
+                        if (longTrig) EnterLong(q, "NZ");
+                        else          EnterShort(q, "NZ");
+                    }
+                }
             }
 
             barOfDay++;
@@ -339,6 +410,18 @@ namespace NinjaTrader.NinjaScript.Strategies
         [NinjaScriptProperty, Range(1, 10)]
         [Display(Name = "Quantity", Order = 6, GroupName = "NOISE")]
         public int Qty { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "ML gate ON (ask the local bouncer before entering)", Order = 7, GroupName = "ML GATE")]
+        public bool GateEnabled { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Gate URL (local service)", Order = 8, GroupName = "ML GATE")]
+        public string GateUrl { get; set; }
+
+        [NinjaScriptProperty, Range(50, 2000)]
+        [Display(Name = "Gate timeout ms (expired = trade ungated)", Order = 9, GroupName = "ML GATE")]
+        public int GateTimeoutMs { get; set; }
         #endregion
     }
 }

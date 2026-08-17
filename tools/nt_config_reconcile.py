@@ -36,8 +36,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BASE = os.environ.get("EDGELOG_BRIDGE_URL", "http://127.0.0.1:8391")
 
 # leg key -> the NinjaScript strategy instance name in NinjaTrader
+# 2026-08-16: EdgeLogNOISE now runs the #231 crowned config WITH the live ML gate, so it
+# reconciles against the NOISE_H_RF leg (identical base params to NOISE_225), not the old
+# hand-built NOISE leg, which stays engine-only.
 NT_NAME = {
-    "NOISE": "EdgeLogNOISE",
+    "NOISE_H_RF": "EdgeLogNOISE",
     "ORB":   "EdgeLogORBV2",
     "ENGUQ": "EdgeLogENGUQ1m",
 }
@@ -45,8 +48,8 @@ NT_NAME = {
 # leg key -> {NinjaScript property : engine param}. Case matters on the engine side --
 # ENGU-Q really does use act_R and breakeven_R with a capital R.
 PARAM_MAP = {
-    "NOISE": {"Lookback": "lookback", "BandMultLong": "band_mult_long",
-              "BandMultShort": "band_mult_short", "StopK": "stop_k"},
+    "NOISE_H_RF": {"Lookback": "lookback", "BandMultLong": "band_mult_long",
+                   "BandMultShort": "band_mult_short", "StopK": "stop_k"},
     "ORB":   {"OrBars": "or_bars", "TradeMode": "trade_mode",
               "StopFrac": "stop_frac", "VolFilter": "vol_filter"},
     "ENGUQ": {"TlLen": "tl_len", "EmaLen": "ema_len", "BufAtr": "buf_atr",
@@ -57,7 +60,10 @@ PARAM_MAP = {
 
 # Knobs that exist on the NinjaScript side with no engine counterpart, by design.
 # Listed so they show as INFO instead of UNMAPPED noise.
-NT_ONLY = {"Qty", "UseStop"}
+NT_ONLY = {"Qty", "UseStop",
+           # the live ML-gate knobs (2026-08-16) -- NT-side plumbing for the bouncer
+           # call, with no engine param counterpart by design
+           "GateEnabled", "GateUrl", "GateTimeoutMs"}
 
 
 def _norm(v):

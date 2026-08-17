@@ -113,6 +113,39 @@ testing *"trade ~15% smaller and skip a few"* more than *"size by conviction"*.
 than a 150-day cousin. ORB_H's rf walk is ~110s, NOISE_H's tree ~6s — about two minutes added to
 the once-a-day EOD run.
 
+## THE GATE IS NOW LIVE IN NINJATRADER (2026-08-16, owner-approved architecture)
+
+The ML could not be ported into NinjaScript (a random forest is 100 trees), so it stays in
+Python and **NinjaTrader asks it for permission** just before entering:
+
+- **`api/gate_live.py`** — the "bouncer" service, its **own process** on 127.0.0.1:8392
+  (deliberately NOT a runner thread: the runner saturates every core during optimizes, and a
+  missed deadline silently un-gates a live entry). Autostarts at logon via
+  `Startup\EdgeLogGate.vbs` → `C:\EdgeLog\_gate_server.bat`; log at `C:\EdgeLog\gate_live.log`.
+- **Nightly artifact**: after each close (16:15 ET, self-scheduled) it re-fits the as-of-now
+  model per gated leg — same features / model family / threshold / frozen size divisor as the
+  paper leg, trained on every completed trade of that leg's own backtest (master + fresh tail).
+  Fit takes ~2s per leg; artifacts in `C:\EdgeLog\gate_models\`.
+- **`EdgeLogNOISE`** now calls `GET /gate/check?leg=NOISE_H_RF` at entry time (new params
+  GateEnabled / GateUrl / GateTimeoutMs, group "ML GATE"). **Fail-open on both sides**: any
+  error/timeout (300ms) → trade ungated at Qty, printed to the NT log. Historical bars never
+  call the gate (the service only knows "now"). Measured warm latency: **50–65ms**.
+- **NT NOISE also moved to the #231 crowned config** (44 / 0.75 / 1.5 / 1.75) at the same
+  time — the gate model is trained on that config's trades, so gating the old hand-built
+  config with it would have been nonsense. `tools/nt_config_reconcile.py` now maps
+  EdgeLogNOISE ↔ the NOISE_H_RF leg (verified 4/4 OK).
+- **Sizing granularity**: at Qty=1 on full NQ the hybrid's fractional sizes round to 1, so
+  live it acts as pure keep/skip. The size dial becomes real by running Qty=10 on MNQ
+  (10 micros = 1 NQ) — a chart/instrument change, not a code change.
+- **Orders never move**: the service cannot place, resize, or cancel anything. Kill switch,
+  circuit breaker, and the live-account hard-lock are untouched.
+- **Watch out**: lookback 44 needs ~44 completed sessions of chart history. If the NOISE
+  chart loads fewer days, it will simply never trade — silently. Verify the chart's
+  "days to load" ≥ 70 if Monday shows no NOISE entries where the engine has one.
+- **Known divergence, pre-existing**: `EdgeLogORBV2` still runs the old #125-era chase
+  params while the engine's ORB leg moved to #230 — the reconcile now reports it. Aligning
+  V2 (a different mechanism) to #230 is open work.
+
 ## THE ORB LOOK-AHEAD (found 2026-08-10/11 — read before touching anything ORB)
 
 **The defect:** touch-entry ORB fills at the range edge the moment price touches it
