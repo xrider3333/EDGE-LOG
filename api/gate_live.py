@@ -397,6 +397,15 @@ def _refresh_loop():
                 last_built = day
         except Exception as e:
             _log(f"refresh loop: {type(e).__name__}: {e}")
+        # Keep-warm: score each leg every pass so the bar cache never goes cold.
+        # The one measured cold call took 351ms against NinjaTrader's 300ms timeout --
+        # which silently UN-GATES that trade (fail-open). A warm call is ~50-110ms,
+        # and a background decide() every 10 minutes costs nothing anyone will notice.
+        for _leg in _gated_legs():
+            try:
+                decide(_leg["key"])
+            except Exception:
+                pass
         time.sleep(600)
 
 

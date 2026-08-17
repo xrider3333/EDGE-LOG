@@ -368,6 +368,43 @@ def add_orb230(dry):
     return new_id
 
 
+def remove_orbv2(dry):
+    """Delete EdgeLogORBV2 outright -- the retired look-ahead-era config whose row kept
+    reading as 'a strategy someone forgot to enable'. Exact reverse of add_orb230: the
+    three DB records go, and ORB230 is promoted to Strategy0 on the chart they shared
+    (StrategyN must stay densely numbered from 0 -- NT's serializer reads them by index)."""
+    import sqlite3
+    old_block = ('<Strategy0 BarsIndex="0">386606473</Strategy0>\r\n'
+                 '            <Strategy1 BarsIndex="0">386606475</Strategy1>')
+    new_block = '<Strategy0 BarsIndex="0">386606475</Strategy0>'
+    w = open(WORKSPACE, encoding="utf-8", newline="").read()
+    con = sqlite3.connect(f"file:{NT_DB}?mode=ro", uri=True)
+    try:
+        n_db = con.execute("SELECT COUNT(*) FROM Strategies WHERE Id=?",
+                           (ORBV2_STRATEGY_ID,)).fetchone()[0]
+    finally:
+        con.close()
+    if not n_db and old_block not in w:
+        log("EdgeLogORBV2 already gone from DB and workspace - nothing to remove")
+        return
+    if w.count(old_block) != 1:
+        raise SystemExit("chart's strategy block does not match the expected two-row shape - refusing")
+    if dry:
+        log("DRY RUN: would delete ORBV2's 3 DB rows and promote ORB230 to Strategy0 on the chart")
+        return
+    con = sqlite3.connect(NT_DB)
+    try:
+        for sql in ("DELETE FROM Strategies WHERE Id=?",
+                    "DELETE FROM Strategy2Account WHERE Strategy=?",
+                    "DELETE FROM Strategy2Instrument WHERE Strategy=?"):
+            con.execute(sql, (ORBV2_STRATEGY_ID,))
+        con.commit()
+    finally:
+        con.close()
+    open(WORKSPACE, "w", encoding="utf-8", newline="").write(w.replace(old_block, new_block, 1))
+    log("removed: ORBV2's 3 DB rows deleted, ORB230 promoted to Strategy0 on the NQ 5-min chart")
+
+
 def set_qty_via_bridge(qty):
     """Qty is a live NinjaScript property (comes from SetDefaults=1 each boot), so it is
     set through the bridge's own sanctioned setparam path: disable -> write -> enable."""
@@ -496,8 +533,56 @@ def main():
                     help="re-scale the risk rails for recycle sizing (no NT restart)")
     ap.add_argument("--add-orb230", action="store_true",
                     help="create the EdgeLogORB230 strategy row (run #230 port) on ORBV2's chart")
+    ap.add_argument("--remove-orbv2", action="store_true",
+                    help="delete the retired EdgeLogORBV2 row entirely (DB + chart)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
+    if a.remove_orbv2:
+        if a.dry_run:
+            remove_orbv2(True)
+            return 0
+        try:
+            pos = get("/positions").get("positions", [])
+            strats = get("/strategies").get("strategies", [])
+        except Exception:
+            pos, strats = [], []
+        if pos:
+            log(f"REFUSING: open position(s) on the account: {pos}")
+            return 1
+        backup(NT_DB)
+        backup(WORKSPACE)
+        if strats:
+            try:
+                urllib.request.urlopen(urllib.request.Request(
+                    BRIDGE + "/shutdown", method="POST", data=b""), timeout=8)
+                log("clean shutdown requested")
+            except Exception as e:
+                log(f"clean shutdown failed ({e}) - stopping the process")
+            for _ in range(20):
+                time.sleep(3)
+                r = subprocess.run(["powershell", "-NoProfile", "-Command",
+                                    "(Get-Process NinjaTrader -ErrorAction SilentlyContinue) -ne $null"],
+                                   capture_output=True, text=True)
+                if "True" not in (r.stdout or ""):
+                    break
+            else:
+                stop_nt()
+        time.sleep(3)
+        remove_orbv2(False)
+        log("relaunching via nt_recover.ps1 ...")
+        r = subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", "-File", RECOVER],
+                           capture_output=True, text=True, timeout=420)
+        log("recover: " + " / ".join((r.stdout or "").strip().splitlines()[-1:]))
+        rows = get("/reflect/gridrows")
+        names = str(rows)
+        gone = "EdgeLogORBV2" not in names
+        strats = {x.get("name"): x.get("state") for x in get("/strategies").get("strategies", [])}
+        log(f"grid still lists ORBV2: {not gone} | roster: {strats}")
+        ok = gone and all(strats.get(k) == "Realtime"
+                          for k in ("EdgeLogNOISE", "EdgeLogENGUQ1m", "EdgeLogORB230"))
+        log("RESULT: " + ("PASS - ORBV2 gone, all three legs Realtime"
+                          if ok else "INCOMPLETE - read the lines above"))
+        return 0 if ok else 1
     if a.add_orb230:
         if a.dry_run:
             add_orb230(True)
