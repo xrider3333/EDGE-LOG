@@ -79,32 +79,89 @@ def get(path, timeout=8):
 
 
 def edit_db_noise_micros(dry):
-    """Repoint the LIVE grid strategy's instrument NQ 09-26 -> MNQ 09-26 in NinjaTrader's
-    own database. One integer, NT stopped, db backed up by the caller. The strategy's
-    parameters are not stored here (they come from the DLL's SetDefaults, which already
-    carry the crowned config) -- quantity is set through the bridge after relaunch."""
+    """Switch the LIVE grid strategy to MNQ x10 in NinjaTrader's own database.
+
+    Hard-won map of where this actually lives (2026-08-16, three failed attempts deep):
+      * the workspace XML copies of EdgeLogNOISE are Strategy-Analyzer TEMPLATES (inert);
+      * the Strategy2Instrument row is a DERIVED index -- editing it alone gets
+        overwritten at boot (observed 19:13);
+      * the MASTER record is Strategies.Userdata: UTF-16LE text holding entity-escaped
+        strategy XML. It provably carries tonight's crowned params (Lookback 44 etc.),
+        which is how we know it is the live one. NT deserializes THIS at boot and
+        re-syncs everything else from it.
+    So: edit Userdata (instrument, Qty, DaysToLoad), and repoint Strategy2Instrument to
+    match so the two stores never disagree."""
     import sqlite3
     c = sqlite3.connect(NT_DB)
+    c.text_factory = bytes
     try:
-        row = c.execute("SELECT Instrument FROM Strategy2Instrument WHERE Strategy=?",
+        row = c.execute("SELECT Userdata FROM Strategies WHERE Id=?",
                         (NOISE_STRATEGY_ID,)).fetchone()
-        if row is None:
-            raise SystemExit(f"strategy {NOISE_STRATEGY_ID} not found in Strategy2Instrument - refusing")
-        cur = int(row[0])
-        if cur == MNQ_0926_ID:
-            log("db: NOISE already mapped to MNQ 09-26")
-            return
-        if cur != NQ_0926_ID:
-            raise SystemExit(f"NOISE maps to unexpected instrument {cur} - refusing to guess")
+        if row is None or not row[0]:
+            raise SystemExit(f"strategy {NOISE_STRATEGY_ID} has no Userdata - refusing")
+        s = row[0].decode("utf-16-le")
+        subs = [
+            ("&lt;InstrumentOrInstrumentList&gt;NQ 09-26",
+             "&lt;InstrumentOrInstrumentList&gt;MNQ 09-26"),
+            ("&lt;Qty&gt;1&lt;/Qty&gt;", "&lt;Qty&gt;10&lt;/Qty&gt;"),
+            ("&lt;DaysToLoad&gt;5&lt;/DaysToLoad&gt;", "&lt;DaysToLoad&gt;90&lt;/DaysToLoad&gt;"),
+        ]
+        done = []
+        for a, b in subs:
+            n = s.count(a)
+            if n > 1:
+                raise SystemExit(f"ambiguous ({n}x): {a[:50]} - refusing")
+            if n == 1:
+                if not dry:
+                    s = s.replace(a, b, 1)
+                done.append(a[4:40])
+        # sanity: the record must carry the crowned params, or it is not the live row
+        if "&lt;Lookback&gt;44" not in s:
+            raise SystemExit("Userdata does not carry Lookback 44 - wrong record, refusing")
         if dry:
-            log("DRY RUN: would repoint NOISE instrument NQ 09-26 -> MNQ 09-26")
+            log(f"DRY RUN: would edit Userdata fields: {done}")
             return
-        c.execute("UPDATE Strategy2Instrument SET Instrument=? WHERE Strategy=?",
-                  (MNQ_0926_ID, NOISE_STRATEGY_ID))
+        c.execute("UPDATE Strategies SET Userdata=? WHERE Id=?",
+                  (s.encode("utf-16-le"), NOISE_STRATEGY_ID))
+        c.execute("UPDATE Strategy2Instrument SET Instrument=? WHERE Strategy=? AND Instrument=?",
+                  (MNQ_0926_ID, NOISE_STRATEGY_ID, NQ_0926_ID))
         c.commit()
-        log("db: NOISE instrument repointed NQ 09-26 -> MNQ 09-26 (same expiry, micro size)")
+        log(f"db: Userdata edited ({done}) + instrument index repointed to MNQ 09-26")
     finally:
         c.close()
+
+
+def edit_chart_series(dry):
+    """THE ACTUAL LEVER (found 2026-08-16 after the db-only edit reverted at boot):
+    EdgeLogNOISE is not a standalone grid strategy -- it is ATTACHED TO A CHART
+    (workspace: <Strategies><Strategy0>386606468</Strategy0> inside a DataSeries block,
+    chart id bf857ca7...). At boot the chart recreates the strategy bound to the CHART'S
+    instrument and NT re-persists everything else from that, which is why editing
+    Userdata/Strategy2Instrument alone kept reverting. Changing the chart's series to
+    MNQ is what the owner would do in the UI (chart -> Data Series -> Instrument)."""
+    s = open(WORKSPACE, encoding="utf-8", newline="").read()
+    i = s.find("386606468")
+    if i < 0:
+        raise SystemExit("strategy id not found in workspace - layout changed, refusing")
+    # the hosting chart's series block sits just before the Strategy0 tag
+    a = max(0, i - 9000)
+    seg = s[a:i]
+    lab = "<Label>NQ 09-26</Label>"
+    ins = "<Instrument>NQ 09-26</Instrument>"
+    nl, ni = seg.count(lab), seg.count(ins)
+    if "MNQ 09-26" in seg and (nl + ni) == 0:
+        log("workspace chart: already MNQ")
+        return
+    if nl != 1 or ni != 1:
+        raise SystemExit(f"expected exactly one Label/Instrument pair near the strategy "
+                         f"(got {nl}/{ni}) - refusing to guess")
+    if dry:
+        log("DRY RUN: would switch the hosting chart's series NQ 09-26 -> MNQ 09-26")
+        return
+    seg2 = seg.replace(lab, "<Label>MNQ 09-26</Label>", 1)
+    seg2 = seg2.replace(ins, "<Instrument>MNQ 09-26</Instrument>", 1)
+    open(WORKSPACE, "w", encoding="utf-8", newline="").write(s[:a] + seg2 + s[i:])
+    log("workspace chart: NOISE's hosting chart series -> MNQ 09-26")
 
 
 def set_qty_via_bridge(qty):
@@ -148,24 +205,41 @@ def edit_workspace_noise_micros(dry):
 
 
 def edit_bridge_limit(dry):
+    """Re-express BOTH contract-count rails in MICRO terms (owner-directed 2026-08-16).
+    30 micros = 3 full NQ = the engine's own 3x size cap; the DOLLAR-loss breaker is
+    deliberately untouched -- dollars are unit-blind and stay the real guardrail.
+      max_position_contracts  5 -> 30   (the breaker's account-level position check)
+      max_qty                 3 -> 30   (the enable-path per-order size gate -- it
+                                         correctly refused Qty 10 at the old value,
+                                         which is how this line earned its edit)"""
     s = open(BRIDGE_JSON, encoding="utf-8", newline="").read()
-    if '"max_position_contracts": 30' in s:
-        log("bridge.json: position limit already 30")
+    changed = []
+    for a, b, note in [
+        ('"max_position_contracts": 5', '"max_position_contracts": 30', "position 5->30"),
+        ('"max_qty": 3', '"max_qty": 30', "max_qty 3->30"),
+    ]:
+        if b in s:
+            continue
+        if a not in s:
+            raise SystemExit(f"bridge.json: expected {a} - layout changed, refusing")
+        if not dry:
+            s = s.replace(a, b, 1)
+        changed.append(note)
+    if not changed:
+        log("bridge.json: limits already in micro terms")
         return
-    a = '"max_position_contracts": 5'
-    if a not in s:
-        raise SystemExit("bridge.json: expected max_position_contracts 5 - layout changed, refusing")
     if dry:
-        log("DRY RUN: would raise max_position_contracts 5 -> 30 (micros; = 3 full NQ)")
+        log(f"DRY RUN: would change {changed}")
         return
-    s = s.replace(a, '"max_position_contracts": 30', 1)
-    s = s.replace('"_margin_comment"',
-                  '"_position_comment": "Raised 5 -> 30 on 2026-08-16 (owner-directed) when '
-                  'NOISE moved to MICRO contracts: the gate sizes 9-15 micros per trade, and 30 '
-                  'micros = 3 full NQ = the engine\'s own 3x size cap. Dollar-loss breaker '
-                  'unchanged.",\n  "_margin_comment"', 1)
+    if '"_position_comment"' not in s:
+        s = s.replace('"_margin_comment"',
+                      '"_position_comment": "Contract-count rails re-expressed in MICROS on '
+                      '2026-08-16 (owner-directed) when NOISE moved to MNQ: the gate sizes 9-15 '
+                      'micros per trade; 30 micros = 3 full NQ = the engine\'s 3x size cap. The '
+                      'dollar-loss breaker is unchanged and remains the real guardrail.",\n  '
+                      '"_margin_comment"', 1)
     open(BRIDGE_JSON, "w", encoding="utf-8", newline="").write(s)
-    log("bridge.json: max_position_contracts 5 -> 30 (live-reloads within 10s)")
+    log(f"bridge.json: {changed} (live-reloads within 10s)")
 
 
 def relaunch_and_verify():
@@ -184,14 +258,16 @@ def relaunch_and_verify():
     log(f"EdgeLogNOISE: state={nz.get('state')} instrument={nz.get('instrument')}")
     if "MNQ" not in str(nz.get("instrument", "")):
         ok = False
-    if ok:
+    p = {x["name"]: x["value"] for x in get("/strategy/params?name=EdgeLogNOISE").get("params", [])}
+    if ok and p.get("Qty") != "10":
+        log("Qty did not come through Userdata - setting via the bridge")
         set_qty_via_bridge(10)
         strats = {x.get("name"): x for x in get("/strategies").get("strategies", [])}
         nz = strats.get("EdgeLogNOISE") or {}
         log(f"EdgeLogNOISE after Qty set: state={nz.get('state')} instrument={nz.get('instrument')}")
         if nz.get("state") != "Realtime":
             ok = False
-    p = {x["name"]: x["value"] for x in get("/strategy/params?name=EdgeLogNOISE").get("params", [])}
+        p = {x["name"]: x["value"] for x in get("/strategy/params?name=EdgeLogNOISE").get("params", [])}
     log(f"params: Qty={p.get('Qty')} Lookback={p.get('Lookback')} gate={p.get('GateEnabled')}")
     if p.get("Qty") != "10" or p.get("Lookback") != "44":
         ok = False
@@ -217,9 +293,11 @@ def main():
 
     if not a.dry_run:
         backup(NT_DB)
+        backup(WORKSPACE)
         backup(BRIDGE_JSON)
         stop_nt()
-    edit_db_noise_micros(a.dry_run)
+    edit_chart_series(a.dry_run)     # the real lever -- the chart recreates the strategy
+    edit_db_noise_micros(a.dry_run)  # kept consistent so no store disagrees at boot
     edit_bridge_limit(a.dry_run)
     if a.dry_run:
         log("dry run complete - nothing changed")
