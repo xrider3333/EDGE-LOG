@@ -1144,6 +1144,31 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-18** — **Round 7 (autonomous variant hunt, owner directive "don't stop until you find one"):
+  6 batteries run; THE FIND = ENGUQ ETH NBO (24h + next-bar-open) — the paper-ready form of #226 —
+  validate queued. Everything else died with mechanisms understood.**
+  • **FIND — ENGUQ_1M_ETH_NBO_1_0 (pushed f076ab9, validate queued pVe2H3eJon2TnD1vSuX1, window pinned
+    ≤2026-06-30):** #226's frozen config entering at the NEXT bar's OPEN instead of the signal close —
+    the fully executable form (no market-on-close assumption). Verified to the cent: full $430,960.46 /
+    PF 1.327 / DD $50,370 (vs parent $434,721.12/$50,420 = −0.87%), continuous LB 195 tr / $90,899
+    (vs 188 / $98,488 = −7.7%, inside the −10% pre-registered bar), avg slip −0.03 pts. Same on RTH:
+    ENGUQ_1M_RT_1_0 mode-1 = +1.87% net (e549013) — the audit's "legal-but-tight" fill flag costs
+    nothing anywhere. **Execution realism is now a closed question for ENGU-Q.**
+  • **DEAD this round, all pre-registered:** rolling risk-parity (RTH LB flips negative, ETH −53% —
+    edge is era-concentrated; 4th and FINAL sizing-overlay failure, family closed) · night-trail-off on
+    #226 (backfired: net −4.1%, drag −22%→−40% — the overnight exits are the trail working, not
+    whipsaw; suspend-until-1R = no-op 2/2843) · retest entry (LB MAR triples but fill-rate 23–31%
+    starves dollars) · 5m ETH clock-transfer (PF 1.19 — the ×3.54 move does NOT generalize to 5m) ·
+    **ALT second stream (#232: card PASS 5/5 is reload-flattered — continuous run = 8 entries in the
+    trailing year, one 354-DAY hold from 2025-04-07, maxDD $112k; trail-2.5 rescue cell dominated by
+    #226 on every risk metric; note stamped, family closed).** Reload-vs-continuous divergence count
+    now 5 runs — the continuous cross-check hard gate is overdue.
+  • **DATA WARNING:** the extended masters now reach 2026-08-17 but carry REAL INTERNAL HOLES
+    (1m ETH: 2026-07-01→08-05 missing; 1m RTH: 07-17→08-05). Any backtest spanning those windows is
+    invalid — pin date_to ≤ the hole until deep-history data bridges it. 5m ETH is contiguous.
+  • Standing state: **#226 = certified primary path; ETH NBO = its deployable form, in queue; #149/#227
+    = RTH baseline (blind overnight); blend baseline unchanged.** Next gates: NBO validate lands →
+    paper-forward wiring (24h feed + NT capture, both on owner's side).
 - **2026-08-15** — **§1A funnel vs §1E matrix disagreement fixed (index.html).** RAW pill bug: `_crV` preferred `_champTot` (all-trades total, = `gate_validate.ungated_full.total_pnl`) over the WF-crowned candidate's own lockbox-stitched equity whenever a crown existed — now always uses `_endOf(crownedC)` when `crownedC` is non-null, `_champTot` only as a legacy fallback with no crown at all. Labeling bug: the funnel/explorer chart drew every hybrid/tilt/hybrid-recycle candidate at full opacity in the same shaded family hue, so the crowned member (`_bestHybC`/`_bestTiltC` via lockbox MAR `_hRc0`/`_tRc0`) never stood out from its siblings even though the pill/key priced only that one line — non-crowned family members now draw at reduced opacity (stroke-opacity 0.3) so the visually-prominent curve always matches the priced one. Enhancement: the funnel key rows for TILT/HYBRID/HYBRID ♻ now show the picking lockbox MAR in their hover title (" · LB MAR n.n×"), previously invisible anywhere in the UI. Gate/tilt pill computations were audited and already used their own dedicated sources (no `_champTot`-style fallback), so no fix needed there.
 - **2026-08-13** — **Runner Firestore doc-size guard + chunked sync_runs** (api/runner.py). Trigger: job `backtests/g2iIT39Xnfuxcc69keQw` failed with `InvalidArgument: 400 Document ... size (1,114,777 bytes) exceeds the maximum allowed size of 1,048,576 bytes`, and because the write's exception was swallowed by the watch loop's catch-all, the job was left stuck on `status='running'` with its result never saved (a separate startup `sync_runs` batch also blew Firestore's 10 MiB request cap: `11,534,336 bytes`). New `shrink_to_fit()` shrinks any oversized job/run doc in stages — (1) downsample every equity/curve array to ≤400 points, (2) cap per-config population arrays (dist/points/top/equity_top) to the top-N configs by PnL/score, (3) last resort, drop the heaviest non-protected field entirely — champion stats + WF/lockbox numbers are never touched. Applied to both single-doc save paths (the job doc in `FirestoreQueue.run_once`, the Runs-history doc in `_persist_run`). The job-doc write additionally goes through `_save_job_doc()`, which falls back to a protected-fields-only doc and finally a bare status/error doc if the guarded write STILL fails — a job can no longer be left stuck on `running` from a save failure. `sync_runs` now chunks its batch commits by bytes (≤9 MB) in addition to the existing 400-doc cap.
 - **2026-08-13** — **Item #36: runner job-queue + command polling converted to Firestore on_snapshot listeners** (api/runner.py). Main watch loop now blocks on an event set by the listener callback instead of re-querying `status=='queued'` every `--interval` tick; a 600s backstop poll still runs underneath (and logs if it finds something the listener missed) so a wedged watch channel can never permanently stall job pickup. Falls back automatically to the old fixed-interval polling if listener setup fails or never confirms alive within 15s ("queue listener: FAILED -> polling every Ns" vs "queue listener: ON (backstop poll 600s)" at startup). Cuts ~5,800 idle Firestore reads/day. `--interval` stays meaningful as the fallback poll cadence.
