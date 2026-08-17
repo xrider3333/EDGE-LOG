@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.93';
+const VERSION='73.94';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.94',date:'2026-08-16',notes:['FIX: the board was telling you the wrong thing about what is running. The leg NinjaTrader is ACTUALLY trading - NOISE-225 with the rf bouncer - was showing OFF, because the live-state lookup still named the NOISE leg that was retired earlier today. It now reads the same field the tiles do, so the two can never drift apart again.','Legs that were never meant to run in NinjaTrader no longer wear a warning colour. The two comparison legs (NOISE-225 on its own, and the tree bouncer) and the ORB bouncer are computed here on purpose - they are the controls and the alternative brain - so they now read ENGINE in neutral grey instead of OFF in yellow, which looked like three broken things.','ORB still reads OFF, and that one is real: its NinjaTrader port was switched off today because it still runs the old pre-#230 settings, so its fills would measure a config nothing else on the board uses. Hovering the badge now says exactly that instead of leaving you to guess.']},
 {v:'73.93',date:'2026-08-16',notes:['NinjaTrader is now on the recycle hybrid too, and the guardrails were left alone to do it. The obvious way to make room was to scale every limit up to fit 3.85x sizing - but that would have meant raising the daily loss limit, the one guardrail measured in real money. Running the numbers gave a better answer: drop the BASE size from 10 micros to 3 instead. Recycle is a ratio, so the experiment and its equity curve are identical either way, just at a third of the exposure.','What that buys: the leg averages about 11 micros a trade (roughly the one-contract exposure it has had all along) and the untouched $1,500 daily limit still trips at about 65 adverse points - which is essentially the 75 points it was set for. At the naive setting it would have fired after 20 points and switched every strategy off on an ordinary day.','Only the contract count moved, 30 to 40, because the worst case a score can reach is 35. Verified live: all three gates released by the size interlock, worst case 34.7 against the 40 limit.','The tile comparison against the no-gate control now states the size it was earned at, and shows the per-contract figure beside the dollar gap. Once a gate recycles it trades several times the control size, so a raw dollar difference mostly measures size rather than skill - it would flatter the gate in a good stretch and damn it in a bad one, for the same wrong reason.']},
 {v:'73.92',date:'2026-08-16',notes:['The three gated legs are now RECYCLE hybrids, as asked. Recycle spends the money the bouncer frees up: it adds no trades, it makes each surviving trade bigger, so that the book commits the same total contracts as taking everything would have. On the board the average sizes are now 1.2x for ORB, 2.0x for the tree NOISE and 3.8x for the rf NOISE - the exact ratios of trades-taken to trades-kept, measured on the runs those gates came from and frozen, not recalculated from the days being tested.','Read the drawdowns with that in mind: recycle multiplies losses by the same number it multiplies gains. The rf NOISE row will swing about 3.8 times as hard in both directions.','NINJATRADER IS STILL ON PLAIN HYBRID, on purpose, and it says so. Its position limits are still set for one-lot trading, and a recycled order would have exceeded them - which would have made the circuit breaker flatten and switch off every strategy on the first trade Monday. The gate service now reads those limits itself and refuses to serve a size that would not fit, falling back to plain hybrid and stating why. Raise the limits and it switches over on its own, no restart.']},
 {v:'73.91',date:'2026-08-16',notes:['1E MATRIX scope tags cleaned up and colour-coded. The IS / WF / LB names in every section header (return, reward vs risk, sample) now wear the same colours the 2A funnel chart shades those periods with - IS in the plain grey of the un-shaded stretch, WF in the walk-forward blue, LB in the lockbox purple - on all four tabs (RAW, GATE, TILT, HYBRID), including the return section that had a plain tag before.','The little window tags repeated on individual rows (MAR, PF, DD, TRADES and friends) are gone where they only said the same thing as their section header. A row keeps its own tag ONLY when it genuinely measures a different window than its section - e.g. TRADES and FOLDS HELD on the RAW tab, the size rows pinned to FULL on the sizing tabs, and the pinned windows on runs too old to slice - and those surviving tags wear the same period colours.']},
@@ -17541,15 +17542,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Both gated legs here are HYBRID. The label carries model + kind + cut-off so a
       // tile never has to be cross-referenced against a doc to know what it is.
       const PAPER_LEG_DEFS=[
-        {k:'ORB',       label:'ORB · RAW',              color:'#5b8def'},
+        // `nt` names the NinjaTrader strategy this leg IS. A leg without one is engine-only
+        // BY DESIGN (a matched control, or the alternative brain) -- it can never run in
+        // NinjaTrader, so painting it "OFF" reads as a fault when nothing is wrong. Before
+        // this, the map still pointed at the retired NOISE leg, so the leg NinjaTrader is
+        // actually trading showed OFF while three legs that were never meant to run there
+        // showed the same warning colour.
+        {k:'ORB',       label:'ORB · RAW',              color:'#5b8def', nt:'ORBV2',
+         ntNote:'EdgeLogORBV2 was switched off 2026-08-16: it still runs the pre-#230 chase params, so its fills measured a config nothing else uses. A real #230 port is open work.'},
         {k:'ORB_H',     label:'ORB · rf HYBRID♻ 45',     color:'#9dc0fb', ctrl:'ORB'},
-        {k:'ENGUQ',     label:'ENGU-Q · RAW',           color:'#c090ff'},
+        {k:'ENGUQ',     label:'ENGU-Q · RAW',           color:'#c090ff', nt:'ENGUQ'},
         // The hand-built NOISE config was retired 2026-08-16: never crowned by any
         // validate, superseded by NOISE-225 (picked by three consecutive validates and
         // now what NinjaTrader actually runs). It kept its teal colour here.
         {k:'NOISE_225', label:'NOISE-225 · RAW',        color:'#2dd4bf'},
         {k:'NOISE_H',   label:'NOISE-225 · tree HYBRID♻ 55', color:'#f0c674', ctrl:'NOISE_225'},
-        {k:'NOISE_H_RF',label:'NOISE-225 · rf HYBRID♻ 55',   color:'#d98cc4', ctrl:'NOISE_225'},
+        // THIS is what NinjaTrader runs: EdgeLogNOISE carries the #225 params and its gate
+        // call points at leg=NOISE_H_RF. (It trades MNQ micros at base 3 while the paper leg
+        // computes one lot -- proportional, so the curves compare shape for shape.)
+        {k:'NOISE_H_RF',label:'NOISE-225 · rf HYBRID♻ 55',   color:'#d98cc4', ctrl:'NOISE_225', nt:'NOISE'},
       ];
       const _legColor=Object.fromEntries(PAPER_LEG_DEFS.map(d=>[d.k,d.color]));
       const _legCtrl=Object.fromEntries(PAPER_LEG_DEFS.filter(d=>d.ctrl).map(d=>[d.k,d.ctrl]));
@@ -17706,13 +17717,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
         let dotHtml='';
         if(name!=='BLEND'){
           const _B=window._ntBridge;
-          const want={ORB:'ORBV2',ENGUQ:'ENGUQ',NOISE:'NOISE'}[name];
-          const st=(_B&&_B.up&&want)?(_B.strategies||[]).find(s=>String(s.name||'').toUpperCase().indexOf(want)>=0):null;
-          const on=st&&String(st.state)==='Realtime';
-          const dc=!_B?'#777':(on?'#1d9e75':'#e0c341');
-          const dt=!_B?'no bridge snapshot':(st?(st.name+' · '+st.state+' · '+st.account):'not attached in NinjaTrader');
-          dotHtml='<span title="'+String(dt).replace(/"/g,'&quot;')+'" style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-size:8px;color:var(--text5)">'
-            +'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+dc+'"></span>'+(on?'LIVE':(_B?'OFF':'—'))+'</span>';
+          const _def=PAPER_LEG_DEFS.find(d=>d.k===name)||{};
+          const want=_def.nt;
+          let dc,txt,dt;
+          if(!want){
+            // Engine-only BY DESIGN: a control, or the other brain. Neutral grey, never a
+            // warning colour -- there is nothing here to fix.
+            dc='#777'; txt='ENGINE';
+            dt='Engine-only leg by design'+(_def.ctrl?' (the comparison partner for '+(_legLabel[_def.ctrl]||_def.ctrl)+')':'')
+              +'. It is computed here and never runs in NinjaTrader, so it has no live state to report.';
+          } else {
+            const st=(_B&&_B.up)?(_B.strategies||[]).find(s=>String(s.name||'').toUpperCase().indexOf(want)>=0):null;
+            const on=st&&String(st.state)==='Realtime';
+            dc=!_B?'#777':(on?'#1d9e75':'#e0c341');
+            txt=on?'LIVE':(_B?'OFF':'—');
+            dt=!_B?'no bridge snapshot'
+              :(st?(st.name+' · '+st.state+' · '+st.account+(st.instrument?' · '+st.instrument:''))
+                  :('not attached in NinjaTrader'+(_def.ntNote?' — '+_def.ntNote:'')));
+          }
+          dotHtml='<span title="'+String(dt).replace(/"/g,'&quot;')+'" style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-size:8px;color:var(--text5);cursor:help">'
+            +'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+dc+'"></span>'+txt+'</span>';
         }
         // The cross-engine block -- the only part of the old MATRIX that was not already
         // on the tile. Follows the TODAY / ALL TIME tab above the strip.
@@ -18274,20 +18298,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
       {
         const MSCOPE=(window._paperMatrixScope==='TODAY')?'TODAY':'ALL';
         const _mp=(txt,col)=>'<span style="font-size:8px;font-weight:700;letter-spacing:.5px;padding:1px 7px;border-radius:999px;border:1px solid '+col+';color:'+col+'">'+txt+'</span>';
-        // Live state per leg, read from the bridge roster: the NT strategy names carry the
-        // leg key (EdgeLogNOISE -> NOISE, EdgeLogORBV2 -> ORB, EdgeLogENGUQ1m -> ENGUQ).
+        // Live state per leg. Reads the SAME `nt` field the tiles use (PAPER_LEG_DEFS) so the
+        // two can never drift apart -- they did: this map still named the retired NOISE leg,
+        // so the leg NinjaTrader actually trades reported nothing.
         const _B=window._ntBridge;
         const _liveOf=k=>{
           if(!_B||!_B.up)return null;
-          const want={ORB:'ORBV2',ENGUQ:'ENGUQ',NOISE:'NOISE'}[k];
+          const want=(PAPER_LEG_DEFS.find(d=>d.k===k)||{}).nt;
           if(!want)return null;
           return (_B.strategies||[]).find(s=>String(s.name||'').toUpperCase().indexOf(want)>=0)||null;
         };
         const _dot=k=>{
+          const _d=PAPER_LEG_DEFS.find(d=>d.k===k)||{};
+          if(!_d.nt)   // engine-only by design: neutral, not a warning
+            return '<span title="Engine-only leg by design - never runs in NinjaTrader" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text5);margin-right:7px;vertical-align:middle;opacity:.5"></span>';
           const s=_liveOf(k);
           const on=s&&String(s.state)==='Realtime';
           const col=!_B?'var(--text5)':(on?'var(--green)':'var(--yellow)');
-          const tip=!_B?'no bridge snapshot':(s?(s.name+' · '+s.state+' · '+s.account):'not attached in NinjaTrader');
+          const tip=!_B?'no bridge snapshot':(s?(s.name+' · '+s.state+' · '+s.account)
+            :('not attached in NinjaTrader'+(_d.ntNote?' — '+_d.ntNote:'')));
           return '<span title="'+String(tip).replace(/"/g,'&quot;')+'" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+col+';margin-right:7px;vertical-align:middle"></span>';
         };
         const _num=(v,suffix)=>v==null?'<span style="color:var(--text5)">—</span>':(v+(suffix||''));
