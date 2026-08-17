@@ -37,6 +37,31 @@ from .util import json_safe
 # (e.g. the warm-up history the engine needs to even start emitting signals) is dropped.
 PAPER_START = "2026-08-11"
 
+# ── BACKFILL vs FORWARD (owner 2026-08-16: "are you just assuming they were live
+#    from the get go?") ────────────────────────────────────────────────────────────
+# No, and the board must not imply it. run_shadow re-runs the WHOLE window since
+# PAPER_START against master data every night, so the day a leg is added it instantly
+# produces trades going back to PAPER_START. Those trades are a BACKTEST -- nothing
+# watched them happen -- and showing them beside a leg that has genuinely been running
+# since 2026-08-11 makes a config added this morning look like a fortnight of evidence.
+#
+# So every leg carries the date its CURRENT config went on the board, and any trade
+# before it is stamped backfill=True. This is not bookkeeping pedantry: a gated leg is
+# judged against a pre-registered claim with a date on it, and a claim you can test on
+# data that already existed when you wrote it is not a forward test.
+#
+# ORB is in here at 08-16 too. Its trades predate that, but its CONFIG does not -- the
+# leg was swapped off the retired look-ahead #125 cut on 2026-08-16, so its Aug-11 and
+# Aug-12 trades were produced by a config that was not on the board when they happened.
+LEG_LIVE_FROM = {
+    "ENGUQ":     "2026-08-11",   # genuinely forward since PAPER_START
+    "NOISE":     "2026-08-11",   # genuinely forward since PAPER_START
+    "ORB":       "2026-08-16",   # config swapped #125 -> #230
+    "ORB_H":     "2026-08-16",   # gate added
+    "NOISE_225": "2026-08-16",   # leg added
+    "NOISE_H":   "2026-08-16",   # gate added; the pre-registered claim starts here
+}
+
 # NQ contract multiplier ($/point) — same value augur_engine/book.py's _MULT table and
 # tools/t5_runboard.py / tools/book_smoke.py use for NQ.
 _NQ_MULT = 20.0
@@ -677,6 +702,9 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
             #   • the daily report counts only trades that actually happened THAT day.
             t_date = t["entry_dt"].date()
             is_today = (t_date == target_date)
+            # Did this trade happen while this config was actually on the board?
+            _lf = LEG_LIVE_FROM.get(key)
+            is_backfill = bool(_lf and t_date < pd.Timestamp(_lf).date())
             if is_today:
                 trade_ids.append(doc_id)
                 todays_trades.append({
@@ -693,6 +721,9 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
                     "entry_px": t["entry_px"], "exit_px": t["exit_px"],
                     "size": t.get("size", 1.0),
                     "pnl_pts": t["pnl_pts"], "pnl_usd": t["pnl_usd"],
+                    # backfill = this config was not on the board when the trade happened,
+                    # so the row is a backtest result, not something forward-observed.
+                    "backfill": is_backfill, "live_from": _lf,
                     "layer": "shadow", "run_date": t_date.isoformat(),
                     "flags": leg.get("flags") or [],
                 })
