@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.94';
+const VERSION='73.95';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.95',date:'2026-08-17',notes:['FIX, and this one was showing you a wrong number rather than an ugly one: clicking TODAY never changed the money. The TODAY / ALL TIME tabs only ever switched the small cross-engine block at the bottom of each tile, so the big dollar figure stayed all-time under a TODAY label. TODAY now really means today - filtered on the NEW YORK date, because at half past ten at night in Arizona it is already tomorrow in the market - and the strip prints the date it is showing so there is no guessing.','ORB is ARCHIVED. Both ORB rows are out of the strip, the curve and the tables, but nothing was deleted: the runner still computes them every night and every trade is kept. A SHOW ARCHIVED button on the LEGS row brings the full history back whenever you want it.','The ENGINE badge now names the leg NinjaTrader trades INSTEAD. Three NOISE rows share one NinjaTrader strategy, so a bare ENGINE tag raised exactly the question it was supposed to answer. Hovering any engine-only leg now says which sibling is live.']},
 {v:'73.94',date:'2026-08-16',notes:['FIX: the board was telling you the wrong thing about what is running. The leg NinjaTrader is ACTUALLY trading - NOISE-225 with the rf bouncer - was showing OFF, because the live-state lookup still named the NOISE leg that was retired earlier today. It now reads the same field the tiles do, so the two can never drift apart again.','Legs that were never meant to run in NinjaTrader no longer wear a warning colour. The two comparison legs (NOISE-225 on its own, and the tree bouncer) and the ORB bouncer are computed here on purpose - they are the controls and the alternative brain - so they now read ENGINE in neutral grey instead of OFF in yellow, which looked like three broken things.','ORB still reads OFF, and that one is real: its NinjaTrader port was switched off today because it still runs the old pre-#230 settings, so its fills would measure a config nothing else on the board uses. Hovering the badge now says exactly that instead of leaving you to guess.']},
 {v:'73.93',date:'2026-08-16',notes:['NinjaTrader is now on the recycle hybrid too, and the guardrails were left alone to do it. The obvious way to make room was to scale every limit up to fit 3.85x sizing - but that would have meant raising the daily loss limit, the one guardrail measured in real money. Running the numbers gave a better answer: drop the BASE size from 10 micros to 3 instead. Recycle is a ratio, so the experiment and its equity curve are identical either way, just at a third of the exposure.','What that buys: the leg averages about 11 micros a trade (roughly the one-contract exposure it has had all along) and the untouched $1,500 daily limit still trips at about 65 adverse points - which is essentially the 75 points it was set for. At the naive setting it would have fired after 20 points and switched every strategy off on an ordinary day.','Only the contract count moved, 30 to 40, because the worst case a score can reach is 35. Verified live: all three gates released by the size interlock, worst case 34.7 against the 40 limit.','The tile comparison against the no-gate control now states the size it was earned at, and shows the per-contract figure beside the dollar gap. Once a gate recycles it trades several times the control size, so a raw dollar difference mostly measures size rather than skill - it would flatter the gate in a good stretch and damn it in a bad one, for the same wrong reason.']},
 {v:'73.92',date:'2026-08-16',notes:['The three gated legs are now RECYCLE hybrids, as asked. Recycle spends the money the bouncer frees up: it adds no trades, it makes each surviving trade bigger, so that the book commits the same total contracts as taking everything would have. On the board the average sizes are now 1.2x for ORB, 2.0x for the tree NOISE and 3.8x for the rf NOISE - the exact ratios of trades-taken to trades-kept, measured on the runs those gates came from and frozen, not recalculated from the days being tested.','Read the drawdowns with that in mind: recycle multiplies losses by the same number it multiplies gains. The rf NOISE row will swing about 3.8 times as hard in both directions.','NINJATRADER IS STILL ON PLAIN HYBRID, on purpose, and it says so. Its position limits are still set for one-lot trading, and a recycled order would have exceeded them - which would have made the circuit breaker flatten and switch off every strategy on the first trade Monday. The gate service now reads those limits itself and refuses to serve a size that would not fit, falling back to plain hybrid and stating why. Raise the limits and it switches over on its own, no restart.']},
@@ -17548,9 +17549,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // this, the map still pointed at the retired NOISE leg, so the leg NinjaTrader is
         // actually trading showed OFF while three legs that were never meant to run there
         // showed the same warning colour.
-        {k:'ORB',       label:'ORB · RAW',              color:'#5b8def', nt:'ORBV2',
+        // ARCHIVED 2026-08-17 (owner: "hid or archive orb old so i dont see it but can pull
+        // it up later"). Hidden from the strip, the curve and the tables -- NOT deleted: the
+        // runner still computes both legs every night and every trade row is kept, so the
+        // SHOW ARCHIVED toggle brings the full history back intact.
+        {k:'ORB',       label:'ORB · RAW',              color:'#5b8def', nt:'ORBV2', archived:true,
          ntNote:'EdgeLogORBV2 was switched off 2026-08-16: it still runs the pre-#230 chase params, so its fills measured a config nothing else uses. A real #230 port is open work.'},
-        {k:'ORB_H',     label:'ORB · rf HYBRID♻ 45',     color:'#9dc0fb', ctrl:'ORB'},
+        {k:'ORB_H',     label:'ORB · rf HYBRID♻ 45',     color:'#9dc0fb', ctrl:'ORB', archived:true},
         {k:'ENGUQ',     label:'ENGU-Q · RAW',           color:'#c090ff', nt:'ENGUQ'},
         // The hand-built NOISE config was retired 2026-08-16: never crowned by any
         // validate, superseded by NOISE-225 (picked by three consecutive validates and
@@ -17562,6 +17567,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // computes one lot -- proportional, so the curves compare shape for shape.)
         {k:'NOISE_H_RF',label:'NOISE-225 · rf HYBRID♻ 55',   color:'#d98cc4', ctrl:'NOISE_225', nt:'NOISE'},
       ];
+      // Archived legs stay in PAPER_LEG_DEFS so their colours, labels and history keep
+      // resolving -- only the VISIBLE lists below drop them.
+      const _showArch=!!window._paperShowArchived;
+      const LEGS_VIS=PAPER_LEG_DEFS.filter(d=>_showArch||!d.archived);
+      const _nArch=PAPER_LEG_DEFS.filter(d=>d.archived).length;
       const _legColor=Object.fromEntries(PAPER_LEG_DEFS.map(d=>[d.k,d.color]));
       const _legCtrl=Object.fromEntries(PAPER_LEG_DEFS.filter(d=>d.ctrl).map(d=>[d.k,d.ctrl]));
       // P&L sign colours are LITERAL hex on purpose. var(--green)/var(--red) resolve to
@@ -17577,7 +17587,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // curve series and the trades table together, so what you see is only that leg.
       // ALL is the default and restores today's behaviour exactly. Not persisted to
       // localStorage on purpose — it is a lens you look through, not a setting you keep.
-      const PLEGS=['ALL',...PAPER_LEG_DEFS.map(d=>d.k)];
+      const PLEGS=['ALL',...LEGS_VIS.map(d=>d.k)];
       const PLEG=PLEGS.indexOf(window._paperLeg)>=0?window._paperLeg:'ALL';
       const _legShown=k=>PLEG==='ALL'||PLEG===k;
       const ORB_LA_TIP='The ORB engine\'s volume filter is look-ahead (see PAPER_TRADING.md) — these shadow numbers are NOT live-achievable. The live candidate is ORB V2 on NinjaTrader.';
@@ -17597,8 +17607,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
         return {nBf:bf.length,nFw:fw.length,netBf:sum(bf),netFw:sum(fw),
                 liveFrom:(rows.find(t=>t&&t.live_from)||{}).live_from||null};
       };
-      const legAgg=name=>{
-        const rows=legRows(name);
+      // Today's date in NEW YORK, which is the only clock this board should use: at 22:30
+      // in Arizona it is already tomorrow in the market, and a leg's trading day has to
+      // agree with the exchange, not with the PC.
+      const _todayET=(()=>{try{return new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});}catch(e){return '';}})();
+      // legAgg(name) is ALL TIME; legAgg(name,'TODAY') is just today's trades.
+      // BUG this fixes (owner 2026-08-17: "why do i click today and it gives me pnl.
+      // there shouldnt have been any trades this AM"): the TODAY / ALL TIME tabs only ever
+      // switched the small cross-engine block at the bottom of each tile. The headline
+      // dollar figure came from here and ignored the tab completely, so TODAY showed the
+      // all-time number under a TODAY label -- the worst kind of wrong, because it looks
+      // like an answer.
+      const legAgg=(name,scope)=>{
+        let rows=legRows(name);
+        if(scope==='TODAY')
+          rows=rows.filter(t=>(t.run_date||_dOnly(t.exitTime||t.entryTime))===_todayET);
         const days=new Set(rows.map(t=>t.run_date||_dOnly(t.exitTime||t.entryTime)).filter(Boolean));
         const net=rows.reduce((s,t)=>s+(+t.pnl_usd||0),0);
         const wins=rows.filter(t=>(+t.pnl_usd||0)>0).length;
@@ -17698,7 +17721,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _pill=(txt,col)=>'<span style="font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 8px;border-radius:999px;border:1px solid '+col+';color:'+col+'">'+txt+'</span>';
 
       const legTile=(name,label,color)=>{
-        const a=legAgg(name);
+        const a=legAgg(name,PSCOPE);        // TODAY tab now really means today
         // No warning badge here any more: every warning these legs produce is about the
         // shared 10s data feed (file missing/stale, zero fresh bars appended), so it was
         // the identical badge on all three tiles and said nothing about the strategy.
@@ -17723,9 +17746,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(!want){
             // Engine-only BY DESIGN: a control, or the other brain. Neutral grey, never a
             // warning colour -- there is nothing here to fix.
+            // It also NAMES the sibling NinjaTrader does trade. Three NOISE legs share ONE
+            // NinjaTrader strategy, and without saying which, "ENGINE" invites exactly the
+            // question it was meant to answer (owner 2026-08-17, of the tree hybrid: "why
+            // its noise 225 tree hybrid there").
+            const _sib=PAPER_LEG_DEFS.find(d=>d.nt&&d.k!==name&&(d.ctrl===_def.ctrl||d.ctrl===name||d.k===_def.ctrl));
+            const _sibLive=!!(_sib&&_B&&_B.up&&(_B.strategies||[]).some(x=>
+              String(x.name||'').toUpperCase().indexOf(_sib.nt)>=0&&String(x.state)==='Realtime'));
             dc='#777'; txt='ENGINE';
-            dt='Engine-only leg by design'+(_def.ctrl?' (the comparison partner for '+(_legLabel[_def.ctrl]||_def.ctrl)+')':'')
-              +'. It is computed here and never runs in NinjaTrader, so it has no live state to report.';
+            dt='Computed here only - this leg never runs in NinjaTrader, by design'
+              +(_def.ctrl?' (it is the comparison partner for '+(_legLabel[_def.ctrl]||_def.ctrl)+')':'')
+              +'.'+(_sib?(' NinjaTrader trades '+(_legLabel[_sib.k]||_sib.k)
+                          +(_sibLive?' (live now)':'')+' instead.'):'');
           } else {
             const st=(_B&&_B.up)?(_B.strategies||[]).find(s=>String(s.name||'').toUpperCase().indexOf(want)>=0):null;
             const on=st&&String(st.state)==='Realtime';
@@ -17809,7 +17841,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           }
           let cmp='';
           if(_ck){
-            const c=legAgg(_ck), d=a.net-c.net;
+            const c=legAgg(_ck,PSCOPE), d=a.net-c.net;   // compare like for like
             // RECYCLE MAKES THE DOLLAR GAP A TRAP. Once a hybrid recycles, it trades ~3.85x
             // the control's size, so a raw dollar difference mostly measures SIZE, not skill
             // -- it would flatter the gate in a good stretch and damn it in a bad one for the
@@ -17850,13 +17882,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Colours are hex, NOT theme vars: these four must match _curveSeries exactly, and
       // var(--yellow) resolves to #999999 grey on the monochrome theme while the BLEND
       // curve is hardcoded #e0c341 -- the tile said grey, the line drew yellow.
-      const _tileDefs=PAPER_LEG_DEFS.map(d=>[d.k,d.label,d.color]);
+      const _tileDefs=LEGS_VIS.map(d=>[d.k,d.label,d.color]);
       // ALL FOUR always render -- they are the chart legend, so filtering them away would
       // remove the only way to click back to another leg. Selection shows as emphasis, not
       // as absence.
       const legStrip='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="lbl" style="font-size:10px;color:var(--text3)">LEGS</div>'
         +'<span style="display:flex;gap:5px">'+_psScopeTab('TODAY','TODAY')+_psScopeTab('ALL','ALL TIME')+'</span>'
-        +'<span style="font-size:8px;color:var(--text5);margin-left:auto">dot = live in NinjaTrader</span></div>'
+        // TODAY now names the DATE it means. It silently showed all-time numbers until
+        // 2026-08-17, so the label has to be unambiguous about which day is on screen.
+        +(PSCOPE==='TODAY'?'<span style="font-size:8px;color:var(--text5)">'+_todayET+' (New York)</span>':'')
+        +'<span style="font-size:8px;color:var(--text5);margin-left:auto">dot = live in NinjaTrader</span>'
+        +(_nArch?('<span data-patharch style="cursor:pointer;user-select:none;margin-left:10px;font-size:8px;color:var(--text5);border:1px solid var(--border);border-radius:999px;padding:1px 8px">'
+          +(_showArch?'hide archived':'show archived ('+_nArch+')')+'</span>'):'')
+        +'</div>'
         +'<div style="display:flex;flex-wrap:wrap;gap:4px 0">'
         +_tileDefs.map(d=>legTile(d[0],d[1],d[2])).join('<div style="width:1px;background:var(--border2);margin-right:14px"></div>')+'</div>';
       // cumulative curve — one merged date axis (all distinct run/exit dates), stepwise
@@ -18091,11 +18129,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const legs=r.legs||{};const st=r.status||'runner_done';
         const pillColor=st==='reviewed'?'var(--green)':'var(--text5)';
         const blendUsd=(r.blend&&r.blend.pnl_usd!=null)?fmtUsd(+r.blend.pnl_usd):'—';
-        const legSummary=PAPER_LEG_DEFS.map(d=>d.k).filter(k=>legs[k]||legs[k.toLowerCase()]).map(k=>{const L=legs[k]||legs[k.toLowerCase()]||{};return (_legLabel[k]||k)+': '+(L.n_signals!=null?L.n_signals:'—')+' sig';}).join(' · ');
+        const legSummary=LEGS_VIS.map(d=>d.k).filter(k=>legs[k]||legs[k.toLowerCase()]).map(k=>{const L=legs[k]||legs[k.toLowerCase()]||{};return (_legLabel[k]||k)+': '+(L.n_signals!=null?L.n_signals:'—')+' sig';}).join(' · ');
         const open=_repOpen.has(r.id);
         let detail='';
         if(open){
-          const legDetail=PAPER_LEG_DEFS.map(d=>d.k).filter(k=>legs[k]||legs[k.toLowerCase()]).map(k=>{const L=legs[k]||legs[k.toLowerCase()]||{};
+          const legDetail=LEGS_VIS.map(d=>d.k).filter(k=>legs[k]||legs[k.toLowerCase()]).map(k=>{const L=legs[k]||legs[k.toLowerCase()]||{};
             const warn=(Array.isArray(L.warnings)&&L.warnings.length)?('<div style="color:var(--yellow);font-size:10px;margin-top:4px">⚠ '+L.warnings.join(' · ')+'</div>'):'';
             return '<div style="flex:1 1 220px;min-width:200px;background:var(--bg1);border-radius:8px;padding:10px 12px">'
               +'<div style="font-weight:700;font-size:11px;margin-bottom:6px">'+(_legLabel[k]||k)+'</div>'
@@ -18322,7 +18360,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _num=(v,suffix)=>v==null?'<span style="color:var(--text5)">—</span>':(v+(suffix||''));
         const _usd=v=>v==null?'<span style="color:var(--text5)">—</span>'
           :'<span style="color:'+(v>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(v)+'</span>';
-        const legKeys=PAPER_LEG_DEFS.map(d=>d.k).filter(_legShown);
+        const legKeys=LEGS_VIS.map(d=>d.k).filter(_legShown);
         let mRows='',mHead='',mNote='';
         if(MSCOPE==='TODAY'){
           mHead='<th>STRATEGY</th><th style="text-align:right">EDGELOG</th><th style="text-align:right">TRADINGVIEW</th>'
@@ -18391,7 +18429,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +(_rec.note?'<div style="color:var(--text5);font-size:10px;margin-top:4px">'+_rec.note+'</div>':'')+'</div>';
         }else{
           const V=_rec.verdict||{};
-          const rows=PAPER_LEG_DEFS.map(d=>d.k).filter(_legShown).map(k=>{
+          const rows=LEGS_VIS.map(d=>d.k).filter(_legShown).map(k=>{
             const R=(_rec.legs||{})[k];
             const L=(_recRep.legs||{})[k]||{};
             if(!R)return '';
@@ -19556,6 +19594,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         renderApp();};});
       content.querySelectorAll('[data-mscope]').forEach(el=>{el.onclick=()=>{window._paperMatrixScope=el.getAttribute('data-mscope');renderApp();};});
       const mh=content.querySelector('[data-mcphelp]');if(mh)mh.onclick=()=>{window._paperMcpHelp=!window._paperMcpHelp;renderApp();};
+      // Archived legs (ORB): hidden by default, one click brings the whole history back.
+      // Deliberately NOT persisted -- like the leg filter, it is a lens you look through.
+      // If the hidden leg was the active filter, drop back to ALL so the board cannot end
+      // up filtered to something it is no longer drawing.
+      const ah=content.querySelector('[data-patharch]');
+      if(ah)ah.onclick=()=>{window._paperShowArchived=!window._paperShowArchived;
+        if(!window._paperShowArchived&&String(window._paperLeg||'').indexOf('ORB')===0)window._paperLeg='ALL';
+        renderApp();};
       content.querySelectorAll('[data-paperrep]').forEach(tr=>{tr.onclick=()=>{const id=tr.dataset.paperrep;const s=window._paperReportOpen||(window._paperReportOpen=new Set());if(s.has(id))s.delete(id);else s.add(id);renderApp();};});
       // v73.18: CHART pill -> the shared candle viewer. PREV/NEXT walks the paper trade
       // list in the order shown, exactly like the run blotter.
