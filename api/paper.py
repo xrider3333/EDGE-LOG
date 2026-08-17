@@ -141,7 +141,7 @@ NOISE_225 = dict(lookback=44, band_mult_long=0.75, band_mult_short=1.5,
 # -1,400). Best before AND after the boundary is the pattern you want; it is the only ML
 # variant in this project that has it.
 ORB_GATE = {"mode": "hybrid", "model": "rf", "threshold": 0.45,
-            "size_norm": 1.173085, "source_run": 230}
+            "size_norm": 1.173085, "recycle_factor": 1.228558, "source_run": 230}
 
 # NOISE — the HONEST-TEST one. Read this before trusting the leg.
 #
@@ -159,7 +159,7 @@ ORB_GATE = {"mode": "hybrid", "model": "rf", "threshold": 0.45,
 # forward, NOISE_H should beat its matched raw control NOISE_225 on recovery factor. If it
 # does not, the pre-lockbox ranking was right and the lockbox row was noise.
 NOISE_GATE = {"mode": "hybrid", "model": "tree", "threshold": 0.55,
-              "size_norm": 1.468647, "source_run": 225}
+              "size_norm": 1.468647, "recycle_factor": 2.098733, "source_run": 225}
 
 # NOISE, rf — the OWNER's pick (2026-08-16), and on the evidence it is the better-grounded
 # of the two. Worth spelling out because it reverses the reasoning above.
@@ -183,7 +183,7 @@ NOISE_GATE = {"mode": "hybrid", "model": "tree", "threshold": 0.55,
 # money maker, and the same shape the ENGU-Q gate showed. That makes it a sizing-up lever
 # rather than an edge, and the forward test should be read that way.
 NOISE_GATE_RF = {"mode": "hybrid", "model": "rf", "threshold": 0.55,
-                 "size_norm": 1.338251, "source_run": 231}
+                 "size_norm": 1.338251, "recycle_factor": 3.850308, "source_run": 231}
 
 # Full-history load date for the gated legs (the masters begin here).
 _GATE_HISTORY_FROM = "2010-06-07"

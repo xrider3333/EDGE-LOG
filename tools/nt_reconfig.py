@@ -131,6 +131,51 @@ def edit_db_noise_micros(dry):
         c.close()
 
 
+def edit_recycle_rails(dry):
+    """Re-scale the risk rails for RECYCLE sizing (owner-directed 2026-08-16).
+
+    Recycle spends the capital the gate frees up: the live NOISE leg (rf hybrid, recycle
+    factor 3.85) now averages ~38 micros per trade and peaks near 58, against rails set
+    for 10. Two consequences, and the second one matters more than it looks:
+
+      * the CONTRACT rails must fit or nothing can be placed at all: 30 -> 60 micros
+        (60 micros = 6 full NQ, and 58 is the measured peak);
+
+      * the DOLLAR rail has to be re-scaled or it stops meaning what it meant. $1,500 was
+        chosen when a position was ~1 NQ ($20/point) -- i.e. "stop me after about 75
+        adverse points". At ~3.85x that same $1,500 fires after ~20 points, which NQ can
+        cover in an hour, so the breaker would flatten AND DISABLE the strategies on an
+        ordinary day and the forward test would die silently. Scaling to $5,800 restores
+        the ORIGINAL intent (~75 adverse points), it does not loosen it.
+
+    This is a DEMO account; the live account is refused in the bridge's compiled code
+    regardless. Dial either number down in C:\\EdgeLog\\bridge.json at any time -- the
+    monitor re-reads it within 10s.
+    """
+    s = open(BRIDGE_JSON, encoding="utf-8", newline="").read()
+    changed = []
+    for a, b, note in [
+        ('"max_qty": 30', '"max_qty": 60', "max_qty 30->60"),
+        ('"max_position_contracts": 30', '"max_position_contracts": 60', "position 30->60"),
+        ('"max_daily_loss_usd": 1500', '"max_daily_loss_usd": 5800', "daily loss 1500->5800"),
+    ]:
+        if b in s:
+            continue
+        if a not in s:
+            raise SystemExit(f"bridge.json: expected {a} - refusing to guess")
+        if not dry:
+            s = s.replace(a, b, 1)
+        changed.append(note)
+    if not changed:
+        log("bridge.json: rails already scaled for recycle")
+        return
+    if dry:
+        log(f"DRY RUN: would change {changed}")
+        return
+    open(BRIDGE_JSON, "w", encoding="utf-8", newline="").write(s)
+    log(f"bridge.json: {changed} (live-reloads within 10s)")
+
+
 def edit_chart_series(dry):
     """THE ACTUAL LEVER (found 2026-08-16 after the db-only edit reverted at boot):
     EdgeLogNOISE is not a standalone grid strategy -- it is ATTACHED TO A CHART
@@ -286,10 +331,17 @@ def relaunch_and_verify():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--noise-micros", action="store_true")
+    ap.add_argument("--recycle-rails", action="store_true",
+                    help="re-scale the risk rails for recycle sizing (no NT restart)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
+    if a.recycle_rails and not a.noise_micros:
+        if not a.dry_run:
+            backup(BRIDGE_JSON)
+        edit_recycle_rails(a.dry_run)
+        return 0
     if not a.noise_micros:
-        ap.error("nothing to do - pass --noise-micros")
+        ap.error("nothing to do - pass --noise-micros or --recycle-rails")
 
     if not a.dry_run:
         backup(NT_DB)

@@ -138,6 +138,7 @@ def build_artifact(leg):
     art = {"leg": key, "model": g["model"], "mode": g.get("mode", "cut"),
            "threshold": float(g["threshold"]),
            "size_norm": float(g.get("size_norm") or 1.0),
+           "recycle_factor": float(g.get("recycle_factor") or 1.0),
            "feature_names": list(names),
            "strategy": leg["strategy"], "params": dict(leg["params"]),
            "n_trades_trained": len(T),
@@ -251,6 +252,46 @@ def _refresh_live_arrays(leg):
     return arrays
 
 
+# ── recycle interlock ─────────────────────────────────────────────────────────────
+# The NinjaTrader quantity the served `size` is multiplied by. Kept here so the service
+# can reason in the same contracts the breaker counts.
+LIVE_QTY = int(os.environ.get("EDGELOG_LIVE_QTY", "10"))
+
+
+def _recycle_allowance(art):
+    """How much of the recycle factor this service is ALLOWED to serve right now.
+
+    Recycle multiplies position size (rf on NOISE: 3.85x, peaking near 5.75x). The bridge's
+    circuit breaker counts net contracts and, when its limit is exceeded, FLATTENS AND
+    DISABLES every strategy on the account. So if the gate served recycled sizes while the
+    rails were still set for one-lot trading, the first gated entry on Monday would trip the
+    breaker and silently kill the whole forward test -- ENGU-Q included.
+
+    Rather than depend on someone remembering to raise the rails first, the size this
+    service is willing to serve is BOUNDED BY THE RAILS THE HUMAN SET. It reads
+    bridge.json, works out the worst-case contracts recycle could ask for, and falls back
+    to plain hybrid (1.0) if that would not fit. Raising the rails switches recycle on by
+    itself, within one request. Never raises.
+    """
+    rec = float(art.get("recycle_factor") or 1.0)
+    if rec == 1.0:
+        return 1.0, None
+    try:
+        with open(r"C:\EdgeLog\bridge.json", encoding="utf-8") as f:
+            cfg = json.load(f)
+        limit = min(int(cfg.get("max_position_contracts") or 0),
+                    int(cfg.get("max_qty") or 0))
+    except Exception as e:
+        return 1.0, f"recycle held back: cannot read the risk rails ({type(e).__name__})"
+    worst = 3.0 * rec * LIVE_QTY          # the per-trade cap is 3x before recycle
+    if limit >= worst:
+        return rec, None
+    note = (f"recycle HELD BACK (serving plain hybrid): worst case {worst:.0f} contracts "
+            f"exceeds the risk rail of {limit}. Raise max_position_contracts and max_qty "
+            f"to at least {int(worst)} to switch it on.")
+    return 1.0, note
+
+
 def decide(leg_key):
     """The live decision. NinjaTrader calls this at a bar's CLOSE, about to enter at the
     NEXT bar's open -- the same timing the backtest gate scores at. Features for that
@@ -302,9 +343,16 @@ def decide(leg_key):
 
         thr = float(art["threshold"])
         take = not (prob < thr)
+        rec = 1.0            # defined on every path: a SKIP never reaches the sizing branch
         if str(art.get("mode")) == "hybrid" and take:
             w = float(np.clip(1.0 + 4.0 * (prob - 0.50), 0.25, 3.0))
+            # Same order as the backtest: normalise, cap the per-trade stretch at 3x, THEN
+            # apply the book-level recycle factor (spend the capital the gate freed up).
             size = float(min(w / (float(art.get("size_norm") or 1.0)), 3.0))
+            rec, rec_note = _recycle_allowance(art)
+            size *= rec
+            if rec_note:
+                base["recycle_note"] = rec_note
         else:
             size = 1.0 if take else 0.0
         out = {"leg": leg_key, "take": bool(take), "size": round(size, 3),
@@ -313,6 +361,9 @@ def decide(leg_key):
                "trained_through": art.get("trained_through"),
                "last_closed_bar": str(idx[-1]), "entry_bar": str(nxt),
                "ungated_fallback": False,
+               "recycle_factor": float(art.get("recycle_factor") or 1.0),
+               "recycle_applied": round(rec, 4),
+               "recycle_note": base.get("recycle_note"),
                "elapsed_ms": int((time.time() - t0) * 1000)}
         _log(f"decide {leg_key}: prob={prob:.3f} take={take} size={size:.2f} "
              f"({out['elapsed_ms']}ms, bar {idx[-1]})")

@@ -42,7 +42,8 @@ __all__ = ["apply_gate", "score_trades", "GATE_DEFAULTS"]
 
 # Shared defaults. These match augur_engine.ml_gate.gate_trades' own signature, so a leg
 # config that omits them behaves identically to the validate run that crowned it.
-GATE_DEFAULTS = {"min_history": 30, "refit_every": 25, "seed": 42, "size_norm": 1.0}
+GATE_DEFAULTS = {"min_history": 30, "refit_every": 25, "seed": 42, "size_norm": 1.0,
+                 "recycle_factor": 1.0}
 
 # The hybrid size curve, lifted verbatim from ml_gate.gate_validate's hybrid block:
 # 1x at a 50% score, sliding to 0.25x at the bottom and 3x at the top. Not fitted -- an
@@ -142,6 +143,22 @@ def apply_gate(arrays, trades, gate):
         w = np.where(warm, 1.0, w)
         norm = float(_cfg(gate, "size_norm")) or 1.0
         w = np.minimum(w / norm, _SIZE_CAP)
+        # ── RECYCLE (owner 2026-08-16, the "hybrid recycle" column) ──────────────
+        # A gate that refuses most trades leaves capital idle. Recycle spends it: every
+        # SURVIVING trade is scaled so the book commits the same total contracts as the
+        # ungated book would have. It adds no trades -- same entries, bigger size -- and
+        # it multiplies drawdown by exactly the same factor as profit.
+        #
+        # FROZEN, like size_norm, and for the same reason: the honest factor is
+        # (all trades / kept trades), and a forward test cannot count its own future
+        # trades without reaching into it. Measured once on the source run's window by
+        # tools/paper_gate_calibrate.py and pinned in the leg config.
+        #
+        # Applied AFTER the 3x per-trade cap, matching the report: the cap bounds how far
+        # one score may stretch a trade, while recycle is a book-level capital decision.
+        rec = float(_cfg(gate, "recycle_factor")) or 1.0
+        if rec != 1.0:
+            w = w * rec
     else:
         w = np.ones(len(ordered), float)
 
@@ -189,10 +206,18 @@ def calibrate_size_norm(arrays, trades, gate, upto_index=None):
         return None, {"error": "no survivors in the calibration span",
                       "n_trades": len(ordered)}
     norm = float(w[sel].mean())
+    # The recycle factor is measured over the WHOLE source window (not just the calibration
+    # span): all trades the config produced divided by the ones the gate kept. That is the
+    # "spend the freed capital" ratio the report's recycle column uses.
+    n_all, n_kept = len(ordered), int(keep.sum())
+    rec = (n_all / n_kept) if n_kept else 1.0
     return norm, {
-        "n_trades": len(ordered), "n_in_span": int(span.sum()),
+        "n_trades": n_all, "n_in_span": int(span.sum()),
         "n_survivors_in_span": int(sel.sum()),
+        "n_kept_all": n_kept,
         "n_warmup": int(warm.sum()),
         "raw_mean_weight": round(norm, 6),
         "max_size_after_norm": round(float(np.minimum(w[sel] / norm, _SIZE_CAP).max()), 3),
+        "recycle_factor": round(rec, 6),
+        "max_size_recycled": round(float(np.minimum(w[sel] / norm, _SIZE_CAP).max() * rec), 3),
     }
