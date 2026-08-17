@@ -180,6 +180,52 @@ def edit_recycle_rails(dry):
     log(f"bridge.json: {changed} (live-reloads within 10s)")
 
 
+ENGUQ_STRATEGY_ID = 386606474          # verified against NinjaTrader.sqlite Strategies
+RTH_TEMPLATE = "EDGELOG RTH 0930-1600"
+ETH_TEMPLATE = "CME US Index Futures ETH"   # already present on disk and used elsewhere
+# Run #226's clock-scaled lookbacks. Only the three TIME lookbacks change: the 24h tape has
+# ~3.54x as many bars per session, so a 390-bar EMA on RTH is a 1380-bar EMA on ETH. Every
+# other knob is dimensionless (ATR multiples, R multiples) and is identical in both.
+ENGUQ_ETH_PARAMS = {"EmaLen": 1380, "TlLen": 170, "AtrLen": 106}
+
+
+def edit_enguq_eth(dry):
+    """Move the ENGU-Q chart to the 24-hour session (workspace) -- the half that cannot be
+    done through the bridge.
+
+    WHY (owner 2026-08-17: "ENGUQ is suppose to be ETH right?"). The NinjaTrader port runs
+    the RTH config on an RTH chart, but this project certified the ETH variant (#226) as the
+    primary deployment candidate and recorded that the RTH champion gives back $178,340 once
+    a real overnight stop is priced in. Two things therefore have to move together:
+
+      * the CHART's session template, here -- lookbacks scaled for a 24h tape are meaningless
+        on day-session bars, and vice versa; and
+      * the three time lookbacks, set through the bridge (see main()).
+
+    Changing only one of the two is worse than changing neither, so this recipe does both or
+    reports what it could not do.
+    """
+    s = open(WORKSPACE, encoding="utf-8", newline="").read()
+    i = s.find(">" + str(ENGUQ_STRATEGY_ID) + "<")
+    if i < 0:
+        raise SystemExit(f"ENGU-Q strategy {ENGUQ_STRATEGY_ID} not found in the workspace")
+    a = max(0, i - 9000)
+    seg = s[a:i]
+    tag = f"<TradingHoursSerializable>{RTH_TEMPLATE}</TradingHoursSerializable>"
+    if f"<TradingHoursSerializable>{ETH_TEMPLATE}</TradingHoursSerializable>" in seg and tag not in seg:
+        log("workspace: ENGU-Q chart already on the 24h session")
+        return
+    if seg.count(tag) != 1:
+        raise SystemExit(f"expected exactly one session tag on the ENGU-Q chart "
+                         f"(found {seg.count(tag)}) - refusing to guess")
+    if dry:
+        log(f"DRY RUN: would move ENGU-Q chart {RTH_TEMPLATE} -> {ETH_TEMPLATE}")
+        return
+    seg2 = seg.replace(tag, f"<TradingHoursSerializable>{ETH_TEMPLATE}</TradingHoursSerializable>", 1)
+    open(WORKSPACE, "w", encoding="utf-8", newline="").write(s[:a] + seg2 + s[i:])
+    log(f"workspace: ENGU-Q chart -> {ETH_TEMPLATE}")
+
+
 def edit_chart_series(dry):
     """THE ACTUAL LEVER (found 2026-08-16 after the db-only edit reverted at boot):
     EdgeLogNOISE is not a standalone grid strategy -- it is ATTACHED TO A CHART
@@ -335,10 +381,59 @@ def relaunch_and_verify():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--noise-micros", action="store_true")
+    ap.add_argument("--enguq-eth", action="store_true",
+                    help="move ENGU-Q to the 24h session + run #226's clock-scaled lookbacks")
     ap.add_argument("--recycle-rails", action="store_true",
                     help="re-scale the risk rails for recycle sizing (no NT restart)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
+    if a.enguq_eth:
+        # Chart session (workspace, needs NT stopped) + the three lookbacks (bridge).
+        # Both or neither: ETH-scaled lookbacks on RTH bars are worse than leaving it alone.
+        if a.dry_run:
+            edit_enguq_eth(True)
+            log("DRY RUN: would then set " + json.dumps(ENGUQ_ETH_PARAMS) + " via the bridge")
+            return 0
+        backup(WORKSPACE)
+        stop_nt()
+        edit_enguq_eth(False)
+        log("relaunching via nt_recover.ps1 ...")
+        r = subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", "-File", RECOVER],
+                           capture_output=True, text=True, timeout=420)
+        log("recover: " + " / ".join((r.stdout or "").strip().splitlines()[-1:]))
+        # ENGU-Q is not in nt_recover's roster (it self-terminates outside market hours),
+        # so it is enabled here explicitly -- disabled first so the params actually take.
+        subprocess.run([PY, NT_CLI, "strategy", "disable", "--name", "EdgeLogENGUQ1m", "--yes"],
+                       capture_output=True, timeout=120)
+        time.sleep(4)
+        for k, v in ENGUQ_ETH_PARAMS.items():
+            req = urllib.request.Request(
+                BRIDGE + f"/strategy/setparam?name=EdgeLogENGUQ1m&param={k}&value={v}",
+                method="POST", data=b"")
+            try:
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    log(f"setparam {k}={v}: {resp.read().decode()[:90]}")
+            except Exception as e:
+                log(f"setparam {k} FAILED: {e}")
+        subprocess.run([PY, NT_CLI, "strategy", "enable", "--name", "EdgeLogENGUQ1m", "--yes"],
+                       capture_output=True, timeout=120)
+        time.sleep(10)
+        p = {x["name"]: x["value"] for x in
+             get("/strategy/params?name=EdgeLogENGUQ1m").get("params", [])}
+        st = {x.get("name"): x for x in get("/strategies").get("strategies", [])}
+        eq = st.get("EdgeLogENGUQ1m") or {}
+        log(f"EdgeLogENGUQ1m: state={eq.get('state')} instrument={eq.get('instrument')} "
+            f"EmaLen={p.get('EmaLen')} TlLen={p.get('TlLen')} AtrLen={p.get('AtrLen')}")
+        nz = st.get("EdgeLogNOISE") or {}
+        log(f"EdgeLogNOISE (must still be live): state={nz.get('state')} "
+            f"instrument={nz.get('instrument')}")
+        ok = (str(p.get("EmaLen")) == "1380" and str(p.get("TlLen")) == "170"
+              and str(p.get("AtrLen")) == "106" and eq.get("state") == "Realtime"
+              and nz.get("state") == "Realtime")
+        log("RESULT: " + ("PASS - ENGU-Q on the 24h session with #226 lookbacks"
+                          if ok else "INCOMPLETE - read the lines above"))
+        return 0 if ok else 1
+
     if a.recycle_rails and not a.noise_micros:
         if not a.dry_run:
             backup(BRIDGE_JSON)
@@ -367,7 +462,7 @@ def main():
                           else "INCOMPLETE - read the lines above"))
         return 0 if ok else 1
     if not a.noise_micros:
-        ap.error("nothing to do - pass --noise-micros or --recycle-rails")
+        ap.error("nothing to do - pass --noise-micros, --recycle-rails or --enguq-eth")
 
     if not a.dry_run:
         backup(NT_DB)
