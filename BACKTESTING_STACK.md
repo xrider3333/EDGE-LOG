@@ -11,7 +11,7 @@ whenever a method or strategy changes status, a run matters, or a decision is ma
 > the ORB × ENGU-Q blend baseline ($835,351 / $838,161 below — NOT live-achievable as
 > written). Full writeup: `ORB.md` (repo root, top banner) and `PAPER_TRADING.md`.
 
-- **Last updated:** 2026-08-18 (round 15: legal book rebuilt, ETH candidate packaged; see Changelog)
+- **Last updated:** 2026-08-18 (round 10 validate: both shallow-limit cards PASS 5/5, trail search dead; see Changelog)
 - **Web VERSION:** 71.0 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
