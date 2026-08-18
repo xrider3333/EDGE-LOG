@@ -1144,6 +1144,25 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-17** — **ENGUQ ETH NBO CERTIFIED (run #235, PASS 5/5 + continuous-clean) — the deployable
+  ENGU-Q. Blend swap: net/DD 13.95 → 16.98 with a 22% shallower drawdown, 17-for-17 intact.**
+  • **#235 (ENGUQ_1M_ETH_NBO_1_0, 24h tape + next-bar-open entry, pinned, window ≤2026-06-30):**
+    PASS 5/5, WF 7/8 (wfe 2.615), IS 1981 tr PF 1.362. **Continuous cross-check PASSES** — n=2844,
+    net $430,960.46, maxDD $50,370, net/DD 8.56, last entry 2026-06-26, longest hold 105d, no stuck
+    position. Card/reload LB 219 tr / $82,753 / PF 1.365 vs honest continuous LB 195 tr / $90,899 /
+    PF 1.432 (mild, benign divergence — both healthy). Costs just **−0.87%** vs the close-fill parent
+    #226 for full execution realism (avg slip −0.03 pts). Note stamped.
+  • **Why it matters:** it is the first ENGU-Q variant that closes BOTH known defects at once — the RTH
+    overnight blind spot (a genuine 24h stop costs the RTH champion −$178,340 / −37%) and the
+    market-on-close fill assumption. Every fill in #235 is one a live order actually gets.
+  • **BLEND IMPACT (1:1 with flat ORB #125, exit-date daily, verified):**
+    BOOK (ORB + RTH-ENGUQ) $838,161 / DD $60,098 / **net-DD 13.95** / 0 losing yrs / LB $183,390 →
+    **SWAP (ORB + ETH-NBO) $791,601 / DD $46,609 / net-DD 16.98 / 0 losing yrs / LB $176,142** —
+    −5.6% net for −22.4% drawdown and +21.7% net/DD. SPLIT (half each) $814,881 / DD $48,983 /
+    net-DD 16.64 sits between. ORB×ETH-NBO daily corr +0.118 (still near-uncorrelated).
+    **Recommendation: SWAP is the risk-adjusted upgrade; owner decision, paper-forward first.**
+  • Remaining gate for adoption: paper-forward leg — needs the 24h feed wired into the tracker and the
+    NT capture running (owner side). Nothing else blocks it.
 - **2026-08-18** — **Round 7 (autonomous variant hunt, owner directive "don't stop until you find one"):
   6 batteries run; THE FIND = ENGUQ ETH NBO (24h + next-bar-open) — the paper-ready form of #226 —
   validate queued. Everything else died with mechanisms understood.**
