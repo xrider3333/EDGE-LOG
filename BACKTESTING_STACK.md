@@ -1144,6 +1144,45 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-18 (round 9)** — **FIND: SHALLOW LIMIT ENTRY genuinely improves trade QUALITY on the
+  certified 24h config (PF 1.332 -> 1.401, LB PF 1.493 -> 1.674). Concurrent-slots edge disproved by
+  bootstrap. Volume bars, HTF structural trail, 5m/ES all dead.**
+  • **SHALLOW LIMIT (ENGUQ_1M_ETH_LIM_1_0.py, 790dc43) — the find.** Place a resting limit
+    limit_atr x ATR below the signal close, 10-bar window, gap-honest, else no trade. This targets the
+    exact reason the full retest entry died (fill rate only 23-31%). Fill rates here: **77-94%**.
+    Sweep vs certified (net $434,721 / DD $50,420 / net-DD 8.62 / PF 1.332 / LB $98,488 / LB PF 1.493):
+    0.10 -> $455,852 / 8.44 / PF 1.350 / LB $103,428 / 1.516
+    **0.20 -> $466,354 / DD $54,011 / net-DD 8.63 / PF 1.358 / LB $110,123 / LB PF 1.539**
+    0.35 -> $456,726 / 7.49 / PF 1.346 / LB $104,442 / 1.496
+    **0.50 -> $513,008 / DD $61,666 / net-DD 8.32 / PF 1.401 / LB $126,069 / LB PF 1.674**
+    **KEY EVIDENCE IT IS NOT LEVERAGE: profit factor is scale-invariant, and it RISES monotonically
+    with the limit depth (1.332 -> 1.358 -> 1.401), as does LB PF (1.493 -> 1.539 -> 1.674).** Bigger
+    size cannot move PF; a better entry price can. MECHANISM/CAVEAT: entering lower against the SAME
+    swing-low stop widens per-trade risk, so drawdown scales with net and net/DD stays ~flat — all four
+    cells technically FAIL the pre-registered net/DD >= 9.50 bar. At limit 0.20 the trade is: identical
+    risk-adjusted return, +7.3% net, +11.8% LB, better PF both windows. A resting limit is also the most
+    executable order type there is, so this is arguably MORE paper-ready than #235's next-bar-open fill.
+    RECOMMENDED FOR A PINNED VALIDATE (owner decision pending).
+  • **CONCURRENT SLOTS — DISPROVED.** Block bootstrap (20-day blocks, 5000 resamples, seed 42) on the
+    equal-exposure net difference: mc=2 vs mc=1 obs +$21,572, 95% CI **[-$35,814, +$97,278]**; mc=5
+    obs +$25,916, CI **[-$103,360, +$159,872]**. Both include zero -> NOT distinguishable from noise,
+    confirming the non-monotonic mc=3 tell. The slot mechanism DOES still fix the blocking flaw (LB
+    trades 188 -> 370 -> 546 -> 756) — keep that as a structural tool, not a profit source.
+  • **VOLUME BARS — dead (and the FIRST attempt was degenerate; caught and redone).** The first run
+    calibrated V toward 1380 bars/day, which is IMPOSSIBLE (the 1m ETH tape only has ~1091 bars/day and a
+    volume bar never splits a 1m bar), driving V to ~4 contracts so every "volume bar" WAS a 1m bar. The
+    tell: max DD identical to the cent across all rows. Redone properly at 288 / 205 / 120 bars/day
+    (3.8 / 5.3 / 9.1 one-minute bars each) with lookbacks rescaled to each frame: net/DD **4.72 / 6.51 /
+    4.75** vs control 8.62 — all fail. (P2b's LB $129,623 / PF 1.76 looks strong but sits on 124 trades
+    with 80% top-10 concentration and a much worse full history — noise.)
+  • **HTF STRUCTURAL TRAIL — dead, all 9 cells** (trail below the last completed 15m/60m/240m swing low
+    instead of a fixed R-multiple). net/DD 5.60-6.14 vs 8.62. Diagnostic explains it: the structural
+    trail exits EARLIER (avg hold 0.68d vs 1.44d, avg exit-R 0.075 vs 0.131) — it cuts winners short,
+    which is the same way every risk-tightening idea has failed. Confirms again: the wide stop IS the edge.
+  • Also dead this round: 5m NQ/ES day + 24h (all 5 cells), 5m day + next-open once its overnight
+    exposure is honestly priced (net/DD 8.85 -> **6.82**, below both certified variants; 70.3% of its
+    trades sleep through unseen sessions), multi-resolution 5m-signal/1m-management (+0.7%, identical DD
+    — a 5m bar's high/low already equals its five 1m bars' extremes).
 - **2026-08-18** — **Round 8 (continued variant hunt): 4 more batteries, all FAILED — but the robustness
   check on #235/#226 came back GOOD, and the runaway-hold flaw is now confirmed cross-instrument.**
   • **Risk-cap variant (ENGUQ_1M_RC_1_0, 9859dcf) — FAILED.** Capping initial risk at k×ATR does shorten
