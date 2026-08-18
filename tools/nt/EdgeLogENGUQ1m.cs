@@ -67,6 +67,14 @@ namespace NinjaTrader.NinjaScript.Strategies
         private double ep, risk, sl;
         private bool   trailActive;
 
+        // SHALLOW LIMIT entry state (LimitAtr > 0). The engine places a resting limit
+        // LimitAtr x ATR below the signal close, scans the next 10 bars, and DROPS the
+        // signal entirely if it never fills -- it is not carried forward. Mirrored here.
+        private bool   limitPending;
+        private int    limitBar;          // CurrentBar when the limit was submitted
+        private double limitSwingLow;     // risk anchor, measured at the SIGNAL bar
+        private const int LimitScanBars = 10;
+
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
@@ -91,6 +99,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 ActR       = 2.5;
                 TrailFrac  = 2.5;
                 BreakevenR = 1.5;
+                LimitAtr   = 0.0;
                 Qty        = 1;
             }
             else if (State == State.DataLoaded)
@@ -104,6 +113,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 xss = 0;
                 for (int j = 0; j < TlLen; j++) xss += (j - xm) * (j - xm);
                 inPos = false;
+                limitPending = false;
             }
             else if (State == State.Terminated)
             {
@@ -211,6 +221,52 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (inPos && Position.MarketPosition == MarketPosition.Flat && !PendingEntry())
                 inPos = false;
 
+            // ── shallow-limit entry: did the resting limit fill, or has it expired? ──
+            // The engine treats the FILL price as the entry and re-derives risk from it
+            // (risk = fill - swingLow measured at the signal bar), so a better fill means
+            // a proportionally smaller stop distance -- not the same stop from a better
+            // price. Anchoring on the real fill here is therefore closer to the engine
+            // than the market-entry path above, which anchors on the signal close.
+            if (limitPending)
+            {
+                if (Position.MarketPosition == MarketPosition.Long)
+                {
+                    ep   = Position.AveragePrice;
+                    risk = ep - limitSwingLow;
+                    if (risk < 0.5)
+                    {
+                        // Degenerate after the fill: exit flat rather than run an
+                        // un-stoppable position. Cannot happen with a BUY limit BELOW
+                        // the signal close (a lower fill can only widen risk), but a
+                        // partial or out-of-band fill must not be left unguarded.
+                        ExitLong(Qty, "EQx", "EQ");
+                        limitPending = false; inPos = false;
+                        return;
+                    }
+                    sl = ep - StopMult * risk;
+                    trailActive = false; inPos = true; limitPending = false;
+                    ExitLongStopMarket(0, true, Qty,
+                        Instrument.MasterInstrument.RoundToTickSize(sl), "EQx", "EQ");
+                    return;   // engine never management-checks the ENTRY bar itself;
+                              // trailing/breakeven start on the bar AFTER the fill.
+                }
+                else if (CurrentBar - limitBar >= LimitScanBars)
+                {
+                    // Window closed unfilled -> the engine DROPS this signal. Cancel so a
+                    // stale resting order cannot fill hours later on an unrelated move.
+                    foreach (Order o in Orders)
+                        if (o.Name == "EQ" && (o.OrderState == OrderState.Working
+                            || o.OrderState == OrderState.Accepted
+                            || o.OrderState == OrderState.Submitted))
+                            CancelOrder(o);
+                    limitPending = false;
+                }
+                else
+                {
+                    return;   // still inside the scan window: wait, take no new signal
+                }
+            }
+
             // ── manage an open position (engine order: activate → trail → BE → stop) ─
             if (inPos && Position.MarketPosition == MarketPosition.Long)
             {
@@ -267,11 +323,28 @@ namespace NinjaTrader.NinjaScript.Strategies
             double r = Close[0] - swingLow;
             if (r < 0.5) return;                                        // risk floor
 
-            // ── enter: market at the close (engine enters AT the close) ──────────
-            ep = Close[0]; risk = r; sl = ep - StopMult * risk; trailActive = false; inPos = true;
-            EnterLong(Qty, "EQ");
-            ExitLongStopMarket(0, true, Qty,
-                Instrument.MasterInstrument.RoundToTickSize(sl), "EQx", "EQ");
+            if (LimitAtr > 0)
+            {
+                // ── SHALLOW LIMIT entry (run #249, adopted 2026-08-18) ───────────
+                // Rest a BUY limit LimitAtr x ATR below the signal close and wait up to
+                // 10 bars. No stop goes out yet: the stop is derived from the actual fill
+                // once we have one (see the fill handler above). isLiveUntilCancelled is
+                // true so the order survives bar boundaries; the expiry branch cancels it.
+                double limitPx = Instrument.MasterInstrument.RoundToTickSize(
+                                     Close[0] - LimitAtr * a);
+                limitSwingLow = swingLow;
+                limitBar      = CurrentBar;
+                limitPending  = true;
+                EnterLongLimit(0, true, Qty, limitPx, "EQ");
+            }
+            else
+            {
+                // ── enter: market at the close (engine enters AT the close) ──────
+                ep = Close[0]; risk = r; sl = ep - StopMult * risk; trailActive = false; inPos = true;
+                EnterLong(Qty, "EQ");
+                ExitLongStopMarket(0, true, Qty,
+                    Instrument.MasterInstrument.RoundToTickSize(sl), "EQx", "EQ");
+            }
         }
 
         private bool PendingEntry()
@@ -328,7 +401,11 @@ namespace NinjaTrader.NinjaScript.Strategies
         public double BreakevenR { get; set; }
 
         [NinjaScriptProperty, Range(1, 10)]
-        [Display(Name = "Quantity", Order = 11, GroupName = "ENGU-Q")]
+        [NinjaScriptProperty, Range(0.0, 1.0)]
+        [Display(Name = "Shallow limit depth (x ATR, 0=market at close)", Order = 11, GroupName = "ENGU-Q")]
+        public double LimitAtr { get; set; }
+
+        [Display(Name = "Quantity", Order = 12, GroupName = "ENGU-Q")]
         public int Qty { get; set; }
         #endregion
     }

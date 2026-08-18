@@ -11,7 +11,7 @@ whenever a method or strategy changes status, a run matters, or a decision is ma
 > the ORB × ENGU-Q blend baseline ($835,351 / $838,161 below — NOT live-achievable as
 > written). Full writeup: `ORB.md` (repo root, top banner) and `PAPER_TRADING.md`.
 
-- **Last updated:** 2026-08-18 (round 10 validate: both shallow-limit cards PASS 5/5, trail search dead; see Changelog)
+- **Last updated:** 2026-08-18 (round 11: limit 0.50 adopted to paper; short mirror dead; net/DD shown unreliable)
 - **Web VERSION:** 71.0 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
@@ -833,21 +833,6 @@ not saved to the runs DB — so they carry no run id.*
   (suppressor signature — near-zero alone, biggest LASSO coef jointly); parked. tnx/curve
   top RF importance but stay era-flagged (the joint layer has no era awareness — same
   drift suspicion applies).
-  **NOISE SCAN (2026-08-18, `tools/noise_context_scan.py`, local only): CLEAN NEGATIVE.**
-  96 tests = 16 features x 2 configs (#231 champion + `skip_bot_short`) x 3 sides (all/long/
-  short), NQ 5m RTH db_noadj_rth 2010-06-07 -> 2026-08-12. Plenty SURVIVES (unlike ORB) but
-  nothing NEW: survivors are the volatility cluster (= the already-banked `vol_skip 90`) plus
-  the weak-close family (= `skip_bot_short`). `curve`/`tnx` again top the raw rho and again
-  fail the era guard (`trend_confounded`) — the guard earning its keep. `gap_pct` was the one
-  new-looking lead (jointly kept by LASSO, beats the RF probe floor, era t 8.4-9.9) and an
-  overlap audit kills it: 78% of its dollars are already inside `vol_skip 90`, and the residual
-  flips positive at a looser threshold. **Sanity check PASSED** — a `close_pos` feature added
-  for this scan rediscovers the campaign's day-type effect blind on the champion's SHORTS
-  (rho .055, q_scan .049, global q .035; direct day-clustered permutation p .0004, 418 trades,
-  -$51,613, -$123/trade — reproduces the attribution table to the dollar) and it VANISHES on
-  the filtered variant. Note the stock library has no close-position-in-range feature; without
-  adding one the scan could not have found the known effect. Verdict: no new knob; do not
-  spend a pre-registered test. Full write-up: NOISE.md section 2026-08-18.
 - `augur_engine/trial_cache.py` + `window_delta.py` — **#26 incremental reuse (SHIPPED
   2026-07-22)**: exact-hit per-config result cache (env `AUGUR_TRIAL_CACHE`, ON in the
   runner; `♻` chip on Builder launch rows) + data-prep memo + EOD-flat window-extension
@@ -1159,6 +1144,49 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-18 (round 11)** — **LIMIT 0.50 ADOPTED to paper. Short mirror DEAD. And the
+  net/DD gate itself is shown to be close to a coin flip at this sample size.**
+  • **Owner adopted limit 0.50** ("lets go with the .50"). Paper leg `ENGUQ_L50` added to
+    `api/paper.py` ALONGSIDE the #226 leg rather than replacing it — the two differ only in
+    the entry, so #226 is now the matched control and the pair forward-tests the limit
+    itself. `tools/paper_smoke.py` PASS: 13 trades, **-$821 vs the control's -$2,091** over
+    the same window, entries one minute later (the limit filling). Runner restart deferred —
+    another session had a job running and a restart orphans running jobs.
+  • **PLATEAU MAP (`tools/enguq_lim_plateau.py`, 16 cells 0.00-1.00).** The EFFECT is robust,
+    the exact depth is not critical: PF >= 1.346 at EVERY depth from 0.15 to 1.00, net beats
+    the control everywhere, positive years rise from 14/17 to 16/17. 0.50 has the BEST
+    lockbox in the sweep ($126,069 / PF 1.674); neighbours 0.45 and 0.55 hold up
+    ($109k/1.570 and $119k/1.605), so it is a local peak, not a knife-edge.
+  • **THE TRAP I ALMOST WALKED INTO.** The same sweep showed net/DD peaking at 0.65 (9.87)
+    and 0.70 (10.24) — both clearing the pre-registered net/DD >= 9.50 bar that every limit
+    cell had failed, which would have re-crowned the adopted 0.50 on a metric nobody had
+    checked for stability. Battery S (`lim_dd_bootstrap.py`, paired block bootstrap, 5,000
+    resamples) says NO: 0.70's DD advantage over 0.50 is **mean -$245, 95% CI
+    [-$15,453, +$15,591], winning 55.6% of resamples** — a coin flip. net/DD advantage mean
+    +0.24, CI [-2.80, +3.27]. The observed 10.24-vs-8.32 gap is path luck.
+  • **METHODOLOGICAL FINDING, bigger than the trade idea.** Max drawdown at this sample size
+    has a **95% CI WIDER THAN THE STATISTIC ITSELF** — limit 0.00's DD CI is
+    [$37,706, $120,905] around an observed $50,420. So net/DD, which divides by it, is a weak
+    discriminator: the control clears the 9.50 bar in 23.1% of resamples by chance alone, and
+    0.50 clears it 41.8% of the time despite "failing" on the observed path. **Every past
+    verdict that turned on net/DD alone deserves re-reading in that light.** Prefer profit
+    factor and lockbox behaviour, which are ratios of sums and far more stable.
+  • **SHORT MIRROR DEAD** (`ENGUQ_1M_ETH_SIDE_1_0.py`, f9e187d). Every ENGU-Q variant ever
+    run here has been long-only; nobody had built the mirror. Now built, with side='long' as
+    a bit-exact parity anchor that **PASSES** (n=2843 / $434,721.12), so the short numbers are
+    trustworthy. Short alone: **5,019 trades, -$259,843, PF 0.873, 2 of 17 years positive**
+    (with the limit: -$188,172 / PF 0.906 / 3 of 17). It fires nearly twice as often as the
+    long side and loses on every axis — a symmetric short of a long-biased pattern on an
+    index that drifts up pays the drift twice. BOTH sides is worse than long-only and not
+    only because shorts lose: they **steal the single position slot**, dropping the long
+    leg's own net from $434,721 to $271,869 (no limit) / $368,298 (limit). Combined net/DD
+    0.66 and 2.77 vs the control's 8.62.
+  • **NT limit entry WRITTEN, NOT DEPLOYED** (`tools/nt/EdgeLogENGUQ1m.cs`). New `LimitAtr`
+    property, default 0.0 so the existing market-at-close behaviour is untouched. Rests a BUY
+    limit, derives the stop from the ACTUAL fill (closer to the engine than the market path,
+    which anchors on the signal close), cancels after 10 unfilled bars, and skips management
+    on the fill bar to match the engine. **Not compiled or deployed on purpose**: owner away,
+    strategies live, and a headless build hot-reloads the bridge AddOn.
 - **2026-08-18 (round 9)** — **FIND: SHALLOW LIMIT ENTRY genuinely improves trade QUALITY on the
   certified 24h config (PF 1.332 -> 1.401, LB PF 1.493 -> 1.674). Concurrent-slots edge disproved by
   bootstrap. Volume bars, HTF structural trail, 5m/ES all dead.**

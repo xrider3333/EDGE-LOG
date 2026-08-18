@@ -39,6 +39,7 @@ after any change to a strategy's rules, not as a nightly job.
 | Leg | Config | Timing verdict | State |
 |---|---|---|---|
 | ENGU-Q | `ENGUQ_1M_1_0.py` #149 + breakeven 1.5, NQ 1m RTH | **CLEAN** (all conditions at bar close, entry at that close). Its one MILD trail assumption is *conservative* — live-realistic lagged trail earns **more** (+$31k/16.1y, `tools/enguq_trail_lag.py`) | Shadow: live · NT: `EdgeLogENGUQ1m` compiled, awaiting enable |
+| ENGU-Q L50 | `ENGUQ_1M_ETH_LIM50_1_0.py` #249 — #226 ETH config + resting limit 0.50 x ATR below the signal close, 10-bar gap-honest fill window | **CLEANEST entry we run.** A resting limit is the one entry type that needs no assumption about getting a bar's closing print — you place the order and wait | Shadow: **live since 2026-08-18** · control = the ENGU-Q ETH leg · NT: limit support written, **NOT deployed** |
 | ORB | `ORB_3_4_C221.py` #230 (ORB-40), NQ 5m RTH — **swapped 2026-08-16** off the retired #125 `ORB_3_0` cut | **CLEAN** — close-confirmed entry, the whole point of the grail hunt that produced it | Shadow: live · NT: V1 port retired, **V2 replaces it** |
 | ORB +GATE | #230 + its own crowned **rf hybrid gate @45%** | Same as ORB — a gate is a post-trade overlay trained only on finished trades | Shadow: live · control = the ORB leg |
 | NOISE | `NOISE_1_0.py` hand-built round-12 config, NQ 5m RTH | **CLEAN** (close signal → next-open fill) | Shadow: live · NT: `EdgeLogNOISE` enabled · **never crowned by a run** |
@@ -433,6 +434,19 @@ Two consequences and how we handle them:
    position independently, so the strategies themselves behave correctly; but **per-leg
    P&L must come from the reconcile / NT's per-strategy tracking, never from the account
    balance.**
+
+## WHAT THE ENGU-Q L50 LEG STILL NEEDS (2026-08-18)
+
+Run #249 was adopted by the owner ("lets go with the .50"). Layer by layer:
+
+| Layer | What it is | State | What is missing |
+|---|---|---|---|
+| 1 · Shadow | `api/paper.py` runs the config against the masters nightly and logs signals. No orders, no money | **DONE** — leg `ENGUQ_L50` added, `tools/paper_smoke.py` PASS (13 trades, -$821 vs the #226 control's -$2,091 over the same window, entries one minute later, which is the limit filling) | Runner restart so the long-running process re-imports the module. **Deliberately deferred**: another session had a job running, and a restart orphans running jobs |
+| 2 · NT demo | `EdgeLogENGUQ1m` places real demo orders on Sim101 | **CODE WRITTEN, NOT DEPLOYED.** `LimitAtr` param added (0 = old market-at-close behaviour, so the port stays backward compatible): rests a BUY limit `LimitAtr x ATR` below the signal close, derives the stop from the ACTUAL fill (closer to the engine than the market path, which anchors on the signal close), cancels after 10 unfilled bars, and skips management on the fill bar | Compile + deploy + an NT restart. NOT done on purpose: the owner is away, strategies are live, a headless build hot-reloads the bridge AddOn, and strategy types need a full NT restart anyway. **Owner call** |
+| 3 · TradingView | Pine port for a visual cross-check | **NOT STARTED** | A Pine port of the ETH config *with* the limit entry. The existing ENGU-Q Pine is the RTH #149 port |
+| 4 · Reconcile | Nightly engine-vs-broker parity | **BLOCKED, unchanged** | The 1-minute data hole (ETH masters end 2026-06-30, TradingView serves ~24 days) means engine and chart still do not overlap. Needs either the NT 1m capture to age in, or paid history |
+
+The honest summary: **layer 1 is done and running, layer 2 is a deploy decision, layers 3 and 4 are blocked on things money or time fix, not on analysis.**
 
 ## Open items
 
