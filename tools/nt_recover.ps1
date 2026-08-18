@@ -30,10 +30,11 @@ $cli      = 'C:\Users\xride\AppData\Local\EdgeLog-worktrees\paper\tools\nt_bridg
 $loginPs1 = 'C:\EdgeLog\nt_login.ps1'
 $logPath  = 'C:\EdgeLog\nt_recover.log'
 # The roster this box is supposed to be running.
-# ENGU-Q ADDED 2026-08-17: it runs the 24h ETH session (#226 config), so enabling it
-# is safe around the clock. As of 2026-08-18 it REFUSES to open positions on replayed
-# history, so it starts FLAT and in sync instead of inheriting a ghost trade -- which
-# previously either armed a real orphan stop or blocked it from trading for days.
+# ENGU-Q ADDED 2026-08-17: the old exclusion (ImmediatelySubmit rejecting its sync order
+# outside market hours, proven 2026-08-14) no longer applies -- it now runs WaitUntilFlat
+# on the 24h ETH session (#226 config), so enabling it is safe around the clock. After it
+# reaches Realtime, check /orders: its warm-up replay can leave a REAL orphan stop (EQx)
+# guarding a position that exists only in the replay.
 # EdgeLogORBV2 REMOVED 2026-08-16: it still ran the retired look-ahead-era params
 # while the engine's ORB crown moved to run #230, so its fills measured a dead
 # config. EdgeLogORB230 ADDED 2026-08-17 (owner's call): the honest #230 port,
@@ -62,6 +63,30 @@ function Roster {
 
 function RealtimeNames { (Roster | Where-Object { $_.state -eq 'Realtime' } | ForEach-Object { $_.name }) }
 
+# ── SYNC CHECK ─────────────────────────────────────────────────────────────────────
+# "Realtime" is not the same as "working". ENGU-Q sat Realtime for a full day holding a
+# position the account never had -- inherited from replayed history -- and therefore
+# placed no orders at all. Nothing alerted, because every check only asked whether the
+# strategy was running. Strategies now start flat by design, so a strategy claiming a
+# position the account does not hold means they have drifted apart: either it inherited
+# a ghost again, or a real fill went unrecorded. Both are real-money problems, and both
+# are invisible unless something explicitly compares the two sides.
+function SyncProblems {
+  $out = @()
+  try {
+    $acct = (Invoke-WebRequest -Uri "$bridge/positions" -TimeoutSec 8 -UseBasicParsing).Content
+    foreach ($st in (Roster)) {
+      $pos = "$($st.position)"
+      if ($pos -and $pos -notmatch "^Flat") {
+        $inst = "$($st.instrument)"
+        if ($acct -notmatch [regex]::Escape($inst)) {
+          $out += "$($st.name) claims [$pos $inst] but the account holds no such position"
+        }
+      }
+    }
+  } catch { }
+  return $out
+}
 Log "=== recover start (WhatIf=$WhatIf) ==="
 
 # ── 1. already healthy? ────────────────────────────────────────────────────────────
@@ -69,7 +94,14 @@ if (BridgeUp) {
   $live = @(RealtimeNames)
   $missing = @($expected | Where-Object { $live -notcontains $_ })
   if ($missing.Count -eq 0) {
-    Log "healthy: bridge up and all expected strategies Realtime ($($expected -join ', ')) - nothing to do"
+    $sync = @(SyncProblems)
+    if ($sync.Count -gt 0) {
+      Log "OUT OF SYNC - running, but not trading what you think:"
+      foreach ($m in $sync) { Log "  $m" }
+      Log "A strategy holding a position the account does not have will not open new trades."
+      exit 4
+    }
+    Log "healthy: bridge up, all expected strategies Realtime ($($expected -join ', ')), in sync with the account"
     exit 0
   }
   Log "bridge up but not Realtime: $($missing -join ', ')"
