@@ -597,6 +597,14 @@ Occam combo rule concluded from the headline numbers alone.
    points (806 → 1,752), and its mechanism is a **program-wide banked pattern** — "shorts
    fail after weak closes", seen in 4+ families. Nothing about it is a small number of huge
    days.
+   > **CORRECTION, 2026-08-18 — the "program-wide" claim in this bullet is WRONG and must not
+   > be repeated.** The filter was finally built and tested on the two families that matter,
+   > ORB (run #234, the live crown) and ENGU-Q, and it failed on both — full round log in
+   > `CROSSFAMILY_DAYTYPE.md`. On ORB the mechanism is SIGN-FLIPPED: shorts after a weak close
+   > average **+$86** per trade over 248 trades, where NOISE's lose $118. What DOES hold across
+   > families is the other half of the pattern, "buy weakness": trades taken after a weak close
+   > are the better population on ORB longs and dramatically so on ENGU-Q (+$462 per trade
+   > versus +$31 after a strong close). Treat `skip_bot_short` as a NOISE-specific result.
 2. **The D3 winner is really `skip_bot_short` plus a fragile passenger.** Measured against
    its own components, the `confirm_bars 2` leg adds +$12.2k inside the selection window and
    **−$20.2k outside it**, and it is the sole source of D3's full-window drawdown blow-out

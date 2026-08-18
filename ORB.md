@@ -1,6 +1,27 @@
 # ORB — Opening Range Breakout: status, results & backlog
 
 > Living handoff doc. **Last updated: 2026-08-11** (Claude Code).
+> **2026-08-18 addendum:** the standing crown is now **run #234 / `ORB_3_6_C2.py`** (ride +
+> breakeven), not #230 — see memory `edgelog-orb-hunt-round2`. Everything below still
+> describes the older record.
+
+---
+
+## ⚠ 2026-08-18 — the NOISE prior-day close-position filter does NOT transfer to ORB
+
+Full round log: **`CROSSFAMILY_DAYTYPE.md`** (repo root). Fork: `augur_strategies/ORB_3_8.py`
+(the crown plus the filter, default OFF, bit-identical to `ORB_3_6.py` with the knob off,
+passes the execution-feasibility audit). Harness: `tools/crossfamily_daytype.py`.
+
+Twelve variants (four modes x three thresholds) were scored against run #234 on its own
+optimize window, with the adoption bar pre-registered first. **None cleared it.** Skipping
+short entries the day after a weak close — NOISE's big winner — costs ORB about $15,000 of net
+profit while buying only a small, plateau-stable risk improvement (profit factor 1.28 to 1.30,
+selection-window drawdown $29,142 to $26,796). The mechanism is sign-flipped: **ORB's shorts
+after a weak close average +$86 per trade over 248 trades, where NOISE's lose $118.** ORB's
+actually-bad population is a different one — **long entries after a 0.6-0.8 prior-day close
+lose $103 each over 252 trades, profit factor 0.79** — and that is a new, unexploited,
+not-yet-pre-registered lead.
 
 ---
 
