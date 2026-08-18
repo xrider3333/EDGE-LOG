@@ -11,7 +11,7 @@ whenever a method or strategy changes status, a run matters, or a decision is ma
 > the ORB × ENGU-Q blend baseline ($835,351 / $838,161 below — NOT live-achievable as
 > written). Full writeup: `ORB.md` (repo root, top banner) and `PAPER_TRADING.md`.
 
-- **Last updated:** 2026-08-11 (adds ORB look-ahead correction above; see Changelog)
+- **Last updated:** 2026-08-18 (round 15: legal book rebuilt, ETH candidate packaged; see Changelog)
 - **Web VERSION:** 71.0 · **Stack board (`method_stack.html`):** v4.1
 - **Board tally:** 45 method pills LIVE; 1 planned — operational fills reconciliation (see §7). **Every no-dep Carl method is built** (all icon-tagged).
 
@@ -1261,6 +1261,43 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
   • Standing state: **#226 = certified primary path; ETH NBO = its deployable form, in queue; #149/#227
     = RTH baseline (blind overnight); blend baseline unchanged.** Next gates: NBO validate lands →
     paper-forward wiring (24h feed + NT capture, both on owner's side).
+- **2026-08-18** — **Challenger round 15 (owner: "find another strategy that beats some of our
+  baselines — failure is not an option"). Deliverable: the LEGAL BOOK is rebuilt and the ETH leg is
+  the promising candidate, packaged for a formal Auto-Validate on owner sign-off. Web = empty again.**
+  - **Deep-web hunts (2 scouts, territory never opened): ZERO candidates.** (a) futures.io/EliteTrader
+    verified journals + Japanese/Chinese/German/Russian communities + Crabel/Davey/Kinlay: every lead
+    is undisclosed rules, vendor screenshots, or a graveyard family. (b) May–Aug-2026 arXiv/SSRN +
+    session-structure sweep: NY Fed confirms the 2-3am drift died (did NOT migrate); trend-collapse
+    and MNQ-falsification papers AGREE with our graveyard. One watch-item logged, not built: SSRN
+    7124578 (0DTE-era opening-swing FADE, YM, n=194, pre-2023 below breakeven = regime-conditioned by
+    its own data; our fade family died twice incl. on the legal base 8/17).
+  - **freeze_overnight lever (R6d's flagged refinement) — DEAD by pre-registration.**
+    `ENGUQ_1M_ETH_1_0.py` gained the knob (default OFF = bit-identical, invariant passed to the
+    cent); ON: net −2.5%, **maxDD $50.4k→$64.9k (+29%), MAR 8.62→6.53 → B1 FAIL** (LB-year better,
+    $113.3k/PF 1.60, and WF 8/8 — a regime-conditional shape we don't deploy). The −21% overnight-exit
+    "drag" includes the saves. No window-shopping; banked. Driver `tools/t6_eth_freeze.py`.
+  - **LEGAL BOOK reads (`tools/t7_legal_book.py`, all three legs parity-gated to the dollar first;
+    common window 2010-06-07→2026-08-13, LB slice = #234's lockbox year):**
+    | book | net | pooled PF | maxDD | MAR | WF | LB net / LB MAR |
+    |---|---|---|---|---|---|---|
+    | **A · C2 #234 + ENGUQ-RTH (NEW LEGAL BASELINE)** | **$843,388** | 1.343 | $58,171 | **14.50** | 8/8 | $194,202 / 3.71 |
+    | B · + ETH 1:1:1 (3-leg) | $1,264,095 | 1.335 | $103,148 | 12.26 | 8/8 | $269,713 / 3.64 |
+    | C · C2 + ETH (swap) | $810,582 | 1.313 | $71,773 | 11.29 | 7/8 | $164,454 / 5.04 |
+    Correlations: C2~RTH **0.008** · C2~ETH 0.055 · RTH~ETH 0.254. **The leak repair cost the book
+    almost nothing** — legal baseline ≈ the old leaky $835k with HIGHER MAR (14.50 vs 13.95).
+    **3-leg at 1:1:1 FAILS improve-the-book** (MAR 12.26 < 14.50; RTH+ETH stack the same NQ-trend
+    factor — same class as the 5m-leg finding, round 4). ETH's role = candidate LEG pending
+    validation + sizing, not naive stacking. Daily leg series saved to
+    `tools/r13_results/legal_legs_daily.csv` (slice stats forever without engine reruns).
+  - **THE CANDIDATE, restated for decision: ENGU-Q ETH (frozen clock-scaled, `ENGUQ_1M_ETH_1_0.py`)
+    beats baselines standalone** — MAR 8.62 vs RTH champion 7.23 · maxDD $50.4k vs $65.6k · LB-year
+    $98.5k/PF 1.49 vs ORB #234's $88.9k/1.45 · frozen WF 8/8 · robust to 3× overnight costs · corr
+    0.055/0.254 to the legal legs. **Next gate per R6d = formal Auto-Validate (single file, app-
+    validatable) + paper-forward leg — OWNER SIGN-OFF REQUESTED.** Honesty note for that run: the
+    2025-06→2026-06 year was already loaded in triage; only the ~6-week tail past 2026-06-30 is
+    fresh — judge on WF folds + forward paper, per the #234 precedent.
+  - Tally: 15 rounds · 5 public sources exhausted · the falsification literature still agrees.
+
 - **2026-08-15** — **§1A funnel vs §1E matrix disagreement fixed (index.html).** RAW pill bug: `_crV` preferred `_champTot` (all-trades total, = `gate_validate.ungated_full.total_pnl`) over the WF-crowned candidate's own lockbox-stitched equity whenever a crown existed — now always uses `_endOf(crownedC)` when `crownedC` is non-null, `_champTot` only as a legacy fallback with no crown at all. Labeling bug: the funnel/explorer chart drew every hybrid/tilt/hybrid-recycle candidate at full opacity in the same shaded family hue, so the crowned member (`_bestHybC`/`_bestTiltC` via lockbox MAR `_hRc0`/`_tRc0`) never stood out from its siblings even though the pill/key priced only that one line — non-crowned family members now draw at reduced opacity (stroke-opacity 0.3) so the visually-prominent curve always matches the priced one. Enhancement: the funnel key rows for TILT/HYBRID/HYBRID ♻ now show the picking lockbox MAR in their hover title (" · LB MAR n.n×"), previously invisible anywhere in the UI. Gate/tilt pill computations were audited and already used their own dedicated sources (no `_champTot`-style fallback), so no fix needed there.
 - **2026-08-13** — **Runner Firestore doc-size guard + chunked sync_runs** (api/runner.py). Trigger: job `backtests/g2iIT39Xnfuxcc69keQw` failed with `InvalidArgument: 400 Document ... size (1,114,777 bytes) exceeds the maximum allowed size of 1,048,576 bytes`, and because the write's exception was swallowed by the watch loop's catch-all, the job was left stuck on `status='running'` with its result never saved (a separate startup `sync_runs` batch also blew Firestore's 10 MiB request cap: `11,534,336 bytes`). New `shrink_to_fit()` shrinks any oversized job/run doc in stages — (1) downsample every equity/curve array to ≤400 points, (2) cap per-config population arrays (dist/points/top/equity_top) to the top-N configs by PnL/score, (3) last resort, drop the heaviest non-protected field entirely — champion stats + WF/lockbox numbers are never touched. Applied to both single-doc save paths (the job doc in `FirestoreQueue.run_once`, the Runs-history doc in `_persist_run`). The job-doc write additionally goes through `_save_job_doc()`, which falls back to a protected-fields-only doc and finally a bare status/error doc if the guarded write STILL fails — a job can no longer be left stuck on `running` from a save failure. `sync_runs` now chunks its batch commits by bytes (≤9 MB) in addition to the existing 400-doc cap.
 - **2026-08-13** — **Item #36: runner job-queue + command polling converted to Firestore on_snapshot listeners** (api/runner.py). Main watch loop now blocks on an event set by the listener callback instead of re-querying `status=='queued'` every `--interval` tick; a 600s backstop poll still runs underneath (and logs if it finds something the listener missed) so a wedged watch channel can never permanently stall job pickup. Falls back automatically to the old fixed-interval polling if listener setup fails or never confirms alive within 15s ("queue listener: FAILED -> polling every Ns" vs "queue listener: ON (backstop poll 600s)" at startup). Cuts ~5,800 idle Firestore reads/day. `--interval` stays meaningful as the fallback poll cadence.

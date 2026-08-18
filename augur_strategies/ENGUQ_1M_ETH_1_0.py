@@ -109,6 +109,9 @@ DEFAULT_PARAMS = {'tl_len': {'default': 170,
                          'top of the EMA. 0=off. NOTE: unchanged from the RTH file — this gate is hardcoded to 390 '
                          'bars/day internally, so on ETH data a nonzero value covers fewer calendar days than '
                          'intended; left as-is (engine untouched) and off by default.'},
+'freeze_overnight': {'default': False, 'type': 'bool',
+        'label': 'Freeze stop updates overnight (18:00-09:30 ET)',
+        'tooltip': 'ON = trail/breakeven levels do not UPDATE during overnight bars; the existing stop stays live. Round-6 R6d flagged overnight exits as a net drag. OFF = certified triage behaviour.'},
 'breakeven_R': {'default': 1.5,
                'min': 0.0,
                'max': 3.0,
@@ -148,10 +151,10 @@ def _ema(a, n):
     return out
 
 
-def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
+def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=None,
                  tl_len=20, vol_mult=1.5, stop_mult=1.0, act_R=1.0, trail_frac=2.0,
                  buf_atr=0.1, min_brk=0.5, ema_len=200, atr_len=14, regime_len=0,
-                 breakeven_R=0.0,
+                 breakeven_R=0.0, freeze_overnight=False,
                  return_trades=False, _stop_event=None, _pause_event=None, **_ignore):
     o = np.asarray(opens, float); h = np.asarray(highs, float)
     l = np.asarray(lows, float);  c = np.asarray(closes, float)
@@ -182,6 +185,23 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
         vavg = np.full(n, np.nan); w = 20
         vc = np.cumsum(vv); vavg[w - 1:] = (vc[w - 1:] - np.concatenate([[0], vc[:-w]])) / w
 
+    # freeze_overnight (2026-08-18, round-6 R6d follow-up): the ETH study measured the
+    # overnight-EXIT bucket as a net DRAG (-21% of net). ON = during overnight bars
+    # (ET time >= 18:00 or < 09:30) the stop LEVEL does not update (no trail activation
+    # flip, no ratchet, no breakeven arm) -- the existing stop stays LIVE on every bar
+    # and still fills gap-honestly (safety unchanged). OFF (default) = bit-identical to
+    # the certified triage run (n=2843 / $434,721.12 / PF 1.332 / DD -$50,420). Needs
+    # bar timestamps (`index`); without them the flag silently stays off.
+    frozen = None
+    if freeze_overnight and index is not None and len(index) == n:
+        try:
+            import pandas as _pd
+            _idx = _pd.DatetimeIndex(index)
+            _mod = _idx.hour * 60 + _idx.minute
+            frozen = np.asarray((_mod >= 1080) | (_mod < 570))
+        except Exception:
+            frozen = None
+
     x = np.arange(tl_len); xm = x.mean(); xd = x - xm; xss = (xd ** 2).sum()
     pnl_list, trade_log = [], []
     pos = None
@@ -189,12 +209,13 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
         if _stop_event is not None and _stop_event.is_set():
             break
         if pos is not None:
-            if h[i] - pos["ep"] >= act_R * pos["risk"]:
-                pos["act"] = True
-            if pos["act"]:
-                pos["sl"] = max(pos["sl"], h[i] - trail_frac * pos["risk"])
-            if breakeven_R > 0 and (h[i] - pos["ep"]) >= breakeven_R * pos["risk"]:
-                pos["sl"] = max(pos["sl"], pos["ep"])
+            if frozen is None or not frozen[i]:
+                if h[i] - pos["ep"] >= act_R * pos["risk"]:
+                    pos["act"] = True
+                if pos["act"]:
+                    pos["sl"] = max(pos["sl"], h[i] - trail_frac * pos["risk"])
+                if breakeven_R > 0 and (h[i] - pos["ep"]) >= breakeven_R * pos["risk"]:
+                    pos["sl"] = max(pos["sl"], pos["ep"])
             if l[i] <= pos["sl"]:
                 # gap-through realism: if the bar OPENED beyond the stop, the fill is the
                 # open (can't be filled at a stop price the market never traded through
