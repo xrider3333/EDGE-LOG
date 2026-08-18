@@ -70,6 +70,20 @@ Structure EVERY substantive reply top-to-bottom as:
    bullet points").** Under-table detail is `•`-led lines, one fact each, no multi-sentence
    paragraphs. Tables stay as-is (rule 2 / RUNBOARD rule 4b). Bold the topic at the start of a
    bullet when it names a UI location or subject (keeps rule 2b's topic-first habit).
+3a. **PLAIN ENGLISH, COMPLETE SENTENCES (owner 2026-08-18: "your terminology is confusing...
+   from here on out, you will speak to me in short, coherent, complete sentences. bullets in
+   laymen's terms").** Every bullet is a FULL sentence with a subject and a verb — never a
+   sentence fragment, never a headline followed by a dash and a trailing clause. BAD: "My
+   recommendation changed — skip_bot_short alone, nothing stacked on it." GOOD: "I now
+   recommend using skip_bot_short by itself. Do not combine it with the other filters."
+   Write for a reader who does not read the code: say "skip short trades the day after a weak
+   close", not "skip_bot_short". Name a knob only AFTER its plain-English meaning, in
+   parentheses. Never invent shorthand mid-reply.
+   **Row numbers are permanent handles** (owner 2026-08-18: "you switched the rows around
+   multiple times. give me the original table with row numbers unchanged"): once the owner has
+   seen a numbered results table, those numbers belong to those configs forever. To re-rank,
+   keep each row's original number and change only the ORDER of the lines (add a separate
+   Rank column if needed). Never renumber, never reuse a number for something else.
 3. **Details / caveats / how-to-verify / numbers go UNDERNEATH the table** — the owner skims the
    table, then drops down for detail. Keep prose terse; process/"thinking" text is noise.
    **KEEP IT SHORT AND JARGON-FREE (owner 2026-07-23, stated twice): "make more concise and
