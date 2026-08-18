@@ -833,6 +833,21 @@ not saved to the runs DB — so they carry no run id.*
   (suppressor signature — near-zero alone, biggest LASSO coef jointly); parked. tnx/curve
   top RF importance but stay era-flagged (the joint layer has no era awareness — same
   drift suspicion applies).
+  **NOISE SCAN (2026-08-18, `tools/noise_context_scan.py`, local only): CLEAN NEGATIVE.**
+  96 tests = 16 features x 2 configs (#231 champion + `skip_bot_short`) x 3 sides (all/long/
+  short), NQ 5m RTH db_noadj_rth 2010-06-07 -> 2026-08-12. Plenty SURVIVES (unlike ORB) but
+  nothing NEW: survivors are the volatility cluster (= the already-banked `vol_skip 90`) plus
+  the weak-close family (= `skip_bot_short`). `curve`/`tnx` again top the raw rho and again
+  fail the era guard (`trend_confounded`) — the guard earning its keep. `gap_pct` was the one
+  new-looking lead (jointly kept by LASSO, beats the RF probe floor, era t 8.4-9.9) and an
+  overlap audit kills it: 78% of its dollars are already inside `vol_skip 90`, and the residual
+  flips positive at a looser threshold. **Sanity check PASSED** — a `close_pos` feature added
+  for this scan rediscovers the campaign's day-type effect blind on the champion's SHORTS
+  (rho .055, q_scan .049, global q .035; direct day-clustered permutation p .0004, 418 trades,
+  -$51,613, -$123/trade — reproduces the attribution table to the dollar) and it VANISHES on
+  the filtered variant. Note the stock library has no close-position-in-range feature; without
+  adding one the scan could not have found the known effect. Verdict: no new knob; do not
+  spend a pre-registered test. Full write-up: NOISE.md section 2026-08-18.
 - `augur_engine/trial_cache.py` + `window_delta.py` — **#26 incremental reuse (SHIPPED
   2026-07-22)**: exact-hit per-config result cache (env `AUGUR_TRIAL_CACHE`, ON in the
   runner; `♻` chip on Builder launch rows) + data-prep memo + EOD-flat window-extension

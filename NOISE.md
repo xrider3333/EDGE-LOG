@@ -1,6 +1,9 @@
 # NOISE — wide-band intraday momentum envelope: lockbox findings & open questions
 
-> Living handoff doc. **Last updated: 2026-08-17** (variant campaign session — see the
+> Living handoff doc. **Last updated: 2026-08-18** (TRADE CONTEXT feature scan — clean
+> negative, nothing new survived — see the "2026-08-18 — TRADE CONTEXT feature→PnL scan"
+> section, regenerable via tools/noise_context_scan.py).
+> Prior update **2026-08-17** (variant campaign session — see the
 > "2026-08-17 — variant campaign" section: pre-registered entry-quality filters cleared
 > the bar; knobs shipped in `NOISE_1_0.py`; 12-cell comparison GRID + full re-validate + first NOISE BOOK job queued;
 > the "Campaign results table" subsection carries every config with IS/WF/LB dollar
@@ -618,14 +621,177 @@ whose ES transfer improves most in dollars.
 
 ---
 
+## 2026-08-18 — TRADE CONTEXT feature→PnL scan: the scan WORKS, and it finds nothing NEW to act on
+
+> Closes the "TRADE CONTEXT feature→PnL FDR scan on NOISE" item in "Still genuinely
+> untested". Code: `tools/noise_context_scan.py` (committed the same day). Regenerate:
+> `python tools/noise_context_scan.py` (add `--json out.json` for the raw numbers,
+> `--quick` for a 200-draw bootstrap). No runner jobs were queued — this is entirely local.
+> Source PINNED to the campaign's convention: **db_noadj_rth · NQ 5m RTH · cost 0.533 pts ·
+> multiplier 20 · 2010-06-07 → 2026-08-12**. Trade logs come from the parity-proven campaign
+> harness `tools/noise_variant_research.py`; the statistics come from the SHIPPED, generic
+> engine `augur_engine/context.py`, used exactly as the ORB scan used it — no bespoke method.
+
+### What was scanned
+
+Two configs × three sides = **six scans**, each over **16 features** = **96 tests total**.
+
+- **CHAMPION** — run #231's crowned config (lookback 44, band 0.75/1.5, vwap exit, bandwidth
+  stop k=1.75), every filter knob OFF. 5,633 trades over 2,785 entry days.
+- **SBS** — the same core plus `daytype_mode='skip_bot_short'` (take no SHORT entries the day
+  after a close in the bottom 20% of the prior day's range), the campaign's load-bearing
+  variant. 5,214 trades. Scanning both answers a second question: does the filter ABSORB the
+  effects the scan finds, or are independent effects left over?
+- **Sides**: all trades, LONGS only, SHORTS only. The campaign's finding was 98.6% short-side,
+  so a pooled-only scan could wash a real effect out.
+
+**The 16 features.** Fifteen are the stock library, all prior-day shifted by the engine
+(`gap_pct` is causal as defined — today's open against yesterday's close is known before any
+fill). Eight are internal, from the run's own bars: `rsi14`, `macd_hist`, `atr20_pctile`,
+`er20` (trend-vs-chop efficiency), `gap_pct`, `prev_ret`, `range_pctile`, `up_streak`. Seven
+are external macro, from the offline CSV cache: `vix`, `vix_pctile_1y`, `vix_chg_5d`,
+`vix_term`, `tnx`, `tnx_chg_20d`, `curve`.
+
+**The 16th is `close_pos`, added for this scan** — the prior session's close position inside
+its own high-low range, i.e. the exact quantity the campaign's `skip_bot_short` filter
+compares against 0.2. It is NOT in the stock library, so **without adding it the scan could
+not possibly have rediscovered the known day-type effect.** That is itself a finding about the
+feature library, not about NOISE. It is scored like any other feature and counted in every
+correction.
+
+**The gates a feature must clear to be marked `survives`** (all four, the engine's own rules,
+unchanged): Benjamini-Hochberg q < 0.10 across the features in its scan; a 95% confidence
+interval from a MOVING-BLOCK bootstrap (contiguous 21–126 trading-day blocks, clustered by
+entry day) that excludes zero; for slow/persistent features, a within-calendar-year
+consistency test (|t| ≥ 2 across eras); and beating the strongest of three shadow probes
+(shuffled fake features that set a per-dataset noise floor). On top of that, this scan
+recomputes a **GLOBAL** Benjamini-Hochberg q across all 96 tests, because six scans of
+sixteen features is ninety-six tests, not sixteen. Both q values are reported below.
+
+### Sanity check — PASSED. The scan independently rediscovers the known day-type effect
+
+Two independent confirmations, and they agree:
+
+1. **Direct, single pre-specified hypothesis, day-clustered permutation test** (5,000 draws,
+   whole days reshuffled so trades sharing a day move together): the champion's short trades
+   entered the day after a bottom-20%-of-range close number **418**, they total
+   **−$51,613**, they average **−$123.48** against **+$138.86** for the champion's other
+   shorts, and the one-sided permutation p is **0.0004**. Those figures reproduce the
+   2026-08-17 attribution table to the dollar (418 shorts, −$123 average, Δ short +$51,613),
+   which is the parity gate on this whole exercise.
+2. **The blind feature scan finds it too, on the right side and nowhere else.** On
+   CHAMPION/short, `close_pos` has rho +0.0553, raw p 0.0199, within-scan q 0.0485, global q
+   0.0347, and it clears all four gates. On CHAMPION/long it is nothing (rho +0.0207, p 0.20)
+   — correctly one-sided. And on **SBS/short it is dead** (rho −0.0148, p 0.59): the
+   `skip_bot_short` filter has absorbed the effect completely, which is exactly what a
+   working filter should do to its own signal.
+
+So the scan is not underpowered on NOISE. With 5,633 trades over 16 years it has roughly ten
+times the sample the ORB scan had (590 trades), and it detects a $52k effect blind.
+
+### Results — what survived, and why none of it is new
+
+| Scan | trades | survivors (all four gates) |
+|---|---|---|
+| CHAMPION / all | 5,633 | vix · range_pctile · atr20_pctile · vix_pctile_1y · vix_chg_5d · gap_pct · prev_ret · macd_hist · vix_term · rsi14 · **close_pos** · up_streak |
+| CHAMPION / long | 3,864 | range_pctile · vix · atr20_pctile · gap_pct · vix_pctile_1y · vix_chg_5d · macd_hist · vix_term · rsi14 · prev_ret · up_streak |
+| CHAMPION / short | 1,769 | vix · atr20_pctile · prev_ret · **close_pos** · vix_chg_5d |
+| SBS / all | 5,214 | vix · range_pctile · gap_pct · vix_chg_5d · vix_pctile_1y |
+| SBS / long | 3,863 | range_pctile · vix · atr20_pctile · gap_pct · vix_pctile_1y · vix_chg_5d · macd_hist · vix_term · rsi14 · prev_ret · up_streak |
+| **SBS / short** | 1,351 | **NONE** |
+
+Unlike ORB — where nothing survived at all — plenty survives here. That is a power story, not
+a discovery story. **Every survivor falls into one of three already-known or already-rejected
+buckets:**
+
+**1. The stress cluster is the volatility effect the campaign already banked.** `vix`,
+`vix_pctile_1y`, `vix_chg_5d`, `atr20_pctile` and `range_pctile` all carry the same sign —
+trades entered after a high-volatility session earn less. `range_pctile` is the largest and
+most era-consistent of them (CHAMPION/long rho −0.0926, era t −4.88). This is precisely the
+mechanism the 2026-08-17 campaign found by hand and banked as `vol_skip 90` (day-clustered
+permutation p 0.001 at the time). The scan re-derives it independently, which is a second
+successful sanity check and not a new lead. The campaign already documented that this family
+is FRAGILE in dollars (83–103% of each vol threshold's gain is its ten luckiest avoidances) —
+nothing here changes that.
+
+**2. `curve` and `tnx` are textbook drift artifacts, and the era guard caught them.** `curve`
+has the largest raw correlation in every single scan (rho +0.10 to +0.14, raw p 0.0000) and
+survives NOTHING, because its within-year t statistic is essentially zero (0.16, −0.38, 0.37,
+−0.01). Both are flagged `trend_confounded` in five of six scans. Two things that drift over a
+decade correlate whether or not one causes the other. This is the same false lead the ENGU-Q
+work already documented, and it is the clearest evidence in the whole exercise that the
+correction machinery is doing its job rather than rubber-stamping big numbers.
+
+**3. `gap_pct` looked like the one genuinely new lead, and a follow-up audit kills it.** It is
+the only feature that is jointly backed as well as univariately significant — LASSO keeps it
+with a large coefficient AND it beats the random-forest probe floor, in all four scans where
+it survives — and its within-year consistency is the highest in the whole run (era t 8.4 to
+9.9). It is a LONG-side effect: long trades entered on a day that gapped DOWN earn less. The
+raw dollars look interesting: on the champion, long trades entered after a gap down of 0.5% or
+more number 139 and total **−$33,662**, against +$62.70 per trade for every other long.
+
+**Then the overlap audit.** Of that −$33,662, **−$26,303 (78%) sits on days the already-banked
+`vol_skip 90` filter would have skipped anyway**. The residual is 95 trades worth −$7,359,
+whose ten worst trades alone are −$23,178 and which is negative in 8 years and positive in 9.
+At a −0.25% gap threshold the residual is not even negative — it is **+$10,174**. A gap down
+is mostly just a high-volatility day wearing a different hat. There is no independent
+gap-down edge left once the known volatility effect is removed.
+
+**Also worth stating plainly:** `prev_ret`, `macd_hist`, `rsi14`, `up_streak` and `vix_term`
+survive with small correlations (rho +0.03 to +0.06) and all point the same way — NOISE does
+better after strong prior days and worse after weak ones. That is the same "buy weakness /
+shorts fail after weak closes" family the program has banked four times over, and
+`close_pos`/`skip_bot_short` is already the cleanest expression of it. No separate knob is
+implied.
+
+### Does the SBS filter absorb what the scan finds?
+
+Partly, and informatively. On the short side it absorbs everything: SBS/short has **zero**
+survivors where CHAMPION/short had five. On the long side it changes almost nothing, which is
+correct — `skip_bot_short` never touches long trades. The residual long-side survivors are the
+volatility family, and the campaign already established that stacking `vol_skip 90` on
+`skip_bot_short` adds nothing in dollars (−$400 on the selection window, −$7,436 on the full
+window). The scan and the campaign agree: the two filters veto the same days.
+
+### VERDICT — nothing new survives. Do not build a variant off this.
+
+- **The scan is trustworthy and adequately powered on NOISE.** It rediscovered a $52k effect
+  blind, on the correct side, and watched that effect vanish once the filter that targets it
+  was switched on.
+- **Nothing survived correction that is not already explained** by the two banked mechanisms —
+  the volatility effect (`vol_skip`, banked as a fragile single) and the weak-close effect
+  (`skip_bot_short`, the campaign's load-bearing filter).
+- **`gap_pct` was the one candidate and it does not stand up.** 78% of its dollars are already
+  inside `vol_skip 90`, the residual is tail-driven and sign-unstable across years, and at a
+  looser threshold the residual flips positive.
+- **`curve` and `tnx` must never be quoted from a raw p-value.** They are the biggest raw
+  correlations in the run and they are drift.
+
+**If the owner ever wants to spend a pre-registered test on the gap idea anyway**, this is
+what it would have to look like, declared in full before any backtest: candidate = block LONG
+entries when the session gaps down more than X%, X ∈ {0.4, 0.5, 0.6} declared as the plateau
+neighborhood; selection on the pre-lockbox window 2010-06-07 → 2025-02-10 only; bar = net ≥
+champion AND MAR ≥ champion AND 2010-17 ≥ $0 AND worst year not worse AND all three X values
+clear (a real plateau, not one lucky threshold); and a mandatory extra leg this scan has
+already pre-failed — **the candidate must beat `vol_skip 90` as a standalone AND add net
+dollars on top of `vol_skip 90`**, since 78% of its raw effect is the same days. On the
+evidence above it will not clear that last leg, which is the honest reason not to spend the
+test.
+
+---
+
 ## Still genuinely untested (not dead ends — nobody has run these)
 
 - **NOISE in a BOOK job.** BOOK (pool N legs, score as ONE strategy) exists since v71.42
   and has never had NOISE put through it. NOISE↔ORB correlation measured **0.21–0.25**
   (twice, rounds 10 and 12) — low enough to expect real diversification — but no blended
   backtest was ever actually run.
-- **TRADE CONTEXT feature→PnL FDR scan on NOISE.** The engine (`augur_engine/context.py`)
-  is generic and wired in; no NOISE-specific scan is recorded anywhere.
+- ~~TRADE CONTEXT feature→PnL FDR scan on NOISE~~ — RUN 2026-08-18 (see the section above):
+  96 tests over 16 features x 2 configs x 3 sides. The scan works — it rediscovers the known
+  day-type effect blind on the champion's shorts and watches it vanish under `skip_bot_short`
+  — but **nothing survived correction that is not already explained** by the banked volatility
+  and weak-close mechanisms. `gap_pct` was the one new-looking lead and 78% of it sits inside
+  `vol_skip 90` already. No new knob recommended.
 - ~~Vol-regime filter / vol-conditional exit~~ — RUN 2026-08-17 (campaign above): the
   exit-switch is dead (stop already harvests it); the vol-skip FILTER validated as a
   single (`vol_skip_pct=90`, banked).
