@@ -30,11 +30,10 @@ $cli      = 'C:\Users\xride\AppData\Local\EdgeLog-worktrees\paper\tools\nt_bridg
 $loginPs1 = 'C:\EdgeLog\nt_login.ps1'
 $logPath  = 'C:\EdgeLog\nt_recover.log'
 # The roster this box is supposed to be running.
-# ENGU-Q ADDED 2026-08-17: the old exclusion (ImmediatelySubmit rejecting its sync order
-# outside market hours, proven 2026-08-14) no longer applies -- it now runs WaitUntilFlat
-# on the 24h ETH session (#226 config), so enabling it is safe around the clock. After it
-# reaches Realtime, check /orders: its warm-up replay can leave a REAL orphan stop (EQx)
-# guarding a position that exists only in the replay.
+# ENGU-Q ADDED 2026-08-17: it runs the 24h ETH session (#226 config), so enabling it
+# is safe around the clock. As of 2026-08-18 it REFUSES to open positions on replayed
+# history, so it starts FLAT and in sync instead of inheriting a ghost trade -- which
+# previously either armed a real orphan stop or blocked it from trading for days.
 # EdgeLogORBV2 REMOVED 2026-08-16: it still ran the retired look-ahead-era params
 # while the engine's ORB crown moved to run #230, so its fills measured a dead
 # config. EdgeLogORB230 ADDED 2026-08-17 (owner's call): the honest #230 port,
@@ -95,6 +94,22 @@ if (-not (BridgeUp)) {
 Log "connecting '$connName'..."
 & $py $cli connect --name $connName 2>&1 | ForEach-Object { Log "  [connect] $_" }
 Start-Sleep -Seconds 20
+
+# ── 3b. REAL-MONEY GATE: never auto-enable into an out-of-sync account ─────────────
+# A strategy that starts flat while the ACCOUNT holds a real position leaves that
+# position unmanaged -- no trail, no stop maintenance, nobody watching it. Strategies
+# start flat by design (they refuse to open positions on replayed history), so an open
+# position here means a restart caught a live trade. That is a human-judgment moment:
+# report it loudly and stop rather than quietly enabling into a mismatch.
+$posJson = ""
+try { $posJson = (Invoke-WebRequest -Uri "$bridge/positions" -TimeoutSec 8 -UseBasicParsing).Content } catch {}
+if ($posJson -and $posJson -notmatch '"positions"\s*:\s*\[\s*\]') {
+  Log "STOP: the account is holding a position while strategies are down:"
+  Log "  $posJson"
+  Log "Not enabling anything -- a strategy starting flat would leave this position unmanaged."
+  Log "Decide by hand: flatten it, or enable the strategy knowing it will not manage this trade."
+  exit 3
+}
 
 # ── 4. enable whatever is not already Realtime ─────────────────────────────────────
 foreach ($s in $expected) {

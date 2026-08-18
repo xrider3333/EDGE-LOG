@@ -223,6 +223,21 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
             if (Position.MarketPosition != MarketPosition.Flat || PendingEntry()) return;
 
+            // REAL-MONEY RULE: never OPEN a position on replayed history.
+            // NinjaTrader replays bars through this method at every start, and this
+            // strategy holds across sessions, so the replay routinely ends mid-trade --
+            // leaving it managing a position the account never took. ImmediatelySubmit
+            // then placed REAL protective orders for that ghost (the EQx stop that
+            // re-armed after every cancel, 2026-08-17); WaitUntilFlat merely made it sit
+            // out instead -- live on the board, unable to trade, potentially for days.
+            // Every rolling computation above still runs on every historical bar, so the
+            // ATR ring, EMA, volume average and swing low are fully warmed. Only the
+            // ENTRY is withheld until the strategy is genuinely live: it goes real-time
+            // FLAT and in sync with the account, and takes the first REAL signal.
+            // Management above is deliberately NOT gated -- a genuine live position must
+            // still be trailed and stopped after a restart.
+            if (State != State.Realtime) return;
+
             if (CurrentBar < TlLen + 1) return;
 
             // ── entry signal (all conditions on the just-closed bar) ─────────────
