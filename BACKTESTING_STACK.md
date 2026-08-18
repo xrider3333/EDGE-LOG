@@ -1144,6 +1144,40 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-18** — **Round 8 (continued variant hunt): 4 more batteries, all FAILED — but the robustness
+  check on #235/#226 came back GOOD, and the runaway-hold flaw is now confirmed cross-instrument.**
+  • **Risk-cap variant (ENGUQ_1M_RC_1_0, 9859dcf) — FAILED.** Capping initial risk at k×ATR does shorten
+    worst holds (144d→5d baseline, 354d→14d ALT) but destroys the edge: trade count explodes 5-15x on
+    noise and net goes $453,532 → **−$75,905** at the tightest cap; no cap level improved maxDD ≥10%
+    while holding net within −10%. **This closes the "tighten risk" family for good — 12 attempts
+    (global sizing, rolling sizing, retest entries, 5 risk caps, trail tightening) all fail the same
+    way. ENGU-Q's profit LIVES in the wide stop; the wide stop and the occasional monster hold are the
+    same feature.**
+  • **Short mirror on 24h (ENGUDQ_1M_ETH_1_0, built, NOT pushed) — FAILED.** Frozen clock-scaled short:
+    n=5019, net **−$259,842**, PF 0.873, profitable in only 2 of 17 years. It DOES earn +$70,698 in
+    2022 (exactly where the long loses −$48,311) so the hedge mechanism is real, but it bleeds the
+    other 15 years. Standalone bars all fail. (No blend math — owner ruled blends out mid-round.)
+  • **Exit-width grid on the certified 24h config (20 cells, trail_frac × act_R) — FAILED.** No cell
+    beat the frozen setting. Raw net rises with width (to $484k at trail 4.0) but DD doubles and holds
+    stretch to 196d, so net/DD falls monotonically past 2.5; 12/20 cells disqualified by the 120-day
+    stuck guard. **act_R is INERT on this config** — identical results across all four values in 16/20
+    cells; one less knob to ever tune.
+  • **ES transfer of the certified 24h config — FAILED (clean negative).** n=2741, net $187,695,
+    PF 1.232, LB PF 2.283 — it CLEARS the PF bars the day-session ES transfer failed, so the 24h habitat
+    genuinely helps ES too. But it is disqualified: one **349-day** trade (entered 2025-04-07, the same
+    trap date as NQ #198/#223/#232), only 25 LB trades, and 2026 alone = 59.8% of net. **The runaway-hold
+    flaw is therefore structural and cross-instrument, not an NQ quirk.** First agent run of this test
+    was INVALID (truncated the window at a trivial 2-trading-day 2014 gap → only 4 years, zero LB
+    trades); re-run on the correct full window by the supervisor and independently confirmed.
+  • **ROBUSTNESS RE-CHECK ON #235/#226 — GOOD NEWS, corrects the grid agent's read.** The grid agent
+    called the frozen config a fragile "spike". A finer sweep (trail 2.1→3.0 in 0.1 steps) shows that is
+    wrong on the downside: net/DD moves gently 7.78 → 9.26 across 2.1-2.5 (a shoulder), and the cliff
+    only begins past 2.6 where the known runaway-hold mechanism kicks in (net/DD 8.26 → 5.19, holds
+    142-147d). **The certified config sits on a stable shoulder, not a knife edge.** Trail 2.3 scored
+    nominally better (net $461,874 / DD $49,899 / net/DD 9.26 vs 2.5's $434,721 / $50,420 / 8.62) but
+    the gap is ~6% net on a 16-year sample with near-identical DD = within noise, and it was selected by
+    looking at the whole history including the lockbox. **Treated as plateau evidence FOR 2.5, not as a
+    new candidate. #235 stands unchanged as the deployable variant.**
 - **2026-08-17** — **ENGUQ ETH NBO CERTIFIED (run #235, PASS 5/5 + continuous-clean) — the deployable
   ENGU-Q. Blend swap: net/DD 13.95 → 16.98 with a 22% shallower drawdown, 17-for-17 intact.**
   • **#235 (ENGUQ_1M_ETH_NBO_1_0, 24h tape + next-bar-open entry, pinned, window ≤2026-06-30):**
