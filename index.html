@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.123';
+const VERSION='73.124';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -466,6 +466,8 @@ window._dataFeedWarn=function(){
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
 {v:'73.123',date:'2026-08-18',notes:['ORB IS BACK ON THE BOARD, and it is live again in NinjaTrader. The old ORB strategy there was DELETED yesterday - it still ran the retired pre-#230 settings, so its fills measured a config nothing else uses. A real port of run #230 replaced it and went live this morning on NQ 5-minute: close-confirmed entry, partial at 3R, trailed runner, the same settings this leg computes. Hovering its badge says so.','ORB was archived when it was the dead one. That reason is gone, so both ORB rows return to the strip, the curve and the tables. Nothing was ever lost - the runner computed them nightly the whole time - and you can re-archive them any time.','Honest caveat kept in the hover: the new port has never traded beside its backtest, so its first fills still owe a comparison against the engine.']},
+{v:'73.124',date:'2026-08-18',notes:['RUNBOARD BOOKS rebuilt on LEGAL legs only: champion row = the live-honest baseline (legal ORB #234 + the certified ETH leg #226 - the two paper legs). RTH-leg book rows carry a new RTH-stop warning chip (run #227 measured a real 24h stop costing ~$178k vs those numbers). The 3-leg 1:1:1 stack is marked dead: more net, worse MAR - it doubles the NQ-trend factor instead of diversifying. Old leaky-ORB rows retired.','Every row parity-gated to its certified anchor to the dollar; window 2010-06-07 to 2026-08-13, LB = the #234 lockbox year. Rebuild: tools/t7_legal_book.py + t7c_board_json.py.']},
+{v:'73.122',date:'2026-08-18',notes:['ORB IS BACK ON THE BOARD, and it is live again in NinjaTrader. The old ORB strategy there was DELETED yesterday - it still ran the retired pre-#230 settings, so its fills measured a config nothing else uses. A real port of run #230 replaced it and went live this morning on NQ 5-minute: close-confirmed entry, partial at 3R, trailed runner, the same settings this leg computes. Hovering its badge says so.','ORB was archived when it was the dead one. That reason is gone, so both ORB rows return to the strip, the curve and the tables. Nothing was ever lost - the runner computed them nightly the whole time - and you can re-archive them any time.','Honest caveat kept in the hover: the new port has never traded beside its backtest, so its first fills still owe a comparison against the engine.']},
 {v:'73.114',date:'2026-08-16',notes:['1E MATRIX scope audit round two - every displayed cell on all four tabs was re-computed independently from two real run docs (231 and 225) for all seven SAMPLE tick combinations, 4,276 checks per run. Three leaks found and fixed.','THE SCATTER DOTS: a RAW dot drawdown was pinned to the whole optimize window while its profit half followed the SAMPLE tick - the dot could sit at a drawdown no ticked view shows. Dots now read the exact same scoped drawdown the DD row prints, and a tick the run cannot honour drops the dot instead of guessing.','RANK BY NET $ and MAR FLOOR on the RAW tab sorted the columns on whole-run dollars and the pinned MAR while the yellow highlight pointed at the scoped TOTAL and MAR rows - the sort key and the highlighted row were two different windows. They now sort on exactly what those rows display.','The GATE DD hover said measured over the undefined slice whenever more than one stretch was ticked. It now names the ticked stretches.','The audit itself ships as a repeatable gate: tools/matrix_scope_audit.py renders the real tabs headlessly against any saved run doc and fails on any cell that does not match its own recomputation.']},
 {v:'73.103',date:'2026-08-17',notes:['FIX to the badge shipped moments ago: hovering a NOISE row said NinjaTrader trades ORB instead, which is nonsense. Two legs that both lack a comparison partner were being treated as relatives of each other. Rows are now grouped by family properly, so each engine-only leg names the right sibling.']},
 {v:'73.95',date:'2026-08-17',notes:['FIX, and this one was showing you a wrong number rather than an ugly one: clicking TODAY never changed the money. The TODAY / ALL TIME tabs only ever switched the small cross-engine block at the bottom of each tile, so the big dollar figure stayed all-time under a TODAY label. TODAY now really means today - filtered on the NEW YORK date, because at half past ten at night in Arizona it is already tomorrow in the market - and the strip prints the date it is showing so there is no guessing.','ORB is ARCHIVED. Both ORB rows are out of the strip, the curve and the tables, but nothing was deleted: the runner still computes them every night and every trade is kept. A SHOW ARCHIVED button on the LEGS row brings the full history back whenever you want it.','The ENGINE badge now names the leg NinjaTrader trades INSTEAD. Three NOISE rows share one NinjaTrader strategy, so a bare ENGINE tag raised exactly the question it was supposed to answer. Hovering any engine-only leg now says which sibling is live.']},
@@ -16582,22 +16584,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    SAMPLE flips every column between FULL / IS / LB; RANK BY re-sorts.
       /* RUNBOARD DATA — regenerate with: python tools/t5_runboard.py (paste rows) */
       const RB_BOOKS=[
-        {st:'BLEND',vr:'baseline (current book)',md:'ORB 3.1 + ENGU-Q 1m',wf:'8/8',v:'champion',la:true,
-         full:{net:838161,pf:1.477,dd:60098,mar:13.95,n:6112},is:{net:654771,pf:1.432,dd:45849,mar:14.28,n:5777},lb:{net:183390,pf:1.765,dd:60098,mar:3.05,n:335}},
-        {st:'BLEND',vr:'scaled-out exits 4.0R / trail 12',md:'ORB 3.0 scaled out + ENGU-Q 1m',wf:'8/8',v:'dead',la:true,
-         full:{net:963708,pf:1.492,dd:62806,mar:15.34,n:5999},is:{net:766178,pf:1.453,dd:39483,mar:19.41,n:5672},lb:{net:197530,pf:1.741,dd:62806,mar:3.15,n:327}},
-        {st:'BLEND',vr:'scaled-out exits 4.5R / trail 5',md:'ORB 3.0 scaled out + ENGU-Q 1m',wf:'8/8',v:'candidate',la:true,
-         full:{net:942620,pf:1.488,dd:58463,mar:16.12,n:5999},is:{net:746047,pf:1.447,dd:38498,mar:19.38,n:5672},lb:{net:196573,pf:1.745,dd:58463,mar:3.36,n:327}},
-        {st:'BLEND',vr:'overlay sizing (risk x time x side)',md:'ORB 3.1 sized + ENGU-Q 1m',wf:'8/8',v:'candidate',la:true,
-         full:{net:1109574,pf:1.71,dd:58648,mar:18.92,n:6112},is:{net:887909,pf:1.654,dd:50481,mar:17.59,n:5777},lb:{net:221665,pf:2.076,dd:58648,mar:3.78,n:335}},
-        {st:'ENGU-Q ETH',vr:'frozen clock-scaled (single leg)',md:'ENGU-Q 1m on the 24h session',wf:'8/8',v:'candidate',
-         full:{net:434721,pf:1.332,dd:50420,mar:8.62,n:2843},is:{net:305098,pf:1.275,dd:50420,mar:6.05,n:2654},lb:{net:129623,pf:1.648,dd:34671,mar:3.74,n:189}}
+        {st:'BLEND',vr:'LIVE-HONEST baseline: legal ORB #234 + ENGU-Q ETH #226',md:'ORB 3.6 C2 + ENGU-Q ETH (both certified; the two paper legs)',wf:'7/8',v:'champion',
+         full:{net:810582,pf:1.313,dd:71773,mar:11.29,n:5459},is:{net:646128,pf:1.296,dd:71773,mar:9.00,n:5087},lb:{net:164454,pf:1.409,dd:32621,mar:5.04,n:372}},
+        {st:'BLEND',vr:'legal ORB #234 + ENGU-Q RTH #149',md:'ORB 3.6 C2 + ENGU-Q 1m RTH',wf:'8/8',v:'candidate',rs:true,
+         full:{net:843388,pf:1.343,dd:58171,mar:14.50,n:4670},is:{net:649186,pf:1.311,dd:58171,mar:11.16,n:4392},lb:{net:194202,pf:1.524,dd:52410,mar:3.71,n:278}},
+        {st:'BLEND',vr:'3-leg 1:1:1 (+ ETH on top of RTH)',md:'C2 + ENGU-Q RTH + ENGU-Q ETH',wf:'8/8',v:'dead',rs:true,
+         full:{net:1264095,pf:1.335,dd:103148,mar:12.26,n:7522},is:{net:994382,pf:1.311,dd:103148,mar:9.64,n:7050},lb:{net:269713,pf:1.468,dd:74126,mar:3.64,n:472}},
+        {st:'ENGU-Q ETH',vr:'single leg (validated #226, paper-forward LIVE)',md:'ENGU-Q 1m on the 24h session, frozen clock-scaled',wf:'8/8 (to 06-30)',v:'candidate',
+         full:{net:420708,pf:1.320,dd:50420,mar:8.34,n:2852},is:{net:345196,pf:1.311,dd:50420,mar:6.85,n:2658},lb:{net:75512,pf:1.367,dd:37659,mar:2.01,n:194}}
       ];
-      // v-fillfix: BOOKS rows that pool an ORB leg inherit the documented ORB look-ahead bug (the
-      //   opening-range fill is scored on that same bars FINISHED volume, which is not knowable at
-      //   fill time) — about nine tenths of the ORB edge traces to this leak, so any net dollar
-      //   figure above that includes an ORB leg is inflated versus what could have been traded live.
-      //   Flagged via the la:true field on each row above, never by string-matching the label here.
+      // 2026-08-18 round 15: rows rebuilt on LEGAL legs only (window 2010-06-07 -> 2026-08-13,
+      //   LB = the #234 lockbox year 2025-08-13 -> 2026-08-13; tools/t7_legal_book.py + t7c, all
+      //   legs parity-gated to their certified anchors to the dollar). Old leaky-ORB rows retired
+      //   (history: ORB.md + git). ETH standalone reads lower than its certified June-window
+      //   numbers ($434.7k / MAR 8.62 / LB $98.5k) because the common window adds a negative
+      //   ~6-week tail (Jul-Aug 2026) -- stated, not hidden.
+      const RB_RTH_TIP='This book pools the ENGU-Q RTH leg, whose backtest manages its stop only during the day session -- run 227 measured a real 24h stop costing about $178,340 versus these numbers. The certified deployment variant is the ETH leg (run 226). Treat this row as an upper bound, not a tradeable book.';
+      // (retired la:true rows removed 2026-08-18; RB_ORB_LA_TIP kept for the renderer)
       const RB_ORB_LA_TIP='This book pools the ORB leg, and ORB fills on a bar using that same bars FINISHED volume, which a live trader could not have known yet. Most of the ORB edge traces to that gap. This net dollar figure is not something a live account could have achieved, so this book baseline is under review.';
       // v71.22 (owner ask): the RUNBOARD is no longer its own flat table — it flows through the
       //   SAME pipeline as PICK RUNS / BY STRATEGY, so it gets the 1A-style equity FUNNEL (the
@@ -17340,8 +17343,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           .map((h,i)=>'<th style="text-align:'+(i<3||i===9?'left':'right')+';font-size:8px;letter-spacing:1.2px;color:var(--text5);font-weight:700;padding:7px 9px;border-bottom:1px solid var(--border);white-space:nowrap">'+h+'</th>').join('')+'</tr>';
         const _rbTr=_rbRows.map((x,i)=>{const b=x.b,s=x.s;const td=(c,al)=>'<td style="text-align:'+(al||'right')+';padding:8px 9px;border-bottom:1px solid var(--border2);white-space:nowrap">'+c+'</td>';
           const _stLa=b.la?'<span title="'+RB_ORB_LA_TIP.replace(/"/g,'&quot;')+'" style="margin-left:6px;font-size:8px;font-weight:600;padding:1px 6px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);opacity:.85;cursor:help">⚠ ORB leg</span>':'';
+          const _stRs=b.rs?'<span title="'+RB_RTH_TIP.replace(/"/g,'&quot;')+'" style="margin-left:6px;font-size:8px;font-weight:600;padding:1px 6px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);opacity:.85;cursor:help">⚠ RTH stop</span>':'';
           return '<tr>'+td('<span style="color:var(--text5)">'+(i+1)+'</span>','left')
-            +td('<b style="color:var(--text)">'+b.st+'</b>'+_stLa+'<div style="font-size:8.5px;color:var(--text5)">'+b.md+'</div>','left')
+            +td('<b style="color:var(--text)">'+b.st+'</b>'+_stLa+_stRs+'<div style="font-size:8.5px;color:var(--text5)">'+b.md+'</div>','left')
             +td('<span style="color:var(--text3);font-size:11px">'+b.vr+'</span>','left')
             +td('<span style="color:'+(s.net>=0?'var(--green)':'var(--red)')+'">'+_rbF(s.net)+'</span>')
             +td(s.pf.toFixed(2))+td(_rbF(s.dd))+td('<b>'+s.mar.toFixed(2)+'</b>')
