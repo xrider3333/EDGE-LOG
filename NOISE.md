@@ -4,7 +4,9 @@
 > "2026-08-17 — variant campaign" section: pre-registered entry-quality filters cleared
 > the bar; knobs shipped in `NOISE_1_0.py`; 12-cell comparison GRID + full re-validate + first NOISE BOOK job queued;
 > the "Campaign results table" subsection carries every config with IS/WF/LB dollar
-> splits + drawdown, regenerable via tools/noise_campaign_table.py).
+> splits + drawdown, regenerable via tools/noise_campaign_table.py; the "PnL attribution"
+> and "ES-transfer comparison" subsections explain WHAT DROVE each variant trade-by-trade
+> and rank the ES sibling, regenerable via tools/noise_attribution.py).
 > Written to hand off to a parallel NOISE session. Everything here is read straight from
 > the Firestore run doc for **auto-validate run #225 (NOISE-6)** — no re-derivation, no
 > estimates. Field paths are given so anything below can be re-checked in one query.
@@ -348,6 +350,271 @@ round log above, restated so the two views can be told apart at a glance:
    config and identical windows, yet 5,616 vs 5,633 total trades and LB $23,146 vs $36,285.
    The harness reproduces #231, not #225, so #231 is the current-data truth and #225's row is
    kept only as a historical reference.
+
+### PnL attribution — WHAT DROVE each variant, trade by trade
+
+> Built 2026-08-17 by `tools/noise_attribution.py` (committed the same day). Regenerate:
+> `python tools/noise_attribution.py` (add `--check` for the gates only, `--json out.json`
+> for the raw numbers). Same PINNED source as the table above: db_noadj_rth · NQ 5m RTH ·
+> cost 0.533 pts · multiplier 20. It refuses to print anything unless **16/16 rows of the
+> campaign table above reproduce to the dollar** (they do) **and** every variant's
+> decomposition ties back to its own net delta (it does).
+
+**How to read the decomposition.** Each variant's trade list is diffed against the #231
+champion's, trade by trade, and the net delta is split three ways:
+
+- **REMOVED** — a champion trade the variant never enters.
+- **ADDED** — a variant trade the champion never enters. These are real: blocking an entry
+  leaves the strategy FLAT, so a later signal in the same session that the champion slept
+  through (it was already in a position) now gets taken. **A pure-veto filter is not purely
+  subtractive**, which is why "PnL of the removed trades" only *approximately* equals the
+  delta for the veto filters and not at all for `confirm_bars`.
+- **ALTERED** — same entry, different exit. **Zero for every variant here** — these are all
+  entry filters and none of them touches an exit.
+
+`−removed + added + altered = net delta` holds exactly (to the dollar) on all 8 variants ×
+both windows. That is the tie-back gate.
+
+**Two mechanisms, never compare them as if they were one:**
+
+- **VETO** (`daytype_mode`, `vol_skip_pct`) — the trade is cut and never comes back. Removed
+  ≈ the whole story.
+- **DELAY** (`confirm_bars`) — the same session signal fires N bars later at a worse price,
+  so nearly every trade shows up as one REMOVED plus one ADDED. On the selection window
+  `confirm_bars=2` removes 3,783 and adds back 2,680. Reading its "removed PnL" as the
+  driver would be flatly wrong.
+
+#### Attribution — SELECTION window 2010-06-07 → 2025-02-10 (pre-lockbox; where the bar was set)
+
+| Variant | trades | net $ | PF | MAR | Δ net $ | Δ long $ | Δ short $ | removed (L/S) | avg of removed | mech | **what drove it** |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| #231 champion (baseline) | 5,113 | 277,123 | 1.24 | 14.22 | — | — | — | — | — | — | — |
+| `skip_bot_short` | 4,748 | 320,530 | 1.31 | 17.27 | **+43,407** | +587 | **+42,820** | 366 (2/364) | −$120 | veto | cuts 364 shorts that averaged −$118 each, only 30% of them winners; **98.6% of the gain is the short side**, spread over 13 up-years |
+| `skip_bot_short` + `vol_skip 90` | 4,054 | 320,130 | 1.42 | 17.38 | +43,007 | +27,559 | +15,448 | 1,059 (535/524) | −$41 | veto | two vetoes overlapping on the same bad days — adds nothing to `skip_bot_short` alone (−$400) |
+| `vol_skip 98` | 4,868 | 309,055 | 1.30 | 16.12 | +31,932 | +13,907 | +18,026 | 245 (172/73) | −$130 | veto | sits out 245 post-top-2%-vol trades; 83% of the gain is its 10 worst avoided trades |
+| **`confirm2` + `skip_bot_short` (D3 WINNER)** | 4,010 | **332,699** | 1.40 | **23.64** | **+55,576** | +20,773 | +34,803 | 3,783 rm / 2,680 add | n/a (delay) | delay+veto | the short-side veto (+$34.8k) plus a 2-bar entry delay that fires late but cheaper; **best DD of the set, −$5,406** |
+| `vol_skip 95` | 4,697 | 302,963 | 1.31 | 15.80 | +25,839 | +18,890 | +6,950 | 416 (279/137) | −$62 | veto | 10 avoided trades ARE the whole gain (103%) — ex those 10 it is −$898 |
+| `vol_skip 90` | 4,309 | 310,690 | 1.37 | 16.32 | +33,566 | +27,559 | +6,008 | 804 (535/269) | −$42 | veto | 86% from 10 trades, 55% from 2024 alone; only 7 up-years vs 8 down-years |
+| `skip_top_long` (DEAD) | 4,091 | 226,473 | 1.24 | 9.58 | **−50,651** | −50,651 | 0 | 1,022 (1,022/0) | **+$50** | veto | throws away 1,022 LONGS that were *profitable* (+$50 each) — it cuts the money side; DD also gets WORSE (+$4,165) |
+| `confirm_bars 2` alone | 4,309 | 299,099 | 1.32 | 16.45 | +21,976 | +20,773 | +1,203 | 3,704 rm / 2,900 add | n/a (delay) | delay | a pure delay: it re-enters 2,900 of the 3,704 it skipped, 2 bars later; the +$22.0k is what the late entries saved on the days that reversed |
+
+#### Attribution — FULL window 2010-06-07 → 2026-08-12 (includes the SPENT lockbox)
+
+| Variant | trades | net $ | PF | MAR | Δ net $ | Δ long $ | Δ short $ | removed | **what changed vs the selection window** |
+|---|---|---|---|---|---|---|---|---|---|
+| #231 champion | 5,633 | 335,981 | 1.22 | 10.25 | — | — | — | — | — |
+| `skip_bot_short` | 5,214 | 388,181 | 1.29 | 12.45 | **+52,200** | +587 | **+51,613** | 420 (2/418) | **HOLDS and grows** — 418 shorts at −$123 avg, +14 up-years vs 3 down |
+| `skip_bot_short` + `vol_skip 90` | 4,429 | 380,745 | 1.39 | 17.23 | +44,764 | +12,912 | +31,852 | 1,204 | holds; 92% of it is 10 trades |
+| `vol_skip 98` | 5,347 | 384,690 | 1.29 | 17.22 | +48,709 | +12,352 | +36,357 | 286 | grows, but 2026 alone is +$17,912 of it |
+| **`confirm2` + `skip_bot_short` (D3)** | 4,418 | 367,959 | 1.32 | 9.75 | +31,978 | +9,658 | +22,321 | 4,164 rm / 2,949 add | **shrinks by $23.6k** — the 2025 give-back; DD goes the WRONG way (+$4,935) |
+| `vol_skip 95` | 5,159 | 375,262 | 1.30 | 13.00 | +39,281 | +10,469 | +28,812 | 474 | grows; still 96% from 10 trades |
+| `vol_skip 90` | 4,732 | 372,285 | 1.35 | 15.71 | +36,304 | +12,912 | +23,392 | 901 | grows; 111% from 10 trades |
+| `skip_top_long` (DEAD) | 4,527 | 280,710 | 1.22 | 8.05 | −55,271 | −55,271 | 0 | 1,106 | worse still |
+| `confirm_bars 2` alone | 4,762 | 320,914 | 1.25 | **7.26** | **−15,067** | +9,658 | −24,724 | 4,072 rm / 3,201 add | **flips NEGATIVE** — 2025 alone is −$35,487 |
+
+#### Δ by year ($) — selection window, then the two lockbox years
+
+| Variant | 2010 | 2011 | 2012 | 2013 | 2014 | 2015 | 2016 | 2017 | 2018 | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| BASELINE net | −2,278 | 1,719 | −433 | −53 | 6,264 | 4,671 | −150 | 1,784 | 40,068 | 3,393 | 29,052 | 35,060 | 66,447 | 29,487 | 56,349 | 29,152 | 35,449 |
+| `skip_bot_short` | +344 | +3,330 | +780 | +196 | +2,478 | −911 | +2,305 | −277 | +3,579 | +855 | +9,536 | +8,234 | +9,558 | +11,060 | −11,018 | +11,550 | +599 |
+| `skip_bot_short`+`vs90` | +344 | −1,537 | +1,016 | −1,019 | +658 | +798 | +8,572 | −1,052 | −10,798 | −1,655 | +2,879 | +3,159 | +18,595 | +14,150 | +6,175 | +4,379 | +102 |
+| `vol_skip 98` | 0 | −935 | +138 | +295 | +652 | +3,777 | +2,205 | +904 | +11,767 | 0 | +5,861 | +572 | +589 | 0 | +6,108 | −1,135 | +17,912 |
+| **D3 WINNER** | +696 | +2,108 | +2,009 | +1,346 | +1,272 | −2,821 | +5,802 | +325 | +4,529 | +8,532 | +5,473 | +348 | +17,306 | +11,554 | −2,485 | **−20,771** | −3,245 |
+| `vol_skip 95` | 0 | −1,857 | +256 | −461 | +1,267 | +1,068 | +5,008 | −436 | +143 | 0 | +1,883 | −2,093 | +9,672 | 0 | +11,390 | +5,455 | +7,987 |
+| `vol_skip 90` | 0 | −2,777 | +236 | −878 | −1,259 | +2,667 | +9,506 | −1,052 | −11,429 | −1,946 | +1,092 | −2,071 | +17,903 | +5,605 | +18,602 | +2,603 | −497 |
+| `skip_top_long` (DEAD) | +1,213 | −564 | +1,022 | +63 | −2,148 | +4,406 | +572 | +919 | −3,636 | −5,860 | +11,714 | **−20,464** | **−19,156** | +1,480 | **−21,216** | +8,276 | −11,893 |
+| `confirm_bars 2` (DEAD) | +153 | −848 | +1,130 | +820 | −1,618 | −3,281 | +3,794 | +858 | +3,627 | +10,212 | −8,057 | −5,606 | +12,266 | +2,584 | +9,380 | **−35,487** | −4,994 |
+
+Dominant years, in one line each:
+
+- **`skip_bot_short`** — no single year carries it: 2023 (+11.1k), 2025 (+11.6k), 2020 (+9.5k),
+  2022 (+9.6k), 2021 (+8.2k), against one bad year 2024 (−11.0k). **Positive in 14 of 17 years.**
+- **`vol_skip` family** — 2024 and 2022 (and 2026 for the 98 threshold). 2018–2019 are
+  *negative* for the 90/95 thresholds: the filter sits out days that were good.
+- **D3 winner** — 2022 (+17.3k) and 2023 (+11.6k) pre-lockbox; then **2025 −20.8k**.
+- **`skip_top_long`** — kills 2021 (−20.5k), 2022 (−19.2k), 2024 (−21.2k): every big long year.
+- **`confirm_bars 2`** — 2019 and 2022 pre-lockbox; **2025 −35.5k** wipes all of it out.
+
+#### Drawdown attribution
+
+**The champion's worst stretch, selection window: 2022-01-13 → 2022-01-28** (the January 2022
+top), 20 trades, −$14,638, MaxDD $19,482. What each variant did across those exact dates:
+
+| Variant | own MaxDD $ | Δ DD $ | PnL across the champion's worst stretch | trades it removed inside it |
+|---|---|---|---|---|
+| `skip_bot_short` | 18,560 | −922 | −10,308 | 7 (worth −$4,330) |
+| `skip_bot_short`+`vs90` | 18,425 | −1,058 | **+4,384** | 18 (worth −$19,022) |
+| `vol_skip 98` | 19,176 | −306 | −7,651 | 6 (−$6,987) |
+| **D3 WINNER** | **14,076** | **−5,406** | −11,202 | 18 (−$13,877) |
+| `vol_skip 95` | 19,176 | −306 | −2,768 | 11 (−$11,870) |
+| `vol_skip 90` | 19,041 | −441 | **+4,384** | 18 (−$19,022) |
+| `skip_top_long` | 23,647 | **+4,165** | −14,638 | 0 |
+| `confirm_bars 2` | 18,180 | −1,302 | −15,306 | 18 (−$13,877) |
+
+- **Yes, the DD improvement is a specific stretch.** The `vol_skip` filters turn January 2022
+  from −$14.6k into **+$4.4k** by sitting out 18 trades — but their MaxDD barely moves
+  (−$306 to −$441), because their own worst stretch is a *different* one (Aug 2023 → Dec 2023).
+  Fixing one drawdown does not fix the deepest one.
+- **D3 is the only variant that improves the deepest drawdown itself** (−$5,406, DD $14,076),
+  and it does it inside that same January-2022 window.
+
+**On the FULL window the picture inverts, and this is the single most important finding in
+this subsection.** The champion's worst stretch becomes **2026-06-09 → 2026-07-27** (−$27,340,
+DD $32,794). There:
+
+| Variant | own MaxDD $ | Δ DD $ | own worst stretch | variant $ across it | baseline $ across the same dates |
+|---|---|---|---|---|---|
+| `skip_bot_short` | 31,191 | −1,603 | 2026-06-09 → 2026-07-24 | −25,737 | −25,284 |
+| `skip_bot_short`+`vs90` | 22,096 | **−10,698** | 2026-06-16 → 2026-07-29 | −16,136 | −18,313 |
+| `vol_skip 98` | 22,334 | −10,460 | 2026-06-16 → 2026-07-27 | −16,374 | −18,496 |
+| **D3 WINNER** | **37,729** | **+4,935** | **2025-03-03 → 2025-04-09** | **−33,755** | −23,654 |
+| `vol_skip 95` | 28,873 | −3,921 | 2026-06-16 → 2026-07-27 | −22,914 | −18,496 |
+| `vol_skip 90` | 23,698 | −9,096 | 2026-06-16 → 2026-07-29 | −17,739 | −18,313 |
+| `skip_top_long` | 34,882 | +2,088 | 2026-06-09 → 2026-07-27 | −29,428 | −27,340 |
+| **`confirm_bars 2`** | **44,189** | **+11,395** | **2025-03-03 → 2025-04-09** | **−40,214** | −23,654 |
+
+**Why `confirm_bars 2` alone owns the worst drawdown in the whole grid ($44,189) on FEWER
+trades — answered.** Its entire extra drawdown is one stretch, **2025-03-03 → 2025-04-09**
+(the spring-2025 selloff), where it loses **−$40,214** against the champion's −$23,654 over
+the same dates — a $16.6k *self-inflicted* hole in a window the champion handled better. The
+mechanism is exactly the knob's definition: waiting for a second confirming close means
+entering one bar later, and one bar is worth the most precisely on the largest-range days.
+On fast expansion days the delay hands back the best part of the move and then pays the same
+bandwidth stop. Fewer trades, but each one entered at a worse price on the days that matter
+most. **D3 inherits this** — its full-window DD ($37,729) also comes from that same
+March–April 2025 stretch, not from anything the `skip_bot_short` leg does.
+
+#### Incremental view — what each combo adds ON TOP of its own components
+
+| Combo | measured against | Δ net $ (selection) | Δ net $ (full) | dominant years (full) |
+|---|---|---|---|---|
+| D3 (`confirm2`+`skip_bot_short`) | `confirm_bars 2` alone | **+33,600** | **+47,045** | 2025 +14.7k, 2020 +13.5k |
+| D3 (`confirm2`+`skip_bot_short`) | `skip_bot_short` alone | +12,169 | **−20,221** | **2025 −32.3k** |
+| `skip_bot_short`+`vs90` | `vol_skip 90` alone | +9,441 | +8,460 | 2024 −12.4k, 2023 +8.5k |
+| `skip_bot_short`+`vs90` | `skip_bot_short` alone | **−400** | **−7,436** | 2024 +17.2k, 2018 −14.4k |
+
+Read that top-to-bottom: **`skip_bot_short` is the load-bearing half of the winner, and the
+`confirm_bars` half only ever added value inside the selection window.** Out of sample the
+`confirm_bars` leg *subtracts* $20.2k. And `vol_skip 90` adds nothing to `skip_bot_short`
+on either window (−$400 / −$7,436) — the two filters veto the same days, exactly as the
+Occam combo rule concluded from the headline numbers alone.
+
+#### Concentration — broad effect, or a handful of trades?
+
+| Variant | Δ net $ | best single year | its share | 10 worst removed trades | their share | **Δ excluding those 10** | years +/− |
+|---|---|---|---|---|---|---|---|
+| `skip_bot_short` | +43,407 | 2023 +11,060 | 25% | +24,071 | 55% | **+19,335** | 13 / 3 |
+| `skip_bot_short`+`vs90` | +43,007 | 2022 +18,595 | 43% | +29,697 | 69% | +13,310 | 11 / 5 |
+| `vol_skip 98` | +31,932 | 2018 +11,767 | 37% | +26,452 | 83% | +5,480 | 11 / 1 |
+| **D3 WINNER** | +55,576 | 2022 +17,306 | 31% | +32,364 | 58% | **+23,212** | 13 / 3 |
+| `vol_skip 95` | +25,839 | 2024 +11,390 | 44% | +26,737 | **103%** | **−898** | 8 / 4 |
+| `vol_skip 90` | +33,566 | 2024 +18,602 | 55% | +28,887 | 86% | +4,679 | 7 / 8 |
+| `confirm_bars 2` | +21,976 | 2022 +12,266 | 56% | +32,364 | 147% | −10,389 | 10 / 6 |
+
+(Selection window. Full-window shares are in the same direction and slightly worse for the
+`vol_skip` family — 92%/96%/111% for 90/95/98.)
+
+- **`vol_skip` is FRAGILE.** Strip its 10 luckiest avoidances and `vol_skip 95` is *negative*
+  (−$898), `vol_skip 90` is +$4.7k over 794 remaining trades, `vol_skip 98` +$5.5k over 235.
+  The threshold "trend" is also non-monotonic on the selection window (90: $310.7k, 98:
+  $309.1k, 95: $303.0k) — that is noise, not a dose-response curve. `vol_skip 90` is positive
+  in only **7 years and negative in 8**.
+- **`skip_bot_short` is the broad one.** 55% top-10 share is the lowest of the veto filters,
+  and stripping those 10 still leaves **+$19.3k spread across 356 remaining removed trades**,
+  positive in **13 of 16 years** (14 of 17 on the full window). Its removed population is
+  coherent, not a tail: 364 shorts, 30% win rate vs the strategy's own ~37%, average −$118.
+- **`confirm_bars 2` is worse than fragile** — ex the 10 best avoided trades it is *negative*
+  in-sample too (−$10,389), which is the same conclusion its out-of-sample collapse reaches.
+
+### ES-transfer comparison across the campaign variants
+
+> Independent arbiter, because NOISE's own lockbox is SPENT. Same code path, same knobs, on
+> the **ES 5m RTH no-adj master** (`NOADJ_ES_5m_RTH.csv`, db_noadj_rth, 2010-06-07 →
+> 2026-08-17), costs held at **0.533 pts/trade** — the campaign's own ES-probe convention.
+> Points are the comparable unit; dollars are shown at the **ES multiplier 50** (NQ is 20),
+> so ES $ and NQ $ are NOT directly comparable.
+> **Cross-check: this reproduces the round log's ES probe exactly** — champion 645.0 pts /
+> PF 1.036, D3 1,519.0 pts / PF 1.116.
+>
+> **Two different bars, and they are not interchangeable** (NOISE.md caveat 3): the engine's
+> GENERIC cross-instrument sanity check is PF ≥ 1.0; **NOISE's OWN pre-registered promotion
+> bar is PF ≥ 1.2**, and that is the one cited for promotion.
+
+**Selection window 2010-06-07 → 2025-02-10, ranked by ES PF:**
+
+| Rank | Variant | ES trades | ES net pts | ES net $ (×50) | ES PF | ES MaxDD $ | ES MAR | PF ≥ 1.0 (generic) | PF ≥ 1.2 (NOISE bar) |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | `skip_bot_short` + `vol_skip 90` | 4,134 | 1,451.3 | 72,565 | **1.126** | 21,482 | 3.38 | pass | **FAIL** |
+| 2 | **D3 `confirm2`+`skip_bot_short`** | 4,133 | **1,519.0** | 75,951 | 1.116 | **13,868** | **5.48** | pass | **FAIL** |
+| 3 | `vol_skip 90` | 4,390 | 1,260.5 | 63,027 | 1.100 | 32,210 | 1.96 | pass | FAIL |
+| 4 | `skip_bot_short` | 4,900 | 1,424.4 | 71,222 | 1.093 | 24,217 | 2.94 | pass | FAIL |
+| 5 | `vol_skip 95` | 4,795 | 1,273.4 | 63,669 | 1.090 | 29,793 | 2.14 | pass | FAIL |
+| 6 | `vol_skip 98` | 5,023 | 1,052.2 | 52,608 | 1.068 | 31,138 | 1.69 | pass | FAIL |
+| 7 | `confirm_bars 2` | 4,465 | 894.4 | 44,719 | 1.059 | 23,386 | 1.91 | pass | FAIL |
+| 8 | **#231 champion (baseline)** | 5,312 | 645.0 | 32,250 | 1.036 | 41,480 | 0.78 | pass | FAIL |
+| 9 | `skip_top_long` (DEAD) | 4,393 | 296.2 | 14,809 | 1.020 | 42,325 | 0.35 | pass | FAIL |
+
+**Full window 2010-06-07 → 2026-08-12, ranked by ES PF:**
+
+| Rank | Variant | ES trades | ES net pts | ES net $ (×50) | ES PF | ES MaxDD $ | ES MAR |
+|---|---|---|---|---|---|---|---|
+| 1 | `skip_bot_short` + `vol_skip 90` | 4,522 | 1,630.3 | 81,515 | **1.116** | 21,482 | 3.79 |
+| 2 | D3 `confirm2`+`skip_bot_short` | 4,531 | 1,640.3 | 82,016 | 1.100 | 20,845 | 3.93 |
+| 3 | **`skip_bot_short`** | 5,368 | **1,751.5** | **87,573** | 1.093 | 24,217 | 3.62 |
+| 4 | `vol_skip 90` | 4,812 | 1,311.2 | 65,558 | 1.085 | 32,210 | 2.04 |
+| 5 | `vol_skip 95` | 5,253 | 1,439.3 | 71,967 | 1.083 | 29,793 | 2.42 |
+| 6 | `vol_skip 98` | 5,504 | 1,126.5 | 56,324 | 1.059 | 31,138 | 1.81 |
+| 7 | `confirm_bars 2` | 4,900 | 926.0 | 46,299 | 1.050 | 23,386 | 1.98 |
+| 8 | **#231 champion (baseline)** | 5,823 | 805.6 | 40,281 | 1.037 | 41,480 | 0.97 |
+| 9 | `skip_top_long` (DEAD) | 4,823 | 257.8 | 12,888 | 1.014 | 42,325 | 0.30 |
+
+- **Every filter variant improves ES transfer over the champion, on both windows.** The
+  champion is 8th of 9 — only the DEAD `skip_top_long` is worse. That is genuine independent
+  evidence the filters are not pure NQ curve-fit.
+- **Best ES PF: `skip_bot_short` + `vol_skip 90`** (1.126 / 1.116). **Best ES points:
+  `skip_bot_short` alone on the full window** (1,751.5 pts, +117% over the champion's 805.6)
+  and D3 on the selection window (1,519.0, +136%).
+- **ES drawdown falls too**: the champion's ES MaxDD $41,480 → $13,868 for D3, $21,482 for
+  `skip_bot_short`+`vs90`. ES MAR goes from 0.78 → 5.48.
+- **NOTHING clears NOISE's own PF ≥ 1.2 promotion bar.** Best is 1.126. Every variant clears
+  the engine's generic PF ≥ 1.0 sanity check, but that is not the promotion gate. **NOISE
+  still has never cleared its own ES-transfer requirement** — the campaign moves it from
+  "1.036, barely alive" to "1.126, clearly directional", which is a meaningful shift in the
+  same failing direction, not a pass.
+
+### Robustness read — which variant has the best-EXPLAINED mechanism
+
+1. **`daytype_mode='skip_bot_short'` is the robust one, and it is the only one this
+   attribution actually endorses.** It is a clean veto with a coherent population (364–418
+   shorts, 30% win rate against the strategy's own ~37%, −$120 average), it is positive in
+   **14 of 17 years**, it survives stripping its 10 best avoidances (+$19.3k left over 356
+   trades), it *improves* full-window drawdown (−$1,603) instead of trading one drawdown for
+   another, it grows out of sample (+$43.4k selection → +$52.2k full), it nearly triples ES
+   points (806 → 1,752), and its mechanism is a **program-wide banked pattern** — "shorts
+   fail after weak closes", seen in 4+ families. Nothing about it is a small number of huge
+   days.
+2. **The D3 winner is really `skip_bot_short` plus a fragile passenger.** Measured against
+   its own components, the `confirm_bars 2` leg adds +$12.2k inside the selection window and
+   **−$20.2k outside it**, and it is the sole source of D3's full-window drawdown blow-out
+   (2025-03-03 → 2025-04-09). D3's headline MAR 23.64 is real but window-specific.
+3. **The `vol_skip` family is FRAGILE** — a small number of huge avoided days, not a broad
+   effect. 83–103% of each threshold's improvement is its 10 worst avoided trades;
+   `vol_skip 95` is *negative* without them; `vol_skip 90` is positive in only 7 of 15 years;
+   the thresholds do not order monotonically. It should stay a banked single, never a
+   crowned knob, and it should never be stacked on `skip_bot_short` (adds −$400 / −$7,436).
+4. **`confirm_bars` should be dropped, not just left off.** Ex-top-10 it is negative
+   in-sample, it flips to −$15.1k out of sample, and it owns the grid's worst drawdown by a
+   mechanism that is structural rather than unlucky: a one-bar entry delay costs the most on
+   the largest-range days, which are the days the strategy makes its money on.
+5. **`skip_top_long` explains itself**: it removes 1,022–1,106 LONGS averaging **+$50**, and
+   kills 2021/2022/2024 — the champion's three biggest long years. It is not a filter, it is
+   an amputation of the profitable side.
+
+**Suggested next step (not taken here — no runner jobs were queued):** re-run the
+owner-visible arbiters with `skip_bot_short` ALONE as the candidate, rather than D3. It is
+the leg carrying the mechanism, it is the leg that survives out of sample, and it is the leg
+whose ES transfer improves most in dollars.
 
 ---
 
