@@ -1,11 +1,19 @@
 """
-ENGU-Q 1m ETH - BOTH SIDES (research): the short mirror that was never tested
+ENGU-Q 1m ETH - BOTH SIDES (research): the short mirror, rebuilt and reproduced
 ------------------------------------------------------------------------------
 Every ENGU-Q variant ever run in this project is LONG ONLY (DIRECTION = "LONG" in all of
 them). The setup is a descending trendline fit to HIGHS that price breaks UPWARD while
 above its EMA. Nothing about that logic is inherently one-sided: the exact mirror is an
-ASCENDING trendline fit to LOWS that price breaks DOWNWARD while below its EMA. It has
-simply never been built, so this file builds it.
+ASCENDING trendline fit to LOWS that price breaks DOWNWARD while below its EMA.
+
+PROVENANCE (corrected 2026-08-18): a short mirror WAS built once before, in round 8, as
+`ENGUDQ_1M_ETH_1_0` -- but it was never pushed and the file was lost, leaving only its
+headline numbers in notes. This file was written from scratch without reference to it and
+reproduces those numbers exactly (n=5019 / -$259,843 / PF 0.873 / 2 of 17 years positive,
+against the recorded n=5019 / -$259,842 / PF 0.873 / 2 of 17). An independent reproduction
+is stronger evidence than either run alone. What this file adds beyond that: the bit-exact
+`side='long'` parity anchor, the `side='both'` shared-slot mode, and the interaction with
+the adopted shallow-limit entry.
 
 New param `side`:
   'long'  -> PARITY ANCHOR. Bit-identical to ENGUQ_1M_ETH_1_0.py (the certified #226
@@ -41,7 +49,7 @@ if switched on with shorts enabled rather than silently doing the wrong thing.
 import numpy as np
 
 STRATEGY_NAME = "ENGU-Q 1m ETH - BOTH SIDES (research)"
-DESCRIPTION = ("Adds the never-tested SHORT mirror of the ENGU-Q trendline break (ascending "
+DESCRIPTION = ("Adds the SHORT mirror of the ENGU-Q trendline break (ascending "
                "trendline fit to lows, broken downward below the EMA) to the certified 24h "
                "ETH engine. side='long' is the bit-exact parity anchor; 'both' shares one "
                "position slot between the two directions.")

@@ -1171,10 +1171,30 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
     0.50 clears it 41.8% of the time despite "failing" on the observed path. **Every past
     verdict that turned on net/DD alone deserves re-reading in that light.** Prefer profit
     factor and lockbox behaviour, which are ratios of sums and far more stable.
-  • **SHORT MIRROR DEAD** (`ENGUQ_1M_ETH_SIDE_1_0.py`, f9e187d). Every ENGU-Q variant ever
-    run here has been long-only; nobody had built the mirror. Now built, with side='long' as
-    a bit-exact parity anchor that **PASSES** (n=2843 / $434,721.12), so the short numbers are
-    trustworthy. Short alone: **5,019 trades, -$259,843, PF 0.873, 2 of 17 years positive**
+  • **IS THE PF GAIN ITSELF REAL? STRONG, NOT PROVEN** (battery T, `lim_pf_test.py`, paired
+    block bootstrap on trade-level PnL so gross wins and gross losses stay separate). Limit
+    0.50 beats the control on profit factor in **94.3%** of resamples (mean +0.0687) and on
+    LOCKBOX profit factor in **90.7%** (mean +0.2448) — but both 95% CIs still straddle zero
+    ([-0.0182, +0.1534] and [-0.0790, +0.7339]). Limit 0.20: 93.9% and 75.5%. **State this as
+    strong evidence short of formal significance, never as proven.** The honest reading is
+    that the adoption rests on a consistent, mechanically-explained edge that the sample is
+    not quite large enough to certify at 95%.
+  • **NUANCE that keeps the net/DD finding honest:** for the COARSE comparison (0.50 vs the
+    control) net/DD discriminated about as well as anything — ordering held in 91.4% of
+    resamples vs PF's 94.3%. net/DD's failure is specific: it cannot separate near-identical
+    configs, and its ABSOLUTE 9.50 threshold is close to meaningless. Do not over-generalise
+    the previous bullet into "net/DD is useless".
+  • **SHORT MIRROR DEAD — and INDEPENDENTLY REPRODUCED** (`ENGUQ_1M_ETH_SIDE_1_0.py`,
+    f9e187d). **Correction to this entry as first written:** the mirror was NOT untested. Round
+    8 built `ENGUDQ_1M_ETH_1_0` and never pushed it, so the file was lost to scratchpad
+    volatility and only its numbers survived in notes. This round rebuilt it from scratch
+    without reference to that file and landed on **n=5019 / -$259,843 / PF 0.873 / 2 of 17
+    years** against round 8's recorded **n=5019 / -$259,842 / PF 0.873 / 2 of 17** — an exact
+    independent reproduction, which is worth more than either run alone. What IS new here:
+    a bit-exact `side='long'` parity anchor that **PASSES** (n=2843 / $434,721.12), the
+    `side='both'` shared-slot mode, and the interaction with the adopted limit entry. This is
+    also the second time the promote-research-code-to-repo rule paid for itself in a single
+    project. Short alone: **5,019 trades, -$259,843, PF 0.873, 2 of 17 years positive**
     (with the limit: -$188,172 / PF 0.906 / 3 of 17). It fires nearly twice as often as the
     long side and loses on every axis — a symmetric short of a long-biased pattern on an
     index that drifts up pays the drift twice. BOTH sides is worse than long-only and not
