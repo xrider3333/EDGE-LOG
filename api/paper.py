@@ -55,6 +55,7 @@ PAPER_START = "2026-08-11"
 # Aug-12 trades were produced by a config that was not on the board when they happened.
 LEG_LIVE_FROM = {
     "ENGUQ":     "2026-08-17",   # config swapped RTH #149 -> ETH #226
+    "ENGUQ_L50": "2026-08-18",   # leg added: #226 config + shallow limit 0.50 ATR (#249)
     "NOISE":     "2026-08-11",   # genuinely forward since PAPER_START
     "ORB":       "2026-08-16",   # config swapped #125 -> #230
     "ORB_H":     "2026-08-16",   # gate added
@@ -114,6 +115,32 @@ ENGUQ_149 = dict(_enguq.NQ_DEPLOY_PARAMS_149)
 ENGUQ_226_ETH = dict(ema_len=1380, tl_len=170, atr_len=106, buf_atr=0.9, vol_mult=0.8,
                      stop_mult=1.0, trail_frac=2.5, regime_len=0, min_brk=1.3,
                      breakeven_R=1.5, act_R=2.5)
+
+# ENGU-Q ETH + SHALLOW LIMIT 0.50 ATR -- run #249 (ENGU-Q-27), owner-adopted 2026-08-18.
+#
+# Identical to ENGUQ_226_ETH in every knob; the ONLY difference is limit_atr=0.5, which
+# replaces the signal-bar-close fill with a resting limit 0.5 x ATR below that close,
+# scanned up to 10 bars, gap-honest (a bar that opens through the limit fills at the open,
+# never at an untouchable price), and NO TRADE if it never fills.
+#
+# Why this leg exists: auto-validate #249 returned checks 5/5 with the lockbox HELD and the
+# ML gate agreeing (LOCKBOX HELD). Full window 2,924 trades / $513,008 / PF 1.401 vs the
+# #226 control's 2,843 / $434,721 / PF 1.332. Profit factor is scale-invariant, so a PF that
+# rises with limit depth (1.332 -> 1.358 at 0.20 -> 1.401 at 0.50) is a genuine trade-quality
+# improvement, not leverage. Lockbox PF 1.674 vs 1.493.
+#
+# HONEST CAVEATS, both recorded so the forward test is read correctly:
+#   (a) Entering lower against the SAME swing-low stop widens per-trade risk, so drawdown
+#       scales with profit: net/DD 8.32 vs the control's 8.62. This buys quality, not a
+#       better risk-adjusted ratio, and it FAILS the pre-registered net/DD >= 9.50 bar.
+#   (b) The validate report's lockbox is graded by a warm-start reload that carries no open
+#       position or pending limit across the boundary, so it takes trades the continuous run
+#       had blocked (222 vs 198). Continuous, entry-sliced lockbox is $126,069 / PF 1.674;
+#       the report's more conservative $112,088 / PF 1.554 also passes.
+#
+# A resting limit is also the most executable entry this project has tested -- you place the
+# order and wait, rather than needing a fill at a bar's closing print.
+ENGUQ_LIM50 = dict(ENGUQ_226_ETH, limit_atr=0.5)
 
 # NOISE leg params: the validated config (see NOISE_1_0.py docstring) + the
 # researched bandwidth stop. NOISE is execution-CLEAN (close signal -> next-open
@@ -240,6 +267,23 @@ LEG_SOURCE = {
                   "champion gives back $178,340 once a real 24h stop is priced in. Every "
                   "ENGU-Q paper number before this date was measuring that.",
     },
+    "ENGUQ_L50": {
+        "run": 249, "run_label": "#249 (ENGU-Q ETH LIMIT 0.50)",
+        "strategy_file": "ENGUQ_1M_ETH_LIM50_1_0.py",
+        "picked": "2026-08-18",
+        "note": "The #226 ETH config with a resting limit entry 0.5 x ATR below the signal "
+                "close (10-bar gap-honest fill window, no fill = no trade). Auto-validate "
+                "#249: checks 5/5, lockbox HELD, ML gate LOCKBOX HELD, adversarial mild "
+                "drift PASS. Full window 2,924 trades / $513,008 / PF 1.401; lockbox "
+                "$112,088 / PF 1.554 on the report basis, $126,069 / PF 1.674 continuous.",
+        "caveat": "ADDED alongside the #226 leg, which is deliberately kept as the matched "
+                  "control -- same config, same tape, only the entry differs, so the forward "
+                  "test isolates the limit entry. Two caveats on the numbers: entering lower "
+                  "against the same stop widens risk, so net/DD is 8.32 vs the control's 8.62 "
+                  "and this FAILS the pre-registered net/DD >= 9.50 bar; and the validate's "
+                  "lockbox comes from a warm-start reload that takes trades continuous "
+                  "operation had blocked (222 vs 198), so the report understates it.",
+    },
     # Kept so older daily reports that cite the RTH leg still resolve.
     "ENGUQ_RTH_RETIRED": {
         "run": 149, "run_label": "#149 (ENGU-Q RTH)", "strategy_file": "ENGUQ_1M_1_0.py",
@@ -326,6 +370,13 @@ PAPER_LEGS = [
     {"key": "ENGUQ", "strategy": "ENGUQ_1M_ETH_FROZEN_1_0.py", "instrument": "NQ",
      "timeframe": "1m", "session": "eth", "params": ENGUQ_226_ETH,
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ"]},
+    # ADOPTED 2026-08-18 (owner: "lets go with the .50"). Runs ALONGSIDE the #226 leg above,
+    # not instead of it: that leg is the matched control -- identical config, identical tape,
+    # the entry is the only difference -- so this pair forward-tests the shallow limit itself
+    # rather than just tracking a new number. See LEG_SOURCE["ENGUQ_L50"] for the caveats.
+    {"key": "ENGUQ_L50", "strategy": "ENGUQ_1M_ETH_LIM50_1_0.py", "instrument": "NQ",
+     "timeframe": "1m", "session": "eth", "params": ENGUQ_LIM50,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ_L50"]},
     # RETIRED 2026-08-16 (owner: "remove the old noise raw"). This was NOISE_FROZEN -- the
     # hand-assembled round-12 config that was never crowned by any auto-validate. Three
     # consecutive validates (#202, #225, #231) all landed on the NOISE_225 dict instead, and
