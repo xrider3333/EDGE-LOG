@@ -14,8 +14,25 @@ The board is called **STUDIES**. It is the fourth mode of the **COMPARE** tab, s
 beside PICK RUNS, BY STRATEGY and RUNBOARD. It holds completed research studies so the
 owner can read them on the site instead of scrolling back through chat.
 
-Every study renders as one tile. A tile is a heading, a one-line description, a scatter
-chart, a scrolling table, and a short list of plain-English notes underneath.
+**There is ONE chart.** It sits at the top of the board and it carries every row now shown,
+whatever study the row came from, and a STRATEGY rail above it steps from one strategy family
+to the next. Under it, every study renders as one tile: a heading, a one-line description, a
+scrolling table, and a short list of plain-English notes. **A study tile draws no chart of its
+own.**
+
+This is a deliberate reversal, made on 2026-08-19 in the owner's words: *"this was originally
+supposed to be one scatter plot and it just got blown up with every claude session and their
+respective strategies putting their own scatter plot on it ... the original intent was i could
+go from strategy to the next on the tabs by toggling which one on the top and see whats been
+tested on the backend."* Sixteen studies had grown fourteen charts, which is fourteen sets of
+axes on fourteen scales, so a strategy whose research is spread over five studies could not be
+read as one picture. **Do not add a per-study chart back.** If a study needs a different pair
+of axes from drawdown-against-profit, that is a different board, not a fifteenth chart on this
+one.
+
+Merging them cost nothing, because all fourteen already plotted the same two things: the worst
+drawdown across the bottom and the selected profit stage up the side. A row that lacks either
+figure is left off the chart and named underneath with the same reason its table dash gives.
 
 All of the data lives in one array called `RESEARCH_STUDIES`, near the top of the compare
 section of `index.html`, directly under the RUNBOARD data. **The renderer below that array
@@ -29,6 +46,14 @@ edit the renderer to add data.
 These controls apply to every study on the board at once, and each one changes the chart
 and the table together, so the two can never disagree.
 
+**STRATEGY — ALL, or one family.** This is the rail the board is built around and it sits
+directly under the top row of controls, with the row count beside each name. Picking a strategy
+narrows the chart *and* every table below it together. It writes the **same** strategy-type
+filter the chips further down write, so the rail and the chips are one setting and can never
+disagree: a rail button ticks exactly that one family, and ALL clears the family filter while
+leaving every other filter alone. The buttons are built from the registry, so a family appears
+on the rail the moment a row is tagged with it.
+
 **PROFIT STAGE — in-sample, walk-forward, lockbox, or total.** This picks which stretch of
 history every row is read on. It sets the height of every chart point, it highlights the
 matching money column in every table, and it drives the profit-divided-by-drawdown column.
@@ -36,19 +61,23 @@ A row that genuinely has no figure for the selected stage shows a dash, the dash
 when you hover it, and the row drops off the chart with the omitted-count line updating.
 **A figure from a different stage is never put in its place.**
 
-**VERTICAL AXIS — per study, raw profit, or profit divided by drawdown.** Raw profit plots
-the money itself and its tick labels read as dollars. Profit divided by drawdown plots a
-plain number and its tick labels carry no dollar sign. PER STUDY lets each study keep the
-default it declared. Every study on the board is single strategies on one contract, so they
-all declare raw profit today.
+**VERTICAL AXIS — raw profit, or profit divided by drawdown.** Raw profit plots the money
+itself and its tick labels read as dollars. Profit divided by drawdown plots a plain number and
+its tick labels carry no dollar sign. It opens on raw profit: every row on this board is a
+single strategy on one contract, so the dollars all carry the same margin. (There used to be a
+PER STUDY setting that honoured a `yMode` declared by each study. With one chart it had nothing
+left to mean — a single axis cannot hold two units — so it is gone, along with the `yMode`
+field.)
 
 **ORDER BY — discovered, date ran, or result.** Discovered keeps the registry order, which
 is the order the owner approved. Date ran reads the real finish date out of run history and
 splits the table into a block that was run and a block that never was. Result sorts best
 first on whatever stage and axis are selected.
 
-**Filters — strategy type, verdict, discovered date, run status, status.** These are built from the
-data. The renderer walks every row in the registry, collects the distinct values of each
+**Filters — strategy type, verdict, discovered date, run status, status, study.** These are built
+from the data. STUDY is the one to reach for when a family has five studies behind it and you want
+to read them one at a time on the single chart; it needs no tagging, because it is built from each
+study's own title. The renderer walks every row in the registry, collects the distinct values of each
 tag, and makes a button for each one. A new study that tags its rows gets its buttons for
 free. Filters narrow the chart and the table at the same time, and the board always states
 how many rows are hidden.
@@ -64,8 +93,11 @@ in words which basis is in force and how many of the rows now shown it can actua
   recorded, over whatever window that row happens to cover. It reaches every row. The
   common-window warning underneath still says where the windows disagree.
 - **COMMON WINDOW** is the rigorous option and it costs no re-running. Where a row is backed by a
-  real run with a saved equity curve, the curve is sliced to the stretch the rows on that tile
-  genuinely share, and the profit and the worst drawdown are recomputed on exactly that slice.
+  real run with a saved equity curve, the curve is sliced to the stretch every row **now shown on
+  the board** genuinely shares, and the profit and the worst drawdown are recomputed on exactly
+  that slice. The shared stretch is a board figure, not a per-study one, because the chart and the
+  tables are one board and must be read on one stretch — so picking a single strategy on the rail
+  usually *widens* it, since you stop intersecting families that were never run over the same years.
   Four extra columns appear — COMMON $, COMMON DD, COMMON PF and COMMON ÷DD — and the chart plots
   the sliced figure. **A row that cannot be recomputed shows a dash that says why on hover, never
   its un-sliced figure.** PROFIT STAGE is ignored under this basis and the board says so out loud:
@@ -114,10 +146,11 @@ ranges so the cluster spreads out. **Nothing is hidden by it.** A row pushed out
 still drawn, pinned to the edge it ran off, given a dashed warning ring, and named under the chart
 with the figure it actually holds.
 
-**Chart height — the drag handle under every study chart.** Each chart carries the same slim drag
+**Chart height — the drag handle under the chart.** The chart carries the same slim drag
 bar the run report puts under every one of its charts. Drag it down and the chart grows, drag it up
 and it shrinks, double-click it and the chart returns to the standard height. The size is remembered
-**per study** and persisted like every other view preference here, so it survives a reload. What is
+once (`resChH.board`) and persisted like every other view preference here, so it survives a reload.
+What is
 stored is the chart's drawing height in its own drawing units rather than a pixel count, which is
 why a resized chart still fills the width of its tile at any browser size and why its axis captions,
 tick numbers and legend stay exactly the size they always were — the plot area is the part that
@@ -177,25 +210,31 @@ Each entry in `RESEARCH_STUDIES` is one study.
 | `disc` | yes | The date the study was discovered, written `YYYY-MM-DD`. Any row may override it. |
 | `fam` | yes | The default strategy-type tag for every row, such as `NOISE`, `ORB` or `ENGU-Q`. This is what the STRATEGY TYPE filter is built from. |
 | `isLbl` | yes | The heading for the in-sample money column. Use `IN-SAMPLE` when the study really has a separate walk-forward stage. Use `PRE-LOCKBOX` when that figure is everything before the lockbox pooled together, which is what a pooled book has. |
-| `chart` | no | The scatter chart block, described below. Leave it out and the study renders as a table only. |
 | `dashWhy` | no | An object mapping a field name to the reason its dash shows, for every row in the study. |
 | `win` | no | The default **data window** for every row in the study that has neither a run nor its own `win`. See section 4A. |
 | `rows` | yes | The array of rows. |
 
-### The `chart` block
+### There is no `chart` block any more
 
-| Field | Required | What it is |
-| --- | --- | --- |
-| `x` | yes | The field name driving horizontal position. In every study so far this is `dd`, the worst drawdown. |
-| `xCap` | yes | The horizontal axis caption. It must say which direction is better, for example "Worst drawdown — further LEFT is better". |
-| `yMode` | yes | The study default for the vertical axis: `ratio` or `raw`. |
-| `tip` | no | An array of extra field names named in the hover text of every point. |
-| `xFmt` | no | `money` or `num` for the horizontal ticks. It defaults to money for the money columns and to a plain number otherwise. |
+A study declares no chart at all. **The board owns the one chart and both of its axes**, and a
+study cannot opt out of it, opt into a different one, or declare its own default:
 
-**There is no `y` field and no `yCap` field.** The vertical axis is always the profit stage
-the owner selected, either raw or divided by drawdown, and its caption is written for you.
-That is what makes every study on the board apples to apples: two studies open side by side
-are always being read on the same stretch of history in the same unit.
+- **Horizontal is always `dd`, the worst drawdown**, captioned "Worst drawdown — further LEFT is
+  better". Every study that ever declared a chart declared exactly this, which is why they could
+  be merged without inventing anything.
+- **Vertical is always the profit stage the owner selected**, raw or divided by drawdown, with the
+  caption written for you.
+
+That is what keeps the board apples to apples: two rows on screen are always read on the same
+stretch of history in the same unit. A study needs no chart field to appear on the chart — a row
+plots as soon as it has a drawdown and a figure for the selected stage, and is named under the
+chart with the reason when it does not.
+
+**A note on the in-sample stage.** It is the one figure that does not mean the same thing in
+every study — `isLbl` exists precisely because some studies have no separate walk-forward stage —
+so when rows with different `isLbl` values are plotted together on PROFIT STAGE = IN-SAMPLE, the
+chart says so in a warning underneath and names which study means which. TOTAL and LOCKBOX mean
+the same thing everywhere.
 
 ---
 
@@ -338,6 +377,8 @@ chart so the verdict survives the monochrome theme with no colour at all:
 **Status** reads `live`, described in section 4B. Unlike run status you DO tag this yourself, and
 an untagged row reads as neither crowned nor forward-tested.
 
+**Study** is derived from the study's own `title`. You do not tag it.
+
 ---
 
 ## 6. The rules that keep the board honest
@@ -383,6 +424,25 @@ warning can do their job. Never invent one to fill the column.
 
 ---
 
+## 6A. The render gate
+
+`tools/studies_render_probe.py` renders this board headlessly under a dozen control combinations
+— every strategy, one strategy, each profit stage, each comparison basis, each ordering, the
+value zoom and the time scope — and fails if any of them throws, draws more than one chart, or
+empties the tables. `tools/wt.py ship` runs it whenever `index.html` changed, alongside the boot
+gate. The boot gate only ever proved that the app starts; it never enters a view, and this repo
+has shipped a view that crashed behind a green boot gate.
+
+Run it yourself after touching the registry or the renderer:
+
+    python tools/studies_render_probe.py
+
+It needs no Firebase sign-in, because the registry is static data inside `index.html`. Run
+history therefore reads as empty in the probe, so its counts are a floor: signed in, rows backed
+by real runs pick up their run windows and the COMMON WINDOW basis reaches more of them.
+
+---
+
 ## 7. Worked example — adding one new study
 
 Suppose a new study finished: three volatility-band variants of ORB, discovered on
@@ -394,7 +454,6 @@ Append this to the end of the `RESEARCH_STUDIES` array:
 ```js
 {key:'orbband',title:'ORB volatility-band variants',disc:'2026-09-02',isLbl:'IN-SAMPLE',fam:'ORB',
  sub:'Three volatility-band widths on the standing ORB crown. NQ 5-minute bars, 2010 to 2026.',
- chart:{x:'dd',xCap:'Worst drawdown — further LEFT is better',yMode:'raw',tip:['dd','tot']},
  notes:['The wide band is the only variant that held its lockbox stretch.',
         'Read this study on raw profit. Every row trades one strategy on one contract, so the dollars are comparable.'],
  dashWhy:{trd:'The study recorded money and ratios only, so no trade count exists for this row.'},

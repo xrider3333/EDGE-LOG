@@ -192,6 +192,23 @@ def cmd_ship(name, message):
         if r.returncode == 1:
             raise SystemExit('boot gate FAILED - not pushing')
 
+    # SECOND GATE: the STUDIES board. The boot gate only proves the app STARTS -- it never
+    # enters a view, and this repo has shipped a view that crashed behind a green boot gate
+    # (v64.22). studies_render_probe.py renders COMPARE > STUDIES headlessly under a dozen
+    # control combinations. It only runs when index.html actually changed, so a ship that
+    # touched nothing but docs or tools is not held up by it. INCONCLUSIVE never blocks.
+    touched_index = run(['git', '-C', wt, 'diff', '--name-only', 'origin/main', '--', 'index.html'],
+                        check=False)
+    sp = os.path.join(wt, 'tools', 'studies_render_probe.py')
+    if touched_index.strip() and os.path.isfile(sp):
+        r = subprocess.run([sys.executable, sp], cwd=wt, capture_output=True, text=True,
+                           encoding='utf-8', errors='replace')
+        out = (r.stdout or '') + (r.stderr or '')
+        print(out.strip().splitlines()[-1] if out.strip() else '(studies probe produced no output)')
+        if r.returncode == 1:
+            sys.stderr.write(out)
+            raise SystemExit('studies render gate FAILED - not pushing')
+
     run(['git', '-C', wt, 'push', '-q', 'origin', 'HEAD:main'])
     print('pushed: ' + run(['git', '-C', wt, 'log', '--oneline', '-1']))
 
