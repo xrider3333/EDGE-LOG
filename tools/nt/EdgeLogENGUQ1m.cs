@@ -40,6 +40,7 @@
 using System;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using NinjaTrader.Cbi;
 using NinjaTrader.Data;
 using NinjaTrader.NinjaScript;
@@ -75,6 +76,104 @@ namespace NinjaTrader.NinjaScript.Strategies
         private double limitSwingLow;     // risk anchor, measured at the SIGNAL bar
         private const int LimitScanBars = 10;
 
+        // CARRY A TRADE ACROSS A RESTART. This strategy holds positions across sessions
+        // and the machine is powered down overnight, so a live trade routinely outlives
+        // the process that opened it. The protective stop is GTC and rests at the broker,
+        // so the position is never unprotected. What dies with the process is the
+        // strategy's own memory of the trade: entry price, risk, and where the stop had
+        // trailed to. Without that it cannot resume, which forced an ugly choice between
+        // closing a trade the rules never closed, or leaving one unmanaged. Persisting a
+        // handful of numbers removes the choice.
+        private const string StateFile = @"C:\EdgeLog\enguq_state.json";
+        private bool stateChecked;      // restore is attempted once, on the first live bar
+
+        /// <summary>Persist the open trade so a restart can resume it. Called whenever the
+        /// trade state changes. Never throws.</summary>
+        private void SaveState()
+        {
+            // Replayed bars must never touch the file. The historical pass reconstructs the
+            // trade from scratch and finishes flat, so letting it write would erase the very
+            // trade this exists to remember -- which is exactly what happened on 2026-08-19.
+            if (State != State.Realtime) return;
+            try
+            {
+                var ci = CultureInfo.InvariantCulture;
+                string inst = Instrument != null ? Instrument.FullName : "";
+                string json = "{"
+                    + "\"inPos\":" + (inPos ? "true" : "false")
+                    + ",\"ep\":" + ep.ToString("R", ci)
+                    + ",\"risk\":" + risk.ToString("R", ci)
+                    + ",\"sl\":" + sl.ToString("R", ci)
+                    + ",\"trailActive\":" + (trailActive ? "true" : "false")
+                    + ",\"qty\":" + Qty.ToString(ci)
+                    + ",\"instrument\":\"" + inst + "\""
+                    + ",\"saved_utc\":\"" + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss", ci) + "\""
+                    + "}";
+                System.IO.File.WriteAllText(StateFile, json);
+            }
+            catch { }
+        }
+
+        private static double JsonNum(string js, string key, double dflt)
+        {
+            try
+            {
+                int i = js.IndexOf("\"" + key + "\":");
+                if (i < 0) return dflt;
+                i += key.Length + 3;
+                int j = i;
+                while (j < js.Length && (char.IsDigit(js[j]) || js[j] == '.' || js[j] == '-'
+                       || js[j] == '+' || js[j] == 'E' || js[j] == 'e')) j++;
+                return double.Parse(js.Substring(i, j - i), CultureInfo.InvariantCulture);
+            }
+            catch { return dflt; }
+        }
+
+        private static bool JsonHas(string js, string key, string val)
+        {
+            return js.IndexOf("\"" + key + "\":" + val) >= 0
+                || js.IndexOf("\"" + key + "\":\"" + val + "\"") >= 0;
+        }
+
+        /// <summary>On the first live bar, if the ACCOUNT holds a position this strategy has
+        /// no memory of, adopt the saved trade instead of ignoring it. Refuses on any
+        /// mismatch -- wrong instrument, saved state says flat, numbers missing -- because
+        /// managing a position with the wrong entry and stop is worse than not managing it.
+        /// Never throws.</summary>
+        private void RestoreState()
+        {
+            if (stateChecked) return;
+            stateChecked = true;
+            try
+            {
+                if (inPos) return;
+                if (Position.MarketPosition != MarketPosition.Long) return;
+                if (!System.IO.File.Exists(StateFile))
+                { Print("ENGUQ resume: account is long but there is no saved trade - NOT managing it"); return; }
+                string js = System.IO.File.ReadAllText(StateFile);
+                if (!JsonHas(js, "inPos", "true"))
+                { Print("ENGUQ resume: saved trade says flat - refusing to adopt"); return; }
+                string inst = Instrument != null ? Instrument.FullName : "";
+                if (!JsonHas(js, "instrument", inst))
+                { Print("ENGUQ resume: saved trade is for a different instrument - refusing"); return; }
+                double sEp = JsonNum(js, "ep", double.NaN);
+                double sRisk = JsonNum(js, "risk", double.NaN);
+                double sSl = JsonNum(js, "sl", double.NaN);
+                if (double.IsNaN(sEp) || double.IsNaN(sRisk) || double.IsNaN(sSl) || sRisk <= 0)
+                { Print("ENGUQ resume: saved trade is incomplete - refusing"); return; }
+                ep = sEp; risk = sRisk; sl = sSl;
+                trailActive = JsonHas(js, "trailActive", "true");
+                inPos = true;
+                SaveState();
+                Print("ENGUQ resume: adopted the open trade - entry " + ep.ToString("F2")
+                    + ", risk " + risk.ToString("F2") + ", stop " + sl.ToString("F2")
+                    + ", trailing=" + trailActive);
+                ExitLongStopMarket(0, true, Position.Quantity,
+                    Instrument.MasterInstrument.RoundToTickSize(sl), "EQx", "EQ");
+            }
+            catch (Exception ex) { Print("ENGUQ resume failed: " + ex.Message); }
+        }
+
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
@@ -86,7 +185,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                 EntryHandling = EntryHandling.AllEntries;
                 IsExitOnSessionCloseStrategy = false;   // engine holds across sessions
                 IsInstantiatedOnEachOptimizationIteration = false;
-                StartBehavior = StartBehavior.WaitUntilFlat;
+                // ADOPT, do not abandon. This strategy holds across sessions and the machine
+                // is powered down overnight, so a live trade regularly outlives the process.
+                // Adopting lets it pick that trade back up (see RestoreState). NinjaScript
+                // rejects the setting outright unless the strategy declares it is aware of it,
+                // and the rejection arrives as a runtime error that terminates the strategy.
+                IsAdoptAccountPositionAware = true;
+                StartBehavior = StartBehavior.AdoptAccountPosition;
                 BarsRequiredToTrade = 60;
 
                 TlLen      = 48;
@@ -112,7 +217,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 xm  = (TlLen - 1) / 2.0;
                 xss = 0;
                 for (int j = 0; j < TlLen; j++) xss += (j - xm) * (j - xm);
-                inPos = false;
+                inPos = false; SaveState();
                 limitPending = false;
             }
             else if (State == State.Terminated)
@@ -245,6 +350,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                     sl = ep - StopMult * risk;
                     trailActive = false; inPos = true; limitPending = false;
+                    SaveState();
                     ExitLongStopMarket(0, true, Qty,
                         Instrument.MasterInstrument.RoundToTickSize(sl), "EQx", "EQ");
                     return;   // engine never management-checks the ENTRY bar itself;
@@ -267,6 +373,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
             }
 
+            if (State == State.Realtime) RestoreState();
+
             // ── manage an open position (engine order: activate → trail → BE → stop) ─
             if (inPos && Position.MarketPosition == MarketPosition.Long)
             {
@@ -275,6 +383,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (BreakevenR > 0 && High[0] - ep >= BreakevenR * risk) sl = Math.Max(sl, ep);
                 ExitLongStopMarket(0, true, Qty,
                     Instrument.MasterInstrument.RoundToTickSize(sl), "EQx", "EQ");
+                SaveState();
                 return;                                     // engine: no new signal while in a trade
             }
             if (Position.MarketPosition != MarketPosition.Flat || PendingEntry()) return;
@@ -341,6 +450,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 // ── enter: market at the close (engine enters AT the close) ──────
                 ep = Close[0]; risk = r; sl = ep - StopMult * risk; trailActive = false; inPos = true;
+                SaveState();
                 EnterLong(Qty, "EQ");
                 ExitLongStopMarket(0, true, Qty,
                     Instrument.MasterInstrument.RoundToTickSize(sl), "EQx", "EQ");
@@ -400,11 +510,11 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Display(Name = "Breakeven (R, 0=off)", Order = 10, GroupName = "ENGU-Q")]
         public double BreakevenR { get; set; }
 
-        [NinjaScriptProperty, Range(1, 10)]
         [NinjaScriptProperty, Range(0.0, 1.0)]
         [Display(Name = "Shallow limit depth (x ATR, 0=market at close)", Order = 11, GroupName = "ENGU-Q")]
         public double LimitAtr { get; set; }
 
+        [NinjaScriptProperty, Range(1, 10)]
         [Display(Name = "Quantity", Order = 12, GroupName = "ENGU-Q")]
         public int Qty { get; set; }
         #endregion
