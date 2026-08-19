@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.158';
+const VERSION='73.159';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.159',date:'2026-08-19',notes:['FIX to the leg toggling shipped earlier today, which did not work. Clicking a visible leg sent the word ALL instead of the leg name, so nothing was ever excluded and the hidden list filled with junk. Each leg now names itself, so clicking really does remove it from the curve and from every total, table and row beneath - and clicking it again brings it back.','The show all control is now wired on BOTH places it appears, the LEGS row and the rail in the header. Previously only the first one worked.','The run and parameter line under each strategy is hidden by default. With six legs on the strip it doubled the height for something you read once, not every glance. A show config button on the LEGS row brings it back for every tile at once.']},
 {v:'73.158',date:'2026-08-19',notes:['THE APP NOW OPENS IN ABOUT THREE SECONDS INSTEAD OF THIRTY. Loading the page used to download every one of your last 75 runs in full, including the parts only a run report ever shows - the gate bake-off tables, the full set of config equity curves, the per-config scatter data and the trade excursion tables. That was about 25 megabytes of saved data, which Firestore sends as roughly 387 megabytes once it wraps every number in its own tag. The first screen needs about a fifth of a megabyte of it.','Past Runs now asks the server for only the columns the list actually shows, and fetches a run report in full the moment you click that run. You will see a brief LOADING line the first time you open a report; after that it is instant, and the last eight reports you opened stay in memory.','This is also why the app used to lock up for a minute when you clicked quickly between the COMPARE modes. It was never the drawing - each redraw takes about a fifth of a second. The browser was busy unpacking that run data in the background and could not answer the clicks. With the data gone, the clicks answer straight away.','The Builder job list now reads the newest 12 jobs rather than 50. It only ever displayed 12, and the other 38 were carrying a full copy of their finished results - about 12 megabytes of it - on every single page load.','Nothing was deleted and no run lost any detail. If the faster read ever fails the app quietly falls back to the old way of loading, so the list can never come up empty.']},
 {v:'73.157',date:'2026-08-19',notes:['LEGS ARE NOW INCLUDE / EXCLUDE. Click any leg to take it out of the cumulative curve AND out of every total, table and cross-engine row beneath it, then click it again to bring it back. Several variants of the same strategy run side by side - three NOISE rows alone - so reading one of them means removing the others from the maths, not just dimming them on the chart.','Nothing is deleted when you exclude a leg. The runner still computes it every night and its history comes straight back. A show all button appears whenever anything is hidden, and the board refuses to let you switch off the last leg.','TODAY now says where its money comes from. The figure is EDGELOG own engine, and it sits next to how many fills NinjaTrader actually recorded that day. On a day NinjaTrader was down those two disagree, and that is the point: the strategy still has a result and this is where you read it.']},
 {v:'73.156',date:'2026-08-19',notes:['COMPARE > STUDIES: the board now compares individual strategies only. Every study about pooled books - several strategies traded together as one account - has been taken off it, at the owner request. Forty-six rows removed: the pooled-books study, the book leg weighting grid, the book legs re-measured the book way, and the ORB plus NOISE book row that sat inside the NOISE study.','The research itself was not touched. Every one of those results is still written down in the repository book round log.','Row numbers are permanent handles, so nothing was renumbered. Rows 25, 28 to 46 and 236 to 261 are retired and will never be handed to a new row. The next free number is 262.','The explanatory notes that talked about pooled books have been reworded, because their subject is gone. The board now says plainly why a combination cannot be compared with one strategy: it ties up more margin, so the two are not like for like. Use the RUNBOARD mode to compare whole combinations.']},
@@ -19393,7 +19394,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // where ea leg came from in the tiles"), so "how is it doing" and "what is it" are
         // never in two places again. BLEND is a derived 1:1 view of two legs, not a config
         // of its own, so it says exactly that instead of borrowing one.
+        // The run + parameter line under every tile is reference, not something read on
+        // each glance, and with six legs it doubled the height of the strip (owner
+        // 2026-08-19: "hide the params underneath the strategies somewhere"). Collapsed by
+        // default, one control on the LEGS row brings it back for every tile at once.
         let cfgBlock='';
+        const _cfgOn=!!window._paperShowCfg;
         if(name==='BLEND'){
           cfgBlock='<div style="margin-top:7px;padding-top:6px;border-top:1px solid var(--border2);font-size:8px;color:var(--text5);line-height:1.6">'
             +'derived · 1:1 ORB + ENGU-Q<br><span style="color:var(--text5)">no config of its own</span></div>';
@@ -19455,7 +19461,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           gateBlock='<div style="margin-top:6px;padding-top:5px;border-top:1px solid var(--border2);font-size:8px;color:var(--text4);line-height:1.7">'
             +parts.join(' · ')+cmp+'</div>';
         }
-        return '<div data-paperleg="'+(sel?'ALL':name)+'" title="'+(sel?'click to show all legs':'click to highlight '+label+' and show only its trades')
+        return '<div data-paperleg="'+name+'" title="'+(sel?'click to EXCLUDE '+label+' from the chart and every total below':'click to include '+label+' again')
           +'" style="flex:1 1 170px;min-width:170px;padding:2px 14px 2px 0;cursor:pointer;opacity:'+(dim?0.42:1)+';transition:opacity .12s">'
           +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap"><span style="font-size:10px;font-weight:700;letter-spacing:1px;color:'+color+'">'+label+'</span>'
           +(sel?'<span style="font-size:8px;color:var(--text5)">●</span>':'')+wBadge+orbBadge+dotHtml+'</div>'
@@ -19469,7 +19475,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +'style="margin-top:4px;font-size:8px;line-height:1.6;color:var(--yellow);cursor:help">'
               +'⧗ '+s.nBf+' of '+(s.nBf+s.nFw)+' backfilled ('+fmtUsd(s.netBf)+') — not forward-observed'
               +'<div style="color:var(--text5)">forward since '+(s.liveFrom||'—')+': '+s.nFw+' trade'+(s.nFw===1?'':'s')+' '+fmtUsd(s.netFw)+'</div></div>';})()
-          +xHtml+cfgBlock+gateBlock+'</div>';
+          +xHtml+(_cfgOn?cfgBlock:'')+gateBlock+'</div>';
       };
       // Colours are hex, NOT theme vars: these four must match _curveSeries exactly, and
       // var(--yellow) resolves to #999999 grey on the monochrome theme while the BLEND
@@ -19488,6 +19494,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // down: the strategy still has a result, and this is where you read it.
         +(PSCOPE==='TODAY'?('<span style="font-size:8px;color:var(--text5);border:1px solid var(--border);border-radius:999px;padding:1px 8px">'
           +'source: EDGELOG engine'+(_ntFillsToday!=null?(' · NinjaTrader filled '+_ntFillsToday+' today'):'')+'</span>'):'')
+        +'<span data-papercfg style="cursor:pointer;user-select:none;font-size:8px;color:var(--text5);border:1px solid var(--border);border-radius:999px;padding:1px 8px">'
+          +(window._paperShowCfg?'hide config':'show config')+'</span>'
         +(_legOff.length?('<span data-paperlegall style="cursor:pointer;user-select:none;font-size:8px;color:var(--blue);border:1px solid var(--blue);border-radius:999px;padding:1px 8px">show all '
           +LEGS_VIS.length+' legs</span>'):'')
         +'<span style="font-size:8px;color:var(--text5);margin-left:auto">click a leg to include / exclude it &middot; dot = live in NinjaTrader</span>'
@@ -21273,8 +21281,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const total=(window._paperLegKeys||[]).length;
         if(total && off.length>=total) return;
         window._paperLegOff=off; renderApp();};});
-      const _lgAll=content.querySelector('[data-paperlegall]');
-      if(_lgAll)_lgAll.onclick=()=>{window._paperLegOff=[];renderApp();};
+      // Two controls carry this (the LEGS row and the header rail), so wire both.
+      const _cfgBtn=content.querySelector('[data-papercfg]');
+      if(_cfgBtn)_cfgBtn.onclick=()=>{window._paperShowCfg=!window._paperShowCfg;renderApp();};
+      content.querySelectorAll('[data-paperlegall]').forEach(el=>{
+        el.onclick=()=>{window._paperLegOff=[];renderApp();};});
       const nd=content.querySelector('[data-ntdetail]');if(nd)nd.onclick=()=>{window._paperNtDetail=!window._paperNtDetail;renderApp();};
       content.querySelectorAll('[data-recontab]').forEach(el=>{el.onclick=()=>{window._paperReconTab=el.getAttribute('data-recontab');renderApp();};});
       const rh=content.querySelector('[data-reconhelp]');if(rh)rh.onclick=()=>{window._paperReconHelp=!window._paperReconHelp;renderApp();};
